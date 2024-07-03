@@ -1,0 +1,152 @@
+{
+    "test_Composite_assertion_error": {
+        "model": {
+            "name": "Model",
+            "submodels": {
+                "m2": {
+                    "name": "Layer",
+                    "args": {
+                        "dimension": 2, 
+                        "activation": "Softmax"
+                    }
+                },
+                "m1": {
+                    "name": "Layer",
+                    "args": {
+                        "dimension": 3,
+                        "activation": "sigmoid"
+                    }
+                }
+            },
+            "connections": {
+                "m2": {
+                    "w": "w1", "b": "b1", "output": "output"
+                },
+                "m1": {
+                    "input": "input", "w": "w0", "b": "b0", "output": {"connect": [["m2", "input"]]}
+                }
+            }
+        },
+        "static_keys": {
+            "input": [[1.0]], 
+            "target": [0]
+        },
+        "inputs": {
+            "w0": [[1.0, 2, 3]],
+            "b0": [-2.0, -3, 0],
+            "w1": [[-1.0, -2], [0, 0], [1, 2]],
+            "b1": [-5.0, 5]
+        },
+        "output_specs": {
+            "output": {
+                "loss": {
+                    "fn": "CrossEntropy",
+                    "params": {"input_type": "probs"}
+                    }, 
+                "reduce_steps": ["Mean"], 
+                "target_key": "target"
+            }
+        },
+        "results": {
+            "eval": {
+                "final_cost": [1.883655622163706]
+            },
+            "grad": {
+                "w0": [[-0.09660742759420338, 0.2, 0.34517562444230764]], 
+                "b0": [-0.19660742759420338, 0, 0.04517562444230764],
+                "w1": [[-0.36893525818771367,  0.06893525818771368], [-0.26893525818771363,  0.2689352581877137], [-0.8525522972063397,  1.15255229720634]],
+                "b1": [-0.9999770835513174, 0.9999770835513175]
+            }
+        },
+        "error_info": {
+            "error_type": "AssertionError",
+            "error_message": ""
+        }
+    },
+    "test_Composite_empty_model_error": {
+        "model": {
+            "name": "Model"
+        },
+        "static_keys": {
+            "input": [[1.0]]
+        }, 
+        "inputs": {
+            "w0": [[1.0, 2, 3]],
+            "b0": [-2.0, -3, 0],
+            "w1": [[-1.0, -2], [0, 0], [1, 2]],
+            "b1": [-5.0, 5]
+        },
+        "results": {
+            "eval": {
+                "final_cost": [1.883655622163706]
+            },
+            "grad": {
+                "w0": [[-0.09660742759420338, 0.2, 0.34517562444230764]], 
+                "b0": [-0.19660742759420338, 0, 0.04517562444230764],
+                "w1": [[-0.36893525818771367,  0.06893525818771368], [-0.26893525818771363,  0.2689352581877137], [-0.8525522972063397,  1.15255229720634]],
+                "b1": [-0.9999770835513174, 0.9999770835513175]
+            }
+        },
+        "error_info": {
+            "error_type": "ValueError",
+            "error_message": "Model without input keys could not be compiled."
+        }
+    },
+    "test_Composite_shape_mismatch_error": {
+        "model": {
+            "name": "Model",
+            "submodels": {
+                "m2": {
+                    "name": "Layer",
+                    "args": {
+                        "dimension": 2, 
+                        "activation": "Softmax"
+                    }
+                },
+                "m1": {
+                    "name": "Layer",
+                    "args": {
+                        "dimension": 3,
+                        "activation": "sigmoid"
+                    }
+                }
+            },
+            "connections": {
+                "m2": {
+                    "w": "w1", "b": "b1", "output": "output"
+                },
+                "m1": {
+                    "input": "input", "w": "w0", "b": "b0", "output": {"connect": [["m2", "input"]]}
+                }
+            }
+        },
+        "static_keys": {
+            "input": [[1.0], [1.0], [1.0], [1.0]],
+            "b0": [1.0, 2.0, 3.0, 4.0]
+        }, 
+        "inputs": {
+            "w0": [[1.0, 2, 3]],
+            "b0": [-2.0, -3, 0],
+            "w1": [[-1.0, -2], [0, 0], [1, 2]],
+            "b1": [-5.0, 5]
+        },
+        "output_specs": {
+            "output": {
+                "loss": {
+                    "fn": "CrossEntropy",
+                    "params": {"input_type": "probs"}
+                    },
+                "reduce_steps": ["Mean"], 
+                "target_key": "target"
+            }
+        },
+        "results": {
+            "eval": {},
+            "grad": {}
+        },
+        "error_info": {
+            "error_type": "ValueError",
+            "error_message": "Possible values mismatch!"
+        }
+    }
+}

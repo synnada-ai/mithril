@@ -1,0 +1,20 @@
+name: Review PR Title
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+jobs:
+  review_pr_title:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check PR title format
+        id: check_title
+        run: |
+          TITLE="${{ github.event.pull_request.title }}"
+          if [[ ! "$TITLE" =~ ^(feat|fix|docs|chore|perf|test|refactor): ]]; then
+            echo "::error::PR title does not follow the convention 'type: description'. Please review the title."
+            exit 1
+          else
+            echo "PR title meets the required format."
+          fi

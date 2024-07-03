@@ -1,0 +1,34 @@
+name: PR Label and Assigner
+on:
+- pull_request_target
+
+jobs:
+  labeler:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+    
+    - name: Check out the repository
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.pull_request.head.ref }}
+        
+    - id: pr-labeler # label the Pull Request based on change in files
+      uses: actions/labeler@v5
+      with:
+        repo-token: "${{ secrets.GITHUB_TOKEN }}"
+        sync-labels: true
+  
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Install PyYAML
+      run: pip install pyyaml
+
+    - name: Assign Reviewers # Assign responsible people based on labels
+      if: steps.pr-labeler.outputs.all-labels
+      run: |
+        python .github/scripts/assign_reviewers.py "${{ github.event.pull_request.number }}" "${{ steps.pr-labeler.outputs.all-labels }}"

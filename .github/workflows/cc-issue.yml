@@ -1,0 +1,26 @@
+# This workflow CC responsible people 
+# based on labels that assigned to the issue
+
+name: CC Issue
+on:
+  issues:
+    types:
+      - labeled
+jobs:
+  add-comment:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+      
+      - name: edit issue
+        run: |
+          python3 .github/scripts/cc_issue.py "${{ github.event.issue.number }}" "${{ github.event.label.name }}" "${{ github.event.issue.body }}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          NUMBER: ${{ github.event.issue.number }}
+          BODY: ${{ github.event.issue.body }}
+          

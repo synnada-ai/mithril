@@ -1,0 +1,33 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    # Ruff version.
+    rev: v0.6.6
+    hooks:
+      # Run the linter.
+      - id: ruff
+        args: [ --fix ]
+      # Run the formatter.
+      - id: ruff-format
+
+  - repo: local
+    hooks:
+      - id: license-checker
+        name: license checker
+        entry: python3 license_checker.py
+        language: python
+      - id: mypy
+        name: mypy
+        entry: mypy .
+        language: system
+        always_run: true
+        pass_filenames: false
+
+  # - repo: https://github.com/pre-commit/mirrors-mypy
+  #   rev: v1.12.0
+  #   hooks:
+  #     - id: mypy
+  #       always_run: true
+  #       pass_filenames: false
+  #       entry: mypy .
+  #       language: system
+  #       args: ["--enable-incomplete-feature=NewGenericSyntax", "--ignore-missing-imports"]

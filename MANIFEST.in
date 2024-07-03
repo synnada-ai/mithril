@@ -1,0 +1,2 @@
+include mithril/backends/with_manualgrad/c_backend/src/libmithrilc.so
+recursive-include mithril/backends/with_manualgrad/c_backend/src *
