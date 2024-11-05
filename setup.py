@@ -47,7 +47,7 @@ setuptools.setup(
     description="A Modular Machine Learning Library for Model Composability",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/synnada-ai/composite-ml-new",
+    url="https://github.com/synnada-ai/mithril",
     packages=setuptools.find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3",
