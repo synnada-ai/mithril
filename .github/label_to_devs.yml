@@ -1,47 +1,48 @@
-'Physical':
-  - kberat
-  - nazimorhansynnada
-  
-'Models':
-  - kberat
-  - nazimorhansynnada
+'physical':
+  - kberat-synnada
+  - norhan-synnada
 
-'Logical':
-  - kberat
-  - nazimorhansynnada
+'models':
+  - kberat-synnada
+  - norhan-synnada
 
-'Backend':
-  - kberat
-  - nazimorhansynnada
+'logical':
+  - kberat-synnada
+  - norhan-synnada
 
-'Tests':
-  - kberat
-  - nazimorhansynnada
+'backend':
+  - kberat-synnada
+  - norhan-synnada
 
-'Examples':
-  - kberat
-  - nazimorhansynnada
+'tests':
+  - kberat-synnada
+  - norhan-synnada
 
-'Codegen':
-  - kberat
-  - nazimorhansynnada
+'examples':
+  - kberat-synnada
+  - norhan-synnada
 
-'Constraints':
-  - kberat
-  - nazimorhansynnada
+'codegen':
+  - kberat-synnada
+  - norhan-synnada
 
-'Benchmarks':
-  - kberat
-  - nazimorhansynnada
+'constraints':
+  - kberat-synnada
+  - norhan-synnada
 
-'Utils':
-  - kberat
-  - nazimorhansynnada
+'benchmarks':
+  - kberat-synnada
+  - norhan-synnada
 
-'Framework Utils':
-  - kberat
-  - nazimorhansynnada
+'utils':
+  - kberat-synnada
+  - norhan-synnada
 
-'Common':
-  - kberat
-  - nazimorhansynnada
+'framework-utils':
+  - kberat-synnada
+  - norhan-synnada
+
+'common':
+  - kberat-synnada
+  - norhan-synnada
+
