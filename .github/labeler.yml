@@ -1,47 +1,48 @@
-'Physical':
+'physical':
 - changed-files:
   - any-glob-to-any-file: ['mithril/framework/physical/**/*']
 
-'Models':
+'models':
 - changed-files:
   - any-glob-to-any-file: ['mithril/models/**/*', 'mithril/framework/logical/essential_primitives.py']
 
-'Logical':
+'logical':
 - changed-files:
   - any-glob-to-any-file: ['mithril/framework/logical/base.py', 'mithril/framework/logical/model.py', 'mithril/framework/logical/primitive.py']
 
-'Backend':
+'backend':
 - changed-files:
   - any-glob-to-any-file: ['mithril/backends/**/*']
 
-'Tests':
+'tests':
 - changed-files:
   - any-glob-to-any-file: ['tests/**/*']
 
-'Examples':
+'examples':
 - changed-files:
   - any-glob-to-any-file: ['examples/**/*']
 
-'Codegen':
+'codegen':
 - changed-files:
   - any-glob-to-any-file: ['mithril/framework/codegen/**/*']
 
-'Constraints':
+'constraints':
 - changed-files:
   - any-glob-to-any-file: ['mithril/framework/constraints.py']
 
-'Benchmarks':
+'benchmarks':
 - changed-files:
   - any-glob-to-any-file: ['benchmarks/**/*']
 
-'Utils':
+'utils':
 - changed-files:
   - any-glob-to-any-file: ['mithril/utils/**/*']
 
-'Framework Utils':
+'framework-utils':
 - changed-files:
   - any-glob-to-any-file: ['mithril/framework/utils.py']
 
-'Common':
+'common':
 - changed-files:
   - any-glob-to-any-file: ['mithril/framework/common.py']
+
