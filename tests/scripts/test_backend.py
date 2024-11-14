@@ -117,6 +117,7 @@ def test_arange():
     expected_result3 = np.arange(221, 0.2)
     expected_result4 = np.arange(2, 10)
     expected_result5 = np.arange(41)
+    assert False
 
     for backend_type in backends:
         if not backend_type.is_installed:
