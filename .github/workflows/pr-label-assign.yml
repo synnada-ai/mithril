@@ -1,0 +1,31 @@
+# This wrokflow is triggered when a PR is labeled. 
+# It assigns reviewers based on the label applied to the PR.
+
+name: PR Label Assigner
+
+on:
+  pull_request_target:
+    types:
+      - labeled
+
+jobs:
+  pr-labeler:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+    
+    - name: Check out the repository
+      uses: actions/checkout@v4
+        
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Install PyYAML
+      run: pip install pyyaml
+
+    - name: Assign Reviewers # Assign responsible people based on labels
+      run: |
+        python .github/scripts/assign_reviewers.py "${{ github.event.pull_request.number }}" "${{ github.event.label.name }}"
