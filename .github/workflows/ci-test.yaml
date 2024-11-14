@@ -41,4 +41,19 @@ jobs:
       - name: Upload results to Codecov
         uses: codecov/codecov-action@v4
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}        
+          token: ${{ secrets.CODECOV_TOKEN }}      
+
+  on_failure:
+    needs: build
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    if: ${{ failure() }}
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+      - name: review_pr
+        id: review-pr
+        run: |
+          gh pr review ${{ github.event.pull_request.number }} -r -b "Tests are failed. Please review the PR."
+          exit 1
