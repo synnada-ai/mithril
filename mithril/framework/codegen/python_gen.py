@@ -472,7 +472,7 @@ class PythonCodeGen[DataType](CodeGen):
         self,
         params: dict[str, DataType] | None = None,
         data: dict[str, DataType] | None = None,
-        cache: dict[str, DataType | MainValueType] | None = None,
+        cache: dict[str, DataType | MainValueType | str] | None = None,
         *,
         fn: Callable,
     ):
@@ -508,7 +508,7 @@ class PythonCodeGen[DataType](CodeGen):
         params: dict[str, DataType],
         data: dict[str, DataType | MainValueType] | None = None,
         output_gradients: dict[str, DataType] | None = None,
-        cache: Mapping[str, DataType | MainValueType] | None = None,
+        cache: Mapping[str, DataType | MainValueType | str] | None = None,
         include_output: bool = False,
         *,
         raw_evaluate_fn: Callable,
@@ -577,8 +577,8 @@ class PythonCodeGen[DataType](CodeGen):
     def filter_ignored_outputs(
         self,
         params: dict[str, DataType] | None = None,
-        data: Mapping[str, MainValueType | DataType] | None = None,
-        cache: Mapping[str, MainValueType | DataType] | None = None,
+        data: Mapping[str, MainValueType | DataType | str] | None = None,
+        cache: Mapping[str, MainValueType | DataType | str] | None = None,
         ignore_grad_keys=None,
         *,
         raw_evaluate_fn: Callable,

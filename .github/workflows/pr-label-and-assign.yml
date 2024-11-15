@@ -11,8 +11,6 @@ jobs:
     
     - name: Check out the repository
       uses: actions/checkout@v4
-      with:
-        ref: ${{ github.event.pull_request.head.ref }}
         
     - id: pr-labeler # label the Pull Request based on change in files
       uses: actions/labeler@v5
