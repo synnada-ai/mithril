@@ -160,6 +160,7 @@ type FixedValueType = (
     | Constant
     | tuple[int | None, ...]
     | dict
+    | str
 )
 type DeferredValueType = (
     float | tuple[float, ...] | list[float] | EllipsisType | ToBeDetermined

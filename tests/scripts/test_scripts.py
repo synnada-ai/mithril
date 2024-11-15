@@ -31,11 +31,11 @@ from mithril import Backend, JaxBackend, MlxBackend, NumpyBackend, TorchBackend,
 from mithril.core import Constant, epsilon_table
 from mithril.framework.common import (
     NOT_AVAILABLE,
-    TBD,
-    ToBeDetermined,
-    ConnectionType,
     NOT_GIVEN,
+    TBD,
+    ConnectionType,
     NotAvailable,
+    ToBeDetermined,
     UniadicRecord,
     Variadic,
     create_shape_map,
@@ -7016,22 +7016,24 @@ def test_output_keys_canonical_output_2():
 
     assert set(model2.output_keys) == set(["output", "#canonical_output"])
 
-def test_string_IOKey_value_1():
+
+def test_string_iokey_value_1():
     # This tes tests if string value given in init
     # is working properly
-    
+
     # For this Purpose, dummy einsum primitive is introduced
     # since it has a string input
-    
+
     # This test comprises four steps:
-        # 1. Register Einsum Primitive
-        # 2. Create a model that uses Einsum Primitive and compile it
-        # 3. Evaluate the model
-        # 4. Compare the results
-    
+    # 1. Register Einsum Primitive
+    # 2. Create a model that uses Einsum Primitive and compile it
+    # 3. Evaluate the model
+    # 4. Compare the results
+
     import torch
+
     backend = TorchBackend()
-    
+
     # Define einsum primitive fn
     def einsum(input, equation):
         return torch.einsum(equation, input)
@@ -7040,9 +7042,8 @@ def test_string_IOKey_value_1():
     class ReduceEinsum(PrimitiveModel):
         # Small Einsum Model that is written for test purposes.
         # Now it only supports single input and single output
-        
+
         def __init__(self, equation: str | ToBeDetermined) -> None:
-            
             if not isinstance(equation, ToBeDetermined):
                 # Parse the equation
                 input, output = equation.replace(" ", "").split("->")
@@ -7054,19 +7055,19 @@ def test_string_IOKey_value_1():
                 tensor_input = TensorType(all_input_shapes)
                 tensor_output = TensorType(all_output_shapes)
                 scalar_equation = Scalar(str, equation)
-                
+
             else:
                 # case where equation is TBD
                 tensor_input = TensorType([("Var1", ...)])
                 tensor_output = TensorType([("Var2", ...)])
                 scalar_equation = Scalar(str)
-                
+
             kwargs: dict[str, TensorType | Scalar] = {
                 "output": tensor_output,
                 "input": tensor_input,
                 "equation": scalar_equation,
             }
-            
+
             super().__init__(formula_key="einsum", **kwargs)
             self._freeze()
 
@@ -7077,47 +7078,44 @@ def test_string_IOKey_value_1():
             output: ConnectionType = NOT_GIVEN,
         ) -> ExtendInfo:
             return super().__call__(input=input, equation=equation, output=output)
-        
+
     TorchBackend.register_primitive(einsum)
-    
+
     # create the model and add einsum
     model = Model()
-    
+
     # note that string input is given in __init__
-    a = ReduceEinsum(equation=TBD)(input="input", equation=IOKey(value="ij->i"),  output="output")
-    model += a
-    
-    # Compile the model and assert the results
-    pm = mithril.compile(
-        model = model,
-        backend = backend
+    a = ReduceEinsum(equation=TBD)(
+        input="input", equation=IOKey(value="ij->i"), output="output"
     )
+    model += a
+
+    # Compile the model and assert the results
+    pm = mithril.compile(model=model, backend=backend)
     input = backend.ones((7, 6))
-    trainable_keys = {
-        "input": input
-    }
+    trainable_keys = {"input": input}
     outputs = pm.evaluate(trainable_keys)
-    ref_outputs = {
-        "output": backend.ones(7) * 6
-    }
+    ref_outputs = {"output": backend.ones(7) * 6}
     assert_results_equal(outputs, ref_outputs)
 
-def test_string_IOKey_value_2():
+
+def test_string_iokey_value_2():
     # This tes tests if string value handling of
     # IOKey is working properly.
-    
+
     # For this Purpose, Dumy Einsum Primitive is introduced
     # since it has a string input
-    
+
     # This test comprises four steps:
-        # 1. Register Einsum Primitive
-        # 2. Create a model that uses Einsum Primitive and compile it
-        # 3. Evaluate the model
-        # 4. Compare the results
-    
+    # 1. Register Einsum Primitive
+    # 2. Create a model that uses Einsum Primitive and compile it
+    # 3. Evaluate the model
+    # 4. Compare the results
+
     import torch
+
     backend = TorchBackend()
-    
+
     # Define einsum primitive fn
     def einsum(input, equation):
         return torch.einsum(equation, input)
@@ -7126,9 +7124,8 @@ def test_string_IOKey_value_2():
     class ReduceEinsum(PrimitiveModel):
         # Small Einsum Model that is written for test purposes.
         # Now it only supports single input and single output
-        
+
         def __init__(self, equation: str | ToBeDetermined) -> None:
-            
             if not isinstance(equation, ToBeDetermined):
                 # Parse the equation
                 input, output = equation.replace(" ", "").split("->")
@@ -7140,19 +7137,19 @@ def test_string_IOKey_value_2():
                 tensor_input = TensorType(all_input_shapes)
                 tensor_output = TensorType(all_output_shapes)
                 scalar_equation = Scalar(str, equation)
-                
+
             else:
                 # case where equation is TBD
                 tensor_input = TensorType([("Var1", ...)])
                 tensor_output = TensorType([("Var2", ...)])
                 scalar_equation = Scalar(str)
-                
+
             kwargs: dict[str, TensorType | Scalar] = {
                 "output": tensor_output,
                 "input": tensor_input,
                 "equation": scalar_equation,
             }
-            
+
             super().__init__(formula_key="einsum", **kwargs)
             self._freeze()
 
@@ -7163,30 +7160,22 @@ def test_string_IOKey_value_2():
             output: ConnectionType = NOT_GIVEN,
         ) -> ExtendInfo:
             return super().__call__(input=input, equation=equation, output=output)
-        
+
     TorchBackend.register_primitive(einsum)
-    
+
     # create the model and add einsum
     model = Model()
-    
-    # note that in __init__, equation is TBD and string is given as IOKey value 
-    a = ReduceEinsum(equation=TBD)(input="input", equation=IOKey(value="ij->i"),  output="output")
-    model += a
-    
-    # Compile the model and assert the results
-    pm = mithril.compile(
-        model = model,
-        backend = backend
+
+    # note that in __init__, equation is TBD and string is given as IOKey value
+    a = ReduceEinsum(equation=TBD)(
+        input="input", equation=IOKey(value="ij->i"), output="output"
     )
+    model += a
+
+    # Compile the model and assert the results
+    pm = mithril.compile(model=model, backend=backend)
     input = backend.ones((7, 6))
-    trainable_keys = {
-        "input": input
-    }
+    trainable_keys = {"input": input}
     outputs = pm.evaluate(trainable_keys)
-    ref_outputs = {
-        "output": backend.ones(7) * 6
-    }
+    ref_outputs = {"output": backend.ones(7) * 6}
     assert_results_equal(outputs, ref_outputs)
-    
-        
-        

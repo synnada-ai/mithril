@@ -1758,10 +1758,12 @@ def reverse_constraints(
                     raise ValueError("Shape mismatch in Transpose model")
             status = True
 
-    elif isinstance(axes_val, int | Sequence):
-        axes_val = [axes_val] if isinstance(axes_val, int) else axes_val
-        in_unis = [Uniadic() for idx in range(len(axes_val))]
-        out_unis = [in_unis[axis] for axis in axes_val]
+    elif isinstance(axes_val, int | tuple | list):
+        a_val: list[int] | tuple[int, ...] = (
+            [axes_val] if isinstance(axes_val, int) else axes_val
+        )
+        in_unis = [Uniadic() for idx in range(len(a_val))]
+        out_unis = [in_unis[axis] for axis in a_val]
 
         updates |= input_shape._update_uniadics(input_shape.prefix, in_unis)
         updates |= input_shape._update_uniadics(input_shape.reverse, in_unis[::-1])
