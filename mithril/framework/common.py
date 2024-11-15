@@ -178,6 +178,7 @@ type ScalarType = (
     | type[PaddingType]
     | type[EllipsisType]
     | type[ToBeDetermined]
+    | type[str]
     | NestedListType
     | type[None]
     | UnionType
@@ -791,7 +792,7 @@ class Scalar(BaseData):
     def __init__(
         self,
         possible_types: ScalarType | UnionType | None = None,
-        value: MainValueType | ToBeDetermined = TBD,
+        value: MainValueType | ToBeDetermined | str = TBD,
     ) -> None:
         if possible_types is None:
             if isinstance(value, ToBeDetermined):
@@ -1137,7 +1138,7 @@ class IOKey(TemplateBase):
     def __init__(
         self,
         name: str | None = None,
-        value: MainValueType | ToBeDetermined = TBD,
+        value: MainValueType | ToBeDetermined | str = TBD,
         shape: ShapeTemplateType | None = None,
         type: UnionType | type | None = None,
         expose: bool = True,

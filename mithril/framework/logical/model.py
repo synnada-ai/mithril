@@ -666,12 +666,12 @@ class Model(BaseModel):
 
             # Create data object based on given_value or given key_type.
             if is_value_given:
-                assert isinstance(set_value, MainValueType)
+                assert isinstance(set_value, MainValueType | str)
                 data = Scalar(value=set_value)
 
             elif key_type == Scalar:
                 if set_type is None:
-                    set_type = MainValueType
+                    set_type = MainValueType | type[str]
                 data = Scalar(possible_types=set_type)
 
             else:
