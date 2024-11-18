@@ -435,7 +435,7 @@ class FlatGraph(GenericDataType[DataType]):
                 continue
 
             # Extract value from data or static_keys
-            value: DataType | MainValueType | ToBeDetermined
+            value: DataType | MainValueType | ToBeDetermined | str
             if conn.key in data and data[conn.key].value is not TBD:
                 value = data[conn.key].value
             else:
