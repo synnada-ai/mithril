@@ -50,6 +50,20 @@ __all__ = ["PhysicalModel"]
 LossKey = "loss"
 FinalCost = "final_cost"
 
+PhysicalShapeValueType = Sequence[int | None]
+PhysicalConstantType = (
+    Mapping[str | Connection, DataType | MainValueType]
+    | Mapping[str, DataType | MainValueType]
+    | Mapping[Connection, DataType | MainValueType]
+)
+PhysicalShapeType = (
+    Mapping[str | Connection, PhysicalShapeValueType]
+    | Mapping[str, PhysicalShapeValueType]
+    | Mapping[Connection, PhysicalShapeValueType]
+)
+
+StringOrConnectionSetType = set[str | Connection] | set[str] | set[Connection]
+
 
 class PhysicalModel(GenericDataType[DataType]):
     def __init__(
@@ -57,32 +71,21 @@ class PhysicalModel(GenericDataType[DataType]):
         model: BaseModel,
         backend: Backend[DataType],
         *,
-        discard_keys: set[str],
-        data_keys: set[str],
-        constant_keys: Mapping[str, DataType | MainValueType],
-        trainable_keys: set[str],
-        jacobian_keys: set[str],
-        shapes: Mapping[str, Sequence[int | None]]
-        | Mapping[Connection, Sequence[int | None]]
-        | Mapping[str | Connection, Sequence[int | None]],
+        discard_keys: StringOrConnectionSetType,
+        data_keys: StringOrConnectionSetType,
+        constant_keys: PhysicalConstantType,
+        trainable_keys: StringOrConnectionSetType,
+        jacobian_keys: StringOrConnectionSetType,
+        shapes: PhysicalShapeType,
         inference: bool,
         safe_shapes: bool,
+        safe_names: bool,
     ) -> None:
         if len(model._input_keys) == 0:
             raise ValueError("Model without input keys could not be compiled.")
 
-        # Make sure no common keys in constant_keys, data_keys and trainable_keys.
-        if constant_keys.keys() & data_keys & trainable_keys:
-            raise ValueError(
-                "Constant keys, data keys and trainable keys \
-                must be disjoint sets."
-            )
-        if shapes is None:
-            shapes = dict()
-
         self.backend: Backend[DataType] = backend
         self._output_keys: set[str] = set(model.conns.output_keys)
-        self.discarded_keys: set[str] = discard_keys
 
         self.key_mappings = model._generate_keys(symbolic=False, include_internals=True)
         self.key_mappings |= {key: key for key in model.external_keys if key[0] != "$"}
@@ -92,59 +95,44 @@ class PhysicalModel(GenericDataType[DataType]):
         }
 
         # Add canonical output mapping to key_mappings if necessary
+        # TODO: This is a temporary solution, a better way will be implemented
+        # in another PR.
         if len(model.conns.output_keys) == 0:
-            self._output_keys.add("output")
-            self.key_mappings[model._canonical_output.key] = "output"
+            ref_name = "output"
+            logical_name = model._canonical_output.key
+            while ref_name in self.key_mappings:
+                ref_name = "_" + ref_name
+            self.key_mappings[logical_name] = ref_name
+            self._output_keys.add(ref_name)
 
-        # Map given logical model key namings into physical key naming space
-        # if necessary.
-        constant_keys = {
-            self.key_mappings.get(key, key): value
-            for key, value in constant_keys.items()
+        # Map given logical model key namings into physical key naming space.
+        _constant_keys = {
+            self._convert_key(model, k): v for k, v in constant_keys.items()
         }
-        data_keys = {self.key_mappings.get(key, key) for key in data_keys}
-        trainable_keys = {self.key_mappings.get(key, key) for key in trainable_keys}
-        jacobian_keys = {self.key_mappings.get(key, key) for key in jacobian_keys}
-        shapes = {
-            self.key_mappings.get(key, key): value for key, value in shapes.items()
-        }
+        _data_keys = {self._convert_key(model, key) for key in data_keys}
+        _trainable_keys = {self._convert_key(model, key) for key in trainable_keys}
+        _discard_keys = {self._convert_key(model, key) for key in discard_keys}
+        _shapes = {self._convert_key(model, k): v for k, v in shapes.items()}
+        _jacobian_keys = {self._convert_key(model, key) for key in jacobian_keys}
 
-        # Check provided constant and data_keys consistency with
-        # logical model's input keys.
-        # TODO: Here will be updated accordingly when we support
-        # connection type keys.
-        for key in data_keys | constant_keys.keys():
-            if (
-                key in model.conns.input_keys
-                and model.conns.get_data(key).value is not TBD
-            ):
-                raise ValueError(
-                    f"Statically given key: {key} has been already "
-                    "set as static with a value!"
-                )
-            elif key not in model.conns.input_keys:
-                # TODO: KeyError will be raise here!
-                # raise KeyError(f"{key} key is not found in the model's input keys!")
-                pass
+        # Check provided constant and data_keys do not have
+        # any preset value. Note that this check is done after key conversions.
+        # Since key conversion eliminates some invalid representation of keys,
+        # we can safely check overridden values of the valid keys.
+        self._check_overridden_nontrainable_keys(model, constant_keys, data_keys)
+
+        # Final validation process of provided keys.
+        self._validate_keys(
+            _constant_keys, _data_keys, _trainable_keys, _discard_keys, _jacobian_keys
+        )
 
         # Set provided non-differentiable and trainable tensor keys.
-        self._non_differentiable_keys: set[str] = constant_keys.keys() | data_keys
-        self._trainable_tensor_inputs: set[str] = trainable_keys
-
-        # Given non-differentiable keys must be subset of input keys and output keys.
-        if statics_diff := (self._non_differentiable_keys - self._input_keys):
-            raise Exception(
-                f"Provided static keys: '{statics_diff}' must be subset of "
-                "the input keys."
-            )
-
-        if shp_diff := (shapes.keys() - (self._input_keys | self._output_keys)):
-            raise Exception(
-                f"Provided shapes: '{shp_diff}' must be subset of "
-                "the input keys and output keys"
-            )
-
+        self._non_differentiable_keys: set[str] = _constant_keys.keys() | _data_keys
+        self._trainable_tensor_inputs: set[str] = _trainable_keys
+        self.discarded_keys = _discard_keys
         self.inference = inference
+
+        # Initialize flat graph and data store.
         self._flat_graph: FlatGraph = FlatGraph(self._input_keys, self._output_keys)
         memo: dict[int, Tensor | Scalar] = {}
         self.data_store: StaticDataStore[DataType] = StaticDataStore(
@@ -153,25 +141,128 @@ class PhysicalModel(GenericDataType[DataType]):
 
         # Set canonical input and output
         self.flatten_dag(model, self.key_mappings, safe_shapes=safe_shapes, memo=memo)
-        for key in list(self.data_store.cached_data.keys()):
-            if key in self.data_store.cached_data:
-                self.data_store._infer_unused_keys(key)
-        # If given keys are logical internal keys, convert them to physical keys.
-        # TODO: Do we have to do this?
-        static_keys = {
-            self.key_mappings.get(key, key): value
-            for key, value in constant_keys.items()
-        }
+        for cached_key in list(self.data_store.cached_data.keys()):
+            self.data_store._infer_unused_keys(cached_key)
+
         # First part of the pm with all the inferences.
         self._pre_compile(
-            constant_keys=static_keys,
-            data_keys=data_keys,
-            jacobian_keys=jacobian_keys,
-            shapes=shapes,
+            constant_keys=_constant_keys,
+            data_keys=_data_keys,
+            jacobian_keys=_jacobian_keys,
+            shapes=_shapes,
         )
+
+        # If shape_names is True, all data (not params) provided in
+        # runtime must be manually named in logical model.
+        if safe_names:
+            runtime_data_keys = self.data_store.runtime_static_keys
+            unnamed_inputs = model._input_keys - self._input_keys - self.discarded_keys
+            unnamed_data_keys = sorted(
+                [
+                    key
+                    for key in unnamed_inputs
+                    if self.key_mappings.get(key, key) in runtime_data_keys
+                ]
+            )
+            if unnamed_data_keys:
+                raise KeyError(
+                    "Runtime data keys must be named in logical model when "
+                    "safe_names set to True. The following keys are unnamed: "
+                    f"{', '.join(str(key) for key in unnamed_data_keys)}"
+                )
 
     def __call__(self, params: dict | None = None, data: dict | None = None):
         return self.evaluate(params=params, data=data)
+
+    def _convert_key(self, model: BaseModel, key: str | Connection) -> str:
+        if isinstance(key, Connection):
+            # Get outermost model equivalent of the connection.
+            if (conn := model.conns.get_con_by_metadata(key.data.metadata)) is None:
+                raise KeyError(f"Given connection not found: {key}")
+            key = conn.key
+        elif key.startswith("$"):
+            raise KeyError(
+                f"Given key: {key} is not valid. Unnamed keys in logical model "
+                "can not be provided to physical model in string format. "
+                "Try providing corresponding Connection object or naming "
+                "this connection in logical model."
+            )
+        elif key not in model.conns.all:
+            raise KeyError(f"Given key: {key} is not found in the logical model.")
+        return self.key_mappings.get(key, key)
+
+    def _check_overridden_nontrainable_keys(
+        self,
+        model: BaseModel,
+        constant_keys: PhysicalConstantType,
+        data_keys: StringOrConnectionSetType,
+    ) -> None:
+        for key in constant_keys.keys() | data_keys:
+            if isinstance(key, Connection):
+                value = key.metadata.data.value
+                key_type = "connection"
+            else:
+                value = model.conns.get_data(key).value
+                key_type = "key"
+            if value is not TBD:
+                raise ValueError(
+                    f"Statically given {key_type}: {key} has been already "
+                    "set as static with a value!"
+                )
+
+    def _validate_keys(
+        self,
+        constant_keys: dict[str, DataType | MainValueType],
+        data_keys: set[str],
+        trainable_keys: set[str],
+        discard_keys: set[str],
+        jacobian_keys: set[str],
+    ) -> None:
+        # Make sure no common keys in constant_keys, data_keys, trainable_keys
+        # and discard_keys.
+        const_keys = constant_keys.keys()
+        if common := (
+            const_keys & data_keys
+            | const_keys & trainable_keys
+            | const_keys & discard_keys
+            | data_keys & trainable_keys
+            | data_keys & discard_keys
+            | trainable_keys & discard_keys
+        ):
+            raise ValueError(
+                "Constant, data, trainable and discard keys must be disjoint sets. "
+                "Common keys (in physical domain) in at least 2 different sets: "
+                f"{', '.join(str(key) for key in common)}."
+            )
+
+        # Given non-differentiable keys must be subset of input keys.
+        if statics_diff := ((data_keys | constant_keys.keys()) - self._input_keys):
+            raise KeyError(
+                "Provided static keys must be subset of the input keys. "
+                f"Invalid keys: {', '.join(str(key) for key in statics_diff)}."
+            )
+
+        # Given trainable keys must be subset of input keys.
+        if trainable_diff := (trainable_keys - self._input_keys):
+            raise KeyError(
+                "Provided trainable keys must be subset of the input keys. "
+                f"Invalid keys: {', '.join(str(key) for key in trainable_diff)}."
+            )
+
+        # Make sure provided discard keys are subset of input keys and output keys.
+        if internal_discards := (discard_keys - (self._input_keys | self._output_keys)):
+            raise KeyError(
+                "Provided discard keys must be subset of the input keys "
+                "and output keys. "
+                f"Invalid keys: {', '.join(str(key) for key in internal_discards)}."
+            )
+
+        # Given jacobian keys must be subset of input keys.
+        if jacobian_diff := (jacobian_keys - self._input_keys):
+            raise KeyError(
+                "Provided jacobian keys must be subset of the input keys. "
+                f"Invalid keys: {', '.join(str(key) for key in jacobian_diff)}."
+            )
 
     def get_shapes(
         self,
@@ -463,9 +554,7 @@ class PhysicalModel(GenericDataType[DataType]):
         self,
         constant_keys: dict[str, DataType | MainValueType],
         data_keys: set[str],
-        shapes: Mapping[str, Sequence[int | None]]
-        | Mapping[Connection, Sequence[int | None]]
-        | Mapping[str | Connection, Sequence[int | None]],
+        shapes: PhysicalShapeType,
         jacobian_keys: set[str],
     ):
         if jacobian_keys and self.backend.is_manualgrad:

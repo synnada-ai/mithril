@@ -54,6 +54,7 @@ from mithril.models import (
     Buffer,
     Concat,
     Connect,
+    Connection,
     ConstraintSolver,
     Convolution1D,
     Convolution2D,
@@ -368,17 +369,16 @@ def test_shape():
 
 def test_1_set_shapes_bug():
     model = Model()
-    # model.extend(Convolution(shapes={"input2": [16, 3, 1, 1]}, padding=1, stride = 1))
     linear1 = Linear()
     linear2 = Linear()
     model += linear1(input="input")
     model += linear2(input=linear1.output, output="output")
 
-    shapes: dict[str, list] = {
-        "input": [120, 120],
-        "w_0": [None, 32],
-        "w_1": [32, 32],
-        "b_1": [None],
+    shapes: dict[Connection, list[None | int]] = {
+        linear1.input: [120, 120],
+        linear1.w: [None, 32],
+        linear2.w: [32, 32],
+        linear2.b: [None],
     }
     comp_model = mithril.compile(model, NumpyBackend(precision=64), shapes=shapes)
 
@@ -1067,13 +1067,15 @@ def test_convolution_shape():
     comp_model = mithril.compile(
         model=model,
         backend=NumpyBackend(precision=32),
-        shapes={"input": [8, 3, 64, 64]},
+        shapes={conv1.input: [8, 3, 64, 64]},
+        safe_names=False,
     )
 
     comp_model2 = mithril.compile(
         model=model1,
         backend=NumpyBackend(precision=32),
-        shapes={"input": [5, 5]},
+        shapes={pol1.input: [5, 5]},
+        safe_names=False,
     )
     assert comp_model.shapes["output"] == [8, 64, 64, 64]
     assert comp_model2.shapes["output"] == [5, 26795]
@@ -3500,7 +3502,7 @@ def test_demo_model():
     model += Flatten(start_dim=1)
     model += Linear(1000)
     model += Linear(1)
-    pm = mithril.compile(model=model, backend=TorchBackend())
+    pm = mithril.compile(model=model, backend=TorchBackend(), safe_names=False)
 
     assert set(pm._input_keys) == {
         "input",
@@ -6014,7 +6016,9 @@ def test_deepcopy_3():
     model += Sigmoid()
     model += deepcopy(model)
     all_data = get_all_data(model)
-    compiled_model = mithril.compile(model=model, backend=NumpyBackend())
+    compiled_model = mithril.compile(
+        model=model, backend=NumpyBackend(), safe_names=False
+    )
     unused_data = {
         compiled_model.data.get(key)
         for key in compiled_model.data_store.unused_keys
@@ -6069,7 +6073,9 @@ def test_deepcopy_5():
 
     all_data = get_all_data(model)
 
-    compiled_model = mithril.compile(model=model, backend=NumpyBackend())
+    compiled_model = mithril.compile(
+        model=model, backend=NumpyBackend(), safe_names=False
+    )
     unused_data = {
         compiled_model.data.get(key)
         for key in compiled_model.data_store.unused_keys
@@ -6085,47 +6091,20 @@ def test_deepcopy_5():
                 assert id(data.value) == id(copied_data.value)
 
 
-def test_compile_shapes_raise_1():
-    model = Model()
-    model += Add()(left="left", right="right", output="output")
-    model += Sigmoid()(input="in", output="left")
-    model += Sigmoid()(input="in", output="right")
-
-    with pytest.raises(Exception) as e:
-        compile(
-            model,
-            JaxBackend(),
-            shapes={"in": [2, 3, 4], "left": [2, 3, 4], "right": [4, 5, 6]},
-        )
-
-    msg = (
-        "Provided shapes: '{'left', 'right'}' must be subset of the input keys "
-        "and output keys"
-    )
-    msg2 = (
-        "Provided shapes: '{'right', 'left'}' must be subset of the input keys "
-        "and output keys"
-    )
-    assert (str(e.value) == msg) | (str(e.value) == msg2)
-
-
 def test_compile_shapes_raise_2():
     model = Model()
     model += Add()(left="left", right="right", output="output")
     model += Sigmoid()(input="in", output="left")
     model += Sigmoid()(input="in", output="right")
 
-    with pytest.raises(Exception) as e:
+    with pytest.raises(KeyError) as e:
         compile(
             model,
             JaxBackend(),
             shapes={"in": [2, 3, 4], "irrelevant": [2, 3, 4]},
         )
 
-    msg = (
-        "Provided shapes: '{'irrelevant'}' must be subset of the input keys "
-        "and output keys"
-    )
+    msg = "'Given key: irrelevant is not found in the logical model.'"
     assert str(e.value) == msg
 
 
@@ -6143,10 +6122,12 @@ def test_compile_static_keys_raise_1():
         )
 
     msg = (
-        "Provided static keys: '{'left', 'right'}' must be subset of the input " "keys."
+        "'Provided static keys must be subset of the input keys. "
+        "Invalid keys: left, right.'"
     )
     msg2 = (
-        "Provided static keys: '{'right', 'left'}' must be subset of the input " "keys."
+        "'Provided static keys must be subset of the input keys. "
+        "Invalid keys: right, left.'"
     )
     assert (str(e.value) == msg) | (str(e.value) == msg2)
 
@@ -6157,14 +6138,14 @@ def test_compile_static_keys_raise_2():
     model += Sigmoid()(input="in", output="left")
     model += Sigmoid()(input="in", output="right")
 
-    with pytest.raises(Exception) as e:
+    with pytest.raises(KeyError) as e:
         compile(
             model,
             JaxBackend(),
             data_keys={"in", "irrelevant"},
         )
 
-    msg = "Provided static keys: '{'irrelevant'}' must be subset of the input keys."
+    msg = "'Given key: irrelevant is not found in the logical model.'"
     assert str(e.value) == msg
 
 

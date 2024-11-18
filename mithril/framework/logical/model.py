@@ -1329,7 +1329,7 @@ class Model(BaseModel):
 
     def _generate_keys(
         self, symbolic=True, include_internals=True, include_outputs=False
-    ):
+    ) -> dict[str, str]:
         key_mappings: dict[str, str] = {}
         raw_keys: dict[str, list[str]] = {}
         underscored_keys = set[str]()

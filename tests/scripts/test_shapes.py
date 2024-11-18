@@ -136,8 +136,14 @@ def assert_shapes(
     physical_ref: Mapping[str, Sequence[Sequence[int | str] | int | str] | None]
     | None = None,
     *,
-    shapes: Mapping[str, Sequence[int | None]] | None = None,
-    static_inputs: dict[str, np.ndarray] | None = None,
+    shapes: Mapping[str | Connection, Sequence[int | None]]
+    | Mapping[str, Sequence[int | None]]
+    | Mapping[Connection, Sequence[int | None]]
+    | None = None,
+    static_inputs: dict[str | Connection, np.ndarray]
+    | dict[str, np.ndarray]
+    | dict[Connection, np.ndarray]
+    | None = None,
     inference: bool = False,
     check_all_shapes=True,
 ):
@@ -158,6 +164,7 @@ def assert_shapes(
             constant_keys=static_inputs,
             safe_shapes=True,
             inference=inference,
+            safe_names=False,
         )
 
     m_shapes = model.shapes if not check_all_shapes else model.get_shapes(verbose=True)
