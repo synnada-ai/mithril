@@ -31,8 +31,11 @@ from mithril import Backend, JaxBackend, MlxBackend, NumpyBackend, TorchBackend,
 from mithril.core import Constant, epsilon_table
 from mithril.framework.common import (
     NOT_AVAILABLE,
+    NOT_GIVEN,
     TBD,
+    ConnectionType,
     NotAvailable,
+    ToBeDetermined,
     UniadicRecord,
     Variadic,
     create_shape_map,
@@ -7011,98 +7014,165 @@ def test_output_keys_canonical_output_2():
     assert set(model2.output_keys) == set(["output", "#canonical_output"])
 
 
-def test_readme_model_1():
-    from mithril.models import Add, LeakyRelu, Linear, Model, Relu
+def test_string_iokey_value_1():
+    # This tes tests if string value given in init
+    # is working properly
 
-    # A simple two-layer network where connections are
-    # made implicitly through "standard" inputs/outputs.
-    # Note the use of the "+=" operator for adding new models.
-    model1 = Model()
-    model1 += Linear(dimension=32)
-    model1 += Relu()
-    model1 += Linear(dimension=16)(output="output")
+    # For this Purpose, dummy einsum primitive is introduced
+    # since it has a string input
 
-    # Let's make another network just like the one above.
-    model2 = Model()
-    model2 += Linear(dimension=32)
-    model2 += LeakyRelu()
-    model2 += Linear(dimension=16)(output="output")
+    # This test comprises four steps:
+    # 1. Register Einsum Primitive
+    # 2. Create a model that uses Einsum Primitive and compile it
+    # 3. Evaluate the model
+    # 4. Compare the results
 
-    # For more complex connections, provide explicit connection
-    # information as below. I/O terminals of models can be named
-    # arbitrarily.
+    import torch
+
+    backend = TorchBackend()
+
+    # Define einsum primitive fn
+    def einsum(input, equation):
+        return torch.einsum(equation, input)
+
+    # Define einsum primitive Model
+    class ReduceEinsum(PrimitiveModel):
+        # Small Einsum Model that is written for test purposes.
+        # Now it only supports single input and single output
+
+        def __init__(self, equation: str | ToBeDetermined) -> None:
+            if not isinstance(equation, ToBeDetermined):
+                # Parse the equation
+                input, output = equation.replace(" ", "").split("->")
+                # Parse the shapes
+                all_input_shapes = list(input)
+                all_output_shapes = list(output)
+                # Create TensorType and Scalar Inputs
+                # Note that equation is string
+                tensor_input = TensorType(all_input_shapes)
+                tensor_output = TensorType(all_output_shapes)
+                scalar_equation = Scalar(str, equation)
+
+            else:
+                # case where equation is TBD
+                tensor_input = TensorType([("Var1", ...)])
+                tensor_output = TensorType([("Var2", ...)])
+                scalar_equation = Scalar(str)
+
+            kwargs: dict[str, TensorType | Scalar] = {
+                "output": tensor_output,
+                "input": tensor_input,
+                "equation": scalar_equation,
+            }
+
+            super().__init__(formula_key="einsum", **kwargs)
+            self._freeze()
+
+        def __call__(  # type: ignore[override]
+            self,
+            input: ConnectionType = NOT_GIVEN,
+            equation: ConnectionType = NOT_GIVEN,
+            output: ConnectionType = NOT_GIVEN,
+        ) -> ExtendInfo:
+            return super().__call__(input=input, equation=equation, output=output)
+
+    TorchBackend.register_primitive(einsum)
+
+    # create the model and add einsum
     model = Model()
-    model += model1(output="output1")
-    model += model2(output="output2")
-    model += Add()(left="output1", right="output2", output="output")
+
+    # note that string input is given in __init__
+    a = ReduceEinsum(equation=TBD)(
+        input="input", equation=IOKey(value="ij->i"), output="output"
+    )
+    model += a
+
+    # Compile the model and assert the results
+    pm = mithril.compile(model=model, backend=backend)
+    input = backend.ones((7, 6))
+    trainable_keys = {"input": input}
+    outputs = pm.evaluate(trainable_keys)
+    ref_outputs = {"output": backend.ones(7) * 6}
+    assert_results_equal(outputs, ref_outputs)
 
 
-def test_readme_model_2():
-    from mithril.models import Add, LeakyRelu, Linear, Model, Relu
+def test_string_iokey_value_2():
+    # This tes tests if string value handling of
+    # IOKey is working properly.
 
-    # A simple two-layer network where connections are
-    # made implicitly through "standard" inputs/outputs.
-    # Note the use of the "+=" operator for adding new models.
-    model1 = Model()
-    model1 += (lin := Linear(dimension=32))
-    model1 += Relu()
-    model1 += Linear(dimension=16)(output="output")
+    # For this Purpose, Dumy Einsum Primitive is introduced
+    # since it has a string input
 
-    # Let's make another network just like the one above.
-    model2 = Model()
-    model2 += Linear(dimension=32)
-    model2 += LeakyRelu()
-    model2 += Linear(dimension=16)(output="output")
+    # This test comprises four steps:
+    # 1. Register Einsum Primitive
+    # 2. Create a model that uses Einsum Primitive and compile it
+    # 3. Evaluate the model
+    # 4. Compare the results
 
-    # For more complex connections, provide explicit connection
-    # information as below. I/O terminals of models can be named
-    # arbitrarily.
+    import torch
+
+    backend = TorchBackend()
+
+    # Define einsum primitive fn
+    def einsum(input, equation):
+        return torch.einsum(equation, input)
+
+    # Define einsum primitive Model
+    class ReduceEinsum(PrimitiveModel):
+        # Small Einsum Model that is written for test purposes.
+        # Now it only supports single input and single output
+
+        def __init__(self, equation: str | ToBeDetermined) -> None:
+            if not isinstance(equation, ToBeDetermined):
+                # Parse the equation
+                input, output = equation.replace(" ", "").split("->")
+                # Parse the shapes
+                all_input_shapes = list(input)
+                all_output_shapes = list(output)
+                # Create TensorType and Scalar Inputs
+                # Note that equation is string
+                tensor_input = TensorType(all_input_shapes)
+                tensor_output = TensorType(all_output_shapes)
+                scalar_equation = Scalar(str, equation)
+
+            else:
+                # case where equation is TBD
+                tensor_input = TensorType([("Var1", ...)])
+                tensor_output = TensorType([("Var2", ...)])
+                scalar_equation = Scalar(str)
+
+            kwargs: dict[str, TensorType | Scalar] = {
+                "output": tensor_output,
+                "input": tensor_input,
+                "equation": scalar_equation,
+            }
+
+            super().__init__(formula_key="einsum", **kwargs)
+            self._freeze()
+
+        def __call__(  # type: ignore[override]
+            self,
+            input: ConnectionType = NOT_GIVEN,
+            equation: ConnectionType = NOT_GIVEN,
+            output: ConnectionType = NOT_GIVEN,
+        ) -> ExtendInfo:
+            return super().__call__(input=input, equation=equation, output=output)
+
+    TorchBackend.register_primitive(einsum)
+
+    # create the model and add einsum
     model = Model()
-    model += model1(output="output1")
-    model += model2(output="output2")
-    model += Add()(left="output1", right="output2", output="output")
 
-    import mithril as ml
-
-    # Create backends, specify the precision
-    backend_jax = ml.JaxBackend(precision=64)
-    backend_numpy = ml.NumpyBackend(precision=32)
-
-    # Compile the model with different backends, optionally specify
-    # the file to write the generated code into and whether to use jit
-    # compilation
-    jax_model = ml.compile(  # noqa
-        model=model,
-        backend=backend_jax,
-        jit=False,
-        data_keys={lin.input},
-        safe_names=False,
+    # note that in __init__, equation is TBD and string is given as IOKey value
+    a = ReduceEinsum(equation=TBD)(
+        input="input", equation=IOKey(value="ij->i"), output="output"
     )
-    numpy_model = ml.compile(
-        model=model,
-        backend=backend_numpy,
-        data_keys={lin.input},
-        shapes={lin.input: [3, 3]},
-        safe_names=False,
-    )
+    model += a
 
-    # Compile different logical models with the same backend
-    other_model = Model()
-    other_model += Linear(dimension=32)(input="input")
-    jax_model1 = ml.compile(
-        model=other_model,
-        backend=backend_jax,
-        data_keys={"input"},
-        shapes={"input": [3, 3]},
-    )
-
-    # Evaluate the compiled JAX model
-    jax_params = jax_model1.randomize_params()
-    jax_inputs = {"input": backend_jax.ones(3, 3)}
-    output = jax_model1.evaluate(jax_params, jax_inputs)  # noqa
-
-    # Compute gradients of the compiled numpy model
-    params = numpy_model.randomize_params()
-    inputs = {"input": backend_numpy.ones(3, 3)}
-    gradients = {"output": backend_numpy.ones(3, 16)}
-    gradients = numpy_model.evaluate_gradients(params, inputs, gradients)  # noqa
+    # Compile the model and assert the results
+    pm = mithril.compile(model=model, backend=backend)
+    input = backend.ones((7, 6))
+    trainable_keys = {"input": input}
+    outputs = pm.evaluate(trainable_keys)
+    ref_outputs = {"output": backend.ones(7) * 6}
+    assert_results_equal(outputs, ref_outputs)
