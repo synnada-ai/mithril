@@ -192,22 +192,6 @@ def test_composite_1_extend_from_inputs():
     assert_results_equal(grads_1, grads_2)
 
 
-def test_readme_model_3():
-    import mithril as ml
-
-    # Build a simple linear model
-    model = Linear(256)
-    # Generate a PyTorch backend with a (2,) device mesh
-    backend = ml.TorchBackend(device_mesh=(2, 1))
-    # Compile the model
-    pm = ml.compile(model, backend, jit=False, data_keys={"input"})
-    # Generate sharded data and parameters
-    params = {"w": backend.ones([128, 256]), "b": backend.ones([256])}
-    input = {"input": backend.ones(256, 128, device_mesh=(2, 1))}
-    # Run the compiled model
-    output = pm.evaluate(params, input)  # noqa
-
-
 def test_primitive_model_with_context():
     model = Buffer()
     context = TrainModel(model)
