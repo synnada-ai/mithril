@@ -14,7 +14,7 @@
 
 import builtins
 import platform
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable
 
 from .backends.backend import Backend, UnavailableBackend
 from .core import (
@@ -33,7 +33,8 @@ from .core import (
     short,
 )
 from .framework.codegen import code_gen_map
-from .framework.common import TBD, Connect, Connection, Constant, IOKey, MainValueType
+from .framework.common import TBD, Connect, Connection, Constant, IOKey
+from .framework.physical.model import PhysicalConstantType, PhysicalShapeType
 from .models import BaseModel, PhysicalModel
 from .models.train_model import TrainModel
 
@@ -96,19 +97,18 @@ except ImportError:
 def compile(
     model: BaseModel,
     backend: Backend[DataType],
+    *,
+    constant_keys: PhysicalConstantType | None = None,
+    data_keys: Iterable[str | Connection] | None = None,
+    discard_keys: Iterable[str | Connection] | None = None,
+    jacobian_keys: Iterable[str | Connection] | None = None,
+    trainable_keys: Iterable[str | Connection] | None = None,
+    shapes: PhysicalShapeType | None = None,
     inference: builtins.bool = False,
-    discard_keys: set[str] | tuple[str] | list[str] | str | None = None,
-    jacobian_keys: set[str] | None = None,
-    shapes: Mapping[str, Sequence[builtins.int | None]]
-    | Mapping[Connection, Sequence[builtins.int | None]]
-    | Mapping[str | Connection, Sequence[builtins.int | None]]
-    | None = None,
-    data_keys: set[str] | None = None,
-    constant_keys: Mapping[str, DataType | MainValueType] | None = None,
-    trainable_keys: set[str] | None = None,
     jit: builtins.bool = True,
     file_path: str | None = None,
     safe_shapes: builtins.bool = True,
+    safe_names: builtins.bool = True,
 ) -> PhysicalModel[DataType]:
     """Compilation of Logical Model.
 
@@ -134,29 +134,15 @@ def compile(
     if model.parent is not None:
         raise ValueError("Model with a parent could not be compiled!")
 
-    if discard_keys is None:
-        discard_keys = set()
-    elif isinstance(discard_keys, tuple | list):
-        discard_keys = set(discard_keys)
-    elif isinstance(discard_keys, str):
-        discard_keys = set([discard_keys])
+    # Convert keys to required types.
+    constant_keys = constant_keys if constant_keys is not None else dict()
+    data_keys = set(data_keys) if data_keys is not None else set()
+    discard_keys = set(discard_keys) if discard_keys is not None else set()
+    jacobian_keys = set(jacobian_keys) if jacobian_keys is not None else set()
+    shapes = shapes if shapes is not None else dict()
+    trainable_keys = set(trainable_keys) if trainable_keys is not None else set()
 
-    if jacobian_keys is None:
-        jacobian_keys = set()
-    if shapes is None:
-        shapes = dict()
-    if data_keys is None:
-        data_keys = set()
-    if constant_keys is None:
-        constant_keys = dict()
-    if trainable_keys is None:
-        trainable_keys = set()
-
-    assert isinstance(discard_keys, set), (
-        f"Expected discard_keys to be of type 'set', but got type "
-        f"'{type(discard_keys).__name__}' instead."
-    )
-
+    # Initialize Physical Model.
     pm = PhysicalModel[DataType](
         model=model,
         backend=backend,
@@ -168,6 +154,7 @@ def compile(
         shapes=shapes,
         inference=inference,
         safe_shapes=safe_shapes,
+        safe_names=safe_names,
     )
 
     if jit and file_path is not None:
@@ -177,6 +164,7 @@ def compile(
             "'jit' flag to 'False'"
         )
 
+    # Pick code generator based on backend and generate code.
     CodeGen_Cls = code_gen_map[backend.__class__]
     codegen = CodeGen_Cls(pm)
     codegen.generate_code(file_path=file_path)

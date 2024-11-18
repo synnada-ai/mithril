@@ -885,7 +885,7 @@ def test_physical_summary_2():
     model1 += Relu()
     model1 += Sigmoid()
     model = Model()
-    model += Linear(dimension=5)
+    model += Linear(dimension=5)(input="input")
     model += LeakyRelu()
     model += Linear(dimension=3)
     model += model1
@@ -983,7 +983,7 @@ def test_physical_summary_5():
     model_2 = MLP(activations=[Sigmoid(), Relu(), Relu()], dimensions=[3, 7, 9])
     model += model_1
     model += model_2
-    comp_model = mithril.compile(model=model, backend=JaxBackend())
+    comp_model = mithril.compile(model=model, backend=JaxBackend(), safe_names=False)
     with redirect_stdout(StringIO()) as summary:
         comp_model.summary(verbose=True, model=model_2, depth=1)
     ref_table = ""

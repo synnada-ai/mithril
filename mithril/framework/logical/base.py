@@ -158,7 +158,7 @@ class BaseModel(abc.ABC):
 
     def _generate_keys(
         self, symbolic=True, include_internals=True, include_outputs=False
-    ):
+    ) -> dict[str, str]:
         return {}
 
     def __setattr__(self, name: str, value: Any):

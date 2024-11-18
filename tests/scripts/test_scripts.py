@@ -51,6 +51,7 @@ from mithril.models import (
     Buffer,
     Concat,
     Connect,
+    Connection,
     ConstraintSolver,
     Convolution1D,
     Convolution2D,
@@ -186,6 +187,22 @@ def test_composite_1_extend_from_inputs():
 
     assert_results_equal(inputs_1, inputs_2)
     assert_results_equal(grads_1, grads_2)
+
+
+def test_readme_model_3():
+    import mithril as ml
+
+    # Build a simple linear model
+    model = Linear(256)
+    # Generate a PyTorch backend with a (2,) device mesh
+    backend = ml.TorchBackend(device_mesh=(2, 1))
+    # Compile the model
+    pm = ml.compile(model, backend, jit=False, data_keys={"input"})
+    # Generate sharded data and parameters
+    params = {"w": backend.ones([128, 256]), "b": backend.ones([256])}
+    input = {"input": backend.ones(256, 128, device_mesh=(2, 1))}
+    # Run the compiled model
+    output = pm.evaluate(params, input)  # noqa
 
 
 def test_primitive_model_with_context():
@@ -365,17 +382,16 @@ def test_shape():
 
 def test_1_set_shapes_bug():
     model = Model()
-    # model.extend(Convolution(shapes={"input2": [16, 3, 1, 1]}, padding=1, stride = 1))
     linear1 = Linear()
     linear2 = Linear()
     model += linear1(input="input")
     model += linear2(input=linear1.output, output="output")
 
-    shapes: dict[str, list] = {
-        "input": [120, 120],
-        "w_0": [None, 32],
-        "w_1": [32, 32],
-        "b_1": [None],
+    shapes: dict[Connection, list[None | int]] = {
+        linear1.input: [120, 120],
+        linear1.w: [None, 32],
+        linear2.w: [32, 32],
+        linear2.b: [None],
     }
     comp_model = mithril.compile(model, NumpyBackend(precision=64), shapes=shapes)
 
@@ -1064,13 +1080,15 @@ def test_convolution_shape():
     comp_model = mithril.compile(
         model=model,
         backend=NumpyBackend(precision=32),
-        shapes={"input": [8, 3, 64, 64]},
+        shapes={conv1.input: [8, 3, 64, 64]},
+        safe_names=False,
     )
 
     comp_model2 = mithril.compile(
         model=model1,
         backend=NumpyBackend(precision=32),
-        shapes={"input": [5, 5]},
+        shapes={pol1.input: [5, 5]},
+        safe_names=False,
     )
     assert comp_model.shapes["output"] == [8, 64, 64, 64]
     assert comp_model2.shapes["output"] == [5, 26795]
@@ -3497,7 +3515,7 @@ def test_demo_model():
     model += Flatten(start_dim=1)
     model += Linear(1000)
     model += Linear(1)
-    pm = mithril.compile(model=model, backend=TorchBackend())
+    pm = mithril.compile(model=model, backend=TorchBackend(), safe_names=False)
 
     assert set(pm._input_keys) == {
         "input",
@@ -6011,7 +6029,9 @@ def test_deepcopy_3():
     model += Sigmoid()
     model += deepcopy(model)
     all_data = get_all_data(model)
-    compiled_model = mithril.compile(model=model, backend=NumpyBackend())
+    compiled_model = mithril.compile(
+        model=model, backend=NumpyBackend(), safe_names=False
+    )
     unused_data = {
         compiled_model.data.get(key)
         for key in compiled_model.data_store.unused_keys
@@ -6066,7 +6086,9 @@ def test_deepcopy_5():
 
     all_data = get_all_data(model)
 
-    compiled_model = mithril.compile(model=model, backend=NumpyBackend())
+    compiled_model = mithril.compile(
+        model=model, backend=NumpyBackend(), safe_names=False
+    )
     unused_data = {
         compiled_model.data.get(key)
         for key in compiled_model.data_store.unused_keys
@@ -6082,47 +6104,20 @@ def test_deepcopy_5():
                 assert id(data.value) == id(copied_data.value)
 
 
-def test_compile_shapes_raise_1():
-    model = Model()
-    model += Add()(left="left", right="right", output="output")
-    model += Sigmoid()(input="in", output="left")
-    model += Sigmoid()(input="in", output="right")
-
-    with pytest.raises(Exception) as e:
-        compile(
-            model,
-            JaxBackend(),
-            shapes={"in": [2, 3, 4], "left": [2, 3, 4], "right": [4, 5, 6]},
-        )
-
-    msg = (
-        "Provided shapes: '{'left', 'right'}' must be subset of the input keys "
-        "and output keys"
-    )
-    msg2 = (
-        "Provided shapes: '{'right', 'left'}' must be subset of the input keys "
-        "and output keys"
-    )
-    assert (str(e.value) == msg) | (str(e.value) == msg2)
-
-
 def test_compile_shapes_raise_2():
     model = Model()
     model += Add()(left="left", right="right", output="output")
     model += Sigmoid()(input="in", output="left")
     model += Sigmoid()(input="in", output="right")
 
-    with pytest.raises(Exception) as e:
+    with pytest.raises(KeyError) as e:
         compile(
             model,
             JaxBackend(),
             shapes={"in": [2, 3, 4], "irrelevant": [2, 3, 4]},
         )
 
-    msg = (
-        "Provided shapes: '{'irrelevant'}' must be subset of the input keys "
-        "and output keys"
-    )
+    msg = "'Given key: irrelevant is not found in the logical model.'"
     assert str(e.value) == msg
 
 
@@ -6140,10 +6135,12 @@ def test_compile_static_keys_raise_1():
         )
 
     msg = (
-        "Provided static keys: '{'left', 'right'}' must be subset of the input " "keys."
+        "'Provided static keys must be subset of the input keys. "
+        "Invalid keys: left, right.'"
     )
     msg2 = (
-        "Provided static keys: '{'right', 'left'}' must be subset of the input " "keys."
+        "'Provided static keys must be subset of the input keys. "
+        "Invalid keys: right, left.'"
     )
     assert (str(e.value) == msg) | (str(e.value) == msg2)
 
@@ -6154,14 +6151,14 @@ def test_compile_static_keys_raise_2():
     model += Sigmoid()(input="in", output="left")
     model += Sigmoid()(input="in", output="right")
 
-    with pytest.raises(Exception) as e:
+    with pytest.raises(KeyError) as e:
         compile(
             model,
             JaxBackend(),
             data_keys={"in", "irrelevant"},
         )
 
-    msg = "Provided static keys: '{'irrelevant'}' must be subset of the input keys."
+    msg = "'Given key: irrelevant is not found in the logical model.'"
     assert str(e.value) == msg
 
 
@@ -7012,3 +7009,100 @@ def test_output_keys_canonical_output_2():
     model2 += model(output=IOKey("output"))
 
     assert set(model2.output_keys) == set(["output", "#canonical_output"])
+
+
+def test_readme_model_1():
+    from mithril.models import Add, LeakyRelu, Linear, Model, Relu
+
+    # A simple two-layer network where connections are
+    # made implicitly through "standard" inputs/outputs.
+    # Note the use of the "+=" operator for adding new models.
+    model1 = Model()
+    model1 += Linear(dimension=32)
+    model1 += Relu()
+    model1 += Linear(dimension=16)(output="output")
+
+    # Let's make another network just like the one above.
+    model2 = Model()
+    model2 += Linear(dimension=32)
+    model2 += LeakyRelu()
+    model2 += Linear(dimension=16)(output="output")
+
+    # For more complex connections, provide explicit connection
+    # information as below. I/O terminals of models can be named
+    # arbitrarily.
+    model = Model()
+    model += model1(output="output1")
+    model += model2(output="output2")
+    model += Add()(left="output1", right="output2", output="output")
+
+
+def test_readme_model_2():
+    from mithril.models import Add, LeakyRelu, Linear, Model, Relu
+
+    # A simple two-layer network where connections are
+    # made implicitly through "standard" inputs/outputs.
+    # Note the use of the "+=" operator for adding new models.
+    model1 = Model()
+    model1 += (lin := Linear(dimension=32))
+    model1 += Relu()
+    model1 += Linear(dimension=16)(output="output")
+
+    # Let's make another network just like the one above.
+    model2 = Model()
+    model2 += Linear(dimension=32)
+    model2 += LeakyRelu()
+    model2 += Linear(dimension=16)(output="output")
+
+    # For more complex connections, provide explicit connection
+    # information as below. I/O terminals of models can be named
+    # arbitrarily.
+    model = Model()
+    model += model1(output="output1")
+    model += model2(output="output2")
+    model += Add()(left="output1", right="output2", output="output")
+
+    import mithril as ml
+
+    # Create backends, specify the precision
+    backend_jax = ml.JaxBackend(precision=64)
+    backend_numpy = ml.NumpyBackend(precision=32)
+
+    # Compile the model with different backends, optionally specify
+    # the file to write the generated code into and whether to use jit
+    # compilation
+    jax_model = ml.compile(  # noqa
+        model=model,
+        backend=backend_jax,
+        jit=False,
+        data_keys={lin.input},
+        safe_names=False,
+    )
+    numpy_model = ml.compile(
+        model=model,
+        backend=backend_numpy,
+        data_keys={lin.input},
+        shapes={lin.input: [3, 3]},
+        safe_names=False,
+    )
+
+    # Compile different logical models with the same backend
+    other_model = Model()
+    other_model += Linear(dimension=32)(input="input")
+    jax_model1 = ml.compile(
+        model=other_model,
+        backend=backend_jax,
+        data_keys={"input"},
+        shapes={"input": [3, 3]},
+    )
+
+    # Evaluate the compiled JAX model
+    jax_params = jax_model1.randomize_params()
+    jax_inputs = {"input": backend_jax.ones(3, 3)}
+    output = jax_model1.evaluate(jax_params, jax_inputs)  # noqa
+
+    # Compute gradients of the compiled numpy model
+    params = numpy_model.randomize_params()
+    inputs = {"input": backend_numpy.ones(3, 3)}
+    gradients = {"output": backend_numpy.ones(3, 16)}
+    gradients = numpy_model.evaluate_gradients(params, inputs, gradients)  # noqa
