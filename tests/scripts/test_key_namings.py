@@ -30,7 +30,7 @@ from mithril.models import (
 
 def assert_keys(model, logical_ref, physical_ref, include_internals=False):
     assert logical_ref == model._generate_keys(include_internals=include_internals)
-    pm = mithril.compile(model=model, backend=TorchBackend())
+    pm = mithril.compile(model=model, backend=TorchBackend(), safe_names=False)
     assert set(pm._input_keys) == set(physical_ref)
 
 
@@ -44,7 +44,7 @@ def test_finalize_keys_0():
     model += Linear(10)(
         input=model.canonical_output, b="b_3", output=IOKey(name="output1")
     )
-    pm = mithril.compile(model, TorchBackend())
+    pm = mithril.compile(model, TorchBackend(), safe_names=False)
     assert set(pm._input_keys) == set(
         (
             "input",
@@ -71,12 +71,12 @@ def test_finalize_keys_1():
     model += Linear(10)
     model += Linear(10)
     model += Linear(10)
-    pm = mithril.compile(model, TorchBackend())
+    pm = mithril.compile(model, TorchBackend(), safe_names=False)
     assert set(pm._input_keys) == set(
         ("input", "w_0", "b_0", "w_1", "b_1", "w_2", "b_2", "w_3", "b_3", "w_4", "b_4")
     )
     model += Linear(10)
-    pm = mithril.compile(model, TorchBackend())
+    pm = mithril.compile(model, TorchBackend(), safe_names=False)
     assert set(pm._input_keys) == set(
         (
             "input",
@@ -99,7 +99,7 @@ def test_finalize_keys_1():
     model += Linear(10)(w="w_1", b="b_1")
     model += Linear(10)
     model += Linear(10)
-    pm = mithril.compile(model, TorchBackend())
+    pm = mithril.compile(model, TorchBackend(), safe_names=False)
     assert set(pm._input_keys) == set(
         ("input", "_w_0", "_b_0", "_w_1", "_b_1", "w_1", "b_1")
     )
@@ -108,10 +108,10 @@ def test_finalize_keys_1():
 def test_finalize_keys_2():
     model = Model()
     model += Linear(10)
-    pm = mithril.compile(model, TorchBackend())
+    pm = mithril.compile(model, TorchBackend(), safe_names=False)
     assert set(pm._input_keys) == set(("input", "w", "b"))
     model += Linear(10)
-    pm = mithril.compile(model, TorchBackend())
+    pm = mithril.compile(model, TorchBackend(), safe_names=False)
     assert set(pm._input_keys) == set(("input", "w_0", "b_0", "w_1", "b_1"))
 
 

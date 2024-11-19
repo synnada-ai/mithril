@@ -51,6 +51,7 @@ def test_data_store_1():
         shapes=dict(),
         inference=False,
         safe_shapes=True,
+        safe_names=True,
     )
     # Set input as static and check data store.
     key = "input"
@@ -79,6 +80,7 @@ def test_data_store_1_numpy():
         shapes=dict(),
         inference=False,
         safe_shapes=True,
+        safe_names=True,
     )
     # Set input as static and check data store.
     key = "input"
@@ -151,6 +153,7 @@ def test_data_store_4():
         shapes=dict(),
         inference=False,
         safe_shapes=True,
+        safe_names=True,
     )
     pm.data_store.set_shapes(shapes)
     # Only "output" key is not in unused_kexys.
@@ -433,6 +436,7 @@ def test_data_store_16():
         shapes=dict(),
         inference=False,
         safe_shapes=True,
+        safe_names=True,
     )
 
     assert pm.data_store._cached_data.keys() == {
@@ -462,6 +466,7 @@ def test_data_store_17():
         shapes=dict(),
         inference=False,
         safe_shapes=True,
+        safe_names=False,
     )
 
     assert pm.data_store._cached_data.keys() == {"_Add_0_output_cache", "output_cache"}
@@ -491,6 +496,7 @@ def test_data_store_18():
         shapes=dict(),
         inference=False,
         safe_shapes=True,
+        safe_names=True,
     )
 
     assert pm.data_store._cached_data.keys() == set()
@@ -520,6 +526,7 @@ def test_data_store_19():
         shapes=dict(),
         inference=False,
         safe_shapes=True,
+        safe_names=True,
     )
 
     assert pm.data_store._cached_data.keys() == set()
@@ -549,6 +556,7 @@ def test_data_store_20():
         shapes=dict(),
         inference=False,
         safe_shapes=True,
+        safe_names=True,
     )
     # Get key name of shp model.
     generated_keys = model._generate_keys(symbolic=False)

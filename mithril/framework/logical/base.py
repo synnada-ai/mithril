@@ -158,7 +158,7 @@ class BaseModel(abc.ABC):
 
     def _generate_keys(
         self, symbolic=True, include_internals=True, include_outputs=False
-    ):
+    ) -> dict[str, str]:
         return {}
 
     def __setattr__(self, name: str, value: Any):
@@ -243,7 +243,7 @@ class BaseModel(abc.ABC):
     def set_shapes(self, shapes: ShapesType) -> None:
         self._set_shapes(shapes, trace=True)
 
-    def set_values(self, values: dict[str | Connection, MainValueType]) -> None:
+    def set_values(self, values: dict[str | Connection, MainValueType | str]) -> None:
         """
         Set multiple values in the model.
         This method updates values in the outermost model by traversing up the

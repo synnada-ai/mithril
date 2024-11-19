@@ -77,7 +77,7 @@ numpy_model = ml.compile(
 
 # Compile different logical models with the same backend
 other_model = Model()
-other_model += Linear(dimension=32)
+other_model += Linear(dimension=32)(input = "input")
 jax_model1 = ml.compile(
     model=other_model,
     backend=backend_jax,

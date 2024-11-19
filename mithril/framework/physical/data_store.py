@@ -58,7 +58,7 @@ class StaticDataStore(GenericDataType[DataType]):
         self._runtime_static_keys: set[str] = set()
         self._unused_keys: set[str] = set()
         # Final tensor values of data store.
-        self.data_values: dict[str, DataType | MainValueType] = dict()
+        self.data_values: dict[str, DataType | MainValueType | str] = dict()
         self.constraint_solver: ConstraintSolver = deepcopy(solver, memo=memo)
 
     @property

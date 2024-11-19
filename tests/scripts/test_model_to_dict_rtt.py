@@ -82,7 +82,7 @@ def test_linear_set_diff():
 
 def test_linear_expose_2():
     model = Model()
-    model += Linear(dimension=42)(w="w", output=IOKey(name="output"))
+    model += Linear(dimension=42)(input="input", w="w", output=IOKey(name="output"))
     model_dict_created = dict_conversions.model_to_dict(model)
     model_recreated = dict_conversions.dict_to_model(model_dict_created)
     model_dict_recreated = dict_conversions.model_to_dict(model_recreated)
@@ -116,7 +116,7 @@ def test_constant_key():
     model = Model()
     model += Add()(left="input", right=3, output=IOKey(name="output"))
     model2 = Model()
-    model2 += model()
+    model2 += model(input="input")
 
     model_dict_created = dict_conversions.model_to_dict(model2)
     model_recreated = dict_conversions.dict_to_model(model_dict_created)
@@ -136,7 +136,9 @@ def test_constant_key_2():
     model += (add := Add())(left="input", right=3, output=IOKey(name="output"))
     model += Add()(left="input2", right=add.right, output=IOKey(name="output2"))
     model2 = Model()
-    model2 += model(output=IOKey(name="output"), output2=IOKey(name="output2"))
+    model2 += model(
+        input2="input", output=IOKey(name="output"), output2=IOKey(name="output2")
+    )
 
     model_dict_created = dict_conversions.model_to_dict(model2)
     model_recreated = dict_conversions.dict_to_model(model_dict_created)
@@ -318,7 +320,7 @@ def test_composite_4():
 
 def test_composite_5():
     model = Model()
-    model += Linear(dimension=10)(w="w", output=IOKey(name="output"))
+    model += Linear(dimension=10)(input="input", w="w", output=IOKey(name="output"))
     model += Linear(dimension=71)(
         input=model.canonical_output, w="w1", output=IOKey(name="output2")
     )
@@ -343,7 +345,7 @@ def test_composite_5():
 
 def test_composite_6():
     model = Model()
-    model += Linear(dimension=10)(w="w", output=IOKey(name="output"))
+    model += Linear(dimension=10)(input="input", w="w", output=IOKey(name="output"))
     model += Linear(dimension=71)(
         input=model.canonical_output, w="w1", output=IOKey(name="output2")
     )
@@ -586,7 +588,9 @@ def test_auto_iadd_2():
 
 def test_convolution():
     model = Model()
-    model += Convolution2D(kernel_size=3, out_channels=20)(output=IOKey(name="output"))
+    model += Convolution2D(kernel_size=3, out_channels=20)(
+        input="input", output=IOKey(name="output")
+    )
 
     model_dict_created = dict_conversions.model_to_dict(model)
     model_recreated = dict_conversions.dict_to_model(model_dict_created)
@@ -606,7 +610,7 @@ def test_convolution():
 def test_tbd():
     model = Model()
     model += Convolution2D(kernel_size=3, out_channels=20, stride=TBD)(
-        output=IOKey(name="output"), stride=(1, 1)
+        input="input", output=IOKey(name="output"), stride=(1, 1)
     )
 
     model_dict_created = dict_conversions.model_to_dict(model)

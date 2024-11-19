@@ -65,7 +65,7 @@ def assert_model_keys(
     logical_outputs = set(model.conns.output_keys)
     assert logical_outputs_ref == logical_outputs, "logical outputs does not match."
 
-    pm = mithril.compile(model=model, backend=TorchBackend())
+    pm = mithril.compile(model=model, backend=TorchBackend(), safe_names=False)
 
     physical_inputs = set(pm._input_keys)
     assert physical_inputs == physical_inputs_ref, "physical inputs does not match."
@@ -910,7 +910,7 @@ def test_iokey_scalar_input_all_args():
 
         # if code reaches this far. It is expected model to be compiled and evaluated
         # successfully.
-        pm = mithril.compile(model=model, backend=backend)
+        pm = mithril.compile(model=model, backend=backend, safe_names=False)
         params = {
             "input": backend.ones(2, 2),
         }
