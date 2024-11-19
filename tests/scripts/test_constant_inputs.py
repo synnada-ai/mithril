@@ -851,14 +851,43 @@ def test_static_3():
     model1 += add_1(left=[2.0, 3.0], right="right", output=IOKey(name="output"))
     model2 += model1
     assert not isinstance(model2.canonical_input, NotAvailable)
-    key = model2.canonical_input.data.key
+    connection = model2.canonical_input
+    assert isinstance(connection, Connection)
     with pytest.raises(Exception) as err:
         mithril.compile(
-            model=model2, backend=NumpyBackend(), constant_keys={key: [3.0, 4.0]}
+            model=model2,
+            backend=NumpyBackend(),
+            constant_keys={connection: [3.0, 4.0]},
+            safe_names=False,
         )
 
     assert str(err.value) == (
-        "Statically given key: input has been already set as static with a value!"
+        f"Statically given connection: {connection} has been "
+        "already set as static with a value!"
+    )
+
+
+def test_static_3_invalid_key():
+    model1 = Model()
+    model2 = Model()
+    add_1 = Add()
+    model1 += add_1(left=[2.0, 3.0], right="right", output=IOKey(name="output"))
+    model2 += model1
+    assert not isinstance(model2.canonical_input, NotAvailable)
+    key = model2.canonical_input.data.key
+    with pytest.raises(KeyError) as err:
+        mithril.compile(
+            model=model2,
+            backend=NumpyBackend(),
+            constant_keys={key: [3.0, 4.0]},
+            safe_names=False,
+        )
+
+    assert str(err.value) == (
+        "'Given key: $1 is not valid. Unnamed keys in logical model "
+        "can not be provided to physical model in string format. "
+        "Try providing corresponding Connection object or naming "
+        "this connection in logical model.'"
     )
 
 
@@ -877,7 +906,10 @@ def test_static_3_set_values():
         )
 
     assert str(err.value) == (
-        "Statically given key: input has been already set as static with a value!"
+        f"'Given key: {key} is not valid. Unnamed keys in logical model "
+        "can not be provided to physical model in string format. "
+        "Try providing corresponding Connection object or naming "
+        "this connection in logical model.'"
     )
 
 
@@ -1150,7 +1182,7 @@ def test_static_input_1():
     ref = np.array(5.0)
     model += add_1
     comp_model = mithril.compile(
-        model=model, backend=NumpyBackend(precision=32), jit=False
+        model=model, backend=NumpyBackend(precision=32), jit=False, safe_names=False
     )
 
     output = comp_model.evaluate(
@@ -1161,6 +1193,20 @@ def test_static_input_1():
     )["output"]
     np.testing.assert_allclose(output, ref)
     assert output.dtype == np.float32
+
+
+def test_static_input_1_safe_names():
+    model = Model()
+    add_1 = Add()
+    add_1.left.set_differentiable(False)
+    add_1.right.set_differentiable(False)
+    model += add_1
+    with pytest.raises(KeyError) as err:
+        mithril.compile(model=model, backend=NumpyBackend(precision=32), jit=False)
+    assert str(err.value) == (
+        "'Runtime data keys must be named in logical model when "
+        "safe_names set to True. The following keys are unnamed: $1, $2'"
+    )
 
 
 def test_static_input_2():
@@ -1175,14 +1221,32 @@ def test_static_input_2():
         backend=NumpyBackend(precision=32),
         jit=False,
         constant_keys={
-            "input": np.array(2.0, dtype=np.float32),
-            "right": np.array(3.0, dtype=np.float32),
+            add_1.left: np.array(2.0, dtype=np.float32),
+            add_1.right: np.array(3.0, dtype=np.float32),
         },
+        safe_names=False,
     )
 
     output = comp_model.evaluate()["output"]
     np.testing.assert_allclose(output, ref)
     assert output.dtype == np.float32
+
+
+def test_static_input_2_safe_names():
+    model = Model()
+    add_1 = Add()
+    add_1.left.set_differentiable(False)
+    add_1.right.set_differentiable(False)
+    model += add_1()
+    with pytest.raises(KeyError) as err:
+        mithril.compile(
+            model=model,
+            backend=NumpyBackend(precision=32),
+            jit=False,
+            constant_keys={"input": np.array(2.0, dtype=np.float32)},
+        )
+
+    assert str(err.value) == ("'Given key: input is not found in the logical model.'")
 
 
 def test_static_input_3():
@@ -1197,7 +1261,7 @@ def test_static_input_3():
         model=model,
         backend=backend,
         jit=False,
-        constant_keys={"input": backend.array(2.0), "right": backend.array(3.0)},
+        constant_keys={add_1.left: backend.array(2.0), add_1.right: backend.array(3.0)},
     )
 
     output = comp_model.evaluate()["output"]
@@ -1619,7 +1683,9 @@ def test_composite_conv_mean_2():
     reduce_model = Sum(axis=TBD)
     model += conv_model(input=IOKey(value=list1, name="input"))
     model += reduce_model(axis=conv_model.stride, input=conv_model.output)
-    comp_model = mithril.compile(model=model, backend=NumpyBackend(), jit=False)
+    comp_model = mithril.compile(
+        model=model, backend=NumpyBackend(), jit=False, safe_names=False
+    )
     inputs = {"kernel": np.ones((1, 1, 2, 2)), "bias": np.ones((1, 1, 1, 1))}
     outputs = comp_model.evaluate(params=inputs, data={"stride_1": (1, 2)})
     ref_outputs = {"output": np.ones((1, 4)) * 35.0}
@@ -1634,7 +1700,9 @@ def test_composite_conv_mean_2_set_values():
     model += conv_model(input=IOKey(name="input"))
     model.set_values({"input": list1})
     model += reduce_model(axis=conv_model.stride, input=conv_model.output)
-    comp_model = mithril.compile(model=model, backend=NumpyBackend(), jit=False)
+    comp_model = mithril.compile(
+        model=model, backend=NumpyBackend(), jit=False, safe_names=False
+    )
     inputs = {"kernel": np.ones((1, 1, 2, 2)), "bias": np.ones((1, 1, 1, 1))}
     outputs = comp_model.evaluate(params=inputs, data={"stride_1": (1, 2)})
     ref_outputs = {"output": np.ones((1, 4)) * 35.0}
@@ -1707,7 +1775,9 @@ def test_unused_cached_values_2():
     model = Model()
     linear_model = Linear(dimension=2)
     model += linear_model(w=[[1.0, 2.0]], b=[3.0, 1.0])
-    comp_model = mithril.compile(model=model, backend=(backend := NumpyBackend()))
+    comp_model = mithril.compile(
+        model=model, backend=(backend := NumpyBackend()), safe_names=False
+    )
     dtype = backend.get_backend_array_type()
     cache = comp_model.data_store.data_values
 
@@ -1749,7 +1819,9 @@ def test_unused_cached_values_2_set_values():
             linear_model.b: [3.0, 1.0],
         }
     )
-    comp_model = mithril.compile(model=model, backend=(backend := NumpyBackend()))
+    comp_model = mithril.compile(
+        model=model, backend=(backend := NumpyBackend()), safe_names=False
+    )
     dtype = backend.get_backend_array_type()
     cache = comp_model.data_store.data_values
 
@@ -1786,7 +1858,9 @@ def test_unused_cached_values_3():
     linear_model = Linear(dimension=2)
     model += linear_model(input=[[3.0], [2.0]], w=[[1.0, 2.0]])
     linear_model.b.set_differentiable(False)
-    comp_model = mithril.compile(model=model, backend=(backend := NumpyBackend()))
+    comp_model = mithril.compile(
+        model=model, backend=(backend := NumpyBackend()), safe_names=False
+    )
     dtype = backend.get_backend_array_type()
     cache = comp_model.data_store.data_values
 
@@ -1822,7 +1896,9 @@ def test_unused_cached_values_3_set_values():
     model += linear_model()
     model.set_values({linear_model.input: [[3.0], [2.0]], linear_model.w: [[1.0, 2.0]]})
     linear_model.b.set_differentiable(False)
-    comp_model = mithril.compile(model=model, backend=(backend := NumpyBackend()))
+    comp_model = mithril.compile(
+        model=model, backend=(backend := NumpyBackend()), safe_names=False
+    )
     dtype = backend.get_backend_array_type()
     cache = comp_model.data_store.data_values
 
@@ -1872,7 +1948,7 @@ def test_static_shape_model_1():
 
 def test_static_shape_model_2():
     model = Model()
-    model += Shape()
+    model += Shape()("input")
     model += ToTensor()
     model += Relu()
     comp_model = mithril.compile(
@@ -2153,7 +2229,7 @@ def test_multiple_to_tensor():
     model = Model()
     model_1 = Model()
     model_2 = Model()
-    model += shp_1
+    model += shp_1("input")
     model += tt_1
     model += add_model(
         left=model.canonical_output, right="right", output=IOKey(name="output")
@@ -2163,7 +2239,7 @@ def test_multiple_to_tensor():
     model_1 += add_model_2(
         left=model_1.canonical_output, right="right", output=IOKey(name="output")
     )
-    model_2 += model
+    model_2 += model(input="input")
     model_2 += model_1
     comp_model = mithril.compile(
         model=model_2,
@@ -2181,7 +2257,7 @@ def test_concat_axis_ellipsis_1():
     model = Model()
     concat_model = Concat(n=2, axis=TBD)
     model += concat_model(input1="input1", input2="input2")
-    comp_model = mithril.compile(model=model, backend=backend)
+    comp_model = mithril.compile(model=model, backend=backend, safe_names=False)
 
     in1 = backend.array([[2.0]])
     in2 = backend.array([[2.0]])

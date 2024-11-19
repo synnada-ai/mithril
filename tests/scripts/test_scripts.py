@@ -31,8 +31,11 @@ from mithril import Backend, JaxBackend, MlxBackend, NumpyBackend, TorchBackend,
 from mithril.core import Constant, epsilon_table
 from mithril.framework.common import (
     NOT_AVAILABLE,
+    NOT_GIVEN,
     TBD,
+    ConnectionType,
     NotAvailable,
+    ToBeDetermined,
     UniadicRecord,
     Variadic,
     create_shape_map,
@@ -51,6 +54,7 @@ from mithril.models import (
     Buffer,
     Concat,
     Connect,
+    Connection,
     ConstraintSolver,
     Convolution1D,
     Convolution2D,
@@ -365,17 +369,16 @@ def test_shape():
 
 def test_1_set_shapes_bug():
     model = Model()
-    # model.extend(Convolution(shapes={"input2": [16, 3, 1, 1]}, padding=1, stride = 1))
     linear1 = Linear()
     linear2 = Linear()
     model += linear1(input="input")
     model += linear2(input=linear1.output, output="output")
 
-    shapes: dict[str, list] = {
-        "input": [120, 120],
-        "w_0": [None, 32],
-        "w_1": [32, 32],
-        "b_1": [None],
+    shapes: dict[Connection, list[None | int]] = {
+        linear1.input: [120, 120],
+        linear1.w: [None, 32],
+        linear2.w: [32, 32],
+        linear2.b: [None],
     }
     comp_model = mithril.compile(model, NumpyBackend(precision=64), shapes=shapes)
 
@@ -1064,13 +1067,15 @@ def test_convolution_shape():
     comp_model = mithril.compile(
         model=model,
         backend=NumpyBackend(precision=32),
-        shapes={"input": [8, 3, 64, 64]},
+        shapes={conv1.input: [8, 3, 64, 64]},
+        safe_names=False,
     )
 
     comp_model2 = mithril.compile(
         model=model1,
         backend=NumpyBackend(precision=32),
-        shapes={"input": [5, 5]},
+        shapes={pol1.input: [5, 5]},
+        safe_names=False,
     )
     assert comp_model.shapes["output"] == [8, 64, 64, 64]
     assert comp_model2.shapes["output"] == [5, 26795]
@@ -3497,7 +3502,7 @@ def test_demo_model():
     model += Flatten(start_dim=1)
     model += Linear(1000)
     model += Linear(1)
-    pm = mithril.compile(model=model, backend=TorchBackend())
+    pm = mithril.compile(model=model, backend=TorchBackend(), safe_names=False)
 
     assert set(pm._input_keys) == {
         "input",
@@ -6011,7 +6016,9 @@ def test_deepcopy_3():
     model += Sigmoid()
     model += deepcopy(model)
     all_data = get_all_data(model)
-    compiled_model = mithril.compile(model=model, backend=NumpyBackend())
+    compiled_model = mithril.compile(
+        model=model, backend=NumpyBackend(), safe_names=False
+    )
     unused_data = {
         compiled_model.data.get(key)
         for key in compiled_model.data_store.unused_keys
@@ -6066,7 +6073,9 @@ def test_deepcopy_5():
 
     all_data = get_all_data(model)
 
-    compiled_model = mithril.compile(model=model, backend=NumpyBackend())
+    compiled_model = mithril.compile(
+        model=model, backend=NumpyBackend(), safe_names=False
+    )
     unused_data = {
         compiled_model.data.get(key)
         for key in compiled_model.data_store.unused_keys
@@ -6082,47 +6091,20 @@ def test_deepcopy_5():
                 assert id(data.value) == id(copied_data.value)
 
 
-def test_compile_shapes_raise_1():
-    model = Model()
-    model += Add()(left="left", right="right", output="output")
-    model += Sigmoid()(input="in", output="left")
-    model += Sigmoid()(input="in", output="right")
-
-    with pytest.raises(Exception) as e:
-        compile(
-            model,
-            JaxBackend(),
-            shapes={"in": [2, 3, 4], "left": [2, 3, 4], "right": [4, 5, 6]},
-        )
-
-    msg = (
-        "Provided shapes: '{'left', 'right'}' must be subset of the input keys "
-        "and output keys"
-    )
-    msg2 = (
-        "Provided shapes: '{'right', 'left'}' must be subset of the input keys "
-        "and output keys"
-    )
-    assert (str(e.value) == msg) | (str(e.value) == msg2)
-
-
 def test_compile_shapes_raise_2():
     model = Model()
     model += Add()(left="left", right="right", output="output")
     model += Sigmoid()(input="in", output="left")
     model += Sigmoid()(input="in", output="right")
 
-    with pytest.raises(Exception) as e:
+    with pytest.raises(KeyError) as e:
         compile(
             model,
             JaxBackend(),
             shapes={"in": [2, 3, 4], "irrelevant": [2, 3, 4]},
         )
 
-    msg = (
-        "Provided shapes: '{'irrelevant'}' must be subset of the input keys "
-        "and output keys"
-    )
+    msg = "'Given key: irrelevant is not found in the logical model.'"
     assert str(e.value) == msg
 
 
@@ -6140,10 +6122,12 @@ def test_compile_static_keys_raise_1():
         )
 
     msg = (
-        "Provided static keys: '{'left', 'right'}' must be subset of the input " "keys."
+        "'Provided static keys must be subset of the input keys. "
+        "Invalid keys: left, right.'"
     )
     msg2 = (
-        "Provided static keys: '{'right', 'left'}' must be subset of the input " "keys."
+        "'Provided static keys must be subset of the input keys. "
+        "Invalid keys: right, left.'"
     )
     assert (str(e.value) == msg) | (str(e.value) == msg2)
 
@@ -6154,14 +6138,14 @@ def test_compile_static_keys_raise_2():
     model += Sigmoid()(input="in", output="left")
     model += Sigmoid()(input="in", output="right")
 
-    with pytest.raises(Exception) as e:
+    with pytest.raises(KeyError) as e:
         compile(
             model,
             JaxBackend(),
             data_keys={"in", "irrelevant"},
         )
 
-    msg = "Provided static keys: '{'irrelevant'}' must be subset of the input keys."
+    msg = "'Given key: irrelevant is not found in the logical model.'"
     assert str(e.value) == msg
 
 
@@ -7012,3 +6996,167 @@ def test_output_keys_canonical_output_2():
     model2 += model(output=IOKey("output"))
 
     assert set(model2.output_keys) == set(["output", "#canonical_output"])
+
+
+def test_string_iokey_value_1():
+    # This tes tests if string value given in init
+    # is working properly
+
+    # For this Purpose, dummy einsum primitive is introduced
+    # since it has a string input
+
+    # This test comprises four steps:
+    # 1. Register Einsum Primitive
+    # 2. Create a model that uses Einsum Primitive and compile it
+    # 3. Evaluate the model
+    # 4. Compare the results
+
+    import torch
+
+    backend = TorchBackend()
+
+    # Define einsum primitive fn
+    def einsum(input, equation):
+        return torch.einsum(equation, input)
+
+    # Define einsum primitive Model
+    class ReduceEinsum(PrimitiveModel):
+        # Small Einsum Model that is written for test purposes.
+        # Now it only supports single input and single output
+
+        def __init__(self, equation: str | ToBeDetermined) -> None:
+            if not isinstance(equation, ToBeDetermined):
+                # Parse the equation
+                input, output = equation.replace(" ", "").split("->")
+                # Parse the shapes
+                all_input_shapes = list(input)
+                all_output_shapes = list(output)
+                # Create TensorType and Scalar Inputs
+                # Note that equation is string
+                tensor_input = TensorType(all_input_shapes)
+                tensor_output = TensorType(all_output_shapes)
+                scalar_equation = Scalar(str, equation)
+
+            else:
+                # case where equation is TBD
+                tensor_input = TensorType([("Var1", ...)])
+                tensor_output = TensorType([("Var2", ...)])
+                scalar_equation = Scalar(str)
+
+            kwargs: dict[str, TensorType | Scalar] = {
+                "output": tensor_output,
+                "input": tensor_input,
+                "equation": scalar_equation,
+            }
+
+            super().__init__(formula_key="einsum", **kwargs)
+            self._freeze()
+
+        def __call__(  # type: ignore[override]
+            self,
+            input: ConnectionType = NOT_GIVEN,
+            equation: ConnectionType = NOT_GIVEN,
+            output: ConnectionType = NOT_GIVEN,
+        ) -> ExtendInfo:
+            return super().__call__(input=input, equation=equation, output=output)
+
+    TorchBackend.register_primitive(einsum)
+
+    # create the model and add einsum
+    model = Model()
+
+    # note that string input is given in __init__
+    a = ReduceEinsum(equation=TBD)(
+        input="input", equation=IOKey(value="ij->i"), output="output"
+    )
+    model += a
+
+    # Compile the model and assert the results
+    pm = mithril.compile(model=model, backend=backend)
+    input = backend.ones((7, 6))
+    trainable_keys = {"input": input}
+    outputs = pm.evaluate(trainable_keys)
+    ref_outputs = {"output": backend.ones(7) * 6}
+    assert_results_equal(outputs, ref_outputs)
+
+
+def test_string_iokey_value_2():
+    # This tes tests if string value handling of
+    # IOKey is working properly.
+
+    # For this Purpose, Dumy Einsum Primitive is introduced
+    # since it has a string input
+
+    # This test comprises four steps:
+    # 1. Register Einsum Primitive
+    # 2. Create a model that uses Einsum Primitive and compile it
+    # 3. Evaluate the model
+    # 4. Compare the results
+
+    import torch
+
+    backend = TorchBackend()
+
+    # Define einsum primitive fn
+    def einsum(input, equation):
+        return torch.einsum(equation, input)
+
+    # Define einsum primitive Model
+    class ReduceEinsum(PrimitiveModel):
+        # Small Einsum Model that is written for test purposes.
+        # Now it only supports single input and single output
+
+        def __init__(self, equation: str | ToBeDetermined) -> None:
+            if not isinstance(equation, ToBeDetermined):
+                # Parse the equation
+                input, output = equation.replace(" ", "").split("->")
+                # Parse the shapes
+                all_input_shapes = list(input)
+                all_output_shapes = list(output)
+                # Create TensorType and Scalar Inputs
+                # Note that equation is string
+                tensor_input = TensorType(all_input_shapes)
+                tensor_output = TensorType(all_output_shapes)
+                scalar_equation = Scalar(str, equation)
+
+            else:
+                # case where equation is TBD
+                tensor_input = TensorType([("Var1", ...)])
+                tensor_output = TensorType([("Var2", ...)])
+                scalar_equation = Scalar(str)
+
+            kwargs: dict[str, TensorType | Scalar] = {
+                "output": tensor_output,
+                "input": tensor_input,
+                "equation": scalar_equation,
+            }
+
+            super().__init__(formula_key="einsum", **kwargs)
+            self._freeze()
+
+        def __call__(  # type: ignore[override]
+            self,
+            input: ConnectionType = NOT_GIVEN,
+            equation: ConnectionType = NOT_GIVEN,
+            output: ConnectionType = NOT_GIVEN,
+        ) -> ExtendInfo:
+            return super().__call__(input=input, equation=equation, output=output)
+
+    TorchBackend.register_primitive(einsum)
+
+    # create the model and add einsum
+    model = Model()
+
+    # note that in __init__, equation is TBD and string is given as IOKey value
+    a = ReduceEinsum(equation=TBD)(
+        input="input", equation=IOKey(value="ij->i"), output="output"
+    )
+    model += a
+
+    # Compile the model and assert the results
+    pm = mithril.compile(model=model, backend=backend)
+    input = backend.ones((7, 6))
+    trainable_keys = {"input": input}
+    outputs = pm.evaluate(trainable_keys)
+    ref_outputs = {"output": backend.ones(7) * 6}
+    assert_results_equal(outputs, ref_outputs)

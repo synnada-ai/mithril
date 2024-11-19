@@ -67,6 +67,7 @@ def test_discard_keys_inference(case: str) -> None:
         shapes=dict(),
         inference=True,
         safe_shapes=True,
+        safe_names=True,
     )
 
     discarded_keys = pm.discarded_keys
