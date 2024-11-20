@@ -21,8 +21,7 @@ from mithril.models import Model, Power
 def test_power_call_threshold_iokey():
     model = Model()
     pow = Power(robust=True)
-    model += pow(threshold=ml.IOKey("t", 0.1))
-
+    model += pow(threshold=ml.IOKey("thres", 0.1))
     assert model.t.data.metadata.data.value == 0.1  # type: ignore
 
 
@@ -75,5 +74,22 @@ def test_error_robust_power_call_threshold_re_set_value():
     from mithril.core import Constant
 
     mean_model = Model()
-    with pytest.raises(ValueError) as error_info:
+    with pytest.raises(ValueError):
         mean_model += rob_pow(threshold=Constant.MIN_POSITIVE_SUBNORMAL)
+
+
+@pytest.mark.skip(
+    reason="This test is not yet implemented. Naming convention bugs"
+    "should be fix when ToTensor like auto-added models created."
+)
+def test_error_robust_power_call_threshold_input_keys():
+    model1 = Model()
+    pow1 = Power(robust=True)
+    model1 += pow1(threshold=ml.IOKey("thres", 0.1))
+
+    model2 = Model()
+    pow2 = Power(robust=True)
+    model2 += pow2(threshold="thres")
+    model2.set_values({"thres": 0.1})
+
+    assert model1._input_keys == model2._input_keys

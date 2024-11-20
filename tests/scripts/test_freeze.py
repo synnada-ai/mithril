@@ -19,10 +19,10 @@ from mithril.models import Add, Linear, Model
 
 def test_freeze_set_values_primitive():
     model = Add()
-    assert model.is_frozen == True
+    assert model.is_frozen is True
 
     model._freeze()
-    assert model.is_frozen == True
+    assert model.is_frozen is True
 
     with pytest.raises(ValueError) as error_info:
         model.set_values({"left": 1.0})
@@ -31,10 +31,10 @@ def test_freeze_set_values_primitive():
 
 def test_freeze_set_values_extend_defined_logical():
     model = Linear()
-    assert model.is_frozen == True
+    assert model.is_frozen is True
 
     model._freeze()
-    assert model.is_frozen == True
+    assert model.is_frozen is True
 
     with pytest.raises(ValueError) as error_info:
         model.set_values({"input": 1.0})
@@ -48,11 +48,11 @@ def test_freeze_set_values_extend_defined_logical():
 def test_freeze_set_values_extend_logical():
     model = Model()
     model += Add()(left="left", right="right")
-    assert model.is_frozen == False
+    assert model.is_frozen is False
 
     model.set_values({"left": 1.0})
     model._freeze()
-    assert model.is_frozen == True
+    assert model.is_frozen is True
 
     with pytest.raises(ValueError) as error_info:
         model.set_values({"right": 1.0})
