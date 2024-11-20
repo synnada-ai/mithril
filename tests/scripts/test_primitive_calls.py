@@ -21,7 +21,7 @@ from mithril.models import Model, Power
 def test_power_call_threshold_iokey():
     model = Model()
     pow = Power(robust=True)
-    model += pow(threshold=ml.IOKey("thres", 0.1))
+    model += pow(threshold=ml.IOKey("t", 0.1))
     assert model.t.data.metadata.data.value == 0.1  # type: ignore
 
 
