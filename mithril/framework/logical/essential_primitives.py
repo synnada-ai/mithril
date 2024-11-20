@@ -129,14 +129,12 @@ class Buffer(PrimitiveModel):
         return super().__call__(input=input, output=output)
 
 
-ToTupleOutputType = tuple[int | float | bool | list | tuple, ...]
-
-
 class ToTuple(PrimitiveModel):
     def __init__(self, n: int) -> None:
         self.factory_args = {"n": n}
-        key_definitions = {}
-        key_definitions["output"] = Scalar(ToTupleOutputType)
+        key_definitions = {
+            "output": Scalar(tuple[int | float | bool | list | tuple, ...])
+        }
         key_definitions |= {
             f"input{idx+1}": Scalar(int | float | bool | list | tuple)
             for idx in range(n)
@@ -182,15 +180,14 @@ class ArithmeticOperation(PrimitiveModel):
 class Power(PrimitiveModel):
     base: Connection
     exponent: Connection
-    threshold: Connection
     output: Connection
 
     def __init__(
         self,
         robust: bool = False,
-        threshold: ConstantType | ToBeDetermined = Constant.MIN_POSITIVE_NORMAL,
     ) -> None:
-        self.factory_args = {"threshold": threshold, "robust": robust}
+        self.robust = robust
+        self.factory_args = {"robust": robust}
         assert isinstance(robust, bool), "Robust must be a boolean value!"
 
         if robust:
@@ -199,16 +196,10 @@ class Power(PrimitiveModel):
                 output=TensorType([("Var_out", ...)]),
                 base=TensorType([("Var_1", ...)]),
                 exponent=TensorType([("Var_2", ...)]),
-                threshold=TensorType([], ConstantType, threshold),
+                threshold=TensorType([], ConstantType),
             )
-
+            self.threshold.set_differentiable(False)  # type: ignore
         else:
-            if threshold != Constant.MIN_POSITIVE_NORMAL:
-                raise KeyError(
-                    "Threshold cannot be specified \
-                               when robust mode is off"
-                )
-
             super().__init__(
                 formula_key="power",
                 output=TensorType([("Var_out", ...)]),
@@ -228,13 +219,15 @@ class Power(PrimitiveModel):
         self,
         base: ConnectionType = NOT_GIVEN,
         exponent: ConnectionType = NOT_GIVEN,
-        threshold: ConnectionType = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
+        *,
+        threshold: ConnectionType = Constant.MIN_POSITIVE_NORMAL,
     ) -> ExtendInfo:
         kwargs = {"base": base, "exponent": exponent, "output": output}
-        if "threshold" in self._input_keys:
+        is_constant = isinstance(threshold, Constant)
+        if self.robust:
             kwargs["threshold"] = threshold
-        elif threshold != NOT_GIVEN:
+        elif not (is_constant and threshold == Constant.MIN_POSITIVE_NORMAL):
             raise ValueError("Threshold cannot be specified when robust mode is off")
 
         return super().__call__(**kwargs)
@@ -941,26 +934,21 @@ class Minus(SingleInputOperation):
 
 class Sqrt(PrimitiveModel):
     input: Connection
-    cutoff: Connection
     output: Connection
 
     def __init__(
         self,
         robust: bool = False,
-        cutoff: ConstantType | ToBeDetermined = Constant.MIN_POSITIVE_NORMAL,
     ) -> None:
-        self.factory_args = {"robust": robust, "cutoff": cutoff}
+        self.robust = robust
+        self.factory_args = {"robust": robust}
 
         if robust:
-            if isinstance(cutoff, str) and cutoff != Constant.MIN_POSITIVE_NORMAL:
-                raise ValueError(f"cutoff can only be set to 'min_positive_normal' \
-                                 in string format, got {cutoff}")
-
             super().__init__(
                 formula_key="robust_sqrt",
                 output=TensorType([("Var", ...)], float),
                 input=TensorType([("Var", ...)]),
-                cutoff=TensorType([], ConstantType, cutoff),
+                cutoff=TensorType([], ConstantType),
             )
         else:
             super().__init__(
@@ -972,19 +960,17 @@ class Sqrt(PrimitiveModel):
     def __call__(  # type: ignore[override]
         self,
         input: ConnectionType = NOT_GIVEN,
-        cutoff: ConnectionType = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
+        *,
+        cutoff: ConnectionType = Constant.MIN_POSITIVE_NORMAL,
     ) -> ExtendInfo:
         kwargs = {"input": input, "output": output}
 
-        if self.formula_key == "sqrt" and cutoff != NOT_GIVEN:
-            raise ValueError(
-                "Sqrt does not accept cutoff argument \
-                             when initialized with robust = False."
-            )
-
-        if self.formula_key == "robust_sqrt":
+        is_constant = isinstance(cutoff, Constant)
+        if self.robust:
             kwargs["cutoff"] = cutoff
+        elif not (is_constant and cutoff == Constant.MIN_POSITIVE_NORMAL):
+            raise ValueError("Cutoff cannot be specified when robust mode is off")
 
         return super().__call__(**kwargs)
 

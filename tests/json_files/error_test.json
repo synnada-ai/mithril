@@ -67,9 +67,6 @@
         "model": {
             "name": "Model"
         },
-        "static_keys": {
-            "input": [[1.0]]
-        }, 
         "inputs": {
             "w0": [[1.0, 2, 3]],
             "b0": [-2.0, -3, 0],

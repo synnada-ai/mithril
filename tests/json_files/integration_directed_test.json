@@ -313,7 +313,7 @@
             "output": {
                 "loss": {
                     "fn": "QuantileLoss",
-                    "params": {
+                    "call_kwargs": {
                         "quantile": 0.5
                     }
                 }, 
@@ -352,7 +352,7 @@
             "output": {
                 "loss": {
                     "fn": "QuantileLoss",
-                    "params": {
+                    "call_kwargs": {
                         "quantile": 0.9
                     }
                 }, 
@@ -392,7 +392,7 @@
             "output": {
                 "loss": {
                     "fn": "QuantileLoss",
-                    "params": {
+                    "call_kwargs": {
                         "quantile": 0.9
                     }
                 }, 
@@ -431,7 +431,7 @@
             "output": {
                 "loss": {
                     "fn": "QuantileLoss",
-                    "params": {
+                    "call_kwargs": {
                         "quantile": 1e-15
                     }
                 }, 
@@ -470,7 +470,7 @@
             "output": {
                 "loss": {
                     "fn": "QuantileLoss",
-                    "params": {
+                    "call_kwargs": {
                         "quantile": 0.2
                     }
                 }, 
@@ -509,7 +509,7 @@
             "output": {
                 "loss": {
                     "fn": "QuantileLoss",
-                    "params": {
+                    "call_kwargs": {
                         "quantile": 0.99999999999
                     }
                 }, 
@@ -555,7 +555,7 @@
             "output": {
                 "loss": {
                     "fn": "QuantileLoss",
-                    "params": {
+                    "call_kwargs": {
                         "quantile": 0.99999999999
                     }
                 }, 
@@ -601,7 +601,7 @@
             "output": {
                 "loss": {
                     "fn": "QuantileLoss",
-                    "params": {
+                    "call_kwargs": {
                         "quantile": 0.99999999999
                     }
                 }, 

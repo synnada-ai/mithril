@@ -3495,6 +3495,35 @@ def tuple_converter_constraint(output: Scalar, input: Scalar) -> ConstrainResult
     return status, updates
 
 
+def cross_entropy_constraint(
+    categorical: Scalar, input: Tensor, target: Tensor
+) -> ConstrainResultType:
+    assert input._temp_shape is not None, "Input shape of reverse is not set!"
+    assert target._temp_shape is not None, "Target shape of reverse is not set!"
+
+    status = False
+    updates = Updates()
+    categorical_value = categorical.value
+
+    input_shape: ShapeRepr = input._temp_shape
+    target_shape: ShapeRepr = target._temp_shape
+
+    if categorical_value is not TBD:
+        if not categorical_value:
+            updates |= target_shape._match(input_shape)
+        else:
+            N = Uniadic()
+            C = Uniadic()
+            var = Variadic()
+            in_repr = ShapeRepr([N, C], var)
+            target_repr = ShapeRepr([N], var)
+            updates = input_shape._match(in_repr)
+            updates = target_shape._match(target_repr)
+
+        status = True
+    return status, updates
+
+
 type_constraints = {
     general_tensor_type_constraint,
     floor_divide_type_constraint,

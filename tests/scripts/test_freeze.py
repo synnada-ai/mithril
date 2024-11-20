@@ -1,0 +1,74 @@
+# Copyright 2022 Synnada, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import pytest
+from mithril.models import Model, Add, Linear
+
+def test_freeze_set_values_primitive():
+    model = Add()
+    assert model.is_frozen == True
+
+    model._freeze()
+    assert model.is_frozen == True
+
+    with pytest.raises(ValueError) as error_info:
+        model.set_values({"left": 1.0})
+    assert str(error_info.value) == 'Model is frozen, can not set the key: left!'
+
+
+def test_freeze_set_values_extend_defined_logical():
+    model = Linear()
+    assert model.is_frozen == True
+
+    model._freeze()
+    assert model.is_frozen == True
+
+    with pytest.raises(ValueError) as error_info:
+        model.set_values({"input": 1.0})
+    assert str(error_info.value) == "Model is frozen, can not set the key: input!"
+
+    with pytest.raises(AttributeError) as attr_error_info:
+        model += Add()
+    assert str(attr_error_info.value) == "Model is frozen and can not be extended!"
+
+
+def test_freeze_set_values_extend_logical():
+    model = Model()
+    model += Add()(left="left", right="right")
+    assert model.is_frozen == False
+    
+    model.set_values({"left": 1.0})
+    model._freeze()    
+    assert model.is_frozen == True
+
+    with pytest.raises(ValueError) as error_info:
+        model.set_values({"right": 1.0})
+    assert str(error_info.value) == "Model is frozen, can not set the key: right!"
+
+    with pytest.raises(AttributeError) as attr_error_info:
+        model += Add()
+    assert str(attr_error_info.value) == "Model is frozen and can not be extended!"
+    
+    from copy import deepcopy
+    from mithril.models import Multiply
+    model = Model()
+    mult_model1 = Model()
+    mult_model1 += Multiply()(left="left", right="right", output="output")
+    mult_model1.set_values({"right": 1.0})
+
+    mult_model2 = Model()
+    mult_model2 += Multiply()(left="left", right="right", output="output")
+    mult_model2.set_values({"left": 1.0})
+
+    model += mult_model1(left = "input1")

@@ -1502,8 +1502,8 @@ def test_cyclic_extension():
 
 def test_canonic_example():
     model = Model()
-    model += LeakyRelu()
-    model += LeakyRelu()
+    model += LeakyRelu()()
+    model += LeakyRelu()()
     comp_model = compile(model=model, backend=NumpyBackend())
     assert set(comp_model._input_keys) == {"input", "_input_0"}
     assert set(comp_model.output_keys) == {"output"}
@@ -3759,29 +3759,37 @@ def test_add_loss_unknown_key():
     context = TrainModel(model)
 
     # Wrong keyword for loss
-    with pytest.raises(KeyError) as err_info:
+    with pytest.raises(TypeError) as err_info:
         context.add_loss(SquaredError(), inpu2t="output", target="target")
 
-    assert str(err_info.value) == '"The provided keys do not match the model\'s loss."'
+    assert (
+        str(err_info.value)
+        == "SupervisedLoss.__call__() got an unexpected keyword argument 'inpu2t'"
+    )
 
-    with pytest.raises(KeyError) as err_info:
+    with pytest.raises(TypeError) as err_info:
         context.add_loss(SquaredError(), input="output", targe2t="target")
 
-    assert str(err_info.value) == '"The provided keys do not match the model\'s loss."'
+    assert (
+        str(err_info.value)
+        == "SupervisedLoss.__call__() got an unexpected keyword argument 'targe2t'"
+    )
 
     # Wrong keyword for model
-    with pytest.raises(KeyError) as err_info:
+    with pytest.raises(KeyError) as key_err_info:
         context.add_loss(SquaredError(), input="output1", target="target")
 
-    assert str(err_info.value) == (
+    assert str(key_err_info.value) == (
         "'The provided keys are not valid; at least one of the keys must belong "
         "to the model!'"
     )
 
-    with pytest.raises(KeyError) as err_info:
+    with pytest.raises(KeyError) as key_err_info:
         context.add_loss(SquaredError(), target="output")
 
-    assert str(err_info.value) == '"The provided keys do not match the model\'s loss."'
+    assert (
+        str(key_err_info.value) == '"The provided keys do not match the model\'s loss."'
+    )
 
     # Successfully add loss
     context.add_loss(
@@ -6322,13 +6330,13 @@ def test_multi_write_2():
 
 def test_multi_write_3():
     model = Model()
-    l_relu1 = LeakyRelu(slope=0.85)
+    l_relu = Model()
+    l_relu += LeakyRelu()(slope=IOKey("slope", 0.85))
     with pytest.raises(ValueError) as err_info:
-        model += l_relu1(input="input", output="output", slope=0.75)
+        model += l_relu(slope=0.75)
 
     assert str(err_info.value) == (
-        "Value of LeakyRelu's slope given as 0.75. But the value is already "
-        "initialized as 0.85"
+        "Value is set before as 0.85." " A scalar value can not be reset."
     )
 
 
@@ -6398,7 +6406,7 @@ def test_multi_write_8():
 def test_leaky_relu_trainable_slope():
     backend = JaxBackend()
     model = Model()
-    model += LeakyRelu(slope=TBD)(input="input", output="output", slope="slope")
+    model += LeakyRelu()(input="input", output="output", slope="slope")
 
     pm = mithril.compile(model=model, backend=backend)
     params = {"input": backend.array([-2.0, 2.0]), "slope": backend.array(0.2)}
