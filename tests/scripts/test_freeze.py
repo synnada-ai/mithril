@@ -13,7 +13,9 @@
 # limitations under the License.
 
 import pytest
-from mithril.models import Model, Add, Linear
+
+from mithril.models import Add, Linear, Model
+
 
 def test_freeze_set_values_primitive():
     model = Add()
@@ -24,7 +26,7 @@ def test_freeze_set_values_primitive():
 
     with pytest.raises(ValueError) as error_info:
         model.set_values({"left": 1.0})
-    assert str(error_info.value) == 'Model is frozen, can not set the key: left!'
+    assert str(error_info.value) == "Model is frozen, can not set the key: left!"
 
 
 def test_freeze_set_values_extend_defined_logical():
@@ -47,9 +49,9 @@ def test_freeze_set_values_extend_logical():
     model = Model()
     model += Add()(left="left", right="right")
     assert model.is_frozen == False
-    
+
     model.set_values({"left": 1.0})
-    model._freeze()    
+    model._freeze()
     assert model.is_frozen == True
 
     with pytest.raises(ValueError) as error_info:
@@ -59,9 +61,9 @@ def test_freeze_set_values_extend_logical():
     with pytest.raises(AttributeError) as attr_error_info:
         model += Add()
     assert str(attr_error_info.value) == "Model is frozen and can not be extended!"
-    
-    from copy import deepcopy
+
     from mithril.models import Multiply
+
     model = Model()
     mult_model1 = Model()
     mult_model1 += Multiply()(left="left", right="right", output="output")
@@ -71,4 +73,4 @@ def test_freeze_set_values_extend_logical():
     mult_model2 += Multiply()(left="left", right="right", output="output")
     mult_model2.set_values({"left": 1.0})
 
-    model += mult_model1(left = "input1")
+    model += mult_model1(left="input1")

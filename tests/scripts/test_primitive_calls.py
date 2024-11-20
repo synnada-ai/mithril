@@ -13,22 +13,24 @@
 # limitations under the License.
 
 import pytest
+
 import mithril as ml
 from mithril.models import Model, Power
+
 
 def test_power_call_threshold_iokey():
     model = Model()
     pow = Power(robust=True)
-    model += pow(threshold = ml.IOKey("t", 0.1))
+    model += pow(threshold=ml.IOKey("t", 0.1))
 
-    assert model.t.data.metadata.data.value == 0.1 # type: ignore
+    assert model.t.data.metadata.data.value == 0.1  # type: ignore
 
 
 def test_error_not_robust_power_call_threshold_iokey():
     pow = Power(robust=False)
 
     with pytest.raises(ValueError) as error_info:
-        pow(threshold = ml.IOKey("t", 0.1))
+        pow(threshold=ml.IOKey("t", 0.1))
 
     error_msg = str(error_info.value)
     assert error_msg == "Threshold cannot be specified when robust mode is off"
@@ -38,7 +40,7 @@ def test_error_not_robust_power_call_threshold_str():
     pow = Power(robust=False)
 
     with pytest.raises(ValueError) as error_info:
-        pow(threshold = "t")
+        pow(threshold="t")
 
     error_msg = str(error_info.value)
     assert error_msg == "Threshold cannot be specified when robust mode is off"
@@ -48,7 +50,7 @@ def test_error_not_robust_power_call_threshold_float():
     pow = Power(robust=False)
 
     with pytest.raises(ValueError) as error_info:
-        pow(threshold = 0.1)
+        pow(threshold=0.1)
 
     error_msg = str(error_info.value)
     assert error_msg == "Threshold cannot be specified when robust mode is off"
@@ -58,18 +60,20 @@ def test_compile_robust_power_call_with_default_threshold():
     backend = ml.TorchBackend()
     pow = Power(robust=True)
     pm = ml.compile(pow, backend)
-    pm.evaluate(params = {"base": backend.ones(3, 3), "exponent": backend.ones(3, 3)})
+    pm.evaluate(params={"base": backend.ones(3, 3), "exponent": backend.ones(3, 3)})
+
 
 @pytest.mark.skip(
-    reason="This test is not yet implemented. Naming convention bugs" 
+    reason="This test is not yet implemented. Naming convention bugs"
     "should be fix when ToTensor like auto-added models created."
 )
 def test_error_robust_power_call_threshold_re_set_value():
     rob_pow = Model()
     primitive_pow = Power(robust=True)
-    rob_pow += primitive_pow(threshold = "threshold")
+    rob_pow += primitive_pow(threshold="threshold")
     primitive_pow.set_values({"threshold": 1.3})
     from mithril.core import Constant
+
     mean_model = Model()
     with pytest.raises(ValueError) as error_info:
         mean_model += rob_pow(threshold=Constant.MIN_POSITIVE_SUBNORMAL)
