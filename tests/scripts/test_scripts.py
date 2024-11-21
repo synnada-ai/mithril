@@ -107,6 +107,7 @@ from mithril.models import (
 )
 from mithril.utils.type_utils import is_list_int
 
+from .helper import assert_models_equal
 from .test_shapes import check_shapes_semantically
 from .test_utils import (
     assert_connections,
@@ -1502,8 +1503,8 @@ def test_cyclic_extension():
 
 def test_canonic_example():
     model = Model()
-    model += LeakyRelu()()
-    model += LeakyRelu()()
+    model += LeakyRelu()
+    model += LeakyRelu()
     comp_model = compile(model=model, backend=NumpyBackend())
     assert set(comp_model._input_keys) == {"input", "_input_0"}
     assert set(comp_model.output_keys) == {"output"}
@@ -6819,7 +6820,7 @@ def test_iadd_1():
 def test_iadd_2():
     model = Model()
     model += MatrixMultiply()(right="w1")
-    model += Relu()()
+    model += Relu()
     model += Sigmoid()
     model += MatrixMultiply()(left=model.canonical_output, right="w4")
 
@@ -7168,3 +7169,13 @@ def test_string_iokey_value_2():
     outputs = pm.evaluate(trainable_keys)
     ref_outputs = {"output": backend.ones(7) * 6}
     assert_results_equal(outputs, ref_outputs)
+
+
+def test_empty_call_vs_direct_model_extending():
+    model1 = Model()
+    model1 += LeakyRelu()
+
+    model2 = Model()
+    model2 += LeakyRelu()
+
+    assert_models_equal(model1, model2)
