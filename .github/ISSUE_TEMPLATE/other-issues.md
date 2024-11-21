@@ -2,7 +2,7 @@
 name: Other issues
 about: Use this template for issues that do not fall under Bug Reports or Feature
   Requests.
-title: ''
+title: "[OTHER]"
 labels: ''
 assignees: ''
 
