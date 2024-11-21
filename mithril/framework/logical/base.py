@@ -94,6 +94,7 @@ class BaseModel(abc.ABC):
         self._jittable = True
         self.constraint_solver: ConstraintSolver = ConstraintSolver()
         self.safe_shapes: dict[str, ShapeTemplateType] = {}
+        self.is_frozen = False
 
     @abc.abstractmethod
     def summary(
@@ -175,8 +176,8 @@ class BaseModel(abc.ABC):
         else:
             super().__setattr__(name, value)
 
-    @abc.abstractmethod
-    def _freeze(self) -> None: ...
+    def _freeze(self) -> None:
+        self.is_frozen = True
 
     @abc.abstractmethod
     def extract_connection_info(
@@ -310,7 +311,19 @@ class BaseModel(abc.ABC):
         # Make all value updates in the outermost model.s
         model = self._get_outermost_parent()
         updates = Updates()
+        # TODO: Currently Setting values in fozen models are prevented only for Tensors.
+        # Scalar and Tensors should not be operated differently. This should be fixed.
         for key, value in chain(config.items(), kwargs.items()):
+            metadata = self.conns.extract_metadata(key)
+            if isinstance(metadata.data, Tensor) and model.is_frozen:
+                conn_data = model.conns.get_con_by_metadata(metadata)
+                assert conn_data is not None
+                raise ValueError(
+                    f"Model is frozen, can not set the key: {conn_data.key}!"
+                )
+
+        for key, value in chain(config.items(), kwargs.items()):
+
             # Perform metadata extraction process on self.
             metadata = self.conns.extract_metadata(key)
             # Perform validity check and updates on model.

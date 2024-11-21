@@ -118,6 +118,8 @@ class PrimitiveModel(BaseModel):
             else:
                 self._canonical_output = canonical_output_conn
 
+        self._freeze()
+
     def __iadd__(self, other: BaseModel):
         raise Exception(
             f"Primitive '{self.__class__.__name__}' model can not be extended!"
@@ -213,6 +215,3 @@ class PrimitiveModel(BaseModel):
 
         table._compile()
         table.display()
-
-    def _freeze(self) -> None:
-        pass

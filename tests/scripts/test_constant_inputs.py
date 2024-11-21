@@ -243,7 +243,6 @@ def test_default_in_numpy_error():
             backend=NumpyBackend(),
             constant_keys=constant_keys,
             data_keys=data_keys,
-            # file_path = "constant_inputs"
         )
     assert (
         str(err_info.value)
@@ -322,10 +321,7 @@ def test_default_given_compile_numpy():
     static_inputs: dict[str, np.ndarray | int] = {"input": np_input, "axis": 0}
     expected_result = (np_input.mean(0) * 2).mean(0)
     compiled_model = mithril.compile(
-        model=model,
-        backend=NumpyBackend(),
-        constant_keys=static_inputs,
-        # file_path = "constant_inputs.py"
+        model=model, backend=NumpyBackend(), constant_keys=static_inputs
     )
     inputs = compiled_model.randomize_params()
     data = {"axis": None}
@@ -410,10 +406,7 @@ def test_constant_given_data_numpy():
     }
     expected_result = (np_input.mean(0) * 2).mean(0)
     compiled_model = mithril.compile(
-        model=model,
-        backend=NumpyBackend(),
-        constant_keys=static_inputs,
-        # file_path = "constant_inputs.py"
+        model=model, backend=NumpyBackend(), constant_keys=static_inputs
     )
 
     inputs = compiled_model.randomize_params()
@@ -481,9 +474,9 @@ def test_constant_numpy_set_values():
 
 def test_axis():
     model = Model()
-    relu = LeakyRelu(slope=2.3)
-    rob_pow = Power(robust=True, threshold=TBD)
-    model += relu(input="input")
+    relu = LeakyRelu()
+    rob_pow = Power(robust=True)
+    model += relu(input="input", slope=2.3)
     model += rob_pow(base=relu.output, exponent="exponent", threshold=relu.slope)
 
     backend = NumpyBackend()
@@ -511,10 +504,10 @@ def test_axis():
 
 def test_axis_1():
     model = Model()
-    relu = LeakyRelu(slope=TBD)
-    rob_pow = Power(robust=True, threshold=2.3)
-    model += rob_pow(base="base", exponent="exponent")
-    model += relu(input=rob_pow.output, slope=rob_pow.threshold)
+    relu = LeakyRelu()
+    rob_pow = Power(robust=True)
+    model += rob_pow(base="base", threshold=2.3, exponent="exponent")
+    model += relu(input=rob_pow.output, slope=rob_pow.threshold)  # type: ignore
     # Check required value transfer occured in logical model
     # assert relu.conns.get_data("slope").value == 2.3
 
@@ -630,23 +623,16 @@ def test_scalar_mean_2_1():
 
 def test_scalar_mean_2_2():
     mean_model = Model()
-    rob_pow = Power(robust=True, threshold=1.3)
+    rob_pow = Model()
+    rob_pow += Power(robust=True)(
+        threshold=IOKey(name="threshold", value=1.3), base="base"
+    )
+
     with pytest.raises(ValueError) as err_info:
         mean_model += rob_pow(threshold=1.5, base="input")
     assert (
-        str(err_info.value) == "Value of Power's threshold given as 1.5. "
-        "But the value is already initialized as 1.3"
-    )
-
-
-def test_scalar_threshold():
-    model = Model()
-    rob_pow = Power(robust=True)
-    with pytest.raises(ValueError) as err_info:
-        model += rob_pow(threshold=1.5, base="input")
-    assert (
-        str(err_info.value) == "Value of Power's threshold given as 1.5. "
-        "But the value is already initialized as Constant.MIN_POSITIVE_NORMAL"
+        str(err_info.value) == "Value is set before as 1.3. A scalar"
+        " value can not be reset."
     )
 
 
@@ -1493,7 +1479,7 @@ def test_composite_1_set_values():
 def test_composite_2():
     model = Model()
     conv1 = Convolution2D(kernel_size=2, out_channels=4)
-    leaky_relu = LeakyRelu(slope=TBD)
+    leaky_relu = LeakyRelu()
     model += conv1(input="input")
     conv1.input.set_differentiable(True)
     model += leaky_relu(input=conv1.output, output=IOKey(name="output"), slope=0.3)
@@ -1504,10 +1490,12 @@ def test_composite_2():
 def test_composite_2_set_values():
     model = Model()
     conv1 = Convolution2D(kernel_size=2, out_channels=4)
-    leaky_relu = LeakyRelu(slope=TBD)
+    leaky_relu = LeakyRelu()
     model += conv1(input="input")
     conv1.input.set_differentiable(True)
-    model += leaky_relu(input=conv1.output, output=IOKey(name="output"))
+    model += leaky_relu(
+        input=conv1.output, output=IOKey(name="output"), slope=NOT_GIVEN
+    )
     model.set_values({leaky_relu.slope: 0.3})
     model.set_shapes({"input": [1, 1, 4, 4]})
     assert_all_backends_device_precision(model)
@@ -1516,7 +1504,7 @@ def test_composite_2_set_values():
 def test_composite_3():
     model = Model()
     conv1 = Convolution2D(kernel_size=2, out_channels=1, stride=TBD)
-    leaky_relu = LeakyRelu(slope=TBD)
+    leaky_relu = LeakyRelu()
     mean_model = Mean(axis=TBD)
     model += conv1(input="input", stride=(2, 3))
     conv1.input.set_differentiable(True)
@@ -1531,12 +1519,12 @@ def test_composite_3():
 def test_composite_3_set_values():
     model = Model()
     conv1 = Convolution2D(kernel_size=2, out_channels=1, stride=TBD)
-    leaky_relu = LeakyRelu(slope=TBD)
+    leaky_relu = LeakyRelu()
     mean_model = Mean(axis=TBD)
     model += conv1(input="input", stride=(2, 3))
     conv1.input.set_differentiable(True)
     model.set_values({conv1.stride: (2, 3)})
-    model += leaky_relu(input=conv1.output)
+    model += leaky_relu(input=conv1.output, slope=NOT_GIVEN)
     model.set_values({leaky_relu.slope: 0.3})
     model += mean_model(axis=conv1.stride)
     assert not isinstance(conv1.canonical_output, NotAvailable)
@@ -1549,7 +1537,7 @@ def test_composite_3_set_values():
 def test_composite_4():
     model = Model()
     conv1 = Convolution2D(kernel_size=2, out_channels=1, stride=TBD)
-    leaky_relu = LeakyRelu(slope=TBD)
+    leaky_relu = LeakyRelu()
     mean_model = Mean(axis=TBD)
     model += conv1(input="input", stride=(2, 3))
     conv1.input.set_differentiable(True)
@@ -1564,12 +1552,12 @@ def test_composite_4():
 def test_composite_4_set_values():
     model = Model()
     conv1 = Convolution2D(kernel_size=2, out_channels=1, stride=TBD)
-    leaky_relu = LeakyRelu(slope=TBD)
+    leaky_relu = LeakyRelu()
     mean_model = Mean(axis=TBD)
     model += conv1(input="input")
     conv1.input.set_differentiable(True)
     model.set_values({conv1.stride: (2, 3)})
-    model += leaky_relu(input=conv1.output)
+    model += leaky_relu(input=conv1.output, slope=NOT_GIVEN)
     model.set_values({leaky_relu.slope: 0.3})
     model += mean_model(axis=conv1.stride)
     model.set_shapes({"input": [1, 1, 8, 8]})
@@ -2045,7 +2033,7 @@ def test_static_shape_model_3():
 def test_static_shape_model_4():
     model = Model()
     model += Relu()(input="input")
-    model += Log(robust=True, cutoff=TBD)
+    model += Log(robust=True)(cutoff=NOT_GIVEN)
     model += Shape()
     model += ToTensor()
     model += Relu()
@@ -2076,7 +2064,7 @@ def test_static_shape_model_4():
 def test_static_shape_model_5():
     model = Model()
     model += Relu()(input="input")
-    model += (log := Log(robust=True, cutoff=TBD))(cutoff="cutoff")
+    model += (log := Log(robust=True))(cutoff="cutoff")
     model += Shape()
     model += ToTensor()
     model += Relu()(input=model.canonical_output, output=IOKey(name="output1"))
@@ -2387,7 +2375,7 @@ def test_eye_ellipsis_2():
 def test_cross_entropy_robust_ellipsis():
     backend = TorchBackend()
     model = Model()
-    ce_model = CrossEntropy(robust=TBD, input_type="probs")
+    ce_model = CrossEntropy(input_type="probs")
     model += ce_model(
         input="input", target="target", output=IOKey(name="output"), robust="robust"
     )
@@ -2412,9 +2400,7 @@ def test_cross_entropy_robust_ellipsis():
 def test_bce_ellipsis():
     backend = NumpyBackend()
     model_1 = Model()
-    ce_model_1 = BinaryCrossEntropy(
-        robust=TBD, pos_weight=TBD, cutoff=TBD, input_type="probs"
-    )
+    ce_model_1 = BinaryCrossEntropy(pos_weight=TBD, input_type="probs")
     model_1 += ce_model_1(
         input="input",
         target="target",

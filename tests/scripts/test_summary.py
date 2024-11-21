@@ -862,9 +862,10 @@ def test_table_5():
 def test_physical_summary_1():
     model = Model()
     model += Linear(dimension=5)(input="input")
-    model += LeakyRelu()
+    model += LeakyRelu()()
     model += (lin1 := Linear(dimension=3))
-    model += LeakyRelu(slope=1e-1)
+    model += (l_relu := LeakyRelu())
+    l_relu.set_values({"slope": 1e-1})
     model += Relu()
     lin1.set_shapes({"input": [3, 5]})
     comp_model = mithril.compile(
@@ -886,7 +887,7 @@ def test_physical_summary_2():
     model1 += Sigmoid()
     model = Model()
     model += Linear(dimension=5)(input="input")
-    model += LeakyRelu()
+    model += LeakyRelu()()
     model += Linear(dimension=3)
     model += model1
     assert isinstance(model.canonical_input, Connection)
@@ -1289,7 +1290,7 @@ def test_logical_model_summary_2():
     model += Convolution2D(kernel_size=4, out_channels=4)
     model += Relu()
     model += Convolution2D(kernel_size=4, out_channels=4)
-    model += LeakyRelu()
+    model += LeakyRelu()()
     model += Flatten(start_dim=1)
     model += Linear(dimension=1)
     model += Sum()
