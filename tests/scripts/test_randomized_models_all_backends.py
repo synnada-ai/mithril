@@ -20,14 +20,8 @@ from copy import deepcopy
 import numpy as np
 import pytest
 
-from mithril import (
-    JaxBackend,
-    MlxBackend,
-    NumpyBackend,
-    TorchBackend,
-    compile,
-    models,
-)
+from mithril import JaxBackend, MlxBackend, NumpyBackend, TorchBackend, compile, models
+from mithril.framework.common import Tensor
 from mithril.utils.dict_conversions import dict_to_model
 from tests.scripts.test_utils import (
     dict_to_random,
@@ -183,6 +177,13 @@ def test_randomized(case: str) -> None:
             static_inputs[init_key] = shapes_to_random(
                 dict_to_random(static_input_info, random_shapes), init_backend
             )
+            static_inputs[init_key] = {
+                key: init_backend.array(value)
+                if isinstance(model.conns._get_metadata(key).data, Tensor)
+                else value
+                for key, value in static_inputs[init_key].items()
+            }
+
             shapes: dict[str, list[int]] = {}
             for key, value in input_info.items():
                 shape = value["shapes"]
@@ -227,8 +228,11 @@ def test_randomized(case: str) -> None:
                 }
                 static_inputs[backend.type] = {
                     key: backend.array(value)
+                    if isinstance(model.conns._get_metadata(key).data, Tensor)
+                    else value
                     for key, value in static_inputs[init_key].items()
                 }
+
             gradients[init_key] = compiled_model.evaluate_gradients(
                 inputs[init_key], output_gradients=output_gradients[init_key]
             )
