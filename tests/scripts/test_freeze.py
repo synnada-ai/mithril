@@ -68,8 +68,8 @@ def test_freeze_set_values_scalar():
     model += ScalarItem()(input="input")
     assert model.is_frozen is False
 
-    model.set_values({"input": [1.0]})
     model._freeze()
+    model.set_values({"input": [1.0]})
     assert model.is_frozen is True
 
     assert model.input.data.metadata.data.value == [1.0]  # type: ignore
