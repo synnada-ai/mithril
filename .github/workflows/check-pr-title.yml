@@ -15,7 +15,7 @@ jobs:
       - name: Check PR title format
         id: check_title
         run: |
-          TITLE="${{ github.event.pull_request.title }}"
+          TITLE='${{ github.event.pull_request.title }}'
           if [[ ! "$TITLE" =~ ^(feat|fix|docs|chore|perf|test|refactor): ]]; then
             echo "::error::PR title does not follow the convention 'type: description'. Please review the title."
             gh pr review ${{ github.event.pull_request.number }} -r -b "This PR does not satisfies PR title format. Title format should be same as one of the conventional commits"
