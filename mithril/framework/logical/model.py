@@ -17,7 +17,6 @@ from __future__ import annotations
 from types import UnionType
 from typing import Self, TypeVar, overload
 
-from ...core import Constant
 from ...utils.utils import OrderedSet, find_dominant_type
 from ..common import (
     NOT_AVAILABLE,
@@ -154,10 +153,8 @@ class Model(BaseModel):
     def __init__(
         self, formula_key: str | None = None, enforce_jit: bool = True
     ) -> None:
-        self.passive_output = None
-        self.main_primitive = None
         self.dag: dict[BaseModel, dict[str, ConnectionData]] = {}
-        self.inter_key_count = 0
+        self.inter_key_count: int = 0
         self.formula_key = formula_key
         super().__init__(enforce_jit=enforce_jit)
 
@@ -1044,30 +1041,6 @@ class Model(BaseModel):
         shape_info: dict[str, ShapeTemplateType] = dict()
         type_info: dict[str, type | UnionType] = dict()
 
-        # Check if any Tensor type key is already initialized with a value.
-        # This occurs only when a Primitive model having any Tensor type key
-        # initialized with a default value is extending the model.
-        for input_key in model._input_keys:
-            input_conn = model.conns.all.get(input_key)
-            assert input_conn is not None, "Connection type is not found!"
-            input_data = input_conn.metadata.data
-            if isinstance(input_data, Tensor) and not isinstance(
-                input_data.temp_value, ToBeDetermined
-            ):
-                if (
-                    (given_value := kwargs.get(input_key)) is not None
-                    and given_value is not NOT_GIVEN
-                    and given_value != input_data.temp_value
-                    and not isinstance(given_value, Constant)
-                ):
-                    raise ValueError(
-                        f"Value of {model.__class__.__name__}'s {input_key} given "
-                        f"as {given_value}. But the value is already initialized as "
-                        f"{input_data.temp_value}"
-                    )
-                kwargs[input_key] = input_data.temp_value
-                input_data.temp_value = TBD
-
         for key, value in kwargs.items():
             # Check if given keys are among model's keys.
             if key not in model._input_keys | model.conns.output_keys:
@@ -1231,35 +1204,9 @@ class Model(BaseModel):
         # Update jittablity by using model's jittablity.
         self._jittable &= model.jittable
 
-    # def __add__(self, model: Model | PrimitiveModel):
-    #     """This function allows models to be added sequentially via "+=" operator.
-    #     There are several conditions for a model to be sequentially added:
-    #     if added model has single input, connect that input directly.
-
-    #     Parameters
-    #     ----------
-    #     model : Model
-    #         Other model to be sequentially added.
-    #     """
-    #     if not (isinstance(model, BaseModel) or isinstance(model, PrimitiveModel)):
-    #         raise TypeError("Added element should be a Model type.")
-    #     kwargs = {}
-    #     if self.canonical_output:
-    #         kwargs = {model._canonical_input.key: self.canonical_output}
-
-    #     self.extend(model, **kwargs)
-    #     return self
-
-    def __add__(self, info: ExtendInfo | PrimitiveModel | Model) -> Self:
-        """This function allows models to be added via "+=" operator.
-        There are several conditions for a model to be added:
-        if added model has single input, connect that input directly.
-
-        Parameters
-        ----------
-        model : Model
-            Other model to be added.
-        """
+    def _extend(self, info: ExtendInfo | PrimitiveModel | Model) -> Self:
+        if self.is_frozen:
+            raise AttributeError("Model is frozen and can not be extended!")
 
         model, kwargs = (
             (info._model, info._connections)
@@ -1298,6 +1245,18 @@ class Model(BaseModel):
 
         self.extend(model, **kwargs)
         return self
+
+    def __add__(self, info: ExtendInfo | PrimitiveModel | Model) -> Self:
+        """This function allows models to be added via "+=" operator.
+        There are several conditions for a model to be added:
+        if added model has single input, connect that input directly.
+
+        Parameters
+        ----------
+        model : Model
+            Other model to be added.
+        """
+        return self._extend(info)
 
     __iadd__ = __add__
 
@@ -1466,7 +1425,7 @@ class Model(BaseModel):
 
         self.dependency_map.update_all_keys()
 
-        # Sort and freeze dag
+        # Sort dag
         self.dag = {m: self.dag[m] for m in self.get_models_in_topological_order()}
         if self.formula_key is not None:
             # Must be convertable to primitive.
@@ -1474,6 +1433,7 @@ class Model(BaseModel):
                 "Logical models have altenative primitive implementation must "
                 "have only 1 output."
             )
+        super()._freeze()
 
     def summary(
         self,

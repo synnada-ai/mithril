@@ -1950,9 +1950,11 @@ def test_variadic_contradiction():
 
 def test_cross_entropy_shapes_1():
     model = Model()
-    ce = CrossEntropy(categorical=True)
+    ce = CrossEntropy()
     ce.set_shapes({"input": [8, 10], "target": [8]})
-    model += ce(input="input", target="target", output=IOKey(name="output"))
+    model += ce(
+        input="input", target="target", categorical=True, output=IOKey(name="output")
+    )
     logical_ref = {
         "$_ToTensor_0_output": [],
         "$_input": None,
@@ -1980,9 +1982,11 @@ def test_cross_entropy_shapes_1():
 
 def test_cross_entropy_shapes_2():
     model = Model()
-    ce = CrossEntropy(categorical=False)
+    ce = CrossEntropy()
     ce.set_shapes({"input": [8, 10]})
-    model += ce(input="input", target="target", output=IOKey(name="output"))
+    model += ce(
+        input="input", target="target", categorical=False, output=IOKey(name="output")
+    )
     logical_ref = {
         "$_ToTensor_0_output": [],
         "$_input": None,
@@ -2009,9 +2013,11 @@ def test_cross_entropy_shapes_2():
 
 def test_cross_entropy_shapes_3():
     model = Model()
-    ce = CrossEntropy(categorical=True)
+    ce = CrossEntropy()
     ce.set_shapes({"input": [8, 16, 32, 64], "target": [8, 32, 64]})
-    model += ce(input="input", target="target", output=IOKey(name="output"))
+    model += ce(
+        input="input", target="target", categorical=True, output=IOKey(name="output")
+    )
     logical_ref = {
         "input": [8, 16, 32, 64],
         "output": [8, 32, 64],
@@ -2037,10 +2043,12 @@ def test_cross_entropy_shapes_3():
 
 def test_cross_entropy_shapes_5():
     model = Model()
-    ce = CrossEntropy(categorical=True)
+    ce = CrossEntropy()
     shapes: dict[str, list] = {"input": [8, 16, ("V1", ...), 64], "target": [8, 32, 64]}
     ce.set_shapes(shapes)
-    model += ce(input="input", target="target", output=IOKey(name="output"))
+    model += ce(
+        input="input", target="target", categorical=True, output=IOKey(name="output")
+    )
     logical_ref = {
         "input": [8, 16, 32, 64],
         "output": [8, 32, 64],
@@ -2066,10 +2074,12 @@ def test_cross_entropy_shapes_5():
 
 def test_cross_entropy_shapes_6():
     model = Model()
-    ce = CrossEntropy(categorical=True)
+    ce = CrossEntropy()
     shapes: dict[str, list] = {"input": [8, 16, ("V1", ...), 64], "output": [8, 32, 64]}
     ce.set_shapes(shapes)
-    model += ce(input="input", target="target", output=IOKey(name="output"))
+    model += ce(
+        input="input", target="target", categorical=True, output=IOKey(name="output")
+    )
     logical_ref = {
         "input": [8, 16, 32, 64],
         "output": [8, 32, 64],
@@ -2096,9 +2106,11 @@ def test_cross_entropy_shapes_6():
 def test_cross_entropy_shapes_7():
     model = Model()
     shapes: dict[str, list] = {"input": [("V1", ...), 64], "target": [8, 16, 32, 64]}
-    ce = CrossEntropy(categorical=True)
+    ce = CrossEntropy()
     ce.set_shapes(shapes)
-    model += ce(input="input", target="target", output=IOKey(name="output"))
+    model += ce(
+        input="input", target="target", categorical=True, output=IOKey(name="output")
+    )
     logical_ref: Mapping[str, list | None] = {
         "input": [8, "u1", 16, 32, 64],
         "output": [8, 16, 32, 64],
@@ -2125,9 +2137,11 @@ def test_cross_entropy_shapes_7():
 def test_cross_entropy_shapes_8():
     model = Model()
     shapes: dict[str, list] = {"input": [("V1", ...), 64], "target": [8, 16, 32, 64]}
-    ce = CrossEntropy(categorical=False)
+    ce = CrossEntropy()
     ce.set_shapes(shapes)
-    model += ce(input="input", target="target", output=IOKey(name="output"))
+    model += ce(
+        input="input", target="target", categorical=False, output=IOKey(name="output")
+    )
     logical_ref = {
         "input": [8, 16, 32, 64],
         "output": [8, 32, 64],
@@ -2154,9 +2168,11 @@ def test_cross_entropy_shapes_8():
 def test_cross_entropy_shapes_9():
     model = Model()
     shapes: dict[str, list] = {"input": [8, 16, ("V1", ...), 64]}
-    ce = CrossEntropy(categorical=True)
+    ce = CrossEntropy()
     ce.set_shapes(shapes)
-    model += ce(input="input", target="target", output=IOKey(name="output"))
+    model += ce(
+        input="input", target="target", categorical=True, output=IOKey(name="output")
+    )
     logical_ref: dict[str, list | None] = {
         "input": [8, 16, "(V1, ...)", 64],
         "output": [8, "(V1, ...)", 64],

@@ -43,7 +43,8 @@ def evaluate_case(
     inputs = convert_to_array(backend, current_case.get("inputs", {}))
     results = convert_to_array(backend, current_case.get("results", {}))
     discard_keys = set(current_case.get("discard_keys", []))
-    static_keys = convert_to_array(backend, current_case.get("static_keys", {}))
+    # static_keys = convert_to_array(backend, current_case.get("static_keys", {}))
+    static_keys = dict(current_case.get("static_keys", {}))
     reference_outputs = results["eval"]
     reference_gradients = results["grad"]
     reference_shapes = {
@@ -53,7 +54,15 @@ def evaluate_case(
     assert_shapes_flag = True
 
     models: list[BaseModel] = []
-    models.append(finalize_model(current_case))
+    model = finalize_model(current_case)
+    # Convert static keys to array if they are not scalar.
+    for key, value in static_keys.items():
+        if isinstance(model.conns._get_metadata(key).data, Scalar):
+            static_keys[key] = value
+        else:
+            static_keys[key] = convert_to_array(backend, value)
+    models.append(model)
+
     if test_rtt:
         model_dict = model_to_dict(models[0])
         models.append(dict_to_model(model_dict))
