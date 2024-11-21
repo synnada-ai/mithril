@@ -6336,7 +6336,7 @@ def test_multi_write_3():
         model += l_relu(slope=0.75)
 
     assert str(err_info.value) == (
-        "Value is set before as 0.85." " A scalar value can not be reset."
+        "Value is set before as 0.85. A scalar value can not be reset."
     )
 
 

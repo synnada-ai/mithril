@@ -227,7 +227,7 @@ class Power(PrimitiveModel):
         is_constant = isinstance(threshold, Constant)
         if self.robust:
             kwargs["threshold"] = threshold
-        elif not (is_constant and threshold == Constant.MIN_POSITIVE_NORMAL):
+        elif not (is_constant and threshold is Constant.MIN_POSITIVE_NORMAL):
             raise ValueError("Threshold cannot be specified when robust mode is off")
 
         return super().__call__(**kwargs)

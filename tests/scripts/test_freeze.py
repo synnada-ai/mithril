@@ -14,7 +14,7 @@
 
 import pytest
 
-from mithril.models import Add, Linear, Model
+from mithril.models import Add, Linear, Model, ScalarItem
 
 
 def test_freeze_set_values_primitive():
@@ -62,15 +62,14 @@ def test_freeze_set_values_extend_logical():
         model += Add()
     assert str(attr_error_info.value) == "Model is frozen and can not be extended!"
 
-    from mithril.models import Multiply
 
+def test_freeze_set_values_scalar():
     model = Model()
-    mult_model1 = Model()
-    mult_model1 += Multiply()(left="left", right="right", output="output")
-    mult_model1.set_values({"right": 1.0})
+    model += ScalarItem()(input="input")
+    assert model.is_frozen is False
 
-    mult_model2 = Model()
-    mult_model2 += Multiply()(left="left", right="right", output="output")
-    mult_model2.set_values({"left": 1.0})
+    model.set_values({"input": [1.0]})
+    model._freeze()
+    assert model.is_frozen is True
 
-    model += mult_model1(left="input1")
+    assert model.input.data.metadata.data.value == [1.0]  # type: ignore

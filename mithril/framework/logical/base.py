@@ -267,6 +267,8 @@ class BaseModel(abc.ABC):
 
         updates = Updates()
 
+        # TODO: Currently Setting values in fozen models are prevented only for Tensors.
+        # Scalar and Tensors should not be operated differently. This should be fixed.
         for key in values:
             metadata = self.conns.extract_metadata(key)
             if isinstance(metadata.data, Tensor) and model.is_frozen:
