@@ -1764,13 +1764,12 @@ def test_unused_cached_values_1_set_values():
     model = Model()
     linear_model = Linear(dimension=2)
     model += linear_model()
-    model.set_values(
-        {
-            linear_model.w: [[1.0, 2.0]],
-            linear_model.b: [3.0, 1.0],
-            linear_model.input: [[3.0], [2.0]],
-        }
-    )
+    config: dict[Connection, list] = {
+        linear_model.w: [[1.0, 2.0]],
+        linear_model.b: [3.0, 1.0],
+        linear_model.input: [[3.0], [2.0]],
+    }
+    model.set_values(config)
     comp_model = mithril.compile(model=model, backend=(backend := NumpyBackend()))
     dtype = backend.get_backend_array_type()
     cache = comp_model.data_store.data_values
@@ -1835,12 +1834,11 @@ def test_unused_cached_values_2_set_values():
     model = Model()
     linear_model = Linear(dimension=2)
     model += linear_model()
-    model.set_values(
-        {
-            linear_model.w: [[1.0, 2.0]],
-            linear_model.b: [3.0, 1.0],
-        }
-    )
+    config: dict[Connection, list] = {
+        linear_model.w: [[1.0, 2.0]],
+        linear_model.b: [3.0, 1.0],
+    }
+    model.set_values(config)
     comp_model = mithril.compile(
         model=model, backend=(backend := NumpyBackend()), safe_names=False
     )

@@ -38,6 +38,53 @@ def test_set_shapes_1():
     check_shapes_semantically(ref_shapes, model.shapes)
 
 
+def test_set_shapes_1_kwargs_arg():
+    model = Model()
+
+    model += Sigmoid()("input1", IOKey("output1"))
+    model += Sigmoid()("input2", IOKey("output2"))
+
+    model.set_shapes(input1=["a", "b"], input2=["b", "a"])
+
+    ref_shapes = {
+        "input1": ["a", "b"],
+        "output1": ["a", "b"],
+        "input2": ["b", "a"],
+        "output2": ["b", "a"],
+    }
+
+    check_shapes_semantically(ref_shapes, model.shapes)
+
+
+def test_set_shapes_1_hybrid_arg():
+    model = Model()
+
+    model += Sigmoid()("input1", IOKey("output1"))
+    model += Sigmoid()("input2", IOKey("output2"))
+
+    model.set_shapes({"input1": ["a", "b"]}, input2=["b", "a"])
+
+    ref_shapes = {
+        "input1": ["a", "b"],
+        "output1": ["a", "b"],
+        "input2": ["b", "a"],
+        "output2": ["b", "a"],
+    }
+
+    check_shapes_semantically(ref_shapes, model.shapes)
+
+
+def test_set_shapes_1_hybrid_arg_same_metadata():
+    model = Model()
+
+    model += Sigmoid()("input1", IOKey("output1"))
+    model += Sigmoid()("input2", IOKey("output2"))
+
+    with pytest.raises(KeyError) as err_info:
+        model.set_shapes({model.input2: ["a", "b"]}, input2=["b", "a"])  # type: ignore
+    assert str(err_info.value) == "'Shape of same connection has already given'"
+
+
 def test_set_shapes_2():
     model = Model()
 
@@ -113,7 +160,7 @@ def test_set_shapes_6():
     model3 += model2(left="left", right="right", output=IOKey("output"))
     model4 += model3(left="left", right="right", output=IOKey("output"))
 
-    model3.set_shapes({"left": [3, 4], add1.right: [3, 4], model4.output: [3, 4]})  # type: ignore
+    model3.set_shapes({add1.right: [3, 4], model4.output: [3, 4]}, left=[3, 4])  # type: ignore
 
     ref_shapes = {"left": [3, 4], "right": [3, 4], "output": [3, 4]}
 
@@ -166,4 +213,4 @@ def test_set_shapes_7_error():
 
     with pytest.raises(KeyError) as err_info:
         model3.set_shapes({"left": [3, 4], add1.left: [3, 4], model4.output: [3, 4]})  # type: ignore
-    assert str(err_info.value) == "'shape of same connection has already given'"
+    assert str(err_info.value) == "'Shape of same connection has already given'"
