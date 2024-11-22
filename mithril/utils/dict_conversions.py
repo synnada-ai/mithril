@@ -549,7 +549,7 @@ def shape_to_dict(shapes):
             if isinstance(item, tuple):  # variadic
                 shape_list.append(f"{item[0]},...")
             else:
-                shape_list.append(str(item))
+                shape_list.append(item)
         shape_dict[key] = shape_list
     return shape_dict
 
@@ -559,10 +559,10 @@ def dict_to_shape(shape_dict):
     for key, shape_list in shape_dict.items():
         shapes[key] = []
         for shape in shape_list:
-            if "..." in shape:
+            if isinstance(shape, str) and "..." in shape:
                 shapes[key].append((shape.split(",")[0], ...))
             else:
-                shapes[key].append(int(shape))
+                shapes[key].append(shape)
 
     return shapes
 

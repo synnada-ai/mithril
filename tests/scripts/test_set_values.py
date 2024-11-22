@@ -16,7 +16,7 @@ import pytest
 
 import mithril
 from mithril import JaxBackend
-from mithril.models import TBD, Add, IOKey, Linear, Mean, Model, Relu, Shape
+from mithril.models import TBD, Add, Connection, IOKey, Linear, Mean, Model, Relu, Shape
 
 from ..utils import check_evaluations, compare_models, init_params
 from .test_utils import assert_results_equal
@@ -76,6 +76,28 @@ def test_set_values_scalar_1():
     mean_model = Mean(axis=TBD)
     model += mean_model(input="input", output=IOKey("output", shape=[2, 2]))
     model.set_values({mean_model.axis: 1})
+
+    pm = mithril.compile(model=model, backend=JaxBackend())
+    params = {"input": backend.ones(2, 2)}
+    data: dict = {}
+    gradients = {"output": backend.ones(2)}
+
+    ref_outputs = {"output": backend.ones(2)}
+
+    ref_grads = {"input": backend.ones(2, 2) / 2}
+
+    outputs, grads = pm.evaluate_all(params, data, gradients)
+
+    assert_results_equal(grads, ref_grads)
+    assert_results_equal(outputs, ref_outputs)
+
+
+def test_set_values_scalar_1_kwargs_arg():
+    backend = JaxBackend()
+    model = Model()
+    mean_model = Mean(axis=TBD)
+    model += mean_model(input="input", output=IOKey("output", shape=[2, 2]))
+    mean_model.set_values(axis=1)
 
     pm = mithril.compile(model=model, backend=JaxBackend())
     params = {"input": backend.ones(2, 2)}
@@ -167,10 +189,43 @@ def test_set_values_scalar_6():
     mean_model = Mean(axis=TBD)
     model += mean_model(input="input", axis="axis", output="output")
     with pytest.raises(ValueError) as err_info:
-        model.set_values({"axis": (0, 1), mean_model.axis: (0, 2)})
+        config: dict[str | Connection, tuple[int, int]] = {
+            "axis": (0, 1),
+            mean_model.axis: (0, 2),
+        }
+        model.set_values(config)
     assert (
         str(err_info.value)
         == "Value is set before as (0, 1). A scalar value can not be reset."
+    )
+
+
+def test_set_values_scalar_6_kwargs_arg():
+    model = Model()
+    mean_model = Mean(axis=TBD)
+    model += mean_model(input="input", axis="axis", output="output")
+    with pytest.raises(ValueError) as err_info:
+        config = {mean_model.axis: (0, 2)}
+        model.set_values(config, axis=(0, 1))
+    assert (
+        str(err_info.value)
+        == "Value is set before as (0, 2). A scalar value can not be reset."
+    )
+
+
+def test_set_values_scalar_6_same_conn_in_config():
+    model = Model()
+    mean_model = Mean(axis=TBD)
+    model += mean_model(input="input", axis="axis", output="output")
+    with pytest.raises(ValueError) as err_info:
+        config: dict[Connection | str, tuple[int, int]] = {
+            mean_model.axis: (0, 2),
+            "axis": (0, 1),
+        }
+        model.set_values(config)
+    assert (
+        str(err_info.value)
+        == "Value is set before as (0, 2). A scalar value can not be reset."
     )
 
 
@@ -188,6 +243,29 @@ def test_set_values_tensor_1():
     model2 += add_model_2(left="input1", right="input2", output="sub_input")
     add_model_2.set_values({"right": [2.0]})
     model2.set_values({"input1": [3.0]})
+    pm = mithril.compile(model=model2, backend=JaxBackend())
+
+    ref_outputs = {"output": backend.array([8.0])}
+
+    outputs = pm.evaluate()
+
+    assert_results_equal(ref_outputs, outputs)
+
+
+def test_set_values_tensor_1_kwargs_arg():
+    backend = JaxBackend()
+
+    model1 = Model()
+    add_model_1 = Add()
+
+    model1 += add_model_1(left="input1", right="input2", output=IOKey("output"))
+
+    model2 = Model()
+    add_model_2 = Add()
+    model2 += model1(input1="input1", input2="sub_input", output=IOKey("output"))
+    model2 += add_model_2(left="input1", right="input2", output="sub_input")
+    # add_model_2.set_values({"right": [2.0]})
+    model2.set_values({"input1": [3.0]}, input2=[2.0])
     pm = mithril.compile(model=model2, backend=JaxBackend())
 
     ref_outputs = {"output": backend.array([8.0])}

@@ -27,6 +27,15 @@ def test_set_types_1():
     assert input_data._type is int
 
 
+def test_set_types_1_kwargs_arg():
+    model = Model()
+    sig_model = Sigmoid()
+    model += sig_model(input="input", output=IOKey("output"))
+    model.set_types(input=int)
+    input_data = sig_model.input.metadata.data
+    assert input_data._type is int
+
+
 def test_set_types_2():
     model = Model()
     buffer_model = Buffer()
@@ -36,11 +45,38 @@ def test_set_types_2():
     assert input_data._type == int | bool
 
 
+def test_set_types_2_kwargs_arg():
+    model = Model()
+    buffer_model = Buffer()
+    model += buffer_model(input="input", output=IOKey(name="output"))
+    model.set_types(input=int | bool)
+    input_data = buffer_model.input.metadata.data
+    assert input_data._type == int | bool
+
+
 def test_set_types_3():
     model = Model()
     buffer_model = Buffer()
     model += buffer_model(input="input", output=IOKey(name="output"))
     model.set_types({buffer_model.input: int | bool})
+    input_data = buffer_model.input.metadata.data
+    assert input_data._type == int | bool
+
+
+def test_set_types_3_kwargs_arg_1():
+    model = Model()
+    buffer_model = Buffer()
+    model += buffer_model(input="input", output=IOKey(name="output"))
+    model.set_types(input=int | bool)
+    input_data = buffer_model.input.metadata.data
+    assert input_data._type == int | bool
+
+
+def test_set_types_3_kwargs_arg_2():
+    model = Model()
+    buffer_model = Buffer()
+    model += buffer_model(input="input", output=IOKey(name="output"))
+    buffer_model.set_types(input=int | bool)
     input_data = buffer_model.input.metadata.data
     assert input_data._type == int | bool
 
@@ -65,6 +101,17 @@ def test_set_types_5():
     input_data_2 = buffer_model_2.input.metadata.data
     assert input_data_1._type == int | bool
     assert input_data_2._type is float
+
+
+def test_set_types_5_key_error():
+    model = Model()
+    buffer_model_1 = Buffer()
+    buffer_model_2 = Buffer()
+    model += buffer_model_1(input="input1", output=IOKey(name="output1"))
+    model += buffer_model_2(input="input2", output=IOKey(name="output2"))
+    with pytest.raises(KeyError) as err_info:
+        model.set_types({model.input1: int | bool, "input": float})  # type: ignore
+    assert str(err_info.value) == "'Key input is not found in connections.'"
 
 
 def test_set_types_6():

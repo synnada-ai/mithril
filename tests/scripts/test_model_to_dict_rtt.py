@@ -14,6 +14,8 @@
 
 import re
 
+import pytest
+
 import mithril
 from mithril import JaxBackend, TorchBackend
 from mithril.framework.common import TBD, IOKey
@@ -50,6 +52,51 @@ def test_linear_expose():
     model_dict_recreated = dict_conversions.model_to_dict(model_recreated)
 
     assert model_dict_created == model_dict_recreated
+    assert_models_equal(model, model_recreated)
+
+    backend = JaxBackend(precision=64)
+    assert_evaluations_equal(
+        model, model_recreated, backend, static_keys={"input": backend.ones([4, 256])}
+    )
+
+
+def test_linear_expose_set_shapes():
+    model = Model()
+    lin_1 = Linear()
+    lin_2 = Linear()
+    model += lin_1(input="input", w="w")
+    model += lin_2(input=lin_1.output, w="w1", output=IOKey(name="output2"))
+    model.set_shapes({lin_1.b: [42]})
+    model.set_shapes({lin_2.b: [21]})
+    model_dict_created = dict_conversions.model_to_dict(model)
+    model_recreated = dict_conversions.dict_to_model(model_dict_created)
+    model_dict_recreated = dict_conversions.model_to_dict(model_recreated)
+
+    assert model_dict_created == model_dict_recreated
+    assert model.shapes == model_recreated.shapes
+    assert_models_equal(model, model_recreated)
+
+    backend = JaxBackend(precision=64)
+    assert_evaluations_equal(
+        model, model_recreated, backend, static_keys={"input": backend.ones([4, 256])}
+    )
+
+
+@pytest.mark.skip(reason="Dict conversion does not support extend from inputs yet")
+def test_linear_expose_set_shapes_extend_from_inputs():
+    model = Model()
+    lin_1 = Linear()
+    lin_2 = Linear()
+    model += lin_2(w="w1", output=IOKey(name="output2"))
+    model += lin_1(input="input", w="w", output=lin_2.input)
+    model.set_shapes({lin_1.b: [42]})
+    model.set_shapes({lin_2.b: [21]})
+    model_dict_created = dict_conversions.model_to_dict(model)
+    model_recreated = dict_conversions.dict_to_model(model_dict_created)
+    model_dict_recreated = dict_conversions.model_to_dict(model_recreated)
+
+    assert model_dict_created == model_dict_recreated
+    assert model.shapes == model_recreated.shapes
     assert_models_equal(model, model_recreated)
 
     backend = JaxBackend(precision=64)
