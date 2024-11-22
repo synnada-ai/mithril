@@ -1208,11 +1208,10 @@ class Model(BaseModel):
         if self.is_frozen:
             raise AttributeError("Model is frozen and can not be extended!")
 
-        model, kwargs = (
-            (info._model, info._connections)
-            if isinstance(info, ExtendInfo)
-            else (info, {})
-        )
+        # Call model with empty arguments if directly model is given.
+        if isinstance(info, PrimitiveModel | Model):
+            info = info()
+        model, kwargs = info._model, info._connections
 
         if not isinstance(model, BaseModel | PrimitiveModel):
             raise TypeError("Added element should be a Model type.")
