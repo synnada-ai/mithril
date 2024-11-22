@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import pytest
 
 from mithril.framework.common import IOKey
 from mithril.models import Add, Model, Sigmoid
@@ -74,15 +73,24 @@ def test_set_shapes_1_hybrid_arg():
     check_shapes_semantically(ref_shapes, model.shapes)
 
 
-def test_set_shapes_1_hybrid_arg_same_metadata():
+def test_set_shapes_1_hybrid_arg_same_metadata_1():
     model = Model()
 
     model += Sigmoid()("input1", IOKey("output1"))
     model += Sigmoid()("input2", IOKey("output2"))
 
-    with pytest.raises(KeyError) as err_info:
-        model.set_shapes({model.input2: ["a", "b"]}, input2=["b", "a"])  # type: ignore
-    assert str(err_info.value) == "'Shape of same connection has already given'"
+    model.set_shapes({model.input2: ["a", "b"]}, input2=[2, 3])  # type: ignore
+    assert model.shapes[model.input2.key] == [2, 3]  # type: ignore
+
+
+def test_set_shapes_1_hybrid_arg_same_metadata_2():
+    model = Model()
+
+    model += Sigmoid()("input1", IOKey("output1"))
+    model += Sigmoid()("input2", IOKey("output2"))
+
+    model.set_shapes({model.input2: [2, 3]}, input2=["a", "b"])  # type: ignore
+    assert model.shapes[model.input2.key] == [2, 3]  # type: ignore
 
 
 def test_set_shapes_2():
@@ -198,19 +206,3 @@ def test_set_shapes_8():
         "output": ["(V1, ...)"],
     }
     check_shapes_semantically(ref_shapes, model.shapes)
-
-
-def test_set_shapes_7_error():
-    model1 = Model()
-    model2 = Model()
-    model3 = Model()
-    model4 = Model()
-
-    model1 += (add1 := Add())(left="left", right="right", output=IOKey("output"))
-    model2 += model1(left="left", right="right", output=IOKey("output"))
-    model3 += model2(left="left", right="right", output=IOKey("output"))
-    model4 += model3(left="left", right="right", output=IOKey("output"))
-
-    with pytest.raises(KeyError) as err_info:
-        model3.set_shapes({"left": [3, 4], add1.left: [3, 4], model4.output: [3, 4]})  # type: ignore
-    assert str(err_info.value) == "'Shape of same connection has already given'"

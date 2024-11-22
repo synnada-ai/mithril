@@ -227,33 +227,31 @@ class BaseModel(abc.ABC):
             updates = Updates()
 
         model = self._get_outermost_parent()
-        seen_metadata: OrderedSet[IOHyperEdge] = OrderedSet()
         used_keys: dict[str | int, ShapeType] = {}
         shape_nodes = {}
-        # for key, shape in shapes.items():
+        # TODO: Can this be refactored to use a single loop?
         for key, shape in chain(shapes.items(), kwargs.items()):
             metadata = self.conns.extract_metadata(key)
             if metadata is None:
                 raise KeyError("Requires valid IO connection to set shapes!")
-            if metadata in seen_metadata:
-                raise KeyError("Shape of same connection has already given")
-            seen_metadata.add(metadata)
-            outer_conn = next(iter(model.conns.metadata_dict[metadata]))
-            # Convert Connection type keys into corresponding string
-            # representation.
-            if isinstance(key, Connection):
-                key = model.conns.get_con_by_metadata(metadata).key
-            assigned_shapes[key] = shape
             given_repr = create_shape_repr(shape, model.constraint_solver, used_keys)
-            shape_nodes[outer_conn.key] = given_repr.node
+            # Get inner string representation of the metadata and save
+            # use this name in order to merge .
+            conn = self.conns.get_con_by_metadata(metadata)
+            assert conn is not None
+            inner_key = conn.key
+            shape_nodes[key] = (given_repr.node, inner_key)
+            assigned_shapes[inner_key] = shape
+        # Apply updates to the shape nodes.
+        for key in chain(shapes, kwargs):
+            node, _inner_key = shape_nodes[key]
+            shape_node = self.conns.get_shape_node(_inner_key)
+            assert shape_node is not None
+            updates |= shape_node.merge(node)
 
         if trace:
             self.assigned_shapes.append(assigned_shapes)
 
-        for _key, node in shape_nodes.items():
-            shape_node = model.conns.get_shape_node(_key)
-            assert shape_node is not None
-            updates |= shape_node.merge(node)
         model.constraint_solver(updates)
 
     def _set_value(self, key: ConnectionData, value: MainValueType) -> Updates:
