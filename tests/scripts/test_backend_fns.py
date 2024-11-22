@@ -1563,3 +1563,55 @@ class TestLinspace:
             tolerances[precision],
             tolerances[precision],
         )
+
+
+@pytest.mark.parametrize(
+    "backendcls, device, precision", backends_with_device_precision, ids=names
+)
+class TestRandn:
+    def test_randn(self, backendcls, device, precision):
+        backend = backendcls(device=device, precision=precision)
+        fn = backend.randn
+        fn_args: list = [3, 4, 5]
+        output = fn(*fn_args)
+        assert list(output.shape) == fn_args
+
+
+@pytest.mark.parametrize(
+    "backendcls, device, precision", backends_with_device_precision, ids=names
+)
+class TestRand:
+    def test_randn(self, backendcls, device, precision):
+        backend = backendcls(device=device, precision=precision)
+        fn = backend.rand
+        fn_args: list = [3, 4, 5]
+        output = fn(*fn_args)
+        assert list(output.shape) == fn_args
+
+
+@pytest.mark.parametrize(
+    "backendcls, device, precision", backends_with_device_precision, ids=names
+)
+class TestRandint:
+    def test_randint(self, backendcls, device, precision):
+        backend = backendcls(device=device, precision=precision)
+        fn = backend.randint
+        fn_args: list = [0, 10, 3, 4, 5]
+        output = fn(*fn_args)
+        assert not backend.any(output < 0)
+        assert not backend.any(output > 10)
+        assert list(output.shape) == fn_args[2:]
+
+
+@pytest.mark.parametrize(
+    "backendcls, device, precision", backends_with_device_precision, ids=names
+)
+class TestRandUniform:
+    def test_rand_uniform(self, backendcls, device, precision):
+        backend = backendcls(device=device, precision=precision)
+        fn = backend.rand_uniform
+        fn_args: list = [0, 10, 3, 4, 5]
+        output = fn(*fn_args)
+        assert not backend.any(output < 0)
+        assert not backend.any(output > 10)
+        assert list(output.shape) == fn_args[2:]
