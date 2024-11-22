@@ -15,15 +15,18 @@
 import math
 import warnings
 from collections.abc import Callable, Mapping, Sequence
+from copy import deepcopy
 from functools import partial, reduce
 
 from ...backends.backend import Backend, ParallelBackend
 from ...core import DataType, GenericDataType
 from ...utils.type_utils import is_list_int
 from ..common import (
+    NOT_GIVEN,
     TBD,
     Connection,
     ConnectionData,
+    IOKey,
     MainValueType,
     Scalar,
     Table,
@@ -83,6 +86,21 @@ class PhysicalModel(GenericDataType[DataType]):
     ) -> None:
         if len(model._input_keys) == 0:
             raise ValueError("Model without input keys could not be compiled.")
+
+        if isinstance(model, PrimitiveModel):
+            # TODO: Remove wrapping with Model in the future.
+            model = deepcopy(model)
+            extend_info = model()
+            model_keys = {}
+            for key in model.external_keys:
+                value = extend_info._connections.get(key, NOT_GIVEN)
+                # NOTE: Do not set default value if it is given in constant_keys.
+                value = (value, NOT_GIVEN)[key in constant_keys]
+                if value is NOT_GIVEN:
+                    model_keys[key] = key
+                else:
+                    model_keys[key] = IOKey(key, value)  # type: ignore
+            model = Model() + model(**model_keys)
 
         self.backend: Backend[DataType] = backend
         self._output_keys: set[str] = set(model.conns.output_keys)

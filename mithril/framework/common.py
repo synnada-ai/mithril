@@ -113,13 +113,13 @@ class NotAvailable(SingletonObject):
     pass
 
 
-# class ToBeDetermined(SingletonObject):
-#     """
-#     A singleton class representing a null data indicating
-#     that no data is provided.
-#     """
+class Auto(SingletonObject):
+    """
+    A singleton class representing a configuration
+    setting of automatically handled arguments.
+    """
 
-#     pass
+    pass
 
 
 class ToBeDetermined(SingletonObject):
@@ -134,9 +134,7 @@ class ToBeDetermined(SingletonObject):
 NOT_GIVEN = NullConnection()
 NOT_AVAILABLE = NotAvailable()
 TBD = ToBeDetermined()
-# TBD = ToBeDetermined()
-# TBD = TBD
-# ToBeDetermined = ToBeDetermined
+AUTO = Auto()
 
 
 class UpdateType(Enum):
@@ -645,7 +643,6 @@ class BaseData:
 
 class Tensor(BaseData, GenericDataType[DataType]):
     _type: type[float] | type[int] | type[bool] | UnionType
-    temp_value: TensorValueType | ToBeDetermined
     value: DataType | ToBeDetermined
 
     def __init__(
@@ -657,12 +654,10 @@ class Tensor(BaseData, GenericDataType[DataType]):
     ) -> None:
         super().__init__(type=possible_types)
         self._differentiable: bool = value is TBD
-        self.temp_value = TBD
         self.value = TBD
         # Update type if any value is given.
         if not isinstance(value, ToBeDetermined):
             self.set_type(find_dominant_type(value))
-            self.temp_value = value
         else:
             self.value = value
         self.shape: ShapeNode = shape
@@ -681,21 +676,11 @@ class Tensor(BaseData, GenericDataType[DataType]):
     def _set_as_physical(self):
         super()._set_as_physical()
 
-    def _convert_value(self, backend: Backend) -> DataType | ToBeDetermined:
-        if isinstance(self.temp_value, Constant):
-            self.value = backend.array(
-                epsilon_table[backend.precision][self.temp_value]
-            )
-        elif self.temp_value is not TBD:
-            self.value = backend.array(self.temp_value)
-        return self.value
-
     def make_physical(self, backend: Backend, memo: dict[int, Tensor | Scalar]):
         physical_tensor = deepcopy(self, memo)
         # Update data as physical data.
         physical_tensor._set_as_physical()
         # Update value of physical data taking backend into account.
-        physical_tensor._convert_value(backend)
         return physical_tensor
 
     def __deepcopy__(self, memo: dict[int, Tensor | Scalar]):
@@ -732,31 +717,9 @@ class Tensor(BaseData, GenericDataType[DataType]):
         # which requires handling of interval arithmetic in logical level also.
 
     def set_value(self, value: DataType | TensorValueType) -> Updates:  # type: ignore[override]
-        if self._logical_data:
-            assert isinstance(value, TensorValueType)
-            return self._set_logical_value(value)
-        else:
+        if not self._logical_data:
             assert self.is_tensor_type(value)
             return self._set_physical_value(value)
-
-    def _set_logical_value(self, value: TensorValueType) -> Updates:
-        if isinstance(value, ToBeDetermined):
-            if self.temp_value is not TBD:
-                raise ValueError(
-                    f"Value is set before as {self.temp_value}. Can not be reset."
-                )
-            # if self.value is TBD and value is None:
-            #     raise ValueError(
-            #         "Already set as non-differentiable. Can not be reverted \
-            #         to a differentiable state."
-            #     )
-            self.value = value
-        else:
-            if self.temp_value is not TBD and self.temp_value != value:
-                raise ValueError(
-                    f"Value is set before as {self.temp_value}. Can not be reset."
-                )
-            self.temp_value = value
         return Updates()
 
     def _set_physical_value(self, value: DataType) -> Updates:

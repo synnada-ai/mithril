@@ -205,7 +205,7 @@ def test_add_loss_case_5():
             output=IOKey(name="output1"),
         )
 
-    assert str(err_info.value) == '"The provided keys do not match the model\'s loss."'
+    assert str(err_info.value) == "'Output of the loss model cannot be defined!'"
 
 
 def test_add_loss_case_6():
@@ -224,11 +224,8 @@ def test_add_loss_case_6():
         ctx1.add_loss(
             Relu(), [Min(axis=-1)], input=relu3.output, output=IOKey(name="output1")
         )
-        ctx1.add_loss(
-            Relu(), [Min(axis=-1)], input="output1", output=IOKey(name="output2")
-        )
 
-    assert str(err_info.value) == '"The provided keys do not match the model\'s loss."'
+    assert str(err_info.value) == "'Output of the loss model cannot be defined!'"
 
 
 def test_add_loss_case_7():

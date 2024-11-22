@@ -73,6 +73,7 @@ def dict_to_output_specs(specs_dict: dict[str, dict]) -> dict[str, dict]:
                 result[key]["loss"] = model_dict[loss["fn"].lower()](
                     **loss.get("params", {})
                 )
+                result[key]["loss_kwargs"] = loss.get("call_kwargs", {})
             else:
                 raise TypeError("Unsupported Loss type!")
         # Set reduce steps.
@@ -122,7 +123,7 @@ def finalize_model(params: dict[str, Any]):
                     if (target := spec.get("target_key")) is not None
                     else {}
                 )
-                loss_kwargs = loss_input | loss_target
+                loss_kwargs = spec.get("loss_kwargs", {}) | loss_input | loss_target
                 train_model.add_loss(
                     loss_model=loss_model,
                     reduce_steps=spec["reduce_steps"],
