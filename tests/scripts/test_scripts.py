@@ -7176,6 +7176,6 @@ def test_empty_call_vs_direct_model_extending():
     model1 += LeakyRelu()
 
     model2 = Model()
-    model2 += LeakyRelu()
+    model2 += LeakyRelu()()
 
     assert_models_equal(model1, model2)
