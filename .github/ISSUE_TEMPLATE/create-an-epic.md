@@ -36,5 +36,3 @@ _Break down into smaller tasks and link issues if possible._
 _List main risks and strategies to address them._
 - **Risk 1:** _Description_  
   - **Mitigation:** _Plan_
-
----
