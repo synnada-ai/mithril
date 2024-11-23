@@ -1727,9 +1727,9 @@ def pad_constraints(
     assert output_shape is not None
 
     def process_shape(shape, pad_value, forward=True):
-        prefix = []
+        prefix: list[Uniadic] = []
         root = None
-        suffix = []
+        suffix: list[Uniadic] = []
         status = True
 
         for idx, uni in enumerate(shape.prefix):
