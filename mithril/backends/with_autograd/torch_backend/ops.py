@@ -205,6 +205,7 @@ __all__ = [
     "astype",
     "unique",
     "trapezoid",
+    "pad",
 ]
 
 
