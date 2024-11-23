@@ -6709,7 +6709,7 @@ def test_total_repr_count_1():
         Square: 1,
         Softmax: 1,
         Sign: 1,
-        Pad: 1,
+        Pad: 2,
         PermuteTensor: 2,
         Sigmoid: 1,
         PositionalEncoding: 1,

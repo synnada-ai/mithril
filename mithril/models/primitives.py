@@ -1929,8 +1929,8 @@ class Pad(PrimitiveModel):
     def __init__(self, pad_width: list[tuple[int, int]]) -> None:
         super().__init__(
             formula_key="pad",
-            output=TensorType([("Var", ...)]),
-            input=TensorType([("Var", ...)]),
+            output=TensorType([("Var2", ...)]),
+            input=TensorType([("Var1", ...)]),
             pad_width=Scalar(tuple[tuple[int, int], ...], pad_width),
         )
 

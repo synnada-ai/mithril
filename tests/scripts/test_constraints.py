@@ -1926,6 +1926,45 @@ def test_pad_all_inputs_defined_forward_random_pad():
     )
 
 
+def test_pad_some_inputs_defined_forward_random_pad():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [("V1", ...)],
+        "input": ["a", 2, 3, 4],
+    }
+    final_shapes = {
+        "output": ["b", 7, 8, 25],
+        "input": ["a", 2, 3, 4],
+        "pad_width": [],
+    }
+    scalar_info = {"pad_width": Scalar(value=((0, 1), (2, 3), (5, 0), (9, 12)))}
+    assert_constraint_results(
+        shapes, {}, final_shapes, {}, pad_constraints, False, {"output"}, scalar_info
+    )
+
+
+def test_pad_input_with_variadic_forward_random_pad():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [("V2", ...)],
+        "input": ["a", ("V1", ...), 3, "b", 4],
+    }
+    final_shapes = {
+        "output": ["d", "e", 8, "f", 25],
+        "input": ["a", "b", 3, "c", 4],
+        "pad_width": [],
+    }
+    scalar_info = {"pad_width": Scalar(value=((0, 1), (2, 3), (5, 0), (1, 1), (9, 12)))}
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        pad_constraints,
+        False,
+        {"output", "input"},
+        scalar_info,
+    )
+
+
 def test_pad_output_defined_backward_zero_pad():
     shapes: dict[str, list[int | str | tuple]] = {
         "output": [3, 4, 5, 6],
@@ -1987,6 +2026,29 @@ def test_pad_output_defined_backward_random_pad():
     scalar_info = {"pad_width": Scalar(value=((0, 1), (2, 3), (5, 0), (9, 12)))}
     assert_constraint_results(
         shapes, {}, final_shapes, {}, pad_constraints, True, {"input"}, scalar_info
+    )
+
+
+def test_pad_output_with_variadic_forward_random_pad():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [("V2", ...), 8, "b", 25],
+        "input": ["a", ("V1", ...)],
+    }
+    final_shapes = {
+        "output": ["d", "e", 8, "f", 25],
+        "input": ["a", "b", 3, "c", 4],
+        "pad_width": [],
+    }
+    scalar_info = {"pad_width": Scalar(value=((0, 1), (2, 3), (5, 0), (1, 1), (9, 12)))}
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        pad_constraints,
+        False,
+        {"output", "input"},
+        scalar_info,
     )
 
 

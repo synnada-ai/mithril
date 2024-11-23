@@ -1726,9 +1726,6 @@ def pad_constraints(
     assert input_shape is not None
     assert output_shape is not None
 
-    if isinstance(pad_value, ToBeDetermined):
-        return False, updates
-
     def process_shape(shape, pad_value, forward=True):
         prefix = []
         root = None
@@ -1747,31 +1744,22 @@ def pad_constraints(
             )
             prefix.append(uni)
 
-        if shape.root is not None:
-            root = Variadic()
-            status = False
-        else:
-            status = True
-
-        for idx, uni in enumerate(shape.suffix):
-            if uni.value is None:
-                suffix.append(Uniadic())
-                status = False
-                continue
-
-            padding = pad_value[idx + len(shape.prefix) - 1]
-            uni = Uniadic(
-                uni.value + sum(padding) if forward else uni.value - sum(padding)
-            )
-            suffix.append(uni)
-
         return prefix, root, suffix, status
 
+    # Use pad width
+    temp_uniadics = [Uniadic() for _ in range(len(pad_value))]
+    updates |= input_shape.inner_match(prefix=temp_uniadics, root=None, suffix=[])
+
+    temp_uniadics = [Uniadic() for _ in range(len(pad_value))]
+    updates |= output_shape.inner_match(prefix=temp_uniadics, root=None, suffix=[])
+
+    # Forward inference
     prefix, root, suffix, forward_status = process_shape(
         input_shape, pad_value, forward=True
     )
     updates |= output_shape.inner_match(prefix=prefix, root=root, suffix=suffix)
 
+    # Backward inference
     prefix, root, suffix, backward_status = process_shape(
         output_shape, pad_value, forward=False
     )
