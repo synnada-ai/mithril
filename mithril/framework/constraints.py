@@ -1352,7 +1352,7 @@ def bcast_mat_mul_check(
 
 
 def reduce_constraints(
-    output: Tensor, input: Tensor, axis: Scalar, keepdim: Scalar | None = None
+    output: Tensor, input: Tensor, axis: Scalar, keepdim: Scalar
 ) -> ConstrainResultType:
     updates = Updates()
     assert input._temp_shape is not None, "Input shape of reduce is not set!"
@@ -1398,16 +1398,22 @@ def reduce_constraints(
                 if (pos_idx is None or len(input_shape.prefix) >= pos_idx) and (
                     neg_idx is None or len(input_shape.suffix) >= neg_idx
                 ):  # pos_idx and neg_idx can not be None at the same time.
-                    repr_prefix: list[Uniadic] = [
-                        uni
-                        for idx, uni in enumerate(input_shape.prefix)
-                        if idx not in positive_axes
-                    ]
-                    repr_suffix: list[Uniadic] = [
-                        uni
-                        for idx, uni in enumerate(input_shape.reverse)
-                        if -(idx + 1) not in negative_axes
-                    ][::-1]
+                    repr_prefix: list[Uniadic] = []
+                    repr_suffix: list[Uniadic] = []
+                    for idx, uni in enumerate(input_shape.prefix):
+                        if idx not in positive_axes:
+                            repr_prefix.append(uni)
+                        elif keepdim.value:
+                            repr_prefix.append(Uniadic(1))
+
+                    for idx, uni in enumerate(input_shape.reverse):
+                        if -(idx + 1) not in negative_axes:
+                            repr_suffix.append(uni)
+                        elif keepdim.value:
+                            repr_suffix.append(Uniadic(1))
+
+                    repr_suffix = repr_suffix[::-1]
+
                     repr_root = input_shape.root
                     updates |= output_shape.inner_match(
                         prefix=repr_prefix, root=repr_root, suffix=repr_suffix
