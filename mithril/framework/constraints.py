@@ -13,11 +13,11 @@
 # limitations under the License.
 
 import math
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 from functools import reduce
 from itertools import product, zip_longest
 from types import EllipsisType, GenericAlias, NoneType, UnionType
-from typing import get_origin
+from typing import Any, get_origin
 
 from ..utils.type_utils import (
     is_axis_reduce_type,
@@ -36,6 +36,7 @@ from .common import (
     TBD,
     Constant,
     ConstrainResultType,
+    ConstraintFunctionType,
     NestedListType,
     PossibleValues,
     Scalar,
@@ -148,7 +149,7 @@ def _reduce_union_type(
     return new_type
 
 
-def general_tensor_type_constraint(*args: Scalar | Tensor):
+def general_tensor_type_constraint(*args: Scalar | Tensor[Any]):
     # NOTE: Assumes first argument is always output as other constraints.
     # Also requires all types of args consists of any combination of
     # float, int and bool. For instance, int | float is an acceptable type
@@ -264,7 +265,7 @@ def general_tensor_type_constraint(*args: Scalar | Tensor):
 
 
 def floor_divide_type_constraint(
-    output: Tensor, numerator: Tensor, denominator: Tensor
+    output: Tensor[Any], numerator: Tensor[Any], denominator: Tensor[Any]
 ):
     status = False
     updates = Updates()
@@ -548,7 +549,7 @@ def scalar_item_type_constraint(output: Scalar, input: Scalar, index: Scalar):
     return status, updates
 
 
-def tensor_to_list_type_constraint(output: Scalar, input: Tensor):
+def tensor_to_list_type_constraint(output: Scalar, input: Tensor[Any]):
     status = not is_union(output._type)
     updates = Updates()
     assert input._temp_shape is not None
@@ -599,7 +600,7 @@ def tensor_to_list_type_constraint(output: Scalar, input: Tensor):
     return status, updates
 
 
-def reduce_type_constraint(output: Tensor, input: Tensor):
+def reduce_type_constraint(output: Tensor[Any], input: Tensor[Any]):
     updates = Updates()
     input_type = input._type
 
@@ -1201,7 +1202,9 @@ def bcast_helper(
     return bcast_exit_condition(output, left, right, index), updates
 
 
-def bcast(output: Tensor, left: Tensor, right: Tensor) -> ConstrainResultType:
+def bcast(
+    output: Tensor[Any], left: Tensor[Any], right: Tensor[Any]
+) -> ConstrainResultType:
     assert output._temp_shape is not None, "Output shape of broadcast is not set!"
     assert left._temp_shape is not None, "Left shape of broadcast is not set!"
     assert right._temp_shape is not None, "Right shape of broadcast is not set!"
@@ -1209,7 +1212,7 @@ def bcast(output: Tensor, left: Tensor, right: Tensor) -> ConstrainResultType:
 
 
 def bcast_matrix_mult(
-    output: Tensor, left: Tensor, right: Tensor
+    output: Tensor[Any], left: Tensor[Any], right: Tensor[Any]
 ) -> ConstrainResultType:
     assert output._temp_shape is not None, "Output shape of broadcast is not set!"
     assert left._temp_shape is not None, "Left shape of broadcast is not set!"
@@ -1261,9 +1264,9 @@ def bcast_exit_condition(
 
 
 def bcast_error_check(
-    output: Tensor,
-    left: Tensor,
-    right: Tensor,
+    output: Tensor[Any],
+    left: Tensor[Any],
+    right: Tensor[Any],
     index: int = 0,
 ) -> ConstrainResultType:
     assert left._temp_shape is not None, "Left shape of broadcast is not set!"
@@ -1346,13 +1349,13 @@ def bcast_is_compatible(
 
 
 def bcast_mat_mul_check(
-    output: Tensor, left: Tensor, right: Tensor
+    output: Tensor[Any], left: Tensor[Any], right: Tensor[Any]
 ) -> ConstrainResultType:
     return bcast_error_check(output, left, right, index=2)
 
 
 def reduce_constraints(
-    output: Tensor, input: Tensor, axis: Scalar, keepdim: Scalar | None = None
+    output: Tensor[Any], input: Tensor[Any], axis: Scalar, keepdim: Scalar | None = None
 ) -> ConstrainResultType:
     updates = Updates()
     assert input._temp_shape is not None, "Input shape of reduce is not set!"
@@ -1594,7 +1597,7 @@ def reduce_constraints(
 
 
 def concat_constraints(
-    output: Tensor, axis: Scalar, *inputs: Tensor
+    output: Tensor[Any], axis: Scalar, *inputs: Tensor[Any]
 ) -> ConstrainResultType:
     status = False
     updates = Updates()
@@ -1716,7 +1719,7 @@ def concat_constraints(
 
 
 def reverse_constraints(
-    output: Tensor, input: Tensor, axes: Scalar
+    output: Tensor[Any], input: Tensor[Any], axes: Scalar
 ) -> ConstrainResultType:
     status = False
     assert input._temp_shape is not None, "Input shape of reverse is not set!"
@@ -1782,7 +1785,7 @@ def reverse_constraints(
 
 
 def polynomial_features_constraints(
-    output: Tensor, input: Tensor, degree: Scalar
+    output: Tensor[Any], input: Tensor[Any], degree: Scalar
 ) -> ConstrainResultType:
     status = False
     updates = Updates()
@@ -1880,8 +1883,8 @@ def sliding_window_constraint_helper(
 
 
 def sliding_window_1d_constraints(
-    output: Tensor,
-    input: Tensor,
+    output: Tensor[Any],
+    input: Tensor[Any],
     stride: Scalar,
     padding: Scalar,
     dilation: Scalar,
@@ -2483,7 +2486,7 @@ def validate_bcast(input: ShapeRepr, shape: tuple[int, ...]):
 
 
 def reshape_constraints(
-    output: Tensor, input: Tensor, shape: Scalar
+    output: Tensor[Any], input: Tensor[Any], shape: Scalar
 ) -> ConstrainResultType:
     # TODO: We can add inference for the case where
     # shape = (1,2,3,4), input_shape = (1, 2, 4, "u1") for example.
@@ -2689,7 +2692,9 @@ def squeeze_constraints(output: Tensor, input: Tensor) -> ConstrainResultType:
     return status, updates
 
 
-def size_constraints(output: Scalar, input: Tensor, dim: Scalar) -> ConstrainResultType:
+def size_constraints(
+    output: Scalar, input: Tensor[Any], dim: Scalar
+) -> ConstrainResultType:
     assert input._temp_shape is not None, "Input shape of Size is not set!"
     input_shape: ShapeRepr = input._temp_shape
 
@@ -2837,7 +2842,7 @@ def size_constraints(output: Scalar, input: Tensor, dim: Scalar) -> ConstrainRes
     return status, updates
 
 
-def shape_constraints(output: Scalar, input: Tensor) -> ConstrainResultType:
+def shape_constraints(output: Scalar, input: Tensor[Any]) -> ConstrainResultType:
     assert input._temp_shape is not None, "Input shape of Shape is not set!"
     input_shape: ShapeRepr = input._temp_shape
     output_val = output.value
@@ -2870,6 +2875,7 @@ def eye_constraints(output: Tensor, N: Scalar, M: Scalar) -> ConstrainResultType
     m_uni_valued = isinstance(m_uni.value, int)
 
     if n_valued and not n_uni_valued:
+        assert isinstance(N.value, int)
         n_uni.set_value(N.value)
         updates.add(n_uni)
     elif n_uni_valued and not n_valued:
@@ -2877,6 +2883,7 @@ def eye_constraints(output: Tensor, N: Scalar, M: Scalar) -> ConstrainResultType
         updates.add(N)
 
     if m_valued and not m_uni_valued:
+        assert isinstance(M.value, int)
         m_uni.set_value(M.value)
         updates.add(m_uni)
     elif m_uni_valued and not m_valued:
@@ -3014,7 +3021,7 @@ def swap_axes_constraints(
     return status, updates
 
 
-def to_tensor_constraints(output: Tensor, input: Scalar) -> ConstrainResultType:
+def to_tensor_constraints(output: Tensor[Any], input: Scalar) -> ConstrainResultType:
     updates = Updates()
     status = False
     assert output._temp_shape is not None, "Output shape of ToTensor is not set!"
@@ -3064,7 +3071,9 @@ def to_tensor_constraints(output: Tensor, input: Scalar) -> ConstrainResultType:
     return status, updates
 
 
-def tensor_to_list_constraints(output: Scalar, input: Tensor) -> ConstrainResultType:
+def tensor_to_list_constraints(
+    output: Scalar, input: Tensor[Any]
+) -> ConstrainResultType:
     assert input._temp_shape is not None, "Input shape of TensorToList is not set!"
     input_shape: ShapeRepr = input._temp_shape
     output_val = output.value
@@ -3096,7 +3105,7 @@ def tensor_to_list_constraints(output: Scalar, input: Tensor) -> ConstrainResult
     return status, updates
 
 
-def item_constraints(output: Scalar, input: Tensor) -> ConstrainResultType:
+def item_constraints(output: Scalar, input: Tensor[Any]) -> ConstrainResultType:
     assert input._temp_shape is not None, "Input shape of Item is not set!"
     input_shape: ShapeRepr = input._temp_shape
     updates = Updates()
@@ -3199,7 +3208,7 @@ constrain_fn_dict = {key: fn for key, fn in globals().items() if callable(fn)}
 
 
 def tensor_item_constraints(
-    output: Tensor, input: Tensor, index: Scalar
+    output: Tensor[Any], input: Tensor[Any], index: Scalar
 ) -> ConstrainResultType:
     assert output._temp_shape is not None, "Output shape of TensorItem is not set!"
     assert input._temp_shape is not None, "Input shape of TensorItem is not set!"
@@ -3332,7 +3341,7 @@ def tensor_item_constraint_helper(
 
 
 def tensor_slice_constraints(
-    output: Tensor, input: Tensor, start: Scalar, stop: Scalar, step: Scalar
+    output: Tensor[Any], input: Tensor[Any], start: Scalar, stop: Scalar, step: Scalar
 ) -> ConstrainResultType:
     assert output._temp_shape is not None, "Output shape of TensorSlice is not set!"
     assert input._temp_shape is not None, "Input shape of TensorSlice is not set!"
@@ -3495,7 +3504,7 @@ def tuple_converter_constraint(output: Scalar, input: Scalar) -> ConstrainResult
     return status, updates
 
 
-type_constraints = {
+type_constraints: set[ConstraintFunctionType] = {
     general_tensor_type_constraint,
     floor_divide_type_constraint,
     scalar_slice_type_constraint,
@@ -3504,7 +3513,7 @@ type_constraints = {
     reduce_type_constraint,
 }
 
-post_process_map: dict[Callable, set[Callable]] = {
+post_process_map: dict[ConstraintFunctionType, set[ConstraintFunctionType]] = {
     bcast: {bcast_error_check},
     bcast_matrix_mult: {bcast_mat_mul_check},
 }

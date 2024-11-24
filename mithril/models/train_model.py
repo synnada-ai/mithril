@@ -27,7 +27,7 @@ from ..framework import (
     KeyType,
     Model,
     _get_shapes,
-    _get_summary_shapes,
+    get_summary_shapes,
 )
 from ..framework.common import TBD, NotAvailable, Table
 from ..framework.logical import (
@@ -546,7 +546,7 @@ class TrainModel(Model):
                 ),
             )
 
-        shape_info = _get_summary_shapes(model_shapes, conn_info)
+        shape_info = get_summary_shapes(model_shapes, conn_info)
         if self.loss_keys:
             # If any loss is attached, extract useful information
             # about each added loss and print the table

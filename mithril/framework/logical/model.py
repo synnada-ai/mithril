@@ -14,8 +14,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from types import UnionType
-from typing import Self, TypeVar, overload
+from typing import Any, Self, TypeVar, overload
 
 from ...core import Constant
 from ...utils.utils import OrderedSet, find_dominant_type
@@ -26,11 +27,13 @@ from ..common import (
     Connect,
     Connection,
     ConnectionData,
+    ConnectionInstanceType,
     ConnectionType,
     ExtendTemplate,
     IOHyperEdge,
     IOKey,
     KeyType,
+    MainValueInstance,
     MainValueType,
     NullConnection,
     Scalar,
@@ -40,9 +43,9 @@ from ..common import (
     ToBeDetermined,
     Updates,
     Variadic,
-    _get_summary_shapes,
-    _get_summary_types,
     get_summary,
+    get_summary_shapes,
+    get_summary_types,
 )
 from ..utils import define_unique_names
 from .base import ExtendInfo
@@ -233,9 +236,9 @@ class Model(BaseModel):
                 # Merge new_conn with given connection.
                 self.merge_connections(new_conn, conn_data)
 
-    def _set_value(self, key: ConnectionData, value: MainValueType) -> Updates:
+    def _set_value(self, key: ConnectionData, value: MainValueType | str) -> Updates:
         if isinstance(key.metadata.data, Tensor):
-            extend_value: MainValueType | IOKey = value
+            extend_value: MainValueType | IOKey | str = value
             # If ToTensor output key is reserved key, rename it.
             if key.conn.key == "input":
                 self.inter_key_count += 1
@@ -327,11 +330,11 @@ class Model(BaseModel):
         match_connection = None
 
         if isinstance(
-            given_connection, MainValueType | NullConnection
+            given_connection, MainValueInstance | NullConnection
         ):  # or given_connection == NOT_GIVEN:
             # Immediate values can be provided only for inputs.
             # if given_connection != NOT_GIVEN:
-            if isinstance(given_connection, MainValueType):
+            if isinstance(given_connection, MainValueInstance):
                 set_value = given_connection
 
             if expose is None:
@@ -462,7 +465,7 @@ class Model(BaseModel):
                     )
                 else:
                     assert isinstance(
-                        connection, ConnectionType
+                        connection, ConnectionInstanceType
                     )  # TODO: check if needed
                     connections.append(connection)
             self.extend(
@@ -479,7 +482,7 @@ class Model(BaseModel):
             for local_key, outer_con in zip(
                 model._input_keys, connections, strict=False
             ):
-                if isinstance(outer_con, MainValueType):
+                if isinstance(outer_con, MainValueInstance):
                     conn = model.conns.get_connection(local_key)
                     assert conn is not None
                     conn_data = conn.metadata
@@ -607,7 +610,7 @@ class Model(BaseModel):
         updates: Updates,
     ) -> ConnectionType:
         connection_type: type[Tensor] | type[Scalar] | None = None
-        if isinstance(connection, MainValueType):
+        if isinstance(connection, MainValueInstance):
             connection_type = Scalar
 
         elif isinstance(connection, ConnectionData):
@@ -666,12 +669,12 @@ class Model(BaseModel):
 
             # Create data object based on given_value or given key_type.
             if is_value_given:
-                assert isinstance(set_value, MainValueType | str)
+                assert isinstance(set_value, MainValueInstance | str)
                 data = Scalar(value=set_value)
 
             elif key_type == Scalar:
                 if set_type is None:
-                    set_type = MainValueType | type[str]
+                    set_type = MainValueInstance | str
                 data = Scalar(possible_types=set_type)
 
             else:
@@ -1099,7 +1102,7 @@ class Model(BaseModel):
                     value, type(template_conn.metadata.data)
                 )
 
-            elif isinstance(value, MainValueType):
+            elif isinstance(value, MainValueInstance):
                 if key in model.conns.output_keys:
                     raise KeyError(
                         f"{key} key is an output of the model, output values could "
@@ -1110,7 +1113,7 @@ class Model(BaseModel):
                 # Hold shape information for IOKey type values in order
                 # to set all in a bulk after all connections are added.
                 if value._shape is not None:
-                    shape_info |= {key: value._shape}
+                    shape_info |= {key: value._shape}  #
 
                 if value._type is not None:
                     type_info[key] = value._type
@@ -1508,11 +1511,11 @@ class Model(BaseModel):
         }
         if shapes:
             # extract model shapes
-            shape_info = _get_summary_shapes(model_shapes, conn_info)
+            shape_info = get_summary_shapes(model_shapes, conn_info)
 
         if types:
             # extract model types
-            type_info = _get_summary_types(name_mappings)
+            type_info = get_summary_types(name_mappings)
 
         if not name:
             name = self.__class__.__name__
@@ -1545,7 +1548,7 @@ class Model(BaseModel):
         self,
         name_mappings: dict[BaseModel, str],
         data_to_key_map: dict[Tensor | Scalar, list[str]] | None = None,
-        data_memo: dict | None = None,
+        data_memo: Mapping[int, Tensor[Any] | Scalar] | None = None,
     ):
         conn_info: dict[str, tuple[dict, dict]] = {}
         if self._input_keys:

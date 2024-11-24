@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections.abc import Mapping
+from typing import Any
+
 from ...utils.utils import OrderedSet
 from ..common import (
     NOT_AVAILABLE,
@@ -24,10 +27,10 @@ from ..common import (
     Tensor,
     TensorType,
     Updates,
-    _get_summary_shapes,
-    _get_summary_types,
     create_shape_map,
     get_summary,
+    get_summary_shapes,
+    get_summary_types,
 )
 from ..utils import define_unique_names
 from .base import BaseModel
@@ -42,7 +45,9 @@ class PrimitiveModel(BaseModel):
     cache_name = "cache"
     output: Connection
 
-    def __init__(self, formula_key, **kwargs: Tensor | TensorType | Scalar) -> None:
+    def __init__(
+        self, formula_key: str, **kwargs: Tensor[Any] | TensorType | Scalar
+    ) -> None:
         self.formula_key = formula_key
         self.grad_formula = formula_key + "_grad"
 
@@ -134,8 +139,8 @@ class PrimitiveModel(BaseModel):
     def extract_connection_info(
         self,
         name_mappings: dict[BaseModel, str],
-        data_to_key_map: dict[Scalar | Tensor, list[str]] | None = None,
-        data_memo: dict | None = None,
+        data_to_key_map: dict[Scalar | Tensor[Any], list[str]] | None = None,
+        data_memo: Mapping[int, Tensor[Any] | Scalar] | None = None,
     ):
         if data_to_key_map is None:
             data_to_key_map = {}
@@ -197,11 +202,11 @@ class PrimitiveModel(BaseModel):
         }
         if shapes:
             # extract model shapes
-            shape_info = _get_summary_shapes(model_shapes, conn_info)
+            shape_info = get_summary_shapes(model_shapes, conn_info)
 
         if types:
             # extract model types
-            type_info = _get_summary_types(name_mappings)
+            type_info = get_summary_types(name_mappings)
 
         if not name:
             name = self.__class__.__name__

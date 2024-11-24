@@ -193,8 +193,8 @@ def repr_sort(repr):
 
 
 def get_deterministic_shape(node: ShapeNode):
-    uni: dict[UniadicRecord | Variadic, str] = {}
-    var: dict[UniadicRecord | Variadic, str] = {}
+    uni: dict[UniadicRecord, str] = {}
+    var: dict[Variadic, str] = {}
     if len(reprs := node.reprs) != 1:
         sorted_reprs = sorted(reprs, key=repr_sort, reverse=True)
         return [repr.get_shapes(uni, var) for repr in sorted_reprs]
@@ -239,8 +239,8 @@ def assert_all_reprs_unique(model: BaseModel):
     """
     all_reprs = get_all_reprs(model)
 
-    uni_cache: dict[UniadicRecord | Variadic, str] = {}
-    var_cache: dict[UniadicRecord | Variadic, str] = {}
+    uni_cache: dict[UniadicRecord, str] = {}
+    var_cache: dict[Variadic, str] = {}
 
     for repr1, repr2 in combinations(all_reprs, 2):
         repr1_shapes = repr1.get_shapes(uni_cache, var_cache)
@@ -271,8 +271,8 @@ def assert_all_integer_uniadics_unique(model: BaseModel):
 def assert_match_shapes(
     repr1: ShapeRepr, repr2: ShapeRepr, repr1_ref_shapes: list, repr2_ref_shapes: list
 ):
-    uni_cache: dict[UniadicRecord | Variadic, str] = {}
-    var_cache: dict[UniadicRecord | Variadic, str] = {}
+    uni_cache: dict[UniadicRecord, str] = {}
+    var_cache: dict[Variadic, str] = {}
 
     repr1._match(repr2)
 
@@ -9878,8 +9878,8 @@ def test_bcast_uniadics():
     output = ShapeRepr(root=Variadic(), suffix=[Uniadic(1), Uniadic(2)])
 
     bcast_uniadics(output, left, right, 0)
-    uni_cache: dict[UniadicRecord | Variadic, str] = {}
-    var_cache: dict[UniadicRecord | Variadic, str] = {}
+    uni_cache: dict[UniadicRecord, str] = {}
+    var_cache: dict[Variadic, str] = {}
     assert left.get_shapes(uni_cache, var_cache) == ["(V1, ...)", 1, "u1"]
     assert right.get_shapes(uni_cache, var_cache) == ["(V2, ...)"]
     assert output.get_shapes(uni_cache, var_cache) == ["(V3, ...)", 1, 2]
@@ -9893,8 +9893,8 @@ def test_bcast_align():
     output = ShapeRepr(root=Variadic(), suffix=[Uniadic(1), Uniadic(2)])
 
     bacast_align_output(output, left, right, 0)
-    uni_cache: dict[UniadicRecord | Variadic, str] = {}
-    var_cache: dict[UniadicRecord | Variadic, str] = {}
+    uni_cache: dict[UniadicRecord, str] = {}
+    var_cache: dict[Variadic, str] = {}
     assert left.get_shapes(uni_cache, var_cache) == ["(V1, ...)", "u1", "u2"]
     assert right.get_shapes(uni_cache, var_cache) == ["(V2, ...)"]
     assert output.get_shapes(uni_cache, var_cache) == ["(V3, ...)", 1, 2]

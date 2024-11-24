@@ -906,7 +906,7 @@ class SingleInputOperation(PrimitiveModel):
 
     def __init__(
         self,
-        formula_key,
+        formula_key: str,
         polymorphic_constraint: bool = True,
         **kwargs: TensorType | Scalar,
     ) -> None:
@@ -914,7 +914,7 @@ class SingleInputOperation(PrimitiveModel):
             output=TensorType([("Var", ...)]), input=TensorType([("Var", ...)])
         )
         # Finalize kwargs.
-        new_kwargs: Mapping = default_kwargs | kwargs
+        new_kwargs: Mapping[str, TensorType | Scalar] = default_kwargs | kwargs
         super().__init__(formula_key, **new_kwargs)
 
         if polymorphic_constraint:

@@ -32,11 +32,11 @@ from ..common import (
     Updates,
     Variadic,
     _get_shapes,
-    _get_summary_shapes,
-    _get_summary_types,
     _ShapesType,
     create_shape_map,
     get_summary,
+    get_summary_shapes,
+    get_summary_types,
 )
 from ..logical.base import BaseModel
 from ..logical.model import Model
@@ -1014,7 +1014,7 @@ class PhysicalModel(GenericDataType[DataType]):
             name_mappings = define_unique_names(all_models)
             conn_info = self.extract_connection_info(name_mappings)
 
-        model_shapes = {
+        model_shapes: dict[str, _ShapesType] = {
             sub_model_name: self.get_shapes(
                 sub_model, uni_keys, var_keys, symbolic, alternative_shapes
             )
@@ -1033,11 +1033,11 @@ class PhysicalModel(GenericDataType[DataType]):
         if verbose:
             if shapes:
                 # extract the shape info if necessary
-                shape_info = _get_summary_shapes(model_shapes, conn_info)
+                shape_info = get_summary_shapes(model_shapes, conn_info)
 
             if types:
                 # extract the type info if necessary
-                type_info = _get_summary_types(name_mappings, self.data_store.data_memo)
+                type_info = get_summary_types(name_mappings, self.data_store.data_memo)
 
             # if verbose, find the name of the model and create the table object and
             # display it based on extracted infos

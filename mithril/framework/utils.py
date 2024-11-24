@@ -336,7 +336,11 @@ def find_intersection_type(
                 continue
 
             args_2 = typ_2.__args__
-            assert typ_2.__origin__ is tuple or typ_2.__origin__ is list
+            assert (
+                typ_2.__origin__ is tuple
+                or typ_2.__origin__ is list
+                or typ_2.__origin__ is dict
+            )
             if typ_1.__origin__ == typ_2.__origin__:
                 if len(args_1) == 0 or len(args_2) == 0:
                     # if one of the lengths of the args_1 and args_2 are zero,
