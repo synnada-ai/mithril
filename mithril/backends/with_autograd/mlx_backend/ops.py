@@ -301,7 +301,7 @@ def softplus(input: mx.array) -> mx.array:
 
 def gelu(input: mx.array, approximate: bool) -> mx.array:
     if approximate:
-        nn.gelu_approx(input)
+        return nn.gelu_approx(input)
     else:
         return nn.gelu(input)
 
