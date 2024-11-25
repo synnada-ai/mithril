@@ -1828,7 +1828,7 @@ def test_reduce_forward_backward_error_1():
     )
 
 
-def test_reduce_keep_dim_1():
+def test_reduce_axis_valued_keep_dim_true():
     """Test multiple positive/negative axis and keepdim"""
     shapes: dict[str, list[int | str | tuple]] = {
         "output": [("Var1", ...)],
@@ -1846,7 +1846,7 @@ def test_reduce_keep_dim_1():
     )
 
 
-def test_reduce_keep_dim_2():
+def test_reduce_axis_none_keep_dim_true():
     """Test multiple none axis and keepdim"""
     shapes: dict[str, list[int | str | tuple]] = {
         "output": [("Var1", ...)],
@@ -1861,6 +1861,97 @@ def test_reduce_keep_dim_2():
     scalar_info = {"axis": Scalar(value=None), "keepdim": Scalar(value=True)}
     assert_constraint_results(
         shapes, {}, final_shapes, {}, reduce_constraints, True, {"output"}, scalar_info
+    )
+
+
+def test_reduce_axis_none_keep_dim_tbd():
+    """Test multiple none axis and keepdim"""
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [("Var1", ...)],
+        "input": [1, 2, 3, 4, 5, 6, 7],
+    }
+    final_shapes = {
+        "output": ["(Var1, ...)"],
+        "input": [1, 2, 3, 4, 5, 6, 7],
+        "axis": [],
+        "keepdim": [],
+    }
+    scalar_info = {
+        "axis": Scalar(value=None),
+        "keepdim": Scalar(possible_types=int, value=TBD),
+    }
+    assert_constraint_results(
+        shapes, {}, final_shapes, {}, reduce_constraints, False, set(), scalar_info
+    )
+
+
+def test_reduce_axis_valued_keep_dim_tbd():
+    """Test multiple none axis and keepdim"""
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [("Var1", ...)],
+        "input": [1, 2, 3, 4, 5, 6, 7],
+    }
+    final_shapes = {
+        "output": ["(Var1, ...)"],
+        "input": [1, 2, 3, 4, 5, 6, 7],
+        "axis": [],
+        "keepdim": [],
+    }
+    scalar_info = {
+        "axis": Scalar(value=(1, 2, -2, -3)),
+        "keepdim": Scalar(possible_types=int),
+    }
+    assert_constraint_results(
+        shapes, {}, final_shapes, {}, reduce_constraints, False, set(), scalar_info
+    )
+
+
+def test_reduce_axis_valued_keep_dim_false_input_variadic():
+    """Test multiple none axis and keepdim"""
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [("Var1", ...)],
+        "input": [("Var2", ...)],
+    }
+    final_shapes = {
+        "output": ["(Var1, ...)", "f"],
+        "input": ["a", "b", "c", "(Var2, ...)", "d", "f"],
+        "axis": [],
+        "keepdim": [],
+    }
+    scalar_info = {
+        "axis": Scalar(value=(1, 2, -2, -3)),
+        "keepdim": Scalar(possible_types=bool, value=False),
+    }
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        reduce_constraints,
+        False,
+        {"input", "output"},
+        scalar_info,
+    )
+
+
+def test_reduce_axis_valued_keep_dim_tbd_input_variadic():
+    """Test multiple none axis and keepdim"""
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [("Var1", ...)],
+        "input": [("Var2", ...)],
+    }
+    final_shapes = {
+        "output": ["(Var1, ...)"],
+        "input": ["a", "b", "c", "(Var2, ...)", "d", "f"],
+        "axis": [],
+        "keepdim": [],
+    }
+    scalar_info = {
+        "axis": Scalar(value=(1, 2, -2, -3)),
+        "keepdim": Scalar(possible_types=bool),
+    }
+    assert_constraint_results(
+        shapes, {}, final_shapes, {}, reduce_constraints, False, {"input"}, scalar_info
     )
 
 
