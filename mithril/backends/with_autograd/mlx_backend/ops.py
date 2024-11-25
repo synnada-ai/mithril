@@ -185,6 +185,7 @@ __all__ = [
     "reduce_argmin",
     "reduce_argmax",
     "pad",
+    "split",
 ]
 
 

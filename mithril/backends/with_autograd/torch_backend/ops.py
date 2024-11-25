@@ -206,6 +206,7 @@ __all__ = [
     "unique",
     "trapezoid",
     "pad",
+    "split",
 ]
 
 

@@ -1895,33 +1895,6 @@ class NanToNum(PrimitiveModel):
         )
 
 
-class Split(PrimitiveModel):
-    split_size: Connection
-    dim: Connection
-    input: Connection
-    output: Connection
-
-    def __init__(self, split_size: int | tuple[int], dim: int = 0):
-        super().__init__(
-            formula_key="split",
-            output=TensorType([("Var2", ...)]),
-            input=TensorType([("Var1", ...)]),
-            split_size=Scalar(int | tuple[int], split_size),
-            dim=Scalar(int, dim),
-        )
-
-    def __call__(  # type: ignore[override]
-        self,
-        input: ConnectionType = NOT_GIVEN,
-        split_size: ConnectionType = NOT_GIVEN,
-        dim: ConnectionType = NOT_GIVEN,
-        output: ConnectionType = NOT_GIVEN,
-    ) -> ExtendInfo:
-        return super().__call__(
-            input=input, split_size=split_size, dim=dim, output=output
-        )
-
-
 class Pad(PrimitiveModel):
     input: Connection
     pad: Connection
