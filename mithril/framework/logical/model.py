@@ -76,6 +76,7 @@ from .essential_primitives import (
     ShiftLeft,
     ShiftRight,
     Size,
+    Split,
     Sqrt,
     Subtract,
     Sum,
@@ -128,6 +129,7 @@ ops_table: dict[str, type[PrimitiveModel]] = {
     "rshift": ShiftRight,
     "minus": Minus,
     "transpose": Transpose,
+    "split": Split,
 }
 
 
