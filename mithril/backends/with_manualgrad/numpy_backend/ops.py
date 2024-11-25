@@ -14,6 +14,7 @@
 
 import copy
 import logging
+import math
 from collections.abc import Callable, Iterator, Sequence
 from functools import partial
 from itertools import combinations_with_replacement
@@ -347,8 +348,17 @@ def softplus(input: np.ndarray, cache: CacheType | None = None) -> np.ndarray:
     return np.log1p(np.exp(-np.abs(input))) + np.maximum(input, 0.0)
 
 
-def gelu(input: np.ndarray, cache: CacheType | None = None) -> np.ndarray:
-    return input * (1 + erf(input / np.sqrt(2))) / 2
+def gelu(
+    input: np.ndarray, approximate: bool, cache: CacheType | None = None
+) -> np.ndarray:
+    if approximate:
+        return (
+            0.5
+            * input
+            * (1 + np.tanh(math.sqrt(2 / math.pi) * (input + 0.044715 * input**3)))
+        )
+    else:
+        return input * (1 + erf(input / np.sqrt(2))) / 2
 
 
 def softmax(

@@ -319,8 +319,8 @@ def softplus(input: jax.Array) -> jax.Array:
     return functionals.softplus(input)
 
 
-def gelu(input: jax.Array) -> jax.Array:
-    return functionals.gelu(input, approximate=False)
+def gelu(input: jax.Array, approximate: bool) -> jax.Array:
+    return functionals.gelu(input, approximate=approximate)
 
 
 def softmax(input: jax.Array, *, axis: int = -1) -> jax.Array:

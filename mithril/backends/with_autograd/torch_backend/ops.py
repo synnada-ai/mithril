@@ -302,8 +302,9 @@ def relu(input: torch.Tensor) -> torch.Tensor:
     return torch.relu(input)
 
 
-def gelu(input: torch.Tensor) -> torch.Tensor:
-    return F.gelu(input)
+def gelu(input: torch.Tensor, approximate: bool) -> torch.Tensor:
+    approximate_str = "tanh" if approximate else "none"
+    return F.gelu(input, approximate=approximate_str)
 
 
 def leaky_relu(input: torch.Tensor, slope: torch.Tensor) -> torch.Tensor:

@@ -611,7 +611,7 @@ class Relu(Activation):
 
 class Gelu(Activation):
     def __init__(self) -> None:
-        super().__init__(formula_key="gelu")
+        super().__init__(formula_key="gelu", approximate=Scalar(bool, False))
 
 
 class Sigmoid(Activation):

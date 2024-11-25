@@ -299,8 +299,11 @@ def softplus(input: mx.array) -> mx.array:
     return nn.softplus(input)
 
 
-def gelu(input: mx.array) -> mx.array:
-    return nn.gelu(input)
+def gelu(input: mx.array, approximate: bool) -> mx.array:
+    if approximate:
+        nn.gelu_approx(input)
+    else:
+        return nn.gelu(input)
 
 
 def softmax(input: mx.array, *, axis: int = -1) -> mx.array:
