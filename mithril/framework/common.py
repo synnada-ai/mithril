@@ -2844,7 +2844,7 @@ class Table:
                 )
             )
 
-    def _compile(
+    def compile(
         self,
         row_sep: str | list[str] = "   |   ",
         col_sep: str = "-",
@@ -3407,7 +3407,15 @@ def get_summary_shapes(
     return shape_info
 
 
-def get_summary_types(name_mappings: dict, data_memo=None):
+# TODO: Name mappings in there should more specialized as Any is not a good choice
+# name mappings should be dict[BaseModel, str]
+# data_memo should be dict[int, Tensor[Any] | Scalar]
+# however, if this happens, there will be circular import problem
+# So carrying this function to another module may be a better idea
+# (maybe this function could be a method of BaseModel?)
+def get_summary_types(
+    name_mappings: dict[Any, Any], data_memo: dict[Any, Any] | None = None
+):
     if data_memo is None:
         data_memo = {}
 
@@ -3433,7 +3441,9 @@ def get_summary_types(name_mappings: dict, data_memo=None):
     return type_info
 
 
-def is_type_adjustment_required(data: dict[str, Tensor | Scalar], inputs: list[str]):
+def is_type_adjustment_required(
+    data: dict[str, Tensor[Any] | Scalar], inputs: list[str]
+):
     if len(inputs) <= 2:
         return False
     inputs = inputs[:2]

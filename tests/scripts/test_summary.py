@@ -786,7 +786,7 @@ def test_table_1():
     table.add_header(headers)
     for list in list_1:
         table.add_row(list)
-    table._compile(row_sep="  ")
+    table.compile(row_sep="  ")
 
     cells = table.cell_str
     n_of_rows = cells.count("\n") - 2
@@ -802,7 +802,7 @@ def test_table_2():
     table.add_header(headers)
     for list in list_1:
         table.add_row(list)
-    table._compile(row_sep="  ")
+    table.compile(row_sep="  ")
     cells = table.cell_str
     n_of_rows = cells.count("\n") - 2
     assert n_of_rows == 4
@@ -817,7 +817,7 @@ def test_table_3():
     table.add_header(headers)
     for list in list_1:
         table.add_row(list)
-    table._compile(row_sep="  ")
+    table.compile(row_sep="  ")
     cells = table.cell_str
     n_of_rows = cells.count("\n") - 2
     assert n_of_rows == 4
@@ -834,7 +834,7 @@ def test_table_4():
     table.add_header(subheaders)
     for list in list_1:
         table.add_row(list)
-    table._compile(row_sep=" | ")
+    table.compile(row_sep=" | ")
     cells = table.cell_str
     n_of_rows = cells.count("\n") - 2
     assert n_of_rows == 4
@@ -851,7 +851,7 @@ def test_table_5():
     table.add_header(subheaders)
     for list in list_1:
         table.add_row(list)
-    table._compile(row_sep=" | ")
+    table.compile(row_sep=" | ")
     cells = table.cell_str
     n_of_rows = cells.count("\n") - 2
     assert n_of_rows == 12

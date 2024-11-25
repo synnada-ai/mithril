@@ -2883,7 +2883,7 @@ def eye_constraints(output: Tensor, N: Scalar, M: Scalar) -> ConstrainResultType
         updates.add(N)
 
     if m_valued and not m_uni_valued:
-        assert isinstance(M.value, int)
+        assert isinstance(M.value, int | NoneType)
         m_uni.set_value(M.value)
         updates.add(m_uni)
     elif m_uni_valued and not m_valued:

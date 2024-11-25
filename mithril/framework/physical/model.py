@@ -957,7 +957,7 @@ class PhysicalModel(GenericDataType[DataType]):
             pm_info, right_length=1, left_length=18, len_space=1, r_len=100
         )[:-1]
         info_table.add_row([info])
-        info_table._compile()
+        info_table.compile()
         info_table.display()
 
     def summary(
@@ -1051,7 +1051,7 @@ class PhysicalModel(GenericDataType[DataType]):
                 params=param_info,
             )
 
-            table._compile()
+            table.compile()
             table.display()
             if depth > 0:
                 for model, model_name in name_mappings.items():

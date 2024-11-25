@@ -156,5 +156,5 @@ for precision in [32, 64]:
         ]
     )
 
-table._compile()
+table.compile()
 table.display()

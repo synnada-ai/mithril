@@ -586,7 +586,7 @@ class TrainModel(Model):
                 t_list.append([reduce_str[:-2]])
                 t_list.append([str(loss_dict["coef"])])
                 loss_table.add_row(t_list)
-            loss_table._compile(row_sep=["  |  ", " | ", " | ", "  |  ", "  |  "])
+            loss_table.compile(row_sep=["  |  ", " | ", " | ", "  |  ", "  |  "])
             loss_table.display()
 
         if self.geomean_map:
@@ -619,7 +619,7 @@ class TrainModel(Model):
                     r_list.append(str(shape[updated_reg_key]))
                     r_list.append([str(coef)])
                     reg_table.add_row(r_list)
-            reg_table._compile(row_sep=["  |  ", " | ", "  |  "])
+            reg_table.compile(row_sep=["  |  ", " | ", "  |  "])
             reg_table.display()
 
         if self.metric_keys:
@@ -647,7 +647,7 @@ class TrainModel(Model):
                 m_list.append([val[0] for val in conns.values()])
                 m_list.append([val[0] for val in out_conn.values()])
                 metric_table.add_row(m_list)
-            metric_table._compile(row_sep=["  |  ", " | ", " | ", "  |  "])
+            metric_table.compile(row_sep=["  |  ", " | ", " | ", "  |  "])
             metric_table.display()
 
     def _add_geo_mean(self):

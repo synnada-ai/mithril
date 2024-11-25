@@ -41,6 +41,7 @@ from ..common import (
     ShapeTemplateType,
     Tensor,
     ToBeDetermined,
+    UniadicRecord,
     Updates,
     Variadic,
     get_summary,
@@ -135,7 +136,9 @@ ops_table: dict[str, type[PrimitiveModel]] = {
 }
 
 
-coercion_table: dict[tuple[str, type[Tensor] | type[Scalar]], type[PrimitiveModel]] = {
+coercion_table: dict[
+    tuple[str, type[Tensor[Any]] | type[Scalar]], type[PrimitiveModel]
+] = {
     ("item", Tensor): TensorItem,
     ("item", Scalar): ScalarItem,
     ("slice", Tensor): TensorSlice,
@@ -143,7 +146,7 @@ coercion_table: dict[tuple[str, type[Tensor] | type[Scalar]], type[PrimitiveMode
 }
 
 type_conversion_map: dict[
-    tuple[type[Tensor] | type[Scalar], type[Tensor] | type[Scalar]],
+    tuple[type[Tensor[Any]] | type[Scalar], type[Tensor[Any]] | type[Scalar]],
     type[ToTensor] | type[TensorToList] | None,
 ] = {
     (Scalar, Tensor): ToTensor,
@@ -222,7 +225,7 @@ class Model(BaseModel):
             else:  # Named connections.
                 # Create new output connection with given key name.
 
-                data: Tensor | Scalar = (
+                data: Tensor[Any] | Scalar = (
                     Scalar(metadata.data._type)
                     if isinstance(metadata.data, Scalar)
                     else Tensor(metadata.data.shape, metadata.data._type)
@@ -307,7 +310,7 @@ class Model(BaseModel):
         # Note that Tensor type connections can not have any value
         # in logical models.
         if isinstance((data := local_connection.metadata.data), Scalar):
-            pair = [connection.metadata.data, data]
+            pair: list[Tensor[Any] | Scalar] = [connection.metadata.data, data]
             check_data, other = pair[local_input], pair[not local_input]
             if check_data.value is not TBD and check_data.value != other.value:
                 raise ValueError("Multi-write detected for a valued input connection!")
@@ -317,7 +320,7 @@ class Model(BaseModel):
         model: BaseModel,
         local_key: str,
         given_connection: ConnectionType,
-        expose=None,
+        expose: bool | None = None,
     ) -> tuple[ConnectionData, Updates]:
         updates = Updates()
         outer_key, con_obj = None, None
@@ -425,7 +428,7 @@ class Model(BaseModel):
         return con_obj, updates
 
     def _unroll_template(
-        self, template: ExtendTemplate, joint_type: type[Tensor] | type[Scalar]
+        self, template: ExtendTemplate, joint_type: type[Tensor[Any]] | type[Scalar]
     ) -> ConnectionData:
         if template.output_connection is None:
             # Initialize all default init arguments of model as "..." other
@@ -588,7 +591,7 @@ class Model(BaseModel):
     @overload
     def handle_auto_conversion(
         self,
-        key_type: type[Tensor] | type[Scalar],
+        key_type: type[Tensor[Any]] | type[Scalar],
         is_input: bool,
         connection: IOKey | Connect | ConnectionData,
         updates: Updates,
@@ -596,7 +599,7 @@ class Model(BaseModel):
     @overload
     def handle_auto_conversion(  # type: ignore[overload-cannot-match] # mypy import bug
         self,
-        key_type: type[Tensor] | type[Scalar],
+        key_type: type[Tensor[Any]] | type[Scalar],
         is_input: bool,
         connection: ConnectionType | tuple[ConnectionType, ...] | list[ConnectionType],
         updates: Updates,
@@ -604,12 +607,13 @@ class Model(BaseModel):
 
     def handle_auto_conversion(
         self,
-        key_type: type[Tensor] | type[Scalar],
+        key_type: type[Tensor[Any]] | type[Scalar],
         is_input: bool,
         connection: ConnectionType | tuple[ConnectionType, ...] | list[ConnectionType],
         updates: Updates,
     ) -> ConnectionType:
-        connection_type: type[Tensor] | type[Scalar] | None = None
+        connection_type: type[Tensor[Any]] | type[Scalar] | None = None
+        data: Tensor[Any] | Scalar | None = None
         if isinstance(connection, MainValueInstance):
             connection_type = Scalar
 
@@ -771,7 +775,7 @@ class Model(BaseModel):
 
                 else:
                     # All connections in Connect object must have same type.
-                    types: set[type[Scalar] | type[Tensor]] = {
+                    types: set[type[Scalar] | type[Tensor[Any]]] = {
                         _conn.metadata.data.__class__ for _conn in connections
                     }
                     if len(types) > 1:
@@ -875,8 +879,8 @@ class Model(BaseModel):
     @overload
     def create_connection_model(
         self,
-        connection_type: type[Tensor] | type[Scalar] | None,
-        key_type: type[Tensor] | type[Scalar],
+        connection_type: type[Tensor[Any]] | type[Scalar] | None,
+        key_type: type[Tensor[Any]] | type[Scalar],
         is_input: bool,
         connection: tuple[ConnectionType, ...] | list[ConnectionType],
     ) -> ConnectionData: ...
@@ -886,8 +890,8 @@ class Model(BaseModel):
     @overload
     def create_connection_model(
         self,
-        connection_type: type[Tensor],
-        key_type: type[Tensor],
+        connection_type: type[Tensor[Any]],
+        key_type: type[Tensor[Any]],
         is_input: bool,
         connection: T,
     ) -> T:
@@ -899,7 +903,7 @@ class Model(BaseModel):
     @overload
     def create_connection_model(  # type: ignore[overload-cannot-match] # mypy import bug
         self,
-        connection_type: type[Tensor],
+        connection_type: type[Tensor[Any]],
         key_type: type[Scalar],
         is_input: bool,
         connection: ConnectionType | tuple[ConnectionType, ...] | list[ConnectionType],
@@ -911,7 +915,7 @@ class Model(BaseModel):
     def create_connection_model(  # type: ignore[overload-cannot-match] # mypy import bug
         self,
         connection_type: type[Scalar],
-        key_type: type[Tensor],
+        key_type: type[Tensor[Any]],
         is_input: bool,
         connection: ConnectionType | tuple[ConnectionType, ...] | list[ConnectionType],
     ) -> ConnectionData:
@@ -934,15 +938,15 @@ class Model(BaseModel):
     def create_connection_model(
         self,
         connection_type: None,
-        key_type: type[Tensor] | type[Scalar],
+        key_type: type[Tensor[Any]] | type[Scalar],
         is_input: bool,
         connection: T,
     ) -> T: ...
 
     def create_connection_model(
         self,
-        connection_type: type[Tensor] | type[Scalar] | None,
-        key_type: type[Tensor] | type[Scalar],
+        connection_type: type[Tensor[Any]] | type[Scalar] | None,
+        key_type: type[Tensor[Any]] | type[Scalar],
         is_input: bool,
         connection: ConnectionType | tuple[ConnectionType, ...] | list[ConnectionType],
     ) -> (
@@ -1270,9 +1274,6 @@ class Model(BaseModel):
             else (info, {})
         )
 
-        if not isinstance(model, BaseModel | PrimitiveModel):
-            raise TypeError("Added element should be a Model type.")
-
         if (
             model._canonical_input is not NOT_AVAILABLE
             and (
@@ -1306,7 +1307,12 @@ class Model(BaseModel):
 
     @staticmethod
     def _update_key_name(
-        new_key, underscored_keys, raw_keys, key_mappings, key_origin, input_set
+        new_key: str,
+        underscored_keys: set[str],
+        raw_keys: dict[str, list[str]],
+        key_mappings: dict[str, str],
+        key_origin: str,
+        input_set: set[str],
     ) -> tuple[str, str]:
         # Add underscore if generated key name exists in input keys
         key_prefix = "_"
@@ -1331,7 +1337,10 @@ class Model(BaseModel):
         return new_key, key_origin
 
     def _generate_keys(
-        self, symbolic=True, include_internals=True, include_outputs=False
+        self,
+        symbolic: bool = True,
+        include_internals: bool = True,
+        include_outputs: bool = False,
     ) -> dict[str, str]:
         key_mappings: dict[str, str] = {}
         raw_keys: dict[str, list[str]] = {}
@@ -1392,7 +1401,7 @@ class Model(BaseModel):
                                 raw_keys,
                                 key_mappings,
                                 key_origin,
-                                self._input_keys,
+                                set(self._input_keys),
                             )
 
                 new_key = key_origin + key_suffix
@@ -1403,7 +1412,7 @@ class Model(BaseModel):
                         raw_keys,
                         key_mappings,
                         key_origin,
-                        self._input_keys,
+                        set(self._input_keys),
                     )
                 raw_keys[key_origin].append(key)
             key_mappings[key] = new_key
@@ -1485,8 +1494,8 @@ class Model(BaseModel):
         symbolic: bool = False,
         name: str | None = None,
         alternative_shapes: bool = False,
-        uni_cache: dict | None = None,
-        var_cache: dict | None = None,
+        uni_cache: dict[UniadicRecord, str] | None = None,
+        var_cache: dict[Variadic, str] | None = None,
         depth: int = 0,
     ) -> None:
         if uni_cache is None:
@@ -1494,11 +1503,12 @@ class Model(BaseModel):
         if var_cache is None:
             var_cache = {}
 
-        type_info = None
+        type_info: dict[str, tuple[dict[str, str], dict[str, str]]] | None = None
         shape_info = None
         # extract relevant information about summary
         dag = self.dag
-        name_mappings = define_unique_names(dag)
+        # TODO: Fix typing issues
+        name_mappings: dict[BaseModel, str] = define_unique_names(dag)
 
         # extract model topology
         conn_info = self.extract_connection_info(name_mappings)
@@ -1525,12 +1535,12 @@ class Model(BaseModel):
             conns=conn_info, name=name, shape=shape_info, types=type_info
         )
 
-        table._compile()
+        table.compile()
         table.display()
 
         if depth > 0:
             for model, model_name in name_mappings.items():
-                kwargs = {
+                kwargs: dict[str, Any] = {
                     "depth": depth - 1,
                     "shapes": shapes,
                     "symbolic": symbolic,
@@ -1547,10 +1557,10 @@ class Model(BaseModel):
     def extract_connection_info(
         self,
         name_mappings: dict[BaseModel, str],
-        data_to_key_map: dict[Tensor | Scalar, list[str]] | None = None,
+        data_to_key_map: dict[Tensor[Any] | Scalar, list[str]] | None = None,
         data_memo: Mapping[int, Tensor[Any] | Scalar] | None = None,
     ):
-        conn_info: dict[str, tuple[dict, dict]] = {}
+        conn_info: dict[str, tuple[dict[str, list[str]], dict[str, list[str]]]] = {}
         if self._input_keys:
             if data_to_key_map is None:
                 data_to_key_map = {}

@@ -26,7 +26,9 @@ from ..common import (
     Scalar,
     Tensor,
     TensorType,
+    UniadicRecord,
     Updates,
+    Variadic,
     create_shape_map,
     get_summary,
     get_summary_shapes,
@@ -59,7 +61,7 @@ class PrimitiveModel(BaseModel):
             if isinstance(value, TensorType)
         }
         shapes = create_shape_map(shape_templates, self.constraint_solver)
-        data_set = set()
+        data_set: set[Tensor[Any]] = set()
         is_diff = False
         for key, value in kwargs.items():
             if isinstance(value, TensorType):
@@ -74,7 +76,6 @@ class PrimitiveModel(BaseModel):
             else:
                 self.conns.set_connection_type(conn_data, KeyType.INPUT)
                 is_diff |= not value.is_non_diff
-
         if isinstance(output_data, Tensor):
             output_data._differentiable = is_diff
 
@@ -129,11 +130,13 @@ class PrimitiveModel(BaseModel):
         )
 
     @staticmethod
-    def convert_to_tuple(value: int | tuple[int, int] | list) -> tuple[int, int]:
+    def convert_to_tuple(value: int | tuple[int, int] | list[Any]) -> tuple[int, int]:
         if isinstance(value, int):
             new_value = (value, value)
         elif isinstance(value, list):
             new_value = tuple(value)
+        else:
+            new_value = value
         return new_value
 
     def extract_connection_info(
@@ -178,8 +181,8 @@ class PrimitiveModel(BaseModel):
         symbolic: bool = False,
         name: str | None = None,
         alternative_shapes: bool = False,
-        uni_cache: dict | None = None,
-        var_cache: dict | None = None,
+        uni_cache: dict[UniadicRecord, str] | None = None,
+        var_cache: dict[Variadic, str] | None = None,
     ) -> None:
         if uni_cache is None:
             uni_cache = {}
@@ -216,7 +219,7 @@ class PrimitiveModel(BaseModel):
             conns=conn_info, name=name, shape=shape_info, types=type_info
         )
 
-        table._compile()
+        table.compile()
         table.display()
 
     def _freeze(self) -> None:
