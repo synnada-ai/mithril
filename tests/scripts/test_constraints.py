@@ -2070,6 +2070,22 @@ def test_pad_input_output_mismatch_error():
     assert str(err_info.value) == "Possible values mismatch!"
 
 
+def test_pad_pad_width_tbd():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [("V1", ...)],
+        "input": ["a", 2, 3, 4],
+    }
+    final_shapes = {
+        "output": ["V1, ..."],
+        "input": ["a", 2, 3, 4],
+        "pad_width": [],
+    }
+    scalar_info = {"pad_width": Scalar(possible_types=tuple | ToBeDetermined)}
+    assert_constraint_results(
+        shapes, {}, final_shapes, {}, pad_constraints, False, set(), scalar_info
+    )
+
+
 ############# ARANGE #############
 
 

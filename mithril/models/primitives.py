@@ -35,6 +35,7 @@ from ..framework.constraints import (
     eye_constraints,
     flatten_constrains,
     general_tensor_type_constraint,
+    pad_constraints,
     padding_1d_constraint,
     padding_2d_constraint,
     polynomial_features_constraints,
@@ -1926,12 +1927,17 @@ class Pad(PrimitiveModel):
     pad: Connection
     output: Connection
 
-    def __init__(self, pad_width: list[tuple[int, int]]) -> None:
+    def __init__(self, pad_width: list[tuple[int, int]] | ToBeDetermined) -> None:
         super().__init__(
             formula_key="pad",
             output=TensorType([("Var2", ...)]),
             input=TensorType([("Var1", ...)]),
-            pad_width=Scalar(tuple[tuple[int, int], ...], pad_width),
+            pad_width=Scalar(tuple[tuple[int, int], ...] | ToBeDetermined, pad_width),
+        )
+
+        # Set constraints.
+        self._set_constraint(
+            fn=pad_constraints, keys=[PrimitiveModel.output_key, "input", "pad_width"]
         )
 
     def __call__(  # type: ignore[override]

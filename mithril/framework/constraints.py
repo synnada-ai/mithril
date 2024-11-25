@@ -1720,7 +1720,7 @@ def pad_constraints(
     output: Tensor, input: Tensor, pad_width: Scalar
 ) -> ConstrainResultType:
     updates = Updates()
-    pad_value: tuple[tuple[int, int], ...] = pad_width.value  # type: ignore
+    pad_value: tuple[tuple[int, int], ...] | ToBeDetermined = pad_width.value  # type: ignore
     input_shape = input._temp_shape
     output_shape = output._temp_shape
     assert input_shape is not None
@@ -1745,6 +1745,9 @@ def pad_constraints(
             prefix.append(uni)
 
         return prefix, root, suffix, status
+
+    if pad_value is TBD:
+        return False, updates
 
     # Use pad width
     temp_uniadics = [Uniadic() for _ in range(len(pad_value))]
