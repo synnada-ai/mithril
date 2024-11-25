@@ -83,13 +83,17 @@ def assert_backend_results_equal(
     testing_fn = testing_fns[backend.__class__]
 
     output = fn(*fn_args, **fn_kwargs)
-    output_device = get_array_device(output, backend.type)
-    output_precision = get_array_precision(output, backend.type)
+    assert not isinstance(output, tuple | list) ^ isinstance(ref_output, tuple | list)
+    if not isinstance(output, tuple | list):
+        output = (output,)
+    if not isinstance(ref_output, tuple | list):
+        ref_output = (ref_output,)
 
-    assert tuple(output.shape) == tuple(ref_output.shape)
-    assert output_device == ref_output_device
-    assert output_precision == ref_output_precision
-    assert testing_fn(output, ref_output, rtol=rtol, atol=atol)
+    for out, ref in zip(output, ref_output, strict=False):
+        assert tuple(out.shape) == tuple(ref.shape)
+        assert get_array_device(out, backend.type) == ref_output_device
+        assert get_array_precision(out, backend.type) == ref_output_precision
+        assert testing_fn(out, ref, rtol=rtol, atol=atol)
 
 
 unsupported_device_precisions = [
@@ -1452,6 +1456,24 @@ class TestAtLeast1D:
             tolerances[precision],
         )
 
+    def test_tuple_input(self, backendcls, device, precision):
+        backend = backendcls(device=device, precision=precision)
+        fn = backend.atleast_1d
+        fn_args: list = [(backend.array([[0]]), backend.array([[1]]))]
+        fn_kwargs: dict = {}
+        ref_output = (backend.array([[0]]), backend.array([[1]]))
+        assert_backend_results_equal(
+            backend,
+            fn,
+            fn_args,
+            fn_kwargs,
+            ref_output,
+            device,
+            precision,
+            tolerances[precision],
+            tolerances[precision],
+        )
+
 
 @pytest.mark.parametrize(
     "backendcls, device, precision", backends_with_device_precision, ids=names
@@ -1481,6 +1503,24 @@ class TestAtLeast2D:
         fn_args: list = [backend.array([0])]
         fn_kwargs: dict = {}
         ref_output = backend.array([[0]])
+        assert_backend_results_equal(
+            backend,
+            fn,
+            fn_args,
+            fn_kwargs,
+            ref_output,
+            device,
+            precision,
+            tolerances[precision],
+            tolerances[precision],
+        )
+
+    def test_tuple_input(self, backendcls, device, precision):
+        backend = backendcls(device=device, precision=precision)
+        fn = backend.atleast_2d
+        fn_args: list = [(backend.array([0]), backend.array(1))]
+        fn_kwargs: dict = {}
+        ref_output = (backend.array([[0]]), backend.array([[1]]))
         assert_backend_results_equal(
             backend,
             fn,
