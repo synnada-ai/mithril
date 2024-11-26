@@ -1746,7 +1746,7 @@ def pad_constraints(
 
         return prefix, root, suffix, status
 
-    if pad_value is TBD:
+    if isinstance(pad_value, ToBeDetermined):
         return False, updates
 
     # Use pad width
