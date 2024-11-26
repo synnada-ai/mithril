@@ -38,14 +38,32 @@ try:
 
     testing_fns[TorchBackend] = torch.allclose
     installed_backends.append(TorchBackend)
+
+    def torch_array_wrapper(array: list, device: str, dtype: str) -> torch.Tensor:
+        return torch.tensor(array, device=device, dtype=getattr(torch, f"{dtype}"))
+
+    array_fns[TorchBackend] = torch_array_wrapper
+
+
 except ImportError:
     pass
 
 try:
     import jax
+    import jax.numpy as jnp
 
     testing_fns[JaxBackend] = jax.numpy.allclose
     installed_backends.append(JaxBackend)
+
+    def jax_array_wrapper(array: list, device: str, dtype: str) -> jnp.ndarray:
+        jax_array = jnp.array(array, dtype=getattr(jnp, f"{dtype}"))
+        jax_device = jax.devices(device[:-2])[0]
+        jax.device_put(jax_array, jax_device)
+        return jax_array
+
+    array_fns[JaxBackend] = jax_array_wrapper
+
+
 except ImportError:
     pass
 
@@ -54,6 +72,12 @@ try:
 
     testing_fns[NumpyBackend] = numpy.allclose
     installed_backends.append(NumpyBackend)
+
+    def numpy_array_wrapper(array: list, device: str, dtype: str) -> numpy.ndarray:
+        return numpy.array(array, dtype=getattr(numpy, f"{dtype}"))
+
+    array_fns[NumpyBackend] = numpy_array_wrapper
+
 except ImportError:
     pass
 
@@ -64,6 +88,13 @@ try:
         raise ImportError
     testing_fns[MlxBackend] = mx.allclose
     installed_backends.append(MlxBackend)
+
+    def mlx_array_wrapper(array: list, device: str, dtype: str) -> mx.array:
+        if dtype == "bool":
+            dtype = "bool_"
+        return mx.array(array, dtype=getattr(mx, f"{dtype}"))
+
+    array_fns[MlxBackend] = mlx_array_wrapper
 except ImportError:
     pass
 
@@ -129,12 +160,12 @@ tolerances = {16: 1e-2, 32: 1e-5, 64: 1e-6}
 class TestArray:
     def test_array(self, backendcls, device, precision):
         backend = backendcls(device=device, precision=precision)
-
+        array_fn = array_fns[backend.__class__]
         fn = backend.array
         fn_args = [[1, 2, 3]]
         fn_kwargs: dict = {}
 
-        ref_output = backend.array([1, 2, 3])
+        ref_output = array_fn([1, 2, 3], str(device), f"int{precision}")
         assert_backend_results_equal(
             backend,
             fn,
@@ -149,12 +180,12 @@ class TestArray:
 
     def test_array_edge_case(self, backendcls, device, precision):
         backend = backendcls(device=device, precision=precision)
-
+        array_fn = array_fns[backend.__class__]
         fn = backend.array
         fn_args = [1]
         fn_kwargs: dict = {}
 
-        ref_output = backend.array(1)
+        ref_output = array_fn(1, str(device), f"int{precision}")
         assert_backend_results_equal(
             backend,
             fn,
@@ -173,13 +204,16 @@ class TestArray:
 )
 class TestZeros:
     def test_zeros(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
         backend = backendcls(device=device, precision=precision)
 
         fn = backend.zeros
         fn_args = [(2, 3)]
         fn_kwargs: dict = {}
 
-        ref_output = backend.array([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]])
+        ref_output = array_fn(
+            [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]], device, f"float{precision}"
+        )
         assert_backend_results_equal(
             backend,
             fn,
@@ -193,6 +227,7 @@ class TestZeros:
         )
 
     def test_zeros_int(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
         backend = backendcls(device=device, precision=precision)
 
         fn = backend.zeros
@@ -200,7 +235,7 @@ class TestZeros:
         dtype = getattr(ml, f"int{precision}")
         fn_kwargs: dict = {"dtype": dtype}
 
-        ref_output = backend.array([[0, 0, 0], [0, 0, 0]])
+        ref_output = array_fn([[0, 0, 0], [0, 0, 0]], device, f"int{precision}")
         assert_backend_results_equal(
             backend,
             fn,
@@ -214,12 +249,13 @@ class TestZeros:
         )
 
     def test_zeros_edge(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
         backend = backendcls(device=device, precision=precision)
 
         fn = backend.zeros
         fn_args = [()]
         fn_kwargs: dict = {}
-        ref_output = backend.array(0.0)
+        ref_output = array_fn(0.0, device, f"float{precision}")
 
         assert_backend_results_equal(
             backend,
@@ -239,12 +275,15 @@ class TestZeros:
 )
 class TestOnes:
     def test_ones(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
         backend = backendcls(device=device, precision=precision)
 
         fn = backend.ones
         fn_args = [(2, 3)]
         fn_kwargs: dict = {}
-        ref_output = backend.array([[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]])
+        ref_output = array_fn(
+            [[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]], device, f"float{precision}"
+        )
 
         assert_backend_results_equal(
             backend,
@@ -259,6 +298,7 @@ class TestOnes:
         )
 
     def test_ones_int(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
         backend = backendcls(device=device, precision=precision)
 
         fn = backend.ones
@@ -266,7 +306,9 @@ class TestOnes:
         dtype = getattr(ml, f"int{precision}")
         fn_kwargs: dict = {"dtype": dtype}
 
-        ref_output = backend.array([[1, 1, 1], [1, 1, 1]])
+        ref_output = array_fn(
+            [[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]], device, f"int{precision}"
+        )
         assert_backend_results_equal(
             backend,
             fn,
@@ -279,14 +321,15 @@ class TestOnes:
             tolerances[precision],
         )
 
-    def test_zeros_edge(self, backendcls, device, precision):
+    def test_ones_edge(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
         backend = backendcls(device=device, precision=precision)
 
         fn = backend.ones
         fn_args = [()]
         fn_kwargs: dict = {}
 
-        ref_output = backend.array(1.0)
+        ref_output = array_fn(1.0, device, f"float{precision}")
         assert_backend_results_equal(
             backend,
             fn,
@@ -305,13 +348,14 @@ class TestOnes:
 )
 class TestArange:
     def test_arange(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
         backend = backendcls(device=device, precision=precision)
 
         fn = backend.arange
         fn_args: list = [-3, 5, 2]
         fn_kwargs: dict = {}
 
-        ref_output = backend.array([-3, -1, 1, 3])
+        ref_output = array_fn([-3, -1, 1, 3], device, f"int{precision}")
         assert_backend_results_equal(
             backend,
             fn,
@@ -325,6 +369,7 @@ class TestArange:
         )
 
     def test_arange_float(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
         backend = backendcls(device=device, precision=precision)
 
         fn = backend.arange
@@ -332,7 +377,7 @@ class TestArange:
         dtype = getattr(ml, f"float{precision}")
         fn_kwargs: dict = {"dtype": dtype}
 
-        ref_output = backend.array([-3.0, -1.0, 1.0, 3.0])
+        ref_output = array_fn([-3, -1, 1, 3], device, f"float{precision}")
         assert_backend_results_equal(
             backend,
             fn,
@@ -346,13 +391,14 @@ class TestArange:
         )
 
     def test_arange_negative(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
         backend = backendcls(device=device, precision=precision)
 
         fn = backend.arange
         fn_args = [3, 1, -1]
         fn_kwargs: dict = {}
 
-        ref_output = backend.array([3, 2])
+        ref_output = array_fn([3, 2], device, f"int{precision}")
         assert_backend_results_equal(
             backend,
             fn,
@@ -371,13 +417,14 @@ class TestArange:
 )
 class TestFlatten:
     def test_flatten(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
         backend = backendcls(device=device, precision=precision)
 
         fn = backend.flatten
-        fn_args: list = [backend.array([[1, 2], [3, 4]])]
+        fn_args: list = [array_fn([[1, 2], [3, 4]], device, f"int{precision}")]
         fn_kwargs: dict = {}
 
-        ref_output = backend.array([1, 2, 3, 4])
+        ref_output = array_fn([1, 2, 3, 4], device, f"int{precision}")
         assert_backend_results_equal(
             backend,
             fn,
@@ -391,13 +438,16 @@ class TestFlatten:
         )
 
     def test_flatten_float(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
         backend = backendcls(device=device, precision=precision)
 
         fn = backend.flatten
-        fn_args: list = [backend.array([[1.0, 2.0], [3.0, 4.0]])]
+        fn_args: list = [
+            array_fn([[1.0, 2.0], [3.0, 4.0]], device, f"float{precision}")
+        ]
         fn_kwargs: dict = {}
 
-        ref_output = backend.array([1.0, 2.0, 3.0, 4.0])
+        ref_output = array_fn([1.0, 2.0, 3.0, 4.0], device, f"float{precision}")
         assert_backend_results_equal(
             backend,
             fn,
@@ -411,11 +461,12 @@ class TestFlatten:
         )
 
     def test_flatten_edge(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
         backend = backendcls(device=device, precision=precision)
         fn = backend.flatten
-        fn_args: list = [backend.array(1)]
+        fn_args: list = [array_fn(1, device, f"int{precision}")]
         fn_kwargs: dict = {}
-        ref_output = backend.array([1])
+        ref_output = array_fn([1], device, f"int{precision}")
         assert_backend_results_equal(
             backend,
             fn,
@@ -434,12 +485,13 @@ class TestFlatten:
 )
 class TestTranspose:
     def test_transpose(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
         backend = backendcls(device=device, precision=precision)
 
         fn = backend.transpose
-        fn_args: list = [backend.array([[1, 2], [3, 4]])]
+        fn_args: list = [array_fn([[1, 2], [3, 4]], device, f"int{precision}")]
         fn_kwargs: dict = {}
-        ref_output = backend.array([[1, 3], [2, 4]])
+        ref_output = array_fn([[1, 3], [2, 4]], device, f"int{precision}")
         assert_backend_results_equal(
             backend,
             fn,
@@ -453,12 +505,15 @@ class TestTranspose:
         )
 
     def test_transpose_float(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
         backend = backendcls(device=device, precision=precision)
 
         fn = backend.transpose
-        fn_args: list = [backend.array([[1.0, 2.0], [3.0, 4.0]])]
+        fn_args: list = [
+            array_fn([[1.0, 2.0], [3.0, 4.0]], device, f"float{precision}")
+        ]
         fn_kwargs: dict = {}
-        ref_output = backend.array([[1.0, 3.0], [2.0, 4.0]])
+        ref_output = array_fn([[1.0, 3.0], [2.0, 4.0]], device, f"float{precision}")
 
         assert_backend_results_equal(
             backend,
@@ -473,13 +528,14 @@ class TestTranspose:
         )
 
     def test_transpose_with_axes(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
         backend = backendcls(device=device, precision=precision)
 
         fn = backend.transpose
-        fn_args: list = [backend.array([[1, 2, 3, 4]]), [1, 0]]
+        fn_args: list = [array_fn([[1, 2, 3, 4]], device, f"int{precision}"), [1, 0]]
         fn_kwargs: dict = {}
 
-        ref_output = backend.array([[1], [2], [3], [4]])
+        ref_output = array_fn([[1], [2], [3], [4]], device, f"int{precision}")
         assert_backend_results_equal(
             backend,
             fn,
@@ -498,11 +554,12 @@ class TestTranspose:
 )
 class TestRelu:
     def test_relu_int(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
         backend = backendcls(device=device, precision=precision)
         fn = backend.relu
-        fn_args: list = [backend.array([[-1, 2], [3, 4]])]
+        fn_args: list = [array_fn([[-1, 2], [3, 4]], device, f"int{precision}")]
         fn_kwargs: dict = {}
-        ref_output = backend.array([[0, 2], [3, 4]])
+        ref_output = array_fn([[0, 2], [3, 4]], device, f"int{precision}")
         assert_backend_results_equal(
             backend,
             fn,
@@ -516,11 +573,14 @@ class TestRelu:
         )
 
     def test_relu_edge(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
         backend = backendcls(device=device, precision=precision)
         fn = backend.relu
-        fn_args: list = [backend.array([[0.0, 1e10], [-1e10, 4.0]])]
+        fn_args: list = [
+            array_fn([[0.0, 1e10], [-1e10, 4.0]], device, f"float{precision}")
+        ]
         fn_kwargs: dict = {}
-        ref_output = backend.array([[0.0, 1e10], [0.0, 4.0]])
+        ref_output = array_fn([[0.0, 1e10], [0.0, 4.0]], device, f"float{precision}")
         assert_backend_results_equal(
             backend,
             fn,
@@ -534,11 +594,14 @@ class TestRelu:
         )
 
     def test_relu_float(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
         backend = backendcls(device=device, precision=precision)
         fn = backend.relu
-        fn_args: list = [backend.array([[-1.0, 2.0], [3.0, 4.0]])]
+        fn_args: list = [
+            array_fn([[-1.0, 2.0], [3.0, 4.0]], device, f"float{precision}")
+        ]
         fn_kwargs: dict = {}
-        ref_output = backend.array([[0.0, 2.0], [3.0, 4.0]])
+        ref_output = array_fn([[0.0, 2.0], [3.0, 4.0]], device, f"float{precision}")
         assert_backend_results_equal(
             backend,
             fn,
@@ -557,15 +620,20 @@ class TestRelu:
 )
 class TestSigmoid:
     def test_sigmoid_float(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
         backend = backendcls(device=device, precision=precision)
         fn = backend.sigmoid
-        fn_args: list = [backend.array([[-1.0, 2.0], [3.0, 4.0]])]
+        fn_args: list = [
+            array_fn([[-1.0, 2.0], [3.0, 4.0]], device, f"float{precision}")
+        ]
         fn_kwargs: dict = {}
-        ref_output = backend.array(
+        ref_output = array_fn(
             [
                 [0.2689414322376251, 0.8807970285415649],
                 [0.9525741338729858, 0.9820137619972229],
-            ]
+            ],
+            device,
+            f"float{precision}",
         )
         assert_backend_results_equal(
             backend,
@@ -585,11 +653,14 @@ class TestSigmoid:
 )
 class TestSign:
     def test_sign_float(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
         backend = backendcls(device=device, precision=precision)
         fn = backend.sign
-        fn_args: list = [backend.array([[-1.0, 2.0], [3.0, 4.0]])]
+        fn_args: list = [
+            array_fn([[-1.0, 2.0], [3.0, 4.0]], device, f"float{precision}")
+        ]
         fn_kwargs: dict = {}
-        ref_output = backend.array([[-1.0, 1.0], [1.0, 1.0]])
+        ref_output = array_fn([[-1.0, 1.0], [1.0, 1.0]], device, f"float{precision}")
         assert_backend_results_equal(
             backend,
             fn,
@@ -603,11 +674,12 @@ class TestSign:
         )
 
     def test_sign_int(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
         backend = backendcls(device=device, precision=precision)
         fn = backend.sign
-        fn_args: list = [backend.array([[-1, 2], [3, 4]])]
+        fn_args: list = [array_fn([[-1, 2], [3, 4]], device, f"int{precision}")]
         fn_kwargs: dict = {}
-        ref_output = backend.array([[-1, 1], [1, 1]])
+        ref_output = array_fn([[-1, 1], [1, 1]], device, f"int{precision}")
         assert_backend_results_equal(
             backend,
             fn,
@@ -627,10 +699,13 @@ class TestSign:
 class TestAbs:
     def test_abs_float(self, backendcls, device, precision):
         backend = backendcls(device=device, precision=precision)
+        array_fn = array_fns[backend.__class__]
         fn = backend.abs
-        fn_args: list = [backend.array([[-1.0, 2.0], [3.0, 4.0]])]
+        fn_args: list = [
+            array_fn([[-1.0, 2.0], [3.0, 4.0]], device, f"float{precision}")
+        ]
         fn_kwargs: dict = {}
-        ref_output = backend.array([[1.0, 2.0], [3.0, 4.0]])
+        ref_output = array_fn([[1.0, 2.0], [3.0, 4.0]], device, f"float{precision}")
         assert_backend_results_equal(
             backend,
             fn,
@@ -646,9 +721,10 @@ class TestAbs:
     def test_abs_int(self, backendcls, device, precision):
         backend = backendcls(device=device, precision=precision)
         fn = backend.abs
-        fn_args: list = [backend.array([[-1, 2], [3, 4]])]
+        array_fn = array_fns[backend.__class__]
+        fn_args: list = [array_fn([[-1, 2], [3, 4]], device, f"int{precision}")]
         fn_kwargs: dict = {}
-        ref_output = backend.array([[1, 2], [3, 4]])
+        ref_output = array_fn([[1, 2], [3, 4]], device, f"int{precision}")
         assert_backend_results_equal(
             backend,
             fn,
@@ -663,10 +739,11 @@ class TestAbs:
 
     def test_abs_edge(self, backendcls, device, precision):
         backend = backendcls(device=device, precision=precision)
+        array_fn = array_fns[backend.__class__]
         fn = backend.abs
-        fn_args: list = [backend.array(0.0)]
+        fn_args: list = [array_fn([0.0], device, f"float{precision}")]
         fn_kwargs: dict = {}
-        ref_output = backend.array(0.0)
+        ref_output = array_fn([0.0], device, f"float{precision}")
         assert_backend_results_equal(
             backend,
             fn,
@@ -685,11 +762,14 @@ class TestAbs:
 )
 class TestOnesLike:
     def test_ones_like(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
         backend = backendcls(device=device, precision=precision)
         fn = backend.ones_like
-        fn_args: list = [backend.array([[-1.0, 2.0], [3.0, 4.0]])]
+        fn_args: list = [
+            array_fn([[0.0, 0.0], [0.0, 0.0]], device, f"float{precision}")
+        ]
         fn_kwargs: dict = {}
-        ref_output = backend.array([[1.0, 1.0], [1.0, 1.0]])
+        ref_output = array_fn([[1.0, 1.0], [1.0, 1.0]], device, f"float{precision}")
         assert_backend_results_equal(
             backend,
             fn,
@@ -703,11 +783,12 @@ class TestOnesLike:
         )
 
     def test_ones_edge(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
         backend = backendcls(device=device, precision=precision)
         fn = backend.ones_like
-        fn_args: list = [backend.array(0.0)]
+        fn_args: list = [array_fn(0.0, device, f"float{precision}")]
         fn_kwargs: dict = {}
-        ref_output = backend.array(1.0)
+        ref_output = array_fn(1.0, device, f"float{precision}")
         assert_backend_results_equal(
             backend,
             fn,
@@ -726,11 +807,14 @@ class TestOnesLike:
 )
 class TestZerosLike:
     def test_zeros_like(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
         backend = backendcls(device=device, precision=precision)
         fn = backend.zeros_like
-        fn_args: list = [backend.array([[-1.0, 2.0], [3.0, 4.0]])]
+        fn_args: list = [
+            array_fn([[-1.0, 2.0], [3.0, 4.0]], device, f"float{precision}")
+        ]
         fn_kwargs: dict = {}
-        ref_output = backend.array([[0.0, 0.0], [0.0, 0.0]])
+        ref_output = array_fn([[0.0, 0.0], [0.0, 0.0]], device, f"float{precision}")
         assert_backend_results_equal(
             backend,
             fn,
@@ -744,11 +828,12 @@ class TestZerosLike:
         )
 
     def test_zeros_edge(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
         backend = backendcls(device=device, precision=precision)
         fn = backend.zeros_like
-        fn_args: list = [backend.array(0.0)]
+        fn_args: list = [array_fn(0.0, device, f"float{precision}")]
         fn_kwargs: dict = {}
-        ref_output = backend.array(0.0)
+        ref_output = array_fn(0.0, device, f"float{precision}")
         assert_backend_results_equal(
             backend,
             fn,
@@ -767,15 +852,20 @@ class TestZerosLike:
 )
 class TestSin:
     def test_sin(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
         backend = backendcls(device=device, precision=precision)
         fn = backend.sin
-        fn_args: list = [backend.array([[-1.0, 2.0], [3.0, 4.0]])]
+        fn_args: list = [
+            array_fn([[-1.0, 2.0], [3.0, 4.0]], device, f"float{precision}")
+        ]
         fn_kwargs: dict = {}
-        ref_output = backend.array(
+        ref_output = array_fn(
             [
                 [-0.8414709848079, 0.9092974268256817],
                 [0.1411200080598672, -0.7568024953079282],
-            ]
+            ],
+            device,
+            f"float{precision}",
         )
         assert_backend_results_equal(
             backend,
@@ -795,15 +885,20 @@ class TestSin:
 )
 class TestCos:
     def test_cos(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
         backend = backendcls(device=device, precision=precision)
         fn = backend.cos
-        fn_args: list = [backend.array([[-1.0, 2.0], [3.0, 4.0]])]
+        fn_args: list = [
+            array_fn([[-1.0, 2.0], [3.0, 4.0]], device, f"float{precision}")
+        ]
         fn_kwargs: dict = {}
-        ref_output = backend.array(
+        ref_output = array_fn(
             [
                 [0.5403023058681398, -0.4161468365471424],
                 [-0.9899924966004454, -0.6536436208636119],
-            ]
+            ],
+            device,
+            f"float{precision}",
         )
         assert_backend_results_equal(
             backend,
@@ -823,15 +918,20 @@ class TestCos:
 )
 class TestTanh:
     def test_tanh(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
         backend = backendcls(device=device, precision=precision)
         fn = backend.tanh
-        fn_args: list = [backend.array([[-1.0, 2.0], [3.0, 4.0]])]
+        fn_args: list = [
+            array_fn([[-1.0, 2.0], [3.0, 4.0]], device, f"float{precision}")
+        ]
         fn_kwargs: dict = {}
-        ref_output = backend.array(
+        ref_output = array_fn(
             [
                 [-0.7615941559557649, 0.9640275800758169],
                 [0.9950547536867305, 0.999329299739067],
-            ]
+            ],
+            device,
+            f"float{precision}",
         )
         assert_backend_results_equal(
             backend,
@@ -851,11 +951,15 @@ class TestTanh:
 )
 class TestLeakyRelu:
     def test_leaky_relu(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
         backend = backendcls(device=device, precision=precision)
         fn = backend.leaky_relu
-        fn_args: list = [backend.array([[-1.0, 2.0], [3.0, 4.0]]), 0.1]
+        fn_args: list = [
+            array_fn([[-1.0, 2.0], [3.0, 4.0]], device, f"float{precision}"),
+            0.1,
+        ]
         fn_kwargs: dict = {}
-        ref_output = backend.array([[-0.1, 2.0], [3.0, 4.0]])
+        ref_output = array_fn([[-0.1, 2.0], [3.0, 4.0]], device, f"float{precision}")
         assert_backend_results_equal(
             backend,
             fn,
@@ -874,15 +978,20 @@ class TestLeakyRelu:
 )
 class TestSoftplus:
     def test_softplus(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
         backend = backendcls(device=device, precision=precision)
         fn = backend.softplus
-        fn_args: list = [backend.array([[-1.0, 2.0], [3.0, 4.0]])]
+        fn_args: list = [
+            array_fn([[-1.0, 2.0], [3.0, 4.0]], device, f"float{precision}")
+        ]
         fn_kwargs: dict = {}
-        ref_output = backend.array(
+        ref_output = array_fn(
             [
                 [0.3132616877555847, 2.1269280910491943],
                 [3.0485873222351074, 4.0181498527526855],
-            ]
+            ],
+            device,
+            f"float{precision}",
         )
         assert_backend_results_equal(
             backend,
@@ -902,15 +1011,21 @@ class TestSoftplus:
 )
 class TestSoftmax:
     def test_softmax(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
         backend = backendcls(device=device, precision=precision)
         fn = backend.softmax
-        fn_args: list = [backend.array([[-1.0, 2.0], [3.0, 4.0]]), 0]
+        fn_args: list = [
+            array_fn([[-1.0, 2.0], [3.0, 4.0]], device, f"float{precision}"),
+            0,
+        ]
         fn_kwargs: dict = {}
-        ref_output = backend.array(
+        ref_output = array_fn(
             [
                 [0.01798621006309986, 0.11920291930437088],
                 [0.9820137619972229, 0.8807970285415649],
-            ]
+            ],
+            device,
+            f"float{precision}",
         )
         assert_backend_results_equal(
             backend,
@@ -930,12 +1045,17 @@ class TestSoftmax:
 )
 class TestLog:
     def test_log(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
         backend = backendcls(device=device, precision=precision)
         fn = backend.log
-        fn_args: list = [backend.array([[2.0, 1e-5], [1.0, 4.0]])]
+        fn_args: list = [
+            array_fn([[2.0, 1e-5], [1.0, 4.0]], device, f"float{precision}")
+        ]
         fn_kwargs: dict = {}
-        ref_output = backend.array(
-            [[0.6931471824645996, -11.512925148010254], [0.0, 1.3862943649291992]]
+        ref_output = array_fn(
+            [[0.6931471824645996, -11.512925148010254], [0.0, 1.3862943649291992]],
+            device,
+            f"float{precision}",
         )
         assert_backend_results_equal(
             backend,
@@ -955,11 +1075,16 @@ class TestLog:
 )
 class TestIsNaN:
     def test_is_nan(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
         backend = backendcls(device=device, precision=precision)
         fn = backend.isnan
-        fn_args: list = [backend.array([[2.0, backend.nan], [backend.nan, 4.0]])]
+        fn_args: list = [
+            array_fn(
+                [[2.0, backend.nan], [backend.nan, 4.0]], device, f"float{precision}"
+            )
+        ]
         fn_kwargs: dict = {}
-        ref_output = backend.array([[False, True], [True, False]])
+        ref_output = array_fn([[False, True], [True, False]], device, "bool")
         assert_backend_results_equal(
             backend,
             fn,
@@ -978,11 +1103,14 @@ class TestIsNaN:
 )
 class TestSqueeze:
     def test_squeeze(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
         backend = backendcls(device=device, precision=precision)
         fn = backend.squeeze
-        fn_args: list = [backend.array([[[[[2.0, 1.0], [3.0, 4.0]]]]])]
+        fn_args: list = [
+            array_fn([[[[[2.0, 1.0], [3.0, 4.0]]]]], device, f"float{precision}")
+        ]
         fn_kwargs: dict = {}
-        ref_output = backend.array([[2.0, 1.0], [3.0, 4.0]])
+        ref_output = array_fn([[2.0, 1.0], [3.0, 4.0]], device, f"float{precision}")
         assert_backend_results_equal(
             backend,
             fn,
@@ -996,11 +1124,12 @@ class TestSqueeze:
         )
 
     def test_squeeze_edge(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
         backend = backendcls(device=device, precision=precision)
         fn = backend.squeeze
-        fn_args: list = [backend.array([[[[[[[[2.0]]]]]]]])]
+        fn_args: list = [array_fn([[[[[[[[2.0]]]]]]]], device, f"float{precision}")]
         fn_kwargs: dict = {}
-        ref_output = backend.array(2.0)
+        ref_output = array_fn(2.0, device, f"float{precision}")
         assert_backend_results_equal(
             backend,
             fn,
@@ -1019,11 +1148,15 @@ class TestSqueeze:
 )
 class TestReshape:
     def test_reshape(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
         backend = backendcls(device=device, precision=precision)
         fn = backend.reshape
-        fn_args: list = [backend.array([[[[[2.0, 1.0], [3.0, 4.0]]]]]), (4, 1)]
+        fn_args: list = [
+            array_fn([[[[[2.0, 1.0], [3.0, 4.0]]]]], device, f"float{precision}"),
+            (4, 1),
+        ]
         fn_kwargs: dict = {}
-        ref_output = backend.array([[2.0], [1.0], [3.0], [4.0]])
+        ref_output = array_fn([[2.0], [1.0], [3.0], [4.0]], device, f"float{precision}")
         assert_backend_results_equal(
             backend,
             fn,
@@ -1037,11 +1170,15 @@ class TestReshape:
         )
 
     def test_reshape_edge(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
         backend = backendcls(device=device, precision=precision)
         fn = backend.reshape
-        fn_args: list = [backend.array([[[[[[[[2.0]]]]]]]]), (1, 1)]
+        fn_args: list = [
+            array_fn([[[[[[[[2.0]]]]]]]], device, f"float{precision}"),
+            (1, 1),
+        ]
         fn_kwargs: dict = {}
-        ref_output = backend.array([[2.0]])
+        ref_output = array_fn([[2.0]], device, f"float{precision}")
         assert_backend_results_equal(
             backend,
             fn,
@@ -1068,11 +1205,16 @@ for idx, item in enumerate(backends_with_device_precision):
 )
 class TestSort:
     def test_sort(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
         backend = backendcls(device=device, precision=precision)
         fn = backend.sort
-        fn_args: list = [backend.array([[[[[1.0, 2.0], [3.0, 4.0]]]]])]
+        fn_args: list = [
+            array_fn([[[[[1.0, 2.0], [3.0, 4.0]]]]], device, f"float{precision}")
+        ]
         fn_kwargs: dict = {}
-        ref_output = backend.array([[[[[1.0, 2.0], [3.0, 4.0]]]]])
+        ref_output = array_fn(
+            [[[[[1.0, 2.0], [3.0, 4.0]]]]], device, f"float{precision}"
+        )
         assert_backend_results_equal(
             backend,
             fn,
@@ -1091,11 +1233,12 @@ class TestSort:
 )
 class TestExpandDims:
     def test_expand_dims(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
         backend = backendcls(device=device, precision=precision)
         fn = backend.expand_dims
-        fn_args: list = [backend.array([2.0, 3.0]), 1]
+        fn_args: list = [array_fn([2.0, 3.0], device, f"float{precision}"), 1]
         fn_kwargs: dict = {}
-        ref_output = backend.array([[2.0], [3.0]])
+        ref_output = array_fn([[2.0], [3.0]], device, f"float{precision}")
         assert_backend_results_equal(
             backend,
             fn,
@@ -1114,11 +1257,18 @@ class TestExpandDims:
 )
 class TestStack:
     def test_stack_dim0(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
         backend = backendcls(device=device, precision=precision)
         fn = backend.stack
-        fn_args: list = [[backend.array([2.0, 3.0]), backend.array([4.0, 5.0])], 0]
+        fn_args: list = [
+            [
+                array_fn([2.0, 3.0], device, f"float{precision}"),
+                array_fn([4.0, 5.0], device, f"float{precision}"),
+            ],
+            0,
+        ]
         fn_kwargs: dict = {}
-        ref_output = backend.array([[2.0, 3.0], [4.0, 5.0]])
+        ref_output = array_fn([[2.0, 3.0], [4.0, 5.0]], device, f"float{precision}")
         assert_backend_results_equal(
             backend,
             fn,
@@ -1132,11 +1282,18 @@ class TestStack:
         )
 
     def test_stack_dim1(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
         backend = backendcls(device=device, precision=precision)
         fn = backend.stack
-        fn_args: list = [[backend.array([2.0, 3.0]), backend.array([4.0, 5.0])], 1]
+        fn_args: list = [
+            [
+                array_fn([2.0, 3.0], device, f"float{precision}"),
+                array_fn([4.0, 5.0], device, f"float{precision}"),
+            ],
+            1,
+        ]
         fn_kwargs: dict = {}
-        ref_output = backend.array([[2.0, 4.0], [3.0, 5.0]])
+        ref_output = array_fn([[2.0, 4.0], [3.0, 5.0]], device, f"float{precision}")
         assert_backend_results_equal(
             backend,
             fn,
@@ -1155,11 +1312,18 @@ class TestStack:
 )
 class TestCat:
     def test_dim0(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
         backend = backendcls(device=device, precision=precision)
         fn = backend.cat
-        fn_args: list = [[backend.array([[2.0, 3.0]]), backend.array([[4.0, 5.0]])], 0]
+        fn_args: list = [
+            [
+                array_fn([[2.0, 3.0]], device, f"float{precision}"),
+                array_fn([[4.0, 5.0]], device, f"float{precision}"),
+            ],
+            0,
+        ]
         fn_kwargs: dict = {}
-        ref_output = backend.array([[2.0, 3.0], [4.0, 5.0]])
+        ref_output = array_fn([[2.0, 3.0], [4.0, 5.0]], device, f"float{precision}")
         assert_backend_results_equal(
             backend,
             fn,
@@ -1173,11 +1337,18 @@ class TestCat:
         )
 
     def test_dim1(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
         backend = backendcls(device=device, precision=precision)
         fn = backend.cat
-        fn_args: list = [[backend.array([[2.0, 3.0]]), backend.array([[4.0, 5.0]])], 1]
+        fn_args: list = [
+            [
+                array_fn([[2.0, 3.0]], device, f"float{precision}"),
+                array_fn([[4.0, 5.0]], device, f"float{precision}"),
+            ],
+            1,
+        ]
         fn_kwargs: dict = {}
-        ref_output = backend.array([[2.0, 3.0, 4.0, 5.0]])
+        ref_output = array_fn([[2.0, 3.0, 4.0, 5.0]], device, f"float{precision}")
         assert_backend_results_equal(
             backend,
             fn,
@@ -1196,11 +1367,17 @@ class TestCat:
 )
 class TestPad:
     def test_tuple_of_tuple(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
         backend = backendcls(device=device, precision=precision)
         fn = backend.pad
-        fn_args: list = [backend.array([[2.0, 3.0], [4.0, 5.0]]), ((0, 0), (1, 1))]
+        fn_args: list = [
+            array_fn([[2.0, 3.0], [4.0, 5.0]], device, f"float{precision}"),
+            ((0, 0), (1, 1)),
+        ]
         fn_kwargs: dict = {}
-        ref_output = backend.array([[0.0, 2.0, 3.0, 0.0], [0.0, 4.0, 5.0, 0.0]])
+        ref_output = array_fn(
+            [[0.0, 2.0, 3.0, 0.0], [0.0, 4.0, 5.0, 0.0]], device, f"float{precision}"
+        )
         assert_backend_results_equal(
             backend,
             fn,
@@ -1214,14 +1391,19 @@ class TestPad:
         )
 
     def test_tuple_of_tuple_3_dim(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
         backend = backendcls(device=device, precision=precision)
         fn = backend.pad
         fn_args: list = [
-            backend.array([[[2.0, 3.0], [4.0, 5.0]], [[2.0, 3.0], [4.0, 5.0]]]),
+            array_fn(
+                [[[2.0, 3.0], [4.0, 5.0]], [[2.0, 3.0], [4.0, 5.0]]],
+                device,
+                f"float{precision}",
+            ),
             ((0, 0), (1, 1), (2, 2)),
         ]
         fn_kwargs: dict = {}
-        ref_output = backend.array(
+        ref_output = array_fn(
             [
                 [
                     [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
@@ -1235,7 +1417,9 @@ class TestPad:
                     [0.0, 0.0, 4.0, 5.0, 0.0, 0.0],
                     [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
                 ],
-            ]
+            ],
+            device,
+            f"float{precision}",
         )
         assert_backend_results_equal(
             backend,
@@ -1250,14 +1434,19 @@ class TestPad:
         )
 
     def test_tuple_int(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
         backend = backendcls(device=device, precision=precision)
         fn = backend.pad
         fn_args: list = [
-            backend.array([[[2.0, 3.0], [4.0, 5.0]], [[2.0, 3.0], [4.0, 5.0]]]),
+            array_fn(
+                [[[2.0, 3.0], [4.0, 5.0]], [[2.0, 3.0], [4.0, 5.0]]],
+                device,
+                f"float{precision}",
+            ),
             (1, 2),
         ]
         fn_kwargs: dict = {}
-        ref_output = backend.array(
+        ref_output = array_fn(
             [
                 [
                     [0.0, 0.0, 0.0, 0.0, 0.0],
@@ -1294,7 +1483,9 @@ class TestPad:
                     [0.0, 0.0, 0.0, 0.0, 0.0],
                     [0.0, 0.0, 0.0, 0.0, 0.0],
                 ],
-            ]
+            ],
+            device,
+            f"float{precision}",
         )
         assert_backend_results_equal(
             backend,
@@ -1309,17 +1500,23 @@ class TestPad:
         )
 
     def test_int(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
         backend = backendcls(device=device, precision=precision)
         fn = backend.pad
-        fn_args: list = [backend.array([[2.0, 3.0], [4.0, 5.0]]), 1]
+        fn_args: list = [
+            array_fn([[2.0, 3.0], [4.0, 5.0]], device, f"float{precision}"),
+            1,
+        ]
         fn_kwargs: dict = {}
-        ref_output = backend.array(
+        ref_output = array_fn(
             [
                 [0.0, 0.0, 0.0, 0.0],
                 [0.0, 2.0, 3.0, 0.0],
                 [0.0, 4.0, 5.0, 0.0],
                 [0.0, 0.0, 0.0, 0.0],
-            ]
+            ],
+            device,
+            f"float{precision}",
         )
         assert_backend_results_equal(
             backend,
@@ -1340,10 +1537,11 @@ class TestPad:
 class TestAll:
     def test_all_false(self, backendcls, device, precision):
         backend = backendcls(device=device, precision=precision)
+        array_fn = array_fns[backend.__class__]
         fn = backend.all
-        fn_args: list = [backend.array([True, False, False, True])]
+        fn_args: list = [array_fn([True, False, False, True], device, "bool")]
         fn_kwargs: dict = {}
-        ref_output = backend.array(False)
+        ref_output = array_fn(False, device, "bool")
         assert_backend_results_equal(
             backend,
             fn,
@@ -1358,10 +1556,11 @@ class TestAll:
 
     def test_all_true(self, backendcls, device, precision):
         backend = backendcls(device=device, precision=precision)
+        array_fn = array_fns[backend.__class__]
         fn = backend.all
-        fn_args: list = [backend.array([True, True, 1.0, True])]
+        fn_args: list = [array_fn([True, True, 1.0, True], device, "bool")]
         fn_kwargs: dict = {}
-        ref_output = backend.array(True)
+        ref_output = array_fn(True, device, "bool")
         assert_backend_results_equal(
             backend,
             fn,
@@ -1380,11 +1579,12 @@ class TestAll:
 )
 class TestAny:
     def test_any_false(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
         backend = backendcls(device=device, precision=precision)
         fn = backend.any
-        fn_args: list = [backend.array([False, 0.0, False, 0.0])]
+        fn_args: list = [array_fn([False, False, 0.0, False], device, "bool")]
         fn_kwargs: dict = {}
-        ref_output = backend.array(False)
+        ref_output = array_fn(False, device, "bool")
         assert_backend_results_equal(
             backend,
             fn,
@@ -1398,11 +1598,12 @@ class TestAny:
         )
 
     def test_any_true(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
         backend = backendcls(device=device, precision=precision)
         fn = backend.any
-        fn_args: list = [backend.array([False, False, 0.0, True])]
+        fn_args: list = [array_fn([False, False, 0.0, True], device, "bool")]
         fn_kwargs: dict = {}
-        ref_output = backend.array(True)
+        ref_output = array_fn(True, device, "bool")
         assert_backend_results_equal(
             backend,
             fn,
@@ -1421,11 +1622,12 @@ class TestAny:
 )
 class TestAtLeast1D:
     def test_zero_dim(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
         backend = backendcls(device=device, precision=precision)
         fn = backend.atleast_1d
-        fn_args: list = [backend.array(0)]
+        fn_args: list = [array_fn(0, device, f"int{precision}")]
         fn_kwargs: dict = {}
-        ref_output = backend.array([0])
+        ref_output = array_fn([0], device, f"int{precision}")
         assert_backend_results_equal(
             backend,
             fn,
@@ -1439,11 +1641,12 @@ class TestAtLeast1D:
         )
 
     def test_two_dim(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
         backend = backendcls(device=device, precision=precision)
         fn = backend.atleast_1d
-        fn_args: list = [backend.array([[0]])]
+        fn_args: list = [array_fn([[0]], device, f"int{precision}")]
         fn_kwargs: dict = {}
-        ref_output = backend.array([[0]])
+        ref_output = array_fn([[0]], device, f"int{precision}")
         assert_backend_results_equal(
             backend,
             fn,
@@ -1457,11 +1660,20 @@ class TestAtLeast1D:
         )
 
     def test_tuple_input(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
         backend = backendcls(device=device, precision=precision)
         fn = backend.atleast_1d
-        fn_args: list = [(backend.array([[0]]), backend.array([[1]]))]
+        fn_args: list = [
+            (
+                array_fn([[0]], device, f"int{precision}"),
+                array_fn([[1]], device, f"int{precision}"),
+            )
+        ]
         fn_kwargs: dict = {}
-        ref_output = (backend.array([[0]]), backend.array([[1]]))
+        ref_output = (
+            array_fn([[0]], device, f"int{precision}"),
+            array_fn([[1]], device, f"int{precision}"),
+        )
         assert_backend_results_equal(
             backend,
             fn,
@@ -1480,11 +1692,12 @@ class TestAtLeast1D:
 )
 class TestAtLeast2D:
     def test_zero_dim(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
         backend = backendcls(device=device, precision=precision)
         fn = backend.atleast_2d
-        fn_args: list = [backend.array(0)]
+        fn_args: list = [array_fn(0, device, f"int{precision}")]
         fn_kwargs: dict = {}
-        ref_output = backend.array([[0]])
+        ref_output = array_fn([[0]], device, f"int{precision}")
         assert_backend_results_equal(
             backend,
             fn,
@@ -1498,11 +1711,12 @@ class TestAtLeast2D:
         )
 
     def test_one_dim(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
         backend = backendcls(device=device, precision=precision)
         fn = backend.atleast_2d
-        fn_args: list = [backend.array([0])]
+        fn_args: list = [array_fn([0], device, f"int{precision}")]
         fn_kwargs: dict = {}
-        ref_output = backend.array([[0]])
+        ref_output = array_fn([[0]], device, f"int{precision}")
         assert_backend_results_equal(
             backend,
             fn,
@@ -1516,11 +1730,20 @@ class TestAtLeast2D:
         )
 
     def test_tuple_input(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
         backend = backendcls(device=device, precision=precision)
         fn = backend.atleast_2d
-        fn_args: list = [(backend.array([0]), backend.array(1))]
+        fn_args: list = [
+            (
+                array_fn([1], device, f"int{precision}"),
+                array_fn(1, device, f"int{precision}"),
+            )
+        ]
         fn_kwargs: dict = {}
-        ref_output = (backend.array([[0]]), backend.array([[1]]))
+        ref_output = (
+            array_fn([[1]], device, f"int{precision}"),
+            array_fn([[1]], device, f"int{precision}"),
+        )
         assert_backend_results_equal(
             backend,
             fn,
@@ -1539,12 +1762,15 @@ class TestAtLeast2D:
 )
 class TestWhere:
     def test_where(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
         backend = backendcls(device=device, precision=precision)
         fn = backend.where
-        input = backend.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+        input = array_fn([0, 1, 2, 3, 4, 5, 6, 7, 8, 9], device, f"int{precision}")
         fn_args: list = [input < 5, input, 10 * input]
         fn_kwargs: dict = {}
-        ref_output = backend.array([0, 1, 2, 3, 4, 50, 60, 70, 80, 90])
+        ref_output = array_fn(
+            [0, 1, 2, 3, 4, 50, 60, 70, 80, 90], device, f"int{precision}"
+        )
         assert_backend_results_equal(
             backend,
             fn,
@@ -1563,12 +1789,13 @@ class TestWhere:
 )
 class TestTopK:
     def test_topk(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
         backend = backendcls(device=device, precision=precision)
         fn = backend.topk
-        input = backend.array([0, 1, 2, 3, 4, 5])
+        input = array_fn([0, 1, 2, 3, 4, 5], device, f"float{precision}")
         fn_args: list = [input, 3]
         fn_kwargs: dict = {}
-        ref_output = backend.array([5, 4, 3])
+        ref_output = array_fn([5, 4, 3], device, f"float{precision}")
         assert_backend_results_equal(
             backend,
             fn,
@@ -1587,11 +1814,12 @@ class TestTopK:
 )
 class TestLinspace:
     def test_linpsace(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
         backend = backendcls(device=device, precision=precision)
         fn = backend.linspace
         fn_args: list = [0, 20, 3]
         fn_kwargs: dict = {}
-        ref_output = backend.array([0.0, 10.0, 20.0])
+        ref_output = array_fn([0.0, 10.0, 20.0], device, f"float{precision}")
         assert_backend_results_equal(
             backend,
             fn,
