@@ -79,6 +79,10 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
     def inf(self):
         return jax.numpy.inf
 
+    @property
+    def nan(self):
+        return jax.numpy.nan
+
     def get_backend_array_type(self):
         return jax.Array
 
@@ -509,11 +513,21 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
     def any(self, input: jax.Array) -> jax.Array:
         return jax.numpy.any(input)
 
-    def atleast_1d(self, *inputs) -> jax.Array | list[jax.Array]:
-        return jax.numpy.atleast_1d(*inputs)
+    def atleast_1d(
+        self, inputs: jax.Array | tuple[jax.Array, ...]
+    ) -> jax.Array | list[jax.Array]:
+        if isinstance(inputs, tuple):
+            return jax.numpy.atleast_1d(*inputs)
+        else:
+            return jax.numpy.atleast_1d(inputs)
 
-    def atleast_2d(self, *inputs) -> jax.Array | list[jax.Array]:
-        return jax.numpy.atleast_2d(*inputs)
+    def atleast_2d(
+        self, inputs: jax.Array | tuple[jax.Array, ...]
+    ) -> jax.Array | list[jax.Array]:
+        if isinstance(inputs, tuple):
+            return jax.numpy.atleast_2d(*inputs)
+        else:
+            return jax.numpy.atleast_2d(inputs)
 
     def transpose(
         self, data: jax.Array, axes: tuple[int, ...] | list[int] | None = None
