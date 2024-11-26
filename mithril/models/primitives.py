@@ -1900,7 +1900,7 @@ class Pad(PrimitiveModel):
     pad: Connection
     output: Connection
 
-    def __init__(self, pad_width: list[tuple[int, int]] | ToBeDetermined) -> None:
+    def __init__(self, pad_width: list[tuple[int, int]] | ToBeDetermined = TBD) -> None:
         super().__init__(
             formula_key="pad",
             output=TensorType([("Var2", ...)]),
