@@ -102,6 +102,7 @@ __all__ = [
     "Cast",
     "Transpose",
     "Sqrt",
+    "Split",
 ]
 ConstantType = float | int | Constant
 
@@ -1244,3 +1245,36 @@ class Transpose(PrimitiveModel):
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(input=input, axes=axes, output=output)
+
+
+class Split(PrimitiveModel):
+    split_size: Connection
+    axis: Connection
+    input: Connection
+    output: Connection
+
+    def __init__(
+        self,
+        split_size: int | tuple[int],
+        axis: int = 0,
+        name: str | None = None,
+    ):
+        super().__init__(
+            formula_key="split",
+            name=name,
+            output=TensorType([("Var2", ...)]),
+            input=TensorType([("Var1", ...)]),
+            split_size=Scalar(int | tuple[int], split_size),
+            axis=Scalar(int, axis),
+        )
+
+    def __call__(  # type: ignore[override]
+        self,
+        input: ConnectionType = NOT_GIVEN,
+        split_size: ConnectionType = NOT_GIVEN,
+        axis: ConnectionType = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
+    ) -> ExtendInfo:
+        return super().__call__(
+            input=input, split_size=split_size, axis=axis, output=output
+        )

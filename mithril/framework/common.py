@@ -1073,6 +1073,9 @@ class TemplateBase:
     def transpose(self, axes: tuple[int, ...] | TemplateBase | None = None):
         return ExtendTemplate(connections=[self, axes], model="transpose")
 
+    def split(self, split_size: int, axis: int):
+        return ExtendTemplate(connections=[self, split_size, axis], model="split")
+
 
 class ExtendTemplate(TemplateBase):
     output_connection: ConnectionData | None

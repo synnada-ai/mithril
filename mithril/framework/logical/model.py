@@ -14,7 +14,7 @@
 
 from __future__ import annotations
 
-from types import UnionType
+from types import EllipsisType, UnionType
 from typing import Any, Self, TypeVar, overload
 
 from ...utils.utils import OrderedSet, find_dominant_type
@@ -75,6 +75,7 @@ from .essential_primitives import (
     ShiftLeft,
     ShiftRight,
     Size,
+    Split,
     Sqrt,
     Subtract,
     Sum,
@@ -127,6 +128,7 @@ ops_table: dict[str, type[PrimitiveModel]] = {
     "rshift": ShiftRight,
     "minus": Minus,
     "transpose": Transpose,
+    "split": Split,
 }
 
 
@@ -972,7 +974,7 @@ class Model(BaseModel):
                 result = conv_model.conns.get_connection("output")
                 assert result is not None
                 update_canonical_input = True
-            elif dominant_type not in [float, int, bool, slice]:
+            elif dominant_type not in [float, int, bool, slice, EllipsisType]:
                 raise TypeError(
                     f"{dominant_type} type is not supported for conversion in "
                     "a container!"
