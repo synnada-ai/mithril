@@ -49,6 +49,7 @@ from mithril.framework.constraints import (
     flatten_constrains,
     general_tensor_type_constraint,
     item_constraints,
+    pad_constraints,
     polynomial_features_constraints,
     reduce_constraints,
     reduce_type_constraint,
@@ -2030,6 +2031,233 @@ def test_reduce_backward_5_error():
             shapes, {}, {}, {}, reduce_constraints, True, {"input"}, scalar_info
         )
     assert str(err_info.value) == "Possible values mismatch!"
+
+
+############# PAD #############
+
+
+def test_pad_all_inputs_defined_forward_zero_pad():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [("V1", ...)],
+        "input": [1, 2, 3, 4],
+    }
+    final_shapes = {
+        "output": [1, 2, 3, 4],
+        "input": [1, 2, 3, 4],
+        "pad_width": [],
+    }
+    scalar_info = {"pad_width": Scalar(value=((0, 0), (0, 0), (0, 0), (0, 0)))}
+    assert_constraint_results(
+        shapes, {}, final_shapes, {}, pad_constraints, True, {"output"}, scalar_info
+    )
+
+
+def test_pad_all_inputs_defined_forward_one_pad_symmetric():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [("V1", ...)],
+        "input": [1, 2, 3, 4],
+    }
+    final_shapes = {
+        "output": [3, 4, 5, 6],
+        "input": [1, 2, 3, 4],
+        "pad_width": [],
+    }
+    scalar_info = {"pad_width": Scalar(value=((1, 1), (1, 1), (1, 1), (1, 1)))}
+    assert_constraint_results(
+        shapes, {}, final_shapes, {}, pad_constraints, True, {"output"}, scalar_info
+    )
+
+
+def test_pad_all_inputs_defined_forward_one_pad_asymmetric():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [("V1", ...)],
+        "input": [1, 2, 3, 4],
+    }
+    final_shapes = {
+        "output": [2, 3, 4, 5],
+        "input": [1, 2, 3, 4],
+        "pad_width": [],
+    }
+    scalar_info = {"pad_width": Scalar(value=((0, 1), (0, 1), (0, 1), (0, 1)))}
+    assert_constraint_results(
+        shapes, {}, final_shapes, {}, pad_constraints, True, {"output"}, scalar_info
+    )
+
+
+def test_pad_all_inputs_defined_forward_random_pad():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [("V1", ...)],
+        "input": [1, 2, 3, 4],
+    }
+    final_shapes = {
+        "output": [2, 7, 8, 25],
+        "input": [1, 2, 3, 4],
+        "pad_width": [],
+    }
+    scalar_info = {"pad_width": Scalar(value=((0, 1), (2, 3), (5, 0), (9, 12)))}
+    assert_constraint_results(
+        shapes, {}, final_shapes, {}, pad_constraints, True, {"output"}, scalar_info
+    )
+
+
+def test_pad_some_inputs_defined_forward_random_pad():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [("V1", ...)],
+        "input": ["a", 2, 3, 4],
+    }
+    final_shapes = {
+        "output": ["b", 7, 8, 25],
+        "input": ["a", 2, 3, 4],
+        "pad_width": [],
+    }
+    scalar_info = {"pad_width": Scalar(value=((0, 1), (2, 3), (5, 0), (9, 12)))}
+    assert_constraint_results(
+        shapes, {}, final_shapes, {}, pad_constraints, False, {"output"}, scalar_info
+    )
+
+
+def test_pad_input_with_variadic_forward_random_pad():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [("V2", ...)],
+        "input": ["a", ("V1", ...), 3, "b", 4],
+    }
+    final_shapes = {
+        "output": ["d", "e", 8, "f", 25],
+        "input": ["a", "b", 3, "c", 4],
+        "pad_width": [],
+    }
+    scalar_info = {"pad_width": Scalar(value=((0, 1), (2, 3), (5, 0), (1, 1), (9, 12)))}
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        pad_constraints,
+        False,
+        {"output", "input"},
+        scalar_info,
+    )
+
+
+def test_pad_output_defined_backward_zero_pad():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [3, 4, 5, 6],
+        "input": [("V1", ...)],
+    }
+    final_shapes = {
+        "output": [3, 4, 5, 6],
+        "input": [3, 4, 5, 6],
+        "pad_width": [],
+    }
+    scalar_info = {"pad_width": Scalar(value=((0, 0), (0, 0), (0, 0), (0, 0)))}
+    assert_constraint_results(
+        shapes, {}, final_shapes, {}, pad_constraints, True, {"input"}, scalar_info
+    )
+
+
+def test_pad_output_defined_backward_one_pad_symmetric():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [3, 4, 5, 6],
+        "input": [("V1", ...)],
+    }
+    final_shapes = {
+        "output": [3, 4, 5, 6],
+        "input": [1, 2, 3, 4],
+        "pad_width": [],
+    }
+    scalar_info = {"pad_width": Scalar(value=((1, 1), (1, 1), (1, 1), (1, 1)))}
+    assert_constraint_results(
+        shapes, {}, final_shapes, {}, pad_constraints, True, {"input"}, scalar_info
+    )
+
+
+def test_pad_output_defined_backward_one_pad_asymmetric():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [3, 4, 5, 6],
+        "input": [("V1", ...)],
+    }
+    final_shapes = {
+        "output": [3, 4, 5, 6],
+        "input": [2, 3, 4, 5],
+        "pad_width": [],
+    }
+    scalar_info = {"pad_width": Scalar(value=((0, 1), (0, 1), (0, 1), (0, 1)))}
+    assert_constraint_results(
+        shapes, {}, final_shapes, {}, pad_constraints, True, {"input"}, scalar_info
+    )
+
+
+def test_pad_output_defined_backward_random_pad():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [2, 7, 8, 25],
+        "input": [("V1", ...)],
+    }
+    final_shapes = {
+        "output": [2, 7, 8, 25],
+        "input": [1, 2, 3, 4],
+        "pad_width": [],
+    }
+    scalar_info = {"pad_width": Scalar(value=((0, 1), (2, 3), (5, 0), (9, 12)))}
+    assert_constraint_results(
+        shapes, {}, final_shapes, {}, pad_constraints, True, {"input"}, scalar_info
+    )
+
+
+def test_pad_output_with_variadic_forward_random_pad():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [("V2", ...), 8, "b", 25],
+        "input": ["a", ("V1", ...)],
+    }
+    final_shapes = {
+        "output": ["d", "e", 8, "f", 25],
+        "input": ["a", "b", 3, "c", 4],
+        "pad_width": [],
+    }
+    scalar_info = {"pad_width": Scalar(value=((0, 1), (2, 3), (5, 0), (1, 1), (9, 12)))}
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        pad_constraints,
+        False,
+        {"output", "input"},
+        scalar_info,
+    )
+
+
+def test_pad_input_output_mismatch_error():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [2, 7, 8, 25],
+        "input": [1, 2, 3, 5],
+    }
+    final_shapes = {
+        "output": [2, 7, 8, 25],
+        "input": [1, 2, 3, 4],
+        "pad_width": [],
+    }
+    scalar_info = {"pad_width": Scalar(value=((0, 1), (2, 3), (5, 0), (9, 12)))}
+    with pytest.raises(ValueError) as err_info:
+        assert_constraint_results(
+            shapes, {}, final_shapes, {}, pad_constraints, True, {"input"}, scalar_info
+        )
+    assert str(err_info.value) == "Possible values mismatch!"
+
+
+def test_pad_pad_width_tbd():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [("V1", ...)],
+        "input": ["a", 2, 3, 4],
+    }
+    final_shapes = {
+        "output": ["V1, ..."],
+        "input": ["a", 2, 3, 4],
+        "pad_width": [],
+    }
+    scalar_info = {"pad_width": Scalar(possible_types=tuple | ToBeDetermined)}
+    assert_constraint_results(
+        shapes, {}, final_shapes, {}, pad_constraints, False, set(), scalar_info
+    )
 
 
 ############# ARANGE #############

@@ -97,6 +97,7 @@ __all__ = [
     "tuple_converter_constraint",
     "conv_1d_constraints",
     "conv_2d_constraints",
+    "pad_constraints",
 ]
 
 
@@ -1725,6 +1726,62 @@ def concat_constraints(
                             updates.add(none_values[0])
                     elif len(none_values) == 0:
                         status = True
+    return status, updates
+
+
+def pad_constraints(
+    output: Tensor, input: Tensor, pad_width: Scalar
+) -> ConstrainResultType:
+    updates = Updates()
+    pad_value: tuple[tuple[int, int], ...] | ToBeDetermined = pad_width.value  # type: ignore
+    input_shape = input._temp_shape
+    output_shape = output._temp_shape
+    assert input_shape is not None
+    assert output_shape is not None
+
+    def process_shape(shape, pad_value, forward=True):
+        prefix: list[Uniadic] = []
+        root = None
+        suffix: list[Uniadic] = []
+        status = True
+
+        for idx, uni in enumerate(shape.prefix):
+            if uni.value is None:
+                prefix.append(Uniadic())
+                status = False
+                continue
+
+            padding = pad_value[idx]
+            uni = Uniadic(
+                uni.value + sum(padding) if forward else uni.value - sum(padding)
+            )
+            prefix.append(uni)
+
+        return prefix, root, suffix, status
+
+    if isinstance(pad_value, ToBeDetermined):
+        return False, updates
+
+    # Use pad width
+    temp_uniadics = [Uniadic() for _ in range(len(pad_value))]
+    updates |= input_shape.inner_match(prefix=temp_uniadics, root=None, suffix=[])
+
+    temp_uniadics = [Uniadic() for _ in range(len(pad_value))]
+    updates |= output_shape.inner_match(prefix=temp_uniadics, root=None, suffix=[])
+
+    # Forward inference
+    prefix, root, suffix, forward_status = process_shape(
+        input_shape, pad_value, forward=True
+    )
+    updates |= output_shape.inner_match(prefix=prefix, root=root, suffix=suffix)
+
+    # Backward inference
+    prefix, root, suffix, backward_status = process_shape(
+        output_shape, pad_value, forward=False
+    )
+    updates |= input_shape.inner_match(prefix=prefix, root=root, suffix=suffix)
+    status = forward_status or backward_status
+
     return status, updates
 
 
