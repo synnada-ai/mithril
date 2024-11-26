@@ -1437,19 +1437,19 @@ class Model(BaseModel):
             else:
                 model_type_dict.setdefault(model.__class__.__name__, []).append(model)
 
-        # Iterate over different model types.
+        # Iterate over different model types among unnamed models.
         for model_type, model_list in model_type_dict.items():
             counter = 0
-            # Iterate over same model types' model objects.
+            # Iterate over same class model objects to name them.
             for i, model in enumerate(model_list):
                 if len(model_list) == 1:
                     # If there is only one model of a type, do not increment counter.
-                    counter -= 1 
+                    counter -= 1
                     name = model_type
                 else:
                     name = f"{model_type}_{counter + i}"
                 while name in existing_names:
-                    counter += 1 # counter is incremented until a unique name is found.
+                    counter += 1  # counter is incremented until a unique name is found.
                     name = f"{model_type}_{counter + i}"
                 name_mapping[model] = name
                 existing_names.add(name)
