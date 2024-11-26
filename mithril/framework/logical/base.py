@@ -79,7 +79,7 @@ class BaseModel(abc.ABC):
     def __call__(self, **kwargs: ConnectionType) -> ExtendInfo:
         return ExtendInfo(self, kwargs)
 
-    def __init__(self, enforce_jit: bool = True) -> None:
+    def __init__(self, name: str | None = None, enforce_jit: bool = True) -> None:
         self.parent: BaseModel | None = (
             None  # TODO: maybe set it only to PrimitiveModel / Model.
         )
@@ -90,6 +90,7 @@ class BaseModel(abc.ABC):
         self.dependency_map = DependencyMap(self.conns)
         self._canonical_input: ConnectionData | NotAvailable = NOT_AVAILABLE
         self._canonical_output: ConnectionData | NotAvailable = NOT_AVAILABLE
+        self.name = name
         self._enforce_jit = enforce_jit
         self._jittable = True
         self.constraint_solver: ConstraintSolver = ConstraintSolver()

@@ -45,7 +45,6 @@ from ..framework.logical import (
     ToTensor,
 )
 from ..framework.physical.model import FinalCost, LossKey
-from ..framework.utils import define_unique_names
 from .primitives import Concat, PrimitiveModel
 
 __all__ = ["TrainModel"]
@@ -530,7 +529,7 @@ class TrainModel(Model):
 
         self._model.summary(**summary_kwargs)
 
-        name_mappings = define_unique_names(self.dag)
+        name_mappings = self.get_unique_submodel_names()
         conn_info = self.extract_connection_info(name_mappings)
         model_shapes = {}
 
