@@ -49,6 +49,7 @@ from mithril.framework.constraints import (
     flatten_constrains,
     general_tensor_type_constraint,
     item_constraints,
+    pad_constraints,
     polynomial_features_constraints,
     reduce_constraints,
     reduce_type_constraint,
@@ -1358,8 +1359,8 @@ def test_reduce_forward_1():
         "output": ["a", "b"],
         "input": [3, 4, 5],
     }
-    final_shapes = {"output": [3, 5], "input": [3, 4, 5], "axis": []}
-    scalar_info = {"axis": Scalar(int, value=1)}
+    final_shapes = {"output": [3, 5], "input": [3, 4, 5], "axis": [], "keepdim": []}
+    scalar_info = {"axis": Scalar(int, value=1), "keepdim": Scalar(value=False)}
     assert_constraint_results(
         shapes, {}, final_shapes, {}, reduce_constraints, True, {"output"}, scalar_info
     )
@@ -1371,8 +1372,8 @@ def test_reduce_forward_2():
         "output": ["a", "b"],
         "input": [3, 4, 5, 6],
     }
-    final_shapes = {"output": [3, 5], "input": [3, 4, 5, 6], "axis": []}
-    scalar_info = {"axis": Scalar(value=(1, 3))}
+    final_shapes = {"output": [3, 5], "input": [3, 4, 5, 6], "axis": [], "keepdim": []}
+    scalar_info = {"axis": Scalar(value=(1, 3)), "keepdim": Scalar(value=False)}
     assert_constraint_results(
         shapes, {}, final_shapes, {}, reduce_constraints, True, {"output"}, scalar_info
     )
@@ -1384,8 +1385,8 @@ def test_reduce_forward_3():
         "output": ["a", "b"],
         "input": [3, 4, 5, 6],
     }
-    final_shapes = {"output": [3, 5], "input": [3, 4, 5, 6], "axis": []}
-    scalar_info = {"axis": Scalar(value=(-1, 1))}
+    final_shapes = {"output": [3, 5], "input": [3, 4, 5, 6], "axis": [], "keepdim": []}
+    scalar_info = {"axis": Scalar(value=(-1, 1)), "keepdim": Scalar(value=False)}
     assert_constraint_results(
         shapes, {}, final_shapes, {}, reduce_constraints, True, {"output"}, scalar_info
     )
@@ -1397,8 +1398,8 @@ def test_reduce_forward_4():
         "output": ["x", ("Var1", ...), "y"],
         "input": [3, 4, 5, 6],
     }
-    final_shapes = {"output": [3, 5], "input": [3, 4, 5, 6], "axis": []}
-    scalar_info = {"axis": Scalar(value=(-1, 1))}
+    final_shapes = {"output": [3, 5], "input": [3, 4, 5, 6], "axis": [], "keepdim": []}
+    scalar_info = {"axis": Scalar(value=(-1, 1)), "keepdim": Scalar(value=False)}
     assert_constraint_results(
         shapes, {}, final_shapes, {}, reduce_constraints, True, {"output"}, scalar_info
     )
@@ -1413,8 +1414,9 @@ def test_reduce_forward_5():
         "output": ["u1", "(V1, ...)", 10],
         "input": ["u3", "(V2, ...)", "u5", 10],
         "axis": [],
+        "keepdim": [],
     }
-    scalar_info = {"axis": Scalar(value=0)}
+    scalar_info = {"axis": Scalar(value=0), "keepdim": Scalar(value=False)}
     assert_constraint_results(
         shapes, {}, final_shapes, {}, reduce_constraints, False, set(), scalar_info
     )
@@ -1430,8 +1432,9 @@ def test_reduce_forward_6():
         "output": ["x", "(V2, ...)", "u5"],
         "input": ["a", "b", "c", "(V1, ...)", "u5"],
         "axis": [],
+        "keepdim": [],
     }
-    scalar_info = {"axis": Scalar(value=(2, -4))}
+    scalar_info = {"axis": Scalar(value=(2, -4)), "keepdim": Scalar(value=False)}
     assert_constraint_results(
         shapes,
         {},
@@ -1453,8 +1456,9 @@ def test_reduce_forward_7():
         "output": ["a", "(V2, ...)"],
         "input": ["a", "b", "c", "(V1, ...)"],
         "axis": [],
+        "keepdim": [],
     }
-    scalar_info = {"axis": Scalar(value=(2, -2))}
+    scalar_info = {"axis": Scalar(value=(2, -2)), "keepdim": Scalar(value=False)}
     assert_constraint_results(
         shapes,
         {},
@@ -1476,8 +1480,9 @@ def test_reduce_forward_8():
         "output": ["(V1, ...)"],
         "input": ["a", "b", "(V2, ...)"],
         "axis": [],
+        "keepdim": [],
     }
-    scalar_info = {"axis": Scalar(value=(1, -2))}
+    scalar_info = {"axis": Scalar(value=(1, -2)), "keepdim": Scalar(value=False)}
     assert_constraint_results(
         shapes, {}, final_shapes, {}, reduce_constraints, False, {"input"}, scalar_info
     )
@@ -1492,8 +1497,9 @@ def test_reduce_forward_9():
         "output": ["(V1, ...)"],
         "input": ["x", "(V2, ...)", "a"],
         "axis": [],
+        "keepdim": [],
     }
-    scalar_info = {"axis": Scalar(value=(1, -2))}
+    scalar_info = {"axis": Scalar(value=(1, -2)), "keepdim": Scalar(value=False)}
     assert_constraint_results(
         shapes, {}, final_shapes, {}, reduce_constraints, False, {"input"}, scalar_info
     )
@@ -1508,8 +1514,9 @@ def test_reduce_forward_10():
         "output": ["(V1, ...)"],
         "input": ["(V2, ...)", "a", "b"],
         "axis": [],
+        "keepdim": [],
     }
-    scalar_info = {"axis": Scalar(value=(1, -2))}
+    scalar_info = {"axis": Scalar(value=(1, -2)), "keepdim": Scalar(value=False)}
     assert_constraint_results(
         shapes, {}, final_shapes, {}, reduce_constraints, False, set(), scalar_info
     )
@@ -1524,8 +1531,9 @@ def test_reduce_forward_11():
         "output": ["a", "(V1, ...)", "e", "f"],
         "input": ["a", "b", "(V1, ...)", "c", "d", "e", "f"],
         "axis": [],
+        "keepdim": [],
     }
-    scalar_info = {"axis": Scalar(value=(1, -3, -4))}
+    scalar_info = {"axis": Scalar(value=(1, -3, -4)), "keepdim": Scalar(value=False)}
     assert_constraint_results(
         shapes,
         {},
@@ -1547,8 +1555,9 @@ def test_reduce_forward_12():
         "output": ["(V1, ...)", "d", "e"],
         "input": ["a", "b", "c", "(V2, ...)", "d", "e"],
         "axis": [],
+        "keepdim": [],
     }
-    scalar_info = {"axis": Scalar(value=(1, -3, -5))}
+    scalar_info = {"axis": Scalar(value=(1, -3, -5)), "keepdim": Scalar(value=False)}
     assert_constraint_results(
         shapes,
         {},
@@ -1570,8 +1579,9 @@ def test_reduce_forward_13():
         "output": ["a", "(V2, ...)"],
         "input": ["a", "b", "c", "(V2, ...)"],
         "axis": [],
+        "keepdim": [],
     }
-    scalar_info = {"axis": Scalar(value=(1, 2))}
+    scalar_info = {"axis": Scalar(value=(1, 2)), "keepdim": Scalar(value=False)}
     assert_constraint_results(
         shapes, {}, final_shapes, {}, reduce_constraints, True, {"output"}, scalar_info
     )
@@ -1586,8 +1596,9 @@ def test_reduce_forward_14():
         "output": ["a", "(V1, ...)"],
         "input": ["a", "b", "c", "(V2, ...)"],
         "axis": [],
+        "keepdim": [],
     }
-    scalar_info = {"axis": Scalar(value=(-1, -2))}
+    scalar_info = {"axis": Scalar(value=(-1, -2)), "keepdim": Scalar(value=False)}
     assert_constraint_results(
         shapes, {}, final_shapes, {}, reduce_constraints, False, {"output"}, scalar_info
     )
@@ -1602,17 +1613,76 @@ def test_reduce_forward_15():
         "output": ["(V1, ...)"],
         "input": ["a", "b", "(V2, ...)"],
         "axis": [],
+        "keepdim": [],
     }
-    scalar_info = {"axis": Scalar(value=(-1, -2))}
+    scalar_info = {"axis": Scalar(value=(-1, -2)), "keepdim": Scalar(value=False)}
     assert_constraint_results(
         shapes, {}, final_shapes, {}, reduce_constraints, False, {"input"}, scalar_info
+    )
+
+
+def test_reduce_forward_16():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [("V2", ...)],
+        "input": ["a", ("V1", ...)],
+    }
+    final_shapes = {
+        "output": [1, "(V1, ...)"],
+        "input": ["a", "(V1, ...)"],
+        "axis": [],
+        "keepdim": [],
+    }
+    scalar_info = {"axis": Scalar(value=0), "keepdim": Scalar(value=True)}
+    assert_constraint_results(
+        shapes, {}, final_shapes, {}, reduce_constraints, True, {"output"}, scalar_info
+    )
+
+
+def test_reduce_forward_17():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [("V2", ...)],
+        "input": [("V1", ...), "a"],
+    }
+    final_shapes = {
+        "output": ["(V1, ...)", 1],
+        "input": ["(V1, ...)", "a"],
+        "axis": [],
+        "keepdim": [],
+    }
+    scalar_info = {"axis": Scalar(value=-1), "keepdim": Scalar(value=True)}
+    assert_constraint_results(
+        shapes, {}, final_shapes, {}, reduce_constraints, True, {"output"}, scalar_info
+    )
+
+
+def test_reduce_forward_18():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [("V2", ...)],
+        "input": [("V1", ...)],
+    }
+    final_shapes = {
+        "output": ["(V1, ...)", 1],
+        "input": ["(V1, ...)", "a"],
+        "axis": [],
+        "keepdim": [],
+    }
+    scalar_info = {"axis": Scalar(value=-1), "keepdim": Scalar(value=True)}
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        reduce_constraints,
+        True,
+        {"output", "input"},
+        scalar_info,
     )
 
 
 def test_reduce_forward_error_3():
     """Should work with no problem with axis = (-1, 1)."""
     shapes: dict[str, list[int | str | tuple]] = {"output": [], "input": [3, 4]}
-    scalar_info = {"axis": Scalar(value=(-1, 0, 1))}
+    scalar_info = {"axis": Scalar(value=(-1, 0, 1)), "keepdim": Scalar(value=False)}
     with pytest.raises(ValueError) as err_info:
         assert_constraint_results(
             shapes, {}, {}, {}, reduce_constraints, False, set(), scalar_info
@@ -1628,7 +1698,7 @@ def test_reduce_forward_error_1():
         "output": ["a", "b", "c"],
         "input": [3, 4, 5],
     }
-    scalar_info = {"axis": Scalar(value=1)}
+    scalar_info = {"axis": Scalar(value=1), "keepdim": Scalar(value=False)}
     with pytest.raises(ValueError) as err_info:
         assert_constraint_results(
             shapes, {}, {}, {}, reduce_constraints, False, set(), scalar_info
@@ -1647,7 +1717,7 @@ def test_reduce_forward_error_2():
         "output": ["a", "b"],
         "input": [3, 4, 5],
     }
-    scalar_info = {"axis": Scalar(value=(1, 2))}
+    scalar_info = {"axis": Scalar(value=(1, 2)), "keepdim": Scalar(value=False)}
     with pytest.raises(ValueError) as err_info:
         assert_constraint_results(
             shapes, {}, {}, {}, reduce_constraints, False, set(), scalar_info
@@ -1666,7 +1736,7 @@ def test_reduce_backward_error_1():
         "output": [3, 4, 5],
         "input": ["a", "b", "c"],
     }
-    scalar_info = {"axis": Scalar(value=(1))}
+    scalar_info = {"axis": Scalar(value=(1)), "keepdim": Scalar(value=False)}
     with pytest.raises(ValueError) as err_info:
         assert_constraint_results(
             shapes, {}, {}, {}, reduce_constraints, False, set(), scalar_info
@@ -1683,8 +1753,13 @@ def test_reduce_backward_1():
         "output": [3, 4, 5],
         "input": ["a", "b", "c", "d"],
     }
-    final_shapes = {"output": [3, 4, 5], "input": [3, "b", 4, 5], "axis": []}
-    scalar_info = {"axis": Scalar(value=1)}
+    final_shapes = {
+        "output": [3, 4, 5],
+        "input": [3, "b", 4, 5],
+        "axis": [],
+        "keepdim": [],
+    }
+    scalar_info = {"axis": Scalar(value=1), "keepdim": Scalar(value=False)}
     assert_constraint_results(
         shapes, {}, final_shapes, {}, reduce_constraints, True, {"input"}, scalar_info
     )
@@ -1696,8 +1771,13 @@ def test_reduce_backward_2():
         "output": [3, 4, 5],
         "input": ["a", "b", "c", "d", "e"],
     }
-    final_shapes = {"output": [3, 4, 5], "input": [3, 4, "c", "d", 5], "axis": []}
-    scalar_info = {"axis": Scalar(value=(-2, 2))}
+    final_shapes = {
+        "output": [3, 4, 5],
+        "input": [3, 4, "c", "d", 5],
+        "axis": [],
+        "keepdim": [],
+    }
+    scalar_info = {"axis": Scalar(value=(-2, 2)), "keepdim": Scalar(value=False)}
     assert_constraint_results(
         shapes, {}, final_shapes, {}, reduce_constraints, True, {"input"}, scalar_info
     )
@@ -1711,8 +1791,13 @@ def test_reduce_forward_backward_1():
         "output": [3, "b", 5],
         "input": ["a", 2, "c", "d", "e"],
     }
-    final_shapes = {"output": [3, 2, 5], "input": [3, 2, "c", "d", 5], "axis": []}
-    scalar_info = {"axis": Scalar(value=(-2, 2))}
+    final_shapes = {
+        "output": [3, 2, 5],
+        "input": [3, 2, "c", "d", 5],
+        "axis": [],
+        "keepdim": [],
+    }
+    scalar_info = {"axis": Scalar(value=(-2, 2)), "keepdim": Scalar(value=False)}
     assert_constraint_results(
         shapes,
         {},
@@ -1733,7 +1818,7 @@ def test_reduce_forward_backward_error_1():
         "output": [3, "b", 5],
         "input": ["a", 2, "c", "d", "e", "f"],
     }
-    scalar_info = {"axis": Scalar(value=(-2, 2))}
+    scalar_info = {"axis": Scalar(value=(-2, 2)), "keepdim": Scalar(value=False)}
     with pytest.raises(ValueError) as err_info:
         assert_constraint_results(
             shapes, {}, {}, {}, reduce_constraints, False, set(), scalar_info
@@ -1744,7 +1829,7 @@ def test_reduce_forward_backward_error_1():
     )
 
 
-def test_reduce_keep_dim_1():
+def test_reduce_axis_valued_keep_dim_true():
     """Test multiple positive/negative axis and keepdim"""
     shapes: dict[str, list[int | str | tuple]] = {
         "output": [("Var1", ...)],
@@ -1762,7 +1847,7 @@ def test_reduce_keep_dim_1():
     )
 
 
-def test_reduce_keep_dim_2():
+def test_reduce_axis_none_keep_dim_true():
     """Test multiple none axis and keepdim"""
     shapes: dict[str, list[int | str | tuple]] = {
         "output": [("Var1", ...)],
@@ -1780,6 +1865,97 @@ def test_reduce_keep_dim_2():
     )
 
 
+def test_reduce_axis_none_keep_dim_tbd():
+    """Test multiple none axis and keepdim"""
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [("Var1", ...)],
+        "input": [1, 2, 3, 4, 5, 6, 7],
+    }
+    final_shapes = {
+        "output": ["(Var1, ...)"],
+        "input": [1, 2, 3, 4, 5, 6, 7],
+        "axis": [],
+        "keepdim": [],
+    }
+    scalar_info = {
+        "axis": Scalar(value=None),
+        "keepdim": Scalar(possible_types=int, value=TBD),
+    }
+    assert_constraint_results(
+        shapes, {}, final_shapes, {}, reduce_constraints, False, set(), scalar_info
+    )
+
+
+def test_reduce_axis_valued_keep_dim_tbd():
+    """Test multiple none axis and keepdim"""
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [("Var1", ...)],
+        "input": [1, 2, 3, 4, 5, 6, 7],
+    }
+    final_shapes = {
+        "output": ["(Var1, ...)"],
+        "input": [1, 2, 3, 4, 5, 6, 7],
+        "axis": [],
+        "keepdim": [],
+    }
+    scalar_info = {
+        "axis": Scalar(value=(1, 2, -2, -3)),
+        "keepdim": Scalar(possible_types=int),
+    }
+    assert_constraint_results(
+        shapes, {}, final_shapes, {}, reduce_constraints, False, set(), scalar_info
+    )
+
+
+def test_reduce_axis_valued_keep_dim_false_input_variadic():
+    """Test multiple none axis and keepdim"""
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [("Var1", ...)],
+        "input": [("Var2", ...)],
+    }
+    final_shapes = {
+        "output": ["(Var1, ...)", "f"],
+        "input": ["a", "b", "c", "(Var2, ...)", "d", "f"],
+        "axis": [],
+        "keepdim": [],
+    }
+    scalar_info = {
+        "axis": Scalar(value=(1, 2, -2, -3)),
+        "keepdim": Scalar(possible_types=bool, value=False),
+    }
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        reduce_constraints,
+        False,
+        {"input", "output"},
+        scalar_info,
+    )
+
+
+def test_reduce_axis_valued_keep_dim_tbd_input_variadic():
+    """Test multiple none axis and keepdim"""
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [("Var1", ...)],
+        "input": [("Var2", ...)],
+    }
+    final_shapes = {
+        "output": ["(Var1, ...)"],
+        "input": ["a", "b", "c", "(Var2, ...)", "d", "f"],
+        "axis": [],
+        "keepdim": [],
+    }
+    scalar_info = {
+        "axis": Scalar(value=(1, 2, -2, -3)),
+        "keepdim": Scalar(possible_types=bool),
+    }
+    assert_constraint_results(
+        shapes, {}, final_shapes, {}, reduce_constraints, False, {"input"}, scalar_info
+    )
+
+
 def test_reduce_backward_3():
     """Test multiple positive/negative axis"""
     shapes: dict[str, list[int | str | tuple]] = {
@@ -1790,10 +1966,9 @@ def test_reduce_backward_3():
         "" "output": ["u1", "u2", "u3", "u4"],
         "input": ["u1", "a", "u2", "u3", "b", "u4"],
         "axis": [],
+        "keepdim": [],
     }
-    scalar_info = {
-        "axis": Scalar(value=(1, -2)),
-    }
+    scalar_info = {"axis": Scalar(value=(1, -2)), "keepdim": Scalar(value=False)}
     assert_constraint_results(
         shapes, {}, final_shapes, {}, reduce_constraints, True, {"input"}, scalar_info
     )
@@ -1856,6 +2031,233 @@ def test_reduce_backward_5_error():
             shapes, {}, {}, {}, reduce_constraints, True, {"input"}, scalar_info
         )
     assert str(err_info.value) == "Possible values mismatch!"
+
+
+############# PAD #############
+
+
+def test_pad_all_inputs_defined_forward_zero_pad():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [("V1", ...)],
+        "input": [1, 2, 3, 4],
+    }
+    final_shapes = {
+        "output": [1, 2, 3, 4],
+        "input": [1, 2, 3, 4],
+        "pad_width": [],
+    }
+    scalar_info = {"pad_width": Scalar(value=((0, 0), (0, 0), (0, 0), (0, 0)))}
+    assert_constraint_results(
+        shapes, {}, final_shapes, {}, pad_constraints, True, {"output"}, scalar_info
+    )
+
+
+def test_pad_all_inputs_defined_forward_one_pad_symmetric():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [("V1", ...)],
+        "input": [1, 2, 3, 4],
+    }
+    final_shapes = {
+        "output": [3, 4, 5, 6],
+        "input": [1, 2, 3, 4],
+        "pad_width": [],
+    }
+    scalar_info = {"pad_width": Scalar(value=((1, 1), (1, 1), (1, 1), (1, 1)))}
+    assert_constraint_results(
+        shapes, {}, final_shapes, {}, pad_constraints, True, {"output"}, scalar_info
+    )
+
+
+def test_pad_all_inputs_defined_forward_one_pad_asymmetric():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [("V1", ...)],
+        "input": [1, 2, 3, 4],
+    }
+    final_shapes = {
+        "output": [2, 3, 4, 5],
+        "input": [1, 2, 3, 4],
+        "pad_width": [],
+    }
+    scalar_info = {"pad_width": Scalar(value=((0, 1), (0, 1), (0, 1), (0, 1)))}
+    assert_constraint_results(
+        shapes, {}, final_shapes, {}, pad_constraints, True, {"output"}, scalar_info
+    )
+
+
+def test_pad_all_inputs_defined_forward_random_pad():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [("V1", ...)],
+        "input": [1, 2, 3, 4],
+    }
+    final_shapes = {
+        "output": [2, 7, 8, 25],
+        "input": [1, 2, 3, 4],
+        "pad_width": [],
+    }
+    scalar_info = {"pad_width": Scalar(value=((0, 1), (2, 3), (5, 0), (9, 12)))}
+    assert_constraint_results(
+        shapes, {}, final_shapes, {}, pad_constraints, True, {"output"}, scalar_info
+    )
+
+
+def test_pad_some_inputs_defined_forward_random_pad():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [("V1", ...)],
+        "input": ["a", 2, 3, 4],
+    }
+    final_shapes = {
+        "output": ["b", 7, 8, 25],
+        "input": ["a", 2, 3, 4],
+        "pad_width": [],
+    }
+    scalar_info = {"pad_width": Scalar(value=((0, 1), (2, 3), (5, 0), (9, 12)))}
+    assert_constraint_results(
+        shapes, {}, final_shapes, {}, pad_constraints, False, {"output"}, scalar_info
+    )
+
+
+def test_pad_input_with_variadic_forward_random_pad():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [("V2", ...)],
+        "input": ["a", ("V1", ...), 3, "b", 4],
+    }
+    final_shapes = {
+        "output": ["d", "e", 8, "f", 25],
+        "input": ["a", "b", 3, "c", 4],
+        "pad_width": [],
+    }
+    scalar_info = {"pad_width": Scalar(value=((0, 1), (2, 3), (5, 0), (1, 1), (9, 12)))}
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        pad_constraints,
+        False,
+        {"output", "input"},
+        scalar_info,
+    )
+
+
+def test_pad_output_defined_backward_zero_pad():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [3, 4, 5, 6],
+        "input": [("V1", ...)],
+    }
+    final_shapes = {
+        "output": [3, 4, 5, 6],
+        "input": [3, 4, 5, 6],
+        "pad_width": [],
+    }
+    scalar_info = {"pad_width": Scalar(value=((0, 0), (0, 0), (0, 0), (0, 0)))}
+    assert_constraint_results(
+        shapes, {}, final_shapes, {}, pad_constraints, True, {"input"}, scalar_info
+    )
+
+
+def test_pad_output_defined_backward_one_pad_symmetric():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [3, 4, 5, 6],
+        "input": [("V1", ...)],
+    }
+    final_shapes = {
+        "output": [3, 4, 5, 6],
+        "input": [1, 2, 3, 4],
+        "pad_width": [],
+    }
+    scalar_info = {"pad_width": Scalar(value=((1, 1), (1, 1), (1, 1), (1, 1)))}
+    assert_constraint_results(
+        shapes, {}, final_shapes, {}, pad_constraints, True, {"input"}, scalar_info
+    )
+
+
+def test_pad_output_defined_backward_one_pad_asymmetric():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [3, 4, 5, 6],
+        "input": [("V1", ...)],
+    }
+    final_shapes = {
+        "output": [3, 4, 5, 6],
+        "input": [2, 3, 4, 5],
+        "pad_width": [],
+    }
+    scalar_info = {"pad_width": Scalar(value=((0, 1), (0, 1), (0, 1), (0, 1)))}
+    assert_constraint_results(
+        shapes, {}, final_shapes, {}, pad_constraints, True, {"input"}, scalar_info
+    )
+
+
+def test_pad_output_defined_backward_random_pad():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [2, 7, 8, 25],
+        "input": [("V1", ...)],
+    }
+    final_shapes = {
+        "output": [2, 7, 8, 25],
+        "input": [1, 2, 3, 4],
+        "pad_width": [],
+    }
+    scalar_info = {"pad_width": Scalar(value=((0, 1), (2, 3), (5, 0), (9, 12)))}
+    assert_constraint_results(
+        shapes, {}, final_shapes, {}, pad_constraints, True, {"input"}, scalar_info
+    )
+
+
+def test_pad_output_with_variadic_forward_random_pad():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [("V2", ...), 8, "b", 25],
+        "input": ["a", ("V1", ...)],
+    }
+    final_shapes = {
+        "output": ["d", "e", 8, "f", 25],
+        "input": ["a", "b", 3, "c", 4],
+        "pad_width": [],
+    }
+    scalar_info = {"pad_width": Scalar(value=((0, 1), (2, 3), (5, 0), (1, 1), (9, 12)))}
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        pad_constraints,
+        False,
+        {"output", "input"},
+        scalar_info,
+    )
+
+
+def test_pad_input_output_mismatch_error():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [2, 7, 8, 25],
+        "input": [1, 2, 3, 5],
+    }
+    final_shapes = {
+        "output": [2, 7, 8, 25],
+        "input": [1, 2, 3, 4],
+        "pad_width": [],
+    }
+    scalar_info = {"pad_width": Scalar(value=((0, 1), (2, 3), (5, 0), (9, 12)))}
+    with pytest.raises(ValueError) as err_info:
+        assert_constraint_results(
+            shapes, {}, final_shapes, {}, pad_constraints, True, {"input"}, scalar_info
+        )
+    assert str(err_info.value) == "Possible values mismatch!"
+
+
+def test_pad_pad_width_tbd():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [("V1", ...)],
+        "input": ["a", 2, 3, 4],
+    }
+    final_shapes = {
+        "output": ["V1, ..."],
+        "input": ["a", 2, 3, 4],
+        "pad_width": [],
+    }
+    scalar_info = {"pad_width": Scalar(possible_types=tuple | ToBeDetermined)}
+    assert_constraint_results(
+        shapes, {}, final_shapes, {}, pad_constraints, False, set(), scalar_info
+    )
 
 
 ############# ARANGE #############
