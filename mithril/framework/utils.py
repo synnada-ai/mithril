@@ -34,6 +34,8 @@ class NestedListType:
 
 
 def define_unique_names(models):
+    # TODO: Move this to Physical model (currently it is only used there)
+    # TODO: Also add short-naming logic to this function
     model_name_dict = {}
     single_model_dict = {}
     model_count_dict: dict[str, int] = {}

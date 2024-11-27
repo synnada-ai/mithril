@@ -7033,7 +7033,9 @@ def test_string_iokey_value_1():
         # Small Einsum Model that is written for test purposes.
         # Now it only supports single input and single output
 
-        def __init__(self, equation: str | ToBeDetermined) -> None:
+        def __init__(
+            self, equation: str | ToBeDetermined, name: str | None = None
+        ) -> None:
             if not isinstance(equation, ToBeDetermined):
                 # Parse the equation
                 input, output = equation.replace(" ", "").split("->")
@@ -7058,7 +7060,7 @@ def test_string_iokey_value_1():
                 "equation": scalar_equation,
             }
 
-            super().__init__(formula_key="einsum", **kwargs)
+            super().__init__(formula_key="einsum", name=name, **kwargs)
             self._freeze()
 
         def __call__(  # type: ignore[override]
@@ -7115,7 +7117,9 @@ def test_string_iokey_value_2():
         # Small Einsum Model that is written for test purposes.
         # Now it only supports single input and single output
 
-        def __init__(self, equation: str | ToBeDetermined) -> None:
+        def __init__(
+            self, equation: str | ToBeDetermined, name: str | None = None
+        ) -> None:
             if not isinstance(equation, ToBeDetermined):
                 # Parse the equation
                 input, output = equation.replace(" ", "").split("->")
@@ -7140,7 +7144,7 @@ def test_string_iokey_value_2():
                 "equation": scalar_equation,
             }
 
-            super().__init__(formula_key="einsum", **kwargs)
+            super().__init__(formula_key="einsum", name=name, **kwargs)
             self._freeze()
 
         def __call__(  # type: ignore[override]

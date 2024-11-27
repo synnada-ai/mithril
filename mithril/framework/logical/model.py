@@ -15,7 +15,7 @@
 from __future__ import annotations
 
 from types import EllipsisType, UnionType
-from typing import Self, TypeVar, overload
+from typing import Any, Self, TypeVar, overload
 
 from ...utils.utils import OrderedSet, find_dominant_type
 from ..common import (
@@ -43,7 +43,6 @@ from ..common import (
     _get_summary_types,
     get_summary,
 )
-from ..utils import define_unique_names
 from .base import ExtendInfo
 from .essential_primitives import (
     Absolute,
@@ -153,12 +152,15 @@ type_conversion_map: dict[
 
 class Model(BaseModel):
     def __init__(
-        self, formula_key: str | None = None, enforce_jit: bool = True
+        self,
+        formula_key: str | None = None,
+        name: str | None = None,
+        enforce_jit: bool = True,
     ) -> None:
         self.dag: dict[BaseModel, dict[str, ConnectionData]] = {}
         self.inter_key_count: int = 0
         self.formula_key = formula_key
-        super().__init__(enforce_jit=enforce_jit)
+        super().__init__(name=name, enforce_jit=enforce_jit)
 
     def create_key_name(self):
         self.inter_key_count += 1
@@ -437,6 +439,7 @@ class Model(BaseModel):
                 model_type is not None
             ), "given model is not found in the ops_table or coercion_table"
 
+            # TODO: Remove all TBD if default init arguments will be moved to call!!!
             init_fun = model_type.__init__
 
             # "self" argument is common for all models, Exclude it by
@@ -447,6 +450,7 @@ class Model(BaseModel):
             default_args_dict = {
                 key: TBD for key in default_args if key not in template.defaults
             }
+            default_args_dict.pop("name")
 
             # TODO: Reconsider type ignore!
             model: PrimitiveModel = model_type(**default_args_dict)  # type: ignore
@@ -1030,6 +1034,11 @@ class Model(BaseModel):
                 "Model with enforced Jit can not be extended by a non-jittable model! \
                             Jit can be unforced by setting enforce_jit = False"
             )
+        if model.name is not None:
+            # TODO: We could store model names in a set to check if it is unique.
+            for m in self.dag:
+                if m.name == model.name:
+                    raise KeyError(f"Model already has a submodel named {model.name}.")
 
         model.parent = self
         # Freeze the model.
@@ -1414,6 +1423,38 @@ class Model(BaseModel):
             key_mappings = {key: "$" + value for key, value in key_mappings.items()}
         return key_mappings
 
+    def get_unique_submodel_names(self) -> dict[BaseModel, str]:
+        name_mapping = {}
+        existing_names = set()
+        model_type_dict: dict[str, list[BaseModel]] = {}
+
+        # First, assign existing names and track used names.
+        # Also save unnamed models to model_type_dict.
+        for model in self.dag:
+            if model.name:
+                name_mapping[model] = model.name
+                existing_names.add(model.name)
+            else:
+                model_type_dict.setdefault(model.__class__.__name__, []).append(model)
+
+        # Iterate over different model types among unnamed models.
+        for model_type, model_list in model_type_dict.items():
+            counter = 0
+            # Iterate over same class model objects to name them.
+            for i, model in enumerate(model_list):
+                if len(model_list) == 1:
+                    # If there is only one model of a type, do not increment counter.
+                    counter -= 1
+                    name = model_type
+                else:
+                    name = f"{model_type}_{counter + i}"
+                while name in existing_names:
+                    counter += 1  # counter is incremented until a unique name is found.
+                    name = f"{model_type}_{counter + i}"
+                name_mapping[model] = name
+                existing_names.add(name)
+        return name_mapping
+
     def _freeze(self) -> None:
         if (
             self.canonical_output is not NOT_AVAILABLE
@@ -1425,6 +1466,12 @@ class Model(BaseModel):
             # setattr(self, self._canonical_output.key, self.canonical_output)
 
         self.dependency_map.update_all_keys()
+
+        # Name unnamed submodels before freezing considering the insertion order.
+        model_names = self.get_unique_submodel_names()
+        for m in self.dag:
+            if m.name is None:
+                m.name = model_names[m]
 
         # Sort dag
         self.dag = {m: self.dag[m] for m in self.get_models_in_topological_order()}
@@ -1455,8 +1502,7 @@ class Model(BaseModel):
         type_info = None
         shape_info = None
         # extract relevant information about summary
-        dag = self.dag
-        name_mappings = define_unique_names(dag)
+        name_mappings = self.get_unique_submodel_names()
 
         # extract model topology
         conn_info = self.extract_connection_info(name_mappings)
@@ -1475,7 +1521,8 @@ class Model(BaseModel):
             # extract model types
             type_info = _get_summary_types(name_mappings)
 
-        if not name:
+        # TODO: Remove name argument from summary method
+        if not name and (name := self.name) is None:
             name = self.__class__.__name__
 
         # construct the table based on relevant information
@@ -1488,7 +1535,7 @@ class Model(BaseModel):
 
         if depth > 0:
             for model, model_name in name_mappings.items():
-                kwargs = {
+                kwargs: dict[str, Any] = {
                     "depth": depth - 1,
                     "shapes": shapes,
                     "symbolic": symbolic,
@@ -1533,7 +1580,14 @@ class Model(BaseModel):
             )
             data_map = {key: conn.metadata.data for key, conn in self.conns.all.items()}
 
-            for model, model_name in name_mappings.items():
+            # Sort in topological order if model is not frozen
+            if self.is_frozen:
+                sorted_models = list(self.dag.keys())
+            else:
+                sorted_models = self.get_models_in_topological_order()
+
+            for model in sorted_models:
+                model_name = name_mappings[model]
                 m_info = self.dag[model]
                 # set default structure of conn_info and shape_info
                 conns = conn_info.setdefault(model_name, ({}, {}))

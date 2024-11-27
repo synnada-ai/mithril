@@ -1919,3 +1919,19 @@ def test_traincontext_summary_7():
         ref_table = f.read()
 
     assert "\n" + summary.getvalue() == ref_table
+
+
+def test_summary_of_nested_composite_model_with_names():
+    lin = Linear(name="lin")
+    model = Model(name="my_model")
+    model += lin
+
+    with redirect_stdout(StringIO()) as summary:
+        model.summary()
+
+    ref_table = ""
+    with open(
+        "tests/scripts/summary_txts/test_summary_of_nested_composite_model_with_names"
+    ) as f:
+        ref_table = f.read()
+    assert "\n" + summary.getvalue() == ref_table

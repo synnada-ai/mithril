@@ -29,7 +29,6 @@ from ..common import (
     create_shape_map,
     get_summary,
 )
-from ..utils import define_unique_names
 from .base import BaseModel
 
 
@@ -42,11 +41,16 @@ class PrimitiveModel(BaseModel):
     cache_name = "cache"
     output: Connection
 
-    def __init__(self, formula_key, **kwargs: Tensor | TensorType | Scalar) -> None:
+    def __init__(
+        self,
+        formula_key,
+        name: str | None = None,
+        **kwargs: Tensor | TensorType | Scalar,
+    ) -> None:
         self.formula_key = formula_key
         self.grad_formula = formula_key + "_grad"
 
-        super().__init__()
+        super().__init__(name=name)
         # Get shape_templates of TensorTypes and create corresponding shapes.
         shape_templates = {
             key: value.shape_template
@@ -185,9 +189,9 @@ class PrimitiveModel(BaseModel):
 
         type_info = None
         shape_info = None
-        dag = [self]
-        name_mappings = define_unique_names(dag)
-
+        name_mappings: dict[BaseModel, str] = {
+            self: name if name else self.__class__.__name__
+        }
         # extract model topology
         conn_info = self.extract_connection_info(name_mappings)
 
