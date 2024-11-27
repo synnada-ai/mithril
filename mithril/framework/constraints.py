@@ -3313,6 +3313,9 @@ def tensor_item_constraints(
         valued_prefix_items = [item for item in index_prefix if item is not None]
         valued_suffix_items = [item for item in index_suffix if item is not None]
 
+        input_prefix = []
+        input_suffix = []
+
         if len(valued_prefix_items) > len(input_shape.prefix) or len(
             valued_suffix_items
         ) > len(input_shape.reverse):
@@ -3320,8 +3323,6 @@ def tensor_item_constraints(
             # information in index value than current input's prefix
             # or suffix, In this case, inner match the input with
             # minimum shapes in prefix and suffix
-            input_prefix = []
-            input_suffix = []
             if len(valued_prefix_items) > len(input_shape.prefix):
                 input_prefix = [Uniadic() for _ in valued_prefix_items]
             if len(valued_suffix_items) > len(input_shape.suffix):
@@ -3330,15 +3331,32 @@ def tensor_item_constraints(
                 prefix=input_prefix, root=Variadic(), suffix=input_suffix
             )
 
-        # try to infer output prefix and suffix with given index
-        output_prefix = tensor_item_constraint_helper(index_prefix, input_shape.prefix)
-        output_reverse = tensor_item_constraint_helper(
-            index_suffix[::-1], input_shape.reverse
-        )
+        # find if input_prefix and input_suffix
+        # matches with input_shape
+        _match = True
+        if len(input_prefix) > len(input_shape.prefix):
+            # match did not happen in this case occurs
+            longer_prefix = input_prefix
+            _match = False
+        else:
+            longer_prefix = input_shape.prefix
 
+        if len(input_suffix) > len(input_shape.reverse):
+            # match did not happen in this case occurs
+            longer_reverse = input_suffix[::-1]
+            _match = False
+        else:
+            longer_reverse = input_shape.reverse
+
+        # try to infer output prefix and suffix with given index
+        output_prefix = tensor_item_constraint_helper(index_prefix, longer_prefix)
+        output_reverse = tensor_item_constraint_helper(
+            index_suffix[::-1], longer_reverse
+        )
         if input_shape.root is not None:
+            root = input_shape.root if _match else Variadic()
             updated_symbols |= output_shape.inner_match(
-                prefix=output_prefix, root=input_shape.root, suffix=output_reverse[::-1]
+                prefix=output_prefix, root=root, suffix=output_reverse[::-1]
             )
         else:
             remaining_input_unis = input_shape.prefix[

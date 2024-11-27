@@ -10120,3 +10120,43 @@ def test_extract_uni_from_possibles_both():
     assert repr.root.possibles is not None
     assert repr.root.possibles.keys() == ref_possibles.keys()
     assert repr.root.possibles[1].uniadics == ref_possibles[1].uniadics
+
+
+def test_shapes_tensor_item_numeric():
+    model = Model()
+    relu_model1 = Relu()
+    relu_model2 = Relu()
+    shape1: dict[str, list] = {"input": [("V1", ...), "u1", "u2"]}
+    relu_model1.set_shapes(shape1)
+    model += relu_model1(input="input", output="output")
+    model += relu_model2(input=relu_model1.output[:, None, :, 2:4], output="output2")
+    shape2: dict[str, list] = {"input": [3, 4, 5]}
+    model.set_shapes(shape2)
+
+    ref = {
+        "output": [3, 4, 5],
+        "$_TensorItem_1_output": [3, 1, 4, 2],
+        "$_TensorItem_1_index": None,
+        "output2": [3, 1, 4, 2],
+        "input": [3, 4, 5],
+    }
+    check_shapes_semantically(model.get_shapes(), ref)
+
+
+def test_shapes_tensor_item_symbolic():
+    model = Model()
+    relu_model1 = Relu()
+    relu_model2 = Relu()
+    shape: dict[str, list] = {"input": [("V1", ...), "u1", "u2"]}
+    relu_model1.set_shapes(shape)
+    model += relu_model1(input="input", output="output")
+    model += relu_model2(input=relu_model1.output[:, None, :, 2:4], output="output2")
+
+    ref: Mapping[str, list | None] = {
+        "output": ["u1", "(V1, ...)", "u2", "u3"],
+        "$_TensorItem_1_output": ["u4", 1, "u5", "u6", "(V2, ...)"],
+        "$_TensorItem_1_index": None,
+        "output2": ["u4", 1, "u5", "u6", "(V2, ...)"],
+        "input": ["u1", "(V1, ...)", "u2", "u3"],
+    }
+    check_shapes_semantically(model.get_shapes(), ref)
