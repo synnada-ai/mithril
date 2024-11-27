@@ -38,23 +38,25 @@ from .flat_graph import FlatGraph
 class StaticDataStore(GenericDataType[DataType]):
     def __init__(
         self,
-        graph: FlatGraph,
-        backend: Backend,
+        graph: FlatGraph[DataType],
+        backend: Backend[DataType],
         inference: bool,
         solver: ConstraintSolver,
-        memo: dict | None = None,
+        memo: dict[int, Tensor[DataType] | Scalar] | None = None,
     ) -> None:
         if memo is None:
             memo = {}
 
         self.is_materialized = False
-        self._all_data: dict[str, Tensor | Scalar] = dict()
-        self.data_memo: dict[int, Tensor | Scalar] = dict()
-        self.graph = graph
+        self._all_data: dict[str, Tensor[DataType] | Scalar] = dict()
+        self.data_memo: dict[int, Tensor[DataType] | Scalar] = dict()
+        self.graph: FlatGraph[DataType] = graph
         self.backend: Backend[DataType] = backend
         self.inference = inference
-        self._cached_data: dict[str, Tensor | Scalar] = dict()
-        self._intermediate_non_differentiables: BiMap[str, Tensor | Scalar] = BiMap()
+        self._cached_data: dict[str, Tensor[DataType] | Scalar] = dict()
+        self._intermediate_non_differentiables: BiMap[
+            str, Tensor[DataType] | Scalar
+        ] = BiMap()
         self._runtime_static_keys: set[str] = set()
         self._unused_keys: set[str] = set()
         # Final tensor values of data store.
@@ -127,7 +129,7 @@ class StaticDataStore(GenericDataType[DataType]):
     def _update_cached_data(self, updated_data: Updates) -> set[str]:
         # If any data value is found by shape inference algorithms
         # transfer this data in cached_data.
-        transferred_keys = set()
+        transferred_keys: set[str] = set()
         updated_inter_data = (
             updated_data.value_updates
             & self._intermediate_non_differentiables.inverse.keys()
@@ -200,7 +202,7 @@ class StaticDataStore(GenericDataType[DataType]):
         for key in new_statics:
             self._infer_unused_keys(key)
 
-    def update_data(self, data: dict[str, Tensor | Scalar]):
+    def update_data(self, data: dict[str, Tensor[DataType] | Scalar]):
         if data.keys() & self._all_data.keys():
             raise Exception("Some keys are already in data store!")
         self._all_data |= data

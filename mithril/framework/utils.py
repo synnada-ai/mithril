@@ -27,9 +27,9 @@ class NestedListType:
     """
 
     __slots__ = "base_type"
-    base_type: type
+    base_type: type | UnionType
 
-    def __init__(self, base_type):
+    def __init__(self, base_type: type | UnionType):
         self.base_type = base_type
 
 
@@ -73,13 +73,7 @@ def list_shape(ndarray: list[float | int] | float | int) -> list[int]:
         return []
 
 
-def get_unique_types(arg: list | tuple):
-    # Recursively looks all items in nested sequence
-    # and returns all unique types in it.
-    ...
-
-
-def align_shapes(all_dicts: list[dict]) -> None:
+def align_shapes(all_dicts: list[dict[Any, Any]]) -> None:
     """Align all shapes given in the list
 
     Examples:
@@ -159,9 +153,9 @@ class GeneratedFunction:
     serialization and deserialization methods.
     """
 
-    def __init__(self, func: FunctionType, metadata: dict):
+    def __init__(self, func: FunctionType, metadata: dict[str, str]):
         self.func = func
-        self.metadata = metadata
+        self.metadata: dict[str, str] = metadata
 
     def __reduce__(self):
         # Serialize the function code and metadata
@@ -169,11 +163,11 @@ class GeneratedFunction:
         source_code = self.metadata["source"]
         return (self._unpickle, (source_code, fn_name))
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, *args: Any, **kwargs: Any):
         return self.func(*args, **kwargs)
 
     @staticmethod
-    def _unpickle(source_code, fn_name):
+    def _unpickle(source_code: str, fn_name: str):
         # Compile the code string back to a code object
         code = compile(source_code, "<string>", "exec")
         namespace: dict[str, Any] = {}
@@ -191,14 +185,14 @@ def infer_all_possible_types(
         for sub_type in sub_types:
             possible_types.update(infer_all_possible_types(sub_type))
     elif isinstance(type_def, GenericAlias):
-        seq_type: type[tuple] | type[list] = type_def.__origin__
+        seq_type: type[tuple[Any, ...]] | type[list[Any]] = type_def.__origin__
         possible_seq_type: type
         sub_types = list(type_def.__args__)
         if seq_type is tuple:
             possible_seq_type = tuple
             if len(sub_types) == 2 and sub_types[-1] == ...:
                 for typ in infer_all_possible_types(sub_types[0]):
-                    _types = {possible_seq_type[typ, ...], possible_seq_type[typ]}
+                    _types: Any = {possible_seq_type[typ, ...], possible_seq_type[typ]}
                     possible_types.update(_types)
             else:
                 type_probs = [infer_all_possible_types(typ) for typ in sub_types]
@@ -216,19 +210,19 @@ def infer_all_possible_types(
 
 
 def find_list_base_type(
-    type_def: type[list]
+    type_def: type[list[Any]]
     | type[float]
     | type[int]
     | type[bool]
     | UnionType
     | NestedListType
     | GenericAlias,
-) -> set[type]:
-    result = set()
+) -> set[type | UnionType]:
+    result: set[type | UnionType] = set()
     if isinstance(type_def, NestedListType):
         result.add(type_def.base_type)
     elif isinstance(type_def, GenericAlias):
-        origin: type[list] | type[tuple] = type_def.__origin__
+        origin: type[list[Any]] | type[tuple[Any, ...]] = type_def.__origin__
         if origin is list:
             # Means there exists recursive list type.
             for arg in type_def.__args__:
@@ -303,7 +297,7 @@ def find_intersection_type(
         # Constrain larger union type to the smaller one.
         base_type_1 = nested_types[0].base_type
         base_type_2 = nested_types[1].base_type
-        return NestedListType(find_intersection_type(base_type_1, base_type_2))
+        return NestedListType(find_intersection_type(base_type_1, base_type_2))  # type: ignore
 
     # First find direct intersections.
     subtypes_1 = set(type_1.__args__) if type(type_1) is UnionType else {type_1}
@@ -347,7 +341,7 @@ def find_intersection_type(
                     # this means one of the types with origin are empty list or tuple,
                     # in that case, take the empty one (tuple[()], or list[()]) as
                     # intersection type
-                    common = typ_1.__origin__[()]  # type: ignore
+                    common: Any = typ_1.__origin__[()]  # type: ignore
 
                 elif typ_1.__origin__ is tuple:
                     ellipsis_1 = ... in args_1
@@ -425,7 +419,9 @@ def merge_dicts(
     return base_dict
 
 
-def sort_type(type1: type | UnionType | GenericAlias):
+def sort_type(
+    type1: type | UnionType | GenericAlias,
+) -> type | UnionType | GenericAlias:
     """
     Returns the sorted type of UnionTypes
     """

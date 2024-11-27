@@ -17,6 +17,7 @@ import os
 import subprocess
 import tempfile
 from functools import partial
+from typing import Any
 
 from ...backends.with_manualgrad.c_backend import CBackend, backend
 from ...backends.with_manualgrad.c_backend.src import array
@@ -33,7 +34,7 @@ FinalCost = "final_cost"
 class CGen(CodeGen):
     BACKWARD_FN_SUFFIX = "_grad"
 
-    def __init__(self, pm: PhysicalModel) -> None:
+    def __init__(self, pm: PhysicalModel[Any]) -> None:
         super().__init__(pm)
 
         assert isinstance(self.pm.backend, CBackend)

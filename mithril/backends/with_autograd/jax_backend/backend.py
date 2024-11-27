@@ -72,7 +72,7 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         self.prng_key = jax.random.PRNGKey(self.seed)
 
     @property
-    def is_manualgrad(self):
+    def is_manualgrad(self) -> bool:
         return False
 
     @property

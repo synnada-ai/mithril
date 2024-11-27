@@ -424,7 +424,7 @@ class Convolution2D(Model):
         | tuple[tuple[int, int], tuple[int, int]]
         | ToBeDetermined = (0, 0),
         dilation: int | tuple[int, int] | ToBeDetermined = (1, 1),
-        use_bias=True,
+        use_bias: bool = True,
     ) -> None:
         super().__init__()
 
@@ -502,7 +502,7 @@ class Linear(Model):
     w: Connection
     b: Connection
 
-    def __init__(self, dimension: int | None = None, use_bias=True) -> None:
+    def __init__(self, dimension: int | None = None, use_bias: bool = True) -> None:
         super().__init__()
         self.factory_args = {"dimension": dimension, "use_bias": use_bias}
         dim: int | str = "d_out" if dimension is None else dimension
@@ -613,7 +613,9 @@ class LayerNorm(Model):
     w: Connection
     b: Connection
 
-    def __init__(self, use_scale=True, use_bias=True, eps=1e-5) -> None:
+    def __init__(
+        self, use_scale: bool = True, use_bias: bool = True, eps: float = 1e-5
+    ) -> None:
         super().__init__()
         self.factory_args = {"use_scale": use_scale, "use_bias": use_bias, "eps": eps}
 
@@ -681,7 +683,11 @@ class GroupNorm(Model):
     output: Connection
 
     def __init__(
-        self, num_groups: int = 32, use_scale=True, use_bias=True, eps=1e-5
+        self,
+        num_groups: int = 32,
+        use_scale: bool = True,
+        use_bias: bool = True,
+        eps: float = 1e-5,
     ) -> None:
         super().__init__()
 
@@ -1710,7 +1716,7 @@ class EncoderDecoder(Model):
         cell_type: Cell,
         max_input_sequence_length: int,
         max_target_sequence_length: int,
-        teacher_forcing=False,
+        teacher_forcing: bool = False,
     ) -> None:
         super().__init__()
 
@@ -2177,7 +2183,7 @@ class MDS(DistanceEncoder):
     predicted_coords: Connection
     output: Connection
 
-    def __init__(self, prediction_dim: int, input_type="distances"):
+    def __init__(self, prediction_dim: int, input_type: str = "distances"):
         assert input_type in ["distances", "powered_distances", "points"]
         base_model = MDSCore(exact_distances=(input_type == "distances"))
         super().__init__(base_model=base_model, input_type=input_type)
@@ -2218,8 +2224,8 @@ class TSNE(DistanceEncoder):
     def __init__(
         self,
         prediction_dim: int,
-        input_type="distances",
-        preplexity=20.0,
+        input_type: str = "distances",
+        preplexity: float = 20.0,
         calculate_p_joint: bool = False,
     ):
         assert input_type in ["distances", "powered_distances", "points"]
@@ -2368,7 +2374,7 @@ class GPRLoss(Model):
     alpha: Connection
     output: Connection
 
-    def __init__(self, robust=False) -> None:
+    def __init__(self, robust: bool = False) -> None:
         super().__init__()
         self.factory_args = {"robust": robust}
 

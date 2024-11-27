@@ -119,7 +119,7 @@ ConstantType = float | int | Constant
 
 
 class CustomPrimitiveModel(PrimitiveModel):
-    def __init__(self, formula_key: str, **kwargs) -> None:
+    def __init__(self, formula_key: str, **kwargs: TensorType | Scalar) -> None:
         self.factory_args = {"formula_key": formula_key} | kwargs
         super().__init__(formula_key, **kwargs)
 
@@ -140,9 +140,12 @@ class SupervisedLoss(PrimitiveModel):
     output: Connection
 
     def __init__(
-        self, formula_key: str, polymorphic_constraint: bool = True, **kwargs
+        self,
+        formula_key: str,
+        polymorphic_constraint: bool = True,
+        **kwargs: TensorType | Scalar,
     ) -> None:
-        default_kwargs = {
+        default_kwargs: dict[str, TensorType | Scalar] = {
             "output": TensorType([("Var_1", ...)]),
             "input": TensorType([("Var_2", ...)]),
             "target": TensorType([("Var_3", ...)]),
@@ -338,7 +341,7 @@ class CrossEntropy(PrimitiveModel):
         }
         # Check if the given argument set is valid.
         if self.formula_key == "cross_entropy_with_log_probs":
-            args = []
+            args: list[str] = []
             if robust != NOT_GIVEN:
                 args.append("robust")
             if cutoff != NOT_GIVEN:
@@ -601,13 +604,16 @@ class Activation(PrimitiveModel):
     output: Connection
 
     def __init__(
-        self, formula_key, polymorphic_constraint: bool = False, **kwargs
+        self,
+        formula_key: str,
+        polymorphic_constraint: bool = False,
+        **kwargs: TensorType | Scalar,
     ) -> None:
         # NOTE: Torch and JAX behave different for some activation functions.
         # For example JAX handles int type inputs for GELU or LeakyRelu while
         # Torch assumes only float inputs for these activations. Since JAX handles
         # more general case, default types are written taking this into account.
-        default_kwargs = dict(
+        default_kwargs: dict[str, TensorType | Scalar] = dict(
             input=TensorType([("Var", ...)]), output=TensorType([("Var", ...)], float)
         )
         # Finalize kwargs.
@@ -876,7 +882,7 @@ class PrimitiveConvolution2D(PrimitiveModel):
     output: Connection
     bias: Connection
 
-    def __init__(self, use_bias=True) -> None:
+    def __init__(self, use_bias: bool = True) -> None:
         self.factory_args = {"use_bias": use_bias}
         formula_key = "conv2d_bias"
         kwargs: dict[str, TensorType | Scalar] = {

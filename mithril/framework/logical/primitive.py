@@ -63,6 +63,7 @@ class PrimitiveModel(BaseModel):
         shapes = create_shape_map(shape_templates, self.constraint_solver)
         data_set: set[Tensor[Any]] = set()
         is_diff = False
+        output_data: Tensor[Any] | Scalar | None = None
         for key, value in kwargs.items():
             if isinstance(value, TensorType):
                 value = value.construct(shapes[key].node)

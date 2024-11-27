@@ -14,14 +14,14 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from copy import copy, deepcopy
 from dataclasses import dataclass, field
 from enum import Enum
 from functools import partial, reduce
 from itertools import combinations, cycle, product, zip_longest
 from types import EllipsisType, GenericAlias, UnionType
-from typing import Any, Literal, TypeVar
+from typing import Any, Literal, TypeVar, overload
 
 from ..backends.backend import Backend
 from ..core import (
@@ -89,7 +89,7 @@ class SingletonObject:
         assert obj1 is obj2  # True, both are the same instance
     """
 
-    def __new__(cls, *args, **kwargs):
+    def __new__(cls, *args: Any, **kwargs: Any):
         if cls._instance is None:
             cls._instance = super().__new__(cls, *args, **kwargs)
         return cls._instance
@@ -155,11 +155,10 @@ type FixedValueType = (
     | int
     | tuple[int, ...]
     | list[int]
-    | dict
+    | dict[Any, Any]
     | slice
     | Constant
     | tuple[int | None, ...]
-    | dict
     | str
 )
 type DeferredValueType = (
@@ -344,7 +343,7 @@ class ConstraintSolver:
             rec.referees = {uni}
 
     @staticmethod
-    def _find_intersection_reprs(repr1):
+    def _find_intersection_reprs(repr1: ShapeRepr) -> set[ShapeRepr]:
         intersection_reprs: set[ShapeRepr] = set()
         # Collect visited repr's symbols.
         symbols = repr1.prefix + repr1.suffix
@@ -364,7 +363,11 @@ class ConstraintSolver:
         return intersection_reprs
 
     @staticmethod
-    def _add_sublists(repr1, intersection_reprs, deletion_nodes):
+    def _add_sublists(
+        repr1: ShapeRepr,
+        intersection_reprs: set[ShapeRepr],
+        deletion_nodes: dict[ShapeNode, set[ShapeNode]],
+    ) -> Updates:
         updates = Updates()
         for repr2 in intersection_reprs:
             if (repr1.node != repr2.node) and (repr1 in repr2):
@@ -525,14 +528,14 @@ def _get_shapes(
     symbolic: bool = True,
     verbose: bool = False,
     key_mappings: dict[str, str] | None = None,
-) -> _ShapesType:
+) -> dict[str, ShapeTemplateType | list[ShapeTemplateType]]:
     if key_mappings is None:
         key_mappings = {}
     if uniadic_keys is None:
         uniadic_keys = {}
     if varadic_keys is None:
         varadic_keys = {}
-    shapes: dict = {}
+    shapes: dict[str, ShapeTemplateType | list[ShapeTemplateType] | None] = {}
     for key, data in data_dict.items():
         key_name = key_mappings.get(key, key)
         if isinstance(data, Tensor):
@@ -541,7 +544,7 @@ def _get_shapes(
             )
         else:
             shapes[key_name] = None
-    return shapes
+    return shapes  # type: ignore
 
 
 class BaseData:
@@ -661,7 +664,7 @@ class BaseData:
 class Tensor(BaseData, GenericDataType[DataType]):
     _type: type[float] | type[int] | type[bool] | UnionType
     temp_value: TensorValueType | ToBeDetermined
-    value: DataType | ToBeDetermined
+    value: DataType | ToBeDetermined | None
 
     def __init__(
         self,
@@ -696,14 +699,14 @@ class Tensor(BaseData, GenericDataType[DataType]):
     def _set_as_physical(self):
         super()._set_as_physical()
 
-    def _convert_value(self, backend: Backend[Any]) -> DataType | ToBeDetermined:
+    def _convert_value(self, backend: Backend[DataType]) -> DataType | ToBeDetermined:
         if isinstance(self.temp_value, Constant):
             self.value = backend.array(
                 epsilon_table[backend.precision][self.temp_value]
             )
         elif self.temp_value is not TBD:
             self.value = backend.array(self.temp_value)
-        return self.value
+        return self.value  # type: ignore
 
     def make_physical(
         self, backend: Backend[Any], memo: dict[int, Tensor[Any] | Scalar]
@@ -1215,7 +1218,7 @@ ShapesType = (
     | Mapping[str, ShapeTemplateType]
     | Mapping[Connection, ShapeTemplateType]
 )
-_ShapesType = Mapping[str, ShapeTemplateType]
+_ShapesType = Mapping[str, ShapeTemplateType | list[ShapeTemplateType]]
 
 
 @dataclass
@@ -1239,7 +1242,7 @@ class ConnectionData:
     def __and__(self, other) -> Connect:
         return Connect(self.conn) & other
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: object) -> bool:
         return id(self) == id(other)
 
     def set_differentiable(self, differentiable: bool = True) -> None:
@@ -1686,7 +1689,7 @@ class PossibleValues:
     def get_all_uniadics(self) -> set[Uniadic]:
         # TODO: add all ANDs Uniadics into lookup table, then remove this method and
         # directly call self.lookup_table.keys()
-        uniadics = set()
+        uniadics: set[Uniadic] = set()
         for dnf in self.dnf_list:
             for item in dnf.item_list:
                 for key, value in item.uni_table.items():
@@ -1879,7 +1882,7 @@ class Variadic:
         updates = Updates()
         # Clip self.possibles with new_prefix and new_suffix
         # Add clipped uniadics to new equivalences.
-        possibles = []
+        possibles: list[PossibleValues] = []
         for _len, pos in self.possibles.items():
             if _len < len(prefix) + len(suffix):
                 continue
@@ -2301,7 +2304,7 @@ class ShapeNode:
         v_keys: dict[Variadic, str] | None = None,
         symbolic: bool = True,
         verbose: bool = False,
-    ) -> list[int | str | None] | list[list[int | str | None]]:
+    ) -> ShapeTemplateType | list[ShapeTemplateType]:
         if u_keys is None:
             u_keys = {}
         if v_keys is None:
@@ -2344,14 +2347,14 @@ class ShapeNode:
                 )
 
                 # Count number of used reprs
-                n_reprs = set()
+                n_reprs: set[ShapeRepr] = set()
                 for uni in repr.prefix + repr.suffix:
                     n_reprs |= uni.reprs
 
                 if repr.root is not None:
                     n_reprs |= repr.root.reprs
 
-                best_n_reprs = set()
+                best_n_reprs: set[ShapeRepr] = set()
                 for uni in most_informative_repr.prefix + most_informative_repr.suffix:
                     best_n_reprs |= uni.reprs
 
@@ -2471,18 +2474,16 @@ class ShapeRepr:
             ) or self._is_subset_rootless(self.suffix, key.prefix)
         return False
 
-    def __getitem__(self, position):
+    def __getitem__(self, position: int):
         # TODO: Currently position could only be int, but we should support slicing
         # operations too (e.g. repr[:2]) if it is possible (if index of Variadic
         # field allows the operation).
-        if not isinstance(position, int):
-            raise ValueError("Requires int index!")
         if position < 0 and self.root is not None:
             return self.suffix[position]
         else:
             return self.prefix[position]
 
-    def __setitem__(self, position, new_item):
+    def __setitem__(self, position: int, new_item: Uniadic):
         if position < 0 and self.root is not None:
             self.suffix[position] = new_item
         else:
@@ -2518,7 +2519,7 @@ class ShapeRepr:
         u_keys: dict[UniadicRecord, str] | None = None,
         v_keys: dict[Variadic, str] | None = None,
         symbolic: bool = True,
-    ) -> list[int | str | None]:
+    ) -> ShapeTemplateType:
         if u_keys is None:
             u_keys = {}
         if v_keys is None:
@@ -2699,12 +2700,12 @@ class ShapeRepr:
 # all([uni.value is not None for uni in repr.prefix])
 @dataclass
 class Constraint:
-    fn: Callable
+    fn: ConstraintFunctionType
     type: UpdateType = UpdateType.SHAPE
     call_counter: int = 0
-    post_processes: set[Callable] = field(default_factory=lambda: set())
+    post_processes: set[ConstraintFunctionType] = field(default_factory=lambda: set())
 
-    def __call__(self, keys: list[Scalar | Tensor]) -> ConstrainResultType:
+    def __call__(self, keys: list[Scalar | Tensor[Any]]) -> ConstrainResultType:
         status = False
         updates = Updates()
         if self.type == UpdateType.SHAPE:
@@ -2725,7 +2726,7 @@ class Constraint:
         self.post_processes.add(fn)
 
     def create_post_constraints(self):
-        constraints = set()
+        constraints: set[Constraint] = set()
         for fn in self.post_processes:
             constraints.add(Constraint(fn, self.type))
         return constraints
@@ -2734,8 +2735,16 @@ class Constraint:
         return hash(id(self))
 
 
-def add_lens(x, y, const):
-    return x + next(const) + y
+@overload
+def add_lens(x: int, y: int, const: Iterator[int]) -> int: ...
+
+
+@overload
+def add_lens(x: str, y: str, const: Iterator[str]) -> str: ...
+
+
+def add_lens(x: str | int, y: str | int, const: Iterator[str | int]) -> str | int:
+    return x + next(const) + y  # type: ignore
 
 
 type RowColumnType = list[str | list[str]] | list[str] | list[list[str]]
@@ -2760,6 +2769,7 @@ class Table:
         self.cells.append(row)
 
     def add_column(self, column: RowColumnType):
+        idx = 0
         for idx, row in enumerate(column[: len(self.headers)]):
             self.headers[idx].append(row)  # type: ignore
 
@@ -2777,12 +2787,12 @@ class Table:
         #  Initialize cell_heights and cell_widths lists, these
         # lists will hold minimum height and width that every cell
         # can have respectively.
-        cell_heights = []
-        cell_widths = []
+        cell_heights: list[list[int]] = []
+        cell_widths: list[list[int]] = []
 
         for row in all_elems:
-            row_heights = []
-            row_widths = []
+            row_heights: list[int] = []
+            row_widths: list[int] = []
             for cell in row:
                 if isinstance(cell, list):
                     # if cell is a list, length of the list will give minimum height
@@ -2874,16 +2884,18 @@ class Table:
         # adjust the table accordingly
         self._adjust_table()
         # calculate total table width
-        table_width = reduce(
+        table_width = reduce(  # type: ignore
             partial(add_lens, const=(len(row) for row in row_sep)), self.each_row_width
         )
-        table_constructor_fn = partial(add_lens, const=cycle(row_sep))
-        table_constructor_fn_w_spaces = partial(
+        table_constructor_fn: Callable[[str, str], str] = partial(
+            add_lens, const=cycle(row_sep)
+        )  # type: ignore
+        table_constructor_fn_w_spaces: Callable[[str, str], str] = partial(  # type: ignore
             add_lens, const=cycle(len(row) * " " for row in row_sep)
         )
         end = "\n"
-        header_list = []
-        cell_list = []
+        header_list: list[str] = []
+        cell_list: list[str] = []
 
         # Construct the header if it exists
         header_list.append(self.name.center(table_width) + end)
@@ -2968,7 +2980,7 @@ class Table:
 
     @staticmethod
     def fill_spaces(
-        value: list | str,
+        value: list[str] | str,
         max_width: int = 0,
         max_height: int = 0,
         align: Literal["left", "right", "center"] = "left",
@@ -3034,7 +3046,7 @@ class Table:
         """
         if not strings:
             #  Fill empty strings with None
-            new_list = ["None"]
+            new_list: list[str] = ["None"]
         else:
             line_len = 0
             new_str = ""
@@ -3052,7 +3064,7 @@ class Table:
 
     @staticmethod
     def dict_to_table(
-        in_dict: Mapping[str, list | dict],
+        in_dict: Mapping[str, list[str] | dict[str, Any]],
         seperator: str = " : ",
         left_align: Literal["left", "right", "center"] = "left",
         right_align: Literal["left", "right", "center"] = "left",
@@ -3060,7 +3072,7 @@ class Table:
         right_length: int = 0,
         len_space: int = 0,
         space_fill: str = "-",
-        r_len=0,
+        r_len: int = 0,
     ) -> list[str]:
         """takes a dicts and creates a list of strings from that dict by filling empty
         spaces and making necessary alignments This function will work recursivey of
@@ -3102,7 +3114,7 @@ class Table:
             list[str]: list of strings with same length
         """
 
-        table = []
+        table: list[str] = []
         left_list: list[str] = []
         right_list: list[str] = []
 
@@ -3145,7 +3157,7 @@ UsedKeysType = dict[str | int, ShapeType] | dict[int, ShapeType] | dict[str, Sha
 
 
 def create_shape_map(
-    shape_template: _ShapesType,
+    shape_template: Mapping[str, ShapeTemplateType],
     solver: ConstraintSolver,
 ) -> dict[str, ShapeRepr]:
     used_keys: UsedKeysType = {}
@@ -3419,7 +3431,7 @@ def get_summary_types(
     if data_memo is None:
         data_memo = {}
 
-    type_info: dict[str, tuple[dict, dict]] = {}
+    type_info: dict[str, tuple[dict[str, str], dict[str, str]]] = {}
 
     for model, model_name in name_mappings.items():
         in_dict, out_dict = type_info.setdefault(model_name, ({}, {}))

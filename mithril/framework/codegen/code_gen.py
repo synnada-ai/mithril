@@ -14,12 +14,13 @@
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable
+from typing import Any
 
 from ..physical.model import PhysicalModel
 
 
 class CodeGen(ABC):
-    def __init__(self, pm: PhysicalModel) -> None:
+    def __init__(self, pm: PhysicalModel[Any]) -> None:
         self.pm = pm
         self.code: str | None = None
         self.file_path: str | None = None
