@@ -34,7 +34,6 @@ from ..common import (
     get_summary_shapes,
     get_summary_types,
 )
-from ..utils import define_unique_names
 from .base import BaseModel
 
 
@@ -48,12 +47,15 @@ class PrimitiveModel(BaseModel):
     output: Connection
 
     def __init__(
-        self, formula_key: str, **kwargs: Tensor[Any] | TensorType | Scalar
+        self,
+        formula_key: str,
+        name: str | None = None,
+        **kwargs: Tensor[Any] | TensorType | Scalar,
     ) -> None:
         self.formula_key = formula_key
         self.grad_formula = formula_key + "_grad"
 
-        super().__init__()
+        super().__init__(name=name)
         # Get shape_templates of TensorTypes and create corresponding shapes.
         shape_templates = {
             key: value.shape_template
@@ -125,6 +127,8 @@ class PrimitiveModel(BaseModel):
             else:
                 self._canonical_output = canonical_output_conn
 
+        self._freeze()
+
     def __iadd__(self, other: BaseModel):
         raise Exception(
             f"Primitive '{self.__class__.__name__}' model can not be extended!"
@@ -192,9 +196,9 @@ class PrimitiveModel(BaseModel):
 
         type_info = None
         shape_info = None
-        dag = [self]
-        name_mappings = define_unique_names(dag)
-
+        name_mappings: dict[BaseModel, str] = {
+            self: name if name else self.__class__.__name__
+        }
         # extract model topology
         conn_info = self.extract_connection_info(name_mappings)
 
@@ -222,6 +226,3 @@ class PrimitiveModel(BaseModel):
 
         table.compile()
         table.display()
-
-    def _freeze(self) -> None:
-        pass

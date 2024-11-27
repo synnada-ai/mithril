@@ -73,6 +73,7 @@ def dict_to_output_specs(specs_dict: dict[str, dict]) -> dict[str, dict]:
                 result[key]["loss"] = model_dict[loss["fn"].lower()](
                     **loss.get("params", {})
                 )
+                result[key]["loss_kwargs"] = loss.get("call_kwargs", {})
             else:
                 raise TypeError("Unsupported Loss type!")
         # Set reduce steps.
@@ -122,7 +123,7 @@ def finalize_model(params: dict[str, Any]):
                     if (target := spec.get("target_key")) is not None
                     else {}
                 )
-                loss_kwargs = loss_input | loss_target
+                loss_kwargs = spec.get("loss_kwargs", {}) | loss_input | loss_target
                 train_model.add_loss(
                     loss_model=loss_model,
                     reduce_steps=spec["reduce_steps"],
@@ -568,3 +569,30 @@ def compare_callables(ref_callable: Callable, eval_callable: Callable) -> None:
     generated_evaluate = make_adjustments(generated_evaluate)
 
     assert reference_evaluate == generated_evaluate
+
+
+def get_array_device(array, type):
+    match type:
+        case "numpy":
+            return "cpu"
+        case "jax":
+            return next(iter(array.devices())).platform
+        case "torch":
+            return array.device.type
+        case "mlx":
+            return "gpu"
+
+
+def get_array_precision(array, type):
+    if type == "mlx":
+        return 8 * array.itemsize
+    else:
+        return 8 * array.dtype.itemsize
+
+
+def check_if_installed(backend):
+    try:
+        backend()
+        return True
+    except RuntimeError:
+        return False

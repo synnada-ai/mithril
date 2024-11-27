@@ -31,9 +31,11 @@ from ..framework.constraints import (
     concat_constraints,
     conv_1d_constraints,
     conv_2d_constraints,
+    cross_entropy_constraint,
     eye_constraints,
     flatten_constrains,
     general_tensor_type_constraint,
+    pad_constraints,
     padding_1d_constraint,
     padding_2d_constraint,
     polynomial_features_constraints,
@@ -45,6 +47,7 @@ from ..framework.constraints import (
     tuple_converter_constraint,
     where_constrains,
 )
+from ..framework.logical.base import BaseModel
 from ..framework.logical.essential_primitives import SingleInputOperation
 from ..models import ExtendInfo, PrimitiveModel, Scalar, TensorType
 from ..utils.utils import PaddingType
@@ -111,6 +114,7 @@ __all__ = [
     "TupleConverter",
     "Unique",
     "Trapezoid",
+    "Pad",
 ]
 
 # Define types used to define keys:
@@ -119,9 +123,11 @@ ConstantType = float | int | Constant
 
 
 class CustomPrimitiveModel(PrimitiveModel):
-    def __init__(self, formula_key: str, **kwargs: TensorType | Scalar) -> None:
+    def __init__(
+        self, formula_key: str, name: str | None = None, **kwargs: TensorType | Scalar
+    ) -> None:
         self.factory_args = {"formula_key": formula_key} | kwargs
-        super().__init__(formula_key, **kwargs)
+        super().__init__(formula_key=formula_key, name=name, **kwargs)
 
 
 ########################## Supervised Loss Types ##########################
@@ -143,6 +149,7 @@ class SupervisedLoss(PrimitiveModel):
         self,
         formula_key: str,
         polymorphic_constraint: bool = True,
+        name: str | None = None,
         **kwargs: TensorType | Scalar,
     ) -> None:
         default_kwargs: dict[str, TensorType | Scalar] = {
@@ -152,7 +159,7 @@ class SupervisedLoss(PrimitiveModel):
         }
         # Finalize kwargs.
         kwargs = default_kwargs | kwargs
-        super().__init__(formula_key, **kwargs)
+        super().__init__(formula_key=formula_key, name=name, **kwargs)
 
         # Set constraints.
         self._set_constraint(
@@ -180,29 +187,31 @@ class SupervisedLoss(PrimitiveModel):
 
 
 class SquaredError(SupervisedLoss):
-    def __init__(self) -> None:
-        super().__init__(formula_key="squared_error")
+    def __init__(self, name: str | None = None) -> None:
+        super().__init__(formula_key="squared_error", name=name)
 
 
 class AbsoluteError(SupervisedLoss):
-    def __init__(self) -> None:
-        super().__init__(formula_key="absolute_error")
+    def __init__(self, name: str | None = None) -> None:
+        super().__init__(formula_key="absolute_error", name=name)
 
 
 class HingeLoss(SupervisedLoss):
-    def __init__(self) -> None:
+    def __init__(self, name: str | None = None) -> None:
         super().__init__(
             polymorphic_constraint=False,
             formula_key="hinge_loss",
+            name=name,
             output=TensorType(["N", ("Var", ...)], float),
         )
 
 
 class QuadHingeLoss(SupervisedLoss):
-    def __init__(self) -> None:
+    def __init__(self, name: str | None = None) -> None:
         super().__init__(
             polymorphic_constraint=False,
             formula_key="quad_hinge_loss",
+            name=name,
             output=TensorType(["N", ("Var", ...)], float),
         )
 
@@ -217,14 +226,14 @@ class QuantileLoss(PrimitiveModel):
     quantile: Connection
     output: Connection
 
-    def __init__(self, quantile: QuantileType | ToBeDetermined = 0.5) -> None:
-        self.factory_args = {"quantile": quantile}
+    def __init__(self, name: str | None = None) -> None:
         super().__init__(
             formula_key="quantile_loss",
+            name=name,
             output=TensorType([("Var_1", ...)]),
             input=TensorType([("Var_2", ...)]),
             target=TensorType([("Var_3", ...)]),
-            quantile=TensorType([], QuantileType, quantile),
+            quantile=TensorType([], QuantileType),
         )
 
         self._set_constraint(
@@ -245,7 +254,7 @@ class QuantileLoss(PrimitiveModel):
         self,
         input: ConnectionType = NOT_GIVEN,
         target: ConnectionType = NOT_GIVEN,
-        quantile: ConnectionType = NOT_GIVEN,
+        quantile: QuantileType | ConnectionType = 0.5,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(
@@ -273,17 +282,9 @@ class CrossEntropy(PrimitiveModel):
         self,
         input_type: str = "logits",
         weights: list[float] | str = "",
-        categorical: bool = True,
-        robust: bool | ToBeDetermined = False,
-        cutoff: ConstantType | ToBeDetermined = Constant.MIN_POSITIVE_NORMAL,
+        name: str | None = None,
     ) -> None:
-        self.factory_args = {
-            "input_type": input_type,
-            "weights": weights,
-            "categorical": categorical,
-            "robust": robust,
-            "cutoff": cutoff,
-        }
+        self.factory_args = {"input_type": input_type, "weights": weights}
 
         weights_type: type = list[float]
         if isinstance(weights, str):
@@ -299,13 +300,11 @@ class CrossEntropy(PrimitiveModel):
         kwargs: dict[str, TensorType | Scalar] = {
             "output": TensorType(["N", ("Var", ...)], float),
             "input": TensorType(["N", "C", ("Var", ...)]),
-            "target": TensorType(
-                ["N", ("Var", ...)] if categorical else ["N", "C", ("Var", ...)]
-            ),
+            "target": TensorType(["N", ("VarTarget", ...)]),
             "weights": Scalar(weights_type, final_weights),
-            "categorical": Scalar(bool, categorical),
-            "cutoff": TensorType([], ConstantType, cutoff),
-            "robust": Scalar(bool, robust),
+            "categorical": Scalar(bool),
+            "cutoff": TensorType([], ConstantType),
+            "robust": Scalar(bool),
         }
 
         if input_type == "logits":
@@ -322,29 +321,35 @@ class CrossEntropy(PrimitiveModel):
                 " Available input types: 'logits', 'probs', and 'log_probs'."
             )
 
-        super().__init__(formula_key=formula_key, **kwargs)
+        super().__init__(formula_key=formula_key, name=name, **kwargs)
+
+        self._set_constraint(
+            fn=cross_entropy_constraint, keys=["categorical", "input", "target"]
+        )
 
     def __call__(  # type: ignore[override]
         self,
         input: ConnectionType = NOT_GIVEN,
         target: ConnectionType = NOT_GIVEN,
         weights: ConnectionType = NOT_GIVEN,
-        cutoff: ConnectionType = NOT_GIVEN,
-        robust: ConnectionType = NOT_GIVEN,
+        categorical: bool | ConnectionType = True,
+        cutoff: ConstantType | ConnectionType = Constant.MIN_POSITIVE_NORMAL,
+        robust: bool | ConnectionType = False,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         kwargs = {
             "input": input,
             "target": target,
             "weights": weights,
+            "categorical": categorical,
             "output": output,
         }
         # Check if the given argument set is valid.
         if self.formula_key == "cross_entropy_with_log_probs":
             args: list[str] = []
-            if robust != NOT_GIVEN:
+            if robust is not False:
                 args.append("robust")
-            if cutoff != NOT_GIVEN:
+            if cutoff != Constant.MIN_POSITIVE_NORMAL:
                 args.append("cutoff")
             if args:
                 raise ValueError(
@@ -366,17 +371,14 @@ class KLDivergence(PrimitiveModel):
     cutoff: Connection
     output: Connection
 
-    def __init__(
-        self, cutoff: ConstantType | ToBeDetermined = Constant.MIN_POSITIVE_NORMAL
-    ) -> None:
-        if cutoff != Constant.MIN_POSITIVE_NORMAL:
-            self.factory_args = {"cutoff": cutoff}
+    def __init__(self, name: str | None = None) -> None:
         super().__init__(
             formula_key="kl_divergence",
+            name=name,
             output=TensorType([("Var_1", ...)], float),
             input=TensorType([("Var_2", ...)]),
             target=TensorType([("Var_3", ...)]),
-            cutoff=TensorType([], ConstantType, cutoff),
+            cutoff=TensorType([], ConstantType),
         )
 
         self.safe_shapes = {
@@ -392,7 +394,7 @@ class KLDivergence(PrimitiveModel):
         self,
         input: ConnectionType = NOT_GIVEN,
         target: ConnectionType = NOT_GIVEN,
-        cutoff: ConnectionType = NOT_GIVEN,
+        cutoff: ConnectionType = Constant.MIN_POSITIVE_NORMAL,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(
@@ -416,15 +418,9 @@ class BinaryCrossEntropy(PrimitiveModel):
         self,
         input_type: str = "logits",
         pos_weight: float | str | ToBeDetermined = 1.0,
-        cutoff: ConstantType | ToBeDetermined = Constant.MIN_POSITIVE_NORMAL,
-        robust: bool | ToBeDetermined = False,
+        name: str | None = None,
     ) -> None:
-        self.factory_args = {
-            "input_type": input_type,
-            "pos_weight": pos_weight,
-            "cutoff": cutoff,
-            "robust": robust,
-        }
+        self.factory_args = {"input_type": input_type, "pos_weight": pos_weight}
 
         if isinstance(pos_weight, str):
             if pos_weight != "auto":
@@ -444,8 +440,8 @@ class BinaryCrossEntropy(PrimitiveModel):
                 [("Var_out", ...)], int | float
             ),  # NOTE: Target can also be probabilistic, so float is acceptable.
             "pos_weight": Scalar(pos_weight_type, pos_weight),
-            "cutoff": TensorType([], ConstantType, cutoff),
-            "robust": Scalar(bool, robust),
+            "cutoff": TensorType([], ConstantType),
+            "robust": Scalar(bool),
         }
 
         if input_type == "logits":
@@ -457,7 +453,7 @@ class BinaryCrossEntropy(PrimitiveModel):
                              '{input_type}' input type. Available    \
                              input types: 'logits' and 'probs'.")
 
-        super().__init__(formula_key=formula_key, **kwargs)
+        super().__init__(formula_key=formula_key, name=name, **kwargs)
 
         self._set_constraint(
             fn=bcast, keys=[PrimitiveModel.output_key, "input", "target"]
@@ -468,8 +464,8 @@ class BinaryCrossEntropy(PrimitiveModel):
         input: ConnectionType = NOT_GIVEN,
         target: ConnectionType = NOT_GIVEN,
         pos_weight: ConnectionType = NOT_GIVEN,
-        cutoff: ConnectionType = NOT_GIVEN,
-        robust: ConnectionType = NOT_GIVEN,
+        cutoff: ConstantType | ConnectionType = Constant.MIN_POSITIVE_NORMAL,
+        robust: bool | ConnectionType = False,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(
@@ -485,25 +481,23 @@ class BinaryCrossEntropy(PrimitiveModel):
 class Log(PrimitiveModel):
     input: Connection
     output: Connection
-    cutoff: Connection
 
-    def __init__(
-        self,
-        robust: bool = False,
-        cutoff: ConstantType | ToBeDetermined = Constant.MIN_POSITIVE_NORMAL,
-    ) -> None:
-        self.factory_args = {"cutoff": cutoff, "robust": robust}
+    def __init__(self, robust: bool = False, name: str | None = None) -> None:
+        self.robust = robust
+        self.factory_args = {"robust": robust}
 
         if robust:
             super().__init__(
                 formula_key="robust_log",
+                name=name,
                 output=TensorType([("Var", ...)], float),
                 input=TensorType([("Var", ...)]),
-                cutoff=TensorType([], ConstantType, cutoff),
+                cutoff=TensorType([], ConstantType),
             )
         else:
             super().__init__(
                 formula_key="log",
+                name=name,
                 output=TensorType([("Var", ...)], float),
                 input=TensorType([("Var", ...)]),
             )
@@ -513,18 +507,15 @@ class Log(PrimitiveModel):
         input: ConnectionType = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
         *,
-        cutoff: ConnectionType = NOT_GIVEN,
+        cutoff: ConnectionType = Constant.MIN_POSITIVE_NORMAL,
     ) -> ExtendInfo:
         kwargs = {"input": input, "output": output}
 
-        if self.formula_key == "log" and cutoff != NOT_GIVEN:
-            raise ValueError(
-                "Log does not accept cutoff argument \
-                             when initialized with robust = False."
-            )
-
-        if self.formula_key == "robust_log":
+        is_constant = isinstance(cutoff, Constant)
+        if self.robust:
             kwargs["cutoff"] = cutoff
+        elif not (is_constant and cutoff == Constant.MIN_POSITIVE_NORMAL):
+            raise ValueError("Cutoff cannot be specified when robust mode is off")
 
         return super().__call__(**kwargs)
 
@@ -534,65 +525,64 @@ class StableReciprocal(PrimitiveModel):
     cutoff: Connection
     output: Connection
 
-    def __init__(
-        self,
-        cutoff: ConstantType | ToBeDetermined = Constant.STABLE_RECIPROCAL_THRESHOLD,
-    ) -> None:
-        if cutoff != Constant.STABLE_RECIPROCAL_THRESHOLD:
-            self.factory_args = {"cutoff": cutoff}
-
+    def __init__(self, name: str | None = None) -> None:
         super().__init__(
             formula_key="stable_reciprocal",
+            name=name,
             output=TensorType([("Var", ...)], float),
             input=TensorType([("Var", ...)]),
-            cutoff=TensorType([], ConstantType, cutoff),
+            cutoff=TensorType([], ConstantType),
         )
 
     def __call__(  # type: ignore[override]
         self,
         input: ConnectionType = NOT_GIVEN,
-        cutoff: ConnectionType = NOT_GIVEN,
+        cutoff: ConnectionType = Constant.STABLE_RECIPROCAL_THRESHOLD,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(input=input, cutoff=cutoff, output=output)
 
 
 class Sine(SingleInputOperation):
-    def __init__(self) -> None:
+    def __init__(self, name: str | None = None) -> None:
         super().__init__(
             formula_key="sin",
+            name=name,
             polymorphic_constraint=False,
             output=TensorType([("Var", ...)], float),
         )
 
 
 class Cosine(SingleInputOperation):
-    def __init__(self) -> None:
+    def __init__(self, name: str | None = None) -> None:
         super().__init__(
             formula_key="cos",
+            name=name,
             polymorphic_constraint=False,
             output=TensorType([("Var", ...)], float),
         )
 
 
 class Sign(SingleInputOperation):
-    def __init__(self) -> None:
+    def __init__(self, name: str | None = None) -> None:
         super().__init__(
             formula_key="sign",
+            name=name,
             polymorphic_constraint=False,
             output=TensorType([("Var", ...)], int),
         )
 
 
 class Square(SingleInputOperation):
-    def __init__(self) -> None:
-        super().__init__(formula_key="square")
+    def __init__(self, name: str | None = None) -> None:
+        super().__init__(formula_key="square", name=name)
 
 
 class Exponential(SingleInputOperation):
-    def __init__(self) -> None:
+    def __init__(self, name: str | None = None) -> None:
         super().__init__(
             formula_key="exp",
+            name=name,
             polymorphic_constraint=False,
             output=TensorType([("Var", ...)], float),
         )
@@ -607,6 +597,7 @@ class Activation(PrimitiveModel):
         self,
         formula_key: str,
         polymorphic_constraint: bool = False,
+        name: str | None = None,
         **kwargs: TensorType | Scalar,
     ) -> None:
         # NOTE: Torch and JAX behave different for some activation functions.
@@ -618,7 +609,7 @@ class Activation(PrimitiveModel):
         )
         # Finalize kwargs.
         kwargs = default_kwargs | kwargs
-        super().__init__(formula_key, **kwargs)
+        super().__init__(formula_key, name=name, **kwargs)
 
         if polymorphic_constraint:
             self._set_constraint(
@@ -633,9 +624,10 @@ class Activation(PrimitiveModel):
 
 
 class Relu(Activation):
-    def __init__(self) -> None:
+    def __init__(self, name: str | None = None) -> None:
         super().__init__(
             formula_key="relu",
+            name=name,
             polymorphic_constraint=True,
             output=TensorType([("Var", ...)]),
             input=TensorType([("Var", ...)]),
@@ -643,29 +635,36 @@ class Relu(Activation):
 
 
 class Gelu(Activation):
-    def __init__(self) -> None:
-        super().__init__(formula_key="gelu")
+    def __init__(self, name: str | None = None) -> None:
+        super().__init__(formula_key="gelu", name=name)
 
 
 class Sigmoid(Activation):
-    def __init__(self) -> None:
-        super().__init__(formula_key="sigmoid")
+    def __init__(self, name: str | None = None) -> None:
+        super().__init__(formula_key="sigmoid", name=name)
 
 
 class Softmax(Activation):
-    def __init__(self, axis: int | None | ToBeDetermined = -1) -> None:
-        self.factory_args = {"axis": axis}
-        super().__init__(formula_key="softmax", axis=Scalar(int | None, axis))
+    def __init__(self, name: str | None = None) -> None:
+        super().__init__(formula_key="softmax", name=name, axis=Scalar(int | None))
+
+    def __call__(  # type: ignore[override]
+        self,
+        input: ConnectionType = NOT_GIVEN,
+        axis: ConnectionType = -1,
+        output: ConnectionType = NOT_GIVEN,
+    ) -> ExtendInfo:
+        return BaseModel.__call__(self, input=input, axis=axis, output=output)
 
 
 class Softplus(Activation):
-    def __init__(self) -> None:
-        super().__init__(formula_key="softplus")
+    def __init__(self, name: str | None = None) -> None:
+        super().__init__(formula_key="softplus", name=name)
 
 
 class Tanh(Activation):
-    def __init__(self) -> None:
-        super().__init__(formula_key="tanh")
+    def __init__(self, name: str | None = None) -> None:
+        super().__init__(formula_key="tanh", name=name)
 
 
 class LeakyRelu(Activation):
@@ -673,17 +672,15 @@ class LeakyRelu(Activation):
     output: Connection
     slope: Connection
 
-    def __init__(self, slope: float | ToBeDetermined = 0.01) -> None:
-        self.factory_args = {"slope": slope}
-
+    def __init__(self, name: str | None = None) -> None:
         super().__init__(
-            formula_key="leaky_relu", slope=TensorType([], int | float, slope)
+            formula_key="leaky_relu", name=name, slope=TensorType([], float)
         )
 
     def __call__(  # type: ignore[override]
         self,
         input: ConnectionType = NOT_GIVEN,
-        slope: ConnectionType = NOT_GIVEN,
+        slope: ConnectionType = 0.01,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return PrimitiveModel.__call__(self, input=input, slope=slope, output=output)
@@ -693,9 +690,10 @@ class StopGradient(PrimitiveModel):
     input: Connection
     output: Connection
 
-    def __init__(self) -> None:
+    def __init__(self, name: str | None = None) -> None:
         super().__init__(
             formula_key="stop_gradient",
+            name=name,
             output=TensorType([("Var", ...)]),
             input=TensorType([("Var", ...)]),
         )
@@ -711,9 +709,10 @@ class CartesianDifference(PrimitiveModel):
     right: Connection
     output: Connection
 
-    def __init__(self) -> None:
+    def __init__(self, name: str | None = None) -> None:
         super().__init__(
             formula_key="cartesian_diff",
+            name=name,
             output=TensorType(["N", "M", "dim"]),
             left=TensorType(["N", "dim"]),
             right=TensorType(["M", "dim"]),
@@ -736,7 +735,9 @@ class Concat(PrimitiveModel):
     output: Connection
     axis: Connection
 
-    def __init__(self, n: int, axis: int | None | ToBeDetermined = 0) -> None:
+    def __init__(
+        self, n: int, axis: int | None | ToBeDetermined = 0, name: str | None = None
+    ) -> None:
         self.factory_args = {"n": n, "axis": axis}
 
         key_definitions: dict[str, TensorType | Scalar] = {}
@@ -746,7 +747,7 @@ class Concat(PrimitiveModel):
         }
         key_definitions["axis"] = Scalar(int | None, axis)
 
-        super().__init__(formula_key="concat", **key_definitions)
+        super().__init__(formula_key="concat", name=name, **key_definitions)
 
         input_keys = [key for key in self._input_keys if key != "axis"]
         self._set_constraint(
@@ -761,7 +762,7 @@ class Concat(PrimitiveModel):
 class PrimitiveUnion(PrimitiveModel):
     output: Connection
 
-    def __init__(self, n: int = 1) -> None:
+    def __init__(self, n: int = 1, name: str | None = None) -> None:
         self.factory_args = {"n": n}
         input_definitions = {
             f"input{idx + 1}": Scalar(int | float | tuple[int | float, ...])
@@ -770,6 +771,7 @@ class PrimitiveUnion(PrimitiveModel):
 
         super().__init__(
             formula_key="union",
+            name=name,
             output=Scalar(tuple[int | float, ...]),
             **input_definitions,
         )
@@ -780,9 +782,10 @@ class PermuteTensor(PrimitiveModel):
     indices: Connection
     output: Connection
 
-    def __init__(self) -> None:
+    def __init__(self, name: str | None = None) -> None:
         super().__init__(
             formula_key="permute_tensor",
+            name=name,
             output=TensorType(["N", ("Var", ...)]),
             input=TensorType(["N", ("Var", ...)]),
             indices=TensorType(["N"]),
@@ -811,7 +814,7 @@ class PrimitiveConvolution1D(PrimitiveModel):
     output: Connection
     bias: Connection
 
-    def __init__(self, use_bias: bool = True) -> None:
+    def __init__(self, use_bias: bool = True, name: str | None = None) -> None:
         self.factory_args = {"use_bias": use_bias}
         formula_key = "conv1d_bias"
         kwargs: dict[str, TensorType | Scalar] = {
@@ -828,7 +831,7 @@ class PrimitiveConvolution1D(PrimitiveModel):
             formula_key = "conv1d"
             kwargs.pop("bias")
 
-        super().__init__(formula_key=formula_key, **kwargs)
+        super().__init__(formula_key=formula_key, name=name, **kwargs)
 
         self._set_constraint(
             fn=conv_1d_constraints,
@@ -882,7 +885,7 @@ class PrimitiveConvolution2D(PrimitiveModel):
     output: Connection
     bias: Connection
 
-    def __init__(self, use_bias: bool = True) -> None:
+    def __init__(self, use_bias: bool = True, name: str | None = None) -> None:
         self.factory_args = {"use_bias": use_bias}
         formula_key = "conv2d_bias"
         kwargs: dict[str, TensorType | Scalar] = {
@@ -905,7 +908,7 @@ class PrimitiveConvolution2D(PrimitiveModel):
             formula_key = "conv2d"
             kwargs.pop("bias")
 
-        super().__init__(formula_key, **kwargs)
+        super().__init__(formula_key, name=name, **kwargs)
 
         self._set_constraint(
             fn=conv_2d_constraints,
@@ -956,7 +959,10 @@ class Flatten(PrimitiveModel):
     output: Connection
 
     def __init__(
-        self, start_dim: int | ToBeDetermined = 0, end_dim: int | ToBeDetermined = -1
+        self,
+        start_dim: int | ToBeDetermined = 0,
+        end_dim: int | ToBeDetermined = -1,
+        name: str | None = None,
     ) -> None:
         self.factory_args = {"start_dim": start_dim, "end_dim": end_dim}
 
@@ -966,7 +972,7 @@ class Flatten(PrimitiveModel):
             "start_dim": Scalar(int, start_dim),
             "end_dim": Scalar(int, end_dim),
         }
-        super().__init__(formula_key="flatten", **key_definitions)
+        super().__init__(formula_key="flatten", name=name, **key_definitions)
 
         self._set_constraint(
             fn=flatten_constrains,
@@ -996,9 +1002,10 @@ class PrimitiveMaxPool1D(PrimitiveModel):
     dilation: Connection
     output: Connection
 
-    def __init__(self) -> None:
+    def __init__(self, name: str | None = None) -> None:
         super().__init__(
             formula_key="max_pool1d",
+            name=name,
             output=TensorType(["N", ("C_in", ...), "W_out"]),
             input=TensorType(["N", ("C_in", ...), "W"]),
             kernel_size=Scalar(int),
@@ -1040,9 +1047,10 @@ class PaddingConverter1D(PrimitiveModel):
     kernel_size: Connection
     output: Connection
 
-    def __init__(self) -> None:
+    def __init__(self, name: str | None = None) -> None:
         super().__init__(
             formula_key="padding_converter_1d",
+            name=name,
             output=Scalar(tuple[int, int]),
             input=Scalar(int | PaddingType | tuple[int, int]),
             kernel_size=Scalar(int),
@@ -1067,9 +1075,10 @@ class PaddingConverter2D(PrimitiveModel):
     kernel_size: Connection
     output: Connection
 
-    def __init__(self) -> None:
+    def __init__(self, name: str | None = None) -> None:
         super().__init__(
             formula_key="padding_converter_2d",
+            name=name,
             output=Scalar(tuple[int, int] | tuple[tuple[int, int], tuple[int, int]]),
             input=Scalar(
                 int
@@ -1099,9 +1108,10 @@ class StrideConverter(PrimitiveModel):
     kernel_size: Connection
     output: Connection
 
-    def __init__(self) -> None:
+    def __init__(self, name: str | None = None) -> None:
         super().__init__(
             formula_key="stride_converter",
+            name=name,
             output=Scalar(int | tuple[int, int]),
             input=Scalar(int | PaddingType | tuple[int, int] | None),
             kernel_size=Scalar(int | tuple[int, int]),
@@ -1124,9 +1134,10 @@ class TupleConverter(PrimitiveModel):
     input: Connection
     output: Connection
 
-    def __init__(self) -> None:
+    def __init__(self, name: str | None = None) -> None:
         super().__init__(
             formula_key="tuple_converter",
+            name=name,
             output=Scalar(tuple[int, int] | tuple[tuple[int, int], tuple[int, int]]),
             input=Scalar(
                 int
@@ -1154,9 +1165,10 @@ class PrimitiveMaxPool2D(PrimitiveModel):
     dilation: Connection
     output: Connection
 
-    def __init__(self) -> None:
+    def __init__(self, name: str | None = None) -> None:
         super().__init__(
             formula_key="max_pool2d",
+            name=name,
             output=TensorType(["N", ("C_in", ...), "H_out", "W_out"]),
             input=TensorType(["N", ("C_in", ...), "H", "W"]),
             kernel_size=Scalar(tuple[int, int]),
@@ -1214,10 +1226,13 @@ class NormModifier(PrimitiveModel):
     input: Connection
     output: Connection
 
-    def __init__(self) -> None:
+    def __init__(self, name: str | None = None) -> None:
         # TODO: Input should be zero rank??
         super().__init__(
-            formula_key="norm_modifier", output=TensorType([]), input=TensorType([])
+            formula_key="norm_modifier",
+            name=name,
+            output=TensorType([]),
+            input=TensorType([]),
         )
 
         self._set_constraint(
@@ -1237,9 +1252,10 @@ class DistanceMatrix(PrimitiveModel):
     output: Connection
 
     # TODO: torch.cdist handles batches of matrices, for now we don't.
-    def __init__(self) -> None:
+    def __init__(self, name: str | None = None) -> None:
         super().__init__(
             formula_key="distance_matrix",
+            name=name,
             output=TensorType(["N", "M"]),
             left=TensorType(["N", "d"]),
             right=TensorType(["M", "d"]),
@@ -1266,10 +1282,13 @@ class PolynomialFeatures(PrimitiveModel):
     degree: Connection
     output: Connection
 
-    def __init__(self, degree: int | ToBeDetermined = TBD) -> None:
+    def __init__(
+        self, degree: int | ToBeDetermined = TBD, name: str | None = None
+    ) -> None:
         self.factory_args = {"degree": degree}
         super().__init__(
             formula_key="polynomial_features",
+            name=name,
             output=TensorType(["N", "d_out"]),
             input=TensorType(["N", "d_in"]),
             degree=Scalar(int, degree),
@@ -1299,32 +1318,24 @@ class TsnePJoint(PrimitiveModel):
 
     disposable = True
 
-    def __init__(
-        self,
-        target_perplexity: float | ToBeDetermined = TBD,
-        threshold: ConstantType | ToBeDetermined = Constant.EPSILON,
-    ) -> None:
-        if threshold != Constant.EPSILON:
-            self.factory_args = {"threshold": threshold}
-        if target_perplexity is not TBD:
-            self.factory_args |= {"target_perplexity": target_perplexity}
-
+    def __init__(self, name: str | None = None) -> None:
         super().__init__(
             formula_key="tsne_p_joint",
+            name=name,
             output=TensorType(["N", "M"], float),
             squared_distances=TensorType(
                 ["N", "M"]
             ),  # TODO: Can we say anything about the type of distances?
-            target_perplexity=TensorType([], float, target_perplexity),
-            threshold=TensorType([], ConstantType, threshold),
+            target_perplexity=TensorType([], float),
+            threshold=TensorType([], ConstantType),
         )
 
     def __call__(  # type: ignore[override]
         self,
         squared_distances: ConnectionType = NOT_GIVEN,
-        target_perplexity: ConnectionType = NOT_GIVEN,
+        target_perplexity: float | ConnectionType = NOT_GIVEN,
         threshold: ConnectionType = NOT_GIVEN,
-        output: ConnectionType = NOT_GIVEN,
+        output: ConstantType | ConnectionType = Constant.EPSILON,
     ) -> ExtendInfo:
         return super().__call__(
             squared_distances=squared_distances,
@@ -1340,10 +1351,14 @@ class EyeComplement(PrimitiveModel):
     output: Connection
 
     def __init__(
-        self, N: int | ToBeDetermined = TBD, M: int | ToBeDetermined | None = None
+        self,
+        N: int | ToBeDetermined = TBD,
+        M: int | ToBeDetermined | None = None,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="ones_with_zero_diag",
+            name=name,
             output=TensorType(["N", "M"], float),
             N=Scalar(int, N),
             M=Scalar(int | None, M),
@@ -1366,10 +1381,14 @@ class Eye(PrimitiveModel):
     output: Connection
 
     def __init__(
-        self, N: int | ToBeDetermined = TBD, M: int | ToBeDetermined | None = None
+        self,
+        N: int | ToBeDetermined = TBD,
+        M: int | ToBeDetermined | None = None,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="eye",
+            name=name,
             output=TensorType(["N", "M"], float),
             N=Scalar(int, N),
             M=Scalar(int | None, M),
@@ -1390,9 +1409,10 @@ class Cholesky(PrimitiveModel):
     input: Connection
     output: Connection
 
-    def __init__(self) -> None:
+    def __init__(self, name: str | None = None) -> None:
         super().__init__(
             formula_key="cholesky",
+            name=name,
             output=TensorType(["N", "N"], float),
             input=TensorType(["N", "N"]),
         )
@@ -1409,9 +1429,10 @@ class GPRAlpha(PrimitiveModel):
     K_term: Connection
     output: Connection
 
-    def __init__(self) -> None:
+    def __init__(self, name: str | None = None) -> None:
         super().__init__(
             formula_key="gpr_alpha",
+            name=name,
             output=TensorType(["N", 1], float),
             label_mu_diff=TensorType(["N", 1]),
             L=TensorType(["N", "N"]),
@@ -1436,9 +1457,10 @@ class GPRVOuter(PrimitiveModel):
     L: Connection
     output: Connection
 
-    def __init__(self) -> None:
+    def __init__(self, name: str | None = None) -> None:
         super().__init__(
             formula_key="gpr_v_outer",
+            name=name,
             output=TensorType(["N", "N"], float),
             K=TensorType(["N", "N"]),
             K_term=TensorType(["N", "N"]),
@@ -1459,9 +1481,10 @@ class TransposedDiagonal(PrimitiveModel):
     input: Connection
     output: Connection
 
-    def __init__(self) -> None:
+    def __init__(self, name: str | None = None) -> None:
         super().__init__(
             formula_key="transposed_diag",
+            name=name,
             output=TensorType(["N", 1]),
             input=TensorType(["N", "N"]),
         )
@@ -1487,6 +1510,7 @@ class Arange(PrimitiveModel):
         start: int | float | ToBeDetermined = 0,
         stop: int | float | ToBeDetermined = TBD,
         step: int | float | ToBeDetermined = 1,
+        name: str | None = None,
     ) -> None:
         init_kwargs: dict[str, Scalar | TensorType] = {
             "start": Scalar(int | float, start),
@@ -1511,7 +1535,7 @@ class Arange(PrimitiveModel):
         else:
             init_kwargs["output"] = TensorType(["N"])
 
-        super().__init__(formula_key="arange", **init_kwargs)
+        super().__init__(formula_key="arange", name=name, **init_kwargs)
 
         self.set_canonical_input("stop")
 
@@ -1539,9 +1563,12 @@ class BroadcastTo(PrimitiveModel):
     shape: Connection
     output: Connection
 
-    def __init__(self, shape: tuple[int, ...] | ToBeDetermined = TBD) -> None:
+    def __init__(
+        self, shape: tuple[int, ...] | ToBeDetermined = TBD, name: str | None = None
+    ) -> None:
         super().__init__(
             formula_key="broadcast_to",
+            name=name,
             output=TensorType([("output", ...)]),
             input=TensorType([("input", ...)]),
             shape=Scalar(tuple[int, ...], shape),
@@ -1569,25 +1596,21 @@ class Eigvalsh(PrimitiveModel):
     threshold: Connection
     output: Connection
 
-    def __init__(
-        self, threshold: ConstantType | ToBeDetermined = Constant.EPSILON
-    ) -> None:
-        if threshold != Constant.EPSILON:
-            self.factory_args = {"threshold": threshold}
-
+    def __init__(self, name: str | None = None) -> None:
         super().__init__(
             formula_key="eigvalsh",
+            name=name,
             output=TensorType(["N", 1], float),  # TODO: Is it always float?
             K_term=TensorType(["N", "N"]),
             L=TensorType(["N", "N"]),
-            threshold=TensorType([], ConstantType, threshold),
+            threshold=TensorType([], ConstantType),
         )
 
     def __call__(  # type: ignore[override]
         self,
         K_term: ConnectionType = NOT_GIVEN,
         L: ConnectionType = NOT_GIVEN,
-        threshold: ConnectionType = NOT_GIVEN,
+        threshold: ConstantType | ConnectionType = Constant.EPSILON,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(K_term=K_term, L=L, threshold=threshold, output=output)
@@ -1597,9 +1620,10 @@ class Squeeze(PrimitiveModel):
     input: Connection
     output: Connection
 
-    def __init__(self) -> None:
+    def __init__(self, name: str | None = None) -> None:
         super().__init__(
             formula_key="squeeze",
+            name=name,
             output=TensorType([("Var_out", ...)]),
             input=TensorType([("Var", ...)]),
         )
@@ -1620,9 +1644,10 @@ class AUCCore(PrimitiveModel):
     label: Connection
     output: Connection
 
-    def __init__(self) -> None:
+    def __init__(self, name: str | None = None) -> None:
         super().__init__(
             formula_key="auc_core",
+            name=name,
             output=TensorType([2, "M"], float),
             input=TensorType(["N"]),
             label=TensorType(["N"]),
@@ -1643,12 +1668,16 @@ class Embedding(PrimitiveModel):
     output: Connection
 
     def __init__(
-        self, num_embeddings: int | None = None, dim: int | None = None
+        self,
+        num_embeddings: int | None = None,
+        dim: int | None = None,
+        name: str | None = None,
     ) -> None:
         out_dim: int | str = "dim" if dim is None else dim
 
         super().__init__(
             formula_key="primitive_embedding",
+            name=name,
             output=TensorType([("N1", ...), "d1", out_dim]),
             input=TensorType([("N1", ...), "d1"], int),
             embedding_matrix=TensorType([num_embeddings, out_dim]),
@@ -1686,6 +1715,7 @@ class ScaledDotProduct(PrimitiveModel):
         scale: None | int | float | ToBeDetermined = None,
         dropout_p: float | ToBeDetermined = 0.0,
         use_attn_mask: bool = False,
+        name: str | None = None,
     ) -> None:
         assert (
             not isinstance(is_causal, bool) or not is_causal or not use_attn_mask
@@ -1708,20 +1738,25 @@ class ScaledDotProduct(PrimitiveModel):
         if use_attn_mask:
             kwargs["attn_mask"] = TensorType(["L", "S"], value=TBD)
 
-        super().__init__(formula_key=formula_key, **kwargs)
+        super().__init__(formula_key=formula_key, name=name, **kwargs)
 
     def __call__(  # type: ignore[override]
         self,
         query: ConnectionType = NOT_GIVEN,
         key: ConnectionType = NOT_GIVEN,
         value: ConnectionType = NOT_GIVEN,
-        attn_mask: ConnectionType = NOT_GIVEN,
         dropout_p: ConnectionType = NOT_GIVEN,
         is_causal: ConnectionType = NOT_GIVEN,
         scale: ConnectionType = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
+        *,
+        attn_mask: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
-        if not self.use_attn_mask and attn_mask != NOT_GIVEN:
+        if (
+            not self.use_attn_mask
+            and attn_mask != NOT_GIVEN
+            and not isinstance(attn_mask, str)
+        ):
             raise KeyError(
                 "Model does not have 'attn_mask' input. Got attn_mask argument!"
             )
@@ -1734,6 +1769,7 @@ class ScaledDotProduct(PrimitiveModel):
             is_causal=is_causal,
             scale=scale,
             output=output,
+            attn_mask=attn_mask,
         )
 
 
@@ -1745,12 +1781,16 @@ class PositionalEncoding(PrimitiveModel):
 
     # TODO: Try to move to Logical composite models.
     def __init__(
-        self, hidden_dim: int | ToBeDetermined, max_len: int | ToBeDetermined = 5000
+        self,
+        hidden_dim: int | ToBeDetermined,
+        max_len: int | ToBeDetermined = 5000,
+        name: str | None = None,
     ) -> None:
         self.factory_args = {"hidden_dim": hidden_dim, "max_len": max_len}
 
         super().__init__(
             formula_key="positional_encoding",
+            name=name,
             output=TensorType([("N1", ...)]),
             input=TensorType([("N1", ...)]),
             hidden_dim=Scalar(int, hidden_dim),
@@ -1776,12 +1816,16 @@ class SwapAxes(PrimitiveModel):
     output: Connection
 
     def __init__(
-        self, axis1: int | ToBeDetermined, axis2: int | ToBeDetermined
+        self,
+        axis1: int | ToBeDetermined,
+        axis2: int | ToBeDetermined,
+        name: str | None = None,
     ) -> None:
         self.factory_args = {"axis1": axis1, "axis2": axis2}
 
         super().__init__(
             formula_key="swapaxes",
+            name=name,
             output=TensorType([("Var_out", ...)]),
             input=TensorType([("Var_in", ...)]),
             axis1=Scalar(int, axis1),
@@ -1811,9 +1855,10 @@ class Where(PrimitiveModel):
     input2: Connection
     output: Connection
 
-    def __init__(self) -> None:
+    def __init__(self, name: str | None = None) -> None:
         super().__init__(
             formula_key="where",
+            name=name,
             output=TensorType([("Var_out", ...)]),
             cond=TensorType([("Var3", ...)], bool, TBD),
             input1=TensorType([("Var1", ...)]),
@@ -1843,9 +1888,10 @@ class IsNan(PrimitiveModel):
     input: Connection
     output: Connection
 
-    def __init__(self) -> None:
+    def __init__(self, name: str | None = None) -> None:
         super().__init__(
             formula_key="isnan",
+            name=name,
             output=TensorType([("Var", ...)], bool),
             input=TensorType([("Var", ...)]),
         )
@@ -1860,9 +1906,10 @@ class Unique(PrimitiveModel):
     input: Connection
     output: Connection
 
-    def __init__(self) -> None:
+    def __init__(self, name: str | None = None) -> None:
         super().__init__(
-            "unique",
+            formula_key="unique",
+            name=name,
             input=TensorType([("Var1", ...)]),
             output=TensorType([("Var2", ...)]),
         )
@@ -1878,9 +1925,10 @@ class Trapezoid(PrimitiveModel):
     x: Connection
     output: Connection
 
-    def __init__(self) -> None:
+    def __init__(self, name: str | None = None) -> None:
         super().__init__(
             formula_key="trapezoid",
+            name=name,
             output=TensorType([]),
             y=TensorType([("Var", ...)]),
             x=TensorType([("Var", ...)]),
@@ -1907,9 +1955,11 @@ class NanToNum(PrimitiveModel):
         nan: float | ToBeDetermined = 0.0,
         posinf: float | None | ToBeDetermined = None,
         neginf: float | None | ToBeDetermined = None,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="nan_to_num",
+            name=name,
             output=TensorType([("Var", ...)]),
             input=TensorType([("Var", ...)]),
             nan=Scalar(float | None, nan),
@@ -1931,44 +1981,27 @@ class NanToNum(PrimitiveModel):
         )
 
 
-class Split(PrimitiveModel):
-    split_size: Connection
-    dim: Connection
-    input: Connection
-    output: Connection
-
-    def __init__(self, split_size: int | tuple[int], dim: int = 0):
-        super().__init__(
-            formula_key="split",
-            output=TensorType([("Var2", ...)]),
-            input=TensorType([("Var1", ...)]),
-            split_size=Scalar(int | tuple[int], split_size),
-            dim=Scalar(int, dim),
-        )
-
-    def __call__(  # type: ignore[override]
-        self,
-        input: ConnectionType = NOT_GIVEN,
-        split_size: ConnectionType = NOT_GIVEN,
-        dim: ConnectionType = NOT_GIVEN,
-        output: ConnectionType = NOT_GIVEN,
-    ) -> ExtendInfo:
-        return super().__call__(
-            input=input, split_size=split_size, dim=dim, output=output
-        )
-
-
 class Pad(PrimitiveModel):
     input: Connection
     pad: Connection
     output: Connection
 
-    def __init__(self, pad_width: list[tuple[int, int]]) -> None:
+    def __init__(
+        self,
+        pad_width: list[tuple[int, int]] | ToBeDetermined = TBD,
+        name: str | None = None,
+    ) -> None:
         super().__init__(
             formula_key="pad",
-            output=TensorType([("Var", ...)]),
-            input=TensorType([("Var", ...)]),
-            pad_width=Scalar(tuple[tuple[int, int], ...], pad_width),
+            name=name,
+            output=TensorType([("Var2", ...)]),
+            input=TensorType([("Var1", ...)]),
+            pad_width=Scalar(tuple[tuple[int, int], ...] | ToBeDetermined, pad_width),
+        )
+
+        # Set constraints.
+        self._set_constraint(
+            fn=pad_constraints, keys=[PrimitiveModel.output_key, "input", "pad_width"]
         )
 
     def __call__(  # type: ignore[override]

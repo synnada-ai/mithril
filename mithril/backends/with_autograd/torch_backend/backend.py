@@ -79,6 +79,10 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
         return torch.inf
 
     @property
+    def nan(self):
+        return torch.nan
+
+    @property
     def DataType(self):  # noqa: N802
         return utils.ArrayType
 
@@ -508,9 +512,33 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
         return ops.concat(*inputs, axis=axis)
 
     def pad(self, input: torch.Tensor, pad_width: PadWidthType) -> torch.Tensor:
-        assert isinstance(pad_width, tuple)
-        assert isinstance(pad_width[0], int)
-        return F.pad(input, pad_width)
+        _pad: list[int] = []
+        assert isinstance(pad_width, tuple | list | int)
+
+        # Standardize torch's pad with other backends
+        # torch's pad takes Sequence[int] or Tuple[int, ...]
+        # other backends takes PadWidthType
+
+        # If pad comes with PadWidthType, flat and convert it to
+        # torch's pad format.
+        if isinstance(pad_width, int):
+            # if int is given, pad all dimensions
+            for _ in range(len(input.shape)):
+                _pad.extend([pad_width, pad_width])
+
+        elif isinstance(pad_width[0], tuple):
+            # if pad is given with tuple[tuple[int, int], ...]
+            # pad all befores and afters in each dims
+            for pad_dim in pad_width[::-1]:
+                assert isinstance(pad_dim, tuple)
+                _pad.extend(pad_dim)
+        else:
+            # if pad is given with tuple[int, int]
+            # pad all befores and afters in all dims
+            for _ in range(len(input.shape)):
+                _pad.extend(pad_width)  # type: ignore
+
+        return F.pad(input, _pad)
 
     def all(self, input: torch.Tensor) -> torch.Tensor:
         return torch.all(input)
@@ -518,14 +546,24 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
     def any(self, input: torch.Tensor) -> torch.Tensor:
         return torch.any(input)
 
-    def atleast_1d(self, *inputs) -> torch.Tensor | tuple[torch.Tensor, ...]:
-        return torch.atleast_1d(inputs)
+    def atleast_1d(
+        self, inputs: torch.Tensor | tuple[torch.Tensor, ...]
+    ) -> torch.Tensor | tuple[torch.Tensor, ...]:
+        if isinstance(inputs, tuple):
+            return torch.atleast_1d(*inputs)
+        else:
+            return torch.atleast_1d(inputs)
 
-    def atleast_2d(self, *inputs) -> torch.Tensor | tuple[torch.Tensor, ...]:
-        return torch.atleast_2d(inputs)
+    def atleast_2d(
+        self, inputs: torch.Tensor | tuple[torch.Tensor, ...]
+    ) -> torch.Tensor | tuple[torch.Tensor, ...]:
+        if isinstance(inputs, tuple):
+            return torch.atleast_2d(*inputs)
+        else:
+            return torch.atleast_2d(inputs)
 
     def transpose(
-        self, input: torch.Tensor, axes: tuple[int, ...] | list[int] | None
+        self, input: torch.Tensor, axes: tuple[int, ...] | list[int] | None = None
     ) -> torch.Tensor:
         return ops.transpose(input, axes)
 

@@ -22,6 +22,7 @@ import pytest
 import mithril
 from mithril import JaxBackend, NumpyBackend, TorchBackend
 from mithril.framework.common import (
+    NOT_GIVEN,
     Connect,
     Connection,
     IOKey,
@@ -864,7 +865,8 @@ def test_physical_summary_1():
     model += Linear(dimension=5)(input="input")
     model += LeakyRelu()
     model += (lin1 := Linear(dimension=3))
-    model += LeakyRelu(slope=1e-1)
+    model += (l_relu := LeakyRelu())(slope=NOT_GIVEN)
+    l_relu.set_values({"slope": 1e-1})
     model += Relu()
     lin1.set_shapes({"input": [3, 5]})
     comp_model = mithril.compile(
@@ -1916,4 +1918,20 @@ def test_traincontext_summary_7():
     with open("tests/scripts/summary_txts/test_traincontext_summary_7") as f:
         ref_table = f.read()
 
+    assert "\n" + summary.getvalue() == ref_table
+
+
+def test_summary_of_nested_composite_model_with_names():
+    lin = Linear(name="lin")
+    model = Model(name="my_model")
+    model += lin
+
+    with redirect_stdout(StringIO()) as summary:
+        model.summary()
+
+    ref_table = ""
+    with open(
+        "tests/scripts/summary_txts/test_summary_of_nested_composite_model_with_names"
+    ) as f:
+        ref_table = f.read()
     assert "\n" + summary.getvalue() == ref_table

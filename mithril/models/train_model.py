@@ -18,6 +18,7 @@ from copy import deepcopy
 from typing import Any
 
 from ..framework import (
+    NOT_GIVEN,
     BaseModel,
     Connection,
     ConnectionData,
@@ -47,7 +48,6 @@ from ..framework.logical import (
     ToTensor,
 )
 from ..framework.physical.model import FinalCost, LossKey
-from ..framework.utils import define_unique_names
 from .primitives import Concat, PrimitiveModel
 
 __all__ = ["TrainModel"]
@@ -151,8 +151,12 @@ class TrainModel(Model):
         **kwargs: Any,
     ) -> None:
         # If provided key namings does not match with Loss model
-        keys = set(loss_model._input_keys) - loss_model.conns.get_non_diff_keys()
-        if set(kwargs.keys()) != keys:
+        if {
+            key
+            for key, value in loss_model(**kwargs)._connections.items()
+            if value is NOT_GIVEN and key in loss_model._input_keys
+        } - loss_model.conns.get_non_diff_keys():
+            # if set(kwargs.keys()) != keys:
             raise KeyError("The provided keys do not match the model's loss.")
 
         outputs_conns_metadata: set[IOHyperEdge] = set()
@@ -217,8 +221,7 @@ class TrainModel(Model):
         for key in kwargs:
             if key in loss_model.conns.output_keys:
                 raise KeyError("Output of the loss model cannot be defined!")
-        # self._extend(loss_model, **kwargs)
-        self.extend(loss_model, **kwargs)
+        self._extend(loss_model(**kwargs))
         prev_out_key = self.get_single_output(loss_model).data
         if (prev_con := self.conns.get_con_by_metadata(prev_out_key.metadata)) is None:
             raise KeyError("Given key does not belong to the Model!")
@@ -530,7 +533,7 @@ class TrainModel(Model):
 
         self._model.summary(**summary_kwargs)  # type: ignore
 
-        name_mappings = define_unique_names(self.dag)
+        name_mappings = self.get_unique_submodel_names()
         conn_info = self.extract_connection_info(name_mappings)
         model_shapes = {}
 

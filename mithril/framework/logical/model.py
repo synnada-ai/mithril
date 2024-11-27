@@ -15,10 +15,9 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from types import UnionType
+from types import EllipsisType, UnionType
 from typing import Any, Self, TypeVar, overload
 
-from ...core import Constant
 from ...utils.utils import OrderedSet, find_dominant_type
 from ..common import (
     NOT_AVAILABLE,
@@ -48,7 +47,6 @@ from ..common import (
     get_summary_shapes,
     get_summary_types,
 )
-from ..utils import define_unique_names
 from .base import ExtendInfo
 from .essential_primitives import (
     Absolute,
@@ -81,6 +79,7 @@ from .essential_primitives import (
     ShiftLeft,
     ShiftRight,
     Size,
+    Split,
     Sqrt,
     Subtract,
     Sum,
@@ -133,6 +132,7 @@ ops_table: dict[str, type[PrimitiveModel]] = {
     "rshift": ShiftRight,
     "minus": Minus,
     "transpose": Transpose,
+    "split": Split,
 }
 
 
@@ -158,14 +158,15 @@ type_conversion_map: dict[
 
 class Model(BaseModel):
     def __init__(
-        self, formula_key: str | None = None, enforce_jit: bool = True
+        self,
+        formula_key: str | None = None,
+        name: str | None = None,
+        enforce_jit: bool = True,
     ) -> None:
-        self.passive_output = None
-        self.main_primitive = None
         self.dag: dict[BaseModel, dict[str, ConnectionData]] = {}
-        self.inter_key_count = 0
+        self.inter_key_count: int = 0
         self.formula_key = formula_key
-        super().__init__(enforce_jit=enforce_jit)
+        super().__init__(name=name, enforce_jit=enforce_jit)
 
     def create_key_name(self):
         self.inter_key_count += 1
@@ -444,6 +445,7 @@ class Model(BaseModel):
                 model_type is not None
             ), "given model is not found in the ops_table or coercion_table"
 
+            # TODO: Remove all TBD if default init arguments will be moved to call!!!
             init_fun = model_type.__init__
 
             # "self" argument is common for all models, Exclude it by
@@ -454,6 +456,7 @@ class Model(BaseModel):
             default_args_dict = {
                 key: TBD for key in default_args if key not in template.defaults
             }
+            default_args_dict.pop("name")
 
             # TODO: Reconsider type ignore!
             model: PrimitiveModel = model_type(**default_args_dict)  # type: ignore
@@ -978,7 +981,7 @@ class Model(BaseModel):
                 result = conv_model.conns.get_connection("output")
                 assert result is not None
                 update_canonical_input = True
-            elif dominant_type not in [float, int, bool, slice]:
+            elif dominant_type not in [float, int, bool, slice, EllipsisType]:
                 raise TypeError(
                     f"{dominant_type} type is not supported for conversion in "
                     "a container!"
@@ -1038,6 +1041,11 @@ class Model(BaseModel):
                 "Model with enforced Jit can not be extended by a non-jittable model! \
                             Jit can be unforced by setting enforce_jit = False"
             )
+        if model.name is not None:
+            # TODO: We could store model names in a set to check if it is unique.
+            for m in self.dag:
+                if m.name == model.name:
+                    raise KeyError(f"Model already has a submodel named {model.name}.")
 
         model.parent = self
         # Freeze the model.
@@ -1050,30 +1058,6 @@ class Model(BaseModel):
 
         shape_info: dict[str, ShapeTemplateType] = dict()
         type_info: dict[str, type | UnionType] = dict()
-
-        # Check if any Tensor type key is already initialized with a value.
-        # This occurs only when a Primitive model having any Tensor type key
-        # initialized with a default value is extending the model.
-        for input_key in model._input_keys:
-            input_conn = model.conns.all.get(input_key)
-            assert input_conn is not None, "Connection type is not found!"
-            input_data = input_conn.metadata.data
-            if isinstance(input_data, Tensor) and not isinstance(
-                input_data.temp_value, ToBeDetermined
-            ):
-                if (
-                    (given_value := kwargs.get(input_key)) is not None
-                    and given_value is not NOT_GIVEN
-                    and given_value != input_data.temp_value
-                    and not isinstance(given_value, Constant)
-                ):
-                    raise ValueError(
-                        f"Value of {model.__class__.__name__}'s {input_key} given "
-                        f"as {given_value}. But the value is already initialized as "
-                        f"{input_data.temp_value}"
-                    )
-                kwargs[input_key] = input_data.temp_value
-                input_data.temp_value = TBD
 
         for key, value in kwargs.items():
             # Check if given keys are among model's keys.
@@ -1238,41 +1222,14 @@ class Model(BaseModel):
         # Update jittablity by using model's jittablity.
         self._jittable &= model.jittable
 
-    # def __add__(self, model: Model | PrimitiveModel):
-    #     """This function allows models to be added sequentially via "+=" operator.
-    #     There are several conditions for a model to be sequentially added:
-    #     if added model has single input, connect that input directly.
+    def _extend(self, info: ExtendInfo | PrimitiveModel | Model) -> Self:
+        if self.is_frozen:
+            raise AttributeError("Model is frozen and can not be extended!")
 
-    #     Parameters
-    #     ----------
-    #     model : Model
-    #         Other model to be sequentially added.
-    #     """
-    #     if not (isinstance(model, BaseModel) or isinstance(model, PrimitiveModel)):
-    #         raise TypeError("Added element should be a Model type.")
-    #     kwargs = {}
-    #     if self.canonical_output:
-    #         kwargs = {model._canonical_input.key: self.canonical_output}
-
-    #     self.extend(model, **kwargs)
-    #     return self
-
-    def __add__(self, info: ExtendInfo | PrimitiveModel | Model) -> Self:
-        """This function allows models to be added via "+=" operator.
-        There are several conditions for a model to be added:
-        if added model has single input, connect that input directly.
-
-        Parameters
-        ----------
-        model : Model
-            Other model to be added.
-        """
-
-        model, kwargs = (
-            (info._model, info._connections)
-            if isinstance(info, ExtendInfo)
-            else (info, {})
-        )
+        # Call model with empty arguments if directly model is given.
+        if isinstance(info, PrimitiveModel | Model):
+            info = info()
+        model, kwargs = info._model, info._connections
 
         if (
             model._canonical_input is not NOT_AVAILABLE
@@ -1302,6 +1259,18 @@ class Model(BaseModel):
 
         self.extend(model, **kwargs)
         return self
+
+    def __add__(self, info: ExtendInfo | PrimitiveModel | Model) -> Self:
+        """This function allows models to be added via "+=" operator.
+        There are several conditions for a model to be added:
+        if added model has single input, connect that input directly.
+
+        Parameters
+        ----------
+        model : Model
+            Other model to be added.
+        """
+        return self._extend(info)
 
     __iadd__ = __add__
 
@@ -1466,6 +1435,38 @@ class Model(BaseModel):
             key_mappings = {key: "$" + value for key, value in key_mappings.items()}
         return key_mappings
 
+    def get_unique_submodel_names(self) -> dict[BaseModel, str]:
+        name_mapping = {}
+        existing_names = set()
+        model_type_dict: dict[str, list[BaseModel]] = {}
+
+        # First, assign existing names and track used names.
+        # Also save unnamed models to model_type_dict.
+        for model in self.dag:
+            if model.name:
+                name_mapping[model] = model.name
+                existing_names.add(model.name)
+            else:
+                model_type_dict.setdefault(model.__class__.__name__, []).append(model)
+
+        # Iterate over different model types among unnamed models.
+        for model_type, model_list in model_type_dict.items():
+            counter = 0
+            # Iterate over same class model objects to name them.
+            for i, model in enumerate(model_list):
+                if len(model_list) == 1:
+                    # If there is only one model of a type, do not increment counter.
+                    counter -= 1
+                    name = model_type
+                else:
+                    name = f"{model_type}_{counter + i}"
+                while name in existing_names:
+                    counter += 1  # counter is incremented until a unique name is found.
+                    name = f"{model_type}_{counter + i}"
+                name_mapping[model] = name
+                existing_names.add(name)
+        return name_mapping
+
     def _freeze(self) -> None:
         if (
             self.canonical_output is not NOT_AVAILABLE
@@ -1478,7 +1479,13 @@ class Model(BaseModel):
 
         self.dependency_map.update_all_keys()
 
-        # Sort and freeze dag
+        # Name unnamed submodels before freezing considering the insertion order.
+        model_names = self.get_unique_submodel_names()
+        for m in self.dag:
+            if m.name is None:
+                m.name = model_names[m]
+
+        # Sort dag
         self.dag = {m: self.dag[m] for m in self.get_models_in_topological_order()}
         if self.formula_key is not None:
             # Must be convertable to primitive.
@@ -1486,6 +1493,7 @@ class Model(BaseModel):
                 "Logical models have altenative primitive implementation must "
                 "have only 1 output."
             )
+        super()._freeze()
 
     def summary(
         self,
@@ -1506,9 +1514,7 @@ class Model(BaseModel):
         type_info: dict[str, tuple[dict[str, str], dict[str, str]]] | None = None
         shape_info = None
         # extract relevant information about summary
-        dag = self.dag
-        # TODO: Fix typing issues
-        name_mappings: dict[BaseModel, str] = define_unique_names(dag)
+        name_mappings = self.get_unique_submodel_names()
 
         # extract model topology
         conn_info = self.extract_connection_info(name_mappings)
@@ -1527,7 +1533,8 @@ class Model(BaseModel):
             # extract model types
             type_info = get_summary_types(name_mappings)
 
-        if not name:
+        # TODO: Remove name argument from summary method
+        if not name and (name := self.name) is None:
             name = self.__class__.__name__
 
         # construct the table based on relevant information
@@ -1585,7 +1592,14 @@ class Model(BaseModel):
             )
             data_map = {key: conn.metadata.data for key, conn in self.conns.all.items()}
 
-            for model, model_name in name_mappings.items():
+            # Sort in topological order if model is not frozen
+            if self.is_frozen:
+                sorted_models = list(self.dag.keys())
+            else:
+                sorted_models = self.get_models_in_topological_order()
+
+            for model in sorted_models:
+                model_name = name_mappings[model]
                 m_info = self.dag[model]
                 # set default structure of conn_info and shape_info
                 conns = conn_info.setdefault(model_name, ({}, {}))

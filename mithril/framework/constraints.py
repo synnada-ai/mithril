@@ -98,6 +98,7 @@ __all__ = [
     "tuple_converter_constraint",
     "conv_1d_constraints",
     "conv_2d_constraints",
+    "pad_constraints",
 ]
 
 
@@ -1351,7 +1352,7 @@ def bcast_mat_mul_check(
 
 
 def reduce_constraints(
-    output: Tensor[Any], input: Tensor[Any], axis: Scalar, keepdim: Scalar | None = None
+    output: Tensor[Any], input: Tensor[Any], axis: Scalar, keepdim: Scalar
 ) -> ConstrainResultType:
     updates = Updates()
     assert input._temp_shape is not None, "Input shape of reduce is not set!"
@@ -1359,7 +1360,7 @@ def reduce_constraints(
     input_shape: ShapeRepr = input._temp_shape
     output_shape: ShapeRepr = output._temp_shape
     axis_val = axis.value
-    keepdim_val = keepdim.value if keepdim is not None else False
+    keepdim_val = keepdim.value
     assert is_axis_reduce_type(axis_val) or isinstance(
         axis_val, ToBeDetermined
     ), f"given axis value {axis_val} is not valid!"
@@ -1372,7 +1373,7 @@ def reduce_constraints(
         if isinstance(axis_val, int):
             axis_val = (axis_val,)
         elif axis_val is None:
-            if not keepdim_val:
+            if keepdim_val is False:
                 updates |= input_shape._update_uniadics(input_shape.prefix, [])
                 updates |= output_shape._update_uniadics(output_shape.reverse, [])
                 if output_shape.root is not None:
@@ -1394,19 +1395,27 @@ def reduce_constraints(
                 neg_idx = abs(min(negative_axes)) if negative_axes else None
                 # If input already has corresponding axes as uniadics, simply match
                 # corresponding part of input shape_map with output shape_map.
-                if (pos_idx is None or len(input_shape.prefix) >= pos_idx) and (
-                    neg_idx is None or len(input_shape.suffix) >= neg_idx
+                if (
+                    (pos_idx is None or len(input_shape.prefix) >= pos_idx)
+                    and (neg_idx is None or len(input_shape.suffix) >= neg_idx)
+                    and keepdim_val is not TBD
                 ):  # pos_idx and neg_idx can not be None at the same time.
-                    repr_prefix: list[Uniadic] = [
-                        uni
-                        for idx, uni in enumerate(input_shape.prefix)
-                        if idx not in positive_axes
-                    ]
-                    repr_suffix: list[Uniadic] = [
-                        uni
-                        for idx, uni in enumerate(input_shape.reverse)
-                        if -(idx + 1) not in negative_axes
-                    ][::-1]
+                    repr_prefix: list[Uniadic] = []
+                    repr_suffix: list[Uniadic] = []
+                    for idx, uni in enumerate(input_shape.prefix):
+                        if idx not in positive_axes:
+                            repr_prefix.append(uni)
+                        elif keepdim_val:
+                            repr_prefix.append(Uniadic(1))
+
+                    for idx, uni in enumerate(input_shape.reverse):
+                        if -(idx + 1) not in negative_axes:
+                            repr_suffix.append(uni)
+                        elif keepdim_val:
+                            repr_suffix.append(Uniadic(1))
+
+                    repr_suffix = repr_suffix[::-1]
+
                     repr_root = input_shape.root
                     updates |= output_shape.inner_match(
                         prefix=repr_prefix, root=repr_root, suffix=repr_suffix
@@ -1449,60 +1458,61 @@ def reduce_constraints(
                             prefix=prefix, root=Variadic(), suffix=suffix
                         )
 
-                    # Try to infer output shape structure from input shape structure.
-                    # First initialize out_prefix and out_suffix with the Uniadics
-                    # which may be transferred to the output.
-                    out_prefix: list[Uniadic] = []
-                    for idx, uni in enumerate(input_shape.prefix):
-                        if idx not in axis_val:
-                            if not neg_idx or idx < (len(input_shape) - neg_idx):
-                                out_prefix.append(uni)
-                            else:
-                                out_prefix.append(Uniadic())
-                        elif replacement:
-                            out_prefix.append(replacement)
+                    if keepdim_val is not TBD:
+                        # Try to infer output shape structure from input shape
+                        # structure. First initialize out_prefix and out_suffix
+                        # with the Uniadics which may be transferred to the output.
+                        out_prefix: list[Uniadic] = []
+                        for idx, uni in enumerate(input_shape.prefix):
+                            if idx not in axis_val:
+                                if not neg_idx or idx < (len(input_shape) - neg_idx):
+                                    out_prefix.append(uni)
+                                else:
+                                    out_prefix.append(Uniadic())
+                            elif replacement:
+                                out_prefix.append(replacement)
 
-                    out_suffix: list[Uniadic] = []
-                    for idx, uni in enumerate(input_shape.suffix):
-                        if (idx - len(input_shape.suffix)) not in axis_val:
-                            if not positive_axes or (
-                                idx + len(input_shape.prefix)
-                            ) > max(positive_axes):
-                                out_suffix.append(uni)
-                            else:
-                                out_suffix.append(Uniadic())
-                        elif replacement:
-                            out_suffix.append(replacement)
+                        out_suffix: list[Uniadic] = []
+                        for idx, uni in enumerate(input_shape.suffix):
+                            if (idx - len(input_shape.suffix)) not in axis_val:
+                                if not positive_axes or (
+                                    idx + len(input_shape.prefix)
+                                ) > max(positive_axes):
+                                    out_suffix.append(uni)
+                                else:
+                                    out_suffix.append(Uniadic())
+                            elif replacement:
+                                out_suffix.append(replacement)
 
-                    # Now remove residual uniadics from input shape structure
-                    # in order to guarantee min length of output shape.
-                    if not keepdim_val and (
-                        diff := (
-                            (len(out_prefix) + len(out_suffix))
-                            - (len(input_shape) - len(axis_val))
-                        )
-                    ):
-                        for _ in range(diff):
-                            if out_prefix:
-                                out_prefix.pop()
-                            else:
-                                out_suffix.pop(0)
-
-                    if out_prefix or out_suffix:
-                        pos_len = pos_idx if pos_idx is not None else 0
-                        neg_len = neg_idx if neg_idx is not None else 0
-                        if (
-                            len(input_shape.prefix) >= pos_len
-                            and len(input_shape.suffix) >= neg_len
+                        # Now remove residual uniadics from input shape structure
+                        # in order to guarantee min length of output shape.
+                        if not keepdim_val and (
+                            diff := (
+                                (len(out_prefix) + len(out_suffix))
+                                - (len(input_shape) - len(axis_val))
+                            )
                         ):
-                            var = input_shape.root
-                        else:
-                            var = Variadic()
-                        updates |= output_shape.inner_match(
-                            prefix=out_prefix, root=var, suffix=out_suffix
-                        )
+                            for _ in range(diff):
+                                if out_prefix:
+                                    out_prefix.pop()
+                                else:
+                                    out_suffix.pop(0)
 
-        if input_shape.root is None:
+                        if out_prefix or out_suffix:
+                            pos_len = pos_idx if pos_idx is not None else 0
+                            neg_len = neg_idx if neg_idx is not None else 0
+                            if (
+                                len(input_shape.prefix) >= pos_len
+                                and len(input_shape.suffix) >= neg_len
+                            ):
+                                var = input_shape.root
+                            else:
+                                var = Variadic()
+                            updates |= output_shape.inner_match(
+                                prefix=out_prefix, root=var, suffix=out_suffix
+                            )
+
+        if input_shape.root is None and keepdim_val is not TBD:
             if axis_val is None:
                 axis_val = tuple([idx for idx in range(len(input_shape.prefix))])
             # Min rank of input must be  max(axis) + 1.
@@ -1540,7 +1550,7 @@ def reduce_constraints(
                 )
                 updates |= output_shape.remove_variadic(filtered_var_replacement)
             # Transfer available values using input and output.
-            else:
+            elif keepdim_val is not TBD:
                 # Check rank consistency.
                 if (in_rank := len(input_shape)) != (
                     (out_rank := len(output_shape))
@@ -1567,7 +1577,11 @@ def reduce_constraints(
                             if in_uni.value is not None and out_uni.set_value(1):
                                 updates.add(out_uni)
 
-        elif output_shape.root is None and axis_val is not None:
+        elif (
+            output_shape.root is None
+            and axis_val is not None
+            and keepdim_val is not TBD
+        ):
             # Convert all negative axis values into corresponding positive ones.
             in_rank = (
                 len(output_shape) if keepdim_val else len(axis_val) + len(output_shape)
@@ -1713,6 +1727,62 @@ def concat_constraints(
                             updates.add(none_values[0])
                     elif len(none_values) == 0:
                         status = True
+    return status, updates
+
+
+def pad_constraints(
+    output: Tensor, input: Tensor, pad_width: Scalar
+) -> ConstrainResultType:
+    updates = Updates()
+    pad_value: tuple[tuple[int, int], ...] | ToBeDetermined = pad_width.value  # type: ignore
+    input_shape = input._temp_shape
+    output_shape = output._temp_shape
+    assert input_shape is not None
+    assert output_shape is not None
+
+    def process_shape(shape, pad_value, forward=True):
+        prefix: list[Uniadic] = []
+        root = None
+        suffix: list[Uniadic] = []
+        status = True
+
+        for idx, uni in enumerate(shape.prefix):
+            if uni.value is None:
+                prefix.append(Uniadic())
+                status = False
+                continue
+
+            padding = pad_value[idx]
+            uni = Uniadic(
+                uni.value + sum(padding) if forward else uni.value - sum(padding)
+            )
+            prefix.append(uni)
+
+        return prefix, root, suffix, status
+
+    if isinstance(pad_value, ToBeDetermined):
+        return False, updates
+
+    # Use pad width
+    temp_uniadics = [Uniadic() for _ in range(len(pad_value))]
+    updates |= input_shape.inner_match(prefix=temp_uniadics, root=None, suffix=[])
+
+    temp_uniadics = [Uniadic() for _ in range(len(pad_value))]
+    updates |= output_shape.inner_match(prefix=temp_uniadics, root=None, suffix=[])
+
+    # Forward inference
+    prefix, root, suffix, forward_status = process_shape(
+        input_shape, pad_value, forward=True
+    )
+    updates |= output_shape.inner_match(prefix=prefix, root=root, suffix=suffix)
+
+    # Backward inference
+    prefix, root, suffix, backward_status = process_shape(
+        output_shape, pad_value, forward=False
+    )
+    updates |= input_shape.inner_match(prefix=prefix, root=root, suffix=suffix)
+    status = forward_status or backward_status
+
     return status, updates
 
 
@@ -3498,6 +3568,35 @@ def tuple_converter_constraint(output: Scalar, input: Scalar) -> ConstrainResult
             updates |= output.set_value(input_value)
             status = True
     if output.value is not TBD:
+        status = True
+    return status, updates
+
+
+def cross_entropy_constraint(
+    categorical: Scalar, input: Tensor, target: Tensor
+) -> ConstrainResultType:
+    assert input._temp_shape is not None, "Input shape of reverse is not set!"
+    assert target._temp_shape is not None, "Target shape of reverse is not set!"
+
+    status = False
+    updates = Updates()
+    categorical_value = categorical.value
+
+    input_shape: ShapeRepr = input._temp_shape
+    target_shape: ShapeRepr = target._temp_shape
+
+    if categorical_value is not TBD:
+        if not categorical_value:
+            updates |= target_shape._match(input_shape)
+        else:
+            N = Uniadic()
+            C = Uniadic()
+            var = Variadic()
+            in_repr = ShapeRepr([N, C], var)
+            target_repr = ShapeRepr([N], var)
+            updates = input_shape._match(in_repr)
+            updates = target_shape._match(target_repr)
+
         status = True
     return status, updates
 

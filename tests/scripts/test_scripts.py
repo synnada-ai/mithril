@@ -107,6 +107,7 @@ from mithril.models import (
 )
 from mithril.utils.type_utils import is_list_int
 
+from .helper import assert_models_equal
 from .test_shapes import check_shapes_semantically
 from .test_utils import (
     assert_connections,
@@ -3759,29 +3760,37 @@ def test_add_loss_unknown_key():
     context = TrainModel(model)
 
     # Wrong keyword for loss
-    with pytest.raises(KeyError) as err_info:
+    with pytest.raises(TypeError) as err_info:
         context.add_loss(SquaredError(), inpu2t="output", target="target")
 
-    assert str(err_info.value) == '"The provided keys do not match the model\'s loss."'
+    assert (
+        str(err_info.value)
+        == "SupervisedLoss.__call__() got an unexpected keyword argument 'inpu2t'"
+    )
 
-    with pytest.raises(KeyError) as err_info:
+    with pytest.raises(TypeError) as err_info:
         context.add_loss(SquaredError(), input="output", targe2t="target")
 
-    assert str(err_info.value) == '"The provided keys do not match the model\'s loss."'
+    assert (
+        str(err_info.value)
+        == "SupervisedLoss.__call__() got an unexpected keyword argument 'targe2t'"
+    )
 
     # Wrong keyword for model
-    with pytest.raises(KeyError) as err_info:
+    with pytest.raises(KeyError) as key_err_info:
         context.add_loss(SquaredError(), input="output1", target="target")
 
-    assert str(err_info.value) == (
+    assert str(key_err_info.value) == (
         "'The provided keys are not valid; at least one of the keys must belong "
         "to the model!'"
     )
 
-    with pytest.raises(KeyError) as err_info:
+    with pytest.raises(KeyError) as key_err_info:
         context.add_loss(SquaredError(), target="output")
 
-    assert str(err_info.value) == '"The provided keys do not match the model\'s loss."'
+    assert (
+        str(key_err_info.value) == '"The provided keys do not match the model\'s loss."'
+    )
 
     # Successfully add loss
     context.add_loss(
@@ -6312,13 +6321,13 @@ def test_multi_write_2():
 
 def test_multi_write_3():
     model = Model()
-    l_relu1 = LeakyRelu(slope=0.85)
+    l_relu = Model()
+    l_relu += LeakyRelu()(slope=IOKey("slope", 0.85))
     with pytest.raises(ValueError) as err_info:
-        model += l_relu1(input="input", output="output", slope=0.75)
+        model += l_relu(slope=0.75)
 
     assert str(err_info.value) == (
-        "Value of LeakyRelu's slope given as 0.75. But the value is already "
-        "initialized as 0.85"
+        "Value is set before as 0.85. A scalar value can not be reset."
     )
 
 
@@ -6388,7 +6397,7 @@ def test_multi_write_8():
 def test_leaky_relu_trainable_slope():
     backend = JaxBackend()
     model = Model()
-    model += LeakyRelu(slope=TBD)(input="input", output="output", slope="slope")
+    model += LeakyRelu()(input="input", output="output", slope="slope")
 
     pm = mithril.compile(model=model, backend=backend)
     params = {"input": backend.array([-2.0, 2.0]), "slope": backend.array(0.2)}
@@ -6801,7 +6810,7 @@ def test_iadd_1():
 def test_iadd_2():
     model = Model()
     model += MatrixMultiply()(right="w1")
-    model += Relu()()
+    model += Relu()
     model += Sigmoid()
     model += MatrixMultiply()(left=model.canonical_output, right="w4")
 
@@ -7014,7 +7023,9 @@ def test_string_iokey_value_1():
         # Small Einsum Model that is written for test purposes.
         # Now it only supports single input and single output
 
-        def __init__(self, equation: str | ToBeDetermined) -> None:
+        def __init__(
+            self, equation: str | ToBeDetermined, name: str | None = None
+        ) -> None:
             if not isinstance(equation, ToBeDetermined):
                 # Parse the equation
                 input, output = equation.replace(" ", "").split("->")
@@ -7039,7 +7050,7 @@ def test_string_iokey_value_1():
                 "equation": scalar_equation,
             }
 
-            super().__init__(formula_key="einsum", **kwargs)
+            super().__init__(formula_key="einsum", name=name, **kwargs)
             self._freeze()
 
         def __call__(  # type: ignore[override]
@@ -7096,7 +7107,9 @@ def test_string_iokey_value_2():
         # Small Einsum Model that is written for test purposes.
         # Now it only supports single input and single output
 
-        def __init__(self, equation: str | ToBeDetermined) -> None:
+        def __init__(
+            self, equation: str | ToBeDetermined, name: str | None = None
+        ) -> None:
             if not isinstance(equation, ToBeDetermined):
                 # Parse the equation
                 input, output = equation.replace(" ", "").split("->")
@@ -7121,7 +7134,7 @@ def test_string_iokey_value_2():
                 "equation": scalar_equation,
             }
 
-            super().__init__(formula_key="einsum", **kwargs)
+            super().__init__(formula_key="einsum", name=name, **kwargs)
             self._freeze()
 
         def __call__(  # type: ignore[override]
@@ -7150,3 +7163,13 @@ def test_string_iokey_value_2():
     outputs = pm.evaluate(trainable_keys)
     ref_outputs = {"output": backend.ones(7) * 6}
     assert_results_equal(outputs, ref_outputs)
+
+
+def test_empty_call_vs_direct_model_extending():
+    model1 = Model()
+    model1 += LeakyRelu()
+
+    model2 = Model()
+    model2 += LeakyRelu()()
+
+    assert_models_equal(model1, model2)

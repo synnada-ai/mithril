@@ -291,7 +291,7 @@ def test_variadic_input_primitive_2(file_path: str):
 @with_temp_file(".py")
 def test_default_kwarg_reduction_1(file_path: str):
     model = Model()
-    model += Mean()()
+    model += Mean()
 
     backend = NumpyBackend()
     mithril.compile(model, backend, inference=False, jit=False, file_path=file_path)

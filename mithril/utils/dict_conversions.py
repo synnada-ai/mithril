@@ -185,12 +185,12 @@ def dict_to_model(modelparams: dict[str, Any]) -> BaseModel:
             else:
                 connection_mappings[key] = value
 
-        m.set_values(constant_mappings)  # type: ignore[arg-type]
         if m.canonical_input.key in constant_mappings:
             connection_mappings.setdefault(m.canonical_input.key, "")
 
         assert isinstance(model, Model)
         model += m(**connection_mappings)
+        m.set_values(constant_mappings)  # type: ignore[arg-type]
 
     if "model" in canonical_keys:
         candidate_canonical_in = model.conns.get_connection(canonical_keys["model"][0])
@@ -549,7 +549,7 @@ def shape_to_dict(shapes):
             if isinstance(item, tuple):  # variadic
                 shape_list.append(f"{item[0]},...")
             else:
-                shape_list.append(str(item))
+                shape_list.append(item)
         shape_dict[key] = shape_list
     return shape_dict
 
@@ -559,10 +559,10 @@ def dict_to_shape(shape_dict):
     for key, shape_list in shape_dict.items():
         shapes[key] = []
         for shape in shape_list:
-            if "..." in shape:
+            if isinstance(shape, str) and "..." in shape:
                 shapes[key].append((shape.split(",")[0], ...))
             else:
-                shapes[key].append(int(shape))
+                shapes[key].append(shape)
 
     return shapes
 

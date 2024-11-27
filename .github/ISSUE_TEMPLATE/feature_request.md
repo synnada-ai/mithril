@@ -23,7 +23,3 @@ List any alternative solutions or workarounds you’ve tried or thought about.
 
 ## Additional Context
 Add any other context, examples, or relevant details.
-
----
-
-Thank you for helping us make this project better!

@@ -750,7 +750,7 @@ class Backend(ABC, Generic[DataType]):
         raise NotImplementedError("log is not implemented!")
 
     def atleast_1d(
-        self, *inputs: DataType
+        self, inputs: DataType | tuple[DataType, ...]
     ) -> DataType | tuple[DataType, ...] | list[DataType]:
         """
         Convert the input to an array with at least one dimension.
@@ -767,7 +767,7 @@ class Backend(ABC, Generic[DataType]):
         raise NotImplementedError("atleast_1d is not implemented!")
 
     def atleast_2d(
-        self, *inputs: DataType
+        self, inputs: DataType | tuple[DataType, ...]
     ) -> DataType | tuple[DataType, ...] | list[DataType]:
         """
         Convert the input to an array with at least two dimensions.
