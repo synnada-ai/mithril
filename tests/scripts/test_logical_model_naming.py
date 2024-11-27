@@ -131,6 +131,33 @@ def test_get_unique_submodel_names_single_named_single_unnamed_clashing():
     assert model.get_unique_submodel_names() == {lin1: "Linear", lin2: "Linear_0"}
 
 
+def test_get_unique_submodel_names_single_named_single_unnamed_clashing_():
+    lin1 = Linear(name="Linear")
+    lin2 = Linear(name="Linear_0")
+    lin3 = Linear(name="Linear_1")
+    lin4 = Linear(name="Linear_2")
+    lin5 = Linear()  # "Linear_3"
+
+    model = Model()
+    model += lin1
+    model += lin2
+    model += lin3
+    model += lin4
+    model += lin5
+    # Mock trial for directed get_unique_submodel_names tests
+    # class MyModel:
+    #     dag = {lin1: None, lin2: None, lin3: None, lin4: None, lin5: None}
+    # Model.get_unique_submodel_names(MyModel())
+
+    assert model.get_unique_submodel_names() == {
+        lin1: "Linear",
+        lin2: "Linear_0",
+        lin3: "Linear_1",
+        lin4: "Linear_2",
+        lin5: "Linear_3",
+    }
+
+
 def test_get_unique_submodel_names_two_named_single_unnamed_two_clashing():
     lin1 = Linear(name="Linear")
     lin2 = Linear()

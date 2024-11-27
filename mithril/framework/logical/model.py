@@ -1521,6 +1521,7 @@ class Model(BaseModel):
             # extract model types
             type_info = _get_summary_types(name_mappings)
 
+        # TODO: Remove name argument from summary method
         if not name and (name := self.name) is None:
             name = self.__class__.__name__
 
@@ -1579,8 +1580,13 @@ class Model(BaseModel):
             )
             data_map = {key: conn.metadata.data for key, conn in self.conns.all.items()}
 
-            # TODO: use sorted dag in topological order.
-            for model in self.dag:
+            # Sort in topological order if model is not frozen
+            if self.is_frozen:
+                sorted_models = list(self.dag.keys())
+            else:
+                sorted_models = self.get_models_in_topological_order()
+
+            for model in sorted_models:
                 model_name = name_mappings[model]
                 m_info = self.dag[model]
                 # set default structure of conn_info and shape_info
