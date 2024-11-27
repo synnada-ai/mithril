@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from mithril.models import Add, Convolution2D, GroupNorm, IOKey, Model, SiLU
+from mithril import IOKey
+from mithril.models import Add, Convolution2D, GroupNorm, Model, SiLU
 
 
 def resnet_block(in_channels: int, out_channels: int | None = None) -> Model:
