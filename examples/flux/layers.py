@@ -16,14 +16,15 @@ from mithril import IOKey
 from mithril.models import Buffer, Model, Reshape, ScaledDotProduct, Transpose
 
 
-def rms_norm() -> Model:
+def rms_norm(dim: int) -> Model:
     # TODO: check original implementation they use astype and cast to float32
     input = IOKey("input")
-    scale = IOKey("scale", shape=["dim"])  # TODO: scale must be initialized with ones.
-    rrms = 1 / (input.mean(axis=-1, keepdim=True) + 1e-6).sqrt()
+    scale = IOKey("scale", shape=[dim])  # TODO: scale must be initialized with ones.
+    rrms = 1 / ((input**2).mean(axis=-1, keepdim=True) + 1e-6).sqrt()
     # NOTE: Temporarily, we have to use Buffer to attach the functional connections
     # to the model. This is a workaround for the current limitation of the API.
     block = Model()
+    block += Buffer()(rrms, output=IOKey("rrms"))
     block += Buffer()(input * rrms * scale, output=IOKey("output"))
 
     return block
