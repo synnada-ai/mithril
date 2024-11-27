@@ -30,7 +30,3 @@ Add any other context or relevant details about the issue.
 - **JAX Version**:
 - **Python Version**:
 - **Architecture**:
-
----
-
-Thank you for helping us improve!

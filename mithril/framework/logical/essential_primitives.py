@@ -102,6 +102,7 @@ __all__ = [
     "Cast",
     "Transpose",
     "Sqrt",
+    "Split",
 ]
 ConstantType = float | int | Constant
 
@@ -110,9 +111,10 @@ class Buffer(PrimitiveModel):
     input: Connection
     output: Connection
 
-    def __init__(self) -> None:
+    def __init__(self, name: str | None = None) -> None:
         super().__init__(
             formula_key="buffer",
+            name=name,
             output=TensorType([("Var", ...)]),
             input=TensorType([("Var", ...)]),
         )
@@ -130,7 +132,7 @@ class Buffer(PrimitiveModel):
 
 
 class ToTuple(PrimitiveModel):
-    def __init__(self, n: int) -> None:
+    def __init__(self, n: int, name: str | None = None) -> None:
         self.factory_args = {"n": n}
         key_definitions = {
             "output": Scalar(tuple[int | float | bool | list | tuple, ...])
@@ -140,7 +142,7 @@ class ToTuple(PrimitiveModel):
             for idx in range(n)
         }
 
-        super().__init__(formula_key="to_tuple", **key_definitions)
+        super().__init__(formula_key="to_tuple", name=name, **key_definitions)
         self._set_constraint(
             fn=to_tuple_constraints,
             keys=[PrimitiveModel.output_key] + [key for key in self._input_keys],
@@ -152,9 +154,10 @@ class ArithmeticOperation(PrimitiveModel):
     right: Connection
     output: Connection
 
-    def __init__(self, formula_key: str) -> None:
+    def __init__(self, formula_key: str, name: str | None = None) -> None:
         super().__init__(
             formula_key=formula_key,
+            name=name,
             output=TensorType([("Var_out", ...)]),
             left=TensorType([("Var_1", ...)]),
             right=TensorType([("Var_2", ...)]),
@@ -182,10 +185,7 @@ class Power(PrimitiveModel):
     exponent: Connection
     output: Connection
 
-    def __init__(
-        self,
-        robust: bool = False,
-    ) -> None:
+    def __init__(self, robust: bool = False, name: str | None = None) -> None:
         self.robust = robust
         self.factory_args = {"robust": robust}
         assert isinstance(robust, bool), "Robust must be a boolean value!"
@@ -193,6 +193,7 @@ class Power(PrimitiveModel):
         if robust:
             super().__init__(
                 formula_key="robust_power",
+                name=name,
                 output=TensorType([("Var_out", ...)]),
                 base=TensorType([("Var_1", ...)]),
                 exponent=TensorType([("Var_2", ...)]),
@@ -234,18 +235,18 @@ class Power(PrimitiveModel):
 
 
 class Add(ArithmeticOperation):
-    def __init__(self) -> None:
-        super().__init__(formula_key="add")
+    def __init__(self, name: str | None = None) -> None:
+        super().__init__(formula_key="add", name=name)
 
 
 class Subtract(ArithmeticOperation):
-    def __init__(self) -> None:
-        super().__init__(formula_key="subtract")
+    def __init__(self, name: str | None = None) -> None:
+        super().__init__(formula_key="subtract", name=name)
 
 
 class Multiply(ArithmeticOperation):
-    def __init__(self) -> None:
-        super().__init__(formula_key="multiplication")
+    def __init__(self, name: str | None = None) -> None:
+        super().__init__(formula_key="multiplication", name=name)
 
 
 class Divide(PrimitiveModel):
@@ -253,9 +254,10 @@ class Divide(PrimitiveModel):
     denominator: Connection
     output: Connection
 
-    def __init__(self) -> None:
+    def __init__(self, name: str | None = None) -> None:
         super().__init__(
             formula_key="divide",
+            name=name,
             output=TensorType([("Var_out", ...)], float),
             numerator=TensorType([("Var_1", ...)]),
             denominator=TensorType([("Var_2", ...)]),
@@ -282,9 +284,10 @@ class FloorDivide(PrimitiveModel):
     output: Connection
 
     # TODO: Torch does not accept bool type inputs while JAX and other accepts!
-    def __init__(self) -> None:
+    def __init__(self, name: str | None = None) -> None:
         super().__init__(
             formula_key="floor_divide",
+            name=name,
             output=TensorType([("Var_out", ...)]),
             numerator=TensorType([("Var_1", ...)]),
             denominator=TensorType([("Var_2", ...)]),
@@ -314,9 +317,10 @@ class MatrixMultiply(PrimitiveModel):
     right: Connection
     output: Connection
 
-    def __init__(self) -> None:
+    def __init__(self, name: str | None = None) -> None:
         super().__init__(
             formula_key="matrix_multiplication",
+            name=name,
             output=TensorType([("Var3", ...), "x", "z"]),
             left=TensorType([("Var1", ...), "x", "y"]),
             right=TensorType([("Var2", ...), "y", "z"]),
@@ -343,9 +347,10 @@ class Shape(PrimitiveModel):
     input: Connection
     output: Connection
 
-    def __init__(self) -> None:
+    def __init__(self, name: str | None = None) -> None:
         super().__init__(
             formula_key="shape",
+            name=name,
             output=Scalar(tuple[int, ...]),
             input=TensorType([("input", ...)]),
         )
@@ -363,7 +368,9 @@ class Reshape(PrimitiveModel):
     output: Connection
 
     def __init__(
-        self, shape: tuple[int | None, ...] | list[int] | ToBeDetermined = TBD
+        self,
+        shape: tuple[int | None, ...] | list[int] | ToBeDetermined = TBD,
+        name: str | None = None,
     ) -> None:
         output_shape_map: ShapeTemplateType
         if isinstance(shape, ToBeDetermined):
@@ -373,6 +380,7 @@ class Reshape(PrimitiveModel):
 
         super().__init__(
             formula_key="reshape",
+            name=name,
             output=TensorType(output_shape_map),
             input=TensorType([("input", ...)]),
             shape=Scalar(tuple[int | None, ...] | list[int | None], shape),
@@ -392,9 +400,12 @@ class Length(PrimitiveModel):
     input: Connection
     output: Connection
 
-    def __init__(self) -> None:
+    def __init__(self, name: str | None = None) -> None:
         super().__init__(
-            formula_key="length", output=Scalar(int), input=TensorType([("Var", ...)])
+            formula_key="length",
+            name=name,
+            output=Scalar(int),
+            input=TensorType([("Var", ...)]),
         )
 
     def __call__(  # type: ignore[override]
@@ -408,9 +419,10 @@ class Cast(PrimitiveModel):
     dtype: Connection
     output: Connection
 
-    def __init__(self, dtype: Dtype | ToBeDetermined) -> None:
+    def __init__(self, dtype: Dtype | ToBeDetermined, name: str | None = None) -> None:
         super().__init__(
             formula_key="astype",
+            name=name,
             output=TensorType([("Var", ...)]),
             input=TensorType([("Var", ...)]),
             dtype=Scalar(Dtype, dtype),
@@ -429,9 +441,10 @@ class DType(PrimitiveModel):
     input: Connection
     output: Connection
 
-    def __init__(self) -> None:
+    def __init__(self, name: str | None = None) -> None:
         super().__init__(
             formula_key="dtype",
+            name=name,
             output=Scalar(core.Dtype),
             input=TensorType([("Var", ...)]),
         )
@@ -448,11 +461,14 @@ class Size(PrimitiveModel):
     output: Connection
 
     def __init__(
-        self, dim: int | tuple[int, ...] | None | ToBeDetermined = None
+        self,
+        dim: int | tuple[int, ...] | None | ToBeDetermined = None,
+        name: str | None = None,
     ) -> None:
         self.factory_args = {"dim": dim}
         super().__init__(
             formula_key="size",
+            name=name,
             output=Scalar(int | tuple[int, ...]),
             input=TensorType([("Var", ...)]),
             dim=Scalar(int | tuple[int, ...] | None, dim),
@@ -480,10 +496,12 @@ class PrimitiveSlice(PrimitiveModel):
         start: int | None | ToBeDetermined = None,
         stop: int | None | ToBeDetermined = None,
         step: int | None | ToBeDetermined = None,
+        name: str | None = None,
     ) -> None:
         self.factory_args = {"start": start, "stop": stop, "step": step}
         super().__init__(
             formula_key="sequence_slice",
+            name=name,
             output=Scalar(tuple[int | float | bool, ...] | list[int | float | bool]),
             input=Scalar(tuple[int | float | bool, ...] | list[int | float | bool]),
             start=Scalar(int | None, start),
@@ -521,10 +539,12 @@ class TensorSlice(PrimitiveModel):
         start: int | None | ToBeDetermined = None,
         stop: int | None | ToBeDetermined = None,
         step: int | None | ToBeDetermined = None,
+        name: str | None = None,
     ) -> None:
         self.factory_args = {"start": start, "stop": stop, "step": step}
         super().__init__(
             formula_key="tensor_slice",
+            name=name,
             output=TensorType(["a", ("Var1", ...)]),
             input=TensorType(["b", ("Var1", ...)]),
             start=Scalar(int | None, start),
@@ -557,9 +577,10 @@ class Item(PrimitiveModel):
     input: Connection
     output: Connection
 
-    def __init__(self) -> None:
+    def __init__(self, name: str | None = None) -> None:
         super().__init__(
             formula_key="item",
+            name=name,
             output=Scalar(int | float),
             input=TensorType([("Var", ...)]),
         )
@@ -581,9 +602,12 @@ class ScalarItem(PrimitiveModel):
     index: Connection
     output: Connection
 
-    def __init__(self, index: int | ToBeDetermined = TBD) -> None:
+    def __init__(
+        self, index: int | ToBeDetermined = TBD, name: str | None = None
+    ) -> None:
         super().__init__(
             formula_key="scalar_item",
+            name=name,
             output=Scalar(int | float | list | tuple),
             input=Scalar(list | tuple),
             index=Scalar(int, index),
@@ -612,9 +636,12 @@ class TensorItem(PrimitiveModel):
     index: Connection
     output: Connection
 
-    def __init__(self, index: int | ToBeDetermined = TBD) -> None:
+    def __init__(
+        self, index: int | ToBeDetermined = TBD, name: str | None = None
+    ) -> None:
         super().__init__(
             formula_key="tensor_item",
+            name=name,
             output=TensorType([("Var2", ...)]),
             input=TensorType([("Var1", ...)]),
             index=Scalar(
@@ -648,9 +675,10 @@ class ToTensor(PrimitiveModel):
     input: Connection
     output: Connection
 
-    def __init__(self) -> None:
+    def __init__(self, name: str | None = None) -> None:
         super().__init__(
             formula_key="to_tensor",
+            name=name,
             output=TensorType([("Var", ...)]),
             input=Scalar(int | float | list | tuple),
         )
@@ -668,7 +696,7 @@ class ToTensor(PrimitiveModel):
 class ToList(PrimitiveModel):
     output: Connection
 
-    def __init__(self, n: int) -> None:
+    def __init__(self, n: int, name: str | None = None) -> None:
         self.factory_args = {"n": n}
         key_definitions = {}
         key_definitions["output"] = Scalar(list[int | float | bool | list | tuple])
@@ -677,7 +705,7 @@ class ToList(PrimitiveModel):
             for idx in range(n)
         }
 
-        super().__init__(formula_key="to_list", **key_definitions)
+        super().__init__(formula_key="to_list", name=name, **key_definitions)
 
         self._set_constraint(
             fn=to_list_constraints,
@@ -689,9 +717,10 @@ class TensorToList(PrimitiveModel):
     input: Connection
     output: Connection
 
-    def __init__(self) -> None:
+    def __init__(self, name: str | None = None) -> None:
         super().__init__(
             formula_key="tensor_to_list",
+            name=name,
             output=Scalar(NestedListType(int | float | bool)),
             input=TensorType([("Var", ...)]),
         )
@@ -720,6 +749,7 @@ class Reduce(PrimitiveModel):
     def __init__(
         self,
         formula_key: str,
+        name: str | None = None,
         axis: int | tuple[int, ...] | None | ToBeDetermined = None,
         keepdim: bool | ToBeDetermined = False,
         **kwargs: TensorType | Scalar,
@@ -744,7 +774,7 @@ class Reduce(PrimitiveModel):
             "keepdim": Scalar(bool, keepdim),
         }
 
-        super().__init__(formula_key=formula_key, **(init_kwargs | kwargs))
+        super().__init__(formula_key=formula_key, name=name, **(init_kwargs | kwargs))
 
         self._set_constraint(
             fn=reduce_constraints,
@@ -767,9 +797,11 @@ class Mean(Reduce):
         self,
         axis: int | tuple[int, ...] | None | ToBeDetermined = None,
         keepdim: bool | ToBeDetermined = False,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="reduce_mean",
+            name=name,
             axis=axis,
             keepdim=keepdim,
             output=TensorType([("Var_out", ...)], float),
@@ -781,8 +813,11 @@ class Sum(Reduce):
         self,
         axis: int | tuple[int, ...] | None | ToBeDetermined = None,
         keepdim: bool = False,
+        name: str | None = None,
     ) -> None:
-        super().__init__(formula_key="reduce_sum", axis=axis, keepdim=keepdim)
+        super().__init__(
+            formula_key="reduce_sum", name=name, axis=axis, keepdim=keepdim
+        )
 
         self._set_constraint(
             fn=reduce_type_constraint, keys=[PrimitiveModel.output_key, "input"]
@@ -794,8 +829,11 @@ class Max(Reduce):
         self,
         axis: int | tuple[int, ...] | None | ToBeDetermined = None,
         keepdim: bool = False,
+        name: str | None = None,
     ) -> None:
-        super().__init__(formula_key="reduce_max", axis=axis, keepdim=keepdim)
+        super().__init__(
+            formula_key="reduce_max", name=name, axis=axis, keepdim=keepdim
+        )
 
         self._set_constraint(
             fn=general_tensor_type_constraint, keys=[PrimitiveModel.output_key, "input"]
@@ -807,11 +845,13 @@ class ArgMax(Reduce):
         self,
         axis: int | None | ToBeDetermined = None,
         keepdim: bool = False,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             "reduce_argmax",
-            axis,
-            keepdim,
+            name=name,
+            axis=axis,
+            keepdim=keepdim,
             # axis = Scalar(axis_type, axis), # TODO: Change axis type to int
             output=TensorType([("Var_out", ...)], int),
         )
@@ -822,8 +862,11 @@ class Min(Reduce):
         self,
         axis: int | tuple[int, ...] | None | ToBeDetermined = None,
         keepdim: bool = False,
+        name: str | None = None,
     ) -> None:
-        super().__init__(formula_key="reduce_min", axis=axis, keepdim=keepdim)
+        super().__init__(
+            formula_key="reduce_min", name=name, axis=axis, keepdim=keepdim
+        )
 
         self._set_constraint(
             fn=general_tensor_type_constraint, keys=[PrimitiveModel.output_key, "input"]
@@ -835,9 +878,11 @@ class ArgMin(Reduce):
         self,
         axis: int | tuple[int, ...] | None | ToBeDetermined = None,
         keepdim: bool = False,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="reduce_argmin",
+            name=name,
             axis=axis,
             keepdim=keepdim,
             # axis = Scalar(axis_type, axis), # TODO: Change axis type to int
@@ -850,8 +895,11 @@ class Prod(Reduce):
         self,
         axis: int | tuple[int, ...] | None | ToBeDetermined = None,
         keepdim: bool = False,
+        name: str | None = None,
     ) -> None:
-        super().__init__(formula_key="reduce_prod", axis=axis, keepdim=keepdim)
+        super().__init__(
+            formula_key="reduce_prod", name=name, axis=axis, keepdim=keepdim
+        )
 
         self._set_constraint(
             fn=reduce_type_constraint, keys=[PrimitiveModel.output_key, "input"]
@@ -866,9 +914,11 @@ class Variance(Reduce):
         axis: int | tuple[int, ...] | None | ToBeDetermined = None,
         keepdim: bool = False,
         correction: int | float | None = 0.0,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="variance",
+            name=name,
             axis=axis,
             keepdim=keepdim,
             correction=Scalar(float | int | None, correction),
@@ -901,6 +951,7 @@ class SingleInputOperation(PrimitiveModel):
         self,
         formula_key,
         polymorphic_constraint: bool = True,
+        name: str | None = None,
         **kwargs: TensorType | Scalar,
     ) -> None:
         default_kwargs = dict(
@@ -908,7 +959,7 @@ class SingleInputOperation(PrimitiveModel):
         )
         # Finalize kwargs.
         new_kwargs: Mapping = default_kwargs | kwargs
-        super().__init__(formula_key, **new_kwargs)
+        super().__init__(formula_key, name=name, **new_kwargs)
 
         if polymorphic_constraint:
             self._set_constraint(
@@ -923,29 +974,27 @@ class SingleInputOperation(PrimitiveModel):
 
 
 class Absolute(SingleInputOperation):
-    def __init__(self) -> None:
-        super().__init__(formula_key="abs")
+    def __init__(self, name: str | None = None) -> None:
+        super().__init__(formula_key="abs", name=name)
 
 
 class Minus(SingleInputOperation):
-    def __init__(self) -> None:
-        super().__init__(formula_key="minus")
+    def __init__(self, name: str | None = None) -> None:
+        super().__init__(formula_key="minus", name=name)
 
 
 class Sqrt(PrimitiveModel):
     input: Connection
     output: Connection
 
-    def __init__(
-        self,
-        robust: bool = False,
-    ) -> None:
+    def __init__(self, robust: bool = False, name: str | None = None) -> None:
         self.robust = robust
         self.factory_args = {"robust": robust}
 
         if robust:
             super().__init__(
                 formula_key="robust_sqrt",
+                name=name,
                 output=TensorType([("Var", ...)], float),
                 input=TensorType([("Var", ...)]),
                 cutoff=TensorType([], ConstantType),
@@ -980,9 +1029,10 @@ class RelationalOperators(PrimitiveModel):
     right: Connection
     output: Connection
 
-    def __init__(self, formula_key: str) -> None:
+    def __init__(self, formula_key: str, name: str | None = None) -> None:
         super().__init__(
             formula_key=formula_key,
+            name=name,
             output=TensorType([("Var1", ...)], bool),
             left=TensorType([("Var2", ...)]),
             right=TensorType([("Var3", ...)]),
@@ -1000,42 +1050,43 @@ class RelationalOperators(PrimitiveModel):
 
 
 class Greater(RelationalOperators):
-    def __init__(self) -> None:
-        super().__init__("greater")
+    def __init__(self, name: str | None = None) -> None:
+        super().__init__(formula_key="greater", name=name)
 
 
 class Less(RelationalOperators):
-    def __init__(self) -> None:
-        super().__init__("less")
+    def __init__(self, name: str | None = None) -> None:
+        super().__init__(formula_key="less", name=name)
 
 
 class Equal(RelationalOperators):
-    def __init__(self) -> None:
-        super().__init__("equal")
+    def __init__(self, name: str | None = None) -> None:
+        super().__init__(formula_key="equal", name=name)
 
 
 class NotEqual(RelationalOperators):
-    def __init__(self) -> None:
-        super().__init__("not_equal")
+    def __init__(self, name: str | None = None) -> None:
+        super().__init__(formula_key="not_equal", name=name)
 
 
 class LessEqual(RelationalOperators):
-    def __init__(self) -> None:
-        super().__init__("less_equal")
+    def __init__(self, name: str | None = None) -> None:
+        super().__init__(formula_key="less_equal", name=name)
 
 
 class GreaterEqual(RelationalOperators):
-    def __init__(self) -> None:
-        super().__init__("greater_equal")
+    def __init__(self, name: str | None = None) -> None:
+        super().__init__(formula_key="greater_equal", name=name)
 
 
 class LogicalNot(PrimitiveModel):
     input: Connection
     output: Connection
 
-    def __init__(self) -> None:
+    def __init__(self, name: str | None = None) -> None:
         super().__init__(
             formula_key="logical_not",
+            name=name,
             output=TensorType([("Var", ...)], bool),
             input=TensorType([("Var", ...)], bool),
         )
@@ -1051,9 +1102,10 @@ class BitwiseOperators(PrimitiveModel):
     right: Connection
     output: Connection
 
-    def __init__(self, formula_key: str) -> None:
+    def __init__(self, formula_key: str, name: str | None = None) -> None:
         super().__init__(
             formula_key=formula_key,
+            name=name,
             output=TensorType([("Var1", ...)], bool),
             left=TensorType([("Var2", ...)], bool),
             right=TensorType([("Var3", ...)], bool),
@@ -1070,18 +1122,18 @@ class BitwiseOperators(PrimitiveModel):
 
 
 class LogicalAnd(BitwiseOperators):
-    def __init__(self) -> None:
-        super().__init__("logical_and")
+    def __init__(self, name: str | None = None) -> None:
+        super().__init__(formula_key="logical_and", name=name)
 
 
 class LogicalOr(BitwiseOperators):
-    def __init__(self) -> None:
-        super().__init__("logical_or")
+    def __init__(self, name: str | None = None) -> None:
+        super().__init__(formula_key="logical_or", name=name)
 
 
 class LogicalXOr(BitwiseOperators):
-    def __init__(self) -> None:
-        super().__init__("logical_xor")
+    def __init__(self, name: str | None = None) -> None:
+        super().__init__(formula_key="logical_xor", name=name)
 
 
 class ShiftLeft(PrimitiveModel):
@@ -1089,9 +1141,10 @@ class ShiftLeft(PrimitiveModel):
     shift: Connection
     output: Connection
 
-    def __init__(self) -> None:
+    def __init__(self, name: str | None = None) -> None:
         super().__init__(
             formula_key="shift_left",
+            name=name,
             output=TensorType([("Var3", ...)], int),
             input=TensorType([("Var1", ...)], int),
             shift=TensorType([("Var2", ...)], int),
@@ -1113,9 +1166,10 @@ class ShiftRight(PrimitiveModel):
     shift: Connection
     output: Connection
 
-    def __init__(self) -> None:
+    def __init__(self, name: str | None = None) -> None:
         super().__init__(
             formula_key="shift_right",
+            name=name,
             output=TensorType([("Var3", ...)], int),
             input=TensorType([("Var1", ...)], int),
             shift=TensorType([("Var2", ...)], int),
@@ -1140,13 +1194,16 @@ class Transpose(PrimitiveModel):
     output: Connection
 
     def __init__(
-        self, axes: int | list[int] | tuple[int, ...] | None | ToBeDetermined = None
+        self,
+        axes: int | list[int] | tuple[int, ...] | None | ToBeDetermined = None,
+        name: str | None = None,
     ) -> None:
         self.factory_args = {"axes": axes}
 
         if axes is None:
             super().__init__(
                 formula_key="transpose",
+                name=name,
                 output=TensorType([("Var_out", ...)]),
                 input=TensorType([("Var_in", ...)]),
                 axes=Scalar(NoneType, axes),
@@ -1188,3 +1245,36 @@ class Transpose(PrimitiveModel):
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(input=input, axes=axes, output=output)
+
+
+class Split(PrimitiveModel):
+    split_size: Connection
+    axis: Connection
+    input: Connection
+    output: Connection
+
+    def __init__(
+        self,
+        split_size: int | tuple[int],
+        axis: int = 0,
+        name: str | None = None,
+    ):
+        super().__init__(
+            formula_key="split",
+            name=name,
+            output=TensorType([("Var2", ...)]),
+            input=TensorType([("Var1", ...)]),
+            split_size=Scalar(int | tuple[int], split_size),
+            axis=Scalar(int, axis),
+        )
+
+    def __call__(  # type: ignore[override]
+        self,
+        input: ConnectionType = NOT_GIVEN,
+        split_size: ConnectionType = NOT_GIVEN,
+        axis: ConnectionType = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
+    ) -> ExtendInfo:
+        return super().__call__(
+            input=input, split_size=split_size, axis=axis, output=output
+        )

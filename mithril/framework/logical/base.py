@@ -17,6 +17,7 @@ from __future__ import annotations
 import abc
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from itertools import chain
 from types import UnionType
 from typing import Any
 
@@ -78,7 +79,7 @@ class BaseModel(abc.ABC):
     def __call__(self, **kwargs: ConnectionType) -> ExtendInfo:
         return ExtendInfo(self, kwargs)
 
-    def __init__(self, enforce_jit: bool = True) -> None:
+    def __init__(self, name: str | None = None, enforce_jit: bool = True) -> None:
         self.parent: BaseModel | None = (
             None  # TODO: maybe set it only to PrimitiveModel / Model.
         )
@@ -89,6 +90,7 @@ class BaseModel(abc.ABC):
         self.dependency_map = DependencyMap(self.conns)
         self._canonical_input: ConnectionData | NotAvailable = NOT_AVAILABLE
         self._canonical_output: ConnectionData | NotAvailable = NOT_AVAILABLE
+        self.name = name
         self._enforce_jit = enforce_jit
         self._jittable = True
         self.constraint_solver: ConstraintSolver = ConstraintSolver()
@@ -213,113 +215,44 @@ class BaseModel(abc.ABC):
         return con.data
 
     def _set_shapes(
-        self, shapes: ShapesType, *, trace: bool = False, updates: Updates | None = None
+        self,
+        shapes: ShapesType,
+        trace: bool = False,
+        updates: Updates | None = None,
+        **kwargs: ShapeTemplateType,
     ) -> None:
-        if trace:
-            self.assigned_shapes.append(shapes)
+        # Initialize assigned shapes dictionary to store assigned shapes.
+        assigned_shapes = {}
 
         if updates is None:
             updates = Updates()
 
         model = self._get_outermost_parent()
-        metadatas: OrderedSet[IOHyperEdge] = OrderedSet()
         used_keys: dict[str | int, ShapeType] = {}
         shape_nodes = {}
-        for key, shape in shapes.items():
+        # TODO: Can this be refactored to use a single loop?
+        for key, shape in chain(shapes.items(), kwargs.items()):
             metadata = self.conns.extract_metadata(key)
             if metadata is None:
                 raise KeyError("Requires valid IO connection to set shapes!")
-            if metadata in metadatas:
-                raise KeyError("shape of same connection has already given")
-            metadatas.add(metadata)
-            outer_conn = next(iter(model.conns.metadata_dict[metadata]))
             given_repr = create_shape_repr(shape, model.constraint_solver, used_keys)
-            shape_nodes[outer_conn.key] = given_repr.node
-        for key, node in shape_nodes.items():
-            shape_node = model.conns.get_shape_node(key)
+            # Get inner string representation of the metadata and save
+            # use this name in order to merge .
+            conn = self.conns.get_con_by_metadata(metadata)
+            assert conn is not None
+            inner_key = conn.key
+            shape_nodes[key] = (given_repr.node, inner_key)
+            assigned_shapes[inner_key] = shape
+        # Apply updates to the shape nodes.
+        for key in chain(shapes, kwargs):
+            node, _inner_key = shape_nodes[key]
+            shape_node = self.conns.get_shape_node(_inner_key)
             assert shape_node is not None
             updates |= shape_node.merge(node)
-        model.constraint_solver(updates)
 
-    def set_shapes(self, shapes: ShapesType) -> None:
-        self._set_shapes(shapes, trace=True)
+        if trace:
+            self.assigned_shapes.append(assigned_shapes)
 
-    def set_values(self, values: dict[str | Connection, MainValueType | str]) -> None:
-        """
-        Set multiple values in the model.
-        This method updates values in the outermost model by traversing up the
-        parent hierarchy. It performs metadata extraction on self, validity checks
-        and updates on the parent model. Finally, it solves constraints
-        with the updated values.
-
-        Args:
-            values (dict[str | Connection, MainValueType]): A dictionary where
-            keys are either strings or Connection objects, and values are
-            of type MainValueType.
-
-        Raises:
-            KeyError: If a valid key or Connection is not provided in the values
-            dictionary.
-        """
-
-        # Make all value updates in the outermost model.
-        model = self._get_outermost_parent()
-
-        updates = Updates()
-
-        # TODO: Currently Setting values in fozen models are prevented only for Tensors.
-        # Scalar and Tensors should not be operated differently. This should be fixed.
-        for key in values:
-            metadata = self.conns.extract_metadata(key)
-            if isinstance(metadata.data, Tensor) and model.is_frozen:
-                conn_data = model.conns.get_con_by_metadata(metadata)
-                assert conn_data is not None
-                raise ValueError(
-                    f"Model is frozen, can not set the key: {conn_data.key}!"
-                )
-
-        for key, value in values.items():
-            # Perform metadata extraction process on self.
-            metadata = self.conns.extract_metadata(key)
-
-            # Perform validity check and updates on model.
-            if (conn_data := model.conns.get_con_by_metadata(metadata)) is None:
-                raise KeyError("Requires valid key or Connection to set values!")
-
-            updates |= model._set_value(conn_data, value)
-
-        # Solve constraints with the updated values.
-        model.constraint_solver(updates)
-
-    def set_types(
-        self,
-        types: Mapping[str | Connection, type | UnionType]
-        | Mapping[Connection, type | UnionType]
-        | Mapping[str, type | UnionType],
-    ):
-        """
-        Set types of any connection in the Model
-
-        This method updates types in given connections.
-        connections can be given either as Connection or their string
-        equivalent. Giving a valid type for given connections, this method
-        will update the connections's types and thereafter runs the
-        constraints to update affected connections' types.
-
-        Args:
-            values (dict[str | Connection, MainValueType]): A dictionary where
-            keys are either strings or Connection objects, and values are
-            of type of type or UnionType objects.
-
-        """
-        # get the outermost parent as all the updates will happen here
-        model = self._get_outermost_parent()
-        updates = Updates()
-        for key, key_type in types.items():
-            metadata = self.conns.extract_metadata(key)
-            data = metadata.data
-            updates |= data.set_type(key_type)
-        # run the constraints for updating affected connections
         model.constraint_solver(updates)
 
     def _set_value(self, key: ConnectionData, value: MainValueType) -> Updates:
@@ -338,6 +271,102 @@ class BaseModel(abc.ABC):
             raise KeyError("Internal or output keys' values cannot be set.")
         # Data is scalar, set the value directly.
         return key.metadata.data.set_value(value)
+
+    def set_shapes(
+        self, config: ShapesType | None = None, **kwargs: ShapeTemplateType
+    ) -> None:
+        if config is None:
+            config = {}
+        self._set_shapes(config, trace=True, updates=None, **kwargs)
+
+    def set_values(
+        self,
+        config: Mapping[str | Connection, MainValueType | str]
+        | Mapping[Connection, MainValueType | str]
+        | Mapping[str, MainValueType | str]
+        | None = None,
+        **kwargs: MainValueType | str,
+    ) -> None:
+        """
+        Set multiple values in the model.
+        This method updates values in the outermost model by traversing up the
+        parent hierarchy. It performs metadata extraction on self, validity checks
+        and updates on the parent model. Finally, it solves constraints
+        with the updated values.
+
+        Args:
+            config (dict[str | Connection, MainValueType]): A dictionary where
+            keys are either strings or Connection objects, and values are
+            of type MainValueType.
+            **kwargs (MainValueType): Key-value pairs where keys are string names
+            of connections present in this model.
+
+        Raises:
+            KeyError: If a valid key or Connection is not provided in the values
+            dictionary.
+        """
+        if config is None:
+            config = {}
+        # Make all value updates in the outermost model.s
+        model = self._get_outermost_parent()
+        updates = Updates()
+        # TODO: Currently Setting values in fozen models are prevented only for Tensors.
+        # Scalar and Tensors should not be operated differently. This should be fixed.
+        for key in chain(config, kwargs):
+            metadata = self.conns.extract_metadata(key)
+            if isinstance(metadata.data, Tensor) and model.is_frozen:
+                conn_data = model.conns.get_con_by_metadata(metadata)
+                assert conn_data is not None
+                raise ValueError(
+                    f"Model is frozen, can not set the key: {conn_data.key}!"
+                )
+
+        for key, value in chain(config.items(), kwargs.items()):
+            # Perform metadata extraction process on self.
+            metadata = self.conns.extract_metadata(key)
+            # Perform validity check and updates on model.
+            if (conn_data := model.conns.get_con_by_metadata(metadata)) is None:
+                raise KeyError("Requires valid key or Connection to set values!")
+            updates |= model._set_value(conn_data, value)
+
+        # Solve constraints with the updated values.
+        model.constraint_solver(updates)
+
+    def set_types(
+        self,
+        config: Mapping[str | Connection, type | UnionType]
+        | Mapping[Connection, type | UnionType]
+        | Mapping[str, type | UnionType]
+        | None = None,
+        **kwargs: type | UnionType,
+    ):
+        """
+        Set types of any connection in the Model
+
+        This method updates types in given connections.
+        connections can be given either as Connection or their string
+        equivalent. Giving a valid type for given connections, this method
+        will update the connections's types and thereafter runs the
+        constraints to update affected connections' types.
+
+        Args:
+            values (dict[str | Connection, MainValueType]): A dictionary where
+            keys are either strings or Connection objects, and values are
+            of type of type or UnionType objects.
+
+        """
+        if config is None:
+            config = {}
+
+        # Get the outermost parent as all the updates will happen here.
+        model = self._get_outermost_parent()
+        updates = Updates()
+        for key, key_type in chain(config.items(), kwargs.items()):
+            metadata = self.conns.extract_metadata(key)
+            data = metadata.data
+            updates |= data.set_type(key_type)
+        # Run the constraints for updating affected connections.
+        model.constraint_solver(updates)
 
     def get_shapes(
         self, uni_keys=None, var_keys=None, symbolic=True, verbose=False

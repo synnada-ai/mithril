@@ -1179,7 +1179,9 @@ class PhysicalModel(GenericDataType[DataType]):
 
         kwargs = {key: model.conns.all[key].metadata.data for key in external_keys}
 
-        primitive = PrimitiveModel(formula_key=model.formula_key, **kwargs)
+        primitive = PrimitiveModel(
+            formula_key=model.formula_key, name=model.name, **kwargs
+        )
         primitive.parent = model.parent
 
         p_key_mappings = {}

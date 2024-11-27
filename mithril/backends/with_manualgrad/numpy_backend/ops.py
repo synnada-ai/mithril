@@ -206,6 +206,8 @@ __all__ = [
     "reduce_argmax",
     "unique",
     "trapezoid",
+    "pad",
+    "split",
 ]
 
 

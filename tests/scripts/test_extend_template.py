@@ -55,6 +55,7 @@ from mithril.models import (
     Shape,
     ShiftLeft,
     ShiftRight,
+    Split,
     Sum,
     TensorItem,
     TensorSlice,
@@ -1454,6 +1455,36 @@ def test_tensoritem_multiple_slice_3():
     assert outputs["output"].shape == (1, 6)
 
 
+def test_tensor_item_with_ellipsis_at_beginning():
+    input = IOKey("input", shape=(3, 4, 5))
+    model = Model()
+    model += Buffer()(input=input[..., 3], output="output")
+
+    backend = JaxBackend()
+    data = {"input": backend.randn(3, 4, 5)}
+
+    pm = mithril.compile(model, backend=backend)
+    output = pm.evaluate(data)["output"]
+
+    assert output.shape == (3, 4)
+    np.testing.assert_allclose(output, data["input"][..., 3])
+
+
+def test_tensor_item_with_ellipsis_in_middle():
+    input = IOKey("input", shape=(2, 3, 4, 5, 6))
+    model = Model()
+    model += Buffer()(input=input[0, ..., 3], output="output")
+
+    backend = JaxBackend()
+    data = {"input": backend.randn(2, 3, 4, 5, 6)}
+
+    pm = mithril.compile(model, backend=backend)
+    output = pm.evaluate(data)["output"]
+
+    assert output.shape == (3, 4, 5)
+    np.testing.assert_allclose(output, data["input"][0, ..., 3])
+
+
 def test_tranpose_1():
     backend = JaxBackend()
     model = Model()
@@ -1514,3 +1545,36 @@ def test_tranpose_4():
     outputs = pm.evaluate({"input": input_arr})
 
     assert (backend.transpose(input_arr, axis) == outputs["output"]).all()
+
+
+def test_split_direct():
+    backend = JaxBackend()
+    model = Model()
+
+    input_arr = jnp.ones((8, 16))
+
+    input = IOKey("input")
+    result = input.split(2, axis=1)
+    model += Buffer()(input=result, output="output")
+
+    pm = mithril.compile(model, backend)
+    outputs = pm.evaluate({"input": input_arr})
+
+    assert (jnp.stack(jnp.split(input_arr, 2, axis=1)) == outputs["output"]).all()
+
+
+def test_split_compare_with_explicit():
+    backend = JaxBackend(precision=32)
+    data = {"input": backend.ones(8, 16)}
+
+    model1 = Model()
+    model1 += Buffer()(input="input")
+    output = model1.input.split(split_size=2, axis=1)  # type: ignore
+    model1 += Buffer()(input=output, output=IOKey(name="output"))
+
+    model2 = Model()
+    model2 += Buffer()(input="input")
+    model2 += (split := Split(split_size=2, axis=1))(input="input")
+    model2 += Buffer()(input=split.output, output=IOKey(name="output"))
+    # TODO: Why do we need check_internals flag?
+    compare_models(model1, model2, backend, data, check_internals=False)

@@ -184,6 +184,8 @@ __all__ = [
     "common_primitive_func_dict",
     "reduce_argmin",
     "reduce_argmax",
+    "pad",
+    "split",
 ]
 
 

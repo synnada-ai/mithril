@@ -72,34 +72,12 @@ from mithril.models import (
 )
 from mithril.utils.utils import PaddingType
 
-from .test_utils import assert_results_equal
-
-
-def get_array_device(array, type):
-    match type:
-        case "numpy":
-            return "cpu"
-        case "jax":
-            return next(iter(array.devices())).platform
-        case "torch":
-            return array.device.type
-        case "mlx":
-            return "gpu"
-
-
-def get_array_precision(array, type):
-    if type == "mlx":
-        return 8 * array.itemsize
-    else:
-        return 8 * array.dtype.itemsize
-
-
-def check_if_installed(backend):
-    try:
-        backend()
-        return True
-    except RuntimeError:
-        return False
+from .test_utils import (
+    assert_results_equal,
+    check_if_installed,
+    get_array_device,
+    get_array_precision,
+)
 
 
 def assert_all_backends_device_precision(model: Model):
@@ -1752,13 +1730,12 @@ def test_unused_cached_values_1_set_values():
     model = Model()
     linear_model = Linear(dimension=2)
     model += linear_model()
-    model.set_values(
-        {
-            linear_model.w: [[1.0, 2.0]],
-            linear_model.b: [3.0, 1.0],
-            linear_model.input: [[3.0], [2.0]],
-        }
-    )
+    config: dict[Connection, list] = {
+        linear_model.w: [[1.0, 2.0]],
+        linear_model.b: [3.0, 1.0],
+        linear_model.input: [[3.0], [2.0]],
+    }
+    model.set_values(config)
     comp_model = mithril.compile(model=model, backend=(backend := NumpyBackend()))
     dtype = backend.get_backend_array_type()
     cache = comp_model.data_store.data_values
@@ -1823,12 +1800,11 @@ def test_unused_cached_values_2_set_values():
     model = Model()
     linear_model = Linear(dimension=2)
     model += linear_model()
-    model.set_values(
-        {
-            linear_model.w: [[1.0, 2.0]],
-            linear_model.b: [3.0, 1.0],
-        }
-    )
+    config: dict[Connection, list] = {
+        linear_model.w: [[1.0, 2.0]],
+        linear_model.b: [3.0, 1.0],
+    }
+    model.set_values(config)
     comp_model = mithril.compile(
         model=model, backend=(backend := NumpyBackend()), safe_names=False
     )
