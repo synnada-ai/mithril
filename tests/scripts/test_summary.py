@@ -30,7 +30,7 @@ from mithril.framework.common import (
     Table,
     UniadicRecord,
     Variadic,
-    _get_summary_shapes,
+    get_summary_shapes,
 )
 from mithril.framework.utils import define_unique_names
 from mithril.models import (
@@ -548,7 +548,7 @@ def test_extract_shapes_logical_1():
         sub_model_name: sub_model.get_shapes(uni_cache, var_cache, False, False)
         for sub_model, sub_model_name in name_mappings.items()
     }
-    shape_info = _get_summary_shapes(model_shapes, conn_info)
+    shape_info = get_summary_shapes(model_shapes, conn_info)
     assert shape_info == {
         "Buffer_0": ({"input": [37, 23]}, {"output": [37, 23]}),
         "Buffer_1": ({"input": [37, 23]}, {"output": [37, 23]}),
@@ -570,7 +570,7 @@ def test_extract_shapes_logical_2():
         sub_model_name: sub_model.get_shapes(uni_cache, var_cache, False, False)
         for sub_model, sub_model_name in name_mappings.items()
     }
-    shape_info = _get_summary_shapes(model_shapes, conn_info)
+    shape_info = get_summary_shapes(model_shapes, conn_info)
     assert shape_info == {
         "Buffer_0": ({"input": [45, 96, 2]}, {"output": [45, 96, 2]}),
         "Buffer_1": ({"input": [45, 96, 2]}, {"output": [45, 96, 2]}),
@@ -601,7 +601,7 @@ def test_extract_shapes_logical_3():
         sub_model_name: sub_model.get_shapes(uni_cache, var_cache, symbolic=True)
         for sub_model, sub_model_name in name_mappings.items()
     }
-    shape_info = _get_summary_shapes(model_shapes, conn_info)
+    shape_info = get_summary_shapes(model_shapes, conn_info)
     assert shape_info == {
         "Linear_0": (
             {"input": [4, "u1"], "w": ["u1", 4], "b": [4]},
@@ -638,7 +638,7 @@ def test_extract_shapes_logical_4():
         sub_model_name: sub_model.get_shapes(uni_cache, var_cache, symbolic=False)
         for sub_model, sub_model_name in name_mappings.items()
     }
-    shape_info = _get_summary_shapes(model_shapes, conn_info)
+    shape_info = get_summary_shapes(model_shapes, conn_info)
     assert shape_info == {
         "Convolution2D_0": (
             {
@@ -703,7 +703,7 @@ def test_extract_shapes_logical_5():
         sub_model_name: sub_model.get_shapes(uni_cache, var_cache, symbolic=True)
         for sub_model, sub_model_name in name_mappings.items()
     }
-    shape_info = _get_summary_shapes(model_shapes, conn_info)
+    shape_info = get_summary_shapes(model_shapes, conn_info)
     assert shape_info == {
         "Linear_0": (
             {"input": ["u1", "u2"], "w": ["u2", 4], "b": [4]},
@@ -787,7 +787,7 @@ def test_table_1():
     table.add_header(headers)
     for list in list_1:
         table.add_row(list)
-    table._compile(row_sep="  ")
+    table.compile(row_sep="  ")
 
     cells = table.cell_str
     n_of_rows = cells.count("\n") - 2
@@ -803,7 +803,7 @@ def test_table_2():
     table.add_header(headers)
     for list in list_1:
         table.add_row(list)
-    table._compile(row_sep="  ")
+    table.compile(row_sep="  ")
     cells = table.cell_str
     n_of_rows = cells.count("\n") - 2
     assert n_of_rows == 4
@@ -818,7 +818,7 @@ def test_table_3():
     table.add_header(headers)
     for list in list_1:
         table.add_row(list)
-    table._compile(row_sep="  ")
+    table.compile(row_sep="  ")
     cells = table.cell_str
     n_of_rows = cells.count("\n") - 2
     assert n_of_rows == 4
@@ -835,7 +835,7 @@ def test_table_4():
     table.add_header(subheaders)
     for list in list_1:
         table.add_row(list)
-    table._compile(row_sep=" | ")
+    table.compile(row_sep=" | ")
     cells = table.cell_str
     n_of_rows = cells.count("\n") - 2
     assert n_of_rows == 4
@@ -852,7 +852,7 @@ def test_table_5():
     table.add_header(subheaders)
     for list in list_1:
         table.add_row(list)
-    table._compile(row_sep=" | ")
+    table.compile(row_sep=" | ")
     cells = table.cell_str
     n_of_rows = cells.count("\n") - 2
     assert n_of_rows == 12

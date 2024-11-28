@@ -71,7 +71,7 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
         torch.random.manual_seed(self.seed)
 
     @property
-    def is_manualgrad(self):
+    def is_manualgrad(self) -> bool:
         return False
 
     @property

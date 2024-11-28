@@ -158,7 +158,7 @@ def variadic_update_values(
 def extract_uniadic_possibles(
     uni: Uniadic,
     assignments: AssignmentType,
-    uni_cache: dict[UniadicRecord | Variadic, str],
+    uni_cache: dict[UniadicRecord, str],
 ) -> None:
     # Takes an uniadic object and fills the assignments dictionary
     # based on possible values of the uniadic object.
@@ -171,8 +171,8 @@ def extract_uniadic_possibles(
 def extract_variadic_possibles(
     var: Variadic,
     assignments: AssignmentType,
-    uni_cache: dict[UniadicRecord | Variadic, str],
-    var_cache: dict[UniadicRecord | Variadic, str],
+    uni_cache: dict[UniadicRecord, str],
+    var_cache: dict[Variadic, str],
 ) -> None:
     assert var.possibles is not None
     all_possible_values: dict[int, PossibleValues] = var.possibles
@@ -204,8 +204,8 @@ def assert_shape_results(
         data[key] for key in expected_updates
     } == updated_symbols.shape_updates | updated_symbols.value_updates
     # Then check final shapes with the expected ref_results.
-    uni_cache: dict[UniadicRecord | Variadic, str] = {}
-    var_cache: dict[UniadicRecord | Variadic, str] = {}
+    uni_cache: dict[UniadicRecord, str] = {}
+    var_cache: dict[Variadic, str] = {}
     shapes = {}
     assignments: AssignmentType = {}
     for key, value in data.items():

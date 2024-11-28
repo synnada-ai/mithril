@@ -98,7 +98,7 @@ def compile(
     model: BaseModel,
     backend: Backend[DataType],
     *,
-    constant_keys: PhysicalConstantType | None = None,
+    constant_keys: PhysicalConstantType[DataType] | None = None,
     data_keys: Iterable[str | Connection] | None = None,
     discard_keys: Iterable[str | Connection] | None = None,
     jacobian_keys: Iterable[str | Connection] | None = None,

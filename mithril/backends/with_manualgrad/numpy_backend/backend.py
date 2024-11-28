@@ -60,7 +60,7 @@ class NumpyBackend(Backend[np.ndarray]):
         np.random.seed(self.seed)
 
     @property
-    def is_manualgrad(self):
+    def is_manualgrad(self) -> bool:
         return True
 
     @property

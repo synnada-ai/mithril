@@ -31,15 +31,15 @@ from ..common import (
     Scalar,
     Table,
     Tensor,
-    Uniadic,
+    UniadicRecord,
     Updates,
     Variadic,
     _get_shapes,
-    _get_summary_shapes,
-    _get_summary_types,
     _ShapesType,
     create_shape_map,
     get_summary,
+    get_summary_shapes,
+    get_summary_types,
 )
 from ..logical.base import BaseModel
 from ..logical.model import Model
@@ -76,7 +76,7 @@ class PhysicalModel(GenericDataType[DataType]):
         *,
         discard_keys: StringOrConnectionSetType,
         data_keys: StringOrConnectionSetType,
-        constant_keys: PhysicalConstantType,
+        constant_keys: PhysicalConstantType[DataType],
         trainable_keys: StringOrConnectionSetType,
         jacobian_keys: StringOrConnectionSetType,
         shapes: PhysicalShapeType,
@@ -151,8 +151,10 @@ class PhysicalModel(GenericDataType[DataType]):
         self.inference = inference
 
         # Initialize flat graph and data store.
-        self._flat_graph: FlatGraph = FlatGraph(self._input_keys, self._output_keys)
-        memo: dict[int, Tensor | Scalar] = {}
+        self._flat_graph: FlatGraph[DataType] = FlatGraph(
+            self._input_keys, self._output_keys
+        )
+        memo: dict[int, Tensor[DataType] | Scalar] = {}
         self.data_store: StaticDataStore[DataType] = StaticDataStore(
             self._flat_graph, backend, inference, model.constraint_solver, memo
         )
@@ -189,7 +191,11 @@ class PhysicalModel(GenericDataType[DataType]):
                     f"{', '.join(str(key) for key in unnamed_data_keys)}"
                 )
 
-    def __call__(self, params: dict | None = None, data: dict | None = None):
+    def __call__(
+        self,
+        params: dict[str, DataType] | None = None,
+        data: Mapping[str, DataType | MainValueType] | None = None,
+    ):
         return self.evaluate(params=params, data=data)
 
     def _convert_key(self, model: BaseModel, key: str | Connection) -> str:
@@ -212,7 +218,7 @@ class PhysicalModel(GenericDataType[DataType]):
     def _check_overridden_nontrainable_keys(
         self,
         model: BaseModel,
-        constant_keys: PhysicalConstantType,
+        constant_keys: PhysicalConstantType[DataType],
         data_keys: StringOrConnectionSetType,
     ) -> None:
         for key in constant_keys.keys() | data_keys:
@@ -285,10 +291,10 @@ class PhysicalModel(GenericDataType[DataType]):
     def get_shapes(
         self,
         model: BaseModel | None = None,
-        uni_keys=None,
-        var_keys=None,
-        symbolic=False,
-        verbose=False,
+        uni_keys: dict[UniadicRecord, str] | None = None,
+        var_keys: dict[Variadic, str] | None = None,
+        symbolic: bool = False,
+        verbose: bool = False,
     ) -> _ShapesType:
         if model is not None:
             # Find corresponding data from self.data_store_data_memo.
@@ -326,9 +332,9 @@ class PhysicalModel(GenericDataType[DataType]):
         self,
         model: BaseModel,
         key_mappings: dict[str, str],
-        name="",
-        safe_shapes=True,
-        memo: dict | None = None,
+        name: str = "",
+        safe_shapes: bool = True,
+        memo: dict[int, Tensor[DataType] | Scalar] | None = None,
     ):
         _, reorder_graph = self._flatten_dag(
             model, key_mappings, name, safe_shapes, memo
@@ -340,9 +346,9 @@ class PhysicalModel(GenericDataType[DataType]):
         self,
         model: BaseModel,
         key_mappings: dict[str, str],
-        name="",
-        safe_shapes=True,
-        memo: dict | None = None,
+        name: str = "",
+        safe_shapes: bool = True,
+        memo: dict[int, Tensor[DataType] | Scalar] | None = None,
     ) -> tuple[dict[str, str], bool]:
         if memo is None:
             memo = {}
@@ -391,8 +397,8 @@ class PhysicalModel(GenericDataType[DataType]):
 
         if isinstance(model, PrimitiveModel):
             output = PrimitiveModel.output_key
-            _data_dict: dict[str, Tensor | Scalar] = {}
-            dag = {}
+            _data_dict: dict[str, Tensor[DataType] | Scalar] = {}
+            dag: dict[str, str] = {}
             for inner_key in model.external_keys:
                 updated_inner_key = key_mappings.get(inner_key, inner_key)
                 dag[inner_key] = updated_inner_key
@@ -405,7 +411,9 @@ class PhysicalModel(GenericDataType[DataType]):
             if self.backend.type == "numpy":
                 cache_name = "_".join([dag[output], model.cache_name])
                 dag["cache"] = cache_name
-                cache_value: dict | None = None if self.inference else dict()
+                cache_value: dict[str, MainValueType] | None = (
+                    None if self.inference else dict()
+                )
                 # Create a Scalar object for caches in manualgrad backend.
                 cache_scalar = Scalar(dict | None, cache_value)
                 self.data_store.update_data({cache_name: cache_scalar})
@@ -434,7 +442,7 @@ class PhysicalModel(GenericDataType[DataType]):
                 m_name = name + "_" + m.__class__.__name__ + "_" + str(idx)
                 source_name = m_name
 
-                m_mapping = dict()
+                m_mapping: dict[str, str] = dict()
                 for key, value in model.dag[m].items():
                     if (res := key_mappings.get(value.key)) is not None:
                         result = res
@@ -537,6 +545,7 @@ class PhysicalModel(GenericDataType[DataType]):
 
             # seed_key = self.backend.set_seed_key(seed, seed_key)
             shape = self.shapes[key]
+            assert shape is not None
             shape_len = len(shape)
             if None in shape:
                 raise Exception(
@@ -552,7 +561,7 @@ class PhysicalModel(GenericDataType[DataType]):
                     stacklevel=1,
                 )
             elif variadic:
-                shape = [item for item in shape if item != (...,)]
+                shape = [item for item in shape if item != (...,)]  # type: ignore
                 warnings.warn(
                     f"Shape of {key} key automatically set to {shape} since it's "
                     "shape includes variadic type!",
@@ -582,7 +591,7 @@ class PhysicalModel(GenericDataType[DataType]):
             )
 
         self.jacobian_keys = jacobian_keys
-        self.ignore_grad_keys = set()
+        self.ignore_grad_keys: set[str] = set()
 
         for node in self._flat_graph.nodes.values():
             conn_data = node.model.conns.get_connection("output")
@@ -777,7 +786,7 @@ class PhysicalModel(GenericDataType[DataType]):
         weak_keys: set[str],
         output_keys: set[str],
         strict_keys: set[str] | None = None,
-        update_graph=True,
+        update_graph: bool = True,
     ) -> tuple[set[str], set[str]]:
         """
         Infers the keys which will be ignored
@@ -841,12 +850,12 @@ class PhysicalModel(GenericDataType[DataType]):
     def _calculate_parameters(
         self,
         name_mappings: dict[Model, str],
-        data_to_key_map: dict[Tensor | Scalar, list[str]] | None = None,
+        data_to_key_map: dict[Tensor[DataType] | Scalar, list[str]] | None = None,
     ):
         total_params: int = 0
-        seen_data = set()
-        exact_param_status = True
-        param_info: dict[str, tuple[dict, dict]] = {}
+        seen_data: set[Tensor[DataType]] = set()
+        exact_param_status: bool = True
+        param_info: dict[str, tuple[dict[str, str], dict[str, str]]] = {}
         if data_to_key_map is None:
             data_to_key_map = {}
 
@@ -912,7 +921,7 @@ class PhysicalModel(GenericDataType[DataType]):
     def _print_model_info(
         self,
         total_params: str,
-        data_to_key_map: dict[Tensor | Scalar, list[str]],
+        data_to_key_map: dict[Tensor[DataType] | Scalar, list[str]],
         model: BaseModel | None = None,
     ):
         # Find constant inputs of the model.
@@ -934,14 +943,7 @@ class PhysicalModel(GenericDataType[DataType]):
         if model is not None:
             # Find all keys of the logical model, Then find the projection of those keys
             # in their corresponding physical model
-            projected_keys = set()
-            # for conn in model.conns.all.values():
-            #     if (
-            #         pm_keys := data_to_key_map.get(
-            #             self.data_store.data_memo.get(id(conn.metadata.data))
-            #         )
-            #     ) is not None:
-            #         projected_keys.update(pm_keys)
+            projected_keys: set[str] = set()
             for conn in model.conns.all.values():
                 if (
                     data := self.data_store.data_memo.get(id(conn.metadata.data))
@@ -975,7 +977,7 @@ class PhysicalModel(GenericDataType[DataType]):
             pm_info, right_length=1, left_length=18, len_space=1, r_len=100
         )[:-1]
         info_table.add_row([info])
-        info_table._compile()
+        info_table.compile()
         info_table.display()
 
     def summary(
@@ -990,7 +992,7 @@ class PhysicalModel(GenericDataType[DataType]):
         print_info: bool = True,
         name: str | None = None,
     ):
-        uni_keys: dict[Uniadic, str] = dict()
+        uni_keys: dict[UniadicRecord, str] = dict()
         var_keys: dict[Variadic, str] = dict()
         if model is None and depth != 0:
             raise ValueError("Depth cannot be specified when model is not given")
@@ -1001,7 +1003,7 @@ class PhysicalModel(GenericDataType[DataType]):
 
         # If model is not None, create data to key map. this dict will point
         # determined key names in physical model.
-        data_to_key_map: dict[Tensor | Scalar, list[str]] = {}
+        data_to_key_map: dict[Tensor[DataType] | Scalar, list[str]] = {}
         for key, value in self.data.items():
             data_to_key_map.setdefault(value, []).append(key)
 
@@ -1032,7 +1034,7 @@ class PhysicalModel(GenericDataType[DataType]):
             name_mappings = define_unique_names(all_models)
             conn_info = self.extract_connection_info(name_mappings)
 
-        model_shapes = {
+        model_shapes: dict[str, _ShapesType] = {
             sub_model_name: self.get_shapes(
                 sub_model, uni_keys, var_keys, symbolic, alternative_shapes
             )
@@ -1051,11 +1053,11 @@ class PhysicalModel(GenericDataType[DataType]):
         if verbose:
             if shapes:
                 # extract the shape info if necessary
-                shape_info = _get_summary_shapes(model_shapes, conn_info)
+                shape_info = get_summary_shapes(model_shapes, conn_info)
 
             if types:
                 # extract the type info if necessary
-                type_info = _get_summary_types(name_mappings, self.data_store.data_memo)
+                type_info = get_summary_types(name_mappings, self.data_store.data_memo)
 
             # if verbose, find the name of the model and create the table object and
             # display it based on extracted infos
@@ -1069,7 +1071,7 @@ class PhysicalModel(GenericDataType[DataType]):
                 params=param_info,
             )
 
-            table._compile()
+            table.compile()
             table.display()
             if depth > 0:
                 for model, model_name in name_mappings.items():
@@ -1148,8 +1150,8 @@ class PhysicalModel(GenericDataType[DataType]):
         return conn_info
 
     def _replace_with_primitive(
-        self, model: Model, key_mappings: dict
-    ) -> tuple[PrimitiveModel, dict]:
+        self, model: Model, key_mappings: dict[str, str]
+    ) -> tuple[PrimitiveModel, dict[str, str]]:
         assert model.formula_key is not None
         formula = self.backend.primitive_function_dict[model.formula_key]
         primitive_input_keys = formula.__code__.co_varnames[

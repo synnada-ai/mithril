@@ -14,6 +14,7 @@
 
 from collections.abc import Callable
 from copy import deepcopy
+from typing import Any
 
 from ..framework.common import Scalar, Tensor
 
@@ -21,7 +22,7 @@ key_map_type = dict[str, str]
 
 
 def prepare_function_args(
-    data: dict[str, Tensor | Scalar],
+    data: dict[str, Tensor[Any] | Scalar],
     function: Callable,
     inputs: key_map_type,
     array_creation_funcs: list[str],
@@ -73,7 +74,7 @@ def prepare_function_args(
 
 
 def create_kwarg_dict(
-    data: dict[str, Tensor | Scalar],
+    data: dict[str, Tensor[Any] | Scalar],
     kwarg_keys: list[str],
     function: Callable,
     inputs: key_map_type,
@@ -147,7 +148,7 @@ def reorganize_args(
     return organized_arguments
 
 
-def is_make_array_required(data: Tensor | Scalar):
+def is_make_array_required(data: Tensor[Any] | Scalar):
     if isinstance(data, Tensor):
         _temp_shape = next(iter(data.shape.reprs))
         # It is needed to guarantee that Tensor is at least one dimensional.

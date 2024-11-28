@@ -24,11 +24,14 @@ from ..framework import (
     ConnectionData,
     ConnectionType,
     ExtendInfo,
+    IOHyperEdge,
     IOKey,
     KeyType,
     Model,
+    UniadicRecord,
+    Variadic,
     _get_shapes,
-    _get_summary_shapes,
+    get_summary_shapes,
 )
 from ..framework.common import TBD, NotAvailable, Table
 from ..framework.logical import (
@@ -120,7 +123,7 @@ class TrainModel(Model):
         return getattr(model, out_key)
 
     @staticmethod
-    def check_finalized(fn: Callable):
+    def check_finalized(fn: Callable[..., Any]) -> Callable[..., Any]:
         """Decorator to check if given TrainModel is finalized or not.
 
         Parameters
@@ -129,7 +132,7 @@ class TrainModel(Model):
             Any of TrainModel modification methods.
         """
 
-        def check_fn(context: "TrainModel", *args, **kwargs):
+        def check_fn(context: "TrainModel", *args: Any, **kwargs: Any):
             if context._is_finalized:
                 raise Exception(
                     "No modifications can be made to a finalized TrainModel!"
@@ -145,7 +148,7 @@ class TrainModel(Model):
         reduce_steps: list[BaseModel] | None = None,
         key_name: str | None = None,
         coef: float | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         # If provided key namings does not match with Loss model
         if {
@@ -156,7 +159,7 @@ class TrainModel(Model):
             # if set(kwargs.keys()) != keys:
             raise KeyError("The provided keys do not match the model's loss.")
 
-        outputs_conns_metadata = set()
+        outputs_conns_metadata: set[IOHyperEdge] = set()
         if len(self.conns.output_keys) > 0:
             for key in self.conns.output_keys:
                 if (given_conn := self.conns.get_connection(key)) is None:
@@ -178,7 +181,7 @@ class TrainModel(Model):
                 is_loss_connected = True
                 if isinstance(value, Connection):
                     conn = value.data
-                elif isinstance(value, str):
+                else:
                     if value not in self.conns.all:
                         raise KeyError("Key does not belong to the Model!")
                     else:
@@ -214,7 +217,7 @@ class TrainModel(Model):
         # TODO: Currently kwargs contains only input keys of
         # first (loss) model.
         # We may want to add output key for the final model's output key.
-        reduce_inputs = []
+        reduce_inputs: list[tuple[Connection, Connection]] = []
         for key in kwargs:
             if key in loss_model.conns.output_keys:
                 raise KeyError("Output of the loss model cannot be defined!")
@@ -269,7 +272,7 @@ class TrainModel(Model):
         coef: float,
         reg_key: str | Connection | None = None,
         key_name: str | None = None,
-        **kwargs,
+        **kwargs: Any,
     ):
         keys = set(model._input_keys) - model.conns.get_non_diff_keys()
         if set(kwargs.keys()) != keys:
@@ -306,7 +309,7 @@ class TrainModel(Model):
         coef: float,
         reg_key: str | Connection | None = None,
         key_name: str | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         # TODO: check if reg_key is single
         # TODO: Maybe use canonical input to decide reg_key!!!
@@ -340,14 +343,14 @@ class TrainModel(Model):
             }
             input_keys = {key for key in self._input_keys if "$" not in key}
             trainable_keys = (input_keys | set(generated_keys.values())) - non_diff_keys
-            trainables = set()
+            trainables: set[IOHyperEdge] = set()
             for key in trainable_keys:
                 if key in self.conns.all:
                     if (t_key := self.conns.get_connection(key)) is None:
                         raise KeyError("Given key does not belong to the Model!")
                     trainables.add(t_key.metadata)
 
-            provided_outputs = set()
+            provided_outputs: set[IOHyperEdge] = set()
             for value in kwargs.values():
                 if isinstance(value, ConnectionData):
                     provided_outputs.add(value.metadata)
@@ -389,7 +392,7 @@ class TrainModel(Model):
         model: Model,
         reduce_steps: list[BaseModel] | None = None,
         key_name: str | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         # TODO: Somehow we need to imply metric is attached and self model
         # could not be extended or be used as another model's child model.
@@ -431,7 +434,8 @@ class TrainModel(Model):
         loss_output_key = LossKey if self.reg_coef_map else FinalCost
         if (num_of_loss_keys := len(self.loss_keys)) > 1:
             concat_model = Concat(n=num_of_loss_keys, axis=None)
-            concat_kwargs, idx = {}, 0
+            concat_kwargs: dict[Any, Any] = {}
+            idx = 0
             for key in concat_model._input_keys:
                 # if not concat_model.connections[key].metadata.value.is_non_diff:
                 if not concat_model.conns.is_key_non_diff(key):
@@ -505,9 +509,9 @@ class TrainModel(Model):
         types: bool = False,
         symbolic: bool = False,
         name: str | None = None,
-        alternative_shapes=False,
-        uni_cache: dict | None = None,
-        var_cache: dict | None = None,
+        alternative_shapes: bool = False,
+        uni_cache: dict[UniadicRecord, str] | None = None,
+        var_cache: dict[Variadic, str] | None = None,
         depth: int = 0,
     ):
         # TODO: Use all the arguments given above:
@@ -527,7 +531,7 @@ class TrainModel(Model):
         if isinstance(self._model, Model):
             summary_kwargs["depth"] = depth
 
-        self._model.summary(**summary_kwargs)
+        self._model.summary(**summary_kwargs)  # type: ignore
 
         name_mappings = self.get_unique_submodel_names()
         conn_info = self.extract_connection_info(name_mappings)
@@ -549,7 +553,7 @@ class TrainModel(Model):
                 ),
             )
 
-        shape_info = _get_summary_shapes(model_shapes, conn_info)
+        shape_info = get_summary_shapes(model_shapes, conn_info)  # type: ignore
         if self.loss_keys:
             # If any loss is attached, extract useful information
             # about each added loss and print the table
@@ -589,7 +593,7 @@ class TrainModel(Model):
                 t_list.append([reduce_str[:-2]])
                 t_list.append([str(loss_dict["coef"])])
                 loss_table.add_row(t_list)
-            loss_table._compile(row_sep=["  |  ", " | ", " | ", "  |  ", "  |  "])
+            loss_table.compile(row_sep=["  |  ", " | ", " | ", "  |  ", "  |  "])
             loss_table.display()
 
         if self.geomean_map:
@@ -622,7 +626,7 @@ class TrainModel(Model):
                     r_list.append(str(shape[updated_reg_key]))
                     r_list.append([str(coef)])
                     reg_table.add_row(r_list)
-            reg_table._compile(row_sep=["  |  ", " | ", "  |  "])
+            reg_table.compile(row_sep=["  |  ", " | ", "  |  "])
             reg_table.display()
 
         if self.metric_keys:
@@ -636,7 +640,7 @@ class TrainModel(Model):
                 ["Metric Model", "Keys", "Shapes", "Connections", "Output key"]
             )
             for m_key in self.metric_keys:
-                m_list = []
+                m_list: list[list[str]] = []
                 m_conn = self.conns.get_connection(m_key)
                 assert m_conn is not None
                 model = self.dependency_map._local_output_dependency_map[m_conn][0]
@@ -650,7 +654,7 @@ class TrainModel(Model):
                 m_list.append([val[0] for val in conns.values()])
                 m_list.append([val[0] for val in out_conn.values()])
                 metric_table.add_row(m_list)
-            metric_table._compile(row_sep=["  |  ", " | ", " | ", "  |  "])
+            metric_table.compile(row_sep=["  |  ", " | ", " | ", "  |  "])
             metric_table.display()
 
     def _add_geo_mean(self):
@@ -674,7 +678,7 @@ class TrainModel(Model):
                     geo_mappings[reg_info].append(self.reduce_inputs[key])
 
         for reg_info, loss_connections in geo_mappings.items():
-            final_outputs = []
+            final_outputs: list[Connection | int] = []
             for reduce in loss_connections:
                 final_outputs.append(self._add_reduce_sizes(reduce))
             if final_outputs:
@@ -710,9 +714,9 @@ class TrainModel(Model):
                 assert out_con is not None
                 self.reg_coef_map[coef].add(out_con.conn)
 
-    def _add_reduce_sizes(self, reduce_list):
+    def _add_reduce_sizes(self, reduce_list: list[tuple[Connection, Connection]]):
         final_output: Connection | int = 1
-        sizes = []
+        sizes: list[Connection] = []
         for input, dim in reduce_list:
             m = _create_size()
             self.extend(m, input=input, dim=dim)
