@@ -526,7 +526,7 @@ def _get_shapes(
     symbolic: bool = True,
     verbose: bool = False,
     key_mappings: dict[str, str] | None = None,
-) -> dict[str, ShapeTemplateType | list[ShapeTemplateType]]:
+) -> dict[str, ShapeTemplateType | list[ShapeTemplateType] | None]:
     if key_mappings is None:
         key_mappings = {}
     if uniadic_keys is None:
@@ -542,7 +542,7 @@ def _get_shapes(
             )
         else:
             shapes[key_name] = None
-    return shapes  # type: ignore
+    return shapes
 
 
 class BaseData:
@@ -583,7 +583,7 @@ class BaseData:
 
     Val_Type = TypeVar("Val_Type", MainValueType, DataType)  # type: ignore
 
-    def set_value(self, value: Val_Type):
+    def set_value(self, value: Val_Type) -> Updates:
         raise NotImplementedError("No 'set_value' method implemented.")
 
     def set_type(self, type: type[TensorValueType] | ScalarType | UnionType) -> Updates:
@@ -633,7 +633,8 @@ class BaseData:
     def match_shapes(self, other: BaseData):
         return Updates()
 
-    def match(self, other: Tensor[Any] | Scalar) -> Updates:
+    def match(self, other: Tensor[DataType] | Scalar) -> Updates:
+        self._differentiable: bool
         updates = Updates()
         if self != other:
             updates = Updates()
@@ -695,7 +696,7 @@ class Tensor(BaseData, GenericDataType[DataType]):
         super()._set_as_physical()
 
     def make_physical(
-        self, backend: Backend[Any], memo: dict[int, Tensor[Any] | Scalar]
+        self, backend: Backend[DataType], memo: dict[int, Tensor[DataType] | Scalar]
     ):
         physical_tensor = deepcopy(self, memo)
         # Update data as physical data.
@@ -703,7 +704,7 @@ class Tensor(BaseData, GenericDataType[DataType]):
         # Update value of physical data taking backend into account.
         return physical_tensor
 
-    def __deepcopy__(self, memo: dict[int, Tensor[Any] | Scalar]):
+    def __deepcopy__(self, memo: dict[int, Tensor[DataType] | Scalar]):
         # Check if the object is already in the memo dictionary.
         if id(self) in memo:
             return memo[id(self)]
@@ -719,7 +720,7 @@ class Tensor(BaseData, GenericDataType[DataType]):
                 setattr(new_instance, k, deepcopy(v, memo))
         return new_instance
 
-    def match_shapes(self, other: Tensor[Any]):  # type: ignore[override]
+    def match_shapes(self, other: Tensor[DataType]):  # type: ignore[override]
         updates = Updates()
         if other.shape != self.shape:
             updates |= self.shape.merge(other.shape)
@@ -805,12 +806,12 @@ class Scalar(BaseData):
         else:
             return find_type(value)
 
-    def _convert_value(self, backend: Backend[Any]):
+    def _convert_value(self, backend: Backend[DataType]):
         self.value = backend.cast(self.value)
         return self.value
 
     def make_physical(
-        self, backend: Backend[Any], memo: dict[int, Tensor[Any] | Scalar]
+        self, backend: Backend[DataType], memo: dict[int, Tensor[DataType] | Scalar]
     ):
         new_scalar = deepcopy(self, memo)
         if id(self) not in memo:
@@ -1182,7 +1183,7 @@ ShapesType = (
     | Mapping[str, ShapeTemplateType]
     | Mapping[Connection, ShapeTemplateType]
 )
-_ShapesType = Mapping[str, ShapeTemplateType | list[ShapeTemplateType]]
+_ShapesType = Mapping[str, ShapeTemplateType | list[ShapeTemplateType] | None]
 
 
 @dataclass
@@ -1202,9 +1203,6 @@ class ConnectionData:
 
     def __hash__(self) -> int:
         return hash(id(self))
-
-    def __and__(self, other) -> Connect:
-        return Connect(self.conn) & other
 
     def __eq__(self, other: object) -> bool:
         return id(self) == id(other)

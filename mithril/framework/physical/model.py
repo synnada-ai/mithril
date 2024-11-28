@@ -545,6 +545,7 @@ class PhysicalModel(GenericDataType[DataType]):
 
             # seed_key = self.backend.set_seed_key(seed, seed_key)
             shape = self.shapes[key]
+            assert shape is not None
             shape_len = len(shape)
             if None in shape:
                 raise Exception(
