@@ -134,16 +134,6 @@ class PrimitiveModel(BaseModel):
             f"Primitive '{self.__class__.__name__}' model can not be extended!"
         )
 
-    @staticmethod
-    def convert_to_tuple(value: int | tuple[int, int] | list[Any]) -> tuple[int, int]:
-        if isinstance(value, int):
-            new_value = (value, value)
-        elif isinstance(value, list):
-            new_value = tuple(value)
-        else:
-            new_value = value
-        return new_value
-
     def extract_connection_info(
         self,
         name_mappings: dict[BaseModel, str],

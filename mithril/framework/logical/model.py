@@ -1101,7 +1101,7 @@ class Model(BaseModel):
                 # Hold shape information for IOKey type values in order
                 # to set all in a bulk after all connections are added.
                 if value._shape is not None:
-                    shape_info |= {key: value._shape}  #
+                    shape_info |= {key: value._shape}
 
                 if value._type is not None:
                     type_info[key] = value._type

@@ -38,7 +38,7 @@ class Backend(ABC, Generic[DataType]):
     is_installed = True
     _device: str
     _precision: int
-    primitive_function_dict: dict[str, Callable[..., DataType]]
+    primitive_function_dict: dict[str, Callable[..., DataType | Any]]
     registered_primitives: dict[str, Callable[..., DataType]]
     array_creation_funcs: list[str]
     primitive_fn_path: str

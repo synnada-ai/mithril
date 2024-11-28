@@ -194,7 +194,10 @@ def infer_all_possible_types(
             possible_seq_type = tuple
             if len(sub_types) == 2 and sub_types[-1] == ...:
                 for typ in infer_all_possible_types(sub_types[0]):
-                    _types: Any = {possible_seq_type[typ, ...], possible_seq_type[typ]}
+                    _types: set[Any] = {
+                        possible_seq_type[typ, ...],
+                        possible_seq_type[typ],
+                    }
                     possible_types.update(_types)
             else:
                 type_probs = [infer_all_possible_types(typ) for typ in sub_types]

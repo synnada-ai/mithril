@@ -2700,14 +2700,14 @@ class Constraint:
 
 
 @overload
-def add_lens(x: int, y: int, const: Iterator[int]) -> int: ...
+def add_lengths(x: int, y: int, const: Iterator[int]) -> int: ...
 
 
 @overload
-def add_lens(x: str, y: str, const: Iterator[str]) -> str: ...
+def add_lengths(x: str, y: str, const: Iterator[str]) -> str: ...
 
 
-def add_lens(x: str | int, y: str | int, const: Iterator[str | int]) -> str | int:
+def add_lengths(x: str | int, y: str | int, const: Iterator[str | int]) -> str | int:
     return x + next(const) + y  # type: ignore
 
 
@@ -2733,11 +2733,10 @@ class Table:
         self.cells.append(row)
 
     def add_column(self, column: RowColumnType):
-        idx = 0
         for idx, row in enumerate(column[: len(self.headers)]):
             self.headers[idx].append(row)  # type: ignore
 
-        for idx_, row in enumerate(column[idx + 1 :]):
+        for idx_, row in enumerate(column[len(self.headers) :]):
             self.cells[idx_].append(row)  # type: ignore
 
     def _calculate_table_specs(self):
@@ -2849,13 +2848,14 @@ class Table:
         self._adjust_table()
         # calculate total table width
         table_width = reduce(  # type: ignore
-            partial(add_lens, const=(len(row) for row in row_sep)), self.each_row_width
+            partial(add_lengths, const=(len(row) for row in row_sep)),
+            self.each_row_width,
         )
         table_constructor_fn: Callable[[str, str], str] = partial(
-            add_lens, const=cycle(row_sep)
+            add_lengths, const=cycle(row_sep)
         )  # type: ignore
         table_constructor_fn_w_spaces: Callable[[str, str], str] = partial(  # type: ignore
-            add_lens, const=cycle(len(row) * " " for row in row_sep)
+            add_lengths, const=cycle(len(row) * " " for row in row_sep)
         )
         end = "\n"
         header_list: list[str] = []
