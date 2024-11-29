@@ -306,12 +306,11 @@ def connection_to_dict(
     for key, connection in connections.items():
         key_value: dict | None | str = None
         if (
-            default_input := connection.metadata.data
-        ).is_non_diff and key in submodel._input_keys:
-            if default_input.value == ...:
-                static_values[connection.key] = "(Ellipsis,)"
-            else:
-                static_values[connection.key] = default_input.value
+            (default_input := connection.metadata.data).is_non_diff
+            and key in submodel._input_keys
+            and default_input.value != TBD
+        ):
+            static_values[connection.key] = default_input.value
 
         # Connection is defined and belong to another model
         if (

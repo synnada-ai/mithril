@@ -387,7 +387,7 @@ def test_torch_parallel_2():
     backend.ones([256])
     pm = compile(model, backend, jit=False, data_keys={"input"})
 
-    params = {"w": backend.ones([128, 256]), "b": backend.ones([256])}
+    params = {"w": backend.ones([256, 128]), "b": backend.ones([256])}
 
     # Replicate params
     input = {"input": backend.ones(256, 128, device_mesh=(4, 1))}
@@ -416,7 +416,7 @@ def test_torch_parallel_3():
         model, backend_parallel, jit=False, data_keys={"input", "to_tensor"}
     )
 
-    params = {"w": backend.ones([128, 256]), "b": backend.ones([256])}
+    params = {"w": backend.ones([256, 128]), "b": backend.ones([256])}
     params_parallel = {
         "w": backend_parallel.ones([128, 256]),
         "b": backend_parallel.ones([256]),
@@ -454,6 +454,7 @@ def test_torch_parallel_3():
         np.testing.assert_allclose(grad, parallel_grad, 1e-6, 1e-6)
 
 
+@pytest.mark.skip("Will be fixed in torch 2.6.0")
 def test_torch_parallel_4():
     # This test checks parallel execution with a model that includes immediate values
     # in Add primitive.
@@ -467,10 +468,10 @@ def test_torch_parallel_4():
     pm = compile(model, backend, jit=False, data_keys={"input"})
     pm_parallel = compile(model, backend_parallel, jit=False, data_keys={"input"})
 
-    params = {"w": backend.ones([128, 256]), "b": backend.ones([256])}
+    params = {"w": backend.ones([256, 128]), "b": backend.ones([256])}
     input = {"input": backend.ones(256, 128)}
     params_parallel = {
-        "w": backend_parallel.ones([128, 256]),
+        "w": backend_parallel.ones([256, 128]),
         "b": backend_parallel.ones([256]),
     }
     input_parallel = {"input": backend_parallel.ones(256, 128, device_mesh=(4, 1))}
@@ -521,10 +522,10 @@ def test_torch_parallel_5():
     )
 
     input = {"input": backend.ones(256, 128)}
-    params = {"w": backend.ones([128, 256]), "b": backend.ones([256])}
+    params = {"w": backend.ones([256, 128]), "b": backend.ones([256])}
     input_parallel = {"input": backend_parallel.ones(256, 128, device_mesh=(2, 2))}
     params_parallel = {
-        "w": backend_parallel.ones([128, 256]),
+        "w": backend_parallel.ones([256, 128]),
         "b": backend_parallel.ones([256]),
     }
 
@@ -558,7 +559,7 @@ def test_torch_static_parallel_1():
 
     static_inputs = {
         "input": backend.ones(256, 128, device_mesh=(4, 1)),
-        "w": backend.ones([128, 256]),
+        "w": backend.ones([256, 128]),
     }
     pm = compile(model, backend, jit=False, constant_keys=static_inputs)
 
@@ -581,7 +582,7 @@ def test_torch_static_parallel_2():
 
     static_inputs = {
         "input": backend.ones(256, 128, device_mesh=(4, 1)),
-        "w": backend.ones([128, 256]),
+        "w": backend.ones([256, 128]),
         "b": backend.ones([256]),
     }
     pm = compile(model, backend, jit=False, constant_keys=static_inputs)
@@ -604,7 +605,7 @@ def test_torch_static_parallel_3():
 
     static_inputs = {
         "input": backend.ones(256, 128, device_mesh=(4, 1)),
-        "w": backend.ones([128, 256]),
+        "w": backend.ones([256, 128]),
         "b": backend.ones([256]),
         "input2": backend.ones((16, 16)),
     }

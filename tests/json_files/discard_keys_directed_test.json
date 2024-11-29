@@ -6,7 +6,7 @@
         "discard_keys": ["output"],
         "results": {
             "output_keys": [],
-            "discard_keys": ["w", "b", "output", "_MatrixMultiply_0_output", "input"]
+            "discard_keys": ["_MatrixMultiply_1_output", "_Transpose_0_axes", "_Transpose_0_output", "b", "input", "output", "w"]
         },
         "shapes": {
             "input": [100, 4],
@@ -211,7 +211,7 @@
         "discard_keys": ["final_cost", "output"],
         "results": {
             "output_keys": [],
-            "discard_keys": ["target", "b", "w", "input", "_Mean_2_output","keepdim", "_SquaredError_1_output", "final_cost", "axis", "output", "_Linear_0_MatrixMultiply_0_output"]
+            "discard_keys": ["_Linear_0_MatrixMultiply_1_output", "_Linear_0_Transpose_0_axes", "_Linear_0_Transpose_0_output", "_Mean_2_output", "_SquaredError_1_output", "axis", "b", "final_cost", "input", "keepdim", "output", "target", "w"]
         },
         "output_specs": {
             "output": {

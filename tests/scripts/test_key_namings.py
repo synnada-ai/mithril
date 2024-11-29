@@ -122,8 +122,8 @@ def test_generate_input_keys_0():
         model += (lin2 := Linear(10))
         key_mappings = model._generate_keys(include_internals=False)
         assert key_mappings == {
-            "$1": "$input",
-            "$2": "$w_0",
+            "$1": "$w_0",
+            "$2": "$input",
             "$3": "$b_0",
             "$5": "$w_1",
             "$6": "$b_1",
@@ -132,8 +132,8 @@ def test_generate_input_keys_0():
         model += (lin3 := Linear(10))(input=lin1.output)
         key_mappings = model._generate_keys(include_internals=False)
         assert key_mappings == {
-            "$1": "$input",
-            "$2": "$w_0",
+            "$1": "$w_0",
+            "$2": "$input",
             "$3": "$b_0",
             "$5": "$w_1",
             "$6": "$b_1",
@@ -144,8 +144,8 @@ def test_generate_input_keys_0():
         model += Add()(left=lin2.output, right=lin3.output)
         key_mappings = model._generate_keys(include_internals=False)
         assert key_mappings == {
-            "$1": "$input",
-            "$2": "$w_0",
+            "$1": "$w_0",
+            "$2": "$input",
             "$3": "$b_0",
             "$5": "$w_1",
             "$6": "$b_1",
@@ -157,14 +157,14 @@ def test_generate_input_keys_0():
         model += Linear(10)(input="", output=lin1.input)
         key_mappings = model._generate_keys(include_internals=False)
         assert key_mappings == {
-            "$2": "$w_1",
+            "$1": "$w_1",
             "$3": "$b_1",
             "$5": "$w_2",
             "$6": "$b_2",
             "$8": "$w_3",
             "$9": "$b_3",
-            "$12": "$input",
-            "$13": "$w_0",
+            "$12": "$w_0",
+            "$13": "$input",
             "$14": "$b_0",
         }
 
@@ -176,13 +176,13 @@ def test_generate_input_keys_1():
 
     model += Linear(10)
     key_mappings = model._generate_keys(include_internals=False)
-    assert key_mappings == {"$1": "$input", "$2": "$w", "$3": "$b"}
+    assert key_mappings == {"$1": "$w", "$2": "$input", "$3": "$b"}
 
     model += Linear(10)
     key_mappings = model._generate_keys(include_internals=False)
     assert key_mappings == {
-        "$1": "$input",
-        "$2": "$w_0",
+        "$1": "$w_0",
+        "$2": "$input",
         "$3": "$b_0",
         "$5": "$w_1",
         "$6": "$b_1",
@@ -191,8 +191,8 @@ def test_generate_input_keys_1():
     model += Linear(10)
     key_mappings = model._generate_keys(include_internals=False)
     assert key_mappings == {
-        "$1": "$input",
-        "$2": "$w_0",
+        "$1": "$w_0",
+        "$2": "$input",
         "$3": "$b_0",
         "$5": "$w_1",
         "$6": "$b_1",
@@ -203,10 +203,10 @@ def test_generate_input_keys_1():
     model += Linear(10)(input="", output=model.canonical_input)
     key_mappings = model._generate_keys(include_internals=False)
     assert key_mappings == {
-        "$11": "$input",
-        "$12": "$w_0",
+        "$11": "$w_0",
+        "$12": "$input",
         "$13": "$b_0",
-        "$2": "$w_1",
+        "$1": "$w_1",
         "$3": "$b_1",
         "$5": "$w_2",
         "$6": "$b_2",
@@ -222,13 +222,13 @@ def test_generate_input_keys_2():
 
     model += Linear(10)
     key_mappings = model._generate_keys(include_internals=False)
-    assert key_mappings == {"$1": "$input", "$2": "$w", "$3": "$b"}
+    assert key_mappings == {"$1": "$w", "$2": "$input", "$3": "$b"}
 
     model += Linear(10)
     key_mappings = model._generate_keys(include_internals=False)
     assert key_mappings == {
-        "$1": "$input",
-        "$2": "$w_0",
+        "$1": "$w_0",
+        "$2": "$input",
         "$3": "$b_0",
         "$5": "$w_1",
         "$6": "$b_1",
@@ -237,8 +237,8 @@ def test_generate_input_keys_2():
     model += Linear(10)(input="input", w="w_0")
     key_mappings = model._generate_keys(include_internals=False)
     assert key_mappings == {
-        "$1": "$_input",
-        "$2": "$_w_0",
+        "$1": "$_w_0",
+        "$2": "$_input",
         "$3": "$b_0",
         "$5": "$_w_1",
         "$6": "$b_1",
@@ -312,57 +312,57 @@ def test_generate_input_keys_6():
     model = Model()
     model += Linear()
     key_mappings = model._generate_keys(include_internals=False)
-    assert key_mappings == {"$1": "$input", "$2": "$w", "$3": "$b"}
+    assert key_mappings == {"$1": "$w", "$2": "$input", "$3": "$b"}
 
     model += Linear()(input="", output=model.canonical_input)
     key_mappings = model._generate_keys(include_internals=False)
     assert key_mappings == {
-        "$5": "$input",
-        "$6": "$w_0",
+        "$5": "$w_0",
+        "$6": "$input",
         "$7": "$b_0",
-        "$2": "$w_1",
+        "$1": "$w_1",
         "$3": "$b_1",
     }
 
     model += Linear()(input="", output=model.canonical_input)
     key_mappings = model._generate_keys(include_internals=False)
     assert key_mappings == {
-        "$8": "$input",
-        "$9": "$w_0",
+        "$8": "$w_0",
+        "$9": "$input",
         "$10": "$b_0",
-        "$6": "$w_1",
+        "$5": "$w_1",
         "$7": "$b_1",
-        "$2": "$w_2",
+        "$1": "$w_2",
         "$3": "$b_2",
     }
 
     model += Linear()(input="", output=model.canonical_input)
     key_mappings = model._generate_keys(include_internals=False)
     assert key_mappings == {
-        "$11": "$input",
-        "$12": "$w_0",
+        "$11": "$w_0",
+        "$12": "$input",
         "$13": "$b_0",
-        "$9": "$w_1",
+        "$8": "$w_1",
         "$10": "$b_1",
-        "$6": "$w_2",
+        "$5": "$w_2",
         "$7": "$b_2",
-        "$2": "$w_3",
+        "$1": "$w_3",
         "$3": "$b_3",
     }
 
     model += Linear()(input="", output=model.canonical_input)
     key_mappings = model._generate_keys(include_internals=False)
     assert key_mappings == {
-        "$14": "$input",
-        "$15": "$w_0",
+        "$14": "$w_0",
+        "$15": "$input",
         "$16": "$b_0",
-        "$12": "$w_1",
+        "$11": "$w_1",
         "$13": "$b_1",
-        "$9": "$w_2",
+        "$8": "$w_2",
         "$10": "$b_2",
-        "$6": "$w_3",
+        "$5": "$w_3",
         "$7": "$b_3",
-        "$2": "$w_4",
+        "$1": "$w_4",
         "$3": "$b_4",
     }
 
@@ -601,8 +601,8 @@ def test_generate_key_naming_8():
     logical_ref = {
         "$1": "$_input",
         "$2": "$b_0",
-        "$3": "$input",
-        "$4": "$w",
+        "$3": "$w",
+        "$4": "$input",
         "$5": "$b_1",
     }
     physical_ref = {"_input", "_w", "b_0", "input", "w", "b_1"}
@@ -649,11 +649,11 @@ def test_generate_key_naming_12():
     model += Linear()(output=IOKey(name="output1"))
     model += Linear()(input="", output=IOKey(name="output2"))
     logical_ref = {
-        "$1": "$_input",
-        "$2": "$w_0",
+        "$1": "$w_0",
+        "$2": "$_input",
         "$3": "$b_0",
-        "$4": "$input",
-        "$5": "$w_1",
+        "$4": "$w_1",
+        "$5": "$input",
         "$6": "$b_1",
     }
     physical_ref = {"_input", "w_0", "b_0", "input", "w_1", "b_1"}
@@ -665,8 +665,8 @@ def test_generate_key_naming_13():
     model += Linear()(output=IOKey(name="output1"))
     model += Linear()(input="", w="_w", output=IOKey(name="output2"))
     logical_ref = {
-        "$1": "$_input",
-        "$2": "$w",
+        "$1": "$w",
+        "$2": "$_input",
         "$3": "$b_0",
         "$4": "$input",
         "$5": "$b_1",
@@ -680,8 +680,8 @@ def test_generate_key_naming_14():
     model += Linear()(output=IOKey(name="output1"))
     model += Linear()(input="", w="w", output=IOKey(name="output2"))
     logical_ref = {
-        "$1": "$_input",
-        "$2": "$_w",
+        "$1": "$_w",
+        "$2": "$_input",
         "$3": "$b_0",
         "$4": "$input",
         "$5": "$b_1",
@@ -696,8 +696,8 @@ def test_generate_key_naming_15():
     model += Linear()(input="", w="w", output=IOKey(name="output2"))
     model += Linear()(input="", w="_w", output=IOKey(name="output3"))
     logical_ref = {
-        "$1": "$_input_0",
-        "$2": "$__w",
+        "$1": "$__w",
+        "$2": "$_input_0",
         "$3": "$b_0",
         "$4": "$_input_1",
         "$5": "$b_1",
@@ -725,15 +725,15 @@ def test_generate_key_naming_16():
     model += Linear()(input="", w="_w", output=IOKey(name="output3"))
     model += Linear()(input="", output=IOKey(name="output4"))
     logical_ref = {
-        "$1": "$_input_0",
-        "$2": "$__w_0",
+        "$1": "$__w_0",
+        "$2": "$_input_0",
         "$3": "$b_0",
         "$4": "$_input_1",
         "$5": "$b_1",
         "$6": "$_input_2",
         "$7": "$b_2",
-        "$8": "$input",
-        "$9": "$__w_1",
+        "$8": "$__w_1",
+        "$9": "$input",
         "$10": "$b_3",
     }
     physical_ref = {
@@ -764,15 +764,15 @@ def test_generate_key_naming_17():
     outer_model += Linear()(input="", w="_w", output=IOKey(name="output3"))
     outer_model += Linear()(input="", output=IOKey(name="output4"))
     logical_ref = {
-        "$1": "$_input_0",
-        "$2": "$__w_0",
+        "$1": "$__w_0",
+        "$2": "$_input_0",
         "$3": "$b_0",
         "$4": "$_input_1",
         "$5": "$b_1",
         "$6": "$_input_2",
         "$7": "$b_2",
-        "$8": "$input",
-        "$9": "$__w_1",
+        "$8": "$__w_1",
+        "$9": "$input",
         "$10": "$b_3",
     }
     physical_ref = {
@@ -808,11 +808,11 @@ def test_generate_key_naming_18():
         "$2": "$b_0",
         "$3": "$_input_1",
         "$4": "$b_1",
-        "$5": "$_input_2",
-        "$6": "$_w_0",
+        "$5": "$_w_0",
+        "$6": "$_input_2",
         "$7": "$b_2",
-        "$8": "$input",
-        "$9": "$_w_1",
+        "$8": "$_w_1",
+        "$9": "$input",
         "$10": "$b_3",
     }
 

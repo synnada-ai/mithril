@@ -1703,7 +1703,7 @@ def test_unused_cached_values_1():
     """
     model = Model()
     linear_model = Linear(dimension=2)
-    model += linear_model(input=[[3.0], [2.0]], w=[[1.0, 2.0]], b=[3.0, 1.0])
+    model += linear_model(input=[[3.0], [2.0]], w=[[1.0], [2.0]], b=[3.0, 1.0])
     comp_model = mithril.compile(model=model, backend=(backend := NumpyBackend()))
     dtype = backend.get_backend_array_type()
     cache = comp_model.data_store.data_values
@@ -1731,7 +1731,7 @@ def test_unused_cached_values_1_set_values():
     linear_model = Linear(dimension=2)
     model += linear_model()
     config: dict[Connection, list] = {
-        linear_model.w: [[1.0, 2.0]],
+        linear_model.w: [[1.0], [2.0]],
         linear_model.b: [3.0, 1.0],
         linear_model.input: [[3.0], [2.0]],
     }
@@ -1761,7 +1761,7 @@ def test_unused_cached_values_2():
     """
     model = Model()
     linear_model = Linear(dimension=2)
-    model += linear_model(w=[[1.0, 2.0]], b=[3.0, 1.0])
+    model += linear_model(w=[[1.0], [2.0]], b=[3.0, 1.0])
     comp_model = mithril.compile(
         model=model, backend=(backend := NumpyBackend()), safe_names=False
     )
@@ -1769,10 +1769,10 @@ def test_unused_cached_values_2():
     cache = comp_model.data_store.data_values
 
     expected_cache = {
-        "_ToTensor_0_output": np.array([[1.0, 2.0]], dtype=dtype),
+        "_Linear_2_Transpose_0_output": np.array([[1.0, 2.0]], dtype=dtype),
         "_ToTensor_1_output": np.array([3.0, 1.0], dtype=dtype),
         "output_cache": {},
-        "_Linear_2_MatrixMultiply_0_output_cache": {},
+        "_Linear_2_MatrixMultiply_1_output_cache": {},
     }
     # Check cached_data.
     assert cache is not None and cache.keys() == expected_cache.keys()
@@ -1801,7 +1801,7 @@ def test_unused_cached_values_2_set_values():
     linear_model = Linear(dimension=2)
     model += linear_model()
     config: dict[Connection, list] = {
-        linear_model.w: [[1.0, 2.0]],
+        linear_model.w: [[1.0], [2.0]],
         linear_model.b: [3.0, 1.0],
     }
     model.set_values(config)
@@ -1812,10 +1812,10 @@ def test_unused_cached_values_2_set_values():
     cache = comp_model.data_store.data_values
 
     expected_cache = {
-        "_ToTensor_0_output": np.array([[1.0, 2.0]], dtype=dtype),
+        "_Linear_2_Transpose_0_output": np.array([[1.0, 2.0]], dtype=dtype),
         "_ToTensor_1_output": np.array([3.0, 1.0], dtype=dtype),
         "output_cache": {},
-        "_Linear_2_MatrixMultiply_0_output_cache": {},
+        "_Linear_2_MatrixMultiply_1_output_cache": {},
     }
     # Check cached_data.
     assert cache is not None and cache.keys() == expected_cache.keys()
@@ -1842,7 +1842,7 @@ def test_unused_cached_values_3():
     """
     model = Model()
     linear_model = Linear(dimension=2)
-    model += linear_model(input=[[3.0], [2.0]], w=[[1.0, 2.0]])
+    model += linear_model(input=[[3.0], [2.0]], w=[[1.0], [2.0]])
     linear_model.b.set_differentiable(False)
     comp_model = mithril.compile(
         model=model, backend=(backend := NumpyBackend()), safe_names=False
@@ -1852,7 +1852,7 @@ def test_unused_cached_values_3():
 
     expected_cache = {
         "output_cache": {},
-        "_Linear_2_MatrixMultiply_0_output": np.array([[3.0, 6], [2, 4]], dtype=dtype),
+        "_Linear_2_MatrixMultiply_1_output": np.array([[3.0, 6], [2, 4]], dtype=dtype),
     }
     # Check cached_data.
     assert cache is not None and cache.keys() == expected_cache.keys()
@@ -1880,7 +1880,9 @@ def test_unused_cached_values_3_set_values():
     model = Model()
     linear_model = Linear(dimension=2)
     model += linear_model()
-    model.set_values({linear_model.input: [[3.0], [2.0]], linear_model.w: [[1.0, 2.0]]})
+    model.set_values(
+        {linear_model.input: [[3.0], [2.0]], linear_model.w: [[1.0], [2.0]]}
+    )
     linear_model.b.set_differentiable(False)
     comp_model = mithril.compile(
         model=model, backend=(backend := NumpyBackend()), safe_names=False
@@ -1890,7 +1892,7 @@ def test_unused_cached_values_3_set_values():
 
     expected_cache = {
         "output_cache": {},
-        "_Linear_2_MatrixMultiply_0_output": np.array([[3.0, 6], [2, 4]], dtype=dtype),
+        "_Linear_2_MatrixMultiply_1_output": np.array([[3.0, 6], [2, 4]], dtype=dtype),
     }
     # Check cached_data.
     assert cache is not None and cache.keys() == expected_cache.keys()

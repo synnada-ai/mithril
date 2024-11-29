@@ -123,7 +123,7 @@ def test_linear_set_diff():
         model,
         model_recreated,
         backend,
-        static_keys={"input": backend.ones([4, 256]), "w": backend.ones([256, 42])},
+        static_keys={"input": backend.ones([4, 256]), "w": backend.ones([42, 256])},
     )
 
 
@@ -680,7 +680,7 @@ def test_train_context_1():
     layer1 = Linear(dimension=16)
     layer2 = Linear(dimension=10)
 
-    model += layer1(w="w0", b="b0", input="input")
+    model += layer1(input="input", w="w0", b="b0")
     model += layer2(input=layer1.output, w="w1", b="b1", output=IOKey(name="output"))
 
     context = TrainModel(model)

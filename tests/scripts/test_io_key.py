@@ -202,8 +202,8 @@ def test_5():
         "output1": ["u1", "(V1, ...)", "u2"],
         "b_2": [2],
         "$input": ["u1", "(V1, ...)", "u3"],
-        "w_2": ["u3", 2],
-        "$w": [2, "u2"],
+        "w_2": [2, "u3"],
+        "$w": ["u2", 2],
         "b_3": ["u2"],
     }
 
@@ -225,7 +225,7 @@ def test_6():
     Also some keys have shape and some don't.
     """
     model = Model()
-    model += Linear()(input="input", b="b_1", w=IOKey(name="w_1", shape=[2, 10]))
+    model += Linear()(input="input", b="b_1", w=IOKey(name="w_1", shape=[10, 2]))
     model += Linear()(
         input=model.canonical_output,
         b=IOKey(name="b_2", shape=[5]),
@@ -239,10 +239,10 @@ def test_6():
 
     expected_shapes: dict[str, list[str | int]] = {
         "input": ["a", "(V1, ...)", 2],
-        "w_1": [2, 10],
+        "w_1": [10, 2],
         "b_1": [10],
         "$_Linear_0_output": ["a", "(V1, ...)", 10],
-        "$w": [10, 5],
+        "$w": [5, 10],
         "b_2": [5],
         "output1": ["a", "(V1, ...)", 5],
     }

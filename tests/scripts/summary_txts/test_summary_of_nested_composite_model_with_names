@@ -5,8 +5,8 @@ Model Name   |                             Model Keys
              |             -----------------------------------------
              |             Keys   : Shapes             : Connections
 ====================================================================
-lin          |   Inputs  : input  : [None,  ..., None] : '$input'   
-             |             w      :       [None, None] : '$w'       
+lin          |   Inputs  : w      :       [None, None] : '$w'       
+             |             input  : [None,  ..., None] : '$input'   
              |             b      :             [None] : '$b'       
              |   ---------------------------------------------------
              |   Outputs : output : [None,  ..., None] : '$output'  

@@ -37,14 +37,14 @@ Flatten      |   Inputs  : input        : [u1,   32,   u7] : Model_1.$output
              |   -----------------------------------------------------------
              |   Outputs : output       :     [  u1,   u8] : Linear_0.input 
 ----------------------------------------------------------------------------
-Linear_0     |   Inputs  : input        :     [  u1,   u8] : Flatten.output 
-             |             w            :     [  u8, 1000] : '$w_0'         
+Linear_0     |   Inputs  : w            :     [1000,   u8] : '$w_0'         
+             |             input        :     [  u1,   u8] : Flatten.output 
              |             b            :           [1000] : '$b_0'         
              |   -----------------------------------------------------------
              |   Outputs : output       :     [  u1, 1000] : Linear_1.input 
 ----------------------------------------------------------------------------
-Linear_1     |   Inputs  : input        :     [  u1, 1000] : Linear_0.output
-             |             w            :     [1000,    1] : '$w_1'         
+Linear_1     |   Inputs  : w            :     [   1, 1000] : '$w_1'         
+             |             input        :     [  u1, 1000] : Linear_0.output
              |             b            :           [   1] : '$b_1'         
              |   -----------------------------------------------------------
              |   Outputs : output       :     [  u1,    1] : '$output'      

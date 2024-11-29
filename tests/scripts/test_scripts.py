@@ -147,9 +147,9 @@ def test_composite_1_extend_from_inputs():
     )
 
     inputs = {
-        "w0": np.array([[1.0, 2, 3]]),
+        "w0": np.array([[1.0], [2], [3]]),
         "b0": np.array([-2.0, -3, 0]),
-        "w1": np.array([[-1.0, -2], [0, 0], [1, 2]]),
+        "w1": np.array([[-1.0, 0, 1], [-2, 0, 2]]),
         "b1": np.array([-5.0, 5]),
     }
 
@@ -181,9 +181,9 @@ def test_composite_1_extend_from_inputs():
     )
 
     inputs = {
-        "w0": np.array([[1.0, 2, 3]]),
+        "w0": np.array([[1.0], [2], [3]]),
         "b0": np.array([-2.0, -3, 0]),
-        "w1": np.array([[-1.0, -2], [0, 0], [1, 2]]),
+        "w1": np.array([[-1.0, 0, 1], [-2, 0, 2]]),
         "b1": np.array([-5.0, 5]),
     }
 
@@ -377,7 +377,7 @@ def test_1_set_shapes_bug():
 
     shapes: dict[Connection, list[None | int]] = {
         linear1.input: [120, 120],
-        linear1.w: [None, 32],
+        linear1.w: [32, None],
         linear2.w: [32, 32],
         linear2.b: [None],
     }
@@ -385,7 +385,7 @@ def test_1_set_shapes_bug():
 
     assert comp_model.shapes["input"] == [120, 120]
     assert comp_model.shapes["output"] == [120, 32]
-    assert comp_model.shapes["w_0"] == [120, 32]
+    assert comp_model.shapes["w_0"] == [32, 120]
     assert comp_model.shapes["b_0"] == [32]
     assert comp_model.shapes["w_1"] == [32, 32]
     assert comp_model.shapes["b_1"] == [32]
@@ -398,7 +398,7 @@ def test_2_set_shapes_bug():
     linear2 = Linear()
     model += linear1(input="input")
     model += linear2(input=linear1.output, output="output")
-    shape_1: dict[str, list] = {"input": [120, 120], "w": [None, 32]}
+    shape_1: dict[str, list] = {"input": [120, 120], "w": [32, None]}
     shape_2: dict[str, list] = {"w": [32, 32], "b": [None]}
 
     linear1.set_shapes(shape_1)
@@ -408,7 +408,7 @@ def test_2_set_shapes_bug():
 
     assert comp_model.shapes["input"] == [120, 120]
     assert comp_model.shapes["output"] == [120, 32]
-    assert comp_model.shapes["w_0"] == [120, 32]
+    assert comp_model.shapes["w_0"] == [32, 120]
     assert comp_model.shapes["b_0"] == [32]
     assert comp_model.shapes["w_1"] == [32, 32]
     assert comp_model.shapes["b_1"] == [32]
@@ -1374,7 +1374,7 @@ def test_evaluate_replace_2():
 def test_check_static_1():
     model = Model()
     lin1 = Linear(dimension=1)
-    model += lin1(input=[[2, 3], [1, 4]], w=[[4], [5]], b=[3], output="output")
+    model += lin1(input=[[2, 3], [1, 4]], w=[[4, 5]], b=[3], output="output")
 
     comp_model = compile(
         model=model,
@@ -1395,7 +1395,7 @@ def test_check_static_2():
     model += lin1(input=[[2, 3], [1, 4]], w="w", b="b", output="output")
 
     comp_model = compile(model=model, backend=NumpyBackend(precision=32))
-    inputs = {"w": np.array([[4.0], [5.0]]), "b": np.array([3.0])}
+    inputs = {"w": np.array([[4.0, 5.0]]), "b": np.array([3.0])}
     outputs = comp_model.evaluate(inputs)
     ref_out = outputs["output"]
     np.testing.assert_array_equal(ref_out, np.array([[26.0], [27.0]]))
@@ -1404,7 +1404,7 @@ def test_check_static_2():
 def test_check_static_3():
     model = Model()
     lin1 = Linear(dimension=1)
-    model += lin1(input=[[2, 3], [1, 4]], w=[[4], [5]], b="b", output="output")
+    model += lin1(input=[[2, 3], [1, 4]], w=[[4, 5]], b="b", output="output")
 
     comp_model = compile(model=model, backend=NumpyBackend(precision=32))
     inputs = {"b": np.array([3.0])}
@@ -1423,7 +1423,7 @@ def test_check_static_4():
         backend=NumpyBackend(precision=32),
         constant_keys={
             "input": np.array([[2.0, 3.0], [1.0, 4.0]]),
-            "w": np.array([[4.0], [5.0]]),
+            "w": np.array([[4.0, 5.0]]),
             "b": np.array([3.0]),
         },
     )
@@ -1445,7 +1445,7 @@ def test_check_static_5():
     )
     data = {
         "input": np.array([[2.0, 3.0], [1.0, 4.0]]),
-        "w": np.array([[4.0], [5.0]]),
+        "w": np.array([[4.0, 5.0]]),
         "b": np.array([3.0]),
     }
 
@@ -1471,7 +1471,7 @@ def test_check_static_6():
         data_keys={"w"},
         constant_keys={"b": np.array([3.0])},
     )
-    data = {"w": np.array([[4.0], [5.0]])}
+    data = {"w": np.array([[4.0, 5.0]])}
 
     outputs = comp_model.evaluate(data=data)
     ref_out = outputs["output"]
@@ -1647,7 +1647,7 @@ def test_train_context_numpy():
         },
     )
     assert set(out.keys()) == {"final_cost", "output", "output2"}
-    np.testing.assert_allclose(gradients_ds["w_1"], backend.zeros(8, 16))
+    np.testing.assert_allclose(gradients_ds["w_1"], backend.zeros(16, 8))
     np.testing.assert_allclose(gradients_ds["b_1"], backend.zeros(16))
 
 
@@ -1820,7 +1820,7 @@ def test_arange_primitive():
                 context, _backend, data_keys={"input"}, constant_keys=static_keys
             )
 
-            params = {"b1": _backend.ones(1), "w1": _backend.ones((3, 1))}
+            params = {"b1": _backend.ones(1), "w1": _backend.ones((1, 3))}
             data = {"input": _backend.ones((1, 3))}
             output = pm.evaluate(params, data)
             assert (output["arange_res"] == _backend.arange(arange_len)).all()
@@ -1864,7 +1864,7 @@ def test_to_tensor_primitive():
                 context, _backend, data_keys={"input"}, constant_keys=static_keys
             )
 
-            params = {"b1": _backend.ones(1), "w1": _backend.ones((3, 1))}
+            params = {"b1": _backend.ones(1), "w1": _backend.ones((1, 3))}
             data = {"input": _backend.ones((1, 3))}
             output = pm.evaluate(params, data)
             assert (output["power_out"] == _backend.array([9])).all()
@@ -1879,7 +1879,7 @@ def test_shapes_1():
     l1.set_shapes({"input": [50, 2]})
     assert model.shapes == {
         "$input": [50, 2],
-        "$w_0": [2, 10],
+        "$w_0": [10, 2],
         "$b_0": [10],
         "$_Linear_0_output": [50, 10],
         "$w_1": [10, 10],
@@ -4135,7 +4135,7 @@ def test_mlp_last_dimension_prop():
         target=[[2.2, 4.2], [2.2, 4.2]],
         reduce_steps=[Mean()],
     )
-    assert ctx.shapes["w2"] == [24, 2]
+    assert ctx.shapes["w2"] == [2, 24]
 
 
 def test_mlp_last_dimension_prop_2():

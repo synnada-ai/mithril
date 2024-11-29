@@ -514,19 +514,21 @@ class Linear(Model):
         dim: int | str = "d_out" if dimension is None else dimension
         shapes: dict[str, ShapeTemplateType] = {
             "input": ["N", ("Var_inter", ...), "d_in"],
-            "w": ["d_in", dim],
+            "w": [dim, "d_in"],
             "output": ["N", ("Var_inter", ...), dim],
         }
 
-        output_key = IOKey(name="output")
         mult = MatrixMultiply()
 
+        output = IOKey(name="output")
+        w = IOKey(name="w").transpose()
+
         if use_bias:
-            self += mult(left="input", right="w")
-            self += Add()(left=mult.output, right="b", output=output_key)
+            self += mult(left="input", right=w)
+            self += Add()(left=mult.output, right="b", output=output)
             shapes["b"] = [dim]
         else:
-            self += mult(left="input", right="w", output=output_key)
+            self += mult(left="input", right=w, output=output)
 
         self._set_shapes(shapes)
         self.input.set_differentiable(False)
@@ -821,12 +823,12 @@ class QuadraticFormRegularizer(Model):
         dot_model2 = MatrixMultiply()
 
         self += transpose_model(input="input")
-        self += dot_model1(left=transpose_model.output, right="kernel")
-        self += dot_model2(left=dot_model1.output, right=transpose_model.input)
+        self += dot_model1(left=transpose_model.input, right="kernel")
+        self += dot_model2(left=dot_model1.output, right=transpose_model.output)
         self += Multiply()(
             left=dot_model2.output, right=0.5, output=IOKey(name="output")
         )
-        shapes: dict[str, ShapeTemplateType] = {"input": ["N", 1], "kernel": ["N", "N"]}
+        shapes: dict[str, ShapeTemplateType] = {"input": [1, "N"], "kernel": ["N", "N"]}
         self._set_shapes(shapes)
         self._freeze()
 
@@ -992,7 +994,7 @@ class KernelizedSVM(Model):
         shapes: dict[str, ShapeTemplateType] = {
             "input1": ["N", "d_in"],
             "input2": ["M", "d_in"],
-            "w": ["M", 1],
+            "w": [1, "M"],
             "b": [1],
             "output": ["N", 1],
             "kernel": ["N", "M"],
@@ -1211,9 +1213,9 @@ class RNNCell(Cell):
         shape = Shape()
         scalar_item = ScalarItem()
         slice_model = TensorSlice(stop=TBD)
-        mult_model_1 = MatrixMultiply()
-        mult_model_2 = MatrixMultiply()
-        mult_model_3 = MatrixMultiply()
+        mult_model_1 = Linear(use_bias=False)
+        mult_model_2 = Linear(use_bias=False)
+        mult_model_3 = Linear(use_bias=False)
         sum_model_1 = Add()
         sum_model_2 = Add()
 
@@ -1225,21 +1227,21 @@ class RNNCell(Cell):
             output=IOKey(name="hidden_compl"),
         )
         self += slice_model(input="prev_hidden", stop=scalar_item.output)
-        self += mult_model_1(left=slice_model.output, right="w_hh")
-        self += mult_model_2(left="input", right="w_ih")
+        self += mult_model_1(input=slice_model.output, w="w_hh")
+        self += mult_model_2(input="input", w="w_ih")
         self += sum_model_1(left=mult_model_1.output, right=mult_model_2.output)
         self += sum_model_2(left=sum_model_1.output, right="bias_h")
         self += Tanh()(input=sum_model_2.output, output=IOKey(name="hidden"))
-        self += mult_model_3(left="hidden", right="w_ho")
+        self += mult_model_3(input="hidden", w="w_ho")
         self += Add()(
             left=mult_model_3.output, right="bias_o", output=IOKey(name="output")
         )
         shapes: dict[str, ShapeTemplateType] = {
             "input": ["N", 1, "d_in"],
             "prev_hidden": ["M", 1, "d_hid"],
-            "w_ih": ["d_in", "d_hid"],
+            "w_ih": ["d_hid", "d_in"],
             "w_hh": ["d_hid", "d_hid"],
-            "w_ho": ["d_hid", "d_out"],
+            "w_ho": ["d_out", "d_hid"],
             "bias_h": ["d_hid"],
             "bias_o": ["d_out"],
         }
@@ -1362,11 +1364,11 @@ class LSTMCell(Cell):
             "input": ["N", 1, "d_in"],
             "prev_hidden": ["M", 1, "d_hid"],
             "prev_cell": ["M", 1, "d_hid"],
-            "w_i": ["d_sum", "d_hid"],
-            "w_f": ["d_sum", "d_hid"],
-            "w_c": ["d_sum", "d_hid"],
-            "w_o": ["d_sum", "d_hid"],
-            "w_out": ["d_hid", "d_out"],
+            "w_i": ["d_hid", "d_sum"],
+            "w_f": ["d_hid", "d_sum"],
+            "w_c": ["d_hid", "d_sum"],
+            "w_o": ["d_hid", "d_sum"],
+            "w_out": ["d_out", "d_hid"],
             "bias_f": ["d_hid"],
             "bias_i": ["d_hid"],
             "bias_c": ["d_hid"],
@@ -1484,10 +1486,10 @@ class LSTMCellBody(Model):
             "input": ["N", 1, "d_in"],
             "prev_hidden": ["N", 1, "d_hid"],
             "prev_cell": ["N", 1, "d_hid"],
-            "w_i": ["d_sum", "d_hid"],
-            "w_f": ["d_sum", "d_hid"],
-            "w_c": ["d_sum", "d_hid"],
-            "w_o": ["d_sum", "d_hid"],
+            "w_i": ["d_hid", "d_sum"],
+            "w_f": ["d_hid", "d_sum"],
+            "w_c": ["d_hid", "d_sum"],
+            "w_o": ["d_hid", "d_sum"],
             "bias_f": ["d_hid"],
             "bias_i": ["d_hid"],
             "bias_c": ["d_hid"],

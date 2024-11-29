@@ -42,8 +42,8 @@ Flatten           |   Inputs  : input     : [u2,  4, u7, u8] : LeakyRelu.output
                   |   ---------------------------------------------------------------
                   |   Outputs : output    :         [u2, u9] : Linear.input          
 -------------------------------------------------------------------------------------
-Linear            |   Inputs  : input     :         [u2, u9] : Flatten.output        
-                  |             w         :         [u9,  1] : '$w'                  
+Linear            |   Inputs  : w         :         [ 1, u9] : '$w'                  
+                  |             input     :         [u2, u9] : Flatten.output        
                   |             b         :             [ 1] : '$b'                  
                   |   ---------------------------------------------------------------
                   |   Outputs : output    :         [u2,  1] : Sum.input             
