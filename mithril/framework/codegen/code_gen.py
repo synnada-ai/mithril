@@ -14,13 +14,16 @@
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable
+from typing import Generic
+
+from mithril import DataType
 
 from ..physical.model import PhysicalModel
 
 
-class CodeGen(ABC):
-    def __init__(self, pm: PhysicalModel) -> None:
-        self.pm = pm
+class CodeGen(ABC, Generic[DataType]):
+    def __init__(self, pm: PhysicalModel[DataType]) -> None:
+        self.pm: PhysicalModel[DataType] = pm
         self.code: str | None = None
         self.file_path: str | None = None
 

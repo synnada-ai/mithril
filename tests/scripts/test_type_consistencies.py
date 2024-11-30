@@ -999,7 +999,7 @@ def test_find_dominant_type_16():
 def test_sort_type_1():
     input = int
     new_type = sort_type(input)
-    assert new_type.__name__ == "int"
+    assert new_type.__name__ == "int"  # type: ignore
 
 
 def test_sort_type_2():

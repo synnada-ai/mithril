@@ -161,8 +161,9 @@ class Pool1D(Model):
         stride: int | None | ToBeDetermined = None,
         padding: int | PaddingType | tuple[int, int] | ToBeDetermined = (0, 0),
         dilation: int | ToBeDetermined = 1,
+        name: str | None = None,
     ) -> None:
-        super().__init__()
+        super().__init__(name=name)
 
         self.factory_args = {
             "kernel_size": convert_to_list(kernel_size),
@@ -250,8 +251,9 @@ class Pool2D(Model):
         stride: int | None | tuple[int, int] | ToBeDetermined = None,
         padding: int | PaddingType | tuple[int, int] | ToBeDetermined = (0, 0),
         dilation: int | ToBeDetermined = 1,
+        name: str | None = None,
     ) -> None:
-        super().__init__()
+        super().__init__(name=name)
 
         self.factory_args = {
             "kernel_size": convert_to_list(kernel_size),
@@ -347,8 +349,9 @@ class Convolution1D(Model):
         padding: int | PaddingType | tuple[int, int] | ToBeDetermined = 0,
         dilation: int | ToBeDetermined = 1,
         use_bias: bool = True,
+        name: str | None = None,
     ) -> None:
-        super().__init__()
+        super().__init__(name=name)
 
         self.factory_args = {
             "kernel_size": convert_to_list(kernel_size),
@@ -424,9 +427,10 @@ class Convolution2D(Model):
         | tuple[tuple[int, int], tuple[int, int]]
         | ToBeDetermined = (0, 0),
         dilation: int | tuple[int, int] | ToBeDetermined = (1, 1),
-        use_bias=True,
+        use_bias: bool = True,
+        name: str | None = None,
     ) -> None:
-        super().__init__()
+        super().__init__(name=name)
 
         self.factory_args = {
             "kernel_size": convert_to_list(kernel_size),
@@ -502,8 +506,13 @@ class Linear(Model):
     w: Connection
     b: Connection
 
-    def __init__(self, dimension: int | None = None, use_bias=True) -> None:
-        super().__init__()
+    def __init__(
+        self,
+        dimension: int | None = None,
+        use_bias: bool = True,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name)
         self.factory_args = {"dimension": dimension, "use_bias": use_bias}
         dim: int | str = "d_out" if dimension is None else dimension
         shapes: dict[str, ShapeTemplateType] = {
@@ -551,8 +560,8 @@ class ElementWiseAffine(Model):
     b: Connection
     output: Connection
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, name: str | None = None) -> None:
+        super().__init__(name=name)
         mult_model = Multiply()
         sum_model = Add()
 
@@ -584,8 +593,13 @@ class Layer(Model):
     b: Connection
     output: Connection
 
-    def __init__(self, activation: BaseModel, dimension: int | None = None) -> None:
-        super().__init__()
+    def __init__(
+        self,
+        activation: BaseModel,
+        dimension: int | None = None,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name)
         self.factory_args = {"activation": activation, "dimension": dimension}
         linear_model = Linear(dimension=dimension)
         self += linear_model(input="input", w="w", b="b")
@@ -613,8 +627,14 @@ class LayerNorm(Model):
     w: Connection
     b: Connection
 
-    def __init__(self, use_scale=True, use_bias=True, eps=1e-5) -> None:
-        super().__init__()
+    def __init__(
+        self,
+        use_scale: bool = True,
+        use_bias: bool = True,
+        eps: float = 1e-5,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name)
         self.factory_args = {"use_scale": use_scale, "use_bias": use_bias, "eps": eps}
 
         # Expects its input shape as [B, ..., d] d refers to normalized dimension
@@ -681,9 +701,14 @@ class GroupNorm(Model):
     output: Connection
 
     def __init__(
-        self, num_groups: int = 32, use_scale=True, use_bias=True, eps=1e-5
+        self,
+        num_groups: int = 32,
+        use_scale: bool = True,
+        use_bias: bool = True,
+        eps: float = 1e-5,
+        name: str | None = None,
     ) -> None:
-        super().__init__()
+        super().__init__(name=name)
 
         # Assumed input shape is [N, C, H, W]
         input = IOKey(name="input")
@@ -746,8 +771,8 @@ class L1(Model):
     input: Connection
     output: Connection
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, name: str | None = None) -> None:
+        super().__init__(name=name)
 
         abs_model = Absolute()
 
@@ -769,8 +794,8 @@ class L2(Model):
     input: Connection
     output: Connection
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, name: str | None = None) -> None:
+        super().__init__(name=name)
 
         square = Square()
         sum = Sum()
@@ -795,8 +820,8 @@ class QuadraticFormRegularizer(Model):
     kernel: Connection
     output: Connection
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, name: str | None = None) -> None:
+        super().__init__(name=name)
 
         transpose_model = Transpose()
         dot_model1 = MatrixMultiply()
@@ -832,8 +857,8 @@ class RBFKernel(Model):
     sigma: Connection
     output: Connection
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, name: str | None = None) -> None:
+        super().__init__(name=name)
 
         euclidean_model = CartesianDifference()
         square_model1 = Square()
@@ -895,8 +920,8 @@ class PolynomialKernel(Model):
     degree: Connection
     output: Connection
 
-    def __init__(self, robust: bool = True) -> None:
-        super().__init__()
+    def __init__(self, robust: bool = True, name: str | None = None) -> None:
+        super().__init__(name=name)
 
         transpose_model = Transpose()
         mult_model = MatrixMultiply()
@@ -945,12 +970,12 @@ class KernelizedSVM(Model):
     b: Connection
     output: Connection
 
-    def __init__(self, kernel: BaseModel) -> None:
+    def __init__(self, kernel: BaseModel, name: str | None = None) -> None:
         if len(kernel._input_keys) < 2:
             raise KeyError("Kernel requires at least two inputs!")
         if len(kernel.conns.output_keys) != 1:
             raise KeyError("Kernel requires single output!")
-        super().__init__()
+        super().__init__(name=name)
         self.factory_args = {"kernel": kernel}
 
         linear_model = Linear()
@@ -1006,10 +1031,8 @@ class LinearSVM(Model):
     output: Connection
     decision_output: Connection
 
-    def __init__(
-        self,
-    ) -> None:
-        super().__init__()
+    def __init__(self, name: str | None = None) -> None:
+        super().__init__(name=name)
 
         linear_model = Linear(dimension=1)
         decision_model = Sign()
@@ -1047,8 +1070,8 @@ class LogisticRegression(Model):
     output: Connection
     probs_output: Connection
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, name: str | None = None) -> None:
+        super().__init__(name=name)
 
         linear_model = Linear(dimension=1)
         sigmoid_model = Sigmoid()
@@ -1088,8 +1111,9 @@ class MLP(Model):
         activations: list[BaseModel],
         dimensions: Sequence[int | None],
         input_name_templates: dict[str, str] | None = None,
+        name: str | None = None,
     ) -> None:
-        super().__init__()
+        super().__init__(name=name)
         self.factory_args = {"activations": activations, "dimensions": dimensions}
         if len(activations) != len(dimensions):
             raise ValueError("Lengths of activations and dimensions must be equal!")
@@ -1188,8 +1212,8 @@ class RNNCell(Cell):
     out_key = "output"
     # output_keys = {out, hidden_compl}
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, name: str | None = None) -> None:
+        super().__init__(name=name)
 
         shape = Shape()
         scalar_item = ScalarItem()
@@ -1292,8 +1316,8 @@ class LSTMCell(Cell):
     state_keys = {"hidden", "cell"}
     out_key = "output"
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, name: str | None = None) -> None:
+        super().__init__(name=name)
 
         cell_body = LSTMCellBody()
         shape_model = Shape()
@@ -1419,8 +1443,8 @@ class LSTMCellBody(Model):
     bias_o: Connection
     output: Connection
 
-    def __init__(self) -> None:
-        super().__init__(formula_key="lstm_cell")
+    def __init__(self, name: str | None = None) -> None:
+        super().__init__(formula_key="lstm_cell", name=name)
 
         matrix_concat_model = Concat(n=2, axis=-1)
         forward_lin = Linear()
@@ -1513,12 +1537,9 @@ class LSTMCellBody(Model):
 
 
 class RNN(Model):
-    def __init__(
-        self,
-        cell_type: Cell,
-    ) -> None:
+    def __init__(self, cell_type: Cell, name: str | None = None) -> None:
         self.cell_type = cell_type
-        super().__init__()
+        super().__init__(name=name)
 
     def __call__(self, **kwargs) -> ExtendInfo:  # type: ignore[override]
         raise NotImplementedError("__call__ method not implemented!")
@@ -1528,9 +1549,13 @@ class OneToMany(RNN):
     input: Connection
 
     def __init__(
-        self, cell_type: Cell, max_sequence_length: int, teacher_forcing: bool = False
+        self,
+        cell_type: Cell,
+        max_sequence_length: int,
+        teacher_forcing: bool = False,
+        name: str | None = None,
     ) -> None:
-        super().__init__(cell_type=cell_type)
+        super().__init__(cell_type=cell_type, name=name)
         cell = deepcopy(cell_type)
         prev_cell = cell
 
@@ -1596,8 +1621,10 @@ class OneToMany(RNN):
 class OneToManyInference(RNN):
     input: Connection
 
-    def __init__(self, cell_type: Cell, max_sequence_length: int) -> None:
-        super().__init__(cell_type=cell_type)
+    def __init__(
+        self, cell_type: Cell, max_sequence_length: int, name: str | None = None
+    ) -> None:
+        super().__init__(cell_type=cell_type, name=name)
         cell = deepcopy(cell_type)
         prev_cell = cell
 
@@ -1642,8 +1669,10 @@ class OneToManyInference(RNN):
 class ManyToOne(RNN):
     hidden_concat: Connection
 
-    def __init__(self, cell_type: Cell, max_sequence_length: int) -> None:
-        super().__init__(cell_type)
+    def __init__(
+        self, cell_type: Cell, max_sequence_length: int, name: str | None = None
+    ) -> None:
+        super().__init__(cell_type, name=name)
         prev_cell = deepcopy(cell_type)
 
         concat_model = Concat(n=max_sequence_length)
@@ -1710,9 +1739,10 @@ class EncoderDecoder(Model):
         cell_type: Cell,
         max_input_sequence_length: int,
         max_target_sequence_length: int,
-        teacher_forcing=False,
+        teacher_forcing: bool = False,
+        name: str | None = None,
     ) -> None:
-        super().__init__()
+        super().__init__(name=name)
 
         # Encoder Model
         encoder = ManyToOne(
@@ -1761,8 +1791,9 @@ class EncoderDecoderInference(Model):
         cell_type: Cell,
         max_input_sequence_length: int,
         max_target_sequence_length: int,
+        name: str | None = None,
     ) -> None:
-        super().__init__()
+        super().__init__(name=name)
 
         # Encoder Model
         encoder = ManyToOne(
@@ -1804,8 +1835,13 @@ class EncoderDistanceMatrix(Model):
     norm: Connection
     output: Connection
 
-    def __init__(self, get_final_distance: bool = True, robust: bool = True) -> None:
-        super().__init__()
+    def __init__(
+        self,
+        get_final_distance: bool = True,
+        robust: bool = True,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name)
         self.factory_args = {"get_final_distance": get_final_distance, "robust": robust}
 
         dist_model = DistanceMatrix()
@@ -1853,8 +1889,10 @@ class PolynomialRegression(Model):
     b: Connection
     output: Connection
 
-    def __init__(self, degree: int, dimension: int | None = None) -> None:
-        super().__init__()
+    def __init__(
+        self, degree: int, dimension: int | None = None, name: str | None = None
+    ) -> None:
+        super().__init__(name=name)
         self.factory_args = {"degree": degree, "dimension": dimension}
 
         linear_model = Linear(dimension=dimension)
@@ -1885,9 +1923,11 @@ class MDSCore(Model):
 
     requires_norm: bool = True
 
-    def __init__(self, exact_distances: bool = True, robust: bool = True) -> None:
+    def __init__(
+        self, exact_distances: bool = True, robust: bool = True, name: str | None = None
+    ) -> None:
         self.factory_args = {"exact_distances": exact_distances, "robust": robust}
-        super().__init__()
+        super().__init__(name=name)
 
         # Prepare models used in MDS.
         subtract_model = Subtract()
@@ -1977,8 +2017,9 @@ class TSNECore(Model):
         exact_distances: bool = True,
         calculate_p_joint: bool = False,
         perplexity: float = 20.0,
+        name: str | None = None,
     ) -> None:
-        super().__init__()
+        super().__init__(name=name)
         self.factory_args = {
             "exact_distances": exact_distances,
             "perplexity": perplexity,
@@ -2081,9 +2122,12 @@ class DistanceEncoder(Model):
     ephemeral: bool = True
 
     def __init__(
-        self, base_model: MDSCore | TSNECore, input_type: str = "distances"
+        self,
+        base_model: MDSCore | TSNECore,
+        input_type: str = "distances",
+        name: str | None = None,
     ) -> None:
-        super().__init__()
+        super().__init__(name=name)
 
         self.factory_args = {"base_model": base_model, "input_type": input_type}
 
@@ -2177,10 +2221,15 @@ class MDS(DistanceEncoder):
     predicted_coords: Connection
     output: Connection
 
-    def __init__(self, prediction_dim: int, input_type="distances"):
+    def __init__(
+        self,
+        prediction_dim: int,
+        input_type: str = "distances",
+        name: str | None = None,
+    ) -> None:
         assert input_type in ["distances", "powered_distances", "points"]
         base_model = MDSCore(exact_distances=(input_type == "distances"))
-        super().__init__(base_model=base_model, input_type=input_type)
+        super().__init__(base_model=base_model, input_type=input_type, name=name)
         self.factory_args = {"prediction_dim": prediction_dim, "input_type": input_type}
         self._set_shapes({"coords": [None, prediction_dim]})
         self._freeze()
@@ -2218,17 +2267,18 @@ class TSNE(DistanceEncoder):
     def __init__(
         self,
         prediction_dim: int,
-        input_type="distances",
-        preplexity=20.0,
+        input_type: str = "distances",
+        preplexity: float = 20.0,
         calculate_p_joint: bool = False,
-    ):
+        name: str | None = None,
+    ) -> None:
         assert input_type in ["distances", "powered_distances", "points"]
         base_model = TSNECore(
             calculate_p_joint=calculate_p_joint,
             perplexity=preplexity,
             exact_distances=(input_type == "distances"),
         )
-        super().__init__(base_model=base_model, input_type=input_type)
+        super().__init__(base_model=base_model, input_type=input_type, name=name)
         self.factory_args = {
             "prediction_dim": prediction_dim,
             "input_type": input_type,
@@ -2263,10 +2313,8 @@ class GaussProcessRegressionCore(Model):
     prediction: Connection
     confidence: Connection
 
-    def __init__(
-        self,
-    ) -> None:
-        super().__init__()
+    def __init__(self, name: str | None = None) -> None:
+        super().__init__(name=name)
         # Prepare models used in GPR.
         size_model = Size(dim=0)
         K_term_eye_model = Eye()
@@ -2368,8 +2416,8 @@ class GPRLoss(Model):
     alpha: Connection
     output: Connection
 
-    def __init__(self, robust=False) -> None:
-        super().__init__()
+    def __init__(self, robust: bool = False, name: str | None = None) -> None:
+        super().__init__(name=name)
         self.factory_args = {"robust": robust}
 
         diff_model = Subtract()
@@ -2449,8 +2497,9 @@ class Metric(Model):
         is_binary: bool = False,
         is_pred_one_hot: bool = True,
         is_label_one_hot: bool = True,
+        name: str | None = None,
     ) -> None:
-        super().__init__()
+        super().__init__(name=name)
         self.factory_args = {"threshold": threshold}
 
         assert (
@@ -2514,8 +2563,9 @@ class Accuracy(Model):
         is_binary: bool = False,
         is_pred_one_hot: bool = True,
         is_label_one_hot: bool = True,
-    ):
-        super().__init__()
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name)
         self += Metric(
             threshold=threshold,
             is_binary=is_binary,
@@ -2565,8 +2615,9 @@ class Precision(Model):
         is_binary: bool = False,
         is_pred_one_hot: bool = True,
         is_label_one_hot: bool = True,
+        name: str | None = None,
     ) -> None:
-        super().__init__()
+        super().__init__(name=name)
         self.factory_args = {"threshold": threshold}
 
         assert average in [
@@ -2704,8 +2755,9 @@ class Recall(Model):
         is_binary: bool = False,
         is_pred_one_hot: bool = True,
         is_label_one_hot: bool = True,
+        name: str | None = None,
     ) -> None:
-        super().__init__()
+        super().__init__(name=name)
         self.factory_args = {"threshold": threshold}
 
         assert average in [
@@ -2843,8 +2895,9 @@ class F1(Model):
         is_binary: bool = False,
         is_pred_one_hot: bool = True,
         is_label_one_hot: bool = True,
+        name: str | None = None,
     ) -> None:
-        super().__init__()
+        super().__init__(name=name)
         self.factory_args = {"threshold": threshold}
 
         assert average in [
@@ -2975,11 +3028,9 @@ class AUC(Model):
     label_argmax: Connection
 
     def __init__(
-        self,
-        n_classes: int,
-        is_label_one_hot: bool = True,
+        self, n_classes: int, is_label_one_hot: bool = True, name: str | None = None
     ) -> None:
-        super().__init__()
+        super().__init__(name=name)
 
         assert n_classes > 0, ""
         assert isinstance(n_classes, int)
@@ -3029,8 +3080,8 @@ class SiLU(Model):
     input: Connection
     output: Connection
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, name: str | None = None) -> None:
+        super().__init__(name=name)
 
         self += Minus()(input="input", output="minus")
         self += Exponential()(input="minus", output="exp")

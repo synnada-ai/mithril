@@ -1455,6 +1455,36 @@ def test_tensoritem_multiple_slice_3():
     assert outputs["output"].shape == (1, 6)
 
 
+def test_tensor_item_with_ellipsis_at_beginning():
+    input = IOKey("input", shape=(3, 4, 5))
+    model = Model()
+    model += Buffer()(input=input[..., 3], output="output")
+
+    backend = JaxBackend()
+    data = {"input": backend.randn(3, 4, 5)}
+
+    pm = mithril.compile(model, backend=backend)
+    output = pm.evaluate(data)["output"]
+
+    assert output.shape == (3, 4)
+    np.testing.assert_allclose(output, data["input"][..., 3])
+
+
+def test_tensor_item_with_ellipsis_in_middle():
+    input = IOKey("input", shape=(2, 3, 4, 5, 6))
+    model = Model()
+    model += Buffer()(input=input[0, ..., 3], output="output")
+
+    backend = JaxBackend()
+    data = {"input": backend.randn(2, 3, 4, 5, 6)}
+
+    pm = mithril.compile(model, backend=backend)
+    output = pm.evaluate(data)["output"]
+
+    assert output.shape == (3, 4, 5)
+    np.testing.assert_allclose(output, data["input"][0, ..., 3])
+
+
 def test_tranpose_1():
     backend = JaxBackend()
     model = Model()

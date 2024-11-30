@@ -60,12 +60,16 @@ class NumpyBackend(Backend[np.ndarray]):
         np.random.seed(self.seed)
 
     @property
-    def is_manualgrad(self):
+    def is_manualgrad(self) -> bool:
         return True
 
     @property
     def inf(self):
         return np.inf
+
+    @property
+    def nan(self):
+        return np.nan
 
     @property
     def DataType(self):  # noqa: N802
@@ -354,11 +358,21 @@ class NumpyBackend(Backend[np.ndarray]):
     def any(self, input: np.ndarray) -> np.ndarray:
         return np.array(np.any(input))
 
-    def atleast_1d(self, *inputs: np.ndarray) -> np.ndarray | tuple[np.ndarray, ...]:
-        return np.atleast_1d(*inputs)
+    def atleast_1d(
+        self, inputs: np.ndarray | tuple[np.ndarray, ...]
+    ) -> np.ndarray | tuple[np.ndarray, ...]:
+        if isinstance(inputs, tuple):
+            return np.atleast_1d(*inputs)
+        else:
+            return np.atleast_1d(inputs)
 
-    def atleast_2d(self, *inputs: np.ndarray) -> np.ndarray | tuple[np.ndarray, ...]:
-        return np.atleast_2d(*inputs)
+    def atleast_2d(
+        self, inputs: np.ndarray | tuple[np.ndarray, ...]
+    ) -> np.ndarray | tuple[np.ndarray, ...]:
+        if isinstance(inputs, tuple):
+            return np.atleast_2d(*inputs)
+        else:
+            return np.atleast_2d(inputs)
 
     def transpose(
         self, input: np.ndarray, axes: tuple[int, ...] | list[int] | None = None
@@ -372,6 +386,9 @@ class NumpyBackend(Backend[np.ndarray]):
 
     # TODO: Analyze the code's efficiency and refactor it if necessary.
     # topk_namedtuple = namedtuple('topk_namedtuple', ['values', 'indices'])
+
+    # TODO: Now topk only supports one dimensional tensors,
+    # add multi-dimensional support similar to torch, jax and mlx
     def topk(self, array: np.ndarray, k: int) -> np.ndarray:
         flat = array.ravel()
         indices = np.argpartition(flat, -k)[-k:]

@@ -38,8 +38,8 @@ class Backend(ABC, Generic[DataType]):
     is_installed = True
     _device: str
     _precision: int
-    primitive_function_dict: dict[str, Callable]
-    registered_primitives: dict[str, Callable]
+    primitive_function_dict: dict[str, Callable[..., DataType | Any]]
+    registered_primitives: dict[str, Callable[..., DataType]]
     array_creation_funcs: list[str]
     primitive_fn_path: str
 
@@ -77,7 +77,7 @@ class Backend(ABC, Generic[DataType]):
         return math.e
 
     @property
-    def is_manualgrad(self):
+    def is_manualgrad(self) -> bool:
         raise NotImplementedError("is_manualgrad is not implemented")
 
     def get_backend_array_type(self):  # noqa: B902
@@ -750,7 +750,7 @@ class Backend(ABC, Generic[DataType]):
         raise NotImplementedError("log is not implemented!")
 
     def atleast_1d(
-        self, *inputs: DataType
+        self, inputs: DataType | tuple[DataType, ...]
     ) -> DataType | tuple[DataType, ...] | list[DataType]:
         """
         Convert the input to an array with at least one dimension.
@@ -767,7 +767,7 @@ class Backend(ABC, Generic[DataType]):
         raise NotImplementedError("atleast_1d is not implemented!")
 
     def atleast_2d(
-        self, *inputs: DataType
+        self, inputs: DataType | tuple[DataType, ...]
     ) -> DataType | tuple[DataType, ...] | list[DataType]:
         """
         Convert the input to an array with at least two dimensions.

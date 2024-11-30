@@ -73,34 +73,12 @@ from mithril.models import (
 )
 from mithril.utils.utils import PaddingType
 
-from .test_utils import assert_results_equal
-
-
-def get_array_device(array, type):
-    match type:
-        case "numpy":
-            return "cpu"
-        case "jax":
-            return next(iter(array.devices())).platform
-        case "torch":
-            return array.device.type
-        case "mlx":
-            return "gpu"
-
-
-def get_array_precision(array, type):
-    if type == "mlx":
-        return 8 * array.itemsize
-    else:
-        return 8 * array.dtype.itemsize
-
-
-def check_if_installed(backend):
-    try:
-        backend()
-        return True
-    except RuntimeError:
-        return False
+from .test_utils import (
+    assert_results_equal,
+    check_if_installed,
+    get_array_device,
+    get_array_precision,
+)
 
 
 def assert_all_backends_device_precision(model: Model):

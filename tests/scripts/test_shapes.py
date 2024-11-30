@@ -86,6 +86,7 @@ from mithril.models import (
     Multiply,
     NanToNum,
     NormModifier,
+    Pad,
     PermuteTensor,
     PositionalEncoding,
     PrimitiveModel,
@@ -193,8 +194,8 @@ def repr_sort(repr):
 
 
 def get_deterministic_shape(node: ShapeNode):
-    uni: dict[UniadicRecord | Variadic, str] = {}
-    var: dict[UniadicRecord | Variadic, str] = {}
+    uni: dict[UniadicRecord, str] = {}
+    var: dict[Variadic, str] = {}
     if len(reprs := node.reprs) != 1:
         sorted_reprs = sorted(reprs, key=repr_sort, reverse=True)
         return [repr.get_shapes(uni, var) for repr in sorted_reprs]
@@ -239,8 +240,8 @@ def assert_all_reprs_unique(model: BaseModel):
     """
     all_reprs = get_all_reprs(model)
 
-    uni_cache: dict[UniadicRecord | Variadic, str] = {}
-    var_cache: dict[UniadicRecord | Variadic, str] = {}
+    uni_cache: dict[UniadicRecord, str] = {}
+    var_cache: dict[Variadic, str] = {}
 
     for repr1, repr2 in combinations(all_reprs, 2):
         repr1_shapes = repr1.get_shapes(uni_cache, var_cache)
@@ -271,8 +272,8 @@ def assert_all_integer_uniadics_unique(model: BaseModel):
 def assert_match_shapes(
     repr1: ShapeRepr, repr2: ShapeRepr, repr1_ref_shapes: list, repr2_ref_shapes: list
 ):
-    uni_cache: dict[UniadicRecord | Variadic, str] = {}
-    var_cache: dict[UniadicRecord | Variadic, str] = {}
+    uni_cache: dict[UniadicRecord, str] = {}
+    var_cache: dict[Variadic, str] = {}
 
     repr1._match(repr2)
 
@@ -6707,6 +6708,7 @@ def test_total_repr_count_1():
         Square: 1,
         Softmax: 1,
         Sign: 1,
+        Pad: 2,
         PermuteTensor: 2,
         Sigmoid: 1,
         PositionalEncoding: 1,
@@ -9893,8 +9895,8 @@ def test_bcast_uniadics():
     output = ShapeRepr(root=Variadic(), suffix=[Uniadic(1), Uniadic(2)])
 
     bcast_uniadics(output, left, right, 0)
-    uni_cache: dict[UniadicRecord | Variadic, str] = {}
-    var_cache: dict[UniadicRecord | Variadic, str] = {}
+    uni_cache: dict[UniadicRecord, str] = {}
+    var_cache: dict[Variadic, str] = {}
     assert left.get_shapes(uni_cache, var_cache) == ["(V1, ...)", 1, "u1"]
     assert right.get_shapes(uni_cache, var_cache) == ["(V2, ...)"]
     assert output.get_shapes(uni_cache, var_cache) == ["(V3, ...)", 1, 2]
@@ -9908,8 +9910,8 @@ def test_bcast_align():
     output = ShapeRepr(root=Variadic(), suffix=[Uniadic(1), Uniadic(2)])
 
     bacast_align_output(output, left, right, 0)
-    uni_cache: dict[UniadicRecord | Variadic, str] = {}
-    var_cache: dict[UniadicRecord | Variadic, str] = {}
+    uni_cache: dict[UniadicRecord, str] = {}
+    var_cache: dict[Variadic, str] = {}
     assert left.get_shapes(uni_cache, var_cache) == ["(V1, ...)", "u1", "u2"]
     assert right.get_shapes(uni_cache, var_cache) == ["(V2, ...)"]
     assert output.get_shapes(uni_cache, var_cache) == ["(V3, ...)", 1, 2]
@@ -10117,3 +10119,43 @@ def test_extract_uni_from_possibles_both():
     assert repr.root.possibles is not None
     assert repr.root.possibles.keys() == ref_possibles.keys()
     assert repr.root.possibles[1].uniadics == ref_possibles[1].uniadics
+
+
+def test_shapes_tensor_item_numeric():
+    model = Model()
+    relu_model1 = Relu()
+    relu_model2 = Relu()
+    shape1: dict[str, list] = {"input": [("V1", ...), "u1", "u2"]}
+    relu_model1.set_shapes(shape1)
+    model += relu_model1(input="input", output="output")
+    model += relu_model2(input=relu_model1.output[:, None, :, 2:4], output="output2")
+    shape2: dict[str, list] = {"input": [3, 4, 5]}
+    model.set_shapes(shape2)
+
+    ref = {
+        "output": [3, 4, 5],
+        "$_TensorItem_1_output": [3, 1, 4, 2],
+        "$index": None,
+        "output2": [3, 1, 4, 2],
+        "input": [3, 4, 5],
+    }
+    check_shapes_semantically(model.get_shapes(), ref)
+
+
+def test_shapes_tensor_item_symbolic():
+    model = Model()
+    relu_model1 = Relu()
+    relu_model2 = Relu()
+    shape: dict[str, list] = {"input": [("V1", ...), "u1", "u2"]}
+    relu_model1.set_shapes(shape)
+    model += relu_model1(input="input", output="output")
+    model += relu_model2(input=relu_model1.output[:, None, :, 2:4], output="output2")
+
+    ref: Mapping[str, list | None] = {
+        "output": ["u1", "(V1, ...)", "u2", "u3"],
+        "$_TensorItem_1_output": ["u4", 1, "u5", "u6", "(V2, ...)"],
+        "$index": None,
+        "output2": ["u4", 1, "u5", "u6", "(V2, ...)"],
+        "input": ["u1", "(V1, ...)", "u2", "u3"],
+    }
+    check_shapes_semantically(model.get_shapes(), ref)

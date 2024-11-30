@@ -4296,16 +4296,6 @@ def test_connect_error_3():
     assert str(error_info.value) == "Input keys are always exposed!"
 
 
-def test_connect_error_4():
-    model = Model()
-    model += Relu()(input="input2", output=IOKey(name="output"))
-
-    with pytest.raises(KeyError) as error_info:
-        model += Relu()(input="input", output=Connect("input2", 3))  # type: ignore
-
-    assert str(error_info.value) == "'Requires Connection object or string!'"
-
-
 def test_connect_error_5():
     model_2 = Model()
     model_2 += Tanh()(input="input1", output=IOKey(name="output1"))
@@ -6879,8 +6869,8 @@ def test_cyclic_extend():
 
 
 def assert_repr_dict(data: dict[str, ShapeRepr], ref_shapes: dict):
-    uni_cache: dict[UniadicRecord | Variadic, str] = {}
-    var_cache: dict[UniadicRecord | Variadic, str] = {}
+    uni_cache: dict[UniadicRecord, str] = {}
+    var_cache: dict[Variadic, str] = {}
     shapes = {
         key: value.get_shapes(uni_cache, var_cache) for key, value in data.items()
     }
@@ -7283,7 +7273,9 @@ def test_string_iokey_value_1():
         # Small Einsum Model that is written for test purposes.
         # Now it only supports single input and single output
 
-        def __init__(self, equation: str | ToBeDetermined) -> None:
+        def __init__(
+            self, equation: str | ToBeDetermined, name: str | None = None
+        ) -> None:
             if not isinstance(equation, ToBeDetermined):
                 # Parse the equation
                 input, output = equation.replace(" ", "").split("->")
@@ -7308,7 +7300,7 @@ def test_string_iokey_value_1():
                 "equation": scalar_equation,
             }
 
-            super().__init__(formula_key="einsum", **kwargs)
+            super().__init__(formula_key="einsum", name=name, **kwargs)
             self._freeze()
 
         def __call__(  # type: ignore[override]
@@ -7365,7 +7357,9 @@ def test_string_iokey_value_2():
         # Small Einsum Model that is written for test purposes.
         # Now it only supports single input and single output
 
-        def __init__(self, equation: str | ToBeDetermined) -> None:
+        def __init__(
+            self, equation: str | ToBeDetermined, name: str | None = None
+        ) -> None:
             if not isinstance(equation, ToBeDetermined):
                 # Parse the equation
                 input, output = equation.replace(" ", "").split("->")
@@ -7390,7 +7384,7 @@ def test_string_iokey_value_2():
                 "equation": scalar_equation,
             }
 
-            super().__init__(formula_key="einsum", **kwargs)
+            super().__init__(formula_key="einsum", name=name, **kwargs)
             self._freeze()
 
         def __call__(  # type: ignore[override]

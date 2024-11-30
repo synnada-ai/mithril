@@ -20,7 +20,7 @@ from dataclasses import dataclass
 @dataclass
 class AST(ABC):
     @abstractmethod
-    def to_str(self):
+    def to_str(self) -> str:
         raise NotImplementedError("to_str is not implemented")
 
 

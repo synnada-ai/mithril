@@ -49,12 +49,16 @@ class MlxBackend(Backend[mx.array]):
         mx.random.seed(self.seed)
 
     @property
-    def is_manualgrad(self):
+    def is_manualgrad(self) -> bool:
         return False
 
     @property
     def inf(self):
         return mx.inf
+
+    @property
+    def nan(self):
+        return mx.nan
 
     @property
     def device(self):
@@ -388,11 +392,21 @@ class MlxBackend(Backend[mx.array]):
     def any(self, input: mx.array) -> mx.array:
         return mx.any(input)
 
-    def atleast_1d(self, *inputs: mx.array) -> mx.array | tuple[mx.array, ...]:
-        return mx.atleast_1d(*inputs)
+    def atleast_1d(
+        self, inputs: mx.array | tuple[mx.array, ...]
+    ) -> mx.array | tuple[mx.array, ...]:
+        if isinstance(inputs, tuple):
+            return mx.atleast_1d(*inputs)
+        else:
+            return mx.atleast_1d(inputs)
 
-    def atleast_2d(self, *inputs: mx.array) -> mx.array | tuple[mx.array, ...]:
-        return mx.atleast_2d(*inputs)
+    def atleast_2d(
+        self, inputs: mx.array | tuple[mx.array, ...]
+    ) -> mx.array | tuple[mx.array, ...]:
+        if isinstance(inputs, tuple):
+            return mx.atleast_2d(*inputs)
+        else:
+            return mx.atleast_2d(inputs)
 
     def transpose(
         self, input: mx.array, axes: tuple[int, ...] | list[int] | None = None
