@@ -1548,3 +1548,30 @@ def test_split_compare_with_explicit():
     model2 += Buffer()(input=split.output, output=IOKey(name="output"))
     # TODO: Why do we need check_internals flag?
     compare_models(model1, model2, backend, data, check_internals=False)
+
+
+def test_immediate_values_with_extend_template_and_regular_case():
+    # Extend template case.
+    model = Model()
+    model += (buff := Buffer())(input="input")
+    conn = buff.output[2]
+    model += Buffer()(input=conn, output="output")
+
+    big_model_1 = Model()
+    big_model_1 += model(input="input", output="output")
+
+    # Regular case.
+    model = Model()
+    model += (buff := Buffer())(input="input")
+    model += (item := TensorItem())(index=2)
+    model += Buffer()(input=item.output, output="output")
+
+    big_model_2 = Model()
+    big_model_2 += model(input="input", output="output")
+
+    assert big_model_1._input_keys == big_model_2._input_keys == {"input"}
+    assert (
+        big_model_1.conns.latent_input_keys
+        == big_model_1.conns.latent_input_keys
+        == {"$1"}
+    )

@@ -590,8 +590,9 @@ class DependencyMap:
                         if model_dag.get(conn.key) is not None
                     ]
                 )
-
-                self._local_input_dependency_map[conn] = [(model, specs)]
+                self._local_input_dependency_map.setdefault(conn, []).append(
+                    (model, specs)
+                )
                 updated_conns.add(conn)
             elif local_key in model.conns.output_keys:
                 specs = OrderedSet(

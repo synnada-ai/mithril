@@ -22,6 +22,7 @@ from ...backends.backend import Backend, ParallelBackend
 from ...core import DataType, GenericDataType
 from ...utils.type_utils import is_list_int
 from ..common import (
+    NOT_AVAILABLE,
     NOT_GIVEN,
     TBD,
     Connection,
@@ -84,9 +85,6 @@ class PhysicalModel(GenericDataType[DataType]):
         safe_shapes: bool,
         safe_names: bool,
     ) -> None:
-        if len(model._input_keys) == 0:
-            raise ValueError("Model without input keys could not be compiled.")
-
         if isinstance(model, PrimitiveModel):
             # TODO: Remove wrapping with Model in the future.
             model = deepcopy(model)
@@ -96,17 +94,24 @@ class PhysicalModel(GenericDataType[DataType]):
                 value = extend_info._connections.get(key, NOT_GIVEN)
                 # NOTE: Do not set default value if it is given in constant_keys.
                 value = (value, NOT_GIVEN)[key in constant_keys]
-                if value is NOT_GIVEN:
+                default_val = model.conns.get_data(key).value
+                if value is NOT_GIVEN and default_val is TBD:
+                    # Non-valued connections are only named with their key names.
                     model_keys[key] = key
                 else:
-                    model_keys[key] = IOKey(key, value)  # type: ignore
+                    val = default_val if default_val is not TBD else value
+                    model_keys[key] = IOKey(key, val)  # type: ignore
             model = Model() + model(**model_keys)
 
         self.backend: Backend[DataType] = backend
         self._output_keys: set[str] = set(model.conns.output_keys)
 
         self.key_mappings = model._generate_keys(symbolic=False, include_internals=True)
-        self.key_mappings |= {key: key for key in model.external_keys if key[0] != "$"}
+        self.key_mappings |= {
+            key: key
+            for key in model.external_keys | model.conns.latent_input_keys
+            if key[0] != "$"
+        }
         # NOTE: Reconsider updating logical dag in order.
         self._input_keys: set[str] = {
             self.key_mappings.get(key, key) for key in model._input_keys
@@ -116,6 +121,8 @@ class PhysicalModel(GenericDataType[DataType]):
         # TODO: This is a temporary solution, a better way will be implemented
         # in another PR.
         if len(model.conns.output_keys) == 0:
+            if model._canonical_output is NOT_AVAILABLE:
+                raise ValueError("Models with no output keys can not be compiled.")
             ref_name = "output"
             logical_name = model._canonical_output.key
             while ref_name in self.key_mappings:
