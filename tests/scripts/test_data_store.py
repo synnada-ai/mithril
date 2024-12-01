@@ -319,7 +319,7 @@ def test_data_store_14():
     model = Model()
     model += Buffer()(input="input1", output=IOKey(name="out1", expose=True))
     model += (s := Shape())(input="out1")
-    model += (i := ScalarItem(1))(input=s.output)
+    model += (i := ScalarItem(index=1))(input=s.output)
     model += (u := PrimitiveUnion(2))(input1=i.output, input2=i.output)
     model += Convolution2D(kernel_size=3, out_channels=10, stride=TBD, use_bias=False)(
         input="input2",
@@ -373,7 +373,7 @@ def test_data_store_15():
     model = Model()
     model += Buffer()(input="input1", output=IOKey(name="out1", expose=True))
     model += (s := Shape())(input="out1")
-    model += (i := ScalarItem(1))(input=s.output)
+    model += (i := ScalarItem(index=1))(input=s.output)
     model += (u := PrimitiveUnion(2))(input1=i.output, input2=i.output)
     model += Convolution2D(kernel_size=3, out_channels=10, stride=TBD, use_bias=False)(
         input="input2",

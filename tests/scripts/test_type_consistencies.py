@@ -135,10 +135,13 @@ def test_default_given_extend_4_numpy_error():
     model1 = ReduceMult(axis=None)
     model2 = Mean(axis=1)
     model += model1(axis="axis")
-    with pytest.raises(ValueError) as err_info:
+    with pytest.raises(TypeError) as err_info:
         model += model2(input="input2", axis=model1.axis, output="output")
-
-    assert str(err_info.value) == "Multi-write detected for a valued input connection!"
+    ref_error = (
+        "Acceptable types are <class 'NoneType'>, "
+        "but <class 'int'> type value is provided!"
+    )
+    assert str(err_info.value) == ref_error
 
 
 def test_constant_backendvar_numpy():

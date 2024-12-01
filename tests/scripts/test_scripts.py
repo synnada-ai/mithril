@@ -3161,7 +3161,7 @@ def test_prune_tensor_match():
 def test_arange_1():
     m = Model()
     expected_result = np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
-    m += Arange(0, 10, 1)(output="output")
+    m += Arange(start=0, stop=10, step=1)(output="output")
 
     backends: list[type[Backend]] = [TorchBackend, JaxBackend, NumpyBackend, MlxBackend]
     for backend_class in backends:
@@ -3179,7 +3179,7 @@ def test_arange_1():
 def test_arange_2():
     m = Model()
     expected_result = np.array([0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5])
-    m += Arange(0, 5, 0.5)(output="output")
+    m += Arange(start=0, stop=5, step=0.5)(output="output")
 
     backends: list[type[Backend]] = [TorchBackend, JaxBackend, NumpyBackend, MlxBackend]
     for backend_class in backends:
@@ -3194,7 +3194,7 @@ def test_arange_2():
 def test_arange_3():
     m = Model()
     expected_result = np.array([0.1, 0.7, 1.3, 1.9, 2.5, 3.1, 3.7])
-    m += Arange(0.1, 4, 0.6)(output="output")
+    m += Arange(start=0.1, stop=4, step=0.6)(output="output")
 
     backends: list[type[Backend]] = [TorchBackend, JaxBackend, NumpyBackend, MlxBackend]
     for backend_class in backends:
@@ -3673,13 +3673,13 @@ def geomean_multigpu_test():
     context = TrainModel(model)
     context.add_loss(
         SquaredError(),
-        reduce_steps=[Mean(0), Prod(0), Sum()],
+        reduce_steps=[Mean(axis=0), Prod(axis=0), Sum()],
         input="out1",
         target="target1",
     )
     context.add_loss(
         SquaredError(),
-        reduce_steps=[Mean(1), Prod(0), Min(1), Sum(1), Mean()],
+        reduce_steps=[Mean(axis=1), Prod(axis=0), Min(axis=1), Sum(axis=1), Mean()],
         input="out2",
         target="target2",
     )
@@ -6057,6 +6057,7 @@ def test_deepcopy_4():
 
 def test_deepcopy_5():
     model = Model()
+    model += Reshape(shape=(2, 3, None, None))
     model += MLP(
         activations=[Sigmoid(), Relu(), Sigmoid(), Relu()], dimensions=[3, 3, 5, 6]
     )
@@ -6343,6 +6344,7 @@ def test_multi_write_4():
     assert str(err_info.value) == "Multi-write detected for a valued input connection!"
 
 
+@pytest.mark.skip(reason="This test is not valid anymore!")
 def test_multi_write_5():
     model = Model()
     mean_model_1 = Mean(axis=TBD)

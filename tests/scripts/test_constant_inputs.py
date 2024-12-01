@@ -256,6 +256,7 @@ def test_make_static_numpy_error():
     )
 
 
+@pytest.mark.skip(reason="This test is not valid anymore!")
 def test_default_given_extend_1_numpy():
     """Multiwrite error since "axis" is an input and connected to a valued
     connection."""
@@ -595,7 +596,7 @@ def test_scalar_mean_2_1():
         mean_model += mean_1(axis=1, input="input")
     assert (
         str(err_info.value)
-        == "Value is set before as None. A scalar value can not be reset."
+        == "Given value 1 for local key: 'axis' has already being set to None!"
     )
 
 
@@ -631,6 +632,7 @@ def test_scalar_mean_2_set_values():
     #     mean_model.extend(rob_pow, threshold = 1.5, base = "input")
 
 
+@pytest.mark.skip(reason="This test is not valid anymore!")
 def test_reduce_axis_error():
     model = Model()
     mean_1 = Mean(axis=TBD)

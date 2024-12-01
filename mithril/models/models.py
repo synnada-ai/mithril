@@ -27,6 +27,7 @@ from ..framework.common import (
     ConnectionType,
     IOKey,
     ShapeTemplateType,
+    TensorValueType,
     ToBeDetermined,
 )
 from ..framework.logical.base import ExtendInfo
@@ -162,8 +163,16 @@ class Pool1D(Model):
         padding: int | PaddingType | tuple[int, int] | ToBeDetermined = (0, 0),
         dilation: int | ToBeDetermined = 1,
         name: str | None = None,
+        input: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
+        self.factory_inputs = {
+            "input": input,
+            "kernel_size": kernel_size,
+            "stride": stride,
+            "padding": padding,
+            "dilation": dilation,
+        }
 
         self.factory_args = {
             "kernel_size": convert_to_list(kernel_size),
@@ -252,8 +261,16 @@ class Pool2D(Model):
         padding: int | PaddingType | tuple[int, int] | ToBeDetermined = (0, 0),
         dilation: int | ToBeDetermined = 1,
         name: str | None = None,
+        input: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
+        self.factory_inputs = {
+            "input": input,
+            "kernel_size": kernel_size,
+            "stride": stride,
+            "padding": padding,
+            "dilation": dilation,
+        }
 
         self.factory_args = {
             "kernel_size": convert_to_list(kernel_size),
@@ -350,8 +367,17 @@ class Convolution1D(Model):
         dilation: int | ToBeDetermined = 1,
         use_bias: bool = True,
         name: str | None = None,
+        input: TensorValueType | ToBeDetermined = TBD,
+        kernel: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
+        self.factory_inputs = {
+            "input": input,
+            "kernel": kernel,
+            "stride": stride,
+            "padding": padding,
+            "dilation": dilation,
+        }
 
         self.factory_args = {
             "kernel_size": convert_to_list(kernel_size),
@@ -429,9 +455,10 @@ class Convolution2D(Model):
         dilation: int | tuple[int, int] | ToBeDetermined = (1, 1),
         use_bias: bool = True,
         name: str | None = None,
+        input: TensorValueType | ToBeDetermined = TBD,
+        kernel: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
-
         self.factory_args = {
             "kernel_size": convert_to_list(kernel_size),
             "out_channels": out_channels,
@@ -451,6 +478,14 @@ class Convolution2D(Model):
         pad = convert_to_tuple(padding) if isinstance(padding, list) else padding
         if isinstance(dilation, list):
             dilation = convert_to_tuple(dilation)
+
+        self.factory_inputs = {
+            "input": input,
+            "kernel": kernel,
+            "stride": stride,
+            "padding": pad,
+            "dilation": dilation,
+        }
 
         k_shp = Shape()
         p_converter = PaddingConverter2D()
@@ -511,9 +546,13 @@ class Linear(Model):
         dimension: int | None = None,
         use_bias: bool = True,
         name: str | None = None,
+        input: TensorValueType | ToBeDetermined = TBD,
+        w: TensorValueType | ToBeDetermined = TBD,
+        b: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
         self.factory_args = {"dimension": dimension, "use_bias": use_bias}
+        self.factory_inputs = {"input": input, "w": w, "b": b}
         dim: int | str = "d_out" if dimension is None else dimension
         shapes: dict[str, ShapeTemplateType] = {
             "input": ["N", ("Var_inter", ...), "d_in"],
@@ -560,8 +599,16 @@ class ElementWiseAffine(Model):
     b: Connection
     output: Connection
 
-    def __init__(self, name: str | None = None) -> None:
+    def __init__(
+        self,
+        name: str | None = None,
+        input: TensorValueType | ToBeDetermined = TBD,
+        w: TensorValueType | ToBeDetermined = TBD,
+        b: TensorValueType | ToBeDetermined = TBD,
+    ) -> None:
         super().__init__(name=name)
+        self.factory_inputs = {"input": input, "w": w, "b": b}
+
         mult_model = Multiply()
         sum_model = Add()
 
@@ -598,8 +645,12 @@ class Layer(Model):
         activation: BaseModel,
         dimension: int | None = None,
         name: str | None = None,
+        input: TensorValueType | ToBeDetermined = TBD,
+        w: TensorValueType | ToBeDetermined = TBD,
+        b: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
+        self.factory_inputs = {"input": input, "w": w, "b": b}
         self.factory_args = {"activation": activation, "dimension": dimension}
         linear_model = Linear(dimension=dimension)
         self += linear_model(input="input", w="w", b="b")
@@ -633,8 +684,12 @@ class LayerNorm(Model):
         use_bias: bool = True,
         eps: float = 1e-5,
         name: str | None = None,
+        input: TensorValueType | ToBeDetermined = TBD,
+        w: TensorValueType | ToBeDetermined = TBD,
+        b: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
+        self.factory_inputs = {"input": input, "w": w, "b": b}
         self.factory_args = {"use_scale": use_scale, "use_bias": use_bias, "eps": eps}
 
         # Expects its input shape as [B, ..., d] d refers to normalized dimension
@@ -707,22 +762,26 @@ class GroupNorm(Model):
         use_bias: bool = True,
         eps: float = 1e-5,
         name: str | None = None,
+        input: TensorValueType | ToBeDetermined = TBD,
+        *,
+        w: TensorValueType | ToBeDetermined = TBD,
+        b: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
+        self.factory_inputs = {"input": input, "w": w, "b": b}
 
         # Assumed input shape is [N, C, H, W]
-        input = IOKey(name="input")
-
-        input_shape = input.shape()
+        input_key = IOKey(name="input")
+        input_shape = input_key.shape()
         B = input_shape[0]
 
-        input = input.reshape((B, num_groups, -1))
+        input_key = input_key.reshape((B, num_groups, -1))
 
-        mean = input.mean(axis=-1, keepdim=True)
-        var = input.var(axis=-1, keepdim=True)
+        mean = input_key.mean(axis=-1, keepdim=True)
+        var = input_key.var(axis=-1, keepdim=True)
 
-        input = (input - mean) / (var + eps).sqrt()
-        self += Reshape()(input=input, shape=input_shape)
+        input_key = (input_key - mean) / (var + eps).sqrt()
+        self += Reshape()(input=input_key, shape=input_shape)
 
         self._set_shapes({"input": ["B", "C", "H", "W"]})
         self.input.set_differentiable(False)
@@ -771,8 +830,11 @@ class L1(Model):
     input: Connection
     output: Connection
 
-    def __init__(self, name: str | None = None) -> None:
+    def __init__(
+        self, name: str | None = None, input: TensorValueType | ToBeDetermined = TBD
+    ) -> None:
         super().__init__(name=name)
+        self.factory_inputs = {"input": input}
 
         abs_model = Absolute()
 
@@ -794,8 +856,11 @@ class L2(Model):
     input: Connection
     output: Connection
 
-    def __init__(self, name: str | None = None) -> None:
+    def __init__(
+        self, name: str | None = None, input: TensorValueType | ToBeDetermined = TBD
+    ) -> None:
         super().__init__(name=name)
+        self.factory_inputs = {"input": input}
 
         square = Square()
         sum = Sum()
@@ -820,8 +885,14 @@ class QuadraticFormRegularizer(Model):
     kernel: Connection
     output: Connection
 
-    def __init__(self, name: str | None = None) -> None:
+    def __init__(
+        self,
+        name: str | None = None,
+        input: TensorValueType | ToBeDetermined = TBD,
+        kernel: TensorValueType | ToBeDetermined = TBD,
+    ) -> None:
         super().__init__(name=name)
+        self.factory_inputs = {"input": input, "kernel": kernel}
 
         transpose_model = Transpose()
         dot_model1 = MatrixMultiply()
@@ -857,8 +928,21 @@ class RBFKernel(Model):
     sigma: Connection
     output: Connection
 
-    def __init__(self, name: str | None = None) -> None:
+    def __init__(
+        self,
+        name: str | None = None,
+        input1: TensorValueType | ToBeDetermined = TBD,
+        input2: TensorValueType | ToBeDetermined = TBD,
+        l_scale: TensorValueType | ToBeDetermined = TBD,
+        sigma: TensorValueType | ToBeDetermined = TBD,
+    ) -> None:
         super().__init__(name=name)
+        self.factory_inputs = {
+            "input1": input1,
+            "input2": input2,
+            "l_scale": l_scale,
+            "sigma": sigma,
+        }
 
         euclidean_model = CartesianDifference()
         square_model1 = Square()
@@ -920,8 +1004,22 @@ class PolynomialKernel(Model):
     degree: Connection
     output: Connection
 
-    def __init__(self, robust: bool = True, name: str | None = None) -> None:
+    def __init__(
+        self,
+        robust: bool = True,
+        name: str | None = None,
+        input1: TensorValueType | ToBeDetermined = TBD,
+        input2: TensorValueType | ToBeDetermined = TBD,
+        poly_coef: TensorValueType | ToBeDetermined = TBD,
+        degree: TensorValueType | ToBeDetermined = TBD,
+    ) -> None:
         super().__init__(name=name)
+        self.factory_inputs = {
+            "input1": input1,
+            "input2": input2,
+            "poly_coef": poly_coef,
+            "degree": degree,
+        }
 
         transpose_model = Transpose()
         mult_model = MatrixMultiply()
@@ -970,12 +1068,21 @@ class KernelizedSVM(Model):
     b: Connection
     output: Connection
 
-    def __init__(self, kernel: BaseModel, name: str | None = None) -> None:
+    def __init__(
+        self,
+        kernel: BaseModel,
+        name: str | None = None,
+        input1: TensorValueType | ToBeDetermined = TBD,
+        input2: TensorValueType | ToBeDetermined = TBD,
+        w: TensorValueType | ToBeDetermined = TBD,
+        b: TensorValueType | ToBeDetermined = TBD,
+    ) -> None:
         if len(kernel._input_keys) < 2:
             raise KeyError("Kernel requires at least two inputs!")
         if len(kernel.conns.output_keys) != 1:
             raise KeyError("Kernel requires single output!")
         super().__init__(name=name)
+        self.factory_inputs = {"input1": input1, "input2": input2, "w": w, "b": b}
         self.factory_args = {"kernel": kernel}
 
         linear_model = Linear()
@@ -1031,8 +1138,15 @@ class LinearSVM(Model):
     output: Connection
     decision_output: Connection
 
-    def __init__(self, name: str | None = None) -> None:
+    def __init__(
+        self,
+        name: str | None = None,
+        input: TensorValueType | ToBeDetermined = TBD,
+        w: TensorValueType | ToBeDetermined = TBD,
+        b: TensorValueType | ToBeDetermined = TBD,
+    ) -> None:
         super().__init__(name=name)
+        self.factory_inputs = {"input": input, "w": w, "b": b}
 
         linear_model = Linear(dimension=1)
         decision_model = Sign()
@@ -1070,8 +1184,15 @@ class LogisticRegression(Model):
     output: Connection
     probs_output: Connection
 
-    def __init__(self, name: str | None = None) -> None:
+    def __init__(
+        self,
+        name: str | None = None,
+        input: TensorValueType | ToBeDetermined = TBD,
+        w: TensorValueType | ToBeDetermined = TBD,
+        b: TensorValueType | ToBeDetermined = TBD,
+    ) -> None:
         super().__init__(name=name)
+        self.factory_inputs = {"input": input, "w": w, "b": b}
 
         linear_model = Linear(dimension=1)
         sigmoid_model = Sigmoid()
@@ -1112,8 +1233,11 @@ class MLP(Model):
         dimensions: Sequence[int | None],
         input_name_templates: dict[str, str] | None = None,
         name: str | None = None,
+        input: TensorValueType | ToBeDetermined = TBD,
+        **weights_biases: TensorValueType | ToBeDetermined,
     ) -> None:
         super().__init__(name=name)
+        self.factory_inputs = {"input": input, **weights_biases}
         self.factory_args = {"activations": activations, "dimensions": dimensions}
         if len(activations) != len(dimensions):
             raise ValueError("Lengths of activations and dimensions must be equal!")
@@ -1212,8 +1336,25 @@ class RNNCell(Cell):
     out_key = "output"
     # output_keys = {out, hidden_compl}
 
-    def __init__(self, name: str | None = None) -> None:
+    def __init__(
+        self,
+        name: str | None = None,
+        input: TensorValueType | ToBeDetermined = TBD,
+        w_ih: TensorValueType | ToBeDetermined = TBD,
+        w_hh: TensorValueType | ToBeDetermined = TBD,
+        w_ho: TensorValueType | ToBeDetermined = TBD,
+        bias_h: TensorValueType | ToBeDetermined = TBD,
+        bias_o: TensorValueType | ToBeDetermined = TBD,
+    ) -> None:
         super().__init__(name=name)
+        self.factory_inputs = {
+            "input": input,
+            "w_ih": w_ih,
+            "w_hh": w_hh,
+            "w_ho": w_ho,
+            "bias_h": bias_h,
+            "bias_o": bias_o,
+        }
 
         shape = Shape()
         scalar_item = ScalarItem()
@@ -1316,8 +1457,35 @@ class LSTMCell(Cell):
     state_keys = {"hidden", "cell"}
     out_key = "output"
 
-    def __init__(self, name: str | None = None) -> None:
+    def __init__(
+        self,
+        name: str | None = None,
+        input: TensorValueType | ToBeDetermined = TBD,
+        w_i: TensorValueType | ToBeDetermined = TBD,
+        w_f: TensorValueType | ToBeDetermined = TBD,
+        w_c: TensorValueType | ToBeDetermined = TBD,
+        w_o: TensorValueType | ToBeDetermined = TBD,
+        w_out: TensorValueType | ToBeDetermined = TBD,
+        bias_f: TensorValueType | ToBeDetermined = TBD,
+        bias_i: TensorValueType | ToBeDetermined = TBD,
+        bias_c: TensorValueType | ToBeDetermined = TBD,
+        bias_o: TensorValueType | ToBeDetermined = TBD,
+        bias_out: TensorValueType | ToBeDetermined = TBD,
+    ) -> None:
         super().__init__(name=name)
+        self.factory_inputs = {
+            "input": input,
+            "w_i": w_i,
+            "w_f": w_f,
+            "w_c": w_c,
+            "w_o": w_o,
+            "w_out": w_out,
+            "bias_f": bias_f,
+            "bias_i": bias_i,
+            "bias_c": bias_c,
+            "bias_o": bias_o,
+            "bias_out": bias_out,
+        }
 
         cell_body = LSTMCellBody()
         shape_model = Shape()
@@ -1443,8 +1611,35 @@ class LSTMCellBody(Model):
     bias_o: Connection
     output: Connection
 
-    def __init__(self, name: str | None = None) -> None:
+    def __init__(
+        self,
+        name: str | None = None,
+        input: TensorValueType | ToBeDetermined = TBD,
+        prev_hidden: TensorValueType | ToBeDetermined = TBD,
+        prev_cell: TensorValueType | ToBeDetermined = TBD,
+        w_i: TensorValueType | ToBeDetermined = TBD,
+        w_f: TensorValueType | ToBeDetermined = TBD,
+        w_c: TensorValueType | ToBeDetermined = TBD,
+        w_o: TensorValueType | ToBeDetermined = TBD,
+        bias_f: TensorValueType | ToBeDetermined = TBD,
+        bias_i: TensorValueType | ToBeDetermined = TBD,
+        bias_c: TensorValueType | ToBeDetermined = TBD,
+        bias_o: TensorValueType | ToBeDetermined = TBD,
+    ) -> None:
         super().__init__(formula_key="lstm_cell", name=name)
+        self.factory_inputs = {
+            "input": input,
+            "prev_hidden": prev_hidden,
+            "prev_cell": prev_cell,
+            "w_i": w_i,
+            "w_f": w_f,
+            "w_c": w_c,
+            "w_o": w_o,
+            "bias_f": bias_f,
+            "bias_i": bias_i,
+            "bias_c": bias_c,
+            "bias_o": bias_o,
+        }
 
         matrix_concat_model = Concat(n=2, axis=-1)
         forward_lin = Linear()
@@ -1537,9 +1732,10 @@ class LSTMCellBody(Model):
 
 
 class RNN(Model):
-    def __init__(self, cell_type: Cell, name: str | None = None) -> None:
+    def __init__(self, cell_type: Cell, name: str | None = None, **kwargs) -> None:
         self.cell_type = cell_type
         super().__init__(name=name)
+        self.factory_inputs = kwargs
 
     def __call__(self, **kwargs) -> ExtendInfo:  # type: ignore[override]
         raise NotImplementedError("__call__ method not implemented!")
@@ -1554,8 +1750,12 @@ class OneToMany(RNN):
         max_sequence_length: int,
         teacher_forcing: bool = False,
         name: str | None = None,
+        input: TensorValueType | ToBeDetermined = TBD,
+        **kwargs,
     ) -> None:
         super().__init__(cell_type=cell_type, name=name)
+        self.factory_inputs = {"input": input, **kwargs}
+
         cell = deepcopy(cell_type)
         prev_cell = cell
 
@@ -1622,9 +1822,16 @@ class OneToManyInference(RNN):
     input: Connection
 
     def __init__(
-        self, cell_type: Cell, max_sequence_length: int, name: str | None = None
+        self,
+        cell_type: Cell,
+        max_sequence_length: int,
+        name: str | None = None,
+        input: TensorValueType | ToBeDetermined = TBD,
+        **kwargs,
     ) -> None:
         super().__init__(cell_type=cell_type, name=name)
+        self.factory_inputs = {"input": input, **kwargs}
+
         cell = deepcopy(cell_type)
         prev_cell = cell
 
@@ -1670,9 +1877,16 @@ class ManyToOne(RNN):
     hidden_concat: Connection
 
     def __init__(
-        self, cell_type: Cell, max_sequence_length: int, name: str | None = None
+        self,
+        cell_type: Cell,
+        max_sequence_length: int,
+        name: str | None = None,
+        hidden_concat: TensorValueType | ToBeDetermined = TBD,
+        **kwargs,
     ) -> None:
         super().__init__(cell_type, name=name)
+        self.factory_inputs = {"hidden_concat": hidden_concat, **kwargs}
+
         prev_cell = deepcopy(cell_type)
 
         concat_model = Concat(n=max_sequence_length)
@@ -1741,8 +1955,11 @@ class EncoderDecoder(Model):
         max_target_sequence_length: int,
         teacher_forcing: bool = False,
         name: str | None = None,
+        indices: TensorValueType | ToBeDetermined = TBD,
+        **kwargs,
     ) -> None:
         super().__init__(name=name)
+        self.factory_inputs = {"indices": indices, **kwargs}
 
         # Encoder Model
         encoder = ManyToOne(
@@ -1792,8 +2009,11 @@ class EncoderDecoderInference(Model):
         max_input_sequence_length: int,
         max_target_sequence_length: int,
         name: str | None = None,
+        indices: TensorValueType | ToBeDetermined = TBD,
+        **kwargs,
     ) -> None:
         super().__init__(name=name)
+        self.factory_inputs = {"indices": indices, **kwargs}
 
         # Encoder Model
         encoder = ManyToOne(
@@ -1840,8 +2060,12 @@ class EncoderDistanceMatrix(Model):
         get_final_distance: bool = True,
         robust: bool = True,
         name: str | None = None,
+        input1: TensorValueType | ToBeDetermined = TBD,
+        input2: TensorValueType | ToBeDetermined = TBD,
+        **kwargs,
     ) -> None:
         super().__init__(name=name)
+        self.factory_inputs = {"input1": input1, "input2": input2, **kwargs}
         self.factory_args = {"get_final_distance": get_final_distance, "robust": robust}
 
         dist_model = DistanceMatrix()
@@ -1890,9 +2114,16 @@ class PolynomialRegression(Model):
     output: Connection
 
     def __init__(
-        self, degree: int, dimension: int | None = None, name: str | None = None
+        self,
+        degree: int,
+        dimension: int | None = None,
+        name: str | None = None,
+        input: TensorValueType | ToBeDetermined = TBD,
+        w: TensorValueType | ToBeDetermined = TBD,
+        b: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
+        self.factory_inputs = {"input": input, "w": w, "b": b}
         self.factory_args = {"degree": degree, "dimension": dimension}
 
         linear_model = Linear(dimension=dimension)
@@ -1924,10 +2155,21 @@ class MDSCore(Model):
     requires_norm: bool = True
 
     def __init__(
-        self, exact_distances: bool = True, robust: bool = True, name: str | None = None
+        self,
+        exact_distances: bool = True,
+        robust: bool = True,
+        name: str | None = None,
+        distances: TensorValueType | ToBeDetermined = TBD,
+        pred_distances: TensorValueType | ToBeDetermined = TBD,
+        norm: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         self.factory_args = {"exact_distances": exact_distances, "robust": robust}
         super().__init__(name=name)
+        self.factory_inputs = {
+            "distances": distances,
+            "pred_distances": pred_distances,
+            "norm": norm,
+        }
 
         # Prepare models used in MDS.
         subtract_model = Subtract()
@@ -2018,8 +2260,16 @@ class TSNECore(Model):
         calculate_p_joint: bool = False,
         perplexity: float = 20.0,
         name: str | None = None,
+        distances: TensorValueType | ToBeDetermined = TBD,
+        pred_distances: TensorValueType | ToBeDetermined = TBD,
+        p_joint: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
+        self.factory_inputs = {
+            "distances": distances,
+            "pred_distances": pred_distances,
+            "p_joint": p_joint,
+        }
         self.factory_args = {
             "exact_distances": exact_distances,
             "perplexity": perplexity,
@@ -2126,9 +2376,18 @@ class DistanceEncoder(Model):
         base_model: MDSCore | TSNECore,
         input_type: str = "distances",
         name: str | None = None,
+        input: TensorValueType | ToBeDetermined = TBD,
+        coords: TensorValueType | ToBeDetermined = TBD,
+        norm: TensorValueType | ToBeDetermined = TBD,
+        predicted_coords: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
-
+        self.factory_inputs = {
+            "input": input,
+            "coords": coords,
+            "norm": norm,
+            "predicted_coords": predicted_coords,
+        }
         self.factory_args = {"base_model": base_model, "input_type": input_type}
 
         assert input_type in ["distances", "powered_distances", "points"]
@@ -2226,10 +2485,20 @@ class MDS(DistanceEncoder):
         prediction_dim: int,
         input_type: str = "distances",
         name: str | None = None,
+        input: TensorValueType | ToBeDetermined = TBD,
+        coords: TensorValueType | ToBeDetermined = TBD,
+        norm: TensorValueType | ToBeDetermined = TBD,
+        predicted_coords: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         assert input_type in ["distances", "powered_distances", "points"]
         base_model = MDSCore(exact_distances=(input_type == "distances"))
         super().__init__(base_model=base_model, input_type=input_type, name=name)
+        self.factory_inputs = {
+            "input": input,
+            "coords": coords,
+            "norm": norm,
+            "predicted_coords": predicted_coords,
+        }
         self.factory_args = {"prediction_dim": prediction_dim, "input_type": input_type}
         self._set_shapes({"coords": [None, prediction_dim]})
         self._freeze()
@@ -2271,6 +2540,9 @@ class TSNE(DistanceEncoder):
         preplexity: float = 20.0,
         calculate_p_joint: bool = False,
         name: str | None = None,
+        input: TensorValueType | ToBeDetermined = TBD,
+        norm: TensorValueType | ToBeDetermined = TBD,
+        predicted_coords: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         assert input_type in ["distances", "powered_distances", "points"]
         base_model = TSNECore(
@@ -2279,6 +2551,11 @@ class TSNE(DistanceEncoder):
             exact_distances=(input_type == "distances"),
         )
         super().__init__(base_model=base_model, input_type=input_type, name=name)
+        self.factory_inputs = {
+            "input": input,
+            "norm": norm,
+            "predicted_coords": predicted_coords,
+        }
         self.factory_args = {
             "prediction_dim": prediction_dim,
             "input_type": input_type,
@@ -2313,8 +2590,29 @@ class GaussProcessRegressionCore(Model):
     prediction: Connection
     confidence: Connection
 
-    def __init__(self, name: str | None = None) -> None:
+    def __init__(
+        self,
+        name: str | None = None,
+        s: TensorValueType | ToBeDetermined = TBD,
+        k: TensorValueType | ToBeDetermined = TBD,
+        k_star: TensorValueType | ToBeDetermined = TBD,
+        mu: TensorValueType | ToBeDetermined = TBD,
+        label: TensorValueType | ToBeDetermined = TBD,
+        loss: TensorValueType | ToBeDetermined = TBD,
+        prediction: TensorValueType | ToBeDetermined = TBD,
+        confidence: TensorValueType | ToBeDetermined = TBD,
+    ) -> None:
         super().__init__(name=name)
+        self.factory_inputs = {
+            "label": label,
+            "s": s,
+            "k": k,
+            "k_star": k_star,
+            "mu": mu,
+            "loss": loss,
+            "prediction": prediction,
+            "confidence": confidence,
+        }
         # Prepare models used in GPR.
         size_model = Size(dim=0)
         K_term_eye_model = Eye()
@@ -2416,8 +2714,24 @@ class GPRLoss(Model):
     alpha: Connection
     output: Connection
 
-    def __init__(self, robust: bool = False, name: str | None = None) -> None:
+    def __init__(
+        self,
+        robust: bool = False,
+        name: str | None = None,
+        labels: TensorValueType | ToBeDetermined = TBD,
+        mu: TensorValueType | ToBeDetermined = TBD,
+        L: TensorValueType | ToBeDetermined = TBD,
+        K_term: TensorValueType | ToBeDetermined = TBD,
+        alpha: TensorValueType | ToBeDetermined = TBD,
+    ) -> None:
         super().__init__(name=name)
+        self.factory_inputs = {
+            "labels": labels,
+            "mu": mu,
+            "L": L,
+            "K_term": K_term,
+            "alpha": alpha,
+        }
         self.factory_args = {"robust": robust}
 
         diff_model = Subtract()
@@ -2498,35 +2812,38 @@ class Metric(Model):
         is_pred_one_hot: bool = True,
         is_label_one_hot: bool = True,
         name: str | None = None,
+        pred: TensorValueType | ToBeDetermined = TBD,
+        label: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
+        self.factory_inputs = {"pred": pred, "label": label}
         self.factory_args = {"threshold": threshold}
 
         assert (
             not is_binary or threshold is not None
         ), "Probs must be False if threshold is not None"
 
-        pred: IOKey | Connection = IOKey(name="pred")
-        label: IOKey | Connection = IOKey(name="label")
+        pred_key: IOKey | Connection = IOKey(name="pred")
+        label_key: IOKey | Connection = IOKey(name="label")
 
         if is_label_one_hot:
-            self += ArgMax(axis=-1)(label, output="label_argmax")
-            label = self.label_argmax
+            self += ArgMax(axis=-1)(label_key, output="label_argmax")
+            label_key = self.label_argmax
 
         if is_binary and is_pred_one_hot:
-            self += ArgMax(axis=-1)(pred, output="pred_argmax")
-            pred = self.pred_argmax
+            self += ArgMax(axis=-1)(pred_key, output="pred_argmax")
+            pred_key = self.pred_argmax
         elif is_binary and not is_pred_one_hot:
-            self += Greater()(left=pred, right=threshold, output="greater_out")
+            self += Greater()(left=pred_key, right=threshold, output="greater_out")
             self += Where()(cond="greater_out", input1=1, input2=0, output="pred_comp")
-            pred = self.pred_comp
+            pred_key = self.pred_comp
         elif is_pred_one_hot:
-            self += ArgMax(axis=-1)(pred, output="pred_argmax")
-            pred = self.pred_argmax
+            self += ArgMax(axis=-1)(pred_key, output="pred_argmax")
+            pred_key = self.pred_argmax
 
-        result = pred - label
-        self += Buffer()(input=pred, output=IOKey("pred_formatted"))
-        self += Buffer()(input=label, output=IOKey("label_formatted"))
+        result = pred_key - label_key
+        self += Buffer()(input=pred_key, output=IOKey("pred_formatted"))
+        self += Buffer()(input=label_key, output=IOKey("label_formatted"))
         self += Buffer()(input=result, output=IOKey("output"))
 
         self.label.set_differentiable(False)
@@ -2564,8 +2881,11 @@ class Accuracy(Model):
         is_pred_one_hot: bool = True,
         is_label_one_hot: bool = True,
         name: str | None = None,
+        pred: TensorValueType | ToBeDetermined = TBD,
+        label: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
+        self.factory_inputs = {"pred": pred, "label": label}
         self += Metric(
             threshold=threshold,
             is_binary=is_binary,
@@ -2616,8 +2936,11 @@ class Precision(Model):
         is_pred_one_hot: bool = True,
         is_label_one_hot: bool = True,
         name: str | None = None,
+        pred: TensorValueType | ToBeDetermined = TBD,
+        label: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
+        self.factory_inputs = {"pred": pred, "label": label}
         self.factory_args = {"threshold": threshold}
 
         assert average in [
@@ -2756,8 +3079,11 @@ class Recall(Model):
         is_pred_one_hot: bool = True,
         is_label_one_hot: bool = True,
         name: str | None = None,
+        pred: TensorValueType | ToBeDetermined = TBD,
+        label: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
+        self.factory_inputs = {"pred": pred, "label": label}
         self.factory_args = {"threshold": threshold}
 
         assert average in [
@@ -2896,8 +3222,11 @@ class F1(Model):
         is_pred_one_hot: bool = True,
         is_label_one_hot: bool = True,
         name: str | None = None,
+        pred: TensorValueType | ToBeDetermined = TBD,
+        label: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
+        self.factory_inputs = {"pred": pred, "label": label}
         self.factory_args = {"threshold": threshold}
 
         assert average in [
@@ -3028,24 +3357,30 @@ class AUC(Model):
     label_argmax: Connection
 
     def __init__(
-        self, n_classes: int, is_label_one_hot: bool = True, name: str | None = None
+        self,
+        n_classes: int,
+        is_label_one_hot: bool = True,
+        name: str | None = None,
+        pred: TensorValueType | ToBeDetermined = TBD,
+        label: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
+        self.factory_inputs = {"pred": pred, "label": label}
 
         assert n_classes > 0, ""
         assert isinstance(n_classes, int)
 
-        label: IOKey | Connection = IOKey(name="label")
-        pred: IOKey | Connection = IOKey(name="pred")
+        label_key: IOKey | Connection = IOKey(name="label")
+        pred_key: IOKey | Connection = IOKey(name="pred")
 
         if is_label_one_hot:
-            self += ArgMax(axis=-1)(label, output="label_argmax")
-            label = self.label_argmax
+            self += ArgMax(axis=-1)(label_key, output="label_argmax")
+            label_key = self.label_argmax
 
         auc_score = None
         for class_idx in range(n_classes):
-            class_label = label == class_idx
-            pred_class = pred[:, class_idx] if n_classes != 1 else pred
+            class_label = label_key == class_idx
+            pred_class = pred_key[:, class_idx] if n_classes != 1 else pred_key
 
             self += AUCCore()(pred_class, class_label, f"auc_core_{class_idx}")
             self += Trapezoid()(
@@ -3080,8 +3415,11 @@ class SiLU(Model):
     input: Connection
     output: Connection
 
-    def __init__(self, name: str | None = None) -> None:
+    def __init__(
+        self, name: str | None = None, input: TensorValueType | ToBeDetermined = TBD
+    ) -> None:
         super().__init__(name=name)
+        self.factory_inputs = {"input": input}
 
         self += Minus()(input="input", output="minus")
         self += Exponential()(input="minus", output="exp")
