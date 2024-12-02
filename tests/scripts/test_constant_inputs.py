@@ -632,10 +632,9 @@ def test_scalar_1():
     )
     with pytest.raises(ValueError) as err_info:
         model1 += model2(left_2=add_1.output)
+
     assert str(err_info.value) == (
-        "An input of the extending model tries to write "
-        "to an output connection in the extended model. "
-        "Multi-write error!"
+        "Given connections are both output connections. Multi-write error!"
     )
 
 
@@ -652,9 +651,7 @@ def test_scalar_1_set_values():
     with pytest.raises(ValueError) as err_info:
         model1 += model2(left_2=add_1.output)
     assert str(err_info.value) == (
-        "An input of the extending model tries to write "
-        "to an output connection in the extended model. "
-        "Multi-write error!"
+        "Given connections are both output connections. Multi-write error!"
     )
 
 
@@ -678,10 +675,7 @@ def test_scalar_2_set_values():
             {"left": [4.0, 5.0], "right": [8.0, 9.0], "output": [7.0, 8.0]}
         )
 
-    assert (
-        str(err_info.value)
-        == "Given connections are both output connections. Multi-write error!"
-    )
+    assert str(err_info.value) == "\"Given key: 'output' is not an input key!\""
 
 
 def test_scalar_3():
@@ -691,6 +685,7 @@ def test_scalar_3():
     model1 += add_2
     with pytest.raises(KeyError) as err_info:
         model1 += add_1(left="left", right="right", output=[add_2.left, 4.0])
+
     assert str(err_info.value) == (
         "'output key is an output of the model, output values could not be "
         "set in extend.'"
@@ -706,10 +701,7 @@ def test_scalar_3_set_values():
         model1 += add_1(left="left", right="right", output="output")
         model1.set_values({"output": [add_2.left, 4.0]})
 
-    assert (
-        str(err_info.value)
-        == "Given connections are both output connections. Multi-write error!"
-    )
+    assert str(err_info.value) == "\"Given key: 'output' is not an input key!\""
 
 
 def test_scalar_4():
@@ -730,10 +722,7 @@ def test_scalar_4_set_values():
         model1 += add_1(left="left", right="right", output="output")
         model1.set_values({"output": 3.0})
 
-    assert (
-        str(err_info.value)
-        == "Given connections are both output connections. Multi-write error!"
-    )
+    assert str(err_info.value) == "\"Given key: 'output' is not an input key!\""
 
 
 def test_static_1():
@@ -748,10 +737,8 @@ def test_static_1():
     model1 += add_1(left=[2.0, 3.0], right="right", output=IOKey(name="output"))
     with pytest.raises(Exception) as err_info:
         model1.set_values({add_1.left: [3.0, 4.0]})
-    assert (
-        str(err_info.value)
-        == "Given connections are both output connections. Multi-write error!"
-    )
+
+    assert str(err_info.value) == "\"Given key: '$2' is not an input key!\""
 
 
 def test_static_2():

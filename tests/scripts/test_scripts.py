@@ -7423,3 +7423,18 @@ def test_empty_call_vs_direct_model_extending():
     model2 += LeakyRelu()()
 
     assert_models_equal(model1, model2)
+
+
+def test_use_valued_connection():
+    add1 = Model() + Add()(left="left", right="right", output="output")
+    add1.set_values(left=1)
+    add2 = Subtract()
+    con = mithril.Connect(add2.left, key=mithril.IOKey("in1"))
+
+    model = Model()
+    model += add2(right="in2", output=IOKey("output2"))
+    model += add1(left=con, right=add2.output, output=IOKey("output"))
+    pm = mithril.compile(model, backend=JaxBackend())
+    results = pm.evaluate({"in2": JaxBackend().array([2.0])})
+    assert results["output"] == 0
+    assert results["output2"] == -1

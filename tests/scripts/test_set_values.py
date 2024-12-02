@@ -14,9 +14,19 @@
 
 import pytest
 
-import mithril
+import mithril as ml
 from mithril import JaxBackend
-from mithril.models import TBD, Add, Connection, IOKey, Linear, Mean, Model, Relu, Shape
+from mithril.models import (
+    TBD,
+    Add,
+    Connection,
+    IOKey,
+    Linear,
+    Mean,
+    Model,
+    Relu,
+    Shape,
+)
 
 from ..utils import check_evaluations, compare_models, init_params
 from .test_utils import assert_results_equal
@@ -62,8 +72,8 @@ def test_1():
     # it adds ToTensor first and then Linear. Others all add Linear
     # first and then ToTensor while setting values. So we can check
     # physical model evaluations in order to compare.
-    pm_1 = mithril.compile(model_1, backend=backend, constant_keys=data)
-    pm_2 = mithril.compile(model_4, backend=backend, constant_keys=data)
+    pm_1 = ml.compile(model_1, backend=backend, constant_keys=data)
+    pm_2 = ml.compile(model_4, backend=backend, constant_keys=data)
     # Initialize parameters.
     params_1, params_2 = init_params(backend, pm_1, pm_2)
     # Check evaluations.
@@ -77,7 +87,7 @@ def test_set_values_scalar_1():
     model += mean_model(input="input", output=IOKey("output", shape=[2, 2]))
     model.set_values({mean_model.axis: 1})
 
-    pm = mithril.compile(model=model, backend=JaxBackend())
+    pm = ml.compile(model=model, backend=JaxBackend())
     params = {"input": backend.ones(2, 2)}
     data: dict = {}
     gradients = {"output": backend.ones(2)}
@@ -99,7 +109,7 @@ def test_set_values_scalar_1_kwargs_arg():
     model += mean_model(input="input", output=IOKey("output", shape=[2, 2]))
     mean_model.set_values(axis=1)
 
-    pm = mithril.compile(model=model, backend=JaxBackend())
+    pm = ml.compile(model=model, backend=JaxBackend())
     params = {"input": backend.ones(2, 2)}
     data: dict = {}
     gradients = {"output": backend.ones(2)}
@@ -123,7 +133,7 @@ def test_set_values_scalar_2():
     )
     model.set_values({model.axis1: 1})  # type: ignore
 
-    pm = mithril.compile(model=model, backend=JaxBackend())
+    pm = ml.compile(model=model, backend=JaxBackend())
     params = {"input": backend.ones(2, 2)}
     data: dict = {}
     gradients = {"output": backend.ones(2)}
@@ -147,7 +157,7 @@ def test_set_values_scalar_3():
     )
     model.set_values({"axis1": 1})
 
-    pm = mithril.compile(model=model, backend=JaxBackend())
+    pm = ml.compile(model=model, backend=JaxBackend())
     params = {"input": backend.ones(2, 2)}
     data: dict = {}
     gradients = {"output": backend.ones(2)}
@@ -243,7 +253,7 @@ def test_set_values_tensor_1():
     model2 += add_model_2(left="input1", right="input2", output="sub_input")
     add_model_2.set_values({"right": [2.0]})
     model2.set_values({"input1": [3.0]})
-    pm = mithril.compile(model=model2, backend=JaxBackend())
+    pm = ml.compile(model=model2, backend=JaxBackend())
 
     ref_outputs = {"output": backend.array([8.0])}
 
@@ -266,7 +276,7 @@ def test_set_values_tensor_1_kwargs_arg():
     model2 += add_model_2(left="input1", right="input2", output="sub_input")
     # add_model_2.set_values({"right": [2.0]})
     model2.set_values({"input1": [3.0]}, input2=[2.0])
-    pm = mithril.compile(model=model2, backend=JaxBackend())
+    pm = ml.compile(model=model2, backend=JaxBackend())
 
     ref_outputs = {"output": backend.array([8.0])}
 
@@ -289,7 +299,7 @@ def test_set_values_tensor_2():
     model2 += add_model_2(left="input1", right="input2", output="sub_input")
     add_model_2.set_values({"right": [2.0]})
     model2.set_values({"input1": [3.0]})
-    pm = mithril.compile(model=model2, backend=JaxBackend())
+    pm = ml.compile(model=model2, backend=JaxBackend())
 
     ref_outputs = {"output": backend.array([8.0])}
 
@@ -312,7 +322,7 @@ def test_set_values_tensor_3():
     model2 += add_model_2(left="input1", right="input2", output="sub_input")
     add_model_2.set_values({model2.input2: [2.0]})  # type: ignore
     model2.set_values({add_model_2.left: [3.0]})
-    pm = mithril.compile(model=model2, backend=JaxBackend())
+    pm = ml.compile(model=model2, backend=JaxBackend())
 
     ref_outputs = {"output": backend.array([8.0])}
 
@@ -332,10 +342,8 @@ def test_set_values_tensor_4():
 
     with pytest.raises(Exception) as err_info:
         model.set_values({"sub_out_2": [2, 3, 4]})
-    assert (
-        str(err_info.value)
-        == "Given connections are both output connections. Multi-write error!"
-    )
+
+    assert str(err_info.value) == "\"Given key: 'sub_out_2' is not an input key!\""
 
 
 def test_set_values_tensor_5():
@@ -349,10 +357,8 @@ def test_set_values_tensor_5():
 
     with pytest.raises(Exception) as err_info:
         model.set_values({"output": [2, 3, 4]})
-    assert (
-        str(err_info.value)
-        == "Given connections are both output connections. Multi-write error!"
-    )
+
+    assert str(err_info.value) == "\"Given key: 'output' is not an input key!\""
 
 
 def test_set_values_tensor_6():
@@ -366,7 +372,5 @@ def test_set_values_tensor_6():
 
     with pytest.raises(Exception) as err_info:
         model.set_values({relu2.output: [2, 3, 4]})
-    assert (
-        str(err_info.value)
-        == "Given connections are both output connections. Multi-write error!"
-    )
+
+    assert str(err_info.value) == "\"Given key: 'sub_out_2' is not an input key!\""
