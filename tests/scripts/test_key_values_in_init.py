@@ -15,7 +15,7 @@
 import pytest
 
 import mithril as ml
-from mithril.models import Add, Linear, Model
+from mithril.models import Add, Model
 from mithril.utils.utils import OrderedSet
 
 
@@ -294,16 +294,6 @@ def test_integration_call_arg_connect_key_none():
     assert pm.evaluate(data={"in2": 2})["output"] == backend.array(4.0)
 
 
-add1 = Model() + Add()(left="left", right="right", output="output")
-# add1.set_values(left=1)
-add2 = Add()
-con = ml.Connect(add2.left, key=ml.IOKey("in1"))
-
-model = Model()
-model += add2(right="in2")
-model += add1(left=con, right=add2.output, output="output")
-
-
 def test_integration_call_arg_connect_key_value_tbd():
     add1 = Add(left=1)
     add2 = Add()
@@ -367,14 +357,3 @@ def test_integration_call_arg_factory_val_tbd():
     assert pm.evaluate(params={"in1": backend.array(1.0), "in2": backend.array(2.0)})[
         "output"
     ] == backend.array(3.0)
-
-    lin = Linear(b=[1.0])
-    lin.summary()
-
-    model = Model()
-    model += lin
-    model.summary()
-
-    model = Model()
-    model += Add(left=1.0)
-    model.summary()

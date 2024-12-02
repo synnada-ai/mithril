@@ -87,33 +87,35 @@ class BaseModel(abc.ABC):
     factory_args: dict[str, Any] = {}
 
     def __call__(self, **kwargs: ConnectionType) -> ExtendInfo:
-        # TODO: discuss if updating kwargs is ok or not?
-        _kwargs = {key: value for key, value in kwargs.items()}
         for key, val in self.factory_inputs.items():
             if val is not TBD:
-                if key not in _kwargs or (con := _kwargs[key]) is NOT_GIVEN:
-                    _kwargs[key] = val  # type: ignore
+                if key not in kwargs or (con := kwargs[key]) is NOT_GIVEN:
+                    kwargs[key] = val  # type: ignore
                     continue
                 match con:
                     case Connection():
-                        _kwargs[key] = Connect(con, key=IOKey(value=val))
+                        kwargs[key] = Connect(con, key=IOKey(value=val))
                         # TODO: Maybe we could check con's value if matches with val
-                    case instance if isinstance(
-                        instance, MainValueInstance
-                    ) and con != val:
+                    case item if isinstance(item, MainValueInstance) and con != val:
                         raise ValueError(
                             f"Given value {con} for local key: '{key}' "
                             f"has already being set to {val}!"
                         )
                     case str():
-                        _kwargs[key] = IOKey(con, value=val)
+                        kwargs[key] = IOKey(con, value=val)
                     case IOKey():
                         if con._value is not TBD and con._value != val:
                             raise ValueError(
                                 f"Given IOKey for local key: '{key}' is not valid!"
                             )
                         else:
-                            con._value = val
+                            kwargs[key] = IOKey(
+                                name=con._name,
+                                value=val,
+                                shape=con._shape,
+                                type=con._type,
+                                expose=con._expose,
+                            )
                     case Connect():
                         if (io_key := con.key) is not None:
                             if io_key._value is not TBD and io_key._value != val:
@@ -124,13 +126,14 @@ class BaseModel(abc.ABC):
                             else:
                                 io_key._value = val
                         else:
-                            con.key = IOKey(value=val)
+                            io_key = IOKey(value=val)
+                            kwargs[key] = Connect(*con.connections, key=io_key)
                     case ExtendTemplate():
                         raise ValueError(
                             "Multi-write detected for a valued "
                             f"local key: '{key}' is not valid!"
                         )
-        return ExtendInfo(self, _kwargs)
+        return ExtendInfo(self, kwargs)
 
     def __init__(self, name: str | None = None, enforce_jit: bool = True) -> None:
         self.parent: BaseModel | None = (

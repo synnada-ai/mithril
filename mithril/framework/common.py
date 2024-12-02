@@ -214,7 +214,7 @@ MainValueInstance = (
 
 
 _TensorTypes = int | float | Constant | tuple
-TensorValueType = _TensorTypes | tuple[_TensorTypes, ...] | list[_TensorTypes]
+TensorValueType = _TensorTypes | tuple["TensorValueType", ...] | list["TensorValueType"]
 
 
 LossKey = "loss"
