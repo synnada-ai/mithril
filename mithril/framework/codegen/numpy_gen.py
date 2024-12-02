@@ -101,6 +101,10 @@ class NumpyCodeGen(PythonCodeGen):
         ) -> (
             dict[str, np.ndarray] | tuple[dict[str, np.ndarray], dict[str, np.ndarray]]
         ):
+            if params is None:
+                params = {}
+            if data is None:
+                data = {}
             # TODO: Consider not unioning batch data (data) into self.data
             # If evaluate_gradients called directly, first call evaluate.
             cached_data = self.pm.data_store.data_values

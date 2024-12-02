@@ -1198,12 +1198,10 @@ class Model(BaseModel):
             c_input_obj = self.conns.get_con_by_metadata(c_input.data.metadata)
             if c_input_obj not in self.dependency_map._local_output_dependency_map:
                 # Update canonical input with model canonical input
-                if (
-                    c_input_obj is None
-                    or c_input_obj not in self.conns.input_connections
-                ):
+                if c_input_obj not in self.conns.input_connections:
                     self._canonical_input = NOT_AVAILABLE
                 else:
+                    assert c_input_obj is not None
                     self._canonical_input = c_input_obj
 
             elif (

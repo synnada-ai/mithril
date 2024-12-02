@@ -284,19 +284,18 @@ def connection_to_dict(
             related_conn := submodel_connections.get(connection.metadata, [])
         ) and model_id not in related_conn:
             key_value = {"connect": [related_conn]}
-        else:
-            if is_valued and connection in model.conns.input_connections:
-                val = connection.metadata.data.value
-                assert not isinstance(val, ToBeDetermined)
-                if connection.key.startswith("$"):
-                    key_value = val
-                else:
-                    key_value = {"name": connection.key, "value": val, "expose": True}
-            elif not connection.key.startswith("$"):
-                if connection.key in model.conns.output_keys:
-                    key_value = {"name": connection.key, "expose": True}
-                else:
-                    key_value = connection.key
+        elif is_valued and connection in model.conns.input_connections:
+            val = connection.metadata.data.value
+            assert not isinstance(val, ToBeDetermined)
+            if connection.key.startswith("$"):
+                key_value = val
+            else:
+                key_value = {"name": connection.key, "value": val, "expose": True}
+        elif not connection.key.startswith("$"):
+            if connection.key in model.conns.output_keys:
+                key_value = {"name": connection.key, "expose": True}
+            else:
+                key_value = connection.key
 
         if key_value is not None:
             connection_dict[key] = key_value

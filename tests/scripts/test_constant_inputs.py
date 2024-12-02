@@ -2541,3 +2541,16 @@ def test_multi_write_to_local_output_key():
         "tries to write to an output connection of the "
         "extending model. Multi-write error!"
     )
+
+
+def test_all_inputs_static():
+    model = Model()
+    model += Mean()(input=[1.0, 2])
+    backend = NumpyBackend()
+    comp_model = mithril.compile(model=model, backend=backend)
+    outputs = comp_model.evaluate()
+    grads = comp_model.evaluate_gradients(
+        output_gradients={"output": backend.array(1.0)}
+    )
+    assert outputs["output"] == backend.array(1.5)
+    assert grads == {}
