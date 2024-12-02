@@ -13,11 +13,13 @@
 # limitations under the License.
 
 
+from typing import Any
+
 from ...backends.backend import Backend
 from .code_gen import CodeGen
 from .python_gen import PythonCodeGen
 
-code_gen_map: dict[type[Backend], type[CodeGen]] = {}
+code_gen_map: dict[type[Backend[Any]], type[CodeGen[Any]]] = {}
 
 try:
     from ...backends.with_autograd.jax_backend import JaxBackend

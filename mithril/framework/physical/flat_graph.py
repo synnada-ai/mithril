@@ -16,7 +16,6 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from functools import partial
 
 from ...core import DataType
 from ..common import (
@@ -77,7 +76,7 @@ class Node:
     def __hash__(self) -> int:
         return hash(id(self))
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: object) -> bool:
         return id(self) == id(other)
 
     def __repr__(self) -> str:
@@ -128,7 +127,7 @@ class FlatGraph(GenericDataType[DataType]):
             | set(self.output_dict.values())
         )
 
-    def add_value(self, model: PrimitiveModel, keys: dict) -> bool:
+    def add_value(self, model: PrimitiveModel, keys: dict[str, str]) -> bool:
         output_key = keys[PrimitiveModel.output_key]
         keys = {
             key: self._temp_connection_info.get(value, value)
@@ -249,7 +248,7 @@ class FlatGraph(GenericDataType[DataType]):
 
     def _reorder_connections(self):
         queue = list(self._input_keys)
-        visited_keys = []
+        visited_keys: list[str] = []
 
         while queue:
             key = queue.pop()
@@ -277,7 +276,7 @@ class FlatGraph(GenericDataType[DataType]):
         for key in self._input_keys:
             visited_keys.remove(key)
 
-        nodes = {}
+        nodes: dict[PrimitiveModel, Node] = {}
         for key in visited_keys:
             model = self.get_model(key)
             if model is None:
@@ -314,8 +313,8 @@ class FlatGraph(GenericDataType[DataType]):
         }
 
     def _update_connection_keys(self, connection: Connection):
-        source_keys = []
-        target_keys = []
+        source_keys: list[str] = []
+        target_keys: list[str] = []
 
         if connection.node is not None:
             for inner_key, conn in connection.node.connections.items():
@@ -325,7 +324,7 @@ class FlatGraph(GenericDataType[DataType]):
                 source_keys.append(key)
 
         def get_target_keys(connection: Connection):
-            target_keys = []
+            target_keys: list[str] = []
             for conn in connection.connections:
                 target_keys.append(conn.key)
 
@@ -359,7 +358,7 @@ class FlatGraph(GenericDataType[DataType]):
 
         return conn.node.model
 
-    def get_model_out_key(self, model):
+    def get_model_out_key(self, model: PrimitiveModel):
         node = self.nodes.get(model, None)
         if node is None:
             return None
@@ -374,8 +373,8 @@ class FlatGraph(GenericDataType[DataType]):
     def get_connection(self, key: str):
         return self.connections.get(key, None)
 
-    def get_source_keys(self, key: str, include_outputs: bool = False):
-        source_keys = []
+    def get_source_keys(self, key: str, include_outputs: bool = False) -> list[str]:
+        source_keys: list[str] = []
         if key in self.connections:
             source_keys += self.connections[key].source_keys
 
@@ -387,7 +386,7 @@ class FlatGraph(GenericDataType[DataType]):
 
         return source_keys
 
-    def get_target_keys(self, key: str, include_outputs: bool = False):
+    def get_target_keys(self, key: str, include_outputs: bool = False) -> list[str]:
         target_keys = (
             list(self.connections[key].target_keys) if key in self.connections else []
         )
@@ -403,10 +402,10 @@ class FlatGraph(GenericDataType[DataType]):
 
     def prune_duplicate_nodes(
         self,
-        data: dict[str, Tensor | Scalar],
+        data: dict[str, Tensor[DataType] | Scalar],
         constant_keys: Mapping[str, DataType | MainValueType],
-    ):
-        pruned_keys = {}
+    ) -> dict[str, str]:
+        pruned_keys: dict[str, str] = {}
         for node in list(self.nodes.values()):
             conn = self._is_duplicate(node, data, constant_keys)
             if conn is None:
@@ -421,14 +420,14 @@ class FlatGraph(GenericDataType[DataType]):
     def _is_duplicate(
         self,
         node: Node,
-        data: dict[str, Tensor | Scalar],
+        data: dict[str, Tensor[DataType] | Scalar],
         constant_keys: Mapping[str, DataType | MainValueType],
     ):
         if node.model is None:
             return
 
         # Model id is a unique key for unique operation
-        model_id = []
+        model_id: list[str] = []
         for key, conn in node.connections.items():
             # We do not consider output and cache keys, when determining model id.
             if key == "output" or "cache" in key:
@@ -445,7 +444,7 @@ class FlatGraph(GenericDataType[DataType]):
             if not isinstance(value, ToBeDetermined):
                 for value_key, ref_value in self.value_table.items():
                     if type(ref_value) is not type(value):
-                        is_equal = False
+                        is_equal: bool = False
                     # Check tensors are equal
                     elif self.is_tensor_type(ref_value) and self.is_tensor_type(value):
                         is_equal = (
@@ -556,7 +555,7 @@ class FlatGraph(GenericDataType[DataType]):
     def infer_ignore_step(
         self, key: str, keys: set[str], queue: set[str], from_source: bool
     ):
-        forward_key_fn: Callable | partial
+        forward_key_fn: Callable[[str, bool], list[str]]
         if from_source:
             forward_key_fn = self.get_target_keys
             backward_key_fn = self.get_source_keys

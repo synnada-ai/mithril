@@ -32,7 +32,7 @@ class CBackend(Backend[PyArray]):
         self._device = "cpu"
 
     @property
-    def is_manualgrad(self):
+    def is_manualgrad(self) -> bool:
         return True
 
     def set_seed(self, seed: int):
