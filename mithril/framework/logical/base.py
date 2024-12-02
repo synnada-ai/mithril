@@ -92,8 +92,7 @@ class BaseModel(abc.ABC):
         for key, val in self.factory_inputs.items():
             if val is not TBD:
                 if key not in _kwargs or (con := _kwargs[key]) is NOT_GIVEN:
-                    assert isinstance(val, MainValueType | TensorValueType)
-                    _kwargs[key] = val
+                    _kwargs[key] = val  # type: ignore
                     continue
                 match con:
                     case Connection():
@@ -104,7 +103,7 @@ class BaseModel(abc.ABC):
                     ) and con != val:
                         raise ValueError(
                             f"Given value {con} for local key: '{key}' "
-                            "has already being set to {val}!"
+                            f"has already being set to {val}!"
                         )
                     case str():
                         _kwargs[key] = IOKey(con, value=val)
@@ -120,7 +119,7 @@ class BaseModel(abc.ABC):
                             if io_key._value is not TBD and io_key._value != val:
                                 raise ValueError(
                                     "Given IOKey in Connect for "
-                                    "local key: '{key}' is not valid!"
+                                    f"local key: '{key}' is not valid!"
                                 )
                             else:
                                 io_key._value = val
@@ -129,7 +128,7 @@ class BaseModel(abc.ABC):
                     case ExtendTemplate():
                         raise ValueError(
                             "Multi-write detected for a valued "
-                            "local key: '{key}' is not valid!"
+                            f"local key: '{key}' is not valid!"
                         )
         return ExtendInfo(self, _kwargs)
 
