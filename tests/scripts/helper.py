@@ -200,7 +200,11 @@ def assert_models_equal(model1: BaseModel, model2: BaseModel):
             key := model1._canonical_output.key, key
         ) == model2_keys.get(key := model2._canonical_output.key, key)
 
+    # NOTE: Below assertions will be uncommented after converting
+    # model's dag from topological order to insertion order.
+
     # assert model1._input_keys == model2._input_keys
+    # assert model1.conns.latent_input_keys == model2.conns.latent_input_keys
     assert model1.conns.output_keys == model2.conns.output_keys
 
     # assert model1.non_differentiables.keys() == model2.non_differentiables.keys()

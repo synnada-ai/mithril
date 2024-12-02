@@ -94,7 +94,7 @@ class BaseModel(abc.ABC):
                     continue
                 match con:
                     case Connection():
-                        kwargs[key] = Connect(con, key=IOKey(value=val))
+                        kwargs[key] = Connect(con, key=IOKey(value=val, expose=False))
                         # TODO: Maybe we could check con's value if matches with val
                     case item if isinstance(item, MainValueInstance) and con != val:
                         raise ValueError(
@@ -102,7 +102,7 @@ class BaseModel(abc.ABC):
                             f"has already being set to {val}!"
                         )
                     case str():
-                        kwargs[key] = IOKey(con, value=val)
+                        kwargs[key] = IOKey(con, value=val, expose=False)
                     case IOKey():
                         if con._value is not TBD and con._value != val:
                             raise ValueError(
@@ -126,7 +126,7 @@ class BaseModel(abc.ABC):
                             else:
                                 io_key._value = val
                         else:
-                            io_key = IOKey(value=val)
+                            io_key = IOKey(value=val, expose=False)
                             kwargs[key] = Connect(*con.connections, key=io_key)
                     case ExtendTemplate():
                         raise ValueError(
@@ -649,8 +649,9 @@ class DependencyMap:
                         if model_dag.get(conn.key) is not None
                     ]
                 )
-
-                self._local_input_dependency_map[conn] = [(model, specs)]
+                self._local_input_dependency_map.setdefault(conn, []).append(
+                    (model, specs)
+                )
                 updated_conns.add(conn)
             else:
                 specs = OrderedSet(

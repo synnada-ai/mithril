@@ -642,8 +642,8 @@ def test_add_loss_compile_shape_1():
         "$_Mean_2_output": [],
         "input": ["(V1, ...)"],
         "target": ["(V3, ...)"],
-        "$axis": None,
-        "$keepdim": None,
+        "$_Mean_2_axis": None,
+        "$_Mean_2_keepdim": None,
     }
 
     assert ctx2.shapes == ctx1.shapes == initial_shapes
@@ -667,8 +667,8 @@ def test_add_loss_compile_shape_1():
         "_Mean_2_output": [],
         "input": [None, "..."],
         "target": [None, "..."],
-        "axis": None,
-        "keepdim": None,
+        "_Mean_2_axis": None,
+        "_Mean_2_keepdim": None,
         "final_cost": [],
     }
 
@@ -678,7 +678,7 @@ def test_add_loss_compile_shape_1():
         "_Mean_2_output": [],
         "input": ["..."],
         "target": ["..."],
-        "axis": None,
-        "keepdim": None,
+        "_Mean_2_axis": None,
+        "_Mean_2_keepdim": None,
         "final_cost": [],
     }

@@ -132,16 +132,16 @@ def test_default_given_extend_4_numpy_error():
     TypeError.
     """
     model = Model()
-    model1 = ReduceMult(axis=None)
+    model1 = ReduceMult(axis=TBD)
     model2 = Mean(axis=1)
-    model += model1(axis="axis")
+    model += model1(axis=IOKey("axis", value=None))
     with pytest.raises(TypeError) as err_info:
         model += model2(input="input2", axis=model1.axis, output="output")
-    ref_error = (
+
+    assert str(err_info.value) == (
         "Acceptable types are <class 'NoneType'>, "
         "but <class 'int'> type value is provided!"
     )
-    assert str(err_info.value) == ref_error
 
 
 def test_constant_backendvar_numpy():
@@ -150,8 +150,8 @@ def test_constant_backendvar_numpy():
     """
     model = Model()
     mean_model = Mean(axis=TBD)
-    rdc = Mean(axis=0)
-    model += rdc(input="input", axis="axis")
+    rdc = Mean(axis=TBD)
+    model += rdc(input="input", axis=IOKey("axis", value=0))
     model += Multiply()(
         left=rdc.output,
         right=IOKey(value=2.0, name="rhs"),
@@ -163,10 +163,13 @@ def test_constant_backendvar_numpy():
         output=IOKey(name="output"),
     )
     other_model = Model()
-    other_model += Mean()(input="input", axis="axis")
-    with pytest.raises(ValueError) as err_info:
+    other_model += Mean(axis=TBD)(input="input", axis=IOKey("axis", value=None))
+    with pytest.raises(TypeError) as err_info:
         model += other_model(input=model.mult_out, axis=model.axis)  # type: ignore
-    assert str(err_info.value) == "Multi-write detected for a valued input connection!"
+    assert str(err_info.value) == (
+        "Acceptable types are <class 'int'>, "
+        "but <class 'NoneType'> type value is provided!"
+    )
 
 
 def test_type_1():

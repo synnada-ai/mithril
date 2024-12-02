@@ -22,6 +22,7 @@ from ..framework.common import (
     TBD,
     Connection,
     ConnectionType,
+    IOKey,
     TensorValueType,
     ToBeDetermined,
 )
@@ -1158,6 +1159,7 @@ class Flatten(PrimitiveModel):
             "end_dim": Scalar(int, end_dim),
         }
         super().__init__(formula_key="flatten", name=name, **key_definitions)
+        # self.factory_inputs = {"input": input}
         self.factory_inputs = {
             "input": input,
             "start_dim": start_dim,
@@ -2089,8 +2091,10 @@ class ScaledDotProduct(PrimitiveModel):
     ) -> ExtendInfo:
         if (
             not self.use_attn_mask
-            and attn_mask != NOT_GIVEN
+            and attn_mask is not NOT_GIVEN
             and not isinstance(attn_mask, str)
+            and isinstance(attn_mask, IOKey)
+            and attn_mask._value is not None  # TODO: Here will be updated!
         ):
             raise KeyError(
                 "Model does not have 'attn_mask' input. Got attn_mask argument!"

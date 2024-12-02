@@ -1,61 +1,55 @@
 
-                                            Model                                            
----------------------------------------------------------------------------------------------
-Model Name      |                                        Model Keys                          
-                |             ---------------------------------------------------------------
-                |             Keys     : Shapes   : Types              : Connections         
-=============================================================================================
-KernelizedSVM   |   Inputs  : input1   : [u1, u2] : bool | float | int : '$input'            
-                |             input2   : [u3, u2] : bool | float | int : '$input2'           
-                |             $axis    :       -- : int                : 2                   
-                |             $keepdim :       -- : bool               : False               
-                |             $_input  :       -- : float              : -0.5                
-                |             sigma    :     [ 1] : bool | float | int : '$sigma'            
-                |             l_scale  :     [ 1] : bool | float | int : '$l_scale'          
-                |             w        : [u3,  1] : bool | float | int : '$w'                
-                |             b        :     [ 1] : bool | float | int : '$b'                
-                |   -------------------------------------------------------------------------
-                |   Outputs : kernel   : [u1, u3] : float              : --                  
-                |             output   : [u1,  1] : float              : MLP.input           
----------------------------------------------------------------------------------------------
-MLP             |   Inputs  : input    : [u1,  1] : float              : KernelizedSVM.output
-                |             w0       : [ 1,  3] : bool | float | int : '$w0'               
-                |             b0       :     [ 3] : bool | float | int : '$b0'               
-                |             w1       : [ 3,  4] : bool | float | int : '$w1'               
-                |             b1       :     [ 4] : bool | float | int : '$b1'               
-                |             w2       : [ 4,  5] : bool | float | int : '$w2'               
-                |             b2       :     [ 5] : bool | float | int : '$b2'               
-                |             w3       : [ 5,  6] : bool | float | int : '$w3'               
-                |             b3       :     [ 6] : bool | float | int : '$b3'               
-                |             $_input  :       -- : float              : 0.01                
-                |   -------------------------------------------------------------------------
-                |   Outputs : output   : [u1,  6] : float              : '$output'           
----------------------------------------------------------------------------------------------
+                                           Model                                            
+--------------------------------------------------------------------------------------------
+Model Name      |                                       Model Keys                          
+                |             --------------------------------------------------------------
+                |             Keys    : Shapes   : Types              : Connections         
+============================================================================================
+KernelizedSVM   |   Inputs  : input1  : [u1, u2] : bool | float | int : '$input'            
+                |             input2  : [u3, u2] : bool | float | int : '$input2'           
+                |             sigma   :     [ 1] : bool | float | int : '$sigma'            
+                |             l_scale :     [ 1] : bool | float | int : '$l_scale'          
+                |             w       : [u3,  1] : bool | float | int : '$w'                
+                |             b       :     [ 1] : bool | float | int : '$b'                
+                |   ------------------------------------------------------------------------
+                |   Outputs : kernel  : [u1, u3] : float              : --                  
+                |             output  : [u1,  1] : float              : MLP.input           
+--------------------------------------------------------------------------------------------
+MLP             |   Inputs  : input   : [u1,  1] : float              : KernelizedSVM.output
+                |             w0      : [ 1,  3] : bool | float | int : '$w0'               
+                |             b0      :     [ 3] : bool | float | int : '$b0'               
+                |             w1      : [ 3,  4] : bool | float | int : '$w1'               
+                |             b1      :     [ 4] : bool | float | int : '$b1'               
+                |             w2      : [ 4,  5] : bool | float | int : '$w2'               
+                |             b2      :     [ 5] : bool | float | int : '$b2'               
+                |             w3      : [ 5,  6] : bool | float | int : '$w3'               
+                |             b3      :     [ 6] : bool | float | int : '$b3'               
+                |   ------------------------------------------------------------------------
+                |   Outputs : output  : [u1,  6] : float              : '$output'           
+--------------------------------------------------------------------------------------------
 
 
-                                    KernelizedSVM                                     
---------------------------------------------------------------------------------------
-Model Name   |                                      Model Keys                        
-             |             -----------------------------------------------------------
-             |             Keys     : Shapes   : Types              : Connections     
-======================================================================================
-RBFKernel    |   Inputs  : input1   : [u1, u2] : bool | float | int : 'input1'        
-             |             input2   : [u3, u2] : bool | float | int : 'input2'        
-             |             $axis    :       -- : int                : 2               
-             |             $keepdim :       -- : bool               : False           
-             |             $_input  :       -- : float              : -0.5            
-             |             sigma    :     [ 1] : bool | float | int : 'sigma'         
-             |             l_scale  :     [ 1] : bool | float | int : 'l_scale'       
-             |   ---------------------------------------------------------------------
-             |   Outputs : output   : [u1, u3] : bool | float | int : Linear.input    
-             |                                                        'kernel'        
---------------------------------------------------------------------------------------
-Linear       |   Inputs  : input    : [u1, u3] : float              : RBFKernel.output
-             |             w        : [u3,  1] : bool | float | int : 'w'             
-             |             b        :     [ 1] : bool | float | int : 'b'             
-             |   ---------------------------------------------------------------------
-             |   Outputs : output   : [u1,  1] : float              : 'output'        
---------------------------------------------------------------------------------------
+                                    KernelizedSVM                                    
+-------------------------------------------------------------------------------------
+Model Name   |                                     Model Keys                        
+             |             ----------------------------------------------------------
+             |             Keys    : Shapes   : Types              : Connections     
+=====================================================================================
+RBFKernel    |   Inputs  : input1  : [u1, u2] : bool | float | int : 'input1'        
+             |             input2  : [u3, u2] : bool | float | int : 'input2'        
+             |             $_input :       -- : float              : -0.5            
+             |             sigma   :     [ 1] : bool | float | int : 'sigma'         
+             |             l_scale :     [ 1] : bool | float | int : 'l_scale'       
+             |   --------------------------------------------------------------------
+             |   Outputs : output  : [u1, u3] : bool | float | int : Linear.input    
+             |                                                       'kernel'        
+-------------------------------------------------------------------------------------
+Linear       |   Inputs  : input   : [u1, u3] : float              : RBFKernel.output
+             |             w       : [u3,  1] : bool | float | int : 'w'             
+             |             b       :     [ 1] : bool | float | int : 'b'             
+             |   --------------------------------------------------------------------
+             |   Outputs : output  : [u1,  1] : float              : 'output'        
+-------------------------------------------------------------------------------------
 
 
                                        MLP                                        

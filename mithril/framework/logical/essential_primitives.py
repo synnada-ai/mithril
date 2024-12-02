@@ -898,6 +898,7 @@ class Mean(Reduce):
             output=TensorType([("Var_out", ...)], float),
         )
         self.factory_inputs = {"input": input, "axis": axis, "keepdim": keepdim}
+        # self.factory_inputs = {"input": input}
 
 
 class Sum(Reduce):

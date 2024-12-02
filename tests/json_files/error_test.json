@@ -86,7 +86,7 @@
         },
         "error_info": {
             "error_type": "ValueError",
-            "error_message": "Model without input keys could not be compiled."
+            "error_message": "Models with no output keys can not be compiled."
         }
     },
     "test_Composite_shape_mismatch_error": {

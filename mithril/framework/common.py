@@ -146,6 +146,7 @@ class KeyType(Enum):
     INPUT = 1
     OUTPUT = 2
     INTERNAL = 3
+    LATENT_INPUT = 4
 
 
 type FixedValueType = (
@@ -648,7 +649,7 @@ class BaseData:
                 is_diff = self._differentiable | other._differentiable
                 self._differentiable = other._differentiable = is_diff
 
-            if self.is_valued ^ other.is_valued:
+            if self.is_valued or other.is_valued:
                 valued, non_valued = (self, other) if self.is_valued else (other, self)
                 assert isinstance(valued, Tensor | Scalar)
                 assert not isinstance(valued.value, ToBeDetermined)
@@ -1304,11 +1305,20 @@ class Connections:
         return self._connection_dict[KeyType.INTERNAL].values()
 
     @property
+    def latent_input_keys(self):
+        return self._connection_dict[KeyType.LATENT_INPUT].keys()
+
+    @property
+    def latent_input_connections(self):
+        return self._connection_dict[KeyType.LATENT_INPUT].values()
+
+    @property
     def all(self) -> dict[str, ConnectionData]:
         return (
             self._connection_dict[KeyType.INTERNAL]
             | self._connection_dict[KeyType.INPUT]
             | self._connection_dict[KeyType.OUTPUT]
+            | self._connection_dict[KeyType.LATENT_INPUT]
         )
 
     @property
@@ -1362,7 +1372,10 @@ class Connections:
         internals = self._connection_dict[KeyType.INTERNAL]
         inputs = self._connection_dict[KeyType.INPUT]
         outputs = self._connection_dict[KeyType.OUTPUT]
-        return internals.get(key, inputs.get(key, outputs.get(key)))
+        latent_inputs = self._connection_dict[KeyType.LATENT_INPUT]
+        return internals.get(
+            key, inputs.get(key, outputs.get(key, latent_inputs.get(key)))
+        )
 
     def get_con_by_metadata(self, key: IOHyperEdge) -> ConnectionData | None:
         conns = self.metadata_dict.get(key)
