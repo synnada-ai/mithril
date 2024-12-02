@@ -16,6 +16,7 @@ from itertools import product
 
 import numpy as np
 import pytest
+import torch
 
 import mithril
 from mithril import TorchBackend
@@ -294,8 +295,10 @@ def test_9():
     pm = mithril.compile(model=model, backend=backend, jit=False)
 
     res = pm.evaluate(params={"input": backend.ones(5, 5)})
+    out1 = res["output"]
+    assert isinstance(out1, torch.Tensor)
     np.testing.assert_array_equal(
-        res["output"], backend.array(backend.sigmoid(backend.relu(backend.ones(5, 5))))
+        out1, backend.array(backend.sigmoid(backend.relu(backend.ones(5, 5))))
     )
 
 
@@ -309,10 +312,12 @@ def test_10():
     backend = TorchBackend()
     pm = mithril.compile(model=model, backend=backend, jit=False)
     res = pm.evaluate(params={"input": backend.ones(5, 5)})
+    out = res["output"]
+    assert isinstance(out, torch.Tensor)
 
     assert res.keys() == {"output", "middle"}
     np.testing.assert_array_equal(
-        res["output"], backend.array(backend.sigmoid(backend.relu(backend.ones(5, 5))))
+        out, backend.array(backend.sigmoid(backend.relu(backend.ones(5, 5))))
     )
 
 
@@ -326,8 +331,10 @@ def test_11():
     pm = mithril.compile(model=model, backend=backend, jit=False)
 
     res = pm.evaluate(params={"input": backend.ones(5, 5)})
+    out = res["output"]
+    assert isinstance(out, torch.Tensor)
     np.testing.assert_array_equal(
-        res["output"], backend.array(backend.sigmoid(backend.relu(backend.ones(5, 5))))
+        out, backend.array(backend.sigmoid(backend.relu(backend.ones(5, 5))))
     )
 
 
@@ -340,10 +347,12 @@ def test_12():
     backend = TorchBackend()
     pm = mithril.compile(model=model, backend=backend, jit=False)
     res = pm.evaluate(params={"input": backend.ones(5, 5)})
+    out = res["output"]
+    assert isinstance(out, torch.Tensor)
 
     assert res.keys() == {"output"}
     np.testing.assert_array_equal(
-        res["output"], backend.array(backend.sigmoid(backend.relu(backend.ones(5, 5))))
+        out, backend.array(backend.sigmoid(backend.relu(backend.ones(5, 5))))
     )
 
 
@@ -358,14 +367,16 @@ def test_13():
     backend = TorchBackend()
     pm = mithril.compile(model=model, backend=backend, jit=False)
     res = pm.evaluate(params={"input": backend.ones(5, 5)})
+    out1 = res["output1"]
+    assert isinstance(out1, torch.Tensor)
+    out2 = res["output2"]
+    assert isinstance(out2, torch.Tensor)
 
     assert res.keys() == {"output1", "output2"}
     np.testing.assert_array_equal(
-        res["output1"], backend.array(backend.sigmoid(backend.ones(5, 5)))
+        out1, backend.array(backend.sigmoid(backend.ones(5, 5)))
     )
-    np.testing.assert_array_equal(
-        res["output2"], backend.array(backend.relu(backend.ones(5, 5)))
-    )
+    np.testing.assert_array_equal(out2, backend.array(backend.relu(backend.ones(5, 5))))
 
 
 def test_iokey_shapes_1():
@@ -605,11 +616,12 @@ def test_iokey_values_10():
 
     results = pm.evaluate()
     expected_result = np.array(backend.sigmoid(backend.array([1.0, 2.0])))
-
-    np.testing.assert_allclose(results["output"], expected_result, rtol=1e-6, atol=1e-6)
-    np.testing.assert_allclose(
-        results["output2"], expected_result, rtol=1e-6, atol=1e-6
-    )
+    out = results["output"]
+    out2 = results["output2"]
+    assert isinstance(out, torch.Tensor)
+    assert isinstance(out2, torch.Tensor)
+    np.testing.assert_allclose(out, expected_result, rtol=1e-6, atol=1e-6)
+    np.testing.assert_allclose(out2, expected_result, rtol=1e-6, atol=1e-6)
 
 
 def test_iokey_values_11():
@@ -1269,7 +1281,9 @@ def test_iokey_template_6():
     pm._output_keys = {"output"}
 
     res = pm.evaluate(params={"input": backend.ones((3, 4, 5))})
-    np.testing.assert_almost_equal(res["output"], np.ones((4, 5)))
+    out = res["output"]
+    assert isinstance(out, torch.Tensor)
+    np.testing.assert_almost_equal(out, np.ones((4, 5)))
 
 
 def test_iokey_template_7():

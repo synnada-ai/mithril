@@ -14,6 +14,7 @@
 
 import ast
 import keyword
+from typing import Any
 
 from ...backends.backend import Backend
 from ..common import ShapeNode
@@ -22,7 +23,7 @@ key_map_type = dict[str, str]
 
 
 # TODO: This name misleads
-def partial_array_creation_func(backend: Backend, formula_key: str) -> ast.stmt:
+def partial_array_creation_func(backend: Backend[Any], formula_key: str) -> ast.stmt:
     kwargs = [ast.keyword(arg="precision", value=ast.Constant(value=backend.precision))]
 
     # We don't need device in manulgrad(Numpy)

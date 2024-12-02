@@ -136,7 +136,7 @@ def assert_all_backends_device_precision(model: Model):
             assert get_array_precision(randomized_input, _type) == precision
 
         outputs = comp_model.evaluate(randomized_inputs)
-        initial_outputs = outputs.copy()
+        initial_outputs = outputs.copy()  # type: ignore
 
         # Check if outputs have correct device and precision
         for output in outputs.values():
@@ -144,7 +144,8 @@ def assert_all_backends_device_precision(model: Model):
             assert get_array_precision(output, _type) == precision
 
         grads = comp_model.evaluate_gradients(
-            output_gradients=outputs, params=randomized_inputs
+            output_gradients=outputs,  # type: ignore
+            params=randomized_inputs,
         )
 
         # Check if gradients have correct device and precision
@@ -305,11 +306,13 @@ def test_default_given_compile_numpy():
     data = {"axis": None}
 
     result = compiled_model.evaluate(inputs, data)
-    output_gradients = {"output": np.ones_like(result["output"])}
+    out = result["output"]
+    assert isinstance(out, np.ndarray)
+    output_gradients = {"output": np.ones_like(out)}
     compiled_model.evaluate_gradients(
         params=inputs, data=data, output_gradients=output_gradients
     )
-    np.testing.assert_array_equal(expected_result, result["output"])
+    np.testing.assert_array_equal(expected_result, out)
 
 
 def test_default_given_extend_numpy_3():
@@ -334,11 +337,13 @@ def test_default_given_extend_numpy_3():
     data = {"input": np_input}
 
     result = compiled_model.evaluate(inputs, data)
-    output_gradients = {"output": np.ones_like(result["output"])}
+    out = result["output"]
+    assert isinstance(out, np.ndarray)
+    output_gradients = {"output": np.ones_like(out)}
     compiled_model.evaluate_gradients(
         params=inputs, data=data, output_gradients=output_gradients
     )
-    np.testing.assert_array_equal(expected_result, result["output"])
+    np.testing.assert_array_equal(expected_result, out)
 
 
 def test_default_given_extend_numpy_3_set_values():
@@ -363,11 +368,13 @@ def test_default_given_extend_numpy_3_set_values():
     data = {"input": np_input}
 
     result = compiled_model.evaluate(inputs, data)
-    output_gradients = {"output": np.ones_like(result["output"])}
+    out = result["output"]
+    assert isinstance(out, np.ndarray)
+    output_gradients = {"output": np.ones_like(out)}
     compiled_model.evaluate_gradients(
         params=inputs, data=data, output_gradients=output_gradients
     )
-    np.testing.assert_array_equal(expected_result, result["output"])
+    np.testing.assert_array_equal(expected_result, out)
 
 
 def test_constant_given_data_numpy():
@@ -391,11 +398,13 @@ def test_constant_given_data_numpy():
     data = {"axis": 0}
 
     result = compiled_model.evaluate(inputs, data)
-    output_gradients = {"output": np.ones_like(result["output"])}
+    out = result["output"]
+    assert isinstance(out, np.ndarray)
+    output_gradients = {"output": np.ones_like(out)}
     compiled_model.evaluate_gradients(
         params=inputs, data=data, output_gradients=output_gradients
     )
-    np.testing.assert_array_equal(expected_result, result["output"])
+    np.testing.assert_array_equal(expected_result, out)
 
 
 def test_constant_numpy():
@@ -1051,6 +1060,7 @@ def test_bool_tensor_numpy_32():
     model += add_1(left=[7.0, 8.0], right=not_1.output, output=IOKey(name="output"))
     comp_model = mithril.compile(model=model, backend=NumpyBackend())
     output = comp_model.evaluate()["output"]
+    assert isinstance(output, np.ndarray)
     np.testing.assert_allclose(output, ref)
     assert output.dtype == np.float32
 
@@ -1065,6 +1075,7 @@ def test_bool_tensor_numpy_32_set_values():
     model.set_values({model.input: [False, False]})  # type: ignore
     comp_model = mithril.compile(model=model, backend=NumpyBackend())
     output = comp_model.evaluate()["output"]
+    assert isinstance(output, np.ndarray)
     np.testing.assert_allclose(output, ref)
     assert output.dtype == np.float32
 
@@ -1078,6 +1089,7 @@ def test_bool_tensor_numpy_64():
     model += add_1(left=[7.0, 8.0], right=not_1.output, output=IOKey(name="output"))
     comp_model = mithril.compile(model=model, backend=NumpyBackend(precision=64))
     output = comp_model.evaluate()["output"]
+    assert isinstance(output, np.ndarray)
     np.testing.assert_allclose(output, ref)
     assert output.dtype == np.float64
 
@@ -1090,9 +1102,11 @@ def test_bool_tensor_torch_32():
     model += not_1(input=IOKey(value=[False, False], name="input"))
     model += add_1(left=[7.0, 8.0], right=not_1.output, output=IOKey(name="output"))
     comp_model = mithril.compile(model=model, backend=TorchBackend(precision=32))
-    output = comp_model.evaluate()["output"].numpy()
-    np.testing.assert_allclose(output, ref)
-    assert output.dtype == np.float32
+    output = comp_model.evaluate()["output"]
+    assert isinstance(output, torch.Tensor)
+    out = output.numpy()
+    np.testing.assert_allclose(out, ref)
+    assert out.dtype == np.float32
 
 
 def test_bool_tensor_torch_64():
@@ -1103,9 +1117,11 @@ def test_bool_tensor_torch_64():
     model += not_1(input=IOKey(value=[False, False], name="input"))
     model += add_1(left=[7.0, 8.0], right=not_1.output, output=IOKey(name="output"))
     comp_model = mithril.compile(model=model, backend=TorchBackend(precision=64))
-    output = comp_model.evaluate()["output"].numpy()
-    np.testing.assert_allclose(output, ref)
-    assert output.dtype == np.float64
+    output = comp_model.evaluate()["output"]
+    assert isinstance(output, torch.Tensor)
+    out = output.numpy()
+    np.testing.assert_allclose(out, ref)
+    assert out.dtype == np.float64
 
 
 def test_bool_tensor_jax_32():
@@ -1177,6 +1193,7 @@ def test_static_input_1():
             "right": np.array(3.0, dtype=np.float32),
         }
     )["output"]
+    assert isinstance(output, np.ndarray)
     np.testing.assert_allclose(output, ref)
     assert output.dtype == np.float32
 
@@ -1214,6 +1231,7 @@ def test_static_input_2():
     )
 
     output = comp_model.evaluate()["output"]
+    assert isinstance(output, np.ndarray)
     np.testing.assert_allclose(output, ref)
     assert output.dtype == np.float32
 
@@ -1251,6 +1269,7 @@ def test_static_input_3():
     )
 
     output = comp_model.evaluate()["output"]
+    assert isinstance(output, np.ndarray)
     np.testing.assert_allclose(output, ref)
     assert output.dtype == np.float32
 
@@ -1271,6 +1290,7 @@ def test_static_input_4():
             "in2": np.array(3.0, dtype=np.float32),
         }
     )["output"]
+    assert isinstance(output, np.ndarray)
     np.testing.assert_allclose(output, ref)
     assert output.dtype == np.float32
 
@@ -1293,6 +1313,7 @@ def test_static_input_5():
     )
 
     output = comp_model.evaluate()["output"]
+    assert isinstance(output, np.ndarray)
     np.testing.assert_allclose(output, ref)
     assert output.dtype == np.float32
 
@@ -2476,7 +2497,9 @@ def test_maxpool_1d_padding_type_input():
     out_1 = pm.evaluate(
         data={"input": backend.array([[[10.0, 11.0, 12.0, 13.0, 14.0]]])}
     )
-    assert (out_1["output"] == backend.array([[[11.0, 13.0]]])).all()
+    out = out_1["output"]
+    assert isinstance(out, torch.Tensor)
+    assert (out == backend.array([[[11.0, 13.0]]])).all()
 
 
 def test_maxpool_1d_padding_input_in_evaluate():
@@ -2494,7 +2517,9 @@ def test_maxpool_1d_padding_input_in_evaluate():
             "padding": PaddingType.VALID,
         }
     )
-    assert (out_1["output"] == backend.array([[[11.0, 13.0]]])).all()
+    out = out_1["output"]
+    assert isinstance(out, torch.Tensor)
+    assert (out == backend.array([[[11.0, 13.0]]])).all()
 
 
 def test_maxpool_1d_padding_input_solved_in_constraint():

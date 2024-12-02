@@ -784,6 +784,7 @@ def test_torch_encoder_decoder_var_seq_len():
     )
     for idx in range(max_seq_len):
         mithril_output = outputs[f"output{idx}"]
+        assert isinstance(mithril_output, torch.Tensor)
         torch.testing.assert_close(
             mithril_output,
             output[: mithril_output.shape[0], idx : idx + 1, :],
@@ -796,7 +797,7 @@ def test_torch_encoder_decoder_var_seq_len():
     loss.backward()
 
     for key, value in torch_model.named_parameters():
-        grad = gradients_mithril[key_map.get(key)]
+        grad = gradients_mithril[key_map[key]]
         grad = grad.permute(*torch.arange(grad.ndim - 1, -1, -1))
         torch.testing.assert_close(grad, value.grad)
 

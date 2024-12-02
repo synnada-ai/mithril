@@ -37,7 +37,7 @@ FinalCost = "final_cost"
 
 
 class PythonCodeGen[DataType](CodeGen):
-    def __init__(self, pm: PhysicalModel) -> None:
+    def __init__(self, pm: PhysicalModel[Any]) -> None:
         super().__init__(pm)
 
         self.module = ast.parse("")
@@ -77,7 +77,9 @@ class PythonCodeGen[DataType](CodeGen):
         eval_fn, grad_fn = self.exec_generated_code()
         return self.post_process_fns(eval_fn, grad_fn, jit)
 
-    def exec_generated_code(self) -> tuple[Callable, Callable | None]:
+    def exec_generated_code(
+        self,
+    ) -> tuple[Callable[..., Any], Callable[..., Any] | None]:
         if self.code is None:
             raise Exception(
                 "Code is not generated yet! Please call generate_code() first."

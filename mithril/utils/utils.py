@@ -366,7 +366,7 @@ def pack_data_into_time_slots(
 
 
 def unpack_time_slot_data(
-    backend: Backend,
+    backend: Backend[DataType],
     data: dict[str, DataType],
     max_length: int,
     max_size: int,

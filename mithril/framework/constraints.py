@@ -3573,7 +3573,7 @@ def tuple_converter_constraint(output: Scalar, input: Scalar) -> ConstrainResult
 
 
 def cross_entropy_constraint(
-    categorical: Scalar, input: Tensor, target: Tensor
+    categorical: Scalar, input: Tensor[Any], target: Tensor[Any]
 ) -> ConstrainResultType:
     assert input._temp_shape is not None, "Input shape of reverse is not set!"
     assert target._temp_shape is not None, "Target shape of reverse is not set!"

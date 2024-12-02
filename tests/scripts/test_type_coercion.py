@@ -15,6 +15,7 @@
 from types import UnionType
 from typing import Any
 
+import jax.numpy as jnp
 import pytest
 
 import mithril
@@ -366,11 +367,14 @@ def test_tuple_conversion_2():
     params = pm_1.randomize_params()
     eval_1 = pm_1.evaluate(params=params)
     eval_2 = pm_2.evaluate(params=params)
-    output_gradients = {"output": backend.randn(eval_1["output"].shape)}
+    eval_1_output = eval_1["output"]
+    assert isinstance(eval_1_output, jnp.ndarray)
+    output_gradients = {"output": backend.randn(eval_1_output.shape)}
     grad_1 = pm_1.evaluate_gradients(params=params, output_gradients=output_gradients)
     grad_2 = pm_2.evaluate_gradients(params=params, output_gradients=output_gradients)
     # Check outputs
     for key, value in eval_1.items():
+        assert isinstance(value, jnp.ndarray)
         assert (value == eval_2[key]).all()
     # Check gradients.
     for key, value in grad_1.items():
@@ -409,11 +413,14 @@ def test_tuple_conversion_3():
     params = pm_1.randomize_params()
     eval_1 = pm_1.evaluate(params=params)
     eval_2 = pm_2.evaluate(params=params)
-    output_gradients = {"output": backend.randn(eval_1["output"].shape)}
+    out = eval_1["output"]
+    assert isinstance(out, jnp.ndarray)
+    output_gradients = {"output": backend.randn(out.shape)}
     grad_1 = pm_1.evaluate_gradients(params=params, output_gradients=output_gradients)
     grad_2 = pm_2.evaluate_gradients(params=params, output_gradients=output_gradients)
     # Check outputs
     for key, value in eval_1.items():
+        assert isinstance(value, jnp.ndarray)
         assert (value == eval_2[key]).all()
     # Check gradients.
     for key, value in grad_1.items():
@@ -452,11 +459,14 @@ def test_list_conversion_1():
     params = pm_1.randomize_params()
     eval_1 = pm_1.evaluate(params=params)
     eval_2 = pm_2.evaluate(params=params)
-    output_gradients = {"output": backend.randn(eval_1["output"].shape)}
+    out = eval_1["output"]
+    assert isinstance(out, jnp.ndarray)
+    output_gradients = {"output": backend.randn(out.shape)}
     grad_1 = pm_1.evaluate_gradients(params=params, output_gradients=output_gradients)
     grad_2 = pm_2.evaluate_gradients(params=params, output_gradients=output_gradients)
     # Check outputs
     for key, value in eval_1.items():
+        assert isinstance(value, jnp.ndarray)
         assert (value == eval_2[key]).all()
     # Check gradients.
     for key, value in grad_1.items():
@@ -494,11 +504,14 @@ def test_nested_list_conversion_1():
     params = pm_1.randomize_params()
     eval_1 = pm_1.evaluate(params=params)
     eval_2 = pm_2.evaluate(params=params)
-    output_gradients = {"output": backend.randn(eval_1["output"].shape)}
+    out = eval_1["output"]
+    assert isinstance(out, jnp.ndarray)
+    output_gradients = {"output": backend.randn(out.shape)}
     grad_1 = pm_1.evaluate_gradients(params=params, output_gradients=output_gradients)
     grad_2 = pm_2.evaluate_gradients(params=params, output_gradients=output_gradients)
     # Check outputs
     for key, value in eval_1.items():
+        assert isinstance(value, jnp.ndarray)
         assert (value == eval_2[key]).all()
     # Check gradients.
     for key, value in grad_1.items():
@@ -537,15 +550,23 @@ def test_nested_list_conversion_2():
     params = pm_1.randomize_params()
     eval_1 = pm_1.evaluate(params=params)
     eval_2 = pm_2.evaluate(params=params)
-    output_gradients = {"output": backend.randn(eval_1["output"].shape)}
+    out = eval_1["output"]
+    assert isinstance(out, jnp.ndarray)
+    output_gradients = {"output": backend.randn(out.shape)}
     grad_1 = pm_1.evaluate_gradients(params=params, output_gradients=output_gradients)
     grad_2 = pm_2.evaluate_gradients(params=params, output_gradients=output_gradients)
     # Check outputs
     for key, value in eval_1.items():
-        assert (value == eval_2[key]).all()
+        assert isinstance(value, jnp.ndarray)
+        value2 = eval_2[key]
+        assert isinstance(value2, jnp.ndarray)
+        assert (value == value2).all()
     # Check gradients.
     for key, value in grad_1.items():
-        assert (value == grad_2[key]).all()
+        assert isinstance(value, jnp.ndarray)
+        value2 = grad_2[key]
+        assert isinstance(value2, jnp.ndarray)
+        assert (value == value2).all()
 
 
 def test_type_propagation_1():

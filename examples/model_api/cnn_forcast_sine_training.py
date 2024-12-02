@@ -111,8 +111,7 @@ for epoch in range(num_epochs):
         data = {"input": inputs, "target": targets}
         outputs, gradients = pm.evaluate_all(params, data)
         params, opt_state = optimizer.update_params(params, gradients, opt_state)
-
-        total_loss += outputs["final_cost"]
+        total_loss += outputs["final_cost"]  # type: ignore
     print(f"Epoch: {epoch} / {num_epochs} -> ", total_loss / len(dataloader))
 
 # Test with single sample.
@@ -130,7 +129,12 @@ plt.plot(
     linestyle="",
 )
 plt.plot(
-    seq_len, pred.reshape(1), label="Predicted", color="red", marker="o", linestyle=""
+    seq_len,
+    pred.reshape(1),  # type: ignore
+    label="Predicted",
+    color="red",
+    marker="o",
+    linestyle="",
 )
 plt.legend()
 plt.show()

@@ -638,11 +638,7 @@ class Model(BaseModel):
             # Return NOTGIVEN if IOKey has value, name and expose
             # attributes as their default values.
             existing_conn = None
-            if (
-                connection._name is None
-                and connection._value == NOT_GIVEN
-                and connection._expose is None
-            ):
+            if connection._name is None and connection._value == NOT_GIVEN:
                 return NOT_GIVEN
 
             set_type = connection._type
@@ -1436,8 +1432,8 @@ class Model(BaseModel):
         return key_mappings
 
     def get_unique_submodel_names(self) -> dict[BaseModel, str]:
-        name_mapping = {}
-        existing_names = set()
+        name_mapping: dict[BaseModel, str] = {}
+        existing_names: set[str] = set()
         model_type_dict: dict[str, list[BaseModel]] = {}
 
         # First, assign existing names and track used names.

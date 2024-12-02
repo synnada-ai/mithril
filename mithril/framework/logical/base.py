@@ -35,6 +35,7 @@ from ..common import (
     MainValueType,
     NotAvailable,
     Scalar,
+    ShapeNode,
     ShapesType,
     ShapeTemplateType,
     ShapeType,
@@ -228,14 +229,14 @@ class BaseModel(abc.ABC):
         **kwargs: ShapeTemplateType,
     ) -> None:
         # Initialize assigned shapes dictionary to store assigned shapes.
-        assigned_shapes = {}
+        assigned_shapes: dict[str, ShapeTemplateType] = {}
 
         if updates is None:
             updates = Updates()
 
         model = self._get_outermost_parent()
         used_keys: dict[str | int, ShapeType] = {}
-        shape_nodes = {}
+        shape_nodes: dict[str | Connection, tuple[ShapeNode, str]] = {}
         # TODO: Can this be refactored to use a single loop?
         for key, shape in chain(shapes.items(), kwargs.items()):
             metadata = self.conns.extract_metadata(key)
