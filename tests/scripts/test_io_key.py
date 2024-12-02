@@ -497,7 +497,7 @@ def test_iokey_values_4():
     # Give name to myaxis value
     model += mean_model1(axis=IOKey(name="myaxis1", value=2, expose=False))
     main_model += model
-    assert len(main_model.conns.input_connections) == 2
+    assert len(main_model.conns.input_connections) == 1
     assert model.myaxis1.metadata.data.value == 2  # type: ignore
 
 
@@ -586,7 +586,12 @@ def test_iokey_values_9_error():
         model += buffer1(
             input=IOKey(name="input1"), output=IOKey(name="output1", value=[2.0])
         )
-    assert str(err_info.value) == "Multi-write detected for a valued input connection!"
+    assert str(err_info.value) == (
+        "A valued connection of the "
+        "extended model tries to write to an "
+        "output connection of the extending model. "
+        "Multi-write error!"
+    )
 
 
 def test_iokey_values_10():
@@ -807,8 +812,11 @@ def test_iokey_scalar_output_all_args():
             elif value is not NOT_GIVEN:
                 # it is an expected error
                 assert isinstance(e, ValueError)
-                assert (
-                    e.args[0] == "Multi-write detected for a valued input connection!"
+                assert e.args[0] == (
+                    "A valued connection of the "
+                    "extended model tries to write to an "
+                    "output connection of the extending model. "
+                    "Multi-write error!"
                 )
 
             else:
@@ -993,8 +1001,11 @@ def test_iokey_tensor_output_all_args():
             elif value is not NOT_GIVEN:
                 # it is an expected error
                 assert isinstance(e, ValueError)
-                assert (
-                    e.args[0] == "Multi-write detected for a valued input connection!"
+                assert e.args[0] == (
+                    "A valued connection of the "
+                    "extended model tries to write to an "
+                    "output connection of the extending model. "
+                    "Multi-write error!"
                 )
 
             else:
@@ -1233,7 +1244,7 @@ def test_iokey_template_4():
     res = pm.evaluate(params={"left": backend.ones((9, 8, 7))})
     expected_result = 9
 
-    assert pm._input_keys == {"left"}
+    assert pm._input_keys == {"left", "index"}
     assert pm.output_keys == ["output"]
     np.testing.assert_array_equal(res["output"], expected_result)
 

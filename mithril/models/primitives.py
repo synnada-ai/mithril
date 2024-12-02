@@ -22,6 +22,7 @@ from ..framework.common import (
     TBD,
     Connection,
     ConnectionType,
+    IOKey,
     ToBeDetermined,
 )
 from ..framework.constraints import (
@@ -1754,8 +1755,10 @@ class ScaledDotProduct(PrimitiveModel):
     ) -> ExtendInfo:
         if (
             not self.use_attn_mask
-            and attn_mask != NOT_GIVEN
+            and attn_mask is not NOT_GIVEN
             and not isinstance(attn_mask, str)
+            and isinstance(attn_mask, IOKey)
+            and attn_mask._value is not None  # TODO: Here will be updated!
         ):
             raise KeyError(
                 "Model does not have 'attn_mask' input. Got attn_mask argument!"

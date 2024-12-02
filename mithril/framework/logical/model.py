@@ -34,6 +34,7 @@ from ..common import (
     KeyType,
     MainValueInstance,
     MainValueType,
+    NotAvailable,
     NullConnection,
     Scalar,
     ShapeRepr,
@@ -258,14 +259,16 @@ class Model(BaseModel):
 
             # Scalar to Tensor conversion is required.
             model = ToTensor()
-            assert isinstance(self.canonical_input, Connection)
-            preserved_canonical_input: ConnectionData | None = self.canonical_input.data
-            if key == self.canonical_input.data:
-                preserved_canonical_input = None
+            preserved_canonical_input = self.canonical_input
+            if (
+                isinstance(preserved_canonical_input, Connection)
+                and key == preserved_canonical_input.data
+            ):
+                preserved_canonical_input = NOT_AVAILABLE
 
             self.extend(model, input=extend_value, output=key.conn)
-            if preserved_canonical_input is not None:
-                self.set_canonical_input(preserved_canonical_input.conn)
+            if not isinstance(preserved_canonical_input, NotAvailable):
+                self.set_canonical_input(preserved_canonical_input)
             return Updates()
         return super()._set_value(key, value)
 
@@ -298,23 +301,31 @@ class Model(BaseModel):
                     "Given connections are both output connections. Multi-write error!"
                 )
 
+        local_val = local_connection.metadata.data.value
+        global_val = connection.metadata.data.value
+
         if conn_is_output and not local_input:
             # Check if 2 connections are both output of any models.
             raise Exception(
                 "Given connections are both output connections. Multi-write error!"
             )
-
-        # If key is an input of the model and has a value and also
-        # con_obj is a global input, then they must have same value or
-        # local connection has Ellipsis as value. If con_obj is not a
-        # global input, raise error.
-        # Note that Tensor type connections can not have any value
-        # in logical models.
-        if isinstance((data := local_connection.metadata.data), Scalar):
-            pair: list[Tensor[Any] | Scalar] = [connection.metadata.data, data]
-            check_data, other = pair[local_input], pair[not local_input]
-            if check_data.value is not TBD and check_data.value != other.value:
-                raise ValueError("Multi-write detected for a valued input connection!")
+        elif (
+            local_input
+            and local_val is not TBD
+            and conn_is_output
+            and global_val != local_val
+        ):
+            raise ValueError(
+                "An input of the extending model tries to write "
+                "to an output connection in the extended model. "
+                "Multi-write error!"
+            )
+        elif not local_input and global_val is not TBD and local_val != global_val:
+            raise ValueError(
+                "A valued connection of the extended model tries to write "
+                "to an output connection of the extending model. "
+                "Multi-write error!"
+            )
 
     def _add_connection(
         self,
@@ -393,6 +404,12 @@ class Model(BaseModel):
             model.conns.connections_dict.pop(local_connection.metadata, set())
         )
 
+        # If connection already has a value set expose to False.
+        if (
+            local_connection.metadata.data.value is not TBD
+            and con_obj not in self.conns.input_connections
+        ):
+            expose = False
         # If any value provided, set.
         assert con_obj is not None
         if not isinstance(set_value, NullConnection):
@@ -418,8 +435,11 @@ class Model(BaseModel):
 
         # Set connection as input, output or internal based on expose and is_input flag.
         if is_input:
-            if expose and outer_key not in self._input_keys:
-                self.conns.set_connection_type(con_obj, KeyType.INPUT)
+            if outer_key not in self._input_keys:
+                if expose:
+                    self.conns.set_connection_type(con_obj, KeyType.INPUT)
+                elif outer_key not in self.conns.all:
+                    self.conns.set_connection_type(con_obj, KeyType.LATENT_INPUT)
         else:
             if expose and outer_key not in self.conns.output_keys:
                 self.conns.set_connection_type(con_obj, KeyType.OUTPUT)
@@ -483,20 +503,6 @@ class Model(BaseModel):
                     )
                 },
             )
-
-            valued_constants: set[ConnectionData] = set()
-            for local_key, outer_con in zip(
-                model._input_keys, connections, strict=False
-            ):
-                if isinstance(outer_con, MainValueInstance):
-                    conn = model.conns.get_connection(local_key)
-                    assert conn is not None
-                    conn_data = conn.metadata
-                    global_conn_data = self.conns.get_con_by_metadata(conn_data)
-                    assert global_conn_data is not None
-                    self.conns.set_connection_type(global_conn_data, KeyType.INTERNAL)
-                    valued_constants.add(global_conn_data)
-            self.dependency_map._update_globals(OrderedSet(valued_constants))
 
             template.output_connection = model.conns.get_connection("output")
             assert template.output_connection is not None
@@ -750,7 +756,10 @@ class Model(BaseModel):
                 # Connections in Connect object must be accessible in self.
                 if con_obj is None:
                     raise KeyError("Requires accessible connection to be processed!")
-                elif con_obj not in self.conns.input_connections:
+                elif (
+                    con_obj.key
+                    not in self.conns.input_keys | self.conns.latent_input_keys
+                ):
                     if output_connection is not None:
                         raise KeyError(
                             "Connect object can not have more than one output "
@@ -1187,12 +1196,12 @@ class Model(BaseModel):
         # Update Canonicals
         if isinstance(c_input := model.canonical_input, Connection):
             c_input_obj = self.conns.get_con_by_metadata(c_input.data.metadata)
-
             if c_input_obj not in self.dependency_map._local_output_dependency_map:
                 # Update canonical input with model canonical input
-                if c_input_obj is None:
+                if c_input_obj not in self.conns.input_connections:
                     self._canonical_input = NOT_AVAILABLE
                 else:
+                    assert c_input_obj is not None
                     self._canonical_input = c_input_obj
 
             elif (
