@@ -211,7 +211,7 @@
         "discard_keys": ["final_cost", "output"],
         "results": {
             "output_keys": [],
-            "discard_keys": ["target", "b", "w", "input", "_Mean_2_output","keepdim", "_SquaredError_1_output", "final_cost", "axis", "output", "_Linear_0_MatrixMultiply_0_output"]
+            "discard_keys": ["target", "b", "w", "input", "_Mean_2_output","_Mean_2_keepdim", "_SquaredError_1_output", "final_cost", "_Mean_2_axis", "output", "_Linear_0_MatrixMultiply_0_output"]
         },
         "output_specs": {
             "output": {
