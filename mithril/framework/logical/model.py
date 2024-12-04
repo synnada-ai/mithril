@@ -433,12 +433,20 @@ class Model(BaseModel):
             ):
                 con_obj.metadata.key_origin = local_key_origin
 
-        # Set connection as input, output or internal based on expose and is_input flag.
+        # Set connection as input, output, latent input or
+        # internal based on expose and is_input flag.
         if is_input:
             if outer_key not in self._input_keys:
                 if expose:
                     self.conns.set_connection_type(con_obj, KeyType.INPUT)
-                elif outer_key not in self.conns.all:
+                # TODO: We both set given IOKey in handle_auto_conversion and here.
+                # This causes duality and confusion in self.conns. We need to refactor
+                # extend to disentangle this problem. We should avoid using
+                # self._input_keys, self._output_keys, self._latent_input_keys or
+                # self.conns.all in _add_connection.
+
+                # elif outer_key not in self.conns.all:
+                elif con_obj not in self.dependency_map._local_output_dependency_map:
                     self.conns.set_connection_type(con_obj, KeyType.LATENT_INPUT)
         else:
             if expose and outer_key not in self.conns.output_keys:
@@ -812,11 +820,6 @@ class Model(BaseModel):
                 base_conn = self.handle_auto_conversion(
                     data_type, is_conn_input, connection.key, updates
                 )
-
-                # If connected objects are all input connections, expose flag can not
-                # set as False.
-                if not original_expose and is_conn_input and is_input:
-                    raise Exception("Input keys are always exposed!")
 
                 # Revert expose flag to its original state and set connection type
                 # based on it. NOTE: If base connection is merged with an already
