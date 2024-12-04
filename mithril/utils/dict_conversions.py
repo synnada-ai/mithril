@@ -236,8 +236,9 @@ def model_to_dict(model: BaseModel) -> dict:
 
     # IOHyperEdge -> [model_id, connection_name]
     submodel_connections: dict[IOHyperEdge, list[str]] = {}
+    assert isinstance(model, Model)
 
-    for idx, submodel in enumerate(model.get_models_in_topological_order()):
+    for idx, submodel in enumerate(model.dag.keys()):
         model_id = f"m_{idx}"
         submodels[model_id] = model_to_dict(submodel)
 
@@ -284,6 +285,8 @@ def connection_to_dict(
             related_conn := submodel_connections.get(connection.metadata, [])
         ) and model_id not in related_conn:
             key_value = {"connect": [related_conn]}
+            if connection.key in model.output_keys:
+                key_value["key"] = {"name": connection.key, "expose": True}
         elif is_valued and connection in model.conns.input_connections:
             val = connection.metadata.data.value
             assert not isinstance(val, ToBeDetermined)
@@ -292,7 +295,7 @@ def connection_to_dict(
             else:
                 key_value = {"name": connection.key, "value": val, "expose": True}
         elif not connection.key.startswith("$"):
-            if connection.key in model.conns.output_keys:
+            if key in submodel.output_keys and connection.key in model.output_keys:
                 key_value = {"name": connection.key, "expose": True}
             else:
                 key_value = connection.key

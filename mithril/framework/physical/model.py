@@ -441,10 +441,8 @@ class PhysicalModel(GenericDataType[DataType]):
                 )
                 return internal_keys, reorder_graph | _reorder_graph
 
-            if model.parent is None:
-                models = model.get_models_in_topological_order()
-            else:
-                models = model.dag.keys()
+            models = model.get_models_in_topological_order()
+
             for idx, m in enumerate(models):
                 m_name = name + "_" + m.__class__.__name__ + "_" + str(idx)
                 source_name = m_name
