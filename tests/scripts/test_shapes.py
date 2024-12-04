@@ -563,7 +563,7 @@ def test_shapes_4():
         input="input", w="w2", output=Connect(l1.input, l2.input)
     )
     shapes = {"input": [4, 256]}
-    logical_ref: Mapping[str, list] = {
+    logical_ref: Mapping[str, list | None] = {
         "$_Linear_0_output": [["(V1, ...)", "u1", 71], ["u2", "(V2, ...)", 71]],
         "w": [10, 71],
         "$b_1": [10],

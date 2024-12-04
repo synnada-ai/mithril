@@ -197,7 +197,7 @@ def test_5():
     expected_pm_input_keys = {"b_3", "w", "b_2", "input", "w_2"}
     expected_pm_output_keys = {"output"}
 
-    expected_shapes: dict[str, list[str | int]] = {
+    expected_shapes: dict[str, list[str | int] | None] = {
         "$_Linear_0_output": ["u1", "(V1, ...)", 2],
         "output1": ["u1", "(V1, ...)", "u2"],
         "b_2": [2],
@@ -239,7 +239,7 @@ def test_6():
     expected_pm_input_keys = {"w", "b_1", "input", "w_1", "b_2"}
     expected_pm_output_keys = {"output1"}
 
-    expected_shapes: dict[str, list[str | int]] = {
+    expected_shapes: dict[str, list[str | int] | None] = {
         "input": ["a", "(V1, ...)", 2],
         "w_1": [10, 2],
         "b_1": [10],

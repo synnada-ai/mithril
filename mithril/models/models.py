@@ -563,14 +563,14 @@ class Linear(Model):
         mult = MatrixMultiply()
 
         output = IOKey(name="output")
-        w = IOKey(name="w").transpose()
+        weight = IOKey(name="w", value=w).transpose()
 
         if use_bias:
-            self += mult(left="input", right=w)
+            self += mult(left="input", right=weight)
             self += Add()(left=mult.output, right="b", output=output)
             shapes["b"] = [dim]
         else:
-            self += mult(left="input", right=w, output=output)
+            self += mult(left="input", right=weight, output=output)
 
         self._set_shapes(shapes)
         self.input.set_differentiable(False)
