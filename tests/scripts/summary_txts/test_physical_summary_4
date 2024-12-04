@@ -25,26 +25,26 @@ Model Name   |                                      Model Keys
              |             ------------------------------------------------------------
              |             Keys    : Shapes    : Connections               : Parameters
 =======================================================================================
-Layer_0      |   Inputs  : input   : [None, 1] : '_KernelizedSVM_0_output' :          0
-             |             w       : [   1, 3] : 'w0'                      :          3
+Layer_0      |   Inputs  : w       : [   3, 1] : 'w0'                      :          3
+             |             input   : [None, 1] : '_KernelizedSVM_0_output' :          0
              |             b       :       [3] : 'b0'                      :          3
              |   ----------------------------------------------------------------------
              |   Outputs : output  : [None, 3] : Layer_1.input             :          0
 ---------------------------------------------------------------------------------------
-Layer_1      |   Inputs  : input   : [None, 3] : Layer_0.output            :          0
-             |             w       : [   3, 4] : 'w1'                      :         12
+Layer_1      |   Inputs  : w       : [   4, 3] : 'w1'                      :         12
+             |             input   : [None, 3] : Layer_0.output            :          0
              |             b       :       [4] : 'b1'                      :          4
              |   ----------------------------------------------------------------------
              |   Outputs : output  : [None, 4] : Layer_2.input             :          0
 ---------------------------------------------------------------------------------------
-Layer_2      |   Inputs  : input   : [None, 4] : Layer_1.output            :          0
-             |             w       : [   4, 5] : 'w2'                      :         20
+Layer_2      |   Inputs  : w       : [   5, 4] : 'w2'                      :         20
+             |             input   : [None, 4] : Layer_1.output            :          0
              |             b       :       [5] : 'b2'                      :          5
              |   ----------------------------------------------------------------------
              |   Outputs : output  : [None, 5] : Layer_3.input             :          0
 ---------------------------------------------------------------------------------------
-Layer_3      |   Inputs  : input   : [None, 5] : Layer_2.output            :          0
-             |             w       : [   5, 6] : 'w3'                      :         30
+Layer_3      |   Inputs  : w       : [   6, 5] : 'w3'                      :         30
+             |             input   : [None, 5] : Layer_2.output            :          0
              |             b       :       [6] : 'b3'                      :          6
              |             $_input :        -- : 0.01                      :          0
              |   ----------------------------------------------------------------------
@@ -58,8 +58,9 @@ Model Name   |                                      Model Keys
              |             -----------------------------------------------------------
              |             Keys   : Shapes    : Connections               : Parameters
 ======================================================================================
-Linear       |   Inputs  : input  : [None, 1] : '_KernelizedSVM_0_output' :          0
-             |             w      : [   1, 3] : 'w0'                      :          3
+Linear       |   Inputs  : w      : [   3, 1] : 'w0'                      :          3
+             |             $axes  :        -- : None                      :          0
+             |             input  : [None, 1] : '_KernelizedSVM_0_output' :          0
              |             b      :       [3] : 'b0'                      :          3
              |   ---------------------------------------------------------------------
              |   Outputs : output : [None, 3] : Sigmoid.input             :          0
@@ -76,8 +77,9 @@ Model Name   |                                     Model Keys
              |             ---------------------------------------------------------
              |             Keys   : Shapes    : Connections             : Parameters
 ====================================================================================
-Linear       |   Inputs  : input  : [None, 3] : '_MLP_1_Layer_0_output' :          0
-             |             w      : [   3, 4] : 'w1'                    :         12
+Linear       |   Inputs  : w      : [   4, 3] : 'w1'                    :         12
+             |             $axes  :        -- : None                    :          0
+             |             input  : [None, 3] : '_MLP_1_Layer_0_output' :          0
              |             b      :       [4] : 'b1'                    :          4
              |   -------------------------------------------------------------------
              |   Outputs : output : [None, 4] : Tanh.input              :          0
@@ -94,8 +96,9 @@ Model Name   |                                     Model Keys
              |             ---------------------------------------------------------
              |             Keys   : Shapes    : Connections             : Parameters
 ====================================================================================
-Linear       |   Inputs  : input  : [None, 4] : '_MLP_1_Layer_1_output' :          0
-             |             w      : [   4, 5] : 'w2'                    :         20
+Linear       |   Inputs  : w      : [   5, 4] : 'w2'                    :         20
+             |             $axes  :        -- : None                    :          0
+             |             input  : [None, 4] : '_MLP_1_Layer_1_output' :          0
              |             b      :       [5] : 'b2'                    :          5
              |   -------------------------------------------------------------------
              |   Outputs : output : [None, 5] : Relu.input              :          0
@@ -112,8 +115,9 @@ Model Name   |                                     Model Keys
              |             ---------------------------------------------------------
              |             Keys   : Shapes    : Connections             : Parameters
 ====================================================================================
-Linear       |   Inputs  : input  : [None, 5] : '_MLP_1_Layer_2_output' :          0
-             |             w      : [   5, 6] : 'w3'                    :         30
+Linear       |   Inputs  : w      : [   6, 5] : 'w3'                    :         30
+             |             $axes  :        -- : None                    :          0
+             |             input  : [None, 5] : '_MLP_1_Layer_2_output' :          0
              |             b      :       [6] : 'b3'                    :          6
              |   -------------------------------------------------------------------
              |   Outputs : output : [None, 6] : LeakyRelu.input         :          0

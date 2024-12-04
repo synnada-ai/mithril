@@ -79,8 +79,9 @@ Flatten         |   Inputs  : input     : [ u2, 512, u21, u22] : Model_3.$output
                 |   -----------------------------------------------------------------
                 |   Outputs : output    :           [ u2, u23] : Linear.input        
 -------------------------------------------------------------------------------------
-Linear          |   Inputs  : input     :           [ u2, u23] : Flatten.output      
-                |             w         :           [u23,   1] : '$w'                
+Linear          |   Inputs  : w         :           [  1, u23] : '$w'                
+                |             $axes     :                   -- : None                
+                |             input     :           [ u2, u23] : Flatten.output      
                 |             b         :                [  1] : '$b'                
                 |   -----------------------------------------------------------------
                 |   Outputs : output    :           [ u2,   1] : 'output'            

@@ -107,8 +107,9 @@ Flatten         |   Inputs  : input      : [None,  512, None, None] : Model_3.$o
                 |   ----------------------------------------------------------------------
                 |   Outputs : output     :             [None, None] : Linear.input        
 ------------------------------------------------------------------------------------------
-Linear          |   Inputs  : input      :             [None, None] : Flatten.output      
-                |             w          :             [None,    1] : '$w'                
+Linear          |   Inputs  : w          :             [   1, None] : '$w'                
+                |             $axes      :                       -- : None                
+                |             input      :             [None, None] : Flatten.output      
                 |             b          :                   [   1] : '$b'                
                 |   ----------------------------------------------------------------------
                 |   Outputs : output     :             [None,    1] : 'output'            
@@ -340,8 +341,13 @@ Model Name       |                               Model Keys
                  |             ---------------------------------------------
                  |             Keys   : Shapes       : Connections          
 ============================================================================
+Transpose        |   Inputs  : input  : [   1, None] : 'w'                  
+                 |             axes   :           -- : None                 
+                 |   -------------------------------------------------------
+                 |   Outputs : output : [None,    1] : MatrixMultiply.right 
+----------------------------------------------------------------------------
 MatrixMultiply   |   Inputs  : left   : [None, None] : 'input'              
-                 |             right  : [None,    1] : 'w'                  
+                 |             right  : [None,    1] : Transpose.output     
                  |   -------------------------------------------------------
                  |   Outputs : output : [None,    1] : Add.left             
 ----------------------------------------------------------------------------

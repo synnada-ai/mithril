@@ -118,17 +118,22 @@ def test_data_store_3():
     model = Linear(dimension=1)
     static_data = {
         "input": backend.array([[1.0, 2, 3]]),
-        "w": backend.array([[1.0], [1], [1]]),
+        "w": backend.array([[1.0, 1, 1]]),
     }
     pm = mithril.compile(model, backend=backend, constant_keys=static_data)
-    assert pm.data_store._cached_data.keys() == {"_MatrixMultiply_0_output"}
+    assert pm.data_store._cached_data.keys() == {"_MatrixMultiply_1_output"}
     assert (
-        pm.data_store._cached_data["_MatrixMultiply_0_output"].value
+        pm.data_store._cached_data["_MatrixMultiply_1_output"].value
         == backend.array(6.0)
     ).all()  # type: ignore[union-attr]
     assert pm.data_store._runtime_static_keys == set()
     assert pm.data_store._intermediate_non_differentiables._table == dict()
-    assert pm.data_store.unused_keys == {"input", "w"}
+    assert pm.data_store.unused_keys == {
+        "input",
+        "w",
+        "_Transpose_0_output",
+        "axes",
+    }
 
 
 def test_data_store_4():
@@ -444,7 +449,9 @@ def test_data_store_16():
     )
 
     assert pm.data_store._cached_data.keys() == {
-        "_MatrixMultiply_0_output_cache",
+        "axes",
+        "_Transpose_0_output_cache",
+        "_MatrixMultiply_1_output_cache",
         "output_cache",
     }
     assert pm.data_store._runtime_static_keys == {"input"}
