@@ -100,9 +100,9 @@ def test_1():
         input=model.canonical_output, b=IOKey(name="b_3"), output=IOKey(name="output1")
     )
 
-    expected_input_keys = {"$1", "w_2", "$2", "$4", "b_3"}
+    expected_input_keys = {"$2", "w_2", "$3", "$5", "b_3"}
     expected_output_keys = {"output1"}
-    expected_internal_keys = {"$3"}
+    expected_internal_keys = {"$4"}
     expected_pm_input_keys = {"input", "w_2", "b", "w", "b_3"}
     expected_pm_output_keys = {"output1"}
 
@@ -126,9 +126,9 @@ def test_2():
         input=model.canonical_output, b="b_3", output=IOKey(name="output1")
     )
 
-    expected_input_keys = {"$1", "w_2", "$2", "$4", "b_3"}
+    expected_input_keys = {"$2", "w_2", "$3", "$5", "b_3"}
     expected_output_keys = {"output1"}
-    expected_internal_keys = {"$3"}
+    expected_internal_keys = {"$4"}
     expected_pm_input_keys = {"input", "w_2", "b", "w", "b_3"}
     expected_pm_output_keys = {"output1"}
 
@@ -150,8 +150,8 @@ def test_3():
     model += Linear(10)(w="w_2")
     model += Linear(10)(input=model.canonical_output, b="b_3", output="output1")
 
-    expected_input_keys = {"$1", "w_2", "$2", "$4", "b_3"}
-    expected_internal_keys = {"$3", "output1"}
+    expected_input_keys = {"$2", "w_2", "$3", "$5", "b_3"}
+    expected_internal_keys = {"$4", "output1"}
     expected_pm_input_keys = {"input", "w_2", "b", "w", "b_3"}
     expected_pm_output_keys = {"output"}
 
@@ -171,8 +171,8 @@ def test_4():
     model += Linear(1)(b=IOKey(name="b_2", value=[1.0]), w="w_2")
     model += Linear(1)(input=model.canonical_output, b="b_3", output="output1")
 
-    expected_input_keys = {"$2", "b_2", "w_2", "$4", "b_3"}
-    expected_internal_keys = {"$1", "$3", "output1"}
+    expected_input_keys = {"$3", "b_2", "w_2", "$5", "b_3"}
+    expected_internal_keys = {"$1", "$4", "output1"}
     expected_pm_input_keys = {"w_2", "w", "b_3", "b_2", "input"}
     expected_pm_output_keys = {"output"}
 
@@ -192,8 +192,8 @@ def test_5():
     model += Linear()(b=IOKey(name="b_2", shape=[2]), w="w_2")
     model += Linear()(input=model.canonical_output, b="b_3", output="output1")
 
-    expected_input_keys = {"w_2", "b_2", "b_3", "$1", "$3"}
-    expected_internal_keys = {"$2", "output1"}
+    expected_input_keys = {"w_2", "b_2", "b_3", "$2", "$4"}
+    expected_internal_keys = {"$3", "output1"}
     expected_pm_input_keys = {"b_3", "w", "b_2", "input", "w_2"}
     expected_pm_output_keys = {"output"}
 
@@ -205,6 +205,8 @@ def test_5():
         "w_2": [2, "u3"],
         "$w": ["u2", 2],
         "b_3": ["u2"],
+        "$_Linear_0_axes": None,
+        "$_Linear_1_axes": None,
     }
 
     assert_model_keys(
@@ -231,9 +233,9 @@ def test_6():
         b=IOKey(name="b_2", shape=[5]),
         output=IOKey(name="output1"),
     )
-    expected_input_keys = {"input", "w_1", "b_1", "$2", "b_2"}
+    expected_input_keys = {"input", "w_1", "b_1", "$3", "b_2"}
     expected_output_keys = {"output1"}
-    expected_internal_keys = {"$1"}
+    expected_internal_keys = {"$2"}
     expected_pm_input_keys = {"w", "b_1", "input", "w_1", "b_2"}
     expected_pm_output_keys = {"output1"}
 
@@ -245,6 +247,8 @@ def test_6():
         "$w": [5, 10],
         "b_2": [5],
         "output1": ["a", "(V1, ...)", 5],
+        "$_Linear_0_axes": None,
+        "$_Linear_1_axes": None,
     }
 
     assert_model_keys(
@@ -497,7 +501,7 @@ def test_iokey_values_4():
     # Give name to myaxis value
     model += mean_model1(axis=IOKey(name="myaxis1", value=2, expose=False))
     main_model += model
-    assert len(main_model.conns.input_connections) == 2
+    assert len(main_model.conns.input_connections) == 1
     assert model.myaxis1.metadata.data.value == 2  # type: ignore
 
 
@@ -586,7 +590,12 @@ def test_iokey_values_9_error():
         model += buffer1(
             input=IOKey(name="input1"), output=IOKey(name="output1", value=[2.0])
         )
-    assert str(err_info.value) == "Multi-write detected for a valued input connection!"
+    assert str(err_info.value) == (
+        "A valued connection of the "
+        "extended model tries to write to an "
+        "output connection of the extending model. "
+        "Multi-write error!"
+    )
 
 
 def test_iokey_values_10():
@@ -807,8 +816,11 @@ def test_iokey_scalar_output_all_args():
             elif value is not NOT_GIVEN:
                 # it is an expected error
                 assert isinstance(e, ValueError)
-                assert (
-                    e.args[0] == "Multi-write detected for a valued input connection!"
+                assert e.args[0] == (
+                    "A valued connection of the "
+                    "extended model tries to write to an "
+                    "output connection of the extending model. "
+                    "Multi-write error!"
                 )
 
             else:
@@ -993,8 +1005,11 @@ def test_iokey_tensor_output_all_args():
             elif value is not NOT_GIVEN:
                 # it is an expected error
                 assert isinstance(e, ValueError)
-                assert (
-                    e.args[0] == "Multi-write detected for a valued input connection!"
+                assert e.args[0] == (
+                    "A valued connection of the "
+                    "extended model tries to write to an "
+                    "output connection of the extending model. "
+                    "Multi-write error!"
                 )
 
             else:
@@ -1233,7 +1248,7 @@ def test_iokey_template_4():
     res = pm.evaluate(params={"left": backend.ones((9, 8, 7))})
     expected_result = 9
 
-    assert pm._input_keys == {"left"}
+    assert pm._input_keys == {"left", "index"}
     assert pm.output_keys == ["output"]
     np.testing.assert_array_equal(res["output"], expected_result)
 

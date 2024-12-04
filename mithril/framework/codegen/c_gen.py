@@ -33,7 +33,7 @@ FinalCost = "final_cost"
 class CGen(CodeGen):
     BACKWARD_FN_SUFFIX = "_grad"
 
-    def __init__(self, pm: PhysicalModel) -> None:
+    def __init__(self, pm: PhysicalModel[PyArray]) -> None:
         super().__init__(pm)
 
         assert isinstance(self.pm.backend, CBackend)

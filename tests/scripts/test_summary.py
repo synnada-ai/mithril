@@ -30,7 +30,7 @@ from mithril.framework.common import (
     Table,
     UniadicRecord,
     Variadic,
-    _get_summary_shapes,
+    get_summary_shapes,
 )
 from mithril.framework.utils import define_unique_names
 from mithril.models import (
@@ -98,15 +98,20 @@ def test_extract_logical_connections_1():
     conns = model1.extract_connection_info(name_mappings)
     assert conns == {
         "Linear_0": (
-            {"input": ["'input'"], "b": ["'b'"], "w": ["'w'"]},
+            {"w": ["'w'"], "$axes": ["None"], "input": ["'input'"], "b": ["'b'"]},
             {"output": ["Linear_1.w", "Linear_1.input", "'output'"]},
         ),
         "Linear_1": (
-            {"input": ["Linear_0.output"], "w": ["Linear_0.output"], "b": ["'$_b_0'"]},
+            {
+                "w": ["Linear_0.output"],
+                "$axes": ["None"],
+                "input": ["Linear_0.output"],
+                "b": ["'$_b_0'"],
+            },
             {"output": ["'output2'"]},
         ),
         "Linear_2": (
-            {"input": ["'w'"], "w": ["'w'"], "b": ["'$_b_1'"]},
+            {"w": ["'w'"], "$axes": ["None"], "input": ["'w'"], "b": ["'$_b_1'"]},
             {"output": ["'output3'"]},
         ),
     }
@@ -212,30 +217,16 @@ def test_extract_logical_connections_5():
         "Model_0": (
             {
                 "$kernel": ["'$kernel_0'"],
-                "$padding_0": ["2"],
-                "$stride_0": ["1"],
-                "$dilation_0": ["1"],
                 "$input": ["'$input'"],
                 "$bias": ["'$bias_0'"],
-                "$stride_1": ["None"],
-                "$kernel_size": ["2"],
-                "$padding_1": ["(0, 0)"],
-                "$dilation_1": ["1"],
             },
             {"$output": ["Model_1.$input"]},
         ),
         "Model_1": (
             {
                 "$kernel": ["'$kernel_1'"],
-                "$padding_0": ["2"],
-                "$stride_0": ["1"],
-                "$dilation_0": ["1"],
                 "$input": ["Model_0.$output"],
                 "$bias": ["'$bias_1'"],
-                "$stride_1": ["None"],
-                "$kernel_size": ["2"],
-                "$padding_1": ["(0, 0)"],
-                "$dilation_1": ["1"],
             },
             {"$output": ["Flatten.input"]},
         ),
@@ -244,11 +235,21 @@ def test_extract_logical_connections_5():
             {"output": ["Linear_0.input"]},
         ),
         "Linear_0": (
-            {"input": ["Flatten.output"], "w": ["'$w_0'"], "b": ["'$b_0'"]},
+            {
+                "w": ["'$w_0'"],
+                "$axes": ["None"],
+                "input": ["Flatten.output"],
+                "b": ["'$b_0'"],
+            },
             {"output": ["Linear_1.input"]},
         ),
         "Linear_1": (
-            {"input": ["Linear_0.output"], "w": ["'$w_1'"], "b": ["'$b_1'"]},
+            {
+                "w": ["'$w_1'"],
+                "$axes": ["None"],
+                "input": ["Linear_0.output"],
+                "b": ["'$b_1'"],
+            },
             {"output": ["'$output'"]},
         ),
     }
@@ -265,7 +266,7 @@ def test_extract_logical_connections_6():
     conns = model.extract_connection_info(name_mappings)
     ref_conns = {
         "Linear": (
-            {"input": ["'input'"], "w": ["'$w'"], "b": ["'$b'"]},
+            {"w": ["'$w'"], "$axes": ["None"], "input": ["'input'"], "b": ["'$b'"]},
             {"output": ["Flatten.input", "'output'"]},
         ),
         "Flatten": (
@@ -295,7 +296,7 @@ def test_extract_logical_connections_7():
 
     ref_conns = {
         "Linear": (
-            {"input": ["'input'"], "w": ["'$w_0'"], "b": ["'$b_0'"]},
+            {"w": ["'$w_0'"], "$axes": ["None"], "input": ["'input'"], "b": ["'$b_0'"]},
             {"output": ["Sigmoid.input", "'output'"]},
         ),
         "Sigmoid": ({"input": ["Linear.output"]}, {"output": ["Mean.input"]}),
@@ -304,23 +305,11 @@ def test_extract_logical_connections_7():
             {"output": ["Model_0.input"]},
         ),
         "Model_0": (
-            {
-                "input": ["Mean.output"],
-                "$w": ["'$w_1'"],
-                "$b": ["'$b_1'"],
-                "$axis": ["None"],
-                "$keepdim": ["True"],
-            },
+            {"$w": ["'$w_1'"], "input": ["Mean.output"], "$b": ["'$b_1'"]},
             {"output": [], "$output": ["Model_1.input"]},
         ),
         "Model_1": (
-            {
-                "input": ["Model_0.$output"],
-                "$w": ["'$w_2'"],
-                "$b": ["'$b_2'"],
-                "$axis": ["None"],
-                "$keepdim": ["True"],
-            },
+            {"$w": ["'$w_2'"], "input": ["Model_0.$output"], "$b": ["'$b_2'"]},
             {"output": [], "$output": ["Flatten.input"]},
         ),
         "Flatten": (
@@ -487,30 +476,16 @@ def test_extract_logical_connections_13():
         "Model_0": (
             {
                 "$kernel": ["'$kernel_0'"],
-                "$padding_0": ["2"],
-                "$stride_0": ["1"],
-                "$dilation_0": ["1"],
                 "$input": ["'$input'"],
                 "$bias": ["'$bias_0'"],
-                "$stride_1": ["None"],
-                "$kernel_size": ["2"],
-                "$padding_1": ["(0, 0)"],
-                "$dilation_1": ["1"],
             },
             {"$output": ["Model_1.$input"]},
         ),
         "Model_1": (
             {
                 "$kernel": ["'$kernel_1'"],
-                "$padding_0": ["2"],
-                "$stride_0": ["1"],
-                "$dilation_0": ["1"],
                 "$input": ["Model_0.$output"],
                 "$bias": ["'$bias_1'"],
-                "$stride_1": ["None"],
-                "$kernel_size": ["2"],
-                "$padding_1": ["(0, 0)"],
-                "$dilation_1": ["1"],
             },
             {"$output": ["Flatten.input"]},
         ),
@@ -519,11 +494,21 @@ def test_extract_logical_connections_13():
             {"output": ["Linear_0.input"]},
         ),
         "Linear_0": (
-            {"input": ["Flatten.output"], "w": ["'$w_0'"], "b": ["'$b_0'"]},
+            {
+                "w": ["'$w_0'"],
+                "$axes": ["None"],
+                "input": ["Flatten.output"],
+                "b": ["'$b_0'"],
+            },
             {"output": ["Linear_1.input"]},
         ),
         "Linear_1": (
-            {"input": ["Linear_0.output"], "w": ["'$w_1'"], "b": ["'$b_1'"]},
+            {
+                "w": ["'$w_1'"],
+                "$axes": ["None"],
+                "input": ["Linear_0.output"],
+                "b": ["'$b_1'"],
+            },
             {"output": ["'$output'"]},
         ),
     }
@@ -548,7 +533,7 @@ def test_extract_shapes_logical_1():
         sub_model_name: sub_model.get_shapes(uni_cache, var_cache, False, False)
         for sub_model, sub_model_name in name_mappings.items()
     }
-    shape_info = _get_summary_shapes(model_shapes, conn_info)
+    shape_info = get_summary_shapes(model_shapes, conn_info)
     assert shape_info == {
         "Buffer_0": ({"input": [37, 23]}, {"output": [37, 23]}),
         "Buffer_1": ({"input": [37, 23]}, {"output": [37, 23]}),
@@ -570,7 +555,7 @@ def test_extract_shapes_logical_2():
         sub_model_name: sub_model.get_shapes(uni_cache, var_cache, False, False)
         for sub_model, sub_model_name in name_mappings.items()
     }
-    shape_info = _get_summary_shapes(model_shapes, conn_info)
+    shape_info = get_summary_shapes(model_shapes, conn_info)
     assert shape_info == {
         "Buffer_0": ({"input": [45, 96, 2]}, {"output": [45, 96, 2]}),
         "Buffer_1": ({"input": [45, 96, 2]}, {"output": [45, 96, 2]}),
@@ -601,16 +586,22 @@ def test_extract_shapes_logical_3():
         sub_model_name: sub_model.get_shapes(uni_cache, var_cache, symbolic=True)
         for sub_model, sub_model_name in name_mappings.items()
     }
-    shape_info = _get_summary_shapes(model_shapes, conn_info)
+    shape_info = get_summary_shapes(model_shapes, conn_info)
     assert shape_info == {
         "Linear_0": (
-            {"input": [4, "u1"], "w": [4, "u1"], "b": [4]},
+            {"w": [4, "u1"], "$axes": None, "input": [4, "u1"], "b": [4]},
             {"output": [4, 4]},
         ),
         "Relu_0": ({"input": [4, 4]}, {"output": [4, 4]}),
-        "Linear_1": ({"input": [4, 4], "w": [2, 4], "b": [2]}, {"output": [4, 2]}),
+        "Linear_1": (
+            {"w": [2, 4], "$axes": None, "input": [4, 4], "b": [2]},
+            {"output": [4, 2]},
+        ),
         "Relu_1": ({"input": [4, 2]}, {"output": [4, 2]}),
-        "Linear_2": ({"input": [4, 2], "w": [1, 2], "b": [1]}, {"output": [4, 1]}),
+        "Linear_2": (
+            {"w": [1, 2], "$axes": None, "input": [4, 2], "b": [1]},
+            {"output": [4, 1]},
+        ),
         "Relu_2": ({"input": [4, 1]}, {"output": [4, 1]}),
     }
 
@@ -638,16 +629,19 @@ def test_extract_shapes_logical_4():
         sub_model_name: sub_model.get_shapes(uni_cache, var_cache, symbolic=False)
         for sub_model, sub_model_name in name_mappings.items()
     }
-    shape_info = _get_summary_shapes(model_shapes, conn_info)
+    shape_info = get_summary_shapes(model_shapes, conn_info)
     assert shape_info == {
         "Convolution2D_0": (
             {
                 "kernel": [3, 4, 3, 3],
+                "input": [5, 4, 60, 60],
+                "bias": [1, 3, 1, 1],
                 "padding": None,
                 "stride": None,
                 "dilation": None,
-                "input": [5, 4, 60, 60],
-                "bias": [1, 3, 1, 1],
+                "$start": None,
+                "$stop": None,
+                "$step": None,
             },
             {"output": [5, 3, 58, 58]},
         ),
@@ -658,6 +652,9 @@ def test_extract_shapes_logical_4():
                 "padding": None,
                 "stride": None,
                 "dilation": None,
+                "$start": None,
+                "$stop": None,
+                "$step": None,
                 "input": [5, 3, 58, 58],
                 "bias": [1, 5, 1, 1],
             },
@@ -670,6 +667,9 @@ def test_extract_shapes_logical_4():
                 "padding": None,
                 "stride": None,
                 "dilation": None,
+                "$start": None,
+                "$stop": None,
+                "$step": None,
                 "input": [5, 5, 56, 56],
                 "bias": [1, 5, 1, 1],
             },
@@ -703,20 +703,20 @@ def test_extract_shapes_logical_5():
         sub_model_name: sub_model.get_shapes(uni_cache, var_cache, symbolic=True)
         for sub_model, sub_model_name in name_mappings.items()
     }
-    shape_info = _get_summary_shapes(model_shapes, conn_info)
+    shape_info = get_summary_shapes(model_shapes, conn_info)
     assert shape_info == {
         "Linear_0": (
-            {"input": ["u2", "u1"], "w": [4, "u1"], "b": [4]},
+            {"w": [4, "u1"], "$axes": None, "input": ["u2", "u1"], "b": [4]},
             {"output": ["u2", 4]},
         ),
         "Relu_0": ({"input": ["u2", 4]}, {"output": ["u2", 4]}),
         "Linear_1": (
-            {"input": ["u2", 4], "w": [2, 4], "b": [2]},
+            {"w": [2, 4], "$axes": None, "input": ["u2", 4], "b": [2]},
             {"output": ["u2", 2]},
         ),
         "Relu_1": ({"input": ["u2", 2]}, {"output": ["u2", 2]}),
         "Linear_2": (
-            {"input": ["u2", 2], "w": [1, 2], "b": [1]},
+            {"w": [1, 2], "$axes": None, "input": ["u2", 2], "b": [1]},
             {"output": ["u2", 1]},
         ),
         "Relu_2": ({"input": ["u2", 1]}, {"output": ["u2", 1]}),
@@ -787,7 +787,7 @@ def test_table_1():
     table.add_header(headers)
     for list in list_1:
         table.add_row(list)
-    table._compile(row_sep="  ")
+    table.compile(row_sep="  ")
 
     cells = table.cell_str
     n_of_rows = cells.count("\n") - 2
@@ -803,7 +803,7 @@ def test_table_2():
     table.add_header(headers)
     for list in list_1:
         table.add_row(list)
-    table._compile(row_sep="  ")
+    table.compile(row_sep="  ")
     cells = table.cell_str
     n_of_rows = cells.count("\n") - 2
     assert n_of_rows == 4
@@ -818,7 +818,7 @@ def test_table_3():
     table.add_header(headers)
     for list in list_1:
         table.add_row(list)
-    table._compile(row_sep="  ")
+    table.compile(row_sep="  ")
     cells = table.cell_str
     n_of_rows = cells.count("\n") - 2
     assert n_of_rows == 4
@@ -835,7 +835,7 @@ def test_table_4():
     table.add_header(subheaders)
     for list in list_1:
         table.add_row(list)
-    table._compile(row_sep=" | ")
+    table.compile(row_sep=" | ")
     cells = table.cell_str
     n_of_rows = cells.count("\n") - 2
     assert n_of_rows == 4
@@ -852,7 +852,7 @@ def test_table_5():
     table.add_header(subheaders)
     for list in list_1:
         table.add_row(list)
-    table._compile(row_sep=" | ")
+    table.compile(row_sep=" | ")
     cells = table.cell_str
     n_of_rows = cells.count("\n") - 2
     assert n_of_rows == 12

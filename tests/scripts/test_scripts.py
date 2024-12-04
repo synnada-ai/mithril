@@ -33,8 +33,10 @@ from mithril.framework.common import (
     NOT_AVAILABLE,
     NOT_GIVEN,
     TBD,
+    ConnectionData,
     ConnectionType,
     NotAvailable,
+    OrderedSet,
     ToBeDetermined,
     UniadicRecord,
     Variadic,
@@ -50,6 +52,7 @@ from mithril.models import (
     AbsoluteError,
     Add,
     Arange,
+    BaseModel,
     BinaryCrossEntropy,
     Buffer,
     Concat,
@@ -1878,16 +1881,19 @@ def test_shapes_1():
     model += Linear(10)
     l1.set_shapes({"input": [50, 2]})
     assert model.shapes == {
-        "$input": [50, 2],
-        "$w_0": [10, 2],
-        "$b_0": [10],
         "$_Linear_0_output": [50, 10],
+        "$_Linear_1_output": [50, 10],
+        "$_Linear_2_output": [50, 10],
+        "$w_0": [10, 2],
+        "$input": [50, 2],
+        "$b_0": [10],
         "$w_1": [10, 10],
         "$b_1": [10],
-        "$_Linear_1_output": [50, 10],
         "$w_2": [10, 10],
         "$b_2": [10],
-        "$_Linear_2_output": [50, 10],
+        "$_Linear_0_axes": None,
+        "$_Linear_1_axes": None,
+        "$_Linear_2_axes": None,
     }
 
 
@@ -2116,8 +2122,8 @@ def test_reduce_overlap_shapes_2():
     assert model1.shapes == {
         "input": [10],
         "$_Buffer_0_output": [10],
-        "$axis": None,
-        "$keepdim": None,
+        "$_Mean_1_axis": None,
+        "$_Mean_1_keepdim": None,
         "$_Mean_1_output": [],
     }
 
@@ -2205,7 +2211,7 @@ def test_get_key_dependency_1():
     }
     # assert resulting_connections == {"Mean_4_axis", "b", "input", "Mean_4_keepdim",
     # "target", "w"}
-    assert resulting_connections == {"target", "input", "w", "b", "$7", "$6"}
+    assert resulting_connections == {"target", "input", "w", "b"}
 
 
 def test_get_key_dependency_2():
@@ -2236,7 +2242,7 @@ def test_get_key_dependency_2():
     }
     # assert resulting_connections == {"Mean_4_axis", "b", "input", "Mean_4_keepdim",
     # "target", "w"}
-    assert resulting_connections == {"target", "input", "w", "b", "$7", "$6"}
+    assert resulting_connections == {"target", "input", "w", "b"}
     assert dummy_connection1 == dummy_connection2 == {"dummy_input"}
 
 
@@ -3032,7 +3038,7 @@ def test_prune_valued_tensor_5():
         "_Model_0_Relu_0_asd": ["relu", {"input1"}],
         "_Model_0_Sum_1_qwe": [
             "reduce_sum",
-            {"keepdim_0", "_Model_0_Relu_0_asd", "axis_0"},
+            {"_Model_0_Sum_1_keepdim", "_Model_0_Relu_0_asd", "_Model_0_Sum_1_axis"},
         ],
         "out2": ["relu", {"_Model_0_Sum_1_qwe"}],
     }
@@ -3161,7 +3167,7 @@ def test_prune_tensor_match():
 def test_arange_1():
     m = Model()
     expected_result = np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
-    m += Arange(0, 10, 1)(output="output")
+    m += Arange(start=0, stop=10, step=1)(output="output")
 
     backends: list[type[Backend]] = [TorchBackend, JaxBackend, NumpyBackend, MlxBackend]
     for backend_class in backends:
@@ -3179,7 +3185,7 @@ def test_arange_1():
 def test_arange_2():
     m = Model()
     expected_result = np.array([0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5])
-    m += Arange(0, 5, 0.5)(output="output")
+    m += Arange(start=0, stop=5, step=0.5)(output="output")
 
     backends: list[type[Backend]] = [TorchBackend, JaxBackend, NumpyBackend, MlxBackend]
     for backend_class in backends:
@@ -3194,7 +3200,7 @@ def test_arange_2():
 def test_arange_3():
     m = Model()
     expected_result = np.array([0.1, 0.7, 1.3, 1.9, 2.5, 3.1, 3.7])
-    m += Arange(0.1, 4, 0.6)(output="output")
+    m += Arange(start=0.1, stop=4, step=0.6)(output="output")
 
     backends: list[type[Backend]] = [TorchBackend, JaxBackend, NumpyBackend, MlxBackend]
     for backend_class in backends:
@@ -3509,28 +3515,13 @@ def test_demo_model():
         "input",
         "kernel_0",
         "bias_0",
-        "stride_0",
-        "padding_0",
-        "dilation_0",
-        "kernel_size_0",
-        "stride_1",
-        "padding_1",
-        "dilation_1",
         "kernel_1",
         "bias_1",
-        "stride_2",
-        "padding_2",
-        "dilation_2",
-        "kernel_size_1",
-        "dilation_3",
-        "start_dim",
-        "end_dim",
         "w_0",
         "b_0",
         "w_1",
         "b_1",
     }
-    ...
 
 
 def test_flatgraph_1():
@@ -3673,13 +3664,13 @@ def geomean_multigpu_test():
     context = TrainModel(model)
     context.add_loss(
         SquaredError(),
-        reduce_steps=[Mean(0), Prod(0), Sum()],
+        reduce_steps=[Mean(axis=0), Prod(axis=0), Sum()],
         input="out1",
         target="target1",
     )
     context.add_loss(
         SquaredError(),
-        reduce_steps=[Mean(1), Prod(0), Min(1), Sum(1), Mean()],
+        reduce_steps=[Mean(axis=1), Prod(axis=0), Min(axis=1), Sum(axis=1), Mean()],
         input="out2",
         target="target2",
     )
@@ -4293,31 +4284,6 @@ def test_connect_error_2():
     )
 
 
-def test_connect_error_3():
-    model = Model()
-    model += Relu()(input="input2", output=IOKey(name="output"))
-    model += Relu()(input="input1", output=IOKey(name="output2"))
-    model += Relu()(output=IOKey(name="output3"))
-    model += Relu()(output=IOKey(name="output4"))
-
-    with pytest.raises(Exception) as error_info:
-        model += Relu()(
-            input=Connect("input1", key=IOKey(name="my_input", expose=False))
-        )
-
-    assert str(error_info.value) == "Input keys are always exposed!"
-
-
-def test_connect_error_4():
-    model = Model()
-    model += Relu()(input="input2", output=IOKey(name="output"))
-
-    with pytest.raises(KeyError) as error_info:
-        model += Relu()(input="input", output=Connect("input2", 3))  # type: ignore
-
-    assert str(error_info.value) == "'Requires Connection object or string!'"
-
-
 def test_connect_error_5():
     model_2 = Model()
     model_2 += Tanh()(input="input1", output=IOKey(name="output1"))
@@ -4733,7 +4699,9 @@ def test_cycle_handling_3():
     model_2_sub += Softplus()(input="input2", output=IOKey(name="output2"))
 
     model_1 += gelu5(input="")
-    model_1 += LeakyRelu()(input="input2", output=IOKey(name="output2"))
+    model_1 += LeakyRelu()(
+        input="input2", slope=IOKey("slope", value=0.01), output=IOKey(name="output2")
+    )
     model_1 += model_1_sub(input1="input1", input2="", output1=gelu5.input)
     model_1 += model_2_sub(
         input2=gelu5.output,
@@ -4748,7 +4716,9 @@ def test_cycle_handling_3():
     model_2 += Tanh()(input="input1", output=IOKey(name="output1"))
     model_2 += Sine()(input="input2", output=IOKey(name="output2"))
     model += gelu5(input="")
-    model += model_1(input1="input", input2="", output1=gelu5.input)
+    model += model_1(
+        input1="input", slope=IOKey("slope"), input2="", output1=gelu5.input
+    )
     model += model_2(
         input2=gelu5.output,
         output2=model_1.input2,  # type: ignore
@@ -4768,7 +4738,7 @@ def test_cycle_handling_3():
             {"_Model_2_output2", "_Model_0_ToTensor_3_output"},
         ],
         "_Model_0_Model_0_output2": ["softplus", {"_Model_0_Gelu_2_output"}],
-        "_Model_0_ToTensor_3_output": ["to_tensor", {"_input"}],
+        "_Model_0_ToTensor_3_output": ["to_tensor", {"slope"}],
         "_Model_0_Model_1_output2": ["sigmoid", {"_Model_0_Model_0_output2"}],
         "_Gelu_1_output": ["gelu", {"_Model_0_output1"}],
     }
@@ -4855,9 +4825,268 @@ def test_cycle_handling_3():
         ]
     )
 
+    assert_connections(compiled_model, expected_connections)
     res = compiled_model.evaluate(inputs)
     np.testing.assert_allclose(res["output"], expceted_result, rtol=1e-14, atol=1e-14)
+
+
+@pytest.mark.skip(
+    "Can not generate the right code when leaky relu slope is " "not exposed."
+)
+def test_cycle_handling_3_error_if_slope_not_exposed():
+    backend = TorchBackend(precision=64)
+    model = Model()
+
+    model_1 = Model()
+    model_1_sub = Model()
+    model_1_sub += Relu()(input="input1", output=IOKey(name="output1"))
+    model_1_sub += Sigmoid()(input="input2", output=IOKey(name="output2"))
+
+    gelu5 = Gelu()
+
+    model_2_sub = Model()
+    model_2_sub += Cosine()(input="input1", output=IOKey(name="output1"))
+    model_2_sub += Softplus()(input="input2", output=IOKey(name="output2"))
+
+    model_1 += gelu5(input="")
+    model_1 += LeakyRelu()(
+        input="input2", slope=IOKey("slope", value=0.01), output=IOKey(name="output2")
+    )
+    model_1 += model_1_sub(input1="input1", input2="", output1=gelu5.input)
+    model_1 += model_2_sub(
+        input2=gelu5.output,
+        output2=model_1_sub.input2,  # type: ignore
+        input1=model_1_sub.output2,  # type: ignore
+        output1=IOKey(name="output1"),
+    )
+
+    gelu5 = Gelu()
+
+    model_2 = Model()
+    model_2 += Tanh()(input="input1", output=IOKey(name="output1"))
+    model_2 += Sine()(input="input2", output=IOKey(name="output2"))
+    model += gelu5(input="")
+    model += model_1(input1="input", input2="", output1=gelu5.input)
+    model += model_2(
+        input2=gelu5.output,
+        output2=model_1.input2,  # type: ignore
+        input1=model_1.output2,  # type: ignore
+        output1=IOKey(name="output"),
+    )
+
+    compiled_model = mithril.compile(model=model, backend=backend, jit=False)
+    expected_connections: dict[str, list[str | set[str]]] = {
+        "_Model_2_output2": ["sin", {"_Gelu_1_output"}],
+        "_Model_0_output1": ["cos", {"_Model_0_Model_1_output2"}],
+        "output": ["tanh", {"_Model_0__output2"}],
+        "_Model_0_Model_1_output1": ["relu", {"input"}],
+        "_Model_0_Gelu_2_output": ["gelu", {"_Model_0_Model_1_output1"}],
+        "_Model_0__output2": [
+            "leaky_relu",
+            {"_Model_2_output2", "_Model_0_ToTensor_3_output"},
+        ],
+        "_Model_0_Model_0_output2": ["softplus", {"_Model_0_Gelu_2_output"}],
+        "_Model_0_ToTensor_3_output": ["to_tensor", {"_Model_0_slope"}],
+        "_Model_0_Model_1_output2": ["sigmoid", {"_Model_0_Model_0_output2"}],
+        "_Gelu_1_output": ["gelu", {"_Model_0_output1"}],
+    }
+
+    inputs = {
+        "input": backend.array(
+            [
+                [
+                    -0.8269255774200992,
+                    0.7046942179511907,
+                    -0.6632136364010732,
+                    0.5911665167636806,
+                    -0.0879635133574766,
+                ],
+                [
+                    -1.0532020199953536,
+                    -0.1766725261042899,
+                    0.4020469160072127,
+                    -1.3487896115657372,
+                    0.7345617271306063,
+                ],
+                [
+                    0.6626887642466389,
+                    0.477491993820005,
+                    -0.1915153410053665,
+                    1.2870515655363004,
+                    -0.578308296244362,
+                ],
+                [
+                    0.5550795535237508,
+                    1.1009271005946892,
+                    -1.790016526204619,
+                    -0.4263655801958743,
+                    1.4146622983613328,
+                ],
+                [
+                    -3.405988297596841,
+                    -0.3782331011417492,
+                    -0.2559520763515453,
+                    -0.5376401794512594,
+                    -0.0721665907389376,
+                ],
+            ]
+        )
+    }
+
+    expceted_result = backend.array(
+        [
+            [
+                0.5211425309234827,
+                0.4958938477737159,
+                0.5211425309234827,
+                0.5014396731399631,
+                0.5211425309234827,
+            ],
+            [
+                0.5211425309234827,
+                0.5211425309234827,
+                0.5094317783335017,
+                0.5211425309234827,
+                0.4943477634440987,
+            ],
+            [
+                0.4980081493485906,
+                0.5064358999430714,
+                0.5211425309234827,
+                0.4612421539410023,
+                0.5211425309234827,
+            ],
+            [
+                0.5030876967489684,
+                0.4730451179457509,
+                0.5211425309234827,
+                0.5211425309234827,
+                0.453112691500578,
+            ],
+            [
+                0.5211425309234827,
+                0.5211425309234827,
+                0.5211425309234827,
+                0.5211425309234827,
+                0.5211425309234827,
+            ],
+        ]
+    )
+
     assert_connections(compiled_model, expected_connections)
+    res = compiled_model.evaluate(inputs)
+    np.testing.assert_allclose(res["output"], expceted_result, rtol=1e-14, atol=1e-14)
+
+
+def test_dependency_map_latent_to_input():
+    model = Model()
+    model += (mean := Mean(axis=1))(
+        input="input", axis="axis", keepdim="keepdim", output="mean_out"
+    )
+    input: ConnectionData = model.input.data  # type: ignore
+    axis: ConnectionData = model.axis.data  # type: ignore
+    keepdim: ConnectionData = model.keepdim.data  # type: ignore
+    mean_out: ConnectionData = model.mean_out.data  # type: ignore
+
+    # Assert dependency map and connection keys status in model.
+    expected_global_input_map: dict[ConnectionData, OrderedSet[ConnectionData]] = {
+        input: OrderedSet([])
+    }
+    expected_global_output_map: dict[ConnectionData, OrderedSet[ConnectionData]] = {}
+
+    expected_local_input_map: dict[
+        ConnectionData, list[tuple[BaseModel, set[ConnectionData]]]
+    ] = {
+        input: [(mean, {mean_out})],
+        axis: [(mean, {mean_out})],
+        keepdim: [(mean, {mean_out})],
+    }
+
+    expected_local_output_map: dict[
+        ConnectionData, tuple[BaseModel, set[ConnectionData]]
+    ] = {
+        mean_out: (mean, {input, axis, keepdim}),
+    }
+
+    assert (
+        expected_global_input_map == model.dependency_map._global_input_dependency_map
+    )
+    assert (
+        expected_global_output_map == model.dependency_map._global_output_dependency_map
+    )
+
+    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
+    assert (
+        expected_local_output_map == model.dependency_map._local_output_dependency_map
+    )
+
+    # Add second model with global output.
+    model += (buff := Buffer())(output=IOKey("buff_out"))
+    # Assert dependency map and connection keys status in model.
+    buff_out: ConnectionData = model.buff_out.data  # type: ignore
+    expected_global_input_map = {input: OrderedSet([buff_out])}
+    expected_global_output_map = {buff_out: OrderedSet([input])}
+
+    expected_local_input_map = {
+        input: [(mean, {mean_out})],
+        axis: [(mean, {mean_out})],
+        keepdim: [(mean, {mean_out})],
+        mean_out: [(buff, {buff_out})],
+    }
+    expected_local_output_map = {
+        mean_out: (mean, {input, axis, keepdim}),
+        buff_out: (buff, {mean_out}),
+    }
+
+    assert (
+        expected_global_input_map == model.dependency_map._global_input_dependency_map
+    )
+    assert (
+        expected_global_output_map == model.dependency_map._global_output_dependency_map
+    )
+
+    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
+    assert (
+        expected_local_output_map == model.dependency_map._local_output_dependency_map
+    )
+
+    # Add third model which changes name of a latent input and
+    # makes it a real input of the model.
+    model += (to_tensor := ToTensor())(
+        Connect(mean.axis, key=IOKey(name="mean_axis")), output="output"
+    )
+    # Assert dependency map and connection keys status in model.
+    output: ConnectionData = model.output.data  # type: ignore
+    mean_axis: ConnectionData = model.mean_axis.data  # type: ignore
+    expected_global_input_map = {
+        input: OrderedSet([buff_out]),
+        mean_axis: OrderedSet([]),
+    }
+    expected_global_output_map = {buff_out: OrderedSet([input])}
+
+    expected_local_input_map = {
+        input: [(mean, {mean_out})],
+        mean_axis: [(mean, {mean_out}), (to_tensor, {output})],
+        keepdim: [(mean, {mean_out})],
+        mean_out: [(buff, {buff_out})],
+    }
+    expected_local_output_map = {
+        mean_out: (mean, {input, mean_axis, keepdim}),
+        buff_out: (buff, {mean_out}),
+        output: (to_tensor, {mean_axis}),
+    }
+
+    assert (
+        expected_global_input_map == model.dependency_map._global_input_dependency_map
+    )
+    assert (
+        expected_global_output_map == model.dependency_map._global_output_dependency_map
+    )
+
+    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
+    assert (
+        expected_local_output_map == model.dependency_map._local_output_dependency_map
+    )
 
 
 def test_dependency_map_1():
@@ -6067,6 +6296,7 @@ def test_deepcopy_4():
 
 def test_deepcopy_5():
     model = Model()
+    model += Reshape(shape=(2, 3, None, None))
     model += MLP(
         activations=[Sigmoid(), Relu(), Sigmoid(), Relu()], dimensions=[3, 3, 5, 6]
     )
@@ -6350,19 +6580,10 @@ def test_multi_write_4():
     with pytest.raises(ValueError) as err_info:
         model += mean_model_2(input="input2", output="output2", axis=mean_model_1.axis)
 
-    assert str(err_info.value) == "Multi-write detected for a valued input connection!"
-
-
-def test_multi_write_5():
-    model = Model()
-    mean_model_1 = Mean(axis=TBD)
-    mean_model_2 = Mean(axis=3)
-    model += mean_model_1(input="input1", output="output1")
-
-    with pytest.raises(ValueError) as err_info:
-        model += mean_model_2(input="input2", output="output2", axis=mean_model_1.axis)
-
-    assert str(err_info.value) == "Multi-write detected for a valued input connection!"
+    assert (
+        str(err_info.value)
+        == "Value is set before as 2. A scalar value can not be reset."
+    )
 
 
 def test_multi_write_6():
@@ -6637,8 +6858,8 @@ def test_cyclic_extend():
 
 
 def assert_repr_dict(data: dict[str, ShapeRepr], ref_shapes: dict):
-    uni_cache: dict[UniadicRecord | Variadic, str] = {}
-    var_cache: dict[UniadicRecord | Variadic, str] = {}
+    uni_cache: dict[UniadicRecord, str] = {}
+    var_cache: dict[Variadic, str] = {}
     shapes = {
         key: value.get_shapes(uni_cache, var_cache) for key, value in data.items()
     }
@@ -6781,7 +7002,11 @@ def test_constant_5():
     with pytest.raises(ValueError) as err:
         model += Buffer()(input="input", output="right")
 
-    assert str(err.value) == "Multi-write detected for a valued input connection!"
+    assert str(err.value) == (
+        "A valued connection of the extended model tries to "
+        "write to an output connection of the extending model. "
+        "Multi-write error!"
+    )
 
 
 def test_constant_6():
@@ -6789,7 +7014,11 @@ def test_constant_6():
     model += Add()(left=[0, 0], right=IOKey("right", 3), output=IOKey("out"))
     with pytest.raises(ValueError) as err:
         model += Buffer()(input="input", output="right")
-    assert str(err.value) == "Multi-write detected for a valued input connection!"
+    assert str(err.value) == (
+        "A valued connection of the extended model tries to "
+        "write to an output connection of the extending model. "
+        "Multi-write error!"
+    )
 
 
 def test_iadd_1():

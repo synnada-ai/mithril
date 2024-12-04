@@ -6,6 +6,7 @@ Model Name   |                             Model Keys
              |             Keys   : Shapes             : Connections
 ====================================================================
 lin          |   Inputs  : w      :       [None, None] : '$w'       
+             |             $axes  :                 -- : None       
              |             input  : [None,  ..., None] : '$input'   
              |             b      :             [None] : '$b'       
              |   ---------------------------------------------------

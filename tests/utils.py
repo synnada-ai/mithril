@@ -37,6 +37,7 @@ def check_logical_models(model_1: Model, model_2: Model):
             assert conn_1.key == conn_2.key
 
 
+
 def init_params(backend: Backend, pm_1: PhysicalModel, pm_2: PhysicalModel):
     backend.set_seed(10)
     params_1 = pm_1.randomize_params()

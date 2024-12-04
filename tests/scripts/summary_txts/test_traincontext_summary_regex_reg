@@ -74,6 +74,7 @@ Model Name   |                             Model Keys
              |             Keys   : Shapes            : Connections  
 =====================================================================
 Linear       |   Inputs  : w      :       [ 10, None] : 'w'          
+             |             $axes  :                -- : None         
              |             input  : [None, ..., None] : 'input'      
              |             b      :            [  10] : 'b'          
              |   ----------------------------------------------------
@@ -92,6 +93,7 @@ Model Name   |                            Model Keys
              |             Keys   : Shapes          : Connections  
 ===================================================================
 Linear       |   Inputs  : w      :       [ 10, 10] : 'w'          
+             |             $axes  :              -- : None         
              |             input  : [None, ..., 10] : 'input'      
              |             b      :            [10] : 'b'          
              |   --------------------------------------------------
@@ -110,6 +112,7 @@ Model Name   |                            Model Keys
              |             Keys   : Shapes          : Connections  
 ===================================================================
 Linear       |   Inputs  : w      :       [ 10, 10] : 'w'          
+             |             $axes  :              -- : None         
              |             input  : [None, ..., 10] : 'input'      
              |             b      :            [10] : 'b'          
              |   --------------------------------------------------
@@ -128,6 +131,7 @@ Model Name   |                            Model Keys
              |             Keys   : Shapes          : Connections  
 ===================================================================
 Linear       |   Inputs  : w      :       [ 10, 10] : 'w'          
+             |             $axes  :              -- : None         
              |             input  : [None, ..., 10] : 'input'      
              |             b      :            [10] : 'b'          
              |   --------------------------------------------------
@@ -146,6 +150,7 @@ Model Name   |                            Model Keys
              |             Keys   : Shapes          : Connections  
 ===================================================================
 Linear       |   Inputs  : w      :       [ 10, 10] : 'w'          
+             |             $axes  :              -- : None         
              |             input  : [None, ..., 10] : 'input'      
              |             b      :            [10] : 'b'          
              |   --------------------------------------------------
@@ -164,6 +169,7 @@ Model Name   |                            Model Keys
              |             Keys   : Shapes          : Connections  
 ===================================================================
 Linear       |   Inputs  : w      :       [ 10, 10] : 'w'          
+             |             $axes  :              -- : None         
              |             input  : [None, ..., 10] : 'input'      
              |             b      :            [10] : 'b'          
              |   --------------------------------------------------
@@ -182,6 +188,7 @@ Model Name   |                            Model Keys
              |             Keys   : Shapes          : Connections  
 ===================================================================
 Linear       |   Inputs  : w      :       [ 10, 10] : 'w'          
+             |             $axes  :              -- : None         
              |             input  : [None, ..., 10] : 'input'      
              |             b      :            [10] : 'b'          
              |   --------------------------------------------------
@@ -200,6 +207,7 @@ Model Name   |                            Model Keys
              |             Keys   : Shapes          : Connections  
 ===================================================================
 Linear       |   Inputs  : w      :       [ 10, 10] : 'w'          
+             |             $axes  :              -- : None         
              |             input  : [None, ..., 10] : 'input'      
              |             b      :            [10] : 'b'          
              |   --------------------------------------------------
@@ -218,6 +226,7 @@ Model Name   |                            Model Keys
              |             Keys   : Shapes          : Connections  
 ===================================================================
 Linear       |   Inputs  : w      :       [ 10, 10] : 'w'          
+             |             $axes  :              -- : None         
              |             input  : [None, ..., 10] : 'input'      
              |             b      :            [10] : 'b'          
              |   --------------------------------------------------
@@ -236,6 +245,7 @@ Model Name   |                            Model Keys
              |             Keys   : Shapes          : Connections  
 ===================================================================
 Linear       |   Inputs  : w      :       [ 10, 10] : 'w'          
+             |             $axes  :              -- : None         
              |             input  : [None, ..., 10] : 'input'      
              |             b      :            [10] : 'b'          
              |   --------------------------------------------------

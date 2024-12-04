@@ -366,7 +366,10 @@ def test_add_metric_2():
 def test_add_regularization_case_1():
     model = Model()
     linear_1 = Linear()
-    model += linear_1(output="output", **{key: key for key in linear_1._input_keys})
+    model += linear_1(
+        output="output",
+        **{key: key for key in linear_1._input_keys if not key.startswith("$")},
+    )
     ctx = TrainModel(model)
     ctx.add_regularization(model=L2(), coef=1e-1, input="w")
     with pytest.raises(Exception) as err_info:
@@ -380,7 +383,9 @@ def test_add_regularization_case_2():
     linear_1 = Linear()
 
     model.extend(
-        linear_1, output="output", **{key: key for key in linear_1._input_keys}
+        linear_1,
+        output="output",
+        **{key: key for key in linear_1._input_keys if not key.startswith("$")},
     )
     ctx = TrainModel(model)
     with pytest.raises(KeyError) as err_info:
@@ -395,7 +400,10 @@ def test_add_regularization_case_2():
 def test_add_regularization_case_3():
     model = Model()
     linear_1 = Linear()
-    model += linear_1(output="output", **{key: key for key in linear_1._input_keys})
+    model += linear_1(
+        output="output",
+        **{key: key for key in linear_1._input_keys if not key.startswith("$")},
+    )
 
     ctx = TrainModel(model)
     ctx.add_regularization(l2_model_1 := L2(), coef=1e-1, input="w")
@@ -407,7 +415,10 @@ def test_add_regularization_case_3():
 def test_add_regularization_case_6():
     model = Model()
     linear_1 = Linear()
-    model += linear_1(output="output", **{key: key for key in linear_1._input_keys})
+    model += linear_1(
+        output="output",
+        **{key: key for key in linear_1._input_keys if not key.startswith("$")},
+    )
 
     ctx = TrainModel(model)
     ctx.add_regularization(model_1 := L2(), coef=1e-1, input=linear_1.w)
@@ -419,7 +430,10 @@ def test_add_regularization_case_6():
 def test_add_regularization_case_7():
     model = Model()
     linear_1 = Linear()
-    model += linear_1(output="output", **{key: key for key in linear_1._input_keys})
+    model += linear_1(
+        output="output",
+        **{key: key for key in linear_1._input_keys if not key.startswith("$")},
+    )
 
     ctx = TrainModel(model)
     ctx.add_regularization(model=L2(), coef=1e-1, input="w")
@@ -437,7 +451,8 @@ def test_add_regularization_case_7_exception():
     model = Model()
     linear_1 = Linear()
     model += linear_1(
-        output=IOKey(name="output"), **{key: key for key in linear_1._input_keys}
+        output=IOKey(name="output"),
+        **{key: key for key in linear_1._input_keys if not key.startswith("$")},
     )
 
     ctx = TrainModel(model)
@@ -643,8 +658,8 @@ def test_add_loss_compile_shape_1():
         "$_Mean_2_output": [],
         "input": ["(V1, ...)"],
         "target": ["(V3, ...)"],
-        "$axis": None,
-        "$keepdim": None,
+        "$_Mean_2_axis": None,
+        "$_Mean_2_keepdim": None,
     }
 
     assert ctx2.shapes == ctx1.shapes == initial_shapes
@@ -668,8 +683,8 @@ def test_add_loss_compile_shape_1():
         "_Mean_2_output": [],
         "input": [None, "..."],
         "target": [None, "..."],
-        "axis": None,
-        "keepdim": None,
+        "_Mean_2_axis": None,
+        "_Mean_2_keepdim": None,
         "final_cost": [],
     }
 
@@ -679,7 +694,7 @@ def test_add_loss_compile_shape_1():
         "_Mean_2_output": [],
         "input": ["..."],
         "target": ["..."],
-        "axis": None,
-        "keepdim": None,
+        "_Mean_2_axis": None,
+        "_Mean_2_keepdim": None,
         "final_cost": [],
     }

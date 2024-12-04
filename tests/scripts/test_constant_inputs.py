@@ -44,6 +44,7 @@ from mithril.models import (
     Convolution2D,
     CrossEntropy,
     Eye,
+    Flatten,
     Greater,
     LeakyRelu,
     Linear,
@@ -208,10 +209,10 @@ def test_default_in_numpy_error():
     value in compile for "axis" key which is set as 0 before.
     """
     model = Model()
-    model1 = ReduceMult(axis=0)
+    model1 = ReduceMult()
     model2 = Mean(axis=TBD)
 
-    model += model1(input="input", axis="axis")
+    model += model1(input="input", axis=IOKey("axis", value=0))
     model += model2(input=model1.output, axis=model1.axis, output=IOKey(name="output"))
     constant_keys = {"input": np_input}
     data_keys = {"axis"}
@@ -256,32 +257,15 @@ def test_make_static_numpy_error():
     )
 
 
-def test_default_given_extend_1_numpy():
-    """Multiwrite error since "axis" is an input and connected to a valued
-    connection."""
-    # TODO: In this test actually there exists a multiwrite for axis since
-    # "axis" is exposed as input for the model but connected to an inner input
-    # with a value 0. This should not be allowed.
-    model = Model()
-    model1 = ReduceMult()
-    model2 = Mean(axis=0)
-    model += model1(input="input", axis="axis")
-    with pytest.raises(ValueError) as err_info:
-        model += model2(
-            input=model1.output, axis=model1.axis, output=IOKey(name="output")
-        )
-    assert str(err_info.value) == "Multi-write detected for a valued input connection!"
-
-
 def test_default_given_extend_3_numpy_error():
     """This test should raise ValueError since output shape_map of model1 is [] and
     required input shape_map of model2 is ["x", (Var, TBD)].
     NOTE: This test is not related to this file. It's only a trial.
     """
     model = Model()
-    model1 = ReduceMult(axis=None)
+    model1 = ReduceMult()
     model2 = Mean(axis=0)
-    model += model1(input="input", axis="axis")
+    model += model1(input="input", axis=IOKey("axis", value=None))
     with pytest.raises(ValueError) as err_info:
         model += model2(input=model1.output, output=IOKey(name="output"))
     assert str(err_info.value) == "Requires minimum of 1 dimensionality, got 0."
@@ -595,7 +579,7 @@ def test_scalar_mean_2_1():
         mean_model += mean_1(axis=1, input="input")
     assert (
         str(err_info.value)
-        == "Value is set before as None. A scalar value can not be reset."
+        == "Given value 1 for local key: 'axis' has already being set to None!"
     )
 
 
@@ -616,10 +600,10 @@ def test_scalar_mean_2_2():
 
 def test_scalar_mean_2_set_values():
     mean_model = Model()
-    mean_1 = Mean()
+    mean_1 = Mean(axis=TBD)
 
     with pytest.raises(ValueError) as err_info_1:
-        mean_model += mean_1(input="input")
+        mean_model += mean_1(input="input", axis=None)
         mean_1.set_values({"axis": 1})
     assert (
         str(err_info_1.value)
@@ -629,20 +613,6 @@ def test_scalar_mean_2_set_values():
     # TODO: Complete this test after CONSTANT handling is implemented.
     # with pytest.raises(ValueError) as err_info_2:
     #     mean_model.extend(rob_pow, threshold = 1.5, base = "input")
-
-
-def test_reduce_axis_error():
-    model = Model()
-    mean_1 = Mean(axis=TBD)
-    add_2 = Sum(axis=TBD)
-    mean_2 = Mean(axis=1)
-
-    model += mean_1(input="input", axis="axis", output="out1")
-    model += add_2(input=mean_1.input, axis=mean_1.axis, output="out2")
-    with pytest.raises(ValueError) as err_info:
-        model += mean_2(input="input2", axis=mean_1.axis, output="out3")
-
-    assert str(err_info.value) == "Multi-write detected for a valued input connection!"
 
 
 def test_scalar_1():
@@ -662,7 +632,11 @@ def test_scalar_1():
     )
     with pytest.raises(ValueError) as err_info:
         model1 += model2(left_2=add_1.output)
-    assert str(err_info.value) == "Multi-write detected for a valued input connection!"
+    assert str(err_info.value) == (
+        "An input of the extending model tries to write "
+        "to an output connection in the extended model. "
+        "Multi-write error!"
+    )
 
 
 def test_scalar_1_set_values():
@@ -677,7 +651,11 @@ def test_scalar_1_set_values():
     )
     with pytest.raises(ValueError) as err_info:
         model1 += model2(left_2=add_1.output)
-    assert str(err_info.value) == "Multi-write detected for a valued input connection!"
+    assert str(err_info.value) == (
+        "An input of the extending model tries to write "
+        "to an output connection in the extended model. "
+        "Multi-write error!"
+    )
 
 
 def test_scalar_2():
@@ -830,16 +808,16 @@ def test_static_2_set_values():
     assert_results_equal(ref_grads, grads)
 
 
-def test_static_3():
+def test_static_3_connection_not_found():
     model1 = Model()
     model2 = Model()
     add_1 = Add()
-    model1 += add_1(left=[2.0, 3.0], right="right", output=IOKey(name="output"))
+    model1 += add_1(left="left", right=[2.0, 3.0], output=IOKey(name="output"))
     model2 += model1
     assert not isinstance(model2.canonical_input, NotAvailable)
-    connection = model2.canonical_input
+    connection = add_1.right
     assert isinstance(connection, Connection)
-    with pytest.raises(Exception) as err:
+    with pytest.raises(KeyError) as err:
         mithril.compile(
             model=model2,
             backend=NumpyBackend(),
@@ -847,56 +825,28 @@ def test_static_3():
             safe_names=False,
         )
 
-    assert str(err.value) == (
-        f"Statically given connection: {connection} has been "
-        "already set as static with a value!"
-    )
+    assert str(err.value) == (f"'Given connection not found: {connection}'")
 
 
-def test_static_3_invalid_key():
+def test_valued_canonical_input_not_available():
     model1 = Model()
     model2 = Model()
     add_1 = Add()
     model1 += add_1(left=[2.0, 3.0], right="right", output=IOKey(name="output"))
     model2 += model1
-    assert not isinstance(model2.canonical_input, NotAvailable)
-    key = model2.canonical_input.data.key
-    with pytest.raises(KeyError) as err:
-        mithril.compile(
-            model=model2,
-            backend=NumpyBackend(),
-            constant_keys={key: [3.0, 4.0]},
-            safe_names=False,
-        )
-
-    assert str(err.value) == (
-        "'Given key: $1 is not valid. Unnamed keys in logical model "
-        "can not be provided to physical model in string format. "
-        "Try providing corresponding Connection object or naming "
-        "this connection in logical model.'"
-    )
+    assert isinstance(model2.canonical_input, NotAvailable)
 
 
-def test_static_3_set_values():
+def test_static_3_set_values_and_remove_canonical_input():
     model1 = Model()
     model2 = Model()
     add_1 = Add()
     model1 += add_1(right="right", output=IOKey(name="output"))
+    # Setting a connection to a value makes that connection
+    # not visible from outer model.
     model1.set_values({add_1.left: [2.0, 3.0]})
     model2 += model1
-    assert not isinstance(model2.canonical_input, NotAvailable)
-    key = model2.canonical_input.data.key
-    with pytest.raises(Exception) as err:
-        mithril.compile(
-            model=model2, backend=NumpyBackend(), constant_keys={key: [3.0, 4.0]}
-        )
-
-    assert str(err.value) == (
-        f"'Given key: {key} is not valid. Unnamed keys in logical model "
-        "can not be provided to physical model in string format. "
-        "Try providing corresponding Connection object or naming "
-        "this connection in logical model.'"
-    )
+    assert isinstance(model2.canonical_input, NotAvailable)
 
 
 def test_static_4():
@@ -1362,9 +1312,14 @@ def test_static_input_6_error():
     )
     with pytest.raises(ValueError) as err_info:
         model_2 += model_1(
-            left=add_3.left, right=add_3.right, out2=IOKey(name="output_1")
+            left=model_2.left,  # type: ignore
+            right=model_2.right,  # type: ignore
+            out2=IOKey(name="output_1"),  # type: ignore
         )
-    assert str(err_info.value) == "Multi-write detected for a valued input connection!"
+    assert (
+        str(err_info.value)
+        == "Value is set before as 1.0. A scalar value can not be reset."
+    )
 
 
 def test_static_input_7():
@@ -1499,7 +1454,7 @@ def test_composite_3_set_values():
     conv1 = Convolution2D(kernel_size=2, out_channels=1, stride=TBD)
     leaky_relu = LeakyRelu()
     mean_model = Mean(axis=TBD)
-    model += conv1(input="input", stride=(2, 3))
+    model += conv1(input="input")
     conv1.input.set_differentiable(True)
     model.set_values({conv1.stride: (2, 3)})
     model += leaky_relu(input=conv1.output, slope=NOT_GIVEN)
@@ -2553,3 +2508,67 @@ def test_conv_2d_padding_input_solved_in_constraint():
     assert pad_model.output.metadata.data.value is TBD
     model_1 += maxpool(padding=PaddingType.VALID)
     assert pad_model.output.metadata.data.value == (0, 0)
+
+
+def test_valued_conns_elevated_with_iokey():
+    model = Model()
+    flatten = Flatten()
+    model += flatten(
+        input="input",
+        start_dim=IOKey("start_dim"),
+        end_dim="end_dim",
+        output=IOKey(name="output"),
+    )
+    # Note that string naming does not cause the connection
+    # to be elevated as input to the upper level model.
+    assert model._input_keys == {"input", "start_dim"}
+    assert model.conns.latent_input_keys == {"end_dim"}
+
+
+# pytest.mark.skip(reason="Not implemented yet")
+def test_valued_conns_elevated_with_unexposed_iokey():
+    model = Model()
+    flatten = Flatten()
+    model += flatten(
+        input="input",
+        start_dim=IOKey("start_dim"),
+        end_dim=IOKey("end_dim", expose=False),
+        output=IOKey(name="output"),
+    )
+    # Note that string naming does not cause the connection
+    # to be elevated as input to the upper level model.
+    assert model._input_keys == {"input", "start_dim"}
+    assert model.conns.latent_input_keys == {"end_dim"}
+
+
+def test_scalar_conns_elevated_with_immediate_extend_value():
+    model = Model()
+    flatten = Flatten(start_dim=TBD, end_dim=TBD)
+    model += flatten(input="input", start_dim=0, end_dim=4, output=IOKey(name="output"))
+    assert len(model._input_keys) == 3
+    assert len(model.conns.latent_input_keys) == 0
+
+
+def test_multi_write_to_local_output_key():
+    model = Model(enforce_jit=False)
+    model += Mean(axis=(1, 2))(input="input", axis="axis")
+    with pytest.raises(ValueError) as err_info:
+        model += Buffer()(input="buff_input", output="axis")
+    assert str(err_info.value) == (
+        "A valued connection of the extended model "
+        "tries to write to an output connection of the "
+        "extending model. Multi-write error!"
+    )
+
+
+def test_all_inputs_static():
+    model = Model()
+    model += Mean()(input=[1.0, 2])
+    backend = NumpyBackend()
+    comp_model = mithril.compile(model=model, backend=backend)
+    outputs = comp_model.evaluate()
+    grads = comp_model.evaluate_gradients(
+        output_gradients={"output": backend.array(1.0)}
+    )
+    assert outputs["output"] == backend.array(1.5)
+    assert grads == {}

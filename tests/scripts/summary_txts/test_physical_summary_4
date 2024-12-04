@@ -59,6 +59,7 @@ Model Name   |                                      Model Keys
              |             Keys   : Shapes    : Connections               : Parameters
 ======================================================================================
 Linear       |   Inputs  : w      : [   3, 1] : 'w0'                      :          3
+             |             $axes  :        -- : None                      :          0
              |             input  : [None, 1] : '_KernelizedSVM_0_output' :          0
              |             b      :       [3] : 'b0'                      :          3
              |   ---------------------------------------------------------------------
@@ -77,6 +78,7 @@ Model Name   |                                     Model Keys
              |             Keys   : Shapes    : Connections             : Parameters
 ====================================================================================
 Linear       |   Inputs  : w      : [   4, 3] : 'w1'                    :         12
+             |             $axes  :        -- : None                    :          0
              |             input  : [None, 3] : '_MLP_1_Layer_0_output' :          0
              |             b      :       [4] : 'b1'                    :          4
              |   -------------------------------------------------------------------
@@ -95,6 +97,7 @@ Model Name   |                                     Model Keys
              |             Keys   : Shapes    : Connections             : Parameters
 ====================================================================================
 Linear       |   Inputs  : w      : [   5, 4] : 'w2'                    :         20
+             |             $axes  :        -- : None                    :          0
              |             input  : [None, 4] : '_MLP_1_Layer_1_output' :          0
              |             b      :       [5] : 'b2'                    :          5
              |   -------------------------------------------------------------------
@@ -113,6 +116,7 @@ Model Name   |                                     Model Keys
              |             Keys   : Shapes    : Connections             : Parameters
 ====================================================================================
 Linear       |   Inputs  : w      : [   6, 5] : 'w3'                    :         30
+             |             $axes  :        -- : None                    :          0
              |             input  : [None, 5] : '_MLP_1_Layer_2_output' :          0
              |             b      :       [6] : 'b3'                    :          6
              |   -------------------------------------------------------------------

@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections.abc import Mapping
+from typing import Any
+
 from ...utils.utils import OrderedSet
 from ..common import (
     NOT_AVAILABLE,
@@ -23,11 +26,13 @@ from ..common import (
     Scalar,
     Tensor,
     TensorType,
+    UniadicRecord,
     Updates,
-    _get_summary_shapes,
-    _get_summary_types,
+    Variadic,
     create_shape_map,
     get_summary,
+    get_summary_shapes,
+    get_summary_types,
 )
 from .base import BaseModel
 
@@ -43,9 +48,9 @@ class PrimitiveModel(BaseModel):
 
     def __init__(
         self,
-        formula_key,
+        formula_key: str,
         name: str | None = None,
-        **kwargs: Tensor | TensorType | Scalar,
+        **kwargs: Tensor[Any] | TensorType | Scalar,
     ) -> None:
         self.formula_key = formula_key
         self.grad_formula = formula_key + "_grad"
@@ -58,8 +63,9 @@ class PrimitiveModel(BaseModel):
             if isinstance(value, TensorType)
         }
         shapes = create_shape_map(shape_templates, self.constraint_solver)
-        data_set = set()
+        data_set: set[Tensor[Any]] = set()
         is_diff = False
+        output_data: Tensor[Any] | Scalar | None = None
         for key, value in kwargs.items():
             if isinstance(value, TensorType):
                 value = value.construct(shapes[key].node)
@@ -73,7 +79,6 @@ class PrimitiveModel(BaseModel):
             else:
                 self.conns.set_connection_type(conn_data, KeyType.INPUT)
                 is_diff |= not value.is_non_diff
-
         if isinstance(output_data, Tensor):
             output_data._differentiable = is_diff
 
@@ -129,19 +134,11 @@ class PrimitiveModel(BaseModel):
             f"Primitive '{self.__class__.__name__}' model can not be extended!"
         )
 
-    @staticmethod
-    def convert_to_tuple(value: int | tuple[int, int] | list) -> tuple[int, int]:
-        if isinstance(value, int):
-            new_value = (value, value)
-        elif isinstance(value, list):
-            new_value = tuple(value)
-        return new_value
-
     def extract_connection_info(
         self,
         name_mappings: dict[BaseModel, str],
-        data_to_key_map: dict[Scalar | Tensor, list[str]] | None = None,
-        data_memo: dict | None = None,
+        data_to_key_map: dict[Scalar | Tensor[Any], list[str]] | None = None,
+        data_memo: Mapping[int, Tensor[Any] | Scalar] | None = None,
     ):
         if data_to_key_map is None:
             data_to_key_map = {}
@@ -179,8 +176,8 @@ class PrimitiveModel(BaseModel):
         symbolic: bool = False,
         name: str | None = None,
         alternative_shapes: bool = False,
-        uni_cache: dict | None = None,
-        var_cache: dict | None = None,
+        uni_cache: dict[UniadicRecord, str] | None = None,
+        var_cache: dict[Variadic, str] | None = None,
     ) -> None:
         if uni_cache is None:
             uni_cache = {}
@@ -203,11 +200,11 @@ class PrimitiveModel(BaseModel):
         }
         if shapes:
             # extract model shapes
-            shape_info = _get_summary_shapes(model_shapes, conn_info)
+            shape_info = get_summary_shapes(model_shapes, conn_info)
 
         if types:
             # extract model types
-            type_info = _get_summary_types(name_mappings)
+            type_info = get_summary_types(name_mappings)
 
         if not name:
             name = self.__class__.__name__
@@ -217,5 +214,5 @@ class PrimitiveModel(BaseModel):
             conns=conn_info, name=name, shape=shape_info, types=type_info
         )
 
-        table._compile()
+        table.compile()
         table.display()

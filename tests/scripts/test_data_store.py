@@ -132,7 +132,7 @@ def test_data_store_3():
         "input",
         "w",
         "_Transpose_0_output",
-        "_Transpose_0_axes",
+        "axes",
     }
 
 
@@ -289,7 +289,11 @@ def test_data_store_11():
     ).all()  # type: ignore[union-attr]
     assert pm.data_store._runtime_static_keys == set()
     assert pm.data_store._intermediate_non_differentiables._table == dict()
-    assert pm.data_store.unused_keys == {"input", "_input", "_ToTensor_2_output"}
+    assert pm.data_store.unused_keys == {
+        "input",
+        "_input",
+        "_ToTensor_2_output",
+    }
 
 
 def test_data_store_13():
@@ -324,7 +328,7 @@ def test_data_store_14():
     model = Model()
     model += Buffer()(input="input1", output=IOKey(name="out1", expose=True))
     model += (s := Shape())(input="out1")
-    model += (i := ScalarItem(1))(input=s.output)
+    model += (i := ScalarItem(index=1))(input=s.output)
     model += (u := PrimitiveUnion(2))(input1=i.output, input2=i.output)
     model += Convolution2D(kernel_size=3, out_channels=10, stride=TBD, use_bias=False)(
         input="input2",
@@ -348,22 +352,22 @@ def test_data_store_14():
 
     assert pm.data_store.unused_keys == {
         "_Convolution2D_4_TupleConverter_3_output",
-        "_Convolution2D_4_PrimitiveSlice_1_stop",
+        "_Convolution2D_4_stop",
         "input2",
         "_Shape_1_output",
         "_Convolution2D_4_TupleConverter_4_output",
         "_ScalarItem_2_output",
-        "_Convolution2D_4_PrimitiveSlice_1_start",
+        "_Convolution2D_4_start",
         "_Convolution2D_4_Shape_0_output",
-        "dilation",
-        "index",
+        "_Convolution2D_4_dilation",
+        "_ScalarItem_2_index",
         "_Convolution2D_4_PrimitiveSlice_1_output",
         "_Convolution2D_4_TupleConverter_5_output",
         "_PrimitiveUnion_3_output",
-        "_Convolution2D_4_PrimitiveSlice_1_step",
+        "_Convolution2D_4_step",
         "_Convolution2D_4_PaddingConverter2D_2_output",
         "kernel",
-        "padding",
+        "_Convolution2D_4_padding",
     }
 
     infered_value = pm.data_store._cached_data["out2"].value
@@ -378,7 +382,7 @@ def test_data_store_15():
     model = Model()
     model += Buffer()(input="input1", output=IOKey(name="out1", expose=True))
     model += (s := Shape())(input="out1")
-    model += (i := ScalarItem(1))(input=s.output)
+    model += (i := ScalarItem(index=1))(input=s.output)
     model += (u := PrimitiveUnion(2))(input1=i.output, input2=i.output)
     model += Convolution2D(kernel_size=3, out_channels=10, stride=TBD, use_bias=False)(
         input="input2",
@@ -403,21 +407,21 @@ def test_data_store_15():
     assert pm.data_store.unused_keys == {
         "_Convolution2D_4_PaddingConverter2D_2_output",
         "kernel",
-        "_Convolution2D_4_PrimitiveSlice_1_step",
-        "_Convolution2D_4_PrimitiveSlice_1_stop",
-        "dilation",
+        "_Convolution2D_4_step",
+        "_Convolution2D_4_stop",
+        "_Convolution2D_4_dilation",
         "_Convolution2D_4_PrimitiveSlice_1_output",
         "_Shape_1_output",
         "_ScalarItem_2_output",
         "_PrimitiveUnion_3_output",
-        "index",
+        "_ScalarItem_2_index",
         "input2",
         "_Convolution2D_4_TupleConverter_5_output",
         "_Convolution2D_4_TupleConverter_4_output",
         "_Convolution2D_4_TupleConverter_3_output",
         "_Convolution2D_4_Shape_0_output",
-        "padding",
-        "_Convolution2D_4_PrimitiveSlice_1_start",
+        "_Convolution2D_4_padding",
+        "_Convolution2D_4_start",
     }
 
     infered_value = pm.data_store._cached_data["out2"].value
@@ -445,7 +449,7 @@ def test_data_store_16():
     )
 
     assert pm.data_store._cached_data.keys() == {
-        "_Transpose_0_axes",
+        "axes",
         "_Transpose_0_output_cache",
         "_MatrixMultiply_1_output_cache",
         "output_cache",

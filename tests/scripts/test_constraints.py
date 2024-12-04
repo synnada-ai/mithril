@@ -158,7 +158,7 @@ def variadic_update_values(
 def extract_uniadic_possibles(
     uni: Uniadic,
     assignments: AssignmentType,
-    uni_cache: dict[UniadicRecord | Variadic, str],
+    uni_cache: dict[UniadicRecord, str],
 ) -> None:
     # Takes an uniadic object and fills the assignments dictionary
     # based on possible values of the uniadic object.
@@ -171,8 +171,8 @@ def extract_uniadic_possibles(
 def extract_variadic_possibles(
     var: Variadic,
     assignments: AssignmentType,
-    uni_cache: dict[UniadicRecord | Variadic, str],
-    var_cache: dict[UniadicRecord | Variadic, str],
+    uni_cache: dict[UniadicRecord, str],
+    var_cache: dict[Variadic, str],
 ) -> None:
     assert var.possibles is not None
     all_possible_values: dict[int, PossibleValues] = var.possibles
@@ -204,8 +204,8 @@ def assert_shape_results(
         data[key] for key in expected_updates
     } == updated_symbols.shape_updates | updated_symbols.value_updates
     # Then check final shapes with the expected ref_results.
-    uni_cache: dict[UniadicRecord | Variadic, str] = {}
-    var_cache: dict[UniadicRecord | Variadic, str] = {}
+    uni_cache: dict[UniadicRecord, str] = {}
+    var_cache: dict[Variadic, str] = {}
     shapes = {}
     assignments: AssignmentType = {}
     for key, value in data.items():
@@ -5859,6 +5859,104 @@ def test_tensor_item_constraints_11():
         {},
         tensor_item_constraints,
         True,
+        {"output"},
+        scalar_info,
+    )
+
+
+def test_tensor_item_constraints_12():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "input": [("Var1", ...), "u1", "u2"],
+        "output": [("Var2", ...)],
+    }
+    final_shapes = {
+        "input": ["(V1, ...)", "u1", "u2"],
+        "output": ["u3", 1, "u4", "(V2, ...)"],
+        "index": [],
+    }
+    scalar_info = {
+        "index": Scalar(value=(slice(None, None, None), None, slice(None, None, None)))
+    }
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        tensor_item_constraints,
+        False,
+        {"output"},
+        scalar_info,
+    )
+
+
+def test_tensor_item_constraints_13():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "input": [("Var1", ...), "u1", "u2"],
+        "output": [("Var2", ...)],
+    }
+    final_shapes = {
+        "input": ["(V1, ...)", "u1", "u2"],
+        "output": ["u3", "u4", "(V2, ...)"],
+        "index": [],
+    }
+    scalar_info = {"index": Scalar(value=(slice(2, None, None), slice(3, None, None)))}
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        tensor_item_constraints,
+        False,
+        {"output"},
+        scalar_info,
+    )
+
+
+def test_tensor_item_constraints_14():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "input": ["u1", ("Var1", ...), "u2"],
+        "output": [("Var2", ...)],
+    }
+    final_shapes = {
+        "input": ["u1", "u2", "(V1, ...)", "u3"],
+        "output": [1, 1, "u4", "(V2, ...)"],
+        "index": [],
+    }
+    scalar_info = {"index": Scalar(value=(3, 4, None, None, slice(2, None, None)))}
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        tensor_item_constraints,
+        False,
+        {"output", "input"},
+        scalar_info,
+    )
+
+
+def test_tensor_item_constraints_15():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "input": ["u1", "u2", ("Var1", ...)],
+        "output": [("Var2", ...)],
+    }
+    final_shapes = {
+        "input": ["u1", "u2", "(V1, ...)"],
+        "output": ["(V2, ...)", "u3", 1, "u4"],
+        "index": [],
+    }
+    scalar_info = {
+        "index": Scalar(
+            value=(..., slice(None, None, None), None, slice(2, None, None))
+        )
+    }
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        tensor_item_constraints,
+        False,
         {"output"},
         scalar_info,
     )

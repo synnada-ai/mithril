@@ -24,6 +24,7 @@ from mithril.models import (
     L2,
     MLP,
     Add,
+    Buffer,
     Connect,
     Convolution2D,
     CrossEntropy,
@@ -862,3 +863,65 @@ def test_make_shape_constrain():
     assert model.shapes == model_recreated.shapes
     assert_models_equal(model, model_recreated)
     TorchBackend.registered_primitives.pop("my_adder")
+
+
+def test_valued_scalar_in_init():
+    model = Model()
+    model += Buffer()(input="buff_input", output=IOKey(name="buff_out"))
+    model += Mean()(input="mean_input", output=IOKey(name="mean_out"))
+    outer_model = Model()
+    outer_model += model()
+
+    model_dict_created = dict_conversions.model_to_dict(model)
+    model_recreated = dict_conversions.dict_to_model(model_dict_created)
+    model_dict_recreated = dict_conversions.model_to_dict(model_recreated)
+
+    assert model_dict_created == model_dict_recreated
+    assert_models_equal(model, model_recreated)
+
+
+def test_valued_scalar_in_extend():
+    model = Model()
+    model += Buffer()(input="buff_input", output=IOKey(name="buff_out"))
+    model += Mean(axis=TBD)(input="mean_input", axis=1, output=IOKey(name="mean_out"))
+    outer_model = Model()
+    outer_model += model()
+
+    model_dict_created = dict_conversions.model_to_dict(model)
+    model_recreated = dict_conversions.dict_to_model(model_dict_created)
+    model_dict_recreated = dict_conversions.model_to_dict(model_recreated)
+
+    assert model_dict_created == model_dict_recreated
+    assert_models_equal(model, model_recreated)
+
+
+def test_valued_scalar_iokey():
+    model = Model()
+    model += Buffer()(input="buff_input", output=IOKey(name="buff_out"))
+    model += Mean(axis=TBD)(
+        input="mean_input", axis="axis", output=IOKey(name="mean_out")
+    )
+    outer_model = Model()
+    outer_model += model(axis=IOKey(name="axis", value=1))
+
+    model_dict_created = dict_conversions.model_to_dict(model)
+    model_recreated = dict_conversions.dict_to_model(model_dict_created)
+    model_dict_recreated = dict_conversions.model_to_dict(model_recreated)
+
+    assert model_dict_created == model_dict_recreated
+    assert_models_equal(model, model_recreated)
+
+
+def test_non_valued_scalar():
+    model = Model()
+    model += Buffer()(input="buff_input", output=IOKey(name="buff_out"))
+    model += Mean(axis=TBD)(input="mean_input", output=IOKey(name="mean_out"))
+    outer_model = Model()
+    outer_model += model()
+
+    model_dict_created = dict_conversions.model_to_dict(model)
+    model_recreated = dict_conversions.dict_to_model(model_dict_created)
+    model_dict_recreated = dict_conversions.model_to_dict(model_recreated)
+
+    assert model_dict_created == model_dict_recreated
+    assert_models_equal(model, model_recreated)

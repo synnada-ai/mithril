@@ -49,7 +49,7 @@ class MlxBackend(Backend[mx.array]):
         mx.random.seed(self.seed)
 
     @property
-    def is_manualgrad(self):
+    def is_manualgrad(self) -> bool:
         return False
 
     @property
