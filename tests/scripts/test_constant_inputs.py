@@ -588,7 +588,7 @@ def test_scalar_mean_2_1():
         mean_model += mean_1(axis=1, input="input")
     assert (
         str(err_info.value)
-        == "Value is set before as None. A scalar value can not be reset."
+        == "Given value 1 for local key: 'axis' has already being set to None!"
     )
 
 
@@ -2540,6 +2540,22 @@ def test_valued_conns_elevated_with_iokey():
         input="input",
         start_dim=IOKey("start_dim"),
         end_dim="end_dim",
+        output=IOKey(name="output"),
+    )
+    # Note that string naming does not cause the connection
+    # to be elevated as input to the upper level model.
+    assert model._input_keys == {"input", "start_dim"}
+    assert model.conns.latent_input_keys == {"end_dim"}
+
+
+# pytest.mark.skip(reason="Not implemented yet")
+def test_valued_conns_elevated_with_unexposed_iokey():
+    model = Model()
+    flatten = Flatten()
+    model += flatten(
+        input="input",
+        start_dim=IOKey("start_dim"),
+        end_dim=IOKey("end_dim", expose=False),
         output=IOKey(name="output"),
     )
     # Note that string naming does not cause the connection

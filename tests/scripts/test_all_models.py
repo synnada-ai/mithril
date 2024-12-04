@@ -709,7 +709,7 @@ def test_where_2():
 
 
 def test_arange_1():
-    model = Arange(0, 10, 1)
+    model = Arange(start=0, stop=10, step=1)
 
     reference_outputs = {"output": [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]}
 
@@ -726,7 +726,7 @@ def test_arange_1():
 
 
 def test_arange_2():
-    model = Arange(5, 10, 2)
+    model = Arange(start=5, stop=10, step=2)
 
     reference_outputs = {"output": [5.0, 7.0, 9.0]}
 
@@ -1655,7 +1655,7 @@ def test_scaled_dot_product_2():
 
 def test_slice_1():
     # Tuple slice
-    model = PrimitiveSlice(2, 3)
+    model = PrimitiveSlice(start=2, stop=3)
 
     data = {"input": (1, 2, 3.0, 4, 5)}
 
@@ -1680,7 +1680,7 @@ def test_slice_1():
 
 def test_slice_2():
     # Tuple slice
-    model = PrimitiveSlice(None, 3)
+    model = PrimitiveSlice(start=None, stop=3)
 
     data = {"input": (1, 2, 3.0, 4, 5)}
 
@@ -1705,7 +1705,7 @@ def test_slice_2():
 
 def test_slice_3():
     # Tuple slice
-    model = PrimitiveSlice(None, 3, 2)
+    model = PrimitiveSlice(start=None, stop=3, step=2)
 
     data = {"input": (1, 2, 3.0, 4, 5)}
 
@@ -1730,7 +1730,7 @@ def test_slice_3():
 
 def test_slice_4():
     # Tuple slice
-    model = PrimitiveSlice(None, None, 2)
+    model = PrimitiveSlice(start=None, stop=None, step=2)
 
     data = {"input": (1, 2, 3.0, 4, 5)}
 
@@ -1876,7 +1876,7 @@ def test_union_3():
 
 def test_index_1():
     # List index
-    model = ScalarItem(2)
+    model = ScalarItem(index=2)
 
     data = {"input": [1, 2, 3, 4, 5]}
 
@@ -1901,7 +1901,7 @@ def test_index_1():
 
 def test_index_2():
     # Tuple index
-    model = ScalarItem(2)
+    model = ScalarItem(index=2)
 
     data = {"input": (1, 2, 3.0, 4, 5)}
 
@@ -2289,7 +2289,7 @@ def test_reduce_argmin_2():
 
 
 def test_reduce_argmin_3():
-    model = ArgMin(1)
+    model = ArgMin(axis=1)
     statics = {"input": [[-7.0, -8.0], [6.0, 6.0], [6.0, 5.0]]}
 
     reference_outputs = {"output": [1, 0, 1]}
@@ -2307,7 +2307,7 @@ def test_reduce_argmin_3():
 
 
 def test_reduce_argmin_4():
-    model = ArgMin(1, keepdim=True)
+    model = ArgMin(axis=1, keepdim=True)
     statics = {"input": [[-7.0, -8.0], [6.0, 6.0], [6.0, 5.0]]}
 
     reference_outputs = {"output": [[1], [0], [1]]}
@@ -2325,7 +2325,7 @@ def test_reduce_argmin_4():
 
 
 def test_reduce_argmin_5():
-    model = ArgMin(1)
+    model = ArgMin(axis=1)
     statics = {
         "input": [
             [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]],
@@ -2349,7 +2349,7 @@ def test_reduce_argmin_5():
 
 
 def test_reduce_argmin_6():
-    model = ArgMin(0)
+    model = ArgMin(axis=0)
     statics = {
         "input": [
             [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]],

@@ -24,6 +24,9 @@ from typing import Any
 from ...utils.utils import OrderedSet
 from ..common import (
     NOT_AVAILABLE,
+    NOT_GIVEN,
+    TBD,
+    Connect,
     Connection,
     ConnectionData,
     Connections,
@@ -31,7 +34,10 @@ from ..common import (
     Constraint,
     ConstraintFunctionType,
     ConstraintSolver,
+    ExtendTemplate,
     IOHyperEdge,
+    IOKey,
+    MainValueInstance,
     MainValueType,
     NotAvailable,
     Scalar,
@@ -40,6 +46,8 @@ from ..common import (
     ShapeTemplateType,
     ShapeType,
     Tensor,
+    TensorValueType,
+    ToBeDetermined,
     UniadicRecord,
     Updates,
     UpdateType,
@@ -71,7 +79,6 @@ class ExtendInfo:
 
 
 class BaseModel(abc.ABC):
-    # _input_keys: tuple[str, ...] = None
     # Disposable models only used once for entire training session.
     # This attribute is only use for manual backends' code generation.
 
@@ -81,12 +88,61 @@ class BaseModel(abc.ABC):
     factory_args: dict[str, Any] = {}
 
     def __call__(self, **kwargs: ConnectionType) -> ExtendInfo:
+        for key, val in self.factory_inputs.items():
+            if val is not TBD:
+                if key not in kwargs or (con := kwargs[key]) is NOT_GIVEN:
+                    kwargs[key] = val  # type: ignore
+                    continue
+                match con:
+                    case Connection():
+                        kwargs[key] = Connect(con, key=IOKey(value=val, expose=False))
+                        # TODO: Maybe we could check con's value if matches with val
+                    case item if isinstance(item, MainValueInstance) and con != val:
+                        raise ValueError(
+                            f"Given value {con} for local key: '{key}' "
+                            f"has already being set to {val}!"
+                        )
+                    case str():
+                        kwargs[key] = IOKey(con, value=val, expose=False)
+                    case IOKey():
+                        if con._value is not TBD and con._value != val:
+                            raise ValueError(
+                                f"Given IOKey for local key: '{key}' is not valid!"
+                            )
+                        else:
+                            kwargs[key] = IOKey(
+                                name=con._name,
+                                value=val,
+                                shape=con._shape,
+                                type=con._type,
+                                expose=con._expose,
+                            )
+                    case Connect():
+                        if (io_key := con.key) is not None:
+                            if io_key._value is not TBD and io_key._value != val:
+                                raise ValueError(
+                                    "Given IOKey in Connect for "
+                                    f"local key: '{key}' is not valid!"
+                                )
+                            else:
+                                io_key._value = val
+                        else:
+                            io_key = IOKey(value=val, expose=False)
+                            kwargs[key] = Connect(*con.connections, key=io_key)
+                    case ExtendTemplate():
+                        raise ValueError(
+                            "Multi-write detected for a valued "
+                            f"local key: '{key}' is not valid!"
+                        )
         return ExtendInfo(self, kwargs)
 
     def __init__(self, name: str | None = None, enforce_jit: bool = True) -> None:
         self.parent: BaseModel | None = (
             None  # TODO: maybe set it only to PrimitiveModel / Model.
         )
+        self.factory_inputs: dict[
+            str, TensorValueType | MainValueType | ToBeDetermined
+        ] = {}
         self.assigned_shapes: list[ShapesType] = []
         self.assigned_constraints: list[dict[str, str | list[str]]] = []
         self.conns = Connections()
