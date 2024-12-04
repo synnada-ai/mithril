@@ -212,12 +212,14 @@ MainValueInstance = (
     | slice
     | Dtype
 )
-TensorValueType = int | float | tuple[Any, ...] | list[Any] | Constant | NestedListType
+
+
+_TensorTypes = int | float | Constant | tuple
+TensorValueType = _TensorTypes | tuple["TensorValueType", ...] | list["TensorValueType"]
 
 
 LossKey = "loss"
 FinalCost = "final_cost"
-
 
 ItemType = TypeVar("ItemType")
 
