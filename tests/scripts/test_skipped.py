@@ -15,7 +15,8 @@
 import pytest
 
 import mithril as ml
-from mithril.models import Model, Reshape, Mean, Add
+from mithril.models import Mean, Model, Reshape
+
 
 @pytest.mark.skip(
     reason="find_dominant_type is not working "
@@ -25,6 +26,7 @@ def test_reshape_call_arg():
     model = Model()
     model += Reshape()(shape=(2, 3, None, None))
 
+
 @pytest.mark.skip(
     reason="call operation currently add Connect "
     "object with expose=False flag. Open this test when it is fixed."
@@ -32,9 +34,9 @@ def test_reshape_call_arg():
 def test_auto_connect_in_call():
     mean = Mean(axis=ml.TBD)
     model = Model()
-    model += mean(axis = ml.IOKey(name="my_axis", expose=True))
-    model += Mean(axis=3)(axis = mean.axis)
-    
+    model += mean(axis=ml.IOKey(name="my_axis", expose=True))
+    model += Mean(axis=3)(axis=mean.axis)
+
     # This should be equivalent to the above
     # mean = Mean(axis=ml.TBD)
     # model = Model()
