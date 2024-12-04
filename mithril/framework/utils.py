@@ -393,7 +393,7 @@ def find_intersection_type(
     return None
 
 
-def find_type(connection: Any) -> type[Any]:
+def find_type[T](connection: T) -> type[T]:
     if isinstance(connection, tuple | list):
         element_types: list[Any] = [find_type(elem) for elem in connection]
         if isinstance(connection, tuple):

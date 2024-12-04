@@ -265,8 +265,3 @@ def assert_evaluations_equal(model1, model2, backend, static_keys):
     assert list(output_base.keys()) == list(output_recreated.keys())
     for key in output_base:
         assert backend.abs(output_base[key] - output_recreated[key]).all() < 1e-14  # type: ignore
-
-
-class TensorMock:
-    def __init__(self, value) -> None:
-        self.value = value

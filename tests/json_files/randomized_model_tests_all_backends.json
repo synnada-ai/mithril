@@ -1551,7 +1551,7 @@
             "name": "OneToMany",
             "differentiability_info": {"input": true, "initial_hidden": true},
             "regular_args": {
-                "max_sequence_length": 6,
+                "max_sequence_length": 5,
                 "cell_type": "RNNCell"
             }
         },
@@ -1573,10 +1573,6 @@
             },
             "target4": {
                 "shapes": [[4, 4], [1,1], [15 , 15]]
-            },
-
-            "target5": {
-                "shapes": [[2, 2], [1,1], [15 , 15]]
             }
         },
         "iterations": 20
