@@ -83,7 +83,6 @@ def test_linear_expose_set_shapes():
     )
 
 
-@pytest.mark.skip(reason="Dict conversion does not support extend from inputs yet")
 def test_linear_expose_set_shapes_extend_from_inputs():
     model = Model()
     lin_1 = Linear()
