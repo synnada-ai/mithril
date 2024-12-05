@@ -15,7 +15,16 @@
 from copy import deepcopy
 
 from mithril.framework.physical.model import FlatModel
-from mithril.models import Add, Model, Relu, Sigmoid, Softplus, Tanh, IOKey, Linear, TrainModel, SquaredError
+from mithril.models import (
+    Add,
+    IOKey,
+    Linear,
+    Model,
+    Relu,
+    Sigmoid,
+    Softplus,
+    Tanh,
+)
 
 
 def test_flatmodel_with_all_defined():
@@ -39,7 +48,9 @@ def test_flatmodel_with_all_undefined():
     model += (add := Add())()
 
     f_model = FlatModel(model)
-    assert f_model.mappings == {add: {"left": "left", "right": "right", "output": "output"}}
+    assert f_model.mappings == {
+        add: {"left": "left", "right": "right", "output": "output"}
+    }
 
 
 def test_flatmodel_multi_level_name_with_lowest_definition():
@@ -81,7 +92,6 @@ def test_flatmodel_multi_level_name_with_lowest_definition_higher_redefinition_2
     assert f_model.mappings == {add: {"left": "d", "right": "e", "output": "c"}}
 
 
-
 def test_flatmodel_collision_from_different_levels():
     model2 = Model()
     model2 += (add := Add())(left="a", right="b", output="e")
@@ -105,7 +115,7 @@ def test_flatmodel_collision_from_different_levels_2():
     model3 = Model()
     model3 += model1(d="d", e="e")
 
-    #f_model = FlatModel(model) 
+    # f_model = FlatModel(model)
     model = Model()
     model += model3()
     f_model = FlatModel(model)
@@ -124,13 +134,19 @@ def test_flatmodel_collision_from_different_levels_3():
     f_model = FlatModel(model)
     assert f_model.mappings == {add: {"left": "d", "right": "e", "output": "e_0"}}
 
+
 def test_adas():
     submodel = Model()
     submodel += Add()(output="mahmut")
     model = Model() + submodel
     f_model = FlatModel(model)
-    assert f_model.mappings == {list(submodel.dag.keys())[0]: {"left": "left", "right": "right", "output": "mahmut"}}
-
+    assert f_model.mappings == {
+        list(submodel.dag.keys())[0]: {
+            "left": "left",
+            "right": "right",
+            "output": "mahmut",
+        }
+    }
 
 
 def test_flatmodel_collision_from_different_models():
@@ -158,7 +174,10 @@ def test_flatmodel_output_first_1():
 
     f_model = FlatModel(model)
     assert f_model.mappings == {
-        list(model.dag.keys())[1]: {"input": "in2", "output": "output"}, # TODO: Why this is output?
+        list(model.dag.keys())[1]: {
+            "input": "in2",
+            "output": "output",
+        },  # TODO: Why this is output?
         list(model.dag.keys())[0]: {"input": "output", "output": "out1"},
     }
 
@@ -187,7 +206,6 @@ def test_flatmodel_output_first_3():
     }
 
 
-
 def test_flatmodel_output_first_4():
     model1 = Model()
     model1 += (relu := Relu())(input="input1", output=IOKey("output1"))
@@ -197,10 +215,14 @@ def test_flatmodel_output_first_4():
     model2 += (softp := Softplus())(input="input1", output=IOKey("output1"))
     model2 += (tanh := Tanh())(input="input2", output=IOKey("output2"))
 
-
     model = Model()
     model += model1(input1="input")
-    model += model2(input1=relu.output, input2=sig.output, output1=sig.input, output2=IOKey("output"))
+    model += model2(
+        input1=relu.output,
+        input2=sig.output,
+        output1=sig.input,
+        output2=IOKey("output"),
+    )
 
     f_model = FlatModel(model)
     expected_mapping = {
@@ -212,13 +234,17 @@ def test_flatmodel_output_first_4():
     assert f_model.mappings == expected_mapping
 
 
-
 def test_linear_flat():
     model = Model()
-    model += (l:=Linear(21))(output="qwe")
+    model += (lin := Linear(21))(output="qwe")
     f_model = FlatModel(model)
-    expected_mapping = {list(l.dag.keys())[0]: {"input": "w", "axes": "axes", "output": "output_0"},
-                        list(l.dag.keys())[1]: {"left": "input", "right": "output_0", "output": "output_1"},
-                        list(l.dag.keys())[2]: {"left": "output_1", "right": "b", "output": "qwe"}}
+    expected_mapping = {
+        list(lin.dag.keys())[0]: {"input": "w", "axes": "axes", "output": "output_0"},
+        list(lin.dag.keys())[1]: {
+            "left": "input",
+            "right": "output_0",
+            "output": "output_1",
+        },
+        list(lin.dag.keys())[2]: {"left": "output_1", "right": "b", "output": "qwe"},
+    }
     assert f_model.mappings == expected_mapping
-
