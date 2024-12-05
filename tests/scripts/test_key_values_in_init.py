@@ -342,7 +342,7 @@ def test_integration_call_arg_key_not_in_kwargs():
 
     backend = ml.TorchBackend()
     pm = ml.compile(model, backend, jit=False)
-    res = pm.evaluate(params={"input": backend.array(1.0), "right": backend.array(2.0)})
+    res = pm.evaluate(params={"left": backend.array(1.0), "right": backend.array(2.0)})
     assert res["output"] == backend.array(3.0)
 
 

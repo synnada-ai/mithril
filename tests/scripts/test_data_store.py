@@ -121,17 +121,14 @@ def test_data_store_3():
         "w": backend.array([[1.0, 1, 1]]),
     }
     pm = mithril.compile(model, backend=backend, constant_keys=static_data)
-    assert pm.data_store._cached_data.keys() == {"_MatrixMultiply_1_output"}
-    assert (
-        pm.data_store._cached_data["_MatrixMultiply_1_output"].value
-        == backend.array(6.0)
-    ).all()  # type: ignore[union-attr]
+    assert pm.data_store._cached_data.keys() == {"output_1"}
+    assert (pm.data_store._cached_data["output_1"].value == backend.array(6.0)).all()  # type: ignore[union-attr]
     assert pm.data_store._runtime_static_keys == set()
     assert pm.data_store._intermediate_non_differentiables._table == dict()
     assert pm.data_store.unused_keys == {
         "input",
         "w",
-        "_Transpose_0_output",
+        "output_0",
         "axes",
     }
 
@@ -162,7 +159,7 @@ def test_data_store_4():
     )
     pm.data_store.set_shapes(shapes)
     # Only "output" key is not in unused_kexys.
-    assert pm.data_store.unused_keys == pm.shapes.keys() - {"output", "_Shape_1_output"}
+    assert pm.data_store.unused_keys == pm.shapes.keys() - {"output", "output_3"}
 
 
 def test_data_store_5():
@@ -291,8 +288,8 @@ def test_data_store_11():
     assert pm.data_store._intermediate_non_differentiables._table == dict()
     assert pm.data_store.unused_keys == {
         "input",
-        "_input",
-        "_ToTensor_2_output",
+        "input_0",
+        "output",
     }
 
 
@@ -351,23 +348,23 @@ def test_data_store_14():
     assert pm.data_store._intermediate_non_differentiables._table == dict()
 
     assert pm.data_store.unused_keys == {
-        "_Convolution2D_4_TupleConverter_3_output",
-        "_Convolution2D_4_stop",
-        "input2",
-        "_Shape_1_output",
-        "_Convolution2D_4_TupleConverter_4_output",
-        "_ScalarItem_2_output",
-        "_Convolution2D_4_start",
-        "_Convolution2D_4_Shape_0_output",
-        "_Convolution2D_4_dilation",
-        "_ScalarItem_2_index",
-        "_Convolution2D_4_PrimitiveSlice_1_output",
-        "_Convolution2D_4_TupleConverter_5_output",
-        "_PrimitiveUnion_3_output",
-        "_Convolution2D_4_step",
-        "_Convolution2D_4_PaddingConverter2D_2_output",
+        "output_0",
+        "step",
         "kernel",
-        "_Convolution2D_4_padding",
+        "output_6",
+        "padding",
+        "start",
+        "output_2",
+        "index",
+        "dilation",
+        "input2",
+        "output_3",
+        "output_1",
+        "output_7",
+        "output_5",
+        "output_8",
+        "output_4",
+        "stop",
     }
 
     infered_value = pm.data_store._cached_data["out2"].value
@@ -405,23 +402,23 @@ def test_data_store_15():
     assert pm.data_store._intermediate_non_differentiables._table == dict()
 
     assert pm.data_store.unused_keys == {
-        "_Convolution2D_4_PaddingConverter2D_2_output",
-        "kernel",
-        "_Convolution2D_4_step",
-        "_Convolution2D_4_stop",
-        "_Convolution2D_4_dilation",
-        "_Convolution2D_4_PrimitiveSlice_1_output",
-        "_Shape_1_output",
-        "_ScalarItem_2_output",
-        "_PrimitiveUnion_3_output",
-        "_ScalarItem_2_index",
+        "output_6",
+        "output_2",
+        "output_8",
+        "start",
+        "output_4",
+        "step",
+        "output_1",
+        "output_5",
+        "dilation",
+        "stop",
+        "index",
+        "output_0",
+        "padding",
+        "output_7",
         "input2",
-        "_Convolution2D_4_TupleConverter_5_output",
-        "_Convolution2D_4_TupleConverter_4_output",
-        "_Convolution2D_4_TupleConverter_3_output",
-        "_Convolution2D_4_Shape_0_output",
-        "_Convolution2D_4_padding",
-        "_Convolution2D_4_start",
+        "kernel",
+        "output_3",
     }
 
     infered_value = pm.data_store._cached_data["out2"].value
@@ -450,8 +447,8 @@ def test_data_store_16():
 
     assert pm.data_store._cached_data.keys() == {
         "axes",
-        "_Transpose_0_output_cache",
-        "_MatrixMultiply_1_output_cache",
+        "output_0_cache",
+        "output_1_cache",
         "output_cache",
     }
     assert pm.data_store._runtime_static_keys == {"input"}
@@ -480,7 +477,7 @@ def test_data_store_17():
         safe_names=False,
     )
 
-    assert pm.data_store._cached_data.keys() == {"_Add_0_output_cache", "output_cache"}
+    assert pm.data_store._cached_data.keys() == {"output_0_cache", "output_cache"}
     assert pm.data_store._runtime_static_keys == {"right"}
     assert pm.data_store._intermediate_non_differentiables._table.keys() == set()
     assert pm.data_store.unused_keys == set()
@@ -569,12 +566,8 @@ def test_data_store_20():
         safe_shapes=True,
         safe_names=True,
     )
-    # Get key name of shp model.
-    generated_keys = model._generate_keys(symbolic=False)
-    conn = model.conns.get_con_by_metadata(shp.output.metadata)
-    shp_output_name = generated_keys[conn.key] if conn is not None else None
 
     assert pm.data_store._cached_data.keys() == {"tensor_out"}
     assert pm.data_store._runtime_static_keys == set()
     assert pm.data_store._intermediate_non_differentiables._table.keys() == set()
-    assert pm.data_store.unused_keys == {"left", shp_output_name}
+    assert pm.data_store.unused_keys == {"left", "output_1"}

@@ -16,19 +16,21 @@ import math
 import warnings
 from collections.abc import Callable, Mapping, Sequence
 from copy import deepcopy
+from dataclasses import dataclass
 from functools import partial, reduce
 
 from ...backends.backend import Backend, ParallelBackend
 from ...core import DataType, GenericDataType
 from ...utils.type_utils import is_list_int
 from ..common import (
-    NOT_AVAILABLE,
     NOT_GIVEN,
     TBD,
     Connection,
     ConnectionData,
+    IOHyperEdge,
     IOKey,
     MainValueType,
+    NotAvailable,
     Scalar,
     Table,
     Tensor,
@@ -105,40 +107,49 @@ class PhysicalModel(GenericDataType[DataType]):
 
         self.backend: Backend[DataType] = backend
         self._output_keys: set[str] = set(model.conns.output_keys)
+        flat_model = FlatModel(model, set(backend.primitive_function_dict.keys()))
+        self.external_key_mapping = flat_model.external_mapping
 
-        self.key_mappings = model._generate_keys(symbolic=False, include_internals=True)
-        self.key_mappings |= {
-            key: key
-            for key in model.external_keys | model.conns.latent_input_keys
-            if key[0] != "$"
-        }
         # NOTE: Reconsider updating logical dag in order.
         self._input_keys: set[str] = {
-            self.key_mappings.get(key, key) for key in model._input_keys
+            flat_model.external_mapping[key] for key in model._input_keys
         }
 
         # Add canonical output mapping to key_mappings if necessary
         # TODO: This is a temporary solution, a better way will be implemented
         # in another PR.
         if len(model.conns.output_keys) == 0:
-            if model._canonical_output is NOT_AVAILABLE:
+            if isinstance(model.canonical_output, NotAvailable):
                 raise ValueError("Models with no output keys can not be compiled.")
-            ref_name = "output"
-            logical_name = model._canonical_output.key
-            while ref_name in self.key_mappings:
-                ref_name = "_" + ref_name
-            self.key_mappings[logical_name] = ref_name
-            self._output_keys.add(ref_name)
+
+            current_name = flat_model.defined_edges[
+                model.canonical_output.metadata
+            ].name
+            key_origin = model.canonical_output.metadata.key_origin
+            if key_origin != current_name:
+                while key_origin in flat_model.defined_names:
+                    key_origin = f"_{key_origin}"
+
+            self._output_keys.add(key_origin)
+            flat_model.rename_key(current_name, key_origin)
 
         # Map given logical model key namings into physical key naming space.
         _constant_keys = {
-            self._convert_key(model, k): v for k, v in constant_keys.items()
+            self._convert_key(model, flat_model, k): v for k, v in constant_keys.items()
         }
-        _data_keys = {self._convert_key(model, key) for key in data_keys}
-        _trainable_keys = {self._convert_key(model, key) for key in trainable_keys}
-        _discard_keys = {self._convert_key(model, key) for key in discard_keys}
-        _shapes = {self._convert_key(model, k): v for k, v in shapes.items()}
-        _jacobian_keys = {self._convert_key(model, key) for key in jacobian_keys}
+        _data_keys = {self._convert_key(model, flat_model, key) for key in data_keys}
+        _trainable_keys = {
+            self._convert_key(model, flat_model, key) for key in trainable_keys
+        }
+        _discard_keys = {
+            self._convert_key(model, flat_model, key) for key in discard_keys
+        }
+        _shapes = {
+            self._convert_key(model, flat_model, k): v for k, v in shapes.items()
+        }
+        _jacobian_keys = {
+            self._convert_key(model, flat_model, key) for key in jacobian_keys
+        }
 
         # Check provided constant and data_keys do not have
         # any preset value. Note that this check is done after key conversions.
@@ -166,8 +177,63 @@ class PhysicalModel(GenericDataType[DataType]):
             self._flat_graph, backend, inference, model.constraint_solver, memo
         )
 
-        # Set canonical input and output
-        self.flatten_dag(model, self.key_mappings, safe_shapes=safe_shapes, memo=memo)
+        for p_model, mappings in flat_model:
+            model_shapes = {}
+            if safe_shapes and p_model.safe_shapes:
+                model_shapes = create_shape_map(
+                    p_model.safe_shapes, self.data_store.constraint_solver
+                )
+
+            model_data: dict[str, Tensor[DataType] | Scalar] = {}
+            for key in p_model.conns.all:
+                global_key = mappings[key]
+                logical_data = p_model.conns.get_data(key)
+                physical_data: Tensor[DataType] | Scalar = logical_data.make_physical(
+                    self.backend, memo=memo
+                )
+                # Set differentiability of non-differentiable tensor inputs to False.
+                if isinstance(physical_data, Tensor):
+                    # TODO: Second condition in if will be removed
+                    # after Primitive's compile handling updated..
+                    if (
+                        global_key in self._non_differentiable_keys
+                        or physical_data.value is not TBD
+                    ):
+                        # TODO: Create an API for setting differentiability of a tensor.
+                        physical_data._differentiable = False
+                    elif global_key in self._trainable_tensor_inputs:
+                        physical_data._differentiable = True
+
+                model_data[key] = physical_data
+                self.data_store.data_memo[id(logical_data)] = physical_data
+
+                if key_shape := model_shapes.get(key):
+                    data = model_data[key]
+                    assert isinstance(data, Tensor)
+                    shp = data.shape
+                    shp.merge(key_shape.node)
+
+            output = PrimitiveModel.output_key
+            _data_dict: dict[str, Tensor | Scalar] = {}
+
+            for inner_key in p_model.external_keys:
+                outer_key = mappings[inner_key]
+                if outer_key not in self.data:
+                    _data_dict[outer_key] = model_data[inner_key]
+            self.data_store.update_data(_data_dict)
+            self._infer_differentiability(p_model, mappings)
+
+            # NOTE: maybe move adding cache to generate_code methods.
+            if self.backend.type == "numpy":
+                cache_name = "_".join([mappings[output], p_model.cache_name])
+                mappings["cache"] = cache_name
+                cache_value: dict | None = None if self.inference else dict()
+                # Create a Scalar object for caches in manualgrad backend.
+                cache_scalar = Scalar(dict | None, cache_value)
+                self.data_store.update_data({cache_name: cache_scalar})
+
+            self._flat_graph.add_value(p_model, mappings)
+
         for cached_key in list(self.data_store.cached_data.keys()):
             self.data_store._infer_unused_keys(cached_key)
 
@@ -188,7 +254,7 @@ class PhysicalModel(GenericDataType[DataType]):
                 [
                     key
                     for key in unnamed_inputs
-                    if self.key_mappings.get(key, key) in runtime_data_keys
+                    if flat_model.external_mapping.get(key, key) in runtime_data_keys
                 ]
             )
             if unnamed_data_keys:
@@ -205,7 +271,9 @@ class PhysicalModel(GenericDataType[DataType]):
     ):
         return self.evaluate(params=params, data=data)
 
-    def _convert_key(self, model: BaseModel, key: str | Connection) -> str:
+    def _convert_key(
+        self, model: BaseModel, flat_model: "FlatModel", key: str | Connection
+    ) -> str:
         if isinstance(key, Connection):
             # Get outermost model equivalent of the connection.
             if (conn := model.conns.get_con_by_metadata(key.data.metadata)) is None:
@@ -220,7 +288,7 @@ class PhysicalModel(GenericDataType[DataType]):
             )
         elif key not in model.conns.all:
             raise KeyError(f"Given key: {key} is not found in the logical model.")
-        return self.key_mappings.get(key, key)
+        return flat_model.external_mapping.get(key, key)
 
     def _check_overridden_nontrainable_keys(
         self,
@@ -334,163 +402,6 @@ class PhysicalModel(GenericDataType[DataType]):
     @property
     def output_keys(self):
         return sorted(self._output_keys)
-
-    def flatten_dag(
-        self,
-        model: BaseModel,
-        key_mappings: dict[str, str],
-        name: str = "",
-        safe_shapes: bool = True,
-        memo: dict[int, Tensor[DataType] | Scalar] | None = None,
-    ):
-        _, reorder_graph = self._flatten_dag(
-            model, key_mappings, name, safe_shapes, memo
-        )
-        if reorder_graph:
-            self._flat_graph._reorder_connections()
-
-    def _flatten_dag(
-        self,
-        model: BaseModel,
-        key_mappings: dict[str, str],
-        name: str = "",
-        safe_shapes: bool = True,
-        memo: dict[int, Tensor[DataType] | Scalar] | None = None,
-    ) -> tuple[dict[str, str], bool]:
-        if memo is None:
-            memo = {}
-
-        internal_keys: dict[str, str] = {}
-        reorder_graph = False
-
-        model_shapes = {}
-        if safe_shapes and model.safe_shapes:
-            model_shapes = create_shape_map(
-                model.safe_shapes, self.data_store.constraint_solver
-            )
-
-        model_data: dict[str, Tensor[DataType] | Scalar] = {}
-        for key in model.conns.all:
-            _key = key_mappings.get(key, key) if model.parent is None else key
-            logical_data = model.conns.get_data(key)
-            physical_data: Tensor[DataType] | Scalar = logical_data.make_physical(
-                self.backend, memo=memo
-            )
-            # Set differentiability of non-differentiable tensor inputs to False.
-            if isinstance(physical_data, Tensor):
-                # TODO: Second condition in if will be removed
-                # after Primitive's compile handling updated..
-                if (
-                    key in self._non_differentiable_keys
-                    or physical_data.value is not TBD
-                ):
-                    # TODO: Create an API for setting differentiability of a tensor.
-                    physical_data._differentiable = False
-                elif key in self._trainable_tensor_inputs:
-                    physical_data._differentiable = True
-
-            model_data[_key] = physical_data
-            self.data_store.data_memo[id(logical_data)] = physical_data
-
-            if key_shape := model_shapes.get(key):
-                data = model_data[_key]
-                assert isinstance(data, Tensor)
-                shp = data.shape
-                shp.merge(key_shape.node)
-
-        # Save outermost model's data to data store.
-        if model.parent is None:
-            self.data_store.update_data(model_data)
-
-        if isinstance(model, PrimitiveModel):
-            output = PrimitiveModel.output_key
-            _data_dict: dict[str, Tensor[DataType] | Scalar] = {}
-            dag: dict[str, str] = {}
-            for inner_key in model.external_keys:
-                updated_inner_key = key_mappings.get(inner_key, inner_key)
-                dag[inner_key] = updated_inner_key
-                if updated_inner_key not in self.data:
-                    _data_dict[updated_inner_key] = model_data[inner_key]
-            self.data_store.update_data(_data_dict)
-            self._infer_differentiability(model, dag)
-
-            # NOTE: maybe move adding cache to generate_code methods.
-            if self.backend.type == "numpy":
-                cache_name = "_".join([dag[output], model.cache_name])
-                dag["cache"] = cache_name
-                cache_value: dict[str, MainValueType] | None = (
-                    None if self.inference else dict()
-                )
-                # Create a Scalar object for caches in manualgrad backend.
-                cache_scalar = Scalar(dict | None, cache_value)
-                self.data_store.update_data({cache_name: cache_scalar})
-
-            reorder_graph = self._flat_graph.add_value(model, dag)
-        else:
-            # NOTE: key of internal_keys should be str not Connection object because
-            # extend_from creates different Connection object with same key and
-            # metadata!
-            assert isinstance(model, Model)
-            if (
-                model.formula_key is not None
-                and model.formula_key in self.backend.primitive_function_dict
-            ):
-                model, key_mappings = self._replace_with_primitive(model, key_mappings)
-                _, _reorder_graph = self._flatten_dag(
-                    model, key_mappings, name, safe_shapes, memo=memo
-                )
-                return internal_keys, reorder_graph | _reorder_graph
-
-            models = model.get_models_in_topological_order()
-
-            for idx, m in enumerate(models):
-                m_name = name + "_" + m.__class__.__name__ + "_" + str(idx)
-                source_name = m_name
-
-                m_mapping: dict[str, str] = dict()
-                for key, value in model.dag[m].items():
-                    if (res := key_mappings.get(value.key)) is not None:
-                        result = res
-                    else:
-                        if (
-                            source
-                            := model.dependency_map._local_output_dependency_map.get(
-                                value
-                            )
-                        ) is not None:
-                            # If connection is an output of any model, name it by using
-                            # the name of this model and its index.
-                            source_model = source[0]
-
-                            source_name = (
-                                name
-                                + "_"
-                                + source_model.__class__.__name__
-                                + "_"
-                                + str(list(models).index(source_model))
-                            )
-                        else:
-                            source_name = (
-                                name
-                                + "_"
-                                + m.__class__.__name__
-                                + "_"
-                                + str(list(models).index(m))
-                            )
-                        key_origin = value.metadata.key_origin
-                        assert key_origin is not None
-                        result = internal_keys.setdefault(
-                            value.key, source_name + "_" + key_origin
-                        )
-                    m_mapping[key] = result
-
-                _, _reorder_graph = self._flatten_dag(
-                    m, m_mapping, m_name, safe_shapes, memo=memo
-                )
-
-                reorder_graph |= _reorder_graph
-
-        return internal_keys, reorder_graph
 
     def _infer_differentiability(self, model: PrimitiveModel, dag: dict[str, str]):
         # Infer output differentiability only for the models
@@ -1259,3 +1170,206 @@ class PhysicalModel(GenericDataType[DataType]):
             )
         else:
             return self._generated_evaluate_all_fn(params, data, output_gradients)
+
+
+@dataclass
+class Name:
+    name: str
+
+    def __hash__(self):
+        return hash(self.name)
+
+    def __eq__(self, other):
+        if isinstance(other, Name):
+            return self.name == other.name
+        if isinstance(other, str):
+            return self.name == other
+        return False
+
+    def startswith(self, prefix: str):
+        return self.name.startswith(prefix)
+
+
+class FlatModel:
+    def __init__(self, model: BaseModel, reserved_keys: set[str] | None = None):
+        self.mappings: dict[PrimitiveModel, dict[str, Name]] = {}
+        self.defined_edges: dict[IOHyperEdge, Name] = {}
+        self.defined_names: dict[str, Name] = {}
+        self.key_origins: dict[str, int] = {}
+        self.external_keys: set[Name] = set()
+        self.reserved_keys = set(reserved_keys) if reserved_keys else set()
+        self.model = model
+        self.queued_models: dict[IOHyperEdge, list[PrimitiveModel]] = {}
+
+        self._external_mapping: dict[str, Name] = {}
+
+        self._name_externals()
+        # self._generate_keys(model, only_external=True)
+        self._generate_keys(model)
+        self._rebase_names()
+
+    def rename_key(self, source_name: str, target_name: str):
+        if source_name == target_name:
+            return
+
+        if target_name in self.defined_names:
+            new_target_key = self._get_next_unique_name(target_name)
+            self.defined_names[target_name].name = new_target_key
+            self.defined_names[new_target_key] = self.defined_names.pop(target_name)
+
+            if target_name in self.external_mapping.values():
+                # TODO it is inefficient
+                self._external_mapping = {
+                    key: self.defined_names[new_target_key]
+                    if value == target_name
+                    else value
+                    for key, value in self._external_mapping.items()
+                }
+
+        self.defined_names[source_name].name = target_name
+        self.defined_names[target_name] = self.defined_names.pop(source_name)
+
+        if source_name in self.external_mapping.values():
+            # TODO: it is inefficient
+            self._external_mapping = {
+                key: self.defined_names[target_name] if value == source_name else value
+                for key, value in self._external_mapping.items()
+            }
+
+    @property
+    def external_mapping(self):
+        return {key: value.name for key, value in self._external_mapping.items()}
+
+    def _name_externals(self):
+        external_keys = list(self.model.conns.input_keys) + list(
+            self.model.conns.output_keys
+        )
+        extenal_keys_no_named = [key for key in external_keys if key.startswith("$")]
+        external_keys_named = [key for key in external_keys if not key.startswith("$")]
+
+        key_origin_counts: dict[str, int] = {}
+
+        for key in external_keys_named + extenal_keys_no_named:
+            conn = self.model.conns.all[key]
+            key_origin = conn.metadata.key_origin
+            assert key_origin is not None
+            key_origin_counts.setdefault(key_origin, 0)
+            key_origin_counts[key_origin] += 1
+
+        for key in external_keys_named + extenal_keys_no_named:
+            conn = self.model.conns.all[key]
+            base_name_str = conn.key
+
+            if not key.startswith("$"):
+                name_str = base_name_str
+                if key not in self.model.conns.input_keys:
+                    while name_str in self.reserved_keys:
+                        name_str = f"_{name_str}"
+
+                name = self._create_name(name_str)
+            else:
+                key_origin = conn.metadata.key_origin
+                assert key_origin is not None
+                if (
+                    key_origin in self.defined_names
+                    or key_origin_counts[key_origin] > 1
+                ):
+                    name_str = self._get_next_unique_name(key_origin)
+                    name = self._create_name(name_str)
+                else:
+                    name = self._create_name(key_origin)
+
+            self.defined_edges[conn.metadata] = name
+            self.external_keys.add(name)
+            self._external_mapping[base_name_str] = name
+
+    def _generate_keys(self, model: BaseModel):
+        if isinstance(model, PrimitiveModel):
+            self._process_primitive_model(model)
+        elif isinstance(model, Model):
+            self._process_model(model)
+        else:
+            raise ValueError("Model must be either PrimitiveModel or Model")
+
+    def _process_primitive_model(self, model: PrimitiveModel):
+        input_edges = set()
+        for conn in model.conns.input_connections:
+            if conn.metadata.data.value == TBD:
+                input_edges.add(conn.metadata)
+
+        if not input_edges.issubset(self.defined_edges):
+            for edge in input_edges:
+                self.queued_models.setdefault(edge, [])
+                if model not in self.queued_models[edge]:
+                    self.queued_models[edge].append(model)
+
+            return
+
+        self.mappings.setdefault(model, {})
+        for key, conn in model.conns.all.items():
+            if conn.metadata in self.defined_edges:
+                name = self.defined_edges[conn.metadata]
+            else:
+                name_str = self._get_next_unique_name(conn.metadata.key_origin)
+                name = self._create_name(name_str)
+
+                self.defined_edges[conn.metadata] = name
+
+            self.mappings[model][key] = name
+
+        output_edge = [conn.metadata for conn in model.conns.output_connections][0]
+        if output_edge in self.queued_models:
+            for m in self.queued_models[output_edge]:
+                self._process_primitive_model(m)
+
+    def _process_model(self, model: Model):
+        models = list(
+            model.get_models_in_topological_order()
+            if model.parent is None
+            else model.dag.keys()
+        )
+
+        for m in models:
+            self._generate_keys(m)
+
+    def _get_next_unique_name(self, name: str) -> str:
+        if name in self.key_origins:
+            self.key_origins[name] += 1
+            candidate_name = f"{name}_{self.key_origins[name]}"
+            if (
+                candidate_name in self.defined_names
+                or candidate_name in self.reserved_keys
+            ):
+                return self._get_next_unique_name(name)
+            else:
+                while candidate_name in self.reserved_keys:
+                    candidate_name = f"_{candidate_name}"
+                return candidate_name
+        else:
+            self.key_origins[name] = -1
+            return self._get_next_unique_name(name)
+
+    def _create_name(self, name: str) -> Name:
+        if name in self.key_origins:
+            name = f"{name}_{self.key_origins[name]}"
+        new_name = Name(name)
+        self.defined_names[name] = new_name
+        return new_name
+
+    def _rebase_names(self):
+        for base_name, idx in self.key_origins.items():
+            if idx == 0 and base_name not in self.external_keys:
+                name = f"{base_name}_{0}"
+                while base_name in self.reserved_keys:
+                    base_name = f"_{base_name}"
+                self.defined_names[name].name = base_name
+                self.defined_names[base_name] = self.defined_names.pop(name)
+
+    def __iter__(self):
+        self._iter = iter(self.mappings.items())
+        return self
+
+    def __next__(self):
+        model, mapping = next(self._iter)
+
+        return model, {key: name.name for key, name in mapping.items()}
