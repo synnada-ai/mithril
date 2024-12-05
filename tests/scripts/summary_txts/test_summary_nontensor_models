@@ -5,25 +5,26 @@ Model Name   |                                   Model Keys
              |             -----------------------------------------------------
              |             Keys    : Shapes                     : Connections   
 ================================================================================
-Linear       |   Inputs  : input   : [u1, (V1, ...),        u3] : 'input'       
-             |             w       :     [       u3,        u2] : 'w'           
+Linear       |   Inputs  : w       :     [       u2,        u1] : 'w'           
+             |             $axes   :                         -- : None          
+             |             input   : [u3, (V1, ...),        u1] : 'input'       
              |             b       :                [       u2] : 'b'           
              |   ---------------------------------------------------------------
-             |   Outputs : output  : [u1, (V1, ...),        u2] : Shape.input   
+             |   Outputs : output  : [u3, (V1, ...),        u2] : Shape.input   
              |                                                    Mean.input    
              |                                                    Size.input    
 --------------------------------------------------------------------------------
-Shape        |   Inputs  : input   : [u1, (V1, ...),        u2] : Linear.output 
+Shape        |   Inputs  : input   : [u3, (V1, ...),        u2] : Linear.output 
              |   ---------------------------------------------------------------
              |   Outputs : output  :                         -- : 'output1'     
 --------------------------------------------------------------------------------
-Mean         |   Inputs  : input   : [u1, (V1, ...),        u2] : Linear.output 
+Mean         |   Inputs  : input   : [u3, (V1, ...),        u2] : Linear.output 
              |             axis    :                         -- : None          
              |             keepdim :                         -- : False         
              |   ---------------------------------------------------------------
              |   Outputs : output  :                         [] : 'output2'     
 --------------------------------------------------------------------------------
-Size         |   Inputs  : input   : [u1, (V1, ...),        u2] : Linear.output 
+Size         |   Inputs  : input   : [u3, (V1, ...),        u2] : Linear.output 
              |             dim     :                         -- : None          
              |   ---------------------------------------------------------------
              |   Outputs : output  :                         -- : ToTensor.input

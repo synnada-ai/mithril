@@ -37,7 +37,7 @@ FinalCost = "final_cost"
 
 
 class PythonCodeGen[DataType](CodeGen):
-    def __init__(self, pm: PhysicalModel) -> None:
+    def __init__(self, pm: PhysicalModel[Any]) -> None:
         super().__init__(pm)
 
         self.module = ast.parse("")
@@ -77,7 +77,9 @@ class PythonCodeGen[DataType](CodeGen):
         eval_fn, grad_fn = self.exec_generated_code()
         return self.post_process_fns(eval_fn, grad_fn, jit)
 
-    def exec_generated_code(self) -> tuple[Callable, Callable | None]:
+    def exec_generated_code(
+        self,
+    ) -> tuple[Callable[..., Any], Callable[..., Any] | None]:
         if self.code is None:
             raise Exception(
                 "Code is not generated yet! Please call generate_code() first."
@@ -260,11 +262,12 @@ class PythonCodeGen[DataType](CodeGen):
 
         unused_keys = self.pm.data_store.unused_keys
         cached_data_keys = self.pm.data_store.cached_data.keys()
+        discarded_keys = self.pm.discarded_keys  # TODO: Consider is this necessary?
 
         # Iterate over Primitive models in topological order to add their formula.
         for output_key in self.pm._flat_graph.topological_order:
             # Staticly infered and unused model will not be added
-            if output_key in (cached_data_keys | unused_keys):
+            if output_key in (cached_data_keys | unused_keys | discarded_keys):
                 continue
 
             model, g_input_keys, l_input_keys = self.get_primitive_details(output_key)

@@ -652,11 +652,7 @@ class Model(BaseModel):
             # Return NOTGIVEN if IOKey has value, name and expose
             # attributes as their default values.
             existing_conn = None
-            if (
-                connection._name is None
-                and connection._value == NOT_GIVEN
-                and connection._expose is None
-            ):
+            if connection._name is None and connection._value == NOT_GIVEN:
                 return NOT_GIVEN
 
             set_type = connection._type
@@ -1448,8 +1444,8 @@ class Model(BaseModel):
         return key_mappings
 
     def get_unique_submodel_names(self) -> dict[BaseModel, str]:
-        name_mapping = {}
-        existing_names = set()
+        name_mapping: dict[BaseModel, str] = {}
+        existing_names: set[str] = set()
         model_type_dict: dict[str, list[BaseModel]] = {}
 
         # First, assign existing names and track used names.
@@ -1497,8 +1493,6 @@ class Model(BaseModel):
             if m.name is None:
                 m.name = model_names[m]
 
-        # Sort dag
-        self.dag = {m: self.dag[m] for m in self.get_models_in_topological_order()}
         if self.formula_key is not None:
             # Must be convertable to primitive.
             assert len(self.conns.output_keys) == 1, (
@@ -1604,11 +1598,8 @@ class Model(BaseModel):
             )
             data_map = {key: conn.metadata.data for key, conn in self.conns.all.items()}
 
-            # Sort in topological order if model is not frozen
-            if self.is_frozen:
-                sorted_models = list(self.dag.keys())
-            else:
-                sorted_models = self.get_models_in_topological_order()
+            # Sort in topological order
+            sorted_models = self.get_models_in_topological_order()
 
             for model in sorted_models:
                 model_name = name_mappings[model]

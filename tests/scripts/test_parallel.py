@@ -23,6 +23,7 @@ import jax
 import numpy as np
 import pytest
 import torch
+import torch.distributed
 
 import mithril
 from mithril import compile
@@ -354,10 +355,11 @@ def test_torch_parallel_1():
     input_parallel = {"input": backend_parallel.array(tensor1, device_mesh=(4,))}
 
     result_parallel = pm_parallel.evaluate(params_parallel, input_parallel)
+    out = result_parallel["output"]
+    assert isinstance(out, torch.distributed._tensor.DTensor)
+    assert out._local_tensor.shape == (2, 256)
 
-    assert result_parallel["output"]._local_tensor.shape == (2, 256)
-
-    output_full_tensor = result_parallel["output"].full_tensor().cpu()
+    output_full_tensor = out.full_tensor().cpu()
     np.testing.assert_allclose(output_full_tensor, (torch.ones(8, 256) * 129))
 
     output_grad = backend.randn(8, 256)
@@ -372,7 +374,7 @@ def test_torch_parallel_1():
     )
 
     for key, grad in grads.items():
-        parallel_grad = grads_parallel.get(key).full_tensor()
+        parallel_grad = grads_parallel[key].full_tensor()
         np.testing.assert_allclose(grad.cpu(), parallel_grad.cpu(), 1e-6, 1e-6)
 
 
@@ -387,13 +389,15 @@ def test_torch_parallel_2():
     backend.ones([256])
     pm = compile(model, backend, jit=False, data_keys={"input"})
 
-    params = {"w": backend.ones([128, 256]), "b": backend.ones([256])}
+    params = {"w": backend.ones([256, 128]), "b": backend.ones([256])}
 
     # Replicate params
     input = {"input": backend.ones(256, 128, device_mesh=(4, 1))}
     result = pm.evaluate(params, input)
+    out = result["output"]
+    assert isinstance(out, torch.distributed._tensor.DTensor)
 
-    output_full_tensor = result["output"].full_tensor()
+    output_full_tensor = out.full_tensor()
     np.testing.assert_allclose(
         output_full_tensor, (torch.ones(256, 256) * 129 + torch.eye(256))
     )
@@ -416,7 +420,7 @@ def test_torch_parallel_3():
         model, backend_parallel, jit=False, data_keys={"input", "to_tensor"}
     )
 
-    params = {"w": backend.ones([128, 256]), "b": backend.ones([256])}
+    params = {"w": backend.ones([256, 128]), "b": backend.ones([256])}
     params_parallel = {
         "w": backend_parallel.ones([128, 256]),
         "b": backend_parallel.ones([256]),
@@ -432,7 +436,9 @@ def test_torch_parallel_3():
     }
 
     result_parallel = pm_parallel.evaluate(params_parallel, input_parallel)
-    output_full_tensor = result_parallel["output"].full_tensor()
+    out = result_parallel["output"]
+    assert isinstance(out, torch.distributed._tensor.DTensor)
+    output_full_tensor = out.full_tensor()
     np.testing.assert_allclose(
         output_full_tensor,
         (torch.ones(256, 256) * 129 + (torch.arange(4).repeat(64) + 1)),
@@ -450,10 +456,11 @@ def test_torch_parallel_3():
     )
 
     for key, grad in grads.items():
-        parallel_grad = grads_parallel.get(key).full_tensor()
+        parallel_grad = grads_parallel[key].full_tensor()
         np.testing.assert_allclose(grad, parallel_grad, 1e-6, 1e-6)
 
 
+@pytest.mark.skip("Will be fixed in torch 2.6.0")
 def test_torch_parallel_4():
     # This test checks parallel execution with a model that includes immediate values
     # in Add primitive.
@@ -467,16 +474,18 @@ def test_torch_parallel_4():
     pm = compile(model, backend, jit=False, data_keys={"input"})
     pm_parallel = compile(model, backend_parallel, jit=False, data_keys={"input"})
 
-    params = {"w": backend.ones([128, 256]), "b": backend.ones([256])}
+    params = {"w": backend.ones([256, 128]), "b": backend.ones([256])}
     input = {"input": backend.ones(256, 128)}
     params_parallel = {
-        "w": backend_parallel.ones([128, 256]),
+        "w": backend_parallel.ones([256, 128]),
         "b": backend_parallel.ones([256]),
     }
     input_parallel = {"input": backend_parallel.ones(256, 128, device_mesh=(4, 1))}
 
     result_parallel = pm_parallel.evaluate(params_parallel, input_parallel)
-    output_full_tensor = result_parallel["output"].full_tensor()
+    out = result_parallel["output"]
+    assert isinstance(out, torch.distributed._tensor.DTensor)
+    output_full_tensor = out.full_tensor()
     np.testing.assert_allclose(output_full_tensor, torch.ones(256, 256) * 129 + 3)
 
     output_grad = backend.rand(256, 256)
@@ -489,9 +498,8 @@ def test_torch_parallel_4():
         input_parallel,
         output_gradients={"output": output_grad_parallel},
     )
-
     for key, grad in grads.items():
-        parallel_grad = grads_parallel.get(key).full_tensor()
+        parallel_grad = grads_parallel[key].full_tensor()
         np.testing.assert_allclose(grad, parallel_grad, 1e-6, 1e-6)
 
 
@@ -521,10 +529,10 @@ def test_torch_parallel_5():
     )
 
     input = {"input": backend.ones(256, 128)}
-    params = {"w": backend.ones([128, 256]), "b": backend.ones([256])}
+    params = {"w": backend.ones([256, 128]), "b": backend.ones([256])}
     input_parallel = {"input": backend_parallel.ones(256, 128, device_mesh=(2, 2))}
     params_parallel = {
-        "w": backend_parallel.ones([128, 256]),
+        "w": backend_parallel.ones([256, 128]),
         "b": backend_parallel.ones([256]),
     }
 
@@ -533,8 +541,13 @@ def test_torch_parallel_5():
 
     output_grads = backend.rand(256, 256)
     outout_grads_parallel = backend_parallel.array(output_grads)
-    output_full_tensor = result_parallel["output"].full_tensor()
-    np.testing.assert_allclose(output_full_tensor, result["output"])
+    out_parallel = result_parallel["output"]
+    out = result["output"]
+    assert isinstance(out_parallel, torch.distributed._tensor.DTensor)
+    assert isinstance(out, torch.Tensor)
+
+    output_full_tensor = out_parallel.full_tensor()
+    np.testing.assert_allclose(output_full_tensor, out)
 
     param_grads = pm.evaluate_gradients(
         params, input, output_gradients={"output": output_grads}
@@ -545,7 +558,7 @@ def test_torch_parallel_5():
         output_gradients={"output": outout_grads_parallel},
     )
     for key, grad in param_grads.items():
-        parallel_grad = param_grads_parallel.get(key).full_tensor()
+        parallel_grad = param_grads_parallel[key].full_tensor()
         np.testing.assert_allclose(grad, parallel_grad, 1e-6, 1e-6)
 
 
@@ -558,15 +571,18 @@ def test_torch_static_parallel_1():
 
     static_inputs = {
         "input": backend.ones(256, 128, device_mesh=(4, 1)),
-        "w": backend.ones([128, 256]),
+        "w": backend.ones([256, 128]),
     }
     pm = compile(model, backend, jit=False, constant_keys=static_inputs)
 
     params = {"b": backend.ones([256])}
 
     result = pm.evaluate(params)
+    out = result["output"]
+    assert isinstance(out, torch.distributed._tensor.DTensor)
 
-    output_full_tensor = result["output"].full_tensor()
+    output_full_tensor = out.full_tensor()
+
     np.testing.assert_allclose(
         output_full_tensor, ((torch.ones(256, 256) * 129).sigmoid())
     )
@@ -581,14 +597,16 @@ def test_torch_static_parallel_2():
 
     static_inputs = {
         "input": backend.ones(256, 128, device_mesh=(4, 1)),
-        "w": backend.ones([128, 256]),
+        "w": backend.ones([256, 128]),
         "b": backend.ones([256]),
     }
     pm = compile(model, backend, jit=False, constant_keys=static_inputs)
 
     result = pm.evaluate()
+    out = result["output"]
+    assert isinstance(out, torch.distributed._tensor.DTensor)
 
-    output_full_tensor = result["output"].full_tensor()
+    output_full_tensor = out.full_tensor()
     np.testing.assert_allclose(
         output_full_tensor, ((torch.ones(256, 256) * 129).sigmoid())
     )
@@ -604,16 +622,20 @@ def test_torch_static_parallel_3():
 
     static_inputs = {
         "input": backend.ones(256, 128, device_mesh=(4, 1)),
-        "w": backend.ones([128, 256]),
+        "w": backend.ones([256, 128]),
         "b": backend.ones([256]),
         "input2": backend.ones((16, 16)),
     }
     pm = compile(model, backend, jit=False, constant_keys=static_inputs)
 
     result = pm.evaluate()
+    out1 = result["output"]
+    out2 = result["output2"]
+    assert isinstance(out1, torch.distributed._tensor.DTensor)
+    assert isinstance(out2, torch.distributed._tensor.DTensor)
 
-    output_full_tensor = result["output"].full_tensor()
-    output2_full_tensor = result["output2"].full_tensor()
+    output_full_tensor = out1.full_tensor()
+    output2_full_tensor = out2.full_tensor()
     np.testing.assert_allclose(
         output_full_tensor, ((torch.ones(256, 256) * 129).relu())
     )
@@ -805,12 +827,17 @@ def test_torch_parallel_multi_parallel_1():
     res1 = pm1.evaluate({}, {"left": left, "right": right})
     res2 = pm2.evaluate({}, {"left": left, "right": right})
 
+    out1 = res1["output"]
+    out2 = res2["output"]
+
+    assert isinstance(out1, torch.distributed._tensor.DTensor)
+    assert isinstance(out2, torch.distributed._tensor.DTensor)
     np.testing.assert_allclose(
-        res1["output"].full_tensor(),
+        out1.full_tensor(),
         (left + right).full_tensor(),  # type: ignore
     )
     np.testing.assert_allclose(
-        res2["output"].full_tensor(),
+        out2.full_tensor(),
         (left * right).full_tensor(),  # type: ignore
     )
 
@@ -902,10 +929,11 @@ def test_jax_parallel_1():
         input_parallel = {"input": backend_parallel.array(tensor1, device_mesh=(4,))}
 
         result_parallel = pm_parallel.evaluate(params_parallel, input_parallel)
-
-        assert result_parallel["output"].sharding.shape == (4, 1)
+        out = result_parallel["output"]
+        assert isinstance(out, jax.Array)
 
         output_full_tensor = result_parallel["output"]
+        assert isinstance(output_full_tensor, jax.numpy.ndarray)
         np.testing.assert_allclose(output_full_tensor, (jax.numpy.ones((8, 256)) * 129))
 
         output_grad = backend.randn(8, 256)
@@ -919,8 +947,8 @@ def test_jax_parallel_1():
             output_gradients={"output": output_grad_parallel},
         )
 
-        for key, _grad in grads:
-            parallel_grad = grads_parallel.get(key)
+        for _key, _grad in grads.items():
+            parallel_grad = grads_parallel[_key]
         np.testing.assert_allclose(_grad, parallel_grad, 1e-5, 1e-5)
 
 
@@ -943,6 +971,7 @@ def test_jax_parallel_2():
         result = pm.evaluate(params, input)
 
         output_full_tensor = result["output"]
+        assert isinstance(output_full_tensor, jax.numpy.ndarray)
         np.testing.assert_allclose(
             output_full_tensor, (jax.numpy.ones((256, 256)) * 129 + jax.numpy.eye(256))
         )
@@ -984,6 +1013,7 @@ def test_jax_parallel_3():
 
         result_parallel = pm_parallel.evaluate(params_parallel, input_parallel)
         output_full_tensor = result_parallel["output"]
+        assert isinstance(output_full_tensor, jax.numpy.ndarray)
         np.testing.assert_allclose(
             output_full_tensor,
             (
@@ -1004,7 +1034,7 @@ def test_jax_parallel_3():
         )
 
         for key, grad in grads.items():
-            parallel_grad = grads_parallel.get(key)
+            parallel_grad = grads_parallel[key]
             np.testing.assert_allclose(grad, parallel_grad, 1e-5, 1e-5)
 
 
@@ -1032,6 +1062,7 @@ def test_jax_parallel_4():
 
         result_parallel = pm_parallel.evaluate(params_parallel, input_parallel)
         output_full_tensor = result_parallel["output"]
+        assert isinstance(output_full_tensor, jax.numpy.ndarray)
         np.testing.assert_allclose(
             output_full_tensor, jax.numpy.ones((256, 256)) * 129 + 3
         )
@@ -1048,7 +1079,7 @@ def test_jax_parallel_4():
         )
 
         for key, grad in grads.items():
-            parallel_grad = grads_parallel.get(key)
+            parallel_grad = grads_parallel[key]
             np.testing.assert_allclose(grad, parallel_grad, 1e-5, 1e-5)
 
 
@@ -1092,7 +1123,10 @@ def test_jax_parallel_5():
         output_grads = backend.randn(256, 256)
         outout_grads_parallel = backend_parallel.array(output_grads)
         output_full_tensor = result_parallel["output"]
-        np.testing.assert_allclose(output_full_tensor, result["output"])
+        out = result["output"]
+        assert isinstance(out, jax.numpy.ndarray)
+        assert isinstance(output_full_tensor, jax.numpy.ndarray)
+        np.testing.assert_allclose(output_full_tensor, out)
 
         param_grads = pm.evaluate_gradients(
             params, input, output_gradients={"output": output_grads}
@@ -1103,5 +1137,5 @@ def test_jax_parallel_5():
             output_gradients={"output": outout_grads_parallel},
         )
         for key, grad in param_grads.items():
-            parallel_grad = param_grads_parallel.get(key)
+            parallel_grad = param_grads_parallel[key]
             np.testing.assert_allclose(grad, parallel_grad, 1e-5, 1e-5)

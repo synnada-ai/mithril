@@ -122,7 +122,7 @@ def evaluate_case(
             numeric_shape_dict = (
                 {key: value.shape for key, value in inputs.items()}
                 | {key: value.shape for key, value in model_grad.items()}
-                | {key: value.shape for key, value in outputs.items()}
+                | {key: value.shape for key, value in outputs.items()}  # type: ignore
                 | {key: value.shape for key, value in static_keys.items()}
             )
             if reference_shapes is not None:
@@ -155,7 +155,7 @@ def evaluate_case(
                             backend.abs(v - out) < backend.abs(v) * relative_tolerance
                         )
                     )
-                ) and (out.shape == (() if isinstance(v, float) else v.shape))
+                ) and (out.shape == (() if isinstance(v, float) else v.shape))  # type: ignore
             else:
                 raise Exception(
                     f"Output is supposed to return value for the {k} key, but "
@@ -264,9 +264,4 @@ def assert_evaluations_equal(model1, model2, backend, static_keys):
     output_recreated = pm_recreated.evaluate(inputs)
     assert list(output_base.keys()) == list(output_recreated.keys())
     for key in output_base:
-        assert backend.abs(output_base[key] - output_recreated[key]).all() < 1e-14
-
-
-class TensorMock:
-    def __init__(self, value) -> None:
-        self.value = value
+        assert backend.abs(output_base[key] - output_recreated[key]).all() < 1e-14  # type: ignore

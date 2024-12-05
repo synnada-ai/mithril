@@ -441,10 +441,8 @@ class PhysicalModel(GenericDataType[DataType]):
                 )
                 return internal_keys, reorder_graph | _reorder_graph
 
-            if model.parent is None:
-                models = model.get_models_in_topological_order()
-            else:
-                models = model.dag.keys()
+            models = model.get_models_in_topological_order()
+
             for idx, m in enumerate(models):
                 m_name = name + "_" + m.__class__.__name__ + "_" + str(idx)
                 source_name = m_name
@@ -679,41 +677,49 @@ class PhysicalModel(GenericDataType[DataType]):
             raise ValueError("All outputs gradient are ignored.")
 
     def generate_functions(
-        self, eval_fn: Callable, grad_fn: Callable, eval_all_fn: Callable
+        self,
+        eval_fn: Callable[
+            [dict[str, DataType] | None, Mapping[str, MainValueType | DataType] | None],
+            Mapping[str, MainValueType | DataType],
+        ],
+        grad_fn: Callable[
+            [
+                dict[str, DataType] | None,
+                Mapping[str, MainValueType | DataType] | None,
+                dict[str, DataType] | None,
+            ],
+            dict[str, DataType],
+        ],
+        eval_all_fn: Callable[
+            [
+                dict[str, DataType] | None,
+                Mapping[str, MainValueType | DataType] | None,
+                dict[str, DataType] | None,
+            ],
+            tuple[Mapping[str, MainValueType | DataType], dict[str, DataType]],
+        ],
     ) -> None:
-        """This function compiles Physical Model. Compilation
-        process is as follows:
-        1. Infer ignore keys using infer_ignore_keys function.
-        2. Infer shapes using infer_shapes function.
-        3. Infer static keys using infer_static_keys function.
-        4. Infer ignore_grad keys using infer_ignore_grad_keys
-            function. Note that this function is only required
-            for numpy backend.
-        5. Generate and jit evaluate function using ast.
-        6. Generate and jit evaluate_gradients function using
-            ast for numpy backend and using auto-grad
-            functionality for Jax and Torch.
+        self._generated_eval_fn: Callable[
+            [dict[str, DataType] | None, Mapping[str, MainValueType | DataType] | None],
+            Mapping[str, MainValueType | DataType],
+        ] = eval_fn
+        self._generated_compute_gradients_fn: Callable[
+            [
+                dict[str, DataType] | None,
+                Mapping[str, MainValueType | DataType] | None,
+                dict[str, DataType] | None,
+            ],
+            dict[str, DataType],
+        ] = grad_fn
 
-        Parameters
-        ----------
-        shapes : Optional[IOShapeType], optional
-            _description_, by default None
-        static_keys : dict[str, dataType] | None, optional
-            _description_, by default None
-        ignore_grad_keys : set[str] | None, optional
-            _description_, by default None
-        ignore_keys : set[str] | None, optional
-            _description_, by default None
-
-        Returns
-        -------
-        tuple[Callable, Callable]
-            _description_
-        """
-
-        self._generated_eval_fn = eval_fn
-        self._generated_compute_gradients_fn = grad_fn
-        self._generated_evaluate_all_fn = eval_all_fn
+        self._generated_evaluate_all_fn: Callable[
+            [
+                dict[str, DataType] | None,
+                Mapping[str, MainValueType | DataType] | None,
+                dict[str, DataType] | None,
+            ],
+            tuple[Mapping[str, MainValueType | DataType], dict[str, DataType]],
+        ] = eval_all_fn
 
     def create_jacobian_fn(self, generated_fn: Callable):
         # TODO: Fix this method to make it picklable!
@@ -1099,7 +1105,7 @@ class PhysicalModel(GenericDataType[DataType]):
     ):
         if name_mappings is None:
             name_mappings = define_unique_names(self._flat_graph.get_models())
-        conn_info: dict[str, tuple[dict, dict]] = {}
+        conn_info: dict[str, tuple[dict[str, list[str]], dict[str, list[str]]]] = {}
 
         for model, model_name in name_mappings.items():
             conn_info.setdefault(model_name, ({}, {}))
@@ -1205,7 +1211,7 @@ class PhysicalModel(GenericDataType[DataType]):
         self,
         params: dict[str, DataType] | None = None,
         data: Mapping[str, DataType | MainValueType] | None = None,
-    ):
+    ) -> Mapping[str, MainValueType | DataType]:
         if (
             isinstance(self.backend, ParallelBackend)
             and self.backend._parallel_manager is not None
@@ -1219,7 +1225,7 @@ class PhysicalModel(GenericDataType[DataType]):
         params: dict[str, DataType] | None = None,
         data: Mapping[str, DataType | MainValueType] | None = None,
         output_gradients: dict[str, DataType] | None = None,
-    ):
+    ) -> dict[str, DataType]:
         if self.inference:
             raise NotImplementedError(
                 "Inference mode does not support gradients calculation"
@@ -1239,7 +1245,7 @@ class PhysicalModel(GenericDataType[DataType]):
         params: dict[str, DataType] | None = None,
         data: Mapping[str, DataType | MainValueType] | None = None,
         output_gradients: dict[str, DataType] | None = None,
-    ):
+    ) -> tuple[Mapping[str, MainValueType | DataType], dict[str, DataType]]:
         if self.inference:
             raise NotImplementedError(
                 "Inferece mode does not support gradients calculation"

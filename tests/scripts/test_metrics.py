@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import numpy as np
+import torch
 
 from mithril import TorchBackend, compile
 from mithril.models import (
@@ -111,10 +112,12 @@ def test_metrics_1():
     }
 
     for key in expected_results:
+        res = result[key]
+        assert isinstance(res, torch.Tensor)
         if key in result:
-            np.testing.assert_allclose(
-                result[key], expected_results[key], atol=TOLERANCE
-            )
+            out = result[key]
+            assert isinstance(out, torch.Tensor)
+            np.testing.assert_allclose(out, expected_results[key], atol=TOLERANCE)
 
 
 def test_metrics_2():
@@ -193,7 +196,9 @@ def test_metrics_2():
     }
 
     for key in result:
-        np.testing.assert_allclose(result[key], expected_results[key], atol=TOLERANCE)
+        out = result[key]
+        assert isinstance(out, torch.Tensor)
+        np.testing.assert_allclose(out, expected_results[key], atol=TOLERANCE)
 
 
 def test_metrics_3():
@@ -273,7 +278,9 @@ def test_metrics_3():
     }
 
     for key in result:
-        np.testing.assert_allclose(result[key], expected_results[key], atol=TOLERANCE)
+        out = result[key]
+        assert isinstance(out, torch.Tensor)
+        np.testing.assert_allclose(out, expected_results[key], atol=TOLERANCE)
 
 
 def test_metrics_4():
@@ -353,7 +360,9 @@ def test_metrics_4():
     }
 
     for key in result:
-        np.testing.assert_allclose(result[key], expected_results[key], atol=TOLERANCE)
+        out = result[key]
+        assert isinstance(out, torch.Tensor)
+        np.testing.assert_allclose(out, expected_results[key], atol=TOLERANCE)
 
 
 def test_metrics_5():
@@ -433,7 +442,9 @@ def test_metrics_5():
     }
 
     for key in result:
-        np.testing.assert_allclose(result[key], expected_results[key], atol=TOLERANCE)
+        out = result[key]
+        assert isinstance(out, torch.Tensor)
+        np.testing.assert_allclose(out, expected_results[key], atol=TOLERANCE)
 
 
 def test_metrics_6():
@@ -454,6 +465,7 @@ def test_metrics_6():
         params={},
         data={"pred": backend.array(pred), "label": backend.array(label)},
     )["output"]
+    assert isinstance(result, torch.Tensor)
 
     np.testing.assert_allclose(result, expected_result, atol=TOLERANCE)
 
@@ -475,6 +487,7 @@ def test_metrics_7():
         params={},
         data={"pred": backend.array(pred), "label": backend.array(label)},
     )["output"]
+    assert isinstance(result, torch.Tensor)
 
     np.testing.assert_allclose(result, expected_result, atol=TOLERANCE)
 
@@ -498,6 +511,7 @@ def test_metrics_8():
         params={},
         data={"pred": backend.array(pred), "label": backend.array(label)},
     )["output"]
+    assert isinstance(result, torch.Tensor)
 
     np.testing.assert_allclose(result, expected_result, atol=TOLERANCE)
 
@@ -521,6 +535,8 @@ def test_metrics_9():
         params={},
         data={"pred": backend.array(pred), "label": backend.array(label)},
     )["output"]
+
+    assert isinstance(result, torch.Tensor)
 
     np.testing.assert_allclose(result, expected_result, atol=TOLERANCE)
 
@@ -549,6 +565,8 @@ def test_metrics_10():
         data={"pred": backend.array(pred), "label": backend.array(label)},
     )["output"]
 
+    assert isinstance(result, torch.Tensor)
+
     np.testing.assert_allclose(result, expected_result, atol=TOLERANCE)
 
 
@@ -576,6 +594,7 @@ def test_metrics_11():
         data={"pred": backend.array(pred), "label": backend.array(label)},
     )["output"]
 
+    assert isinstance(result, torch.Tensor)
     np.testing.assert_allclose(result, expected_result, atol=TOLERANCE)
 
 
@@ -647,7 +666,9 @@ def test_metrics_12():
     }
 
     for key in expected_results:
-        np.testing.assert_allclose(result[key], expected_results[key], atol=TOLERANCE)
+        out = result[key]
+        assert isinstance(out, torch.Tensor)
+        np.testing.assert_allclose(out, expected_results[key], atol=TOLERANCE)
 
 
 def test_metrics_13():
@@ -718,7 +739,10 @@ def test_metrics_13():
     }
 
     for key in expected_results:
-        np.testing.assert_allclose(result[key], expected_results[key], atol=TOLERANCE)
+        out = result[key]
+        assert isinstance(out, torch.Tensor)
+
+        np.testing.assert_allclose(out, expected_results[key], atol=TOLERANCE)
 
 
 def test_metrics_14():
@@ -789,7 +813,9 @@ def test_metrics_14():
     }
 
     for key in expected_results:
-        np.testing.assert_allclose(result[key], expected_results[key], atol=TOLERANCE)
+        out = result[key]
+        assert isinstance(out, torch.Tensor)
+        np.testing.assert_allclose(out, expected_results[key], atol=TOLERANCE)
 
 
 def test_metrics_15():
@@ -860,7 +886,9 @@ def test_metrics_15():
     }
 
     for key in expected_results:
-        np.testing.assert_allclose(result[key], expected_results[key], atol=TOLERANCE)
+        out = result[key]
+        assert isinstance(out, torch.Tensor)
+        np.testing.assert_allclose(out, expected_results[key], atol=TOLERANCE)
 
 
 def test_metrics_16():
@@ -931,7 +959,9 @@ def test_metrics_16():
     }
 
     for key in expected_results:
-        np.testing.assert_allclose(result[key], expected_results[key], atol=TOLERANCE)
+        out = result[key]
+        assert isinstance(out, torch.Tensor)
+        np.testing.assert_allclose(out, expected_results[key], atol=TOLERANCE)
 
 
 def test_metrics_17():
@@ -1002,4 +1032,6 @@ def test_metrics_17():
     }
 
     for key in expected_results:
-        np.testing.assert_allclose(result[key], expected_results[key], atol=TOLERANCE)
+        out = result[key]
+        assert isinstance(out, torch.Tensor)
+        np.testing.assert_allclose(out, expected_results[key], atol=TOLERANCE)

@@ -14,7 +14,7 @@
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from typing import Generic
+from typing import Any, Generic
 
 from mithril import DataType
 
@@ -28,9 +28,11 @@ class CodeGen(ABC, Generic[DataType]):
         self.file_path: str | None = None
 
     @abstractmethod
-    def generate_code(self, file_path: str | None = None):
+    def generate_code(self, file_path: str | None = None) -> None:
         raise NotImplementedError("generate_code is not implemented")
 
     @abstractmethod
-    def compile_code(self, jit: bool) -> tuple[Callable, Callable, Callable]:
+    def compile_code(
+        self, jit: bool
+    ) -> tuple[Callable[..., Any], Callable[..., Any], Callable[..., Any]]:
         raise NotImplementedError("compile_code is not implemented")

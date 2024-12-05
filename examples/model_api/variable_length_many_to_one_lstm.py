@@ -196,7 +196,7 @@ outputs = compiled_test_model.evaluate(params, test_static_inputs)
 # Unpack time data to single tensors for output and target data.
 unpacked_output_data = unpack_time_slot_data(
     backend=backend,
-    data=outputs,
+    data=outputs,  # type: ignore
     max_length=inference_max_target_length,
     max_size=len(test_data),
     output_dim=output_dim,
@@ -204,4 +204,4 @@ unpacked_output_data = unpack_time_slot_data(
 )
 
 # Measure test error.
-error = backend.abs(unpacked_output_data.squeeze() - test_target_values).sum()
+error = backend.abs(unpacked_output_data.squeeze() - test_target_values).sum()  # type: ignore

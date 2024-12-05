@@ -98,15 +98,20 @@ def test_extract_logical_connections_1():
     conns = model1.extract_connection_info(name_mappings)
     assert conns == {
         "Linear_0": (
-            {"input": ["'input'"], "b": ["'b'"], "w": ["'w'"]},
-            {"output": ["Linear_1.input", "Linear_1.w", "'output'"]},
+            {"w": ["'w'"], "$axes": ["None"], "input": ["'input'"], "b": ["'b'"]},
+            {"output": ["Linear_1.w", "Linear_1.input", "'output'"]},
         ),
         "Linear_1": (
-            {"input": ["Linear_0.output"], "w": ["Linear_0.output"], "b": ["'$_b_0'"]},
+            {
+                "w": ["Linear_0.output"],
+                "$axes": ["None"],
+                "input": ["Linear_0.output"],
+                "b": ["'$_b_0'"],
+            },
             {"output": ["'output2'"]},
         ),
         "Linear_2": (
-            {"input": ["'w'"], "w": ["'w'"], "b": ["'$_b_1'"]},
+            {"w": ["'w'"], "$axes": ["None"], "input": ["'w'"], "b": ["'$_b_1'"]},
             {"output": ["'output3'"]},
         ),
     }
@@ -230,11 +235,21 @@ def test_extract_logical_connections_5():
             {"output": ["Linear_0.input"]},
         ),
         "Linear_0": (
-            {"input": ["Flatten.output"], "w": ["'$w_0'"], "b": ["'$b_0'"]},
+            {
+                "w": ["'$w_0'"],
+                "$axes": ["None"],
+                "input": ["Flatten.output"],
+                "b": ["'$b_0'"],
+            },
             {"output": ["Linear_1.input"]},
         ),
         "Linear_1": (
-            {"input": ["Linear_0.output"], "w": ["'$w_1'"], "b": ["'$b_1'"]},
+            {
+                "w": ["'$w_1'"],
+                "$axes": ["None"],
+                "input": ["Linear_0.output"],
+                "b": ["'$b_1'"],
+            },
             {"output": ["'$output'"]},
         ),
     }
@@ -251,7 +266,7 @@ def test_extract_logical_connections_6():
     conns = model.extract_connection_info(name_mappings)
     ref_conns = {
         "Linear": (
-            {"input": ["'input'"], "w": ["'$w'"], "b": ["'$b'"]},
+            {"w": ["'$w'"], "$axes": ["None"], "input": ["'input'"], "b": ["'$b'"]},
             {"output": ["Flatten.input", "'output'"]},
         ),
         "Flatten": (
@@ -281,7 +296,7 @@ def test_extract_logical_connections_7():
 
     ref_conns = {
         "Linear": (
-            {"input": ["'input'"], "w": ["'$w_0'"], "b": ["'$b_0'"]},
+            {"w": ["'$w_0'"], "$axes": ["None"], "input": ["'input'"], "b": ["'$b_0'"]},
             {"output": ["Sigmoid.input", "'output'"]},
         ),
         "Sigmoid": ({"input": ["Linear.output"]}, {"output": ["Mean.input"]}),
@@ -290,19 +305,11 @@ def test_extract_logical_connections_7():
             {"output": ["Model_0.input"]},
         ),
         "Model_0": (
-            {
-                "input": ["Mean.output"],
-                "$w": ["'$w_1'"],
-                "$b": ["'$b_1'"],
-            },
+            {"$w": ["'$w_1'"], "input": ["Mean.output"], "$b": ["'$b_1'"]},
             {"output": [], "$output": ["Model_1.input"]},
         ),
         "Model_1": (
-            {
-                "input": ["Model_0.$output"],
-                "$w": ["'$w_2'"],
-                "$b": ["'$b_2'"],
-            },
+            {"$w": ["'$w_2'"], "input": ["Model_0.$output"], "$b": ["'$b_2'"]},
             {"output": [], "$output": ["Flatten.input"]},
         ),
         "Flatten": (
@@ -487,11 +494,21 @@ def test_extract_logical_connections_13():
             {"output": ["Linear_0.input"]},
         ),
         "Linear_0": (
-            {"input": ["Flatten.output"], "w": ["'$w_0'"], "b": ["'$b_0'"]},
+            {
+                "w": ["'$w_0'"],
+                "$axes": ["None"],
+                "input": ["Flatten.output"],
+                "b": ["'$b_0'"],
+            },
             {"output": ["Linear_1.input"]},
         ),
         "Linear_1": (
-            {"input": ["Linear_0.output"], "w": ["'$w_1'"], "b": ["'$b_1'"]},
+            {
+                "w": ["'$w_1'"],
+                "$axes": ["None"],
+                "input": ["Linear_0.output"],
+                "b": ["'$b_1'"],
+            },
             {"output": ["'$output'"]},
         ),
     }
@@ -572,13 +589,19 @@ def test_extract_shapes_logical_3():
     shape_info = get_summary_shapes(model_shapes, conn_info)
     assert shape_info == {
         "Linear_0": (
-            {"input": [4, "u1"], "w": ["u1", 4], "b": [4]},
+            {"w": [4, "u1"], "$axes": None, "input": [4, "u1"], "b": [4]},
             {"output": [4, 4]},
         ),
         "Relu_0": ({"input": [4, 4]}, {"output": [4, 4]}),
-        "Linear_1": ({"input": [4, 4], "w": [4, 2], "b": [2]}, {"output": [4, 2]}),
+        "Linear_1": (
+            {"w": [2, 4], "$axes": None, "input": [4, 4], "b": [2]},
+            {"output": [4, 2]},
+        ),
         "Relu_1": ({"input": [4, 2]}, {"output": [4, 2]}),
-        "Linear_2": ({"input": [4, 2], "w": [2, 1], "b": [1]}, {"output": [4, 1]}),
+        "Linear_2": (
+            {"w": [1, 2], "$axes": None, "input": [4, 2], "b": [1]},
+            {"output": [4, 1]},
+        ),
         "Relu_2": ({"input": [4, 1]}, {"output": [4, 1]}),
     }
 
@@ -683,20 +706,20 @@ def test_extract_shapes_logical_5():
     shape_info = get_summary_shapes(model_shapes, conn_info)
     assert shape_info == {
         "Linear_0": (
-            {"input": ["u1", "u2"], "w": ["u2", 4], "b": [4]},
-            {"output": ["u1", 4]},
+            {"w": [4, "u1"], "$axes": None, "input": ["u2", "u1"], "b": [4]},
+            {"output": ["u2", 4]},
         ),
-        "Relu_0": ({"input": ["u1", 4]}, {"output": ["u1", 4]}),
+        "Relu_0": ({"input": ["u2", 4]}, {"output": ["u2", 4]}),
         "Linear_1": (
-            {"input": ["u1", 4], "w": [4, 2], "b": [2]},
-            {"output": ["u1", 2]},
+            {"w": [2, 4], "$axes": None, "input": ["u2", 4], "b": [2]},
+            {"output": ["u2", 2]},
         ),
-        "Relu_1": ({"input": ["u1", 2]}, {"output": ["u1", 2]}),
+        "Relu_1": ({"input": ["u2", 2]}, {"output": ["u2", 2]}),
         "Linear_2": (
-            {"input": ["u1", 2], "w": [2, 1], "b": [1]},
-            {"output": ["u1", 1]},
+            {"w": [1, 2], "$axes": None, "input": ["u2", 2], "b": [1]},
+            {"output": ["u2", 1]},
         ),
-        "Relu_2": ({"input": ["u1", 1]}, {"output": ["u1", 1]}),
+        "Relu_2": ({"input": ["u2", 1]}, {"output": ["u2", 1]}),
     }
 
 
@@ -1168,9 +1191,10 @@ def test_physical_summary_15():
     lin_model_1.input.set_differentiable(True)
 
     comp_model = mithril.compile(model=model, backend=JaxBackend(), jit=False)
-    ...
+
     with redirect_stdout(StringIO()) as summary:
         comp_model.summary(model=lin_model_4, verbose=True)
+
     ref_table = ""
     with open("tests/scripts/summary_txts/test_physical_summary_15") as f:
         ref_table = f.read()
@@ -1180,11 +1204,10 @@ def test_physical_summary_15():
 def test_physical_summary_16():
     model = Model()
     lin_model_1 = Linear(dimension=3)
-    matmul_model_1, add_model_1 = tuple(lin_model_1.dag.keys())
+    *_, add_model_1 = tuple(lin_model_1.dag.keys())
     lin_model_2 = Linear(dimension=3)
-    matmul_model_2, add_model_2 = tuple(lin_model_2.dag.keys())
     lin_model_3 = Linear(dimension=3)
-    matmul_model_3, add_model_3 = tuple(lin_model_3.dag.keys())
+
     model += lin_model_1(input="input", w="w", b="b", output=IOKey(name="output1"))
     model += lin_model_2(input="input", w="w", b="b", output=IOKey(name="output2"))
     model += lin_model_3(input="input", w="w", b="b", output=IOKey(name="output3"))
@@ -1204,7 +1227,7 @@ def test_physical_summary_16():
 def test_physical_summary_17():
     model = Model()
     lin_model_1 = Linear(dimension=3)
-    matmul_model_1, _ = tuple(lin_model_1.dag.keys())
+    _, matmul_model_1, _ = tuple(lin_model_1.dag.keys())
     lin_model_2 = Linear(dimension=3)
     lin_model_3 = Linear(dimension=3)
     model += lin_model_1(input="input", w="w", b="b", output="output1")
@@ -1229,8 +1252,10 @@ def test_resnet_18_physical_summary():
     assert isinstance(model.canonical_input, Connection)
     model.canonical_input.set_differentiable(True)
     comp_model = mithril.compile(model=model, backend=TorchBackend(), jit=False)
+
     with redirect_stdout(StringIO()) as summary:
         comp_model.summary(verbose=True, shapes=True, symbolic=True)
+
     ref_table = ""
     with open("tests/scripts/summary_txts/test_resnet_18_physical_summary") as f:
         ref_table = f.read()
@@ -1340,8 +1365,10 @@ def test_logical_model_summary_5():
     model += Flatten(start_dim=1)
     model += Linear(1000)
     model += Linear(1)
+
     with redirect_stdout(StringIO()) as summary:
         model.summary(shapes=True, symbolic=True)
+
     ref_table = ""
     with open("tests/scripts/summary_txts/test_logical_model_summary_5") as f:
         ref_table = f.read()
@@ -1538,6 +1565,23 @@ def test_logical_model_summary_13():
         ref_table = f.read()
 
     assert "\n" + summary.getvalue() == ref_table
+
+
+def test_simple_extend_from_input_summary():
+    model = Model()
+    model += Linear(dimension=5)(input="lin", output="output")
+    model += Linear(dimension=3)(input="input", output="lin")
+
+    model._freeze()
+
+    with redirect_stdout(StringIO()) as summary:
+        model.summary(shapes=True, symbolic=True)
+
+    ref_table = ""
+    with open("tests/scripts/summary_txts/test_simple_extend_from_input_summary") as f:
+        ref_table = f.read()
+
+    assert summary.getvalue() == ref_table
 
 
 def test_primitive_model_summary_1():

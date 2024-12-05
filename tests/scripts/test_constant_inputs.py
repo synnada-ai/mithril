@@ -137,7 +137,7 @@ def assert_all_backends_device_precision(model: Model):
             assert get_array_precision(randomized_input, _type) == precision
 
         outputs = comp_model.evaluate(randomized_inputs)
-        initial_outputs = outputs.copy()
+        initial_outputs = outputs.copy()  # type: ignore
 
         # Check if outputs have correct device and precision
         for output in outputs.values():
@@ -145,7 +145,8 @@ def assert_all_backends_device_precision(model: Model):
             assert get_array_precision(output, _type) == precision
 
         grads = comp_model.evaluate_gradients(
-            output_gradients=outputs, params=randomized_inputs
+            output_gradients=outputs,  # type: ignore
+            params=randomized_inputs,
         )
 
         # Check if gradients have correct device and precision
@@ -289,11 +290,13 @@ def test_default_given_compile_numpy():
     data = {"axis": None}
 
     result = compiled_model.evaluate(inputs, data)
-    output_gradients = {"output": np.ones_like(result["output"])}
+    out = result["output"]
+    assert isinstance(out, np.ndarray)
+    output_gradients = {"output": np.ones_like(out)}
     compiled_model.evaluate_gradients(
         params=inputs, data=data, output_gradients=output_gradients
     )
-    np.testing.assert_array_equal(expected_result, result["output"])
+    np.testing.assert_array_equal(expected_result, out)
 
 
 def test_default_given_extend_numpy_3():
@@ -318,11 +321,13 @@ def test_default_given_extend_numpy_3():
     data = {"input": np_input}
 
     result = compiled_model.evaluate(inputs, data)
-    output_gradients = {"output": np.ones_like(result["output"])}
+    out = result["output"]
+    assert isinstance(out, np.ndarray)
+    output_gradients = {"output": np.ones_like(out)}
     compiled_model.evaluate_gradients(
         params=inputs, data=data, output_gradients=output_gradients
     )
-    np.testing.assert_array_equal(expected_result, result["output"])
+    np.testing.assert_array_equal(expected_result, out)
 
 
 def test_default_given_extend_numpy_3_set_values():
@@ -347,11 +352,13 @@ def test_default_given_extend_numpy_3_set_values():
     data = {"input": np_input}
 
     result = compiled_model.evaluate(inputs, data)
-    output_gradients = {"output": np.ones_like(result["output"])}
+    out = result["output"]
+    assert isinstance(out, np.ndarray)
+    output_gradients = {"output": np.ones_like(out)}
     compiled_model.evaluate_gradients(
         params=inputs, data=data, output_gradients=output_gradients
     )
-    np.testing.assert_array_equal(expected_result, result["output"])
+    np.testing.assert_array_equal(expected_result, out)
 
 
 def test_constant_given_data_numpy():
@@ -375,11 +382,13 @@ def test_constant_given_data_numpy():
     data = {"axis": 0}
 
     result = compiled_model.evaluate(inputs, data)
-    output_gradients = {"output": np.ones_like(result["output"])}
+    out = result["output"]
+    assert isinstance(out, np.ndarray)
+    output_gradients = {"output": np.ones_like(out)}
     compiled_model.evaluate_gradients(
         params=inputs, data=data, output_gradients=output_gradients
     )
-    np.testing.assert_array_equal(expected_result, result["output"])
+    np.testing.assert_array_equal(expected_result, out)
 
 
 def test_constant_numpy():
@@ -1001,6 +1010,7 @@ def test_bool_tensor_numpy_32():
     model += add_1(left=[7.0, 8.0], right=not_1.output, output=IOKey(name="output"))
     comp_model = mithril.compile(model=model, backend=NumpyBackend())
     output = comp_model.evaluate()["output"]
+    assert isinstance(output, np.ndarray)
     np.testing.assert_allclose(output, ref)
     assert output.dtype == np.float32
 
@@ -1015,6 +1025,7 @@ def test_bool_tensor_numpy_32_set_values():
     model.set_values({model.input: [False, False]})  # type: ignore
     comp_model = mithril.compile(model=model, backend=NumpyBackend())
     output = comp_model.evaluate()["output"]
+    assert isinstance(output, np.ndarray)
     np.testing.assert_allclose(output, ref)
     assert output.dtype == np.float32
 
@@ -1028,6 +1039,7 @@ def test_bool_tensor_numpy_64():
     model += add_1(left=[7.0, 8.0], right=not_1.output, output=IOKey(name="output"))
     comp_model = mithril.compile(model=model, backend=NumpyBackend(precision=64))
     output = comp_model.evaluate()["output"]
+    assert isinstance(output, np.ndarray)
     np.testing.assert_allclose(output, ref)
     assert output.dtype == np.float64
 
@@ -1040,9 +1052,11 @@ def test_bool_tensor_torch_32():
     model += not_1(input=IOKey(value=[False, False], name="input"))
     model += add_1(left=[7.0, 8.0], right=not_1.output, output=IOKey(name="output"))
     comp_model = mithril.compile(model=model, backend=TorchBackend(precision=32))
-    output = comp_model.evaluate()["output"].numpy()
-    np.testing.assert_allclose(output, ref)
-    assert output.dtype == np.float32
+    output = comp_model.evaluate()["output"]
+    assert isinstance(output, torch.Tensor)
+    out = output.numpy()
+    np.testing.assert_allclose(out, ref)
+    assert out.dtype == np.float32
 
 
 def test_bool_tensor_torch_64():
@@ -1053,9 +1067,11 @@ def test_bool_tensor_torch_64():
     model += not_1(input=IOKey(value=[False, False], name="input"))
     model += add_1(left=[7.0, 8.0], right=not_1.output, output=IOKey(name="output"))
     comp_model = mithril.compile(model=model, backend=TorchBackend(precision=64))
-    output = comp_model.evaluate()["output"].numpy()
-    np.testing.assert_allclose(output, ref)
-    assert output.dtype == np.float64
+    output = comp_model.evaluate()["output"]
+    assert isinstance(output, torch.Tensor)
+    out = output.numpy()
+    np.testing.assert_allclose(out, ref)
+    assert out.dtype == np.float64
 
 
 def test_bool_tensor_jax_32():
@@ -1127,6 +1143,7 @@ def test_static_input_1():
             "right": np.array(3.0, dtype=np.float32),
         }
     )["output"]
+    assert isinstance(output, np.ndarray)
     np.testing.assert_allclose(output, ref)
     assert output.dtype == np.float32
 
@@ -1164,6 +1181,7 @@ def test_static_input_2():
     )
 
     output = comp_model.evaluate()["output"]
+    assert isinstance(output, np.ndarray)
     np.testing.assert_allclose(output, ref)
     assert output.dtype == np.float32
 
@@ -1201,6 +1219,7 @@ def test_static_input_3():
     )
 
     output = comp_model.evaluate()["output"]
+    assert isinstance(output, np.ndarray)
     np.testing.assert_allclose(output, ref)
     assert output.dtype == np.float32
 
@@ -1221,6 +1240,7 @@ def test_static_input_4():
             "in2": np.array(3.0, dtype=np.float32),
         }
     )["output"]
+    assert isinstance(output, np.ndarray)
     np.testing.assert_allclose(output, ref)
     assert output.dtype == np.float32
 
@@ -1243,6 +1263,7 @@ def test_static_input_5():
     )
 
     output = comp_model.evaluate()["output"]
+    assert isinstance(output, np.ndarray)
     np.testing.assert_allclose(output, ref)
     assert output.dtype == np.float32
 
@@ -1658,7 +1679,7 @@ def test_unused_cached_values_1():
     """
     model = Model()
     linear_model = Linear(dimension=2)
-    model += linear_model(input=[[3.0], [2.0]], w=[[1.0, 2.0]], b=[3.0, 1.0])
+    model += linear_model(input=[[3.0], [2.0]], w=[[1.0], [2.0]], b=[3.0, 1.0])
     comp_model = mithril.compile(model=model, backend=(backend := NumpyBackend()))
     dtype = backend.get_backend_array_type()
     cache = comp_model.data_store.data_values
@@ -1686,7 +1707,7 @@ def test_unused_cached_values_1_set_values():
     linear_model = Linear(dimension=2)
     model += linear_model()
     config: dict[Connection, list] = {
-        linear_model.w: [[1.0, 2.0]],
+        linear_model.w: [[1.0], [2.0]],
         linear_model.b: [3.0, 1.0],
         linear_model.input: [[3.0], [2.0]],
     }
@@ -1716,7 +1737,7 @@ def test_unused_cached_values_2():
     """
     model = Model()
     linear_model = Linear(dimension=2)
-    model += linear_model(w=[[1.0, 2.0]], b=[3.0, 1.0])
+    model += linear_model(w=[[1.0], [2.0]], b=[3.0, 1.0])
     comp_model = mithril.compile(
         model=model, backend=(backend := NumpyBackend()), safe_names=False
     )
@@ -1724,10 +1745,10 @@ def test_unused_cached_values_2():
     cache = comp_model.data_store.data_values
 
     expected_cache = {
-        "_ToTensor_0_output": np.array([[1.0, 2.0]], dtype=dtype),
+        "_Linear_2_Transpose_0_output": np.array([[1.0, 2.0]], dtype=dtype),
         "_ToTensor_1_output": np.array([3.0, 1.0], dtype=dtype),
         "output_cache": {},
-        "_Linear_2_MatrixMultiply_0_output_cache": {},
+        "_Linear_2_MatrixMultiply_1_output_cache": {},
     }
     # Check cached_data.
     assert cache is not None and cache.keys() == expected_cache.keys()
@@ -1756,7 +1777,7 @@ def test_unused_cached_values_2_set_values():
     linear_model = Linear(dimension=2)
     model += linear_model()
     config: dict[Connection, list] = {
-        linear_model.w: [[1.0, 2.0]],
+        linear_model.w: [[1.0], [2.0]],
         linear_model.b: [3.0, 1.0],
     }
     model.set_values(config)
@@ -1767,10 +1788,10 @@ def test_unused_cached_values_2_set_values():
     cache = comp_model.data_store.data_values
 
     expected_cache = {
-        "_ToTensor_0_output": np.array([[1.0, 2.0]], dtype=dtype),
+        "_Linear_2_Transpose_0_output": np.array([[1.0, 2.0]], dtype=dtype),
         "_ToTensor_1_output": np.array([3.0, 1.0], dtype=dtype),
         "output_cache": {},
-        "_Linear_2_MatrixMultiply_0_output_cache": {},
+        "_Linear_2_MatrixMultiply_1_output_cache": {},
     }
     # Check cached_data.
     assert cache is not None and cache.keys() == expected_cache.keys()
@@ -1797,7 +1818,7 @@ def test_unused_cached_values_3():
     """
     model = Model()
     linear_model = Linear(dimension=2)
-    model += linear_model(input=[[3.0], [2.0]], w=[[1.0, 2.0]])
+    model += linear_model(input=[[3.0], [2.0]], w=[[1.0], [2.0]])
     linear_model.b.set_differentiable(False)
     comp_model = mithril.compile(
         model=model, backend=(backend := NumpyBackend()), safe_names=False
@@ -1807,7 +1828,7 @@ def test_unused_cached_values_3():
 
     expected_cache = {
         "output_cache": {},
-        "_Linear_2_MatrixMultiply_0_output": np.array([[3.0, 6], [2, 4]], dtype=dtype),
+        "_Linear_2_MatrixMultiply_1_output": np.array([[3.0, 6], [2, 4]], dtype=dtype),
     }
     # Check cached_data.
     assert cache is not None and cache.keys() == expected_cache.keys()
@@ -1835,7 +1856,9 @@ def test_unused_cached_values_3_set_values():
     model = Model()
     linear_model = Linear(dimension=2)
     model += linear_model()
-    model.set_values({linear_model.input: [[3.0], [2.0]], linear_model.w: [[1.0, 2.0]]})
+    model.set_values(
+        {linear_model.input: [[3.0], [2.0]], linear_model.w: [[1.0], [2.0]]}
+    )
     linear_model.b.set_differentiable(False)
     comp_model = mithril.compile(
         model=model, backend=(backend := NumpyBackend()), safe_names=False
@@ -1845,7 +1868,7 @@ def test_unused_cached_values_3_set_values():
 
     expected_cache = {
         "output_cache": {},
-        "_Linear_2_MatrixMultiply_0_output": np.array([[3.0, 6], [2, 4]], dtype=dtype),
+        "_Linear_2_MatrixMultiply_1_output": np.array([[3.0, 6], [2, 4]], dtype=dtype),
     }
     # Check cached_data.
     assert cache is not None and cache.keys() == expected_cache.keys()
@@ -2431,7 +2454,9 @@ def test_maxpool_1d_padding_type_input():
     out_1 = pm.evaluate(
         data={"input": backend.array([[[10.0, 11.0, 12.0, 13.0, 14.0]]])}
     )
-    assert (out_1["output"] == backend.array([[[11.0, 13.0]]])).all()
+    out = out_1["output"]
+    assert isinstance(out, torch.Tensor)
+    assert (out == backend.array([[[11.0, 13.0]]])).all()
 
 
 def test_maxpool_1d_padding_input_in_evaluate():
@@ -2449,7 +2474,9 @@ def test_maxpool_1d_padding_input_in_evaluate():
             "padding": PaddingType.VALID,
         }
     )
-    assert (out_1["output"] == backend.array([[[11.0, 13.0]]])).all()
+    out = out_1["output"]
+    assert isinstance(out, torch.Tensor)
+    assert (out == backend.array([[[11.0, 13.0]]])).all()
 
 
 def test_maxpool_1d_padding_input_solved_in_constraint():

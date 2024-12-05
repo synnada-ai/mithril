@@ -184,8 +184,8 @@ class NumpyBackend(Backend[np.ndarray]):
         )
 
     def zeros_like(
-        self, input: np.ndarray, *, dtype: Dtype | None = None
-    ) -> np.ndarray:
+        self, input: np.ndarray[Any, Any], *, dtype: Dtype | None = None
+    ) -> np.ndarray[Any, Any]:
         _dtype: str | None = None
         if isinstance(dtype, Dtype):
             _dtype = dtype.name

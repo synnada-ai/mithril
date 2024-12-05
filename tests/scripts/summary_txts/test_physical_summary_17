@@ -13,7 +13,7 @@ Constant inputs    : None
 -------------------------------
 Static keys        : None      
 -------------------------------
-Trainable keys     : input, w  
+Trainable keys     : input     
 -------------------------------
 Total Parameters   : >0        
 -------------------------------
@@ -26,9 +26,9 @@ Model Name       |                                                          Mode
                  |             Keys   : Shapes             : Types              : Connections                         : Parameters
 ==================================================================================================================================
 MatrixMultiply   |   Inputs  : left   : [None,  ..., None] : bool | float | int : 'input'                             :    Unknown
-                 |             right  :       [None,    3] : bool | float | int : 'w'                                 :    Unknown
+                 |             right  :       [None,    3] : bool | float | int : '_Linear_0_Transpose_0_output'      :          0
                  |   -------------------------------------------------------------------------------------------------------------
-                 |   Outputs : output : [None,  ...,    3] : bool | float | int : '_Linear_0_MatrixMultiply_0_output' :          0
+                 |   Outputs : output : [None,  ...,    3] : bool | float | int : '_Linear_0_MatrixMultiply_1_output' :          0
 ----------------------------------------------------------------------------------------------------------------------------------
 
 

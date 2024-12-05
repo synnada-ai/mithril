@@ -62,7 +62,7 @@ def check_evaluations(
     outs_2 = pm_2.evaluate(params_2)
     assert outs_1.keys() == outs_2.keys(), "Keys are not same!"
     for key, out in outs_1.items():
-        assert (outs_2[key] == out).all(), f"Output value for '{key}' key is not equal!"
+        assert (outs_2[key] == out).all(), f"Output value for '{key}' key is not equal!"  # type: ignore
 
     # Check gradients.
     if not inference:

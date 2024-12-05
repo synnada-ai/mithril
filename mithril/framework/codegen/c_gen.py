@@ -80,8 +80,6 @@ class CGen(CodeGen):
         assert self.file_path is not None, "Code has not been generated yet!"
 
         eval_arg_keys = self.func_arg_keys["evaluate"]
-        if not self.pm.inference:
-            eval_grad_arg_keys = self.func_arg_keys["evaluate_gradients"]
         so_file_path = self.file_path.replace(".c", ".so")
 
         default_compile_flags = ["cc", self.file_path, "-shared", "-fPIC"]
@@ -106,6 +104,7 @@ class CGen(CodeGen):
         lib = ctypes.CDLL(so_file_path)
         lib.evaluate.argtypes = [ctypes.POINTER(Array)] * len(eval_arg_keys)
         if not self.pm.inference:
+            eval_grad_arg_keys = self.func_arg_keys["evaluate_gradients"]
             lib.evaluate_gradients.argtypes = [ctypes.POINTER(Array)] * len(
                 eval_grad_arg_keys
             )
@@ -113,8 +112,8 @@ class CGen(CodeGen):
         # we need backend data types!
         # include_internals flag is used for get internal values for backpropagation
         def evaluate_wrapper(
-            params: dict[str, PyArray],
-            data: dict[str, PyArray],
+            params: dict[str, PyArray] | None,
+            data: dict[str, PyArray] | None,
             cache: dict[str, PyArray] | None = None,
             include_internals: bool = False,
         ) -> dict[str, PyArray]:
@@ -194,8 +193,8 @@ class CGen(CodeGen):
         return c_ast.Call(formula_name, args)
 
     def generate_evaluate(self) -> tuple[c_ast.FunctionDef, set[str]]:
-        fn_body = []
-        used_keys = set()
+        fn_body: list[c_ast.Expr] = []
+        used_keys: set[str] = set()
 
         unused_keys = self.pm.data_store.unused_keys
         cached_data_keys = self.pm.data_store.cached_data.keys()
@@ -218,7 +217,7 @@ class CGen(CodeGen):
             used_keys.add(output_key)
             used_keys |= set(inputs)
 
-        arguments = []
+        arguments: list[c_ast.Parameter] = []
         for used_key in sorted(used_keys):
             arguments.append(c_ast.Parameter("Array *", used_key))
 
@@ -226,9 +225,9 @@ class CGen(CodeGen):
 
         return evaluate_fn, used_keys
 
-    def generate_evaluate_gradients(self):
-        fn_body = []
-        used_keys = set()
+    def generate_evaluate_gradients(self) -> tuple[c_ast.FunctionDef, set[str]]:
+        fn_body: list[c_ast.Expr] = []
+        used_keys: set[str] = set()
 
         all_ignored_keys = (
             self.pm.ignore_grad_keys
@@ -250,7 +249,7 @@ class CGen(CodeGen):
             # Assume all inputs are Array
             grad_inputs = [input_key + "_grad" for input_key in inputs]
             for idx in range(len(grad_inputs)):
-                fn_inputs = (
+                fn_inputs: list[str] = (
                     [output_key + "_grad", c_ast.Constant(idx), output_key]
                     + inputs
                     + grad_inputs
@@ -267,7 +266,7 @@ class CGen(CodeGen):
             used_keys |= set(inputs)
             used_keys |= set(grad_inputs)
 
-        arguments = []
+        arguments: list[c_ast.Parameter] = []
 
         for used_key in sorted(used_keys):
             arguments.append(c_ast.Parameter("Array *", used_key))
