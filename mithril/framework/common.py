@@ -252,7 +252,7 @@ class ConstraintSolver:
     # TODO: empty_node will not be None when it is created
     # with weak_ref.
     empty_node: ShapeNode | None = field(default_factory=lambda: ShapeRepr().node)
-    constraint_map: dict[Constraint, list[ConnectionData]] = field(
+    constraint_map: dict[Constraint, list[IOHyperEdge]] = field(
         default_factory=lambda: {}
     )
 
@@ -273,9 +273,9 @@ class ConstraintSolver:
             constr = constraints.pop()
 
             if constr not in solved_constraints and constr in self.constraint_map:
-                inputs = self.constraint_map[constr]
+                hyper_edges = self.constraint_map[constr]
                 status, newly_added_symbols = constr(
-                    [conn.metadata.data for conn in inputs]
+                    [hyper_edge.data for hyper_edge in hyper_edges]
                 )
                 if constraint_type is UpdateType.SHAPE:
                     self.update_shapes(newly_added_symbols)
@@ -287,17 +287,17 @@ class ConstraintSolver:
                 if status:
                     solved_constraints.add(constr)
                     self.constraint_map.pop(constr)
-                    # Remove constraint from inputs.
-                    for input in inputs:
-                        input.metadata.data.remove_constraint(constr)
+                    # Remove constraint from hyper_edges' data.
+                    for hyper_edge in hyper_edges:
+                        hyper_edge.data.remove_constraint(constr)
 
                     post_constraints = constr.create_post_constraints()
                     for post_constr in post_constraints:
-                        self.constraint_map[post_constr] = inputs
+                        self.constraint_map[post_constr] = hyper_edges
 
-                        # Add post_constraints to inputs.
-                        for input in inputs:
-                            input.metadata.data.add_constraint(post_constr)
+                        # Add post_constraints to hyper_edges' data.
+                        for hyper_edge in hyper_edges:
+                            hyper_edge.data.add_constraint(post_constr)
 
                     constraints |= post_constraints
 
@@ -446,6 +446,13 @@ class ConstraintSolver:
         self._combine_nodes(updates)
         # Reduce updated UniadicRecords' referees field.
         self._reduce_uniadic_referees(updates)
+
+    def update_hyper_edge(self, new: IOHyperEdge, old: IOHyperEdge) -> None:
+        # Replaces old hyperedge with the new one in constraint_map.
+        for constr in old.data.all_constraints:
+            old_edges = self.constraint_map[constr]
+            new_edges = [new if old == key else key for key in old_edges]
+            self.constraint_map[constr] = new_edges
 
     def match(self, other: ConstraintSolver) -> Updates:
         # This method updates symbol store values.

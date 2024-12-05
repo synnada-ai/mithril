@@ -454,7 +454,8 @@ class BaseModel(abc.ABC):
         post_processes: set[ConstraintFunctionType] | None = None,
         type: UpdateType | None = None,
     ):
-        constr_conns = [self.conns.all[key] for key in keys]
+        all_conns = self.conns.all
+        hyper_edges = [all_conns[key].metadata for key in keys]
         if type is None:
             # TODO: separate type_constraints and shape constraints into two files under
             # constraints folder. Then, check if fn is not in any of those types set
@@ -462,19 +463,19 @@ class BaseModel(abc.ABC):
             # while other one is UpdateType.Type, raise Exception!
             type = UpdateType.TYPE if fn in type_constraints else UpdateType.SHAPE
         constr = Constraint(fn=fn, type=type)
-        self.constraint_solver.constraint_map[constr] = constr_conns
-        for conn in constr_conns:
-            conn.metadata.data.add_constraint(constr)
+        self.constraint_solver.constraint_map[constr] = hyper_edges
+        for hyper_edge in hyper_edges:
+            hyper_edge.data.add_constraint(constr)
+
         # Get union of all given and default post processes for the given
         # constraint and update post_processes field.
-
         if post_processes is None:
             post_processes = set()
         all_post_processes = post_processes | post_process_map.get(fn, set())
         for post_fn in all_post_processes:
             constr.add_post_process(post_fn)
 
-        _, updates = constr([conn.metadata.data for conn in constr_conns])
+        _, updates = constr([hyper_edge.data for hyper_edge in hyper_edges])
         self.constraint_solver(updates)
 
     def set_constraint(
@@ -568,7 +569,9 @@ class BaseModel(abc.ABC):
             for conn in conns:
                 conn.metadata = left
 
-        # Finally match data of each IOHyperEdge's.
+        # Update IOHyperEdge's in constraint solver.
+        self.constraint_solver.update_hyper_edge(left, right)
+        # Match data of each IOHyperEdge's.
         updates = left.data.match(right.data)
         return updates
 
