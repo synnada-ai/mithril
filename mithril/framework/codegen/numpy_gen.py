@@ -20,8 +20,6 @@ from typing import Any
 
 import numpy as np
 
-from mithril import DataType
-
 from ...backends.with_manualgrad.numpy_backend import NumpyBackend
 from ...core import Dtype
 from ...framework.physical.model import PhysicalModel
@@ -31,21 +29,25 @@ from ...utils.func_utils import (
     prepare_function_args,
 )
 from ..common import (
+    DataEvalType,
+    EvaluateAllType,
+    EvaluateGradientsType,
+    EvaluateType,
     FinalCost,
     LossKey,
+    ParamsEvalType,
     Tensor,
-    ValueType,
     is_type_adjustment_required,
 )
 from ..logical import PrimitiveModel, Scalar
-from .python_gen import PythonCodeGen
+from .python_gen import PythonCodeGen, RawGradientType
 from .utils import check_repr_inequality
 
 
-class NumpyCodeGen(PythonCodeGen[DataType]):
+class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
     BACKWARD_FN_SUFFIX = "_grad"
 
-    def __init__(self, pm: PhysicalModel[DataType]) -> None:
+    def __init__(self, pm: PhysicalModel[np.ndarray[Any, Any]]) -> None:
         super().__init__(pm)
 
         assert isinstance(self.pm.backend, NumpyBackend)
@@ -92,22 +94,26 @@ class NumpyCodeGen(PythonCodeGen[DataType]):
 
     def compile_code(
         self, jit: bool = False
-    ) -> tuple[Callable[..., Any], Callable[..., Any], Callable[..., Any]]:
+    ) -> tuple[
+        EvaluateType[np.ndarray[Any, Any]],
+        EvaluateGradientsType[np.ndarray[Any, Any]] | None,
+        EvaluateAllType[np.ndarray[Any, Any]] | None,
+    ]:
         eval_fn, grad_fn = self.exec_generated_code()
 
         # TODO: Not looks good, and looks over complicated!
         def evaluate_gradients_wrapper_manualgrad(
-            params: dict[str, np.ndarray[Any, Any]],
-            data: dict[str, np.ndarray[Any, Any] | ValueType] | None = None,
-            output_gradients: dict[str, np.ndarray[Any, Any]] | None = None,
+            params: ParamsEvalType[np.ndarray[Any, Any]] | None = None,
+            data: DataEvalType[np.ndarray[Any, Any]] | None = None,
+            output_gradients: ParamsEvalType[np.ndarray[Any, Any]] | None = None,
             *,
-            grad_fn: Callable[..., Any],
+            grad_fn: RawGradientType[np.ndarray[Any, Any]],
             include_output: bool = False,
         ) -> (
-            dict[str, np.ndarray[Any, Any]]
+            DataEvalType[np.ndarray[Any, Any]]
             | tuple[
-                dict[str, np.ndarray[Any, Any]],
-                dict[str, np.ndarray[Any, Any] | dict[str, np.ndarray[Any, Any]]],
+                DataEvalType[np.ndarray[Any, Any]],
+                ParamsEvalType[np.ndarray[Any, Any]],
             ]
         ):
             if params is None:
@@ -118,8 +124,6 @@ class NumpyCodeGen(PythonCodeGen[DataType]):
             # If evaluate_gradients called directly, first call evaluate.
             cached_data = self.pm.data_store.data_values
 
-            if data is None:
-                data = {}
             output: dict[str, np.ndarray[Any, Any]] = eval_fn(
                 params=params, data=data, cache=cached_data
             )
@@ -133,7 +137,7 @@ class NumpyCodeGen(PythonCodeGen[DataType]):
             ):
                 key_cache = cached_data.get(key + "_cache", {})
                 assert isinstance(key_cache, dict)
-                out_data: np.ndarray | None = None
+                out_data: np.ndarray[Any, Any] | None = None
                 if key in params:
                     out_data = params[key]
                 elif "output" in key_cache:
@@ -183,7 +187,7 @@ class NumpyCodeGen(PythonCodeGen[DataType]):
         if grad_fn is not None:
             grad_fn = partial(evaluate_gradients_wrapper_manualgrad, grad_fn=grad_fn)
 
-        return self.post_process_fns(eval_fn, grad_fn, jit)
+        return self.post_process_fns(eval_fn, grad_fn, jit)  # type: ignore
 
     def get_primitive_details(self, output_key: str):
         model = self.pm._flat_graph.get_model(output_key)
@@ -197,7 +201,7 @@ class NumpyCodeGen(PythonCodeGen[DataType]):
     def call_primitive(
         self,
         model: PrimitiveModel,
-        fn: Callable,
+        fn: Callable[..., Any],
         l_input_keys: list[str],
         g_input_keys: list[str],
         output_key: str,
@@ -268,7 +272,7 @@ class NumpyCodeGen(PythonCodeGen[DataType]):
     ) -> ast.FunctionDef:
         input_body: list[ast.stmt] = []
         function_body: list[ast.stmt] = []
-        used_keys = set()
+        used_keys: set[str] = set()
 
         all_ignored_keys = (
             ignore_grad_keys
@@ -437,7 +441,10 @@ class NumpyCodeGen(PythonCodeGen[DataType]):
                 )
                 idx_arg = ast.Constant(value=idx, kind=None)
 
-                default_args = {"output_gradient": grad_arg, "idx": idx_arg}
+                default_args: dict[str, ast.expr] = {
+                    "output_gradient": grad_arg,
+                    "idx": idx_arg,
+                }
                 generated_fn, _used_keys = self.create_primitive_call(
                     grad_fn, local_input_keys, global_input_keys, default_args
                 )
