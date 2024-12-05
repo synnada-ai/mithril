@@ -439,7 +439,7 @@ def check_index_type_compatibility(
 def scalar_item_reduce_input_type(
     output_type: type | UnionType | GenericAlias,
     input_type: type | UnionType | GenericAlias,
-    index,
+    index: int | ToBeDetermined,
 ):
     possible_types = []
     out_origin: type[list] | type[tuple] | type[UnionType] | None = get_origin(
@@ -1731,7 +1731,7 @@ def concat_constraints(
 
 
 def pad_constraints(
-    output: Tensor, input: Tensor, pad_width: Scalar
+    output: Tensor[Any], input: Tensor[Any], pad_width: Scalar
 ) -> ConstrainResultType:
     updates = Updates()
     pad_value: tuple[tuple[int, int], ...] | ToBeDetermined = pad_width.value  # type: ignore
@@ -1740,7 +1740,9 @@ def pad_constraints(
     assert input_shape is not None
     assert output_shape is not None
 
-    def process_shape(shape, pad_value, forward=True):
+    def process_shape(
+        shape: ShapeRepr, pad_value: tuple[tuple[int, int], ...], forward: bool = True
+    ):
         prefix: list[Uniadic] = []
         root = None
         suffix: list[Uniadic] = []
@@ -3400,7 +3402,9 @@ def tensor_item_constraints(
 
 
 def tensor_item_constraint_helper(
-    item_values: tuple | list, input_unis: list[Uniadic]
+    item_values: tuple[slice | int | EllipsisType | None, ...]
+    | list[slice | int | None | EllipsisType],
+    input_unis: list[Uniadic],
 ) -> list[Uniadic]:
     # calculates output uniadics based on given item values and
     # input uniadics.
@@ -3410,7 +3414,7 @@ def tensor_item_constraint_helper(
     # input_unis = [Uniadic(10), Uniadic(5), Uniadic(2)] --> items = [Uniadic(2),
     # Uniadic(1), Uniadic(1), Uniadic(2)]
 
-    items = []
+    items: list[Uniadic] = []
     idx = 0
     for item in item_values:
         if item is None:

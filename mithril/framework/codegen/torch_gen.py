@@ -14,6 +14,9 @@
 
 import ast
 from collections.abc import Callable
+from typing import Any
+
+import torch
 
 from ...backends.with_autograd.torch_backend import TorchBackend
 from ..logical import PrimitiveModel
@@ -21,8 +24,8 @@ from ..physical.model import PhysicalModel
 from .python_gen import PythonCodeGen
 
 
-class TorchCodeGen(PythonCodeGen):
-    def __init__(self, pm: PhysicalModel) -> None:
+class TorchCodeGen(PythonCodeGen[torch.Tensor]):
+    def __init__(self, pm: PhysicalModel[torch.Tensor]) -> None:
         super().__init__(pm)
         self.is_parallel_defined = False
 
@@ -32,7 +35,7 @@ class TorchCodeGen(PythonCodeGen):
     def call_primitive(
         self,
         model: PrimitiveModel,
-        fn: Callable,
+        fn: Callable[..., Any],
         l_input_keys: list[str],
         g_input_keys: list[str],
         output_key: str,
@@ -84,4 +87,4 @@ class TorchCodeGen(PythonCodeGen):
                 keywords=[],
             )
 
-        return ast.Assign(targets, generated_fn), used_keys | _used_keys  # type: ignore
+        return ast.Assign(targets, generated_fn), used_keys | _used_keys

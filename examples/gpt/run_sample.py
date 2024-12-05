@@ -155,7 +155,7 @@ def generate(
         logits = logits[:, -1, :] / temperature  # type: ignore
         # Optionally crop the logits to only the top k options
         if top_k is not None:
-            v = model.backend.topk(logits, min(top_k, logits.shape[-1]))
+            v = model.backend.topk(logits, min(top_k, logits.shape[-1]))  # type: ignore
             logits = model.backend.where(
                 logits < v[:, [-1]], -model.backend.inf, logits
             )
