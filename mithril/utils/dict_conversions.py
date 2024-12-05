@@ -248,7 +248,7 @@ def model_to_dict(model: BaseModel) -> dict:
                 submodel.conns._get_metadata(key), [model_id, key]
             )
         assert isinstance(model, Model)
-        connection_dict[model_id], submodel_statics = connection_to_dict(
+        connection_dict[model_id] = connection_to_dict(
             model, submodel, submodel_connections, model_id
         )
         canonical_keys[model_id] = (
@@ -270,7 +270,6 @@ def connection_to_dict(
     model_id: str,
 ):
     connection_dict: dict[str, Any] = {}
-    static_values: dict[str, Any] = {}
     connections: dict[str, ConnectionData] = model.dag[submodel]
 
     for key, connection in connections.items():
@@ -281,9 +280,7 @@ def connection_to_dict(
             and connection.metadata.data.value != TBD
         )
         # Connection is defined and belong to another model
-        if (
-            related_conn := submodel_connections.get(connection.metadata, [])
-        ) and model_id not in related_conn:
+        if related_conn and model_id not in related_conn:
             key_value = {"connect": [related_conn]}
             if connection.key in model.output_keys:
                 key_value["key"] = {"name": connection.key, "expose": True}
@@ -306,7 +303,7 @@ def connection_to_dict(
     if submodel.canonical_input.key not in connection_dict:
         connection_dict[submodel.canonical_input.key] = ""
 
-    return connection_dict, static_values
+    return connection_dict
 
 
 def train_model_to_dict(context: TrainModel) -> dict:

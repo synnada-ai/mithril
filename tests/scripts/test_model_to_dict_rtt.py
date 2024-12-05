@@ -14,8 +14,6 @@
 
 import re
 
-import pytest
-
 import mithril
 from mithril import JaxBackend, TorchBackend
 from mithril.framework.common import TBD, IOKey
