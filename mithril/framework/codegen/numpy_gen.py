@@ -16,7 +16,7 @@ import ast
 import keyword
 from collections.abc import Callable
 from functools import partial
-from typing import Any
+from typing import Any, Literal, overload
 
 import numpy as np
 
@@ -102,6 +102,30 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
         eval_fn, grad_fn = self.exec_generated_code()
 
         # TODO: Not looks good, and looks over complicated!
+
+        @overload
+        def evaluate_gradients_wrapper_manualgrad(
+            params: ParamsEvalType[np.ndarray[Any, Any]] | None,
+            data: DataEvalType[np.ndarray[Any, Any]] | None,
+            output_gradients: ParamsEvalType[np.ndarray[Any, Any]] | None,
+            *,
+            grad_fn: RawGradientType[np.ndarray[Any, Any]],
+            include_output: Literal[False],
+        ) -> DataEvalType[np.ndarray[Any, Any]]: ...
+
+        @overload
+        def evaluate_gradients_wrapper_manualgrad(
+            params: ParamsEvalType[np.ndarray[Any, Any]] | None,
+            data: DataEvalType[np.ndarray[Any, Any]] | None,
+            output_gradients: ParamsEvalType[np.ndarray[Any, Any]] | None,
+            *,
+            grad_fn: RawGradientType[np.ndarray[Any, Any]],
+            include_output: Literal[True],
+        ) -> tuple[
+            DataEvalType[np.ndarray[Any, Any]],
+            ParamsEvalType[np.ndarray[Any, Any]],
+        ]: ...
+
         def evaluate_gradients_wrapper_manualgrad(
             params: ParamsEvalType[np.ndarray[Any, Any]] | None = None,
             data: DataEvalType[np.ndarray[Any, Any]] | None = None,
