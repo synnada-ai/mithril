@@ -152,7 +152,7 @@ def generate(
         outputs = model.evaluate(weights, data={"input": idx_cond})
         logits = outputs["output"]
         # Pluck the logits at the final step and scale by desired temperature
-        logits = logits[:, -1, :] / temperature
+        logits = logits[:, -1, :] / temperature  # type: ignore
         # Optionally crop the logits to only the top k options
         if top_k is not None:
             v = model.backend.topk(logits, min(top_k, logits.shape[-1]))

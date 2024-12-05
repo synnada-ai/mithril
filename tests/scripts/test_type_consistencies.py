@@ -16,6 +16,7 @@ from types import EllipsisType, NoneType, UnionType
 
 import numpy as np
 import pytest
+import torch
 
 import mithril
 from mithril.framework.common import NOT_GIVEN, ConnectionType
@@ -371,11 +372,13 @@ def test_type_15():
 
     results = pm.evaluate()
     expected_result = np.array(backend.sigmoid(backend.array([1.0, 2.0])))
+    out = results["output"]
+    assert isinstance(out, torch.Tensor)
+    out2 = results["output2"]
+    assert isinstance(out2, torch.Tensor)
 
-    np.testing.assert_allclose(results["output"], expected_result, rtol=1e-6, atol=1e-6)
-    np.testing.assert_allclose(
-        results["output2"], expected_result, rtol=1e-6, atol=1e-6
-    )
+    np.testing.assert_allclose(out, expected_result, rtol=1e-6, atol=1e-6)
+    np.testing.assert_allclose(out2, expected_result, rtol=1e-6, atol=1e-6)
 
 
 def test_type_16():

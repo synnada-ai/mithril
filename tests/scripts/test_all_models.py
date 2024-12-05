@@ -175,7 +175,7 @@ def compile_and_compare(
                                 < backend.abs(v) * relative_tolerance
                             )
                         )
-                    ) and (out.shape == (() if isinstance(v, float) else v.shape))
+                    ) and (out.shape == (() if isinstance(v, float) else v.shape))  # type: ignore
                 else:
                     if not isinstance(eq := (out == v), bool):
                         eq = eq.all()
@@ -2376,7 +2376,7 @@ def test_cast_int16():
     model = Cast(dtype=mithril.int16)
     inp_int = np.array([1, -2, 3], dtype=np.int32)
     inp_float = np.array([1, -2, 3], dtype=np.float32)
-    backends: list[Backend] = [
+    backends: list[TorchBackend | JaxBackend | NumpyBackend | MlxBackend] = [
         TorchBackend(precision=16),
         TorchBackend(precision=32),
         TorchBackend(precision=64),
@@ -2404,16 +2404,19 @@ def test_cast_int16():
 
     for backend in backends:
         for static in statics.values():
-            static = backend.array(static)
+            assert isinstance(static, np.ndarray)
+            backend_static = backend.array(static)
             pm = mithril.compile(
                 model,
-                backend,
-                constant_keys={"input": static},
+                backend,  # type: ignore
+                constant_keys={"input": backend_static},
                 inference=True,
             )
             res = pm.evaluate()
-            assert res["output"].dtype == expected_dtypes[backend.type]
-            np.testing.assert_allclose(res["output"], reference_outputs["output"])
+            res_out = res["output"]
+            assert isinstance(res_out, backend.DataType)
+            assert res_out.dtype == expected_dtypes[backend.type]
+            np.testing.assert_allclose(res_out, reference_outputs["output"])
 
 
 def test_cast_int32():
@@ -2456,8 +2459,10 @@ def test_cast_int32():
                 inference=True,
             )
             res = pm.evaluate()
-            assert res["output"].dtype == expected_dtypes[backend.type]
-            np.testing.assert_allclose(res["output"], reference_outputs["output"])
+            res_out = res["output"]
+            assert isinstance(res_out, backend.DataType)  # type: ignore
+            assert res_out.dtype == expected_dtypes[backend.type]
+            np.testing.assert_allclose(res_out, reference_outputs["output"])
 
 
 def test_cast_int64():
@@ -2500,15 +2505,15 @@ def test_cast_int64():
                 inference=True,
             )
             res = pm.evaluate()
-            assert res["output"].dtype == expected_dtypes[backend.type]
-            np.testing.assert_allclose(res["output"], reference_outputs["output"])
+            assert res["output"].dtype == expected_dtypes[backend.type]  # type: ignore
+            np.testing.assert_allclose(res["output"], reference_outputs["output"])  # type: ignore
 
 
 def test_cast_float16():
     model = Cast(dtype=mithril.float16)
     inp_int = np.array([1, -2, 3], dtype=np.int32)
     inp_float = np.array([1, -2, 3], dtype=np.float32)
-    backends: list[Backend] = [
+    backends: list[TorchBackend | JaxBackend | NumpyBackend | MlxBackend] = [
         TorchBackend(precision=16),
         TorchBackend(precision=32),
         TorchBackend(precision=64),
@@ -2536,16 +2541,17 @@ def test_cast_float16():
 
     for backend in backends:
         for static in statics.values():
-            static = backend.array(static)
+            _static = backend.array(static)
             pm = mithril.compile(
                 model,
-                backend,
-                constant_keys={"input": static},
+                backend,  # type: ignore
+                constant_keys={"input": _static},
                 inference=True,
             )
-            res = pm.evaluate()
-            assert res["output"].dtype == expected_dtypes[backend.type]
-            np.testing.assert_allclose(res["output"], reference_outputs["output"])
+            res = pm.evaluate()["output"]
+            assert isinstance(res, backend.DataType)
+            assert res.dtype == expected_dtypes[backend.type]
+            np.testing.assert_allclose(res, reference_outputs["output"])
 
 
 def test_cast_float32():
@@ -2588,8 +2594,10 @@ def test_cast_float32():
                 inference=True,
             )
             res = pm.evaluate()
-            assert res["output"].dtype == expected_dtypes[backend.type]
-            np.testing.assert_allclose(res["output"], reference_outputs["output"])
+            res_out = res["output"]
+            assert isinstance(res_out, backend.DataType)  # type: ignore
+            assert res_out.dtype == expected_dtypes[backend.type]
+            np.testing.assert_allclose(res_out, reference_outputs["output"])
 
 
 def test_cast_float64():
@@ -2628,8 +2636,10 @@ def test_cast_float64():
                 inference=True,
             )
             res = pm.evaluate()
-            assert res["output"].dtype == expected_dtypes[backend.type]
-            np.testing.assert_allclose(res["output"], reference_outputs["output"])
+            res_out = res["output"]
+            assert isinstance(res_out, backend.DataType)  # type: ignore
+            assert res_out.dtype == expected_dtypes[backend.type]
+            np.testing.assert_allclose(res_out, reference_outputs["output"])
 
 
 def test_cast_bool():
@@ -2672,8 +2682,10 @@ def test_cast_bool():
                 inference=True,
             )
             res = pm.evaluate()
-            assert res["output"].dtype == expected_dtypes[backend.type]
-            np.testing.assert_allclose(res["output"], reference_outputs["output"])
+            res_out = res["output"]
+            assert isinstance(res_out, backend.DataType)  # type: ignore
+            assert res_out.dtype == expected_dtypes[backend.type]
+            np.testing.assert_allclose(res_out, reference_outputs["output"])
 
 
 def test_dtype_int16():

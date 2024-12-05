@@ -18,6 +18,7 @@ from copy import deepcopy
 import numpy as np
 
 from mithril import CBackend, NumpyBackend, compile
+from mithril.backends.with_manualgrad.c_backend.src.array import PyArray
 from mithril.models import Add, IOKey, Model, Multiply
 
 from ..utils import with_temp_file
@@ -65,7 +66,11 @@ def test_cbackend_1():
     )
 
     for key in np_outputs:
-        assert np.allclose(c_backend.to_numpy(c_outputs[key]), np_outputs[key])
+        out = c_outputs[key]
+        out_np = np_outputs[key]
+        assert isinstance(out_np, np.ndarray)
+        assert isinstance(out, PyArray)
+        assert np.allclose(c_backend.to_numpy(out), out_np)
 
     for key in np_grads:
         assert np.allclose(c_backend.to_numpy(c_grads[key]), np_grads[key])
@@ -124,7 +129,11 @@ def test_cbackend_2(file_path: str):
     )
 
     for key in np_outputs:
-        assert np.allclose(c_backend.to_numpy(c_outputs[key]), np_outputs[key])
+        out = c_outputs[key]
+        out_np = np_outputs[key]
+        assert isinstance(out, np.ndarray)
+        assert isinstance(out, PyArray)
+        assert np.allclose(c_backend.to_numpy(out), out_np)
 
     for key in np_grads:
         assert np.allclose(c_backend.to_numpy(c_grads[key]), np_grads[key])
@@ -184,7 +193,11 @@ def test_cbackend_3():
     )
 
     for key in np_outputs:
-        assert np.allclose(c_backend.to_numpy(c_outputs[key]), np_outputs[key])
+        c_out = c_outputs[key]
+        np_out = np_outputs[key]
+        assert isinstance(c_out, PyArray)
+        assert isinstance(np_out, np.ndarray)
+        assert np.allclose(c_backend.to_numpy(c_out), np_out)
 
     for key in np_grads:
         assert np.allclose(c_backend.to_numpy(c_grads[key]), np_grads[key])
@@ -215,11 +228,11 @@ def test_broadcast_1():
     c_right = c_backend.array(right)
 
     c_outputs = c_pm.evaluate({"left": c_left, "right": c_right, "mul": c_mul})
+    out = c_outputs["output"]
+    assert isinstance(out, PyArray)
 
-    assert c_outputs["output"].shape == (5, 5)
-    np.testing.assert_allclose(
-        c_backend.to_numpy(c_outputs["output"]), (left + right) * mul
-    )
+    assert out.shape == (5, 5)
+    np.testing.assert_allclose(c_backend.to_numpy(out), (left + right) * mul)
 
 
 def test_broadcast_2():
@@ -247,8 +260,8 @@ def test_broadcast_2():
     c_right = c_backend.array(right)
 
     c_outputs = c_pm.evaluate({"left": c_left, "right": c_right, "mul": c_mul})
+    out = c_outputs["output"]
+    assert isinstance(out, PyArray)
 
-    assert c_outputs["output"].shape == (5, 5)
-    np.testing.assert_allclose(
-        c_backend.to_numpy(c_outputs["output"]), (left + right) * mul
-    )
+    assert out.shape == (5, 5)
+    np.testing.assert_allclose(c_backend.to_numpy(out), (left + right) * mul)

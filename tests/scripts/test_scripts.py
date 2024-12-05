@@ -1389,6 +1389,7 @@ def test_check_static_1():
     #           "b": np.array([3.0])}
     outputs = comp_model.evaluate()
     ref_out = outputs["output"]
+    assert isinstance(ref_out, np.ndarray)
     np.testing.assert_array_equal(ref_out, np.array([[26.0], [27.0]]))
 
 
@@ -1401,6 +1402,7 @@ def test_check_static_2():
     inputs = {"w": np.array([[4.0, 5.0]]), "b": np.array([3.0])}
     outputs = comp_model.evaluate(inputs)
     ref_out = outputs["output"]
+    assert isinstance(ref_out, np.ndarray)
     np.testing.assert_array_equal(ref_out, np.array([[26.0], [27.0]]))
 
 
@@ -1413,6 +1415,7 @@ def test_check_static_3():
     inputs = {"b": np.array([3.0])}
     outputs = comp_model.evaluate(inputs)
     ref_out = outputs["output"]
+    assert isinstance(ref_out, np.ndarray)
     np.testing.assert_array_equal(ref_out, np.array([[26.0], [27.0]]))
 
 
@@ -1432,6 +1435,7 @@ def test_check_static_4():
     )
     outputs = comp_model.evaluate()
     ref_out = outputs["output"]
+    assert isinstance(ref_out, np.ndarray)
     np.testing.assert_array_equal(ref_out, np.array([[26.0], [27.0]]))
 
 
@@ -1454,6 +1458,7 @@ def test_check_static_5():
 
     outputs = comp_model.evaluate(data=data)
     ref_out = outputs["output"]
+    assert isinstance(ref_out, np.ndarray)
     np.testing.assert_array_equal(ref_out, np.array([[26.0], [27.0]]))
 
 
@@ -1478,6 +1483,7 @@ def test_check_static_6():
 
     outputs = comp_model.evaluate(data=data)
     ref_out = outputs["output"]
+    assert isinstance(ref_out, np.ndarray)
     np.testing.assert_array_equal(ref_out, np.array([[26.0], [27.0]]))
 
 
@@ -1585,8 +1591,8 @@ def test_batch_minibatch_grad():
         batch_grad_results = pm.evaluate_gradients(
             inputs, data={"input": backend_input, "target": backend_target}
         )
-        minibatch_result = []
-        minibatch_grad_result = []
+        minibatch_result: list[dict] = []
+        minibatch_grad_result: list[dict] = []
 
         # Split into minibatches
         for idx in range(8):
@@ -1604,7 +1610,8 @@ def test_batch_minibatch_grad():
                     "target": backend_target[idx : idx + 1],
                 },
             )
-            minibatch_result.append(result)
+            assert isinstance(result["final_cost"], torch.Tensor)
+            minibatch_result.append(result)  # type: ignore
             minibatch_grad_result.append(grad_result)
 
         minibatch_cost = sum([minibatch_result[i]["final_cost"] for i in range(8)]) / 8
@@ -1613,6 +1620,7 @@ def test_batch_minibatch_grad():
             for key in minibatch_grad_result[0]
         }
         batch_cost = batch_result["final_cost"]
+        assert isinstance(batch_cost, torch.Tensor)
         assert np.isclose(minibatch_cost, batch_cost, rtol=1e-6, atol=1e-6)
         assert list(batch_grad_results.keys()) == list(minibatch_grads.keys())
         for key in batch_grad_results:
@@ -1826,8 +1834,8 @@ def test_arange_primitive():
             params = {"b1": _backend.ones(1), "w1": _backend.ones((1, 3))}
             data = {"input": _backend.ones((1, 3))}
             output = pm.evaluate(params, data)
-            assert (output["arange_res"] == _backend.arange(arange_len)).all()
-            assert output["arange_res"].dtype == _backend.arange(arange_len).dtype
+            assert (output["arange_res"] == _backend.arange(arange_len)).all()  # type: ignore
+            assert output["arange_res"].dtype == _backend.arange(arange_len).dtype  # type: ignore
 
 
 def test_to_tensor_primitive():
@@ -1870,8 +1878,8 @@ def test_to_tensor_primitive():
             params = {"b1": _backend.ones(1), "w1": _backend.ones((1, 3))}
             data = {"input": _backend.ones((1, 3))}
             output = pm.evaluate(params, data)
-            assert (output["power_out"] == _backend.array([9])).all()
-            assert output["power_out"].dtype == _backend.array([9]).dtype
+            assert (output["power_out"] == _backend.array([9])).all()  # type: ignore
+            assert output["power_out"].dtype == _backend.array([9]).dtype  # type: ignore
 
 
 def test_shapes_1():
@@ -2004,10 +2012,10 @@ def test_static_concat():
     pm = mithril.compile(
         model=model, backend=backend, constant_keys={"input": backend.zeros(1)}
     )
+    out = pm.evaluate()["output"]
+    assert isinstance(out, np.ndarray)
 
-    assert all(
-        pm.evaluate()["output"] == backend.array([0.0, 0.0], dtype=mithril.float32)
-    )
+    assert all(out == backend.array([0.0, 0.0], dtype=mithril.float32))
 
 
 def test_reduce_overlap_shapes():
@@ -3169,17 +3177,21 @@ def test_arange_1():
     expected_result = np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
     m += Arange(start=0, stop=10, step=1)(output="output")
 
-    backends: list[type[Backend]] = [TorchBackend, JaxBackend, NumpyBackend, MlxBackend]
+    backends: list[
+        type[JaxBackend] | type[TorchBackend] | type[NumpyBackend] | type[MlxBackend]
+    ] = [TorchBackend, JaxBackend, NumpyBackend, MlxBackend]
     for backend_class in backends:
         if backend_class.is_installed:
             backend = backend_class(precision=32)
             cm = compile(
-                m, backend, inference=True
+                m,
+                backend,
+                inference=True,  # type: ignore
             )  # Inference set to True since no gradients exist for integer type output
             # of Arange!
-            np.testing.assert_allclose(
-                expected_result, cm.evaluate({})["output"], rtol=1e-6, atol=1e-6
-            )
+            out = cm.evaluate({})["output"]
+            assert isinstance(out, backend.DataType)
+            np.testing.assert_allclose(expected_result, out, rtol=1e-6, atol=1e-6)
 
 
 def test_arange_2():
@@ -3193,7 +3205,10 @@ def test_arange_2():
             backend = backend_class(precision=32)
             cm = compile(m, backend)
             np.testing.assert_allclose(
-                expected_result, cm.evaluate({})["output"], rtol=1e-6, atol=1e-6
+                expected_result,
+                cm.evaluate({})["output"],  # type: ignore
+                rtol=1e-6,
+                atol=1e-6,
             )
 
 
@@ -3202,14 +3217,16 @@ def test_arange_3():
     expected_result = np.array([0.1, 0.7, 1.3, 1.9, 2.5, 3.1, 3.7])
     m += Arange(start=0.1, stop=4, step=0.6)(output="output")
 
-    backends: list[type[Backend]] = [TorchBackend, JaxBackend, NumpyBackend, MlxBackend]
+    backends: list[
+        type[TorchBackend] | type[JaxBackend] | type[NumpyBackend] | type[MlxBackend]
+    ] = [TorchBackend, JaxBackend, NumpyBackend, MlxBackend]
     for backend_class in backends:
         if backend_class.is_installed:
             backend = backend_class(precision=32)
-            cm = compile(m, backend)
-            np.testing.assert_allclose(
-                expected_result, cm.evaluate({})["output"], rtol=1e-6, atol=1e-6
-            )
+            cm = compile(m, backend)  # type: ignore
+            out = cm.evaluate({})["output"]
+            assert isinstance(out, backend.DataType)
+            np.testing.assert_allclose(expected_result, out, rtol=1e-6, atol=1e-6)
 
 
 def test_size():
@@ -3241,7 +3258,7 @@ def test_size():
                 cm = compile(model, backend, data_keys={"input"}, inference=True)
                 np.testing.assert_allclose(
                     expected_result,
-                    cm.evaluate(data={"input": backend.array(input_array)})["output"],
+                    cm.evaluate(data={"input": backend.array(input_array)})["output"],  # type: ignore
                     rtol=1e-6,
                     atol=1e-6,
                 )
@@ -3479,6 +3496,8 @@ def test_evaluate_all_2():
 
     assert eval_out.keys() == eval_all_out[0].keys()
     for val1, val2 in zip(eval_out.values(), eval_all_out[0].values(), strict=False):
+        assert isinstance(val1, backend.DataType)
+        assert isinstance(val2, backend.DataType)
         np.testing.assert_allclose(val1, val2, rtol=1e-7, atol=1e-7)
 
     assert eval_grad_out.keys() == eval_all_out[1].keys()
@@ -4139,8 +4158,12 @@ def test_mlp_last_dimension_prop_2():
     comp_model = mithril.compile(model=ctx, backend=NumpyBackend())
     inputs = {"in1": np.array([3.0]), "in2": np.array([2.0])}
     outputs = comp_model.evaluate(inputs)
-    np.testing.assert_allclose(outputs["final_cost"], np.array(3.0))
-    np.testing.assert_allclose(outputs["output"], np.array(5.0))
+    output_final_cost = outputs["final_cost"]
+    out = outputs["output"]
+    assert isinstance(output_final_cost, np.ndarray)
+    assert isinstance(out, np.ndarray)
+    np.testing.assert_allclose(output_final_cost, np.array(3.0))
+    np.testing.assert_allclose(out, np.array(5.0))
 
 
 def test_connect_8():
@@ -4555,7 +4578,9 @@ def test_cycle_handling_1():
     }
 
     res = compiled_model.evaluate(inputs)
-    np.testing.assert_allclose(res["output"], expceted_result, rtol=1e-14, atol=1e-14)
+    out = res["output"]
+    assert isinstance(out, torch.Tensor)
+    np.testing.assert_allclose(out, expceted_result, rtol=1e-14, atol=1e-14)
 
     assert_connections(compiled_model, expected_connections)
 
@@ -4679,7 +4704,9 @@ def test_cycle_handling_2():
     )
 
     res = compiled_model.evaluate(inputs)
-    np.testing.assert_allclose(res["output"], expceted_result, rtol=1e-14, atol=1e-14)
+    out = res["output"]
+    assert isinstance(out, torch.Tensor)
+    np.testing.assert_allclose(out, expceted_result, rtol=1e-14, atol=1e-14)
     assert_connections(compiled_model, expected_connections)
 
 
@@ -4827,7 +4854,9 @@ def test_cycle_handling_3():
 
     assert_connections(compiled_model, expected_connections)
     res = compiled_model.evaluate(inputs)
-    np.testing.assert_allclose(res["output"], expceted_result, rtol=1e-14, atol=1e-14)
+    out = res["output"]
+    assert isinstance(out, torch.Tensor)
+    np.testing.assert_allclose(out, expceted_result, rtol=1e-14, atol=1e-14)
 
 
 @pytest.mark.skip(
@@ -4975,7 +5004,9 @@ def test_cycle_handling_3_error_if_slope_not_exposed():
 
     assert_connections(compiled_model, expected_connections)
     res = compiled_model.evaluate(inputs)
-    np.testing.assert_allclose(res["output"], expceted_result, rtol=1e-14, atol=1e-14)
+    out = res["output"]
+    assert isinstance(out, torch.Tensor)
+    np.testing.assert_allclose(out, expceted_result, rtol=1e-14, atol=1e-14)
 
 
 def test_dependency_map_latent_to_input():
@@ -6400,20 +6431,24 @@ def test_to_tensor():
     # Test for torch
     pm_torch = compile(model, TorchBackend(precision=64))
     result_torch = pm_torch.evaluate({}, {"input": input1})["output"]
+    assert isinstance(result_torch, torch.Tensor)
     expected_torch = torch.tensor(input1, dtype=torch.float64)
     np.testing.assert_allclose(result_torch, expected_torch, 1e-12)
 
     result_torch = pm_torch.evaluate({}, {"input": input2})["output"]
+    assert isinstance(result_torch, torch.Tensor)
     expected_torch = torch.tensor(input2, dtype=torch.bool)
     assert (result_torch == expected_torch).all()
 
     # Test for Jax
     pm_jax = compile(model, JaxBackend(precision=64), jit=False)
     result = pm_jax.evaluate({}, {"input": input1})["output"]
+    assert isinstance(result, jax.numpy.ndarray)
     expected = jax.numpy.array(input1, jax.numpy.float64)
     np.testing.assert_allclose(result, expected, 1e-12)
 
     result = pm_jax.evaluate({}, {"input": input2})["output"]
+    assert isinstance(result, jax.numpy.ndarray)
     expected = jax.numpy.array(input2, dtype=jax.numpy.bool_)
     assert (result == expected).all()
 
@@ -6421,20 +6456,24 @@ def test_to_tensor():
     if platform.system() == "Darwin":
         pm_mlx = compile(model, MlxBackend(precision=32))
         result_mlx = pm_mlx.evaluate({}, {"input": input1})["output"]
+        assert isinstance(result_mlx, mx.array)
         expected_mlx = mx.array(input1, mx.float32)
         np.testing.assert_allclose(result_mlx, expected_mlx, 1e-6)  # type: ignore
 
-        result = pm_mlx.evaluate({}, {"input": input2})["output"]
+        result_mlx = pm_mlx.evaluate({}, {"input": input2})["output"]
+        assert isinstance(result_mlx, mx.array)
         expected = mx.array(input2, dtype=mx.bool_)  # type: ignore
-        assert (result == expected).all()
+        assert (result_mlx == expected).all()  # type: ignore
 
     # Test for Numpy
     pm_numpy = compile(model, NumpyBackend(precision=64), jit=False)
     result_numpy = pm_numpy.evaluate({}, {"input": input1})["output"]
+    assert isinstance(result_numpy, np.ndarray)
     expected_numpy = np.array(input1, np.float64)
     np.testing.assert_allclose(result_numpy, expected_numpy, 1e-12)
 
     result_numpy = pm_numpy.evaluate({}, {"input": input2})["output"]
+    assert isinstance(result_numpy, np.ndarray)
     expected_numpy = np.array(input2, dtype=np.bool_)
     assert (result_numpy == expected_numpy).all()
 
@@ -6675,6 +6714,7 @@ def test_numpy_type_promotion_1():
     )
 
     for output in outputs.values():
+        assert isinstance(output, np.ndarray)
         assert output.dtype == np.float16
 
 
@@ -6709,6 +6749,7 @@ def test_numpy_type_promotion_2():
     )
 
     for output in outputs.values():
+        assert isinstance(output, np.ndarray)
         assert output.dtype == np.float32
 
 
@@ -6737,6 +6778,7 @@ def test_numpy_type_promotion_3():
     outputs = pm.evaluate()
 
     for output in outputs.values():
+        assert isinstance(output, np.ndarray)
         assert output.dtype == np.float16
 
 
@@ -6761,8 +6803,9 @@ def test_numpy_type_promotion_4():
     pm = compile(
         model, backend=backend, jit=False, constant_keys={"left": left, "right": right}
     )
+    from typing import Any
 
-    outputs = pm.evaluate()
+    outputs: dict[str, np.ndarray[Any, Any]] = pm.evaluate()  # type: ignore
 
     for output in outputs.values():
         assert output.dtype == np.float32
@@ -6799,6 +6842,7 @@ def test_numpy_type_promotion_5():
     outputs = pm.evaluate({}, {"left": np.ones((3, 3), dtype=np.int16)})
 
     for output in outputs.values():
+        assert isinstance(output, np.ndarray)
         assert output.dtype == np.float16
 
 
@@ -6948,7 +6992,9 @@ def test_constant_1():
     expected = np.array(
         [epsilon_table[precision][Constant.EPSILON]] * 2, dtype=np.float64
     )
-    np.testing.assert_almost_equal(pm.evaluate()["out"], expected, 20)
+    out = pm.evaluate()["out"]
+    assert isinstance(out, np.ndarray)
+    np.testing.assert_almost_equal(out, expected, 20)
 
 
 def test_constant_2():
@@ -6963,7 +7009,9 @@ def test_constant_2():
     expected = np.array(
         [epsilon_table[precision][Constant.EPSILON]] * 2, dtype=np.float64
     )
-    np.testing.assert_almost_equal(pm.evaluate()["out"], expected, 20)
+    out = pm.evaluate()["out"]
+    assert isinstance(out, np.ndarray)
+    np.testing.assert_almost_equal(out, expected, 20)
 
 
 def test_constant_3():
@@ -6976,7 +7024,9 @@ def test_constant_3():
     expected = np.array(
         [epsilon_table[precision][Constant.EPSILON]] * 2, dtype=np.float32
     )
-    np.testing.assert_almost_equal(pm.evaluate()["out"], expected, 20)
+    out = pm.evaluate()["out"]
+    assert isinstance(out, np.ndarray)
+    np.testing.assert_almost_equal(out, expected, 20)
 
 
 def test_constant_4():
@@ -6991,7 +7041,9 @@ def test_constant_4():
     expected = np.array(
         [epsilon_table[precision][Constant.EPSILON]] * 2, dtype=np.float32
     )
-    np.testing.assert_almost_equal(pm.evaluate()["out"], expected, 20)
+    out = pm.evaluate()["out"]
+    assert isinstance(out, np.ndarray)
+    np.testing.assert_almost_equal(out, expected, 20)
 
 
 def test_constant_5():

@@ -393,7 +393,7 @@ def find_intersection_type(
     return None
 
 
-def find_type(connection) -> type:
+def find_type[T](connection: T) -> type[T]:
     if isinstance(connection, tuple | list):
         element_types: list[Any] = [find_type(elem) for elem in connection]
         if isinstance(connection, tuple):
@@ -405,8 +405,8 @@ def find_type(connection) -> type:
         return type(connection)
 
 
-def is_union(typ):
-    if hasattr(typ, "__origin__"):
+def is_union(typ: type | UnionType | GenericAlias | NestedListType) -> bool:
+    if isinstance(typ, GenericAlias):
         if ... in typ.__args__:
             return True
         return any(is_union(subtype) for subtype in typ.__args__)

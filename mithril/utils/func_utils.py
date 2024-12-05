@@ -23,7 +23,7 @@ key_map_type = dict[str, str]
 
 def prepare_function_args(
     data: dict[str, Tensor[Any] | Scalar],
-    function: Callable,
+    function: Callable[..., Any],
     inputs: key_map_type,
     array_creation_funcs: list[str],
     reduce_with_defaults: bool = True,

@@ -501,9 +501,9 @@ def test_div():
     compare_models(model1, model2, backend, data)
 
     pm = mithril.compile(model=model1, backend=backend, constant_keys=data)
-    np.testing.assert_allclose(
-        backend.array([0.5, -1, 1.5, 0, -2.5, 3]), pm.evaluate()["output"], 1e-6
-    )
+    out = pm.evaluate()["output"]
+    assert isinstance(out, jnp.ndarray)
+    np.testing.assert_allclose(backend.array([0.5, -1, 1.5, 0, -2.5, 3]), out, 1e-6)
 
 
 def test_rdiv():
@@ -522,9 +522,9 @@ def test_rdiv():
     compare_models(model1, model2, backend, data)
 
     pm = mithril.compile(model=model1, backend=backend, constant_keys=data)
-    np.testing.assert_allclose(
-        backend.array([2, -1, 2 / 3, 2, -0.4, 1 / 3]), pm.evaluate()["output"], 1e-6
-    )
+    out = pm.evaluate()["output"]
+    assert isinstance(out, jnp.ndarray)
+    np.testing.assert_allclose(backend.array([2, -1, 2 / 3, 2, -0.4, 1 / 3]), out, 1e-6)
 
 
 def test_floor_div():
@@ -543,9 +543,9 @@ def test_floor_div():
     compare_models(model1, model2, backend, data)
 
     pm = mithril.compile(model=model1, backend=backend, constant_keys=data)
-    np.testing.assert_allclose(
-        backend.array([0.0, -1, 1.0, 0, -3.0, 3]), pm.evaluate()["output"], 1e-6
-    )
+    out = pm.evaluate()["output"]
+    assert isinstance(out, jnp.ndarray)
+    np.testing.assert_allclose(backend.array([0.0, -1, 1.0, 0, -3.0, 3]), out, 1e-6)
 
 
 def test_rfloor_div():
@@ -562,11 +562,10 @@ def test_rfloor_div():
     model2 += (div := FloorDivide())(numerator=2, denominator="input")
     model2 += Buffer()(input=div.output, output=IOKey(name="output"))
     compare_models(model1, model2, backend, data)
-
     pm = mithril.compile(model=model1, backend=backend, constant_keys=data)
-    np.testing.assert_allclose(
-        backend.array([2.0, -1, 0, 2, -1, 0]), pm.evaluate()["output"], 1e-6
-    )
+    out = pm.evaluate()["output"]
+    assert isinstance(out, jnp.ndarray)
+    np.testing.assert_allclose(backend.array([2.0, -1, 0, 2, -1, 0]), out, 1e-6)
 
 
 def test_pow():
@@ -585,9 +584,9 @@ def test_pow():
     compare_models(model1, model2, backend, data)
 
     pm = mithril.compile(model=model1, backend=backend, constant_keys=data)
-    np.testing.assert_allclose(
-        backend.array([1, 4, 9, 0, 25, 36]), pm.evaluate()["output"], 1e-6
-    )
+    out = pm.evaluate()["output"]
+    assert isinstance(out, jnp.ndarray)
+    np.testing.assert_allclose(backend.array([1, 4, 9, 0, 25, 36]), out, 1e-6)
 
 
 def test_rpow():
@@ -606,9 +605,9 @@ def test_rpow():
     compare_models(model1, model2, backend, data)
 
     pm = mithril.compile(model=model1, backend=backend, constant_keys=data)
-    np.testing.assert_allclose(
-        backend.array([2, 1 / 4, 8, 1, 1 / 32, 64]), pm.evaluate()["output"], 1e-6
-    )
+    out = pm.evaluate()["output"]
+    assert isinstance(out, jnp.ndarray)
+    np.testing.assert_allclose(backend.array([2, 1 / 4, 8, 1, 1 / 32, 64]), out, 1e-6)
 
 
 def test_absolute():
@@ -627,7 +626,9 @@ def test_absolute():
     compare_models(model1, model2, backend, data)
 
     pm = mithril.compile(model=model1, backend=backend, constant_keys=data)
-    assert (backend.array([1.0, 2, 3, 0, 5, 6]) == pm.evaluate()["output"]).all()
+    out = pm.evaluate()["output"]
+    assert isinstance(out, jnp.ndarray)
+    assert (backend.array([1.0, 2, 3, 0, 5, 6]) == out).all()
 
 
 def test_mean():
@@ -646,7 +647,9 @@ def test_mean():
     compare_models(model1, model2, backend, data, check_internals=False)
 
     pm = mithril.compile(model=model1, backend=backend, constant_keys=data)
-    np.testing.assert_allclose(backend.array(1 / 2), pm.evaluate()["output"], 1e-6)
+    out = pm.evaluate()["output"]
+    assert isinstance(out, jnp.ndarray)
+    np.testing.assert_allclose(backend.array(1 / 2), out, 1e-6)
 
 
 def test_max():
@@ -665,7 +668,9 @@ def test_max():
     compare_models(model1, model2, backend, data, check_internals=False)
 
     pm = mithril.compile(model=model1, backend=backend, constant_keys=data)
-    np.testing.assert_allclose(backend.array(6), pm.evaluate()["output"], 1e-6)
+    out = pm.evaluate()["output"]
+    assert isinstance(out, jnp.ndarray)
+    np.testing.assert_allclose(backend.array(6), out, 1e-6)
 
 
 def test_sum():
@@ -684,7 +689,9 @@ def test_sum():
     compare_models(model1, model2, backend, data, check_internals=False)
 
     pm = mithril.compile(model=model1, backend=backend, constant_keys=data)
-    np.testing.assert_allclose(backend.array(3.0), pm.evaluate()["output"], 1e-6)
+    out = pm.evaluate()["output"]
+    assert isinstance(out, jnp.ndarray)
+    np.testing.assert_allclose(backend.array(3.0), out, 1e-6)
 
 
 def test_min():
@@ -703,7 +710,9 @@ def test_min():
     compare_models(model1, model2, backend, data, check_internals=False)
 
     pm = mithril.compile(model=model1, backend=backend, constant_keys=data)
-    np.testing.assert_allclose(backend.array(-5), pm.evaluate()["output"], 1e-6)
+    out = pm.evaluate()["output"]
+    assert isinstance(out, jnp.ndarray)
+    np.testing.assert_allclose(backend.array(-5), out, 1e-6)
 
 
 def test_prod():
@@ -722,7 +731,9 @@ def test_prod():
     compare_models(model1, model2, backend, data, check_internals=False)
 
     pm = mithril.compile(model=model1, backend=backend, constant_keys=data)
-    np.testing.assert_allclose(backend.array(90), pm.evaluate()["output"], 1e-6)
+    out = pm.evaluate()["output"]
+    assert isinstance(out, jnp.ndarray)
+    np.testing.assert_allclose(backend.array(90), out, 1e-6)
 
 
 def test_variance():
@@ -741,9 +752,9 @@ def test_variance():
     compare_models(model1, model2, backend, data, check_internals=False)
 
     pm = mithril.compile(model=model1, backend=backend, constant_keys=data)
-    np.testing.assert_allclose(
-        backend.array(12.201388888888888), pm.evaluate()["output"], 1e-6
-    )
+    out = pm.evaluate()["output"]
+    assert isinstance(out, jnp.ndarray)
+    np.testing.assert_allclose(backend.array(12.201388888888888), out, 1e-6)
 
 
 def test_greater_than():
@@ -769,9 +780,11 @@ def test_greater_than():
     pm = mithril.compile(
         model=model1, backend=backend, constant_keys=data, inference=True
     )
+    out = pm.evaluate()["output"]
+    assert isinstance(out, jnp.ndarray)
     np.testing.assert_allclose(
         backend.array([False, False, True, False, True, False]),
-        pm.evaluate()["output"],
+        out,
         1e-6,
     )
 
@@ -799,9 +812,11 @@ def test_greater_equal():
     pm = mithril.compile(
         model=model1, backend=backend, constant_keys=data, inference=True
     )
+    out = pm.evaluate()["output"]
+    assert isinstance(out, jnp.ndarray)
     np.testing.assert_allclose(
         backend.array([False, True, True, False, True, True]),
-        pm.evaluate()["output"],
+        out,
         1e-6,
     )
 
@@ -829,9 +844,11 @@ def test_less_than():
     pm = mithril.compile(
         model=model1, backend=backend, constant_keys=data, inference=True
     )
+    out = pm.evaluate()["output"]
+    assert isinstance(out, jnp.ndarray)
     np.testing.assert_allclose(
         backend.array([True, False, False, True, False, False]),
-        pm.evaluate()["output"],
+        out,
         1e-6,
     )
 
@@ -859,9 +876,11 @@ def test_less_equal():
     pm = mithril.compile(
         model=model1, backend=backend, constant_keys=data, inference=True
     )
+    out = pm.evaluate()["output"]
+    assert isinstance(out, jnp.ndarray)
     np.testing.assert_allclose(
         backend.array([True, True, False, True, False, True]),
-        pm.evaluate()["output"],
+        out,
         1e-6,
     )
 
@@ -889,9 +908,11 @@ def test_equal():
     pm = mithril.compile(
         model=model1, backend=backend, constant_keys=data, inference=True
     )
+    out = pm.evaluate()["output"]
+    assert isinstance(out, jnp.ndarray)
     np.testing.assert_allclose(
         backend.array([False, True, False, False, False, True]),
-        pm.evaluate()["output"],
+        out,
         1e-6,
     )
 
@@ -919,9 +940,11 @@ def test_not_equal():
     pm = mithril.compile(
         model=model1, backend=backend, constant_keys=data, inference=True
     )
+    out = pm.evaluate()["output"]
+    assert isinstance(out, jnp.ndarray)
     np.testing.assert_allclose(
         backend.array([True, False, True, True, True, False]),
-        pm.evaluate()["output"],
+        out,
         1e-6,
     )
 
@@ -950,9 +973,11 @@ def test_not():
     pm = mithril.compile(
         model=model1, backend=backend, constant_keys=data, inference=True
     )
+    out = pm.evaluate()["output"]
+    assert isinstance(out, jnp.ndarray)
     np.testing.assert_allclose(
         backend.array([False, True, False, False, False, True]),
-        pm.evaluate()["output"],
+        out,
         1e-6,
     )
 
@@ -982,9 +1007,11 @@ def test_and():
     pm = mithril.compile(
         model=model1, backend=backend, constant_keys=data, inference=True
     )
+    out = pm.evaluate()["output"]
+    assert isinstance(out, jnp.ndarray)
     np.testing.assert_allclose(
         backend.array([False, False, False, True, False, True]),
-        pm.evaluate()["output"],
+        out,
         1e-6,
     )
 
@@ -1014,9 +1041,11 @@ def test_or():
     pm = mithril.compile(
         model=model1, backend=backend, constant_keys=data, inference=True
     )
+    out = pm.evaluate()["output"]
+    assert isinstance(out, jnp.ndarray)
     np.testing.assert_allclose(
         backend.array([True, False, True, True, False, True]),
-        pm.evaluate()["output"],
+        out,
         1e-6,
     )
 
@@ -1046,9 +1075,11 @@ def test_xor():
     pm = mithril.compile(
         model=model1, backend=backend, constant_keys=data, inference=True
     )
+    out = pm.evaluate()["output"]
+    assert isinstance(out, jnp.ndarray)
     np.testing.assert_allclose(
         backend.array([True, False, True, False, False, False]),
-        pm.evaluate()["output"],
+        out,
         1e-6,
     )
 
@@ -1079,9 +1110,11 @@ def test_xor2():
     pm = mithril.compile(
         model=model1, backend=backend, constant_keys=data, inference=True
     )
+    out = pm.evaluate()["output"]
+    assert isinstance(out, jnp.ndarray)
     np.testing.assert_allclose(
         backend.array([True, True, True, True, False, True]),
-        pm.evaluate()["output"],
+        out,
         1e-6,
     )
 
@@ -1109,9 +1142,9 @@ def test_lshift_1():
     pm = mithril.compile(
         model=model1, backend=backend, constant_keys=data, inference=True
     )
-    np.testing.assert_allclose(
-        backend.array([2, -4, 12, 40, -10, 12]), pm.evaluate()["output"], 1e-6
-    )
+    out = pm.evaluate()["output"]
+    assert isinstance(out, jnp.ndarray)
+    np.testing.assert_allclose(backend.array([2, -4, 12, 40, -10, 12]), out, 1e-6)
 
 
 def test_lshift_2():
@@ -1134,9 +1167,9 @@ def test_lshift_2():
     pm = mithril.compile(
         model=model1, backend=backend, constant_keys=data, inference=True
     )
-    np.testing.assert_allclose(
-        backend.array([4, -8, 12, 20, -20, 24]), pm.evaluate()["output"], 1e-6
-    )
+    out = pm.evaluate()["output"]
+    assert isinstance(out, jnp.ndarray)
+    np.testing.assert_allclose(backend.array([4, -8, 12, 20, -20, 24]), out, 1e-6)
 
 
 def test_lshift_3():
@@ -1157,9 +1190,9 @@ def test_lshift_3():
     pm = mithril.compile(
         model=model1, backend=backend, constant_keys=data, inference=True
     )
-    np.testing.assert_allclose(
-        backend.array([4, 0, 16, 64, 0, 128]), pm.evaluate()["output"], 1e-6
-    )
+    out = pm.evaluate()["output"]
+    assert isinstance(out, jnp.ndarray)
+    np.testing.assert_allclose(backend.array([4, 0, 16, 64, 0, 128]), out, 1e-6)
 
 
 def test_rshift_1():
@@ -1185,9 +1218,9 @@ def test_rshift_1():
     pm = mithril.compile(
         model=model1, backend=backend, constant_keys=data, inference=True
     )
-    np.testing.assert_allclose(
-        backend.array([0, -1, 0, 0, -3, 3]), pm.evaluate()["output"], 1e-6
-    )
+    out = pm.evaluate()["output"]
+    assert isinstance(out, jnp.ndarray)
+    np.testing.assert_allclose(backend.array([0, -1, 0, 0, -3, 3]), out, 1e-6)
 
 
 def test_rshift_2():
@@ -1210,9 +1243,9 @@ def test_rshift_2():
     pm = mithril.compile(
         model=model1, backend=backend, constant_keys=data, inference=True
     )
-    np.testing.assert_allclose(
-        backend.array([0, -1, 0, 1, -2, 1]), pm.evaluate()["output"], 1e-6
-    )
+    out = pm.evaluate()["output"]
+    assert isinstance(out, jnp.ndarray)
+    np.testing.assert_allclose(backend.array([0, -1, 0, 1, -2, 1]), out, 1e-6)
 
 
 def test_rshift_3():
@@ -1233,9 +1266,9 @@ def test_rshift_3():
     pm = mithril.compile(
         model=model1, backend=backend, constant_keys=data, inference=True
     )
-    np.testing.assert_allclose(
-        backend.array([1, 0, 0, 0, 0, 2]), pm.evaluate()["output"], 1e-6
-    )
+    out = pm.evaluate()["output"]
+    assert isinstance(out, jnp.ndarray)
+    np.testing.assert_allclose(backend.array([1, 0, 0, 0, 0, 2]), out, 1e-6)
 
 
 def test_minus():
@@ -1256,9 +1289,9 @@ def test_minus():
     compare_models(model1, model2, backend, data)
 
     pm = mithril.compile(model=model1, backend=backend, constant_keys=data)
-    np.testing.assert_allclose(
-        backend.array([-1.0, 2, -3, -0.5, 5, -6]), pm.evaluate()["output"], 1e-6
-    )
+    out = pm.evaluate()["output"]
+    assert isinstance(out, jnp.ndarray)
+    np.testing.assert_allclose(backend.array([-1.0, 2, -3, -0.5, 5, -6]), out, 1e-6)
 
 
 def test_use_submodel_conn_1():
@@ -1287,9 +1320,9 @@ def test_use_submodel_conn_1():
     compare_models(model1, model2, backend, data)
 
     pm = mithril.compile(model=model1, backend=backend, constant_keys=data)
-    np.testing.assert_allclose(
-        backend.array([5.0, 3.5, 6, 4.75, 2, 7.5]), pm.evaluate()["output"], 1e-6
-    )
+    out = pm.evaluate()["output"]
+    assert isinstance(out, jnp.ndarray)
+    np.testing.assert_allclose(backend.array([5.0, 3.5, 6, 4.75, 2, 7.5]), out, 1e-6)
 
 
 def test_use_multiple_times():
@@ -1312,12 +1345,13 @@ def test_use_multiple_times():
     compare_models(model1, model2, backend, data)
 
     pm = mithril.compile(model=model1, backend=backend, constant_keys=data)
-    np.testing.assert_allclose(
-        backend.array([2, 0.5, 3, 1.75, -1, 4.5]), pm.evaluate()["output1"], 1e-6
-    )
-    np.testing.assert_allclose(
-        backend.array([2, 0.5, 3, 1.75, 0, 4.5]), pm.evaluate()["output2"], 1e-6
-    )
+    out1 = pm.evaluate()["output1"]
+    out2 = pm.evaluate()["output2"]
+    assert isinstance(out1, jnp.ndarray)
+    assert isinstance(out2, jnp.ndarray)
+
+    np.testing.assert_allclose(backend.array([2, 0.5, 3, 1.75, -1, 4.5]), out1, 1e-6)
+    np.testing.assert_allclose(backend.array([2, 0.5, 3, 1.75, 0, 4.5]), out2, 1e-6)
 
 
 def test_invalid_input():
@@ -1452,7 +1486,9 @@ def test_tensoritem_multiple_slice_3():
     )
 
     outputs = pm.evaluate()
-    assert outputs["output"].shape == (1, 6)
+    out = outputs["output"]
+    assert isinstance(out, jnp.ndarray)
+    assert out.shape == (1, 6)
 
 
 def test_tensor_item_with_ellipsis_at_beginning():
@@ -1465,6 +1501,7 @@ def test_tensor_item_with_ellipsis_at_beginning():
 
     pm = mithril.compile(model, backend=backend)
     output = pm.evaluate(data)["output"]
+    assert isinstance(output, jnp.ndarray)
 
     assert output.shape == (3, 4)
     np.testing.assert_allclose(output, data["input"][..., 3])
@@ -1480,6 +1517,7 @@ def test_tensor_item_with_ellipsis_in_middle():
 
     pm = mithril.compile(model, backend=backend)
     output = pm.evaluate(data)["output"]
+    assert isinstance(output, jnp.ndarray)
 
     assert output.shape == (3, 4, 5)
     np.testing.assert_allclose(output, data["input"][0, ..., 3])
@@ -1509,8 +1547,10 @@ def test_tranpose_2():
 
     pm = mithril.compile(model, backend=backend)
     outputs = pm.evaluate({"input": backend.ones(16, 4, 8)})
+    out = outputs["output"]
+    assert isinstance(out, jnp.ndarray)
 
-    assert (backend.transpose(backend.ones(16, 4, 8)) == outputs["output"]).all()
+    assert (backend.transpose(backend.ones(16, 4, 8)) == out).all()
 
 
 def test_tranpose_3():
@@ -1526,8 +1566,10 @@ def test_tranpose_3():
 
     pm = mithril.compile(model, backend=backend)
     outputs = pm.evaluate({"input": input_arr})
+    out = outputs["output"]
+    assert isinstance(out, jnp.ndarray)
 
-    assert (backend.transpose(input_arr, axis) == outputs["output"]).all()
+    assert (backend.transpose(input_arr, axis) == out).all()
 
 
 def test_tranpose_4():
@@ -1543,8 +1585,10 @@ def test_tranpose_4():
 
     pm = mithril.compile(model, backend=backend)
     outputs = pm.evaluate({"input": input_arr})
+    out = outputs["output"]
+    assert isinstance(out, jnp.ndarray)
 
-    assert (backend.transpose(input_arr, axis) == outputs["output"]).all()
+    assert (backend.transpose(input_arr, axis) == out).all()
 
 
 def test_split_direct():
@@ -1559,8 +1603,10 @@ def test_split_direct():
 
     pm = mithril.compile(model, backend)
     outputs = pm.evaluate({"input": input_arr})
+    out = outputs["output"]
+    assert isinstance(out, jnp.ndarray)
 
-    assert (jnp.stack(jnp.split(input_arr, 2, axis=1)) == outputs["output"]).all()
+    assert (jnp.stack(jnp.split(input_arr, 2, axis=1)) == out).all()
 
 
 def test_split_compare_with_explicit():

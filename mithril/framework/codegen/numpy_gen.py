@@ -16,8 +16,11 @@ import ast
 import keyword
 from collections.abc import Callable
 from functools import partial
+from typing import Any
 
 import numpy as np
+
+from mithril import DataType
 
 from ...backends.with_manualgrad.numpy_backend import NumpyBackend
 from ...core import Dtype
@@ -39,17 +42,17 @@ from .python_gen import PythonCodeGen
 from .utils import check_repr_inequality
 
 
-class NumpyCodeGen(PythonCodeGen):
+class NumpyCodeGen(PythonCodeGen[DataType]):
     BACKWARD_FN_SUFFIX = "_grad"
 
-    def __init__(self, pm: PhysicalModel) -> None:
+    def __init__(self, pm: PhysicalModel[DataType]) -> None:
         super().__init__(pm)
 
         assert isinstance(self.pm.backend, NumpyBackend)
         self.backend: NumpyBackend = self.pm.backend
 
     def generate_functions(self):
-        functions = []
+        functions: list[ast.FunctionDef] = []
         functions.append(self.generate_evaluate())
         if not self.pm.inference:
             functions.append(self.generate_evaluate_gradients(self.pm.ignore_grad_keys))
@@ -87,19 +90,25 @@ class NumpyCodeGen(PythonCodeGen):
 
         return imports
 
-    def compile_code(self, jit: bool = False):
+    def compile_code(
+        self, jit: bool = False
+    ) -> tuple[Callable[..., Any], Callable[..., Any], Callable[..., Any]]:
         eval_fn, grad_fn = self.exec_generated_code()
 
         # TODO: Not looks good, and looks over complicated!
         def evaluate_gradients_wrapper_manualgrad(
-            params: dict[str, np.ndarray],
-            data: dict[str, np.ndarray | ValueType] | None = None,
-            output_gradients: dict[str, np.ndarray] | None = None,
+            params: dict[str, np.ndarray[Any, Any]],
+            data: dict[str, np.ndarray[Any, Any] | ValueType] | None = None,
+            output_gradients: dict[str, np.ndarray[Any, Any]] | None = None,
             *,
-            grad_fn: Callable,
+            grad_fn: Callable[..., Any],
             include_output: bool = False,
         ) -> (
-            dict[str, np.ndarray] | tuple[dict[str, np.ndarray], dict[str, np.ndarray]]
+            dict[str, np.ndarray[Any, Any]]
+            | tuple[
+                dict[str, np.ndarray[Any, Any]],
+                dict[str, np.ndarray[Any, Any] | dict[str, np.ndarray[Any, Any]]],
+            ]
         ):
             if params is None:
                 params = {}
@@ -111,11 +120,11 @@ class NumpyCodeGen(PythonCodeGen):
 
             if data is None:
                 data = {}
-            output: dict[str, np.ndarray] = eval_fn(
+            output: dict[str, np.ndarray[Any, Any]] = eval_fn(
                 params=params, data=data, cache=cached_data
             )
             # Initialize gradients as zero with corresponding shapes.
-            gradients: dict[str, np.ndarray] = {}
+            gradients: dict[str, np.ndarray[Any, Any]] = {}
             for key in (
                 self.pm._flat_graph.all_keys
                 - self.pm.data_store.all_static_keys
@@ -381,7 +390,7 @@ class NumpyCodeGen(PythonCodeGen):
             primitive_global_inputs += [
                 key for key in kwargs.values() if "cache" not in key
             ] + [local_to_global_dict["cache"]]
-            primitive_local_inputs = [
+            primitive_local_inputs: list[str] = [
                 global_to_local_dict[key].pop(0) for key in primitive_global_inputs
             ]
 

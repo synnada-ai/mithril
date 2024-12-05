@@ -171,7 +171,9 @@ def test_mymodel_jax_1():
     )
     inputs = compiled_model.randomize_params()
     result = compiled_model.evaluate(inputs)
-    output_gradients = {"output": jnp.ones_like(result["output"])}
+    out = result["output"]
+    assert isinstance(out, jnp.ndarray)
+    output_gradients = {"output": jnp.ones_like(out)}
     outputs, grads = compiled_model.evaluate_all(
         params=inputs, output_gradients=output_gradients
     )
@@ -188,8 +190,10 @@ def test_mymodel_jax_2():
     )
     inputs = compiled_model.randomize_params()
     result = compiled_model.evaluate(inputs)
-    output_gradients = {"output": jnp.ones_like(result["output"])}
-    outputs, grads = compiled_model.evaluate_all(
+    out = result["output"]
+    assert isinstance(out, jnp.ndarray)
+    output_gradients = {"output": jnp.ones_like(out)}
+    _, grads = compiled_model.evaluate_all(
         params=inputs, output_gradients=output_gradients
     )
     # assert_results_equal(outputs, ref_output)
