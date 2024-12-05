@@ -14,8 +14,6 @@
 
 import re
 
-import pytest
-
 import mithril
 from mithril import JaxBackend, TorchBackend
 from mithril.framework.common import TBD, IOKey
@@ -83,7 +81,6 @@ def test_linear_expose_set_shapes():
     )
 
 
-@pytest.mark.skip(reason="Dict conversion does not support extend from inputs yet")
 def test_linear_expose_set_shapes_extend_from_inputs():
     model = Model()
     lin_1 = Linear()
@@ -587,6 +584,23 @@ def test_composite_13():
         w="w2",
         output=Connect("input1", "input2", key=IOKey(name="my_input")),
     )
+
+    model_dict_created = dict_conversions.model_to_dict(model)
+    model_recreated = dict_conversions.dict_to_model(model_dict_created)
+    model_dict_recreated = dict_conversions.model_to_dict(model_recreated)
+
+    assert model_dict_created == model_dict_recreated
+
+    backend = JaxBackend(precision=64)
+    assert_evaluations_equal(
+        model, model_recreated, backend, static_keys={"input": backend.ones([4, 256])}
+    )
+
+
+def test_basic_extend_from_input():
+    model = Model()
+    model += Linear(dimension=10)(input="lin", w="w", output=IOKey(name="output"))
+    model += Linear(dimension=71)(input="input", w="w1", output="lin")
 
     model_dict_created = dict_conversions.model_to_dict(model)
     model_recreated = dict_conversions.dict_to_model(model_dict_created)

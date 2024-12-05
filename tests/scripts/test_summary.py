@@ -1567,6 +1567,23 @@ def test_logical_model_summary_13():
     assert "\n" + summary.getvalue() == ref_table
 
 
+def test_simple_extend_from_input_summary():
+    model = Model()
+    model += Linear(dimension=5)(input="lin", output="output")
+    model += Linear(dimension=3)(input="input", output="lin")
+
+    model._freeze()
+
+    with redirect_stdout(StringIO()) as summary:
+        model.summary(shapes=True, symbolic=True)
+
+    ref_table = ""
+    with open("tests/scripts/summary_txts/test_simple_extend_from_input_summary") as f:
+        ref_table = f.read()
+
+    assert summary.getvalue() == ref_table
+
+
 def test_primitive_model_summary_1():
     model = Relu()
     with redirect_stdout(StringIO()) as summary:

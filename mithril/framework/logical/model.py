@@ -1493,8 +1493,6 @@ class Model(BaseModel):
             if m.name is None:
                 m.name = model_names[m]
 
-        # Sort dag
-        self.dag = {m: self.dag[m] for m in self.get_models_in_topological_order()}
         if self.formula_key is not None:
             # Must be convertable to primitive.
             assert len(self.conns.output_keys) == 1, (
@@ -1600,11 +1598,8 @@ class Model(BaseModel):
             )
             data_map = {key: conn.metadata.data for key, conn in self.conns.all.items()}
 
-            # Sort in topological order if model is not frozen
-            if self.is_frozen:
-                sorted_models = list(self.dag.keys())
-            else:
-                sorted_models = self.get_models_in_topological_order()
+            # Sort in topological order
+            sorted_models = self.get_models_in_topological_order()
 
             for model in sorted_models:
                 model_name = name_mappings[model]

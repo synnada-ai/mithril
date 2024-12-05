@@ -236,8 +236,9 @@ def model_to_dict(model: BaseModel) -> dict:
 
     # IOHyperEdge -> [model_id, connection_name]
     submodel_connections: dict[IOHyperEdge, list[str]] = {}
+    assert isinstance(model, Model)
 
-    for idx, submodel in enumerate(model.get_models_in_topological_order()):
+    for idx, submodel in enumerate(model.dag.keys()):
         model_id = f"m_{idx}"
         submodels[model_id] = model_to_dict(submodel)
 
@@ -247,7 +248,7 @@ def model_to_dict(model: BaseModel) -> dict:
                 submodel.conns._get_metadata(key), [model_id, key]
             )
         assert isinstance(model, Model)
-        connection_dict[model_id], submodel_statics = connection_to_dict(
+        connection_dict[model_id] = connection_to_dict(
             model, submodel, submodel_connections, model_id
         )
         canonical_keys[model_id] = (
@@ -269,7 +270,6 @@ def connection_to_dict(
     model_id: str,
 ):
     connection_dict: dict[str, Any] = {}
-    static_values: dict[str, Any] = {}
     connections: dict[str, ConnectionData] = model.dag[submodel]
 
     for key, connection in connections.items():
@@ -280,10 +280,10 @@ def connection_to_dict(
             and connection.metadata.data.value != TBD
         )
         # Connection is defined and belong to another model
-        if (
-            related_conn := submodel_connections.get(connection.metadata, [])
-        ) and model_id not in related_conn:
+        if related_conn and model_id not in related_conn:
             key_value = {"connect": [related_conn]}
+            if connection.key in model.output_keys:
+                key_value["key"] = {"name": connection.key, "expose": True}
         elif is_valued and connection in model.conns.input_connections:
             val = connection.metadata.data.value
             assert not isinstance(val, ToBeDetermined)
@@ -292,7 +292,7 @@ def connection_to_dict(
             else:
                 key_value = {"name": connection.key, "value": val, "expose": True}
         elif not connection.key.startswith("$"):
-            if connection.key in model.conns.output_keys:
+            if key in submodel.output_keys and connection.key in model.output_keys:
                 key_value = {"name": connection.key, "expose": True}
             else:
                 key_value = connection.key
@@ -303,7 +303,7 @@ def connection_to_dict(
     if submodel.canonical_input.key not in connection_dict:
         connection_dict[submodel.canonical_input.key] = ""
 
-    return connection_dict, static_values
+    return connection_dict
 
 
 def train_model_to_dict(context: TrainModel) -> dict:
