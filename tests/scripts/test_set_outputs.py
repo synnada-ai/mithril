@@ -81,7 +81,7 @@ def test_2():
     """
     model = Model()
     lin = Linear(2)
-    model += lin(input="input", w="w_1", b="b_1")
+    model += lin(input="input", w="w_1", b="b_1", output="lin1_out")
     model += Linear(4)(input=lin.output, w="w", b="b", output="output")
     model.set_outputs(output1=lin.output)
     model_1 = model
@@ -117,7 +117,7 @@ def test_3():
     """
     model = Model()
     lin = Linear(2)
-    model += lin(input="input", w="w_1", b="b_1")
+    model += lin(input="input", w="w_1", b="b_1", output="lin1_out")
     model += Linear(4)(input=lin.output, w="w", b="b", output="output")
     model.set_outputs("output", output1=lin.output)
     model_1 = model
@@ -153,7 +153,7 @@ def test_4():
     """
     model = Model()
     lin = Linear(2)
-    model += lin(input="input", w="w_1", b="b_1")
+    model += lin(input="input", w="w_1", b="b_1", output="lin1_out")
     model += Linear(4)(input=lin.output, w="w", b="b", output="output")
     model.set_outputs(out="output", output1=lin.output)
     model_1 = model

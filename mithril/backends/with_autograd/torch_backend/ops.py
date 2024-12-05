@@ -944,17 +944,17 @@ def lstm_cell(
     hidden = prev_hidden.squeeze(dim=1)
     input_features = input.shape[-1]
 
-    w_ig = w_c[:input_features].T
-    w_hg = w_c[input_features:].T
+    w_ig = w_c[:, :input_features]
+    w_hg = w_c[:, input_features:]
 
-    w_if = w_f[:input_features].T
-    w_hf = w_f[input_features:].T
+    w_if = w_f[:, :input_features]
+    w_hf = w_f[:, input_features:]
 
-    w_ii = w_i[:input_features].T
-    w_hi = w_i[input_features:].T
+    w_ii = w_i[:, :input_features]
+    w_hi = w_i[:, input_features:]
 
-    w_io = w_o[:input_features].T
-    w_ho = w_o[input_features:].T
+    w_io = w_o[:, :input_features]
+    w_ho = w_o[:, input_features:]
 
     weight_ih_l0 = torch.concat((w_ii, w_if, w_ig, w_io), dim=0)
     weight_hh_l0 = torch.concat((w_hi, w_hf, w_hg, w_ho), dim=0)

@@ -25,7 +25,7 @@ Model Name   |                                                        Model Keys
              |             -----------------------------------------------------------------------------------------------
              |             Keys   : Shapes         : Types              : Connections                         : Parameters
 ==========================================================================================================================
-Add          |   Inputs  : left   : [None, ..., 3] : bool | float | int : '_Linear_0_MatrixMultiply_0_output' :          0
+Add          |   Inputs  : left   : [None, ..., 3] : bool | float | int : '_Linear_0_MatrixMultiply_1_output' :          0
              |             right  :            [3] : bool | float | int : 'b'                                 :          3
              |   ---------------------------------------------------------------------------------------------------------
              |   Outputs : output : [None, ..., 3] : bool | float | int : 'output1'                           :          0
