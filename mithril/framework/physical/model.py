@@ -122,12 +122,12 @@ class PhysicalModel(GenericDataType[DataType]):
             if isinstance(model.canonical_output, NotAvailable):
                 raise ValueError("Models with no output keys can not be compiled.")
 
-            current_name = flat_model.defined_edges[
+            current_name = flat_model.assigned_edges[
                 model.canonical_output.metadata
             ].name
             key_origin = model.canonical_output.metadata.key_origin
             if key_origin != current_name:
-                while key_origin in flat_model.defined_names:
+                while key_origin in flat_model.assigned_edges:
                     key_origin = f"_{key_origin}"
 
             self._output_keys.add(key_origin)
@@ -1193,177 +1193,170 @@ class Name:
 class FlatModel:
     def __init__(self, model: BaseModel, reserved_keys: set[str] | None = None):
         self.mappings: dict[PrimitiveModel, dict[str, Name]] = {}
-        self.defined_edges: dict[IOHyperEdge, Name] = {}
-        self.defined_names: dict[str, Name] = {}
+        self.assigned_edges: dict[IOHyperEdge, Name] = {}
+        self.assigned_names: dict[str, Name] = {}
+        self.used_edges: set[IOHyperEdge] = set()
         self.key_origins: dict[str, int] = {}
-        self.external_keys: set[Name] = set()
         self.reserved_keys = set(reserved_keys) if reserved_keys else set()
-        self.model = model
         self.queued_models: dict[IOHyperEdge, list[PrimitiveModel]] = {}
-
         self._external_mapping: dict[str, Name] = {}
+        self.model = model
 
         self._name_externals()
-        # self._generate_keys(model, only_external=True)
         self._generate_keys(model)
         self._rebase_names()
+
+    @property
+    def external_mapping(self) -> dict[str, str]:
+        return {key: value.name for key, value in self._external_mapping.items()}
+
+    @property
+    def external_keys(self) -> set[str]:
+        return set(self.external_mapping.values())
 
     def rename_key(self, source_name: str, target_name: str):
         if source_name == target_name:
             return
 
-        if target_name in self.defined_names:
+        if target_name in self.assigned_names:
             new_target_key = self._get_next_unique_name(target_name)
-            self.defined_names[target_name].name = new_target_key
-            self.defined_names[new_target_key] = self.defined_names.pop(target_name)
+            self._update_defined_names(target_name, new_target_key)
 
-            if target_name in self.external_mapping.values():
-                # TODO it is inefficient
-                self._external_mapping = {
-                    key: self.defined_names[new_target_key]
-                    if value == target_name
-                    else value
-                    for key, value in self._external_mapping.items()
-                }
+        self._update_defined_names(source_name, target_name)
 
-        self.defined_names[source_name].name = target_name
-        self.defined_names[target_name] = self.defined_names.pop(source_name)
+    def _update_defined_names(self, old_name: str, new_name: str):
+        self.assigned_names[old_name].name = new_name
+        self.assigned_names[new_name] = self.assigned_names.pop(old_name)
 
-        if source_name in self.external_mapping.values():
-            # TODO: it is inefficient
+        if old_name in self.external_mapping.values():
             self._external_mapping = {
-                key: self.defined_names[target_name] if value == source_name else value
+                key: self.assigned_names[new_name] if value == old_name else value
                 for key, value in self._external_mapping.items()
             }
-
-    @property
-    def external_mapping(self):
-        return {key: value.name for key, value in self._external_mapping.items()}
 
     def _name_externals(self):
         external_keys = list(self.model.conns.input_keys) + list(
             self.model.conns.output_keys
         )
-        extenal_keys_no_named = [key for key in external_keys if key.startswith("$")]
+        external_keys_no_named = [key for key in external_keys if key.startswith("$")]
         external_keys_named = [key for key in external_keys if not key.startswith("$")]
 
-        key_origin_counts: dict[str, int] = {}
+        key_origin_counts = self._count_key_origins(
+            external_keys_named, external_keys_no_named
+        )
 
-        for key in external_keys_named + extenal_keys_no_named:
+        for key in external_keys_named + external_keys_no_named:
+            conn = self.model.conns.all[key]
+            base_name_str = conn.key
+
+            if not key.startswith("$"):
+                name_str = self._get_unique_name_str(base_name_str)
+                name = self._create_name(name_str)
+            else:
+                key_origin = conn.metadata.key_origin
+                assert key_origin is not None
+                name = self._create_name(
+                    self._get_unique_name_str(key_origin, key_origin_counts)
+                )
+
+            self._external_mapping[base_name_str] = name
+            self.assigned_edges[conn.metadata] = name
+
+            if key in self.model._input_keys:
+                self.used_edges.add(conn.metadata)
+
+    def _count_key_origins(
+        self, external_keys_named: list[str], external_keys_no_named: list[str]
+    ):
+        key_origin_counts: dict[str, int] = {}
+        for key in external_keys_named + external_keys_no_named:
             conn = self.model.conns.all[key]
             key_origin = conn.metadata.key_origin
             assert key_origin is not None
             key_origin_counts.setdefault(key_origin, 0)
             key_origin_counts[key_origin] += 1
+        return key_origin_counts
 
-        for key in external_keys_named + extenal_keys_no_named:
-            conn = self.model.conns.all[key]
-            base_name_str = conn.key
-
-            if not key.startswith("$"):
-                name_str = base_name_str
-                if key not in self.model.conns.input_keys:
-                    while name_str in self.reserved_keys:
-                        name_str = f"_{name_str}"
-
-                name = self._create_name(name_str)
-            else:
-                key_origin = conn.metadata.key_origin
-                assert key_origin is not None
-                if (
-                    key_origin in self.defined_names
-                    or key_origin_counts[key_origin] > 1
-                ):
-                    name_str = self._get_next_unique_name(key_origin)
-                    name = self._create_name(name_str)
-                else:
-                    name = self._create_name(key_origin)
-
-            self.defined_edges[conn.metadata] = name
-            self.external_keys.add(name)
-            self._external_mapping[base_name_str] = name
+    def _get_unique_name_str(
+        self, base_name: str, key_origin_counts: dict[str, int] | None = None
+    ):
+        if key_origin_counts and key_origin_counts.get(base_name, 0) > 1:
+            return self._get_next_unique_name(base_name)
+        return base_name
 
     def _generate_keys(self, model: BaseModel):
         if isinstance(model, PrimitiveModel):
             self._process_primitive_model(model)
         elif isinstance(model, Model):
-            self._process_model(model)
+            for m in model.dag:
+                self._generate_keys(m)
         else:
             raise ValueError("Model must be either PrimitiveModel or Model")
 
+    def _add_primitive_to_queue(
+        self, model: PrimitiveModel, input_edges: set[IOHyperEdge]
+    ):
+        for edge in input_edges:
+            self.queued_models.setdefault(edge, [])
+            if model not in self.queued_models[edge]:
+                self.queued_models[edge].append(model)
+
     def _process_primitive_model(self, model: PrimitiveModel):
-        input_edges = set()
-        for conn in model.conns.input_connections:
-            if conn.metadata.data.value == TBD:
-                input_edges.add(conn.metadata)
+        input_edges = {
+            conn.metadata
+            for conn in model.conns.input_connections
+            if conn.metadata.data.value == TBD
+        }
 
-        if not input_edges.issubset(self.defined_edges):
-            for edge in input_edges:
-                self.queued_models.setdefault(edge, [])
-                if model not in self.queued_models[edge]:
-                    self.queued_models[edge].append(model)
-
+        if not input_edges.issubset(self.used_edges):
+            self._add_primitive_to_queue(model, input_edges)
             return
 
         self.mappings.setdefault(model, {})
         for key, conn in model.conns.all.items():
-            if conn.metadata in self.defined_edges:
-                name = self.defined_edges[conn.metadata]
-            else:
-                name_str = self._get_next_unique_name(conn.metadata.key_origin)
-                name = self._create_name(name_str)
-
-                self.defined_edges[conn.metadata] = name
-
+            key_origin = conn.metadata.key_origin
+            assert key_origin is not None
+            name = self.assigned_edges.get(conn.metadata) or self._create_name(
+                self._get_next_unique_name(key_origin)
+            )
+            self.assigned_edges[conn.metadata] = name
             self.mappings[model][key] = name
 
-        output_edge = [conn.metadata for conn in model.conns.output_connections][0]
+        output_edge = next(conn.metadata for conn in model.conns.output_connections)
+        self.used_edges.add(output_edge)
         if output_edge in self.queued_models:
             for m in self.queued_models[output_edge]:
                 self._process_primitive_model(m)
 
-    def _process_model(self, model: Model):
-        models = list(
-            model.get_models_in_topological_order()
-            if model.parent is None
-            else model.dag.keys()
-        )
-
-        for m in models:
-            self._generate_keys(m)
-
     def _get_next_unique_name(self, name: str) -> str:
-        if name in self.key_origins:
-            self.key_origins[name] += 1
-            candidate_name = f"{name}_{self.key_origins[name]}"
-            if (
-                candidate_name in self.defined_names
-                or candidate_name in self.reserved_keys
-            ):
-                return self._get_next_unique_name(name)
-            else:
-                while candidate_name in self.reserved_keys:
-                    candidate_name = f"_{candidate_name}"
-                return candidate_name
-        else:
-            self.key_origins[name] = -1
+        self.key_origins[name] = self.key_origins.get(name, -1) + 1
+        candidate_name = f"{name}_{self.key_origins[name]}"
+        if (
+            candidate_name in self.assigned_names
+            or candidate_name in self.reserved_keys
+        ):
             return self._get_next_unique_name(name)
+        while candidate_name in self.reserved_keys:
+            candidate_name = f"_{candidate_name}"
+        return candidate_name
 
     def _create_name(self, name: str) -> Name:
         if name in self.key_origins:
             name = f"{name}_{self.key_origins[name]}"
         new_name = Name(name)
-        self.defined_names[name] = new_name
+        self.assigned_names[name] = new_name
         return new_name
 
     def _rebase_names(self):
+        # Remove unnecessary suffixes
+
         for base_name, idx in self.key_origins.items():
             if idx == 0 and base_name not in self.external_keys:
                 name = f"{base_name}_{0}"
                 while base_name in self.reserved_keys:
                     base_name = f"_{base_name}"
-                self.defined_names[name].name = base_name
-                self.defined_names[base_name] = self.defined_names.pop(name)
+                self.assigned_names[name].name = base_name
+                self.assigned_names[base_name] = self.assigned_names.pop(name)
 
     def __iter__(self):
         self._iter = iter(self.mappings.items())
@@ -1371,5 +1364,4 @@ class FlatModel:
 
     def __next__(self):
         model, mapping = next(self._iter)
-
         return model, {key: name.name for key, name in mapping.items()}

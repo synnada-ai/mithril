@@ -1786,10 +1786,10 @@ def test_unused_cached_values_2_set_values():
     cache = comp_model.data_store.data_values
 
     expected_cache = {
-        "output_2": np.array([[1.0, 2.0]], dtype=dtype),
-        "output_1": np.array([3.0, 1.0], dtype=dtype),
+        "output_1": np.array([[1.0, 2.0]], dtype=dtype),
+        "output_3": np.array([3.0, 1.0], dtype=dtype),
         "output_cache": {},
-        "output_3_cache": {},
+        "output_2_cache": {},
     }
     # Check cached_data.
     assert cache is not None and cache.keys() == expected_cache.keys()
