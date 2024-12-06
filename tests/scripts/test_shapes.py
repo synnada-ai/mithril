@@ -30,8 +30,9 @@ from mithril.framework.common import (
     Connection,
     ConnectionType,
     Equivalences,
+    GenericTensorType,
+    IOKey,
     PossibleValues,
-    Scalar,
     ShapeNode,
     ShapeRepr,
     Uniadic,
@@ -70,7 +71,6 @@ from mithril.models import (
     Gelu,
     GPRAlpha,
     GPRVOuter,
-    IOKey,
     IsNan,
     Layer,
     LeakyRelu,
@@ -110,7 +110,6 @@ from mithril.models import (
     SwapAxes,
     Tanh,
     Tensor,
-    TensorType,
     ToList,
     ToTuple,
     TrainModel,
@@ -3064,8 +3063,8 @@ class Model1(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="relu",
-            input=TensorType([("Var1", ...)]),
-            output=TensorType([("Var1", ...), "u1", "u2"]),
+            input=IOKey(shape=[("Var1", ...)], type=GenericTensorType),
+            output=IOKey(shape=[("Var1", ...), "u1", "u2"], type=GenericTensorType),
         )
 
     def __call__(  # type: ignore[override]
@@ -3081,8 +3080,8 @@ class Model2(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="relu",
-            input=TensorType([("Var1", ...), "u1"]),
-            output=TensorType(["u1", ("Var1", ...)]),
+            input=IOKey(shape=[("Var1", ...), "u1"], type=GenericTensorType),
+            output=IOKey(shape=["u1", ("Var1", ...)], type=GenericTensorType),
         )
 
     def __call__(  # type: ignore[override]
@@ -3100,10 +3099,10 @@ class Model3(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="concat",
-            input1=TensorType(["u1", "u2", "u3"]),
-            input2=TensorType(["u3", "u2", "u1"]),
-            output=TensorType(["u1", ("Var1", ...), "u3"]),
-            axis=Scalar(int),
+            input1=IOKey(shape=["u1", "u2", "u3"], type=GenericTensorType),
+            input2=IOKey(shape=["u3", "u2", "u1"], type=GenericTensorType),
+            output=IOKey(shape=["u1", ("Var1", ...), "u3"], type=GenericTensorType),
+            axis=IOKey(type=int),
         )
 
     def __call__(  # type: ignore[override]
@@ -3122,8 +3121,8 @@ class Model4(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="relu",
-            input=TensorType([("Var1", ...)]),
-            output=TensorType([("Var1", ...), 1]),
+            input=IOKey(shape=[("Var1", ...)], type=GenericTensorType),
+            output=IOKey(shape=[("Var1", ...), 1], type=GenericTensorType),
         )
 
     def __call__(  # type: ignore[override]
@@ -3140,9 +3139,9 @@ class Model5(PrimitiveModel):
     def __init__(self, axis=None) -> None:
         super().__init__(
             formula_key="relu",
-            input=TensorType([("Var1", ...)]),
-            output=TensorType([("Var2", ...)]),
-            axis=Scalar(possible_types=NoneType | list[int], value=axis),
+            input=IOKey(shape=[("Var1", ...)], type=GenericTensorType),
+            output=IOKey(shape=[("Var2", ...)], type=GenericTensorType),
+            axis=IOKey(type=NoneType | list[int], value=axis),
         )
 
     def __call__(  # type: ignore[override]
@@ -3161,8 +3160,8 @@ class Model6(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="relu",
-            input=TensorType(["u1", ("Var1", ...)]),
-            output=TensorType([("Var1", ...), "u1"]),
+            input=IOKey(shape=["u1", ("Var1", ...)], type=GenericTensorType),
+            output=IOKey(shape=[("Var1", ...), "u1"], type=GenericTensorType),
         )
 
     def __call__(  # type: ignore[override]
@@ -3178,8 +3177,8 @@ class Model7(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="relu",
-            input=TensorType(["u1", ("Var1", ...)]),
-            output=TensorType(["u1", ("Var1", ...)]),
+            input=IOKey(shape=["u1", ("Var1", ...)], type=GenericTensorType),
+            output=IOKey(shape=["u1", ("Var1", ...)], type=GenericTensorType),
         )
 
     def __call__(  # type: ignore[override]
@@ -3195,8 +3194,8 @@ class Model8(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="relu",
-            input=TensorType([("Var1", ...), "u1"]),
-            output=TensorType([("Var1", ...), "u1"]),
+            input=IOKey(shape=[("Var1", ...), "u1"], type=GenericTensorType),
+            output=IOKey(shape=[("Var1", ...), "u1"], type=GenericTensorType),
         )
 
     def __call__(  # type: ignore[override]
@@ -3212,8 +3211,8 @@ class Model9(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="buffer",
-            input=TensorType(["u1", ("Var1", ...)]),
-            output=TensorType(["u2", "u1", ("Var1", ...)]),
+            input=IOKey(shape=["u1", ("Var1", ...)], type=GenericTensorType),
+            output=IOKey(shape=["u2", "u1", ("Var1", ...)], type=GenericTensorType),
         )
 
     def __call__(  # type: ignore[override]
@@ -4106,8 +4105,8 @@ class MyVariadic1(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="buffer",
-            input=TensorType([("Var1", ...), "a"]),
-            output=TensorType([("Var1", ...), "a"]),
+            input=IOKey(shape=[("Var1", ...), "a"], type=GenericTensorType),
+            output=IOKey(shape=[("Var1", ...), "a"], type=GenericTensorType),
         )
 
     def __call__(  # type: ignore[override]
@@ -4123,8 +4122,8 @@ class MyVariadic2(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="buffer",
-            input=TensorType([("Var1", ...), "a", "b"]),
-            output=TensorType([("Var1", ...), "a", "b"]),
+            input=IOKey(shape=[("Var1", ...), "a", "b"], type=GenericTensorType),
+            output=IOKey(shape=[("Var1", ...), "a", "b"], type=GenericTensorType),
         )
 
     def __call__(  # type: ignore[override]
@@ -4140,8 +4139,8 @@ class MyVariadic3(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="buffer",
-            input=TensorType(["a", "b", ("Var1", ...)]),
-            output=TensorType(["a", "b", ("Var1", ...)]),
+            input=IOKey(shape=["a", "b", ("Var1", ...)], type=GenericTensorType),
+            output=IOKey(shape=["a", "b", ("Var1", ...)], type=GenericTensorType),
         )
 
     def __call__(  # type: ignore[override]
@@ -4157,8 +4156,8 @@ class MyVariadic4(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="buffer",
-            input=TensorType(["a", ("Var1", ...)]),
-            output=TensorType(["a", ("Var1", ...)]),
+            input=IOKey(shape=["a", ("Var1", ...)], type=GenericTensorType),
+            output=IOKey(shape=["a", ("Var1", ...)], type=GenericTensorType),
         )
 
     def __call__(  # type: ignore[override]
@@ -4174,8 +4173,8 @@ class MyVariadic5(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="buffer",
-            input=TensorType([("Var1", ...), "a", "b"]),
-            output=TensorType([("Var1", ...), "a"]),
+            input=IOKey(shape=[("Var1", ...), "a", "b"], type=GenericTensorType),
+            output=IOKey(shape=[("Var1", ...), "a"], type=GenericTensorType),
         )
 
     def __call__(  # type: ignore[override]
@@ -4191,8 +4190,8 @@ class MyVariadic6(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="buffer",
-            input=TensorType([("Var1", ...), "a"]),
-            output=TensorType(["a", "a"]),
+            input=IOKey(shape=[("Var1", ...), "a"], type=GenericTensorType),
+            output=IOKey(shape=["a", "a"], type=GenericTensorType),
         )
 
     def __call__(  # type: ignore[override]
@@ -4208,8 +4207,8 @@ class MyVariadic7(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="buffer",
-            input=TensorType([("Var1", ...), "u1", "u2"]),
-            output=TensorType(["u3", ("Var2", ...), "u4"]),
+            input=IOKey(shape=[("Var1", ...), "u1", "u2"], type=GenericTensorType),
+            output=IOKey(shape=["u3", ("Var2", ...), "u4"], type=GenericTensorType),
         )
 
     def __call__(  # type: ignore[override]
@@ -4230,13 +4229,30 @@ class MyVariadic8(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="buffer",
-            input1=TensorType(["u1", "u2", "u3", ("Var1", ...)]),
-            input2=TensorType(["u4", "u5", ("Var2", ...), "u6"]),
-            input3=TensorType(["u7", ("Var3", ...), "u8", "u9"]),
-            input4=TensorType([("Var4", ...), "u10", "u11", "u12"]),
-            input5=TensorType([("Var5", ...), "u13", "u14", "u15", "u16"]),
-            input6=TensorType(["u17", "u18", ("Var6", ...), "u19", "u20"]),
-            output=TensorType(["u13", ("Var1", ...), "u14", "u15", "u16"]),
+            input1=IOKey(
+                shape=["u1", "u2", "u3", ("Var1", ...)], type=GenericTensorType
+            ),
+            input2=IOKey(
+                shape=["u4", "u5", ("Var2", ...), "u6"], type=GenericTensorType
+            ),
+            input3=IOKey(
+                shape=["u7", ("Var3", ...), "u8", "u9"], type=GenericTensorType
+            ),
+            input4=IOKey(
+                shape=[("Var4", ...), "u10", "u11", "u12"], type=GenericTensorType
+            ),
+            input5=IOKey(
+                shape=[("Var5", ...), "u13", "u14", "u15", "u16"],
+                type=GenericTensorType,
+            ),
+            input6=IOKey(
+                shape=["u17", "u18", ("Var6", ...), "u19", "u20"],
+                type=GenericTensorType,
+            ),
+            output=IOKey(
+                shape=["u13", ("Var1", ...), "u14", "u15", "u16"],
+                type=GenericTensorType,
+            ),
         )
 
     def __call__(  # type: ignore[override]
@@ -4272,10 +4288,10 @@ class MyVariadic9(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="buffer",
-            input1=TensorType(["u1", ("Var1", ...)]),
-            input2=TensorType([("Var2", ...), "u2"]),
-            input3=TensorType(["u3", ("Var3", ...), "u4"]),
-            output=TensorType(["u5", "u5"]),
+            input1=IOKey(shape=["u1", ("Var1", ...)], type=GenericTensorType),
+            input2=IOKey(shape=[("Var2", ...), "u2"], type=GenericTensorType),
+            input3=IOKey(shape=["u3", ("Var3", ...), "u4"], type=GenericTensorType),
+            output=IOKey(shape=["u5", "u5"], type=GenericTensorType),
         )
 
     def __call__(  # type: ignore[override]
@@ -4302,12 +4318,16 @@ class MyVariadic10(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="buffer",
-            input1=TensorType(["u1", "u2", ("Var1", ...)]),
-            input2=TensorType(["u3", ("Var2", ...), "u4"]),
-            input3=TensorType([("Var3", ...), "u5", "u6"]),
-            input4=TensorType(["u7", "u8", ("Var4", ...), "u9", "u10"]),
-            input5=TensorType(["u11", ("Var4", ...), "u12", "u13"]),
-            output=TensorType(["u5", "u5"]),
+            input1=IOKey(shape=["u1", "u2", ("Var1", ...)], type=GenericTensorType),
+            input2=IOKey(shape=["u3", ("Var2", ...), "u4"], type=GenericTensorType),
+            input3=IOKey(shape=[("Var3", ...), "u5", "u6"], type=GenericTensorType),
+            input4=IOKey(
+                shape=["u7", "u8", ("Var4", ...), "u9", "u10"], type=GenericTensorType
+            ),
+            input5=IOKey(
+                shape=["u11", ("Var4", ...), "u12", "u13"], type=GenericTensorType
+            ),
+            output=IOKey(shape=["u5", "u5"], type=GenericTensorType),
         )
 
     def __call__(  # type: ignore[override]
@@ -4339,8 +4359,8 @@ class MyVariadic11(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="buffer",
-            input=TensorType(["a", ("Var1", ...)]),
-            output=TensorType(["a", ("Var1", ...), "b"]),
+            input=IOKey(shape=["a", ("Var1", ...)], type=GenericTensorType),
+            output=IOKey(shape=["a", ("Var1", ...), "b"], type=GenericTensorType),
         )
 
     def __call__(  # type: ignore[override]
@@ -4356,8 +4376,8 @@ class MyVariadic12(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="buffer",
-            input=TensorType(["a", "b", ("Var1", ...)]),
-            output=TensorType(["a", "b", "c", ("Var1", ...)]),
+            input=IOKey(shape=["a", "b", ("Var1", ...)], type=GenericTensorType),
+            output=IOKey(shape=["a", "b", "c", ("Var1", ...)], type=GenericTensorType),
         )
 
     def __call__(  # type: ignore[override]
@@ -5248,9 +5268,9 @@ def test_variadic_naming_14() -> None:
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input1=TensorType(["a", ("Var1", ...), "b"]),
-                input2=TensorType([("Var1", ...)]),
-                output=TensorType(["a", ("Var1", ...), "c"]),
+                input1=IOKey(shape=["a", ("Var1", ...), "b"], type=GenericTensorType),
+                input2=IOKey(shape=[("Var1", ...)], type=GenericTensorType),
+                output=IOKey(shape=["a", ("Var1", ...), "c"], type=GenericTensorType),
             )
 
     model = MyModel()
@@ -5280,9 +5300,9 @@ def test_variadic_naming_15() -> None:
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input1=TensorType(["a", ("Var1", ...), "b"]),
-                input2=TensorType(["b", "c"]),
-                output=TensorType(["a", ("Var1", ...), "c"]),
+                input1=IOKey(shape=["a", ("Var1", ...), "b"], type=GenericTensorType),
+                input2=IOKey(shape=["b", "c"], type=GenericTensorType),
+                output=IOKey(shape=["a", ("Var1", ...), "c"], type=GenericTensorType),
             )
 
     model = MyModel()
@@ -5308,8 +5328,8 @@ def test_variadic_naming_16() -> None:
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=TensorType(["a", ("Var1", ...), "b"]),
-                output=TensorType(["b", ("Var1", ...), "a"]),
+                input=IOKey(shape=["a", ("Var1", ...), "b"], type=GenericTensorType),
+                output=IOKey(shape=["b", ("Var1", ...), "a"], type=GenericTensorType),
             )
 
         def __call__(  # type: ignore[override]
@@ -5349,8 +5369,8 @@ def test_variadic_naming_17() -> None:
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=TensorType(["a", ("Var1", ...), "b"]),
-                output=TensorType(["b", ("Var1", ...), "a"]),
+                input=IOKey(shape=["a", ("Var1", ...), "b"], type=GenericTensorType),
+                output=IOKey(shape=["b", ("Var1", ...), "a"], type=GenericTensorType),
             )
 
         def __call__(  # type: ignore[override]
@@ -5666,8 +5686,12 @@ def test_variadic_naming_25() -> None:
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=TensorType([("Var1", ...), "a", "b", "c"]),
-                output=TensorType(["c", ("Var1", ...), "a", "b"]),
+                input=IOKey(
+                    shape=[("Var1", ...), "a", "b", "c"], type=GenericTensorType
+                ),
+                output=IOKey(
+                    shape=["c", ("Var1", ...), "a", "b"], type=GenericTensorType
+                ),
             )
 
         def __call__(  # type: ignore[override]
@@ -5709,10 +5733,10 @@ def test_variadic_naming_26() -> None:
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input1=TensorType(["a", ("Var1", ...), "b"]),
-                input2=TensorType(["_a", ("Var1", ...), "_b"]),
-                input3=TensorType(["b", "c"]),
-                output=TensorType(["a", ("Var1", ...), "c"]),
+                input1=IOKey(shape=["a", ("Var1", ...), "b"], type=GenericTensorType),
+                input2=IOKey(shape=["_a", ("Var1", ...), "_b"], type=GenericTensorType),
+                input3=IOKey(shape=["b", "c"], type=GenericTensorType),
+                output=IOKey(shape=["a", ("Var1", ...), "c"], type=GenericTensorType),
             )
 
         def __call__(  # type: ignore[override]
@@ -5759,8 +5783,8 @@ def test_variadic_naming_27() -> None:
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=TensorType([("Var1", ...), "u1"]),
-                output=TensorType([("Var1", ...)]),
+                input=IOKey(shape=[("Var1", ...), "u1"], type=GenericTensorType),
+                output=IOKey(shape=[("Var1", ...)], type=GenericTensorType),
             )
 
         def __call__(  # type: ignore[override]
@@ -5802,8 +5826,10 @@ def test_same_uniadic_1() -> None:
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=TensorType([("Var1", ...), "u1", "u2", "u3"]),
-                output=TensorType([("Var1", ...), "u4"]),
+                input=IOKey(
+                    shape=[("Var1", ...), "u1", "u2", "u3"], type=GenericTensorType
+                ),
+                output=IOKey(shape=[("Var1", ...), "u4"], type=GenericTensorType),
             )
 
         def __call__(  # type: ignore[override]
@@ -5841,8 +5867,10 @@ def test_same_uniadic_2() -> None:
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=TensorType([("Var1", ...), "u1", "u2", "u3"]),
-                output=TensorType([("Var1", ...), "u4"]),
+                input=IOKey(
+                    shape=[("Var1", ...), "u1", "u2", "u3"], type=GenericTensorType
+                ),
+                output=IOKey(shape=[("Var1", ...), "u4"], type=GenericTensorType),
             )
 
         def __call__(  # type: ignore[override]
@@ -6818,6 +6846,9 @@ def test_total_repr_count_1():
                 for shape in shapes:
                     reprs |= find_all_reprs(shape)
             if (ref_result := ref_counts.get(model.__class__)) is not None:
+                if len(reprs) != ref_result:
+                    ...
+                    model = primitive_model(**kwargs)
                 assert len(reprs) == ref_result
             else:
                 assert len(reprs) == len(all_tensor_conns)
@@ -7006,8 +7037,8 @@ def test_repr_count_1():
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=TensorType(["a", "b"]),
-                output=TensorType(["b", "c", "d"]),
+                input=IOKey(shape=["a", "b"], type=GenericTensorType),
+                output=IOKey(shape=["b", "c", "d"], type=GenericTensorType),
             )
 
     model = MyModel()
@@ -7025,8 +7056,10 @@ def test_equalize_lengths_of_unmatchable_reprs_of_different_sizes_with_extend_1(
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=TensorType(["a", ("Var1", ...)]),
-                output=TensorType([("Var1", ...), "c", "d", "e"]),
+                input=IOKey(shape=["a", ("Var1", ...)], type=GenericTensorType),
+                output=IOKey(
+                    shape=[("Var1", ...), "c", "d", "e"], type=GenericTensorType
+                ),
             )
 
     model = Model()
@@ -7048,8 +7081,10 @@ def test_equalize_lengths_of_unmatchable_reprs_of_different_sizes_with_extend_2(
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=TensorType([("Var1", ...), "c", "d", "e"]),
-                output=TensorType(["a", "b", ("Var1", ...)]),
+                input=IOKey(
+                    shape=[("Var1", ...), "c", "d", "e"], type=GenericTensorType
+                ),
+                output=IOKey(shape=["a", "b", ("Var1", ...)], type=GenericTensorType),
             )
 
     model = Model()
@@ -7509,8 +7544,8 @@ def test_node_count_4():
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=TensorType(["a", ("Var1", ...)]),
-                output=TensorType([("Var1", ...), "b"]),
+                input=IOKey(shape=["a", ("Var1", ...)], type=GenericTensorType),
+                output=IOKey(shape=[("Var1", ...), "b"], type=GenericTensorType),
             )
 
         def __call__(  # type: ignore[override]
@@ -7542,9 +7577,9 @@ def test_node_count_5():
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input1=TensorType(["a", ("Var1", ...)]),
-                input2=TensorType([("Var1", ...), "b"]),
-                output=TensorType(["a", ("Var1", ...)]),
+                input1=IOKey(shape=["a", ("Var1", ...)], type=GenericTensorType),
+                input2=IOKey(shape=[("Var1", ...), "b"], type=GenericTensorType),
+                output=IOKey(shape=["a", ("Var1", ...)], type=GenericTensorType),
             )
 
         def __call__(  # type: ignore[override]
@@ -7762,8 +7797,8 @@ def test_node_count_16() -> None:
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=TensorType([5, 5]),
-                output=TensorType([5, 5]),
+                input=IOKey(shape=[5, 5], type=GenericTensorType),
+                output=IOKey(shape=[5, 5], type=GenericTensorType),
             )
 
         def __call__(  # type: ignore[override]
@@ -7792,8 +7827,8 @@ def test_node_count_18() -> None:
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=TensorType(["a", "b"]),
-                output=TensorType(["a", "b"]),
+                input=IOKey(shape=["a", "b"], type=GenericTensorType),
+                output=IOKey(shape=["a", "b"], type=GenericTensorType),
             )
 
         def __call__(  # type: ignore[override]
@@ -7821,8 +7856,10 @@ def test_node_count_19() -> None:
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=TensorType(["a", ("V1", ...), "b", "c"]),
-                output=TensorType(["c", ("V1", ...), "a", "b"]),
+                input=IOKey(shape=["a", ("V1", ...), "b", "c"], type=GenericTensorType),
+                output=IOKey(
+                    shape=["c", ("V1", ...), "a", "b"], type=GenericTensorType
+                ),
             )
 
         def __call__(  # type: ignore[override]
@@ -7857,8 +7894,8 @@ def test_node_count_20() -> None:
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=TensorType(["a", "b", "c"]),
-                output=TensorType(["b", "c", "a"]),
+                input=IOKey(shape=["a", "b", "c"], type=GenericTensorType),
+                output=IOKey(shape=["b", "c", "a"], type=GenericTensorType),
             )
 
         def __call__(  # type: ignore[override]
@@ -7892,7 +7929,9 @@ def test_node_count_21() -> None:
 
         def __init__(self) -> None:
             super().__init__(
-                formula_key="buffer", input=TensorType([]), output=TensorType([])
+                formula_key="buffer",
+                input=IOKey(shape=[], type=GenericTensorType),
+                output=IOKey(shape=[], type=GenericTensorType),
             )
 
         def __call__(  # type: ignore[override]
