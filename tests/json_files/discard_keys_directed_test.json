@@ -6,7 +6,7 @@
         "discard_keys": ["output"],
         "results": {
             "output_keys": [],
-            "discard_keys": ["_MatrixMultiply_1_output", "axes", "_Transpose_0_output", "b", "input", "output", "w"]
+            "discard_keys": ["axes", "b", "input", "output", "output_0", "output_1", "w"]
         },
         "shapes": {
             "input": [100, 4],
@@ -97,7 +97,7 @@
         "discard_keys": ["output"],
         "results": {
             "output_keys": [],
-            "discard_keys": ["output", "input1", "input2", "_Multiply_0_output", "_Multiply_1_output"]
+            "discard_keys": ["input1", "input2", "output", "output_0", "output_1"]
         }
     },
     "test_composite_3": {
@@ -167,7 +167,7 @@
         "discard_keys": ["output1"],
         "results": {
             "output_keys": ["output2"],
-            "discard_keys": ["_Relu_2_output", "_Relu_4_output", "output1"]
+            "discard_keys": ["output1", "output_2", "output_4"]
         }
     },
     "test_Linear_with_loss": {
@@ -211,7 +211,7 @@
         "discard_keys": ["final_cost", "output"],
         "results": {
             "output_keys": [],
-            "discard_keys": ["_Linear_0_MatrixMultiply_1_output", "_Linear_0_Transpose_0_output", "_Mean_2_axis", "_Mean_2_keepdim", "_Mean_2_output", "_SquaredError_1_output", "axes", "b", "final_cost", "input", "output", "target", "w"]
+            "discard_keys": ["axis", "final_cost", "keepdim", "output_2", "output_3", "target"]
         },
         "output_specs": {
             "output": {

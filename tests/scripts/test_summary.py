@@ -879,7 +879,7 @@ def test_physical_summary_1():
     ref_table = ""
     with open("tests/scripts/summary_txts/test_physical_summary_1") as f:
         ref_table = f.read()
-    assert "\n" + summary.getvalue() == ref_table
+    assert summary.getvalue() == ref_table
 
 
 def test_physical_summary_2():
@@ -905,7 +905,7 @@ def test_physical_summary_2():
     with open("tests/scripts/summary_txts/test_physical_summary_2") as f:
         ref_table = f.read()
 
-    assert "\n" + summary.getvalue() == ref_table
+    assert summary.getvalue() == ref_table
 
 
 def test_physical_summary_3():
@@ -928,7 +928,7 @@ def test_physical_summary_3():
     with open("tests/scripts/summary_txts/test_physical_summary_3") as f:
         ref_table = f.read()
 
-    assert "\n" + summary.getvalue() == ref_table
+    assert summary.getvalue() == ref_table
 
 
 def test_physical_summary_3_logical_with_depth():
@@ -974,7 +974,7 @@ def test_physical_summary_4():
     ref_table = ""
     with open("tests/scripts/summary_txts/test_physical_summary_4") as f:
         ref_table = f.read()
-    assert "\n" + summary.getvalue() == ref_table
+    assert summary.getvalue() == ref_table
 
 
 def test_physical_summary_5():
@@ -991,7 +991,7 @@ def test_physical_summary_5():
     ref_table = ""
     with open("tests/scripts/summary_txts/test_physical_summary_5") as f:
         ref_table = f.read()
-    assert "\n" + summary.getvalue() == ref_table
+    assert summary.getvalue() == ref_table
 
 
 def test_physical_model_summary_5():
@@ -1221,7 +1221,7 @@ def test_physical_summary_16():
     with open("tests/scripts/summary_txts/test_physical_summary_16") as f:
         ref_table = f.read()
 
-    assert "\n" + summary.getvalue() == ref_table
+    assert summary.getvalue() == ref_table
 
 
 def test_physical_summary_17():
@@ -1244,7 +1244,7 @@ def test_physical_summary_17():
     with open("tests/scripts/summary_txts/test_physical_summary_17") as f:
         ref_table = f.read()
 
-    assert "\n" + summary.getvalue() == ref_table
+    assert summary.getvalue() == ref_table
 
 
 def test_resnet_18_physical_summary():

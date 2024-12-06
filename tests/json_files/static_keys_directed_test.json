@@ -63,7 +63,7 @@
         },
 
         "results": {
-            "static_keys": ["_Relu_0_output", "_Relu_1_output", "_Relu_2_output", "input1", "output2"]
+            "static_keys": ["input1", "output2", "output_0", "output_1", "output_2"]
         }
     },
 
@@ -175,7 +175,7 @@
         },
 
         "results": {
-            "static_keys": ["_Model_2_Relu_1_output", "_Relu_0_output", "_Relu_1_output", "input1", "output1", "output2"]
+            "static_keys": ["input1", "output1", "output2", "output_0", "output_1", "output_3"]
         }
     },
     "test_composite_3": {
@@ -287,7 +287,7 @@
         },
 
         "results": {
-            "static_keys": ["_Relu_3_output", "input2", "output3"]
+            "static_keys": ["input2", "output3", "output_4"]
         }
     },
     "test_composite_4": {
@@ -397,7 +397,7 @@
         },
 
         "results": {
-            "static_keys": ["_Model_2_Relu_1_output", "_Relu_0_output", "_Relu_3_output", "_Sigmoid_1_output","input1", "input2", "output1", "output2", "output3", "output4"]
+            "static_keys": ["input1", "input2", "output1", "output2", "output3", "output4", "output_0", "output_1", "output_3", "output_4"]
         }
     },
     "test_composite_5": {
@@ -578,7 +578,7 @@
         },
 
         "results": {
-            "static_keys": ["input1", "_Model_2_Add_0_output", "output1"]
+            "static_keys": ["input1", "output1", "output_2"]
         }
     },
     "test_composite_7": {
@@ -663,7 +663,7 @@
         },
 
         "results": {
-            "static_keys": ["input1", "input2", "_Model_2_Add_0_output", "output1", "_Add_0_output", "output3"]
+            "static_keys": ["input1", "input2", "output1", "output3", "output_0", "output_1"]
         }
     },
     "test_composite_8": {
@@ -744,7 +744,7 @@
         },
 
         "results": {
-            "static_keys": ["input3", "input2", "_Add_3_output", "output2"]
+            "static_keys": ["input2", "input3", "output2", "output_3"]
         }
     }
 }

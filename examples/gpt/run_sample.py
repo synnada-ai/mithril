@@ -100,9 +100,9 @@ def get_weights(logical_model: Model, compiled_model: PhysicalModel, backend: Ba
             my_keys.append(key)
 
     my_keys = [
-        compiled_model.key_mappings.get(key, key)
+        compiled_model.external_key_mapping.get(key, key)
         for key in list(logical_model._input_keys)
-        if compiled_model.key_mappings.get(key, key) in my_keys
+        if compiled_model.external_key_mapping.get(key, key) in my_keys
     ]
 
     model_hf = GPT2LMHeadModel.from_pretrained("gpt2")

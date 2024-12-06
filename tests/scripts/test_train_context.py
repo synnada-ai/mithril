@@ -686,23 +686,23 @@ def test_add_loss_compile_shape_1():
     )
 
     assert pm1.shapes == {
-        "_Model_0_output": [None, "..."],
-        "_SquaredError_1_output": [None, "..."],
-        "_Mean_2_output": [],
         "input": [None, "..."],
+        "output_0": [None, "..."],
         "target": [None, "..."],
-        "_Mean_2_axis": None,
-        "_Mean_2_keepdim": None,
+        "output_1": [None, "..."],
+        "axis": None,
+        "keepdim": None,
+        "output_2": [],
         "final_cost": [],
     }
 
     assert pm2.shapes == {
-        "_Model_0_output": ["..."],
-        "_SquaredError_1_output": ["..."],
-        "_Mean_2_output": [],
         "input": ["..."],
+        "output_0": ["..."],
         "target": ["..."],
-        "_Mean_2_axis": None,
-        "_Mean_2_keepdim": None,
+        "output_1": ["..."],
+        "axis": None,
+        "keepdim": None,
+        "output_2": [],
         "final_cost": [],
     }

@@ -973,17 +973,6 @@ def test_canonical_dual_iadd_op():
     # assert model.canonical_output.key == 'Convolution2D_2_output'
 
 
-def test_canonical_input_naming():
-    m = Model()
-    m += Add()
-    m += Linear()
-    m += (l2 := Linear())
-    m += Linear()(input=l2.output, output="output")
-
-    comp_model = mithril.compile(model=m, backend=JaxBackend(precision=32))
-    assert "input" in comp_model._input_keys
-
-
 def test_flatten1():
     model = Model()
     flat1 = Flatten(start_dim=2, end_dim=-3)
@@ -1515,9 +1504,9 @@ def test_canonic_example():
     model += LeakyRelu()
     model += LeakyRelu()
     comp_model = compile(model=model, backend=NumpyBackend())
-    assert set(comp_model._input_keys) == {"input", "_input_0"}
+    assert set(comp_model._input_keys) == {"input_1", "input_0"}
     assert set(comp_model.output_keys) == {"output"}
-    inputs = {"input": np.array([[2.0, -1.0]])}
+    inputs = {"input_1": np.array([[2.0, -1.0]])}
     assert_results_equal(
         comp_model.evaluate(inputs), {"output": np.array([[2.0, -0.0001]])}
     )
@@ -1927,14 +1916,14 @@ def test_flatten_dag0():
     model.set_canonical_input(l1.input)
     pm = mithril.compile(model, backend)
     params = {
-        "_input_3": backend.array([[1.0]]),
-        "_w_3": backend.array([[4.0]]),
+        "input_4": backend.array([[1.0]]),
+        "w_4": backend.array([[4.0]]),
         "b_4": backend.array([3.0]),
     }
     ref_outputs = {"output1": backend.array([[7.0]])}
     ref_grads = {
-        "_input_3": backend.array([[4.0]]),
-        "_w_3": backend.array([[1.0]]),
+        "input_4": backend.array([[4.0]]),
+        "w_4": backend.array([[1.0]]),
         "b_4": backend.array([1.0]),
     }
     output_gradients = {"output1": backend.array([[1.0]])}
@@ -2522,15 +2511,15 @@ def test_prune_1():
     compiled_model = compile(m, NumpyBackend())
     expected_connections: dict[str, list[str | set[str]]] = {
         "out_1": ["add", {"input", "input2", "out_1_cache"}],
-        "_Add_1_output": ["add", {"out_1", "input3", "_Add_1_output_cache"}],
-        "_Add_2_output": ["add", {"out_1", "input4", "_Add_2_output_cache"}],
+        "output_0": ["add", {"out_1", "input3", "output_0_cache"}],
+        "output_1": ["add", {"out_1", "input4", "output_1_cache"}],
     }
 
     expected_output_dict = {
         "out_1": "out_1",
-        "out_2": "_Add_1_output",
-        "out_3": "_Add_2_output",
-        "out_4": "_Add_1_output",
+        "out_2": "output_0",
+        "out_3": "output_1",
+        "out_4": "output_0",
     }
 
     assert_connections(compiled_model, expected_connections)
@@ -2554,15 +2543,15 @@ def test_prune_2():
     compiled_model = compile(m, NumpyBackend())
     expected_connections: dict[str, list[str | set[str]]] = {
         "out_1": ["add", {"input", "input2", "out_1_cache"}],
-        "_Add_1_output": ["add", {"out_1", "input3", "_Add_1_output_cache"}],
-        "_Add_3_output": ["add", {"_Add_1_output", "input4", "_Add_3_output_cache"}],
+        "output_0": ["add", {"out_1", "input3", "output_0_cache"}],
+        "output_2": ["add", {"output_0", "input4", "output_2_cache"}],
     }
 
     expected_output_dict = {
         "out_1": "out_1",
-        "out_2": "_Add_1_output",
-        "out_3": "_Add_1_output",
-        "out_4": "_Add_3_output",
+        "out_2": "output_0",
+        "out_3": "output_0",
+        "out_4": "output_2",
     }
 
     assert_connections(compiled_model, expected_connections)
@@ -2589,16 +2578,16 @@ def test_prune_3():
     compiled_model = compile(m, NumpyBackend())
     expected_connections: dict[str, list[str | set[str]]] = {
         "out_1": ["add", {"input", "input2", "out_1_cache"}],
-        "_Add_1_output": ["add", {"out_1", "input3", "_Add_1_output_cache"}],
-        "_Add_3_output": ["add", {"_Add_1_output", "input3", "_Add_3_output_cache"}],
+        "output_0": ["add", {"out_1", "input3", "output_0_cache"}],
+        "output_2": ["add", {"output_0", "input3", "output_2_cache"}],
     }
 
     expected_output_dict = {
         "out_1": "out_1",
-        "out_2": "_Add_1_output",
-        "out_3": "_Add_1_output",
-        "out_4": "_Add_3_output",
-        "out_5": "_Add_3_output",
+        "out_2": "output_0",
+        "out_3": "output_0",
+        "out_4": "output_2",
+        "out_5": "output_2",
     }
 
     assert_connections(compiled_model, expected_connections)
@@ -2621,12 +2610,12 @@ def test_prune_4():
     compiled_model = compile(m, NumpyBackend())
 
     expected_connections: dict[str, list[str | set[str]]] = {
-        "_Add_0_output": ["add", {"input", "input2", "_Add_0_output_cache"}],
-        "_Add_2_output": [
+        "output_0": ["add", {"input", "input2", "output_0_cache"}],
+        "output_2": [
             "add",
-            {"_Add_0_output", "_Add_2_output_cache"},
+            {"output_0", "output_2_cache"},
         ],
-        "output": ["add", {"_Add_2_output", "output_cache"}],
+        "output": ["add", {"output_2", "output_cache"}],
     }
 
     expected_output_dict = {
@@ -2652,12 +2641,12 @@ def test_prune_5():
 
     compiled_model = compile(m, NumpyBackend())
     expected_connections: dict[str, list[str | set[str]]] = {
-        "_Add_0_output": ["add", {"input", "input2", "_Add_0_output_cache"}],
-        "_Add_2_output": [
+        "output_0": ["add", {"input", "input2", "output_0_cache"}],
+        "output_2": [
             "add",
-            {"_Add_0_output", "_Add_2_output_cache"},
+            {"output_0", "output_2_cache"},
         ],
-        "output": ["add", {"_Add_2_output", "output_cache"}],
+        "output": ["add", {"output_2", "output_cache"}],
     }
 
     expected_output_dict = {
@@ -2685,14 +2674,14 @@ def test_prune_6():
 
     compiled_model = compile(m, NumpyBackend())
     expected_connections: dict[str, list[str | set[str]]] = {
-        "_Model_0_Add_0_output": [
+        "output_0": [
             "add",
-            {"input", "input2", "_Model_0_Add_0_output_cache"},
+            {"input", "input2", "output_0_cache"},
         ],
-        "auc": ["add", {"_Model_0_Add_0_output", "auc_cache"}],
+        "auc": ["add", {"output_0", "auc_cache"}],
         "acc": [
             "multiplication",
-            {"_Model_0_Add_0_output", "acc_cache"},
+            {"output_0", "acc_cache"},
         ],
     }
 
@@ -2718,13 +2707,13 @@ def test_prune_7():
     expected_connections: dict[str, list[str | set[str]]] = {
         "out_1": ["add", {"input", "input2", "out_1_cache"}],
         "out_2": ["add", {"out_1", "input3", "out_2_cache"}],
-        "_Add_2_output": ["add", {"out_1", "input4", "_Add_2_output_cache"}],
+        "output": ["add", {"out_1", "input4", "output_cache"}],
     }
 
     expected_output_dict = {
         "out_1": "out_1",
         "out_2": "out_2",
-        "out_3": "_Add_2_output",
+        "out_3": "output",
         "dont_forget_me": "out_2",
     }
 
@@ -2747,14 +2736,14 @@ def test_prune_8():
     compiled_model = compile(m, NumpyBackend())
     expected_connections: dict[str, list[str | set[str]]] = {
         "out_1": ["add", {"input", "input2", "out_1_cache"}],
-        "_Add_1_output": ["add", {"out_1", "input3", "_Add_1_output_cache"}],
-        "_Add_2_output": ["add", {"out_1", "input4", "_Add_2_output_cache"}],
+        "output_0": ["add", {"out_1", "input3", "output_0_cache"}],
+        "output_1": ["add", {"out_1", "input4", "output_1_cache"}],
     }
 
     expected_output_dict = {
         "out_1": "out_1",
-        "out_2": "_Add_2_output",
-        "dont_forget_me": "_Add_1_output",
+        "out_2": "output_1",
+        "dont_forget_me": "output_0",
     }
 
     assert_connections(compiled_model, expected_connections)
@@ -2776,11 +2765,11 @@ def test_prune_9():
     compiled_model = compile(m, NumpyBackend())
     expected_connections: dict[str, list[str | set[str]]] = {
         "out_1": ["add", {"input", "input2", "out_1_cache"}],
-        "_Add_1_output": ["add", {"out_1", "input3", "_Add_1_output_cache"}],
+        "output_0": ["add", {"out_1", "input3", "output_0_cache"}],
     }
 
     expected_output_dict = {
-        "dont_forget_me": "_Add_1_output",
+        "dont_forget_me": "output_0",
         "out_1": "out_1",
     }
 
@@ -2806,17 +2795,17 @@ def test_prune_10():
     compiled_model = compile(m, NumpyBackend())
     expected_connections: dict[str, list[str | set[str]]] = {
         "out_1": ["add", {"input", "input2", "out_1_cache"}],
-        "_Add_1_output": ["add", {"out_1", "input3", "_Add_1_output_cache"}],
-        "_Add_2_output": ["add", {"out_1", "input4", "_Add_2_output_cache"}],
-        "out_2": ["add", {"_Add_1_output", "input4", "out_2_cache"}],
+        "output_0": ["add", {"out_1", "input3", "output_0_cache"}],
+        "output_1": ["add", {"out_1", "input4", "output_1_cache"}],
+        "out_2": ["add", {"output_0", "input4", "out_2_cache"}],
     }
 
     expected_output_dict = {
         "out_1": "out_1",
         "out_2": "out_2",
-        "out_3": "_Add_1_output",
-        "out_4": "_Add_2_output",
-        "dont_forget_me": "_Add_1_output",
+        "out_3": "output_0",
+        "out_4": "output_1",
+        "dont_forget_me": "output_0",
     }
 
     assert_connections(compiled_model, expected_connections)
@@ -2843,19 +2832,19 @@ def test_prune_11():
     compiled_model = compile(m, NumpyBackend())
     expected_connections: dict[str, list[str | set[str]]] = {
         "out_1": ["add", {"input", "input2", "out_1_cache"}],
-        "_Add_1_output": ["add", {"out_1", "input3", "_Add_1_output_cache"}],
-        "_Multiply_2_output": [
+        "output_0": ["add", {"out_1", "input3", "output_0_cache"}],
+        "output_1": [
             "multiplication",
-            {"_Add_1_output", "input4", "_Multiply_2_output_cache"},
+            {"output_0", "input4", "output_1_cache"},
         ],
     }
 
     expected_output_dict = {
         "out_1": "out_1",
-        "out_3": "_Add_1_output",
-        "out_4": "_Add_1_output",
-        "out_5": "_Multiply_2_output",
-        "out_6": "_Multiply_2_output",
+        "out_3": "output_0",
+        "out_4": "output_0",
+        "out_5": "output_1",
+        "out_6": "output_1",
     }
 
     assert_connections(compiled_model, expected_connections)
@@ -2944,10 +2933,10 @@ def test_prune_valued_tensor_1():
     )
 
     expected_connections: dict[str, list[str | set[str]]] = {
-        "output2": ["add", {"input2", "_ToTensor_2_output"}],
-        "output1": ["add", {"input2", "_ToTensor_0_output"}],
-        "_ToTensor_2_output": ["to_tensor", {"_input"}],
-        "_ToTensor_0_output": ["to_tensor", {"input"}],
+        "output2": ["add", {"input2", "output_1"}],
+        "output1": ["add", {"input2", "output_0"}],
+        "output_1": ["to_tensor", {"input_1"}],
+        "output_0": ["to_tensor", {"input_0"}],
     }
     assert_connections(compiled_model, expected_connections)
 
@@ -2965,8 +2954,8 @@ def test_prune_valued_tensor_2():
     )
 
     expected_connections: dict[str, list[str | set[str]]] = {
-        "output1": ["add", {"input2", "_ToTensor_0_output"}],
-        "_ToTensor_0_output": ["to_tensor", {"input"}],
+        "output1": ["add", {"input2", "output_0"}],
+        "output_0": ["to_tensor", {"input_0"}],
     }
     expected_output_dict = {"output2": "output1", "output1": "output1"}
 
@@ -3043,12 +3032,12 @@ def test_prune_valued_tensor_5():
     compiled_model = compile(model, TorchBackend(), jit=False)
 
     expected_connections: dict[str, list[str | set[str]]] = {
-        "_Model_0_Relu_0_asd": ["relu", {"input1"}],
-        "_Model_0_Sum_1_qwe": [
+        "asd": ["relu", {"input1"}],
+        "qwe": [
             "reduce_sum",
-            {"_Model_0_Sum_1_keepdim", "_Model_0_Relu_0_asd", "_Model_0_Sum_1_axis"},
+            {"axis_0", "asd", "keepdim_0"},
         ],
-        "out2": ["relu", {"_Model_0_Sum_1_qwe"}],
+        "out2": ["relu", {"qwe"}],
     }
     expected_output_dict = {"out1": "out2", "out2": "out2"}
 
@@ -3613,7 +3602,7 @@ def test_flatgraph_4():
     )
 
     pm = mithril.compile(model=model, backend=backend)
-    assert pm._input_keys == {"input"}
+    assert pm._input_keys == {"relu_2"}
     assert len(pm._flat_graph.all_source_keys) == 3
     assert len(pm._flat_graph.all_target_keys) == 3
 
@@ -4608,11 +4597,11 @@ def test_cycle_handling_2():
 
     compiled_model = mithril.compile(model=model, backend=backend, jit=False)
     expected_connections: dict[str, list[str | set[str]]] = {
-        "output": ["tanh", {"_Model_1_output2"}],
-        "_Model_1_output2": ["sigmoid", {"_Model_0__output2"}],
-        "_Model_1_output1": ["relu", {"input"}],
-        "_Gelu_2_output": ["gelu", {"_Model_1_output1"}],
-        "_Model_0__output2": ["sin", {"_Gelu_2_output"}],
+        "output": ["tanh", {"output2_1"}],
+        "output2_1": ["sigmoid", {"output2_0"}],
+        "output1": ["relu", {"input"}],
+        "output_0": ["gelu", {"output1"}],
+        "output2_0": ["sin", {"output_0"}],
     }
 
     # '_Model_0_output2' = ['sin', {'_Gelu_2_output'}]
@@ -4755,19 +4744,16 @@ def test_cycle_handling_3():
 
     compiled_model = mithril.compile(model=model, backend=backend, jit=False)
     expected_connections: dict[str, list[str | set[str]]] = {
-        "_Model_2_output2": ["sin", {"_Gelu_1_output"}],
-        "_Model_0_output1": ["cos", {"_Model_0_Model_1_output2"}],
-        "output": ["tanh", {"_Model_0__output2"}],
-        "_Model_0_Model_1_output1": ["relu", {"input"}],
-        "_Model_0_Gelu_2_output": ["gelu", {"_Model_0_Model_1_output1"}],
-        "_Model_0__output2": [
-            "leaky_relu",
-            {"_Model_2_output2", "_Model_0_ToTensor_3_output"},
-        ],
-        "_Model_0_Model_0_output2": ["softplus", {"_Model_0_Gelu_2_output"}],
-        "_Model_0_ToTensor_3_output": ["to_tensor", {"slope"}],
-        "_Model_0_Model_1_output2": ["sigmoid", {"_Model_0_Model_0_output2"}],
-        "_Gelu_1_output": ["gelu", {"_Model_0_output1"}],
+        "output_2": ["gelu", {"output1_1"}],
+        "output": ["tanh", {"output2_3"}],
+        "output1_1": ["cos", {"output2_1"}],
+        "output_1": ["gelu", {"output1_0"}],
+        "output2_2": ["sin", {"output_2"}],
+        "output1_0": ["relu", {"input"}],
+        "output2_1": ["sigmoid", {"output2_0"}],
+        "output2_3": ["leaky_relu", {"output_0", "output2_2"}],
+        "output2_0": ["softplus", {"output_1"}],
+        "output_0": ["to_tensor", {"slope"}],
     }
 
     inputs = {
@@ -6512,7 +6498,7 @@ def test_discard_trainables_2():
     pm = compile(model, backend, shapes={"sidein": [1, 2]})
 
     assert {"input"} == pm._input_keys
-    assert {"sidein", "_Sigmoid_1_output"} == pm.discarded_keys
+    assert {"sidein", "output_0"} == pm.discarded_keys
     assert pm.get_shapes(model) == {
         "$_Sigmoid_1_output": [1, 2],
         "input": ["..."],
@@ -6532,7 +6518,7 @@ def test_discard_trainables_3():
     pm = compile(model, backend, shapes={"sidein": [1, 2]})
 
     assert {"input"} == pm._input_keys
-    assert {"sidein", "_Sigmoid_1_output"} == pm.discarded_keys
+    assert {"sidein", "output_0"} == pm.discarded_keys
     assert pm.get_shapes(model) == {
         "$_Sigmoid_1_output": [1, 2],
         "$_Buffer_2_output": [1, 2],
@@ -6561,7 +6547,7 @@ def test_discard_trainables_4():
     )
 
     assert {"input"} == pm._input_keys
-    assert {"sidein", "_Sigmoid_1_output", "sideout"} == pm.discarded_keys
+    assert {"sidein", "output_0", "sideout"} == pm.discarded_keys
     assert pm.get_shapes(model) == {
         "$_Sigmoid_1_output": [1, 2, 3],
         "$_Buffer_2_output": [1, 2, 3],
@@ -7083,16 +7069,16 @@ def test_iadd_1():
     compiled_model = compile(model, JaxBackend())
 
     expected_connections: dict[str, list[str | set[str]]] = {
-        "_MatrixMultiply_0_output": ["matrix_multiplication", {"input", "w1"}],
-        "_MatrixMultiply_1_output": [
+        "output_0": ["matrix_multiplication", {"left", "w1"}],
+        "output_1": [
             "matrix_multiplication",
-            {"_MatrixMultiply_0_output", "w2"},
+            {"output_0", "w2"},
         ],
-        "_MatrixMultiply_2_output": [
+        "output_2": [
             "matrix_multiplication",
-            {"_MatrixMultiply_1_output", "w3"},
+            {"output_1", "w3"},
         ],
-        "output": ["matrix_multiplication", {"_MatrixMultiply_2_output", "w4"}],
+        "output": ["matrix_multiplication", {"output_2", "w4"}],
     }
 
     assert_connections(compiled_model, expected_connections)
@@ -7108,10 +7094,10 @@ def test_iadd_2():
     compiled_model = compile(model, JaxBackend())
 
     expected_connections: dict[str, list[str | set[str]]] = {
-        "_MatrixMultiply_0_output": ["matrix_multiplication", {"input", "w1"}],
-        "_Relu_1_output": ["relu", {"_MatrixMultiply_0_output"}],
-        "_Sigmoid_2_output": ["sigmoid", {"_Relu_1_output"}],
-        "output": ["matrix_multiplication", {"_Sigmoid_2_output", "w4"}],
+        "output_0": ["matrix_multiplication", {"left", "w1"}],
+        "output_1": ["relu", {"output_0"}],
+        "output_2": ["sigmoid", {"output_1"}],
+        "output": ["matrix_multiplication", {"output_2", "w4"}],
     }
     assert_connections(compiled_model, expected_connections)
 
@@ -7126,8 +7112,8 @@ def test_iadd_3():
     compiled_model = compile(model, JaxBackend())
 
     expected_connections: dict[str, list[str | set[str]]] = {
-        "_Sigmoid_2_output": ["sigmoid", {"input"}],
-        "output": ["matrix_multiplication", {"_Sigmoid_2_output", "w4"}],
+        "output_2": ["sigmoid", {"input"}],
+        "output": ["matrix_multiplication", {"output_2", "w4"}],
     }
     assert_connections(compiled_model, expected_connections)
 
@@ -7146,8 +7132,8 @@ def test_iadd_4():
     compiled_model = compile(model, JaxBackend())
 
     expected_connections: dict[str, list[str | set[str]]] = {
-        "_Model_0_out2": ["sigmoid", {"input"}],
-        "output": ["sigmoid", {"_Model_0_out2"}],
+        "out2_0": ["sigmoid", {"in2"}],
+        "out2": ["sigmoid", {"out2_0"}],
     }
     assert_connections(compiled_model, expected_connections)
 
@@ -7166,10 +7152,10 @@ def test_iadd_5():
     compiled_model = compile(model, JaxBackend())
 
     expected_connections: dict[str, list[str | set[str]]] = {
-        "_Model_0_out1": ["sigmoid", {"input"}],
-        "_Model_0_out2": ["sigmoid", {"_Model_0_out1"}],
-        "_Model_1_out1": ["sigmoid", {"_Model_0_out2"}],
-        "output": ["sigmoid", {"_Model_1_out1"}],
+        "out1_0": ["sigmoid", {"in1"}],
+        "out2_0": ["sigmoid", {"out1_0"}],
+        "out1_1": ["sigmoid", {"out2_0"}],
+        "out2": ["sigmoid", {"out1_1"}],
     }
 
     assert_connections(compiled_model, expected_connections)
@@ -7211,8 +7197,8 @@ def test_iadd_7():
     compiled_model = compile(model, JaxBackend())
 
     expected_connections: dict[str, list[str | set[str]]] = {
-        "_Sigmoid_2_output": ["sigmoid", {"input"}],
-        "output": ["matrix_multiplication", {"_Sigmoid_2_output", "w4"}],
+        "output_2": ["sigmoid", {"input"}],
+        "output": ["matrix_multiplication", {"output_2", "w4"}],
     }
 
     assert_connections(compiled_model, expected_connections)
@@ -7228,8 +7214,8 @@ def test_iadd_8():
     compiled_model = compile(model, JaxBackend())
 
     expected_connections: dict[str, list[str | set[str]]] = {
-        "_Sigmoid_2_output": ["sigmoid", {"asd"}],
-        "output": ["matrix_multiplication", {"_Sigmoid_2_output", "w4"}],
+        "output_2": ["sigmoid", {"asd"}],
+        "output": ["matrix_multiplication", {"output_2", "w4"}],
     }
 
     assert_connections(compiled_model, expected_connections)

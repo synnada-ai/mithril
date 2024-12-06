@@ -154,7 +154,7 @@ def test_3():
     expected_input_keys = {"$2", "w_2", "$3", "$5", "b_3"}
     expected_internal_keys = {"$4", "output1"}
     expected_pm_input_keys = {"input", "w_2", "b", "w", "b_3"}
-    expected_pm_output_keys = {"output"}
+    expected_pm_output_keys = {"output1"}
 
     assert_model_keys(
         model=model,
@@ -175,7 +175,7 @@ def test_4():
     expected_input_keys = {"$3", "b_2", "w_2", "$5", "b_3"}
     expected_internal_keys = {"$1", "$4", "output1"}
     expected_pm_input_keys = {"w_2", "w", "b_3", "b_2", "input"}
-    expected_pm_output_keys = {"output"}
+    expected_pm_output_keys = {"output1"}
 
     assert_model_keys(
         model=model,
@@ -196,7 +196,7 @@ def test_5():
     expected_input_keys = {"w_2", "b_2", "b_3", "$2", "$4"}
     expected_internal_keys = {"$3", "output1"}
     expected_pm_input_keys = {"b_3", "w", "b_2", "input", "w_2"}
-    expected_pm_output_keys = {"output"}
+    expected_pm_output_keys = {"output1"}
 
     expected_shapes: dict[str, list[str | int] | None] = {
         "$_Linear_0_output": ["u1", "(V1, ...)", 2],
@@ -695,7 +695,7 @@ def test_iokey_tensor_input_all_args():
     backend = TorchBackend()
 
     # collect all possible values
-    possible_names = ["input", None]
+    possible_names = ["left", None]
     possible_values = [[[2.0]], NOT_GIVEN]
     possible_shapes = [[1, 1], None]
     possible_expose = [True, False]
@@ -748,9 +748,10 @@ def test_iokey_tensor_input_all_args():
         # successfully.
         pm = mithril.compile(model=model, backend=backend)
         if value is NOT_GIVEN:
-            params = {"input": backend.array([[2.0]]), "right": backend.array([[3.0]])}
+            params = {"left": backend.array([[2.0]]), "right": backend.array([[3.0]])}
         else:
             params = {"right": backend.array([[3.0]])}
+
         outputs = pm.evaluate(params=params)
         assert_results_equal(outputs, ref_outputs)
 
@@ -1241,7 +1242,7 @@ def test_iokey_template_3():
     res = pm.evaluate(params={"left": backend.array([2.0])})
     expected_result = np.array([5.0])
 
-    assert pm._input_keys == {"left", "_input"}
+    assert pm._input_keys == {"left", "input"}
     assert pm.output_keys == ["output"]
     np.testing.assert_array_equal(res["output"], expected_result)
 
