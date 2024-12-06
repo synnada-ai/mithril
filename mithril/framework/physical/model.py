@@ -432,8 +432,8 @@ class PhysicalModel(GenericDataType[DataType]):
             # metadata!
             assert isinstance(model, Model)
             if (
-                model.formula_key is not None
-                and model.formula_key in self.backend.primitive_function_dict
+                model._formula_key is not None
+                and model._formula_key in self.backend.primitive_function_dict
             ):
                 model, key_mappings = self._replace_with_primitive(model, key_mappings)
                 _, _reorder_graph = self._flatten_dag(
@@ -1165,8 +1165,8 @@ class PhysicalModel(GenericDataType[DataType]):
     def _replace_with_primitive(
         self, model: Model, key_mappings: dict[str, str]
     ) -> tuple[PrimitiveModel, dict[str, str]]:
-        assert model.formula_key is not None
-        formula = self.backend.primitive_function_dict[model.formula_key]
+        assert model._formula_key is not None
+        formula = self.backend.primitive_function_dict[model._formula_key]
         primitive_input_keys = formula.__code__.co_varnames[
             : formula.__code__.co_argcount
         ]  # make function?
@@ -1195,7 +1195,7 @@ class PhysicalModel(GenericDataType[DataType]):
         kwargs = {key: model.conns.all[key].metadata.data for key in external_keys}
 
         primitive = PrimitiveModel(
-            formula_key=model.formula_key, name=model.name, **kwargs
+            formula_key=model._formula_key, name=model.name, **kwargs
         )
         primitive.parent = model.parent
 
