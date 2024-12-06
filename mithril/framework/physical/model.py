@@ -1175,6 +1175,7 @@ class PhysicalModel(GenericDataType[DataType]):
 @dataclass
 class Name:
     name: str
+    origin: str
 
     def __hash__(self):
         return hash(self.name)
@@ -1191,16 +1192,31 @@ class Name:
 
 
 class FlatModel:
-    def __init__(self, model: BaseModel, reserved_keys: set[str] | None = None):
+    def __init__(
+        self,
+        model: BaseModel,
+        reserved_keys: set[str] | None = None,
+        short_namings: bool = True,
+    ):
+        """
+        Args:
+            model (BaseModel): The base model to be flattened.
+            reserved_keys (set[str] | None): A set of reserved keys.
+            short_namings (bool): Flag to determine if short namings should be used.
+        """
+
         self.mappings: dict[PrimitiveModel, dict[str, Name]] = {}
         self.assigned_edges: dict[IOHyperEdge, Name] = {}
         self.assigned_names: dict[str, Name] = {}
         self.used_edges: set[IOHyperEdge] = set()
         self.key_origins: dict[str, int] = {}
-        self.reserved_keys = set(reserved_keys) if reserved_keys else set()
-        self.queued_models: dict[IOHyperEdge, list[PrimitiveModel]] = {}
+        self.reserved_keys = reserved_keys if reserved_keys else set()
+        self.queued_models: dict[
+            IOHyperEdge, list[tuple[PrimitiveModel, dict[str, str]]]
+        ] = {}
         self._external_mapping: dict[str, Name] = {}
         self.model = model
+        self.short_namings = short_namings
 
         self._name_externals()
         self._generate_keys(model)
@@ -1208,13 +1224,32 @@ class FlatModel:
 
     @property
     def external_mapping(self) -> dict[str, str]:
+        """
+        Get the external mapping of keys to names.
+
+        Returns:
+            dict[str, str]: The external mapping.
+        """
         return {key: value.name for key, value in self._external_mapping.items()}
 
     @property
     def external_keys(self) -> set[str]:
+        """
+        Get the set of external keys.
+
+        Returns:
+            set[str]: The set of external keys.
+        """
         return set(self.external_mapping.values())
 
     def rename_key(self, source_name: str, target_name: str):
+        """
+        Rename a key from source_name to target_name.
+
+        Args:
+            source_name (str): The original name of the key.
+            target_name (str): The new name of the key.
+        """
         if source_name == target_name:
             return
 
@@ -1224,13 +1259,20 @@ class FlatModel:
 
         self._update_defined_names(source_name, target_name)
 
-    def _update_defined_names(self, old_name: str, new_name: str):
-        self.assigned_names[old_name].name = new_name
-        self.assigned_names[new_name] = self.assigned_names.pop(old_name)
+    def _update_defined_names(self, old_key: str, new_key: str):
+        old_name = self.assigned_names[old_key]
+        if old_name.origin in self.key_origins:
+            if self.key_origins[old_name.origin] == 0:
+                self.key_origins.pop(old_name.origin)
+            else:
+                self.key_origins[old_name.origin] -= 1
 
-        if old_name in self.external_mapping.values():
+        self.assigned_names[old_key].name = new_key
+        self.assigned_names[new_key] = self.assigned_names.pop(old_key)
+
+        if old_key in self.external_mapping.values():
             self._external_mapping = {
-                key: self.assigned_names[new_name] if value == old_name else value
+                key: self.assigned_names[new_key] if value == old_key else value
                 for key, value in self._external_mapping.items()
             }
 
@@ -1251,12 +1293,12 @@ class FlatModel:
 
             if not key.startswith("$"):
                 name_str = self._get_unique_name_str(base_name_str)
-                name = self._create_name(name_str)
+                name = self._create_name(name_str, base_name_str)
             else:
                 key_origin = conn.metadata.key_origin
                 assert key_origin is not None
                 name = self._create_name(
-                    self._get_unique_name_str(key_origin, key_origin_counts)
+                    self._get_unique_name_str(key_origin, key_origin_counts), key_origin
                 )
 
             self._external_mapping[base_name_str] = name
@@ -1267,7 +1309,17 @@ class FlatModel:
 
     def _count_key_origins(
         self, external_keys_named: list[str], external_keys_no_named: list[str]
-    ):
+    ) -> dict[str, int]:
+        """
+        Count the origins of the keys.
+
+        Args:
+            external_keys_named (list[str]): list of named external keys.
+            external_keys_no_named (list[str]): list of unnamed external keys.
+
+        Returns:
+            dict[str, int]: The count of key origins.
+        """
         key_origin_counts: dict[str, int] = {}
         for key in external_keys_named + external_keys_no_named:
             conn = self.model.conns.all[key]
@@ -1279,29 +1331,104 @@ class FlatModel:
 
     def _get_unique_name_str(
         self, base_name: str, key_origin_counts: dict[str, int] | None = None
-    ):
+    ) -> str:
+        """
+        Get a unique name string based on the base name and key origin counts.
+
+        Args:
+            base_name (str): The base name.
+            key_origin_counts (dict[str, int] | None): The counts of key origins.
+
+        Returns:
+            str: The unique name string.
+        """
         if key_origin_counts and key_origin_counts.get(base_name, 0) > 1:
             return self._get_next_unique_name(base_name)
         return base_name
 
-    def _generate_keys(self, model: BaseModel):
+    def _generate_keys(
+        self,
+        model: BaseModel,
+        mappings: dict[str, str] | None = None,
+        parent_name: str = "",
+    ):
+        """
+        Generate keys for the model.
+
+        Args:
+            model (BaseModel): The base model.
+            mappings (dict[str, str] | None): The mappings of keys.
+            parent_name (str): The parent name.
+        """
+        if mappings is None:
+            mappings = {}
+
         if isinstance(model, PrimitiveModel):
-            self._process_primitive_model(model)
+            self._process_primitive_model(model, mappings)
         elif isinstance(model, Model):
-            for m in model.dag:
-                self._generate_keys(m)
+            self._process_model(model, mappings, parent_name)
         else:
             raise ValueError("Model must be either PrimitiveModel or Model")
 
+    def _process_model(self, model: Model, mappings: dict[str, str], parent_name: str):
+        submodel_names = model.get_unique_submodel_names()
+
+        for m, value in model.dag.items():
+            submodel_name = submodel_names[m].lower()
+            name = (
+                submodel_name
+                if len(parent_name) == 0
+                else parent_name + "_" + submodel_name
+            )
+
+            name_mapping: dict[str, str] = {}
+            for key, conn in value.items():
+                if conn.key.startswith("$"):
+                    continue
+
+                if conn.key not in mappings:
+                    key_origin = conn.metadata.key_origin
+                    assert key_origin is not None
+                    if self.short_namings:
+                        name_mapping[key] = key_origin
+                    else:
+                        name_mapping[key] = (
+                            parent_name + "_" + key_origin
+                            if len(parent_name) > 0
+                            else key_origin
+                        )
+                else:
+                    name_mapping[key] = mappings[conn.key]
+
+            self._generate_keys(m, name_mapping, parent_name=name)
+
     def _add_primitive_to_queue(
-        self, model: PrimitiveModel, input_edges: set[IOHyperEdge]
+        self,
+        model: PrimitiveModel,
+        input_edges: set[IOHyperEdge],
+        mappings: dict[str, str],
     ):
+        """
+        Add a primitive model to the queue.
+
+        Args:
+            model (PrimitiveModel): The primitive model.
+            input_edges (set[IOHyperEdge]): The input edges.
+            mappings (dict[str, str]): The mappings of keys.
+        """
         for edge in input_edges:
             self.queued_models.setdefault(edge, [])
-            if model not in self.queued_models[edge]:
-                self.queued_models[edge].append(model)
+            if (model, mappings) not in self.queued_models[edge]:
+                self.queued_models[edge].append((model, mappings))
 
-    def _process_primitive_model(self, model: PrimitiveModel):
+    def _process_primitive_model(self, model: PrimitiveModel, mappings: dict[str, str]):
+        """
+        Process a primitive model.
+
+        Args:
+            model (PrimitiveModel): The primitive model.
+            mappings (dict[str, str]): The mappings of keys.
+        """
         input_edges = {
             conn.metadata
             for conn in model.conns.input_connections
@@ -1309,26 +1436,43 @@ class FlatModel:
         }
 
         if not input_edges.issubset(self.used_edges):
-            self._add_primitive_to_queue(model, input_edges)
+            self._add_primitive_to_queue(model, input_edges, mappings)
             return
 
         self.mappings.setdefault(model, {})
         for key, conn in model.conns.all.items():
             key_origin = conn.metadata.key_origin
             assert key_origin is not None
-            name = self.assigned_edges.get(conn.metadata) or self._create_name(
-                self._get_next_unique_name(key_origin)
-            )
+            if conn.metadata in self.assigned_edges:
+                name = self.assigned_edges[conn.metadata]
+            else:
+                name = self._create_name(
+                    self._get_next_unique_name(key_origin), key_origin
+                )
+
             self.assigned_edges[conn.metadata] = name
             self.mappings[model][key] = name
 
+            if key in mappings and not self.short_namings:
+                self.rename_key(name.name, mappings[key])
+
         output_edge = next(conn.metadata for conn in model.conns.output_connections)
         self.used_edges.add(output_edge)
+
         if output_edge in self.queued_models:
-            for m in self.queued_models[output_edge]:
-                self._process_primitive_model(m)
+            for m, mappings in self.queued_models[output_edge]:
+                self._process_primitive_model(m, mappings=mappings)
 
     def _get_next_unique_name(self, name: str) -> str:
+        """
+        Get the next unique name for the given base name.
+
+        Args:
+            name (str): The base name.
+
+        Returns:
+            str: The next unique name.
+        """
         self.key_origins[name] = self.key_origins.get(name, -1) + 1
         candidate_name = f"{name}_{self.key_origins[name]}"
         if (
@@ -1340,16 +1484,25 @@ class FlatModel:
             candidate_name = f"_{candidate_name}"
         return candidate_name
 
-    def _create_name(self, name: str) -> Name:
-        if name in self.key_origins:
-            name = f"{name}_{self.key_origins[name]}"
-        new_name = Name(name)
+    def _create_name(self, name: str, key_origin: str) -> Name:
+        """
+        Create a new name with the given base name and key origin.
+
+        Args:
+            name (str): The base name.
+            key_origin (str): The key origin.
+
+        Returns:
+            Name: The created name.
+        """
+        new_name = Name(name, origin=key_origin)
         self.assigned_names[name] = new_name
         return new_name
 
     def _rebase_names(self):
-        # Remove unnecessary suffixes
-
+        """
+        Rebase the names to remove unnecessary suffixes.
+        """
         for base_name, idx in self.key_origins.items():
             if idx == 0 and base_name not in self.external_keys:
                 name = f"{base_name}_{0}"
