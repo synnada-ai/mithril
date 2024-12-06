@@ -34,7 +34,7 @@ from ..core import (
     constant_type_table,
     epsilon_table,
 )
-from ..utils.utils import OrderedSet, PaddingType, find_dominant_type
+from ..utils.utils import OrderedSet, PaddingType
 from .utils import (
     NestedListType,
     align_shapes,
@@ -214,7 +214,7 @@ MainValueInstance = (
 )
 
 
-_TensorTypes = int | float | Constant | tuple
+_TensorTypes = int | float | bool
 TensorValueType = _TensorTypes | tuple["TensorValueType", ...] | list["TensorValueType"]
 
 
@@ -447,7 +447,7 @@ class ConstraintSolver:
         # Reduce updated UniadicRecords' referees field.
         self._reduce_uniadic_referees(updates)
 
-    def update_hyper_edge(self, new: IOHyperEdge, old: IOHyperEdge) -> None:
+    def update_constraint_map(self, new: IOHyperEdge, old: IOHyperEdge) -> None:
         # Replaces old hyperedge with the new one in constraint_map.
         for constr in old.data.all_constraints:
             old_edges = self.constraint_map[constr]
@@ -569,15 +569,8 @@ class BaseData:
         raise NotImplementedError("No 'is_non_diff' property implemented.")
 
     @property
-    def is_valued(self) -> bool:
-        raise NotImplementedError("No 'is_valued' property implemented.")
-
-    @property
     def all_constraints(self) -> set[Constraint]:
         return self.shape_constraints | self.type_constraints
-
-    def _convert_value(self, backend: Backend[Any]) -> Any:
-        raise NotImplementedError("No '_convert_value' method implemented.")
 
     def finalize_match(self, other: Tensor[Any] | Scalar):
         if (typ_1 := type(other)) != (typ_2 := type(self)):
@@ -590,38 +583,6 @@ class BaseData:
         self.type_constraints |= other.type_constraints
         other.shape_constraints = set()
         other.type_constraints = set()
-
-    Val_Type = TypeVar("Val_Type", MainValueType, DataType)  # type: ignore
-
-    def set_value(self, value: Val_Type) -> Updates:
-        raise NotImplementedError("No 'set_value' method implemented.")
-
-    def set_type(self, type: type[TensorValueType] | ScalarType | UnionType) -> Updates:
-        updates = Updates()
-        if not self._types_equal(type):
-            updates.add(self, UpdateType.TYPE)
-            new_type = find_intersection_type(type, self._type)
-
-            if not new_type:
-                raise TypeError(
-                    f"Acceptable types are {self._type}, but {type} type value "
-                    "is provided!"
-                )
-            self._type = new_type
-        return updates
-
-    def _types_equal(self, other_type: type[TensorValueType] | ScalarType) -> bool:
-        self_type = (
-            self._type.base_type
-            if isinstance(self._type, NestedListType)
-            else self._type
-        )
-        other_type = (
-            other_type.base_type
-            if isinstance(other_type, NestedListType)
-            else other_type
-        )
-        return self_type == other_type
 
     def _set_as_physical(self):
         if self._logical_data:
@@ -640,35 +601,6 @@ class BaseData:
         elif constraint.type == UpdateType.TYPE:
             self.type_constraints.discard(constraint)
 
-    def match_shapes(self, other: BaseData):
-        return Updates()
-
-    def match(self, other: Tensor[DataType] | Scalar) -> Updates:
-        self._differentiable: bool
-        updates = Updates()
-        if self != other:
-            updates = Updates()
-            updates |= self.set_type(other._type)
-            updates |= other.set_type(self._type)
-            if isinstance(other, Tensor):
-                assert isinstance(self, Tensor)
-                updates |= self.match_shapes(other)
-                is_diff = self._differentiable | other._differentiable
-                self._differentiable = other._differentiable = is_diff
-
-            if self.is_valued or other.is_valued:
-                valued, non_valued = (self, other) if self.is_valued else (other, self)
-                assert isinstance(valued, Tensor | Scalar)
-                assert not isinstance(valued.value, ToBeDetermined)
-                updates |= non_valued.set_value(valued.value)
-                if non_valued == other:
-                    if isinstance(other, Tensor):
-                        updates.shape_updates.discard(other)
-                    updates.value_updates.discard(other)
-
-            self.finalize_match(other)
-        return updates
-
 
 class Tensor(BaseData, GenericDataType[DataType]):
     _type: type[float] | type[int] | type[bool] | UnionType
@@ -678,17 +610,12 @@ class Tensor(BaseData, GenericDataType[DataType]):
         self,
         shape: ShapeNode,
         possible_types: type[float] | type[int] | type[bool] | UnionType,
-        value: TensorValueType | ToBeDetermined = TBD,
+        value: ToBeDetermined = TBD,
         interval: list[float | int] | None = None,
     ) -> None:
         super().__init__(type=possible_types)
         self._differentiable: bool = value is TBD
-        self.value = TBD
-        # Update type if any value is given.
-        if not isinstance(value, ToBeDetermined):
-            self.set_type(find_dominant_type(value))
-        else:
-            self.value = value
+        self.value = value
         self.shape: ShapeNode = shape
         # Update tensor field of ShapeNode
         self.shape.referees.add(self)
@@ -730,7 +657,7 @@ class Tensor(BaseData, GenericDataType[DataType]):
                 setattr(new_instance, k, deepcopy(v, memo))
         return new_instance
 
-    def match_shapes(self, other: Tensor[DataType]):  # type: ignore[override]
+    def match_shapes(self, other: Tensor[DataType]) -> Updates:
         updates = Updates()
         if other.shape != self.shape:
             updates |= self.shape.merge(other.shape)
@@ -743,17 +670,47 @@ class Tensor(BaseData, GenericDataType[DataType]):
         self.shape.referees.discard(other)
         return updates
 
+    def set_type(self, type: type[_TensorTypes] | UnionType) -> Updates:
+        updates = Updates()
+        if not self._types_equal(type):
+            updates.add(self, UpdateType.TYPE)
+            new_type = find_intersection_type(type, self._type)
+            if not new_type:
+                raise TypeError(
+                    f"Acceptable types are {self._type}, but {type} type value "
+                    "is provided!"
+                )
+            assert not isinstance(new_type, NestedListType)
+            self._type = new_type
+        return updates
+
+    def _types_equal(self, other_type: type[_TensorTypes] | UnionType) -> bool:
+        return self._type == other_type
+
+    def match(self, other: Tensor[DataType]) -> Updates:
+        updates = Updates()
+        if self != other:
+            updates = Updates()
+            updates |= self.set_type(other._type)
+            updates |= other.set_type(self._type)
+            updates |= self.match_shapes(other)
+            is_diff = self._differentiable | other._differentiable
+            self._differentiable = other._differentiable = is_diff
+            if (not self._logical_data) and (self.is_valued or other.is_valued):
+                valued, non_valued = (self, other) if self.is_valued else (other, self)
+                assert not isinstance(valued.value, ToBeDetermined)
+                updates |= non_valued.set_value(valued.value)
+                if non_valued == other:
+                    updates.shape_updates.discard(other)
+                    updates.value_updates.discard(other)
+            self.finalize_match(other)
+        return updates
+
         # TODO: Should we change all occurances of other object in other's shape
         # to self object? If we should, we also need to transfer "interval" attribute
         # which requires handling of interval arithmetic in logical level also.
 
-    def set_value(self, value: DataType | TensorValueType) -> Updates:  # type: ignore[override]
-        if not self._logical_data:
-            assert self.is_tensor_type(value)
-            return self._set_physical_value(value)
-        return Updates()
-
-    def _set_physical_value(self, value: DataType) -> Updates:
+    def set_value(self, value: DataType) -> Updates:
         if self.is_tensor_type(self.value):
             raise ValueError(f"Value is set before as {self.value}. Can not be reset.")
         updates = Updates()
@@ -810,15 +767,37 @@ class Scalar(BaseData):
     def is_valued(self) -> bool:
         return self.value is not TBD
 
+    def set_type(self, type: ScalarType) -> Updates:
+        updates = Updates()
+        if not self._types_equal(type):
+            updates.add(self, UpdateType.TYPE)
+            new_type = find_intersection_type(type, self._type)
+            if not new_type:
+                raise TypeError(
+                    f"Acceptable types are {self._type}, but {type} type value "
+                    "is provided!"
+                )
+            self._type = new_type
+        return updates
+
+    def _types_equal(self, other_type: ScalarType) -> bool:
+        self_type = (
+            self._type.base_type
+            if isinstance(self._type, NestedListType)
+            else self._type
+        )
+        other_type = (
+            other_type.base_type
+            if isinstance(other_type, NestedListType)
+            else other_type
+        )
+        return self_type == other_type
+
     def find_type(self, value: MainValueType | str) -> ScalarType:
         if isinstance(value, Constant):
             return constant_type_table[value]
         else:
             return find_type(value)
-
-    def _convert_value(self, backend: Backend[DataType]):
-        self.value = backend.cast(self.value)
-        return self.value
 
     def make_physical(
         self, backend: Backend[DataType], memo: dict[int, Tensor[DataType] | Scalar]
@@ -833,21 +812,31 @@ class Scalar(BaseData):
 
         return new_scalar
 
+    def match(self, other: Scalar) -> Updates:
+        updates = Updates()
+        if self != other:
+            updates |= self.set_type(other._type)
+            updates |= other.set_type(self._type)
+            if self.is_valued or other.is_valued:
+                valued, non_valued = (self, other) if self.is_valued else (other, self)
+                assert not isinstance(valued.value, ToBeDetermined)
+                updates |= non_valued.set_value(valued.value)
+                if non_valued == other:
+                    updates.value_updates.discard(other)
+            self.finalize_match(other)
+        return updates
+
     def set_value(self, value: MainValueType | str) -> Updates:
         # Check value type!
-
         updates = Updates()
         prev_value = self.value
-
         if self.value is not TBD and self.value != value:
             raise ValueError(
                 f"Value is set before as {self.value}. A scalar value can not "
                 "be reset."
             )
-
         updates |= self.set_type(self.find_type(value))
         self.value = value
-
         #  Call constraints if any change occured.
         if self.value != prev_value:
             updates.add(self)
@@ -859,7 +848,7 @@ class TensorType:
         self,
         shape_template: ShapeTemplateType,
         possible_types: type | UnionType = float | int | bool,
-        value: TensorValueType | ToBeDetermined = TBD,
+        value: ToBeDetermined = TBD,
         interval: list[float | int] | None = None,
     ) -> None:
         self._type = possible_types

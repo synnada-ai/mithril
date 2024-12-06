@@ -539,12 +539,7 @@ class BaseModel(abc.ABC):
         self._canonical_output = conn
 
     def _match_hyper_edges(self, left: IOHyperEdge, right: IOHyperEdge) -> Updates:
-        # Update and check types
-        tensorwise_common = isinstance(left.data, Tensor) == isinstance(
-            right.data, Tensor
-        )
-
-        if not tensorwise_common:
+        if type(left.data) is not type(right.data):
             raise TypeError(
                 "Types of connections are not consistent. Check connection types!"
             )
@@ -570,9 +565,9 @@ class BaseModel(abc.ABC):
                 conn.metadata = left
 
         # Update IOHyperEdge's in constraint solver.
-        self.constraint_solver.update_hyper_edge(left, right)
+        self.constraint_solver.update_constraint_map(left, right)
         # Match data of each IOHyperEdge's.
-        updates = left.data.match(right.data)
+        updates = left.data.match(right.data)  # type: ignore
         return updates
 
     def get_models_in_topological_order(self):

@@ -146,7 +146,7 @@ def _reduce_union_type(
     return new_type
 
 
-def general_tensor_type_constraint(*args: Scalar | Tensor[Any]):
+def general_tensor_type_constraint(*args: Tensor[Any]):
     # NOTE: Assumes first argument is always output as other constraints.
     # Also requires all types of args consists of any combination of
     # float, int and bool. For instance, int | float is an acceptable type
@@ -154,9 +154,9 @@ def general_tensor_type_constraint(*args: Scalar | Tensor[Any]):
     status = False
     updates = Updates()
     output, *inputs = args
-    arg_types: set[type | UnionType | NestedListType | GenericAlias] = set()
-    all_possible_types: set[type | UnionType | NestedListType | GenericAlias] = set()
-    union_types: set[tuple[Scalar | Tensor[Any], UnionType]] = set()
+    arg_types: set[type | UnionType] = set()
+    all_possible_types: set[type | UnionType] = set()
+    union_types: set[tuple[Tensor[Any], UnionType]] = set()
     # Set all different types and also Union types in input args.
     for arg in inputs:
         typ = arg._type
@@ -197,7 +197,9 @@ def general_tensor_type_constraint(*args: Scalar | Tensor[Any]):
             arg, arg_type = pair
             new_type = _reduce_union_type(output._type, arg_type)
             if new_type is not None:
-                updates |= arg.set_type(create_union_type(*new_type))
+                uni_type = create_union_type(*new_type)
+                assert not isinstance(uni_type, GenericAlias)
+                updates |= arg.set_type(uni_type)
         if not out_exists:
             # If any one of inputs became same type as output, set
             # status True.
@@ -217,7 +219,9 @@ def general_tensor_type_constraint(*args: Scalar | Tensor[Any]):
                 arg, arg_type = pair
                 new_type = _reduce_union_type(output._type, arg_type)
                 if new_type is not None:
-                    updates |= arg.set_type(create_union_type(*new_type))
+                    uni_type = create_union_type(*new_type)
+                    assert not isinstance(uni_type, GenericAlias)
+                    updates |= arg.set_type(uni_type)
 
     # Try forward type inference.
     out_type = None
@@ -572,6 +576,7 @@ def tensor_to_list_type_constraint(output: Scalar, input: Tensor[Any]):
                 f"Input type {input._type} is not compatible with output type "
                 f"{output._type}!"
             )
+        assert not isinstance(possible_input_types, NestedListType)
         updates |= input.set_type(possible_input_types)
 
     # Create the base same as input type
@@ -613,6 +618,7 @@ def reduce_type_constraint(output: Tensor[Any], input: Tensor[Any]):
         possible_output_types.append(float)
 
     union_output_types = create_union_type(*possible_output_types)
+    assert not isinstance(union_output_types, GenericAlias)
     updates |= output.set_type(union_output_types)
 
     ### Reverse Inference ###
@@ -3115,6 +3121,7 @@ def to_tensor_constraints(output: Tensor[Any], input: Scalar) -> ConstrainResult
             updates |= output.set_type(typ)
             updates.add(output, update_type=UpdateType.TYPE)
         elif isinstance(input_val, float | int):
+            assert isinstance(input._type, type(int) | type(float))
             shape = []
             updates |= output.set_type(input._type)
             updates.add(output, update_type=UpdateType.TYPE)
