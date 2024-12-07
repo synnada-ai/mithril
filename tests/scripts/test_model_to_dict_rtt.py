@@ -16,7 +16,7 @@ import re
 
 import mithril
 from mithril import JaxBackend, TorchBackend
-from mithril.framework.common import TBD, IOKey
+from mithril.framework.common import TBD, GenericTensorType, IOKey
 from mithril.framework.constraints import squeeze_constraints
 from mithril.models import (
     L2,
@@ -32,10 +32,8 @@ from mithril.models import (
     Mean,
     Model,
     Relu,
-    Scalar,
     Sigmoid,
     SquaredError,
-    TensorType,
     TrainModel,
 )
 from mithril.utils import dict_conversions
@@ -843,7 +841,7 @@ def test_set_values_ellipsis_2():
     assert_models_equal(model, model_recreated)
 
 
-def test_make_shape_constrain():
+def test_make_shape_constraint():
     model = Model()
 
     def my_adder(input, rhs):
@@ -856,9 +854,9 @@ def test_make_shape_constrain():
             threshold *= 2
             super().__init__(
                 formula_key="my_adder",
-                output=TensorType([("Var_out", ...)]),
-                input=TensorType([("Var_1", ...)]),
-                rhs=Scalar(int, threshold),
+                output=IOKey(shape=[("Var_out", ...)], type=GenericTensorType),
+                input=IOKey(shape=[("Var_1", ...)], type=GenericTensorType),
+                rhs=IOKey(type=int, value=threshold),
             )
             self.set_constraint(
                 fn=squeeze_constraints, keys=[CustomPrimitiveModel.output_key, "input"]

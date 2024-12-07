@@ -21,7 +21,7 @@ from enum import Enum
 from functools import partial, reduce
 from itertools import combinations, cycle, product, zip_longest
 from types import EllipsisType, GenericAlias, UnionType
-from typing import Any, Literal, TypeVar, overload
+from typing import Any, Generic, Literal, TypeVar, get_args, get_origin, overload
 
 from ..backends.backend import Backend
 from ..core import (
@@ -59,7 +59,6 @@ __all__ = [
     "ShapeRepr",
     "Constraint",
     "create_shape_map",
-    "TensorType",
     "Tensor",
     "Scalar",
     "ShapesType",
@@ -191,6 +190,7 @@ MainValueType = (
     | tuple[Any, ...]
     | list[Any]
     | dict[Any, Any]
+    | bool
     | None
     | EllipsisType
     | PaddingType
@@ -205,6 +205,7 @@ MainValueInstance = (
     | tuple  # type: ignore
     | list  # type: ignore
     | dict  # type: ignore
+    | bool
     | None
     | EllipsisType
     | PaddingType
@@ -213,10 +214,11 @@ MainValueInstance = (
     | Dtype
 )
 
-
-_TensorTypes = int | float | Constant | tuple
-TensorValueType = _TensorTypes | tuple["TensorValueType", ...] | list["TensorValueType"]
-
+_TensorTypes = int | float | bool
+_TensorValueType = (
+    _TensorTypes | tuple["_TensorValueType", ...] | list["_TensorValueType"]
+)
+TensorValueType = _TensorValueType | Constant
 
 LossKey = "loss"
 FinalCost = "final_cost"
@@ -779,15 +781,9 @@ class Scalar(BaseData):
 
     def __init__(
         self,
-        possible_types: ScalarType | UnionType | None = None,
+        possible_types: ScalarType | type[str] | UnionType = MainValueInstance | str,
         value: MainValueType | ToBeDetermined | str = TBD,
     ) -> None:
-        if possible_types is None:
-            if isinstance(value, ToBeDetermined):
-                raise Exception("No possible types or value is given!")
-            else:
-                possible_types = self.find_type(value)
-
         super().__init__(type=possible_types)
         # Update type if any value is given.
         # TODO: Check why str is excluded.
@@ -847,28 +843,31 @@ class Scalar(BaseData):
         return updates
 
 
-class TensorType:
-    def __init__(
-        self,
-        shape_template: ShapeTemplateType,
-        possible_types: type | UnionType = float | int | bool,
-        value: TensorValueType | ToBeDetermined = TBD,
-        interval: list[float | int] | None = None,
-    ) -> None:
-        self._type = possible_types
-        self.shape_template = shape_template
-        self.value = value
-        if interval is None:
-            interval = []
-        self.interval = interval
+# TODO: Should we include Constant type here in TypeVarTensorType?
+TypeVarTensorType = TypeVar("TypeVarTensorType", int, float, bool)
 
-    def construct(self, shape_node: ShapeNode) -> Tensor[Any]:
-        return Tensor(
-            shape=shape_node,
-            possible_types=self._type,
-            value=self.value,
-            interval=self.interval,
-        )
+
+# TODO: Convert MyTensor to Tensor when Tensor and Scalar is removed
+class MyTensor(Generic[TypeVarTensorType]):
+    def __init__(self, value: TensorValueType):
+        self.value: TensorValueType = value
+
+    # @staticmethod
+    # def is_tensor_type(t: Any) -> TypeGuard[TypeVarTensorType]:
+    #     return isinstance(t, (int, float, bool))
+
+
+# Check if a type is a specialization of MyTensor
+def is_mytensor_type(type_obj) -> bool:
+    return get_origin(type_obj) is MyTensor
+
+
+# Check if a type is a specialization of MyTensor
+def get_mytensor_subtype(type_obj: MyTensor) -> type:
+    return get_args(type_obj)[0]
+
+
+GenericTensorType = MyTensor[int] | MyTensor[bool] | MyTensor[float]
 
 
 @dataclass
@@ -1131,10 +1130,11 @@ class IOKey(TemplateBase):
     def __init__(
         self,
         name: str | None = None,
-        value: MainValueType | ToBeDetermined | str = TBD,
+        value: TensorValueType | MainValueType | ToBeDetermined | str = TBD,
         shape: ShapeTemplateType | None = None,
-        type: UnionType | type | None = None,
+        type: NestedListType | UnionType | type | None = None,
         expose: bool = True,
+        interval: list[float | int] | None = None,
     ) -> None:
         super().__init__()
         self._name = name
@@ -1142,6 +1142,7 @@ class IOKey(TemplateBase):
         self._shape = shape
         self._type = type
         self._expose = expose
+        self._interval = interval
 
         # TODO: Shape should not be [] also!
         if self._value is not TBD and self._shape is not None and self._shape != []:
@@ -1152,7 +1153,7 @@ class IOKey(TemplateBase):
 
         if self._value is not TBD and self._type is not None:
             value_type = find_type(self._value)
-            if value_type != self._type:
+            if find_intersection_type(value_type, self._type) is None:
                 raise TypeError(
                     f"type of the given value and given type does not match. Given "
                     f"type is {self._type} while type of value is {value_type}"
