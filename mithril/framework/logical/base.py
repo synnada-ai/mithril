@@ -39,6 +39,7 @@ from ..common import (
     IOKey,
     MainValueInstance,
     MainValueType,
+    NestedListType,
     NotAvailable,
     Scalar,
     ShapeNode,
@@ -395,11 +396,11 @@ class BaseModel(abc.ABC):
 
     def set_types(
         self,
-        config: Mapping[str | Connection, type | UnionType]
-        | Mapping[Connection, type | UnionType]
-        | Mapping[str, type | UnionType]
+        config: Mapping[str | Connection, type | UnionType | NestedListType]
+        | Mapping[Connection, type | UnionType | NestedListType]
+        | Mapping[str, type | UnionType | NestedListType]
         | None = None,
-        **kwargs: type | UnionType,
+        **kwargs: type | UnionType | NestedListType,
     ):
         """
         Set types of any connection in the Model
