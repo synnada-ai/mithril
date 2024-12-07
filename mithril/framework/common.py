@@ -215,7 +215,10 @@ MainValueInstance = (
 )
 
 _TensorTypes = int | float | bool
-TensorValueType = _TensorTypes | tuple["TensorValueType", ...] | list["TensorValueType"]
+_TensorValueType = (
+    _TensorTypes | tuple["_TensorValueType", ...] | list["_TensorValueType"]
+)
+TensorValueType = _TensorValueType | Constant
 
 LossKey = "loss"
 FinalCost = "final_cost"
@@ -781,9 +784,6 @@ class Scalar(BaseData):
         possible_types: ScalarType | type[str] | UnionType = MainValueInstance | str,
         value: MainValueType | ToBeDetermined | str = TBD,
     ) -> None:
-        if possible_types is None and not isinstance(value, ToBeDetermined):
-            possible_types = self.find_type(value)
-
         super().__init__(type=possible_types)
         # Update type if any value is given.
         # TODO: Check why str is excluded.
@@ -844,7 +844,7 @@ class Scalar(BaseData):
 
 
 # TODO: Should we include Constant type here in TypeVarTensorType?
-TypeVarTensorType = TypeVar("TypeVarTensorType", int, float, bool, int | float | bool)
+TypeVarTensorType = TypeVar("TypeVarTensorType", int, float, bool)
 
 
 # TODO: Convert MyTensor to Tensor when Tensor and Scalar is removed
