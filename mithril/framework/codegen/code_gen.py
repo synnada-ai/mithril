@@ -13,11 +13,11 @@
 # limitations under the License.
 
 from abc import ABC, abstractmethod
-from collections.abc import Callable
-from typing import Any, Generic
+from typing import Generic
 
 from mithril import DataType
 
+from ..common import EvaluateAllType, EvaluateGradientsType, EvaluateType
 from ..physical.model import PhysicalModel
 
 
@@ -34,5 +34,9 @@ class CodeGen(ABC, Generic[DataType]):
     @abstractmethod
     def compile_code(
         self, jit: bool
-    ) -> tuple[Callable[..., Any], Callable[..., Any], Callable[..., Any]]:
+    ) -> tuple[
+        EvaluateType[DataType],
+        EvaluateGradientsType[DataType] | None,
+        EvaluateAllType[DataType] | None,
+    ]:
         raise NotImplementedError("compile_code is not implemented")
