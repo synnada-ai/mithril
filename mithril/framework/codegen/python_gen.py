@@ -93,9 +93,9 @@ class ManualGradWrapperFn(Protocol, Generic[DataType]):
     ): ...
 
 
-class PythonCodeGen(CodeGen[Any], Generic[DataType]):
+class PythonCodeGen(CodeGen[DataType]):
     def __init__(self, pm: PhysicalModel[DataType]) -> None:
-        super().__init__(pm)
+        super().__init__(pm)  # type: ignore
 
         self.module = ast.parse("")
         self.defined_partial_fns: set[str] = set()

@@ -38,10 +38,10 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
 
     type = "numpy"
 
-    registered_primitives = {}
+    registered_primitives: dict[str, Callable[..., Any]] = {}
     primitive_fn_path = "mithril.backends.with_manualgrad.numpy_backend.ops"
     primitive_grad_fn_path = "mithril.backends.with_manualgrad.numpy_backend.ops_grad"
-    registered_primitives_grad_fn: dict[str, Callable[..., Any]] = {}
+    registered_primitives_grad_fn: dict[str, Callable[..., np.ndarray[Any, Any]]] = {}
 
     def __init__(self, device: str = "cpu", precision: int = 32) -> None:
         self._precision = precision
