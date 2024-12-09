@@ -86,6 +86,7 @@ class PhysicalModel(GenericDataType[DataType]):
         inference: bool,
         safe_shapes: bool,
         safe_names: bool,
+        use_short_namings: bool,
     ) -> None:
         if isinstance(model, PrimitiveModel):
             # TODO: Remove wrapping with Model in the future.
@@ -107,7 +108,11 @@ class PhysicalModel(GenericDataType[DataType]):
 
         self.backend: Backend[DataType] = backend
         self._output_keys: set[str] = set(model.conns.output_keys)
-        flat_model = FlatModel(model, set(backend.primitive_function_dict.keys()))
+        flat_model = FlatModel(
+            model,
+            set(backend.primitive_function_dict.keys()),
+            short_namings=use_short_namings,
+        )
         self.external_key_mapping = flat_model.external_mapping
 
         # NOTE: Reconsider updating logical dag in order.
@@ -135,21 +140,13 @@ class PhysicalModel(GenericDataType[DataType]):
 
         # Map given logical model key namings into physical key naming space.
         _constant_keys = {
-            self._convert_key(model, flat_model, k): v for k, v in constant_keys.items()
+            self._convert_key(model, k): v for k, v in constant_keys.items()
         }
-        _data_keys = {self._convert_key(model, flat_model, key) for key in data_keys}
-        _trainable_keys = {
-            self._convert_key(model, flat_model, key) for key in trainable_keys
-        }
-        _discard_keys = {
-            self._convert_key(model, flat_model, key) for key in discard_keys
-        }
-        _shapes = {
-            self._convert_key(model, flat_model, k): v for k, v in shapes.items()
-        }
-        _jacobian_keys = {
-            self._convert_key(model, flat_model, key) for key in jacobian_keys
-        }
+        _data_keys = {self._convert_key(model, key) for key in data_keys}
+        _trainable_keys = {self._convert_key(model, key) for key in trainable_keys}
+        _discard_keys = {self._convert_key(model, key) for key in discard_keys}
+        _shapes = {self._convert_key(model, k): v for k, v in shapes.items()}
+        _jacobian_keys = {self._convert_key(model, key) for key in jacobian_keys}
 
         # Check provided constant and data_keys do not have
         # any preset value. Note that this check is done after key conversions.
@@ -271,9 +268,7 @@ class PhysicalModel(GenericDataType[DataType]):
     ):
         return self.evaluate(params=params, data=data)
 
-    def _convert_key(
-        self, model: BaseModel, flat_model: "FlatModel", key: str | Connection
-    ) -> str:
+    def _convert_key(self, model: BaseModel, key: str | Connection) -> str:
         if isinstance(key, Connection):
             # Get outermost model equivalent of the connection.
             if (conn := model.conns.get_con_by_metadata(key.data.metadata)) is None:
@@ -288,7 +283,7 @@ class PhysicalModel(GenericDataType[DataType]):
             )
         elif key not in model.conns.all:
             raise KeyError(f"Given key: {key} is not found in the logical model.")
-        return flat_model.external_mapping.get(key, key)
+        return self.external_key_mapping.get(key, key)
 
     def _check_overridden_nontrainable_keys(
         self,
@@ -1208,6 +1203,7 @@ class FlatModel:
         self.mappings: dict[PrimitiveModel, dict[str, Name]] = {}
         self.assigned_edges: dict[IOHyperEdge, Name] = {}
         self.assigned_names: dict[str, Name] = {}
+        self.external_edges: dict[IOHyperEdge, str] = {}
         self.used_edges: set[IOHyperEdge] = set()
         self.key_origins: dict[str, int] = {}
         self.reserved_keys = reserved_keys if reserved_keys else set()
@@ -1289,10 +1285,9 @@ class FlatModel:
 
         for key in external_keys_named + external_keys_no_named:
             conn = self.model.conns.all[key]
+            base_name_str = conn.key
 
             if self.short_namings:
-                base_name_str = conn.key
-
                 if not key.startswith("$"):
                     name_str = self._get_unique_name_str(base_name_str)
                     name = self._create_name(name_str, base_name_str)
@@ -1309,6 +1304,7 @@ class FlatModel:
 
             if key in self.model._input_keys:
                 self.used_edges.add(conn.metadata)
+                self.external_edges[conn.metadata] = base_name_str
 
     def _count_key_origins(
         self, external_keys_named: list[str], external_keys_no_named: list[str]
@@ -1403,6 +1399,9 @@ class FlatModel:
             else:
                 name_key = mappings.get(key, f"{parent_name}_{key}")
                 name = self._create_name(name_key, name_key)
+                if conn.metadata in self.external_edges:
+                    external_name_key = self.external_edges[conn.metadata]
+                    self._external_mapping[external_name_key] = name
 
             self.assigned_edges[conn.metadata] = name
             self.mappings[model][key] = name

@@ -52,6 +52,7 @@ def test_data_store_1():
         inference=False,
         safe_shapes=True,
         safe_names=True,
+        use_short_namings=True,
     )
     # Set input as static and check data store.
     key = "input"
@@ -81,6 +82,7 @@ def test_data_store_1_numpy():
         inference=False,
         safe_shapes=True,
         safe_names=True,
+        use_short_namings=True,
     )
     # Set input as static and check data store.
     key = "input"
@@ -156,6 +158,7 @@ def test_data_store_4():
         inference=False,
         safe_shapes=True,
         safe_names=True,
+        use_short_namings=True,
     )
     pm.data_store.set_shapes(shapes)
     # Only "output" key is not in unused_kexys.
@@ -443,6 +446,7 @@ def test_data_store_16():
         inference=False,
         safe_shapes=True,
         safe_names=True,
+        use_short_namings=True,
     )
 
     assert pm.data_store._cached_data.keys() == {
@@ -475,6 +479,7 @@ def test_data_store_17():
         inference=False,
         safe_shapes=True,
         safe_names=False,
+        use_short_namings=True,
     )
 
     assert pm.data_store._cached_data.keys() == {"output_0_cache", "output_cache"}
@@ -505,6 +510,7 @@ def test_data_store_18():
         inference=False,
         safe_shapes=True,
         safe_names=True,
+        use_short_namings=True,
     )
 
     assert pm.data_store._cached_data.keys() == set()
@@ -535,6 +541,7 @@ def test_data_store_19():
         inference=False,
         safe_shapes=True,
         safe_names=True,
+        use_short_namings=True,
     )
 
     assert pm.data_store._cached_data.keys() == set()
@@ -565,6 +572,7 @@ def test_data_store_20():
         inference=False,
         safe_shapes=True,
         safe_names=True,
+        use_short_namings=True,
     )
 
     assert pm.data_store._cached_data.keys() == {"tensor_out"}

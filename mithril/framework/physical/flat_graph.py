@@ -126,10 +126,6 @@ class FlatGraph(GenericDataType[DataType]):
             | set(self.output_dict.values())
         )
 
-    def create_output_dict(self, mapping: dict[str, str]):
-        for key in self.output_keys:
-            self.output_dict[key] = mapping.get(key, key)
-
     def add_value(self, model: PrimitiveModel, keys: dict[str, str]) -> bool:
         output_key = keys[PrimitiveModel.output_key]
         keys = {
