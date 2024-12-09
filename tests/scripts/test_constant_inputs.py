@@ -774,10 +774,7 @@ def test_static_2():
     comp_model = mithril.compile(model=model2, backend=NumpyBackend())
     import numpy as np
 
-    infered_value = comp_model.data_store._cached_data[
-        "_Model_0_ToTensor_0_output"
-    ].value
-
+    infered_value = comp_model.data_store.get_value("_Model_0_ToTensor_0_output")
     assert isinstance(infered_value, np.ndarray)
     np.testing.assert_almost_equal(
         infered_value,
@@ -801,9 +798,7 @@ def test_static_2_set_values():
     model2 += model1
     comp_model = mithril.compile(model=model2, backend=NumpyBackend())
 
-    infered_value = comp_model.data_store._cached_data[
-        "_Model_0_ToTensor_0_output"
-    ].value
+    infered_value = comp_model.data_store.get_value("_Model_0_ToTensor_0_output")
 
     assert isinstance(infered_value, np.ndarray)
     np.testing.assert_almost_equal(
@@ -876,7 +871,7 @@ def test_static_4():
         "_ToTensor_3_output": backend.array(0),
     }
     for key, value in expected.items():
-        assert compiled_model.data_store.cached_data[key].value == value
+        assert compiled_model.data_store.get_value(key) == value
 
 
 def test_static_4_set_values():
@@ -896,7 +891,7 @@ def test_static_4_set_values():
         "_ToTensor_3_output": backend.array(0),
     }
     for key, value in expected.items():
-        assert compiled_model.data_store.cached_data[key].value == value
+        assert compiled_model.data_store.get_value(key) == value
 
 
 def test_str_axis():
@@ -1688,7 +1683,12 @@ def test_unused_cached_values_1():
     expected_cache = {"output": np.array([[6.0, 7.0], [5.0, 5.0]], dtype=dtype)}
     # Check cached_data.
     assert cache is not None and cache.keys() == expected_cache.keys()
-    assert all([np.all(value == expected_cache[key]) for key, value in cache.items()])
+    assert all(
+        [
+            np.all(comp_model.data_store.get_value(key) == expected_cache[key])
+            for key in cache
+        ]
+    )
     # Check runtime data keys.
     data_keys = comp_model.data_store.runtime_static_keys
     assert data_keys == set()

@@ -357,3 +357,13 @@ def test_integration_call_arg_factory_val_tbd():
     assert pm.evaluate(params={"in1": backend.array(1.0), "in2": backend.array(2.0)})[
         "output"
     ] == backend.array(3.0)
+
+
+def test_integration_call_arg_compile_primitive_with_factory_inputs():
+    model = Add(left=1)
+
+    backend = ml.TorchBackend()
+    pm = ml.compile(model, backend, jit=False)
+    assert pm.evaluate(params={"right": backend.array(2.0)})["output"] == backend.array(
+        3.0
+    )
