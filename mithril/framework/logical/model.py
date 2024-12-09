@@ -34,6 +34,7 @@ from ..common import (
     KeyType,
     MainValueInstance,
     MainValueType,
+    NestedListType,
     NotAvailable,
     NullConnection,
     Scalar,
@@ -695,9 +696,10 @@ class Model(BaseModel):
                 data = Scalar(possible_types=set_type)
 
             else:
+                shape_node = ShapeRepr(root=Variadic()).node
                 if set_type is None:
                     set_type = int | float | bool
-                shape_node = ShapeRepr(root=Variadic()).node
+                assert isinstance(set_type, type | UnionType)
                 data = Tensor(shape_node, set_type)
 
             # Determine connection type.
@@ -1065,7 +1067,7 @@ class Model(BaseModel):
         output_values: set[str] = set()
 
         shape_info: dict[str, ShapeTemplateType] = dict()
-        type_info: dict[str, type | UnionType] = dict()
+        type_info: dict[str, type | UnionType | NestedListType] = dict()
 
         for key, value in kwargs.items():
             # Check if given keys are among model's keys.
