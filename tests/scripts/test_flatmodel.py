@@ -44,7 +44,7 @@ def test_flatmodel_with_some_undefined():
     f_model = FlatModel(model, short_namings=True)
     assert f_model.mappings == {add: {"left": "left", "right": "b", "output": "c"}}
     f_model = FlatModel(model, short_namings=False)
-    assert f_model.mappings == {add: {"left": "left", "right": "b", "output": "c"}}
+    assert f_model.mappings == {add: {"left": "add_left", "right": "b", "output": "c"}}
 
 
 def test_flatmodel_with_all_undefined():
@@ -230,9 +230,9 @@ def test_flatmodel_output_first_2():
     assert f_model.mappings == {
         list(model.dag.keys())[1]: {
             "input": "in2",
-            "output": "output",
+            "output": "sigmoid_output",
         },
-        list(model.dag.keys())[0]: {"input": "output", "output": "out1"},
+        list(model.dag.keys())[0]: {"input": "sigmoid_output", "output": "out1"},
     }
 
 
@@ -243,13 +243,13 @@ def test_flatmodel_output_first_3():
 
     f_model = FlatModel(model)
     assert f_model.mappings == {
-        relu: {"input": "output", "output": "out1"},
         sig: {"input": "in2", "output": "output"},
+        relu: {"input": "output", "output": "out1"},
     }
     f_model = FlatModel(model, short_namings=False)
     assert f_model.mappings == {
-        relu: {"input": "output", "output": "out1"},
-        sig: {"input": "in2", "output": "output"},
+        sig: {"input": "in2", "output": "sigmoid_output"},
+        relu: {"input": "sigmoid_output", "output": "out1"},
     }
 
 
@@ -282,10 +282,10 @@ def test_flatmodel_output_first_4():
 
     f_model = FlatModel(model, short_namings=False)
     expected_mapping = {
-        relu: {"input": "input", "output": "model_1_output1"},
-        softp: {"input": "model_1_output1", "output": "model_0_output1"},
-        sig: {"input": "model_0_output1", "output": "model_1_output2"},
-        tanh: {"input": "model_1_output2", "output": "output"},
+        relu: {"input": "input", "output": "model_0_output1"},
+        softp: {"input": "model_0_output1", "output": "model_1_output1"},
+        sig: {"input": "model_1_output1", "output": "model_0_output2"},
+        tanh: {"input": "model_0_output2", "output": "output"},
     }
     assert f_model.mappings == expected_mapping
 

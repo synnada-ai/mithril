@@ -1212,7 +1212,7 @@ class FlatModel:
         self.key_origins: dict[str, int] = {}
         self.reserved_keys = reserved_keys if reserved_keys else set()
         self.queued_models: dict[
-            IOHyperEdge, list[tuple[PrimitiveModel, dict[str, str]]]
+            IOHyperEdge, list[tuple[PrimitiveModel, dict[str, str], str]]
         ] = {}
         self._external_mapping: dict[str, Name] = {}
         self.model = model
@@ -1289,20 +1289,23 @@ class FlatModel:
 
         for key in external_keys_named + external_keys_no_named:
             conn = self.model.conns.all[key]
-            base_name_str = conn.key
 
-            if not key.startswith("$"):
-                name_str = self._get_unique_name_str(base_name_str)
-                name = self._create_name(name_str, base_name_str)
-            else:
-                key_origin = conn.metadata.key_origin
-                assert key_origin is not None
-                name = self._create_name(
-                    self._get_unique_name_str(key_origin, key_origin_counts), key_origin
-                )
+            if self.short_namings:
+                base_name_str = conn.key
 
-            self._external_mapping[base_name_str] = name
-            self.assigned_edges[conn.metadata] = name
+                if not key.startswith("$"):
+                    name_str = self._get_unique_name_str(base_name_str)
+                    name = self._create_name(name_str, base_name_str)
+                else:
+                    key_origin = conn.metadata.key_origin
+                    assert key_origin is not None
+                    name = self._create_name(
+                        self._get_unique_name_str(key_origin, key_origin_counts),
+                        key_origin,
+                    )
+
+                self._external_mapping[base_name_str] = name
+                self.assigned_edges[conn.metadata] = name
 
             if key in self.model._input_keys:
                 self.used_edges.add(conn.metadata)
@@ -1365,17 +1368,19 @@ class FlatModel:
 
         if isinstance(model, PrimitiveModel):
             if not self._is_primitive_ready(model):
-                self._add_primitive_to_queue(model, mappings)
+                self._add_primitive_to_queue(model, mappings, parent_name)
                 return
 
-            self._process_primitive_model(model, mappings)
+            self._process_primitive_model(model, mappings, parent_name)
 
         elif isinstance(model, Model):
             self._process_model(model, mappings, parent_name)
         else:
             raise ValueError("Model must be either PrimitiveModel or Model")
 
-    def _process_primitive_model(self, model: PrimitiveModel, mappings: dict[str, str]):
+    def _process_primitive_model(
+        self, model: PrimitiveModel, mappings: dict[str, str], parent_name: str
+    ):
         """
         Process a primitive model.
 
@@ -1386,20 +1391,21 @@ class FlatModel:
 
         self.mappings.setdefault(model, {})
         for key, conn in model.conns.all.items():
-            key_origin = conn.metadata.key_origin
-            assert key_origin is not None
             if conn.metadata in self.assigned_edges:
                 name = self.assigned_edges[conn.metadata]
-            else:
+            elif self.short_namings:
+                key_origin = conn.metadata.key_origin
+                assert key_origin is not None
+
                 name = self._create_name(
                     self._get_next_unique_name(key_origin), key_origin
                 )
+            else:
+                name_key = mappings.get(key, f"{parent_name}_{key}")
+                name = self._create_name(name_key, name_key)
 
             self.assigned_edges[conn.metadata] = name
             self.mappings[model][key] = name
-
-            if key in mappings and not self.short_namings:
-                self.rename_key(name.name, mappings[key])
 
         output_edge = model.output.metadata
         self.used_edges.add(output_edge)
@@ -1439,9 +1445,11 @@ class FlatModel:
 
     def _check_for_queue(self, hyperedge: IOHyperEdge):
         if hyperedge in self.queued_models:
-            for m, mappings in self.queued_models[hyperedge]:
+            for m, mappings, parent_name in self.queued_models[hyperedge]:
                 if self._is_primitive_ready(m):
-                    self._process_primitive_model(m, mappings=mappings)
+                    self._process_primitive_model(
+                        m, mappings=mappings, parent_name=parent_name
+                    )
 
     def _is_primitive_ready(self, model: PrimitiveModel):
         """
@@ -1460,9 +1468,7 @@ class FlatModel:
         return True
 
     def _add_primitive_to_queue(
-        self,
-        model: PrimitiveModel,
-        mappings: dict[str, str],
+        self, model: PrimitiveModel, mappings: dict[str, str], parent_name: str
     ):
         """
         Add a primitive model to the queue.
@@ -1475,8 +1481,8 @@ class FlatModel:
 
         for conn in model.conns.input_connections:
             self.queued_models.setdefault(conn.metadata, [])
-            if (model, mappings) not in self.queued_models[conn.metadata]:
-                self.queued_models[conn.metadata].append((model, mappings))
+            if (model, mappings, parent_name) not in self.queued_models[conn.metadata]:
+                self.queued_models[conn.metadata].append((model, mappings, parent_name))
 
     def _get_next_unique_name(self, name: str) -> str:
         """
