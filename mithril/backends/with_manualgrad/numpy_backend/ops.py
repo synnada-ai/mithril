@@ -85,8 +85,6 @@ from .utils import (
     write_into_cache,
 )
 
-np._set_promotion_state("legacy")
-
 AxisType = None | int | Sequence[int]
 
 __all__ = [
@@ -893,9 +891,7 @@ def to_tensor(
     return np.array(input[0], dtype=get_type(input[0], precision=precision))
 
 
-def tensor_to_list(
-    input: np.ndarray, cache: CacheType | None = None
-) -> NestedFloatOrIntOrBoolList:
+def tensor_to_list(input: np.ndarray, cache: CacheType | None = None):
     return input.tolist()
 
 
