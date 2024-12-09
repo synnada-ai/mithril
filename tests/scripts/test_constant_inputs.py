@@ -61,6 +61,7 @@ from mithril.models import (
     PolynomialFeatures,
     Power,
     Relu,
+    Reshape,
     ScalarItem,
     Shape,
     Sigmoid,
@@ -73,6 +74,7 @@ from mithril.models import (
 )
 from mithril.utils.utils import PaddingType
 
+from .helper import assert_models_equal
 from .test_utils import (
     assert_results_equal,
     check_if_installed,
@@ -2597,3 +2599,18 @@ def test_all_inputs_static():
     )
     assert outputs["output"] == backend.array(1.5)
     assert grads == {}
+
+
+def test_reshape_call_arg_vs_init_arg():
+    model1 = Model()
+    model1 += Reshape(shape=(2, 3, None, None))
+
+    model2 = Model()
+    model2 += Reshape()(shape=(2, 3, None, None))
+
+    model3 = Model()
+    model3 += (reshape := Reshape())
+    reshape.set_values({"shape": (2, 3, None, None)})
+
+    assert_models_equal(model1, model2)
+    assert_models_equal(model2, model3)
