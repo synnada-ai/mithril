@@ -97,21 +97,6 @@ def test_data_store_1_numpy():
     assert pm.data_store.unused_keys == set()
 
 
-def test_data_store_2_error_rematerialize():
-    """Tests if expected Exception raised when adding new static data after
-    materializing all data in the DataStore.
-    """
-    backend = TorchBackend(precision=32)
-    model = Linear(dimension=1)
-    pm = mithril.compile(model, backend=backend)
-    with pytest.raises(Exception) as err_info:
-        pm.data_store.add_static_data("input", backend.array([[1.0, 2, 3]]))
-    assert (
-        str(err_info.value)
-        == "DataStore materialized, can not add any other static data."
-    )
-
-
 def test_data_store_3():
     """Tests all private attributes of DataStore are correct after compilation."""
     backend = TorchBackend(precision=32)

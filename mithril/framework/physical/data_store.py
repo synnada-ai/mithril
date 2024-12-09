@@ -49,11 +49,7 @@ class StaticDataStore(GenericDataType[DataType]):
         if memo is None:
             memo = {}
 
-        self.is_materialized = False
         self._all_data: dict[str, Tensor[DataType] | Scalar] = dict()
-        # TODO: Combine data_values and tensor_values into one attribute and
-        # remove _materialize_cached_data method.
-        self._tensor_values: dict[str, DataType] = dict()
         self.data_memo: dict[int, Tensor[DataType] | Scalar] = dict()
         self.graph: FlatGraph[DataType] = graph
         self.backend: Backend[DataType] = backend
@@ -102,6 +98,7 @@ class StaticDataStore(GenericDataType[DataType]):
     ):
         if key in self._cached_data:
             self._cached_data.pop(key)
+            self.data_values.pop(key)
         self._runtime_static_keys.discard(key)
         if key in self._intermediate_non_differentiables:
             self._intermediate_non_differentiables.pop(key)
@@ -148,6 +145,9 @@ class StaticDataStore(GenericDataType[DataType]):
                         "at the same time!"
                     )
                 self._cached_data[key] = data
+                if key not in self.data_values:
+                    assert not isinstance(data.value, ToBeDetermined)
+                    self.data_values[key] = data.value
                 transferred_keys.add(key)
         for key in transferred_keys:
             self._intermediate_non_differentiables.pop(key)
@@ -176,17 +176,6 @@ class StaticDataStore(GenericDataType[DataType]):
                     if source_key in self.graph.connections
                     else []
                 )
-
-    def _materialize_cached_data(self):
-        # Simply assigns final (real) values to the keys.
-        if not self.data_values:
-            for key in self._cached_data:
-                value = self.get_value(key)
-                assert not isinstance(value, ToBeDetermined)
-                self.data_values[key] = value
-            self.is_materialized = True
-        else:
-            raise Exception("Can not materialize cached data multiple times.")
 
     def set_shapes(
         self,
@@ -228,11 +217,15 @@ class StaticDataStore(GenericDataType[DataType]):
                 and key not in self.graph.input_keys
             ) or (key in self.graph.input_keys and value.value is not TBD):
                 self._cached_data[key] = value
+                assert not isinstance(value.value, ToBeDetermined)
+                self.data_values[key] = value.value
             elif key in self.graph.input_keys:
                 self._runtime_static_keys.add(key)
             else:
                 if value.value is not TBD:
                     self._cached_data[key] = value
+                    assert not isinstance(value.value, ToBeDetermined)
+                    self.data_values[key] = value.value
                 else:
                     self._intermediate_non_differentiables[key] = value
 
@@ -264,10 +257,6 @@ class StaticDataStore(GenericDataType[DataType]):
     ) -> tuple[set[str], Updates]:
         updates = Updates()
         updated_keys = {key}
-        if self.is_materialized:
-            raise Exception(
-                "DataStore materialized, can not add any other static data."
-            )
         if key in self._cached_data:
             raise ValueError(
                 f"Statically given key: {key} has been already set as static "
@@ -285,12 +274,15 @@ class StaticDataStore(GenericDataType[DataType]):
             # if we dont't write if-else statement for Tensor and Scalar
             # Any fixes?.
             if isinstance(data, Tensor) and self.is_tensor_type(value):
+                # TODO: Do not set value to Tensor if value is DataType. Update here
+                # after Tensor and Scalar classes are merged to Edge.
                 updates |= data.set_value(value)
                 # Temporarily remove value from tensor and add to tensor_values!
-                self._tensor_values[key] = value
+                self.data_values[key] = value
                 data.value = TBD
             elif isinstance(data, Scalar) and self.is_scalar_type(value):
                 updates |= data.set_value(value)  #
+                self.data_values[key] = value
             else:
                 raise ValueError(
                     f"Given value type: {type(value)} does not match with "
@@ -384,20 +376,16 @@ class StaticDataStore(GenericDataType[DataType]):
 
                 if self.backend.is_manualgrad:
                     data = self._all_data[value]
-                    # _temp_shape = data._temp_shape
-                    # _temp_shape = next(iter(data.shape.reprs))
                     if is_make_array_required(data):
                         static_value = self.backend.array(static_value)
 
                 _queue, _updates = self.add_static_data(value, static_value)
                 queue |= _queue
                 updates |= _updates
-        # Finalize cached_data.
-        self._materialize_cached_data()
         return updates
 
     def get_value(self, key: str) -> DataType | MainValueType | ToBeDetermined | str:
-        return self._tensor_values.get(key, self._all_data[key].value)
+        return self.data_values.get(key, self._all_data[key].value)
 
     def prepare_function_args(
         self,
