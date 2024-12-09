@@ -38,7 +38,7 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
 
     type = "numpy"
 
-    registered_primitives: dict[str, Callable[..., Any]] = {}
+    registered_primitives = {}
     primitive_fn_path = "mithril.backends.with_manualgrad.numpy_backend.ops"
     primitive_grad_fn_path = "mithril.backends.with_manualgrad.numpy_backend.ops_grad"
     registered_primitives_grad_fn: dict[str, Callable[..., Any]] = {}
