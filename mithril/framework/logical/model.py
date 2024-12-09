@@ -161,13 +161,13 @@ type_conversion_map: dict[
 class Model(BaseModel):
     def __init__(
         self,
-        formula_key: str | None = None,
         name: str | None = None,
         enforce_jit: bool = True,
     ) -> None:
         self.dag: dict[BaseModel, dict[str, ConnectionData]] = {}
         self.inter_key_count: int = 0
-        self.formula_key = formula_key
+        self._formula_key: str | None = None
+
         super().__init__(name=name, enforce_jit=enforce_jit)
 
     def create_key_name(self):
@@ -241,6 +241,9 @@ class Model(BaseModel):
 
                 # Merge new_conn with given connection.
                 self.merge_connections(new_conn, conn_data)
+
+    def _set_formula_key(self, formula_key: str):
+        self._formula_key = formula_key
 
     def _set_value(self, key: ConnectionData, value: MainValueType | str) -> Updates:
         if isinstance(key.metadata.data, Tensor):
@@ -1495,7 +1498,7 @@ class Model(BaseModel):
             if m.name is None:
                 m.name = model_names[m]
 
-        if self.formula_key is not None:
+        if self._formula_key is not None:
             # Must be convertable to primitive.
             assert len(self.conns.output_keys) == 1, (
                 "Logical models have altenative primitive implementation must "
