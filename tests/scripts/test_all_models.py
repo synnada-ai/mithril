@@ -3171,8 +3171,8 @@ def test_groupnorm_2():
     model = GroupNorm(4)
 
     input = np.arange(160, dtype=np.float32)
-    input = input.reshape(1, 16, 10, 1)
-    input = np.broadcast_to(input, (2, 16, 10, 4))
+    input = input.reshape((1, 16, 10, 1))  # type: ignore
+    input = np.broadcast_to(input, (2, 16, 10, 4))  # type: ignore
     input = np.concatenate([input, 0.5 * input], axis=-1)
 
     weight = np.random.randn(1, 16, 1, 1)
