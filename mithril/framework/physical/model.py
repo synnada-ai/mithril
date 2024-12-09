@@ -27,10 +27,15 @@ from ..common import (
     TBD,
     Connection,
     ConnectionData,
+    DataEvalType,
+    EvaluateAllType,
+    EvaluateGradientsType,
+    EvaluateType,
     IOHyperEdge,
     IOKey,
     MainValueType,
     NotAvailable,
+    ParamsEvalType,
     Scalar,
     Table,
     Tensor,
@@ -584,48 +589,15 @@ class PhysicalModel(GenericDataType[DataType]):
 
     def generate_functions(
         self,
-        eval_fn: Callable[
-            [dict[str, DataType] | None, Mapping[str, MainValueType | DataType] | None],
-            Mapping[str, MainValueType | DataType],
-        ],
-        grad_fn: Callable[
-            [
-                dict[str, DataType] | None,
-                Mapping[str, MainValueType | DataType] | None,
-                dict[str, DataType] | None,
-            ],
-            dict[str, DataType],
-        ],
-        eval_all_fn: Callable[
-            [
-                dict[str, DataType] | None,
-                Mapping[str, MainValueType | DataType] | None,
-                dict[str, DataType] | None,
-            ],
-            tuple[Mapping[str, MainValueType | DataType], dict[str, DataType]],
-        ],
+        eval_fn: EvaluateType[DataType],
+        grad_fn: EvaluateGradientsType[DataType] | None,
+        eval_all_fn: EvaluateAllType[DataType] | None,
     ) -> None:
-        self._generated_eval_fn: Callable[
-            [dict[str, DataType] | None, Mapping[str, MainValueType | DataType] | None],
-            Mapping[str, MainValueType | DataType],
-        ] = eval_fn
-        self._generated_compute_gradients_fn: Callable[
-            [
-                dict[str, DataType] | None,
-                Mapping[str, MainValueType | DataType] | None,
-                dict[str, DataType] | None,
-            ],
-            dict[str, DataType],
-        ] = grad_fn
-
-        self._generated_evaluate_all_fn: Callable[
-            [
-                dict[str, DataType] | None,
-                Mapping[str, MainValueType | DataType] | None,
-                dict[str, DataType] | None,
-            ],
-            tuple[Mapping[str, MainValueType | DataType], dict[str, DataType]],
-        ] = eval_all_fn
+        self._generated_eval_fn: EvaluateType[DataType] = eval_fn
+        self._generated_compute_gradients_fn: EvaluateGradientsType[DataType] | None = (
+            grad_fn
+        )
+        self._generated_evaluate_all_fn: EvaluateAllType[DataType] | None = eval_all_fn
 
     def create_jacobian_fn(self, generated_fn: Callable):
         # TODO: Fix this method to make it picklable!
@@ -1115,9 +1087,9 @@ class PhysicalModel(GenericDataType[DataType]):
 
     def evaluate(
         self,
-        params: dict[str, DataType] | None = None,
-        data: Mapping[str, DataType | MainValueType] | None = None,
-    ) -> Mapping[str, MainValueType | DataType]:
+        params: ParamsEvalType[DataType] | None = None,
+        data: DataEvalType[DataType] | None = None,
+    ) -> DataEvalType[DataType]:
         if (
             isinstance(self.backend, ParallelBackend)
             and self.backend._parallel_manager is not None
@@ -1128,10 +1100,10 @@ class PhysicalModel(GenericDataType[DataType]):
 
     def evaluate_gradients(
         self,
-        params: dict[str, DataType] | None = None,
-        data: Mapping[str, DataType | MainValueType] | None = None,
-        output_gradients: dict[str, DataType] | None = None,
-    ) -> dict[str, DataType]:
+        params: ParamsEvalType[DataType] | None = None,
+        data: DataEvalType[DataType] | None = None,
+        output_gradients: ParamsEvalType[DataType] | None = None,
+    ) -> ParamsEvalType[DataType]:
         if self.inference:
             raise NotImplementedError(
                 "Inference mode does not support gradients calculation"
@@ -1144,14 +1116,14 @@ class PhysicalModel(GenericDataType[DataType]):
                 params, data, output_gradients, fn_name="eval_grad_fn"
             )
         else:
-            return self._generated_compute_gradients_fn(params, data, output_gradients)
+            return self._generated_compute_gradients_fn(params, data, output_gradients)  # type: ignore
 
     def evaluate_all(
         self,
-        params: dict[str, DataType] | None = None,
-        data: Mapping[str, DataType | MainValueType] | None = None,
-        output_gradients: dict[str, DataType] | None = None,
-    ) -> tuple[Mapping[str, MainValueType | DataType], dict[str, DataType]]:
+        params: ParamsEvalType[DataType] | None = None,
+        data: DataEvalType[DataType] | None = None,
+        output_gradients: ParamsEvalType[DataType] | None = None,
+    ) -> tuple[DataEvalType[DataType], ParamsEvalType[DataType]]:
         if self.inference:
             raise NotImplementedError(
                 "Inferece mode does not support gradients calculation"
@@ -1164,7 +1136,7 @@ class PhysicalModel(GenericDataType[DataType]):
                 params, data, output_gradients, fn_name="eval_all_fn"
             )
         else:
-            return self._generated_evaluate_all_fn(params, data, output_gradients)
+            return self._generated_evaluate_all_fn(params, data, output_gradients)  # type: ignore
 
 
 @dataclass
