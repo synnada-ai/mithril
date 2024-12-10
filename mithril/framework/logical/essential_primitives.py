@@ -442,9 +442,7 @@ class Reshape(PrimitiveModel):
             input=IOKey(shape=[("input", ...)], type=GenericTensorType),
             shape=IOKey(type=tuple[int | None, ...] | list[int | None], value=shape),
         )
-        # TODO: currently putting shape to factory_inputs raises an error,
-        # add shape to factory_inputs when the issue is resolved
-        self.factory_inputs = {"input": input}
+        self.factory_inputs = {"input": input, "shape": shape}
         self._set_constraint(fn=reshape_constraints, keys=["output", "input", "shape"])
 
     def __call__(  # type: ignore[override]
