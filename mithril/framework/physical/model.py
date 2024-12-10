@@ -874,7 +874,7 @@ class PhysicalModel(GenericDataType[DataType]):
 
         pm_trainables = (
             self._input_keys
-            - self.data_store._cached_data.keys()
+            - self.data_store.data_values.keys()
             - self.data_store.unused_keys
             - self.data_store.runtime_static_keys
         )

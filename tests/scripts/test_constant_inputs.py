@@ -774,7 +774,7 @@ def test_static_2():
     comp_model = mithril.compile(model=model2, backend=NumpyBackend())
     import numpy as np
 
-    infered_value = comp_model.data_store.get_value("_Model_0_ToTensor_0_output")
+    infered_value = comp_model.data_store.data_values["_Model_0_ToTensor_0_output"]
     assert isinstance(infered_value, np.ndarray)
     np.testing.assert_almost_equal(
         infered_value,
@@ -798,7 +798,7 @@ def test_static_2_set_values():
     model2 += model1
     comp_model = mithril.compile(model=model2, backend=NumpyBackend())
 
-    infered_value = comp_model.data_store.get_value("_Model_0_ToTensor_0_output")
+    infered_value = comp_model.data_store.data_values["_Model_0_ToTensor_0_output"]
 
     assert isinstance(infered_value, np.ndarray)
     np.testing.assert_almost_equal(
@@ -871,7 +871,7 @@ def test_static_4():
         "_ToTensor_3_output": backend.array(0),
     }
     for key, value in expected.items():
-        assert compiled_model.data_store.get_value(key) == value
+        assert compiled_model.data_store.data_values[key] == value
 
 
 def test_static_4_set_values():
@@ -891,7 +891,7 @@ def test_static_4_set_values():
         "_ToTensor_3_output": backend.array(0),
     }
     for key, value in expected.items():
-        assert compiled_model.data_store.get_value(key) == value
+        assert compiled_model.data_store.data_values[key] == value
 
 
 def test_str_axis():
@@ -1685,7 +1685,7 @@ def test_unused_cached_values_1():
     assert cache is not None and cache.keys() == expected_cache.keys()
     assert all(
         [
-            np.all(comp_model.data_store.get_value(key) == expected_cache[key])
+            np.all(comp_model.data_store.data_values[key] == expected_cache[key])
             for key in cache
         ]
     )

@@ -26,7 +26,7 @@ from ...backends.with_manualgrad.numpy_backend import NumpyBackend
 from ...core import Dtype
 from ...framework.physical.model import PhysicalModel
 from ...framework.utils import find_intersection_type
-from ...utils.func_utils import is_make_array_required
+from ...utils.func_utils import is_make_array_required, prepare_function_args
 from ..common import (
     FinalCost,
     LossKey,
@@ -366,7 +366,8 @@ class NumpyCodeGen(PythonCodeGen[DataType]):
                     list(model._input_keys) + ["cache"], inputs, strict=False
                 )
             }
-            args, kwargs = self.pm.data_store.prepare_function_args(
+            args, kwargs = prepare_function_args(
+                self.pm.data_store.data_values,
                 primitive_function,
                 local_to_global_dict,
                 self.backend.array_creation_funcs,

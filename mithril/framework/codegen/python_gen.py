@@ -21,6 +21,7 @@ from posixpath import basename, splitext
 from typing import Any
 
 from ...backends.backend import ParallelBackend
+from ...utils.func_utils import prepare_function_args
 from ..common import MainValueType
 from ..logical import PrimitiveModel
 from ..physical.model import PhysicalModel
@@ -414,8 +415,11 @@ class PythonCodeGen[DataType](CodeGen):
         }
 
         # Prepare function arguments
-        fn_args_mapping, fn_kwarg_dict = self.pm.data_store.prepare_function_args(
-            function, inputs, self.pm.backend.array_creation_funcs
+        fn_args_mapping, fn_kwarg_dict = prepare_function_args(
+            self.pm.data_store.data_values,
+            function,
+            inputs,
+            self.pm.backend.array_creation_funcs,
         )
         fn_arg_keys = [
             arg_key for arg_keys in fn_args_mapping.values() for arg_key in arg_keys

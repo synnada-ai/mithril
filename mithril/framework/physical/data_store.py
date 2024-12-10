@@ -12,13 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from copy import deepcopy
 from typing import Any, TypeGuard
 
 from ...backends.backend import Backend
 from ...core import DataType, data_types
-from ...utils.func_utils import is_make_array_required
+from ...utils.func_utils import is_make_array_required, prepare_function_args
 from ...utils.utils import BiMap
 from ..common import (
     TBD,
@@ -33,8 +33,6 @@ from ..common import (
     is_type_adjustment_required,
 )
 from .flat_graph import FlatGraph
-
-key_map_type = dict[str, str]
 
 
 class StaticDataStore(GenericDataType[DataType]):
@@ -54,7 +52,6 @@ class StaticDataStore(GenericDataType[DataType]):
         self.graph: FlatGraph[DataType] = graph
         self.backend: Backend[DataType] = backend
         self.inference = inference
-        self._cached_data: dict[str, Tensor[DataType] | Scalar] = dict()
         self._intermediate_non_differentiables: BiMap[
             str, Tensor[DataType] | Scalar
         ] = BiMap()
@@ -70,7 +67,7 @@ class StaticDataStore(GenericDataType[DataType]):
 
     @property
     def cached_data(self):
-        return self._cached_data
+        return self.data_values
 
     @property
     def runtime_static_keys(self) -> set[str]:
@@ -78,7 +75,7 @@ class StaticDataStore(GenericDataType[DataType]):
 
     @property
     def all_static_keys(self) -> set[str]:
-        return self._runtime_static_keys | self._cached_data.keys()
+        return self._runtime_static_keys | self.data_values.keys()
 
     @property
     def unused_keys(self) -> set[str]:
@@ -96,8 +93,7 @@ class StaticDataStore(GenericDataType[DataType]):
     def _remove_key_from_store(
         self, key: str, label_as_unused: bool = True, hard_remove: bool = False
     ):
-        if key in self._cached_data:
-            self._cached_data.pop(key)
+        if key in self.data_values:
             self.data_values.pop(key)
         self._runtime_static_keys.discard(key)
         if key in self._intermediate_non_differentiables:
@@ -138,13 +134,12 @@ class StaticDataStore(GenericDataType[DataType]):
         )
         for data in updated_inter_data:
             key = self._intermediate_non_differentiables.inverse[data]
-            if self.get_value(key) is not TBD:
-                if key in self._cached_data:
+            if key in self.data_values or data.value is not TBD:
+                if key in self.data_values:
                     raise KeyError(
                         f"'{key}' key can not be an intermediate and cached key "
                         "at the same time!"
                     )
-                self._cached_data[key] = data
                 if key not in self.data_values:
                     assert not isinstance(data.value, ToBeDetermined)
                     self.data_values[key] = data.value
@@ -216,14 +211,12 @@ class StaticDataStore(GenericDataType[DataType]):
                 and key.endswith("_cache")
                 and key not in self.graph.input_keys
             ) or (key in self.graph.input_keys and value.value is not TBD):
-                self._cached_data[key] = value
                 assert not isinstance(value.value, ToBeDetermined)
                 self.data_values[key] = value.value
             elif key in self.graph.input_keys:
                 self._runtime_static_keys.add(key)
             else:
                 if value.value is not TBD:
-                    self._cached_data[key] = value
                     assert not isinstance(value.value, ToBeDetermined)
                     self.data_values[key] = value.value
                 else:
@@ -257,7 +250,7 @@ class StaticDataStore(GenericDataType[DataType]):
     ) -> tuple[set[str], Updates]:
         updates = Updates()
         updated_keys = {key}
-        if key in self._cached_data:
+        if key in self.data_values:
             raise ValueError(
                 f"Statically given key: {key} has been already set as static "
                 "with a value!"
@@ -278,20 +271,21 @@ class StaticDataStore(GenericDataType[DataType]):
                 # after Tensor and Scalar classes are merged to Edge.
                 updates |= data.set_value(value)
                 # Temporarily remove value from tensor and add to tensor_values!
-                self.data_values[key] = value
                 data.value = TBD
             elif isinstance(data, Scalar) and self.is_scalar_type(value):
-                updates |= data.set_value(value)  #
-                self.data_values[key] = value
+                updates |= data.set_value(value)
             else:
                 raise ValueError(
                     f"Given value type: {type(value)} does not match with "
                     f"the type of data: {type(data)}!"
                 )
-            if key not in self._intermediate_non_differentiables:
-                if key in self.runtime_static_keys:
-                    self._runtime_static_keys.remove(key)
-                self._cached_data[key] = data
+            self.data_values[key] = value
+            self._intermediate_non_differentiables.pop(key, None)
+            if (
+                key not in self._intermediate_non_differentiables
+                and key in self.runtime_static_keys
+            ):
+                self._runtime_static_keys.remove(key)
         # Finally update cached_data, infer unused keys and
         # return newly added static keys.
         self.constraint_solver(updates)
@@ -305,7 +299,7 @@ class StaticDataStore(GenericDataType[DataType]):
         """Infers the static keys and calculates
         the static values during the inference.
         """
-        statics = self.cached_data
+        statics = self.data_values
         queue = set(statics.keys())
         updates = Updates()
         while queue:
@@ -345,19 +339,20 @@ class StaticDataStore(GenericDataType[DataType]):
                     key: value
                     for key, value in zip(local_input_keys, value_mapping, strict=False)
                 }
-                args_dict, kwargs_dict = self.prepare_function_args(
+                args_dict, kwargs_dict = prepare_function_args(
+                    self.data_values,
                     fn,
                     inputs,
                     self.backend.array_creation_funcs,
                     False,
                 )
                 args = [
-                    self.get_value(arg_key)
+                    self.data_values[arg_key]
                     for arg_keys in args_dict.values()
                     for arg_key in arg_keys
                 ]
                 kwargs = {
-                    key: self.get_value(value) for key, value in kwargs_dict.items()
+                    key: self.data_values[value] for key, value in kwargs_dict.items()
                 }
 
                 # If function needs backend specific args
@@ -383,133 +378,3 @@ class StaticDataStore(GenericDataType[DataType]):
                 queue |= _queue
                 updates |= _updates
         return updates
-
-    def get_value(self, key: str) -> DataType | MainValueType | ToBeDetermined | str:
-        return self.data_values.get(key, self._all_data[key].value)
-
-    def prepare_function_args(
-        self,
-        function: Callable[..., Any],
-        inputs: key_map_type,
-        array_creation_funcs: list[str],
-        reduce_with_defaults: bool = True,
-    ) -> tuple[dict[str, list[str]], key_map_type]:
-        formula_key = function.__name__
-        code_obj = function.__code__
-
-        fn_args_dict = {
-            arg_name: False for arg_name in code_obj.co_varnames[: code_obj.co_argcount]
-        }
-
-        # Check if variadic positional argument exists
-        if code_obj.co_flags & 0x04 == 0x04:
-            idx = code_obj.co_argcount + code_obj.co_kwonlyargcount
-            fn_args_dict[code_obj.co_varnames[idx]] = True
-
-        fn_kwarg_keys = list(
-            code_obj.co_varnames[
-                code_obj.co_argcount : code_obj.co_argcount + code_obj.co_kwonlyargcount
-            ]
-        )
-
-        # Array creation functions requires device and
-        # precision to properly create tensor
-        if formula_key in array_creation_funcs:
-            # Remove precision and device from kwarg_keys
-            # we will partially provide them
-            fn_args_dict.pop("precision", None)
-            if "precision" in fn_kwarg_keys:
-                fn_kwarg_keys.remove("precision")
-
-            fn_args_dict.pop("device", None)
-            if "device" in fn_kwarg_keys:
-                fn_kwarg_keys.remove("device")
-
-        # Prepare arguments
-        fn_kwarg_dict, removed_kwarg_dict = self.create_kwarg_dict(
-            fn_kwarg_keys, function, inputs, reduce_with_defaults
-        )
-        fn_args_mapping = self.reorganize_args(
-            fn_args_dict,
-            set(fn_kwarg_dict.values()) | set(removed_kwarg_dict.values()),
-            function,
-            inputs,
-            reduce_with_defaults,
-        )
-
-        return fn_args_mapping, fn_kwarg_dict
-
-    def create_kwarg_dict(
-        self,
-        kwarg_keys: list[str],
-        function: Callable,
-        inputs: key_map_type,
-        reduce_with_defaults: bool,
-    ) -> tuple[key_map_type, key_map_type]:
-        kwarg_keys_dict: key_map_type = {
-            kwarg_key: inputs[kwarg_key] for kwarg_key in kwarg_keys
-        }
-        removed_kwargs_dict: key_map_type = {}
-
-        kwdefaults = function.__kwdefaults__
-
-        if kwdefaults is not None and reduce_with_defaults:
-            for key, value in kwdefaults.items():
-                # provided_value = data[kwarg_keys_dict[key]].value
-                provided_value = self.get_value(kwarg_keys_dict[key])
-                if value == provided_value and type(value) is type(provided_value):
-                    removed_kwargs_dict[key] = kwarg_keys_dict[key]
-                    kwarg_keys_dict.pop(key)
-
-        return kwarg_keys_dict, removed_kwargs_dict
-
-    def reorganize_args(
-        self,
-        arg_keys: dict[str, bool],
-        kwarg_keys: list[str] | set[str],
-        function: Callable,
-        inputs: key_map_type,
-        reduce_with_defaults: bool,
-    ) -> dict[str, list[str]]:
-        defaults = function.__defaults__
-        formula_key = function.__name__
-
-        local_input_keys = list(inputs.keys())
-        inputs = deepcopy(inputs)
-        organized_arguments: dict[str, list[str]] = {}
-
-        for idx, (name, is_variadic) in enumerate(arg_keys.items()):
-            if "cache" in name:
-                # TODO: Refactor here
-                provided_value = self.get_value(inputs[name])
-                if (
-                    reduce_with_defaults
-                    and idx == len(arg_keys) - 1
-                    and defaults
-                    and provided_value == defaults[-1]
-                ):
-                    continue
-
-                outer_names = [inputs[name]]
-                inputs.pop(name)
-
-            # If the argument variadic, then it takes rest of the inputs
-            elif is_variadic:
-                outer_names = [
-                    input for input in inputs.values() if input not in kwarg_keys
-                ]
-
-            elif name not in local_input_keys:
-                raise RuntimeError(
-                    f"Primitive '{formula_key}' input keys:'{local_input_keys}' and"
-                    f" backend function input keys: '{arg_keys.keys()}' "
-                    "are not matching!"
-                )
-
-            else:
-                outer_names = [inputs[name]]
-                inputs.pop(name)
-
-            organized_arguments[name] = outer_names
-
-        return organized_arguments
