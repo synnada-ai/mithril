@@ -21,7 +21,16 @@ from enum import Enum
 from functools import partial, reduce
 from itertools import combinations, cycle, product, zip_longest
 from types import EllipsisType, GenericAlias, UnionType
-from typing import Any, Generic, Literal, TypeVar, get_args, get_origin, overload
+from typing import (
+    Any,
+    Generic,
+    Literal,
+    Protocol,
+    TypeVar,
+    get_args,
+    get_origin,
+    overload,
+)
 
 from ..backends.backend import Backend
 from ..core import (
@@ -219,6 +228,37 @@ _TensorValueType = (
     _TensorTypes | tuple["_TensorValueType", ...] | list["_TensorValueType"]
 )
 TensorValueType = _TensorValueType | Constant
+
+
+ParamsEvalType = dict[str, DataType]
+DataEvalType = Mapping[str, DataType | MainValueType | str]
+
+
+class EvaluateType(Protocol, Generic[DataType]):
+    def __call__(
+        self,
+        params: ParamsEvalType[DataType] | None,
+        data: DataEvalType[DataType] | None,
+    ) -> DataEvalType[DataType]: ...
+
+
+class EvaluateGradientsType(Protocol, Generic[DataType]):
+    def __call__(
+        self,
+        params: ParamsEvalType[DataType] | None,
+        data: DataEvalType[DataType] | None,
+        output_gradients: ParamsEvalType[DataType] | None,
+    ) -> ParamsEvalType[DataType]: ...
+
+
+class EvaluateAllType(Protocol, Generic[DataType]):
+    def __call__(
+        self,
+        params: ParamsEvalType[DataType] | None,
+        data: DataEvalType[DataType] | None,
+        output_gradients: ParamsEvalType[DataType] | None,
+    ) -> tuple[DataEvalType[DataType], ParamsEvalType[DataType]]: ...
+
 
 LossKey = "loss"
 FinalCost = "final_cost"
@@ -655,6 +695,7 @@ class BaseData:
                 valued, non_valued = (self, other) if self.is_valued else (other, self)
                 assert isinstance(valued, Tensor | Scalar)
                 assert not isinstance(valued.value, ToBeDetermined)
+                assert isinstance(non_valued, type(valued))
                 updates |= non_valued.set_value(valued.value)
                 if non_valued == other:
                     if isinstance(other, Tensor):
