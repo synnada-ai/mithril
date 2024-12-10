@@ -47,19 +47,19 @@ def test_finalize_keys_0():
     pm = mithril.compile(model, TorchBackend(), safe_names=False)
     assert set(pm._input_keys) == set(
         (
-            "input",
-            "_w_0",
-            "_b_0",
-            "_w_1",
-            "_b_1",
-            "_w_2",
-            "_b_2",
-            "_w_3",
-            "_b_3",
-            "_w_4",
-            "_b_4",
-            "w_2",
+            "w_5",
             "b_3",
+            "w_1",
+            "b_5",
+            "w_3",
+            "b_0",
+            "input",
+            "b_1",
+            "b_4",
+            "w_0",
+            "b_2",
+            "w_2",
+            "w_4",
         )
     )
 
@@ -79,19 +79,19 @@ def test_finalize_keys_1():
     pm = mithril.compile(model, TorchBackend(), safe_names=False)
     assert set(pm._input_keys) == set(
         (
-            "input",
-            "_w_0",
-            "_b_0",
-            "_w_1",
-            "_b_1",
-            "_w_2",
-            "_b_2",
-            "_w_3",
-            "_b_3",
-            "_w_4",
-            "_b_4",
-            "w_4",
+            "w_3",
+            "w_1",
             "b_4",
+            "b_3",
+            "w_5",
+            "w_4",
+            "w_0",
+            "input",
+            "b_1",
+            "b_2",
+            "b_0",
+            "w_2",
+            "b_5",
         )
     )
 
@@ -101,7 +101,7 @@ def test_finalize_keys_1():
     model += Linear(10)
     pm = mithril.compile(model, TorchBackend(), safe_names=False)
     assert set(pm._input_keys) == set(
-        ("input", "_w_0", "_b_0", "_w_1", "_b_1", "w_1", "b_1")
+        ("b_1", "w_2", "b_0", "input", "b_2", "w_1", "w_0")
     )
 
 
@@ -507,7 +507,7 @@ def test_generate_key_naming_2():
     model += Add()
     model += Add()
     logical_ref = {"$1": "$input", "$2": "$right_0", "$4": "$right_1"}
-    physical_ref = {"input", "right_0", "right_1"}
+    physical_ref = {"right_1", "left", "right_0"}
     assert_keys(model, logical_ref=logical_ref, physical_ref=physical_ref)
 
 
@@ -517,7 +517,7 @@ def test_generate_key_naming_3():
     model += Subtract()
     model += Add()
     logical_ref = {"$1": "$input", "$2": "$right_0", "$4": "$right_1", "$6": "$right_2"}
-    physical_ref = {"input", "right_0", "right_1", "right_2"}
+    physical_ref = {"left", "right_0", "right_1", "right_2"}
     assert_keys(model, logical_ref=logical_ref, physical_ref=physical_ref)
 
 
@@ -539,7 +539,7 @@ def test_generate_key_naming_4():
         "$6": "$right_2",
         "$8": "$right_3",
     }
-    physical_ref = {"input", "right_0", "right_1", "right_2", "right_3"}
+    physical_ref = {"right_1", "right_2", "right_0", "left", "right_3"}
     assert_keys(model, logical_ref=logical_ref, physical_ref=physical_ref)
 
 
@@ -583,7 +583,7 @@ def test_generate_key_naming_8():
         "$6": "$input",
         "$7": "$b_1",
     }
-    physical_ref = {"_input", "_w", "b_0", "input", "w", "b_1"}
+    physical_ref = {"w", "_w", "input_1", "b_0", "input_0", "b_1"}
     assert_keys(model, logical_ref=logical_ref, physical_ref=physical_ref)
 
 
@@ -593,7 +593,7 @@ def test_generate_key_naming_9():
     model += Buffer()(input="", output=IOKey(name="output2"))
     model += Buffer()(input="", output=IOKey(name="output3"))
     logical_ref = {"$1": "$_input_0", "$2": "$_input_1", "$3": "$input"}
-    physical_ref = {"_input_0", "_input_1", "input"}
+    physical_ref = {"input_1", "input_2", "input_0"}
     assert_keys(model, logical_ref=logical_ref, physical_ref=physical_ref)
 
 
@@ -603,7 +603,7 @@ def test_generate_key_naming_10():
     model += Buffer()(input="_input", output=IOKey(name="output2"))
     model += Buffer()(input="", output=IOKey(name="output3"))
     logical_ref = {"$1": "$__input", "$2": "$input"}
-    physical_ref = {"__input", "_input", "input"}
+    physical_ref = {"input_0", "input_1", "_input"}
     assert_keys(model, logical_ref=logical_ref, physical_ref=physical_ref)
 
 
@@ -618,7 +618,7 @@ def test_generate_key_naming_11():
         "$2": "$__input_1",
         "$3": "$input",
     }
-    physical_ref = {"__input_0", "__input_1", "_input", "input"}
+    physical_ref = {"input_0", "_input", "input_1", "input_2"}
     assert_keys(model, logical_ref=logical_ref, physical_ref=physical_ref)
 
 
@@ -634,7 +634,7 @@ def test_generate_key_naming_12():
         "$7": "$input",
         "$8": "$b_1",
     }
-    physical_ref = {"_input", "w_0", "b_0", "input", "w_1", "b_1"}
+    physical_ref = {"input_1", "b_1", "b_0", "w_0", "input_0", "w_1"}
     assert_keys(model, logical_ref=logical_ref, physical_ref=physical_ref)
 
 
@@ -649,7 +649,7 @@ def test_generate_key_naming_13():
         "$6": "$input",
         "$7": "$b_1",
     }
-    physical_ref = {"_input", "w", "b_0", "input", "_w", "b_1"}
+    physical_ref = {"input_1", "_w", "w", "b_0", "input_0", "b_1"}
     assert_keys(model, logical_ref=logical_ref, physical_ref=physical_ref)
 
 
@@ -664,7 +664,7 @@ def test_generate_key_naming_14():
         "$6": "$input",
         "$7": "$b_1",
     }
-    physical_ref = {"_input", "_w", "b_0", "input", "w", "b_1"}
+    physical_ref = {"input_1", "w", "w_0", "b_0", "b_1", "input_0"}
     assert_keys(model, logical_ref=logical_ref, physical_ref=physical_ref)
 
 
@@ -683,15 +683,15 @@ def test_generate_key_naming_15():
         "$10": "$b_2",
     }
     physical_ref = {
-        "_input_0",
-        "__w",
-        "b_0",
-        "_input_1",
         "w",
+        "b_0",
         "b_1",
-        "input",
+        "w_0",
+        "input_1",
         "_w",
+        "input_0",
         "b_2",
+        "input_2",
     }
     assert_keys(model, logical_ref=logical_ref, physical_ref=physical_ref)
 
@@ -715,18 +715,18 @@ def test_generate_key_naming_16():
         "$14": "$b_3",
     }
     physical_ref = {
-        "_input_0",
-        "__w_0",
-        "b_0",
-        "_input_1",
         "w",
-        "b_1",
-        "_input_2",
+        "b_0",
         "_w",
+        "w_0",
         "b_2",
-        "input",
-        "__w_1",
+        "input_3",
+        "b_1",
+        "w_1",
         "b_3",
+        "input_0",
+        "input_2",
+        "input_1",
     }
     assert_keys(model, logical_ref=logical_ref, physical_ref=physical_ref)
 
@@ -754,18 +754,18 @@ def test_generate_key_naming_17():
         "$12": "$b_3",
     }
     physical_ref = {
-        "_input_0",
-        "__w_0",
+        "_w",
+        "input_2",
+        "b_2",
+        "w_1",
         "b_0",
-        "_input_1",
+        "w_0",
+        "input_1",
+        "b_3",
+        "input_0",
+        "input_3",
         "w",
         "b_1",
-        "_input_2",
-        "_w",
-        "b_2",
-        "input",
-        "__w_1",
-        "b_3",
     }
     assert_keys(outer_model, logical_ref=logical_ref, physical_ref=physical_ref)
 
@@ -799,18 +799,18 @@ def test_generate_key_naming_18():
     }
 
     physical_ref = {
-        "w_0",
         "w",
-        "_input_2",
-        "_w_0",
-        "_w_1",
-        "_input_0",
-        "_input_1",
         "b_1",
-        "b_2",
+        "w_2",
+        "input_0",
         "b_3",
+        "w_1",
+        "input_1",
+        "input_2",
         "b_0",
-        "input",
+        "w_0",
+        "b_2",
+        "input_3",
     }
 
     assert_keys(

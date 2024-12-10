@@ -13,7 +13,6 @@
 # limitations under the License.
 import copy
 import logging
-import os
 from collections.abc import Callable, Iterator, Sequence
 from functools import partial
 from itertools import combinations_with_replacement
@@ -84,8 +83,6 @@ from .utils import (
     make_array,
     write_into_cache,
 )
-
-os.environ["NPY_PROMOTION_STATE"] = "legacy"
 
 AxisType = None | int | Sequence[int]
 
