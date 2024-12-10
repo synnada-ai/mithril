@@ -17,13 +17,13 @@ from copy import deepcopy
 from typing import Any
 
 from ..core import DataType
-from ..framework.common import TBD, MainValueType, Scalar, Tensor
+from ..framework.common import TBD, DataEvalType, Scalar, Tensor
 
 KeyMapType = dict[str, str]
 
 
 def prepare_function_args(
-    data_values: dict[str, DataType | MainValueType | str],
+    data_values: DataEvalType[DataType],
     function: Callable[..., Any],
     inputs: KeyMapType,
     array_creation_funcs: list[str],
@@ -76,8 +76,8 @@ def prepare_function_args(
     return fn_args_mapping, fn_kwarg_dict
 
 
-def create_kwarg_dict[DataType](
-    data_values: dict[str, DataType | MainValueType | str],
+def create_kwarg_dict(
+    data_values: DataEvalType[DataType],
     kwarg_keys: list[str],
     function: Callable,
     inputs: KeyMapType,
@@ -100,8 +100,8 @@ def create_kwarg_dict[DataType](
     return kwarg_keys_dict, removed_kwargs_dict
 
 
-def reorganize_args[DataType](
-    data_values: dict[str, DataType | MainValueType | str],
+def reorganize_args(
+    data_values: DataEvalType[DataType],
     arg_keys: dict[str, bool],
     kwarg_keys: list[str] | set[str],
     function: Callable,

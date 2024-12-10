@@ -24,6 +24,7 @@ from ..common import (
     TBD,
     Connection,
     ConstraintSolver,
+    DataEvalType,
     GenericDataType,
     MainValueType,
     Scalar,
@@ -58,7 +59,7 @@ class StaticDataStore(GenericDataType[DataType]):
         self._runtime_static_keys: set[str] = set()
         self._unused_keys: set[str] = set()
         # Final tensor values of data store.
-        self.data_values: dict[str, DataType | MainValueType | str] = dict()
+        self.data_values: DataEvalType[DataType] = dict()
         self.constraint_solver: ConstraintSolver = deepcopy(solver, memo=memo)
 
     @property
@@ -94,7 +95,7 @@ class StaticDataStore(GenericDataType[DataType]):
         self, key: str, label_as_unused: bool = True, hard_remove: bool = False
     ):
         if key in self.data_values:
-            self.data_values.pop(key)
+            self.data_values.pop(key)  # type: ignore
         self._runtime_static_keys.discard(key)
         if key in self._intermediate_non_differentiables:
             self._intermediate_non_differentiables.pop(key)
@@ -142,7 +143,7 @@ class StaticDataStore(GenericDataType[DataType]):
                     )
                 if key not in self.data_values:
                     assert not isinstance(data.value, ToBeDetermined)
-                    self.data_values[key] = data.value
+                    self.data_values[key] = data.value  # type: ignore
                 transferred_keys.add(key)
         for key in transferred_keys:
             self._intermediate_non_differentiables.pop(key)
@@ -212,13 +213,13 @@ class StaticDataStore(GenericDataType[DataType]):
                 and key not in self.graph.input_keys
             ) or (key in self.graph.input_keys and value.value is not TBD):
                 assert not isinstance(value.value, ToBeDetermined)
-                self.data_values[key] = value.value
+                self.data_values[key] = value.value  # type: ignore
             elif key in self.graph.input_keys:
                 self._runtime_static_keys.add(key)
             else:
                 if value.value is not TBD:
                     assert not isinstance(value.value, ToBeDetermined)
-                    self.data_values[key] = value.value
+                    self.data_values[key] = value.value  # type: ignore
                 else:
                     self._intermediate_non_differentiables[key] = value
 
@@ -279,7 +280,7 @@ class StaticDataStore(GenericDataType[DataType]):
                     f"Given value type: {type(value)} does not match with "
                     f"the type of data: {type(data)}!"
                 )
-            self.data_values[key] = value
+            self.data_values[key] = value  # type: ignore
             self._intermediate_non_differentiables.pop(key, None)
             if (
                 key not in self._intermediate_non_differentiables
