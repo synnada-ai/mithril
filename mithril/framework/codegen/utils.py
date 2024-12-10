@@ -18,8 +18,6 @@ import keyword
 from ...backends.backend import Backend, DataType
 from ..common import ShapeNode
 
-key_map_type = dict[str, str]
-
 
 # TODO: This name misleads
 def partial_array_creation_func(

@@ -15,16 +15,8 @@
 import pytest
 
 import mithril as ml
-from mithril.models import Mean, Model, Reshape
-
-
-@pytest.mark.skip(
-    reason="find_dominant_type is not working "
-    "properly. Open this test when it is fixed."
-)
-def test_reshape_call_arg():
-    model = Model()
-    model += Reshape()(shape=(2, 3, None, None))
+from mithril.framework.common import NestedListType, find_intersection_type
+from mithril.models import Mean, Model
 
 
 @pytest.mark.skip(
@@ -44,3 +36,12 @@ def test_auto_connect_in_call():
     # model += Mean(axis=ml.TBD)(axis = ml.Connect(mean.axis, key=ml.IOKey(value = 3)))
 
     assert "my_axis" in model.conns.input_keys
+
+
+@pytest.mark.skip(
+    reason="bug in find_intersection_type function. Open this test when it is fixed."
+)
+def test_find_intersection_type_nested_list_type():
+    type1 = int | float | list | tuple
+    type2 = NestedListType(int | float)
+    assert find_intersection_type(type1, type2) == NestedListType(int | float)

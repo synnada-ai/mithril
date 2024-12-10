@@ -486,7 +486,10 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
 
         # Prepare function arguments
         fn_args_mapping, fn_kwarg_dict = prepare_function_args(
-            self.pm.data, function, inputs, self.pm.backend.array_creation_funcs
+            self.pm.data_store.data_values,
+            function,
+            inputs,
+            self.pm.backend.array_creation_funcs,
         )
         fn_arg_keys = [
             arg_key for arg_keys in fn_args_mapping.values() for arg_key in arg_keys

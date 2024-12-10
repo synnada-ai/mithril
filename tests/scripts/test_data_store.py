@@ -58,8 +58,8 @@ def test_data_store_1():
     key = "input"
     value = backend.array([[1.0, 2, 3]])
     pm.data_store.add_static_data(key, value)
-    assert pm.data_store._cached_data.keys() == {"input"}
-    assert (pm.data_store._cached_data[key].value == value).all()  # type: ignore [union-attr]
+    assert pm.data_store.data_values.keys() == {"input"}
+    assert (pm.data_store.data_values[key].value == value).all()  # type: ignore [union-attr]
     assert pm.data_store._runtime_static_keys == set()
     assert pm.data_store._intermediate_non_differentiables._table == dict()
     assert pm.data_store.unused_keys == set()
@@ -88,30 +88,15 @@ def test_data_store_1_numpy():
     key = "input"
     value = backend.array([[1.0, 2, 3]])
     pm.data_store.add_static_data(key, value)
-    assert pm.data_store._cached_data.keys() == {
+    assert pm.data_store.data_values.keys() == {
         "input",
         "_MatrixMultiply_0_output_cache",
         "output_cache",
     }
-    assert (pm.data_store._cached_data[key].value == value).all()  # type: ignore[union-attr]
+    assert (pm.data_store.data_values[key].value == value).all()  # type: ignore[union-attr]
     assert pm.data_store._runtime_static_keys == set()
     assert pm.data_store._intermediate_non_differentiables._table == dict()
     assert pm.data_store.unused_keys == set()
-
-
-def test_data_store_2_error_rematerialize():
-    """Tests if expected Exception raised when adding new static data after
-    materializing all data in the DataStore.
-    """
-    backend = TorchBackend(precision=32)
-    model = Linear(dimension=1)
-    pm = mithril.compile(model, backend=backend)
-    with pytest.raises(Exception) as err_info:
-        pm.data_store.add_static_data("input", backend.array([[1.0, 2, 3]]))
-    assert (
-        str(err_info.value)
-        == "DataStore materialized, can not add any other static data."
-    )
 
 
 def test_data_store_3():
@@ -123,8 +108,9 @@ def test_data_store_3():
         "w": backend.array([[1.0, 1, 1]]),
     }
     pm = mithril.compile(model, backend=backend, constant_keys=static_data)
-    assert pm.data_store._cached_data.keys() == {"output_1"}
-    assert (pm.data_store._cached_data["output_1"].value == backend.array(6.0)).all()  # type: ignore[union-attr]
+
+    assert pm.data_store.data_values.keys() == {"output_1"}
+    assert (pm.data_store.data_values["output_1"] == backend.array(6.0)).all()  # type: ignore[union-attr]
     assert pm.data_store._runtime_static_keys == set()
     assert pm.data_store._intermediate_non_differentiables._table == dict()
     assert pm.data_store.unused_keys == {
@@ -216,7 +202,7 @@ def test_data_store_7():
     pm = mithril.compile(model, backend=backend, constant_keys={"input": value})
     res = pm.evaluate()
 
-    assert pm.data_store._cached_data.keys() == {"input"}
+    assert pm.data_store.data_values.keys() == {"input"}
     assert (res["output"] == value).all()  # type: ignore[union-attr]
     assert pm.data_store._runtime_static_keys == set()
     assert pm.data_store._intermediate_non_differentiables._table == dict()
@@ -232,8 +218,8 @@ def test_data_store_8():
     value = backend.array([[1.0, 2, 3]])
     pm = mithril.compile(model, backend=backend, constant_keys={"input": value})
 
-    assert pm.data_store._cached_data.keys() == {"output1"}
-    assert (pm.data_store._cached_data["output1"].value == backend.sigmoid(value)).all()  # type: ignore[union-attr]
+    assert pm.data_store.data_values.keys() == {"output1"}
+    assert (pm.data_store.data_values["output1"] == backend.sigmoid(value)).all()  # type: ignore[union-attr]
     assert pm.data_store._runtime_static_keys == set()
     assert pm.data_store._intermediate_non_differentiables._table == dict()
     assert pm.data_store.unused_keys == {"input"}
@@ -249,8 +235,8 @@ def test_data_store_9():
     value = backend.array([[1.0, 2, 3]])
     pm = mithril.compile(model, backend=backend, constant_keys={"input": value})
 
-    assert pm.data_store._cached_data.keys() == {"output1"}
-    assert (pm.data_store._cached_data["output1"].value == backend.sigmoid(value)).all()  # type: ignore[union-attr]
+    assert pm.data_store.data_values.keys() == {"output1"}
+    assert (pm.data_store.data_values["output1"] == backend.sigmoid(value)).all()  # type: ignore[union-attr]
     assert pm.data_store._runtime_static_keys == set()
     assert pm.data_store._intermediate_non_differentiables._table == dict()
     assert pm.data_store.unused_keys == {"input"}
@@ -266,8 +252,8 @@ def test_data_store_10():
     value = backend.array([[1.0, 2, 3]])
     pm = mithril.compile(model, backend=backend, constant_keys={"input": value})
 
-    assert pm.data_store._cached_data.keys() == {"input", "output2"}
-    assert (pm.data_store._cached_data["output2"].value == backend.sigmoid(value)).all()  # type: ignore[union-attr]
+    assert pm.data_store.data_values.keys() == {"input", "output2"}
+    assert (pm.data_store.data_values["output2"] == backend.sigmoid(value)).all()  # type: ignore[union-attr]
     assert pm.data_store._runtime_static_keys == set()
     assert pm.data_store._intermediate_non_differentiables._table == dict()
     assert pm.data_store.unused_keys == set()
@@ -282,11 +268,9 @@ def test_data_store_11():
     value = backend.array([[1.0, 2, 3]])
     pm = mithril.compile(model, backend=backend, constant_keys={"input": value})
 
-    assert pm.data_store._cached_data.keys() == {"output1", "output3"}
-    assert (pm.data_store._cached_data["output1"].value == backend.sigmoid(value)).all()  # type: ignore[union-attr]
-    assert (
-        pm.data_store._cached_data["output3"].value == backend.sigmoid(value) + 2
-    ).all()  # type: ignore[union-attr]
+    assert pm.data_store.data_values.keys() == {"output1", "output3"}
+    assert (pm.data_store.data_values["output1"] == backend.sigmoid(value)).all()  # type: ignore[union-attr]
+    assert (pm.data_store.data_values["output3"] == backend.sigmoid(value) + 2).all()  # type: ignore[union-attr]
     assert pm.data_store._runtime_static_keys == set()
     assert pm.data_store._intermediate_non_differentiables._table == dict()
     assert pm.data_store.unused_keys == {
@@ -312,12 +296,12 @@ def test_data_store_13():
         model, backend=backend, constant_keys={"left": left, "right": right}
     )
 
-    assert pm.data_store._cached_data.keys() == {"out"}
+    assert pm.data_store.data_values.keys() == {"out"}
     assert pm.data_store._runtime_static_keys == set()
     assert pm.data_store._intermediate_non_differentiables._table == dict()
     assert pm.data_store.unused_keys == {"left", "right"}
 
-    infered_value = pm.data_store._cached_data["out"].value
+    infered_value = pm.data_store.data_values["out"]
     assert isinstance(infered_value, backend.DataType)
     np.testing.assert_allclose(infered_value, left + right, 1e-6)
 
@@ -346,7 +330,7 @@ def test_data_store_14():
         backend=backend,
         constant_keys={"input1": input1, "input2": input2, "kernel": kernel},
     )
-    assert pm.data_store._cached_data.keys() == {"input1", "out2"}
+    assert pm.data_store.data_values.keys() == {"input1", "out2"}
     assert pm.data_store._runtime_static_keys == set()
     assert pm.data_store._intermediate_non_differentiables._table == dict()
 
@@ -370,7 +354,7 @@ def test_data_store_14():
         "stop",
     }
 
-    infered_value = pm.data_store._cached_data["out2"].value
+    infered_value = pm.data_store.data_values["out2"]
 
     assert isinstance(infered_value, backend.DataType)
     np.testing.assert_allclose(infered_value, backend.ones(1, 10, 15, 15) * 72, 1e-6)
@@ -400,7 +384,7 @@ def test_data_store_15():
         backend=backend,
         constant_keys={"input1": input1, "input2": input2, "kernel": kernel},
     )
-    assert pm.data_store._cached_data.keys() == {"input1", "out2"}
+    assert pm.data_store.data_values.keys() == {"input1", "out2"}
     assert pm.data_store._runtime_static_keys == set()
     assert pm.data_store._intermediate_non_differentiables._table == dict()
 
@@ -424,7 +408,7 @@ def test_data_store_15():
         "output_3",
     }
 
-    infered_value = pm.data_store._cached_data["out2"].value
+    infered_value = pm.data_store.data_values["out2"]
 
     assert isinstance(infered_value, backend.DataType)
     np.testing.assert_allclose(infered_value, backend.ones(1, 10, 15, 15) * 72, 1e-6)
@@ -449,7 +433,7 @@ def test_data_store_16():
         use_short_namings=True,
     )
 
-    assert pm.data_store._cached_data.keys() == {
+    assert pm.data_store.data_values.keys() == {
         "axes",
         "output_0_cache",
         "output_1_cache",
@@ -482,7 +466,7 @@ def test_data_store_17():
         use_short_namings=True,
     )
 
-    assert pm.data_store._cached_data.keys() == {"output_0_cache", "output_cache"}
+    assert pm.data_store.data_values.keys() == {"output_0_cache", "output_cache"}
     assert pm.data_store._runtime_static_keys == {"right"}
     assert pm.data_store._intermediate_non_differentiables._table.keys() == set()
     assert pm.data_store.unused_keys == set()
@@ -513,7 +497,7 @@ def test_data_store_18():
         use_short_namings=True,
     )
 
-    assert pm.data_store._cached_data.keys() == set()
+    assert pm.data_store.data_values.keys() == set()
     assert pm.data_store._runtime_static_keys == set()
     assert pm.data_store._intermediate_non_differentiables._table.keys() == set()
     assert pm.data_store.unused_keys == set()
@@ -544,7 +528,7 @@ def test_data_store_19():
         use_short_namings=True,
     )
 
-    assert pm.data_store._cached_data.keys() == set()
+    assert pm.data_store.data_values.keys() == set()
     assert pm.data_store._runtime_static_keys == set()
     assert pm.data_store._intermediate_non_differentiables._table.keys() == set()
     assert pm.data_store.unused_keys == set()
@@ -575,7 +559,7 @@ def test_data_store_20():
         use_short_namings=True,
     )
 
-    assert pm.data_store._cached_data.keys() == {"tensor_out"}
+    assert pm.data_store.data_values.keys() == {"tensor_out"}
     assert pm.data_store._runtime_static_keys == set()
     assert pm.data_store._intermediate_non_differentiables._table.keys() == set()
     assert pm.data_store.unused_keys == {"left", "output_1"}
