@@ -95,7 +95,6 @@ class FlatGraph(GenericDataType[DataType]):
 
         self._topological_order: list[str] = []
         self._input_keys = input_keys
-        self._output_keys = output_keys
 
         self.output_dict: dict[str, str] = {key: key for key in output_keys}
         self._temp_connection_info: dict[str, str] = {}
@@ -113,11 +112,11 @@ class FlatGraph(GenericDataType[DataType]):
 
     @property
     def input_keys(self):
-        return self._input_keys
+        return set(self._input_keys)
 
     @property
     def output_keys(self):
-        return self._output_keys
+        return set(self.output_dict.keys())
 
     @property
     def all_keys(self):
@@ -293,7 +292,7 @@ class FlatGraph(GenericDataType[DataType]):
             node.connections[PrimitiveModel.output_key].key
             for node in self.nodes.values()
             if node.model is not None
-            or node.connections[PrimitiveModel.output_key].key in self._output_keys
+            or node.connections[PrimitiveModel.output_key].key in self.output_keys
         ]
 
     def _update_all_source_keys(self):
@@ -500,7 +499,7 @@ class FlatGraph(GenericDataType[DataType]):
 
         if (
             key := node.connections[PrimitiveModel.output_key].key
-        ) not in self._output_keys and key in self._all_target_keys:
+        ) not in self.output_keys and key in self._all_target_keys:
             self._all_target_keys.remove(key)
 
         if node.model is not None:
@@ -571,7 +570,7 @@ class FlatGraph(GenericDataType[DataType]):
                 if value not in keys:
                     value_mapping = backward_key_fn(value, include_outputs=True)
                     if set(value_mapping).issubset(keys) and (
-                        value not in self._output_keys
+                        value not in self.output_keys
                     ):
                         keys.add(value)
                         queue.add(value)

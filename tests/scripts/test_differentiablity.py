@@ -143,7 +143,7 @@ def test_non_trainability_flow_in_compile_with_data_keys_3():
     buff_model = Buffer()
     model += buff_model(input="input", output="buff_out")
     mult = Multiply()
-    model += mult(left="left", right=model.canonical_output, output="mult_out")
+    model += mult(left="left", right=model.canonical_output, output=IOKey("mult_out"))
     model += Add()(left="left", right=buff_model.output, output=IOKey("add_out"))
 
     backend = JaxBackend()
@@ -158,7 +158,7 @@ def test_trainability_flow_in_compile_with_trainable_keys():
     buff_model.input.set_differentiable(False)
     model += buff_model(input="input", output="buff_out")
     mult = Multiply()
-    model += mult(left="left", right=model.canonical_output, output="mult_out")
+    model += mult(left="left", right=model.canonical_output, output=IOKey("mult_out"))
     model += Add()(left="left", right=buff_model.output, output=IOKey("add_out"))
     model.left.set_differentiable(False)  # type: ignore
 
