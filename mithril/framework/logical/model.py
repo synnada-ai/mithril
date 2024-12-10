@@ -15,7 +15,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from types import EllipsisType, UnionType
+from types import EllipsisType, NoneType, UnionType
 from typing import Any, Self, TypeVar, overload
 
 from ...utils.utils import OrderedSet, find_dominant_type
@@ -991,7 +991,7 @@ class Model(BaseModel):
                 result = conv_model.conns.get_connection("output")
                 assert result is not None
                 update_canonical_input = True
-            elif dominant_type not in [float, int, bool, slice, EllipsisType]:
+            elif dominant_type not in [float, int, bool, slice, NoneType, EllipsisType]:
                 raise TypeError(
                     f"{dominant_type} type is not supported for conversion in "
                     "a container!"

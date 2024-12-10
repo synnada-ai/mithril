@@ -15,16 +15,7 @@
 import pytest
 
 import mithril as ml
-from mithril.models import Mean, Model, Reshape
-
-
-@pytest.mark.skip(
-    reason="find_dominant_type is not working "
-    "properly. Open this test when it is fixed."
-)
-def test_reshape_call_arg():
-    model = Model()
-    model += Reshape()(shape=(2, 3, None, None))
+from mithril.models import Mean, Model
 
 
 @pytest.mark.skip(
