@@ -6,7 +6,7 @@ on:
     branches: [ dev, main ]
 jobs:
   build:
-    runs-on: macos-latest
+    runs-on: macOS-15
     strategy:
       matrix:
         python-version: [3.12]
@@ -46,7 +46,7 @@ jobs:
 
   on_failure:
     needs: build
-    runs-on: macos-latest
+    runs-on: macOS-15
     env:
       GH_TOKEN: ${{ github.token }}
     if: ${{ failure() }}
