@@ -384,9 +384,9 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
 
             # Get primitive function inputs order
             primitive_function = (
-                self.backend.primitive_function_dict[model.formula_key]
-                if model.formula_key in self.backend.primitive_function_dict
-                else self.backend.registered_primitives[model.formula_key]
+                self.backend.primitive_function_dict[model._formula_key]
+                if model._formula_key in self.backend.primitive_function_dict
+                else self.backend.registered_primitives[model._formula_key]
             )
             local_to_global_dict = {
                 key: value
@@ -446,7 +446,7 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
 
                 if grad_fn is None:
                     raise NotImplementedError(
-                        f"Primitive {model.formula_key} does not have vjp "
+                        f"Primitive {model._formula_key} does not have vjp "
                         "implementation!"
                     )
 

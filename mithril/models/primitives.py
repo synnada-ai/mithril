@@ -389,7 +389,7 @@ class CrossEntropy(PrimitiveModel):
             "output": output,
         }
         # Check if the given argument set is valid.
-        if self.formula_key == "cross_entropy_with_log_probs":
+        if self._formula_key == "cross_entropy_with_log_probs":
             args: list[str] = []
             if robust is not False:
                 args.append("robust")

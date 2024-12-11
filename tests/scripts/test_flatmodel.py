@@ -75,9 +75,9 @@ def test_multi_level_name_with_lowest_definition():
     f_model = FlatModel(model, short_namings=False)
     assert f_model.mappings == {
         add: {
-            "left": "model_model_a",
-            "right": "model_model_b",
-            "output": "model_model_c",
+            "left": "model_adder_a",
+            "right": "model_adder_b",
+            "output": "model_adder_c",
         }
     }
 
@@ -366,8 +366,8 @@ def test_integration_multi_level_name_with_lowest_definition():
     input_short = {"a": backend.array([1, 2, 3]), "b": backend.array([4, 5, 6])}
 
     input_long = {
-        "model_model_a": backend.array([1, 2, 3]),
-        "model_model_b": backend.array([4, 5, 6]),
+        "model_adder_a": backend.array([1, 2, 3]),
+        "model_adder_b": backend.array([4, 5, 6]),
     }
 
     res_short = pm_short.evaluate(input_short)
