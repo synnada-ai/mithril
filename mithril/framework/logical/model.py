@@ -15,7 +15,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from types import EllipsisType, UnionType
+from types import EllipsisType, NoneType, UnionType
 from typing import Any, Self, TypeVar, overload
 
 from ...utils.utils import OrderedSet, find_dominant_type
@@ -34,6 +34,7 @@ from ..common import (
     KeyType,
     MainValueInstance,
     MainValueType,
+    NestedListType,
     NotAvailable,
     NullConnection,
     Scalar,
@@ -695,9 +696,10 @@ class Model(BaseModel):
                 data = Scalar(possible_types=set_type)
 
             else:
+                shape_node = ShapeRepr(root=Variadic()).node
                 if set_type is None:
                     set_type = int | float | bool
-                shape_node = ShapeRepr(root=Variadic()).node
+                assert isinstance(set_type, type | UnionType)
                 data = Tensor(shape_node, set_type)
 
             # Determine connection type.
@@ -989,7 +991,7 @@ class Model(BaseModel):
                 result = conv_model.conns.get_connection("output")
                 assert result is not None
                 update_canonical_input = True
-            elif dominant_type not in [float, int, bool, slice, EllipsisType]:
+            elif dominant_type not in [float, int, bool, slice, NoneType, EllipsisType]:
                 raise TypeError(
                     f"{dominant_type} type is not supported for conversion in "
                     "a container!"
@@ -1065,7 +1067,7 @@ class Model(BaseModel):
         output_values: set[str] = set()
 
         shape_info: dict[str, ShapeTemplateType] = dict()
-        type_info: dict[str, type | UnionType] = dict()
+        type_info: dict[str, type | UnionType | NestedListType] = dict()
 
         for key, value in kwargs.items():
             # Check if given keys are among model's keys.

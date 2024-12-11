@@ -27,10 +27,15 @@ from ..common import (
     TBD,
     Connection,
     ConnectionData,
+    DataEvalType,
+    EvaluateAllType,
+    EvaluateGradientsType,
+    EvaluateType,
     IOHyperEdge,
     IOKey,
     MainValueType,
     NotAvailable,
+    ParamsEvalType,
     Scalar,
     Table,
     Tensor,
@@ -86,6 +91,7 @@ class PhysicalModel(GenericDataType[DataType]):
         inference: bool,
         safe_shapes: bool,
         safe_names: bool,
+        use_short_namings: bool,
     ) -> None:
         if isinstance(model, PrimitiveModel):
             # TODO: Remove wrapping with Model in the future.
@@ -107,7 +113,11 @@ class PhysicalModel(GenericDataType[DataType]):
 
         self.backend: Backend[DataType] = backend
         self._output_keys: set[str] = set(model.conns.output_keys)
-        flat_model = FlatModel(model, set(backend.primitive_function_dict.keys()))
+        flat_model = FlatModel(
+            model,
+            set(backend.primitive_function_dict.keys()),
+            short_namings=use_short_namings,
+        )
         self.external_key_mapping = flat_model.external_mapping
 
         # NOTE: Reconsider updating logical dag in order.
@@ -288,7 +298,7 @@ class PhysicalModel(GenericDataType[DataType]):
             )
         elif key not in model.conns.all:
             raise KeyError(f"Given key: {key} is not found in the logical model.")
-        return flat_model.external_mapping.get(key, key)
+        return self.external_key_mapping.get(key, key)
 
     def _check_overridden_nontrainable_keys(
         self,
@@ -589,48 +599,15 @@ class PhysicalModel(GenericDataType[DataType]):
 
     def generate_functions(
         self,
-        eval_fn: Callable[
-            [dict[str, DataType] | None, Mapping[str, MainValueType | DataType] | None],
-            Mapping[str, MainValueType | DataType],
-        ],
-        grad_fn: Callable[
-            [
-                dict[str, DataType] | None,
-                Mapping[str, MainValueType | DataType] | None,
-                dict[str, DataType] | None,
-            ],
-            dict[str, DataType],
-        ],
-        eval_all_fn: Callable[
-            [
-                dict[str, DataType] | None,
-                Mapping[str, MainValueType | DataType] | None,
-                dict[str, DataType] | None,
-            ],
-            tuple[Mapping[str, MainValueType | DataType], dict[str, DataType]],
-        ],
+        eval_fn: EvaluateType[DataType],
+        grad_fn: EvaluateGradientsType[DataType] | None,
+        eval_all_fn: EvaluateAllType[DataType] | None,
     ) -> None:
-        self._generated_eval_fn: Callable[
-            [dict[str, DataType] | None, Mapping[str, MainValueType | DataType] | None],
-            Mapping[str, MainValueType | DataType],
-        ] = eval_fn
-        self._generated_compute_gradients_fn: Callable[
-            [
-                dict[str, DataType] | None,
-                Mapping[str, MainValueType | DataType] | None,
-                dict[str, DataType] | None,
-            ],
-            dict[str, DataType],
-        ] = grad_fn
-
-        self._generated_evaluate_all_fn: Callable[
-            [
-                dict[str, DataType] | None,
-                Mapping[str, MainValueType | DataType] | None,
-                dict[str, DataType] | None,
-            ],
-            tuple[Mapping[str, MainValueType | DataType], dict[str, DataType]],
-        ] = eval_all_fn
+        self._generated_eval_fn: EvaluateType[DataType] = eval_fn
+        self._generated_compute_gradients_fn: EvaluateGradientsType[DataType] | None = (
+            grad_fn
+        )
+        self._generated_evaluate_all_fn: EvaluateAllType[DataType] | None = eval_all_fn
 
     def create_jacobian_fn(self, generated_fn: Callable):
         # TODO: Fix this method to make it picklable!
@@ -785,7 +762,7 @@ class PhysicalModel(GenericDataType[DataType]):
 
         pm_trainables = (
             self._input_keys
-            - self.data_store._cached_data.keys()
+            - self.data_store.data_values.keys()
             - self.data_store.unused_keys
             - self.data_store.runtime_static_keys
         )
@@ -1120,9 +1097,9 @@ class PhysicalModel(GenericDataType[DataType]):
 
     def evaluate(
         self,
-        params: dict[str, DataType] | None = None,
-        data: Mapping[str, DataType | MainValueType] | None = None,
-    ) -> Mapping[str, MainValueType | DataType]:
+        params: ParamsEvalType[DataType] | None = None,
+        data: DataEvalType[DataType] | None = None,
+    ) -> DataEvalType[DataType]:
         if (
             isinstance(self.backend, ParallelBackend)
             and self.backend._parallel_manager is not None
@@ -1133,10 +1110,10 @@ class PhysicalModel(GenericDataType[DataType]):
 
     def evaluate_gradients(
         self,
-        params: dict[str, DataType] | None = None,
-        data: Mapping[str, DataType | MainValueType] | None = None,
-        output_gradients: dict[str, DataType] | None = None,
-    ) -> dict[str, DataType]:
+        params: ParamsEvalType[DataType] | None = None,
+        data: DataEvalType[DataType] | None = None,
+        output_gradients: ParamsEvalType[DataType] | None = None,
+    ) -> ParamsEvalType[DataType]:
         if self.inference:
             raise NotImplementedError(
                 "Inference mode does not support gradients calculation"
@@ -1149,14 +1126,14 @@ class PhysicalModel(GenericDataType[DataType]):
                 params, data, output_gradients, fn_name="eval_grad_fn"
             )
         else:
-            return self._generated_compute_gradients_fn(params, data, output_gradients)
+            return self._generated_compute_gradients_fn(params, data, output_gradients)  # type: ignore
 
     def evaluate_all(
         self,
-        params: dict[str, DataType] | None = None,
-        data: Mapping[str, DataType | MainValueType] | None = None,
-        output_gradients: dict[str, DataType] | None = None,
-    ) -> tuple[Mapping[str, MainValueType | DataType], dict[str, DataType]]:
+        params: ParamsEvalType[DataType] | None = None,
+        data: DataEvalType[DataType] | None = None,
+        output_gradients: ParamsEvalType[DataType] | None = None,
+    ) -> tuple[DataEvalType[DataType], ParamsEvalType[DataType]]:
         if self.inference:
             raise NotImplementedError(
                 "Inferece mode does not support gradients calculation"
@@ -1169,7 +1146,7 @@ class PhysicalModel(GenericDataType[DataType]):
                 params, data, output_gradients, fn_name="eval_all_fn"
             )
         else:
-            return self._generated_evaluate_all_fn(params, data, output_gradients)
+            return self._generated_evaluate_all_fn(params, data, output_gradients)  # type: ignore
 
 
 @dataclass
@@ -1208,11 +1185,12 @@ class FlatModel:
         self.mappings: dict[PrimitiveModel, dict[str, Name]] = {}
         self.assigned_edges: dict[IOHyperEdge, Name] = {}
         self.assigned_names: dict[str, Name] = {}
+        self.external_edges: dict[IOHyperEdge, str] = {}
         self.used_edges: set[IOHyperEdge] = set()
         self.key_origins: dict[str, int] = {}
         self.reserved_keys = reserved_keys if reserved_keys else set()
         self.queued_models: dict[
-            IOHyperEdge, list[tuple[PrimitiveModel, dict[str, str]]]
+            IOHyperEdge, list[tuple[PrimitiveModel, dict[str, str], str]]
         ] = {}
         self._external_mapping: dict[str, Name] = {}
         self.model = model
@@ -1291,21 +1269,24 @@ class FlatModel:
             conn = self.model.conns.all[key]
             base_name_str = conn.key
 
-            if not key.startswith("$"):
-                name_str = self._get_unique_name_str(base_name_str)
-                name = self._create_name(name_str, base_name_str)
-            else:
-                key_origin = conn.metadata.key_origin
-                assert key_origin is not None
-                name = self._create_name(
-                    self._get_unique_name_str(key_origin, key_origin_counts), key_origin
-                )
+            if self.short_namings:
+                if not key.startswith("$"):
+                    name_str = self._get_unique_name_str(base_name_str)
+                    name = self._create_name(name_str, base_name_str)
+                else:
+                    key_origin = conn.metadata.key_origin
+                    assert key_origin is not None
+                    name = self._create_name(
+                        self._get_unique_name_str(key_origin, key_origin_counts),
+                        key_origin,
+                    )
 
-            self._external_mapping[base_name_str] = name
-            self.assigned_edges[conn.metadata] = name
+                self._external_mapping[base_name_str] = name
+                self.assigned_edges[conn.metadata] = name
 
             if key in self.model._input_keys:
                 self.used_edges.add(conn.metadata)
+                self.external_edges[conn.metadata] = base_name_str
 
     def _count_key_origins(
         self, external_keys_named: list[str], external_keys_no_named: list[str]
@@ -1364,11 +1345,52 @@ class FlatModel:
             mappings = {}
 
         if isinstance(model, PrimitiveModel):
-            self._process_primitive_model(model, mappings)
+            if not self._is_primitive_ready(model):
+                self._add_primitive_to_queue(model, mappings, parent_name)
+                return
+
+            self._process_primitive_model(model, mappings, parent_name)
+
         elif isinstance(model, Model):
             self._process_model(model, mappings, parent_name)
         else:
             raise ValueError("Model must be either PrimitiveModel or Model")
+
+    def _process_primitive_model(
+        self, model: PrimitiveModel, mappings: dict[str, str], parent_name: str
+    ):
+        """
+        Process a primitive model.
+
+        Args:
+            model (PrimitiveModel): The primitive model.
+            mappings (dict[str, str]): The mappings of keys.
+        """
+
+        self.mappings.setdefault(model, {})
+        for key, conn in model.conns.all.items():
+            if conn.metadata in self.assigned_edges:
+                name = self.assigned_edges[conn.metadata]
+            elif self.short_namings:
+                key_origin = conn.metadata.key_origin
+                assert key_origin is not None
+
+                name = self._create_name(
+                    self._get_next_unique_name(key_origin), key_origin
+                )
+            else:
+                name_key = mappings.get(key, f"{parent_name}_{key}")
+                name = self._create_name(name_key, name_key)
+                if conn.metadata in self.external_edges:
+                    external_name_key = self.external_edges[conn.metadata]
+                    self._external_mapping[external_name_key] = name
+
+            self.assigned_edges[conn.metadata] = name
+            self.mappings[model][key] = name
+
+        output_edge = model.output.metadata
+        self.used_edges.add(output_edge)
+        self._check_for_queue(output_edge)
 
     def _process_model(self, model: Model, mappings: dict[str, str], parent_name: str):
         submodel_names = model.get_unique_submodel_names()
@@ -1402,11 +1424,32 @@ class FlatModel:
 
             self._generate_keys(m, name_mapping, parent_name=name)
 
+    def _check_for_queue(self, hyperedge: IOHyperEdge):
+        if hyperedge in self.queued_models:
+            for m, mappings, parent_name in self.queued_models[hyperedge]:
+                if self._is_primitive_ready(m):
+                    self._process_primitive_model(
+                        m, mappings=mappings, parent_name=parent_name
+                    )
+
+    def _is_primitive_ready(self, model: PrimitiveModel):
+        """
+        Check if a primitive model is ready to be processed.
+
+        Args:
+            model (PrimitiveModel): The primitive model.
+
+        Returns:
+            bool: True if the model is ready, False otherwise.
+        """
+
+        for conn in model.conns.input_connections:
+            if conn.metadata.data.value == TBD and conn.metadata not in self.used_edges:
+                return False
+        return True
+
     def _add_primitive_to_queue(
-        self,
-        model: PrimitiveModel,
-        input_edges: set[IOHyperEdge],
-        mappings: dict[str, str],
+        self, model: PrimitiveModel, mappings: dict[str, str], parent_name: str
     ):
         """
         Add a primitive model to the queue.
@@ -1416,52 +1459,11 @@ class FlatModel:
             input_edges (set[IOHyperEdge]): The input edges.
             mappings (dict[str, str]): The mappings of keys.
         """
-        for edge in input_edges:
-            self.queued_models.setdefault(edge, [])
-            if (model, mappings) not in self.queued_models[edge]:
-                self.queued_models[edge].append((model, mappings))
 
-    def _process_primitive_model(self, model: PrimitiveModel, mappings: dict[str, str]):
-        """
-        Process a primitive model.
-
-        Args:
-            model (PrimitiveModel): The primitive model.
-            mappings (dict[str, str]): The mappings of keys.
-        """
-        input_edges = {
-            conn.metadata
-            for conn in model.conns.input_connections
-            if conn.metadata.data.value == TBD
-        }
-
-        if not input_edges.issubset(self.used_edges):
-            self._add_primitive_to_queue(model, input_edges, mappings)
-            return
-
-        self.mappings.setdefault(model, {})
-        for key, conn in model.conns.all.items():
-            key_origin = conn.metadata.key_origin
-            assert key_origin is not None
-            if conn.metadata in self.assigned_edges:
-                name = self.assigned_edges[conn.metadata]
-            else:
-                name = self._create_name(
-                    self._get_next_unique_name(key_origin), key_origin
-                )
-
-            self.assigned_edges[conn.metadata] = name
-            self.mappings[model][key] = name
-
-            if key in mappings and not self.short_namings:
-                self.rename_key(name.name, mappings[key])
-
-        output_edge = next(conn.metadata for conn in model.conns.output_connections)
-        self.used_edges.add(output_edge)
-
-        if output_edge in self.queued_models:
-            for m, mappings in self.queued_models[output_edge]:
-                self._process_primitive_model(m, mappings=mappings)
+        for conn in model.conns.input_connections:
+            self.queued_models.setdefault(conn.metadata, [])
+            if (model, mappings, parent_name) not in self.queued_models[conn.metadata]:
+                self.queued_models[conn.metadata].append((model, mappings, parent_name))
 
     def _get_next_unique_name(self, name: str) -> str:
         """

@@ -22,7 +22,9 @@ from ..framework.common import (
     TBD,
     Connection,
     ConnectionType,
+    GenericTensorType,
     IOKey,
+    MyTensor,
     TensorValueType,
     ToBeDetermined,
 )
@@ -51,7 +53,7 @@ from ..framework.constraints import (
 )
 from ..framework.logical.base import BaseModel
 from ..framework.logical.essential_primitives import SingleInputOperation
-from ..models import ExtendInfo, PrimitiveModel, Scalar, TensorType
+from ..models import ExtendInfo, PrimitiveModel
 from ..utils.utils import PaddingType
 
 __all__ = [
@@ -120,13 +122,12 @@ __all__ = [
 ]
 
 # Define types used to define keys:
-QuantileType = float | int
 ConstantType = float | int | Constant
 
 
 class CustomPrimitiveModel(PrimitiveModel):
     def __init__(
-        self, formula_key: str, name: str | None = None, **kwargs: TensorType | Scalar
+        self, formula_key: str, name: str | None = None, **kwargs: IOKey
     ) -> None:
         self.factory_args = {"formula_key": formula_key} | kwargs
         super().__init__(formula_key=formula_key, name=name, **kwargs)
@@ -152,12 +153,12 @@ class SupervisedLoss(PrimitiveModel):
         formula_key: str,
         polymorphic_constraint: bool = True,
         name: str | None = None,
-        **kwargs: TensorType | Scalar,
+        **kwargs: IOKey,
     ) -> None:
-        default_kwargs: dict[str, TensorType | Scalar] = {
-            "output": TensorType([("Var_1", ...)]),
-            "input": TensorType([("Var_2", ...)]),
-            "target": TensorType([("Var_3", ...)]),
+        default_kwargs: dict[str, IOKey] = {
+            "output": IOKey(shape=[("Var_1", ...)], type=GenericTensorType),
+            "input": IOKey(shape=[("Var_2", ...)], type=GenericTensorType),
+            "target": IOKey(shape=[("Var_3", ...)], type=GenericTensorType),
         }
         # Finalize kwargs.
         kwargs = default_kwargs | kwargs
@@ -221,7 +222,7 @@ class HingeLoss(SupervisedLoss):
             polymorphic_constraint=False,
             formula_key="hinge_loss",
             name=name,
-            output=TensorType(["N", ("Var", ...)], float),
+            output=IOKey(shape=["N", ("Var", ...)], type=MyTensor[float]),
         )
         self.factory_inputs = {"input": input, "target": target}
 
@@ -237,7 +238,7 @@ class QuadHingeLoss(SupervisedLoss):
             polymorphic_constraint=False,
             formula_key="quad_hinge_loss",
             name=name,
-            output=TensorType(["N", ("Var", ...)], float),
+            output=IOKey(shape=["N", ("Var", ...)], type=MyTensor[float]),
         )
         self.factory_inputs = {"input": input, "target": target}
 
@@ -262,10 +263,10 @@ class QuantileLoss(PrimitiveModel):
         super().__init__(
             formula_key="quantile_loss",
             name=name,
-            output=TensorType([("Var_1", ...)]),
-            input=TensorType([("Var_2", ...)]),
-            target=TensorType([("Var_3", ...)]),
-            quantile=TensorType([], QuantileType),
+            output=IOKey(shape=[("Var_1", ...)], type=GenericTensorType),
+            input=IOKey(shape=[("Var_2", ...)], type=GenericTensorType),
+            target=IOKey(shape=[("Var_3", ...)], type=GenericTensorType),
+            quantile=IOKey(shape=[], type=MyTensor[int] | MyTensor[float]),
         )
         self.factory_inputs = {"input": input, "target": target, "quantile": quantile}
 
@@ -287,7 +288,7 @@ class QuantileLoss(PrimitiveModel):
         self,
         input: ConnectionType = NOT_GIVEN,
         target: ConnectionType = NOT_GIVEN,
-        quantile: QuantileType | ConnectionType = 0.5,
+        quantile: int | float | ConnectionType = 0.5,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(
@@ -334,14 +335,14 @@ class CrossEntropy(PrimitiveModel):
         else:
             final_weights = weights
 
-        kwargs: dict[str, TensorType | Scalar] = {
-            "output": TensorType(["N", ("Var", ...)], float),
-            "input": TensorType(["N", "C", ("Var", ...)]),
-            "target": TensorType(["N", ("VarTarget", ...)]),
-            "weights": Scalar(weights_type, final_weights),
-            "categorical": Scalar(bool),
-            "cutoff": TensorType([], ConstantType),
-            "robust": Scalar(bool),
+        kwargs: dict[str, IOKey] = {
+            "output": IOKey(shape=["N", ("Var", ...)], type=MyTensor[float]),
+            "input": IOKey(shape=["N", "C", ("Var", ...)], type=GenericTensorType),
+            "target": IOKey(shape=["N", ("VarTarget", ...)], type=GenericTensorType),
+            "weights": IOKey(type=weights_type, value=final_weights),
+            "categorical": IOKey(type=bool),
+            "cutoff": IOKey(shape=[], type=GenericTensorType),
+            "robust": IOKey(type=bool),
         }
 
         if input_type == "logits":
@@ -424,10 +425,10 @@ class KLDivergence(PrimitiveModel):
         super().__init__(
             formula_key="kl_divergence",
             name=name,
-            output=TensorType([("Var_1", ...)], float),
-            input=TensorType([("Var_2", ...)]),
-            target=TensorType([("Var_3", ...)]),
-            cutoff=TensorType([], ConstantType),
+            output=IOKey(shape=[("Var_1", ...)], type=MyTensor[float]),
+            input=IOKey(shape=[("Var_2", ...)], type=GenericTensorType),
+            target=IOKey(shape=[("Var_3", ...)], type=GenericTensorType),
+            cutoff=IOKey(shape=[], type=GenericTensorType),
         )
         self.factory_inputs = {"input": input, "target": target, "cutoff": cutoff}
 
@@ -487,15 +488,15 @@ class BinaryCrossEntropy(PrimitiveModel):
         pos_weight_type = (
             float | bool if pos_weight in (..., None) else type(pos_weight)
         )
-        kwargs: dict[str, TensorType | Scalar] = {
-            "output": TensorType([("Var_out", ...)], float),
-            "input": TensorType([("Var_out", ...)]),
-            "target": TensorType(
-                [("Var_out", ...)], int | float
-            ),  # NOTE: Target can also be probabilistic, so float is acceptable.
-            "pos_weight": Scalar(pos_weight_type, pos_weight),
-            "cutoff": TensorType([], ConstantType),
-            "robust": Scalar(bool),
+        kwargs: dict[str, IOKey] = {
+            "output": IOKey(shape=[("Var_out", ...)], type=MyTensor[float]),
+            "input": IOKey(shape=[("Var_out", ...)], type=GenericTensorType),
+            "target": IOKey(
+                shape=[("Var_out", ...)], type=MyTensor[int] | MyTensor[float]
+            ),
+            "pos_weight": IOKey(type=pos_weight_type, value=pos_weight),
+            "cutoff": IOKey(shape=[], type=GenericTensorType),
+            "robust": IOKey(type=bool),
         }
 
         if input_type == "logits":
@@ -557,17 +558,17 @@ class Log(PrimitiveModel):
             super().__init__(
                 formula_key="robust_log",
                 name=name,
-                output=TensorType([("Var", ...)], float),
-                input=TensorType([("Var", ...)]),
-                cutoff=TensorType([], ConstantType),
+                output=IOKey(shape=[("Var", ...)], type=MyTensor[float]),
+                input=IOKey(shape=[("Var", ...)], type=GenericTensorType),
+                cutoff=IOKey(shape=[], type=GenericTensorType),
             )
             self.factory_inputs = {"input": input, "cutoff": cutoff}
         else:
             super().__init__(
                 formula_key="log",
                 name=name,
-                output=TensorType([("Var", ...)], float),
-                input=TensorType([("Var", ...)]),
+                output=IOKey(shape=[("Var", ...)], type=MyTensor[float]),
+                input=IOKey(shape=[("Var", ...)], type=GenericTensorType),
             )
             self.factory_inputs = {"input": input}
 
@@ -603,9 +604,9 @@ class StableReciprocal(PrimitiveModel):
         super().__init__(
             formula_key="stable_reciprocal",
             name=name,
-            output=TensorType([("Var", ...)], float),
-            input=TensorType([("Var", ...)]),
-            cutoff=TensorType([], ConstantType),
+            output=IOKey(shape=[("Var", ...)], type=MyTensor[float]),
+            input=IOKey(shape=[("Var", ...)], type=GenericTensorType),
+            cutoff=IOKey(shape=[], type=GenericTensorType),
         )
         self.factory_inputs = {"input": input, "cutoff": cutoff}
 
@@ -626,7 +627,7 @@ class Sine(SingleInputOperation):
             formula_key="sin",
             name=name,
             polymorphic_constraint=False,
-            output=TensorType([("Var", ...)], float),
+            output=IOKey(shape=[("Var", ...)], type=MyTensor[float]),
         )
         self.factory_inputs = {"input": input}
 
@@ -639,7 +640,7 @@ class Cosine(SingleInputOperation):
             formula_key="cos",
             name=name,
             polymorphic_constraint=False,
-            output=TensorType([("Var", ...)], float),
+            output=IOKey(shape=[("Var", ...)], type=MyTensor[float]),
         )
         self.factory_inputs = {"input": input}
 
@@ -652,7 +653,7 @@ class Sign(SingleInputOperation):
             formula_key="sign",
             name=name,
             polymorphic_constraint=False,
-            output=TensorType([("Var", ...)], int),
+            output=IOKey(shape=[("Var", ...)], type=MyTensor[int]),
         )
         self.factory_inputs = {"input": input}
 
@@ -673,7 +674,7 @@ class Exponential(SingleInputOperation):
             formula_key="exp",
             name=name,
             polymorphic_constraint=False,
-            output=TensorType([("Var", ...)], float),
+            output=IOKey(shape=[("Var", ...)], type=MyTensor[float]),
         )
         self.factory_inputs = {"input": input}
 
@@ -688,14 +689,15 @@ class Activation(PrimitiveModel):
         formula_key: str,
         polymorphic_constraint: bool = False,
         name: str | None = None,
-        **kwargs: TensorType | Scalar,
+        **kwargs: IOKey,
     ) -> None:
         # NOTE: Torch and JAX behave different for some activation functions.
         # For example JAX handles int type inputs for GELU or LeakyRelu while
         # Torch assumes only float inputs for these activations. Since JAX handles
         # more general case, default types are written taking this into account.
-        default_kwargs: dict[str, TensorType | Scalar] = dict(
-            input=TensorType([("Var", ...)]), output=TensorType([("Var", ...)], float)
+        default_kwargs: dict[str, IOKey] = dict(
+            input=IOKey(shape=[("Var", ...)], type=GenericTensorType),
+            output=IOKey(shape=[("Var", ...)], type=MyTensor[float]),
         )
         # Finalize kwargs.
         kwargs = default_kwargs | kwargs
@@ -721,8 +723,8 @@ class Relu(Activation):
             formula_key="relu",
             name=name,
             polymorphic_constraint=True,
-            output=TensorType([("Var", ...)]),
-            input=TensorType([("Var", ...)]),
+            output=IOKey(shape=[("Var", ...)], type=GenericTensorType),
+            input=IOKey(shape=[("Var", ...)], type=GenericTensorType),
         )
         self.factory_inputs = {"input": input}
 
@@ -750,7 +752,7 @@ class Softmax(Activation):
         input: TensorValueType | ToBeDetermined = TBD,
         axis: int | None | ToBeDetermined = TBD,
     ) -> None:
-        super().__init__(formula_key="softmax", name=name, axis=Scalar(int | None))
+        super().__init__(formula_key="softmax", name=name, axis=IOKey(type=int | None))
         self.factory_inputs = {"input": input, "axis": axis}
 
     def __call__(  # type: ignore[override]
@@ -790,7 +792,9 @@ class LeakyRelu(Activation):
         input: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(
-            formula_key="leaky_relu", name=name, slope=TensorType([], float)
+            formula_key="leaky_relu",
+            name=name,
+            slope=IOKey(shape=[], type=MyTensor[float]),
         )
         self.factory_inputs = {"input": input, "slope": slope}
 
@@ -813,8 +817,8 @@ class StopGradient(PrimitiveModel):
         super().__init__(
             formula_key="stop_gradient",
             name=name,
-            output=TensorType([("Var", ...)]),
-            input=TensorType([("Var", ...)]),
+            output=IOKey(shape=[("Var", ...)], type=GenericTensorType),
+            input=IOKey(shape=[("Var", ...)], type=GenericTensorType),
         )
         self.factory_inputs = {"input": input}
 
@@ -838,9 +842,9 @@ class CartesianDifference(PrimitiveModel):
         super().__init__(
             formula_key="cartesian_diff",
             name=name,
-            output=TensorType(["N", "M", "dim"]),
-            left=TensorType(["N", "dim"]),
-            right=TensorType(["M", "dim"]),
+            output=IOKey(shape=["N", "M", "dim"], type=GenericTensorType),
+            left=IOKey(shape=["N", "dim"], type=GenericTensorType),
+            right=IOKey(shape=["M", "dim"], type=GenericTensorType),
         )
         self.factory_inputs = {"left": left, "right": right}
         self._set_constraint(
@@ -870,12 +874,17 @@ class Concat(PrimitiveModel):
     ) -> None:
         self.factory_args = {"n": n, "axis": axis}
 
-        key_definitions: dict[str, TensorType | Scalar] = {}
-        key_definitions["output"] = TensorType([("Var_out", ...)])
+        key_definitions: dict[str, IOKey] = {}
+        key_definitions["output"] = IOKey(
+            shape=[("Var_out", ...)], type=GenericTensorType
+        )
         key_definitions |= {
-            f"input{idx+1}": TensorType([(f"Var_{idx + 1}", ...)]) for idx in range(n)
+            f"input{idx+1}": IOKey(
+                shape=[(f"Var_{idx + 1}", ...)], type=GenericTensorType
+            )
+            for idx in range(n)
         }
-        key_definitions["axis"] = Scalar(int | None, axis)
+        key_definitions["axis"] = IOKey(type=int | None, value=axis)
 
         super().__init__(formula_key="concat", name=name, **key_definitions)
         # self.factory_inputs = {key: value for key, value in kwargs.items()}
@@ -902,14 +911,14 @@ class PrimitiveUnion(PrimitiveModel):
     ) -> None:
         self.factory_args = {"n": n}
         input_definitions = {
-            f"input{idx + 1}": Scalar(int | float | tuple[int | float, ...])
+            f"input{idx + 1}": IOKey(type=int | float | tuple[int | float, ...])
             for idx in range(n)
         }
 
         super().__init__(
             formula_key="union",
             name=name,
-            output=Scalar(tuple[int | float, ...]),
+            output=IOKey(type=tuple[int | float, ...]),
             **input_definitions,
         )
         self.factory_inputs = kwargs  # type: ignore
@@ -929,9 +938,9 @@ class PermuteTensor(PrimitiveModel):
         super().__init__(
             formula_key="permute_tensor",
             name=name,
-            output=TensorType(["N", ("Var", ...)]),
-            input=TensorType(["N", ("Var", ...)]),
-            indices=TensorType(["N"]),
+            output=IOKey(shape=["N", ("Var", ...)], type=GenericTensorType),
+            input=IOKey(shape=["N", ("Var", ...)], type=GenericTensorType),
+            indices=IOKey(shape=["N"], type=GenericTensorType),
         )
         self.factory_inputs = {"input": input, "indices": indices}
 
@@ -972,14 +981,18 @@ class PrimitiveConvolution1D(PrimitiveModel):
     ) -> None:
         self.factory_args = {"use_bias": use_bias}
         formula_key = "conv1d_bias"
-        kwargs: dict[str, TensorType | Scalar] = {
-            "output": TensorType(["N", "out_channels", "d_out"]),
-            "input": TensorType(["N", "C_in", "d_in"]),
-            "kernel": TensorType(["out_channels", "C_in", "kernel_size"]),
-            "bias": TensorType([1, "out_channels", 1]),
-            "stride": Scalar(int),
-            "padding": Scalar(int | tuple[int, int]),
-            "dilation": Scalar(int),
+        kwargs: dict[str, IOKey] = {
+            "output": IOKey(
+                shape=["N", "out_channels", "d_out"], type=GenericTensorType
+            ),
+            "input": IOKey(shape=["N", "C_in", "d_in"], type=GenericTensorType),
+            "kernel": IOKey(
+                shape=["out_channels", "C_in", "kernel_size"], type=GenericTensorType
+            ),
+            "bias": IOKey(shape=[1, "out_channels", 1], type=GenericTensorType),
+            "stride": IOKey(type=int),
+            "padding": IOKey(type=int | tuple[int, int]),
+            "dilation": IOKey(type=int),
         }
         self.factory_inputs = {
             "input": input,
@@ -1065,20 +1078,21 @@ class PrimitiveConvolution2D(PrimitiveModel):
     ) -> None:
         self.factory_args = {"use_bias": use_bias}
         formula_key = "conv2d_bias"
-        kwargs: dict[str, TensorType | Scalar] = {
-            "output": TensorType(["N", "out_channels", "H_out", "W_out"]),
-            "input": TensorType(["N", "C_in", "H", "W"]),
-            "kernel": TensorType(
-                ["out_channels", "C_in", "kernel_size_0", "kernel_size_1"]
+        kwargs: dict[str, IOKey] = {
+            "output": IOKey(
+                shape=["N", "out_channels", "H_out", "W_out"], type=GenericTensorType
             ),
-            "bias": TensorType(
-                [1, "out_channels", 1, 1]
-            ),  # TODO: Fails when input comes bigger than 4D?
-            "stride": Scalar(int | tuple[int, int]),
-            "padding": Scalar(
-                int | tuple[int, int] | tuple[tuple[int, int], tuple[int, int]]
+            "input": IOKey(shape=["N", "C_in", "H", "W"], type=GenericTensorType),
+            "kernel": IOKey(
+                shape=["out_channels", "C_in", "kernel_size_0", "kernel_size_1"],
+                type=GenericTensorType,
             ),
-            "dilation": Scalar(int | tuple[int, int]),
+            "bias": IOKey(shape=[1, "out_channels", 1, 1], type=GenericTensorType),
+            "stride": IOKey(type=int | tuple[int, int]),
+            "padding": IOKey(
+                type=int | tuple[int, int] | tuple[tuple[int, int], tuple[int, int]]
+            ),
+            "dilation": IOKey(type=int | tuple[int, int]),
         }
 
         if not use_bias:
@@ -1152,11 +1166,11 @@ class Flatten(PrimitiveModel):
     ) -> None:
         self.factory_args = {"start_dim": start_dim, "end_dim": end_dim}
 
-        key_definitions: dict[str, TensorType | Scalar] = {
-            "output": TensorType([("C_out", ...)]),
-            "input": TensorType([("C_in", ...)]),
-            "start_dim": Scalar(int, start_dim),
-            "end_dim": Scalar(int, end_dim),
+        key_definitions: dict[str, IOKey] = {
+            "output": IOKey(shape=[("C_out", ...)], type=GenericTensorType),
+            "input": IOKey(shape=[("C_in", ...)], type=GenericTensorType),
+            "start_dim": IOKey(type=int, value=start_dim),
+            "end_dim": IOKey(type=int, value=end_dim),
         }
         super().__init__(formula_key="flatten", name=name, **key_definitions)
         # self.factory_inputs = {"input": input}
@@ -1206,12 +1220,12 @@ class PrimitiveMaxPool1D(PrimitiveModel):
         super().__init__(
             formula_key="max_pool1d",
             name=name,
-            output=TensorType(["N", ("C_in", ...), "W_out"]),
-            input=TensorType(["N", ("C_in", ...), "W"]),
-            kernel_size=Scalar(int),
-            stride=Scalar(int),
-            padding=Scalar(tuple[int, int]),
-            dilation=Scalar(int),
+            output=IOKey(shape=["N", ("C_in", ...), "W_out"], type=GenericTensorType),
+            input=IOKey(shape=["N", ("C_in", ...), "W"], type=GenericTensorType),
+            kernel_size=IOKey(type=int),
+            stride=IOKey(type=int),
+            padding=IOKey(type=tuple[int, int]),
+            dilation=IOKey(type=int),
         )
         self.factory_inputs = {
             "input": input,
@@ -1262,9 +1276,9 @@ class PaddingConverter1D(PrimitiveModel):
         super().__init__(
             formula_key="padding_converter_1d",
             name=name,
-            output=Scalar(tuple[int, int]),
-            input=Scalar(int | PaddingType | tuple[int, int]),
-            kernel_size=Scalar(int),
+            output=IOKey(type=tuple[int, int]),
+            input=IOKey(type=int | PaddingType | tuple[int, int]),
+            kernel_size=IOKey(type=int),
         )
         self.factory_inputs = {"input": input, "kernel_size": kernel_size}
 
@@ -1300,14 +1314,16 @@ class PaddingConverter2D(PrimitiveModel):
         super().__init__(
             formula_key="padding_converter_2d",
             name=name,
-            output=Scalar(tuple[int, int] | tuple[tuple[int, int], tuple[int, int]]),
-            input=Scalar(
-                int
+            output=IOKey(
+                type=tuple[int, int] | tuple[tuple[int, int], tuple[int, int]]
+            ),
+            input=IOKey(
+                type=int
                 | PaddingType
                 | tuple[int, int]
                 | tuple[tuple[int, int], tuple[int, int]]
             ),
-            kernel_size=Scalar(tuple[int, int]),
+            kernel_size=IOKey(type=tuple[int, int]),
         )
         self.factory_inputs = {"input": input, "kernel_size": kernel_size}
 
@@ -1339,9 +1355,9 @@ class StrideConverter(PrimitiveModel):
         super().__init__(
             formula_key="stride_converter",
             name=name,
-            output=Scalar(int | tuple[int, int]),
-            input=Scalar(int | PaddingType | tuple[int, int] | None),
-            kernel_size=Scalar(int | tuple[int, int]),
+            output=IOKey(type=int | tuple[int, int]),
+            input=IOKey(type=int | PaddingType | tuple[int, int] | None),
+            kernel_size=IOKey(type=int | tuple[int, int]),
         )
         self.factory_inputs = {"input": input, "kernel_size": kernel_size}
         self._set_constraint(
@@ -1374,9 +1390,11 @@ class TupleConverter(PrimitiveModel):
         super().__init__(
             formula_key="tuple_converter",
             name=name,
-            output=Scalar(tuple[int, int] | tuple[tuple[int, int], tuple[int, int]]),
-            input=Scalar(
-                int
+            output=IOKey(
+                type=tuple[int, int] | tuple[tuple[int, int], tuple[int, int]]
+            ),
+            input=IOKey(
+                type=int
                 | PaddingType
                 | tuple[int, int]
                 | tuple[tuple[int, int], tuple[int, int]]
@@ -1416,12 +1434,16 @@ class PrimitiveMaxPool2D(PrimitiveModel):
         super().__init__(
             formula_key="max_pool2d",
             name=name,
-            output=TensorType(["N", ("C_in", ...), "H_out", "W_out"]),
-            input=TensorType(["N", ("C_in", ...), "H", "W"]),
-            kernel_size=Scalar(tuple[int, int]),
-            stride=Scalar(tuple[int, int]),
-            padding=Scalar(tuple[int, int] | tuple[tuple[int, int], tuple[int, int]]),
-            dilation=Scalar(tuple[int, int]),
+            output=IOKey(
+                shape=["N", ("C_in", ...), "H_out", "W_out"], type=GenericTensorType
+            ),
+            input=IOKey(shape=["N", ("C_in", ...), "H", "W"], type=GenericTensorType),
+            kernel_size=IOKey(type=tuple[int, int]),
+            stride=IOKey(type=tuple[int, int]),
+            padding=IOKey(
+                type=tuple[int, int] | tuple[tuple[int, int], tuple[int, int]]
+            ),
+            dilation=IOKey(type=tuple[int, int]),
         )
         self.factory_inputs = {
             "input": input,
@@ -1459,7 +1481,7 @@ class PrimitiveMaxPool2D(PrimitiveModel):
 
 
 class NormModifier(PrimitiveModel):
-    """A helper model that modifes norm input. It is used for mapping
+    """A helper model that modifies norm input. It is used for mapping
     norm values from (`-inf`, `inf`) to the interval (`1.0`, `5.0`) using a
     periodic triangular function with period 8 as shown on the figure below.
     This helper model guarantees norm values to be in an acceptable and
@@ -1483,12 +1505,11 @@ class NormModifier(PrimitiveModel):
     def __init__(
         self, name: str | None = None, input: TensorValueType | ToBeDetermined = TBD
     ) -> None:
-        # TODO: Input should be zero rank??
         super().__init__(
             formula_key="norm_modifier",
             name=name,
-            output=TensorType([]),
-            input=TensorType([]),
+            output=IOKey(shape=[], type=GenericTensorType),
+            input=IOKey(shape=[], type=GenericTensorType),
         )
         self.factory_inputs = {"input": input}
 
@@ -1518,10 +1539,10 @@ class DistanceMatrix(PrimitiveModel):
         super().__init__(
             formula_key="distance_matrix",
             name=name,
-            output=TensorType(["N", "M"]),
-            left=TensorType(["N", "d"]),
-            right=TensorType(["M", "d"]),
-            norm=TensorType([]),
+            output=IOKey(shape=["N", "M"], type=GenericTensorType),
+            left=IOKey(shape=["N", "d"], type=GenericTensorType),
+            right=IOKey(shape=["M", "d"], type=GenericTensorType),
+            norm=IOKey(shape=[], type=GenericTensorType),
         )
         self.factory_inputs = {"left": left, "right": right}
 
@@ -1551,13 +1572,12 @@ class PolynomialFeatures(PrimitiveModel):
         degree: int | ToBeDetermined = TBD,
         input: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
-        self.factory_args = {"degree": degree}
         super().__init__(
             formula_key="polynomial_features",
             name=name,
-            output=TensorType(["N", "d_out"]),
-            input=TensorType(["N", "d_in"]),
-            degree=Scalar(int, degree),
+            output=IOKey(shape=["N", "d_out"], type=GenericTensorType),
+            input=IOKey(shape=["N", "d_in"], type=GenericTensorType),
+            degree=IOKey(type=int, value=degree),
         )
         self.factory_inputs = {"input": input, "degree": degree}
 
@@ -1595,12 +1615,10 @@ class TsnePJoint(PrimitiveModel):
         super().__init__(
             formula_key="tsne_p_joint",
             name=name,
-            output=TensorType(["N", "M"], float),
-            squared_distances=TensorType(
-                ["N", "M"]
-            ),  # TODO: Can we say anything about the type of distances?
-            target_perplexity=TensorType([], float),
-            threshold=TensorType([], ConstantType),
+            output=IOKey(shape=["N", "M"], type=MyTensor[float]),
+            squared_distances=IOKey(shape=["N", "M"], type=GenericTensorType),
+            target_perplexity=IOKey(shape=[], type=MyTensor[float]),
+            threshold=IOKey(shape=[], type=GenericTensorType),
         )
         self.factory_inputs = {
             "squared_distances": squared_distances,
@@ -1637,9 +1655,9 @@ class EyeComplement(PrimitiveModel):
         super().__init__(
             formula_key="ones_with_zero_diag",
             name=name,
-            output=TensorType(["N", "M"], float),
-            N=Scalar(int, N),
-            M=Scalar(int | None, M),
+            output=IOKey(shape=["N", "M"], type=MyTensor[float]),
+            N=IOKey(type=int, value=N),
+            M=IOKey(type=int | None, value=M),
         )
         self.factory_inputs = {"N": N, "M": M}
         self._set_constraint(fn=eye_constraints, keys=["output", "N", "M"])
@@ -1667,9 +1685,9 @@ class Eye(PrimitiveModel):
         super().__init__(
             formula_key="eye",
             name=name,
-            output=TensorType(["N", "M"], float),
-            N=Scalar(int, N),
-            M=Scalar(int | None, M),
+            output=IOKey(shape=["N", "M"], type=MyTensor[float]),
+            N=IOKey(type=int, value=N),
+            M=IOKey(type=int | None, value=M),
         )
         self.factory_inputs = {"N": N, "M": M}
 
@@ -1694,8 +1712,8 @@ class Cholesky(PrimitiveModel):
         super().__init__(
             formula_key="cholesky",
             name=name,
-            output=TensorType(["N", "N"], float),
-            input=TensorType(["N", "N"]),
+            output=IOKey(shape=["N", "N"], type=MyTensor[float]),
+            input=IOKey(shape=["N", "N"], type=GenericTensorType),
         )
         self.factory_inputs = {"input": input}
 
@@ -1721,10 +1739,10 @@ class GPRAlpha(PrimitiveModel):
         super().__init__(
             formula_key="gpr_alpha",
             name=name,
-            output=TensorType(["N", 1], float),
-            label_mu_diff=TensorType(["N", 1]),
-            L=TensorType(["N", "N"]),
-            K_term=TensorType(["N", "N"]),
+            output=IOKey(shape=["N", 1], type=MyTensor[float]),
+            label_mu_diff=IOKey(shape=["N", 1], type=GenericTensorType),
+            L=IOKey(shape=["N", "N"], type=GenericTensorType),
+            K_term=IOKey(shape=["N", "N"], type=GenericTensorType),
         )
         self.factory_inputs = {"label_mu_diff": label_mu_diff, "L": L, "K_term": K_term}
 
@@ -1756,10 +1774,10 @@ class GPRVOuter(PrimitiveModel):
         super().__init__(
             formula_key="gpr_v_outer",
             name=name,
-            output=TensorType(["N", "N"], float),
-            K=TensorType(["N", "N"]),
-            K_term=TensorType(["N", "N"]),
-            L=TensorType(["N", "N"]),
+            output=IOKey(shape=["N", "N"], type=MyTensor[float]),
+            K=IOKey(shape=["N", "N"], type=GenericTensorType),
+            K_term=IOKey(shape=["N", "N"], type=GenericTensorType),
+            L=IOKey(shape=["N", "N"], type=GenericTensorType),
         )
         self.factory_inputs = {"K": K, "K_term": K_term, "L": L}
 
@@ -1783,8 +1801,8 @@ class TransposedDiagonal(PrimitiveModel):
         super().__init__(
             formula_key="transposed_diag",
             name=name,
-            output=TensorType(["N", 1]),
-            input=TensorType(["N", "N"]),
+            output=IOKey(shape=["N", 1], type=GenericTensorType),
+            input=IOKey(shape=["N", "N"], type=GenericTensorType),
         )
         self.factory_inputs = {"input": input}
 
@@ -1811,11 +1829,6 @@ class Arange(PrimitiveModel):
         stop: int | float | ToBeDetermined = TBD,
         step: int | float | ToBeDetermined = 1,
     ) -> None:
-        init_kwargs: dict[str, Scalar | TensorType] = {
-            "start": Scalar(int | float, start),
-            "stop": Scalar(int | float, stop),
-            "step": Scalar(int | float, step),
-        }
         self.factory_inputs = {"start": start, "stop": stop, "step": step}
 
         all_defined = False
@@ -1831,13 +1844,20 @@ class Arange(PrimitiveModel):
             # Else no decimal part, simply take absolute of val.
             val = abs(val) if int(val) == val else abs(int(val)) + 1
             val = int(val)
-            init_kwargs["output"] = TensorType([] if val == 0 else [val])
+            output_shp: list[int | str] = [] if val == 0 else [val]
         else:
-            init_kwargs["output"] = TensorType(["N"])
+            output_shp = ["N"]
 
-        super().__init__(formula_key="arange", name=name, **init_kwargs)
-
+        super().__init__(
+            formula_key="arange",
+            name=name,
+            output=IOKey(shape=output_shp, type=GenericTensorType),
+            start=IOKey(type=int | float, value=start),
+            stop=IOKey(type=int | float, value=stop),
+            step=IOKey(type=int | float, value=step),
+        )
         self.set_canonical_input("stop")
+        self.factory_inputs = {"start": start, "stop": stop, "step": step}
 
         if not all_defined:
             self._set_constraint(
@@ -1872,9 +1892,9 @@ class BroadcastTo(PrimitiveModel):
         super().__init__(
             formula_key="broadcast_to",
             name=name,
-            output=TensorType([("output", ...)]),
-            input=TensorType([("input", ...)]),
-            shape=Scalar(tuple[int, ...], shape),
+            output=IOKey(shape=[("output", ...)], type=GenericTensorType),
+            input=IOKey(shape=[("input", ...)], type=GenericTensorType),
+            shape=IOKey(type=tuple[int, ...], value=shape),
         )
         self.factory_inputs = {"input": input, "shape": shape}
 
@@ -1910,10 +1930,10 @@ class Eigvalsh(PrimitiveModel):
         super().__init__(
             formula_key="eigvalsh",
             name=name,
-            output=TensorType(["N", 1], float),  # TODO: Is it always float?
-            K_term=TensorType(["N", "N"]),
-            L=TensorType(["N", "N"]),
-            threshold=TensorType([], ConstantType),
+            output=IOKey(shape=["N", 1], type=MyTensor[float]),
+            K_term=IOKey(shape=["N", "N"], type=GenericTensorType),
+            L=IOKey(shape=["N", "N"], type=GenericTensorType),
+            threshold=IOKey(shape=[], type=GenericTensorType),
         )
         self.factory_inputs = {"K_term": K_term, "L": L, "threshold": threshold}
 
@@ -1937,8 +1957,8 @@ class Squeeze(PrimitiveModel):
         super().__init__(
             formula_key="squeeze",
             name=name,
-            output=TensorType([("Var_out", ...)]),
-            input=TensorType([("Var", ...)]),
+            output=IOKey(shape=[("Var_out", ...)], type=GenericTensorType),
+            input=IOKey(shape=[("Var", ...)], type=GenericTensorType),
         )
         self.factory_inputs = {"input": input}
 
@@ -1967,9 +1987,9 @@ class AUCCore(PrimitiveModel):
         super().__init__(
             formula_key="auc_core",
             name=name,
-            output=TensorType([2, "M"], float),
-            input=TensorType(["N"]),
-            label=TensorType(["N"]),
+            output=IOKey(shape=[2, "M"], type=MyTensor[float]),
+            input=IOKey(shape=["N"], type=GenericTensorType),
+            label=IOKey(shape=["N"], type=GenericTensorType),
         )
         self.factory_inputs = {"input": input, "label": label}
 
@@ -2000,9 +2020,11 @@ class Embedding(PrimitiveModel):
         super().__init__(
             formula_key="primitive_embedding",
             name=name,
-            output=TensorType([("N1", ...), "d1", out_dim]),
-            input=TensorType([("N1", ...), "d1"], int),
-            embedding_matrix=TensorType([num_embeddings, out_dim]),
+            output=IOKey(shape=[("N1", ...), "d1", out_dim], type=GenericTensorType),
+            input=IOKey(shape=[("N1", ...), "d1"], type=MyTensor[int]),
+            embedding_matrix=IOKey(
+                shape=[num_embeddings, out_dim], type=GenericTensorType
+            ),
         )
         self.factory_inputs = {"input": input, "embedding_matrix": embedding_matrix}
 
@@ -2052,19 +2074,21 @@ class ScaledDotProduct(PrimitiveModel):
         self.use_attn_mask = use_attn_mask
 
         formula_key = "scaled_dot_product_attention"
-        kwargs: dict[str, TensorType | Scalar] = {
-            "output": TensorType([("Var", ...), "L", "O"], float),
-            "query": TensorType([("Var", ...), "L", "E"]),
-            "key": TensorType([("Var", ...), "S", "E"]),
-            "value": TensorType([("Var", ...), "S", "O"]),
-            "dropout_p": Scalar(float, dropout_p),
-            "attn_mask": Scalar(NoneType, None),
-            "is_causal": Scalar(bool, is_causal),
-            "scale": Scalar(NoneType | int | float, scale),
+        kwargs: dict[str, IOKey] = {
+            "output": IOKey(shape=[("Var", ...), "L", "O"], type=MyTensor[float]),
+            "query": IOKey(shape=[("Var", ...), "L", "E"], type=GenericTensorType),
+            "key": IOKey(shape=[("Var", ...), "S", "E"], type=GenericTensorType),
+            "value": IOKey(shape=[("Var", ...), "S", "O"], type=GenericTensorType),
+            "dropout_p": IOKey(type=float, value=dropout_p),
+            "attn_mask": IOKey(type=NoneType, value=None),
+            "is_causal": IOKey(type=bool, value=is_causal),
+            "scale": IOKey(type=NoneType | int | float, value=scale),
         }
 
         if use_attn_mask:
-            kwargs["attn_mask"] = TensorType(["L", "S"], value=TBD)
+            kwargs["attn_mask"] = IOKey(
+                shape=["L", "S"], type=GenericTensorType, value=TBD
+            )
 
         super().__init__(formula_key=formula_key, name=name, **kwargs)
         self.factory_inputs = {
@@ -2131,10 +2155,10 @@ class PositionalEncoding(PrimitiveModel):
         super().__init__(
             formula_key="positional_encoding",
             name=name,
-            output=TensorType([("N1", ...)]),
-            input=TensorType([("N1", ...)]),
-            hidden_dim=Scalar(int, hidden_dim),
-            max_len=Scalar(int, max_len),
+            output=IOKey(shape=[("N1", ...)], type=GenericTensorType),
+            input=IOKey(shape=[("N1", ...)], type=GenericTensorType),
+            hidden_dim=IOKey(type=int, value=hidden_dim),
+            max_len=IOKey(type=int, value=max_len),
         )
         self.factory_inputs = {
             "input": input,
@@ -2172,10 +2196,10 @@ class SwapAxes(PrimitiveModel):
         super().__init__(
             formula_key="swapaxes",
             name=name,
-            output=TensorType([("Var_out", ...)]),
-            input=TensorType([("Var_in", ...)]),
-            axis1=Scalar(int, axis1),
-            axis2=Scalar(int, axis2),
+            output=IOKey(shape=[("Var_out", ...)], type=GenericTensorType),
+            input=IOKey(shape=[("Var_in", ...)], type=GenericTensorType),
+            axis1=IOKey(type=int, value=axis1),
+            axis2=IOKey(type=int, value=axis2),
         )
         self.factory_inputs = {"input": input, "axis1": axis1, "axis2": axis2}
 
@@ -2212,14 +2236,13 @@ class Where(PrimitiveModel):
         super().__init__(
             formula_key="where",
             name=name,
-            output=TensorType([("Var_out", ...)]),
-            cond=TensorType([("Var3", ...)], bool, TBD),
-            input1=TensorType([("Var1", ...)]),
-            input2=TensorType([("Var2", ...)]),
+            output=IOKey(shape=[("Var_out", ...)], type=GenericTensorType),
+            cond=IOKey(shape=[("Var3", ...)], type=MyTensor[bool], value=TBD),
+            input1=IOKey(shape=[("Var1", ...)], type=GenericTensorType),
+            input2=IOKey(shape=[("Var2", ...)], type=GenericTensorType),
         )
         self.factory_inputs = {"cond": cond, "input1": input1, "input2": input2}
 
-        # TODO: Find a way to handle this with only bcast
         self._set_constraint(
             fn=where_constrains, keys=["output", "cond", "input1", "input2"]
         )
@@ -2248,8 +2271,8 @@ class IsNan(PrimitiveModel):
         super().__init__(
             formula_key="isnan",
             name=name,
-            output=TensorType([("Var", ...)], bool),
-            input=TensorType([("Var", ...)]),
+            output=IOKey(shape=[("Var", ...)], type=MyTensor[bool]),
+            input=IOKey(shape=[("Var", ...)], type=GenericTensorType),
         )
         self.factory_inputs = {"input": input}
 
@@ -2269,8 +2292,8 @@ class Unique(PrimitiveModel):
         super().__init__(
             formula_key="unique",
             name=name,
-            input=TensorType([("Var1", ...)]),
-            output=TensorType([("Var2", ...)]),
+            input=IOKey(shape=[("Var1", ...)], type=GenericTensorType),
+            output=IOKey(shape=[("Var2", ...)], type=GenericTensorType),
         )
         self.factory_inputs = {"input": input}
 
@@ -2294,9 +2317,9 @@ class Trapezoid(PrimitiveModel):
         super().__init__(
             formula_key="trapezoid",
             name=name,
-            output=TensorType([]),
-            y=TensorType([("Var", ...)]),
-            x=TensorType([("Var", ...)]),
+            output=IOKey(shape=[], type=GenericTensorType),
+            y=IOKey(shape=[("Var", ...)], type=GenericTensorType),
+            x=IOKey(shape=[("Var", ...)], type=GenericTensorType),
         )
         self.factory_inputs = {"y": y, "x": x}
 
@@ -2327,11 +2350,11 @@ class NanToNum(PrimitiveModel):
         super().__init__(
             formula_key="nan_to_num",
             name=name,
-            output=TensorType([("Var", ...)]),
-            input=TensorType([("Var", ...)]),
-            nan=Scalar(float | None, nan),
-            posinf=Scalar(float | None, posinf),
-            neginf=Scalar(float | None, neginf),
+            output=IOKey(shape=[("Var", ...)], type=GenericTensorType),
+            input=IOKey(shape=[("Var", ...)], type=GenericTensorType),
+            nan=IOKey(type=float, value=nan),
+            posinf=IOKey(type=float | None, value=posinf),
+            neginf=IOKey(type=float | None, value=neginf),
         )
         self.factory_inputs = {
             "input": input,
@@ -2368,13 +2391,12 @@ class Pad(PrimitiveModel):
         super().__init__(
             formula_key="pad",
             name=name,
-            output=TensorType([("Var2", ...)]),
-            input=TensorType([("Var1", ...)]),
-            pad_width=Scalar(tuple[tuple[int, int], ...] | ToBeDetermined, pad_width),
+            output=IOKey(shape=[("Var2", ...)], type=GenericTensorType),
+            input=IOKey(shape=[("Var1", ...)], type=GenericTensorType),
+            pad_width=IOKey(type=tuple[tuple[int, int], ...], value=pad_width),
         )
         self.factory_inputs = {"input": input, "pad_width": pad_width}
 
-        # Set constraints.
         self._set_constraint(
             fn=pad_constraints, keys=[PrimitiveModel.output_key, "input", "pad_width"]
         )

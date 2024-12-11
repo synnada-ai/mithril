@@ -61,6 +61,7 @@ from mithril.models import (
     PolynomialFeatures,
     Power,
     Relu,
+    Reshape,
     ScalarItem,
     Shape,
     Sigmoid,
@@ -73,6 +74,7 @@ from mithril.models import (
 )
 from mithril.utils.utils import PaddingType
 
+from .helper import assert_models_equal
 from .test_utils import (
     assert_results_equal,
     check_if_installed,
@@ -772,8 +774,7 @@ def test_static_2():
     comp_model = mithril.compile(model=model2, backend=NumpyBackend())
     import numpy as np
 
-    infered_value = comp_model.data_store._cached_data["output_0"].value
-
+    infered_value = comp_model.data_store.data_values["output_0"]
     assert isinstance(infered_value, np.ndarray)
     np.testing.assert_almost_equal(
         infered_value,
@@ -797,7 +798,7 @@ def test_static_2_set_values():
     model2 += model1
     comp_model = mithril.compile(model=model2, backend=NumpyBackend())
 
-    infered_value = comp_model.data_store._cached_data["output_0"].value
+    infered_value = comp_model.data_store.data_values["output_0"]
 
     assert isinstance(infered_value, np.ndarray)
     np.testing.assert_almost_equal(
@@ -870,7 +871,7 @@ def test_static_4():
         "output_3": backend.array(0),
     }
     for key, value in expected.items():
-        assert compiled_model.data_store.cached_data[key].value == value
+        assert compiled_model.data_store.data_values[key] == value
 
 
 def test_static_4_set_values():
@@ -890,7 +891,7 @@ def test_static_4_set_values():
         "output_3": backend.array(0),
     }
     for key, value in expected.items():
-        assert compiled_model.data_store.cached_data[key].value == value
+        assert compiled_model.data_store.data_values[key] == value
 
 
 def test_str_axis():
@@ -1682,7 +1683,12 @@ def test_unused_cached_values_1():
     expected_cache = {"output": np.array([[6.0, 7.0], [5.0, 5.0]], dtype=dtype)}
     # Check cached_data.
     assert cache is not None and cache.keys() == expected_cache.keys()
-    assert all([np.all(value == expected_cache[key]) for key, value in cache.items()])
+    assert all(
+        [
+            np.all(comp_model.data_store.data_values[key] == expected_cache[key])
+            for key in cache
+        ]
+    )
     # Check runtime data keys.
     data_keys = comp_model.data_store.runtime_static_keys
     assert data_keys == set()
@@ -2595,3 +2601,18 @@ def test_all_inputs_static():
     )
     assert outputs["output"] == backend.array(1.5)
     assert grads == {}
+
+
+def test_reshape_call_arg_vs_init_arg():
+    model1 = Model()
+    model1 += Reshape(shape=(2, 3, None, None))
+
+    model2 = Model()
+    model2 += Reshape()(shape=(2, 3, None, None))
+
+    model3 = Model()
+    model3 += (reshape := Reshape())
+    reshape.set_values({"shape": (2, 3, None, None)})
+
+    assert_models_equal(model1, model2)
+    assert_models_equal(model2, model3)

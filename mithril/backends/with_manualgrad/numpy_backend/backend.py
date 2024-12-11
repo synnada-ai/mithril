@@ -24,7 +24,7 @@ from ...utils import process_shape
 from . import ops, ops_grad, utils
 
 
-class NumpyBackend(Backend[np.ndarray]):
+class NumpyBackend(Backend[np.ndarray[Any, Any]]):
     """A backend implementation for the Mithril library using NumPy with
     manual gradient support.
 
@@ -41,7 +41,7 @@ class NumpyBackend(Backend[np.ndarray]):
     registered_primitives = {}
     primitive_fn_path = "mithril.backends.with_manualgrad.numpy_backend.ops"
     primitive_grad_fn_path = "mithril.backends.with_manualgrad.numpy_backend.ops_grad"
-    registered_primitives_grad_fn: dict[str, Callable] = {}
+    registered_primitives_grad_fn: dict[str, Callable[..., np.ndarray[Any, Any]]] = {}
 
     def __init__(self, device: str = "cpu", precision: int = 32) -> None:
         self._precision = precision

@@ -14,6 +14,10 @@
 
 from copy import deepcopy
 
+import numpy as np
+
+import mithril as ml
+from mithril import JaxBackend
 from mithril.framework.physical.model import FlatModel
 from mithril.models import (
     Add,
@@ -27,7 +31,7 @@ from mithril.models import (
 )
 
 
-def test_flatmodel_with_all_defined():
+def test_with_all_defined():
     model = Model()
     model += (add := Add())(left="a", right="b", output="c")
 
@@ -37,17 +41,17 @@ def test_flatmodel_with_all_defined():
     assert f_model.mappings == {add: {"left": "a", "right": "b", "output": "c"}}
 
 
-def test_flatmodel_with_some_undefined():
+def test_with_some_undefined():
     model = Model()
     model += (add := Add())(right="b", output="c")
 
     f_model = FlatModel(model, short_namings=True)
     assert f_model.mappings == {add: {"left": "left", "right": "b", "output": "c"}}
     f_model = FlatModel(model, short_namings=False)
-    assert f_model.mappings == {add: {"left": "left", "right": "b", "output": "c"}}
+    assert f_model.mappings == {add: {"left": "add_left", "right": "b", "output": "c"}}
 
 
-def test_flatmodel_with_all_undefined():
+def test_with_all_undefined():
     model = Model()
     model += (add := Add())()
 
@@ -57,7 +61,7 @@ def test_flatmodel_with_all_undefined():
     }
 
 
-def test_flatmodel_multi_level_name_with_lowest_definition():
+def test_multi_level_name_with_lowest_definition():
     model2 = Model("adder")
     model2 += (add := Add())(left="a", right="b", output="c")
 
@@ -78,7 +82,7 @@ def test_flatmodel_multi_level_name_with_lowest_definition():
     }
 
 
-def test_flatmodel_multi_level_name_with_lowest_definition_higher_redefinition_1():
+def test_multi_level_name_with_lowest_definition_higher_redefinition_1():
     model2 = Model(name="adder")
     model2 += (add := Add())(left="a", right="b", output="c")
 
@@ -95,7 +99,7 @@ def test_flatmodel_multi_level_name_with_lowest_definition_higher_redefinition_1
     }
 
 
-def test_flatmodel_multi_level_name_with_lowest_definition_higher_redefinition_2():
+def test_multi_level_name_with_lowest_definition_higher_redefinition_2():
     model2 = Model()
     model2 += (add := Add())(left="a", right="b", output="c")
 
@@ -112,7 +116,7 @@ def test_flatmodel_multi_level_name_with_lowest_definition_higher_redefinition_2
     }
 
 
-def test_flatmodel_collision_from_different_levels():
+def test_collision_from_different_levels():
     model2 = Model()
     model2 += (add := Add())(left="a", right="b", output="e")
 
@@ -129,7 +133,7 @@ def test_flatmodel_collision_from_different_levels():
     }
 
 
-def test_flatmodel_collision_from_different_levels_2():
+def test_collision_from_different_levels_2():
     model2 = Model(name="lower")
     model2 += (add := Add())(left="a", right="b", output="e")
 
@@ -153,7 +157,7 @@ def test_flatmodel_collision_from_different_levels_2():
     }
 
 
-def test_flatmodel_collision_from_different_levels_3():
+def test_collision_from_different_levels_3():
     model2 = Model()
     model2 += (add := Add())(left="a", right="b", output="e")
 
@@ -170,7 +174,7 @@ def test_flatmodel_collision_from_different_levels_3():
     }
 
 
-def test_flatmodel_collision_from_different_models():
+def test_collision_from_different_models():
     model1 = Model()
     model1 += Add()(left="l", right="r", output="o")
 
@@ -188,7 +192,7 @@ def test_flatmodel_collision_from_different_models():
     assert f_model.mappings == expected_mapping
 
 
-def test_flatmodel_output_first_1():
+def test_output_first_1():
     model = Model()
     model += Relu()(input="in1", output="out1")
     model += Sigmoid()(input="in2", output="in1")
@@ -212,7 +216,7 @@ def test_flatmodel_output_first_1():
     }
 
 
-def test_flatmodel_output_first_2():
+def test_output_first_2():
     model = Model()
     model += (relu := Relu())(output="out1")
     model += Sigmoid()(input="in2", output=relu.input)
@@ -230,30 +234,30 @@ def test_flatmodel_output_first_2():
     assert f_model.mappings == {
         list(model.dag.keys())[1]: {
             "input": "in2",
-            "output": "output",
+            "output": "sigmoid_output",
         },
-        list(model.dag.keys())[0]: {"input": "output", "output": "out1"},
+        list(model.dag.keys())[0]: {"input": "sigmoid_output", "output": "out1"},
     }
 
 
-def test_flatmodel_output_first_3():
+def test_output_first_3():
     model = Model()
     model += (relu := Relu())(output="out1")
     model += (sig := Sigmoid())(input="in2", output=relu.input)
 
     f_model = FlatModel(model)
     assert f_model.mappings == {
-        relu: {"input": "output", "output": "out1"},
         sig: {"input": "in2", "output": "output"},
+        relu: {"input": "output", "output": "out1"},
     }
     f_model = FlatModel(model, short_namings=False)
     assert f_model.mappings == {
-        relu: {"input": "output", "output": "out1"},
-        sig: {"input": "in2", "output": "output"},
+        sig: {"input": "in2", "output": "sigmoid_output"},
+        relu: {"input": "sigmoid_output", "output": "out1"},
     }
 
 
-def test_flatmodel_output_first_4():
+def test_output_first_4():
     model1 = Model()
     model1 += (relu := Relu())(input="input1", output=IOKey("output1"))
     model1 += (sig := Sigmoid())(input="input2", output=IOKey("output2"))
@@ -282,10 +286,10 @@ def test_flatmodel_output_first_4():
 
     f_model = FlatModel(model, short_namings=False)
     expected_mapping = {
-        relu: {"input": "input", "output": "model_1_output1"},
-        softp: {"input": "model_1_output1", "output": "model_0_output1"},
-        sig: {"input": "model_0_output1", "output": "model_1_output2"},
-        tanh: {"input": "model_1_output2", "output": "output"},
+        relu: {"input": "input", "output": "model_0_output1"},
+        softp: {"input": "model_0_output1", "output": "model_1_output1"},
+        sig: {"input": "model_1_output1", "output": "model_0_output2"},
+        tanh: {"input": "model_0_output2", "output": "output"},
     }
     assert f_model.mappings == expected_mapping
 
@@ -304,3 +308,101 @@ def test_linear_flat():
         list(lin.dag.keys())[2]: {"left": "output_1", "right": "b", "output": "qwe"},
     }
     assert f_model.mappings == expected_mapping
+
+
+def test_integration_with_all_defined():
+    model = Model()
+    model += Add()(left="a", right="b", output="c")
+    backend = JaxBackend(precision=64)
+
+    pm_short = ml.compile(model, backend)
+    pm_long = ml.compile(model, backend, use_short_namings=False)
+
+    inputs = {"a": backend.array([1, 2, 3]), "b": backend.array([4, 5, 6])}
+    res_short = pm_short.evaluate(inputs)
+    res_long = pm_long.evaluate(inputs)
+
+    expected_res = {"c": backend.array([5, 7, 9], dtype=ml.int64)}
+
+    np.testing.assert_allclose(res_short["c"], expected_res["c"])  # type: ignore
+    np.testing.assert_allclose(res_long["c"], expected_res["c"])  # type: ignore
+
+
+def test_integration_with_some_undefined():
+    backend = ml.JaxBackend(precision=64)
+
+    model = Model()
+    model += Add()(right="b", output="c")
+
+    pm_short = ml.compile(model, backend)
+    pm_long = ml.compile(model, backend, use_short_namings=False)
+
+    inputs_short = {"left": backend.array((1, 2, 3)), "b": backend.array([4, 5, 6])}
+    inputs_long = {"add_left": backend.array((1, 2, 3)), "b": backend.array([4, 5, 6])}
+
+    res_short = pm_short.evaluate(inputs_short)
+    res_long = pm_long.evaluate(inputs_long)
+
+    expected_res = {"c": backend.array([5, 7, 9], dtype=ml.int64)}
+
+    np.testing.assert_allclose(res_short["c"], expected_res["c"])  # type: ignore
+    np.testing.assert_allclose(res_long["c"], expected_res["c"])  # type: ignore
+
+
+def test_integration_multi_level_name_with_lowest_definition():
+    model2 = Model("adder")
+    model2 += Add()(left="a", right="b", output="c")
+
+    model1 = Model(name="model")
+    model1 += model2
+    model = Model()
+    model += model1
+
+    backend = JaxBackend(precision=64)
+
+    pm_short = ml.compile(model, backend)
+    pm_long = ml.compile(model, backend, use_short_namings=False)
+
+    input_short = {"a": backend.array([1, 2, 3]), "b": backend.array([4, 5, 6])}
+
+    input_long = {
+        "model_model_a": backend.array([1, 2, 3]),
+        "model_model_b": backend.array([4, 5, 6]),
+    }
+
+    res_short = pm_short.evaluate(input_short)
+    res_long = pm_long.evaluate(input_long)
+
+    expected_res = {"c": backend.array([5, 7, 9], dtype=ml.int64)}
+
+    np.testing.assert_allclose(expected_res["c"], res_short["c"])  # type: ignore
+    np.testing.assert_allclose(expected_res["c"], res_long["c"])  # type: ignore
+
+
+def test_integration_collision_from_different_levels():
+    model2 = Model()
+    model2 += Add()(left="a", right="b", output="e")
+
+    model1 = Model(name="middle")
+    model1 += model2(a="d", b="e")
+    model = Model(name="upper")
+    model += model1
+
+    backend = JaxBackend(precision=64)
+
+    pm_short = ml.compile(model, backend)
+    pm_long = ml.compile(model, backend, use_short_namings=False)
+
+    input_short = {"d": backend.array([1, 2, 3]), "e_1": backend.array([4, 5, 6])}
+    input_long = {
+        "middle_d": backend.array([1, 2, 3]),
+        "middle_e": backend.array([4, 5, 6]),
+    }
+
+    res_short = pm_short.evaluate(input_short)
+    res_long = pm_long.evaluate(input_long)
+
+    expected_res = {"e": backend.array([5, 7, 9], dtype=ml.int64)}
+
+    np.testing.assert_allclose(expected_res["e"], res_short["e"])  # type: ignore
+    np.testing.assert_allclose(expected_res["e"], res_long["e"])  # type: ignore
