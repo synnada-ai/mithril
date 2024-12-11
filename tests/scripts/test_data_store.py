@@ -105,7 +105,7 @@ def test_data_store_3():
     model = Linear(dimension=1)
     static_data = {
         "input": backend.array([[1.0, 2, 3]]),
-        "w": backend.array([[1.0, 1, 1]]),
+        "weight": backend.array([[1.0, 1, 1]]),
     }
     pm = mithril.compile(model, backend=backend, constant_keys=static_data)
 
@@ -115,7 +115,7 @@ def test_data_store_3():
     assert pm.data_store._intermediate_non_differentiables._table == dict()
     assert pm.data_store.unused_keys == {
         "input",
-        "w",
+        "weight",
         "output_0",
         "axes",
     }
@@ -128,10 +128,10 @@ def test_data_store_4():
     """
     backend = TorchBackend(precision=32)
     model = Model()
-    model += Linear()(input="input", w="w", b="b")
+    model += Linear()(input="input", weight="weight", bias="bias")
     model += Shape()
     model += ToTensor()
-    shapes = {"input": [3, 2], "w": [2, 2], "b": [2]}
+    shapes = {"input": [3, 2], "weight": [2, 2], "bias": [2]}
     pm = PhysicalModel(
         model=model,
         backend=backend,
@@ -159,10 +159,10 @@ def test_data_store_5():
     """
     backend = TorchBackend(precision=32)
     model = Model()
-    model += Linear()(input="input", w="w", b="b")
+    model += Linear()(input="input", weight="weight", bias="bias")
     model += Shape()
     model += ToTensor()
-    shapes = {"input": [3, 2], "w": [2, 2], "b": [2]}
+    shapes = {"input": [3, 2], "weight": [2, 2], "bias": [2]}
     pm = mithril.compile(model, backend=backend, shapes=shapes)
     # Only "output" key is not in unused_keys.
     assert pm.data_store.unused_keys == pm.data.keys() - {"output"}
@@ -174,10 +174,10 @@ def test_data_store_6_error():
     """
     backend = TorchBackend(precision=32)
     model = Model()
-    model += Linear()(input="input", w="w", b="b")
+    model += Linear()(input="input", weight="weight", bias="bias")
     model += Shape()
     model += ToTensor()
-    shapes = {"input": [3, 2], "w": [2, 2], "b": [2]}
+    shapes = {"input": [3, 2], "weight": [2, 2], "bias": [2]}
     static_keys = {"input": backend.ones(shapes["input"])}
     with pytest.raises(ValueError) as err_info:
         mithril.compile(
@@ -316,19 +316,19 @@ def test_data_store_14():
     model += (u := PrimitiveUnion(2))(input1=i.output, input2=i.output)
     model += Convolution2D(kernel_size=3, out_channels=10, stride=TBD, use_bias=False)(
         input="input2",
-        kernel="kernel",
+        weight="weight",
         stride=u.output,
         output=IOKey(name="out2", expose=True),
     )
 
     input1 = backend.zeros([2, 2])
     input2 = backend.ones([1, 8, 32, 32])
-    kernel = backend.ones([10, 8, 3, 3])
+    weight = backend.ones([10, 8, 3, 3])
 
     pm = mithril.compile(
         model,
         backend=backend,
-        constant_keys={"input1": input1, "input2": input2, "kernel": kernel},
+        constant_keys={"input1": input1, "input2": input2, "weight": weight},
     )
     assert pm.data_store.data_values.keys() == {"input1", "out2"}
     assert pm.data_store._runtime_static_keys == set()
@@ -337,7 +337,7 @@ def test_data_store_14():
     assert pm.data_store.unused_keys == {
         "output_0",
         "step",
-        "kernel",
+        "weight",
         "output_6",
         "padding",
         "start",
@@ -370,19 +370,19 @@ def test_data_store_15():
     model += (u := PrimitiveUnion(2))(input1=i.output, input2=i.output)
     model += Convolution2D(kernel_size=3, out_channels=10, stride=TBD, use_bias=False)(
         input="input2",
-        kernel="kernel",
+        weight="weight",
         stride=u.output,
         output=IOKey(name="out2", expose=True),
     )
 
     input1 = backend.zeros([2, 2])
     input2 = backend.ones([1, 8, 32, 32])
-    kernel = backend.ones([10, 8, 3, 3])
+    weight = backend.ones([10, 8, 3, 3])
 
     pm = mithril.compile(
         model,
         backend=backend,
-        constant_keys={"input1": input1, "input2": input2, "kernel": kernel},
+        constant_keys={"input1": input1, "input2": input2, "weight": weight},
     )
     assert pm.data_store.data_values.keys() == {"input1", "out2"}
     assert pm.data_store._runtime_static_keys == set()
@@ -404,7 +404,7 @@ def test_data_store_15():
         "padding",
         "output_7",
         "input2",
-        "kernel",
+        "weight",
         "output_3",
     }
 

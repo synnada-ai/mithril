@@ -1366,7 +1366,7 @@ def test_linear_1():
     model = Model()
     lin1 = Linear()
     lin1.input.set_differentiable(True)
-    lin1.set_shapes({"w": [2, 2], "input": [2, 2]})
+    lin1.set_shapes({"weight": [2, 2], "input": [2, 2]})
     model += lin1(input="input", output=IOKey(name="output"))
     assert_all_backends_device_precision(model)
 
@@ -1647,7 +1647,7 @@ def test_composite_conv_mean_2():
     comp_model = mithril.compile(
         model=model, backend=NumpyBackend(), jit=False, safe_names=False
     )
-    inputs = {"kernel": np.ones((1, 1, 2, 2)), "bias": np.ones((1, 1, 1, 1))}
+    inputs = {"weight": np.ones((1, 1, 2, 2)), "bias": np.ones((1, 1, 1, 1))}
     outputs = comp_model.evaluate(params=inputs, data={"stride": (1, 2)})
     ref_outputs = {"output": np.ones((1, 4)) * 35.0}
     assert_results_equal(outputs, ref_outputs)
@@ -1664,7 +1664,7 @@ def test_composite_conv_mean_2_set_values():
     comp_model = mithril.compile(
         model=model, backend=NumpyBackend(), jit=False, safe_names=False
     )
-    inputs = {"kernel": np.ones((1, 1, 2, 2)), "bias": np.ones((1, 1, 1, 1))}
+    inputs = {"weight": np.ones((1, 1, 2, 2)), "bias": np.ones((1, 1, 1, 1))}
     outputs = comp_model.evaluate(params=inputs, data={"stride": (1, 2)})
     ref_outputs = {"output": np.ones((1, 4)) * 35.0}
     assert_results_equal(outputs, ref_outputs)
@@ -1676,7 +1676,7 @@ def test_unused_cached_values_1():
     """
     model = Model()
     linear_model = Linear(dimension=2)
-    model += linear_model(input=[[3.0], [2.0]], w=[[1.0], [2.0]], b=[3.0, 1.0])
+    model += linear_model(input=[[3.0], [2.0]], weight=[[1.0], [2.0]], bias=[3.0, 1.0])
     comp_model = mithril.compile(model=model, backend=(backend := NumpyBackend()))
     dtype = backend.get_backend_array_type()
     cache = comp_model.data_store.data_values
@@ -1709,8 +1709,8 @@ def test_unused_cached_values_1_set_values():
     linear_model = Linear(dimension=2)
     model += linear_model()
     config: dict[Connection, list] = {
-        linear_model.w: [[1.0], [2.0]],
-        linear_model.b: [3.0, 1.0],
+        linear_model.weight: [[1.0], [2.0]],
+        linear_model.bias: [3.0, 1.0],
         linear_model.input: [[3.0], [2.0]],
     }
     model.set_values(config)
@@ -1739,7 +1739,7 @@ def test_unused_cached_values_2():
     """
     model = Model()
     linear_model = Linear(dimension=2)
-    model += linear_model(w=[[1.0], [2.0]], b=[3.0, 1.0])
+    model += linear_model(weight=[[1.0], [2.0]], bias=[3.0, 1.0])
     comp_model = mithril.compile(
         model=model, backend=(backend := NumpyBackend()), safe_names=False
     )
@@ -1781,8 +1781,8 @@ def test_unused_cached_values_2_set_values():
     linear_model = Linear(dimension=2)
     model += linear_model()
     config: dict[Connection, list] = {
-        linear_model.w: [[1.0], [2.0]],
-        linear_model.b: [3.0, 1.0],
+        linear_model.weight: [[1.0], [2.0]],
+        linear_model.bias: [3.0, 1.0],
     }
     model.set_values(config)
     comp_model = mithril.compile(
@@ -1822,8 +1822,8 @@ def test_unused_cached_values_3():
     """
     model = Model()
     linear_model = Linear(dimension=2)
-    model += linear_model(input=[[3.0], [2.0]], w=[[1.0], [2.0]])
-    linear_model.b.set_differentiable(False)
+    model += linear_model(input=[[3.0], [2.0]], weight=[[1.0], [2.0]])
+    linear_model.bias.set_differentiable(False)
     comp_model = mithril.compile(
         model=model, backend=(backend := NumpyBackend()), safe_names=False
     )
@@ -1839,10 +1839,10 @@ def test_unused_cached_values_3():
     assert all([np.all(value == expected_cache[key]) for key, value in cache.items()])
     # Check runtime data keys.
     data_keys = comp_model.data_store.runtime_static_keys
-    expected_data_keys = {"b"}
+    expected_data_keys = {"bias"}
     assert data_keys == expected_data_keys
     # Try evaluate and evaluate gradients once.
-    data = {"b": np.array([3.0, 1.0], dtype=dtype)}
+    data = {"bias": np.array([3.0, 1.0], dtype=dtype)}
     result = comp_model.evaluate(params={}, data=data)
     gradients = comp_model.evaluate_gradients(
         params={},
@@ -1861,9 +1861,9 @@ def test_unused_cached_values_3_set_values():
     linear_model = Linear(dimension=2)
     model += linear_model()
     model.set_values(
-        {linear_model.input: [[3.0], [2.0]], linear_model.w: [[1.0], [2.0]]}
+        {linear_model.input: [[3.0], [2.0]], linear_model.weight: [[1.0], [2.0]]}
     )
-    linear_model.b.set_differentiable(False)
+    linear_model.bias.set_differentiable(False)
     comp_model = mithril.compile(
         model=model, backend=(backend := NumpyBackend()), safe_names=False
     )
@@ -1879,10 +1879,10 @@ def test_unused_cached_values_3_set_values():
     assert all([np.all(value == expected_cache[key]) for key, value in cache.items()])
     # Check runtime data keys.
     data_keys = comp_model.data_store.runtime_static_keys
-    expected_data_keys = {"b"}
+    expected_data_keys = {"bias"}
     assert data_keys == expected_data_keys
     # Try evaluate and evaluate gradients once.
-    data = {"b": np.array([3.0, 1.0], dtype=dtype)}
+    data = {"bias": np.array([3.0, 1.0], dtype=dtype)}
     result = comp_model.evaluate(params={}, data=data)
     gradients = comp_model.evaluate_gradients(
         params={},

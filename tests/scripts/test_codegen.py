@@ -85,7 +85,7 @@ def test_single_input_primitive(file_path):
 @with_temp_file(".py")
 def test_multi_input_primitive(file_path: str):
     model = Model()
-    model += Linear()(input="input", w="w", output="output")
+    model += Linear()(input="input", weight="w", bias="b", output="output")
     model.input.set_differentiable(True)  # type: ignore
     model.set_shapes({"input": [1, 2, 3]})
     backend = NumpyBackend()

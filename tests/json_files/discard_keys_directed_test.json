@@ -6,7 +6,7 @@
         "discard_keys": ["output"],
         "results": {
             "output_keys": [],
-            "discard_keys": ["axes", "b", "input", "output", "output_0", "output_1", "w"]
+            "discard_keys": ["axes", "bias", "input", "output", "output_0", "output_1", "weight"]
         },
         "shapes": {
             "input": [100, 4],
@@ -229,7 +229,7 @@
             {
                 "model": "l1",
                 "coef": 1e-1,
-                "input": "w"
+                "input": "weight"
             }
         ],
         "discard_keys": [],
@@ -253,7 +253,7 @@
             {
                 "model": "l1",
                 "coef": 1e-1,
-                "input": "w"
+                "input": "weight"
             }
         ],
         "discard_keys": ["output"],

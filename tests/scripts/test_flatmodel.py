@@ -299,13 +299,17 @@ def test_linear_flat():
     model += (lin := Linear(21))(output="qwe")
     f_model = FlatModel(model)
     expected_mapping = {
-        list(lin.dag.keys())[0]: {"input": "w", "axes": "axes", "output": "output_0"},
+        list(lin.dag.keys())[0]: {
+            "input": "weight",
+            "axes": "axes",
+            "output": "output_0",
+        },
         list(lin.dag.keys())[1]: {
             "left": "input",
             "right": "output_0",
             "output": "output_1",
         },
-        list(lin.dag.keys())[2]: {"left": "output_1", "right": "b", "output": "qwe"},
+        list(lin.dag.keys())[2]: {"left": "output_1", "right": "bias", "output": "qwe"},
     }
     assert f_model.mappings == expected_mapping
 

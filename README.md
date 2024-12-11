@@ -113,7 +113,7 @@ backend = ml.TorchBackend(device_mesh=(2,1))
 # Compile the model
 pm = ml.compile(model, backend, jit=False)
 # Generate sharded data and parameters
-params = {"w": backend.ones([256, 128]), "b": backend.ones([256])}
+params = {"weight": backend.ones([256, 128]), "bias": backend.ones([256])}
 input = {"input": backend.ones(256, 128, device_mesh=(2,1))}
 # Run the compiled model
 output = pm.evaluate(params, input)

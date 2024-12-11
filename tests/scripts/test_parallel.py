@@ -303,7 +303,7 @@ def test_torch_shared_cyclic_queue_7():
 
 def test_torch_parallel_1():
     model = Model()
-    model += Linear(256)(input="input", w="w", b="b")
+    model += Linear(256)(input="input", weight="w", bias="b")
     backend = mithril.TorchBackend()
     backend_parallel = create_parallel_backend(device_mesh=(4,))
 
@@ -382,7 +382,7 @@ def test_torch_parallel_2():
     # This test checks parallel execution with a model that includes array creation
     # primitive eye.
     model = Model()
-    model += (linear := Linear(256))(input="input", w="w", b="b")
+    model += (linear := Linear(256))(input="input", weight="w", bias="b")
     model += (e := Eye(N=TBD))(N=linear.output.shape()[0])
     model += Add()(left=linear.output, right=e.output, output="output")
     backend = create_parallel_backend(device_mesh=(4, 1))
@@ -408,7 +408,7 @@ def test_torch_parallel_3():
     # This test checks parallel execution with a model that includes array creation
     # primitive to_tensor.
     model = Model()
-    model += (linear := Linear(256))(input="input", w="w", b="b")
+    model += (linear := Linear(256))(input="input", weight="w", bias="b")
     # model += (e := ToTensor())(input=Connect(name="to_tensor", value=TBD))
     model += (e := ToTensor())(input=IOKey(name="to_tensor", value=TBD))
     model += Add()(left=linear.output, right=e.output, output="output")
@@ -465,7 +465,7 @@ def test_torch_parallel_4():
     # This test checks parallel execution with a model that includes immediate values
     # in Add primitive.
     model = Model()
-    model += (linear := Linear(256))(input="input", w="w", b="b", output="out1")
+    model += (linear := Linear(256))(input="input", weight="w", bias="b", output="out1")
     model += Add()(left=linear.output, right=[3] * 256, output="output")
 
     backend = mithril.TorchBackend()
@@ -507,7 +507,7 @@ def test_torch_parallel_5():
     # This test checks parallel execution with a model that includes cache of
     # primitive eye.
     model = Model()
-    model += (linear := Linear(256))(input="input", w="w", b="b")
+    model += (linear := Linear(256))(input="input", weight="w", bias="b")
     model += (e := Eye(N=TBD))(N=linear.output.shape()[0])
     model += Add()(left=linear.output, right=e.output, output="output")
 
@@ -565,7 +565,7 @@ def test_torch_parallel_5():
 def test_torch_static_parallel_1():
     # This test checks parallel execution with partial static inference.
     model = Model()
-    model += (linear := Linear(256))(input="input", w="w", b="b")
+    model += (linear := Linear(256))(input="input", weight="w", bias="b")
     model += Sigmoid()(input=linear.output, output="output")
     backend = create_parallel_backend(device_mesh=(4, 1))
 
@@ -591,7 +591,7 @@ def test_torch_static_parallel_1():
 def test_torch_static_parallel_2():
     # This test checks parallel execution with full static inference.
     model = Model()
-    model += (linear := Linear(256))(input="input", w="w", b="b")
+    model += (linear := Linear(256))(input="input", weight="w", bias="b")
     model += Sigmoid()(input=linear.output, output="output")
     backend = create_parallel_backend(device_mesh=(4, 1))
 
@@ -615,7 +615,7 @@ def test_torch_static_parallel_2():
 def test_torch_static_parallel_3():
     # This test checks parallel execution with full static inference.
     model = Model()
-    model += (linear := Linear(256))(input="input", w="w", b="b")
+    model += (linear := Linear(256))(input="input", weight="w", bias="b")
     model += Relu()(input=linear.output, output=IOKey("output"))
     model += Tanh()(input="input2", output=IOKey("output2"))
     backend = create_parallel_backend(device_mesh=(4, 1))
@@ -646,7 +646,7 @@ def test_torch_parallel_error_1():
     # This test checks if an error is raised when trying to create a Parallel object
     # with only one device.
     model = Model()
-    model += Linear(256)(input="input", w="w", b="b")
+    model += Linear(256)(input="input", weight="w", bias="b")
 
     with pytest.raises(ValueError) as e:
         create_parallel_backend(device_mesh=(1,))
@@ -661,7 +661,7 @@ def test_torch_parallel_error_2():
     # This test checks if an error is raised when trying to shard a tensor with
     # incompatible dimensions.
     model = Model()
-    model += Linear(256)(input="input", w="w", b="b")
+    model += Linear(256)(input="input", weight="w", bias="b")
     backend = create_parallel_backend(device_mesh=(2, 1))
 
     tensor = torch.ones(3, 128)
@@ -677,7 +677,7 @@ def test_torch_parallel_error_2():
 def test_torch_parallel_error_3():
     # User must provide device mesh
     model = Model()
-    model += Linear(256)(input="input", w="w", b="b")
+    model += Linear(256)(input="input", weight="w", bias="b")
     backend = create_parallel_backend(device_mesh=(2, 1))
 
     with pytest.raises(ValueError) as e:
@@ -689,7 +689,7 @@ def test_torch_parallel_error_3():
 def test_torch_parallel_error_4():
     # User must provide device mesh
     model = Model()
-    model += Linear(256)(input="input", w="w", b="b")
+    model += Linear(256)(input="input", weight="w", bias="b")
     backend = create_parallel_backend(device_mesh=(1, 2))
 
     with pytest.raises(ValueError) as e:
@@ -701,7 +701,7 @@ def test_torch_parallel_error_4():
 def test_torch_parallel_error_5():
     # User must provide device mesh
     model = Model()
-    model += Linear(256)(input="input", w="w", b="b")
+    model += Linear(256)(input="input", weight="w", bias="b")
     backend = create_parallel_backend(device_mesh=(2, 1))
 
     tensor = torch.ones([8, 128])
@@ -713,7 +713,7 @@ def test_torch_parallel_error_5():
 def test_torch_parallel_error_6():
     # User must provide device mesh
     model = Model()
-    model += Linear(256)(input="input", w="w", b="b")
+    model += Linear(256)(input="input", weight="w", bias="b")
     backend = create_parallel_backend(device_mesh=(2, 1))
 
     tensor = backend.ones([8, 128])
@@ -726,7 +726,7 @@ def test_torch_parallel_error_6():
 def test_torch_parallel_error_7():
     # In parallize, device mesh must have the same or less dimensions than the tensor
     model = Model()
-    model += Linear(256)(input="input", w="w", b="b")
+    model += Linear(256)(input="input", weight="w", bias="b")
     backend = create_parallel_backend(device_mesh=(2, 1))
 
     tensor = torch.ones([8, 128])
@@ -742,7 +742,7 @@ def test_torch_parallel_error_7():
 def test_torch_parallel_error_8():
     # Shard only 1 dimension and replicate in others
     model = Model()
-    model += Linear(256)(input="input", w="w", b="b")
+    model += Linear(256)(input="input", weight="w", bias="b")
     backend = create_parallel_backend(device_mesh=(2, 2))
 
     tensor = torch.ones([8, 128])
@@ -754,7 +754,7 @@ def test_torch_parallel_error_8():
 def test_torch_parallel_error_9():
     # Shard all dimensions
     model = Model()
-    model += Linear(256)(input="input", w="w", b="b")
+    model += Linear(256)(input="input", weight="w", bias="b")
     backend = create_parallel_backend(device_mesh=(2, 2))
 
     tensor = torch.ones([8, 128])
@@ -766,7 +766,7 @@ def test_torch_parallel_error_9():
 def test_torch_parallel_error_10():
     # Replicate in first dimension and shard in others
     model = Model()
-    model += Linear(256)(input="input", w="w", b="b")
+    model += Linear(256)(input="input", weight="w", bias="b")
     backend = create_parallel_backend(device_mesh=(2, 2))
 
     tensor = torch.ones([8, 128])
@@ -778,7 +778,7 @@ def test_torch_parallel_error_10():
 def test_torch_parallel_error_11():
     # Replicate all dimensions explicitly
     model = Model()
-    model += Linear(256)(input="input", w="w", b="b")
+    model += Linear(256)(input="input", weight="w", bias="b")
     backend = create_parallel_backend(device_mesh=(2, 2))
 
     tensor = torch.ones([8, 128])
@@ -790,7 +790,7 @@ def test_torch_parallel_error_11():
 def test_torch_parallel_error_12():
     # Torch device mesh must be tuple or None
     model = Model()
-    model += Linear(256)(input="input", w="w", b="b")
+    model += Linear(256)(input="input", weight="w", bias="b")
     with pytest.raises(AssertionError) as e:
         mithril.TorchBackend(device_mesh=2)
 
@@ -882,7 +882,7 @@ def test_torch_parallel_multi_parallel_3():
 def test_jax_parallel_1():
     if "cuda" in mithril.JaxBackend.get_available_devices():
         model = Model()
-        model += Linear(256)(input="input", w="w", b="b")
+        model += Linear(256)(input="input", weight="w", bias="b")
         backend = mithril.JaxBackend(device="cuda")
         backend_parallel = mithril.JaxBackend(device="cuda", device_mesh=(4,))
 
@@ -957,7 +957,7 @@ def test_jax_parallel_2():
     # primitive eye.
     if "cuda" in mithril.JaxBackend.get_available_devices():
         model = Model()
-        model += (linear := Linear(256))(input="input", w="w", b="b")
+        model += (linear := Linear(256))(input="input", weight="w", bias="b")
         model += (e := Eye(N=TBD))(N=linear.output.shape()[0])
         model += Add()(left=linear.output, right=e.output, output="output")
         backend = mithril.JaxBackend(device="cuda", device_mesh=(4, 1))
@@ -982,7 +982,7 @@ def test_jax_parallel_3():
     # primitive to_tensor.
     if "cuda" in mithril.JaxBackend.get_available_devices():
         model = Model()
-        model += (linear := Linear(256))(input="input", w="w", b="b")
+        model += (linear := Linear(256))(input="input", weight="w", bias="b")
         model += (e := ToTensor())(input=IOKey("to_tensor", value=TBD))
         model += Add()(left=linear.output, right=e.output, output="output")
         backend = mithril.JaxBackend(device="cuda")
@@ -1043,7 +1043,9 @@ def test_jax_parallel_4():
     #  Add primitive.
     if "cuda" in mithril.JaxBackend.get_available_devices():
         model = Model()
-        model += (linear := Linear(256))(input="input", w="w", b="b", output="out1")
+        model += (linear := Linear(256))(
+            input="input", weight="w", bias="b", output="out1"
+        )
         model += Add()(left=linear.output, right=[3] * 256, output="output")
 
         backend = mithril.JaxBackend("cuda")
@@ -1088,7 +1090,7 @@ def test_jax_parallel_5():
     # primitive eye.
     if "cuda" in mithril.JaxBackend.get_available_devices():
         model = Model()
-        model += (linear := Linear(256))(input="input", w="w", b="b")
+        model += (linear := Linear(256))(input="input", weight="w", bias="b")
         model += (e := Eye(N=TBD))(N=linear.output.shape()[0])
         model += Add()(left=linear.output, right=e.output, output="output")
 
