@@ -145,21 +145,13 @@ class PhysicalModel(GenericDataType[DataType]):
 
         # Map given logical model key namings into physical key naming space.
         _constant_keys = {
-            self._convert_key(model, flat_model, k): v for k, v in constant_keys.items()
+            self._convert_key(model, k): v for k, v in constant_keys.items()
         }
-        _data_keys = {self._convert_key(model, flat_model, key) for key in data_keys}
-        _trainable_keys = {
-            self._convert_key(model, flat_model, key) for key in trainable_keys
-        }
-        _discard_keys = {
-            self._convert_key(model, flat_model, key) for key in discard_keys
-        }
-        _shapes = {
-            self._convert_key(model, flat_model, k): v for k, v in shapes.items()
-        }
-        _jacobian_keys = {
-            self._convert_key(model, flat_model, key) for key in jacobian_keys
-        }
+        _data_keys = {self._convert_key(model, key) for key in data_keys}
+        _trainable_keys = {self._convert_key(model, key) for key in trainable_keys}
+        _discard_keys = {self._convert_key(model, key) for key in discard_keys}
+        _shapes = {self._convert_key(model, k): v for k, v in shapes.items()}
+        _jacobian_keys = {self._convert_key(model, key) for key in jacobian_keys}
 
         # Check provided constant and data_keys do not have
         # any preset value. Note that this check is done after key conversions.
@@ -281,9 +273,7 @@ class PhysicalModel(GenericDataType[DataType]):
     ):
         return self.evaluate(params=params, data=data)
 
-    def _convert_key(
-        self, model: BaseModel, flat_model: "FlatModel", key: str | Connection
-    ) -> str:
+    def _convert_key(self, model: BaseModel, key: str | Connection) -> str:
         if isinstance(key, Connection):
             # Get outermost model equivalent of the connection.
             if (conn := model.conns.get_con_by_metadata(key.data.metadata)) is None:
