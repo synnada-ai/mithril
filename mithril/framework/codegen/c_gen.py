@@ -30,7 +30,7 @@ from .code_gen import CodeGen
 FinalCost = "final_cost"
 
 
-class CGen(CodeGen):
+class CGen(CodeGen[PyArray]):
     BACKWARD_FN_SUFFIX = "_grad"
 
     def __init__(self, pm: PhysicalModel[PyArray]) -> None:

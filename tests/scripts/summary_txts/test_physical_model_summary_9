@@ -13,7 +13,7 @@ Constant inputs    : None
 -------------------------------
 Static keys        : None      
 -------------------------------
-Trainable keys     : input     
+Trainable keys     : input1    
 -------------------------------
 Total Parameters   : >0        
 -------------------------------
@@ -25,7 +25,7 @@ Model Name   |                                Model Keys
              |             -----------------------------------------------
              |             Keys   : Shapes   : Connections    : Parameters
 ==========================================================================
-Relu_0       |   Inputs  : input  : [u1, u2] : 'input'        :    Unknown
+Relu_0       |   Inputs  : input  : [u1, u2] : 'input1'       :    Unknown
              |   ---------------------------------------------------------
              |   Outputs : output : [u1, u2] : Relu_1.input   :          0
 --------------------------------------------------------------------------

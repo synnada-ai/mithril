@@ -131,7 +131,7 @@ def test_cbackend_2(file_path: str):
     for key in np_outputs:
         out = c_outputs[key]
         out_np = np_outputs[key]
-        assert isinstance(out, np.ndarray)
+        assert isinstance(out_np, np.ndarray)
         assert isinstance(out, PyArray)
         assert np.allclose(c_backend.to_numpy(out), out_np)
 

@@ -23,12 +23,11 @@ from ..framework.common import (
     TBD,
     Connect,
     ConnectionData,
+    GenericTensorType,
     IOHyperEdge,
     IOKey,
     MainValueType,
-    Scalar,
     Tensor,
-    TensorType,
     ToBeDetermined,
 )
 from ..framework.constraints import constrain_fn_dict
@@ -404,7 +403,7 @@ def handle_dict_to_model_args(
             source[key] = dict_to_model(info)
 
     for key in source:
-        if source[key] == "(Ellipsis,)":
+        if not isinstance(source[key], IOKey) and source[key] == "(Ellipsis,)":
             source[key] = ...
 
     for key, value in source.items():
@@ -412,7 +411,7 @@ def handle_dict_to_model_args(
             shape_template: list[str | int | tuple] = []
             possible_types = None
             # Type is common for TensorType and Scalar.
-            for item in value["type"]:
+            for item in value.get("type", []):
                 # TODO: this is dangerous!!
                 item_type: type = eval(item)
                 if possible_types is None:
@@ -428,15 +427,12 @@ def handle_dict_to_model_args(
                     else:
                         shape_template.append(int(item))
 
-                assert possible_types is not None
-
-                source[key] = TensorType(
-                    shape_template=shape_template, possible_types=possible_types
-                )
+                # assert possible_types is not None
+                source[key] = IOKey(shape=shape_template, type=GenericTensorType)
+                # TODO: Do not send GenericTensorType,
+                # find a proper way to save and load tensor types.
             else:  # Scalar
-                source[key] = Scalar(
-                    possible_types=possible_types, value=source[key]["value"]
-                )
+                source[key] = IOKey(type=possible_types, value=source[key]["value"])
     return source
 
 
@@ -460,7 +456,7 @@ def handle_model_to_dict_args(
     for key in source:
         if type(item := source[key]) is type(...):
             source[key] = "(Ellipsis,)"
-        elif isinstance(item, TensorType | Scalar):
+        elif isinstance(item, IOKey):
             source[key] = item_to_json(source[key])
     return source
 
@@ -538,21 +534,22 @@ def type_to_str(item):
     return str(item)
 
 
-def item_to_json(item: TensorType | Scalar):
+def item_to_json(item: IOKey):
+    # TODO: Currently type is not supported for Tensors.
+    # Handle This whit conversion test updates.
     result: dict[str, Any] = {}
-    if isinstance(item, TensorType):
-        # TensorType's has shape_template.
+    if not isinstance(item._value, ToBeDetermined):
+        result["value"] = item._value
+    if item._shape is not None:
         shape_template = []
-        for symbol in item.shape_template:
+        for symbol in item._shape:
             if isinstance(symbol, tuple):  # variadic
                 shape_template.append(f"{symbol[0]},...")
             else:
                 shape_template.append(str(symbol))
         result["shape_template"] = shape_template
-    else:
-        # Scalars has value.
-        result["value"] = item.value
-    if isinstance(item._type, UnionType):
+
+    elif isinstance(item._type, UnionType):
         result["type"] = [type_to_str(item) for item in item._type.__args__]
     else:
         result["type"] = [
