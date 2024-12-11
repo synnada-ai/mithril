@@ -27,7 +27,7 @@ jobs:
       - name: Install Python dependencies
         run: |
           python3 -m pip install --upgrade pip
-          pip install torch==2.4.1 --index-url https://download.pytorch.org/whl/cpu
+          pip install torch==2.4.1
           pip install --upgrade "jax[cpu]"
           pip install mlx
           pip install -r requirements/dev.txt
