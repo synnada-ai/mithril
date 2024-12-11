@@ -1430,7 +1430,7 @@ class Connections:
     def _get_metadata(self, key: str) -> IOHyperEdge:
         if (con := self.get_connection(key)) is not None:
             return con.metadata
-        raise KeyError(f"Key {key} is not found in connections.")
+        raise KeyError(f"Key '{key}' is not found in connections.")
 
     def get_key_origin(self, key: str) -> str | None:
         return self._get_metadata(key).key_origin

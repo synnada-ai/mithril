@@ -111,7 +111,7 @@ def test_set_types_5_key_error():
     model += buffer_model_2(input="input2", output=IOKey(name="output2"))
     with pytest.raises(KeyError) as err_info:
         model.set_types({model.input1: int | bool, "input": float})  # type: ignore
-    assert str(err_info.value) == "'Key input is not found in connections.'"
+    assert str(err_info.value) == "\"Key 'input' is not found in connections.\""
 
 
 def test_set_types_6():

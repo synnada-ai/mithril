@@ -327,11 +327,11 @@ def test_code_generator_1(file_path: str):
     def evaluate(params, data, cache):
         add1 = data["add1"]
         axes = cache["axes"]
-        b = params["b"]
-        w = params["w"]
-        output_0 = transpose(w, axes)
+        bias = params["bias"]
+        weight = params["weight"]
+        output_0 = transpose(weight, axes)
         output_1 = matrix_multiplication(add1, output_0)
-        output = add(output_1, b)
+        output = add(output_1, bias)
         return {"output": output}
 
     compare_callables(evaluate, eval_func)
@@ -384,17 +384,17 @@ def test_code_generator_3(file_path: str):
     def evaluate(params, data, cache):
         axes_0 = cache["axes_0"]
         axes_1 = cache["axes_1"]
-        b_0 = params["b_0"]
-        b_1 = params["b_1"]
+        bias_0 = params["bias_0"]
+        bias_1 = params["bias_1"]
         input = data["input"]
-        w_0 = params["w_0"]
-        w_1 = params["w_1"]
-        output_0 = transpose(w_0, axes_0)
+        weight_0 = params["weight_0"]
+        weight_1 = params["weight_1"]
+        output_0 = transpose(weight_0, axes_0)
         output_1 = matrix_multiplication(input, output_0)
-        output_2 = add(output_1, b_0)
-        output_3 = transpose(w_1, axes_1)
+        output_2 = add(output_1, bias_0)
+        output_3 = transpose(weight_1, axes_1)
         output_4 = matrix_multiplication(output_2, output_3)
-        output = add(output_4, b_1)
+        output = add(output_4, bias_1)
         return {"output": output}
 
     compare_callables(evaluate, eval_func)
@@ -579,7 +579,7 @@ def test_code_generator_6(file_path: str):
 
     model = Model()
     layer2 = Layer(dimension=2, activation=Softmax())
-    model += layer2(input="input", w="w1", b="b1")
+    model += layer2(input="input", weight="w1", bias="b1")
     model += (arange := Arange())(stop=2, output=IOKey(name="arange_res"))
     model += Add()(left=arange.output, right=layer2.output, output=IOKey(name="output"))
 
@@ -632,7 +632,7 @@ def test_code_generator_7(file_path: str):
 
     model = Model()
     layer2 = Layer(dimension=2, activation=Softmax())
-    model += layer2(input="input", w="w1", b="b1")
+    model += layer2(input="input", weight="w1", bias="b1")
     model += (s := Size(dim=1))
     model += (arange := Arange())(stop=s.output, output=IOKey(name="arange_res"))
     model += Add()(left=arange.output, right=layer2.output, output=IOKey(name="output"))

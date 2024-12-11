@@ -149,8 +149,10 @@ def with_temp_file(suffix: str):
                     # Pass the temp file object to the decorated function
                     return func(*args, file_path=temp_file.name, **kwargs)
             except Exception as e:
-                if isinstance(e, AssertionError):
-                    raise e
+                if os.path.exists("tmp"):
+                    shutil.rmtree("tmp")
+
+                raise e
             finally:
                 if os.path.exists("tmp"):
                     shutil.rmtree("tmp")

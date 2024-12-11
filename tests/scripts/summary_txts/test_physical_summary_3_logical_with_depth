@@ -1,4 +1,3 @@
-
                                            Model                                            
 --------------------------------------------------------------------------------------------
 Model Name      |                                       Model Keys                          
@@ -9,21 +8,21 @@ KernelizedSVM   |   Inputs  : input1  : [u1, u2] : bool | float | int : '$input'
                 |             input2  : [u3, u2] : bool | float | int : '$input2'           
                 |             sigma   :     [ 1] : bool | float | int : '$sigma'            
                 |             l_scale :     [ 1] : bool | float | int : '$l_scale'          
-                |             w       : [ 1, u3] : bool | float | int : '$w'                
-                |             b       :     [ 1] : bool | float | int : '$b'                
+                |             weight  : [ 1, u3] : bool | float | int : '$weight'           
+                |             bias    :     [ 1] : bool | float | int : '$bias'             
                 |   ------------------------------------------------------------------------
                 |   Outputs : kernel  : [u1, u3] : float              : --                  
                 |             output  : [u1,  1] : float              : MLP.input           
 --------------------------------------------------------------------------------------------
-MLP             |   Inputs  : w0      : [ 3,  1] : bool | float | int : '$w0'               
+MLP             |   Inputs  : weight0 : [ 3,  1] : bool | float | int : '$weight0'          
                 |             input   : [u1,  1] : float              : KernelizedSVM.output
-                |             b0      :     [ 3] : bool | float | int : '$b0'               
-                |             w1      : [ 4,  3] : bool | float | int : '$w1'               
-                |             b1      :     [ 4] : bool | float | int : '$b1'               
-                |             w2      : [ 5,  4] : bool | float | int : '$w2'               
-                |             b2      :     [ 5] : bool | float | int : '$b2'               
-                |             w3      : [ 6,  5] : bool | float | int : '$w3'               
-                |             b3      :     [ 6] : bool | float | int : '$b3'               
+                |             bias0   :     [ 3] : bool | float | int : '$bias0'            
+                |             weight1 : [ 4,  3] : bool | float | int : '$weight1'          
+                |             bias1   :     [ 4] : bool | float | int : '$bias1'            
+                |             weight2 : [ 5,  4] : bool | float | int : '$weight2'          
+                |             bias2   :     [ 5] : bool | float | int : '$bias2'            
+                |             weight3 : [ 6,  5] : bool | float | int : '$weight3'          
+                |             bias3   :     [ 6] : bool | float | int : '$bias3'            
                 |   ------------------------------------------------------------------------
                 |   Outputs : output  : [u1,  6] : float              : '$output'           
 --------------------------------------------------------------------------------------------
@@ -44,10 +43,10 @@ RBFKernel    |   Inputs  : input1  : [u1, u2] : bool | float | int : 'input1'
              |   Outputs : output  : [u1, u3] : bool | float | int : Linear.input    
              |                                                       'kernel'        
 -------------------------------------------------------------------------------------
-Linear       |   Inputs  : w       : [ 1, u3] : bool | float | int : 'w'             
+Linear       |   Inputs  : weight  : [ 1, u3] : bool | float | int : 'weight'        
              |             $axes   :       -- : NoneType           : None            
              |             input   : [u1, u3] : float              : RBFKernel.output
-             |             b       :     [ 1] : bool | float | int : 'b'             
+             |             bias    :     [ 1] : bool | float | int : 'bias'          
              |   --------------------------------------------------------------------
              |   Outputs : output  : [u1,  1] : bool | float | int : 'output'        
 -------------------------------------------------------------------------------------
@@ -59,27 +58,27 @@ Model Name   |                                    Model Keys
              |             -------------------------------------------------------
              |             Keys    : Shapes  : Types              : Connections   
 ==================================================================================
-Layer_0      |   Inputs  : w       : [ 3, 1] : bool | float | int : 'w0'          
+Layer_0      |   Inputs  : weight  : [ 3, 1] : bool | float | int : 'weight0'     
              |             input   : [u1, 1] : float              : 'input'       
-             |             b       :     [3] : bool | float | int : 'b0'          
+             |             bias    :     [3] : bool | float | int : 'bias0'       
              |   -----------------------------------------------------------------
              |   Outputs : output  : [u1, 3] : float              : Layer_1.input 
 ----------------------------------------------------------------------------------
-Layer_1      |   Inputs  : w       : [ 4, 3] : bool | float | int : 'w1'          
+Layer_1      |   Inputs  : weight  : [ 4, 3] : bool | float | int : 'weight1'     
              |             input   : [u1, 3] : float              : Layer_0.output
-             |             b       :     [4] : bool | float | int : 'b1'          
+             |             bias    :     [4] : bool | float | int : 'bias1'       
              |   -----------------------------------------------------------------
              |   Outputs : output  : [u1, 4] : float              : Layer_2.input 
 ----------------------------------------------------------------------------------
-Layer_2      |   Inputs  : w       : [ 5, 4] : bool | float | int : 'w2'          
+Layer_2      |   Inputs  : weight  : [ 5, 4] : bool | float | int : 'weight2'     
              |             input   : [u1, 4] : float              : Layer_1.output
-             |             b       :     [5] : bool | float | int : 'b2'          
+             |             bias    :     [5] : bool | float | int : 'bias2'       
              |   -----------------------------------------------------------------
              |   Outputs : output  : [u1, 5] : float              : Layer_3.input 
 ----------------------------------------------------------------------------------
-Layer_3      |   Inputs  : w       : [ 6, 5] : bool | float | int : 'w3'          
+Layer_3      |   Inputs  : weight  : [ 6, 5] : bool | float | int : 'weight3'     
              |             input   : [u1, 5] : float              : Layer_2.output
-             |             b       :     [6] : bool | float | int : 'b3'          
+             |             bias    :     [6] : bool | float | int : 'bias3'       
              |             $_input :      -- : float              : 0.01          
              |   -----------------------------------------------------------------
              |   Outputs : output  : [u1, 6] : float              : 'output'      

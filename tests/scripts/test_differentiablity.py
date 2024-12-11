@@ -34,14 +34,14 @@ def test_data_linear_compile():
 def test_convert_input_data_to_trainable():
     model = Model()
     model += Linear()(input="input")
-    model += Linear()(w=model.input)  # type: ignore
+    model += Linear()(weight=model.input)  # type: ignore
     assert model.input.data.metadata.data._differentiable  # type: ignore
 
 
 def test_convert_input_data_to_trainable_compile():
     model = Model()
     model += Linear()(input="input")
-    model += Linear()(w=model.input)  # type: ignore
+    model += Linear()(weight=model.input)  # type: ignore
 
     backend = JaxBackend()
     pm = mithril.compile(model, backend)

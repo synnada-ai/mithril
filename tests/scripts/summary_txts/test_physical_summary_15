@@ -1,4 +1,3 @@
-
                        Model Info                      
 =======================================================
 Backend type       : jax                               
@@ -13,7 +12,7 @@ Constant inputs    : None
 -------------------------------------------------------
 Static keys        : None                              
 -------------------------------------------------------
-Trainable keys     : b, input, w                       
+Trainable keys     : b, input, weight                  
 -------------------------------------------------------
 Total Parameters   : >3                                
 -------------------------------------------------------
@@ -25,7 +24,7 @@ Model Name       |                                        Model Keys
                  |             ----------------------------------------------------------------
                  |             Keys   : Shapes             : Connections           : Parameters
 ===============================================================================================
-Transpose        |   Inputs  : input  :       [   3, None] : 'w'                   :    Unknown
+Transpose        |   Inputs  : input  :       [   3, None] : 'weight'              :    Unknown
                  |             axes   :                 -- : None                  :          0
                  |   --------------------------------------------------------------------------
                  |   Outputs : output :       [None,    3] : MatrixMultiply.right  :          0
