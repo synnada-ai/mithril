@@ -1637,7 +1637,7 @@ class LSTMCellBody(Model):
         bias_c: TensorValueType | ToBeDetermined = TBD,
         bias_o: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
-        super().__init__(formula_key="lstm_cell", name=name)
+        super().__init__(name=name)
         self.factory_inputs = {
             "input": input,
             "prev_hidden": prev_hidden,
@@ -1651,6 +1651,7 @@ class LSTMCellBody(Model):
             "bias_c": bias_c,
             "bias_o": bias_o,
         }
+        self._set_formula_key("lstm_cell")
 
         matrix_concat_model = Concat(n=2, axis=-1)
         forward_lin = Linear()

@@ -341,7 +341,7 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
                 continue
 
             model, g_input_keys, l_input_keys = self.get_primitive_details(output_key)
-            formula_key = model.formula_key
+            formula_key = model._formula_key
 
             primitive_function = (
                 self.pm.backend.primitive_function_dict[formula_key]

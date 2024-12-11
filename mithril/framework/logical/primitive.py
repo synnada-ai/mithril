@@ -56,7 +56,7 @@ class PrimitiveModel(BaseModel):
         name: str | None = None,
         **kwargs: IOKey | Tensor | Scalar,
     ) -> None:
-        self.formula_key = formula_key
+        self._formula_key = formula_key
         self.grad_formula = formula_key + "_grad"
 
         super().__init__(name=name)

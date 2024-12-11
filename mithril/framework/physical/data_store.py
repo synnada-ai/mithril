@@ -330,7 +330,7 @@ class StaticDataStore(GenericDataType[DataType]):
 
                 static_value: DataType | MainValueType
 
-                fn = fn_dict[model.formula_key]
+                fn = fn_dict[model._formula_key]
 
                 # Orginize args and kwargs
                 local_input_keys = list(model._input_keys)
@@ -357,7 +357,7 @@ class StaticDataStore(GenericDataType[DataType]):
                 }
 
                 # If function needs backend specific args
-                if model.formula_key in self.backend.array_creation_funcs:
+                if model._formula_key in self.backend.array_creation_funcs:
                     kwargs["precision"] = self.backend.precision
                     if not self.backend.is_manualgrad:
                         kwargs["device"] = self.backend._device
