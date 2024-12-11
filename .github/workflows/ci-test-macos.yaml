@@ -1,4 +1,4 @@
-name: CI
+name: CI-MacOS
 on:
   push:
     branches: [ dev, main ]
