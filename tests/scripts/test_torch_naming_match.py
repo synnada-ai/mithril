@@ -251,8 +251,8 @@ def test_multi_layer_cascaded():
 
         def forward(self, x):
             x = self.submodel(x)
-            x = self.qwe(x)
-            x = self.qwe2(x)
+            x = self.linear(x)
+            x = self.linear2(x)
 
             return x
 
