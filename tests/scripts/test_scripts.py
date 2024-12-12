@@ -35,6 +35,8 @@ from mithril.framework.common import (
     TBD,
     ConnectionData,
     ConnectionType,
+    GenericTensorType,
+    IOKey,
     NotAvailable,
     OrderedSet,
     ToBeDetermined,
@@ -69,7 +71,6 @@ from mithril.models import (
     FloorDivide,
     Gelu,
     Greater,
-    IOKey,
     Layer,
     LeakyRelu,
     Less,
@@ -103,7 +104,6 @@ from mithril.models import (
     Sum,
     Tanh,
     Tensor,
-    TensorType,
     ToTensor,
     TrainModel,
     Where,
@@ -133,15 +133,15 @@ def test_composite_1_extend_from_inputs():
     # setting up the model by extend method
     # model.extend(layer1, input = "input", w = "w0", b = "b0")
     # model.extend(layer2, input = layer1.output, w = "w1", b = "b1")
-    model += layer2(w="w1", b="b1", output=IOKey(name="output"))
-    model += layer1(output=layer2.input, w="w0", b="b0", input="input")
+    model += layer2(weight="weight1", bias="bias1", output=IOKey(name="output"))
+    model += layer1(output=layer2.input, weight="weight0", bias="bias0", input="input")
 
     context = TrainModel(model)
     # Attaching R
     context.add_loss(
         CrossEntropy(input_type="probs"), [Mean()], target="target", input="output"
     )
-    context.add_regularization(model=L2(), coef=1e-1, input=re.compile(r"w\d"))
+    context.add_regularization(model=L2(), coef=1e-1, input=re.compile(r"weight\d"))
 
     static_keys = {"input": np.array([[1.0]]), "target": np.array([0])}
 
@@ -150,10 +150,10 @@ def test_composite_1_extend_from_inputs():
     )
 
     inputs = {
-        "w0": np.array([[1.0], [2], [3]]),
-        "b0": np.array([-2.0, -3, 0]),
-        "w1": np.array([[-1.0, 0, 1], [-2, 0, 2]]),
-        "b1": np.array([-5.0, 5]),
+        "weight0": np.array([[1.0], [2], [3]]),
+        "bias0": np.array([-2.0, -3, 0]),
+        "weight1": np.array([[-1.0, 0, 1], [-2, 0, 2]]),
+        "bias1": np.array([-5.0, 5]),
     }
 
     inputs_1, grads_1 = compiled_model.evaluate_all(inputs)
@@ -165,17 +165,19 @@ def test_composite_1_extend_from_inputs():
     layer2 = Layer(dimension=2, activation=Softmax())
 
     # setting up the model by extend method
-    # model.extend(layer1, input = "input", w = "w0", b = "b0")
-    # model.extend(layer2, input = layer1.output, w = "w1", b = "b1")
-    model += layer1(w="w0", b="b0", input="input")
-    model += layer2(input=layer1.output, w="w1", b="b1", output=IOKey(name="output"))
+    # model.extend(layer1, input = "input", weight = "weight0", b = "b0")
+    # model.extend(layer2, input = layer1.output, weight = "weight1", b = "b1")
+    model += layer1(weight="weight0", bias="bias0", input="input")
+    model += layer2(
+        input=layer1.output, weight="weight1", bias="bias1", output=IOKey(name="output")
+    )
 
     context = TrainModel(model)
     # Attaching R
     context.add_loss(
         CrossEntropy(input_type="probs"), [Mean()], target="target", input="output"
     )
-    context.add_regularization(model=L2(), coef=1e-1, input=re.compile(r"w\d"))
+    context.add_regularization(model=L2(), coef=1e-1, input=re.compile(r"weight\d"))
 
     static_keys = {"input": np.array([[1.0]]), "target": np.array([0])}
 
@@ -184,10 +186,10 @@ def test_composite_1_extend_from_inputs():
     )
 
     inputs = {
-        "w0": np.array([[1.0], [2], [3]]),
-        "b0": np.array([-2.0, -3, 0]),
-        "w1": np.array([[-1.0, 0, 1], [-2, 0, 2]]),
-        "b1": np.array([-5.0, 5]),
+        "weight0": np.array([[1.0], [2], [3]]),
+        "bias0": np.array([-2.0, -3, 0]),
+        "weight1": np.array([[-1.0, 0, 1], [-2, 0, 2]]),
+        "bias1": np.array([-5.0, 5]),
     }
 
     inputs_2, grads_2 = compiled_model.evaluate_all(inputs)
@@ -285,8 +287,8 @@ def test_different_backend_compile():
         layer2 = Layer(dimension=2, activation=Softmax())
         sum = Add()
 
-        model += layer1(input="input", w="w0", b="b0")
-        model += layer2(input=layer1.output, w="w1", b="b1")
+        model += layer1(input="input", weight="weight0", bias="bias0")
+        model += layer2(input=layer1.output, weight="weight1", bias="bias1")
         model += sum(left=3.0, right=layer2.output, output="output")
 
         other_backends = [item for item in available_backends if item != backend]
@@ -380,18 +382,18 @@ def test_1_set_shapes_bug():
 
     shapes: dict[Connection, list[None | int]] = {
         linear1.input: [120, 120],
-        linear1.w: [32, None],
-        linear2.w: [32, 32],
-        linear2.b: [None],
+        linear1.weight: [32, None],
+        linear2.weight: [32, 32],
+        linear2.bias: [None],
     }
     comp_model = mithril.compile(model, NumpyBackend(precision=64), shapes=shapes)
 
     assert comp_model.shapes["input"] == [120, 120]
     assert comp_model.shapes["output"] == [120, 32]
-    assert comp_model.shapes["w_0"] == [32, 120]
-    assert comp_model.shapes["b_0"] == [32]
-    assert comp_model.shapes["w_1"] == [32, 32]
-    assert comp_model.shapes["b_1"] == [32]
+    assert comp_model.shapes["weight_0"] == [32, 120]
+    assert comp_model.shapes["bias_0"] == [32]
+    assert comp_model.shapes["weight_1"] == [32, 32]
+    assert comp_model.shapes["bias_1"] == [32]
 
 
 def test_2_set_shapes_bug():
@@ -401,8 +403,8 @@ def test_2_set_shapes_bug():
     linear2 = Linear()
     model += linear1(input="input")
     model += linear2(input=linear1.output, output="output")
-    shape_1: dict[str, list] = {"input": [120, 120], "w": [32, None]}
-    shape_2: dict[str, list] = {"w": [32, 32], "b": [None]}
+    shape_1: dict[str, list] = {"input": [120, 120], "weight": [32, None]}
+    shape_2: dict[str, list] = {"weight": [32, 32], "bias": [None]}
 
     linear1.set_shapes(shape_1)
     linear2.set_shapes(shape_2)
@@ -411,10 +413,10 @@ def test_2_set_shapes_bug():
 
     assert comp_model.shapes["input"] == [120, 120]
     assert comp_model.shapes["output"] == [120, 32]
-    assert comp_model.shapes["w_0"] == [32, 120]
-    assert comp_model.shapes["b_0"] == [32]
-    assert comp_model.shapes["w_1"] == [32, 32]
-    assert comp_model.shapes["b_1"] == [32]
+    assert comp_model.shapes["weight_0"] == [32, 120]
+    assert comp_model.shapes["bias_0"] == [32]
+    assert comp_model.shapes["weight_1"] == [32, 32]
+    assert comp_model.shapes["bias_1"] == [32]
 
 
 def test_1_solve_constraint_extend():
@@ -422,7 +424,7 @@ def test_1_solve_constraint_extend():
     c1 = Convolution2D(3)
     shape_1: dict[str, list] = {
         "input": [8, 3, 224, 224],
-        "kernel": [16, 3, None, None],
+        "weight": [16, 3, None, None],
     }
     c1.set_shapes(shape_1)
     model += c1
@@ -973,17 +975,6 @@ def test_canonical_dual_iadd_op():
     # assert model.canonical_output.key == 'Convolution2D_2_output'
 
 
-def test_canonical_input_naming():
-    m = Model()
-    m += Add()
-    m += Linear()
-    m += (l2 := Linear())
-    m += Linear()(input=l2.output, output="output")
-
-    comp_model = mithril.compile(model=m, backend=JaxBackend(precision=32))
-    assert "input" in comp_model._input_keys
-
-
 def test_flatten1():
     model = Model()
     flat1 = Flatten(start_dim=2, end_dim=-3)
@@ -1011,7 +1002,7 @@ def test_compile_gradients_boolean():
     context.add_loss(
         CrossEntropy(input_type="probs"), [Mean()], target="target", input="output"
     )
-    context.add_regularization(model=L2(), coef=1e-1, input=re.compile(r"w\d"))
+    context.add_regularization(model=L2(), coef=1e-1, input=re.compile(r"weight\d"))
 
     static_keys = {"input": np.array([[1.0]]), "target": np.array([0])}
 
@@ -1021,21 +1012,21 @@ def test_compile_gradients_boolean():
     )
 
     shapes = compiled_model.get_shapes()
-    w_0_shape = shapes["w_0"]
-    w_1_shape = shapes["w_1"]
-    b_0_shape = shapes["b_0"]
-    b_1_shape = shapes["b_1"]
+    weight_0_shape = shapes["weight_0"]
+    weight_1_shape = shapes["weight_1"]
+    bias_0_shape = shapes["bias_0"]
+    bias_1_shape = shapes["bias_1"]
 
-    assert is_list_int(w_0_shape)
-    assert is_list_int(w_1_shape)
-    assert is_list_int(b_0_shape)
-    assert is_list_int(b_1_shape)
+    assert is_list_int(weight_0_shape)
+    assert is_list_int(weight_1_shape)
+    assert is_list_int(bias_0_shape)
+    assert is_list_int(bias_1_shape)
 
     params = {
-        "w_0": backend.randn(*w_0_shape),
-        "b_0": backend.randn(*b_0_shape),
-        "w_1": backend.randn(*w_1_shape),
-        "b_1": backend.randn(*b_1_shape),
+        "weight_0": backend.randn(*weight_0_shape),
+        "bias_0": backend.randn(*bias_0_shape),
+        "weight_1": backend.randn(*weight_1_shape),
+        "bias_1": backend.randn(*bias_1_shape),
     }
 
     assert compiled_model._generated_compute_gradients_fn is None
@@ -1203,9 +1194,9 @@ def test_reuse_pickled_registered_backend():
         def __init__(self) -> None:
             super().__init__(
                 formula_key="my_adder",
-                output=TensorType([("Var_out", ...)]),
-                left=TensorType([("Var_1", ...)]),
-                right=TensorType([("Var_2", ...)]),
+                output=IOKey(shape=[("Var_out", ...)], type=GenericTensorType),
+                left=IOKey(shape=[("Var_1", ...)], type=GenericTensorType),
+                right=IOKey(shape=[("Var_2", ...)], type=GenericTensorType),
             )
             self.set_constraint(
                 fn=bcast, keys=[PrimitiveModel.output_key, "left", "right"]
@@ -1264,14 +1255,14 @@ def test_logical_model_compile_twice():
     layer1 = Layer(dimension=3, activation=Sigmoid())
     layer2 = Layer(dimension=2, activation=Softmax())
 
-    model += layer2(w="w1", b="b1", output=IOKey(name="output"))
-    model += layer1(output=layer2.input, w="w0", b="b0", input="input")
+    model += layer2(weight="weight1", bias="bias1", output=IOKey(name="output"))
+    model += layer1(output=layer2.input, weight="weight0", bias="bias0", input="input")
 
     context = TrainModel(model)
     context.add_loss(
         CrossEntropy(input_type="probs"), [Mean()], target="target", input="output"
     )
-    context.add_regularization(model=L2(), coef=1e-1, input=re.compile(r"w\d"))
+    context.add_regularization(model=L2(), coef=1e-1, input=re.compile(r"weight\d"))
 
     static_keys_np = {"input": np.array([[1.0]]), "target": np.array([0])}
 
@@ -1307,14 +1298,14 @@ def test_canonical_output_compile():
     layer1 = Layer(dimension=3, activation=Sigmoid())
     layer2 = Layer(dimension=2, activation=Softmax())
 
-    model += layer2(w="w1", b="b1", output=IOKey(name="output"))
-    model += layer1(output=layer2.input, w="w0", b="b0", input="input")
+    model += layer2(weight="weight1", bias="bias1", output=IOKey(name="output"))
+    model += layer1(output=layer2.input, weight="weight0", bias="bias0", input="input")
 
     context = TrainModel(model)
     context.add_loss(
         CrossEntropy(input_type="probs"), [Mean()], target="target", input="output"
     )
-    context.add_regularization(model=L2(), coef=1e-1, input=re.compile(r"w\d"))
+    context.add_regularization(model=L2(), coef=1e-1, input=re.compile(r"weight\d"))
 
     static_keys = {"input": np.array([[1.0]]), "target": np.array([0])}
 
@@ -1336,7 +1327,7 @@ def test_static_key_names_consistency():
 def test_evaluate_replace():
     model = Model()
     lin1 = Linear(dimension=1)
-    model += lin1(input="in", w="for", b="add", output="sum")
+    model += lin1(input="in", weight="for", bias="add", output="sum")
 
     comp_model = compile(
         model=model,
@@ -1352,10 +1343,15 @@ def test_evaluate_replace_2():
     lin1 = Linear(dimension=5)
     lin2 = Linear(dimension=3)
     lin3 = Linear(dimension=5)
-    model += lin1(input="in", w="for", b="add", output="sum")
-    model += lin2(input="sum", w="range", b="add_grad", output="matrix_multiplication")
+    model += lin1(input="in", weight="for", bias="add", output="sum")
+    model += lin2(
+        input="sum", weight="range", bias="add_grad", output="matrix_multiplication"
+    )
     model += lin3(
-        input="matrix_multiplication", w="k_in", b="in_grad_cache", output="outputt"
+        input="matrix_multiplication",
+        weight="k_in",
+        bias="in_grad_cache",
+        output="outputt",
     )
 
     comp_model = compile(
@@ -1377,7 +1373,7 @@ def test_evaluate_replace_2():
 def test_check_static_1():
     model = Model()
     lin1 = Linear(dimension=1)
-    model += lin1(input=[[2, 3], [1, 4]], w=[[4, 5]], b=[3], output="output")
+    model += lin1(input=[[2, 3], [1, 4]], weight=[[4, 5]], bias=[3], output="output")
 
     comp_model = compile(
         model=model,
@@ -1396,10 +1392,10 @@ def test_check_static_1():
 def test_check_static_2():
     model = Model()
     lin1 = Linear(dimension=1)
-    model += lin1(input=[[2, 3], [1, 4]], w="w", b="b", output="output")
+    model += lin1(input=[[2, 3], [1, 4]], weight="weight", bias="bias", output="output")
 
     comp_model = compile(model=model, backend=NumpyBackend(precision=32))
-    inputs = {"w": np.array([[4.0, 5.0]]), "b": np.array([3.0])}
+    inputs = {"weight": np.array([[4.0, 5.0]]), "bias": np.array([3.0])}
     outputs = comp_model.evaluate(inputs)
     ref_out = outputs["output"]
     assert isinstance(ref_out, np.ndarray)
@@ -1409,10 +1405,10 @@ def test_check_static_2():
 def test_check_static_3():
     model = Model()
     lin1 = Linear(dimension=1)
-    model += lin1(input=[[2, 3], [1, 4]], w=[[4, 5]], b="b", output="output")
+    model += lin1(input=[[2, 3], [1, 4]], weight=[[4, 5]], bias="bias", output="output")
 
     comp_model = compile(model=model, backend=NumpyBackend(precision=32))
-    inputs = {"b": np.array([3.0])}
+    inputs = {"bias": np.array([3.0])}
     outputs = comp_model.evaluate(inputs)
     ref_out = outputs["output"]
     assert isinstance(ref_out, np.ndarray)
@@ -1422,15 +1418,15 @@ def test_check_static_3():
 def test_check_static_4():
     model = Model()
     lin1 = Linear(dimension=1)
-    model += lin1(input="input", w="w", b="b", output="output")
+    model += lin1(input="input", weight="weight", bias="bias", output="output")
 
     comp_model = compile(
         model=model,
         backend=NumpyBackend(precision=32),
         constant_keys={
             "input": np.array([[2.0, 3.0], [1.0, 4.0]]),
-            "w": np.array([[4.0, 5.0]]),
-            "b": np.array([3.0]),
+            "weight": np.array([[4.0, 5.0]]),
+            "bias": np.array([3.0]),
         },
     )
     outputs = comp_model.evaluate()
@@ -1442,18 +1438,18 @@ def test_check_static_4():
 def test_check_static_5():
     model = Model()
     lin1 = Linear(dimension=1)
-    model += lin1(input="input", w="w", b="b", output="output")
+    model += lin1(input="input", weight="weight", bias="bias", output="output")
 
     comp_model = compile(
         model=model,
         backend=NumpyBackend(precision=32),
         jit=False,
-        data_keys={"input", "w", "b"},
+        data_keys={"input", "weight", "bias"},
     )
     data = {
         "input": np.array([[2.0, 3.0], [1.0, 4.0]]),
-        "w": np.array([[4.0, 5.0]]),
-        "b": np.array([3.0]),
+        "weight": np.array([[4.0, 5.0]]),
+        "bias": np.array([3.0]),
     }
 
     outputs = comp_model.evaluate(data=data)
@@ -1465,7 +1461,7 @@ def test_check_static_5():
 def test_check_static_6():
     model: Model = Model()
     lin1 = Linear(dimension=1)
-    model += lin1(input=[[2, 3], [1, 4]], w="w", b="b", output="output")
+    model += lin1(input=[[2, 3], [1, 4]], weight="weight", bias="bias", output="output")
 
     # mypy fails in below compilation as
     # it cannot infer exact type of
@@ -1476,10 +1472,10 @@ def test_check_static_6():
         model=model,
         backend=NumpyBackend(precision=32),
         jit=False,
-        data_keys={"w"},
-        constant_keys={"b": np.array([3.0])},
+        data_keys={"weight"},
+        constant_keys={"bias": np.array([3.0])},
     )
-    data = {"w": np.array([[4.0, 5.0]])}
+    data = {"weight": np.array([[4.0, 5.0]])}
 
     outputs = comp_model.evaluate(data=data)
     ref_out = outputs["output"]
@@ -1515,9 +1511,9 @@ def test_canonic_example():
     model += LeakyRelu()
     model += LeakyRelu()
     comp_model = compile(model=model, backend=NumpyBackend())
-    assert set(comp_model._input_keys) == {"input", "_input_0"}
+    assert set(comp_model._input_keys) == {"input_1", "input_0"}
     assert set(comp_model.output_keys) == {"output"}
-    inputs = {"input": np.array([[2.0, -1.0]])}
+    inputs = {"input_1": np.array([[2.0, -1.0]])}
     assert_results_equal(
         comp_model.evaluate(inputs), {"output": np.array([[2.0, -0.0001]])}
     )
@@ -1658,8 +1654,8 @@ def test_train_context_numpy():
         },
     )
     assert set(out.keys()) == {"final_cost", "output", "output2"}
-    np.testing.assert_allclose(gradients_ds["w_1"], backend.zeros(16, 8))
-    np.testing.assert_allclose(gradients_ds["b_1"], backend.zeros(16))
+    np.testing.assert_allclose(gradients_ds["weight_1"], backend.zeros(16, 8))
+    np.testing.assert_allclose(gradients_ds["bias_1"], backend.zeros(16))
 
 
 def test_train_context_example():
@@ -1674,17 +1670,17 @@ def test_train_context_example():
     comp_model = compile(context, backend=backend, shapes={"input": [1, 1]}, jit=False)
     params = {
         "input": np.array([[2.0]]),
-        "w_0": np.array([[3.0]]),
-        "b_0": np.array([1.0]),
-        "w_1": np.array([[2.0]]),
-        "b_1": np.array([4.0]),
+        "weight_0": np.array([[3.0]]),
+        "bias_0": np.array([1.0]),
+        "weight_1": np.array([[2.0]]),
+        "bias_1": np.array([4.0]),
     }
     ref_grads = {
         "input": np.array([[6.0]]),
-        "w_0": np.array([[4.0]]),
-        "b_0": np.array([2.0]),
-        "w_1": np.array([[7.0]]),
-        "b_1": np.array([1.0]),
+        "weight_0": np.array([[4.0]]),
+        "bias_0": np.array([2.0]),
+        "weight_1": np.array([[7.0]]),
+        "bias_1": np.array([1.0]),
     }
     ref_outputs = {
         "output2": np.array([[18.0]]),
@@ -1813,7 +1809,7 @@ def test_arange_primitive():
             arange_len = 20
             model = Model()
             layer2 = Layer(dimension=2, activation=Softmax())
-            model += layer2(input="input", w="w1", b="b1")
+            model += layer2(input="input", weight="weight1", bias="bias1")
             model += Arange()(stop=arange_len, output=IOKey(name="arange_res"))
             model += Add()(left=3, right=layer2.output, output=IOKey(name="output"))
 
@@ -1831,7 +1827,7 @@ def test_arange_primitive():
                 context, _backend, data_keys={"input"}, constant_keys=static_keys
             )
 
-            params = {"b1": _backend.ones(1), "w1": _backend.ones((1, 3))}
+            params = {"bias1": _backend.ones(1), "weight1": _backend.ones((1, 3))}
             data = {"input": _backend.ones((1, 3))}
             output = pm.evaluate(params, data)
             assert (output["arange_res"] == _backend.arange(arange_len)).all()  # type: ignore
@@ -1855,7 +1851,7 @@ def test_to_tensor_primitive():
             layer2 = Layer(dimension=2, activation=Softmax())
             s = Size(dim=-1)
             t = ToTensor()
-            model += layer2(input="input", w="w1", b="b1")
+            model += layer2(input="input", weight="weight1", bias="bias1")
             model += s(input="input")
             model += t(input=s.output)
             model += Power()(base=t.output, exponent=2, output=IOKey(name="power_out"))
@@ -1875,7 +1871,7 @@ def test_to_tensor_primitive():
                 context, _backend, data_keys={"input"}, constant_keys=static_keys
             )
 
-            params = {"b1": _backend.ones(1), "w1": _backend.ones((1, 3))}
+            params = {"bias1": _backend.ones(1), "weight1": _backend.ones((1, 3))}
             data = {"input": _backend.ones((1, 3))}
             output = pm.evaluate(params, data)
             assert (output["power_out"] == _backend.array([9])).all()  # type: ignore
@@ -1892,13 +1888,13 @@ def test_shapes_1():
         "$_Linear_0_output": [50, 10],
         "$_Linear_1_output": [50, 10],
         "$_Linear_2_output": [50, 10],
-        "$w_0": [10, 2],
+        "$weight_0": [10, 2],
         "$input": [50, 2],
-        "$b_0": [10],
-        "$w_1": [10, 10],
-        "$b_1": [10],
-        "$w_2": [10, 10],
-        "$b_2": [10],
+        "$bias_0": [10],
+        "$weight_1": [10, 10],
+        "$bias_1": [10],
+        "$weight_2": [10, 10],
+        "$bias_2": [10],
         "$_Linear_0_axes": None,
         "$_Linear_1_axes": None,
         "$_Linear_2_axes": None,
@@ -1913,7 +1909,7 @@ def test_flatten_dag0():
     l1.input.set_differentiable(True)
     l5.input.set_differentiable(True)
 
-    model += l1(w="w_2")
+    model += l1(weight="weight_2")
     model += (lin1 := Linear(10))(input="")
     model += (lin2 := Linear(10))(input="")
     model += (lin3 := Linear(10))(input="")
@@ -1927,15 +1923,15 @@ def test_flatten_dag0():
     model.set_canonical_input(l1.input)
     pm = mithril.compile(model, backend)
     params = {
-        "_input_3": backend.array([[1.0]]),
-        "_w_3": backend.array([[4.0]]),
-        "b_4": backend.array([3.0]),
+        "input_4": backend.array([[1.0]]),
+        "weight_4": backend.array([[4.0]]),
+        "bias_4": backend.array([3.0]),
     }
     ref_outputs = {"output1": backend.array([[7.0]])}
     ref_grads = {
-        "_input_3": backend.array([[4.0]]),
-        "_w_3": backend.array([[1.0]]),
-        "b_4": backend.array([1.0]),
+        "input_4": backend.array([[4.0]]),
+        "weight_4": backend.array([[1.0]]),
+        "bias_4": backend.array([1.0]),
     }
     output_gradients = {"output1": backend.array([[1.0]])}
     outputs, grads = pm.evaluate_all(params, output_gradients=output_gradients)
@@ -1946,24 +1942,24 @@ def test_flatten_dag0():
 def test_geo_mean_1():
     backend = TorchBackend()
     model = Model()
-    model += (lin := Linear(1))(w="w2")
+    model += (lin := Linear(1))(weight="weight2")
     lin.input.set_differentiable(True)
 
     context = TrainModel(model)
     context.add_loss(Buffer(), input=model.canonical_output)
-    context.add_regularization(L1(), 0.1, input="w2")
+    context.add_regularization(L1(), 0.1, input="weight2")
 
     pm = mithril.compile(context, backend, jit=False)
     params = {
         "input": backend.array([[1.0]]),
-        "w2": backend.array([[4.0]]),
-        "b": backend.array([3.0]),
+        "weight2": backend.array([[4.0]]),
+        "bias": backend.array([3.0]),
     }
     ref_outputs = {"final_cost": backend.array([[7.4]])}
     ref_grads = {
         "input": backend.array([[4.0]]),
-        "w2": backend.array([[1.1]]),
-        "b": backend.array([1.0]),
+        "weight2": backend.array([[1.1]]),
+        "bias": backend.array([1.0]),
     }
     outputs, grads = pm.evaluate_all(params)
 
@@ -2024,15 +2020,15 @@ def test_reduce_overlap_shapes():
     layer_1 = Layer(activation=Relu(), dimension=10)
     layer_2 = Layer(activation=Relu(), dimension=10)
     layer_3 = Layer(activation=Relu(), dimension=10)
-    model += layer_1(input="input", w="w1", output=IOKey(name="output1"))
-    model += layer_2(w="w2", input="output1", output=IOKey(name="output2"))
-    model += layer_3(w="w3", input="output2", output=IOKey(name="output3"))
+    model += layer_1(input="input", weight="weight1", output=IOKey(name="output1"))
+    model += layer_2(weight="weight2", input="output1", output=IOKey(name="output2"))
+    model += layer_3(weight="weight3", input="output2", output=IOKey(name="output3"))
 
     model.set_shapes({"input": [5, 4, 3]})
     ctx = TrainModel(model)
-    ctx.add_regularization(L1(), input="w1", coef=1e-1)
-    ctx.add_regularization(L1(), input="w2", coef=1e-1)
-    ctx.add_regularization(L1(), input="w3", coef=1e-1)
+    ctx.add_regularization(L1(), input="weight1", coef=1e-1)
+    ctx.add_regularization(L1(), input="weight2", coef=1e-1)
+    ctx.add_regularization(L1(), input="weight3", coef=1e-1)
     ctx.add_loss(
         Buffer(), input="output1", reduce_steps=[Sum(axis=0), Mean(axis=0), Sum(axis=0)]
     )
@@ -2049,14 +2045,18 @@ def test_reduce_overlap_shapes():
     layer_1_1 = Layer(activation=Relu(), dimension=10)
     layer_2_1 = Layer(activation=Relu(), dimension=10)
     layer_3_1 = Layer(activation=Relu(), dimension=10)
-    model_1 += layer_1_1(input="input", w="w1", output=IOKey(name="output1"))
-    model_1 += layer_2_1(w="w2", input="output1", output=IOKey(name="output2"))
-    model_1 += layer_3_1(w="w3", input="output2", output=IOKey(name="output3"))
+    model_1 += layer_1_1(input="input", weight="weight1", output=IOKey(name="output1"))
+    model_1 += layer_2_1(
+        weight="weight2", input="output1", output=IOKey(name="output2")
+    )
+    model_1 += layer_3_1(
+        weight="weight3", input="output2", output=IOKey(name="output3")
+    )
 
     ctx_1 = TrainModel(model_1)
-    ctx_1.add_regularization(L1(), input="w1", coef=1e-1)
-    ctx_1.add_regularization(L1(), input="w2", coef=1e-1)
-    ctx_1.add_regularization(L1(), input="w3", coef=1e-1)
+    ctx_1.add_regularization(L1(), input="weight1", coef=1e-1)
+    ctx_1.add_regularization(L1(), input="weight2", coef=1e-1)
+    ctx_1.add_regularization(L1(), input="weight3", coef=1e-1)
     ctx_1.add_loss(
         Buffer(), input="output1", reduce_steps=[Sum(axis=0), Mean(axis=0), Sum(axis=0)]
     )
@@ -2141,8 +2141,16 @@ def test_geomean_evaluate():
     model1 = Model()
     lin1 = Linear(dimension=10)
     lin12 = Linear(dimension=10)
-    model1.extend(lin1, input="input", w="w", b="b", output=IOKey("output1"))
-    model1.extend(lin12, input=lin1.output, w="w1", b="b1", output=IOKey("output2"))
+    model1.extend(
+        lin1, input="input", weight="weight", bias="bias", output=IOKey("output1")
+    )
+    model1.extend(
+        lin12,
+        input=lin1.output,
+        weight="weight1",
+        bias="bias1",
+        output=IOKey("output2"),
+    )
     model1.set_shapes({"input": [10, 10, 10]})
     lin1.input.set_differentiable(True)
     ctx1 = TrainModel(model1)
@@ -2154,13 +2162,21 @@ def test_geomean_evaluate():
     ctx1.add_loss(
         Buffer(), input="output2", reduce_steps=[Sum(axis=0), Mean(axis=0), Sum(axis=0)]
     )
-    ctx1.add_regularization(L1(), coef=0.1, input="w")
+    ctx1.add_regularization(L1(), coef=0.1, input="weight")
     comp_1 = mithril.compile(model=ctx1, backend=backend)
     model2 = Model()
     lin2 = Linear()
     lin22 = Linear(dimension=10)
-    model2.extend(lin2, input="input", w="w", b="b", output=IOKey("output1"))
-    model2.extend(lin22, input=lin2.output, w="w1", b="b1", output=IOKey("output2"))
+    model2.extend(
+        lin2, input="input", weight="weight", bias="bias", output=IOKey("output1")
+    )
+    model2.extend(
+        lin22,
+        input=lin2.output,
+        weight="weight1",
+        bias="bias1",
+        output=IOKey("output2"),
+    )
     lin2.input.set_differentiable(True)
     ctx2 = TrainModel(model2)
     ctx2.add_loss(
@@ -2171,14 +2187,14 @@ def test_geomean_evaluate():
     ctx2.add_loss(
         Buffer(), input="output2", reduce_steps=[Sum(axis=0), Mean(axis=0), Sum(axis=0)]
     )
-    ctx2.add_regularization(L1(), coef=0.1, input="w")
+    ctx2.add_regularization(L1(), coef=0.1, input="weight")
     comp_2 = mithril.compile(model=ctx2, backend=backend)
     inputs = {
         "input": jnp.ones((10, 10, 10), dtype=jnp.float32),
-        "w": jnp.ones((10, 10), dtype=jnp.float32),
-        "b": jnp.ones((10), dtype=jnp.float32),
-        "w1": jnp.ones((10, 10), dtype=jnp.float32),
-        "b1": jnp.ones((10), dtype=jnp.float32),
+        "weight": jnp.ones((10, 10), dtype=jnp.float32),
+        "bias": jnp.ones((10), dtype=jnp.float32),
+        "weight1": jnp.ones((10, 10), dtype=jnp.float32),
+        "bias1": jnp.ones((10), dtype=jnp.float32),
     }
     comp1_results = comp_1.evaluate(inputs)
     comp2_results = comp_2.evaluate(inputs)
@@ -2203,7 +2219,7 @@ def test_get_key_dependency_1():
     model = Linear()
 
     ctx = TrainModel(model)
-    ctx.add_regularization(model=L2(), coef=1e-1, input=model.w)
+    ctx.add_regularization(model=L2(), coef=1e-1, input=model.weight)
     ctx.add_loss(
         SquaredError(),
         [Mean()],
@@ -2219,17 +2235,19 @@ def test_get_key_dependency_1():
     }
     # assert resulting_connections == {"Mean_4_axis", "b", "input", "Mean_4_keepdim",
     # "target", "w"}
-    assert resulting_connections == {"target", "input", "w", "b"}
+    assert resulting_connections == {"target", "input", "weight", "bias"}
 
 
 def test_get_key_dependency_2():
     model = Model()
-    model += Linear()(input="input", w="w", b="b", output=IOKey(name="output"))
+    model += Linear()(
+        input="input", weight="weight", bias="bias", output=IOKey(name="output")
+    )
     model += Buffer()(input="dummy_input", output=IOKey(name="dummy_output"))
     model += Buffer()(input="dummy_output", output=IOKey(name="dummy_final_output"))
 
     ctx = TrainModel(model)
-    ctx.add_regularization(model=L2(), coef=1e-1, input=model.w)  # type: ignore
+    ctx.add_regularization(model=L2(), coef=1e-1, input=model.weight)  # type: ignore
     ctx.add_loss(
         SquaredError(),
         [Mean()],
@@ -2249,8 +2267,8 @@ def test_get_key_dependency_2():
         for con in ctx.dependency_map.get_dependent_input_conns("dummy_final_output")
     }
     # assert resulting_connections == {"Mean_4_axis", "b", "input", "Mean_4_keepdim",
-    # "target", "w"}
-    assert resulting_connections == {"target", "input", "w", "b"}
+    # "target", "weight"}
+    assert resulting_connections == {"target", "input", "weight", "bias"}
     assert dummy_connection1 == dummy_connection2 == {"dummy_input"}
 
 
@@ -2419,7 +2437,9 @@ def test_static_anlaysis():
     model += add1(
         left=IOKey(value=[[2.0]], name="left"), right=IOKey(value=[2.0], name="right")
     )
-    model += Linear(10)(input=add1.output, w="w", b="b", output=IOKey(name="output"))
+    model += Linear(10)(
+        input=add1.output, weight="w", bias="b", output=IOKey(name="output")
+    )
 
     comp_model = mithril.compile(model=model, backend=NumpyBackend())
 
@@ -2522,15 +2542,15 @@ def test_prune_1():
     compiled_model = compile(m, NumpyBackend())
     expected_connections: dict[str, list[str | set[str]]] = {
         "out_1": ["add", {"input", "input2", "out_1_cache"}],
-        "_Add_1_output": ["add", {"out_1", "input3", "_Add_1_output_cache"}],
-        "_Add_2_output": ["add", {"out_1", "input4", "_Add_2_output_cache"}],
+        "output_0": ["add", {"out_1", "input3", "output_0_cache"}],
+        "output_1": ["add", {"out_1", "input4", "output_1_cache"}],
     }
 
     expected_output_dict = {
         "out_1": "out_1",
-        "out_2": "_Add_1_output",
-        "out_3": "_Add_2_output",
-        "out_4": "_Add_1_output",
+        "out_2": "output_0",
+        "out_3": "output_1",
+        "out_4": "output_0",
     }
 
     assert_connections(compiled_model, expected_connections)
@@ -2554,15 +2574,15 @@ def test_prune_2():
     compiled_model = compile(m, NumpyBackend())
     expected_connections: dict[str, list[str | set[str]]] = {
         "out_1": ["add", {"input", "input2", "out_1_cache"}],
-        "_Add_1_output": ["add", {"out_1", "input3", "_Add_1_output_cache"}],
-        "_Add_3_output": ["add", {"_Add_1_output", "input4", "_Add_3_output_cache"}],
+        "output_0": ["add", {"out_1", "input3", "output_0_cache"}],
+        "output_2": ["add", {"output_0", "input4", "output_2_cache"}],
     }
 
     expected_output_dict = {
         "out_1": "out_1",
-        "out_2": "_Add_1_output",
-        "out_3": "_Add_1_output",
-        "out_4": "_Add_3_output",
+        "out_2": "output_0",
+        "out_3": "output_0",
+        "out_4": "output_2",
     }
 
     assert_connections(compiled_model, expected_connections)
@@ -2589,16 +2609,16 @@ def test_prune_3():
     compiled_model = compile(m, NumpyBackend())
     expected_connections: dict[str, list[str | set[str]]] = {
         "out_1": ["add", {"input", "input2", "out_1_cache"}],
-        "_Add_1_output": ["add", {"out_1", "input3", "_Add_1_output_cache"}],
-        "_Add_3_output": ["add", {"_Add_1_output", "input3", "_Add_3_output_cache"}],
+        "output_0": ["add", {"out_1", "input3", "output_0_cache"}],
+        "output_2": ["add", {"output_0", "input3", "output_2_cache"}],
     }
 
     expected_output_dict = {
         "out_1": "out_1",
-        "out_2": "_Add_1_output",
-        "out_3": "_Add_1_output",
-        "out_4": "_Add_3_output",
-        "out_5": "_Add_3_output",
+        "out_2": "output_0",
+        "out_3": "output_0",
+        "out_4": "output_2",
+        "out_5": "output_2",
     }
 
     assert_connections(compiled_model, expected_connections)
@@ -2621,12 +2641,12 @@ def test_prune_4():
     compiled_model = compile(m, NumpyBackend())
 
     expected_connections: dict[str, list[str | set[str]]] = {
-        "_Add_0_output": ["add", {"input", "input2", "_Add_0_output_cache"}],
-        "_Add_2_output": [
+        "output_0": ["add", {"input", "input2", "output_0_cache"}],
+        "output_2": [
             "add",
-            {"_Add_0_output", "_Add_2_output_cache"},
+            {"output_0", "output_2_cache"},
         ],
-        "output": ["add", {"_Add_2_output", "output_cache"}],
+        "output": ["add", {"output_2", "output_cache"}],
     }
 
     expected_output_dict = {
@@ -2652,12 +2672,12 @@ def test_prune_5():
 
     compiled_model = compile(m, NumpyBackend())
     expected_connections: dict[str, list[str | set[str]]] = {
-        "_Add_0_output": ["add", {"input", "input2", "_Add_0_output_cache"}],
-        "_Add_2_output": [
+        "output_0": ["add", {"input", "input2", "output_0_cache"}],
+        "output_2": [
             "add",
-            {"_Add_0_output", "_Add_2_output_cache"},
+            {"output_0", "output_2_cache"},
         ],
-        "output": ["add", {"_Add_2_output", "output_cache"}],
+        "output": ["add", {"output_2", "output_cache"}],
     }
 
     expected_output_dict = {
@@ -2685,14 +2705,14 @@ def test_prune_6():
 
     compiled_model = compile(m, NumpyBackend())
     expected_connections: dict[str, list[str | set[str]]] = {
-        "_Model_0_Add_0_output": [
+        "output_0": [
             "add",
-            {"input", "input2", "_Model_0_Add_0_output_cache"},
+            {"input", "input2", "output_0_cache"},
         ],
-        "auc": ["add", {"_Model_0_Add_0_output", "auc_cache"}],
+        "auc": ["add", {"output_0", "auc_cache"}],
         "acc": [
             "multiplication",
-            {"_Model_0_Add_0_output", "acc_cache"},
+            {"output_0", "acc_cache"},
         ],
     }
 
@@ -2718,13 +2738,13 @@ def test_prune_7():
     expected_connections: dict[str, list[str | set[str]]] = {
         "out_1": ["add", {"input", "input2", "out_1_cache"}],
         "out_2": ["add", {"out_1", "input3", "out_2_cache"}],
-        "_Add_2_output": ["add", {"out_1", "input4", "_Add_2_output_cache"}],
+        "output": ["add", {"out_1", "input4", "output_cache"}],
     }
 
     expected_output_dict = {
         "out_1": "out_1",
         "out_2": "out_2",
-        "out_3": "_Add_2_output",
+        "out_3": "output",
         "dont_forget_me": "out_2",
     }
 
@@ -2747,14 +2767,14 @@ def test_prune_8():
     compiled_model = compile(m, NumpyBackend())
     expected_connections: dict[str, list[str | set[str]]] = {
         "out_1": ["add", {"input", "input2", "out_1_cache"}],
-        "_Add_1_output": ["add", {"out_1", "input3", "_Add_1_output_cache"}],
-        "_Add_2_output": ["add", {"out_1", "input4", "_Add_2_output_cache"}],
+        "output_0": ["add", {"out_1", "input3", "output_0_cache"}],
+        "output_1": ["add", {"out_1", "input4", "output_1_cache"}],
     }
 
     expected_output_dict = {
         "out_1": "out_1",
-        "out_2": "_Add_2_output",
-        "dont_forget_me": "_Add_1_output",
+        "out_2": "output_1",
+        "dont_forget_me": "output_0",
     }
 
     assert_connections(compiled_model, expected_connections)
@@ -2776,11 +2796,11 @@ def test_prune_9():
     compiled_model = compile(m, NumpyBackend())
     expected_connections: dict[str, list[str | set[str]]] = {
         "out_1": ["add", {"input", "input2", "out_1_cache"}],
-        "_Add_1_output": ["add", {"out_1", "input3", "_Add_1_output_cache"}],
+        "output_0": ["add", {"out_1", "input3", "output_0_cache"}],
     }
 
     expected_output_dict = {
-        "dont_forget_me": "_Add_1_output",
+        "dont_forget_me": "output_0",
         "out_1": "out_1",
     }
 
@@ -2806,17 +2826,17 @@ def test_prune_10():
     compiled_model = compile(m, NumpyBackend())
     expected_connections: dict[str, list[str | set[str]]] = {
         "out_1": ["add", {"input", "input2", "out_1_cache"}],
-        "_Add_1_output": ["add", {"out_1", "input3", "_Add_1_output_cache"}],
-        "_Add_2_output": ["add", {"out_1", "input4", "_Add_2_output_cache"}],
-        "out_2": ["add", {"_Add_1_output", "input4", "out_2_cache"}],
+        "output_0": ["add", {"out_1", "input3", "output_0_cache"}],
+        "output_1": ["add", {"out_1", "input4", "output_1_cache"}],
+        "out_2": ["add", {"output_0", "input4", "out_2_cache"}],
     }
 
     expected_output_dict = {
         "out_1": "out_1",
         "out_2": "out_2",
-        "out_3": "_Add_1_output",
-        "out_4": "_Add_2_output",
-        "dont_forget_me": "_Add_1_output",
+        "out_3": "output_0",
+        "out_4": "output_1",
+        "dont_forget_me": "output_0",
     }
 
     assert_connections(compiled_model, expected_connections)
@@ -2843,19 +2863,19 @@ def test_prune_11():
     compiled_model = compile(m, NumpyBackend())
     expected_connections: dict[str, list[str | set[str]]] = {
         "out_1": ["add", {"input", "input2", "out_1_cache"}],
-        "_Add_1_output": ["add", {"out_1", "input3", "_Add_1_output_cache"}],
-        "_Multiply_2_output": [
+        "output_0": ["add", {"out_1", "input3", "output_0_cache"}],
+        "output_1": [
             "multiplication",
-            {"_Add_1_output", "input4", "_Multiply_2_output_cache"},
+            {"output_0", "input4", "output_1_cache"},
         ],
     }
 
     expected_output_dict = {
         "out_1": "out_1",
-        "out_3": "_Add_1_output",
-        "out_4": "_Add_1_output",
-        "out_5": "_Multiply_2_output",
-        "out_6": "_Multiply_2_output",
+        "out_3": "output_0",
+        "out_4": "output_0",
+        "out_5": "output_1",
+        "out_6": "output_1",
     }
 
     assert_connections(compiled_model, expected_connections)
@@ -2944,10 +2964,10 @@ def test_prune_valued_tensor_1():
     )
 
     expected_connections: dict[str, list[str | set[str]]] = {
-        "output2": ["add", {"input2", "_ToTensor_2_output"}],
-        "output1": ["add", {"input2", "_ToTensor_0_output"}],
-        "_ToTensor_2_output": ["to_tensor", {"_input"}],
-        "_ToTensor_0_output": ["to_tensor", {"input"}],
+        "output2": ["add", {"input2", "output_1"}],
+        "output1": ["add", {"input2", "output_0"}],
+        "output_1": ["to_tensor", {"input_1"}],
+        "output_0": ["to_tensor", {"input_0"}],
     }
     assert_connections(compiled_model, expected_connections)
 
@@ -2965,8 +2985,8 @@ def test_prune_valued_tensor_2():
     )
 
     expected_connections: dict[str, list[str | set[str]]] = {
-        "output1": ["add", {"input2", "_ToTensor_0_output"}],
-        "_ToTensor_0_output": ["to_tensor", {"input"}],
+        "output1": ["add", {"input2", "output_0"}],
+        "output_0": ["to_tensor", {"input_0"}],
     }
     expected_output_dict = {"output2": "output1", "output1": "output1"}
 
@@ -3043,12 +3063,12 @@ def test_prune_valued_tensor_5():
     compiled_model = compile(model, TorchBackend(), jit=False)
 
     expected_connections: dict[str, list[str | set[str]]] = {
-        "_Model_0_Relu_0_asd": ["relu", {"input1"}],
-        "_Model_0_Sum_1_qwe": [
+        "asd": ["relu", {"input1"}],
+        "qwe": [
             "reduce_sum",
-            {"_Model_0_Sum_1_keepdim", "_Model_0_Relu_0_asd", "_Model_0_Sum_1_axis"},
+            {"axis_0", "asd", "keepdim_0"},
         ],
-        "out2": ["relu", {"_Model_0_Sum_1_qwe"}],
+        "out2": ["relu", {"qwe"}],
     }
     expected_output_dict = {"out1": "out2", "out2": "out2"}
 
@@ -3531,15 +3551,15 @@ def test_demo_model():
     pm = mithril.compile(model=model, backend=TorchBackend(), safe_names=False)
 
     assert set(pm._input_keys) == {
-        "input",
-        "kernel_0",
-        "bias_0",
-        "kernel_1",
+        "weight_0",
         "bias_1",
-        "w_0",
-        "b_0",
-        "w_1",
-        "b_1",
+        "bias_3",
+        "weight_2",
+        "bias_0",
+        "weight_1",
+        "weight_3",
+        "bias_2",
+        "input",
     }
 
 
@@ -3613,7 +3633,7 @@ def test_flatgraph_4():
     )
 
     pm = mithril.compile(model=model, backend=backend)
-    assert pm._input_keys == {"input"}
+    assert pm._input_keys == {"relu_2"}
     assert len(pm._flat_graph.all_source_keys) == 3
     assert len(pm._flat_graph.all_target_keys) == 3
 
@@ -3764,8 +3784,8 @@ def geomean_multigpu_test():
 def test_add_loss_unknown_key():
     model = Model()
     l1 = Linear()
-    model += l1(input="input", w="w0")
-    model += Linear()(input=l1.output, w="w1", output=IOKey(name="output"))
+    model += l1(input="input", weight="w0")
+    model += Linear()(input=l1.output, weight="w1", output=IOKey(name="output"))
 
     context = TrainModel(model)
 
@@ -3812,8 +3832,8 @@ def test_add_loss_unknown_key():
 def test_add_regularization_unknown_key():
     model = Model()
     l1 = Linear()
-    model += l1(input="input", w="w0")
-    model += Linear()(input=l1.output, w="w1", output="output")
+    model += l1(input="input", weight="w0")
+    model += Linear()(input=l1.output, weight="w1", output="output")
 
     context = TrainModel(model)
 
@@ -3842,18 +3862,18 @@ def test_add_regularization_unknown_key():
 def test_add_regularization():
     model = Model()
     l1 = Linear(1)
-    model += l1(input="input", w=[[2]])
-    model += Linear()(input=l1.output, w="w1", output=IOKey(name="output"))
+    model += l1(input="input", weight=[[2]])
+    model += Linear()(input=l1.output, weight="w1", output=IOKey(name="output"))
 
     context = TrainModel(model)
 
     model2 = Model()
     l2 = Linear(1)
-    model2 += l2(input="input", w="w2")
+    model2 += l2(input="input", weight="w2")
 
     # Static key cannot be input of the regularization
     with pytest.raises(KeyError) as err_info:
-        context.add_regularization(L2(), 1.0, input=l1.w)
+        context.add_regularization(L2(), 1.0, input=l1.weight)
 
     assert str(err_info.value) == (
         "'The provided keys are not valid; at least one of the keys must belong "
@@ -3861,7 +3881,7 @@ def test_add_regularization():
     )
 
     with pytest.raises(KeyError) as err_info:
-        context.add_regularization(L2(), 1.0, input=l2.w)
+        context.add_regularization(L2(), 1.0, input=l2.weight)
 
     assert str(err_info.value) == (
         "'The provided keys are not valid; at least one of the keys must belong "
@@ -4128,8 +4148,8 @@ def test_integration_composite_1_extend_from_inputs_1_with_connect():
     model = Model()
     m2 = Layer(dimension=2, activation=Softmax())
     m1 = Layer(dimension=2, activation=Sigmoid())
-    model += m2(w="w1", b="b1", output="output")
-    model += m1(input="input", w="w0", b="b0", output=Connect(m2.input))
+    model += m2(weight="w1", bias="b1", output="output")
+    model += m1(input="input", weight="w0", bias="b0", output=Connect(m2.input))
 
     assert m1.output.data.metadata == m2.input.data.metadata
 
@@ -4145,7 +4165,7 @@ def test_mlp_last_dimension_prop():
         target=[[2.2, 4.2], [2.2, 4.2]],
         reduce_steps=[Mean()],
     )
-    assert ctx.shapes["w2"] == [2, 24]
+    assert ctx.shapes["weight2"] == [2, 24]
 
 
 def test_mlp_last_dimension_prop_2():
@@ -4326,8 +4346,8 @@ def test_connect_error_6():
     l2 = Linear(10)
     l3 = Linear(10)
     l4 = Linear(71)
-    model += l1(input="input2", w="w", output=IOKey(name="output"))
-    model += l2(input="input1", w="w1", output=IOKey(name="output2"))
+    model += l1(input="input2", weight="w", output=IOKey(name="output"))
+    model += l2(input="input1", weight="w1", output=IOKey(name="output2"))
     model += l3(input="", output=IOKey(name="output3"))
     model += l4(
         input=Connect("input1", "input2", "output3", key=IOKey(name="my_output"))
@@ -4378,9 +4398,9 @@ def test_infer_static_register_fn():
         def __init__(self) -> None:
             super().__init__(
                 formula_key="my_adder",
-                output=TensorType([("Var_out", ...)]),
-                left=TensorType([("Var_1", ...)]),
-                right=TensorType([("Var_2", ...)]),
+                output=IOKey(shape=[("Var_out", ...)], type=GenericTensorType),
+                left=IOKey(shape=[("Var_1", ...)], type=GenericTensorType),
+                right=IOKey(shape=[("Var_2", ...)], type=GenericTensorType),
             )
             self.set_constraint(
                 fn=bcast, keys=[PrimitiveModel.output_key, "left", "right"]
@@ -4608,11 +4628,11 @@ def test_cycle_handling_2():
 
     compiled_model = mithril.compile(model=model, backend=backend, jit=False)
     expected_connections: dict[str, list[str | set[str]]] = {
-        "output": ["tanh", {"_Model_1_output2"}],
-        "_Model_1_output2": ["sigmoid", {"_Model_0__output2"}],
-        "_Model_1_output1": ["relu", {"input"}],
-        "_Gelu_2_output": ["gelu", {"_Model_1_output1"}],
-        "_Model_0__output2": ["sin", {"_Gelu_2_output"}],
+        "output": ["tanh", {"output2_1"}],
+        "output2_1": ["sigmoid", {"output2_0"}],
+        "output1": ["relu", {"input"}],
+        "output_0": ["gelu", {"output1"}],
+        "output2_0": ["sin", {"output_0"}],
     }
 
     # '_Model_0_output2' = ['sin', {'_Gelu_2_output'}]
@@ -4755,19 +4775,16 @@ def test_cycle_handling_3():
 
     compiled_model = mithril.compile(model=model, backend=backend, jit=False)
     expected_connections: dict[str, list[str | set[str]]] = {
-        "_Model_2_output2": ["sin", {"_Gelu_1_output"}],
-        "_Model_0_output1": ["cos", {"_Model_0_Model_1_output2"}],
-        "output": ["tanh", {"_Model_0__output2"}],
-        "_Model_0_Model_1_output1": ["relu", {"input"}],
-        "_Model_0_Gelu_2_output": ["gelu", {"_Model_0_Model_1_output1"}],
-        "_Model_0__output2": [
-            "leaky_relu",
-            {"_Model_2_output2", "_Model_0_ToTensor_3_output"},
-        ],
-        "_Model_0_Model_0_output2": ["softplus", {"_Model_0_Gelu_2_output"}],
-        "_Model_0_ToTensor_3_output": ["to_tensor", {"slope"}],
-        "_Model_0_Model_1_output2": ["sigmoid", {"_Model_0_Model_0_output2"}],
-        "_Gelu_1_output": ["gelu", {"_Model_0_output1"}],
+        "output_2": ["gelu", {"output1_1"}],
+        "output": ["tanh", {"output2_3"}],
+        "output1_1": ["cos", {"output2_1"}],
+        "output_1": ["gelu", {"output1_0"}],
+        "output2_2": ["sin", {"output_2"}],
+        "output1_0": ["relu", {"input"}],
+        "output2_1": ["sigmoid", {"output2_0"}],
+        "output2_3": ["leaky_relu", {"output_0", "output2_2"}],
+        "output2_0": ["softplus", {"output_1"}],
+        "output_0": ["to_tensor", {"slope"}],
     }
 
     inputs = {
@@ -6512,7 +6529,7 @@ def test_discard_trainables_2():
     pm = compile(model, backend, shapes={"sidein": [1, 2]})
 
     assert {"input"} == pm._input_keys
-    assert {"sidein", "_Sigmoid_1_output"} == pm.discarded_keys
+    assert {"sidein", "output_0"} == pm.discarded_keys
     assert pm.get_shapes(model) == {
         "$_Sigmoid_1_output": [1, 2],
         "input": ["..."],
@@ -6532,7 +6549,7 @@ def test_discard_trainables_3():
     pm = compile(model, backend, shapes={"sidein": [1, 2]})
 
     assert {"input"} == pm._input_keys
-    assert {"sidein", "_Sigmoid_1_output"} == pm.discarded_keys
+    assert {"sidein", "output_0"} == pm.discarded_keys
     assert pm.get_shapes(model) == {
         "$_Sigmoid_1_output": [1, 2],
         "$_Buffer_2_output": [1, 2],
@@ -6561,7 +6578,7 @@ def test_discard_trainables_4():
     )
 
     assert {"input"} == pm._input_keys
-    assert {"sidein", "_Sigmoid_1_output", "sideout"} == pm.discarded_keys
+    assert {"sidein", "output_0", "sideout"} == pm.discarded_keys
     assert pm.get_shapes(model) == {
         "$_Sigmoid_1_output": [1, 2, 3],
         "$_Buffer_2_output": [1, 2, 3],
@@ -7083,16 +7100,16 @@ def test_iadd_1():
     compiled_model = compile(model, JaxBackend())
 
     expected_connections: dict[str, list[str | set[str]]] = {
-        "_MatrixMultiply_0_output": ["matrix_multiplication", {"input", "w1"}],
-        "_MatrixMultiply_1_output": [
+        "output_0": ["matrix_multiplication", {"left", "w1"}],
+        "output_1": [
             "matrix_multiplication",
-            {"_MatrixMultiply_0_output", "w2"},
+            {"output_0", "w2"},
         ],
-        "_MatrixMultiply_2_output": [
+        "output_2": [
             "matrix_multiplication",
-            {"_MatrixMultiply_1_output", "w3"},
+            {"output_1", "w3"},
         ],
-        "output": ["matrix_multiplication", {"_MatrixMultiply_2_output", "w4"}],
+        "output": ["matrix_multiplication", {"output_2", "w4"}],
     }
 
     assert_connections(compiled_model, expected_connections)
@@ -7108,10 +7125,10 @@ def test_iadd_2():
     compiled_model = compile(model, JaxBackend())
 
     expected_connections: dict[str, list[str | set[str]]] = {
-        "_MatrixMultiply_0_output": ["matrix_multiplication", {"input", "w1"}],
-        "_Relu_1_output": ["relu", {"_MatrixMultiply_0_output"}],
-        "_Sigmoid_2_output": ["sigmoid", {"_Relu_1_output"}],
-        "output": ["matrix_multiplication", {"_Sigmoid_2_output", "w4"}],
+        "output_0": ["matrix_multiplication", {"left", "w1"}],
+        "output_1": ["relu", {"output_0"}],
+        "output_2": ["sigmoid", {"output_1"}],
+        "output": ["matrix_multiplication", {"output_2", "w4"}],
     }
     assert_connections(compiled_model, expected_connections)
 
@@ -7126,8 +7143,8 @@ def test_iadd_3():
     compiled_model = compile(model, JaxBackend())
 
     expected_connections: dict[str, list[str | set[str]]] = {
-        "_Sigmoid_2_output": ["sigmoid", {"input"}],
-        "output": ["matrix_multiplication", {"_Sigmoid_2_output", "w4"}],
+        "output_2": ["sigmoid", {"input"}],
+        "output": ["matrix_multiplication", {"output_2", "w4"}],
     }
     assert_connections(compiled_model, expected_connections)
 
@@ -7146,8 +7163,8 @@ def test_iadd_4():
     compiled_model = compile(model, JaxBackend())
 
     expected_connections: dict[str, list[str | set[str]]] = {
-        "_Model_0_out2": ["sigmoid", {"input"}],
-        "output": ["sigmoid", {"_Model_0_out2"}],
+        "out2_0": ["sigmoid", {"in2"}],
+        "out2": ["sigmoid", {"out2_0"}],
     }
     assert_connections(compiled_model, expected_connections)
 
@@ -7166,10 +7183,10 @@ def test_iadd_5():
     compiled_model = compile(model, JaxBackend())
 
     expected_connections: dict[str, list[str | set[str]]] = {
-        "_Model_0_out1": ["sigmoid", {"input"}],
-        "_Model_0_out2": ["sigmoid", {"_Model_0_out1"}],
-        "_Model_1_out1": ["sigmoid", {"_Model_0_out2"}],
-        "output": ["sigmoid", {"_Model_1_out1"}],
+        "out1_0": ["sigmoid", {"in1"}],
+        "out2_0": ["sigmoid", {"out1_0"}],
+        "out1_1": ["sigmoid", {"out2_0"}],
+        "out2": ["sigmoid", {"out1_1"}],
     }
 
     assert_connections(compiled_model, expected_connections)
@@ -7211,8 +7228,8 @@ def test_iadd_7():
     compiled_model = compile(model, JaxBackend())
 
     expected_connections: dict[str, list[str | set[str]]] = {
-        "_Sigmoid_2_output": ["sigmoid", {"input"}],
-        "output": ["matrix_multiplication", {"_Sigmoid_2_output", "w4"}],
+        "output_2": ["sigmoid", {"input"}],
+        "output": ["matrix_multiplication", {"output_2", "w4"}],
     }
 
     assert_connections(compiled_model, expected_connections)
@@ -7228,8 +7245,8 @@ def test_iadd_8():
     compiled_model = compile(model, JaxBackend())
 
     expected_connections: dict[str, list[str | set[str]]] = {
-        "_Sigmoid_2_output": ["sigmoid", {"asd"}],
-        "output": ["matrix_multiplication", {"_Sigmoid_2_output", "w4"}],
+        "output_2": ["sigmoid", {"asd"}],
+        "output": ["matrix_multiplication", {"output_2", "w4"}],
     }
 
     assert_connections(compiled_model, expected_connections)
@@ -7323,19 +7340,19 @@ def test_string_iokey_value_1():
                 # Parse the shapes
                 all_input_shapes = list(input)
                 all_output_shapes = list(output)
-                # Create TensorType and Scalar Inputs
+                # Create IOKey shape = and Scalar Input, type = GenericTensorTypes
                 # Note that equation is string
-                tensor_input = TensorType(all_input_shapes)
-                tensor_output = TensorType(all_output_shapes)
-                scalar_equation = Scalar(str, equation)
+                tensor_input = IOKey(shape=all_input_shapes, type=GenericTensorType)
+                tensor_output = IOKey(shape=all_output_shapes, type=GenericTensorType)
+                scalar_equation = IOKey(type=str, value=equation)
 
             else:
                 # case where equation is TBD
-                tensor_input = TensorType([("Var1", ...)])
-                tensor_output = TensorType([("Var2", ...)])
-                scalar_equation = Scalar(str)
+                tensor_input = IOKey(shape=[("Var1", ...)], type=GenericTensorType)
+                tensor_output = IOKey(shape=[("Var2", ...)], type=GenericTensorType)
+                scalar_equation = IOKey(type=str)
 
-            kwargs: dict[str, TensorType | Scalar] = {
+            kwargs: dict[str, IOKey] = {
                 "output": tensor_output,
                 "input": tensor_input,
                 "equation": scalar_equation,
@@ -7409,17 +7426,17 @@ def test_string_iokey_value_2():
                 all_output_shapes = list(output)
                 # Create TensorType and Scalar Inputs
                 # Note that equation is string
-                tensor_input = TensorType(all_input_shapes)
-                tensor_output = TensorType(all_output_shapes)
-                scalar_equation = Scalar(str, equation)
+                tensor_input = IOKey(shape=all_input_shapes, type=GenericTensorType)
+                tensor_output = IOKey(shape=all_output_shapes, type=GenericTensorType)
+                scalar_equation = IOKey(type=str, value=equation)
 
             else:
                 # case where equation is TBD
-                tensor_input = TensorType([("Var1", ...)])
-                tensor_output = TensorType([("Var2", ...)])
-                scalar_equation = Scalar(str)
+                tensor_input = IOKey(shape=[("Var1", ...)], type=GenericTensorType)
+                tensor_output = IOKey(shape=[("Var2", ...)], type=GenericTensorType)
+                scalar_equation = IOKey(type=str)
 
-            kwargs: dict[str, TensorType | Scalar] = {
+            kwargs: dict[str, IOKey] = {
                 "output": tensor_output,
                 "input": tensor_input,
                 "equation": scalar_equation,

@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 import copy
 import logging
 from collections.abc import Callable, Iterator, Sequence
@@ -84,8 +83,6 @@ from .utils import (
     make_array,
     write_into_cache,
 )
-
-np._set_promotion_state("legacy")
 
 AxisType = None | int | Sequence[int]
 
@@ -448,7 +445,7 @@ def variance(
 # NN ops
 def conv1d(
     input: np.ndarray,
-    kernel: np.ndarray,
+    weight: np.ndarray,
     *,
     stride: int = 1,
     padding: tuple[int, int] = (1, 1),
@@ -461,15 +458,15 @@ def conv1d(
             f"Currently, the Numpy backend for conv2d only supports a dilation of 1."
         )
     n, c, w = input.shape
-    *_, w_k = kernel.shape
+    *_, w_k = weight.shape
     out_w = (w - w_k + sum(padding)) // stride + 1
     submatrices = get_submatrices1d(input, (n, c, out_w), w_k, padding, stride)
-    return np.einsum("niwl,oil->now", submatrices, kernel)
+    return np.einsum("niwl,oil->now", submatrices, weight)
 
 
 def conv1d_bias(
     input: np.ndarray,
-    kernel: np.ndarray,
+    weight: np.ndarray,
     bias: np.ndarray,
     *,
     stride: int = 1,
@@ -480,7 +477,7 @@ def conv1d_bias(
     return (
         conv1d(
             input=input,
-            kernel=kernel,
+            weight=weight,
             stride=stride,
             padding=padding,
             dilation=dilation,
@@ -492,7 +489,7 @@ def conv1d_bias(
 
 def conv2d(
     input: np.ndarray,
-    kernel: np.ndarray,
+    weight: np.ndarray,
     *,
     stride: tuple[int, int] = (1, 1),
     padding: tuple[int, int] | tuple[tuple[int, int], tuple[int, int]] = (1, 1),
@@ -512,18 +509,18 @@ def conv2d(
         _padding = padding  # type: ignore
 
     n, c, h, w = input.shape
-    _, _, h_k, w_k = kernel.shape
+    _, _, h_k, w_k = weight.shape
     out_h = (h - h_k + sum(_padding[0])) // stride[0] + 1
     out_w = (w - w_k + sum(_padding[1])) // stride[1] + 1
     submatrices = get_submatrices2d(
         input, (n, c, out_h, out_w), h_k, w_k, _padding, stride[0]
     )
-    return np.einsum("nihwkl,oikl->nohw", submatrices, kernel)
+    return np.einsum("nihwkl,oikl->nohw", submatrices, weight)
 
 
 def conv2d_bias(
     input: np.ndarray,
-    kernel: np.ndarray,
+    weight: np.ndarray,
     bias: np.ndarray,
     *,
     stride: tuple[int, int] = (1, 1),
@@ -534,7 +531,7 @@ def conv2d_bias(
     return (
         conv2d(
             input=input,
-            kernel=kernel,
+            weight=weight,
             stride=stride,
             padding=padding,
             dilation=dilation,
@@ -893,9 +890,7 @@ def to_tensor(
     return np.array(input[0], dtype=get_type(input[0], precision=precision))
 
 
-def tensor_to_list(
-    input: np.ndarray, cache: CacheType | None = None
-) -> NestedFloatOrIntOrBoolList:
+def tensor_to_list(input: np.ndarray, cache: CacheType | None = None):
     return input.tolist()
 
 

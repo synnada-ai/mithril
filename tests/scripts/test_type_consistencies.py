@@ -38,7 +38,6 @@ from mithril.models import (
     Multiply,
     PrimitiveModel,
     PrimitiveUnion,
-    Scalar,
     Shape,
     Sigmoid,
 )
@@ -51,9 +50,9 @@ class Model1(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="None",
-            input1=Scalar(tuple[int, ...]),
-            input2=Scalar(list[float]),
-            output=Scalar(tuple[tuple[int, ...]]),
+            input1=IOKey(type=tuple[int, ...]),
+            input2=IOKey(type=list[float]),
+            output=IOKey(type=tuple[tuple[int, ...]]),
         )
 
     def __call__(  # type: ignore[override]
@@ -70,10 +69,10 @@ class Model2(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="None",
-            input1=Scalar(int | float),
-            input2=Scalar(int | str),
-            input3=Scalar(str | float),
-            output=Scalar(tuple[int | float, int | float, int | float]),
+            input1=IOKey(type=int | float),
+            input2=IOKey(type=int | str),
+            input3=IOKey(type=str | float),
+            output=IOKey(type=tuple[int | float, int | float, int | float]),
         )
 
     def __call__(  # type: ignore[override]
@@ -96,19 +95,19 @@ class Model3(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="None",
-            input1=Scalar(
-                tuple[tuple[int | float, ...], ...]
+            input1=IOKey(
+                type=tuple[tuple[int | float, ...], ...]
                 | list[int | float]
                 | tuple[int, int, int, int]
             ),
-            input2=Scalar(list[int] | tuple[int, ...] | tuple[tuple[int | float]]),
-            input3=Scalar(
-                list[tuple[int | tuple[float | int]]]
+            input2=IOKey(type=list[int] | tuple[int, ...] | tuple[tuple[int | float]]),
+            input3=IOKey(
+                type=list[tuple[int | tuple[float | int]]]
                 | int
                 | float
                 | tuple[int | float, ...]
             ),
-            output=Scalar(int | float | str | tuple[int, int]),
+            output=IOKey(type=int | float | str | tuple[int, int]),
         )
 
     def __call__(  # type: ignore[override]
@@ -284,8 +283,8 @@ def test_type_9():
     assert lin_model.input.data.metadata.data._type == int | float | bool
     model += lin_model(
         input=IOKey(value=[[1.0, 2.0], [3.0, 4.0]], name="input"),
-        w="w",
-        b="b",
+        weight="w",
+        bias="b",
         output=IOKey(name="output"),
     )
     assert lin_model.input.data.metadata.data._type is float
@@ -297,8 +296,8 @@ def test_type_10():
     assert lin_model.input.data.metadata.data._type == int | float | bool
     model += lin_model(
         input=IOKey(value=[[False, 1], [True, False]], name="input"),
-        w="w",
-        b="b",
+        weight="w",
+        bias="b",
         output=IOKey(name="output"),
     )
     assert lin_model.input.data.metadata.data._type is int
@@ -310,8 +309,8 @@ def test_type_11():
     assert lin_model.input.data.metadata.data._type == int | float | bool
     model += lin_model(
         input=IOKey(value=[[False, 1], [2.2, False]], name="input"),
-        w="w",
-        b="b",
+        weight="w",
+        bias="b",
         output=IOKey(name="output"),
     )
     assert lin_model.input.data.metadata.data._type is float
@@ -323,8 +322,8 @@ def test_type_12():
     assert lin_model.input.data.metadata.data._type == int | float | bool
     model += lin_model(
         input=IOKey(value=[[False, 1], [2.2, False]], name="input"),
-        w="w",
-        b="b",
+        weight="w",
+        bias="b",
         output=IOKey(name="output"),
     )
     assert lin_model.input.data.metadata.data._type is float
@@ -336,8 +335,8 @@ def test_type_13():
     assert lin_model.input.data.metadata.data._type == int | float | bool
     model += lin_model(
         input=IOKey(value=[[False, True], [False, False]], name="input"),
-        w="w",
-        b="b",
+        weight="w",
+        bias="b",
         output=IOKey(name="output"),
     )
     # model.make_static("input", [[False, True], [False, False]])
@@ -350,8 +349,8 @@ def test_type_14():
     assert lin_model.input.data.metadata.data._type == int | float | bool
     model += lin_model(
         input=IOKey(value=[[False, 1.0], [2, 3]], name="input"),
-        w="w",
-        b="b",
+        weight="w",
+        bias="b",
         output=IOKey(name="output"),
     )
     assert lin_model.input.data.metadata.data._type is float

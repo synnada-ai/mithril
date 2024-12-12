@@ -425,7 +425,7 @@ def variance(
 # NN ops
 def conv1d(
     input: torch.Tensor,
-    kernel: torch.Tensor,
+    weight: torch.Tensor,
     *,
     stride: int = 1,
     padding: tuple[int, int] = (1, 1),
@@ -437,7 +437,7 @@ def conv1d(
 
     return torch.nn.functional.conv1d(
         input=input,
-        weight=kernel,
+        weight=weight,
         stride=stride,
         padding=0,
         dilation=dilation,
@@ -447,7 +447,7 @@ def conv1d(
 
 def conv1d_bias(
     input: torch.Tensor,
-    kernel: torch.Tensor,
+    weight: torch.Tensor,
     bias: torch.Tensor,
     *,
     stride: int = 1,
@@ -459,7 +459,7 @@ def conv1d_bias(
 
     return torch.nn.functional.conv1d(
         input=input,
-        weight=kernel,
+        weight=weight,
         bias=torch.atleast_1d(bias.squeeze()),
         stride=stride,
         padding=0,
@@ -470,7 +470,7 @@ def conv1d_bias(
 
 def conv2d(
     input: torch.Tensor,
-    kernel: torch.Tensor,
+    weight: torch.Tensor,
     *,
     stride: tuple[int, int] = (1, 1),
     padding: tuple[int, int] | tuple[tuple[int, int], tuple[int, int]] = (1, 1),
@@ -486,7 +486,7 @@ def conv2d(
     # TODO: padding type will be fix with typeIs
     return F.conv2d(
         input=input,
-        weight=kernel,
+        weight=weight,
         bias=None,
         stride=stride,
         padding=_padding,
@@ -497,7 +497,7 @@ def conv2d(
 
 def conv2d_bias(
     input: torch.Tensor,
-    kernel: torch.Tensor,
+    weight: torch.Tensor,
     bias: torch.Tensor,
     *,
     stride: tuple[int, int] = (1, 1),
@@ -514,7 +514,7 @@ def conv2d_bias(
     # TODO: padding type will be fix with typeIs
     return F.conv2d(
         input=input,
-        weight=kernel,
+        weight=weight,
         bias=torch.atleast_1d(bias.squeeze()),
         stride=stride,
         padding=_padding,

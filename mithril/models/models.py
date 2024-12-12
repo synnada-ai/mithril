@@ -352,7 +352,7 @@ class MaxPool2D(Pool2D):
 
 class Convolution1D(Model):
     input: Connection
-    kernel: Connection
+    weight: Connection
     stride: Connection
     padding: Connection
     dilation: Connection
@@ -368,12 +368,12 @@ class Convolution1D(Model):
         use_bias: bool = True,
         name: str | None = None,
         input: TensorValueType | ToBeDetermined = TBD,
-        kernel: TensorValueType | ToBeDetermined = TBD,
+        weight: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
         self.factory_inputs = {
             "input": input,
-            "kernel": kernel,
+            "weight": weight,
             "stride": stride,
             "padding": padding,
             "dilation": dilation,
@@ -394,7 +394,7 @@ class Convolution1D(Model):
         p_converter = PaddingConverter1D()
 
         self += k_shp(
-            input=IOKey(name="kernel", shape=[out_channels, "C_in", kernel_size])
+            input=IOKey(name="weight", shape=[out_channels, "C_in", kernel_size])
         )
         self += p_converter(
             input=IOKey(name="padding", value=pad), kernel_size=k_shp.output[-1]
@@ -403,7 +403,7 @@ class Convolution1D(Model):
         conv_connections: dict[str, ConnectionType] = {
             "output": IOKey(name="output"),
             "input": "input",
-            "kernel": "kernel",
+            "weight": "weight",
             "stride": IOKey(name="stride", value=stride),
             "padding": p_converter.output,
             "dilation": IOKey(name="dilation", value=dilation),
@@ -418,7 +418,7 @@ class Convolution1D(Model):
     def __call__(  # type: ignore[override]
         self,
         input: ConnectionType = NOT_GIVEN,
-        kernel: ConnectionType = NOT_GIVEN,
+        weight: ConnectionType = NOT_GIVEN,
         stride: ConnectionType = NOT_GIVEN,
         padding: ConnectionType = NOT_GIVEN,
         dilation: ConnectionType = NOT_GIVEN,
@@ -426,7 +426,7 @@ class Convolution1D(Model):
     ) -> ExtendInfo:
         return super().__call__(
             input=input,
-            kernel=kernel,
+            weight=weight,
             stride=stride,
             padding=padding,
             dilation=dilation,
@@ -436,7 +436,7 @@ class Convolution1D(Model):
 
 class Convolution2D(Model):
     input: Connection
-    kernel: Connection
+    weight: Connection
     stride: Connection
     padding: Connection
     dilation: Connection
@@ -456,7 +456,7 @@ class Convolution2D(Model):
         use_bias: bool = True,
         name: str | None = None,
         input: TensorValueType | ToBeDetermined = TBD,
-        kernel: TensorValueType | ToBeDetermined = TBD,
+        weight: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
         self.factory_args = {
@@ -481,7 +481,7 @@ class Convolution2D(Model):
 
         self.factory_inputs = {
             "input": input,
-            "kernel": kernel,
+            "weight": weight,
             "stride": stride,
             "padding": pad,
             "dilation": dilation,
@@ -493,7 +493,7 @@ class Convolution2D(Model):
         pt_converter = TupleConverter()
         dt_converter = TupleConverter()
 
-        self += k_shp(input=IOKey(name="kernel", shape=[out_channels, "C_in", *k_size]))
+        self += k_shp(input=IOKey(name="weight", shape=[out_channels, "C_in", *k_size]))
         self += p_converter(
             input=IOKey(name="padding", value=pad), kernel_size=k_shp.output[-2:]
         )
@@ -504,7 +504,7 @@ class Convolution2D(Model):
         conv_connections: dict[str, ConnectionType] = {
             "output": IOKey(name="output"),
             "input": "input",
-            "kernel": "kernel",
+            "weight": "weight",
             "stride": st_converter.output,
             "padding": pt_converter.output,
             "dilation": dt_converter.output,
@@ -519,7 +519,7 @@ class Convolution2D(Model):
     def __call__(  # type: ignore[override]
         self,
         input: ConnectionType = NOT_GIVEN,
-        kernel: ConnectionType = NOT_GIVEN,
+        weight: ConnectionType = NOT_GIVEN,
         stride: ConnectionType = NOT_GIVEN,
         padding: ConnectionType = NOT_GIVEN,
         dilation: ConnectionType = NOT_GIVEN,
@@ -527,7 +527,7 @@ class Convolution2D(Model):
     ) -> ExtendInfo:
         return super().__call__(
             input=input,
-            kernel=kernel,
+            weight=weight,
             stride=stride,
             padding=padding,
             dilation=dilation,
@@ -538,8 +538,8 @@ class Convolution2D(Model):
 class Linear(Model):
     output: Connection
     input: Connection
-    w: Connection
-    b: Connection
+    weight: Connection
+    bias: Connection
 
     def __init__(
         self,
@@ -547,30 +547,30 @@ class Linear(Model):
         use_bias: bool = True,
         name: str | None = None,
         input: TensorValueType | ToBeDetermined = TBD,
-        w: TensorValueType | ToBeDetermined = TBD,
-        b: TensorValueType | ToBeDetermined = TBD,
+        weight: TensorValueType | ToBeDetermined = TBD,
+        bias: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
         self.factory_args = {"dimension": dimension, "use_bias": use_bias}
-        self.factory_inputs = {"input": input, "w": w, "b": b}
+        self.factory_inputs = {"input": input, "weight": weight, "bias": bias}
         dim: int | str = "d_out" if dimension is None else dimension
         shapes: dict[str, ShapeTemplateType] = {
             "input": ["N", ("Var_inter", ...), "d_in"],
-            "w": [dim, "d_in"],
+            "weight": [dim, "d_in"],
             "output": ["N", ("Var_inter", ...), dim],
         }
 
         mult = MatrixMultiply()
 
         output = IOKey(name="output")
-        weight = IOKey(name="w", value=w).transpose()
+        weight_key = IOKey(name="weight", value=weight).transpose()
 
         if use_bias:
-            self += mult(left="input", right=weight)
-            self += Add()(left=mult.output, right="b", output=output)
-            shapes["b"] = [dim]
+            self += mult(left="input", right=weight_key)
+            self += Add()(left=mult.output, right="bias", output=output)
+            shapes["bias"] = [dim]
         else:
-            self += mult(left="input", right=weight, output=output)
+            self += mult(left="input", right=weight_key, output=output)
 
         self._set_shapes(shapes)
         self.input.set_differentiable(False)
@@ -580,43 +580,43 @@ class Linear(Model):
     def __call__(  # type: ignore[override]
         self,
         input: ConnectionType = NOT_GIVEN,
-        w: ConnectionType = NOT_GIVEN,
+        weight: ConnectionType = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
         *,
-        b: ConnectionType = NOT_GIVEN,
+        bias: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
-        kwargs = {"input": input, "w": w, "output": output}
+        kwargs = {"input": input, "weight": weight, "output": output}
 
-        if "b" not in self._input_keys and b != NOT_GIVEN:
-            raise KeyError("b is not a valid input when 'use_bias' is False!")
-        elif "b" in self._input_keys:
-            kwargs["b"] = b
+        if "bias" not in self._input_keys and bias != NOT_GIVEN:
+            raise KeyError("bias is not a valid input when 'use_bias' is False!")
+        elif "bias" in self._input_keys:
+            kwargs["bias"] = bias
 
         return super().__call__(**kwargs)
 
 
 class ElementWiseAffine(Model):
     input: Connection
-    w: Connection
-    b: Connection
+    weight: Connection
+    bias: Connection
     output: Connection
 
     def __init__(
         self,
         name: str | None = None,
         input: TensorValueType | ToBeDetermined = TBD,
-        w: TensorValueType | ToBeDetermined = TBD,
-        b: TensorValueType | ToBeDetermined = TBD,
+        weight: TensorValueType | ToBeDetermined = TBD,
+        bias: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
-        self.factory_inputs = {"input": input, "w": w, "b": b}
+        self.factory_inputs = {"input": input, "weight": weight, "bias": bias}
 
         mult_model = Multiply()
         sum_model = Add()
 
-        self += mult_model(left="input", right="w")
+        self += mult_model(left="input", right="weight")
         self += sum_model(
-            left=mult_model.output, right="b", output=IOKey(name="output")
+            left=mult_model.output, right="bias", output=IOKey(name="output")
         )
         self.input.set_differentiable(False)
         self._freeze()
@@ -624,22 +624,22 @@ class ElementWiseAffine(Model):
     def __call__(  # type: ignore[override]
         self,
         input: ConnectionType = NOT_GIVEN,
-        w: ConnectionType = NOT_GIVEN,
-        b: ConnectionType = NOT_GIVEN,
+        weight: ConnectionType = NOT_GIVEN,
+        bias: ConnectionType = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(
             input=input,
-            w=w,
-            b=b,
+            weight=weight,
+            bias=bias,
             output=output,
         )
 
 
 class Layer(Model):
     input: Connection
-    w: Connection
-    b: Connection
+    weight: Connection
+    bias: Connection
     output: Connection
 
     def __init__(
@@ -648,28 +648,28 @@ class Layer(Model):
         dimension: int | None = None,
         name: str | None = None,
         input: TensorValueType | ToBeDetermined = TBD,
-        w: TensorValueType | ToBeDetermined = TBD,
-        b: TensorValueType | ToBeDetermined = TBD,
+        weight: TensorValueType | ToBeDetermined = TBD,
+        bias: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
-        self.factory_inputs = {"input": input, "w": w, "b": b}
+        self.factory_inputs = {"input": input, "weight": weight, "bias": bias}
         self.factory_args = {"activation": activation, "dimension": dimension}
         linear_model = Linear(dimension=dimension)
-        self += linear_model(input="input", w="w", b="b")
+        self += linear_model(input="input", weight="weight", bias="bias")
         self += activation(input=linear_model.output, output=IOKey(name="output"))
         self._freeze()
 
     def __call__(  # type: ignore[override]
         self,
         input: ConnectionType = NOT_GIVEN,
-        w: ConnectionType = NOT_GIVEN,
-        b: ConnectionType = NOT_GIVEN,
+        weight: ConnectionType = NOT_GIVEN,
+        bias: ConnectionType = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(
             input=input,
-            w=w,
-            b=b,
+            weight=weight,
+            bias=bias,
             output=output,
         )
 
@@ -677,7 +677,7 @@ class Layer(Model):
 class LayerNorm(Model):
     input: Connection
     output: Connection
-    w: Connection
+    weight: Connection
     b: Connection
 
     def __init__(
@@ -687,11 +687,11 @@ class LayerNorm(Model):
         eps: float = 1e-5,
         name: str | None = None,
         input: TensorValueType | ToBeDetermined = TBD,
-        w: TensorValueType | ToBeDetermined = TBD,
-        b: TensorValueType | ToBeDetermined = TBD,
+        weight: TensorValueType | ToBeDetermined = TBD,
+        bias: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
-        self.factory_inputs = {"input": input, "w": w, "b": b}
+        self.factory_inputs = {"input": input, "weight": weight, "bias": bias}
         self.factory_args = {"use_scale": use_scale, "use_bias": use_bias, "eps": eps}
 
         # Expects its input shape as [B, ..., d] d refers to normalized dimension
@@ -718,12 +718,12 @@ class LayerNorm(Model):
 
         if use_scale:
             mult = Multiply()
-            self += mult(left=self.canonical_output, right="w")
+            self += mult(left=self.canonical_output, right="weight")
             mult._set_shapes(shapes)
 
         if use_bias:
             add = Add()
-            self += add(left=self.canonical_output, right="b")
+            self += add(left=self.canonical_output, right="bias")
             add._set_shapes(shapes)
 
         self += Buffer()(input=self.canonical_output, output=IOKey(name="output"))
@@ -735,20 +735,20 @@ class LayerNorm(Model):
         input: ConnectionType = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
         *,
-        w: ConnectionType = NOT_GIVEN,
-        b: ConnectionType = NOT_GIVEN,
+        weight: ConnectionType = NOT_GIVEN,
+        bias: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         kwargs = {"input": input, "output": output}
 
-        if "w" not in self._input_keys and w != NOT_GIVEN:
-            raise KeyError("w is not a valid input when 'use_scale' is False!")
-        elif "w" in self._input_keys:
-            kwargs["w"] = w
+        if "weight" not in self._input_keys and weight != NOT_GIVEN:
+            raise KeyError("weight is not a valid input when 'use_scale' is False!")
+        elif "weight" in self._input_keys:
+            kwargs["weight"] = weight
 
-        if "b" not in self._input_keys and b != NOT_GIVEN:
-            raise KeyError("b is not a valid input when 'use_bias' is False!")
-        elif "b" in self._input_keys:
-            kwargs["b"] = b
+        if "bias" not in self._input_keys and bias != NOT_GIVEN:
+            raise KeyError("bias is not a valid input when 'use_bias' is False!")
+        elif "bias" in self._input_keys:
+            kwargs["bias"] = bias
 
         return super().__call__(**kwargs)
 
@@ -766,11 +766,11 @@ class GroupNorm(Model):
         name: str | None = None,
         input: TensorValueType | ToBeDetermined = TBD,
         *,
-        w: TensorValueType | ToBeDetermined = TBD,
-        b: TensorValueType | ToBeDetermined = TBD,
+        weight: TensorValueType | ToBeDetermined = TBD,
+        bias: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
-        self.factory_inputs = {"input": input, "w": w, "b": b}
+        self.factory_inputs = {"input": input, "weight": weight, "bias": bias}
 
         # Assumed input shape is [N, C, H, W]
         input_key = IOKey(name="input")
@@ -810,20 +810,20 @@ class GroupNorm(Model):
         input: ConnectionType = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
         *,
-        w: ConnectionType = NOT_GIVEN,
-        b: ConnectionType = NOT_GIVEN,
+        weight: ConnectionType = NOT_GIVEN,
+        bias: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         kwargs = {"input": input, "output": output}
 
-        if "w" not in self._input_keys and w != NOT_GIVEN:
-            raise KeyError("w is not a valid input when 'use_scale' is False!")
-        elif "w" in self._input_keys:
-            kwargs["w"] = w
+        if "weight" not in self._input_keys and weight != NOT_GIVEN:
+            raise KeyError("weight is not a valid input when 'use_scale' is False!")
+        elif "weight" in self._input_keys:
+            kwargs["weight"] = weight
 
-        if "b" not in self._input_keys and b != NOT_GIVEN:
-            raise KeyError("b is not a valid input when 'use_bias' is False!")
-        elif "b" in self._input_keys:
-            kwargs["b"] = b
+        if "bias" not in self._input_keys and bias != NOT_GIVEN:
+            raise KeyError("bias is not a valid input when 'use_bias' is False!")
+        elif "bias" in self._input_keys:
+            kwargs["bias"] = bias
 
         return super().__call__(**kwargs)
 
@@ -1066,8 +1066,8 @@ class PolynomialKernel(Model):
 class KernelizedSVM(Model):
     input1: Connection
     input2: Connection
-    w: Connection
-    b: Connection
+    weight: Connection
+    bias: Connection
     output: Connection
 
     def __init__(
@@ -1076,15 +1076,20 @@ class KernelizedSVM(Model):
         name: str | None = None,
         input1: TensorValueType | ToBeDetermined = TBD,
         input2: TensorValueType | ToBeDetermined = TBD,
-        w: TensorValueType | ToBeDetermined = TBD,
-        b: TensorValueType | ToBeDetermined = TBD,
+        weight: TensorValueType | ToBeDetermined = TBD,
+        bias: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         if len(kernel._input_keys) < 2:
             raise KeyError("Kernel requires at least two inputs!")
         if len(kernel.conns.output_keys) != 1:
             raise KeyError("Kernel requires single output!")
         super().__init__(name=name)
-        self.factory_inputs = {"input1": input1, "input2": input2, "w": w, "b": b}
+        self.factory_inputs = {
+            "input1": input1,
+            "input2": input2,
+            "weight": weight,
+            "bias": bias,
+        }
         self.factory_args = {"kernel": kernel}
 
         linear_model = Linear()
@@ -1100,16 +1105,16 @@ class KernelizedSVM(Model):
         self += kernel(**kernel_input_args, **kernel_output_args)
         self += linear_model(
             input=kernel.canonical_output,
-            w="w",
-            b="b",
+            weight="weight",
+            bias="bias",
             output=IOKey(name="output"),
         )
 
         shapes: dict[str, ShapeTemplateType] = {
             "input1": ["N", "d_in"],
             "input2": ["M", "d_in"],
-            "w": [1, "M"],
-            "b": [1],
+            "weight": [1, "M"],
+            "bias": [1],
             "output": ["N", 1],
             "kernel": ["N", "M"],
         }
@@ -1120,23 +1125,23 @@ class KernelizedSVM(Model):
         self,
         input1: ConnectionType = NOT_GIVEN,
         input2: ConnectionType = NOT_GIVEN,
-        w: ConnectionType = NOT_GIVEN,
-        b: ConnectionType = NOT_GIVEN,
+        weight: ConnectionType = NOT_GIVEN,
+        bias: ConnectionType = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(
             input1=input1,
             input2=input2,
-            w=w,
-            b=b,
+            weight=weight,
+            bias=bias,
             output=output,
         )
 
 
 class LinearSVM(Model):
     input: Connection
-    w: Connection
-    b: Connection
+    weight: Connection
+    bias: Connection
     output: Connection
     decision_output: Connection
 
@@ -1144,16 +1149,18 @@ class LinearSVM(Model):
         self,
         name: str | None = None,
         input: TensorValueType | ToBeDetermined = TBD,
-        w: TensorValueType | ToBeDetermined = TBD,
-        b: TensorValueType | ToBeDetermined = TBD,
+        weight: TensorValueType | ToBeDetermined = TBD,
+        bias: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
-        self.factory_inputs = {"input": input, "w": w, "b": b}
+        self.factory_inputs = {"input": input, "weight": weight, "bias": bias}
 
         linear_model = Linear(dimension=1)
         decision_model = Sign()
 
-        self += linear_model(input="input", w="w", b="b", output=IOKey(name="output"))
+        self += linear_model(
+            input="input", weight="weight", bias="bias", output=IOKey(name="output")
+        )
         self += decision_model(
             input=linear_model.output, output=IOKey(name="decision_output")
         )
@@ -1165,15 +1172,15 @@ class LinearSVM(Model):
     def __call__(  # type: ignore[override]
         self,
         input: ConnectionType = NOT_GIVEN,
-        w: ConnectionType = NOT_GIVEN,
-        b: ConnectionType = NOT_GIVEN,
+        weight: ConnectionType = NOT_GIVEN,
+        bias: ConnectionType = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
         decision_output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(
             input=input,
-            w=w,
-            b=b,
+            weight=weight,
+            bias=bias,
             output=output,
             decision_output=decision_output,
         )
@@ -1181,8 +1188,8 @@ class LinearSVM(Model):
 
 class LogisticRegression(Model):
     input: Connection
-    w: Connection
-    b: Connection
+    weight: Connection
+    bias: Connection
     output: Connection
     probs_output: Connection
 
@@ -1190,16 +1197,18 @@ class LogisticRegression(Model):
         self,
         name: str | None = None,
         input: TensorValueType | ToBeDetermined = TBD,
-        w: TensorValueType | ToBeDetermined = TBD,
-        b: TensorValueType | ToBeDetermined = TBD,
+        weight: TensorValueType | ToBeDetermined = TBD,
+        bias: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
-        self.factory_inputs = {"input": input, "w": w, "b": b}
+        self.factory_inputs = {"input": input, "weight": weight, "bias": bias}
 
         linear_model = Linear(dimension=1)
         sigmoid_model = Sigmoid()
 
-        self += linear_model(input="input", w="w", b="b", output=IOKey(name="output"))
+        self += linear_model(
+            input="input", weight="weight", bias="bias", output=IOKey(name="output")
+        )
         self += sigmoid_model(
             input=linear_model.output, output=IOKey(name="probs_output")
         )
@@ -1211,15 +1220,15 @@ class LogisticRegression(Model):
     def __call__(  # type: ignore[override]
         self,
         input: ConnectionType = NOT_GIVEN,
-        w: ConnectionType = NOT_GIVEN,
-        b: ConnectionType = NOT_GIVEN,
+        weight: ConnectionType = NOT_GIVEN,
+        bias: ConnectionType = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
         probs_output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(
             input=input,
-            w=w,
-            b=b,
+            weight=weight,
+            bias=bias,
             output=output,
             probs_output=probs_output,
         )
@@ -1247,8 +1256,8 @@ class MLP(Model):
 
         # Extract the keys to be used. Use "w" and "b" for default case.
         input_name_templates = input_name_templates or {}
-        weight = input_name_templates.get("weight", "w")
-        bias = input_name_templates.get("bias", "b")
+        weight = input_name_templates.get("weight", "weight")
+        bias = input_name_templates.get("bias", "bias")
 
         # Create first layer.
         prev_layer = Layer(activation=activations[0], dimension=dimensions[0])
@@ -1257,8 +1266,8 @@ class MLP(Model):
         # second model in the model extention loop.
         extend_kwargs: dict[str, ConnectionType] = {
             "input": "input",
-            "w": weight + "0",
-            "b": bias + "0",
+            "weight": weight + "0",
+            "bias": bias + "0",
         }
         if len(activations) == 1:
             extend_kwargs["output"] = IOKey(name="output")
@@ -1273,8 +1282,8 @@ class MLP(Model):
             # Prepare the kwargs for the current layer.
             kwargs: dict[str, ConnectionType] = {
                 "input": prev_layer.output,
-                "w": f"{weight}{idx + 1}",
-                "b": f"{bias}{idx + 1}",
+                "weight": f"{weight}{idx + 1}",
+                "bias": f"{bias}{idx + 1}",
             }
 
             # In order to make last layer output as model output we must name it.
@@ -1375,12 +1384,12 @@ class RNNCell(Cell):
             output=IOKey(name="hidden_compl"),
         )
         self += slice_model(input="prev_hidden", stop=scalar_item.output)
-        self += mult_model_1(input=slice_model.output, w="w_hh")
-        self += mult_model_2(input="input", w="w_ih")
+        self += mult_model_1(input=slice_model.output, weight="w_hh")
+        self += mult_model_2(input="input", weight="w_ih")
         self += sum_model_1(left=mult_model_1.output, right=mult_model_2.output)
         self += sum_model_2(left=sum_model_1.output, right="bias_h")
         self += Tanh()(input=sum_model_2.output, output=IOKey(name="hidden"))
-        self += mult_model_3(input="hidden", w="w_ho")
+        self += mult_model_3(input="hidden", weight="w_ho")
         self += Add()(
             left=mult_model_3.output, right="bias_o", output=IOKey(name="output")
         )
@@ -1531,8 +1540,8 @@ class LSTMCell(Cell):
         # Final output.
         self += Linear()(
             input="hidden",
-            w="w_out",
-            b="bias_out",
+            weight="w_out",
+            bias="bias_out",
             output=IOKey(name="output"),
         )
         shapes: dict[str, ShapeTemplateType] = {
@@ -1628,7 +1637,7 @@ class LSTMCellBody(Model):
         bias_c: TensorValueType | ToBeDetermined = TBD,
         bias_o: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
-        super().__init__(formula_key="lstm_cell", name=name)
+        super().__init__(name=name)
         self.factory_inputs = {
             "input": input,
             "prev_hidden": prev_hidden,
@@ -1642,6 +1651,7 @@ class LSTMCellBody(Model):
             "bias_c": bias_c,
             "bias_o": bias_o,
         }
+        self._set_formula_key("lstm_cell")
 
         matrix_concat_model = Concat(n=2, axis=-1)
         forward_lin = Linear()
@@ -1659,14 +1669,16 @@ class LSTMCellBody(Model):
         mult_model_3 = Multiply()
 
         self += matrix_concat_model(input1="input", input2="prev_hidden")
-        self += forward_lin(input=matrix_concat_model.output, w="w_f", b="bias_f")
+        self += forward_lin(
+            input=matrix_concat_model.output, weight="w_f", bias="bias_f"
+        )
         self += sigmoid_model_1(input=forward_lin.output)
         self += mult_model_1(left="prev_cell", right=sigmoid_model_1.output)
         # Input gate processes.
-        self += input_lin(input=matrix_concat_model.output, w="w_i", b="bias_i")
+        self += input_lin(input=matrix_concat_model.output, weight="w_i", bias="bias_i")
         self += sigmoid_model_2(input=input_lin.output)
         # Cell state gate processes.
-        self += cell_lin(input=matrix_concat_model.output, w="w_c", b="bias_c")
+        self += cell_lin(input=matrix_concat_model.output, weight="w_c", bias="bias_c")
         self += tanh_model_1(input=cell_lin.output)
         # Input-cell gate multiplication.
         self += mult_model_2(left=sigmoid_model_2.output, right=tanh_model_1.output)
@@ -1675,7 +1687,9 @@ class LSTMCellBody(Model):
         # Cell state to hidden state info.
         self += tanh_model_2(input=sum_model_4.output)
         # Output gate process.
-        self += out_gate_lin(input=matrix_concat_model.output, w="w_o", b="bias_o")
+        self += out_gate_lin(
+            input=matrix_concat_model.output, weight="w_o", bias="bias_o"
+        )
         self += sigmoid_model_3(input=out_gate_lin.output)
         # Final hidden state.
         self += mult_model_3(left=tanh_model_2.output, right=sigmoid_model_3.output)
@@ -2111,8 +2125,8 @@ class EncoderDistanceMatrix(Model):
 
 class PolynomialRegression(Model):
     input: Connection
-    w: Connection
-    b: Connection
+    weight: Connection
+    bias: Connection
     output: Connection
 
     def __init__(
@@ -2121,11 +2135,11 @@ class PolynomialRegression(Model):
         dimension: int | None = None,
         name: str | None = None,
         input: TensorValueType | ToBeDetermined = TBD,
-        w: TensorValueType | ToBeDetermined = TBD,
-        b: TensorValueType | ToBeDetermined = TBD,
+        weight: TensorValueType | ToBeDetermined = TBD,
+        bias: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
-        self.factory_inputs = {"input": input, "w": w, "b": b}
+        self.factory_inputs = {"input": input, "weight": weight, "bias": bias}
         self.factory_args = {"degree": degree, "dimension": dimension}
 
         linear_model = Linear(dimension=dimension)
@@ -2133,7 +2147,10 @@ class PolynomialRegression(Model):
 
         self += feature_model(input="input")
         self += linear_model(
-            input=feature_model.output, w="w", b="b", output=IOKey(name="output")
+            input=feature_model.output,
+            weight="weight",
+            bias="bias",
+            output=IOKey(name="output"),
         )
         self.input.set_differentiable(False)
         self._freeze()
@@ -2141,11 +2158,11 @@ class PolynomialRegression(Model):
     def __call__(  # type: ignore[override]
         self,
         input: ConnectionType = NOT_GIVEN,
-        w: ConnectionType = NOT_GIVEN,
-        b: ConnectionType = NOT_GIVEN,
+        weight: ConnectionType = NOT_GIVEN,
+        bias: ConnectionType = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
-        return super().__call__(input=input, w=w, b=b, output=output)
+        return super().__call__(input=input, weight=weight, bias=bias, output=output)
 
 
 class MDSCore(Model):

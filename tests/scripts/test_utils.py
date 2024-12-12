@@ -223,7 +223,7 @@ def dict_to_random(input: dict, random_shapes: dict | None = None):
 
 def randomizer(
     input: list[str | int | bool | list[int]],
-) -> list[int] | int | str | bool:
+):
     if len(input) == 0:
         return []
     elif isinstance(val := input[0], bool) or isinstance(val, str):
@@ -532,7 +532,7 @@ def assert_connections(
 
         node = compiled_model._flat_graph.connections[key].node
         assert node is not None
-        formula_key = node.model.formula_key
+        formula_key = node.model._formula_key
         keys = {conn.key for conn in node.connections.values() if conn.key != key}
 
         result_connections[key] = [formula_key, keys]

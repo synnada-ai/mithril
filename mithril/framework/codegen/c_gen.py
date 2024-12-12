@@ -30,7 +30,7 @@ from .code_gen import CodeGen
 FinalCost = "final_cost"
 
 
-class CGen(CodeGen):
+class CGen(CodeGen[PyArray]):
     BACKWARD_FN_SUFFIX = "_grad"
 
     def __init__(self, pm: PhysicalModel[PyArray]) -> None:
@@ -211,7 +211,7 @@ class CGen(CodeGen):
             inputs = [output_key] + inputs
 
             # Create primitive call
-            p_call = self.create_primitive_call(model.formula_key, inputs)
+            p_call = self.create_primitive_call(model._formula_key, inputs)
             fn_body.append(p_call)
 
             used_keys.add(output_key)
@@ -257,7 +257,7 @@ class CGen(CodeGen):
 
                 # Create primitive call
                 p_call = self.create_primitive_call(
-                    model.formula_key + self.BACKWARD_FN_SUFFIX, fn_inputs
+                    model._formula_key + self.BACKWARD_FN_SUFFIX, fn_inputs
                 )
                 fn_body.append(p_call)
 

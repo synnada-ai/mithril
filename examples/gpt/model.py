@@ -75,12 +75,14 @@ def create_gpt(bias, block_size, dims, mlp_dims, num_heads, num_layers, vocab_si
     size_model.input.set_differentiable(False)
     position += size_model("input")
     position += Arange(start=0, step=1)
-    position += Embedding(block_size, dims)(
+    position += Embedding(name="emb_1", num_embeddings=block_size, dim=dims)(
         input=position.canonical_output, output="output"
     )
     # Create GPT
     gpt = Model()
-    gpt += Embedding(vocab_size, dims)("input", output="token_out")
+    gpt += Embedding(name="emb_2", num_embeddings=vocab_size, dim=dims)(
+        "input", output="token_out"
+    )
     gpt += position(input="input")
     gpt += Add()("token_out", position.canonical_output)
 
