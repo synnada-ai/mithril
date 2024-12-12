@@ -28,26 +28,29 @@ def test_1():
     """
 
     model = Model()
-    model += Linear(2)(input="input", w="w", b="b", output="output")
-    model.set_values({"b": [1, 2.0]})
+    model += Linear(2)(input="input", weight="weight", bias="bias", output="output")
+    model.set_values({"bias": [1, 2.0]})
     model_1 = model
 
     model = Model()
     lin = Linear(2)
-    model += lin(input="input", w="w", b="b", output="output")
-    model.set_values({lin.b: [1, 2.0]})
+    model += lin(input="input", weight="weight", bias="bias", output="output")
+    model.set_values({lin.bias: [1, 2.0]})
     model_2 = model
 
     model = Model()
     lin = Linear(2)
-    model += lin(input="input", w="w", b="b", output="output")
-    lin.set_values({"b": [1, 2.0]})
+    model += lin(input="input", weight="weight", bias="bias", output="output")
+    lin.set_values({"bias": [1, 2.0]})
     model_3 = model
 
     model = Model()
     lin = Linear()
     model += lin(
-        input="input", w="w", b=IOKey(name="b", value=[1, 2.0]), output="output"
+        input="input",
+        weight="weight",
+        bias=IOKey(name="bias", value=[1, 2.0]),
+        output="output",
     )
     model_4 = model
 

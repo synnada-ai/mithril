@@ -24,6 +24,9 @@ from mithril.framework.common import (
     NOT_GIVEN,
     Connection,
     ConnectionType,
+    GenericTensorType,
+    IOKey,
+    MyTensor,
     ShapeTemplateType,
     Updates,
 )
@@ -36,7 +39,6 @@ from mithril.models import (
     Connect,
     ExtendInfo,
     FloorDivide,
-    IOKey,
     LeakyRelu,
     Linear,
     MatrixMultiply,
@@ -53,7 +55,6 @@ from mithril.models import (
     Sum,
     Tensor,
     TensorToList,
-    TensorType,
     ToTensor,
     ToTuple,
 )
@@ -67,10 +68,10 @@ def test_scalar_to_tensor_1():
     model = Model()
     lin_1 = Linear(dimension=2)
     lin_2 = Linear(dimension=2)
-    model += lin_1(input="input_1", w="w_1", b="b_1")
-    model += lin_2(input="input_2", w="w_2", b="b_2")
-    add_1 = lin_1.input + lin_1.b
-    add_2 = lin_2.input + lin_2.b
+    model += lin_1(input="input_1", weight="w_1", bias="b_1")
+    model += lin_2(input="input_2", weight="w_2", bias="b_2")
+    add_1 = lin_1.input + lin_1.bias
+    add_2 = lin_2.input + lin_2.bias
     add_3 = add_1 + add_2
     tensor = ToTensor()
     model += tensor(input=2.0)
@@ -81,10 +82,10 @@ def test_scalar_to_tensor_1():
     model = Model()
     lin_3 = Linear(dimension=2)
     lin_4 = Linear(dimension=2)
-    model += lin_3(input="input_1", w="w_1", b="b_1")
-    model += lin_4(input="input_2", w="w_2", b="b_2")
-    add_4 = lin_3.input + lin_3.b
-    add_5 = lin_4.input + lin_4.b
+    model += lin_3(input="input_1", weight="w_1", bias="b_1")
+    model += lin_4(input="input_2", weight="w_2", bias="b_2")
+    add_4 = lin_3.input + lin_3.bias
+    add_5 = lin_4.input + lin_4.bias
     add_6 = add_4 + add_5
     model += Add()(left=2.0, right=add_6, output="output")
 
@@ -112,8 +113,8 @@ def test_scalar_to_tensor_2():
     model = Model()
     lin_1 = Linear(dimension=1)
     lin_2 = Linear(dimension=2)
-    model += lin_1(input="input_1", w="w_1", b="b_1")
-    model += lin_2(input="input_2", w="w_2", b="b_2")
+    model += lin_1(input="input_1", weight="w_1", bias="b_1")
+    model += lin_2(input="input_2", weight="w_2", bias="b_2")
     shp_1 = lin_1.input.shape()
     reshaped_1 = lin_2.output.reshape(shp_1)
     to_tensor = ToTensor()
@@ -125,8 +126,8 @@ def test_scalar_to_tensor_2():
     model = Model()
     lin_3 = Linear(dimension=1)
     lin_4 = Linear(dimension=2)
-    model += lin_3(input="input_1", w="w_1", b="b_1")
-    model += lin_4(input="input_2", w="w_2", b="b_2")
+    model += lin_3(input="input_1", weight="w_1", bias="b_1")
+    model += lin_4(input="input_2", weight="w_2", bias="b_2")
     shp_2 = lin_3.input.shape()
     reshaped_2 = lin_4.output.reshape(shp_2)
     model += Add()(left=shp_2, right=reshaped_2, output="output")
@@ -277,7 +278,7 @@ def test_slice_item_conversions():
     tensor_1 = ToTensor()
     slice_model = PrimitiveSlice()
     tensor_2 = ToTensor()
-    model += lin_1(input="input", w="w", b="b")
+    model += lin_1(input="input", weight="w", bias="b")
     model += shp1(input=lin_1.input)
     model += item(input=shp1.output, index=1)
     model += tensor_1(input=item.output)
@@ -289,7 +290,7 @@ def test_slice_item_conversions():
     # Auto conversion
     model = Model()
     lin_2 = Linear(dimension=1)
-    model += lin_2(input="input", w="w", b="b")
+    model += lin_2(input="input", weight="w", bias="b")
     shp2 = lin_2.input.shape()
     shp2_1 = shp2[1]
     assert shp2_1 is not None
@@ -314,7 +315,7 @@ def test_tuple_conversion_1():
     # Manuel conversion
     model = Model()
     lin_1 = Linear(dimension=2)
-    model += lin_1(input="input", w="w", b="b")
+    model += lin_1(input="input", weight="w", bias="b")
     shp1 = lin_1.output.shape()
     model += ToTensor()(input=(shp1[0], shp1[1]), output="output")
     model_1 = model
@@ -323,7 +324,7 @@ def test_tuple_conversion_1():
     model = Model()
     lin_2 = Linear(dimension=2)
     tupl = ToTuple(n=2)
-    model += lin_2(input="input", w="w", b="b")
+    model += lin_2(input="input", weight="w", bias="b")
     shp2 = lin_2.output.shape()
     model += tupl(input1=shp2[0], input2=shp2[1])
     model += ToTensor()(input=tupl.output, output="output")  # type: ignore
@@ -344,7 +345,7 @@ def test_tuple_conversion_2():
     model = Model()
     lin_1 = Linear(dimension=2)
     tt1 = ToTensor()
-    model += lin_1(input=[[1], [2.0]], w="w", b="b")
+    model += lin_1(input=[[1], [2.0]], weight="w", bias="b")
     shp1 = lin_1.input.shape()
     model += tt1(input=(shp1[0], shp1[1]))
     model += Add()(left=lin_1.output, right=tt1.output, output="output")
@@ -354,7 +355,7 @@ def test_tuple_conversion_2():
     model = Model()
     lin_2 = Linear(dimension=2)
     tt2 = ToTensor()
-    model += lin_2(input=[[1], [2.0]], w="w", b="b")
+    model += lin_2(input=[[1], [2.0]], weight="w", bias="b")
     model += tt2(input=(2, 1))
     model += Add()(left=lin_2.output, right=tt2.output, output="output")
     model_2 = model
@@ -390,7 +391,7 @@ def test_tuple_conversion_3():
     model = Model()
     lin_1 = Linear(dimension=3)
     tt1 = ToTensor()
-    model += lin_1(input=[[1], [2.0]], w="w", b="b")
+    model += lin_1(input=[[1], [2.0]], weight="w", bias="b")
     shp1 = lin_1.input.shape()
     model += tt1(input=(shp1[0], shp1[1], 3))
     model += Add()(left=lin_1.output, right=tt1.output, output="output")
@@ -400,7 +401,7 @@ def test_tuple_conversion_3():
     model = Model()
     lin_2 = Linear(dimension=3)
     tt2 = ToTensor()
-    model += lin_2(input=[[1], [2.0]], w="w", b="b")
+    model += lin_2(input=[[1], [2.0]], weight="w", bias="b")
     model += tt2(input=(2, 1, 3.0))
     model += Add()(left=lin_2.output, right=tt2.output, output="output")
     model_2 = model
@@ -436,7 +437,7 @@ def test_list_conversion_1():
     model = Model()
     lin_1 = Linear(dimension=3)
     tt1 = ToTensor()
-    model += lin_1(input=[[1], [2.0]], w="w", b="b")
+    model += lin_1(input=[[1], [2.0]], weight="w", bias="b")
     shp1 = lin_1.input.shape()
     model += tt1(input=[shp1[0], shp1[1], 3.0])
     model += Add()(left=lin_1.output, right=tt1.output, output="output")
@@ -446,7 +447,7 @@ def test_list_conversion_1():
     model = Model()
     lin_2 = Linear(dimension=3)
     tt2 = ToTensor()
-    model += lin_2(input=[[1], [2.0]], w="w", b="b")
+    model += lin_2(input=[[1], [2.0]], weight="w", bias="b")
     model += tt2(input=[2, 1, 3.0])
     model += Add()(left=lin_2.output, right=tt2.output, output="output")
     model_2 = model
@@ -481,7 +482,7 @@ def test_nested_list_conversion_1():
     model = Model()
     lin_1 = Linear(dimension=3)
     tt1 = ToTensor()
-    model += lin_1(input=[[1], [2.0]], w="w", b="b")
+    model += lin_1(input=[[1], [2.0]], weight="w", bias="b")
     shp1 = lin_1.input.shape()
     model += tt1(input=[[shp1[0], shp1[1], 3.0]])
     model += Add()(left=lin_1.output, right=tt1.output, output="output")
@@ -491,7 +492,7 @@ def test_nested_list_conversion_1():
     model = Model()
     lin_2 = Linear(dimension=3)
     tt2 = ToTensor()
-    model += lin_2(input=[[1], [2.0]], w="w", b="b")
+    model += lin_2(input=[[1], [2.0]], weight="w", bias="b")
     model += tt2(input=[[2, 1, 3.0]])
     model += Add()(left=lin_2.output, right=tt2.output, output="output")
     model_2 = model
@@ -526,7 +527,7 @@ def test_nested_list_conversion_2():
     model = Model()
     lin_1 = Linear(dimension=3)
     tt1 = ToTensor()
-    model += lin_1(input="input", w="w", b="b")
+    model += lin_1(input="input", weight="w", bias="b")
     shp1 = lin_1.input.shape()
     model += tt1(input=[[shp1[0], shp1[1], 3.0]])
     model += Add()(left=lin_1.output, right=tt1.output, output="output")
@@ -536,7 +537,7 @@ def test_nested_list_conversion_2():
     model = Model()
     lin_2 = Linear(dimension=3)
     tt2 = ToTensor()
-    model += lin_2(input="input", w="w", b="b")
+    model += lin_2(input="input", weight="w", bias="b")
     model += tt2(input=[[2, 1, 3.0]])
     model += Add()(left=lin_2.output, right=tt2.output, output="output")
     model_2 = model
@@ -667,11 +668,11 @@ class ArtificialPrimitive(PrimitiveModel):
     input: Connection
     output: Connection
 
-    def __init__(self, type: type | UnionType) -> None:
+    def __init__(self, type) -> None:
         super().__init__(
             formula_key="tensor_to_list",
-            output=TensorType([("Var1", ...)]),
-            input=TensorType([("Var2", ...)], possible_types=type),
+            output=IOKey(shape=[("Var1", ...)], type=GenericTensorType),
+            input=IOKey(shape=[("Var2", ...)], type=type),
         )
         self._set_constraint(
             fn=self.artificial_constraint, keys=[PrimitiveModel.output_key, "input"]
@@ -707,7 +708,7 @@ def test_type_propagation_8():
     model = Model()
     add = Add()
     model += add(left=IOKey(value=[1], name="left"), right=IOKey(name="right"))
-    primitive = ArtificialPrimitive(type=int | bool)
+    primitive = ArtificialPrimitive(type=MyTensor[int] | MyTensor[bool])
     model += primitive(input=add.output, output=IOKey(name="output"))
 
     assert add.left.metadata.data._type is int
@@ -720,7 +721,7 @@ def test_type_propagation_9():
     """Tests type propagation."""
     model = Model(enforce_jit=False)
     add = Add()
-    tensor_to_list = ArtificialPrimitive(type=float)
+    tensor_to_list = ArtificialPrimitive(type=MyTensor[float])
     model += add(left=IOKey(value=[1], name="left"), right="right")
     model += tensor_to_list(input=add.output, output=IOKey(name="output"))
 
@@ -733,7 +734,7 @@ def test_type_propagation_10():
     """Tests type propagation."""
     model = Model(enforce_jit=False)
     add = Add()
-    tensor_to_list = ArtificialPrimitive(type=int | bool)
+    tensor_to_list = ArtificialPrimitive(type=MyTensor[int] | MyTensor[bool])
     model += add(left="right", right="right")
     model += tensor_to_list(input=add.output, output=IOKey(name="output"))
 
@@ -762,7 +763,7 @@ def test_type_propagation_floor_divide_2():
     model = Model()
     add = Add()
     floor_div = FloorDivide()
-    ap = ArtificialPrimitive(type=int)
+    ap = ArtificialPrimitive(type=MyTensor[int])
     model += add(left=IOKey(value=[1], name="left"), right="right")
     model += floor_div(numerator=add.left, denominator=add.output)
     model += ap(input=floor_div.output, output=IOKey(name="output"))
@@ -779,7 +780,7 @@ def test_type_propagation_floor_divide_3():
     model = Model()
     add = Add()
     floor_div = FloorDivide()
-    ap = ArtificialPrimitive(type=int | float)
+    ap = ArtificialPrimitive(type=MyTensor[int] | MyTensor[float])
     model += add(left=IOKey(value=[1], name="left"), right="right")
     model += floor_div(numerator=add.left, denominator=add.output)
     model += ap(input=floor_div.output, output=IOKey(name="output"))
@@ -801,7 +802,7 @@ def test_type_propagation_floor_divide_4():
         model += floor_div(numerator=add.left, denominator=add.output)
 
         with pytest.raises(TypeError) as error_info:
-            model += ArtificialPrimitive(type=bool)(
+            model += ArtificialPrimitive(type=MyTensor[bool])(
                 input=floor_div.output, output=IOKey(name="output")
             )
 
@@ -824,8 +825,8 @@ class Model1(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="buffer",
-            input=TensorType([("Var1", ...)]),
-            output=TensorType([("Var1", ...)]),
+            input=IOKey(shape=[("Var1", ...)], type=GenericTensorType),
+            output=IOKey(shape=[("Var1", ...)], type=GenericTensorType),
         )
 
     def __call__(  # type: ignore[override]

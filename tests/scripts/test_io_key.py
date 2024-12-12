@@ -96,15 +96,17 @@ def compare_evaluate(
 def test_1():
     """Tests the case where all named keys are defined with IOKey."""
     model = Model()
-    model += Linear(10)(w=IOKey(name="w_2"))
+    model += Linear(10)(weight=IOKey(name="weight_2"))
     model += Linear(10)(
-        input=model.canonical_output, b=IOKey(name="b_3"), output=IOKey(name="output1")
+        input=model.canonical_output,
+        bias=IOKey(name="bias_3"),
+        output=IOKey(name="output1"),
     )
 
-    expected_input_keys = {"$2", "w_2", "$3", "$5", "b_3"}
+    expected_input_keys = {"$2", "weight_2", "$3", "$5", "bias_3"}
     expected_output_keys = {"output1"}
     expected_internal_keys = {"$4"}
-    expected_pm_input_keys = {"input", "w_2", "b", "w", "b_3"}
+    expected_pm_input_keys = {"input", "weight_2", "bias", "weight", "bias_3"}
     expected_pm_output_keys = {"output1"}
 
     assert_model_keys(
@@ -122,15 +124,15 @@ def test_2():
     Output1 must be an output key.
     """
     model = Model()
-    model += Linear(10)(w="w_2")
+    model += Linear(10)(weight="weight_2")
     model += Linear(10)(
-        input=model.canonical_output, b="b_3", output=IOKey(name="output1")
+        input=model.canonical_output, bias="bias_3", output=IOKey(name="output1")
     )
 
-    expected_input_keys = {"$2", "w_2", "$3", "$5", "b_3"}
+    expected_input_keys = {"$2", "weight_2", "$3", "$5", "bias_3"}
     expected_output_keys = {"output1"}
     expected_internal_keys = {"$4"}
-    expected_pm_input_keys = {"input", "w_2", "b", "w", "b_3"}
+    expected_pm_input_keys = {"input", "weight_2", "bias", "weight", "bias_3"}
     expected_pm_output_keys = {"output1"}
 
     assert_model_keys(
@@ -148,13 +150,13 @@ def test_3():
     Output1 must be an internal key.
     """
     model = Model()
-    model += Linear(10)(w="w_2")
-    model += Linear(10)(input=model.canonical_output, b="b_3", output="output1")
+    model += Linear(10)(weight="weight_2")
+    model += Linear(10)(input=model.canonical_output, bias="bias_3", output="output1")
 
-    expected_input_keys = {"$2", "w_2", "$3", "$5", "b_3"}
+    expected_input_keys = {"$2", "weight_2", "$3", "$5", "bias_3"}
     expected_internal_keys = {"$4", "output1"}
-    expected_pm_input_keys = {"input", "w_2", "b", "w", "b_3"}
-    expected_pm_output_keys = {"output"}
+    expected_pm_input_keys = {"input", "weight_2", "bias", "weight", "bias_3"}
+    expected_pm_output_keys = {"output1"}
 
     assert_model_keys(
         model=model,
@@ -169,13 +171,13 @@ def test_3():
 def test_4():
     """Tests the case where the IOKey is defined with name and value."""
     model = Model()
-    model += Linear(1)(b=IOKey(name="b_2", value=[1.0]), w="w_2")
-    model += Linear(1)(input=model.canonical_output, b="b_3", output="output1")
+    model += Linear(1)(bias=IOKey(name="bias_2", value=[1.0]), weight="weight_2")
+    model += Linear(1)(input=model.canonical_output, bias="bias_3", output="output1")
 
-    expected_input_keys = {"$3", "b_2", "w_2", "$5", "b_3"}
+    expected_input_keys = {"$3", "bias_2", "weight_2", "$5", "bias_3"}
     expected_internal_keys = {"$1", "$4", "output1"}
-    expected_pm_input_keys = {"w_2", "w", "b_3", "b_2", "input"}
-    expected_pm_output_keys = {"output"}
+    expected_pm_input_keys = {"weight_2", "weight", "bias_3", "bias_2", "input"}
+    expected_pm_output_keys = {"output1"}
 
     assert_model_keys(
         model=model,
@@ -190,22 +192,22 @@ def test_4():
 def test_5():
     """Tests the case where the IOKey is defined with name and shape."""
     model = Model()
-    model += Linear()(b=IOKey(name="b_2", shape=[2]), w="w_2")
-    model += Linear()(input=model.canonical_output, b="b_3", output="output1")
+    model += Linear()(bias=IOKey(name="bias_2", shape=[2]), weight="weight_2")
+    model += Linear()(input=model.canonical_output, bias="bias_3", output="output1")
 
-    expected_input_keys = {"w_2", "b_2", "b_3", "$2", "$4"}
+    expected_input_keys = {"weight_2", "bias_2", "bias_3", "$2", "$4"}
     expected_internal_keys = {"$3", "output1"}
-    expected_pm_input_keys = {"b_3", "w", "b_2", "input", "w_2"}
-    expected_pm_output_keys = {"output"}
+    expected_pm_input_keys = {"bias_3", "weight", "bias_2", "input", "weight_2"}
+    expected_pm_output_keys = {"output1"}
 
     expected_shapes: dict[str, list[str | int] | None] = {
         "$_Linear_0_output": ["u1", "(V1, ...)", 2],
         "output1": ["u1", "(V1, ...)", "u2"],
-        "b_2": [2],
+        "bias_2": [2],
         "$input": ["u1", "(V1, ...)", "u3"],
-        "w_2": [2, "u3"],
-        "$w": ["u2", 2],
-        "b_3": ["u2"],
+        "weight_2": [2, "u3"],
+        "$weight": ["u2", 2],
+        "bias_3": ["u2"],
         "$_Linear_0_axes": None,
         "$_Linear_1_axes": None,
     }
@@ -228,25 +230,27 @@ def test_6():
     Also some keys have shape and some don't.
     """
     model = Model()
-    model += Linear()(input="input", b="b_1", w=IOKey(name="w_1", shape=[10, 2]))
+    model += Linear()(
+        input="input", bias="bias_1", weight=IOKey(name="weight_1", shape=[10, 2])
+    )
     model += Linear()(
         input=model.canonical_output,
-        b=IOKey(name="b_2", shape=[5]),
+        bias=IOKey(name="bias_2", shape=[5]),
         output=IOKey(name="output1"),
     )
-    expected_input_keys = {"input", "w_1", "b_1", "$3", "b_2"}
+    expected_input_keys = {"input", "weight_1", "bias_1", "$3", "bias_2"}
     expected_output_keys = {"output1"}
     expected_internal_keys = {"$2"}
-    expected_pm_input_keys = {"w", "b_1", "input", "w_1", "b_2"}
+    expected_pm_input_keys = {"weight", "bias_1", "input", "weight_1", "bias_2"}
     expected_pm_output_keys = {"output1"}
 
     expected_shapes: dict[str, list[str | int] | None] = {
         "input": ["a", "(V1, ...)", 2],
-        "w_1": [10, 2],
-        "b_1": [10],
+        "weight_1": [10, 2],
+        "bias_1": [10],
         "$_Linear_0_output": ["a", "(V1, ...)", 10],
-        "$w": [5, 10],
-        "b_2": [5],
+        "$weight": [5, 10],
+        "bias_2": [5],
         "output1": ["a", "(V1, ...)", 5],
         "$_Linear_0_axes": None,
         "$_Linear_1_axes": None,
@@ -695,7 +699,7 @@ def test_iokey_tensor_input_all_args():
     backend = TorchBackend()
 
     # collect all possible values
-    possible_names = ["input", None]
+    possible_names = ["left", None]
     possible_values = [[[2.0]], NOT_GIVEN]
     possible_shapes = [[1, 1], None]
     possible_expose = [True, False]
@@ -748,9 +752,10 @@ def test_iokey_tensor_input_all_args():
         # successfully.
         pm = mithril.compile(model=model, backend=backend)
         if value is NOT_GIVEN:
-            params = {"input": backend.array([[2.0]]), "right": backend.array([[3.0]])}
+            params = {"left": backend.array([[2.0]]), "right": backend.array([[3.0]])}
         else:
             params = {"right": backend.array([[3.0]])}
+
         outputs = pm.evaluate(params=params)
         assert_results_equal(outputs, ref_outputs)
 
@@ -1175,7 +1180,7 @@ def test_iokey_shape_error_1():
 def test_error_1():
     model = Model()
     with pytest.raises(Exception) as err_info:
-        model += Linear()(b=IOKey(name="b_2", value=[1.0], shape=[1]), w="w_2")
+        model += Linear()(bias=IOKey(name="b_2", value=[1.0], shape=[1]), weight="w_2")
 
     assert (
         str(err_info.value)
@@ -1241,7 +1246,7 @@ def test_iokey_template_3():
     res = pm.evaluate(params={"left": backend.array([2.0])})
     expected_result = np.array([5.0])
 
-    assert pm._input_keys == {"left", "_input"}
+    assert pm._input_keys == {"left", "input"}
     assert pm.output_keys == ["output"]
     np.testing.assert_array_equal(res["output"], expected_result)
 

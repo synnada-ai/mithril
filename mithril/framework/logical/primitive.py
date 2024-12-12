@@ -13,7 +13,8 @@
 # limitations under the License.
 
 from collections.abc import Mapping
-from typing import Any
+from functools import reduce
+from typing import Any, Union, get_origin
 
 from ...utils.utils import OrderedSet
 from ..common import (
@@ -21,18 +22,21 @@ from ..common import (
     TBD,
     Connection,
     IOHyperEdge,
+    IOKey,
     KeyType,
     NotAvailable,
     Scalar,
     Tensor,
-    TensorType,
     UniadicRecord,
     Updates,
     Variadic,
     create_shape_map,
+    get_args,
+    get_mytensor_subtype,
     get_summary,
     get_summary_shapes,
     get_summary_types,
+    is_mytensor_type,
 )
 from .base import BaseModel
 
@@ -50,35 +54,69 @@ class PrimitiveModel(BaseModel):
         self,
         formula_key: str,
         name: str | None = None,
-        **kwargs: Tensor[Any] | TensorType | Scalar,
+        **kwargs: IOKey | Tensor | Scalar,
     ) -> None:
-        self.formula_key = formula_key
+        self._formula_key = formula_key
         self.grad_formula = formula_key + "_grad"
 
         super().__init__(name=name)
         # Get shape_templates of TensorTypes and create corresponding shapes.
         shape_templates = {
-            key: value.shape_template
+            key: value._shape
             for key, value in kwargs.items()
-            if isinstance(value, TensorType)
+            if isinstance(value, IOKey) and value._shape is not None
         }
         shapes = create_shape_map(shape_templates, self.constraint_solver)
         data_set: set[Tensor[Any]] = set()
         is_diff = False
         output_data: Tensor[Any] | Scalar | None = None
         for key, value in kwargs.items():
-            if isinstance(value, TensorType):
-                value = value.construct(shapes[key].node)
-                data_set.add(value)
+            # TODO: The first if block is temporary. All if else blocks will be
+            # removed after the implementation of the new type system.
+            if get_origin(value._type) is Union:
+                args = get_args(value._type)
+                types = []
+                for _type in args:
+                    # TODO: assertion will be removed,
+                    # we should allow Scalar|Tensor type simultaneously.
+                    assert is_mytensor_type(_type)
+                    types.append(get_mytensor_subtype(_type))
+                possible_types = reduce(lambda x, y: x | y, types)  # type: ignore
 
-            conn_data = self.create_connection(IOHyperEdge(value), key)
+                assert isinstance(value, IOKey)
+                _value: Tensor | Scalar = Tensor(
+                    shape=shapes[key].node,
+                    possible_types=possible_types,
+                    value=value._value,  # type: ignore
+                    interval=value._interval,
+                )
+                assert isinstance(_value, Tensor)
+                data_set.add(_value)
+            elif is_mytensor_type(value._type):
+                assert isinstance(value, IOKey)
+                _value = Tensor(
+                    shape=shapes[key].node,
+                    possible_types=get_mytensor_subtype(value._type),  # type: ignore
+                    value=value._value,  # type: ignore
+                    interval=value._interval,
+                )
+                data_set.add(_value)
+            elif isinstance(value, Tensor | Scalar):
+                _value = value
+            else:
+                _value = Scalar(
+                    possible_types=value._type,  # type: ignore
+                    value=value._value,  # type: ignore
+                )
+
+            conn_data = self.create_connection(IOHyperEdge(_value), key)
 
             if key == PrimitiveModel.output_key:
                 self.conns.set_connection_type(conn_data, KeyType.OUTPUT)
-                output_data = value
+                output_data = _value
             else:
                 self.conns.set_connection_type(conn_data, KeyType.INPUT)
-                is_diff |= not value.is_non_diff
+                is_diff |= not _value.is_non_diff
         if isinstance(output_data, Tensor):
             output_data._differentiable = is_diff
 

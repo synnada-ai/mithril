@@ -397,13 +397,13 @@ def test_nan_to_num_1():
 def test_linear_1():
     model = Linear()
     model.input.set_differentiable(True)
-    params = {"input": [[1.0], [2.0], [3.0], [4.0]], "w": [[0.2]], "b": [0.5]}
+    params = {"input": [[1.0], [2.0], [3.0], [4.0]], "weight": [[0.2]], "bias": [0.5]}
     output_gradients = {"output": [[1.0], [1.0], [1.0], [1.0]]}
     reference_outputs = {"output": [[0.7], [0.9], [1.1], [1.3]]}
     reference_gradients = {
         "input": [[0.2], [0.2], [0.2], [0.2]],
-        "w": [[10.0]],
-        "b": [4.0],
+        "weight": [[10.0]],
+        "bias": [4.0],
     }
     compile_and_compare(
         model=model,
@@ -428,9 +428,9 @@ def test_train_model_linear_1():
         "input": [[1.0], [2.0], [3.0], [4.0]],
         "target": [[0.7], [0.9], [1.1], [1.3]],
     }
-    params = {"w": [[0.2]], "b": [0.5]}
+    params = {"weight": [[0.2]], "bias": [0.5]}
     reference_outputs = {"final_cost": 0.0, "output": [[0.7], [0.9], [1.1], [1.3]]}
-    reference_gradients = {"w": [[0.0]], "b": [0.0]}
+    reference_gradients = {"weight": [[0.0]], "bias": [0.0]}
     compile_and_compare(
         model=train_model,
         compile_kwargs={"constant_keys": statics},
@@ -453,7 +453,7 @@ def test_conv1d_1():
     }
 
     params = {
-        "kernel": [[[1.0, 1.0, 1.0]], [[2.0, 2.0, 2.0]]],
+        "weight": [[[1.0, 1.0, 1.0]], [[2.0, 2.0, 2.0]]],
         "bias": [[[1.0], [1.0]]],
     }
 
@@ -463,7 +463,7 @@ def test_conv1d_1():
     }
 
     reference_gradients = {
-        "kernel": [[[2.0, 3.0, 4.0]], [[25.0, 34.0, 43.0]]],
+        "weight": [[[2.0, 3.0, 4.0]], [[25.0, 34.0, 43.0]]],
         "bias": [[[1.0], [9.0]]],
     }
 
@@ -490,14 +490,14 @@ def test_conv1d_2():
     }
 
     params = {
-        "kernel": [[[1.0, 1.0, 1.0, 1.0]], [[2.0, 2.0, 2.0, 2.0]]],
+        "weight": [[[1.0, 1.0, 1.0, 1.0]], [[2.0, 2.0, 2.0, 2.0]]],
         "bias": [[[1.0], [1.0]]],
     }
 
     reference_outputs = {"final_cost": 10.25, "output": [[[11.0, 15.0], [21.0, 29.0]]]}
 
     reference_gradients = {
-        "kernel": [[[5.0, 7.5, 10.0, 12.5]], [[4.0, 6.0, 8.0, 10.0]]],
+        "weight": [[[5.0, 7.5, 10.0, 12.5]], [[4.0, 6.0, 8.0, 10.0]]],
         "bias": [[[2.5], [2.0]]],
     }
 
@@ -524,7 +524,7 @@ def test_conv1d_3():
     }
 
     params = {
-        "kernel": [[[1.0, 1.0, 1.0]], [[2.0, 2.0, 2.0]]],
+        "weight": [[[1.0, 1.0, 1.0]], [[2.0, 2.0, 2.0]]],
     }
 
     reference_outputs = {
@@ -532,7 +532,7 @@ def test_conv1d_3():
         "output": [[[6.0, 9.0, 12.0], [12.0, 18.0, 24.0]]],
     }
 
-    reference_gradients = {"kernel": [[[2.0, 3.0, 4.0]], [[25.0, 34.0, 43.0]]]}
+    reference_gradients = {"weight": [[[2.0, 3.0, 4.0]], [[25.0, 34.0, 43.0]]]}
 
     compile_and_compare(
         model=train_model,
@@ -557,12 +557,12 @@ def test_conv1d_4():
     }
 
     params = {
-        "kernel": [[[1.0, 1.0, 1.0]], [[2.0, 2.0, 2.0]]],
+        "weight": [[[1.0, 1.0, 1.0]], [[2.0, 2.0, 2.0]]],
     }
 
     reference_outputs = {"final_cost": 146.250, "output": [[[6.0, 12.0], [12.0, 24.0]]]}
 
-    reference_gradients = {"kernel": [[[0.0, 0.0, 0.0]], [[37.5, 51.0, 64.5]]]}
+    reference_gradients = {"weight": [[[0.0, 0.0, 0.0]], [[37.5, 51.0, 64.5]]]}
 
     compile_and_compare(
         model=train_model,
@@ -587,7 +587,7 @@ def test_conv1d_5():
     }
 
     params = {
-        "kernel": [[[1.0, 1.0, 1.0]], [[2.0, 2.0, 2.0]]],
+        "weight": [[[1.0, 1.0, 1.0]], [[2.0, 2.0, 2.0]]],
     }
 
     reference_outputs = {
@@ -595,7 +595,7 @@ def test_conv1d_5():
         "output": [[[3.0, 6.0, 9.0, 12.0, 9.0], [6.0, 12.0, 18.0, 24.0, 18.0]]],
     }
 
-    reference_gradients = {"kernel": [[[1.2, 1.8, 2.4]], [[15.0, 20.4, 25.8]]]}
+    reference_gradients = {"weight": [[[1.2, 1.8, 2.4]], [[15.0, 20.4, 25.8]]]}
 
     compile_and_compare(
         model=train_model,
@@ -620,7 +620,7 @@ def test_conv1d_6():
     }
 
     params = {
-        "kernel": [[[1.0, 1.0, 1.0]], [[2.0, 2.0, 2.0]]],
+        "weight": [[[1.0, 1.0, 1.0]], [[2.0, 2.0, 2.0]]],
         "bias": [[[1.0], [1.0]]],
     }
 
@@ -630,7 +630,7 @@ def test_conv1d_6():
     }
 
     reference_gradients = {
-        "kernel": [[[1.2, 1.8, 2.4]], [[15.0, 20.4, 25.8]]],
+        "weight": [[[1.2, 1.8, 2.4]], [[15.0, 20.4, 25.8]]],
         "bias": [[[0.6], [5.4]]],
     }
 
@@ -3171,8 +3171,8 @@ def test_groupnorm_2():
     model = GroupNorm(4)
 
     input = np.arange(160, dtype=np.float32)
-    input = input.reshape(1, 16, 10, 1)
-    input = np.broadcast_to(input, (2, 16, 10, 4))
+    input = input.reshape((1, 16, 10, 1))  # type: ignore
+    input = np.broadcast_to(input, (2, 16, 10, 4))  # type: ignore
     input = np.concatenate([input, 0.5 * input], axis=-1)
 
     weight = np.random.randn(1, 16, 1, 1)

@@ -70,14 +70,14 @@ def test_two_conns():
     """Tests if 2 Connection objects can be added."""
     # Create with shortcut.
     model_1 = Model()
-    model_1 += Linear(dimension=2)(input="input", w="w", b="b")
-    add_1 = model_1.input + model_1.b  # type: ignore
+    model_1 += Linear(dimension=2)(input="input", weight="weight", bias="bias")
+    add_1 = model_1.input + model_1.bias  # type: ignore
     model_1 += Mean()(input=add_1, output=IOKey(name="output"))
 
     # Create with extend.
     model_2 = Model()
-    model_2 += Linear(dimension=2)(input="input", w="w", b="b")
-    model_2 += (add_2 := Add())(left=model_2.input, right=model_2.b)  # type: ignore
+    model_2 += Linear(dimension=2)(input="input", weight="weight", bias="bias")
+    model_2 += (add_2 := Add())(left=model_2.input, right=model_2.bias)  # type: ignore
     model_2 += Mean()(input=add_2.output, output=IOKey(name="output"))
 
     # Provide backend and data.
@@ -91,18 +91,18 @@ def test_conn_template():
     """Tests if an ExtendTemplate and Connection can be added."""
     # Create with shortcut.
     model_1 = Model()
-    model_1 += Linear(dimension=2)(input="input", w="w", b="b")
-    add_1 = model_1.input + model_1.b  # type: ignore
-    add_2 = add_1 + model_1.b  # type: ignore
+    model_1 += Linear(dimension=2)(input="input", weight="weight", bias="bias")
+    add_1 = model_1.input + model_1.bias  # type: ignore
+    add_2 = add_1 + model_1.bias  # type: ignore
     model_1 += Add()(left=add_1, right=add_2, output=IOKey(name="output"))
 
     # Create with extend.
     model_2 = Model()
     add_3 = Add()
     add_4 = Add()
-    model_2 += Linear(dimension=2)(input="input", w="w", b="b")
-    model_2 += add_3(left=model_2.input, right=model_2.b)  # type: ignore
-    model_2 += add_4(left=add_3.output, right=model_2.b)  # type: ignore
+    model_2 += Linear(dimension=2)(input="input", weight="weight", bias="bias")
+    model_2 += add_3(left=model_2.input, right=model_2.bias)  # type: ignore
+    model_2 += add_4(left=add_3.output, right=model_2.bias)  # type: ignore
     model_2 += Add()(left=add_3.output, right=add_4.output, output=IOKey(name="output"))
 
     # Provide backend and data.
@@ -116,22 +116,22 @@ def test_template_template():
     """Tests if two ExtendTemplate objects can be added."""
     # Create with shortcut.
     model_1 = Model()
-    model_1 += (lin_1 := Linear(dimension=2))(input="input_1", w="w_1", b="b_1")
+    model_1 += (lin_1 := Linear(dimension=2))(input="input_1", weight="w_1", bias="b_1")
     model_1 += (tensor := ToTensor())(input=2.0)
-    add_1 = lin_1.input + lin_1.b  # First ExtendTemplate
-    model_1 += (lin_2 := Linear(dimension=2))(input="input_2", w="w_2", b="b_2")
-    add_2 = lin_2.input + lin_2.b  # Second ExtendTemplate
+    add_1 = lin_1.input + lin_1.bias  # First ExtendTemplate
+    model_1 += (lin_2 := Linear(dimension=2))(input="input_2", weight="w_2", bias="b_2")
+    add_2 = lin_2.input + lin_2.bias  # Second ExtendTemplate
     # Now add 2 ExtendTemplates
     add_3 = add_1 + add_2
     model_1 += Add()(left=tensor.output, right=add_3, output=IOKey(name="output"))
 
     # Create with extend.
     model_2 = Model()
-    model_2 += (lin_3 := Linear(dimension=2))(input="input_1", w="w_1", b="b_1")
+    model_2 += (lin_3 := Linear(dimension=2))(input="input_1", weight="w_1", bias="b_1")
     model_2 += (tensor := ToTensor())(input=2.0)
-    model_2 += (lin_4 := Linear(dimension=2))(input="input_2", w="w_2", b="b_2")
-    model_2 += (add_4 := Add())(left=lin_3.input, right=lin_3.b)
-    model_2 += (add_5 := Add())(left=lin_4.input, right=lin_4.b)
+    model_2 += (lin_4 := Linear(dimension=2))(input="input_2", weight="w_2", bias="b_2")
+    model_2 += (add_4 := Add())(left=lin_3.input, right=lin_3.bias)
+    model_2 += (add_5 := Add())(left=lin_4.input, right=lin_4.bias)
     model_2 += (add_6 := Add())(left=add_4.output, right=add_5.output)
     model_2 += Add()(
         left=tensor.output, right=add_6.output, output=IOKey(name="output")
@@ -148,16 +148,16 @@ def test_shape_reshape():
     """Tests if shape functionality works."""
     # Create with shortcut.
     model_1 = Model()
-    model_1 += (lin_1 := Linear(dimension=1))(input="input_1", w="w_1", b="b_1")
+    model_1 += (lin_1 := Linear(dimension=1))(input="input_1", weight="w_1", bias="b_1")
     shp = lin_1.input.shape()
-    model_1 += (lin_2 := Linear(dimension=2))(input="input_2", w="w_2", b="b_2")
+    model_1 += (lin_2 := Linear(dimension=2))(input="input_2", weight="w_2", bias="b_2")
     reshaped = lin_2.output.reshape(shp)
     model_1 += Add()(left=lin_1.output, right=reshaped, output=IOKey(name="output"))
 
     # Create with extend.
     model_2 = Model()
-    model_2 += (lin_3 := Linear(dimension=1))(input="input_1", w="w_1", b="b_1")
-    model_2 += (lin_4 := Linear(dimension=2))(input="input_2", w="w_2", b="b_2")
+    model_2 += (lin_3 := Linear(dimension=1))(input="input_1", weight="w_1", bias="b_1")
+    model_2 += (lin_4 := Linear(dimension=2))(input="input_2", weight="w_2", bias="b_2")
     model_2 += (shp_model := Shape())(input=lin_3.input)
     model_2 += (re_shp := Reshape())(input=lin_4.output, shape=shp_model.output)
     model_2 += Add()(
@@ -206,7 +206,9 @@ def test_slice_item():
     """Tests if get_item functionality works."""
     # Create with shortcut.
     model_1 = Model()
-    model_1 += (lin_1 := Linear(dimension=1))(input="input", w="w", b="b")
+    model_1 += (lin_1 := Linear(dimension=1))(
+        input="input", weight="weight", bias="bias"
+    )
     shp = lin_1.input.shape()
     item = shp[1].tensor()
     slc = shp[:].tensor()
@@ -214,7 +216,9 @@ def test_slice_item():
 
     # Create with extend.
     model_2 = Model()
-    model_2 += (lin_3 := Linear(dimension=1))(input="input", w="w", b="b")
+    model_2 += (lin_3 := Linear(dimension=1))(
+        input="input", weight="weight", bias="bias"
+    )
     model_2 += (shp_model := Shape())(input=lin_3.input)
     model_2 += (item_model := ScalarItem())(input=shp_model.output, index=1)
     model_2 += (tensor_1 := ToTensor())(input=item_model.output)
@@ -235,25 +239,25 @@ def test_right_add():
     """Tests if 2 + Conn and Conn + 2 are equal."""
     # Create with shortcut using left add.
     model_1 = Model()
-    model_1 += Linear(dimension=2)(input="input", w="w", b="b")
+    model_1 += Linear(dimension=2)(input="input", weight="weight", bias="bias")
     add_1 = model_1.input + 2.0  # type: ignore
     model_1 += Mean()(input=add_1, output=IOKey(name="output"))
 
     # Create with shortcut using right add.
     model_2 = Model()
-    model_2 += Linear(dimension=2)(input="input", w="w", b="b")
+    model_2 += Linear(dimension=2)(input="input", weight="weight", bias="bias")
     add_2 = 2.0 + model_2.input  # type: ignore
     model_2 += Mean()(input=add_2, output=IOKey(name="output"))
 
     # Create first model with extend.
     model_3 = Model()
-    model_3 += Linear(dimension=2)(input="input", w="w", b="b")
+    model_3 += Linear(dimension=2)(input="input", weight="weight", bias="bias")
     model_3 += (add_3 := Add())(left=model_3.input, right=2.0)  # type: ignore
     model_3 += Mean()(input=add_3.output, output=IOKey(name="output"))
 
     # Create second model with extend.
     model_4 = Model()
-    model_4 += Linear(dimension=2)(input="input", w="w", b="b")
+    model_4 += Linear(dimension=2)(input="input", weight="weight", bias="bias")
     model_4 += (add_4 := Add())(left=2.0, right=model_4.input)  # type: ignore
     model_4 += Mean()(input=add_4.output, output=IOKey(name="output"))
 
@@ -283,13 +287,13 @@ def test_right_add_three_term():
     """
     # Create with shortcut using left add.
     model_1 = Model()
-    model_1 += Linear(dimension=2)(input="input", w="w", b="b")
+    model_1 += Linear(dimension=2)(input="input", weight="weight", bias="bias")
     add_1 = model_1.input + 2.0 + 3.0  # type: ignore
     model_1 += Mean()(input=add_1, output=IOKey(name="output"))
 
     # Create with shortcut using right add.
     model_2 = Model()
-    model_2 += Linear(dimension=2)(input="input", w="w", b="b")
+    model_2 += Linear(dimension=2)(input="input", weight="weight", bias="bias")
     add_2 = 2.0 + 3.0 + model_2.input  # type: ignore
     model_2 += Mean()(input=add_2, output=IOKey(name="output"))
 
@@ -309,25 +313,25 @@ def test_right_pow():
     """Tests if 2 ** Conn and Conn ** 2 are not equal."""
     # Create with shortcut using left add.
     model_1 = Model()
-    model_1 += Linear(dimension=2)(input="input", w="w", b="b")
+    model_1 += Linear(dimension=2)(input="input", weight="weight", bias="bias")
     pow_1 = model_1.input**2.0  # type: ignore
     model_1 += Mean()(input=pow_1, output=IOKey(name="output"))
 
     # Create with shortcut using right add.
     model_2 = Model()
-    model_2 += Linear(dimension=2)(input="input", w="w", b="b")
+    model_2 += Linear(dimension=2)(input="input", weight="weight", bias="bias")
     pow_2 = 2.0**model_2.input  # type: ignore
     model_2 += Mean()(input=pow_2, output=IOKey(name="output"))
 
     # Create first model with extend.
     model_3 = Model()
-    model_3 += Linear(dimension=2)(input="input", w="w", b="b")
+    model_3 += Linear(dimension=2)(input="input", weight="weight", bias="bias")
     model_3 += (pow_3 := Power())(base=model_3.input, exponent=2.0)  # type: ignore
     model_3 += Mean()(input=pow_3.output, output=IOKey(name="output"))
 
     # Create second model with extend.
     model_4 = Model()
-    model_4 += Linear(dimension=2)(input="input", w="w", b="b")
+    model_4 += Linear(dimension=2)(input="input", weight="weight", bias="bias")
     model_4 += (pow_4 := Power())(base=2.0, exponent=model_4.input)  # type: ignore
     model_4 += Mean()(input=pow_4.output, output=IOKey(name="output"))
 
@@ -360,12 +364,12 @@ def test_multiple_op_order_1():
     data = {"input": backend.array([[1.0, 5]])}
 
     model_1 = Model()
-    model_1 += Linear(dimension=2)(input="input", w="w", b="b")
+    model_1 += Linear(dimension=2)(input="input", weight="weight", bias="bias")
     add_1 = model_1.input + 2.0 * model_1.input  # type: ignore
     model_1 += Mean()(input=add_1, output=IOKey(name="output"))
 
     model = Model()
-    model += Linear(dimension=2)(input="input", w="w", b="b")
+    model += Linear(dimension=2)(input="input", weight="weight", bias="bias")
     model += (mul := Multiply())(left=2.0, right="input")
     model += (add := Add())(left="input", right=mul.output)
     model += Mean()(input=add.output, output=IOKey(name="output"))
