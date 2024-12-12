@@ -68,7 +68,7 @@ def run_sample(
     )
 
     # Get weights in corresponding backend array type.
-    trainables = get_weights()
+    trainables = get_weights(backend_obj)
 
     # Get gpt's default encoder decoder
     enc = tiktoken.get_encoding("gpt2")
@@ -94,7 +94,7 @@ def run_sample(
         print("\n---------------")
 
 
-def get_weights():
+def get_weights(backend: Backend):
     model_hf = GPT2LMHeadModel.from_pretrained("gpt2")
     sd_hf = model_hf.state_dict()
 
@@ -110,9 +110,9 @@ def get_weights():
     for key in sd_hf:
         ml_key = key.replace(".", "_")
         if any(key.endswith(w) for w in transposed):
-            params[ml_key] = sd_hf[key].T
+            params[ml_key] = backend.array(sd_hf[key].T)
         else:
-            params[ml_key] = sd_hf[key]
+            params[ml_key] = backend.array(sd_hf[key])
 
     return params
 
