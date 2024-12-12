@@ -327,9 +327,9 @@ def cartesian_diff(
 
 
 def primitive_embedding(
-    input: DataType, embedding_matrix: DataType, *, cache: CacheType = None
+    input: DataType, weight: DataType, *, cache: CacheType = None
 ) -> DataType:
-    return embedding_matrix[input]  # type: ignore
+    return weight[input]  # type: ignore
 
 
 common_primitive_func_dict = {key: fn for key, fn in globals().items() if callable(fn)}
