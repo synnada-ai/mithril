@@ -21,6 +21,7 @@ import numpy as np
 from ....core import Dtype
 from ...backend import Backend, PadWidthType
 from ...utils import process_shape
+from ..common_primitives import CacheType
 from . import ops, ops_grad, utils
 
 
@@ -100,7 +101,9 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
         self.seed = seed
         np.random.seed(seed)
 
-    def _creation_fn_wrapper(self, fn: Callable) -> Callable:
+    def _creation_fn_wrapper(
+        self, fn: Callable[..., np.ndarray[Any, Any]]
+    ) -> Callable[..., np.ndarray[Any, Any]]:
         """
         Wrapper for NumPy array creation functions.
 
@@ -120,7 +123,9 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
         """
         return partial(utils.creation_fn_wrapper, fn=fn, precision=self.precision)
 
-    def _conversion_fn_wrapper(self, fn: Callable) -> Callable:
+    def _conversion_fn_wrapper(
+        self, fn: Callable[..., np.ndarray[Any, Any]]
+    ) -> Callable[..., np.ndarray[Any, Any]]:
         """
         Wrapper for NumPy array conversion functions.
 
@@ -142,10 +147,16 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
         """
         return partial(utils.conversion_fn_wrapper, fn=fn, precision=self.precision)
 
-    def accumulate_grads(self, gradient: np.ndarray, input: np.ndarray, cache, idx):
+    def accumulate_grads(
+        self,
+        gradient: np.ndarray[Any, Any],
+        input: np.ndarray[Any, Any],
+        cache: CacheType | None,
+        idx: int,
+    ) -> np.ndarray[Any, Any]:
         return utils.accumulate_grads(gradient, input, cache, idx)
 
-    def array(self, data: Any, *, dtype: Dtype | None = None) -> np.ndarray:
+    def array(self, data: Any, *, dtype: Dtype | None = None) -> np.ndarray[Any, Any]:
         _dtype: str | None = None
         if isinstance(dtype, Dtype):
             _dtype = dtype.name
@@ -198,7 +209,7 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
         *shape: int | tuple[int, ...] | list[int],
         dtype: Dtype | None = None,
         prng_key: Any = None,
-    ) -> np.ndarray:
+    ) -> np.ndarray[Any, Any]:
         _dtype: str | None = None
         if isinstance(dtype, Dtype):
             _dtype = dtype.name
@@ -401,7 +412,7 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
         return values
 
     def multinomial(
-        self, probs: np.ndarray, num_samples: int, replacement: bool = False, **kwargs
+        self, probs: np.ndarray, num_samples: int, replacement: bool = False
     ) -> np.ndarray:
         # input = np.asarray(probs)
         if probs.ndim == 1:

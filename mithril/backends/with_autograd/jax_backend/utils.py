@@ -24,7 +24,7 @@ from ....utils.utils import binary_search, find_dominant_type
 
 ArrayType = jax.Array
 
-dtype_map = {
+dtype_map: dict[str | None, Any] = {
     "int16": jnp.int16,
     "int32": jnp.int32,
     "int": jnp.int32,
@@ -51,7 +51,7 @@ def broadcast_to_highest(
     )
 
 
-def vmapper(func: Callable, count: int) -> Callable:
+def vmapper(func: Callable[..., jax.Array], count: int) -> Callable[..., jax.Array]:
     for _ in range(count):
         func = jax.vmap(func)
     return func
@@ -77,7 +77,7 @@ def robust_power_above_threshold(
 def robust_power_helper(
     input1: jax.Array, input2: jax.Array, threshold: jax.Array
 ) -> jax.Array:
-    def cond_fun(cond, input1, input2):
+    def cond_fun(cond: jax.Array, input1: jax.Array, input2: jax.Array) -> jax.Array:
         return jax.lax.cond(
             cond,
             robust_power_under_threshold,
@@ -99,7 +99,7 @@ def robust_power_helper(
 
 
 def robust_log_helper(input1: jax.Array, threshold: jax.Array) -> jax.Array:
-    def cond_fun(cond, input1):
+    def cond_fun(cond: jax.Array, input1: jax.Array):
         return jax.lax.cond(
             cond,
             lambda x: jnp.log(threshold) + (jnp.abs(x) / threshold) - 1.0,
@@ -112,7 +112,7 @@ def robust_log_helper(input1: jax.Array, threshold: jax.Array) -> jax.Array:
 
 
 def stable_reciprocal_helper(input1: jax.Array, threshold: jax.Array) -> jax.Array:
-    def cond_fun(cond, input1):
+    def cond_fun(cond: jax.Array, input1: jax.Array):
         return jax.lax.cond(
             cond,
             lambda x: -x / jnp.square(threshold)
@@ -126,7 +126,7 @@ def stable_reciprocal_helper(input1: jax.Array, threshold: jax.Array) -> jax.Arr
 
 
 def robust_sqrt_helper(input1: jax.Array, threshold: jax.Array) -> jax.Array:
-    def cond_fun(cond, input1):
+    def cond_fun(cond: jax.Array, input1: jax.Array):
         return jax.lax.cond(
             cond,
             lambda x: jnp.abs(x) * jnp.reciprocal(jnp.sqrt(threshold)),
@@ -181,7 +181,7 @@ def tsne_softmax(
 
 
 def calc_prob_matrix(
-    negative_dist_sq: jax.Array, sigmas: jax.Array, zero_index=None
+    negative_dist_sq: jax.Array, sigmas: jax.Array, zero_index: int | None = None
 ) -> jax.Array:
     """Convert a distances matrix to a matrix of probabilities.
     Parameters
@@ -254,12 +254,12 @@ def find_optimal_sigmas(
     jax.Array
         Returns optimal sigma values.
     """
-    sigmas = []
+    sigmas: list[float] = []
 
     # For each row of the matrix (each point in our dataset)
     for i in range(negative_dist_sq.shape[0]):
         # Make fn that returns perplexity of this row given sigma
-        def eval_fn(sigma):
+        def eval_fn(sigma: float) -> jax.Array:
             return perplexity_fn(negative_dist_sq[i, :], jnp.array(sigma), i, threshold)  # noqa: B023
 
         # Binary search over sigmas to achieve target perplexity
@@ -270,7 +270,7 @@ def find_optimal_sigmas(
     return jnp.array(sigmas, dtype=negative_dist_sq.dtype)
 
 
-def polynomial_features_helper(x, y):
+def polynomial_features_helper(x: jax.Array, y: jax.Array) -> jax.Array:
     # NOTE: This helper function is used to handle (0.0 ** 0) case. JAX original
     # power function gradient returns NAN for this case but we want the gradient
     # return 0.0 without changing forward characteristics for this point.
@@ -285,7 +285,7 @@ def polynomial_features_helper(x, y):
 
 
 def get_available_devices():
-    backends = set(jax._src.xla_bridge.backends()) - set(["interpreter"])  # type: ignore
+    backends: set[str] = set(jax._src.xla_bridge.backends()) - set(["interpreter"])
     devices = [
         f"{backend.replace('METAL','mps')}:{idx}"
         for backend in list(backends)
@@ -313,7 +313,7 @@ def get_device(device: str):
 
 
 def _get_available_backends() -> list[str]:
-    backends = set(jax._src.xla_bridge.backends()) - set(["interpreter"])  # type: ignore
+    backends: set[str] = set(jax._src.xla_bridge.backends()) - set(["interpreter"])
     return list(backends)
 
 
@@ -333,7 +333,7 @@ def _parse_device_string(device: str):
     return backend, device_idx
 
 
-def handle_dtype(dtype: Any) -> Any:
+def handle_dtype(dtype: str | core.Dtype | jnp.dtype[Any]) -> jnp.dtype[Any]:
     if isinstance(dtype, core.Dtype):
         return dtype_map[dtype.name]
     elif isinstance(dtype, str) and dtype in dtype_map:
@@ -346,10 +346,14 @@ def handle_dtype(dtype: Any) -> Any:
 
 
 def creation_fn_wrapper(
-    *args, fn: Callable, dtype=None, device: str, precision: int, **kwargs
+    *args: Any,
+    fn: Callable[..., jax.Array],
+    dtype: core.Dtype | jnp.dtype[Any] | None = None,
+    device: str,
+    precision: int,
+    **kwargs: Any,
 ):
-    if isinstance(device, str):
-        _device = get_device(device)
+    _device = get_device(device)
 
     if dtype is not None:
         dtype = handle_dtype(dtype)
@@ -363,10 +367,15 @@ def creation_fn_wrapper(
 
 
 def conversion_fn_wrapper(
-    data, *args, fn: Callable, device: str, precision: int, dtype=None, **kwargs
+    data: Any,
+    *args: Any,
+    fn: Callable[..., jax.Array],
+    device: str,
+    precision: int,
+    dtype: core.Dtype | jnp.dtype[Any] | None = None,
+    **kwargs: Any,
 ):
-    if isinstance(device, str):
-        _device = get_device(device)
+    _device = get_device(device)
 
     if dtype is not None:
         dtype = handle_dtype(dtype)
@@ -400,15 +409,14 @@ def handle_data_precision(data: ArrayType, precision: int) -> ArrayType:
 
 
 def handle_data_dtype(data: jax.Array, dtype: core.Dtype | int) -> jax.Array:
-    if isinstance(dtype, int):
-        dtype = core.Dtype(dtype)
+    dtype = core.Dtype(dtype)
 
     if data.dtype != dtype_map[dtype.name]:
         return data.astype(dtype_map[dtype.name])
     return data
 
 
-def get_type(input: int | float | bool | Sequence, precision: int):
+def get_type(input: int | float | bool | Sequence[Any], precision: int):
     type = find_dominant_type(input).__name__
     if type == "bool":
         return jax.numpy.bool_
@@ -416,7 +424,7 @@ def get_type(input: int | float | bool | Sequence, precision: int):
     return getattr(jax.numpy, type + str(precision))
 
 
-def calculate_tpr_fpr(threshold, input, label):
+def calculate_tpr_fpr(threshold: jax.Array, input: jax.Array, label: jax.Array):
     input_c = input.copy()
 
     n_positive = (label == 1).sum()
@@ -431,7 +439,7 @@ def calculate_tpr_fpr(threshold, input, label):
     return tpr, fpr
 
 
-def log_sigmoid(input: jax.Array, log: Callable, robust: bool):
+def log_sigmoid(input: jax.Array, log: Callable[..., jax.Array], robust: bool):
     min = jnp.minimum(0, input)
     input = jnp.exp(-jnp.abs(input))
     if not robust:
@@ -439,22 +447,24 @@ def log_sigmoid(input: jax.Array, log: Callable, robust: bool):
     return min - log(1 + input)
 
 
-def log_softmax(input: jax.Array, log: Callable, robust: bool, axis: int = -1):
+def log_softmax(
+    input: jax.Array, log: Callable[..., jax.Array], robust: bool, axis: int = -1
+) -> jax.Array:
     if not robust:
         return jax.nn.log_softmax(input, axis)
     return input - log(jnp.exp(input).sum(axis=axis, keepdims=True))
 
 
-def calculate_binary_class_weight(labels) -> jax.Array:
+def calculate_binary_class_weight(labels: jax.Array) -> jax.Array:
     return (1 - labels.mean()) / labels.mean()
 
 
-def calculate_categorical_class_weight(labels, num_classes: int):
+def calculate_categorical_class_weight(labels: jax.Array, num_classes: int):
     one_hot = jnp.eye(num_classes)[labels]
     return calculate_class_weight(one_hot)
 
 
-def calculate_class_weight(labels):
+def calculate_class_weight(labels: jax.Array) -> jax.Array:
     # Expected shape (N, C, ...) or (C)
     return (
         (1 / labels.sum(axis=tuple(i for i in range(labels.ndim) if i != 1)))

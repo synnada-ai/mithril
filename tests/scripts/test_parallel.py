@@ -128,7 +128,7 @@ def test_torch_shared_cyclic_queue_4():
     writer.write(
         opcode1=1,
         opcode2=4,
-        args=[5, 5, (4, 2)],
+        args=(5, 5, (4, 2)),
         kwargs={"input": "something", "left": (1, 2, (3, 4))},
     )
 
@@ -141,7 +141,7 @@ def test_torch_shared_cyclic_queue_4():
     assert reader.read(rank=1) == (
         1,
         4,
-        [5, 5, (4, 2)],
+        (5, 5, (4, 2)),
         {"input": "something", "left": (1, 2, (3, 4))},
     )
     assert instruction[0] == "1"
@@ -792,7 +792,7 @@ def test_torch_parallel_error_12():
     model = Model()
     model += Linear(256)(input="input", w="w", b="b")
     with pytest.raises(AssertionError) as e:
-        mithril.TorchBackend(device_mesh=2)
+        mithril.TorchBackend(device_mesh=2)  # type: ignore
 
     assert str(e.value) == "device_mesh must be a tuple or None."
 

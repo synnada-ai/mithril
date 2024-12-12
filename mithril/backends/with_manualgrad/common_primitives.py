@@ -179,8 +179,10 @@ def buffer(input: DataType, cache: CacheType = None):
     return input
 
 
-def permute_tensor(input: DataType, indices: DataType, cache: CacheType = None):
-    return input[indices]  # type: ignore
+def permute_tensor(
+    input: DataType, indices: DataType, cache: CacheType = None
+) -> DataType:
+    return input[indices]
 
 
 def reshape(input: DataType, shape: tuple[int, ...], cache: CacheType = None):

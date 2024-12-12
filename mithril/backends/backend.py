@@ -36,7 +36,7 @@ class Backend(ABC, Generic[DataType]):
     device_type = None
     supported_precisions = [16, 32, 64]
     is_installed = True
-    _device: str
+    _device: Any
     _precision: int
     primitive_function_dict: dict[str, Callable[..., DataType | Any]]
     registered_primitives: dict[str, Callable[..., DataType]]
@@ -65,7 +65,7 @@ class Backend(ABC, Generic[DataType]):
         return self._device
 
     @property
-    def inf(self):
+    def inf(self) -> DataType | float:
         raise NotImplementedError("inf is not implemented")
 
     @property
@@ -84,7 +84,7 @@ class Backend(ABC, Generic[DataType]):
         raise NotImplementedError("get_backend_array_type is not implemented")
 
     @staticmethod
-    def register_primitive(fn: Callable) -> None:
+    def register_primitive(fn: Callable[..., Any]) -> None:
         raise NotImplementedError("register_primitive is not implemented!")
 
     @abstractmethod
@@ -93,10 +93,12 @@ class Backend(ABC, Generic[DataType]):
             "set_seed function must be overriden for every backend individually!"
         )
 
-    def to_device(self, data: DataType, device: str, asynchronous: bool = True):
+    def to_device(
+        self, data: DataType, device: str, asynchronous: bool = True
+    ) -> DataType:
         raise RuntimeError("Backend does not support to_device method!")
 
-    def block_until_ready(self, data: DataType):
+    def block_until_ready(self, data: DataType) -> DataType | None:
         raise RuntimeError("Backend does not support block_until_ready method!")
 
     def empty_cache(self):  # noqa: B027
@@ -316,7 +318,7 @@ class Backend(ABC, Generic[DataType]):
         raise NotImplementedError("ones is not implemented!")
 
     def ones_like(
-        self, array: DataType, *, dtype: core.Dtype | None = None
+        self, input: DataType, *, dtype: core.Dtype | None = None
     ) -> DataType:
         """Returns a new backend array filled with ones, with the same size,
         same dtype and same device with the given array.
@@ -337,7 +339,7 @@ class Backend(ABC, Generic[DataType]):
         raise NotImplementedError("ones_like is not implemented!")
 
     def zeros_like(
-        self, array: DataType, *, dtype: core.Dtype | None = None
+        self, input: DataType, *, dtype: core.Dtype | None = None
     ) -> DataType:
         """Returns a new backend array filled with zeros, with the same size,
         same dtype and same device with the given array.
@@ -588,7 +590,7 @@ class Backend(ABC, Generic[DataType]):
         """
         raise NotImplementedError("softplus is not implemented!")
 
-    def stop_gradient(self, data: DataType) -> DataType:
+    def stop_gradient(self, input: DataType) -> DataType:
         """
         Stop the gradient computation for the given data.
 
@@ -677,7 +679,7 @@ class Backend(ABC, Generic[DataType]):
         """
         raise NotImplementedError("expand_dims is not implemented!")
 
-    def stack(self, arrays: list[DataType], axis: int = 0) -> DataType:
+    def stack(self, inputs: list[DataType], axis: int = 0) -> DataType:
         """
         Stack a sequence of arrays along a new axis.
 
@@ -693,7 +695,7 @@ class Backend(ABC, Generic[DataType]):
         """
         raise NotImplementedError("stack is not implemented!")
 
-    def cat(self, arrays: list[DataType], axis: int = 0) -> DataType:
+    def cat(self, inputs: list[DataType], axis: int = 0) -> DataType:
         """
         Concatenate a sequence of arrays along an existing axis.
 
@@ -814,12 +816,12 @@ class Backend(ABC, Generic[DataType]):
         raise NotImplementedError("any is not implemented!")
 
     def transpose(
-        self, data: DataType, axes: tuple[int, ...] | list[int] | None
+        self, input: DataType, axes: tuple[int, ...] | list[int] | None
     ) -> DataType:
         raise NotImplementedError()
 
     def unique(
-        self, input: DataType, **kwargs
+        self, input: DataType, **kwargs: Any
     ) -> tuple[DataType, DataType | None, DataType | None]:
         raise NotImplementedError("unique is not implemented!")
 
@@ -830,11 +832,7 @@ class Backend(ABC, Generic[DataType]):
         raise NotImplementedError("where is not implemented!")
 
     def multinomial(
-        self,
-        probs: DataType,
-        num_samples: int,
-        replacement: bool = False,
-        **kwargs,
+        self, probs: DataType, num_samples: int, replacement: bool = False
     ) -> DataType:
         raise NotImplementedError("multinomial is not implemented!")
 
@@ -1378,7 +1376,7 @@ class ParallelBackend(Backend[DataType]):
     def _run_callable(self, *primals, fn_name: str):
         raise NotImplementedError()
 
-    def _create_parallel(self, device_mesh: tuple[int, ...]) -> Parallel:
+    def _create_parallel(self, device_mesh: tuple[int, ...]):
         raise NotImplementedError(
             f"{self.type.capitalize()} backend does not support parallelization!"
         )

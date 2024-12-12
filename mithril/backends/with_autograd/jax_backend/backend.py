@@ -45,7 +45,7 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
     """
 
     type = "jax"
-    registered_primitives = {}
+    registered_primitives: dict[str, Callable[..., jax.numpy.ndarray]] = {}
     primitive_fn_path = "mithril.backends.with_autograd.jax_backend.ops"
 
     def __init__(
@@ -107,7 +107,7 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         return utils.get_available_devices()
 
     @staticmethod
-    def register_primitive(fn: Callable) -> None:
+    def register_primitive(fn: Callable[..., Any]) -> None:
         JaxBackend.registered_primitives[fn.__name__] = fn
 
     def set_seed(self, seed: int):
@@ -131,7 +131,7 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
             return jax.device_put(data, device=_device).block_until_ready()
         return jax.device_put(data, device=_device)
 
-    def block_until_ready(self, data: jax.Array):
+    def block_until_ready(self, data: jax.Array) -> jax.Array | None:
         """Block until the specified data is ready.
 
         Parameters
@@ -139,9 +139,11 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         data: jax.Array
             The data for which the method will block until it is ready.
         """
-        data.block_until_ready()
+        return data.block_until_ready()
 
-    def _creation_fn_wrapper(self, fn: Callable) -> Callable:
+    def _creation_fn_wrapper(
+        self, fn: Callable[..., jax.Array]
+    ) -> Callable[..., jax.Array]:
         """
         Wrapper for array creation functions.
 
@@ -170,7 +172,9 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
 
         return array_conversion_fn
 
-    def _conversion_fn_wrapper(self, fn: Callable) -> Callable:
+    def _conversion_fn_wrapper(
+        self, fn: Callable[..., jax.Array]
+    ) -> Callable[..., jax.Array]:
         """
         Wrapper for array conversion functions.
 
@@ -202,7 +206,13 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
 
         return array_conversion_fn
 
-    def _parallelize(self, *args, fn: Callable, device_mesh, **kwargs) -> jax.Array:
+    def _parallelize(
+        self,
+        *args: Any,
+        fn: Callable[..., jax.Array],
+        device_mesh: tuple[int, ...],
+        **kwargs: Any,
+    ) -> jax.Array:
         """
         Parallelizes the function's return tensor across devices.
 
@@ -227,7 +237,7 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         return self._parallel_manager.parallelize(tensor, device_mesh)
 
     def _register_callable(
-        self, fn: Callable | partial, fn_name: str, jit: bool = False
+        self, fn: Callable[..., Any], fn_name: str, jit: bool = False
     ):
         assert (
             self._parallel_manager is not None
@@ -236,7 +246,7 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         fn_name = str(id(self)) + fn_name
         return self._parallel_manager.register_callable(fn, fn_name, jit)
 
-    def _run_callable(self, *primals, fn_name: str):
+    def _run_callable(self, *primals: jax.Array, fn_name: str):
         assert (
             self._parallel_manager is not None
         ), "Parallel manager is not initialized!"
@@ -441,32 +451,32 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
     ) -> jax.Array:
         return ops.flatten(input, start_dim=start_dim, end_dim=end_dim)
 
-    def abs(self, array: jax.Array) -> jax.Array:
-        return jax.numpy.abs(array)
+    def abs(self, input: jax.Array) -> jax.Array:
+        return jax.numpy.abs(input)
 
     def sign(self, input: jax.Array) -> jax.Array:
         return jax.numpy.sign(input)
 
-    def sin(self, array: jax.Array) -> jax.Array:
-        return jax.numpy.sin(array)
+    def sin(self, input: jax.Array) -> jax.Array:
+        return jax.numpy.sin(input)
 
-    def cos(self, array: jax.Array) -> jax.Array:
-        return jax.numpy.cos(array)
+    def cos(self, input: jax.Array) -> jax.Array:
+        return jax.numpy.cos(input)
 
-    def tanh(self, array: jax.Array) -> jax.Array:
-        return jax.nn.tanh(array)
+    def tanh(self, input: jax.Array) -> jax.Array:
+        return jax.nn.tanh(input)
 
-    def relu(self, array: jax.Array) -> jax.Array:
-        return jax.nn.relu(array)
+    def relu(self, input: jax.Array) -> jax.Array:
+        return jax.nn.relu(input)
 
-    def leaky_relu(self, array: jax.Array, slope: float | jax.Array) -> jax.Array:
-        return jax.nn.leaky_relu(array, slope)
+    def leaky_relu(self, input: jax.Array, slope: float | jax.Array) -> jax.Array:
+        return jax.nn.leaky_relu(input, slope)
 
-    def sigmoid(self, array: jax.Array) -> jax.Array:
-        return jax.nn.sigmoid(array)
+    def sigmoid(self, input: jax.Array) -> jax.Array:
+        return jax.nn.sigmoid(input)
 
-    def softplus(self, array: jax.Array) -> jax.Array:
-        return jax.nn.softplus(array)
+    def softplus(self, input: jax.Array) -> jax.Array:
+        return jax.nn.softplus(input)
 
     def softmax(self, input: jax.Array, dim: int = -1) -> jax.Array:
         # TODO: dim can be Sequence[int] as well. Should work
@@ -535,7 +545,7 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         return data.transpose(axes)
 
     def unique(
-        self, input, **kwargs
+        self, input: jax.Array, **kwargs: Any
     ) -> tuple[jax.Array, jax.Array | None, jax.Array | None]:
         return jax.numpy.unique(input, **kwargs)
 
@@ -546,7 +556,7 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         return jax.lax.top_k(input, k)[0]
 
     def multinomial(
-        self, probs: jax.Array, num_samples: int, replacement: bool = False, **kwargs
+        self, probs: jax.Array, num_samples: int, replacement: bool = False
     ) -> jax.Array:
         """
         Faster JAX implementation of multinomial sampling.
@@ -598,7 +608,7 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
 
         return samples
 
-    def jit(self, *args, **kwargs):
+    def jit(self, *args: Any, **kwargs: Any):
         return jax.jit(*args, **kwargs)
 
     def grad(

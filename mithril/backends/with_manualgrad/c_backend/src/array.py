@@ -14,6 +14,7 @@
 
 import ctypes
 import os
+from typing import Any
 
 current_file_path = os.path.abspath(__file__)
 
@@ -50,7 +51,7 @@ lib.create_full_struct.argtypes = [
 lib.delete_struct.argtypes = [ctypes.POINTER(Array)]
 
 
-def to_c_int_array(lst):
+def to_c_int_array(lst: list[Any]):
     return (ctypes.c_int * len(lst))(*lst)
 
 

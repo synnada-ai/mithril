@@ -454,8 +454,7 @@ def conv1d_bias(
     padding: tuple[int, int] = (1, 1),
     dilation: tuple[int, int] = (1, 1),
 ) -> torch.Tensor:
-    if isinstance(padding, Sequence):
-        input = F.pad(input, [padding[0], padding[1]], "constant", 0)
+    input = F.pad(input, [padding[0], padding[1]], "constant", 0)
 
     return torch.nn.functional.conv1d(
         input=input,
@@ -531,8 +530,7 @@ def max_pool1d(
     padding: tuple[int, int] = (0, 0),
     dilation: int = 1,
 ) -> torch.Tensor:
-    if isinstance(padding, Sequence):
-        input = F.pad(input, [padding[0], padding[1]], "constant", 0)
+    input = F.pad(input, [padding[0], padding[1]], "constant", 0)
 
     return F.max_pool1d(
         input,
@@ -617,7 +615,7 @@ def cross_entropy(
     categorical: bool = True,
     robust: bool = False,
 ) -> torch.Tensor:
-    log: partial | Callable = (
+    log: partial[torch.Tensor] | Callable[..., torch.Tensor] = (
         partial(robust_log, cutoff=cutoff) if robust else torch.log
     )
     _weights = calculate_cross_entropy_class_weights(
@@ -714,9 +712,10 @@ def binary_cross_entropy(
     pos_weight: bool | float = 1.0,
     robust: bool = False,
 ) -> torch.Tensor:
-    log: partial | Callable = (
+    log: partial[torch.Tensor] | Callable[..., torch.Tensor] = (
         partial(robust_log, cutoff=cutoff) if robust else torch.log
     )
+    _pos_weight: torch.Tensor | bool | float
     # TODO: Use F.binary_cross_entropy
     if isinstance(pos_weight, bool) and pos_weight:
         _pos_weight = calculate_binary_class_weight(target)
@@ -734,7 +733,7 @@ def binary_cross_entropy_with_logits(
     pos_weight: bool | float = 1.0,
     robust: bool = False,
 ) -> torch.Tensor:
-    log: partial | Callable = (
+    log: partial[torch.Tensor] | Callable[..., torch.Tensor] = (
         partial(robust_log, cutoff=cutoff) if robust else torch.log
     )
     _pos_weight: torch.Tensor | None
@@ -751,7 +750,6 @@ def binary_cross_entropy_with_logits(
         return F.binary_cross_entropy_with_logits(
             input, target, reduction="none", pos_weight=_pos_weight
         )
-
     if _pos_weight is not None:
         log_weight = (_pos_weight - 1) * (target) + 1
         loss = (1 - target) * input - (log_weight * log_sigmoid(input, log, robust))
@@ -797,7 +795,7 @@ def kl_divergence(
     )
 
 
-def eye(N: int, M: int, *, device: str, precision: int) -> torch.Tensor:
+def eye(N: int, M: int | None, *, device: str, precision: int) -> torch.Tensor:
     if M is None:
         return handle_data_precision(torch.eye(N, device=device), precision)
     else:
@@ -808,7 +806,9 @@ def transposed_diag(input: torch.Tensor) -> torch.Tensor:
     return torch.diag(input)[:, None]
 
 
-def ones_with_zero_diag(N: int, M: int, device: str, precision: int) -> torch.Tensor:
+def ones_with_zero_diag(
+    N: int, M: int | None, device: str, precision: int
+) -> torch.Tensor:
     if M is None:
         output = torch.ones(N) - torch.eye(N)
     else:
@@ -881,7 +881,7 @@ def to_parallel(tensor: torch.Tensor, device_mesh: DeviceMesh) -> torch.Tensor:
     )
 
 
-def arange(*args, device: torch.device, precision: int) -> torch.Tensor:
+def arange(*args: int | float, device: torch.device, precision: int) -> torch.Tensor:
     return handle_data_precision(torch.arange(*args, device=device), precision)
 
 
@@ -915,10 +915,8 @@ def size(
         return math.prod(input.size())
     if isinstance(dim, int):
         return input.size(dim)
-    if isinstance(dim, Sequence):
-        return tuple(input.size(idx) for idx in dim)
     else:
-        raise ValueError(f"Unexpected dim: {dim}")
+        return tuple(input.size(idx) for idx in dim)
 
 
 def norm_modifier(input: torch.Tensor) -> torch.Tensor:
@@ -1000,7 +998,9 @@ def polynomial_features(input: torch.Tensor, *, degree: int = 2) -> torch.Tensor
             input,
         )
     )
-    powers: Iterator = map(sum, combinations_with_replacement(identity, degree))
+    powers: Iterator[torch.Tensor | int] = map(
+        sum, combinations_with_replacement(identity, degree)
+    )
     # Skip first element of powers. This is the bias term.
     next(powers)
     return torch.hstack([(data**p).prod(1)[:, None] for p in powers])

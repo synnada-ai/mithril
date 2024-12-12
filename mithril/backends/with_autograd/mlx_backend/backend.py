@@ -31,7 +31,7 @@ __all__ = ["MlxBackend"]
 class MlxBackend(Backend[mx.array]):
     type = "mlx"
     supported_precisions = [16, 32]
-    registered_primitives = {}
+    registered_primitives: dict[str, Callable[..., mx.array]] = {}
     primitive_fn_path = "mithril.backends.with_autograd.mlx_backend.ops"
 
     def __init__(
@@ -78,7 +78,7 @@ class MlxBackend(Backend[mx.array]):
         return utils.get_available_devices()
 
     @staticmethod
-    def register_primitive(fn: Callable) -> None:
+    def register_primitive(fn: Callable[..., mx.array]) -> None:
         MlxBackend.registered_primitives[fn.__name__] = fn
 
     def set_seed(self, seed: int):
@@ -93,14 +93,18 @@ class MlxBackend(Backend[mx.array]):
     def block_until_ready(self, data: mx.array):
         mx.eval(data)
 
-    def _creation_fn_wrapper(self, fn: Callable) -> Callable:
+    def _creation_fn_wrapper(
+        self, fn: Callable[..., mx.array]
+    ) -> Callable[..., mx.array]:
         return partial(
             utils.creation_fn_wrapper,
             fn=fn,
             precision=self.precision,
         )
 
-    def _conversion_fn_wrapper(self, fn: Callable) -> Callable:
+    def _conversion_fn_wrapper(
+        self, fn: Callable[..., mx.array]
+    ) -> Callable[..., mx.array]:
         return partial(
             utils.conversion_fn_wrapper,
             fn=fn,
@@ -289,7 +293,7 @@ class MlxBackend(Backend[mx.array]):
             low=low, high=high, shape=_shape, dtype=utils.dtype_map[_dtype]
         )
 
-    def arange(self, *args, dtype: Dtype | None = None) -> mx.array:
+    def arange(self, *args: float | int, dtype: Dtype | None = None) -> mx.array:
         _dtype: str | None = None
         if isinstance(dtype, Dtype):
             _dtype = dtype.name
@@ -354,8 +358,8 @@ class MlxBackend(Backend[mx.array]):
     def isnan(self, input: mx.array) -> mx.array:
         return mx.isnan(input)
 
-    def stop_gradient(self, data: mx.array) -> mx.array:
-        return mx.stop_gradient(data)
+    def stop_gradient(self, input: mx.array) -> mx.array:
+        return mx.stop_gradient(input)
 
     def squeeze(self, input: mx.array) -> mx.array:
         return mx.squeeze(input)
@@ -420,7 +424,7 @@ class MlxBackend(Backend[mx.array]):
         return -mx.sort(-mx.topk(input, k))
 
     def multinomial(
-        self, probs: mx.array, num_samples: int, replacement: bool = False, **kwargs
+        self, probs: mx.array, num_samples: int, replacement: bool = False
     ) -> mx.array:
         """
         MLX implementation matching torch.multinomial behavior.
@@ -530,10 +534,10 @@ class MlxBackend(Backend[mx.array]):
     def jit(self, fn: Callable[..., Any]) -> Callable[..., Any]:
         return fn
 
-    def grad(self, fn: Callable) -> Callable:
+    def grad(self, fn: Callable[..., mx.array]) -> Callable[..., mx.array]:
         return mx.grad(fn)
 
-    def value_and_grad(self, fn: Callable) -> Callable:
+    def value_and_grad(self, fn: Callable[..., mx.array]) -> Callable:
         return mx.value_and_grad(fn)
 
     @overload
@@ -646,7 +650,7 @@ class MlxBackend(Backend[mx.array]):
             _cotangents = cotangents
             if isinstance(cotangents, mx.array):
                 _cotangents = [cotangents]
-            elif isinstance(cotangents, tuple):
+            else:
                 _cotangents = list(cotangents)
         # Calculate VJP.
         out_list, vjp_list = mx.vjp(_fn, _primals, _cotangents)
@@ -683,5 +687,7 @@ class MlxBackend(Backend[mx.array]):
 
         return output, vjp, aux
 
-    def vmap(self, fn: Callable) -> Callable:
+    def vmap(
+        self, fn: Callable[[mx.array], mx.array]
+    ) -> Callable[[mx.array], mx.array]:
         return mx.vmap(fn)

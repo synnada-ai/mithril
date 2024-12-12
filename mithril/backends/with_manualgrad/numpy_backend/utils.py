@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from functools import partial
-from typing import Any, overload
+from typing import Any
 
 import numpy as np
 
@@ -42,59 +42,15 @@ dtype_map = {
 CacheType = dict[str, Any]
 
 
-@overload
-def write_into_cache(
-    cache: CacheType | None,
-    key: str,
-    value: tuple[np.ndarray, ...],
-    *,
-    constant: bool = False,
-    func: Callable | None = None,
-) -> tuple[np.ndarray, ...]: ...
-
-
-@overload
-def write_into_cache(
-    cache: CacheType | None,
-    key: str,
-    value: tuple[Any, ...],
-    *,
-    constant: bool = False,
-    func: Callable | None = None,
-) -> tuple[Any, ...]: ...
-
-
-@overload
-def write_into_cache(
-    cache: CacheType | None,
-    key: str,
-    value: int | float,
-    *,
-    constant: bool = False,
-    func: Callable | None = None,
-) -> int | float: ...
-
-
-@overload
-def write_into_cache(
-    cache: CacheType | None,
-    key: str,
-    value: np.ndarray,
-    *,
-    constant: bool = False,
-    func: Callable | None = None,
-) -> np.ndarray: ...
-
-
 # TODO: resolve its types
-def write_into_cache(
+def write_into_cache[T: np.ndarray[Any, Any] | tuple[Any, ...] | int | float](
     cache: CacheType | None,
     key: str,
-    value: np.ndarray | tuple[np.ndarray, ...] | int | float,
+    value: T,
     *,
     constant: bool = False,
-    func: Callable | None = None,
-) -> np.ndarray | tuple[np.ndarray, ...] | int | float:
+    func: Callable[..., Any] | None = None,
+) -> T:
     """Writes key-value pair into the provided cache if there exists.
     If func given it is called with given value and then
     result is written into cache for given key. If constant
@@ -125,10 +81,7 @@ def write_into_cache(
         result = value
         cache[key] = result
     elif not (constant and key in cache):
-        if func is None:
-            result = value
-        else:
-            result = func(*value) if isinstance(value, tuple | list) else func(value)
+        result = func(*value) if isinstance(value, tuple | list) else func(value)
         cache[key] = result
     else:
         result = cache[key]
@@ -137,12 +90,12 @@ def write_into_cache(
 
 
 def get_submatrices1d(
-    input: np.ndarray,
-    output_size,
-    kernel_width_size,
+    input: np.ndarray[Any, Any],
+    output_size: tuple[int, ...],
+    kernel_width_size: int,
     padding: tuple[int, int] = (0, 0),
-    stride=1,
-    dilate=0,
+    stride: int = 1,
+    dilate: int = 0,
 ):  # TODO: Return type???
     working_input = input
     working_pad = padding
@@ -172,13 +125,13 @@ def get_submatrices1d(
 
 # TODO: padding, strinde and dilation must be int or tuple.
 def get_submatrices2d(
-    input: np.ndarray,
-    output_size,
-    kernel_height_size,
-    kernel_width_size,
+    input: np.ndarray[Any, Any],
+    output_size: tuple[int, ...],
+    kernel_height_size: int,
+    kernel_width_size: int,
     padding: tuple[tuple[int, int], tuple[int, int]] = ((0, 0), (0, 0)),
-    stride=1,
-    dilate=0,
+    stride: int = 1,
+    dilate: int = 0,
 ):  # TODO: Return type???
     working_input = input
     working_pad = padding
@@ -220,10 +173,10 @@ def get_submatrices2d(
 
 
 def tsne_softmax(
-    input_tensor: np.ndarray,
+    input_tensor: np.ndarray[Any, Any],
     diag_zero: bool = False,
     zero_index: int | None = None,
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     input_tensor = input_tensor - np.max(input_tensor, axis=1, keepdims=True)
     e = np.exp(input_tensor)
     if zero_index is None:
@@ -236,8 +189,10 @@ def tsne_softmax(
 
 
 def calc_prob_matrix(
-    negative_dist_sq: np.ndarray, sigmas: np.ndarray, zero_index=None
-) -> np.ndarray:
+    negative_dist_sq: np.ndarray[Any, Any],
+    sigmas: np.ndarray[Any, Any],
+    zero_index: int | None = None,
+) -> np.ndarray[Any, Any]:
     """Convert a distances matrix to a matrix of probabilities.
     Parameters
     ----------
@@ -255,7 +210,9 @@ def calc_prob_matrix(
     """
     two_sig_sq = 2.0 * np.square(sigmas.reshape((-1, 1)))
     if two_sig_sq.shape[0] == 1:
-        dist_sig = [negative_dist_sq / two_sig_sq, 0][np.squeeze(two_sig_sq) == 0.0]
+        dist_sig = [negative_dist_sq / two_sig_sq, np.array(0.0)][
+            np.squeeze(two_sig_sq) == 0.0
+        ]
     else:
         mask = two_sig_sq == 0.0
         dist_sig = np.zeros_like(negative_dist_sq)
@@ -264,11 +221,11 @@ def calc_prob_matrix(
 
 
 def perplexity_fn(
-    negative_dist_sq: np.ndarray,
-    sigmas: np.ndarray,
+    negative_dist_sq: np.ndarray[Any, Any],
+    sigmas: np.ndarray[Any, Any],
     zero_index: int,
     threshold: float,
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     """Wrapper function for quick calculation of
         perplexity over a distance matrix.
     Parameters
@@ -293,8 +250,8 @@ def perplexity_fn(
 
 
 def find_optimal_sigmas(
-    negative_dist_sq: np.ndarray, target_perplexity: int, threshold: float
-) -> np.ndarray:
+    negative_dist_sq: np.ndarray[Any, Any], target_perplexity: int, threshold: float
+) -> np.ndarray[Any, Any]:
     """For each row of distances matrix, find sigma that results
     in target perplexity for that role.
     Parameters
@@ -308,10 +265,10 @@ def find_optimal_sigmas(
     np.ndarray
         Returns optimal sigma values.
     """
-    sigmas = []
+    sigmas: list[float] = []
 
     # Make fn that returns perplexity of this row given sigma
-    def eval_fn(sigma, i):
+    def eval_fn(sigma: float, i: int):
         return perplexity_fn(negative_dist_sq[i, :], np.array(sigma), i, threshold)
 
     # For each row of the matrix (each point in our dataset)
@@ -329,16 +286,18 @@ def find_optimal_sigmas(
 # Shared or reused intermediate value calculator functions for primitive models
 
 
-def find_label_indices(input_array: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+def find_label_indices(
+    input_array: np.ndarray[Any, Any],
+) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
     return (np.arange(len(input_array)), input_array.T)
 
 
 def calc_input_slices(
-    output_gradient: np.ndarray, axis: int, *args: np.ndarray
+    output_gradient: np.ndarray[Any, Any], axis: int | None, *args: np.ndarray[Any, Any]
 ) -> dict[str, tuple[slice, ...]]:
     # Calculates the slices of output_gradient corresponding to
     # inputs.
-    slices = {}
+    slices: dict[str, tuple[slice, ...]] = {}
     base_slices = [slice(None)] * output_gradient.ndim
     finish = 0
     for idx, arg in enumerate(args):
@@ -362,7 +321,13 @@ def handle_dtype(dtype: Any) -> Any:
             raise TypeError(f"Provided data type '{dtype}' not understood") from err
 
 
-def creation_fn_wrapper(*args, fn: Callable, precision: int, dtype=None, **kwargs):
+def creation_fn_wrapper(
+    *args: Any,
+    fn: Callable[..., np.ndarray[Any, Any]],
+    precision: int,
+    dtype: core.Dtype | np.dtype[Any] | None = None,
+    **kwargs: Any,
+):
     if dtype is not None:
         dtype = handle_dtype(dtype)
         data = fn(*args, dtype=dtype, **kwargs)
@@ -373,7 +338,12 @@ def creation_fn_wrapper(*args, fn: Callable, precision: int, dtype=None, **kwarg
 
 
 def conversion_fn_wrapper(
-    data, *args, fn: Callable, precision: int, dtype=None, **kwargs
+    data: Any,
+    *args: Any,
+    fn: Callable[..., np.ndarray[Any, Any]],
+    precision: int,
+    dtype: np.dtype[Any] | None = None,
+    **kwargs: Any,
 ):
     if dtype is not None:
         dtype = handle_dtype(dtype)
@@ -388,7 +358,9 @@ def conversion_fn_wrapper(
         return _data
 
 
-def handle_data_precision(data: ArrayType, precision: int) -> ArrayType:
+def handle_data_precision(
+    data: np.ndarray[Any, Any], precision: int
+) -> np.ndarray[Any, Any]:
     if isinstance(data, float | int):
         return data
     _dtype = data.dtype
@@ -405,20 +377,26 @@ def handle_data_precision(data: ArrayType, precision: int) -> ArrayType:
     return data
 
 
-def handle_data_dtype(data: np.ndarray, dtype: core.Dtype | int) -> np.ndarray:
-    if isinstance(dtype, int):
-        dtype = core.Dtype(dtype)
+def handle_data_dtype(
+    data: np.ndarray[Any, Any], dtype: core.Dtype | int
+) -> np.ndarray[Any, Any]:
+    dtype = core.Dtype(dtype)
 
     if data.dtype != dtype_map[dtype.name]:
         return data.astype(dtype_map[dtype.name])
     return data
 
 
-def make_array(input: int | float | ArrayType, precision):
+def make_array(input: int | float | np.ndarray[Any, Any], precision: int):
     return handle_data_precision(np.array(input), precision=precision)
 
 
-def accumulate_grads(gradient: np.ndarray, input: np.ndarray, cache, idx):
+def accumulate_grads(
+    gradient: np.ndarray[Any, Any],
+    input: np.ndarray[Any, Any],
+    cache: CacheType | None,
+    idx: int,
+) -> np.ndarray[Any, Any]:
     axes = write_into_cache(
         cache,
         "accumulate" + str(idx),
@@ -433,7 +411,9 @@ def accumulate_grads(gradient: np.ndarray, input: np.ndarray, cache, idx):
         return gradient
 
 
-def _accumulate_grads_helper(grad_shape, input_shape):
+def _accumulate_grads_helper(
+    grad_shape: tuple[int, ...], input_shape: tuple[int, ...]
+) -> tuple[int, ...]:
     # TODO: Refactor the code below
     rev_grad = list(reversed(grad_shape))
     axes = tuple([i for i in range(len(grad_shape) - len(input_shape))])
@@ -447,7 +427,9 @@ def _accumulate_grads_helper(grad_shape, input_shape):
     return axes
 
 
-def log_sigmoid(input: np.ndarray, log: Callable, robust: bool):
+def log_sigmoid(
+    input: np.ndarray[Any, Any], log: Callable[..., np.ndarray[Any, Any]], robust: bool
+):
     min = np.minimum(0, input)
     input = np.exp(-np.abs(input))
     if not robust:
@@ -455,20 +437,27 @@ def log_sigmoid(input: np.ndarray, log: Callable, robust: bool):
     return min - log(1 + input)
 
 
-def log_softmax(input: np.ndarray, log: Callable, robust: bool, axis: int = -1):
+def log_softmax(
+    input: np.ndarray[Any, Any],
+    log: Callable[..., np.ndarray[Any, Any]],
+    robust: bool,
+    axis: int = -1,
+):
     return input - log(np.exp(input).sum(axis=axis, keepdims=True))
 
 
-def calculate_binary_class_weight(labels):
+def calculate_binary_class_weight(labels: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
     return (1 - labels.mean()) / labels.mean()
 
 
-def calculate_categorical_class_weight(labels, num_classes: int):
+def calculate_categorical_class_weight(
+    labels: np.ndarray[Any, Any], num_classes: int
+) -> np.ndarray[Any, Any]:
     one_hot = np.eye(num_classes)[labels]
     return calculate_class_weight(one_hot)
 
 
-def calculate_class_weight(labels):
+def calculate_class_weight(labels: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
     return (
         (1 / labels.sum(axis=tuple(i for i in range(labels.ndim) if i != 1)))
         * labels.sum()
@@ -477,12 +466,12 @@ def calculate_class_weight(labels):
 
 
 def calculate_cross_entropy_class_weights(
-    input: np.ndarray,
-    labels: np.ndarray,
+    input: np.ndarray[Any, Any],
+    labels: np.ndarray[Any, Any],
     is_categorical: bool,
     weights: bool | list[float],
-):
-    _weights = None
+) -> np.ndarray[Any, Any]:
+    _weights: np.ndarray[Any, Any]
     if isinstance(weights, bool):
         if is_categorical:
             _weights = (
@@ -509,7 +498,10 @@ def calculate_cross_entropy_class_weights(
     return _weights
 
 
-def get_type(input: int | float | bool | Sequence, precision: int):
+def get_type(
+    input: int | float | bool | Sequence[int | float | bool | Sequence[Any]],
+    precision: int,
+):
     type = find_dominant_type(input).__name__
     if type == "bool":
         return np.bool_
@@ -518,7 +510,9 @@ def get_type(input: int | float | bool | Sequence, precision: int):
 
 
 def verify_shapes(
-    inputs: tuple[np.ndarray, ...], idx: int, non_differentiables=None
+    inputs: tuple[np.ndarray[Any, Any], ...],
+    idx: int,
+    non_differentiables: Iterable[int] | None = None,
 ) -> None:
     if idx >= len(inputs):
         raise Exception(f"Gradient is not defined for the input at index {idx}!")

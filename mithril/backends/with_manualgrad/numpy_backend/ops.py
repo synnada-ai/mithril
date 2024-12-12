@@ -17,6 +17,7 @@ import os
 from collections.abc import Callable, Iterator, Sequence
 from functools import partial
 from itertools import combinations_with_replacement
+from typing import Any
 
 import numpy as np
 import scipy.linalg as slin  # type: ignore[import-untyped]
@@ -211,53 +212,78 @@ __all__ = [
 ]
 
 
+# TODO: Type annotations of numpy functions are written as np.ndarray[Any, Any] for now,
+# However, it can be annotated more precisely in some functions
+# (example: np.ndarray[tuple[int, int, *tuple[int, ...]], np.dtype[np.float32]]).
+# Above example annotates given arg will have at least two dimensions and
+# it has np.float32 dtype. This kind of annotations can be added in the future.
+
+
 # Ops
-def exp(input: np.ndarray, cache: CacheType | None = None) -> np.ndarray:
+def exp(
+    input: np.ndarray[Any, Any], cache: CacheType | None = None
+) -> np.ndarray[Any, Any]:
     output = np.exp(input)
     return output
 
 
-def sqrt(input: np.ndarray, cache: CacheType | None = None) -> np.ndarray:
+def sqrt(
+    input: np.ndarray[Any, Any], cache: CacheType | None = None
+) -> np.ndarray[Any, Any]:
     output = np.sqrt(input)
     return output
 
 
-def sin(input: np.ndarray, cache: CacheType | None = None) -> np.ndarray:
+def sin(
+    input: np.ndarray[Any, Any], cache: CacheType | None = None
+) -> np.ndarray[Any, Any]:
     output = np.sin(input)
     return output
 
 
-def cos(input: np.ndarray, cache: CacheType | None = None) -> np.ndarray:
+def cos(
+    input: np.ndarray[Any, Any], cache: CacheType | None = None
+) -> np.ndarray[Any, Any]:
     output = np.cos(input)
     return output
 
 
-def abs(input: np.ndarray, cache: CacheType | None = None) -> np.ndarray:
+def abs(
+    input: np.ndarray[Any, Any], cache: CacheType | None = None
+) -> np.ndarray[Any, Any]:
     return np.abs(input)
 
 
-def sign(input: np.ndarray, cache: CacheType | None = None) -> np.ndarray:
+def sign(
+    input: np.ndarray[Any, Any], cache: CacheType | None = None
+) -> np.ndarray[Any, Any]:
     return np.sign(input)
 
 
-def log(input: np.ndarray, cache: CacheType | None = None) -> np.ndarray:
+def log(
+    input: np.ndarray[Any, Any], cache: CacheType | None = None
+) -> np.ndarray[Any, Any]:
     return np.log(input)
 
 
-def unique(input: np.ndarray, cache: CacheType | None = None) -> np.ndarray:
+def unique(
+    input: np.ndarray[Any, Any], cache: CacheType | None = None
+) -> np.ndarray[Any, Any]:
     return np.unique(input)
 
 
-def trapezoid(y: np.ndarray, x: np.ndarray | None = None) -> np.float64 | np.ndarray:
+def trapezoid(
+    y: np.ndarray[Any, Any], x: np.ndarray[Any, Any] | None = None
+) -> np.float64 | np.ndarray[Any, Any]:
     return np.trapezoid(y, x)
 
 
 def robust_power(
-    base: np.ndarray,
-    exponent: np.ndarray,
-    threshold: np.ndarray,
+    base: np.ndarray[Any, Any],
+    exponent: np.ndarray[Any, Any],
+    threshold: np.ndarray[tuple[()], Any],
     cache: CacheType | None = None,
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     # Broadcasting threshold for shape calculations
     threshold = np.resize(threshold, exponent.shape)
     # cond = (base < threshold) & (exponent < 1.0)
@@ -277,8 +303,10 @@ def robust_power(
 # undefined points (log(0) = -inf in this case),
 # further testing should be done about performance
 def robust_sqrt(
-    input: np.ndarray, cutoff: np.ndarray, cache: CacheType | None = None
-) -> np.ndarray:
+    input: np.ndarray[Any, Any],
+    cutoff: np.ndarray[tuple[()], Any],
+    cache: CacheType | None = None,
+) -> np.ndarray[Any, Any]:
     input = np.abs(input)
     inds = input < cutoff
     output = np.zeros_like(input)
@@ -288,8 +316,10 @@ def robust_sqrt(
 
 
 def robust_log(
-    input: np.ndarray, cutoff: np.ndarray, cache: CacheType | None = None
-) -> np.ndarray:
+    input: np.ndarray[Any, Any],
+    cutoff: np.ndarray[tuple[()], Any],
+    cache: CacheType | None = None,
+) -> np.ndarray[Any, Any]:
     input = np.abs(input)
     inds = input < cutoff
     y_c = np.log(cutoff)
@@ -304,8 +334,10 @@ def robust_log(
 # undefined points (f(0) = inf in this case),
 # futher testing should be done.
 def stable_reciprocal(
-    input: np.ndarray, cutoff: np.ndarray, cache: CacheType | None = None
-) -> np.ndarray:
+    input: np.ndarray[Any, Any],
+    cutoff: np.ndarray[tuple[()], Any],
+    cache: CacheType | None = None,
+) -> np.ndarray[Any, Any]:
     inds = np.abs(input) < cutoff
     y_c = np.reciprocal(cutoff)
     output = np.zeros_like(input)
@@ -318,23 +350,31 @@ def stable_reciprocal(
 
 
 # Non linearity funcs
-def relu(input: np.ndarray, cache: CacheType | None = None) -> np.ndarray:
+def relu(
+    input: np.ndarray[Any, Any], cache: CacheType | None = None
+) -> np.ndarray[Any, Any]:
     return np.maximum(np.array(0.0, dtype=input.dtype), input)
 
 
 def leaky_relu(
-    input: np.ndarray, slope: float | np.ndarray, cache: CacheType | None = None
+    input: np.ndarray[Any, Any],
+    slope: float | np.ndarray[Any, Any],
+    cache: CacheType | None = None,
 ):
     return np.maximum(np.array(0.0, dtype=input.dtype), input) + slope * np.minimum(
         np.array(0.0, dtype=input.dtype), input
     )
 
 
-def tanh(input: np.ndarray, cache: CacheType | None = None) -> np.ndarray:
+def tanh(
+    input: np.ndarray[Any, Any], cache: CacheType | None = None
+) -> np.ndarray[Any, Any]:
     return np.tanh(input)
 
 
-def sigmoid(input: np.ndarray, cache: CacheType | None = None) -> np.ndarray:
+def sigmoid(
+    input: np.ndarray[Any, Any], cache: CacheType | None = None
+) -> np.ndarray[Any, Any]:
     # For numerical stability implement sigmoid with respect to the
     # sign of input.
     mask = input >= 0
@@ -344,18 +384,22 @@ def sigmoid(input: np.ndarray, cache: CacheType | None = None) -> np.ndarray:
     return sig
 
 
-def softplus(input: np.ndarray, cache: CacheType | None = None) -> np.ndarray:
+def softplus(
+    input: np.ndarray[Any, Any], cache: CacheType | None = None
+) -> np.ndarray[Any, Any]:
     # See: https://stackoverflow.com/questions/44230635/avoid-overflow-with-softplus-function-in-python
     return np.log1p(np.exp(-np.abs(input))) + np.maximum(input, 0.0)
 
 
-def gelu(input: np.ndarray, cache: CacheType | None = None) -> np.ndarray:
+def gelu(
+    input: np.ndarray[Any, Any], cache: CacheType | None = None
+) -> np.ndarray[Any, Any]:
     return input * (1 + erf(input / np.sqrt(2))) / 2
 
 
 def softmax(
-    input: np.ndarray, *, axis: int = -1, cache: CacheType | None = None
-) -> np.ndarray:
+    input: np.ndarray[Any, Any], *, axis: int = -1, cache: CacheType | None = None
+) -> np.ndarray[Any, Any]:
     write_into_cache(cache, "axis", axis)
     input_tensor = input - np.max(input, axis=axis, keepdims=True)
     e = np.exp(input_tensor)
@@ -365,17 +409,17 @@ def softmax(
 
 # Reduction ops
 def reduce_mean(
-    input: np.ndarray,
+    input: np.ndarray[Any, Any],
     *,
     axis: int | tuple[int, ...] | None = None,
     keepdim: bool = False,
     cache: CacheType | None = None,
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     return np.mean(input, axis=axis, keepdims=keepdim)
 
 
 def reduce_sum(
-    input: np.ndarray,
+    input: np.ndarray[Any, Any],
     *,
     axis: int | tuple[int, ...] | None = None,
     keepdim: bool = False,
@@ -385,76 +429,76 @@ def reduce_sum(
 
 
 def reduce_max(
-    input: np.ndarray,
+    input: np.ndarray[Any, Any],
     *,
     axis: int | tuple[int, ...] | None = None,
     keepdim: bool = False,
     cache: CacheType | None = None,
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     return np.max(input, axis=axis, keepdims=keepdim)
 
 
 def reduce_argmax(
-    input: np.ndarray,
+    input: np.ndarray[Any, Any],
     *,
     axis: int | None = None,
     keepdim: bool = False,
     cache: CacheType | None = None,
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     return np.argmax(input, axis=axis, keepdims=keepdim)
 
 
 def reduce_min(
-    input: np.ndarray,
+    input: np.ndarray[Any, Any],
     *,
     axis: int | tuple[int, ...] | None = None,
     keepdim: bool = False,
     cache: CacheType | None = None,
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     return np.min(input, axis=axis, keepdims=keepdim)
 
 
 def reduce_argmin(
-    input: np.ndarray,
+    input: np.ndarray[Any, Any],
     *,
     axis: int | None = None,
     keepdim: bool = False,
     cache: CacheType | None = None,
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     return np.argmin(input, axis=axis, keepdims=keepdim)
 
 
 def reduce_prod(
-    input: np.ndarray,
+    input: np.ndarray[Any, Any],
     *,
     axis: int | tuple[int, ...] | None = None,
     keepdim: bool = False,
     cache: CacheType | None = None,
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     return np.prod(input, axis=axis, keepdims=keepdim)
 
 
 def variance(
-    input: np.ndarray,
+    input: np.ndarray[Any, Any],
     *,
     axis: int | tuple[int, ...] | None = None,
     keepdim: bool = False,
     correction: float = 0.0,
     cache: CacheType | None = None,
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     return np.var(input, axis=axis, ddof=correction, keepdims=keepdim)
 
 
 # NN ops
 def conv1d(
-    input: np.ndarray,
-    kernel: np.ndarray,
+    input: np.ndarray[Any, Any],
+    kernel: np.ndarray[Any, Any],
     *,
     stride: int = 1,
     padding: tuple[int, int] = (1, 1),
     dilation: int = 1,
     cache: CacheType | None = None,
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     if dilation != 1:
         raise NotImplementedError(
             f"Dilation of {dilation} is not supported. "
@@ -468,15 +512,15 @@ def conv1d(
 
 
 def conv1d_bias(
-    input: np.ndarray,
-    kernel: np.ndarray,
-    bias: np.ndarray,
+    input: np.ndarray[Any, Any],
+    kernel: np.ndarray[Any, Any],
+    bias: np.ndarray[Any, Any],
     *,
     stride: int = 1,
     padding: tuple[int, int] = (1, 1),
     dilation: int = 1,
     cache: CacheType | None = None,
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     return (
         conv1d(
             input=input,
@@ -491,14 +535,14 @@ def conv1d_bias(
 
 
 def conv2d(
-    input: np.ndarray,
-    kernel: np.ndarray,
+    input: np.ndarray[Any, Any],
+    kernel: np.ndarray[Any, Any],
     *,
     stride: tuple[int, int] = (1, 1),
     padding: tuple[int, int] | tuple[tuple[int, int], tuple[int, int]] = (1, 1),
     dilation: tuple[int, int] = (1, 1),
     cache: CacheType | None = None,
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     if dilation != (1, 1):
         raise NotImplementedError(
             f"Dilation of {dilation} is not supported. "
@@ -522,15 +566,15 @@ def conv2d(
 
 
 def conv2d_bias(
-    input: np.ndarray,
-    kernel: np.ndarray,
-    bias: np.ndarray,
+    input: np.ndarray[Any, Any],
+    kernel: np.ndarray[Any, Any],
+    bias: np.ndarray[Any, Any],
     *,
     stride: tuple[int, int] = (1, 1),
     padding: tuple[int, int] | tuple[tuple[int, int], tuple[int, int]] = (1, 1),
     dilation: tuple[int, int] = (1, 1),
     cache: CacheType | None = None,
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     return (
         conv2d(
             input=input,
@@ -545,14 +589,14 @@ def conv2d_bias(
 
 
 def max_pool1d(
-    input: np.ndarray,
+    input: np.ndarray[Any, Any],
     kernel_size: int,
     stride: int,
     *,
     padding: tuple[int, int] = (0, 0),
     dilation: int = 1,
     cache: CacheType | None = None,
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     if dilation != 1:
         raise NotImplementedError(
             f"Dilation of {dilation} is not supported. "
@@ -566,14 +610,14 @@ def max_pool1d(
 
 
 def max_pool2d(
-    input: np.ndarray,
+    input: np.ndarray[Any, Any],
     kernel_size: tuple[int, int],
     stride: tuple[int, int],
     *,
     padding: tuple[int, int] | tuple[tuple[int, int], tuple[int, int]] = (0, 0),
     dilation: tuple[int, int] = (1, 1),
     cache: CacheType | None = None,
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     """Implements torch.nn.functional.max_pool2d in Numpy"""
 
     if dilation != (1, 1):
@@ -603,10 +647,10 @@ def max_pool2d(
 
 
 def scaled_dot_product_attention(
-    query: np.ndarray,
-    key: np.ndarray,
-    value: np.ndarray,
-    attn_mask: np.ndarray | None = None,
+    query: np.ndarray[Any, Any],
+    key: np.ndarray[Any, Any],
+    value: np.ndarray[Any, Any],
+    attn_mask: np.ndarray[Any, Any] | None = None,
     *,
     dropout_p: float = 0.0,
     is_causal: bool = False,
@@ -643,20 +687,20 @@ def scaled_dot_product_attention(
 
 # Loss funcs
 def cross_entropy(
-    input: np.ndarray,
-    target: np.ndarray,
+    input: np.ndarray[Any, Any],
+    target: np.ndarray[Any, Any],
     weights: list[float] | bool,
-    cutoff: np.ndarray,
+    cutoff: np.ndarray[Any, Any],
     *,
     categorical: bool = True,
     robust: bool = False,
     cache: CacheType | None = None,
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     _weights = calculate_cross_entropy_class_weights(
         input, target, categorical, weights
     )
     write_into_cache(cache, "weights", _weights)
-    log: partial | Callable = (
+    log: partial[np.ndarray[Any, Any]] | Callable[..., np.ndarray[Any, Any]] = (
         partial(robust_log, cutoff=cutoff, cache=None) if robust else np.log
     )
     if categorical:
@@ -673,16 +717,16 @@ def cross_entropy(
 
 
 def cross_entropy_with_logits(
-    input: np.ndarray,
-    target: np.ndarray,
+    input: np.ndarray[Any, Any],
+    target: np.ndarray[Any, Any],
     weights: list[float] | bool,
-    cutoff: np.ndarray,
+    cutoff: np.ndarray[Any, Any],
     *,
     categorical: bool = True,
     robust: bool = False,
     cache: CacheType | None = None,
-) -> np.ndarray:
-    log: partial | Callable = (
+) -> np.ndarray[Any, Any]:
+    log: partial[np.ndarray[Any, Any]] | Callable[..., np.ndarray[Any, Any]] = (
         partial(robust_log, cutoff=cutoff, cache=None) if robust else np.log
     )
     _weights = calculate_cross_entropy_class_weights(
@@ -705,13 +749,13 @@ def cross_entropy_with_logits(
 
 
 def cross_entropy_with_log_probs(
-    input: np.ndarray,
-    target: np.ndarray,
+    input: np.ndarray[Any, Any],
+    target: np.ndarray[Any, Any],
     weights: list[float] | bool,
     *,
     categorical: bool = True,
     cache: CacheType | None = None,
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     _weights = calculate_cross_entropy_class_weights(
         input, target, categorical, weights
     )
@@ -729,33 +773,33 @@ def cross_entropy_with_log_probs(
 
 
 def binary_cross_entropy(
-    input: np.ndarray,
-    target: np.ndarray,
-    cutoff: np.ndarray,
+    input: np.ndarray[Any, Any],
+    target: np.ndarray[Any, Any],
+    cutoff: np.ndarray[Any, Any],
     *,
     pos_weight: bool | float = 1.0,
     robust: bool = False,
     cache: CacheType | None = None,
-) -> np.ndarray:
-    log: partial | Callable = (
+) -> np.ndarray[Any, Any]:
+    log: partial[np.ndarray[Any, Any]] | Callable[..., np.ndarray[Any, Any]] = (
         partial(robust_log, cutoff=cutoff, cache=None) if robust else np.log
     )
     if isinstance(pos_weight, bool) and pos_weight:
-        pos_weight = calculate_binary_class_weight(target)
+        pos_weight = float(calculate_binary_class_weight(target))
     write_into_cache(cache, "pos_weight", pos_weight)
     return -pos_weight * target * log(input) - (1 - target) * log(1 - input)
 
 
 def binary_cross_entropy_with_logits(
-    input: np.ndarray,
-    target: np.ndarray,
-    cutoff: np.ndarray,
+    input: np.ndarray[Any, Any],
+    target: np.ndarray[Any, Any],
+    cutoff: np.ndarray[Any, Any],
     *,
     pos_weight: bool | float = 1.0,
     robust: bool = False,
     cache: CacheType | None = None,
-) -> np.ndarray:
-    log: partial | Callable = (
+) -> np.ndarray[Any, Any]:
+    log: partial[np.ndarray[Any, Any]] | Callable[..., np.ndarray[Any, Any]] = (
         partial(robust_log, cutoff=cutoff, cache=None) if robust else np.log
     )
 
@@ -777,35 +821,39 @@ def binary_cross_entropy_with_logits(
 
 
 def quantile_loss(
-    input: np.ndarray,
-    target: np.ndarray,
-    quantile: np.ndarray,
+    input: np.ndarray[Any, Any],
+    target: np.ndarray[Any, Any],
+    quantile: np.ndarray[Any, Any],
     cache: CacheType | None = None,
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     error = target - input
     return np.maximum(quantile * error, (quantile - 1) * error)
 
 
 def hinge_loss(
-    input: np.ndarray, target: np.ndarray, cache: CacheType | None = None
-) -> np.ndarray:
+    input: np.ndarray[Any, Any],
+    target: np.ndarray[Any, Any],
+    cache: CacheType | None = None,
+) -> np.ndarray[Any, Any]:
     base_hinge = 1.0 - target * input
     write_into_cache(cache, "base_hinge", base_hinge)
     return np.maximum(0.0, base_hinge)
 
 
 def quad_hinge_loss(
-    input: np.ndarray, target: np.ndarray, cache: CacheType | None = None
-) -> np.ndarray:
+    input: np.ndarray[Any, Any],
+    target: np.ndarray[Any, Any],
+    cache: CacheType | None = None,
+) -> np.ndarray[Any, Any]:
     return hinge_loss(input, target) ** 2
 
 
 def kl_divergence(
-    input: np.ndarray,
-    target: np.ndarray,
-    cutoff: np.ndarray,
+    input: np.ndarray[Any, Any],
+    target: np.ndarray[Any, Any],
+    cutoff: np.ndarray[Any, Any],
     cache: CacheType | None = None,
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     log_input1 = robust_log(input, cutoff)
     log_input2 = robust_log(target, cutoff)
     partial_result = log_input2 - log_input1
@@ -814,23 +862,31 @@ def kl_divergence(
 
 
 def absolute_error(
-    input: np.ndarray, target: np.ndarray, cache: CacheType | None = None
-) -> np.ndarray:
+    input: np.ndarray[Any, Any],
+    target: np.ndarray[Any, Any],
+    cache: CacheType | None = None,
+) -> np.ndarray[Any, Any]:
     diff = input - target
     write_into_cache(cache, "diff", diff)
     return np.abs(diff)
 
 
 def primitive_accuracy(
-    input1: np.ndarray, input2: np.ndarray, *, cache: CacheType | None = None
-) -> np.ndarray:
+    input1: np.ndarray[Any, Any],
+    input2: np.ndarray[Any, Any],
+    *,
+    cache: CacheType | None = None,
+) -> np.ndarray[Any, Any]:
     prediction = np.argmax(input1, axis=1).reshape(input1.shape[0], 1)
     return np.mean(prediction == input2)
 
 
 def auc_core(
-    input: np.ndarray, label: np.ndarray, *, cache: CacheType | None = None
-) -> np.ndarray:
+    input: np.ndarray[Any, Any],
+    label: np.ndarray[Any, Any],
+    *,
+    cache: CacheType | None = None,
+) -> np.ndarray[Any, Any]:
     if input.ndim > 1:
         raise ValueError(f"Input should be 1D array, but given '{input.ndim}D'")
     if label.ndim > 1:
@@ -860,76 +916,85 @@ def auc_core(
     return np.stack([tprs, fprs])
 
 
-def transposed_diag(input: np.ndarray, *, cache: CacheType | None = None) -> np.ndarray:
+def transposed_diag(
+    input: np.ndarray[Any, Any], *, cache: CacheType | None = None
+) -> np.ndarray[Any, Any]:
     return np.diag(input)[:, np.newaxis]
 
 
 def broadcast_to(
-    input: np.ndarray, shape: tuple[int, ...], cache: CacheType | None = None
-) -> np.ndarray:
+    input: np.ndarray[Any, Any], shape: tuple[int, ...], cache: CacheType | None = None
+) -> np.ndarray[Any, Any]:
     return np.broadcast_to(input, shape)
 
 
 def ones_with_zero_diag(
     *args, precision: int, cache: CacheType | None = None
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     n, m = args
     output = np.ones((n, m)) - np.eye(n, m) if m is not None else np.ones(n) - np.eye(n)
 
     return handle_data_precision(output, precision=precision)
 
 
-def eye(*args, precision: int, cache: CacheType | None = None) -> np.ndarray:
+def eye(*args, precision: int, cache: CacheType | None = None) -> np.ndarray[Any, Any]:
     return handle_data_precision(np.eye(*args), precision=precision)
 
 
-def squeeze(input: np.ndarray, *, cache: CacheType | None = None) -> np.ndarray:
+def squeeze(
+    input: np.ndarray[Any, Any], *, cache: CacheType | None = None
+) -> np.ndarray[Any, Any]:
     return np.squeeze(input)
 
 
 def to_tensor(
     *input: NestedFloatOrIntOrBoolList, precision: int, cache: CacheType | None = None
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     return np.array(input[0], dtype=get_type(input[0], precision=precision))
 
 
-def tensor_to_list(input: np.ndarray, cache: CacheType | None = None):
+def tensor_to_list(input: np.ndarray[Any, Any], cache: CacheType | None = None):
     return input.tolist()
 
 
 def primitive_embedding(
-    input: np.ndarray, embedding_matrix: np.ndarray, *, cache: CacheType | None = None
-) -> np.ndarray:
+    input: np.ndarray[Any, Any],
+    embedding_matrix: np.ndarray[Any, Any],
+    *,
+    cache: CacheType | None = None,
+) -> np.ndarray[Any, Any]:
     return embedding_matrix[input]
 
 
 def where(
-    cond: np.ndarray,
-    input1: np.ndarray,
-    input2: np.ndarray,
+    cond: np.ndarray[Any, Any],
+    input1: np.ndarray[Any, Any],
+    input2: np.ndarray[Any, Any],
     *,
     cache: CacheType | None = None,
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     return np.where(cond, input1, input2)
 
 
 def concat(
-    *inputs: np.ndarray, axis: int | None = 0, cache: CacheType | None = None
-) -> np.ndarray:
+    *inputs: np.ndarray[Any, Any], axis: int | None = 0, cache: CacheType | None = None
+) -> np.ndarray[Any, Any]:
     return np.concatenate([np.array(v) for v in inputs], axis=axis)
 
 
-def arange(*args, precision: int, cache: CacheType | None = None) -> np.ndarray:
+def arange(
+    *args, precision: int, cache: CacheType | None = None
+) -> np.ndarray[Any, Any]:
     return handle_data_precision(np.arange(*args), precision)
 
 
 def flatten(
-    input: np.ndarray,
+    input: np.ndarray[Any, Any],
     *,
     start_dim: int = 0,
     end_dim: int = -1,
     cache: CacheType | None = None,
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     """Flattens a Numpy array akin to torch.flatten"""
     if end_dim == -1 or end_dim == len(input.shape):
         end_dim = len(input.shape) + 1
@@ -942,16 +1007,20 @@ def flatten(
     return np.reshape(input, shape)
 
 
-def stop_gradient(input: np.ndarray, cache: CacheType | None = None) -> np.ndarray:
+def stop_gradient(
+    input: np.ndarray[Any, Any], cache: CacheType | None = None
+) -> np.ndarray[Any, Any]:
     return input
 
 
-def shape(input: np.ndarray, cache: CacheType | None = None) -> tuple[int, ...]:
+def shape(
+    input: np.ndarray[Any, Any], cache: CacheType | None = None
+) -> tuple[int, ...]:
     return input.shape
 
 
 def size(
-    input: np.ndarray,
+    input: np.ndarray[Any, Any],
     dim: int | tuple[int, ...] | None,
     cache: CacheType | None = None,
 ) -> int | tuple[int]:
@@ -959,24 +1028,24 @@ def size(
         return input.size
     if isinstance(dim, int):
         return input.shape[dim]
-    if isinstance(dim, Sequence):
-        return tuple(input.shape[idx] for idx in dim)
     else:
-        raise ValueError(f"Unexpected dim: {dim}")
+        return tuple(input.shape[idx] for idx in dim)
 
 
-def norm_modifier(input: np.ndarray, cache: CacheType | None = None) -> np.ndarray:
+def norm_modifier(
+    input: np.ndarray[Any, Any], cache: CacheType | None = None
+) -> np.ndarray[Any, Any]:
     inner_term = ((input - 1.0) % 8) / 8 - 0.5
     write_into_cache(cache, "inner_term", inner_term)
     return 4.0 * (1.0 - 2.0 * np.abs(inner_term)) + 1.0
 
 
 def distance_matrix(
-    left: np.ndarray,
-    right: np.ndarray,
-    norm: np.ndarray,
+    left: np.ndarray[Any, Any],
+    right: np.ndarray[Any, Any],
+    norm: np.ndarray[Any, Any],
     cache: CacheType | None = None,
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     diffs = left[:, None, :] - right[None, :, :]
     write_into_cache(cache, "diffs", diffs)
     abs_diffs = np.abs(diffs)
@@ -987,8 +1056,11 @@ def distance_matrix(
 
 
 def polynomial_features(
-    input: np.ndarray, *, degree: int = 2, cache: CacheType | None = None
-) -> np.ndarray:
+    input: np.ndarray[tuple[int, int], Any],
+    *,
+    degree: int = 2,
+    cache: CacheType | None = None,
+) -> np.ndarray[Any, Any]:
     samples, dims = input.shape
     identity = np.eye(dims + 1, dims + 1, dtype=int)
     data = np.hstack((np.ones((samples, 1), dtype=input.dtype), input))
@@ -1005,16 +1077,16 @@ def polynomial_features(
 
 
 def tsne_p_joint(
-    squared_distances: np.ndarray,
-    target_perplexity: np.ndarray,
-    threshold: np.ndarray,
+    squared_distances: np.ndarray[Any, Any],
+    target_perplexity: np.ndarray[Any, Any],
+    threshold: np.ndarray[Any, Any],
     *,
     cache: CacheType | None = None,
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     """Given a data matrix X, gives joint probabilities matrix.
     Parameters
     ----------
-    squared_distances : np.ndarray
+    squared_distances : np.ndarray[Any, Any]
         Square of distance matrix of Input data.
     target_perplexity : float
         Desired perplexity value.
@@ -1038,8 +1110,8 @@ def tsne_p_joint(
 
 
 def cholesky(
-    input1: np.ndarray, *, cache: CacheType | None = None
-) -> np.ndarray | None:
+    input1: np.ndarray[Any, Any], *, cache: CacheType | None = None
+) -> np.ndarray[Any, Any] | None:
     try:
         return np.linalg.cholesky(input1)
     except np.linalg.LinAlgError as e:
@@ -1048,12 +1120,12 @@ def cholesky(
 
 
 def gpr_alpha(
-    label_mu_diff: np.ndarray,
-    L: np.ndarray,
-    K_term: np.ndarray,
+    label_mu_diff: np.ndarray[Any, Any],
+    L: np.ndarray[Any, Any],
+    K_term: np.ndarray[Any, Any],
     *,
     cache: CacheType | None = None,
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     if L is not None:
         alpha = slin.solve_triangular(
             L.T,
@@ -1066,12 +1138,12 @@ def gpr_alpha(
 
 
 def eigvalsh(
-    K_term: np.ndarray,
-    L: np.ndarray,
+    K_term: np.ndarray[Any, Any],
+    L: np.ndarray[Any, Any],
     threshold: float,
     *,
     cache: CacheType | None = None,
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     if L is not None:
         return np.diag(L)
     else:
@@ -1079,8 +1151,12 @@ def eigvalsh(
 
 
 def gpr_v_outer(
-    K: np.ndarray, K_term: np.ndarray, L: np.ndarray, *, cache: CacheType | None = None
-) -> np.ndarray:
+    K: np.ndarray[Any, Any],
+    K_term: np.ndarray[Any, Any],
+    L: np.ndarray[Any, Any],
+    *,
+    cache: CacheType | None = None,
+) -> np.ndarray[Any, Any]:
     if L is not None:
         v = slin.solve_triangular(L, K, lower=True)
         v_outer = v.T @ v
@@ -1089,37 +1165,41 @@ def gpr_v_outer(
     return v_outer
 
 
-def isnan(input: np.ndarray, *, cache: CacheType | None = None):
+def isnan(input: np.ndarray[Any, Any], *, cache: CacheType | None = None):
     return np.isnan(input)
 
 
 def nan_to_num(
-    input,
+    input: np.ndarray[Any, Any],
     nan: float,
     posinf: float | None,
     neginf: float | None,
     *,
     cache: CacheType | None = None,
 ):
-    return np.nan_to_num(input, nan=nan, posinf=posinf, neginf=neginf)  #  type: ignore
+    return np.nan_to_num(input, nan=nan, posinf=posinf, neginf=neginf)
 
 
-def astype(input: np.ndarray, dtype: core.Dtype | int) -> np.ndarray:
+def astype(
+    input: np.ndarray[Any, Any], dtype: core.Dtype | int
+) -> np.ndarray[Any, Any]:
     return handle_data_dtype(input, dtype)
 
 
-def dtype(input: np.ndarray) -> core.Dtype:
+def dtype(input: np.ndarray[Any, Any]) -> core.Dtype:
     return getattr(core, str(input.dtype))
 
 
 def logical_xor(
-    left: np.ndarray, right: np.ndarray, cache: CacheType | None = None
-) -> np.ndarray:
+    left: np.ndarray[Any, Any],
+    right: np.ndarray[Any, Any],
+    cache: CacheType | None = None,
+) -> np.ndarray[Any, Any]:
     return np.logical_xor(left, right)
 
 
 def split(
-    input: np.ndarray,
+    input: np.ndarray[Any, Any],
     split_size: int | list[int],
     axis: int = 0,
     cache: CacheType | None = None,
@@ -1128,7 +1208,7 @@ def split(
 
 
 def pad(
-    input: np.ndarray,
+    input: np.ndarray[Any, Any],
     pad_width: tuple[tuple[int, int], ...],
     cache: CacheType | None = None,
 ):

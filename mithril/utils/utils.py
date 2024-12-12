@@ -466,7 +466,7 @@ def find_boundary_point(
 
 
 def binary_search(
-    eval_fn: Callable,
+    eval_fn: Callable[[Any], Any],
     target: DataType,
     *,
     max_it: int = 1000,
@@ -499,7 +499,7 @@ def binary_search(
     """
     it = 0
 
-    def midpoint(a, b):
+    def midpoint(a: Any, b: Any) -> Any:
         return (a + b) / 2
 
     while (
