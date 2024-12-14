@@ -125,7 +125,6 @@ from .test_utils import (
 def test_composite_1_extend_from_inputs():
     # Setting up Empty model
     model = Model()
-
     # Setting up Models to be extended
     layer1 = Layer(dimension=3, activation=Sigmoid())
     layer2 = Layer(dimension=2, activation=Softmax())
@@ -1321,7 +1320,7 @@ def test_static_key_names_consistency():
     model += Add()(left=3)
 
     pm = mithril.compile(model, TorchBackend())
-    assert "input" in pm._input_keys
+    assert {"left", "right"} == pm._input_keys
 
 
 def test_evaluate_replace():
@@ -1511,9 +1510,9 @@ def test_canonic_example():
     model += LeakyRelu()
     model += LeakyRelu()
     comp_model = compile(model=model, backend=NumpyBackend())
-    assert set(comp_model._input_keys) == {"input_1", "input_0"}
+    assert set(comp_model._input_keys) == {"slope_0", "slope_1", "input"}
     assert set(comp_model.output_keys) == {"output"}
-    inputs = {"input_1": np.array([[2.0, -1.0]])}
+    inputs = {"input": np.array([[2.0, -1.0]])}
     assert_results_equal(
         comp_model.evaluate(inputs), {"output": np.array([[2.0, -0.0001]])}
     )
@@ -2502,9 +2501,7 @@ def test_static_anlaysis_2():
     discarded_model_list = {
         comp_model._flat_graph.get_model(key) for key in discarded_output_keys
     }
-    # In addition to 2 models add1 and sum1, 2 ToTensor models
-    # is discarded which are created automatically.
-    assert len(discarded_model_list) == 4
+    assert len(discarded_model_list) == 2
 
 
 def test_static_anlaysis_4():
@@ -2964,10 +2961,8 @@ def test_prune_valued_tensor_1():
     )
 
     expected_connections: dict[str, list[str | set[str]]] = {
-        "output2": ["add", {"input2", "output_1"}],
-        "output1": ["add", {"input2", "output_0"}],
-        "output_1": ["to_tensor", {"input_1"}],
-        "output_0": ["to_tensor", {"input_0"}],
+        "output2": ["add", {"input2", "left_1"}],
+        "output1": ["add", {"input2", "left_0"}],
     }
     assert_connections(compiled_model, expected_connections)
 
@@ -2975,8 +2970,8 @@ def test_prune_valued_tensor_1():
 def test_prune_valued_tensor_2():
     # Values same prune!
     model = Model()
-    model += Add()(left=3, right="input2", output=IOKey("output1"))
-    model += Add()(left=3, right="input2", output=IOKey("output2"))
+    model += Add()(left=IOKey(value=3), right="input2", output=IOKey("output1"))
+    model += Add()(left=IOKey(value=3), right="input2", output=IOKey("output2"))
 
     backend = JaxBackend(precision=64)
 
@@ -2985,8 +2980,7 @@ def test_prune_valued_tensor_2():
     )
 
     expected_connections: dict[str, list[str | set[str]]] = {
-        "output1": ["add", {"input2", "output_0"}],
-        "output_0": ["to_tensor", {"input_0"}],
+        "output1": ["add", {"input2", "left_0"}],
     }
     expected_output_dict = {"output2": "output1", "output1": "output1"}
 
@@ -4106,19 +4100,22 @@ def test_composite_6_extend_from_inputs_connect():
     relu3 = Relu()
     relu4 = Relu()
     model += relu1(output="output")
-    model += relu2(input=Connect(relu1.input))
-    model += relu3(input="my_input", output=Connect(relu2.input))
+    model += relu2(input=Connect(relu1.input))  # input:expose -> True
+    model += relu3(
+        input="my_input", output=Connect(relu2.input)
+    )  # output:expose->False
     model += relu4(input=Connect(relu3.input))
 
-    backend = TorchBackend()
-    cm = mithril.compile(model, backend=backend)
-    cm.evaluate(params={"my_input": backend.array([[[[1.0, 2.0, 3.0]]]])})
     assert (
         relu2.input.data.metadata
         == relu3.output.data.metadata
         == relu1.input.data.metadata
     )
     assert relu4.input.data.metadata == relu3.input.data.metadata
+
+    backend = TorchBackend()
+    cm = mithril.compile(model, backend=backend)
+    cm.evaluate(params={"my_input": backend.array([[[[1.0, 2.0, 3.0]]]])})
 
 
 def test_composite_4_extend_from_inputs_connect():
@@ -4268,16 +4265,13 @@ def test_connect_13():
     model = Model(enforce_jit=False)
     add1 = Add()
     add2 = Add()
-    to_tensor = ToTensor()
+    buf = Buffer()
     model += add1(left="l1", right="l2", output=IOKey(name="out1"))
     model += add2(left="l3", right="l4")
-    model += to_tensor(input=Connect(add1.left, add2.left, key=IOKey(name="input")))
-    model += Add()(left=add2.output, right=to_tensor.output, output=IOKey(name="out2"))
+    model += buf(input=Connect(add1.left, add2.left, key=IOKey(name="input")))
+    model += Add()(left=add2.output, right=buf.output, output=IOKey(name="out2"))
 
     assert model._input_keys == {"input", "l2", "l4"}
-    assert model.dag[to_tensor]["input"].key != "input"
-    # Checks "input" is assigned to the right connection which is an inner
-    # TensorToList model.
 
 
 def test_connect_14():
@@ -4329,11 +4323,13 @@ def test_connect_error_2():
 
 def test_connect_error_5():
     model_2 = Model()
-    model_2 += Tanh()(input="input1", output=IOKey(name="output1"))
-    model_2 += Relu()(input="input2", output=IOKey(name="output2"))
+    model_2 += (tanh := Tanh())(output=IOKey(name="output1"))
+    model_2 += (relu := Relu())(output=IOKey(name="output2"))
 
     with pytest.raises(KeyError) as error_info:
-        model_2 += Relu()(output=Connect("input1", "input2", key=IOKey(expose=True)))
+        model_2 += Relu()(
+            output=Connect(tanh.input, relu.input, key=IOKey(expose=True))
+        )
 
     assert (
         str(error_info.value) == "'Connection without a name cannot be set as output'"
@@ -4775,16 +4771,15 @@ def test_cycle_handling_3():
 
     compiled_model = mithril.compile(model=model, backend=backend, jit=False)
     expected_connections: dict[str, list[str | set[str]]] = {
-        "output_2": ["gelu", {"output1_1"}],
-        "output": ["tanh", {"output2_3"}],
         "output1_1": ["cos", {"output2_1"}],
-        "output_1": ["gelu", {"output1_0"}],
-        "output2_2": ["sin", {"output_2"}],
-        "output1_0": ["relu", {"input"}],
+        "output_0": ["gelu", {"output1_0"}],
+        "output2_2": ["sin", {"output_1"}],
         "output2_1": ["sigmoid", {"output2_0"}],
-        "output2_3": ["leaky_relu", {"output_0", "output2_2"}],
-        "output2_0": ["softplus", {"output_1"}],
-        "output_0": ["to_tensor", {"slope"}],
+        "output2_3": ["leaky_relu", {"output2_2", "slope"}],
+        "output": ["tanh", {"output2_3"}],
+        "output2_0": ["softplus", {"output_0"}],
+        "output1_0": ["relu", {"input"}],
+        "output_1": ["gelu", {"output1_1"}],
     }
 
     inputs = {
@@ -6623,7 +6618,7 @@ def test_multi_write_3():
         model += l_relu(slope=0.75)
 
     assert str(err_info.value) == (
-        "Value is set before as 0.85. A scalar value can not be reset."
+        "Value is set before as 0.85. A value can not be reset."
     )
 
 
@@ -6638,7 +6633,7 @@ def test_multi_write_4():
 
     assert (
         str(err_info.value)
-        == "Value is set before as 2. A scalar value can not be reset."
+        == "Value is set before as 3. A scalar value can not be reset."
     )
 
 
@@ -7460,12 +7455,12 @@ def test_string_iokey_value_2():
 
     # note that in __init__, equation is TBD and string is given as IOKey value
     a = ReduceEinsum(equation=TBD)(
-        input="input", equation=IOKey(value="ij->i"), output="output"
+        input="input", equation=IOKey(name="eq", value="ij->i"), output="output"
     )
     model += a
 
     # Compile the model and assert the results
-    pm = mithril.compile(model=model, backend=backend)
+    pm = mithril.compile(model=model, backend=backend, safe_names=False, jit=False)
     input = backend.ones((7, 6))
     trainable_keys = {"input": input}
     outputs = pm.evaluate(trainable_keys)

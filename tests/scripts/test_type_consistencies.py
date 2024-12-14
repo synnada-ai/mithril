@@ -135,12 +135,11 @@ def test_default_given_extend_4_numpy_error():
     model1 = ReduceMult(axis=TBD)
     model2 = Mean(axis=1)
     model += model1(axis=IOKey("axis", value=None))
-    with pytest.raises(TypeError) as err_info:
+    with pytest.raises(ValueError) as err_info:
         model += model2(input="input2", axis=model1.axis, output="output")
 
     assert str(err_info.value) == (
-        "Acceptable types are <class 'NoneType'>, "
-        "but <class 'int'> type value is provided!"
+        "Value is set before as None. A scalar value can not be reset."
     )
 
 

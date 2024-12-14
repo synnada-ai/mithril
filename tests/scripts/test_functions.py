@@ -448,47 +448,47 @@ def test_code_generator_4(file_path: str):
 
     @typing.no_type_check
     def evaluate(params, data, cache):
+        cutoff = cache["cutoff"]
         input = params["input"]
-        output_0 = cache["output_0"]
+        output_0_cache = cache["output_0_cache"]
         output_1_cache = cache["output_1_cache"]
-        output_2_cache = cache["output_2_cache"]
         output_cache = cache["output_cache"]
         rhs = params["rhs"]
         target = data["target"]
         output = output_cache["output"] = make_array(my_adder(input, rhs, output_cache))
-        output_1 = output_1_cache["output"] = make_array(
+        output_0 = output_0_cache["output"] = make_array(
             binary_cross_entropy_with_logits(
-                output, target, output_0, cache=output_1_cache
+                output, target, cutoff, cache=output_0_cache
             )
         )
-        output_2 = output_2_cache["output"] = make_array(
-            reduce_mean(output_1, cache=output_2_cache)
+        output_1 = output_1_cache["output"] = make_array(
+            reduce_mean(output_0, cache=output_1_cache)
         )
-        return {"final_cost": output_2, "output": output}
+        return {"final_cost": output_1, "output": output}
 
     @typing.no_type_check
     def evaluate_gradients(params, gradients, data, cache):
+        cutoff = cache["cutoff"]
         input = params["input"]
         output = cache["output_cache"]["output"]
-        output_0 = cache["output_0"]
-        output_1 = cache["output_1_cache"]["output"]
+        output_0 = cache["output_0_cache"]["output"]
+        output_0_cache = cache["output_0_cache"]
         output_1_cache = cache["output_1_cache"]
-        output_2_cache = cache["output_2_cache"]
         output_cache = cache["output_cache"]
         rhs = params["rhs"]
         target = data["target"]
-        gradients["output_2"] += gradients["final_cost"]
-        gradients["output_1"] += accumulate_grads(
+        gradients["output_1"] += gradients["final_cost"]
+        gradients["output_0"] += accumulate_grads(
             make_array(
-                reduce_mean_grad(gradients["output_2"], output_2_cache, 0, output_1)
+                reduce_mean_grad(gradients["output_1"], output_1_cache, 0, output_0)
             ),
-            output_1,
-            output_2_cache,
+            output_0,
+            output_1_cache,
             0,
         )
         gradients["output"] += make_array(
             binary_cross_entropy_with_logits_grad(
-                gradients["output_1"], output_1_cache, 0, output, target, output_0
+                gradients["output_0"], output_0_cache, 0, output, target, cutoff
             )
         )
         gradients["input"] += accumulate_grads(
@@ -557,15 +557,15 @@ def test_code_generator_5(file_path: str):
 
     @typing.no_type_check
     def evaluate(params, data, cache):
+        cutoff = cache["cutoff"]
         input = params["input"]
-        output_0 = cache["output_0"]
         rhs = params["rhs"]
         right = params["right"]
         target = data["target"]
         output = my_adder(input, rhs)
-        output_1 = binary_cross_entropy_with_logits(output, target, output_0)
-        output_2 = add(output_1, right)
-        return {"final_cost": output_2, "output": output}
+        output_0 = binary_cross_entropy_with_logits(output, target, cutoff)
+        output_1 = add(output_0, right)
+        return {"final_cost": output_1, "output": output}
 
     compare_callables(evaluate, eval_func.evaluate)
     JaxBackend.registered_primitives = {}
@@ -606,8 +606,8 @@ def test_code_generator_6(file_path: str):
         arange_res = cache["arange_res"]
         axes = cache["axes"]
         b1 = params["b1"]
+        cutoff = cache["cutoff"]
         input = data["input"]
-        output_4 = cache["output_4"]
         target = cache["target"]
         w1 = params["w1"]
         weights = cache["weights"]
@@ -616,9 +616,9 @@ def test_code_generator_6(file_path: str):
         output_2 = add(output_1, b1)
         output_3 = softmax(output_2)
         output = add(arange_res, output_3)
-        output_5 = cross_entropy(output, target, weights, output_4)
-        output_6 = reduce_mean(output_5)
-        return {"arange_res": arange_res, "final_cost": output_6, "output": output}
+        output_4 = cross_entropy(output, target, weights, cutoff)
+        output_5 = reduce_mean(output_4)
+        return {"arange_res": arange_res, "final_cost": output_5, "output": output}
 
     compare_callables(evaluate, eval_func.evaluate)
     JaxBackend.registered_primitives = {}
@@ -660,8 +660,8 @@ def test_code_generator_7(file_path: str):
         arange_res = cache["arange_res"]
         axes = cache["axes"]
         b1 = params["b1"]
+        cutoff = cache["cutoff"]
         input = data["input"]
-        output_5 = cache["output_5"]
         target = cache["target"]
         w1 = params["w1"]
         weights = cache["weights"]
@@ -670,9 +670,9 @@ def test_code_generator_7(file_path: str):
         output_2 = add(output_1, b1)
         output_3 = softmax(output_2)
         output = add(arange_res, output_3)
-        output_6 = cross_entropy(output, target, weights, output_5)
-        output_7 = reduce_mean(output_6)
-        return {"arange_res": arange_res, "final_cost": output_7, "output": output}
+        output_5 = cross_entropy(output, target, weights, cutoff)
+        output_6 = reduce_mean(output_5)
+        return {"arange_res": arange_res, "final_cost": output_6, "output": output}
 
     compare_callables(evaluate, eval_func.evaluate)
 

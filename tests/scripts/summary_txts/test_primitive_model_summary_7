@@ -9,7 +9,7 @@ Backend device     : TFRT_CPU_0
 -------------------------------
 Output keys        : output    
 -------------------------------
-Constant inputs    : None      
+Constant inputs    : slope     
 -------------------------------
 Static keys        : None      
 -------------------------------
@@ -26,7 +26,7 @@ Model Name   |                                    Model Keys
              |             Keys   : Shapes              : Connections : Parameters
 ==================================================================================
 LeakyRelu    |   Inputs  : input  : [(V1, ...), u1, u2] : 'output_2'  :          0
-             |             slope  :                  [] : 'output_3'  :          0
+             |             slope  :                  [] : 'slope'     :          0
              |   -----------------------------------------------------------------
              |   Outputs : output : [(V1, ...), u1, u2] : 'output'    :          0
 ----------------------------------------------------------------------------------
