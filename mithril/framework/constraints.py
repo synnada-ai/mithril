@@ -3398,6 +3398,7 @@ def tensor_slice_constraints(
     input_shape: ShapeRepr = input._temp_shape
     updated_symbols = Updates()
     status = False
+
     if input_shape.prefix and output_shape.prefix:
         in_uni, out_uni = input_shape[0], output_shape[0]
         if in_uni.value is not None and out_uni.value is not None:
@@ -3422,11 +3423,19 @@ def split_constraints(output: Tensor, input: Tensor, split_size: Scalar, axis: S
     status = False
     split_size_val = split_size.value
     axis_val = axis.value
+    assert output._temp_shape is not None, "Output shape of Split is not set!"
+    assert input._temp_shape is not None, "Input shape of Split is not set!"
     output_shape: ShapeRepr = output._temp_shape
     input_shape: ShapeRepr = input._temp_shape
     updated_symbols = Updates()
 
-    if split_size_val is not TBD and axis_val is not TBD:
+    assert isinstance(axis_val, ToBeDetermined) or type(axis_val) is int
+
+    assert isinstance(split_size_val, ToBeDetermined) or type(split_size_val) is int
+
+    if not isinstance(axis_val, ToBeDetermined) and not isinstance(
+        split_size_val, ToBeDetermined
+    ):
         if axis_val >= 0:
             if len(input_shape.prefix) > axis_val:
                 uni_val = input_shape.prefix[axis_val].value
