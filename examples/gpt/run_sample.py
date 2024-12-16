@@ -44,7 +44,8 @@ def run_sample(
     seed: int = 1337,
     temperature: float = 0.8,
 ):
-    # TODO: Remove setrecursionlimit after cleaning duplicate objects.
+    # TODO: This recursion limit is minimum we can have for now.
+    # We may further improve this limit in the future.
     sys.setrecursionlimit(734)
     # Model Configuration
     block_size = 100

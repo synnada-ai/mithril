@@ -45,6 +45,7 @@ from ..common import (
     UniadicRecord,
     Updates,
     Variadic,
+    _UltimateTensorValueTypes,
     get_summary,
     get_summary_shapes,
     get_summary_types,
@@ -138,9 +139,7 @@ ops_table: dict[str, type[PrimitiveModel]] = {
 }
 
 
-coercion_table: dict[
-    tuple[str, type[Tensor[Any]] | type[Scalar]], type[PrimitiveModel]
-] = {
+coercion_table: dict[tuple[str, type[Tensor] | type[Scalar]], type[PrimitiveModel]] = {
     ("item", Tensor): TensorItem,
     ("item", Scalar): ScalarItem,
     ("slice", Tensor): TensorSlice,
@@ -148,7 +147,7 @@ coercion_table: dict[
 }
 
 type_conversion_map: dict[
-    tuple[type[Tensor[Any]] | type[Scalar], type[Tensor[Any]] | type[Scalar]],
+    tuple[type[Tensor] | type[Scalar], type[Tensor] | type[Scalar]],
     type[ToTensor] | type[TensorToList] | None,
 ] = {
     (Scalar, Tensor): ToTensor,
@@ -228,7 +227,7 @@ class Model(BaseModel):
             else:  # Named connections.
                 # Create new output connection with given key name.
 
-                data: Tensor[Any] | Scalar = (
+                data: Tensor | Scalar = (
                     Scalar(metadata.data._type)
                     if isinstance(metadata.data, Scalar)
                     else Tensor(metadata.data.shape, metadata.data._type)
@@ -461,7 +460,7 @@ class Model(BaseModel):
         return con_obj, updates
 
     def _unroll_template(
-        self, template: ExtendTemplate, joint_type: type[Tensor[Any]] | type[Scalar]
+        self, template: ExtendTemplate, joint_type: type[Tensor] | type[Scalar]
     ) -> ConnectionData:
         if template.output_connection is None:
             # Initialize all default init arguments of model as "..." other
@@ -612,7 +611,7 @@ class Model(BaseModel):
     @overload
     def handle_auto_conversion(
         self,
-        key_type: type[Tensor[Any]] | type[Scalar],
+        key_type: type[Tensor] | type[Scalar],
         is_input: bool,
         connection: IOKey | Connect | ConnectionData,
         updates: Updates,
@@ -620,7 +619,7 @@ class Model(BaseModel):
     @overload
     def handle_auto_conversion(  # type: ignore[overload-cannot-match] # mypy import bug
         self,
-        key_type: type[Tensor[Any]] | type[Scalar],
+        key_type: type[Tensor] | type[Scalar],
         is_input: bool,
         connection: ConnectionType | tuple[ConnectionType, ...] | list[ConnectionType],
         updates: Updates,
@@ -628,13 +627,13 @@ class Model(BaseModel):
 
     def handle_auto_conversion(
         self,
-        key_type: type[Tensor[Any]] | type[Scalar],
+        key_type: type[Tensor] | type[Scalar],
         is_input: bool,
         connection: ConnectionType | tuple[ConnectionType, ...] | list[ConnectionType],
         updates: Updates,
     ) -> ConnectionType:
-        connection_type: type[Tensor[Any]] | type[Scalar] | None = None
-        data: Tensor[Any] | Scalar | None = None
+        connection_type: type[Tensor] | type[Scalar] | None = None
+        data: Tensor | Scalar | None = None
         if isinstance(connection, MainValueInstance):
             connection_type = Scalar
 
@@ -702,7 +701,13 @@ class Model(BaseModel):
                 shape_node = ShapeRepr(root=Variadic()).node
                 if set_type is None:
                     set_type = int | float | bool
-                assert isinstance(set_type, type | UnionType)
+                assert isinstance(
+                    set_type,
+                    type(int)
+                    | type(float)
+                    | type(bool)
+                    | type(_UltimateTensorValueTypes),
+                )
                 data = Tensor(shape_node, set_type)
 
             # Determine connection type.
@@ -796,7 +801,7 @@ class Model(BaseModel):
 
                 else:
                     # All connections in Connect object must have same type.
-                    types: set[type[Scalar] | type[Tensor[Any]]] = {
+                    types: set[type[Scalar] | type[Tensor]] = {
                         _conn.metadata.data.__class__ for _conn in connections
                     }
                     if len(types) > 1:
@@ -895,8 +900,8 @@ class Model(BaseModel):
     @overload
     def create_connection_model(
         self,
-        connection_type: type[Tensor[Any]] | type[Scalar] | None,
-        key_type: type[Tensor[Any]] | type[Scalar],
+        connection_type: type[Tensor] | type[Scalar] | None,
+        key_type: type[Tensor] | type[Scalar],
         is_input: bool,
         connection: tuple[ConnectionType, ...] | list[ConnectionType],
     ) -> ConnectionData: ...
@@ -906,8 +911,8 @@ class Model(BaseModel):
     @overload
     def create_connection_model(
         self,
-        connection_type: type[Tensor[Any]],
-        key_type: type[Tensor[Any]],
+        connection_type: type[Tensor],
+        key_type: type[Tensor],
         is_input: bool,
         connection: T,
     ) -> T:
@@ -919,7 +924,7 @@ class Model(BaseModel):
     @overload
     def create_connection_model(  # type: ignore[overload-cannot-match] # mypy import bug
         self,
-        connection_type: type[Tensor[Any]],
+        connection_type: type[Tensor],
         key_type: type[Scalar],
         is_input: bool,
         connection: ConnectionType | tuple[ConnectionType, ...] | list[ConnectionType],
@@ -931,7 +936,7 @@ class Model(BaseModel):
     def create_connection_model(  # type: ignore[overload-cannot-match] # mypy import bug
         self,
         connection_type: type[Scalar],
-        key_type: type[Tensor[Any]],
+        key_type: type[Tensor],
         is_input: bool,
         connection: ConnectionType | tuple[ConnectionType, ...] | list[ConnectionType],
     ) -> ConnectionData:
@@ -954,15 +959,15 @@ class Model(BaseModel):
     def create_connection_model(
         self,
         connection_type: None,
-        key_type: type[Tensor[Any]] | type[Scalar],
+        key_type: type[Tensor] | type[Scalar],
         is_input: bool,
         connection: T,
     ) -> T: ...
 
     def create_connection_model(
         self,
-        connection_type: type[Tensor[Any]] | type[Scalar] | None,
-        key_type: type[Tensor[Any]] | type[Scalar],
+        connection_type: type[Tensor] | type[Scalar] | None,
+        key_type: type[Tensor] | type[Scalar],
         is_input: bool,
         connection: ConnectionType | tuple[ConnectionType, ...] | list[ConnectionType],
     ) -> (
@@ -1575,8 +1580,8 @@ class Model(BaseModel):
     def extract_connection_info(
         self,
         name_mappings: dict[BaseModel, str],
-        data_to_key_map: dict[Tensor[Any] | Scalar, list[str]] | None = None,
-        data_memo: Mapping[int, Tensor[Any] | Scalar] | None = None,
+        data_to_key_map: dict[Tensor | Scalar, list[str]] | None = None,
+        data_memo: Mapping[int, Tensor | Scalar] | None = None,
     ):
         conn_info: dict[str, tuple[dict[str, list[str]], dict[str, list[str]]]] = {}
         if self._input_keys:

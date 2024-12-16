@@ -27,8 +27,10 @@ from mithril.framework.common import (
     GenericTensorType,
     IOKey,
     MyTensor,
+    NestedListType,
     ShapeTemplateType,
     Updates,
+    find_intersection_type,
 )
 from mithril.models import (
     MLP,
@@ -1540,3 +1542,9 @@ def test_tensor_to_scalar_template_2():
 
     assert_results_equal(outputs, ref_outputs)
     assert_results_equal(grads, ref_grads)
+
+
+def test_find_intersection_type_nested_list_type():
+    type1 = int | float | list | tuple
+    type2 = NestedListType(int | float)
+    assert find_intersection_type(type1, type2) == type2

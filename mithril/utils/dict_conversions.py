@@ -21,12 +21,12 @@ from typing import Any
 
 from ..framework.common import (
     TBD,
+    AllValueType,
     Connect,
     ConnectionData,
     GenericTensorType,
     IOHyperEdge,
     IOKey,
-    MainValueType,
     Tensor,
     ToBeDetermined,
 )
@@ -272,7 +272,7 @@ def connection_to_dict(
     connections: dict[str, ConnectionData] = model.dag[submodel]
 
     for key, connection in connections.items():
-        key_value: dict | None | str | MainValueType = None
+        key_value: dict | None | str | AllValueType = None
         related_conn = submodel_connections.get(connection.metadata, [])
         is_valued = (
             connection.metadata.data.is_non_diff

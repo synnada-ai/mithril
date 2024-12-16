@@ -248,8 +248,8 @@ class BaseModel(abc.ABC):
     def extract_connection_info(
         self,
         name_mappings: dict[BaseModel, str],
-        data_to_key_map: dict[Tensor[Any] | Scalar, list[str]] | None = None,
-        data_memo: Mapping[int, Tensor[Any] | Scalar] | None = None,
+        data_to_key_map: dict[Tensor | Scalar, list[str]] | None = None,
+        data_memo: Mapping[int, Tensor | Scalar] | None = None,
     ) -> dict[str, tuple[dict[str, list[str]], dict[str, list[str]]]]:
         raise NotImplementedError("Implement extract_connection_info method!")
 
@@ -426,7 +426,7 @@ class BaseModel(abc.ABC):
         for key, key_type in chain(config.items(), kwargs.items()):
             metadata = self.conns.extract_metadata(key)
             data = metadata.data
-            updates |= data.set_type(key_type)
+            updates |= data.set_type(key_type)  # type: ignore
         # Run the constraints for updating affected connections.
         model.constraint_solver(updates)
 
