@@ -1434,7 +1434,7 @@ class FlatModel:
         """
 
         for conn in model.conns.input_connections:
-            if conn.metadata.data.value == TBD and conn.metadata not in self.used_edges:
+            if conn.metadata.data.value is TBD and conn.metadata not in self.used_edges:
                 return False
         return True
 

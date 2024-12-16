@@ -17,12 +17,13 @@ from copy import deepcopy
 from typing import Any, TypeGuard
 
 from ...backends.backend import Backend
-from ...core import DataType, data_types
+from ...core import DataType, data_types, epsilon_table
 from ...utils.func_utils import is_make_array_required, prepare_function_args
 from ...utils.utils import BiMap
 from ..common import (
     TBD,
     Connection,
+    Constant,
     ConstraintSolver,
     DataEvalType,
     GenericDataType,
@@ -142,12 +143,22 @@ class StaticDataStore(GenericDataType[DataType]):
                         "at the same time!"
                     )
                 if key not in self.data_values:
-                    assert not isinstance(data.value, ToBeDetermined)
-                    self.data_values[key] = data.value  # type: ignore
+                    self._set_data_value(key, data)
                 transferred_keys.add(key)
         for key in transferred_keys:
             self._intermediate_non_differentiables.pop(key)
         return transferred_keys
+
+    def _set_data_value(self, key: str, data: Tensor[DataType] | Scalar):
+        value = data.value
+        assert not isinstance(value, ToBeDetermined)
+        if isinstance(data, Tensor):
+            if isinstance(value, Constant):
+                value = self.backend.array(epsilon_table[self.backend.precision][value])
+            else:
+                value = self.backend.array(value)
+
+        self.data_values[key] = value  # type: ignore
 
     def _infer_unused_keys(self, key: str):
         # Infers unused keys when "key" is set as static.
@@ -212,14 +223,12 @@ class StaticDataStore(GenericDataType[DataType]):
                 and key.endswith("_cache")
                 and key not in self.graph.input_keys
             ) or (key in self.graph.input_keys and value.value is not TBD):
-                assert not isinstance(value.value, ToBeDetermined)
-                self.data_values[key] = value.value  # type: ignore
+                self._set_data_value(key, value)
             elif key in self.graph.input_keys:
                 self._runtime_static_keys.add(key)
             else:
                 if value.value is not TBD:
-                    assert not isinstance(value.value, ToBeDetermined)
-                    self.data_values[key] = value.value  # type: ignore
+                    self._set_data_value(key, value)
                 else:
                     self._intermediate_non_differentiables[key] = value
 
@@ -270,7 +279,7 @@ class StaticDataStore(GenericDataType[DataType]):
             if isinstance(data, Tensor) and self.is_tensor_type(value):
                 # TODO: Do not set value to Tensor if value is DataType. Update here
                 # after Tensor and Scalar classes are merged to Edge.
-                updates |= data.set_value(value)
+                updates |= data.set_value(value)  # type: ignore
                 # Temporarily remove value from tensor and add to tensor_values!
                 data.value = TBD
             elif isinstance(data, Scalar) and self.is_scalar_type(value):

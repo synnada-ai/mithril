@@ -3231,7 +3231,7 @@ def scalar_item_constraints(
         # index as the value of index argument.
         if input.value.count(output.value) == 1:
             index.set_value(input.value.index(output.value))
-            updates._add_scalar(index)
+            updates._add_edge(index)
             status = True
     return status, updates
 

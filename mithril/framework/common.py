@@ -49,6 +49,7 @@ from .utils import (
     align_shapes,
     find_intersection_type,
     find_type,
+    list_shape,
     sort_type,
 )
 
@@ -513,7 +514,7 @@ class Updates:
 
     def add(
         self,
-        symbol: BaseData | Uniadic | Variadic,
+        symbol: Tensor[Any] | Scalar | Uniadic | Variadic,
         update_type: UpdateType = UpdateType.SHAPE,
     ) -> None:
         # TODO: Use match case here
@@ -523,15 +524,14 @@ class Updates:
             elif isinstance(symbol, Variadic):
                 self._add_variadic(symbol)
             else:
-                assert isinstance(symbol, Scalar)
-                self._add_scalar(symbol)
+                self._add_edge(symbol)
 
             # TODO: Fill here after type_updates added to class
         elif update_type == UpdateType.TYPE:
             assert isinstance(symbol, Tensor | Scalar)
             self._add_type_update(symbol)
 
-    def _add_scalar(self, symbol: Scalar):
+    def _add_edge(self, symbol: Scalar | Tensor):
         self.value_updates.add(symbol)
         self.constraints[UpdateType.SHAPE] |= symbol.shape_constraints
 
@@ -633,7 +633,7 @@ class BaseData:
     def set_type(self, type: type[TensorValueType] | ScalarType | UnionType) -> Updates:
         updates = Updates()
         if not self._types_equal(type):
-            updates.add(self, UpdateType.TYPE)
+            updates.add(self, UpdateType.TYPE)  # type: ignore
             new_type = find_intersection_type(type, self._type)
 
             if not new_type:
@@ -782,10 +782,31 @@ class Tensor(BaseData, GenericDataType[DataType]):
         # to self object? If we should, we also need to transfer "interval" attribute
         # which requires handling of interval arithmetic in logical level also.
 
-    def set_value(self, value: DataType | TensorValueType) -> Updates:  # type: ignore[override]
+    def set_value(self, value: TensorValueType) -> Updates:  # type: ignore[override]
         if not self._logical_data:
             assert self.is_tensor_type(value)
             return self._set_physical_value(value)
+        elif value is not TBD:
+            updates = Updates()
+            prev_value = self.value
+            if self.value is not TBD and self.value != value:
+                raise ValueError(
+                    f"Value is set before as {self.value}. A value can not be reset."
+                )
+            # TODO: Handle Constant Type
+            if isinstance(value, Constant):
+                updates |= self.set_type(constant_type_table[value])
+            else:
+                updates |= self.set_type(find_dominant_type(value))
+            self.value = value  # type: ignore
+            #  Call constraints if any change occured.
+            if self.value != prev_value:
+                updates.add(self)
+
+            shape = list_shape(value)  # type: ignore
+            updates |= self.shape.set_values(shape)
+            self._differentiable = False
+            return updates
         return Updates()
 
     def _set_physical_value(self, value: DataType) -> Updates:
@@ -1437,11 +1458,12 @@ class Connections:
 
     def get_shape_node(self, key: str) -> ShapeNode:
         data = self._get_metadata(key).data
-        assert isinstance(data, Tensor)
+        if not isinstance(data, Tensor):
+            raise ValueError("'Shape cannot be set for scalar type values'")
         return data.shape
 
     def set_value(self, con: ConnectionData, value: MainValueType):
-        self.get_data(con.key).set_value(value)
+        self.get_data(con.key).set_value(value)  # type: ignore
 
     def extract_metadata(self, key: str | Connection) -> IOHyperEdge:
         if isinstance(key, Connection):

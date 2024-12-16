@@ -5,8 +5,8 @@ Model Name   |                          Model Keys
              |             -----------------------------------
              |             Keys   : Shapes      : Connections 
 ==============================================================
-Add_1        |   Inputs  : left   : [(V3, ...)] : 'left_1'    
-             |             right  : [(V4, ...)] : '$right'    
+Add_1        |   Inputs  : left   : [(V2, ...)] : 'left_1'    
+             |             right  : [(V3, ...)] : '$right'    
              |   ---------------------------------------------
              |   Outputs : output : [(V1, ...)] : Add_0.left  
              |                                    Add_0.right 
@@ -14,7 +14,7 @@ Add_1        |   Inputs  : left   : [(V3, ...)] : 'left_1'
 Add_0        |   Inputs  : left   : [(V1, ...)] : Add_1.output
              |             right  : [(V1, ...)] : Add_1.output
              |   ---------------------------------------------
-             |   Outputs : output : [(V2, ...)] : '$output'   
+             |   Outputs : output : [(V1, ...)] : '$output'   
 --------------------------------------------------------------
 
 
