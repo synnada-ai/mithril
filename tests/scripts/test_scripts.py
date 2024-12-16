@@ -2970,8 +2970,8 @@ def test_prune_valued_tensor_1():
 def test_prune_valued_tensor_2():
     # Values same prune!
     model = Model()
-    model += Add()(left=IOKey(value=3), right="input2", output=IOKey("output1"))
-    model += Add()(left=IOKey(value=3), right="input2", output=IOKey("output2"))
+    model += Add()(left=3, right="input2", output=IOKey("output1"))
+    model += Add()(left=3, right="input2", output=IOKey("output2"))
 
     backend = JaxBackend(precision=64)
 
@@ -4100,10 +4100,8 @@ def test_composite_6_extend_from_inputs_connect():
     relu3 = Relu()
     relu4 = Relu()
     model += relu1(output="output")
-    model += relu2(input=Connect(relu1.input))  # input:expose -> True
-    model += relu3(
-        input="my_input", output=Connect(relu2.input)
-    )  # output:expose->False
+    model += relu2(input=Connect(relu1.input))
+    model += relu3(input="my_input", output=Connect(relu2.input))
     model += relu4(input=Connect(relu3.input))
 
     assert (
