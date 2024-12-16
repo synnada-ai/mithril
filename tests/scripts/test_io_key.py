@@ -95,11 +95,6 @@ def compare_evaluate(
 def test_1():
     """Tests the case where all named keys are defined with IOKey."""
     model = Model()
-    model += (m1 := Multiply())("input1", "input2")
-    model += (m2 := Multiply())("input2", m1.output)
-    model += Add()(m2.output, m2.output, output=IOKey(name="output"))
-
-    model = Model()
     model += Linear(10)(weight=IOKey(name="weight_2"))
     model += Linear(10)(
         input=model.canonical_output,
@@ -702,11 +697,7 @@ def test_iokey_tensor_input_all_args():
         Exception: _description_
     """
 
-    # backend = TorchBackend()
-    from mithril import JaxBackend
-
-    backend = JaxBackend()
-
+    backend = TorchBackend()
     # collect all possible values
     possible_names = ["left", None]
     possible_values = [[[2.0]], TBD]
@@ -1171,28 +1162,6 @@ def test_compare_models_5():
     model2.set_shapes({"input": [2, 2]})
 
     compare_evaluate(model1=model1, model2=model2, backend=backend, data={})
-
-
-# def test_compare_models_6():
-#     """Compares models that set up with string connections and direct connections"""
-#     backend = TorchBackend()
-
-#     model1 = Model()
-#     sigmoid = Sigmoid()
-#     add = Add()
-#     model1 += add(left="sub", right="sub", output=IOKey("my_output"))
-#     model1 += sigmoid(input="input", output="sub")
-#     model1.set_shapes({"input": [2, 2]})
-
-#     model2 = Model()
-#     sigmoid = Sigmoid()
-#     add = Add()
-#     model2 += add(output=IOKey(name="output"))
-#     conn = Connect(add.left, add.right, key=IOKey("my_output"))
-#     model2 += sigmoid(input="input", output=conn)
-#     model2.set_shapes({"input": [2, 2]})
-
-#     compare_evaluate(model1=model1, model2=model2, backend=backend, data={})
 
 
 def test_iokey_shape_error_1():

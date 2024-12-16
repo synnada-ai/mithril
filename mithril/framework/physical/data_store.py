@@ -143,22 +143,22 @@ class StaticDataStore(GenericDataType[DataType]):
                         "at the same time!"
                     )
                 if key not in self.data_values:
-                    self.data_values[key] = self._get_data_value(data)  # type: ignore
+                    self._set_data_value(key, data)
                 transferred_keys.add(key)
         for key in transferred_keys:
             self._intermediate_non_differentiables.pop(key)
         return transferred_keys
 
-    def _get_data_value(self, data: Tensor[DataType] | Scalar):
+    def _set_data_value(self, key: str, data: Tensor[DataType] | Scalar):
         value = data.value
         assert not isinstance(value, ToBeDetermined)
         if isinstance(data, Tensor):
             if isinstance(value, Constant):
-                return self.backend.array(epsilon_table[self.backend.precision][value])
+                value = self.backend.array(epsilon_table[self.backend.precision][value])
             else:
-                return self.backend.array(value)
-        else:
-            return value
+                value = self.backend.array(value)
+
+        self.data_values[key] = value  # type: ignore
 
     def _infer_unused_keys(self, key: str):
         # Infers unused keys when "key" is set as static.
@@ -223,12 +223,12 @@ class StaticDataStore(GenericDataType[DataType]):
                 and key.endswith("_cache")
                 and key not in self.graph.input_keys
             ) or (key in self.graph.input_keys and value.value is not TBD):
-                self.data_values[key] = self._get_data_value(value)  # type: ignore
+                self._set_data_value(key, value)
             elif key in self.graph.input_keys:
                 self._runtime_static_keys.add(key)
             else:
                 if value.value is not TBD:
-                    self.data_values[key] = self._get_data_value(value)  # type: ignore
+                    self._set_data_value(key, value)
                 else:
                     self._intermediate_non_differentiables[key] = value
 

@@ -3009,7 +3009,8 @@ class Precision(Model):
                 )
                 self += Where()(denominator == 0, 1, denominator, f"denominator_{idx}")
                 self += Divide()(
-                    numerator=getattr(self, f"true_positive_{idx}"),
+                    # numerator=getattr(self, f"true_positive_{idx}"),
+                    numerator=f"true_positive_{idx}",
                     denominator=getattr(self, f"denominator_{idx}"),
                     output=f"precision_{idx}",
                 )
@@ -3046,7 +3047,7 @@ class Precision(Model):
                 )
                 self += Where()(denominator == 0, 1, denominator, f"denominator_{idx}")
                 self += Divide()(
-                    numerator=getattr(self, f"true_positive_{idx}"),
+                    numerator=f"true_positive_{idx}",
                     denominator=(getattr(self, f"denominator_{idx}")),
                     output=f"precision_{idx}",
                 )
