@@ -895,9 +895,9 @@ def tensor_to_list(input: np.ndarray, cache: CacheType | None = None):
 
 
 def primitive_embedding(
-    input: np.ndarray, embedding_matrix: np.ndarray, *, cache: CacheType | None = None
+    input: np.ndarray, weight: np.ndarray, *, cache: CacheType | None = None
 ) -> np.ndarray:
-    return embedding_matrix[input]
+    return weight[input]
 
 
 def where(

@@ -44,7 +44,6 @@ from .common import (
     Tensor,
     ToBeDetermined,
     Uniadic,
-    UniadicRecord,
     Updates,
     UpdateType,
     Variadic,
@@ -3281,6 +3280,7 @@ def tensor_item_constraints(
     input_shape: ShapeRepr = input._temp_shape
     output_shape: ShapeRepr = output._temp_shape
     index_val = index.value
+
     assert (
         isinstance(index_val, ToBeDetermined)
         or type(index_val) is int
@@ -3315,83 +3315,38 @@ def tensor_item_constraints(
             # (e.g output[3,2:4, None] = output[3, 2:4, None, ...])
             index_prefix, index_suffix = index_val, tuple()
 
-        valued_prefix_items = [item for item in index_prefix if item is not None]
-        valued_suffix_items = [item for item in index_suffix if item is not None]
-
-        input_prefix = []
-        input_suffix = []
-
-        if len(valued_prefix_items) > len(input_shape.prefix) or len(
-            valued_suffix_items
-        ) > len(input_shape.reverse):
-            # If this condition happens, this means there is more
-            # information in index value than current input's prefix
-            # or suffix, In this case, inner match the input with
-            # minimum shapes in prefix and suffix
-            if len(valued_prefix_items) > len(input_shape.prefix):
-                input_prefix = [Uniadic() for _ in valued_prefix_items]
-            if len(valued_suffix_items) > len(input_shape.suffix):
-                input_suffix = [Uniadic() for _ in valued_suffix_items]
-            updated_symbols |= input_shape.inner_match(
-                prefix=input_prefix, root=Variadic(), suffix=input_suffix
-            )
-
-        # find if input_prefix and input_suffix
-        # matches with input_shape
-        _match = True
-        if len(input_prefix) > len(input_shape.prefix):
-            # match did not happen in this case occurs
-            longer_prefix = input_prefix
-            _match = False
-        else:
-            longer_prefix = input_shape.prefix
-
-        if len(input_suffix) > len(input_shape.reverse):
-            # match did not happen in this case occurs
-            longer_reverse = input_suffix[::-1]
-            _match = False
-        else:
-            longer_reverse = input_shape.reverse
-
-        # try to infer output prefix and suffix with given index
-        output_prefix = tensor_item_constraint_helper(index_prefix, longer_prefix)
-        output_reverse = tensor_item_constraint_helper(
-            index_suffix[::-1], longer_reverse
+        input_prefix, output_prefix, prefix_status, idx_pref = (
+            tensor_item_constraint_helper(index_prefix, input_shape.prefix)
         )
-        if input_shape.root is not None:
-            root = input_shape.root if _match else Variadic()
-            updated_symbols |= output_shape.inner_match(
-                prefix=output_prefix, root=root, suffix=output_reverse[::-1]
-            )
-        else:
-            remaining_input_unis = input_shape.prefix[
-                len(valued_prefix_items) : None
-                if len(valued_suffix_items) == 0
-                else -len(valued_suffix_items)
+        input_suffix, output_suffix, suffix_status, idx_suf = (
+            tensor_item_constraint_helper(index_suffix[::-1], input_shape.reverse)
+        )
+        status = prefix_status and suffix_status
+
+        updated_symbols |= input_shape.inner_match(
+            input_prefix, Variadic(), input_suffix[::-1]
+        )
+
+        if input_shape.root is None:
+            remained_unis = input_shape.prefix[
+                len(input_prefix) : len(input_shape.prefix) - len(input_suffix)
             ]
-            updated_symbols |= output_shape.inner_match(
-                prefix=output_prefix + remaining_input_unis + output_reverse[::-1]
-            )
-
-    unsolved_input_symbols: set[UniadicRecord | Variadic] = set()
-    unsolved_output_symbols: set[UniadicRecord | Variadic] = set()
-    for symbol in input_shape.prefix + input_shape.suffix:
-        if symbol.value is None:
-            unsolved_input_symbols.add(symbol.metadata)
-    if input_shape.root is not None:
-        unsolved_input_symbols.add(input_shape.root)
-
-    unsolved_output_symbols = set()
-    for symbol in output_shape.prefix + output_shape.suffix:
-        if symbol.value is None:
-            unsolved_output_symbols.add(symbol.metadata)
-    if output_shape.root is not None:
-        unsolved_output_symbols.add(output_shape.root)
-
-    if unsolved_output_symbols - unsolved_input_symbols == set() and index is not TBD:
-        status = True
-    else:
-        status = False
+            output_unis = output_prefix + remained_unis + output_suffix[::-1]
+            updated_symbols |= output_shape.inner_match(prefix=output_unis)
+        else:
+            if len(input_prefix) > len(input_shape.prefix) or len(input_suffix) > len(
+                input_shape.reverse
+            ):
+                status = False
+                updated_symbols |= output_shape.inner_match(
+                    output_prefix, Variadic(), output_suffix[::-1]
+                )
+            else:
+                updated_symbols |= output_shape.inner_match(
+                    output_prefix + input_shape.prefix[idx_pref:],
+                    input_shape.root,
+                    (output_suffix + input_shape.reverse[idx_suf:])[::-1],
+                )
 
     return status, updated_symbols
 
@@ -3399,31 +3354,33 @@ def tensor_item_constraints(
 def tensor_item_constraint_helper(
     item_values: tuple[slice | int | EllipsisType | None, ...]
     | list[slice | int | None | EllipsisType],
-    input_unis: list[Uniadic],
-) -> list[Uniadic]:
-    # calculates output uniadics based on given item values and
-    # input uniadics.
-
-    # Example:
-    # item_values = (3, slice(2, 4, None), None, None, slice(0, None, None))
-    # input_unis = [Uniadic(10), Uniadic(5), Uniadic(2)] --> items = [Uniadic(2),
-    # Uniadic(1), Uniadic(1), Uniadic(2)]
-
-    items: list[Uniadic] = []
-    idx = 0
+    input_shape_unis: list[Uniadic],
+) -> tuple[list[Uniadic], list[Uniadic], bool, int]:
+    input_unis = []
+    output_unis = []
+    current_index = 0
+    status = True
     for item in item_values:
-        if item is None:
-            items.append(Uniadic(1))
-        else:
-            if isinstance(item, slice):
-                uni = input_unis[idx]
-                if uni.value is not None:
-                    out_value = len(list(range(uni.value))[item])
-                    items.append(Uniadic(out_value))
+        match item:
+            case slice():
+                if (current_index < len(input_shape_unis)) and (
+                    uni := input_shape_unis[current_index]
+                ).value is not None:
+                    output_unis.append(Uniadic(len(list(range(uni.value))[item])))
+                    input_unis.append(uni)
                 else:
-                    items.append(Uniadic())
-            idx += 1
-    return items
+                    input_unis.append(Uniadic())
+                    output_unis.append(Uniadic())
+                    status = False
+                current_index += 1
+
+            case int():
+                input_unis.append(Uniadic())
+                current_index += 1
+
+            case None:
+                output_unis.append(Uniadic(1))
+    return input_unis, output_unis, status, current_index
 
 
 def tensor_slice_constraints(
