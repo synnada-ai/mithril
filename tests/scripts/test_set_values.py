@@ -169,9 +169,9 @@ def test_set_values_scalar_4():
     model = Model()
     shp_model = Shape()
     model += shp_model(input="input", output=IOKey("output"))
-    with pytest.raises(KeyError) as err_info:
+    with pytest.raises(ValueError) as err_info:
         model.set_values({"output": (2, 3, 4)})
-    assert str(err_info.value) == '"Internal or output keys\' values cannot be set."'
+    assert str(err_info.value) == "Values of internal and output keys cannot be set."
 
 
 def test_set_values_scalar_5():
@@ -183,7 +183,7 @@ def test_set_values_scalar_5():
         model.set_values({"axis": (0, 2)})
     assert (
         str(err_info.value)
-        == "Value is set before as (0, 1). A scalar value can not be reset."
+        == "Value is set before as (0, 1). A value can not be reset."
     )
 
 
@@ -199,7 +199,7 @@ def test_set_values_scalar_6():
         model.set_values(config)
     assert (
         str(err_info.value)
-        == "Value is set before as (0, 1). A scalar value can not be reset."
+        == "Value is set before as (0, 1). A value can not be reset."
     )
 
 
@@ -212,7 +212,7 @@ def test_set_values_scalar_6_kwargs_arg():
         model.set_values(config, axis=(0, 1))
     assert (
         str(err_info.value)
-        == "Value is set before as (0, 2). A scalar value can not be reset."
+        == "Value is set before as (0, 2). A value can not be reset."
     )
 
 
@@ -228,7 +228,7 @@ def test_set_values_scalar_6_same_conn_in_config():
         model.set_values(config)
     assert (
         str(err_info.value)
-        == "Value is set before as (0, 2). A scalar value can not be reset."
+        == "Value is set before as (0, 2). A value can not be reset."
     )
 
 
@@ -335,10 +335,7 @@ def test_set_values_tensor_4():
 
     with pytest.raises(Exception) as err_info:
         model.set_values({"sub_out_2": [2, 3, 4]})
-    assert (
-        str(err_info.value)
-        == "Given connections are both output connections. Multi-write error!"
-    )
+    assert str(err_info.value) == "Values of internal and output keys cannot be set."
 
 
 def test_set_values_tensor_5():
@@ -352,10 +349,7 @@ def test_set_values_tensor_5():
 
     with pytest.raises(Exception) as err_info:
         model.set_values({"output": [2, 3, 4]})
-    assert (
-        str(err_info.value)
-        == "Given connections are both output connections. Multi-write error!"
-    )
+    assert str(err_info.value) == "Values of internal and output keys cannot be set."
 
 
 def test_set_values_tensor_6():
@@ -369,7 +363,4 @@ def test_set_values_tensor_6():
 
     with pytest.raises(Exception) as err_info:
         model.set_values({relu2.output: [2, 3, 4]})
-    assert (
-        str(err_info.value)
-        == "Given connections are both output connections. Multi-write error!"
-    )
+    assert str(err_info.value) == "Values of internal and output keys cannot be set."

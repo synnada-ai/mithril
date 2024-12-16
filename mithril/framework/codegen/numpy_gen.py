@@ -285,7 +285,7 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
     def add_cache(self, model: PrimitiveModel, output_key: str):
         cache_name = "_".join([output_key, model.cache_name])
         cache_value: dict | None = None if self.pm.inference else {}
-        # Create a Scalar object for caches in manualgrad backend.
+        # Create A object for caches in manualgrad backend.
         self.pm.data_store.update_data({cache_name: Scalar(dict | None, cache_value)})
 
     def generate_evaluate_gradients(

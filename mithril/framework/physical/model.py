@@ -230,7 +230,7 @@ class PhysicalModel(GenericDataType[DataType]):
                 cache_name = "_".join([mappings[output], p_model.cache_name])
                 mappings["cache"] = cache_name
                 cache_value: dict | None = None if self.inference else dict()
-                # Create a Scalar object for caches in manualgrad backend.
+                # Create A object for caches in manualgrad backend.
                 cache_scalar = Scalar(dict | None, cache_value)
                 self.data_store.update_data({cache_name: cache_scalar})
 
@@ -1434,7 +1434,7 @@ class FlatModel:
         """
 
         for conn in model.conns.input_connections:
-            if conn.metadata.data.value == TBD and conn.metadata not in self.used_edges:
+            if conn.metadata.data.value is TBD and conn.metadata not in self.used_edges:
                 return False
         return True
 

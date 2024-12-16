@@ -191,7 +191,6 @@ def general_tensor_type_constraint(*args: Tensor):
             arg = related_unions.pop()[0]
             updates |= arg.set_type(output._type)
             status = True
-        # elif not out_exists:
         # Update Union type arguments.
         for pair in related_unions:
             arg, arg_type = pair
@@ -3227,7 +3226,7 @@ def scalar_item_constraints(
         # index as the value of index argument.
         if input.value.count(output.value) == 1:
             index.set_value(input.value.index(output.value))
-            updates._add_scalar(index)
+            updates._add_edge(index)
             status = True
     return status, updates
 

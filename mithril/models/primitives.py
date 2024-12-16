@@ -2066,7 +2066,7 @@ class ScaledDotProduct(PrimitiveModel):
         value: TensorValueType | ToBeDetermined = TBD,
         attn_mask: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
-        # TODO: Reconsider how to get attn_mask, could it be a scalar?
+        # TODO: Reconsider how to get attn_mask, could it be A?
         assert (
             not isinstance(is_causal, bool) or not is_causal or not use_attn_mask
         ), "Causal attention is not support attn_mask!"

@@ -5,10 +5,10 @@ Model Name      |                                    Model Keys
                 |             Keys      : Shapes               : Connections         
 =====================================================================================
 Convolution2D   |   Inputs  : weight    : [ 64,  u1,   7,   7] : '$weight_0'         
-                |             padding   :                   -- : 3                   
                 |             $start    :                   -- : -2                  
                 |             $stop     :                   -- : None                
                 |             $step     :                   -- : None                
+                |             padding   :                   -- : 3                   
                 |             stride    :                   -- : 2                   
                 |             dilation  :                   -- : (1, 1)              
                 |             input     : [ u2,  u1,  u3,  u4] : '$input'            

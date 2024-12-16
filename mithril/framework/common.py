@@ -46,6 +46,7 @@ from .utils import (
     align_shapes,
     find_intersection_type,
     find_type,
+    list_shape,
     sort_type,
 )
 
@@ -544,7 +545,7 @@ class Updates:
 
     def add(
         self,
-        symbol: BaseData | Uniadic | Variadic,
+        symbol: Tensor | Scalar | Uniadic | Variadic,
         update_type: UpdateType = UpdateType.SHAPE,
     ) -> None:
         # TODO: Use match case here
@@ -554,15 +555,14 @@ class Updates:
             elif isinstance(symbol, Variadic):
                 self._add_variadic(symbol)
             else:
-                assert isinstance(symbol, Scalar)
-                self._add_scalar(symbol)
+                self._add_edge(symbol)
 
             # TODO: Fill here after type_updates added to class
         elif update_type == UpdateType.TYPE:
             assert isinstance(symbol, Tensor | Scalar)
             self._add_type_update(symbol)
 
-    def _add_scalar(self, symbol: Scalar):
+    def _add_edge(self, symbol: Scalar | Tensor):
         self.value_updates.add(symbol)
         self.constraints[UpdateType.SHAPE] |= symbol.shape_constraints
 
@@ -662,7 +662,7 @@ class BaseData(Generic[T]):
     def set_type(self, typ: T) -> Updates:
         updates = Updates()
         if not self._types_equal(typ):
-            updates.add(self, UpdateType.TYPE)
+            updates.add(self, UpdateType.TYPE)  # type: ignore
             new_type = find_intersection_type(typ, self._type)
             if not new_type:
                 raise TypeError(
@@ -728,27 +728,30 @@ class BaseData(Generic[T]):
         updates = Updates()
         if self.value is not TBD and self.value != value:
             raise ValueError(
-                f"Value is set before as {self.value}. A scalar value can not "
-                "be reset."
+                f"Value is set before as {self.value}. A value can not " "be reset."
             )
         if not isinstance(value, ToBeDetermined):
             # Store current value in order to detect any value changes.
             prev_value = self.value
 
-            updates |= self.set_type(
-                find_dominant_type(value) if self.is_tensor else self.find_type(value)
-            )
+            updates |= self.set_type(self.find_type(value))
             self.value = value
             #  Call constraints if any change occured.
             if self.value != prev_value:
-                updates.add(self)
+                updates.add(self)  # type: ignore
+
+            if self.is_tensor:
+                shape = list_shape(value)  # type: ignore
+                assert isinstance(self.shape, ShapeNode)
+                updates |= self.shape.set_values(shape)
+                self._differentiable = False
         return updates
 
     def find_type(self, value: AllValueType) -> type:
         if isinstance(value, Constant):
             return constant_type_table[value]
         else:
-            return find_type(value)
+            return find_dominant_type(value) if self.is_tensor else find_type(value)
 
     def make_physical(self, backend: Backend[DataType], memo: dict[int, Any]):
         if id(self) in memo:
@@ -1360,11 +1363,12 @@ class Connections:
 
     def get_shape_node(self, key: str) -> ShapeNode:
         data = self._get_metadata(key).data
-        assert isinstance(data, Tensor)
+        if not isinstance(data, Tensor):
+            raise ValueError("'Shape cannot be set for scalar type values'")
         return data.shape
 
     def set_value(self, con: ConnectionData, value: MainValueType):
-        self.get_data(con.key).set_value(value)
+        self.get_data(con.key).set_value(value)  # type: ignore
 
     def extract_metadata(self, key: str | Connection) -> IOHyperEdge:
         if isinstance(key, Connection):

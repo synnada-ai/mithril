@@ -330,9 +330,9 @@ class BaseModel(abc.ABC):
         """
 
         if key.key not in self.conns.input_keys:
-            raise KeyError("Internal or output keys' values cannot be set.")
+            raise ValueError("Values of internal and output keys cannot be set.")
         # Data is scalar, set the value directly.
-        return key.metadata.data.set_value(value)
+        return key.metadata.data.set_value(value)  # type: ignore
 
     def set_shapes(
         self, config: ShapesType | None = None, **kwargs: ShapeTemplateType
