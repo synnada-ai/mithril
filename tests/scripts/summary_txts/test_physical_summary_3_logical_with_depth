@@ -1,93 +1,87 @@
-
-                                            Model                                            
----------------------------------------------------------------------------------------------
-Model Name      |                                        Model Keys                          
-                |             ---------------------------------------------------------------
-                |             Keys     : Shapes   : Types              : Connections         
-=============================================================================================
-KernelizedSVM   |   Inputs  : input1   : [u1, u2] : bool | float | int : '$input'            
-                |             input2   : [u3, u2] : bool | float | int : '$input2'           
-                |             $axis    :       -- : int                : 2                   
-                |             $keepdim :       -- : bool               : False               
-                |             $_input  :       -- : float              : -0.5                
-                |             sigma    :     [ 1] : bool | float | int : '$sigma'            
-                |             l_scale  :     [ 1] : bool | float | int : '$l_scale'          
-                |             w        : [u3,  1] : bool | float | int : '$w'                
-                |             b        :     [ 1] : bool | float | int : '$b'                
-                |   -------------------------------------------------------------------------
-                |   Outputs : kernel   : [u1, u3] : float              : --                  
-                |             output   : [u1,  1] : float              : MLP.input           
----------------------------------------------------------------------------------------------
-MLP             |   Inputs  : input    : [u1,  1] : float              : KernelizedSVM.output
-                |             w0       : [ 1,  3] : bool | float | int : '$w0'               
-                |             b0       :     [ 3] : bool | float | int : '$b0'               
-                |             w1       : [ 3,  4] : bool | float | int : '$w1'               
-                |             b1       :     [ 4] : bool | float | int : '$b1'               
-                |             w2       : [ 4,  5] : bool | float | int : '$w2'               
-                |             b2       :     [ 5] : bool | float | int : '$b2'               
-                |             w3       : [ 5,  6] : bool | float | int : '$w3'               
-                |             b3       :     [ 6] : bool | float | int : '$b3'               
-                |             $_input  :       -- : float              : 0.01                
-                |   -------------------------------------------------------------------------
-                |   Outputs : output   : [u1,  6] : float              : '$output'           
----------------------------------------------------------------------------------------------
+                                           Model                                            
+--------------------------------------------------------------------------------------------
+Model Name      |                                       Model Keys                          
+                |             --------------------------------------------------------------
+                |             Keys    : Shapes   : Types              : Connections         
+============================================================================================
+KernelizedSVM   |   Inputs  : input1  : [u1, u2] : bool | float | int : '$input'            
+                |             input2  : [u3, u2] : bool | float | int : '$input2'           
+                |             sigma   :     [ 1] : bool | float | int : '$sigma'            
+                |             l_scale :     [ 1] : bool | float | int : '$l_scale'          
+                |             weight  : [ 1, u3] : bool | float | int : '$weight'           
+                |             bias    :     [ 1] : bool | float | int : '$bias'             
+                |   ------------------------------------------------------------------------
+                |   Outputs : kernel  : [u1, u3] : float              : --                  
+                |             output  : [u1,  1] : float              : MLP.input           
+--------------------------------------------------------------------------------------------
+MLP             |   Inputs  : weight0 : [ 3,  1] : bool | float | int : '$weight0'          
+                |             input   : [u1,  1] : float              : KernelizedSVM.output
+                |             bias0   :     [ 3] : bool | float | int : '$bias0'            
+                |             weight1 : [ 4,  3] : bool | float | int : '$weight1'          
+                |             bias1   :     [ 4] : bool | float | int : '$bias1'            
+                |             weight2 : [ 5,  4] : bool | float | int : '$weight2'          
+                |             bias2   :     [ 5] : bool | float | int : '$bias2'            
+                |             weight3 : [ 6,  5] : bool | float | int : '$weight3'          
+                |             bias3   :     [ 6] : bool | float | int : '$bias3'            
+                |   ------------------------------------------------------------------------
+                |   Outputs : output  : [u1,  6] : float              : '$output'           
+--------------------------------------------------------------------------------------------
 
 
-                                    KernelizedSVM                                     
---------------------------------------------------------------------------------------
-Model Name   |                                      Model Keys                        
-             |             -----------------------------------------------------------
-             |             Keys     : Shapes   : Types              : Connections     
-======================================================================================
-RBFKernel    |   Inputs  : input1   : [u1, u2] : bool | float | int : 'input1'        
-             |             input2   : [u3, u2] : bool | float | int : 'input2'        
-             |             $axis    :       -- : int                : 2               
-             |             $keepdim :       -- : bool               : False           
-             |             $_input  :       -- : float              : -0.5            
-             |             sigma    :     [ 1] : bool | float | int : 'sigma'         
-             |             l_scale  :     [ 1] : bool | float | int : 'l_scale'       
-             |   ---------------------------------------------------------------------
-             |   Outputs : output   : [u1, u3] : bool | float | int : Linear.input    
-             |                                                        'kernel'        
---------------------------------------------------------------------------------------
-Linear       |   Inputs  : input    : [u1, u3] : float              : RBFKernel.output
-             |             w        : [u3,  1] : bool | float | int : 'w'             
-             |             b        :     [ 1] : bool | float | int : 'b'             
-             |   ---------------------------------------------------------------------
-             |   Outputs : output   : [u1,  1] : float              : 'output'        
---------------------------------------------------------------------------------------
+                                    KernelizedSVM                                    
+-------------------------------------------------------------------------------------
+Model Name   |                                     Model Keys                        
+             |             ----------------------------------------------------------
+             |             Keys    : Shapes   : Types              : Connections     
+=====================================================================================
+RBFKernel    |   Inputs  : input1  : [u1, u2] : bool | float | int : 'input1'        
+             |             input2  : [u3, u2] : bool | float | int : 'input2'        
+             |             $right  :       [] : float              : -0.5            
+             |             sigma   :     [ 1] : bool | float | int : 'sigma'         
+             |             l_scale :     [ 1] : bool | float | int : 'l_scale'       
+             |   --------------------------------------------------------------------
+             |   Outputs : output  : [u1, u3] : bool | float | int : Linear.input    
+             |                                                       'kernel'        
+-------------------------------------------------------------------------------------
+Linear       |   Inputs  : weight  : [ 1, u3] : bool | float | int : 'weight'        
+             |             $axes   :       -- : NoneType           : None            
+             |             input   : [u1, u3] : float              : RBFKernel.output
+             |             bias    :     [ 1] : bool | float | int : 'bias'          
+             |   --------------------------------------------------------------------
+             |   Outputs : output  : [u1,  1] : bool | float | int : 'output'        
+-------------------------------------------------------------------------------------
 
 
-                                       MLP                                        
-----------------------------------------------------------------------------------
-Model Name   |                                    Model Keys                      
-             |             -------------------------------------------------------
-             |             Keys    : Shapes  : Types              : Connections   
-==================================================================================
-Layer_0      |   Inputs  : input   : [u1, 1] : float              : 'input'       
-             |             w       : [ 1, 3] : bool | float | int : 'w0'          
-             |             b       :     [3] : bool | float | int : 'b0'          
-             |   -----------------------------------------------------------------
-             |   Outputs : output  : [u1, 3] : float              : Layer_1.input 
-----------------------------------------------------------------------------------
-Layer_1      |   Inputs  : input   : [u1, 3] : float              : Layer_0.output
-             |             w       : [ 3, 4] : bool | float | int : 'w1'          
-             |             b       :     [4] : bool | float | int : 'b1'          
-             |   -----------------------------------------------------------------
-             |   Outputs : output  : [u1, 4] : float              : Layer_2.input 
-----------------------------------------------------------------------------------
-Layer_2      |   Inputs  : input   : [u1, 4] : float              : Layer_1.output
-             |             w       : [ 4, 5] : bool | float | int : 'w2'          
-             |             b       :     [5] : bool | float | int : 'b2'          
-             |   -----------------------------------------------------------------
-             |   Outputs : output  : [u1, 5] : float              : Layer_3.input 
-----------------------------------------------------------------------------------
-Layer_3      |   Inputs  : input   : [u1, 5] : float              : Layer_2.output
-             |             w       : [ 5, 6] : bool | float | int : 'w3'          
-             |             b       :     [6] : bool | float | int : 'b3'          
-             |             $_input :      -- : float              : 0.01          
-             |   -----------------------------------------------------------------
-             |   Outputs : output  : [u1, 6] : float              : 'output'      
-----------------------------------------------------------------------------------
+                                       MLP                                       
+---------------------------------------------------------------------------------
+Model Name   |                                   Model Keys                      
+             |             ------------------------------------------------------
+             |             Keys   : Shapes  : Types              : Connections   
+=================================================================================
+Layer_0      |   Inputs  : weight : [ 3, 1] : bool | float | int : 'weight0'     
+             |             input  : [u1, 1] : float              : 'input'       
+             |             bias   :     [3] : bool | float | int : 'bias0'       
+             |   ----------------------------------------------------------------
+             |   Outputs : output : [u1, 3] : float              : Layer_1.input 
+---------------------------------------------------------------------------------
+Layer_1      |   Inputs  : weight : [ 4, 3] : bool | float | int : 'weight1'     
+             |             input  : [u1, 3] : float              : Layer_0.output
+             |             bias   :     [4] : bool | float | int : 'bias1'       
+             |   ----------------------------------------------------------------
+             |   Outputs : output : [u1, 4] : float              : Layer_2.input 
+---------------------------------------------------------------------------------
+Layer_2      |   Inputs  : weight : [ 5, 4] : bool | float | int : 'weight2'     
+             |             input  : [u1, 4] : float              : Layer_1.output
+             |             bias   :     [5] : bool | float | int : 'bias2'       
+             |   ----------------------------------------------------------------
+             |   Outputs : output : [u1, 5] : float              : Layer_3.input 
+---------------------------------------------------------------------------------
+Layer_3      |   Inputs  : weight : [ 6, 5] : bool | float | int : 'weight3'     
+             |             input  : [u1, 5] : float              : Layer_2.output
+             |             bias   :     [6] : bool | float | int : 'bias3'       
+             |             $slope :      [] : float              : 0.01          
+             |   ----------------------------------------------------------------
+             |   Outputs : output : [u1, 6] : float              : 'output'      
+---------------------------------------------------------------------------------
 
 

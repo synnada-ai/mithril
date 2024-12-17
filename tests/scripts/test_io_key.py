@@ -16,10 +16,11 @@ from itertools import product
 
 import numpy as np
 import pytest
+import torch
 
 import mithril
 from mithril import TorchBackend
-from mithril.framework.common import NOT_GIVEN, TBD, IOKey, Tensor
+from mithril.framework.common import TBD, IOKey, Tensor
 from mithril.models import (
     Add,
     Buffer,
@@ -32,7 +33,6 @@ from mithril.models import (
     Relu,
     Shape,
     Sigmoid,
-    ToTensor,
 )
 
 from .test_utils import (
@@ -95,15 +95,17 @@ def compare_evaluate(
 def test_1():
     """Tests the case where all named keys are defined with IOKey."""
     model = Model()
-    model += Linear(10)(w=IOKey(name="w_2"))
+    model += Linear(10)(weight=IOKey(name="weight_2"))
     model += Linear(10)(
-        input=model.canonical_output, b=IOKey(name="b_3"), output=IOKey(name="output1")
+        input=model.canonical_output,
+        bias=IOKey(name="bias_3"),
+        output=IOKey(name="output1"),
     )
 
-    expected_input_keys = {"$1", "w_2", "$2", "$4", "b_3"}
+    expected_input_keys = {"$2", "weight_2", "$3", "$5", "bias_3"}
     expected_output_keys = {"output1"}
-    expected_internal_keys = {"$3"}
-    expected_pm_input_keys = {"input", "w_2", "b", "w", "b_3"}
+    expected_internal_keys = {"$4"}
+    expected_pm_input_keys = {"input", "weight_2", "bias", "weight", "bias_3"}
     expected_pm_output_keys = {"output1"}
 
     assert_model_keys(
@@ -121,15 +123,15 @@ def test_2():
     Output1 must be an output key.
     """
     model = Model()
-    model += Linear(10)(w="w_2")
+    model += Linear(10)(weight="weight_2")
     model += Linear(10)(
-        input=model.canonical_output, b="b_3", output=IOKey(name="output1")
+        input=model.canonical_output, bias="bias_3", output=IOKey(name="output1")
     )
 
-    expected_input_keys = {"$1", "w_2", "$2", "$4", "b_3"}
+    expected_input_keys = {"$2", "weight_2", "$3", "$5", "bias_3"}
     expected_output_keys = {"output1"}
-    expected_internal_keys = {"$3"}
-    expected_pm_input_keys = {"input", "w_2", "b", "w", "b_3"}
+    expected_internal_keys = {"$4"}
+    expected_pm_input_keys = {"input", "weight_2", "bias", "weight", "bias_3"}
     expected_pm_output_keys = {"output1"}
 
     assert_model_keys(
@@ -147,13 +149,13 @@ def test_3():
     Output1 must be an internal key.
     """
     model = Model()
-    model += Linear(10)(w="w_2")
-    model += Linear(10)(input=model.canonical_output, b="b_3", output="output1")
+    model += Linear(10)(weight="weight_2")
+    model += Linear(10)(input=model.canonical_output, bias="bias_3", output="output1")
 
-    expected_input_keys = {"$1", "w_2", "$2", "$4", "b_3"}
-    expected_internal_keys = {"$3", "output1"}
-    expected_pm_input_keys = {"input", "w_2", "b", "w", "b_3"}
-    expected_pm_output_keys = {"output"}
+    expected_input_keys = {"$2", "weight_2", "$3", "$5", "bias_3"}
+    expected_internal_keys = {"$4", "output1"}
+    expected_pm_input_keys = {"input", "weight_2", "bias", "weight", "bias_3"}
+    expected_pm_output_keys = {"output1"}
 
     assert_model_keys(
         model=model,
@@ -168,13 +170,13 @@ def test_3():
 def test_4():
     """Tests the case where the IOKey is defined with name and value."""
     model = Model()
-    model += Linear(1)(b=IOKey(name="b_2", value=[1.0]), w="w_2")
-    model += Linear(1)(input=model.canonical_output, b="b_3", output="output1")
+    model += Linear(1)(bias=IOKey(name="bias_2", value=[1.0]), weight="weight_2")
+    model += Linear(1)(input=model.canonical_output, bias="bias_3", output="output1")
 
-    expected_input_keys = {"$2", "b_2", "w_2", "$4", "b_3"}
-    expected_internal_keys = {"$1", "$3", "output1"}
-    expected_pm_input_keys = {"w_2", "w", "b_3", "b_2", "input"}
-    expected_pm_output_keys = {"output"}
+    expected_input_keys = {"$4", "bias_3", "bias_2", "weight_2", "$2"}
+    expected_internal_keys = {"output1", "$3"}
+    expected_pm_input_keys = {"weight_2", "weight", "bias_3", "bias_2", "input"}
+    expected_pm_output_keys = {"output1"}
 
     assert_model_keys(
         model=model,
@@ -189,22 +191,24 @@ def test_4():
 def test_5():
     """Tests the case where the IOKey is defined with name and shape."""
     model = Model()
-    model += Linear()(b=IOKey(name="b_2", shape=[2]), w="w_2")
-    model += Linear()(input=model.canonical_output, b="b_3", output="output1")
+    model += Linear()(bias=IOKey(name="bias_2", shape=[2]), weight="weight_2")
+    model += Linear()(input=model.canonical_output, bias="bias_3", output="output1")
 
-    expected_input_keys = {"w_2", "b_2", "b_3", "$1", "$3"}
-    expected_internal_keys = {"$2", "output1"}
-    expected_pm_input_keys = {"b_3", "w", "b_2", "input", "w_2"}
-    expected_pm_output_keys = {"output"}
+    expected_input_keys = {"weight_2", "bias_2", "bias_3", "$2", "$4"}
+    expected_internal_keys = {"$3", "output1"}
+    expected_pm_input_keys = {"bias_3", "weight", "bias_2", "input", "weight_2"}
+    expected_pm_output_keys = {"output1"}
 
-    expected_shapes: dict[str, list[str | int]] = {
+    expected_shapes: dict[str, list[str | int] | None] = {
         "$_Linear_0_output": ["u1", "(V1, ...)", 2],
         "output1": ["u1", "(V1, ...)", "u2"],
-        "b_2": [2],
+        "bias_2": [2],
         "$input": ["u1", "(V1, ...)", "u3"],
-        "w_2": ["u3", 2],
-        "$w": [2, "u2"],
-        "b_3": ["u2"],
+        "weight_2": [2, "u3"],
+        "$weight": ["u2", 2],
+        "bias_3": ["u2"],
+        "$_Linear_0_axes": None,
+        "$_Linear_1_axes": None,
     }
 
     assert_model_keys(
@@ -225,26 +229,30 @@ def test_6():
     Also some keys have shape and some don't.
     """
     model = Model()
-    model += Linear()(input="input", b="b_1", w=IOKey(name="w_1", shape=[2, 10]))
+    model += Linear()(
+        input="input", bias="bias_1", weight=IOKey(name="weight_1", shape=[10, 2])
+    )
     model += Linear()(
         input=model.canonical_output,
-        b=IOKey(name="b_2", shape=[5]),
+        bias=IOKey(name="bias_2", shape=[5]),
         output=IOKey(name="output1"),
     )
-    expected_input_keys = {"input", "w_1", "b_1", "$2", "b_2"}
+    expected_input_keys = {"input", "weight_1", "bias_1", "$3", "bias_2"}
     expected_output_keys = {"output1"}
-    expected_internal_keys = {"$1"}
-    expected_pm_input_keys = {"w", "b_1", "input", "w_1", "b_2"}
+    expected_internal_keys = {"$2"}
+    expected_pm_input_keys = {"weight", "bias_1", "input", "weight_1", "bias_2"}
     expected_pm_output_keys = {"output1"}
 
-    expected_shapes: dict[str, list[str | int]] = {
+    expected_shapes: dict[str, list[str | int] | None] = {
         "input": ["a", "(V1, ...)", 2],
-        "w_1": [2, 10],
-        "b_1": [10],
+        "weight_1": [10, 2],
+        "bias_1": [10],
         "$_Linear_0_output": ["a", "(V1, ...)", 10],
-        "$w": [10, 5],
-        "b_2": [5],
+        "$weight": [5, 10],
+        "bias_2": [5],
         "output1": ["a", "(V1, ...)", 5],
+        "$_Linear_0_axes": None,
+        "$_Linear_1_axes": None,
     }
 
     assert_model_keys(
@@ -294,8 +302,10 @@ def test_9():
     pm = mithril.compile(model=model, backend=backend, jit=False)
 
     res = pm.evaluate(params={"input": backend.ones(5, 5)})
+    out1 = res["output"]
+    assert isinstance(out1, torch.Tensor)
     np.testing.assert_array_equal(
-        res["output"], backend.array(backend.sigmoid(backend.relu(backend.ones(5, 5))))
+        out1, backend.array(backend.sigmoid(backend.relu(backend.ones(5, 5))))
     )
 
 
@@ -309,10 +319,12 @@ def test_10():
     backend = TorchBackend()
     pm = mithril.compile(model=model, backend=backend, jit=False)
     res = pm.evaluate(params={"input": backend.ones(5, 5)})
+    out = res["output"]
+    assert isinstance(out, torch.Tensor)
 
     assert res.keys() == {"output", "middle"}
     np.testing.assert_array_equal(
-        res["output"], backend.array(backend.sigmoid(backend.relu(backend.ones(5, 5))))
+        out, backend.array(backend.sigmoid(backend.relu(backend.ones(5, 5))))
     )
 
 
@@ -326,8 +338,10 @@ def test_11():
     pm = mithril.compile(model=model, backend=backend, jit=False)
 
     res = pm.evaluate(params={"input": backend.ones(5, 5)})
+    out = res["output"]
+    assert isinstance(out, torch.Tensor)
     np.testing.assert_array_equal(
-        res["output"], backend.array(backend.sigmoid(backend.relu(backend.ones(5, 5))))
+        out, backend.array(backend.sigmoid(backend.relu(backend.ones(5, 5))))
     )
 
 
@@ -340,10 +354,12 @@ def test_12():
     backend = TorchBackend()
     pm = mithril.compile(model=model, backend=backend, jit=False)
     res = pm.evaluate(params={"input": backend.ones(5, 5)})
+    out = res["output"]
+    assert isinstance(out, torch.Tensor)
 
     assert res.keys() == {"output"}
     np.testing.assert_array_equal(
-        res["output"], backend.array(backend.sigmoid(backend.relu(backend.ones(5, 5))))
+        out, backend.array(backend.sigmoid(backend.relu(backend.ones(5, 5))))
     )
 
 
@@ -358,14 +374,16 @@ def test_13():
     backend = TorchBackend()
     pm = mithril.compile(model=model, backend=backend, jit=False)
     res = pm.evaluate(params={"input": backend.ones(5, 5)})
+    out1 = res["output1"]
+    assert isinstance(out1, torch.Tensor)
+    out2 = res["output2"]
+    assert isinstance(out2, torch.Tensor)
 
     assert res.keys() == {"output1", "output2"}
     np.testing.assert_array_equal(
-        res["output1"], backend.array(backend.sigmoid(backend.ones(5, 5)))
+        out1, backend.array(backend.sigmoid(backend.ones(5, 5)))
     )
-    np.testing.assert_array_equal(
-        res["output2"], backend.array(backend.relu(backend.ones(5, 5)))
-    )
+    np.testing.assert_array_equal(out2, backend.array(backend.relu(backend.ones(5, 5))))
 
 
 def test_iokey_shapes_1():
@@ -497,7 +515,7 @@ def test_iokey_values_4():
     # Give name to myaxis value
     model += mean_model1(axis=IOKey(name="myaxis1", value=2, expose=False))
     main_model += model
-    assert len(main_model.conns.input_connections) == 2
+    assert len(main_model.conns.input_connections) == 1
     assert model.myaxis1.metadata.data.value == 2  # type: ignore
 
 
@@ -553,8 +571,9 @@ def test_iokey_values_7():
     model = Model()
     buffer = Buffer()
     mean_model = Mean(axis=TBD)
-    model += buffer(input=IOKey(value=2, name="input"))
-    model += mean_model(input="", axis="input")
+    input = IOKey(value=2, name="input")
+    model += buffer(input=input.tensor())
+    model += mean_model(input="", axis=input)
 
     ref_values = {model.input: 2, mean_model.axis: 2}  # type: ignore
 
@@ -567,11 +586,13 @@ def test_iokey_values_8():
     buffer1 = Buffer()
     buffer2 = Buffer()
     mean_model = Mean(axis=TBD)
+    input1 = IOKey(value=2, name="input1")
+    input2 = IOKey(value=3, name="input2")
 
-    model += buffer1(input=IOKey(value=2, name="input1"))
-    model += buffer2(input=IOKey(value=3, name="input2"))
+    model += buffer1(input=input1.tensor())
+    model += buffer2(input=input2.tensor())
 
-    model += mean_model(input="", axis=(model.input1, model.input2))  # type: ignore
+    model += mean_model(input="", axis=(input1, input2))
 
     ref_values = {model.input1: 2, model.input2: 3, mean_model.axis: (2, 3)}  # type: ignore
 
@@ -582,11 +603,15 @@ def test_iokey_values_9_error():
     """Tests connection functinality of IOKey Tensors"""
     model = Model(enforce_jit=False)
     buffer1 = Buffer()
-    with pytest.raises(ValueError) as err_info:
+
+    with pytest.raises(KeyError) as err_info:
         model += buffer1(
             input=IOKey(name="input1"), output=IOKey(name="output1", value=[2.0])
         )
-    assert str(err_info.value) == "Multi-write detected for a valued input connection!"
+    assert str(err_info.value) == (
+        "'output key is an output of the model"
+        ", output values could not be set in extend.'"
+    )
 
 
 def test_iokey_values_10():
@@ -605,11 +630,12 @@ def test_iokey_values_10():
 
     results = pm.evaluate()
     expected_result = np.array(backend.sigmoid(backend.array([1.0, 2.0])))
-
-    np.testing.assert_allclose(results["output"], expected_result, rtol=1e-6, atol=1e-6)
-    np.testing.assert_allclose(
-        results["output2"], expected_result, rtol=1e-6, atol=1e-6
-    )
+    out = results["output"]
+    out2 = results["output2"]
+    assert isinstance(out, torch.Tensor)
+    assert isinstance(out2, torch.Tensor)
+    np.testing.assert_allclose(out, expected_result, rtol=1e-6, atol=1e-6)
+    np.testing.assert_allclose(out2, expected_result, rtol=1e-6, atol=1e-6)
 
 
 def test_iokey_values_11():
@@ -672,10 +698,9 @@ def test_iokey_tensor_input_all_args():
     """
 
     backend = TorchBackend()
-
     # collect all possible values
-    possible_names = ["input", None]
-    possible_values = [[[2.0]], NOT_GIVEN]
+    possible_names = ["left", None]
+    possible_values = [[[2.0]], TBD]
     possible_shapes = [[1, 1], None]
     possible_expose = [True, False]
 
@@ -707,10 +732,11 @@ def test_iokey_tensor_input_all_args():
             continue
 
         try:
+            # if input._
             # try to extend the model
             model += sub_model(left=input, right="right", output="output")
         except Exception as e:
-            if not expose and value is NOT_GIVEN:
+            if not expose and value is TBD:
                 # if both expose and value is not given, It is an expected error
                 assert isinstance(e, ValueError)
                 assert e.args[0] == (
@@ -726,10 +752,11 @@ def test_iokey_tensor_input_all_args():
         # if code reaches this far. It is expected model to be compiled and evaluated
         # successfully.
         pm = mithril.compile(model=model, backend=backend)
-        if value is NOT_GIVEN:
-            params = {"input": backend.array([[2.0]]), "right": backend.array([[3.0]])}
+        if value is TBD:
+            params = {"left": backend.array([[2.0]]), "right": backend.array([[3.0]])}
         else:
             params = {"right": backend.array([[3.0]])}
+
         outputs = pm.evaluate(params=params)
         assert_results_equal(outputs, ref_outputs)
 
@@ -761,7 +788,7 @@ def test_iokey_scalar_output_all_args():
 
     # collect all possible values
     possible_names = ["output1", None]
-    possible_values = [[[2.0]], NOT_GIVEN]
+    possible_values = [[[2.0]], TBD]
     possible_shapes = [[1, 1], None]
     possible_expose = [True, False]
 
@@ -794,22 +821,23 @@ def test_iokey_scalar_output_all_args():
             # try to extend the model
             model += sub_model(input="input", output=output)
         except Exception as e:
-            if shape:
+            if value is not TBD:
                 # it is an expected error
                 assert isinstance(e, KeyError)
-                assert e.args[0] == "Shape cannot be set for scalar type values"
+                assert e.args[0] == (
+                    "output key is an output of the model"
+                    ", output values could not be set in extend."
+                )
 
             elif name is None and expose:
                 # it is an expected error
                 assert isinstance(e, KeyError)
                 assert e.args[0] == "Connection without a name cannot be set as output"
 
-            elif value is not NOT_GIVEN:
+            elif shape:
                 # it is an expected error
                 assert isinstance(e, ValueError)
-                assert (
-                    e.args[0] == "Multi-write detected for a valued input connection!"
-                )
+                assert e.args[0] == "'Shape cannot be set for scalar type values'"
 
             else:
                 # it is an unexpected error. Raise given exception in that case
@@ -821,7 +849,7 @@ def test_iokey_scalar_output_all_args():
         pm = mithril.compile(model=model, backend=backend, inference=True)
 
         params = {"input": backend.ones(2, 3, 4)}
-        if name is not None and expose:
+        if name is not None:  # and expose:
             ref_outputs = {"output1": (2, 3, 4)}
         else:
             ref_outputs = {"output": (2, 3, 4)}
@@ -872,7 +900,7 @@ def test_iokey_scalar_input_all_args():
             axis = IOKey(name=name, value=value, shape=shape, expose=expose)
         except Exception as e:
             # if it fails and raises an error, try to catch the error
-            if value is not NOT_GIVEN and shape:
+            if value is not TBD and shape:
                 # if value and shape is both given, It is an expected error
                 assert isinstance(e, ValueError)
                 assert e.args[0] == (
@@ -900,8 +928,8 @@ def test_iokey_scalar_input_all_args():
 
             elif shape:
                 # it is an expected error
-                assert isinstance(e, KeyError)
-                assert e.args[0] == "Shape cannot be set for scalar type values"
+                assert isinstance(e, ValueError)
+                assert e.args[0] == "'Shape cannot be set for scalar type values'"
 
             else:
                 # it is an unexpected error. Raise given exception in that case
@@ -952,7 +980,7 @@ def test_iokey_tensor_output_all_args():
 
     # collect all possible values
     possible_names = ["output1", None]
-    possible_values = [[[2.0]], NOT_GIVEN]
+    possible_values = [[[2.0]], TBD]
     possible_shapes = [[1, 1], None]
     possible_expose = [True, False]
 
@@ -985,17 +1013,18 @@ def test_iokey_tensor_output_all_args():
             # try to extend the model
             model += sub_model(left="left", right="right", output=output)
         except Exception as e:
-            if name is None and expose:
+            if value is not TBD:
+                # it is an expected error
+                assert isinstance(e, KeyError)
+                assert e.args[0] == (
+                    "output key is an output of the model"
+                    ", output values could not be set in extend."
+                )
+
+            elif name is None and expose:
                 # it is an expected error
                 assert isinstance(e, KeyError)
                 assert e.args[0] == "Connection without a name cannot be set as output"
-
-            elif value is not NOT_GIVEN:
-                # it is an expected error
-                assert isinstance(e, ValueError)
-                assert (
-                    e.args[0] == "Multi-write detected for a valued input connection!"
-                )
 
             else:
                 # it is an unexpected error. Raise given exception in that case
@@ -1006,7 +1035,7 @@ def test_iokey_tensor_output_all_args():
         # evaluated successfully.
         pm = mithril.compile(model=model, backend=backend)
         params = {"left": backend.array([[2.0]]), "right": backend.array([[3.0]])}
-        if name is not None and expose:
+        if name is not None:  # and expose:
             ref_outputs = {"output1": backend.array([[5.0]])}
         else:
             ref_outputs = {"output": backend.array([[5.0]])}
@@ -1140,7 +1169,7 @@ def test_iokey_shape_error_1():
     model = Model()
     mean_model = Mean(axis=TBD)
 
-    with pytest.raises(KeyError) as err_info:
+    with pytest.raises(ValueError) as err_info:
         model += mean_model(axis=IOKey(name="axis", shape=[2, 3]))
     assert str(err_info.value) == "'Shape cannot be set for scalar type values'"
 
@@ -1148,7 +1177,7 @@ def test_iokey_shape_error_1():
 def test_error_1():
     model = Model()
     with pytest.raises(Exception) as err_info:
-        model += Linear()(b=IOKey(name="b_2", value=[1.0], shape=[1]), w="w_2")
+        model += Linear()(bias=IOKey(name="b_2", value=[1.0], shape=[1]), weight="w_2")
 
     assert (
         str(err_info.value)
@@ -1204,7 +1233,7 @@ def test_iokey_template_3():
     model = Model()
 
     left = IOKey("left")
-    res = left + 3.0
+    res = left + IOKey(value=3.0).tensor()
 
     model += Buffer()(res, IOKey("output"))
 
@@ -1214,7 +1243,7 @@ def test_iokey_template_3():
     res = pm.evaluate(params={"left": backend.array([2.0])})
     expected_result = np.array([5.0])
 
-    assert pm._input_keys == {"left", "_input"}
+    assert pm._input_keys == {"left", "input"}
     assert pm.output_keys == ["output"]
     np.testing.assert_array_equal(res["output"], expected_result)
 
@@ -1225,7 +1254,7 @@ def test_iokey_template_4():
     left = IOKey("left")
     res = left.shape()[0]
 
-    model += Buffer()(res, IOKey("output"))
+    model += Buffer()(res.tensor(), IOKey("output"))
 
     backend = TorchBackend()
 
@@ -1233,7 +1262,7 @@ def test_iokey_template_4():
     res = pm.evaluate(params={"left": backend.ones((9, 8, 7))})
     expected_result = 9
 
-    assert pm._input_keys == {"left"}
+    assert pm._input_keys == {"left", "index"}
     assert pm.output_keys == ["output"]
     np.testing.assert_array_equal(res["output"], expected_result)
 
@@ -1269,7 +1298,9 @@ def test_iokey_template_6():
     pm._output_keys = {"output"}
 
     res = pm.evaluate(params={"input": backend.ones((3, 4, 5))})
-    np.testing.assert_almost_equal(res["output"], np.ones((4, 5)))
+    out = res["output"]
+    assert isinstance(out, torch.Tensor)
+    np.testing.assert_almost_equal(out, np.ones((4, 5)))
 
 
 def test_iokey_template_7():
@@ -1349,7 +1380,7 @@ def test_iokey_template_11():
     input = IOKey("input")
 
     model += Buffer()(input, IOKey("output1"))
-    model += ToTensor()(input, output=IOKey("output2"))
+    model += Buffer()(input, output=IOKey("output2"))
     backend = TorchBackend()
     pm = mithril.compile(model=model, backend=backend, inference=True, jit=False)
 

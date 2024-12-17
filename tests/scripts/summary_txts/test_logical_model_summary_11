@@ -5,13 +5,15 @@ Model Name   |                            Model Keys
              |             ---------------------------------------
              |             Keys    : Shapes      : Connections    
 ==================================================================
-Model_0      |   Inputs  : input1  : [(V1, ...)] : Model_1.output1
-             |             input2  : [(V1, ...)] : Model_1.output1
-             |             input3  : [(V1, ...)] : Model_1.output1
+Model_2      |   Inputs  : input1  : [(V1, ...)] : '$input'       
+             |             input2  : [(V2, ...)] : '$input2'      
+             |             input3  : [(V3, ...)] : '$input3'      
              |   -------------------------------------------------
-             |   Outputs : output1 : [(V1, ...)] : 'output1'      
-             |             output2 : [(V1, ...)] : 'output2'      
-             |             output3 : [(V1, ...)] : 'output3'      
+             |   Outputs : output1 : [(V1, ...)] : Model_1.input1 
+             |                                     Model_1.input2 
+             |                                     Model_1.input3 
+             |             output2 : [(V2, ...)] : --             
+             |             output3 : [(V3, ...)] : --             
 ------------------------------------------------------------------
 Model_1      |   Inputs  : input1  : [(V1, ...)] : Model_2.output1
              |             input2  : [(V1, ...)] : Model_2.output1
@@ -23,15 +25,13 @@ Model_1      |   Inputs  : input1  : [(V1, ...)] : Model_2.output1
              |             output2 : [(V1, ...)] : 'output4'      
              |             output3 : [(V1, ...)] : 'output5'      
 ------------------------------------------------------------------
-Model_2      |   Inputs  : input1  : [(V1, ...)] : '$input'       
-             |             input2  : [(V2, ...)] : '$input2'      
-             |             input3  : [(V3, ...)] : '$input3'      
+Model_0      |   Inputs  : input1  : [(V1, ...)] : Model_1.output1
+             |             input2  : [(V1, ...)] : Model_1.output1
+             |             input3  : [(V1, ...)] : Model_1.output1
              |   -------------------------------------------------
-             |   Outputs : output1 : [(V1, ...)] : Model_1.input1 
-             |                                     Model_1.input2 
-             |                                     Model_1.input3 
-             |             output2 : [(V2, ...)] : --             
-             |             output3 : [(V3, ...)] : --             
+             |   Outputs : output1 : [(V1, ...)] : 'output1'      
+             |             output2 : [(V1, ...)] : 'output2'      
+             |             output3 : [(V1, ...)] : 'output3'      
 ------------------------------------------------------------------
 
 

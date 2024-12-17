@@ -30,7 +30,7 @@ from mithril.framework.common import (
     Table,
     UniadicRecord,
     Variadic,
-    _get_summary_shapes,
+    get_summary_shapes,
 )
 from mithril.framework.utils import define_unique_names
 from mithril.models import (
@@ -91,22 +91,39 @@ def test_extract_logical_connections_1():
     lin1 = Linear()
     lin2 = Linear()
     lin3 = Linear()
-    model1 += lin1(input="input", w="w", b="b", output=IOKey(name="output"))
-    model1 += lin2(input=lin1.output, w=lin1.output, output=IOKey(name="output2"))
-    model1 += lin3(input=lin1.w, w=lin1.w, output=IOKey(name="output3"))
+    model1 += lin1(
+        input="input", weight="weight", bias="bias", output=IOKey(name="output")
+    )
+    model1 += lin2(input=lin1.output, weight=lin1.output, output=IOKey(name="output2"))
+    model1 += lin3(input=lin1.weight, weight=lin1.weight, output=IOKey(name="output3"))
     name_mappings = define_unique_names(model1.dag)
     conns = model1.extract_connection_info(name_mappings)
     assert conns == {
         "Linear_0": (
-            {"input": ["'input'"], "b": ["'b'"], "w": ["'w'"]},
-            {"output": ["Linear_1.input", "Linear_1.w", "'output'"]},
+            {
+                "weight": ["'weight'"],
+                "$axes": ["None"],
+                "input": ["'input'"],
+                "bias": ["'bias'"],
+            },
+            {"output": ["Linear_1.weight", "Linear_1.input", "'output'"]},
         ),
         "Linear_1": (
-            {"input": ["Linear_0.output"], "w": ["Linear_0.output"], "b": ["'$_b_0'"]},
+            {
+                "weight": ["Linear_0.output"],
+                "$axes": ["None"],
+                "input": ["Linear_0.output"],
+                "bias": ["'$_bias_0'"],
+            },
             {"output": ["'output2'"]},
         ),
         "Linear_2": (
-            {"input": ["'w'"], "w": ["'w'"], "b": ["'$_b_1'"]},
+            {
+                "weight": ["'weight'"],
+                "$axes": ["None"],
+                "input": ["'weight'"],
+                "bias": ["'$_bias_1'"],
+            },
             {"output": ["'output3'"]},
         ),
     }
@@ -211,31 +228,17 @@ def test_extract_logical_connections_5():
     ref_conns = {
         "Model_0": (
             {
-                "$kernel": ["'$kernel_0'"],
-                "$padding_0": ["2"],
-                "$stride_0": ["1"],
-                "$dilation_0": ["1"],
+                "$weight": ["'$weight_0'"],
                 "$input": ["'$input'"],
                 "$bias": ["'$bias_0'"],
-                "$stride_1": ["None"],
-                "$kernel_size": ["2"],
-                "$padding_1": ["(0, 0)"],
-                "$dilation_1": ["1"],
             },
             {"$output": ["Model_1.$input"]},
         ),
         "Model_1": (
             {
-                "$kernel": ["'$kernel_1'"],
-                "$padding_0": ["2"],
-                "$stride_0": ["1"],
-                "$dilation_0": ["1"],
+                "$weight": ["'$weight_1'"],
                 "$input": ["Model_0.$output"],
                 "$bias": ["'$bias_1'"],
-                "$stride_1": ["None"],
-                "$kernel_size": ["2"],
-                "$padding_1": ["(0, 0)"],
-                "$dilation_1": ["1"],
             },
             {"$output": ["Flatten.input"]},
         ),
@@ -244,11 +247,21 @@ def test_extract_logical_connections_5():
             {"output": ["Linear_0.input"]},
         ),
         "Linear_0": (
-            {"input": ["Flatten.output"], "w": ["'$w_0'"], "b": ["'$b_0'"]},
+            {
+                "weight": ["'$weight_2'"],
+                "$axes": ["None"],
+                "input": ["Flatten.output"],
+                "bias": ["'$bias_2'"],
+            },
             {"output": ["Linear_1.input"]},
         ),
         "Linear_1": (
-            {"input": ["Linear_0.output"], "w": ["'$w_1'"], "b": ["'$b_1'"]},
+            {
+                "weight": ["'$weight_3'"],
+                "$axes": ["None"],
+                "input": ["Linear_0.output"],
+                "bias": ["'$bias_3'"],
+            },
             {"output": ["'$output'"]},
         ),
     }
@@ -265,7 +278,12 @@ def test_extract_logical_connections_6():
     conns = model.extract_connection_info(name_mappings)
     ref_conns = {
         "Linear": (
-            {"input": ["'input'"], "w": ["'$w'"], "b": ["'$b'"]},
+            {
+                "weight": ["'$weight'"],
+                "$axes": ["None"],
+                "input": ["'input'"],
+                "bias": ["'$bias'"],
+            },
             {"output": ["Flatten.input", "'output'"]},
         ),
         "Flatten": (
@@ -295,7 +313,12 @@ def test_extract_logical_connections_7():
 
     ref_conns = {
         "Linear": (
-            {"input": ["'input'"], "w": ["'$w_0'"], "b": ["'$b_0'"]},
+            {
+                "weight": ["'$weight_0'"],
+                "$axes": ["None"],
+                "input": ["'input'"],
+                "bias": ["'$bias_0'"],
+            },
             {"output": ["Sigmoid.input", "'output'"]},
         ),
         "Sigmoid": ({"input": ["Linear.output"]}, {"output": ["Mean.input"]}),
@@ -305,21 +328,17 @@ def test_extract_logical_connections_7():
         ),
         "Model_0": (
             {
+                "$weight": ["'$weight_1'"],
                 "input": ["Mean.output"],
-                "$w": ["'$w_1'"],
-                "$b": ["'$b_1'"],
-                "$axis": ["None"],
-                "$keepdim": ["True"],
+                "$bias": ["'$bias_1'"],
             },
             {"output": [], "$output": ["Model_1.input"]},
         ),
         "Model_1": (
             {
+                "$weight": ["'$weight_2'"],
                 "input": ["Model_0.$output"],
-                "$w": ["'$w_2'"],
-                "$b": ["'$b_2'"],
-                "$axis": ["None"],
-                "$keepdim": ["True"],
+                "$bias": ["'$bias_2'"],
             },
             {"output": [], "$output": ["Flatten.input"]},
         ),
@@ -486,31 +505,17 @@ def test_extract_logical_connections_13():
     ref_conns = {
         "Model_0": (
             {
-                "$kernel": ["'$kernel_0'"],
-                "$padding_0": ["2"],
-                "$stride_0": ["1"],
-                "$dilation_0": ["1"],
+                "$weight": ["'$weight_0'"],
                 "$input": ["'$input'"],
                 "$bias": ["'$bias_0'"],
-                "$stride_1": ["None"],
-                "$kernel_size": ["2"],
-                "$padding_1": ["(0, 0)"],
-                "$dilation_1": ["1"],
             },
             {"$output": ["Model_1.$input"]},
         ),
         "Model_1": (
             {
-                "$kernel": ["'$kernel_1'"],
-                "$padding_0": ["2"],
-                "$stride_0": ["1"],
-                "$dilation_0": ["1"],
+                "$weight": ["'$weight_1'"],
                 "$input": ["Model_0.$output"],
                 "$bias": ["'$bias_1'"],
-                "$stride_1": ["None"],
-                "$kernel_size": ["2"],
-                "$padding_1": ["(0, 0)"],
-                "$dilation_1": ["1"],
             },
             {"$output": ["Flatten.input"]},
         ),
@@ -519,11 +524,21 @@ def test_extract_logical_connections_13():
             {"output": ["Linear_0.input"]},
         ),
         "Linear_0": (
-            {"input": ["Flatten.output"], "w": ["'$w_0'"], "b": ["'$b_0'"]},
+            {
+                "weight": ["'$weight_2'"],
+                "$axes": ["None"],
+                "input": ["Flatten.output"],
+                "bias": ["'$bias_2'"],
+            },
             {"output": ["Linear_1.input"]},
         ),
         "Linear_1": (
-            {"input": ["Linear_0.output"], "w": ["'$w_1'"], "b": ["'$b_1'"]},
+            {
+                "weight": ["'$weight_3'"],
+                "$axes": ["None"],
+                "input": ["Linear_0.output"],
+                "bias": ["'$bias_3'"],
+            },
             {"output": ["'$output'"]},
         ),
     }
@@ -548,7 +563,7 @@ def test_extract_shapes_logical_1():
         sub_model_name: sub_model.get_shapes(uni_cache, var_cache, False, False)
         for sub_model, sub_model_name in name_mappings.items()
     }
-    shape_info = _get_summary_shapes(model_shapes, conn_info)
+    shape_info = get_summary_shapes(model_shapes, conn_info)
     assert shape_info == {
         "Buffer_0": ({"input": [37, 23]}, {"output": [37, 23]}),
         "Buffer_1": ({"input": [37, 23]}, {"output": [37, 23]}),
@@ -570,7 +585,7 @@ def test_extract_shapes_logical_2():
         sub_model_name: sub_model.get_shapes(uni_cache, var_cache, False, False)
         for sub_model, sub_model_name in name_mappings.items()
     }
-    shape_info = _get_summary_shapes(model_shapes, conn_info)
+    shape_info = get_summary_shapes(model_shapes, conn_info)
     assert shape_info == {
         "Buffer_0": ({"input": [45, 96, 2]}, {"output": [45, 96, 2]}),
         "Buffer_1": ({"input": [45, 96, 2]}, {"output": [45, 96, 2]}),
@@ -586,7 +601,7 @@ def test_extract_shapes_logical_3():
     relu_2 = Relu()
     relu_3 = Relu()
 
-    model += linear_1(input="input", w="w", b="b")
+    model += linear_1(input="input", weight="weight", bias="bias")
     model += relu_1
     model += linear_2
     model += relu_2
@@ -601,16 +616,22 @@ def test_extract_shapes_logical_3():
         sub_model_name: sub_model.get_shapes(uni_cache, var_cache, symbolic=True)
         for sub_model, sub_model_name in name_mappings.items()
     }
-    shape_info = _get_summary_shapes(model_shapes, conn_info)
+    shape_info = get_summary_shapes(model_shapes, conn_info)
     assert shape_info == {
         "Linear_0": (
-            {"input": [4, "u1"], "w": ["u1", 4], "b": [4]},
+            {"weight": [4, "u1"], "$axes": None, "input": [4, "u1"], "bias": [4]},
             {"output": [4, 4]},
         ),
         "Relu_0": ({"input": [4, 4]}, {"output": [4, 4]}),
-        "Linear_1": ({"input": [4, 4], "w": [4, 2], "b": [2]}, {"output": [4, 2]}),
+        "Linear_1": (
+            {"weight": [2, 4], "$axes": None, "input": [4, 4], "bias": [2]},
+            {"output": [4, 2]},
+        ),
         "Relu_1": ({"input": [4, 2]}, {"output": [4, 2]}),
-        "Linear_2": ({"input": [4, 2], "w": [2, 1], "b": [1]}, {"output": [4, 1]}),
+        "Linear_2": (
+            {"weight": [1, 2], "$axes": None, "input": [4, 2], "bias": [1]},
+            {"output": [4, 1]},
+        ),
         "Relu_2": ({"input": [4, 1]}, {"output": [4, 1]}),
     }
 
@@ -624,7 +645,7 @@ def test_extract_shapes_logical_4():
     relu_2 = Relu()
     relu_3 = Relu()
     conv_1.set_shapes({"input": [5, 4, 60, 60]})
-    model += conv_1(input="input", kernel="kernel")
+    model += conv_1(input="input", weight="weight")
     model += relu_1
     model += conv_2
     model += relu_2
@@ -638,26 +659,32 @@ def test_extract_shapes_logical_4():
         sub_model_name: sub_model.get_shapes(uni_cache, var_cache, symbolic=False)
         for sub_model, sub_model_name in name_mappings.items()
     }
-    shape_info = _get_summary_shapes(model_shapes, conn_info)
+    shape_info = get_summary_shapes(model_shapes, conn_info)
     assert shape_info == {
         "Convolution2D_0": (
             {
-                "kernel": [3, 4, 3, 3],
+                "weight": [3, 4, 3, 3],
+                "input": [5, 4, 60, 60],
+                "bias": [1, 3, 1, 1],
                 "padding": None,
                 "stride": None,
                 "dilation": None,
-                "input": [5, 4, 60, 60],
-                "bias": [1, 3, 1, 1],
+                "$start": None,
+                "$stop": None,
+                "$step": None,
             },
             {"output": [5, 3, 58, 58]},
         ),
         "Relu_0": ({"input": [5, 3, 58, 58]}, {"output": [5, 3, 58, 58]}),
         "Convolution2D_1": (
             {
-                "kernel": [5, 3, 3, 3],
+                "weight": [5, 3, 3, 3],
                 "padding": None,
                 "stride": None,
                 "dilation": None,
+                "$start": None,
+                "$stop": None,
+                "$step": None,
                 "input": [5, 3, 58, 58],
                 "bias": [1, 5, 1, 1],
             },
@@ -666,10 +693,13 @@ def test_extract_shapes_logical_4():
         "Relu_1": ({"input": [5, 5, 56, 56]}, {"output": [5, 5, 56, 56]}),
         "Convolution2D_2": (
             {
-                "kernel": [5, 5, 2, 2],
+                "weight": [5, 5, 2, 2],
                 "padding": None,
                 "stride": None,
                 "dilation": None,
+                "$start": None,
+                "$stop": None,
+                "$step": None,
                 "input": [5, 5, 56, 56],
                 "bias": [1, 5, 1, 1],
             },
@@ -688,7 +718,7 @@ def test_extract_shapes_logical_5():
     relu_2 = Relu()
     relu_3 = Relu()
 
-    model += linear_1(input="input", w="w", b="b")
+    model += linear_1(input="input", weight="weight", bias="bias")
     model += relu_1
     model += linear_2
     model += relu_2
@@ -703,23 +733,23 @@ def test_extract_shapes_logical_5():
         sub_model_name: sub_model.get_shapes(uni_cache, var_cache, symbolic=True)
         for sub_model, sub_model_name in name_mappings.items()
     }
-    shape_info = _get_summary_shapes(model_shapes, conn_info)
+    shape_info = get_summary_shapes(model_shapes, conn_info)
     assert shape_info == {
         "Linear_0": (
-            {"input": ["u1", "u2"], "w": ["u2", 4], "b": [4]},
-            {"output": ["u1", 4]},
+            {"weight": [4, "u1"], "$axes": None, "input": ["u2", "u1"], "bias": [4]},
+            {"output": ["u2", 4]},
         ),
-        "Relu_0": ({"input": ["u1", 4]}, {"output": ["u1", 4]}),
+        "Relu_0": ({"input": ["u2", 4]}, {"output": ["u2", 4]}),
         "Linear_1": (
-            {"input": ["u1", 4], "w": [4, 2], "b": [2]},
-            {"output": ["u1", 2]},
+            {"weight": [2, 4], "$axes": None, "input": ["u2", 4], "bias": [2]},
+            {"output": ["u2", 2]},
         ),
-        "Relu_1": ({"input": ["u1", 2]}, {"output": ["u1", 2]}),
+        "Relu_1": ({"input": ["u2", 2]}, {"output": ["u2", 2]}),
         "Linear_2": (
-            {"input": ["u1", 2], "w": [2, 1], "b": [1]},
-            {"output": ["u1", 1]},
+            {"weight": [1, 2], "$axes": None, "input": ["u2", 2], "bias": [1]},
+            {"output": ["u2", 1]},
         ),
-        "Relu_2": ({"input": ["u1", 1]}, {"output": ["u1", 1]}),
+        "Relu_2": ({"input": ["u2", 1]}, {"output": ["u2", 1]}),
     }
 
 
@@ -787,7 +817,7 @@ def test_table_1():
     table.add_header(headers)
     for list in list_1:
         table.add_row(list)
-    table._compile(row_sep="  ")
+    table.compile(row_sep="  ")
 
     cells = table.cell_str
     n_of_rows = cells.count("\n") - 2
@@ -803,7 +833,7 @@ def test_table_2():
     table.add_header(headers)
     for list in list_1:
         table.add_row(list)
-    table._compile(row_sep="  ")
+    table.compile(row_sep="  ")
     cells = table.cell_str
     n_of_rows = cells.count("\n") - 2
     assert n_of_rows == 4
@@ -818,7 +848,7 @@ def test_table_3():
     table.add_header(headers)
     for list in list_1:
         table.add_row(list)
-    table._compile(row_sep="  ")
+    table.compile(row_sep="  ")
     cells = table.cell_str
     n_of_rows = cells.count("\n") - 2
     assert n_of_rows == 4
@@ -835,7 +865,7 @@ def test_table_4():
     table.add_header(subheaders)
     for list in list_1:
         table.add_row(list)
-    table._compile(row_sep=" | ")
+    table.compile(row_sep=" | ")
     cells = table.cell_str
     n_of_rows = cells.count("\n") - 2
     assert n_of_rows == 4
@@ -852,7 +882,7 @@ def test_table_5():
     table.add_header(subheaders)
     for list in list_1:
         table.add_row(list)
-    table._compile(row_sep=" | ")
+    table.compile(row_sep=" | ")
     cells = table.cell_str
     n_of_rows = cells.count("\n") - 2
     assert n_of_rows == 12
@@ -879,7 +909,7 @@ def test_physical_summary_1():
     ref_table = ""
     with open("tests/scripts/summary_txts/test_physical_summary_1") as f:
         ref_table = f.read()
-    assert "\n" + summary.getvalue() == ref_table
+    assert summary.getvalue() == ref_table
 
 
 def test_physical_summary_2():
@@ -905,7 +935,7 @@ def test_physical_summary_2():
     with open("tests/scripts/summary_txts/test_physical_summary_2") as f:
         ref_table = f.read()
 
-    assert "\n" + summary.getvalue() == ref_table
+    assert summary.getvalue() == ref_table
 
 
 def test_physical_summary_3():
@@ -928,7 +958,7 @@ def test_physical_summary_3():
     with open("tests/scripts/summary_txts/test_physical_summary_3") as f:
         ref_table = f.read()
 
-    assert "\n" + summary.getvalue() == ref_table
+    assert summary.getvalue() == ref_table
 
 
 def test_physical_summary_3_logical_with_depth():
@@ -953,7 +983,7 @@ def test_physical_summary_3_logical_with_depth():
     ) as f:
         ref_table = f.read()
 
-    assert "\n" + summary.getvalue() == ref_table
+    assert summary.getvalue() == ref_table
 
 
 def test_physical_summary_4():
@@ -974,7 +1004,7 @@ def test_physical_summary_4():
     ref_table = ""
     with open("tests/scripts/summary_txts/test_physical_summary_4") as f:
         ref_table = f.read()
-    assert "\n" + summary.getvalue() == ref_table
+    assert summary.getvalue() == ref_table
 
 
 def test_physical_summary_5():
@@ -991,7 +1021,7 @@ def test_physical_summary_5():
     ref_table = ""
     with open("tests/scripts/summary_txts/test_physical_summary_5") as f:
         ref_table = f.read()
-    assert "\n" + summary.getvalue() == ref_table
+    assert summary.getvalue() == ref_table
 
 
 def test_physical_model_summary_5():
@@ -1024,7 +1054,12 @@ def test_physical_model_summary_6():
     random_kernel_model += (relu1 := Relu())(input=add1.output)
     random_kernel_model += Sigmoid()(input=relu1.output, output="output")
     model += random_kernel_model(input1="input1", input2="input2")
-    model += Linear()(input=random_kernel_model.output, w="w", b="b", output="output")  # type: ignore
+    model += Linear()(
+        input=random_kernel_model.output,  # type: ignore
+        weight="weight",
+        bias="b",
+        output="output",
+    )
     random_kernel_model.set_shapes({"input1": ["N", "M"], "input2": ["N", "M"]})
 
     comp_model = mithril.compile(model=model, backend=JaxBackend())
@@ -1034,7 +1069,7 @@ def test_physical_model_summary_6():
     ref_table = ""
     with open("tests/scripts/summary_txts/test_physical_model_summary_6") as f:
         ref_table = f.read()
-    assert "\n" + summary.getvalue() == ref_table
+    assert summary.getvalue() == ref_table
 
 
 def test_physical_model_summary_7():
@@ -1042,7 +1077,9 @@ def test_physical_model_summary_7():
     random_kernel_model += (add1 := Add())(left="input1", right="input2")
     random_kernel_model += (relu1 := Relu())(input=add1.output)
     random_kernel_model += (sig1 := Sigmoid())(input=relu1.output)
-    random_kernel_model += Linear()(input=sig1.output, w="w", b="b", output="output")
+    random_kernel_model += Linear()(
+        input=sig1.output, weight="weight", bias="b", output="output"
+    )
     random_kernel_model.set_shapes({"input1": ["N", "M"], "input2": ["N", "M"]})
 
     comp_model = mithril.compile(model=random_kernel_model, backend=JaxBackend())
@@ -1052,7 +1089,7 @@ def test_physical_model_summary_7():
     ref_table = ""
     with open("tests/scripts/summary_txts/test_physical_model_summary_7") as f:
         ref_table = f.read()
-    assert "\n" + summary.getvalue() == ref_table
+    assert summary.getvalue() == ref_table
 
 
 def test_physical_model_summary_8():
@@ -1184,33 +1221,47 @@ def test_physical_summary_15():
     lin_model_2 = Linear(dimension=3)
     lin_model_3 = Linear(dimension=3)
     lin_model_4 = Linear(dimension=3)
-    model += lin_model_1(input="input", w="w", b="b", output=IOKey(name="output1"))
-    model += lin_model_2(input="input", w="w", b="b", output=IOKey(name="output2"))
-    model += lin_model_3(input="input", w="w", b="b", output=IOKey(name="output3"))
-    model += lin_model_4(input="input", w="w", b="b", output=IOKey(name="output4"))
+    model += lin_model_1(
+        input="input", weight="weight", bias="b", output=IOKey(name="output1")
+    )
+    model += lin_model_2(
+        input="input", weight="weight", bias="b", output=IOKey(name="output2")
+    )
+    model += lin_model_3(
+        input="input", weight="weight", bias="b", output=IOKey(name="output3")
+    )
+    model += lin_model_4(
+        input="input", weight="weight", bias="b", output=IOKey(name="output4")
+    )
     lin_model_1.input.set_differentiable(True)
 
     comp_model = mithril.compile(model=model, backend=JaxBackend(), jit=False)
-    ...
+
     with redirect_stdout(StringIO()) as summary:
         comp_model.summary(model=lin_model_4, verbose=True)
+
     ref_table = ""
     with open("tests/scripts/summary_txts/test_physical_summary_15") as f:
         ref_table = f.read()
-    assert "\n" + summary.getvalue() == ref_table
+    assert summary.getvalue() == ref_table
 
 
 def test_physical_summary_16():
     model = Model()
     lin_model_1 = Linear(dimension=3)
-    matmul_model_1, add_model_1 = tuple(lin_model_1.dag.keys())
+    *_, add_model_1 = tuple(lin_model_1.dag.keys())
     lin_model_2 = Linear(dimension=3)
-    matmul_model_2, add_model_2 = tuple(lin_model_2.dag.keys())
     lin_model_3 = Linear(dimension=3)
-    matmul_model_3, add_model_3 = tuple(lin_model_3.dag.keys())
-    model += lin_model_1(input="input", w="w", b="b", output=IOKey(name="output1"))
-    model += lin_model_2(input="input", w="w", b="b", output=IOKey(name="output2"))
-    model += lin_model_3(input="input", w="w", b="b", output=IOKey(name="output3"))
+
+    model += lin_model_1(
+        input="input", weight="weight", bias="b", output=IOKey(name="output1")
+    )
+    model += lin_model_2(
+        input="input", weight="weight", bias="b", output=IOKey(name="output2")
+    )
+    model += lin_model_3(
+        input="input", weight="weight", bias="b", output=IOKey(name="output3")
+    )
 
     comp_model = mithril.compile(model=model, backend=JaxBackend())
 
@@ -1221,18 +1272,18 @@ def test_physical_summary_16():
     with open("tests/scripts/summary_txts/test_physical_summary_16") as f:
         ref_table = f.read()
 
-    assert "\n" + summary.getvalue() == ref_table
+    assert summary.getvalue() == ref_table
 
 
 def test_physical_summary_17():
     model = Model()
     lin_model_1 = Linear(dimension=3)
-    matmul_model_1, _ = tuple(lin_model_1.dag.keys())
+    _, matmul_model_1, _ = tuple(lin_model_1.dag.keys())
     lin_model_2 = Linear(dimension=3)
     lin_model_3 = Linear(dimension=3)
-    model += lin_model_1(input="input", w="w", b="b", output="output1")
-    model += lin_model_2(input="input", w="w", b="b", output="output2")
-    model += lin_model_3(input="input", w="w", b="b", output="output3")
+    model += lin_model_1(input="input", weight="weight", bias="b", output="output1")
+    model += lin_model_2(input="input", weight="weight", bias="b", output="output2")
+    model += lin_model_3(input="input", weight="weight", bias="b", output="output3")
     lin_model_1.input.set_differentiable(True)
 
     comp_model = mithril.compile(model=model, backend=JaxBackend())
@@ -1244,7 +1295,7 @@ def test_physical_summary_17():
     with open("tests/scripts/summary_txts/test_physical_summary_17") as f:
         ref_table = f.read()
 
-    assert "\n" + summary.getvalue() == ref_table
+    assert summary.getvalue() == ref_table
 
 
 def test_resnet_18_physical_summary():
@@ -1252,13 +1303,15 @@ def test_resnet_18_physical_summary():
     assert isinstance(model.canonical_input, Connection)
     model.canonical_input.set_differentiable(True)
     comp_model = mithril.compile(model=model, backend=TorchBackend(), jit=False)
+
     with redirect_stdout(StringIO()) as summary:
         comp_model.summary(verbose=True, shapes=True, symbolic=True)
+
     ref_table = ""
     with open("tests/scripts/summary_txts/test_resnet_18_physical_summary") as f:
         ref_table = f.read()
 
-    assert "\n" + summary.getvalue() == ref_table
+    assert summary.getvalue() == ref_table
 
 
 def test_resnet18_summary():
@@ -1270,7 +1323,7 @@ def test_resnet18_summary():
     with open("tests/scripts/summary_txts/test_resnet18_summary") as f:
         ref_table = f.read()
 
-    assert "\n" + summary.getvalue() == ref_table
+    assert summary.getvalue() == ref_table
 
 
 def test_logical_model_summary_1():
@@ -1283,7 +1336,7 @@ def test_logical_model_summary_1():
     with open("tests/scripts/summary_txts/test_logical_model_summary_1") as f:
         ref_table = f.read()
 
-    assert "\n" + summary.getvalue() == ref_table
+    assert summary.getvalue() == ref_table
 
 
 def test_logical_model_summary_2():
@@ -1303,7 +1356,7 @@ def test_logical_model_summary_2():
     with open("tests/scripts/summary_txts/test_logical_model_summary_2") as f:
         ref_table = f.read()
 
-    assert "\n" + summary.getvalue() == ref_table
+    assert summary.getvalue() == ref_table
 
 
 def test_logical_model_summary_3():
@@ -1363,13 +1416,15 @@ def test_logical_model_summary_5():
     model += Flatten(start_dim=1)
     model += Linear(1000)
     model += Linear(1)
+
     with redirect_stdout(StringIO()) as summary:
         model.summary(shapes=True, symbolic=True)
+
     ref_table = ""
     with open("tests/scripts/summary_txts/test_logical_model_summary_5") as f:
         ref_table = f.read()
 
-    assert "\n" + summary.getvalue() == ref_table
+    assert summary.getvalue() == ref_table
 
 
 def test_logical_model_summary_6():
@@ -1560,7 +1615,24 @@ def test_logical_model_summary_13():
     with open("tests/scripts/summary_txts/test_logical_model_summary_13") as f:
         ref_table = f.read()
 
-    assert "\n" + summary.getvalue() == ref_table
+    assert summary.getvalue() == ref_table
+
+
+def test_simple_extend_from_input_summary():
+    model = Model()
+    model += Linear(dimension=5)(input="lin", output="output")
+    model += Linear(dimension=3)(input="input", output="lin")
+
+    model._freeze()
+
+    with redirect_stdout(StringIO()) as summary:
+        model.summary(shapes=True, symbolic=True)
+
+    ref_table = ""
+    with open("tests/scripts/summary_txts/test_simple_extend_from_input_summary") as f:
+        ref_table = f.read()
+
+    assert summary.getvalue() == ref_table
 
 
 def test_primitive_model_summary_1():
@@ -1693,7 +1765,7 @@ def test_summary_nontensor_models():
     lin_model = Linear()
     to_tensor_model = ToTensor()
 
-    model += lin_model(input="input", w="w", b="b")
+    model += lin_model(input="input", weight="weight", bias="b")
     model += shape_model(input=lin_model.output, output=IOKey("output1"))
     model += mean_model(input=lin_model.output, output=IOKey("output2"))
     model += size_model(input=lin_model.output, output=IOKey("output3"))
@@ -1705,7 +1777,7 @@ def test_summary_nontensor_models():
     with open("tests/scripts/summary_txts/test_summary_nontensor_models") as f:
         ref_table = f.read()
 
-    assert "\n" + summary.getvalue() == ref_table
+    assert summary.getvalue() == ref_table
 
 
 def test_traincontext_summary():
@@ -1720,7 +1792,7 @@ def test_traincontext_summary():
         reduce_steps=[Mean()],
         coef=0.1,
     )
-    ctx.add_regularization(L1(), coef=0.1, input="w1")
+    ctx.add_regularization(L1(), coef=0.1, input="weight1")
     with redirect_stdout(StringIO()) as summary:
         ctx.summary()
 
@@ -1728,7 +1800,7 @@ def test_traincontext_summary():
     with open("tests/scripts/summary_txts/test_traincontext_summary") as f:
         ref_table = f.read()
 
-    assert "\n" + summary.getvalue() == ref_table
+    assert summary.getvalue() == ref_table
 
 
 def test_traincontext_summary_2():
@@ -1869,14 +1941,14 @@ def test_traincontext_summary_resnet():
     model = resnet34(1)
     ctx = TrainModel(model)
     ctx.add_loss(SquaredError(), input="output", target="target", reduce_steps=[Mean()])
-    ctx.add_regularization(L1(), input="kernel_20", coef=0.1)
+    ctx.add_regularization(L1(), input="weight_20", coef=0.1)
     with redirect_stdout(StringIO()) as summary:
         ctx.summary(depth=1)
     ref_table = ""
     with open("tests/scripts/summary_txts/test_traincontext_summary_resnet") as f:
         ref_table = f.read()
 
-    assert "\n" + summary.getvalue() == ref_table
+    assert summary.getvalue() == ref_table
 
 
 def test_traincontext_summary_regex_reg():
@@ -1885,15 +1957,15 @@ def test_traincontext_summary_regex_reg():
     )
     ctx = TrainModel(model)
     ctx.add_loss(SquaredError(), input="output", target="target", reduce_steps=[Mean()])
-    ctx.add_regularization(L2(), input=re.compile("w\\d"), coef=0.1)
-    ctx.add_regularization(L1(), input=re.compile("w\\d"), coef=0.1)
+    ctx.add_regularization(L2(), input=re.compile("weight\\d"), coef=0.1)
+    ctx.add_regularization(L1(), input=re.compile("weight\\d"), coef=0.1)
     with redirect_stdout(StringIO()) as summary:
         ctx.summary(depth=1)
     ref_table = ""
     with open("tests/scripts/summary_txts/test_traincontext_summary_regex_reg") as f:
         ref_table = f.read()
 
-    assert "\n" + summary.getvalue() == ref_table
+    assert summary.getvalue() == ref_table
 
 
 def test_traincontext_summary_7():
@@ -1910,12 +1982,28 @@ def test_traincontext_summary_7():
     loss_model = Model()
     loss_model += Add()(left="l1", right="r1", output=IOKey(name="out"))
     ctx.add_loss(loss_model, l1="output", r1="target", reduce_steps=[Mean()])
-    ctx.add_regularization(reg_model, foo=re.compile("w\\d"), coef=0.1)
-    ctx.add_regularization(L1(), input=re.compile("w\\d"), coef=0.1)
+    ctx.add_regularization(reg_model, foo=re.compile("weight\\d"), coef=0.1)
+    ctx.add_regularization(L1(), input=re.compile("weight\\d"), coef=0.1)
     with redirect_stdout(StringIO()) as summary:
         ctx.summary()
     ref_table = ""
     with open("tests/scripts/summary_txts/test_traincontext_summary_7") as f:
         ref_table = f.read()
 
-    assert "\n" + summary.getvalue() == ref_table
+    assert summary.getvalue() == ref_table
+
+
+def test_summary_of_nested_composite_model_with_names():
+    lin = Linear(name="lin")
+    model = Model(name="my_model")
+    model += lin
+
+    with redirect_stdout(StringIO()) as summary:
+        model.summary()
+
+    ref_table = ""
+    with open(
+        "tests/scripts/summary_txts/test_summary_of_nested_composite_model_with_names"
+    ) as f:
+        ref_table = f.read()
+    assert summary.getvalue() == ref_table

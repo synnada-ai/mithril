@@ -175,7 +175,7 @@ def compile_and_compare(
                                 < backend.abs(v) * relative_tolerance
                             )
                         )
-                    ) and (out.shape == (() if isinstance(v, float) else v.shape))
+                    ) and (out.shape == (() if isinstance(v, float) else v.shape))  # type: ignore
                 else:
                     if not isinstance(eq := (out == v), bool):
                         eq = eq.all()
@@ -397,13 +397,13 @@ def test_nan_to_num_1():
 def test_linear_1():
     model = Linear()
     model.input.set_differentiable(True)
-    params = {"input": [[1.0], [2.0], [3.0], [4.0]], "w": [[0.2]], "b": [0.5]}
+    params = {"input": [[1.0], [2.0], [3.0], [4.0]], "weight": [[0.2]], "bias": [0.5]}
     output_gradients = {"output": [[1.0], [1.0], [1.0], [1.0]]}
     reference_outputs = {"output": [[0.7], [0.9], [1.1], [1.3]]}
     reference_gradients = {
         "input": [[0.2], [0.2], [0.2], [0.2]],
-        "w": [[10.0]],
-        "b": [4.0],
+        "weight": [[10.0]],
+        "bias": [4.0],
     }
     compile_and_compare(
         model=model,
@@ -428,9 +428,9 @@ def test_train_model_linear_1():
         "input": [[1.0], [2.0], [3.0], [4.0]],
         "target": [[0.7], [0.9], [1.1], [1.3]],
     }
-    params = {"w": [[0.2]], "b": [0.5]}
+    params = {"weight": [[0.2]], "bias": [0.5]}
     reference_outputs = {"final_cost": 0.0, "output": [[0.7], [0.9], [1.1], [1.3]]}
-    reference_gradients = {"w": [[0.0]], "b": [0.0]}
+    reference_gradients = {"weight": [[0.0]], "bias": [0.0]}
     compile_and_compare(
         model=train_model,
         compile_kwargs={"constant_keys": statics},
@@ -453,7 +453,7 @@ def test_conv1d_1():
     }
 
     params = {
-        "kernel": [[[1.0, 1.0, 1.0]], [[2.0, 2.0, 2.0]]],
+        "weight": [[[1.0, 1.0, 1.0]], [[2.0, 2.0, 2.0]]],
         "bias": [[[1.0], [1.0]]],
     }
 
@@ -463,7 +463,7 @@ def test_conv1d_1():
     }
 
     reference_gradients = {
-        "kernel": [[[2.0, 3.0, 4.0]], [[25.0, 34.0, 43.0]]],
+        "weight": [[[2.0, 3.0, 4.0]], [[25.0, 34.0, 43.0]]],
         "bias": [[[1.0], [9.0]]],
     }
 
@@ -490,14 +490,14 @@ def test_conv1d_2():
     }
 
     params = {
-        "kernel": [[[1.0, 1.0, 1.0, 1.0]], [[2.0, 2.0, 2.0, 2.0]]],
+        "weight": [[[1.0, 1.0, 1.0, 1.0]], [[2.0, 2.0, 2.0, 2.0]]],
         "bias": [[[1.0], [1.0]]],
     }
 
     reference_outputs = {"final_cost": 10.25, "output": [[[11.0, 15.0], [21.0, 29.0]]]}
 
     reference_gradients = {
-        "kernel": [[[5.0, 7.5, 10.0, 12.5]], [[4.0, 6.0, 8.0, 10.0]]],
+        "weight": [[[5.0, 7.5, 10.0, 12.5]], [[4.0, 6.0, 8.0, 10.0]]],
         "bias": [[[2.5], [2.0]]],
     }
 
@@ -524,7 +524,7 @@ def test_conv1d_3():
     }
 
     params = {
-        "kernel": [[[1.0, 1.0, 1.0]], [[2.0, 2.0, 2.0]]],
+        "weight": [[[1.0, 1.0, 1.0]], [[2.0, 2.0, 2.0]]],
     }
 
     reference_outputs = {
@@ -532,7 +532,7 @@ def test_conv1d_3():
         "output": [[[6.0, 9.0, 12.0], [12.0, 18.0, 24.0]]],
     }
 
-    reference_gradients = {"kernel": [[[2.0, 3.0, 4.0]], [[25.0, 34.0, 43.0]]]}
+    reference_gradients = {"weight": [[[2.0, 3.0, 4.0]], [[25.0, 34.0, 43.0]]]}
 
     compile_and_compare(
         model=train_model,
@@ -557,12 +557,12 @@ def test_conv1d_4():
     }
 
     params = {
-        "kernel": [[[1.0, 1.0, 1.0]], [[2.0, 2.0, 2.0]]],
+        "weight": [[[1.0, 1.0, 1.0]], [[2.0, 2.0, 2.0]]],
     }
 
     reference_outputs = {"final_cost": 146.250, "output": [[[6.0, 12.0], [12.0, 24.0]]]}
 
-    reference_gradients = {"kernel": [[[0.0, 0.0, 0.0]], [[37.5, 51.0, 64.5]]]}
+    reference_gradients = {"weight": [[[0.0, 0.0, 0.0]], [[37.5, 51.0, 64.5]]]}
 
     compile_and_compare(
         model=train_model,
@@ -587,7 +587,7 @@ def test_conv1d_5():
     }
 
     params = {
-        "kernel": [[[1.0, 1.0, 1.0]], [[2.0, 2.0, 2.0]]],
+        "weight": [[[1.0, 1.0, 1.0]], [[2.0, 2.0, 2.0]]],
     }
 
     reference_outputs = {
@@ -595,7 +595,7 @@ def test_conv1d_5():
         "output": [[[3.0, 6.0, 9.0, 12.0, 9.0], [6.0, 12.0, 18.0, 24.0, 18.0]]],
     }
 
-    reference_gradients = {"kernel": [[[1.2, 1.8, 2.4]], [[15.0, 20.4, 25.8]]]}
+    reference_gradients = {"weight": [[[1.2, 1.8, 2.4]], [[15.0, 20.4, 25.8]]]}
 
     compile_and_compare(
         model=train_model,
@@ -620,7 +620,7 @@ def test_conv1d_6():
     }
 
     params = {
-        "kernel": [[[1.0, 1.0, 1.0]], [[2.0, 2.0, 2.0]]],
+        "weight": [[[1.0, 1.0, 1.0]], [[2.0, 2.0, 2.0]]],
         "bias": [[[1.0], [1.0]]],
     }
 
@@ -630,7 +630,7 @@ def test_conv1d_6():
     }
 
     reference_gradients = {
-        "kernel": [[[1.2, 1.8, 2.4]], [[15.0, 20.4, 25.8]]],
+        "weight": [[[1.2, 1.8, 2.4]], [[15.0, 20.4, 25.8]]],
         "bias": [[[0.6], [5.4]]],
     }
 
@@ -709,7 +709,7 @@ def test_where_2():
 
 
 def test_arange_1():
-    model = Arange(0, 10, 1)
+    model = Arange(start=0, stop=10, step=1)
 
     reference_outputs = {"output": [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]}
 
@@ -726,7 +726,7 @@ def test_arange_1():
 
 
 def test_arange_2():
-    model = Arange(5, 10, 2)
+    model = Arange(start=5, stop=10, step=2)
 
     reference_outputs = {"output": [5.0, 7.0, 9.0]}
 
@@ -1655,7 +1655,7 @@ def test_scaled_dot_product_2():
 
 def test_slice_1():
     # Tuple slice
-    model = PrimitiveSlice(2, 3)
+    model = PrimitiveSlice(start=2, stop=3)
 
     data = {"input": (1, 2, 3.0, 4, 5)}
 
@@ -1680,7 +1680,7 @@ def test_slice_1():
 
 def test_slice_2():
     # Tuple slice
-    model = PrimitiveSlice(None, 3)
+    model = PrimitiveSlice(start=None, stop=3)
 
     data = {"input": (1, 2, 3.0, 4, 5)}
 
@@ -1705,7 +1705,7 @@ def test_slice_2():
 
 def test_slice_3():
     # Tuple slice
-    model = PrimitiveSlice(None, 3, 2)
+    model = PrimitiveSlice(start=None, stop=3, step=2)
 
     data = {"input": (1, 2, 3.0, 4, 5)}
 
@@ -1730,7 +1730,7 @@ def test_slice_3():
 
 def test_slice_4():
     # Tuple slice
-    model = PrimitiveSlice(None, None, 2)
+    model = PrimitiveSlice(start=None, stop=None, step=2)
 
     data = {"input": (1, 2, 3.0, 4, 5)}
 
@@ -1876,7 +1876,7 @@ def test_union_3():
 
 def test_index_1():
     # List index
-    model = ScalarItem(2)
+    model = ScalarItem(index=2)
 
     data = {"input": [1, 2, 3, 4, 5]}
 
@@ -1901,7 +1901,7 @@ def test_index_1():
 
 def test_index_2():
     # Tuple index
-    model = ScalarItem(2)
+    model = ScalarItem(index=2)
 
     data = {"input": (1, 2, 3.0, 4, 5)}
 
@@ -2289,7 +2289,7 @@ def test_reduce_argmin_2():
 
 
 def test_reduce_argmin_3():
-    model = ArgMin(1)
+    model = ArgMin(axis=1)
     statics = {"input": [[-7.0, -8.0], [6.0, 6.0], [6.0, 5.0]]}
 
     reference_outputs = {"output": [1, 0, 1]}
@@ -2307,7 +2307,7 @@ def test_reduce_argmin_3():
 
 
 def test_reduce_argmin_4():
-    model = ArgMin(1, keepdim=True)
+    model = ArgMin(axis=1, keepdim=True)
     statics = {"input": [[-7.0, -8.0], [6.0, 6.0], [6.0, 5.0]]}
 
     reference_outputs = {"output": [[1], [0], [1]]}
@@ -2325,7 +2325,7 @@ def test_reduce_argmin_4():
 
 
 def test_reduce_argmin_5():
-    model = ArgMin(1)
+    model = ArgMin(axis=1)
     statics = {
         "input": [
             [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]],
@@ -2349,7 +2349,7 @@ def test_reduce_argmin_5():
 
 
 def test_reduce_argmin_6():
-    model = ArgMin(0)
+    model = ArgMin(axis=0)
     statics = {
         "input": [
             [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]],
@@ -2376,7 +2376,7 @@ def test_cast_int16():
     model = Cast(dtype=mithril.int16)
     inp_int = np.array([1, -2, 3], dtype=np.int32)
     inp_float = np.array([1, -2, 3], dtype=np.float32)
-    backends: list[Backend] = [
+    backends: list[TorchBackend | JaxBackend | NumpyBackend | MlxBackend] = [
         TorchBackend(precision=16),
         TorchBackend(precision=32),
         TorchBackend(precision=64),
@@ -2404,16 +2404,19 @@ def test_cast_int16():
 
     for backend in backends:
         for static in statics.values():
-            static = backend.array(static)
+            assert isinstance(static, np.ndarray)
+            backend_static = backend.array(static)
             pm = mithril.compile(
                 model,
-                backend,
-                constant_keys={"input": static},
+                backend,  # type: ignore
+                constant_keys={"input": backend_static},
                 inference=True,
             )
             res = pm.evaluate()
-            assert res["output"].dtype == expected_dtypes[backend.type]
-            np.testing.assert_allclose(res["output"], reference_outputs["output"])
+            res_out = res["output"]
+            assert isinstance(res_out, backend.DataType)
+            assert res_out.dtype == expected_dtypes[backend.type]
+            np.testing.assert_allclose(res_out, reference_outputs["output"])
 
 
 def test_cast_int32():
@@ -2456,8 +2459,10 @@ def test_cast_int32():
                 inference=True,
             )
             res = pm.evaluate()
-            assert res["output"].dtype == expected_dtypes[backend.type]
-            np.testing.assert_allclose(res["output"], reference_outputs["output"])
+            res_out = res["output"]
+            assert isinstance(res_out, backend.DataType)  # type: ignore
+            assert res_out.dtype == expected_dtypes[backend.type]
+            np.testing.assert_allclose(res_out, reference_outputs["output"])
 
 
 def test_cast_int64():
@@ -2500,15 +2505,15 @@ def test_cast_int64():
                 inference=True,
             )
             res = pm.evaluate()
-            assert res["output"].dtype == expected_dtypes[backend.type]
-            np.testing.assert_allclose(res["output"], reference_outputs["output"])
+            assert res["output"].dtype == expected_dtypes[backend.type]  # type: ignore
+            np.testing.assert_allclose(res["output"], reference_outputs["output"])  # type: ignore
 
 
 def test_cast_float16():
     model = Cast(dtype=mithril.float16)
     inp_int = np.array([1, -2, 3], dtype=np.int32)
     inp_float = np.array([1, -2, 3], dtype=np.float32)
-    backends: list[Backend] = [
+    backends: list[TorchBackend | JaxBackend | NumpyBackend | MlxBackend] = [
         TorchBackend(precision=16),
         TorchBackend(precision=32),
         TorchBackend(precision=64),
@@ -2536,16 +2541,17 @@ def test_cast_float16():
 
     for backend in backends:
         for static in statics.values():
-            static = backend.array(static)
+            _static = backend.array(static)
             pm = mithril.compile(
                 model,
-                backend,
-                constant_keys={"input": static},
+                backend,  # type: ignore
+                constant_keys={"input": _static},
                 inference=True,
             )
-            res = pm.evaluate()
-            assert res["output"].dtype == expected_dtypes[backend.type]
-            np.testing.assert_allclose(res["output"], reference_outputs["output"])
+            res = pm.evaluate()["output"]
+            assert isinstance(res, backend.DataType)
+            assert res.dtype == expected_dtypes[backend.type]
+            np.testing.assert_allclose(res, reference_outputs["output"])
 
 
 def test_cast_float32():
@@ -2588,8 +2594,10 @@ def test_cast_float32():
                 inference=True,
             )
             res = pm.evaluate()
-            assert res["output"].dtype == expected_dtypes[backend.type]
-            np.testing.assert_allclose(res["output"], reference_outputs["output"])
+            res_out = res["output"]
+            assert isinstance(res_out, backend.DataType)  # type: ignore
+            assert res_out.dtype == expected_dtypes[backend.type]
+            np.testing.assert_allclose(res_out, reference_outputs["output"])
 
 
 def test_cast_float64():
@@ -2628,8 +2636,10 @@ def test_cast_float64():
                 inference=True,
             )
             res = pm.evaluate()
-            assert res["output"].dtype == expected_dtypes[backend.type]
-            np.testing.assert_allclose(res["output"], reference_outputs["output"])
+            res_out = res["output"]
+            assert isinstance(res_out, backend.DataType)  # type: ignore
+            assert res_out.dtype == expected_dtypes[backend.type]
+            np.testing.assert_allclose(res_out, reference_outputs["output"])
 
 
 def test_cast_bool():
@@ -2672,8 +2682,10 @@ def test_cast_bool():
                 inference=True,
             )
             res = pm.evaluate()
-            assert res["output"].dtype == expected_dtypes[backend.type]
-            np.testing.assert_allclose(res["output"], reference_outputs["output"])
+            res_out = res["output"]
+            assert isinstance(res_out, backend.DataType)  # type: ignore
+            assert res_out.dtype == expected_dtypes[backend.type]
+            np.testing.assert_allclose(res_out, reference_outputs["output"])
 
 
 def test_dtype_int16():
@@ -3159,8 +3171,8 @@ def test_groupnorm_2():
     model = GroupNorm(4)
 
     input = np.arange(160, dtype=np.float32)
-    input = input.reshape(1, 16, 10, 1)
-    input = np.broadcast_to(input, (2, 16, 10, 4))
+    input = input.reshape((1, 16, 10, 1))  # type: ignore
+    input = np.broadcast_to(input, (2, 16, 10, 4))  # type: ignore
     input = np.concatenate([input, 0.5 * input], axis=-1)
 
     weight = np.random.randn(1, 16, 1, 1)

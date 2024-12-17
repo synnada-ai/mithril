@@ -335,10 +335,12 @@ def test_add_metric_1():
     input = backend.randn(5, 5)
     c_model = mithril.compile(ctx2, backend, data_keys={"input"})
     result = c_model.evaluate({}, {"input": input})
+    res_metric = result["metric"]
+    assert isinstance(res_metric, np.ndarray)
 
     assert "metric" in ctx2.output_keys
-    assert result["metric"].shape == input.shape
-    np.testing.assert_almost_equal(result["metric"], np.where(input > 0, input, 0))
+    assert res_metric.shape == input.shape
+    np.testing.assert_almost_equal(res_metric, np.where(input > 0, input, 0))
 
 
 def test_add_metric_2():
@@ -359,16 +361,21 @@ def test_add_metric_2():
 
     expected_metric = np.array(np.mean(np.where(input > 0, input, 0)))
     assert "metric" in ctx2.output_keys
-    assert result["metric"].shape == expected_metric.shape
-    np.testing.assert_almost_equal(result["metric"], expected_metric)
+    res_metric = result["metric"]
+    assert isinstance(res_metric, np.ndarray)
+    assert res_metric.shape == expected_metric.shape
+    np.testing.assert_almost_equal(res_metric, expected_metric)
 
 
 def test_add_regularization_case_1():
     model = Model()
     linear_1 = Linear()
-    model += linear_1(output="output", **{key: key for key in linear_1._input_keys})
+    model += linear_1(
+        output="output",
+        **{key: key for key in linear_1._input_keys if not key.startswith("$")},
+    )
     ctx = TrainModel(model)
-    ctx.add_regularization(model=L2(), coef=1e-1, input="w")
+    ctx.add_regularization(model=L2(), coef=1e-1, input="weight")
     with pytest.raises(Exception) as err_info:
         mithril.compile(model=ctx, backend=NumpyBackend(precision=64))
 
@@ -380,11 +387,13 @@ def test_add_regularization_case_2():
     linear_1 = Linear()
 
     model.extend(
-        linear_1, output="output", **{key: key for key in linear_1._input_keys}
+        linear_1,
+        output="output",
+        **{key: key for key in linear_1._input_keys if not key.startswith("$")},
     )
     ctx = TrainModel(model)
     with pytest.raises(KeyError) as err_info:
-        ctx.add_regularization(model=L2(), coef=1e-1, input="w", output="output1")
+        ctx.add_regularization(model=L2(), coef=1e-1, input="weight", output="output1")
 
     assert (
         str(err_info.value)
@@ -395,39 +404,51 @@ def test_add_regularization_case_2():
 def test_add_regularization_case_3():
     model = Model()
     linear_1 = Linear()
-    model += linear_1(output="output", **{key: key for key in linear_1._input_keys})
+    model += linear_1(
+        output="output",
+        **{key: key for key in linear_1._input_keys if not key.startswith("$")},
+    )
 
     ctx = TrainModel(model)
-    ctx.add_regularization(l2_model_1 := L2(), coef=1e-1, input="w")
-    ctx.add_regularization(l2_model_2 := L2(), coef=1e-1, input="w")
+    ctx.add_regularization(l2_model_1 := L2(), coef=1e-1, input="weight")
+    ctx.add_regularization(l2_model_2 := L2(), coef=1e-1, input="weight")
 
-    assert_metadata_equal(l2_model_1.input, l2_model_2.input, linear_1.w)
+    assert_metadata_equal(l2_model_1.input, l2_model_2.input, linear_1.weight)
 
 
 def test_add_regularization_case_6():
     model = Model()
     linear_1 = Linear()
-    model += linear_1(output="output", **{key: key for key in linear_1._input_keys})
+    model += linear_1(
+        output="output",
+        **{key: key for key in linear_1._input_keys if not key.startswith("$")},
+    )
 
     ctx = TrainModel(model)
-    ctx.add_regularization(model_1 := L2(), coef=1e-1, input=linear_1.w)
-    ctx.add_regularization(model_2 := L2(), coef=1e-1, input=linear_1.w)
+    ctx.add_regularization(model_1 := L2(), coef=1e-1, input=linear_1.weight)
+    ctx.add_regularization(model_2 := L2(), coef=1e-1, input=linear_1.weight)
 
-    assert_metadata_equal(model_1.input, model_2.input, linear_1.w)
+    assert_metadata_equal(model_1.input, model_2.input, linear_1.weight)
 
 
 def test_add_regularization_case_7():
     model = Model()
     linear_1 = Linear()
-    model += linear_1(output="output", **{key: key for key in linear_1._input_keys})
-
-    ctx = TrainModel(model)
-    ctx.add_regularization(model=L2(), coef=1e-1, input="w")
-    ctx.add_regularization(
-        model_1 := QuadraticFormRegularizer(), coef=1e-1, input="w", kernel="kernel"
+    model += linear_1(
+        output="output",
+        **{key: key for key in linear_1._input_keys if not key.startswith("$")},
     )
 
-    assert_metadata_equal(linear_1.w, model_1.input)
+    ctx = TrainModel(model)
+    ctx.add_regularization(model=L2(), coef=1e-1, input="weight")
+    ctx.add_regularization(
+        model_1 := QuadraticFormRegularizer(),
+        coef=1e-1,
+        input="weight",
+        kernel="kernel",
+    )
+
+    assert_metadata_equal(linear_1.weight, model_1.input)
 
 
 def test_add_regularization_case_7_exception():
@@ -437,17 +458,20 @@ def test_add_regularization_case_7_exception():
     model = Model()
     linear_1 = Linear()
     model += linear_1(
-        output=IOKey(name="output"), **{key: key for key in linear_1._input_keys}
+        output=IOKey(name="output"),
+        **{key: key for key in linear_1._input_keys if not key.startswith("$")},
     )
 
     ctx = TrainModel(model)
-    ctx.add_regularization(model=L2(), coef=1e-1, input="w")
+    ctx.add_regularization(model=L2(), coef=1e-1, input="weight")
     ctx.add_loss(SquaredError(), input="output", target="target")
 
     # Finalize train model.
     ctx._finalize()
     with pytest.raises(Exception) as err_info:
-        ctx.add_regularization(model=QuadraticFormRegularizer(), coef=1e-1, input="w")
+        ctx.add_regularization(
+            model=QuadraticFormRegularizer(), coef=1e-1, input="weight"
+        )
 
     assert (
         str(err_info.value) == "No modifications can be made to a finalized TrainModel!"
@@ -456,14 +480,14 @@ def test_add_regularization_case_7_exception():
 
 def test_autogenerated_key_regularization_integrated_linear_9():
     model = Model()
-    model += Linear()(input="input", b="b", output=IOKey(name="output"))
+    model += Linear()(input="input", bias="b", output=IOKey(name="output"))
 
     ctx = TrainModel(model)
     # Here, user did not provide any naming for the weight to be regularized.
     # So he/she can find correpsonding autogenerated key from the summary and
     # provide the full-name or regex pattern for the key/keys.
     # TODO: Uncomment below summary call.
-    ctx.add_regularization(model=L1(), coef=1e-1, input=re.compile("w$"))
+    ctx.add_regularization(model=L1(), coef=1e-1, input=re.compile("weight$"))
     ctx.add_loss(SquaredError(), [Mean()], input="output", target="target")
     ctx.set_loss_combiner(Mean())
 
@@ -472,7 +496,7 @@ def test_autogenerated_key_regularization_integrated_linear_9():
         "input": backend.array([[0.1, 0.1], [0.2, 0.2], [0.3, 0.2]]),
         "target": backend.array([[1.0], [2.0], [3.0]]),
     }
-    params = {"w": backend.array([[2.0], [1.0]]), "b": backend.array([0.2])}
+    params = {"weight": backend.array([[2.0, 1.0]]), "b": backend.array([0.2])}
 
     # train_model = ctx.finalize_model()
     comp_train_model = mithril.compile(
@@ -483,20 +507,22 @@ def test_autogenerated_key_regularization_integrated_linear_9():
 
     result = comp_train_model.evaluate(params, data)
     gradients = comp_train_model.evaluate_gradients(params, data=data)
+    res_out = result["output"]
+    res_cost = result["final_cost"]
+    assert isinstance(res_out, np.ndarray)
+    assert isinstance(res_cost, np.ndarray)
 
-    assert (
-        backend.abs(result["output"] - backend.array([[0.5], [0.8], [1.0]])) <= 1e-14
-    ).all()
-    assert (
-        result["final_cost"] - 1.996666666666666666666666666666666666666667
-    ) <= 1e-14
+    assert (backend.abs(res_out - backend.array([[0.5], [0.8], [1.0]])) <= 1e-14).all()
+    assert (res_cost - 1.996666666666666666666666666666666666666667) <= 1e-14
     assert (
         backend.abs(
-            gradients["w"]
+            gradients["weight"]
             - backend.array(
                 [
-                    [-0.5599999999999999999666666666666666666667],
-                    [-0.42666666666666666666666667],
+                    [
+                        -0.5599999999999999999666666666666666666667,
+                        -0.42666666666666666666666667,
+                    ],
                 ]
             )
         )
@@ -519,7 +545,7 @@ def test_autogenerated_key_regularization_integrated_nn_7_regex():
     # So he/she can find correpsonding autogenerated key from the summary and
     # provide the full-name or regex pattern for the key/keys.
 
-    ctx.add_regularization(model=L2(), coef=1e-1, input=re.compile("w\\d"))
+    ctx.add_regularization(model=L2(), coef=1e-1, input=re.compile("weight\\d"))
     ctx.add_loss(
         CrossEntropy(input_type="probs"), [Mean()], input="output", target="target"
     )
@@ -528,10 +554,10 @@ def test_autogenerated_key_regularization_integrated_nn_7_regex():
     backend = NumpyBackend(precision=64)
     data = {"input": backend.array([[1.0]]), "target": backend.array([0])}
     params = {
-        "w0": backend.array([[1.0, 2, 3]]),
-        "w1": backend.array([[-1.0, -2], [0, 0], [1, 2]]),
-        "b0": backend.array([-2.0, -3, 0]),
-        "b1": backend.array([-5.0, 5]),
+        "weight0": backend.array([[1.0], [2], [3]]),
+        "weight1": backend.array([[-1.0, 0, 1], [-2, 0, 2]]),
+        "bias0": backend.array([-2.0, -3, 0]),
+        "bias1": backend.array([-5.0, 5]),
     }
 
     # train_model = ctx.finalize_model()
@@ -542,11 +568,15 @@ def test_autogenerated_key_regularization_integrated_nn_7_regex():
     )
 
     result = comp_train_model.evaluate(params, data)
+    res_final_cost = result["final_cost"]
+    res_out = result["output"]
+    assert isinstance(res_final_cost, np.ndarray)
+    assert isinstance(res_out, np.ndarray)
     gradients = comp_train_model.evaluate_gradients(params, data=data)
 
     assert (
         backend.abs(
-            result["output"]
+            res_out
             - backend.array(
                 [
                     [
@@ -558,22 +588,21 @@ def test_autogenerated_key_regularization_integrated_nn_7_regex():
         )
         <= 1e-14
     ).all()
-    assert (result["final_cost"] - 11.883655622163706) <= 1e-14
+    assert (res_final_cost - 11.883655622163706) <= 1e-14
     assert (
         backend.abs(
-            gradients["w0"]
-            - backend.array([[-0.09660742759420338, 0.2, 0.34517562444230764]])
+            gradients["weight0"]
+            - backend.array([[-0.09660742759420338], [0.2], [0.34517562444230764]])
         )
         <= 1e-14
     ).all()
     assert (
         backend.abs(
-            gradients["w1"]
+            gradients["weight1"]
             - backend.array(
                 [
-                    [-0.36893525818771367, 0.06893525818771368],
-                    [-0.26893525818771363, 0.2689352581877137],
-                    [-0.8525522972063397, 1.15255229720634],
+                    [-0.36893525818771367, -0.26893525818771363, -0.8525522972063397],
+                    [0.06893525818771368, 0.2689352581877137, 1.15255229720634],
                 ]
             )
         )
@@ -581,14 +610,15 @@ def test_autogenerated_key_regularization_integrated_nn_7_regex():
     ).all()
     assert (
         backend.abs(
-            gradients["b0"]
+            gradients["bias0"]
             - backend.array([-0.19660742759420338, 0, 0.04517562444230764])
         )
         <= 1e-14
     ).all()
     assert (
         backend.abs(
-            gradients["b1"] - backend.array([-0.9999770835513174, 0.9999770835513175])
+            gradients["bias1"]
+            - backend.array([-0.9999770835513174, 0.9999770835513175])
         )
         <= 1e-14
     ).all()
@@ -642,8 +672,8 @@ def test_add_loss_compile_shape_1():
         "$_Mean_2_output": [],
         "input": ["(V1, ...)"],
         "target": ["(V3, ...)"],
-        "$axis": None,
-        "$keepdim": None,
+        "$_Mean_2_axis": None,
+        "$_Mean_2_keepdim": None,
     }
 
     assert ctx2.shapes == ctx1.shapes == initial_shapes
@@ -662,23 +692,23 @@ def test_add_loss_compile_shape_1():
     )
 
     assert pm1.shapes == {
-        "_Model_0_output": [None, "..."],
-        "_SquaredError_1_output": [None, "..."],
-        "_Mean_2_output": [],
         "input": [None, "..."],
+        "output_0": [None, "..."],
         "target": [None, "..."],
+        "output_1": [None, "..."],
         "axis": None,
         "keepdim": None,
+        "output_2": [],
         "final_cost": [],
     }
 
     assert pm2.shapes == {
-        "_Model_0_output": ["..."],
-        "_SquaredError_1_output": ["..."],
-        "_Mean_2_output": [],
         "input": ["..."],
+        "output_0": ["..."],
         "target": ["..."],
+        "output_1": ["..."],
         "axis": None,
         "keepdim": None,
+        "output_2": [],
         "final_cost": [],
     }

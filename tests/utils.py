@@ -62,7 +62,7 @@ def check_evaluations(
     outs_2 = pm_2.evaluate(params_2)
     assert outs_1.keys() == outs_2.keys(), "Keys are not same!"
     for key, out in outs_1.items():
-        assert (outs_2[key] == out).all(), f"Output value for '{key}' key is not equal!"
+        assert (outs_2[key] == out).all(), f"Output value for '{key}' key is not equal!"  # type: ignore
 
     # Check gradients.
     if not inference:
@@ -148,8 +148,11 @@ def with_temp_file(suffix: str):
                 ) as temp_file:
                     # Pass the temp file object to the decorated function
                     return func(*args, file_path=temp_file.name, **kwargs)
-            except Exception:
-                pass
+            except Exception as e:
+                if os.path.exists("tmp"):
+                    shutil.rmtree("tmp")
+
+                raise e
             finally:
                 if os.path.exists("tmp"):
                     shutil.rmtree("tmp")

@@ -46,14 +46,14 @@ def test_1():
     while it is set by using IOKey in the second model.
     """
     model = Model()
-    model += Linear(2)(input="input", w="w_1", b="b_1", output="output1")
-    model += Linear(4)(input=model.output1, w="w", b="b", output="output")  # type: ignore
+    model += Linear(2)(input="input", weight="w_1", bias="b_1", output="output1")
+    model += Linear(4)(input=model.output1, weight="w", bias="b", output="output")  # type: ignore
     model.set_outputs("output1")
     model_1 = model
 
     model = Model()
-    model += Linear(2)(input="input", w="w_1", b="b_1", output=IOKey("output1"))
-    model += Linear(4)(input=model.output1, w="w", b="b", output="output")  # type: ignore
+    model += Linear(2)(input="input", weight="w_1", bias="b_1", output=IOKey("output1"))
+    model += Linear(4)(input=model.output1, weight="w", bias="b", output="output")  # type: ignore
     model_2 = model
 
     # Provide backend and data.
@@ -81,14 +81,14 @@ def test_2():
     """
     model = Model()
     lin = Linear(2)
-    model += lin(input="input", w="w_1", b="b_1")
-    model += Linear(4)(input=lin.output, w="w", b="b", output="output")
+    model += lin(input="input", weight="w_1", bias="b_1", output="lin1_out")
+    model += Linear(4)(input=lin.output, weight="w", bias="b", output="output")
     model.set_outputs(output1=lin.output)
     model_1 = model
 
     model = Model()
-    model += Linear(2)(input="input", w="w_1", b="b_1", output=IOKey("output1"))
-    model += Linear(4)(input=model.output1, w="w", b="b", output="output")  # type: ignore
+    model += Linear(2)(input="input", weight="w_1", bias="b_1", output=IOKey("output1"))
+    model += Linear(4)(input=model.output1, weight="w", bias="b", output="output")  # type: ignore
     model_2 = model
 
     # Provide backend and data.
@@ -117,14 +117,14 @@ def test_3():
     """
     model = Model()
     lin = Linear(2)
-    model += lin(input="input", w="w_1", b="b_1")
-    model += Linear(4)(input=lin.output, w="w", b="b", output="output")
+    model += lin(input="input", weight="w_1", bias="b_1", output="lin1_out")
+    model += Linear(4)(input=lin.output, weight="w", bias="b", output="output")
     model.set_outputs("output", output1=lin.output)
     model_1 = model
 
     model = Model()
-    model += Linear(2)(input="input", w="w_1", b="b_1", output=IOKey("output1"))
-    model += Linear(4)(input=model.output1, w="w", b="b", output="output")  # type: ignore
+    model += Linear(2)(input="input", weight="w_1", bias="b_1", output=IOKey("output1"))
+    model += Linear(4)(input=model.output1, weight="w", bias="b", output="output")  # type: ignore
     model.set_outputs("output")
     model_2 = model
 
@@ -153,14 +153,14 @@ def test_4():
     """
     model = Model()
     lin = Linear(2)
-    model += lin(input="input", w="w_1", b="b_1")
-    model += Linear(4)(input=lin.output, w="w", b="b", output="output")
+    model += lin(input="input", weight="w_1", bias="b_1", output="lin1_out")
+    model += Linear(4)(input=lin.output, weight="w", bias="b", output="output")
     model.set_outputs(out="output", output1=lin.output)
     model_1 = model
 
     model = Model()
-    model += Linear(2)(input="input", w="w_1", b="b_1", output=IOKey("output1"))
-    model += Linear(4)(input=model.output1, w="w", b="b", output=IOKey("out"))  # type: ignore
+    model += Linear(2)(input="input", weight="w_1", bias="b_1", output=IOKey("output1"))
+    model += Linear(4)(input=model.output1, weight="w", bias="b", output=IOKey("out"))  # type: ignore
     model_2 = model
 
     # Provide backend and data.
@@ -316,8 +316,8 @@ def test_5_error():
     model = Model()
     lin_1 = Linear(2)
     lin_2 = Linear(4)
-    model += lin_1(input="input", w="w_1", b="b_1")
-    model += lin_2(input=lin_1.output, w="w", b="b")
+    model += lin_1(input="input", weight="w_1", bias="b_1")
+    model += lin_2(input=lin_1.output, weight="w", bias="b")
 
     with pytest.raises(KeyError) as err_info:
         model.set_outputs(lin_2.output, output1=lin_1.output)
@@ -343,8 +343,8 @@ def test_6_error():
     """
     model = Model()
     lin = Linear(2)
-    model += lin(input="input", w="w_1", b="b_1")
-    model += Linear(4)(input=lin.output, w="w", b="b", output="output")
+    model += lin(input="input", weight="w_1", bias="b_1")
+    model += Linear(4)(input=lin.output, weight="w", bias="b", output="output")
 
     with pytest.raises(KeyError) as err_info:
         model.set_outputs(out="output", output1="out")
@@ -363,8 +363,8 @@ def test_7_error():
     """
     model = Model()
     lin = Linear(2)
-    model += lin(input="input", w="w_1", b="b_1")
-    model += Linear(4)(input=lin.output, w="w", b="b", output=IOKey("output"))
+    model += lin(input="input", weight="w_1", bias="b_1")
+    model += Linear(4)(input=lin.output, weight="w", bias="b", output=IOKey("output"))
 
     with pytest.raises(KeyError) as err_info:
         model.set_outputs(out="output")
@@ -383,8 +383,8 @@ def test_8_error():
     """
     model = Model()
     lin = Linear(2)
-    model += lin(input="input", w="w_1", b="b_1")
-    model += Linear(4)(input=lin.output, w="w", b="b", output=IOKey("output"))
+    model += lin(input="input", weight="w_1", bias="b_1")
+    model += Linear(4)(input=lin.output, weight="w", bias="b", output=IOKey("output"))
 
     with pytest.raises(KeyError) as err_info:
         model.set_outputs("output")
@@ -403,8 +403,8 @@ def test_9_error():
     """
     model = Model()
     lin = Linear(2)
-    model += lin(input="input", w="w_1", b="b_1")
-    model += Linear(4)(input=lin.output, w="w", b="b", output=IOKey("output"))
+    model += lin(input="input", weight="w_1", bias="b_1")
+    model += Linear(4)(input=lin.output, weight="w", bias="b", output=IOKey("output"))
 
     with pytest.raises(KeyError) as err_info:
         model.set_outputs(output=lin.output)

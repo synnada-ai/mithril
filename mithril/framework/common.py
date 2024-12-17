@@ -14,14 +14,23 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from copy import copy, deepcopy
 from dataclasses import dataclass, field
 from enum import Enum
 from functools import partial, reduce
 from itertools import combinations, cycle, product, zip_longest
 from types import EllipsisType, GenericAlias, UnionType
-from typing import Any, Literal, TypeVar
+from typing import (
+    Any,
+    Generic,
+    Literal,
+    Protocol,
+    TypeVar,
+    get_args,
+    get_origin,
+    overload,
+)
 
 from ..backends.backend import Backend
 from ..core import (
@@ -40,6 +49,7 @@ from .utils import (
     align_shapes,
     find_intersection_type,
     find_type,
+    list_shape,
     sort_type,
 )
 
@@ -59,13 +69,12 @@ __all__ = [
     "ShapeRepr",
     "Constraint",
     "create_shape_map",
-    "TensorType",
     "Tensor",
     "Scalar",
     "ShapesType",
     "_ShapesType",
-    "_get_summary_shapes",
-    "_get_summary_types",
+    "get_summary_shapes",
+    "get_summary_types",
     "ConstraintSolver",
     "NOT_AVAILABLE",
     "NotAvailable",
@@ -89,7 +98,7 @@ class SingletonObject:
         assert obj1 is obj2  # True, both are the same instance
     """
 
-    def __new__(cls, *args, **kwargs):
+    def __new__(cls, *args: Any, **kwargs: Any):
         if cls._instance is None:
             cls._instance = super().__new__(cls, *args, **kwargs)
         return cls._instance
@@ -146,6 +155,7 @@ class KeyType(Enum):
     INPUT = 1
     OUTPUT = 2
     INTERNAL = 3
+    LATENT_INPUT = 4
 
 
 type FixedValueType = (
@@ -153,11 +163,10 @@ type FixedValueType = (
     | int
     | tuple[int, ...]
     | list[int]
-    | dict
+    | dict[Any, Any]
     | slice
     | Constant
     | tuple[int | None, ...]
-    | dict
     | str
 )
 type DeferredValueType = (
@@ -169,9 +178,9 @@ type ScalarType = (
     type[int]
     | type[float]
     | type[bool]
-    | type[tuple]
-    | type[list]
-    | type[dict]
+    | type[tuple[Any, ...]]
+    | type[list[Any]]
+    | type[dict[Any, Any]]
     | type[Constant]
     | type[slice]
     | type[PaddingType]
@@ -188,9 +197,10 @@ ReduceType = int | tuple[int, ...] | None | ToBeDetermined
 MainValueType = (
     int
     | float
-    | tuple
-    | list
-    | dict
+    | tuple[Any, ...]
+    | list[Any]
+    | dict[Any, Any]
+    | bool
     | None
     | EllipsisType
     | PaddingType
@@ -198,11 +208,60 @@ MainValueType = (
     | slice
     | Dtype
 )
-TensorValueType = int | float | tuple | list | Constant | NestedListType
+# Mainvalue type for isintance check
+MainValueInstance = (
+    int
+    | float
+    | tuple  # type: ignore
+    | list  # type: ignore
+    | dict  # type: ignore
+    | bool
+    | None
+    | EllipsisType
+    | PaddingType
+    | Constant
+    | slice
+    | Dtype
+)
+
+_TensorTypes = int | float | bool
+_TensorValueType = (
+    _TensorTypes | tuple["_TensorValueType", ...] | list["_TensorValueType"]
+)
+TensorValueType = _TensorValueType | Constant
+
+ParamsEvalType = dict[str, DataType]
+DataEvalType = Mapping[str, DataType | MainValueType | str]
+
+
+class EvaluateType(Protocol, Generic[DataType]):
+    def __call__(
+        self,
+        params: ParamsEvalType[DataType] | None,
+        data: DataEvalType[DataType] | None,
+    ) -> DataEvalType[DataType]: ...
+
+
+class EvaluateGradientsType(Protocol, Generic[DataType]):
+    def __call__(
+        self,
+        params: ParamsEvalType[DataType] | None,
+        data: DataEvalType[DataType] | None,
+        output_gradients: ParamsEvalType[DataType] | None,
+    ) -> ParamsEvalType[DataType]: ...
+
+
+class EvaluateAllType(Protocol, Generic[DataType]):
+    def __call__(
+        self,
+        params: ParamsEvalType[DataType] | None,
+        data: DataEvalType[DataType] | None,
+        output_gradients: ParamsEvalType[DataType] | None,
+    ) -> tuple[DataEvalType[DataType], ParamsEvalType[DataType]]: ...
+
 
 LossKey = "loss"
 FinalCost = "final_cost"
-
 
 ItemType = TypeVar("ItemType")
 
@@ -327,7 +386,7 @@ class ConstraintSolver:
             rec.referees = {uni}
 
     @staticmethod
-    def _find_intersection_reprs(repr1):
+    def _find_intersection_reprs(repr1: ShapeRepr) -> set[ShapeRepr]:
         intersection_reprs: set[ShapeRepr] = set()
         # Collect visited repr's symbols.
         symbols = repr1.prefix + repr1.suffix
@@ -347,7 +406,11 @@ class ConstraintSolver:
         return intersection_reprs
 
     @staticmethod
-    def _add_sublists(repr1, intersection_reprs, deletion_nodes):
+    def _add_sublists(
+        repr1: ShapeRepr,
+        intersection_reprs: set[ShapeRepr],
+        deletion_nodes: dict[ShapeNode, set[ShapeNode]],
+    ) -> Updates:
         updates = Updates()
         for repr2 in intersection_reprs:
             if (repr1.node != repr2.node) and (repr1 in repr2):
@@ -441,8 +504,8 @@ class ConstraintSolver:
 
 @dataclass
 class Updates:
-    shape_updates: set[Tensor] = field(default_factory=lambda: set())
-    value_updates: set[Tensor | Scalar] = field(default_factory=lambda: set())
+    shape_updates: set[Tensor[Any]] = field(default_factory=lambda: set())
+    value_updates: set[Tensor[Any] | Scalar] = field(default_factory=lambda: set())
     uniadic_updates: set[Uniadic] = field(default_factory=lambda: set())
     node_updates: set[ShapeNode] = field(default_factory=lambda: set())
     constraints: dict[UpdateType, set[Constraint]] = field(
@@ -451,7 +514,7 @@ class Updates:
 
     def add(
         self,
-        symbol: BaseData | Uniadic | Variadic,
+        symbol: Tensor[Any] | Scalar | Uniadic | Variadic,
         update_type: UpdateType = UpdateType.SHAPE,
     ) -> None:
         # TODO: Use match case here
@@ -461,15 +524,14 @@ class Updates:
             elif isinstance(symbol, Variadic):
                 self._add_variadic(symbol)
             else:
-                assert isinstance(symbol, Scalar)
-                self._add_scalar(symbol)
+                self._add_edge(symbol)
 
             # TODO: Fill here after type_updates added to class
         elif update_type == UpdateType.TYPE:
             assert isinstance(symbol, Tensor | Scalar)
             self._add_type_update(symbol)
 
-    def _add_scalar(self, symbol: Scalar):
+    def _add_edge(self, symbol: Scalar | Tensor):
         self.value_updates.add(symbol)
         self.constraints[UpdateType.SHAPE] |= symbol.shape_constraints
 
@@ -488,7 +550,7 @@ class Updates:
                 self.shape_updates.add(tensor)
                 self.constraints[UpdateType.SHAPE] |= tensor.shape_constraints
 
-    def _add_type_update(self, symbol: Tensor | Scalar):
+    def _add_type_update(self, symbol: Tensor[Any] | Scalar):
         self.constraints[UpdateType.TYPE] |= symbol.type_constraints
 
     def __ior__(self, other: Updates) -> Updates:
@@ -502,20 +564,20 @@ class Updates:
 
 
 def _get_shapes(
-    data_dict: dict[str, Tensor | Scalar],
-    uniadic_keys=None,
-    varadic_keys=None,
+    data_dict: dict[str, Tensor[Any] | Scalar],
+    uniadic_keys: dict[UniadicRecord, str] | None = None,
+    varadic_keys: dict[Variadic, str] | None = None,
     symbolic: bool = True,
     verbose: bool = False,
-    key_mappings: dict | None = None,
-) -> _ShapesType:
+    key_mappings: dict[str, str] | None = None,
+) -> dict[str, ShapeTemplateType | list[ShapeTemplateType] | None]:
     if key_mappings is None:
         key_mappings = {}
     if uniadic_keys is None:
         uniadic_keys = {}
     if varadic_keys is None:
         varadic_keys = {}
-    shapes: dict = {}
+    shapes: dict[str, ShapeTemplateType | list[ShapeTemplateType] | None] = {}
     for key, data in data_dict.items():
         key_name = key_mappings.get(key, key)
         if isinstance(data, Tensor):
@@ -548,10 +610,10 @@ class BaseData:
     def all_constraints(self) -> set[Constraint]:
         return self.shape_constraints | self.type_constraints
 
-    def _convert_value(self, backend: Backend) -> Any:
+    def _convert_value(self, backend: Backend[Any]) -> Any:
         raise NotImplementedError("No '_convert_value' method implemented.")
 
-    def finalize_match(self, other: Tensor | Scalar):
+    def finalize_match(self, other: Tensor[Any] | Scalar):
         if (typ_1 := type(other)) != (typ_2 := type(self)):
             raise TypeError(
                 f"Replacement can be done for only same types. Got {typ_1} and {typ_2}"
@@ -565,13 +627,13 @@ class BaseData:
 
     Val_Type = TypeVar("Val_Type", MainValueType, DataType)  # type: ignore
 
-    def set_value(self, value: Val_Type):
+    def set_value(self, value: Val_Type) -> Updates:
         raise NotImplementedError("No 'set_value' method implemented.")
 
     def set_type(self, type: type[TensorValueType] | ScalarType | UnionType) -> Updates:
         updates = Updates()
         if not self._types_equal(type):
-            updates.add(self, UpdateType.TYPE)
+            updates.add(self, UpdateType.TYPE)  # type: ignore
             new_type = find_intersection_type(type, self._type)
 
             if not new_type:
@@ -615,22 +677,24 @@ class BaseData:
     def match_shapes(self, other: BaseData):
         return Updates()
 
-    def match(self, other: Tensor | Scalar) -> Updates:
+    def match(self, other: Tensor[DataType] | Scalar) -> Updates:
+        self._differentiable: bool
         updates = Updates()
         if self != other:
             updates = Updates()
             updates |= self.set_type(other._type)
             updates |= other.set_type(self._type)
             if isinstance(other, Tensor):
-                updates |= self.match_shapes(other)
                 assert isinstance(self, Tensor)
+                updates |= self.match_shapes(other)
                 is_diff = self._differentiable | other._differentiable
                 self._differentiable = other._differentiable = is_diff
 
-            if self.is_valued ^ other.is_valued:
+            if self.is_valued or other.is_valued:
                 valued, non_valued = (self, other) if self.is_valued else (other, self)
                 assert isinstance(valued, Tensor | Scalar)
                 assert not isinstance(valued.value, ToBeDetermined)
+                assert isinstance(non_valued, type(valued))
                 updates |= non_valued.set_value(valued.value)
                 if non_valued == other:
                     if isinstance(other, Tensor):
@@ -676,14 +740,16 @@ class Tensor(BaseData, GenericDataType[DataType]):
     def _set_as_physical(self):
         super()._set_as_physical()
 
-    def make_physical(self, backend: Backend, memo: dict[int, Tensor | Scalar]):
+    def make_physical(
+        self, backend: Backend[DataType], memo: dict[int, Tensor[DataType] | Scalar]
+    ):
         physical_tensor = deepcopy(self, memo)
         # Update data as physical data.
         physical_tensor._set_as_physical()
         # Update value of physical data taking backend into account.
         return physical_tensor
 
-    def __deepcopy__(self, memo: dict[int, Tensor | Scalar]):
+    def __deepcopy__(self, memo: dict[int, Tensor[DataType] | Scalar]):
         # Check if the object is already in the memo dictionary.
         if id(self) in memo:
             return memo[id(self)]
@@ -699,7 +765,7 @@ class Tensor(BaseData, GenericDataType[DataType]):
                 setattr(new_instance, k, deepcopy(v, memo))
         return new_instance
 
-    def match_shapes(self, other: Tensor):  # type: ignore[override]
+    def match_shapes(self, other: Tensor[DataType]):  # type: ignore[override]
         updates = Updates()
         if other.shape != self.shape:
             updates |= self.shape.merge(other.shape)
@@ -716,10 +782,31 @@ class Tensor(BaseData, GenericDataType[DataType]):
         # to self object? If we should, we also need to transfer "interval" attribute
         # which requires handling of interval arithmetic in logical level also.
 
-    def set_value(self, value: DataType | TensorValueType) -> Updates:  # type: ignore[override]
+    def set_value(self, value: TensorValueType) -> Updates:  # type: ignore[override]
         if not self._logical_data:
             assert self.is_tensor_type(value)
             return self._set_physical_value(value)
+        elif value is not TBD:
+            updates = Updates()
+            prev_value = self.value
+            if self.value is not TBD and self.value != value:
+                raise ValueError(
+                    f"Value is set before as {self.value}. A value can not be reset."
+                )
+            # TODO: Handle Constant Type
+            if isinstance(value, Constant):
+                updates |= self.set_type(constant_type_table[value])
+            else:
+                updates |= self.set_type(find_dominant_type(value))
+            self.value = value  # type: ignore
+            #  Call constraints if any change occured.
+            if self.value != prev_value:
+                updates.add(self)
+
+            shape = list_shape(value)  # type: ignore
+            updates |= self.shape.set_values(shape)
+            self._differentiable = False
+            return updates
         return Updates()
 
     def _set_physical_value(self, value: DataType) -> Updates:
@@ -755,15 +842,9 @@ class Scalar(BaseData):
 
     def __init__(
         self,
-        possible_types: ScalarType | UnionType | None = None,
+        possible_types: ScalarType | type[str] | UnionType = MainValueInstance | str,
         value: MainValueType | ToBeDetermined | str = TBD,
     ) -> None:
-        if possible_types is None:
-            if isinstance(value, ToBeDetermined):
-                raise Exception("No possible types or value is given!")
-            else:
-                possible_types = self.find_type(value)
-
         super().__init__(type=possible_types)
         # Update type if any value is given.
         # TODO: Check why str is excluded.
@@ -785,11 +866,13 @@ class Scalar(BaseData):
         else:
             return find_type(value)
 
-    def _convert_value(self, backend):
+    def _convert_value(self, backend: Backend[DataType]):
         self.value = backend.cast(self.value)
         return self.value
 
-    def make_physical(self, backend: Backend, memo: dict[int, Tensor | Scalar]):
+    def make_physical(
+        self, backend: Backend[DataType], memo: dict[int, Tensor[DataType] | Scalar]
+    ):
         new_scalar = deepcopy(self, memo)
         if id(self) not in memo:
             # Update data as physical data.
@@ -800,7 +883,7 @@ class Scalar(BaseData):
 
         return new_scalar
 
-    def set_value(self, value: MainValueType) -> Updates:
+    def set_value(self, value: MainValueType | str) -> Updates:
         # Check value type!
 
         updates = Updates()
@@ -821,33 +904,36 @@ class Scalar(BaseData):
         return updates
 
 
-class TensorType:
-    def __init__(
-        self,
-        shape_template: ShapeTemplateType,
-        possible_types: type | UnionType = float | int | bool,
-        value: TensorValueType | ToBeDetermined = TBD,
-        interval: list[float | int] | None = None,
-    ) -> None:
-        self._type = possible_types
-        self.shape_template = shape_template
-        self.value = value
-        if interval is None:
-            interval = []
-        self.interval = interval
+# TODO: Should we include Constant type here in TypeVarTensorType?
+TypeVarTensorType = TypeVar("TypeVarTensorType", int, float, bool)
 
-    def construct(self, shape_node: ShapeNode) -> Tensor:
-        return Tensor(
-            shape=shape_node,
-            possible_types=self._type,
-            value=self.value,
-            interval=self.interval,
-        )
+
+# TODO: Convert MyTensor to Tensor when Tensor and Scalar is removed
+class MyTensor(Generic[TypeVarTensorType]):
+    def __init__(self, value: TensorValueType):
+        self.value: TensorValueType = value
+
+    # @staticmethod
+    # def is_tensor_type(t: Any) -> TypeGuard[TypeVarTensorType]:
+    #     return isinstance(t, (int, float, bool))
+
+
+# Check if a type is a specialization of MyTensor
+def is_mytensor_type(type_obj) -> bool:
+    return get_origin(type_obj) is MyTensor
+
+
+# Check if a type is a specialization of MyTensor
+def get_mytensor_subtype(type_obj: MyTensor) -> type:
+    return get_args(type_obj)[0]
+
+
+GenericTensorType = MyTensor[int] | MyTensor[bool] | MyTensor[float]
 
 
 @dataclass
 class IOHyperEdge:
-    data: Tensor | Scalar
+    data: Tensor[Any] | Scalar
     key_origin: str | None = None
 
     @property
@@ -1073,6 +1159,9 @@ class TemplateBase:
     def transpose(self, axes: tuple[int, ...] | TemplateBase | None = None):
         return ExtendTemplate(connections=[self, axes], model="transpose")
 
+    def split(self, split_size: int, axis: int):
+        return ExtendTemplate(connections=[self, split_size, axis], model="split")
+
 
 class ExtendTemplate(TemplateBase):
     output_connection: ConnectionData | None
@@ -1102,10 +1191,11 @@ class IOKey(TemplateBase):
     def __init__(
         self,
         name: str | None = None,
-        value: MainValueType | ToBeDetermined | str = TBD,
+        value: TensorValueType | MainValueType | ToBeDetermined | str = TBD,
         shape: ShapeTemplateType | None = None,
-        type: UnionType | type | None = None,
+        type: NestedListType | UnionType | type | None = None,
         expose: bool = True,
+        interval: list[float | int] | None = None,
     ) -> None:
         super().__init__()
         self._name = name
@@ -1113,6 +1203,7 @@ class IOKey(TemplateBase):
         self._shape = shape
         self._type = type
         self._expose = expose
+        self._interval = interval
 
         # TODO: Shape should not be [] also!
         if self._value is not TBD and self._shape is not None and self._shape != []:
@@ -1123,7 +1214,7 @@ class IOKey(TemplateBase):
 
         if self._value is not TBD and self._type is not None:
             value_type = find_type(self._value)
-            if value_type != self._type:
+            if find_intersection_type(value_type, self._type) is None:
                 raise TypeError(
                     f"type of the given value and given type does not match. Given "
                     f"type is {self._type} while type of value is {value_type}"
@@ -1134,7 +1225,7 @@ class IOKey(TemplateBase):
 
 
 class Connection(TemplateBase):
-    def __init__(self, key, metadata, is_key_autogenerated: bool):
+    def __init__(self, key: str, metadata: IOHyperEdge, is_key_autogenerated: bool):
         self.data = ConnectionData(key, metadata, is_key_autogenerated, self)
 
     @property
@@ -1157,7 +1248,7 @@ ShapesType = (
     | Mapping[str, ShapeTemplateType]
     | Mapping[Connection, ShapeTemplateType]
 )
-_ShapesType = Mapping[str, ShapeTemplateType]
+_ShapesType = Mapping[str, ShapeTemplateType | list[ShapeTemplateType] | None]
 
 
 @dataclass
@@ -1178,10 +1269,7 @@ class ConnectionData:
     def __hash__(self) -> int:
         return hash(id(self))
 
-    def __and__(self, other) -> Connect:
-        return Connect(self.conn) & other
-
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: object) -> bool:
         return id(self) == id(other)
 
     def set_differentiable(self, differentiable: bool = True) -> None:
@@ -1207,13 +1295,7 @@ class Connect:
         self.key = key
         for item in connections:
             conn: ConnectionData | str
-            if isinstance(item, Connection):
-                conn = item.data
-            elif isinstance(item, str):
-                conn = item
-            else:
-                raise KeyError("Requires Connection object or string!")
-
+            conn = item.data if isinstance(item, Connection) else item
             self.connections.add(conn)
 
 
@@ -1222,6 +1304,19 @@ ConnectionType = (
     | ConnectionData
     | Connect
     | MainValueType
+    | ExtendTemplate
+    | NullConnection
+    | IOKey
+    | Connection
+    | NotAvailable
+    | NestedListType
+)
+
+ConnectionInstanceType = (
+    str
+    | ConnectionData
+    | Connect
+    | MainValueInstance
     | ExtendTemplate
     | NullConnection
     | IOKey
@@ -1272,11 +1367,20 @@ class Connections:
         return self._connection_dict[KeyType.INTERNAL].values()
 
     @property
+    def latent_input_keys(self):
+        return self._connection_dict[KeyType.LATENT_INPUT].keys()
+
+    @property
+    def latent_input_connections(self):
+        return self._connection_dict[KeyType.LATENT_INPUT].values()
+
+    @property
     def all(self) -> dict[str, ConnectionData]:
         return (
             self._connection_dict[KeyType.INTERNAL]
             | self._connection_dict[KeyType.INPUT]
             | self._connection_dict[KeyType.OUTPUT]
+            | self._connection_dict[KeyType.LATENT_INPUT]
         )
 
     @property
@@ -1314,7 +1418,7 @@ class Connections:
         for _type in KeyType:
             self._connection_dict[_type].pop(connection.key, None)
 
-    def get_data(self, key: str) -> Scalar | Tensor:
+    def get_data(self, key: str) -> Scalar | Tensor[Any]:
         # if (metadata := self._get_metadata(key)) is not None:
         #     return metadata.data
         # raise KeyError(f"Key {key} is not found in connections.")
@@ -1330,7 +1434,10 @@ class Connections:
         internals = self._connection_dict[KeyType.INTERNAL]
         inputs = self._connection_dict[KeyType.INPUT]
         outputs = self._connection_dict[KeyType.OUTPUT]
-        return internals.get(key, inputs.get(key, outputs.get(key)))
+        latent_inputs = self._connection_dict[KeyType.LATENT_INPUT]
+        return internals.get(
+            key, inputs.get(key, outputs.get(key, latent_inputs.get(key)))
+        )
 
     def get_con_by_metadata(self, key: IOHyperEdge) -> ConnectionData | None:
         conns = self.metadata_dict.get(key)
@@ -1344,18 +1451,19 @@ class Connections:
     def _get_metadata(self, key: str) -> IOHyperEdge:
         if (con := self.get_connection(key)) is not None:
             return con.metadata
-        raise KeyError(f"Key {key} is not found in connections.")
+        raise KeyError(f"Key '{key}' is not found in connections.")
 
     def get_key_origin(self, key: str) -> str | None:
         return self._get_metadata(key).key_origin
 
     def get_shape_node(self, key: str) -> ShapeNode:
         data = self._get_metadata(key).data
-        assert isinstance(data, Tensor)
+        if not isinstance(data, Tensor):
+            raise ValueError("'Shape cannot be set for scalar type values'")
         return data.shape
 
     def set_value(self, con: ConnectionData, value: MainValueType):
-        self.get_data(con.key).set_value(value)
+        self.get_data(con.key).set_value(value)  # type: ignore
 
     def extract_metadata(self, key: str | Connection) -> IOHyperEdge:
         if isinstance(key, Connection):
@@ -1391,7 +1499,7 @@ class Uniadic:
     def __eq__(self, other: Uniadic) -> bool:  # type: ignore
         return id(self.metadata) == id(other.metadata)
 
-    def set_value(self, value):  # Do we need set_value
+    def set_value(self, value: int | set[int] | None):  # Do we need set_value
         prev_value = self.metadata.possible_values
         new_value = self.metadata.update_possible_values(value)
         return prev_value != new_value
@@ -1463,9 +1571,9 @@ class UniadicRecord:
             return self.possible_values
         elif self.possible_values is None:
             self.possible_values = values
-        elif values is not None and len(intersect := self.possible_values & values) > 0:
+        elif len(intersect := self.possible_values & values) > 0:
             self.possible_values = intersect
-        elif values is not None and self.possible_values is not None:
+        else:
             raise ValueError("Possible values mismatch!")
         return self.possible_values
 
@@ -1621,7 +1729,7 @@ class PossibleValues:
     def get_all_uniadics(self) -> set[Uniadic]:
         # TODO: add all ANDs Uniadics into lookup table, then remove this method and
         # directly call self.lookup_table.keys()
-        uniadics = set()
+        uniadics: set[Uniadic] = set()
         for dnf in self.dnf_list:
             for item in dnf.item_list:
                 for key, value in item.uni_table.items():
@@ -1814,7 +1922,7 @@ class Variadic:
         updates = Updates()
         # Clip self.possibles with new_prefix and new_suffix
         # Add clipped uniadics to new equivalences.
-        possibles = []
+        possibles: list[PossibleValues] = []
         for _len, pos in self.possibles.items():
             if _len < len(prefix) + len(suffix):
                 continue
@@ -2160,7 +2268,7 @@ class ShapeNode:
 
     def __init__(self) -> None:
         self.reprs: list[ShapeRepr] = []
-        self.referees: set[Tensor] = set()
+        self.referees: set[Tensor[Any]] = set()
 
     def add_repr(self, repr: ShapeRepr):
         self.reprs.append(repr)
@@ -2169,7 +2277,7 @@ class ShapeNode:
     def merge(self, other: ShapeNode) -> Updates:
         updates = Updates()
         resolved_reprs: set[ShapeRepr] = set()
-        remaining_reprs = []
+        remaining_reprs: list[ShapeRepr] = []
         add_constraint = False
 
         if self != other:
@@ -2205,7 +2313,7 @@ class ShapeNode:
 
     def combine(self):
         updates = Updates()
-        same_reprs = set()
+        same_reprs: set[ShapeRepr] = set()
         # Iterate over all repr pairs and remove matching reprs.
         for repr, other_repr in combinations(self.reprs, 2):
             if repr not in same_reprs and other_repr not in same_reprs:
@@ -2232,11 +2340,11 @@ class ShapeNode:
 
     def get_shapes(
         self,
-        u_keys: dict[UniadicRecord | Variadic, str] | None = None,
-        v_keys: dict[UniadicRecord | Variadic, str] | None = None,
-        symbolic=True,
-        verbose=False,
-    ) -> list[int | str | None] | list[list[int | str | None]]:
+        u_keys: dict[UniadicRecord, str] | None = None,
+        v_keys: dict[Variadic, str] | None = None,
+        symbolic: bool = True,
+        verbose: bool = False,
+    ) -> ShapeTemplateType | list[ShapeTemplateType]:
         if u_keys is None:
             u_keys = {}
         if v_keys is None:
@@ -2279,14 +2387,14 @@ class ShapeNode:
                 )
 
                 # Count number of used reprs
-                n_reprs = set()
+                n_reprs: set[ShapeRepr] = set()
                 for uni in repr.prefix + repr.suffix:
                     n_reprs |= uni.reprs
 
                 if repr.root is not None:
                     n_reprs |= repr.root.reprs
 
-                best_n_reprs = set()
+                best_n_reprs: set[ShapeRepr] = set()
                 for uni in most_informative_repr.prefix + most_informative_repr.suffix:
                     best_n_reprs |= uni.reprs
 
@@ -2310,6 +2418,7 @@ class ShapeNode:
 
 type ShapeType = Uniadic | Variadic
 type ConstrainResultType = tuple[bool, Updates]
+type ConstraintFunctionType = Callable[..., ConstrainResultType]
 
 
 class ShapeRepr:
@@ -2405,18 +2514,16 @@ class ShapeRepr:
             ) or self._is_subset_rootless(self.suffix, key.prefix)
         return False
 
-    def __getitem__(self, position):
+    def __getitem__(self, position: int):
         # TODO: Currently position could only be int, but we should support slicing
         # operations too (e.g. repr[:2]) if it is possible (if index of Variadic
         # field allows the operation).
-        if not isinstance(position, int):
-            raise ValueError("Requires int index!")
         if position < 0 and self.root is not None:
             return self.suffix[position]
         else:
             return self.prefix[position]
 
-    def __setitem__(self, position, new_item):
+    def __setitem__(self, position: int, new_item: Uniadic):
         if position < 0 and self.root is not None:
             self.suffix[position] = new_item
         else:
@@ -2449,10 +2556,10 @@ class ShapeRepr:
 
     def get_shapes(
         self,
-        u_keys: dict[UniadicRecord | Variadic, str] | None = None,
-        v_keys: dict[UniadicRecord | Variadic, str] | None = None,
-        symbolic=True,
-    ) -> list[int | str | None]:
+        u_keys: dict[UniadicRecord, str] | None = None,
+        v_keys: dict[Variadic, str] | None = None,
+        symbolic: bool = True,
+    ) -> ShapeTemplateType:
         if u_keys is None:
             u_keys = {}
         if v_keys is None:
@@ -2472,8 +2579,12 @@ class ShapeRepr:
         return prefix_list + var_list + suffix_list
 
     @staticmethod
-    def _get_uniadic_shapes(uniadic_list, cache, symbolic=True):
-        final_list = []
+    def _get_uniadic_shapes(
+        uniadic_list: list[Uniadic],
+        cache: dict[UniadicRecord, str],
+        symbolic: bool = True,
+    ):
+        final_list: list[int | str | None] = []
         for uniadic in uniadic_list:
             if (value := uniadic.value) is None and symbolic:
                 value = cache.setdefault(uniadic.metadata, "u" + str(len(cache) + 1))
@@ -2629,12 +2740,12 @@ class ShapeRepr:
 # all([uni.value is not None for uni in repr.prefix])
 @dataclass
 class Constraint:
-    fn: Callable
+    fn: ConstraintFunctionType
     type: UpdateType = UpdateType.SHAPE
     call_counter: int = 0
-    post_processes: set[Callable] = field(default_factory=lambda: set())
+    post_processes: set[ConstraintFunctionType] = field(default_factory=lambda: set())
 
-    def __call__(self, keys: list[Scalar | Tensor]):
+    def __call__(self, keys: list[Scalar | Tensor[Any]]) -> ConstrainResultType:
         status = False
         updates = Updates()
         if self.type == UpdateType.SHAPE:
@@ -2651,11 +2762,11 @@ class Constraint:
         self.call_counter += 1
         return status, updates
 
-    def add_post_process(self, fn: Callable):
+    def add_post_process(self, fn: ConstraintFunctionType):
         self.post_processes.add(fn)
 
     def create_post_constraints(self):
-        constraints = set()
+        constraints: set[Constraint] = set()
         for fn in self.post_processes:
             constraints.add(Constraint(fn, self.type))
         return constraints
@@ -2664,8 +2775,16 @@ class Constraint:
         return hash(id(self))
 
 
-def add_lens(x, y, const):
-    return x + next(const) + y
+@overload
+def add_lengths(x: int, y: int, const: Iterator[int]) -> int: ...
+
+
+@overload
+def add_lengths(x: str, y: str, const: Iterator[str]) -> str: ...
+
+
+def add_lengths(x: str | int, y: str | int, const: Iterator[str | int]) -> str | int:
+    return x + next(const) + y  # type: ignore
 
 
 type RowColumnType = list[str | list[str]] | list[str] | list[list[str]]
@@ -2693,7 +2812,7 @@ class Table:
         for idx, row in enumerate(column[: len(self.headers)]):
             self.headers[idx].append(row)  # type: ignore
 
-        for idx_, row in enumerate(column[idx + 1 :]):
+        for idx_, row in enumerate(column[len(self.headers) :]):
             self.cells[idx_].append(row)  # type: ignore
 
     def _calculate_table_specs(self):
@@ -2707,12 +2826,12 @@ class Table:
         #  Initialize cell_heights and cell_widths lists, these
         # lists will hold minimum height and width that every cell
         # can have respectively.
-        cell_heights = []
-        cell_widths = []
+        cell_heights: list[list[int]] = []
+        cell_widths: list[list[int]] = []
 
         for row in all_elems:
-            row_heights = []
-            row_widths = []
+            row_heights: list[int] = []
+            row_widths: list[int] = []
             for cell in row:
                 if isinstance(cell, list):
                     # if cell is a list, length of the list will give minimum height
@@ -2774,7 +2893,7 @@ class Table:
                 )
             )
 
-    def _compile(
+    def compile(
         self,
         row_sep: str | list[str] = "   |   ",
         col_sep: str = "-",
@@ -2804,16 +2923,19 @@ class Table:
         # adjust the table accordingly
         self._adjust_table()
         # calculate total table width
-        table_width = reduce(
-            partial(add_lens, const=(len(row) for row in row_sep)), self.each_row_width
+        table_width = reduce(  # type: ignore
+            partial(add_lengths, const=(len(row) for row in row_sep)),
+            self.each_row_width,
         )
-        table_constructor_fn = partial(add_lens, const=cycle(row_sep))
-        table_constructor_fn_w_spaces = partial(
-            add_lens, const=cycle(len(row) * " " for row in row_sep)
+        table_constructor_fn: Callable[[str, str], str] = partial(
+            add_lengths, const=cycle(row_sep)
+        )  # type: ignore
+        table_constructor_fn_w_spaces: Callable[[str, str], str] = partial(  # type: ignore
+            add_lengths, const=cycle(len(row) * " " for row in row_sep)
         )
         end = "\n"
-        header_list = []
-        cell_list = []
+        header_list: list[str] = []
+        cell_list: list[str] = []
 
         # Construct the header if it exists
         header_list.append(self.name.center(table_width) + end)
@@ -2898,7 +3020,7 @@ class Table:
 
     @staticmethod
     def fill_spaces(
-        value: list | str,
+        value: list[str] | str,
         max_width: int = 0,
         max_height: int = 0,
         align: Literal["left", "right", "center"] = "left",
@@ -2964,7 +3086,7 @@ class Table:
         """
         if not strings:
             #  Fill empty strings with None
-            new_list = ["None"]
+            new_list: list[str] = ["None"]
         else:
             line_len = 0
             new_str = ""
@@ -2982,7 +3104,7 @@ class Table:
 
     @staticmethod
     def dict_to_table(
-        in_dict: Mapping[str, list | dict],
+        in_dict: Mapping[str, list[str] | dict[str, Any]],
         seperator: str = " : ",
         left_align: Literal["left", "right", "center"] = "left",
         right_align: Literal["left", "right", "center"] = "left",
@@ -2990,7 +3112,7 @@ class Table:
         right_length: int = 0,
         len_space: int = 0,
         space_fill: str = "-",
-        r_len=0,
+        r_len: int = 0,
     ) -> list[str]:
         """takes a dicts and creates a list of strings from that dict by filling empty
         spaces and making necessary alignments This function will work recursivey of
@@ -3032,7 +3154,7 @@ class Table:
             list[str]: list of strings with same length
         """
 
-        table = []
+        table: list[str] = []
         left_list: list[str] = []
         right_list: list[str] = []
 
@@ -3075,7 +3197,7 @@ UsedKeysType = dict[str | int, ShapeType] | dict[int, ShapeType] | dict[str, Sha
 
 
 def create_shape_map(
-    shape_template: _ShapesType,
+    shape_template: Mapping[str, ShapeTemplateType],
     solver: ConstraintSolver,
 ) -> dict[str, ShapeRepr]:
     used_keys: UsedKeysType = {}
@@ -3146,23 +3268,12 @@ def create_shape_repr(
 
 
 def get_summary(
-    conns: dict,
+    conns: dict[str, tuple[dict[str, list[str]], dict[str, list[str]]]],
     name: str,
-    shape: dict | None = None,
-    types: dict | None = None,
-    params: dict | None = None,
+    shape: dict[str, tuple[dict[str, list[str]], dict[str, list[str]]]] | None = None,
+    types: dict[str, tuple[dict[str, str], dict[str, str]]] | None = None,
+    params: dict[str, tuple[dict[str, str], dict[str, str]]] | None = None,
 ) -> Table:
-    """Constructs the summary table based on connections and shapes
-
-    Args:
-        conns (dict): connection dict
-        name (str): given name of the table
-        shape (dict | None, optional): Shape information of all keys. Defaults to None.
-
-    Returns:
-        Table: Table object that holds all summary information
-    """
-
     stub_input = "Inputs"
     stub_output = "Outputs"
     stub_len = len(max(stub_input, stub_output, key=len))
@@ -3177,7 +3288,7 @@ def get_summary(
     sub_columns = [keys_name, shapes_name, type_name, conn_name, params_name]
     adjustments = ["left", "right", "left", "left", "right"]
 
-    removed_cols = []
+    removed_cols: list[int] = []
     if shape is not None:
         align_shapes(
             [shape_dict for shape_tuple in shape.values() for shape_dict in shape_tuple]
@@ -3273,20 +3384,28 @@ def get_summary(
         in_keys = [[key] for key in input_conn]
         out_keys = [[key] for key in output_conn]
 
-        input_shape = input_shape.values()
-        output_shape = output_shape.values()
+        input_shapes = list(input_shape.values())
+        output_shapes = list(output_shape.values())
 
         in_types = [[key] for key in input_types.values()]
         out_types = [[key] for key in output_types.values()]
 
-        input_conn = [value if value else ["--"] for value in input_conn.values()]
-        output_conn = [value if value else ["--"] for value in output_conn.values()]
+        model_input_conn = [value if value else ["--"] for value in input_conn.values()]
+        model_output_conn = [
+            value if value else ["--"] for value in output_conn.values()
+        ]
 
         in_params = [[param] for param in input_params.values()]
         out_params = [[param] for param in output_params.values()]
 
-        input_args = [in_keys, input_shape, in_types, input_conn, in_params]
-        output_args = [out_keys, output_shape, out_types, output_conn, out_params]
+        input_args = [in_keys, input_shapes, in_types, model_input_conn, in_params]
+        output_args = [
+            out_keys,
+            output_shapes,
+            out_types,
+            model_output_conn,
+            out_params,
+        ]
 
         # remove not given columns
         input_args = [
@@ -3326,8 +3445,11 @@ def get_summary(
     return table
 
 
-def _get_summary_shapes(model_shapes: dict, conn_info: dict):
-    shape_info = {}
+def get_summary_shapes(
+    model_shapes: dict[str, _ShapesType],
+    conn_info: dict[str, tuple[dict[str, list[str]], dict[str, list[str]]]],
+):
+    shape_info: dict[str, tuple[_ShapesType, _ShapesType]] = {}
     for model_name in conn_info:
         shape = model_shapes[model_name]
         input_conns, output_conns = conn_info[model_name]
@@ -3337,11 +3459,19 @@ def _get_summary_shapes(model_shapes: dict, conn_info: dict):
     return shape_info
 
 
-def _get_summary_types(name_mappings: dict, data_memo=None):
+# TODO: Name mappings in there should more specialized as Any is not a good choice
+# name mappings should be dict[BaseModel, str]
+# data_memo should be dict[int, Tensor[Any] | Scalar]
+# however, if this happens, there will be circular import problem
+# So carrying this function to another module may be a better idea
+# (maybe this function could be a method of BaseModel?)
+def get_summary_types(
+    name_mappings: dict[Any, Any], data_memo: dict[Any, Any] | None = None
+):
     if data_memo is None:
         data_memo = {}
 
-    type_info: dict[str, tuple[dict, dict]] = {}
+    type_info: dict[str, tuple[dict[str, str], dict[str, str]]] = {}
 
     for model, model_name in name_mappings.items():
         in_dict, out_dict = type_info.setdefault(model_name, ({}, {}))
@@ -3363,7 +3493,9 @@ def _get_summary_types(name_mappings: dict, data_memo=None):
     return type_info
 
 
-def is_type_adjustment_required(data: dict[str, Tensor | Scalar], inputs: list[str]):
+def is_type_adjustment_required(
+    data: dict[str, Tensor[Any] | Scalar], inputs: list[str]
+):
     if len(inputs) <= 2:
         return False
     inputs = inputs[:2]

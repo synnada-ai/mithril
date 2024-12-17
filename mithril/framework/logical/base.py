@@ -15,7 +15,7 @@
 from __future__ import annotations
 
 import abc
-from collections.abc import Callable, Mapping
+from collections.abc import Mapping
 from dataclasses import dataclass
 from itertools import chain
 from types import UnionType
@@ -24,22 +24,35 @@ from typing import Any
 from ...utils.utils import OrderedSet
 from ..common import (
     NOT_AVAILABLE,
+    NOT_GIVEN,
+    TBD,
+    Connect,
     Connection,
     ConnectionData,
     Connections,
     ConnectionType,
     Constraint,
+    ConstraintFunctionType,
     ConstraintSolver,
+    ExtendTemplate,
     IOHyperEdge,
+    IOKey,
+    MainValueInstance,
     MainValueType,
+    NestedListType,
     NotAvailable,
     Scalar,
+    ShapeNode,
     ShapesType,
     ShapeTemplateType,
     ShapeType,
     Tensor,
+    TensorValueType,
+    ToBeDetermined,
+    UniadicRecord,
     Updates,
     UpdateType,
+    Variadic,
     _get_shapes,
     _ShapesType,
     create_shape_repr,
@@ -67,7 +80,6 @@ class ExtendInfo:
 
 
 class BaseModel(abc.ABC):
-    # _input_keys: tuple[str, ...] = None
     # Disposable models only used once for entire training session.
     # This attribute is only use for manual backends' code generation.
 
@@ -77,12 +89,61 @@ class BaseModel(abc.ABC):
     factory_args: dict[str, Any] = {}
 
     def __call__(self, **kwargs: ConnectionType) -> ExtendInfo:
+        for key, val in self.factory_inputs.items():
+            if val is not TBD:
+                if key not in kwargs or (con := kwargs[key]) is NOT_GIVEN:
+                    kwargs[key] = val  # type: ignore
+                    continue
+                match con:
+                    case Connection():
+                        kwargs[key] = Connect(con, key=IOKey(value=val, expose=False))
+                        # TODO: Maybe we could check con's value if matches with val
+                    case item if isinstance(item, MainValueInstance) and con != val:
+                        raise ValueError(
+                            f"Given value {con} for local key: '{key}' "
+                            f"has already being set to {val}!"
+                        )
+                    case str():
+                        kwargs[key] = IOKey(con, value=val, expose=False)
+                    case IOKey():
+                        if con._value is not TBD and con._value != val:
+                            raise ValueError(
+                                f"Given IOKey for local key: '{key}' is not valid!"
+                            )
+                        else:
+                            kwargs[key] = IOKey(
+                                name=con._name,
+                                value=val,
+                                shape=con._shape,
+                                type=con._type,
+                                expose=con._expose,
+                            )
+                    case Connect():
+                        if (io_key := con.key) is not None:
+                            if io_key._value is not TBD and io_key._value != val:
+                                raise ValueError(
+                                    "Given IOKey in Connect for "
+                                    f"local key: '{key}' is not valid!"
+                                )
+                            else:
+                                io_key._value = val
+                        else:
+                            io_key = IOKey(value=val, expose=False)
+                            kwargs[key] = Connect(*con.connections, key=io_key)
+                    case ExtendTemplate():
+                        raise ValueError(
+                            "Multi-write detected for a valued "
+                            f"local key: '{key}' is not valid!"
+                        )
         return ExtendInfo(self, kwargs)
 
-    def __init__(self, enforce_jit: bool = True) -> None:
+    def __init__(self, name: str | None = None, enforce_jit: bool = True) -> None:
         self.parent: BaseModel | None = (
             None  # TODO: maybe set it only to PrimitiveModel / Model.
         )
+        self.factory_inputs: dict[
+            str, TensorValueType | MainValueType | ToBeDetermined
+        ] = {}
         self.assigned_shapes: list[ShapesType] = []
         self.assigned_constraints: list[dict[str, str | list[str]]] = []
         self.conns = Connections()
@@ -90,6 +151,7 @@ class BaseModel(abc.ABC):
         self.dependency_map = DependencyMap(self.conns)
         self._canonical_input: ConnectionData | NotAvailable = NOT_AVAILABLE
         self._canonical_output: ConnectionData | NotAvailable = NOT_AVAILABLE
+        self.name = name
         self._enforce_jit = enforce_jit
         self._jittable = True
         self.constraint_solver: ConstraintSolver = ConstraintSolver()
@@ -104,25 +166,25 @@ class BaseModel(abc.ABC):
         symbolic: bool = False,
         name: str | None = None,
         alternative_shapes: bool = False,
-        uni_cache: dict | None = None,
-        var_cache: dict | None = None,
+        uni_cache: dict[UniadicRecord, str] | None = None,
+        var_cache: dict[Variadic, str] | None = None,
     ) -> None:
         raise NotImplementedError("Implement summary method!")
 
     @property
-    def enforce_jit(self):
+    def enforce_jit(self) -> bool:
         return self._enforce_jit
 
     @enforce_jit.setter
-    def enforce_jit(self, value):
+    def enforce_jit(self, value: bool) -> None:
         self._enforce_jit = value
 
     @property
-    def jittable(self):
+    def jittable(self) -> bool:
         return self._jittable
 
     @property
-    def shapes(self):
+    def shapes(self) -> _ShapesType:
         return self.get_shapes()
 
     @property
@@ -159,7 +221,10 @@ class BaseModel(abc.ABC):
         return model
 
     def _generate_keys(
-        self, symbolic=True, include_internals=True, include_outputs=False
+        self,
+        symbolic: bool = True,
+        include_internals: bool = True,
+        include_outputs: bool = False,
     ) -> dict[str, str]:
         return {}
 
@@ -183,9 +248,9 @@ class BaseModel(abc.ABC):
     def extract_connection_info(
         self,
         name_mappings: dict[BaseModel, str],
-        data_to_key_map: dict[Tensor | Scalar, list[str]] | None = None,
-        data_memo: dict | None = None,
-    ) -> dict[str, tuple[dict, dict]]:
+        data_to_key_map: dict[Tensor[Any] | Scalar, list[str]] | None = None,
+        data_memo: Mapping[int, Tensor[Any] | Scalar] | None = None,
+    ) -> dict[str, tuple[dict[str, list[str]], dict[str, list[str]]]]:
         raise NotImplementedError("Implement extract_connection_info method!")
 
     def _create_connection(
@@ -221,19 +286,17 @@ class BaseModel(abc.ABC):
         **kwargs: ShapeTemplateType,
     ) -> None:
         # Initialize assigned shapes dictionary to store assigned shapes.
-        assigned_shapes = {}
+        assigned_shapes: dict[str, ShapeTemplateType] = {}
 
         if updates is None:
             updates = Updates()
 
         model = self._get_outermost_parent()
         used_keys: dict[str | int, ShapeType] = {}
-        shape_nodes = {}
+        shape_nodes: dict[str | Connection, tuple[ShapeNode, str]] = {}
         # TODO: Can this be refactored to use a single loop?
         for key, shape in chain(shapes.items(), kwargs.items()):
             metadata = self.conns.extract_metadata(key)
-            if metadata is None:
-                raise KeyError("Requires valid IO connection to set shapes!")
             given_repr = create_shape_repr(shape, model.constraint_solver, used_keys)
             # Get inner string representation of the metadata and save
             # use this name in order to merge .
@@ -254,7 +317,7 @@ class BaseModel(abc.ABC):
 
         model.constraint_solver(updates)
 
-    def _set_value(self, key: ConnectionData, value: MainValueType) -> Updates:
+    def _set_value(self, key: ConnectionData, value: MainValueType | str) -> Updates:
         """
         Set value for the given connection.
 
@@ -267,9 +330,9 @@ class BaseModel(abc.ABC):
         """
 
         if key.key not in self.conns.input_keys:
-            raise KeyError("Internal or output keys' values cannot be set.")
+            raise ValueError("Values of internal and output keys cannot be set.")
         # Data is scalar, set the value directly.
-        return key.metadata.data.set_value(value)
+        return key.metadata.data.set_value(value)  # type: ignore
 
     def set_shapes(
         self, config: ShapesType | None = None, **kwargs: ShapeTemplateType
@@ -333,11 +396,11 @@ class BaseModel(abc.ABC):
 
     def set_types(
         self,
-        config: Mapping[str | Connection, type | UnionType]
-        | Mapping[Connection, type | UnionType]
-        | Mapping[str, type | UnionType]
+        config: Mapping[str | Connection, type | UnionType | NestedListType]
+        | Mapping[Connection, type | UnionType | NestedListType]
+        | Mapping[str, type | UnionType | NestedListType]
         | None = None,
-        **kwargs: type | UnionType,
+        **kwargs: type | UnionType | NestedListType,
     ):
         """
         Set types of any connection in the Model
@@ -368,7 +431,11 @@ class BaseModel(abc.ABC):
         model.constraint_solver(updates)
 
     def get_shapes(
-        self, uni_keys=None, var_keys=None, symbolic=True, verbose=False
+        self,
+        uni_keys: dict[UniadicRecord, str] | None = None,
+        var_keys: dict[Variadic, str] | None = None,
+        symbolic: bool = True,
+        verbose: bool = False,
     ) -> _ShapesType:
         return _get_shapes(
             data_dict={
@@ -383,9 +450,9 @@ class BaseModel(abc.ABC):
 
     def _set_constraint(
         self,
-        fn: Callable,
+        fn: ConstraintFunctionType,
         keys: list[str],
-        post_processes: set[Callable] | None = None,
+        post_processes: set[ConstraintFunctionType] | None = None,
         type: UpdateType | None = None,
     ):
         constr_conns = [self.conns.all[key] for key in keys]
@@ -413,9 +480,9 @@ class BaseModel(abc.ABC):
 
     def set_constraint(
         self,
-        fn: Callable,
+        fn: ConstraintFunctionType,
         keys: list[str],
-        post_processes: set[Callable] | None = None,
+        post_processes: set[ConstraintFunctionType] | None = None,
         type: UpdateType = UpdateType.SHAPE,
     ) -> None:
         self.assigned_constraints.append({"fn": fn.__name__, "keys": keys})
@@ -436,9 +503,6 @@ class BaseModel(abc.ABC):
             return self._canonical_output.conn
 
     def set_canonical_input(self, given_conn: str | Connection):
-        if not isinstance(given_conn, str | Connection):
-            raise ValueError("Set canonical input takes only a 'key' or 'connection'!")
-
         if isinstance(given_conn, str):
             conn = self.conns.all.get(given_conn)
             if conn is None:
@@ -457,9 +521,6 @@ class BaseModel(abc.ABC):
         self._canonical_input = conn
 
     def set_canonical_output(self, given_conn: str | Connection):
-        if not isinstance(given_conn, str | Connection):
-            raise ValueError("Set canonical output takes only a 'key' or 'connection'!")
-
         if isinstance(given_conn, str):
             conn = self.conns.all.get(given_conn)
             if conn is None:
@@ -577,26 +638,27 @@ class DependencyMap:
         ] = {}
 
     # Add new model to dependency map, model_dag is created in extend
-    def add_model_dag(self, model: BaseModel, model_dag):
+    def add_model_dag(self, model: BaseModel, model_dag: dict[str, ConnectionData]):
         updated_conns: OrderedSet[ConnectionData] = OrderedSet()
         for local_key, conn in model_dag.items():
             if local_key in model.conns.input_keys:
-                specs = OrderedSet(
+                specs: OrderedSet[ConnectionData] = OrderedSet(
                     [
-                        model_dag.get(conn.key)
+                        model_dag[conn.key]
                         for conn in model.dependency_map.get_dependent_output_conns(
                             local_key
                         )
                         if model_dag.get(conn.key) is not None
                     ]
                 )
-
-                self._local_input_dependency_map[conn] = [(model, specs)]
+                self._local_input_dependency_map.setdefault(conn, []).append(
+                    (model, specs)
+                )
                 updated_conns.add(conn)
-            elif local_key in model.conns.output_keys:
+            else:
                 specs = OrderedSet(
                     [
-                        model_dag.get(conn.key)
+                        model_dag[conn.key]
                         for conn in model.dependency_map.get_dependent_input_conns(
                             local_key
                         )
@@ -848,7 +910,7 @@ class DependencyMap:
                         for spec in item[1]
                     ]
                 )
-                if key in self._local_input_dependency_map
+                if conn_data in self._local_input_dependency_map
                 else OrderedSet()
             )
         return specs
@@ -882,7 +944,7 @@ class DependencyMap:
             # TODO: add test checking the while
             key_stack |= (
                 self._local_output_dependency_map[conn_data][1]
-                if key in self._local_output_dependency_map
+                if conn_data in self._local_output_dependency_map
                 else OrderedSet()
             )
         return specs

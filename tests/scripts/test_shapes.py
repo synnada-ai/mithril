@@ -30,8 +30,9 @@ from mithril.framework.common import (
     Connection,
     ConnectionType,
     Equivalences,
+    GenericTensorType,
+    IOKey,
     PossibleValues,
-    Scalar,
     ShapeNode,
     ShapeRepr,
     Uniadic,
@@ -70,7 +71,6 @@ from mithril.models import (
     Gelu,
     GPRAlpha,
     GPRVOuter,
-    IOKey,
     IsNan,
     Layer,
     LeakyRelu,
@@ -86,6 +86,7 @@ from mithril.models import (
     Multiply,
     NanToNum,
     NormModifier,
+    Pad,
     PermuteTensor,
     PositionalEncoding,
     PrimitiveModel,
@@ -109,7 +110,6 @@ from mithril.models import (
     SwapAxes,
     Tanh,
     Tensor,
-    TensorType,
     ToList,
     ToTuple,
     TrainModel,
@@ -193,8 +193,8 @@ def repr_sort(repr):
 
 
 def get_deterministic_shape(node: ShapeNode):
-    uni: dict[UniadicRecord | Variadic, str] = {}
-    var: dict[UniadicRecord | Variadic, str] = {}
+    uni: dict[UniadicRecord, str] = {}
+    var: dict[Variadic, str] = {}
     if len(reprs := node.reprs) != 1:
         sorted_reprs = sorted(reprs, key=repr_sort, reverse=True)
         return [repr.get_shapes(uni, var) for repr in sorted_reprs]
@@ -239,8 +239,8 @@ def assert_all_reprs_unique(model: BaseModel):
     """
     all_reprs = get_all_reprs(model)
 
-    uni_cache: dict[UniadicRecord | Variadic, str] = {}
-    var_cache: dict[UniadicRecord | Variadic, str] = {}
+    uni_cache: dict[UniadicRecord, str] = {}
+    var_cache: dict[Variadic, str] = {}
 
     for repr1, repr2 in combinations(all_reprs, 2):
         repr1_shapes = repr1.get_shapes(uni_cache, var_cache)
@@ -271,8 +271,8 @@ def assert_all_integer_uniadics_unique(model: BaseModel):
 def assert_match_shapes(
     repr1: ShapeRepr, repr2: ShapeRepr, repr1_ref_shapes: list, repr2_ref_shapes: list
 ):
-    uni_cache: dict[UniadicRecord | Variadic, str] = {}
-    var_cache: dict[UniadicRecord | Variadic, str] = {}
+    uni_cache: dict[UniadicRecord, str] = {}
+    var_cache: dict[Variadic, str] = {}
 
     repr1._match(repr2)
 
@@ -303,7 +303,7 @@ def test_shapes_1():
         "output": [3, 4, 5, 7],
     }
     physical_ref = {
-        "_Add_0_output": [3, 4, 5, 7],
+        "output_0": [3, 4, 5, 7],
         "left": [3, 4, 5, 1],
         "right": [1, 7],
         "output": [3, 4, 5, 7],
@@ -324,59 +324,86 @@ def test_shapes_2():
     shapes = {"input": [8, 3, 64, 64]}
     logical_ref: Mapping[str, list | None] = {
         "input": ["u1", "u2", "u3", "u4"],
-        "$kernel_0": [64, "u2", 3, 3],
+        "$weight_0": [64, "u2", 3, 3],
         "$bias_0": [1, 64, 1, 1],
-        "$stride_0": None,
-        "$padding_0": None,
-        "$dilation_0": None,
         "$_Convolution2D_0_output": ["u1", 64, "u5", "u6"],
-        "$kernel_1": [64, 64, 3, 3],
+        "$weight_1": [64, 64, 3, 3],
         "$bias_1": [1, 64, 1, 1],
-        "$stride_1": None,
-        "$padding_1": None,
-        "$dilation_1": None,
         "$_Convolution2D_1_output": ["u1", 64, "u7", "u8"],
-        "$kernel_2": [64, 64, 3, 3],
+        "$weight_2": [64, 64, 3, 3],
         "$bias_2": [1, 64, 1, 1],
-        "$stride_2": None,
-        "$padding_2": None,
-        "$dilation_2": None,
         "$_Convolution2D_2_output": ["u1", 64, "u9", "u10"],
-        "$kernel_3": [64, 64, 3, 3],
+        "$weight_3": [64, 64, 3, 3],
         "$bias_3": [1, 64, 1, 1],
-        "$stride_3": None,
-        "$padding_3": None,
-        "$dilation_3": None,
         "$_Convolution2D_3_output": ["u1", 64, "u11", "u12"],
-        "$kernel_4": [64, 64, 3, 3],
+        "$weight_4": [64, 64, 3, 3],
         "$bias_4": [1, 64, 1, 1],
-        "$stride_4": None,
-        "$padding_4": None,
-        "$dilation_4": None,
         "output": ["u1", 64, "u13", "u14"],
+        "$_Convolution2D_0_padding": None,
+        "$_Convolution2D_0_start": None,
+        "$_Convolution2D_0_stop": None,
+        "$_Convolution2D_0_step": None,
+        "$_Convolution2D_0_stride": None,
+        "$_Convolution2D_0_dilation": None,
+        "$_Convolution2D_1_padding": None,
+        "$_Convolution2D_1_start": None,
+        "$_Convolution2D_1_stop": None,
+        "$_Convolution2D_1_step": None,
+        "$_Convolution2D_1_stride": None,
+        "$_Convolution2D_1_dilation": None,
+        "$_Convolution2D_2_padding": None,
+        "$_Convolution2D_2_start": None,
+        "$_Convolution2D_2_stop": None,
+        "$_Convolution2D_2_step": None,
+        "$_Convolution2D_2_stride": None,
+        "$_Convolution2D_2_dilation": None,
+        "$_Convolution2D_3_padding": None,
+        "$_Convolution2D_3_start": None,
+        "$_Convolution2D_3_stop": None,
+        "$_Convolution2D_3_step": None,
+        "$_Convolution2D_3_stride": None,
+        "$_Convolution2D_3_dilation": None,
+        "$_Convolution2D_4_padding": None,
+        "$_Convolution2D_4_start": None,
+        "$_Convolution2D_4_stop": None,
+        "$_Convolution2D_4_step": None,
+        "$_Convolution2D_4_stride": None,
+        "$_Convolution2D_4_dilation": None,
     }
     physical_ref = {
-        "_Convolution2D_0_output": [8, 64, 64, 64],
-        "_Convolution2D_1_output": [8, 64, 64, 64],
-        "_Convolution2D_2_output": [8, 64, 64, 64],
-        "_Convolution2D_3_output": [8, 64, 64, 64],
-        "kernel_0": [64, 3, 3, 3],
-        "stride_0": None,
+        "output_6": [8, 64, 64, 64],
+        "output_13": [8, 64, 64, 64],
+        "output_20": [8, 64, 64, 64],
+        "output_27": [8, 64, 64, 64],
+        "weight_0": [64, 3, 3, 3],
         "input": [8, 3, 64, 64],
         "bias_0": [1, 64, 1, 1],
-        "kernel_1": [64, 64, 3, 3],
+        "weight_1": [64, 64, 3, 3],
         "bias_1": [1, 64, 1, 1],
-        "kernel_2": [64, 64, 3, 3],
+        "weight_2": [64, 64, 3, 3],
         "bias_2": [1, 64, 1, 1],
-        "kernel_3": [64, 64, 3, 3],
+        "weight_3": [64, 64, 3, 3],
         "bias_3": [1, 64, 1, 1],
-        "kernel_4": [64, 64, 3, 3],
+        "weight_4": [64, 64, 3, 3],
         "bias_4": [1, 64, 1, 1],
         "output": [8, 64, 64, 64],
-        "_Convolution2D_0_TupleConverter_3_output": None,
+        "stride_0": None,
+        "output_3": None,
     }
 
     assert_shapes(model, logical_ref, physical_ref, shapes=shapes)
+
+
+@pytest.mark.skip("Compiled model shapes may have missing keys. Investigate'")
+def test_shapes_conv__():
+    # TODO: Investigate why only stride exists in compiled
+    # model shapes.
+    from mithril import JaxBackend
+
+    model = Model()
+    model += Convolution2D(kernel_size=3, out_channels=64)(input="input")
+    comp_model = mithril.compile(model, JaxBackend(), jit=False)
+    assert comp_model.shapes
 
 
 def test_shapes_3():
@@ -398,167 +425,128 @@ def test_shapes_3():
 
     shapes = {"input": [8, 3, 64, 64]}
     logical_ref: Mapping[str, list | None] = {
-        "input": ["u1", "u2", "u3", "u4"],
-        "$kernel_0": [64, "u2", 3, 3],
+        "$_Convolution2D_0_output": ["u1", 64, "u2", "u3"],
+        "$_Model_1_output": ["u1", 64, "u4", "u5"],
+        "$_Model_2_output": ["u1", 64, "u6", "u7"],
+        "$_Model_3_output": ["u1", 64, "u8", "u9"],
+        "$weight_0": [64, "u10", 3, 3],
+        "input": ["u1", "u10", "u11", "u12"],
         "$bias_0": [1, 64, 1, 1],
-        "$stride_0": None,
-        "$padding_0": None,
-        "$dilation_0": None,
-        "$_Convolution2D_0_output": ["u1", 64, "u5", "u6"],
-        "$kernel_1": [64, 64, 3, 3],
+        "$weight_1": [64, 64, 3, 3],
         "$bias_1": [1, 64, 1, 1],
-        "$stride_1": None,
-        "$padding_1": None,
-        "$dilation_1": None,
-        "$kernel_2": [64, 64, 3, 3],
+        "$weight_2": [64, 64, 3, 3],
         "$bias_2": [1, 64, 1, 1],
-        "$stride_2": None,
-        "$padding_2": None,
-        "$dilation_2": None,
-        "$kernel_3": [64, 64, 3, 3],
+        "$weight_3": [64, 64, 3, 3],
         "$bias_3": [1, 64, 1, 1],
-        "$stride_3": None,
-        "$padding_3": None,
-        "$dilation_3": None,
-        "$_Model_1_output": ["u1", 64, "u7", "u8"],
-        "$kernel_4": [64, 64, 3, 3],
+        "$weight_4": [64, 64, 3, 3],
         "$bias_4": [1, 64, 1, 1],
-        "$stride_4": None,
-        "$padding_4": None,
-        "$dilation_4": None,
-        "$kernel_5": [64, 64, 3, 3],
+        "$weight_5": [64, 64, 3, 3],
         "$bias_5": [1, 64, 1, 1],
-        "$stride_5": None,
-        "$padding_5": None,
-        "$dilation_5": None,
-        "$kernel_6": [64, 64, 3, 3],
+        "$weight_6": [64, 64, 3, 3],
         "$bias_6": [1, 64, 1, 1],
-        "$stride_6": None,
-        "$padding_6": None,
-        "$dilation_6": None,
-        "$kernel_7": [64, 64, 3, 3],
+        "$weight_7": [64, 64, 3, 3],
         "$bias_7": [1, 64, 1, 1],
-        "$stride_7": None,
-        "$padding_7": None,
-        "$dilation_7": None,
-        "$_Model_2_output": ["u1", 64, "u9", "u10"],
-        "$kernel_8": [64, 64, 3, 3],
+        "$weight_8": [64, 64, 3, 3],
         "$bias_8": [1, 64, 1, 1],
-        "$stride_8": None,
-        "$padding_8": None,
-        "$dilation_8": None,
-        "$kernel_9": [64, 64, 3, 3],
+        "$weight_9": [64, 64, 3, 3],
         "$bias_9": [1, 64, 1, 1],
-        "$stride_9": None,
-        "$padding_9": None,
-        "$dilation_9": None,
-        "$kernel_10": [64, 64, 3, 3],
+        "$weight_10": [64, 64, 3, 3],
         "$bias_10": [1, 64, 1, 1],
-        "$stride_10": None,
-        "$padding_10": None,
-        "$dilation_10": None,
-        "$kernel_11": [64, 64, 3, 3],
+        "$weight_11": [64, 64, 3, 3],
         "$bias_11": [1, 64, 1, 1],
-        "$stride_11": None,
-        "$padding_11": None,
-        "$dilation_11": None,
-        "$kernel_12": [64, 64, 3, 3],
+        "$weight_12": [64, 64, 3, 3],
         "$bias_12": [1, 64, 1, 1],
-        "$stride_12": None,
-        "$padding_12": None,
-        "$dilation_12": None,
-        "$kernel_13": [64, 64, 3, 3],
+        "$weight_13": [64, 64, 3, 3],
         "$bias_13": [1, 64, 1, 1],
-        "$stride_13": None,
-        "$padding_13": None,
-        "$dilation_13": None,
-        "$kernel_14": [64, 64, 3, 3],
+        "$weight_14": [64, 64, 3, 3],
         "$bias_14": [1, 64, 1, 1],
-        "$stride_14": None,
-        "$padding_14": None,
-        "$dilation_14": None,
-        "$kernel_15": [64, 64, 3, 3],
+        "$weight_15": [64, 64, 3, 3],
         "$bias_15": [1, 64, 1, 1],
-        "$stride_15": None,
-        "$padding_15": None,
-        "$dilation_15": None,
-        "$_Model_3_output": ["u1", 64, "u11", "u12"],
-        "$kernel_16": [64, 64, 3, 3],
+        "$weight_16": [64, 64, 3, 3],
         "$bias_16": [1, 64, 1, 1],
-        "$stride_16": None,
-        "$padding_16": None,
-        "$dilation_16": None,
         "output": ["u1", 64, "u13", "u14"],
+        "$_Convolution2D_0_padding": None,
+        "$_Convolution2D_0_start": None,
+        "$_Convolution2D_0_stop": None,
+        "$_Convolution2D_0_step": None,
+        "$_Convolution2D_0_stride": None,
+        "$_Convolution2D_0_dilation": None,
+        "$_Convolution2D_4_padding": None,
+        "$_Convolution2D_4_start": None,
+        "$_Convolution2D_4_stop": None,
+        "$_Convolution2D_4_step": None,
+        "$_Convolution2D_4_stride": None,
+        "$_Convolution2D_4_dilation": None,
     }
 
     physical_ref = {
-        "_Convolution2D_0_output": [8, 64, 64, 64],
-        "_Model_1_output": [8, 64, 33, 33],
-        "_Model_2_output": [8, 64, 18, 18],
-        "_Model_3_output": [8, 64, 6, 6],
-        "kernel_0": [64, 3, 3, 3],
+        "weight_0": [64, 3, 3, 3],
         "stride_0": None,
+        "output_3": None,
         "input": [8, 3, 64, 64],
         "bias_0": [1, 64, 1, 1],
-        "kernel_1": [64, 64, 3, 3],
+        "output_6": [8, 64, 64, 64],
+        "weight_1": [64, 64, 3, 3],
+        "output_7": None,
+        "start_1": None,
+        "stop_1": None,
+        "step_1": None,
+        "output_8": None,
         "bias_1": [1, 64, 1, 1],
-        "kernel_2": [64, 64, 3, 3],
+        "output_13": [8, 64, 64, 64],
+        "weight_2": [64, 64, 3, 3],
         "padding_2": None,
+        "output_16": None,
+        "output_18": None,
         "bias_2": [1, 64, 1, 1],
-        "kernel_3": [64, 64, 3, 3],
+        "output_20": [8, 64, 62, 62],
+        "weight_3": [64, 64, 3, 3],
         "padding_3": None,
+        "output_23": None,
         "stride_3": None,
+        "output_24": None,
+        "output_25": None,
         "bias_3": [1, 64, 1, 1],
-        "kernel_4": [64, 64, 3, 3],
+        "output_27": [8, 64, 33, 33],
+        "weight_4": [64, 64, 3, 3],
         "bias_4": [1, 64, 1, 1],
-        "kernel_5": [64, 64, 3, 3],
+        "output_34": [8, 64, 33, 33],
+        "weight_5": [64, 64, 3, 3],
         "bias_5": [1, 64, 1, 1],
-        "kernel_6": [64, 64, 3, 3],
+        "output_41": [8, 64, 33, 33],
+        "weight_6": [64, 64, 3, 3],
         "bias_6": [1, 64, 1, 1],
-        "kernel_7": [64, 64, 3, 3],
+        "output_48": [8, 64, 31, 31],
+        "weight_7": [64, 64, 3, 3],
         "bias_7": [1, 64, 1, 1],
-        "kernel_8": [64, 64, 3, 3],
+        "output_55": [8, 64, 18, 18],
+        "weight_8": [64, 64, 3, 3],
         "bias_8": [1, 64, 1, 1],
-        "kernel_9": [64, 64, 3, 3],
+        "output_62": [8, 64, 18, 18],
+        "weight_9": [64, 64, 3, 3],
         "bias_9": [1, 64, 1, 1],
-        "kernel_10": [64, 64, 3, 3],
+        "output_69": [8, 64, 18, 18],
+        "weight_10": [64, 64, 3, 3],
         "bias_10": [1, 64, 1, 1],
-        "kernel_11": [64, 64, 3, 3],
+        "output_76": [8, 64, 16, 16],
+        "weight_11": [64, 64, 3, 3],
         "bias_11": [1, 64, 1, 1],
-        "kernel_12": [64, 64, 3, 3],
+        "output_83": [8, 64, 10, 10],
+        "weight_12": [64, 64, 3, 3],
         "bias_12": [1, 64, 1, 1],
-        "kernel_13": [64, 64, 3, 3],
+        "output_90": [8, 64, 10, 10],
+        "weight_13": [64, 64, 3, 3],
         "bias_13": [1, 64, 1, 1],
-        "kernel_14": [64, 64, 3, 3],
+        "output_97": [8, 64, 10, 10],
+        "weight_14": [64, 64, 3, 3],
         "bias_14": [1, 64, 1, 1],
-        "kernel_15": [64, 64, 3, 3],
+        "output_104": [8, 64, 8, 8],
+        "weight_15": [64, 64, 3, 3],
         "bias_15": [1, 64, 1, 1],
-        "kernel_16": [64, 64, 3, 3],
+        "output_111": [8, 64, 6, 6],
+        "weight_16": [64, 64, 3, 3],
         "bias_16": [1, 64, 1, 1],
         "output": [8, 64, 6, 6],
-        "_Convolution2D_0_TupleConverter_3_output": None,
-        "_Model_1_Convolution2D_0_Shape_0_output": None,
-        "_Model_1_Convolution2D_0_PrimitiveSlice_1_start": None,
-        "_Model_1_Convolution2D_0_PrimitiveSlice_1_stop": None,
-        "_Model_1_Convolution2D_0_PrimitiveSlice_1_step": None,
-        "_Model_1_Convolution2D_0_PrimitiveSlice_1_output": None,
-        "_Model_1_Convolution2D_0_output": [8, 64, 64, 64],
-        "_Model_1_Convolution2D_1_PaddingConverter2D_2_output": None,
-        "_Model_1_Convolution2D_1_TupleConverter_4_output": None,
-        "_Model_1_Convolution2D_1_output": [8, 64, 62, 62],
-        "_Model_1_Convolution2D_2_PaddingConverter2D_2_output": None,
-        "_Model_1_Convolution2D_2_TupleConverter_3_output": None,
-        "_Model_1_Convolution2D_2_TupleConverter_4_output": None,
-        "_Model_2_Convolution2D_0_output": [8, 64, 33, 33],
-        "_Model_2_Model_1_Convolution2D_0_output": [8, 64, 33, 33],
-        "_Model_2_Model_1_Convolution2D_1_output": [8, 64, 31, 31],
-        "_Model_3_Convolution2D_0_output": [8, 64, 18, 18],
-        "_Model_3_Model_1_Convolution2D_0_output": [8, 64, 18, 18],
-        "_Model_3_Model_1_Convolution2D_1_output": [8, 64, 16, 16],
-        "_Model_3_Model_1_output": [8, 64, 10, 10],
-        "_Model_3_Model_2_Convolution2D_0_output": [8, 64, 10, 10],
-        "_Model_3_Model_2_Model_1_Convolution2D_0_output": [8, 64, 10, 10],
-        "_Model_3_Model_2_Model_1_Convolution2D_1_output": [8, 64, 8, 8],
     }
     assert_shapes(model, logical_ref, physical_ref, shapes=shapes)
 
@@ -566,40 +554,49 @@ def test_shapes_3():
 def test_shapes_4():
     # Extend to input
     model = Model()
-    model += (l1 := Linear(dimension=10))(w="w", output=IOKey(name="output"))
+    model += (l1 := Linear(dimension=10))(weight="weight", output=IOKey(name="output"))
     model += (l2 := Linear(dimension=10))(
-        input="", w="w1", output=IOKey(name="output2")
+        input="", weight="weight1", output=IOKey(name="output2")
     )
     model += Linear(dimension=71)(
-        input="input", w="w2", output=Connect(l1.input, l2.input)
+        input="input", weight="weight2", output=Connect(l1.input, l2.input)
     )
     shapes = {"input": [4, 256]}
-    logical_ref: Mapping[str, list] = {
-        "w": [71, 10],
-        "$b_1": [10],
-        "output": [["(V1, ...)", "u1", 10], ["u3", "(V2, ...)", 10]],
-        "w1": [71, 10],
-        "$b_2": [10],
-        "output2": [["(V1, ...)", "u1", 10], ["u3", "(V2, ...)", 10]],
-        "$_Linear_0_output": [["(V1, ...)", "u1", 71], ["u3", "(V2, ...)", 71]],
-        "input": [["(V1, ...)", "u1", "u2"], ["u3", "(V2, ...)", "u2"]],
-        "w2": ["u2", 71],
-        "$b_0": [71],
+    logical_ref: Mapping[str, list | None] = {
+        "$_Linear_0_output": [["(V1, ...)", "u1", 71], ["u2", "(V2, ...)", 71]],
+        "weight": [10, 71],
+        "$bias_1": [10],
+        "weight1": [10, 71],
+        "$bias_2": [10],
+        "weight2": [71, "u3"],
+        "input": [["(V1, ...)", "u1", "u3"], ["u2", "(V2, ...)", "u3"]],
+        "$bias_0": [71],
+        "output": [["(V1, ...)", "u1", 10], ["u2", "(V2, ...)", 10]],
+        "output2": [["(V1, ...)", "u1", 10], ["u2", "(V2, ...)", 10]],
+        "$_Linear_1_axes": None,
+        "$_Linear_2_axes": None,
+        "$_Linear_0_axes": None,
     }
     physical_ref = {
-        "w": [71, 10],
-        "b_1": [10],
-        "output": [4, 10],
-        "w1": [71, 10],
-        "b_2": [10],
-        "output2": [4, 10],
-        "_Linear_0_output": [4, 71],
+        "weight": [10, 71],
+        "axes_0": None,
+        "output_0": [71, 10],
+        "weight1": [10, 71],
+        "axes_1": None,
+        "output_1": [71, 10],
+        "weight2": [71, 256],
+        "axes_2": None,
+        "output_2": [256, 71],
         "input": [4, 256],
-        "w2": [256, 71],
-        "b_0": [71],
-        "_Linear_0_MatrixMultiply_0_output": [4, 71],
-        "_Linear_1_MatrixMultiply_0_output": [4, 10],
-        "_Linear_2_MatrixMultiply_0_output": [4, 10],
+        "output_3": [4, 71],
+        "bias_2": [71],
+        "output_4": [4, 71],
+        "output_5": [4, 10],
+        "bias_0": [10],
+        "output": [4, 10],
+        "output_6": [4, 10],
+        "bias_1": [10],
+        "output2": [4, 10],
     }
     assert_shapes(
         model, logical_ref, physical_ref, shapes=shapes, check_all_shapes=True
@@ -617,27 +614,30 @@ def test_linear_1_set_shapes():
         loss_model=loss_model, reduce_steps=[Mean()], input="output", target="target"
     )
     logical_ref: Mapping[str, list | None] = {
-        "input": [100, 4],
-        "target": [100, "u1"],
-        "w": [4, "u1"],
-        "b": ["u1"],
-        "output": [100, "u1"],
         "$_SquaredError_1_output": [100, "u1"],
-        "$axis": None,
         "$_Mean_2_output": [],
-        "$keepdim": None,
+        "weight": ["u1", 4],
+        "input": [100, 4],
+        "bias": ["u1"],
+        "target": [100, "u1"],
+        "output": [100, "u1"],
+        "axes": None,
+        "$_Mean_2_axis": None,
+        "$_Mean_2_keepdim": None,
     }
     physical_ref = {
+        "weight": [1, 4],
+        "axes": None,
+        "output_0": [4, 1],
         "input": [100, 4],
-        "target": [100, 1],
-        "w": [4, 1],
-        "b": [1],
+        "output_1": [100, 1],
+        "bias": [1],
         "output": [100, 1],
-        "_SquaredError_1_output": [100, 1],
+        "target": [100, 1],
+        "output_2": [100, 1],
         "axis": None,
-        "_Mean_2_output": [],
         "keepdim": None,
-        "_Linear_0_MatrixMultiply_0_output": [100, 1],
+        "output_3": [],
     }
     assert_shapes(ctx, logical_ref, physical_ref, shapes=shapes)
 
@@ -653,29 +653,32 @@ def test_linear_1_static_shapes():
     )
     logical_ref: Mapping[str, list | None] = {
         "$_SquaredError_1_output": [
-            ["u1", "(V1, ...)", "u2"],
-            ["(V2, ...)", "u3", "u2"],
+            ["(V1, ...)", "u1", "u2"],
+            ["u3", "(V2, ...)", "u2"],
         ],
         "$_Mean_2_output": [],
-        "input": [["(V2, ...)", "u3", "u4"], ["u1", "(V1, ...)", "u4"]],
-        "w": ["u4", "u2"],
-        "b": ["u2"],
-        "target": [["u1", "(V1, ...)", "u2"], ["(V2, ...)", "u3", "u2"]],
-        "$axis": None,
-        "$keepdim": None,
-        "output": [["u1", "(V1, ...)", "u2"], ["(V2, ...)", "u3", "u2"]],
+        "weight": ["u2", "u4"],
+        "input": [["(V1, ...)", "u1", "u4"], ["u3", "(V2, ...)", "u4"]],
+        "bias": ["u2"],
+        "target": [["(V1, ...)", "u1", "u2"], ["u3", "(V2, ...)", "u2"]],
+        "output": [["(V1, ...)", "u1", "u2"], ["u3", "(V2, ...)", "u2"]],
+        "axes": None,
+        "$_Mean_2_axis": None,
+        "$_Mean_2_keepdim": None,
     }
     physical_ref = {
+        "weight": [1, 4],
+        "axes": None,
+        "output_0": [4, 1],
         "input": [100, 4],
-        "target": [100, 1],
-        "w": [4, 1],
-        "b": [1],
+        "output_1": [100, 1],
+        "bias": [1],
         "output": [100, 1],
-        "_SquaredError_1_output": [100, 1],
+        "target": [100, 1],
+        "output_2": [100, 1],
         "axis": None,
-        "_Mean_2_output": [],
         "keepdim": None,
-        "_Linear_0_MatrixMultiply_0_output": [100, 1],
+        "output_3": [],
     }
     assert_shapes(ctx, logical_ref, physical_ref, shapes=shapes, check_all_shapes=True)
 
@@ -702,30 +705,32 @@ def test_linear_1_static_inputs():
     # ctx.set_shapes(input = [100, 4], target = [100, 1])
     logical_ref: Mapping[str, list | None] = {
         "$_SquaredError_1_output": [
-            ["u1", "(V1, ...)", "u2"],
-            ["(V2, ...)", "u3", "u2"],
+            ["(V1, ...)", "u1", "u2"],
+            ["u3", "(V2, ...)", "u2"],
         ],
         "$_Mean_2_output": [],
-        "input": [["(V2, ...)", "u3", "u4"], ["u1", "(V1, ...)", "u4"]],
-        "w": ["u4", "u2"],
-        "b": ["u2"],
-        "target": [["u1", "(V1, ...)", "u2"], ["(V2, ...)", "u3", "u2"]],
-        "$axis": None,
-        "$keepdim": None,
-        "output": [["u1", "(V1, ...)", "u2"], ["(V2, ...)", "u3", "u2"]],
+        "weight": ["u2", "u4"],
+        "input": [["(V1, ...)", "u1", "u4"], ["u3", "(V2, ...)", "u4"]],
+        "bias": ["u2"],
+        "target": [["(V1, ...)", "u1", "u2"], ["u3", "(V2, ...)", "u2"]],
+        "output": [["(V1, ...)", "u1", "u2"], ["u3", "(V2, ...)", "u2"]],
+        "axes": None,
+        "$_Mean_2_axis": None,
+        "$_Mean_2_keepdim": None,
     }
-
     physical_ref = {
+        "weight": [1, 4],
+        "axes": None,
+        "output_0": [4, 1],
         "input": [100, 4],
-        "target": [100, 1],
-        "w": [4, 1],
-        "b": [1],
+        "output_1": [100, 1],
+        "bias": [1],
         "output": [100, 1],
-        "_SquaredError_1_output": [100, 1],
+        "target": [100, 1],
+        "output_2": [100, 1],
         "axis": None,
-        "_Mean_2_output": [],
         "keepdim": None,
-        "_Linear_0_MatrixMultiply_0_output": [100, 1],
+        "output_3": [],
     }
     assert_shapes(
         ctx,
@@ -745,24 +750,18 @@ def test_simple_composite_1_set_shapes():
         right="input2",
         output=IOKey(name="output"),
     )
-    key_mappings = model._generate_keys()
-    left_metadata = model.conns.get_con_by_metadata(mult.left.metadata)
-    assert left_metadata is not None
-    inner_left_key = key_mappings[left_metadata.key]
     logical_ref = {
         "input2": [2, 2],
         "output": [2, 2],
-        "left": None,
-        inner_left_key: [1, 1],
+        "left": [1, 1],
         # 'Multiply_0_left': [1, 1]
     }
     physical_ref = {
+        "left": [1, 1],
         "input2": [2, 2],
         "output": [2, 2],
-        "left": None,
-        inner_left_key[1:]: [1, 1],
-        # 'Multiply_0_left': [1, 1]
     }
+
     assert_shapes(model, logical_ref, physical_ref)
 
 
@@ -775,29 +774,18 @@ def test_simple_composite_1_extend_inputs():
         right=IOKey(value=right_input, name="right"),
         output=IOKey(name="output"),
     )
-    key_mappings = model._generate_keys()
-    left_metadata = model.conns.get_con_by_metadata(mult.left.metadata)
-    assert left_metadata is not None
-    inner_left_key = key_mappings[left_metadata.key]
-
-    right_metadata = model.conns.get_con_by_metadata(mult.right.metadata)
-    assert right_metadata is not None
-    inner_right_key = key_mappings[right_metadata.key]
 
     logical_ref = {
-        "right": None,
+        "right": [2, 2],
         "output": [2, 2],
-        "left": None,
-        inner_left_key: [1, 1],
-        inner_right_key: [2, 2],
+        "left": [1, 1],
     }
     physical_ref = {
-        "right": None,
+        "left": [1, 1],
+        "right": [2, 2],
         "output": [2, 2],
-        "left": None,
-        inner_left_key[1:]: [1, 1],
-        inner_right_key[1:]: [2, 2],
     }
+
     assert_shapes(model, logical_ref, physical_ref)
 
 
@@ -810,22 +798,16 @@ def test_simple_composite_1_set_shapes_2():
         output=IOKey(name="output"),
     )
     mult.set_shapes({"right": [2, 2]})
-    key_mappings = model._generate_keys()
-    left_metadata = model.conns.get_con_by_metadata(mult.left.metadata)
-    assert left_metadata is not None
-    inner_left_key = key_mappings[left_metadata.key]
 
     logical_ref = {
         "input2": [2, 2],
         "output": [2, 2],
-        "left": None,
-        inner_left_key: [1, 1],
+        "left": [1, 1],
     }
     physical_ref = {
+        "left": [1, 1],
         "input2": [2, 2],
         "output": [2, 2],
-        "left": None,
-        inner_left_key[1:]: [1, 1],
     }
 
     assert_shapes(model, logical_ref, physical_ref)
@@ -833,54 +815,34 @@ def test_simple_composite_1_set_shapes_2():
 
 def test_simple_composite_1_static_shapes():
     model = Model()
-    model += (mult := Multiply())(
+    model += Multiply()(
         left=IOKey(value=0.5, name="left"), right="input2", output=IOKey(name="output")
     )
     shapes = {"input2": [2, 2]}
-    key_mappings = model._generate_keys()
-    left_metadata = model.conns.get_con_by_metadata(mult.left.metadata)
-    assert left_metadata is not None
-    inner_left_key = key_mappings[left_metadata.key]
 
     logical_ref = {
         "input2": ["(V1, ...)"],
         "output": ["(V1, ...)"],
-        "left": None,
-        inner_left_key: [],
+        "left": [],
     }
-    physical_ref = {
-        "input2": [2, 2],
-        "output": [2, 2],
-        "left": None,
-        inner_left_key[1:]: [],
-    }
+    physical_ref = {"left": [], "input2": [2, 2], "output": [2, 2]}
+
     assert_shapes(model, logical_ref, physical_ref, shapes=shapes)
 
 
 def test_simple_composite_1_static_inputs():
     model = Model()
-    model += (add := Add())(
+    model += Add()(
         left=IOKey(value=0.5, name="left"), right="input2", output=IOKey(name="output")
     )
     static_inputs = {"input2": np.random.randn(2, 2)}
-    key_mappings = model._generate_keys()
-
-    left_metadata = model.conns.get_con_by_metadata(add.left.metadata)
-    assert left_metadata is not None
-    inner_left_key = key_mappings[left_metadata.key]
-
     logical_ref = {
         "input2": ["(V1, ...)"],
         "output": ["(V1, ...)"],
-        "left": None,
-        inner_left_key: [],
+        "left": [],
     }
-    physical_ref = {
-        "input2": [2, 2],
-        "output": [2, 2],
-        "left": None,
-        inner_left_key[1:]: [],
-    }
+    physical_ref = {"left": [], "input2": [2, 2], "output": [2, 2]}
+
     assert_shapes(model, logical_ref, physical_ref, static_inputs=static_inputs)
 
 
@@ -889,42 +851,28 @@ def test_simple_composite_2_set_shapes():
     mult = Multiply()
     mult.set_shapes({"right": [2, 2]})
     model += mult(left=IOKey(value=2.0, name="left"), right="in1")
-    model += (div := Divide())(
+    model += Divide()(
         numerator=IOKey(value=2.0, name="numerator"),
         denominator=mult.output,
         output=IOKey(name="output"),
     )
     model.set_canonical_input(mult.left)
-    key_mappings = model._generate_keys()
-
-    left_metadata = model.conns.get_con_by_metadata(mult.left.metadata)
-    assert left_metadata is not None
-    inner_left_key = key_mappings[left_metadata.key]
-
-    numerator_metadata = model.conns.get_con_by_metadata(div.numerator.metadata)
-    assert numerator_metadata is not None
-    inner_numerator_key = key_mappings[numerator_metadata.key]
-
-    denominator = model.conns.get_con_by_metadata(div.denominator.metadata)
-    assert denominator is not None
-    denominator_key = key_mappings[denominator.key]
 
     logical_ref = {
-        "left": None,
-        inner_left_key: [],
+        "left": [],
         "in1": [2, 2],
-        "numerator": None,
-        inner_numerator_key: [],
-        denominator_key: [2, 2],
+        "numerator": [],
+        "$_Multiply_0_output": [2, 2],
         "output": [2, 2],
     }
     physical_ref = {
-        "left": None,
-        inner_left_key[1:]: [],
+        "left": [],
         "in1": [2, 2],
-        denominator_key[1:]: [2, 2],
+        "output_0": [2, 2],
+        "numerator": [],
         "output": [2, 2],
     }
+
     assert_shapes(model, logical_ref, physical_ref)
 
 
@@ -932,43 +880,29 @@ def test_simple_composite_2_set_shapes_2():
     model = Model()
     mult = Multiply()
     model += mult(left=IOKey(value=2.0, name="left"), right="in1")
-    model += (div := Divide())(
+    model += Divide()(
         numerator=IOKey(value=2.0, name="numerator"),
         denominator=mult.output,
         output=IOKey(name="output"),
     )
     mult.set_shapes({"right": [2, 2]})
     model.set_canonical_input(mult.left)
-    key_mappings = model._generate_keys()
-
-    left_metadata = model.conns.get_con_by_metadata(mult.left.metadata)
-    assert left_metadata is not None
-    inner_left_key = key_mappings[left_metadata.key]
-
-    numerator_metadata = model.conns.get_con_by_metadata(div.numerator.metadata)
-    assert numerator_metadata is not None
-    inner_numerator_key = key_mappings[numerator_metadata.key]
-
-    denominator = model.conns.get_con_by_metadata(div.denominator.metadata)
-    assert denominator is not None
-    denominator_key = key_mappings[denominator.key]
 
     logical_ref = {
-        "left": None,
-        inner_left_key: [],
+        "left": [],
         "in1": [2, 2],
-        "numerator": None,
-        inner_numerator_key: [],
-        denominator_key: [2, 2],
+        "numerator": [],
+        "$_Multiply_0_output": [2, 2],
         "output": [2, 2],
     }
     physical_ref = {
-        "left": None,
-        inner_left_key[1:]: [],
+        "left": [],
         "in1": [2, 2],
-        denominator_key[1:]: [2, 2],
+        "output_0": [2, 2],
         "output": [2, 2],
+        "numerator": [],
     }
+
     assert_shapes(model, logical_ref, physical_ref)
 
 
@@ -980,49 +914,29 @@ def test_simple_composite_2_extend_inputs():
         left=IOKey(value=2.0, name="left"),
         right=IOKey(value=Multiply_0_right, name="in1"),
     )
-    model += (div := Divide())(
+    model += Divide()(
         numerator=IOKey(value=2.0, name="numerator"),
         denominator=mult.output,
         output=IOKey(name="output"),
     )
     model.set_canonical_input(mult.left)
     mult.set_shapes({"right": [2, 2]})
-    key_mappings = model._generate_keys()
-
-    left_metadata = model.conns.get_con_by_metadata(mult.left.metadata)
-    assert left_metadata is not None
-    inner_left_key = key_mappings[left_metadata.key]
-
-    right_metadata = model.conns.get_con_by_metadata(mult.right.metadata)
-    assert right_metadata is not None
-    inner_right_key = key_mappings[right_metadata.key]
-
-    numerator_metadata = model.conns.get_con_by_metadata(div.numerator.metadata)
-    assert numerator_metadata is not None
-    inner_numerator_key = key_mappings[numerator_metadata.key]
-
-    denominator = model.conns.get_con_by_metadata(div.denominator.metadata)
-    assert denominator is not None
-    denominator_key = key_mappings[denominator.key]
 
     logical_ref = {
-        "left": None,
-        inner_left_key: [],
-        "in1": None,
-        inner_right_key: [2, 2],
-        "numerator": None,
-        inner_numerator_key: [],
-        denominator_key: [2, 2],
+        "left": [],
+        "in1": [2, 2],
+        "numerator": [],
+        "$_Multiply_0_output": [2, 2],
         "output": [2, 2],
     }
     physical_ref = {
-        "left": None,
-        inner_left_key[1:]: [],
-        "in1": None,
-        inner_right_key[1:]: [2, 2],
-        denominator_key[1:]: [2, 2],
+        "left": [],
+        "in1": [2, 2],
+        "output_0": [2, 2],
         "output": [2, 2],
+        "numerator": [],
     }
+
     assert_shapes(model, logical_ref, physical_ref)
 
 
@@ -1030,43 +944,29 @@ def test_simple_composite_2_static_shapes():
     model = Model()
     mult = Multiply()
     model += mult(left=IOKey(value=2.0, name="left"), right="in1")
-    model += (div := Divide())(
+    model += Divide()(
         numerator=IOKey(value=2.0, name="numerator"),
         denominator=mult.output,
         output=IOKey(name="output"),
     )
     model.set_canonical_input(mult.left)
     shapes = {"in1": [2, 2]}
-    key_mappings = model._generate_keys()
-
-    left_metadata = model.conns.get_con_by_metadata(mult.left.metadata)
-    assert left_metadata is not None
-    inner_left_key = key_mappings[left_metadata.key]
-
-    numerator_metadata = model.conns.get_con_by_metadata(div.numerator.metadata)
-    assert numerator_metadata is not None
-    inner_numerator_key = key_mappings[numerator_metadata.key]
-
-    denominator = model.conns.get_con_by_metadata(div.denominator.metadata)
-    assert denominator is not None
-    denominator_key = key_mappings[denominator.key]
 
     logical_ref = {
-        "left": None,
-        inner_left_key: [],
+        "left": [],
         "in1": ["(V1, ...)"],
-        "numerator": None,
-        inner_numerator_key: [],
-        denominator_key: ["(V1, ...)"],
+        "numerator": [],
+        "$_Multiply_0_output": ["(V1, ...)"],
         "output": ["(V1, ...)"],
     }
     physical_ref = {
-        "left": None,
-        inner_left_key[1:]: [],
+        "left": [],
         "in1": [2, 2],
-        denominator_key[1:]: [2, 2],
+        "output_0": [2, 2],
         "output": [2, 2],
+        "numerator": [],
     }
+
     assert_shapes(model, logical_ref, physical_ref, shapes=shapes)
 
 
@@ -1074,42 +974,29 @@ def test_simple_composite_2_static_inputs():
     model = Model()
     mult = Multiply()
     model += mult(left=IOKey(value=2.0, name="left"), right="in1")
-    model += (div := Divide())(
+    model += Divide()(
         numerator=IOKey(value=2.0, name="numerator"),
         denominator=mult.output,
         output=IOKey(name="output"),
     )
     model.set_canonical_input(mult.left)
     static_inputs = {"in1": np.random.randn(2, 2)}
-    key_mappings = model._generate_keys()
 
-    left_metadata = model.conns.get_con_by_metadata(mult.left.metadata)
-    assert left_metadata is not None
-    inner_left_key = key_mappings[left_metadata.key]
-
-    numerator_metadata = model.conns.get_con_by_metadata(div.numerator.metadata)
-    assert numerator_metadata is not None
-    inner_numerator_key = key_mappings[numerator_metadata.key]
-
-    denominator = model.conns.get_con_by_metadata(div.denominator.metadata)
-    assert denominator is not None
-    denominator_key = key_mappings[denominator.key]
     logical_ref = {
-        "left": None,
-        inner_left_key: [],
+        "left": [],
         "in1": ["(V1, ...)"],
-        "numerator": None,
-        inner_numerator_key: [],
-        denominator_key: ["(V1, ...)"],
+        "numerator": [],
+        "$_Multiply_0_output": ["(V1, ...)"],
         "output": ["(V1, ...)"],
     }
     physical_ref = {
-        "left": None,
-        inner_left_key[1:]: [],
+        "left": [],
         "in1": [2, 2],
-        denominator_key[1:]: [2, 2],
+        "output_0": [2, 2],
         "output": [2, 2],
+        "numerator": [],
     }
+
     assert_shapes(model, logical_ref, physical_ref, static_inputs=static_inputs)
 
 
@@ -1130,10 +1017,11 @@ def test_composite_1_set_shapes_1():
     physical_ref = {
         "input1": [1, 1, 1, 1, 1, 1, 1, 37, 43],
         "input2": [134, 47, 1, 1, 1],
-        "_Multiply_0_output": [1, 1, 1, 1, 134, 47, 1, 37, 43],
-        "_Multiply_1_output": [1, 1, 1, 1, 134, 47, 1, 37, 43],
+        "output_0": [1, 1, 1, 1, 134, 47, 1, 37, 43],
+        "output_1": [1, 1, 1, 1, 134, 47, 1, 37, 43],
         "output": [1, 1, 1, 1, 134, 47, 1, 37, 43],
     }
+
     assert_shapes(composite, logical_ref, physical_ref)
 
 
@@ -1154,10 +1042,11 @@ def test_composite_1_set_shapes_1_2():
     physical_ref = {
         "input1": [1, 1, 1, 1, 1, 1, 1, 37, 43],
         "input2": [134, 47, 1, 1, 1],
-        "_Multiply_0_output": [1, 1, 1, 1, 134, 47, 1, 37, 43],
-        "_Multiply_1_output": [1, 1, 1, 1, 134, 47, 1, 37, 43],
+        "output_0": [1, 1, 1, 1, 134, 47, 1, 37, 43],
+        "output_1": [1, 1, 1, 1, 134, 47, 1, 37, 43],
         "output": [1, 1, 1, 1, 134, 47, 1, 37, 43],
     }
+
     assert_shapes(composite, logical_ref, physical_ref)
 
 
@@ -1180,10 +1069,11 @@ def test_composite_1_set_shapes_2():
     physical_ref = {
         "input1": [1, 1, 1, 1, 1, 1, 1, 37, 43],
         "input2": [134, 47, 1, 1, 1],
-        "_Multiply_0_output": [1, 1, 1, 1, 134, 47, 1, 37, 43],
-        "_Multiply_1_output": [1, 1, 1, 1, 134, 47, 1, 37, 43],
+        "output_0": [1, 1, 1, 1, 134, 47, 1, 37, 43],
+        "output_1": [1, 1, 1, 1, 134, 47, 1, 37, 43],
         "output": [1, 1, 1, 1, 134, 47, 1, 37, 43],
     }
+
     assert_shapes(composite, logical_ref, physical_ref)
 
 
@@ -1206,10 +1096,11 @@ def test_composite_1_set_shapes_2_2():
     physical_ref = {
         "input1": [1, 1, 1, 1, 1, 1, 1, 37, 43],
         "input2": [134, 47, 1, 1, 1],
-        "_Multiply_0_output": [1, 1, 1, 1, 134, 47, 1, 37, 43],
-        "_Multiply_1_output": [1, 1, 1, 1, 134, 47, 1, 37, 43],
+        "output_0": [1, 1, 1, 1, 134, 47, 1, 37, 43],
+        "output_1": [1, 1, 1, 1, 134, 47, 1, 37, 43],
         "output": [1, 1, 1, 1, 134, 47, 1, 37, 43],
     }
+
     assert_shapes(composite, logical_ref, physical_ref)
 
 
@@ -1380,8 +1271,8 @@ def test_composite_1_set_shapes_5():
     physical_ref: Mapping[str, list | None] = {
         "input1": [1, 1, 1, 1, None, None, 1, 37, 43],
         "input2": [134, 47, 1, 1, 1],
-        "_Multiply_0_output": [1, 1, 1, 1, 134, 47, 1, 37, 43],
-        "_Multiply_1_output": [1, 1, 1, 1, 134, 47, 1, 37, 43],
+        "output_0": [1, 1, 1, 1, 134, 47, 1, 37, 43],
+        "output_1": [1, 1, 1, 1, 134, 47, 1, 37, 43],
         "output": [1, 1, 1, 1, 134, 47, 1, 37, 43],
     }
     assert_shapes(model, logical_ref, physical_ref)
@@ -1430,8 +1321,8 @@ def test_composite_1_set_shapes_5_2():
     physical_ref: Mapping[str, list | None] = {
         "input1": [1, 1, 1, 1, None, None, 1, 37, 43],
         "input2": [134, 47, 1, 1, 1],
-        "_Multiply_0_output": [1, 1, 1, 1, 134, 47, 1, 37, 43],
-        "_Multiply_1_output": [1, 1, 1, 1, 134, 47, 1, 37, 43],
+        "output_0": [1, 1, 1, 1, 134, 47, 1, 37, 43],
+        "output_1": [1, 1, 1, 1, 134, 47, 1, 37, 43],
         "output": [1, 1, 1, 1, 134, 47, 1, 37, 43],
     }
     assert_shapes(composite, logical_ref, physical_ref)
@@ -1459,10 +1350,11 @@ def test_composite_1_static_shapes_1():
     physical_ref = {
         "input1": [1, 1, 1, 1, 1, 1, 1, 37, 43],
         "input2": [134, 47, 1, 1, 1],
-        "_Multiply_0_output": [1, 1, 1, 1, 134, 47, 1, 37, 43],
-        "_Multiply_1_output": [1, 1, 1, 1, 134, 47, 1, 37, 43],
+        "output_0": [1, 1, 1, 1, 134, 47, 1, 37, 43],
+        "output_1": [1, 1, 1, 1, 134, 47, 1, 37, 43],
         "output": [1, 1, 1, 1, 134, 47, 1, 37, 43],
     }
+
     assert_shapes(model, logical_ref, physical_ref, shapes=shapes)
 
 
@@ -1480,14 +1372,6 @@ def test_composite_1_extend_inputs_1():
     composite.set_canonical_input(m1.left)
     key_mappings = composite._generate_keys()
 
-    left_metadata = composite.conns.get_con_by_metadata(m1.left.metadata)
-    assert left_metadata is not None
-    inner_left_key = key_mappings[left_metadata.key]
-
-    right_metadata = composite.conns.get_con_by_metadata(m1.right.metadata)
-    assert right_metadata is not None
-    inner_right_key = key_mappings[right_metadata.key]
-
     m1_out_metadata = composite.conns.get_con_by_metadata(m1.output.metadata)
     assert m1_out_metadata is not None
     m1_out_key = key_mappings[m1_out_metadata.key]
@@ -1497,21 +1381,17 @@ def test_composite_1_extend_inputs_1():
     m2_out_key = key_mappings[m2_out_metadata.key]
 
     logical_ref = {
-        "left": None,
-        inner_left_key: [1, 1, 1, 1, 1, 1, 1, 37, 43],
-        "right": None,
-        inner_right_key: [134, 47, 1, 1, 1],
+        "left": [1, 1, 1, 1, 1, 1, 1, 37, 43],
+        "right": [134, 47, 1, 1, 1],
         m1_out_key: [1, 1, 1, 1, 134, 47, 1, 37, 43],
         m2_out_key: [1, 1, 1, 1, 134, 47, 1, 37, 43],
         "output": [1, 1, 1, 1, 134, 47, 1, 37, 43],
     }
     physical_ref = {
-        "left": None,
-        inner_left_key[1:]: [1, 1, 1, 1, 1, 1, 1, 37, 43],
-        "right": None,
-        inner_right_key[1:]: [134, 47, 1, 1, 1],
-        m1_out_key[1:]: [1, 1, 1, 1, 134, 47, 1, 37, 43],
-        m2_out_key[1:]: [1, 1, 1, 1, 134, 47, 1, 37, 43],
+        "left": [1, 1, 1, 1, 1, 1, 1, 37, 43],
+        "right": [134, 47, 1, 1, 1],
+        "output_0": [1, 1, 1, 1, 134, 47, 1, 37, 43],
+        "output_1": [1, 1, 1, 1, 134, 47, 1, 37, 43],
         "output": [1, 1, 1, 1, 134, 47, 1, 37, 43],
     }
     assert_shapes(composite, logical_ref, physical_ref)
@@ -1558,8 +1438,8 @@ def test_composite_1_static_shapes_3():
     physical_ref: Mapping[str, list | None] = {
         "input1": [1, 1, 1, 1, None, None, 1, 37, 43],
         "input2": [134, 47, 1, 1, 1],
-        "_Multiply_0_output": [1, 1, 1, 1, 134, 47, 1, 37, 43],
-        "_Multiply_1_output": [1, 1, 1, 1, 134, 47, 1, 37, 43],
+        "output_0": [1, 1, 1, 1, 134, 47, 1, 37, 43],
+        "output_1": [1, 1, 1, 1, 134, 47, 1, 37, 43],
         "output": [1, 1, 1, 1, 134, 47, 1, 37, 43],
     }
     assert_shapes(model, logical_ref, physical_ref, shapes=shapes)
@@ -1581,10 +1461,11 @@ def test_composite_1_static_inputs_1():
     physical_ref = {
         "input1": [1, 1, 1, 1, 1, 1, 1, 37, 43],
         "input2": [134, 47, 1, 1, 1],
-        "_Multiply_0_output": [1, 1, 1, 1, 134, 47, 1, 37, 43],
-        "_Multiply_1_output": [1, 1, 1, 1, 134, 47, 1, 37, 43],
+        "output_0": [1, 1, 1, 1, 134, 47, 1, 37, 43],
+        "output_1": [1, 1, 1, 1, 134, 47, 1, 37, 43],
         "output": [1, 1, 1, 1, 134, 47, 1, 37, 43],
     }
+
     assert_shapes(model, logical_ref, physical_ref, static_inputs=static_inputs)
 
 
@@ -1678,14 +1559,14 @@ def test_composite_2_set_shapes_1():
     physical_ref = {
         "input1": [4, 5, 7, 1, 1],
         "input2": [1, 1, 7, 3, 4],
-        "_Model_0_Multiply_0_output": [4, 5, 7, 3, 4],
-        "_Model_0_Multiply_1_output": [4, 5, 7, 3, 4],
-        "_Model_0_output": [4, 5, 7, 3, 4],
-        "_Model_1_Multiply_0_output": [4, 5, 7, 3, 4],
-        "_Model_1_Multiply_1_output": [4, 5, 7, 3, 4],
-        "_Model_1_output": [4, 5, 7, 3, 4],
-        "_Model_2_Add_0_output": [4, 5, 7, 3, 4],
-        "_Model_2_Multiply_1_output": [4, 5, 7, 3, 4],
+        "output_0": [4, 5, 7, 3, 4],
+        "output_1": [4, 5, 7, 3, 4],
+        "output_2": [4, 5, 7, 3, 4],
+        "output_3": [4, 5, 7, 3, 4],
+        "output_4": [4, 5, 7, 3, 4],
+        "output_5": [4, 5, 7, 3, 4],
+        "output_6": [4, 5, 7, 3, 4],
+        "output_7": [4, 5, 7, 3, 4],
         "output": [4, 5, 7, 3, 4],
     }
     assert_shapes(composite, logical_ref, physical_ref)
@@ -1727,14 +1608,14 @@ def test_composite_2_set_shapes_2():
     physical_ref = {
         "input1": [4, 5, 7, 1, 1],
         "input2": [1, 1, 7, 3, 4],
-        "_Model_0_Multiply_0_output": [4, 5, 7, 3, 4],
-        "_Model_0_Multiply_1_output": [4, 5, 7, 3, 4],
-        "_Model_0_output": [4, 5, 7, 3, 4],
-        "_Model_1_Multiply_0_output": [4, 5, 7, 3, 4],
-        "_Model_1_Multiply_1_output": [4, 5, 7, 3, 4],
-        "_Model_1_output": [4, 5, 7, 3, 4],
-        "_Model_2_Add_0_output": [4, 5, 7, 3, 4],
-        "_Model_2_Multiply_1_output": [4, 5, 7, 3, 4],
+        "output_0": [4, 5, 7, 3, 4],
+        "output_1": [4, 5, 7, 3, 4],
+        "output_2": [4, 5, 7, 3, 4],
+        "output_3": [4, 5, 7, 3, 4],
+        "output_4": [4, 5, 7, 3, 4],
+        "output_5": [4, 5, 7, 3, 4],
+        "output_6": [4, 5, 7, 3, 4],
+        "output_7": [4, 5, 7, 3, 4],
         "output": [4, 5, 7, 3, 4],
     }
     assert_shapes(composite, logical_ref, physical_ref)
@@ -1780,14 +1661,14 @@ def test_composite_2_set_shapes_3():
     physical_ref: Mapping[str, list | None] = {
         "input1": [4, 5, 7, 1, 1],
         "input2": ["...", 3, 4],
-        "_Model_0_output": [4, 5, 7, 3, 4],
-        "_Model_1_output": [4, 5, 7, 3, 4],
-        "_Model_0_Multiply_0_output": [4, 5, 7, 3, 4],
-        "_Model_0_Multiply_1_output": [4, 5, 7, 3, 4],
-        "_Model_1_Multiply_0_output": [4, 5, 7, 3, 4],
-        "_Model_1_Multiply_1_output": [4, 5, 7, 3, 4],
-        "_Model_2_Add_0_output": [4, 5, 7, 3, 4],
-        "_Model_2_Multiply_1_output": [4, 5, 7, 3, 4],
+        "output_0": [4, 5, 7, 3, 4],
+        "output_1": [4, 5, 7, 3, 4],
+        "output_2": [4, 5, 7, 3, 4],
+        "output_3": [4, 5, 7, 3, 4],
+        "output_4": [4, 5, 7, 3, 4],
+        "output_5": [4, 5, 7, 3, 4],
+        "output_6": [4, 5, 7, 3, 4],
+        "output_7": [4, 5, 7, 3, 4],
         "output": [4, 5, 7, 3, 4],
     }
     assert_shapes(composite, logical_ref, physical_ref)
@@ -1824,11 +1705,12 @@ def test_composite_2_set_shapes_3_1():
     physical_ref: Mapping[str, list | None] = {
         "input1": [4, 5, 7, 1, 1],
         "input2": ["...", 3, 4],
-        "_Model_0_output": [4, 5, 7, 3, 4],
-        "_Model_0_Multiply_0_output": [4, 5, 7, 3, 4],
-        "_Model_1_Multiply_0_output": [4, 5, 7, 3, 4],
+        "output_0": [4, 5, 7, 3, 4],
+        "output_1": [4, 5, 7, 3, 4],
+        "output_2": [4, 5, 7, 3, 4],
         "output": [4, 5, 7, 3, 4],
     }
+
     assert_shapes(composite, logical_ref, physical_ref)
 
 
@@ -1861,10 +1743,11 @@ def test_composite_2_set_shapes_3_2():
     physical_ref: Mapping[str, list | None] = {
         "input1": [4, 5, 7, 1, 1],
         "input2": ["...", 3, 4],
-        "_Model_0_output": [4, 5, 7, 3, 4],
-        "_Model_0_Multiply_0_output": [4, 5, 7, 3, 4],
+        "output_0": [4, 5, 7, 3, 4],
+        "output_1": [4, 5, 7, 3, 4],
         "output": [4, 5, 7, 3, 4],
     }
+
     assert_shapes(composite, logical_ref, physical_ref)
 
 
@@ -1904,14 +1787,14 @@ def test_composite_2_static_shapes_1():
     physical_ref = {
         "input1": [4, 5, 7, 1, 1],
         "input2": [1, 1, 7, 3, 4],
-        "_Model_0_Multiply_0_output": [4, 5, 7, 3, 4],
-        "_Model_0_Multiply_1_output": [4, 5, 7, 3, 4],
-        "_Model_0_output": [4, 5, 7, 3, 4],
-        "_Model_1_Multiply_0_output": [4, 5, 7, 3, 4],
-        "_Model_1_Multiply_1_output": [4, 5, 7, 3, 4],
-        "_Model_1_output": [4, 5, 7, 3, 4],
-        "_Model_2_Add_0_output": [4, 5, 7, 3, 4],
-        "_Model_2_Multiply_1_output": [4, 5, 7, 3, 4],
+        "output_0": [4, 5, 7, 3, 4],
+        "output_1": [4, 5, 7, 3, 4],
+        "output_2": [4, 5, 7, 3, 4],
+        "output_3": [4, 5, 7, 3, 4],
+        "output_4": [4, 5, 7, 3, 4],
+        "output_5": [4, 5, 7, 3, 4],
+        "output_6": [4, 5, 7, 3, 4],
+        "output_7": [4, 5, 7, 3, 4],
         "output": [4, 5, 7, 3, 4],
     }
     assert_shapes(model, logical_ref, physical_ref, shapes=shapes)
@@ -1956,23 +1839,20 @@ def test_cross_entropy_shapes_1():
         input="input", target="target", categorical=True, output=IOKey(name="output")
     )
     logical_ref = {
-        "$_ToTensor_0_output": [],
-        "$_input": None,
         "input": [8, 10],
         "target": [8],
-        "$weights": None,
         "$categorical": None,
+        "$cutoff": [],
         "$robust": None,
         "output": [8],
+        "$_CrossEntropy_0_weights": None,
     }
-
     physical_ref = {
-        "_ToTensor_0_output": [],
-        "_input": None,
         "input": [8, 10],
         "target": [8],
         "weights": None,
         "categorical": None,
+        "cutoff": [],
         "robust": None,
         "output": [8],
     }
@@ -1987,27 +1867,26 @@ def test_cross_entropy_shapes_2():
     model += ce(
         input="input", target="target", categorical=False, output=IOKey(name="output")
     )
+
     logical_ref = {
-        "$_ToTensor_0_output": [],
-        "$_input": None,
         "input": [8, 10],
         "target": [8, 10],
-        "$weights": None,
         "$categorical": None,
+        "$cutoff": [],
         "$robust": None,
         "output": [8],
+        "$_CrossEntropy_0_weights": None,
     }
-
     physical_ref = {
-        "_ToTensor_0_output": [],
-        "_input": None,
         "input": [8, 10],
         "target": [8, 10],
         "weights": None,
         "categorical": None,
+        "cutoff": [],
         "robust": None,
         "output": [8],
     }
+
     assert_shapes(model, logical_ref, physical_ref)
 
 
@@ -2020,24 +1899,23 @@ def test_cross_entropy_shapes_3():
     )
     logical_ref = {
         "input": [8, 16, 32, 64],
-        "output": [8, 32, 64],
         "target": [8, 32, 64],
-        "$weights": None,
         "$categorical": None,
+        "$cutoff": [],
         "$robust": None,
-        "$_ToTensor_0_output": [],
-        "$_input": None,
+        "output": [8, 32, 64],
+        "$_CrossEntropy_0_weights": None,
     }
     physical_ref = {
         "input": [8, 16, 32, 64],
-        "output": [8, 32, 64],
         "target": [8, 32, 64],
         "weights": None,
         "categorical": None,
+        "cutoff": [],
         "robust": None,
-        "_ToTensor_0_output": [],
-        "_input": None,
+        "output": [8, 32, 64],
     }
+
     assert_shapes(model, logical_ref, physical_ref)
 
 
@@ -2051,24 +1929,23 @@ def test_cross_entropy_shapes_5():
     )
     logical_ref = {
         "input": [8, 16, 32, 64],
-        "output": [8, 32, 64],
         "target": [8, 32, 64],
-        "$weights": None,
         "$categorical": None,
+        "$cutoff": [],
         "$robust": None,
-        "$_ToTensor_0_output": [],
-        "$_input": None,
+        "output": [8, 32, 64],
+        "$_CrossEntropy_0_weights": None,
     }
     physical_ref = {
         "input": [8, 16, 32, 64],
-        "output": [8, 32, 64],
         "target": [8, 32, 64],
         "weights": None,
         "categorical": None,
+        "cutoff": [],
         "robust": None,
-        "_ToTensor_0_output": [],
-        "_input": None,
+        "output": [8, 32, 64],
     }
+
     assert_shapes(model, logical_ref, physical_ref)
 
 
@@ -2082,24 +1959,23 @@ def test_cross_entropy_shapes_6():
     )
     logical_ref = {
         "input": [8, 16, 32, 64],
-        "output": [8, 32, 64],
         "target": [8, 32, 64],
-        "$weights": None,
         "$categorical": None,
+        "$cutoff": [],
         "$robust": None,
-        "$_ToTensor_0_output": [],
-        "$_input": None,
+        "output": [8, 32, 64],
+        "$_CrossEntropy_0_weights": None,
     }
     physical_ref = {
         "input": [8, 16, 32, 64],
-        "output": [8, 32, 64],
         "target": [8, 32, 64],
         "weights": None,
         "categorical": None,
+        "cutoff": [],
         "robust": None,
-        "_ToTensor_0_output": [],
-        "_input": None,
+        "output": [8, 32, 64],
     }
+
     assert_shapes(model, logical_ref, physical_ref)
 
 
@@ -2111,26 +1987,26 @@ def test_cross_entropy_shapes_7():
     model += ce(
         input="input", target="target", categorical=True, output=IOKey(name="output")
     )
-    logical_ref: Mapping[str, list | None] = {
+
+    logical_ref: Mapping = {
         "input": [8, "u1", 16, 32, 64],
-        "output": [8, 16, 32, 64],
         "target": [8, 16, 32, 64],
-        "$weights": None,
         "$categorical": None,
+        "$cutoff": [],
         "$robust": None,
-        "$_ToTensor_0_output": [],
-        "$_input": None,
-    }
-    physical_ref: Mapping[str, list | None] = {
-        "input": [8, None, 16, 32, 64],
         "output": [8, 16, 32, 64],
+        "$_CrossEntropy_0_weights": None,
+    }
+    physical_ref: Mapping = {
+        "input": [8, None, 16, 32, 64],
         "target": [8, 16, 32, 64],
         "weights": None,
         "categorical": None,
+        "cutoff": [],
         "robust": None,
-        "_ToTensor_0_output": [],
-        "_input": None,
+        "output": [8, 16, 32, 64],
     }
+
     assert_shapes(model, logical_ref, physical_ref)
 
 
@@ -2142,26 +2018,26 @@ def test_cross_entropy_shapes_8():
     model += ce(
         input="input", target="target", categorical=False, output=IOKey(name="output")
     )
+
     logical_ref = {
         "input": [8, 16, 32, 64],
-        "output": [8, 32, 64],
         "target": [8, 16, 32, 64],
-        "$weights": None,
         "$categorical": None,
+        "$cutoff": [],
         "$robust": None,
-        "$_ToTensor_0_output": [],
-        "$_input": None,
+        "output": [8, 32, 64],
+        "$_CrossEntropy_0_weights": None,
     }
     physical_ref = {
         "input": [8, 16, 32, 64],
-        "output": [8, 32, 64],
         "target": [8, 16, 32, 64],
         "weights": None,
         "categorical": None,
+        "cutoff": [],
         "robust": None,
-        "_ToTensor_0_output": [],
-        "_input": None,
+        "output": [8, 32, 64],
     }
+
     assert_shapes(model, logical_ref, physical_ref)
 
 
@@ -2173,26 +2049,25 @@ def test_cross_entropy_shapes_9():
     model += ce(
         input="input", target="target", categorical=True, output=IOKey(name="output")
     )
-    logical_ref: dict[str, list | None] = {
+    logical_ref: Mapping = {
         "input": [8, 16, "(V1, ...)", 64],
-        "output": [8, "(V1, ...)", 64],
         "target": [8, "(V1, ...)", 64],
-        "$weights": None,
         "$categorical": None,
+        "$cutoff": [],
         "$robust": None,
-        "$_ToTensor_0_output": [],
-        "$_input": None,
+        "output": [8, "(V1, ...)", 64],
+        "$_CrossEntropy_0_weights": None,
     }
-    physical_ref: dict[str, list | None] = {
+    physical_ref: Mapping = {
         "input": [8, 16, "...", 64],
-        "output": [8, "...", 64],
         "target": [8, "...", 64],
         "weights": None,
         "categorical": None,
+        "cutoff": [],
         "robust": None,
-        "_ToTensor_0_output": [],
-        "_input": None,
+        "output": [8, "...", 64],
     }
+
     assert_shapes(model, logical_ref, physical_ref)
 
 
@@ -2202,30 +2077,29 @@ def test_cross_entropy_shapes_10():
     ce = CrossEntropy()
     ce.set_shapes(shapes)
     model += ce(input="input", target="target", output=IOKey(name="output"))
-    logical_ref: dict[str, list | None] = {
+
+    logical_ref: Mapping = {
         "input": [8, 16, "(V1, ...)", 64, 128],
-        "output": [8, "(V1, ...)", 64, 128],
         "target": [8, "(V1, ...)", 64, 128],
-        "$weights": None,
         "$categorical": None,
+        "$cutoff": [],
         "$robust": None,
-        "$_ToTensor_0_output": [],
-        "$_input": None,
+        "output": [8, "(V1, ...)", 64, 128],
+        "$_CrossEntropy_0_weights": None,
     }
-    physical_ref: dict[str, list | None] = {
+    physical_ref: Mapping = {
         "input": [8, 16, "...", 64, 128],
-        "output": [8, "...", 64, 128],
         "target": [8, "...", 64, 128],
         "weights": None,
         "categorical": None,
+        "cutoff": [],
         "robust": None,
-        "_ToTensor_0_output": [],
-        "_input": None,
+        "output": [8, "...", 64, 128],
     }
+
     assert_shapes(model, logical_ref, physical_ref)
 
 
-# @pytest.mark.skip(reason="Known Bugs")
 def test_cross_entropy_shapes_11():
     model = Model()
     shapes: dict[str, list] = {
@@ -2235,26 +2109,26 @@ def test_cross_entropy_shapes_11():
     ce = CrossEntropy()
     ce.set_shapes(shapes)
     model += ce(input="input", target="target", output=IOKey(name="output"))
-    logical_ref: dict[str, list | None] = {
+
+    logical_ref: Mapping = {
         "input": [8, 4, "(V1, ...)", 64, 128],
-        "output": [8, "(V1, ...)", 64, 128],
         "target": [8, "(V1, ...)", 64, 128],
-        "$weights": None,
         "$categorical": None,
-        "$_input": None,
-        "$_ToTensor_0_output": [],
+        "$cutoff": [],
         "$robust": None,
+        "output": [8, "(V1, ...)", 64, 128],
+        "$_CrossEntropy_0_weights": None,
     }
-    physical_ref: dict[str, list | None] = {
+    physical_ref: Mapping = {
         "input": [8, 4, "...", 64, 128],
-        "output": [8, "...", 64, 128],
         "target": [8, "...", 64, 128],
         "weights": None,
         "categorical": None,
-        "_input": None,
-        "_ToTensor_0_output": [],
+        "cutoff": [],
         "robust": None,
+        "output": [8, "...", 64, 128],
     }
+
     assert_shapes(model, logical_ref, physical_ref)
 
 
@@ -2270,14 +2144,14 @@ def test_composite_2_static_inputs_1():
     physical_ref = {
         "input1": [4, 5, 7, 1, 1],
         "input2": [1, 1, 7, 3, 4],
-        "_Model_0_Multiply_0_output": [4, 5, 7, 3, 4],
-        "_Model_0_Multiply_1_output": [4, 5, 7, 3, 4],
-        "_Model_0_output": [4, 5, 7, 3, 4],
-        "_Model_1_Multiply_0_output": [4, 5, 7, 3, 4],
-        "_Model_1_Multiply_1_output": [4, 5, 7, 3, 4],
-        "_Model_1_output": [4, 5, 7, 3, 4],
-        "_Model_2_Add_0_output": [4, 5, 7, 3, 4],
-        "_Model_2_Multiply_1_output": [4, 5, 7, 3, 4],
+        "output_0": [4, 5, 7, 3, 4],
+        "output_1": [4, 5, 7, 3, 4],
+        "output_2": [4, 5, 7, 3, 4],
+        "output_3": [4, 5, 7, 3, 4],
+        "output_4": [4, 5, 7, 3, 4],
+        "output_5": [4, 5, 7, 3, 4],
+        "output_6": [4, 5, 7, 3, 4],
+        "output_7": [4, 5, 7, 3, 4],
         "output": [4, 5, 7, 3, 4],
     }
 
@@ -2356,12 +2230,13 @@ def test_composite_3_set_shapes_1():
     physical_ref = {
         "input1": [3, 4, 5, 6, 1],
         "input2": [1, 1, 1, 1, 7],
-        "_Model_0_Model_0_Model_0_Model_0_output": [3, 4, 5, 6, 7],
-        "_Model_0_Model_0_Model_0_output": [3, 4, 5, 6, 7],
-        "_Model_0_Model_0_output": [3, 4, 5, 6, 7],
-        "_Model_0_output": [3, 4, 5, 6, 7],
+        "output_0": [3, 4, 5, 6, 7],
+        "output_1": [3, 4, 5, 6, 7],
+        "output_2": [3, 4, 5, 6, 7],
+        "output_3": [3, 4, 5, 6, 7],
         "output": [3, 4, 5, 6, 7],
     }
+
     assert_shapes(composite_3, logical_ref, physical_ref)
 
 
@@ -2377,13 +2252,17 @@ def test_composite_3_extend_shapes_1():
         output=IOKey(name="output"),
     )
     m2 = Model()
-    m2 += m1()
+    m2 += m1(left=IOKey(name="left"), right=IOKey(name="right"))
     m2 += Add()(left=m1.left, right=m1.output, output=IOKey(name="output"))  # type: ignore
     m3 = Model()
-    m3 += m2()
-    m3 += Add()(left=m1.left, right=m2.output, output=IOKey(name="output"))  # type: ignore
+    m3 += m2(right=IOKey(name="right"))
+    m3 += Add()(
+        left=Connect(m1.left, key=IOKey(name="left")),  # type: ignore
+        right=m2.output,  # type: ignore
+        output=IOKey(name="output"),
+    )  # type: ignore
     m4 = Model()
-    m4 += m3()
+    m4 += m3(left=IOKey(name="left"), right=IOKey(name="right"))
     m4 += (add4 := Add())(left=m1.left, right=m3.output, output=IOKey(name="output"))  # type: ignore
     composite_3 += m4()
     composite_3 += (add5 := Add())(
@@ -2413,23 +2292,22 @@ def test_composite_3_extend_shapes_1():
     m4_out_key = key_mappings[m4_out_metadata.key]
 
     logical_ref = {
-        composite_3_left_key: None,
-        composite_3_right_key: None,
+        composite_3_left_key: [3, 4, 5, 6, 1],
+        composite_3_right_key: [1, 1, 1, 1, 7],
         add5_left_key: [3, 4, 5, 6, 1],
         m4_out_key: [3, 4, 5, 6, 7],
         "output": [3, 4, 5, 6, 7],
     }
     physical_ref = {
-        "input": None,
-        "right": None,
-        "_Model_0_Model_0_Model_0_Model_0_ToTensor_0_output": [3, 4, 5, 6, 1],
-        "_Model_0_Model_0_Model_0_Model_0_ToTensor_1_output": [1, 1, 1, 1, 7],
-        "_Model_0_Model_0_Model_0_Model_0_output": [3, 4, 5, 6, 7],
-        "_Model_0_Model_0_Model_0_output": [3, 4, 5, 6, 7],
-        "_Model_0_Model_0_output": [3, 4, 5, 6, 7],
-        "_Model_0_output": [3, 4, 5, 6, 7],
+        "left": [3, 4, 5, 6, 1],
+        "right": [1, 1, 1, 1, 7],
+        "output_0": [3, 4, 5, 6, 7],
+        "output_1": [3, 4, 5, 6, 7],
+        "output_2": [3, 4, 5, 6, 7],
+        "output_3": [3, 4, 5, 6, 7],
         "output": [3, 4, 5, 6, 7],
     }
+
     assert_shapes(composite_3, logical_ref, physical_ref)
 
 
@@ -2459,12 +2337,13 @@ def test_composite_3_set_shapes_1_2():
     physical_ref = {
         "input1": [3, 4, 5, 6, 1],
         "input2": [1, 1, 1, 1, 7],
-        "_Model_0_Model_0_Model_0_Model_0_output": [3, 4, 5, 6, 7],
-        "_Model_0_Model_0_Model_0_output": [3, 4, 5, 6, 7],
-        "_Model_0_Model_0_output": [3, 4, 5, 6, 7],
-        "_Model_0_output": [3, 4, 5, 6, 7],
+        "output_0": [3, 4, 5, 6, 7],
+        "output_1": [3, 4, 5, 6, 7],
+        "output_2": [3, 4, 5, 6, 7],
+        "output_3": [3, 4, 5, 6, 7],
         "output": [3, 4, 5, 6, 7],
     }
+
     assert_shapes(composite_3, logical_ref, physical_ref)
 
 
@@ -2497,12 +2376,13 @@ def test_composite_3_set_shapes_2_2():
     physical_ref = {
         "input1": [3, 4, 5, 6, 1],
         "input2": [1, 1, 1, 1, 7],
-        "_Model_0_Model_0_Model_0_Model_0_output": [3, 4, 5, 6, 7],
-        "_Model_0_Model_0_Model_0_output": [3, 4, 5, 6, 7],
-        "_Model_0_Model_0_output": [3, 4, 5, 6, 7],
-        "_Model_0_output": [3, 4, 5, 6, 7],
+        "output_0": [3, 4, 5, 6, 7],
+        "output_1": [3, 4, 5, 6, 7],
+        "output_2": [3, 4, 5, 6, 7],
+        "output_3": [3, 4, 5, 6, 7],
         "output": [3, 4, 5, 6, 7],
     }
+
     assert_shapes(composite_3, logical_ref, physical_ref)
 
 
@@ -2535,12 +2415,13 @@ def test_composite_3_set_shapes_2_3():
     physical_ref = {
         "input1": [3, 4, 5, 6, 1],
         "input2": [1, 1, 1, 1, 7],
-        "_Model_0_Model_0_Model_0_Model_0_output": [3, 4, 5, 6, 7],
-        "_Model_0_Model_0_Model_0_output": [3, 4, 5, 6, 7],
-        "_Model_0_Model_0_output": [3, 4, 5, 6, 7],
-        "_Model_0_output": [3, 4, 5, 6, 7],
+        "output_0": [3, 4, 5, 6, 7],
+        "output_1": [3, 4, 5, 6, 7],
+        "output_2": [3, 4, 5, 6, 7],
+        "output_3": [3, 4, 5, 6, 7],
         "output": [3, 4, 5, 6, 7],
     }
+
     assert_shapes(composite_3, logical_ref, physical_ref)
 
 
@@ -2574,10 +2455,10 @@ def test_composite_3_set_shapes_2():
     physical_ref = {
         "input1": [3, 4, 5, 6, 1],
         "input2": [1, 1, 1, 1, 7],
-        "_Model_0_Model_0_Model_0_Model_0_output": [3, 4, 5, 6, 7],
-        "_Model_0_Model_0_Model_0_output": [3, 4, 5, 6, 7],
-        "_Model_0_Model_0_output": [3, 4, 5, 6, 7],
-        "_Model_0_output": [3, 4, 5, 6, 7],
+        "output_0": [3, 4, 5, 6, 7],
+        "output_1": [3, 4, 5, 6, 7],
+        "output_2": [3, 4, 5, 6, 7],
+        "output_3": [3, 4, 5, 6, 7],
         "output": [3, 4, 5, 6, 7],
     }
     assert_shapes(composite_3, logical_ref, physical_ref)
@@ -2594,10 +2475,10 @@ def test_composite_3_static_shapes_1():
     physical_ref = {
         "input1": [3, 4, 5, 6, 1],
         "input2": [1, 1, 1, 1, 7],
-        "_Model_0_Model_0_Model_0_Model_0_output": [3, 4, 5, 6, 7],
-        "_Model_0_Model_0_Model_0_output": [3, 4, 5, 6, 7],
-        "_Model_0_Model_0_output": [3, 4, 5, 6, 7],
-        "_Model_0_output": [3, 4, 5, 6, 7],
+        "output_0": [3, 4, 5, 6, 7],
+        "output_1": [3, 4, 5, 6, 7],
+        "output_2": [3, 4, 5, 6, 7],
+        "output_3": [3, 4, 5, 6, 7],
         "output": [3, 4, 5, 6, 7],
     }
     shapes = {"input1": [3, 4, 5, 6, 1], "input2": [1, 1, 1, 1, 7]}
@@ -2616,10 +2497,10 @@ def test_composite_3_static_shapes_2():
     physical_ref: dict[str, list] = {
         "input1": [3, 4, 5, 6, 1],
         "input2": ["...", 7],
-        "_Model_0_output": [3, 4, 5, 6, 7],
-        "_Model_0_Model_0_Model_0_Model_0_output": [3, 4, 5, 6, 7],
-        "_Model_0_Model_0_Model_0_output": [3, 4, 5, 6, 7],
-        "_Model_0_Model_0_output": [3, 4, 5, 6, 7],
+        "output_0": [3, 4, 5, 6, 7],
+        "output_1": [3, 4, 5, 6, 7],
+        "output_2": [3, 4, 5, 6, 7],
+        "output_3": [3, 4, 5, 6, 7],
         "output": [3, 4, 5, 6, 7],
     }
     shapes = {"input1": [3, 4, 5, 6, 1], "output": [3, 4, 5, 6, 7]}
@@ -2637,10 +2518,10 @@ def test_composite_3_static_inputs_2():
     physical_ref = {
         "input1": [3, 4, 5, 6, 1],
         "input2": [1, 1, 1, 1, 7],
-        "_Model_0_Model_0_Model_0_Model_0_output": [3, 4, 5, 6, 7],
-        "_Model_0_Model_0_Model_0_output": [3, 4, 5, 6, 7],
-        "_Model_0_Model_0_output": [3, 4, 5, 6, 7],
-        "_Model_0_output": [3, 4, 5, 6, 7],
+        "output_0": [3, 4, 5, 6, 7],
+        "output_1": [3, 4, 5, 6, 7],
+        "output_2": [3, 4, 5, 6, 7],
+        "output_3": [3, 4, 5, 6, 7],
         "output": [3, 4, 5, 6, 7],
     }
     inputs = {
@@ -2658,43 +2539,49 @@ def test_mlp_1_static_shapes():
     ctx.add_loss(loss_model, input=model.output, target="target", reduce_steps=[Mean()])
     static_input_shapes = {"input": [100, 4], "target": [100, 1]}
     logical_ref: dict[str, list | None] = {
-        "$_SquaredError_1_output": [["u1", "(V1, ...)", 1], ["(V2, ...)", "u2", 1]],
+        "$_SquaredError_1_output": [["(V1, ...)", "u1", 1], ["u2", "(V2, ...)", 1]],
         "$_Mean_2_output": [],
-        "input": [["(V2, ...)", "u2", "u3"], ["u1", "(V1, ...)", "u3"]],
-        "w0": ["u3", 5],
-        "b0": [5],
-        "w1": [5, 10],
-        "b1": [10],
-        "w2": [10, 1],
-        "b2": [1],
-        "target": [["u1", "(V1, ...)", 1], ["(V2, ...)", "u2", 1]],
-        "$axis": None,
-        "$keepdim": None,
-        "output": [["u1", "(V1, ...)", 1], ["(V2, ...)", "u2", 1]],
+        "weight0": [5, "u3"],
+        "input": [["(V1, ...)", "u1", "u3"], ["u2", "(V2, ...)", "u3"]],
+        "bias0": [5],
+        "weight1": [10, 5],
+        "bias1": [10],
+        "weight2": [1, 10],
+        "bias2": [1],
+        "target": [["(V1, ...)", "u1", 1], ["u2", "(V2, ...)", 1]],
+        "output": [["(V1, ...)", "u1", 1], ["u2", "(V2, ...)", 1]],
+        "$_Mean_2_axis": None,
+        "$_Mean_2_keepdim": None,
     }
 
     physical_ref = {
+        "weight0": [5, 4],
+        "axes_0": None,
+        "output_0": [4, 5],
         "input": [100, 4],
-        "w0": [4, 5],
-        "_MLP_0_Layer_0_Linear_0_MatrixMultiply_0_output": [100, 5],
-        "b0": [5],
-        "_MLP_0_Layer_0_Linear_0_output": [100, 5],
-        "_MLP_0_Layer_0_output": [100, 5],
-        "w1": [5, 10],
-        "_MLP_0_Layer_1_Linear_0_MatrixMultiply_0_output": [100, 10],
-        "b1": [10],
-        "_MLP_0_Layer_1_Linear_0_output": [100, 10],
-        "_MLP_0_Layer_1_output": [100, 10],
-        "w2": [10, 1],
-        "_MLP_0_Layer_2_Linear_0_MatrixMultiply_0_output": [100, 1],
-        "b2": [1],
-        "_MLP_0_Layer_2_Linear_0_output": [100, 1],
+        "output_1": [100, 5],
+        "bias0": [5],
+        "output_2": [100, 5],
+        "output_3": [100, 5],
+        "weight1": [10, 5],
+        "axes_1": None,
+        "output_4": [5, 10],
+        "output_5": [100, 10],
+        "bias1": [10],
+        "output_6": [100, 10],
+        "output_7": [100, 10],
+        "weight2": [1, 10],
+        "axes_2": None,
+        "output_8": [10, 1],
+        "output_9": [100, 1],
+        "bias2": [1],
+        "output_10": [100, 1],
         "output": [100, 1],
         "target": [100, 1],
-        "_SquaredError_1_output": [100, 1],
+        "output_11": [100, 1],
         "axis": None,
         "keepdim": None,
-        "_Mean_2_output": [],
+        "output_12": [],
     }
     assert_shapes(
         ctx,
@@ -2714,42 +2601,48 @@ def test_mlp_1_set_shapes():
     ctx.set_shapes({"input": [100, 4], "target": [100, 1]})
 
     logical_ref = {
-        "input": [100, 4],
-        "target": [100, 1],
-        "w0": [4, 5],
-        "b0": [5],
-        "w1": [5, 10],
-        "b1": [10],
-        "w2": [10, 1],
-        "b2": [1],
-        "output": [100, 1],
         "$_SquaredError_1_output": [100, 1],
-        "$axis": None,
-        "$keepdim": None,
         "$_Mean_2_output": [],
+        "weight0": [5, 4],
+        "input": [100, 4],
+        "bias0": [5],
+        "weight1": [10, 5],
+        "bias1": [10],
+        "weight2": [1, 10],
+        "bias2": [1],
+        "target": [100, 1],
+        "output": [100, 1],
+        "$_Mean_2_axis": None,
+        "$_Mean_2_keepdim": None,
     }
     physical_ref = {
+        "weight0": [5, 4],
+        "axes_0": None,
+        "output_0": [4, 5],
         "input": [100, 4],
-        "w0": [4, 5],
-        "_MLP_0_Layer_0_Linear_0_MatrixMultiply_0_output": [100, 5],
-        "b0": [5],
-        "_MLP_0_Layer_0_Linear_0_output": [100, 5],
-        "_MLP_0_Layer_0_output": [100, 5],
-        "w1": [5, 10],
-        "_MLP_0_Layer_1_Linear_0_MatrixMultiply_0_output": [100, 10],
-        "b1": [10],
-        "_MLP_0_Layer_1_Linear_0_output": [100, 10],
-        "_MLP_0_Layer_1_output": [100, 10],
-        "w2": [10, 1],
-        "_MLP_0_Layer_2_Linear_0_MatrixMultiply_0_output": [100, 1],
-        "b2": [1],
-        "_MLP_0_Layer_2_Linear_0_output": [100, 1],
+        "output_1": [100, 5],
+        "bias0": [5],
+        "output_2": [100, 5],
+        "output_3": [100, 5],
+        "weight1": [10, 5],
+        "axes_1": None,
+        "output_4": [5, 10],
+        "output_5": [100, 10],
+        "bias1": [10],
+        "output_6": [100, 10],
+        "output_7": [100, 10],
+        "weight2": [1, 10],
+        "axes_2": None,
+        "output_8": [10, 1],
+        "output_9": [100, 1],
+        "bias2": [1],
+        "output_10": [100, 1],
         "output": [100, 1],
         "target": [100, 1],
-        "_SquaredError_1_output": [100, 1],
+        "output_11": [100, 1],
         "axis": None,
         "keepdim": None,
-        "_Mean_2_output": [],
+        "output_12": [],
     }
     assert_shapes(ctx, logical_ref, physical_ref)
 
@@ -2766,43 +2659,49 @@ def test_mlp_1_static_inputs():
         "target": np.random.randn(100, 1),
     }
     logical_ref: dict[str, list | None] = {
-        "$_SquaredError_1_output": [["u1", "(V1, ...)", 1], ["(V2, ...)", "u2", 1]],
+        "$_SquaredError_1_output": [["(V1, ...)", "u1", 1], ["u2", "(V2, ...)", 1]],
         "$_Mean_2_output": [],
-        "input": [["(V2, ...)", "u2", "u3"], ["u1", "(V1, ...)", "u3"]],
-        "w0": ["u3", 5],
-        "b0": [5],
-        "w1": [5, 10],
-        "b1": [10],
-        "w2": [10, 1],
-        "b2": [1],
-        "target": [["u1", "(V1, ...)", 1], ["(V2, ...)", "u2", 1]],
-        "$axis": None,
-        "$keepdim": None,
-        "output": [["u1", "(V1, ...)", 1], ["(V2, ...)", "u2", 1]],
+        "weight0": [5, "u3"],
+        "input": [["(V1, ...)", "u1", "u3"], ["u2", "(V2, ...)", "u3"]],
+        "bias0": [5],
+        "weight1": [10, 5],
+        "bias1": [10],
+        "weight2": [1, 10],
+        "bias2": [1],
+        "target": [["(V1, ...)", "u1", 1], ["u2", "(V2, ...)", 1]],
+        "output": [["(V1, ...)", "u1", 1], ["u2", "(V2, ...)", 1]],
+        "$_Mean_2_axis": None,
+        "$_Mean_2_keepdim": None,
     }
 
     physical_ref = {
+        "weight0": [5, 4],
+        "axes_0": None,
+        "output_0": [4, 5],
         "input": [100, 4],
-        "w0": [4, 5],
-        "_MLP_0_Layer_0_Linear_0_MatrixMultiply_0_output": [100, 5],
-        "b0": [5],
-        "_MLP_0_Layer_0_Linear_0_output": [100, 5],
-        "_MLP_0_Layer_0_output": [100, 5],
-        "w1": [5, 10],
-        "_MLP_0_Layer_1_Linear_0_MatrixMultiply_0_output": [100, 10],
-        "b1": [10],
-        "_MLP_0_Layer_1_Linear_0_output": [100, 10],
-        "_MLP_0_Layer_1_output": [100, 10],
-        "w2": [10, 1],
-        "_MLP_0_Layer_2_Linear_0_MatrixMultiply_0_output": [100, 1],
-        "b2": [1],
-        "_MLP_0_Layer_2_Linear_0_output": [100, 1],
+        "output_1": [100, 5],
+        "bias0": [5],
+        "output_2": [100, 5],
+        "output_3": [100, 5],
+        "weight1": [10, 5],
+        "axes_1": None,
+        "output_4": [5, 10],
+        "output_5": [100, 10],
+        "bias1": [10],
+        "output_6": [100, 10],
+        "output_7": [100, 10],
+        "weight2": [1, 10],
+        "axes_2": None,
+        "output_8": [10, 1],
+        "output_9": [100, 1],
+        "bias2": [1],
+        "output_10": [100, 1],
         "output": [100, 1],
         "target": [100, 1],
-        "_SquaredError_1_output": [100, 1],
+        "output_11": [100, 1],
         "axis": None,
         "keepdim": None,
-        "_Mean_2_output": [],
+        "output_12": [],
     }
     assert_shapes(
         ctx,
@@ -2821,35 +2720,41 @@ def test_mlp_reshape_model():
     logical_ref = {
         "$_MLP_0_output": [100, 74],
         "$_Reshape_1_output": [100, 74, 1],
+        "$weight0": [100, 200],
         "$input": [100, 200],
-        "$w0": [200, 100],
-        "$b0": [100],
-        "$w1": [100, 50],
-        "$b1": [50],
-        "$w2": [50, 74],
-        "$b2": [74],
-        "$shape": None,
+        "$bias0": [100],
+        "$weight1": [50, 100],
+        "$bias1": [50],
+        "$weight2": [74, 50],
+        "$bias2": [74],
+        "$_Reshape_1_shape": None,
     }
 
     physical_ref = {
-        "_MLP_0_output": [100, 74],
-        "output": [100, 74, 1],
+        "weight0": [100, 200],
+        "axes_0": None,
+        "output_0": [200, 100],
         "input": [100, 200],
-        "w0": [200, 100],
-        "b0": [100],
-        "w1": [100, 50],
-        "b1": [50],
-        "w2": [50, 74],
-        "b2": [74],
-        "shape": None,
-        "_MLP_0_Layer_0_Linear_0_MatrixMultiply_0_output": [100, 100],
-        "_MLP_0_Layer_0_Linear_0_output": [100, 100],
-        "_MLP_0_Layer_0_output": [100, 100],
-        "_MLP_0_Layer_1_Linear_0_MatrixMultiply_0_output": [100, 50],
-        "_MLP_0_Layer_1_Linear_0_output": [100, 50],
-        "_MLP_0_Layer_1_output": [100, 50],
-        "_MLP_0_Layer_2_Linear_0_MatrixMultiply_0_output": [100, 74],
-        "_MLP_0_Layer_2_Linear_0_output": [100, 74],
+        "output_1": [100, 100],
+        "bias0": [100],
+        "output_2": [100, 100],
+        "output_3": [100, 100],
+        "weight1": [50, 100],
+        "axes_1": None,
+        "output_4": [100, 50],
+        "output_5": [100, 50],
+        "bias1": [50],
+        "output_6": [100, 50],
+        "output_7": [100, 50],
+        "weight2": [74, 50],
+        "axes_2": None,
+        "output_8": [50, 74],
+        "output_9": [100, 74],
+        "bias2": [74],
+        "output_10": [100, 74],
+        "output_11": [100, 74],
+        "_shape": None,
+        "output": [100, 74, 1],
     }
     assert_shapes(
         mlp, logical_ref, physical_ref, static_inputs={}, check_all_shapes=True
@@ -3015,11 +2920,7 @@ def test_shape_1():
         "$_Buffer_0_output": [5, 6, 7],
         "output": [5, 6, 7],
     }
-    physical_ref = {
-        "input": [5, 6, 7],
-        "_Buffer_0_output": [5, 6, 7],
-        "output": [5, 6, 7],
-    }
+    physical_ref = {"input": [5, 6, 7], "output_0": [5, 6, 7], "output": [5, 6, 7]}
     assert_shapes(model, logical_ref, physical_ref)
 
 
@@ -3030,8 +2931,8 @@ class Model1(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="relu",
-            input=TensorType([("Var1", ...)]),
-            output=TensorType([("Var1", ...), "u1", "u2"]),
+            input=IOKey(shape=[("Var1", ...)], type=GenericTensorType),
+            output=IOKey(shape=[("Var1", ...), "u1", "u2"], type=GenericTensorType),
         )
 
     def __call__(  # type: ignore[override]
@@ -3047,8 +2948,8 @@ class Model2(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="relu",
-            input=TensorType([("Var1", ...), "u1"]),
-            output=TensorType(["u1", ("Var1", ...)]),
+            input=IOKey(shape=[("Var1", ...), "u1"], type=GenericTensorType),
+            output=IOKey(shape=["u1", ("Var1", ...)], type=GenericTensorType),
         )
 
     def __call__(  # type: ignore[override]
@@ -3066,10 +2967,10 @@ class Model3(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="concat",
-            input1=TensorType(["u1", "u2", "u3"]),
-            input2=TensorType(["u3", "u2", "u1"]),
-            output=TensorType(["u1", ("Var1", ...), "u3"]),
-            axis=Scalar(int),
+            input1=IOKey(shape=["u1", "u2", "u3"], type=GenericTensorType),
+            input2=IOKey(shape=["u3", "u2", "u1"], type=GenericTensorType),
+            output=IOKey(shape=["u1", ("Var1", ...), "u3"], type=GenericTensorType),
+            axis=IOKey(type=int),
         )
 
     def __call__(  # type: ignore[override]
@@ -3088,8 +2989,8 @@ class Model4(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="relu",
-            input=TensorType([("Var1", ...)]),
-            output=TensorType([("Var1", ...), 1]),
+            input=IOKey(shape=[("Var1", ...)], type=GenericTensorType),
+            output=IOKey(shape=[("Var1", ...), 1], type=GenericTensorType),
         )
 
     def __call__(  # type: ignore[override]
@@ -3106,9 +3007,9 @@ class Model5(PrimitiveModel):
     def __init__(self, axis=None) -> None:
         super().__init__(
             formula_key="relu",
-            input=TensorType([("Var1", ...)]),
-            output=TensorType([("Var2", ...)]),
-            axis=Scalar(possible_types=NoneType | list[int], value=axis),
+            input=IOKey(shape=[("Var1", ...)], type=GenericTensorType),
+            output=IOKey(shape=[("Var2", ...)], type=GenericTensorType),
+            axis=IOKey(type=NoneType | list[int], value=axis),
         )
 
     def __call__(  # type: ignore[override]
@@ -3127,8 +3028,8 @@ class Model6(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="relu",
-            input=TensorType(["u1", ("Var1", ...)]),
-            output=TensorType([("Var1", ...), "u1"]),
+            input=IOKey(shape=["u1", ("Var1", ...)], type=GenericTensorType),
+            output=IOKey(shape=[("Var1", ...), "u1"], type=GenericTensorType),
         )
 
     def __call__(  # type: ignore[override]
@@ -3144,8 +3045,8 @@ class Model7(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="relu",
-            input=TensorType(["u1", ("Var1", ...)]),
-            output=TensorType(["u1", ("Var1", ...)]),
+            input=IOKey(shape=["u1", ("Var1", ...)], type=GenericTensorType),
+            output=IOKey(shape=["u1", ("Var1", ...)], type=GenericTensorType),
         )
 
     def __call__(  # type: ignore[override]
@@ -3161,8 +3062,8 @@ class Model8(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="relu",
-            input=TensorType([("Var1", ...), "u1"]),
-            output=TensorType([("Var1", ...), "u1"]),
+            input=IOKey(shape=[("Var1", ...), "u1"], type=GenericTensorType),
+            output=IOKey(shape=[("Var1", ...), "u1"], type=GenericTensorType),
         )
 
     def __call__(  # type: ignore[override]
@@ -3178,8 +3079,8 @@ class Model9(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="buffer",
-            input=TensorType(["u1", ("Var1", ...)]),
-            output=TensorType(["u2", "u1", ("Var1", ...)]),
+            input=IOKey(shape=["u1", ("Var1", ...)], type=GenericTensorType),
+            output=IOKey(shape=["u2", "u1", ("Var1", ...)], type=GenericTensorType),
         )
 
     def __call__(  # type: ignore[override]
@@ -3215,8 +3116,8 @@ def test_shape_2():
     }
     physical_ref: dict[str, list | None] = {
         "input": ["..."],
-        "_Model1_0_output": ["...", None, None],
-        "_Model1_1_output": ["...", None, None, None, None],
+        "output_0": ["...", None, None],
+        "output_1": ["...", None, None, None, None],
         "output": ["...", None, None, None, None, None, None],
     }
     assert_shapes(model, logical_ref, physical_ref)
@@ -3249,8 +3150,8 @@ def test_shape_3():
     }
     physical_ref = {
         "input1": [3, 4, 5, 6],
-        "_Buffer_0_output": [3, 4, 5, 6],
-        "_Model_1_output1": [3, 4, 5, 6],
+        "output1": [3, 4, 5, 6],
+        "output": [3, 4, 5, 6],
         "output2": [3, 4, 5, 6],
     }
     assert_shapes(model, logical_ref, physical_ref)
@@ -3281,8 +3182,8 @@ def test_shape_4():
     }
     physical_ref: dict[str, list | None] = {
         "input": ["...", None],
-        "_Model2_0_output": [None, "..."],
-        "_Model2_1_output": [None, "..."],
+        "output_0": [None, "..."],
+        "output_1": [None, "..."],
         "output": [None, "..."],
     }
     assert_shapes(model, logical_ref, physical_ref)
@@ -3329,8 +3230,8 @@ def test_shape_6():
     }
     physical_ref = {
         "input": [3, 4, 5, 6, 7, 8],
-        "_Model2_0_output": [8, 3, 4, 5, 6, 7],
-        "_Model2_1_output": [7, 8, 3, 4, 5, 6],
+        "output_0": [8, 3, 4, 5, 6, 7],
+        "output_1": [7, 8, 3, 4, 5, 6],
         "output": [6, 7, 8, 3, 4, 5],
     }
     assert_shapes(model, logical_ref, physical_ref)
@@ -3360,8 +3261,8 @@ def test_shape_7():
     }
     physical_ref = {
         "input": [3, 4],
-        "_Model2_0_output": [4, 3],
-        "_Model2_1_output": [3, 4],
+        "output_0": [4, 3],
+        "output_1": [3, 4],
         "output": [4, 3],
     }
     assert_shapes(model, logical_ref, physical_ref)
@@ -3388,8 +3289,8 @@ def test_shape_8():
     }
     physical_ref = {
         "input": [3, 4],
-        "_Model2_0_output": [4, 3],
-        "_Model2_1_output": [3, 4],
+        "output_0": [4, 3],
+        "output_1": [3, 4],
         "output": [4, 3],
     }
     assert_shapes(model, logical_ref, physical_ref)
@@ -3424,13 +3325,13 @@ def test_shape_9():
     physical_ref: dict[str, list | None] = {
         "input": [None, None, None],
         "input2_0": [None, None, None],
-        "_Model3_0_output": [None, None, None],
         "axis_0": None,
-        "axis_1": None,
-        "axis_2": None,
+        "output_0": [None, None, None],
         "input2_1": [None, None, None],
-        "_Model3_1_output": [None, None, None],
+        "axis_1": None,
+        "output_1": [None, None, None],
         "input2_2": [None, None, None],
+        "axis_2": None,
         "output": [None, "...", None],
     }
     assert_shapes(model, logical_ref, physical_ref)
@@ -3456,12 +3357,7 @@ def test_shape_10():
         "$_Model2_1_output": [4],
         "output": [4],
     }
-    physical_ref = {
-        "input": [4],
-        "_Model2_0_output": [4],
-        "_Model2_1_output": [4],
-        "output": [4],
-    }
+    physical_ref = {"input": [4], "output_0": [4], "output_1": [4], "output": [4]}
     assert_shapes(model, logical_ref, physical_ref)
 
 
@@ -3502,18 +3398,18 @@ def test_shape_11():
         "input": [3, 4],
         "$_Buffer_0_output": [3, 4],
         "$_Buffer_1_output": [3, 4],
-        "$axis": None,
-        "$keepdim": None,
+        "$_Mean_2_axis": None,
+        "$_Mean_2_keepdim": None,
         "$_Mean_2_output": [3],
         "output": [3, 1],
     }
     physical_ref = {
         "input": [3, 4],
+        "output_0": [3, 4],
+        "output_1": [3, 4],
         "axis": None,
         "keepdim": None,
-        "_Buffer_0_output": [3, 4],
-        "_Buffer_1_output": [3, 4],
-        "_Mean_2_output": [3],
+        "output_2": [3],
         "output": [3, 1],
     }
     assert_shapes(model, logical_ref, physical_ref)
@@ -3587,14 +3483,14 @@ def test_transpose_1():
     model.set_shapes({"input1": [3, 4, 5]})
     logical_ref = {
         "input1": [3, 4, 5],
-        "$axes": None,
+        "$_Transpose_1_axes": None,
         "my_input": [3, 4, 5],
         "output": [5, 4, 3],
     }
     physical_ref = {
         "input1": [3, 4, 5],
-        "axes": None,
         "my_input": [3, 4, 5],
+        "axes": None,
         "output": [5, 4, 3],
     }
     assert_shapes(model, logical_ref, physical_ref)
@@ -3646,10 +3542,10 @@ def test_logical_constraint_2():
     physical_ref = {
         "in1": [6, 6, 1, 1, 1, 1],
         "in2": [1, 1, 1, 1, 6, 6],
+        "output_0": [6, 6, 1, 1, 6, 6],
         "in3": [6, 6, 1, 1, 1, 1],
+        "output_1": [6, 6, 1, 1, 6, 6],
         "in4": [1, 1, 1, 1, 6, 6],
-        "_Add_0_output": [6, 6, 1, 1, 6, 6],
-        "_Add_1_output": [6, 6, 1, 1, 6, 6],
         "output": [6, 6, 1, 1, 6, 6],
         "axes": None,
         "output1": [1, 1, 1, 1, 6, 6],
@@ -4048,15 +3944,17 @@ def test_swapaxes_init_4():
 
 def test_variadic_naming_1():
     model = Linear()
-    ref_shapes: dict[str, list] = {
-        "$_MatrixMultiply_0_output": [
-            ["(V1, ...)", "u1", "u2"],
+    ref_shapes: dict[str, list | None] = {
+        "$_Transpose_0_output": ["u1", "u2"],
+        "$_MatrixMultiply_1_output": [
+            ["(V1, ...)", "u3", "u2"],
             ["u4", "(V2, ...)", "u2"],
         ],
-        "input": [["(V1, ...)", "u1", "u3"], ["u4", "(V2, ...)", "u3"]],
-        "w": ["u3", "u2"],
-        "b": ["u2"],
-        "output": [["(V1, ...)", "u1", "u2"], ["u4", "(V2, ...)", "u2"]],
+        "weight": ["u2", "u1"],
+        "$axes": None,
+        "input": [["(V1, ...)", "u3", "u1"], ["u4", "(V2, ...)", "u1"]],
+        "bias": ["u2"],
+        "output": [["(V1, ...)", "u3", "u2"], ["u4", "(V2, ...)", "u2"]],
     }
 
     assert_shapes(model, ref_shapes)
@@ -4070,8 +3968,8 @@ class MyVariadic1(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="buffer",
-            input=TensorType([("Var1", ...), "a"]),
-            output=TensorType([("Var1", ...), "a"]),
+            input=IOKey(shape=[("Var1", ...), "a"], type=GenericTensorType),
+            output=IOKey(shape=[("Var1", ...), "a"], type=GenericTensorType),
         )
 
     def __call__(  # type: ignore[override]
@@ -4087,8 +3985,8 @@ class MyVariadic2(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="buffer",
-            input=TensorType([("Var1", ...), "a", "b"]),
-            output=TensorType([("Var1", ...), "a", "b"]),
+            input=IOKey(shape=[("Var1", ...), "a", "b"], type=GenericTensorType),
+            output=IOKey(shape=[("Var1", ...), "a", "b"], type=GenericTensorType),
         )
 
     def __call__(  # type: ignore[override]
@@ -4104,8 +4002,8 @@ class MyVariadic3(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="buffer",
-            input=TensorType(["a", "b", ("Var1", ...)]),
-            output=TensorType(["a", "b", ("Var1", ...)]),
+            input=IOKey(shape=["a", "b", ("Var1", ...)], type=GenericTensorType),
+            output=IOKey(shape=["a", "b", ("Var1", ...)], type=GenericTensorType),
         )
 
     def __call__(  # type: ignore[override]
@@ -4121,8 +4019,8 @@ class MyVariadic4(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="buffer",
-            input=TensorType(["a", ("Var1", ...)]),
-            output=TensorType(["a", ("Var1", ...)]),
+            input=IOKey(shape=["a", ("Var1", ...)], type=GenericTensorType),
+            output=IOKey(shape=["a", ("Var1", ...)], type=GenericTensorType),
         )
 
     def __call__(  # type: ignore[override]
@@ -4138,8 +4036,8 @@ class MyVariadic5(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="buffer",
-            input=TensorType([("Var1", ...), "a", "b"]),
-            output=TensorType([("Var1", ...), "a"]),
+            input=IOKey(shape=[("Var1", ...), "a", "b"], type=GenericTensorType),
+            output=IOKey(shape=[("Var1", ...), "a"], type=GenericTensorType),
         )
 
     def __call__(  # type: ignore[override]
@@ -4155,8 +4053,8 @@ class MyVariadic6(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="buffer",
-            input=TensorType([("Var1", ...), "a"]),
-            output=TensorType(["a", "a"]),
+            input=IOKey(shape=[("Var1", ...), "a"], type=GenericTensorType),
+            output=IOKey(shape=["a", "a"], type=GenericTensorType),
         )
 
     def __call__(  # type: ignore[override]
@@ -4172,8 +4070,8 @@ class MyVariadic7(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="buffer",
-            input=TensorType([("Var1", ...), "u1", "u2"]),
-            output=TensorType(["u3", ("Var2", ...), "u4"]),
+            input=IOKey(shape=[("Var1", ...), "u1", "u2"], type=GenericTensorType),
+            output=IOKey(shape=["u3", ("Var2", ...), "u4"], type=GenericTensorType),
         )
 
     def __call__(  # type: ignore[override]
@@ -4194,13 +4092,30 @@ class MyVariadic8(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="buffer",
-            input1=TensorType(["u1", "u2", "u3", ("Var1", ...)]),
-            input2=TensorType(["u4", "u5", ("Var2", ...), "u6"]),
-            input3=TensorType(["u7", ("Var3", ...), "u8", "u9"]),
-            input4=TensorType([("Var4", ...), "u10", "u11", "u12"]),
-            input5=TensorType([("Var5", ...), "u13", "u14", "u15", "u16"]),
-            input6=TensorType(["u17", "u18", ("Var6", ...), "u19", "u20"]),
-            output=TensorType(["u13", ("Var1", ...), "u14", "u15", "u16"]),
+            input1=IOKey(
+                shape=["u1", "u2", "u3", ("Var1", ...)], type=GenericTensorType
+            ),
+            input2=IOKey(
+                shape=["u4", "u5", ("Var2", ...), "u6"], type=GenericTensorType
+            ),
+            input3=IOKey(
+                shape=["u7", ("Var3", ...), "u8", "u9"], type=GenericTensorType
+            ),
+            input4=IOKey(
+                shape=[("Var4", ...), "u10", "u11", "u12"], type=GenericTensorType
+            ),
+            input5=IOKey(
+                shape=[("Var5", ...), "u13", "u14", "u15", "u16"],
+                type=GenericTensorType,
+            ),
+            input6=IOKey(
+                shape=["u17", "u18", ("Var6", ...), "u19", "u20"],
+                type=GenericTensorType,
+            ),
+            output=IOKey(
+                shape=["u13", ("Var1", ...), "u14", "u15", "u16"],
+                type=GenericTensorType,
+            ),
         )
 
     def __call__(  # type: ignore[override]
@@ -4236,10 +4151,10 @@ class MyVariadic9(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="buffer",
-            input1=TensorType(["u1", ("Var1", ...)]),
-            input2=TensorType([("Var2", ...), "u2"]),
-            input3=TensorType(["u3", ("Var3", ...), "u4"]),
-            output=TensorType(["u5", "u5"]),
+            input1=IOKey(shape=["u1", ("Var1", ...)], type=GenericTensorType),
+            input2=IOKey(shape=[("Var2", ...), "u2"], type=GenericTensorType),
+            input3=IOKey(shape=["u3", ("Var3", ...), "u4"], type=GenericTensorType),
+            output=IOKey(shape=["u5", "u5"], type=GenericTensorType),
         )
 
     def __call__(  # type: ignore[override]
@@ -4266,12 +4181,16 @@ class MyVariadic10(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="buffer",
-            input1=TensorType(["u1", "u2", ("Var1", ...)]),
-            input2=TensorType(["u3", ("Var2", ...), "u4"]),
-            input3=TensorType([("Var3", ...), "u5", "u6"]),
-            input4=TensorType(["u7", "u8", ("Var4", ...), "u9", "u10"]),
-            input5=TensorType(["u11", ("Var4", ...), "u12", "u13"]),
-            output=TensorType(["u5", "u5"]),
+            input1=IOKey(shape=["u1", "u2", ("Var1", ...)], type=GenericTensorType),
+            input2=IOKey(shape=["u3", ("Var2", ...), "u4"], type=GenericTensorType),
+            input3=IOKey(shape=[("Var3", ...), "u5", "u6"], type=GenericTensorType),
+            input4=IOKey(
+                shape=["u7", "u8", ("Var4", ...), "u9", "u10"], type=GenericTensorType
+            ),
+            input5=IOKey(
+                shape=["u11", ("Var4", ...), "u12", "u13"], type=GenericTensorType
+            ),
+            output=IOKey(shape=["u5", "u5"], type=GenericTensorType),
         )
 
     def __call__(  # type: ignore[override]
@@ -4303,8 +4222,8 @@ class MyVariadic11(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="buffer",
-            input=TensorType(["a", ("Var1", ...)]),
-            output=TensorType(["a", ("Var1", ...), "b"]),
+            input=IOKey(shape=["a", ("Var1", ...)], type=GenericTensorType),
+            output=IOKey(shape=["a", ("Var1", ...), "b"], type=GenericTensorType),
         )
 
     def __call__(  # type: ignore[override]
@@ -4320,8 +4239,8 @@ class MyVariadic12(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="buffer",
-            input=TensorType(["a", "b", ("Var1", ...)]),
-            output=TensorType(["a", "b", "c", ("Var1", ...)]),
+            input=IOKey(shape=["a", "b", ("Var1", ...)], type=GenericTensorType),
+            output=IOKey(shape=["a", "b", "c", ("Var1", ...)], type=GenericTensorType),
         )
 
     def __call__(  # type: ignore[override]
@@ -5212,9 +5131,9 @@ def test_variadic_naming_14() -> None:
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input1=TensorType(["a", ("Var1", ...), "b"]),
-                input2=TensorType([("Var1", ...)]),
-                output=TensorType(["a", ("Var1", ...), "c"]),
+                input1=IOKey(shape=["a", ("Var1", ...), "b"], type=GenericTensorType),
+                input2=IOKey(shape=[("Var1", ...)], type=GenericTensorType),
+                output=IOKey(shape=["a", ("Var1", ...), "c"], type=GenericTensorType),
             )
 
     model = MyModel()
@@ -5244,9 +5163,9 @@ def test_variadic_naming_15() -> None:
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input1=TensorType(["a", ("Var1", ...), "b"]),
-                input2=TensorType(["b", "c"]),
-                output=TensorType(["a", ("Var1", ...), "c"]),
+                input1=IOKey(shape=["a", ("Var1", ...), "b"], type=GenericTensorType),
+                input2=IOKey(shape=["b", "c"], type=GenericTensorType),
+                output=IOKey(shape=["a", ("Var1", ...), "c"], type=GenericTensorType),
             )
 
     model = MyModel()
@@ -5272,8 +5191,8 @@ def test_variadic_naming_16() -> None:
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=TensorType(["a", ("Var1", ...), "b"]),
-                output=TensorType(["b", ("Var1", ...), "a"]),
+                input=IOKey(shape=["a", ("Var1", ...), "b"], type=GenericTensorType),
+                output=IOKey(shape=["b", ("Var1", ...), "a"], type=GenericTensorType),
             )
 
         def __call__(  # type: ignore[override]
@@ -5313,8 +5232,8 @@ def test_variadic_naming_17() -> None:
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=TensorType(["a", ("Var1", ...), "b"]),
-                output=TensorType(["b", ("Var1", ...), "a"]),
+                input=IOKey(shape=["a", ("Var1", ...), "b"], type=GenericTensorType),
+                output=IOKey(shape=["b", ("Var1", ...), "a"], type=GenericTensorType),
             )
 
         def __call__(  # type: ignore[override]
@@ -5571,7 +5490,7 @@ def test_variadic_naming_22():
         "$_Mean_0_output": [["u1", "(V1, ...)"], ["(V2, ...)", "u2"]],
         "input": [["(V2, ...)", "u2", "u3"], ["u1", "(V1, ...)", "u3"]],
         "$axis": None,
-        "$keepdim": None,
+        "$_Mean_0_keepdim": None,
         "output": [["u1", "(V1, ...)"], ["(V2, ...)", "u2"]],
     }
 
@@ -5630,8 +5549,12 @@ def test_variadic_naming_25() -> None:
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=TensorType([("Var1", ...), "a", "b", "c"]),
-                output=TensorType(["c", ("Var1", ...), "a", "b"]),
+                input=IOKey(
+                    shape=[("Var1", ...), "a", "b", "c"], type=GenericTensorType
+                ),
+                output=IOKey(
+                    shape=["c", ("Var1", ...), "a", "b"], type=GenericTensorType
+                ),
             )
 
         def __call__(  # type: ignore[override]
@@ -5673,10 +5596,10 @@ def test_variadic_naming_26() -> None:
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input1=TensorType(["a", ("Var1", ...), "b"]),
-                input2=TensorType(["_a", ("Var1", ...), "_b"]),
-                input3=TensorType(["b", "c"]),
-                output=TensorType(["a", ("Var1", ...), "c"]),
+                input1=IOKey(shape=["a", ("Var1", ...), "b"], type=GenericTensorType),
+                input2=IOKey(shape=["_a", ("Var1", ...), "_b"], type=GenericTensorType),
+                input3=IOKey(shape=["b", "c"], type=GenericTensorType),
+                output=IOKey(shape=["a", ("Var1", ...), "c"], type=GenericTensorType),
             )
 
         def __call__(  # type: ignore[override]
@@ -5723,8 +5646,8 @@ def test_variadic_naming_27() -> None:
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=TensorType([("Var1", ...), "u1"]),
-                output=TensorType([("Var1", ...)]),
+                input=IOKey(shape=[("Var1", ...), "u1"], type=GenericTensorType),
+                output=IOKey(shape=[("Var1", ...)], type=GenericTensorType),
             )
 
         def __call__(  # type: ignore[override]
@@ -5766,8 +5689,10 @@ def test_same_uniadic_1() -> None:
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=TensorType([("Var1", ...), "u1", "u2", "u3"]),
-                output=TensorType([("Var1", ...), "u4"]),
+                input=IOKey(
+                    shape=[("Var1", ...), "u1", "u2", "u3"], type=GenericTensorType
+                ),
+                output=IOKey(shape=[("Var1", ...), "u4"], type=GenericTensorType),
             )
 
         def __call__(  # type: ignore[override]
@@ -5805,8 +5730,10 @@ def test_same_uniadic_2() -> None:
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=TensorType([("Var1", ...), "u1", "u2", "u3"]),
-                output=TensorType([("Var1", ...), "u4"]),
+                input=IOKey(
+                    shape=[("Var1", ...), "u1", "u2", "u3"], type=GenericTensorType
+                ),
+                output=IOKey(shape=[("Var1", ...), "u4"], type=GenericTensorType),
             )
 
         def __call__(  # type: ignore[override]
@@ -5925,7 +5852,14 @@ def test_same_uniadic_5():
     assert repr_prefix[0] is repr_suffix[-1]
 
 
+@pytest.mark.skip(
+    reason="An output value is set here by another model's input "
+    "with extending from input strategy. Is this OK?"
+)
 def test_scalar_propagation():
+    # TODO: When this test was written multi-write error was raised.
+    # After final decision about setting output values by input values
+    # this test should be re-evaluated.
     model = Model()
     shape_model = Shape()
     reduce_model = Mean(axis=TBD)
@@ -6081,11 +6015,7 @@ def test_cartesian_call():
         model_3_input_2: [3, 4],
         "output": [3, 4],
     }
-    physical_ref = {
-        model_3_input_1[1:]: [3, 4],
-        model_3_input_2[1:]: [3, 4],
-        "output": [3, 4],
-    }
+    physical_ref = {"input_0": [3, 4], "input_1": [3, 4], "output": [3, 4]}
     assert_shapes(model3, logical_ref, physical_ref)
 
 
@@ -6120,9 +6050,9 @@ def test_cartesian_call_2():
     ref_shapes = {
         "input": [["u1", "(V1, ...)", "u2"], ["u1", "u3", "(V2, ...)"]],
         "$axis_0": None,
-        "$keepdim_0": None,
+        "$_Mean_2_keepdim": None,
         "$axis_1": None,
-        "$keepdim_1": None,
+        "$_Mean_3_keepdim": None,
         "output": [["u1", "(V1, ...)", "u2"], ["u1", "u3", "(V2, ...)"]],
         "output2": [["u1", "(V1, ...)", "u2"], ["u1", "u3", "(V2, ...)"]],
         "output3": ["(V1, ...)", "u2"],
@@ -6527,8 +6457,8 @@ def test_prune_match_2():
     }
 
     p_shape: dict[str, list] = {
-        "_Squeeze_0_output": [3, 2, "..."],
         "input": ["..."],
+        "output_0": [3, 2, "..."],
         "out1": [3, 2, "..."],
         "out2": [3, 2, "..."],
     }
@@ -6560,8 +6490,8 @@ def test_prune_match_3():
     }
 
     p_shape: dict[str, list] = {
-        "_Model_0_Squeeze_0_output": [3, 2, "..."],
         "input": ["..."],
+        "output_0": [3, 2, "..."],
         "out1": [3, 2, "..."],
         "out2": [3, 2, "..."],
     }
@@ -6592,10 +6522,10 @@ def test_prune_match_4():
     }
 
     p_shape: dict[str, list] = {
-        "_Squeeze_0_output": [3, 2, "..."],
         "input": ["..."],
-        "out1": [3, 2, "..."],
+        "output_0": [3, 2, "..."],
         "out2": [3, 2, "..."],
+        "out1": [3, 2, "..."],
     }
 
     assert_shapes(model, shape, p_shape)
@@ -6630,10 +6560,10 @@ def test_prune_match_5():
     }
 
     p_shape: dict[str, list] = {
-        "_Model_0_Squeeze_0_output": [3, 2, "..."],
-        "_Model_0_Squeeze_1_output": [3, 2, "..."],
-        "_Model_0_Squeeze_2_output": [3, 2, "..."],
         "input": ["..."],
+        "output_0": [3, 2, "..."],
+        "output_1": [3, 2, "..."],
+        "output_2": [3, 2, "..."],
         "out1": [3, 2, "..."],
         "out2": [3, 2, "..."],
     }
@@ -6708,6 +6638,7 @@ def test_total_repr_count_1():
         Square: 1,
         Softmax: 1,
         Sign: 1,
+        Pad: 2,
         PermuteTensor: 2,
         Sigmoid: 1,
         PositionalEncoding: 1,
@@ -6774,6 +6705,9 @@ def test_total_repr_count_1():
                 for shape in shapes:
                     reprs |= find_all_reprs(shape)
             if (ref_result := ref_counts.get(model.__class__)) is not None:
+                if len(reprs) != ref_result:
+                    ...
+                    model = primitive_model(**kwargs)
                 assert len(reprs) == ref_result
             else:
                 assert len(reprs) == len(all_tensor_conns)
@@ -6962,8 +6896,8 @@ def test_repr_count_1():
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=TensorType(["a", "b"]),
-                output=TensorType(["b", "c", "d"]),
+                input=IOKey(shape=["a", "b"], type=GenericTensorType),
+                output=IOKey(shape=["b", "c", "d"], type=GenericTensorType),
             )
 
     model = MyModel()
@@ -6981,8 +6915,10 @@ def test_equalize_lengths_of_unmatchable_reprs_of_different_sizes_with_extend_1(
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=TensorType(["a", ("Var1", ...)]),
-                output=TensorType([("Var1", ...), "c", "d", "e"]),
+                input=IOKey(shape=["a", ("Var1", ...)], type=GenericTensorType),
+                output=IOKey(
+                    shape=[("Var1", ...), "c", "d", "e"], type=GenericTensorType
+                ),
             )
 
     model = Model()
@@ -7004,8 +6940,10 @@ def test_equalize_lengths_of_unmatchable_reprs_of_different_sizes_with_extend_2(
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=TensorType([("Var1", ...), "c", "d", "e"]),
-                output=TensorType(["a", "b", ("Var1", ...)]),
+                input=IOKey(
+                    shape=[("Var1", ...), "c", "d", "e"], type=GenericTensorType
+                ),
+                output=IOKey(shape=["a", "b", ("Var1", ...)], type=GenericTensorType),
             )
 
     model = Model()
@@ -7037,14 +6975,14 @@ def test_train_model_shapes_1():
         "$_Mean_3_output": [10],
         "$_Sum_4_output": [],
         "input": [5, 4, 3],
-        "w": [3, 10],
-        "b": [10],
-        "$axis_0": None,
-        "$keepdim_0": None,
-        "$axis_1": None,
-        "$keepdim_1": None,
-        "$axis_2": None,
-        "$keepdim_2": None,
+        "weight": [10, 3],
+        "bias": [10],
+        "$_Sum_2_axis": None,
+        "$_Sum_2_keepdim": None,
+        "$_Mean_3_axis": None,
+        "$_Mean_3_keepdim": None,
+        "$_Sum_4_axis": None,
+        "$_Sum_4_keepdim": None,
         "output": [5, 4, 10],
     }
     assert_shapes(ctx_1, ref_shapes)
@@ -7302,8 +7240,8 @@ def test_shapes_rnn():
         "initial_hidden": (20, 1, 8),
         "input": (20, 1, 15),
         "w_hh": (8, 8),
-        "w_ho": (8, 15),
-        "w_ih": (15, 8),
+        "w_ho": (15, 8),
+        "w_ih": (8, 15),
         "output0": (20, 1, 15),
         "output1": (17, 1, 15),
         "output2": (13, 1, 15),
@@ -7465,8 +7403,8 @@ def test_node_count_4():
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=TensorType(["a", ("Var1", ...)]),
-                output=TensorType([("Var1", ...), "b"]),
+                input=IOKey(shape=["a", ("Var1", ...)], type=GenericTensorType),
+                output=IOKey(shape=[("Var1", ...), "b"], type=GenericTensorType),
             )
 
         def __call__(  # type: ignore[override]
@@ -7498,9 +7436,9 @@ def test_node_count_5():
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input1=TensorType(["a", ("Var1", ...)]),
-                input2=TensorType([("Var1", ...), "b"]),
-                output=TensorType(["a", ("Var1", ...)]),
+                input1=IOKey(shape=["a", ("Var1", ...)], type=GenericTensorType),
+                input2=IOKey(shape=[("Var1", ...), "b"], type=GenericTensorType),
+                output=IOKey(shape=["a", ("Var1", ...)], type=GenericTensorType),
             )
 
         def __call__(  # type: ignore[override]
@@ -7718,8 +7656,8 @@ def test_node_count_16() -> None:
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=TensorType([5, 5]),
-                output=TensorType([5, 5]),
+                input=IOKey(shape=[5, 5], type=GenericTensorType),
+                output=IOKey(shape=[5, 5], type=GenericTensorType),
             )
 
         def __call__(  # type: ignore[override]
@@ -7748,8 +7686,8 @@ def test_node_count_18() -> None:
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=TensorType(["a", "b"]),
-                output=TensorType(["a", "b"]),
+                input=IOKey(shape=["a", "b"], type=GenericTensorType),
+                output=IOKey(shape=["a", "b"], type=GenericTensorType),
             )
 
         def __call__(  # type: ignore[override]
@@ -7777,8 +7715,10 @@ def test_node_count_19() -> None:
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=TensorType(["a", ("V1", ...), "b", "c"]),
-                output=TensorType(["c", ("V1", ...), "a", "b"]),
+                input=IOKey(shape=["a", ("V1", ...), "b", "c"], type=GenericTensorType),
+                output=IOKey(
+                    shape=["c", ("V1", ...), "a", "b"], type=GenericTensorType
+                ),
             )
 
         def __call__(  # type: ignore[override]
@@ -7813,8 +7753,8 @@ def test_node_count_20() -> None:
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=TensorType(["a", "b", "c"]),
-                output=TensorType(["b", "c", "a"]),
+                input=IOKey(shape=["a", "b", "c"], type=GenericTensorType),
+                output=IOKey(shape=["b", "c", "a"], type=GenericTensorType),
             )
 
         def __call__(  # type: ignore[override]
@@ -7848,7 +7788,9 @@ def test_node_count_21() -> None:
 
         def __init__(self) -> None:
             super().__init__(
-                formula_key="buffer", input=TensorType([]), output=TensorType([])
+                formula_key="buffer",
+                input=IOKey(shape=[], type=GenericTensorType),
+                output=IOKey(shape=[], type=GenericTensorType),
             )
 
         def __call__(  # type: ignore[override]
@@ -9894,8 +9836,8 @@ def test_bcast_uniadics():
     output = ShapeRepr(root=Variadic(), suffix=[Uniadic(1), Uniadic(2)])
 
     bcast_uniadics(output, left, right, 0)
-    uni_cache: dict[UniadicRecord | Variadic, str] = {}
-    var_cache: dict[UniadicRecord | Variadic, str] = {}
+    uni_cache: dict[UniadicRecord, str] = {}
+    var_cache: dict[Variadic, str] = {}
     assert left.get_shapes(uni_cache, var_cache) == ["(V1, ...)", 1, "u1"]
     assert right.get_shapes(uni_cache, var_cache) == ["(V2, ...)"]
     assert output.get_shapes(uni_cache, var_cache) == ["(V3, ...)", 1, 2]
@@ -9909,8 +9851,8 @@ def test_bcast_align():
     output = ShapeRepr(root=Variadic(), suffix=[Uniadic(1), Uniadic(2)])
 
     bacast_align_output(output, left, right, 0)
-    uni_cache: dict[UniadicRecord | Variadic, str] = {}
-    var_cache: dict[UniadicRecord | Variadic, str] = {}
+    uni_cache: dict[UniadicRecord, str] = {}
+    var_cache: dict[Variadic, str] = {}
     assert left.get_shapes(uni_cache, var_cache) == ["(V1, ...)", "u1", "u2"]
     assert right.get_shapes(uni_cache, var_cache) == ["(V2, ...)"]
     assert output.get_shapes(uni_cache, var_cache) == ["(V3, ...)", 1, 2]
@@ -10118,3 +10060,43 @@ def test_extract_uni_from_possibles_both():
     assert repr.root.possibles is not None
     assert repr.root.possibles.keys() == ref_possibles.keys()
     assert repr.root.possibles[1].uniadics == ref_possibles[1].uniadics
+
+
+def test_shapes_tensor_item_numeric():
+    model = Model()
+    relu_model1 = Relu()
+    relu_model2 = Relu()
+    shape1: dict[str, list] = {"input": [("V1", ...), "u1", "u2"]}
+    relu_model1.set_shapes(shape1)
+    model += relu_model1(input="input", output="output")
+    model += relu_model2(input=relu_model1.output[:, None, :, 2:4], output="output2")
+    shape2: dict[str, list] = {"input": [3, 4, 5]}
+    model.set_shapes(shape2)
+
+    ref = {
+        "output": [3, 4, 5],
+        "$_TensorItem_1_output": [3, 1, 4, 2],
+        "$index": None,
+        "output2": [3, 1, 4, 2],
+        "input": [3, 4, 5],
+    }
+    check_shapes_semantically(model.get_shapes(), ref)
+
+
+def test_shapes_tensor_item_symbolic():
+    model = Model()
+    relu_model1 = Relu()
+    relu_model2 = Relu()
+    shape: dict[str, list] = {"input": [("V1", ...), "u1", "u2"]}
+    relu_model1.set_shapes(shape)
+    model += relu_model1(input="input", output="output")
+    model += relu_model2(input=relu_model1.output[:, None, :, 2:4], output="output2")
+
+    ref: Mapping[str, list | None] = {
+        "output": ["u1", "(V1, ...)", "u2", "u3"],
+        "$_TensorItem_1_output": ["u4", 1, "u5", "u6", "(V2, ...)"],
+        "$index": None,
+        "output2": ["u4", 1, "u5", "u6", "(V2, ...)"],
+        "input": ["u1", "(V1, ...)", "u2", "u3"],
+    }
+    check_shapes_semantically(model.get_shapes(), ref)

@@ -24,7 +24,7 @@ from ...utils import process_shape
 from . import ops, ops_grad, utils
 
 
-class NumpyBackend(Backend[np.ndarray]):
+class NumpyBackend(Backend[np.ndarray[Any, Any]]):
     """A backend implementation for the Mithril library using NumPy with
     manual gradient support.
 
@@ -41,7 +41,7 @@ class NumpyBackend(Backend[np.ndarray]):
     registered_primitives = {}
     primitive_fn_path = "mithril.backends.with_manualgrad.numpy_backend.ops"
     primitive_grad_fn_path = "mithril.backends.with_manualgrad.numpy_backend.ops_grad"
-    registered_primitives_grad_fn: dict[str, Callable] = {}
+    registered_primitives_grad_fn: dict[str, Callable[..., np.ndarray[Any, Any]]] = {}
 
     def __init__(self, device: str = "cpu", precision: int = 32) -> None:
         self._precision = precision
@@ -60,12 +60,16 @@ class NumpyBackend(Backend[np.ndarray]):
         np.random.seed(self.seed)
 
     @property
-    def is_manualgrad(self):
+    def is_manualgrad(self) -> bool:
         return True
 
     @property
     def inf(self):
         return np.inf
+
+    @property
+    def nan(self):
+        return np.nan
 
     @property
     def DataType(self):  # noqa: N802
@@ -180,8 +184,8 @@ class NumpyBackend(Backend[np.ndarray]):
         )
 
     def zeros_like(
-        self, input: np.ndarray, *, dtype: Dtype | None = None
-    ) -> np.ndarray:
+        self, input: np.ndarray[Any, Any], *, dtype: Dtype | None = None
+    ) -> np.ndarray[Any, Any]:
         _dtype: str | None = None
         if isinstance(dtype, Dtype):
             _dtype = dtype.name
@@ -354,11 +358,21 @@ class NumpyBackend(Backend[np.ndarray]):
     def any(self, input: np.ndarray) -> np.ndarray:
         return np.array(np.any(input))
 
-    def atleast_1d(self, *inputs: np.ndarray) -> np.ndarray | tuple[np.ndarray, ...]:
-        return np.atleast_1d(*inputs)
+    def atleast_1d(
+        self, inputs: np.ndarray | tuple[np.ndarray, ...]
+    ) -> np.ndarray | tuple[np.ndarray, ...]:
+        if isinstance(inputs, tuple):
+            return np.atleast_1d(*inputs)
+        else:
+            return np.atleast_1d(inputs)
 
-    def atleast_2d(self, *inputs: np.ndarray) -> np.ndarray | tuple[np.ndarray, ...]:
-        return np.atleast_2d(*inputs)
+    def atleast_2d(
+        self, inputs: np.ndarray | tuple[np.ndarray, ...]
+    ) -> np.ndarray | tuple[np.ndarray, ...]:
+        if isinstance(inputs, tuple):
+            return np.atleast_2d(*inputs)
+        else:
+            return np.atleast_2d(inputs)
 
     def transpose(
         self, input: np.ndarray, axes: tuple[int, ...] | list[int] | None = None
@@ -372,6 +386,9 @@ class NumpyBackend(Backend[np.ndarray]):
 
     # TODO: Analyze the code's efficiency and refactor it if necessary.
     # topk_namedtuple = namedtuple('topk_namedtuple', ['values', 'indices'])
+
+    # TODO: Now topk only supports one dimensional tensors,
+    # add multi-dimensional support similar to torch, jax and mlx
     def topk(self, array: np.ndarray, k: int) -> np.ndarray:
         flat = array.ravel()
         indices = np.argpartition(flat, -k)[-k:]

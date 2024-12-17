@@ -29,6 +29,7 @@ from mithril.backends.with_autograd.jax_backend.ops import (
     to_tensor,
 )
 from mithril.framework import NOT_GIVEN, ConnectionType, ExtendInfo
+from mithril.framework.common import GenericTensorType
 from mithril.framework.constraints import bcast
 from mithril.models import (
     TBD,
@@ -36,6 +37,7 @@ from mithril.models import (
     Connect,
     CustomPrimitiveModel,
     IOKey,
+    Item,
     MatrixMultiply,
     Mean,
     Model,
@@ -45,7 +47,7 @@ from mithril.models import (
     Reshape,
     ScalarItem,
     Shape,
-    TensorType,
+    TensorToList,
     ToTensor,
 )
 
@@ -171,7 +173,9 @@ def test_mymodel_jax_1():
     )
     inputs = compiled_model.randomize_params()
     result = compiled_model.evaluate(inputs)
-    output_gradients = {"output": jnp.ones_like(result["output"])}
+    out = result["output"]
+    assert isinstance(out, jnp.ndarray)
+    output_gradients = {"output": jnp.ones_like(out)}
     outputs, grads = compiled_model.evaluate_all(
         params=inputs, output_gradients=output_gradients
     )
@@ -188,8 +192,10 @@ def test_mymodel_jax_2():
     )
     inputs = compiled_model.randomize_params()
     result = compiled_model.evaluate(inputs)
-    output_gradients = {"output": jnp.ones_like(result["output"])}
-    outputs, grads = compiled_model.evaluate_all(
+    out = result["output"]
+    assert isinstance(out, jnp.ndarray)
+    output_gradients = {"output": jnp.ones_like(out)}
+    _, grads = compiled_model.evaluate_all(
         params=inputs, output_gradients=output_gradients
     )
     # assert_results_equal(outputs, ref_output)
@@ -216,9 +222,9 @@ def test_mymodel_jax():
         def __init__(self) -> None:
             super().__init__(
                 formula_key="adder",
-                output=TensorType([("Var_out", ...)]),
-                left=TensorType([("Var_1", ...)]),
-                right=TensorType([("Var_2", ...)]),
+                output=IOKey(shape=[("Var_out", ...)], type=GenericTensorType),
+                left=IOKey(shape=[("Var_1", ...)], type=GenericTensorType),
+                right=IOKey(shape=[("Var_2", ...)], type=GenericTensorType),
             )
             self.set_constraint(fn=bcast, keys=["output", "left", "right"])
 
@@ -252,9 +258,7 @@ def test_logical_model_jittable_1():
     model += (add1 := Add())(left="l1", right="l2", output=IOKey(name="out1"))
     model += (add2 := Add())(left="l3", right="l4")
     with pytest.raises(Exception) as error_info:
-        model += ToTensor()(
-            input=Connect(add1.left, add2.left, key=IOKey(name="input"))
-        )
+        model += Item()(input=Connect(add1.left, add2.left, key=IOKey(name="input")))
     modified_msg = re.sub("\\s*", "", str(error_info.value))
     expected_msg = (
         "Model with enforced Jit can not be extended by a non-jittable model! \
@@ -271,7 +275,7 @@ def test_logical_model_jittable_2():
     model += (add1 := Add())(left="l1", right="l2", output=IOKey(name="out1"))
     model += (add2 := Add())(left="l3", right="l4")
     model.enforce_jit = False
-    model += ToTensor()(input=Connect(add1.left, add2.left, key=IOKey(name="input")))
+    model += Item()(input=Connect(add1.left, add2.left, key=IOKey(name="input")))
     assert not model.enforce_jit
 
 
@@ -283,7 +287,7 @@ def test_logical_model_jittable_3():
     model += (add1 := Add())(left="l1", right="l2", output=IOKey(name="out1"))
     model += (add2 := Add())(left="l3", right="l4")
     model.enforce_jit = False
-    model += ToTensor()(input=Connect(add1.left, add2.left, key=IOKey(name="input")))
+    model += Item()(input=Connect(add1.left, add2.left, key=IOKey(name="input")))
     assert not model.enforce_jit
 
 
@@ -295,7 +299,7 @@ def test_physical_model_jit_1():
     model += (add1 := Add())(left="l1", right="l2", output=IOKey(name="out1"))
     model += (add2 := Add())(left="l3", right="l4")
     model.enforce_jit = False
-    model += ToTensor()(input=Connect(add1.left, add2.left, key=IOKey(name="input")))
+    model += Item()(input=Connect(add1.left, add2.left, key=IOKey(name="input")))
 
     backend = JaxBackend()
     compiled_model = compile(model=model, backend=backend, jit=False)
@@ -314,7 +318,7 @@ def test_physical_model_jit_2():
     model += (add1 := Add())(left="l1", right="l2", output=IOKey(name="out1"))
     model += (add2 := Add())(left="l3", right="l4")
     model.enforce_jit = False
-    model += ToTensor()(input=Connect(add1.left, add2.left, key=IOKey(name="input")))
+    model += Item()(input=Connect(add1.left, add2.left, key=IOKey(name="input")))
 
     backend = JaxBackend()
 
@@ -338,20 +342,17 @@ def test_jit_1():
         def __init__(self) -> None:
             super().__init__(
                 formula_key="adder",
-                output=TensorType([("Var_out", ...)]),
-                left=TensorType([("Var_1", ...)]),
-                right=TensorType([("Var_2", ...)]),
+                output=IOKey(shape=[("Var_out", ...)], type=GenericTensorType),
+                left=IOKey(shape=[("Var_1", ...)], type=GenericTensorType),
+                right=IOKey(shape=[("Var_2", ...)], type=GenericTensorType),
             )
             self.set_constraint(fn=bcast, keys=["output", "left", "right"])
 
     add_model = Add()
-    mean_model = Mean(axis=TBD)
     model = Model()
     model += add_model(left="left", right="right")
     with pytest.raises(Exception) as err_info:
-        model += mean_model(
-            input="input", axis=add_model.output, output=IOKey(name="output")
-        )
+        model += TensorToList()(add_model.output)
     assert str(err_info.value) == (
         "Model with enforced Jit can not be extended by a non-jittable model!     "
         "                        Jit can be unforced by setting enforce_jit = False"
@@ -364,9 +365,10 @@ def test_jit_2():
     model += (add_model := Add())(left="left", right="right")
     in1 = add_model.output
     out1 = in1.shape()
-    out2 = out1.sum()
+    out2 = out1.tensor().sum()
     mean_model = Mean(axis=TBD)
-    model += mean_model(input="input", axis=out2, output=IOKey(name="output"))
+    model += (to_list := Item())(input=out2)
+    model += mean_model(input="input", axis=to_list.output, output=IOKey(name="output"))
     pm = compile(model=model, backend=backend, jit=False)
     params = {
         "left": backend.randn(1, 1),

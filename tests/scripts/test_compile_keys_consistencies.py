@@ -26,7 +26,7 @@ def test_dollar_sign_str():
     Tries all possible compile keys.
     """
     model = Model()
-    model += Linear(1, 1)
+    model += Linear(1, True)
 
     backend = TorchBackend()
     kwargs: dict
@@ -63,7 +63,7 @@ def test_connection_not_found():
     Tries all possible compile keys.
     """
     model = Model()
-    lin_model = Linear(1, 1)
+    lin_model = Linear(1, True)
     mult_model = Multiply()
     model += lin_model
 
@@ -96,7 +96,7 @@ def test_string_not_found():
     Tries all possible compile keys.
     """
     model = Model()
-    lin_model = Linear(1, 1)
+    lin_model = Linear(1, True)
     model += lin_model
 
     backend = TorchBackend()
@@ -130,7 +130,7 @@ def test_reset_static_data():
     Tests for constant_keys and data_keys.
     """
     model = Model()
-    model += Linear(1, 1)(input=IOKey(name="input", value=[[2.0]]))
+    model += Linear(1, True)(input=IOKey(name="input", value=[[2.0]]))
 
     backend = TorchBackend()
     kwargs: dict
@@ -152,7 +152,7 @@ def test_reset_static_data_2():
     Tests for constant_keys and data_keys for connection type keys.
     """
     model = Model()
-    model += Linear(1, 1)(input=IOKey(name="input", value=[[2.0]]))
+    model += Linear(1, True)(input=IOKey(name="input", value=[[2.0]]))
 
     backend = TorchBackend()
     kwargs: dict
@@ -175,7 +175,7 @@ def test_check_keys_disjoint_sets():
     must be disjoint sets.
     """
     model = Model()
-    model += (lin_model := Linear(1, 1))("input")
+    model += (lin_model := Linear(1, True))("input")
 
     backend = TorchBackend()
     with pytest.raises(ValueError) as err_info:
@@ -207,7 +207,7 @@ def test_static_keys_inputs_only():
     other than the inputs of the model.
     """
     model = Model()
-    model += (lin_model := Linear(1, 1))(input="input", output="lin_out")
+    model += (lin_model := Linear(1, True))(input="input", output="lin_out")
     model += Multiply()(output=IOKey(name="output"))
 
     backend = TorchBackend()
@@ -225,7 +225,7 @@ def test_trainable_keys_inputs_only():
     other than the inputs of the model.
     """
     model = Model()
-    model += (lin_model := Linear(1, 1))(input="input", output="lin_out")
+    model += (lin_model := Linear(1, True))(input="input", output="lin_out")
     model += Multiply()(output=IOKey(name="output"))
 
     backend = TorchBackend()
@@ -243,7 +243,7 @@ def test_discard_keys_input_and_outputs_only():
     other than the inputs and outputs of the model.
     """
     model = Model()
-    model += (lin_model := Linear(1, 1))(input="input", output="lin_out")
+    model += (lin_model := Linear(1, True))(input="input", output="lin_out")
     model += Multiply()(output=IOKey(name="output"))
 
     backend = TorchBackend()
@@ -261,7 +261,7 @@ def test_jacobian_keys_inputs_only():
     other than the inputs of the model.
     """
     model = Model()
-    model += (lin_model := Linear(1, 1))(input="input", output="lin_out")
+    model += (lin_model := Linear(1, True))(input="input", output="lin_out")
     model += Multiply()(output=IOKey(name="output"))
 
     backend = TorchBackend()
@@ -281,10 +281,10 @@ def test_iterable_type_keys():
     only non_trainable key to a trainable key.
     """
     model = Model()
-    model += Linear(1, 1)("input")
+    model += Linear(1, True)("input")
 
     backend = TorchBackend()
     for typ in [list, tuple, set, dict]:
         value = dict([("input", None)]) if typ is dict else typ(["input"])
         pm = ml_compile(model, backend, trainable_keys=value)
-        assert pm.data_store.all_static_keys == set()
+        assert pm.data_store.all_static_keys == {"axes"}

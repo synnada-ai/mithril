@@ -96,7 +96,7 @@ output_gradients = {"output": backend_numpy.ones(3, 16)}
 gradients = numpy_model.evaluate_gradients(params, inputs, output_gradients)
 ```
 
-### 🔀 Flexible Parallelizability and Training
+### 🔀 Flexible Parallelizability and Training [Experimental]
 
 All inputs of the model, whether trainable or not, can be parallelized in any dimension via the same API for supporting frameworks (currently, PyTorch and JAX). Users simply create a backend with a device mesh and generate sharded tensors compatible with the chosen framework.
 
@@ -113,7 +113,7 @@ backend = ml.TorchBackend(device_mesh=(2,1))
 # Compile the model
 pm = ml.compile(model, backend, jit=False)
 # Generate sharded data and parameters
-params = {"w": backend.ones([128, 256]), "b": backend.ones([256])}
+params = {"weight": backend.ones([256, 128]), "bias": backend.ones([256])}
 input = {"input": backend.ones(256, 128, device_mesh=(2,1))}
 # Run the compiled model
 output = pm.evaluate(params, input)

@@ -366,7 +366,7 @@ def pack_data_into_time_slots(
 
 
 def unpack_time_slot_data(
-    backend: Backend,
+    backend: Backend[DataType],
     data: dict[str, DataType],
     max_length: int,
     max_size: int,
@@ -535,7 +535,9 @@ def convert_to_list(
         return value
 
 
-def find_dominant_type(lst, raise_error: bool = True):
+def find_dominant_type(
+    lst: Any, raise_error: bool = True
+) -> type[int] | type[float] | type[bool]:
     # return dominant type of parameters in the list.
     # dominant type is referenced from numpy and in folloing order: bool -> int -> float
     # if any of the parameters are different from these three types, returns ValueError

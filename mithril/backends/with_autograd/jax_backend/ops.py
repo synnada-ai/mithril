@@ -213,6 +213,8 @@ __all__ = [
     "reduce_argmax",
     "unique",
     "trapezoid",
+    "pad",
+    "split",
 ]
 
 
@@ -383,7 +385,7 @@ def variance(
 # NN ops
 def conv1d(
     input: jax.Array,
-    kernel: jax.Array,
+    weight: jax.Array,
     *,
     stride: int = 1,
     padding: tuple[int, int] = (1, 1),
@@ -391,7 +393,7 @@ def conv1d(
 ) -> jax.Array:
     return lax.conv_general_dilated(
         input,
-        kernel,
+        weight,
         (stride,),
         (padding,),
         feature_group_count=1,
@@ -401,7 +403,7 @@ def conv1d(
 
 def conv1d_bias(
     input: jax.Array,
-    kernel: jax.Array,
+    weight: jax.Array,
     bias: jax.Array,
     *,
     stride: int = 1,
@@ -409,13 +411,13 @@ def conv1d_bias(
     dilation: int = 1,
 ) -> jax.Array:
     return (
-        conv1d(input, kernel, stride=stride, padding=padding, dilation=dilation) + bias
+        conv1d(input, weight, stride=stride, padding=padding, dilation=dilation) + bias
     )
 
 
 def conv2d(
     input: jax.Array,
-    kernel: jax.Array,
+    weight: jax.Array,
     *,
     stride: tuple[int, int] = (1, 1),
     padding: tuple[int, int] | tuple[tuple[int, int], tuple[int, int]] = (1, 1),
@@ -429,7 +431,7 @@ def conv2d(
 
     return lax.conv_general_dilated(
         input,
-        kernel,
+        weight,
         stride,
         _padding_normalized,
         lhs_dilation=dilation,
@@ -441,7 +443,7 @@ def conv2d(
 
 def conv2d_bias(
     input: jax.Array,
-    kernel: jax.Array,
+    weight: jax.Array,
     bias: jax.Array,
     *,
     stride: tuple[int, int] = (1, 1),
@@ -451,7 +453,7 @@ def conv2d_bias(
     return (
         conv2d(
             input=input,
-            kernel=kernel,
+            weight=weight,
             stride=stride,
             padding=padding,
             dilation=dilation,

@@ -6,7 +6,7 @@
         "discard_keys": ["output"],
         "results": {
             "output_keys": [],
-            "discard_keys": ["w", "b", "output", "_MatrixMultiply_0_output", "input"]
+            "discard_keys": ["axes", "bias", "input", "output", "output_0", "output_1", "weight"]
         },
         "shapes": {
             "input": [100, 4],
@@ -52,8 +52,6 @@
                     "right": {"connect": [["m2","output"]]},
                     "output": "output"
                 }
-
-
             }
         },
         "discard_keys": [],
@@ -97,7 +95,7 @@
         "discard_keys": ["output"],
         "results": {
             "output_keys": [],
-            "discard_keys": ["output", "input1", "input2", "_Multiply_0_output", "_Multiply_1_output"]
+            "discard_keys": ["input1", "input2", "output", "output_0", "output_1"]
         }
     },
     "test_composite_3": {
@@ -167,7 +165,7 @@
         "discard_keys": ["output1"],
         "results": {
             "output_keys": ["output2"],
-            "discard_keys": ["_Relu_2_output", "_Relu_4_output", "output1"]
+            "discard_keys": ["output1", "output_2", "output_4"]
         }
     },
     "test_Linear_with_loss": {
@@ -211,7 +209,7 @@
         "discard_keys": ["final_cost", "output"],
         "results": {
             "output_keys": [],
-            "discard_keys": ["target", "b", "w", "input", "_Mean_2_output","keepdim", "_SquaredError_1_output", "final_cost", "axis", "output", "_Linear_0_MatrixMultiply_0_output"]
+            "discard_keys": ["axis", "final_cost", "keepdim", "output_2", "output_3", "target"]
         },
         "output_specs": {
             "output": {
@@ -229,7 +227,7 @@
             {
                 "model": "l1",
                 "coef": 1e-1,
-                "input": "w"
+                "input": "weight"
             }
         ],
         "discard_keys": [],
@@ -253,7 +251,7 @@
             {
                 "model": "l1",
                 "coef": 1e-1,
-                "input": "w"
+                "input": "weight"
             }
         ],
         "discard_keys": ["output"],

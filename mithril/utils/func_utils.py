@@ -14,19 +14,21 @@
 
 from collections.abc import Callable
 from copy import deepcopy
+from typing import Any
 
-from ..framework.common import Scalar, Tensor
+from ..core import DataType
+from ..framework.common import TBD, DataEvalType, Scalar, Tensor
 
-key_map_type = dict[str, str]
+KeyMapType = dict[str, str]
 
 
 def prepare_function_args(
-    data: dict[str, Tensor | Scalar],
-    function: Callable,
-    inputs: key_map_type,
+    data_values: DataEvalType[DataType],
+    function: Callable[..., Any],
+    inputs: KeyMapType,
     array_creation_funcs: list[str],
     reduce_with_defaults: bool = True,
-) -> tuple[dict[str, list[str]], key_map_type]:
+) -> tuple[dict[str, list[str]], KeyMapType]:
     formula_key = function.__name__
     code_obj = function.__code__
 
@@ -45,9 +47,11 @@ def prepare_function_args(
         ]
     )
 
-    # Array creation functions requires device and precision to properly create tensor
+    # Array creation functions requires device and
+    # precision to properly create tensor
     if formula_key in array_creation_funcs:
-        # Remove precision and device from kwarg_keys we will partially provide them
+        # Remove precision and device from kwarg_keys
+        # we will partially provide them
         fn_args_dict.pop("precision", None)
         if "precision" in fn_kwarg_keys:
             fn_kwarg_keys.remove("precision")
@@ -58,10 +62,10 @@ def prepare_function_args(
 
     # Prepare arguments
     fn_kwarg_dict, removed_kwarg_dict = create_kwarg_dict(
-        data, fn_kwarg_keys, function, inputs, reduce_with_defaults
+        data_values, fn_kwarg_keys, function, inputs, reduce_with_defaults
     )
     fn_args_mapping = reorganize_args(
-        data,
+        data_values,
         fn_args_dict,
         set(fn_kwarg_dict.values()) | set(removed_kwarg_dict.values()),
         function,
@@ -73,22 +77,22 @@ def prepare_function_args(
 
 
 def create_kwarg_dict(
-    data: dict[str, Tensor | Scalar],
+    data_values: DataEvalType[DataType],
     kwarg_keys: list[str],
     function: Callable,
-    inputs: key_map_type,
+    inputs: KeyMapType,
     reduce_with_defaults: bool,
-) -> tuple[key_map_type, key_map_type]:
-    kwarg_keys_dict: key_map_type = {
+) -> tuple[KeyMapType, KeyMapType]:
+    kwarg_keys_dict: KeyMapType = {
         kwarg_key: inputs[kwarg_key] for kwarg_key in kwarg_keys
     }
-    removed_kwargs_dict: key_map_type = {}
+    removed_kwargs_dict: KeyMapType = {}
 
     kwdefaults = function.__kwdefaults__
 
     if kwdefaults is not None and reduce_with_defaults:
         for key, value in kwdefaults.items():
-            provided_value = data[kwarg_keys_dict[key]].value
+            provided_value = data_values.get(kwarg_keys_dict[key], TBD)
             if value == provided_value and type(value) is type(provided_value):
                 removed_kwargs_dict[key] = kwarg_keys_dict[key]
                 kwarg_keys_dict.pop(key)
@@ -97,11 +101,11 @@ def create_kwarg_dict(
 
 
 def reorganize_args(
-    data: dict[str, Tensor | Scalar],
+    data_values: DataEvalType[DataType],
     arg_keys: dict[str, bool],
     kwarg_keys: list[str] | set[str],
     function: Callable,
-    inputs: key_map_type,
+    inputs: KeyMapType,
     reduce_with_defaults: bool,
 ) -> dict[str, list[str]]:
     defaults = function.__defaults__
@@ -114,7 +118,7 @@ def reorganize_args(
     for idx, (name, is_variadic) in enumerate(arg_keys.items()):
         if "cache" in name:
             # TODO: Refactor here
-            provided_value = data[inputs[name]].value
+            provided_value = data_values.get(inputs[name], TBD)
             if (
                 reduce_with_defaults
                 and idx == len(arg_keys) - 1
@@ -135,7 +139,8 @@ def reorganize_args(
         elif name not in local_input_keys:
             raise RuntimeError(
                 f"Primitive '{formula_key}' input keys:'{local_input_keys}' and"
-                f" backend function input keys: '{arg_keys.keys()}' are not matching!"
+                f" backend function input keys: '{arg_keys.keys()}' "
+                "are not matching!"
             )
 
         else:
@@ -147,7 +152,7 @@ def reorganize_args(
     return organized_arguments
 
 
-def is_make_array_required(data: Tensor | Scalar):
+def is_make_array_required(data: Tensor[Any] | Scalar):
     if isinstance(data, Tensor):
         _temp_shape = next(iter(data.shape.reprs))
         # It is needed to guarantee that Tensor is at least one dimensional.

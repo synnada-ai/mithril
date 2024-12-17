@@ -122,7 +122,7 @@ def evaluate_case(
             numeric_shape_dict = (
                 {key: value.shape for key, value in inputs.items()}
                 | {key: value.shape for key, value in model_grad.items()}
-                | {key: value.shape for key, value in outputs.items()}
+                | {key: value.shape for key, value in outputs.items()}  # type: ignore
                 | {key: value.shape for key, value in static_keys.items()}
             )
             if reference_shapes is not None:
@@ -155,7 +155,7 @@ def evaluate_case(
                             backend.abs(v - out) < backend.abs(v) * relative_tolerance
                         )
                     )
-                ) and (out.shape == (() if isinstance(v, float) else v.shape))
+                ) and (out.shape == (() if isinstance(v, float) else v.shape))  # type: ignore
             else:
                 raise Exception(
                     f"Output is supposed to return value for the {k} key, but "
@@ -200,7 +200,11 @@ def assert_models_equal(model1: BaseModel, model2: BaseModel):
             key := model1._canonical_output.key, key
         ) == model2_keys.get(key := model2._canonical_output.key, key)
 
+    # NOTE: Below assertions will be uncommented after converting
+    # model's dag from topological order to insertion order.
+
     # assert model1._input_keys == model2._input_keys
+    # assert model1.conns.latent_input_keys == model2.conns.latent_input_keys
     assert model1.conns.output_keys == model2.conns.output_keys
 
     # assert model1.non_differentiables.keys() == model2.non_differentiables.keys()
@@ -260,9 +264,4 @@ def assert_evaluations_equal(model1, model2, backend, static_keys):
     output_recreated = pm_recreated.evaluate(inputs)
     assert list(output_base.keys()) == list(output_recreated.keys())
     for key in output_base:
-        assert backend.abs(output_base[key] - output_recreated[key]).all() < 1e-14
-
-
-class TensorMock:
-    def __init__(self, value) -> None:
-        self.value = value
+        assert backend.abs(output_base[key] - output_recreated[key]).all() < 1e-14  # type: ignore

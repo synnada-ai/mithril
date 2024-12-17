@@ -98,7 +98,7 @@ def compile(
     model: BaseModel,
     backend: Backend[DataType],
     *,
-    constant_keys: PhysicalConstantType | None = None,
+    constant_keys: PhysicalConstantType[DataType] | None = None,
     data_keys: Iterable[str | Connection] | None = None,
     discard_keys: Iterable[str | Connection] | None = None,
     jacobian_keys: Iterable[str | Connection] | None = None,
@@ -109,6 +109,7 @@ def compile(
     file_path: str | None = None,
     safe_shapes: builtins.bool = True,
     safe_names: builtins.bool = True,
+    use_short_namings: builtins.bool = True,
 ) -> PhysicalModel[DataType]:
     """Compilation of Logical Model.
 
@@ -155,6 +156,7 @@ def compile(
         inference=inference,
         safe_shapes=safe_shapes,
         safe_names=safe_names,
+        use_short_namings=use_short_namings,
     )
 
     if jit and file_path is not None:

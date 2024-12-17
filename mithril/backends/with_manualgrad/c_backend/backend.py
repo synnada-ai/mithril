@@ -30,9 +30,10 @@ class CBackend(Backend[PyArray]):
     def __init__(self):
         self._precision = 32
         self._device = "cpu"
+        self.primitive_function_dict = {}
 
     @property
-    def is_manualgrad(self):
+    def is_manualgrad(self) -> bool:
         return True
 
     def set_seed(self, seed: int):

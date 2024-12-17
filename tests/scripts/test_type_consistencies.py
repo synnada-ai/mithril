@@ -16,6 +16,7 @@ from types import EllipsisType, NoneType, UnionType
 
 import numpy as np
 import pytest
+import torch
 
 import mithril
 from mithril.framework.common import NOT_GIVEN, ConnectionType
@@ -37,7 +38,6 @@ from mithril.models import (
     Multiply,
     PrimitiveModel,
     PrimitiveUnion,
-    Scalar,
     Shape,
     Sigmoid,
 )
@@ -50,9 +50,9 @@ class Model1(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="None",
-            input1=Scalar(tuple[int, ...]),
-            input2=Scalar(list[float]),
-            output=Scalar(tuple[tuple[int, ...]]),
+            input1=IOKey(type=tuple[int, ...]),
+            input2=IOKey(type=list[float]),
+            output=IOKey(type=tuple[tuple[int, ...]]),
         )
 
     def __call__(  # type: ignore[override]
@@ -69,10 +69,10 @@ class Model2(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="None",
-            input1=Scalar(int | float),
-            input2=Scalar(int | str),
-            input3=Scalar(str | float),
-            output=Scalar(tuple[int | float, int | float, int | float]),
+            input1=IOKey(type=int | float),
+            input2=IOKey(type=int | str),
+            input3=IOKey(type=str | float),
+            output=IOKey(type=tuple[int | float, int | float, int | float]),
         )
 
     def __call__(  # type: ignore[override]
@@ -95,19 +95,19 @@ class Model3(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="None",
-            input1=Scalar(
-                tuple[tuple[int | float, ...], ...]
+            input1=IOKey(
+                type=tuple[tuple[int | float, ...], ...]
                 | list[int | float]
                 | tuple[int, int, int, int]
             ),
-            input2=Scalar(list[int] | tuple[int, ...] | tuple[tuple[int | float]]),
-            input3=Scalar(
-                list[tuple[int | tuple[float | int]]]
+            input2=IOKey(type=list[int] | tuple[int, ...] | tuple[tuple[int | float]]),
+            input3=IOKey(
+                type=list[tuple[int | tuple[float | int]]]
                 | int
                 | float
                 | tuple[int | float, ...]
             ),
-            output=Scalar(int | float | str | tuple[int, int]),
+            output=IOKey(type=int | float | str | tuple[int, int]),
         )
 
     def __call__(  # type: ignore[override]
@@ -132,13 +132,15 @@ def test_default_given_extend_4_numpy_error():
     TypeError.
     """
     model = Model()
-    model1 = ReduceMult(axis=None)
+    model1 = ReduceMult(axis=TBD)
     model2 = Mean(axis=1)
-    model += model1(axis="axis")
+    model += model1(axis=IOKey("axis", value=None))
     with pytest.raises(ValueError) as err_info:
         model += model2(input="input2", axis=model1.axis, output="output")
 
-    assert str(err_info.value) == "Multi-write detected for a valued input connection!"
+    assert str(err_info.value) == (
+        "Value is set before as None. A scalar value can not be reset."
+    )
 
 
 def test_constant_backendvar_numpy():
@@ -147,8 +149,8 @@ def test_constant_backendvar_numpy():
     """
     model = Model()
     mean_model = Mean(axis=TBD)
-    rdc = Mean(axis=0)
-    model += rdc(input="input", axis="axis")
+    rdc = Mean(axis=TBD)
+    model += rdc(input="input", axis=IOKey("axis", value=0))
     model += Multiply()(
         left=rdc.output,
         right=IOKey(value=2.0, name="rhs"),
@@ -160,10 +162,13 @@ def test_constant_backendvar_numpy():
         output=IOKey(name="output"),
     )
     other_model = Model()
-    other_model += Mean()(input="input", axis="axis")
-    with pytest.raises(ValueError) as err_info:
+    other_model += Mean(axis=TBD)(input="input", axis=IOKey("axis", value=None))
+    with pytest.raises(TypeError) as err_info:
         model += other_model(input=model.mult_out, axis=model.axis)  # type: ignore
-    assert str(err_info.value) == "Multi-write detected for a valued input connection!"
+    assert str(err_info.value) == (
+        "Acceptable types are <class 'int'>, "
+        "but <class 'NoneType'> type value is provided!"
+    )
 
 
 def test_type_1():
@@ -277,8 +282,8 @@ def test_type_9():
     assert lin_model.input.data.metadata.data._type == int | float | bool
     model += lin_model(
         input=IOKey(value=[[1.0, 2.0], [3.0, 4.0]], name="input"),
-        w="w",
-        b="b",
+        weight="w",
+        bias="b",
         output=IOKey(name="output"),
     )
     assert lin_model.input.data.metadata.data._type is float
@@ -290,8 +295,8 @@ def test_type_10():
     assert lin_model.input.data.metadata.data._type == int | float | bool
     model += lin_model(
         input=IOKey(value=[[False, 1], [True, False]], name="input"),
-        w="w",
-        b="b",
+        weight="w",
+        bias="b",
         output=IOKey(name="output"),
     )
     assert lin_model.input.data.metadata.data._type is int
@@ -303,8 +308,8 @@ def test_type_11():
     assert lin_model.input.data.metadata.data._type == int | float | bool
     model += lin_model(
         input=IOKey(value=[[False, 1], [2.2, False]], name="input"),
-        w="w",
-        b="b",
+        weight="w",
+        bias="b",
         output=IOKey(name="output"),
     )
     assert lin_model.input.data.metadata.data._type is float
@@ -316,8 +321,8 @@ def test_type_12():
     assert lin_model.input.data.metadata.data._type == int | float | bool
     model += lin_model(
         input=IOKey(value=[[False, 1], [2.2, False]], name="input"),
-        w="w",
-        b="b",
+        weight="w",
+        bias="b",
         output=IOKey(name="output"),
     )
     assert lin_model.input.data.metadata.data._type is float
@@ -329,8 +334,8 @@ def test_type_13():
     assert lin_model.input.data.metadata.data._type == int | float | bool
     model += lin_model(
         input=IOKey(value=[[False, True], [False, False]], name="input"),
-        w="w",
-        b="b",
+        weight="w",
+        bias="b",
         output=IOKey(name="output"),
     )
     # model.make_static("input", [[False, True], [False, False]])
@@ -343,8 +348,8 @@ def test_type_14():
     assert lin_model.input.data.metadata.data._type == int | float | bool
     model += lin_model(
         input=IOKey(value=[[False, 1.0], [2, 3]], name="input"),
-        w="w",
-        b="b",
+        weight="w",
+        bias="b",
         output=IOKey(name="output"),
     )
     assert lin_model.input.data.metadata.data._type is float
@@ -365,11 +370,13 @@ def test_type_15():
 
     results = pm.evaluate()
     expected_result = np.array(backend.sigmoid(backend.array([1.0, 2.0])))
+    out = results["output"]
+    assert isinstance(out, torch.Tensor)
+    out2 = results["output2"]
+    assert isinstance(out2, torch.Tensor)
 
-    np.testing.assert_allclose(results["output"], expected_result, rtol=1e-6, atol=1e-6)
-    np.testing.assert_allclose(
-        results["output2"], expected_result, rtol=1e-6, atol=1e-6
-    )
+    np.testing.assert_allclose(out, expected_result, rtol=1e-6, atol=1e-6)
+    np.testing.assert_allclose(out2, expected_result, rtol=1e-6, atol=1e-6)
 
 
 def test_type_16():
@@ -993,7 +1000,7 @@ def test_find_dominant_type_16():
 def test_sort_type_1():
     input = int
     new_type = sort_type(input)
-    assert new_type.__name__ == "int"
+    assert new_type.__name__ == "int"  # type: ignore
 
 
 def test_sort_type_2():
