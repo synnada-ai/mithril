@@ -6448,17 +6448,19 @@ def test_prune_match_2():
     model += Gelu()(input=s1.output, output=IOKey(name="out1"))
     model += Relu()(input=s2.output, output=IOKey(name="out2"))
 
-    shape: dict[str, list] = {
+    shape: dict[str, list | None] = {
         "input": ["(V1, ...)"],
+        "$_Gelu_2_approximate": None,
         "$_Squeeze_0_output": [3, 2, "(V2, ...)"],
         "$_Squeeze_1_output": ["(V3, ...)"],
         "out1": [3, 2, "(V2, ...)"],
         "out2": ["(V3, ...)"],
     }
 
-    p_shape: dict[str, list] = {
+    p_shape: dict[str, list | None] = {
         "input": ["..."],
         "output_0": [3, 2, "..."],
+        "approximate": None,
         "out1": [3, 2, "..."],
         "out2": [3, 2, "..."],
     }
@@ -6489,8 +6491,9 @@ def test_prune_match_3():
         "out2": ["(V3, ...)"],
     }
 
-    p_shape: dict[str, list] = {
+    p_shape: dict[str, list | None] = {
         "input": ["..."],
+        "approximate": None,
         "output_0": [3, 2, "..."],
         "out1": [3, 2, "..."],
         "out2": [3, 2, "..."],
@@ -6521,8 +6524,9 @@ def test_prune_match_4():
         "out2": ["(V3, ...)"],
     }
 
-    p_shape: dict[str, list] = {
+    p_shape: dict[str, list | None] = {
         "input": ["..."],
+        "approximate": None,
         "output_0": [3, 2, "..."],
         "out2": [3, 2, "..."],
         "out1": [3, 2, "..."],
@@ -6559,8 +6563,9 @@ def test_prune_match_5():
         "out2": ["(V4, ...)"],
     }
 
-    p_shape: dict[str, list] = {
+    p_shape: dict[str, list | None] = {
         "input": ["..."],
+        "approximate": None,
         "output_0": [3, 2, "..."],
         "output_1": [3, 2, "..."],
         "output_2": [3, 2, "..."],
