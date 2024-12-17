@@ -63,7 +63,7 @@ class CBackend(Backend[PyArray]):
         _shape = process_shape(shape)
         return array.zeros(_shape)
 
-    def zeros_like(self, input: PyArray, dtype: core.Dtype | None = None) -> PyArray:
+    def zeros_like(self, input: PyArray, *, dtype: core.Dtype | None = None) -> PyArray:
         assert dtype is None, "dtype is not supported in CBackend"
         return self.array(np.zeros(input.shape, dtype=np.float32))
 
@@ -71,7 +71,7 @@ class CBackend(Backend[PyArray]):
         return utils.to_numpy(array)
 
     def array(
-        self, input: np.ndarray[Any, Any], dtype: core.Dtype | None = None
+        self, input: np.ndarray[Any, Any], *, dtype: core.Dtype | None = None
     ) -> PyArray:
         assert dtype is None, "dtype is not supported in CBackend"
         input = input.astype(np.float32)

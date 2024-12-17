@@ -160,7 +160,7 @@ def compile_and_compare(
 
         for k, v in backend_ref_outputs.items():
             if isinstance(v, dict):
-                v = v[backend.type]
+                v = v[backend.backend_type]
             out = outputs.get(k, None)
             # We may not include any reference value for some keys for a certain test.
             # So we don't assert set(outputs.keys()) == set(reference_outputs) since
@@ -205,7 +205,7 @@ def compile_and_compare(
 
             for k, v in backend_ref_gradients.items():
                 if isinstance(v, dict):
-                    v = v[backend.type]
+                    v = v[backend.backend_type]
                 grad = gradients[k]
                 if grad is None:
                     assert v == grad
@@ -2415,7 +2415,7 @@ def test_cast_int16():
             res = pm.evaluate()
             res_out = res["output"]
             assert isinstance(res_out, backend.DataType)
-            assert res_out.dtype == expected_dtypes[backend.type]
+            assert res_out.dtype == expected_dtypes[backend.backend_type]
             np.testing.assert_allclose(res_out, reference_outputs["output"])
 
 
@@ -2461,7 +2461,7 @@ def test_cast_int32():
             res = pm.evaluate()
             res_out = res["output"]
             assert isinstance(res_out, backend.DataType)  # type: ignore
-            assert res_out.dtype == expected_dtypes[backend.type]
+            assert res_out.dtype == expected_dtypes[backend.backend_type]
             np.testing.assert_allclose(res_out, reference_outputs["output"])
 
 
@@ -2505,7 +2505,7 @@ def test_cast_int64():
                 inference=True,
             )
             res = pm.evaluate()
-            assert res["output"].dtype == expected_dtypes[backend.type]  # type: ignore
+            assert res["output"].dtype == expected_dtypes[backend.backend_type]  # type: ignore
             np.testing.assert_allclose(res["output"], reference_outputs["output"])  # type: ignore
 
 
@@ -2550,7 +2550,7 @@ def test_cast_float16():
             )
             res = pm.evaluate()["output"]
             assert isinstance(res, backend.DataType)
-            assert res.dtype == expected_dtypes[backend.type]
+            assert res.dtype == expected_dtypes[backend.backend_type]
             np.testing.assert_allclose(res, reference_outputs["output"])
 
 
@@ -2596,7 +2596,7 @@ def test_cast_float32():
             res = pm.evaluate()
             res_out = res["output"]
             assert isinstance(res_out, backend.DataType)  # type: ignore
-            assert res_out.dtype == expected_dtypes[backend.type]
+            assert res_out.dtype == expected_dtypes[backend.backend_type]
             np.testing.assert_allclose(res_out, reference_outputs["output"])
 
 
@@ -2638,7 +2638,7 @@ def test_cast_float64():
             res = pm.evaluate()
             res_out = res["output"]
             assert isinstance(res_out, backend.DataType)  # type: ignore
-            assert res_out.dtype == expected_dtypes[backend.type]
+            assert res_out.dtype == expected_dtypes[backend.backend_type]
             np.testing.assert_allclose(res_out, reference_outputs["output"])
 
 
@@ -2684,7 +2684,7 @@ def test_cast_bool():
             res = pm.evaluate()
             res_out = res["output"]
             assert isinstance(res_out, backend.DataType)  # type: ignore
-            assert res_out.dtype == expected_dtypes[backend.type]
+            assert res_out.dtype == expected_dtypes[backend.backend_type]
             np.testing.assert_allclose(res_out, reference_outputs["output"])
 
 

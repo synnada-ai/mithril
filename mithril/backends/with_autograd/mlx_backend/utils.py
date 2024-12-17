@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 from collections.abc import Callable, Sequence
 from functools import partial
 from typing import Any, TypeGuard
@@ -26,7 +28,7 @@ from ....utils.utils import binary_search, find_dominant_type
 ArrayType = mx.array
 
 
-dtype_map: dict[str | None, Any] = {
+dtype_map: dict[str, mx.Dtype] = {
     "int8": mx.int8,
     "int16": mx.int16,
     "short": mx.int16,
@@ -38,7 +40,6 @@ dtype_map: dict[str | None, Any] = {
     "float32": mx.float32,
     "float": mx.float32,
     "bool": mx.bool_,  # type: ignore
-    None: None,
 }
 
 

@@ -36,7 +36,7 @@ from ....utils.utils import binary_search, find_dominant_type
 AVAILABLE_BACKEND_TYPES = ["cpu", "cuda"]
 
 ArrayType = torch.Tensor
-dtype_map: dict[str | None, torch.dtype | None] = {
+dtype_map: dict[str, torch.dtype] = {
     "int16": torch.int16,
     "int32": torch.int32,
     "int": torch.int32,
@@ -48,7 +48,6 @@ dtype_map: dict[str | None, torch.dtype | None] = {
     "float64": torch.float64,
     "double": torch.float64,
     "bool": torch.bool,
-    None: None,
 }
 
 

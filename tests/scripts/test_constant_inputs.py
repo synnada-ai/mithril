@@ -116,7 +116,7 @@ def assert_all_backends_device_precision(model: Model):
         # remove unsupported backend, device and precision trios
         if (backend_class, device, precision) in unsupported_device_precisions:
             continue
-        _type = backend_class.type
+        _type = backend_class.backend_type
         backend = backend_class(device=device, precision=precision)
 
         comp_model = mithril.compile(

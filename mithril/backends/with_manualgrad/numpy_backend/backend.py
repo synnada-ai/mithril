@@ -37,7 +37,7 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
         The precision of the arrays, either 32 or 64, default is 32.
     """
 
-    type = "numpy"
+    backend_type = "numpy"
 
     registered_primitives = {}
     primitive_fn_path = "mithril.backends.with_manualgrad.numpy_backend.ops"
@@ -156,53 +156,45 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
     ) -> np.ndarray[Any, Any]:
         return utils.accumulate_grads(gradient, input, cache, idx)
 
-    def array(self, data: Any, *, dtype: Dtype | None = None) -> np.ndarray[Any, Any]:
-        _dtype: str | None = None
+    def array(self, input: Any, *, dtype: Dtype | None = None) -> np.ndarray[Any, Any]:
+        _dtype: np.dtype[Any] | None = None
         if isinstance(dtype, Dtype):
-            _dtype = dtype.name
-        return self._conversion_fn_wrapper(np.array)(
-            data, dtype=utils.dtype_map[_dtype]
-        )
+            _dtype = utils.dtype_map[dtype.name]
+        return self._conversion_fn_wrapper(np.array)(input, dtype=_dtype)
 
     def zeros(
         self, *shape: int | tuple[int, ...] | list[int], dtype: Dtype | None = None
-    ) -> np.ndarray:
-        _dtype: str | None = None
+    ) -> np.ndarray[Any, Any]:
+        _dtype: np.dtype[Any] | None = None
         if isinstance(dtype, Dtype):
-            _dtype = dtype.name
+            _dtype = utils.dtype_map[dtype.name]
         _shape = process_shape(shape)
-        return self._creation_fn_wrapper(np.zeros)(
-            shape=_shape, dtype=utils.dtype_map[_dtype]
-        )
+        return self._creation_fn_wrapper(np.zeros)(shape=_shape, dtype=_dtype)
 
     def ones(
         self, *shape: int | tuple[int, ...] | list[int], dtype: Dtype | None = None
-    ) -> np.ndarray:
-        _dtype: str | None = None
+    ) -> np.ndarray[Any, Any]:
+        _dtype: np.dtype[Any] | None = None
         if isinstance(dtype, Dtype):
-            _dtype = dtype.name
+            _dtype = utils.dtype_map[dtype.name]
         _shape = process_shape(shape)
-        return self._creation_fn_wrapper(np.ones)(
-            shape=_shape, dtype=utils.dtype_map[_dtype]
-        )
+        return self._creation_fn_wrapper(np.ones)(shape=_shape, dtype=_dtype)
 
-    def ones_like(self, input: np.ndarray, *, dtype: Dtype | None = None) -> np.ndarray:
-        _dtype: str | None = None
+    def ones_like(
+        self, input: np.ndarray[Any, Any], *, dtype: Dtype | None = None
+    ) -> np.ndarray[Any, Any]:
+        _dtype: np.dtype[Any] | None = None
         if isinstance(dtype, Dtype):
-            _dtype = dtype.name
-        return self._creation_fn_wrapper(np.ones_like)(
-            input, dtype=utils.dtype_map[_dtype]
-        )
+            _dtype = utils.dtype_map[dtype.name]
+        return self._creation_fn_wrapper(np.ones_like)(input, dtype=_dtype)
 
     def zeros_like(
         self, input: np.ndarray[Any, Any], *, dtype: Dtype | None = None
     ) -> np.ndarray[Any, Any]:
-        _dtype: str | None = None
+        _dtype: np.dtype[Any] | None = None
         if isinstance(dtype, Dtype):
-            _dtype = dtype.name
-        return self._creation_fn_wrapper(np.zeros_like)(
-            input, dtype=utils.dtype_map[_dtype]
-        )
+            _dtype = utils.dtype_map[dtype.name]
+        return self._creation_fn_wrapper(np.zeros_like)(input, dtype=_dtype)
 
     def randn(
         self,
@@ -210,27 +202,23 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
         dtype: Dtype | None = None,
         prng_key: Any = None,
     ) -> np.ndarray[Any, Any]:
-        _dtype: str | None = None
+        _dtype: np.dtype[Any] | None = None
         if isinstance(dtype, Dtype):
-            _dtype = dtype.name
+            _dtype = utils.dtype_map[dtype.name]
         _shape = process_shape(shape)
-        return self._creation_fn_wrapper(np.random.randn)(
-            *_shape, dtype=utils.dtype_map[_dtype]
-        )
+        return self._creation_fn_wrapper(np.random.randn)(*_shape, dtype=_dtype)
 
     def rand(
         self,
         *shape: int | tuple[int, ...] | list[int],
         dtype: Dtype | None = None,
         prng_key: Any = None,
-    ) -> np.ndarray:
-        _dtype: str | None = None
+    ) -> np.ndarray[Any, Any]:
+        _dtype: np.dtype[Any] | None = None
         if isinstance(dtype, Dtype):
-            _dtype = dtype.name
+            _dtype = utils.dtype_map[dtype.name]
         _shape = process_shape(shape)
-        return self._creation_fn_wrapper(np.random.rand)(
-            *_shape, dtype=utils.dtype_map[_dtype]
-        )
+        return self._creation_fn_wrapper(np.random.rand)(*_shape, dtype=_dtype)
 
     def randint(
         self,
@@ -239,109 +227,113 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
         *shape: int | tuple[int, ...] | list[int],
         dtype: Dtype | None = None,
         prng_key: Any = None,
-    ) -> np.ndarray:
-        _dtype: str | None = None
+    ) -> np.ndarray[Any, Any]:
+        _dtype: np.dtype[Any] | None = None
         if isinstance(dtype, Dtype):
-            _dtype = dtype.name
+            _dtype = utils.dtype_map[dtype.name]
         _shape = process_shape(shape)
         return self._creation_fn_wrapper(np.random.randint)(
-            low=low, high=high, size=_shape, dtype=utils.dtype_map[_dtype]
+            low=low, high=high, size=_shape, dtype=_dtype
         )
 
     def rand_uniform(
         self,
-        low: int | float | bool | np.ndarray,
-        high: int | float | bool | np.ndarray,
+        low: int | float | bool | np.ndarray[Any, Any],
+        high: int | float | bool | np.ndarray[Any, Any],
         *shape: int | tuple[int, ...] | list[int],
         dtype: Dtype | None = None,
         prng_key: Any = None,
-    ) -> np.ndarray:
-        _dtype: str | None = None
+    ) -> np.ndarray[Any, Any]:
+        _dtype: np.dtype[Any] | None = None
         if isinstance(dtype, Dtype):
-            _dtype = dtype.name
+            _dtype = utils.dtype_map[dtype.name]
         _shape = process_shape(shape)
         return self._creation_fn_wrapper(np.random.uniform)(
-            low=low, high=high, size=_shape, dtype=utils.dtype_map[_dtype]
+            low=low, high=high, size=_shape, dtype=_dtype
         )
 
-    def arange(self, *args, dtype: Dtype | None = None) -> np.ndarray:
-        _dtype: str | None = None
+    def arange(
+        self, *args: int | float, dtype: Dtype | None = None
+    ) -> np.ndarray[Any, Any]:
+        _dtype: np.dtype[Any] | None = None
         if isinstance(dtype, Dtype):
-            _dtype = dtype.name
-        return self._creation_fn_wrapper(np.arange)(
-            *args, dtype=utils.dtype_map[_dtype]
-        )
+            _dtype = utils.dtype_map[dtype.name]
+        return self._creation_fn_wrapper(np.arange)(*args, dtype=_dtype)
 
     def linspace(
         self,
-        start: int | float | bool | np.ndarray,
-        stop: int | float | bool | np.ndarray,
-        steps: int | np.ndarray,
+        start: int | float | bool | np.ndarray[Any, Any],
+        stop: int | float | bool | np.ndarray[Any, Any],
+        steps: int | np.ndarray[Any, Any],
         dtype: Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
-    ) -> np.ndarray:
-        _dtype: str | None = None
+    ) -> np.ndarray[Any, Any]:
+        _dtype: np.dtype[Any] | None = None
         if isinstance(dtype, Dtype):
-            _dtype = dtype.name
-        return self._creation_fn_wrapper(np.linspace)(
-            start, stop, steps, dtype=utils.dtype_map[_dtype]
-        )
+            _dtype = utils.dtype_map[dtype.name]
+        return self._creation_fn_wrapper(np.linspace)(start, stop, steps, dtype=_dtype)
 
     def flatten(
-        self, input: np.ndarray, start_dim: int = 0, end_dim: int = -1
-    ) -> np.ndarray:
+        self, input: np.ndarray[Any, Any], start_dim: int = 0, end_dim: int = -1
+    ) -> np.ndarray[Any, Any]:
         return ops.flatten(input, start_dim=start_dim, end_dim=end_dim)
 
-    def abs(self, input: np.ndarray) -> np.ndarray:
+    def abs(self, input: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         return np.abs(input)
 
-    def sign(self, input: np.ndarray) -> np.ndarray:
+    def sign(self, input: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         return np.sign(input)
 
-    def sin(self, input: np.ndarray) -> np.ndarray:
+    def sin(self, input: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         return np.sin(input)
 
-    def cos(self, input: np.ndarray) -> np.ndarray:
+    def cos(self, input: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         return np.cos(input)
 
-    def tanh(self, input: np.ndarray) -> np.ndarray:
+    def tanh(self, input: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         return np.tanh(input)
 
-    def relu(self, input: np.ndarray) -> np.ndarray:
+    def relu(self, input: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         return ops.relu(input)
 
-    def leaky_relu(self, input: np.ndarray, slope: float | np.ndarray) -> np.ndarray:
+    def leaky_relu(
+        self, input: np.ndarray[Any, Any], slope: float | np.ndarray[Any, Any]
+    ) -> np.ndarray[Any, Any]:
         return ops.leaky_relu(input, slope)
 
-    def sigmoid(self, input: np.ndarray) -> np.ndarray:
+    def sigmoid(self, input: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         return ops.sigmoid(input)
 
-    def softplus(self, input: np.ndarray) -> np.ndarray:
+    def softplus(self, input: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         return ops.softplus(input)
 
-    def softmax(self, input: np.ndarray, dim: int = -1) -> np.ndarray:
+    def softmax(
+        self, input: np.ndarray[Any, Any], dim: int = -1
+    ) -> np.ndarray[Any, Any]:
         # TODO: dim can be Sequence[int] as well. Should work
         # for all backends.
         return ops.softmax(input, axis=dim)
 
-    def log(self, input: np.ndarray) -> np.ndarray:
+    def log(self, input: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         return np.log(input)
 
-    def isnan(self, input: np.ndarray) -> np.ndarray:
+    def isnan(self, input: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         return np.isnan(input)
 
-    def stop_gradient(self, data: np.ndarray) -> np.ndarray:
-        return ops.stop_gradient(data)
+    def stop_gradient(self, input: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        return ops.stop_gradient(input)
 
-    def squeeze(self, input: np.ndarray) -> np.ndarray:
+    def squeeze(self, input: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         return np.squeeze(input)
 
-    def reshape(self, input: np.ndarray, shape: tuple[int, ...]) -> np.ndarray:
+    def reshape(
+        self, input: np.ndarray[Any, Any], shape: tuple[int, ...]
+    ) -> np.ndarray[Any, Any]:
         return np.reshape(input, shape)
 
     def sort(
-        self, input: np.ndarray, axis: int = -1, descending: bool = False
-    ) -> np.ndarray:
+        self, input: np.ndarray[Any, Any], axis: int = -1, descending: bool = False
+    ) -> np.ndarray[Any, Any]:
         if descending:
             return -np.sort(-input, axis=axis)
         return np.sort(
@@ -349,50 +341,63 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
             axis=axis,
         )
 
-    def expand_dims(self, input: np.ndarray, axis: int) -> np.ndarray:
+    def expand_dims(
+        self, input: np.ndarray[Any, Any], axis: int
+    ) -> np.ndarray[Any, Any]:
         return np.expand_dims(input, axis)
 
-    def stack(self, inputs: list[np.ndarray], axis: int = 0) -> np.ndarray:
+    def stack(
+        self, inputs: list[np.ndarray[Any, Any]], axis: int = 0
+    ) -> np.ndarray[Any, Any]:
         return np.stack(inputs, axis=axis)
 
     def cat(
-        self, inputs: tuple[np.ndarray, ...] | list[np.ndarray], axis: int = 0
-    ) -> np.ndarray:
+        self,
+        inputs: tuple[np.ndarray[Any, Any], ...] | list[np.ndarray[Any, Any]],
+        axis: int = 0,
+    ) -> np.ndarray[Any, Any]:
         return ops.concat(*inputs, axis=axis)
 
-    def pad(self, input: np.ndarray, pad_width: PadWidthType) -> np.ndarray:
+    def pad(
+        self, input: np.ndarray[Any, Any], pad_width: PadWidthType
+    ) -> np.ndarray[Any, Any]:
         return np.pad(input, pad_width)
 
-    def all(self, input: np.ndarray) -> np.ndarray:
+    def all(self, input: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         return np.array(np.all(input))
 
-    def any(self, input: np.ndarray) -> np.ndarray:
+    def any(self, input: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         return np.array(np.any(input))
 
     def atleast_1d(
-        self, inputs: np.ndarray | tuple[np.ndarray, ...]
-    ) -> np.ndarray | tuple[np.ndarray, ...]:
+        self, inputs: np.ndarray[Any, Any] | tuple[np.ndarray[Any, Any], ...]
+    ) -> np.ndarray[Any, Any] | tuple[np.ndarray[Any, Any], ...]:
         if isinstance(inputs, tuple):
             return np.atleast_1d(*inputs)
         else:
             return np.atleast_1d(inputs)
 
     def atleast_2d(
-        self, inputs: np.ndarray | tuple[np.ndarray, ...]
-    ) -> np.ndarray | tuple[np.ndarray, ...]:
+        self, inputs: np.ndarray[Any, Any] | tuple[np.ndarray[Any, Any], ...]
+    ) -> np.ndarray[Any, Any] | tuple[np.ndarray[Any, Any], ...]:
         if isinstance(inputs, tuple):
             return np.atleast_2d(*inputs)
         else:
             return np.atleast_2d(inputs)
 
     def transpose(
-        self, input: np.ndarray, axes: tuple[int, ...] | list[int] | None = None
-    ) -> np.ndarray:
+        self,
+        input: np.ndarray[Any, Any],
+        axes: tuple[int, ...] | list[int] | None = None,
+    ) -> np.ndarray[Any, Any]:
         return ops.transpose(input, axes)
 
     def where(
-        self, cond: np.ndarray, input1: np.ndarray, input2: np.ndarray
-    ) -> np.ndarray:
+        self,
+        cond: np.ndarray[Any, Any],
+        input1: np.ndarray[Any, Any],
+        input2: np.ndarray[Any, Any],
+    ) -> np.ndarray[Any, Any]:
         return ops.where(cond, input1, input2)
 
     # TODO: Analyze the code's efficiency and refactor it if necessary.
@@ -400,20 +405,20 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
 
     # TODO: Now topk only supports one dimensional tensors,
     # add multi-dimensional support similar to torch, jax and mlx
-    def topk(self, array: np.ndarray, k: int) -> np.ndarray:
-        flat = array.ravel()
+    def topk(self, input: np.ndarray[Any, Any], k: int) -> np.ndarray[Any, Any]:
+        flat = input.ravel()
         indices = np.argpartition(flat, -k)[-k:]
         argsort = np.argsort(-flat[indices])
 
         indices = indices[argsort]
         values = flat[indices]
-        leading_dims = len(array.shape) - len(values.shape)
+        leading_dims = len(input.shape) - len(values.shape)
         values = values.reshape((-1,) * leading_dims + values.shape)
         return values
 
     def multinomial(
-        self, probs: np.ndarray, num_samples: int, replacement: bool = False
-    ) -> np.ndarray:
+        self, probs: np.ndarray[Any, Any], num_samples: int, replacement: bool = False
+    ) -> np.ndarray[Any, Any]:
         # input = np.asarray(probs)
         if probs.ndim == 1:
             probs = probs[None, :]

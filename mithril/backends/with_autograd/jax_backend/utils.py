@@ -24,7 +24,7 @@ from ....utils.utils import binary_search, find_dominant_type
 
 ArrayType = jax.Array
 
-dtype_map: dict[str | None, Any] = {
+dtype_map: dict[str, jnp.dtype[Any]] = {
     "int16": jnp.int16,
     "int32": jnp.int32,
     "int": jnp.int32,
@@ -36,7 +36,6 @@ dtype_map: dict[str | None, Any] = {
     "float64": jnp.float64,
     "double": jnp.float64,
     "bool": jnp.bool_,
-    None: None,
 }
 
 

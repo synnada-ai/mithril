@@ -44,7 +44,7 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         This argument controls whether JAX pre-allocates memory, default is False.
     """
 
-    type = "jax"
+    backend_type = "jax"
     registered_primitives: dict[str, Callable[..., jax.numpy.ndarray]] = {}
     primitive_fn_path = "mithril.backends.with_autograd.jax_backend.ops"
 
@@ -264,11 +264,11 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         dtype: Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
     ) -> jax.Array:
-        _dtype: str | None = None
+        _dtype: jax.numpy.dtype[Any] | None = None
         if isinstance(dtype, Dtype):
-            _dtype = dtype.name
+            _dtype = utils.dtype_map[dtype.name]
         result = self._conversion_fn_wrapper(jax.numpy.array)(
-            input, dtype=utils.dtype_map[_dtype], device_mesh=device_mesh
+            input, dtype=_dtype, device_mesh=device_mesh
         )
         return result
 
@@ -278,12 +278,12 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         dtype: Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
     ) -> jax.Array:
-        _dtype: str | None = None
+        _dtype: jax.numpy.dtype[Any] | None = None
         if isinstance(dtype, Dtype):
-            _dtype = dtype.name
+            _dtype = utils.dtype_map[dtype.name]
         _shape = process_shape(shape)
         result = self._creation_fn_wrapper(jax.numpy.zeros)(
-            _shape, dtype=utils.dtype_map[_dtype], device_mesh=device_mesh
+            _shape, dtype=_dtype, device_mesh=device_mesh
         )
         return result
 
@@ -293,12 +293,12 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         dtype: Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
     ) -> jax.Array:
-        _dtype: str | None = None
+        _dtype: jax.numpy.dtype[Any] | None = None
         if isinstance(dtype, Dtype):
-            _dtype = dtype.name
+            _dtype = utils.dtype_map[dtype.name]
         _shape = process_shape(shape)
         result = self._creation_fn_wrapper(jax.numpy.ones)(
-            _shape, dtype=utils.dtype_map[_dtype], device_mesh=device_mesh
+            _shape, dtype=_dtype, device_mesh=device_mesh
         )
         return result
 
@@ -309,11 +309,11 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         dtype: Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
     ) -> jax.Array:
-        _dtype: str | None = None
+        _dtype: jax.numpy.dtype[Any] | None = None
         if isinstance(dtype, Dtype):
-            _dtype = dtype.name
+            _dtype = utils.dtype_map[dtype.name]
         result = self._creation_fn_wrapper(jax.numpy.ones_like)(
-            input, dtype=utils.dtype_map[_dtype], device_mesh=device_mesh
+            input, dtype=_dtype, device_mesh=device_mesh
         )
         return result
 
@@ -324,11 +324,11 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         dtype: Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
     ) -> jax.Array:
-        _dtype: str | None = None
+        _dtype: jax.numpy.dtype[Any] | None = None
         if isinstance(dtype, Dtype):
-            _dtype = dtype.name
+            _dtype = utils.dtype_map[dtype.name]
         result = self._creation_fn_wrapper(jax.numpy.zeros_like)(
-            input, dtype=utils.dtype_map[_dtype], device_mesh=device_mesh
+            input, dtype=_dtype, device_mesh=device_mesh
         )
         return result
 
@@ -341,12 +341,12 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
     ) -> jax.Array:
         if prng_key is None:
             prng_key = self.prng_key
-        _dtype: str | None = None
+        _dtype: jax.numpy.dtype[Any] | None = None
         if isinstance(dtype, Dtype):
-            _dtype = dtype.name
+            _dtype = utils.dtype_map[dtype.name]
         _shape = process_shape(shape)
         result = self._creation_fn_wrapper(jax.random.normal)(
-            prng_key, _shape, dtype=utils.dtype_map[_dtype], device_mesh=device_mesh
+            prng_key, _shape, dtype=_dtype, device_mesh=device_mesh
         )
         return result
 
@@ -359,12 +359,12 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
     ) -> jax.Array:
         if prng_key is None:
             prng_key = self.prng_key
-        _dtype: str | None = None
+        _dtype: jax.numpy.dtype[Any] | None = None
         if isinstance(dtype, Dtype):
-            _dtype = dtype.name
+            _dtype = utils.dtype_map[dtype.name]
         _shape = process_shape(shape)
         result = self._creation_fn_wrapper(jax.random.uniform)(
-            prng_key, _shape, dtype=utils.dtype_map[_dtype], device_mesh=device_mesh
+            prng_key, _shape, dtype=_dtype, device_mesh=device_mesh
         )
         return result
 
@@ -379,16 +379,16 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
     ) -> jax.Array:
         if prng_key is None:
             prng_key = self.prng_key
-        _dtype: str | None = None
+        _dtype: jax.numpy.dtype[Any] | None = None
         if isinstance(dtype, Dtype):
-            _dtype = dtype.name
+            _dtype = utils.dtype_map[dtype.name]
         _shape = process_shape(shape)
         result = self._creation_fn_wrapper(jax.random.randint)(
             prng_key,
             _shape,
             low,
             high,
-            dtype=utils.dtype_map[_dtype],
+            dtype=_dtype,
             device_mesh=device_mesh,
         )
         return result
@@ -404,14 +404,14 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
     ) -> jax.Array:
         if prng_key is None:
             prng_key = self.prng_key
-        _dtype: str | None = None
+        _dtype: jax.numpy.dtype[Any] | None = None
         if isinstance(dtype, Dtype):
-            _dtype = dtype.name
+            _dtype = utils.dtype_map[dtype.name]
         _shape = process_shape(shape)
         return self._creation_fn_wrapper(jax.random.uniform)(
             prng_key,
             _shape,
-            dtype=utils.dtype_map[_dtype],
+            dtype=_dtype,
             minval=low,
             maxval=high,
             device_mesh=device_mesh,
@@ -419,16 +419,16 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
 
     def _arange(
         self,
-        *args,
+        *args: int | float,
         dtype: Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> jax.Array:
-        _dtype: str | None = None
+        _dtype: jax.numpy.dtype[Any] | None = None
         if isinstance(dtype, Dtype):
-            _dtype = dtype.name
+            _dtype = utils.dtype_map[dtype.name]
         return self._creation_fn_wrapper(jax.numpy.arange)(
-            *args, dtype=utils.dtype_map[_dtype], device_mesh=device_mesh
+            *args, dtype=_dtype, device_mesh=device_mesh
         )
 
     def linspace(
@@ -439,11 +439,11 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         dtype: Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
     ) -> jax.Array:
-        _dtype: str | None = None
+        _dtype: jax.numpy.dtype[Any] | None = None
         if isinstance(dtype, Dtype):
-            _dtype = dtype.name
+            _dtype = utils.dtype_map[dtype.name]
         return self._creation_fn_wrapper(jax.numpy.linspace)(
-            start, stop, steps, dtype=utils.dtype_map[_dtype], device_mesh=device_mesh
+            start, stop, steps, dtype=_dtype, device_mesh=device_mesh
         )
 
     def flatten(
@@ -540,9 +540,9 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
             return jax.numpy.atleast_2d(inputs)
 
     def transpose(
-        self, data: jax.Array, axes: tuple[int, ...] | list[int] | None = None
+        self, input: jax.Array, axes: tuple[int, ...] | list[int] | None = None
     ) -> jax.Array:
-        return data.transpose(axes)
+        return input.transpose(axes)
 
     def unique(
         self, input: jax.Array, **kwargs: Any
@@ -715,7 +715,7 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
                 (vjp,) = vjp
         return output, vjp, aux
 
-    def vmap(
+    def vmap(  # type: ignore # mypy bug
         self, fn: Callable[..., dict[str, jax.Array]]
     ) -> Callable[..., dict[str, jax.Array]]:
         return jax.vmap(fn)

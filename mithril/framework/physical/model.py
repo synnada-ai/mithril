@@ -420,7 +420,7 @@ class PhysicalModel(GenericDataType[DataType]):
             self._infer_differentiability(model, dag)
 
             # NOTE: maybe move adding cache to generate_code methods.
-            if self.backend.type == "numpy":
+            if self.backend.backend_type == "numpy":
                 cache_name = "_".join([dag[output], model.cache_name])
                 dag["cache"] = cache_name
                 cache_value: dict[str, MainValueType] | None = (
@@ -947,7 +947,7 @@ class PhysicalModel(GenericDataType[DataType]):
             output_keys = pm_output_keys
 
         pm_info = {
-            "Backend type": [self.backend.type],
+            "Backend type": [self.backend.backend_type],
             "Backend precision": [str(self.backend.precision)],
             "Backend device": [str(self.backend.device)],
             "Output keys": sorted(output_keys),

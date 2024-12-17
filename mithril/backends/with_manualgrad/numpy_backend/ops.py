@@ -424,7 +424,7 @@ def reduce_sum(
     axis: int | tuple[int, ...] | None = None,
     keepdim: bool = False,
     cache: CacheType | None = None,
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     return np.sum(input, axis=axis, keepdims=keepdim)
 
 
@@ -929,7 +929,7 @@ def broadcast_to(
 
 
 def ones_with_zero_diag(
-    *args, precision: int, cache: CacheType | None = None
+    *args: Any, precision: int, cache: CacheType | None = None
 ) -> np.ndarray[Any, Any]:
     n, m = args
     output = np.ones((n, m)) - np.eye(n, m) if m is not None else np.ones(n) - np.eye(n)
@@ -983,7 +983,7 @@ def concat(
 
 
 def arange(
-    *args, precision: int, cache: CacheType | None = None
+    *args: int | float, precision: int, cache: CacheType | None = None
 ) -> np.ndarray[Any, Any]:
     return handle_data_precision(np.arange(*args), precision)
 
@@ -1065,7 +1065,7 @@ def polynomial_features(
     identity = np.eye(dims + 1, dims + 1, dtype=int)
     data = np.hstack((np.ones((samples, 1), dtype=input.dtype), input))
     write_into_cache(cache, "data", data)
-    powers: Iterator = map(sum, combinations_with_replacement(identity, degree))
+    powers: Iterator[int] = map(sum, combinations_with_replacement(identity, degree))
     # Skip first element of powers. This is the bias term.
     next(powers)
     write_into_cache(
