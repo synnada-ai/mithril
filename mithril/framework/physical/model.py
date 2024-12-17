@@ -174,7 +174,7 @@ class PhysicalModel(GenericDataType[DataType]):
         self._flat_graph: FlatGraph[DataType] = FlatGraph(
             self._input_keys, self._output_keys
         )
-        memo: dict[int, Tensor[DataType] | Scalar] = {}
+        memo: dict[int, Tensor | Scalar] = {}
         self.data_store: StaticDataStore[DataType] = StaticDataStore(
             self._flat_graph, backend, inference, model.constraint_solver, memo
         )
@@ -186,11 +186,11 @@ class PhysicalModel(GenericDataType[DataType]):
                     p_model.safe_shapes, self.data_store.constraint_solver
                 )
 
-            model_data: dict[str, Tensor[DataType] | Scalar] = {}
+            model_data: dict[str, Tensor | Scalar] = {}
             for key in p_model.conns.all:
                 global_key = mappings[key]
                 logical_data = p_model.conns.get_data(key)
-                physical_data: Tensor[DataType] | Scalar = logical_data.make_physical(
+                physical_data: Tensor | Scalar = logical_data.make_physical(
                     self.backend, memo=memo
                 )
                 # Set differentiability of non-differentiable tensor inputs to False.
@@ -230,7 +230,7 @@ class PhysicalModel(GenericDataType[DataType]):
                 cache_name = "_".join([mappings[output], p_model.cache_name])
                 mappings["cache"] = cache_name
                 cache_value: dict | None = None if self.inference else dict()
-                # Create a Scalar object for caches in manualgrad backend.
+                # Create A object for caches in manualgrad backend.
                 cache_scalar = Scalar(dict | None, cache_value)
                 self.data_store.update_data({cache_name: cache_scalar})
 
@@ -741,10 +741,10 @@ class PhysicalModel(GenericDataType[DataType]):
     def _calculate_parameters(
         self,
         name_mappings: dict[Model, str],
-        data_to_key_map: dict[Tensor[DataType] | Scalar, list[str]] | None = None,
+        data_to_key_map: dict[Tensor | Scalar, list[str]] | None = None,
     ):
         total_params: int = 0
-        seen_data: set[Tensor[DataType]] = set()
+        seen_data: set[Tensor] = set()
         exact_param_status: bool = True
         param_info: dict[str, tuple[dict[str, str], dict[str, str]]] = {}
         if data_to_key_map is None:
@@ -812,7 +812,7 @@ class PhysicalModel(GenericDataType[DataType]):
     def _print_model_info(
         self,
         total_params: str,
-        data_to_key_map: dict[Tensor[DataType] | Scalar, list[str]],
+        data_to_key_map: dict[Tensor | Scalar, list[str]],
         model: BaseModel | None = None,
     ):
         # Find constant inputs of the model.
@@ -894,7 +894,7 @@ class PhysicalModel(GenericDataType[DataType]):
 
         # If model is not None, create data to key map. this dict will point
         # determined key names in physical model.
-        data_to_key_map: dict[Tensor[DataType] | Scalar, list[str]] = {}
+        data_to_key_map: dict[Tensor | Scalar, list[str]] = {}
         for key, value in self.data.items():
             data_to_key_map.setdefault(value, []).append(key)
 

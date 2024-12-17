@@ -139,7 +139,7 @@ def test_default_given_extend_4_numpy_error():
         model += model2(input="input2", axis=model1.axis, output="output")
 
     assert str(err_info.value) == (
-        "Value is set before as None. A scalar value can not be reset."
+        "Value is set before as None. A value can not be reset."
     )
 
 

@@ -7212,11 +7212,8 @@ def test_match_10():
 
 
 def test_shapes_rnn():
-    import sys
-
     from mithril.utils.dict_conversions import dict_to_model
 
-    sys.setrecursionlimit(2000)
     model = dict_to_model(
         {
             "name": "OneToMany",

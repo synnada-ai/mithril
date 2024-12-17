@@ -14,7 +14,7 @@
 
 from collections.abc import Mapping
 from functools import reduce
-from typing import Any, Union, get_origin
+from typing import Union, get_origin
 
 from ...utils.utils import OrderedSet
 from ..common import (
@@ -67,9 +67,9 @@ class PrimitiveModel(BaseModel):
             if isinstance(value, IOKey) and value._shape is not None
         }
         shapes = create_shape_map(shape_templates, self.constraint_solver)
-        data_set: set[Tensor[Any]] = set()
+        data_set: set[Tensor] = set()
         is_diff = False
-        output_data: Tensor[Any] | Scalar | None = None
+        output_data: Tensor | Scalar | None = None
         for key, value in kwargs.items():
             # TODO: The first if block is temporary. All if else blocks will be
             # removed after the implementation of the new type system.
@@ -175,8 +175,8 @@ class PrimitiveModel(BaseModel):
     def extract_connection_info(
         self,
         name_mappings: dict[BaseModel, str],
-        data_to_key_map: dict[Scalar | Tensor[Any], list[str]] | None = None,
-        data_memo: Mapping[int, Tensor[Any] | Scalar] | None = None,
+        data_to_key_map: dict[Scalar | Tensor, list[str]] | None = None,
+        data_memo: Mapping[int, Tensor | Scalar] | None = None,
     ):
         if data_to_key_map is None:
             data_to_key_map = {}

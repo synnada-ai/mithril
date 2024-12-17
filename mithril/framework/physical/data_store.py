@@ -14,7 +14,7 @@
 
 from collections.abc import Mapping, Sequence
 from copy import deepcopy
-from typing import Any, TypeGuard
+from typing import Any, Generic, TypeGuard
 
 from ...backends.backend import Backend
 from ...core import DataType, data_types, epsilon_table
@@ -22,11 +22,12 @@ from ...utils.func_utils import is_make_array_required, prepare_function_args
 from ...utils.utils import BiMap
 from ..common import (
     TBD,
+    AllValueType,
     Connection,
     Constant,
     ConstraintSolver,
     DataEvalType,
-    GenericDataType,
+    MainValueInstance,
     MainValueType,
     Scalar,
     Tensor,
@@ -37,26 +38,24 @@ from ..common import (
 from .flat_graph import FlatGraph
 
 
-class StaticDataStore(GenericDataType[DataType]):
+class StaticDataStore(Generic[DataType]):
     def __init__(
         self,
         graph: FlatGraph[DataType],
         backend: Backend[DataType],
         inference: bool,
         solver: ConstraintSolver,
-        memo: dict[int, Tensor[DataType] | Scalar] | None = None,
+        memo: dict[int, Tensor | Scalar] | None = None,
     ) -> None:
         if memo is None:
             memo = {}
 
-        self._all_data: dict[str, Tensor[DataType] | Scalar] = dict()
-        self.data_memo: dict[int, Tensor[DataType] | Scalar] = dict()
+        self._all_data: dict[str, Tensor | Scalar] = dict()
+        self.data_memo: dict[int, Tensor | Scalar] = dict()
         self.graph: FlatGraph[DataType] = graph
         self.backend: Backend[DataType] = backend
         self.inference = inference
-        self._intermediate_non_differentiables: BiMap[
-            str, Tensor[DataType] | Scalar
-        ] = BiMap()
+        self._intermediate_non_differentiables: BiMap[str, Tensor | Scalar] = BiMap()
         self._runtime_static_keys: set[str] = set()
         self._unused_keys: set[str] = set()
         # Final tensor values of data store.
@@ -110,10 +109,6 @@ class StaticDataStore(GenericDataType[DataType]):
         if hard_remove:
             self._all_data.pop(key)
             self._clear_constraints(key)
-        else:
-            data = self.all_data[key]
-            if isinstance(data, Tensor):
-                data.value = None
 
     def _clear_constraints(self, key: str):
         if key not in self._all_data:
@@ -149,8 +144,8 @@ class StaticDataStore(GenericDataType[DataType]):
             self._intermediate_non_differentiables.pop(key)
         return transferred_keys
 
-    def _set_data_value(self, key: str, data: Tensor[DataType] | Scalar):
-        value = data.value
+    def _set_data_value(self, key: str, data: Tensor | Scalar):
+        value: DataType | AllValueType = data.value
         assert not isinstance(value, ToBeDetermined)
         if isinstance(data, Tensor):
             if isinstance(value, Constant):
@@ -204,7 +199,7 @@ class StaticDataStore(GenericDataType[DataType]):
         for key in new_statics:
             self._infer_unused_keys(key)
 
-    def update_data(self, data: dict[str, Tensor[DataType] | Scalar]):
+    def update_data(self, data: dict[str, Tensor | Scalar]):
         if data.keys() & self._all_data.keys():
             raise Exception("Some keys are already in data store!")
         self._all_data |= data
@@ -273,15 +268,28 @@ class StaticDataStore(GenericDataType[DataType]):
         else:
             if (data := self._all_data.get(key, None)) is None:
                 raise KeyError(f"'{key}' key not found in model!")
-            # TODO: Mypy does not understand the type of data and value
-            # if we dont't write if-else statement for Tensor and Scalar
-            # Any fixes?.
-            if isinstance(data, Tensor) and self.is_tensor_type(value):
-                # TODO: Do not set value to Tensor if value is DataType. Update here
-                # after Tensor and Scalar classes are merged to Edge.
-                updates |= data.set_value(value)  # type: ignore
-                # Temporarily remove value from tensor and add to tensor_values!
-                data.value = TBD
+
+            if isinstance(data, Tensor):
+                assert not isinstance(value, MainValueInstance)
+                # Find shape of tensor and set.
+                shape = list(value.shape)
+                updates |= data.shape.set_values(shape)
+                # Find type of tensor and set.
+                val_type: type[bool] | type[int] | type[float]
+                data_dtype = str(value.dtype)
+                # Check value type is OK, and update type accordinly.
+                if "bool" in data_dtype:
+                    val_type = bool
+                elif "int" in data_dtype:
+                    val_type = int
+                elif "float" in data_dtype:
+                    val_type = float
+                else:
+                    raise TypeError(
+                        f"Given type ({data_dtype}) is not supported. "
+                        "Only float, int or bool types are accepted."
+                    )
+                updates |= data.set_type(val_type)
             elif isinstance(data, Scalar) and self.is_scalar_type(value):
                 updates |= data.set_value(value)
             else:

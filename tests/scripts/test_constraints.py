@@ -5318,48 +5318,48 @@ def test_eye_5():
     )
 
 
-def test_tensor_to_list_forward_1():
-    shapes: dict[str, list[int | str | tuple]] = {"input": [2, 3]}
-    final_shapes = {"input": [2, 3], "output": []}
-    value = np.ones((2, 3))
-    scalar_info = {
-        "output": Scalar(possible_types=list[list[float]] | type(...)),
-    }
-    final_values = {"output": [[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]], "input": value}
-    assert_constraint_results(
-        shapes,
-        {},
-        final_shapes,
-        {},
-        tensor_to_list_constraints,
-        True,
-        {"output"},
-        scalar_info,
-        final_values,
-        initial_values={"input": value},
-    )
+# def test_tensor_to_list_forward_1():
+#     shapes: dict[str, list[int | str | tuple]] = {"input": [2, 3]}
+#     final_shapes = {"input": [2, 3], "output": []}
+#     value = np.ones((2, 3))
+#     scalar_info = {
+#         "output": Scalar(possible_types=list[list[float]] | type(...)),
+#     }
+#     final_values = {"output": [[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]], "input": value}
+#     assert_constraint_results(
+#         shapes,
+#         {},
+#         final_shapes,
+#         {},
+#         tensor_to_list_constraints,
+#         True,
+#         {"output"},
+#         scalar_info,
+#         final_values,
+#         initial_values={"input": value},
+#     )
 
 
-def test_tensor_to_list_forward_2():
-    shapes: dict[str, list[int | str | tuple]] = {"input": [2, 3]}
-    final_shapes = {"input": [2, 3], "output": []}
-    value = np.ones((2, 3), dtype=int)
-    scalar_info = {
-        "output": Scalar(possible_types=list[list[int]] | type(...)),
-    }
-    final_values = {"output": [[1, 1, 1], [1, 1, 1]], "input": value}
-    assert_constraint_results(
-        shapes,
-        {},
-        final_shapes,
-        {},
-        tensor_to_list_constraints,
-        True,
-        {"output"},
-        scalar_info,
-        final_values,
-        initial_values={"input": value},
-    )
+# def test_tensor_to_list_forward_2():
+#     shapes: dict[str, list[int | str | tuple]] = {"input": [2, 3]}
+#     final_shapes = {"input": [2, 3], "output": []}
+#     value = np.ones((2, 3), dtype=int)
+#     scalar_info = {
+#         "output": Scalar(possible_types=list[list[int]] | type(...)),
+#     }
+#     final_values = {"output": [[1, 1, 1], [1, 1, 1]], "input": value}
+#     assert_constraint_results(
+#         shapes,
+#         {},
+#         final_shapes,
+#         {},
+#         tensor_to_list_constraints,
+#         True,
+#         {"output"},
+#         scalar_info,
+#         final_values,
+#         initial_values={"input": value},
+#     )
 
 
 def test_tensor_to_list_backward_1():

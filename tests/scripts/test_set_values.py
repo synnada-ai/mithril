@@ -183,7 +183,7 @@ def test_set_values_scalar_5():
         model.set_values({"axis": (0, 2)})
     assert (
         str(err_info.value)
-        == "Value is set before as (0, 1). A scalar value can not be reset."
+        == "Value is set before as (0, 1). A value can not be reset."
     )
 
 
@@ -199,7 +199,7 @@ def test_set_values_scalar_6():
         model.set_values(config)
     assert (
         str(err_info.value)
-        == "Value is set before as (0, 1). A scalar value can not be reset."
+        == "Value is set before as (0, 1). A value can not be reset."
     )
 
 
@@ -212,7 +212,7 @@ def test_set_values_scalar_6_kwargs_arg():
         model.set_values(config, axis=(0, 1))
     assert (
         str(err_info.value)
-        == "Value is set before as (0, 2). A scalar value can not be reset."
+        == "Value is set before as (0, 2). A value can not be reset."
     )
 
 
@@ -228,7 +228,7 @@ def test_set_values_scalar_6_same_conn_in_config():
         model.set_values(config)
     assert (
         str(err_info.value)
-        == "Value is set before as (0, 2). A scalar value can not be reset."
+        == "Value is set before as (0, 2). A value can not be reset."
     )
 
 

@@ -282,7 +282,9 @@ def find_intersection_type(
         assert isinstance(nested_type, NestedListType)
         # If regular type is list, we can not know its depth, so simply
         # return nested type.
-        if regular_type is list:
+        if (
+            isinstance(regular_type, UnionType) and list in regular_type.__args__
+        ) or regular_type is list:
             return nested_type
 
         # Find depth of the list type and unroll nested type to that depth.

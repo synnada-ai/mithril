@@ -617,7 +617,7 @@ def test_scalar_mean_2_set_values():
         mean_1.set_values({"axis": 1})
     assert (
         str(err_info_1.value)
-        == "Value is set before as None. A scalar value can not be reset."
+        == "Value is set before as None. A value can not be reset."
     )
 
     # TODO: Complete this test after CONSTANT handling is implemented.

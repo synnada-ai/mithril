@@ -136,9 +136,7 @@ ops_table: dict[str, type[PrimitiveModel]] = {
 }
 
 
-coercion_table: dict[
-    tuple[str, type[Tensor[Any]] | type[Scalar]], type[PrimitiveModel]
-] = {
+coercion_table: dict[tuple[str, type[Tensor] | type[Scalar]], type[PrimitiveModel]] = {
     ("item", Tensor): TensorItem,
     ("item", Scalar): ScalarItem,
     ("slice", Tensor): TensorSlice,
@@ -146,7 +144,7 @@ coercion_table: dict[
 }
 
 type_conversion_map: dict[
-    tuple[type[Tensor[Any]] | type[Scalar], type[Tensor[Any]] | type[Scalar]],
+    tuple[type[Tensor] | type[Scalar], type[Tensor] | type[Scalar]],
     type[ToTensor] | type[TensorToList] | None,
 ] = {
     (Scalar, Tensor): ToTensor,
@@ -226,7 +224,7 @@ class Model(BaseModel):
             else:  # Named connections.
                 # Create new output connection with given key name.
 
-                data: Tensor[Any] | Scalar = (
+                data: Tensor | Scalar = (
                     Scalar(metadata.data._type)
                     if isinstance(metadata.data, Scalar)
                     else Tensor(metadata.data.shape, metadata.data._type)
@@ -516,7 +514,7 @@ class Model(BaseModel):
         return con_obj, updates
 
     def _unroll_template(
-        self, template: ExtendTemplate, joint_type: type[Tensor[Any]] | type[Scalar]
+        self, template: ExtendTemplate, joint_type: type[Tensor] | type[Scalar]
     ) -> ConnectionData:
         if template.output_connection is None:
             # Initialize all default init arguments of model as "..." other
@@ -1226,8 +1224,8 @@ class Model(BaseModel):
     def extract_connection_info(
         self,
         name_mappings: dict[BaseModel, str],
-        data_to_key_map: dict[Tensor[Any] | Scalar, list[str]] | None = None,
-        data_memo: Mapping[int, Tensor[Any] | Scalar] | None = None,
+        data_to_key_map: dict[Tensor | Scalar, list[str]] | None = None,
+        data_memo: Mapping[int, Tensor | Scalar] | None = None,
     ):
         conn_info: dict[str, tuple[dict[str, list[str]], dict[str, list[str]]]] = {}
         if self._input_keys:
