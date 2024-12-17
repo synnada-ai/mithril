@@ -849,20 +849,21 @@ class Model(BaseModel):
         # Update Canonicals
         if isinstance(c_input := model.canonical_input, Connection):
             c_input_obj = self.conns.get_con_by_metadata(c_input.data.metadata)
-            if c_input_obj not in self.dependency_map._local_output_dependency_map:
-                # Update canonical input with model canonical input
-                if c_input_obj not in self.conns.input_connections:
-                    self._canonical_input = NOT_AVAILABLE
-                else:
-                    assert c_input_obj is not None
-                    self._canonical_input = c_input_obj
+            if c_input_obj is not None and c_input_obj.metadata.data.value is TBD:
+                if c_input_obj not in self.dependency_map._local_output_dependency_map:
+                    # Update canonical input with model canonical input
+                    if c_input_obj not in self.conns.input_connections:
+                        self._canonical_input = NOT_AVAILABLE
+                    else:
+                        assert c_input_obj is not None
+                        self._canonical_input = c_input_obj
 
-            elif (
-                self._canonical_input
-                in self.dependency_map._local_output_dependency_map
-            ):
-                # Model canonical output used as input than make it None
-                self._canonical_input = NOT_AVAILABLE
+                elif (
+                    self._canonical_input
+                    in self.dependency_map._local_output_dependency_map
+                ):
+                    # Model canonical output used as input than make it None
+                    self._canonical_input = NOT_AVAILABLE
 
         if isinstance(c_output := model.canonical_output, Connection):
             c_output_obj = self.conns.get_con_by_metadata(c_output.data.metadata)
