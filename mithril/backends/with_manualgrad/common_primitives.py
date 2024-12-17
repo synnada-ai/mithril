@@ -55,7 +55,6 @@ __all__ = [
     "union",
     "length",
     "cartesian_diff",
-    "primitive_embedding",
     "to_tuple",
     "to_list",
     "padding_converter_1d",
@@ -339,12 +338,6 @@ def cartesian_diff(
     left: DataType, right: DataType, cache: CacheType = None
 ) -> DataType:
     return left[:, None, :] - right[None, :, :]
-
-
-def primitive_embedding(
-    input: DataType, embedding_matrix: DataType, *, cache: CacheType = None
-) -> DataType:
-    return embedding_matrix[input]  # type: ignore
 
 
 common_primitive_func_dict = {key: fn for key, fn in globals().items() if callable(fn)}

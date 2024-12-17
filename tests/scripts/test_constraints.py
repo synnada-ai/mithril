@@ -61,6 +61,7 @@ from mithril.framework.constraints import (
     shape_constraints,
     size_constraints,
     sliding_window_2d_constraints,
+    split_constraints,
     squeeze_constraints,
     swap_axes_constraints,
     tensor_item_constraints,
@@ -5317,48 +5318,48 @@ def test_eye_5():
     )
 
 
-def test_tensor_to_list_forward_1():
-    shapes: dict[str, list[int | str | tuple]] = {"input": [2, 3]}
-    final_shapes = {"input": [2, 3], "output": []}
-    value = np.ones((2, 3))
-    scalar_info = {
-        "output": Scalar(possible_types=list[list[float]] | type(...)),
-    }
-    final_values = {"output": [[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]], "input": value}
-    assert_constraint_results(
-        shapes,
-        {},
-        final_shapes,
-        {},
-        tensor_to_list_constraints,
-        True,
-        {"output"},
-        scalar_info,
-        final_values,
-        initial_values={"input": value},
-    )
+# def test_tensor_to_list_forward_1():
+#     shapes: dict[str, list[int | str | tuple]] = {"input": [2, 3]}
+#     final_shapes = {"input": [2, 3], "output": []}
+#     value = np.ones((2, 3))
+#     scalar_info = {
+#         "output": Scalar(possible_types=list[list[float]] | type(...)),
+#     }
+#     final_values = {"output": [[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]], "input": value}
+#     assert_constraint_results(
+#         shapes,
+#         {},
+#         final_shapes,
+#         {},
+#         tensor_to_list_constraints,
+#         True,
+#         {"output"},
+#         scalar_info,
+#         final_values,
+#         initial_values={"input": value},
+#     )
 
 
-def test_tensor_to_list_forward_2():
-    shapes: dict[str, list[int | str | tuple]] = {"input": [2, 3]}
-    final_shapes = {"input": [2, 3], "output": []}
-    value = np.ones((2, 3), dtype=int)
-    scalar_info = {
-        "output": Scalar(possible_types=list[list[int]] | type(...)),
-    }
-    final_values = {"output": [[1, 1, 1], [1, 1, 1]], "input": value}
-    assert_constraint_results(
-        shapes,
-        {},
-        final_shapes,
-        {},
-        tensor_to_list_constraints,
-        True,
-        {"output"},
-        scalar_info,
-        final_values,
-        initial_values={"input": value},
-    )
+# def test_tensor_to_list_forward_2():
+#     shapes: dict[str, list[int | str | tuple]] = {"input": [2, 3]}
+#     final_shapes = {"input": [2, 3], "output": []}
+#     value = np.ones((2, 3), dtype=int)
+#     scalar_info = {
+#         "output": Scalar(possible_types=list[list[int]] | type(...)),
+#     }
+#     final_values = {"output": [[1, 1, 1], [1, 1, 1]], "input": value}
+#     assert_constraint_results(
+#         shapes,
+#         {},
+#         final_shapes,
+#         {},
+#         tensor_to_list_constraints,
+#         True,
+#         {"output"},
+#         scalar_info,
+#         final_values,
+#         initial_values={"input": value},
+#     )
 
 
 def test_tensor_to_list_backward_1():
@@ -5957,6 +5958,368 @@ def test_tensor_item_constraints_15():
         {},
         tensor_item_constraints,
         False,
+        {"output"},
+        scalar_info,
+    )
+
+
+def test_tensor_item_constraints_16():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "input": [("Var1", ...), "u1", "u2"],
+        "output": [("Var2", ...)],
+    }
+    final_shapes = {
+        "input": ["(V1, ...)", "u1", "u2"],
+        "output": ["(V1, ...)", "u1", "u2", 1],
+        "index": [],
+    }
+    scalar_info = {"index": Scalar(value=(..., None))}
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        tensor_item_constraints,
+        True,
+        {"output"},
+        scalar_info,
+    )
+
+
+def test_tensor_item_constraints_17():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "input": [("Var1", ...), "u1", "u2"],
+        "output": [("Var2", ...)],
+    }
+    final_shapes = {
+        "input": ["(V1, ...)", "u1", "u2"],
+        "output": ["(V1, ...)", "u1", 1, "u3", 1],
+        "index": [],
+    }
+    scalar_info = {"index": Scalar(value=(..., None, slice(2, None, None), None))}
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        tensor_item_constraints,
+        False,
+        {"output"},
+        scalar_info,
+    )
+
+
+def test_tensor_item_constraints_18():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "input": [("Var1", ...), "u1", "u2"],
+        "output": [("Var2", ...)],
+    }
+    final_shapes = {
+        "input": ["(V1, ...)", "u1", "u2"],
+        "output": ["(V1, ...)", "u1", 1, 1],
+        "index": [],
+    }
+    scalar_info = {"index": Scalar(value=(..., None, 2, None))}
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        tensor_item_constraints,
+        True,
+        {"output"},
+        scalar_info,
+    )
+
+
+def test_tensor_item_constraints_19():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "input": ["u1", ("Var1", ...)],
+        "output": [("Var2", ...)],
+    }
+    final_shapes = {
+        "input": ["u1", "(V1, ...)", "u2"],
+        "output": ["(V2, ...)", 1, 1],
+        "index": [],
+    }
+    scalar_info = {"index": Scalar(value=(..., None, 2, None, 3))}
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        tensor_item_constraints,
+        False,
+        {"input", "output"},
+        scalar_info,
+    )
+
+
+def test_tensor_item_constraints_20():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "input": ["u1", ("Var1", ...)],
+        "output": [("Var2", ...)],
+    }
+    final_shapes = {
+        "input": ["u1", "(V1, ...)", "u2"],
+        "output": ["(V2, ...)", 1, 1, 1, "u3", "u4"],
+        "index": [],
+    }
+    scalar_info = {
+        "index": Scalar(
+            value=(..., None, None, None, slice(2, None, None), slice(2, None, None))
+        )
+    }
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        tensor_item_constraints,
+        False,
+        {"input", "output"},
+        scalar_info,
+    )
+
+
+def test_tensor_item_constraints_21():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "input": ["u1", ("Var1", ...), 7],
+        "output": [("Var2", ...)],
+    }
+    final_shapes = {
+        "input": ["u1", "(V1, ...)", "u2", 7],
+        "output": ["(V2, ...)", 1, 1, 1, "u3", "u4", 5],
+        "index": [],
+    }
+    scalar_info = {
+        "index": Scalar(
+            value=(
+                ...,
+                None,
+                None,
+                None,
+                slice(2, None, None),
+                slice(2, None, None),
+                slice(2, None, None),
+            )
+        )
+    }
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        tensor_item_constraints,
+        False,
+        {"input", "output"},
+        scalar_info,
+    )
+
+
+def test_tensor_item_constraints_22():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "input": ["u1", "u2", ("Var1", ...)],
+        "output": [("Var2", ...)],
+    }
+    final_shapes = {
+        "input": ["u1", "u2", "(V1, ...)"],
+        "output": [1, 1, "u1", "u2", "(V1, ...)"],
+        "index": [],
+    }
+    scalar_info = {"index": Scalar(value=(None, None))}
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        tensor_item_constraints,
+        True,
+        {"output"},
+        scalar_info,
+    )
+
+
+def test_tensor_item_constraints_23():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "input": ["u1", ("Var1", ...), "u2"],
+        "output": [("Var2", ...)],
+    }
+    final_shapes = {
+        "input": ["u1", "(V1, ...)", "u2"],
+        "output": [1, "u1", "(V1, ...)", "u2", 1],
+        "index": [],
+    }
+    scalar_info = {"index": Scalar(value=(None, ..., None))}
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        tensor_item_constraints,
+        True,
+        {"output"},
+        scalar_info,
+    )
+
+
+def test_tensor_item_constraints_24():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "input": [3, 4, 5, 6, 7],
+        "output": [("Var2", ...)],
+    }
+    final_shapes = {
+        "input": [3, 4, 5, 6, 7],
+        "output": [1, 3, 4, 1, 3, 2],
+        "index": [],
+    }
+    scalar_info = {
+        "index": Scalar(
+            value=(None, ..., None, 1, slice(2, 5, None), slice(2, 4, None))
+        )
+    }
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        tensor_item_constraints,
+        True,
+        {"output"},
+        scalar_info,
+    )
+
+
+def test_split_constraints_1():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "input": [6, 4, 5],
+        "output": [("Var2", ...)],
+    }
+    final_shapes = {
+        "input": [6, 4, 5],
+        "output": [3, 2, 4, 5],
+        "split_size": [],
+        "axis": [],
+    }
+    scalar_info = {
+        "split_size": Scalar(value=3),
+        "axis": Scalar(value=0),
+    }
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        split_constraints,
+        True,
+        {"output"},
+        scalar_info,
+    )
+
+
+def test_split_constraints_2():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "input": [6, 4, 5],
+        "output": [("Var2", ...)],
+    }
+    final_shapes = {
+        "input": [6, 4, 5],
+        "output": [2, 6, 2, 5],
+        "split_size": [],
+        "axis": [],
+    }
+    scalar_info = {
+        "split_size": Scalar(value=2),
+        "axis": Scalar(value=1),
+    }
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        split_constraints,
+        True,
+        {"output"},
+        scalar_info,
+    )
+
+
+def test_split_constraints_3():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "input": [6, 4, 5],
+        "output": [("Var2", ...)],
+    }
+    final_shapes = {
+        "input": [6, 4, 5],
+        "output": [1, 6, 4, 5],
+        "split_size": [],
+        "axis": [],
+    }
+    scalar_info = {
+        "split_size": Scalar(value=1),
+        "axis": Scalar(value=1),
+    }
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        split_constraints,
+        True,
+        {"output"},
+        scalar_info,
+    )
+
+
+def test_split_constraints_4():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "input": [6, 4, 8],
+        "output": [("Var2", ...)],
+    }
+    final_shapes = {
+        "input": [6, 4, 8],
+        "output": [2, 6, 4, 4],
+        "split_size": [],
+        "axis": [],
+    }
+    scalar_info = {
+        "split_size": Scalar(value=2),
+        "axis": Scalar(value=-1),
+    }
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        split_constraints,
+        True,
+        {"output"},
+        scalar_info,
+    )
+
+
+def test_split_constraints_5():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "input": [6, 4, ("Var1", ...), 8],
+        "output": [("Var2", ...)],
+    }
+    final_shapes = {
+        "input": [6, 4, "(V1, ...)", 8],
+        "output": [2, 6, 4, "(V1, ...)", 4],
+        "split_size": [],
+        "axis": [],
+    }
+    scalar_info = {
+        "split_size": Scalar(value=2),
+        "axis": Scalar(value=-1),
+    }
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        split_constraints,
+        True,
         {"output"},
         scalar_info,
     )

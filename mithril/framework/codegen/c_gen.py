@@ -211,7 +211,7 @@ class CGen(CodeGen[PyArray]):
             inputs = [output_key] + inputs
 
             # Create primitive call
-            p_call = self.create_primitive_call(model.formula_key, inputs)
+            p_call = self.create_primitive_call(model._formula_key, inputs)
             fn_body.append(p_call)
 
             used_keys.add(output_key)
@@ -257,7 +257,7 @@ class CGen(CodeGen[PyArray]):
 
                 # Create primitive call
                 p_call = self.create_primitive_call(
-                    model.formula_key + self.BACKWARD_FN_SUFFIX, fn_inputs
+                    model._formula_key + self.BACKWARD_FN_SUFFIX, fn_inputs
                 )
                 fn_body.append(p_call)
 

@@ -135,12 +135,11 @@ def test_default_given_extend_4_numpy_error():
     model1 = ReduceMult(axis=TBD)
     model2 = Mean(axis=1)
     model += model1(axis=IOKey("axis", value=None))
-    with pytest.raises(TypeError) as err_info:
+    with pytest.raises(ValueError) as err_info:
         model += model2(input="input2", axis=model1.axis, output="output")
 
     assert str(err_info.value) == (
-        "Acceptable types are <class 'NoneType'>, "
-        "but <class 'int'> type value is provided!"
+        "Value is set before as None. A value can not be reset."
     )
 
 
@@ -283,8 +282,8 @@ def test_type_9():
     assert lin_model.input.data.metadata.data._type == int | float | bool
     model += lin_model(
         input=IOKey(value=[[1.0, 2.0], [3.0, 4.0]], name="input"),
-        w="w",
-        b="b",
+        weight="w",
+        bias="b",
         output=IOKey(name="output"),
     )
     assert lin_model.input.data.metadata.data._type is float
@@ -296,8 +295,8 @@ def test_type_10():
     assert lin_model.input.data.metadata.data._type == int | float | bool
     model += lin_model(
         input=IOKey(value=[[False, 1], [True, False]], name="input"),
-        w="w",
-        b="b",
+        weight="w",
+        bias="b",
         output=IOKey(name="output"),
     )
     assert lin_model.input.data.metadata.data._type is int
@@ -309,8 +308,8 @@ def test_type_11():
     assert lin_model.input.data.metadata.data._type == int | float | bool
     model += lin_model(
         input=IOKey(value=[[False, 1], [2.2, False]], name="input"),
-        w="w",
-        b="b",
+        weight="w",
+        bias="b",
         output=IOKey(name="output"),
     )
     assert lin_model.input.data.metadata.data._type is float
@@ -322,8 +321,8 @@ def test_type_12():
     assert lin_model.input.data.metadata.data._type == int | float | bool
     model += lin_model(
         input=IOKey(value=[[False, 1], [2.2, False]], name="input"),
-        w="w",
-        b="b",
+        weight="w",
+        bias="b",
         output=IOKey(name="output"),
     )
     assert lin_model.input.data.metadata.data._type is float
@@ -335,8 +334,8 @@ def test_type_13():
     assert lin_model.input.data.metadata.data._type == int | float | bool
     model += lin_model(
         input=IOKey(value=[[False, True], [False, False]], name="input"),
-        w="w",
-        b="b",
+        weight="w",
+        bias="b",
         output=IOKey(name="output"),
     )
     # model.make_static("input", [[False, True], [False, False]])
@@ -349,8 +348,8 @@ def test_type_14():
     assert lin_model.input.data.metadata.data._type == int | float | bool
     model += lin_model(
         input=IOKey(value=[[False, 1.0], [2, 3]], name="input"),
-        w="w",
-        b="b",
+        weight="w",
+        bias="b",
         output=IOKey(name="output"),
     )
     assert lin_model.input.data.metadata.data._type is float

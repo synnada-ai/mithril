@@ -342,7 +342,7 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
                 continue
 
             model, g_input_keys, l_input_keys = self.get_primitive_details(output_key)
-            formula_key = model.formula_key
+            formula_key = model._formula_key
 
             primitive_function = (
                 self.pm.backend.primitive_function_dict[formula_key]
@@ -487,7 +487,10 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
 
         # Prepare function arguments
         fn_args_mapping, fn_kwarg_dict = prepare_function_args(
-            self.pm.data, function, inputs, self.pm.backend.array_creation_funcs
+            self.pm.data_store.data_values,
+            function,
+            inputs,
+            self.pm.backend.array_creation_funcs,
         )
         fn_arg_keys = [
             arg_key for arg_keys in fn_args_mapping.values() for arg_key in arg_keys

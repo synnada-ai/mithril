@@ -326,10 +326,12 @@ def test_code_generator_1(file_path: str):
     @typing.no_type_check
     def evaluate(params, data, cache):
         add1 = data["add1"]
-        b = params["b"]
-        w = params["w"]
-        _Linear_0_MatrixMultiply_0_output = matrix_multiplication(add1, w)
-        output = add(_Linear_0_MatrixMultiply_0_output, b)
+        axes = cache["axes"]
+        bias = params["bias"]
+        weight = params["weight"]
+        output_0 = transpose(weight, axes)
+        output_1 = matrix_multiplication(add1, output_0)
+        output = add(output_1, bias)
         return {"output": output}
 
     compare_callables(evaluate, eval_func)
@@ -380,15 +382,19 @@ def test_code_generator_3(file_path: str):
 
     @typing.no_type_check
     def evaluate(params, data, cache):
-        b_0 = params["b_0"]
-        b_1 = params["b_1"]
+        axes_0 = cache["axes_0"]
+        axes_1 = cache["axes_1"]
+        bias_0 = params["bias_0"]
+        bias_1 = params["bias_1"]
         input = data["input"]
-        w_0 = params["w_0"]
-        w_1 = params["w_1"]
-        _Linear_0_MatrixMultiply_0_output = matrix_multiplication(input, w_0)
-        _Linear_0_output = add(_Linear_0_MatrixMultiply_0_output, b_0)
-        _Linear_1_MatrixMultiply_0_output = matrix_multiplication(_Linear_0_output, w_1)
-        output = add(_Linear_1_MatrixMultiply_0_output, b_1)
+        weight_0 = params["weight_0"]
+        weight_1 = params["weight_1"]
+        output_0 = transpose(weight_0, axes_0)
+        output_1 = matrix_multiplication(input, output_0)
+        output_2 = add(output_1, bias_0)
+        output_3 = transpose(weight_1, axes_1)
+        output_4 = matrix_multiplication(output_2, output_3)
+        output = add(output_4, bias_1)
         return {"output": output}
 
     compare_callables(evaluate, eval_func)
@@ -442,64 +448,47 @@ def test_code_generator_4(file_path: str):
 
     @typing.no_type_check
     def evaluate(params, data, cache):
-        _BinaryCrossEntropy_2_output_cache = cache["_BinaryCrossEntropy_2_output_cache"]
-        _Mean_3_output_cache = cache["_Mean_3_output_cache"]
-        _ToTensor_1_output = cache["_ToTensor_1_output"]
+        cutoff = cache["cutoff"]
         input = params["input"]
+        output_0_cache = cache["output_0_cache"]
+        output_1_cache = cache["output_1_cache"]
         output_cache = cache["output_cache"]
         rhs = params["rhs"]
         target = data["target"]
         output = output_cache["output"] = make_array(my_adder(input, rhs, output_cache))
-        _BinaryCrossEntropy_2_output = _BinaryCrossEntropy_2_output_cache["output"] = (
-            make_array(
-                binary_cross_entropy_with_logits(
-                    output,
-                    target,
-                    _ToTensor_1_output,
-                    cache=_BinaryCrossEntropy_2_output_cache,
-                )
+        output_0 = output_0_cache["output"] = make_array(
+            binary_cross_entropy_with_logits(
+                output, target, cutoff, cache=output_0_cache
             )
         )
-        _Mean_3_output = _Mean_3_output_cache["output"] = make_array(
-            reduce_mean(_BinaryCrossEntropy_2_output, cache=_Mean_3_output_cache)
+        output_1 = output_1_cache["output"] = make_array(
+            reduce_mean(output_0, cache=output_1_cache)
         )
-        return {"final_cost": _Mean_3_output, "output": output}
+        return {"final_cost": output_1, "output": output}
 
     @typing.no_type_check
     def evaluate_gradients(params, gradients, data, cache):
-        _BinaryCrossEntropy_2_output = cache["_BinaryCrossEntropy_2_output_cache"][
-            "output"
-        ]
-        _BinaryCrossEntropy_2_output_cache = cache["_BinaryCrossEntropy_2_output_cache"]
-        _Mean_3_output_cache = cache["_Mean_3_output_cache"]
-        _ToTensor_1_output = cache["_ToTensor_1_output"]
+        cutoff = cache["cutoff"]
         input = params["input"]
         output = cache["output_cache"]["output"]
+        output_0 = cache["output_0_cache"]["output"]
+        output_0_cache = cache["output_0_cache"]
+        output_1_cache = cache["output_1_cache"]
         output_cache = cache["output_cache"]
         rhs = params["rhs"]
         target = data["target"]
-        gradients["_Mean_3_output"] += gradients["final_cost"]
-        gradients["_BinaryCrossEntropy_2_output"] += accumulate_grads(
+        gradients["output_1"] += gradients["final_cost"]
+        gradients["output_0"] += accumulate_grads(
             make_array(
-                reduce_mean_grad(
-                    gradients["_Mean_3_output"],
-                    _Mean_3_output_cache,
-                    0,
-                    _BinaryCrossEntropy_2_output,
-                )
+                reduce_mean_grad(gradients["output_1"], output_1_cache, 0, output_0)
             ),
-            _BinaryCrossEntropy_2_output,
-            _Mean_3_output_cache,
+            output_0,
+            output_1_cache,
             0,
         )
         gradients["output"] += make_array(
             binary_cross_entropy_with_logits_grad(
-                gradients["_BinaryCrossEntropy_2_output"],
-                _BinaryCrossEntropy_2_output_cache,
-                0,
-                output,
-                target,
-                _ToTensor_1_output,
+                gradients["output_0"], output_0_cache, 0, output, target, cutoff
             )
         )
         gradients["input"] += accumulate_grads(
@@ -568,17 +557,15 @@ def test_code_generator_5(file_path: str):
 
     @typing.no_type_check
     def evaluate(params, data, cache):
-        _ToTensor_1_output = cache["_ToTensor_1_output"]
+        cutoff = cache["cutoff"]
         input = params["input"]
         rhs = params["rhs"]
         right = params["right"]
         target = data["target"]
         output = my_adder(input, rhs)
-        _BinaryCrossEntropy_2_output = binary_cross_entropy_with_logits(
-            output, target, _ToTensor_1_output
-        )
-        _Add_3_output = add(_BinaryCrossEntropy_2_output, right)
-        return {"final_cost": _Add_3_output, "output": output}
+        output_0 = binary_cross_entropy_with_logits(output, target, cutoff)
+        output_1 = add(output_0, right)
+        return {"final_cost": output_1, "output": output}
 
     compare_callables(evaluate, eval_func.evaluate)
     JaxBackend.registered_primitives = {}
@@ -592,7 +579,7 @@ def test_code_generator_6(file_path: str):
 
     model = Model()
     layer2 = Layer(dimension=2, activation=Softmax())
-    model += layer2(input="input", w="w1", b="b1")
+    model += layer2(input="input", weight="w1", bias="b1")
     model += (arange := Arange())(stop=2, output=IOKey(name="arange_res"))
     model += Add()(left=arange.output, right=layer2.output, output=IOKey(name="output"))
 
@@ -616,30 +603,22 @@ def test_code_generator_6(file_path: str):
 
     @typing.no_type_check
     def evaluate(params, data, cache):
-        _ToTensor_1_output = cache["_ToTensor_1_output"]
         arange_res = cache["arange_res"]
+        axes = cache["axes"]
         b1 = params["b1"]
+        cutoff = cache["cutoff"]
         input = data["input"]
         target = cache["target"]
         w1 = params["w1"]
         weights = cache["weights"]
-        _Model_0_Layer_0_Linear_0_MatrixMultiply_0_output = matrix_multiplication(
-            input, w1
-        )
-        _Model_0_Layer_0_Linear_0_output = add(
-            _Model_0_Layer_0_Linear_0_MatrixMultiply_0_output, b1
-        )
-        _Model_0_Layer_0_output = softmax(_Model_0_Layer_0_Linear_0_output)
-        output = add(arange_res, _Model_0_Layer_0_output)
-        _CrossEntropy_2_output = cross_entropy(
-            output, target, weights, _ToTensor_1_output
-        )
-        _Mean_3_output = reduce_mean(_CrossEntropy_2_output)
-        return {
-            "arange_res": arange_res,
-            "final_cost": _Mean_3_output,
-            "output": output,
-        }
+        output_0 = transpose(w1, axes)
+        output_1 = matrix_multiplication(input, output_0)
+        output_2 = add(output_1, b1)
+        output_3 = softmax(output_2)
+        output = add(arange_res, output_3)
+        output_4 = cross_entropy(output, target, weights, cutoff)
+        output_5 = reduce_mean(output_4)
+        return {"arange_res": arange_res, "final_cost": output_5, "output": output}
 
     compare_callables(evaluate, eval_func.evaluate)
     JaxBackend.registered_primitives = {}
@@ -653,7 +632,7 @@ def test_code_generator_7(file_path: str):
 
     model = Model()
     layer2 = Layer(dimension=2, activation=Softmax())
-    model += layer2(input="input", w="w1", b="b1")
+    model += layer2(input="input", weight="w1", bias="b1")
     model += (s := Size(dim=1))
     model += (arange := Arange())(stop=s.output, output=IOKey(name="arange_res"))
     model += Add()(left=arange.output, right=layer2.output, output=IOKey(name="output"))
@@ -678,30 +657,22 @@ def test_code_generator_7(file_path: str):
 
     @typing.no_type_check
     def evaluate(params, data, cache):
-        _ToTensor_1_output = cache["_ToTensor_1_output"]
         arange_res = cache["arange_res"]
+        axes = cache["axes"]
         b1 = params["b1"]
+        cutoff = cache["cutoff"]
         input = data["input"]
         target = cache["target"]
         w1 = params["w1"]
         weights = cache["weights"]
-        _Model_0_Layer_0_Linear_0_MatrixMultiply_0_output = matrix_multiplication(
-            input, w1
-        )
-        _Model_0_Layer_0_Linear_0_output = add(
-            _Model_0_Layer_0_Linear_0_MatrixMultiply_0_output, b1
-        )
-        _Model_0_Layer_0_output = softmax(_Model_0_Layer_0_Linear_0_output)
-        output = add(arange_res, _Model_0_Layer_0_output)
-        _CrossEntropy_2_output = cross_entropy(
-            output, target, weights, _ToTensor_1_output
-        )
-        _Mean_3_output = reduce_mean(_CrossEntropy_2_output)
-        return {
-            "arange_res": arange_res,
-            "final_cost": _Mean_3_output,
-            "output": output,
-        }
+        output_0 = transpose(w1, axes)
+        output_1 = matrix_multiplication(input, output_0)
+        output_2 = add(output_1, b1)
+        output_3 = softmax(output_2)
+        output = add(arange_res, output_3)
+        output_5 = cross_entropy(output, target, weights, cutoff)
+        output_6 = reduce_mean(output_5)
+        return {"arange_res": arange_res, "final_cost": output_6, "output": output}
 
     compare_callables(evaluate, eval_func.evaluate)
 
@@ -752,21 +723,21 @@ def test_code_generator_8(file_path: str):
     evaluate_gradient_code = "".join(code[start_line:end_line])
 
     reference_eval_code = (
-        "void evaluate(\n\tArray * _Add_0_output,\n\tArray * left,\n\tArray * output"
-        ",\n\tArray * right,\n\tArray * right2\n)\n{\n    add(_Add_0_output, left, "
-        "right);\n    multiplication(output, _Add_0_output, right2);\n}\n"
+        "void evaluate(\n\tArray * left,\n\tArray * output,\n\tArray * output_0"
+        ",\n\tArray * right,\n\tArray * right2\n)\n{\n    add(output_0, left, "
+        "right);\n    multiplication(output, output_0, right2);\n}\n"
     )
 
     reference_eval_grad_code = (
-        "void evaluate_gradients(\n\tArray * _Add_0_output,\n\tArray * "
-        "_Add_0_output_grad,\n\tArray * left,\n\tArray * left_grad,\n\t"
-        "Array * output,\n\tArray * output_grad,\n\tArray * right,\n\tArray "
+        "void evaluate_gradients(\n\tArray * left,\n\tArray * "
+        "left_grad,\n\tArray * output,\n\tArray * output_0,\n\t"
+        "Array * output_0_grad,\n\tArray * output_grad,\n\tArray * right,\n\tArray "
         "* right2,\n\tArray * right2_grad,\n\tArray * right_grad\n)\n{\n    "
-        "multiplication_grad(output_grad, 0, output, _Add_0_output, right2, "
-        "_Add_0_output_grad, right2_grad);\n    multiplication_grad(output_grad"
-        ", 1, output, _Add_0_output, right2, _Add_0_output_grad, right2_grad);\n"
-        "    add_grad(_Add_0_output_grad, 0, _Add_0_output, left, right, left_grad,"
-        " right_grad);\n    add_grad(_Add_0_output_grad, 1, _Add_0_output, left, "
+        "multiplication_grad(output_grad, 0, output, output_0, right2, "
+        "output_0_grad, right2_grad);\n    multiplication_grad(output_grad"
+        ", 1, output, output_0, right2, output_0_grad, right2_grad);\n"
+        "    add_grad(output_0_grad, 0, output_0, left, right, left_grad,"
+        " right_grad);\n    add_grad(output_0_grad, 1, output_0, left, "
         "right, left_grad, right_grad);\n}"
     )
 

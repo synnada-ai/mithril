@@ -389,7 +389,7 @@ class CrossEntropy(PrimitiveModel):
             "output": output,
         }
         # Check if the given argument set is valid.
-        if self.formula_key == "cross_entropy_with_log_probs":
+        if self._formula_key == "cross_entropy_with_log_probs":
             args: list[str] = []
             if robust is not False:
                 args.append("robust")
@@ -731,10 +731,27 @@ class Relu(Activation):
 
 class Gelu(Activation):
     def __init__(
-        self, name: str | None = None, input: TensorValueType | ToBeDetermined = TBD
+        self,
+        name: str | None = None,
+        approximate: bool = False,
+        input: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
-        super().__init__(formula_key="gelu", name=name)
+        super().__init__(
+            formula_key="gelu",
+            approximate=IOKey(value=approximate, type=(bool)),
+            name=name,
+        )
         self.factory_inputs = {"input": input}
+
+    def __call__(  # type: ignore[override]
+        self,
+        input: ConnectionType = NOT_GIVEN,
+        approximate: ConnectionType = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
+    ) -> ExtendInfo:
+        return BaseModel.__call__(
+            self, input=input, approximate=approximate, output=output
+        )
 
 
 class Sigmoid(Activation):
@@ -960,7 +977,7 @@ class PermuteTensor(PrimitiveModel):
 
 class PrimitiveConvolution1D(PrimitiveModel):
     input: Connection
-    kernel: Connection
+    weight: Connection
     stride: Connection
     padding: Connection
     dilation: Connection
@@ -972,7 +989,7 @@ class PrimitiveConvolution1D(PrimitiveModel):
         use_bias: bool = True,
         name: str | None = None,
         input: TensorValueType | ToBeDetermined = TBD,
-        kernel: TensorValueType | ToBeDetermined = TBD,
+        weight: TensorValueType | ToBeDetermined = TBD,
         stride: int | ToBeDetermined = TBD,
         padding: int | tuple[int, int] | ToBeDetermined = TBD,
         dilation: int | ToBeDetermined = TBD,
@@ -986,7 +1003,7 @@ class PrimitiveConvolution1D(PrimitiveModel):
                 shape=["N", "out_channels", "d_out"], type=GenericTensorType
             ),
             "input": IOKey(shape=["N", "C_in", "d_in"], type=GenericTensorType),
-            "kernel": IOKey(
+            "weight": IOKey(
                 shape=["out_channels", "C_in", "kernel_size"], type=GenericTensorType
             ),
             "bias": IOKey(shape=[1, "out_channels", 1], type=GenericTensorType),
@@ -996,7 +1013,7 @@ class PrimitiveConvolution1D(PrimitiveModel):
         }
         self.factory_inputs = {
             "input": input,
-            "kernel": kernel,
+            "weight": weight,
             "stride": stride,
             "padding": padding,
             "dilation": dilation,
@@ -1011,10 +1028,10 @@ class PrimitiveConvolution1D(PrimitiveModel):
 
         self._set_constraint(
             fn=conv_1d_constraints,
-            keys=["output", "input", "stride", "padding", "dilation", "kernel"],
+            keys=["output", "input", "stride", "padding", "dilation", "weight"],
         )
 
-        constraint_keys = ["input", "kernel"]
+        constraint_keys = ["input", "weight"]
         if use_bias:
             constraint_keys.append("bias")
 
@@ -1026,7 +1043,7 @@ class PrimitiveConvolution1D(PrimitiveModel):
     def __call__(  # type: ignore[override]
         self,
         input: ConnectionType = NOT_GIVEN,
-        kernel: ConnectionType = NOT_GIVEN,
+        weight: ConnectionType = NOT_GIVEN,
         stride: ConnectionType = NOT_GIVEN,
         padding: ConnectionType = NOT_GIVEN,
         dilation: ConnectionType = NOT_GIVEN,
@@ -1036,7 +1053,7 @@ class PrimitiveConvolution1D(PrimitiveModel):
     ) -> ExtendInfo:
         kwargs = {
             "input": input,
-            "kernel": kernel,
+            "weight": weight,
             "stride": stride,
             "padding": padding,
             "dilation": dilation,
@@ -1054,7 +1071,7 @@ class PrimitiveConvolution1D(PrimitiveModel):
 
 class PrimitiveConvolution2D(PrimitiveModel):
     input: Connection
-    kernel: Connection
+    weight: Connection
     stride: Connection
     padding: Connection
     dilation: Connection
@@ -1066,7 +1083,7 @@ class PrimitiveConvolution2D(PrimitiveModel):
         use_bias: bool = True,
         name: str | None = None,
         input: TensorValueType | ToBeDetermined = TBD,
-        kernel: TensorValueType | ToBeDetermined = TBD,
+        weight: TensorValueType | ToBeDetermined = TBD,
         stride: int | tuple[int, int] | ToBeDetermined = TBD,
         padding: int
         | tuple[int, int]
@@ -1083,7 +1100,7 @@ class PrimitiveConvolution2D(PrimitiveModel):
                 shape=["N", "out_channels", "H_out", "W_out"], type=GenericTensorType
             ),
             "input": IOKey(shape=["N", "C_in", "H", "W"], type=GenericTensorType),
-            "kernel": IOKey(
+            "weight": IOKey(
                 shape=["out_channels", "C_in", "kernel_size_0", "kernel_size_1"],
                 type=GenericTensorType,
             ),
@@ -1102,7 +1119,7 @@ class PrimitiveConvolution2D(PrimitiveModel):
         super().__init__(formula_key, name=name, **kwargs)
         self.factory_inputs = {
             "input": input,
-            "kernel": kernel,
+            "weight": weight,
             "stride": stride,
             "padding": padding,
             "dilation": dilation,
@@ -1111,10 +1128,10 @@ class PrimitiveConvolution2D(PrimitiveModel):
 
         self._set_constraint(
             fn=conv_2d_constraints,
-            keys=["output", "input", "stride", "padding", "dilation", "kernel"],
+            keys=["output", "input", "stride", "padding", "dilation", "weight"],
         )
 
-        constraint_keys = ["input", "kernel"]
+        constraint_keys = ["input", "weight"]
         if use_bias:
             constraint_keys.append("bias")
         self._set_constraint(
@@ -1125,7 +1142,7 @@ class PrimitiveConvolution2D(PrimitiveModel):
     def __call__(  # type: ignore[override]
         self,
         input: ConnectionType = NOT_GIVEN,
-        kernel: ConnectionType = NOT_GIVEN,
+        weight: ConnectionType = NOT_GIVEN,
         stride: ConnectionType = NOT_GIVEN,
         padding: ConnectionType = NOT_GIVEN,
         dilation: ConnectionType = NOT_GIVEN,
@@ -1135,7 +1152,7 @@ class PrimitiveConvolution2D(PrimitiveModel):
     ) -> ExtendInfo:
         kwargs = {
             "input": input,
-            "kernel": kernel,
+            "weight": weight,
             "stride": stride,
             "padding": padding,
             "dilation": dilation,
@@ -2004,7 +2021,7 @@ class AUCCore(PrimitiveModel):
 
 class Embedding(PrimitiveModel):
     input: Connection
-    embedding_matrix: Connection
+    weight: Connection
     output: Connection
 
     def __init__(
@@ -2013,7 +2030,7 @@ class Embedding(PrimitiveModel):
         num_embeddings: int | None = None,
         dim: int | None = None,
         input: TensorValueType | ToBeDetermined = TBD,
-        embedding_matrix: TensorValueType | ToBeDetermined = TBD,
+        weight: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         out_dim: int | str = "dim" if dim is None else dim
 
@@ -2022,26 +2039,22 @@ class Embedding(PrimitiveModel):
             name=name,
             output=IOKey(shape=[("N1", ...), "d1", out_dim], type=GenericTensorType),
             input=IOKey(shape=[("N1", ...), "d1"], type=MyTensor[int]),
-            embedding_matrix=IOKey(
-                shape=[num_embeddings, out_dim], type=GenericTensorType
-            ),
+            weight=IOKey(shape=[num_embeddings, out_dim], type=GenericTensorType),
         )
-        self.factory_inputs = {"input": input, "embedding_matrix": embedding_matrix}
+        self.factory_inputs = {"input": input, "weight": weight}
 
         self._set_constraint(
             fn=general_tensor_type_constraint,
-            keys=[PrimitiveModel.output_key, "embedding_matrix"],
+            keys=[PrimitiveModel.output_key, "weight"],
         )
 
     def __call__(  # type: ignore[override]
         self,
         input: ConnectionType = NOT_GIVEN,
-        embedding_matrix: ConnectionType = NOT_GIVEN,
+        weight: ConnectionType = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
-        return super().__call__(
-            input=input, embedding_matrix=embedding_matrix, output=output
-        )
+        return super().__call__(input=input, weight=weight, output=output)
 
 
 class ScaledDotProduct(PrimitiveModel):
@@ -2066,7 +2079,7 @@ class ScaledDotProduct(PrimitiveModel):
         value: TensorValueType | ToBeDetermined = TBD,
         attn_mask: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
-        # TODO: Reconsider how to get attn_mask, could it be a scalar?
+        # TODO: Reconsider how to get attn_mask, could it be A?
         assert (
             not isinstance(is_causal, bool) or not is_causal or not use_attn_mask
         ), "Causal attention is not support attn_mask!"

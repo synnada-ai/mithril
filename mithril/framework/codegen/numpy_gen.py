@@ -24,10 +24,7 @@ from ...backends.with_manualgrad.numpy_backend import NumpyBackend
 from ...core import Dtype
 from ...framework.physical.model import PhysicalModel
 from ...framework.utils import find_intersection_type
-from ...utils.func_utils import (
-    is_make_array_required,
-    prepare_function_args,
-)
+from ...utils.func_utils import is_make_array_required, prepare_function_args
 from ..common import (
     DataEvalType,
     EvaluateAllType,
@@ -288,7 +285,7 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
     def add_cache(self, model: PrimitiveModel, output_key: str):
         cache_name = "_".join([output_key, model.cache_name])
         cache_value: dict | None = None if self.pm.inference else {}
-        # Create a Scalar object for caches in manualgrad backend.
+        # Create A object for caches in manualgrad backend.
         self.pm.data_store.update_data({cache_name: Scalar(dict | None, cache_value)})
 
     def generate_evaluate_gradients(
@@ -387,9 +384,9 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
 
             # Get primitive function inputs order
             primitive_function = (
-                self.backend.primitive_function_dict[model.formula_key]
-                if model.formula_key in self.backend.primitive_function_dict
-                else self.backend.registered_primitives[model.formula_key]
+                self.backend.primitive_function_dict[model._formula_key]
+                if model._formula_key in self.backend.primitive_function_dict
+                else self.backend.registered_primitives[model._formula_key]
             )
             local_to_global_dict = {
                 key: value
@@ -398,7 +395,7 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
                 )
             }
             args, kwargs = prepare_function_args(
-                self.pm.data,
+                self.pm.data_store.data_values,
                 primitive_function,
                 local_to_global_dict,
                 self.backend.array_creation_funcs,
@@ -449,7 +446,7 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
 
                 if grad_fn is None:
                     raise NotImplementedError(
-                        f"Primitive {model.formula_key} does not have vjp "
+                        f"Primitive {model._formula_key} does not have vjp "
                         "implementation!"
                     )
 

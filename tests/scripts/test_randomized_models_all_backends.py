@@ -14,7 +14,6 @@
 
 import inspect
 import json
-import sys
 from copy import deepcopy
 
 import numpy as np
@@ -88,7 +87,6 @@ missing_models = all_models - tested_models - ignored_models
 
 @pytest.mark.parametrize("case", randomized_cases)
 def test_randomized(case: str) -> None:
-    sys.setrecursionlimit(2000)
     test_precisions = [64]
     # TODO: Tolerance handling will be updated when
     # automatic weight initialization algorithm is implemented.

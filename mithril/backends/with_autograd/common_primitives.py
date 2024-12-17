@@ -193,8 +193,8 @@ def cartesian_diff(left: DataType, right: DataType):
     return left[:, None, :] - right[None, :, :]
 
 
-def primitive_embedding(input: DataType, embedding_matrix: DataType) -> DataType:
-    return embedding_matrix[input]  # type: ignore
+def primitive_embedding(input: DataType, weight: DataType) -> DataType:
+    return weight[input]  # type: ignore
 
 
 def scalar_item(

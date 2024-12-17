@@ -20,7 +20,7 @@ from mithril.models import Add, Buffer, Linear, Model, Multiply
 
 def test_data_linear():
     model = Linear()
-    assert not model.input.data.metadata.data._differentiable
+    assert model.input.data.metadata.data.is_non_diff
 
 
 def test_data_linear_compile():
@@ -34,14 +34,14 @@ def test_data_linear_compile():
 def test_convert_input_data_to_trainable():
     model = Model()
     model += Linear()(input="input")
-    model += Linear()(w=model.input)  # type: ignore
+    model += Linear()(weight=model.input)  # type: ignore
     assert model.input.data.metadata.data._differentiable  # type: ignore
 
 
 def test_convert_input_data_to_trainable_compile():
     model = Model()
     model += Linear()(input="input")
-    model += Linear()(w=model.input)  # type: ignore
+    model += Linear()(weight=model.input)  # type: ignore
 
     backend = JaxBackend()
     pm = mithril.compile(model, backend)
@@ -61,21 +61,21 @@ def test_convert_internal_data_to_trainable():
 def test_set_values_data_and_param():
     model = Multiply()
     model.left.set_differentiable(False)
-    assert not model.left.data.metadata.data._differentiable
+    assert model.left.data.metadata.data.is_non_diff
     model.left.set_differentiable(True)
-    assert model.left.data.metadata.data._differentiable
+    assert not model.left.data.metadata.data.is_non_diff
     model.left.set_differentiable(False)
-    assert not model.left.data.metadata.data._differentiable
+    assert model.left.data.metadata.data.is_non_diff
 
 
 def test_match_tensor_with_value_data_and_param():
     model1 = Multiply()
     model1.left.set_differentiable(False)
-    assert not model1.left.data.metadata.data._differentiable
+    assert model1.left.data.metadata.data.is_non_diff
 
     model2 = Multiply()
     model2.left.set_differentiable(True)
-    assert model2.left.data.metadata.data._differentiable
+    assert not model2.left.data.metadata.data.is_non_diff
 
     model = Model()
     model += model1(left="my_input")
@@ -86,16 +86,16 @@ def test_match_tensor_with_value_data_and_param():
 def test_match_tensor_with_value_data_and_param_rev():
     model2 = Multiply()
     model2.left.set_differentiable(True)
-    assert model2.left.data.metadata.data._differentiable
+    assert not model2.left.data.metadata.data.is_non_diff
 
     model1 = Multiply()
     model1.left.set_differentiable(False)
-    assert not model1.left.data.metadata.data._differentiable
+    assert model1.left.data.metadata.data.is_non_diff
 
     model = Model()
     model += model1(left="my_input")
     model += model2(left="my_input")
-    assert model.my_input.data.metadata.data._differentiable  # type: ignore
+    assert not model.my_input.data.metadata.data.is_non_diff  # type: ignore
 
 
 def test_non_trainability_flow_in_compile():
@@ -143,7 +143,7 @@ def test_non_trainability_flow_in_compile_with_data_keys_3():
     buff_model = Buffer()
     model += buff_model(input="input", output="buff_out")
     mult = Multiply()
-    model += mult(left="left", right=model.canonical_output, output="mult_out")
+    model += mult(left="left", right=model.canonical_output, output=IOKey("mult_out"))
     model += Add()(left="left", right=buff_model.output, output=IOKey("add_out"))
 
     backend = JaxBackend()
@@ -158,7 +158,7 @@ def test_trainability_flow_in_compile_with_trainable_keys():
     buff_model.input.set_differentiable(False)
     model += buff_model(input="input", output="buff_out")
     mult = Multiply()
-    model += mult(left="left", right=model.canonical_output, output="mult_out")
+    model += mult(left="left", right=model.canonical_output, output=IOKey("mult_out"))
     model += Add()(left="left", right=buff_model.output, output=IOKey("add_out"))
     model.left.set_differentiable(False)  # type: ignore
 

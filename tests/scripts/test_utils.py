@@ -532,7 +532,7 @@ def assert_connections(
 
         node = compiled_model._flat_graph.connections[key].node
         assert node is not None
-        formula_key = node.model.formula_key
+        formula_key = node.model._formula_key
         keys = {conn.key for conn in node.connections.values() if conn.key != key}
 
         result_connections[key] = [formula_key, keys]

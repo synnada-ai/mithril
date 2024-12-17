@@ -61,6 +61,7 @@ from mithril.models import (
     PolynomialFeatures,
     Power,
     Relu,
+    Reshape,
     ScalarItem,
     Shape,
     Sigmoid,
@@ -73,6 +74,7 @@ from mithril.models import (
 )
 from mithril.utils.utils import PaddingType
 
+from .helper import assert_models_equal
 from .test_utils import (
     assert_results_equal,
     check_if_installed,
@@ -602,8 +604,7 @@ def test_scalar_mean_2_2():
     with pytest.raises(ValueError) as err_info:
         mean_model += rob_pow(threshold=1.5, base="input")
     assert (
-        str(err_info.value) == "Value is set before as 1.3. A scalar"
-        " value can not be reset."
+        str(err_info.value) == "Value is set before as 1.3. A value can not be reset."
     )
 
 
@@ -616,7 +617,7 @@ def test_scalar_mean_2_set_values():
         mean_1.set_values({"axis": 1})
     assert (
         str(err_info_1.value)
-        == "Value is set before as None. A scalar value can not be reset."
+        == "Value is set before as None. A value can not be reset."
     )
 
     # TODO: Complete this test after CONSTANT handling is implemented.
@@ -682,15 +683,12 @@ def test_scalar_2_set_values():
     model = Model()
     add = Add()
     model += add(left="left", right="right", output="output")
-    with pytest.raises(Exception) as err_info:
+    with pytest.raises(ValueError) as err_info:
         model.set_values(
             {"left": [4.0, 5.0], "right": [8.0, 9.0], "output": [7.0, 8.0]}
         )
 
-    assert (
-        str(err_info.value)
-        == "Given connections are both output connections. Multi-write error!"
-    )
+    assert str(err_info.value) == "Values of internal and output keys cannot be set."
 
 
 def test_scalar_3():
@@ -699,7 +697,7 @@ def test_scalar_3():
     add_1 = Add()
     model1 += add_2
     with pytest.raises(KeyError) as err_info:
-        model1 += add_1(left="left", right="right", output=[add_2.left, 4.0])
+        model1 += add_1(left="left", right="right", output=[4.0])
     assert str(err_info.value) == (
         "'output key is an output of the model, output values could not be "
         "set in extend.'"
@@ -711,14 +709,11 @@ def test_scalar_3_set_values():
     add_2 = Add()
     add_1 = Add()
     model1 += add_2
-    with pytest.raises(Exception) as err_info:
+    with pytest.raises(ValueError) as err_info:
         model1 += add_1(left="left", right="right", output="output")
         model1.set_values({"output": [add_2.left, 4.0]})
 
-    assert (
-        str(err_info.value)
-        == "Given connections are both output connections. Multi-write error!"
-    )
+    assert str(err_info.value) == "Values of internal and output keys cannot be set."
 
 
 def test_scalar_4():
@@ -735,14 +730,11 @@ def test_scalar_4():
 def test_scalar_4_set_values():
     model1 = Model(enforce_jit=False)
     add_1 = Add()
-    with pytest.raises(Exception) as err_info:
+    with pytest.raises(ValueError) as err_info:
         model1 += add_1(left="left", right="right", output="output")
         model1.set_values({"output": 3.0})
 
-    assert (
-        str(err_info.value)
-        == "Given connections are both output connections. Multi-write error!"
-    )
+    assert str(err_info.value) == "Values of internal and output keys cannot be set."
 
 
 def test_static_1():
@@ -759,7 +751,7 @@ def test_static_1():
         model1.set_values({add_1.left: [3.0, 4.0]})
     assert (
         str(err_info.value)
-        == "Given connections are both output connections. Multi-write error!"
+        == "Value is set before as [2.0, 3.0]. A value can not be reset."
     )
 
 
@@ -770,12 +762,8 @@ def test_static_2():
     model1 += add_1(left=[2.0, 3.0], right="right", output=IOKey(name="output"))
     model2 += model1
     comp_model = mithril.compile(model=model2, backend=NumpyBackend())
-    import numpy as np
 
-    infered_value = comp_model.data_store._cached_data[
-        "_Model_0_ToTensor_0_output"
-    ].value
-
+    infered_value = comp_model.data_store.data_values["left"]
     assert isinstance(infered_value, np.ndarray)
     np.testing.assert_almost_equal(
         infered_value,
@@ -799,9 +787,7 @@ def test_static_2_set_values():
     model2 += model1
     comp_model = mithril.compile(model=model2, backend=NumpyBackend())
 
-    infered_value = comp_model.data_store._cached_data[
-        "_Model_0_ToTensor_0_output"
-    ].value
+    infered_value = comp_model.data_store.data_values["left"]
 
     assert isinstance(infered_value, np.ndarray)
     np.testing.assert_almost_equal(
@@ -826,15 +812,17 @@ def test_static_3_connection_not_found():
     assert not isinstance(model2.canonical_input, NotAvailable)
     connection = add_1.right
     assert isinstance(connection, Connection)
-    with pytest.raises(KeyError) as err:
+    with pytest.raises(ValueError) as err:
         mithril.compile(
             model=model2,
             backend=NumpyBackend(),
             constant_keys={connection: [3.0, 4.0]},
             safe_names=False,
         )
-
-    assert str(err.value) == (f"'Given connection not found: {connection}'")
+    assert (
+        str(err.value) == f"Statically given connection: {connection} has been already "  # type: ignore
+        "set as static with a value!"
+    )
 
 
 def test_valued_canonical_input_not_available():
@@ -869,12 +857,12 @@ def test_static_4():
     )
 
     expected = {
-        "_ToTensor_0_output": backend.array(0.6),
-        "_ToTensor_2_output": backend.array(1),
-        "_ToTensor_3_output": backend.array(0),
+        "right": backend.array(0.6),
+        "input1": backend.array(1.0),
+        "input2": backend.array(0),
     }
     for key, value in expected.items():
-        assert compiled_model.data_store.cached_data[key].value == value
+        assert compiled_model.data_store.data_values[key] == value
 
 
 def test_static_4_set_values():
@@ -889,12 +877,12 @@ def test_static_4_set_values():
     )
 
     expected = {
-        "_ToTensor_0_output": backend.array(0.6),
-        "_ToTensor_2_output": backend.array(1),
-        "_ToTensor_3_output": backend.array(0),
+        "right": backend.array(0.6),
+        "input1": backend.array(1.0),
+        "input2": backend.array(0),
     }
     for key, value in expected.items():
-        assert compiled_model.data_store.cached_data[key].value == value
+        assert compiled_model.data_store.data_values[key] == value
 
 
 def test_str_axis():
@@ -974,12 +962,11 @@ def test_static_type_set_value():
 # TODO: why this test here?
 def test_nontensor_extend_from_input_multiple_connection():
     model = Model()
-    mean1, mean2, mean3, mean4 = (
-        Mean(axis=TBD),
-        Mean(axis=TBD),
-        Mean(axis=TBD),
-        Mean(axis=TBD),
-    )
+    mean1 = Mean(axis=TBD)
+    mean2 = Mean(axis=TBD)
+    mean3 = Mean(axis=TBD)
+    mean4 = Mean(axis=TBD)
+
     model += mean1
     model += mean2
     model += mean3
@@ -1139,7 +1126,7 @@ def test_static_input_1():
 
     output = comp_model.evaluate(
         data={
-            "input": np.array(2.0, dtype=np.float32),
+            "left": np.array(2.0, dtype=np.float32),
             "right": np.array(3.0, dtype=np.float32),
         }
     )["output"]
@@ -1295,9 +1282,9 @@ def test_static_input_6():
     comp_model = mithril.compile(model=model_2, backend=backend, jit=False)
     output = comp_model.evaluate()
 
-    assert model_1.left.metadata.data.value is TBD  # type: ignore  # It is Tensor type.
+    assert model_1.left.metadata.data.value == 3.0  # type: ignore  # It is Tensor type.
     assert (
-        model_1.right.metadata.data.value is TBD  # type: ignore
+        model_1.right.metadata.data.value == 4.0  # type: ignore
     )  # It is Tensor type.
     assert (
         model_2.left.metadata.data.value == 3.0  # type: ignore
@@ -1338,8 +1325,7 @@ def test_static_input_6_error():
             out2=IOKey(name="output_1"),  # type: ignore
         )
     assert (
-        str(err_info.value)
-        == "Value is set before as 1.0. A scalar value can not be reset."
+        str(err_info.value) == "Value is set before as 1.0. A value can not be reset."
     )
 
 
@@ -1369,7 +1355,7 @@ def test_linear_1():
     model = Model()
     lin1 = Linear()
     lin1.input.set_differentiable(True)
-    lin1.set_shapes({"w": [2, 2], "input": [2, 2]})
+    lin1.set_shapes({"weight": [2, 2], "input": [2, 2]})
     model += lin1(input="input", output=IOKey(name="output"))
     assert_all_backends_device_precision(model)
 
@@ -1650,8 +1636,8 @@ def test_composite_conv_mean_2():
     comp_model = mithril.compile(
         model=model, backend=NumpyBackend(), jit=False, safe_names=False
     )
-    inputs = {"kernel": np.ones((1, 1, 2, 2)), "bias": np.ones((1, 1, 1, 1))}
-    outputs = comp_model.evaluate(params=inputs, data={"stride_1": (1, 2)})
+    inputs = {"weight": np.ones((1, 1, 2, 2)), "bias": np.ones((1, 1, 1, 1))}
+    outputs = comp_model.evaluate(params=inputs, data={"stride": (1, 2)})
     ref_outputs = {"output": np.ones((1, 4)) * 35.0}
     assert_results_equal(outputs, ref_outputs)
 
@@ -1667,8 +1653,8 @@ def test_composite_conv_mean_2_set_values():
     comp_model = mithril.compile(
         model=model, backend=NumpyBackend(), jit=False, safe_names=False
     )
-    inputs = {"kernel": np.ones((1, 1, 2, 2)), "bias": np.ones((1, 1, 1, 1))}
-    outputs = comp_model.evaluate(params=inputs, data={"stride_1": (1, 2)})
+    inputs = {"weight": np.ones((1, 1, 2, 2)), "bias": np.ones((1, 1, 1, 1))}
+    outputs = comp_model.evaluate(params=inputs, data={"stride": (1, 2)})
     ref_outputs = {"output": np.ones((1, 4)) * 35.0}
     assert_results_equal(outputs, ref_outputs)
 
@@ -1679,14 +1665,19 @@ def test_unused_cached_values_1():
     """
     model = Model()
     linear_model = Linear(dimension=2)
-    model += linear_model(input=[[3.0], [2.0]], w=[[1.0], [2.0]], b=[3.0, 1.0])
+    model += linear_model(input=[[3.0], [2.0]], weight=[[1.0], [2.0]], bias=[3.0, 1.0])
     comp_model = mithril.compile(model=model, backend=(backend := NumpyBackend()))
     dtype = backend.get_backend_array_type()
     cache = comp_model.data_store.data_values
     expected_cache = {"output": np.array([[6.0, 7.0], [5.0, 5.0]], dtype=dtype)}
     # Check cached_data.
     assert cache is not None and cache.keys() == expected_cache.keys()
-    assert all([np.all(value == expected_cache[key]) for key, value in cache.items()])
+    assert all(
+        [
+            np.all(comp_model.data_store.data_values[key] == expected_cache[key])
+            for key in cache
+        ]
+    )
     # Check runtime data keys.
     data_keys = comp_model.data_store.runtime_static_keys
     assert data_keys == set()
@@ -1707,8 +1698,8 @@ def test_unused_cached_values_1_set_values():
     linear_model = Linear(dimension=2)
     model += linear_model()
     config: dict[Connection, list] = {
-        linear_model.w: [[1.0], [2.0]],
-        linear_model.b: [3.0, 1.0],
+        linear_model.weight: [[1.0], [2.0]],
+        linear_model.bias: [3.0, 1.0],
         linear_model.input: [[3.0], [2.0]],
     }
     model.set_values(config)
@@ -1737,18 +1728,20 @@ def test_unused_cached_values_2():
     """
     model = Model()
     linear_model = Linear(dimension=2)
-    model += linear_model(w=[[1.0], [2.0]], b=[3.0, 1.0])
+    model += linear_model(weight=[[1.0], [2.0]], bias=[3.0, 1.0])
     comp_model = mithril.compile(
         model=model, backend=(backend := NumpyBackend()), safe_names=False
     )
     dtype = backend.get_backend_array_type()
     cache = comp_model.data_store.data_values
 
+    model = Model() + Convolution2D()
+
     expected_cache = {
-        "_Linear_2_Transpose_0_output": np.array([[1.0, 2.0]], dtype=dtype),
-        "_ToTensor_1_output": np.array([3.0, 1.0], dtype=dtype),
+        "output_0": np.array([[1.0, 2.0]], dtype=dtype),
+        "bias": np.array([3.0, 1.0], dtype=dtype),
         "output_cache": {},
-        "_Linear_2_MatrixMultiply_1_output_cache": {},
+        "output_1_cache": {},
     }
     # Check cached_data.
     assert cache is not None and cache.keys() == expected_cache.keys()
@@ -1777,8 +1770,8 @@ def test_unused_cached_values_2_set_values():
     linear_model = Linear(dimension=2)
     model += linear_model()
     config: dict[Connection, list] = {
-        linear_model.w: [[1.0], [2.0]],
-        linear_model.b: [3.0, 1.0],
+        linear_model.weight: [[1.0], [2.0]],
+        linear_model.bias: [3.0, 1.0],
     }
     model.set_values(config)
     comp_model = mithril.compile(
@@ -1788,10 +1781,10 @@ def test_unused_cached_values_2_set_values():
     cache = comp_model.data_store.data_values
 
     expected_cache = {
-        "_Linear_2_Transpose_0_output": np.array([[1.0, 2.0]], dtype=dtype),
-        "_ToTensor_1_output": np.array([3.0, 1.0], dtype=dtype),
+        "output_0": np.array([[1.0, 2.0]], dtype=dtype),
+        "bias": np.array([3.0, 1.0], dtype=dtype),
         "output_cache": {},
-        "_Linear_2_MatrixMultiply_1_output_cache": {},
+        "output_1_cache": {},
     }
     # Check cached_data.
     assert cache is not None and cache.keys() == expected_cache.keys()
@@ -1818,8 +1811,8 @@ def test_unused_cached_values_3():
     """
     model = Model()
     linear_model = Linear(dimension=2)
-    model += linear_model(input=[[3.0], [2.0]], w=[[1.0], [2.0]])
-    linear_model.b.set_differentiable(False)
+    model += linear_model(input=[[3.0], [2.0]], weight=[[1.0], [2.0]])
+    linear_model.bias.set_differentiable(False)
     comp_model = mithril.compile(
         model=model, backend=(backend := NumpyBackend()), safe_names=False
     )
@@ -1828,17 +1821,17 @@ def test_unused_cached_values_3():
 
     expected_cache = {
         "output_cache": {},
-        "_Linear_2_MatrixMultiply_1_output": np.array([[3.0, 6], [2, 4]], dtype=dtype),
+        "output_1": np.array([[3.0, 6], [2, 4]], dtype=dtype),
     }
     # Check cached_data.
     assert cache is not None and cache.keys() == expected_cache.keys()
     assert all([np.all(value == expected_cache[key]) for key, value in cache.items()])
     # Check runtime data keys.
     data_keys = comp_model.data_store.runtime_static_keys
-    expected_data_keys = {"b"}
+    expected_data_keys = {"bias"}
     assert data_keys == expected_data_keys
     # Try evaluate and evaluate gradients once.
-    data = {"b": np.array([3.0, 1.0], dtype=dtype)}
+    data = {"bias": np.array([3.0, 1.0], dtype=dtype)}
     result = comp_model.evaluate(params={}, data=data)
     gradients = comp_model.evaluate_gradients(
         params={},
@@ -1857,9 +1850,9 @@ def test_unused_cached_values_3_set_values():
     linear_model = Linear(dimension=2)
     model += linear_model()
     model.set_values(
-        {linear_model.input: [[3.0], [2.0]], linear_model.w: [[1.0], [2.0]]}
+        {linear_model.input: [[3.0], [2.0]], linear_model.weight: [[1.0], [2.0]]}
     )
-    linear_model.b.set_differentiable(False)
+    linear_model.bias.set_differentiable(False)
     comp_model = mithril.compile(
         model=model, backend=(backend := NumpyBackend()), safe_names=False
     )
@@ -1868,17 +1861,17 @@ def test_unused_cached_values_3_set_values():
 
     expected_cache = {
         "output_cache": {},
-        "_Linear_2_MatrixMultiply_1_output": np.array([[3.0, 6], [2, 4]], dtype=dtype),
+        "output_1": np.array([[3.0, 6], [2, 4]], dtype=dtype),
     }
     # Check cached_data.
     assert cache is not None and cache.keys() == expected_cache.keys()
     assert all([np.all(value == expected_cache[key]) for key, value in cache.items()])
     # Check runtime data keys.
     data_keys = comp_model.data_store.runtime_static_keys
-    expected_data_keys = {"b"}
+    expected_data_keys = {"bias"}
     assert data_keys == expected_data_keys
     # Try evaluate and evaluate gradients once.
-    data = {"b": np.array([3.0, 1.0], dtype=dtype)}
+    data = {"bias": np.array([3.0, 1.0], dtype=dtype)}
     result = comp_model.evaluate(params={}, data=data)
     gradients = comp_model.evaluate_gradients(
         params={},
@@ -2036,8 +2029,8 @@ def test_static_shape_model_5():
     cache = comp_model.data_store.data_values
     expected_cache = {
         "output1": np.array([8, 8], dtype=np.int32),
-        "_Relu_0_output": backend.ones(8, 8),
-        "_Log_1_output_cache": {},
+        "output_0": backend.ones(8, 8),
+        "output_1_cache": {},
         "output2_cache": {},
     }
     # Check cached_data.
@@ -2597,3 +2590,39 @@ def test_all_inputs_static():
     )
     assert outputs["output"] == backend.array(1.5)
     assert grads == {}
+
+
+def test_reshape_call_arg_vs_init_arg():
+    model1 = Model()
+    model1 += Reshape(shape=(2, 3, None, None))
+
+    model2 = Model()
+    model2 += Reshape()(shape=(2, 3, None, None))
+
+    model3 = Model()
+    model3 += (reshape := Reshape())
+    reshape.set_values({"shape": (2, 3, None, None)})
+
+    assert_models_equal(model1, model2)
+    assert_models_equal(model2, model3)
+
+
+def test_add_constant():
+    model = Model()
+    model += Add()(left="input", right="w")
+    model.set_values({"input": [1.0]})
+    backend = JaxBackend()
+    pm = mithril.compile(model=model, backend=backend)
+    assert pm.evaluate(params={"w": backend.array([2.0])})["output"] == backend.array(
+        [3.0]
+    )
+
+
+def test_add_constant_iokey():
+    model = Model()
+    model += Add()(left=IOKey("input", value=[1.0]), right="w")
+    backend = JaxBackend()
+    pm = mithril.compile(model=model, backend=backend)
+    assert pm.evaluate(params={"w": backend.array([2.0])})["output"] == backend.array(
+        [3.0]
+    )

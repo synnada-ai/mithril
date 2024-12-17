@@ -301,8 +301,11 @@ def softplus(input: mx.array) -> mx.array:
     return nn.softplus(input)
 
 
-def gelu(input: mx.array) -> mx.array:
-    return nn.gelu(input)
+def gelu(input: mx.array, approximate: bool) -> mx.array:
+    if approximate:
+        return nn.gelu_approx(input)
+    else:
+        return nn.gelu(input)
 
 
 def softmax(input: mx.array, *, axis: int = -1) -> mx.array:
@@ -366,7 +369,7 @@ def variance(
 # NN ops
 def conv1d(
     input: mx.array,
-    kernel: mx.array,
+    weight: mx.array,
     *,
     stride: int = 1,
     padding: tuple[int, int] = (1, 1),
@@ -376,10 +379,10 @@ def conv1d(
 
     # Channel first -> Channel last
     input = mx.swapaxes(input, -2, -1)
-    kernel = mx.swapaxes(kernel, -2, -1)
+    weight = mx.swapaxes(weight, -2, -1)
     result = mx.conv1d(
         input,
-        kernel,
+        weight,
         stride=stride,
         padding=0,
         dilation=dilation,
@@ -390,7 +393,7 @@ def conv1d(
 
 def conv1d_bias(
     input: mx.array,
-    kernel: mx.array,
+    weight: mx.array,
     bias: mx.array,
     *,
     stride: int = 1,
@@ -398,13 +401,13 @@ def conv1d_bias(
     dilation: int = 1,
 ) -> mx.array:
     return (
-        conv1d(input, kernel, stride=stride, padding=padding, dilation=dilation) + bias
+        conv1d(input, weight, stride=stride, padding=padding, dilation=dilation) + bias
     )
 
 
 def conv2d(
     input: mx.array,
-    kernel: mx.array,
+    weight: mx.array,
     *,
     stride: tuple[int, int] = (1, 1),
     padding: tuple[int, int] | tuple[tuple[int, int], tuple[int, int]] = (
@@ -430,10 +433,10 @@ def conv2d(
 
     # Channel first -> Channel last
     input = mx.swapaxes(input, -3, -1)
-    kernel = mx.swapaxes(kernel, -3, -1)
+    weight = mx.swapaxes(weight, -3, -1)
     result = mx.conv2d(
         input,
-        kernel,
+        weight,
         stride=stride,
         padding=_padding,
         dilation=dilation,
@@ -444,7 +447,7 @@ def conv2d(
 
 def conv2d_bias(
     input: mx.array,
-    kernel: mx.array,
+    weight: mx.array,
     bias: mx.array,
     *,
     stride: tuple[int, int] = (1, 1),
@@ -452,7 +455,7 @@ def conv2d_bias(
     dilation: tuple[int, int] = (1, 1),
 ) -> mx.array:
     return (
-        conv2d(input, kernel, stride=stride, padding=padding, dilation=dilation) + bias
+        conv2d(input, weight, stride=stride, padding=padding, dilation=dilation) + bias
     )
 
 

@@ -662,8 +662,6 @@ def test_torch_encoder_decoder_var_seq_len():
 
     # define backend
     backend = TorchBackend()
-    # import sys
-    # sys.setrecursionlimit(1500)
 
     # Create random input and target with variable lengths
     inputs = create_random_sequence_with_variable_lengths(

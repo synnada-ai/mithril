@@ -85,7 +85,7 @@ def test_single_input_primitive(file_path):
 @with_temp_file(".py")
 def test_multi_input_primitive(file_path: str):
     model = Model()
-    model += Linear()(input="input", w="w", output="output")
+    model += Linear()(input="input", weight="w", bias="b", output="output")
     model.input.set_differentiable(True)  # type: ignore
     model.set_shapes({"input": [1, 2, 3]})
     backend = NumpyBackend()
@@ -98,21 +98,18 @@ def test_multi_input_primitive(file_path: str):
     # Because of we set inference flag to False, caches will be stored
     @typing.no_type_check
     def evaluate(params, data, cache):
-        _Linear_0_MatrixMultiply_0_output_cache = cache[
-            "_Linear_0_MatrixMultiply_0_output_cache"
-        ]
+        axes = cache["axes"]
         b = params["b"]
         input = params["input"]
+        output_0_cache = cache["output_0_cache"]
+        output_1_cache = cache["output_1_cache"]
         output_cache = cache["output_cache"]
         w = params["w"]
-        _Linear_0_MatrixMultiply_0_output = _Linear_0_MatrixMultiply_0_output_cache[
-            "output"
-        ] = make_array(
-            matrix_multiplication(input, w, _Linear_0_MatrixMultiply_0_output_cache)
+        output_0 = output_0_cache["output"] = transpose(w, axes, cache=output_0_cache)
+        output_1 = output_1_cache["output"] = make_array(
+            matrix_multiplication(input, output_0, output_1_cache)
         )
-        output = output_cache["output"] = make_array(
-            add(_Linear_0_MatrixMultiply_0_output, b, output_cache)
-        )
+        output = output_cache["output"] = make_array(add(output_1, b, output_cache))
         return {"output": output}
 
     compare_callables(evaluate, eval_func)
@@ -121,22 +118,26 @@ def test_multi_input_primitive(file_path: str):
 
     @typing.no_type_check  # type: ignore
     def evaluate(params, data, cache):
+        axes = cache["axes"]
         b = params["b"]
         input = params["input"]
         w = params["w"]
-        _Linear_0_MatrixMultiply_0_output = make_array(matrix_multiplication(input, w))
-        output = make_array(add(_Linear_0_MatrixMultiply_0_output, b))
+        output_0 = transpose(w, axes)
+        output_1 = make_array(matrix_multiplication(input, output_0))
+        output = make_array(add(output_1, b))
         return {"output": output}
 
     compare_callables(evaluate, eval_func)
 
     @typing.no_type_check  # type: ignore
     def evaluate(params, data, cache):
+        axes = cache["axes"]
         b = params["b"]
         input = params["input"]
         w = params["w"]
-        _Linear_0_MatrixMultiply_0_output = matrix_multiplication(input, w)
-        output = add(_Linear_0_MatrixMultiply_0_output, b)
+        output_0 = transpose(w, axes)
+        output_1 = matrix_multiplication(input, output_0)
+        output = add(output_1, b)
         return {"output": output}
 
     mithril.compile(model, JaxBackend(), inference=True, jit=False, file_path=file_path)

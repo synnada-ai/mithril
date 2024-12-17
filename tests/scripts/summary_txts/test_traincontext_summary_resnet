@@ -1,15 +1,14 @@
-
                                           Model                                           
 ------------------------------------------------------------------------------------------
 Model Name      |                                      Model Keys                         
                 |             ------------------------------------------------------------
                 |             Keys       : Shapes                   : Connections         
 ==========================================================================================
-Convolution2D   |   Inputs  : kernel     : [  64, None,    7,    7] : '$kernel_0'         
-                |             padding    :                       -- : 3                   
+Convolution2D   |   Inputs  : weight     : [  64, None,    7,    7] : '$weight_0'         
                 |             $start     :                       -- : -2                  
                 |             $stop      :                       -- : None                
                 |             $step      :                       -- : None                
+                |             padding    :                       -- : 3                   
                 |             stride     :                       -- : 2                   
                 |             dilation   :                       -- : (1, 1)              
                 |             input      : [None, None, None, None] : '$input'            
@@ -17,86 +16,86 @@ Convolution2D   |   Inputs  : kernel     : [  64, None,    7,    7] : '$kernel_0
                 |   ----------------------------------------------------------------------
                 |   Outputs : output     : [None,   64, None, None] : Model_0.$input      
 ------------------------------------------------------------------------------------------
-Model_0         |   Inputs  : $kernel_1  : [  64,   64,    3,    3] : '$kernel_1'         
+Model_0         |   Inputs  : $weight_1  : [  64,   64,    3,    3] : '$weight_1'         
                 |             $input     : [None,   64, None, None] : Convolution2D.output
                 |             $bias_1    : [   1,   64,    1,    1] : '$bias_1'           
-                |             $kernel_2  : [  64,   64,    3,    3] : '$kernel_2'         
+                |             $weight_2  : [  64,   64,    3,    3] : '$weight_2'         
                 |             $bias_2    : [   1,   64,    1,    1] : '$bias_2'           
-                |             $kernel_3  : [  64,   64,    1,    1] : '$kernel_3'         
+                |             $weight_3  : [  64,   64,    1,    1] : '$weight_3'         
                 |             $bias_3    : [   1,   64,    1,    1] : '$bias_3'           
-                |             $kernel_4  : [  64,   64,    3,    3] : '$kernel_4'         
+                |             $weight_4  : [  64,   64,    3,    3] : '$weight_4'         
                 |             $bias_4    : [   1,   64,    1,    1] : '$bias_4'           
-                |             $kernel_5  : [  64,   64,    3,    3] : '$kernel_5'         
+                |             $weight_5  : [  64,   64,    3,    3] : '$weight_5'         
                 |             $bias_5    : [   1,   64,    1,    1] : '$bias_5'           
                 |   ----------------------------------------------------------------------
                 |   Outputs : $output    : [None,   64, None, None] : Model_1.$input      
 ------------------------------------------------------------------------------------------
-Model_1         |   Inputs  : $kernel_6  : [ 128,   64,    3,    3] : '$kernel_6'         
+Model_1         |   Inputs  : $weight_6  : [ 128,   64,    3,    3] : '$weight_6'         
                 |             $input     : [None,   64, None, None] : Model_0.$output     
                 |             $bias_6    : [   1,  128,    1,    1] : '$bias_6'           
-                |             $kernel_7  : [ 128,  128,    3,    3] : '$kernel_7'         
+                |             $weight_7  : [ 128,  128,    3,    3] : '$weight_7'         
                 |             $bias_7    : [   1,  128,    1,    1] : '$bias_7'           
-                |             $kernel_8  : [ 128,   64,    1,    1] : '$kernel_8'         
+                |             $weight_8  : [ 128,   64,    1,    1] : '$weight_8'         
                 |             $bias_8    : [   1,  128,    1,    1] : '$bias_8'           
-                |             $kernel_9  : [ 128,  128,    3,    3] : '$kernel_9'         
+                |             $weight_9  : [ 128,  128,    3,    3] : '$weight_9'         
                 |             $bias_9    : [   1,  128,    1,    1] : '$bias_9'           
-                |             $kernel_10 : [ 128,  128,    3,    3] : '$kernel_10'        
+                |             $weight_10 : [ 128,  128,    3,    3] : '$weight_10'        
                 |             $bias_10   : [   1,  128,    1,    1] : '$bias_10'          
-                |             $kernel_11 : [ 128,  128,    3,    3] : '$kernel_11'        
+                |             $weight_11 : [ 128,  128,    3,    3] : '$weight_11'        
                 |             $bias_11   : [   1,  128,    1,    1] : '$bias_11'          
-                |             $kernel_12 : [ 128,  128,    3,    3] : '$kernel_12'        
+                |             $weight_12 : [ 128,  128,    3,    3] : '$weight_12'        
                 |             $bias_12   : [   1,  128,    1,    1] : '$bias_12'          
-                |             $kernel_13 : [ 128,  128,    3,    3] : '$kernel_13'        
+                |             $weight_13 : [ 128,  128,    3,    3] : '$weight_13'        
                 |             $bias_13   : [   1,  128,    1,    1] : '$bias_13'          
-                |             $kernel_14 : [ 128,  128,    3,    3] : '$kernel_14'        
+                |             $weight_14 : [ 128,  128,    3,    3] : '$weight_14'        
                 |             $bias_14   : [   1,  128,    1,    1] : '$bias_14'          
                 |   ----------------------------------------------------------------------
                 |   Outputs : $output    : [None,  128, None, None] : Model_2.$input      
 ------------------------------------------------------------------------------------------
-Model_2         |   Inputs  : $kernel_15 : [ 256,  128,    3,    3] : '$kernel_15'        
+Model_2         |   Inputs  : $weight_15 : [ 256,  128,    3,    3] : '$weight_15'        
                 |             $input     : [None,  128, None, None] : Model_1.$output     
                 |             $bias_15   : [   1,  256,    1,    1] : '$bias_15'          
-                |             $kernel_16 : [ 256,  256,    3,    3] : '$kernel_16'        
+                |             $weight_16 : [ 256,  256,    3,    3] : '$weight_16'        
                 |             $bias_16   : [   1,  256,    1,    1] : '$bias_16'          
-                |             $kernel_17 : [ 256,  128,    1,    1] : '$kernel_17'        
+                |             $weight_17 : [ 256,  128,    1,    1] : '$weight_17'        
                 |             $bias_17   : [   1,  256,    1,    1] : '$bias_17'          
-                |             $kernel_18 : [ 256,  256,    3,    3] : '$kernel_18'        
+                |             $weight_18 : [ 256,  256,    3,    3] : '$weight_18'        
                 |             $bias_18   : [   1,  256,    1,    1] : '$bias_18'          
-                |             $kernel_19 : [ 256,  256,    3,    3] : '$kernel_19'        
+                |             $weight_19 : [ 256,  256,    3,    3] : '$weight_19'        
                 |             $bias_19   : [   1,  256,    1,    1] : '$bias_19'          
-                |             $kernel_20 : [ 256,  256,    3,    3] : '$kernel_20'        
+                |             $weight_20 : [ 256,  256,    3,    3] : '$weight_20'        
                 |             $bias_20   : [   1,  256,    1,    1] : '$bias_20'          
-                |             $kernel_21 : [ 256,  256,    3,    3] : '$kernel_21'        
+                |             $weight_21 : [ 256,  256,    3,    3] : '$weight_21'        
                 |             $bias_21   : [   1,  256,    1,    1] : '$bias_21'          
-                |             $kernel_22 : [ 256,  256,    3,    3] : '$kernel_22'        
+                |             $weight_22 : [ 256,  256,    3,    3] : '$weight_22'        
                 |             $bias_22   : [   1,  256,    1,    1] : '$bias_22'          
-                |             $kernel_23 : [ 256,  256,    3,    3] : '$kernel_23'        
+                |             $weight_23 : [ 256,  256,    3,    3] : '$weight_23'        
                 |             $bias_23   : [   1,  256,    1,    1] : '$bias_23'          
-                |             $kernel_24 : [ 256,  256,    3,    3] : '$kernel_24'        
+                |             $weight_24 : [ 256,  256,    3,    3] : '$weight_24'        
                 |             $bias_24   : [   1,  256,    1,    1] : '$bias_24'          
-                |             $kernel_25 : [ 256,  256,    3,    3] : '$kernel_25'        
+                |             $weight_25 : [ 256,  256,    3,    3] : '$weight_25'        
                 |             $bias_25   : [   1,  256,    1,    1] : '$bias_25'          
-                |             $kernel_26 : [ 256,  256,    3,    3] : '$kernel_26'        
+                |             $weight_26 : [ 256,  256,    3,    3] : '$weight_26'        
                 |             $bias_26   : [   1,  256,    1,    1] : '$bias_26'          
-                |             $kernel_27 : [ 256,  256,    3,    3] : '$kernel_27'        
+                |             $weight_27 : [ 256,  256,    3,    3] : '$weight_27'        
                 |             $bias_27   : [   1,  256,    1,    1] : '$bias_27'          
                 |   ----------------------------------------------------------------------
                 |   Outputs : $output    : [None,  256, None, None] : Model_3.$input      
 ------------------------------------------------------------------------------------------
-Model_3         |   Inputs  : $kernel_28 : [ 512,  256,    3,    3] : '$kernel_28'        
+Model_3         |   Inputs  : $weight_28 : [ 512,  256,    3,    3] : '$weight_28'        
                 |             $input     : [None,  256, None, None] : Model_2.$output     
                 |             $bias_28   : [   1,  512,    1,    1] : '$bias_28'          
-                |             $kernel_29 : [ 512,  512,    3,    3] : '$kernel_29'        
+                |             $weight_29 : [ 512,  512,    3,    3] : '$weight_29'        
                 |             $bias_29   : [   1,  512,    1,    1] : '$bias_29'          
-                |             $kernel_30 : [ 512,  256,    1,    1] : '$kernel_30'        
+                |             $weight_30 : [ 512,  256,    1,    1] : '$weight_30'        
                 |             $bias_30   : [   1,  512,    1,    1] : '$bias_30'          
-                |             $kernel_31 : [ 512,  512,    3,    3] : '$kernel_31'        
+                |             $weight_31 : [ 512,  512,    3,    3] : '$weight_31'        
                 |             $bias_31   : [   1,  512,    1,    1] : '$bias_31'          
-                |             $kernel_32 : [ 512,  512,    3,    3] : '$kernel_32'        
+                |             $weight_32 : [ 512,  512,    3,    3] : '$weight_32'        
                 |             $bias_32   : [   1,  512,    1,    1] : '$bias_32'          
-                |             $kernel_33 : [ 512,  512,    3,    3] : '$kernel_33'        
+                |             $weight_33 : [ 512,  512,    3,    3] : '$weight_33'        
                 |             $bias_33   : [   1,  512,    1,    1] : '$bias_33'          
-                |             $kernel_34 : [ 512,  512,    3,    3] : '$kernel_34'        
+                |             $weight_34 : [ 512,  512,    3,    3] : '$weight_34'        
                 |             $bias_34   : [   1,  512,    1,    1] : '$bias_34'          
                 |   ----------------------------------------------------------------------
                 |   Outputs : $output    : [None,  512, None, None] : Flatten.input       
@@ -107,10 +106,10 @@ Flatten         |   Inputs  : input      : [None,  512, None, None] : Model_3.$o
                 |   ----------------------------------------------------------------------
                 |   Outputs : output     :             [None, None] : Linear.input        
 ------------------------------------------------------------------------------------------
-Linear          |   Inputs  : w          :             [   1, None] : '$w'                
+Linear          |   Inputs  : weight     :             [   1, None] : '$weight_35'        
                 |             $axes      :                       -- : None                
                 |             input      :             [None, None] : Flatten.output      
-                |             b          :                   [   1] : '$b'                
+                |             bias       :                   [   1] : '$bias_35'          
                 |   ----------------------------------------------------------------------
                 |   Outputs : output     :             [None,    1] : 'output'            
 ------------------------------------------------------------------------------------------
@@ -122,7 +121,7 @@ Model Name               |                                            Model Keys
                          |             -----------------------------------------------------------------------
                          |             Keys        : Shapes                   : Connections                   
 ==============================================================================================================
-Shape                    |   Inputs  : input       : [  64, None,    7,    7] : 'kernel'                      
+Shape                    |   Inputs  : input       : [  64, None,    7,    7] : 'weight'                      
                          |   ---------------------------------------------------------------------------------
                          |   Outputs : output      :                       -- : PrimitiveSlice.input          
 --------------------------------------------------------------------------------------------------------------
@@ -151,7 +150,7 @@ TupleConverter_2         |   Inputs  : input       :                       -- : 
                          |   Outputs : output      :                       -- : --                            
 --------------------------------------------------------------------------------------------------------------
 PrimitiveConvolution2D   |   Inputs  : input       : [None, None, None, None] : 'input'                       
-                         |             kernel      : [  64, None,    7,    7] : 'kernel'                      
+                         |             weight      : [  64, None,    7,    7] : 'weight'                      
                          |             bias        : [   1,   64,    1,    1] : 'bias'                        
                          |             stride      :                       -- : (2, 2)                        
                          |             padding     :                       -- : (3, 3)                        
@@ -167,20 +166,20 @@ Model Name   |                                  Model Keys
              |             ----------------------------------------------------
              |             Keys      : Shapes                 : Connections    
 ===============================================================================
-Model_0      |   Inputs  : $kernel_1 : [  64, 64,    3,    3] : '$kernel_1'    
+Model_0      |   Inputs  : $weight_1 : [  64, 64,    3,    3] : '$weight_1'    
              |             $input    : [None, 64, None, None] : '$input'       
              |             $bias_1   : [   1, 64,    1,    1] : '$bias_1'      
-             |             $kernel_2 : [  64, 64,    3,    3] : '$kernel_2'    
+             |             $weight_2 : [  64, 64,    3,    3] : '$weight_2'    
              |             $bias_2   : [   1, 64,    1,    1] : '$bias_2'      
-             |             $kernel_3 : [  64, 64,    1,    1] : '$kernel_3'    
+             |             $weight_3 : [  64, 64,    1,    1] : '$weight_3'    
              |             $bias_3   : [   1, 64,    1,    1] : '$bias_3'      
              |   --------------------------------------------------------------
              |   Outputs : $output   : [None, 64, None, None] : Model_1.$input 
 -------------------------------------------------------------------------------
-Model_1      |   Inputs  : $kernel_4 : [  64, 64,    3,    3] : '$kernel_4'    
+Model_1      |   Inputs  : $weight_4 : [  64, 64,    3,    3] : '$weight_4'    
              |             $input    : [None, 64, None, None] : Model_0.$output
              |             $bias_4   : [   1, 64,    1,    1] : '$bias_4'      
-             |             $kernel_5 : [  64, 64,    3,    3] : '$kernel_5'    
+             |             $weight_5 : [  64, 64,    3,    3] : '$weight_5'    
              |             $bias_5   : [   1, 64,    1,    1] : '$bias_5'      
              |   --------------------------------------------------------------
              |   Outputs : $output   : [None, 64, None, None] : '$output'      
@@ -193,36 +192,36 @@ Model Name   |                                   Model Keys
              |             ------------------------------------------------------
              |             Keys       : Shapes                  : Connections    
 =================================================================================
-Model_0      |   Inputs  : $kernel_6  : [ 128,  64,    3,    3] : '$kernel_6'    
+Model_0      |   Inputs  : $weight_6  : [ 128,  64,    3,    3] : '$weight_6'    
              |             $input     : [None,  64, None, None] : '$input'       
              |             $bias_6    : [   1, 128,    1,    1] : '$bias_6'      
-             |             $kernel_7  : [ 128, 128,    3,    3] : '$kernel_7'    
+             |             $weight_7  : [ 128, 128,    3,    3] : '$weight_7'    
              |             $bias_7    : [   1, 128,    1,    1] : '$bias_7'      
-             |             $kernel_8  : [ 128,  64,    1,    1] : '$kernel_8'    
+             |             $weight_8  : [ 128,  64,    1,    1] : '$weight_8'    
              |             $bias_8    : [   1, 128,    1,    1] : '$bias_8'      
              |   ----------------------------------------------------------------
              |   Outputs : $output    : [None, 128, None, None] : Model_1.$input 
 ---------------------------------------------------------------------------------
-Model_1      |   Inputs  : $kernel_9  : [ 128, 128,    3,    3] : '$kernel_9'    
+Model_1      |   Inputs  : $weight_9  : [ 128, 128,    3,    3] : '$weight_9'    
              |             $input     : [None, 128, None, None] : Model_0.$output
              |             $bias_9    : [   1, 128,    1,    1] : '$bias_9'      
-             |             $kernel_10 : [ 128, 128,    3,    3] : '$kernel_10'   
+             |             $weight_10 : [ 128, 128,    3,    3] : '$weight_10'   
              |             $bias_10   : [   1, 128,    1,    1] : '$bias_10'     
              |   ----------------------------------------------------------------
              |   Outputs : $output    : [None, 128, None, None] : Model_2.$input 
 ---------------------------------------------------------------------------------
-Model_2      |   Inputs  : $kernel_11 : [ 128, 128,    3,    3] : '$kernel_11'   
+Model_2      |   Inputs  : $weight_11 : [ 128, 128,    3,    3] : '$weight_11'   
              |             $input     : [None, 128, None, None] : Model_1.$output
              |             $bias_11   : [   1, 128,    1,    1] : '$bias_11'     
-             |             $kernel_12 : [ 128, 128,    3,    3] : '$kernel_12'   
+             |             $weight_12 : [ 128, 128,    3,    3] : '$weight_12'   
              |             $bias_12   : [   1, 128,    1,    1] : '$bias_12'     
              |   ----------------------------------------------------------------
              |   Outputs : $output    : [None, 128, None, None] : Model_3.$input 
 ---------------------------------------------------------------------------------
-Model_3      |   Inputs  : $kernel_13 : [ 128, 128,    3,    3] : '$kernel_13'   
+Model_3      |   Inputs  : $weight_13 : [ 128, 128,    3,    3] : '$weight_13'   
              |             $input     : [None, 128, None, None] : Model_2.$output
              |             $bias_13   : [   1, 128,    1,    1] : '$bias_13'     
-             |             $kernel_14 : [ 128, 128,    3,    3] : '$kernel_14'   
+             |             $weight_14 : [ 128, 128,    3,    3] : '$weight_14'   
              |             $bias_14   : [   1, 128,    1,    1] : '$bias_14'     
              |   ----------------------------------------------------------------
              |   Outputs : $output    : [None, 128, None, None] : '$output'      
@@ -235,52 +234,52 @@ Model Name   |                                   Model Keys
              |             ------------------------------------------------------
              |             Keys       : Shapes                  : Connections    
 =================================================================================
-Model_0      |   Inputs  : $kernel_15 : [ 256, 128,    3,    3] : '$kernel_15'   
+Model_0      |   Inputs  : $weight_15 : [ 256, 128,    3,    3] : '$weight_15'   
              |             $input     : [None, 128, None, None] : '$input'       
              |             $bias_15   : [   1, 256,    1,    1] : '$bias_15'     
-             |             $kernel_16 : [ 256, 256,    3,    3] : '$kernel_16'   
+             |             $weight_16 : [ 256, 256,    3,    3] : '$weight_16'   
              |             $bias_16   : [   1, 256,    1,    1] : '$bias_16'     
-             |             $kernel_17 : [ 256, 128,    1,    1] : '$kernel_17'   
+             |             $weight_17 : [ 256, 128,    1,    1] : '$weight_17'   
              |             $bias_17   : [   1, 256,    1,    1] : '$bias_17'     
              |   ----------------------------------------------------------------
              |   Outputs : $output    : [None, 256, None, None] : Model_1.$input 
 ---------------------------------------------------------------------------------
-Model_1      |   Inputs  : $kernel_18 : [ 256, 256,    3,    3] : '$kernel_18'   
+Model_1      |   Inputs  : $weight_18 : [ 256, 256,    3,    3] : '$weight_18'   
              |             $input     : [None, 256, None, None] : Model_0.$output
              |             $bias_18   : [   1, 256,    1,    1] : '$bias_18'     
-             |             $kernel_19 : [ 256, 256,    3,    3] : '$kernel_19'   
+             |             $weight_19 : [ 256, 256,    3,    3] : '$weight_19'   
              |             $bias_19   : [   1, 256,    1,    1] : '$bias_19'     
              |   ----------------------------------------------------------------
              |   Outputs : $output    : [None, 256, None, None] : Model_2.$input 
 ---------------------------------------------------------------------------------
-Model_2      |   Inputs  : $kernel_20 : [ 256, 256,    3,    3] : '$kernel_20'   
+Model_2      |   Inputs  : $weight_20 : [ 256, 256,    3,    3] : '$weight_20'   
              |             $input     : [None, 256, None, None] : Model_1.$output
              |             $bias_20   : [   1, 256,    1,    1] : '$bias_20'     
-             |             $kernel_21 : [ 256, 256,    3,    3] : '$kernel_21'   
+             |             $weight_21 : [ 256, 256,    3,    3] : '$weight_21'   
              |             $bias_21   : [   1, 256,    1,    1] : '$bias_21'     
              |   ----------------------------------------------------------------
              |   Outputs : $output    : [None, 256, None, None] : Model_3.$input 
 ---------------------------------------------------------------------------------
-Model_3      |   Inputs  : $kernel_22 : [ 256, 256,    3,    3] : '$kernel_22'   
+Model_3      |   Inputs  : $weight_22 : [ 256, 256,    3,    3] : '$weight_22'   
              |             $input     : [None, 256, None, None] : Model_2.$output
              |             $bias_22   : [   1, 256,    1,    1] : '$bias_22'     
-             |             $kernel_23 : [ 256, 256,    3,    3] : '$kernel_23'   
+             |             $weight_23 : [ 256, 256,    3,    3] : '$weight_23'   
              |             $bias_23   : [   1, 256,    1,    1] : '$bias_23'     
              |   ----------------------------------------------------------------
              |   Outputs : $output    : [None, 256, None, None] : Model_4.$input 
 ---------------------------------------------------------------------------------
-Model_4      |   Inputs  : $kernel_24 : [ 256, 256,    3,    3] : '$kernel_24'   
+Model_4      |   Inputs  : $weight_24 : [ 256, 256,    3,    3] : '$weight_24'   
              |             $input     : [None, 256, None, None] : Model_3.$output
              |             $bias_24   : [   1, 256,    1,    1] : '$bias_24'     
-             |             $kernel_25 : [ 256, 256,    3,    3] : '$kernel_25'   
+             |             $weight_25 : [ 256, 256,    3,    3] : '$weight_25'   
              |             $bias_25   : [   1, 256,    1,    1] : '$bias_25'     
              |   ----------------------------------------------------------------
              |   Outputs : $output    : [None, 256, None, None] : Model_5.$input 
 ---------------------------------------------------------------------------------
-Model_5      |   Inputs  : $kernel_26 : [ 256, 256,    3,    3] : '$kernel_26'   
+Model_5      |   Inputs  : $weight_26 : [ 256, 256,    3,    3] : '$weight_26'   
              |             $input     : [None, 256, None, None] : Model_4.$output
              |             $bias_26   : [   1, 256,    1,    1] : '$bias_26'     
-             |             $kernel_27 : [ 256, 256,    3,    3] : '$kernel_27'   
+             |             $weight_27 : [ 256, 256,    3,    3] : '$weight_27'   
              |             $bias_27   : [   1, 256,    1,    1] : '$bias_27'     
              |   ----------------------------------------------------------------
              |   Outputs : $output    : [None, 256, None, None] : '$output'      
@@ -293,28 +292,28 @@ Model Name   |                                   Model Keys
              |             ------------------------------------------------------
              |             Keys       : Shapes                  : Connections    
 =================================================================================
-Model_0      |   Inputs  : $kernel_28 : [ 512, 256,    3,    3] : '$kernel_28'   
+Model_0      |   Inputs  : $weight_28 : [ 512, 256,    3,    3] : '$weight_28'   
              |             $input     : [None, 256, None, None] : '$input'       
              |             $bias_28   : [   1, 512,    1,    1] : '$bias_28'     
-             |             $kernel_29 : [ 512, 512,    3,    3] : '$kernel_29'   
+             |             $weight_29 : [ 512, 512,    3,    3] : '$weight_29'   
              |             $bias_29   : [   1, 512,    1,    1] : '$bias_29'     
-             |             $kernel_30 : [ 512, 256,    1,    1] : '$kernel_30'   
+             |             $weight_30 : [ 512, 256,    1,    1] : '$weight_30'   
              |             $bias_30   : [   1, 512,    1,    1] : '$bias_30'     
              |   ----------------------------------------------------------------
              |   Outputs : $output    : [None, 512, None, None] : Model_1.$input 
 ---------------------------------------------------------------------------------
-Model_1      |   Inputs  : $kernel_31 : [ 512, 512,    3,    3] : '$kernel_31'   
+Model_1      |   Inputs  : $weight_31 : [ 512, 512,    3,    3] : '$weight_31'   
              |             $input     : [None, 512, None, None] : Model_0.$output
              |             $bias_31   : [   1, 512,    1,    1] : '$bias_31'     
-             |             $kernel_32 : [ 512, 512,    3,    3] : '$kernel_32'   
+             |             $weight_32 : [ 512, 512,    3,    3] : '$weight_32'   
              |             $bias_32   : [   1, 512,    1,    1] : '$bias_32'     
              |   ----------------------------------------------------------------
              |   Outputs : $output    : [None, 512, None, None] : Model_2.$input 
 ---------------------------------------------------------------------------------
-Model_2      |   Inputs  : $kernel_33 : [ 512, 512,    3,    3] : '$kernel_33'   
+Model_2      |   Inputs  : $weight_33 : [ 512, 512,    3,    3] : '$weight_33'   
              |             $input     : [None, 512, None, None] : Model_1.$output
              |             $bias_33   : [   1, 512,    1,    1] : '$bias_33'     
-             |             $kernel_34 : [ 512, 512,    3,    3] : '$kernel_34'   
+             |             $weight_34 : [ 512, 512,    3,    3] : '$weight_34'   
              |             $bias_34   : [   1, 512,    1,    1] : '$bias_34'     
              |   ----------------------------------------------------------------
              |   Outputs : $output    : [None, 512, None, None] : '$output'      
@@ -341,7 +340,7 @@ Model Name       |                               Model Keys
                  |             ---------------------------------------------
                  |             Keys   : Shapes       : Connections          
 ============================================================================
-Transpose        |   Inputs  : input  : [   1, None] : 'w'                  
+Transpose        |   Inputs  : input  : [   1, None] : 'weight'             
                  |             axes   :           -- : None                 
                  |   -------------------------------------------------------
                  |   Outputs : output : [None,    1] : MatrixMultiply.right 
@@ -352,7 +351,7 @@ MatrixMultiply   |   Inputs  : left   : [None, None] : 'input'
                  |   Outputs : output : [None,    1] : Add.left             
 ----------------------------------------------------------------------------
 Add              |   Inputs  : left   : [None,    1] : MatrixMultiply.output
-                 |             right  :       [   1] : 'b'                  
+                 |             right  :       [   1] : 'bias'               
                  |   -------------------------------------------------------
                  |   Outputs : output : [None,    1] : 'output'             
 ----------------------------------------------------------------------------
@@ -371,7 +370,7 @@ SquaredError  |  input  | [None, 1] | Model.output  |  Mean()        |  None
 -----------------------------------------------------
 Reg Model  |  Reg Key     | Reg Shape         |  Coef
 =====================================================
-L1         |  'kernel_20' | [256, 256, 3, 3]  |  0.1 
+L1         |  'weight_20' | [256, 256, 3, 3]  |  0.1 
 -----------------------------------------------------
 
 
