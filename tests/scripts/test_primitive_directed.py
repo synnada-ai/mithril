@@ -2899,7 +2899,7 @@ def test_leaky_relu_3():
     )
 
 
-def test_gelu_1():
+def test_gelu():
     input = np.array([[1.0, -2.0], [2.0, 0.0]])
     result = np.array(
         [[0.8413447460685429, -0.04550026389635842], [1.9544997361036416, 0.0]]
@@ -2910,23 +2910,37 @@ def test_gelu_1():
         [[1.0833154705876864, -0.08523180107819693], [1.085231801078197, 0.5]]
     )
 
-    assert_forward("gelu", result, (input,), {})
-    assert_backward("gelu", (input_grad,), output_grad, [0], {"input": input}, {})
+    assert_forward("gelu", result, (input,), {"approximate": False})
+    assert_backward(
+        "gelu",
+        (input_grad,),
+        output_grad,
+        [0],
+        {"input": input, "approximate": False},
+        {},
+    )
 
 
-def test_gelu_2():
+def test_gelu_approximate():
     input = np.array([[1.0, -2.0], [2.0, 0.0]])
     result = np.array(
-        [[0.8413447460685429, -0.04550026389635842], [1.9544997361036416, 0.0]]
+        [[0.8411919906082768, -0.0454023059122249], [1.954597694087775, 0.0]]
     )
 
     output_grad = np.array([[1.0, 1.0], [1.0, 1.0]])
     input_grad = np.array(
-        [[1.0833154705876864, -0.08523180107819693], [1.085231801078197, 0.5]]
+        [[1.0829640838457828, -0.0860992566236183], [1.0860992566236183, 0.5]]
     )
 
-    assert_forward("gelu", result, (input,), {})
-    assert_backward("gelu", (input_grad,), output_grad, [0], {"input": input}, {})
+    assert_forward("gelu", result, (input,), {"approximate": True})
+    assert_backward(
+        "gelu",
+        (input_grad,),
+        output_grad,
+        [0],
+        {"input": input, "approximate": True},
+        {},
+    )
 
 
 def test_stop_gradient_1():

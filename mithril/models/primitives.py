@@ -731,10 +731,27 @@ class Relu(Activation):
 
 class Gelu(Activation):
     def __init__(
-        self, name: str | None = None, input: TensorValueType | ToBeDetermined = TBD
+        self,
+        name: str | None = None,
+        approximate: bool = False,
+        input: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
-        super().__init__(formula_key="gelu", name=name)
+        super().__init__(
+            formula_key="gelu",
+            approximate=IOKey(value=approximate, type=(bool)),
+            name=name,
+        )
         self.factory_inputs = {"input": input}
+
+    def __call__(  # type: ignore[override]
+        self,
+        input: ConnectionType = NOT_GIVEN,
+        approximate: ConnectionType = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
+    ) -> ExtendInfo:
+        return BaseModel.__call__(
+            self, input=input, approximate=approximate, output=output
+        )
 
 
 class Sigmoid(Activation):
