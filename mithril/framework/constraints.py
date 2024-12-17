@@ -98,6 +98,7 @@ __all__ = [
     "conv_1d_constraints",
     "conv_2d_constraints",
     "pad_constraints",
+    "split_constraints",
 ]
 
 
@@ -3392,6 +3393,7 @@ def tensor_slice_constraints(
     input_shape: ShapeRepr = input._temp_shape
     updated_symbols = Updates()
     status = False
+
     if input_shape.prefix and output_shape.prefix:
         in_uni, out_uni = input_shape[0], output_shape[0]
         if in_uni.value is not None and out_uni.value is not None:
@@ -3408,6 +3410,80 @@ def tensor_slice_constraints(
                 out_uni.set_value(out_val)
                 updated_symbols.add(out_uni)
                 status = True
+
+    return status, updated_symbols
+
+
+def split_constraints(output: Tensor, input: Tensor, split_size: Scalar, axis: Scalar):
+    status = False
+    split_size_val = split_size.value
+    axis_val = axis.value
+    assert output._temp_shape is not None, "Output shape of Split is not set!"
+    assert input._temp_shape is not None, "Input shape of Split is not set!"
+    output_shape: ShapeRepr = output._temp_shape
+    input_shape: ShapeRepr = input._temp_shape
+    updated_symbols = Updates()
+
+    assert isinstance(axis_val, ToBeDetermined) or type(axis_val) is int
+
+    assert isinstance(split_size_val, ToBeDetermined) or type(split_size_val) is int
+
+    if not isinstance(axis_val, ToBeDetermined) and not isinstance(
+        split_size_val, ToBeDetermined
+    ):
+        if axis_val >= 0:
+            if len(input_shape.prefix) > axis_val:
+                uni_val = input_shape.prefix[axis_val].value
+                if uni_val is not None:
+                    new_val = int(uni_val / split_size_val)
+                    prefix = [
+                        Uniadic(split_size_val),
+                        *input_shape.prefix[:axis_val],
+                        Uniadic(new_val),
+                        *input_shape.prefix[axis_val + 1 :],
+                    ]
+                    root = input_shape.root
+                    suffix = input_shape.suffix
+                    updated_symbols |= output_shape.inner_match(
+                        prefix=prefix, root=root, suffix=suffix
+                    )
+                    status = True
+
+        elif axis_val < 0:
+            if input_shape.root is None:
+                axis_val = len(input_shape.prefix) + axis_val
+                uni_val = input_shape.prefix[axis_val].value
+                if uni_val is not None:
+                    new_val = int(uni_val / split_size_val)
+                    prefix = [
+                        Uniadic(split_size_val),
+                        *input_shape.prefix[:axis_val],
+                        Uniadic(new_val),
+                        *input_shape.prefix[axis_val + 1 :],
+                    ]
+                    root = input_shape.root
+                    suffix = input_shape.suffix
+                    updated_symbols |= output_shape.inner_match(
+                        prefix=prefix, root=root, suffix=suffix
+                    )
+                    status = True
+
+            elif len(input_shape.prefix) >= abs(axis_val):
+                axis_val = len(input_shape.suffix) + axis_val
+                uni_val = input_shape.suffix[axis_val].value
+                if uni_val is not None:
+                    new_val = int(uni_val / split_size_val)
+                    prefix = [Uniadic(split_size_val), *input_shape.prefix]
+                    root = input_shape.root
+                    suffix = [
+                        *input_shape.suffix[:axis_val],
+                        Uniadic(new_val),
+                        *input_shape.suffix[axis_val + 1 :],
+                    ]
+                    updated_symbols |= output_shape.inner_match(
+                        prefix=prefix, root=root, suffix=suffix
+                    )
+                    status = True
 
     return status, updated_symbols
 

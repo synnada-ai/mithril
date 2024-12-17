@@ -4625,7 +4625,7 @@ def test_cycle_handling_2():
         "output": ["tanh", {"output2_1"}],
         "output2_1": ["sigmoid", {"output2_0"}],
         "output1": ["relu", {"input"}],
-        "output_0": ["gelu", {"output1"}],
+        "output_0": ["gelu", {"approximate", "output1"}],
         "output2_0": ["sin", {"output_0"}],
     }
 
@@ -4770,14 +4770,14 @@ def test_cycle_handling_3():
     compiled_model = mithril.compile(model=model, backend=backend, jit=False)
     expected_connections: dict[str, list[str | set[str]]] = {
         "output1_1": ["cos", {"output2_1"}],
-        "output_0": ["gelu", {"output1_0"}],
+        "output_0": ["gelu", {"approximate_0", "output1_0"}],
         "output2_2": ["sin", {"output_1"}],
         "output2_1": ["sigmoid", {"output2_0"}],
         "output2_3": ["leaky_relu", {"output2_2", "slope"}],
         "output": ["tanh", {"output2_3"}],
         "output2_0": ["softplus", {"output_0"}],
         "output1_0": ["relu", {"input"}],
-        "output_1": ["gelu", {"output1_1"}],
+        "output_1": ["gelu", {"approximate_1", "output1_1"}],
     }
 
     inputs = {

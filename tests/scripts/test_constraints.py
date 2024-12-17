@@ -61,6 +61,7 @@ from mithril.framework.constraints import (
     shape_constraints,
     size_constraints,
     sliding_window_2d_constraints,
+    split_constraints,
     squeeze_constraints,
     swap_axes_constraints,
     tensor_item_constraints,
@@ -6183,6 +6184,141 @@ def test_tensor_item_constraints_24():
         final_shapes,
         {},
         tensor_item_constraints,
+        True,
+        {"output"},
+        scalar_info,
+    )
+
+
+def test_split_constraints_1():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "input": [6, 4, 5],
+        "output": [("Var2", ...)],
+    }
+    final_shapes = {
+        "input": [6, 4, 5],
+        "output": [3, 2, 4, 5],
+        "split_size": [],
+        "axis": [],
+    }
+    scalar_info = {
+        "split_size": Scalar(value=3),
+        "axis": Scalar(value=0),
+    }
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        split_constraints,
+        True,
+        {"output"},
+        scalar_info,
+    )
+
+
+def test_split_constraints_2():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "input": [6, 4, 5],
+        "output": [("Var2", ...)],
+    }
+    final_shapes = {
+        "input": [6, 4, 5],
+        "output": [2, 6, 2, 5],
+        "split_size": [],
+        "axis": [],
+    }
+    scalar_info = {
+        "split_size": Scalar(value=2),
+        "axis": Scalar(value=1),
+    }
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        split_constraints,
+        True,
+        {"output"},
+        scalar_info,
+    )
+
+
+def test_split_constraints_3():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "input": [6, 4, 5],
+        "output": [("Var2", ...)],
+    }
+    final_shapes = {
+        "input": [6, 4, 5],
+        "output": [1, 6, 4, 5],
+        "split_size": [],
+        "axis": [],
+    }
+    scalar_info = {
+        "split_size": Scalar(value=1),
+        "axis": Scalar(value=1),
+    }
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        split_constraints,
+        True,
+        {"output"},
+        scalar_info,
+    )
+
+
+def test_split_constraints_4():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "input": [6, 4, 8],
+        "output": [("Var2", ...)],
+    }
+    final_shapes = {
+        "input": [6, 4, 8],
+        "output": [2, 6, 4, 4],
+        "split_size": [],
+        "axis": [],
+    }
+    scalar_info = {
+        "split_size": Scalar(value=2),
+        "axis": Scalar(value=-1),
+    }
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        split_constraints,
+        True,
+        {"output"},
+        scalar_info,
+    )
+
+
+def test_split_constraints_5():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "input": [6, 4, ("Var1", ...), 8],
+        "output": [("Var2", ...)],
+    }
+    final_shapes = {
+        "input": [6, 4, "(V1, ...)", 8],
+        "output": [2, 6, 4, "(V1, ...)", 4],
+        "split_size": [],
+        "axis": [],
+    }
+    scalar_info = {
+        "split_size": Scalar(value=2),
+        "axis": Scalar(value=-1),
+    }
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        split_constraints,
         True,
         {"output"},
         scalar_info,
