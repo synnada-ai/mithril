@@ -762,7 +762,7 @@ class BaseData(Generic[T]):
             physical_data.value = epsilon_table[backend.precision][self.value]
         return physical_data
 
-    def match_shapes(self, other: BaseData):
+    def match_shapes(self, other: BaseData[_TensorTypes]):
         assert isinstance(other.shape, ShapeNode)
         assert isinstance(self.shape, ShapeNode)
 
