@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import pytest
+
 from mithril import JaxBackend, TorchBackend, compile
 from mithril.models import Add, MatrixMultiply, Model, ToTensor
 
@@ -38,6 +40,11 @@ def test_tuple_argument_1():
     assert_results_equal(grads, ref_grads)
 
 
+@pytest.mark.skip(
+    reason="Auto conversions are removed, so this test is not valid anymore."
+    "This tests will be converted to operate scalar tuple add operations."
+    "e.g. (3.0, 2.0) + (4.0, 5.0) = (3.0, 2.0, 4.0, 5.0)"
+)
 def test_tuple_argument_2():
     backend = TorchBackend()
 
@@ -60,6 +67,11 @@ def test_tuple_argument_2():
     assert_results_equal(outputs, ref_outputs)
 
 
+@pytest.mark.skip(
+    reason="Auto conversions are removed, so this test is not valid anymore."
+    "This tests will be converted to operate scalar tuple add operations."
+    "e.g. (3.0, 2.0) + (4.0, 5.0) = (3.0, 2.0, 4.0, 5.0)"
+)
 def test_tuple_argument_3():
     backend = JaxBackend()
 
@@ -85,6 +97,11 @@ def test_tuple_argument_3():
     assert_results_equal(grads, ref_grads)
 
 
+@pytest.mark.skip(
+    reason="Auto conversions are removed, so this test is not valid anymore."
+    "This tests will be converted to operate scalar tuple add operations."
+    "e.g. (3.0, 2.0) + (4.0, 5.0) = (3.0, 2.0, 4.0, 5.0)"
+)
 def test_tuple_argument_4():
     backend = JaxBackend()
 
@@ -107,6 +124,11 @@ def test_tuple_argument_4():
     assert_results_equal(outputs, ref_outputs)
 
 
+@pytest.mark.skip(
+    reason="Auto conversions are removed, so this test is not valid anymore."
+    "This tests will be converted to operate scalar tuple add operations."
+    "e.g. (3.0, 2.0) + (4.0, 5.0) = (3.0, 2.0, 4.0, 5.0)"
+)
 def test_tuple_argument_5():
     backend = JaxBackend()
 
@@ -132,6 +154,11 @@ def test_tuple_argument_5():
     assert_results_equal(outputs, ref_outputs)
 
 
+@pytest.mark.skip(
+    reason="Auto conversions are removed, so this test is not valid anymore."
+    "This tests will be converted to operate scalar tuple add operations."
+    "e.g. (3.0, 2.0) + (4.0, 5.0) = (3.0, 2.0, 4.0, 5.0)"
+)
 def test_list_tuple_mixed_argument_1():
     backend = JaxBackend()
 
@@ -157,6 +184,11 @@ def test_list_tuple_mixed_argument_1():
     assert_results_equal(outputs, ref_outputs)
 
 
+@pytest.mark.skip(
+    reason="Auto conversions are removed, so this test is not valid anymore."
+    "This tests will be converted to operate scalar tuple add operations."
+    "e.g. (3.0, 2.0) + (4.0, 5.0) = (3.0, 2.0, 4.0, 5.0)"
+)
 def test_list_tuple_mixed_argument_2():
     backend = JaxBackend()
 
@@ -222,6 +254,11 @@ def test_list_argument_1():
     assert_results_equal(grads, ref_grads)
 
 
+@pytest.mark.skip(
+    reason="Auto conversions are removed, so this test is not valid anymore."
+    "This tests will be converted to operate scalar tuple add operations."
+    "e.g. (3.0, 2.0) + (4.0, 5.0) = (3.0, 2.0, 4.0, 5.0)"
+)
 def test_list_argument_2():
     backend = TorchBackend()
 
@@ -245,6 +282,11 @@ def test_list_argument_2():
     assert_results_equal(outputs, ref_outputs)
 
 
+@pytest.mark.skip(
+    reason="Auto conversions are removed, so this test is not valid anymore."
+    "This tests will be converted to operate scalar tuple add operations."
+    "e.g. (3.0, 2.0) + (4.0, 5.0) = (3.0, 2.0, 4.0, 5.0)"
+)
 def test_list_argument_3():
     backend = JaxBackend()
 
@@ -271,6 +313,11 @@ def test_list_argument_3():
     assert_results_equal(grads, ref_grads)
 
 
+@pytest.mark.skip(
+    reason="Auto conversions are removed, so this test is not valid anymore."
+    "This tests will be converted to operate scalar tuple add operations."
+    "e.g. (3.0, 2.0) + (4.0, 5.0) = (3.0, 2.0, 4.0, 5.0)"
+)
 def test_list_argument_4():
     backend = JaxBackend()
 
@@ -294,6 +341,11 @@ def test_list_argument_4():
     assert_results_equal(outputs, ref_outputs)
 
 
+@pytest.mark.skip(
+    reason="Auto conversions are removed, so this test is not valid anymore."
+    "This tests will be converted to operate scalar tuple add operations."
+    "e.g. (3.0, 2.0) + (4.0, 5.0) = (3.0, 2.0, 4.0, 5.0)"
+)
 def test_list_argument_5():
     backend = JaxBackend()
 

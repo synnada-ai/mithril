@@ -782,10 +782,16 @@ def gelu_grad(
     idx: int,
     *inputs: np.ndarray,
 ) -> np.ndarray:
-    input, *_ = inputs
-    s = input / np.sqrt(2)
-    erf_prime = lambda x: (2 / np.sqrt(np.pi)) * np.exp(-(x**2))  # noqa: E731
-    grad = 0.5 + 0.5 * erf(s) + ((0.5 * input * erf_prime(s)) / np.sqrt(2))
+    input, approximate, *_ = inputs
+    if approximate:
+        tanh_term = np.tanh(np.sqrt(2 / np.pi) * (input + 0.044715 * input**3))
+        grad = 0.5 * (1 + tanh_term) + 0.5 * input * (1 - tanh_term**2) * (
+            np.sqrt(2 / np.pi) * (1 + 0.134145 * input**2)
+        )
+    else:
+        s = input / np.sqrt(2)
+        erf_prime = lambda x: (2 / np.sqrt(np.pi)) * np.exp(-(x**2))  # noqa: E731
+        grad = 0.5 + 0.5 * erf(s) + ((0.5 * input * erf_prime(s)) / np.sqrt(2))
     return grad * output_gradient
 
 

@@ -183,7 +183,9 @@ def test_constant_key():
 
 def test_constant_key_2():
     model = Model()
-    model += (add := Add())(left="input", right=3, output=IOKey(name="output"))
+    model += (add := Add())(
+        left="input", right=IOKey(value=3).tensor(), output=IOKey(name="output")
+    )
     model += Add()(left="input2", right=add.right, output=IOKey(name="output2"))
     model2 = Model()
     model2 += model(

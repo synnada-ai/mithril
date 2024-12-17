@@ -27,8 +27,10 @@ from mithril.framework.common import (
     GenericTensorType,
     IOKey,
     MyTensor,
+    NestedListType,
     ShapeTemplateType,
     Updates,
+    find_intersection_type,
 )
 from mithril.models import (
     MLP,
@@ -48,7 +50,6 @@ from mithril.models import (
     PrimitiveSlice,
     PrimitiveUnion,
     Relu,
-    Reshape,
     ScalarItem,
     Shape,
     Sigmoid,
@@ -87,7 +88,7 @@ def test_scalar_to_tensor_1():
     add_4 = lin_3.input + lin_3.bias
     add_5 = lin_4.input + lin_4.bias
     add_6 = add_4 + add_5
-    model += Add()(left=2.0, right=add_6, output="output")
+    model += Add()(left=IOKey(value=2.0).tensor(), right=add_6, output="output")
 
     model_2 = model
 
@@ -130,7 +131,7 @@ def test_scalar_to_tensor_2():
     model += lin_4(input="input_2", weight="w_2", bias="b_2")
     shp_2 = lin_3.input.shape()
     reshaped_2 = lin_4.output.reshape(shp_2)
-    model += Add()(left=shp_2, right=reshaped_2, output="output")
+    model += Add()(left=shp_2.tensor(), right=reshaped_2, output="output")
     model_2 = model
 
     # Provide backend and data.
@@ -169,9 +170,9 @@ def test_scalar_to_tensor_3():
     model = Model()
     add_2 = Add()
     shp_2 = Shape()
-    model += add_2(left=[[[1]]], right="right")
+    model += add_2(left=IOKey(value=[[[1]]]).tensor(), right="right")
     model += shp_2(input=add_2.output)
-    model += Add()(left="left", right=shp_2.output, output="output")
+    model += Add()(left="left", right=shp_2.output.tensor(), output="output")
     model_2 = model
 
     # Provide backend and data.
@@ -205,7 +206,9 @@ def test_tensor_to_scalar_1():
     # Auto conversion
     model = Model()
     add_2 = Add()
-    model += add_2(left=[2, 1], right=[[1, 1]])
+    left = IOKey(value=[2, 1]).tensor()
+    right = IOKey(value=[1, 1]).tensor()
+    model += add_2(left=left, right=right)
     reshaped_2 = add_2.output.reshape(add_2.left.shape())
     model += Buffer()(input=reshaped_2, output="output")
 
@@ -224,22 +227,6 @@ def test_tensor_to_scalar_1_non_jittable():
     it requires TensorToList conversion before being argument to reshape method which
     is not a problem for non-jitted models. Note that we don't jit model in compile.
     """
-    # Manuel conversion
-    model = Model(enforce_jit=False)
-    to_tensor_1 = ToTensor()
-    to_tensor_2 = ToTensor()
-    add_1 = Add()
-    to_list = TensorToList()
-    shp = Reshape()
-    model += to_tensor_1(input=[2, 1])
-    model += to_tensor_2(input=[[1, 1]])
-    model += add_1(left=to_tensor_1.output, right=to_tensor_2.output)
-    model += to_list(input=to_tensor_1.output)
-    model += shp(input=add_1.output, shape=to_list.output)
-    model += Buffer()(input=shp.output, output="output")
-
-    model_1 = model
-
     model = Model(enforce_jit=False)
     to_tensor_1 = ToTensor()
     to_tensor_2 = ToTensor()
@@ -247,15 +234,19 @@ def test_tensor_to_scalar_1_non_jittable():
     model += to_tensor_1(input=[2, 1])
     model += to_tensor_2(input=[[1, 1]])
     model += add_1(left=to_tensor_1.output, right=to_tensor_2.output)
-    reshaped_1 = add_1.output.reshape(to_tensor_1.output)
+    model += (to_list := TensorToList())(to_tensor_1.output)
+    reshaped_1 = add_1.output.reshape(to_list.output)
     model += Buffer()(input=reshaped_1, output="output")
     model_1 = model
 
     # Auto conversion
     model = Model(enforce_jit=False)
     add_2 = Add()
-    model += add_2(left=[2, 1], right=[[1, 1]])
-    reshaped_2 = add_2.output.reshape(add_2.left)
+    model += add_2(
+        left=IOKey(value=[2, 1]).tensor(), right=IOKey(value=[[1, 1]]).tensor()
+    )
+    model += (to_list := TensorToList())(add_2.left)
+    reshaped_2 = add_2.output.reshape(to_list.output)
     model += Buffer()(input=reshaped_2, output="output")
     model_2 = model
 
@@ -930,7 +921,7 @@ def test_connect_2():
         concat_model.input3,  # type: ignore
         key=IOKey(name="abcd"),
     )
-    model += Sigmoid()(input="input4", output=conn)
+    model += ToTensor()(conn)
 
     assert (
         concat_model.input1.metadata  # type: ignore
@@ -955,17 +946,23 @@ def test_connect_3():
         concat_model.input3,  # type: ignore
         key=IOKey(name="abcd", value=3.0),
     )
-    model += Sigmoid()(input=conn, output=IOKey(name="output1"))
+    model += (to_tensor := ToTensor())(conn)
 
     assert (
         concat_model.input1.metadata  # type: ignore
         == concat_model.input2.metadata  # type: ignore
         == concat_model.input3.metadata  # type: ignore
         == model.abcd.metadata  # type: ignore
+        == to_tensor.input.metadata  # type: ignore
     )
     assert model.abcd.metadata.data.value == 3.0  # type: ignore
 
 
+@pytest.mark.skip(
+    reason="Connect currently does not spoort ExtendTemplate"
+    "we must convert it to: "
+    "conn = Connect(concat_model.input1, union_model.input1.tensor()"
+)
 def test_connect_4():
     """This test is mixing Connections of scalar value type and tensor value type,
     If value is given, It is expected that ToTensor will be applied to Tensor
@@ -983,7 +980,7 @@ def test_connect_4():
         concat_model.input1,  # type: ignore
         concat_model.input2,  # type: ignore
         concat_model.input3,  # type: ignore
-        union_model.input1,  # type: ignore
+        union_model.input1.tensor(),  # type: ignore
         key=IOKey(name="abcd", value=(3, 2)),
     )
     model += Buffer()(input=conn, output=IOKey(name="output1"))
@@ -1020,7 +1017,6 @@ def test_connect_6():
     output = pm.evaluate()
     ref_output = {
         "output": backend.array([[3.0], [3.0], [3.0]]),
-        "abcd": backend.array([[3.0]]),
         "output1": backend.array([[3.0]]),
     }
 
@@ -1048,12 +1044,19 @@ def test_connect_7():
     )
     model += Buffer()(input=conn, output=IOKey(name="output"))
 
+    assert (
+        add_model_2.output.metadata  # type: ignore
+        == model.right.metadata  # type: ignore
+        == model.abcd.metadata  # type: ignore
+        # == buf.input.metadata  # type: ignore
+    )
     pm = compile(model=model, backend=backend, jit=False)
     params = {
         "left": backend.array([3.0]),
         "right1": backend.array([3.0]),
         "left1": backend.array([3.0]),
     }
+    pm.evaluate(params=params)
     output_gradients = {
         "output2": backend.array([1.0]),
         # "abcd": backend.array([2.0]),
@@ -1079,7 +1082,6 @@ def test_connect_7():
 
 def test_connect_7_expose_output():
     """Same test with test_connect_7, but this time, expose_output is used."""
-
     backend = JaxBackend()
     model = Model()
     add_model_1 = Add()
@@ -1087,7 +1089,14 @@ def test_connect_7_expose_output():
     model += add_model_1(left="left", right="right", output=IOKey(name="output2"))
     model += add_model_2(left="left1", right="right1")
     conn = Connect(add_model_2.output, model.right, key=IOKey(name="abcd"))  # type: ignore
-    model += Buffer()(input=conn, output=IOKey(name="output"))
+    model += (buf := Buffer())(input=conn, output=IOKey(name="output"))
+
+    assert (
+        add_model_2.output.metadata
+        == model.right.metadata  # type: ignore
+        == model.abcd.metadata  # type: ignore
+        == buf.input.metadata
+    )
 
     pm = compile(model=model, backend=backend, jit=False)
     params = {
@@ -1111,7 +1120,7 @@ def test_connect_7_expose_output():
         "right1": backend.array([4.0]),
         "left1": backend.array([4.0]),
     }
-
+    output = pm.evaluate(params=params)
     output, grads = pm.evaluate_all(params=params, output_gradients=output_gradients)
 
     assert_results_equal(output, ref_outputs)
@@ -1172,13 +1181,11 @@ def test_connect_9():
     concat_model = Concat(n=3)
     model += concat_model(input1=[[3.0]], input2=[[2.0]], input3="input3")
     conn = Connect(concat_model.input1, concat_model.input2, concat_model.input3)  # type: ignore
-    with pytest.raises(KeyError) as err_info:
+    with pytest.raises(ValueError) as err_info:
         model += Buffer()(input=conn, output=IOKey(name="output"))
 
-    assert str(err_info.value) == (
-        "'Connect object can not have more than one output connection. "
-        "Multi-write error!'"
-    )
+    error_msg = "Value is set before as [[2.0]]. A value can not be reset."
+    assert str(err_info.value) == error_msg
 
 
 def test_connect_10():
@@ -1199,11 +1206,15 @@ def test_connect_10():
         model += Buffer()(input=conn, output=IOKey(name="output"))
 
     assert str(err_info.value) == (
-        "Connect object can not have both an output connection and a value. "
-        "Multi-write error!"
+        "Value is set before as [[3.0]]. A value can not be reset."
     )
 
 
+@pytest.mark.skip(
+    reason="Connect currently does not spoort ExtendTemplate"
+    "we must convert it to: "
+    "conn = Connect(concat_model.input1, union_model.input1.tensor()"
+)
 def test_connect_11():
     """valued connect with mixed Scalar and Tensor connections
     It is expected that, Connect object will handle this type of connections
@@ -1234,6 +1245,11 @@ def test_connect_11():
     assert_results_equal(ref_outputs, output)
 
 
+@pytest.mark.skip(
+    reason="Connect currently does not spoort ExtendTemplate"
+    "we must convert it to: "
+    "conn = Connect(concat_model.input1, union_model.input1.tensor()"
+)
 def test_connect_12():
     """valued connect with mixed Scalar and Tensor connections
     It is expected that, Connect object will handle this type of connections
@@ -1270,8 +1286,8 @@ def test_tensor_to_scalar_4():
 
     # Auto conversion
     auto_model += Relu()(input="input")
-    auto_model += Shape()
-    auto_model += Add()
+    auto_model += (shp := Shape())
+    auto_model += Add()(left=shp.output.tensor())
 
     # Manuel conversion
     manual_model = Model()
@@ -1342,7 +1358,9 @@ def test_coercion_1():
 
     model += reduce_model_1(input="input1", axis="axis1")
     model += reduce_model_2(input="input2", axis="axis2")
-    model += add_model_1(left="axis1", right="axis2")
+    model += add_model_1(
+        left=reduce_model_1.axis.tensor(), right=reduce_model_2.axis.tensor()
+    )
     model += reduce_model_3(input=add_model_1.output, axis=0)
     model += add_model_2(
         left=reduce_model_1.output.sum(), right=reduce_model_2.output.sum()
@@ -1381,8 +1399,8 @@ def test_coercion_2():
     l_relu = LeakyRelu()
     model += reduce_model_1(input="input1", axis="axis1")
     model += reduce_model_2(input="input2", axis="axis2")
-    axis1 = reduce_model_1.axis.sum()
-    axis2 = reduce_model_2.axis.sum()
+    axis1 = reduce_model_1.axis.tensor().sum()
+    axis2 = reduce_model_2.axis.tensor().sum()
 
     l_relu_slope = (axis1 + axis2) / (axis1**2 + axis2**2) ** 1 / 2
     model += l_relu(
@@ -1422,8 +1440,9 @@ def test_coercion_3():
     model = Model(enforce_jit=False)
     reduce_model = Sum(axis=TBD)
     add_model = Add()
-    model += add_model(left="left", right=[0, 1])
-    model += reduce_model(input="input", axis=add_model.output, output="output")
+    model += add_model(left="left", right=IOKey(value=[0, 1]).tensor())
+    model += (to_list := TensorToList())(input=add_model.output)
+    model += reduce_model(input="input", axis=to_list.output, output="output")
 
     pm = compile(model=model, backend=backend, jit=False)
     params = {"input": backend.ones(1, 2, 3, 4, 5), "left": backend.array([1, 2])}
@@ -1441,8 +1460,9 @@ def test_coercion_4():
     model = Model(enforce_jit=False)
     reduce_model = Sum(axis=TBD)
     add_model = Add()
-    model += add_model(left="left", right=[0, 1])
-    model += reduce_model(input="input", axis=add_model.output, output="output")
+    model += add_model(left="left", right=IOKey(value=[0, 1]).tensor())
+    model += (to_list := TensorToList())(input=add_model.output)
+    model += reduce_model(input="input", axis=to_list.output, output="output")
 
     pm = compile(model=model, backend=backend, jit=False)
 
@@ -1462,7 +1482,7 @@ def test_coercion_5():
     to_list = TensorToList()
     model += add(left="left", right=[2.0])
     model += to_list(input=add.output)
-    model += Buffer()(input=to_list.output, output="output")
+    model += Buffer()(input=to_list.output.tensor(), output="output")
 
     pm = compile(model=model, backend=backend, jit=False)
     params = {"left": backend.array([2.0])}
@@ -1471,6 +1491,7 @@ def test_coercion_5():
     assert_results_equal(outputs, ref_outputs)
 
 
+# TODO: What is the purpose of this test? No assertions!
 def test_coersion_6():
     backend = JaxBackend()
     mlp_model = MLP(activations=[Relu(), Relu(), Relu()], dimensions=[1, 1, 1])
@@ -1479,7 +1500,7 @@ def test_coersion_6():
     model = Model(enforce_jit=False)
     model += mlp_model(input="input")
     model += to_list
-    model += buff_model
+    model += buff_model(input=to_list.output.tensor(), output="output")
     constant_keys = {"input": backend.array([[1.0]])}
 
     compile(model=model, backend=backend, constant_keys=constant_keys, jit=False)
@@ -1492,7 +1513,7 @@ def test_tensor_to_scalar_template_1():
     model += buff_model_1(input="input1")
 
     in1 = buff_model_1.output
-    out1 = in1.shape() ** 2
+    out1 = in1.shape().tensor() ** 2
     model += Buffer()(input=out1, output="output")
 
     model.set_shapes({"input1": [3, 4, 5, 6]})
@@ -1515,7 +1536,7 @@ def test_tensor_to_scalar_template_2():
     in1 = buff_model_1.output
     in2 = buff_model_2.output
     in3 = buff_model_3.output
-    out1 = (in1.shape() ** 2 * in2) @ in3 / 2
+    out1 = (in1.shape().tensor() ** 2 * in2) @ in3 / 2
     model += Buffer()(input=out1, output="output")
 
     pm = compile(model=model, backend=backend)
@@ -1540,3 +1561,9 @@ def test_tensor_to_scalar_template_2():
 
     assert_results_equal(outputs, ref_outputs)
     assert_results_equal(grads, ref_grads)
+
+
+def test_find_intersection_type_nested_list_type():
+    type1 = int | float | list | tuple
+    type2 = NestedListType(int | float)
+    assert find_intersection_type(type1, type2) == type2

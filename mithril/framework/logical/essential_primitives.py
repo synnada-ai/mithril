@@ -44,6 +44,7 @@ from ..constraints import (
     scalar_slice_type_constraint,
     shape_constraints,
     size_constraints,
+    split_constraints,
     tensor_item_constraints,
     tensor_slice_constraints,
     tensor_to_list_constraints,
@@ -1463,7 +1464,7 @@ class Split(PrimitiveModel):
 
     def __init__(
         self,
-        split_size: int | tuple[int],  # TODO: should we add default for split_size?
+        split_size: int,  # TODO: should we add default for split_size?
         name: str | None = None,
         axis: int = 0,
         input: TensorValueType | ToBeDetermined = TBD,
@@ -1473,10 +1474,14 @@ class Split(PrimitiveModel):
             name=name,
             output=IOKey(shape=[("Var2", ...)], type=GenericTensorType),
             input=IOKey(shape=[("Var1", ...)], type=GenericTensorType),
-            split_size=IOKey(type=int | tuple[int], value=split_size),
+            split_size=IOKey(type=int, value=split_size),
             axis=IOKey(type=int, value=axis),
         )
         self.factory_inputs = {"input": input, "split_size": split_size, "axis": axis}
+
+        self._set_constraint(
+            fn=split_constraints, keys=["output", "input", "split_size", "axis"]
+        )
 
     def __call__(  # type: ignore[override]
         self,

@@ -248,8 +248,8 @@ class BaseModel(abc.ABC):
     def extract_connection_info(
         self,
         name_mappings: dict[BaseModel, str],
-        data_to_key_map: dict[Tensor[Any] | Scalar, list[str]] | None = None,
-        data_memo: Mapping[int, Tensor[Any] | Scalar] | None = None,
+        data_to_key_map: dict[Tensor | Scalar, list[str]] | None = None,
+        data_memo: Mapping[int, Tensor | Scalar] | None = None,
     ) -> dict[str, tuple[dict[str, list[str]], dict[str, list[str]]]]:
         raise NotImplementedError("Implement extract_connection_info method!")
 
@@ -330,9 +330,9 @@ class BaseModel(abc.ABC):
         """
 
         if key.key not in self.conns.input_keys:
-            raise KeyError("Internal or output keys' values cannot be set.")
+            raise ValueError("Values of internal and output keys cannot be set.")
         # Data is scalar, set the value directly.
-        return key.metadata.data.set_value(value)
+        return key.metadata.data.set_value(value)  # type: ignore
 
     def set_shapes(
         self, config: ShapesType | None = None, **kwargs: ShapeTemplateType
@@ -426,7 +426,7 @@ class BaseModel(abc.ABC):
         for key, key_type in chain(config.items(), kwargs.items()):
             metadata = self.conns.extract_metadata(key)
             data = metadata.data
-            updates |= data.set_type(key_type)
+            updates |= data.set_type(key_type)  # type: ignore
         # Run the constraints for updating affected connections.
         model.constraint_solver(updates)
 
@@ -455,7 +455,8 @@ class BaseModel(abc.ABC):
         post_processes: set[ConstraintFunctionType] | None = None,
         type: UpdateType | None = None,
     ):
-        constr_conns = [self.conns.all[key] for key in keys]
+        all_conns = self.conns.all
+        hyper_edges = [all_conns[key].metadata for key in keys]
         if type is None:
             # TODO: separate type_constraints and shape constraints into two files under
             # constraints folder. Then, check if fn is not in any of those types set
@@ -463,19 +464,19 @@ class BaseModel(abc.ABC):
             # while other one is UpdateType.Type, raise Exception!
             type = UpdateType.TYPE if fn in type_constraints else UpdateType.SHAPE
         constr = Constraint(fn=fn, type=type)
-        self.constraint_solver.constraint_map[constr] = constr_conns
-        for conn in constr_conns:
-            conn.metadata.data.add_constraint(constr)
+        self.constraint_solver.constraint_map[constr] = hyper_edges
+        for hyper_edge in hyper_edges:
+            hyper_edge.data.add_constraint(constr)
+
         # Get union of all given and default post processes for the given
         # constraint and update post_processes field.
-
         if post_processes is None:
             post_processes = set()
         all_post_processes = post_processes | post_process_map.get(fn, set())
         for post_fn in all_post_processes:
             constr.add_post_process(post_fn)
 
-        _, updates = constr([conn.metadata.data for conn in constr_conns])
+        _, updates = constr([hyper_edge.data for hyper_edge in hyper_edges])
         self.constraint_solver(updates)
 
     def set_constraint(
@@ -539,12 +540,7 @@ class BaseModel(abc.ABC):
         self._canonical_output = conn
 
     def _match_hyper_edges(self, left: IOHyperEdge, right: IOHyperEdge) -> Updates:
-        # Update and check types
-        tensorwise_common = isinstance(left.data, Tensor) == isinstance(
-            right.data, Tensor
-        )
-
-        if not tensorwise_common:
+        if type(left.data) is not type(right.data):
             raise TypeError(
                 "Types of connections are not consistent. Check connection types!"
             )
@@ -569,8 +565,10 @@ class BaseModel(abc.ABC):
             for conn in conns:
                 conn.metadata = left
 
-        # Finally match data of each IOHyperEdge's.
-        updates = left.data.match(right.data)
+        # Update IOHyperEdge's in constraint solver.
+        self.constraint_solver.update_constraint_map(left, right)
+        # Match data of each IOHyperEdge's.
+        updates = left.data.match(right.data)  # type: ignore
         return updates
 
     def get_models_in_topological_order(self):

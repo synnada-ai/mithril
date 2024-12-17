@@ -152,7 +152,7 @@ def reorganize_args(
     return organized_arguments
 
 
-def is_make_array_required(data: Tensor[Any] | Scalar):
+def is_make_array_required(data: Tensor | Scalar):
     if isinstance(data, Tensor):
         _temp_shape = next(iter(data.shape.reprs))
         # It is needed to guarantee that Tensor is at least one dimensional.

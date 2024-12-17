@@ -17,7 +17,7 @@ from collections.abc import Sequence
 from functools import reduce
 from itertools import product, zip_longest
 from types import EllipsisType, GenericAlias, NoneType, UnionType
-from typing import Any, get_origin
+from typing import get_origin
 
 from ..utils.type_utils import (
     is_axis_reduce_type,
@@ -44,7 +44,6 @@ from .common import (
     Tensor,
     ToBeDetermined,
     Uniadic,
-    UniadicRecord,
     Updates,
     UpdateType,
     Variadic,
@@ -99,6 +98,7 @@ __all__ = [
     "conv_1d_constraints",
     "conv_2d_constraints",
     "pad_constraints",
+    "split_constraints",
 ]
 
 
@@ -146,7 +146,7 @@ def _reduce_union_type(
     return new_type
 
 
-def general_tensor_type_constraint(*args: Scalar | Tensor[Any]):
+def general_tensor_type_constraint(*args: Tensor):
     # NOTE: Assumes first argument is always output as other constraints.
     # Also requires all types of args consists of any combination of
     # float, int and bool. For instance, int | float is an acceptable type
@@ -154,9 +154,9 @@ def general_tensor_type_constraint(*args: Scalar | Tensor[Any]):
     status = False
     updates = Updates()
     output, *inputs = args
-    arg_types: set[type | UnionType | NestedListType | GenericAlias] = set()
-    all_possible_types: set[type | UnionType | NestedListType | GenericAlias] = set()
-    union_types: set[tuple[Scalar | Tensor[Any], UnionType]] = set()
+    arg_types: set[type | UnionType] = set()
+    all_possible_types: set[type | UnionType] = set()
+    union_types: set[tuple[Tensor, UnionType]] = set()
     # Set all different types and also Union types in input args.
     for arg in inputs:
         typ = arg._type
@@ -191,13 +191,14 @@ def general_tensor_type_constraint(*args: Scalar | Tensor[Any]):
             arg = related_unions.pop()[0]
             updates |= arg.set_type(output._type)
             status = True
-        # elif not out_exists:
         # Update Union type arguments.
         for pair in related_unions:
             arg, arg_type = pair
             new_type = _reduce_union_type(output._type, arg_type)
             if new_type is not None:
-                updates |= arg.set_type(create_union_type(*new_type))
+                uni_type = create_union_type(*new_type)
+                assert not isinstance(uni_type, GenericAlias)
+                updates |= arg.set_type(uni_type)
         if not out_exists:
             # If any one of inputs became same type as output, set
             # status True.
@@ -217,7 +218,9 @@ def general_tensor_type_constraint(*args: Scalar | Tensor[Any]):
                 arg, arg_type = pair
                 new_type = _reduce_union_type(output._type, arg_type)
                 if new_type is not None:
-                    updates |= arg.set_type(create_union_type(*new_type))
+                    uni_type = create_union_type(*new_type)
+                    assert not isinstance(uni_type, GenericAlias)
+                    updates |= arg.set_type(uni_type)
 
     # Try forward type inference.
     out_type = None
@@ -262,7 +265,7 @@ def general_tensor_type_constraint(*args: Scalar | Tensor[Any]):
 
 
 def floor_divide_type_constraint(
-    output: Tensor[Any], numerator: Tensor[Any], denominator: Tensor[Any]
+    output: Tensor, numerator: Tensor, denominator: Tensor
 ):
     status = False
     updates = Updates()
@@ -546,7 +549,7 @@ def scalar_item_type_constraint(output: Scalar, input: Scalar, index: Scalar):
     return status, updates
 
 
-def tensor_to_list_type_constraint(output: Scalar, input: Tensor[Any]):
+def tensor_to_list_type_constraint(output: Scalar, input: Tensor):
     status = not is_union(output._type)
     updates = Updates()
     assert input._temp_shape is not None
@@ -572,6 +575,7 @@ def tensor_to_list_type_constraint(output: Scalar, input: Tensor[Any]):
                 f"Input type {input._type} is not compatible with output type "
                 f"{output._type}!"
             )
+        assert not isinstance(possible_input_types, NestedListType)
         updates |= input.set_type(possible_input_types)
 
     # Create the base same as input type
@@ -597,7 +601,7 @@ def tensor_to_list_type_constraint(output: Scalar, input: Tensor[Any]):
     return status, updates
 
 
-def reduce_type_constraint(output: Tensor[Any], input: Tensor[Any]):
+def reduce_type_constraint(output: Tensor, input: Tensor):
     updates = Updates()
     input_type = input._type
 
@@ -613,6 +617,7 @@ def reduce_type_constraint(output: Tensor[Any], input: Tensor[Any]):
         possible_output_types.append(float)
 
     union_output_types = create_union_type(*possible_output_types)
+    assert not isinstance(union_output_types, GenericAlias)
     updates |= output.set_type(union_output_types)
 
     ### Reverse Inference ###
@@ -1199,9 +1204,7 @@ def bcast_helper(
     return bcast_exit_condition(output, left, right, index), updates
 
 
-def bcast(
-    output: Tensor[Any], left: Tensor[Any], right: Tensor[Any]
-) -> ConstrainResultType:
+def bcast(output: Tensor, left: Tensor, right: Tensor) -> ConstrainResultType:
     assert output._temp_shape is not None, "Output shape of broadcast is not set!"
     assert left._temp_shape is not None, "Left shape of broadcast is not set!"
     assert right._temp_shape is not None, "Right shape of broadcast is not set!"
@@ -1209,7 +1212,7 @@ def bcast(
 
 
 def bcast_matrix_mult(
-    output: Tensor[Any], left: Tensor[Any], right: Tensor[Any]
+    output: Tensor, left: Tensor, right: Tensor
 ) -> ConstrainResultType:
     assert output._temp_shape is not None, "Output shape of broadcast is not set!"
     assert left._temp_shape is not None, "Left shape of broadcast is not set!"
@@ -1261,9 +1264,9 @@ def bcast_exit_condition(
 
 
 def bcast_error_check(
-    output: Tensor[Any],
-    left: Tensor[Any],
-    right: Tensor[Any],
+    output: Tensor,
+    left: Tensor,
+    right: Tensor,
     index: int = 0,
 ) -> ConstrainResultType:
     assert left._temp_shape is not None, "Left shape of broadcast is not set!"
@@ -1346,13 +1349,13 @@ def bcast_is_compatible(
 
 
 def bcast_mat_mul_check(
-    output: Tensor[Any], left: Tensor[Any], right: Tensor[Any]
+    output: Tensor, left: Tensor, right: Tensor
 ) -> ConstrainResultType:
     return bcast_error_check(output, left, right, index=2)
 
 
 def reduce_constraints(
-    output: Tensor[Any], input: Tensor[Any], axis: Scalar, keepdim: Scalar
+    output: Tensor, input: Tensor, axis: Scalar, keepdim: Scalar
 ) -> ConstrainResultType:
     updates = Updates()
     assert input._temp_shape is not None, "Input shape of reduce is not set!"
@@ -1607,7 +1610,7 @@ def reduce_constraints(
 
 
 def concat_constraints(
-    output: Tensor[Any], axis: Scalar, *inputs: Tensor[Any]
+    output: Tensor, axis: Scalar, *inputs: Tensor
 ) -> ConstrainResultType:
     status = False
     updates = Updates()
@@ -1731,7 +1734,7 @@ def concat_constraints(
 
 
 def pad_constraints(
-    output: Tensor[Any], input: Tensor[Any], pad_width: Scalar
+    output: Tensor, input: Tensor, pad_width: Scalar
 ) -> ConstrainResultType:
     updates = Updates()
     pad_value: tuple[tuple[int, int], ...] | ToBeDetermined = pad_width.value  # type: ignore
@@ -1789,7 +1792,7 @@ def pad_constraints(
 
 
 def reverse_constraints(
-    output: Tensor[Any], input: Tensor[Any], axes: Scalar
+    output: Tensor, input: Tensor, axes: Scalar
 ) -> ConstrainResultType:
     status = False
     assert input._temp_shape is not None, "Input shape of reverse is not set!"
@@ -1855,7 +1858,7 @@ def reverse_constraints(
 
 
 def polynomial_features_constraints(
-    output: Tensor[Any], input: Tensor[Any], degree: Scalar
+    output: Tensor, input: Tensor, degree: Scalar
 ) -> ConstrainResultType:
     status = False
     updates = Updates()
@@ -1953,8 +1956,8 @@ def sliding_window_constraint_helper(
 
 
 def sliding_window_1d_constraints(
-    output: Tensor[Any],
-    input: Tensor[Any],
+    output: Tensor,
+    input: Tensor,
     stride: Scalar,
     padding: Scalar,
     dilation: Scalar,
@@ -2009,12 +2012,12 @@ def sliding_window_1d_constraints(
 
 
 def conv_1d_constraints(
-    output: Tensor[Any],
-    input: Tensor[Any],
+    output: Tensor,
+    input: Tensor,
     stride: Scalar,
     padding: Scalar,
     dilation: Scalar,
-    kernel: Tensor[Any],
+    kernel: Tensor,
 ) -> ConstrainResultType:
     updates = Updates()
     status = False
@@ -2072,8 +2075,8 @@ def conv_1d_constraints(
 
 # TODO: Change name (Conv also uses the constraint below)
 def sliding_window_2d_constraints(
-    output: Tensor[Any],
-    input: Tensor[Any],
+    output: Tensor,
+    input: Tensor,
     stride: Scalar,
     padding: Scalar,
     dilation: Scalar,
@@ -2147,12 +2150,12 @@ def sliding_window_2d_constraints(
 
 
 def conv_2d_constraints(
-    output: Tensor[Any],
-    input: Tensor[Any],
+    output: Tensor,
+    input: Tensor,
     stride: Scalar,
     padding: Scalar,
     dilation: Scalar,
-    kernel: Tensor[Any],
+    kernel: Tensor,
 ) -> ConstrainResultType:
     status = False
     updates = Updates()
@@ -2229,7 +2232,7 @@ def conv_2d_constraints(
 
 
 def flatten_constrains(
-    output: Tensor[Any], input: Tensor[Any], start_dim: Scalar, end_dim: Scalar
+    output: Tensor, input: Tensor, start_dim: Scalar, end_dim: Scalar
 ) -> ConstrainResultType:
     status = False
     updates = Updates()
@@ -2371,7 +2374,7 @@ def flatten_constrains(
 
 
 def where_constrains(
-    output: Tensor[Any], cond: Tensor[Any], input1: Tensor[Any], input2: Tensor[Any]
+    output: Tensor, cond: Tensor, input1: Tensor, input2: Tensor
 ) -> ConstrainResultType:
     # TODO: Find a way to implement this constraint without creating a Tensor and
     # ShapeRepr
@@ -2396,7 +2399,7 @@ def where_constrains(
 
 
 def arange_constraints(
-    output: Tensor[Any], start: Scalar, stop: Scalar, step: Scalar
+    output: Tensor, start: Scalar, stop: Scalar, step: Scalar
 ) -> ConstrainResultType:
     assert output._temp_shape is not None, "Output shape of Arange is not set!"
     output_shape: ShapeRepr = output._temp_shape
@@ -2484,7 +2487,7 @@ def arange_constraints(
 
 
 def broadcast_to_constraints(
-    output: Tensor[Any], shape: Scalar, input: Tensor[Any]
+    output: Tensor, shape: Scalar, input: Tensor
 ) -> ConstrainResultType:
     status = False
     updates = Updates()
@@ -2552,7 +2555,7 @@ def validate_bcast(input: ShapeRepr, shape: tuple[int, ...]):
 
 
 def reshape_constraints(
-    output: Tensor[Any], input: Tensor[Any], shape: Scalar
+    output: Tensor, input: Tensor, shape: Scalar
 ) -> ConstrainResultType:
     # TODO: We can add inference for the case where
     # shape = (1,2,3,4), input_shape = (1, 2, 4, "u1") for example.
@@ -2687,7 +2690,7 @@ def reshape_constraints(
     return status, updates
 
 
-def squeeze_constraints(output: Tensor[Any], input: Tensor[Any]) -> ConstrainResultType:
+def squeeze_constraints(output: Tensor, input: Tensor) -> ConstrainResultType:
     updates = Updates()
     assert input._temp_shape is not None, "Input shape of Squeeze is not set!"
     assert output._temp_shape is not None, "Output shape of Squeeze is not set!"
@@ -2760,9 +2763,7 @@ def squeeze_constraints(output: Tensor[Any], input: Tensor[Any]) -> ConstrainRes
     return status, updates
 
 
-def size_constraints(
-    output: Scalar, input: Tensor[Any], dim: Scalar
-) -> ConstrainResultType:
+def size_constraints(output: Scalar, input: Tensor, dim: Scalar) -> ConstrainResultType:
     assert input._temp_shape is not None, "Input shape of Size is not set!"
     input_shape: ShapeRepr = input._temp_shape
 
@@ -2910,7 +2911,7 @@ def size_constraints(
     return status, updates
 
 
-def shape_constraints(output: Scalar, input: Tensor[Any]) -> ConstrainResultType:
+def shape_constraints(output: Scalar, input: Tensor) -> ConstrainResultType:
     assert input._temp_shape is not None, "Input shape of Shape is not set!"
     input_shape: ShapeRepr = input._temp_shape
     output_val = output.value
@@ -2932,7 +2933,7 @@ def shape_constraints(output: Scalar, input: Tensor[Any]) -> ConstrainResultType
     return status, updates
 
 
-def eye_constraints(output: Tensor[Any], N: Scalar, M: Scalar) -> ConstrainResultType:
+def eye_constraints(output: Tensor, N: Scalar, M: Scalar) -> ConstrainResultType:
     updates = Updates()
     assert output._temp_shape is not None, "Output shape of Eye is not set!"
     output_shape: ShapeRepr = output._temp_shape
@@ -2962,7 +2963,7 @@ def eye_constraints(output: Tensor[Any], N: Scalar, M: Scalar) -> ConstrainResul
 
 
 def swap_axes_constraints(
-    output: Tensor[Any], input: Tensor[Any], axis1: Scalar, axis2: Scalar
+    output: Tensor, input: Tensor, axis1: Scalar, axis2: Scalar
 ) -> ConstrainResultType:
     assert input._temp_shape is not None, "Input shape of SwapAxes is not set!"
     assert output._temp_shape is not None, "Output shape of SwapAxes is not set!"
@@ -3093,7 +3094,7 @@ def swap_axes_constraints(
     return status, updates
 
 
-def to_tensor_constraints(output: Tensor[Any], input: Scalar) -> ConstrainResultType:
+def to_tensor_constraints(output: Tensor, input: Scalar) -> ConstrainResultType:
     updates = Updates()
     status = False
     assert output._temp_shape is not None, "Output shape of ToTensor is not set!"
@@ -3117,6 +3118,7 @@ def to_tensor_constraints(output: Tensor[Any], input: Scalar) -> ConstrainResult
             updates |= output.set_type(typ)
             updates.add(output, update_type=UpdateType.TYPE)
         elif isinstance(input_val, float | int):
+            assert isinstance(input._type, type(int) | type(float))
             shape = []
             updates |= output.set_type(input._type)
             updates.add(output, update_type=UpdateType.TYPE)
@@ -3143,9 +3145,7 @@ def to_tensor_constraints(output: Tensor[Any], input: Scalar) -> ConstrainResult
     return status, updates
 
 
-def tensor_to_list_constraints(
-    output: Scalar, input: Tensor[Any]
-) -> ConstrainResultType:
+def tensor_to_list_constraints(output: Scalar, input: Tensor) -> ConstrainResultType:
     assert input._temp_shape is not None, "Input shape of TensorToList is not set!"
     input_shape: ShapeRepr = input._temp_shape
     output_val = output.value
@@ -3158,12 +3158,7 @@ def tensor_to_list_constraints(
     output_value = output.value
     input_shape = input._temp_shape
     status = False
-    if not isinstance(input.value, NoneType | ToBeDetermined):
-        # NOTE: Only executed for Physical model. Tensor values can only exist
-        # in Physical models.
-        updates |= output.set_value(input.value.tolist())
-        status = True
-    elif not isinstance(output_val, ToBeDetermined) and not isinstance(
+    if not isinstance(output_val, ToBeDetermined) and not isinstance(
         output_val, NestedListType
     ):
         shape: list[Uniadic] = []
@@ -3176,7 +3171,7 @@ def tensor_to_list_constraints(
     return status, updates
 
 
-def item_constraints(output: Scalar, input: Tensor[Any]) -> ConstrainResultType:
+def item_constraints(output: Scalar, input: Tensor) -> ConstrainResultType:
     assert input._temp_shape is not None, "Input shape of Item is not set!"
     input_shape: ShapeRepr = input._temp_shape
     updates = Updates()
@@ -3231,7 +3226,7 @@ def scalar_item_constraints(
         # index as the value of index argument.
         if input.value.count(output.value) == 1:
             index.set_value(input.value.index(output.value))
-            updates._add_scalar(index)
+            updates._add_edge(index)
             status = True
     return status, updates
 
@@ -3279,13 +3274,14 @@ constrain_fn_dict = {key: fn for key, fn in globals().items() if callable(fn)}
 
 
 def tensor_item_constraints(
-    output: Tensor[Any], input: Tensor[Any], index: Scalar
+    output: Tensor, input: Tensor, index: Scalar
 ) -> ConstrainResultType:
     assert output._temp_shape is not None, "Output shape of TensorItem is not set!"
     assert input._temp_shape is not None, "Input shape of TensorItem is not set!"
     input_shape: ShapeRepr = input._temp_shape
     output_shape: ShapeRepr = output._temp_shape
     index_val = index.value
+
     assert (
         isinstance(index_val, ToBeDetermined)
         or type(index_val) is int
@@ -3320,83 +3316,38 @@ def tensor_item_constraints(
             # (e.g output[3,2:4, None] = output[3, 2:4, None, ...])
             index_prefix, index_suffix = index_val, tuple()
 
-        valued_prefix_items = [item for item in index_prefix if item is not None]
-        valued_suffix_items = [item for item in index_suffix if item is not None]
-
-        input_prefix = []
-        input_suffix = []
-
-        if len(valued_prefix_items) > len(input_shape.prefix) or len(
-            valued_suffix_items
-        ) > len(input_shape.reverse):
-            # If this condition happens, this means there is more
-            # information in index value than current input's prefix
-            # or suffix, In this case, inner match the input with
-            # minimum shapes in prefix and suffix
-            if len(valued_prefix_items) > len(input_shape.prefix):
-                input_prefix = [Uniadic() for _ in valued_prefix_items]
-            if len(valued_suffix_items) > len(input_shape.suffix):
-                input_suffix = [Uniadic() for _ in valued_suffix_items]
-            updated_symbols |= input_shape.inner_match(
-                prefix=input_prefix, root=Variadic(), suffix=input_suffix
-            )
-
-        # find if input_prefix and input_suffix
-        # matches with input_shape
-        _match = True
-        if len(input_prefix) > len(input_shape.prefix):
-            # match did not happen in this case occurs
-            longer_prefix = input_prefix
-            _match = False
-        else:
-            longer_prefix = input_shape.prefix
-
-        if len(input_suffix) > len(input_shape.reverse):
-            # match did not happen in this case occurs
-            longer_reverse = input_suffix[::-1]
-            _match = False
-        else:
-            longer_reverse = input_shape.reverse
-
-        # try to infer output prefix and suffix with given index
-        output_prefix = tensor_item_constraint_helper(index_prefix, longer_prefix)
-        output_reverse = tensor_item_constraint_helper(
-            index_suffix[::-1], longer_reverse
+        input_prefix, output_prefix, prefix_status, idx_pref = (
+            tensor_item_constraint_helper(index_prefix, input_shape.prefix)
         )
-        if input_shape.root is not None:
-            root = input_shape.root if _match else Variadic()
-            updated_symbols |= output_shape.inner_match(
-                prefix=output_prefix, root=root, suffix=output_reverse[::-1]
-            )
-        else:
-            remaining_input_unis = input_shape.prefix[
-                len(valued_prefix_items) : None
-                if len(valued_suffix_items) == 0
-                else -len(valued_suffix_items)
+        input_suffix, output_suffix, suffix_status, idx_suf = (
+            tensor_item_constraint_helper(index_suffix[::-1], input_shape.reverse)
+        )
+        status = prefix_status and suffix_status
+
+        updated_symbols |= input_shape.inner_match(
+            input_prefix, Variadic(), input_suffix[::-1]
+        )
+
+        if input_shape.root is None:
+            remained_unis = input_shape.prefix[
+                len(input_prefix) : len(input_shape.prefix) - len(input_suffix)
             ]
-            updated_symbols |= output_shape.inner_match(
-                prefix=output_prefix + remaining_input_unis + output_reverse[::-1]
-            )
-
-    unsolved_input_symbols: set[UniadicRecord | Variadic] = set()
-    unsolved_output_symbols: set[UniadicRecord | Variadic] = set()
-    for symbol in input_shape.prefix + input_shape.suffix:
-        if symbol.value is None:
-            unsolved_input_symbols.add(symbol.metadata)
-    if input_shape.root is not None:
-        unsolved_input_symbols.add(input_shape.root)
-
-    unsolved_output_symbols = set()
-    for symbol in output_shape.prefix + output_shape.suffix:
-        if symbol.value is None:
-            unsolved_output_symbols.add(symbol.metadata)
-    if output_shape.root is not None:
-        unsolved_output_symbols.add(output_shape.root)
-
-    if unsolved_output_symbols - unsolved_input_symbols == set() and index is not TBD:
-        status = True
-    else:
-        status = False
+            output_unis = output_prefix + remained_unis + output_suffix[::-1]
+            updated_symbols |= output_shape.inner_match(prefix=output_unis)
+        else:
+            if len(input_prefix) > len(input_shape.prefix) or len(input_suffix) > len(
+                input_shape.reverse
+            ):
+                status = False
+                updated_symbols |= output_shape.inner_match(
+                    output_prefix, Variadic(), output_suffix[::-1]
+                )
+            else:
+                updated_symbols |= output_shape.inner_match(
+                    output_prefix + input_shape.prefix[idx_pref:],
+                    input_shape.root,
+                    (output_suffix + input_shape.reverse[idx_suf:])[::-1],
+                )
 
     return status, updated_symbols
 
@@ -3404,35 +3355,37 @@ def tensor_item_constraints(
 def tensor_item_constraint_helper(
     item_values: tuple[slice | int | EllipsisType | None, ...]
     | list[slice | int | None | EllipsisType],
-    input_unis: list[Uniadic],
-) -> list[Uniadic]:
-    # calculates output uniadics based on given item values and
-    # input uniadics.
-
-    # Example:
-    # item_values = (3, slice(2, 4, None), None, None, slice(0, None, None))
-    # input_unis = [Uniadic(10), Uniadic(5), Uniadic(2)] --> items = [Uniadic(2),
-    # Uniadic(1), Uniadic(1), Uniadic(2)]
-
-    items: list[Uniadic] = []
-    idx = 0
+    input_shape_unis: list[Uniadic],
+) -> tuple[list[Uniadic], list[Uniadic], bool, int]:
+    input_unis = []
+    output_unis = []
+    current_index = 0
+    status = True
     for item in item_values:
-        if item is None:
-            items.append(Uniadic(1))
-        else:
-            if isinstance(item, slice):
-                uni = input_unis[idx]
-                if uni.value is not None:
-                    out_value = len(list(range(uni.value))[item])
-                    items.append(Uniadic(out_value))
+        match item:
+            case slice():
+                if (current_index < len(input_shape_unis)) and (
+                    uni := input_shape_unis[current_index]
+                ).value is not None:
+                    output_unis.append(Uniadic(len(list(range(uni.value))[item])))
+                    input_unis.append(uni)
                 else:
-                    items.append(Uniadic())
-            idx += 1
-    return items
+                    input_unis.append(Uniadic())
+                    output_unis.append(Uniadic())
+                    status = False
+                current_index += 1
+
+            case int():
+                input_unis.append(Uniadic())
+                current_index += 1
+
+            case None:
+                output_unis.append(Uniadic(1))
+    return input_unis, output_unis, status, current_index
 
 
 def tensor_slice_constraints(
-    output: Tensor[Any], input: Tensor[Any], start: Scalar, stop: Scalar, step: Scalar
+    output: Tensor, input: Tensor, start: Scalar, stop: Scalar, step: Scalar
 ) -> ConstrainResultType:
     assert output._temp_shape is not None, "Output shape of TensorSlice is not set!"
     assert input._temp_shape is not None, "Input shape of TensorSlice is not set!"
@@ -3440,6 +3393,7 @@ def tensor_slice_constraints(
     input_shape: ShapeRepr = input._temp_shape
     updated_symbols = Updates()
     status = False
+
     if input_shape.prefix and output_shape.prefix:
         in_uni, out_uni = input_shape[0], output_shape[0]
         if in_uni.value is not None and out_uni.value is not None:
@@ -3456,6 +3410,80 @@ def tensor_slice_constraints(
                 out_uni.set_value(out_val)
                 updated_symbols.add(out_uni)
                 status = True
+
+    return status, updated_symbols
+
+
+def split_constraints(output: Tensor, input: Tensor, split_size: Scalar, axis: Scalar):
+    status = False
+    split_size_val = split_size.value
+    axis_val = axis.value
+    assert output._temp_shape is not None, "Output shape of Split is not set!"
+    assert input._temp_shape is not None, "Input shape of Split is not set!"
+    output_shape: ShapeRepr = output._temp_shape
+    input_shape: ShapeRepr = input._temp_shape
+    updated_symbols = Updates()
+
+    assert isinstance(axis_val, ToBeDetermined) or type(axis_val) is int
+
+    assert isinstance(split_size_val, ToBeDetermined) or type(split_size_val) is int
+
+    if not isinstance(axis_val, ToBeDetermined) and not isinstance(
+        split_size_val, ToBeDetermined
+    ):
+        if axis_val >= 0:
+            if len(input_shape.prefix) > axis_val:
+                uni_val = input_shape.prefix[axis_val].value
+                if uni_val is not None:
+                    new_val = int(uni_val / split_size_val)
+                    prefix = [
+                        Uniadic(split_size_val),
+                        *input_shape.prefix[:axis_val],
+                        Uniadic(new_val),
+                        *input_shape.prefix[axis_val + 1 :],
+                    ]
+                    root = input_shape.root
+                    suffix = input_shape.suffix
+                    updated_symbols |= output_shape.inner_match(
+                        prefix=prefix, root=root, suffix=suffix
+                    )
+                    status = True
+
+        elif axis_val < 0:
+            if input_shape.root is None:
+                axis_val = len(input_shape.prefix) + axis_val
+                uni_val = input_shape.prefix[axis_val].value
+                if uni_val is not None:
+                    new_val = int(uni_val / split_size_val)
+                    prefix = [
+                        Uniadic(split_size_val),
+                        *input_shape.prefix[:axis_val],
+                        Uniadic(new_val),
+                        *input_shape.prefix[axis_val + 1 :],
+                    ]
+                    root = input_shape.root
+                    suffix = input_shape.suffix
+                    updated_symbols |= output_shape.inner_match(
+                        prefix=prefix, root=root, suffix=suffix
+                    )
+                    status = True
+
+            elif len(input_shape.prefix) >= abs(axis_val):
+                axis_val = len(input_shape.suffix) + axis_val
+                uni_val = input_shape.suffix[axis_val].value
+                if uni_val is not None:
+                    new_val = int(uni_val / split_size_val)
+                    prefix = [Uniadic(split_size_val), *input_shape.prefix]
+                    root = input_shape.root
+                    suffix = [
+                        *input_shape.suffix[:axis_val],
+                        Uniadic(new_val),
+                        *input_shape.suffix[axis_val + 1 :],
+                    ]
+                    updated_symbols |= output_shape.inner_match(
+                        prefix=prefix, root=root, suffix=suffix
+                    )
+                    status = True
 
     return status, updated_symbols
 
@@ -3595,7 +3623,7 @@ def tuple_converter_constraint(output: Scalar, input: Scalar) -> ConstrainResult
 
 
 def cross_entropy_constraint(
-    categorical: Scalar, input: Tensor[Any], target: Tensor[Any]
+    categorical: Scalar, input: Tensor, target: Tensor
 ) -> ConstrainResultType:
     assert input._temp_shape is not None, "Input shape of reverse is not set!"
     assert target._temp_shape is not None, "Target shape of reverse is not set!"

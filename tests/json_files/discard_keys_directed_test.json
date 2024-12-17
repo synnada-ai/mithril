@@ -52,8 +52,6 @@
                     "right": {"connect": [["m2","output"]]},
                     "output": "output"
                 }
-
-
             }
         },
         "discard_keys": [],

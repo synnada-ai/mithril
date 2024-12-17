@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from types import EllipsisType, NoneType, UnionType
-from typing import Any, Self, TypeVar, overload
+from typing import Any, Self
 
 from ...utils.utils import OrderedSet, find_dominant_type
 from ..common import (
@@ -35,10 +35,8 @@ from ..common import (
     MainValueInstance,
     MainValueType,
     NestedListType,
-    NotAvailable,
     NullConnection,
     Scalar,
-    ShapeRepr,
     ShapeTemplateType,
     Tensor,
     ToBeDetermined,
@@ -138,9 +136,7 @@ ops_table: dict[str, type[PrimitiveModel]] = {
 }
 
 
-coercion_table: dict[
-    tuple[str, type[Tensor[Any]] | type[Scalar]], type[PrimitiveModel]
-] = {
+coercion_table: dict[tuple[str, type[Tensor] | type[Scalar]], type[PrimitiveModel]] = {
     ("item", Tensor): TensorItem,
     ("item", Scalar): ScalarItem,
     ("slice", Tensor): TensorSlice,
@@ -148,7 +144,7 @@ coercion_table: dict[
 }
 
 type_conversion_map: dict[
-    tuple[type[Tensor[Any]] | type[Scalar], type[Tensor[Any]] | type[Scalar]],
+    tuple[type[Tensor] | type[Scalar], type[Tensor] | type[Scalar]],
     type[ToTensor] | type[TensorToList] | None,
 ] = {
     (Scalar, Tensor): ToTensor,
@@ -228,7 +224,7 @@ class Model(BaseModel):
             else:  # Named connections.
                 # Create new output connection with given key name.
 
-                data: Tensor[Any] | Scalar = (
+                data: Tensor | Scalar = (
                     Scalar(metadata.data._type)
                     if isinstance(metadata.data, Scalar)
                     else Tensor(metadata.data.shape, metadata.data._type)
@@ -244,37 +240,6 @@ class Model(BaseModel):
 
     def _set_formula_key(self, formula_key: str):
         self._formula_key = formula_key
-
-    def _set_value(self, key: ConnectionData, value: MainValueType | str) -> Updates:
-        if isinstance(key.metadata.data, Tensor):
-            extend_value: MainValueType | IOKey | str = value
-            # If ToTensor output key is reserved key, rename it.
-            if key.conn.key == "input":
-                self.inter_key_count += 1
-                new_conn_name = "$" + str(self.inter_key_count)
-
-                # Update connections
-                self.conns._connection_dict[KeyType.INPUT][new_conn_name] = (
-                    self.conns._connection_dict[KeyType.INPUT].pop(key.conn.key)
-                )
-                # Update connection key
-                key.key = new_conn_name
-                extend_value = IOKey("input", value)
-
-            # Scalar to Tensor conversion is required.
-            model = ToTensor()
-            preserved_canonical_input = self.canonical_input
-            if (
-                isinstance(preserved_canonical_input, Connection)
-                and key == preserved_canonical_input.data
-            ):
-                preserved_canonical_input = NOT_AVAILABLE
-
-            self.extend(model, input=extend_value, output=key.conn)
-            if not isinstance(preserved_canonical_input, NotAvailable):
-                self.set_canonical_input(preserved_canonical_input)
-            return Updates()
-        return super()._set_value(key, value)
 
     def _check_multi_write(
         self,
@@ -345,8 +310,9 @@ class Model(BaseModel):
         assert local_connection is not None, "Connection is not found!"
         # Flags for use in required operations.
         create_connection = None
-        set_value: MainValueType | NullConnection = NOT_GIVEN  # value can be anything.
+        set_value: ToBeDetermined | str | MainValueType | NullConnection = NOT_GIVEN
         match_connection = None
+        d_map = self.dependency_map._local_output_dependency_map
 
         if isinstance(
             given_connection, MainValueInstance | NullConnection
@@ -387,6 +353,81 @@ class Model(BaseModel):
             outer_key = con_obj.key
             expose = outer_key in self.conns.output_keys and not is_input
             match_connection = True
+        elif isinstance(given_connection, IOKey):
+            outer_key = given_connection._name
+            expose = given_connection._expose
+            if outer_key is None or self.conns.get_connection(outer_key) is None:
+                create_connection = True  # Create new connection.
+            else:
+                con_obj = self.conns.get_connection(outer_key)
+                # Connection match is required.
+                match_connection = True
+            if given_connection._value is not TBD:
+                set_value = given_connection._value
+            if (
+                not expose
+                and is_input
+                and set_value is NOT_GIVEN
+                and (con_obj is None or con_obj not in d_map)
+            ):
+                raise ValueError(
+                    "Expose flag cannot be false when "
+                    "no value is provided for input keys!"
+                )
+        elif isinstance(given_connection, Connect):
+            match_connection = True
+            if (iokey := given_connection.key) is not None:
+                expose = iokey._expose
+                if iokey._name is not None:
+                    outer_key = iokey._name
+                if iokey._value is not TBD:
+                    set_value = iokey._value
+            initial_conn: ConnectionData
+            for idx, conn in enumerate(given_connection.connections):
+                if isinstance(conn, str):
+                    _conn = self.conns.get_connection(conn)
+                else:
+                    _conn = self.conns.get_con_by_metadata(conn.metadata)
+                assert isinstance(_conn, ConnectionData)
+                if idx == 0:
+                    initial_conn = _conn
+                    # TODO: Convert this to a method of Connections class named set_name
+                    if outer_key is not None:
+                        for key_type in KeyType:
+                            key_dict = self.conns._connection_dict[key_type]
+                            if key_dict.get(initial_conn.key) is not None:
+                                key_dict[outer_key] = key_dict.pop(
+                                    initial_conn.conn.key
+                                )
+                                # Update connection key
+                                initial_conn.key = outer_key
+                                initial_conn.is_key_autogenerated = False
+                                initial_conn.metadata.key_origin = outer_key
+                                setattr(self, outer_key, initial_conn.conn)
+                                break
+                else:
+                    if _conn in d_map:
+                        if initial_conn in d_map:
+                            raise KeyError(
+                                "Connect object can not have more than one output "
+                                "connection. Multi-write error!"
+                            )
+                        initial_conn, _conn = _conn, initial_conn
+                    if (
+                        not outer_key
+                        and not initial_conn.is_key_autogenerated
+                        and not _conn.is_key_autogenerated
+                    ):
+                        raise KeyError(
+                            "Requires a connection to have only one unique key "
+                            "name but encountered more!"
+                        )
+                    updates |= self.merge_connections(initial_conn, _conn)
+            if outer_key is None and is_input and initial_conn not in d_map:
+                expose = True
+            if not outer_key and initial_conn in d_map and expose:
+                raise KeyError("Connection without a name cannot be set as output")
+            con_obj = initial_conn
 
         else:
             raise TypeError("Requires valid connection type!")
@@ -396,6 +437,12 @@ class Model(BaseModel):
             raise KeyError(
                 "The key 'input' is a reserved key which could not be used for "
                 "internal keys."
+            )
+
+        if not is_input and not isinstance(set_value, NullConnection):
+            raise KeyError(
+                f"{local_key} key is an output of the model, output values could "
+                "not be set in extend."
             )
 
         # If connection is not created yet, create it.
@@ -412,12 +459,14 @@ class Model(BaseModel):
         if (
             local_connection.metadata.data.value is not TBD
             and con_obj not in self.conns.input_connections
+            and not isinstance(given_connection, IOKey)
+            and not isinstance(given_connection, Connect)
         ):
             expose = False
         # If any value provided, set.
         assert con_obj is not None
         if not isinstance(set_value, NullConnection):
-            updates |= con_obj.metadata.data.set_value(set_value)
+            updates |= con_obj.metadata.data.set_value(set_value)  # type: ignore
 
         # Check multi-write error for con_obj.
         self._check_multi_write(is_input, local_connection, con_obj)
@@ -442,7 +491,11 @@ class Model(BaseModel):
         if is_input:
             if outer_key not in self._input_keys:
                 if expose:
-                    self.conns.set_connection_type(con_obj, KeyType.INPUT)
+                    # if con_obj in self.conns.internal_connections:
+                    if con_obj in d_map:
+                        self.conns.set_connection_type(con_obj, KeyType.OUTPUT)
+                    else:
+                        self.conns.set_connection_type(con_obj, KeyType.INPUT)
                 # TODO: We both set given IOKey in handle_auto_conversion and here.
                 # This causes duality and confusion in self.conns. We need to refactor
                 # extend to disentangle this problem. We should avoid using
@@ -450,7 +503,7 @@ class Model(BaseModel):
                 # self.conns.all in _add_connection.
 
                 # elif outer_key not in self.conns.all:
-                elif con_obj not in self.dependency_map._local_output_dependency_map:
+                elif con_obj not in d_map:
                     self.conns.set_connection_type(con_obj, KeyType.LATENT_INPUT)
         else:
             if expose and outer_key not in self.conns.output_keys:
@@ -461,7 +514,7 @@ class Model(BaseModel):
         return con_obj, updates
 
     def _unroll_template(
-        self, template: ExtendTemplate, joint_type: type[Tensor[Any]] | type[Scalar]
+        self, template: ExtendTemplate, joint_type: type[Tensor] | type[Scalar]
     ) -> ConnectionData:
         if template.output_connection is None:
             # Initialize all default init arguments of model as "..." other
@@ -526,6 +579,8 @@ class Model(BaseModel):
         # This method is used if there is 2 Connection objects to represent same Edge.
         # In this case, connection2 is updated with connection1's data and it is removed
         # from dag, dependency_map, self attribute (if exists) and Connections object.
+
+        # TODO: Check multi-write error for Connect type.
 
         main_connection1 = self.conns.get_con_by_metadata(connection1.metadata)
         main_connection2 = self.conns.get_con_by_metadata(connection2.metadata)
@@ -609,361 +664,8 @@ class Model(BaseModel):
         main_connection2.is_key_autogenerated = main_connection1.is_key_autogenerated
         return updates
 
-    @overload
-    def handle_auto_conversion(
-        self,
-        key_type: type[Tensor[Any]] | type[Scalar],
-        is_input: bool,
-        connection: IOKey | Connect | ConnectionData,
-        updates: Updates,
-    ) -> ConnectionData: ...
-    @overload
-    def handle_auto_conversion(  # type: ignore[overload-cannot-match] # mypy import bug
-        self,
-        key_type: type[Tensor[Any]] | type[Scalar],
-        is_input: bool,
-        connection: ConnectionType | tuple[ConnectionType, ...] | list[ConnectionType],
-        updates: Updates,
-    ) -> None | ConnectionData: ...
-
-    def handle_auto_conversion(
-        self,
-        key_type: type[Tensor[Any]] | type[Scalar],
-        is_input: bool,
-        connection: ConnectionType | tuple[ConnectionType, ...] | list[ConnectionType],
-        updates: Updates,
-    ) -> ConnectionType:
-        connection_type: type[Tensor[Any]] | type[Scalar] | None = None
-        data: Tensor[Any] | Scalar | None = None
-        if isinstance(connection, MainValueInstance):
-            connection_type = Scalar
-
-        elif isinstance(connection, ConnectionData):
-            connection_type = connection.metadata.data.__class__
-
-        # elif (
-        #     isinstance(connection, str)
-        #     and (data := self.conns.get_data(connection)) is not None
-        # ):
-        elif (
-            isinstance(connection, str)
-            and (_conn := self.conns.get_connection(connection)) is not None
-        ):
-            data = _conn.metadata.data
-            connection_type = data.__class__
-
-        elif isinstance(connection, IOKey):
-            # Return NOTGIVEN if IOKey has value, name and expose
-            # attributes as their default values.
-            existing_conn = None
-            if connection._name is None and connection._value == NOT_GIVEN:
-                return NOT_GIVEN
-
-            set_type = connection._type
-            set_value = connection._value
-            is_value_given = not isinstance(set_value, ToBeDetermined | NullConnection)
-            if connection._name is not None:
-                existing_conn = self.conns.get_connection(connection._name)
-            if (
-                connection._name is not None
-                and existing_conn is not None
-                and existing_conn.key in self.conns._connection_dict[KeyType.OUTPUT]
-                and not connection._expose
-            ):
-                raise ValueError(
-                    "Given IOKey is already exists as an output key and it is "
-                    "exposed. IOKey expose flag cannot be 'False'!"
-                )
-
-            if (
-                is_input
-                and existing_conn is None
-                and not (is_value_given or connection._expose)
-            ):
-                raise ValueError(
-                    "Expose flag cannot be false when no value is provided for "
-                    "input keys!"
-                )
-
-            if (key_type is Scalar) and (connection._shape is not None):
-                raise KeyError("Shape cannot be set for scalar type values")
-
-            # Create data object based on given_value or given key_type.
-            if is_value_given:
-                assert isinstance(set_value, MainValueInstance | str)
-                data = Scalar(value=set_value)
-
-            elif key_type == Scalar:
-                if set_type is None:
-                    set_type = MainValueInstance | str
-                data = Scalar(possible_types=set_type)
-
-            else:
-                shape_node = ShapeRepr(root=Variadic()).node
-                if set_type is None:
-                    set_type = int | float | bool
-                assert isinstance(set_type, type | UnionType)
-                data = Tensor(shape_node, set_type)
-
-            # Determine connection type.
-            if connection._expose:
-                conn_type = KeyType.INPUT if is_input else KeyType.OUTPUT
-            else:
-                conn_type = KeyType.INTERNAL
-
-            # Existing connection type
-            existing_conn_type = None
-            if existing_conn is not None:
-                if existing_conn.key in self.conns._connection_dict[KeyType.INPUT]:
-                    existing_conn_type = KeyType.INPUT
-                elif existing_conn.key in self.conns._connection_dict[KeyType.OUTPUT]:
-                    existing_conn_type = KeyType.OUTPUT
-                else:
-                    existing_conn_type = KeyType.INTERNAL
-
-            # If the existing connection is internal (i.e., an output of a primitive)
-            # and the connection type is input, the user wants to expose this
-            # connection, then conn_type should be output.
-            if existing_conn_type is KeyType.INTERNAL and conn_type is KeyType.INPUT:
-                conn_type = KeyType.OUTPUT
-
-            # Create new connection using data object.
-            if existing_conn is None:
-                new_conn = self.create_connection(IOHyperEdge(data), connection._name)
-            else:
-                assert connection._name is not None
-                _new_conn = self.conns.get_connection(connection._name)
-                assert _new_conn is not None, "Connection is not found!"
-                new_conn = _new_conn
-                if not isinstance(connection._value, NullConnection) and not isinstance(
-                    connection._value, ToBeDetermined
-                ):
-                    self.set_values({new_conn.conn: connection._value})
-                if connection._shape is not None:
-                    self.set_shapes({new_conn.conn: connection._shape})
-                if connection._type is not None:
-                    self.set_types({new_conn.conn: connection._type})
-
-            self.conns.set_connection_type(new_conn, conn_type)
-
-            # Perform conversion if required.
-            return self.handle_auto_conversion(
-                key_type, is_input, new_conn, updates=updates
-            )
-
-        elif isinstance(connection, Connect):
-            connections: set[ConnectionData] = set()
-            output_connection = None  # A connection which is an output of any model.
-            base_conn = None
-            # First convert all connections in Connect into Connection.
-            for conn in connection.connections:
-                if isinstance(conn, str):
-                    con_obj = self.conns.get_connection(conn)
-                else:
-                    con_obj = self.conns.get_con_by_metadata(conn.metadata)
-
-                # Connections in Connect object must be accessible in self.
-                if con_obj is None:
-                    raise KeyError("Requires accessible connection to be processed!")
-                elif (
-                    con_obj.key
-                    not in self.conns.input_keys | self.conns.latent_input_keys
-                ):
-                    if output_connection is not None:
-                        raise KeyError(
-                            "Connect object can not have more than one output "
-                            "connection. Multi-write error!"
-                        )
-                    output_connection = con_obj
-                connections.add(con_obj)
-
-            # In case of Connect object has an IOKey, first create this connection.
-            if isinstance(connection.key, IOKey):
-                # Immediate values can not be assigned to output connections.
-                if output_connection is not None and connection.key._value is not TBD:
-                    raise ValueError(
-                        "Connect object can not have both an output connection and "
-                        "a value. Multi-write error!"
-                    )
-
-                if output_connection is not None:
-                    data_type = output_connection.metadata.data.__class__
-                    is_conn_input = False
-
-                elif connection.key._value is not TBD:
-                    data_type = Scalar
-                    is_conn_input = True
-
-                else:
-                    # All connections in Connect object must have same type.
-                    types: set[type[Scalar] | type[Tensor[Any]]] = {
-                        _conn.metadata.data.__class__ for _conn in connections
-                    }
-                    if len(types) > 1:
-                        raise TypeError("Connected connections are not of same type!")
-                    data_type = (
-                        types.pop() if types else key_type
-                    )  # If no connection exists, take key_type.
-                    is_conn_input = True
-
-                # NOTE: Temporarily set IOKey expose flag to True in order to avoid
-                # possible errors. For example if user sets expose = False and
-                # performs an extension from input keys, it throws an error like "input
-                # keys are always exposed". We can bypass this error by setting expose
-                # flag to its default value (True) and reset it to the desired type
-                # after base_conn is created.
-                original_expose = connection.key._expose
-                connection.key._expose = True
-
-                # Since we provide data type of connection, base_conn always be
-                # the connection
-                # created for provided IOKey.
-                base_conn = self.handle_auto_conversion(
-                    data_type, is_conn_input, connection.key, updates
-                )
-
-                # Revert expose flag to its original state and set connection type
-                # based on it. NOTE: If base connection is merged with an already
-                # exposed output connection,it will automatically set as output
-                # connection in merge_connections method.
-                if not original_expose:
-                    self.conns.set_connection_type(base_conn, KeyType.INTERNAL)
-                elif not is_input:
-                    self.conns.set_connection_type(base_conn, KeyType.OUTPUT)
-
-                # Reset expose flag to its original state.
-                connection.key._expose = original_expose
-
-                if base_conn == NOT_GIVEN:
-                    base_conn = next(iter(connections), None)
-
-            else:
-                # Choose one of the connections as base connection. If any
-                # internal connection occurs, choose it as base connection.
-                if output_connection is not None:
-                    base_conn = output_connection
-                else:
-                    base_conn = next(iter(connections), None)
-
-            # Connect object must have at least one connection.
-            if base_conn is None:
-                raise Exception("Connect object must have at least one connection!")
-
-            # Iterate over all connections in Connect object and merge them with con_obj
-            for con in connections:
-                # If any connection in Connect already connected, skip it:
-                if con.metadata != base_conn.metadata:
-                    resulting_conn = self.handle_auto_conversion(
-                        con.metadata.data.__class__,
-                        con in self.conns.input_connections,
-                        base_conn,
-                        updates=updates,
-                    )
-                    reference_conn = con
-                    other_conn = (
-                        resulting_conn if resulting_conn != base_conn else base_conn
-                    )
-
-                    self._check_multi_write(is_input, resulting_conn, other_conn)
-
-                    # Update reference and other connections based on their keys'
-                    # generation type and name of Connect object if there exists.
-                    if not other_conn.is_key_autogenerated:
-                        if (
-                            connection.key is not None
-                            and connection.key._name is not None
-                        ) or reference_conn.is_key_autogenerated:
-                            reference_conn, other_conn = other_conn, reference_conn
-                        elif not reference_conn.is_key_autogenerated:
-                            raise KeyError(
-                                "Requires a connection to have only one unique key "
-                                "name but encountered more!"
-                            )
-
-                    updates |= self.merge_connections(reference_conn, other_conn)
-
-            connection_type = base_conn.metadata.data.__class__
-            connection = base_conn
-
-        return self.create_connection_model(
-            connection_type, key_type, is_input, connection
-        )
-
-    T = TypeVar("T", bound=ConnectionType)
-
-    # if connection is a tuple or list, function will always return ConnectionData
-    @overload
     def create_connection_model(
         self,
-        connection_type: type[Tensor[Any]] | type[Scalar] | None,
-        key_type: type[Tensor[Any]] | type[Scalar],
-        is_input: bool,
-        connection: tuple[ConnectionType, ...] | list[ConnectionType],
-    ) -> ConnectionData: ...
-
-    # if connection_type and key_type are same, function will always
-    # return the Connection
-    @overload
-    def create_connection_model(
-        self,
-        connection_type: type[Tensor[Any]],
-        key_type: type[Tensor[Any]],
-        is_input: bool,
-        connection: T,
-    ) -> T:
-        ...
-
-        # if connection_type and key_type are different, function will
-        # always return a ConnectionData
-
-    @overload
-    def create_connection_model(  # type: ignore[overload-cannot-match] # mypy import bug
-        self,
-        connection_type: type[Tensor[Any]],
-        key_type: type[Scalar],
-        is_input: bool,
-        connection: ConnectionType | tuple[ConnectionType, ...] | list[ConnectionType],
-    ) -> ConnectionData: ...
-
-    # if connection_type and key_type are different, function will
-    # always return a ConnectionData
-    @overload
-    def create_connection_model(  # type: ignore[overload-cannot-match] # mypy import bug
-        self,
-        connection_type: type[Scalar],
-        key_type: type[Tensor[Any]],
-        is_input: bool,
-        connection: ConnectionType | tuple[ConnectionType, ...] | list[ConnectionType],
-    ) -> ConnectionData:
-        ...
-
-        # if connection_type and key_type are same, function will
-        # always return the Connection
-
-    @overload
-    def create_connection_model(  # type: ignore[overload-cannot-match] # mypy import bug
-        self,
-        connection_type: type[Scalar],
-        key_type: type[Scalar],
-        is_input: bool,
-        connection: ConnectionType | tuple[ConnectionType, ...] | list[ConnectionType],
-    ) -> ConnectionData: ...
-
-    # if connection_type is None, function will always return the connection
-    @overload
-    def create_connection_model(
-        self,
-        connection_type: None,
-        key_type: type[Tensor[Any]] | type[Scalar],
-        is_input: bool,
-        connection: T,
-    ) -> T: ...
-
-    def create_connection_model(
-        self,
-        connection_type: type[Tensor[Any]] | type[Scalar] | None,
-        key_type: type[Tensor[Any]] | type[Scalar],
-        is_input: bool,
         connection: ConnectionType | tuple[ConnectionType, ...] | list[ConnectionType],
     ) -> (
         ConnectionData
@@ -971,8 +673,6 @@ class Model(BaseModel):
         | tuple[ConnectionType, ...]
         | list[ConnectionType]
     ):
-        canonical_input = self.canonical_input
-        update_canonical_input = False
         result = connection
 
         if isinstance(connection, tuple | list):
@@ -980,11 +680,8 @@ class Model(BaseModel):
             # If a container has a value of type Connection or ExtendTemplate
             # we add necessary models. For any type other than Connection,
             # ExtendTemplate, float, int or bool, raise TypeError.
-            if (dominant_type := find_dominant_type(connection, raise_error=False)) in [
-                ConnectionData,
-                ExtendTemplate,
-                Connection,
-            ]:
+            dominant_type = find_dominant_type(connection, raise_error=False)
+            if dominant_type in [ConnectionData, ExtendTemplate, Connection, IOKey]:
                 kwargs = {
                     f"input{idx + 1}": item for idx, item in enumerate(connection)
                 }
@@ -993,48 +690,12 @@ class Model(BaseModel):
 
                 result = conv_model.conns.get_connection("output")
                 assert result is not None
-                update_canonical_input = True
             elif dominant_type not in [float, int, bool, slice, NoneType, EllipsisType]:
                 raise TypeError(
                     f"{dominant_type} type is not supported for conversion in "
                     "a container!"
                 )
 
-        if connection_type is not None:
-            coercion_type = (
-                (connection_type, key_type) if is_input else (key_type, connection_type)
-            )
-
-            if (conversion_model := type_conversion_map[coercion_type]) is not None:
-                bridge = conversion_model()
-                final_connection = result
-                if isinstance(final_connection, ConnectionData):
-                    final_connection = final_connection.conn
-
-                if is_input:
-                    update_canonical_input = True
-                    self.extend(
-                        bridge, input=final_connection
-                    )  # Take result into account
-                    # result = bridge.output.data
-                    result = self.conns.get_con_by_metadata(bridge.output.metadata)
-                    assert result is not None
-                else:
-                    self.extend(
-                        bridge, output=final_connection
-                    )  # Take result into account
-                    # result = bridge.input.data
-                    result = self.conns.get_con_by_metadata(bridge.input.metadata)
-                    assert result is not None
-        # Since we add conversion model automatically, cannonical input  may be changed.
-        # Reset it to original key if it is still an input key of self.
-        if (
-            update_canonical_input
-            and canonical_input is not NOT_AVAILABLE
-            and canonical_input.key in self._input_keys
-        ):
-            assert isinstance(canonical_input, Connection)
-            self.set_canonical_input(canonical_input)
         return result
 
     def extend(
@@ -1069,8 +730,8 @@ class Model(BaseModel):
         input_values: set[str] = set()
         output_values: set[str] = set()
 
-        shape_info: dict[str, ShapeTemplateType] = dict()
-        type_info: dict[str, type | UnionType | NestedListType] = dict()
+        shape_info: dict[str, ShapeTemplateType] = {}
+        type_info: dict[str, type | UnionType | NestedListType] = {}
 
         for key, value in kwargs.items():
             # Check if given keys are among model's keys.
@@ -1103,13 +764,6 @@ class Model(BaseModel):
                     value, type(template_conn.metadata.data)
                 )
 
-            elif isinstance(value, MainValueInstance):
-                if key in model.conns.output_keys:
-                    raise KeyError(
-                        f"{key} key is an output of the model, output values could "
-                        "not be set in extend."
-                    )
-
             elif isinstance(value, IOKey):
                 # Hold shape information for IOKey type values in order
                 # to set all in a bulk after all connections are added.
@@ -1129,20 +783,14 @@ class Model(BaseModel):
                     "but the model canonical connections is not determined. Please "
                     "provide connection/key explicitly, or set canonical connections."
                 )
+            elif isinstance(value, Connect) and value.key is not None:
+                if value.key._shape is not None:
+                    shape_info |= {key: value.key._shape}
 
-            elif not isinstance(value, Connect):
-                raise KeyError(
-                    f"For key: '{key}', given value: '{value}' is not valid!"
-                )
+                if value.key._type is not None:
+                    type_info[key] = value.key._type
 
-            # If any type conversion required for input keys, add it before main extend.
-            is_input = key in model._input_keys
-            inner_type = model.conns.all[key].metadata.data.__class__
-            if (
-                updated_conn := self.handle_auto_conversion(
-                    inner_type, is_input, kwargs[key], updates
-                )
-            ) is not None:
+            if (updated_conn := self.create_connection_model(kwargs[key])) is not None:
                 kwargs[key] = updated_conn
 
         # Check if any cycles occur with namings.
@@ -1179,6 +827,7 @@ class Model(BaseModel):
         type_info = {
             submodel_dag[key].key: template for key, template in type_info.items()
         }
+
         # Set given shapes.
         self._set_shapes(
             shape_info,
@@ -1575,8 +1224,8 @@ class Model(BaseModel):
     def extract_connection_info(
         self,
         name_mappings: dict[BaseModel, str],
-        data_to_key_map: dict[Tensor[Any] | Scalar, list[str]] | None = None,
-        data_memo: Mapping[int, Tensor[Any] | Scalar] | None = None,
+        data_to_key_map: dict[Tensor | Scalar, list[str]] | None = None,
+        data_memo: Mapping[int, Tensor | Scalar] | None = None,
     ):
         conn_info: dict[str, tuple[dict[str, list[str]], dict[str, list[str]]]] = {}
         if self._input_keys:
@@ -1643,10 +1292,7 @@ class Model(BaseModel):
                     if inner_key not in input_keys:
                         continue
 
-                    if (
-                        isinstance(key_data, Scalar)
-                        and (val := key_data.value) is not TBD
-                    ):
+                    if (val := key_data.value) is not TBD:
                         conn.append(str(val))
 
                     elif outer_key in self._input_keys:
