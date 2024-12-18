@@ -60,7 +60,6 @@ __all__ = [
     "IOHyperEdge",
     "Connection",
     "ConnectionData",
-    "Connect",
     "Connections",
     "ShapeNode",
     "ShapeRepr",
@@ -1102,8 +1101,9 @@ class IOKey(TemplateBase):
         value: TensorValueType | MainValueType | ToBeDetermined | str = TBD,
         shape: ShapeTemplateType | None = None,
         type: NestedListType | UnionType | type | None = None,
-        expose: bool = True,
+        expose: bool | None = None,
         interval: list[float | int] | None = None,
+        connections: list[Connection | str] | None = None,
     ) -> None:
         super().__init__()
         self._name = name
@@ -1112,6 +1112,7 @@ class IOKey(TemplateBase):
         self._type = type
         self._expose = expose
         self._interval = interval
+        self._connections: OrderedSet[ConnectionData | str] = OrderedSet()
 
         # TODO: Shape should not be [] also!
         if self._value is not TBD and self._shape is not None and self._shape != []:
@@ -1127,6 +1128,12 @@ class IOKey(TemplateBase):
                     f"type of the given value and given type does not match. Given "
                     f"type is {self._type} while type of value is {value_type}"
                 )
+
+        connections = connections or []
+        for item in connections:
+            conn: ConnectionData | str
+            conn = item.data if isinstance(item, Connection) else item
+            self._connections.add(conn)
 
     def __hash__(self) -> int:
         return hash(id(self))
@@ -1197,20 +1204,9 @@ TemplateConnectionType = (
 )
 
 
-class Connect:
-    def __init__(self, *connections: Connection | str, key: IOKey | None = None):
-        self.connections: OrderedSet[ConnectionData | str] = OrderedSet()
-        self.key = key
-        for item in connections:
-            conn: ConnectionData | str
-            conn = item.data if isinstance(item, Connection) else item
-            self.connections.add(conn)
-
-
 ConnectionType = (
     str
     | ConnectionData
-    | Connect
     | MainValueType
     | ExtendTemplate
     | NullConnection
@@ -1223,7 +1219,6 @@ ConnectionType = (
 ConnectionInstanceType = (
     str
     | ConnectionData
-    | Connect
     | MainValueInstance
     | ExtendTemplate
     | NullConnection

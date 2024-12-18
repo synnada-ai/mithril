@@ -23,7 +23,6 @@ from ..common import (
     NOT_AVAILABLE,
     NOT_GIVEN,
     TBD,
-    Connect,
     Connection,
     ConnectionData,
     ConnectionInstanceType,
@@ -353,9 +352,12 @@ class Model(BaseModel):
             outer_key = con_obj.key
             expose = outer_key in self.conns.output_keys and not is_input
             match_connection = True
-        elif isinstance(given_connection, IOKey):
+        elif isinstance(
+            given_connection, IOKey
+        ) and given_connection._connections == OrderedSet([]):
             outer_key = given_connection._name
-            expose = given_connection._expose
+            if (expose := given_connection._expose) is None:
+                expose = True
             if outer_key is None or self.conns.get_connection(outer_key) is None:
                 create_connection = True  # Create new connection.
             else:
@@ -374,16 +376,17 @@ class Model(BaseModel):
                     "Expose flag cannot be false when "
                     "no value is provided for input keys!"
                 )
-        elif isinstance(given_connection, Connect):
+        elif isinstance(
+            given_connection, IOKey
+        ) and given_connection._connections != OrderedSet([]):
             match_connection = True
-            if (iokey := given_connection.key) is not None:
-                expose = iokey._expose
-                if iokey._name is not None:
-                    outer_key = iokey._name
-                if iokey._value is not TBD:
-                    set_value = iokey._value
+            expose = given_connection._expose
+            if given_connection._name is not None:
+                outer_key = given_connection._name
+            if given_connection._value is not TBD:
+                set_value = given_connection._value
             initial_conn: ConnectionData
-            for idx, conn in enumerate(given_connection.connections):
+            for idx, conn in enumerate(given_connection._connections):
                 if isinstance(conn, str):
                     _conn = self.conns.get_connection(conn)
                 else:
@@ -409,7 +412,7 @@ class Model(BaseModel):
                     if _conn in d_map:
                         if initial_conn in d_map:
                             raise KeyError(
-                                "Connect object can not have more than one output "
+                                "IOKey object can not have more than one output "
                                 "connection. Multi-write error!"
                             )
                         initial_conn, _conn = _conn, initial_conn
@@ -460,7 +463,6 @@ class Model(BaseModel):
             local_connection.metadata.data.value is not TBD
             and con_obj not in self.conns.input_connections
             and not isinstance(given_connection, IOKey)
-            and not isinstance(given_connection, Connect)
         ):
             expose = False
         # If any value provided, set.
@@ -783,12 +785,6 @@ class Model(BaseModel):
                     "but the model canonical connections is not determined. Please "
                     "provide connection/key explicitly, or set canonical connections."
                 )
-            elif isinstance(value, Connect) and value.key is not None:
-                if value.key._shape is not None:
-                    shape_info |= {key: value.key._shape}
-
-                if value.key._type is not None:
-                    type_info[key] = value.key._type
 
             if (updated_conn := self.create_connection_model(kwargs[key])) is not None:
                 kwargs[key] = updated_conn

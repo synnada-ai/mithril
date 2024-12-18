@@ -58,7 +58,6 @@ from mithril.models import (
     BinaryCrossEntropy,
     Buffer,
     Concat,
-    Connect,
     Connection,
     ConstraintSolver,
     Convolution1D,
@@ -259,7 +258,9 @@ def test_cyclic_extension_5():
     model += sum3(
         left="input5",
         right="input6",
-        output=Connect(sum1.left, sum2.right, key=IOKey(name="my_input", expose=False)),
+        output=IOKey(
+            name="my_input", expose=False, connections=[sum1.left, sum2.right]
+        ),
     )
 
     assert set(model._input_keys) == {"input2", "input3", "input5", "input6"}
@@ -1973,7 +1974,9 @@ def test_multiple_output_connections():
     model += add_2(output="out2")
 
     with pytest.raises(Exception) as err_info:
-        model += add_1(left="left", right="right", output=Connect(add_2.left, "out2"))
+        model += add_1(
+            left="left", right="right", output=IOKey(connections=[add_2.left, "out2"])
+        )
 
     assert (
         str(err_info.value)
@@ -1989,7 +1992,7 @@ def test_multiple_output_connections_2():
     model += add_1(
         left="left",
         right="right",
-        output=Connect(add_2.left, "in3", key=IOKey(name="my_internal_key")),
+        output=IOKey(name="my_internal_key", connections=[add_2.left, "in3"]),
     )
 
     assert (
@@ -3909,7 +3912,7 @@ def test_connect_1():
     relu3 = Relu()
     model += relu1(output="relu_output_1")
     model += relu2(input="", output="relu_output_2")
-    model += relu3(input="", output=Connect(relu1.input, relu2.input))
+    model += relu3(input="", output=IOKey(connections=[relu1.input, relu2.input]))
 
     assert (
         model.dag[relu1]["input"].metadata
@@ -3926,7 +3929,7 @@ def test_connect_2():
     model += relu1(input="in1", output="relu_output_1")
     model += relu2(input="in2", output="relu_output_2")
     model += relu3(
-        input="", output=Connect(relu1.input, relu2.input, key=IOKey(name="my_input"))
+        input="", output=IOKey(name="my_input", connections=[relu1.input, relu2.input])
     )
 
     assert (
@@ -3943,7 +3946,7 @@ def test_connect_3():
     relu3 = Relu()
     model += relu1(output="relu_output_1")
     model += relu2(input="", output="relu_output_2")
-    model += relu3(input=Connect(relu1.input, relu2.input))
+    model += relu3(input=IOKey(connections=[relu1.input, relu2.input]))
 
     assert (
         model.dag[relu1]["input"].metadata
@@ -3959,7 +3962,7 @@ def test_connect_4():
     relu3 = Relu()
     model += relu1(input="in1", output="relu_output_1")
     model += relu2(input="in2", output="relu_output_2")
-    model += relu3(input=Connect(relu1.input, relu2.input, key=IOKey(name="my_input")))
+    model += relu3(input=IOKey(name="my_input", connections=[relu1.input, relu2.input]))
 
     assert (
         model.dag[relu1]["input"].metadata
@@ -3976,7 +3979,7 @@ def test_connect_5():
     relu3 = Relu()
     model += relu1(input="in1", output="relu_output_1")
     model += relu2(input="", output="relu_output_2")
-    model += relu3(input=Connect(relu1.input, relu2.input))
+    model += relu3(input=IOKey(connections=[relu1.input, relu2.input]))
 
     assert (
         model.dag[relu1]["input"].key
@@ -3999,7 +4002,7 @@ def test_connect_6():
     model += relu2(input="in2", output="relu_output_2")
 
     with pytest.raises(KeyError) as error_info:
-        model += Relu()(input=Connect(relu1.input, relu2.input))
+        model += Relu()(input=IOKey(connections=[relu1.input, relu2.input]))
 
     assert str(error_info.value) == (
         "'Requires a connection to have only one unique key name but "
@@ -4083,8 +4086,12 @@ def test_connect_composite_2_extend_from_inputs():
     m2 = deepcopy(submodel)
     subcopy = deepcopy(submodel)
     model += m1(left="left", right="right")
-    model += m2(left=Connect(m1.output), right="right")  # type: ignore
-    model += subcopy(left=Connect(m2.output), right=Connect(m2.output), output="output")  # type: ignore
+    model += m2(left=IOKey(connections=[m1.output]), right="right")  # type: ignore
+    model += subcopy(
+        left=IOKey(connections=[m2.output]),  # type: ignore
+        right=IOKey(connections=[m2.output]),  # type: ignore
+        output="output",
+    )
 
     mithril.compile(model, backend=TorchBackend())
 
@@ -4100,9 +4107,9 @@ def test_composite_6_extend_from_inputs_connect():
     relu3 = Relu()
     relu4 = Relu()
     model += relu1(output="output")
-    model += relu2(input=Connect(relu1.input))
-    model += relu3(input="my_input", output=Connect(relu2.input))
-    model += relu4(input=Connect(relu3.input))
+    model += relu2(input=IOKey(connections=[relu1.input]))
+    model += relu3(input="my_input", output=IOKey(connections=[relu2.input]))
+    model += relu4(input=IOKey(connections=[relu3.input]))
 
     assert (
         relu2.input.data.metadata
@@ -4124,8 +4131,8 @@ def test_composite_4_extend_from_inputs_connect():
     relu3 = Relu()
     relu4 = Relu()
     model += relu1(input="my_input", output=IOKey(name="output"))
-    model += relu2(input=Connect(relu1.input))
-    model += relu3(input=Connect(relu2.input))
+    model += relu2(input=IOKey(connections=[relu1.input]))
+    model += relu3(input=IOKey(connections=[relu2.input]))
     model += relu4(input="input1", output="my_input")
 
     backend = TorchBackend()
@@ -4144,7 +4151,9 @@ def test_integration_composite_1_extend_from_inputs_1_with_connect():
     m2 = Layer(dimension=2, activation=Softmax())
     m1 = Layer(dimension=2, activation=Sigmoid())
     model += m2(weight="w1", bias="b1", output="output")
-    model += m1(input="input", weight="w0", bias="b0", output=Connect(m2.input))
+    model += m1(
+        input="input", weight="w0", bias="b0", output=IOKey(connections=[m2.input])
+    )
 
     assert m1.output.data.metadata == m2.input.data.metadata
 
@@ -4188,7 +4197,7 @@ def test_connect_8():
     r2 = Relu()
     model += t(output="output1")
     model += r1(input="input2", output="output2")
-    model += r2(input="", output=Connect(t.input, r1.input))
+    model += r2(input="", output=IOKey(connections=[t.input, r1.input]))
 
     assert r1.input.data.metadata == r2.output.data.metadata == t.input.data.metadata
 
@@ -4200,7 +4209,7 @@ def test_connect_9():
     r2 = Relu()
     model += t(input="input1", output="output1")
     model += r1(input="", output="output2")
-    model += r2(input="", output=Connect("input1", r1.input))
+    model += r2(input="", output=IOKey(connections=["input1", r1.input]))
 
     assert (
         r1.input.data.metadata
@@ -4217,7 +4226,10 @@ def test_connect_10():
     r2 = Relu()
     model += t(input="input1", output=IOKey(name="output1"))
     model += r1(input="input2", output=IOKey(name="output2"))
-    model += r2(input="", output=Connect("input1", "input2", key=IOKey(name="mahmut")))
+    model += r2(
+        input="",
+        output=IOKey(connections=["input1", "input2"], expose=True, name="internal"),
+    )
 
     assert (
         r1.input.data.metadata
@@ -4248,7 +4260,7 @@ def test_connect_12():
     model += add2(left="l3", right="l4", output=IOKey(name="out2"))
 
     model += add3(
-        left=Connect(add1.left, add2.left, key=IOKey(name="left")),
+        left=IOKey(name="left", connections=[add1.left, add2.left]),
         right="right",
         output=IOKey(name="out3"),
     )
@@ -4266,7 +4278,7 @@ def test_connect_13():
     buf = Buffer()
     model += add1(left="l1", right="l2", output=IOKey(name="out1"))
     model += add2(left="l3", right="l4")
-    model += buf(input=Connect(add1.left, add2.left, key=IOKey(name="input")))
+    model += buf(input=IOKey(name="input", connections=[add1.left, add2.left]))
     model += Add()(left=add2.output, right=buf.output, output=IOKey(name="out2"))
 
     assert model._input_keys == {"input", "l2", "l4"}
@@ -4290,7 +4302,7 @@ def test_connect_error_1():
     with pytest.raises(Exception) as error_info:
         model += Relu()(
             input="input",
-            output=Connect("input1", "input2", "output3", key=IOKey(name="my_input")),
+            output=IOKey(name="my_input", connections=["input1", "input2", "output3"]),
         )
 
     assert (
@@ -4308,13 +4320,13 @@ def test_connect_error_2():
 
     with pytest.raises(KeyError) as error_info:
         model += Relu()(
-            input=Connect(
-                "input1", "input2", "output3", "output4", key=IOKey(name="my_input")
+            input=IOKey(
+                name="my_input", connections=["input1", "input2", "output3", "output4"]
             )
         )
 
     assert str(error_info.value) == (
-        "'Connect object can not have more than one output connection. "
+        "'IOKey object can not have more than one output connection. "
         "Multi-write error!'"
     )
 
@@ -4326,7 +4338,7 @@ def test_connect_error_5():
 
     with pytest.raises(KeyError) as error_info:
         model_2 += Relu()(
-            output=Connect(tanh.input, relu.input, key=IOKey(expose=True))
+            output=IOKey(expose=True, connections=[tanh.input, relu.input])
         )
 
     assert (
@@ -4344,7 +4356,7 @@ def test_connect_error_6():
     model += l2(input="input1", weight="w1", output=IOKey(name="output2"))
     model += l3(input="", output=IOKey(name="output3"))
     model += l4(
-        input=Connect("input1", "input2", "output3", key=IOKey(name="my_output"))
+        input=IOKey(name="my_output", connections=["input1", "input2", "output3"])
     )
 
     assert (
@@ -5093,9 +5105,8 @@ def test_dependency_map_latent_to_input():
 
     # Add third model which changes name of a latent input and
     # makes it a real input of the model.
-    model += (to_tensor := ToTensor())(
-        Connect(mean.axis, key=IOKey(name="mean_axis")), output="output"
-    )
+    conn = IOKey(name="mean_axis", connections=[mean.axis], expose=True)
+    model += (to_tensor := ToTensor())(conn, output="output")
     # Assert dependency map and connection keys status in model.
     output: ConnectionData = model.output.data  # type: ignore
     mean_axis: ConnectionData = model.mean_axis.data  # type: ignore
@@ -6649,12 +6660,12 @@ def test_multi_write_7():
     model += add1(left="left1", right="right1", output="output1")
     model += add2(left="left2", right="right2", output="output2")
 
-    out = Connect(model.output1, model.output2)  # type: ignore
+    out = IOKey(connections=[model.output1, model.output2])  # type: ignore
     with pytest.raises(KeyError) as err_info:
         model += Buffer()(input=out, output="output3")
 
     assert str(err_info.value) == (
-        "'Connect object can not have more than one output connection. "
+        "'IOKey object can not have more than one output connection. "
         "Multi-write error!'"
     )
 

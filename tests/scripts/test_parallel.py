@@ -409,7 +409,6 @@ def test_torch_parallel_3():
     # primitive to_tensor.
     model = Model()
     model += (linear := Linear(256))(input="input", weight="w", bias="b")
-    # model += (e := ToTensor())(input=Connect(name="to_tensor", value=TBD))
     model += (e := ToTensor())(input=IOKey(name="to_tensor", value=TBD))
     model += Add()(left=linear.output, right=e.output, output="output")
     backend = mithril.TorchBackend()

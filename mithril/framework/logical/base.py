@@ -26,7 +26,6 @@ from ..common import (
     NOT_AVAILABLE,
     NOT_GIVEN,
     TBD,
-    Connect,
     Connection,
     ConnectionData,
     Connections,
@@ -96,7 +95,7 @@ class BaseModel(abc.ABC):
                     continue
                 match con:
                     case Connection():
-                        kwargs[key] = Connect(con, key=IOKey(value=val, expose=False))
+                        kwargs[key] = IOKey(value=val, connections=[con])
                         # TODO: Maybe we could check con's value if matches with val
                     case item if isinstance(item, MainValueInstance) and con != val:
                         raise ValueError(
@@ -111,25 +110,18 @@ class BaseModel(abc.ABC):
                                 f"Given IOKey for local key: '{key}' is not valid!"
                             )
                         else:
+                            conns = [
+                                item.conn if isinstance(item, ConnectionData) else item
+                                for item in con._connections
+                            ]
                             kwargs[key] = IOKey(
                                 name=con._name,
                                 value=val,
                                 shape=con._shape,
                                 type=con._type,
                                 expose=con._expose,
+                                connections=conns,
                             )
-                    case Connect():
-                        if (io_key := con.key) is not None:
-                            if io_key._value is not TBD and io_key._value != val:
-                                raise ValueError(
-                                    "Given IOKey in Connect for "
-                                    f"local key: '{key}' is not valid!"
-                                )
-                            else:
-                                io_key._value = val
-                        else:
-                            io_key = IOKey(value=val, expose=False)
-                            kwargs[key] = Connect(*con.connections, key=io_key)
                     case ExtendTemplate():
                         raise ValueError(
                             "Multi-write detected for a valued "

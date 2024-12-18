@@ -22,7 +22,6 @@ from typing import Any
 from ..framework.common import (
     TBD,
     AllValueType,
-    Connect,
     ConnectionData,
     GenericTensorType,
     IOHyperEdge,
@@ -138,7 +137,7 @@ def dict_to_model(modelparams: dict[str, Any]) -> BaseModel:
     for m_key, v in submodels.items():
         m = dict_to_model(v)
         submodels_dict[m_key] = m
-        mappings: dict[str, IOKey | float | int | list | tuple | str | Connect] = {}
+        mappings: dict[str, IOKey | float | int | list | tuple | str] = {}
         for k, conn in connections[m_key].items():
             if conn in unnamed_keys and k in m._input_keys:
                 continue
@@ -148,17 +147,18 @@ def dict_to_model(modelparams: dict[str, Any]) -> BaseModel:
 
             elif isinstance(conn, dict):
                 if "connect" in conn:
+                    key_kwargs = {}
                     if (key := conn.get("key")) is not None:
                         key_kwargs = create_iokey_kwargs(conn["key"])
                         key = IOKey(**key_kwargs)
-                    mappings[k] = Connect(
-                        *[
+                    mappings[k] = IOKey(
+                        **key_kwargs,
+                        connections=[
                             getattr(submodels_dict[value[0]], value[1])
                             if isinstance(value, Sequence)
                             else value
                             for value in conn["connect"]
                         ],
-                        key=key,
                     )
                 elif "name" in conn:
                     key_kwargs = create_iokey_kwargs(conn)
