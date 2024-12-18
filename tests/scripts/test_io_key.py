@@ -24,7 +24,6 @@ from mithril.framework.common import TBD, IOKey, Tensor
 from mithril.models import (
     Add,
     Buffer,
-    Connect,
     Linear,
     Mean,
     Model,
@@ -273,7 +272,7 @@ def test_7():
     model += (relu1 := Relu())(input="in1", output="relu1_output")
     model += (relu2 := Relu())(input="in2", output="relu2_output")
     model += (relu3 := Relu())(
-        input="", output=Connect(relu1.input, relu2.input, key=IOKey(name="my_input"))
+        input="", output=IOKey(name="my_input", connections=[relu1.input, relu2.input])
     )
     assert (
         model.dag[relu1]["input"].metadata
@@ -443,21 +442,15 @@ def test_iokey_shapes_3():
     model += buff3(input="input3")
 
     main_model = Model()
-    conn = Connect()
     main_model += model(
         input1=IOKey(name="input1", shape=["a", "b"]),
         input2=IOKey(name="input2", shape=["b", "a"]),
         input3=IOKey(name="input3", shape=[3, "a"]),
     )
 
-    conn = Connect(
-        main_model.input1,  # type: ignore
-        main_model.input2,  # type: ignore
-        main_model.input3,  # type: ignore
-        key=IOKey("input"),
-    )
-
-    main_model += Buffer()(input=conn, output="output1")
+    conns = [main_model.input1, main_model.input2, main_model.input3]  # type: ignore
+    key = IOKey(name="input", connections=conns)
+    main_model += Buffer()(input=key, output="output1")
 
     expected_shapes = {"$_Model_0_output": [3, 3], "output1": [3, 3], "input": [3, 3]}
 
@@ -1157,7 +1150,7 @@ def test_compare_models_5():
     sigmoid = Sigmoid()
     add = Add()
     model2 += add(output=IOKey(name="output"))
-    conn = Connect(add.left, add.right)
+    conn = IOKey(connections=[add.left, add.right])
     model2 += sigmoid(input="input", output=conn)
     model2.set_shapes({"input": [2, 2]})
 
