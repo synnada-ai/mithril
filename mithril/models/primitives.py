@@ -94,6 +94,7 @@ __all__ = [
     "TsnePJoint",
     "EyeComplement",
     "Eye",
+    "ZerosLike",
     "Cholesky",
     "GPRAlpha",
     "GPRVOuter",
@@ -2421,3 +2422,24 @@ class Pad(PrimitiveModel):
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(input=input, pad_width=pad_width, output=output)
+
+
+class ZerosLike(PrimitiveModel):
+    input: Connection
+    output: Connection
+
+    def __init__(
+        self, name: str | None = None, input: TensorValueType | ToBeDetermined = TBD
+    ) -> None:
+        super().__init__(
+            formula_key="zeros_like",
+            name=name,
+            output=IOKey(shape=[("Var", ...)], type=GenericTensorType),
+            input=IOKey(shape=[("Var", ...)], type=GenericTensorType),
+        )
+        self.factory_inputs = {"input": input}
+
+    def __call__(  # type: ignore[override]
+        self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
+    ) -> ExtendInfo:
+        return super().__call__(input=input, output=output)

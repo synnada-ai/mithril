@@ -70,16 +70,17 @@ from mithril.models import (
     Trapezoid,
     Unique,
     Where,
+    ZerosLike,
 )
 from tests.scripts.test_utils import convert_to_array
 
 
-def list_ones(*shapes):
+def list_full(fill_value, *shapes):
     if len(shapes) == 0:
-        return 1.0
+        return fill_value
     else:
         first_shape, other_shapes = shapes[0], shapes[1:]
-        return [list_ones(*other_shapes) for _ in range(first_shape)]
+        return [list_full(fill_value, *other_shapes) for _ in range(first_shape)]
 
 
 default_backends: list[Backend] = [TorchBackend(), NumpyBackend(), JaxBackend()]
@@ -322,7 +323,7 @@ def test_shape_2():
 def test_shape_3():
     model = Shape()
 
-    statics = {"input": list_ones(2, 3, 4, 5, 1, 2)}
+    statics = {"input": list_full(1.0, 2, 3, 4, 5, 1, 2)}
 
     reference_outputs = {"output": (2, 3, 4, 5, 1, 2)}
 
@@ -1279,6 +1280,24 @@ def test_eye_3():
     )
 
 
+def test_zeros_like():
+    model = ZerosLike()
+
+    statics = {"input": list_full(32, 2, 3, 4, 1)}
+    reference_outputs = {"output": list_full(0, 2, 3, 4, 1)}
+    compile_and_compare(
+        model=model,
+        compile_kwargs={"constant_keys": statics, "inference": True},
+        data={},
+        params={},
+        output_gradients={},
+        reference_outputs=reference_outputs,
+        reference_gradients=None,
+        tolerances=None,
+        assert_shapes=False,
+    )
+
+
 def test_eye_complement_1():
     model = EyeComplement(N=2, M=2)
 
@@ -1334,10 +1353,10 @@ def test_eye_complement_3():
 
 def test_squeeze_1():
     model = Squeeze()
-    params = {"input": list_ones(3, 1, 4, 2, 1)}
-    output_gradients = {"output": list_ones(3, 4, 2)}
-    reference_outputs = {"output": list_ones(3, 4, 2)}
-    reference_gradients = {"input": list_ones(3, 1, 4, 2, 1)}
+    params = {"input": list_full(1.0, 3, 1, 4, 2, 1)}
+    output_gradients = {"output": list_full(1.0, 3, 4, 2)}
+    reference_outputs = {"output": list_full(1.0, 3, 4, 2)}
+    reference_gradients = {"input": list_full(1.0, 3, 1, 4, 2, 1)}
 
     compile_and_compare(
         model=model,
@@ -1354,10 +1373,10 @@ def test_squeeze_1():
 
 def test_squeeze_2():
     model = Squeeze()
-    params = {"input": list_ones(3, 1, 4, 2, 1, 1, 1, 5)}
-    output_gradients = {"output": list_ones(3, 4, 2, 5)}
-    reference_outputs = {"output": list_ones(3, 4, 2, 5)}
-    reference_gradients = {"input": list_ones(3, 1, 4, 2, 1, 1, 1, 5)}
+    params = {"input": list_full(1.0, 3, 1, 4, 2, 1, 1, 1, 5)}
+    output_gradients = {"output": list_full(1.0, 3, 4, 2, 5)}
+    reference_outputs = {"output": list_full(1.0, 3, 4, 2, 5)}
+    reference_gradients = {"input": list_full(1.0, 3, 1, 4, 2, 1, 1, 1, 5)}
 
     compile_and_compare(
         model=model,
@@ -1374,9 +1393,9 @@ def test_squeeze_2():
 
 def test_broadcast_to_1():
     model = BroadcastTo()
-    params = {"input": list_ones(1, 1)}
-    output_gradients = {"output": list_ones(3, 3)}
-    reference_outputs = {"output": list_ones(3, 3)}
+    params = {"input": list_full(1.0, 1, 1)}
+    output_gradients = {"output": list_full(1.0, 3, 3)}
+    reference_outputs = {"output": list_full(1.0, 3, 3)}
     reference_gradients = {"input": [[9.0]]}
 
     compile_and_compare(
@@ -1555,7 +1574,7 @@ def test_norm_modifier_3():
 
 def test_size_1():
     model = Size(dim=2)
-    statics = {"input": list_ones(2, 3, 4, 1)}
+    statics = {"input": list_full(1.0, 2, 3, 4, 1)}
     reference_outputs = {"output": 4}
     compile_and_compare(
         model=model,
@@ -1573,7 +1592,7 @@ def test_size_1():
 
 def test_size_2():
     model = Size()
-    statics = {"input": list_ones(2, 3, 4, 1)}
+    statics = {"input": list_full(1.0, 2, 3, 4, 1)}
     reference_outputs = {"output": 24}
     compile_and_compare(
         model=model,
@@ -1589,7 +1608,7 @@ def test_size_2():
 
 def test_size_3():
     model = Size(dim=(1, 2))
-    statics = {"input": list_ones(2, 3, 4, 1)}
+    statics = {"input": list_full(1.0, 2, 3, 4, 1)}
     reference_outputs = {"output": (3, 4)}
     compile_and_compare(
         model=model,
