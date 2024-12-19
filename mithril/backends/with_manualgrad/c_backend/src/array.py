@@ -14,6 +14,7 @@
 
 import ctypes
 import os
+from typing import Any
 
 current_file_path = os.path.abspath(__file__)
 
@@ -50,7 +51,7 @@ lib.create_full_struct.argtypes = [
 lib.delete_struct.argtypes = [ctypes.POINTER(Array)]
 
 
-def to_c_int_array(lst):
+def to_c_int_array(lst: list[Any] | tuple[Any, ...]):
     return (ctypes.c_int * len(lst))(*lst)
 
 
@@ -80,7 +81,7 @@ class PyArray:
         data_list = [data_ptr[i] for i in range(total_elements)]
 
         # Reshape the flat list based on the shape
-        def reshape(data, shape):
+        def reshape(data: PyArray, shape: tuple[int, ...]):
             if len(shape) == 1:
                 return data
             size = shape[0]

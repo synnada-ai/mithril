@@ -14,6 +14,7 @@
 
 import math
 from collections.abc import Callable
+from typing import Any
 
 import jax
 from jax.experimental import mesh_utils
@@ -31,7 +32,7 @@ class JaxParallel(Parallel[jax.numpy.ndarray]):
         )
         super().__init__(n_devices)
 
-    def run_callable(self, *primals, fn_name: str):
+    def run_callable(self, *primals: jax.Array, fn_name: str):
         return self.callables[fn_name](*primals)
 
     def parallelize(
@@ -42,7 +43,7 @@ class JaxParallel(Parallel[jax.numpy.ndarray]):
         # transform user provided device mesh to the one that satisfies the condition,
         # and replicate the dimensions that are provided as 1 in the device mesh.
 
-        replicate_dims = []
+        replicate_dims: list[int] = []
 
         _device_mesh = [1] * tensor.ndim if device_mesh is None else list(device_mesh)
 
@@ -66,7 +67,7 @@ class JaxParallel(Parallel[jax.numpy.ndarray]):
 
         return jax.device_put(tensor, sharding)
 
-    def register_callable(self, fn: Callable, fn_name: str, jit: bool):
+    def register_callable(self, fn: Callable[..., Any], fn_name: str, jit: bool):
         if jit:
             fn = jax.jit(fn)
 

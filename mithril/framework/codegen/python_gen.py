@@ -252,7 +252,8 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
             module="mithril",
             names=[
                 ast.alias(
-                    name=f"{self.pm.backend.type.capitalize()}Backend", asname="Backend"
+                    name=f"{self.pm.backend.backend_type.capitalize()}Backend",
+                    asname="Backend",
                 )
             ],
             level=0,

@@ -23,7 +23,7 @@ from dataclasses import dataclass
 from enum import Enum
 from functools import partial
 from multiprocessing import shared_memory
-from typing import Any
+from typing import Any, overload
 
 import numpy as np
 import torch
@@ -36,7 +36,7 @@ from ....utils.utils import binary_search, find_dominant_type
 AVAILABLE_BACKEND_TYPES = ["cpu", "cuda"]
 
 ArrayType = torch.Tensor
-dtype_map: dict[str | None, torch.dtype | None] = {
+dtype_map: dict[str, torch.dtype] = {
     "int16": torch.int16,
     "int32": torch.int32,
     "int": torch.int32,
@@ -48,7 +48,6 @@ dtype_map: dict[str | None, torch.dtype | None] = {
     "float64": torch.float64,
     "double": torch.float64,
     "bool": torch.bool,
-    None: None,
 }
 
 
@@ -148,10 +147,10 @@ def find_optimal_sigmas(
     np.ndarray
         Returns optimal sigma values.
     """
-    sigmas = []
+    sigmas: list[float] = []
 
     # Make fn that returns perplexity of this row given sigma
-    def eval_fn(sigma, i):
+    def eval_fn(sigma: float, i: int):
         return perplexity_fn(negative_dist_sq[i, :], torch.tensor(sigma), i, threshold)
 
     # For each row of the matrix (each point in our dataset)
@@ -192,19 +191,19 @@ def handle_dtype(dtype: core.Dtype | torch.dtype | str) -> Any:
         return dtype_map[dtype.name]
     elif isinstance(dtype, torch.dtype):
         return dtype
-    elif isinstance(dtype, str) and dtype in dtype_map:
+    elif dtype in dtype_map:
         return dtype_map[dtype]
     raise TypeError(f"Provided data type '{dtype}' not understood")
 
 
 def creation_fn_wrapper_inner(
-    *args,
-    dtype=None,
-    fn: Callable,
+    *args: Any,
+    dtype: core.Dtype | torch.dtype | str | None = None,
+    fn: Callable[..., torch.Tensor],
     device: str,
     precision: int,
     device_mesh: tuple[int, ...] | None = None,
-    **kwargs,
+    **kwargs: Any,
 ):
     _device = get_device(device)
     if dtype is not None:
@@ -218,8 +217,14 @@ def creation_fn_wrapper_inner(
 
 
 def conversion_fn_wrapper_inner(
-    data, *args, dtype=None, fn: Callable, device: str, precision: int, **kwargs
-):
+    data: Any,
+    *args: Any,
+    dtype: torch.dtype | str | None = None,
+    fn: Callable[..., torch.Tensor],
+    device: str,
+    precision: int,
+    **kwargs: Any,
+) -> torch.Tensor:
     _device = get_device(device)
     if dtype is not None:
         dtype = handle_dtype(dtype)
@@ -253,6 +258,7 @@ def conversion_fn_wrapper_inner(
 
 def handle_data_precision(data: ArrayType, precision: int) -> ArrayType:
     _dtype = data.dtype
+    dtype: torch.dtype
     # Do not make any changes to boolean types.
     if _dtype != torch.bool:
         if (
@@ -260,17 +266,18 @@ def handle_data_precision(data: ArrayType, precision: int) -> ArrayType:
             and not torch.is_complex(data)
             and _dtype != getattr(torch, f"int{precision}")
         ):
-            data = data.type(getattr(torch, f"int{precision}"))
+            dtype = getattr(torch, f"int{precision}")
+            data = data.type(dtype)
         elif torch.is_floating_point(data) and _dtype != getattr(
             torch, f"float{precision}"
         ):
-            data = data.type(getattr(torch, f"float{precision}"))
+            dtype = getattr(torch, f"float{precision}")
+            data = data.type(dtype)
     return data
 
 
 def handle_data_dtype(data: ArrayType, dtype: core.Dtype | int) -> ArrayType:
-    if isinstance(dtype, int):
-        dtype = core.Dtype(dtype)
+    dtype = core.Dtype(dtype)
 
     if data.dtype != dtype_map[dtype.name]:
         as_type = dtype_map[dtype.name]
@@ -292,7 +299,9 @@ def get_subtype(data: ArrayType) -> str:
     return ""
 
 
-def calculate_tpr_fpr(threshold, input, label):
+def calculate_tpr_fpr(
+    threshold: torch.Tensor, input: torch.Tensor, label: torch.Tensor
+):
     input_c = input.clone()
 
     n_positive = (label == 1).sum()
@@ -307,7 +316,9 @@ def calculate_tpr_fpr(threshold, input, label):
     return tpr, fpr
 
 
-def log_sigmoid(input: torch.Tensor, log: Callable, robust: bool):
+def log_sigmoid(
+    input: torch.Tensor, log: Callable[..., torch.Tensor], robust: bool
+) -> torch.Tensor:
     min = torch.minimum(torch.tensor(0, device=input.device, dtype=input.dtype), input)
     input = torch.exp(-torch.abs(input))
     if not robust:
@@ -315,25 +326,29 @@ def log_sigmoid(input: torch.Tensor, log: Callable, robust: bool):
     return min - log(1 + input)
 
 
-def log_softmax(input: torch.Tensor, log: Callable, robust: bool, axis: int = -1):
+def log_softmax(
+    input: torch.Tensor, log: Callable[..., torch.Tensor], robust: bool, axis: int = -1
+):
     if not robust:
         return torch.log_softmax(input, dim=None)
     return input - log(torch.exp(input).sum(dim=axis, keepdim=True))
 
 
-def calculate_binary_class_weight(labels):
+def calculate_binary_class_weight(labels: torch.Tensor) -> torch.Tensor:
     labels = labels.double()
     return (1 - labels.mean()) / labels.mean()
 
 
-def calculate_categorical_class_weight(labels, num_classes: int):
+def calculate_categorical_class_weight(
+    labels: torch.Tensor, num_classes: int
+) -> torch.Tensor:
     one_hot = torch.eye(num_classes)[labels]
     return calculate_class_weight(one_hot)
 
 
-def calculate_class_weight(labels):
+def calculate_class_weight(labels: torch.Tensor) -> torch.Tensor:
     return (
-        (1 / labels.sum(axis=tuple(i for i in range(labels.ndim) if i != 1)))
+        (1 / labels.sum(dim=tuple(i for i in range(labels.ndim) if i != 1)))
         * labels.sum()
         / labels.shape[1]
     )
@@ -402,7 +417,34 @@ def init_dist_group(rank: int, world_size: int, device: str = "cpu", port: str =
     dist.init_process_group(backend=backend_type, rank=rank, world_size=world_size)
 
 
-def apply_to_all_elems(fn: Callable, data: Any):
+# TODO: Reconsider this overload logic after python supports
+# intersection and negation in typing https://github.com/python/typing/issues/213
+
+
+@overload
+def apply_to_all_elems[T1, T2](
+    fn: Callable[[T1], T2], data: dict[Any, T1]
+) -> dict[Any, T2]: ...
+
+
+@overload
+def apply_to_all_elems[T1, T2](fn: Callable[[T1], T2], data: list[T1]) -> list[T2]: ...
+
+
+@overload
+def apply_to_all_elems[T1, T2](
+    fn: Callable[[T1], T2], data: tuple[T1, ...]
+) -> tuple[T2, ...]: ...
+
+
+@overload
+def apply_to_all_elems[T1, T2](fn: Callable[[T1], T2], data: T1) -> T2: ...
+
+
+def apply_to_all_elems[T1, T2](
+    fn: Callable[[T1], T2],
+    data: T1 | dict[Any, T1] | tuple[T1, ...] | list[T1],
+) -> T2 | dict[Any, T2] | tuple[T2, ...] | list[T2]:
     if isinstance(data, dict):
         return {key: apply_to_all_elems(fn, value) for key, value in data.items()}
     elif isinstance(data, tuple):
@@ -463,9 +505,15 @@ class SharedCyclicQueue:
 
         atexit.register(self._cleanup)
 
-    def write(self, opcode1: int, opcode2: int, args: Any = None, kwargs=None) -> None:
+    def write(
+        self,
+        opcode1: int,
+        opcode2: int,
+        args: tuple[Any, ...] | None = None,
+        kwargs: dict[str, Any] | None = None,
+    ) -> None:
         if args is None:
-            args = []
+            args = tuple()
         if kwargs is None:
             kwargs = {}
 
@@ -490,7 +538,7 @@ class SharedCyclicQueue:
         self._index = self._next_index()
         self._shm.buf[0:1] = self._index.to_bytes()  # Write writer index
 
-    def read(self, rank: int) -> tuple[int, int, Any, Any]:
+    def read(self, rank: int) -> tuple[int, int, tuple[Any, ...], dict[str, Any]]:
         if not (0 <= self._index < self.NUM_ELEMENTS):
             raise IndexError("Index out of range.")
 
@@ -547,7 +595,9 @@ class SharedCyclicQueue:
                 + len(kwargs_bytes)
             ] = kwargs_bytes
 
-    def _read_memory(self, index: int) -> tuple[int, int, Any, Any]:
+    def _read_memory(
+        self, index: int
+    ) -> tuple[int, int, tuple[Any, ...], dict[str, Any]]:
         offset = self._nprocesses + index * self.PAIR_SIZE
         opcode1, opcode2 = struct.unpack("2i", self._shm.buf[offset : offset + 8])
         args_identifier = self._shm.buf[offset + 8 : offset + 12]
@@ -589,7 +639,7 @@ class SharedCyclicQueue:
 
     def _decode_args_kwargs(
         self, offset: int, args_identifier: bytes
-    ) -> tuple[Any, dict]:
+    ) -> tuple[tuple[Any, ...], dict[str, Any]]:
         b_args_identifier = bin(int.from_bytes(args_identifier, "little"))[2:].zfill(32)
         args_length = int(b_args_identifier[2:17], 2)
         kwargs_length = int(b_args_identifier[17:], 2) - args_length
@@ -615,18 +665,17 @@ class SharedCyclicQueue:
                 self._shm.buf[offset : offset + args_length], args_length // 12
             )
 
-    def _decode_kwargs(self, offset: int, args_length: int, kwargs_length: int) -> dict:
+    def _decode_kwargs(
+        self, offset: int, args_length: int, kwargs_length: int
+    ) -> dict[str, Any]:
         return pickle.loads(
             self._shm.buf[offset + args_length : offset + args_length + kwargs_length]
         )
 
-    def _args_to_bytes(self, args: Iterable) -> bytes:
+    def _args_to_bytes(self, args: Iterable[int | float | TensorRef]) -> bytes:
         args_bytes = b""
-        if isinstance(args, Sequence):
-            for elem in args:
-                args_bytes += self._value_to_byte(elem)
-        else:
-            raise ValueError("Args must be iterable!")
+        for elem in args:
+            args_bytes += self._value_to_byte(elem)
 
         return args_bytes
 
@@ -704,7 +753,10 @@ def check_device_mesh(base_mesh: DeviceMesh, device_mesh: tuple[int, ...]):
             )
 
 
-def get_type(input: int | float | bool | Sequence, precision: int):
+NestedTensorType = int | float | bool | Sequence["NestedTensorType"]
+
+
+def get_type(input: NestedTensorType, precision: int):
     type = find_dominant_type(input).__name__
     if type == "bool":
         return torch.bool

@@ -32,11 +32,11 @@ PadWidthType = (
 class Backend(ABC, Generic[DataType]):
     """Base class for backend implementations in the Mithril library."""
 
-    type = ""
+    backend_type = ""
     device_type = None
     supported_precisions = [16, 32, 64]
     is_installed = True
-    _device: str
+    _device: Any
     _precision: int
     primitive_function_dict: dict[str, Callable[..., DataType | Any]]
     registered_primitives: dict[str, Callable[..., DataType]]
@@ -65,7 +65,7 @@ class Backend(ABC, Generic[DataType]):
         return self._device
 
     @property
-    def inf(self):
+    def inf(self) -> DataType | float:
         raise NotImplementedError("inf is not implemented")
 
     @property
@@ -80,29 +80,34 @@ class Backend(ABC, Generic[DataType]):
     def is_manualgrad(self) -> bool:
         raise NotImplementedError("is_manualgrad is not implemented")
 
-    def get_backend_array_type(self):  # noqa: B902
+    def get_backend_array_type(self) -> type[DataType]:
         raise NotImplementedError("get_backend_array_type is not implemented")
 
     @staticmethod
-    def register_primitive(fn: Callable) -> None:
+    def register_primitive(fn: Callable[..., Any]) -> None:
         raise NotImplementedError("register_primitive is not implemented!")
 
     @abstractmethod
-    def set_seed(self, seed: int):
+    def set_seed(self, seed: int) -> None:
         raise NotImplementedError(
             "set_seed function must be overriden for every backend individually!"
         )
 
-    def to_device(self, data: DataType, device: str, asynchronous: bool = True):
+    def to_device(
+        self, data: DataType, device: str, asynchronous: bool = True
+    ) -> DataType:
         raise RuntimeError("Backend does not support to_device method!")
 
-    def block_until_ready(self, data: DataType):
+    def block_until_ready(self, data: DataType) -> DataType | None:
         raise RuntimeError("Backend does not support block_until_ready method!")
 
     def empty_cache(self):  # noqa: B027
         pass
         # print("Warning: empty_cache is not supported!")
 
+    # TODO: Fix types in cast function when python
+    # adds Higher-Kinded TypeVar support.
+    # https://github.com/python/typing/issues/548#issuecomment-1193345123
     def cast(self, value: Any) -> Any:
         # Simply casts given value to the backend's precision.
         # If type of value is not int or float, returns the
@@ -141,7 +146,7 @@ class Backend(ABC, Generic[DataType]):
         dtype: core.Dtype | None = None,
     ) -> DataType: ...
 
-    def arange(self, *args: int | float, **kwargs) -> DataType:
+    def arange(self, *args: int | float, **kwargs: Any) -> DataType:
         raise NotImplementedError("arange is not implemented!")
 
     def flatten(
@@ -255,7 +260,7 @@ class Backend(ABC, Generic[DataType]):
         """
         raise NotImplementedError("isnan is not implemented!")
 
-    def array(self, data: Any, *, dtype: core.Dtype | None = None) -> DataType:
+    def array(self, input: Any, *, dtype: core.Dtype | None = None) -> DataType:
         """Returns a backend array on speficied device by copying `data`.
 
         Parameters
@@ -316,7 +321,7 @@ class Backend(ABC, Generic[DataType]):
         raise NotImplementedError("ones is not implemented!")
 
     def ones_like(
-        self, array: DataType, *, dtype: core.Dtype | None = None
+        self, input: DataType, *, dtype: core.Dtype | None = None
     ) -> DataType:
         """Returns a new backend array filled with ones, with the same size,
         same dtype and same device with the given array.
@@ -337,7 +342,7 @@ class Backend(ABC, Generic[DataType]):
         raise NotImplementedError("ones_like is not implemented!")
 
     def zeros_like(
-        self, array: DataType, *, dtype: core.Dtype | None = None
+        self, input: DataType, *, dtype: core.Dtype | None = None
     ) -> DataType:
         """Returns a new backend array filled with zeros, with the same size,
         same dtype and same device with the given array.
@@ -588,7 +593,7 @@ class Backend(ABC, Generic[DataType]):
         """
         raise NotImplementedError("softplus is not implemented!")
 
-    def stop_gradient(self, data: DataType) -> DataType:
+    def stop_gradient(self, input: DataType) -> DataType:
         """
         Stop the gradient computation for the given data.
 
@@ -677,7 +682,7 @@ class Backend(ABC, Generic[DataType]):
         """
         raise NotImplementedError("expand_dims is not implemented!")
 
-    def stack(self, arrays: list[DataType], axis: int = 0) -> DataType:
+    def stack(self, inputs: list[DataType], axis: int = 0) -> DataType:
         """
         Stack a sequence of arrays along a new axis.
 
@@ -693,7 +698,7 @@ class Backend(ABC, Generic[DataType]):
         """
         raise NotImplementedError("stack is not implemented!")
 
-    def cat(self, arrays: list[DataType], axis: int = 0) -> DataType:
+    def cat(self, inputs: list[DataType], axis: int = 0) -> DataType:
         """
         Concatenate a sequence of arrays along an existing axis.
 
@@ -814,12 +819,12 @@ class Backend(ABC, Generic[DataType]):
         raise NotImplementedError("any is not implemented!")
 
     def transpose(
-        self, data: DataType, axes: tuple[int, ...] | list[int] | None
+        self, input: DataType, axes: tuple[int, ...] | list[int] | None
     ) -> DataType:
         raise NotImplementedError()
 
     def unique(
-        self, input: DataType, **kwargs
+        self, input: DataType, **kwargs: Any
     ) -> tuple[DataType, DataType | None, DataType | None]:
         raise NotImplementedError("unique is not implemented!")
 
@@ -830,15 +835,11 @@ class Backend(ABC, Generic[DataType]):
         raise NotImplementedError("where is not implemented!")
 
     def multinomial(
-        self,
-        probs: DataType,
-        num_samples: int,
-        replacement: bool = False,
-        **kwargs,
+        self, probs: DataType, num_samples: int, replacement: bool = False
     ) -> DataType:
         raise NotImplementedError("multinomial is not implemented!")
 
-    def jit(self, fn: Callable) -> Callable:
+    def jit[T: Any](self, fn: Callable[..., T]) -> Callable[..., T]:
         """
         Just-in-time compile the given function.
 
@@ -982,7 +983,7 @@ class Backend(ABC, Generic[DataType]):
         """
         raise NotImplementedError("vjp is not implemented!")
 
-    def vmap(self, fn: Callable) -> Callable:
+    def vmap[T: Callable[..., Any]](self, fn: T) -> T:
         """
         Vectorize the given function.
 
@@ -1052,7 +1053,7 @@ class ParallelBackend(Backend[DataType]):
 
         self._raw_device_mesh = device_mesh
         self.n_devices = math.prod(device_mesh) if device_mesh is not None else 1
-        self._parallel_manager: Parallel | None
+        self._parallel_manager: Parallel[DataType] | None
 
     def zeros(
         self,
@@ -1370,22 +1371,23 @@ class ParallelBackend(Backend[DataType]):
 
         raise NotImplementedError("linspace is not implemented!")
 
-    def _register_callable(
-        self, fn: Callable | partial, fn_name: str, jit: bool
+    def _register_callable[T: Any](
+        self, fn: Callable[..., T] | partial[T], fn_name: str, jit: bool
     ) -> None:
         raise NotImplementedError()
 
-    def _run_callable(self, *primals, fn_name: str):
+    def _run_callable(self, *primals: Any, fn_name: str) -> Any:
         raise NotImplementedError()
 
-    def _create_parallel(self, device_mesh: tuple[int, ...]) -> Parallel:
+    def _create_parallel(self, device_mesh: tuple[int, ...]) -> None:
         raise NotImplementedError(
-            f"{self.type.capitalize()} backend does not support parallelization!"
+            f"{self.backend_type.capitalize()} "
+            + "backend does not support parallelization!"
         )
 
 
 class UnavailableBackend:
     is_installed = False
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         raise RuntimeError("Backend is unavailable due to missing dependencies.")

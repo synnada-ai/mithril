@@ -48,12 +48,15 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
         The precision of the tensors, either 32 or 64, default is 32.
     """
 
-    type = "torch"
+    backend_type = "torch"
     registered_primitives = {}
     primitive_fn_path = "mithril.backends.with_autograd.torch_backend.ops"
 
     def __init__(
-        self, device: str = "cpu", precision: int = 32, device_mesh=None
+        self,
+        device: str = "cpu",
+        precision: int = 32,
+        device_mesh: tuple[int, ...] | None = None,
     ) -> None:
         self._device = device
         self._precision = precision
@@ -94,7 +97,7 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
         return torch.Tensor
 
     @staticmethod
-    def register_primitive(fn: Callable) -> None:
+    def register_primitive(fn: Callable[..., Any]) -> None:
         TorchBackend.registered_primitives[fn.__name__] = fn
 
     @staticmethod
@@ -136,7 +139,9 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
             pass
             # print(f"Warning: empty_cache is not implemented for {self.device_type}")
 
-    def _creation_fn_wrapper(self, fn: Callable) -> Callable:
+    def _creation_fn_wrapper(
+        self, fn: Callable[..., torch.Tensor]
+    ) -> Callable[..., torch.Tensor]:
         """
         Wrapper for PyTorch tensor creation functions.
 
@@ -166,7 +171,9 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
 
         return array_creation_fn
 
-    def _conversion_fn_wrapper(self, fn: Callable) -> Callable:
+    def _conversion_fn_wrapper(
+        self, fn: Callable[..., torch.Tensor]
+    ) -> Callable[..., torch.Tensor]:
         """
         Wrapper for PyTorch tensor conversion functions.
 
@@ -196,7 +203,11 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
         return array_conversion_fn
 
     def _parallelize(
-        self, *args, fn: Callable, device_mesh, **kwargs
+        self,
+        *args: Any,
+        fn: Callable[..., torch.Tensor],
+        device_mesh: tuple[int] | None,
+        **kwargs: Any,
     ) -> DTensor | torch.Tensor:
         """
         Parallelizes the function's return tensor across devices.
@@ -224,7 +235,7 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
         )
 
     def _register_callable(
-        self, fn: Callable | partial, fn_name: str, jit: bool = False
+        self, fn: Callable[..., torch.Tensor], fn_name: str, jit: bool = False
     ):
         """
         Register a callable function with the backend.
@@ -256,7 +267,7 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
             self._raw_device_mesh
         )
 
-    def _run_callable(self, *primals, fn_name: str):
+    def _run_callable(self, *primals: Any, fn_name: str):
         assert (
             self._parallel_manager is not None
         ), "Parallel manager is not initialized!"
@@ -272,7 +283,7 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
             del state["_parallel_manager"]
         return state
 
-    def __setstate__(self, state) -> None:
+    def __setstate__(self, state: dict[Any, Any]) -> None:
         self.__dict__.update(state)
         # Recreate the parallel manager
         if self._raw_device_mesh is not None:
@@ -287,11 +298,11 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
         dtype: Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
     ) -> torch.Tensor:
-        _dtype: str | None = None
+        _dtype: torch.dtype | None = None
         if isinstance(dtype, Dtype):
-            _dtype = dtype.name
+            _dtype = utils.dtype_map[dtype.name]
         return self._conversion_fn_wrapper(torch.tensor)(
-            input, dtype=utils.dtype_map[_dtype], device_mesh=device_mesh
+            input, dtype=_dtype, device_mesh=device_mesh
         )
 
     def zeros(
@@ -300,12 +311,12 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
         dtype: Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
     ) -> torch.Tensor:
-        _dtype: str | None = None
+        _dtype: torch.dtype | None = None
         if isinstance(dtype, Dtype):
-            _dtype = dtype.name
+            _dtype = utils.dtype_map[dtype.name]
         _shape = process_shape(shape)
         return self._creation_fn_wrapper(torch.zeros)(
-            _shape, dtype=utils.dtype_map[_dtype], device_mesh=device_mesh
+            _shape, dtype=_dtype, device_mesh=device_mesh
         )
 
     def ones(
@@ -314,12 +325,12 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
         dtype: Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
     ) -> torch.Tensor:
-        _dtype: str | None = None
+        _dtype: torch.dtype | None = None
         if isinstance(dtype, Dtype):
-            _dtype = dtype.name
+            _dtype = utils.dtype_map[dtype.name]
         _shape = process_shape(shape)
         return self._creation_fn_wrapper(torch.ones)(
-            _shape, dtype=utils.dtype_map[_dtype], device_mesh=device_mesh
+            _shape, dtype=_dtype, device_mesh=device_mesh
         )
 
     def ones_like(
@@ -329,11 +340,11 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
         dtype: Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
     ) -> torch.Tensor:
-        _dtype: str | None = None
+        _dtype: torch.dtype | None = None
         if isinstance(dtype, Dtype):
-            _dtype = dtype.name
+            _dtype = utils.dtype_map[dtype.name]
         return self._creation_fn_wrapper(torch.ones_like)(
-            input, dtype=utils.dtype_map[_dtype], device_mesh=device_mesh
+            input, dtype=_dtype, device_mesh=device_mesh
         )
 
     def zeros_like(
@@ -343,11 +354,11 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
         dtype: Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
     ) -> torch.Tensor:
-        _dtype: str | None = None
+        _dtype: torch.dtype | None = None
         if isinstance(dtype, Dtype):
-            _dtype = dtype.name
+            _dtype = utils.dtype_map[dtype.name]
         return self._creation_fn_wrapper(torch.zeros_like)(
-            input, dtype=utils.dtype_map[_dtype], device_mesh=device_mesh
+            input, dtype=_dtype, device_mesh=device_mesh
         )
 
     def randn(
@@ -357,12 +368,12 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
         device_mesh: tuple[int, ...] | None = None,
         prng_key: Any = None,
     ) -> torch.Tensor:
-        _dtype: str | None = None
+        _dtype: torch.dtype | None = None
         if isinstance(dtype, Dtype):
-            _dtype = dtype.name
+            _dtype = utils.dtype_map[dtype.name]
         _shape = process_shape(shape)
         return self._creation_fn_wrapper(torch.randn)(
-            size=_shape, dtype=utils.dtype_map[_dtype], device_mesh=device_mesh
+            size=_shape, dtype=_dtype, device_mesh=device_mesh
         )
 
     def rand(
@@ -372,12 +383,12 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
         device_mesh: tuple[int, ...] | None = None,
         prng_key: Any = None,
     ) -> torch.Tensor:
-        _dtype: str | None = None
+        _dtype: torch.dtype | None = None
         if isinstance(dtype, Dtype):
-            _dtype = dtype.name
+            _dtype = utils.dtype_map[dtype.name]
         _shape = process_shape(shape)
         return self._creation_fn_wrapper(torch.rand)(
-            size=_shape, dtype=utils.dtype_map[_dtype], device_mesh=device_mesh
+            size=_shape, dtype=_dtype, device_mesh=device_mesh
         )
 
     def randint(
@@ -389,15 +400,15 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
         device_mesh: tuple[int, ...] | None = None,
         prng_key: Any = None,
     ) -> torch.Tensor:
-        _dtype: str | None = None
+        _dtype: torch.dtype | None = None
         if isinstance(dtype, Dtype):
-            _dtype = dtype.name
+            _dtype = utils.dtype_map[dtype.name]
         _shape = process_shape(shape)
         return self._creation_fn_wrapper(torch.randint)(
             low,
             high,
             size=_shape,
-            dtype=utils.dtype_map[_dtype],
+            dtype=_dtype,
             device_mesh=device_mesh,
         )
 
@@ -416,16 +427,16 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
 
     def _arange(
         self,
-        *args,
+        *args: int | float,
         dtype: Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
-        **kwargs,
+        **kwargs: int | float,
     ) -> torch.Tensor:
-        _dtype: str | None = None
+        _dtype: torch.dtype | None = None
         if isinstance(dtype, Dtype):
-            _dtype = dtype.name
+            _dtype = utils.dtype_map[dtype.name]
         return self._creation_fn_wrapper(torch.arange)(
-            *args, dtype=utils.dtype_map[_dtype], device_mesh=device_mesh
+            *args, dtype=_dtype, device_mesh=device_mesh
         )
 
     def linspace(
@@ -436,11 +447,11 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
         dtype: Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
     ) -> torch.Tensor:
-        _dtype: str | None = None
+        _dtype: torch.dtype | None = None
         if isinstance(dtype, Dtype):
-            _dtype = dtype.name
+            _dtype = utils.dtype_map[dtype.name]
         return self._creation_fn_wrapper(torch.linspace)(
-            start, stop, steps, dtype=utils.dtype_map[_dtype], device_mesh=device_mesh
+            start, stop, steps, dtype=_dtype, device_mesh=device_mesh
         )
 
     def flatten(
@@ -568,7 +579,7 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
         return ops.transpose(input, axes)
 
     def unique(
-        self, input, **kwargs
+        self, input: torch.Tensor, **kwargs: Any
     ) -> tuple[torch.Tensor, torch.Tensor | None, torch.Tensor | None]:
         return torch.unique(input, **kwargs)
 
@@ -581,25 +592,21 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
         return torch.topk(input, k)[0]  # TODO: Returns different tuple type???
 
     def multinomial(
-        self,
-        probs: torch.Tensor,
-        num_samples: int,
-        replacement: bool = False,
-        **kwargs,
+        self, probs: torch.Tensor, num_samples: int, replacement: bool = False
     ) -> torch.Tensor:
-        return torch.multinomial(probs, num_samples, replacement, **kwargs)
+        return torch.multinomial(probs, num_samples, replacement)
 
-    def jit(self, *args, **kwargs):
+    def jit(self, *args: Any, **kwargs: Any):
         backend = "inductor"
         if "mps" in self._device:
             backend = "aot_eager"
         return torch.compile(*args, backend=backend, **kwargs)
 
-    def grad(self, fn: Callable) -> Callable:
+    def grad(self, fn: Callable[..., torch.Tensor]):
         return torch_grad(fn)
 
     def value_and_grad(
-        self, fn: Callable
+        self, fn: Callable[..., torch.Tensor]
     ) -> Callable[..., tuple[dict[str, torch.Tensor], dict[str, torch.Tensor]]]:
         return torch_grad_and_value(fn)
 
@@ -701,7 +708,9 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
                 (vjp,) = vjp
         return output, vjp, aux
 
-    def vmap(self, fn: Callable[..., dict[str, torch.Tensor]]) -> Callable:
+    def vmap(  # type: ignore  # mypy bug
+        self, fn: Callable[..., dict[str, torch.Tensor]]
+    ) -> Callable[..., dict[str, torch.Tensor]]:
         return torch_vmap(fn)
 
     def jacrev(self, fn: Callable[..., dict[str, torch.Tensor]]) -> Callable:

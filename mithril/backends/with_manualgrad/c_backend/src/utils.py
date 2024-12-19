@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import Any
+
 import numpy as np
 
 from .array import Array, PyArray, lib, to_c_float_array, to_c_int_array
@@ -21,11 +23,11 @@ def to_numpy(array: PyArray):
     return np.ctypeslib.as_array(array.arr.contents.data, shape=(array.shape))
 
 
-def from_numpy(array: np.ndarray):
+def from_numpy(array: np.ndarray[Any, Any]) -> PyArray:
     shape = array.shape
     ndim = len(shape)
 
     c_shape = to_c_int_array(shape)
     c_data = to_c_float_array(array)
     arr: Array = lib.create_struct(c_data, ndim, c_shape)
-    return PyArray(arr, shape)  # type: ignore
+    return PyArray(arr, shape)
