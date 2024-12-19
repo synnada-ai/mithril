@@ -44,6 +44,7 @@ from mithril.models import (
     AUC,
     MLP,
     TBD,
+    ZerosLike,
     Absolute,
     Accuracy,
     Activation,
@@ -6672,6 +6673,7 @@ def test_total_repr_count_1():
         Unique: 2,
         Trapezoid: 2,
         AUCCore: 2,
+        ZerosLike: 1,
     }
     # find all primitives that are defined in primitives.py
     all_primitives_dict = (
