@@ -31,6 +31,7 @@ from mithril.models import (
     Greater,
     GreaterEqual,
     IOKey,
+    Item,
     Less,
     LessEqual,
     Linear,
@@ -1654,3 +1655,23 @@ def test_immediate_values_with_extend_template_and_regular_case():
         == big_model_1.conns.latent_input_keys
         == {"$1"}
     )
+
+
+def test_item():
+    model1 = Model(enforce_jit=False)
+
+    buffer_model_1 = Buffer()
+    item_model = Item()
+    totensor = ToTensor()
+
+    model1 += buffer_model_1(input="input")
+    model1 += item_model(input=buffer_model_1.output)
+    model1 += totensor(input=item_model.output, output=IOKey("output"))
+
+    model2 = Model(enforce_jit=False)
+    buffer_model_1 = Buffer()
+    model2 += buffer_model_1(input="input")
+    conn = buffer_model_1.output.item()
+    model2 += ToTensor()(input=conn, output=IOKey("output"))
+
+    check_logical_models(model1, model2)
