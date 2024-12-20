@@ -883,6 +883,10 @@ def pad(input: mx.array, pad_width: tuple[tuple[int, int], ...]):
     return mx.pad(input, pad_width)
 
 
+def zeros_like(input: mx.array):
+    return mx.zeros_like(input)
+
+
 array_creation_funcs = ["arange", "to_tensor", "eye", "ones_with_zero_diag"]
 primitive_func_dict = common_primitive_func_dict = {
     key: fn for key, fn in globals().items() if callable(fn)
