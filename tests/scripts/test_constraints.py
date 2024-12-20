@@ -60,6 +60,7 @@ from mithril.framework.constraints import (
     scalar_slice_type_constraint,
     shape_constraints,
     size_constraints,
+    slice_constraints,
     sliding_window_2d_constraints,
     split_constraints,
     squeeze_constraints,
@@ -250,7 +251,9 @@ def assert_value_results(
     data: dict[str, Tensor | Scalar], ref_results: dict[str, Any]
 ) -> None:
     for key, value in ref_results.items():
-        if isinstance(value, int | float | bool | tuple | list | str | ToBeDetermined):
+        if isinstance(
+            value, int | float | bool | tuple | list | str | ToBeDetermined | slice
+        ):
             assert data[key].value == value
         else:
             # If value is a tensor of any supported backend.
@@ -7799,4 +7802,136 @@ def test_bcast_with_var_possibles_4():
 
     assert_constraint_results(
         shapes, assignments, final_shapes, final_assignments, bcast, False, {"left"}
+    )
+
+
+def test_slice_given_input():
+    shapes: dict[str, list[int | str | tuple]] = {}
+    final_shapes: dict[str, list[int | str | tuple]] = {
+        "output": [],
+        "start": [],
+        "stop": [],
+        "step": [],
+    }
+    scalar_info = {
+        "output": Scalar(possible_types=slice, value=TBD),
+        "start": Scalar(possible_types=int | None, value=1),
+        "stop": Scalar(possible_types=int | None, value=3),
+        "step": Scalar(possible_types=int | None, value=5),
+    }
+    final_values = {
+        "output": slice(1, 3, 5),
+        "start": 1,
+        "stop": 3,
+        "step": 5,
+    }
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        slice_constraints,
+        True,
+        {"output"},
+        scalar_info,
+        final_values,
+    )
+
+
+def test_slice_given_missing_input():
+    shapes: dict[str, list[int | str | tuple]] = {}
+    final_shapes: dict[str, list[int | str | tuple]] = {
+        "output": [],
+        "start": [],
+        "stop": [],
+        "step": [],
+    }
+    scalar_info = {
+        "output": Scalar(possible_types=slice, value=TBD),
+        "start": Scalar(possible_types=int | None, value=1),
+        "stop": Scalar(possible_types=int | None, value=3),
+        "step": Scalar(possible_types=int | None, value=TBD),
+    }
+    final_values = {
+        "output": TBD,
+        "start": 1,
+        "stop": 3,
+        "step": TBD,
+    }
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        slice_constraints,
+        False,
+        set(),
+        scalar_info,
+        final_values,
+    )
+
+
+def test_slice_given_output():
+    shapes: dict[str, list[int | str | tuple]] = {}
+    final_shapes: dict[str, list[int | str | tuple]] = {
+        "output": [],
+        "start": [],
+        "stop": [],
+        "step": [],
+    }
+    scalar_info = {
+        "output": Scalar(possible_types=slice, value=slice(1, 3, 5)),
+        "start": Scalar(possible_types=int | None, value=1),
+        "stop": Scalar(possible_types=int | None, value=3),
+        "step": Scalar(possible_types=int | None, value=TBD),
+    }
+    final_values = {
+        "output": slice(1, 3, 5),
+        "start": 1,
+        "stop": 3,
+        "step": 5,
+    }
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        slice_constraints,
+        True,
+        {"step"},
+        scalar_info,
+        final_values,
+    )
+
+
+def test_slice_given_output_missing_all_inputs():
+    shapes: dict[str, list[int | str | tuple]] = {}
+    final_shapes: dict[str, list[int | str | tuple]] = {
+        "output": [],
+        "start": [],
+        "stop": [],
+        "step": [],
+    }
+    scalar_info = {
+        "output": Scalar(possible_types=slice, value=slice(1, 3, 5)),
+        "start": Scalar(possible_types=int | None, value=TBD),
+        "stop": Scalar(possible_types=int | None, value=TBD),
+        "step": Scalar(possible_types=int | None, value=TBD),
+    }
+    final_values = {
+        "output": slice(1, 3, 5),
+        "start": 1,
+        "stop": 3,
+        "step": 5,
+    }
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        slice_constraints,
+        True,
+        {"start", "stop", "step"},
+        scalar_info,
+        final_values,
     )

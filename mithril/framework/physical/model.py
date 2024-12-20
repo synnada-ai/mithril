@@ -103,12 +103,15 @@ class PhysicalModel(GenericDataType[DataType]):
                 # NOTE: Do not set default value if it is given in constant_keys.
                 value = (value, NOT_GIVEN)[key in constant_keys]
                 default_val = model.conns.get_data(key).value
-                if value is NOT_GIVEN and default_val is TBD:
+                if (value is NOT_GIVEN and default_val is TBD) or (
+                    key in model.output_keys
+                ):
                     # Non-valued connections are only named with their key names.
                     model_keys[key] = key
                 else:
                     val = default_val if default_val is not TBD else value
                     model_keys[key] = IOKey(key, val)  # type: ignore
+
             model = Model() + model(**model_keys)
 
         self.backend: Backend[DataType] = backend
