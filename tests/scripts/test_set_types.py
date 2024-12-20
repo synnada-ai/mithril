@@ -15,7 +15,7 @@
 import pytest
 
 from mithril.framework import IOKey
-from mithril.models import Buffer, Connect, Model, ScalarItem, Sigmoid
+from mithril.models import Buffer, Model, ScalarItem, Sigmoid
 
 
 def test_set_types_1():
@@ -200,7 +200,7 @@ def test_types_iokey_3():
         output=IOKey(name="output2", type=float | int),
     )
 
-    conn = Connect(buffer_model1.input, buffer_model2.input, key=IOKey("sub"))
+    conn = IOKey("sub", connections=[buffer_model1.input, buffer_model2.input])
 
     buffer_model3 = Buffer()
 

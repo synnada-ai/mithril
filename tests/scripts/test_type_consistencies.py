@@ -28,7 +28,6 @@ from mithril.framework.utils import (
 )
 from mithril.models import (
     TBD,
-    Connect,
     Convolution2D,
     ExtendInfo,
     IOKey,
@@ -388,7 +387,7 @@ def test_type_16():
 
     with pytest.raises(TypeError) as err_info:
         model += sig_model_2(
-            input=Connect(sig_model_1.input, key=IOKey(value=[False, True])),
+            input=IOKey(connections=[sig_model_1.input], value=[False, True]),
             output=IOKey(name="output2"),
         )
     assert str(err_info.value) == (
@@ -406,7 +405,12 @@ def test_type_17():
     with pytest.raises(TypeError) as err_info:
         model.extend(
             sig_model_2,
-            input=Connect(sig_model_1.input, key=IOKey(value=[False, True], name="a")),
+            input=IOKey(
+                connections=[sig_model_1.input],
+                value=[False, True],
+                name="a",
+                expose=True,
+            ),
             output=IOKey(name="output2"),
         )
     assert str(err_info.value) == (
