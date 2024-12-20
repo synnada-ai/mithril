@@ -2543,7 +2543,7 @@ def test_arange_error_7():
     )
 
 
-############# MAXPOOL_2D #############
+############# Randn #############
 
 
 def test_randn_1():
