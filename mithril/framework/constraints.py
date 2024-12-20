@@ -60,6 +60,7 @@ __all__ = [
     "floor_divide_type_constraint",
     "scalar_slice_type_constraint",
     "scalar_item_type_constraint",
+    "slice_constraints",
     "bcast",
     "bcast_matrix_mult",
     "sliding_window_1d_constraints",
@@ -546,6 +547,40 @@ def scalar_item_type_constraint(output: Scalar, input: Scalar, index: Scalar):
     updates |= output.set_type(inferred_out_type)
 
     status = not is_union(output._type)
+    return status, updates
+
+
+def slice_constraints(output: Scalar, start: Scalar, stop: Scalar, step: Scalar):
+    updates = Updates()
+    output_value = output.value
+    start_value = start.value
+    stop_value = stop.value
+    step_value = step.value
+    status = False
+
+    assert isinstance(start_value, ToBeDetermined | int | None)
+    assert isinstance(stop_value, ToBeDetermined | int | None)
+    assert isinstance(step_value, ToBeDetermined | int | None)
+    assert isinstance(output_value, ToBeDetermined | slice)
+
+    if (
+        not isinstance(start_value, ToBeDetermined)
+        and not isinstance(step_value, ToBeDetermined)
+        and not isinstance(stop_value, ToBeDetermined)
+    ):
+        updates |= output.set_value(slice(start_value, stop_value, step_value))
+        status = True
+
+    elif not isinstance(output_value, ToBeDetermined):
+        start_val = output_value.start
+        stop_val = output_value.stop
+        step_val = output_value.step
+
+        updates |= start.set_value(start_val)
+        updates |= stop.set_value(stop_val)
+        updates |= step.set_value(step_val)
+        status = True
+
     return status, updates
 
 

@@ -61,6 +61,7 @@ from mithril.models import (
     Shape,
     SiLU,
     Size,
+    Slice,
     SquaredError,
     Squeeze,
     ToList,
@@ -165,7 +166,9 @@ def compile_and_compare(
             # We may not include any reference value for some keys for a certain test.
             # So we don't assert set(outputs.keys()) == set(reference_outputs) since
             # outputs can have some keys which reference_outputs does not include.
-            if out is not None:
+            if not isinstance(out, backend.get_backend_array_type()):
+                assert v == out
+            elif out is not None:
                 if tolerance is not None and relative_tolerance is not None:
                     assert (
                         all(backend.flatten(backend.abs(v - out) < tolerance))
@@ -1559,7 +1562,7 @@ def test_size_1():
     reference_outputs = {"output": 4}
     compile_and_compare(
         model=model,
-        compile_kwargs={"constant_keys": statics, "inference": True},
+        compile_kwargs={"constant_keys": statics, "inference": True, "jit": False},
         data={},
         params={},
         output_gradients={},
@@ -1577,7 +1580,7 @@ def test_size_2():
     reference_outputs = {"output": 24}
     compile_and_compare(
         model=model,
-        compile_kwargs={"constant_keys": statics, "inference": True},
+        compile_kwargs={"constant_keys": statics, "inference": True, "jit": False},
         data={},
         params={},
         output_gradients={},
@@ -1887,6 +1890,7 @@ def test_index_1():
         compile_kwargs={
             "data_keys": {"input"},
             "inference": True,
+            "jit": False,
         },
         data=data,
         params={},
@@ -1912,6 +1916,7 @@ def test_index_2():
         compile_kwargs={
             "data_keys": {"input"},
             "inference": True,
+            "jit": False,
         },
         data=data,
         params={},
@@ -3256,4 +3261,210 @@ def test_groupnorm_4():
         reference_gradients=None,
         assert_shapes=False,
         tolerances=1e-6,
+    )
+
+
+def test_slice_all_values_given_in_init():
+    """
+    Given in __init__: 'start', 'stop', 'step'
+    Given in data: ...
+    given as compile constant: ...
+    """
+    start = 3
+    stop = 10
+    step = 7
+    model = Slice(start, stop, step)
+    pm = mithril.compile(model, JaxBackend(), inference=True, jit=False)
+    pm.evaluate()
+    reference_outputs = {"output": slice(start, stop, step)}
+
+    compile_and_compare(
+        model=model,
+        compile_kwargs={
+            "constant_keys": {},
+            "trainable_keys": {},
+            "inference": True,
+            "jit": False,
+        },
+        data={},
+        params={},
+        output_gradients={},
+        reference_outputs=reference_outputs,
+        reference_gradients=None,
+        assert_shapes=False,
+        tolerances=1e-6,
+        ignore_transform={"output"},
+    )
+
+
+def test_slice_given_in_compile_data():
+    """
+    Given in __init__: 'start', 'stop'
+    Given in data: 'step'
+    given as compile constant: ...
+    """
+    start = 1
+    stop = 12
+    model = Slice(start, stop, step=TBD)
+    reference_outputs = {"output": slice(1, 12, 2)}
+
+    compile_and_compare(
+        model=model,
+        compile_kwargs={
+            "constant_keys": {},
+            "trainable_keys": {},
+            "inference": True,
+            "jit": False,
+        },
+        data={"step": 2},
+        params={},
+        output_gradients={},
+        reference_outputs=reference_outputs,
+        reference_gradients=None,
+        assert_shapes=False,
+        tolerances=1e-6,
+        ignore_transform={"output", "step"},
+    )
+
+
+def test_slice_given_in_compile_constant():
+    """
+    Given in __init__: 'start', 'stop'
+    Given in data: ...
+    given as compile constant: 'step'
+    """
+    start = 1
+    stop = 12
+    model = Slice(start, stop, step=TBD)
+    reference_outputs = {"output": slice(1, 12, 2)}
+
+    compile_and_compare(
+        model=model,
+        compile_kwargs={
+            "constant_keys": {"step": 2},
+            "trainable_keys": {},
+            "inference": True,
+            "jit": False,
+        },
+        data={},
+        params={},
+        output_gradients={},
+        reference_outputs=reference_outputs,
+        reference_gradients=None,
+        assert_shapes=False,
+        tolerances=1e-6,
+        ignore_transform={"output", "step"},
+    )
+
+
+def test_slice_all_keys_given_as_constants():
+    """
+    Given in __init__: ...
+    Given in data: ...
+    given as compile constant: 'start', 'stop', 'step'
+    """
+    model = Slice(start=TBD, stop=TBD, step=TBD)
+    reference_outputs = {"output": slice(1, 12, 2)}
+
+    compile_and_compare(
+        model=model,
+        compile_kwargs={
+            "constant_keys": {"start": 1, "stop": 12, "step": 2},
+            "trainable_keys": {},
+            "inference": True,
+            "jit": False,
+        },
+        data={},
+        params={},
+        output_gradients={},
+        reference_outputs=reference_outputs,
+        reference_gradients=None,
+        assert_shapes=False,
+        tolerances=1e-6,
+        ignore_transform={"output", "step", "start", "stop"},
+    )
+
+
+def test_slice_all_keys_given_in_data():
+    """
+    Given in __init__: ...
+    Given in data: 'start', 'stop', 'step'
+    given as compile constant: ...
+    """
+    model = Slice(start=TBD, stop=TBD, step=TBD)
+    reference_outputs = {"output": slice(1, 12, 2)}
+
+    compile_and_compare(
+        model=model,
+        compile_kwargs={
+            "constant_keys": {},
+            "trainable_keys": {},
+            "inference": True,
+            "jit": False,
+        },
+        data={"start": 1, "stop": 12, "step": 2},
+        params={},
+        output_gradients={},
+        reference_outputs=reference_outputs,
+        reference_gradients=None,
+        assert_shapes=False,
+        tolerances=1e-6,
+        ignore_transform={"output", "step", "start", "stop"},
+    )
+
+
+def test_slice_all_keys_given_in_constant_and_data():
+    """
+    Given in __init__: ...
+    Given in data: 'start, stop'
+    given as compile constant: 'step'
+    """
+    model = Slice(start=TBD, stop=TBD, step=TBD)
+    reference_outputs = {"output": slice(1, 12, 2)}
+
+    compile_and_compare(
+        model=model,
+        compile_kwargs={
+            "constant_keys": {"step": 2},
+            "trainable_keys": {},
+            "inference": True,
+            "jit": False,
+        },
+        data={"start": 1, "stop": 12},
+        params={},
+        output_gradients={},
+        reference_outputs=reference_outputs,
+        reference_gradients=None,
+        assert_shapes=False,
+        tolerances=1e-6,
+        ignore_transform={"output", "step", "start", "stop"},
+    )
+
+
+def test_slice_all_keys_given_all_three_parts():
+    """
+    Given in __init__: 'start'
+    Given in data: 'stop'
+    given as compile constant: 'step'
+    """
+
+    model = Slice(start=1, stop=TBD, step=TBD)
+    reference_outputs = {"output": slice(1, 12, 2)}
+
+    compile_and_compare(
+        model=model,
+        compile_kwargs={
+            "constant_keys": {"step": 2},
+            "trainable_keys": {},
+            "inference": True,
+            "jit": False,
+        },
+        data={"stop": 12},
+        params={},
+        output_gradients={},
+        reference_outputs=reference_outputs,
+        reference_gradients=None,
+        assert_shapes=False,
+        tolerances=1e-6,
+        ignore_transform={"output", "step", "start", "stop"},
     )
