@@ -44,7 +44,6 @@ from mithril.models import (
     AUC,
     MLP,
     TBD,
-    ZerosLike,
     Absolute,
     Accuracy,
     Activation,
@@ -118,6 +117,7 @@ from mithril.models import (
     TsnePJoint,
     Unique,
     Updates,
+    ZerosLike,
     primitives,
 )
 
