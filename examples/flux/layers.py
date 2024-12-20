@@ -100,7 +100,7 @@ def embed_nd(theta: int, axes_dim: list[int]) -> Model:
         **{f"input{i+1}": f"out{i}" for i in range(len(axes_dim))}, output="concat_out"
     )
 
-    block += Buffer()(block.concat_out[:, None], output=IOKey("output"))
+    block += Buffer()(block.concat_out[:, None], output=IOKey("output"))  # type: ignore [attr-defined]
 
     return block
 
