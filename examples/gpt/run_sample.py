@@ -56,7 +56,6 @@ def run_sample(
         num_heads=12,
         dims=768,
         bias=True,
-        mlp_dims=768 * 4,  # dims * 4
     )
 
     # Create backend.
