@@ -953,6 +953,36 @@ def test_canonical_input_9():
     assert model.canonical_output == model.output  # type: ignore
 
 
+def test_canonical_input_10():
+    # Valued cannection cannot be canonical input
+    model = Model()
+    model += Add()(left=3, right="input2", output="output")
+
+    assert model.canonical_input is NOT_AVAILABLE
+
+
+def test_canonical_input_11():
+    # Valued cannection cannot be canonical input
+    model = Model()
+    model += (buff := Buffer())
+    model += Add()(left=3, right="input2", output="output")
+
+    canonical_input = model.canonical_input
+    assert not isinstance(canonical_input, NotAvailable)
+    assert canonical_input.metadata == buff.input.metadata
+
+
+def test_canonical_input_12():
+    # Valued cannection cannot be canonical input
+    model = Model()
+    model += (buff := Buffer())
+    model += Buffer()(input=3 / buff.output)
+
+    canonical_input = model.canonical_input
+    assert not isinstance(canonical_input, NotAvailable)
+    assert canonical_input.metadata == buff.input.metadata
+
+
 def test_canonical_dual_iadd_op():
     model1 = Model()
     model1 += (c1 := Convolution2D(3, 4))
