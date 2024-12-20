@@ -689,9 +689,8 @@ def test_iokey_tensor_input_all_args():
         Exception: _description_
         Exception: _description_
     """
-    from mithril import JaxBackend
 
-    backend = JaxBackend()
+    backend = TorchBackend()
     # collect all possible values
     possible_names = ["left", None]
     possible_values = [[[2.0]], TBD]

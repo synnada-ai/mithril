@@ -184,19 +184,6 @@ def test_integration_call_arg_connection():
     backend = ml.TorchBackend()
     pm = ml.compile(model, backend, data_keys=["in2"], jit=False)
     assert pm.evaluate(data={"in2": 2})["output"] == backend.array(4.0)
-    # model = Model()
-    # model += (add := Add())("mahmut", "mahmout")
-    # model += Add()(input = IOKey("mahmut", expose=False), output = IOKey())
-    # model += Add()(input = IOKey(), output = IOKey())
-    # model += Add()
-
-    # model = Model()
-    # model += (add := Add())("mahmut", "mahmout1")
-    # model += (add := Add())("mahmut", "mahmout2")
-
-    # model = Model()
-    # model += Add()
-    # model += Add()
 
 
 def test_integration_call_arg_str():
