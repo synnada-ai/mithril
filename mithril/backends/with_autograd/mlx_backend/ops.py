@@ -186,6 +186,7 @@ __all__ = [
     "reduce_argmax",
     "pad",
     "split",
+    "randn",
 ]
 
 
@@ -883,7 +884,12 @@ def pad(input: mx.array, pad_width: tuple[tuple[int, int], ...]):
     return mx.pad(input, pad_width)
 
 
-array_creation_funcs = ["arange", "to_tensor", "eye", "ones_with_zero_diag"]
+def randn(*args, device: str, precision: int) -> mx.array:
+    out = mx.random.normal(*args)
+    return utils.handle_data_precision(out, precision)
+
+
+array_creation_funcs = ["arange", "randn", "to_tensor", "eye", "ones_with_zero_diag"]
 primitive_func_dict = common_primitive_func_dict = {
     key: fn for key, fn in globals().items() if callable(fn)
 } | common_primitive_func_dict

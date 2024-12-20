@@ -43,6 +43,7 @@ from ..framework.constraints import (
     padding_1d_constraint,
     padding_2d_constraint,
     polynomial_features_constraints,
+    randn_constraints,
     sliding_window_1d_constraints,
     sliding_window_2d_constraints,
     squeeze_constraints,
@@ -119,6 +120,7 @@ __all__ = [
     "Unique",
     "Trapezoid",
     "Pad",
+    "Randn",
 ]
 
 # Define types used to define keys:
@@ -1893,6 +1895,30 @@ class Arange(PrimitiveModel):
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(start=start, stop=stop, step=step, output=output)
+
+
+class Randn(PrimitiveModel):
+    shape: Connection
+    output: Connection
+
+    def __init__(
+        self, shape: tuple[int, ...] | ToBeDetermined = TBD, name: str | None = None
+    ) -> None:
+        super().__init__(
+            formula_key="randn",
+            name=name,
+            output=IOKey(shape=[("output", ...)], type=GenericTensorType),
+            shape=IOKey(type=tuple[int, ...], value=shape),
+        )
+
+        self.set_constraint(randn_constraints, keys=["output", "shape"])
+
+    def __call__(  # type: ignore[override]
+        self,
+        shape: ConnectionType = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
+    ) -> ExtendInfo:
+        return super().__call__(shape=shape, output=output)
 
 
 class BroadcastTo(PrimitiveModel):
