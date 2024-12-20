@@ -51,6 +51,7 @@ from mithril.framework.constraints import (
     item_constraints,
     pad_constraints,
     polynomial_features_constraints,
+    randn_constraints,
     reduce_constraints,
     reduce_type_constraint,
     reshape_constraints,
@@ -2540,6 +2541,90 @@ def test_arange_error_7():
         str(err_info.value)
         == "Arange output shape has minimum 1 dim(s) where it is a rank-0 array."
     )
+
+
+############# MAXPOOL_2D #############
+
+
+def test_randn_1():
+    shapes: dict[str, list[int | str | tuple]] = {"output": ["a", "b", "c"]}
+    final_shapes = {"output": [3, 4, 5], "shape": []}
+    scalar_info = {"shape": Scalar(value=(3, 4, 5))}
+    assert_constraint_results(
+        shapes, {}, final_shapes, {}, randn_constraints, True, {"output"}, scalar_info
+    )
+
+
+def test_randn_2():
+    shapes: dict[str, list[int | str | tuple]] = {"output": ["a", 5, "c"]}
+    final_shapes = {"output": [3, 4, 5], "shape": []}
+    scalar_info = {"shape": Scalar(value=(3, 4, 5))}
+    try:
+        assert_constraint_results(
+            shapes,
+            {},
+            final_shapes,
+            {},
+            randn_constraints,
+            True,
+            {"output"},
+            scalar_info,
+        )
+    except ValueError as e:
+        assert str(e) == "Possible values mismatch!"
+
+
+def test_randn_3():
+    shapes: dict[str, list[int | str | tuple]] = {"output": ["a", "b", "c", "d"]}
+    final_shapes = {"output": [3, 4, 5], "shape": []}
+    scalar_info = {"shape": Scalar(value=(3, 4, 5))}
+    try:
+        assert_constraint_results(
+            shapes,
+            {},
+            final_shapes,
+            {},
+            randn_constraints,
+            True,
+            {"output"},
+            scalar_info,
+        )
+    except ValueError as e:
+        assert (
+            str(e) == "Shape mismatch. Output has 4 dim(s) where it must have 3 dim(s)."
+        )
+
+
+def test_randn_4():
+    shapes: dict[str, list[int | str | tuple]] = {"output": [("Var1", ...)]}
+    final_shapes = {"output": [3, 4, 5], "shape": []}
+    scalar_info = {"shape": Scalar(value=(3, 4, 5))}
+
+    assert_constraint_results(
+        shapes, {}, final_shapes, {}, randn_constraints, True, {"output"}, scalar_info
+    )
+
+
+def test_randn_5():
+    shapes: dict[str, list[int | str | tuple]] = {"output": [2, 3, 4, 5, ("Var1", ...)]}
+    final_shapes = {"output": [3, 4, 5], "shape": []}
+    scalar_info = {"shape": Scalar(value=(3, 4, 5))}
+    try:
+        assert_constraint_results(
+            shapes,
+            {},
+            final_shapes,
+            {},
+            randn_constraints,
+            True,
+            {"output"},
+            scalar_info,
+        )
+    except ValueError as e:
+        assert str(e) == (
+            "Shape mismatch. Output has minimum 4 dim(s) where it must have exactly "
+            "3 dim(s)."
+        )
 
 
 ############# MAXPOOL_2D #############

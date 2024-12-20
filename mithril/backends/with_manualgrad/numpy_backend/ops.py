@@ -206,6 +206,7 @@ __all__ = [
     "trapezoid",
     "pad",
     "split",
+    "randn",
 ]
 
 
@@ -1142,8 +1143,13 @@ def pad(
     return np.pad(input, pad_width)
 
 
+def randn(*args, precision: int, cache: CacheType | None = None) -> np.ndarray:
+    return handle_data_precision(np.random.randn(*args[0]), precision)
+
+
 array_creation_funcs = [
     "arange",
+    "randn",
     "to_tensor",
     "make_array",
     "eye",

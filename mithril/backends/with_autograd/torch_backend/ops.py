@@ -207,6 +207,7 @@ __all__ = [
     "trapezoid",
     "pad",
     "split",
+    "randn",
 ]
 
 
@@ -1110,7 +1111,11 @@ def pad(input: torch.Tensor, pad_width: tuple[tuple[int, int], ...]):
     return F.pad(input, _padding, "constant", 0)
 
 
-array_creation_funcs = ["arange", "to_tensor", "eye", "ones_with_zero_diag"]
+def randn(*args, device: torch.device, precision: int) -> torch.Tensor:
+    return handle_data_precision(torch.randn(*args, device=device), precision)
+
+
+array_creation_funcs = ["arange", "randn", "to_tensor", "eye", "ones_with_zero_diag"]
 primitive_func_dict = common_primitive_func_dict | {
     key: fn for key, fn in globals().items() if callable(fn)
 }
