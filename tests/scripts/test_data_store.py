@@ -246,8 +246,8 @@ def test_data_store_10():
     """Infer static keys from pruned buffer 2"""
     backend = TorchBackend(precision=32)
     model = Model()
-    model += Buffer()(input="input", output=IOKey(name="output1"))
-    model += Sigmoid()(input="input", output=IOKey(name="output2"))
+    model += Buffer()(input="input", output=IOKey(name="output1", expose=True))
+    model += Sigmoid()(input="input", output=IOKey(name="output2", expose=True))
 
     value = backend.array([[1.0, 2, 3]])
     pm = mithril.compile(model, backend=backend, constant_keys={"input": value})
@@ -262,8 +262,8 @@ def test_data_store_10():
 def test_data_store_11():
     backend = TorchBackend(precision=32)
     model = Model()
-    model += Sigmoid()(input="input", output=IOKey(name="output1"))
-    model += Sigmoid()(input="input", output=IOKey(name="output2"))
+    model += Sigmoid()(input="input", output=IOKey(name="output1", expose=True))
+    model += Sigmoid()(input="input", output=IOKey(name="output2", expose=True))
     model += Add()(left="output2", right=2, output=IOKey(name="output3", expose=True))
     value = backend.array([[1.0, 2, 3]])
     pm = mithril.compile(model, backend=backend, constant_keys={"input": value})

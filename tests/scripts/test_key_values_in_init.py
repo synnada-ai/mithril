@@ -180,7 +180,6 @@ def test_integration_call_arg_connection():
     model = Model()
     model += add2(left="in1", right="in2", output="out1")
     model += add1(left=add2.left, right=add2.output, output="output")
-    model.summary()
 
     backend = ml.TorchBackend()
     pm = ml.compile(model, backend, data_keys=["in2"], jit=False)

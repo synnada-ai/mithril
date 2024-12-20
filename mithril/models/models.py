@@ -616,7 +616,9 @@ class ElementWiseAffine(Model):
 
         self += mult_model(left="input", right="weight")
         self += sum_model(
-            left=mult_model.output, right="bias", output=IOKey(name="output")
+            left=mult_model.output,
+            right="bias",
+            output=IOKey(name="output"),
         )
         self.input.set_differentiable(False)
         self._freeze()
@@ -967,7 +969,9 @@ class RBFKernel(Model):
         self += exp_model(input=div_model.output)
         self += l_square(left="l_scale", right="l_scale")
         self += mult_model2(
-            left=l_square.output, right=exp_model.output, output=IOKey(name="output")
+            left=l_square.output,
+            right=exp_model.output,
+            output=IOKey(name="output"),
         )
 
         self.set_canonical_input("input1")
@@ -1032,7 +1036,9 @@ class PolynomialKernel(Model):
         self += mult_model(left="input1", right=transpose_model.output)
         self += sum_model(left=mult_model.output, right="poly_coef")
         self += power_model(
-            base=sum_model.output, exponent="degree", output=IOKey(name="output")
+            base=sum_model.output,
+            exponent="degree",
+            output=IOKey(name="output"),
         )
 
         self._set_shapes(
@@ -1159,7 +1165,10 @@ class LinearSVM(Model):
         decision_model = Sign()
 
         self += linear_model(
-            input="input", weight="weight", bias="bias", output=IOKey(name="output")
+            input="input",
+            weight="weight",
+            bias="bias",
+            output=IOKey(name="output"),
         )
         self += decision_model(
             input=linear_model.output, output=IOKey(name="decision_output")
@@ -1207,7 +1216,10 @@ class LogisticRegression(Model):
         sigmoid_model = Sigmoid()
 
         self += linear_model(
-            input="input", weight="weight", bias="bias", output=IOKey(name="output")
+            input="input",
+            weight="weight",
+            bias="bias",
+            output=IOKey(name="output"),
         )
         self += sigmoid_model(
             input=linear_model.output, output=IOKey(name="probs_output")
@@ -1391,7 +1403,9 @@ class RNNCell(Cell):
         self += Tanh()(input=sum_model_2.output, output=IOKey(name="hidden"))
         self += mult_model_3(input="hidden", weight="w_ho")
         self += Add()(
-            left=mult_model_3.output, right="bias_o", output=IOKey(name="output")
+            left=mult_model_3.output,
+            right="bias_o",
+            output=IOKey(name="output"),
         )
         shapes: dict[str, ShapeTemplateType] = {
             "input": ["N", 1, "d_in"],
@@ -2329,7 +2343,8 @@ class TSNECore(Model):
                 target=p_joint_model.output if calculate_p_joint else "p_joint",
             )
             self += sum_model_3(
-                input=kl_divergence_model.output, output=IOKey(name="output")
+                input=kl_divergence_model.output,
+                output=IOKey(name="output"),
             )
 
         else:
@@ -2353,7 +2368,8 @@ class TSNECore(Model):
                 target=p_joint_model.output if calculate_p_joint else "p_joint",
             )
             self += sum_model_3(
-                input=kl_divergence_model.output, output=IOKey(name="output")
+                input=kl_divergence_model.output,
+                output=IOKey(name="output"),
             )
 
         self.distances.set_differentiable(False)
@@ -3451,7 +3467,9 @@ class SiLU(Model):
         self += Exponential()(input="minus", output="exp")
         self += Add()(left=1, right="exp", output="add")
         self += Divide()(
-            numerator="input", denominator="add", output=IOKey(name="output")
+            numerator="input",
+            denominator="add",
+            output=IOKey(name="output"),
         )
 
         self._set_shapes({"input": [("Var", ...)], "output": [("Var", ...)]})
