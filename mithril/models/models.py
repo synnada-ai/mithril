@@ -200,7 +200,7 @@ class Pool1D(Model):
             stride=stride_conv.output,
             padding=pad_conv.output,
             dilation=IOKey(name="dilation", value=dilation),
-            output=IOKey(name="output"),
+            output=IOKey(name="output", expose=True),
         )
         self.input.set_differentiable(False)
         self._freeze()
@@ -308,7 +308,7 @@ class Pool2D(Model):
             stride=st_converter.output,
             padding=pt_converter.output,
             dilation=dt_converter.output,
-            output=IOKey(name="output"),
+            output=IOKey(name="output", expose=True),
         )
         self.input.set_differentiable(False)
         self._freeze()
@@ -401,7 +401,7 @@ class Convolution1D(Model):
         )
 
         conv_connections: dict[str, ConnectionType] = {
-            "output": IOKey(name="output"),
+            "output": IOKey(name="output", expose=True),
             "input": "input",
             "weight": "weight",
             "stride": IOKey(name="stride", value=stride),
@@ -502,7 +502,7 @@ class Convolution2D(Model):
         self += dt_converter(input=IOKey(name="dilation", value=dilation))
 
         conv_connections: dict[str, ConnectionType] = {
-            "output": IOKey(name="output"),
+            "output": IOKey(name="output", expose=True),
             "input": "input",
             "weight": "weight",
             "stride": st_converter.output,
@@ -562,7 +562,7 @@ class Linear(Model):
 
         mult = MatrixMultiply()
 
-        output = IOKey(name="output")
+        output = IOKey(name="output", expose=True)
         weight_key = IOKey(name="weight", value=weight).transpose()
 
         if use_bias:
@@ -616,7 +616,9 @@ class ElementWiseAffine(Model):
 
         self += mult_model(left="input", right="weight")
         self += sum_model(
-            left=mult_model.output, right="bias", output=IOKey(name="output")
+            left=mult_model.output,
+            right="bias",
+            output=IOKey(name="output", expose=True),
         )
         self.input.set_differentiable(False)
         self._freeze()
@@ -656,7 +658,9 @@ class Layer(Model):
         self.factory_args = {"activation": activation, "dimension": dimension}
         linear_model = Linear(dimension=dimension)
         self += linear_model(input="input", weight="weight", bias="bias")
-        self += activation(input=linear_model.output, output=IOKey(name="output"))
+        self += activation(
+            input=linear_model.output, output=IOKey(name="output", expose=True)
+        )
         self._freeze()
 
     def __call__(  # type: ignore[override]
@@ -726,7 +730,9 @@ class LayerNorm(Model):
             self += add(left=self.canonical_output, right="bias")
             add._set_shapes(shapes)
 
-        self += Buffer()(input=self.canonical_output, output=IOKey(name="output"))
+        self += Buffer()(
+            input=self.canonical_output, output=IOKey(name="output", expose=True)
+        )
 
         self._freeze()
 
@@ -803,7 +809,9 @@ class GroupNorm(Model):
             self += add(left=self.canonical_output, right="bias")
             add._set_shapes(shapes)
 
-        self += Buffer()(input=self.canonical_output, output=IOKey(name="output"))
+        self += Buffer()(
+            input=self.canonical_output, output=IOKey(name="output", expose=True)
+        )
 
     def __call__(  # type: ignore[override]
         self,
@@ -841,7 +849,7 @@ class L1(Model):
         abs_model = Absolute()
 
         self += abs_model(input="input")
-        self += Sum()(input=abs_model.output, output=IOKey(name="output"))
+        self += Sum()(input=abs_model.output, output=IOKey(name="output", expose=True))
 
         self._freeze()
 
@@ -869,7 +877,9 @@ class L2(Model):
 
         self += square(input="input")
         self += sum(input=square.output)
-        self += Multiply()(left=sum.output, right=0.5, output=IOKey(name="output"))
+        self += Multiply()(
+            left=sum.output, right=0.5, output=IOKey(name="output", expose=True)
+        )
 
         self._freeze()
 
@@ -904,7 +914,7 @@ class QuadraticFormRegularizer(Model):
         self += dot_model1(left=transpose_model.input, right="kernel")
         self += dot_model2(left=dot_model1.output, right=transpose_model.output)
         self += Multiply()(
-            left=dot_model2.output, right=0.5, output=IOKey(name="output")
+            left=dot_model2.output, right=0.5, output=IOKey(name="output", expose=True)
         )
         shapes: dict[str, ShapeTemplateType] = {"input": [1, "N"], "kernel": ["N", "N"]}
         self._set_shapes(shapes)
@@ -967,7 +977,9 @@ class RBFKernel(Model):
         self += exp_model(input=div_model.output)
         self += l_square(left="l_scale", right="l_scale")
         self += mult_model2(
-            left=l_square.output, right=exp_model.output, output=IOKey(name="output")
+            left=l_square.output,
+            right=exp_model.output,
+            output=IOKey(name="output", expose=True),
         )
 
         self.set_canonical_input("input1")
@@ -1032,7 +1044,9 @@ class PolynomialKernel(Model):
         self += mult_model(left="input1", right=transpose_model.output)
         self += sum_model(left=mult_model.output, right="poly_coef")
         self += power_model(
-            base=sum_model.output, exponent="degree", output=IOKey(name="output")
+            base=sum_model.output,
+            exponent="degree",
+            output=IOKey(name="output", expose=True),
         )
 
         self._set_shapes(
@@ -1107,7 +1121,7 @@ class KernelizedSVM(Model):
             input=kernel.canonical_output,
             weight="weight",
             bias="bias",
-            output=IOKey(name="output"),
+            output=IOKey(name="output", expose=True),
         )
 
         shapes: dict[str, ShapeTemplateType] = {
@@ -1159,7 +1173,10 @@ class LinearSVM(Model):
         decision_model = Sign()
 
         self += linear_model(
-            input="input", weight="weight", bias="bias", output=IOKey(name="output")
+            input="input",
+            weight="weight",
+            bias="bias",
+            output=IOKey(name="output", expose=True),
         )
         self += decision_model(
             input=linear_model.output, output=IOKey(name="decision_output")
@@ -1207,7 +1224,10 @@ class LogisticRegression(Model):
         sigmoid_model = Sigmoid()
 
         self += linear_model(
-            input="input", weight="weight", bias="bias", output=IOKey(name="output")
+            input="input",
+            weight="weight",
+            bias="bias",
+            output=IOKey(name="output", expose=True),
         )
         self += sigmoid_model(
             input=linear_model.output, output=IOKey(name="probs_output")
@@ -1270,7 +1290,7 @@ class MLP(Model):
             "bias": bias + "0",
         }
         if len(activations) == 1:
-            extend_kwargs["output"] = IOKey(name="output")
+            extend_kwargs["output"] = IOKey(name="output", expose=True)
         self += prev_layer(**extend_kwargs)
 
         # Add layers sequentially starting from second elements.
@@ -1290,7 +1310,7 @@ class MLP(Model):
             if idx == (
                 len(activations) - 2
             ):  # Loop starts to iterate from second elemets, so it is -2.
-                kwargs |= {"output": IOKey(name="output")}
+                kwargs |= {"output": IOKey(name="output", expose=True)}
 
             # Add current layer to the model.
             self += current_layer(**kwargs)
@@ -1391,7 +1411,9 @@ class RNNCell(Cell):
         self += Tanh()(input=sum_model_2.output, output=IOKey(name="hidden"))
         self += mult_model_3(input="hidden", weight="w_ho")
         self += Add()(
-            left=mult_model_3.output, right="bias_o", output=IOKey(name="output")
+            left=mult_model_3.output,
+            right="bias_o",
+            output=IOKey(name="output", expose=True),
         )
         shapes: dict[str, ShapeTemplateType] = {
             "input": ["N", 1, "d_in"],
@@ -1542,7 +1564,7 @@ class LSTMCell(Cell):
             input="hidden",
             weight="w_out",
             bias="bias_out",
-            output=IOKey(name="output"),
+            output=IOKey(name="output", expose=True),
         )
         shapes: dict[str, ShapeTemplateType] = {
             "input": ["N", 1, "d_in"],
@@ -1696,7 +1718,7 @@ class LSTMCellBody(Model):
         self += Concat(n=2, axis=0)(
             input1=sum_model_4.output,
             input2=mult_model_3.output,
-            output=IOKey(name="output"),
+            output=IOKey(name="output", expose=True),
         )
         shapes: dict[str, ShapeTemplateType] = {
             "input": ["N", 1, "d_in"],
@@ -2099,7 +2121,7 @@ class EncoderDistanceMatrix(Model):
             self += power_model(
                 base=dist_model.output,
                 exponent=reciprocal_model.output,
-                output=IOKey(name="output"),
+                output=IOKey(name="output", expose=True),
             )
 
         else:
@@ -2108,7 +2130,7 @@ class EncoderDistanceMatrix(Model):
                 left="input1",
                 right="input2",
                 norm=modifier_model.output,
-                output=IOKey(name="output"),
+                output=IOKey(name="output", expose=True),
             )
 
         self._freeze()
@@ -2150,7 +2172,7 @@ class PolynomialRegression(Model):
             input=feature_model.output,
             weight="weight",
             bias="bias",
-            output=IOKey(name="output"),
+            output=IOKey(name="output", expose=True),
         )
         self.input.set_differentiable(False)
         self._freeze()
@@ -2221,7 +2243,7 @@ class MDSCore(Model):
             self += power_model_3(
                 base=mult_model.output,
                 exponent=reciprocal_model_1.output,
-                output=IOKey(name="output"),
+                output=IOKey(name="output", expose=True),
             )
 
         else:
@@ -2243,7 +2265,7 @@ class MDSCore(Model):
             self += power_model_3(
                 base=mult_model.output,
                 exponent=reciprocal_model_1.output,
-                output=IOKey(name="output"),
+                output=IOKey(name="output", expose=True),
             )
 
         self.distances.set_differentiable(False)
@@ -2329,7 +2351,8 @@ class TSNECore(Model):
                 target=p_joint_model.output if calculate_p_joint else "p_joint",
             )
             self += sum_model_3(
-                input=kl_divergence_model.output, output=IOKey(name="output")
+                input=kl_divergence_model.output,
+                output=IOKey(name="output", expose=True),
             )
 
         else:
@@ -2353,7 +2376,8 @@ class TSNECore(Model):
                 target=p_joint_model.output if calculate_p_joint else "p_joint",
             )
             self += sum_model_3(
-                input=kl_divergence_model.output, output=IOKey(name="output")
+                input=kl_divergence_model.output,
+                output=IOKey(name="output", expose=True),
             )
 
         self.distances.set_differentiable(False)
@@ -2426,7 +2450,7 @@ class DistanceEncoder(Model):
             base_kwargs: dict[str, ConnectionType] = {
                 "distances": input_distance_matrix.output,
                 "pred_distances": coords_distance_matrix.output,
-                "output": IOKey(name="output"),
+                "output": IOKey(name="output", expose=True),
             }
             # Create inputs taking "requires_norm" attribute of base model class.
             if base_model.requires_norm:
@@ -2452,7 +2476,7 @@ class DistanceEncoder(Model):
             base_kwargs = {
                 "distances": "input",
                 "pred_distances": coords_distance_matrix.output,
-                "output": IOKey(name="output"),
+                "output": IOKey(name="output", expose=True),
             }
             if base_model.requires_norm:
                 base_kwargs["norm"] = "norm"
@@ -2779,7 +2803,7 @@ class GPRLoss(Model):
         self += Add()(
             left=sum_model_1.output,
             right=mult_model_2.output,
-            output=IOKey(name="output"),
+            output=IOKey(name="output", expose=True),
         )
 
         shapes: dict[str, ShapeTemplateType] = {
@@ -2920,7 +2944,7 @@ class Accuracy(Model):
         self += Divide()(
             numerator="n_true_predictions",
             denominator=n_prediction.tensor(),
-            output=IOKey(name="output"),
+            output=IOKey(name="output", expose=True),
         )
         self.set_canonical_input(self.pred)
 
@@ -2989,7 +3013,7 @@ class Precision(Model):
             self += Buffer()(
                 input=self.n_true_positive
                 / (self.n_true_positive + self.n_false_positive),
-                output=IOKey(name="output"),
+                output=IOKey(name="output", expose=True),
             )
 
         if average == "macro":
@@ -3025,7 +3049,7 @@ class Precision(Model):
             self += Divide()(
                 numerator=sum_precision,
                 denominator=self.n_classes.shape()[0].tensor(),
-                output=IOKey(name="output"),
+                output=IOKey(name="output", expose=True),
             )
 
         elif average == "weighted":
@@ -3063,7 +3087,7 @@ class Precision(Model):
                 else:
                     precision += getattr(self, f"weighted_precision_{idx}")
 
-            self += Buffer()(input=precision, output=IOKey(name="output"))
+            self += Buffer()(input=precision, output=IOKey(name="output", expose=True))
 
         self.label.set_differentiable(False)
         self.set_canonical_input(self.pred)
@@ -3134,7 +3158,7 @@ class Recall(Model):
             self += Buffer()(
                 input=self.n_true_positive
                 / (self.n_true_positive + self.n_false_negative),
-                output=IOKey(name="output"),
+                output=IOKey(name="output", expose=True),
             )
 
         if average == "macro":
@@ -3169,7 +3193,7 @@ class Recall(Model):
             self += Divide()(
                 numerator=sum_recall,
                 denominator=self.n_classes.shape()[0].tensor(),
-                output=IOKey(name="output"),
+                output=IOKey(name="output", expose=True),
             )
 
         elif average == "weighted":
@@ -3207,7 +3231,7 @@ class Recall(Model):
                 else:
                     recall += getattr(self, f"weighted_recall_{idx}")
 
-            self += Buffer()(input=recall, output=IOKey(name="output"))
+            self += Buffer()(input=recall, output=IOKey(name="output", expose=True))
 
         self.label.set_differentiable(False)
         self.set_canonical_input(self.pred)
@@ -3278,7 +3302,7 @@ class F1(Model):
             self += Buffer()(
                 input=self.n_true_positive
                 / (self.n_true_positive + self.n_false_positive),
-                output=IOKey(name="output"),
+                output=IOKey(name="output", expose=True),
             )
 
         if average == "macro":
@@ -3315,7 +3339,7 @@ class F1(Model):
             self += Divide()(
                 numerator=sum_precision,
                 denominator=self.n_classes.shape()[0].tensor(),
-                output=IOKey(name="output"),
+                output=IOKey(name="output", expose=True),
             )
 
         elif average == "weighted":
@@ -3356,7 +3380,7 @@ class F1(Model):
                 else:
                     precision += getattr(self, f"weighted_precision_{idx}")
 
-            self += Buffer()(input=precision, output=IOKey(name="output"))
+            self += Buffer()(input=precision, output=IOKey(name="output", expose=True))
 
         self.label.set_differentiable(False)
         self.set_canonical_input(self.pred)
@@ -3451,7 +3475,9 @@ class SiLU(Model):
         self += Exponential()(input="minus", output="exp")
         self += Add()(left=1, right="exp", output="add")
         self += Divide()(
-            numerator="input", denominator="add", output=IOKey(name="output")
+            numerator="input",
+            denominator="add",
+            output=IOKey(name="output", expose=True),
         )
 
         self._set_shapes({"input": [("Var", ...)], "output": [("Var", ...)]})
