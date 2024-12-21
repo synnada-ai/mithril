@@ -16,8 +16,10 @@ from copy import deepcopy
 
 from mithril import IOKey
 from mithril.models import (
+    Arange,
     Buffer,
     Concat,
+    Cosine,
     Gelu,
     LayerNorm,
     Linear,
@@ -27,6 +29,7 @@ from mithril.models import (
     ScaledDotProduct,
     Sigmoid,
     SiLU,
+    Sine,
     Split,
     Transpose,
 )
@@ -323,4 +326,48 @@ def last_layer(hidden_size: int, patch_size: int, out_channels: int):
         input=input, output=IOKey("output")
     )
 
+    return block
+
+
+def embed_nd(theta: int, axes_dim: list[int]) -> Model:
+    block = Model()
+    input = IOKey("input")
+
+    for i in range(len(axes_dim)):
+        rope_B = rope(axes_dim[i], theta)
+        block += rope_B(input=input[..., i], output=f"out{i}")
+
+    block += Concat(n=len(axes_dim), axis=-3)(
+        **{f"input{i+1}": f"out{i}" for i in range(len(axes_dim))}, output="concat_out"
+    )
+
+    block += Buffer()(block.concat_out[:, None], output=IOKey("output"))  # type: ignore [attr-defined]
+
+    return block
+
+
+def rope(dim: int, theta: int) -> Model:
+    assert dim % 2 == 0
+    block = Model()
+    input = IOKey("input")
+    block += Arange(start=0, stop=dim, step=2)(output="arange")
+
+    omega = 1.0 / (theta ** (block.arange / dim))  # type: ignore
+    out = input[..., None] * omega
+
+    out_shape = out.shape()
+    B, N, D = out_shape[0], out_shape[1], out_shape[2]
+
+    block += Cosine()(out, output="cos")
+    block += Sine()(out, output="sin")
+
+    block += Concat(n=4, axis=-1)(
+        input1=block.cos[..., None],  # type: ignore
+        input2=-block.sin[..., None],  # type: ignore
+        input3=block.sin[..., None],  # type: ignore
+        input4=block.cos[..., None],  # type: ignore
+    )
+    rope_shape = (B, N, D, 2, 2)
+    block += Reshape()(shape=rope_shape, output=IOKey("output"))
+    block.set_canonical_input("input")
     return block
