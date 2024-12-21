@@ -20,10 +20,17 @@ from mithril.models import (
     Buffer,
     Concat,
     Cosine,
+    Gelu,
+    LayerNorm,
+    Linear,
     Model,
+    Multiply,
     Reshape,
     ScaledDotProduct,
+    Sigmoid,
+    SiLU,
     Sine,
+    Split,
     Transpose,
 )
 
