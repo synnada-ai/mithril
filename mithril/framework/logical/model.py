@@ -515,15 +515,6 @@ class Model(BaseModel):
         ) + 1  # bits: (unexpose, is_output)
         self.conns.set_connection_type(con_obj, KeyType(bitwise_key_type))
 
-        # if expose is None:
-        #     expose = is_input and con_obj.key in self.conns.io_keys
-        # is_output = not (is_input and con_obj not in d_map)
-        # if expose:
-        #     key_type = (KeyType.INPUT, KeyType.OUTPUT)[is_output]
-        # else:
-        #     key_type = (KeyType.LATENT_INPUT, KeyType.INTERNAL)[is_output]
-        # self.conns.set_connection_type(con_obj, key_type)
-
         return con_obj, updates
 
     def _unroll_template(
