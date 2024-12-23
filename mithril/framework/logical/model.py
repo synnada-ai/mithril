@@ -84,7 +84,6 @@ from .essential_primitives import (
     Subtract,
     Sum,
     TensorItem,
-    TensorSlice,
     TensorToList,
     ToList,
     ToTensor,
@@ -139,7 +138,6 @@ ops_table: dict[str, type[PrimitiveModel]] = {
 coercion_table: dict[tuple[str, type[Tensor] | type[Scalar]], type[PrimitiveModel]] = {
     ("item", Tensor): TensorItem,
     ("item", Scalar): ScalarItem,
-    ("slice", Tensor): TensorSlice,
     ("slice", Scalar): PrimitiveSlice,
 }
 

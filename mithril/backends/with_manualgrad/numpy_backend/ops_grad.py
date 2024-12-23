@@ -75,7 +75,6 @@ __all__ = [
     "softplus_grad",
     "gelu_grad",
     "stop_gradient_grad",
-    "tensor_slice_grad",
     "tensor_item_grad",
     "permute_tensor_grad",
     "transpose_grad",
@@ -802,33 +801,6 @@ def stop_gradient_grad(
     *inputs: np.ndarray,
 ) -> np.ndarray:
     return np.zeros_like(output_gradient)
-
-
-# def tensor_slice_grad(output_gradient: np.ndarray,
-#                       cache: CacheType,
-#                       idx: int,
-#                       *inputs: np.ndarray, -> np.ndarray:
-#     verify_shapes(inputs, idx)
-#     input1, input2 = inputs
-#     if idx == 0:
-#         grad = np.zeros_like(input1)
-#         grad[:input2.shape[0], ...] = output_gradient
-#         return grad
-#     elif idx == 1:
-#         return np.zeros_like(input2)
-
-
-def tensor_slice_grad(
-    output_gradient: np.ndarray,
-    cache: CacheType,
-    idx: int,
-    *inputs: np.ndarray,
-) -> np.ndarray:
-    verify_shapes(inputs, idx, non_differentiables=[1, 2, 3, 4])
-    input, start, stop, step = inputs
-    grad = np.zeros_like(input)
-    grad[start:stop:step] = output_gradient
-    return grad
 
 
 def tensor_item_grad(

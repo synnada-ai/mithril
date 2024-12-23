@@ -43,7 +43,6 @@ __all__ = [
     "squared_error",
     "transpose",
     "square",
-    "tensor_slice",
     "buffer",
     "permute_tensor",
     "reshape",
@@ -163,16 +162,6 @@ def transpose(
 
 def square(input: DataType, cache: CacheType = None):
     return input * input
-
-
-def tensor_slice(
-    input: DataType,
-    start: int | None,
-    stop: int | None,
-    step: int | None,
-    cache: CacheType = None,
-):
-    return input[start:stop:step]
 
 
 def buffer(input: DataType, cache: CacheType = None):

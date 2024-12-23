@@ -47,7 +47,6 @@ from ..constraints import (
     slice_constraints,
     split_constraints,
     tensor_item_constraints,
-    tensor_slice_constraints,
     tensor_to_list_constraints,
     tensor_to_list_type_constraint,
     to_list_constraints,
@@ -100,7 +99,6 @@ __all__ = [
     "ShiftLeft",
     "ShiftRight",
     "TensorItem",
-    "TensorSlice",
     "ArgMax",
     "ArgMin",
     "Cast",
@@ -603,54 +601,6 @@ class PrimitiveSlice(PrimitiveModel):
         )
 
 
-class TensorSlice(PrimitiveModel):
-    input: Connection
-    start: Connection
-    stop: Connection
-    step: Connection
-    output: Connection
-
-    def __init__(
-        self,
-        name: str | None = None,
-        start: int | None | ToBeDetermined = None,
-        stop: int | None | ToBeDetermined = None,
-        step: int | None | ToBeDetermined = None,
-        input: TensorValueType | ToBeDetermined = TBD,
-    ) -> None:
-        self.factory_args = {"start": start, "stop": stop, "step": step}
-        super().__init__(
-            formula_key="tensor_slice",
-            name=name,
-            output=IOKey(shape=["a", ("Var1", ...)], type=GenericTensorType),
-            input=IOKey(shape=["b", ("Var1", ...)], type=GenericTensorType),
-            start=IOKey(type=int | None, value=start),
-            stop=IOKey(type=int | None, value=stop),
-            step=IOKey(type=int | None, value=step),
-        )
-        self.factory_inputs = {"input": input}
-
-        self._set_constraint(
-            fn=tensor_slice_constraints,
-            keys=[PrimitiveModel.output_key, "input", "start", "stop", "step"],
-        )
-        self._set_constraint(
-            fn=general_tensor_type_constraint, keys=[PrimitiveModel.output_key, "input"]
-        )
-
-    def __call__(  # type: ignore[override]
-        self,
-        input: ConnectionType = NOT_GIVEN,
-        start: ConnectionType = NOT_GIVEN,
-        stop: ConnectionType = NOT_GIVEN,
-        step: ConnectionType = NOT_GIVEN,
-        output: ConnectionType = NOT_GIVEN,
-    ) -> ExtendInfo:
-        return super().__call__(
-            input=input, start=start, stop=stop, step=step, output=output
-        )
-
-
 class Item(PrimitiveModel):
     input: Connection
     output: Connection
@@ -704,50 +654,6 @@ class ScalarItem(PrimitiveModel):
         self._set_constraint(
             fn=scalar_item_type_constraint,
             keys=[PrimitiveModel.output_key, "input", "index"],
-        )
-
-    def __call__(  # type: ignore[override]
-        self,
-        input: ConnectionType = NOT_GIVEN,
-        index: ConnectionType = NOT_GIVEN,
-        output: ConnectionType = NOT_GIVEN,
-    ) -> ExtendInfo:
-        return super().__call__(input=input, index=index, output=output)
-
-
-class TensorItem(PrimitiveModel):
-    input: Connection
-    index: Connection
-    output: Connection
-
-    def __init__(
-        self,
-        name: str | None = None,
-        index: int | ToBeDetermined = TBD,
-        input: TensorValueType | ToBeDetermined = TBD,
-    ) -> None:
-        super().__init__(
-            formula_key="tensor_item",
-            name=name,
-            output=IOKey(shape=[("Var2", ...)], type=GenericTensorType),
-            input=IOKey(shape=[("Var1", ...)], type=GenericTensorType),
-            index=IOKey(
-                type=int
-                | slice
-                | EllipsisType
-                | None
-                | tuple[int | slice | EllipsisType | None, ...],
-                value=index,
-            ),
-        )
-        self.factory_inputs = {"input": input, "index": index}
-
-        self._set_constraint(
-            fn=tensor_item_constraints,
-            keys=[PrimitiveModel.output_key, "input", "index"],
-        )
-        self._set_constraint(
-            fn=general_tensor_type_constraint, keys=[PrimitiveModel.output_key, "input"]
         )
 
     def __call__(  # type: ignore[override]
@@ -1532,3 +1438,47 @@ class Slice(PrimitiveModel):
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(start=start, stop=stop, step=step, output=output)
+
+
+class TensorItem(PrimitiveModel):
+    input: Connection
+    index: Connection
+    output: Connection
+
+    def __init__(
+        self,
+        name: str | None = None,
+        index: int | ToBeDetermined = TBD,
+        input: TensorValueType | ToBeDetermined = TBD,
+    ) -> None:
+        super().__init__(
+            formula_key="tensor_item",
+            name=name,
+            output=IOKey(shape=[("Var2", ...)], type=GenericTensorType),
+            input=IOKey(shape=[("Var1", ...)], type=GenericTensorType),
+            index=IOKey(
+                type=int
+                | slice
+                | EllipsisType
+                | None
+                | tuple[int | slice | EllipsisType | None, ...],
+                value=index,
+            ),
+        )
+        self.factory_inputs = {"input": input, "index": index}
+
+        self._set_constraint(
+            fn=tensor_item_constraints,
+            keys=[PrimitiveModel.output_key, "input", "index"],
+        )
+        self._set_constraint(
+            fn=general_tensor_type_constraint, keys=[PrimitiveModel.output_key, "input"]
+        )
+
+    def __call__(  # type: ignore[override]
+        self,
+        input: ConnectionType = NOT_GIVEN,
+        index: ConnectionType = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
+    ) -> ExtendInfo:
+        return super().__call__(input=input, index=index, output=output)

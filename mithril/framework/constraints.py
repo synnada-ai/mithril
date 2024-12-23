@@ -87,7 +87,6 @@ __all__ = [
     "scalar_item_constraints",
     "to_tuple_constraints",
     "tensor_item_constraints",
-    "tensor_slice_constraints",
     "tensor_to_list_type_constraint",
     "reduce_type_constraint",
     "type_constraints",
@@ -3417,36 +3416,6 @@ def tensor_item_constraint_helper(
             case None:
                 output_unis.append(Uniadic(1))
     return input_unis, output_unis, status, current_index
-
-
-def tensor_slice_constraints(
-    output: Tensor, input: Tensor, start: Scalar, stop: Scalar, step: Scalar
-) -> ConstrainResultType:
-    assert output._temp_shape is not None, "Output shape of TensorSlice is not set!"
-    assert input._temp_shape is not None, "Input shape of TensorSlice is not set!"
-    output_shape: ShapeRepr = output._temp_shape
-    input_shape: ShapeRepr = input._temp_shape
-    updated_symbols = Updates()
-    status = False
-
-    if input_shape.prefix and output_shape.prefix:
-        in_uni, out_uni = input_shape[0], output_shape[0]
-        if in_uni.value is not None and out_uni.value is not None:
-            status = True
-        else:
-            if (
-                start.value is not TBD
-                and stop.value is not TBD
-                and step.value is not TBD
-                and in_uni.value is not None
-            ):
-                slc = slice(start.value, stop.value, step.value)
-                out_val = len(list(range(in_uni.value))[slc])
-                out_uni.set_value(out_val)
-                updated_symbols.add(out_uni)
-                status = True
-
-    return status, updated_symbols
 
 
 def split_constraints(output: Tensor, input: Tensor, split_size: Scalar, axis: Scalar):

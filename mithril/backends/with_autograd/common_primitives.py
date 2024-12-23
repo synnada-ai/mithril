@@ -41,7 +41,6 @@ __all__ = [
     "transpose",
     "swapaxes",
     "square",
-    "tensor_slice",
     "primitive_slice",
     "buffer",
     "permute_tensor",
@@ -156,12 +155,6 @@ def swapaxes(input: DataType, axis1: int, axis2: int):
 
 def square(input: DataType):
     return input * input
-
-
-def tensor_slice(
-    input: DataType, start: int | None, stop: int | None, step: int | None
-):
-    return input[start:stop:step]
 
 
 def buffer(input: DataType):

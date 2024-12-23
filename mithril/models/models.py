@@ -50,10 +50,11 @@ from ..framework.logical.essential_primitives import (
     ScalarItem,
     Shape,
     Size,
+    Slice,
     Sqrt,
     Subtract,
     Sum,
-    TensorSlice,
+    TensorItem,
     Transpose,
     Variance,
 )
@@ -1369,7 +1370,10 @@ class RNNCell(Cell):
 
         shape = Shape()
         scalar_item = ScalarItem()
-        slice_model = TensorSlice(stop=TBD)
+        slice_1 = Slice(start=TBD)
+        slice_2 = Slice(stop=TBD)
+        tensor_item_1 = TensorItem()
+        tensor_item_2 = TensorItem()
         mult_model_1 = Linear(use_bias=False)
         mult_model_2 = Linear(use_bias=False)
         mult_model_3 = Linear(use_bias=False)
@@ -1378,13 +1382,15 @@ class RNNCell(Cell):
 
         self += shape(input="input")
         self += scalar_item(input=shape.output, index=0)
-        self += TensorSlice(start=TBD)(
+        self += slice_1(start=scalar_item.output)
+        self += tensor_item_1(
             input="prev_hidden",
-            start=scalar_item.output,
+            index=slice_1.output,
             output=IOKey(name="hidden_compl"),
         )
-        self += slice_model(input="prev_hidden", stop=scalar_item.output)
-        self += mult_model_1(input=slice_model.output, weight="w_hh")
+        self += slice_2(stop=scalar_item.output)
+        self += tensor_item_2(input="prev_hidden", index=slice_2.output)
+        self += mult_model_1(input=tensor_item_2.output, weight="w_hh")
         self += mult_model_2(input="input", weight="w_ih")
         self += sum_model_1(left=mult_model_1.output, right=mult_model_2.output)
         self += sum_model_2(left=sum_model_1.output, right="bias_h")
@@ -1501,40 +1507,52 @@ class LSTMCell(Cell):
         cell_body = LSTMCellBody()
         shape_model = Shape()
         scalar_item = ScalarItem()
-        slice_model_1 = TensorSlice(stop=TBD)
-        slice_model_2 = TensorSlice(stop=TBD)
-        slice_model_3 = TensorSlice(start=TBD)
-        slice_model_4 = TensorSlice(stop=TBD)
+
+        slice_1 = Slice(stop=TBD)
+        slice_2 = Slice(stop=TBD)
+        slice_3 = Slice(start=TBD)
+        slice_4 = Slice(stop=TBD)
+        slice_5 = Slice(start=TBD)
+
+        tensor_item_1 = TensorItem()
+        tensor_item_2 = TensorItem()
+        tensor_item_3 = TensorItem()
+        tensor_item_4 = TensorItem()
+        tensor_item_5 = TensorItem()
 
         self += shape_model(input="input")
         self += scalar_item(input=shape_model.output, index=0)
 
         # Forget gate processes.
-        self += slice_model_1(input="prev_cell", stop=scalar_item.output)
-        self += slice_model_2(input="prev_hidden", stop=scalar_item.output)
+        self += slice_1(stop=scalar_item.output)
+        self += tensor_item_1(input="prev_cell", index=slice_1.output)
+
+        self += slice_2(stop=scalar_item.output)
+        self += tensor_item_2(input="prev_hidden", index=slice_2.output)
 
         body_kwargs: dict[str, ConnectionType] = {
             key: key for key in cell_body._input_keys if key[0] != "$"
         }
-        body_kwargs["prev_cell"] = slice_model_1.output
-        body_kwargs["prev_hidden"] = slice_model_2.output
+        body_kwargs["prev_cell"] = tensor_item_1.output
+        body_kwargs["prev_hidden"] = tensor_item_2.output
 
         self += cell_body(**body_kwargs)
 
-        self += slice_model_3(
-            input=cell_body.output,
-            start=scalar_item.output,
-            output=IOKey(name="hidden"),
+        self += slice_3(start=scalar_item.output)
+        self += tensor_item_3(
+            input=cell_body.output, index=slice_3.output, output=IOKey(name="hidden")
         )
 
-        self += slice_model_4(
-            input=cell_body.output, stop=scalar_item.output, output=IOKey(name="cell")
+        self += slice_4(stop=scalar_item.output)
+        self += tensor_item_4(
+            input=cell_body.output, index=slice_4.output, output=IOKey(name="cell")
         )
 
         # Slice complement process.
-        self += TensorSlice(start=TBD)(
+        self += slice_5(start=scalar_item.output)
+        self += tensor_item_5(
             input="prev_hidden",
-            start=scalar_item.output,
+            index=slice_5.output,
             output=IOKey(name="hidden_compl"),
         )
         # Final output.
@@ -1795,7 +1813,8 @@ class OneToMany(RNN):
             # current time step.
             shape_model = Shape()
             item_model = ScalarItem()
-            slice_model = TensorSlice(stop=TBD)
+            slice_model = Slice(stop=TBD)
+            tensor_item = TensorItem()
 
             self += shape_model(input=f"target{idx}")
             self += item_model(input=shape_model.output, index=0)
@@ -1811,9 +1830,10 @@ class OneToMany(RNN):
                 # of previous time step as inputs to the current time step.
                 slice_input_1 = getattr(prev_cell, prev_cell.out_key)
 
-            self += slice_model(input=slice_input_1, stop=item_model.output)
+            self += slice_model(stop=item_model.output)
+            self += tensor_item(input=slice_input_1, index=slice_model.output)
 
-            input_kwargs = {"input": slice_model.output}
+            input_kwargs = {"input": tensor_item.output}
             output_kwargs = {cell_type.out_key: IOKey(name=f"output{idx}")}
 
             self += current_cell(

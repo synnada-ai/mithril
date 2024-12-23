@@ -1329,48 +1329,6 @@ def test_transpose_axis_4():
     )
 
 
-def test_tensor_slice_1():
-    start = 0
-    stop = 1
-    step = None
-    input = np.array([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]])
-    result = np.array([[1.0, 2.0]])
-
-    output_grad = np.array([[5.0, 6.0]])
-    input_grad = np.array([[5.0, 6.0], [0.0, 0.0], [0.0, 0.0]])
-
-    assert_forward("tensor_slice", result, (input, start, stop, step), {})
-    assert_backward(
-        "tensor_slice",
-        (input_grad,),
-        output_grad,
-        [0],
-        {"input": input, "start": start, "stop": stop, "step": step},
-        {},
-    )
-
-
-def test_tensor_slice_2():
-    start = 0
-    stop = 2
-    step = None
-    input = np.array([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]])
-    result = np.array([[1.0, 2.0], [3.0, 4.0]])
-
-    output_grad = np.array([[3.0, 0.0], [2.0, 1.0]])
-    input_grad = np.array([[3.0, 0.0], [2.0, 1.0], [0.0, 0.0]])
-
-    assert_forward("tensor_slice", result, (input, start, stop, step), {})
-    assert_backward(
-        "tensor_slice",
-        (input_grad,),
-        output_grad,
-        [0],
-        {"input": input, "start": start, "stop": stop, "step": step},
-        {},
-    )
-
-
 def test_tanh_1():
     input = np.array([[10.0]])
     result = np.array([[0.9999999958776928]])
