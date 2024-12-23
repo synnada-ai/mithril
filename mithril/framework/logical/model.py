@@ -299,20 +299,15 @@ class Model(BaseModel):
     def _convert_to_iokey(
         self, model: BaseModel, key: str, connection: ConnectionType
     ) -> IOKey:
-        is_input = key in model._input_keys
         local_connection = model.conns.get_connection(key)
         assert local_connection is not None, "Connection is not found!"
-        not_valued = local_connection.metadata.data.value is TBD
         match connection:
             case NullConnection():
-                connection = IOKey(expose=is_input and not_valued)
+                connection = IOKey()
             case str():
-                expose = None
-                if self.conns.get_connection(connection) is None:
-                    expose = is_input and not_valued
-                connection = IOKey(name=connection, expose=expose)
+                connection = IOKey(name=connection)
             case Connection():
-                connection = IOKey(connections=[connection], expose=None)
+                connection = IOKey(connections=[connection])
             case ExtendTemplate():
                 # Unroll ExtendTemplate
                 template_conn = model.conns.get_connection(key)
@@ -342,10 +337,7 @@ class Model(BaseModel):
                     connection = IOKey(connections=[result.conn], expose=None)
                 else:
                     assert isinstance(connection, MainValueInstance)
-                    expose = None
-                    if not not_valued:
-                        expose = False
-                    connection = IOKey(value=connection, expose=expose)
+                    connection = IOKey(value=connection)
             case IOKey():
                 expose = connection._expose
                 name = connection._name
@@ -405,6 +397,7 @@ class Model(BaseModel):
         is_input = local_key in model._input_keys
         local_connection = model.conns.get_connection(local_key)
         assert local_connection is not None, "Connection is not found!"
+        is_not_valued = local_connection.metadata.data.value is TBD
 
         d_map = self.dependency_map._local_output_dependency_map
         expose = given_connection._expose
@@ -417,9 +410,9 @@ class Model(BaseModel):
         if given_connection._connections == OrderedSet([]):
             if outer_key is not None:
                 con_obj = self.conns.get_connection(outer_key)
-            if expose is None and con_obj is None and is_input:
-                expose = True
             if outer_key is None or con_obj is None:
+                if expose is None and is_input and is_not_valued:
+                    expose = True
                 con_obj = self.create_connection(local_connection.metadata, outer_key)
             if (
                 expose is False
@@ -432,7 +425,7 @@ class Model(BaseModel):
                     "Expose flag cannot be false when "
                     "no value is provided for input keys!"
                 )
-        elif given_connection._connections != OrderedSet([]):
+        else:
             initial_conn: ConnectionData
             for idx, conn in enumerate(given_connection._connections):
                 if isinstance(conn, str):
@@ -468,8 +461,6 @@ class Model(BaseModel):
                             "name but encountered more!"
                         )
                     updates |= self.merge_connections(initial_conn, _conn)
-            if outer_key is None and is_input and initial_conn not in d_map:
-                expose = True
             if not outer_key and initial_conn in d_map and expose is True:
                 raise KeyError("Connection without a name cannot be set as output")
             con_obj = initial_conn
@@ -497,7 +488,7 @@ class Model(BaseModel):
         # If any value provided, set.
         assert con_obj is not None
         if not isinstance(set_value, NullConnection):
-            updates |= con_obj.metadata.data.set_value(set_value)  # type: ignore
+            updates |= con_obj.metadata.data.set_value(set_value)
 
         # Check multi-write error for con_obj.
         self._check_multi_write(is_input, local_connection, con_obj)
@@ -517,22 +508,21 @@ class Model(BaseModel):
             ):
                 con_obj.metadata.key_origin = local_key_origin
 
-        # Set connection as input, output, latent input or
-        # internal based on expose and is_input flag.
-        if is_input:
-            if outer_key not in self._input_keys:
-                if expose is True:
-                    if con_obj in d_map:
-                        self.conns.set_connection_type(con_obj, KeyType.OUTPUT)
-                    else:
-                        self.conns.set_connection_type(con_obj, KeyType.INPUT)
-                elif con_obj not in d_map:
-                    self.conns.set_connection_type(con_obj, KeyType.LATENT_INPUT)
-        else:
-            if expose and outer_key not in self.conns.output_keys:
-                self.conns.set_connection_type(con_obj, KeyType.OUTPUT)
-            elif not expose and outer_key not in self.conns.internal_keys:
-                self.conns.set_connection_type(con_obj, KeyType.INTERNAL)
+        unexpose = int(not (expose or (is_input and con_obj.key in self.conns.io_keys)))
+        is_output = int(not (is_input and con_obj not in d_map))
+        bitwise_key_type = (
+            unexpose << 1 | is_output
+        ) + 1  # bits: (unexpose, is_output)
+        self.conns.set_connection_type(con_obj, KeyType(bitwise_key_type))
+
+        # if expose is None:
+        #     expose = is_input and con_obj.key in self.conns.io_keys
+        # is_output = not (is_input and con_obj not in d_map)
+        # if expose:
+        #     key_type = (KeyType.INPUT, KeyType.OUTPUT)[is_output]
+        # else:
+        #     key_type = (KeyType.LATENT_INPUT, KeyType.INTERNAL)[is_output]
+        # self.conns.set_connection_type(con_obj, key_type)
 
         return con_obj, updates
 
@@ -721,7 +711,7 @@ class Model(BaseModel):
         submodel_dag: dict[str, ConnectionData] = {}
         updates = self.constraint_solver.match(model.constraint_solver)
 
-        # Add canonical output if it is not in externel_keys
+        # Add canonical output if it is not in external_keys
         external_keys = list(model.external_keys)
         if (
             model.canonical_output is not NOT_AVAILABLE

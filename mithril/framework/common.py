@@ -150,8 +150,8 @@ class UpdateType(Enum):
 class KeyType(Enum):
     INPUT = 1
     OUTPUT = 2
-    INTERNAL = 3
-    LATENT_INPUT = 4
+    LATENT_INPUT = 3
+    INTERNAL = 4
 
 
 type FixedValueType = (
