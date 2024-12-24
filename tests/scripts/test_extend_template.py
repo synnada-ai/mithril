@@ -27,6 +27,7 @@ from mithril.models import (
     Buffer,
     Divide,
     Equal,
+    Exponential,
     FloorDivide,
     Greater,
     GreaterEqual,
@@ -632,6 +633,27 @@ def test_absolute():
     out = pm.evaluate()["output"]
     assert isinstance(out, jnp.ndarray)
     assert (backend.array([1.0, 2, 3, 0, 5, 6]) == out).all()
+
+
+def test_exp():
+    backend = JaxBackend(precision=32)
+    data = {"input": backend.array([1.0, -2, 3, 0, -5, 6])}
+
+    model1 = Model()
+    model1 += Buffer()(input="input")
+    output = model1.input.exp()  # type: ignore
+    model1 += Buffer()(input=output, output=IOKey(name="output"))
+
+    model2 = Model()
+    model2 += Buffer()(input="input")
+    model2 += (exp := Exponential())(input="input")
+    model2 += Buffer()(input=exp.output, output=IOKey(name="output"))
+    compare_models(model1, model2, backend, data)
+
+    pm = mithril.compile(model=model1, backend=backend, constant_keys=data)
+    out = pm.evaluate()["output"]
+    assert isinstance(out, jnp.ndarray)
+    assert (jnp.exp(data["input"]) == out).all()
 
 
 def test_mean():

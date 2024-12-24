@@ -71,7 +71,6 @@ __all__ = [
     "Cosine",
     "Sign",
     "Square",
-    "Exponential",
     "Log",
     "StableReciprocal",
     "Relu",
@@ -664,19 +663,6 @@ class Square(SingleInputOperation):
         self, name: str | None = None, input: TensorValueType | ToBeDetermined = TBD
     ) -> None:
         super().__init__(formula_key="square", name=name)
-        self.factory_inputs = {"input": input}
-
-
-class Exponential(SingleInputOperation):
-    def __init__(
-        self, name: str | None = None, input: TensorValueType | ToBeDetermined = TBD
-    ) -> None:
-        super().__init__(
-            formula_key="exp",
-            name=name,
-            polymorphic_constraint=False,
-            output=IOKey(shape=[("Var", ...)], type=MyTensor[float]),
-        )
         self.factory_inputs = {"input": input}
 
 

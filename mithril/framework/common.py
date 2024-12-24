@@ -1063,6 +1063,9 @@ class TemplateBase:
             connections=[self], model="sqrt", defaults={"robust", "cutoff"}
         )
 
+    def exp(self):
+        return ExtendTemplate(connections=[self], model="exp")
+
     def transpose(self, axes: tuple[int, ...] | TemplateBase | None = None):
         return ExtendTemplate(connections=[self, axes], model="transpose")
 
