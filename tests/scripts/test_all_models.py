@@ -56,6 +56,7 @@ from mithril.models import (
     PrimitiveSlice,
     PrimitiveUnion,
     Prod,
+    Randn,
     ScalarItem,
     ScaledDotProduct,
     Shape,
@@ -744,6 +745,17 @@ def test_arange_2():
         reference_gradients=None,
         tolerances=1e-6,
     )
+
+
+def test_randn():
+    model = Randn(shape=(3, 4, 5))
+
+    for backend in default_backends:
+        pm = mithril.compile(model, backend, inference=True)
+        res_out = pm.evaluate()["output"]
+
+        assert isinstance(res_out, backend.DataType)  # type: ignore[attr-defined]
+        assert res_out.shape == (3, 4, 5)
 
 
 def test_greater_1():
