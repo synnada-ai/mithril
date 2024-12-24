@@ -44,6 +44,7 @@ from ..constraints import (
     scalar_slice_type_constraint,
     shape_constraints,
     size_constraints,
+    slice_constraints,
     split_constraints,
     tensor_item_constraints,
     tensor_slice_constraints,
@@ -107,6 +108,7 @@ __all__ = [
     "Transpose",
     "Sqrt",
     "Split",
+    "Slice",
 ]
 ConstantType = float | int | Constant
 
@@ -1507,3 +1509,40 @@ class Split(PrimitiveModel):
         return super().__call__(
             input=input, split_size=split_size, axis=axis, output=output
         )
+
+
+class Slice(PrimitiveModel):
+    start: Connection
+    stop: Connection
+    step: Connection
+    output: Connection
+
+    def __init__(
+        self,
+        start: int | None | ToBeDetermined = 0,
+        stop: int | None | ToBeDetermined = None,
+        step: int | None | ToBeDetermined = None,
+        name: str | None = None,
+    ):
+        super().__init__(
+            formula_key="primitive_slice",
+            name=name,
+            output=IOKey(type=slice),
+            start=IOKey(type=int | None, value=start),
+            stop=IOKey(type=int | None, value=stop),
+            step=IOKey(type=int | None, value=step),
+        )
+        self.factory_inputs = {"start": start, "stop": stop, "step": step}
+
+        self._set_constraint(
+            fn=slice_constraints, keys=["output", "start", "stop", "step"]
+        )
+
+    def __call__(  # type: ignore[override]
+        self,
+        start: ConnectionType = NOT_GIVEN,
+        stop: ConnectionType = NOT_GIVEN,
+        step: ConnectionType = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
+    ) -> ExtendInfo:
+        return super().__call__(start=start, stop=stop, step=step, output=output)

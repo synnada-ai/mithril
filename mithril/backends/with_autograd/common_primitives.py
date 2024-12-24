@@ -42,6 +42,7 @@ __all__ = [
     "swapaxes",
     "square",
     "tensor_slice",
+    "primitive_slice",
     "buffer",
     "permute_tensor",
     "reshape",
@@ -183,6 +184,10 @@ def item(input: DataType) -> int | float | bool:
 
 def tensor_item(input: DataType, index: int | slice | tuple[int | slice, ...]):
     return input[index]
+
+
+def primitive_slice(start: int | None, stop: int | None, step: int | None):
+    return slice(start, stop, step)
 
 
 def length(input: DataType) -> int:
