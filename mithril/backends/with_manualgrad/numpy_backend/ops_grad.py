@@ -14,6 +14,7 @@
 
 import itertools
 from itertools import zip_longest
+from typing import Any
 
 import numpy as np
 import scipy.linalg as slin  # type: ignore[import-untyped]
@@ -113,11 +114,11 @@ __all__ = [
 
 
 def matrix_multiplication_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType | None,
     idx: int,
-    *inputs: np.ndarray,
-) -> np.ndarray:
+    *inputs: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx)
     if idx == 0:
         return output_gradient @ np.swapaxes(inputs[1], -1, -2)
@@ -128,22 +129,22 @@ def matrix_multiplication_grad(
 
 
 def multiplication_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
-) -> np.ndarray:
+    *inputs: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx)
     input1, input2 = inputs
     return [input2, input1][idx] * output_gradient
 
 
 def divide_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
-) -> np.ndarray:  #  type: ignore
+    *inputs: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx)
     input1, input2 = inputs
     if idx == 0:
@@ -155,31 +156,31 @@ def divide_grad(
 
 
 def add_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
-) -> np.ndarray:
+    *inputs: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx)
     return output_gradient
 
 
 def subtract_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
-) -> np.ndarray:
+    *inputs: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx)
     return [1, -1][idx] * output_gradient
 
 
 def squared_error_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
-) -> np.ndarray:
+    *inputs: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx)
     input, target = inputs
     grad = 2 * (input - target) * output_gradient
@@ -187,24 +188,24 @@ def squared_error_grad(
 
 
 def absolute_error_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
-) -> np.ndarray:
+    *inputs: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx)
     signs = np.sign(cache["diff"]) * output_gradient
     return [1, -1][idx] * signs
 
 
 def cross_entropy_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
+    *inputs: np.ndarray[Any, Any],
     categorical: bool = True,
     robust: bool = False,
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx, non_differentiables=[1, 2])
     input, target, _, cutoff = inputs
     if categorical:
@@ -238,13 +239,13 @@ def cross_entropy_grad(
 
 
 def cross_entropy_with_logits_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
+    *inputs: np.ndarray[Any, Any],
     categorical: bool = True,
     robust: bool = False,
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx, non_differentiables=[1])
     input, target, _, cutoff = inputs
     grad = softmax(input, axis=1)
@@ -266,12 +267,12 @@ def cross_entropy_with_logits_grad(
 
 
 def cross_entropy_with_log_probs_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
+    *inputs: np.ndarray[Any, Any],
     categorical: bool = True,
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     input, target, _ = inputs
 
     if categorical:
@@ -288,13 +289,13 @@ def cross_entropy_with_log_probs_grad(
 
 
 def binary_cross_entropy_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
+    *inputs: np.ndarray[Any, Any],
     pos_weight: bool | float = 1.0,
     robust: bool = False,
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx, non_differentiables=[1, 2])
     (
         input,
@@ -315,13 +316,13 @@ def binary_cross_entropy_grad(
 
 
 def binary_cross_entropy_with_logits_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
+    *inputs: np.ndarray[Any, Any],
     pos_weight: bool | float = 1.0,
     robust: bool = False,
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx, non_differentiables=[1])
     input, target, *_ = inputs
 
@@ -338,11 +339,11 @@ def binary_cross_entropy_with_logits_grad(
 
 
 def quantile_loss_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
-) -> np.ndarray:
+    *inputs: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx, non_differentiables=[2])
     input, target, quantile = inputs
     dloss = np.sign(target - input)
@@ -354,11 +355,11 @@ def quantile_loss_grad(
 
 
 def hinge_loss_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
-) -> np.ndarray:
+    *inputs: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx, non_differentiables=[1])
 
     # TODO: Discuss -> Since we may return original output to the user, \
@@ -370,11 +371,11 @@ def hinge_loss_grad(
 
 
 def quad_hinge_loss_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
-) -> np.ndarray:
+    *inputs: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx, non_differentiables=[1])
     input, target = inputs
     return (
@@ -383,11 +384,11 @@ def quad_hinge_loss_grad(
 
 
 def kl_divergence_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
-) -> np.ndarray:
+    *inputs: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx, non_differentiables=[2])
     input, target, cutoff = inputs
     grad = (
@@ -399,11 +400,11 @@ def kl_divergence_grad(
 
 
 def power_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
-) -> np.ndarray:
+    *inputs: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx)
     input, target = inputs
     if idx == 0:
@@ -418,51 +419,51 @@ def power_grad(
 
 
 def exp_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
-) -> np.ndarray:
+    *inputs: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx)
     return cache["output"] * output_gradient
 
 
 def sqrt_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
-) -> np.ndarray:
+    *inputs: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx)
     return (1 / 2) * (1 / cache["output"]) * output_gradient
 
 
 def sin_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
-) -> np.ndarray:
+    *inputs: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx)
     return np.cos(inputs[0]) * output_gradient
 
 
 def cos_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
-) -> np.ndarray:
+    *inputs: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx)
     return -np.sin(inputs[0]) * output_gradient
 
 
 def robust_sqrt_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
-) -> np.ndarray:
+    *inputs: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx, non_differentiables=[1])
     input, cutoff = inputs
     inds = np.abs(input) < cutoff
@@ -476,11 +477,11 @@ def robust_sqrt_grad(
 # undefined points (log(0) = -inf in this case),
 # further testing should be done about performance.
 def robust_log_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType | None,
     idx: int,
-    *inputs: np.ndarray,
-) -> np.ndarray:
+    *inputs: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx, non_differentiables=[1])
     input, cutoff = inputs
     negative_inds = input < 0.0
@@ -498,11 +499,11 @@ def robust_log_grad(
 # undefined points (f(0) = inf in this case),
 # futher testing should be done.
 def stable_reciprocal_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
-) -> np.ndarray:
+    *inputs: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx, non_differentiables=[1])
     input, cutoff = inputs
     inds = np.abs(input) < cutoff
@@ -513,43 +514,43 @@ def stable_reciprocal_grad(
 
 
 def cartesian_diff_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
-) -> np.ndarray:
+    *inputs: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx)
     return [1, -1][idx] * np.sum(output_gradient, axis=1 - idx)
 
 
 def abs_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
-) -> np.ndarray:
+    *inputs: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx)
     # sign[sign == 0] = 1 # NOTE: JAX returns 1.0 for gradient at this point!!!
     return np.sign(inputs[0]) * output_gradient
 
 
 def sign_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
-) -> np.ndarray:
+    *inputs: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx)
     return np.zeros_like(inputs[0])
 
 
 def concat_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
-    axis=0,
-) -> np.ndarray:
+    *inputs: np.ndarray[Any, Any],
+    axis: int | None = 0,
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx, non_differentiables=[-1])
     # Since last element of args is axis, exclude it from
     # gradient calculation.
@@ -568,13 +569,13 @@ def concat_grad(
 
 
 def reduce_mean_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
+    *inputs: np.ndarray[Any, Any],
     axis: int | tuple[int, ...] | None = None,
     keepdim: bool = False,
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx, non_differentiables=[1])
     # TODO: Update gradient formula (same as Sum).
     (input,) = inputs
@@ -595,13 +596,13 @@ def reduce_mean_grad(
 
 
 def reduce_sum_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType | None,
     idx: int,
-    *inputs: np.ndarray,
+    *inputs: np.ndarray[Any, Any],
     axis: int | tuple[int, ...] | None = None,
     keepdim: bool = False,
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx, non_differentiables=[1])
     input_shape = inputs[0].shape
     if axis is None:
@@ -613,13 +614,13 @@ def reduce_sum_grad(
 
 
 def reduce_max_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType | None,
     idx: int,
-    *inputs: np.ndarray,
+    *inputs: np.ndarray[Any, Any],
     axis: int | tuple[int, ...] | None = None,
     keepdim: bool = False,
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx, non_differentiables=[1])
     (input,) = inputs
     input_shape = input.shape
@@ -640,13 +641,13 @@ def reduce_max_grad(
 
 
 def reduce_min_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
+    *inputs: np.ndarray[Any, Any],
     axis: int | tuple[int, ...] | None = None,
     keepdim: bool = False,
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx, non_differentiables=[1])
     (input,) = inputs
     # Expand dimensions of output gradient to match the input shape
@@ -666,13 +667,13 @@ def reduce_min_grad(
 
 
 def reduce_prod_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
+    *inputs: np.ndarray[Any, Any],
     axis: int | tuple[int, ...] | None = None,
     keepdim: bool = False,
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     (input,) = inputs
 
     _axis: tuple[int, ...]
@@ -707,21 +708,21 @@ def reduce_prod_grad(
 
 
 def buffer_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
-) -> np.ndarray:
+    *inputs: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx)
     return output_gradient
 
 
 def relu_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
-) -> np.ndarray:
+    *inputs: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx)
     (input,) = inputs
     # TODO: Check if copy is necessary.
@@ -731,7 +732,12 @@ def relu_grad(
     return output_gradient * inp_copy
 
 
-def leaky_relu_grad(output_gradient, cache, idx, *inputs):
+def leaky_relu_grad(
+    output_gradient: np.ndarray[Any, Any],
+    cache: CacheType,
+    idx: int,
+    *inputs: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx)
     if idx == 0:
         # TODO: Check if copy is necessary.
@@ -740,48 +746,48 @@ def leaky_relu_grad(output_gradient, cache, idx, *inputs):
         inp_copy[inp_copy > 0.0] = 1.0
         inp_copy[inp_copy <= 0.0] = slope
         return output_gradient * inp_copy
-    elif idx == 1:
+    else:
         return output_gradient * np.minimum(0.0, inputs[0])
 
 
 def tanh_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
-) -> np.ndarray:
+    *inputs: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx)
     return output_gradient * (1.0 - cache["output"] ** 2)
 
 
 def sigmoid_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
-) -> np.ndarray:
+    *inputs: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx)
     sig = cache["output"]
     return output_gradient * (sig * (1 - sig))
 
 
 def softplus_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
-) -> np.ndarray:
+    *inputs: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx)
-    sig = sigmoid(inputs[0])
+    sig: np.ndarray[Any, Any] = sigmoid(inputs[0])
     return output_gradient * sig
 
 
 def gelu_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
-) -> np.ndarray:
+    *inputs: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     input, approximate, *_ = inputs
     if approximate:
         tanh_term = np.tanh(np.sqrt(2 / np.pi) * (input + 0.044715 * input**3))
@@ -796,34 +802,20 @@ def gelu_grad(
 
 
 def stop_gradient_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
-) -> np.ndarray:
+    *inputs: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     return np.zeros_like(output_gradient)
 
 
-# def tensor_slice_grad(output_gradient: np.ndarray,
-#                       cache: CacheType,
-#                       idx: int,
-#                       *inputs: np.ndarray, -> np.ndarray:
-#     verify_shapes(inputs, idx)
-#     input1, input2 = inputs
-#     if idx == 0:
-#         grad = np.zeros_like(input1)
-#         grad[:input2.shape[0], ...] = output_gradient
-#         return grad
-#     elif idx == 1:
-#         return np.zeros_like(input2)
-
-
 def tensor_slice_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
-) -> np.ndarray:
+    *inputs: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx, non_differentiables=[1, 2, 3, 4])
     input, start, stop, step = inputs
     grad = np.zeros_like(input)
@@ -832,11 +824,11 @@ def tensor_slice_grad(
 
 
 def tensor_item_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
-) -> np.ndarray:
+    *inputs: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx, non_differentiables=[1])
     input, index = inputs
     grad = np.zeros_like(input)
@@ -845,22 +837,22 @@ def tensor_item_grad(
 
 
 def permute_tensor_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
-) -> np.ndarray:
+    *inputs: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx, non_differentiables=[1])
     indices = inputs[1]
     return output_gradient[np.argsort(indices)]
 
 
 def transpose_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
-) -> np.ndarray:
+    *inputs: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx, non_differentiables=[1])
     axes = inputs[1]
     return (
@@ -871,31 +863,31 @@ def transpose_grad(
 
 
 def square_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
-) -> np.ndarray:
+    *inputs: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx)
     return output_gradient * 2 * inputs[0]
 
 
 def conv1d_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
+    *inputs: np.ndarray[Any, Any],
     stride: int = 1,
     padding: tuple[int, int] = (1, 1),
     dilation: int = 1,
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx, non_differentiables=[2, 3, 4])
     input1, input2 = inputs
     n, c, w = input1.shape
     _, _, w_k = input2.shape
     out_w = (w - w_k + sum(padding)) // stride + 1
     if idx == 0:
-        _output_gradient = np.zeros(
+        _output_gradient: np.ndarray[Any, Any] = np.zeros(
             (
                 output_gradient.shape[0],
                 output_gradient.shape[1],
@@ -932,14 +924,14 @@ def conv1d_grad(
 
 
 def conv1d_bias_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
+    *inputs: np.ndarray[Any, Any],
     stride: int = 1,
     padding: tuple[int, int] = (1, 1),
     dilation: int = 1,
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx, non_differentiables=[3, 4, 5])
     if idx < 2:
         return conv1d_grad(
@@ -958,14 +950,14 @@ def conv1d_bias_grad(
 
 
 def conv2d_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
+    *inputs: np.ndarray[Any, Any],
     stride: tuple[int, int] = (1, 1),
     padding: tuple[int, int] | tuple[tuple[int, int], tuple[int, int]] = (1, 1),
     dilation: tuple[int, int] = (1, 1),
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx, non_differentiables=[2, 3, 4])
     input1, input2 = inputs
 
@@ -1032,14 +1024,14 @@ def conv2d_grad(
 
 
 def conv2d_bias_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
+    *inputs: np.ndarray[Any, Any],
     stride: tuple[int, int] = (1, 1),
     padding: tuple[int, int] | tuple[tuple[int, int], tuple[int, int]] = (1, 1),
     dilation: tuple[int, int] = (1, 1),
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx, non_differentiables=[3, 4, 5])
     if idx < 2:
         return conv2d_grad(
@@ -1058,27 +1050,27 @@ def conv2d_bias_grad(
 
 
 def flatten_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
+    *inputs: np.ndarray[Any, Any],
     start_dim: int = 0,
     end_dim: int = -1,
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx, non_differentiables=[1, 2])
     return output_gradient.reshape(*inputs[0].shape)
 
 
 def max_pool1d_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
+    *inputs: np.ndarray[Any, Any],
     kernel_size: int,
     stride: int,
     padding: tuple[int, int] = (0, 0),
     dilation: int = 1,
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     if idx == 0:
         (input,) = inputs
         *_, w = input.shape
@@ -1105,15 +1097,15 @@ def max_pool1d_grad(
 
 
 def max_pool2d_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
+    *inputs: np.ndarray[Any, Any],
     kernel_size: tuple[int, int],
     stride: tuple[int, int],
     padding: tuple[int, int] | tuple[tuple[int, int], tuple[int, int]] = (0, 0),
     dilation: tuple[int, int] = (1, 1),
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     if idx == 0:
         (input,) = inputs
 
@@ -1163,12 +1155,12 @@ def max_pool2d_grad(
 
 
 def softmax_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
+    *inputs: np.ndarray[Any, Any],
     axis: int = -1,
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx)
     output = cache["output"]
     axis = cache["axis"]
@@ -1178,11 +1170,11 @@ def softmax_grad(
 
 
 def robust_power_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
-) -> np.ndarray:
+    *inputs: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx, non_differentiables=[2])
     input1, input2, threshold = inputs
     result_shape = np.broadcast_shapes(input1.shape, input2.shape)
@@ -1218,11 +1210,11 @@ def robust_power_grad(
 
 
 def norm_modifier_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
-) -> np.ndarray:
+    *inputs: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx)
     inner_term = cache["inner_term"]
     inner_term_item = inner_term if isinstance(inner_term, float) else inner_term.item()
@@ -1237,11 +1229,11 @@ def norm_modifier_grad(
 
 
 def distance_matrix_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
-) -> np.ndarray:
+    *inputs: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx)
     norm = inputs[2]
     abs_diffs = cache["abs_diffs"]
@@ -1264,12 +1256,12 @@ def distance_matrix_grad(
 
 
 def polynomial_features_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
+    *inputs: np.ndarray[Any, Any],
     degree: int = 2,
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx, non_differentiables=[1])
     samples, dims = inputs[0].shape
     powers = cache["powers"]
@@ -1297,61 +1289,34 @@ def polynomial_features_grad(
     )
 
 
-# def ones_with_zero_diag_grad(output_gradient: np.ndarray,
-#                              cache: CacheType,
-#                              idx: int,
-#                              *inputs: np.ndarray, -> np.ndarray:
-#     verify_shapes(inputs, idx)
-#     return np.zeros_like(inputs[0])
-
-# def eye_grad(output_gradient: np.ndarray,
-#              cache: CacheType,
-#              idx: int,
-#              *inputs: np.ndarray, -> np.ndarray:
-#     # TODO: Remove gradient formula!!!
-#     return np.zeros_like(inputs[0])
-
-
 def cholesky_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
-) -> np.ndarray:
+    *inputs: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx)
     # TODO: Implement cholesky gradient!
     raise NotImplementedError("Implement gradient of Cholesky Factorization!")
 
 
 def gpr_alpha_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
-) -> np.ndarray:
+    *inputs: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx)
     label_mu_diff, L, K_term = inputs
     raise NotImplementedError()
 
-    # if L is not None:
-    #     l_inv = np.linalg.inv(L)
-    #     diff_grad = l_inv.T @ l_inv @ output_gradient
-    #     # (np.kron(l_inv.T, (l_inv.T @ l_inv @ label_mu_diff)) \
-    #  @ output_gradients.reshape(-1,1)).reshape(2,2)
-    #     # np.tril(-l_inv.T @ ((l_inv @ np.array(label_mu_diff)) \
-    #  @ np.array([[3.0, 2]])) @ l_inv.T)
-    # else:
-    #     # IMPLEMENT
-    #     return
-    # return None
-
 
 def eigvalsh_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
-) -> np.ndarray:
+    *inputs: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx, non_differentiables=[2])
     k_term, l_, threshold = inputs
     if idx == 0:
@@ -1376,11 +1341,11 @@ def eigvalsh_grad(
 
 
 def gpr_v_outer_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
-) -> np.ndarray:
+    *inputs: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx)
     k_, _, l_ = inputs
     if idx == 0:
@@ -1418,11 +1383,11 @@ def gpr_v_outer_grad(
 
 
 def transposed_diag_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
-) -> np.ndarray:
+    *inputs: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx)
     (input,) = inputs
     eye_mat = np.eye(input.shape[0])
@@ -1430,31 +1395,31 @@ def transposed_diag_grad(
 
 
 def log_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType | None,
     idx: int,
-    *inputs: np.ndarray,
-) -> np.ndarray:
+    *inputs: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx)
     return output_gradient * (1 / inputs[0])
 
 
 def squeeze_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
-) -> np.ndarray:
+    *inputs: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx)
     return output_gradient.reshape(inputs[0].shape)
 
 
 def broadcast_to_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
-) -> np.ndarray:
+    *inputs: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     input, shape = inputs[0], inputs[1]
     input_shape = input.shape
     bcast_indexes = []
@@ -1474,24 +1439,24 @@ def broadcast_to_grad(
 
 
 def swapaxes_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
-) -> np.ndarray:
+    *inputs: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     *_, axis1, axis2 = inputs
     return output_gradient.swapaxes(axis1, axis2)
 
 
 def variance_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
+    *inputs: np.ndarray[Any, Any],
     axis: int | tuple[int, ...] | None = None,
     keepdim: bool = False,
     correction: float = 0.0,
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx, non_differentiables=[1, 2])
     (input,) = inputs
     shape = input.shape
@@ -1513,33 +1478,23 @@ def variance_grad(
         )
 
 
-# def shape_grad(output_gradient: np.ndarray,
-#                cache: CacheType,
-#                idx: int,
-#                *inputs: np.ndarray, -> np.ndarray:
-#     if idx == 0:
-#         return np.zeros_like(inputs[0])
-#     else:
-#         return gradient_exception(idx)
-
-
 def reshape_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
-) -> np.ndarray:
+    *inputs: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx, non_differentiables=[1])
     input, _ = inputs
     return output_gradient.reshape(input.shape)
 
 
 def where_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
-) -> np.ndarray:
+    *inputs: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     cond, *_ = inputs
 
     if idx == 1:
@@ -1551,11 +1506,11 @@ def where_grad(
 
 
 def primitive_embedding_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
-) -> np.ndarray:
+    *inputs: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     # TODO: Check this function, if it works properly add tests.
     verify_shapes(inputs, idx, non_differentiables=[0])
     if idx == 1:
@@ -1567,10 +1522,10 @@ def primitive_embedding_grad(
 
 
 def scaled_dot_product_attention_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
+    *inputs: np.ndarray[Any, Any],
     dropout_p: float = 0.0,
     is_causal: bool = False,
     scale: float | int | None = None,
@@ -1620,21 +1575,21 @@ def scaled_dot_product_attention_grad(
 
 
 def isnan_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
-) -> np.ndarray:
+    *inputs: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx)
     return output_gradient
 
 
 def nan_to_num_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
-) -> np.ndarray:
+    *inputs: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx)
     if idx == 0:
         return ~(np.isnan(inputs[0]) | np.isinf(inputs[0])) * output_gradient
@@ -1643,39 +1598,11 @@ def nan_to_num_grad(
     )
 
 
-# def index_grad(output_gradient: np.ndarray,
-#                cache: CacheType,
-#                idx: int,
-#                *inputs: np.ndarray, -> np.ndarray:
-#     if idx == 0:
-#         input, index = inputs
-#         grad = np.zeros(input.shape)
-#         grad[index] = output_gradient
-#         return grad
-#     else:
-#         return gradient_exception(idx)
-
-# def sequence_slice_grad(output_gradient: np.ndarray,
-#                      cache: CacheType,
-#                      idx: int,
-#                      *inputs: np.ndarray, -> np.ndarray:
-#     if idx == 0:
-#         input, *_ = inputs
-#         start_idx = cache["start_idx"]
-#         stop_idx = cache["stop_idx"]
-#         step_size = cache["step_size"]
-#         grad = np.zeros_like(input)
-#         grad[start_idx: stop_idx: step_size] = output_gradient
-#         return gradf
-#     else:
-#         return gradient_exception(idx)
-
-
 def split_grad(
-    output_gradient: list[np.ndarray],
+    output_gradient: list[np.ndarray[Any, Any]],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
+    *inputs: np.ndarray[Any, Any],
 ):
     input, split_size, axis = inputs
     input_shape = input.shape
@@ -1706,11 +1633,11 @@ def split_grad(
 
 
 def pad_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
-) -> np.ndarray:
+    *inputs: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     input, padding = inputs
 
     slices = tuple(
@@ -1721,11 +1648,11 @@ def pad_grad(
 
 
 def minus_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
-) -> np.ndarray:
+    *inputs: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx)
 
     return -output_gradient

@@ -16,6 +16,7 @@ import argparse
 import sys
 import warnings
 from collections.abc import Callable
+from typing import Any
 
 import tiktoken
 from model import create_gpt
@@ -119,7 +120,7 @@ def get_weights(backend: Backend):
 
 
 def generate(
-    model: PhysicalModel,
+    model: PhysicalModel[Any],
     block_size: int,
     weights: dict[str, ml.DataType],
     idx: ml.DataType,
