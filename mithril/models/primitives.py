@@ -2411,7 +2411,7 @@ class Pad(PrimitiveModel):
     def __init__(
         self,
         name: str | None = None,
-        pad_width: list[tuple[int, int]] | ToBeDetermined = TBD,
+        pad_width: tuple[tuple[int, int], ...] | ToBeDetermined = TBD,
         input: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(
