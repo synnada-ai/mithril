@@ -16,6 +16,7 @@ import argparse
 import sys
 import warnings
 from collections.abc import Callable
+from typing import Any
 
 import tiktoken
 from model import create_gpt
@@ -56,7 +57,6 @@ def run_sample(
         num_heads=12,
         dims=768,
         bias=True,
-        mlp_dims=768 * 4,  # dims * 4
     )
 
     # Create backend.
@@ -119,7 +119,7 @@ def get_weights(backend: Backend):
 
 
 def generate(
-    model: PhysicalModel,
+    model: PhysicalModel[Any],
     block_size: int,
     weights: dict[str, ml.DataType],
     idx: ml.DataType,

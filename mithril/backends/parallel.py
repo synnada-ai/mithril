@@ -14,15 +14,15 @@
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from typing import Generic
+from typing import Any, Generic
 
 from ..core import DataType
 
 
 class Parallel(ABC, Generic[DataType]):
-    def __init__(self, n_devices) -> None:
+    def __init__(self, n_devices: int) -> None:
         self.n_devices = n_devices
-        self.callables: dict[str, Callable] = {}
+        self.callables: dict[str, Callable[..., Any]] = {}
 
         if self.n_devices <= 1:
             raise ValueError(
@@ -31,11 +31,13 @@ class Parallel(ABC, Generic[DataType]):
             )
 
     @abstractmethod
-    def run_callable(self, *primals, fn_name: str):
+    def run_callable(self, *primals: Any, fn_name: str) -> dict[str, Any]:
         raise NotImplementedError()
 
     @abstractmethod
-    def parallelize(self, tensor: DataType, device_mesh: tuple[int, ...] | None = None):
+    def parallelize(
+        self, tensor: DataType, device_mesh: tuple[int, ...] | None = None
+    ) -> dict[str, Any]:
         raise NotImplementedError()
 
     def clean_up(self):

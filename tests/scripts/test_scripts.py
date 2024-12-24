@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 import pickle
 import platform
 import re
@@ -1318,9 +1319,9 @@ def test_logical_model_compile_twice():
         constant_keys=static_keys_torch,
     )
 
-    assert torch_model.backend.type == "torch"
-    assert jax_model.backend.type == "jax"
-    assert np_model.backend.type == "numpy"
+    assert torch_model.backend.backend_type == "torch"
+    assert jax_model.backend.backend_type == "jax"
+    assert np_model.backend.backend_type == "numpy"
 
 
 def test_canonical_output_compile():

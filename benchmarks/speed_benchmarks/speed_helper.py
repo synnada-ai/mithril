@@ -129,7 +129,7 @@ def measure_time_and_grads_mithril(
 
         grads = model.evaluate_gradients(trainable_params, data)
 
-        if model.backend.type == "mlx":
+        if model.backend.backend_type == "mlx":
             mx.eval(grads)
         trainable_params = {
             key: value - lr * grads[key] for key, value in trainable_params.items()
