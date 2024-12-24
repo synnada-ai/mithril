@@ -1220,6 +1220,10 @@ def pad(
     return np.pad(input, pad_width)
 
 
+def zeros_like(input: np.ndarray, cache: CacheType | None = None) -> np.ndarray:
+    return np.zeros_like(input)
+
+
 array_creation_funcs = [
     "arange",
     "to_tensor",

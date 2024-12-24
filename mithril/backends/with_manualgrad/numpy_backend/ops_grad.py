@@ -1658,4 +1658,13 @@ def minus_grad(
     return -output_gradient
 
 
+def zeros_like_grad(
+    output_gradient: np.ndarray,
+    cache: CacheType,
+    idx: int,
+    *inputs: np.ndarray,
+) -> np.ndarray:
+    return np.zeros_like(output_gradient)
+
+
 primitive_grad_func_dict = {key: fn for key, fn in globals().items() if callable(fn)}
