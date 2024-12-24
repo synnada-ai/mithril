@@ -66,8 +66,8 @@ def mlp(n_embd: int):
 
 
 # Create Transformer Encoder Block.
-def create_block(dims, num_heads, mlp_dims, bias=True, eps=1e-5):
-    block = Model()
+def create_block(name, dims, num_heads, bias=True, eps=1e-5):
+    block = Model(name=name)
     block += LayerNorm(use_bias=bias, eps=eps, name="ln_1")("input")
     block += causal_attention(dims, num_heads, bias)
     block += Add()("input", block.canonical_output, "add_out")
@@ -78,7 +78,7 @@ def create_block(dims, num_heads, mlp_dims, bias=True, eps=1e-5):
     return block
 
 
-def create_gpt(bias, block_size, dims, mlp_dims, num_heads, num_layers, vocab_size):
+def create_gpt(bias, block_size, dims, num_heads, num_layers, vocab_size):
     # Create Position Embedding model
     transformer = Model(name="transformer")
     transformer += Size(dim=1)("input")
@@ -93,9 +93,7 @@ def create_gpt(bias, block_size, dims, mlp_dims, num_heads, num_layers, vocab_si
 
     blocks = Model(name="h")
     for idx in range(num_layers):
-        block = create_block(dims, num_heads, mlp_dims)
-        block.name = f"{idx}"  # Match names with torch
-        blocks += block
+        blocks += create_block(f"{idx}", dims, num_heads)
     transformer += blocks
     transformer += LayerNorm(use_bias=bias, name="ln_f")
 

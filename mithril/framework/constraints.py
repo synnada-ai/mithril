@@ -3404,8 +3404,8 @@ def tensor_item_constraint_helper(
     | list[slice | int | None | EllipsisType],
     input_shape_unis: list[Uniadic],
 ) -> tuple[list[Uniadic], list[Uniadic], bool, int]:
-    input_unis = []
-    output_unis = []
+    input_unis: list[Uniadic] = []
+    output_unis: list[Uniadic] = []
     current_index = 0
     status = True
     for item in item_values:
