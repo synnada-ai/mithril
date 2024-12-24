@@ -466,7 +466,7 @@ class Model(BaseModel):
             con_obj = initial_conn
 
         # Name "input" can only be used for input connections.
-        is_key_name_input = con_obj is not None and con_obj.key == "input"
+        is_key_name_input = con_obj is not None and (con_key := con_obj.key) == "input"
         if not is_input and (outer_key == "input" or is_key_name_input):
             raise KeyError(
                 "The key 'input' is a reserved key which could not be used for "
@@ -508,11 +508,9 @@ class Model(BaseModel):
             ):
                 con_obj.metadata.key_origin = local_key_origin
 
-        unexpose = int(not (expose or (is_input and con_obj.key in self.conns.io_keys)))
+        unexposed = int(not (expose or (is_input and con_key in self.conns.io_keys)))
         is_output = int(not (is_input and con_obj not in d_map))
-        bitwise_key_type = (
-            unexpose << 1 | is_output
-        ) + 1  # bits: (unexpose, is_output)
+        bitwise_key_type = (unexposed << 1 | is_output) + 1  # (unexpose, is_output)
         self.conns.set_connection_type(con_obj, KeyType(bitwise_key_type))
 
         return con_obj, updates
