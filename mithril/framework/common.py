@@ -40,7 +40,7 @@ from ..core import (
     constant_type_table,
     epsilon_table,
 )
-from ..utils.utils import OrderedSet, PaddingType, find_dominant_type
+from ..utils.utils import PaddingType, find_dominant_type
 from .utils import (
     NestedListType,
     align_shapes,
@@ -1001,7 +1001,7 @@ class TemplateBase:
     def len(self):
         return ExtendTemplate(connections=[self], model="len")
 
-    def shape(self):
+    def get_shape(self):
         return ExtendTemplate(connections=[self], model="shape")
 
     def reshape(self, shape: tuple[int, ...] | TemplateBase):
@@ -1118,7 +1118,7 @@ class IOKey(TemplateBase):
         type: NestedListType | UnionType | type | None = None,
         expose: bool | None = None,
         interval: list[float | int] | None = None,
-        connections: list[Connection | str] | None = None,
+        connections: set[Connection | str] | None = None,
     ) -> None:
         super().__init__()
         self._name = name
@@ -1127,7 +1127,7 @@ class IOKey(TemplateBase):
         self._type = type
         self._expose = expose
         self._interval = interval
-        self._connections: OrderedSet[ConnectionData | str] = OrderedSet()
+        self._connections: set[Connection | str] = connections or set()
 
         # TODO: Shape should not be [] also!
         if self._value is not TBD and self._shape is not None and self._shape != []:
@@ -1143,12 +1143,6 @@ class IOKey(TemplateBase):
                     f"type of the given value and given type does not match. Given "
                     f"type is {self._type} while type of value is {value_type}"
                 )
-
-        connections = connections or []
-        for item in connections:
-            conn: ConnectionData | str
-            conn = item.data if isinstance(item, Connection) else item
-            self._connections.add(conn)
 
     def __eq__(self, other: object):
         if isinstance(other, int | float | bool | list | Connection | IOKey | tuple):

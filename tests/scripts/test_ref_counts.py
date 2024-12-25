@@ -239,14 +239,14 @@ def test_deleted_variadic_ref_count_7():
     model += add_5(left="")
 
     conn = IOKey(
-        connections=[
+        connections={
             add_1.left,
             add_1.right,
             add_2.left,
             add_2.right,
             add_3.left,
             add_3.right,
-        ]
+        }
     )
 
     model += add_6(left=conn, right="right", output="output")
@@ -912,7 +912,7 @@ def test_deleted_tensors_ref_count_3():
     model += buffer4(input="input4", output=IOKey(name="output4"))
     model += buffer5(input="input5", output=IOKey(name="output5"))
     model += buffer6(input="input6", output=IOKey(name="output6"))
-    connections = [buffer1.input, buffer2.input, buffer3.input, model.output4]  # type: ignore
+    connections = {buffer1.input, buffer2.input, buffer3.input, model.output4}  # type: ignore
     conn = IOKey(connections=connections)
 
     model += buffer7(input=conn, output=IOKey(name="output"))
@@ -1138,7 +1138,7 @@ def test_deleted_edge_ref_count_6():
         output2=IOKey(name="output2"),
         output3=IOKey(name="output3"),
     )
-    connections = [main_model.output1, main_model.input2]  # type: ignore
+    connections = {main_model.output1, main_model.input2}  # type: ignore
     conn = IOKey(name="abcd", expose=True, connections=connections)
 
     main_model += sigmoid4(input=conn, output=IOKey(name="output5"))

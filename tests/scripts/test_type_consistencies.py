@@ -390,7 +390,7 @@ def test_type_16():
 
     with pytest.raises(TypeError) as err_info:
         model += sig_model_2(
-            input=IOKey(connections=[sig_model_1.input], value=[False, True]),
+            input=IOKey(connections={sig_model_1.input}, value=[False, True]),
             output=IOKey(name="output2"),
         )
     assert str(err_info.value) == (
@@ -409,7 +409,7 @@ def test_type_17():
         model.extend(
             sig_model_2,
             input=IOKey(
-                connections=[sig_model_1.input],
+                connections={sig_model_1.input},
                 value=[False, True],
                 name="a",
                 expose=True,

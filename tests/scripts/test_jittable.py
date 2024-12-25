@@ -257,7 +257,7 @@ def test_logical_model_jittable_1():
     model += (add1 := Add())(left="l1", right="l2", output=IOKey(name="out1"))
     model += (add2 := Add())(left="l3", right="l4")
     with pytest.raises(Exception) as error_info:
-        model += Item()(input=IOKey(name="input", connections=[add1.left, add2.left]))
+        model += Item()(input=IOKey(name="input", connections={add1.left, add2.left}))
     modified_msg = re.sub("\\s*", "", str(error_info.value))
     expected_msg = (
         "Model with enforced Jit can not be extended by a non-jittable model! \
@@ -274,7 +274,7 @@ def test_logical_model_jittable_2():
     model += (add1 := Add())(left="l1", right="l2", output=IOKey(name="out1"))
     model += (add2 := Add())(left="l3", right="l4")
     model.enforce_jit = False
-    input = IOKey(name="input", connections=[add1.left, add2.left], expose=True)
+    input = IOKey(name="input", connections={add1.left, add2.left}, expose=True)
     model += Item()(input=input)
     assert not model.enforce_jit
 
@@ -287,7 +287,7 @@ def test_logical_model_jittable_3():
     model += (add1 := Add())(left="l1", right="l2", output=IOKey(name="out1"))
     model += (add2 := Add())(left="l3", right="l4")
     model.enforce_jit = False
-    input = IOKey(name="input", connections=[add1.left, add2.left], expose=True)
+    input = IOKey(name="input", connections={add1.left, add2.left}, expose=True)
     model += Item()(input=input)
     assert not model.enforce_jit
 
@@ -300,7 +300,7 @@ def test_physical_model_jit_1():
     model += (add1 := Add())(left="l1", right="l2", output=IOKey(name="out1"))
     model += (add2 := Add())(left="l3", right="l4")
     model.enforce_jit = False
-    input = IOKey(name="input", connections=[add1.left, add2.left], expose=True)
+    input = IOKey(name="input", connections={add1.left, add2.left}, expose=True)
     model += Item()(input=input)
 
     backend = JaxBackend()
@@ -320,7 +320,7 @@ def test_physical_model_jit_2():
     model += (add1 := Add())(left="l1", right="l2", output=IOKey(name="out1"))
     model += (add2 := Add())(left="l3", right="l4")
     model.enforce_jit = False
-    input = IOKey(name="input", connections=[add1.left, add2.left], expose=True)
+    input = IOKey(name="input", connections={add1.left, add2.left}, expose=True)
     model += Item()(input=input)
 
     backend = JaxBackend()
@@ -367,7 +367,7 @@ def test_jit_2():
     model = Model(enforce_jit=False)
     model += (add_model := Add())(left="left", right="right")
     in1 = add_model.output
-    out1 = in1.shape()
+    out1 = in1.get_shape()
     out2 = out1.tensor().sum()
     mean_model = Mean(axis=TBD)
     model += (to_list := Item())(input=out2)

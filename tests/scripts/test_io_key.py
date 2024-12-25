@@ -272,7 +272,7 @@ def test_7():
     model += (relu1 := Relu())(input="in1", output="relu1_output")
     model += (relu2 := Relu())(input="in2", output="relu2_output")
     model += (relu3 := Relu())(
-        input="", output=IOKey(name="my_input", connections=[relu1.input, relu2.input])
+        input="", output=IOKey(name="my_input", connections={relu1.input, relu2.input})
     )
     assert (
         model.dag[relu1]["input"].metadata
@@ -448,7 +448,7 @@ def test_iokey_shapes_3():
         input3=IOKey(name="input3", shape=[3, "a"]),
     )
 
-    conns = [main_model.input1, main_model.input2, main_model.input3]  # type: ignore
+    conns = {main_model.input1, main_model.input2, main_model.input3}  # type: ignore
     key = IOKey(name="input", connections=conns)
     main_model += Buffer()(input=key, output="output1")
 
@@ -1150,7 +1150,7 @@ def test_compare_models_5():
     sigmoid = Sigmoid()
     add = Add()
     model2 += add(output=IOKey(name="output"))
-    conn = IOKey(connections=[add.left, add.right])
+    conn = IOKey(connections={add.left, add.right})
     model2 += sigmoid(input="input", output=conn)
     model2.set_shapes({"input": [2, 2]})
 
@@ -1245,7 +1245,7 @@ def test_iokey_template_4():
     model = Model()
 
     left = IOKey("left")
-    res = left.shape()[0]
+    res = left.get_shape()[0]
 
     model += Buffer()(res.tensor(), IOKey("output"))
 

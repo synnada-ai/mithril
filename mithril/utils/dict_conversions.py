@@ -153,12 +153,12 @@ def dict_to_model(modelparams: dict[str, Any]) -> BaseModel:
                         key = IOKey(**key_kwargs)
                     mappings[k] = IOKey(
                         **key_kwargs,
-                        connections=[
+                        connections={
                             getattr(submodels_dict[value[0]], value[1])
                             if isinstance(value, Sequence)
                             else value
                             for value in conn["connect"]
-                        ],
+                        },
                     )
                 elif "name" in conn:
                     key_kwargs = create_iokey_kwargs(conn)

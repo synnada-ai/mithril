@@ -311,7 +311,7 @@ class Model(BaseModel):
             case str():
                 connection = IOKey(name=connection)
             case Connection():
-                connection = IOKey(connections=[connection])
+                connection = IOKey(connections={connection})
             case ExtendTemplate():
                 # Unroll ExtendTemplate
                 template_conn = model.conns.get_connection(key)
@@ -319,7 +319,7 @@ class Model(BaseModel):
                 connection = self._unroll_template(
                     connection, type(template_conn.metadata.data)
                 )
-                connection = IOKey(connections=[connection.conn], expose=False)
+                connection = IOKey(connections={connection.conn}, expose=False)
             case _ if isinstance(connection, MainValueInstance):
                 # find_dominant_type returns the dominant type in a container.
                 # If a container has a value of type Connection or ExtendTemplate
@@ -338,26 +338,22 @@ class Model(BaseModel):
 
                     result = conv_model.conns.get_connection("output")
                     assert result is not None
-                    connection = IOKey(connections=[result.conn], expose=None)
+                    connection = IOKey(connections={result.conn}, expose=None)
                 else:
                     assert isinstance(connection, MainValueInstance)
                     connection = IOKey(value=connection)
             case IOKey():
                 expose = connection._expose
                 name = connection._name
-                # TODO: This check should be removed: conn._connections==OrderedSet([])
+                # TODO: This check should be removed: conn._connections==set()
                 # We should not operate different if _connections is given. Fix this and
                 # also fix corresponding tests and dict conversions with "connect".
                 if (
                     expose is None
                     and (name is None or self.conns.get_connection(name) is None)
-                    and connection._connections == OrderedSet([])
+                    and connection._connections == set()
                 ):
                     expose = True
-                _conns: list[Connection | str] = [
-                    item.conn if isinstance(item, ConnectionData) else item
-                    for item in connection._connections
-                ]
                 # TODO: Add replicate method to IOKey (update def __call__ in BaseModel)
                 connection = IOKey(
                     name=name,
@@ -365,7 +361,7 @@ class Model(BaseModel):
                     shape=connection._shape,
                     type=connection._type,
                     expose=expose,
-                    connections=_conns,
+                    connections=connection._connections,
                 )
             case NotAvailable():
                 raise ValueError(
@@ -411,7 +407,7 @@ class Model(BaseModel):
         if given_connection._value is not TBD:
             set_value = given_connection._value
 
-        if given_connection._connections == OrderedSet([]):
+        if given_connection._connections == set():
             if outer_key is not None:
                 con_obj = self.conns.get_connection(outer_key)
             if outer_key is None or con_obj is None:
@@ -435,14 +431,15 @@ class Model(BaseModel):
                 if isinstance(conn, str):
                     _conn = self.conns.get_connection(conn)
                 else:
-                    _conn = self.conns.get_con_by_metadata(conn.metadata)
+                    _conn = self.conns.get_con_by_metadata(conn.data.metadata)
+                    if conn.data in model.conns.all.values():
+                        raise ValueError(
+                            f"Given connection '{conn.data.key}' should not "
+                            "belong to the extending model!"
+                        )
+
                 if not isinstance(_conn, ConnectionData):
                     raise KeyError("Requires accessible connection to be processed!")
-                elif conn in model.conns.all.values():
-                    raise ValueError(
-                        f"Given connection '{conn.key}' should not "  # type: ignore
-                        "belong to the extending model!"
-                    )
                 if idx == 0:
                     initial_conn = _conn
                     if outer_key is not None:
