@@ -420,6 +420,22 @@ def get_submatrices2d(
     )
 
 
+def determine_dtype(input: Any, dtype: core.Dtype | None, precision: int) -> str:
+    if isinstance(dtype, core.Dtype):
+        return dtype.name
+
+    if isinstance(input, mx.array):
+        dtype_name = "".join(
+            char for char in input.dtype.__str__().split(".")[-1] if not char.isdigit()
+        )
+    elif isinstance(input, np.ndarray) or isinstance(input, np.generic):
+        dtype_name = "".join(char for char in str(input.dtype) if not char.isdigit())
+    else:
+        dtype_name = find_dominant_type(input).__name__
+
+    return dtype_name + str(precision) if dtype_name != "bool" else "bool"
+
+
 def get_type(input: int | float | bool | Sequence[Any], precision: int) -> mx.Dtype:
     type = find_dominant_type(input).__name__
     if type == "bool":

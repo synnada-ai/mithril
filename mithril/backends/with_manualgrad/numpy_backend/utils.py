@@ -497,6 +497,20 @@ def calculate_cross_entropy_class_weights(
     return _weights
 
 
+def determine_dtype(input: Any, dtype: core.Dtype | None, precision: int) -> str:
+    if isinstance(dtype, core.Dtype):
+        return dtype.name
+
+    if isinstance(input, np.ndarray) or isinstance(input, np.generic):
+        dtype_name = "".join(char for char in str(input.dtype) if not char.isdigit())
+    else:
+        dtype_name = find_dominant_type(input).__name__
+
+    print(type(input), dtype, dtype_name)
+
+    return dtype_name + str(precision) if dtype_name != "bool" else "bool"
+
+
 def get_type(
     input: int | float | bool | Sequence[int | float | bool | Sequence[Any]],
     precision: int,

@@ -36,6 +36,7 @@ from ....utils.utils import binary_search, find_dominant_type
 AVAILABLE_BACKEND_TYPES = ["cpu", "cuda"]
 
 ArrayType = torch.Tensor
+NestedTensorType = int | float | bool | Sequence["NestedTensorType"]
 dtype_map: dict[str, torch.dtype] = {
     "int16": torch.int16,
     "int32": torch.int32,
@@ -228,7 +229,7 @@ def conversion_fn_wrapper_inner(
     _device = get_device(device)
     if dtype is not None:
         dtype = handle_dtype(dtype)
-    if isinstance(data, ArrayType):
+    if isinstance(data, torch.Tensor):
         if data.device != _device:
             data = data.to(_device)
         if dtype is not None:
@@ -256,7 +257,7 @@ def conversion_fn_wrapper_inner(
         return _data
 
 
-def handle_data_precision(data: ArrayType, precision: int) -> ArrayType:
+def handle_data_precision(data: torch.Tensor, precision: int) -> torch.Tensor:
     _dtype = data.dtype
     dtype: torch.dtype
     # Do not make any changes to boolean types.
@@ -276,7 +277,7 @@ def handle_data_precision(data: ArrayType, precision: int) -> ArrayType:
     return data
 
 
-def handle_data_dtype(data: ArrayType, dtype: core.Dtype | int) -> ArrayType:
+def handle_data_dtype(data: torch.Tensor, dtype: core.Dtype | int) -> torch.Tensor:
     dtype = core.Dtype(dtype)
 
     if data.dtype != dtype_map[dtype.name]:
@@ -286,11 +287,11 @@ def handle_data_dtype(data: ArrayType, dtype: core.Dtype | int) -> ArrayType:
     return data
 
 
-def get_precision(data: ArrayType) -> int:
+def get_precision(data: torch.Tensor) -> int:
     return data.dtype.itemsize * 8
 
 
-def get_subtype(data: ArrayType) -> str:
+def get_subtype(data: torch.Tensor) -> str:
     # TODO: cover uint dtypes
     if not torch.is_floating_point(data) and not torch.is_complex(data):
         return "int"
@@ -753,7 +754,20 @@ def check_device_mesh(base_mesh: DeviceMesh, device_mesh: tuple[int, ...]):
             )
 
 
-NestedTensorType = int | float | bool | Sequence["NestedTensorType"]
+def determine_dtype(input: Any, dtype: core.Dtype | None, precision: int) -> str:
+    if isinstance(dtype, core.Dtype):
+        return dtype.name
+
+    if isinstance(input, torch.Tensor):
+        dtype_name = "".join(
+            char for char in input.dtype.__str__().split(".")[1] if not char.isdigit()
+        )
+    elif isinstance(input, np.ndarray) or isinstance(input, np.generic):
+        dtype_name = "".join(char for char in str(input.dtype) if not char.isdigit())
+    else:
+        dtype_name = find_dominant_type(input).__name__
+
+    return dtype_name + str(precision) if dtype_name != "bool" else "bool"
 
 
 def get_type(input: NestedTensorType, precision: int):

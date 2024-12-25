@@ -17,6 +17,7 @@ from typing import Any
 
 import jax
 import jax.numpy as jnp
+import numpy as np
 from jax import vmap
 
 from .... import core
@@ -504,3 +505,19 @@ def calculate_cross_entropy_class_weights(
         shape[1] = input.shape[1]
         _weights = _weights.reshape(shape)
     return _weights
+
+
+def determine_dtype(input: Any, dtype: core.Dtype | None, precision: int) -> str:
+    if isinstance(dtype, core.Dtype):
+        return dtype.name
+
+    if isinstance(input, jax.Array):
+        dtype_name = "".join(
+            char for char in input.dtype.__str__() if not char.isdigit()
+        )
+    elif isinstance(input, np.ndarray) or isinstance(input, np.generic):
+        dtype_name = "".join(char for char in str(input.dtype) if not char.isdigit())
+    else:
+        dtype_name = find_dominant_type(input).__name__
+
+    return dtype_name + str(precision) if dtype_name != "bool" else "bool"

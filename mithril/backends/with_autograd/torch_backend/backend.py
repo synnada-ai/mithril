@@ -171,37 +171,6 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
 
         return array_creation_fn
 
-    def _conversion_fn_wrapper(
-        self, fn: Callable[..., torch.Tensor]
-    ) -> Callable[..., torch.Tensor]:
-        """
-        Wrapper for PyTorch tensor conversion functions.
-
-        Parameters
-        ----------
-        fn: Callable
-            The original tensor conversion function.
-
-        Returns
-        -------
-        Callable
-            A wrapped function that converts tensors with specified dtype and device.
-
-        Notes
-        -----
-        Wrapper handles the conversion of tensors between different dtypes and devices.
-        """
-
-        array_conversion_fn = partial(
-            utils.conversion_fn_wrapper_inner,
-            fn=fn,
-            device=self._device,
-            precision=self.precision,
-        )
-        array_conversion_fn = partial(self._parallelize, fn=array_conversion_fn)
-
-        return array_conversion_fn
-
     def _parallelize(
         self,
         *args: Any,
@@ -298,12 +267,16 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
         dtype: Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
     ) -> torch.Tensor:
-        _dtype: torch.dtype | None = None
-        if isinstance(dtype, Dtype):
-            _dtype = utils.dtype_map[dtype.name]
-        return self._conversion_fn_wrapper(torch.tensor)(
-            input, dtype=_dtype, device_mesh=device_mesh
-        )
+        _dtype = utils.determine_dtype(input, dtype, self.precision)
+
+        tensor = torch.tensor(input, dtype=utils.dtype_map[_dtype], device=self._device)
+
+        if self._parallel_manager is not None:
+            tensor = self._parallel_manager.parallelize(
+                tensor, self.base_device_mesh, device_mesh
+            )
+
+        return tensor
 
     def zeros(
         self,

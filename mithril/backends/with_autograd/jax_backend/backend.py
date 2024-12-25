@@ -172,40 +172,6 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
 
         return array_conversion_fn
 
-    def _conversion_fn_wrapper(
-        self, fn: Callable[..., jax.Array]
-    ) -> Callable[..., jax.Array]:
-        """
-        Wrapper for array conversion functions.
-
-        Parameters
-        ----------
-        fn: Callable
-            The original array conversion function.
-
-        Returns
-        -------
-        Callable
-            A wrapped function that converts arrays with specified dtype and device.
-
-        Notes
-        -----
-        Handles the conversion of arrays between different dtypes and devices.
-
-        If dtype is provided, it uses `utils._handle_dtype` to ensure a valid dtype.
-        If the input data is a JAX Array, it ensures it's on the specified device.
-        If dtype is not provided, uses the default device and handles data precision.
-        """
-        array_conversion_fn = partial(
-            utils.conversion_fn_wrapper,
-            fn=fn,
-            device=self._device,
-            precision=self.precision,
-        )
-        array_conversion_fn = partial(self._parallelize, fn=array_conversion_fn)
-
-        return array_conversion_fn
-
     def _parallelize(
         self,
         *args: Any,
@@ -264,13 +230,15 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         dtype: Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
     ) -> jax.Array:
-        _dtype: jax.numpy.dtype[Any] | None = None
-        if isinstance(dtype, Dtype):
-            _dtype = utils.dtype_map[dtype.name]
-        result = self._conversion_fn_wrapper(jax.numpy.array)(
-            input, dtype=_dtype, device_mesh=device_mesh
+        _dtype = utils.determine_dtype(input, dtype, self.precision)
+
+        array = jax.numpy.array(
+            input, dtype=utils.dtype_map[_dtype], device=self.device
         )
-        return result
+        if self._parallel_manager is not None:
+            array = self._parallel_manager.parallelize(array, device_mesh)
+
+        return array
 
     def zeros(
         self,

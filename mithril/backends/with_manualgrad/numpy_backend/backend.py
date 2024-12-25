@@ -156,11 +156,10 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
     ) -> np.ndarray[Any, Any]:
         return utils.accumulate_grads(gradient, input, cache, idx)
 
-    def array(self, input: Any, *, dtype: Dtype | None = None) -> np.ndarray[Any, Any]:
-        _dtype: np.dtype[Any] | None = None
-        if isinstance(dtype, Dtype):
-            _dtype = utils.dtype_map[dtype.name]
-        return self._conversion_fn_wrapper(np.array)(input, dtype=_dtype)
+    def array(self, data: Any, *, dtype: Dtype | None = None) -> np.ndarray[Any, Any]:
+        _dtype = utils.determine_dtype(data, dtype, self.precision)
+
+        return np.array(data, dtype=utils.dtype_map[_dtype])
 
     def zeros(
         self, *shape: int | tuple[int, ...] | list[int], dtype: Dtype | None = None

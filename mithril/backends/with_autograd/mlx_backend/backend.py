@@ -188,10 +188,8 @@ class MlxBackend(Backend[mx.array]):
         return [output]
 
     def array(self, input: Any, *, dtype: Dtype | None = None) -> mx.array:
-        _dtype: mx.Dtype | None = None
-        if isinstance(dtype, Dtype):
-            _dtype = utils.dtype_map[dtype.name]
-        return self._conversion_fn_wrapper(mx.array)(input, dtype=_dtype)
+        _dtype = utils.determine_dtype(input, dtype, self.precision)
+        return mx.array(input, dtype=utils.dtype_map[_dtype])
 
     def zeros(
         self, *shape: int | tuple[int, ...] | list[int], dtype: Dtype | None = None
