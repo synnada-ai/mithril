@@ -18,9 +18,9 @@ import pytest
 from mithril.framework import Scalar, Tensor
 from mithril.framework.common import (
     NOT_GIVEN,
+    BaseKey,
     ConnectionType,
     GenericTensorType,
-    IOKey,
     MyTensor,
     ShapeRepr,
     Uniadic,
@@ -98,8 +98,8 @@ class Model1(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="buffer",
-            input=IOKey(shape=[("Var1", ...)], type=GenericTensorType),
-            output=IOKey(shape=[("Var2", ...)], type=GenericTensorType),
+            input=BaseKey(shape=[("Var1", ...)], type=GenericTensorType),
+            output=BaseKey(shape=[("Var2", ...)], type=GenericTensorType),
         )
         self._set_constraint(fn=dummy_constraint, keys=["output", "input"])
 
@@ -111,8 +111,8 @@ class Model2(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="buffer",
-            input=IOKey(shape=[("Var1", ...)], type=GenericTensorType),
-            output=IOKey(shape=[("Var2", ...)], type=GenericTensorType),
+            input=BaseKey(shape=[("Var1", ...)], type=GenericTensorType),
+            output=BaseKey(shape=[("Var2", ...)], type=GenericTensorType),
         )
         self._set_constraint(fn=dummy_constraint, keys=["output", "input"])
         self._set_constraint(
@@ -127,8 +127,8 @@ class Model3(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="buffer",
-            input=IOKey(shape=[("Var1", ...)], type=MyTensor[int] | MyTensor[bool]),
-            output=IOKey(shape=[("Var2", ...)], type=MyTensor[int] | MyTensor[bool]),
+            input=BaseKey(shape=[("Var1", ...)], type=MyTensor[int] | MyTensor[bool]),
+            output=BaseKey(shape=[("Var2", ...)], type=MyTensor[int] | MyTensor[bool]),
         )
         self._set_constraint(fn=dummy_constraint, keys=["output", "input"])
 
@@ -141,9 +141,9 @@ class MyAdd2(PrimitiveModel):
     def __init__(self, left, right, output) -> None:
         super().__init__(
             formula_key="add",
-            output=IOKey(shape=output, type=GenericTensorType),
-            left=IOKey(shape=left, type=GenericTensorType),
-            right=IOKey(shape=right, type=GenericTensorType),
+            output=BaseKey(shape=output, type=GenericTensorType),
+            left=BaseKey(shape=left, type=GenericTensorType),
+            right=BaseKey(shape=right, type=GenericTensorType),
         )
         self._set_constraint(
             fn=bcast, keys=[PrimitiveModel.output_key, "left", "right"]

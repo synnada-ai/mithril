@@ -28,6 +28,7 @@ from mithril.framework.utils import (
 )
 from mithril.models import (
     TBD,
+    BaseKey,
     Convolution2D,
     ExtendInfo,
     IOKey,
@@ -49,9 +50,9 @@ class Model1(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="None",
-            input1=IOKey(type=tuple[int, ...]),
-            input2=IOKey(type=list[float]),
-            output=IOKey(type=tuple[tuple[int, ...]]),
+            input1=BaseKey(type=tuple[int, ...]),
+            input2=BaseKey(type=list[float]),
+            output=BaseKey(type=tuple[tuple[int, ...]]),
         )
 
     def __call__(  # type: ignore[override]
@@ -68,10 +69,10 @@ class Model2(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="None",
-            input1=IOKey(type=int | float),
-            input2=IOKey(type=int | str),
-            input3=IOKey(type=str | float),
-            output=IOKey(type=tuple[int | float, int | float, int | float]),
+            input1=BaseKey(type=int | float),
+            input2=BaseKey(type=int | str),
+            input3=BaseKey(type=str | float),
+            output=BaseKey(type=tuple[int | float, int | float, int | float]),
         )
 
     def __call__(  # type: ignore[override]
@@ -94,19 +95,21 @@ class Model3(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="None",
-            input1=IOKey(
+            input1=BaseKey(
                 type=tuple[tuple[int | float, ...], ...]
                 | list[int | float]
                 | tuple[int, int, int, int]
             ),
-            input2=IOKey(type=list[int] | tuple[int, ...] | tuple[tuple[int | float]]),
-            input3=IOKey(
+            input2=BaseKey(
+                type=list[int] | tuple[int, ...] | tuple[tuple[int | float]]
+            ),
+            input3=BaseKey(
                 type=list[tuple[int | tuple[float | int]]]
                 | int
                 | float
                 | tuple[int | float, ...]
             ),
-            output=IOKey(type=int | float | str | tuple[int, int]),
+            output=BaseKey(type=int | float | str | tuple[int, int]),
         )
 
     def __call__(  # type: ignore[override]

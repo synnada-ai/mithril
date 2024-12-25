@@ -34,6 +34,7 @@ from mithril.framework.common import (
     NOT_AVAILABLE,
     NOT_GIVEN,
     TBD,
+    BaseKey,
     ConnectionData,
     ConnectionType,
     GenericTensorType,
@@ -1226,9 +1227,9 @@ def test_reuse_pickled_registered_backend():
         def __init__(self) -> None:
             super().__init__(
                 formula_key="my_adder",
-                output=IOKey(shape=[("Var_out", ...)], type=GenericTensorType),
-                left=IOKey(shape=[("Var_1", ...)], type=GenericTensorType),
-                right=IOKey(shape=[("Var_2", ...)], type=GenericTensorType),
+                output=BaseKey(shape=[("Var_out", ...)], type=GenericTensorType),
+                left=BaseKey(shape=[("Var_1", ...)], type=GenericTensorType),
+                right=BaseKey(shape=[("Var_2", ...)], type=GenericTensorType),
             )
             self.set_constraint(
                 fn=bcast, keys=[PrimitiveModel.output_key, "left", "right"]
@@ -4436,9 +4437,9 @@ def test_infer_static_register_fn():
         def __init__(self) -> None:
             super().__init__(
                 formula_key="my_adder",
-                output=IOKey(shape=[("Var_out", ...)], type=GenericTensorType),
-                left=IOKey(shape=[("Var_1", ...)], type=GenericTensorType),
-                right=IOKey(shape=[("Var_2", ...)], type=GenericTensorType),
+                output=BaseKey(shape=[("Var_out", ...)], type=GenericTensorType),
+                left=BaseKey(shape=[("Var_1", ...)], type=GenericTensorType),
+                right=BaseKey(shape=[("Var_2", ...)], type=GenericTensorType),
             )
             self.set_constraint(
                 fn=bcast, keys=[PrimitiveModel.output_key, "left", "right"]
@@ -7357,17 +7358,17 @@ def test_string_iokey_value_1():
                 all_output_shapes = list(output)
                 # Create IOKey shape = and Scalar Input, type = GenericTensorTypes
                 # Note that equation is string
-                tensor_input = IOKey(shape=all_input_shapes, type=GenericTensorType)
-                tensor_output = IOKey(shape=all_output_shapes, type=GenericTensorType)
-                scalar_equation = IOKey(type=str, value=equation)
+                tensor_input = BaseKey(shape=all_input_shapes, type=GenericTensorType)
+                tensor_output = BaseKey(shape=all_output_shapes, type=GenericTensorType)
+                scalar_equation = BaseKey(type=str, value=equation)
 
             else:
                 # case where equation is TBD
-                tensor_input = IOKey(shape=[("Var1", ...)], type=GenericTensorType)
-                tensor_output = IOKey(shape=[("Var2", ...)], type=GenericTensorType)
-                scalar_equation = IOKey(type=str)
+                tensor_input = BaseKey(shape=[("Var1", ...)], type=GenericTensorType)
+                tensor_output = BaseKey(shape=[("Var2", ...)], type=GenericTensorType)
+                scalar_equation = BaseKey(type=str)
 
-            kwargs: dict[str, IOKey] = {
+            kwargs: dict[str, BaseKey] = {
                 "output": tensor_output,
                 "input": tensor_input,
                 "equation": scalar_equation,
@@ -7441,17 +7442,17 @@ def test_string_iokey_value_2():
                 all_output_shapes = list(output)
                 # Create TensorType and Scalar Inputs
                 # Note that equation is string
-                tensor_input = IOKey(shape=all_input_shapes, type=GenericTensorType)
-                tensor_output = IOKey(shape=all_output_shapes, type=GenericTensorType)
-                scalar_equation = IOKey(type=str, value=equation)
+                tensor_input = BaseKey(shape=all_input_shapes, type=GenericTensorType)
+                tensor_output = BaseKey(shape=all_output_shapes, type=GenericTensorType)
+                scalar_equation = BaseKey(type=str, value=equation)
 
             else:
                 # case where equation is TBD
-                tensor_input = IOKey(shape=[("Var1", ...)], type=GenericTensorType)
-                tensor_output = IOKey(shape=[("Var2", ...)], type=GenericTensorType)
-                scalar_equation = IOKey(type=str)
+                tensor_input = BaseKey(shape=[("Var1", ...)], type=GenericTensorType)
+                tensor_output = BaseKey(shape=[("Var2", ...)], type=GenericTensorType)
+                scalar_equation = BaseKey(type=str)
 
-            kwargs: dict[str, IOKey] = {
+            kwargs: dict[str, BaseKey] = {
                 "output": tensor_output,
                 "input": tensor_input,
                 "equation": scalar_equation,

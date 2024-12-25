@@ -29,7 +29,7 @@ from mithril.backends.with_autograd.jax_backend.ops import (
     to_tensor,
 )
 from mithril.framework import NOT_GIVEN, ConnectionType, ExtendInfo
-from mithril.framework.common import GenericTensorType
+from mithril.framework.common import BaseKey, GenericTensorType
 from mithril.framework.constraints import bcast
 from mithril.models import (
     TBD,
@@ -221,9 +221,9 @@ def test_mymodel_jax():
         def __init__(self) -> None:
             super().__init__(
                 formula_key="adder",
-                output=IOKey(shape=[("Var_out", ...)], type=GenericTensorType),
-                left=IOKey(shape=[("Var_1", ...)], type=GenericTensorType),
-                right=IOKey(shape=[("Var_2", ...)], type=GenericTensorType),
+                output=BaseKey(shape=[("Var_out", ...)], type=GenericTensorType),
+                left=BaseKey(shape=[("Var_1", ...)], type=GenericTensorType),
+                right=BaseKey(shape=[("Var_2", ...)], type=GenericTensorType),
             )
             self.set_constraint(fn=bcast, keys=["output", "left", "right"])
 
@@ -345,9 +345,9 @@ def test_jit_1():
         def __init__(self) -> None:
             super().__init__(
                 formula_key="adder",
-                output=IOKey(shape=[("Var_out", ...)], type=GenericTensorType),
-                left=IOKey(shape=[("Var_1", ...)], type=GenericTensorType),
-                right=IOKey(shape=[("Var_2", ...)], type=GenericTensorType),
+                output=BaseKey(shape=[("Var_out", ...)], type=GenericTensorType),
+                left=BaseKey(shape=[("Var_1", ...)], type=GenericTensorType),
+                right=BaseKey(shape=[("Var_2", ...)], type=GenericTensorType),
             )
             self.set_constraint(fn=bcast, keys=["output", "left", "right"])
 

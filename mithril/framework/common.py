@@ -1100,6 +1100,15 @@ class ExtendTemplate(TemplateBase):
         self.output_connection = None
 
 
+@dataclass
+class BaseKey:
+    value: TensorValueType | MainValueType | ToBeDetermined | str = TBD
+    shape: ShapeTemplateType | None = None
+    type: NestedListType | UnionType | type | None = None
+    interval: list[float | int] | None = None
+
+
+@dataclass
 class IOKey(TemplateBase):
     def __init__(
         self,
@@ -1140,6 +1149,12 @@ class IOKey(TemplateBase):
             conn: ConnectionData | str
             conn = item.data if isinstance(item, Connection) else item
             self._connections.add(conn)
+
+    def __eq__(self, other: object):
+        if isinstance(other, int | float | bool | list | Connection | IOKey | tuple):
+            return ExtendTemplate(connections=[self, other], model="eq")
+        else:
+            raise ValueError("Unsupported type for equality operation.")
 
 
 class Connection(TemplateBase):

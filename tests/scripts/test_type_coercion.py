@@ -22,6 +22,7 @@ import mithril
 from mithril import JaxBackend, NumpyBackend, TorchBackend, compile
 from mithril.framework.common import (
     NOT_GIVEN,
+    BaseKey,
     Connection,
     ConnectionType,
     GenericTensorType,
@@ -661,8 +662,8 @@ class ArtificialPrimitive(PrimitiveModel):
     def __init__(self, type) -> None:
         super().__init__(
             formula_key="tensor_to_list",
-            output=IOKey(shape=[("Var1", ...)], type=GenericTensorType),
-            input=IOKey(shape=[("Var2", ...)], type=type),
+            output=BaseKey(shape=[("Var1", ...)], type=GenericTensorType),
+            input=BaseKey(shape=[("Var2", ...)], type=type),
         )
         self._set_constraint(
             fn=self.artificial_constraint, keys=[PrimitiveModel.output_key, "input"]
@@ -815,8 +816,8 @@ class Model1(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="buffer",
-            input=IOKey(shape=[("Var1", ...)], type=GenericTensorType),
-            output=IOKey(shape=[("Var1", ...)], type=GenericTensorType),
+            input=BaseKey(shape=[("Var1", ...)], type=GenericTensorType),
+            output=BaseKey(shape=[("Var1", ...)], type=GenericTensorType),
         )
 
     def __call__(  # type: ignore[override]
