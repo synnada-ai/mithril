@@ -13,7 +13,6 @@
 # limitations under the License.
 
 from collections.abc import Sequence
-from typing import Any
 
 from ..utils.type_utils import is_tuple_int
 
@@ -37,15 +36,3 @@ def process_shape(
                 )
 
     return _shape
-
-
-def determine_shape(lst: Any) -> tuple[int, ...]:
-    if isinstance(lst, list):
-        if not lst:
-            return (0,)
-        first_shape = determine_shape(lst[0])
-        for item in lst:
-            if determine_shape(item) != first_shape:
-                raise ValueError("Inhomogeneous shapes detected in the list.")
-        return (len(lst),) + first_shape
-    return ()

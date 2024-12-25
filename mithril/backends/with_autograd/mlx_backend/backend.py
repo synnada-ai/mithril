@@ -261,7 +261,7 @@ class MlxBackend(Backend[mx.array]):
         self,
         start: int | float | bool | mx.array,
         stop: int | float | bool | mx.array,
-        steps: int | mx.array,
+        steps: int,
         dtype: Dtype | None = None,
     ) -> mx.array:
         _dtype = self._process_dtype(dtype)
