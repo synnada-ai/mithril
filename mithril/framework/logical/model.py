@@ -52,9 +52,11 @@ from .essential_primitives import (
     Add,
     Divide,
     Equal,
+    Exponential,
     FloorDivide,
     Greater,
     GreaterEqual,
+    Item,
     Length,
     Less,
     LessEqual,
@@ -109,8 +111,10 @@ ops_table: dict[str, type[PrimitiveModel]] = {
     "size": Size,
     "tensor": ToTensor,
     "list": TensorToList,
+    "item": Item,
     "mean": Mean,
     "sqrt": Sqrt,
+    "exp": Exponential,
     "sum": Sum,
     "max": Max,
     "min": Min,
@@ -136,8 +140,8 @@ ops_table: dict[str, type[PrimitiveModel]] = {
 
 
 coercion_table: dict[tuple[str, type[Tensor] | type[Scalar]], type[PrimitiveModel]] = {
-    ("item", Tensor): TensorItem,
-    ("item", Scalar): ScalarItem,
+    ("get_item", Tensor): TensorItem,
+    ("get_item", Scalar): ScalarItem,
     ("slice", Tensor): TensorSlice,
     ("slice", Scalar): PrimitiveSlice,
 }

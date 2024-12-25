@@ -870,7 +870,7 @@ class TemplateBase:
             start, stop, step = key.start, key.stop, key.step
             return ExtendTemplate(connections=[self, start, stop, step], model="slice")
         elif isinstance(key, int | tuple):
-            return ExtendTemplate(connections=[self, key], model="item")
+            return ExtendTemplate(connections=[self, key], model="get_item")
         else:
             raise TypeError(f"Unsupported key type: {type(key)}")
 
@@ -1063,11 +1063,17 @@ class TemplateBase:
             connections=[self], model="sqrt", defaults={"robust", "cutoff"}
         )
 
+    def exp(self):
+        return ExtendTemplate(connections=[self], model="exp")
+
     def transpose(self, axes: tuple[int, ...] | TemplateBase | None = None):
         return ExtendTemplate(connections=[self, axes], model="transpose")
 
     def split(self, split_size: int, axis: int):
         return ExtendTemplate(connections=[self, split_size, axis], model="split")
+
+    def item(self):
+        return ExtendTemplate(connections=[self], model="item")
 
 
 class ExtendTemplate(TemplateBase):
