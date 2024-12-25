@@ -13,7 +13,6 @@
 # limitations under the License.
 
 from collections.abc import Callable, Sequence
-from functools import partial
 from typing import Any, overload
 
 import torch
@@ -24,7 +23,6 @@ from torch._functorch.apis import vmap as torch_vmap
 from torch._functorch.eager_transforms import jacfwd as torch_jacfwd
 from torch._functorch.eager_transforms import jacrev as torch_jacrev
 from torch._functorch.eager_transforms import vjp as torch_vjp
-from torch.distributed._tensor import DTensor
 
 from ....core import Dtype
 from ...backend import PadWidthType, ParallelBackend
@@ -139,70 +137,6 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
             pass
             # print(f"Warning: empty_cache is not implemented for {self.device_type}")
 
-    def _creation_fn_wrapper(
-        self, fn: Callable[..., torch.Tensor]
-    ) -> Callable[..., torch.Tensor]:
-        """
-        Wrapper for PyTorch tensor creation functions.
-
-        Parameters
-        ----------
-        fn: Callable
-            The original tensor creation function.
-
-        Returns
-        -------
-        Callable
-            A wrapped function that creates tensors with specified dtype and device.
-
-        Notes
-        -----
-        This wrapper ensures that tensors are created with the correct dtype
-        and on the specified device.
-        """
-
-        array_creation_fn = partial(
-            utils.creation_fn_wrapper_inner,
-            fn=fn,
-            device=self._device,
-            precision=self.precision,
-        )
-        array_creation_fn = partial(self._parallelize, fn=array_creation_fn)
-
-        return array_creation_fn
-
-    def _parallelize(
-        self,
-        *args: Any,
-        fn: Callable[..., torch.Tensor],
-        device_mesh: tuple[int] | None,
-        **kwargs: Any,
-    ) -> DTensor | torch.Tensor:
-        """
-        Parallelizes the function's return tensor across devices.
-
-        Parameters
-        ----------
-        fn : Callable
-            The function whose return tensor will be parallelized.
-        device_mesh : tuple[int, ...], optional
-            A tuple specifying the device mesh for parallelization.
-            If not provided, the default device mesh is used.
-
-        Returns
-        -------
-        Callable
-            Returns tensor parallelized across the specified device mesh.
-        """
-        tensor: torch.Tensor = fn(*args, **kwargs)
-        if self._parallel_manager is None:
-            # TODO: raise device_mesh should be None
-            return tensor
-
-        return self._parallel_manager.parallelize(
-            tensor, self.base_device_mesh, device_mesh
-        )
-
     def _register_callable(
         self, fn: Callable[..., torch.Tensor], fn_name: str, jit: bool = False
     ):
@@ -269,14 +203,13 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
     ) -> torch.Tensor:
         _dtype = utils.determine_dtype(input, dtype, self.precision)
 
-        tensor = torch.tensor(input, dtype=utils.dtype_map[_dtype], device=self._device)
-
+        array = torch.tensor(input, dtype=utils.dtype_map[_dtype], device=self._device)
         if self._parallel_manager is not None:
-            tensor = self._parallel_manager.parallelize(
-                tensor, self.base_device_mesh, device_mesh
+            array = self._parallel_manager.parallelize(
+                array, self.base_device_mesh, device_mesh
             )
 
-        return tensor
+        return array
 
     def zeros(
         self,
@@ -284,13 +217,16 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
         dtype: Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
     ) -> torch.Tensor:
-        _dtype: torch.dtype | None = None
-        if isinstance(dtype, Dtype):
-            _dtype = utils.dtype_map[dtype.name]
+        _dtype = self._process_dtype(dtype)
         _shape = process_shape(shape)
-        return self._creation_fn_wrapper(torch.zeros)(
-            _shape, dtype=_dtype, device_mesh=device_mesh
-        )
+
+        array = torch.zeros(_shape, dtype=_dtype, device=self._device)
+        if self._parallel_manager is not None:
+            array = self._parallel_manager.parallelize(
+                array, self.base_device_mesh, device_mesh
+            )
+
+        return array
 
     def ones(
         self,
@@ -298,13 +234,15 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
         dtype: Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
     ) -> torch.Tensor:
-        _dtype: torch.dtype | None = None
-        if isinstance(dtype, Dtype):
-            _dtype = utils.dtype_map[dtype.name]
+        _dtype = self._process_dtype(dtype)
         _shape = process_shape(shape)
-        return self._creation_fn_wrapper(torch.ones)(
-            _shape, dtype=_dtype, device_mesh=device_mesh
-        )
+
+        array = torch.ones(_shape, dtype=_dtype, device=self._device)
+        if self._parallel_manager is not None:
+            array = self._parallel_manager.parallelize(
+                array, self.base_device_mesh, device_mesh
+            )
+        return array
 
     def ones_like(
         self,
@@ -313,12 +251,14 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
         dtype: Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
     ) -> torch.Tensor:
-        _dtype: torch.dtype | None = None
-        if isinstance(dtype, Dtype):
-            _dtype = utils.dtype_map[dtype.name]
-        return self._creation_fn_wrapper(torch.ones_like)(
-            input, dtype=_dtype, device_mesh=device_mesh
-        )
+        _dtype = self._process_dtype(dtype) if dtype is not None else None
+
+        array = torch.ones_like(input, dtype=_dtype, device=self._device)
+        if self._parallel_manager is not None:
+            array = self._parallel_manager.parallelize(
+                array, self.base_device_mesh, device_mesh
+            )
+        return array
 
     def zeros_like(
         self,
@@ -327,12 +267,14 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
         dtype: Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
     ) -> torch.Tensor:
-        _dtype: torch.dtype | None = None
-        if isinstance(dtype, Dtype):
-            _dtype = utils.dtype_map[dtype.name]
-        return self._creation_fn_wrapper(torch.zeros_like)(
-            input, dtype=_dtype, device_mesh=device_mesh
-        )
+        _dtype = self._process_dtype(dtype) if dtype is not None else None
+
+        array = torch.zeros_like(input, dtype=_dtype, device=self._device)
+        if self._parallel_manager is not None:
+            array = self._parallel_manager.parallelize(
+                array, self.base_device_mesh, device_mesh
+            )
+        return array
 
     def randn(
         self,
@@ -341,13 +283,16 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
         device_mesh: tuple[int, ...] | None = None,
         prng_key: Any = None,
     ) -> torch.Tensor:
-        _dtype: torch.dtype | None = None
-        if isinstance(dtype, Dtype):
-            _dtype = utils.dtype_map[dtype.name]
+        _dtype = self._process_dtype(dtype)
         _shape = process_shape(shape)
-        return self._creation_fn_wrapper(torch.randn)(
-            size=_shape, dtype=_dtype, device_mesh=device_mesh
-        )
+
+        # TODO: PRNG key is not used
+        array = torch.randn(_shape, dtype=_dtype, device=self._device)
+        if self._parallel_manager is not None:
+            array = self._parallel_manager.parallelize(
+                array, self.base_device_mesh, device_mesh
+            )
+        return array
 
     def rand(
         self,
@@ -356,13 +301,15 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
         device_mesh: tuple[int, ...] | None = None,
         prng_key: Any = None,
     ) -> torch.Tensor:
-        _dtype: torch.dtype | None = None
-        if isinstance(dtype, Dtype):
-            _dtype = utils.dtype_map[dtype.name]
+        _dtype = self._process_dtype(dtype)
         _shape = process_shape(shape)
-        return self._creation_fn_wrapper(torch.rand)(
-            size=_shape, dtype=_dtype, device_mesh=device_mesh
-        )
+
+        array = torch.rand(_shape, dtype=_dtype, device=self._device)
+        if self._parallel_manager is not None:
+            array = self._parallel_manager.parallelize(
+                array, self.base_device_mesh, device_mesh
+            )
+        return array
 
     def randint(
         self,
@@ -373,17 +320,15 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
         device_mesh: tuple[int, ...] | None = None,
         prng_key: Any = None,
     ) -> torch.Tensor:
-        _dtype: torch.dtype | None = None
-        if isinstance(dtype, Dtype):
-            _dtype = utils.dtype_map[dtype.name]
+        _dtype = self._process_dtype(dtype, int)
         _shape = process_shape(shape)
-        return self._creation_fn_wrapper(torch.randint)(
-            low,
-            high,
-            size=_shape,
-            dtype=_dtype,
-            device_mesh=device_mesh,
-        )
+
+        array = torch.randint(low, high, _shape, dtype=_dtype, device=self._device)
+        if self._parallel_manager is not None:
+            array = self._parallel_manager.parallelize(
+                array, self.base_device_mesh, device_mesh
+            )
+        return array
 
     def rand_uniform(
         self,
@@ -400,32 +345,42 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
 
     def _arange(
         self,
-        *args: int | float,
+        start: int | float,
+        stop: int | float,
+        step: int | float,
         dtype: Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
         **kwargs: int | float,
     ) -> torch.Tensor:
-        _dtype: torch.dtype | None = None
-        if isinstance(dtype, Dtype):
-            _dtype = utils.dtype_map[dtype.name]
-        return self._creation_fn_wrapper(torch.arange)(
-            *args, dtype=_dtype, device_mesh=device_mesh
+        default_type = (
+            float if any(isinstance(x, float) for x in (start, stop, step)) else int
         )
+        _dtype = self._process_dtype(dtype, default_type)
+
+        array = torch.arange(start, stop, step, dtype=_dtype, device=self._device)
+        if self._parallel_manager is not None:
+            array = self._parallel_manager.parallelize(
+                array, self.base_device_mesh, device_mesh
+            )
+
+        return array
 
     def linspace(
         self,
         start: int | float | bool | torch.Tensor,
         stop: int | float | bool | torch.Tensor,
-        steps: int | torch.Tensor,
+        steps: int,
         dtype: Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
     ) -> torch.Tensor:
-        _dtype: torch.dtype | None = None
-        if isinstance(dtype, Dtype):
-            _dtype = utils.dtype_map[dtype.name]
-        return self._creation_fn_wrapper(torch.linspace)(
-            start, stop, steps, dtype=_dtype, device_mesh=device_mesh
-        )
+        _dtype = self._process_dtype(dtype)
+
+        array = torch.linspace(start, stop, steps, dtype=_dtype, device=self._device)
+        if self._parallel_manager is not None:
+            array = self._parallel_manager.parallelize(
+                array, self.base_device_mesh, device_mesh
+            )
+        return array
 
     def flatten(
         self, input: torch.Tensor, start_dim: int = 0, end_dim: int = -1
@@ -691,3 +646,15 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
 
     def jacfwd(self, fn: Callable[..., dict[str, torch.Tensor]]) -> Callable:
         return torch_jacfwd(fn)
+
+    def _process_dtype(
+        self,
+        dtype: Dtype | None = None,
+        default_type: type[float] | type[int] | type[bool] = float,
+    ) -> torch.dtype:
+        if isinstance(dtype, Dtype):
+            return utils.dtype_map[dtype.name]
+        elif dtype is None:
+            return utils.dtype_map[default_type.__name__ + str(self.precision)]
+        else:
+            raise ValueError(f"Invalid dtype {dtype}")

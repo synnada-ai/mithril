@@ -333,66 +333,6 @@ def _parse_device_string(device: str):
     return backend, device_idx
 
 
-def handle_dtype(dtype: str | core.Dtype | jnp.dtype[Any]) -> jnp.dtype[Any]:
-    if isinstance(dtype, core.Dtype):
-        return dtype_map[dtype.name]
-    elif isinstance(dtype, str) and dtype in dtype_map:
-        return dtype_map[dtype]
-    else:
-        try:
-            return jnp.dtype(dtype)
-        except TypeError as err:
-            raise TypeError(f"Provided data type '{dtype}' not understood") from err
-
-
-def creation_fn_wrapper(
-    *args: Any,
-    fn: Callable[..., jax.Array],
-    dtype: core.Dtype | jnp.dtype[Any] | None = None,
-    device: str,
-    precision: int,
-    **kwargs: Any,
-):
-    _device = get_device(device)
-
-    if dtype is not None:
-        dtype = handle_dtype(dtype)
-        with jax.default_device(_device):
-            data = fn(*args, dtype=dtype, **kwargs)
-    else:
-        with jax.default_device(_device):
-            data = fn(*args, **kwargs)
-            data = handle_data_precision(data, precision)
-    return data
-
-
-def conversion_fn_wrapper(
-    data: Any,
-    *args: Any,
-    fn: Callable[..., jax.Array],
-    device: str,
-    precision: int,
-    dtype: core.Dtype | jnp.dtype[Any] | None = None,
-    **kwargs: Any,
-):
-    _device = get_device(device)
-
-    if dtype is not None:
-        dtype = handle_dtype(dtype)
-    if isinstance(data, ArrayType):
-        if next(iter(data.devices())) != _device:
-            data = jax.device_put(data, _device)
-        if dtype is not None:
-            return data.astype(dtype)
-        return handle_data_precision(data, precision)
-    else:
-        with jax.default_device(_device):
-            _data = fn(data, *args, dtype=dtype, **kwargs)
-        if dtype is None:  # User did not specify dtype explicitly
-            return handle_data_precision(_data, precision)
-        return _data
-
-
 def handle_data_precision(data: ArrayType, precision: int) -> ArrayType:
     _dtype = data.dtype
     # Do not make any changes to boolean types.
@@ -515,7 +455,7 @@ def determine_dtype(input: Any, dtype: core.Dtype | None, precision: int) -> str
         dtype_name = "".join(
             char for char in input.dtype.__str__() if not char.isdigit()
         )
-    elif isinstance(input, np.ndarray) or isinstance(input, np.generic):
+    elif isinstance(input, (np.ndarray | np.generic)):
         dtype_name = "".join(char for char in str(input.dtype) if not char.isdigit())
     else:
         dtype_name = find_dominant_type(input).__name__

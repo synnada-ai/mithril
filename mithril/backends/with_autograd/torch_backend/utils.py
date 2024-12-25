@@ -187,76 +187,6 @@ def get_available_devices() -> list[str]:
     return devices
 
 
-def handle_dtype(dtype: core.Dtype | torch.dtype | str) -> Any:
-    if isinstance(dtype, core.Dtype):
-        return dtype_map[dtype.name]
-    elif isinstance(dtype, torch.dtype):
-        return dtype
-    elif dtype in dtype_map:
-        return dtype_map[dtype]
-    raise TypeError(f"Provided data type '{dtype}' not understood")
-
-
-def creation_fn_wrapper_inner(
-    *args: Any,
-    dtype: core.Dtype | torch.dtype | str | None = None,
-    fn: Callable[..., torch.Tensor],
-    device: str,
-    precision: int,
-    device_mesh: tuple[int, ...] | None = None,
-    **kwargs: Any,
-):
-    _device = get_device(device)
-    if dtype is not None:
-        dtype = handle_dtype(dtype)
-        data = fn(*args, dtype=dtype, device=_device, **kwargs)
-    else:
-        data = fn(*args, device=_device, **kwargs)
-        data = handle_data_precision(data, precision=precision)
-
-    return data
-
-
-def conversion_fn_wrapper_inner(
-    data: Any,
-    *args: Any,
-    dtype: torch.dtype | str | None = None,
-    fn: Callable[..., torch.Tensor],
-    device: str,
-    precision: int,
-    **kwargs: Any,
-) -> torch.Tensor:
-    _device = get_device(device)
-    if dtype is not None:
-        dtype = handle_dtype(dtype)
-    if isinstance(data, torch.Tensor):
-        if data.device != _device:
-            data = data.to(_device)
-        if dtype is not None:
-            return data.type(dtype)
-        return handle_data_precision(data, precision=precision)
-    elif isinstance(data, np.ndarray):
-        _data = fn(data, *args, dtype=dtype, device=_device, **kwargs)
-        if (
-            dtype is None and _data.dtype != torch.bool
-        ):  # User did not specify dtype explicitly
-            return handle_data_precision(_data, precision=precision)
-        return _data
-    else:
-        # To determine subtype we are creating tensor twice in worst case
-        _data = fn(data, *args, dtype=dtype, device=device, **kwargs)
-        if (
-            dtype is None
-            and get_precision(_data) != precision
-            and _data.dtype != torch.bool
-        ):
-            subtype = get_subtype(_data)
-            _dtype = getattr(torch, f"{subtype}{precision}")
-            _data = fn(data, *args, dtype=_dtype, device=device, **kwargs)
-            return _data
-        return _data
-
-
 def handle_data_precision(data: torch.Tensor, precision: int) -> torch.Tensor:
     _dtype = data.dtype
     dtype: torch.dtype
@@ -762,7 +692,7 @@ def determine_dtype(input: Any, dtype: core.Dtype | None, precision: int) -> str
         dtype_name = "".join(
             char for char in input.dtype.__str__().split(".")[1] if not char.isdigit()
         )
-    elif isinstance(input, np.ndarray) or isinstance(input, np.generic):
+    elif isinstance(input, (np.ndarray | np.generic)):
         dtype_name = "".join(char for char in str(input.dtype) if not char.isdigit())
     else:
         dtype_name = find_dominant_type(input).__name__
