@@ -2146,7 +2146,7 @@ class ScaledDotProduct(PrimitiveModel):
             and attn_mask is not NOT_GIVEN
             and not isinstance(attn_mask, str)
             and isinstance(attn_mask, BaseKey)
-            and attn_mask._value is not None  # TODO: Here will be updated!
+            and attn_mask.value is not None  # TODO: Here will be updated!
         ):
             raise KeyError(
                 "Model does not have 'attn_mask' input. Got attn_mask argument!"

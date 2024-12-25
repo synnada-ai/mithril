@@ -1102,6 +1102,7 @@ class ExtendTemplate(TemplateBase):
 
 @dataclass
 class BaseKey:
+    name: str | None = None
     value: TensorValueType | MainValueType | ToBeDetermined | str = TBD
     shape: ShapeTemplateType | None = None
     type: NestedListType | UnionType | type | None = None
@@ -1109,39 +1110,24 @@ class BaseKey:
 
 
 @dataclass
-class IOKey(TemplateBase):
-    def __init__(
-        self,
-        name: str | None = None,
-        value: TensorValueType | MainValueType | ToBeDetermined | str = TBD,
-        shape: ShapeTemplateType | None = None,
-        type: NestedListType | UnionType | type | None = None,
-        expose: bool | None = None,
-        interval: list[float | int] | None = None,
-        connections: set[Connection | str] | None = None,
-    ) -> None:
-        super().__init__()
-        self._name = name
-        self._value = value
-        self._shape = shape
-        self._type = type
-        self._expose = expose
-        self._interval = interval
-        self._connections: set[Connection | str] = connections or set()
+class IOKey(BaseKey, TemplateBase):
+    expose: bool | None = None
+    connections: set[Connection | str] = field(default_factory=lambda: set())
 
+    def __post_init__(self):
         # TODO: Shape should not be [] also!
-        if self._value is not TBD and self._shape is not None and self._shape != []:
+        if self.value is not TBD and self.shape is not None and self.shape != []:
             raise ValueError(
                 f"Scalar values are shapeless, shape should be None or []. "
-                f"Got {self._shape}."
+                f"Got {self.shape}."
             )
 
-        if self._value is not TBD and self._type is not None:
-            value_type = find_type(self._value)
-            if find_intersection_type(value_type, self._type) is None:
+        if self.value is not TBD and self.type is not None:
+            value_type = find_type(self.value)
+            if find_intersection_type(value_type, self.type) is None:
                 raise TypeError(
                     f"type of the given value and given type does not match. Given "
-                    f"type is {self._type} while type of value is {value_type}"
+                    f"type is {self.type} while type of value is {value_type}"
                 )
 
     def __eq__(self, other: object):

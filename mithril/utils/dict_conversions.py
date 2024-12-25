@@ -538,21 +538,21 @@ def item_to_json(item: IOKey):
     # TODO: Currently type is not supported for Tensors.
     # Handle This whit conversion test updates.
     result: dict[str, Any] = {}
-    if not isinstance(item._value, ToBeDetermined):
-        result["value"] = item._value
-    if item._shape is not None:
+    if not isinstance(item.value, ToBeDetermined):
+        result["value"] = item.value
+    if item.shape is not None:
         shape_template = []
-        for symbol in item._shape:
+        for symbol in item.shape:
             if isinstance(symbol, tuple):  # variadic
                 shape_template.append(f"{symbol[0]},...")
             else:
                 shape_template.append(str(symbol))
         result["shape_template"] = shape_template
 
-    elif isinstance(item._type, UnionType):
-        result["type"] = [type_to_str(item) for item in item._type.__args__]
+    elif isinstance(item.type, UnionType):
+        result["type"] = [type_to_str(item) for item in item.type.__args__]
     else:
         result["type"] = [
-            type_to_str(item._type),
+            type_to_str(item.type),
         ]
     return result

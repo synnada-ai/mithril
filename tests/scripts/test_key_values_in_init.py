@@ -27,9 +27,9 @@ def test_directed_call_connection():
     left_info = info._connections["left"]
 
     assert isinstance(left_info, ml.IOKey)
-    assert left_info._connections == {connection}
-    assert left_info._name is None
-    assert left_info._value == 1
+    assert left_info.connections == {connection}
+    assert left_info.name is None
+    assert left_info.value == 1
 
 
 def test_directed_call_int():
@@ -58,8 +58,8 @@ def test_directed_call_str():
     left_info = info._connections["left"]
 
     assert isinstance(left_info, ml.IOKey)
-    assert left_info._name == "in1"
-    assert left_info._value == 1
+    assert left_info.name == "in1"
+    assert left_info.value == 1
 
 
 def test_directed_call_iokey_value_equal():
@@ -70,8 +70,8 @@ def test_directed_call_iokey_value_equal():
     left_info = info._connections["left"]
 
     assert isinstance(left_info, ml.IOKey)
-    assert left_info._name == "in1"
-    assert left_info._value == 1
+    assert left_info.name == "in1"
+    assert left_info.value == 1
 
 
 def test_directed_call_iokey_value_not_equal():
@@ -91,8 +91,8 @@ def test_directed_call_iokey_value_tbd():
     left_info = info._connections["left"]
 
     assert isinstance(left_info, ml.IOKey)
-    assert left_info._name == "in1"
-    assert left_info._value == 1  # value is set to val from factory_inputs
+    assert left_info.name == "in1"
+    assert left_info.value == 1  # value is set to val from factory_inputs
 
 
 def test_directed_call_connect_key_value_not_equal():
@@ -112,8 +112,8 @@ def test_directed_call_connect_key_none():
     info = add1(left=con, right="right")
     left_info = info._connections["left"]
     assert isinstance(left_info, ml.IOKey)
-    assert left_info._connections == {connection}
-    assert left_info._value == 1  # key is set to IOKey with val from factory_inputs
+    assert left_info.connections == {connection}
+    assert left_info.value == 1  # key is set to IOKey with val from factory_inputs
 
 
 def test_directed_call_connect_key_value_tbd():
@@ -125,9 +125,9 @@ def test_directed_call_connect_key_value_tbd():
 
     left_info = info._connections["left"]
     assert isinstance(left_info, ml.IOKey)
-    assert left_info._connections == {connection}
+    assert left_info.connections == {connection}
     assert isinstance(left_info, ml.IOKey)
-    assert left_info._value == 1  # value is set to val from factory_inputs
+    assert left_info.value == 1  # value is set to val from factory_inputs
 
 
 def test_directed_call_connect_key_value_equal():
@@ -139,8 +139,8 @@ def test_directed_call_connect_key_value_equal():
 
     left_info = info._connections["left"]
     assert isinstance(left_info, ml.IOKey)
-    assert left_info._connections == {connection}
-    assert left_info._value == 1  # value is set to val from factory_inputs
+    assert left_info.connections == {connection}
+    assert left_info.value == 1  # value is set to val from factory_inputs
 
 
 def test_directed_call_extend_template():

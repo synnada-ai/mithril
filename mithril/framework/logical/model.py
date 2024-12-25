@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import replace
 from types import UnionType
 from typing import Any, Self
 
@@ -343,26 +344,18 @@ class Model(BaseModel):
                     assert isinstance(connection, MainValueInstance)
                     connection = IOKey(value=connection)
             case IOKey():
-                expose = connection._expose
-                name = connection._name
-                # TODO: This check should be removed: conn._connections==set()
+                expose = connection.expose
+                name = connection.name
+                # TODO: This check should be removed: conn.connections==set()
                 # We should not operate different if _connections is given. Fix this and
                 # also fix corresponding tests and dict conversions with "connect".
                 if (
                     expose is None
                     and (name is None or self.conns.get_connection(name) is None)
-                    and connection._connections == set()
+                    and connection.connections == set()
                 ):
                     expose = True
-                # TODO: Add replicate method to IOKey (update def __call__ in BaseModel)
-                connection = IOKey(
-                    name=name,
-                    value=connection._value,
-                    shape=connection._shape,
-                    type=connection._type,
-                    expose=expose,
-                    connections=connection._connections,
-                )
+                connection = replace(connection, name=name, expose=expose)
             case NotAvailable():
                 raise ValueError(
                     f"Given value for key: '{key}' is not available. "
@@ -400,14 +393,14 @@ class Model(BaseModel):
         is_not_valued = local_connection.metadata.data.value is TBD
 
         d_map = self.dependency_map._local_output_dependency_map
-        expose = given_connection._expose
-        outer_key = given_connection._name
+        expose = given_connection.expose
+        outer_key = given_connection.name
         con_obj = None
         set_value: ToBeDetermined | str | MainValueType | NullConnection = NOT_GIVEN
-        if given_connection._value is not TBD:
-            set_value = given_connection._value
+        if given_connection.value is not TBD:
+            set_value = given_connection.value
 
-        if given_connection._connections == set():
+        if given_connection.connections == set():
             if outer_key is not None:
                 con_obj = self.conns.get_connection(outer_key)
             if outer_key is None or con_obj is None:
@@ -427,7 +420,7 @@ class Model(BaseModel):
                 )
         else:
             initial_conn: ConnectionData
-            for idx, conn in enumerate(given_connection._connections):
+            for idx, conn in enumerate(given_connection.connections):
                 if isinstance(conn, str):
                     _conn = self.conns.get_connection(conn)
                 else:
@@ -715,11 +708,11 @@ class Model(BaseModel):
         }
 
         for local_key, value in io_keys.items():
-            if value._shape is not None:
-                shape_info |= {local_key: value._shape}
+            if value.shape is not None:
+                shape_info |= {local_key: value.shape}
 
-            if value._type is not None:
-                type_info[local_key] = value._type
+            if value.type is not None:
+                type_info[local_key] = value.type
 
             con_obj, _updates = self._add_connection(model, local_key, value)
             updates |= _updates
@@ -812,7 +805,7 @@ class Model(BaseModel):
             kwargs[model._canonical_input.key] = self.canonical_output
 
         for key, value in kwargs.items():
-            _value = value._name if isinstance(value, IOKey) else value
+            _value = value.name if isinstance(value, IOKey) else value
 
             if isinstance(_value, str) and _value == "":
                 if key in model._input_keys:
@@ -823,7 +816,7 @@ class Model(BaseModel):
                     )
 
                 if isinstance(value, IOKey):
-                    value._name = None
+                    value.name = None
                 else:
                     kwargs[key] = _value
 
