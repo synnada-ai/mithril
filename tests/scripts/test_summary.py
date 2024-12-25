@@ -23,7 +23,6 @@ import mithril
 from mithril import JaxBackend, NumpyBackend, TorchBackend
 from mithril.framework.common import (
     NOT_GIVEN,
-    Connect,
     Connection,
     IOKey,
     ShapeTemplateType,
@@ -187,7 +186,7 @@ def test_extract_logical_connections_4():
         output3=IOKey(name="out_3"),
     )
     model += model_2(
-        output1=Connect(model_1.input1, model_1.input2),  # type: ignore
+        output1=IOKey(connections=[model_1.input1, model_1.input2]),  # type: ignore
         output2=IOKey(name="out_4"),
         output3=IOKey(name="out_5"),
         input1="in1",
@@ -1488,7 +1487,7 @@ def test_logical_model_summary_9():
     model = Model()
     add_1, add_2 = Add(), Add()
     model += add_1(left="left")
-    model += add_2(output=Connect(add_1.left, add_1.right), left="left_1")
+    model += add_2(output=IOKey(connections=[add_1.left, add_1.right]), left="left_1")
     with redirect_stdout(StringIO()) as summary:
         model.summary(shapes=True, symbolic=True)
 
@@ -1536,13 +1535,13 @@ def test_logical_model_summary_11():
     )
     model_n += model_2(
         input1="",
-        output1=Connect(model_3.input1, model_3.input2, model_3.input3),  # type: ignore
+        output1=IOKey(connections=[model_3.input1, model_3.input2, model_3.input3]),  # type: ignore
         output2=IOKey(name="output4"),
         output3=IOKey(name="output5"),
     )
     model_n += model_1(
         input1="",
-        output1=Connect(model_2.input1, model_2.input2, model_2.input3),  # type: ignore
+        output1=IOKey(connections=[model_2.input1, model_2.input2, model_2.input3]),  # type: ignore
     )
 
     with redirect_stdout(StringIO()) as summary:
@@ -1582,7 +1581,7 @@ def test_logical_model_summary_12():
         input1=model_1.output1,  # type: ignore
         input2=model_1.output2,  # type: ignore
         input3=model_1.output3,  # type: ignore
-        output1=Connect(model_3.input1, model_3.input2, model_3.input3),  # type: ignore
+        output1=IOKey(connections=[model_3.input1, model_3.input2, model_3.input3]),  # type: ignore
         output2=IOKey(name="output4"),
         output3=IOKey(name="output5"),
     )

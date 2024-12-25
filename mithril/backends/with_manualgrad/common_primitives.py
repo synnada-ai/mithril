@@ -168,8 +168,10 @@ def buffer(input: DataType, cache: CacheType = None):
     return input
 
 
-def permute_tensor(input: DataType, indices: DataType, cache: CacheType = None):
-    return input[indices]  # type: ignore
+def permute_tensor(
+    input: DataType, indices: DataType, cache: CacheType = None
+) -> DataType:
+    return input[indices]
 
 
 def reshape(input: DataType, shape: tuple[int, ...], cache: CacheType = None):
@@ -216,7 +218,11 @@ def to_list(*args: tuple[int | float | bool, ...], cache: CacheType = None):
     return list(args)
 
 
-def padding_converter_1d(input, kernel_size, cache: CacheType = None):
+def padding_converter_1d(
+    input: PaddingType | int | tuple[int, int],
+    kernel_size: int | tuple[int, int],
+    cache: CacheType = None,
+) -> tuple[int, int]:
     if isinstance(input, PaddingType):
         if input == PaddingType.VALID:
             output = (0, 0)
@@ -233,45 +239,50 @@ def padding_converter_1d(input, kernel_size, cache: CacheType = None):
     elif isinstance(input, int):
         output = (input, input)
 
-    elif isinstance(input, Sequence):
+    else:
         if isinstance(input[0], Sequence) or isinstance(input[1], Sequence):
             raise RuntimeError(f"Given input '{input}' is not valid!")
-        output = tuple(input)
+        output = input
 
     return output
 
 
-def padding_converter_2d(input, kernel_size, cache: CacheType = None):
-    output: tuple[int, int] | tuple[tuple[int, int], tuple[int, int]]
+def padding_converter_2d(
+    input: PaddingType
+    | int
+    | tuple[int, int]
+    | tuple[tuple[int, int] | tuple[int, int]],
+    kernel_size: int | tuple[int, int],
+    cache: CacheType = None,
+) -> tuple[tuple[int, int], tuple[int, int]]:
     if isinstance(input, PaddingType):
         if input == PaddingType.VALID:
-            output = (0, 0)
+            output = ((0, 0), (0, 0))
         elif isinstance(kernel_size, tuple):
             if kernel_size[0] % 2 == 0 or kernel_size[1] % 2 == 0:
                 raise RuntimeError(
                     "'same' padding is not supported when the kernel size is even!"
                 )
-            output = (kernel_size[0] // 2, kernel_size[1] // 2)
-        elif isinstance(kernel_size, int):
+            output = (
+                (kernel_size[0] // 2, kernel_size[1] // 2),
+                (kernel_size[0] // 2, kernel_size[1] // 2),
+            )
+        else:
             if kernel_size % 2 == 0:
                 raise RuntimeError(
                     "'same' padding is not supported when the kernel size is even!"
                 )
             half = kernel_size // 2
             output = ((half, half), (half, half))
-        else:
-            raise RuntimeError("Kernel size must be 'tuple[int, int]' or 'int'!")
     elif isinstance(input, int):
-        output = (input, input)
-    elif isinstance(input, Sequence):
-        _output = []
+        output = ((input, input), (input, input))
+    else:
+        _output: list[tuple[int, int]] = []
         for p in input:
             if isinstance(p, int):
                 _output.append((p, p))
-            elif isinstance(input, Sequence) and len(p) == 2:
-                _output.append(tuple(p))
-            else:
-                raise RuntimeError(f"Given input '{input}' is not valid!")
+            elif len(p) == 2:
+                _output.append(p)
 
         output = ((_output[0][0], _output[0][1]), (_output[1][0], _output[1][1]))
     return output
@@ -297,14 +308,18 @@ def swapaxes(
     return input.swapaxes(axis1, axis2)
 
 
-def stride_converter(input, kernel_size, cache: CacheType = None):
+def stride_converter(
+    input: int | tuple[int, int] | None,
+    kernel_size: int | tuple[int, int],
+    cache: CacheType = None,
+):
     if input is None:
         return kernel_size
     else:
         return input
 
 
-def tuple_converter(input, cache: CacheType = None):
+def tuple_converter(input: int | tuple[int, int], cache: CacheType = None):
     if isinstance(input, int):
         return (input, input)
     else:

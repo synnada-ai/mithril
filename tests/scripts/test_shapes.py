@@ -56,7 +56,6 @@ from mithril.models import (
     Cast,
     Cholesky,
     Concat,
-    Connect,
     ConstraintSolver,
     Convolution1D,
     Convolution2D,
@@ -118,6 +117,7 @@ from mithril.models import (
     TsnePJoint,
     Unique,
     Updates,
+    ZerosLike,
     primitives,
 )
 
@@ -559,7 +559,7 @@ def test_shapes_4():
         input="", weight="weight1", output=IOKey(name="output2")
     )
     model += Linear(dimension=71)(
-        input="input", weight="weight2", output=Connect(l1.input, l2.input)
+        input="input", weight="weight2", output=IOKey(connections=[l1.input, l2.input])
     )
     shapes = {"input": [4, 256]}
     logical_ref: Mapping[str, list | None] = {
@@ -2257,7 +2257,7 @@ def test_composite_3_extend_shapes_1():
     m3 = Model()
     m3 += m2(right=IOKey(name="right"))
     m3 += Add()(
-        left=Connect(m1.left, key=IOKey(name="left")),  # type: ignore
+        left=IOKey(name="left", connections=[m1.left], expose=True),  # type: ignore
         right=m2.output,  # type: ignore
         output=IOKey(name="output"),
     )  # type: ignore
@@ -6673,6 +6673,7 @@ def test_total_repr_count_1():
         Unique: 2,
         Trapezoid: 2,
         AUCCore: 2,
+        ZerosLike: 1,
     }
     # find all primitives that are defined in primitives.py
     all_primitives_dict = (
@@ -7460,7 +7461,7 @@ def test_node_count_5():
     shapes: dict[str, list] = {"input": ["a", ("Var1", ...)]}
     buff_model.set_shapes(shapes)
     model += test_model
-    con = Connect(test_model.input2, buff_model.input)  # type: ignore
+    con = IOKey(connections=[test_model.input2, buff_model.input])  # type: ignore
     model += Buffer()(input=con, output=IOKey(name="output"))
     all_nodes = get_all_nodes(model)
 
@@ -9654,7 +9655,7 @@ def test_connect_shapes():
     model = Model()
     model += relu1(input="")
     model += relu2(input="")
-    model += relu3(input="input", output=Connect(relu1.input, relu2.input))
+    model += relu3(input="input", output=IOKey(connections=[relu1.input, relu2.input]))
 
     assert model.shapes["input"] == [5, 7]
 

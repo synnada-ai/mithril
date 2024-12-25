@@ -99,6 +99,7 @@ __all__ = [
     "conv_2d_constraints",
     "pad_constraints",
     "split_constraints",
+    "randn_constraints",
 ]
 
 
@@ -2520,6 +2521,52 @@ def arange_constraints(
     return status, updates
 
 
+def randn_constraints(output: Tensor, shape: Scalar) -> ConstrainResultType:
+    status = False
+    updates = Updates()
+    assert output._temp_shape is not None, "Output shape of Reshape is not set!"
+
+    output_shape: ShapeRepr = output._temp_shape
+    shape_val = shape.value
+
+    assert is_tuple_int(shape_val) or isinstance(
+        shape_val, ToBeDetermined
+    ), "Invalid shape value!"
+
+    if not isinstance(shape_val, ToBeDetermined):
+        if output_shape.root is not None:
+            # Check shape consistency.
+            if (
+                min_dims := (len(output_shape.prefix) + len(output_shape.suffix))
+            ) > len(shape_val):
+                raise ValueError(
+                    f"Shape mismatch. Output has minimum {min_dims} dim(s) where it "
+                    f"must have exactly {len(shape_val)} dim(s)."
+                )
+            out_uniadics = [Uniadic(dim) for dim in shape_val]
+            updates |= output_shape._update_uniadics(output_shape.prefix, out_uniadics)
+            updates |= output_shape._update_uniadics(
+                output_shape.reverse, out_uniadics[::-1]
+            )
+            updates |= output_shape.remove_variadic(out_uniadics)
+
+        else:
+            # Check shape consistency.
+            if len(output_shape) != len(shape_val):
+                raise ValueError(
+                    f"Shape mismatch. Output has {len(output_shape)} dim(s) "
+                    f"where it must "
+                    f"have {len(shape_val)} dim(s)."
+                )
+            for idx, shp in enumerate(shape_val):
+                if (uni := output_shape.prefix[idx]).set_value(shp):
+                    updates.add(uni)
+
+        status = True
+
+    return status, updates
+
+
 def broadcast_to_constraints(
     output: Tensor, shape: Scalar, input: Tensor
 ) -> ConstrainResultType:
@@ -3391,8 +3438,8 @@ def tensor_item_constraint_helper(
     | list[slice | int | None | EllipsisType],
     input_shape_unis: list[Uniadic],
 ) -> tuple[list[Uniadic], list[Uniadic], bool, int]:
-    input_unis = []
-    output_unis = []
+    input_unis: list[Uniadic] = []
+    output_unis: list[Uniadic] = []
     current_index = 0
     status = True
     for item in item_values:

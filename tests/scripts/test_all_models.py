@@ -56,6 +56,7 @@ from mithril.models import (
     PrimitiveSlice,
     PrimitiveUnion,
     Prod,
+    Randn,
     ScalarItem,
     ScaledDotProduct,
     Shape,
@@ -71,16 +72,17 @@ from mithril.models import (
     Trapezoid,
     Unique,
     Where,
+    ZerosLike,
 )
 from tests.scripts.test_utils import convert_to_array
 
 
-def list_ones(*shapes):
+def list_full(fill_value, *shapes):
     if len(shapes) == 0:
-        return 1.0
+        return fill_value
     else:
         first_shape, other_shapes = shapes[0], shapes[1:]
-        return [list_ones(*other_shapes) for _ in range(first_shape)]
+        return [list_full(fill_value, *other_shapes) for _ in range(first_shape)]
 
 
 default_backends: list[Backend] = [TorchBackend(), NumpyBackend(), JaxBackend()]
@@ -161,7 +163,7 @@ def compile_and_compare(
 
         for k, v in backend_ref_outputs.items():
             if isinstance(v, dict):
-                v = v[backend.type]
+                v = v[backend.backend_type]
             out = outputs.get(k, None)
             # We may not include any reference value for some keys for a certain test.
             # So we don't assert set(outputs.keys()) == set(reference_outputs) since
@@ -208,7 +210,7 @@ def compile_and_compare(
 
             for k, v in backend_ref_gradients.items():
                 if isinstance(v, dict):
-                    v = v[backend.type]
+                    v = v[backend.backend_type]
                 grad = gradients[k]
                 if grad is None:
                     assert v == grad
@@ -325,7 +327,7 @@ def test_shape_2():
 def test_shape_3():
     model = Shape()
 
-    statics = {"input": list_ones(2, 3, 4, 5, 1, 2)}
+    statics = {"input": list_full(1.0, 2, 3, 4, 5, 1, 2)}
 
     reference_outputs = {"output": (2, 3, 4, 5, 1, 2)}
 
@@ -743,6 +745,17 @@ def test_arange_2():
         reference_gradients=None,
         tolerances=1e-6,
     )
+
+
+def test_randn():
+    model = Randn(shape=(3, 4, 5))
+
+    for backend in default_backends:
+        pm = mithril.compile(model, backend, inference=True)
+        res_out = pm.evaluate()["output"]
+
+        assert isinstance(res_out, backend.DataType)  # type: ignore[attr-defined]
+        assert res_out.shape == (3, 4, 5)
 
 
 def test_greater_1():
@@ -1282,6 +1295,24 @@ def test_eye_3():
     )
 
 
+def test_zeros_like():
+    model = ZerosLike()
+
+    statics = {"input": list_full(32, 2, 3, 4, 1)}
+    reference_outputs = {"output": list_full(0, 2, 3, 4, 1)}
+    compile_and_compare(
+        model=model,
+        compile_kwargs={"constant_keys": statics, "inference": True},
+        data={},
+        params={},
+        output_gradients={},
+        reference_outputs=reference_outputs,
+        reference_gradients=None,
+        tolerances=None,
+        assert_shapes=False,
+    )
+
+
 def test_eye_complement_1():
     model = EyeComplement(N=2, M=2)
 
@@ -1337,10 +1368,10 @@ def test_eye_complement_3():
 
 def test_squeeze_1():
     model = Squeeze()
-    params = {"input": list_ones(3, 1, 4, 2, 1)}
-    output_gradients = {"output": list_ones(3, 4, 2)}
-    reference_outputs = {"output": list_ones(3, 4, 2)}
-    reference_gradients = {"input": list_ones(3, 1, 4, 2, 1)}
+    params = {"input": list_full(1.0, 3, 1, 4, 2, 1)}
+    output_gradients = {"output": list_full(1.0, 3, 4, 2)}
+    reference_outputs = {"output": list_full(1.0, 3, 4, 2)}
+    reference_gradients = {"input": list_full(1.0, 3, 1, 4, 2, 1)}
 
     compile_and_compare(
         model=model,
@@ -1357,10 +1388,10 @@ def test_squeeze_1():
 
 def test_squeeze_2():
     model = Squeeze()
-    params = {"input": list_ones(3, 1, 4, 2, 1, 1, 1, 5)}
-    output_gradients = {"output": list_ones(3, 4, 2, 5)}
-    reference_outputs = {"output": list_ones(3, 4, 2, 5)}
-    reference_gradients = {"input": list_ones(3, 1, 4, 2, 1, 1, 1, 5)}
+    params = {"input": list_full(1.0, 3, 1, 4, 2, 1, 1, 1, 5)}
+    output_gradients = {"output": list_full(1.0, 3, 4, 2, 5)}
+    reference_outputs = {"output": list_full(1.0, 3, 4, 2, 5)}
+    reference_gradients = {"input": list_full(1.0, 3, 1, 4, 2, 1, 1, 1, 5)}
 
     compile_and_compare(
         model=model,
@@ -1377,9 +1408,9 @@ def test_squeeze_2():
 
 def test_broadcast_to_1():
     model = BroadcastTo()
-    params = {"input": list_ones(1, 1)}
-    output_gradients = {"output": list_ones(3, 3)}
-    reference_outputs = {"output": list_ones(3, 3)}
+    params = {"input": list_full(1.0, 1, 1)}
+    output_gradients = {"output": list_full(1.0, 3, 3)}
+    reference_outputs = {"output": list_full(1.0, 3, 3)}
     reference_gradients = {"input": [[9.0]]}
 
     compile_and_compare(
@@ -1558,7 +1589,7 @@ def test_norm_modifier_3():
 
 def test_size_1():
     model = Size(dim=2)
-    statics = {"input": list_ones(2, 3, 4, 1)}
+    statics = {"input": list_full(1.0, 2, 3, 4, 1)}
     reference_outputs = {"output": 4}
     compile_and_compare(
         model=model,
@@ -1576,7 +1607,7 @@ def test_size_1():
 
 def test_size_2():
     model = Size()
-    statics = {"input": list_ones(2, 3, 4, 1)}
+    statics = {"input": list_full(1.0, 2, 3, 4, 1)}
     reference_outputs = {"output": 24}
     compile_and_compare(
         model=model,
@@ -1592,7 +1623,7 @@ def test_size_2():
 
 def test_size_3():
     model = Size(dim=(1, 2))
-    statics = {"input": list_ones(2, 3, 4, 1)}
+    statics = {"input": list_full(1.0, 2, 3, 4, 1)}
     reference_outputs = {"output": (3, 4)}
     compile_and_compare(
         model=model,
@@ -2420,7 +2451,7 @@ def test_cast_int16():
             res = pm.evaluate()
             res_out = res["output"]
             assert isinstance(res_out, backend.DataType)
-            assert res_out.dtype == expected_dtypes[backend.type]
+            assert res_out.dtype == expected_dtypes[backend.backend_type]
             np.testing.assert_allclose(res_out, reference_outputs["output"])
 
 
@@ -2466,7 +2497,7 @@ def test_cast_int32():
             res = pm.evaluate()
             res_out = res["output"]
             assert isinstance(res_out, backend.DataType)  # type: ignore
-            assert res_out.dtype == expected_dtypes[backend.type]
+            assert res_out.dtype == expected_dtypes[backend.backend_type]
             np.testing.assert_allclose(res_out, reference_outputs["output"])
 
 
@@ -2510,7 +2541,7 @@ def test_cast_int64():
                 inference=True,
             )
             res = pm.evaluate()
-            assert res["output"].dtype == expected_dtypes[backend.type]  # type: ignore
+            assert res["output"].dtype == expected_dtypes[backend.backend_type]  # type: ignore
             np.testing.assert_allclose(res["output"], reference_outputs["output"])  # type: ignore
 
 
@@ -2555,7 +2586,7 @@ def test_cast_float16():
             )
             res = pm.evaluate()["output"]
             assert isinstance(res, backend.DataType)
-            assert res.dtype == expected_dtypes[backend.type]
+            assert res.dtype == expected_dtypes[backend.backend_type]
             np.testing.assert_allclose(res, reference_outputs["output"])
 
 
@@ -2601,7 +2632,7 @@ def test_cast_float32():
             res = pm.evaluate()
             res_out = res["output"]
             assert isinstance(res_out, backend.DataType)  # type: ignore
-            assert res_out.dtype == expected_dtypes[backend.type]
+            assert res_out.dtype == expected_dtypes[backend.backend_type]
             np.testing.assert_allclose(res_out, reference_outputs["output"])
 
 
@@ -2643,7 +2674,7 @@ def test_cast_float64():
             res = pm.evaluate()
             res_out = res["output"]
             assert isinstance(res_out, backend.DataType)  # type: ignore
-            assert res_out.dtype == expected_dtypes[backend.type]
+            assert res_out.dtype == expected_dtypes[backend.backend_type]
             np.testing.assert_allclose(res_out, reference_outputs["output"])
 
 
@@ -2689,7 +2720,7 @@ def test_cast_bool():
             res = pm.evaluate()
             res_out = res["output"]
             assert isinstance(res_out, backend.DataType)  # type: ignore
-            assert res_out.dtype == expected_dtypes[backend.type]
+            assert res_out.dtype == expected_dtypes[backend.backend_type]
             np.testing.assert_allclose(res_out, reference_outputs["output"])
 
 

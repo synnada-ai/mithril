@@ -25,7 +25,6 @@ from mithril import JaxBackend, MlxBackend, NumpyBackend, TorchBackend
 from mithril.framework.common import (
     NOT_GIVEN,
     TBD,
-    Connect,
     Connection,
     ConnectionType,
     IOKey,
@@ -118,7 +117,7 @@ def assert_all_backends_device_precision(model: Model):
         # remove unsupported backend, device and precision trios
         if (backend_class, device, precision) in unsupported_device_precisions:
             continue
-        _type = backend_class.type
+        _type = backend_class.backend_type
         backend = backend_class(device=device, precision=precision)
 
         comp_model = mithril.compile(
@@ -970,7 +969,7 @@ def test_nontensor_extend_from_input_multiple_connection():
     model += mean1
     model += mean2
     model += mean3
-    model += mean4(axis=Connect(mean1.axis, mean2.axis, mean3.axis))
+    model += mean4(axis=IOKey(connections=[mean1.axis, mean2.axis, mean3.axis]))
     assert (
         mean1.axis.data.metadata
         == mean2.axis.data.metadata
