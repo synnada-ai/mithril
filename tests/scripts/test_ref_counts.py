@@ -21,9 +21,8 @@ from mithril.framework.common import (
     Connect,
     Connection,
     ConnectionType,
-    GenericTensorType,
+    MyTensor,
     ShapeTemplateType,
-    Tensor,
 )
 from mithril.models import (
     Add,
@@ -82,20 +81,20 @@ def test_deleted_variadic_ref_count_1() -> None:
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=IOKey(shape=["a", "b", ("Var1", ...)], type=GenericTensorType),
-                output=IOKey(shape=["c", "d", ("Var2", ...)], type=GenericTensorType),
+                input=IOKey(shape=["a", "b", ("Var1", ...)], type=MyTensor),
+                output=IOKey(shape=["c", "d", ("Var2", ...)], type=MyTensor),
             )
 
     model = Model()
     submodel1 = TestModel()
     submodel2 = TestModel()
 
-    assert isinstance(submodel1.output.metadata.data, Tensor)
-    assert isinstance(submodel2.input.metadata.data, Tensor)
-    assert submodel1.output.metadata.data.shape is not None
-    assert submodel2.input.metadata.data.shape is not None
-    ref_var1 = next(iter(submodel1.output.metadata.data.shape.reprs)).root
-    ref_var2 = next(iter(submodel2.input.metadata.data.shape.reprs)).root
+    assert submodel1.output.metadata.edge_type is MyTensor
+    assert submodel2.output.metadata.edge_type is MyTensor
+    assert submodel1.output.metadata.shape is not None
+    assert submodel2.input.metadata.shape is not None
+    ref_var1 = next(iter(submodel1.output.metadata.shape.reprs)).root
+    ref_var2 = next(iter(submodel2.input.metadata.shape.reprs)).root
 
     model += submodel1
     model += submodel2
@@ -115,19 +114,19 @@ def test_deleted_variadic_ref_count_2() -> None:
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=IOKey(shape=[("Var1", ...)], type=GenericTensorType),
-                output=IOKey(shape=[("Var1", ...)], type=GenericTensorType),
+                input=IOKey(shape=[("Var1", ...)], type=MyTensor),
+                output=IOKey(shape=[("Var1", ...)], type=MyTensor),
             )
 
     buff_model1 = MyModel()
     buff_model2 = MyModel()
 
-    assert isinstance(buff_model1.input.metadata.data, Tensor)
-    assert isinstance(buff_model2.output.metadata.data, Tensor)
-    assert buff_model1.input.metadata.data.shape is not None
-    assert buff_model2.output.metadata.data.shape is not None
-    ref_var1 = next(iter(buff_model1.input.metadata.data.shape.reprs)).root
-    ref_var2 = next(iter(buff_model2.output.metadata.data.shape.reprs)).root
+    assert buff_model1.input.metadata.edge_type is MyTensor
+    assert buff_model2.input.metadata.edge_type is MyTensor
+    assert buff_model1.input.metadata.shape is not None
+    assert buff_model2.output.metadata.shape is not None
+    ref_var1 = next(iter(buff_model1.input.metadata.shape.reprs)).root
+    ref_var2 = next(iter(buff_model2.output.metadata.shape.reprs)).root
 
     model += buff_model1
     model += buff_model2
@@ -339,8 +338,8 @@ def test_deleted_uniadic_ref_count_5():
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=IOKey(shape=["a", "b"], type=GenericTensorType),
-                output=IOKey(shape=["c", "d"], type=GenericTensorType),
+                input=IOKey(shape=["a", "b"], type=MyTensor),
+                output=IOKey(shape=["c", "d"], type=MyTensor),
             )
 
     all_uniadics = set()
@@ -378,8 +377,8 @@ def test_deleted_uniadic_ref_count_7():
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=IOKey(shape=["a", "b", "c"], type=GenericTensorType),
-                output=IOKey(shape=["c", "d", "e"], type=GenericTensorType),
+                input=IOKey(shape=["a", "b", "c"], type=MyTensor),
+                output=IOKey(shape=["c", "d", "e"], type=MyTensor),
             )
 
     all_uniadics = set()
@@ -403,8 +402,8 @@ def test_deleted_uniadic_ref_count_8():
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=IOKey(shape=["a", "b", "c"], type=GenericTensorType),
-                output=IOKey(shape=["d", "e", "f"], type=GenericTensorType),
+                input=IOKey(shape=["a", "b", "c"], type=MyTensor),
+                output=IOKey(shape=["d", "e", "f"], type=MyTensor),
             )
 
         def __call__(  # type: ignore[override]
@@ -434,8 +433,8 @@ def test_deleted_uniadic_ref_count_9():
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=IOKey(shape=[1, 1, 1], type=GenericTensorType),
-                output=IOKey(shape=[1, 1, 1], type=GenericTensorType),
+                input=IOKey(shape=[1, 1, 1], type=MyTensor),
+                output=IOKey(shape=[1, 1, 1], type=MyTensor),
             )
 
         def __call__(  # type: ignore[override]
@@ -558,8 +557,8 @@ def test_deleted_repr_ref_count_5() -> None:
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=IOKey(shape=[("Var1", ...), "a"], type=GenericTensorType),
-                output=IOKey(shape=["a", ("Var1", ...)], type=GenericTensorType),
+                input=IOKey(shape=[("Var1", ...), "a"], type=MyTensor),
+                output=IOKey(shape=["a", ("Var1", ...)], type=MyTensor),
             )
 
         def __call__(  # type: ignore[override]
@@ -612,8 +611,8 @@ def test_deleted_repr_ref_count_6() -> None:
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=IOKey(shape=[("Var1", ...), "a"], type=GenericTensorType),
-                output=IOKey(shape=["a", ("Var1", ...)], type=GenericTensorType),
+                input=IOKey(shape=[("Var1", ...), "a"], type=MyTensor),
+                output=IOKey(shape=["a", ("Var1", ...)], type=MyTensor),
             )
 
         def __call__(  # type: ignore[override]
@@ -665,8 +664,8 @@ def test_deleted_repr_ref_count_7() -> None:
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=IOKey(shape=[("Var1", ...), "a"], type=GenericTensorType),
-                output=IOKey(shape=["a", ("Var1", ...)], type=GenericTensorType),
+                input=IOKey(shape=[("Var1", ...), "a"], type=MyTensor),
+                output=IOKey(shape=["a", ("Var1", ...)], type=MyTensor),
             )
 
         def __call__(  # type: ignore[override]
@@ -701,8 +700,8 @@ def test_deleted_repr_ref_count_8() -> None:
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=IOKey(shape=["a", "b"], type=GenericTensorType),
-                output=IOKey(shape=["b", "a"], type=GenericTensorType),
+                input=IOKey(shape=["a", "b"], type=MyTensor),
+                output=IOKey(shape=["b", "a"], type=MyTensor),
             )
 
         def __call__(  # type: ignore[override]
@@ -1260,19 +1259,19 @@ def test_deleted_uniadic_ref_count_2() -> None:
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=IOKey(shape=["a1"], type=GenericTensorType),
-                output=IOKey(shape=["a2"], type=GenericTensorType),
+                input=IOKey(shape=["a1"], type=MyTensor),
+                output=IOKey(shape=["a2"], type=MyTensor),
             )
 
     buff_model1 = MyModel()
     buff_model2 = MyModel()
 
-    assert isinstance(buff_model1.output.metadata.data, Tensor)
-    assert isinstance(buff_model2.input.metadata.data, Tensor)
-    assert buff_model1.output.metadata.data.shape is not None
-    assert buff_model2.input.metadata.data.shape is not None
-    ref_var1 = next(iter(buff_model1.output.metadata.data.shape.reprs))[0]
-    ref_var2 = next(iter(buff_model2.input.metadata.data.shape.reprs))[0]
+    assert buff_model1.output.metadata.edge_type is MyTensor
+    assert buff_model2.input.metadata.edge_type is MyTensor
+    assert buff_model1.output.metadata.shape is not None
+    assert buff_model2.input.metadata.shape is not None
+    ref_var1 = next(iter(buff_model1.output.metadata.shape.reprs))[0]
+    ref_var2 = next(iter(buff_model2.input.metadata.shape.reprs))[0]
 
     model += buff_model1
     model += buff_model2
@@ -1280,7 +1279,7 @@ def test_deleted_uniadic_ref_count_2() -> None:
     diff_roots = set()
 
     for tensor in get_all_data(model):
-        assert isinstance(tensor, Tensor)
+        assert tensor.edge_type is MyTensor
         node = tensor.shape
         assert node is not None
         for repr in node.reprs:
@@ -1300,20 +1299,20 @@ def test_deleted_uniadic_ref_count() -> None:
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=IOKey(shape=["a", "b"], type=GenericTensorType),
-                output=IOKey(shape=["c", "d"], type=GenericTensorType),
+                input=IOKey(shape=["a", "b"], type=MyTensor),
+                output=IOKey(shape=["c", "d"], type=MyTensor),
             )
 
     model = Model()
     submodel1 = MyModel()
     submodel2 = MyModel()
 
-    assert isinstance(submodel1.output.metadata.data, Tensor)
-    assert isinstance(submodel2.input.metadata.data, Tensor)
-    assert submodel1.output.metadata.data.shape is not None
-    assert submodel2.input.metadata.data.shape is not None
-    ref_var1 = next(iter(submodel1.output.metadata.data.shape.reprs))[0]
-    ref_var2 = next(iter(submodel2.input.metadata.data.shape.reprs))[0]
+    assert submodel1.output.metadata.edge_type is MyTensor
+    assert submodel2.input.metadata.edge_type is MyTensor
+    assert submodel1.output.metadata.shape is not None
+    assert submodel2.input.metadata.shape is not None
+    ref_var1 = next(iter(submodel1.output.metadata.shape.reprs))[0]
+    ref_var2 = next(iter(submodel2.input.metadata.shape.reprs))[0]
 
     model += submodel1
     model += submodel2
@@ -1332,20 +1331,20 @@ def test_deleted_repr_ref_count() -> None:
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=IOKey(shape=["a", "b"], type=GenericTensorType),
-                output=IOKey(shape=["c", "d"], type=GenericTensorType),
+                input=IOKey(shape=["a", "b"], type=MyTensor),
+                output=IOKey(shape=["c", "d"], type=MyTensor),
             )
 
     model = Model()
     submodel1 = MyModel()
     submodel2 = MyModel()
 
-    assert isinstance(submodel1.output.metadata.data, Tensor)
-    assert isinstance(submodel2.input.metadata.data, Tensor)
-    assert submodel1.output.metadata.data.shape is not None
-    assert submodel2.input.metadata.data.shape is not None
-    ref_var1 = next(iter(submodel1.output.metadata.data.shape.reprs))
-    ref_var2 = next(iter(submodel2.input.metadata.data.shape.reprs))
+    assert submodel1.output.metadata.edge_type is MyTensor
+    assert submodel2.input.metadata.edge_type is MyTensor
+    assert submodel1.output.metadata.shape is not None
+    assert submodel2.input.metadata.shape is not None
+    ref_var1 = next(iter(submodel1.output.metadata.shape.reprs))
+    ref_var2 = next(iter(submodel2.input.metadata.shape.reprs))
 
     model += submodel1
     model += submodel2
@@ -1364,18 +1363,18 @@ def test_deleted_node_ref_count() -> None:
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=IOKey(shape=["a", "b"], type=GenericTensorType),
-                output=IOKey(shape=["c", "d"], type=GenericTensorType),
+                input=IOKey(shape=["a", "b"], type=MyTensor),
+                output=IOKey(shape=["c", "d"], type=MyTensor),
             )
 
     model = Model()
     submodel1 = MyModel()
     submodel2 = MyModel()
 
-    assert isinstance(submodel1.output.metadata.data, Tensor)
-    assert isinstance(submodel2.input.metadata.data, Tensor)
-    ref_var1 = submodel1.output.metadata.data.shape
-    ref_var2 = submodel2.input.metadata.data.shape
+    assert submodel1.output.metadata.edge_type is MyTensor
+    assert submodel2.input.metadata.edge_type is MyTensor
+    ref_var1 = submodel1.output.metadata.shape
+    ref_var2 = submodel2.input.metadata.shape
 
     model += submodel1
     model += submodel2
@@ -1394,16 +1393,16 @@ def test_deleted_tensor_ref_count() -> None:
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=IOKey(shape=["a", "b"], type=GenericTensorType),
-                output=IOKey(shape=["c", "d"], type=GenericTensorType),
+                input=IOKey(shape=["a", "b"], type=MyTensor),
+                output=IOKey(shape=["c", "d"], type=MyTensor),
             )
 
     model = Model()
     submodel1 = MyModel()
     submodel2 = MyModel()
 
-    ref_var1 = submodel1.output.metadata.data
-    ref_var2 = submodel2.input.metadata.data
+    ref_var1 = submodel1.output.metadata
+    ref_var2 = submodel2.input.metadata
 
     model += submodel1
     model += submodel2
@@ -1422,8 +1421,8 @@ def test_deleted_edge_ref_count() -> None:
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=IOKey(shape=["a", "b"], type=GenericTensorType),
-                output=IOKey(shape=["c", "d"], type=GenericTensorType),
+                input=IOKey(shape=["a", "b"], type=MyTensor),
+                output=IOKey(shape=["c", "d"], type=MyTensor),
             )
 
     model = Model()

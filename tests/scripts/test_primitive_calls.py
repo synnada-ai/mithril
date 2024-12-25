@@ -15,14 +15,14 @@
 import pytest
 
 import mithril as ml
-from mithril.models import Model, Power
+from mithril.models import Model, MyTensor, Power
 
 
 def test_power_call_threshold_iokey():
     model = Model()
     pow = Power(robust=True)
-    model += pow(threshold=ml.IOKey("t", 0.1))
-    assert model.t.data.metadata.data.value == 0.1  # type: ignore
+    model += pow(threshold=ml.IOKey("t", MyTensor(0.1)))
+    assert model.t.metadata.value == 0.1  # type: ignore
 
 
 def test_error_not_robust_power_call_threshold_iokey():

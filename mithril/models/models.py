@@ -26,6 +26,7 @@ from ..framework.common import (
     Connection,
     ConnectionType,
     IOKey,
+    MyTensor,
     ShapeTemplateType,
     TensorValueType,
     ToBeDetermined,
@@ -692,7 +693,11 @@ class LayerNorm(Model):
     ) -> None:
         super().__init__(name=name)
         self.factory_inputs = {"input": input, "weight": weight, "bias": bias}
-        self.factory_args = {"use_scale": use_scale, "use_bias": use_bias, "eps": eps}
+        self.factory_args = {
+            "use_scale": use_scale,
+            "use_bias": use_bias,
+            "eps": MyTensor(eps),
+        }
 
         # Expects its input shape as [B, ..., d] d refers to normalized dimension
         mean = Mean(axis=-1, keepdim=True)
@@ -704,7 +709,7 @@ class LayerNorm(Model):
         self += mean(input="input")
         self += numerator(left="input", right=mean.output)
         self += var(input="input")
-        self += add(left=var.output, right=eps)
+        self += add(left=var.output, right=MyTensor(eps))
         self += denominator(input=add.output)
         self += Divide()(numerator=numerator.output, denominator=denominator.output)
 
@@ -782,7 +787,7 @@ class GroupNorm(Model):
         mean = input_key.mean(axis=-1, keepdim=True)
         var = input_key.var(axis=-1, keepdim=True)
 
-        input_key = (input_key - mean) / (var + eps).sqrt()
+        input_key = (input_key - mean) / (var + MyTensor(eps)).sqrt()
         self += Reshape()(input=input_key, shape=input_shape)
 
         self._set_shapes({"input": ["B", "C", "H", "W"]})
@@ -869,7 +874,9 @@ class L2(Model):
 
         self += square(input="input")
         self += sum(input=square.output)
-        self += Multiply()(left=sum.output, right=0.5, output=IOKey(name="output"))
+        self += Multiply()(
+            left=sum.output, right=MyTensor(0.5), output=IOKey(name="output")
+        )
 
         self._freeze()
 
@@ -904,7 +911,7 @@ class QuadraticFormRegularizer(Model):
         self += dot_model1(left=transpose_model.input, right="kernel")
         self += dot_model2(left=dot_model1.output, right=transpose_model.output)
         self += Multiply()(
-            left=dot_model2.output, right=0.5, output=IOKey(name="output")
+            left=dot_model2.output, right=MyTensor(0.5), output=IOKey(name="output")
         )
         shapes: dict[str, ShapeTemplateType] = {"input": [1, "N"], "kernel": ["N", "N"]}
         self._set_shapes(shapes)
@@ -959,7 +966,7 @@ class RBFKernel(Model):
         self += euclidean_model(left="input1", right="input2")
         self += square_model1(input=euclidean_model.output)
         self += sum_model(input=square_model1.output)
-        self += mult_model1(left=sum_model.output, right=-0.5)
+        self += mult_model1(left=sum_model.output, right=MyTensor(-0.5))
         self += square_model2(input="sigma")
         self += div_model(
             numerator=mult_model1.output, denominator=square_model2.output
@@ -2095,7 +2102,9 @@ class EncoderDistanceMatrix(Model):
             self += dist_model(
                 left="input1", right="input2", norm=modifier_model.output
             )
-            self += reciprocal_model(numerator=1.0, denominator=modifier_model.output)
+            self += reciprocal_model(
+                numerator=MyTensor(1.0), denominator=modifier_model.output
+            )
             self += power_model(
                 base=dist_model.output,
                 exponent=reciprocal_model.output,
@@ -2313,8 +2322,10 @@ class TSNECore(Model):
                 self += p_joint_model(
                     squared_distances=square_model.output, target_perplexity=perplexity
                 )
-            self += sum_model_1(left=1.0, right="pred_distances")
-            self += divide_model_1(numerator=1.0, denominator=sum_model_1.output)
+            self += sum_model_1(left=MyTensor(1.0), right="pred_distances")
+            self += divide_model_1(
+                numerator=MyTensor(1.0), denominator=sum_model_1.output
+            )
             self += size_model(input=getattr(self, "distances", "distances"))
             self += zero_diagonal_model(N=size_model.output)
             self += mult_model(
@@ -2337,8 +2348,10 @@ class TSNECore(Model):
                 self += p_joint_model(
                     squared_distances="distances", target_perplexity=perplexity
                 )
-            self += sum_model_1(left=1.0, right="pred_distances")
-            self += divide_model_1(numerator=1.0, denominator=sum_model_1.output)
+            self += sum_model_1(left=MyTensor(1.0), right="pred_distances")
+            self += divide_model_1(
+                numerator=MyTensor(1.0), denominator=sum_model_1.output
+            )
             self += size_model(input=getattr(self, "distances", "distances"))
             self += zero_diagonal_model(N=size_model.output)
             self += mult_model(
@@ -2853,8 +2866,15 @@ class Metric(Model):
             self += ArgMax(axis=-1)(pred_key, output="pred_argmax")
             pred_key = self.pred_argmax
         elif is_binary and not is_pred_one_hot:
-            self += Greater()(left=pred_key, right=threshold, output="greater_out")
-            self += Where()(cond="greater_out", input1=1, input2=0, output="pred_comp")
+            self += Greater()(
+                left=pred_key, right=MyTensor(threshold), output="greater_out"
+            )
+            self += Where()(
+                cond="greater_out",
+                input1=MyTensor(1),
+                input2=MyTensor(0),
+                output="pred_comp",
+            )
             pred_key = self.pred_comp
         elif is_pred_one_hot:
             self += ArgMax(axis=-1)(pred_key, output="pred_argmax")
@@ -2913,7 +2933,7 @@ class Accuracy(Model):
             is_label_one_hot=is_label_one_hot,
         )("pred", "label", "metric_out", "pred_formatted", "label_formatted")
 
-        true_predictions = self.metric_out == 0
+        true_predictions = self.metric_out == MyTensor(0)
         n_prediction = self.label_formatted.shape()[0]
 
         self += Sum()(input=true_predictions, output="n_true_predictions")
@@ -2981,8 +3001,8 @@ class Precision(Model):
         )("pred", "label", "metric_out", "pred_formatted", "label_formatted")
 
         if average == "micro":
-            true_positive = self.metric_out == 0
-            false_positive = self.metric_out != 0
+            true_positive = self.metric_out == MyTensor(0)
+            false_positive = self.metric_out != MyTensor(0)
             self += Sum()(input=true_positive, output="n_true_positive")
             self += Sum()(input=false_positive, output="n_false_positive")
 
@@ -2998,16 +3018,21 @@ class Precision(Model):
                 n_classes is not None
             ), "n_classes must be provided if average is or 'macro'"
             for idx in range(n_classes):
-                class_idxs = self.label_formatted == idx
-                true_positive = (self.metric_out == 0) & class_idxs
-                false_positive = (self.pred_formatted == idx) & ~class_idxs
+                class_idxs = self.label_formatted == MyTensor(idx)
+                true_positive = (self.metric_out == MyTensor(0)) & class_idxs
+                false_positive = (self.pred_formatted == MyTensor(idx)) & ~class_idxs
 
                 self += Sum()(input=true_positive, output=f"true_positive_{idx}")
                 self += Sum()(input=false_positive, output=f"false_positive_{idx}")
                 denominator = getattr(self, f"true_positive_{idx}") + getattr(
                     self, f"false_positive_{idx}"
                 )
-                self += Where()(denominator == 0, 1, denominator, f"denominator_{idx}")
+                self += Where()(
+                    denominator == MyTensor(0),
+                    MyTensor(1),
+                    denominator,
+                    f"denominator_{idx}",
+                )
                 self += Divide()(
                     # numerator=getattr(self, f"true_positive_{idx}"),
                     numerator=f"true_positive_{idx}",
@@ -3035,9 +3060,9 @@ class Precision(Model):
                 n_classes is not None
             ), "n_classes must be provided if average is or 'weighted'"
             for idx in range(n_classes):
-                class_idxs = self.label_formatted == idx
-                true_positive = (self.metric_out == 0) & class_idxs
-                false_positive = (self.pred_formatted == idx) & ~class_idxs
+                class_idxs = self.label_formatted == MyTensor(idx)
+                true_positive = (self.metric_out == MyTensor(0)) & class_idxs
+                false_positive = (self.pred_formatted == MyTensor(idx)) & ~class_idxs
                 self += Sum()(input=class_idxs, output=f"n_class_{idx}")
 
                 self += Sum()(input=true_positive, output=f"true_positive_{idx}")
@@ -3045,7 +3070,12 @@ class Precision(Model):
                 denominator = getattr(self, f"true_positive_{idx}") + getattr(
                     self, f"false_positive_{idx}"
                 )
-                self += Where()(denominator == 0, 1, denominator, f"denominator_{idx}")
+                self += Where()(
+                    denominator == MyTensor(0),
+                    MyTensor(1),
+                    denominator,
+                    f"denominator_{idx}",
+                )
                 self += Divide()(
                     numerator=f"true_positive_{idx}",
                     denominator=(getattr(self, f"denominator_{idx}")),
@@ -3126,8 +3156,8 @@ class Recall(Model):
         )("pred", "label", "metric_out", "pred_formatted", "label_formatted")
 
         if average == "micro":
-            true_positive = self.metric_out == 0
-            false_negative = self.metric_out != 0
+            true_positive = self.metric_out == MyTensor(0)
+            false_negative = self.metric_out != MyTensor(0)
             self += Sum()(input=true_positive, output="n_true_positive")
             self += Sum()(input=false_negative, output="n_false_negative")
 
@@ -3143,16 +3173,21 @@ class Recall(Model):
                 n_classes is not None
             ), "n_classes must be provided if average is or 'macro'"
             for idx in range(n_classes):
-                class_idxs = self.label_formatted == idx
-                true_positive = (self.metric_out == 0) & class_idxs
-                false_negative = (self.pred_formatted != idx) & class_idxs
+                class_idxs = self.label_formatted == MyTensor(idx)
+                true_positive = (self.metric_out == MyTensor(0)) & class_idxs
+                false_negative = (self.pred_formatted != MyTensor(idx)) & class_idxs
 
                 self += Sum()(input=true_positive, output=f"true_positive_{idx}")
                 self += Sum()(input=false_negative, output=f"false_negative_{idx}")
                 denominator = getattr(self, f"true_positive_{idx}") + getattr(
                     self, f"false_negative_{idx}"
                 )
-                self += Where()(denominator == 0, 1, denominator, f"denominator_{idx}")
+                self += Where()(
+                    denominator == MyTensor(0),
+                    MyTensor(1),
+                    denominator,
+                    f"denominator_{idx}",
+                )
                 self += Divide()(
                     numerator=f"true_positive_{idx}",
                     denominator=getattr(self, f"denominator_{idx}"),
@@ -3179,9 +3214,9 @@ class Recall(Model):
             ), "n_classes must be provided if average is or 'weighted'"
             n_element = self.label_formatted.shape()[0]
             for idx in range(n_classes):
-                class_idxs = self.label_formatted == idx
-                true_positive = (self.metric_out == 0) & class_idxs
-                false_negative = (self.pred_formatted != idx) & class_idxs
+                class_idxs = self.label_formatted == MyTensor(idx)
+                true_positive = (self.metric_out == MyTensor(0)) & class_idxs
+                false_negative = (self.pred_formatted != MyTensor(idx)) & class_idxs
                 self += Sum()(input=class_idxs, output=f"n_class_{idx}")
 
                 self += Sum()(input=true_positive, output=f"true_positive_{idx}")
@@ -3189,7 +3224,12 @@ class Recall(Model):
                 denominator = getattr(self, f"true_positive_{idx}") + getattr(
                     self, f"false_negative_{idx}"
                 )
-                self += Where()(denominator == 0, 1, denominator, f"denominator_{idx}")
+                self += Where()(
+                    denominator == MyTensor(0),
+                    MyTensor(1),
+                    denominator,
+                    f"denominator_{idx}",
+                )
                 self += Divide()(
                     numerator=f"true_positive_{idx}",
                     denominator=getattr(self, f"denominator_{idx}"),
@@ -3270,8 +3310,8 @@ class F1(Model):
         )("pred", "label", "metric_out", "pred_formatted", "label_formatted")
 
         if average == "micro":
-            true_positive = self.metric_out == 0
-            false_positive = self.metric_out != 0
+            true_positive = self.metric_out == MyTensor(0)
+            false_positive = self.metric_out != MyTensor(0)
             self += Sum()(input=true_positive, output="n_true_positive")
             self += Sum()(input=false_positive, output="n_false_positive")
 
@@ -3287,19 +3327,24 @@ class F1(Model):
                 n_classes is not None
             ), "n_classes must be provided if average is or 'macro'"
             for idx in range(n_classes):
-                class_idxs = self.label_formatted == idx
-                true_positive = (self.metric_out == 0) & class_idxs
-                false_negative = (self.pred_formatted != idx) & class_idxs
-                false_positive = (self.pred_formatted == idx) & ~class_idxs
+                class_idxs = self.label_formatted == MyTensor(idx)
+                true_positive = (self.metric_out == MyTensor(0)) & class_idxs
+                false_negative = (self.pred_formatted != MyTensor(idx)) & class_idxs
+                false_positive = (self.pred_formatted == MyTensor(idx)) & ~class_idxs
 
                 self += Sum()(input=true_positive, output=f"true_positive_{idx}")
                 self += Sum()(input=false_positive, output=f"false_positive_{idx}")
                 self += Sum()(input=false_negative, output=f"false_negative_{idx}")
-                denominator = getattr(self, f"true_positive_{idx}") + 0.5 * (
+                denominator = getattr(self, f"true_positive_{idx}") + MyTensor(0.5) * (
                     getattr(self, f"false_positive_{idx}")
                     + getattr(self, f"false_negative_{idx}")
                 )
-                self += Where()(denominator == 0, 1, denominator, f"denominator_{idx}")
+                self += Where()(
+                    denominator == MyTensor(0),
+                    MyTensor(1),
+                    denominator,
+                    f"denominator_{idx}",
+                )
                 self += Divide()(
                     numerator=f"true_positive_{idx}",
                     denominator=getattr(self, f"denominator_{idx}"),
@@ -3325,20 +3370,25 @@ class F1(Model):
             ), "n_classes must be provided if average is or 'weighted'"
             n_element = self.label_formatted.shape()[0].tensor()
             for idx in range(n_classes):
-                class_idxs = self.label_formatted == idx
-                true_positive = (self.metric_out == 0) & class_idxs
-                false_negative = (self.pred_formatted != idx) & class_idxs
-                false_positive = (self.pred_formatted == idx) & ~class_idxs
+                class_idxs = self.label_formatted == MyTensor(idx)
+                true_positive = (self.metric_out == MyTensor(0)) & class_idxs
+                false_negative = (self.pred_formatted != MyTensor(idx)) & class_idxs
+                false_positive = (self.pred_formatted == MyTensor(idx)) & ~class_idxs
                 self += Sum()(input=class_idxs, output=f"n_class_{idx}")
 
                 self += Sum()(input=true_positive, output=f"true_positive_{idx}")
                 self += Sum()(input=false_positive, output=f"false_positive_{idx}")
                 self += Sum()(input=false_negative, output=f"false_negative_{idx}")
-                denominator = getattr(self, f"true_positive_{idx}") + 0.5 * (
+                denominator = getattr(self, f"true_positive_{idx}") + MyTensor(0.5) * (
                     getattr(self, f"false_positive_{idx}")
                     + getattr(self, f"false_negative_{idx}")
                 )
-                self += Where()(denominator == 0, 1, denominator, f"denominator_{idx}")
+                self += Where()(
+                    denominator == MyTensor(0),
+                    MyTensor(1),
+                    denominator,
+                    f"denominator_{idx}",
+                )
                 self += Divide()(
                     numerator=f"true_positive_{idx}",
                     denominator=getattr(self, f"denominator_{idx}"),
@@ -3404,7 +3454,7 @@ class AUC(Model):
 
         auc_score = None
         for class_idx in range(n_classes):
-            class_label = label_key == class_idx
+            class_label = label_key == MyTensor(class_idx)
             pred_class = pred_key[:, class_idx] if n_classes != 1 else pred_key
 
             self += AUCCore()(pred_class, class_label, f"auc_core_{class_idx}")
@@ -3414,9 +3464,13 @@ class AUC(Model):
                 output=IOKey(f"auc_class_{class_idx}"),
             )
             if auc_score is None:
-                auc_score = getattr(self, f"auc_class_{class_idx}") / n_classes
+                auc_score = getattr(self, f"auc_class_{class_idx}") / MyTensor(
+                    n_classes
+                )
             else:
-                auc_score += getattr(self, f"auc_class_{class_idx}") / n_classes
+                auc_score += getattr(self, f"auc_class_{class_idx}") / MyTensor(
+                    n_classes
+                )
 
         self += Buffer()(auc_score, IOKey("output"))
 
@@ -3449,7 +3503,7 @@ class SiLU(Model):
 
         self += Minus()(input="input", output="minus")
         self += Exponential()(input="minus", output="exp")
-        self += Add()(left=1, right="exp", output="add")
+        self += Add()(left=MyTensor(1), right="exp", output="add")
         self += Divide()(
             numerator="input", denominator="add", output=IOKey(name="output")
         )

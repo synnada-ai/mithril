@@ -27,10 +27,10 @@ from ..common import (
     Constant,
     ConstraintSolver,
     DataEvalType,
+    IOHyperEdge,
     MainValueInstance,
     MainValueType,
-    Scalar,
-    Tensor,
+    MyTensor,
     ToBeDetermined,
     Updates,
     is_type_adjustment_required,
@@ -45,17 +45,17 @@ class StaticDataStore(Generic[DataType]):
         backend: Backend[DataType],
         inference: bool,
         solver: ConstraintSolver,
-        memo: dict[int, Tensor | Scalar] | None = None,
+        memo: dict[int, IOHyperEdge] | None = None,
     ) -> None:
         if memo is None:
             memo = {}
 
-        self._all_data: dict[str, Tensor | Scalar] = dict()
-        self.data_memo: dict[int, Tensor | Scalar] = dict()
+        self._all_data: dict[str, IOHyperEdge] = dict()
+        self.data_memo: dict[int, IOHyperEdge] = dict()
         self.graph: FlatGraph[DataType] = graph
         self.backend: Backend[DataType] = backend
         self.inference = inference
-        self._intermediate_non_differentiables: BiMap[str, Tensor | Scalar] = BiMap()
+        self._intermediate_non_differentiables: BiMap[str, IOHyperEdge] = BiMap()
         self._runtime_static_keys: set[str] = set()
         self._unused_keys: set[str] = set()
         # Final tensor values of data store.
@@ -144,10 +144,10 @@ class StaticDataStore(Generic[DataType]):
             self._intermediate_non_differentiables.pop(key)
         return transferred_keys
 
-    def _set_data_value(self, key: str, data: Tensor | Scalar):
+    def _set_data_value(self, key: str, data: IOHyperEdge):
         value: DataType | AllValueType = data.value
         assert not isinstance(value, ToBeDetermined)
-        if isinstance(data, Tensor):
+        if data.edge_type is MyTensor:
             if isinstance(value, Constant):
                 value = self.backend.array(epsilon_table[self.backend.precision][value])
             else:
@@ -190,8 +190,9 @@ class StaticDataStore(Generic[DataType]):
             if isinstance(key, Connection):
                 key = key.key
             assert isinstance(key, str)
-            if isinstance(data := self._all_data[key], Scalar):
+            if (data := self._all_data[key]).edge_type is not MyTensor:
                 raise ValueError("Scalar data can not have shape!")
+            assert data.shape is not None
             updates |= data.shape.set_values(value)
         self.constraint_solver(updates)
         # Some intermediate values may be calculated, update cached data.
@@ -199,7 +200,7 @@ class StaticDataStore(Generic[DataType]):
         for key in new_statics:
             self._infer_unused_keys(key)
 
-    def update_data(self, data: dict[str, Tensor | Scalar]):
+    def update_data(self, data: dict[str, IOHyperEdge]):
         if data.keys() & self._all_data.keys():
             raise Exception("Some keys are already in data store!")
         self._all_data |= data
@@ -237,11 +238,8 @@ class StaticDataStore(Generic[DataType]):
                 raise KeyError(
                     "Requires static key to be in the input keys of the model!"
                 )
-            if not (
-                isinstance(self._all_data[key], Scalar)
-                or isinstance(
-                    value, ToBeDetermined | self.backend.get_backend_array_type()
-                )
+            if (self._all_data[key].edge_type is MyTensor) and not isinstance(
+                value, ToBeDetermined | self.backend.get_backend_array_type()
             ):
                 raise ValueError(
                     "Requires given arrays to be of same type with given backend!"
@@ -269,8 +267,9 @@ class StaticDataStore(Generic[DataType]):
             if (data := self._all_data.get(key, None)) is None:
                 raise KeyError(f"'{key}' key not found in model!")
 
-            if isinstance(data, Tensor):
+            if data.edge_type is MyTensor:
                 assert not isinstance(value, MainValueInstance)
+                assert data.shape is not None
                 # Find shape of tensor and set.
                 shape = list(value.shape)
                 updates |= data.shape.set_values(shape)
@@ -289,8 +288,8 @@ class StaticDataStore(Generic[DataType]):
                         f"Given type ({data_dtype}) is not supported. "
                         "Only float, int or bool types are accepted."
                     )
-                updates |= data.set_type(val_type)
-            elif isinstance(data, Scalar) and self.is_scalar_type(value):
+                updates |= data.set_type(MyTensor[val_type])
+            elif self.is_scalar_type(value):  # TODO: Is this check really required?
                 updates |= data.set_value(value)
             else:
                 raise ValueError(

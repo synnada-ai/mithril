@@ -15,11 +15,10 @@
 
 import pytest
 
-from mithril.framework import Scalar, Tensor
 from mithril.framework.common import (
     NOT_GIVEN,
     ConnectionType,
-    GenericTensorType,
+    IOHyperEdge,
     IOKey,
     MyTensor,
     ShapeRepr,
@@ -40,14 +39,14 @@ from mithril.models import (
 )
 
 
-def dummy_constraint(output: Tensor | Scalar, input: Tensor | Scalar):
+def dummy_constraint(output: IOHyperEdge, input: IOHyperEdge):
     # Dummy test constraint that is written for test purposes
     # it basically increment shapes by 1
     # updated_symbols = set()
     updates = Updates()
     status = False
-    output_repr = output._temp_shape if isinstance(output, Tensor) else output.value
-    input_repr = input._temp_shape if isinstance(input, Tensor) else input.value
+    output_repr = output._temp_shape if output.edge_type is MyTensor else output.value
+    input_repr = input._temp_shape if input.edge_type is MyTensor else input.value
     assert isinstance(output_repr, ShapeRepr)
     assert isinstance(input_repr, ShapeRepr)
     if bool(input_repr.root) ^ bool(output_repr.root):
@@ -98,8 +97,8 @@ class Model1(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="buffer",
-            input=IOKey(shape=[("Var1", ...)], type=GenericTensorType),
-            output=IOKey(shape=[("Var2", ...)], type=GenericTensorType),
+            input=IOKey(shape=[("Var1", ...)], type=MyTensor),
+            output=IOKey(shape=[("Var2", ...)], type=MyTensor),
         )
         self._set_constraint(fn=dummy_constraint, keys=["output", "input"])
 
@@ -111,8 +110,8 @@ class Model2(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="buffer",
-            input=IOKey(shape=[("Var1", ...)], type=GenericTensorType),
-            output=IOKey(shape=[("Var2", ...)], type=GenericTensorType),
+            input=IOKey(shape=[("Var1", ...)], type=MyTensor),
+            output=IOKey(shape=[("Var2", ...)], type=MyTensor),
         )
         self._set_constraint(fn=dummy_constraint, keys=["output", "input"])
         self._set_constraint(
@@ -127,8 +126,8 @@ class Model3(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="buffer",
-            input=IOKey(shape=[("Var1", ...)], type=MyTensor[int] | MyTensor[bool]),
-            output=IOKey(shape=[("Var2", ...)], type=MyTensor[int] | MyTensor[bool]),
+            input=IOKey(shape=[("Var1", ...)], type=MyTensor[int | bool]),
+            output=IOKey(shape=[("Var2", ...)], type=MyTensor[int | bool]),
         )
         self._set_constraint(fn=dummy_constraint, keys=["output", "input"])
 
@@ -141,9 +140,9 @@ class MyAdd2(PrimitiveModel):
     def __init__(self, left, right, output) -> None:
         super().__init__(
             formula_key="add",
-            output=IOKey(shape=output, type=GenericTensorType),
-            left=IOKey(shape=left, type=GenericTensorType),
-            right=IOKey(shape=right, type=GenericTensorType),
+            output=IOKey(shape=output, type=MyTensor),
+            left=IOKey(shape=left, type=MyTensor),
+            right=IOKey(shape=right, type=MyTensor),
         )
         self._set_constraint(
             fn=bcast, keys=[PrimitiveModel.output_key, "left", "right"]
@@ -162,7 +161,7 @@ class MyAdd2(PrimitiveModel):
 def assert_constr_counts(ref_dict: dict[Connection, list[int]]):
     for connection, result in ref_dict.items():
         call_list = [
-            constr.call_counter for constr in connection.metadata.data.all_constraints
+            constr.call_counter for constr in connection.metadata.all_constraints
         ]
         assert result == sorted(call_list)
 

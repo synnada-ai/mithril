@@ -26,6 +26,7 @@ from mithril.framework.common import (
     Connect,
     Connection,
     IOKey,
+    MyTensor,
     ShapeTemplateType,
     Table,
     UniadicRecord,
@@ -896,7 +897,7 @@ def test_physical_summary_1():
     model += LeakyRelu()
     model += (lin1 := Linear(dimension=3))
     model += (l_relu := LeakyRelu())(slope=NOT_GIVEN)
-    l_relu.set_values({"slope": 1e-1})
+    l_relu.set_values({"slope": MyTensor(1e-1)})
     model += Relu()
     lin1.set_shapes({"input": [3, 5]})
     comp_model = mithril.compile(
@@ -1790,9 +1791,9 @@ def test_traincontext_summary():
         input=model.output,
         target="target",
         reduce_steps=[Mean()],
-        coef=0.1,
+        coef=MyTensor(0.1),
     )
-    ctx.add_regularization(L1(), coef=0.1, input="weight1")
+    ctx.add_regularization(L1(), coef=MyTensor(0.1), input="weight1")
     with redirect_stdout(StringIO()) as summary:
         ctx.summary()
 
@@ -1925,8 +1926,8 @@ def test_traincontext_summary_5():
         reduce_steps=[Sum(axis=1), Max(axis=2), Mean(axis=-1)],
     )
     ctx.add_loss(Add(), left=model.output3, right="right")  # type: ignore
-    ctx.add_regularization(L1(), input=add_1.left, coef=0.1)
-    ctx.add_regularization(L1(), input=add_1.right, coef=0.1)
+    ctx.add_regularization(L1(), input=add_1.left, coef=MyTensor(0.1))
+    ctx.add_regularization(L1(), input=add_1.right, coef=MyTensor(0.1))
     comp_model = mithril.compile(model=ctx, backend=NumpyBackend(), safe_shapes=False)
     with redirect_stdout(StringIO()) as summary:
         comp_model.summary(model=add_1, verbose=True)

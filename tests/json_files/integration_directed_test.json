@@ -269,7 +269,7 @@
             "regularizations": [
                 {
                     "model": "l1",
-                    "coef": 1e-1,
+                    "coef": {"tensor": 1e-1},
                     "input": "weight"
                 }
             ],
@@ -314,7 +314,7 @@
                 "loss": {
                     "fn": "QuantileLoss",
                     "call_kwargs": {
-                        "quantile": 0.5
+                        "quantile": {"tensor": 0.5}
                     }
                 }, 
                 "reduce_steps": ["Mean"], 
@@ -353,7 +353,7 @@
                 "loss": {
                     "fn": "QuantileLoss",
                     "call_kwargs": {
-                        "quantile": 0.9
+                        "quantile":{"tensor": 0.9}
                     }
                 }, 
                 "reduce_steps": ["Mean"], 
@@ -393,7 +393,7 @@
                 "loss": {
                     "fn": "QuantileLoss",
                     "call_kwargs": {
-                        "quantile": 0.9
+                        "quantile": {"tensor": 0.9}
                     }
                 }, 
                 "reduce_steps": ["Mean"], 
@@ -432,7 +432,7 @@
                 "loss": {
                     "fn": "QuantileLoss",
                     "call_kwargs": {
-                        "quantile": 1e-15
+                        "quantile": {"tensor": 1e-15} 
                     }
                 }, 
                 "reduce_steps": ["Mean"], 
@@ -471,7 +471,7 @@
                 "loss": {
                     "fn": "QuantileLoss",
                     "call_kwargs": {
-                        "quantile": 0.2
+                        "quantile": {"tensor": 0.2} 
                     }
                 }, 
                 "reduce_steps": ["Mean"], 
@@ -510,7 +510,7 @@
                 "loss": {
                     "fn": "QuantileLoss",
                     "call_kwargs": {
-                        "quantile": 0.99999999999
+                        "quantile": {"tensor": 0.99999999999}  
                     }
                 }, 
                 "reduce_steps": ["Mean"], 
@@ -547,7 +547,7 @@
         "regularizations": [
             {
                 "model": "l1",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "weight"
             }
         ],
@@ -556,7 +556,7 @@
                 "loss": {
                     "fn": "QuantileLoss",
                     "call_kwargs": {
-                        "quantile": 0.99999999999
+                        "quantile": {"tensor": 0.99999999999} 
                     }
                 }, 
                 "reduce_steps": ["Mean"], 
@@ -593,7 +593,7 @@
         "regularizations": [
             {
                 "model": "l2",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "weight"
             }
         ],
@@ -602,7 +602,7 @@
                 "loss": {
                     "fn": "QuantileLoss",
                     "call_kwargs": {
-                        "quantile": 0.99999999999
+                        "quantile": {"tensor": 0.99999999999}
                     }
                 }, 
                 "reduce_steps": ["Mean"], 
@@ -903,7 +903,7 @@
         "regularizations": [
             {
                 "model": "l1",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "weight"
             }
         ],
@@ -944,7 +944,7 @@
         "regularizations": [
             {
                 "model": "l2",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "weight"
             }
         ],
@@ -1152,7 +1152,7 @@
         "regularizations": [
             {
                 "model": "l2",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "weight"
             }
         ],
@@ -1191,7 +1191,7 @@
         "regularizations": [
             {
                 "model": "l2",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "weight"
             }
         ],
@@ -1230,7 +1230,7 @@
         "regularizations": [
             {
                 "model": "l2",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "weight"
             }
         ],
@@ -1269,7 +1269,7 @@
         "regularizations": [
             {
                 "model": "l2",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "weight"
             }
         ],
@@ -1527,12 +1527,12 @@
         "regularizations": [
             {
                 "model": "l1",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "weight0"
             },
             {
                 "model": "l1",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "weight1"
             }
         ],
@@ -1582,7 +1582,7 @@
         "regularizations": [
             {
                 "model": "l2",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "weight\\d",
                 "regex": true
             }
@@ -1794,7 +1794,7 @@
         "regularizations": [
             {
                 "model": "l2",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "weight"
             }
         ],
@@ -1832,12 +1832,12 @@
         "regularizations": [
             {
                 "model": "l2",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "weight"
             },
             {
                 "model": "l1",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "weight"
             }
         ],
@@ -1904,12 +1904,12 @@
         "regularizations": [
             {
                 "model": "l2",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "weight"
             },            
             {
                 "model": "l2",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "bias"
             }
         ],
@@ -2125,7 +2125,7 @@
         "regularizations": [
             {
                 "model": "l1",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "weight"
             }
         ],
@@ -2167,7 +2167,7 @@
         "regularizations": [
             {
                 "model": "l2",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "weight"
             }
         ],
@@ -2277,12 +2277,12 @@
         "regularizations": [
             {
                 "model": "l2",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "weight"
             },
             {
                 "model": "l2",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "bias"
             }
         ],
@@ -2341,7 +2341,7 @@
         "regularizations": [
             {
                 "model": "quadraticformregularizer",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "weight",
                 "kernel": "kernel"
             }
@@ -2425,7 +2425,7 @@
         "regularizations": [
             {
                 "model": "quadraticformregularizer",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "weight",
                 "kernel": "kernel"
             }
@@ -2471,7 +2471,7 @@
         "regularizations": [
             {
                 "model": "quadraticformregularizer",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "weight",
                 "kernel": "kernel"
             }
@@ -2543,7 +2543,7 @@
         "regularizations": [
             {
                 "model": "l2",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "weight"
             }
         ], 
@@ -3314,7 +3314,7 @@
         "regularizations": [
             {
                 "model": "l2",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "w\\d", 
                 "regex": true
             }
@@ -3524,7 +3524,7 @@
         "regularizations": [
             {
                 "model": "l1",
-                "coef": 2e-1,
+                "coef": {"tensor": 2e-1},
                 "input": "w2"
             }
         ],
@@ -3631,12 +3631,12 @@
         "regularizations": [
             {
                 "model": "l2",
-                "coef": 2e-1,
+                "coef": {"tensor": 2e-1},
                 "input": "w2"
             },
             {
                 "model": "l1",
-                "coef": 2e-1,
+                "coef": {"tensor": 2e-1},
                 "input": "w2"
             }
         ],
@@ -3743,12 +3743,12 @@
         "regularizations": [
             {
                 "model": "l1",
-                "coef": 2e-1,
+                "coef": {"tensor": 2e-1},
                 "input": "w2"
             },
             {
                 "model": "l1",
-                "coef": 2e-1,
+                "coef": {"tensor": 2e-1},
                 "input": "w1"
             }
         ],
@@ -3855,12 +3855,12 @@
         "regularizations": [
             {
                 "model": "l1",
-                "coef": 2e-1,
+                "coef": {"tensor": 2e-1},
                 "input": "w1"
             },
             {
                 "model": "l1",
-                "coef": 2e-1,
+                "coef": {"tensor": 2e-1},
                 "input": "w2"
             }
         ],
@@ -4059,7 +4059,7 @@
         "regularizations": [
             {
                 "model": "l1",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "w1"
             }
         ],
@@ -4166,7 +4166,7 @@
         "regularizations": [
             {
                 "model": "l1",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "w0"
             }
         ],
@@ -4273,12 +4273,12 @@
         "regularizations": [
             {
                 "model": "l1",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "w0"
             },        
             {
                 "model": "l1",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "w1"
             }
         ],
@@ -4362,7 +4362,7 @@
         "regularizations": [
             {
                 "model": "l2",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "w\\d", 
                 "regex": true
             }

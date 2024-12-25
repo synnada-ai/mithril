@@ -14,7 +14,7 @@
 
 import pytest
 
-from mithril.models import Add, Linear, Model, ScalarItem
+from mithril.models import Add, Linear, Model, MyTensor, ScalarItem
 
 
 def test_freeze_set_values_primitive():
@@ -50,7 +50,7 @@ def test_freeze_set_values_extend_logical():
     model += Add()(left="left", right="right")
     assert model.is_frozen is False
 
-    model.set_values({"left": 1.0})
+    model.set_values({"left": MyTensor(1.0)})
     model._freeze()
     assert model.is_frozen is True
 
@@ -72,4 +72,4 @@ def test_freeze_set_values_scalar():
     model.set_values({"input": [1.0]})
     assert model.is_frozen is True
 
-    assert model.input.data.metadata.data.value == [1.0]  # type: ignore
+    assert model.input.metadata.value == [1.0]  # type: ignore

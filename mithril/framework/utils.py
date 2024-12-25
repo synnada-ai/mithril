@@ -56,7 +56,7 @@ def define_unique_names(models):
     return model_name_dict
 
 
-def list_shape(ndarray: list[float | int] | float | int) -> list[int]:
+def list_shape(ndarray: list | tuple | float | int) -> list[int]:
     if isinstance(ndarray, list | tuple):
         # More dimensions, so make a recursive call
         outermost_size = len(ndarray)

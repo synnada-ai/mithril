@@ -16,7 +16,7 @@ import re
 
 import mithril
 from mithril import JaxBackend, TorchBackend
-from mithril.framework.common import TBD, GenericTensorType, IOKey
+from mithril.framework.common import TBD, IOKey, MyTensor
 from mithril.framework.constraints import squeeze_constraints
 from mithril.models import (
     L2,
@@ -164,7 +164,7 @@ def test_linear_not_expose():
 
 def test_constant_key():
     model = Model()
-    model += Add()(left="input", right=3, output=IOKey(name="output"))
+    model += Add()(left="input", right=MyTensor(3), output=IOKey(name="output"))
     model2 = Model()
     model2 += model(input="input")
 
@@ -566,7 +566,7 @@ def test_composite_11():
     model.add_loss(
         SquaredError(),
         input=mlp_model.canonical_output,
-        target=[[2.2, 4.2], [2.2, 4.2]],
+        target=MyTensor([[2.2, 4.2], [2.2, 4.2]]),
         reduce_steps=[Mean()],
     )
 
@@ -780,7 +780,9 @@ def test_train_context_2():
     context.add_loss(
         CrossEntropy(), [Mean()], target="target", input=model.canonical_output
     )
-    context.add_regularization(model=L2(), coef=1e-1, input=re.compile("weight\\d"))
+    context.add_regularization(
+        model=L2(), coef=MyTensor(1e-1), input=re.compile("weight\\d")
+    )
     context_dict = dict_conversions.model_to_dict(context)
     context_recreated = dict_conversions.dict_to_model(context_dict)
     context_dict_recreated = dict_conversions.model_to_dict(context_recreated)
@@ -810,7 +812,7 @@ def test_set_values_constant_1():
     )
     model += Linear(1)(
         weight="weight1",
-        bias=IOKey(value=[123], name="bias1"),
+        bias=IOKey(value=MyTensor([123]), name="bias1"),
         input="input2",
         output=IOKey(name="output2"),
     )
@@ -848,7 +850,7 @@ def test_set_values_constant_2():
         input="input2",
         output=IOKey(name="output2"),
     )
-    model.set_values({"bias1": [123]})
+    model.set_values({"bias1": MyTensor([123])})
 
     model_dict_created = dict_conversions.model_to_dict(model)
     model_recreated = dict_conversions.dict_to_model(model_dict_created)
@@ -921,8 +923,8 @@ def test_make_shape_constraint():
             threshold *= 2
             super().__init__(
                 formula_key="my_adder",
-                output=IOKey(shape=[("Var_out", ...)], type=GenericTensorType),
-                input=IOKey(shape=[("Var_1", ...)], type=GenericTensorType),
+                output=IOKey(shape=[("Var_out", ...)], type=MyTensor),
+                input=IOKey(shape=[("Var_1", ...)], type=MyTensor),
                 rhs=IOKey(type=int, value=threshold),
             )
             self.set_constraint(

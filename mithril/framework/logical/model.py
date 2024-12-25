@@ -34,11 +34,10 @@ from ..common import (
     KeyType,
     MainValueInstance,
     MainValueType,
+    MyTensor,
     NestedListType,
     NullConnection,
-    Scalar,
     ShapeTemplateType,
-    Tensor,
     ToBeDetermined,
     UniadicRecord,
     Updates,
@@ -136,21 +135,11 @@ ops_table: dict[str, type[PrimitiveModel]] = {
 }
 
 
-coercion_table: dict[tuple[str, type[Tensor] | type[Scalar]], type[PrimitiveModel]] = {
-    ("item", Tensor): TensorItem,
-    ("item", Scalar): ScalarItem,
-    ("slice", Tensor): TensorSlice,
-    ("slice", Scalar): PrimitiveSlice,
-}
-
-type_conversion_map: dict[
-    tuple[type[Tensor] | type[Scalar], type[Tensor] | type[Scalar]],
-    type[ToTensor] | type[TensorToList] | None,
-] = {
-    (Scalar, Tensor): ToTensor,
-    (Tensor, Scalar): TensorToList,
-    (Tensor, Tensor): None,
-    (Scalar, Scalar): None,
+coercion_table: dict[tuple[str, type[MyTensor] | None], type[PrimitiveModel]] = {
+    ("item", MyTensor): TensorItem,
+    ("item", None): ScalarItem,
+    ("slice", MyTensor): TensorSlice,
+    ("slice", None): PrimitiveSlice,
 }
 
 
@@ -223,14 +212,16 @@ class Model(BaseModel):
 
             else:  # Named connections.
                 # Create new output connection with given key name.
+                # TODO: Update here to use directly set_name method of Connections class
+                # after it is implemented.
+                # data: Tensor | Scalar = (
+                #     Scalar(metadata.data._type)
+                #     if isinstance(metadata.data, Scalar)
+                #     else Tensor(metadata.data.shape, metadata.data._type)
+                # )
+                edge = IOHyperEdge(metadata.edge_type)
 
-                data: Tensor | Scalar = (
-                    Scalar(metadata.data._type)
-                    if isinstance(metadata.data, Scalar)
-                    else Tensor(metadata.data.shape, metadata.data._type)
-                )
-
-                new_conn = self.create_connection(IOHyperEdge(data), new_name)
+                new_conn = self.create_connection(edge, new_name)
 
                 # Set connection as output and update dependency map.
                 self.conns.set_connection_type(new_conn, KeyType.OUTPUT)
@@ -270,8 +261,8 @@ class Model(BaseModel):
                     "Given connections are both output connections. Multi-write error!"
                 )
 
-        local_val = local_connection.metadata.data.value
-        global_val = connection.metadata.data.value
+        local_val = local_connection.metadata.value
+        global_val = connection.metadata.value
 
         if conn_is_output and not local_input:
             # Check if 2 connections are both output of any models.
@@ -310,16 +301,18 @@ class Model(BaseModel):
         assert local_connection is not None, "Connection is not found!"
         # Flags for use in required operations.
         create_connection = None
-        set_value: ToBeDetermined | str | MainValueType | NullConnection = NOT_GIVEN
+        set_value: ToBeDetermined | str | MainValueType | MyTensor | NullConnection = (
+            NOT_GIVEN
+        )
         match_connection = None
         d_map = self.dependency_map._local_output_dependency_map
 
         if isinstance(
-            given_connection, MainValueInstance | NullConnection
+            given_connection, MyTensor | MainValueInstance | NullConnection
         ):  # or given_connection == NOT_GIVEN:
             # Immediate values can be provided only for inputs.
             # if given_connection != NOT_GIVEN:
-            if isinstance(given_connection, MainValueInstance):
+            if isinstance(given_connection, MainValueInstance | MyTensor):
                 set_value = given_connection
 
             if expose is None:
@@ -457,7 +450,7 @@ class Model(BaseModel):
 
         # If connection already has a value set expose to False.
         if (
-            local_connection.metadata.data.value is not TBD
+            local_connection.metadata.value is not TBD
             and con_obj not in self.conns.input_connections
             and not isinstance(given_connection, IOKey)
             and not isinstance(given_connection, Connect)
@@ -466,7 +459,7 @@ class Model(BaseModel):
         # If any value provided, set.
         assert con_obj is not None
         if not isinstance(set_value, NullConnection):
-            updates |= con_obj.metadata.data.set_value(set_value)  # type: ignore
+            updates |= con_obj.metadata.set_value(set_value)  # type: ignore
 
         # Check multi-write error for con_obj.
         self._check_multi_write(is_input, local_connection, con_obj)
@@ -514,7 +507,7 @@ class Model(BaseModel):
         return con_obj, updates
 
     def _unroll_template(
-        self, template: ExtendTemplate, joint_type: type[Tensor] | type[Scalar]
+        self, template: ExtendTemplate, joint_type: type[MyTensor] | None
     ) -> ConnectionData:
         if template.output_connection is None:
             # Initialize all default init arguments of model as "..." other
@@ -550,7 +543,9 @@ class Model(BaseModel):
                 if isinstance(connection, ExtendTemplate):
                     conn = model.conns.get_connection(list(model._input_keys)[idx])
                     assert conn is not None
-                    conn_type = conn.metadata.data.__class__
+                    conn_type = (
+                        MyTensor if conn.metadata.edge_type is MyTensor else None
+                    )
                     connections.append(
                         self._unroll_template(connection, conn_type).conn
                     )
@@ -761,7 +756,8 @@ class Model(BaseModel):
                 template_conn = model.conns.get_connection(key)
                 assert template_conn is not None, "Connection type is not found!"
                 kwargs[key] = self._unroll_template(
-                    value, type(template_conn.metadata.data)
+                    value,
+                    MyTensor if template_conn.metadata.edge_type is MyTensor else None,
                 )
 
             elif isinstance(value, IOKey):
@@ -817,8 +813,8 @@ class Model(BaseModel):
             )
             updates |= _updates
             submodel_dag[local_key] = con_obj
-            if isinstance(con_obj.metadata.data, Tensor):
-                updates.shape_updates.add(con_obj.metadata.data)
+            if con_obj.metadata.edge_type is MyTensor:
+                updates.shape_updates.add(con_obj.metadata)
 
         # Replace shape info keys, which are local keys, with global equivalents.
         shape_info = {
@@ -1224,8 +1220,8 @@ class Model(BaseModel):
     def extract_connection_info(
         self,
         name_mappings: dict[BaseModel, str],
-        data_to_key_map: dict[Tensor | Scalar, list[str]] | None = None,
-        data_memo: Mapping[int, Tensor | Scalar] | None = None,
+        data_to_key_map: dict[IOHyperEdge, list[str]] | None = None,
+        data_memo: Mapping[int, IOHyperEdge] | None = None,
     ):
         conn_info: dict[str, tuple[dict[str, list[str]], dict[str, list[str]]]] = {}
         if self._input_keys:
@@ -1250,7 +1246,7 @@ class Model(BaseModel):
             key_mappings = self._generate_keys(
                 include_internals=False, include_outputs=True
             )
-            data_map = {key: conn.metadata.data for key, conn in self.conns.all.items()}
+            data_map = {key: conn.metadata for key, conn in self.conns.all.items()}
 
             # Sort in topological order
             sorted_models = self.get_models_in_topological_order()
@@ -1267,7 +1263,7 @@ class Model(BaseModel):
                     include_internals=False, include_outputs=True
                 )
                 m_data_map = {
-                    key: conn.metadata.data for key, conn in model.conns.all.items()
+                    key: conn.metadata for key, conn in model.conns.all.items()
                 }
                 for inner_key in input_keys + tuple(model.conns.output_keys):
                     # Find the data of the key, if data memo is given, extract its

@@ -16,7 +16,7 @@ import pytest
 
 from mithril import IOKey, TorchBackend
 from mithril import compile as ml_compile
-from mithril.models import Linear, Model, Multiply
+from mithril.models import Linear, Model, Multiply, MyTensor
 
 # Tests in this file checks if the keys provided to compile are valid.
 
@@ -130,7 +130,7 @@ def test_reset_static_data():
     Tests for constant_keys and data_keys.
     """
     model = Model()
-    model += Linear(1, True)(input=IOKey(name="input", value=[[2.0]]))
+    model += Linear(1, True)(input=IOKey(name="input", value=MyTensor([[2.0]])))
 
     backend = TorchBackend()
     kwargs: dict
@@ -152,7 +152,7 @@ def test_reset_static_data_2():
     Tests for constant_keys and data_keys for connection type keys.
     """
     model = Model()
-    model += Linear(1, True)(input=IOKey(name="input", value=[[2.0]]))
+    model += Linear(1, True)(input=IOKey(name="input", value=MyTensor([[2.0]])))
 
     backend = TorchBackend()
     kwargs: dict

@@ -20,7 +20,7 @@ from mithril.models import Add, Buffer, Linear, Model, Multiply
 
 def test_data_linear():
     model = Linear()
-    assert model.input.data.metadata.data.is_non_diff
+    assert model.input.metadata.is_non_diff
 
 
 def test_data_linear_compile():
@@ -35,7 +35,7 @@ def test_convert_input_data_to_trainable():
     model = Model()
     model += Linear()(input="input")
     model += Linear()(weight=model.input)  # type: ignore
-    assert model.input.data.metadata.data._differentiable  # type: ignore
+    assert model.input.metadata._differentiable  # type: ignore
 
 
 def test_convert_input_data_to_trainable_compile():
@@ -55,47 +55,47 @@ def test_convert_internal_data_to_trainable():
     model = Model()
     model += Linear()(input="internal_key")
     model += Linear()(input="input", output=model.internal_key)  # type: ignore
-    assert model.internal_key.data.metadata.data._differentiable  # type: ignore
+    assert model.internal_key.metadata._differentiable  # type: ignore
 
 
 def test_set_values_data_and_param():
     model = Multiply()
     model.left.set_differentiable(False)
-    assert model.left.data.metadata.data.is_non_diff
+    assert model.left.metadata.is_non_diff
     model.left.set_differentiable(True)
-    assert not model.left.data.metadata.data.is_non_diff
+    assert not model.left.metadata.is_non_diff
     model.left.set_differentiable(False)
-    assert model.left.data.metadata.data.is_non_diff
+    assert model.left.metadata.is_non_diff
 
 
 def test_match_tensor_with_value_data_and_param():
     model1 = Multiply()
     model1.left.set_differentiable(False)
-    assert model1.left.data.metadata.data.is_non_diff
+    assert model1.left.metadata.is_non_diff
 
     model2 = Multiply()
     model2.left.set_differentiable(True)
-    assert not model2.left.data.metadata.data.is_non_diff
+    assert not model2.left.metadata.is_non_diff
 
     model = Model()
     model += model1(left="my_input")
     model += model2(left="my_input")
-    assert model.my_input.data.metadata.data._differentiable  # type: ignore
+    assert model.my_input.metadata._differentiable  # type: ignore
 
 
 def test_match_tensor_with_value_data_and_param_rev():
     model2 = Multiply()
     model2.left.set_differentiable(True)
-    assert not model2.left.data.metadata.data.is_non_diff
+    assert not model2.left.metadata.is_non_diff
 
     model1 = Multiply()
     model1.left.set_differentiable(False)
-    assert model1.left.data.metadata.data.is_non_diff
+    assert model1.left.metadata.is_non_diff
 
     model = Model()
     model += model1(left="my_input")
     model += model2(left="my_input")
-    assert not model.my_input.data.metadata.data.is_non_diff  # type: ignore
+    assert not model.my_input.metadata.is_non_diff  # type: ignore
 
 
 def test_non_trainability_flow_in_compile():

@@ -21,9 +21,8 @@ from ...core import DataType, GenericDataType
 from ..common import (
     TBD,
     AllValueType,
+    IOHyperEdge,
     MainValueType,
-    Scalar,
-    Tensor,
     ToBeDetermined,
     ValueType,
 )
@@ -322,7 +321,7 @@ class FlatGraph(GenericDataType[DataType]):
 
     def prune_duplicate_nodes(
         self,
-        data: dict[str, Tensor | Scalar],
+        data: dict[str, IOHyperEdge],
         constant_keys: Mapping[str, DataType | MainValueType],
     ) -> dict[str, str]:
         pruned_keys: dict[str, str] = {}
@@ -340,7 +339,7 @@ class FlatGraph(GenericDataType[DataType]):
     def _is_duplicate(
         self,
         node: Node,
-        data: dict[str, Tensor | Scalar],
+        data: dict[str, IOHyperEdge],
         constant_keys: Mapping[str, DataType | MainValueType],
     ):
         if node.model is None:

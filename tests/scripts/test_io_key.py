@@ -20,7 +20,7 @@ import torch
 
 import mithril
 from mithril import TorchBackend
-from mithril.framework.common import TBD, IOKey, Tensor
+from mithril.framework.common import TBD, IOKey, MyTensor
 from mithril.models import (
     Add,
     Buffer,
@@ -43,7 +43,7 @@ from .test_utils import (
 
 def assert_conns_values_equal(ref_conn_dict: dict):
     for conn, value in ref_conn_dict.items():
-        assert conn.metadata.data.value == value
+        assert conn.metadata.value == value
 
 
 def assert_model_keys(
@@ -170,7 +170,9 @@ def test_3():
 def test_4():
     """Tests the case where the IOKey is defined with name and value."""
     model = Model()
-    model += Linear(1)(bias=IOKey(name="bias_2", value=[1.0]), weight="weight_2")
+    model += Linear(1)(
+        bias=IOKey(name="bias_2", value=MyTensor([1.0])), weight="weight_2"
+    )
     model += Linear(1)(input=model.canonical_output, bias="bias_3", output="output1")
 
     expected_input_keys = {"$4", "bias_3", "bias_2", "weight_2", "$2"}
@@ -516,7 +518,7 @@ def test_iokey_values_4():
     model += mean_model1(axis=IOKey(name="myaxis1", value=2, expose=False))
     main_model += model
     assert len(main_model.conns.input_connections) == 1
-    assert model.myaxis1.metadata.data.value == 2  # type: ignore
+    assert model.myaxis1.metadata.value == 2  # type: ignore
 
 
 def test_iokey_values_5():
@@ -619,11 +621,12 @@ def test_iokey_values_10():
     model = Model()
     sig_model_1 = Sigmoid()
     sig_model_2 = Sigmoid()
-    sig_model_1.input.data.metadata.data._type = float
+    sig_model_1.input.data.metadata.set_type(MyTensor[float])
     model += sig_model_1(input="input", output=IOKey(name="output"))
 
     model += sig_model_2(
-        input=IOKey(value=[1.0, 2.0], name="input"), output=IOKey(name="output2")
+        input=IOKey(value=MyTensor([1.0, 2.0]), name="input"),
+        output=IOKey(name="output2"),
     )
     backend = mithril.TorchBackend()
     pm = mithril.compile(model, backend, inference=True)
@@ -646,10 +649,10 @@ def test_iokey_values_11():
     model += sig_model_1(input="input", output=IOKey(name="output"))
 
     model += sig_model_2(
-        input=IOKey(type=float, name="input"), output=IOKey(name="output2")
+        input=IOKey(type=MyTensor[float], name="input"), output=IOKey(name="output2")
     )
 
-    assert sig_model_1.input.data.metadata.data._type is float
+    assert sig_model_1.input.data.metadata.value_type is float
 
 
 def test_iokey_values_12():
@@ -662,9 +665,9 @@ def test_iokey_values_12():
     model += sig_model_2(
         input=IOKey(shape=[1, 2, 3, 4], name="input"), output=IOKey(name="output2")
     )
-    assert isinstance(sig_model_1.input.data.metadata.data, Tensor)
-    assert sig_model_1.input.data.metadata.data.shape is not None
-    assert sig_model_1.input.data.metadata.data.shape.get_shapes() == [1, 2, 3, 4]
+    assert sig_model_1.input.data.metadata.edge_type is MyTensor
+    assert sig_model_1.input.data.metadata.shape is not None
+    assert sig_model_1.input.data.metadata.shape.get_shapes() == [1, 2, 3, 4]
 
 
 def test_iokey_name_not_given_output_error():
@@ -700,7 +703,7 @@ def test_iokey_tensor_input_all_args():
     backend = TorchBackend()
     # collect all possible values
     possible_names = ["left", None]
-    possible_values = [[[2.0]], TBD]
+    possible_values = [MyTensor([[2.0]]), TBD]
     possible_shapes = [[1, 1], None]
     possible_expose = [True, False]
 

@@ -14,7 +14,7 @@
 
 
 from mithril import Backend, Constant, compile, epsilon_table
-from mithril.models import BaseModel, Model, Scalar, Tensor
+from mithril.models import BaseModel, IOHyperEdge, Model, MyTensor
 from mithril.models.primitives import PrimitiveModel
 from mithril.models.train_model import TrainModel
 from mithril.utils.dict_conversions import dict_to_model, model_to_dict
@@ -57,7 +57,7 @@ def evaluate_case(
     model = finalize_model(current_case)
     # Convert static keys to array if they are not scalar.
     for key, value in static_keys.items():
-        if isinstance(model.conns._get_metadata(key).data, Scalar):
+        if model.conns._get_metadata(key).edge_type is not MyTensor:
             static_keys[key] = value
         else:
             static_keys[key] = convert_to_array(backend, value)
@@ -87,12 +87,12 @@ def evaluate_case(
         for data in all_data:
             copied_data = compiled_model.data_store.data_memo.get(id(data))
             if copied_data and copied_data not in unused_data:
-                assert isinstance(copied_data, Tensor | Scalar)
+                assert isinstance(copied_data, IOHyperEdge)
                 if isinstance((data_value := data.value), Constant):
                     data_value = epsilon_table[backend.precision][data_value]
                 assert data_value == copied_data.value
 
-                if isinstance(data, Tensor):
+                if data.edge_type is MyTensor:
                     assert id(data.value) == id(copied_data.value)
 
         # Evaluate model.
@@ -238,7 +238,7 @@ def assert_models_equal(model1: BaseModel, model2: BaseModel):
                 strict=False,
             ):
                 assert conn1[0] == conn2[0]
-                if isinstance(conn1[1], Tensor):
+                if conn1[1].metadata._type is MyTensor:
                     assert conn1[1].metadata.shape is not None
                     assert conn2[1].metadata.shape is not None
                     assert (

@@ -35,8 +35,9 @@ from mithril.framework.common import (
     TBD,
     ConnectionData,
     ConnectionType,
-    GenericTensorType,
+    IOHyperEdge,
     IOKey,
+    MyTensor,
     NotAvailable,
     OrderedSet,
     ToBeDetermined,
@@ -89,7 +90,6 @@ from mithril.models import (
     Prod,
     Relu,
     Reshape,
-    Scalar,
     ScaledDotProduct,
     ShapeRepr,
     Sigmoid,
@@ -103,7 +103,6 @@ from mithril.models import (
     Subtract,
     Sum,
     Tanh,
-    Tensor,
     ToTensor,
     TrainModel,
     Where,
@@ -140,7 +139,9 @@ def test_composite_1_extend_from_inputs():
     context.add_loss(
         CrossEntropy(input_type="probs"), [Mean()], target="target", input="output"
     )
-    context.add_regularization(model=L2(), coef=1e-1, input=re.compile(r"weight\d"))
+    context.add_regularization(
+        model=L2(), coef=MyTensor(1e-1), input=re.compile(r"weight\d")
+    )
 
     static_keys = {"input": np.array([[1.0]]), "target": np.array([0])}
 
@@ -176,7 +177,9 @@ def test_composite_1_extend_from_inputs():
     context.add_loss(
         CrossEntropy(input_type="probs"), [Mean()], target="target", input="output"
     )
-    context.add_regularization(model=L2(), coef=1e-1, input=re.compile(r"weight\d"))
+    context.add_regularization(
+        model=L2(), coef=MyTensor(1e-1), input=re.compile(r"weight\d")
+    )
 
     static_keys = {"input": np.array([[1.0]]), "target": np.array([0])}
 
@@ -288,7 +291,7 @@ def test_different_backend_compile():
 
         model += layer1(input="input", weight="weight0", bias="bias0")
         model += layer2(input=layer1.output, weight="weight1", bias="bias1")
-        model += sum(left=3.0, right=layer2.output, output="output")
+        model += sum(left=MyTensor(3.0), right=layer2.output, output="output")
 
         other_backends = [item for item in available_backends if item != backend]
         for static_key_backend in other_backends:
@@ -1001,7 +1004,9 @@ def test_compile_gradients_boolean():
     context.add_loss(
         CrossEntropy(input_type="probs"), [Mean()], target="target", input="output"
     )
-    context.add_regularization(model=L2(), coef=1e-1, input=re.compile(r"weight\d"))
+    context.add_regularization(
+        model=L2(), coef=MyTensor(1e-1), input=re.compile(r"weight\d")
+    )
 
     static_keys = {"input": np.array([[1.0]]), "target": np.array([0])}
 
@@ -1049,7 +1054,7 @@ def test_convolution_shape():
 
     model = Model()
     model += conv1
-    model += add1(right=1, left=model.canonical_output)
+    model += add1(right=MyTensor(1), left=model.canonical_output)
     model += conv2
     model += conv3
 
@@ -1193,9 +1198,9 @@ def test_reuse_pickled_registered_backend():
         def __init__(self) -> None:
             super().__init__(
                 formula_key="my_adder",
-                output=IOKey(shape=[("Var_out", ...)], type=GenericTensorType),
-                left=IOKey(shape=[("Var_1", ...)], type=GenericTensorType),
-                right=IOKey(shape=[("Var_2", ...)], type=GenericTensorType),
+                output=IOKey(shape=[("Var_out", ...)], type=MyTensor),
+                left=IOKey(shape=[("Var_1", ...)], type=MyTensor),
+                right=IOKey(shape=[("Var_2", ...)], type=MyTensor),
             )
             self.set_constraint(
                 fn=bcast, keys=[PrimitiveModel.output_key, "left", "right"]
@@ -1261,7 +1266,9 @@ def test_logical_model_compile_twice():
     context.add_loss(
         CrossEntropy(input_type="probs"), [Mean()], target="target", input="output"
     )
-    context.add_regularization(model=L2(), coef=1e-1, input=re.compile(r"weight\d"))
+    context.add_regularization(
+        model=L2(), coef=MyTensor(1e-1), input=re.compile(r"weight\d")
+    )
 
     static_keys_np = {"input": np.array([[1.0]]), "target": np.array([0])}
 
@@ -1304,7 +1311,9 @@ def test_canonical_output_compile():
     context.add_loss(
         CrossEntropy(input_type="probs"), [Mean()], target="target", input="output"
     )
-    context.add_regularization(model=L2(), coef=1e-1, input=re.compile(r"weight\d"))
+    context.add_regularization(
+        model=L2(), coef=MyTensor(1e-1), input=re.compile(r"weight\d")
+    )
 
     static_keys = {"input": np.array([[1.0]]), "target": np.array([0])}
 
@@ -1317,7 +1326,7 @@ def test_canonical_output_compile():
 
 def test_static_key_names_consistency():
     model = Model()
-    model += Add()(left=3)
+    model += Add()(left=MyTensor(3))
 
     pm = mithril.compile(model, TorchBackend())
     assert {"left", "right"} == pm._input_keys
@@ -1372,7 +1381,12 @@ def test_evaluate_replace_2():
 def test_check_static_1():
     model = Model()
     lin1 = Linear(dimension=1)
-    model += lin1(input=[[2, 3], [1, 4]], weight=[[4, 5]], bias=[3], output="output")
+    model += lin1(
+        input=MyTensor([[2, 3], [1, 4]]),
+        weight=MyTensor([[4, 5]]),
+        bias=MyTensor([3]),
+        output="output",
+    )
 
     comp_model = compile(
         model=model,
@@ -1391,7 +1405,9 @@ def test_check_static_1():
 def test_check_static_2():
     model = Model()
     lin1 = Linear(dimension=1)
-    model += lin1(input=[[2, 3], [1, 4]], weight="weight", bias="bias", output="output")
+    model += lin1(
+        input=MyTensor([[2, 3], [1, 4]]), weight="weight", bias="bias", output="output"
+    )
 
     comp_model = compile(model=model, backend=NumpyBackend(precision=32))
     inputs = {"weight": np.array([[4.0, 5.0]]), "bias": np.array([3.0])}
@@ -1404,7 +1420,12 @@ def test_check_static_2():
 def test_check_static_3():
     model = Model()
     lin1 = Linear(dimension=1)
-    model += lin1(input=[[2, 3], [1, 4]], weight=[[4, 5]], bias="bias", output="output")
+    model += lin1(
+        input=MyTensor([[2, 3], [1, 4]]),
+        weight=MyTensor([[4, 5]]),
+        bias="bias",
+        output="output",
+    )
 
     comp_model = compile(model=model, backend=NumpyBackend(precision=32))
     inputs = {"bias": np.array([3.0])}
@@ -1460,7 +1481,9 @@ def test_check_static_5():
 def test_check_static_6():
     model: Model = Model()
     lin1 = Linear(dimension=1)
-    model += lin1(input=[[2, 3], [1, 4]], weight="weight", bias="bias", output="output")
+    model += lin1(
+        input=MyTensor([[2, 3], [1, 4]]), weight="weight", bias="bias", output="output"
+    )
 
     # mypy fails in below compilation as
     # it cannot infer exact type of
@@ -1810,7 +1833,9 @@ def test_arange_primitive():
             layer2 = Layer(dimension=2, activation=Softmax())
             model += layer2(input="input", weight="weight1", bias="bias1")
             model += Arange()(stop=arange_len, output=IOKey(name="arange_res"))
-            model += Add()(left=3, right=layer2.output, output=IOKey(name="output"))
+            model += Add()(
+                left=MyTensor(3), right=layer2.output, output=IOKey(name="output")
+            )
 
             context = TrainModel(model)
             context.add_loss(
@@ -1853,8 +1878,12 @@ def test_to_tensor_primitive():
             model += layer2(input="input", weight="weight1", bias="bias1")
             model += s(input="input")
             model += t(input=s.output)
-            model += Power()(base=t.output, exponent=2, output=IOKey(name="power_out"))
-            model += Add()(left=3, right=layer2.output, output=IOKey(name="output"))
+            model += Power()(
+                base=t.output, exponent=MyTensor(2), output=IOKey(name="power_out")
+            )
+            model += Add()(
+                left=MyTensor(3), right=layer2.output, output=IOKey(name="output")
+            )
 
             context = TrainModel(model)
             context.add_loss(
@@ -1946,7 +1975,7 @@ def test_geo_mean_1():
 
     context = TrainModel(model)
     context.add_loss(Buffer(), input=model.canonical_output)
-    context.add_regularization(L1(), 0.1, input="weight2")
+    context.add_regularization(L1(), MyTensor(0.1), input="weight2")
 
     pm = mithril.compile(context, backend, jit=False)
     params = {
@@ -2025,9 +2054,9 @@ def test_reduce_overlap_shapes():
 
     model.set_shapes({"input": [5, 4, 3]})
     ctx = TrainModel(model)
-    ctx.add_regularization(L1(), input="weight1", coef=1e-1)
-    ctx.add_regularization(L1(), input="weight2", coef=1e-1)
-    ctx.add_regularization(L1(), input="weight3", coef=1e-1)
+    ctx.add_regularization(L1(), input="weight1", coef=MyTensor(1e-1))
+    ctx.add_regularization(L1(), input="weight2", coef=MyTensor(1e-1))
+    ctx.add_regularization(L1(), input="weight3", coef=MyTensor(1e-1))
     ctx.add_loss(
         Buffer(), input="output1", reduce_steps=[Sum(axis=0), Mean(axis=0), Sum(axis=0)]
     )
@@ -2053,9 +2082,9 @@ def test_reduce_overlap_shapes():
     )
 
     ctx_1 = TrainModel(model_1)
-    ctx_1.add_regularization(L1(), input="weight1", coef=1e-1)
-    ctx_1.add_regularization(L1(), input="weight2", coef=1e-1)
-    ctx_1.add_regularization(L1(), input="weight3", coef=1e-1)
+    ctx_1.add_regularization(L1(), input="weight1", coef=MyTensor(1e-1))
+    ctx_1.add_regularization(L1(), input="weight2", coef=MyTensor(1e-1))
+    ctx_1.add_regularization(L1(), input="weight3", coef=MyTensor(1e-1))
     ctx_1.add_loss(
         Buffer(), input="output1", reduce_steps=[Sum(axis=0), Mean(axis=0), Sum(axis=0)]
     )
@@ -2161,7 +2190,7 @@ def test_geomean_evaluate():
     ctx1.add_loss(
         Buffer(), input="output2", reduce_steps=[Sum(axis=0), Mean(axis=0), Sum(axis=0)]
     )
-    ctx1.add_regularization(L1(), coef=0.1, input="weight")
+    ctx1.add_regularization(L1(), coef=MyTensor(0.1), input="weight")
     comp_1 = mithril.compile(model=ctx1, backend=backend)
     model2 = Model()
     lin2 = Linear()
@@ -2186,7 +2215,7 @@ def test_geomean_evaluate():
     ctx2.add_loss(
         Buffer(), input="output2", reduce_steps=[Sum(axis=0), Mean(axis=0), Sum(axis=0)]
     )
-    ctx2.add_regularization(L1(), coef=0.1, input="weight")
+    ctx2.add_regularization(L1(), coef=MyTensor(0.1), input="weight")
     comp_2 = mithril.compile(model=ctx2, backend=backend)
     inputs = {
         "input": jnp.ones((10, 10, 10), dtype=jnp.float32),
@@ -2218,7 +2247,7 @@ def test_get_key_dependency_1():
     model = Linear()
 
     ctx = TrainModel(model)
-    ctx.add_regularization(model=L2(), coef=1e-1, input=model.weight)
+    ctx.add_regularization(model=L2(), coef=MyTensor(1e-1), input=model.weight)
     ctx.add_loss(
         SquaredError(),
         [Mean()],
@@ -2246,7 +2275,7 @@ def test_get_key_dependency_2():
     model += Buffer()(input="dummy_output", output=IOKey(name="dummy_final_output"))
 
     ctx = TrainModel(model)
-    ctx.add_regularization(model=L2(), coef=1e-1, input=model.weight)  # type: ignore
+    ctx.add_regularization(model=L2(), coef=MyTensor(1e-1), input=model.weight)  # type: ignore
     ctx.add_loss(
         SquaredError(),
         [Mean()],
@@ -2277,7 +2306,7 @@ def test_regularization_1():
     model += Multiply()(left="left", right="w", output="output")
 
     ctx = TrainModel(model)
-    ctx.add_regularization(L2(), coef=1e-1, input=model.w)  # type: ignore
+    ctx.add_regularization(L2(), coef=MyTensor(1e-1), input=model.w)  # type: ignore
     ctx.add_loss(SquaredError(), [Mean()], input=model.output, target="target")  # type: ignore
     backend = TorchBackend(precision=64)
     static_keys = {"left": backend.array([0.0]), "target": backend.zeros(3, 2, 1)}
@@ -2296,7 +2325,7 @@ def test_regularization_1_sanity_test():
     model.extend(Multiply(), left="left", right="w", output="output")
 
     ctx = TrainModel(model)
-    ctx.add_regularization(L2(), coef=1e-1, input=model.w)  # type: ignore
+    ctx.add_regularization(L2(), coef=MyTensor(1e-1), input=model.w)  # type: ignore
     ctx.add_loss(SquaredError(), [Mean()], input=model.output, target="target")  # type: ignore
     backend = TorchBackend(precision=64)
     static_keys = {"left": backend.array([0.0]), "target": backend.array([0.0])}
@@ -2317,7 +2346,7 @@ def test_regularization_2():
     model += Multiply()(left="left", right="w", output="output")
 
     ctx = TrainModel(model)
-    ctx.add_regularization(L2(), coef=1e-1, input=model.w)  # type: ignore
+    ctx.add_regularization(L2(), coef=MyTensor(1e-1), input=model.w)  # type: ignore
     ctx.add_loss(SquaredError(), [Sum()], input=model.output, target="target")  # type: ignore
     backend = TorchBackend(precision=64)
     static_keys = {"left": backend.array([0.0]), "target": backend.zeros(3, 2, 1)}
@@ -2338,7 +2367,7 @@ def test_regularization_3():
     model += Multiply()(left="left", right="w", output="output")
 
     ctx = TrainModel(model)
-    ctx.add_regularization(L2(), coef=1e-1, input=model.w)  # type: ignore
+    ctx.add_regularization(L2(), coef=MyTensor(1e-1), input=model.w)  # type: ignore
     ctx.add_loss(
         SquaredError(),
         [Mean(axis=1), Mean(axis=3), Sum()],
@@ -2364,7 +2393,7 @@ def test_regularization_4():
     model += Multiply()(left="left", right="w", output=IOKey(name="output2"))
 
     ctx = TrainModel(model)
-    ctx.add_regularization(L2(), coef=1e-1, input=model.w)  # type: ignore
+    ctx.add_regularization(L2(), coef=MyTensor(1e-1), input=model.w)  # type: ignore
     ctx.add_loss(
         SquaredError(),
         [Mean(axis=1), Sum()],
@@ -2397,7 +2426,7 @@ def test_regularization_5():
     model += Multiply()(left="left1", right="w", output=IOKey(name="output2"))
 
     ctx = TrainModel(model)
-    ctx.add_regularization(L2(), coef=1e-1, input=model.w)  # type: ignore
+    ctx.add_regularization(L2(), coef=MyTensor(1e-1), input=model.w)  # type: ignore
     ctx.add_loss(
         SquaredError(),
         [Mean(axis=1), Sum()],
@@ -2434,7 +2463,8 @@ def test_static_anlaysis():
     model = Model()
     add1 = Add()
     model += add1(
-        left=IOKey(value=[[2.0]], name="left"), right=IOKey(value=[2.0], name="right")
+        left=IOKey(value=MyTensor([[2.0]]), name="left"),
+        right=IOKey(value=MyTensor([2.0]), name="right"),
     )
     model += Linear(10)(
         input=add1.output, weight="w", bias="b", output=IOKey(name="output")
@@ -2456,7 +2486,8 @@ def test_static_anlaysis_1():
     model = Model()
     add1 = Add()
     model += add1(
-        left=IOKey(value=[[2.0]], name="left"), right=IOKey(value=[2.0], name="right")
+        left=IOKey(value=MyTensor([[2.0]]), name="left"),
+        right=IOKey(value=MyTensor([2.0]), name="right"),
     )
     model += Add()(left=add1.output, output=IOKey(name="output1"))
 
@@ -2481,7 +2512,8 @@ def test_static_anlaysis_2():
     add1 = Add()
     sum1 = Sum()
     model += add1(
-        left=IOKey(value=[[2.0]], name="left"), right=IOKey(value=[2.0], name="right")
+        left=IOKey(value=MyTensor([[2.0]]), name="left"),
+        right=IOKey(value=MyTensor([2.0]), name="right"),
     )
     model += sum1(input=add1.output)
     model += Add()(left=sum1.output, output=IOKey(name="output1"))
@@ -2951,8 +2983,8 @@ def test_prune_15():
 def test_prune_valued_tensor_1():
     # Values different do not prune!
     model = Model()
-    model += Add()(left=5, right="input2", output=IOKey("output1"))
-    model += Add()(left=3, right="input2", output=IOKey("output2"))
+    model += Add()(left=MyTensor(5), right="input2", output=IOKey("output1"))
+    model += Add()(left=MyTensor(3), right="input2", output=IOKey("output2"))
 
     backend = JaxBackend(precision=64)
 
@@ -2970,8 +3002,8 @@ def test_prune_valued_tensor_1():
 def test_prune_valued_tensor_2():
     # Values same prune!
     model = Model()
-    model += Add()(left=3, right="input2", output=IOKey("output1"))
-    model += Add()(left=3, right="input2", output=IOKey("output2"))
+    model += Add()(left=MyTensor(3), right="input2", output=IOKey("output1"))
+    model += Add()(left=MyTensor(3), right="input2", output=IOKey("output2"))
 
     backend = JaxBackend(precision=64)
 
@@ -3086,7 +3118,7 @@ def test_prune_duplicate_grad():
     model += log1(input=sig1.output)
     model += log2(input=sig1.output)
     model += mm1(left=log1.output, right=log2.output)
-    model += div1(numerator=2, denominator=sig2.output)
+    model += div1(numerator=MyTensor(2), denominator=sig2.output)
     model += div2(numerator=div1.numerator, denominator=sig2.output)
     model += mm2(left=mm1.output, right=div1.output)
     model += mm3(left=mm1.output, right=div2.output)
@@ -3707,8 +3739,8 @@ def geomean_multigpu_test():
         input="out2",
         target="target2",
     )
-    context.add_regularization(L2(), coef=1e-1, input=re.compile(r"w\d"))
-    context.add_regularization(L1(), coef=1e-1, input=re.compile(r"b\d"))
+    context.add_regularization(L2(), coef=MyTensor(1e-1), input=re.compile(r"w\d"))
+    context.add_regularization(L1(), coef=MyTensor(1e-1), input=re.compile(r"b\d"))
     backend = JaxBackend()
     comp_model = compile(
         context,
@@ -3856,7 +3888,7 @@ def test_add_regularization_unknown_key():
 def test_add_regularization():
     model = Model()
     l1 = Linear(1)
-    model += l1(input="input", weight=[[2]])
+    model += l1(input="input", weight=MyTensor([[2]]))
     model += Linear()(input=l1.output, weight="w1", output=IOKey(name="output"))
 
     context = TrainModel(model)
@@ -3867,7 +3899,7 @@ def test_add_regularization():
 
     # Static key cannot be input of the regularization
     with pytest.raises(KeyError) as err_info:
-        context.add_regularization(L2(), 1.0, input=l1.weight)
+        context.add_regularization(L2(), MyTensor(1.0), input=l1.weight)
 
     assert str(err_info.value) == (
         "'The provided keys are not valid; at least one of the keys must belong "
@@ -4157,7 +4189,7 @@ def test_mlp_last_dimension_prop():
     ctx.add_loss(
         loss_model,
         input=mlp_model.canonical_output,
-        target=[[2.2, 4.2], [2.2, 4.2]],
+        target=MyTensor([[2.2, 4.2], [2.2, 4.2]]),
         reduce_steps=[Mean()],
     )
     assert ctx.shapes["weight2"] == [2, 24]
@@ -4169,7 +4201,7 @@ def test_mlp_last_dimension_prop_2():
     model += add_model(left="in1", right="in2", output=IOKey(name="output"))
 
     ctx = TrainModel(model)
-    ctx.add_loss(AbsoluteError(), input="output", target=[2.0])
+    ctx.add_loss(AbsoluteError(), input="output", target=MyTensor([2.0]))
     comp_model = mithril.compile(model=ctx, backend=NumpyBackend())
     inputs = {"in1": np.array([3.0]), "in2": np.array([2.0])}
     outputs = comp_model.evaluate(inputs)
@@ -4392,9 +4424,9 @@ def test_infer_static_register_fn():
         def __init__(self) -> None:
             super().__init__(
                 formula_key="my_adder",
-                output=IOKey(shape=[("Var_out", ...)], type=GenericTensorType),
-                left=IOKey(shape=[("Var_1", ...)], type=GenericTensorType),
-                right=IOKey(shape=[("Var_2", ...)], type=GenericTensorType),
+                output=IOKey(shape=[("Var_out", ...)], type=MyTensor),
+                left=IOKey(shape=[("Var_1", ...)], type=MyTensor),
+                right=IOKey(shape=[("Var_2", ...)], type=MyTensor),
             )
             self.set_constraint(
                 fn=bcast, keys=[PrimitiveModel.output_key, "left", "right"]
@@ -4436,7 +4468,7 @@ def test_add_loss_coef():
         SquaredError(),
         [Mean()],
         input=out_con,
-        coef=0.6,
+        coef=MyTensor(0.6),
         target="target",
         key_name="loss_coef",
     )
@@ -4741,7 +4773,9 @@ def test_cycle_handling_3():
 
     model_1 += gelu5(input="")
     model_1 += LeakyRelu()(
-        input="input2", slope=IOKey("slope", value=0.01), output=IOKey(name="output2")
+        input="input2",
+        slope=IOKey("slope", value=MyTensor(0.01)),
+        output=IOKey(name="output2"),
     )
     model_1 += model_1_sub(input1="input1", input2="", output1=gelu5.input)
     model_1 += model_2_sub(
@@ -6251,9 +6285,9 @@ def test_deepcopy_1():
     for data in all_data:
         copied_data = compiled_model.data_store.data_memo.get(id(data))
         if copied_data not in unused_data:
-            assert isinstance(copied_data, Tensor | Scalar)
+            assert isinstance(copied_data, IOHyperEdge)
             assert data.value == copied_data.value
-            if isinstance(data, Tensor):
+            if data.edge_type is MyTensor:
                 assert id(data.value) == id(copied_data.value)
 
 
@@ -6278,9 +6312,9 @@ def test_deepcopy_2():
     for data in all_data:
         copied_data = compiled_model.data_store.data_memo.get(id(data))
         if copied_data not in unused_data:
-            assert isinstance(copied_data, Tensor | Scalar)
+            assert isinstance(copied_data, IOHyperEdge)
             assert data.value == copied_data.value
-            if isinstance(data, Tensor):
+            if data.edge_type is MyTensor:
                 assert id(data.value) == id(copied_data.value)
 
 
@@ -6306,9 +6340,9 @@ def test_deepcopy_3():
     for data in all_data:
         copied_data = compiled_model.data_store.data_memo.get(id(data))
         if copied_data not in unused_data:
-            assert isinstance(copied_data, Tensor | Scalar)
+            assert isinstance(copied_data, IOHyperEdge)
             assert data.value == copied_data.value
-            if isinstance(data, Tensor):
+            if data.edge_type is MyTensor:
                 assert id(data.value) == id(copied_data.value)
 
 
@@ -6329,9 +6363,9 @@ def test_deepcopy_4():
     for data in all_data:
         copied_data = compiled_model.data_store.data_memo.get(id(data))
         if copied_data not in unused_data:
-            assert isinstance(copied_data, Tensor | Scalar)
+            assert isinstance(copied_data, IOHyperEdge)
             assert data.value == copied_data.value
-            if isinstance(data, Tensor):
+            if data.edge_type is MyTensor:
                 assert id(data.value) == id(copied_data.value)
 
 
@@ -6365,9 +6399,9 @@ def test_deepcopy_5():
         copied_data = compiled_model.data_store.data_memo.get(id(data))
         assert copied_data is not None
         if copied_data not in unused_data:
-            assert isinstance(copied_data, Tensor | Scalar)
+            assert isinstance(copied_data, IOHyperEdge)
             assert data.value == copied_data.value
-            if isinstance(data, Tensor):
+            if data.edge_type is MyTensor:
                 assert id(data.value) == id(copied_data.value)
 
 
@@ -6611,9 +6645,9 @@ def test_multi_write_2():
 def test_multi_write_3():
     model = Model()
     l_relu = Model()
-    l_relu += LeakyRelu()(slope=IOKey("slope", 0.85))
+    l_relu += LeakyRelu()(slope=IOKey("slope", MyTensor(0.85)))
     with pytest.raises(ValueError) as err_info:
-        model += l_relu(slope=0.75)
+        model += l_relu(slope=MyTensor(0.75))
 
     assert str(err_info.value) == (
         "Value is set before as 0.85. A value can not be reset."
@@ -6639,7 +6673,7 @@ def test_multi_write_6():
     model += mean_model_1(input="input1", output="output1")
     model += mean_model_2(input="input2", output="output2", axis=mean_model_1.axis)
 
-    assert mean_model_2.axis.metadata.data.value == 3
+    assert mean_model_2.axis.metadata.value == 3
 
 
 def test_multi_write_7():
@@ -6668,7 +6702,7 @@ def test_multi_write_8():
     )
     model += add2(input="input2", output=IOKey(name="output2"), axis="axis1")
 
-    assert add1.axis.metadata.data.value == 3
+    assert add1.axis.metadata.value == 3
 
 
 def test_leaky_relu_trainable_slope():
@@ -6858,7 +6892,7 @@ def test_add_loss_with_coef_jit():
     model += Relu()(input="input", output=IOKey(name="output"))
 
     tm = TrainModel(model)
-    tm.add_loss(SquaredError(), coef=2, input="output", target="target")
+    tm.add_loss(SquaredError(), coef=MyTensor(2), input="output", target="target")
     assert tm.jittable
 
 
@@ -6993,7 +7027,9 @@ def test_constant_1():
     precision = 64
     backend = NumpyBackend(precision=precision)
     model = Model()
-    model += Add()(left=[0, 0], right=Constant.EPSILON, output=IOKey("out"))
+    model += Add()(
+        left=MyTensor([0, 0]), right=MyTensor(Constant.EPSILON), output=IOKey("out")
+    )
     pm = compile(model, backend)
 
     expected = np.array(
@@ -7009,7 +7045,9 @@ def test_constant_2():
     backend = NumpyBackend(precision=precision)
     model = Model()
     model += Add()(
-        left=[0, 0], right=IOKey("right", Constant.EPSILON), output=IOKey("out")
+        left=MyTensor([0, 0]),
+        right=IOKey("right", MyTensor(Constant.EPSILON)),
+        output=IOKey("out"),
     )
     pm = compile(model, backend)
 
@@ -7025,7 +7063,9 @@ def test_constant_3():
     precision = 32
     backend = NumpyBackend(precision=precision)
     model = Model()
-    model += Add()(left=[0, 0], right=Constant.EPSILON, output=IOKey("out"))
+    model += Add()(
+        left=MyTensor([0, 0]), right=MyTensor(Constant.EPSILON), output=IOKey("out")
+    )
     pm = compile(model, backend)
 
     expected = np.array(
@@ -7041,7 +7081,9 @@ def test_constant_4():
     backend = NumpyBackend(precision=precision)
     model = Model()
     model += Add()(
-        left=[0, 0], right=IOKey("right", Constant.EPSILON), output=IOKey("out")
+        left=MyTensor([0, 0]),
+        right=IOKey("right", MyTensor(Constant.EPSILON)),
+        output=IOKey("out"),
     )
     pm = compile(model, backend)
 
@@ -7056,7 +7098,9 @@ def test_constant_4():
 def test_constant_5():
     model = Model(enforce_jit=False)
     model += Add()(
-        left=[0, 0], right=IOKey("right", Constant.EPSILON), output=IOKey("out")
+        left=MyTensor([0, 0]),
+        right=IOKey("right", MyTensor(Constant.EPSILON)),
+        output=IOKey("out"),
     )
     with pytest.raises(ValueError) as err:
         model += Buffer()(input="input", output="right")
@@ -7070,7 +7114,9 @@ def test_constant_5():
 
 def test_constant_6():
     model = Model(enforce_jit=False)
-    model += Add()(left=[0, 0], right=IOKey("right", 3), output=IOKey("out"))
+    model += Add()(
+        left=MyTensor([0, 0]), right=IOKey("right", MyTensor(3)), output=IOKey("out")
+    )
     with pytest.raises(ValueError) as err:
         model += Buffer()(input="input", output="right")
     assert str(err.value) == (
@@ -7330,16 +7376,16 @@ def test_string_iokey_value_1():
                 # Parse the shapes
                 all_input_shapes = list(input)
                 all_output_shapes = list(output)
-                # Create IOKey shape = and Scalar Input, type = GenericTensorTypes
+                # Create IOKey shape = and Scalar Input, type = MyTensors
                 # Note that equation is string
-                tensor_input = IOKey(shape=all_input_shapes, type=GenericTensorType)
-                tensor_output = IOKey(shape=all_output_shapes, type=GenericTensorType)
+                tensor_input = IOKey(shape=all_input_shapes, type=MyTensor)
+                tensor_output = IOKey(shape=all_output_shapes, type=MyTensor)
                 scalar_equation = IOKey(type=str, value=equation)
 
             else:
                 # case where equation is TBD
-                tensor_input = IOKey(shape=[("Var1", ...)], type=GenericTensorType)
-                tensor_output = IOKey(shape=[("Var2", ...)], type=GenericTensorType)
+                tensor_input = IOKey(shape=[("Var1", ...)], type=MyTensor)
+                tensor_output = IOKey(shape=[("Var2", ...)], type=MyTensor)
                 scalar_equation = IOKey(type=str)
 
             kwargs: dict[str, IOKey] = {
@@ -7416,14 +7462,14 @@ def test_string_iokey_value_2():
                 all_output_shapes = list(output)
                 # Create TensorType and Scalar Inputs
                 # Note that equation is string
-                tensor_input = IOKey(shape=all_input_shapes, type=GenericTensorType)
-                tensor_output = IOKey(shape=all_output_shapes, type=GenericTensorType)
+                tensor_input = IOKey(shape=all_input_shapes, type=MyTensor)
+                tensor_output = IOKey(shape=all_output_shapes, type=MyTensor)
                 scalar_equation = IOKey(type=str, value=equation)
 
             else:
                 # case where equation is TBD
-                tensor_input = IOKey(shape=[("Var1", ...)], type=GenericTensorType)
-                tensor_output = IOKey(shape=[("Var2", ...)], type=GenericTensorType)
+                tensor_input = IOKey(shape=[("Var1", ...)], type=MyTensor)
+                tensor_output = IOKey(shape=[("Var2", ...)], type=MyTensor)
                 scalar_equation = IOKey(type=str)
 
             kwargs: dict[str, IOKey] = {

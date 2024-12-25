@@ -25,6 +25,7 @@ from mithril.models import (
     IOKey,
     Linear,
     Model,
+    MyTensor,
     PhysicalModel,
     PrimitiveUnion,
     Relu,
@@ -264,7 +265,9 @@ def test_data_store_11():
     model = Model()
     model += Sigmoid()(input="input", output=IOKey(name="output1"))
     model += Sigmoid()(input="input", output=IOKey(name="output2"))
-    model += Add()(left="output2", right=2, output=IOKey(name="output3", expose=True))
+    model += Add()(
+        left="output2", right=MyTensor(2), output=IOKey(name="output3", expose=True)
+    )
     value = backend.array([[1.0, 2, 3]])
     pm = mithril.compile(model, backend=backend, constant_keys={"input": value})
 

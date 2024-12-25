@@ -13,8 +13,7 @@
 # limitations under the License.
 
 from collections.abc import Mapping
-from functools import reduce
-from typing import Union, get_origin
+from typing import get_args, get_origin
 
 from ...utils.utils import OrderedSet
 from ..common import (
@@ -24,19 +23,16 @@ from ..common import (
     IOHyperEdge,
     IOKey,
     KeyType,
+    MyTensor,
     NotAvailable,
-    Scalar,
-    Tensor,
     UniadicRecord,
     Updates,
     Variadic,
+    _UltimateTensorValueTypes,
     create_shape_map,
-    get_args,
-    get_mytensor_subtype,
     get_summary,
     get_summary_shapes,
     get_summary_types,
-    is_mytensor_type,
 )
 from .base import BaseModel
 
@@ -54,7 +50,7 @@ class PrimitiveModel(BaseModel):
         self,
         formula_key: str,
         name: str | None = None,
-        **kwargs: IOKey | Tensor | Scalar,
+        **kwargs: IOKey | IOHyperEdge,
     ) -> None:
         self._formula_key = formula_key
         self.grad_formula = formula_key + "_grad"
@@ -67,57 +63,42 @@ class PrimitiveModel(BaseModel):
             if isinstance(value, IOKey) and value._shape is not None
         }
         shapes = create_shape_map(shape_templates, self.constraint_solver)
-        data_set: set[Tensor] = set()
+        data_set: set[IOHyperEdge] = set()
         is_diff = False
-        output_data: Tensor | Scalar | None = None
+        output_data: IOHyperEdge | None = None
         for key, value in kwargs.items():
-            # TODO: The first if block is temporary. All if else blocks will be
-            # removed after the implementation of the new type system.
-            if get_origin(value._type) is Union:
-                args = get_args(value._type)
-                types = []
-                for _type in args:
-                    # TODO: assertion will be removed,
-                    # we should allow Scalar|Tensor type simultaneously.
-                    assert is_mytensor_type(_type)
-                    types.append(get_mytensor_subtype(_type))
-                possible_types = reduce(lambda x, y: x | y, types)  # type: ignore
+            if isinstance(value, IOKey):
+                if (
+                    is_generic_tensor := (get_origin(value._type) is MyTensor)
+                ) or value._type is MyTensor:
+                    tensor_types = (
+                        get_args(value._type)[0]
+                        if is_generic_tensor
+                        else _UltimateTensorValueTypes
+                    )
+                    tensor = MyTensor(
+                        value=value._value,  #  type: ignore
+                        type=tensor_types,
+                        shape=shapes[key].node,
+                    )
+                    edge = IOHyperEdge(value=tensor, interval=value._interval)
+                    data_set.add(edge)
+                else:
+                    edge = IOHyperEdge(
+                        type=value._type, value=value._value, interval=value._interval
+                    )
 
-                assert isinstance(value, IOKey)
-                _value: Tensor | Scalar = Tensor(
-                    shape=shapes[key].node,
-                    possible_types=possible_types,
-                    value=value._value,  # type: ignore
-                    interval=value._interval,
-                )
-                assert isinstance(_value, Tensor)
-                data_set.add(_value)
-            elif is_mytensor_type(value._type):
-                assert isinstance(value, IOKey)
-                _value = Tensor(
-                    shape=shapes[key].node,
-                    possible_types=get_mytensor_subtype(value._type),  # type: ignore
-                    value=value._value,  # type: ignore
-                    interval=value._interval,
-                )
-                data_set.add(_value)
-            elif isinstance(value, Tensor | Scalar):
-                _value = value
-            else:
-                _value = Scalar(
-                    possible_types=value._type,  # type: ignore
-                    value=value._value,  # type: ignore
-                )
-
-            conn_data = self.create_connection(IOHyperEdge(_value), key)
+            conn_data = self.create_connection(edge, key)
 
             if key == PrimitiveModel.output_key:
                 self.conns.set_connection_type(conn_data, KeyType.OUTPUT)
-                output_data = _value
+                output_data = edge
             else:
                 self.conns.set_connection_type(conn_data, KeyType.INPUT)
-                is_diff |= not _value.is_non_diff
-        if isinstance(output_data, Tensor):
+                is_diff |= not edge.is_non_diff
+        if isinstance(output_data, IOHyperEdge) and isinstance(
+            output_data.edge_type, MyTensor
+        ):
             output_data._differentiable = is_diff
 
         # Initially run all given tensors' constraints
@@ -175,15 +156,15 @@ class PrimitiveModel(BaseModel):
     def extract_connection_info(
         self,
         name_mappings: dict[BaseModel, str],
-        data_to_key_map: dict[Scalar | Tensor, list[str]] | None = None,
-        data_memo: Mapping[int, Tensor | Scalar] | None = None,
+        data_to_key_map: dict[IOHyperEdge, list[str]] | None = None,
+        data_memo: Mapping[int, IOHyperEdge] | None = None,
     ):
         if data_to_key_map is None:
             data_to_key_map = {}
         if data_memo is None:
             data_memo = {}
         # construct the data_map
-        data_map = {key: conn.metadata.data for key, conn in self.conns.all.items()}
+        data_map = {key: conn.metadata for key, conn in self.conns.all.items()}
         model_name = next(iter(name_mappings.values()))
 
         conns: tuple[dict[str, list[str]], dict[str, list[str]]] = ({}, {})
@@ -200,7 +181,7 @@ class PrimitiveModel(BaseModel):
             # try to find outer key's real name in data_to_key_map
             outer_key = data_to_key_map.get(key_data, [key])
             outer_key = ["'" + key + "'" for key in outer_key]
-            if isinstance(key_data, Scalar) and key_data.value is not TBD:
+            if key_data.edge_type is not MyTensor and key_data.value is not TBD:
                 # If value of the scalar is determined, write that value directly.
                 outer_key = [str(key_data.value)]
             conn.extend(outer_key)

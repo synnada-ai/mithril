@@ -39,14 +39,13 @@ from ..common import (
     IOKey,
     MainValueInstance,
     MainValueType,
+    MyTensor,
     NestedListType,
     NotAvailable,
-    Scalar,
     ShapeNode,
     ShapesType,
     ShapeTemplateType,
     ShapeType,
-    Tensor,
     TensorValueType,
     ToBeDetermined,
     UniadicRecord,
@@ -56,6 +55,7 @@ from ..common import (
     _get_shapes,
     _ShapesType,
     create_shape_repr,
+    values_equal,
 )
 from ..constraints import post_process_map, type_constraints
 
@@ -106,7 +106,7 @@ class BaseModel(abc.ABC):
                     case str():
                         kwargs[key] = IOKey(con, value=val, expose=False)
                     case IOKey():
-                        if con._value is not TBD and con._value != val:
+                        if con._value is not TBD and not values_equal(con._value, val):
                             raise ValueError(
                                 f"Given IOKey for local key: '{key}' is not valid!"
                             )
@@ -120,7 +120,9 @@ class BaseModel(abc.ABC):
                             )
                     case Connect():
                         if (io_key := con.key) is not None:
-                            if io_key._value is not TBD and io_key._value != val:
+                            if io_key._value is not TBD and not values_equal(
+                                io_key._value, val
+                            ):
                                 raise ValueError(
                                     "Given IOKey in Connect for "
                                     f"local key: '{key}' is not valid!"
@@ -248,8 +250,8 @@ class BaseModel(abc.ABC):
     def extract_connection_info(
         self,
         name_mappings: dict[BaseModel, str],
-        data_to_key_map: dict[Tensor | Scalar, list[str]] | None = None,
-        data_memo: Mapping[int, Tensor | Scalar] | None = None,
+        data_to_key_map: dict[IOHyperEdge, list[str]] | None = None,
+        data_memo: Mapping[int, IOHyperEdge] | None = None,
     ) -> dict[str, tuple[dict[str, list[str]], dict[str, list[str]]]]:
         raise NotImplementedError("Implement extract_connection_info method!")
 
@@ -332,7 +334,7 @@ class BaseModel(abc.ABC):
         if key.key not in self.conns.input_keys:
             raise ValueError("Values of internal and output keys cannot be set.")
         # Data is scalar, set the value directly.
-        return key.metadata.data.set_value(value)  # type: ignore
+        return key.metadata.set_value(value)  # type: ignore
 
     def set_shapes(
         self, config: ShapesType | None = None, **kwargs: ShapeTemplateType
@@ -343,11 +345,11 @@ class BaseModel(abc.ABC):
 
     def set_values(
         self,
-        config: Mapping[str | Connection, MainValueType | str]
-        | Mapping[Connection, MainValueType | str]
-        | Mapping[str, MainValueType | str]
+        config: Mapping[str | Connection, MyTensor | MainValueType | str]
+        | Mapping[Connection, MyTensor | MainValueType | str]
+        | Mapping[str, MyTensor | MainValueType | str]
         | None = None,
-        **kwargs: MainValueType | str,
+        **kwargs: MyTensor | MainValueType | str,
     ) -> None:
         """
         Set multiple values in the model.
@@ -376,7 +378,7 @@ class BaseModel(abc.ABC):
         # Scalar and Tensors should not be operated differently. This should be fixed.
         for key in chain(config, kwargs):
             metadata = self.conns.extract_metadata(key)
-            if isinstance(metadata.data, Tensor) and model.is_frozen:
+            if metadata.edge_type is MyTensor and model.is_frozen:
                 conn_data = model.conns.get_con_by_metadata(metadata)
                 assert conn_data is not None
                 raise ValueError(
@@ -425,8 +427,7 @@ class BaseModel(abc.ABC):
         updates = Updates()
         for key, key_type in chain(config.items(), kwargs.items()):
             metadata = self.conns.extract_metadata(key)
-            data = metadata.data
-            updates |= data.set_type(key_type)  # type: ignore
+            updates |= metadata.set_type(key_type)  # type: ignore
         # Run the constraints for updating affected connections.
         model.constraint_solver(updates)
 
@@ -438,9 +439,7 @@ class BaseModel(abc.ABC):
         verbose: bool = False,
     ) -> _ShapesType:
         return _get_shapes(
-            data_dict={
-                key: value.metadata.data for key, value in self.conns.all.items()
-            },
+            data_dict={key: value.metadata for key, value in self.conns.all.items()},
             uniadic_keys=uni_keys,
             varadic_keys=var_keys,
             symbolic=symbolic,
@@ -466,7 +465,7 @@ class BaseModel(abc.ABC):
         constr = Constraint(fn=fn, type=type)
         self.constraint_solver.constraint_map[constr] = hyper_edges
         for hyper_edge in hyper_edges:
-            hyper_edge.data.add_constraint(constr)
+            hyper_edge.add_constraint(constr)
 
         # Get union of all given and default post processes for the given
         # constraint and update post_processes field.
@@ -476,7 +475,8 @@ class BaseModel(abc.ABC):
         for post_fn in all_post_processes:
             constr.add_post_process(post_fn)
 
-        _, updates = constr([hyper_edge.data for hyper_edge in hyper_edges])
+        # _, updates = constr([hyper_edge.data for hyper_edge in hyper_edges])
+        _, updates = constr(hyper_edges)
         self.constraint_solver(updates)
 
     def set_constraint(
@@ -540,7 +540,8 @@ class BaseModel(abc.ABC):
         self._canonical_output = conn
 
     def _match_hyper_edges(self, left: IOHyperEdge, right: IOHyperEdge) -> Updates:
-        if type(left.data) is not type(right.data):
+        # if type(left.data) is not type(right.data):
+        if (left.edge_type is MyTensor) ^ (right.edge_type is MyTensor):
             raise TypeError(
                 "Types of connections are not consistent. Check connection types!"
             )
@@ -568,7 +569,7 @@ class BaseModel(abc.ABC):
         # Update IOHyperEdge's in constraint solver.
         self.constraint_solver.update_constraint_map(left, right)
         # Match data of each IOHyperEdge's.
-        updates = left.data.match(right.data)  # type: ignore
+        updates = left.match(right)  # type: ignore
         return updates
 
     def get_models_in_topological_order(self):

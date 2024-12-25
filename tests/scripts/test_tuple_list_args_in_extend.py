@@ -15,7 +15,7 @@
 import pytest
 
 from mithril import JaxBackend, TorchBackend, compile
-from mithril.models import Add, MatrixMultiply, Model, ToTensor
+from mithril.models import Add, MatrixMultiply, Model, MyTensor, ToTensor
 
 from .test_utils import assert_results_equal
 
@@ -25,7 +25,7 @@ def test_tuple_argument_1():
 
     model = Model()
     add = Add()
-    model += add(left="left", right=[3.0, 4, 5], output="output")
+    model += add(left="left", right=MyTensor([3.0, 4, 5]), output="output")
 
     pm = compile(model=model, backend=backend)
 
@@ -236,7 +236,7 @@ def test_list_argument_1():
 
     model = Model()
     add = Add()
-    model += add(left="left", right=[3.0, 4, 5], output="output")
+    model += add(left="left", right=MyTensor([3.0, 4, 5]), output="output")
 
     pm = compile(model=model, backend=backend)
 

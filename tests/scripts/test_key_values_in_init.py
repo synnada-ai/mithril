@@ -15,7 +15,7 @@
 import pytest
 
 import mithril as ml
-from mithril.models import Add, Model
+from mithril.models import Add, Model, MyTensor
 from mithril.utils.utils import OrderedSet
 
 
@@ -185,7 +185,7 @@ def test_directed_call_factory_val_tbd():
 
 
 def test_integration_call_arg_connection():
-    add1 = Add(left=1)
+    add1 = Add(left=MyTensor(1))
     add2 = Add()
 
     model = Model()
@@ -199,7 +199,7 @@ def test_integration_call_arg_connection():
 
 
 def test_integration_call_arg_str():
-    add1 = Add(left=1)
+    add1 = Add(left=MyTensor(1))
 
     model = Model()
     model += add1(left="in1", right="in2")
@@ -210,10 +210,10 @@ def test_integration_call_arg_str():
 
 
 def test_integration_call_arg_int():
-    add1 = Add(left=1)
+    add1 = Add(left=MyTensor(1))
 
     model = Model()
-    model += add1(left=1, right="in2", output="output")
+    model += add1(left=MyTensor(1), right="in2", output="output")
 
     backend = ml.TorchBackend()
     pm = ml.compile(model, backend, data_keys=["in2"], jit=False)
@@ -233,8 +233,8 @@ def test_integration_call_arg_int_not_equal():
 
 
 def test_integration_call_arg_iokey_value_equal():
-    add1 = Add(left=1)
-    iokey = ml.IOKey("in1", value=1)
+    add1 = Add(left=MyTensor(1))
+    iokey = ml.IOKey("in1", value=MyTensor(1))
 
     model = Model()
     model += add1(left=iokey, right="in2", output="output")
@@ -255,7 +255,7 @@ def test_integration_call_arg_iokey_value_not_equal():
 
 
 def test_integration_call_arg_iokey_value_tbd():
-    add1 = Add(left=1)
+    add1 = Add(left=MyTensor(1))
     iokey = ml.IOKey("in1")  # value is TBD
 
     model = Model()
@@ -281,7 +281,7 @@ def test_integration_call_arg_connect_key_value_not_equal():
 
 
 def test_integration_call_arg_connect_key_none():
-    add1 = Add(left=1)
+    add1 = Add(left=MyTensor(1))
     add2 = Add()
     con = ml.Connect(add2.left, key=None)
 
@@ -295,7 +295,7 @@ def test_integration_call_arg_connect_key_none():
 
 
 def test_integration_call_arg_connect_key_value_tbd():
-    add1 = Add(left=1)
+    add1 = Add(left=MyTensor(1))
     add2 = Add()
     con = ml.Connect(add2.left, key=ml.IOKey("in1"))
 
@@ -309,9 +309,9 @@ def test_integration_call_arg_connect_key_value_tbd():
 
 
 def test_integration_call_arg_connect_key_value_equal():
-    add1 = Add(left=1)
+    add1 = Add(left=MyTensor(1))
     add2 = Add()
-    con = ml.Connect(add2.left, key=ml.IOKey(value=1))
+    con = ml.Connect(add2.left, key=ml.IOKey(value=MyTensor(1)))
 
     model = Model()
     model += add2(right="in2")
@@ -323,7 +323,7 @@ def test_integration_call_arg_connect_key_value_equal():
 
 
 def test_integration_call_arg_extend_template():
-    add1 = Add(left=1)
+    add1 = Add(left=MyTensor(1))
     template = ml.IOKey("in1") + ml.IOKey("in2")
 
     model = Model()
@@ -360,7 +360,7 @@ def test_integration_call_arg_factory_val_tbd():
 
 
 def test_integration_call_arg_compile_primitive_with_factory_inputs():
-    model = Add(left=1)
+    model = Add(left=MyTensor(1))
 
     backend = ml.TorchBackend()
     pm = ml.compile(model, backend, jit=False)

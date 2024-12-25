@@ -21,7 +21,7 @@ from functools import partial
 from ...backends.with_manualgrad.c_backend import CBackend, backend
 from ...backends.with_manualgrad.c_backend.src import array
 from ...backends.with_manualgrad.c_backend.src.array import Array, PyArray
-from ...framework.common import Tensor
+from ...framework.common import MyTensor
 from ...utils.type_utils import is_list_int
 from ..physical.model import PhysicalModel
 from . import c_ast
@@ -283,7 +283,7 @@ class CGen(CodeGen[PyArray]):
 
     def _get_array_shape(self, key: str) -> tuple[int, ...]:
         array_data = self.pm.data[key]
-        assert isinstance(array_data, Tensor)
+        assert array_data.edge_type is MyTensor
         shape = array_data.shape.reprs[0].get_shapes()
 
         if is_list_int(shape):

@@ -29,7 +29,7 @@ from mithril.backends.with_autograd.jax_backend.ops import (
     to_tensor,
 )
 from mithril.framework import NOT_GIVEN, ConnectionType, ExtendInfo
-from mithril.framework.common import GenericTensorType
+from mithril.framework.common import MyTensor
 from mithril.framework.constraints import bcast
 from mithril.models import (
     TBD,
@@ -94,9 +94,9 @@ class MyModel(Model):
         self += (idx_2 := ScalarItem())(index=idx_1.output, input=mult_shp.output)  # 1
         self += (idx_3 := ScalarItem())(index=idx_2.output, input=sum_shp.output)  # 1
         self += (tens := ToTensor())(input=idx_3.output)  # array(1)
-        self += (sum := Add())(left=tens.output, right=3.0)  # array(4)
+        self += (sum := Add())(left=tens.output, right=MyTensor(3.0))  # array(4)
         self += Multiply()(
-            left=sum.output, right=2.0, output=IOKey(name="output")
+            left=sum.output, right=MyTensor(2.0), output=IOKey(name="output")
         )  # array(8)
 
         shapes: Mapping[str, Sequence[str | tuple[str, EllipsisType] | int | None]] = {
@@ -134,7 +134,7 @@ class MyModel2(Model):
         self += (idx_1 := ScalarItem())(index=-1, input=uni.output)  # 1
         self += (tens := ToTensor())(input=idx_1.output)  # array(1)
         self += Multiply()(
-            left=tens.output, right=2.0, output=IOKey(name="output")
+            left=tens.output, right=MyTensor(2.0), output=IOKey(name="output")
         )  # array(8)
 
         shapes: Mapping[str, Sequence[str | tuple[str, EllipsisType] | int | None]] = {
@@ -222,9 +222,9 @@ def test_mymodel_jax():
         def __init__(self) -> None:
             super().__init__(
                 formula_key="adder",
-                output=IOKey(shape=[("Var_out", ...)], type=GenericTensorType),
-                left=IOKey(shape=[("Var_1", ...)], type=GenericTensorType),
-                right=IOKey(shape=[("Var_2", ...)], type=GenericTensorType),
+                output=IOKey(shape=[("Var_out", ...)], type=MyTensor),
+                left=IOKey(shape=[("Var_1", ...)], type=MyTensor),
+                right=IOKey(shape=[("Var_2", ...)], type=MyTensor),
             )
             self.set_constraint(fn=bcast, keys=["output", "left", "right"])
 
@@ -342,9 +342,9 @@ def test_jit_1():
         def __init__(self) -> None:
             super().__init__(
                 formula_key="adder",
-                output=IOKey(shape=[("Var_out", ...)], type=GenericTensorType),
-                left=IOKey(shape=[("Var_1", ...)], type=GenericTensorType),
-                right=IOKey(shape=[("Var_2", ...)], type=GenericTensorType),
+                output=IOKey(shape=[("Var_out", ...)], type=MyTensor),
+                left=IOKey(shape=[("Var_1", ...)], type=MyTensor),
+                right=IOKey(shape=[("Var_2", ...)], type=MyTensor),
             )
             self.set_constraint(fn=bcast, keys=["output", "left", "right"])
 

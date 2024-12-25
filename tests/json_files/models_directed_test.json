@@ -8377,10 +8377,10 @@
             "connections" : { 
                 "m1": {
                     "left": "input1",
-                    "right": 1
+                    "right": {"tensor": 1}
                 },
                 "m2": {
-                    "left": 1,
+                    "left": {"tensor": 1},
                     "right": {"connect": [["m1","output"]]}
                 },
                 "m3": {

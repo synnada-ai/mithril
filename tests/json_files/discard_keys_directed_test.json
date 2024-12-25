@@ -226,7 +226,7 @@
         "regularizations": [
             {
                 "model": "l1",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "weight"
             }
         ],
@@ -250,7 +250,7 @@
         "regularizations": [
             {
                 "model": "l1",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "weight"
             }
         ],

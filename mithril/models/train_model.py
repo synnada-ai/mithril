@@ -28,6 +28,7 @@ from ..framework import (
     IOKey,
     KeyType,
     Model,
+    MyTensor,
     UniadicRecord,
     Variadic,
     _get_shapes,
@@ -95,7 +96,7 @@ class TrainModel(Model):
         self.metric_keys: list[str] = []
         self.loss_combiner: BaseModel = Sum()
         self.reg_coef_map: dict[float, set[Connection]] = {}
-        self.geomean_map: dict[str, list[tuple[Connection, float]]] = {}
+        self.geomean_map: dict[str, list[tuple[Connection, float | MyTensor]]] = {}
         self.reduce_inputs: dict[str, list[tuple[Connection, Connection]]] = {}
 
     def __add__(self, model: ExtendInfo | PrimitiveModel | Model):
@@ -269,7 +270,7 @@ class TrainModel(Model):
     def add_regularization(
         self,
         model: Model,
-        coef: float,
+        coef: float | MyTensor,
         reg_key: str | Connection | None = None,
         key_name: str | None = None,
         **kwargs: Any,
@@ -306,7 +307,7 @@ class TrainModel(Model):
     def _add_regularization(
         self,
         model: Model,
-        coef: float,
+        coef: float | MyTensor,
         reg_key: str | Connection | None = None,
         key_name: str | None = None,
         **kwargs: Any,
@@ -540,7 +541,7 @@ class TrainModel(Model):
         for sub_model, sub_model_name in name_mappings.items():
             model_shapes[sub_model_name] = _get_shapes(
                 data_dict={
-                    key: value.metadata.data
+                    key: value.metadata
                     for key, value in sub_model.conns.all.items()
                     if key in sub_model.conns.io_keys
                 },
@@ -591,7 +592,10 @@ class TrainModel(Model):
                             reduce_str += reduce.__class__.__name__ + f"(axis = {axis})"
                         reduce_str += ", "
                 t_list.append([reduce_str[:-2]])
-                t_list.append([str(loss_dict["coef"])])
+                coef = loss_dict["coef"]
+                if isinstance(coef, MyTensor):
+                    coef = coef.value
+                t_list.append([str(coef)])
                 loss_table.add_row(t_list)
             loss_table.compile(row_sep=["  |  ", " | ", " | ", "  |  ", "  |  "])
             loss_table.display()
@@ -607,6 +611,8 @@ class TrainModel(Model):
             reg_table.add_header(["Reg Model", "Reg Key", "Reg Shape", "Coef"])
             for _, reg_info in self.geomean_map.items():
                 for conn, coef in reg_info:
+                    if isinstance(coef, MyTensor):
+                        coef = coef.value
                     r_list: list[str | list[str]] = []
                     assert conn.metadata is not None
                     conn_data = self.conns.get_con_by_metadata(conn.metadata)
@@ -701,7 +707,7 @@ class TrainModel(Model):
                     self.extend(
                         power := Power(),
                         base=final_output,
-                        exponent=[1 / n_final_outputs],
+                        exponent=MyTensor([1 / n_final_outputs]),
                     )
                     final_output = power.output
                 # Add Divide Model to divide final_output to geo_mean.
@@ -715,7 +721,7 @@ class TrainModel(Model):
                 self.reg_coef_map[coef].add(out_con.conn)
 
     def _add_reduce_sizes(self, reduce_list: list[tuple[Connection, Connection]]):
-        final_output: Connection | int = 1
+        final_output: Connection | MyTensor = MyTensor(1)
         sizes: list[Connection] = []
         for input, dim in reduce_list:
             m = _create_size()
