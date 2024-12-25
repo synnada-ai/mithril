@@ -457,8 +457,6 @@ def determine_dtype(input: Any, dtype: core.Dtype | None, precision: int) -> str
     else:
         dtype_name = find_dominant_type(input).__name__
 
-    print(type(input), dtype, dtype_name)
-
     return dtype_name + str(precision) if dtype_name != "bool" else "bool"
 
 
