@@ -148,7 +148,7 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
     ) -> np.ndarray[Any, Any]:
         _dtype = self._process_dtype(dtype)
         _shape = process_shape(shape)
-        return np.random.randn(*_shape).astype(_dtype)
+        return np.array(np.random.randn(*_shape), dtype=_dtype)
 
     def rand(
         self,
@@ -158,7 +158,7 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
     ) -> np.ndarray[Any, Any]:
         _dtype = self._process_dtype(dtype)
         _shape = process_shape(shape)
-        return np.random.rand(*_shape).astype(_dtype)
+        return np.array(np.random.rand(*_shape), dtype=_dtype)
 
     def randint(
         self,
@@ -182,7 +182,7 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
     ) -> np.ndarray[Any, Any]:
         _dtype = self._process_dtype(dtype)
         _shape = process_shape(shape)
-        return np.random.uniform(low, high, size=_shape).astype(_dtype)
+        return np.array(np.random.uniform(low, high, size=_shape), dtype=_dtype)
 
     def _arange(
         self,
