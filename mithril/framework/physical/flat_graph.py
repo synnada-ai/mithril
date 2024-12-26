@@ -386,7 +386,7 @@ class FlatGraph(GenericDataType[DataType]):
             else:
                 model_id.append(conn.key)
 
-        final_model_id = "-".join(model_id) + f"-{node.model._formula_key}"
+        final_model_id = "-".join(model_id) + f"-{node.model.formula_key}"
 
         if final_model_id in self.unique_model_table:
             return self.unique_model_table[final_model_id]

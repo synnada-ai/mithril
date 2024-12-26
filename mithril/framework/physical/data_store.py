@@ -89,9 +89,9 @@ class StaticDataStore(Generic[DataType]):
     def remove_keys_from_store(self, keys: set[str]):
         keys -= set(self.graph.output_keys)
         for key in keys:
-            self._remove_key_from_store(key, label_as_unused=False, hard_remove=True)
+            self.remove_key_from_store(key, label_as_unused=False, hard_remove=True)
 
-    def _remove_key_from_store(
+    def remove_key_from_store(
         self, key: str, label_as_unused: bool = True, hard_remove: bool = False
     ):
         if key in self.data_values:
@@ -171,7 +171,7 @@ class StaticDataStore(Generic[DataType]):
                 if source_key not in output_keys and set(
                     self.graph.get_target_keys(source_key, True)
                 ).issubset(self._unused_keys | self.cached_data.keys()):
-                    self._remove_key_from_store(source_key)
+                    self.remove_key_from_store(source_key)
 
                 queue |= set(
                     self.graph.get_source_keys(source_key, True)
@@ -347,10 +347,10 @@ class StaticDataStore(Generic[DataType]):
 
                 static_value: DataType | MainValueType
 
-                fn = fn_dict[model._formula_key]
+                fn = fn_dict[model.formula_key]
 
                 # Orginize args and kwargs
-                local_input_keys = list(model._input_keys)
+                local_input_keys = list(model.input_keys)
                 if self.backend.is_manualgrad:
                     local_input_keys.append("cache")
                 inputs = {
@@ -374,10 +374,10 @@ class StaticDataStore(Generic[DataType]):
                 }
 
                 # If function needs backend specific args
-                if model._formula_key in self.backend.array_creation_funcs:
+                if model.formula_key in self.backend.array_creation_funcs:
                     kwargs["precision"] = self.backend.precision
                     if not self.backend.is_manualgrad:
-                        kwargs["device"] = self.backend._device
+                        kwargs["device"] = self.backend.get_device()
 
                 static_value = fn(*args, **kwargs)
 

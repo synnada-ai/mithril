@@ -66,7 +66,7 @@ def assert_model_keys(
 
     pm = mithril.compile(model=model, backend=TorchBackend(), safe_names=False)
 
-    physical_inputs = set(pm._input_keys)
+    physical_inputs = set(pm.input_keys)
     assert physical_inputs == physical_inputs_ref, "physical inputs does not match."
 
     physical_outputs = set(pm.output_keys)
@@ -612,7 +612,7 @@ def test_iokey_values_10():
     model = Model()
     sig_model_1 = Sigmoid()
     sig_model_2 = Sigmoid()
-    sig_model_1.input.data.metadata.data._type = float
+    sig_model_1.input.data.metadata.data.type = float
     model += sig_model_1(input="input", output=IOKey(name="output"))
 
     model += sig_model_2(
@@ -642,7 +642,7 @@ def test_iokey_values_11():
         input=IOKey(type=float, name="input"), output=IOKey(name="output2")
     )
 
-    assert sig_model_1.input.data.metadata.data._type is float
+    assert sig_model_1.input.data.metadata.data.type is float
 
 
 def test_iokey_values_12():
@@ -1195,7 +1195,7 @@ def test_iokey_template_1():
     )
     expected_result = np.array([8.0])
 
-    assert pm._input_keys == {"left", "right"}
+    assert pm.input_keys == {"left", "right"}
     assert pm.output_keys == ["output"]
     np.testing.assert_array_equal(res["output"], expected_result)
 
@@ -1217,7 +1217,7 @@ def test_iokey_template_2():
     )
     expected_result = np.array([5.0])
 
-    assert pm._input_keys == {"left", "right"}
+    assert pm.input_keys == {"left", "right"}
     assert pm.output_keys == ["output"]
     np.testing.assert_array_equal(res["output"], expected_result)
 
@@ -1236,7 +1236,7 @@ def test_iokey_template_3():
     res = pm.evaluate(params={"left": backend.array([2.0])})
     expected_result = np.array([5.0])
 
-    assert pm._input_keys == {"left", "input"}
+    assert pm.input_keys == {"left", "input"}
     assert pm.output_keys == ["output"]
     np.testing.assert_array_equal(res["output"], expected_result)
 
@@ -1255,7 +1255,7 @@ def test_iokey_template_4():
     res = pm.evaluate(params={"left": backend.ones((9, 8, 7))})
     expected_result = 9
 
-    assert pm._input_keys == {"left", "index"}
+    assert pm.input_keys == {"left", "index"}
     assert pm.output_keys == ["output"]
     np.testing.assert_array_equal(res["output"], expected_result)
 
@@ -1274,7 +1274,7 @@ def test_iokey_template_5():
     res = pm.evaluate(data={"left": [1, 2, 3]})
     expected_result = np.array([1, 2, 3])
 
-    assert pm._input_keys == {"left"}
+    assert pm.input_keys == {"left"}
     assert pm.output_keys == ["output"]
     np.testing.assert_array_equal(res["output"], expected_result)
 

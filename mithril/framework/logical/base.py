@@ -52,9 +52,8 @@ from ..common import (
     Updates,
     UpdateType,
     Variadic,
-    _get_shapes,
-    _ShapesType,
     create_shape_repr,
+    get_shapes,
 )
 from ..constraints import post_process_map, type_constraints
 
@@ -63,17 +62,17 @@ __all__ = ["BaseModel", "ExtendInfo"]
 
 @dataclass
 class ExtendInfo:
-    _model: BaseModel
-    _connections: dict[str, ConnectionType]
+    model: BaseModel
+    connections: dict[str, ConnectionType]
 
     def __post_init__(self):
-        external_keys = set(self._model.external_keys)
-        if self._model.canonical_input is not NOT_AVAILABLE:
-            external_keys.add(self._model.canonical_input.key)
-        if self._model.canonical_output is not NOT_AVAILABLE:
-            external_keys.add(self._model.canonical_output.key)
+        external_keys = set(self.model.external_keys)
+        if self.model.canonical_input is not NOT_AVAILABLE:
+            external_keys.add(self.model.canonical_input.key)
+        if self.model.canonical_output is not NOT_AVAILABLE:
+            external_keys.add(self.model.canonical_output.key)
 
-        for key in self._connections:
+        for key in self.connections:
             if key not in external_keys:
                 raise KeyError(f"Key '{key}' is not a valid key for the model!")
 
@@ -105,7 +104,7 @@ class BaseModel(abc.ABC):
                     case str():
                         kwargs[key] = IOKey(con, value=val, expose=False)
                     case IOKey():
-                        if con._value is not TBD and con._value != val:
+                        if con.value is not TBD and con.value != val:
                             raise ValueError(
                                 f"Given IOKey for local key: '{key}' is not valid!"
                             )
@@ -115,7 +114,7 @@ class BaseModel(abc.ABC):
                                 for item in con._connections
                             ]
                             kwargs[key] = IOKey(
-                                name=con._name,
+                                name=con.name,
                                 value=val,
                                 shape=con._shape,
                                 type=con._type,
@@ -176,7 +175,7 @@ class BaseModel(abc.ABC):
         return self._jittable
 
     @property
-    def shapes(self) -> _ShapesType:
+    def shapes(self):
         return self.get_shapes()
 
     @property
@@ -184,7 +183,7 @@ class BaseModel(abc.ABC):
         return self.conns.io_keys
 
     @property
-    def _input_keys(self):
+    def input_keys(self):
         return self.conns.input_keys
 
     @property
@@ -212,7 +211,7 @@ class BaseModel(abc.ABC):
             model = model.parent
         return model
 
-    def _generate_keys(
+    def generate_keys(
         self,
         symbolic: bool = True,
         include_internals: bool = True,
@@ -428,8 +427,8 @@ class BaseModel(abc.ABC):
         var_keys: dict[Variadic, str] | None = None,
         symbolic: bool = True,
         verbose: bool = False,
-    ) -> _ShapesType:
-        return _get_shapes(
+    ) -> Mapping[str, ShapeTemplateType | list[ShapeTemplateType] | None]:
+        return get_shapes(
             data_dict={
                 key: value.metadata.data for key, value in self.conns.all.items()
             },
@@ -437,7 +436,7 @@ class BaseModel(abc.ABC):
             varadic_keys=var_keys,
             symbolic=symbolic,
             verbose=verbose,
-            key_mappings=self._generate_keys(include_outputs=True),
+            key_mappings=self.generate_keys(include_outputs=True),
         )
 
     def _set_constraint(
@@ -505,7 +504,7 @@ class BaseModel(abc.ABC):
 
         conn = self.conns.get_con_by_metadata(conn.metadata)
 
-        if conn not in self.dependency_map._local_input_dependency_map:
+        if conn not in self.dependency_map.local_input_dependency_map:
             raise ValueError(
                 "To set a connection as canonical input, connection must be an "
                 "input connection!"
@@ -523,7 +522,7 @@ class BaseModel(abc.ABC):
 
         conn = self.conns.get_con_by_metadata(conn.metadata)
 
-        if conn not in self.dependency_map._local_output_dependency_map:
+        if conn not in self.dependency_map.local_output_dependency_map:
             raise ValueError(
                 "To set a connection as canonical output, connection must be an "
                 "output connection!"
@@ -564,7 +563,7 @@ class BaseModel(abc.ABC):
         return updates
 
     def get_models_in_topological_order(self):
-        dependency_map = self.dependency_map._local_output_dependency_map
+        dependency_map = self.dependency_map.local_output_dependency_map
         graph = {
             info[0]: OrderedSet(
                 [dependency_map[spec][0] for spec in info[1] if spec in dependency_map]
@@ -618,12 +617,12 @@ class DependencyMap:
         ] = {}
         # Stores releation between local input keys to dependent local
         # output connections
-        self._local_input_dependency_map: dict[
+        self.local_input_dependency_map: dict[
             ConnectionData, list[tuple[BaseModel, OrderedSet[ConnectionData]]]
         ] = {}
         # Stores releation between local output keys to dependent local
         # input connections
-        self._local_output_dependency_map: dict[
+        self.local_output_dependency_map: dict[
             ConnectionData, tuple[BaseModel, OrderedSet[ConnectionData]]
         ] = {}
 
@@ -641,7 +640,7 @@ class DependencyMap:
                         if model_dag.get(conn.key) is not None
                     ]
                 )
-                self._local_input_dependency_map.setdefault(conn, []).append(
+                self.local_input_dependency_map.setdefault(conn, []).append(
                     (model, specs)
                 )
                 updated_conns.add(conn)
@@ -655,10 +654,10 @@ class DependencyMap:
                         if model_dag.get(conn.key) is not None
                     ]
                 )
-                self._local_output_dependency_map[conn] = (model, specs)
+                self.local_output_dependency_map[conn] = (model, specs)
 
                 updated_conns.add(conn)
-                self._cache_internal_references(conn, specs)
+                self.cache_internal_references(conn, specs)
 
             if self.look_for_cyclic_connection(conn, specs):
                 raise Exception(
@@ -666,10 +665,10 @@ class DependencyMap:
                     f"{[spec.key for spec in specs]} key(s)!"
                 )
 
-        self._update_globals(updated_conns)
+        self.update_globals(updated_conns)
 
     # Caches extended connections to avoid traverse
-    def _cache_internal_references(
+    def cache_internal_references(
         self, output_conn: ConnectionData, dependent_conns: OrderedSet[ConnectionData]
     ):
         # Be sure all input and output keys has cache entry
@@ -785,7 +784,7 @@ class DependencyMap:
     def update_all_keys(self):
         # This method is used in freeze, because in freeze dependencies changed
         # without updating dependency map.
-        self._update_globals(
+        self.update_globals(
             OrderedSet(self.conns.input_connections)
             | OrderedSet(self.conns.output_connections)
         )
@@ -821,7 +820,7 @@ class DependencyMap:
         return dependent_conns
 
     # Update global dependency maps wrt given connections
-    def _update_globals(self, updated_conns: OrderedSet[ConnectionData]):
+    def update_globals(self, updated_conns: OrderedSet[ConnectionData]):
         for input_conn in self.conns.input_connections:
             self._global_input_dependency_map.setdefault(input_conn, OrderedSet())
 
@@ -871,7 +870,7 @@ class DependencyMap:
         specs = OrderedSet(
             [
                 key
-                for item in self._local_input_dependency_map[given_conn]
+                for item in self.local_input_dependency_map[given_conn]
                 for key in item[1]
                 if key in self.conns.output_keys
             ]
@@ -881,7 +880,7 @@ class DependencyMap:
         key_stack = OrderedSet(
             [
                 spec
-                for item in self._local_input_dependency_map[given_conn]
+                for item in self.local_input_dependency_map[given_conn]
                 for spec in item[1]
                 if spec not in specs
             ]
@@ -896,11 +895,11 @@ class DependencyMap:
                 OrderedSet(
                     [
                         spec
-                        for item in self._local_input_dependency_map[conn_data]
+                        for item in self.local_input_dependency_map[conn_data]
                         for spec in item[1]
                     ]
                 )
-                if conn_data in self._local_input_dependency_map
+                if conn_data in self.local_input_dependency_map
                 else OrderedSet()
             )
         return specs
@@ -914,7 +913,7 @@ class DependencyMap:
         specs = OrderedSet(
             [
                 key
-                for key in self._local_output_dependency_map[given_conn][1]
+                for key in self.local_output_dependency_map[given_conn][1]
                 if key in self.conns.input_keys
             ]
         )
@@ -922,7 +921,7 @@ class DependencyMap:
         key_stack = OrderedSet(
             [
                 spec
-                for spec in self._local_output_dependency_map[given_conn][1]
+                for spec in self.local_output_dependency_map[given_conn][1]
                 if spec not in specs
             ]
         )
@@ -933,8 +932,8 @@ class DependencyMap:
             # key_stack.update(self.dependency_map.get(key.key, OrderedSet()))
             # TODO: add test checking the while
             key_stack |= (
-                self._local_output_dependency_map[conn_data][1]
-                if conn_data in self._local_output_dependency_map
+                self.local_output_dependency_map[conn_data][1]
+                if conn_data in self.local_output_dependency_map
                 else OrderedSet()
             )
         return specs
@@ -947,9 +946,9 @@ class DependencyMap:
             return True
         else:
             for conn in conns:
-                if conn in self._local_output_dependency_map:
+                if conn in self.local_output_dependency_map:
                     return self.look_for_cyclic_connection(
-                        target_conn, self._local_output_dependency_map[conn][1]
+                        target_conn, self.local_output_dependency_map[conn][1]
                     )
             return False
 

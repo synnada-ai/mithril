@@ -24,7 +24,7 @@ def test_set_types_1():
     model += sig_model(input="input", output=IOKey("output"))
     model.set_types({"input": int})
     input_data = sig_model.input.metadata.data
-    assert input_data._type is int
+    assert input_data.type is int
 
 
 def test_set_types_1_kwargs_arg():
@@ -33,7 +33,7 @@ def test_set_types_1_kwargs_arg():
     model += sig_model(input="input", output=IOKey("output"))
     model.set_types(input=int)
     input_data = sig_model.input.metadata.data
-    assert input_data._type is int
+    assert input_data.type is int
 
 
 def test_set_types_2():
@@ -42,7 +42,7 @@ def test_set_types_2():
     model += buffer_model(input="input", output=IOKey(name="output"))
     model.set_types({"input": int | bool})
     input_data = buffer_model.input.metadata.data
-    assert input_data._type == int | bool
+    assert input_data.type == int | bool
 
 
 def test_set_types_2_kwargs_arg():
@@ -51,7 +51,7 @@ def test_set_types_2_kwargs_arg():
     model += buffer_model(input="input", output=IOKey(name="output"))
     model.set_types(input=int | bool)
     input_data = buffer_model.input.metadata.data
-    assert input_data._type == int | bool
+    assert input_data.type == int | bool
 
 
 def test_set_types_3():
@@ -60,7 +60,7 @@ def test_set_types_3():
     model += buffer_model(input="input", output=IOKey(name="output"))
     model.set_types({buffer_model.input: int | bool})
     input_data = buffer_model.input.metadata.data
-    assert input_data._type == int | bool
+    assert input_data.type == int | bool
 
 
 def test_set_types_3_kwargs_arg_1():
@@ -69,7 +69,7 @@ def test_set_types_3_kwargs_arg_1():
     model += buffer_model(input="input", output=IOKey(name="output"))
     model.set_types(input=int | bool)
     input_data = buffer_model.input.metadata.data
-    assert input_data._type == int | bool
+    assert input_data.type == int | bool
 
 
 def test_set_types_3_kwargs_arg_2():
@@ -78,7 +78,7 @@ def test_set_types_3_kwargs_arg_2():
     model += buffer_model(input="input", output=IOKey(name="output"))
     buffer_model.set_types(input=int | bool)
     input_data = buffer_model.input.metadata.data
-    assert input_data._type == int | bool
+    assert input_data.type == int | bool
 
 
 def test_set_types_4():
@@ -87,7 +87,7 @@ def test_set_types_4():
     model += buffer_model(input="input", output=IOKey(name="output"))
     model.set_types({model.input: int | bool})  # type: ignore
     input_data = buffer_model.input.metadata.data
-    assert input_data._type == int | bool
+    assert input_data.type == int | bool
 
 
 def test_set_types_5():
@@ -99,8 +99,8 @@ def test_set_types_5():
     model.set_types({model.input1: int | bool, "input2": float})  # type: ignore
     input_data_1 = buffer_model_1.input.metadata.data
     input_data_2 = buffer_model_2.input.metadata.data
-    assert input_data_1._type == int | bool
-    assert input_data_2._type is float
+    assert input_data_1.type == int | bool
+    assert input_data_2.type is float
 
 
 def test_set_types_5_key_error():
@@ -132,8 +132,8 @@ def test_set_types_7():
     model.set_types({"input": tuple[int, float, int]})
     input_data = model.input.metadata.data  # type: ignore
     output_data = model.output.metadata.data  # type: ignore
-    assert input_data._type == tuple[int, float, int]
-    assert output_data._type is float
+    assert input_data.type == tuple[int, float, int]
+    assert output_data.type is float
 
 
 def test_set_types_8():
@@ -143,8 +143,8 @@ def test_set_types_8():
     item_model.set_types({"input": tuple[int, float, int]})
     input_data = model.input.metadata.data  # type: ignore
     output_data = model.output.metadata.data  # type: ignore
-    assert input_data._type == tuple[int, float, int]
-    assert output_data._type is float
+    assert input_data.type == tuple[int, float, int]
+    assert output_data.type is float
 
 
 def test_set_types_9():
@@ -161,8 +161,8 @@ def test_set_types_9():
     model2.set_types({"input": tuple[int, float, int]})
     input_data = model1.input.metadata.data  # type: ignore
     output_data = model3.output.metadata.data  # type: ignore
-    assert input_data._type == tuple[int, float, int]
-    assert output_data._type is float
+    assert input_data.type == tuple[int, float, int]
+    assert output_data.type is float
 
 
 def test_types_iokey_1():
@@ -171,8 +171,8 @@ def test_types_iokey_1():
     model += buffer_model(input="input", output=IOKey(name="output", type=int))
     output_data = model.output.metadata.data  # type: ignore
     input_data = model.input.metadata.data  # type: ignore
-    assert output_data._type is int
-    assert input_data._type is int
+    assert output_data.type is int
+    assert input_data.type is int
 
 
 def test_types_iokey_2():
@@ -185,9 +185,9 @@ def test_types_iokey_2():
     output_data = model.output2.metadata.data  # type: ignore
     edge_data = model.output.metadata.data  # type: ignore
     input_data = model.input.metadata.data  # type: ignore
-    assert output_data._type is int
-    assert input_data._type is int
-    assert edge_data._type is int
+    assert output_data.type is int
+    assert input_data.type is int
+    assert edge_data.type is int
 
 
 def test_types_iokey_3():
@@ -215,11 +215,11 @@ def test_types_iokey_3():
     buffer3_input = buffer_model3.input.metadata.data
     buffer3_output = buffer_model3.output.metadata.data
 
-    assert buffer1_input._type is float
-    assert buffer1_output._type is float
+    assert buffer1_input.type is float
+    assert buffer1_output.type is float
 
-    assert buffer2_input._type is float
-    assert buffer2_output._type is float
+    assert buffer2_input.type is float
+    assert buffer2_output.type is float
 
-    assert buffer3_input._type is float
-    assert buffer3_output._type is float
+    assert buffer3_input.type is float
+    assert buffer3_output.type is float

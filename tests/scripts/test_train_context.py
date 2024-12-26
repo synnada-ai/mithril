@@ -120,7 +120,7 @@ def test_add_loss_case_2_exception_2():
     )
 
     # Finalize train model.
-    ctx1._finalize()
+    ctx1.finalize()
     with pytest.raises(Exception) as err_info:
         ctx1.add_loss(
             Subtract(),
@@ -372,7 +372,7 @@ def test_add_regularization_case_1():
     linear_1 = Linear()
     model += linear_1(
         output="output",
-        **{key: key for key in linear_1._input_keys if not key.startswith("$")},
+        **{key: key for key in linear_1.input_keys if not key.startswith("$")},
     )
     ctx = TrainModel(model)
     ctx.add_regularization(model=L2(), coef=1e-1, input="weight")
@@ -389,7 +389,7 @@ def test_add_regularization_case_2():
     model.extend(
         linear_1,
         output="output",
-        **{key: key for key in linear_1._input_keys if not key.startswith("$")},
+        **{key: key for key in linear_1.input_keys if not key.startswith("$")},
     )
     ctx = TrainModel(model)
     with pytest.raises(KeyError) as err_info:
@@ -406,7 +406,7 @@ def test_add_regularization_case_3():
     linear_1 = Linear()
     model += linear_1(
         output="output",
-        **{key: key for key in linear_1._input_keys if not key.startswith("$")},
+        **{key: key for key in linear_1.input_keys if not key.startswith("$")},
     )
 
     ctx = TrainModel(model)
@@ -421,7 +421,7 @@ def test_add_regularization_case_6():
     linear_1 = Linear()
     model += linear_1(
         output="output",
-        **{key: key for key in linear_1._input_keys if not key.startswith("$")},
+        **{key: key for key in linear_1.input_keys if not key.startswith("$")},
     )
 
     ctx = TrainModel(model)
@@ -436,7 +436,7 @@ def test_add_regularization_case_7():
     linear_1 = Linear()
     model += linear_1(
         output="output",
-        **{key: key for key in linear_1._input_keys if not key.startswith("$")},
+        **{key: key for key in linear_1.input_keys if not key.startswith("$")},
     )
 
     ctx = TrainModel(model)
@@ -459,7 +459,7 @@ def test_add_regularization_case_7_exception():
     linear_1 = Linear()
     model += linear_1(
         output=IOKey(name="output"),
-        **{key: key for key in linear_1._input_keys if not key.startswith("$")},
+        **{key: key for key in linear_1.input_keys if not key.startswith("$")},
     )
 
     ctx = TrainModel(model)
@@ -467,7 +467,7 @@ def test_add_regularization_case_7_exception():
     ctx.add_loss(SquaredError(), input="output", target="target")
 
     # Finalize train model.
-    ctx._finalize()
+    ctx.finalize()
     with pytest.raises(Exception) as err_info:
         ctx.add_regularization(
             model=QuadraticFormRegularizer(), coef=1e-1, input="weight"

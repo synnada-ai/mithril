@@ -160,7 +160,7 @@ class ToTuple(PrimitiveModel):
         super().__init__(formula_key="to_tuple", name=name, **key_definitions)
         self._set_constraint(
             fn=to_tuple_constraints,
-            keys=[PrimitiveModel.output_key] + [key for key in self._input_keys],
+            keys=[PrimitiveModel.output_key] + [key for key in self.input_keys],
         )
 
 
@@ -802,7 +802,7 @@ class ToList(PrimitiveModel):
 
         self._set_constraint(
             fn=to_list_constraints,
-            keys=[PrimitiveModel.output_key] + [key for key in self._input_keys],
+            keys=[PrimitiveModel.output_key] + [key for key in self.input_keys],
         )
 
 

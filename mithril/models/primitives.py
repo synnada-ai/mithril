@@ -391,7 +391,7 @@ class CrossEntropy(PrimitiveModel):
             "output": output,
         }
         # Check if the given argument set is valid.
-        if self._formula_key == "cross_entropy_with_log_probs":
+        if self.formula_key == "cross_entropy_with_log_probs":
             args: list[str] = []
             if robust is not False:
                 args.append("robust")
@@ -487,9 +487,7 @@ class BinaryCrossEntropy(PrimitiveModel):
                 )
             pos_weight = True
 
-        pos_weight_type = (
-            float | bool if pos_weight in (..., None) else type(pos_weight)
-        )
+        pos_weight_type = type(pos_weight)
         kwargs: dict[str, IOKey] = {
             "output": IOKey(shape=[("Var_out", ...)], type=MyTensor[float]),
             "input": IOKey(shape=[("Var_out", ...)], type=GenericTensorType),
@@ -896,7 +894,7 @@ class Concat(PrimitiveModel):
         # self.factory_inputs = {key: value for key, value in kwargs.items()}
         self.factory_inputs = kwargs  # type: ignore
 
-        input_keys = [key for key in self._input_keys if key != "axis"]
+        input_keys = [key for key in self.input_keys if key != "axis"]
         self._set_constraint(
             fn=concat_constraints, keys=["output"] + ["axis"] + input_keys
         )
@@ -1049,10 +1047,10 @@ class PrimitiveConvolution1D(PrimitiveModel):
             "output": output,
         }
 
-        if "bias" not in self._input_keys and bias != NOT_GIVEN:
+        if "bias" not in self.input_keys and bias != NOT_GIVEN:
             raise ValueError(f"Model does not have 'bias' input. \
                              Got {bias} as bias argument!")
-        elif "bias" in self._input_keys:
+        elif "bias" in self.input_keys:
             kwargs |= {"bias": bias}
 
         return super().__call__(**kwargs)
@@ -1148,11 +1146,11 @@ class PrimitiveConvolution2D(PrimitiveModel):
             "output": output,
         }
 
-        if "bias" not in self._input_keys and bias != NOT_GIVEN:
+        if "bias" not in self.input_keys and bias != NOT_GIVEN:
             raise ValueError(
                 f"Model does not have 'bias' input. Got {bias} as bias argument!"
             )
-        elif "bias" in self._input_keys:
+        elif "bias" in self.input_keys:
             kwargs |= {"bias": bias}
         return super().__call__(**kwargs)
 
@@ -2144,7 +2142,7 @@ class ScaledDotProduct(PrimitiveModel):
             and attn_mask is not NOT_GIVEN
             and not isinstance(attn_mask, str)
             and isinstance(attn_mask, IOKey)
-            and attn_mask._value is not None  # TODO: Here will be updated!
+            and attn_mask.value is not None  # TODO: Here will be updated!
         ):
             raise KeyError(
                 "Model does not have 'attn_mask' input. Got attn_mask argument!"

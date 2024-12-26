@@ -96,6 +96,9 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
     def get_backend_array_type(self):
         return torch.Tensor
 
+    def get_device(self):
+        return self._device
+
     @staticmethod
     def register_primitive(fn: Callable[..., Any]) -> None:
         TorchBackend.registered_primitives[fn.__name__] = fn
@@ -234,7 +237,7 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
             tensor, self.base_device_mesh, device_mesh
         )
 
-    def _register_callable(
+    def register_callable(
         self, fn: Callable[..., torch.Tensor], fn_name: str, jit: bool = False
     ):
         """
@@ -263,7 +266,7 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
         self._parallel_manager = TorchParallel(
             self.n_devices, device=self._device.split(":")[0]
         )
-        self.base_device_mesh = self._parallel_manager._init_device_mesh(
+        self.base_device_mesh = self._parallel_manager.init_device_mesh(
             self._raw_device_mesh
         )
 

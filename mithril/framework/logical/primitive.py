@@ -56,7 +56,7 @@ class PrimitiveModel(BaseModel):
         name: str | None = None,
         **kwargs: IOKey | Tensor | Scalar,
     ) -> None:
-        self._formula_key = formula_key
+        self.formula_key = formula_key
         self.grad_formula = formula_key + "_grad"
 
         super().__init__(name=name)
@@ -73,9 +73,9 @@ class PrimitiveModel(BaseModel):
         for key, value in kwargs.items():
             # TODO: The first if block is temporary. All if else blocks will be
             # removed after the implementation of the new type system.
-            if get_origin(value._type) is Union:
-                args = get_args(value._type)
-                types = []
+            if get_origin(value.type) is Union:
+                args = get_args(value.type)
+                types: list[type] = []
                 for _type in args:
                     # TODO: assertion will be removed,
                     # we should allow Scalar|Tensor type simultaneously.
@@ -87,26 +87,26 @@ class PrimitiveModel(BaseModel):
                 _value: Tensor | Scalar = Tensor(
                     shape=shapes[key].node,
                     possible_types=possible_types,
-                    value=value._value,  # type: ignore
-                    interval=value._interval,
+                    value=value.value,  # type: ignore
+                    interval=value.interval,
                 )
                 assert isinstance(_value, Tensor)
                 data_set.add(_value)
-            elif is_mytensor_type(value._type):
+            elif is_mytensor_type(value.type):
                 assert isinstance(value, IOKey)
                 _value = Tensor(
                     shape=shapes[key].node,
-                    possible_types=get_mytensor_subtype(value._type),  # type: ignore
-                    value=value._value,  # type: ignore
-                    interval=value._interval,
+                    possible_types=get_mytensor_subtype(value.type),  # type: ignore
+                    value=value.value,  # type: ignore
+                    interval=value.interval,
                 )
                 data_set.add(_value)
             elif isinstance(value, Tensor | Scalar):
                 _value = value
             else:
                 _value = Scalar(
-                    possible_types=value._type,  # type: ignore
-                    value=value._value,  # type: ignore
+                    possible_types=value.type,  # type: ignore
+                    value=value.value,  # type: ignore
                 )
 
             conn_data = self.create_connection(IOHyperEdge(_value), key)
@@ -118,7 +118,7 @@ class PrimitiveModel(BaseModel):
                 self.conns.set_connection_type(conn_data, KeyType.INPUT)
                 is_diff |= not _value.is_non_diff
         if isinstance(output_data, Tensor):
-            output_data._differentiable = is_diff
+            output_data.differentiable = is_diff
 
         # Initially run all given tensors' constraints
         self.constraint_solver.update_shapes(Updates(data_set))
@@ -129,20 +129,20 @@ class PrimitiveModel(BaseModel):
         output_conns = OrderedSet({out_conn})
 
         for conn in self.conns.input_connections:
-            self.dependency_map._local_input_dependency_map[conn] = [
+            self.dependency_map.local_input_dependency_map[conn] = [
                 (self, output_conns)
             ]
 
         for conn in output_conns:
-            self.dependency_map._local_output_dependency_map[conn] = (self, input_conns)
+            self.dependency_map.local_output_dependency_map[conn] = (self, input_conns)
 
-        self.dependency_map._cache_internal_references(out_conn, input_conns)
+        self.dependency_map.cache_internal_references(out_conn, input_conns)
         self.dependency_map.update_all_keys()
 
         # Link canonicals
-        if isinstance(self.canonical_input, NotAvailable) and len(self._input_keys) > 0:
+        if isinstance(self.canonical_input, NotAvailable) and len(self.input_keys) > 0:
             canonical_input_key = (
-                "input" if "input" in self._input_keys else next(iter(self._input_keys))
+                "input" if "input" in self.input_keys else next(iter(self.input_keys))
             )
             canonical_input_conn = self.conns.get_connection(canonical_input_key)
             if canonical_input_conn is None:
@@ -189,7 +189,7 @@ class PrimitiveModel(BaseModel):
         conns: tuple[dict[str, list[str]], dict[str, list[str]]] = ({}, {})
 
         # Take the input_keys with tensor values
-        input_keys = tuple(self._input_keys)
+        input_keys = tuple(self.input_keys)
 
         for key in tuple(input_keys) + tuple(self.conns.output_keys):
             # find data of the key.

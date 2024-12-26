@@ -92,4 +92,4 @@ def test_error_robust_power_call_threshold_input_keys():
     model2 += pow2(threshold="thres")
     model2.set_values({"thres": 0.1})
 
-    assert model1._input_keys == model2._input_keys
+    assert model1.input_keys == model2.input_keys

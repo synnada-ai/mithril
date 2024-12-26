@@ -60,8 +60,8 @@ def dummy_constraint(output: Tensor | Scalar, input: Tensor | Scalar):
         uniadics = [
             Uniadic(val + add_val) if val is not None else Uniadic() for val in values
         ]
-        updates |= var_repr._update_uniadics(var_repr.prefix, uniadics)
-        updates |= var_repr._update_uniadics(var_repr.reverse, uniadics)
+        updates |= var_repr.update_uniadics(var_repr.prefix, uniadics)
+        updates |= var_repr.update_uniadics(var_repr.reverse, uniadics)
         updates |= var_repr.remove_variadic(uniadics)
         status = None not in values
     else:

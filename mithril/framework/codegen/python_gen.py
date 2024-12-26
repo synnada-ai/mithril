@@ -156,7 +156,7 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
             )
             module = importlib.util.module_from_spec(module_spec)  # type: ignore
             module_spec.loader.exec_module(module)  # type: ignore
-            eval_fn = module.evaluate
+            eval_fn: EvaluateType[DataType] = module.evaluate
             eval_grad_fn = (
                 module.evaluate_gradients
                 if hasattr(module, "evaluate_gradients")
@@ -224,15 +224,15 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
             isinstance(self.pm.backend, ParallelBackend)
             and self.pm.backend.n_devices > 1
         ):
-            self.pm.backend._register_callable(eval_fn, "eval_fn", jit)
+            self.pm.backend.register_callable(eval_fn, "eval_fn", jit)
             if not self.pm.inference:
                 assert grad_fn is not None, "Gradient function is not defined!"
                 assert (
                     evaluate_all_fn is not None
                 ), "Evaluate all function is not defined!"
 
-                self.pm.backend._register_callable(grad_fn, "eval_grad_fn", jit)
-                self.pm.backend._register_callable(evaluate_all_fn, "eval_all_fn", jit)
+                self.pm.backend.register_callable(grad_fn, "eval_grad_fn", jit)
+                self.pm.backend.register_callable(evaluate_all_fn, "eval_all_fn", jit)
 
         elif jit and not self.pm.backend.is_manualgrad:
             eval_fn = self.pm.backend.jit(eval_fn)
@@ -296,10 +296,10 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
         return imports
 
     def get_primitive_details(self, output_key: str):
-        model = self.pm._flat_graph.get_model(output_key)
+        model = self.pm.flat_graph.get_model(output_key)
 
-        global_input_keys = self.pm._flat_graph.get_source_keys(output_key)
-        local_input_keys = list(model._input_keys)
+        global_input_keys = self.pm.flat_graph.get_source_keys(output_key)
+        local_input_keys = list(model.input_keys)
 
         return model, global_input_keys, local_input_keys
 
@@ -329,20 +329,20 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
         return_values: list[ast.expr] = []
 
         used_keys: set[str] = set()
-        used_keys |= set(self.pm._flat_graph.output_dict.values())
+        used_keys |= set(self.pm.flat_graph.output_dict.values())
 
         unused_keys = self.pm.data_store.unused_keys
         cached_data_keys = self.pm.data_store.cached_data.keys()
         discarded_keys = self.pm.discarded_keys  # TODO: Consider is this necessary?
 
         # Iterate over Primitive models in topological order to add their formula.
-        for output_key in self.pm._flat_graph.topological_order:
+        for output_key in self.pm.flat_graph.topological_order:
             # Staticly infered and unused model will not be added
             if output_key in (cached_data_keys | unused_keys | discarded_keys):
                 continue
 
             model, g_input_keys, l_input_keys = self.get_primitive_details(output_key)
-            formula_key = model._formula_key
+            formula_key = model.formula_key
 
             primitive_function = (
                 self.pm.backend.primitive_function_dict[formula_key]
@@ -370,7 +370,7 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
                 dict_type = "cache"
             elif key in self.pm.data_store.runtime_static_keys:
                 dict_type = "data"
-            elif key not in self.pm._flat_graph.all_target_keys:
+            elif key not in self.pm.flat_graph.all_target_keys:
                 dict_type = "params"
             else:
                 continue
@@ -381,7 +381,7 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
         for output_key in self.pm.output_keys:
             # TODO: give an api to get outputdict
             return_values.append(
-                ast.Name(self.pm._flat_graph.output_dict[output_key], ast.Load())
+                ast.Name(self.pm.flat_graph.output_dict[output_key], ast.Load())
             )
 
         return_body: list[ast.stmt] = [
@@ -434,7 +434,7 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
         else:
             val = key
 
-        if dict_type != "cache" or (key not in self.pm._flat_graph.all_target_keys):
+        if dict_type != "cache" or (key not in self.pm.flat_graph.all_target_keys):
             input_body.append(
                 ast.Assign(
                     targets=[ast.Name(id=val, ctx=ast.Store())],

@@ -264,7 +264,7 @@ def test_cyclic_extension_5():
         ),
     )
 
-    assert set(model._input_keys) == {"input2", "input3", "input5", "input6"}
+    assert set(model.input_keys) == {"input2", "input3", "input5", "input6"}
     assert model.conns.internal_keys == {"my_input"}
 
 
@@ -815,7 +815,7 @@ def test_canonical_output_exposed_2():
     model1 += Linear(dimension=16)(input=model1.canonical_output, output="output1")
 
     extend_info = model1(output1="output1")
-    assert extend_info._connections == {"output1": "output1"}
+    assert extend_info.connections == {"output1": "output1"}
 
 
 def test_canonical_output_exposed_3():
@@ -1352,7 +1352,7 @@ def test_static_key_names_consistency():
     model += Add()(left=3)
 
     pm = mithril.compile(model, TorchBackend())
-    assert {"left", "right"} == pm._input_keys
+    assert {"left", "right"} == pm.input_keys
 
 
 def test_evaluate_replace():
@@ -1366,7 +1366,7 @@ def test_evaluate_replace():
         jit=False,
     )
 
-    assert set(comp_model._input_keys) == {"in", "for", "add"}
+    assert set(comp_model.input_keys) == {"in", "for", "add"}
 
 
 def test_evaluate_replace_2():
@@ -1390,7 +1390,7 @@ def test_evaluate_replace_2():
         backend=NumpyBackend(),
         jit=False,
     )
-    assert set(comp_model._input_keys) == {
+    assert set(comp_model.input_keys) == {
         "in",
         "for",
         "add",
@@ -1542,7 +1542,7 @@ def test_canonic_example():
     model += LeakyRelu()
     model += LeakyRelu()
     comp_model = compile(model=model, backend=NumpyBackend())
-    assert set(comp_model._input_keys) == {"slope_0", "slope_1", "input"}
+    assert set(comp_model.input_keys) == {"slope_0", "slope_1", "input"}
     assert set(comp_model.output_keys) == {"output"}
     inputs = {"input": np.array([[2.0, -1.0]])}
     assert_results_equal(
@@ -2479,9 +2479,9 @@ def test_static_anlaysis():
     ignored_model_keys = (
         comp_model.data_store.cached_data.keys() | comp_model.discarded_keys
     )
-    ignored_output_keys = ignored_model_keys & comp_model._flat_graph.all_target_keys
+    ignored_output_keys = ignored_model_keys & comp_model.flat_graph.all_target_keys
     ignored_model_list = [
-        comp_model._flat_graph.get_model(key) for key in ignored_output_keys
+        comp_model.flat_graph.get_model(key) for key in ignored_output_keys
     ]
     assert ignored_model_list == [add1]
 
@@ -2501,11 +2501,9 @@ def test_static_anlaysis_1():
     discarded_model_keys = (
         comp_model.data_store.cached_data.keys() | comp_model.discarded_keys
     )
-    discarded_output_keys = (
-        discarded_model_keys & comp_model._flat_graph.all_target_keys
-    )
+    discarded_output_keys = discarded_model_keys & comp_model.flat_graph.all_target_keys
     discarded_model_list = [
-        comp_model._flat_graph.get_model(key) for key in discarded_output_keys
+        comp_model.flat_graph.get_model(key) for key in discarded_output_keys
     ]
     assert discarded_model_list == [add1]
 
@@ -2529,11 +2527,9 @@ def test_static_anlaysis_2():
         | comp_model.data_store.unused_keys
         | comp_model.discarded_keys
     )
-    discarded_output_keys = (
-        discarded_model_keys & comp_model._flat_graph.all_target_keys
-    )
+    discarded_output_keys = discarded_model_keys & comp_model.flat_graph.all_target_keys
     discarded_model_list = {
-        comp_model._flat_graph.get_model(key) for key in discarded_output_keys
+        comp_model.flat_graph.get_model(key) for key in discarded_output_keys
     }
     assert len(discarded_model_list) == 2
 
@@ -2553,7 +2549,7 @@ def test_static_anlaysis_4():
     comp_model = mithril.compile(model=model, backend=NumpyBackend())
 
     models = {add1, add2, sum1, sub1, mul1, mat1}
-    assert (models - comp_model._flat_graph.nodes.keys()) == {mat1}
+    assert (models - comp_model.flat_graph.nodes.keys()) == {mat1}
 
 
 def test_prune_1():
@@ -2585,7 +2581,7 @@ def test_prune_1():
     }
 
     assert_connections(compiled_model, expected_connections)
-    assert compiled_model._flat_graph.output_dict == expected_output_dict
+    assert compiled_model.flat_graph.output_dict == expected_output_dict
 
 
 def test_prune_2():
@@ -2617,7 +2613,7 @@ def test_prune_2():
     }
 
     assert_connections(compiled_model, expected_connections)
-    assert compiled_model._flat_graph.output_dict == expected_output_dict
+    assert compiled_model.flat_graph.output_dict == expected_output_dict
 
 
 def test_prune_3():
@@ -2653,7 +2649,7 @@ def test_prune_3():
     }
 
     assert_connections(compiled_model, expected_connections)
-    assert compiled_model._flat_graph.output_dict == expected_output_dict
+    assert compiled_model.flat_graph.output_dict == expected_output_dict
 
 
 def test_prune_4():
@@ -2685,7 +2681,7 @@ def test_prune_4():
     }
 
     assert_connections(compiled_model, expected_connections)
-    assert compiled_model._flat_graph.output_dict == expected_output_dict
+    assert compiled_model.flat_graph.output_dict == expected_output_dict
 
 
 def test_prune_5():
@@ -2716,7 +2712,7 @@ def test_prune_5():
     }
 
     assert_connections(compiled_model, expected_connections)
-    assert compiled_model._flat_graph.output_dict == expected_output_dict
+    assert compiled_model.flat_graph.output_dict == expected_output_dict
 
 
 def test_prune_6():
@@ -2750,7 +2746,7 @@ def test_prune_6():
     expected_output_dict = {"acc": "acc", "auc": "auc"}
 
     assert_connections(compiled_model, expected_connections)
-    assert compiled_model._flat_graph.output_dict == expected_output_dict
+    assert compiled_model.flat_graph.output_dict == expected_output_dict
 
 
 def test_prune_7():
@@ -2780,7 +2776,7 @@ def test_prune_7():
     }
 
     assert_connections(compiled_model, expected_connections)
-    assert compiled_model._flat_graph.output_dict == expected_output_dict
+    assert compiled_model.flat_graph.output_dict == expected_output_dict
 
 
 def test_prune_8():
@@ -2809,7 +2805,7 @@ def test_prune_8():
     }
 
     assert_connections(compiled_model, expected_connections)
-    assert compiled_model._flat_graph.output_dict == expected_output_dict
+    assert compiled_model.flat_graph.output_dict == expected_output_dict
 
 
 def test_prune_9():
@@ -2836,7 +2832,7 @@ def test_prune_9():
     }
 
     assert_connections(compiled_model, expected_connections)
-    assert compiled_model._flat_graph.output_dict == expected_output_dict
+    assert compiled_model.flat_graph.output_dict == expected_output_dict
 
 
 def test_prune_10():
@@ -2871,7 +2867,7 @@ def test_prune_10():
     }
 
     assert_connections(compiled_model, expected_connections)
-    assert compiled_model._flat_graph.output_dict == expected_output_dict
+    assert compiled_model.flat_graph.output_dict == expected_output_dict
 
 
 def test_prune_11():
@@ -2910,7 +2906,7 @@ def test_prune_11():
     }
 
     assert_connections(compiled_model, expected_connections)
-    assert compiled_model._flat_graph.output_dict == expected_output_dict
+    assert compiled_model.flat_graph.output_dict == expected_output_dict
 
 
 def test_prune_12():
@@ -2927,7 +2923,7 @@ def test_prune_12():
     expected_output_dict = {"out_3": "out_1", "out_2": "out_1", "out_1": "out_1"}
 
     assert_connections(compiled_model, expected_connections)
-    assert expected_output_dict == compiled_model._flat_graph.output_dict
+    assert expected_output_dict == compiled_model.flat_graph.output_dict
 
 
 def test_prune_13():
@@ -2944,7 +2940,7 @@ def test_prune_13():
     expected_output_dict = {"out_3": "out_1", "out_1": "out_1"}
 
     assert_connections(compiled_model, expected_connections)
-    assert expected_output_dict == compiled_model._flat_graph.output_dict
+    assert expected_output_dict == compiled_model.flat_graph.output_dict
 
 
 def test_prune_14():
@@ -2961,7 +2957,7 @@ def test_prune_14():
     expected_output_dict = {"out_3": "out_1", "out_2": "out_1", "out_1": "out_1"}
 
     assert_connections(compiled_model, expected_connections)
-    assert expected_output_dict == compiled_model._flat_graph.output_dict
+    assert expected_output_dict == compiled_model.flat_graph.output_dict
 
 
 def test_prune_15():
@@ -2979,7 +2975,7 @@ def test_prune_15():
     expected_output_dict = {"out_3": "out_3", "out_1": "out_1"}
 
     assert_connections(compiled_model, expected_connections)
-    assert expected_output_dict == compiled_model._flat_graph.output_dict
+    assert expected_output_dict == compiled_model.flat_graph.output_dict
 
 
 def test_prune_valued_tensor_1():
@@ -3019,7 +3015,7 @@ def test_prune_valued_tensor_2():
     expected_output_dict = {"output2": "output1", "output1": "output1"}
 
     assert_connections(compiled_model, expected_connections)
-    assert compiled_model._flat_graph.output_dict == expected_output_dict
+    assert compiled_model.flat_graph.output_dict == expected_output_dict
 
 
 def test_prune_valued_tensor_3():
@@ -3043,7 +3039,7 @@ def test_prune_valued_tensor_3():
     expected_output_dict = {"output2": "output1", "output1": "output1"}
 
     assert_connections(compiled_model, expected_connections)
-    assert compiled_model._flat_graph.output_dict == expected_output_dict
+    assert compiled_model.flat_graph.output_dict == expected_output_dict
 
 
 def test_prune_valued_tensor_4():
@@ -3069,7 +3065,7 @@ def test_prune_valued_tensor_4():
     expected_output_dict = {"output2": "output2", "output1": "output1"}
 
     assert_connections(compiled_model, expected_connections)
-    assert compiled_model._flat_graph.output_dict == expected_output_dict
+    assert compiled_model.flat_graph.output_dict == expected_output_dict
 
 
 def test_prune_valued_tensor_5():
@@ -3101,7 +3097,7 @@ def test_prune_valued_tensor_5():
     expected_output_dict = {"out1": "out2", "out2": "out2"}
 
     assert_connections(compiled_model, expected_connections)
-    assert compiled_model._flat_graph.output_dict == expected_output_dict
+    assert compiled_model.flat_graph.output_dict == expected_output_dict
 
 
 def test_prune_duplicate_grad():
@@ -3364,7 +3360,7 @@ def test_replace_with_primitive_2():
     assert expected_key_mapping == list(dag.values())[0]
     # assert {} == comp_model.non_differentiables
     assert set() == comp_model.data_store.all_static_keys
-    assert set(["query", "key", "mask", "value"]) == set(comp_model._input_keys)
+    assert set(["query", "key", "mask", "value"]) == set(comp_model.input_keys)
     assert set(["output"]) == set(comp_model.output_keys)
 
 
@@ -3398,7 +3394,7 @@ def test_replace_with_primitive_3():
     # assert {"q", "k", "v", "m", "output"} == comp_model.data_store.all_static_keys
     assert {"output"} == comp_model.data_store.all_static_keys
     assert {"q", "k", "v", "m"} == comp_model.data_store.unused_keys
-    assert set(["q", "k", "m", "v"]) == set(comp_model._input_keys)
+    assert set(["q", "k", "m", "v"]) == set(comp_model.input_keys)
     assert set(["output"]) == set(comp_model.output_keys)
 
 
@@ -3429,7 +3425,7 @@ def test_replace_with_primitive_4():
     assert expected_key_mapping == list(dag.values())[0]
     # assert {} == comp_model.non_differentiables
     assert {"q", "k", "m"} == comp_model.data_store.all_static_keys
-    assert set(["q", "k", "m", "v"]) == set(comp_model._input_keys)
+    assert set(["q", "k", "m", "v"]) == set(comp_model.input_keys)
     assert set(["output"]) == set(comp_model.output_keys)
 
 
@@ -3578,7 +3574,7 @@ def test_demo_model():
     model += Linear(1)
     pm = mithril.compile(model=model, backend=TorchBackend(), safe_names=False)
 
-    assert set(pm._input_keys) == {
+    assert set(pm.input_keys) == {
         "weight_0",
         "bias_1",
         "bias_3",
@@ -3661,9 +3657,9 @@ def test_flatgraph_4():
     )
 
     pm = mithril.compile(model=model, backend=backend)
-    assert pm._input_keys == {"relu_2"}
-    assert len(pm._flat_graph.all_source_keys) == 3
-    assert len(pm._flat_graph.all_target_keys) == 3
+    assert pm.input_keys == {"relu_2"}
+    assert len(pm.flat_graph.all_source_keys) == 3
+    assert len(pm.flat_graph.all_target_keys) == 3
 
 
 def test_empy_out_grad():
@@ -4084,7 +4080,7 @@ def test_dict_to_model_using_connect():
 
     model = dict_to_model(json_model)
 
-    assert model._input_keys == {"right", "left"}
+    assert model.input_keys == {"right", "left"}
 
 
 def test_connect_composite_2_extend_from_inputs():
@@ -4276,7 +4272,7 @@ def test_connect_11():
     add = Add()
     model += add(left=IOKey(value=TBD, name="a"), right="right")
 
-    assert model._input_keys == {"a", "right"}
+    assert model.input_keys == {"a", "right"}
     assert (
         model.dag[add]["left"].key == "a"
     )  # Checks "a" is assigned to the right connection.
@@ -4296,7 +4292,7 @@ def test_connect_12():
         output=IOKey(name="out3"),
     )
 
-    assert model._input_keys == {"left", "l2", "l4", "right"}
+    assert model.input_keys == {"left", "l2", "l4", "right"}
     assert (
         model.dag[add3]["left"].key == "left"
     )  # Checks "left" is assigned to the right connection.
@@ -4312,7 +4308,7 @@ def test_connect_13():
     model += buf(input=IOKey(name="input", connections=[add1.left, add2.left]))
     model += Add()(left=add2.output, right=buf.output, output=IOKey(name="out2"))
 
-    assert model._input_keys == {"input", "l2", "l4"}
+    assert model.input_keys == {"input", "l2", "l4"}
 
 
 def test_connect_14():
@@ -4321,7 +4317,7 @@ def test_connect_14():
     model += Add()(left="l3", right="l4", output=IOKey(name="out2"))
     model += ToTensor()(input=IOKey(value=5, name="input"), output=IOKey(name="out3"))
 
-    assert model._input_keys == {"input", "l1", "l2", "l3", "l4"}
+    assert model.input_keys == {"input", "l1", "l2", "l3", "l4"}
 
 
 def test_connect_error_1():
@@ -5099,10 +5095,8 @@ def test_dependency_map_latent_to_input():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
-    assert (
-        expected_local_output_map == model.dependency_map._local_output_dependency_map
-    )
+    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
+    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
 
     # Add second model with global output.
     model += (buff := Buffer())(output=IOKey("buff_out"))
@@ -5129,10 +5123,8 @@ def test_dependency_map_latent_to_input():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
-    assert (
-        expected_local_output_map == model.dependency_map._local_output_dependency_map
-    )
+    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
+    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
 
     # Add third model which changes name of a latent input and
     # makes it a real input of the model.
@@ -5166,10 +5158,8 @@ def test_dependency_map_latent_to_input():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
-    assert (
-        expected_local_output_map == model.dependency_map._local_output_dependency_map
-    )
+    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
+    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
 
 
 def test_dependency_map_1():
@@ -5196,10 +5186,8 @@ def test_dependency_map_1():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
-    assert (
-        expected_local_output_map == model.dependency_map._local_output_dependency_map
-    )
+    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
+    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
 
     assert (
         expected_global_input_map_cache
@@ -5237,10 +5225,8 @@ def test_dependency_map_1_set_outputs():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
-    assert (
-        expected_local_output_map == model.dependency_map._local_output_dependency_map
-    )
+    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
+    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
 
     assert (
         expected_global_input_map_cache
@@ -5300,10 +5286,8 @@ def test_dependency_map_2():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
-    assert (
-        expected_local_output_map == model.dependency_map._local_output_dependency_map
-    )
+    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
+    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
 
     assert (
         expected_global_input_map_cache
@@ -5365,10 +5349,8 @@ def test_dependency_map_2_set_outputs():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
-    assert (
-        expected_local_output_map == model.dependency_map._local_output_dependency_map
-    )
+    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
+    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
 
     assert (
         expected_global_input_map_cache
@@ -5420,10 +5402,8 @@ def test_dependency_map_3():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
-    assert (
-        expected_local_output_map == model.dependency_map._local_output_dependency_map
-    )
+    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
+    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
 
     assert (
         expected_global_input_map_cache
@@ -5476,10 +5456,8 @@ def test_dependency_map_3_set_outputs():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
-    assert (
-        expected_local_output_map == model.dependency_map._local_output_dependency_map
-    )
+    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
+    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
 
     assert (
         expected_global_input_map_cache
@@ -5531,10 +5509,8 @@ def test_dependency_map_4():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
-    assert (
-        expected_local_output_map == model.dependency_map._local_output_dependency_map
-    )
+    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
+    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
 
     assert (
         expected_global_input_map_cache
@@ -5587,10 +5563,8 @@ def test_dependency_map_4_set_outputs_1():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
-    assert (
-        expected_local_output_map == model.dependency_map._local_output_dependency_map
-    )
+    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
+    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
 
     assert (
         expected_global_input_map_cache
@@ -5644,10 +5618,8 @@ def test_dependency_map_4_set_outputs_2():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
-    assert (
-        expected_local_output_map == model.dependency_map._local_output_dependency_map
-    )
+    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
+    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
 
     assert (
         expected_global_input_map_cache
@@ -5711,10 +5683,8 @@ def test_dependency_map_5():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
-    assert (
-        expected_local_output_map == model.dependency_map._local_output_dependency_map
-    )
+    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
+    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
 
     assert (
         expected_global_input_map_cache
@@ -5779,10 +5749,8 @@ def test_dependency_map_5_set_outputs_1():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
-    assert (
-        expected_local_output_map == model.dependency_map._local_output_dependency_map
-    )
+    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
+    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
 
     assert (
         expected_global_input_map_cache
@@ -5847,10 +5815,8 @@ def test_dependency_map_5_set_outputs_2():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
-    assert (
-        expected_local_output_map == model.dependency_map._local_output_dependency_map
-    )
+    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
+    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
 
     assert (
         expected_global_input_map_cache
@@ -5914,10 +5880,8 @@ def test_dependency_map_6():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
-    assert (
-        expected_local_output_map == model.dependency_map._local_output_dependency_map
-    )
+    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
+    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
 
     assert (
         expected_global_input_map_cache
@@ -5984,10 +5948,8 @@ def test_dependency_map_6_set_outputs_1():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
-    assert (
-        expected_local_output_map == model.dependency_map._local_output_dependency_map
-    )
+    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
+    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
 
     assert (
         expected_global_input_map_cache
@@ -6052,10 +6014,8 @@ def test_dependency_map_6_set_outputs_2():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
-    assert (
-        expected_local_output_map == model.dependency_map._local_output_dependency_map
-    )
+    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
+    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
 
     assert (
         expected_global_input_map_cache
@@ -6121,10 +6081,8 @@ def test_dependency_map_7():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
-    assert (
-        expected_local_output_map == model.dependency_map._local_output_dependency_map
-    )
+    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
+    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
 
     assert (
         expected_global_input_map_cache
@@ -6191,10 +6149,8 @@ def test_dependency_map_7_set_outputs_1():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
-    assert (
-        expected_local_output_map == model.dependency_map._local_output_dependency_map
-    )
+    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
+    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
 
     assert (
         expected_global_input_map_cache
@@ -6261,10 +6217,8 @@ def test_dependency_map_7_set_outputs_2():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
-    assert (
-        expected_local_output_map == model.dependency_map._local_output_dependency_map
-    )
+    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
+    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
 
     assert (
         expected_global_input_map_cache
@@ -6544,7 +6498,7 @@ def test_discard_trainables_1():
         shapes={"input": [1, 2], "sidein": [2, 3]},
     )
 
-    assert {"input"} == pm._input_keys
+    assert {"input"} == pm.input_keys
     assert {"sidein", "sideout"} == pm.discarded_keys
     assert pm.get_shapes(model) == {
         "input": [1, 2],
@@ -6563,7 +6517,7 @@ def test_discard_trainables_2():
 
     pm = compile(model, backend, shapes={"sidein": [1, 2]})
 
-    assert {"input"} == pm._input_keys
+    assert {"input"} == pm.input_keys
     assert {"sidein", "output_0"} == pm.discarded_keys
     assert pm.get_shapes(model) == {
         "$_Sigmoid_1_output": [1, 2],
@@ -6583,7 +6537,7 @@ def test_discard_trainables_3():
 
     pm = compile(model, backend, shapes={"sidein": [1, 2]})
 
-    assert {"input"} == pm._input_keys
+    assert {"input"} == pm.input_keys
     assert {"sidein", "output_0"} == pm.discarded_keys
     assert pm.get_shapes(model) == {
         "$_Sigmoid_1_output": [1, 2],
@@ -6612,7 +6566,7 @@ def test_discard_trainables_4():
         shapes={"sideout": [1, 2, 3]},
     )
 
-    assert {"input"} == pm._input_keys
+    assert {"input"} == pm.input_keys
     assert {"sidein", "output_0", "sideout"} == pm.discarded_keys
     assert pm.get_shapes(model) == {
         "$_Sigmoid_1_output": [1, 2, 3],
@@ -7302,7 +7256,7 @@ def test_generate_keys_duplicates():
     model2 = Model()
     model2 += model()
 
-    key_mappings = model2._generate_keys(include_internals=True)
+    key_mappings = model2.generate_keys(include_internals=True)
     expected_key_mappings = {
         "$1": "$left",
         "$2": "$right",

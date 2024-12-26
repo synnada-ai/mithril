@@ -26,6 +26,7 @@ from ..framework.common import (
     Connection,
     ConnectionType,
     IOKey,
+    MainValueType,
     ShapeTemplateType,
     TensorValueType,
     ToBeDetermined,
@@ -587,9 +588,9 @@ class Linear(Model):
     ) -> ExtendInfo:
         kwargs = {"input": input, "weight": weight, "output": output}
 
-        if "bias" not in self._input_keys and bias != NOT_GIVEN:
+        if "bias" not in self.input_keys and bias != NOT_GIVEN:
             raise KeyError("bias is not a valid input when 'use_bias' is False!")
-        elif "bias" in self._input_keys:
+        elif "bias" in self.input_keys:
             kwargs["bias"] = bias
 
         return super().__call__(**kwargs)
@@ -740,14 +741,14 @@ class LayerNorm(Model):
     ) -> ExtendInfo:
         kwargs = {"input": input, "output": output}
 
-        if "weight" not in self._input_keys and weight != NOT_GIVEN:
+        if "weight" not in self.input_keys and weight != NOT_GIVEN:
             raise KeyError("weight is not a valid input when 'use_scale' is False!")
-        elif "weight" in self._input_keys:
+        elif "weight" in self.input_keys:
             kwargs["weight"] = weight
 
-        if "bias" not in self._input_keys and bias != NOT_GIVEN:
+        if "bias" not in self.input_keys and bias != NOT_GIVEN:
             raise KeyError("bias is not a valid input when 'use_bias' is False!")
-        elif "bias" in self._input_keys:
+        elif "bias" in self.input_keys:
             kwargs["bias"] = bias
 
         return super().__call__(**kwargs)
@@ -815,14 +816,14 @@ class GroupNorm(Model):
     ) -> ExtendInfo:
         kwargs = {"input": input, "output": output}
 
-        if "weight" not in self._input_keys and weight != NOT_GIVEN:
+        if "weight" not in self.input_keys and weight != NOT_GIVEN:
             raise KeyError("weight is not a valid input when 'use_scale' is False!")
-        elif "weight" in self._input_keys:
+        elif "weight" in self.input_keys:
             kwargs["weight"] = weight
 
-        if "bias" not in self._input_keys and bias != NOT_GIVEN:
+        if "bias" not in self.input_keys and bias != NOT_GIVEN:
             raise KeyError("bias is not a valid input when 'use_bias' is False!")
-        elif "bias" in self._input_keys:
+        elif "bias" in self.input_keys:
             kwargs["bias"] = bias
 
         return super().__call__(**kwargs)
@@ -1079,7 +1080,7 @@ class KernelizedSVM(Model):
         weight: TensorValueType | ToBeDetermined = TBD,
         bias: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
-        if len(kernel._input_keys) < 2:
+        if len(kernel.input_keys) < 2:
             raise KeyError("Kernel requires at least two inputs!")
         if len(kernel.conns.output_keys) != 1:
             raise KeyError("Kernel requires single output!")
@@ -1096,7 +1097,7 @@ class KernelizedSVM(Model):
         # Get kernel inputs from given model.
         kernel_input_args = {
             key: key
-            for key in kernel._input_keys
+            for key in kernel.input_keys
             if not kernel.conns.is_key_non_diff(key)
         }
         (kernel_output_name,) = kernel.conns.output_keys  # NOTE: Assumes single output!
@@ -1514,7 +1515,7 @@ class LSTMCell(Cell):
         self += slice_model_2(input="prev_hidden", stop=scalar_item.output)
 
         body_kwargs: dict[str, ConnectionType] = {
-            key: key for key in cell_body._input_keys if key[0] != "$"
+            key: key for key in cell_body.input_keys if key[0] != "$"
         }
         body_kwargs["prev_cell"] = slice_model_1.output
         body_kwargs["prev_hidden"] = slice_model_2.output
@@ -1748,7 +1749,12 @@ class LSTMCellBody(Model):
 
 
 class RNN(Model):
-    def __init__(self, cell_type: Cell, name: str | None = None, **kwargs) -> None:
+    def __init__(
+        self,
+        cell_type: Cell,
+        name: str | None = None,
+        **kwargs: TensorValueType | MainValueType,
+    ) -> None:
         self.cell_type = cell_type
         super().__init__(name=name)
         self.factory_inputs = kwargs
@@ -1767,7 +1773,7 @@ class OneToMany(RNN):
         teacher_forcing: bool = False,
         name: str | None = None,
         input: TensorValueType | ToBeDetermined = TBD,
-        **kwargs,
+        **kwargs: TensorValueType | MainValueType,
     ) -> None:
         super().__init__(cell_type=cell_type, name=name)
         self.factory_inputs = {"input": input, **kwargs}
@@ -1843,7 +1849,7 @@ class OneToManyInference(RNN):
         max_sequence_length: int,
         name: str | None = None,
         input: TensorValueType | ToBeDetermined = TBD,
-        **kwargs,
+        **kwargs: TensorValueType | ToBeDetermined,
     ) -> None:
         super().__init__(cell_type=cell_type, name=name)
         self.factory_inputs = {"input": input, **kwargs}
@@ -1883,7 +1889,7 @@ class OneToManyInference(RNN):
             prev_cell = current_cell
         self._freeze()
 
-    def __call__(  # type: ignore[override]
+    def __call__(
         self, input: ConnectionType = NOT_GIVEN, **model_keys: ConnectionType
     ) -> ExtendInfo:
         return super(RNN, self).__call__(input=input, **model_keys)
@@ -1898,7 +1904,7 @@ class ManyToOne(RNN):
         max_sequence_length: int,
         name: str | None = None,
         hidden_concat: TensorValueType | ToBeDetermined = TBD,
-        **kwargs,
+        **kwargs: TensorValueType | ToBeDetermined,
     ) -> None:
         super().__init__(cell_type, name=name)
         self.factory_inputs = {"hidden_concat": hidden_concat, **kwargs}
@@ -1972,7 +1978,7 @@ class EncoderDecoder(Model):
         teacher_forcing: bool = False,
         name: str | None = None,
         indices: TensorValueType | ToBeDetermined = TBD,
-        **kwargs,
+        **kwargs: TensorValueType | ToBeDetermined,
     ) -> None:
         super().__init__(name=name)
         self.factory_inputs = {"indices": indices, **kwargs}
@@ -1991,11 +1997,11 @@ class EncoderDecoder(Model):
 
         permutation_model = PermuteTensor()
 
-        enc_input_mapping = {key: key for key in encoder._input_keys if "$" not in key}
+        enc_input_mapping = {key: key for key in encoder.input_keys if "$" not in key}
 
         dec_input_mapping = {
             key: "decoder_" + key if "target" not in key else key
-            for key in decoder._input_keys
+            for key in decoder.input_keys
             if "$" not in key and key != "initial_hidden"
         }
 
@@ -2010,7 +2016,7 @@ class EncoderDecoder(Model):
 
         self._freeze()
 
-    def __call__(  # type: ignore[override]
+    def __call__(
         self, indices: ConnectionType = NOT_GIVEN, **model_keys: ConnectionType
     ) -> ExtendInfo:
         return super().__call__(indices=indices, **model_keys)
@@ -2026,7 +2032,7 @@ class EncoderDecoderInference(Model):
         max_target_sequence_length: int,
         name: str | None = None,
         indices: TensorValueType | ToBeDetermined = TBD,
-        **kwargs,
+        **kwargs: TensorValueType | ToBeDetermined,
     ) -> None:
         super().__init__(name=name)
         self.factory_inputs = {"indices": indices, **kwargs}
@@ -2041,11 +2047,11 @@ class EncoderDecoderInference(Model):
             cell_type=cell_type, max_sequence_length=max_target_sequence_length
         )
 
-        enc_input_mapping = {key: key for key in encoder._input_keys if "$" not in key}
+        enc_input_mapping = {key: key for key in encoder.input_keys if "$" not in key}
 
         dec_input_mapping = {
             key: "decoder_" + key if "target" not in key else key
-            for key in decoder._input_keys
+            for key in decoder.input_keys
             if "$" not in key and key != "initial_hidden"
         }
 
@@ -2078,7 +2084,7 @@ class EncoderDistanceMatrix(Model):
         name: str | None = None,
         input1: TensorValueType | ToBeDetermined = TBD,
         input2: TensorValueType | ToBeDetermined = TBD,
-        **kwargs,
+        **kwargs: TensorValueType | ToBeDetermined,
     ) -> None:
         super().__init__(name=name)
         self.factory_inputs = {"input1": input1, "input2": input2, **kwargs}
@@ -2373,7 +2379,7 @@ class TSNECore(Model):
             "output": output,
         }
 
-        if "p_joint" in self._input_keys:
+        if "p_joint" in self.input_keys:
             kwargs["p_joint"] = p_joint
         elif p_joint != NOT_GIVEN:
             raise ValueError("p_joint is only required when calculate_p_joint is True!")
@@ -2432,7 +2438,7 @@ class DistanceEncoder(Model):
             if base_model.requires_norm:
                 base_kwargs["norm"] = "norm"
 
-            for key in base_model._input_keys:
+            for key in base_model.input_keys:
                 con = base_model.conns.get_connection(key)
                 assert con is not None
                 if key not in base_kwargs and not con.is_key_autogenerated:
@@ -2484,7 +2490,7 @@ class DistanceEncoder(Model):
             "predicted_coords": predicted_coords,
             "output": output,
         }
-        if "input" in self._input_keys:
+        if "input" in self.input_keys:
             kwargs["input"] = input
         elif coords != NOT_GIVEN:
             raise ValueError("coords is only required when input_type is 'points'!")
@@ -2537,7 +2543,7 @@ class MDS(DistanceEncoder):
             "output": output,
         }
 
-        if "coords" in self._input_keys:
+        if "coords" in self.input_keys:
             kwargs["coords"] = coords
         elif coords != NOT_GIVEN:
             raise ValueError("coords is only required when input_type is 'points'!")
