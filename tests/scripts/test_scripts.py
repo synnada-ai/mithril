@@ -6926,12 +6926,10 @@ def test_cyclic_extend():
         model = Model()
         model += LogisticRegression()(input="input1", probs_output="input1")
 
-    assert str(error_info1.value) == (
-        "There exists a cyclic subgraph between input1 key and ['input1'] key(s)!"
-    )
-    assert str(error_info2.value) == (
-        "There exists a cyclic subgraph between input1 key and ['$3', 'input1'] key(s)!"
-    )
+    m1 = "There exists a cyclic subgraph between input1 key and ['input1'] key(s)!"
+    assert str(error_info1.value.args[0]) == m1
+    m = "There exists a cyclic subgraph between input1 key and ['$3', 'input1'] key(s)!"
+    assert str(error_info2.value.args[0]) == m
 
 
 def assert_repr_dict(data: dict[str, ShapeRepr], ref_shapes: dict):

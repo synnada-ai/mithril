@@ -650,7 +650,7 @@ class DependencyMap:
                 self._cache_internal_references(conn, specs)
 
             if self.look_for_cyclic_connection(conn, specs):
-                raise Exception(
+                raise KeyError(
                     f"There exists a cyclic subgraph between {conn.key} key and "
                     f"{[spec.key for spec in specs]} key(s)!"
                 )
