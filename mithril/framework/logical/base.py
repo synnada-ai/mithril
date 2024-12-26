@@ -94,7 +94,7 @@ class BaseModel(abc.ABC):
                     continue
                 match con:
                     case Connection():
-                        kwargs[key] = IOKey(value=val, connections=[con])
+                        kwargs[key] = IOKey(value=val, connections={con})
                         # TODO: Maybe we could check con's value if matches with val
                     case item if isinstance(item, MainValueInstance) and con != val:
                         raise ValueError(
@@ -102,24 +102,20 @@ class BaseModel(abc.ABC):
                             f"has already being set to {val}!"
                         )
                     case str():
-                        kwargs[key] = IOKey(con, value=val, expose=False)
+                        kwargs[key] = IOKey(name=con, value=val, expose=False)
                     case IOKey():
-                        if con.value is not TBD and con.value != val:
+                        if con.data.value is not TBD and con.data.value != val:
                             raise ValueError(
                                 f"Given IOKey for local key: '{key}' is not valid!"
                             )
                         else:
-                            conns = [
-                                item.conn if isinstance(item, ConnectionData) else item
-                                for item in con._connections
-                            ]
                             kwargs[key] = IOKey(
                                 name=con.name,
+                                expose=con.expose,
+                                connections=con.connections,
+                                type=con.data.type,
+                                shape=con.data.shape,
                                 value=val,
-                                shape=con._shape,
-                                type=con._type,
-                                expose=con._expose,
-                                connections=conns,
                             )
                     case ExtendTemplate():
                         raise ValueError(
@@ -660,7 +656,7 @@ class DependencyMap:
                 self.cache_internal_references(conn, specs)
 
             if self.look_for_cyclic_connection(conn, specs):
-                raise Exception(
+                raise KeyError(
                     f"There exists a cyclic subgraph between {conn.key} key and "
                     f"{[spec.key for spec in specs]} key(s)!"
                 )

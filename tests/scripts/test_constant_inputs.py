@@ -969,7 +969,7 @@ def test_nontensor_extend_from_input_multiple_connection():
     model += mean1
     model += mean2
     model += mean3
-    model += mean4(axis=IOKey(connections=[mean1.axis, mean2.axis, mean3.axis]))
+    model += mean4(axis=IOKey(connections={mean1.axis, mean2.axis, mean3.axis}))
     assert (
         mean1.axis.data.metadata
         == mean2.axis.data.metadata

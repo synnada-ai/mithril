@@ -150,7 +150,7 @@ def test_shape_reshape():
     # Create with shortcut.
     model_1 = Model()
     model_1 += (lin_1 := Linear(dimension=1))(input="input_1", weight="w_1", bias="b_1")
-    shp = lin_1.input.shape()
+    shp = lin_1.input.shape
     model_1 += (lin_2 := Linear(dimension=2))(input="input_2", weight="w_2", bias="b_2")
     reshaped = lin_2.output.reshape(shp)
     model_1 += Add()(left=lin_1.output, right=reshaped, output=IOKey(name="output"))
@@ -210,7 +210,7 @@ def test_slice_item():
     model_1 += (lin_1 := Linear(dimension=1))(
         input="input", weight="weight", bias="bias"
     )
-    shp = lin_1.input.shape()
+    shp = lin_1.input.shape
     item = shp[1].tensor()
     slc = shp[:].tensor()
     model_1 += Add()(left=item, right=slc, output=IOKey(name="output"))
@@ -1389,68 +1389,6 @@ def test_invalid_input():
 
     with pytest.raises(ValueError):
         "asd" + model.input  # type: ignore
-
-
-# def test_coercion_models_1():
-#     backend = JaxBackend()
-
-#     data = {"left": backend.randn(3, 4, 5), "right": backend.randn(3, 4, 5)}
-
-#     model1 = Model()
-#     model1 += (add_model := Add())(left="left", right="right")
-#     out = add_model.output
-#     scalar_item_output = out.shape()[1]
-#     tensor_item_output = out[1]
-#     model1 += Buffer()(
-#         input=scalar_item_output + tensor_item_output, output=IOKey(name="output")
-#     )
-
-#     model2 = Model()
-#     model2 += (add_model := Add())(left="left", right="right")
-#     model2 += (shp_model := Shape())(input=add_model.output)
-#     model2 += (to_tensor_model := ToTensor())(input=shp_model.output)
-#     model2 += (tensor_item_model1 := TensorItem())(
-#         input=to_tensor_model.output, index=1
-#     )
-#     model2 += (tensor_item_model2 := TensorItem())(input=add_model.output, index=1)
-#     model2 += (add_model_2 := Add())(
-#         left=tensor_item_model1.output, right=tensor_item_model2.output
-#     )
-#     model2 += Buffer()(input=add_model_2.output, output=IOKey(name="output"))
-
-#     compare_models(model1, model2, backend, data, check_internals=False)
-
-
-# def test_coercion_models_2():
-#     backend = JaxBackend()
-
-#     data = {"left": backend.randn(5, 6, 2), "right": backend.randn(5, 6, 2)}
-
-#     model1 = Model()
-#     model1 += (add_model := Add())(left="left", right="right")
-#     out = add_model.output
-#     scalar_item_output = out.shape()[1:3]
-#     tensor_item_output = out[1:3]
-#     model1 += Buffer()(
-#         input=scalar_item_output + tensor_item_output, output=IOKey(name="output")
-#     )
-
-#     model2 = Model()
-#     model2 += (add_model := Add())(left="left", right="right")
-#     model2 += (shp_model := Shape())(input=add_model.output)
-#     model2 += (to_tensor_model := ToTensor())(input=shp_model.output)
-#     model2 += (tensor_item_model1 := TensorSlice(start=TBD, stop=TBD, step=TBD))(
-#         input=to_tensor_model.output, start=1, stop=3, step=None
-#     )
-#     model2 += (tensor_item_model2 := TensorSlice(start=TBD, stop=TBD, step=TBD))(
-#         input=add_model.output, start=1, stop=3, step=None
-#     )
-#     model2 += (add_model_2 := Add())(
-#         left=tensor_item_model1.output, right=tensor_item_model2.output
-#     )
-#     model2 += Buffer()(input=add_model_2.output, output=IOKey(name="output"))
-
-#     compare_models(model1, model2, backend, data, check_internals=False)
 
 
 def test_tensoritem_multiple_slice_1():
