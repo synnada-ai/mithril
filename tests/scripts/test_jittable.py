@@ -367,7 +367,7 @@ def test_jit_2():
     model = Model(enforce_jit=False)
     model += (add_model := Add())(left="left", right="right")
     in1 = add_model.output
-    out1 = in1.get_shape()
+    out1 = in1.shape
     out2 = out1.tensor().sum()
     mean_model = Mean(axis=TBD)
     model += (to_list := Item())(input=out2)

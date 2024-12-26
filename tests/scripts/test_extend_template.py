@@ -150,7 +150,7 @@ def test_shape_reshape():
     # Create with shortcut.
     model_1 = Model()
     model_1 += (lin_1 := Linear(dimension=1))(input="input_1", weight="w_1", bias="b_1")
-    shp = lin_1.input.get_shape()
+    shp = lin_1.input.shape
     model_1 += (lin_2 := Linear(dimension=2))(input="input_2", weight="w_2", bias="b_2")
     reshaped = lin_2.output.reshape(shp)
     model_1 += Add()(left=lin_1.output, right=reshaped, output=IOKey(name="output"))
@@ -210,7 +210,7 @@ def test_slice_item():
     model_1 += (lin_1 := Linear(dimension=1))(
         input="input", weight="weight", bias="bias"
     )
-    shp = lin_1.input.get_shape()
+    shp = lin_1.input.shape
     item = shp[1].tensor()
     slc = shp[:].tensor()
     model_1 += Add()(left=item, right=slc, output=IOKey(name="output"))

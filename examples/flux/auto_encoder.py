@@ -66,7 +66,7 @@ def attn_block(n_channels: int, name: str | None = None):
     key = block.key  # type: ignore[attr-defined]
     value = block.value  # type: ignore[attr-defined]
 
-    shape = query.get_shape()
+    shape = query.shape
 
     query = query.transpose((0, 2, 3, 1)).reshape((shape[0], 1, -1, shape[1]))
     key = key.transpose((0, 2, 3, 1)).reshape((shape[0], 1, -1, shape[1]))
@@ -92,7 +92,7 @@ def downsample(n_channels: int):
 def upsample(n_channels: int, name: str | None = None):
     block = Model(enforce_jit=False, name=name)  # TODO: Remove enfor jit false
     input = IOKey("input")
-    input_shape = input.get_shape()
+    input_shape = input.shape
 
     B, C, H, W = input_shape[0], input_shape[1], input_shape[2], input_shape[3]
     input = input[:, :, :, None, :, None]

@@ -15,7 +15,6 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import replace
 from types import UnionType
 from typing import Any, Self
 
@@ -355,7 +354,14 @@ class Model(BaseModel):
                     and connection.connections == set()
                 ):
                     expose = True
-                connection = replace(connection, name=name, expose=expose)
+                connection = IOKey(
+                    name=name,
+                    expose=expose,
+                    connections=connection.connections,
+                    type=connection.data.type,
+                    shape=connection.data.shape,
+                    value=connection.data.value,
+                )
             case NotAvailable():
                 raise ValueError(
                     f"Given value for key: '{key}' is not available. "
@@ -395,8 +401,8 @@ class Model(BaseModel):
         outer_key = given_connection.name
         con_obj = None
         set_value: ToBeDetermined | str | MainValueType | NullConnection = NOT_GIVEN
-        if given_connection.value is not TBD:
-            set_value = given_connection.value
+        if given_connection.data.value is not TBD:
+            set_value = given_connection.data.value
 
         if given_connection.connections == set():
             if outer_key is not None:
@@ -706,11 +712,11 @@ class Model(BaseModel):
         }
 
         for local_key, value in io_keys.items():
-            if value.shape is not None:
-                shape_info |= {local_key: value.shape}
+            if value.data.shape is not None:
+                shape_info |= {local_key: value.data.shape}
 
-            if value.type is not None:
-                type_info[local_key] = value.type
+            if value.data.type is not None:
+                type_info[local_key] = value.data.type
 
             con_obj, _updates = self._add_connection(model, local_key, value)
             updates |= _updates

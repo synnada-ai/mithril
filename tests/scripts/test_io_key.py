@@ -1245,7 +1245,7 @@ def test_iokey_template_4():
     model = Model()
 
     left = IOKey("left")
-    res = left.get_shape()[0]
+    res = left.shape[0]
 
     model += Buffer()(res.tensor(), IOKey("output"))
 

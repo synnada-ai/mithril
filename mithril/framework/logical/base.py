@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import abc
 from collections.abc import Mapping
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from itertools import chain
 from types import UnionType
 from typing import Any
@@ -105,12 +105,19 @@ class BaseModel(abc.ABC):
                     case str():
                         kwargs[key] = IOKey(name=con, value=val, expose=False)
                     case IOKey():
-                        if con.value is not TBD and con.value != val:
+                        if con.data.value is not TBD and con.data.value != val:
                             raise ValueError(
                                 f"Given IOKey for local key: '{key}' is not valid!"
                             )
                         else:
-                            kwargs[key] = replace(con, value=val)
+                            kwargs[key] = IOKey(
+                                name=con.name,
+                                expose=con.expose,
+                                connections=con.connections,
+                                type=con.data.type,
+                                shape=con.data.shape,
+                                value=val,
+                            )
                     case ExtendTemplate():
                         raise ValueError(
                             "Multi-write detected for a valued "

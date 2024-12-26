@@ -29,7 +29,7 @@ def test_directed_call_connection():
     assert isinstance(left_info, ml.IOKey)
     assert left_info.connections == {connection}
     assert left_info.name is None
-    assert left_info.value == 1
+    assert left_info.data.value == 1
 
 
 def test_directed_call_int():
@@ -59,7 +59,7 @@ def test_directed_call_str():
 
     assert isinstance(left_info, ml.IOKey)
     assert left_info.name == "in1"
-    assert left_info.value == 1
+    assert left_info.data.value == 1
 
 
 def test_directed_call_iokey_value_equal():
@@ -71,7 +71,7 @@ def test_directed_call_iokey_value_equal():
 
     assert isinstance(left_info, ml.IOKey)
     assert left_info.name == "in1"
-    assert left_info.value == 1
+    assert left_info.data.value == 1
 
 
 def test_directed_call_iokey_value_not_equal():
@@ -92,7 +92,7 @@ def test_directed_call_iokey_value_tbd():
 
     assert isinstance(left_info, ml.IOKey)
     assert left_info.name == "in1"
-    assert left_info.value == 1  # value is set to val from factory_inputs
+    assert left_info.data.value == 1  # value is set to val from factory_inputs
 
 
 def test_directed_call_connect_key_value_not_equal():
@@ -113,7 +113,7 @@ def test_directed_call_connect_key_none():
     left_info = info._connections["left"]
     assert isinstance(left_info, ml.IOKey)
     assert left_info.connections == {connection}
-    assert left_info.value == 1  # key is set to IOKey with val from factory_inputs
+    assert left_info.data.value == 1  # key is set to IOKey with val from factory_inputs
 
 
 def test_directed_call_connect_key_value_tbd():
@@ -127,7 +127,7 @@ def test_directed_call_connect_key_value_tbd():
     assert isinstance(left_info, ml.IOKey)
     assert left_info.connections == {connection}
     assert isinstance(left_info, ml.IOKey)
-    assert left_info.value == 1  # value is set to val from factory_inputs
+    assert left_info.data.value == 1  # value is set to val from factory_inputs
 
 
 def test_directed_call_connect_key_value_equal():
@@ -140,7 +140,7 @@ def test_directed_call_connect_key_value_equal():
     left_info = info._connections["left"]
     assert isinstance(left_info, ml.IOKey)
     assert left_info.connections == {connection}
-    assert left_info.value == 1  # value is set to val from factory_inputs
+    assert left_info.data.value == 1  # value is set to val from factory_inputs
 
 
 def test_directed_call_extend_template():

@@ -41,7 +41,7 @@ def causal_attention(input_dim, num_heads, bias=True):
     model += Linear(input_dim * 3, name="c_attn")("input", output="c_attn_out")
 
     t_axes = (0, 2, 1, 3)
-    shp_con = model.input.get_shape()  # type: ignore
+    shp_con = model.input.shape  # type: ignore
     reshape_con = (shp_con[0], shp_con[1], num_heads, -1)
 
     model += Split(3, axis=-1)(model.c_attn_out, output="split_out")  # type: ignore

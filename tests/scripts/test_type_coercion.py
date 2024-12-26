@@ -116,7 +116,7 @@ def test_scalar_to_tensor_2():
     lin_2 = Linear(dimension=2)
     model += lin_1(input="input_1", weight="w_1", bias="b_1")
     model += lin_2(input="input_2", weight="w_2", bias="b_2")
-    shp_1 = lin_1.input.get_shape()
+    shp_1 = lin_1.input.shape
     reshaped_1 = lin_2.output.reshape(shp_1)
     to_tensor = ToTensor()
     model += to_tensor(input=shp_1)
@@ -129,7 +129,7 @@ def test_scalar_to_tensor_2():
     lin_4 = Linear(dimension=2)
     model += lin_3(input="input_1", weight="w_1", bias="b_1")
     model += lin_4(input="input_2", weight="w_2", bias="b_2")
-    shp_2 = lin_3.input.get_shape()
+    shp_2 = lin_3.input.shape
     reshaped_2 = lin_4.output.reshape(shp_2)
     model += Add()(left=shp_2.tensor(), right=reshaped_2, output="output")
     model_2 = model
@@ -185,7 +185,7 @@ def test_scalar_to_tensor_3():
 
 
 def test_tensor_to_scalar_1():
-    """Model enforces Jit so we reshape with to_tensor_1_output.get_shape().
+    """Model enforces Jit so we reshape with to_tensor_1_output.shape.
     We can not directly reshape with to_tensor_1_output which is valued
     as [2, 1] in tensor domain since it requires TensorToList conversion before
     being argument to reshape method.
@@ -199,7 +199,7 @@ def test_tensor_to_scalar_1():
     model += to_tensor_1(input=[2, 1])
     model += to_tensor_2(input=[[1, 1]])
     model += add_1(left=to_tensor_1.output, right=to_tensor_2.output)
-    reshaped_1 = add_1.output.reshape(to_tensor_1.output.get_shape())
+    reshaped_1 = add_1.output.reshape(to_tensor_1.output.shape)
     model += Buffer()(input=reshaped_1, output="output")
     model_1 = model
 
@@ -209,7 +209,7 @@ def test_tensor_to_scalar_1():
     left = IOKey(value=[2, 1]).tensor()
     right = IOKey(value=[1, 1]).tensor()
     model += add_2(left=left, right=right)
-    reshaped_2 = add_2.output.reshape(add_2.left.get_shape())
+    reshaped_2 = add_2.output.reshape(add_2.left.shape)
     model += Buffer()(input=reshaped_2, output="output")
 
     model_2 = model
@@ -282,7 +282,7 @@ def test_slice_item_conversions():
     model = Model()
     lin_2 = Linear(dimension=1)
     model += lin_2(input="input", weight="w", bias="b")
-    shp2 = lin_2.input.get_shape()
+    shp2 = lin_2.input.shape
     shp2_1 = shp2[1]
     assert shp2_1 is not None
     shp_item = shp2_1.tensor()
@@ -307,7 +307,7 @@ def test_tuple_conversion_1():
     model = Model()
     lin_1 = Linear(dimension=2)
     model += lin_1(input="input", weight="w", bias="b")
-    shp1 = lin_1.output.get_shape()
+    shp1 = lin_1.output.shape
     model += ToTensor()(input=(shp1[0], shp1[1]), output="output")
     model_1 = model
 
@@ -316,7 +316,7 @@ def test_tuple_conversion_1():
     lin_2 = Linear(dimension=2)
     tupl = ToTuple(n=2)
     model += lin_2(input="input", weight="w", bias="b")
-    shp2 = lin_2.output.get_shape()
+    shp2 = lin_2.output.shape
     model += tupl(input1=shp2[0], input2=shp2[1])
     model += ToTensor()(input=tupl.output, output="output")  # type: ignore
     model_2 = model
@@ -337,7 +337,7 @@ def test_tuple_conversion_2():
     lin_1 = Linear(dimension=2)
     tt1 = ToTensor()
     model += lin_1(input=[[1], [2.0]], weight="w", bias="b")
-    shp1 = lin_1.input.get_shape()
+    shp1 = lin_1.input.shape
     model += tt1(input=(shp1[0], shp1[1]))
     model += Add()(left=lin_1.output, right=tt1.output, output="output")
     model_1 = model
@@ -383,7 +383,7 @@ def test_tuple_conversion_3():
     lin_1 = Linear(dimension=3)
     tt1 = ToTensor()
     model += lin_1(input=[[1], [2.0]], weight="w", bias="b")
-    shp1 = lin_1.input.get_shape()
+    shp1 = lin_1.input.shape
     model += tt1(input=(shp1[0], shp1[1], 3))
     model += Add()(left=lin_1.output, right=tt1.output, output="output")
     model_1 = model
@@ -429,7 +429,7 @@ def test_list_conversion_1():
     lin_1 = Linear(dimension=3)
     tt1 = ToTensor()
     model += lin_1(input=[[1], [2.0]], weight="w", bias="b")
-    shp1 = lin_1.input.get_shape()
+    shp1 = lin_1.input.shape
     model += tt1(input=[shp1[0], shp1[1], 3.0])
     model += Add()(left=lin_1.output, right=tt1.output, output="output")
     model_1 = model
@@ -474,7 +474,7 @@ def test_nested_list_conversion_1():
     lin_1 = Linear(dimension=3)
     tt1 = ToTensor()
     model += lin_1(input=[[1], [2.0]], weight="w", bias="b")
-    shp1 = lin_1.input.get_shape()
+    shp1 = lin_1.input.shape
     model += tt1(input=[[shp1[0], shp1[1], 3.0]])
     model += Add()(left=lin_1.output, right=tt1.output, output="output")
     model_1 = model
@@ -519,7 +519,7 @@ def test_nested_list_conversion_2():
     lin_1 = Linear(dimension=3)
     tt1 = ToTensor()
     model += lin_1(input="input", weight="w", bias="b")
-    shp1 = lin_1.input.get_shape()
+    shp1 = lin_1.input.shape
     model += tt1(input=[[shp1[0], shp1[1], 3.0]])
     model += Add()(left=lin_1.output, right=tt1.output, output="output")
     model_1 = model
@@ -1511,7 +1511,7 @@ def test_tensor_to_scalar_template_1():
     model += buff_model_1(input="input1")
 
     in1 = buff_model_1.output
-    out1 = in1.get_shape().tensor() ** 2
+    out1 = in1.shape.tensor() ** 2
     model += Buffer()(input=out1, output="output")
 
     model.set_shapes({"input1": [3, 4, 5, 6]})
@@ -1534,7 +1534,7 @@ def test_tensor_to_scalar_template_2():
     in1 = buff_model_1.output
     in2 = buff_model_2.output
     in3 = buff_model_3.output
-    out1 = (in1.get_shape().tensor() ** 2 * in2) @ in3 / 2
+    out1 = (in1.shape.tensor() ** 2 * in2) @ in3 / 2
     model += Buffer()(input=out1, output="output")
 
     pm = compile(model=model, backend=backend)

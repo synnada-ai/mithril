@@ -1001,7 +1001,8 @@ class TemplateBase:
     def len(self):
         return ExtendTemplate(connections=[self], model="len")
 
-    def get_shape(self):
+    @property
+    def shape(self):
         return ExtendTemplate(connections=[self], model="shape")
 
     def reshape(self, shape: tuple[int, ...] | TemplateBase):
@@ -1102,39 +1103,49 @@ class ExtendTemplate(TemplateBase):
 
 @dataclass
 class BaseKey:
-    name: str | None = None
     value: TensorValueType | MainValueType | ToBeDetermined | str = TBD
     shape: ShapeTemplateType | None = None
     type: NestedListType | UnionType | type | None = None
     interval: list[float | int] | None = None
 
 
-@dataclass
-class IOKey(BaseKey, TemplateBase):
-    expose: bool | None = None
-    connections: set[Connection | str] = field(default_factory=lambda: set())
+class IOKey(TemplateBase):
+    def __init__(
+        self,
+        name: str | None = None,
+        value: TensorValueType | MainValueType | ToBeDetermined | str = TBD,
+        shape: ShapeTemplateType | None = None,
+        type: NestedListType | UnionType | type | None = None,
+        expose: bool | None = None,
+        interval: list[float | int] | None = None,
+        connections: set[Connection | str] | None = None,
+    ) -> None:
+        super().__init__()
+        self.name = name
+        self.expose = expose
+        if connections is None:
+            connections = set()
+        self.connections: set[Connection | str] = connections
+        self.data = BaseKey(value, shape, type, interval)
 
-    def __post_init__(self):
         # TODO: Shape should not be [] also!
-        if self.value is not TBD and self.shape is not None and self.shape != []:
+        if (
+            self.data.value is not TBD
+            and self.data.shape is not None
+            and self.data.shape != []
+        ):
             raise ValueError(
                 f"Scalar values are shapeless, shape should be None or []. "
-                f"Got {self.shape}."
+                f"Got {self.data.shape}."
             )
 
-        if self.value is not TBD and self.type is not None:
-            value_type = find_type(self.value)
-            if find_intersection_type(value_type, self.type) is None:
+        if self.data.value is not TBD and self.data.type is not None:
+            value_type = find_type(self.data.value)
+            if find_intersection_type(value_type, self.data.type) is None:
                 raise TypeError(
                     f"type of the given value and given type does not match. Given "
-                    f"type is {self.type} while type of value is {value_type}"
+                    f"type is {self.data.type} while type of value is {value_type}"
                 )
-
-    def __eq__(self, other: object):
-        if isinstance(other, int | float | bool | list | Connection | IOKey | tuple):
-            return ExtendTemplate(connections=[self, other], model="eq")
-        else:
-            raise ValueError("Unsupported type for equality operation.")
 
 
 class Connection(TemplateBase):
