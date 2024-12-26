@@ -53,12 +53,10 @@ def test_cyclic_extension_1_error():
 
     model += m1(input="input1", output="output")
     model += m2(input="output", output="output1")
-    with pytest.raises(Exception) as err_info:
+    with pytest.raises(KeyError) as err_info:
         model += m3(input="output1", output="input1")
-    assert (
-        str(err_info.value)
-        == "There exists a cyclic subgraph between input1 key and ['output1'] key(s)!"
-    )
+    m = "There exists a cyclic subgraph between input1 key and ['output1'] key(s)!"
+    assert str(err_info.value.args[0]) == m
 
 
 def test_cyclic_extension_2_error():
@@ -69,10 +67,8 @@ def test_cyclic_extension_2_error():
     model += m1(input="my_input", output="output")
     with pytest.raises(Exception) as err_info:
         model += m2(input="output", output="my_input")
-    assert (
-        str(err_info.value)
-        == "There exists a cyclic subgraph between my_input key and ['output'] key(s)!"
-    )
+    m = "There exists a cyclic subgraph between my_input key and ['output'] key(s)!"
+    assert str(err_info.value.args[0]) == m
 
 
 def test_cyclic_extension_3_error():
@@ -86,12 +82,8 @@ def test_cyclic_extension_3_error():
     model += sum2(left="input", right=sum1.output)
     with pytest.raises(Exception) as err_info:
         model += sum3(left="input", right=sum2.output, output=sum1.right)
-    assert (
-        str(err_info.value)
-        == "There exists a cyclic subgraph between rhs key and ['$1', 'input'] key(s)!"
-        or str(err_info.value)
-        == "There exists a cyclic subgraph between rhs key and ['input', '$1'] key(s)!"
-    )
+    m = "There exists a cyclic subgraph between rhs key and ['input', '$1'] key(s)!"
+    assert str(err_info.value.args[0]) == m
 
 
 def test_cyclic_extension_4_error():
@@ -103,10 +95,8 @@ def test_cyclic_extension_4_error():
     model += sum1(left="my_input", right="rhs", output="output")
     with pytest.raises(Exception) as err_info:
         model += sum2(left=sum1.output, right=sum1.output, output=sum1.left)
-    assert (
-        str(err_info.value)
-        == "There exists a cyclic subgraph between my_input key and ['output'] key(s)!"
-    )
+    m = "There exists a cyclic subgraph between my_input key and ['output'] key(s)!"
+    assert str(err_info.value.args[0]) == m
 
 
 def test_loss_key_error_3():

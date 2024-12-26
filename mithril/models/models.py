@@ -617,7 +617,9 @@ class ElementWiseAffine(Model):
 
         self += mult_model(left="input", right="weight")
         self += sum_model(
-            left=mult_model.output, right="bias", output=IOKey(name="output")
+            left=mult_model.output,
+            right="bias",
+            output=IOKey(name="output"),
         )
         self.input.set_differentiable(False)
         self._freeze()
@@ -775,7 +777,7 @@ class GroupNorm(Model):
 
         # Assumed input shape is [N, C, H, W]
         input_key = IOKey(name="input")
-        input_shape = input_key.shape()
+        input_shape = input_key.shape
         B = input_shape[0]
 
         input_key = input_key.reshape((B, num_groups, -1))
@@ -968,7 +970,9 @@ class RBFKernel(Model):
         self += exp_model(input=div_model.output)
         self += l_square(left="l_scale", right="l_scale")
         self += mult_model2(
-            left=l_square.output, right=exp_model.output, output=IOKey(name="output")
+            left=l_square.output,
+            right=exp_model.output,
+            output=IOKey(name="output"),
         )
 
         self.set_canonical_input("input1")
@@ -1035,7 +1039,6 @@ class PolynomialKernel(Model):
         self += power_model(
             base=sum_model.output, exponent="degree", output=IOKey(name="output")
         )
-
         self._set_shapes(
             {
                 "input1": ["N", "d"],
@@ -1208,7 +1211,10 @@ class LogisticRegression(Model):
         sigmoid_model = Sigmoid()
 
         self += linear_model(
-            input="input", weight="weight", bias="bias", output=IOKey(name="output")
+            input="input",
+            weight="weight",
+            bias="bias",
+            output=IOKey(name="output"),
         )
         self += sigmoid_model(
             input=linear_model.output, output=IOKey(name="probs_output")
@@ -2333,48 +2339,27 @@ class TSNECore(Model):
                 self += p_joint_model(
                     squared_distances=square_model.output, target_perplexity=perplexity
                 )
-            self += sum_model_1(left=1.0, right="pred_distances")
-            self += divide_model_1(numerator=1.0, denominator=sum_model_1.output)
-            self += size_model(input=getattr(self, "distances", "distances"))
-            self += zero_diagonal_model(N=size_model.output)
-            self += mult_model(
-                left=divide_model_1.output, right=zero_diagonal_model.output
-            )
-            self += sum_model_2(input=mult_model.output)
-            self += divide_model_2(
-                numerator=mult_model.output, denominator=sum_model_2.output
-            )
-            self += kl_divergence_model(
-                input=divide_model_2.output,
-                target=p_joint_model.output if calculate_p_joint else "p_joint",
-            )
-            self += sum_model_3(
-                input=kl_divergence_model.output, output=IOKey(name="output")
-            )
-
         else:
             if calculate_p_joint:
                 self += p_joint_model(
                     squared_distances="distances", target_perplexity=perplexity
                 )
-            self += sum_model_1(left=1.0, right="pred_distances")
-            self += divide_model_1(numerator=1.0, denominator=sum_model_1.output)
-            self += size_model(input=getattr(self, "distances", "distances"))
-            self += zero_diagonal_model(N=size_model.output)
-            self += mult_model(
-                left=divide_model_1.output, right=zero_diagonal_model.output
-            )
-            self += sum_model_2(input=mult_model.output)
-            self += divide_model_2(
-                numerator=mult_model.output, denominator=sum_model_2.output
-            )
-            self += kl_divergence_model(
-                input=divide_model_2.output,
-                target=p_joint_model.output if calculate_p_joint else "p_joint",
-            )
-            self += sum_model_3(
-                input=kl_divergence_model.output, output=IOKey(name="output")
-            )
+        self += sum_model_1(left=1.0, right="pred_distances")
+        self += divide_model_1(numerator=1.0, denominator=sum_model_1.output)
+        self += size_model(input=getattr(self, "distances", "distances"))
+        self += zero_diagonal_model(N=size_model.output)
+        self += mult_model(left=divide_model_1.output, right=zero_diagonal_model.output)
+        self += sum_model_2(input=mult_model.output)
+        self += divide_model_2(
+            numerator=mult_model.output, denominator=sum_model_2.output
+        )
+        self += kl_divergence_model(
+            input=divide_model_2.output,
+            target=p_joint_model.output if calculate_p_joint else "p_joint",
+        )
+        self += sum_model_3(
+            input=kl_divergence_model.output, output=IOKey(name="output")
+        )
 
         self.distances.set_differentiable(False)
         self._set_shapes({"distances": ["N", "N"], "pred_distances": ["N", "N"]})
@@ -2934,7 +2919,7 @@ class Accuracy(Model):
         )("pred", "label", "metric_out", "pred_formatted", "label_formatted")
 
         true_predictions = self.metric_out == 0
-        n_prediction = self.label_formatted.shape()[0]
+        n_prediction = self.label_formatted.shape[0]
 
         self += Sum()(input=true_predictions, output="n_true_predictions")
         self += Divide()(
@@ -3044,13 +3029,13 @@ class Precision(Model):
 
             self += Divide()(
                 numerator=sum_precision,
-                denominator=self.n_classes.shape()[0].tensor(),
+                denominator=self.n_classes.shape[0].tensor(),
                 output=IOKey(name="output"),
             )
 
         elif average == "weighted":
             precision = None
-            n_element = self.label_formatted.shape()[0]
+            n_element = self.label_formatted.shape[0]
             assert (
                 n_classes is not None
             ), "n_classes must be provided if average is or 'weighted'"
@@ -3188,7 +3173,7 @@ class Recall(Model):
 
             self += Divide()(
                 numerator=sum_recall,
-                denominator=self.n_classes.shape()[0].tensor(),
+                denominator=self.n_classes.shape[0].tensor(),
                 output=IOKey(name="output"),
             )
 
@@ -3197,7 +3182,7 @@ class Recall(Model):
             assert (
                 n_classes is not None
             ), "n_classes must be provided if average is or 'weighted'"
-            n_element = self.label_formatted.shape()[0]
+            n_element = self.label_formatted.shape[0]
             for idx in range(n_classes):
                 class_idxs = self.label_formatted == idx
                 true_positive = (self.metric_out == 0) & class_idxs
@@ -3334,7 +3319,7 @@ class F1(Model):
             self += Unique()(input=self.label_formatted, output="n_classes")
             self += Divide()(
                 numerator=sum_precision,
-                denominator=self.n_classes.shape()[0].tensor(),
+                denominator=self.n_classes.shape[0].tensor(),
                 output=IOKey(name="output"),
             )
 
@@ -3343,7 +3328,7 @@ class F1(Model):
             assert (
                 n_classes is not None
             ), "n_classes must be provided if average is or 'weighted'"
-            n_element = self.label_formatted.shape()[0].tensor()
+            n_element = self.label_formatted.shape[0].tensor()
             for idx in range(n_classes):
                 class_idxs = self.label_formatted == idx
                 true_positive = (self.metric_out == 0) & class_idxs
@@ -3473,7 +3458,6 @@ class SiLU(Model):
         self += Divide()(
             numerator="input", denominator="add", output=IOKey(name="output")
         )
-
         self._set_shapes({"input": [("Var", ...)], "output": [("Var", ...)]})
 
         self.input.set_differentiable(False)
