@@ -20,11 +20,10 @@ import torch
 
 import mithril
 from mithril import TorchBackend
-from mithril.framework.common import NOT_GIVEN, TBD, IOKey, Tensor
+from mithril.framework.common import TBD, IOKey, Tensor
 from mithril.models import (
     Add,
     Buffer,
-    Connect,
     Linear,
     Mean,
     Model,
@@ -33,7 +32,6 @@ from mithril.models import (
     Relu,
     Shape,
     Sigmoid,
-    ToTensor,
 )
 
 from .test_utils import (
@@ -174,8 +172,8 @@ def test_4():
     model += Linear(1)(bias=IOKey(name="bias_2", value=[1.0]), weight="weight_2")
     model += Linear(1)(input=model.canonical_output, bias="bias_3", output="output1")
 
-    expected_input_keys = {"$3", "bias_2", "weight_2", "$5", "bias_3"}
-    expected_internal_keys = {"$1", "$4", "output1"}
+    expected_input_keys = {"$4", "bias_3", "bias_2", "weight_2", "$2"}
+    expected_internal_keys = {"output1", "$3"}
     expected_pm_input_keys = {"weight_2", "weight", "bias_3", "bias_2", "input"}
     expected_pm_output_keys = {"output1"}
 
@@ -274,7 +272,7 @@ def test_7():
     model += (relu1 := Relu())(input="in1", output="relu1_output")
     model += (relu2 := Relu())(input="in2", output="relu2_output")
     model += (relu3 := Relu())(
-        input="", output=Connect(relu1.input, relu2.input, key=IOKey(name="my_input"))
+        input="", output=IOKey(name="my_input", connections=[relu1.input, relu2.input])
     )
     assert (
         model.dag[relu1]["input"].metadata
@@ -444,21 +442,15 @@ def test_iokey_shapes_3():
     model += buff3(input="input3")
 
     main_model = Model()
-    conn = Connect()
     main_model += model(
         input1=IOKey(name="input1", shape=["a", "b"]),
         input2=IOKey(name="input2", shape=["b", "a"]),
         input3=IOKey(name="input3", shape=[3, "a"]),
     )
 
-    conn = Connect(
-        main_model.input1,  # type: ignore
-        main_model.input2,  # type: ignore
-        main_model.input3,  # type: ignore
-        key=IOKey("input"),
-    )
-
-    main_model += Buffer()(input=conn, output="output1")
+    conns = [main_model.input1, main_model.input2, main_model.input3]  # type: ignore
+    key = IOKey(name="input", connections=conns)
+    main_model += Buffer()(input=key, output="output1")
 
     expected_shapes = {"$_Model_0_output": [3, 3], "output1": [3, 3], "input": [3, 3]}
 
@@ -572,8 +564,9 @@ def test_iokey_values_7():
     model = Model()
     buffer = Buffer()
     mean_model = Mean(axis=TBD)
-    model += buffer(input=IOKey(value=2, name="input"))
-    model += mean_model(input="", axis="input")
+    input = IOKey(value=2, name="input")
+    model += buffer(input=input.tensor())
+    model += mean_model(input="", axis=input)
 
     ref_values = {model.input: 2, mean_model.axis: 2}  # type: ignore
 
@@ -586,11 +579,13 @@ def test_iokey_values_8():
     buffer1 = Buffer()
     buffer2 = Buffer()
     mean_model = Mean(axis=TBD)
+    input1 = IOKey(value=2, name="input1")
+    input2 = IOKey(value=3, name="input2")
 
-    model += buffer1(input=IOKey(value=2, name="input1"))
-    model += buffer2(input=IOKey(value=3, name="input2"))
+    model += buffer1(input=input1.tensor())
+    model += buffer2(input=input2.tensor())
 
-    model += mean_model(input="", axis=(model.input1, model.input2))  # type: ignore
+    model += mean_model(input="", axis=(input1, input2))
 
     ref_values = {model.input1: 2, model.input2: 3, mean_model.axis: (2, 3)}  # type: ignore
 
@@ -601,15 +596,14 @@ def test_iokey_values_9_error():
     """Tests connection functinality of IOKey Tensors"""
     model = Model(enforce_jit=False)
     buffer1 = Buffer()
-    with pytest.raises(ValueError) as err_info:
+
+    with pytest.raises(KeyError) as err_info:
         model += buffer1(
             input=IOKey(name="input1"), output=IOKey(name="output1", value=[2.0])
         )
     assert str(err_info.value) == (
-        "A valued connection of the "
-        "extended model tries to write to an "
-        "output connection of the extending model. "
-        "Multi-write error!"
+        "'output key is an output of the model"
+        ", output values could not be set in extend.'"
     )
 
 
@@ -697,10 +691,9 @@ def test_iokey_tensor_input_all_args():
     """
 
     backend = TorchBackend()
-
     # collect all possible values
     possible_names = ["left", None]
-    possible_values = [[[2.0]], NOT_GIVEN]
+    possible_values = [[[2.0]], TBD]
     possible_shapes = [[1, 1], None]
     possible_expose = [True, False]
 
@@ -732,10 +725,11 @@ def test_iokey_tensor_input_all_args():
             continue
 
         try:
+            # if input._
             # try to extend the model
             model += sub_model(left=input, right="right", output="output")
         except Exception as e:
-            if not expose and value is NOT_GIVEN:
+            if not expose and value is TBD:
                 # if both expose and value is not given, It is an expected error
                 assert isinstance(e, ValueError)
                 assert e.args[0] == (
@@ -751,7 +745,7 @@ def test_iokey_tensor_input_all_args():
         # if code reaches this far. It is expected model to be compiled and evaluated
         # successfully.
         pm = mithril.compile(model=model, backend=backend)
-        if value is NOT_GIVEN:
+        if value is TBD:
             params = {"left": backend.array([[2.0]]), "right": backend.array([[3.0]])}
         else:
             params = {"right": backend.array([[3.0]])}
@@ -787,7 +781,7 @@ def test_iokey_scalar_output_all_args():
 
     # collect all possible values
     possible_names = ["output1", None]
-    possible_values = [[[2.0]], NOT_GIVEN]
+    possible_values = [[[2.0]], TBD]
     possible_shapes = [[1, 1], None]
     possible_expose = [True, False]
 
@@ -820,25 +814,23 @@ def test_iokey_scalar_output_all_args():
             # try to extend the model
             model += sub_model(input="input", output=output)
         except Exception as e:
-            if shape:
+            if value is not TBD:
                 # it is an expected error
                 assert isinstance(e, KeyError)
-                assert e.args[0] == "Shape cannot be set for scalar type values"
+                assert e.args[0] == (
+                    "output key is an output of the model"
+                    ", output values could not be set in extend."
+                )
 
             elif name is None and expose:
                 # it is an expected error
                 assert isinstance(e, KeyError)
                 assert e.args[0] == "Connection without a name cannot be set as output"
 
-            elif value is not NOT_GIVEN:
+            elif shape:
                 # it is an expected error
                 assert isinstance(e, ValueError)
-                assert e.args[0] == (
-                    "A valued connection of the "
-                    "extended model tries to write to an "
-                    "output connection of the extending model. "
-                    "Multi-write error!"
-                )
+                assert e.args[0] == "'Shape cannot be set for scalar type values'"
 
             else:
                 # it is an unexpected error. Raise given exception in that case
@@ -850,7 +842,7 @@ def test_iokey_scalar_output_all_args():
         pm = mithril.compile(model=model, backend=backend, inference=True)
 
         params = {"input": backend.ones(2, 3, 4)}
-        if name is not None and expose:
+        if name is not None:  # and expose:
             ref_outputs = {"output1": (2, 3, 4)}
         else:
             ref_outputs = {"output": (2, 3, 4)}
@@ -901,7 +893,7 @@ def test_iokey_scalar_input_all_args():
             axis = IOKey(name=name, value=value, shape=shape, expose=expose)
         except Exception as e:
             # if it fails and raises an error, try to catch the error
-            if value is not NOT_GIVEN and shape:
+            if value is not TBD and shape:
                 # if value and shape is both given, It is an expected error
                 assert isinstance(e, ValueError)
                 assert e.args[0] == (
@@ -929,8 +921,8 @@ def test_iokey_scalar_input_all_args():
 
             elif shape:
                 # it is an expected error
-                assert isinstance(e, KeyError)
-                assert e.args[0] == "Shape cannot be set for scalar type values"
+                assert isinstance(e, ValueError)
+                assert e.args[0] == "'Shape cannot be set for scalar type values'"
 
             else:
                 # it is an unexpected error. Raise given exception in that case
@@ -981,7 +973,7 @@ def test_iokey_tensor_output_all_args():
 
     # collect all possible values
     possible_names = ["output1", None]
-    possible_values = [[[2.0]], NOT_GIVEN]
+    possible_values = [[[2.0]], TBD]
     possible_shapes = [[1, 1], None]
     possible_expose = [True, False]
 
@@ -1014,20 +1006,18 @@ def test_iokey_tensor_output_all_args():
             # try to extend the model
             model += sub_model(left="left", right="right", output=output)
         except Exception as e:
-            if name is None and expose:
+            if value is not TBD:
+                # it is an expected error
+                assert isinstance(e, KeyError)
+                assert e.args[0] == (
+                    "output key is an output of the model"
+                    ", output values could not be set in extend."
+                )
+
+            elif name is None and expose:
                 # it is an expected error
                 assert isinstance(e, KeyError)
                 assert e.args[0] == "Connection without a name cannot be set as output"
-
-            elif value is not NOT_GIVEN:
-                # it is an expected error
-                assert isinstance(e, ValueError)
-                assert e.args[0] == (
-                    "A valued connection of the "
-                    "extended model tries to write to an "
-                    "output connection of the extending model. "
-                    "Multi-write error!"
-                )
 
             else:
                 # it is an unexpected error. Raise given exception in that case
@@ -1038,7 +1028,7 @@ def test_iokey_tensor_output_all_args():
         # evaluated successfully.
         pm = mithril.compile(model=model, backend=backend)
         params = {"left": backend.array([[2.0]]), "right": backend.array([[3.0]])}
-        if name is not None and expose:
+        if name is not None:  # and expose:
             ref_outputs = {"output1": backend.array([[5.0]])}
         else:
             ref_outputs = {"output": backend.array([[5.0]])}
@@ -1160,7 +1150,7 @@ def test_compare_models_5():
     sigmoid = Sigmoid()
     add = Add()
     model2 += add(output=IOKey(name="output"))
-    conn = Connect(add.left, add.right)
+    conn = IOKey(connections=[add.left, add.right])
     model2 += sigmoid(input="input", output=conn)
     model2.set_shapes({"input": [2, 2]})
 
@@ -1172,7 +1162,7 @@ def test_iokey_shape_error_1():
     model = Model()
     mean_model = Mean(axis=TBD)
 
-    with pytest.raises(KeyError) as err_info:
+    with pytest.raises(ValueError) as err_info:
         model += mean_model(axis=IOKey(name="axis", shape=[2, 3]))
     assert str(err_info.value) == "'Shape cannot be set for scalar type values'"
 
@@ -1236,7 +1226,7 @@ def test_iokey_template_3():
     model = Model()
 
     left = IOKey("left")
-    res = left + 3.0
+    res = left + IOKey(value=3.0).tensor()
 
     model += Buffer()(res, IOKey("output"))
 
@@ -1257,7 +1247,7 @@ def test_iokey_template_4():
     left = IOKey("left")
     res = left.shape()[0]
 
-    model += Buffer()(res, IOKey("output"))
+    model += Buffer()(res.tensor(), IOKey("output"))
 
     backend = TorchBackend()
 
@@ -1383,7 +1373,7 @@ def test_iokey_template_11():
     input = IOKey("input")
 
     model += Buffer()(input, IOKey("output1"))
-    model += ToTensor()(input, output=IOKey("output2"))
+    model += Buffer()(input, output=IOKey("output2"))
     backend = TorchBackend()
     pm = mithril.compile(model=model, backend=backend, inference=True, jit=False)
 

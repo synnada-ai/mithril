@@ -301,8 +301,11 @@ def softplus(input: mx.array) -> mx.array:
     return nn.softplus(input)
 
 
-def gelu(input: mx.array) -> mx.array:
-    return nn.gelu(input)
+def gelu(input: mx.array, approximate: bool) -> mx.array:
+    if approximate:
+        return nn.gelu_approx(input)
+    else:
+        return nn.gelu(input)
 
 
 def softmax(input: mx.array, *, axis: int = -1) -> mx.array:
@@ -372,8 +375,7 @@ def conv1d(
     padding: tuple[int, int] = (1, 1),
     dilation: int = 1,
 ) -> mx.array:
-    if isinstance(padding, Sequence):
-        input = mx.pad(input, [(0, 0), (0, 0), (padding[0], padding[1])])
+    input = mx.pad(input, [(0, 0), (0, 0), (padding[0], padding[1])])
 
     # Channel first -> Channel last
     input = mx.swapaxes(input, -2, -1)
@@ -567,7 +569,9 @@ def cross_entropy(
     categorical: bool = True,
     robust: bool = False,
 ) -> mx.array:
-    log: partial | Callable = partial(robust_log, cutoff=cutoff) if robust else mx.log
+    log: partial[mx.array] | Callable[..., mx.array] = (
+        partial(robust_log, cutoff=cutoff) if robust else mx.log
+    )
     _weights = utils.calculate_cross_entropy_class_weights(
         input, target, categorical, weights
     )
@@ -592,7 +596,9 @@ def cross_entropy_with_logits(
     categorical: bool = True,
     robust: bool = False,
 ) -> mx.array:
-    log: partial | Callable = partial(robust_log, cutoff=cutoff) if robust else mx.log
+    log: partial[mx.array] | Callable[..., mx.array] = (
+        partial(robust_log, cutoff=cutoff) if robust else mx.log
+    )
     _weights = utils.calculate_cross_entropy_class_weights(
         input, target, categorical, weights
     )
@@ -642,7 +648,10 @@ def binary_cross_entropy(
     pos_weight: bool | float = 1.0,
     robust: bool = False,
 ) -> mx.array:
-    log: partial | Callable = partial(robust_log, cutoff=cutoff) if robust else mx.log
+    log: partial[mx.array] | Callable[..., mx.array] = (
+        partial(robust_log, cutoff=cutoff) if robust else mx.log
+    )
+    _pos_weight: mx.array | float | bool
     if isinstance(pos_weight, bool) and pos_weight:
         _pos_weight = utils.calculate_binary_class_weight(target)
     else:
@@ -659,7 +668,9 @@ def binary_cross_entropy_with_logits(
     pos_weight: bool | float = 1.0,
     robust: bool = False,
 ) -> mx.array:
-    log: partial | Callable = partial(robust_log, cutoff=cutoff) if robust else mx.log
+    log: partial[mx.array] | Callable[..., mx.array] = (
+        partial(robust_log, cutoff=cutoff) if robust else mx.log
+    )
     _pos_weight: mx.array | float
 
     if isinstance(pos_weight, bool):
@@ -756,7 +767,7 @@ def tensor_to_list(input: mx.array) -> NestedFloatOrIntOrBoolList:
     return input.tolist()  # type: ignore
 
 
-def arange(*args, device: str, precision: int) -> mx.array:
+def arange(*args: int | float, device: str, precision: int) -> mx.array:
     out = mx.arange(*args)
     return utils.handle_data_precision(out, precision)
 
@@ -846,12 +857,12 @@ def polynomial_features(input: mx.array, *, degree: int = 2) -> mx.array:
     )
 
 
-def isnan(input):
+def isnan(input: mx.array) -> mx.array:
     return mx.isnan(input)
 
 
 def nan_to_num(
-    input,
+    input: mx.array,
     nan: int | float | None,
     posinf: int | float | None,
     neginf: int | float | None,
@@ -878,6 +889,10 @@ def split(input: mx.array, split_size: int | list[int], axis: int = 0):
 
 def pad(input: mx.array, pad_width: tuple[tuple[int, int], ...]):
     return mx.pad(input, pad_width)
+
+
+def zeros_like(input: mx.array):
+    return mx.zeros_like(input)
 
 
 array_creation_funcs = ["arange", "to_tensor", "eye", "ones_with_zero_diag"]

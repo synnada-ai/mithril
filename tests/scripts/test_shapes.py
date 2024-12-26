@@ -56,7 +56,6 @@ from mithril.models import (
     Cast,
     Cholesky,
     Concat,
-    Connect,
     ConstraintSolver,
     Convolution1D,
     Convolution2D,
@@ -118,6 +117,7 @@ from mithril.models import (
     TsnePJoint,
     Unique,
     Updates,
+    ZerosLike,
     primitives,
 )
 
@@ -559,7 +559,7 @@ def test_shapes_4():
         input="", weight="weight1", output=IOKey(name="output2")
     )
     model += Linear(dimension=71)(
-        input="input", weight="weight2", output=Connect(l1.input, l2.input)
+        input="input", weight="weight2", output=IOKey(connections=[l1.input, l2.input])
     )
     shapes = {"input": [4, 256]}
     logical_ref: Mapping[str, list | None] = {
@@ -750,20 +750,14 @@ def test_simple_composite_1_set_shapes():
         right="input2",
         output=IOKey(name="output"),
     )
-    key_mappings = model._generate_keys()
-    left_metadata = model.conns.get_con_by_metadata(mult.left.metadata)
-    assert left_metadata is not None
-    inner_left_key = key_mappings[left_metadata.key]
     logical_ref = {
         "input2": [2, 2],
         "output": [2, 2],
-        "left": None,
-        inner_left_key: [1, 1],
+        "left": [1, 1],
         # 'Multiply_0_left': [1, 1]
     }
     physical_ref = {
-        "left": None,
-        "output_0": [1, 1],
+        "left": [1, 1],
         "input2": [2, 2],
         "output": [2, 2],
     }
@@ -780,27 +774,15 @@ def test_simple_composite_1_extend_inputs():
         right=IOKey(value=right_input, name="right"),
         output=IOKey(name="output"),
     )
-    key_mappings = model._generate_keys()
-    left_metadata = model.conns.get_con_by_metadata(mult.left.metadata)
-    assert left_metadata is not None
-    inner_left_key = key_mappings[left_metadata.key]
-
-    right_metadata = model.conns.get_con_by_metadata(mult.right.metadata)
-    assert right_metadata is not None
-    inner_right_key = key_mappings[right_metadata.key]
 
     logical_ref = {
-        "right": None,
+        "right": [2, 2],
         "output": [2, 2],
-        "left": None,
-        inner_left_key: [1, 1],
-        inner_right_key: [2, 2],
+        "left": [1, 1],
     }
     physical_ref = {
-        "left": None,
-        "output_0": [1, 1],
-        "right": None,
-        "output_1": [2, 2],
+        "left": [1, 1],
+        "right": [2, 2],
         "output": [2, 2],
     }
 
@@ -816,20 +798,14 @@ def test_simple_composite_1_set_shapes_2():
         output=IOKey(name="output"),
     )
     mult.set_shapes({"right": [2, 2]})
-    key_mappings = model._generate_keys()
-    left_metadata = model.conns.get_con_by_metadata(mult.left.metadata)
-    assert left_metadata is not None
-    inner_left_key = key_mappings[left_metadata.key]
 
     logical_ref = {
         "input2": [2, 2],
         "output": [2, 2],
-        "left": None,
-        inner_left_key: [1, 1],
+        "left": [1, 1],
     }
     physical_ref = {
-        "left": None,
-        "output_0": [1, 1],
+        "left": [1, 1],
         "input2": [2, 2],
         "output": [2, 2],
     }
@@ -839,45 +815,33 @@ def test_simple_composite_1_set_shapes_2():
 
 def test_simple_composite_1_static_shapes():
     model = Model()
-    model += (mult := Multiply())(
+    model += Multiply()(
         left=IOKey(value=0.5, name="left"), right="input2", output=IOKey(name="output")
     )
     shapes = {"input2": [2, 2]}
-    key_mappings = model._generate_keys()
-    left_metadata = model.conns.get_con_by_metadata(mult.left.metadata)
-    assert left_metadata is not None
-    inner_left_key = key_mappings[left_metadata.key]
 
     logical_ref = {
         "input2": ["(V1, ...)"],
         "output": ["(V1, ...)"],
-        "left": None,
-        inner_left_key: [],
+        "left": [],
     }
-    physical_ref = {"left": None, "output_0": [], "input2": [2, 2], "output": [2, 2]}
+    physical_ref = {"left": [], "input2": [2, 2], "output": [2, 2]}
 
     assert_shapes(model, logical_ref, physical_ref, shapes=shapes)
 
 
 def test_simple_composite_1_static_inputs():
     model = Model()
-    model += (add := Add())(
+    model += Add()(
         left=IOKey(value=0.5, name="left"), right="input2", output=IOKey(name="output")
     )
     static_inputs = {"input2": np.random.randn(2, 2)}
-    key_mappings = model._generate_keys()
-
-    left_metadata = model.conns.get_con_by_metadata(add.left.metadata)
-    assert left_metadata is not None
-    inner_left_key = key_mappings[left_metadata.key]
-
     logical_ref = {
         "input2": ["(V1, ...)"],
         "output": ["(V1, ...)"],
-        "left": None,
-        inner_left_key: [],
+        "left": [],
     }
-    physical_ref = {"left": None, "output_0": [], "input2": [2, 2], "output": [2, 2]}
+    physical_ref = {"left": [], "input2": [2, 2], "output": [2, 2]}
 
     assert_shapes(model, logical_ref, physical_ref, static_inputs=static_inputs)
 
@@ -887,40 +851,25 @@ def test_simple_composite_2_set_shapes():
     mult = Multiply()
     mult.set_shapes({"right": [2, 2]})
     model += mult(left=IOKey(value=2.0, name="left"), right="in1")
-    model += (div := Divide())(
+    model += Divide()(
         numerator=IOKey(value=2.0, name="numerator"),
         denominator=mult.output,
         output=IOKey(name="output"),
     )
     model.set_canonical_input(mult.left)
-    key_mappings = model._generate_keys()
-
-    left_metadata = model.conns.get_con_by_metadata(mult.left.metadata)
-    assert left_metadata is not None
-    inner_left_key = key_mappings[left_metadata.key]
-
-    numerator_metadata = model.conns.get_con_by_metadata(div.numerator.metadata)
-    assert numerator_metadata is not None
-    inner_numerator_key = key_mappings[numerator_metadata.key]
-
-    denominator = model.conns.get_con_by_metadata(div.denominator.metadata)
-    assert denominator is not None
-    denominator_key = key_mappings[denominator.key]
 
     logical_ref = {
-        "left": None,
-        inner_left_key: [],
+        "left": [],
         "in1": [2, 2],
-        "numerator": None,
-        inner_numerator_key: [],
-        denominator_key: [2, 2],
+        "numerator": [],
+        "$_Multiply_0_output": [2, 2],
         "output": [2, 2],
     }
     physical_ref = {
-        "left": None,
-        "output_0": [],
+        "left": [],
         "in1": [2, 2],
-        "output_1": [2, 2],
+        "output_0": [2, 2],
+        "numerator": [],
         "output": [2, 2],
     }
 
@@ -931,42 +880,27 @@ def test_simple_composite_2_set_shapes_2():
     model = Model()
     mult = Multiply()
     model += mult(left=IOKey(value=2.0, name="left"), right="in1")
-    model += (div := Divide())(
+    model += Divide()(
         numerator=IOKey(value=2.0, name="numerator"),
         denominator=mult.output,
         output=IOKey(name="output"),
     )
     mult.set_shapes({"right": [2, 2]})
     model.set_canonical_input(mult.left)
-    key_mappings = model._generate_keys()
-
-    left_metadata = model.conns.get_con_by_metadata(mult.left.metadata)
-    assert left_metadata is not None
-    inner_left_key = key_mappings[left_metadata.key]
-
-    numerator_metadata = model.conns.get_con_by_metadata(div.numerator.metadata)
-    assert numerator_metadata is not None
-    inner_numerator_key = key_mappings[numerator_metadata.key]
-
-    denominator = model.conns.get_con_by_metadata(div.denominator.metadata)
-    assert denominator is not None
-    denominator_key = key_mappings[denominator.key]
 
     logical_ref = {
-        "left": None,
-        inner_left_key: [],
+        "left": [],
         "in1": [2, 2],
-        "numerator": None,
-        inner_numerator_key: [],
-        denominator_key: [2, 2],
+        "numerator": [],
+        "$_Multiply_0_output": [2, 2],
         "output": [2, 2],
     }
     physical_ref = {
-        "left": None,
-        "output_0": [],
+        "left": [],
         "in1": [2, 2],
-        "output_1": [2, 2],
+        "output_0": [2, 2],
         "output": [2, 2],
+        "numerator": [],
     }
 
     assert_shapes(model, logical_ref, physical_ref)
@@ -980,48 +914,27 @@ def test_simple_composite_2_extend_inputs():
         left=IOKey(value=2.0, name="left"),
         right=IOKey(value=Multiply_0_right, name="in1"),
     )
-    model += (div := Divide())(
+    model += Divide()(
         numerator=IOKey(value=2.0, name="numerator"),
         denominator=mult.output,
         output=IOKey(name="output"),
     )
     model.set_canonical_input(mult.left)
     mult.set_shapes({"right": [2, 2]})
-    key_mappings = model._generate_keys()
-
-    left_metadata = model.conns.get_con_by_metadata(mult.left.metadata)
-    assert left_metadata is not None
-    inner_left_key = key_mappings[left_metadata.key]
-
-    right_metadata = model.conns.get_con_by_metadata(mult.right.metadata)
-    assert right_metadata is not None
-    inner_right_key = key_mappings[right_metadata.key]
-
-    numerator_metadata = model.conns.get_con_by_metadata(div.numerator.metadata)
-    assert numerator_metadata is not None
-    inner_numerator_key = key_mappings[numerator_metadata.key]
-
-    denominator = model.conns.get_con_by_metadata(div.denominator.metadata)
-    assert denominator is not None
-    denominator_key = key_mappings[denominator.key]
 
     logical_ref = {
-        "left": None,
-        inner_left_key: [],
-        "in1": None,
-        inner_right_key: [2, 2],
-        "numerator": None,
-        inner_numerator_key: [],
-        denominator_key: [2, 2],
+        "left": [],
+        "in1": [2, 2],
+        "numerator": [],
+        "$_Multiply_0_output": [2, 2],
         "output": [2, 2],
     }
     physical_ref = {
-        "left": None,
-        "output_0": [],
-        "in1": None,
-        "output_1": [2, 2],
-        "output_2": [2, 2],
+        "left": [],
+        "in1": [2, 2],
+        "output_0": [2, 2],
         "output": [2, 2],
+        "numerator": [],
     }
 
     assert_shapes(model, logical_ref, physical_ref)
@@ -1031,42 +944,27 @@ def test_simple_composite_2_static_shapes():
     model = Model()
     mult = Multiply()
     model += mult(left=IOKey(value=2.0, name="left"), right="in1")
-    model += (div := Divide())(
+    model += Divide()(
         numerator=IOKey(value=2.0, name="numerator"),
         denominator=mult.output,
         output=IOKey(name="output"),
     )
     model.set_canonical_input(mult.left)
     shapes = {"in1": [2, 2]}
-    key_mappings = model._generate_keys()
-
-    left_metadata = model.conns.get_con_by_metadata(mult.left.metadata)
-    assert left_metadata is not None
-    inner_left_key = key_mappings[left_metadata.key]
-
-    numerator_metadata = model.conns.get_con_by_metadata(div.numerator.metadata)
-    assert numerator_metadata is not None
-    inner_numerator_key = key_mappings[numerator_metadata.key]
-
-    denominator = model.conns.get_con_by_metadata(div.denominator.metadata)
-    assert denominator is not None
-    denominator_key = key_mappings[denominator.key]
 
     logical_ref = {
-        "left": None,
-        inner_left_key: [],
+        "left": [],
         "in1": ["(V1, ...)"],
-        "numerator": None,
-        inner_numerator_key: [],
-        denominator_key: ["(V1, ...)"],
+        "numerator": [],
+        "$_Multiply_0_output": ["(V1, ...)"],
         "output": ["(V1, ...)"],
     }
     physical_ref = {
-        "left": None,
-        "output_0": [],
+        "left": [],
         "in1": [2, 2],
-        "output_1": [2, 2],
+        "output_0": [2, 2],
         "output": [2, 2],
+        "numerator": [],
     }
 
     assert_shapes(model, logical_ref, physical_ref, shapes=shapes)
@@ -1076,41 +974,27 @@ def test_simple_composite_2_static_inputs():
     model = Model()
     mult = Multiply()
     model += mult(left=IOKey(value=2.0, name="left"), right="in1")
-    model += (div := Divide())(
+    model += Divide()(
         numerator=IOKey(value=2.0, name="numerator"),
         denominator=mult.output,
         output=IOKey(name="output"),
     )
     model.set_canonical_input(mult.left)
     static_inputs = {"in1": np.random.randn(2, 2)}
-    key_mappings = model._generate_keys()
 
-    left_metadata = model.conns.get_con_by_metadata(mult.left.metadata)
-    assert left_metadata is not None
-    inner_left_key = key_mappings[left_metadata.key]
-
-    numerator_metadata = model.conns.get_con_by_metadata(div.numerator.metadata)
-    assert numerator_metadata is not None
-    inner_numerator_key = key_mappings[numerator_metadata.key]
-
-    denominator = model.conns.get_con_by_metadata(div.denominator.metadata)
-    assert denominator is not None
-    denominator_key = key_mappings[denominator.key]
     logical_ref = {
-        "left": None,
-        inner_left_key: [],
+        "left": [],
         "in1": ["(V1, ...)"],
-        "numerator": None,
-        inner_numerator_key: [],
-        denominator_key: ["(V1, ...)"],
+        "numerator": [],
+        "$_Multiply_0_output": ["(V1, ...)"],
         "output": ["(V1, ...)"],
     }
     physical_ref = {
-        "left": None,
-        "output_0": [],
+        "left": [],
         "in1": [2, 2],
-        "output_1": [2, 2],
+        "output_0": [2, 2],
         "output": [2, 2],
+        "numerator": [],
     }
 
     assert_shapes(model, logical_ref, physical_ref, static_inputs=static_inputs)
@@ -1488,14 +1372,6 @@ def test_composite_1_extend_inputs_1():
     composite.set_canonical_input(m1.left)
     key_mappings = composite._generate_keys()
 
-    left_metadata = composite.conns.get_con_by_metadata(m1.left.metadata)
-    assert left_metadata is not None
-    inner_left_key = key_mappings[left_metadata.key]
-
-    right_metadata = composite.conns.get_con_by_metadata(m1.right.metadata)
-    assert right_metadata is not None
-    inner_right_key = key_mappings[right_metadata.key]
-
     m1_out_metadata = composite.conns.get_con_by_metadata(m1.output.metadata)
     assert m1_out_metadata is not None
     m1_out_key = key_mappings[m1_out_metadata.key]
@@ -1505,21 +1381,17 @@ def test_composite_1_extend_inputs_1():
     m2_out_key = key_mappings[m2_out_metadata.key]
 
     logical_ref = {
-        "left": None,
-        inner_left_key: [1, 1, 1, 1, 1, 1, 1, 37, 43],
-        "right": None,
-        inner_right_key: [134, 47, 1, 1, 1],
+        "left": [1, 1, 1, 1, 1, 1, 1, 37, 43],
+        "right": [134, 47, 1, 1, 1],
         m1_out_key: [1, 1, 1, 1, 134, 47, 1, 37, 43],
         m2_out_key: [1, 1, 1, 1, 134, 47, 1, 37, 43],
         "output": [1, 1, 1, 1, 134, 47, 1, 37, 43],
     }
     physical_ref = {
-        "left": None,
-        "output_0": [1, 1, 1, 1, 1, 1, 1, 37, 43],
-        "right": None,
-        "output_1": [134, 47, 1, 1, 1],
-        "output_2": [1, 1, 1, 1, 134, 47, 1, 37, 43],
-        "output_3": [1, 1, 1, 1, 134, 47, 1, 37, 43],
+        "left": [1, 1, 1, 1, 1, 1, 1, 37, 43],
+        "right": [134, 47, 1, 1, 1],
+        "output_0": [1, 1, 1, 1, 134, 47, 1, 37, 43],
+        "output_1": [1, 1, 1, 1, 134, 47, 1, 37, 43],
         "output": [1, 1, 1, 1, 134, 47, 1, 37, 43],
     }
     assert_shapes(composite, logical_ref, physical_ref)
@@ -1967,23 +1839,20 @@ def test_cross_entropy_shapes_1():
         input="input", target="target", categorical=True, output=IOKey(name="output")
     )
     logical_ref = {
-        "$_ToTensor_0_output": [],
-        "$_input": None,
         "input": [8, 10],
         "target": [8],
-        "$_CrossEntropy_1_weights": None,
         "$categorical": None,
+        "$cutoff": [],
         "$robust": None,
         "output": [8],
+        "$_CrossEntropy_0_weights": None,
     }
-
     physical_ref = {
-        "input_0": None,
-        "output_0": [],
         "input": [8, 10],
         "target": [8],
         "weights": None,
         "categorical": None,
+        "cutoff": [],
         "robust": None,
         "output": [8],
     }
@@ -1998,24 +1867,22 @@ def test_cross_entropy_shapes_2():
     model += ce(
         input="input", target="target", categorical=False, output=IOKey(name="output")
     )
+
     logical_ref = {
-        "$_ToTensor_0_output": [],
-        "$_input": None,
         "input": [8, 10],
         "target": [8, 10],
-        "$_CrossEntropy_1_weights": None,
         "$categorical": None,
+        "$cutoff": [],
         "$robust": None,
         "output": [8],
+        "$_CrossEntropy_0_weights": None,
     }
-
     physical_ref = {
-        "input_0": None,
-        "output_0": [],
         "input": [8, 10],
         "target": [8, 10],
         "weights": None,
         "categorical": None,
+        "cutoff": [],
         "robust": None,
         "output": [8],
     }
@@ -2032,21 +1899,19 @@ def test_cross_entropy_shapes_3():
     )
     logical_ref = {
         "input": [8, 16, 32, 64],
-        "output": [8, 32, 64],
         "target": [8, 32, 64],
-        "$_CrossEntropy_1_weights": None,
         "$categorical": None,
+        "$cutoff": [],
         "$robust": None,
-        "$_ToTensor_0_output": [],
-        "$_input": None,
+        "output": [8, 32, 64],
+        "$_CrossEntropy_0_weights": None,
     }
     physical_ref = {
-        "input_0": None,
-        "output_0": [],
         "input": [8, 16, 32, 64],
         "target": [8, 32, 64],
         "weights": None,
         "categorical": None,
+        "cutoff": [],
         "robust": None,
         "output": [8, 32, 64],
     }
@@ -2064,21 +1929,19 @@ def test_cross_entropy_shapes_5():
     )
     logical_ref = {
         "input": [8, 16, 32, 64],
-        "output": [8, 32, 64],
         "target": [8, 32, 64],
-        "$_CrossEntropy_1_weights": None,
         "$categorical": None,
+        "$cutoff": [],
         "$robust": None,
-        "$_ToTensor_0_output": [],
-        "$_input": None,
+        "output": [8, 32, 64],
+        "$_CrossEntropy_0_weights": None,
     }
     physical_ref = {
-        "input_0": None,
-        "output_0": [],
         "input": [8, 16, 32, 64],
         "target": [8, 32, 64],
         "weights": None,
         "categorical": None,
+        "cutoff": [],
         "robust": None,
         "output": [8, 32, 64],
     }
@@ -2096,21 +1959,19 @@ def test_cross_entropy_shapes_6():
     )
     logical_ref = {
         "input": [8, 16, 32, 64],
-        "output": [8, 32, 64],
         "target": [8, 32, 64],
-        "$_CrossEntropy_1_weights": None,
         "$categorical": None,
+        "$cutoff": [],
         "$robust": None,
-        "$_ToTensor_0_output": [],
-        "$_input": None,
+        "output": [8, 32, 64],
+        "$_CrossEntropy_0_weights": None,
     }
     physical_ref = {
-        "input_0": None,
-        "output_0": [],
         "input": [8, 16, 32, 64],
         "target": [8, 32, 64],
         "weights": None,
         "categorical": None,
+        "cutoff": [],
         "robust": None,
         "output": [8, 32, 64],
     }
@@ -2126,23 +1987,22 @@ def test_cross_entropy_shapes_7():
     model += ce(
         input="input", target="target", categorical=True, output=IOKey(name="output")
     )
-    logical_ref: Mapping[str, list | None] = {
+
+    logical_ref: Mapping = {
         "input": [8, "u1", 16, 32, 64],
-        "output": [8, 16, 32, 64],
         "target": [8, 16, 32, 64],
-        "$_CrossEntropy_1_weights": None,
         "$categorical": None,
+        "$cutoff": [],
         "$robust": None,
-        "$_ToTensor_0_output": [],
-        "$_input": None,
+        "output": [8, 16, 32, 64],
+        "$_CrossEntropy_0_weights": None,
     }
-    physical_ref: Mapping[str, list | None] = {
-        "input_0": None,
-        "output_0": [],
+    physical_ref: Mapping = {
         "input": [8, None, 16, 32, 64],
         "target": [8, 16, 32, 64],
         "weights": None,
         "categorical": None,
+        "cutoff": [],
         "robust": None,
         "output": [8, 16, 32, 64],
     }
@@ -2158,23 +2018,22 @@ def test_cross_entropy_shapes_8():
     model += ce(
         input="input", target="target", categorical=False, output=IOKey(name="output")
     )
+
     logical_ref = {
         "input": [8, 16, 32, 64],
-        "output": [8, 32, 64],
         "target": [8, 16, 32, 64],
-        "$_CrossEntropy_1_weights": None,
         "$categorical": None,
+        "$cutoff": [],
         "$robust": None,
-        "$_ToTensor_0_output": [],
-        "$_input": None,
+        "output": [8, 32, 64],
+        "$_CrossEntropy_0_weights": None,
     }
     physical_ref = {
-        "input_0": None,
-        "output_0": [],
         "input": [8, 16, 32, 64],
         "target": [8, 16, 32, 64],
         "weights": None,
         "categorical": None,
+        "cutoff": [],
         "robust": None,
         "output": [8, 32, 64],
     }
@@ -2190,23 +2049,21 @@ def test_cross_entropy_shapes_9():
     model += ce(
         input="input", target="target", categorical=True, output=IOKey(name="output")
     )
-    logical_ref: dict[str, list | None] = {
+    logical_ref: Mapping = {
         "input": [8, 16, "(V1, ...)", 64],
-        "output": [8, "(V1, ...)", 64],
         "target": [8, "(V1, ...)", 64],
-        "$_CrossEntropy_1_weights": None,
         "$categorical": None,
+        "$cutoff": [],
         "$robust": None,
-        "$_ToTensor_0_output": [],
-        "$_input": None,
+        "output": [8, "(V1, ...)", 64],
+        "$_CrossEntropy_0_weights": None,
     }
-    physical_ref: dict[str, list | None] = {
-        "input_0": None,
-        "output_0": [],
+    physical_ref: Mapping = {
         "input": [8, 16, "...", 64],
         "target": [8, "...", 64],
         "weights": None,
         "categorical": None,
+        "cutoff": [],
         "robust": None,
         "output": [8, "...", 64],
     }
@@ -2220,23 +2077,22 @@ def test_cross_entropy_shapes_10():
     ce = CrossEntropy()
     ce.set_shapes(shapes)
     model += ce(input="input", target="target", output=IOKey(name="output"))
-    logical_ref: dict[str, list | None] = {
+
+    logical_ref: Mapping = {
         "input": [8, 16, "(V1, ...)", 64, 128],
-        "output": [8, "(V1, ...)", 64, 128],
         "target": [8, "(V1, ...)", 64, 128],
-        "$_CrossEntropy_1_weights": None,
         "$categorical": None,
+        "$cutoff": [],
         "$robust": None,
-        "$_ToTensor_0_output": [],
-        "$_input": None,
+        "output": [8, "(V1, ...)", 64, 128],
+        "$_CrossEntropy_0_weights": None,
     }
-    physical_ref: dict[str, list | None] = {
-        "input_0": None,
-        "output_0": [],
+    physical_ref: Mapping = {
         "input": [8, 16, "...", 64, 128],
         "target": [8, "...", 64, 128],
         "weights": None,
         "categorical": None,
+        "cutoff": [],
         "robust": None,
         "output": [8, "...", 64, 128],
     }
@@ -2244,7 +2100,6 @@ def test_cross_entropy_shapes_10():
     assert_shapes(model, logical_ref, physical_ref)
 
 
-# @pytest.mark.skip(reason="Known Bugs")
 def test_cross_entropy_shapes_11():
     model = Model()
     shapes: dict[str, list] = {
@@ -2254,23 +2109,22 @@ def test_cross_entropy_shapes_11():
     ce = CrossEntropy()
     ce.set_shapes(shapes)
     model += ce(input="input", target="target", output=IOKey(name="output"))
-    logical_ref: dict[str, list | None] = {
+
+    logical_ref: Mapping = {
         "input": [8, 4, "(V1, ...)", 64, 128],
-        "output": [8, "(V1, ...)", 64, 128],
         "target": [8, "(V1, ...)", 64, 128],
-        "$_CrossEntropy_1_weights": None,
         "$categorical": None,
-        "$_input": None,
-        "$_ToTensor_0_output": [],
+        "$cutoff": [],
         "$robust": None,
+        "output": [8, "(V1, ...)", 64, 128],
+        "$_CrossEntropy_0_weights": None,
     }
-    physical_ref: dict[str, list | None] = {
-        "input_0": None,
-        "output_0": [],
+    physical_ref: Mapping = {
         "input": [8, 4, "...", 64, 128],
         "target": [8, "...", 64, 128],
         "weights": None,
         "categorical": None,
+        "cutoff": [],
         "robust": None,
         "output": [8, "...", 64, 128],
     }
@@ -2403,7 +2257,7 @@ def test_composite_3_extend_shapes_1():
     m3 = Model()
     m3 += m2(right=IOKey(name="right"))
     m3 += Add()(
-        left=Connect(m1.left, key=IOKey(name="left")),  # type: ignore
+        left=IOKey(name="left", connections=[m1.left], expose=True),  # type: ignore
         right=m2.output,  # type: ignore
         output=IOKey(name="output"),
     )  # type: ignore
@@ -2438,21 +2292,19 @@ def test_composite_3_extend_shapes_1():
     m4_out_key = key_mappings[m4_out_metadata.key]
 
     logical_ref = {
-        composite_3_left_key: None,
-        composite_3_right_key: None,
+        composite_3_left_key: [3, 4, 5, 6, 1],
+        composite_3_right_key: [1, 1, 1, 1, 7],
         add5_left_key: [3, 4, 5, 6, 1],
         m4_out_key: [3, 4, 5, 6, 7],
         "output": [3, 4, 5, 6, 7],
     }
     physical_ref = {
-        "left": None,
-        "output_0": [3, 4, 5, 6, 1],
-        "right": None,
-        "output_1": [1, 1, 1, 1, 7],
+        "left": [3, 4, 5, 6, 1],
+        "right": [1, 1, 1, 1, 7],
+        "output_0": [3, 4, 5, 6, 7],
+        "output_1": [3, 4, 5, 6, 7],
         "output_2": [3, 4, 5, 6, 7],
-        "output_4": [3, 4, 5, 6, 7],
-        "output_6": [3, 4, 5, 6, 7],
-        "output_8": [3, 4, 5, 6, 7],
+        "output_3": [3, 4, 5, 6, 7],
         "output": [3, 4, 5, 6, 7],
     }
 
@@ -6596,17 +6448,19 @@ def test_prune_match_2():
     model += Gelu()(input=s1.output, output=IOKey(name="out1"))
     model += Relu()(input=s2.output, output=IOKey(name="out2"))
 
-    shape: dict[str, list] = {
+    shape: dict[str, list | None] = {
         "input": ["(V1, ...)"],
+        "$_Gelu_2_approximate": None,
         "$_Squeeze_0_output": [3, 2, "(V2, ...)"],
         "$_Squeeze_1_output": ["(V3, ...)"],
         "out1": [3, 2, "(V2, ...)"],
         "out2": ["(V3, ...)"],
     }
 
-    p_shape: dict[str, list] = {
+    p_shape: dict[str, list | None] = {
         "input": ["..."],
         "output_0": [3, 2, "..."],
+        "approximate": None,
         "out1": [3, 2, "..."],
         "out2": [3, 2, "..."],
     }
@@ -6637,8 +6491,9 @@ def test_prune_match_3():
         "out2": ["(V3, ...)"],
     }
 
-    p_shape: dict[str, list] = {
+    p_shape: dict[str, list | None] = {
         "input": ["..."],
+        "approximate": None,
         "output_0": [3, 2, "..."],
         "out1": [3, 2, "..."],
         "out2": [3, 2, "..."],
@@ -6669,8 +6524,9 @@ def test_prune_match_4():
         "out2": ["(V3, ...)"],
     }
 
-    p_shape: dict[str, list] = {
+    p_shape: dict[str, list | None] = {
         "input": ["..."],
+        "approximate": None,
         "output_0": [3, 2, "..."],
         "out2": [3, 2, "..."],
         "out1": [3, 2, "..."],
@@ -6707,8 +6563,9 @@ def test_prune_match_5():
         "out2": ["(V4, ...)"],
     }
 
-    p_shape: dict[str, list] = {
+    p_shape: dict[str, list | None] = {
         "input": ["..."],
+        "approximate": None,
         "output_0": [3, 2, "..."],
         "output_1": [3, 2, "..."],
         "output_2": [3, 2, "..."],
@@ -6816,6 +6673,7 @@ def test_total_repr_count_1():
         Unique: 2,
         Trapezoid: 2,
         AUCCore: 2,
+        ZerosLike: 1,
     }
     # find all primitives that are defined in primitives.py
     all_primitives_dict = (
@@ -7355,11 +7213,8 @@ def test_match_10():
 
 
 def test_shapes_rnn():
-    import sys
-
     from mithril.utils.dict_conversions import dict_to_model
 
-    sys.setrecursionlimit(2000)
     model = dict_to_model(
         {
             "name": "OneToMany",
@@ -7606,7 +7461,7 @@ def test_node_count_5():
     shapes: dict[str, list] = {"input": ["a", ("Var1", ...)]}
     buff_model.set_shapes(shapes)
     model += test_model
-    con = Connect(test_model.input2, buff_model.input)  # type: ignore
+    con = IOKey(connections=[test_model.input2, buff_model.input])  # type: ignore
     model += Buffer()(input=con, output=IOKey(name="output"))
     all_nodes = get_all_nodes(model)
 
@@ -9800,7 +9655,7 @@ def test_connect_shapes():
     model = Model()
     model += relu1(input="")
     model += relu2(input="")
-    model += relu3(input="input", output=Connect(relu1.input, relu2.input))
+    model += relu3(input="input", output=IOKey(connections=[relu1.input, relu2.input]))
 
     assert model.shapes["input"] == [5, 7]
 

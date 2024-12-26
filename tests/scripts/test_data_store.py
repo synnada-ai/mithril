@@ -274,9 +274,8 @@ def test_data_store_11():
     assert pm.data_store._runtime_static_keys == set()
     assert pm.data_store._intermediate_non_differentiables._table == dict()
     assert pm.data_store.unused_keys == {
+        "right",
         "input",
-        "input_0",
-        "output",
     }
 
 

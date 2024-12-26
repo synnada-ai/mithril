@@ -16,6 +16,7 @@ import argparse
 import sys
 import warnings
 from collections.abc import Callable
+from typing import Any
 
 import tiktoken
 from model import create_gpt
@@ -23,7 +24,7 @@ from transformers import GPT2LMHeadModel
 
 import mithril as ml
 from mithril import Backend
-from mithril.models import Model, PhysicalModel
+from mithril.models import PhysicalModel
 
 warnings.filterwarnings("ignore")
 
@@ -44,8 +45,9 @@ def run_sample(
     seed: int = 1337,
     temperature: float = 0.8,
 ):
-    # TODO: Remove setrecursionlimit after cleaning duplicate objects.
-    sys.setrecursionlimit(1500)
+    # TODO: This recursion limit is minimum we can have for now.
+    # We may further improve this limit in the future.
+    sys.setrecursionlimit(734)
     # Model Configuration
     block_size = 100
     gpt = create_gpt(
@@ -55,7 +57,6 @@ def run_sample(
         num_heads=12,
         dims=768,
         bias=True,
-        mlp_dims=768 * 4,  # dims * 4
     )
 
     # Create backend.
@@ -63,10 +64,12 @@ def run_sample(
     # Set seed.
     backend_obj.set_seed(seed)
     # Compile gpt model.
-    compiled_model = ml.compile(gpt, backend_obj, data_keys={"input"}, jit=False)
+    compiled_model = ml.compile(
+        gpt, backend_obj, data_keys={"input"}, jit=False, use_short_namings=False
+    )
 
     # Get weights in corresponding backend array type.
-    trainables = get_weights(gpt, compiled_model, backend_obj)
+    trainables = get_weights(backend_obj)
 
     # Get gpt's default encoder decoder
     enc = tiktoken.get_encoding("gpt2")
@@ -92,51 +95,31 @@ def run_sample(
         print("\n---------------")
 
 
-def get_weights(logical_model: Model, compiled_model: PhysicalModel, backend: Backend):
-    my_keys = []
-    data_store = compiled_model.data_store
-    for key in compiled_model._input_keys:
-        if key not in data_store.all_static_keys | data_store.unused_keys:
-            my_keys.append(key)
-
-    my_keys = [
-        compiled_model.external_key_mapping.get(key, key)
-        for key in list(logical_model._input_keys)
-        if compiled_model.external_key_mapping.get(key, key) in my_keys
-    ]
-
+def get_weights(backend: Backend):
     model_hf = GPT2LMHeadModel.from_pretrained("gpt2")
     sd_hf = model_hf.state_dict()
-    my_weights = []
-    ignore_keys = []
-    for key, value in sd_hf.items():
-        if key not in ignore_keys:
-            if (
-                "weight" in key and "attn" in key and "c_proj" not in key
-            ) or key == "lm_head.weight":
-                if "c_attn" in key:
-                    b_key = key[:-6] + "bias"
-                    ignore_keys.append(b_key)
-                    # Since Original implementation concats 3 linear models'
-                    # weights, we split concatted weight into three different weights.
-                    dims = value.shape[1] // 3
-                    value = value.T
-                    my_weights.append(backend.array(value[:dims, :].T))
-                    my_weights.append(backend.array(sd_hf[b_key][:dims]))
-                    my_weights.append(backend.array(value[dims : dims * 2, :].T))
-                    my_weights.append(backend.array(sd_hf[b_key][dims : dims * 2]))
-                    my_weights.append(backend.array(value[dims * 2 : dims * 3, :].T))
-                    my_weights.append(backend.array(sd_hf[b_key][dims * 2 : dims * 3]))
-                else:
-                    my_weights.append(backend.array(value.T))
-            else:
-                my_weights.append(backend.array(value))
 
-    return dict(zip(my_keys, my_weights, strict=False))
+    # The OpenAI checkpoint use Conv1D instead of Linear for projection layers
+    # We need to transpose the weights to match the shape of the OpenAI checkpoint
+    transposed = [
+        "attn.c_attn.weight",
+        "attn.c_proj.weight",
+        "mlp.c_fc.weight",
+        "mlp.c_proj.weight",
+    ]
+    params = {}
+    for key in sd_hf:
+        ml_key = key.replace(".", "_")
+        if any(key.endswith(w) for w in transposed):
+            params[ml_key] = backend.array(sd_hf[key].T)
+        else:
+            params[ml_key] = backend.array(sd_hf[key])
+
+    return params
 
 
 def generate(
-    model: PhysicalModel,
+    model: PhysicalModel[Any],
     block_size: int,
     weights: dict[str, ml.DataType],
     idx: ml.DataType,

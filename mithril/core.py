@@ -128,7 +128,9 @@ except ImportError:
     pass
 
 
-DataType = TypeVar("DataType", "ndarray", "Array", "Tensor", "PyArray", "array")
+DataType = TypeVar(
+    "DataType", "ndarray[Any, Any]", "Array", "Tensor", "PyArray", "array"
+)
 
 
 class GenericDataType(Generic[DataType]):

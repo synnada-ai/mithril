@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from collections.abc import Callable
+from typing import Any
 
 import torch
 from torch.distributed._tensor import DTensor
@@ -41,7 +42,13 @@ class STensor(DTensor):
                 return data
 
     @classmethod
-    def __torch_dispatch__(cls, func, types, args=(), kwargs=None):
+    def __torch_dispatch__(
+        cls,
+        func: Any,
+        types: Any,
+        args: tuple[Any, ...] = (),
+        kwargs: dict[str, Any] | None = None,
+    ):
         operator_name = func._name.split("::")[1].split(".")[0]
         args_ref = STensor.extract_ref(args)
         kwargs_ref = STensor.extract_ref(kwargs)

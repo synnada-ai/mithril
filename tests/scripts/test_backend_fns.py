@@ -122,8 +122,8 @@ def assert_backend_results_equal(
 
     for out, ref in zip(output, ref_output, strict=False):
         assert tuple(out.shape) == tuple(ref.shape)
-        assert get_array_device(out, backend.type) == ref_output_device
-        assert get_array_precision(out, backend.type) == ref_output_precision
+        assert get_array_device(out, backend.backend_type) == ref_output_device
+        assert get_array_precision(out, backend.backend_type) == ref_output_precision
         assert testing_fn(out, ref, rtol=rtol, atol=atol)
 
 

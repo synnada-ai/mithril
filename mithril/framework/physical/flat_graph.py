@@ -17,10 +17,10 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 
-from ...core import DataType
+from ...core import DataType, GenericDataType
 from ..common import (
     TBD,
-    GenericDataType,
+    AllValueType,
     MainValueType,
     Scalar,
     Tensor,
@@ -322,7 +322,7 @@ class FlatGraph(GenericDataType[DataType]):
 
     def prune_duplicate_nodes(
         self,
-        data: dict[str, Tensor[DataType] | Scalar],
+        data: dict[str, Tensor | Scalar],
         constant_keys: Mapping[str, DataType | MainValueType],
     ) -> dict[str, str]:
         pruned_keys: dict[str, str] = {}
@@ -340,7 +340,7 @@ class FlatGraph(GenericDataType[DataType]):
     def _is_duplicate(
         self,
         node: Node,
-        data: dict[str, Tensor[DataType] | Scalar],
+        data: dict[str, Tensor | Scalar],
         constant_keys: Mapping[str, DataType | MainValueType],
     ):
         if node.model is None:
@@ -354,7 +354,7 @@ class FlatGraph(GenericDataType[DataType]):
                 continue
 
             # Extract value from data or static_keys
-            value: DataType | MainValueType | ToBeDetermined | str
+            value: DataType | AllValueType
             if conn.key in data and data[conn.key].value is not TBD:
                 value = data[conn.key].value
             else:
@@ -380,7 +380,8 @@ class FlatGraph(GenericDataType[DataType]):
                         break
 
                 else:
-                    self.value_table[str(len(self.value_table))] = value
+                    # TODO: Remove type ignore after combining Tensor and Scalar
+                    self.value_table[str(len(self.value_table))] = value  #  type: ignore
                     model_id.append(str(len(self.value_table) - 1))
             else:
                 model_id.append(conn.key)

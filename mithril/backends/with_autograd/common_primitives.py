@@ -139,11 +139,13 @@ def squared_error(input: DataType, target: DataType):
     return (input - target) ** 2
 
 
-def minus(input: DataType):
+def minus(input: DataType) -> DataType:
     return -input
 
 
-def transpose(input: DataType, axes: tuple[int, ...] | list[int] | None = None):
+def transpose(
+    input: DataType, axes: tuple[int, ...] | list[int] | None = None
+) -> DataType:
     if not axes:
         return input.T
     return input.transpose(*axes)
@@ -167,11 +169,11 @@ def buffer(input: DataType):
     return input
 
 
-def permute_tensor(input: DataType, indices: DataType):
+def permute_tensor(input: DataType, indices: DataType) -> DataType:
     return input[indices]  # type: ignore
 
 
-def reshape(input: DataType, shape: tuple[int, ...]):
+def reshape(input: DataType, shape: tuple[int, ...]) -> DataType:
     return input.reshape(shape)
 
 
@@ -191,8 +193,8 @@ def cartesian_diff(left: DataType, right: DataType):
     return left[:, None, :] - right[None, :, :]
 
 
-def primitive_embedding(input: DataType, embedding_matrix: DataType):
-    return embedding_matrix[input]  # type: ignore
+def primitive_embedding(input: DataType, weight: DataType) -> DataType:
+    return weight[input]  # type: ignore
 
 
 def scalar_item(
@@ -226,7 +228,10 @@ def to_list(*args: tuple[int | float | bool, ...]):
     return list(args)
 
 
-def padding_converter_1d(input, kernel_size):
+def padding_converter_1d(
+    input: PaddingType | int | Sequence[int], kernel_size: tuple[int, int] | int
+) -> tuple[int, int]:
+    output: tuple[int, int]
     if isinstance(input, PaddingType):
         if input == PaddingType.VALID:
             output = (0, 0)
@@ -243,15 +248,18 @@ def padding_converter_1d(input, kernel_size):
     elif isinstance(input, int):
         output = (input, input)
 
-    elif isinstance(input, Sequence):
+    else:
         if isinstance(input[0], Sequence) or isinstance(input[1], Sequence):
             raise RuntimeError(f"Given input '{input}' is not valid!")
-        output = tuple(input)
+        output = (input[0], input[1])
 
     return output
 
 
-def padding_converter_2d(input, kernel_size):
+def padding_converter_2d(
+    input: PaddingType | int | Sequence[int] | Sequence[Sequence[int]],
+    kernel_size: tuple[int, int] | int,
+) -> tuple[int, int] | tuple[tuple[int, int], tuple[int, int]]:
     output: tuple[int, int] | tuple[tuple[int, int], tuple[int, int]]
     if isinstance(input, PaddingType):
         if input == PaddingType.VALID:
@@ -262,18 +270,16 @@ def padding_converter_2d(input, kernel_size):
                     "'same' padding is not supported when the kernel size is even!"
                 )
             output = (kernel_size[0] // 2, kernel_size[1] // 2)
-        elif isinstance(kernel_size, int):
+        else:
             if kernel_size % 2 == 0:
                 raise RuntimeError(
                     "'same' padding is not supported when the kernel size is even!"
                 )
             half = kernel_size // 2
             output = ((half, half), (half, half))
-        else:
-            raise RuntimeError("Kernel size must be 'tuple[int, int]' or 'int'!")
     elif isinstance(input, int):
         output = (input, input)
-    elif isinstance(input, Sequence):
+    else:
         if isinstance(input[0], int) and isinstance(input[1], int):
             output = (input[0], input[1])
         elif isinstance(input[0], Sequence) and isinstance(input[1], Sequence):
@@ -284,14 +290,22 @@ def padding_converter_2d(input, kernel_size):
     return output
 
 
-def stride_converter(input, kernel_size):
+def stride_converter(
+    input: int | PaddingType | tuple[int, int] | None,
+    kernel_size: int | tuple[int, int],
+):
     if input is None:
         return kernel_size
     else:
         return input
 
 
-def tuple_converter(input):
+def tuple_converter(
+    input: int
+    | PaddingType
+    | tuple[int, int]
+    | tuple[tuple[int, int], tuple[int, int]],
+):
     if isinstance(input, int):
         return (input, input)
     else:

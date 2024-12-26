@@ -71,7 +71,6 @@ __all__ = [
     "Cosine",
     "Sign",
     "Square",
-    "Exponential",
     "Log",
     "StableReciprocal",
     "Relu",
@@ -94,6 +93,7 @@ __all__ = [
     "TsnePJoint",
     "EyeComplement",
     "Eye",
+    "ZerosLike",
     "Cholesky",
     "GPRAlpha",
     "GPRVOuter",
@@ -666,19 +666,6 @@ class Square(SingleInputOperation):
         self.factory_inputs = {"input": input}
 
 
-class Exponential(SingleInputOperation):
-    def __init__(
-        self, name: str | None = None, input: TensorValueType | ToBeDetermined = TBD
-    ) -> None:
-        super().__init__(
-            formula_key="exp",
-            name=name,
-            polymorphic_constraint=False,
-            output=IOKey(shape=[("Var", ...)], type=MyTensor[float]),
-        )
-        self.factory_inputs = {"input": input}
-
-
 ############################# Activation Types ##############################
 class Activation(PrimitiveModel):
     input: Connection
@@ -731,10 +718,27 @@ class Relu(Activation):
 
 class Gelu(Activation):
     def __init__(
-        self, name: str | None = None, input: TensorValueType | ToBeDetermined = TBD
+        self,
+        name: str | None = None,
+        approximate: bool = False,
+        input: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
-        super().__init__(formula_key="gelu", name=name)
+        super().__init__(
+            formula_key="gelu",
+            approximate=IOKey(value=approximate, type=(bool)),
+            name=name,
+        )
         self.factory_inputs = {"input": input}
+
+    def __call__(  # type: ignore[override]
+        self,
+        input: ConnectionType = NOT_GIVEN,
+        approximate: ConnectionType = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
+    ) -> ExtendInfo:
+        return BaseModel.__call__(
+            self, input=input, approximate=approximate, output=output
+        )
 
 
 class Sigmoid(Activation):
@@ -2004,7 +2008,7 @@ class AUCCore(PrimitiveModel):
 
 class Embedding(PrimitiveModel):
     input: Connection
-    embedding_matrix: Connection
+    weight: Connection
     output: Connection
 
     def __init__(
@@ -2013,7 +2017,7 @@ class Embedding(PrimitiveModel):
         num_embeddings: int | None = None,
         dim: int | None = None,
         input: TensorValueType | ToBeDetermined = TBD,
-        embedding_matrix: TensorValueType | ToBeDetermined = TBD,
+        weight: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         out_dim: int | str = "dim" if dim is None else dim
 
@@ -2022,26 +2026,22 @@ class Embedding(PrimitiveModel):
             name=name,
             output=IOKey(shape=[("N1", ...), "d1", out_dim], type=GenericTensorType),
             input=IOKey(shape=[("N1", ...), "d1"], type=MyTensor[int]),
-            embedding_matrix=IOKey(
-                shape=[num_embeddings, out_dim], type=GenericTensorType
-            ),
+            weight=IOKey(shape=[num_embeddings, out_dim], type=GenericTensorType),
         )
-        self.factory_inputs = {"input": input, "embedding_matrix": embedding_matrix}
+        self.factory_inputs = {"input": input, "weight": weight}
 
         self._set_constraint(
             fn=general_tensor_type_constraint,
-            keys=[PrimitiveModel.output_key, "embedding_matrix"],
+            keys=[PrimitiveModel.output_key, "weight"],
         )
 
     def __call__(  # type: ignore[override]
         self,
         input: ConnectionType = NOT_GIVEN,
-        embedding_matrix: ConnectionType = NOT_GIVEN,
+        weight: ConnectionType = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
-        return super().__call__(
-            input=input, embedding_matrix=embedding_matrix, output=output
-        )
+        return super().__call__(input=input, weight=weight, output=output)
 
 
 class ScaledDotProduct(PrimitiveModel):
@@ -2066,7 +2066,7 @@ class ScaledDotProduct(PrimitiveModel):
         value: TensorValueType | ToBeDetermined = TBD,
         attn_mask: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
-        # TODO: Reconsider how to get attn_mask, could it be a scalar?
+        # TODO: Reconsider how to get attn_mask, could it be A?
         assert (
             not isinstance(is_causal, bool) or not is_causal or not use_attn_mask
         ), "Causal attention is not support attn_mask!"
@@ -2408,3 +2408,24 @@ class Pad(PrimitiveModel):
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(input=input, pad_width=pad_width, output=output)
+
+
+class ZerosLike(PrimitiveModel):
+    input: Connection
+    output: Connection
+
+    def __init__(
+        self, name: str | None = None, input: TensorValueType | ToBeDetermined = TBD
+    ) -> None:
+        super().__init__(
+            formula_key="zeros_like",
+            name=name,
+            output=IOKey(shape=[("Var", ...)], type=GenericTensorType),
+            input=IOKey(shape=[("Var", ...)], type=GenericTensorType),
+        )
+        self.factory_inputs = {"input": input}
+
+    def __call__(  # type: ignore[override]
+        self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
+    ) -> ExtendInfo:
+        return super().__call__(input=input, output=output)

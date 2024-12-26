@@ -14,7 +14,6 @@
 
 import inspect
 import json
-import sys
 from copy import deepcopy
 
 import numpy as np
@@ -88,7 +87,6 @@ missing_models = all_models - tested_models - ignored_models
 
 @pytest.mark.parametrize("case", randomized_cases)
 def test_randomized(case: str) -> None:
-    sys.setrecursionlimit(2000)
     test_precisions = [64]
     # TODO: Tolerance handling will be updated when
     # automatic weight initialization algorithm is implemented.
@@ -145,7 +143,7 @@ def test_randomized(case: str) -> None:
         floated_randomized_args = current_case["model"].pop("floats", {})
         regular_args = current_case["model"].pop("regular_args", {})
         init_backend = avaliable_backends.pop(0)
-        init_key = init_backend.type
+        init_key = init_backend.backend_type
         static_input_info = current_case.pop("static_input_info", {})
         input_info: dict[str, dict[str, list]] = current_case.pop("input_info", {})
 
@@ -219,14 +217,14 @@ def test_randomized(case: str) -> None:
                 if key not in compiled_model.ignore_grad_keys
             }
             for backend in avaliable_backends:
-                output_gradients[backend.type] = {
+                output_gradients[backend.backend_type] = {
                     key: backend.array(value)
                     for key, value in output_gradients[init_key].items()
                 }
-                inputs[backend.type] = {
+                inputs[backend.backend_type] = {
                     key: backend.array(value) for key, value in inputs[init_key].items()
                 }
-                static_inputs[backend.type] = {
+                static_inputs[backend.backend_type] = {
                     key: backend.array(value)
                     if isinstance(model.conns._get_metadata(key).data, Tensor)
                     else value
@@ -240,15 +238,15 @@ def test_randomized(case: str) -> None:
             for backend in avaliable_backends:
                 compiled_model = compile(
                     model=model,
-                    constant_keys=static_inputs[backend.type],
+                    constant_keys=static_inputs[backend.backend_type],
                     backend=backend,  # type: ignore[reportArgumentType]
                     shapes=shapes,
                     jit=True,
                 )
-                outputs[backend.type], gradients[backend.type] = (
+                outputs[backend.backend_type], gradients[backend.backend_type] = (
                     compiled_model.evaluate_all(
-                        inputs[backend.type],
-                        output_gradients=output_gradients[backend.type],
+                        inputs[backend.backend_type],
+                        output_gradients=output_gradients[backend.backend_type],
                     )
                 )
 
@@ -281,16 +279,17 @@ def test_randomized(case: str) -> None:
                 assert numeric_value == inferred_shapes
 
             for backend in avaliable_backends:
-                outputs[backend.type] = {
-                    key: np.array(value) for key, value in outputs[backend.type].items()
-                }
-                gradients[backend.type] = {
+                outputs[backend.backend_type] = {
                     key: np.array(value)
-                    for key, value in gradients[backend.type].items()
+                    for key, value in outputs[backend.backend_type].items()
+                }
+                gradients[backend.backend_type] = {
+                    key: np.array(value)
+                    for key, value in gradients[backend.backend_type].items()
                 }
 
             for backend in avaliable_backends:
-                for k, v in outputs[backend.type].items():
+                for k, v in outputs[backend.backend_type].items():
                     np.testing.assert_allclose(
                         outputs["numpy"][k],
                         v,
@@ -299,7 +298,7 @@ def test_randomized(case: str) -> None:
                     )
 
             for backend in avaliable_backends:
-                for k, v in gradients[backend.type].items():
+                for k, v in gradients[backend.backend_type].items():
                     np.testing.assert_allclose(
                         gradients["numpy"][k],
                         v,

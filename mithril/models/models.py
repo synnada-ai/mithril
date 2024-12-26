@@ -39,6 +39,7 @@ from ..framework.logical.essential_primitives import (
     Cast,
     Divide,
     DType,
+    Exponential,
     Greater,
     Length,
     MatrixMultiply,
@@ -66,7 +67,6 @@ from .primitives import (
     Concat,
     DistanceMatrix,
     Eigvalsh,
-    Exponential,
     Eye,
     EyeComplement,
     GPRAlpha,
@@ -2866,6 +2866,7 @@ class Metric(Model):
         self += Buffer()(input=result, output=IOKey("output"))
 
         self.label.set_differentiable(False)
+        self.set_canonical_input(self.pred)
         self._freeze()
 
     def __call__(  # type: ignore[override]
@@ -2918,9 +2919,10 @@ class Accuracy(Model):
         self += Sum()(input=true_predictions, output="n_true_predictions")
         self += Divide()(
             numerator="n_true_predictions",
-            denominator=n_prediction,
+            denominator=n_prediction.tensor(),
             output=IOKey(name="output"),
         )
+        self.set_canonical_input(self.pred)
 
     def __call__(  # type: ignore[override]
         self,
@@ -3007,6 +3009,7 @@ class Precision(Model):
                 )
                 self += Where()(denominator == 0, 1, denominator, f"denominator_{idx}")
                 self += Divide()(
+                    # numerator=getattr(self, f"true_positive_{idx}"),
                     numerator=f"true_positive_{idx}",
                     denominator=getattr(self, f"denominator_{idx}"),
                     output=f"precision_{idx}",
@@ -3021,7 +3024,7 @@ class Precision(Model):
 
             self += Divide()(
                 numerator=sum_precision,
-                denominator=self.n_classes.shape()[0],
+                denominator=self.n_classes.shape()[0].tensor(),
                 output=IOKey(name="output"),
             )
 
@@ -3051,7 +3054,7 @@ class Precision(Model):
                 self += Divide()(
                     numerator=getattr(self, f"precision_{idx}")
                     * getattr(self, f"n_class_{idx}"),
-                    denominator=n_element,
+                    denominator=n_element.tensor(),
                     output=f"weighted_precision_{idx}",
                 )
 
@@ -3063,6 +3066,7 @@ class Precision(Model):
             self += Buffer()(input=precision, output=IOKey(name="output"))
 
         self.label.set_differentiable(False)
+        self.set_canonical_input(self.pred)
         self._freeze()
 
     def __call__(  # type: ignore[override]
@@ -3164,7 +3168,7 @@ class Recall(Model):
 
             self += Divide()(
                 numerator=sum_recall,
-                denominator=self.n_classes.shape()[0],
+                denominator=self.n_classes.shape()[0].tensor(),
                 output=IOKey(name="output"),
             )
 
@@ -3194,7 +3198,7 @@ class Recall(Model):
                 self += Divide()(
                     numerator=getattr(self, f"recall_{idx}")
                     * getattr(self, f"n_class_{idx}"),
-                    denominator=n_element,
+                    denominator=n_element.tensor(),
                     output=f"weighted_recall_{idx}",
                 )
 
@@ -3206,6 +3210,7 @@ class Recall(Model):
             self += Buffer()(input=recall, output=IOKey(name="output"))
 
         self.label.set_differentiable(False)
+        self.set_canonical_input(self.pred)
         self._freeze()
 
     def __call__(  # type: ignore[override]
@@ -3309,7 +3314,7 @@ class F1(Model):
             self += Unique()(input=self.label_formatted, output="n_classes")
             self += Divide()(
                 numerator=sum_precision,
-                denominator=self.n_classes.shape()[0],
+                denominator=self.n_classes.shape()[0].tensor(),
                 output=IOKey(name="output"),
             )
 
@@ -3318,7 +3323,7 @@ class F1(Model):
             assert (
                 n_classes is not None
             ), "n_classes must be provided if average is or 'weighted'"
-            n_element = self.label_formatted.shape()[0]
+            n_element = self.label_formatted.shape()[0].tensor()
             for idx in range(n_classes):
                 class_idxs = self.label_formatted == idx
                 true_positive = (self.metric_out == 0) & class_idxs
@@ -3354,6 +3359,7 @@ class F1(Model):
             self += Buffer()(input=precision, output=IOKey(name="output"))
 
         self.label.set_differentiable(False)
+        self.set_canonical_input(self.pred)
         self._freeze()
 
     def __call__(  # type: ignore[override]
@@ -3415,6 +3421,7 @@ class AUC(Model):
         self += Buffer()(auc_score, IOKey("output"))
 
         self.label.set_differentiable(False)
+        self.set_canonical_input(self.pred)
         self._freeze()
 
     def __call__(  # type: ignore[override]

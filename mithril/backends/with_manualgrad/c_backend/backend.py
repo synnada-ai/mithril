@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import Any
+
 import numpy as np
 
 from .... import core
@@ -62,14 +64,16 @@ class CBackend(Backend[PyArray]):
         _shape = process_shape(shape)
         return array.zeros(_shape)
 
-    def zeros_like(self, array, dtype: core.Dtype | None = None) -> PyArray:
+    def zeros_like(self, input: PyArray, *, dtype: core.Dtype | None = None) -> PyArray:
         assert dtype is None, "dtype is not supported in CBackend"
-        return self.array(np.zeros(array.shape, dtype=np.float32))
+        return self.array(np.zeros(input.shape, dtype=np.float32))
 
-    def to_numpy(self, array: PyArray) -> np.ndarray:
+    def to_numpy(self, array: PyArray) -> np.ndarray[Any, Any]:
         return utils.to_numpy(array)
 
-    def array(self, np_array: np.ndarray, dtype: core.Dtype | None = None) -> PyArray:
+    def array(
+        self, input: np.ndarray[Any, Any], *, dtype: core.Dtype | None = None
+    ) -> PyArray:
         assert dtype is None, "dtype is not supported in CBackend"
-        np_array = np_array.astype(np.float32)
-        return utils.from_numpy(np_array)
+        input = input.astype(np.float32)
+        return utils.from_numpy(input)

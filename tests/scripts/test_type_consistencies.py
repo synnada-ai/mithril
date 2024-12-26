@@ -28,7 +28,6 @@ from mithril.framework.utils import (
 )
 from mithril.models import (
     TBD,
-    Connect,
     Convolution2D,
     ExtendInfo,
     IOKey,
@@ -135,12 +134,11 @@ def test_default_given_extend_4_numpy_error():
     model1 = ReduceMult(axis=TBD)
     model2 = Mean(axis=1)
     model += model1(axis=IOKey("axis", value=None))
-    with pytest.raises(TypeError) as err_info:
+    with pytest.raises(ValueError) as err_info:
         model += model2(input="input2", axis=model1.axis, output="output")
 
     assert str(err_info.value) == (
-        "Acceptable types are <class 'NoneType'>, "
-        "but <class 'int'> type value is provided!"
+        "Value is set before as None. A value can not be reset."
     )
 
 
@@ -389,7 +387,7 @@ def test_type_16():
 
     with pytest.raises(TypeError) as err_info:
         model += sig_model_2(
-            input=Connect(sig_model_1.input, key=IOKey(value=[False, True])),
+            input=IOKey(connections=[sig_model_1.input], value=[False, True]),
             output=IOKey(name="output2"),
         )
     assert str(err_info.value) == (
@@ -407,7 +405,12 @@ def test_type_17():
     with pytest.raises(TypeError) as err_info:
         model.extend(
             sig_model_2,
-            input=Connect(sig_model_1.input, key=IOKey(value=[False, True], name="a")),
+            input=IOKey(
+                connections=[sig_model_1.input],
+                value=[False, True],
+                name="a",
+                expose=True,
+            ),
             output=IOKey(name="output2"),
         )
     assert str(err_info.value) == (
