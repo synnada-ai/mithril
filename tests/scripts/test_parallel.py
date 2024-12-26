@@ -383,7 +383,7 @@ def test_torch_parallel_2():
     # primitive eye.
     model = Model()
     model += (linear := Linear(256))(input="input", weight="w", bias="b")
-    model += (e := Eye(N=TBD))(N=linear.output.shape()[0])
+    model += (e := Eye(N=TBD))(N=linear.output.shape[0])
     model += Add()(left=linear.output, right=e.output, output="output")
     backend = create_parallel_backend(device_mesh=(4, 1))
     backend.ones([256])
@@ -507,7 +507,7 @@ def test_torch_parallel_5():
     # primitive eye.
     model = Model()
     model += (linear := Linear(256))(input="input", weight="w", bias="b")
-    model += (e := Eye(N=TBD))(N=linear.output.shape()[0])
+    model += (e := Eye(N=TBD))(N=linear.output.shape[0])
     model += Add()(left=linear.output, right=e.output, output="output")
 
     backend = mithril.TorchBackend()
@@ -957,7 +957,7 @@ def test_jax_parallel_2():
     if "cuda" in mithril.JaxBackend.get_available_devices():
         model = Model()
         model += (linear := Linear(256))(input="input", weight="w", bias="b")
-        model += (e := Eye(N=TBD))(N=linear.output.shape()[0])
+        model += (e := Eye(N=TBD))(N=linear.output.shape[0])
         model += Add()(left=linear.output, right=e.output, output="output")
         backend = mithril.JaxBackend(device="cuda", device_mesh=(4, 1))
         backend.ones([256])
@@ -1090,7 +1090,7 @@ def test_jax_parallel_5():
     if "cuda" in mithril.JaxBackend.get_available_devices():
         model = Model()
         model += (linear := Linear(256))(input="input", weight="w", bias="b")
-        model += (e := Eye(N=TBD))(N=linear.output.shape()[0])
+        model += (e := Eye(N=TBD))(N=linear.output.shape[0])
         model += Add()(left=linear.output, right=e.output, output="output")
 
         backend = mithril.JaxBackend(device="cuda")

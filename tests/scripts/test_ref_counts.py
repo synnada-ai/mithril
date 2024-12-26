@@ -18,6 +18,7 @@ from copy import deepcopy
 
 from mithril.framework.common import (
     NOT_GIVEN,
+    BaseKey,
     Connection,
     ConnectionType,
     GenericTensorType,
@@ -81,8 +82,8 @@ def test_deleted_variadic_ref_count_1() -> None:
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=IOKey(shape=["a", "b", ("Var1", ...)], type=GenericTensorType),
-                output=IOKey(shape=["c", "d", ("Var2", ...)], type=GenericTensorType),
+                input=BaseKey(shape=["a", "b", ("Var1", ...)], type=GenericTensorType),
+                output=BaseKey(shape=["c", "d", ("Var2", ...)], type=GenericTensorType),
             )
 
     model = Model()
@@ -114,8 +115,8 @@ def test_deleted_variadic_ref_count_2() -> None:
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=IOKey(shape=[("Var1", ...)], type=GenericTensorType),
-                output=IOKey(shape=[("Var1", ...)], type=GenericTensorType),
+                input=BaseKey(shape=[("Var1", ...)], type=GenericTensorType),
+                output=BaseKey(shape=[("Var1", ...)], type=GenericTensorType),
             )
 
     buff_model1 = MyModel()
@@ -238,14 +239,14 @@ def test_deleted_variadic_ref_count_7():
     model += add_5(left="")
 
     conn = IOKey(
-        connections=[
+        connections={
             add_1.left,
             add_1.right,
             add_2.left,
             add_2.right,
             add_3.left,
             add_3.right,
-        ]
+        }
     )
 
     model += add_6(left=conn, right="right", output="output")
@@ -345,8 +346,8 @@ def test_deleted_uniadic_ref_count_5():
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=IOKey(shape=["a", "b"], type=GenericTensorType),
-                output=IOKey(shape=["c", "d"], type=GenericTensorType),
+                input=BaseKey(shape=["a", "b"], type=GenericTensorType),
+                output=BaseKey(shape=["c", "d"], type=GenericTensorType),
             )
 
     all_uniadics = set()
@@ -384,8 +385,8 @@ def test_deleted_uniadic_ref_count_7():
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=IOKey(shape=["a", "b", "c"], type=GenericTensorType),
-                output=IOKey(shape=["c", "d", "e"], type=GenericTensorType),
+                input=BaseKey(shape=["a", "b", "c"], type=GenericTensorType),
+                output=BaseKey(shape=["c", "d", "e"], type=GenericTensorType),
             )
 
     all_uniadics = set()
@@ -409,8 +410,8 @@ def test_deleted_uniadic_ref_count_8():
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=IOKey(shape=["a", "b", "c"], type=GenericTensorType),
-                output=IOKey(shape=["d", "e", "f"], type=GenericTensorType),
+                input=BaseKey(shape=["a", "b", "c"], type=GenericTensorType),
+                output=BaseKey(shape=["d", "e", "f"], type=GenericTensorType),
             )
 
         def __call__(  # type: ignore[override]
@@ -440,8 +441,8 @@ def test_deleted_uniadic_ref_count_9():
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=IOKey(shape=[1, 1, 1], type=GenericTensorType),
-                output=IOKey(shape=[1, 1, 1], type=GenericTensorType),
+                input=BaseKey(shape=[1, 1, 1], type=GenericTensorType),
+                output=BaseKey(shape=[1, 1, 1], type=GenericTensorType),
             )
 
         def __call__(  # type: ignore[override]
@@ -564,8 +565,8 @@ def test_deleted_repr_ref_count_5() -> None:
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=IOKey(shape=[("Var1", ...), "a"], type=GenericTensorType),
-                output=IOKey(shape=["a", ("Var1", ...)], type=GenericTensorType),
+                input=BaseKey(shape=[("Var1", ...), "a"], type=GenericTensorType),
+                output=BaseKey(shape=["a", ("Var1", ...)], type=GenericTensorType),
             )
 
         def __call__(  # type: ignore[override]
@@ -618,8 +619,8 @@ def test_deleted_repr_ref_count_6() -> None:
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=IOKey(shape=[("Var1", ...), "a"], type=GenericTensorType),
-                output=IOKey(shape=["a", ("Var1", ...)], type=GenericTensorType),
+                input=BaseKey(shape=[("Var1", ...), "a"], type=GenericTensorType),
+                output=BaseKey(shape=["a", ("Var1", ...)], type=GenericTensorType),
             )
 
         def __call__(  # type: ignore[override]
@@ -671,8 +672,8 @@ def test_deleted_repr_ref_count_7() -> None:
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=IOKey(shape=[("Var1", ...), "a"], type=GenericTensorType),
-                output=IOKey(shape=["a", ("Var1", ...)], type=GenericTensorType),
+                input=BaseKey(shape=[("Var1", ...), "a"], type=GenericTensorType),
+                output=BaseKey(shape=["a", ("Var1", ...)], type=GenericTensorType),
             )
 
         def __call__(  # type: ignore[override]
@@ -707,8 +708,8 @@ def test_deleted_repr_ref_count_8() -> None:
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=IOKey(shape=["a", "b"], type=GenericTensorType),
-                output=IOKey(shape=["b", "a"], type=GenericTensorType),
+                input=BaseKey(shape=["a", "b"], type=GenericTensorType),
+                output=BaseKey(shape=["b", "a"], type=GenericTensorType),
             )
 
         def __call__(  # type: ignore[override]
@@ -911,7 +912,7 @@ def test_deleted_tensors_ref_count_3():
     model += buffer4(input="input4", output=IOKey(name="output4"))
     model += buffer5(input="input5", output=IOKey(name="output5"))
     model += buffer6(input="input6", output=IOKey(name="output6"))
-    connections = [buffer1.input, buffer2.input, buffer3.input, model.output4]  # type: ignore
+    connections = {buffer1.input, buffer2.input, buffer3.input, model.output4}  # type: ignore
     conn = IOKey(connections=connections)
 
     model += buffer7(input=conn, output=IOKey(name="output"))
@@ -1137,7 +1138,7 @@ def test_deleted_edge_ref_count_6():
         output2=IOKey(name="output2"),
         output3=IOKey(name="output3"),
     )
-    connections = [main_model.output1, main_model.input2]  # type: ignore
+    connections = {main_model.output1, main_model.input2}  # type: ignore
     conn = IOKey(name="abcd", expose=True, connections=connections)
 
     main_model += sigmoid4(input=conn, output=IOKey(name="output5"))
@@ -1268,8 +1269,8 @@ def test_deleted_uniadic_ref_count_2() -> None:
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=IOKey(shape=["a1"], type=GenericTensorType),
-                output=IOKey(shape=["a2"], type=GenericTensorType),
+                input=BaseKey(shape=["a1"], type=GenericTensorType),
+                output=BaseKey(shape=["a2"], type=GenericTensorType),
             )
 
     buff_model1 = MyModel()
@@ -1308,8 +1309,8 @@ def test_deleted_uniadic_ref_count() -> None:
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=IOKey(shape=["a", "b"], type=GenericTensorType),
-                output=IOKey(shape=["c", "d"], type=GenericTensorType),
+                input=BaseKey(shape=["a", "b"], type=GenericTensorType),
+                output=BaseKey(shape=["c", "d"], type=GenericTensorType),
             )
 
     model = Model()
@@ -1340,8 +1341,8 @@ def test_deleted_repr_ref_count() -> None:
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=IOKey(shape=["a", "b"], type=GenericTensorType),
-                output=IOKey(shape=["c", "d"], type=GenericTensorType),
+                input=BaseKey(shape=["a", "b"], type=GenericTensorType),
+                output=BaseKey(shape=["c", "d"], type=GenericTensorType),
             )
 
     model = Model()
@@ -1372,8 +1373,8 @@ def test_deleted_node_ref_count() -> None:
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=IOKey(shape=["a", "b"], type=GenericTensorType),
-                output=IOKey(shape=["c", "d"], type=GenericTensorType),
+                input=BaseKey(shape=["a", "b"], type=GenericTensorType),
+                output=BaseKey(shape=["c", "d"], type=GenericTensorType),
             )
 
     model = Model()
@@ -1402,8 +1403,8 @@ def test_deleted_tensor_ref_count() -> None:
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=IOKey(shape=["a", "b"], type=GenericTensorType),
-                output=IOKey(shape=["c", "d"], type=GenericTensorType),
+                input=BaseKey(shape=["a", "b"], type=GenericTensorType),
+                output=BaseKey(shape=["c", "d"], type=GenericTensorType),
             )
 
     model = Model()
@@ -1430,8 +1431,8 @@ def test_deleted_edge_ref_count() -> None:
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=IOKey(shape=["a", "b"], type=GenericTensorType),
-                output=IOKey(shape=["c", "d"], type=GenericTensorType),
+                input=BaseKey(shape=["a", "b"], type=GenericTensorType),
+                output=BaseKey(shape=["c", "d"], type=GenericTensorType),
             )
 
     model = Model()
