@@ -311,7 +311,7 @@ class Model(BaseModel):
             case str():
                 connection = IOKey(name=connection)
             case Connection():
-                connection = IOKey(connections=[connection])
+                connection = IOKey(connections={connection})
             case ExtendTemplate():
                 # Unroll ExtendTemplate
                 template_conn = model.conns.get_connection(key)
@@ -319,7 +319,7 @@ class Model(BaseModel):
                 con_data = self._unroll_template(
                     connection, type(template_conn.metadata.data)
                 )
-                connection = IOKey(connections=[con_data.conn], expose=False)
+                connection = IOKey(connections={con_data.conn}, expose=False)
             case _ if isinstance(connection, MainValueInstance):
                 # find_dominant_type returns the dominant type in a container.
                 # If a container has a value of type Connection or ExtendTemplate
@@ -338,34 +338,29 @@ class Model(BaseModel):
 
                     result = conv_model.conns.get_connection("output")
                     assert result is not None
-                    connection = IOKey(connections=[result.conn], expose=None)
+                    connection = IOKey(connections={result.conn}, expose=None)
                 else:
                     assert isinstance(connection, MainValueInstance)
                     connection = IOKey(value=connection)
             case IOKey():
-                expose = connection._expose
-                name = connection._name
-                # TODO: This check should be removed: conn._connections==OrderedSet([])
+                expose = connection.expose
+                name = connection.name
+                # TODO: This check should be removed: conn.connections==set()
                 # We should not operate different if _connections is given. Fix this and
                 # also fix corresponding tests and dict conversions with "connect".
                 if (
                     expose is None
                     and (name is None or self.conns.get_connection(name) is None)
-                    and connection._connections == OrderedSet([])
+                    and connection.connections == set()
                 ):
                     expose = True
-                _conns: list[Connection | str] = [
-                    item.conn if isinstance(item, ConnectionData) else item
-                    for item in connection._connections
-                ]
-                # TODO: Add replicate method to IOKey (update def __call__ in BaseModel)
                 connection = IOKey(
                     name=name,
-                    value=connection._value,
-                    shape=connection._shape,
-                    type=connection._type,
                     expose=expose,
-                    connections=_conns,
+                    connections=connection.connections,
+                    type=connection.data.type,
+                    shape=connection.data.shape,
+                    value=connection.data.value,
                 )
             case NotAvailable():
                 raise ValueError(
@@ -402,14 +397,14 @@ class Model(BaseModel):
         is_not_valued = local_connection.metadata.data.value is TBD
 
         d_map = self.dependency_map._local_output_dependency_map
-        expose = given_connection._expose
-        outer_key = given_connection._name
+        expose = given_connection.expose
+        outer_key = given_connection.name
         con_obj = None
         set_value: ToBeDetermined | str | MainValueType | NullConnection = NOT_GIVEN
-        if given_connection._value is not TBD:
-            set_value = given_connection._value
+        if given_connection.data.value is not TBD:
+            set_value = given_connection.data.value
 
-        if given_connection._connections == OrderedSet([]):
+        if given_connection.connections == set():
             if outer_key is not None:
                 con_obj = self.conns.get_connection(outer_key)
             if outer_key is None or con_obj is None:
@@ -429,18 +424,19 @@ class Model(BaseModel):
                 )
         else:
             initial_conn: ConnectionData
-            for idx, conn in enumerate(given_connection._connections):
+            for idx, conn in enumerate(given_connection.connections):
                 if isinstance(conn, str):
                     _conn = self.conns.get_connection(conn)
                 else:
-                    _conn = self.conns.get_con_by_metadata(conn.metadata)
+                    _conn = self.conns.get_con_by_metadata(conn.data.metadata)
+                    if conn.data in model.conns.all.values():
+                        raise ValueError(
+                            f"Given connection '{conn.data.key}' should not "
+                            "belong to the extending model!"
+                        )
+
                 if not isinstance(_conn, ConnectionData):
                     raise KeyError("Requires accessible connection to be processed!")
-                elif conn in model.conns.all.values():
-                    raise ValueError(
-                        f"Given connection '{conn.key}' should not "  # type: ignore
-                        "belong to the extending model!"
-                    )
                 if idx == 0:
                     initial_conn = _conn
                     if outer_key is not None:
@@ -716,11 +712,11 @@ class Model(BaseModel):
         }
 
         for local_key, value in io_keys.items():
-            if value._shape is not None:
-                shape_info |= {local_key: value._shape}
+            if value.data.shape is not None:
+                shape_info |= {local_key: value.data.shape}
 
-            if value._type is not None:
-                type_info[local_key] = value._type
+            if value.data.type is not None:
+                type_info[local_key] = value.data.type
 
             con_obj, _updates = self._add_connection(model, local_key, value)
             updates |= _updates
@@ -813,7 +809,7 @@ class Model(BaseModel):
             kwargs[model._canonical_input.key] = self.canonical_output
 
         for key, value in kwargs.items():
-            _value = value._name if isinstance(value, IOKey) else value
+            _value = value.name if isinstance(value, IOKey) else value
 
             if isinstance(_value, str) and _value == "":
                 if key in model._input_keys:
@@ -824,7 +820,7 @@ class Model(BaseModel):
                     )
 
                 if isinstance(value, IOKey):
-                    value._name = None
+                    value.name = None
                 else:
                     kwargs[key] = _value
 

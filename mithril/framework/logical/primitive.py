@@ -20,9 +20,9 @@ from ...utils.utils import OrderedSet
 from ..common import (
     NOT_AVAILABLE,
     TBD,
+    BaseKey,
     Connection,
     IOHyperEdge,
-    IOKey,
     KeyType,
     NotAvailable,
     Scalar,
@@ -54,7 +54,7 @@ class PrimitiveModel(BaseModel):
         self,
         formula_key: str,
         name: str | None = None,
-        **kwargs: IOKey | Tensor | Scalar,
+        **kwargs: BaseKey | Tensor | Scalar,
     ) -> None:
         self._formula_key = formula_key
         self.grad_formula = formula_key + "_grad"
@@ -62,9 +62,9 @@ class PrimitiveModel(BaseModel):
         super().__init__(name=name)
         # Get shape_templates of TensorTypes and create corresponding shapes.
         shape_templates = {
-            key: value._shape
+            key: value.shape
             for key, value in kwargs.items()
-            if isinstance(value, IOKey) and value._shape is not None
+            if isinstance(value, BaseKey) and value.shape is not None
         }
         shapes = create_shape_map(shape_templates, self.constraint_solver)
         data_set: set[Tensor] = set()
@@ -73,8 +73,9 @@ class PrimitiveModel(BaseModel):
         for key, value in kwargs.items():
             # TODO: The first if block is temporary. All if else blocks will be
             # removed after the implementation of the new type system.
-            if get_origin(value._type) is Union:
-                args = get_args(value._type)
+            value_type = value.type if isinstance(value, BaseKey) else value._type
+            if get_origin(value_type) is Union:
+                args = get_args(value_type)
                 types = []
                 for _type in args:
                     # TODO: assertion will be removed,
@@ -83,30 +84,30 @@ class PrimitiveModel(BaseModel):
                     types.append(get_mytensor_subtype(_type))
                 possible_types = reduce(lambda x, y: x | y, types)  # type: ignore
 
-                assert isinstance(value, IOKey)
+                assert isinstance(value, BaseKey)
                 _value: Tensor | Scalar = Tensor(
                     shape=shapes[key].node,
                     possible_types=possible_types,
-                    value=value._value,  # type: ignore
-                    interval=value._interval,
+                    value=value.value,  # type: ignore
+                    interval=value.interval,
                 )
                 assert isinstance(_value, Tensor)
                 data_set.add(_value)
-            elif is_mytensor_type(value._type):
-                assert isinstance(value, IOKey)
+            elif is_mytensor_type(value_type):
+                assert isinstance(value, BaseKey)
                 _value = Tensor(
                     shape=shapes[key].node,
-                    possible_types=get_mytensor_subtype(value._type),  # type: ignore
-                    value=value._value,  # type: ignore
-                    interval=value._interval,
+                    possible_types=get_mytensor_subtype(value_type),  # type: ignore
+                    value=value.value,  # type: ignore
+                    interval=value.interval,
                 )
                 data_set.add(_value)
             elif isinstance(value, Tensor | Scalar):
                 _value = value
             else:
                 _value = Scalar(
-                    possible_types=value._type,  # type: ignore
-                    value=value._value,  # type: ignore
+                    possible_types=value_type,  # type: ignore
+                    value=value.value,  # type: ignore
                 )
 
             conn_data = self.create_connection(IOHyperEdge(_value), key)
