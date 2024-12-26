@@ -153,12 +153,12 @@ def dict_to_model(modelparams: dict[str, Any]) -> BaseModel:
                         key = IOKey(**key_kwargs)
                     mappings[k] = IOKey(
                         **key_kwargs,
-                        connections=[
+                        connections={
                             getattr(submodels_dict[value[0]], value[1])
                             if isinstance(value, Sequence)
                             else value
                             for value in conn["connect"]
-                        ],
+                        },
                     )
                 elif "name" in conn:
                     key_kwargs = create_iokey_kwargs(conn)
@@ -538,21 +538,21 @@ def item_to_json(item: IOKey):
     # TODO: Currently type is not supported for Tensors.
     # Handle This whit conversion test updates.
     result: dict[str, Any] = {}
-    if not isinstance(item._value, ToBeDetermined):
-        result["value"] = item._value
-    if item._shape is not None:
+    if not isinstance(item.data.value, ToBeDetermined):
+        result["value"] = item.data.value
+    if item.shape is not None:
         shape_template = []
-        for symbol in item._shape:
+        for symbol in item.shape:
             if isinstance(symbol, tuple):  # variadic
                 shape_template.append(f"{symbol[0]},...")
             else:
                 shape_template.append(str(symbol))
         result["shape_template"] = shape_template
 
-    elif isinstance(item._type, UnionType):
-        result["type"] = [type_to_str(item) for item in item._type.__args__]
+    elif isinstance(item.data.type, UnionType):
+        result["type"] = [type_to_str(item) for item in item.data.type.__args__]
     else:
         result["type"] = [
-            type_to_str(item._type),
+            type_to_str(item.data.type),
         ]
     return result

@@ -20,7 +20,7 @@ import mithril
 from mithril import CBackend, JaxBackend, NumpyBackend, TorchBackend
 from mithril.backends.with_manualgrad.numpy_backend.ops_grad import add_grad
 from mithril.framework import NOT_GIVEN, ConnectionType, ExtendInfo
-from mithril.framework.common import GenericTensorType, IOKey
+from mithril.framework.common import BaseKey, GenericTensorType, IOKey
 from mithril.framework.constraints import bcast
 from mithril.models import (
     Absolute,
@@ -413,9 +413,9 @@ def test_code_generator_4(file_path: str):
         def __init__(self) -> None:
             super().__init__(
                 formula_key="my_adder",
-                output=IOKey(shape=[("Var_out", ...)], type=GenericTensorType),
-                input=IOKey(shape=[("Var_1", ...)], type=GenericTensorType),
-                rhs=IOKey(shape=[("Var_2", ...)], type=GenericTensorType),
+                output=BaseKey(shape=[("Var_out", ...)], type=GenericTensorType),
+                input=BaseKey(shape=[("Var_1", ...)], type=GenericTensorType),
+                rhs=BaseKey(shape=[("Var_2", ...)], type=GenericTensorType),
             )
             self.set_constraint(
                 fn=bcast, keys=[PrimitiveModel.output_key, "input", "rhs"]
@@ -522,9 +522,9 @@ def test_code_generator_5(file_path: str):
         def __init__(self) -> None:
             super().__init__(
                 formula_key="my_adder",
-                output=IOKey(shape=[("Var_out", ...)], type=GenericTensorType),
-                input=IOKey(shape=[("Var_1", ...)], type=GenericTensorType),
-                rhs=IOKey(shape=[("Var_2", ...)], type=GenericTensorType),
+                output=BaseKey(shape=[("Var_out", ...)], type=GenericTensorType),
+                input=BaseKey(shape=[("Var_1", ...)], type=GenericTensorType),
+                rhs=BaseKey(shape=[("Var_2", ...)], type=GenericTensorType),
             )
             self.set_constraint(
                 fn=bcast, keys=[PrimitiveModel.output_key, "input", "rhs"]
