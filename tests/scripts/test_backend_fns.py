@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import platform
 from collections.abc import Callable
 from itertools import product
@@ -84,7 +85,7 @@ except ImportError:
 try:
     import mlx.core as mx
 
-    if platform.system() != "Darwin":
+    if platform.system() != "Darwin" or os.environ["CI"] == "true":
         raise ImportError
     testing_fns[MlxBackend] = mx.allclose
     installed_backends.append(MlxBackend)

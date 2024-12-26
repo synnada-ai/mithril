@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 from collections.abc import Iterable, Mapping, Sequence
 from itertools import product
 from types import EllipsisType
@@ -117,6 +118,10 @@ def assert_all_backends_device_precision(model: Model):
         # remove unsupported backend, device and precision trios
         if (backend_class, device, precision) in unsupported_device_precisions:
             continue
+
+        if os.environ["CI"] == "true" and "mps" in device:
+            continue
+
         _type = backend_class.backend_type
         backend = backend_class(device=device, precision=precision)
 
