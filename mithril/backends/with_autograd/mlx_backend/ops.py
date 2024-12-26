@@ -50,6 +50,7 @@ from ..common_primitives import (
     permute_tensor,
     power,
     primitive_embedding,
+    primitive_slice,
     reshape,
     scalar_item,
     sequence_slice,
@@ -170,6 +171,7 @@ __all__ = [
     "item",
     "scalar_item",
     "tensor_item",
+    "primitive_slice",
     "sequence_slice",
     "union",
     "length",
@@ -186,6 +188,7 @@ __all__ = [
     "reduce_argmax",
     "pad",
     "split",
+    "randn",
 ]
 
 
@@ -891,7 +894,16 @@ def pad(input: mx.array, pad_width: tuple[tuple[int, int], ...]):
     return mx.pad(input, pad_width)
 
 
-array_creation_funcs = ["arange", "to_tensor", "eye", "ones_with_zero_diag"]
+def randn(*args, device: str, precision: int) -> mx.array:
+    out = mx.random.normal(*args)
+    return utils.handle_data_precision(out, precision)
+
+
+def zeros_like(input: mx.array):
+    return mx.zeros_like(input)
+
+
+array_creation_funcs = ["arange", "randn", "to_tensor", "eye", "ones_with_zero_diag"]
 primitive_func_dict = common_primitive_func_dict = {
     key: fn for key, fn in globals().items() if callable(fn)
 } | common_primitive_func_dict

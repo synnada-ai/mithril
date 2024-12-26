@@ -50,6 +50,7 @@ __all__ = [
     "item",
     "scalar_item",
     "tensor_item",
+    "primitive_slice",
     "swapaxes",
     "sequence_slice",
     "union",
@@ -304,6 +305,12 @@ def tensor_item(
     cache: CacheType = None,
 ) -> DataType:
     return input[index]
+
+
+def primitive_slice(
+    start: int | None, stop: int | None, step: int | None, cache: CacheType = None
+):
+    return slice(start, stop, step)
 
 
 def swapaxes(

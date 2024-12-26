@@ -33,7 +33,7 @@ from .core import (
     short,
 )
 from .framework.codegen import code_gen_map
-from .framework.common import TBD, Connect, Connection, Constant, IOKey
+from .framework.common import TBD, Connection, Constant, IOKey
 from .framework.physical.model import PhysicalConstantType, PhysicalShapeType
 from .models import BaseModel, PhysicalModel
 from .models.train_model import TrainModel
@@ -60,7 +60,6 @@ __all__ = [
     "Backend",
     "IOKey",
     "TBD",
-    "Connect",
     "Constant",
     "epsilon_table",
 ]

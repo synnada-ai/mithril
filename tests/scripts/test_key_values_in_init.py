@@ -27,11 +27,10 @@ def test_directed_call_connection():
     info = add1(left=connection, right="right")
     left_info = info._connections["left"]
 
-    assert isinstance(left_info, ml.Connect)
-    assert left_info.connections == OrderedSet([connection.data])
-    assert isinstance(left_info.key, ml.IOKey)
-    assert left_info.key._name is None
-    assert left_info.key._value == 1
+    assert isinstance(left_info, ml.IOKey)
+    assert left_info._connections == OrderedSet([connection.data])
+    assert left_info._name is None
+    assert left_info._value == 1
 
 
 def test_directed_call_int():
@@ -99,60 +98,50 @@ def test_directed_call_iokey_value_tbd():
 
 def test_directed_call_connect_key_value_not_equal():
     add1 = Add(left=1)
-    iokey = ml.IOKey("in1", value=2)  # value does not match val in factory_inputs
-    connect = ml.Connect(
-        Add().left, key=iokey
-    )  # Dummy connection with unmatching IOKey
+    iokey = ml.IOKey("in1", value=2, connections=[Add().left])
 
     with pytest.raises(ValueError) as err_info:
-        add1(left=connect)
-    assert (
-        str(err_info.value)
-        == "Given IOKey in Connect for local key: 'left' is not valid!"
-    )
+        add1(left=iokey)
+    assert str(err_info.value) == "Given IOKey for local key: 'left' is not valid!"
 
 
 def test_directed_call_connect_key_none():
     add1 = Add(left=1)
     connection = Add().left
-    con = ml.Connect(connection, key=None)  # key is None
+    con = ml.IOKey(connections=[connection])
 
     info = add1(left=con, right="right")
     left_info = info._connections["left"]
-    assert isinstance(left_info, ml.Connect)
-    assert left_info.connections == OrderedSet([connection.data])
-    assert isinstance(left_info.key, ml.IOKey)
-    assert left_info.key._value == 1  # key is set to IOKey with val from factory_inputs
+    assert isinstance(left_info, ml.IOKey)
+    assert left_info._connections == OrderedSet([connection.data])
+    assert left_info._value == 1  # key is set to IOKey with val from factory_inputs
 
 
 def test_directed_call_connect_key_value_tbd():
     add1 = Add(left=1)
-    iokey = ml.IOKey("in1")  # value is TBD
     connection = Add().left
-    con = ml.Connect(connection, key=iokey)
+    con = ml.IOKey(name="in1", connections=[connection])
 
     info = add1(left=con, right="right")
 
     left_info = info._connections["left"]
-    assert isinstance(left_info, ml.Connect)
-    assert left_info.connections == OrderedSet([connection.data])
-    assert isinstance(left_info.key, ml.IOKey)
-    assert iokey._value == 1  # value is set to val from factory_inputs
+    assert isinstance(left_info, ml.IOKey)
+    assert left_info._connections == OrderedSet([connection.data])
+    assert isinstance(left_info, ml.IOKey)
+    assert left_info._value == 1  # value is set to val from factory_inputs
 
 
 def test_directed_call_connect_key_value_equal():
     add1 = Add(left=1)
-    iokey = ml.IOKey("in1", value=1)  # value is TBD
     connection = Add().left
-    con = ml.Connect(connection, key=iokey)
+    con = ml.IOKey("in1", value=1, connections=[connection])
 
     info = add1(left=con, right="right")
 
     left_info = info._connections["left"]
-    assert isinstance(left_info, ml.Connect)
-    assert left_info.connections == OrderedSet([connection.data])
-    assert isinstance(left_info.key, ml.IOKey)
-    assert iokey._value == 1  # value is set to val from factory_inputs
+    assert isinstance(left_info, ml.IOKey)
+    assert left_info._connections == OrderedSet([connection.data])
+    assert left_info._value == 1  # value is set to val from factory_inputs
 
 
 def test_directed_call_extend_template():
@@ -268,22 +257,18 @@ def test_integration_call_arg_iokey_value_tbd():
 
 def test_integration_call_arg_connect_key_value_not_equal():
     add1 = Add(left=1)
-    iokey = ml.IOKey("in1", value=2)
-    connect = ml.Connect(Add().left, key=iokey)
+    connect = ml.IOKey("in1", value=2, connections=[Add().left])
 
     model = Model()
     with pytest.raises(ValueError) as err_info:
         model += add1(left=connect, right="in2", output="output")
-    assert (
-        str(err_info.value)
-        == "Given IOKey in Connect for local key: 'left' is not valid!"
-    )
+    assert str(err_info.value) == "Given IOKey for local key: 'left' is not valid!"
 
 
 def test_integration_call_arg_connect_key_none():
     add1 = Add(left=1)
     add2 = Add()
-    con = ml.Connect(add2.left, key=None)
+    con = ml.IOKey(connections=[add2.left])
 
     model = Model()
     model += add2(left="in1", right="in2")
@@ -297,7 +282,7 @@ def test_integration_call_arg_connect_key_none():
 def test_integration_call_arg_connect_key_value_tbd():
     add1 = Add(left=1)
     add2 = Add()
-    con = ml.Connect(add2.left, key=ml.IOKey("in1"))
+    con = ml.IOKey(name="in1", expose=True, connections=[add2.left])
 
     model = Model()
     model += add2(right="in2")
@@ -311,7 +296,7 @@ def test_integration_call_arg_connect_key_value_tbd():
 def test_integration_call_arg_connect_key_value_equal():
     add1 = Add(left=1)
     add2 = Add()
-    con = ml.Connect(add2.left, key=ml.IOKey(value=1))
+    con = ml.IOKey(connections=[add2.left], value=1)
 
     model = Model()
     model += add2(right="in2")
