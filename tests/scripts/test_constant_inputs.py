@@ -119,7 +119,7 @@ def assert_all_backends_device_precision(model: Model):
         if (backend_class, device, precision) in unsupported_device_precisions:
             continue
 
-        if os.environ["CI"] == "true" and "mps" in device:
+        if os.environ.get("CI") and "mps" in device:
             continue
 
         _type = backend_class.backend_type

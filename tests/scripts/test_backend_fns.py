@@ -85,7 +85,7 @@ except ImportError:
 try:
     import mlx.core as mx
 
-    if platform.system() != "Darwin" or os.environ["CI"] == "true":
+    if platform.system() != "Darwin" or os.environ.get("CI") == "true":
         raise ImportError
     testing_fns[MlxBackend] = mx.allclose
     installed_backends.append(MlxBackend)
@@ -142,11 +142,13 @@ backends_with_device_precision = list(
     for backend_device_precision in product(
         [backends], backends.get_available_devices(), backends.supported_precisions
     )
-    if backend_device_precision
-    not in unsupported_device_precisions  # filter out unsupported combinations
+    if backend_device_precision not in unsupported_device_precisions
+    and (
+        "mps" not in backend_device_precision[1] or os.environ.get("CI") != "true"
+    )  # filter out unsupported combinations
 )
 
-...
+
 names = [
     backend.__name__ + "-" + device + "-" + str(precision)
     for backend, device, precision in backends_with_device_precision
