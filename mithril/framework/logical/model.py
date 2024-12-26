@@ -312,10 +312,10 @@ class Model(BaseModel):
                 # Unroll ExtendTemplate
                 template_conn = model.conns.get_connection(key)
                 assert template_conn is not None, "Connection type is not found!"
-                connection = self._unroll_template(
+                con_data = self._unroll_template(
                     connection, type(template_conn.metadata.data)
                 )
-                connection = IOKey(connections=[connection.conn], expose=False)
+                connection = IOKey(connections=[con_data.conn], expose=False)
             case _ if isinstance(connection, MainValueInstance):
                 # find_dominant_type returns the dominant type in a container.
                 # If a container has a value of type Connection or ExtendTemplate
@@ -370,8 +370,6 @@ class Model(BaseModel):
                     "but the model canonical connections is not determined. Please "
                     "provide connection/key explicitly, or set canonical connections."
                 )
-            case _:
-                raise TypeError("Requires valid connection type!")
 
         return connection
 

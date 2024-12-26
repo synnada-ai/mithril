@@ -1203,26 +1203,22 @@ TemplateConnectionType = (
 
 ConnectionType = (
     str
-    | ConnectionData
     | MainValueType
     | ExtendTemplate
     | NullConnection
     | IOKey
     | Connection
     | NotAvailable
-    | NestedListType
 )
 
 ConnectionInstanceType = (
     str
-    | ConnectionData
     | MainValueInstance
     | ExtendTemplate
     | NullConnection
     | IOKey
     | Connection
     | NotAvailable
-    | NestedListType
 )
 
 
