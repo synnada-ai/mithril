@@ -257,17 +257,15 @@ class PhysicalModel(GenericDataType[DataType]):
         # runtime must be manually named in logical model.
         if safe_names:
             runtime_data_keys = self.data_store.runtime_static_keys
-            model_input_keys = {
-                flat_model.external_mapping[key] for key in model._input_keys
-            }
-            unnamed_inputs = (
-                model_input_keys
-                - self._input_keys
-                - self.discarded_keys
-                - self.random_seed_values.keys()
-            )
+            unnamed_inputs = model._input_keys - self._input_keys - self.discarded_keys
             unnamed_data_keys = sorted(
-                [key for key in unnamed_inputs if key in runtime_data_keys]
+                [
+                    local_key
+                    for local_key in unnamed_inputs
+                    if (key := self.external_key_mapping.get(local_key, local_key))
+                    in runtime_data_keys
+                    and key not in self.random_seed_values
+                ]
             )
             if unnamed_data_keys:
                 raise KeyError(
