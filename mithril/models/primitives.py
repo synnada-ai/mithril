@@ -1886,26 +1886,33 @@ class Arange(PrimitiveModel):
 
 class Randn(PrimitiveModel):
     shape: Connection
+    key: Connection
     output: Connection
 
     def __init__(
-        self, shape: tuple[int, ...] | ToBeDetermined = TBD, name: str | None = None
+        self,
+        shape: tuple[int, ...] | ToBeDetermined = TBD,
+        key: int | ToBeDetermined = TBD,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="randn",
             name=name,
             output=IOKey(shape=[("output", ...)], type=GenericTensorType),
             shape=IOKey(type=tuple[int, ...], value=shape),
+            key=IOKey(type=int, value=key),
         )
 
+        self._random_keys.add("key")
         self.set_constraint(randn_constraints, keys=["output", "shape"])
 
     def __call__(  # type: ignore[override]
         self,
         shape: ConnectionType = NOT_GIVEN,
+        key: ConnectionType = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
-        return super().__call__(shape=shape, output=output)
+        return super().__call__(shape=shape, key=key, output=output)
 
 
 class BroadcastTo(PrimitiveModel):

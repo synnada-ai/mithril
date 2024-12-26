@@ -747,15 +747,41 @@ def test_arange_2():
     )
 
 
-def test_randn():
+def test_randn_static_inference():
+    model = Randn(shape=(3, 4, 5), key=42)
+
+    for backend in default_backends:
+        pm = mithril.compile(model, backend, inference=True)
+        res_out1 = pm.evaluate()["output"]
+        res_out2 = pm.evaluate()["output"]
+
+        assert isinstance(res_out1, backend.DataType)  # type: ignore[attr-defined]
+        assert isinstance(res_out2, backend.DataType)  # type: ignore[attr-defined]
+        assert res_out1.shape == (3, 4, 5)
+        np.testing.assert_allclose(res_out1, res_out2)
+
+
+def test_randn_key():
     model = Randn(shape=(3, 4, 5))
 
     for backend in default_backends:
         pm = mithril.compile(model, backend, inference=True)
-        res_out = pm.evaluate()["output"]
+        pm.set_random_seed_values({"key": 42})
+        res_out1 = pm.evaluate()["output"]
+        pm.set_random_seed_values({"key": 42})
+        res_out2 = pm.evaluate()["output"]
+        pm.set_random_seed_values({"key": 43})
+        res_out3 = pm.evaluate()["output"]
 
-        assert isinstance(res_out, backend.DataType)  # type: ignore[attr-defined]
-        assert res_out.shape == (3, 4, 5)
+        assert isinstance(res_out1, backend.DataType)  # type: ignore[attr-defined]
+        assert isinstance(res_out2, backend.DataType)  # type: ignore[attr-defined]
+        assert isinstance(res_out3, backend.DataType)  # type: ignore[attr-defined]
+
+        assert res_out1.shape == (3, 4, 5)
+        np.testing.assert_allclose(res_out1, res_out2)
+        np.testing.assert_raises(
+            AssertionError, np.testing.assert_allclose, res_out1, res_out3
+        )
 
 
 def test_greater_1():

@@ -149,6 +149,7 @@ class BaseModel(abc.ABC):
         self.constraint_solver: ConstraintSolver = ConstraintSolver()
         self.safe_shapes: dict[str, ShapeTemplateType] = {}
         self.is_frozen = False
+        self._random_keys: set[str] = set()
 
     @abc.abstractmethod
     def summary(
