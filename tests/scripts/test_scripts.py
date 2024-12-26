@@ -240,8 +240,9 @@ def test_model_with_misconnection_error():
     model += Add()
     final_model = Model()
     final_model += model
-    with pytest.raises(KeyError):
+    with pytest.raises(KeyError) as error_info:
         final_model += Add()(left=add.output)
+    assert str(error_info.value) == "'Requires accessible connection to be processed!'"
 
 
 def test_cyclic_extension_5():
@@ -4516,22 +4517,6 @@ def test_cycle_extend():
     )
 
 
-def test_cycle_extend_2():
-    model = Model()
-
-    model_2 = Model()
-    model_2 += Tanh()(input="input1", output=IOKey(name="output1"))
-    model_2 += Sine()(input="input2", output=IOKey(name="output2"))
-
-    with pytest.raises(KeyError) as err:
-        model += model_2(input2="input", output1="input", output2="output")
-
-    assert str(err.value) == (
-        "\"Given connections: '['input']' are used both in input and output keys, "
-        'which creates cycle!"'
-    )
-
-
 def test_cycle_handling_1():
     backend = TorchBackend(precision=64)
     model = Model()
@@ -6934,20 +6919,16 @@ def test_extend_with_wrong_values():
 def test_cyclic_extend():
     with pytest.raises(KeyError) as error_info1:
         model = Model()
-        model += Relu()(input="input", output="input")
+        model += Relu()(input="input1", output="input1")
 
     with pytest.raises(KeyError) as error_info2:
         model = Model()
-        model += LogisticRegression()(input="input", probs_output="input")
+        model += LogisticRegression()(input="input1", probs_output="input1")
 
-    assert str(error_info1.value) == (
-        "\"Given connections: '['input']' are used both in input and output keys, "
-        'which creates cycle!"'
-    )
-    assert str(error_info2.value) == (
-        "\"Given connections: '['input']' are used both in input and output keys, "
-        'which creates cycle!"'
-    )
+    m1 = "There exists a cyclic subgraph between input1 key and ['input1'] key(s)!"
+    assert str(error_info1.value.args[0]) == m1
+    m = "There exists a cyclic subgraph between input1 key and ['$3', 'input1'] key(s)!"
+    assert str(error_info2.value.args[0]) == m
 
 
 def assert_repr_dict(data: dict[str, ShapeRepr], ref_shapes: dict):

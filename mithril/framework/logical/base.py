@@ -110,7 +110,7 @@ class BaseModel(abc.ABC):
                                 f"Given IOKey for local key: '{key}' is not valid!"
                             )
                         else:
-                            conns = [
+                            _conns: list[Connection | str] = [
                                 item.conn if isinstance(item, ConnectionData) else item
                                 for item in con._connections
                             ]
@@ -120,7 +120,7 @@ class BaseModel(abc.ABC):
                                 shape=con._shape,
                                 type=con._type,
                                 expose=con._expose,
-                                connections=conns,
+                                connections=_conns,
                             )
                     case ExtendTemplate():
                         raise ValueError(
@@ -661,7 +661,7 @@ class DependencyMap:
                 self._cache_internal_references(conn, specs)
 
             if self.look_for_cyclic_connection(conn, specs):
-                raise Exception(
+                raise KeyError(
                     f"There exists a cyclic subgraph between {conn.key} key and "
                     f"{[spec.key for spec in specs]} key(s)!"
                 )
