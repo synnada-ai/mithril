@@ -30,7 +30,7 @@ backends: list[Backend] = [
 
 def assert_forward(
     formula_key: str,
-    expected_result: np.ndarray | int | float | tuple | list,
+    expected_result: np.ndarray | int | float | tuple | list | slice,
     args: Any,
     kwargs: dict[str, Any],
     backends: list[Backend] = backends,
@@ -45,13 +45,16 @@ def assert_forward(
         }
         primitive_fn = backend.primitive_function_dict[formula_key]
         result = primitive_fn(*_args, **_kwargs)
-        np.testing.assert_allclose(
-            result,
-            expected_result,
-            rtol=1e-14,
-            atol=1e-14,
-            err_msg=f"Primitive: {formula_key} failed ",
-        )
+        if not isinstance(expected_result, np.ndarray | tuple | list):
+            assert result == expected_result
+        else:
+            np.testing.assert_allclose(
+                result,
+                expected_result,
+                rtol=1e-14,
+                atol=1e-14,
+                err_msg=f"Primitive: {formula_key} failed ",
+            )
 
 
 def manul_vjp(
@@ -4550,3 +4553,21 @@ def test_split_4():
         {"input": input, "split_size": split_size, "axis": axis},
         {},
     )
+
+
+def test_slice_1():
+    start = 2
+    stop = 4
+    step = 1
+    result = slice(2, 4, 1)
+
+    assert_forward("primitive_slice", result, (start, stop, step), {})
+
+
+def test_slice_2():
+    start = 3
+    stop = None
+    step = None
+    result = slice(3, None, None)
+
+    assert_forward("primitive_slice", result, (start, stop, step), {})

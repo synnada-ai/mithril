@@ -1425,9 +1425,9 @@ class Slice(PrimitiveModel):
 
     def __init__(
         self,
-        start: int | None | ToBeDetermined = 0,
-        stop: int | None | ToBeDetermined = None,
-        step: int | None | ToBeDetermined = None,
+        start: int | None | ToBeDetermined = TBD,
+        stop: int | None | ToBeDetermined = TBD,
+        step: int | None | ToBeDetermined = TBD,
         name: str | None = None,
     ):
         super().__init__(

@@ -22,7 +22,6 @@ import mithril
 from mithril import TorchBackend
 from mithril.framework.common import NOT_GIVEN, ConnectionType
 from mithril.models import (
-    TBD,
     AbsoluteError,
     Add,
     Buffer,
@@ -195,8 +194,8 @@ class MySimpleRNNCellWithLinear(Cell):
 
         shp_model = Shape()
         scalar_item = ScalarItem()
-        slice_1 = Slice(start=TBD)
-        slice_2 = Slice(stop=TBD)
+        slice_1 = Slice(stop=None, step=None)
+        slice_2 = Slice(start=None, step=None)
 
         tensor_item_1 = TensorItem()
         tensor_item_2 = TensorItem()
@@ -319,8 +318,8 @@ class MyRNNCell(Cell):
         shp_model = Shape()
         scalar_item = ScalarItem()
 
-        slice_1 = Slice(start=TBD)
-        slice_2 = Slice(stop=TBD)
+        slice_1 = Slice(stop=None, step=None)
+        slice_2 = Slice(start=None, step=None)
 
         tensor_item_1 = TensorItem()
         tensor_item_2 = TensorItem()

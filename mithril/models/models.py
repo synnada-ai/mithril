@@ -1370,8 +1370,8 @@ class RNNCell(Cell):
 
         shape = Shape()
         scalar_item = ScalarItem()
-        slice_1 = Slice(start=TBD)
-        slice_2 = Slice(stop=TBD)
+        slice_1 = Slice(stop=None, step=None)
+        slice_2 = Slice(start=None, step=None)
         tensor_item_1 = TensorItem()
         tensor_item_2 = TensorItem()
         mult_model_1 = Linear(use_bias=False)
@@ -1508,11 +1508,11 @@ class LSTMCell(Cell):
         shape_model = Shape()
         scalar_item = ScalarItem()
 
-        slice_1 = Slice(stop=TBD)
-        slice_2 = Slice(stop=TBD)
-        slice_3 = Slice(start=TBD)
-        slice_4 = Slice(stop=TBD)
-        slice_5 = Slice(start=TBD)
+        slice_1 = Slice(start=None, step=None)
+        slice_2 = Slice(start=None, step=None)
+        slice_3 = Slice(stop=None, step=None)
+        slice_4 = Slice(start=None, step=None)
+        slice_5 = Slice(stop=None, step=None)
 
         tensor_item_1 = TensorItem()
         tensor_item_2 = TensorItem()
@@ -1813,7 +1813,7 @@ class OneToMany(RNN):
             # current time step.
             shape_model = Shape()
             item_model = ScalarItem()
-            slice_model = Slice(stop=TBD)
+            slice_model = Slice(start=None, step=None)
             tensor_item = TensorItem()
 
             self += shape_model(input=f"target{idx}")
