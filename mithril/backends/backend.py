@@ -1068,6 +1068,9 @@ class Backend(ABC, Generic[DataType]):
         """
         raise NotImplementedError("jacobian is not implemented!")
 
+    def __repr__(self):
+        return f"<Backend(device={self._device}, precision={self.precision})>"
+
 
 class ParallelBackend(Backend[DataType]):
     def __init__(self, device_mesh: tuple[int, ...] | None) -> None:
