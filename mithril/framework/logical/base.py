@@ -62,19 +62,27 @@ __all__ = ["BaseModel", "ExtendInfo"]
 
 @dataclass
 class ExtendInfo:
-    model: BaseModel
-    connections: dict[str, ConnectionType]
+    _model: BaseModel
+    _connections: dict[str, ConnectionType]
 
     def __post_init__(self):
-        external_keys = set(self.model.external_keys)
-        if self.model.canonical_input is not NOT_AVAILABLE:
-            external_keys.add(self.model.canonical_input.key)
-        if self.model.canonical_output is not NOT_AVAILABLE:
-            external_keys.add(self.model.canonical_output.key)
+        external_keys = set(self._model.external_keys)
+        if self._model.canonical_input is not NOT_AVAILABLE:
+            external_keys.add(self._model.canonical_input.key)
+        if self._model.canonical_output is not NOT_AVAILABLE:
+            external_keys.add(self._model.canonical_output.key)
 
-        for key in self.connections:
+        for key in self._connections:
             if key not in external_keys:
                 raise KeyError(f"Key '{key}' is not a valid key for the model!")
+
+    @property
+    def model(self):
+        return self._model
+
+    @property
+    def connections(self):
+        return self._connections
 
 
 class BaseModel(abc.ABC):

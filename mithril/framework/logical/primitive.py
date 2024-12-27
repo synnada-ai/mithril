@@ -56,8 +56,8 @@ class PrimitiveModel(BaseModel):
         name: str | None = None,
         **kwargs: BaseKey | Tensor | Scalar,
     ) -> None:
-        self.formula_key = formula_key
-        self.grad_formula = formula_key + "_grad"
+        self._formula_key = formula_key
+        self._grad_formula = formula_key + "_grad"
 
         super().__init__(name=name)
         # Get shape_templates of TensorTypes and create corresponding shapes.
@@ -172,6 +172,14 @@ class PrimitiveModel(BaseModel):
         raise Exception(
             f"Primitive '{self.__class__.__name__}' model can not be extended!"
         )
+
+    @property
+    def formula_key(self) -> str:
+        return self._formula_key
+
+    @property
+    def grad_formula(self) -> str:
+        return self._grad_formula
 
     def extract_connection_info(
         self,
