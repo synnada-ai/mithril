@@ -14,7 +14,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Iterator, KeysView, MutableMapping
+from collections.abc import Callable, Iterable, Iterator, MutableMapping
 from enum import Enum, IntEnum
 from itertools import compress
 from typing import Any, Generic, TypeVar
@@ -38,39 +38,6 @@ IOType = dict[str, Any]
 class PaddingType(IntEnum):
     VALID = 0
     SAME = 1
-
-
-def topological_sort_dfs(graph: dict[Any, set | KeysView]) -> list:
-    """Finds topological sort using Depth-first search.
-
-    Parameters
-    ----------
-    graph : dict[Any, set | KeysView]
-        Dictionary which contains graph of the node relations.
-
-    Returns
-    -------
-    list
-        List of topologically sorted nodes.
-    """
-    # Insert "m_start" node as the start node for dfs.
-    graph["m_start"] = graph.keys()
-    # graph["m_start"] = set(graph.keys())
-    seen = set()
-    stack: list[str] = []  # path variable is gone, stack and order are new
-    order = []  # order will be in reverse order at first
-    q = ["m_start"]
-    while q:
-        v = q.pop()
-        if v not in seen:
-            seen.add(v)  # no need to append to path any more
-            q.extend(graph[v])
-            while stack and v not in graph[stack[-1]]:  # new stuff here!
-                order.append(stack.pop())
-            stack.append(v)
-    # Remove "m_start" node before returning the topology.
-    raise Exception("This function will be replaced by 'topological_order_sorting'.")
-    return (stack + order[::-1])[1:]
 
 
 def convert_specs_to_dict(specs):
@@ -148,21 +115,21 @@ class OrderedSet(Generic[T]):
             else:
                 self.add(item)
 
-    def union(self, *iterables: Iterable) -> OrderedSet[T]:
+    def union(self, *iterables: Iterable[T]) -> OrderedSet[T]:
         new_set = OrderedSet(self)
         new_set.update(*iterables)
         return new_set
 
-    def difference(self, *iterables: Iterable) -> OrderedSet[T]:
+    def difference(self, *iterables: Iterable[T]) -> OrderedSet[T]:
         new_set = OrderedSet(self)
         new_set.difference_update(*iterables)
         return new_set
 
-    def intersection(self, *iterables: Iterable) -> OrderedSet[T]:
+    def intersection(self, *iterables: Iterable[T]) -> OrderedSet[T]:
         common_items = set(self._data).intersection(*iterables)
         return OrderedSet(common_items)
 
-    def symmetric_difference(self, iterable: Iterable) -> OrderedSet[T]:
+    def symmetric_difference(self, iterable: Iterable[T]) -> OrderedSet[T]:
         new_set = OrderedSet(self)
         new_set.symmetric_difference_update(iterable)
         return new_set
@@ -205,24 +172,20 @@ class OrderedSet(Generic[T]):
         self._data |= other._data
         return self
 
-    def __ror__(self, other):
+    def __ror__(self, other: OrderedSet[T]) -> OrderedSet[T]:
         return self.union(other)
 
-    def __and__(self, other):
+    def __and__(self, other: OrderedSet[T]) -> OrderedSet[T]:
         return self.intersection(other)
 
-    def __sub__(self, other):
+    def __sub__(self, other: OrderedSet[T]) -> OrderedSet[T]:
         return self.difference(other)
 
-    def __xor__(self, other):
+    def __xor__(self, other: OrderedSet[T]) -> OrderedSet[T]:
         return self.symmetric_difference(other)
 
 
-K = TypeVar("K")
-V = TypeVar("V")
-
-
-class BiMap(MutableMapping[K, V]):
+class BiMap[K, V](MutableMapping[K, V]):
     # Implements a bi-directional map for storing unique keys/values using two
     # dictionaries.
     # TODO: override __reversed__ for BiMap

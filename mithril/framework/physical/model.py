@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import math
+import random
 import warnings
 from collections.abc import Callable, Mapping, Sequence
 from copy import deepcopy
@@ -42,9 +43,9 @@ from ..common import (
     UniadicRecord,
     Updates,
     Variadic,
-    _get_shapes,
     _ShapesType,
     create_shape_map,
+    get_shapes,
     get_summary,
     get_summary_shapes,
     get_summary_types,
@@ -99,7 +100,7 @@ class PhysicalModel(GenericDataType[DataType]):
             extend_info = model()
             model_keys = {}
             for key in model.external_keys:
-                value = extend_info._connections.get(key, NOT_GIVEN)
+                value = extend_info.connections.get(key, NOT_GIVEN)
                 # NOTE: Do not set default value if it is given in constant_keys.
                 value = (value, NOT_GIVEN)[key in constant_keys]
                 default_val = model.conns.get_data(key).value
@@ -125,7 +126,7 @@ class PhysicalModel(GenericDataType[DataType]):
 
         # NOTE: Reconsider updating logical dag in order.
         self._input_keys: set[str] = {
-            flat_model.external_mapping[key] for key in model._input_keys
+            flat_model.external_mapping[key] for key in model.input_keys
         }
 
         # Add canonical output mapping to key_mappings if necessary
@@ -174,12 +175,12 @@ class PhysicalModel(GenericDataType[DataType]):
         self.inference = inference
 
         # Initialize flat graph and data store.
-        self._flat_graph: FlatGraph[DataType] = FlatGraph(
+        self.flat_graph: FlatGraph[DataType] = FlatGraph(
             self._input_keys, self._output_keys
         )
         memo: dict[int, Tensor | Scalar] = {}
         self.data_store: StaticDataStore[DataType] = StaticDataStore(
-            self._flat_graph, backend, inference, model.constraint_solver, memo
+            self.flat_graph, backend, inference, model.constraint_solver, memo
         )
 
         for p_model, mappings in flat_model:
@@ -205,9 +206,9 @@ class PhysicalModel(GenericDataType[DataType]):
                         or physical_data.value is not TBD
                     ):
                         # TODO: Create an API for setting differentiability of a tensor.
-                        physical_data._differentiable = False
+                        physical_data.differentiable = False
                     elif global_key in self._trainable_tensor_inputs:
-                        physical_data._differentiable = True
+                        physical_data.differentiable = True
 
                 model_data[key] = physical_data
                 self.data_store.data_memo[id(logical_data)] = physical_data
@@ -237,7 +238,9 @@ class PhysicalModel(GenericDataType[DataType]):
                 cache_scalar = Scalar(dict | None, cache_value)
                 self.data_store.update_data({cache_name: cache_scalar})
 
-            self._flat_graph.add_value(p_model, mappings)
+            self.flat_graph.add_value(p_model, mappings)
+
+        self.data_store.set_random_seed_keys(self._flat_graph._random_keys)
 
         for cached_key in list(self.data_store.cached_data.keys()):
             self.data_store._infer_unused_keys(cached_key)
@@ -254,12 +257,14 @@ class PhysicalModel(GenericDataType[DataType]):
         # runtime must be manually named in logical model.
         if safe_names:
             runtime_data_keys = self.data_store.runtime_static_keys
-            unnamed_inputs = model._input_keys - self._input_keys - self.discarded_keys
+            unnamed_inputs = model.input_keys - self._input_keys - self.discarded_keys
             unnamed_data_keys = sorted(
                 [
-                    key
-                    for key in unnamed_inputs
-                    if flat_model.external_mapping.get(key, key) in runtime_data_keys
+                    local_key
+                    for local_key in unnamed_inputs
+                    if (key := self.external_key_mapping.get(local_key, local_key))
+                    in runtime_data_keys
+                    and key not in self._random_seeds
                 ]
             )
             if unnamed_data_keys:
@@ -275,6 +280,10 @@ class PhysicalModel(GenericDataType[DataType]):
         data: Mapping[str, DataType | MainValueType] | None = None,
     ):
         return self.evaluate(params=params, data=data)
+
+    @property
+    def _random_seeds(self) -> dict[str, int]:
+        return self.data_store._random_seeds
 
     def _convert_key(self, model: BaseModel, key: str | Connection) -> str:
         if isinstance(key, Connection):
@@ -380,12 +389,12 @@ class PhysicalModel(GenericDataType[DataType]):
                 key: self.data_store.data_memo[id(value.metadata.data)]
                 for key, value in model.conns.all.items()
             }
-            key_mappings = model._generate_keys(include_outputs=True)
+            key_mappings = model.generate_keys(include_outputs=True)
         else:
             data_dict = self.data
             key_mappings = None
 
-        return _get_shapes(
+        return get_shapes(
             data_dict=data_dict,
             uniadic_keys=uni_keys,
             varadic_keys=var_keys,
@@ -406,6 +415,10 @@ class PhysicalModel(GenericDataType[DataType]):
     def output_keys(self):
         return sorted(self._output_keys)
 
+    @property
+    def input_keys(self):
+        return self._input_keys
+
     def _infer_differentiability(self, model: PrimitiveModel, dag: dict[str, str]):
         # Infer output differentiability only for the models
         # that have a Tensor type output.
@@ -418,11 +431,11 @@ class PhysicalModel(GenericDataType[DataType]):
                     key != PrimitiveModel.output_key
                     and not self.data[value].is_non_diff
                 ):
-                    self.data[output_key]._differentiable = True
+                    self.data[output_key].differentiable = True
                     return
             # If all inputs are non-differentiable, then the output is also
             # non-differentiable.
-            self.data[output_key]._differentiable = False
+            self.data[output_key].differentiable = False
 
     def randomize_params(
         self,
@@ -515,17 +528,17 @@ class PhysicalModel(GenericDataType[DataType]):
         # Set given shapes.
         self.data_store.set_shapes(shapes)
 
-        for node in self._flat_graph.nodes.values():
+        for node in self.flat_graph.nodes.values():
             conn_data = node.model.conns.get_connection("output")
             assert conn_data is not None
             if isinstance(conn_data.metadata.data, Scalar) or (
-                not find_intersection_type(float, conn_data.metadata.data._type)
+                not find_intersection_type(float, conn_data.metadata.data.type)
             ):
                 self.ignore_grad_keys.add(
                     node.connections[PrimitiveModel.output_key].key
                 )
 
-        pruned_keys = self._flat_graph.prune_duplicate_nodes(self.data, constant_keys)
+        pruned_keys = self.flat_graph.prune_duplicate_nodes(self.data, constant_keys)
 
         updates = Updates()
 
@@ -562,7 +575,7 @@ class PhysicalModel(GenericDataType[DataType]):
         # of the model nor an input to a PrimitiveModel.
 
         self.discarded_keys |= {
-            key for key in self._flat_graph.hanging_keys if key not in self.output_keys
+            key for key in self.flat_graph.hanging_keys if key not in self.output_keys
         }
 
         self.discarded_keys, self._output_keys = self.infer_ignore(
@@ -717,7 +730,7 @@ class PhysicalModel(GenericDataType[DataType]):
         non_leaf_keys = {
             key
             for key in weak_keys
-            if key in self._flat_graph.all_source_keys and key in output_keys
+            if key in self.flat_graph.all_source_keys and key in output_keys
         }
         # Internal keys will be removed from output_keys but also they will
         # be removed from current ignored keys.
@@ -729,13 +742,13 @@ class PhysicalModel(GenericDataType[DataType]):
             key = queue.pop()
             # try forward inference (check if any inference is possible
             # from inputs to outputs)
-            self._flat_graph.infer_ignore_step(key, keys, queue, from_source=True)
+            self.flat_graph.infer_ignore_step(key, keys, queue, from_source=True)
             # try bacward inference (check if any inference possible
             # from outputs to inputs)
-            self._flat_graph.infer_ignore_step(key, keys, queue, from_source=False)
+            self.flat_graph.infer_ignore_step(key, keys, queue, from_source=False)
 
             if update_graph:
-                self._flat_graph.remove_key(key)
+                self.flat_graph.remove_key(key)
                 output_keys.discard(key)
                 self._input_keys.discard(key)
 
@@ -760,11 +773,11 @@ class PhysicalModel(GenericDataType[DataType]):
             - self.data_store.runtime_static_keys
         )
         for model, model_name in name_mappings.items():
-            key_mappings = model._generate_keys(include_outputs=True)
+            key_mappings = model.generate_keys(include_outputs=True)
             for key in model.external_keys:
                 in_dict, out_dict = param_info.setdefault(model_name, ({}, {}))
                 inner_key = key_mappings.get(key, key)
-                if key not in model._input_keys:
+                if key not in model.input_keys:
                     # case where the key is not an input key (hence not a trainable)
                     out_dict[inner_key] = "0"
                     continue
@@ -918,10 +931,10 @@ class PhysicalModel(GenericDataType[DataType]):
             )
         else:
             # Remove unused models and cached models
-            all_models = list(self._flat_graph.get_models())
+            all_models = list(self.flat_graph.get_models())
             for key in self.data_store.unused_keys | self.data_store.cached_data.keys():
                 if (
-                    unused_model := self._flat_graph.connections.get(key)
+                    unused_model := self.flat_graph.connections.get(key)
                 ) is not None and unused_model.node is not None:
                     all_models.remove(unused_model.node.model)
 
@@ -985,13 +998,13 @@ class PhysicalModel(GenericDataType[DataType]):
         self, name_mappings: dict[PrimitiveModel, str] | None = None
     ):
         if name_mappings is None:
-            name_mappings = define_unique_names(self._flat_graph.get_models())
+            name_mappings = define_unique_names(self.flat_graph.get_models())
         conn_info: dict[str, tuple[dict[str, list[str]], dict[str, list[str]]]] = {}
 
         for model, model_name in name_mappings.items():
             conn_info.setdefault(model_name, ({}, {}))
-            model_node = self._flat_graph.nodes[model]
-            input_keys = tuple(model._input_keys)
+            model_node = self.flat_graph.nodes[model]
+            input_keys = tuple(model.input_keys)
 
             for input_key in input_keys:
                 connection = model_node.connections[input_key]
@@ -1032,8 +1045,8 @@ class PhysicalModel(GenericDataType[DataType]):
 
         for output_key in self.output_keys:
             # Traverse output_keys of overall model and make indications accordingly
-            outer_key = self._flat_graph.output_dict.get(output_key, output_key)
-            output_connection = self._flat_graph.connections[outer_key]
+            outer_key = self.flat_graph.output_dict.get(output_key, output_key)
+            output_connection = self.flat_graph.connections[outer_key]
             assert output_connection.node is not None
             model = output_connection.node.model
             model_name = name_mappings[model]
@@ -1043,11 +1056,20 @@ class PhysicalModel(GenericDataType[DataType]):
             )
         return conn_info
 
+    def set_random_seed_values(self, **seed_mapping: int) -> None:
+        self.data_store.set_random_seed_values(**seed_mapping)
+
+    def _step_random_seed_values(self):
+        for key, value in self.data_store._random_seeds.items():
+            random.seed(value)
+            new_seed = random.randint(0, 2**14)
+            self.data_store._random_seeds[key] = new_seed
+
     def _replace_with_primitive(
         self, model: Model, key_mappings: dict[str, str]
     ) -> tuple[PrimitiveModel, dict[str, str]]:
-        assert model._formula_key is not None
-        formula = self.backend.primitive_function_dict[model._formula_key]
+        assert model.formula_key is not None
+        formula = self.backend.primitive_function_dict[model.formula_key]
         primitive_input_keys = formula.__code__.co_varnames[
             : formula.__code__.co_argcount
         ]  # make function?
@@ -1055,15 +1077,15 @@ class PhysicalModel(GenericDataType[DataType]):
         # Remove unnecessary keys
         unnecessary_keys = {
             key: key_mappings.get(key, key)
-            for key in (set(model._input_keys) - set(primitive_input_keys))
+            for key in (set(model.input_keys) - set(primitive_input_keys))
         }
-        input_keys = list(model._input_keys)
+        input_keys = list(model.input_keys)
         external_keys = list(model.external_keys)
 
         for key, val in unnecessary_keys.items():
             # self.static_keys.pop(val)
             # self.non_differentiables.pop(val)
-            self.data_store._remove_key_from_store(val, label_as_unused=False)
+            self.data_store.remove_key_from_store(val, label_as_unused=False)
             self.data.pop(val)
             self._input_keys.discard(val)
             input_keys.remove(key)
@@ -1076,7 +1098,7 @@ class PhysicalModel(GenericDataType[DataType]):
         kwargs = {key: model.conns.all[key].metadata.data for key in external_keys}
 
         primitive = PrimitiveModel(
-            formula_key=model._formula_key, name=model.name, **kwargs
+            formula_key=model.formula_key, name=model.name, **kwargs
         )
         primitive.parent = model.parent
 
@@ -1093,9 +1115,14 @@ class PhysicalModel(GenericDataType[DataType]):
         params: ParamsEvalType[DataType] | None = None,
         data: DataEvalType[DataType] | None = None,
     ) -> DataEvalType[DataType]:
+        # Inject seed values.
+        data = (
+            self._random_seeds if data is None else data | self._random_seeds  # type: ignore[operator]
+        )
+        self._step_random_seed_values()
         if (
             isinstance(self.backend, ParallelBackend)
-            and self.backend._parallel_manager is not None
+            and self.backend.get_parallel_manager() is not None
         ):
             return self.backend._run_callable(params, data, fn_name="eval_fn")
         else:
@@ -1107,13 +1134,16 @@ class PhysicalModel(GenericDataType[DataType]):
         data: DataEvalType[DataType] | None = None,
         output_gradients: ParamsEvalType[DataType] | None = None,
     ) -> ParamsEvalType[DataType]:
+        data = (
+            self._random_seeds if data is None else data | self._random_seeds  # type: ignore[operator]
+        )
         if self.inference:
             raise NotImplementedError(
                 "Inference mode does not support gradients calculation"
             )
         if (
             isinstance(self.backend, ParallelBackend)
-            and self.backend._parallel_manager is not None
+            and self.backend.get_parallel_manager() is not None
         ):
             return self.backend._run_callable(
                 params, data, output_gradients, fn_name="eval_grad_fn"
@@ -1127,13 +1157,16 @@ class PhysicalModel(GenericDataType[DataType]):
         data: DataEvalType[DataType] | None = None,
         output_gradients: ParamsEvalType[DataType] | None = None,
     ) -> tuple[DataEvalType[DataType], ParamsEvalType[DataType]]:
+        data = (
+            self._random_seeds if data is None else data | self._random_seeds  # type: ignore[operator]
+        )
         if self.inference:
             raise NotImplementedError(
                 "Inferece mode does not support gradients calculation"
             )
         if (
             isinstance(self.backend, ParallelBackend)
-            and self.backend._parallel_manager is not None
+            and self.backend.get_parallel_manager() is not None
         ):
             return self.backend._run_callable(
                 params, data, output_gradients, fn_name="eval_all_fn"
@@ -1190,7 +1223,7 @@ class FlatModel:
         self.short_namings = short_namings
 
         self._name_externals()
-        self._generate_keys(model)
+        self.generate_keys(model)
         self._rebase_names()
 
     @property
@@ -1277,7 +1310,7 @@ class FlatModel:
                 self._external_mapping[base_name_str] = name
                 self.assigned_edges[conn.metadata] = name
 
-            if key in self.model._input_keys:
+            if key in self.model.input_keys:
                 self.used_edges.add(conn.metadata)
                 self.external_edges[conn.metadata] = base_name_str
 
@@ -1320,7 +1353,7 @@ class FlatModel:
             return self._get_next_unique_name(base_name)
         return base_name
 
-    def _generate_keys(
+    def generate_keys(
         self,
         model: BaseModel,
         mappings: dict[str, str] | None = None,
@@ -1415,7 +1448,7 @@ class FlatModel:
                 else:
                     name_mapping[key] = mappings[conn.key]
 
-            self._generate_keys(m, name_mapping, parent_name=name)
+            self.generate_keys(m, name_mapping, parent_name=name)
 
     def _check_for_queue(self, hyperedge: IOHyperEdge):
         if hyperedge in self.queued_models:

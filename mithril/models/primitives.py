@@ -391,7 +391,7 @@ class CrossEntropy(PrimitiveModel):
             "output": output,
         }
         # Check if the given argument set is valid.
-        if self._formula_key == "cross_entropy_with_log_probs":
+        if self.formula_key == "cross_entropy_with_log_probs":
             args: list[str] = []
             if robust is not False:
                 args.append("robust")
@@ -898,7 +898,7 @@ class Concat(PrimitiveModel):
         # self.factory_inputs = {key: value for key, value in kwargs.items()}
         self.factory_inputs = kwargs  # type: ignore
 
-        input_keys = [key for key in self._input_keys if key != "axis"]
+        input_keys = [key for key in self.input_keys if key != "axis"]
         self._set_constraint(
             fn=concat_constraints, keys=["output"] + ["axis"] + input_keys
         )
@@ -1051,10 +1051,10 @@ class PrimitiveConvolution1D(PrimitiveModel):
             "output": output,
         }
 
-        if "bias" not in self._input_keys and bias != NOT_GIVEN:
+        if "bias" not in self.input_keys and bias != NOT_GIVEN:
             raise ValueError(f"Model does not have 'bias' input. \
                              Got {bias} as bias argument!")
-        elif "bias" in self._input_keys:
+        elif "bias" in self.input_keys:
             kwargs |= {"bias": bias}
 
         return super().__call__(**kwargs)
@@ -1150,11 +1150,11 @@ class PrimitiveConvolution2D(PrimitiveModel):
             "output": output,
         }
 
-        if "bias" not in self._input_keys and bias != NOT_GIVEN:
+        if "bias" not in self.input_keys and bias != NOT_GIVEN:
             raise ValueError(
                 f"Model does not have 'bias' input. Got {bias} as bias argument!"
             )
-        elif "bias" in self._input_keys:
+        elif "bias" in self.input_keys:
             kwargs |= {"bias": bias}
         return super().__call__(**kwargs)
 
@@ -1888,26 +1888,33 @@ class Arange(PrimitiveModel):
 
 class Randn(PrimitiveModel):
     shape: Connection
+    key: Connection
     output: Connection
 
     def __init__(
-        self, shape: tuple[int, ...] | ToBeDetermined = TBD, name: str | None = None
+        self,
+        shape: tuple[int, ...] | ToBeDetermined = TBD,
+        key: int | ToBeDetermined = TBD,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="randn",
             name=name,
             output=BaseKey(shape=[("output", ...)], type=GenericTensorType),
             shape=BaseKey(type=tuple[int, ...], value=shape),
+            key=BaseKey(type=int, value=key),
         )
 
+        self._random_keys.add("key")
         self.set_constraint(randn_constraints, keys=["output", "shape"])
 
     def __call__(  # type: ignore[override]
         self,
         shape: ConnectionType = NOT_GIVEN,
+        key: ConnectionType = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
-        return super().__call__(shape=shape, output=output)
+        return super().__call__(shape=shape, key=key, output=output)
 
 
 class BroadcastTo(PrimitiveModel):

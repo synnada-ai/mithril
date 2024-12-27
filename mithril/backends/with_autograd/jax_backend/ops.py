@@ -1008,11 +1008,10 @@ def pad(input: jax.Array, pad_width: tuple[tuple[int, int], ...]):
     return jax.numpy.pad(input, pad_width)
 
 
-def randn(*args, device: str, precision: int) -> jax.Array:
+def randn(shape: tuple[int, ...], key: int, device: str, precision: int) -> jax.Array:
+    _key = jax.random.PRNGKey(key)
     with jax.default_device(get_device(device)):
-        return handle_data_precision(
-            jax.random.normal(jax.random.PRNGKey(42), *args), precision
-        )
+        return handle_data_precision(jax.random.normal(_key, shape), precision)
 
 
 def zeros_like(input: jax.Array):

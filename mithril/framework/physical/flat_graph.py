@@ -95,6 +95,7 @@ class FlatGraph(GenericDataType[DataType]):
 
         self._topological_order: list[str] = []
         self._input_keys = input_keys
+        self._random_keys: set[str] = set()
 
         self.output_dict: dict[str, str] = {key: key for key in output_keys}
         self._temp_connection_info: dict[str, str] = {}
@@ -132,6 +133,9 @@ class FlatGraph(GenericDataType[DataType]):
             key: self._temp_connection_info.get(value, value)
             for key, value in keys.items()
         }
+
+        if model._random_keys:
+            self._random_keys |= {keys[key] for key in model._random_keys}
 
         # Buffer primitives are not added to the graph
         if isinstance(model, Buffer):
@@ -386,7 +390,7 @@ class FlatGraph(GenericDataType[DataType]):
             else:
                 model_id.append(conn.key)
 
-        final_model_id = "-".join(model_id) + f"-{node.model._formula_key}"
+        final_model_id = "-".join(model_id) + f"-{node.model.formula_key}"
 
         if final_model_id in self.unique_model_table:
             return self.unique_model_table[final_model_id]

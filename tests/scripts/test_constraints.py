@@ -240,12 +240,12 @@ def assert_type_results(
     assert updated_constraints == updated_symbols.constraints[UpdateType.TYPE]
     # Then check final types with the expected ref_results.
     for key, value in data.items():
-        if isinstance(value._type, NestedListType):
+        if isinstance(value.type, NestedListType):
             result = ref_results[key]
             assert isinstance(result, NestedListType)
-            assert value._type.base_type == result.base_type
+            assert value.type.base_type == result.base_type
         else:
-            assert value._type == ref_results[key]
+            assert value.type == ref_results[key]
 
 
 def assert_value_results(
@@ -363,7 +363,7 @@ def _assert_constraint_results(
     # If initial types are given, set them.
     if initial_types is not None:
         for key, type in initial_types.items():
-            data[key]._type = type
+            data[key].type = type
 
     # If any initial values are given, set them.
     for key, value in initial_values.items():

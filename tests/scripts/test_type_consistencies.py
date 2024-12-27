@@ -183,7 +183,7 @@ def test_type_1():
         input=[[[[1.0, 2.0, 3.0], [1.0, 2.0, 3.0], [1.0, 2.0, 3.0]]]],
     )
 
-    assert shape1.output.data.metadata.data._type == tuple[int, int]
+    assert shape1.output.data.metadata.data.type == tuple[int, int]
 
 
 def test_type_2():
@@ -197,7 +197,7 @@ def test_type_2():
     model += shape3(input=[[1, 2, 4], [3, 5, 7]])
     model += union1(input1=shape1.output, input2=shape2.output, input3=shape3.output)
 
-    assert shape1.output.data.metadata.data._type == tuple[int, int]
+    assert shape1.output.data.metadata.data.type == tuple[int, int]
 
 
 def test_type_3():
@@ -208,11 +208,11 @@ def test_type_3():
     shape3 = Shape()
     model += union1()
     input1 = union1.input1  # type: ignore
-    assert input1.data.metadata.data._type == int | float | tuple[int | float, ...]
+    assert input1.data.metadata.data.type == int | float | tuple[int | float, ...]
     model += shape1(input=[[1, 2, 4], [3, 5, 7]], output=input1)
     model += shape2(input=[[1, 2, 4], [3, 5, 7]], output=union1.input2)  # type: ignore
     model += shape3(input=[[1, 2, 4], [3, 5, 7]], output=union1.input3)  # type: ignore
-    assert input1.data.metadata.data._type == tuple[int, int]
+    assert input1.data.metadata.data.type == tuple[int, int]
 
 
 def test_type_5():
@@ -226,7 +226,7 @@ def test_type_5():
         input=[[[[1.0, 2.0, 3.0], [1.0, 2.0, 3.0], [1.0, 2.0, 3.0]]]],
     )
     model += conv1(input="", stride=shape1.output)
-    assert shape1.output.data.metadata.data._type == tuple[int, int]
+    assert shape1.output.data.metadata.data.type == tuple[int, int]
 
 
 def test_type_6():
@@ -249,9 +249,9 @@ def test_type_7():
     test_model_3 = Model2()
     model += test_model_1(input1="input1", input2="input2", input3="input3")
     input1 = model.input1  # type: ignore
-    assert input1.data.metadata.data._type == int | float
+    assert input1.data.metadata.data.type == int | float
     model += test_model_2(input1="", input2="input1")
-    assert input1.data.metadata.data._type is int
+    assert input1.data.metadata.data.type is int
     with pytest.raises(TypeError) as err_info:
         model += test_model_3(input1="", input3="input1")
     assert (
@@ -267,9 +267,9 @@ def test_type_8():
     model3 = Model3()
     model += model3(input1="input1", input2="input1", input3="input1", output="output")
     input1 = model.input1  # type: ignore
-    assert input1.data.metadata.data._type == tuple[int, int, int, int]
+    assert input1.data.metadata.data.type == tuple[int, int, int, int]
     model += model1(input1="input1")
-    assert input1.data.metadata.data._type == tuple[int, int, int, int]
+    assert input1.data.metadata.data.type == tuple[int, int, int, int]
     with pytest.raises(TypeError) as err_info:
         model += model2(input1="input1")
     assert str(err_info.value) == (
@@ -281,59 +281,59 @@ def test_type_8():
 def test_type_9():
     model = Model()
     lin_model = Linear()
-    assert lin_model.input.data.metadata.data._type == int | float | bool
+    assert lin_model.input.data.metadata.data.type == int | float | bool
     model += lin_model(
         input=IOKey(value=[[1.0, 2.0], [3.0, 4.0]], name="input"),
         weight="w",
         bias="b",
         output=IOKey(name="output"),
     )
-    assert lin_model.input.data.metadata.data._type is float
+    assert lin_model.input.data.metadata.data.type is float
 
 
 def test_type_10():
     model = Model()
     lin_model = Linear()
-    assert lin_model.input.data.metadata.data._type == int | float | bool
+    assert lin_model.input.data.metadata.data.type == int | float | bool
     model += lin_model(
         input=IOKey(value=[[False, 1], [True, False]], name="input"),
         weight="w",
         bias="b",
         output=IOKey(name="output"),
     )
-    assert lin_model.input.data.metadata.data._type is int
+    assert lin_model.input.data.metadata.data.type is int
 
 
 def test_type_11():
     model = Model()
     lin_model = Linear()
-    assert lin_model.input.data.metadata.data._type == int | float | bool
+    assert lin_model.input.data.metadata.data.type == int | float | bool
     model += lin_model(
         input=IOKey(value=[[False, 1], [2.2, False]], name="input"),
         weight="w",
         bias="b",
         output=IOKey(name="output"),
     )
-    assert lin_model.input.data.metadata.data._type is float
+    assert lin_model.input.data.metadata.data.type is float
 
 
 def test_type_12():
     model = Model()
     lin_model = Linear()
-    assert lin_model.input.data.metadata.data._type == int | float | bool
+    assert lin_model.input.data.metadata.data.type == int | float | bool
     model += lin_model(
         input=IOKey(value=[[False, 1], [2.2, False]], name="input"),
         weight="w",
         bias="b",
         output=IOKey(name="output"),
     )
-    assert lin_model.input.data.metadata.data._type is float
+    assert lin_model.input.data.metadata.data.type is float
 
 
 def test_type_13():
     model = Model()
     lin_model = Linear()
-    assert lin_model.input.data.metadata.data._type == int | float | bool
+    assert lin_model.input.data.metadata.data.type == int | float | bool
     model += lin_model(
         input=IOKey(value=[[False, True], [False, False]], name="input"),
         weight="w",
@@ -341,27 +341,27 @@ def test_type_13():
         output=IOKey(name="output"),
     )
     # model.make_static("input", [[False, True], [False, False]])
-    assert lin_model.input.data.metadata.data._type is bool
+    assert lin_model.input.data.metadata.data.type is bool
 
 
 def test_type_14():
     model = Model()
     lin_model = Linear()
-    assert lin_model.input.data.metadata.data._type == int | float | bool
+    assert lin_model.input.data.metadata.data.type == int | float | bool
     model += lin_model(
         input=IOKey(value=[[False, 1.0], [2, 3]], name="input"),
         weight="w",
         bias="b",
         output=IOKey(name="output"),
     )
-    assert lin_model.input.data.metadata.data._type is float
+    assert lin_model.input.data.metadata.data.type is float
 
 
 def test_type_15():
     model = Model()
     sig_model = Sigmoid()
     sig_model_2 = Sigmoid()
-    sig_model_2.input.data.metadata.data._type = float
+    sig_model_2.input.data.metadata.data.type = float
     model += sig_model(input="input", output=IOKey(name="output"))
 
     model += sig_model_2(
@@ -385,7 +385,7 @@ def test_type_16():
     model = Model()
     sig_model_1 = Sigmoid()
     sig_model_2 = Sigmoid()
-    sig_model_1.input.data.metadata.data._type = float
+    sig_model_1.input.data.metadata.data.type = float
     model += sig_model_1(input="input", output=IOKey(name="output"))
 
     with pytest.raises(TypeError) as err_info:
@@ -403,7 +403,7 @@ def test_type_17():
     model = Model()
     sig_model_1 = Sigmoid()
     sig_model_2 = Sigmoid()
-    sig_model_1.input.data.metadata.data._type = float
+    sig_model_1.input.data.metadata.data.type = float
     model.extend(sig_model_1, input="input", output="output")
     with pytest.raises(TypeError) as err_info:
         model.extend(

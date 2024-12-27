@@ -574,9 +574,9 @@ def test_type_propagation_1():
         right=IOKey(value=2, name="right"),
         output=IOKey(name="output"),
     )
-    assert model.left.metadata.data._type is int  # type: ignore
-    assert model.right.metadata.data._type is int  # type: ignore
-    assert model.output.metadata.data._type is int  # type: ignore
+    assert model.left.metadata.data.type is int  # type: ignore
+    assert model.right.metadata.data.type is int  # type: ignore
+    assert model.output.metadata.data.type is int  # type: ignore
 
 
 def test_type_propagation_2():
@@ -585,9 +585,9 @@ def test_type_propagation_2():
     model += Add()(
         left=IOKey(value=1, name="left"), right="right", output=IOKey(name="output")
     )
-    assert model.left.metadata.data._type is int  # type: ignore
-    assert model.right.metadata.data._type == float | int | bool  # type: ignore
-    assert model.output.metadata.data._type == float | int  # type: ignore
+    assert model.left.metadata.data.type is int  # type: ignore
+    assert model.right.metadata.data.type == float | int | bool  # type: ignore
+    assert model.output.metadata.data.type == float | int  # type: ignore
 
 
 def test_type_propagation_3():
@@ -596,9 +596,9 @@ def test_type_propagation_3():
     model += Add()(
         left=IOKey(value=1.0, name="left"), right="right", output=IOKey(name="output")
     )
-    assert model.left.metadata.data._type is float  # type: ignore
-    assert model.right.metadata.data._type == float | int | bool  # type: ignore
-    assert model.output.metadata.data._type is float  # type: ignore
+    assert model.left.metadata.data.type is float  # type: ignore
+    assert model.right.metadata.data.type == float | int | bool  # type: ignore
+    assert model.output.metadata.data.type is float  # type: ignore
 
 
 def test_type_propagation_4():
@@ -610,9 +610,9 @@ def test_type_propagation_4():
         right="right",
         output=IOKey(name="output"),
     )
-    assert add.left.metadata.data._type is bool
-    assert model.right.metadata.data._type == float | int | bool  # type: ignore
-    assert model.output.metadata.data._type == float | int | bool  # type: ignore
+    assert add.left.metadata.data.type is bool
+    assert model.right.metadata.data.type == float | int | bool  # type: ignore
+    assert model.output.metadata.data.type == float | int | bool  # type: ignore
 
 
 def test_type_propagation_5():
@@ -625,9 +625,9 @@ def test_type_propagation_5():
         output=IOKey(name="output"),
     )
 
-    assert add.left.metadata.data._type is bool
-    assert add.right.metadata.data._type is int
-    assert model.output.metadata.data._type is int  # type: ignore
+    assert add.left.metadata.data.type is bool
+    assert add.right.metadata.data.type is int
+    assert model.output.metadata.data.type is int  # type: ignore
 
 
 def test_type_propagation_6():
@@ -640,9 +640,9 @@ def test_type_propagation_6():
         output=IOKey(name="output"),
     )
 
-    assert add.left.metadata.data._type is bool
-    assert add.right.metadata.data._type is float
-    assert model.output.metadata.data._type is float  # type: ignore
+    assert add.left.metadata.data.type is bool
+    assert add.right.metadata.data.type is float
+    assert model.output.metadata.data.type is float  # type: ignore
 
 
 def test_type_propagation_7():
@@ -655,9 +655,9 @@ def test_type_propagation_7():
         output=IOKey(name="output"),
     )
 
-    assert add.left.metadata.data._type is int
-    assert add.right.metadata.data._type is float
-    assert model.output.metadata.data._type is float  # type: ignore
+    assert add.left.metadata.data.type is int
+    assert add.right.metadata.data.type is float
+    assert model.output.metadata.data.type is float  # type: ignore
 
 
 class ArtificialPrimitive(PrimitiveModel):
@@ -685,15 +685,15 @@ class ArtificialPrimitive(PrimitiveModel):
         status = False
         updates = Updates()
         # Reverse inference
-        if not isinstance(output._type, UnionType):
-            # update_type(input, output._type, updates)
-            input.set_type(output._type)
+        if not isinstance(output.type, UnionType):
+            # update_type(input, output.type, updates)
+            input.set_type(output.type)
             # updates.add(input, UpdateType._TYPE)
             status = True
         # Forward inference
         elif not isinstance(input, UnionType):
-            # update_type(output, input._type, updates)
-            output.set_type(input._type)
+            # update_type(output, input.type, updates)
+            output.set_type(input.type)
             # updates.add(output, UpdateType._TYPE)
             status = True
         return status, updates
@@ -707,10 +707,10 @@ def test_type_propagation_8():
     primitive = ArtificialPrimitive(type=MyTensor[int] | MyTensor[bool])
     model += primitive(input=add.output, output=IOKey(name="output"))
 
-    assert add.left.metadata.data._type is int
-    assert add.right.metadata.data._type == int | bool
-    assert add.output.metadata.data._type is int
-    assert model.output.metadata.data._type is int  # type: ignore
+    assert add.left.metadata.data.type is int
+    assert add.right.metadata.data.type == int | bool
+    assert add.output.metadata.data.type is int
+    assert model.output.metadata.data.type is int  # type: ignore
 
 
 def test_type_propagation_9():
@@ -721,9 +721,9 @@ def test_type_propagation_9():
     model += add(left=IOKey(value=[1], name="left"), right="right")
     model += tensor_to_list(input=add.output, output=IOKey(name="output"))
 
-    assert add.left.metadata.data._type is int
-    assert add.right.metadata.data._type is float
-    assert model.output.metadata.data._type is float  # type: ignore
+    assert add.left.metadata.data.type is int
+    assert add.right.metadata.data.type is float
+    assert model.output.metadata.data.type is float  # type: ignore
 
 
 def test_type_propagation_10():
@@ -734,9 +734,9 @@ def test_type_propagation_10():
     model += add(left="right", right="right")
     model += tensor_to_list(input=add.output, output=IOKey(name="output"))
 
-    assert add.left.metadata.data._type == int | bool
-    assert add.right.metadata.data._type == int | bool
-    assert model.output.metadata.data._type == int | bool  # type: ignore
+    assert add.left.metadata.data.type == int | bool
+    assert add.right.metadata.data.type == int | bool
+    assert model.output.metadata.data.type == int | bool  # type: ignore
 
 
 def test_type_propagation_floor_divide_1():
@@ -749,9 +749,9 @@ def test_type_propagation_floor_divide_1():
         numerator=add.left, denominator=add.output, output=IOKey(name="output")
     )
 
-    assert add.left.metadata.data._type is int
-    assert add.right.metadata.data._type == float | int | bool
-    assert model.output.metadata.data._type == float | int  # type: ignore
+    assert add.left.metadata.data.type is int
+    assert add.right.metadata.data.type == float | int | bool
+    assert model.output.metadata.data.type == float | int  # type: ignore
 
 
 def test_type_propagation_floor_divide_2():
@@ -764,11 +764,11 @@ def test_type_propagation_floor_divide_2():
     model += floor_div(numerator=add.left, denominator=add.output)
     model += ap(input=floor_div.output, output=IOKey(name="output"))
 
-    assert add.left.metadata.data._type is int
-    assert add.right.metadata.data._type == int | bool
-    assert floor_div.denominator.metadata.data._type is int
-    assert floor_div.output.metadata.data._type is int
-    assert model.output.metadata.data._type is int  # type: ignore
+    assert add.left.metadata.data.type is int
+    assert add.right.metadata.data.type == int | bool
+    assert floor_div.denominator.metadata.data.type is int
+    assert floor_div.output.metadata.data.type is int
+    assert model.output.metadata.data.type is int  # type: ignore
 
 
 def test_type_propagation_floor_divide_3():
@@ -781,11 +781,11 @@ def test_type_propagation_floor_divide_3():
     model += floor_div(numerator=add.left, denominator=add.output)
     model += ap(input=floor_div.output, output=IOKey(name="output"))
 
-    assert add.left.metadata.data._type is int
-    assert add.right.metadata.data._type == float | int | bool
-    assert floor_div.denominator.metadata.data._type == float | int
-    assert floor_div.output.metadata.data._type == float | int
-    assert model.output.metadata.data._type == float | int  # type: ignore
+    assert add.left.metadata.data.type is int
+    assert add.right.metadata.data.type == float | int | bool
+    assert floor_div.denominator.metadata.data.type == float | int
+    assert floor_div.output.metadata.data.type == float | int
+    assert model.output.metadata.data.type == float | int  # type: ignore
 
 
 def test_type_propagation_floor_divide_4():
@@ -889,7 +889,7 @@ def test_type_initialization_1():
     model = Model()
     model += LeakyRelu()(slope=IOKey("slope", 0.5))
 
-    assert model.slope.metadata.data._type is float  # type: ignore
+    assert model.slope.metadata.data.type is float  # type: ignore
 
 
 def test_connect_1():

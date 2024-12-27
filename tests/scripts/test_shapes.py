@@ -275,7 +275,7 @@ def assert_match_shapes(
     uni_cache: dict[UniadicRecord, str] = {}
     var_cache: dict[Variadic, str] = {}
 
-    repr1._match(repr2)
+    repr1.match(repr2)
 
     ref_shapes = {"repr1": repr1_ref_shapes, "repr2": repr2_ref_shapes}
 
@@ -1372,7 +1372,7 @@ def test_composite_1_extend_inputs_1():
     composite += (m2 := Multiply())(left=m1.right, right=m1.output)
     composite += Add()(left=m2.output, right=m2.output, output=IOKey(name="output"))
     composite.set_canonical_input(m1.left)
-    key_mappings = composite._generate_keys()
+    key_mappings = composite.generate_keys()
 
     m1_out_metadata = composite.conns.get_con_by_metadata(m1.output.metadata)
     assert m1_out_metadata is not None
@@ -2273,7 +2273,7 @@ def test_composite_3_extend_shapes_1():
         output=IOKey(name="output"),
     )
 
-    key_mappings = composite_3._generate_keys()
+    key_mappings = composite_3.generate_keys()
 
     composite_3_left_metadata = composite_3.conns.get_con_by_metadata(m1.left.metadata)  # type: ignore
     assert composite_3_left_metadata is not None
@@ -3142,7 +3142,7 @@ def test_shape_3():
     model += two_buff_model(input1="input1", output2=IOKey(name="output2"))
     buff1 = Buffer()
     model += buff1(input=two_buff_model.output1, output=two_buff_model.input2)  # type: ignore
-    model._generate_keys()
+    model.generate_keys()
     buff1.set_shapes({"input": [3, 4, 5, 6]})
     logical_ref = {
         "input1": [3, 4, 5, 6],
@@ -5992,7 +5992,7 @@ def test_cartesian_call():
         output=IOKey(name="output"),
     )
 
-    key_mappings = model3._generate_keys()
+    key_mappings = model3.generate_keys()
     model_1_out1 = key_mappings[
         model3.conns.get_con_by_metadata(model1.output1.metadata).key  # type: ignore
     ]
@@ -7926,7 +7926,7 @@ def test_uniadic_repr_count_4():
     model += Buffer()(input="input6", output=IOKey(name="output6"))
 
     main_model = Model()
-    main_model += (model1 := deepcopy(model))(**{key: key for key in model._input_keys})
+    main_model += (model1 := deepcopy(model))(**{key: key for key in model.input_keys})
 
     main_model += (model2 := deepcopy(model))(
         input1=model1.output1,  # type: ignore
@@ -8718,7 +8718,7 @@ def test_possible_variadic_values_14():
         PossibleValues((Uniadic(6), Uniadic())),
         PossibleValues((Uniadic(3), Uniadic(), Uniadic())),
     )
-    repr1._match(repr2)
+    repr1.match(repr2)
     assert repr1.get_shapes() == repr2.get_shapes() == [2, 6, 4]
 
 
@@ -8749,7 +8749,7 @@ def test_possible_variadic_values_14_1():
     )
     uni = Uniadic(2)
     repr2 = ShapeRepr(root=var2, prefix=[uni])
-    repr1._match(repr2)
+    repr1.match(repr2)
 
     assert repr1.get_shapes() == repr2.get_shapes() == [2, 6, 4]
 
@@ -8780,7 +8780,7 @@ def test_possible_variadic_values_14_2():
     )
     uni = Uniadic({2, 3})
     repr2 = ShapeRepr(root=var2, prefix=[uni])
-    repr1._match(repr2)
+    repr1.match(repr2)
 
     assert repr1.get_shapes() == repr2.get_shapes() == [2, 6, 4]
 
@@ -8812,7 +8812,7 @@ def test_possible_variadic_values_14_2_1():
     )
     uni = Uniadic({2, 3})
     repr2 = ShapeRepr(root=var2, prefix=[uni])
-    repr1._match(repr2)
+    repr1.match(repr2)
 
     assert repr1.get_shapes() == repr2.get_shapes() == [2, 6, 4]
 
@@ -8843,7 +8843,7 @@ def test_possible_variadic_values_14_2_2():
     )
     uni = Uniadic({2, 3, 10})
     repr2 = ShapeRepr(root=var2, prefix=[uni])
-    repr1._match(repr2)
+    repr1.match(repr2)
 
     assert repr1.get_shapes() == repr2.get_shapes() == ["u1", 6, 4]
     assert uni.possible_values == {2, 10}
@@ -8876,7 +8876,7 @@ def test_possible_variadic_values_14_3():
     repr2 = ShapeRepr(root=var2, prefix=[uni])
 
     with pytest.raises(ValueError) as err_info:
-        repr1._match(repr2)
+        repr1.match(repr2)
     assert str(err_info.value) == "Incompatible possible values for Variadic!"
 
 
@@ -8906,7 +8906,7 @@ def test_possible_variadic_values_14_4():
     repr2 = ShapeRepr(root=var2, prefix=[uni])
 
     with pytest.raises(ValueError) as err_info:
-        repr1._match(repr2)
+        repr1.match(repr2)
     assert str(err_info.value) == "Incompatible possible values for Variadic!"
 
 
@@ -8948,7 +8948,7 @@ def test_possible_variadic_values_15():
     uni2 = Uniadic()
     uni3 = Uniadic()
     repr2 = ShapeRepr(root=var2, prefix=[uni1], suffix=[uni2, uni3])
-    repr1._match(repr2)
+    repr1.match(repr2)
 
     assert repr1.get_shapes() == repr2.get_shapes() == [10, 11, 12, 13, 14, 15]
 
@@ -8974,7 +8974,7 @@ def test_possible_variadic_values_16():
     )
     repr1 = ShapeRepr(root=var)
 
-    repr1._match(repr2)
+    repr1.match(repr2)
     assert repr1[0].value == 2
     assert repr1.get_shapes() == [2, 1]
 
@@ -9003,7 +9003,7 @@ def test_possible_variadic_values_17():
     repr1 = ShapeRepr(prefix=[], root=var1, suffix=[])
     repr2 = ShapeRepr(prefix=[], root=var2, suffix=[])
 
-    repr1._match(repr2)
+    repr1.match(repr2)
     assert repr2.get_shapes() == repr1.get_shapes() == [1, 2, 3]
 
 
@@ -9025,7 +9025,7 @@ def test_possible_variadic_values_18():
 
     repr2 = ShapeRepr(prefix=[], root=var, suffix=[])
 
-    repr1._match(repr2)
+    repr1.match(repr2)
     assert repr1.get_shapes() == [4, 2, 3, 2]
     assert repr2.get_shapes() == [4, 2, 3, 2]
 
@@ -9047,7 +9047,7 @@ def test_possible_variadic_values_19():
     )
     repr2 = ShapeRepr(prefix=[], root=var, suffix=[])
 
-    repr1._match(repr2)
+    repr1.match(repr2)
     assert repr1.get_shapes() == [4, 2, 3, 2]
     assert repr2.get_shapes() == [4, 2, 3, 2]
 
@@ -9069,7 +9069,7 @@ def test_possible_variadic_values_20():
     )
     repr2 = ShapeRepr(prefix=[], root=var, suffix=[])
 
-    repr1._match(repr2)
+    repr1.match(repr2)
     assert repr1.get_shapes() == [5, 2, 3, 2]
     assert repr2.get_shapes() == [5, 2, 3, 2]
 
@@ -9094,7 +9094,7 @@ def test_possible_variadic_values_21():
 
     repr2 = ShapeRepr(prefix=[], root=var2, suffix=[])
 
-    repr1._match(repr2)
+    repr1.match(repr2)
     assert repr1.get_shapes() == [5, 6, 9]
     assert repr2.get_shapes() == [5, 6, 9]
 
@@ -9124,7 +9124,7 @@ def test_possible_variadic_values_22():
 
     repr2 = ShapeRepr(prefix=[], root=var2, suffix=[])
 
-    repr1._match(repr2)
+    repr1.match(repr2)
     assert repr2.get_shapes() == repr1.get_shapes() == [5, 6, 9]
     assert uni1.possible_values == {9}
 
@@ -9176,7 +9176,7 @@ def test_possible_variadic_values_23():
     repr1 = ShapeRepr(prefix=[a], root=V1, suffix=[])
     repr2 = ShapeRepr(prefix=[], root=V2, suffix=[b])
 
-    repr1._match(repr2)
+    repr1.match(repr2)
     assert repr1.get_shapes() == [3, 9, 6]
     assert repr2.get_shapes() == [3, 9, 6]
 
@@ -9231,7 +9231,7 @@ def test_possible_variadic_values_23_1():
     repr1 = ShapeRepr(prefix=[a], root=V1, suffix=[])
     repr2 = ShapeRepr(prefix=[], root=V2, suffix=[b])
 
-    updates = repr1._match(repr2)
+    updates = repr1.match(repr2)
 
     updates |= b.update_possible_values({5, 6})
 
@@ -9261,7 +9261,7 @@ def test_possible_variadic_values_24():
     repr1 = ShapeRepr(prefix=[a], root=V1, suffix=[])
     repr2 = ShapeRepr(prefix=[], root=V2, suffix=[b])
 
-    repr1._match(repr2)
+    repr1.match(repr2)
     assert repr1.get_shapes() == [2, 5]
     assert repr2.get_shapes() == [2, 5]
 
@@ -9282,7 +9282,7 @@ def test_possible_variadic_values_26():
     repr1 = ShapeRepr(prefix=[a], root=Variadic(), suffix=[])
     repr2 = ShapeRepr(prefix=[], root=Variadic(), suffix=[b])
 
-    repr1._match(repr2)
+    repr1.match(repr2)
     assert repr1.get_shapes() == ["u1", "(V1, ...)", "u2"]
     assert repr2.get_shapes() == ["u1", "(V1, ...)", "u2"]
 
@@ -9308,7 +9308,7 @@ def test_possible_variadic_values_27():
     repr1 = ShapeRepr(prefix=[a, a], root=None, suffix=[])
     repr2 = ShapeRepr(prefix=[], root=v1, suffix=[])
 
-    repr2._match(repr1)
+    repr2.match(repr1)
     assert repr1.get_shapes() == [2, 2]
     assert repr2.get_shapes() == [2, 2]
 
@@ -9334,7 +9334,7 @@ def test_possible_variadic_values_28():
     repr1 = ShapeRepr(prefix=[], root=v2, suffix=[])
     repr2 = ShapeRepr(prefix=[], root=v1, suffix=[])
 
-    repr2._match(repr1)
+    repr2.match(repr1)
     assert repr1.get_shapes() == [2, 3, 4]
     assert repr2.get_shapes() == [2, 3, 4]
 
@@ -9361,7 +9361,7 @@ def test_possible_variadic_values_29():
     )
 
     repr2 = ShapeRepr(root=var)
-    repr1._match(repr2)
+    repr1.match(repr2)
 
     dnf1 = DNF([AND({uni1: uni7})])
     dnf2 = DNF([AND({uni2: uni8})])
@@ -9452,7 +9452,7 @@ def test_impossible_variadic_values_1():
 
     V2.update_possible_values(PossibleValues((Uniadic(3), Uniadic({9, 10}))))
 
-    repr1._match(repr2)
+    repr1.match(repr2)
     assert repr1.get_shapes() == [3, 9, 6]
     assert repr2.get_shapes() == [3, 9, 6]
 

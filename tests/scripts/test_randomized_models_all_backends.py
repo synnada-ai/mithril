@@ -177,7 +177,7 @@ def test_randomized(case: str) -> None:
             )
             static_inputs[init_key] = {
                 key: init_backend.array(value)
-                if isinstance(model.conns._get_metadata(key).data, Tensor)
+                if isinstance(model.conns.get_metadata(key).data, Tensor)
                 else value
                 for key, value in static_inputs[init_key].items()
             }
@@ -226,7 +226,7 @@ def test_randomized(case: str) -> None:
                 }
                 static_inputs[backend.backend_type] = {
                     key: backend.array(value)
-                    if isinstance(model.conns._get_metadata(key).data, Tensor)
+                    if isinstance(model.conns.get_metadata(key).data, Tensor)
                     else value
                     for key, value in static_inputs[init_key].items()
                 }

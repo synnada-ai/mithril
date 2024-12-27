@@ -24,7 +24,7 @@ def test_directed_call_connection():
     connection = add2.output  # Assume this is a Connection object
 
     info = add1(left=connection, right="right")
-    left_info = info._connections["left"]
+    left_info = info.connections["left"]
 
     assert isinstance(left_info, ml.IOKey)
     assert left_info.connections == {connection}
@@ -36,7 +36,7 @@ def test_directed_call_int():
     add1 = Add(left=1)
     info = add1(left=1, right="right")
 
-    assert info._connections["left"] == 1
+    assert info.connections["left"] == 1
 
 
 def test_directed_call_int_error():
@@ -55,7 +55,7 @@ def test_directed_call_str():
     add1 = Add(left=1)
     info = add1(left="in1", right="right")
 
-    left_info = info._connections["left"]
+    left_info = info.connections["left"]
 
     assert isinstance(left_info, ml.IOKey)
     assert left_info.name == "in1"
@@ -67,7 +67,7 @@ def test_directed_call_iokey_value_equal():
     iokey = ml.IOKey("in1", value=1)  # value matches val in factory_inputs
 
     info = add1(left=iokey, right="right")
-    left_info = info._connections["left"]
+    left_info = info.connections["left"]
 
     assert isinstance(left_info, ml.IOKey)
     assert left_info.name == "in1"
@@ -88,7 +88,7 @@ def test_directed_call_iokey_value_tbd():
     iokey = ml.IOKey("in1")  # value is TBD
 
     info = add1(left=iokey, right="right")
-    left_info = info._connections["left"]
+    left_info = info.connections["left"]
 
     assert isinstance(left_info, ml.IOKey)
     assert left_info.name == "in1"
@@ -110,7 +110,7 @@ def test_directed_call_connect_key_none():
     con = ml.IOKey(connections={connection})
 
     info = add1(left=con, right="right")
-    left_info = info._connections["left"]
+    left_info = info.connections["left"]
     assert isinstance(left_info, ml.IOKey)
     assert left_info.connections == {connection}
     assert left_info.data.value == 1  # key is set to IOKey with val from factory_inputs
@@ -123,7 +123,7 @@ def test_directed_call_connect_key_value_tbd():
 
     info = add1(left=con, right="right")
 
-    left_info = info._connections["left"]
+    left_info = info.connections["left"]
     assert isinstance(left_info, ml.IOKey)
     assert left_info.connections == {connection}
     assert isinstance(left_info, ml.IOKey)
@@ -137,7 +137,7 @@ def test_directed_call_connect_key_value_equal():
 
     info = add1(left=con, right="right")
 
-    left_info = info._connections["left"]
+    left_info = info.connections["left"]
     assert isinstance(left_info, ml.IOKey)
     assert left_info.connections == {connection}
     assert left_info.data.value == 1  # value is set to val from factory_inputs
@@ -160,7 +160,7 @@ def test_directed_call_key_not_in_kwargs():
 
     info = add1()  # No kwargs provided
 
-    assert info._connections["left"] == 1
+    assert info.connections["left"] == 1
 
 
 def test_directed_call_factory_val_tbd():
@@ -168,8 +168,8 @@ def test_directed_call_factory_val_tbd():
 
     info = add1(left="in1", right="in2")
 
-    assert info._connections["left"] == "in1"
-    assert info._connections["right"] == "in2"
+    assert info.connections["left"] == "in1"
+    assert info.connections["right"] == "in2"
 
 
 def test_integration_call_arg_connection():
