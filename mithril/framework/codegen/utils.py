@@ -28,7 +28,7 @@ def partial_array_creation_func(
     # We don't need device in manulgrad(Numpy)
     if not backend.is_manualgrad:
         kwargs.append(
-            ast.keyword(arg="device", value=ast.Constant(value=backend._device))
+            ast.keyword(arg="device", value=ast.Constant(value=backend.get_device()))
         )
 
     partial_fn_call = ast.Call(

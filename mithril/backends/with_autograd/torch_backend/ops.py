@@ -1111,8 +1111,13 @@ def pad(input: torch.Tensor, pad_width: tuple[tuple[int, int], ...]):
     return F.pad(input, _padding, "constant", 0)
 
 
-def randn(*args, device: torch.device, precision: int) -> torch.Tensor:
-    return handle_data_precision(torch.randn(*args, device=device), precision)
+def randn(
+    shape: tuple[int, ...], key: int, device: torch.device, precision: int
+) -> torch.Tensor:
+    generator = torch.manual_seed(key)
+    return handle_data_precision(
+        torch.randn(shape, generator=generator, device=device), precision
+    )
 
 
 def zeros_like(input: torch.Tensor) -> torch.Tensor:

@@ -57,9 +57,11 @@ class PrimitiveModel(BaseModel):
         **kwargs: BaseKey | Tensor | Scalar,
     ) -> None:
         self._formula_key = formula_key
-        self.grad_formula = formula_key + "_grad"
+        self._grad_formula = formula_key + "_grad"
 
         super().__init__(name=name)
+
+        self._random_keys: set[str] = set()
         # Get shape_templates of TensorTypes and create corresponding shapes.
         shape_templates = {
             key: value.shape
@@ -73,7 +75,7 @@ class PrimitiveModel(BaseModel):
         for key, value in kwargs.items():
             # TODO: The first if block is temporary. All if else blocks will be
             # removed after the implementation of the new type system.
-            value_type = value.type if isinstance(value, BaseKey) else value._type
+            value_type = value.type if isinstance(value, BaseKey) else value.type
             if get_origin(value_type) is Union:
                 args = get_args(value_type)
                 types = []
@@ -119,7 +121,7 @@ class PrimitiveModel(BaseModel):
                 self.conns.set_connection_type(conn_data, KeyType.INPUT)
                 is_diff |= not _value.is_non_diff
         if isinstance(output_data, Tensor):
-            output_data._differentiable = is_diff
+            output_data.differentiable = is_diff
 
         # Initially run all given tensors' constraints
         self.constraint_solver.update_shapes(Updates(data_set))
@@ -130,20 +132,20 @@ class PrimitiveModel(BaseModel):
         output_conns = OrderedSet({out_conn})
 
         for conn in self.conns.input_connections:
-            self.dependency_map._local_input_dependency_map[conn] = [
+            self.dependency_map.local_input_dependency_map[conn] = [
                 (self, output_conns)
             ]
 
         for conn in output_conns:
-            self.dependency_map._local_output_dependency_map[conn] = (self, input_conns)
+            self.dependency_map.local_output_dependency_map[conn] = (self, input_conns)
 
-        self.dependency_map._cache_internal_references(out_conn, input_conns)
+        self.dependency_map.cache_internal_references(out_conn, input_conns)
         self.dependency_map.update_all_keys()
 
         # Link canonicals
-        if isinstance(self.canonical_input, NotAvailable) and len(self._input_keys) > 0:
+        if isinstance(self.canonical_input, NotAvailable) and len(self.input_keys) > 0:
             canonical_input_key = (
-                "input" if "input" in self._input_keys else next(iter(self._input_keys))
+                "input" if "input" in self.input_keys else next(iter(self.input_keys))
             )
             canonical_input_conn = self.conns.get_connection(canonical_input_key)
             if canonical_input_conn is None:
@@ -173,6 +175,14 @@ class PrimitiveModel(BaseModel):
             f"Primitive '{self.__class__.__name__}' model can not be extended!"
         )
 
+    @property
+    def formula_key(self) -> str:
+        return self._formula_key
+
+    @property
+    def grad_formula(self) -> str:
+        return self._grad_formula
+
     def extract_connection_info(
         self,
         name_mappings: dict[BaseModel, str],
@@ -190,7 +200,7 @@ class PrimitiveModel(BaseModel):
         conns: tuple[dict[str, list[str]], dict[str, list[str]]] = ({}, {})
 
         # Take the input_keys with tensor values
-        input_keys = tuple(self._input_keys)
+        input_keys = tuple(self.input_keys)
 
         for key in tuple(input_keys) + tuple(self.conns.output_keys):
             # find data of the key.

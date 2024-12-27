@@ -64,6 +64,9 @@ class Backend(ABC, Generic[DataType]):
     def device(self):
         return self._device
 
+    def get_device(self):
+        return self._device
+
     @property
     def inf(self) -> DataType | float:
         raise NotImplementedError("inf is not implemented")
@@ -1065,6 +1068,9 @@ class Backend(ABC, Generic[DataType]):
         """
         raise NotImplementedError("jacobian is not implemented!")
 
+    def __repr__(self):
+        return f"<Backend(device={self._device}, precision={self.precision})>"
+
 
 class ParallelBackend(Backend[DataType]):
     def __init__(self, device_mesh: tuple[int, ...] | None) -> None:
@@ -1076,6 +1082,12 @@ class ParallelBackend(Backend[DataType]):
         self._raw_device_mesh = device_mesh
         self.n_devices = math.prod(device_mesh) if device_mesh is not None else 1
         self._parallel_manager: Parallel[DataType] | None
+
+    def get_parallel_manager(self) -> Parallel[DataType] | None:
+        return self._parallel_manager
+
+    def get_raw_device_mesh(self) -> tuple[int, ...] | None:
+        return self._raw_device_mesh
 
     def zeros(
         self,
@@ -1393,7 +1405,7 @@ class ParallelBackend(Backend[DataType]):
 
         raise NotImplementedError("linspace is not implemented!")
 
-    def _register_callable[T: Any](
+    def register_callable[T: Any](
         self, fn: Callable[..., T] | partial[T], fn_name: str, jit: bool
     ) -> None:
         raise NotImplementedError()

@@ -78,6 +78,9 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
     def get_backend_array_type(self):
         return np.ndarray
 
+    def get_device(self):
+        return self._device
+
     @staticmethod
     def get_available_devices() -> list[str]:
         """Static method to get available devices. Currently, in the NumpyBackend,

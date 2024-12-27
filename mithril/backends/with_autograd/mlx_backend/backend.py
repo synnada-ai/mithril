@@ -64,6 +64,9 @@ class MlxBackend(Backend[mx.array]):
     def device(self):
         utils.get_device(self._device)
 
+    def get_device(self):
+        return self._device
+
     @property
     def DataType(self):  # noqa: N802
         return utils.ArrayType

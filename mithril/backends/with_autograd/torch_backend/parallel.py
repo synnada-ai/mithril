@@ -120,7 +120,7 @@ class TorchParallel(Parallel[torch.Tensor]):
 
         atexit.register(self.clean_up)
 
-    def _init_device_mesh(self, mesh_shape: tuple[int, ...]) -> DeviceMesh:
+    def init_device_mesh(self, mesh_shape: tuple[int, ...]) -> DeviceMesh:
         if mesh_shape not in TorchParallel.device_meshes:
             self._send_instrcs(Instructions.INIT_MESH, None, mesh_shape, None)
             TorchParallel.device_meshes[mesh_shape] = init_device_mesh(

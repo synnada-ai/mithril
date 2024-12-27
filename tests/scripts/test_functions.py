@@ -198,7 +198,7 @@ def test_flatten_dag_1():
     comp_model = mithril.compile(model=model4, backend=JaxBackend(precision=64))
 
     flatted_primitive_model_list = [
-        key.__class__ for key in comp_model._flat_graph.get_models()
+        key.__class__ for key in comp_model.flat_graph.get_models()
     ]
 
     assert flatted_primitive_model_list == [
@@ -258,7 +258,7 @@ def test_flatten_dag_2():
     comp_model = mithril.compile(model=model4, backend=JaxBackend(precision=64))
 
     flatted_primitive_model_list = [
-        key.__class__ for key in comp_model._flat_graph.get_models()
+        key.__class__ for key in comp_model.flat_graph.get_models()
     ]
 
     assert flatted_primitive_model_list == [
@@ -301,7 +301,7 @@ def test_flatten_dag_3():
     comp_model = mithril.compile(model=model1, backend=JaxBackend(precision=64))
 
     flatted_primitive_model_list = [
-        key.__class__ for key in comp_model._flat_graph.get_models()
+        key.__class__ for key in comp_model.flat_graph.get_models()
     ]
 
     assert flatted_primitive_model_list == [

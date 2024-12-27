@@ -1452,7 +1452,17 @@ def test_tensoritem_multiple_slice_3():
     outputs = pm.evaluate()
     out = outputs["output"]
     assert isinstance(out, jnp.ndarray)
-    assert out.shape == (1, 6)
+    assert (
+        out.shape == (1, 6)
+        and out.shape == (1, 6)
+        and out.shape == (1, 6)
+        and out.shape == (1, 6)
+        and out.shape == (1, 6)
+        and out.shape == (1, 6)
+        and out.shape == (1, 6)
+        and out.shape == (1, 6)
+        and out.shape == (1, 6)
+    )
 
 
 def test_tensor_item_with_ellipsis_at_beginning():
@@ -1609,7 +1619,7 @@ def test_immediate_values_with_extend_template_and_regular_case():
     big_model_2 = Model()
     big_model_2 += model(input="input", output="output")
 
-    assert big_model_1._input_keys == big_model_2._input_keys == {"input"}
+    assert big_model_1.input_keys == big_model_2.input_keys == {"input"}
     assert (
         big_model_1.conns.latent_input_keys
         == big_model_1.conns.latent_input_keys

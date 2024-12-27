@@ -61,6 +61,7 @@ class StaticDataStore(Generic[DataType]):
         # Final tensor values of data store.
         self.data_values: DataEvalType[DataType] = dict()
         self.constraint_solver: ConstraintSolver = deepcopy(solver, memo=memo)
+        self._random_seeds: dict[str, int] = dict()
 
     @property
     def all_data(self):
@@ -69,6 +70,10 @@ class StaticDataStore(Generic[DataType]):
     @property
     def cached_data(self):
         return self.data_values
+
+    @property
+    def random_seeds(self) -> dict[str, int]:
+        return self._random_seeds
 
     @property
     def runtime_static_keys(self) -> set[str]:
@@ -89,16 +94,22 @@ class StaticDataStore(Generic[DataType]):
     def remove_keys_from_store(self, keys: set[str]):
         keys -= set(self.graph.output_keys)
         for key in keys:
-            self._remove_key_from_store(key, label_as_unused=False, hard_remove=True)
+            self.remove_key_from_store(key, label_as_unused=False, hard_remove=True)
 
-    def _remove_key_from_store(
+    def remove_key_from_store(
         self, key: str, label_as_unused: bool = True, hard_remove: bool = False
     ):
+        # Remove key from all attributes.
         if key in self.data_values:
             self.data_values.pop(key)  # type: ignore
+
         self._runtime_static_keys.discard(key)
+
         if key in self._intermediate_non_differentiables:
             self._intermediate_non_differentiables.pop(key)
+
+        if key in self._random_seeds:
+            self._random_seeds.pop(key)
 
         if label_as_unused:
             self._unused_keys.add(key)
@@ -171,7 +182,7 @@ class StaticDataStore(Generic[DataType]):
                 if source_key not in output_keys and set(
                     self.graph.get_target_keys(source_key, True)
                 ).issubset(self._unused_keys | self.cached_data.keys()):
-                    self._remove_key_from_store(source_key)
+                    self.remove_key_from_store(source_key)
 
                 queue |= set(
                     self.graph.get_source_keys(source_key, True)
@@ -347,10 +358,10 @@ class StaticDataStore(Generic[DataType]):
 
                 static_value: DataType | MainValueType
 
-                fn = fn_dict[model._formula_key]
+                fn = fn_dict[model.formula_key]
 
                 # Orginize args and kwargs
-                local_input_keys = list(model._input_keys)
+                local_input_keys = list(model.input_keys)
                 if self.backend.is_manualgrad:
                     local_input_keys.append("cache")
                 inputs = {
@@ -374,10 +385,10 @@ class StaticDataStore(Generic[DataType]):
                 }
 
                 # If function needs backend specific args
-                if model._formula_key in self.backend.array_creation_funcs:
+                if model.formula_key in self.backend.array_creation_funcs:
                     kwargs["precision"] = self.backend.precision
                     if not self.backend.is_manualgrad:
-                        kwargs["device"] = self.backend._device
+                        kwargs["device"] = self.backend.get_device()
 
                 static_value = fn(*args, **kwargs)
 
@@ -396,3 +407,21 @@ class StaticDataStore(Generic[DataType]):
                 queue |= _queue
                 updates |= _updates
         return updates
+
+    def set_random_seed_keys(self, seed_keys: set[str]):
+        for key in seed_keys:
+            if self.all_data[key].value == TBD:
+                self._random_seeds[key] = 0
+            else:
+                self._random_seeds[key] = self.all_data[key].value
+
+    def set_random_seed_values(self, **seed_mapping: int):
+        for key, value in seed_mapping.items():
+            if key not in self._random_seeds:
+                raise KeyError(f"'{key}' key is not a random seed key!")
+            if not isinstance(value, int):
+                raise TypeError(
+                    f"Random seed value for '{key}' key must be an integer!"
+                )
+
+            self._random_seeds[key] = value

@@ -61,7 +61,7 @@ def test_1():
     data = {"input": backend.array([[1.0, 2], [3, 4]])}
 
     # Check equality.
-    assert model_1._input_keys == model_2._input_keys
+    assert model_1.input_keys == model_2.input_keys
     assert model_1.output_keys == model_2.output_keys
     assert model_1.conns.internal_keys == model_2.conns.internal_keys
     compare_models(model_1, model_2, backend, data)
@@ -96,7 +96,7 @@ def test_2():
     data = {"input": backend.array([[1.0, 2], [3, 4]])}
 
     # Check equality.
-    assert model_1._input_keys == model_2._input_keys
+    assert model_1.input_keys == model_2.input_keys
     assert model_1.output_keys == model_2.output_keys
     assert model_1.conns.internal_keys == model_2.conns.internal_keys
     compare_models(model_1, model_2, backend, data)
@@ -133,7 +133,7 @@ def test_3():
     data = {"input": backend.array([[1.0, 2], [3, 4]])}
 
     # Check equality.
-    assert model_1._input_keys == model_2._input_keys
+    assert model_1.input_keys == model_2.input_keys
     assert set(model_1.output_keys) == set(model_2.output_keys)
     assert model_1.conns.internal_keys == model_2.conns.internal_keys
     compare_models(model_1, model_2, backend, data)
@@ -168,7 +168,7 @@ def test_4():
     data = {"input": backend.array([[1.0, 2], [3, 4]])}
 
     # Check equality.
-    assert model_1._input_keys == model_2._input_keys
+    assert model_1.input_keys == model_2.input_keys
     assert set(model_1.output_keys) == set(model_2.output_keys)
     assert model_1.conns.internal_keys == model_2.conns.internal_keys
     compare_models(model_1, model_2, backend, data)
