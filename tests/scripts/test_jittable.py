@@ -41,11 +41,11 @@ from mithril.models import (
     Mean,
     Model,
     Multiply,
-    PrimitiveSlice,
     PrimitiveUnion,
     Reshape,
     ScalarItem,
     Shape,
+    Slice,
     TensorToList,
     ToTensor,
 )
@@ -74,15 +74,20 @@ class MyModel(Model):
         self.extend(Multiplication(), input = sum2.output, rhs = 2.0, output =
         IOKey(name = "output"))
         """
+        sum_slc = Model()
+        sum_slc += (slc := Slice(start=None, stop=None, step=None))
+        sum_slc += ScalarItem()(input="input", index=slc.output, output=IOKey("output"))
         super().__init__()
         mult_model = MatrixMultiply()
         sum_model = Add()
         self += mult_model(left="input", right="w")  # (10, 1)
         self += sum_model(left=mult_model.output, right="b")  # (10, 1)
         self += (sum_shp := Shape())(input=sum_model.output)  # (10, 1)
-        self += (sum_slc := PrimitiveSlice())(input=sum_shp.output)  # (10, 1)
+        self += sum_slc(input=sum_shp.output)  # (10, 1)
         self += (uni := PrimitiveUnion(n=3))(
-            input1=sum_slc.output, input2=1, input3=1
+            input1=sum_slc.output,  # type: ignore
+            input2=1,
+            input3=1,
         )  # (10, 1, 1, 1)
         self += (reshp_1 := Reshape())(
             input=sum_model.output, shape=uni.output

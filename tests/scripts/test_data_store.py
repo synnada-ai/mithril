@@ -351,6 +351,7 @@ def test_data_store_14():
         "output_8",
         "output_4",
         "stop",
+        "output_9",
     }
 
     infered_value = pm.data_store.data_values["out2"]
@@ -405,6 +406,7 @@ def test_data_store_15():
         "input2",
         "weight",
         "output_3",
+        "output_9",
     }
 
     infered_value = pm.data_store.data_values["out2"]

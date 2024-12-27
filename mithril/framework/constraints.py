@@ -384,7 +384,7 @@ def scalar_slice_type_constraint(
 
 
 def scalar_item_type_constraint_forward_helper(
-    input_type: GenericAlias | UnionType | type, index_val: int | ToBeDetermined
+    input_type: GenericAlias | UnionType | type, index_val: int | slice | ToBeDetermined
 ) -> type | UnionType | GenericAlias:
     # forward inference of scalar item type constraint:
     # Examples:
@@ -393,34 +393,49 @@ def scalar_item_type_constraint_forward_helper(
 
     new_type = input_type
     if isinstance(input_type, GenericAlias):
-        if input_type.__origin__ is tuple:
+        origin = get_origin(input_type)
+        if origin is tuple:
             if ... in input_type.__args__:
+                variadic_required = True
                 # if second value is ellipsis, directly take first value
                 # (tuple[int, ...] -> int)
                 new_type = input_type.__args__[0]
             else:
                 # case when type of tuple is exact (ex: tuple[int, float])
                 if not isinstance(index_val, ToBeDetermined):
+                    variadic_required = False
                     # if index val is specified, directly take the corresponding item
                     # of type
-                    new_type = input_type.__args__[index_val]
+                    if isinstance(index_val, int):
+                        new_type = input_type.__args__[index_val]
+                    else:
+                        new_type = tuple[*input_type.__args__[index_val]]  # type: ignore
                 else:
+                    variadic_required = True
                     # if not specified this means it can be all of them,
                     # take union of all types inside tuple
                     new_type = create_union_type(*input_type.__args__)
 
-        elif input_type.__origin__ is list:
-            # if list, directly take first argument (list[int | float] -> int | float)
-            new_type = input_type.__args__[0]
+            if variadic_required and isinstance(index_val, slice):
+                new_type = tuple[new_type, ...]  # type: ignore
+
+        elif origin is list:
+            if isinstance(index_val, slice):
+                new_type = input_type
+            else:
+                new_type = input_type.__args__[0]
     elif input_type is list or input_type is tuple:
-        new_type = input_type | int | float | list
+        if isinstance(index_val, slice):
+            new_type = input_type
+        else:
+            new_type = input_type | int | float | list
 
     return new_type
 
 
 def check_index_type_compatibility(
     _type: type,
-    index: int | ToBeDetermined,
+    index: int | ToBeDetermined | slice,
     is_variadic: bool,
     raise_error: bool = False,
 ) -> bool:
@@ -431,7 +446,7 @@ def check_index_type_compatibility(
         and not is_variadic
     ):
         args_len = len(_type.__args__)
-        if not (-args_len <= index <= args_len - 1):
+        if isinstance(index, int) and not (-args_len <= index <= args_len - 1):
             if raise_error:
                 raise TypeError(
                     f"Index value {index} is out of range for type {_type}!"
@@ -443,7 +458,7 @@ def check_index_type_compatibility(
 def scalar_item_reduce_input_type(
     output_type: type | UnionType | GenericAlias,
     input_type: type | UnionType | GenericAlias,
-    index: int | ToBeDetermined,
+    index: int | slice | ToBeDetermined,
 ):
     possible_types = []
     out_origin: type[list] | type[tuple] | type[UnionType] | None = get_origin(
@@ -490,19 +505,28 @@ def scalar_item_reduce_input_type(
             input_origin, index, is_variadic, raise_error=True
         ):
             if index == ... or input_origin is list:
-                for arg in input_type.__args__:
-                    if find_intersection_type(output_type, arg):
-                        return input_type
+                if isinstance(index, int):
+                    for arg in input_type.__args__:
+                        if find_intersection_type(output_type, arg):
+                            return input_type
+                else:
+                    return input_type
+
             elif input_origin is tuple:
-                possible_types = [
-                    arg if idx != index else find_intersection_type(arg, output_type)
-                    for idx, arg in enumerate(input_type.__args__)
-                ]
-                return (
-                    input_origin[*possible_types, ...]  # type: ignore
-                    if is_variadic
-                    else input_origin[*possible_types]  # type: ignore
-                )
+                if isinstance(index, int):
+                    possible_types = [
+                        arg
+                        if idx != index
+                        else find_intersection_type(arg, output_type)
+                        for idx, arg in enumerate(input_type.__args__)
+                    ]
+                    return (
+                        input_origin[*possible_types, ...]  # type: ignore
+                        if is_variadic
+                        else input_origin[*possible_types]  # type: ignore
+                    )
+                else:
+                    return input_type
     else:
         return input_type
 
@@ -514,7 +538,11 @@ def scalar_item_type_constraint(output: Scalar, input: Scalar, index: Scalar):
     input_type = input._type
     output_type = output._type
     index_value = index.value
-    assert isinstance(index_value, ToBeDetermined) or type(index_value) is int
+    assert (
+        isinstance(index_value, ToBeDetermined)
+        or type(index_value) is int
+        or type(index_value) is slice
+    )
 
     if not (
         isinstance(input_type, UnionType)
@@ -3291,7 +3319,11 @@ def scalar_item_constraints(
         or type(input.value) is list
     )
 
-    assert isinstance(index.value, ToBeDetermined) or type(index.value) is int
+    assert (
+        isinstance(index.value, ToBeDetermined)
+        or type(index.value) is int
+        or type(index.value) is slice
+    )
 
     updates = Updates()
     status = False
@@ -3301,7 +3333,9 @@ def scalar_item_constraints(
     ):
         updates |= output.set_value(input.value[index.value])
         status = True
-    elif not isinstance(input.value, ToBeDetermined) and isinstance(output.value, int):
+    elif not isinstance(input.value, ToBeDetermined) and isinstance(
+        output.value, int | float | bool
+    ):
         # Try to infer index value from input-output values. If
         # output value appears only once in input sequence, write its
         # index as the value of index argument.
@@ -3429,7 +3463,6 @@ def tensor_item_constraints(
                     input_shape.root,
                     (output_suffix + input_shape.reverse[idx_suf:])[::-1],
                 )
-
     return status, updated_symbols
 
 

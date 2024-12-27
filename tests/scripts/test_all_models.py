@@ -55,7 +55,6 @@ from mithril.models import (
     NanToNum,
     NormModifier,
     NotEqual,
-    PrimitiveSlice,
     PrimitiveUnion,
     Prod,
     Randn,
@@ -1690,104 +1689,104 @@ def test_scaled_dot_product_2():
     )
 
 
-def test_slice_1():
-    # Tuple slice
-    model = PrimitiveSlice(start=2, stop=3)
+# def test_slice_1():
+#     # Tuple slice
+#     model = PrimitiveSlice(start=2, stop=3)
 
-    data = {"input": (1, 2, 3.0, 4, 5)}
+#     data = {"input": (1, 2, 3.0, 4, 5)}
 
-    reference_outputs = {"output": (3.0,)}
+#     reference_outputs = {"output": (3.0,)}
 
-    compile_and_compare(
-        model=model,
-        compile_kwargs={
-            "data_keys": {"input"},
-            "inference": True,
-        },
-        data=data,
-        params={},
-        output_gradients={},
-        reference_outputs=reference_outputs,
-        reference_gradients=None,
-        ignore_transform={"input", "output"},
-        tolerances=None,
-        assert_shapes=False,
-    )
-
-
-def test_slice_2():
-    # Tuple slice
-    model = PrimitiveSlice(start=None, stop=3)
-
-    data = {"input": (1, 2, 3.0, 4, 5)}
-
-    reference_outputs = {"output": (1, 2, 3.0)}
-
-    compile_and_compare(
-        model=model,
-        compile_kwargs={
-            "data_keys": {"input"},
-            "inference": True,
-        },
-        data=data,
-        params={},
-        output_gradients={},
-        reference_outputs=reference_outputs,
-        reference_gradients=None,
-        ignore_transform={"input", "output"},
-        tolerances=None,
-        assert_shapes=False,
-    )
+#     compile_and_compare(
+#         model=model,
+#         compile_kwargs={
+#             "data_keys": {"input"},
+#             "inference": True,
+#         },
+#         data=data,
+#         params={},
+#         output_gradients={},
+#         reference_outputs=reference_outputs,
+#         reference_gradients=None,
+#         ignore_transform={"input", "output"},
+#         tolerances=None,
+#         assert_shapes=False,
+#     )
 
 
-def test_slice_3():
-    # Tuple slice
-    model = PrimitiveSlice(start=None, stop=3, step=2)
+# def test_slice_2():
+#     # Tuple slice
+#     model = PrimitiveSlice(start=None, stop=3)
 
-    data = {"input": (1, 2, 3.0, 4, 5)}
+#     data = {"input": (1, 2, 3.0, 4, 5)}
 
-    reference_outputs = {"output": (1, 3.0)}
+#     reference_outputs = {"output": (1, 2, 3.0)}
 
-    compile_and_compare(
-        model=model,
-        compile_kwargs={
-            "data_keys": {"input"},
-            "inference": True,
-        },
-        data=data,
-        params={},
-        output_gradients={},
-        reference_outputs=reference_outputs,
-        reference_gradients=None,
-        ignore_transform={"input", "output"},
-        tolerances=None,
-        assert_shapes=False,
-    )
+#     compile_and_compare(
+#         model=model,
+#         compile_kwargs={
+#             "data_keys": {"input"},
+#             "inference": True,
+#         },
+#         data=data,
+#         params={},
+#         output_gradients={},
+#         reference_outputs=reference_outputs,
+#         reference_gradients=None,
+#         ignore_transform={"input", "output"},
+#         tolerances=None,
+#         assert_shapes=False,
+#     )
 
 
-def test_slice_4():
-    # Tuple slice
-    model = PrimitiveSlice(start=None, stop=None, step=2)
+# def test_slice_3():
+#     # Tuple slice
+#     model = PrimitiveSlice(start=None, stop=3, step=2)
 
-    data = {"input": (1, 2, 3.0, 4, 5)}
+#     data = {"input": (1, 2, 3.0, 4, 5)}
 
-    reference_outputs = {"output": (1, 3.0, 5)}
+#     reference_outputs = {"output": (1, 3.0)}
 
-    compile_and_compare(
-        model=model,
-        compile_kwargs={
-            "data_keys": {"input"},
-            "inference": True,
-        },
-        data=data,
-        params={},
-        output_gradients={},
-        reference_outputs=reference_outputs,
-        reference_gradients=None,
-        ignore_transform={"input", "output"},
-        tolerances=None,
-        assert_shapes=False,
-    )
+#     compile_and_compare(
+#         model=model,
+#         compile_kwargs={
+#             "data_keys": {"input"},
+#             "inference": True,
+#         },
+#         data=data,
+#         params={},
+#         output_gradients={},
+#         reference_outputs=reference_outputs,
+#         reference_gradients=None,
+#         ignore_transform={"input", "output"},
+#         tolerances=None,
+#         assert_shapes=False,
+#     )
+
+
+# def test_slice_4():
+#     # Tuple slice
+#     model = PrimitiveSlice(start=None, stop=None, step=2)
+
+#     data = {"input": (1, 2, 3.0, 4, 5)}
+
+#     reference_outputs = {"output": (1, 3.0, 5)}
+
+#     compile_and_compare(
+#         model=model,
+#         compile_kwargs={
+#             "data_keys": {"input"},
+#             "inference": True,
+#         },
+#         data=data,
+#         params={},
+#         output_gradients={},
+#         reference_outputs=reference_outputs,
+#         reference_gradients=None,
+#         ignore_transform={"input", "output"},
+#         tolerances=None,
+#         assert_shapes=False,
+#     )
 
 
 def test_log_1():

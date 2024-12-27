@@ -514,7 +514,6 @@ class PhysicalModel(GenericDataType[DataType]):
 
         # Set given shapes.
         self.data_store.set_shapes(shapes)
-
         for node in self._flat_graph.nodes.values():
             conn_data = node.model.conns.get_connection("output")
             assert conn_data is not None

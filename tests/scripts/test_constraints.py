@@ -6278,6 +6278,29 @@ def test_tensor_item_constraints_24():
     )
 
 
+def test_tensor_item_constraints_25():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "input": [10, 1, 2],
+        "output": ["u1", 1, 2],
+    }
+    final_shapes = {
+        "input": [10, 1, 2],
+        "output": [5, 1, 2],
+        "index": [],
+    }
+    scalar_info = {"index": Scalar(value=(slice(5, None, None)))}
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        tensor_item_constraints,
+        True,
+        {"output"},
+        scalar_info,
+    )
+
+
 def test_split_constraints_1():
     shapes: dict[str, list[int | str | tuple]] = {
         "input": [6, 4, 5],

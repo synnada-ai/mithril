@@ -860,19 +860,41 @@ class TemplateBase:
         key: slice
         | int
         | EllipsisType
-        | tuple[slice | int | None | EllipsisType, ...]
+        | tuple[slice | int | None | EllipsisType | TemplateBase, ...]
         | IOKey
+        | TemplateBase
         | None,
     ):
-        if key is ...:
-            key = slice(None)
-        if isinstance(key, slice):
-            start, stop, step = key.start, key.stop, key.step
-            return ExtendTemplate(connections=[self, start, stop, step], model="slice")
-        elif isinstance(key, int | tuple):
-            return ExtendTemplate(connections=[self, key], model="get_item")
-        else:
-            raise TypeError(f"Unsupported key type: {type(key)}")
+        match key:
+            case slice():
+                slice_output = ExtendTemplate(
+                    connections=[key.start, key.stop, key.step], model="slice"
+                )
+                output = ExtendTemplate(connections=[self, slice_output], model="index")
+
+            case int() | EllipsisType() | None:
+                output = ExtendTemplate(connections=[self, key], model="index")
+
+            case tuple():
+                connections: list[TemplateBase | int | None | EllipsisType] = []
+                for item in key:
+                    if isinstance(item, slice):
+                        slice_output = ExtendTemplate(
+                            connections=[item.start, item.stop, item.step],
+                            model="slice",
+                        )
+                        connections.append(slice_output)
+                    else:
+                        connections.append(item)
+                tuple_template = ExtendTemplate(
+                    connections=connections,  # type: ignore
+                    model="to_tuple",
+                    defaults={"n": len(key)},
+                )
+                output = ExtendTemplate(
+                    connections=[self, tuple_template], model="index"
+                )
+        return output
 
     def __add__(self, other: TemplateConnectionType):
         return ExtendTemplate(connections=[self, other], model="add")
@@ -906,12 +928,12 @@ class TemplateBase:
 
     def __pow__(self, other: TemplateConnectionType):
         return ExtendTemplate(
-            connections=[self, other], model="pow", defaults={"robust", "threshold"}
+            connections=[self, other], model="pow", defaults={"robust": False}
         )
 
     def __rpow__(self, other: TemplateConnectionType):
         return ExtendTemplate(
-            connections=[other, self], model="pow", defaults={"robust", "threshold"}
+            connections=[other, self], model="pow", defaults={"robust": False}
         )
 
     def __matmul__(self, other: TemplateConnectionType):
@@ -1061,7 +1083,7 @@ class TemplateBase:
 
     def sqrt(self):
         return ExtendTemplate(
-            connections=[self], model="sqrt", defaults={"robust", "cutoff"}
+            connections=[self], model="sqrt", defaults={"robust": False}
         )
 
     def exp(self):
@@ -1084,7 +1106,7 @@ class ExtendTemplate(TemplateBase):
         self,
         connections: list[TemplateConnectionType],
         model: str,
-        defaults: set[str] | None = None,
+        defaults: dict[str, Any] | None = None,
     ) -> None:
         for connection in connections:
             if isinstance(connection, str):
@@ -1096,7 +1118,7 @@ class ExtendTemplate(TemplateBase):
         self.model = model
 
         if defaults is None:
-            defaults = set()
+            defaults = {}
         self.defaults = defaults
         self.output_connection = None
 
@@ -1208,6 +1230,7 @@ TemplateConnectionType = (
     | int
     | float
     | list[int | float]
+    | EllipsisType
     | tuple[slice | int | None | EllipsisType, ...]
     | None
 )
