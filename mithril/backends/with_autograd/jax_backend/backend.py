@@ -89,6 +89,9 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
     def device(self):
         return utils.get_device(self._device)
 
+    def get_device(self):
+        return self._device
+
     # TODO: This property is weird! Investigate why this property is used.
     @property
     def DataType(self):  # noqa: N802
@@ -140,7 +143,7 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         """
         return data.block_until_ready()
 
-    def _register_callable(
+    def register_callable(
         self, fn: Callable[..., Any], fn_name: str, jit: bool = False
     ):
         assert (

@@ -2538,7 +2538,7 @@ def test_valued_conns_elevated_with_iokey():
     )
     # Note that string naming does not cause the connection
     # to be elevated as input to the upper level model.
-    assert model._input_keys == {"input", "start_dim"}
+    assert model.input_keys == {"input", "start_dim"}
     assert model.conns.latent_input_keys == {"end_dim"}
 
 
@@ -2554,7 +2554,7 @@ def test_valued_conns_elevated_with_unexposed_iokey():
     )
     # Note that string naming does not cause the connection
     # to be elevated as input to the upper level model.
-    assert model._input_keys == {"input", "start_dim"}
+    assert model.input_keys == {"input", "start_dim"}
     assert model.conns.latent_input_keys == {"end_dim"}
 
 
@@ -2562,7 +2562,7 @@ def test_scalar_conns_elevated_with_immediate_extend_value():
     model = Model()
     flatten = Flatten(start_dim=TBD, end_dim=TBD)
     model += flatten(input="input", start_dim=0, end_dim=4, output=IOKey(name="output"))
-    assert len(model._input_keys) == 3
+    assert len(model.input_keys) == 3
     assert len(model.conns.latent_input_keys) == 0
 
 

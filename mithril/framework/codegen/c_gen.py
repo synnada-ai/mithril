@@ -164,7 +164,7 @@ class CGen(CodeGen[PyArray]):
 
             # Create gradients for all params
             for key in (
-                self.pm._flat_graph.all_source_keys
+                self.pm.flat_graph.all_source_keys
                 - self.pm.data_store.all_static_keys
                 - self.pm.data_store.unused_keys
                 - self.pm.ignore_grad_keys
@@ -199,19 +199,19 @@ class CGen(CodeGen[PyArray]):
         unused_keys = self.pm.data_store.unused_keys
         cached_data_keys = self.pm.data_store.cached_data.keys()
 
-        for output_key in self.pm._flat_graph.topological_order:
+        for output_key in self.pm.flat_graph.topological_order:
             # Staticly infered and unused model will not be added
             if output_key in (cached_data_keys | unused_keys):
                 continue
 
-            model = self.pm._flat_graph.get_model(output_key)
-            inputs = self.pm._flat_graph.get_source_keys(output_key)
+            model = self.pm.flat_graph.get_model(output_key)
+            inputs = self.pm.flat_graph.get_source_keys(output_key)
 
             # In C backend we need to pass output array as first argument
             inputs = [output_key] + inputs
 
             # Create primitive call
-            p_call = self.create_primitive_call(model._formula_key, inputs)
+            p_call = self.create_primitive_call(model.formula_key, inputs)
             fn_body.append(p_call)
 
             used_keys.add(output_key)
@@ -238,13 +238,13 @@ class CGen(CodeGen[PyArray]):
             set(), self.pm._output_keys, all_ignored_keys, update_graph=False
         )
 
-        for output_key in reversed(self.pm._flat_graph.topological_order):
+        for output_key in reversed(self.pm.flat_graph.topological_order):
             # Staticly infered and unused model will not be added
             if output_key in all_ignored_keys:
                 continue
 
-            model = self.pm._flat_graph.get_model(output_key)
-            inputs = self.pm._flat_graph.get_source_keys(output_key)
+            model = self.pm.flat_graph.get_model(output_key)
+            inputs = self.pm.flat_graph.get_source_keys(output_key)
 
             # Assume all inputs are Array
             grad_inputs = [input_key + "_grad" for input_key in inputs]
@@ -257,7 +257,7 @@ class CGen(CodeGen[PyArray]):
 
                 # Create primitive call
                 p_call = self.create_primitive_call(
-                    model._formula_key + self.BACKWARD_FN_SUFFIX, fn_inputs
+                    model.formula_key + self.BACKWARD_FN_SUFFIX, fn_inputs
                 )
                 fn_body.append(p_call)
 

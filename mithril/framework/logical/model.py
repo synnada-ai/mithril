@@ -164,7 +164,7 @@ class Model(BaseModel):
     ) -> None:
         self.dag: dict[BaseModel, dict[str, ConnectionData]] = {}
         self.inter_key_count: int = 0
-        self._formula_key: str | None = None
+        self.formula_key: str | None = None
 
         super().__init__(name=name, enforce_jit=enforce_jit)
 
@@ -221,15 +221,15 @@ class Model(BaseModel):
             if new_name is None:  # Non-named connections.
                 # Set connection as output and update dependency map.
                 self.conns.set_connection_type(conn_data, KeyType.OUTPUT)
-                self.dependency_map._update_globals(OrderedSet({conn_data}))
+                self.dependency_map.update_globals(OrderedSet({conn_data}))
 
             else:  # Named connections.
                 # Create new output connection with given key name.
 
                 data: Tensor | Scalar = (
-                    Scalar(metadata.data._type)
+                    Scalar(metadata.data.type)
                     if isinstance(metadata.data, Scalar)
-                    else Tensor(metadata.data.shape, metadata.data._type)
+                    else Tensor(metadata.data.shape, metadata.data.type)
                 )
 
                 new_conn = self.create_connection(IOHyperEdge(data), new_name)
@@ -241,7 +241,7 @@ class Model(BaseModel):
                 self.merge_connections(new_conn, conn_data)
 
     def _set_formula_key(self, formula_key: str):
-        self._formula_key = formula_key
+        self.formula_key = formula_key
 
     def _check_multi_write(
         self,
@@ -250,12 +250,12 @@ class Model(BaseModel):
         connection: ConnectionData,
     ) -> None:
         conn_is_output = (
-            self.dependency_map._local_output_dependency_map.get(connection, None)
+            self.dependency_map.local_output_dependency_map.get(connection, None)
             is not None
         )
         if local_connection.key in self.conns.all and connection.key in self.conns.all:
             local_conn_is_output = (
-                self.dependency_map._local_output_dependency_map.get(
+                self.dependency_map.local_output_dependency_map.get(
                     local_connection, None
                 )
                 is not None
@@ -389,12 +389,12 @@ class Model(BaseModel):
         given_connection: IOKey,
     ) -> tuple[ConnectionData, Updates]:
         updates = Updates()
-        is_input = local_key in model._input_keys
+        is_input = local_key in model.input_keys
         local_connection = model.conns.get_connection(local_key)
         assert local_connection is not None, "Connection is not found!"
         is_not_valued = local_connection.metadata.data.value is TBD
 
-        d_map = self.dependency_map._local_output_dependency_map
+        d_map = self.dependency_map.local_output_dependency_map
         expose = given_connection.expose
         outer_key = given_connection.name
         con_obj = None
@@ -546,7 +546,7 @@ class Model(BaseModel):
             connections: list[ConnectionType] = []
             for idx, connection in enumerate(template.connections):
                 if isinstance(connection, ExtendTemplate):
-                    conn = model.conns.get_connection(list(model._input_keys)[idx])
+                    conn = model.conns.get_connection(list(model.input_keys)[idx])
                     assert conn is not None
                     conn_type = conn.metadata.data.__class__
                     connections.append(
@@ -562,7 +562,7 @@ class Model(BaseModel):
                 **{
                     local_key: outer_con
                     for local_key, outer_con in zip(
-                        model._input_keys, connections, strict=False
+                        model.input_keys, connections, strict=False
                     )
                 },
             )
@@ -596,11 +596,11 @@ class Model(BaseModel):
         if connection2 in self.conns.output_connections:
             if con1_key not in self.conns.output_keys:
                 self.conns.set_connection_type(connection1, KeyType.OUTPUT)
-            if con1_key in self._input_keys:
+            if con1_key in self.input_keys:
                 self.conns.set_connection_type(main_connection1, KeyType.INTERNAL)
         elif (
             main_connection2 in self.conns.internal_connections
-            and con1_key in self._input_keys
+            and con1_key in self.input_keys
         ):
             self.conns.set_connection_type(main_connection1, KeyType.INTERNAL)
 
@@ -618,35 +618,35 @@ class Model(BaseModel):
         for (
             o_conn,
             key_info,
-        ) in self.dependency_map._local_output_dependency_map.items():
+        ) in self.dependency_map.local_output_dependency_map.items():
             if main_connection2 in key_info[1]:
-                self.dependency_map._local_output_dependency_map[o_conn][1].remove(
+                self.dependency_map.local_output_dependency_map[o_conn][1].remove(
                     main_connection2
                 )
-                self.dependency_map._local_output_dependency_map[o_conn][1].add(
+                self.dependency_map.local_output_dependency_map[o_conn][1].add(
                     main_connection1
                 )
 
-        if main_connection2 in self.dependency_map._local_output_dependency_map:
-            self.dependency_map._local_output_dependency_map[main_connection1] = (
-                self.dependency_map._local_output_dependency_map.pop(main_connection2)
+        if main_connection2 in self.dependency_map.local_output_dependency_map:
+            self.dependency_map.local_output_dependency_map[main_connection1] = (
+                self.dependency_map.local_output_dependency_map.pop(main_connection2)
             )
 
-        if main_connection2 in self.dependency_map._local_input_dependency_map:
-            old_dependencies = self.dependency_map._local_input_dependency_map.pop(
+        if main_connection2 in self.dependency_map.local_input_dependency_map:
+            old_dependencies = self.dependency_map.local_input_dependency_map.pop(
                 main_connection2
             )
-            self.dependency_map._local_input_dependency_map.setdefault(
+            self.dependency_map.local_input_dependency_map.setdefault(
                 main_connection1, old_dependencies
             )
             for dependecy in old_dependencies:
                 if (
                     dependecy
-                    not in self.dependency_map._local_input_dependency_map[
+                    not in self.dependency_map.local_input_dependency_map[
                         main_connection1
                     ]
                 ):
-                    self.dependency_map._local_input_dependency_map[
+                    self.dependency_map.local_input_dependency_map[
                         main_connection1
                     ].append(dependecy)
 
@@ -752,7 +752,7 @@ class Model(BaseModel):
         if isinstance(c_input := model.canonical_input, Connection):
             c_input_obj = self.conns.get_con_by_metadata(c_input.data.metadata)
             if c_input_obj is not None and c_input_obj.metadata.data.value is TBD:
-                if c_input_obj not in self.dependency_map._local_output_dependency_map:
+                if c_input_obj not in self.dependency_map.local_output_dependency_map:
                     # Update canonical input with model canonical input
                     if c_input_obj not in self.conns.input_connections:
                         self._canonical_input = NOT_AVAILABLE
@@ -762,7 +762,7 @@ class Model(BaseModel):
 
                 elif (
                     self._canonical_input
-                    in self.dependency_map._local_output_dependency_map
+                    in self.dependency_map.local_output_dependency_map
                 ):
                     # Model canonical output used as input than make it None
                     self._canonical_input = NOT_AVAILABLE
@@ -770,7 +770,7 @@ class Model(BaseModel):
         if isinstance(c_output := model.canonical_output, Connection):
             c_output_obj = self.conns.get_con_by_metadata(c_output.data.metadata)
 
-            if c_output_obj not in self.dependency_map._local_input_dependency_map:
+            if c_output_obj not in self.dependency_map.local_input_dependency_map:
                 # Update canonical output with model canonical output
                 if c_output_obj is None:
                     self._canonical_output = NOT_AVAILABLE
@@ -778,8 +778,7 @@ class Model(BaseModel):
                     self._canonical_output = c_output_obj
 
             elif (
-                self._canonical_output
-                in self.dependency_map._local_input_dependency_map
+                self._canonical_output in self.dependency_map.local_input_dependency_map
             ):
                 # Model canonical output used as input than make it None
                 self._canonical_output = NOT_AVAILABLE
@@ -794,13 +793,13 @@ class Model(BaseModel):
         # Call model with empty arguments if directly model is given.
         if isinstance(info, PrimitiveModel | Model):
             info = info()
-        model, kwargs = info._model, info._connections
+        model, kwargs = info.model, info.connections
 
         if (
-            model._canonical_input is not NOT_AVAILABLE
+            model.canonical_input is not NOT_AVAILABLE
             and (
-                model._canonical_input.key not in kwargs
-                or kwargs[model._canonical_input.key] is NOT_GIVEN
+                model.canonical_input.key not in kwargs
+                or kwargs[model.canonical_input.key] is NOT_GIVEN
             )
             and len(self.dag) > 0
         ):
@@ -810,7 +809,7 @@ class Model(BaseModel):
             _value = value.name if isinstance(value, IOKey) else value
 
             if isinstance(_value, str) and _value == "":
-                if key in model._input_keys:
+                if key in model.input_keys:
                     _value = NOT_GIVEN
                 else:
                     raise KeyError(
@@ -870,7 +869,7 @@ class Model(BaseModel):
         key_origin = key_prefix + key_origin
         return new_key, key_origin
 
-    def _generate_keys(
+    def generate_keys(
         self,
         symbolic: bool = True,
         include_internals: bool = True,
@@ -884,8 +883,8 @@ class Model(BaseModel):
             input_set = set(self.external_keys)
             keys = "external_keys"
         else:
-            input_set = set(self._input_keys)
-            keys = "_input_keys"
+            input_set = set(self.input_keys)
+            keys = "input_keys"
 
         sorted_inputs = [
             self.dag[m][key].key
@@ -902,7 +901,7 @@ class Model(BaseModel):
             if (
                 self._canonical_input is not NOT_AVAILABLE
                 and key == self._canonical_input.key
-                and "input" not in self._input_keys
+                and "input" not in self.input_keys
             ):
                 # Handle canonical input
                 new_key = "input"
@@ -911,7 +910,7 @@ class Model(BaseModel):
                 assert key_origin is not None
                 # Add prefix until key_origin not in underscored_keys and input_keys.
                 while (
-                    key_origin in (underscored_keys | self._input_keys)
+                    key_origin in (underscored_keys | self.input_keys)
                     or key_origin == "input"
                 ):
                     key_origin = "_" + key_origin
@@ -928,25 +927,25 @@ class Model(BaseModel):
                         # (add index to initial key).
                         raw_key = raw_keys[key_origin][0]
                         key_mappings[raw_key] = key_mappings[raw_key] + "_0"
-                        if key_mappings[raw_key] in self._input_keys:
+                        if key_mappings[raw_key] in self.input_keys:
                             new_key, key_origin = self._update_key_name(
                                 new_key,
                                 underscored_keys,
                                 raw_keys,
                                 key_mappings,
                                 key_origin,
-                                set(self._input_keys),
+                                set(self.input_keys),
                             )
 
                 new_key = key_origin + key_suffix
-                if new_key in self._input_keys:
+                if new_key in self.input_keys:
                     new_key, key_origin = self._update_key_name(
                         new_key,
                         underscored_keys,
                         raw_keys,
                         key_mappings,
                         key_origin,
-                        set(self._input_keys),
+                        set(self.input_keys),
                     )
                 raw_keys[key_origin].append(key)
             key_mappings[key] = new_key
@@ -1039,7 +1038,9 @@ class Model(BaseModel):
         ):
             # self.output_keys += (self.canonical_output.key,)
             assert isinstance(self._canonical_output, ConnectionData)
-            self.conns._set_connection_type(self._canonical_output, KeyType.OUTPUT)
+            self.conns.set_connection_type(
+                self._canonical_output, KeyType.OUTPUT, safe=False
+            )
             # setattr(self, self._canonical_output.key, self.canonical_output)
 
         self.dependency_map.update_all_keys()
@@ -1050,7 +1051,7 @@ class Model(BaseModel):
             if m.name is None:
                 m.name = model_names[m]
 
-        if self._formula_key is not None:
+        if self.formula_key is not None:
             # Must be convertable to primitive.
             assert len(self.conns.output_keys) == 1, (
                 "Logical models have altenative primitive implementation must "
@@ -1131,12 +1132,12 @@ class Model(BaseModel):
         data_memo: Mapping[int, Tensor | Scalar] | None = None,
     ):
         conn_info: dict[str, tuple[dict[str, list[str]], dict[str, list[str]]]] = {}
-        if self._input_keys:
+        if self.input_keys:
             if data_to_key_map is None:
                 data_to_key_map = {}
             if data_memo is None:
                 data_memo = {}
-            model_key_map = {}
+            model_key_map: dict[BaseModel, dict[str, str]] = {}
 
             # handle the case when model is constructed with += operation. In that case,
             # directly take canonical output as the output_key.
@@ -1150,7 +1151,7 @@ class Model(BaseModel):
                 else self.conns.output_keys
             )
             # extract key mappings and data map of outer model
-            key_mappings = self._generate_keys(
+            key_mappings = self.generate_keys(
                 include_internals=False, include_outputs=True
             )
             data_map = {key: conn.metadata.data for key, conn in self.conns.all.items()}
@@ -1164,9 +1165,9 @@ class Model(BaseModel):
                 # set default structure of conn_info and shape_info
                 conns = conn_info.setdefault(model_name, ({}, {}))
                 # include input keys with Tensor value
-                input_keys = tuple(model._input_keys)
+                input_keys = tuple(model.input_keys)
                 # Generate sub_model key_map and data map
-                model_key_map[model] = m_key_mappings = model._generate_keys(
+                model_key_map[model] = m_key_mappings = model.generate_keys(
                     include_internals=False, include_outputs=True
                 )
                 m_data_map = {
@@ -1198,22 +1199,22 @@ class Model(BaseModel):
                     if (val := key_data.value) is not TBD:
                         conn.append(str(val))
 
-                    elif outer_key in self._input_keys:
+                    elif outer_key in self.input_keys:
                         # If outer_key in input_keys of overall model, it means
                         # the input key is overall input to the model. Do the
                         # updates accordingly
                         input_name = ["'" + key + "'" for key in updated_outer_key]
                         conn.extend(input_name)
                     else:
-                        # if input_key is not in self._input_keys, that means this
+                        # if input_key is not in self.input_keys, that means this
                         # input key connected to a model and it is an internal
                         # connection. Find the connected model and do the intializations
-                        con_model = self.dependency_map._local_output_dependency_map[
+                        con_model = self.dependency_map.local_output_dependency_map[
                             outer_conn
                         ][0]
                         con_generated_keys = model_key_map.setdefault(
                             con_model,
-                            con_model._generate_keys(
+                            con_model.generate_keys(
                                 include_internals=False, include_outputs=True
                             ),
                         )
@@ -1239,15 +1240,15 @@ class Model(BaseModel):
                 # Lastly, traverse through output keys of the overall model
                 # Find the connected model, and find the inner key by finding
                 # the metadata
-                metadata = self.conns._get_metadata(outer_key)
+                metadata = self.conns.get_metadata(outer_key)
                 outer_out_conn = self.conns.get_connection(outer_key)
 
                 assert metadata is not None, "Metadata is not found!"
                 assert outer_out_conn is not None, "Connection is not found"
 
-                model = self.dependency_map._local_output_dependency_map[
-                    outer_out_conn
-                ][0]
+                model = self.dependency_map.local_output_dependency_map[outer_out_conn][
+                    0
+                ]
                 other_conn = model.conns.get_con_by_metadata(metadata)
                 assert other_conn is not None, "Connection is not found"
 

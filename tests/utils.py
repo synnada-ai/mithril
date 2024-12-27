@@ -85,8 +85,8 @@ def check_physical_models(
 ):
     if check_internals:
         # Check flat_graphs.
-        assert pm_1._flat_graph.all_source_keys == pm_2._flat_graph.all_source_keys
-        assert pm_1._flat_graph.all_target_keys == pm_2._flat_graph.all_target_keys
+        assert pm_1.flat_graph.all_source_keys == pm_2.flat_graph.all_source_keys
+        assert pm_1.flat_graph.all_target_keys == pm_2.flat_graph.all_target_keys
 
         # Check data stores.
         for key, value in pm_1.data.items():

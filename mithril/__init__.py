@@ -126,11 +126,8 @@ def compile(
         raise Exception("Model is not jittable. Can only be compiled with jit = False.")
     # TrainModel model requires to be finalized before compilation.
     if isinstance(model, TrainModel):
-        model._finalize()
+        model.finalize()
 
-    # Generate Physical Model.
-    if not isinstance(model, BaseModel):
-        raise Exception("Unsupported model type!")
     if model.parent is not None:
         raise ValueError("Model with a parent could not be compiled!")
 

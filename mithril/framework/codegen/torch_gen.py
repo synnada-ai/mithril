@@ -53,7 +53,7 @@ class TorchCodeGen(PythonCodeGen[torch.Tensor]):
 
         if (
             formula_key in self.backend.array_creation_funcs
-            and self.backend._raw_device_mesh is not None
+            and self.backend.get_raw_device_mesh() is not None
         ):
             # Import device mesh and create base device mesh only once!
             if not self.is_parallel_defined:
@@ -69,7 +69,7 @@ class TorchCodeGen(PythonCodeGen[torch.Tensor]):
                         attr="device_meshes",
                         ctx=ast.Load(),
                     ),
-                    slice=ast.Constant(value=self.backend._raw_device_mesh),
+                    slice=ast.Constant(value=self.backend.get_raw_device_mesh()),
                     ctx=ast.Load(),
                 )
                 base_device_mesh_assgn = ast.Assign(
