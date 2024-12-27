@@ -13,7 +13,6 @@
 # limitations under the License.
 
 from collections.abc import Callable
-from functools import partial
 from typing import Any
 
 import numpy as np
@@ -104,52 +103,6 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
         self.seed = seed
         np.random.seed(seed)
 
-    def _creation_fn_wrapper(
-        self, fn: Callable[..., np.ndarray[Any, Any]]
-    ) -> Callable[..., np.ndarray[Any, Any]]:
-        """
-        Wrapper for NumPy array creation functions.
-
-        Parameters
-        ----------
-        fn: Callable
-            The original array creation function.
-
-        Returns
-        -------
-        Callable
-            A wrapped function that creates NumPy arrays with specified dtype.
-
-        Notes
-        -----
-        This wrapper ensures that NumPy arrays are created with the correct dtype.
-        """
-        return partial(utils.creation_fn_wrapper, fn=fn, precision=self.precision)
-
-    def _conversion_fn_wrapper(
-        self, fn: Callable[..., np.ndarray[Any, Any]]
-    ) -> Callable[..., np.ndarray[Any, Any]]:
-        """
-        Wrapper for NumPy array conversion functions.
-
-        Parameters
-        ----------
-        fn: Callable
-            The original array conversion function.
-
-        Returns
-        -------
-        Callable
-            A wrapped function that converts arrays to NumPy arrays with
-            specified dtype.
-
-        Notes
-        -----
-        This wrapper handles the conversion of arrays to NumPy arrays with
-        different dtypes.
-        """
-        return partial(utils.conversion_fn_wrapper, fn=fn, precision=self.precision)
-
     def accumulate_grads(
         self,
         gradient: np.ndarray[Any, Any],
@@ -159,45 +112,36 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
     ) -> np.ndarray[Any, Any]:
         return utils.accumulate_grads(gradient, input, cache, idx)
 
-    def array(self, input: Any, *, dtype: Dtype | None = None) -> np.ndarray[Any, Any]:
-        _dtype: np.dtype[Any] | None = None
-        if isinstance(dtype, Dtype):
-            _dtype = utils.dtype_map[dtype.name]
-        return self._conversion_fn_wrapper(np.array)(input, dtype=_dtype)
+    def array(self, data: Any, *, dtype: Dtype | None = None) -> np.ndarray[Any, Any]:
+        _dtype = utils.determine_dtype(data, dtype, self.precision)
+
+        return np.array(data, dtype=utils.dtype_map[_dtype])
 
     def zeros(
         self, *shape: int | tuple[int, ...] | list[int], dtype: Dtype | None = None
     ) -> np.ndarray[Any, Any]:
-        _dtype: np.dtype[Any] | None = None
-        if isinstance(dtype, Dtype):
-            _dtype = utils.dtype_map[dtype.name]
+        _dtype = self._process_dtype(dtype)
         _shape = process_shape(shape)
-        return self._creation_fn_wrapper(np.zeros)(shape=_shape, dtype=_dtype)
+        return np.zeros(_shape, dtype=_dtype)
 
     def ones(
         self, *shape: int | tuple[int, ...] | list[int], dtype: Dtype | None = None
     ) -> np.ndarray[Any, Any]:
-        _dtype: np.dtype[Any] | None = None
-        if isinstance(dtype, Dtype):
-            _dtype = utils.dtype_map[dtype.name]
+        _dtype = self._process_dtype(dtype)
         _shape = process_shape(shape)
-        return self._creation_fn_wrapper(np.ones)(shape=_shape, dtype=_dtype)
+        return np.ones(_shape, dtype=_dtype)
 
     def ones_like(
         self, input: np.ndarray[Any, Any], *, dtype: Dtype | None = None
     ) -> np.ndarray[Any, Any]:
-        _dtype: np.dtype[Any] | None = None
-        if isinstance(dtype, Dtype):
-            _dtype = utils.dtype_map[dtype.name]
-        return self._creation_fn_wrapper(np.ones_like)(input, dtype=_dtype)
+        _dtype = self._process_dtype(dtype)
+        return np.ones_like(input, dtype=_dtype)
 
     def zeros_like(
         self, input: np.ndarray[Any, Any], *, dtype: Dtype | None = None
     ) -> np.ndarray[Any, Any]:
-        _dtype: np.dtype[Any] | None = None
-        if isinstance(dtype, Dtype):
-            _dtype = utils.dtype_map[dtype.name]
-        return self._creation_fn_wrapper(np.zeros_like)(input, dtype=_dtype)
+        _dtype = self._process_dtype(dtype)
+        return np.zeros_like(input, dtype=_dtype)
 
     def randn(
         self,
@@ -205,11 +149,9 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
         dtype: Dtype | None = None,
         prng_key: Any = None,
     ) -> np.ndarray[Any, Any]:
-        _dtype: np.dtype[Any] | None = None
-        if isinstance(dtype, Dtype):
-            _dtype = utils.dtype_map[dtype.name]
+        _dtype = self._process_dtype(dtype)
         _shape = process_shape(shape)
-        return self._creation_fn_wrapper(np.random.randn)(*_shape, dtype=_dtype)
+        return np.array(np.random.randn(*_shape), dtype=_dtype)
 
     def rand(
         self,
@@ -217,11 +159,9 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
         dtype: Dtype | None = None,
         prng_key: Any = None,
     ) -> np.ndarray[Any, Any]:
-        _dtype: np.dtype[Any] | None = None
-        if isinstance(dtype, Dtype):
-            _dtype = utils.dtype_map[dtype.name]
+        _dtype = self._process_dtype(dtype)
         _shape = process_shape(shape)
-        return self._creation_fn_wrapper(np.random.rand)(*_shape, dtype=_dtype)
+        return np.array(np.random.rand(*_shape), dtype=_dtype)
 
     def randint(
         self,
@@ -231,13 +171,9 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
         dtype: Dtype | None = None,
         prng_key: Any = None,
     ) -> np.ndarray[Any, Any]:
-        _dtype: np.dtype[Any] | None = None
-        if isinstance(dtype, Dtype):
-            _dtype = utils.dtype_map[dtype.name]
+        _dtype = self._process_dtype(dtype, int)
         _shape = process_shape(shape)
-        return self._creation_fn_wrapper(np.random.randint)(
-            low=low, high=high, size=_shape, dtype=_dtype
-        )
+        return np.random.randint(low, high, size=_shape).astype(_dtype)
 
     def rand_uniform(
         self,
@@ -247,34 +183,33 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
         dtype: Dtype | None = None,
         prng_key: Any = None,
     ) -> np.ndarray[Any, Any]:
-        _dtype: np.dtype[Any] | None = None
-        if isinstance(dtype, Dtype):
-            _dtype = utils.dtype_map[dtype.name]
+        _dtype = self._process_dtype(dtype)
         _shape = process_shape(shape)
-        return self._creation_fn_wrapper(np.random.uniform)(
-            low=low, high=high, size=_shape, dtype=_dtype
-        )
+        return np.array(np.random.uniform(low, high, size=_shape), dtype=_dtype)
 
-    def arange(
-        self, *args: int | float, dtype: Dtype | None = None
+    def _arange(
+        self,
+        start: int | float,
+        stop: int | float,
+        step: int | float,
+        dtype: Dtype | None = None,
     ) -> np.ndarray[Any, Any]:
-        _dtype: np.dtype[Any] | None = None
-        if isinstance(dtype, Dtype):
-            _dtype = utils.dtype_map[dtype.name]
-        return self._creation_fn_wrapper(np.arange)(*args, dtype=_dtype)
+        default_type = (
+            float if any(isinstance(x, float) for x in (start, stop, step)) else int
+        )
+        _dtype = self._process_dtype(dtype, default_type)
+        return np.arange(start, stop, step, dtype=_dtype)
 
     def linspace(
         self,
         start: int | float | bool | np.ndarray[Any, Any],
         stop: int | float | bool | np.ndarray[Any, Any],
-        steps: int | np.ndarray[Any, Any],
+        steps: int,
         dtype: Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
     ) -> np.ndarray[Any, Any]:
-        _dtype: np.dtype[Any] | None = None
-        if isinstance(dtype, Dtype):
-            _dtype = utils.dtype_map[dtype.name]
-        return self._creation_fn_wrapper(np.linspace)(start, stop, steps, dtype=_dtype)
+        _dtype = self._process_dtype(dtype)
+        return np.linspace(start, stop, steps, dtype=_dtype)
 
     def flatten(
         self, input: np.ndarray[Any, Any], start_dim: int = 0, end_dim: int = -1
@@ -462,3 +397,15 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
             samples = np.squeeze(samples, axis=0)
 
         return samples
+
+    def _process_dtype(
+        self,
+        dtype: Dtype | None = None,
+        default_type: type[float] | type[int] | type[bool] = float,
+    ) -> np.dtype[Any]:
+        if isinstance(dtype, Dtype):
+            return utils.dtype_map[dtype.name]
+        elif dtype is None:
+            return utils.dtype_map[default_type.__name__ + str(self.precision)]
+        else:
+            raise ValueError(f"Invalid dtype {dtype}")

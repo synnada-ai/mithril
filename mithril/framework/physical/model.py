@@ -516,6 +516,9 @@ class PhysicalModel(GenericDataType[DataType]):
         self.jacobian_keys = jacobian_keys
         self.ignore_grad_keys: set[str] = set()
 
+        # Set given shapes.
+        self.data_store.set_shapes(shapes)
+
         for node in self.flat_graph.nodes.values():
             conn_data = node.model.conns.get_connection("output")
             assert conn_data is not None
@@ -555,9 +558,6 @@ class PhysicalModel(GenericDataType[DataType]):
         self.data_store._update_cached_data(updates)
 
         self.data_store.constraint_solver(updates)
-
-        # Set given shapes.
-        self.data_store.set_shapes(shapes)
 
         # Set given static keys
         self.data_store.set_static_keys(constant_keys)

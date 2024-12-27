@@ -96,24 +96,6 @@ class MlxBackend(Backend[mx.array]):
     def block_until_ready(self, data: mx.array):
         mx.eval(data)
 
-    def _creation_fn_wrapper(
-        self, fn: Callable[..., mx.array]
-    ) -> Callable[..., mx.array]:
-        return partial(
-            utils.creation_fn_wrapper,
-            fn=fn,
-            precision=self.precision,
-        )
-
-    def _conversion_fn_wrapper(
-        self, fn: Callable[..., mx.array]
-    ) -> Callable[..., mx.array]:
-        return partial(
-            utils.conversion_fn_wrapper,
-            fn=fn,
-            precision=self.precision,
-        )
-
     def _handle_dict_type_fun(
         self,
         *inputs: mx.array,
@@ -191,40 +173,34 @@ class MlxBackend(Backend[mx.array]):
         return [output]
 
     def array(self, input: Any, *, dtype: Dtype | None = None) -> mx.array:
-        _dtype: mx.Dtype | None = None
-        if isinstance(dtype, Dtype):
-            _dtype = utils.dtype_map[dtype.name]
-        return self._conversion_fn_wrapper(mx.array)(input, dtype=_dtype)
+        _dtype = utils.determine_dtype(input, dtype, self.precision)
+        return mx.array(input, dtype=utils.dtype_map[_dtype])
 
     def zeros(
         self, *shape: int | tuple[int, ...] | list[int], dtype: Dtype | None = None
     ) -> mx.array:
-        _dtype: mx.Dtype | None = None
-        if isinstance(dtype, Dtype):
-            _dtype = utils.dtype_map[dtype.name]
+        _dtype = self._process_dtype(dtype)
         _shape = process_shape(shape)
-        return self._creation_fn_wrapper(mx.zeros)(shape=_shape, dtype=_dtype)
+        return mx.zeros(_shape, dtype=_dtype)
 
     def ones(
         self, *shape: int | tuple[int, ...] | list[int], dtype: Dtype | None = None
     ) -> mx.array:
-        _dtype: mx.Dtype | None = None
-        if isinstance(dtype, Dtype):
-            _dtype = utils.dtype_map[dtype.name]
+        _dtype = self._process_dtype(dtype)
         _shape = process_shape(shape)
-        return self._creation_fn_wrapper(mx.ones)(shape=_shape, dtype=_dtype)
+        return mx.ones(_shape, dtype=_dtype)
 
     def ones_like(self, input: mx.array, *, dtype: Dtype | None = None) -> mx.array:
-        _dtype: mx.Dtype | None = None
-        if isinstance(dtype, Dtype):
-            _dtype = utils.dtype_map[dtype.name]
-        return self._creation_fn_wrapper(mx.ones_like)(input, dtype=_dtype)
+        if dtype is not None:
+            raise ValueError("dtype argument is not supported for ones_like")
+
+        return mx.ones_like(input)
 
     def zeros_like(self, input: mx.array, *, dtype: Dtype | None = None) -> mx.array:
-        _dtype: mx.Dtype | None = None
-        if isinstance(dtype, Dtype):
-            _dtype = utils.dtype_map[dtype.name]
-        return self._creation_fn_wrapper(mx.zeros_like)(input, dtype=_dtype)
+        if dtype is not None:
+            raise ValueError("dtype argument is not supported for ones_like")
+
+        return mx.zeros_like(input)
 
     def randn(
         self,
@@ -232,11 +208,9 @@ class MlxBackend(Backend[mx.array]):
         dtype: Dtype | None = None,
         prng_key: Any = None,
     ) -> mx.array:
-        _dtype: mx.Dtype | None = None
-        if isinstance(dtype, Dtype):
-            _dtype = utils.dtype_map[dtype.name]
+        _dtype = self._process_dtype(dtype)
         _shape = process_shape(shape)
-        return self._creation_fn_wrapper(mx.random.normal)(shape=_shape, dtype=_dtype)
+        return mx.random.normal(shape=_shape, dtype=_dtype)
 
     def rand(
         self,
@@ -244,11 +218,9 @@ class MlxBackend(Backend[mx.array]):
         dtype: Dtype | None = None,
         prng_key: Any = None,
     ) -> mx.array:
-        _dtype: mx.Dtype | None = None
-        if isinstance(dtype, Dtype):
-            _dtype = utils.dtype_map[dtype.name]
+        _dtype = self._process_dtype(dtype)
         _shape = process_shape(shape)
-        return self._creation_fn_wrapper(mx.random.uniform)(shape=_shape, dtype=_dtype)
+        return mx.random.uniform(shape=_shape, dtype=_dtype)
 
     def randint(
         self,
@@ -258,13 +230,9 @@ class MlxBackend(Backend[mx.array]):
         dtype: Dtype | None = None,
         prng_key: Any = None,
     ) -> mx.array:
-        _dtype: mx.Dtype | None = None
-        if isinstance(dtype, Dtype):
-            _dtype = utils.dtype_map[dtype.name]
+        _dtype = self._process_dtype(dtype, int)
         _shape = process_shape(shape)
-        return self._creation_fn_wrapper(mx.random.randint)(
-            low=low, high=high, shape=_shape, dtype=_dtype
-        )
+        return mx.random.randint(low, high, shape=_shape, dtype=_dtype)
 
     def rand_uniform(
         self,
@@ -274,31 +242,33 @@ class MlxBackend(Backend[mx.array]):
         dtype: Dtype | None = None,
         prng_key: Any = None,
     ) -> mx.array:
-        _dtype: mx.Dtype | None = None
-        if isinstance(dtype, Dtype):
-            _dtype = utils.dtype_map[dtype.name]
+        _dtype = self._process_dtype(dtype)
         _shape = process_shape(shape)
-        return self._creation_fn_wrapper(mx.random.uniform)(
-            low=low, high=high, shape=_shape, dtype=_dtype
-        )
+        return mx.random.uniform(low, high, shape=_shape, dtype=_dtype)
 
-    def arange(self, *args: float | int, dtype: Dtype | None = None) -> mx.array:
-        _dtype: mx.Dtype | None = None
-        if isinstance(dtype, Dtype):
-            _dtype = utils.dtype_map[dtype.name]
-        return self._creation_fn_wrapper(mx.arange)(*args, dtype=_dtype)
+    def _arange(
+        self,
+        start: int | float,
+        stop: int | float,
+        step: int | float,
+        dtype: Dtype | None = None,
+    ) -> mx.array:
+        default_type = (
+            float if any(isinstance(x, float) for x in (start, stop, step)) else int
+        )
+        _dtype = self._process_dtype(dtype, default_type)
+
+        return mx.arange(start, stop, step, dtype=_dtype)
 
     def linspace(
         self,
         start: int | float | bool | mx.array,
         stop: int | float | bool | mx.array,
-        steps: int | mx.array,
+        steps: int,
         dtype: Dtype | None = None,
     ) -> mx.array:
-        _dtype: mx.Dtype | None = None
-        if isinstance(dtype, Dtype):
-            _dtype = utils.dtype_map[dtype.name]
-        return self._creation_fn_wrapper(mx.linspace)(start, stop, steps, dtype=_dtype)
+        _dtype = self._process_dtype(dtype)
+        return mx.linspace(start, stop, steps, dtype=_dtype)
 
     def flatten(
         self, input: mx.array, start_dim: int = 0, end_dim: int = -1
@@ -676,3 +646,15 @@ class MlxBackend(Backend[mx.array]):
         self, fn: Callable[[mx.array], mx.array]
     ) -> Callable[[mx.array], mx.array]:
         return mx.vmap(fn)
+
+    def _process_dtype(
+        self,
+        dtype: Dtype | None = None,
+        default_type: type[float] | type[int] | type[bool] = float,
+    ) -> mx.Dtype:
+        if isinstance(dtype, Dtype):
+            return utils.dtype_map[dtype.name]
+        elif dtype is None:
+            return utils.dtype_map[default_type.__name__ + str(self.precision)]
+        else:
+            raise ValueError(f"Invalid dtype {dtype}")
