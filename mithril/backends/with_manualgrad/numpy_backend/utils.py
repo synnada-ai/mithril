@@ -308,55 +308,6 @@ def calc_input_slices(
     return slices
 
 
-def handle_dtype(dtype: Any) -> Any:
-    if isinstance(dtype, core.Dtype):
-        return dtype_map[dtype.name]
-    elif isinstance(dtype, str) and dtype in dtype_map:
-        return dtype_map[dtype]
-    else:
-        try:
-            return np.dtype(dtype)
-        except TypeError as err:
-            raise TypeError(f"Provided data type '{dtype}' not understood") from err
-
-
-def creation_fn_wrapper(
-    *args: Any,
-    fn: Callable[..., np.ndarray[Any, Any]],
-    precision: int,
-    dtype: core.Dtype | np.dtype[Any] | None = None,
-    **kwargs: Any,
-):
-    if dtype is not None:
-        dtype = handle_dtype(dtype)
-        data = fn(*args, dtype=dtype, **kwargs)
-    else:
-        data = fn(*args, **kwargs)
-        data = handle_data_precision(data, precision=precision)
-    return data
-
-
-def conversion_fn_wrapper(
-    data: Any,
-    *args: Any,
-    fn: Callable[..., np.ndarray[Any, Any]],
-    precision: int,
-    dtype: np.dtype[Any] | None = None,
-    **kwargs: Any,
-):
-    if dtype is not None:
-        dtype = handle_dtype(dtype)
-    if isinstance(data, ArrayType):
-        if dtype is not None:
-            return data.astype(dtype)
-        return handle_data_precision(data, precision=precision)
-    else:
-        _data = fn(data, *args, dtype=dtype, **kwargs)
-        if dtype is None:
-            return handle_data_precision(_data, precision=precision)
-        return _data
-
-
 def handle_data_precision(
     data: np.ndarray[Any, Any], precision: int
 ) -> np.ndarray[Any, Any]:
@@ -495,6 +446,18 @@ def calculate_cross_entropy_class_weights(
         shape[1] = input.shape[1]
         _weights = _weights.reshape(shape)
     return _weights
+
+
+def determine_dtype(input: Any, dtype: core.Dtype | None, precision: int) -> str:
+    if isinstance(dtype, core.Dtype):
+        return dtype.name
+
+    if isinstance(input, (np.ndarray | np.generic)):
+        dtype_name = "".join(char for char in str(input.dtype) if not char.isdigit())
+    else:
+        dtype_name = find_dominant_type(input).__name__
+
+    return dtype_name + str(precision) if dtype_name != "bool" else "bool"
 
 
 def get_type(

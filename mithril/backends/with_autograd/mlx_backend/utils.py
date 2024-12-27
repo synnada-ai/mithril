@@ -52,54 +52,6 @@ def get_device(device: str):
     return mx.Device(getattr(mx, device), 0)
 
 
-def creation_fn_wrapper(
-    *args: Any,
-    fn: Callable[..., mx.array],
-    dtype: core.Dtype | mx.Dtype | None = None,
-    precision: int,
-    **kwargs: Any,
-):
-    if dtype is not None:
-        dtype = handle_dtype(dtype)
-        data = fn(*args, dtype=dtype, **kwargs)
-    else:
-        data = fn(*args, **kwargs)
-        data = handle_data_precision(data, precision)
-    return data
-
-
-def conversion_fn_wrapper(
-    data: Any,
-    *args: Any,
-    fn: Callable[..., mx.array],
-    precision: int,
-    dtype: mx.Dtype | None = None,
-    **kwargs: Any,
-):
-    if dtype is not None:
-        dtype = handle_dtype(dtype)
-    if isinstance(data, ArrayType):
-        if dtype is not None:
-            return data.astype(dtype)
-        return handle_data_precision(data, precision)
-    else:
-        _data = fn(data, *args, dtype=dtype, **kwargs)
-        if dtype is None:  # User did not specify dtype explicitly
-            return handle_data_precision(_data, precision)
-        return _data
-
-
-def handle_dtype(dtype: Any) -> Any:
-    if isinstance(dtype, core.Dtype):
-        return dtype_map[dtype.name]
-    elif isinstance(dtype, str) and dtype in dtype_map:
-        return dtype_map[dtype]
-    elif isinstance(dtype, mx.Dtype):
-        return dtype
-    else:
-        raise TypeError(f"Provided data type '{dtype}' not understood")
-
-
 def handle_data_precision(data: mx.array, precision: int) -> mx.array:
     _dtype = data.dtype
     # Do not make any changes to boolean types.
@@ -418,6 +370,22 @@ def get_submatrices2d(
             kern_w_str,
         ),
     )
+
+
+def determine_dtype(input: Any, dtype: core.Dtype | None, precision: int) -> str:
+    if isinstance(dtype, core.Dtype):
+        return dtype.name
+
+    if isinstance(input, mx.array):
+        dtype_name = "".join(
+            char for char in input.dtype.__str__().split(".")[-1] if not char.isdigit()
+        )
+    elif isinstance(input, (np.ndarray | np.generic)):
+        dtype_name = "".join(char for char in str(input.dtype) if not char.isdigit())
+    else:
+        dtype_name = find_dominant_type(input).__name__
+
+    return dtype_name + str(precision) if dtype_name != "bool" else "bool"
 
 
 def get_type(input: int | float | bool | Sequence[Any], precision: int) -> mx.Dtype:
