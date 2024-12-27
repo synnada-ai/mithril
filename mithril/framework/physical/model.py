@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import math
+import random
 import warnings
 from collections.abc import Callable, Mapping, Sequence
 from copy import deepcopy
@@ -239,6 +240,8 @@ class PhysicalModel(GenericDataType[DataType]):
 
             self.flat_graph.add_value(p_model, mappings)
 
+        self.data_store.set_random_seed_keys(self._flat_graph._random_keys)
+
         for cached_key in list(self.data_store.cached_data.keys()):
             self.data_store._infer_unused_keys(cached_key)
 
@@ -257,9 +260,11 @@ class PhysicalModel(GenericDataType[DataType]):
             unnamed_inputs = model.input_keys - self._input_keys - self.discarded_keys
             unnamed_data_keys = sorted(
                 [
-                    key
-                    for key in unnamed_inputs
-                    if flat_model.external_mapping.get(key, key) in runtime_data_keys
+                    local_key
+                    for local_key in unnamed_inputs
+                    if (key := self.external_key_mapping.get(local_key, local_key))
+                    in runtime_data_keys
+                    and key not in self._random_seeds
                 ]
             )
             if unnamed_data_keys:
@@ -275,6 +280,10 @@ class PhysicalModel(GenericDataType[DataType]):
         data: Mapping[str, DataType | MainValueType] | None = None,
     ):
         return self.evaluate(params=params, data=data)
+
+    @property
+    def _random_seeds(self) -> dict[str, int]:
+        return self.data_store._random_seeds
 
     def _convert_key(self, model: BaseModel, key: str | Connection) -> str:
         if isinstance(key, Connection):
@@ -1047,6 +1056,15 @@ class PhysicalModel(GenericDataType[DataType]):
             )
         return conn_info
 
+    def set_random_seed_values(self, **seed_mapping: int) -> None:
+        self.data_store.set_random_seed_values(**seed_mapping)
+
+    def _step_random_seed_values(self):
+        for key, value in self.data_store._random_seeds.items():
+            random.seed(value)
+            new_seed = random.randint(0, 2**14)
+            self.data_store._random_seeds[key] = new_seed
+
     def _replace_with_primitive(
         self, model: Model, key_mappings: dict[str, str]
     ) -> tuple[PrimitiveModel, dict[str, str]]:
@@ -1097,6 +1115,11 @@ class PhysicalModel(GenericDataType[DataType]):
         params: ParamsEvalType[DataType] | None = None,
         data: DataEvalType[DataType] | None = None,
     ) -> DataEvalType[DataType]:
+        # Inject seed values.
+        data = (
+            self._random_seeds if data is None else data | self._random_seeds  # type: ignore[operator]
+        )
+        self._step_random_seed_values()
         if (
             isinstance(self.backend, ParallelBackend)
             and self.backend.get_parallel_manager() is not None
@@ -1111,6 +1134,9 @@ class PhysicalModel(GenericDataType[DataType]):
         data: DataEvalType[DataType] | None = None,
         output_gradients: ParamsEvalType[DataType] | None = None,
     ) -> ParamsEvalType[DataType]:
+        data = (
+            self._random_seeds if data is None else data | self._random_seeds  # type: ignore[operator]
+        )
         if self.inference:
             raise NotImplementedError(
                 "Inference mode does not support gradients calculation"
@@ -1131,6 +1157,9 @@ class PhysicalModel(GenericDataType[DataType]):
         data: DataEvalType[DataType] | None = None,
         output_gradients: ParamsEvalType[DataType] | None = None,
     ) -> tuple[DataEvalType[DataType], ParamsEvalType[DataType]]:
+        data = (
+            self._random_seeds if data is None else data | self._random_seeds  # type: ignore[operator]
+        )
         if self.inference:
             raise NotImplementedError(
                 "Inferece mode does not support gradients calculation"

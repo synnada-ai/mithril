@@ -892,8 +892,9 @@ def pad(input: mx.array, pad_width: tuple[tuple[int, int], ...]):
     return mx.pad(input, pad_width)
 
 
-def randn(*args, device: str, precision: int) -> mx.array:
-    out = mx.random.normal(*args)
+def randn(shape: tuple[int], key: int, device: str, precision: int) -> mx.array:
+    _key = mx.random.key(key)
+    out = mx.random.normal(shape, key=_key)
     return utils.handle_data_precision(out, precision)
 
 
