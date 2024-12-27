@@ -30,7 +30,7 @@ backends: list[Backend] = [
 
 def assert_forward(
     formula_key: str,
-    expected_result: np.ndarray | int | float | tuple | list,
+    expected_result: np.ndarray | int | float | tuple | list | slice,
     args: Any,
     kwargs: dict[str, Any],
     backends: list[Backend] = backends,
@@ -45,13 +45,16 @@ def assert_forward(
         }
         primitive_fn = backend.primitive_function_dict[formula_key]
         result = primitive_fn(*_args, **_kwargs)
-        np.testing.assert_allclose(
-            result,
-            expected_result,
-            rtol=1e-14,
-            atol=1e-14,
-            err_msg=f"Primitive: {formula_key} failed ",
-        )
+        if not isinstance(expected_result, np.ndarray | tuple | list):
+            assert result == expected_result
+        else:
+            np.testing.assert_allclose(
+                result,
+                expected_result,
+                rtol=1e-14,
+                atol=1e-14,
+                err_msg=f"Primitive: {formula_key} failed ",
+            )
 
 
 def manul_vjp(
@@ -1326,48 +1329,6 @@ def test_transpose_axis_4():
     assert_forward("transpose", result, (input, axes), {})
     assert_backward(
         "transpose", (input_grad,), output_grad, [0], {"input": input, "axes": axes}, {}
-    )
-
-
-def test_tensor_slice_1():
-    start = 0
-    stop = 1
-    step = None
-    input = np.array([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]])
-    result = np.array([[1.0, 2.0]])
-
-    output_grad = np.array([[5.0, 6.0]])
-    input_grad = np.array([[5.0, 6.0], [0.0, 0.0], [0.0, 0.0]])
-
-    assert_forward("tensor_slice", result, (input, start, stop, step), {})
-    assert_backward(
-        "tensor_slice",
-        (input_grad,),
-        output_grad,
-        [0],
-        {"input": input, "start": start, "stop": stop, "step": step},
-        {},
-    )
-
-
-def test_tensor_slice_2():
-    start = 0
-    stop = 2
-    step = None
-    input = np.array([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]])
-    result = np.array([[1.0, 2.0], [3.0, 4.0]])
-
-    output_grad = np.array([[3.0, 0.0], [2.0, 1.0]])
-    input_grad = np.array([[3.0, 0.0], [2.0, 1.0], [0.0, 0.0]])
-
-    assert_forward("tensor_slice", result, (input, start, stop, step), {})
-    assert_backward(
-        "tensor_slice",
-        (input_grad,),
-        output_grad,
-        [0],
-        {"input": input, "start": start, "stop": stop, "step": step},
-        {},
     )
 
 
@@ -4592,3 +4553,21 @@ def test_split_4():
         {"input": input, "split_size": split_size, "axis": axis},
         {},
     )
+
+
+def test_slice_1():
+    start = 2
+    stop = 4
+    step = 1
+    result = slice(2, 4, 1)
+
+    assert_forward("primitive_slice", result, (start, stop, step), {})
+
+
+def test_slice_2():
+    start = 3
+    stop = None
+    step = None
+    result = slice(3, None, None)
+
+    assert_forward("primitive_slice", result, (start, stop, step), {})
