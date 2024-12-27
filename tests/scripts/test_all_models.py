@@ -766,11 +766,11 @@ def test_randn_key():
 
     for backend in default_backends:
         pm = mithril.compile(model, backend, inference=True)
-        pm.set_random_seed_values({"key": 42})
+        pm.set_random_seed_values(key=42)
         res_out1 = pm.evaluate()["output"]
-        pm.set_random_seed_values({"key": 42})
+        pm.set_random_seed_values(key=42)
         res_out2 = pm.evaluate()["output"]
-        pm.set_random_seed_values({"key": 43})
+        pm.set_random_seed_values(key=43)
         res_out3 = pm.evaluate()["output"]
 
         assert isinstance(res_out1, backend.DataType)  # type: ignore[attr-defined]

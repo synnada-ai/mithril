@@ -264,7 +264,7 @@ class PhysicalModel(GenericDataType[DataType]):
                     for local_key in unnamed_inputs
                     if (key := self.external_key_mapping.get(local_key, local_key))
                     in runtime_data_keys
-                    and key not in self.random_seed_values
+                    and key not in self._random_seeds
                 ]
             )
             if unnamed_data_keys:
@@ -282,8 +282,8 @@ class PhysicalModel(GenericDataType[DataType]):
         return self.evaluate(params=params, data=data)
 
     @property
-    def random_seed_values(self) -> dict[str, int]:
-        return self.data_store.random_seed_values
+    def _random_seeds(self) -> dict[str, int]:
+        return self.data_store._random_seeds
 
     def _convert_key(self, model: BaseModel, key: str | Connection) -> str:
         if isinstance(key, Connection):
@@ -1052,14 +1052,14 @@ class PhysicalModel(GenericDataType[DataType]):
             )
         return conn_info
 
-    def set_random_seed_values(self, seed_mapping: dict[str, int]) -> None:
-        self.data_store.set_random_seed_values(seed_mapping)
+    def set_random_seed_values(self, **seed_mapping: int) -> None:
+        self.data_store.set_random_seed_values(**seed_mapping)
 
     def _step_random_seed_values(self):
-        for key, value in self.data_store.random_seed_values.items():
+        for key, value in self.data_store._random_seeds.items():
             random.seed(value)
             new_seed = random.randint(0, 2**14)
-            self.data_store.random_seed_values[key] = new_seed
+            self.data_store._random_seeds[key] = new_seed
 
     def _replace_with_primitive(
         self, model: Model, key_mappings: dict[str, str]
@@ -1113,7 +1113,7 @@ class PhysicalModel(GenericDataType[DataType]):
     ) -> DataEvalType[DataType]:
         # Inject seed values.
         data = (
-            self.random_seed_values if data is None else data | self.random_seed_values  # type: ignore[operator]
+            self._random_seeds if data is None else data | self._random_seeds  # type: ignore[operator]
         )
         self._step_random_seed_values()
         if (
@@ -1131,7 +1131,7 @@ class PhysicalModel(GenericDataType[DataType]):
         output_gradients: ParamsEvalType[DataType] | None = None,
     ) -> ParamsEvalType[DataType]:
         data = (
-            self.random_seed_values if data is None else data | self.random_seed_values  # type: ignore[operator]
+            self._random_seeds if data is None else data | self._random_seeds  # type: ignore[operator]
         )
         if self.inference:
             raise NotImplementedError(
@@ -1154,7 +1154,7 @@ class PhysicalModel(GenericDataType[DataType]):
         output_gradients: ParamsEvalType[DataType] | None = None,
     ) -> tuple[DataEvalType[DataType], ParamsEvalType[DataType]]:
         data = (
-            self.random_seed_values if data is None else data | self.random_seed_values  # type: ignore[operator]
+            self._random_seeds if data is None else data | self._random_seeds  # type: ignore[operator]
         )
         if self.inference:
             raise NotImplementedError(

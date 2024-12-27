@@ -27,9 +27,9 @@ def test_random_keys_not_provided():
     backend = ml.JaxBackend()
     pm = ml.compile(example_model, backend, use_short_namings=False)
 
-    assert pm.random_seed_values == {"randn_0_key": 0, "randn_1_key": 0}
+    assert pm._random_seeds == {"randn_0_key": 0, "randn_1_key": 0}
     res1 = pm.evaluate()["out1"]
-    assert pm.random_seed_values != {"randn_0_key": 0, "randn_1_key": 0}
+    assert pm._random_seeds != {"randn_0_key": 0, "randn_1_key": 0}
     res2 = pm.evaluate()["out1"]
 
     assert isinstance(res1, backend.DataType)
@@ -47,9 +47,9 @@ def test_random_keys_some_of_provided():
     backend = ml.JaxBackend()
     pm = ml.compile(example_model, backend, use_short_namings=False)
 
-    assert pm.random_seed_values == {"randn_1_key": 0}
+    assert pm._random_seeds == {"randn_1_key": 0}
     res1 = pm.evaluate()["out1"]
-    assert pm.random_seed_values != {"randn_1_key": 0}
+    assert pm._random_seeds != {"randn_1_key": 0}
     res2 = pm.evaluate()["out1"]
 
     assert isinstance(res1, backend.DataType)
@@ -79,6 +79,6 @@ def test_set_random_keys():
         safe_names=False,
         shapes={},
     )
-    assert pm.random_seed_values == {"randn_1_key": 0}
-    pm.set_random_seed_values({"randn_1_key": 42})
-    assert pm.random_seed_values == {"randn_1_key": 42}
+    assert pm._random_seeds == {"randn_1_key": 0}
+    pm.set_random_seed_values(randn_1_key=42)
+    assert pm._random_seeds == {"randn_1_key": 42}
