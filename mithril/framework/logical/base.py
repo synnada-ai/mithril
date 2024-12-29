@@ -24,8 +24,6 @@ from typing import Any
 from ...utils.utils import OrderedSet
 from ..common import (
     NOT_AVAILABLE,
-    NOT_GIVEN,
-    TBD,
     Connection,
     ConnectionData,
     Connections,
@@ -33,10 +31,7 @@ from ..common import (
     Constraint,
     ConstraintFunctionType,
     ConstraintSolver,
-    ExtendTemplate,
     IOHyperEdge,
-    IOKey,
-    MainValueInstance,
     MainValueType,
     NestedListType,
     NotAvailable,
@@ -95,41 +90,41 @@ class BaseModel(abc.ABC):
     factory_args: dict[str, Any] = {}
 
     def __call__(self, **kwargs: ConnectionType) -> ExtendInfo:
-        for key, val in self.factory_inputs.items():
-            if val is not TBD:
-                if key not in kwargs or (con := kwargs[key]) is NOT_GIVEN:
-                    kwargs[key] = val  # type: ignore
-                    continue
-                match con:
-                    case Connection():
-                        kwargs[key] = IOKey(value=val, connections={con})
-                        # TODO: Maybe we could check con's value if matches with val
-                    case item if isinstance(item, MainValueInstance) and con != val:
-                        raise ValueError(
-                            f"Given value {con} for local key: '{key}' "
-                            f"has already being set to {val}!"
-                        )
-                    case str():
-                        kwargs[key] = IOKey(name=con, value=val, expose=False)
-                    case IOKey():
-                        if con.data.value is not TBD and con.data.value != val:
-                            raise ValueError(
-                                f"Given IOKey for local key: '{key}' is not valid!"
-                            )
-                        else:
-                            kwargs[key] = IOKey(
-                                name=con.name,
-                                expose=con.expose,
-                                connections=con.connections,
-                                type=con.data.type,
-                                shape=con.data.shape,
-                                value=val,
-                            )
-                    case ExtendTemplate():
-                        raise ValueError(
-                            "Multi-write detected for a valued "
-                            f"local key: '{key}' is not valid!"
-                        )
+        # for key, val in self.factory_inputs.items():
+        #     if val is not TBD:
+        #         if key not in kwargs or (con := kwargs[key]) is NOT_GIVEN:
+        #             kwargs[key] = val  # type: ignore
+        #             continue
+        #         match con:
+        #             case Connection():
+        #                 kwargs[key] = IOKey(value=val, connections={con})
+        #                 # TODO: Maybe we could check con's value if matches with val
+        #             case item if isinstance(item, MainValueInstance) and con != val:
+        #                 raise ValueError(
+        #                     f"Given value {con} for local key: '{key}' "
+        #                     f"has already being set to {val}!"
+        #                 )
+        #             case str():
+        #                 kwargs[key] = IOKey(name=con, value=val, expose=False)
+        #             case IOKey():
+        #                 if con.data.value is not TBD and con.data.value != val:
+        #                     raise ValueError(
+        #                         f"Given IOKey for local key: '{key}' is not valid!"
+        #                     )
+        #                 else:
+        #                     kwargs[key] = IOKey(
+        #                         name=con.name,
+        #                         expose=con.expose,
+        #                         connections=con.connections,
+        #                         type=con.data.type,
+        #                         shape=con.data.shape,
+        #                         value=val,
+        #                     )
+        #             case ExtendTemplate():
+        #                 raise ValueError(
+        #                     "Multi-write detected for a valued "
+        #                     f"local key: '{key}' is not valid!"
+        #                 )
         return ExtendInfo(self, kwargs)
 
     def __init__(self, name: str | None = None, enforce_jit: bool = True) -> None:

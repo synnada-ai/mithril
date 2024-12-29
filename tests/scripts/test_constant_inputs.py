@@ -593,8 +593,7 @@ def test_scalar_mean_2_1():
     with pytest.raises(ValueError) as err_info:
         mean_model += mean_1(axis=1, input="input")
     assert (
-        str(err_info.value)
-        == "Given value 1 for local key: 'axis' has already being set to None!"
+        str(err_info.value) == "Value is set before as None. A value can not be reset."
     )
 
 

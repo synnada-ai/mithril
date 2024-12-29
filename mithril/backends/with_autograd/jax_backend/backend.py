@@ -174,9 +174,7 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         _dtype = utils.determine_dtype(input, dtype, self.precision)
 
         with jax.default_device(self.device):
-            array = jax.numpy.array(
-                input, dtype=utils.dtype_map[_dtype], device=self.device
-            )
+            array = jax.numpy.array(input, dtype=utils.dtype_map[_dtype])
 
         if self._parallel_manager is not None:
             array = self._parallel_manager.parallelize(array, device_mesh)

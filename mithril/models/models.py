@@ -1395,7 +1395,7 @@ class RNNCell(Cell):
             index=slice_1.output,
             output=IOKey(name="hidden_compl"),
         )
-        self += slice_2(stop=scalar_item.output)
+        self += slice_2(start="", stop=scalar_item.output)
         self += tensor_item_2(input="prev_hidden", index=slice_2.output)
         self += mult_model_1(input=tensor_item_2.output, weight="w_hh")
         self += mult_model_2(input="input", weight="w_ih")
@@ -1531,10 +1531,10 @@ class LSTMCell(Cell):
         self += scalar_item(input=shape_model.output, index=0)
 
         # Forget gate processes.
-        self += slice_1(stop=scalar_item.output)
+        self += slice_1(start="", stop=scalar_item.output)
         self += tensor_item_1(input="prev_cell", index=slice_1.output)
 
-        self += slice_2(stop=scalar_item.output)
+        self += slice_2(start="", stop=scalar_item.output)
         self += tensor_item_2(input="prev_hidden", index=slice_2.output)
 
         body_kwargs: dict[str, ConnectionType] = {
@@ -1550,7 +1550,7 @@ class LSTMCell(Cell):
             input=cell_body.output, index=slice_3.output, output=IOKey(name="hidden")
         )
 
-        self += slice_4(stop=scalar_item.output)
+        self += slice_4(start="", stop=scalar_item.output)
         self += tensor_item_4(
             input=cell_body.output, index=slice_4.output, output=IOKey(name="cell")
         )
@@ -1842,7 +1842,7 @@ class OneToMany(RNN):
                 # of previous time step as inputs to the current time step.
                 slice_input_1 = getattr(prev_cell, prev_cell.out_key)
 
-            self += slice_model(stop=item_model.output)
+            self += slice_model(start="", stop=item_model.output)
             self += tensor_item(input=slice_input_1, index=slice_model.output)
 
             input_kwargs = {"input": tensor_item.output}
@@ -3475,3 +3475,30 @@ class SiLU(Model):
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(input=input, output=output)
+
+
+# a = IOKey()
+# b = IOKey()
+# c = a + b
+# model = Model()
+# model += Add()(c) # -> not raises
+
+
+# add1 = Add()
+# add2 = Add()
+# a = add1.output
+# b = add2.output
+# c = a + b
+# model = Model()
+# model += add1
+# model += add2
+# model += Add()(c) # -> not raises
+
+
+# add1 = Add()
+# add2 = Add()
+# a = add1.output
+# b = add2.output
+# c = a + b
+# model = Model()
+# model += Add()(c) # -> raises
