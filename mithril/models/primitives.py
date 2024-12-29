@@ -583,7 +583,6 @@ class Log(PrimitiveModel):
                 output=BaseKey(shape=[("Var", ...)], type=MyTensor[float]),
                 input=BaseKey(shape=[("Var", ...)], type=GenericTensorType),
             )
-            self.factory_inputs = {"input": input}
 
     def __call__(  # type: ignore[override]
         self,
@@ -1816,8 +1815,6 @@ class Arange(PrimitiveModel):
         stop: int | float | ToBeDetermined = TBD,
         step: int | float | ToBeDetermined = 1,
     ) -> None:
-        self.factory_inputs = {"start": start, "stop": stop, "step": step}
-
         all_defined = False
         if (
             not isinstance(start, ToBeDetermined)
