@@ -284,6 +284,7 @@ class Model(BaseModel):
         elif (
             local_input
             and local_val is not TBD
+            # and global_val is not TBD
             and conn_is_output
             and global_val != local_val
         ):
