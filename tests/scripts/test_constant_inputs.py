@@ -1328,7 +1328,7 @@ def test_static_input_6_error():
             out2=IOKey(name="output_1"),  # type: ignore
         )
     assert (
-        str(err_info.value) == "Value is set before as 1.0. A value can not be reset."
+        str(err_info.value) == "Value is set before as 3.0. A value can not be reset."
     )
 
 

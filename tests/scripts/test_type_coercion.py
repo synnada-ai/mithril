@@ -1182,7 +1182,7 @@ def test_connect_9():
     with pytest.raises(ValueError) as err_info:
         model += Buffer()(input=conn, output=IOKey(name="output"))
 
-    error_msg = "Value is set before as [[2.0]]. A value can not be reset."
+    error_msg = "Value is set before as [[3.0]]. A value can not be reset."
     assert str(err_info.value) == error_msg
 
 

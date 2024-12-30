@@ -722,7 +722,7 @@ class BaseData(Generic[T]):
                 self.differentiable = other.differentiable = is_diff
 
             if self.is_valued or other.is_valued:
-                valued, non_valued = (self, other) if self.is_valued else (other, self)
+                valued, non_valued = (other, self) if other.is_valued else (self, other)
                 updates |= non_valued.set_value(valued.value)
                 if non_valued is other:
                     if other.is_tensor:
