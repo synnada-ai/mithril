@@ -949,10 +949,10 @@ def test_shape_constraint_counter_14():
 def test_shape_constraint_counter_15():
     model = Model()
 
-    slice_1 = Slice(start=TBD, stop=TBD, step=TBD)
-    slice_2 = Slice(start=TBD, stop=TBD, step=TBD)
-    slice_3 = Slice(start=TBD, stop=TBD, step=TBD)
-    slice_4 = Slice(start=TBD, stop=TBD, step=TBD)
+    slice_1 = Slice()
+    slice_2 = Slice()
+    slice_3 = Slice()
+    slice_4 = Slice()
 
     item_model_1 = TensorItem()
     item_model_2 = TensorItem()

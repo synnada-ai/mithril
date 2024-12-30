@@ -73,7 +73,6 @@ from .essential_primitives import (
     Multiply,
     NotEqual,
     Power,
-    PrimitiveSlice,
     Prod,
     Reshape,
     ScalarItem,
@@ -81,6 +80,7 @@ from .essential_primitives import (
     ShiftLeft,
     ShiftRight,
     Size,
+    Slice,
     Split,
     Sqrt,
     Subtract,
@@ -136,13 +136,14 @@ ops_table: dict[str, type[PrimitiveModel]] = {
     "minus": Minus,
     "transpose": Transpose,
     "split": Split,
+    "slice": Slice,
+    "to_tuple": ToTuple,
 }
 
 
 coercion_table: dict[tuple[str, type[Tensor] | type[Scalar]], type[PrimitiveModel]] = {
-    ("get_item", Tensor): TensorItem,
-    ("get_item", Scalar): ScalarItem,
-    ("slice", Scalar): PrimitiveSlice,
+    ("index", Tensor): TensorItem,
+    ("index", Scalar): ScalarItem,
 }
 
 type_conversion_map: dict[
@@ -537,9 +538,8 @@ class Model(BaseModel):
             default_args = init_fun.__code__.co_varnames[
                 1 : init_fun.__code__.co_argcount
             ]
-            default_args_dict = {
-                key: TBD for key in default_args if key not in template.defaults
-            }
+            default_args_dict = {key: TBD for key in default_args}
+            default_args_dict |= template.defaults
             default_args_dict.pop("name")
 
             # TODO: Reconsider type ignore!
