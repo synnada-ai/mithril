@@ -49,7 +49,6 @@ from mithril.models import (
     Multiply,
     NotEqual,
     Power,
-    PrimitiveSlice,
     Prod,
     Relu,
     Reshape,
@@ -57,10 +56,12 @@ from mithril.models import (
     Shape,
     ShiftLeft,
     ShiftRight,
+    Slice,
     Split,
     Sum,
     TensorItem,
     ToTensor,
+    ToTuple,
     Variance,
 )
 
@@ -223,7 +224,8 @@ def test_slice_item():
     model_2 += (shp_model := Shape())(input=lin_3.input)
     model_2 += (item_model := ScalarItem())(input=shp_model.output, index=1)
     model_2 += (tensor_1 := ToTensor())(input=item_model.output)
-    model_2 += (slice_model := PrimitiveSlice())(input=shp_model.output)
+    model_2 += (slc_1 := Slice())(start=None, stop=None, step=None)
+    model_2 += (slice_model := ScalarItem())(input=shp_model.output, index=slc_1.output)
     model_2 += (tensor_2 := ToTensor())(input=slice_model.output)
     model_2 += Add()(
         left=tensor_1.output, right=tensor_2.output, output=IOKey(name="output")
@@ -1393,15 +1395,18 @@ def test_invalid_input():
 
 def test_tensoritem_multiple_slice_1():
     model1 = Model()
-
-    buffer_model_1 = Buffer()
+    slice_model_1 = Slice()
+    slice_model_2 = Slice()
+    to_tuple_model = ToTuple(n=2)
     item_model = TensorItem(index=TBD)
+    buffer_model_1 = Buffer()
     buffer_model_2 = Buffer()
 
     model1 += buffer_model_1(input="input")
-    model1 += item_model(
-        input=buffer_model_1.output, index=(slice(2, 3, None), slice(4, 6, None))
-    )
+    model1 += slice_model_1(start=2, stop=3, step=None)
+    model1 += slice_model_2(start=4, stop=6, step=None)
+    model1 += to_tuple_model(input1=slice_model_1.output, input2=slice_model_2.output)
+    model1 += item_model(input=buffer_model_1.output, index=to_tuple_model.output)
     model1 += buffer_model_2(input=item_model.output, output=IOKey("output"))
 
     model2 = Model()
@@ -1414,15 +1419,24 @@ def test_tensoritem_multiple_slice_1():
 
 def test_tensoritem_multiple_slice_2():
     model1 = Model()
-
-    buffer_model_1 = Buffer()
+    slice_model_1 = Slice()
+    slice_model_2 = Slice()
+    to_tuple_model = ToTuple(n=5)
     item_model = TensorItem(index=TBD)
+    buffer_model_1 = Buffer()
     buffer_model_2 = Buffer()
 
     model1 += buffer_model_1(input="input")
-    model1 += item_model(
-        input=buffer_model_1.output, index=(slice(2, 3, None), slice(4, 6, None))
+    model1 += slice_model_1(start=2, stop=3, step=None)
+    model1 += slice_model_2(start=4, stop=6, step=None)
+    model1 += to_tuple_model(
+        input1=slice_model_1.output,
+        input2=slice_model_2.output,
+        input3=...,
+        input4=None,
+        input5=None,
     )
+    model1 += item_model(input=buffer_model_1.output, index=to_tuple_model.output)
     model1 += buffer_model_2(input=item_model.output, output=IOKey("output"))
 
     model2 = Model()
@@ -1645,3 +1659,144 @@ def test_item():
     model2 += ToTensor()(input=conn, output=IOKey("output"))
 
     check_logical_models(model1, model2)
+
+
+def test_tensor_item_with_slice():
+    backend = JaxBackend()
+
+    data = {"input": backend.randn(3, 4, 5)}
+    model1 = Model()
+
+    input = IOKey("input", shape=(3, 4, 5))
+    output = input[1:2]
+
+    model1 += Buffer()(input=output, output=IOKey("output"))
+
+    model2 = Model()
+    item_model = TensorItem()
+    slice_model = Slice()
+    buffer = Buffer()
+    model2 += slice_model(start=1, stop=2, step=None)
+    model2 += item_model(input="input", index=slice_model.output)
+    model2 += buffer(input=item_model.output, output=IOKey("output"))
+
+    compare_models(model1, model2, backend, data, check_internals=True)
+
+
+def test_tensor_item_with_tuple_of_slice_and_int():
+    backend = JaxBackend()
+
+    data = {"input": backend.randn(3, 4, 5)}
+    model1 = Model()
+
+    input = IOKey("input", shape=(3, 4, 5))
+    output = input[1:2, 3]
+
+    model1 += Buffer()(input=output, output=IOKey("output"))
+
+    model2 = Model()
+    to_tuple_model = ToTuple(n=2)
+    item_model = TensorItem()
+    slice_model = Slice()
+    buffer = Buffer()
+
+    model2 += slice_model(start=1, stop=2, step=None)
+    model2 += to_tuple_model(input1=slice_model.output, input2=3)
+    model2 += item_model(input="input", index=to_tuple_model.output)
+    model2 += buffer(input=item_model.output, output=IOKey("output"))
+
+    compare_models(model1, model2, backend, data, check_internals=True)
+
+
+def test_tensor_item_with_tuple_of_slice_none_ellipsis():
+    backend = JaxBackend()
+
+    data = {"input": backend.randn(3, 4, 5)}
+    model1 = Model()
+
+    input = IOKey("input", shape=(3, 4, 5))
+    output = input[..., None, 1:2, 3]
+
+    model1 += Buffer()(input=output, output=IOKey("output"))
+
+    model2 = Model()
+    to_tuple_model = ToTuple(n=4)
+    item_model = TensorItem()
+    slice_model = Slice()
+    buffer = Buffer()
+
+    model2 += slice_model(start=1, stop=2, step=None)
+    model2 += to_tuple_model(
+        input1=..., input2=None, input3=slice_model.output, input4=3
+    )
+    model2 += item_model(input="input", index=to_tuple_model.output)
+    model2 += buffer(input=item_model.output, output=IOKey("output"))
+
+    compare_models(model1, model2, backend, data, check_internals=True)
+
+
+def test_tensor_item_with_shape_dependent_slice():
+    backend = JaxBackend()
+
+    data = {"input1": backend.randn(5, 4, 3), "input2": backend.randn(3, 2, 5)}
+    model1 = Model()
+
+    input1 = IOKey("input1")
+    input2 = IOKey("input2")
+    output = input1[input2.shape[1] :]
+
+    model1 += Buffer()(input=output, output=IOKey("output"))
+
+    model2 = Model()
+    shape_model = Shape()
+    scalar_item_model = ScalarItem()
+    tensor_item_model = TensorItem()
+    slice_model = Slice()
+    buffer = Buffer()
+
+    model2 += shape_model(input="input2")
+    model2 += scalar_item_model(input=shape_model.output, index=1)
+    model2 += slice_model(start=scalar_item_model.output, stop=None, step=None)
+    model2 += tensor_item_model(input="input1", index=slice_model.output)
+    model2 += buffer(input=tensor_item_model.output, output=IOKey("output"))
+
+    compare_models(model1, model2, backend, data, check_internals=True)
+
+
+def test_tensor_item_with_tuple_of_shape_dependent_slices():
+    backend = JaxBackend()
+
+    data = {"input1": backend.randn(5, 4, 3), "input2": backend.randn(3, 2, 5)}
+    model1 = Model()
+
+    input1 = IOKey("input1")
+    input2 = IOKey("input2")
+    output = input1[input2.shape[1] :, : input2.shape[0]]
+
+    model1 += Buffer()(input=output, output=IOKey("output"))
+
+    model2 = Model()
+    shape_model_1 = Shape()
+    shape_model_2 = Shape()
+    scalar_item_model_1 = ScalarItem()
+    scalar_item_model_2 = ScalarItem()
+    to_tuple_model = ToTuple(n=2)
+    tensor_item_model = TensorItem()
+    slice_model_1 = Slice()
+    slice_model_2 = Slice()
+    buffer = Buffer()
+
+    model2 += shape_model_1(input="input2")
+    model2 += scalar_item_model_1(input=shape_model_1.output, index=1)
+    model2 += slice_model_1(start=scalar_item_model_1.output, stop=None, step=None)
+
+    model2 += shape_model_2(input="input2")
+    model2 += scalar_item_model_2(input=shape_model_2.output, index=0)
+    model2 += slice_model_2(start=None, stop=scalar_item_model_2.output, step=None)
+
+    model2 += to_tuple_model(input1=slice_model_1.output, input2=slice_model_2.output)
+
+    model2 += tensor_item_model(input="input1", index=to_tuple_model.output)
+    model2 += buffer(input=tensor_item_model.output, output=IOKey("output"))
+
+    compare_models(model1, model2, backend, data, check_internals=False)

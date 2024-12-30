@@ -41,7 +41,6 @@ from ..constraints import (
     reverse_constraints,
     scalar_item_constraints,
     scalar_item_type_constraint,
-    scalar_slice_type_constraint,
     shape_constraints,
     size_constraints,
     slice_constraints,
@@ -74,7 +73,6 @@ __all__ = [
     "Length",
     "Size",
     "Exponential",
-    "PrimitiveSlice",
     "Item",
     "ScalarItem",
     "ToTensor",
@@ -147,10 +145,16 @@ class ToTuple(PrimitiveModel):
     ) -> None:
         self.factory_args = {"n": n}
         key_definitions = {
-            "output": BaseKey(type=tuple[int | float | bool | list | tuple, ...])
+            "output": BaseKey(
+                type=tuple[
+                    int | float | bool | list | tuple | slice | EllipsisType | None, ...
+                ]
+            )
         }
         key_definitions |= {
-            f"input{idx+1}": BaseKey(type=int | float | bool | list | tuple)
+            f"input{idx+1}": BaseKey(
+                type=int | float | bool | list | tuple | slice | EllipsisType | None
+            )
             for idx in range(n)
         }
         self.factory_inputs = kwargs  # type: ignore
@@ -555,55 +559,6 @@ class Size(PrimitiveModel):
         return super().__call__(input=input, dim=dim, output=output)
 
 
-class PrimitiveSlice(PrimitiveModel):
-    input: Connection
-    start: Connection
-    stop: Connection
-    step: Connection
-    output: Connection
-
-    def __init__(
-        self,
-        name: str | None = None,
-        start: int | None | ToBeDetermined = None,
-        stop: int | None | ToBeDetermined = None,
-        step: int | None | ToBeDetermined = None,
-        input: TensorValueType | ToBeDetermined = TBD,
-    ) -> None:
-        self.factory_args = {"start": start, "stop": stop, "step": step}
-        super().__init__(
-            formula_key="sequence_slice",
-            name=name,
-            output=BaseKey(
-                type=tuple[int | float | bool, ...] | list[int | float | bool]
-            ),
-            input=BaseKey(
-                type=tuple[int | float | bool, ...] | list[int | float | bool]
-            ),
-            start=BaseKey(type=int | None, value=start),
-            stop=BaseKey(type=int | None, value=stop),
-            step=BaseKey(type=int | None, value=step),
-        )
-
-        self.factory_inputs = {"input": input}
-        self._set_constraint(
-            fn=scalar_slice_type_constraint,
-            keys=[PrimitiveModel.output_key, "input", "start", "stop", "step"],
-        )
-
-    def __call__(  # type: ignore[override]
-        self,
-        input: ConnectionType = NOT_GIVEN,
-        start: ConnectionType = NOT_GIVEN,
-        stop: ConnectionType = NOT_GIVEN,
-        step: ConnectionType = NOT_GIVEN,
-        output: ConnectionType = NOT_GIVEN,
-    ) -> ExtendInfo:
-        return super().__call__(
-            input=input, start=start, stop=stop, step=step, output=output
-        )
-
-
 class Item(PrimitiveModel):
     input: Connection
     output: Connection
@@ -646,7 +601,7 @@ class ScalarItem(PrimitiveModel):
             name=name,
             output=BaseKey(type=int | float | list | tuple),
             input=BaseKey(type=list | tuple),
-            index=BaseKey(type=int, value=index),
+            index=BaseKey(type=int | slice, value=index),
         )
         self.factory_inputs = {"input": input, "index": index}
 
