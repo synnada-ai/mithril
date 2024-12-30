@@ -240,7 +240,7 @@ class PhysicalModel(GenericDataType[DataType]):
 
             self.flat_graph.add_value(p_model, mappings)
 
-        self.data_store.set_random_seed_keys(self._flat_graph._random_keys)
+        self.data_store.set_random_seed_keys(self.flat_graph._random_keys)
 
         for cached_key in list(self.data_store.cached_data.keys()):
             self.data_store._infer_unused_keys(cached_key)

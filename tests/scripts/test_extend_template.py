@@ -204,37 +204,38 @@ def test_shape_reshape():
 #     compare_models(model_1, model_2, backend, data)
 
 
-# def test_slice_item():
-#     """Tests if get_item functionality works."""
-#     # Create with shortcut.
-#     model_1 = Model()
-#     model_1 += (lin_1 := Linear(dimension=1))(
-#         input="input", weight="weight", bias="bias"
-#     )
-#     shp = lin_1.input.shape()
-#     item = shp[1].tensor()
-#     slc = shp[:].tensor()
-#     model_1 += Add()(left=item, right=slc, output=IOKey(name="output"))
+def test_slice_item():
+    """Tests if get_item functionality works."""
+    # Create with shortcut.
+    model_1 = Model()
+    model_1 += (lin_1 := Linear(dimension=1))(
+        input="input", weight="weight", bias="bias"
+    )
+    shp = lin_1.input.shape
+    item = shp[1].tensor()
+    slc = shp[:].tensor()
+    model_1 += Add()(left=item, right=slc, output=IOKey(name="output"))
 
-#     # Create with extend.
-#     model_2 = Model()
-#     model_2 += (lin_3 := Linear(dimension=1))(
-#         input="input", weight="weight", bias="bias"
-#     )
-#     model_2 += (shp_model := Shape())(input=lin_3.input)
-#     model_2 += (item_model := ScalarItem())(input=shp_model.output, index=1)
-#     model_2 += (tensor_1 := ToTensor())(input=item_model.output)
-#     model_2 += (slice_model := PrimitiveSlice())(input=shp_model.output)
-#     model_2 += (tensor_2 := ToTensor())(input=slice_model.output)
-#     model_2 += Add()(
-#         left=tensor_1.output, right=tensor_2.output, output=IOKey(name="output")
-#     )
+    # Create with extend.
+    model_2 = Model()
+    model_2 += (lin_3 := Linear(dimension=1))(
+        input="input", weight="weight", bias="bias"
+    )
+    model_2 += (shp_model := Shape())(input=lin_3.input)
+    model_2 += (item_model := ScalarItem())(input=shp_model.output, index=1)
+    model_2 += (tensor_1 := ToTensor())(input=item_model.output)
+    model_2 += (slc_1 := Slice())(start=None, stop=None, step=None)
+    model_2 += (slice_model := ScalarItem())(input=shp_model.output, index=slc_1.output)
+    model_2 += (tensor_2 := ToTensor())(input=slice_model.output)
+    model_2 += Add()(
+        left=tensor_1.output, right=tensor_2.output, output=IOKey(name="output")
+    )
 
-#     # Provide backend and data.
-#     backend = JaxBackend(precision=32)
-#     data = {"input": backend.array([[1.0], [2]])}
-#     # Check equality.
-#     compare_models(model_1, model_2, backend, data, check_internals=False)
+    # Provide backend and data.
+    backend = JaxBackend(precision=32)
+    data = {"input": backend.array([[1.0], [2]])}
+    # Check equality.
+    compare_models(model_1, model_2, backend, data, check_internals=False)
 
 
 def test_right_add():
@@ -1394,8 +1395,8 @@ def test_invalid_input():
 
 def test_tensoritem_multiple_slice_1():
     model1 = Model()
-    slice_model_1 = Slice(start=TBD, stop=TBD, step=TBD)
-    slice_model_2 = Slice(start=TBD, stop=TBD, step=TBD)
+    slice_model_1 = Slice()
+    slice_model_2 = Slice()
     to_tuple_model = ToTuple(n=2)
     item_model = TensorItem(index=TBD)
     buffer_model_1 = Buffer()
@@ -1418,8 +1419,8 @@ def test_tensoritem_multiple_slice_1():
 
 def test_tensoritem_multiple_slice_2():
     model1 = Model()
-    slice_model_1 = Slice(start=TBD, stop=TBD, step=TBD)
-    slice_model_2 = Slice(start=TBD, stop=TBD, step=TBD)
+    slice_model_1 = Slice()
+    slice_model_2 = Slice()
     to_tuple_model = ToTuple(n=5)
     item_model = TensorItem(index=TBD)
     buffer_model_1 = Buffer()
