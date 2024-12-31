@@ -73,7 +73,6 @@ def test_set_random_keys():
         data_keys=set(),
         constant_keys={},
         trainable_keys=set(),
-        jacobian_keys=set(),
         inference=False,
         safe_shapes=False,
         safe_names=False,
