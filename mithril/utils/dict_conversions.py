@@ -350,7 +350,7 @@ def train_model_to_dict(context: TrainModel) -> dict:
     return context_dict
 
 
-def dict_to_trainmodel(context_dict: dict):
+def dict_to_trainmodel(context_dict: dict) -> BaseModel:
     model = dict_to_model(context_dict["model"])
     assert isinstance(model, Model), "TrainModel requires a Model object!"
 

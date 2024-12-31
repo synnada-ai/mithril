@@ -17,23 +17,23 @@ from collections.abc import Callable
 from copy import deepcopy
 from typing import Any, Self
 
-from ..framework import (
+from ..framework import BaseModel, ExtendInfo, Model
+from ..framework.common import (
     NOT_GIVEN,
-    BaseModel,
+    TBD,
     Connection,
     ConnectionData,
     ConnectionType,
-    ExtendInfo,
     IOHyperEdge,
     IOKey,
     KeyType,
-    Model,
+    NotAvailable,
+    Table,
     UniadicRecord,
     Variadic,
     get_shapes,
     get_summary_shapes,
 )
-from ..framework.common import TBD, NotAvailable, Table
 from ..framework.logical import (
     Buffer,
     Divide,
@@ -531,7 +531,7 @@ class TrainModel(Model):
         if isinstance(self._model, Model):
             summary_kwargs["depth"] = depth
 
-        self._model.summary(**summary_kwargs)  # type: ignore
+        self._model.summary(**summary_kwargs)
 
         name_mappings = self.get_unique_submodel_names()
         conn_info = self.extract_connection_info(name_mappings)

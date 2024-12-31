@@ -277,7 +277,7 @@ class CGen(CodeGen[PyArray]):
 
         return evaluate_grad_fn, used_keys
 
-    def _get_backend_path(self):
+    def _get_backend_path(self) -> str:
         backend_path = backend.__file__
         return backend_path[: backend_path.rindex("/")]
 

@@ -14,7 +14,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 
 from ...core import DataType, GenericDataType
@@ -52,7 +52,7 @@ class Connection:
     target_keys: list[str]
     connections: set[Connection]
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(id(self))
 
 
@@ -103,7 +103,7 @@ class FlatGraph(GenericDataType[DataType]):
         self.value_table: dict[str, DataType | ValueType] = {}
 
     @property
-    def hanging_keys(self):
+    def hanging_keys(self) -> set[str]:
         hanging_keys = (self.all_target_keys - self.all_source_keys) | set(
             self.connections.keys()
         ) - self.all_target_keys - self.all_source_keys
@@ -111,22 +111,22 @@ class FlatGraph(GenericDataType[DataType]):
         return hanging_keys - set(self.output_dict.values())
 
     @property
-    def input_keys(self):
+    def input_keys(self) -> set[str]:
         return set(self._input_keys)
 
     @property
-    def output_keys(self):
+    def output_keys(self) -> set[str]:
         return set(self.output_dict.keys())
 
     @property
-    def all_keys(self):
+    def all_keys(self) -> set[str]:
         return (
             set(self.connections.keys())
             | set(self.output_dict.keys())
             | set(self.output_dict.values())
         )
 
-    def add_value(self, model: PrimitiveModel, keys: dict[str, str]):
+    def add_value(self, model: PrimitiveModel, keys: dict[str, str]) -> None:
         output_key = keys[PrimitiveModel.output_key]
         keys = {
             key: self._temp_connection_info.get(value, value)
@@ -178,7 +178,7 @@ class FlatGraph(GenericDataType[DataType]):
         self._update_all_source_keys()
         self._update_all_target_keys()
 
-    def collapse_model_keys(self, output_key: str, new_reference_key: str):
+    def collapse_model_keys(self, output_key: str, new_reference_key: str) -> None:
         # If a model removed, the models that uses the output of the removed model
         # should be updated with the new reference key.
         for key, value in self._temp_connection_info.items():
@@ -197,7 +197,7 @@ class FlatGraph(GenericDataType[DataType]):
         return True
 
     @property
-    def topological_order(self):
+    def topological_order(self) -> list[str]:
         return self._topological_order
 
     @property
@@ -208,15 +208,13 @@ class FlatGraph(GenericDataType[DataType]):
     def all_source_keys(self) -> set[str]:
         return self._all_source_keys
 
-    def _update_topological_order(self):
+    def _update_topological_order(self) -> None:
         self._topological_order = [
             node.connections[PrimitiveModel.output_key].key
             for node in self.nodes.values()
-            if node.model is not None
-            or node.connections[PrimitiveModel.output_key].key in self.output_keys
         ]
 
-    def _update_all_source_keys(self):
+    def _update_all_source_keys(self) -> None:
         self._all_source_keys = {
             conn.key
             for item in self.nodes.values()
@@ -224,7 +222,7 @@ class FlatGraph(GenericDataType[DataType]):
             if key != "output"
         }
 
-    def _update_all_target_keys(self):
+    def _update_all_target_keys(self) -> None:
         self._all_target_keys = {
             conn.key
             for item in self.nodes.values()
@@ -232,7 +230,7 @@ class FlatGraph(GenericDataType[DataType]):
             if key == "output"
         }
 
-    def _update_connection_keys(self, connection: Connection):
+    def _update_connection_keys(self, connection: Connection) -> None:
         source_keys: list[str] = []
         target_keys: list[str] = []
 
@@ -243,7 +241,7 @@ class FlatGraph(GenericDataType[DataType]):
                 key = conn.key
                 source_keys.append(key)
 
-        def get_target_keys(connection: Connection):
+        def get_target_keys(connection: Connection) -> list[str]:
             target_keys: list[str] = []
             for conn in connection.connections:
                 target_keys.append(conn.key)
@@ -271,27 +269,27 @@ class FlatGraph(GenericDataType[DataType]):
         connection.target_keys = list(target_keys)
         connection.source_keys = list(source_keys)
 
-    def get_model(self, key) -> PrimitiveModel:
+    def get_model(self, key: str) -> PrimitiveModel:
         conn = self.connections.get(key, None)
         if conn is None or conn.node is None:
             raise ValueError(f"Model not found for key: {key}")
 
         return conn.node.model
 
-    def get_model_out_key(self, model: PrimitiveModel):
+    def get_model_out_key(self, model: PrimitiveModel) -> str | None:
         node = self.nodes.get(model, None)
         if node is None:
             return None
         return node.connections[PrimitiveModel.output_key].key
 
-    def get_model_outer_key(self, model: PrimitiveModel, inner_key: str):
+    def get_model_outer_key(self, model: PrimitiveModel, inner_key: str) -> str:
         return self.nodes[model].connections[inner_key].key
 
-    def get_model_connections(self, model: PrimitiveModel):
+    def get_model_connections(self, model: PrimitiveModel):  # type: ignore
         return self.nodes[model].connections.values()
 
-    def get_connection(self, key: str):
-        return self.connections.get(key, None)
+    def get_connection(self, key: str) -> Connection | None:
+        return self.connections.get(key)
 
     def get_source_keys(self, key: str, include_outputs: bool = False) -> list[str]:
         source_keys: list[str] = []
@@ -342,10 +340,7 @@ class FlatGraph(GenericDataType[DataType]):
         node: Node,
         data: dict[str, Tensor | Scalar],
         constant_keys: Mapping[str, DataType | MainValueType],
-    ):
-        if node.model is None:
-            return
-
+    ) -> Connection | None:
         # Model id is a unique key for unique operation
         model_id: list[str] = []
         for key, conn in node.connections.items():
@@ -369,7 +364,7 @@ class FlatGraph(GenericDataType[DataType]):
                     elif self.is_tensor_type(ref_value) and self.is_tensor_type(value):
                         is_equal = (
                             id(ref_value) == id(value)
-                            or ref_value.shape == value.shape
+                            or ref_value.shape == value.shape  # type: ignore
                             and (ref_value == value).all().item()  # type: ignore
                         )
                     else:
@@ -392,8 +387,9 @@ class FlatGraph(GenericDataType[DataType]):
             return self.unique_model_table[final_model_id]
 
         self.unique_model_table[final_model_id] = node.connections["output"]
+        return None
 
-    def _prune_node(self, node: Node, conn: Connection):
+    def _prune_node(self, node: Node, conn: Connection) -> None:
         self.collapse_model_keys(node.connections["output"].key, conn.key)
 
         # Update source and target keys of node connections
@@ -424,15 +420,14 @@ class FlatGraph(GenericDataType[DataType]):
         ) not in self.output_keys and key in self._all_target_keys:
             self._all_target_keys.remove(key)
 
-        if node.model is not None:
-            self.nodes.pop(node.model)
+        self.nodes.pop(node.model)
 
         self._update_connection_keys(conn)
         self._update_all_source_keys()
         self._update_all_target_keys()
         self._update_topological_order()
 
-    def _remove_node(self, node: Node):
+    def _remove_node(self, node: Node) -> None:
         connections = set(node.connections.values())
         output_conn = node.connections[PrimitiveModel.output_key]
 
@@ -444,12 +439,11 @@ class FlatGraph(GenericDataType[DataType]):
                 self._update_connection_keys(conn)
 
             self._remove_conn(output_conn)
-            if node.model is not None:
-                self.nodes.pop(node.model)
+            self.nodes.pop(node.model)
 
         self._update_topological_order()
 
-    def _remove_conn(self, conn: Connection):
+    def _remove_conn(self, conn: Connection) -> None:
         self.connections.pop(conn.key, None)
 
         # Remove connection from other connections
@@ -458,13 +452,13 @@ class FlatGraph(GenericDataType[DataType]):
                 if conn.key in conn_.target_keys:
                     conn_.target_keys.remove(conn.key)
 
-        if conn.key in self._all_source_keys:  # and conn.key not in self.alias_map:
+        if conn.key in self._all_source_keys:
             self._all_source_keys.remove(conn.key)
 
-        if conn.key in self._all_target_keys:  # and conn.key not in self.alias_map:
+        if conn.key in self._all_target_keys:
             self._all_target_keys.remove(conn.key)
 
-    def remove_key(self, key: str):
+    def remove_key(self, key: str) -> None:
         if key in self.output_dict:
             self.output_dict.pop(key)
 
@@ -475,7 +469,7 @@ class FlatGraph(GenericDataType[DataType]):
 
     def infer_ignore_step(
         self, key: str, keys: set[str], queue: set[str], from_source: bool
-    ):
+    ) -> None:
         forward_key_fn: Callable[[str, bool], list[str]]
         if from_source:
             forward_key_fn = self.get_target_keys
@@ -497,5 +491,5 @@ class FlatGraph(GenericDataType[DataType]):
                         keys.add(value)
                         queue.add(value)
 
-    def get_models(self):
+    def get_models(self) -> Iterable[PrimitiveModel]:
         return self.nodes.keys()

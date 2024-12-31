@@ -1306,7 +1306,7 @@ class MLP(Model):
 
         self._freeze()
 
-    def __call__(  # type: ignore[override]
+    def __call__(
         self,
         input: ConnectionType = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
@@ -1783,7 +1783,7 @@ class RNN(Model):
         super().__init__(name=name)
         self.factory_inputs = kwargs
 
-    def __call__(self, **kwargs) -> ExtendInfo:  # type: ignore[override]
+    def __call__(self, **kwargs: ConnectionType) -> ExtendInfo:
         raise NotImplementedError("__call__ method not implemented!")
 
 
@@ -1860,7 +1860,7 @@ class OneToMany(RNN):
             prev_cell = current_cell
         self._freeze()
 
-    def __call__(  # type: ignore[override]
+    def __call__(
         self, input: ConnectionType = NOT_GIVEN, **model_keys: ConnectionType
     ) -> ExtendInfo:
         return super(RNN, self).__call__(input=input, **model_keys)
@@ -1987,7 +1987,7 @@ class ManyToOne(RNN):
 
         self._freeze()
 
-    def __call__(  # type: ignore[override]
+    def __call__(
         self, hidden_concat: ConnectionType = NOT_GIVEN, **model_keys: ConnectionType
     ) -> ExtendInfo:
         return super(RNN, self).__call__(hidden_concat=hidden_concat, **model_keys)
@@ -2091,7 +2091,7 @@ class EncoderDecoderInference(Model):
 
         self._freeze()
 
-    def __call__(  # type: ignore[override]
+    def __call__(
         self, indices: ConnectionType = NOT_GIVEN, **model_keys: ConnectionType
     ) -> ExtendInfo:
         return super().__call__(indices=indices, **model_keys)

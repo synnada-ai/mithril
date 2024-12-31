@@ -17,8 +17,8 @@ from itertools import zip_longest
 from typing import Any
 
 import numpy as np
-import scipy.linalg as slin  # type: ignore[import-untyped]
-from scipy.special import erf  # type: ignore[import-untyped]
+import scipy.linalg as slin
+from scipy.special import erf
 
 from ....utils.type_utils import is_tuple_int
 from .ops import hinge_loss, sigmoid, softmax

@@ -424,7 +424,7 @@ def conv2d(
     stride: tuple[int, int] = (1, 1),
     padding: tuple[int, int] | tuple[tuple[int, int], tuple[int, int]] = (1, 1),
     dilation: tuple[int, int] = (1, 1),
-):
+) -> jax.Array:
     _padding_normalized: tuple[tuple[int, int], tuple[int, int]]
     if is_tuple_int(padding):
         _padding_normalized = ((padding[0], padding[0]), (padding[1], padding[1]))
@@ -451,7 +451,7 @@ def conv2d_bias(
     stride: tuple[int, int] = (1, 1),
     padding: tuple[int, int] | tuple[tuple[int, int], tuple[int, int]] = (1, 1),
     dilation: tuple[int, int] = (1, 1),
-):
+) -> jax.Array:
     return (
         conv2d(
             input=input,
@@ -559,7 +559,7 @@ def scaled_dot_product_attention(
     dropout_p: float = 0.0,
     is_causal: bool = False,
     scale: float | int | None = None,
-):
+) -> jax.Array:
     if dropout_p != 0.0:
         raise RuntimeError(
             "Currently Jax scaled_dot_product_attention only support dropout_p 0"
@@ -632,7 +632,7 @@ def cross_entropy(
                 f"Cross entropy got unexpected type for target '{target.dtype}'."
             )
 
-        return (
+        return (  # type: ignore
             -log(jnp.take_along_axis(input, target[:, None], axis=1)[:, 0])
             * _weights[target]
         )

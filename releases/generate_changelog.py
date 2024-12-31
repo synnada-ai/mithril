@@ -34,7 +34,7 @@ import re
 import sys
 from contextlib import redirect_stdout
 
-from github import Github  # type: ignore
+from github import Github
 
 
 def print_pulls(repo_name, title, pulls):

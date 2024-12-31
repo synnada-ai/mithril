@@ -97,7 +97,7 @@ class PrimitiveModel(BaseModel):
                 assert isinstance(value, BaseKey)
                 _value = Tensor(
                     shape=shapes[key].node,
-                    possible_types=get_mytensor_subtype(value_type),  # type: ignore
+                    possible_types=get_mytensor_subtype(value_type),
                     value=value.value,  # type: ignore
                     interval=value.interval,
                 )
@@ -107,7 +107,7 @@ class PrimitiveModel(BaseModel):
             else:
                 _value = Scalar(
                     possible_types=value_type,  # type: ignore
-                    value=value.value,  # type: ignore
+                    value=value.value,
                 )
 
             conn_data = self.create_connection(IOHyperEdge(_value), key)
