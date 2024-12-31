@@ -22,7 +22,7 @@ import mlx.nn as nn
 
 from ....core import Dtype
 from ...backend import Backend, PadWidthType
-from ...utils import process_shape
+from ...utils import DtypeBits, process_shape
 from . import ops, utils
 
 __all__ = ["MlxBackend"]
@@ -30,19 +30,23 @@ __all__ = ["MlxBackend"]
 
 class MlxBackend(Backend[mx.array]):
     backend_type = "mlx"
-    supported_precisions = [16, 32]
+    supported_dtypes = [Dtype.float16, Dtype.bfloat16, Dtype.float32]
     registered_primitives: dict[str, Callable[..., mx.array]] = {}
     primitive_fn_path = "mithril.backends.with_autograd.mlx_backend.ops"
 
     def __init__(
-        self, device: str = "cpu", precision: int = 32, eager_free: bool = False
+        self,
+        device: str = "cpu",
+        dtype: Dtype = Dtype.float32,
+        eager_free: bool = False,
     ) -> None:
         if eager_free:
             os.environ["XLA_PYTHON_CLIENT_ALLOCATOR"] = "platform"
 
-        self._precision = precision
+        self._dtype = dtype
+        self._precision = DtypeBits[dtype.name].value
         self._device = device
-        super().__init__()
+        super().__init__(dtype=dtype)
 
         self.array_creation_funcs = ops.array_creation_funcs
         self.primitive_function_dict = ops.primitive_func_dict

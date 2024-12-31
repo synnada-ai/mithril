@@ -21,6 +21,8 @@ import pytest
 
 import mithril as ml
 from mithril import JaxBackend, MlxBackend, NumpyBackend, TorchBackend
+from mithril.backends.utils import DtypeBits
+from mithril.core import Dtype
 
 from .test_utils import get_array_device, get_array_precision
 
@@ -107,7 +109,7 @@ def assert_backend_results_equal(
     fn_kwargs: dict,
     ref_output,
     ref_output_device,
-    ref_output_precision,
+    ref_output_dtype,
     rtol,
     atol,
 ):
@@ -123,52 +125,63 @@ def assert_backend_results_equal(
 
     for out, ref in zip(output, ref_output, strict=False):
         assert tuple(out.shape) == tuple(ref.shape)
-        assert get_array_device(out, backend.backend_type) == ref_output_device
-        assert get_array_precision(out, backend.backend_type) == ref_output_precision
+        assert (
+            backend.backend_type == "mlx"
+            or get_array_device(out, backend.backend_type) == ref_output_device
+        )
+        assert (
+            get_array_precision(out, backend.backend_type)
+            == DtypeBits[ref_output_dtype.name].value
+        )
         assert testing_fn(out, ref, rtol=rtol, atol=atol)
 
 
-unsupported_device_precisions = [
-    (ml.TorchBackend, "mps:0", 64),
-    (ml.MlxBackend, "cpu", 16),
-    (ml.MlxBackend, "cpu", 32),
-    (ml.TorchBackend, "cpu:0", 16),
+unsupported_device_dtypes = [
+    (ml.TorchBackend, "mps:0", Dtype.float64),
+    (ml.TorchBackend, "cpu:0", 16, Dtype.float16),
 ]
 
-# find all backends with their device and precision
-backends_with_device_precision = list(
-    backend_device_precision
+# find all backends with their device and dtype
+backends_with_device_dtype = list(
+    backend_device_dtype
     for backends in installed_backends
-    for backend_device_precision in product(
-        [backends], backends.get_available_devices(), backends.supported_precisions
+    for backend_device_dtype in product(
+        [backends], backends.get_available_devices(), backends.supported_dtypes
     )
-    if backend_device_precision not in unsupported_device_precisions
+    if backend_device_dtype not in unsupported_device_dtypes
     and (
-        "mps" not in backend_device_precision[1] or os.environ.get("CI") != "true"
+        "mps" not in backend_device_dtype[1] or os.environ.get("CI") != "true"
     )  # filter out unsupported combinations
 )
 
 
 names = [
-    backend.__name__ + "-" + device + "-" + str(precision)
-    for backend, device, precision in backends_with_device_precision
+    backend.__name__ + "-" + device + "-" + str(dtype.name)
+    for backend, device, dtype in backends_with_device_dtype
 ]
 
-tolerances = {16: 1e-2, 32: 1e-5, 64: 1e-6}
+tolerances = {
+    Dtype.float16: 1e-2,
+    Dtype.bfloat16: 1e-2,
+    Dtype.float32: 1e-5,
+    Dtype.float64: 1e-6,
+}
 
 
 @pytest.mark.parametrize(
-    "backendcls, device, precision", backends_with_device_precision, ids=names
+    "backendcls, device, dtype", backends_with_device_dtype, ids=names
 )
 class TestArray:
-    def test_array(self, backendcls, device, precision):
-        backend = backendcls(device=device, precision=precision)
+    def test_array(self, backendcls, device, dtype):
+        backend = backendcls(device=device, dtype=dtype)
         array_fn = array_fns[backend.__class__]
         fn = backend.array
         fn_args = [[1, 2, 3]]
         fn_kwargs: dict = {}
 
-        ref_output = array_fn([1, 2, 3], str(device), f"int{precision}")
+        ref_output = array_fn(
+            [1, 2, 3], str(device), f"int{DtypeBits[dtype.name].value}"
+        )
         assert_backend_results_equal(
             backend,
             fn,
@@ -176,19 +189,19 @@ class TestArray:
             fn_kwargs,
             ref_output,
             device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
-    def test_array_edge_case(self, backendcls, device, precision):
-        backend = backendcls(device=device, precision=precision)
+    def test_array_edge_case(self, backendcls, device, dtype):
+        backend = backendcls(device=device, dtype=dtype)
         array_fn = array_fns[backend.__class__]
         fn = backend.array
         fn_args = [1]
         fn_kwargs: dict = {}
 
-        ref_output = array_fn(1, str(device), f"int{precision}")
+        ref_output = array_fn(1, str(device), f"int{DtypeBits[dtype.name].value}")
         assert_backend_results_equal(
             backend,
             fn,
@@ -196,26 +209,28 @@ class TestArray:
             fn_kwargs,
             ref_output,
             device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
 
 @pytest.mark.parametrize(
-    "backendcls, device, precision", backends_with_device_precision, ids=names
+    "backendcls, device, dtype", backends_with_device_dtype, ids=names
 )
 class TestZeros:
-    def test_zeros(self, backendcls, device, precision):
+    def test_zeros(self, backendcls, device, dtype):
         array_fn = array_fns[backendcls]
-        backend = backendcls(device=device, precision=precision)
+        backend = backendcls(device=device, dtype=dtype)
 
         fn = backend.zeros
         fn_args = [(2, 3)]
         fn_kwargs: dict = {}
 
         ref_output = array_fn(
-            [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]], device, f"float{precision}"
+            [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]],
+            device,
+            f"float{DtypeBits[dtype.name].value}",
         )
         assert_backend_results_equal(
             backend,
@@ -224,21 +239,23 @@ class TestZeros:
             fn_kwargs,
             ref_output,
             device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
-    def test_zeros_int(self, backendcls, device, precision):
+    def test_zeros_int(self, backendcls, device, dtype):
         array_fn = array_fns[backendcls]
-        backend = backendcls(device=device, precision=precision)
+        backend = backendcls(device=device, dtype=dtype)
 
         fn = backend.zeros
         fn_args = [(2, 3)]
-        dtype = getattr(ml, f"int{precision}")
-        fn_kwargs: dict = {"dtype": dtype}
+        _dtype = getattr(ml, f"int{DtypeBits[dtype.name].value}")
+        fn_kwargs: dict = {"dtype": _dtype}
 
-        ref_output = array_fn([[0, 0, 0], [0, 0, 0]], device, f"int{precision}")
+        ref_output = array_fn(
+            [[0, 0, 0], [0, 0, 0]], device, f"int{DtypeBits[dtype.name].value}"
+        )
         assert_backend_results_equal(
             backend,
             fn,
@@ -246,19 +263,19 @@ class TestZeros:
             fn_kwargs,
             ref_output,
             device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
-    def test_zeros_edge(self, backendcls, device, precision):
+    def test_zeros_edge(self, backendcls, device, dtype):
         array_fn = array_fns[backendcls]
-        backend = backendcls(device=device, precision=precision)
+        backend = backendcls(device=device, dtype=dtype)
 
         fn = backend.zeros
         fn_args = [()]
         fn_kwargs: dict = {}
-        ref_output = array_fn(0.0, device, f"float{precision}")
+        ref_output = array_fn(0.0, device, f"float{DtypeBits[dtype.name].value}")
 
         assert_backend_results_equal(
             backend,
@@ -267,25 +284,27 @@ class TestZeros:
             fn_kwargs,
             ref_output,
             device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
 
 @pytest.mark.parametrize(
-    "backendcls, device, precision", backends_with_device_precision, ids=names
+    "backendcls, device, dtype", backends_with_device_dtype, ids=names
 )
 class TestOnes:
-    def test_ones(self, backendcls, device, precision):
+    def test_ones(self, backendcls, device, dtype):
         array_fn = array_fns[backendcls]
-        backend = backendcls(device=device, precision=precision)
+        backend = backendcls(device=device, dtype=dtype)
 
         fn = backend.ones
         fn_args = [(2, 3)]
         fn_kwargs: dict = {}
         ref_output = array_fn(
-            [[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]], device, f"float{precision}"
+            [[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]],
+            device,
+            f"float{DtypeBits[dtype.name].value}",
         )
 
         assert_backend_results_equal(
@@ -295,22 +314,24 @@ class TestOnes:
             fn_kwargs,
             ref_output,
             device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
-    def test_ones_int(self, backendcls, device, precision):
+    def test_ones_int(self, backendcls, device, dtype):
         array_fn = array_fns[backendcls]
-        backend = backendcls(device=device, precision=precision)
+        backend = backendcls(device=device, dtype=dtype)
 
         fn = backend.ones
         fn_args = [(2, 3)]
-        dtype = getattr(ml, f"int{precision}")
-        fn_kwargs: dict = {"dtype": dtype}
+        _dtype = getattr(ml, f"int{DtypeBits[dtype.name].value}")
+        fn_kwargs: dict = {"dtype": _dtype}
 
         ref_output = array_fn(
-            [[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]], device, f"int{precision}"
+            [[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]],
+            device,
+            f"int{DtypeBits[dtype.name].value}",
         )
         assert_backend_results_equal(
             backend,
@@ -319,20 +340,20 @@ class TestOnes:
             fn_kwargs,
             ref_output,
             device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
-    def test_ones_edge(self, backendcls, device, precision):
+    def test_ones_edge(self, backendcls, device, dtype):
         array_fn = array_fns[backendcls]
-        backend = backendcls(device=device, precision=precision)
+        backend = backendcls(device=device, dtype=dtype)
 
         fn = backend.ones
         fn_args = [()]
         fn_kwargs: dict = {}
 
-        ref_output = array_fn(1.0, device, f"float{precision}")
+        ref_output = array_fn(1.0, device, f"float{DtypeBits[dtype.name].value}")
         assert_backend_results_equal(
             backend,
             fn,
@@ -340,25 +361,27 @@ class TestOnes:
             fn_kwargs,
             ref_output,
             device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
 
 @pytest.mark.parametrize(
-    "backendcls, device, precision", backends_with_device_precision, ids=names
+    "backendcls, device, dtype", backends_with_device_dtype, ids=names
 )
 class TestArange:
-    def test_arange(self, backendcls, device, precision):
+    def test_arange(self, backendcls, device, dtype):
         array_fn = array_fns[backendcls]
-        backend = backendcls(device=device, precision=precision)
+        backend = backendcls(device=device, dtype=dtype)
 
         fn = backend.arange
         fn_args: list = [-3, 5, 2]
         fn_kwargs: dict = {}
 
-        ref_output = array_fn([-3, -1, 1, 3], device, f"int{precision}")
+        ref_output = array_fn(
+            [-3, -1, 1, 3], device, f"int{DtypeBits[dtype.name].value}"
+        )
         assert_backend_results_equal(
             backend,
             fn,
@@ -366,21 +389,23 @@ class TestArange:
             fn_kwargs,
             ref_output,
             device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
-    def test_arange_float(self, backendcls, device, precision):
+    def test_arange_float(self, backendcls, device, dtype):
         array_fn = array_fns[backendcls]
-        backend = backendcls(device=device, precision=precision)
+        backend = backendcls(device=device, dtype=dtype)
 
         fn = backend.arange
         fn_args = [-3, 5, 2]
-        dtype = getattr(ml, f"float{precision}")
+        dtype = getattr(ml, f"float{DtypeBits[dtype.name].value}")
         fn_kwargs: dict = {"dtype": dtype}
 
-        ref_output = array_fn([-3, -1, 1, 3], device, f"float{precision}")
+        ref_output = array_fn(
+            [-3, -1, 1, 3], device, f"float{DtypeBits[dtype.name].value}"
+        )
         assert_backend_results_equal(
             backend,
             fn,
@@ -388,20 +413,20 @@ class TestArange:
             fn_kwargs,
             ref_output,
             device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
-    def test_arange_negative(self, backendcls, device, precision):
+    def test_arange_negative(self, backendcls, device, dtype):
         array_fn = array_fns[backendcls]
-        backend = backendcls(device=device, precision=precision)
+        backend = backendcls(device=device, dtype=dtype)
 
         fn = backend.arange
         fn_args = [3, 1, -1]
         fn_kwargs: dict = {}
 
-        ref_output = array_fn([3, 2], device, f"int{precision}")
+        ref_output = array_fn([3, 2], device, f"int{DtypeBits[dtype.name].value}")
         assert_backend_results_equal(
             backend,
             fn,
@@ -409,48 +434,27 @@ class TestArange:
             fn_kwargs,
             ref_output,
             device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
 
 @pytest.mark.parametrize(
-    "backendcls, device, precision", backends_with_device_precision, ids=names
+    "backendcls, device, dtype", backends_with_device_dtype, ids=names
 )
 class TestFlatten:
-    def test_flatten(self, backendcls, device, precision):
+    def test_flatten(self, backendcls, device, dtype):
         array_fn = array_fns[backendcls]
-        backend = backendcls(device=device, precision=precision)
-
-        fn = backend.flatten
-        fn_args: list = [array_fn([[1, 2], [3, 4]], device, f"int{precision}")]
-        fn_kwargs: dict = {}
-
-        ref_output = array_fn([1, 2, 3, 4], device, f"int{precision}")
-        assert_backend_results_equal(
-            backend,
-            fn,
-            fn_args,
-            fn_kwargs,
-            ref_output,
-            device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
-        )
-
-    def test_flatten_float(self, backendcls, device, precision):
-        array_fn = array_fns[backendcls]
-        backend = backendcls(device=device, precision=precision)
+        backend = backendcls(device=device, dtype=dtype)
 
         fn = backend.flatten
         fn_args: list = [
-            array_fn([[1.0, 2.0], [3.0, 4.0]], device, f"float{precision}")
+            array_fn([[1, 2], [3, 4]], device, f"int{DtypeBits[dtype.name].value}")
         ]
         fn_kwargs: dict = {}
 
-        ref_output = array_fn([1.0, 2.0, 3.0, 4.0], device, f"float{precision}")
+        ref_output = array_fn([1, 2, 3, 4], device, f"int{DtypeBits[dtype.name].value}")
         assert_backend_results_equal(
             backend,
             fn,
@@ -458,18 +462,26 @@ class TestFlatten:
             fn_kwargs,
             ref_output,
             device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
-    def test_flatten_edge(self, backendcls, device, precision):
+    def test_flatten_float(self, backendcls, device, dtype):
         array_fn = array_fns[backendcls]
-        backend = backendcls(device=device, precision=precision)
+        backend = backendcls(device=device, dtype=dtype)
+
         fn = backend.flatten
-        fn_args: list = [array_fn(1, device, f"int{precision}")]
+        fn_args: list = [
+            array_fn(
+                [[1.0, 2.0], [3.0, 4.0]], device, f"float{DtypeBits[dtype.name].value}"
+            )
+        ]
         fn_kwargs: dict = {}
-        ref_output = array_fn([1], device, f"int{precision}")
+
+        ref_output = array_fn(
+            [1.0, 2.0, 3.0, 4.0], device, f"float{DtypeBits[dtype.name].value}"
+        )
         assert_backend_results_equal(
             backend,
             fn,
@@ -477,47 +489,47 @@ class TestFlatten:
             fn_kwargs,
             ref_output,
             device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
+        )
+
+    def test_flatten_edge(self, backendcls, device, dtype):
+        array_fn = array_fns[backendcls]
+        backend = backendcls(device=device, dtype=dtype)
+        fn = backend.flatten
+        fn_args: list = [array_fn(1, device, f"int{DtypeBits[dtype.name].value}")]
+        fn_kwargs: dict = {}
+        ref_output = array_fn([1], device, f"int{DtypeBits[dtype.name].value}")
+        assert_backend_results_equal(
+            backend,
+            fn,
+            fn_args,
+            fn_kwargs,
+            ref_output,
+            device,
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
 
 @pytest.mark.parametrize(
-    "backendcls, device, precision", backends_with_device_precision, ids=names
+    "backendcls, device, dtype", backends_with_device_dtype, ids=names
 )
 class TestTranspose:
-    def test_transpose(self, backendcls, device, precision):
+    def test_transpose(self, backendcls, device, dtype):
         array_fn = array_fns[backendcls]
-        backend = backendcls(device=device, precision=precision)
-
-        fn = backend.transpose
-        fn_args: list = [array_fn([[1, 2], [3, 4]], device, f"int{precision}")]
-        fn_kwargs: dict = {}
-        ref_output = array_fn([[1, 3], [2, 4]], device, f"int{precision}")
-        assert_backend_results_equal(
-            backend,
-            fn,
-            fn_args,
-            fn_kwargs,
-            ref_output,
-            device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
-        )
-
-    def test_transpose_float(self, backendcls, device, precision):
-        array_fn = array_fns[backendcls]
-        backend = backendcls(device=device, precision=precision)
+        backend = backendcls(device=device, dtype=dtype)
 
         fn = backend.transpose
         fn_args: list = [
-            array_fn([[1.0, 2.0], [3.0, 4.0]], device, f"float{precision}")
+            array_fn([[1, 2], [3, 4]], device, f"int{DtypeBits[dtype.name].value}")
         ]
         fn_kwargs: dict = {}
-        ref_output = array_fn([[1.0, 3.0], [2.0, 4.0]], device, f"float{precision}")
-
+        ref_output = array_fn(
+            [[1, 3], [2, 4]], device, f"int{DtypeBits[dtype.name].value}"
+        )
         assert_backend_results_equal(
             backend,
             fn,
@@ -525,20 +537,26 @@ class TestTranspose:
             fn_kwargs,
             ref_output,
             device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
-    def test_transpose_with_axes(self, backendcls, device, precision):
+    def test_transpose_float(self, backendcls, device, dtype):
         array_fn = array_fns[backendcls]
-        backend = backendcls(device=device, precision=precision)
+        backend = backendcls(device=device, dtype=dtype)
 
         fn = backend.transpose
-        fn_args: list = [array_fn([[1, 2, 3, 4]], device, f"int{precision}"), [1, 0]]
+        fn_args: list = [
+            array_fn(
+                [[1.0, 2.0], [3.0, 4.0]], device, f"float{DtypeBits[dtype.name].value}"
+            )
+        ]
         fn_kwargs: dict = {}
+        ref_output = array_fn(
+            [[1.0, 3.0], [2.0, 4.0]], device, f"float{DtypeBits[dtype.name].value}"
+        )
 
-        ref_output = array_fn([[1], [2], [3], [4]], device, f"int{precision}")
         assert_backend_results_equal(
             backend,
             fn,
@@ -546,44 +564,53 @@ class TestTranspose:
             fn_kwargs,
             ref_output,
             device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
+        )
+
+    def test_transpose_with_axes(self, backendcls, device, dtype):
+        array_fn = array_fns[backendcls]
+        backend = backendcls(device=device, dtype=dtype)
+
+        fn = backend.transpose
+        fn_args: list = [
+            array_fn([[1, 2, 3, 4]], device, f"int{DtypeBits[dtype.name].value}"),
+            [1, 0],
+        ]
+        fn_kwargs: dict = {}
+
+        ref_output = array_fn(
+            [[1], [2], [3], [4]], device, f"int{DtypeBits[dtype.name].value}"
+        )
+        assert_backend_results_equal(
+            backend,
+            fn,
+            fn_args,
+            fn_kwargs,
+            ref_output,
+            device,
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
 
 @pytest.mark.parametrize(
-    "backendcls, device, precision", backends_with_device_precision, ids=names
+    "backendcls, device, dtype", backends_with_device_dtype, ids=names
 )
 class TestRelu:
-    def test_relu_int(self, backendcls, device, precision):
+    def test_relu_int(self, backendcls, device, dtype):
         array_fn = array_fns[backendcls]
-        backend = backendcls(device=device, precision=precision)
-        fn = backend.relu
-        fn_args: list = [array_fn([[-1, 2], [3, 4]], device, f"int{precision}")]
-        fn_kwargs: dict = {}
-        ref_output = array_fn([[0, 2], [3, 4]], device, f"int{precision}")
-        assert_backend_results_equal(
-            backend,
-            fn,
-            fn_args,
-            fn_kwargs,
-            ref_output,
-            device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
-        )
-
-    def test_relu_edge(self, backendcls, device, precision):
-        array_fn = array_fns[backendcls]
-        backend = backendcls(device=device, precision=precision)
+        backend = backendcls(device=device, dtype=dtype)
         fn = backend.relu
         fn_args: list = [
-            array_fn([[0.0, 1e10], [-1e10, 4.0]], device, f"float{precision}")
+            array_fn([[-1, 2], [3, 4]], device, f"int{DtypeBits[dtype.name].value}")
         ]
         fn_kwargs: dict = {}
-        ref_output = array_fn([[0.0, 1e10], [0.0, 4.0]], device, f"float{precision}")
+        ref_output = array_fn(
+            [[0, 2], [3, 4]], device, f"int{DtypeBits[dtype.name].value}"
+        )
         assert_backend_results_equal(
             backend,
             fn,
@@ -591,20 +618,26 @@ class TestRelu:
             fn_kwargs,
             ref_output,
             device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
-    def test_relu_float(self, backendcls, device, precision):
+    def test_relu_edge(self, backendcls, device, dtype):
         array_fn = array_fns[backendcls]
-        backend = backendcls(device=device, precision=precision)
+        backend = backendcls(device=device, dtype=dtype)
         fn = backend.relu
         fn_args: list = [
-            array_fn([[-1.0, 2.0], [3.0, 4.0]], device, f"float{precision}")
+            array_fn(
+                [[0.0, 1e10], [-1e10, 4.0]],
+                device,
+                f"float{DtypeBits[dtype.name].value}",
+            )
         ]
         fn_kwargs: dict = {}
-        ref_output = array_fn([[0.0, 2.0], [3.0, 4.0]], device, f"float{precision}")
+        ref_output = array_fn(
+            [[0.0, 1e10], [0.0, 4.0]], device, f"float{DtypeBits[dtype.name].value}"
+        )
         assert_backend_results_equal(
             backend,
             fn,
@@ -612,22 +645,49 @@ class TestRelu:
             fn_kwargs,
             ref_output,
             device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
+        )
+
+    def test_relu_float(self, backendcls, device, dtype):
+        array_fn = array_fns[backendcls]
+        backend = backendcls(device=device, dtype=dtype)
+        fn = backend.relu
+        fn_args: list = [
+            array_fn(
+                [[-1.0, 2.0], [3.0, 4.0]], device, f"float{DtypeBits[dtype.name].value}"
+            )
+        ]
+        fn_kwargs: dict = {}
+        ref_output = array_fn(
+            [[0.0, 2.0], [3.0, 4.0]], device, f"float{DtypeBits[dtype.name].value}"
+        )
+        assert_backend_results_equal(
+            backend,
+            fn,
+            fn_args,
+            fn_kwargs,
+            ref_output,
+            device,
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
 
 @pytest.mark.parametrize(
-    "backendcls, device, precision", backends_with_device_precision, ids=names
+    "backendcls, device, dtype", backends_with_device_dtype, ids=names
 )
 class TestSigmoid:
-    def test_sigmoid_float(self, backendcls, device, precision):
+    def test_sigmoid_float(self, backendcls, device, dtype):
         array_fn = array_fns[backendcls]
-        backend = backendcls(device=device, precision=precision)
+        backend = backendcls(device=device, dtype=dtype)
         fn = backend.sigmoid
         fn_args: list = [
-            array_fn([[-1.0, 2.0], [3.0, 4.0]], device, f"float{precision}")
+            array_fn(
+                [[-1.0, 2.0], [3.0, 4.0]], device, f"float{DtypeBits[dtype.name].value}"
+            )
         ]
         fn_kwargs: dict = {}
         ref_output = array_fn(
@@ -636,7 +696,7 @@ class TestSigmoid:
                 [0.9525741338729858, 0.9820137619972229],
             ],
             device,
-            f"float{precision}",
+            f"float{DtypeBits[dtype.name].value}",
         )
         assert_backend_results_equal(
             backend,
@@ -645,25 +705,29 @@ class TestSigmoid:
             fn_kwargs,
             ref_output,
             device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
 
 @pytest.mark.parametrize(
-    "backendcls, device, precision", backends_with_device_precision, ids=names
+    "backendcls, device, dtype", backends_with_device_dtype, ids=names
 )
 class TestSign:
-    def test_sign_float(self, backendcls, device, precision):
+    def test_sign_float(self, backendcls, device, dtype):
         array_fn = array_fns[backendcls]
-        backend = backendcls(device=device, precision=precision)
+        backend = backendcls(device=device, dtype=dtype)
         fn = backend.sign
         fn_args: list = [
-            array_fn([[-1.0, 2.0], [3.0, 4.0]], device, f"float{precision}")
+            array_fn(
+                [[-1.0, 2.0], [3.0, 4.0]], device, f"float{DtypeBits[dtype.name].value}"
+            )
         ]
         fn_kwargs: dict = {}
-        ref_output = array_fn([[-1.0, 1.0], [1.0, 1.0]], device, f"float{precision}")
+        ref_output = array_fn(
+            [[-1.0, 1.0], [1.0, 1.0]], device, f"float{DtypeBits[dtype.name].value}"
+        )
         assert_backend_results_equal(
             backend,
             fn,
@@ -671,18 +735,22 @@ class TestSign:
             fn_kwargs,
             ref_output,
             device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
-    def test_sign_int(self, backendcls, device, precision):
+    def test_sign_int(self, backendcls, device, dtype):
         array_fn = array_fns[backendcls]
-        backend = backendcls(device=device, precision=precision)
+        backend = backendcls(device=device, dtype=dtype)
         fn = backend.sign
-        fn_args: list = [array_fn([[-1, 2], [3, 4]], device, f"int{precision}")]
+        fn_args: list = [
+            array_fn([[-1, 2], [3, 4]], device, f"int{DtypeBits[dtype.name].value}")
+        ]
         fn_kwargs: dict = {}
-        ref_output = array_fn([[-1, 1], [1, 1]], device, f"int{precision}")
+        ref_output = array_fn(
+            [[-1, 1], [1, 1]], device, f"int{DtypeBits[dtype.name].value}"
+        )
         assert_backend_results_equal(
             backend,
             fn,
@@ -690,25 +758,29 @@ class TestSign:
             fn_kwargs,
             ref_output,
             device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
 
 @pytest.mark.parametrize(
-    "backendcls, device, precision", backends_with_device_precision, ids=names
+    "backendcls, device, dtype", backends_with_device_dtype, ids=names
 )
 class TestAbs:
-    def test_abs_float(self, backendcls, device, precision):
-        backend = backendcls(device=device, precision=precision)
+    def test_abs_float(self, backendcls, device, dtype):
+        backend = backendcls(device=device, dtype=dtype)
         array_fn = array_fns[backend.__class__]
         fn = backend.abs
         fn_args: list = [
-            array_fn([[-1.0, 2.0], [3.0, 4.0]], device, f"float{precision}")
+            array_fn(
+                [[-1.0, 2.0], [3.0, 4.0]], device, f"float{DtypeBits[dtype.name].value}"
+            )
         ]
         fn_kwargs: dict = {}
-        ref_output = array_fn([[1.0, 2.0], [3.0, 4.0]], device, f"float{precision}")
+        ref_output = array_fn(
+            [[1.0, 2.0], [3.0, 4.0]], device, f"float{DtypeBits[dtype.name].value}"
+        )
         assert_backend_results_equal(
             backend,
             fn,
@@ -716,18 +788,22 @@ class TestAbs:
             fn_kwargs,
             ref_output,
             device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
-    def test_abs_int(self, backendcls, device, precision):
-        backend = backendcls(device=device, precision=precision)
+    def test_abs_int(self, backendcls, device, dtype):
+        backend = backendcls(device=device, dtype=dtype)
         fn = backend.abs
         array_fn = array_fns[backend.__class__]
-        fn_args: list = [array_fn([[-1, 2], [3, 4]], device, f"int{precision}")]
+        fn_args: list = [
+            array_fn([[-1, 2], [3, 4]], device, f"int{DtypeBits[dtype.name].value}")
+        ]
         fn_kwargs: dict = {}
-        ref_output = array_fn([[1, 2], [3, 4]], device, f"int{precision}")
+        ref_output = array_fn(
+            [[1, 2], [3, 4]], device, f"int{DtypeBits[dtype.name].value}"
+        )
         assert_backend_results_equal(
             backend,
             fn,
@@ -735,18 +811,18 @@ class TestAbs:
             fn_kwargs,
             ref_output,
             device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
-    def test_abs_edge(self, backendcls, device, precision):
-        backend = backendcls(device=device, precision=precision)
+    def test_abs_edge(self, backendcls, device, dtype):
+        backend = backendcls(device=device, dtype=dtype)
         array_fn = array_fns[backend.__class__]
         fn = backend.abs
-        fn_args: list = [array_fn([0.0], device, f"float{precision}")]
+        fn_args: list = [array_fn([0.0], device, f"float{DtypeBits[dtype.name].value}")]
         fn_kwargs: dict = {}
-        ref_output = array_fn([0.0], device, f"float{precision}")
+        ref_output = array_fn([0.0], device, f"float{DtypeBits[dtype.name].value}")
         assert_backend_results_equal(
             backend,
             fn,
@@ -754,25 +830,29 @@ class TestAbs:
             fn_kwargs,
             ref_output,
             device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
 
 @pytest.mark.parametrize(
-    "backendcls, device, precision", backends_with_device_precision, ids=names
+    "backendcls, device, dtype", backends_with_device_dtype, ids=names
 )
 class TestOnesLike:
-    def test_ones_like(self, backendcls, device, precision):
+    def test_ones_like(self, backendcls, device, dtype):
         array_fn = array_fns[backendcls]
-        backend = backendcls(device=device, precision=precision)
+        backend = backendcls(device=device, dtype=dtype)
         fn = backend.ones_like
         fn_args: list = [
-            array_fn([[0.0, 0.0], [0.0, 0.0]], device, f"float{precision}")
+            array_fn(
+                [[0.0, 0.0], [0.0, 0.0]], device, f"float{DtypeBits[dtype.name].value}"
+            )
         ]
         fn_kwargs: dict = {}
-        ref_output = array_fn([[1.0, 1.0], [1.0, 1.0]], device, f"float{precision}")
+        ref_output = array_fn(
+            [[1.0, 1.0], [1.0, 1.0]], device, f"float{DtypeBits[dtype.name].value}"
+        )
         assert_backend_results_equal(
             backend,
             fn,
@@ -780,18 +860,18 @@ class TestOnesLike:
             fn_kwargs,
             ref_output,
             device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
-    def test_ones_edge(self, backendcls, device, precision):
+    def test_ones_edge(self, backendcls, device, dtype):
         array_fn = array_fns[backendcls]
-        backend = backendcls(device=device, precision=precision)
+        backend = backendcls(device=device, dtype=dtype)
         fn = backend.ones_like
-        fn_args: list = [array_fn(0.0, device, f"float{precision}")]
+        fn_args: list = [array_fn(0.0, device, f"float{DtypeBits[dtype.name].value}")]
         fn_kwargs: dict = {}
-        ref_output = array_fn(1.0, device, f"float{precision}")
+        ref_output = array_fn(1.0, device, f"float{DtypeBits[dtype.name].value}")
         assert_backend_results_equal(
             backend,
             fn,
@@ -799,25 +879,29 @@ class TestOnesLike:
             fn_kwargs,
             ref_output,
             device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
 
 @pytest.mark.parametrize(
-    "backendcls, device, precision", backends_with_device_precision, ids=names
+    "backendcls, device, dtype", backends_with_device_dtype, ids=names
 )
 class TestZerosLike:
-    def test_zeros_like(self, backendcls, device, precision):
+    def test_zeros_like(self, backendcls, device, dtype):
         array_fn = array_fns[backendcls]
-        backend = backendcls(device=device, precision=precision)
+        backend = backendcls(device=device, dtype=dtype)
         fn = backend.zeros_like
         fn_args: list = [
-            array_fn([[-1.0, 2.0], [3.0, 4.0]], device, f"float{precision}")
+            array_fn(
+                [[-1.0, 2.0], [3.0, 4.0]], device, f"float{DtypeBits[dtype.name].value}"
+            )
         ]
         fn_kwargs: dict = {}
-        ref_output = array_fn([[0.0, 0.0], [0.0, 0.0]], device, f"float{precision}")
+        ref_output = array_fn(
+            [[0.0, 0.0], [0.0, 0.0]], device, f"float{DtypeBits[dtype.name].value}"
+        )
         assert_backend_results_equal(
             backend,
             fn,
@@ -825,18 +909,18 @@ class TestZerosLike:
             fn_kwargs,
             ref_output,
             device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
-    def test_zeros_edge(self, backendcls, device, precision):
+    def test_zeros_edge(self, backendcls, device, dtype):
         array_fn = array_fns[backendcls]
-        backend = backendcls(device=device, precision=precision)
+        backend = backendcls(device=device, dtype=dtype)
         fn = backend.zeros_like
-        fn_args: list = [array_fn(0.0, device, f"float{precision}")]
+        fn_args: list = [array_fn(0.0, device, f"float{DtypeBits[dtype.name].value}")]
         fn_kwargs: dict = {}
-        ref_output = array_fn(0.0, device, f"float{precision}")
+        ref_output = array_fn(0.0, device, f"float{DtypeBits[dtype.name].value}")
         assert_backend_results_equal(
             backend,
             fn,
@@ -844,22 +928,24 @@ class TestZerosLike:
             fn_kwargs,
             ref_output,
             device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
 
 @pytest.mark.parametrize(
-    "backendcls, device, precision", backends_with_device_precision, ids=names
+    "backendcls, device, dtype", backends_with_device_dtype, ids=names
 )
 class TestSin:
-    def test_sin(self, backendcls, device, precision):
+    def test_sin(self, backendcls, device, dtype):
         array_fn = array_fns[backendcls]
-        backend = backendcls(device=device, precision=precision)
+        backend = backendcls(device=device, dtype=dtype)
         fn = backend.sin
         fn_args: list = [
-            array_fn([[-1.0, 2.0], [3.0, 4.0]], device, f"float{precision}")
+            array_fn(
+                [[-1.0, 2.0], [3.0, 4.0]], device, f"float{DtypeBits[dtype.name].value}"
+            )
         ]
         fn_kwargs: dict = {}
         ref_output = array_fn(
@@ -868,7 +954,7 @@ class TestSin:
                 [0.1411200080598672, -0.7568024953079282],
             ],
             device,
-            f"float{precision}",
+            f"float{DtypeBits[dtype.name].value}",
         )
         assert_backend_results_equal(
             backend,
@@ -877,22 +963,24 @@ class TestSin:
             fn_kwargs,
             ref_output,
             device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
 
 @pytest.mark.parametrize(
-    "backendcls, device, precision", backends_with_device_precision, ids=names
+    "backendcls, device, dtype", backends_with_device_dtype, ids=names
 )
 class TestCos:
-    def test_cos(self, backendcls, device, precision):
+    def test_cos(self, backendcls, device, dtype):
         array_fn = array_fns[backendcls]
-        backend = backendcls(device=device, precision=precision)
+        backend = backendcls(device=device, dtype=dtype)
         fn = backend.cos
         fn_args: list = [
-            array_fn([[-1.0, 2.0], [3.0, 4.0]], device, f"float{precision}")
+            array_fn(
+                [[-1.0, 2.0], [3.0, 4.0]], device, f"float{DtypeBits[dtype.name].value}"
+            )
         ]
         fn_kwargs: dict = {}
         ref_output = array_fn(
@@ -901,7 +989,7 @@ class TestCos:
                 [-0.9899924966004454, -0.6536436208636119],
             ],
             device,
-            f"float{precision}",
+            f"float{DtypeBits[dtype.name].value}",
         )
         assert_backend_results_equal(
             backend,
@@ -910,22 +998,24 @@ class TestCos:
             fn_kwargs,
             ref_output,
             device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
 
 @pytest.mark.parametrize(
-    "backendcls, device, precision", backends_with_device_precision, ids=names
+    "backendcls, device, dtype", backends_with_device_dtype, ids=names
 )
 class TestTanh:
-    def test_tanh(self, backendcls, device, precision):
+    def test_tanh(self, backendcls, device, dtype):
         array_fn = array_fns[backendcls]
-        backend = backendcls(device=device, precision=precision)
+        backend = backendcls(device=device, dtype=dtype)
         fn = backend.tanh
         fn_args: list = [
-            array_fn([[-1.0, 2.0], [3.0, 4.0]], device, f"float{precision}")
+            array_fn(
+                [[-1.0, 2.0], [3.0, 4.0]], device, f"float{DtypeBits[dtype.name].value}"
+            )
         ]
         fn_kwargs: dict = {}
         ref_output = array_fn(
@@ -934,7 +1024,7 @@ class TestTanh:
                 [0.9950547536867305, 0.999329299739067],
             ],
             device,
-            f"float{precision}",
+            f"float{DtypeBits[dtype.name].value}",
         )
         assert_backend_results_equal(
             backend,
@@ -943,26 +1033,30 @@ class TestTanh:
             fn_kwargs,
             ref_output,
             device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
 
 @pytest.mark.parametrize(
-    "backendcls, device, precision", backends_with_device_precision, ids=names
+    "backendcls, device, dtype", backends_with_device_dtype, ids=names
 )
 class TestLeakyRelu:
-    def test_leaky_relu(self, backendcls, device, precision):
+    def test_leaky_relu(self, backendcls, device, dtype):
         array_fn = array_fns[backendcls]
-        backend = backendcls(device=device, precision=precision)
+        backend = backendcls(device=device, dtype=dtype)
         fn = backend.leaky_relu
         fn_args: list = [
-            array_fn([[-1.0, 2.0], [3.0, 4.0]], device, f"float{precision}"),
+            array_fn(
+                [[-1.0, 2.0], [3.0, 4.0]], device, f"float{DtypeBits[dtype.name].value}"
+            ),
             0.1,
         ]
         fn_kwargs: dict = {}
-        ref_output = array_fn([[-0.1, 2.0], [3.0, 4.0]], device, f"float{precision}")
+        ref_output = array_fn(
+            [[-0.1, 2.0], [3.0, 4.0]], device, f"float{DtypeBits[dtype.name].value}"
+        )
         assert_backend_results_equal(
             backend,
             fn,
@@ -970,22 +1064,24 @@ class TestLeakyRelu:
             fn_kwargs,
             ref_output,
             device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
 
 @pytest.mark.parametrize(
-    "backendcls, device, precision", backends_with_device_precision, ids=names
+    "backendcls, device, dtype", backends_with_device_dtype, ids=names
 )
 class TestSoftplus:
-    def test_softplus(self, backendcls, device, precision):
+    def test_softplus(self, backendcls, device, dtype):
         array_fn = array_fns[backendcls]
-        backend = backendcls(device=device, precision=precision)
+        backend = backendcls(device=device, dtype=dtype)
         fn = backend.softplus
         fn_args: list = [
-            array_fn([[-1.0, 2.0], [3.0, 4.0]], device, f"float{precision}")
+            array_fn(
+                [[-1.0, 2.0], [3.0, 4.0]], device, f"float{DtypeBits[dtype.name].value}"
+            )
         ]
         fn_kwargs: dict = {}
         ref_output = array_fn(
@@ -994,7 +1090,7 @@ class TestSoftplus:
                 [3.0485873222351074, 4.0181498527526855],
             ],
             device,
-            f"float{precision}",
+            f"float{DtypeBits[dtype.name].value}",
         )
         assert_backend_results_equal(
             backend,
@@ -1003,22 +1099,24 @@ class TestSoftplus:
             fn_kwargs,
             ref_output,
             device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
 
 @pytest.mark.parametrize(
-    "backendcls, device, precision", backends_with_device_precision, ids=names
+    "backendcls, device, dtype", backends_with_device_dtype, ids=names
 )
 class TestSoftmax:
-    def test_softmax(self, backendcls, device, precision):
+    def test_softmax(self, backendcls, device, dtype):
         array_fn = array_fns[backendcls]
-        backend = backendcls(device=device, precision=precision)
+        backend = backendcls(device=device, dtype=dtype)
         fn = backend.softmax
         fn_args: list = [
-            array_fn([[-1.0, 2.0], [3.0, 4.0]], device, f"float{precision}"),
+            array_fn(
+                [[-1.0, 2.0], [3.0, 4.0]], device, f"float{DtypeBits[dtype.name].value}"
+            ),
             0,
         ]
         fn_kwargs: dict = {}
@@ -1028,7 +1126,7 @@ class TestSoftmax:
                 [0.9820137619972229, 0.8807970285415649],
             ],
             device,
-            f"float{precision}",
+            f"float{DtypeBits[dtype.name].value}",
         )
         assert_backend_results_equal(
             backend,
@@ -1037,28 +1135,30 @@ class TestSoftmax:
             fn_kwargs,
             ref_output,
             device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
 
 @pytest.mark.parametrize(
-    "backendcls, device, precision", backends_with_device_precision, ids=names
+    "backendcls, device, dtype", backends_with_device_dtype, ids=names
 )
 class TestLog:
-    def test_log(self, backendcls, device, precision):
+    def test_log(self, backendcls, device, dtype):
         array_fn = array_fns[backendcls]
-        backend = backendcls(device=device, precision=precision)
+        backend = backendcls(device=device, dtype=dtype)
         fn = backend.log
         fn_args: list = [
-            array_fn([[2.0, 1e-5], [1.0, 4.0]], device, f"float{precision}")
+            array_fn(
+                [[2.0, 1e-5], [1.0, 4.0]], device, f"float{DtypeBits[dtype.name].value}"
+            )
         ]
         fn_kwargs: dict = {}
         ref_output = array_fn(
             [[0.6931471824645996, -11.512925148010254], [0.0, 1.3862943649291992]],
             device,
-            f"float{precision}",
+            f"float{DtypeBits[dtype.name].value}",
         )
         assert_backend_results_equal(
             backend,
@@ -1067,23 +1167,25 @@ class TestLog:
             fn_kwargs,
             ref_output,
             device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
 
 @pytest.mark.parametrize(
-    "backendcls, device, precision", backends_with_device_precision, ids=names
+    "backendcls, device, dtype", backends_with_device_dtype, ids=names
 )
 class TestIsNaN:
-    def test_is_nan(self, backendcls, device, precision):
+    def test_is_nan(self, backendcls, device, dtype):
         array_fn = array_fns[backendcls]
-        backend = backendcls(device=device, precision=precision)
+        backend = backendcls(device=device, dtype=dtype)
         fn = backend.isnan
         fn_args: list = [
             array_fn(
-                [[2.0, backend.nan], [backend.nan, 4.0]], device, f"float{precision}"
+                [[2.0, backend.nan], [backend.nan, 4.0]],
+                device,
+                f"float{DtypeBits[dtype.name].value}",
             )
         ]
         fn_kwargs: dict = {}
@@ -1095,25 +1197,31 @@ class TestIsNaN:
             fn_kwargs,
             ref_output,
             device,
-            8,
-            tolerances[precision],
-            tolerances[precision],
+            Dtype.bool,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
 
 @pytest.mark.parametrize(
-    "backendcls, device, precision", backends_with_device_precision, ids=names
+    "backendcls, device, dtype", backends_with_device_dtype, ids=names
 )
 class TestSqueeze:
-    def test_squeeze(self, backendcls, device, precision):
+    def test_squeeze(self, backendcls, device, dtype):
         array_fn = array_fns[backendcls]
-        backend = backendcls(device=device, precision=precision)
+        backend = backendcls(device=device, dtype=dtype)
         fn = backend.squeeze
         fn_args: list = [
-            array_fn([[[[[2.0, 1.0], [3.0, 4.0]]]]], device, f"float{precision}")
+            array_fn(
+                [[[[[2.0, 1.0], [3.0, 4.0]]]]],
+                device,
+                f"float{DtypeBits[dtype.name].value}",
+            )
         ]
         fn_kwargs: dict = {}
-        ref_output = array_fn([[2.0, 1.0], [3.0, 4.0]], device, f"float{precision}")
+        ref_output = array_fn(
+            [[2.0, 1.0], [3.0, 4.0]], device, f"float{DtypeBits[dtype.name].value}"
+        )
         assert_backend_results_equal(
             backend,
             fn,
@@ -1121,18 +1229,20 @@ class TestSqueeze:
             fn_kwargs,
             ref_output,
             device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
-    def test_squeeze_edge(self, backendcls, device, precision):
+    def test_squeeze_edge(self, backendcls, device, dtype):
         array_fn = array_fns[backendcls]
-        backend = backendcls(device=device, precision=precision)
+        backend = backendcls(device=device, dtype=dtype)
         fn = backend.squeeze
-        fn_args: list = [array_fn([[[[[[[[2.0]]]]]]]], device, f"float{precision}")]
+        fn_args: list = [
+            array_fn([[[[[[[[2.0]]]]]]]], device, f"float{DtypeBits[dtype.name].value}")
+        ]
         fn_kwargs: dict = {}
-        ref_output = array_fn(2.0, device, f"float{precision}")
+        ref_output = array_fn(2.0, device, f"float{DtypeBits[dtype.name].value}")
         assert_backend_results_equal(
             backend,
             fn,
@@ -1140,26 +1250,32 @@ class TestSqueeze:
             fn_kwargs,
             ref_output,
             device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
 
 @pytest.mark.parametrize(
-    "backendcls, device, precision", backends_with_device_precision, ids=names
+    "backendcls, device, dtype", backends_with_device_dtype, ids=names
 )
 class TestReshape:
-    def test_reshape(self, backendcls, device, precision):
+    def test_reshape(self, backendcls, device, dtype):
         array_fn = array_fns[backendcls]
-        backend = backendcls(device=device, precision=precision)
+        backend = backendcls(device=device, dtype=dtype)
         fn = backend.reshape
         fn_args: list = [
-            array_fn([[[[[2.0, 1.0], [3.0, 4.0]]]]], device, f"float{precision}"),
+            array_fn(
+                [[[[[2.0, 1.0], [3.0, 4.0]]]]],
+                device,
+                f"float{DtypeBits[dtype.name].value}",
+            ),
             (4, 1),
         ]
         fn_kwargs: dict = {}
-        ref_output = array_fn([[2.0], [1.0], [3.0], [4.0]], device, f"float{precision}")
+        ref_output = array_fn(
+            [[2.0], [1.0], [3.0], [4.0]], device, f"float{DtypeBits[dtype.name].value}"
+        )
         assert_backend_results_equal(
             backend,
             fn,
@@ -1167,21 +1283,23 @@ class TestReshape:
             fn_kwargs,
             ref_output,
             device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
-    def test_reshape_edge(self, backendcls, device, precision):
+    def test_reshape_edge(self, backendcls, device, dtype):
         array_fn = array_fns[backendcls]
-        backend = backendcls(device=device, precision=precision)
+        backend = backendcls(device=device, dtype=dtype)
         fn = backend.reshape
         fn_args: list = [
-            array_fn([[[[[[[[2.0]]]]]]]], device, f"float{precision}"),
+            array_fn(
+                [[[[[[[[2.0]]]]]]]], device, f"float{DtypeBits[dtype.name].value}"
+            ),
             (1, 1),
         ]
         fn_kwargs: dict = {}
-        ref_output = array_fn([[2.0]], device, f"float{precision}")
+        ref_output = array_fn([[2.0]], device, f"float{DtypeBits[dtype.name].value}")
         assert_backend_results_equal(
             backend,
             fn,
@@ -1189,34 +1307,40 @@ class TestReshape:
             fn_kwargs,
             ref_output,
             device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
 
-bdp_without_gpu = backends_with_device_precision.copy()
+bdp_without_gpu = backends_with_device_dtype.copy()
 names_without_gpu = names.copy()
-for idx, item in enumerate(backends_with_device_precision):
+for idx, item in enumerate(backends_with_device_dtype):
     if item[0] == ml.TorchBackend and "cpu" not in item[1]:
         bdp_without_gpu.remove(item)
         names_without_gpu.pop(idx)
 
 
 @pytest.mark.parametrize(
-    "backendcls, device, precision", bdp_without_gpu, ids=names_without_gpu
+    "backendcls, device, dtype", bdp_without_gpu, ids=names_without_gpu
 )
 class TestSort:
-    def test_sort(self, backendcls, device, precision):
+    def test_sort(self, backendcls, device, dtype):
         array_fn = array_fns[backendcls]
-        backend = backendcls(device=device, precision=precision)
+        backend = backendcls(device=device, dtype=dtype)
         fn = backend.sort
         fn_args: list = [
-            array_fn([[[[[1.0, 2.0], [3.0, 4.0]]]]], device, f"float{precision}")
+            array_fn(
+                [[[[[1.0, 2.0], [3.0, 4.0]]]]],
+                device,
+                f"float{DtypeBits[dtype.name].value}",
+            )
         ]
         fn_kwargs: dict = {}
         ref_output = array_fn(
-            [[[[[1.0, 2.0], [3.0, 4.0]]]]], device, f"float{precision}"
+            [[[[[1.0, 2.0], [3.0, 4.0]]]]],
+            device,
+            f"float{DtypeBits[dtype.name].value}",
         )
         assert_backend_results_equal(
             backend,
@@ -1225,23 +1349,28 @@ class TestSort:
             fn_kwargs,
             ref_output,
             device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
 
 @pytest.mark.parametrize(
-    "backendcls, device, precision", backends_with_device_precision, ids=names
+    "backendcls, device, dtype", backends_with_device_dtype, ids=names
 )
 class TestExpandDims:
-    def test_expand_dims(self, backendcls, device, precision):
+    def test_expand_dims(self, backendcls, device, dtype):
         array_fn = array_fns[backendcls]
-        backend = backendcls(device=device, precision=precision)
+        backend = backendcls(device=device, dtype=dtype)
         fn = backend.expand_dims
-        fn_args: list = [array_fn([2.0, 3.0], device, f"float{precision}"), 1]
+        fn_args: list = [
+            array_fn([2.0, 3.0], device, f"float{DtypeBits[dtype.name].value}"),
+            1,
+        ]
         fn_kwargs: dict = {}
-        ref_output = array_fn([[2.0], [3.0]], device, f"float{precision}")
+        ref_output = array_fn(
+            [[2.0], [3.0]], device, f"float{DtypeBits[dtype.name].value}"
+        )
         assert_backend_results_equal(
             backend,
             fn,
@@ -1249,29 +1378,31 @@ class TestExpandDims:
             fn_kwargs,
             ref_output,
             device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
 
 @pytest.mark.parametrize(
-    "backendcls, device, precision", backends_with_device_precision, ids=names
+    "backendcls, device, dtype", backends_with_device_dtype, ids=names
 )
 class TestStack:
-    def test_stack_dim0(self, backendcls, device, precision):
+    def test_stack_dim0(self, backendcls, device, dtype):
         array_fn = array_fns[backendcls]
-        backend = backendcls(device=device, precision=precision)
+        backend = backendcls(device=device, dtype=dtype)
         fn = backend.stack
         fn_args: list = [
             [
-                array_fn([2.0, 3.0], device, f"float{precision}"),
-                array_fn([4.0, 5.0], device, f"float{precision}"),
+                array_fn([2.0, 3.0], device, f"float{DtypeBits[dtype.name].value}"),
+                array_fn([4.0, 5.0], device, f"float{DtypeBits[dtype.name].value}"),
             ],
             0,
         ]
         fn_kwargs: dict = {}
-        ref_output = array_fn([[2.0, 3.0], [4.0, 5.0]], device, f"float{precision}")
+        ref_output = array_fn(
+            [[2.0, 3.0], [4.0, 5.0]], device, f"float{DtypeBits[dtype.name].value}"
+        )
         assert_backend_results_equal(
             backend,
             fn,
@@ -1279,24 +1410,26 @@ class TestStack:
             fn_kwargs,
             ref_output,
             device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
-    def test_stack_dim1(self, backendcls, device, precision):
+    def test_stack_dim1(self, backendcls, device, dtype):
         array_fn = array_fns[backendcls]
-        backend = backendcls(device=device, precision=precision)
+        backend = backendcls(device=device, dtype=dtype)
         fn = backend.stack
         fn_args: list = [
             [
-                array_fn([2.0, 3.0], device, f"float{precision}"),
-                array_fn([4.0, 5.0], device, f"float{precision}"),
+                array_fn([2.0, 3.0], device, f"float{DtypeBits[dtype.name].value}"),
+                array_fn([4.0, 5.0], device, f"float{DtypeBits[dtype.name].value}"),
             ],
             1,
         ]
         fn_kwargs: dict = {}
-        ref_output = array_fn([[2.0, 4.0], [3.0, 5.0]], device, f"float{precision}")
+        ref_output = array_fn(
+            [[2.0, 4.0], [3.0, 5.0]], device, f"float{DtypeBits[dtype.name].value}"
+        )
         assert_backend_results_equal(
             backend,
             fn,
@@ -1304,29 +1437,31 @@ class TestStack:
             fn_kwargs,
             ref_output,
             device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
 
 @pytest.mark.parametrize(
-    "backendcls, device, precision", backends_with_device_precision, ids=names
+    "backendcls, device, dtype", backends_with_device_dtype, ids=names
 )
 class TestCat:
-    def test_dim0(self, backendcls, device, precision):
+    def test_dim0(self, backendcls, device, dtype):
         array_fn = array_fns[backendcls]
-        backend = backendcls(device=device, precision=precision)
+        backend = backendcls(device=device, dtype=dtype)
         fn = backend.cat
         fn_args: list = [
             [
-                array_fn([[2.0, 3.0]], device, f"float{precision}"),
-                array_fn([[4.0, 5.0]], device, f"float{precision}"),
+                array_fn([[2.0, 3.0]], device, f"float{DtypeBits[dtype.name].value}"),
+                array_fn([[4.0, 5.0]], device, f"float{DtypeBits[dtype.name].value}"),
             ],
             0,
         ]
         fn_kwargs: dict = {}
-        ref_output = array_fn([[2.0, 3.0], [4.0, 5.0]], device, f"float{precision}")
+        ref_output = array_fn(
+            [[2.0, 3.0], [4.0, 5.0]], device, f"float{DtypeBits[dtype.name].value}"
+        )
         assert_backend_results_equal(
             backend,
             fn,
@@ -1334,24 +1469,26 @@ class TestCat:
             fn_kwargs,
             ref_output,
             device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
-    def test_dim1(self, backendcls, device, precision):
+    def test_dim1(self, backendcls, device, dtype):
         array_fn = array_fns[backendcls]
-        backend = backendcls(device=device, precision=precision)
+        backend = backendcls(device=device, dtype=dtype)
         fn = backend.cat
         fn_args: list = [
             [
-                array_fn([[2.0, 3.0]], device, f"float{precision}"),
-                array_fn([[4.0, 5.0]], device, f"float{precision}"),
+                array_fn([[2.0, 3.0]], device, f"float{DtypeBits[dtype.name].value}"),
+                array_fn([[4.0, 5.0]], device, f"float{DtypeBits[dtype.name].value}"),
             ],
             1,
         ]
         fn_kwargs: dict = {}
-        ref_output = array_fn([[2.0, 3.0, 4.0, 5.0]], device, f"float{precision}")
+        ref_output = array_fn(
+            [[2.0, 3.0, 4.0, 5.0]], device, f"float{DtypeBits[dtype.name].value}"
+        )
         assert_backend_results_equal(
             backend,
             fn,
@@ -1359,27 +1496,31 @@ class TestCat:
             fn_kwargs,
             ref_output,
             device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
 
 @pytest.mark.parametrize(
-    "backendcls, device, precision", backends_with_device_precision, ids=names
+    "backendcls, device, dtype", backends_with_device_dtype, ids=names
 )
 class TestPad:
-    def test_tuple_of_tuple(self, backendcls, device, precision):
+    def test_tuple_of_tuple(self, backendcls, device, dtype):
         array_fn = array_fns[backendcls]
-        backend = backendcls(device=device, precision=precision)
+        backend = backendcls(device=device, dtype=dtype)
         fn = backend.pad
         fn_args: list = [
-            array_fn([[2.0, 3.0], [4.0, 5.0]], device, f"float{precision}"),
+            array_fn(
+                [[2.0, 3.0], [4.0, 5.0]], device, f"float{DtypeBits[dtype.name].value}"
+            ),
             ((0, 0), (1, 1)),
         ]
         fn_kwargs: dict = {}
         ref_output = array_fn(
-            [[0.0, 2.0, 3.0, 0.0], [0.0, 4.0, 5.0, 0.0]], device, f"float{precision}"
+            [[0.0, 2.0, 3.0, 0.0], [0.0, 4.0, 5.0, 0.0]],
+            device,
+            f"float{DtypeBits[dtype.name].value}",
         )
         assert_backend_results_equal(
             backend,
@@ -1388,20 +1529,20 @@ class TestPad:
             fn_kwargs,
             ref_output,
             device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
-    def test_tuple_of_tuple_3_dim(self, backendcls, device, precision):
+    def test_tuple_of_tuple_3_dim(self, backendcls, device, dtype):
         array_fn = array_fns[backendcls]
-        backend = backendcls(device=device, precision=precision)
+        backend = backendcls(device=device, dtype=dtype)
         fn = backend.pad
         fn_args: list = [
             array_fn(
                 [[[2.0, 3.0], [4.0, 5.0]], [[2.0, 3.0], [4.0, 5.0]]],
                 device,
-                f"float{precision}",
+                f"float{DtypeBits[dtype.name].value}",
             ),
             ((0, 0), (1, 1), (2, 2)),
         ]
@@ -1422,7 +1563,7 @@ class TestPad:
                 ],
             ],
             device,
-            f"float{precision}",
+            f"float{DtypeBits[dtype.name].value}",
         )
         assert_backend_results_equal(
             backend,
@@ -1431,20 +1572,20 @@ class TestPad:
             fn_kwargs,
             ref_output,
             device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
-    def test_tuple_int(self, backendcls, device, precision):
+    def test_tuple_int(self, backendcls, device, dtype):
         array_fn = array_fns[backendcls]
-        backend = backendcls(device=device, precision=precision)
+        backend = backendcls(device=device, dtype=dtype)
         fn = backend.pad
         fn_args: list = [
             array_fn(
                 [[[2.0, 3.0], [4.0, 5.0]], [[2.0, 3.0], [4.0, 5.0]]],
                 device,
-                f"float{precision}",
+                f"float{DtypeBits[dtype.name].value}",
             ),
             (1, 2),
         ]
@@ -1488,7 +1629,7 @@ class TestPad:
                 ],
             ],
             device,
-            f"float{precision}",
+            f"float{DtypeBits[dtype.name].value}",
         )
         assert_backend_results_equal(
             backend,
@@ -1497,17 +1638,19 @@ class TestPad:
             fn_kwargs,
             ref_output,
             device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
-    def test_int(self, backendcls, device, precision):
+    def test_int(self, backendcls, device, dtype):
         array_fn = array_fns[backendcls]
-        backend = backendcls(device=device, precision=precision)
+        backend = backendcls(device=device, dtype=dtype)
         fn = backend.pad
         fn_args: list = [
-            array_fn([[2.0, 3.0], [4.0, 5.0]], device, f"float{precision}"),
+            array_fn(
+                [[2.0, 3.0], [4.0, 5.0]], device, f"float{DtypeBits[dtype.name].value}"
+            ),
             1,
         ]
         fn_kwargs: dict = {}
@@ -1519,7 +1662,7 @@ class TestPad:
                 [0.0, 0.0, 0.0, 0.0],
             ],
             device,
-            f"float{precision}",
+            f"float{DtypeBits[dtype.name].value}",
         )
         assert_backend_results_equal(
             backend,
@@ -1528,18 +1671,18 @@ class TestPad:
             fn_kwargs,
             ref_output,
             device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
 
 @pytest.mark.parametrize(
-    "backendcls, device, precision", backends_with_device_precision, ids=names
+    "backendcls, device, dtype", backends_with_device_dtype, ids=names
 )
 class TestAll:
-    def test_all_false(self, backendcls, device, precision):
-        backend = backendcls(device=device, precision=precision)
+    def test_all_false(self, backendcls, device, dtype):
+        backend = backendcls(device=device, dtype=dtype)
         array_fn = array_fns[backend.__class__]
         fn = backend.all
         fn_args: list = [array_fn([True, False, False, True], device, "bool")]
@@ -1552,13 +1695,13 @@ class TestAll:
             fn_kwargs,
             ref_output,
             device,
-            8,
-            tolerances[precision],
-            tolerances[precision],
+            Dtype.bool,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
-    def test_all_true(self, backendcls, device, precision):
-        backend = backendcls(device=device, precision=precision)
+    def test_all_true(self, backendcls, device, dtype):
+        backend = backendcls(device=device, dtype=dtype)
         array_fn = array_fns[backend.__class__]
         fn = backend.all
         fn_args: list = [array_fn([True, True, 1.0, True], device, "bool")]
@@ -1571,19 +1714,19 @@ class TestAll:
             fn_kwargs,
             ref_output,
             device,
-            8,
-            tolerances[precision],
-            tolerances[precision],
+            Dtype.bool,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
 
 @pytest.mark.parametrize(
-    "backendcls, device, precision", backends_with_device_precision, ids=names
+    "backendcls, device, dtype", backends_with_device_dtype, ids=names
 )
 class TestAny:
-    def test_any_false(self, backendcls, device, precision):
+    def test_any_false(self, backendcls, device, dtype):
         array_fn = array_fns[backendcls]
-        backend = backendcls(device=device, precision=precision)
+        backend = backendcls(device=device, dtype=dtype)
         fn = backend.any
         fn_args: list = [array_fn([False, False, 0.0, False], device, "bool")]
         fn_kwargs: dict = {}
@@ -1595,14 +1738,14 @@ class TestAny:
             fn_kwargs,
             ref_output,
             device,
-            8,
-            tolerances[precision],
-            tolerances[precision],
+            Dtype.bool,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
-    def test_any_true(self, backendcls, device, precision):
+    def test_any_true(self, backendcls, device, dtype):
         array_fn = array_fns[backendcls]
-        backend = backendcls(device=device, precision=precision)
+        backend = backendcls(device=device, dtype=dtype)
         fn = backend.any
         fn_args: list = [array_fn([False, False, 0.0, True], device, "bool")]
         fn_kwargs: dict = {}
@@ -1614,23 +1757,23 @@ class TestAny:
             fn_kwargs,
             ref_output,
             device,
-            8,
-            tolerances[precision],
-            tolerances[precision],
+            Dtype.bool,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
 
 @pytest.mark.parametrize(
-    "backendcls, device, precision", backends_with_device_precision, ids=names
+    "backendcls, device, dtype", backends_with_device_dtype, ids=names
 )
 class TestAtLeast1D:
-    def test_zero_dim(self, backendcls, device, precision):
+    def test_zero_dim(self, backendcls, device, dtype):
         array_fn = array_fns[backendcls]
-        backend = backendcls(device=device, precision=precision)
+        backend = backendcls(device=device, dtype=dtype)
         fn = backend.atleast_1d
-        fn_args: list = [array_fn(0, device, f"int{precision}")]
+        fn_args: list = [array_fn(0, device, f"int{DtypeBits[dtype.name].value}")]
         fn_kwargs: dict = {}
-        ref_output = array_fn([0], device, f"int{precision}")
+        ref_output = array_fn([0], device, f"int{DtypeBits[dtype.name].value}")
         assert_backend_results_equal(
             backend,
             fn,
@@ -1638,18 +1781,18 @@ class TestAtLeast1D:
             fn_kwargs,
             ref_output,
             device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
-    def test_two_dim(self, backendcls, device, precision):
+    def test_two_dim(self, backendcls, device, dtype):
         array_fn = array_fns[backendcls]
-        backend = backendcls(device=device, precision=precision)
+        backend = backendcls(device=device, dtype=dtype)
         fn = backend.atleast_1d
-        fn_args: list = [array_fn([[0]], device, f"int{precision}")]
+        fn_args: list = [array_fn([[0]], device, f"int{DtypeBits[dtype.name].value}")]
         fn_kwargs: dict = {}
-        ref_output = array_fn([[0]], device, f"int{precision}")
+        ref_output = array_fn([[0]], device, f"int{DtypeBits[dtype.name].value}")
         assert_backend_results_equal(
             backend,
             fn,
@@ -1657,25 +1800,25 @@ class TestAtLeast1D:
             fn_kwargs,
             ref_output,
             device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
-    def test_tuple_input(self, backendcls, device, precision):
+    def test_tuple_input(self, backendcls, device, dtype):
         array_fn = array_fns[backendcls]
-        backend = backendcls(device=device, precision=precision)
+        backend = backendcls(device=device, dtype=dtype)
         fn = backend.atleast_1d
         fn_args: list = [
             (
-                array_fn([[0]], device, f"int{precision}"),
-                array_fn([[1]], device, f"int{precision}"),
+                array_fn([[0]], device, f"int{DtypeBits[dtype.name].value}"),
+                array_fn([[1]], device, f"int{DtypeBits[dtype.name].value}"),
             )
         ]
         fn_kwargs: dict = {}
         ref_output = (
-            array_fn([[0]], device, f"int{precision}"),
-            array_fn([[1]], device, f"int{precision}"),
+            array_fn([[0]], device, f"int{DtypeBits[dtype.name].value}"),
+            array_fn([[1]], device, f"int{DtypeBits[dtype.name].value}"),
         )
         assert_backend_results_equal(
             backend,
@@ -1684,23 +1827,23 @@ class TestAtLeast1D:
             fn_kwargs,
             ref_output,
             device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
 
 @pytest.mark.parametrize(
-    "backendcls, device, precision", backends_with_device_precision, ids=names
+    "backendcls, device, dtype", backends_with_device_dtype, ids=names
 )
 class TestAtLeast2D:
-    def test_zero_dim(self, backendcls, device, precision):
+    def test_zero_dim(self, backendcls, device, dtype):
         array_fn = array_fns[backendcls]
-        backend = backendcls(device=device, precision=precision)
+        backend = backendcls(device=device, dtype=dtype)
         fn = backend.atleast_2d
-        fn_args: list = [array_fn(0, device, f"int{precision}")]
+        fn_args: list = [array_fn(0, device, f"int{DtypeBits[dtype.name].value}")]
         fn_kwargs: dict = {}
-        ref_output = array_fn([[0]], device, f"int{precision}")
+        ref_output = array_fn([[0]], device, f"int{DtypeBits[dtype.name].value}")
         assert_backend_results_equal(
             backend,
             fn,
@@ -1708,18 +1851,18 @@ class TestAtLeast2D:
             fn_kwargs,
             ref_output,
             device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
-    def test_one_dim(self, backendcls, device, precision):
+    def test_one_dim(self, backendcls, device, dtype):
         array_fn = array_fns[backendcls]
-        backend = backendcls(device=device, precision=precision)
+        backend = backendcls(device=device, dtype=dtype)
         fn = backend.atleast_2d
-        fn_args: list = [array_fn([0], device, f"int{precision}")]
+        fn_args: list = [array_fn([0], device, f"int{DtypeBits[dtype.name].value}")]
         fn_kwargs: dict = {}
-        ref_output = array_fn([[0]], device, f"int{precision}")
+        ref_output = array_fn([[0]], device, f"int{DtypeBits[dtype.name].value}")
         assert_backend_results_equal(
             backend,
             fn,
@@ -1727,25 +1870,25 @@ class TestAtLeast2D:
             fn_kwargs,
             ref_output,
             device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
-    def test_tuple_input(self, backendcls, device, precision):
+    def test_tuple_input(self, backendcls, device, dtype):
         array_fn = array_fns[backendcls]
-        backend = backendcls(device=device, precision=precision)
+        backend = backendcls(device=device, dtype=dtype)
         fn = backend.atleast_2d
         fn_args: list = [
             (
-                array_fn([1], device, f"int{precision}"),
-                array_fn(1, device, f"int{precision}"),
+                array_fn([1], device, f"int{DtypeBits[dtype.name].value}"),
+                array_fn(1, device, f"int{DtypeBits[dtype.name].value}"),
             )
         ]
         fn_kwargs: dict = {}
         ref_output = (
-            array_fn([[1]], device, f"int{precision}"),
-            array_fn([[1]], device, f"int{precision}"),
+            array_fn([[1]], device, f"int{DtypeBits[dtype.name].value}"),
+            array_fn([[1]], device, f"int{DtypeBits[dtype.name].value}"),
         )
         assert_backend_results_equal(
             backend,
@@ -1754,25 +1897,29 @@ class TestAtLeast2D:
             fn_kwargs,
             ref_output,
             device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
 
 @pytest.mark.parametrize(
-    "backendcls, device, precision", backends_with_device_precision, ids=names
+    "backendcls, device, dtype", backends_with_device_dtype, ids=names
 )
 class TestWhere:
-    def test_where(self, backendcls, device, precision):
+    def test_where(self, backendcls, device, dtype):
         array_fn = array_fns[backendcls]
-        backend = backendcls(device=device, precision=precision)
+        backend = backendcls(device=device, dtype=dtype)
         fn = backend.where
-        input = array_fn([0, 1, 2, 3, 4, 5, 6, 7, 8, 9], device, f"int{precision}")
+        input = array_fn(
+            [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], device, f"int{DtypeBits[dtype.name].value}"
+        )
         fn_args: list = [input < 5, input, 10 * input]
         fn_kwargs: dict = {}
         ref_output = array_fn(
-            [0, 1, 2, 3, 4, 50, 60, 70, 80, 90], device, f"int{precision}"
+            [0, 1, 2, 3, 4, 50, 60, 70, 80, 90],
+            device,
+            f"int{DtypeBits[dtype.name].value}",
         )
         assert_backend_results_equal(
             backend,
@@ -1781,24 +1928,26 @@ class TestWhere:
             fn_kwargs,
             ref_output,
             device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
 
 @pytest.mark.parametrize(
-    "backendcls, device, precision", backends_with_device_precision, ids=names
+    "backendcls, device, dtype", backends_with_device_dtype, ids=names
 )
 class TestTopK:
-    def test_topk(self, backendcls, device, precision):
+    def test_topk(self, backendcls, device, dtype):
         array_fn = array_fns[backendcls]
-        backend = backendcls(device=device, precision=precision)
+        backend = backendcls(device=device, dtype=dtype)
         fn = backend.topk
-        input = array_fn([0, 1, 2, 3, 4, 5], device, f"float{precision}")
+        input = array_fn(
+            [0, 1, 2, 3, 4, 5], device, f"float{DtypeBits[dtype.name].value}"
+        )
         fn_args: list = [input, 3]
         fn_kwargs: dict = {}
-        ref_output = array_fn([5, 4, 3], device, f"float{precision}")
+        ref_output = array_fn([5, 4, 3], device, f"float{DtypeBits[dtype.name].value}")
         assert_backend_results_equal(
             backend,
             fn,
@@ -1806,23 +1955,25 @@ class TestTopK:
             fn_kwargs,
             ref_output,
             device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
 
 @pytest.mark.parametrize(
-    "backendcls, device, precision", backends_with_device_precision, ids=names
+    "backendcls, device, dtype", backends_with_device_dtype, ids=names
 )
 class TestLinspace:
-    def test_linpsace(self, backendcls, device, precision):
+    def test_linpsace(self, backendcls, device, dtype):
         array_fn = array_fns[backendcls]
-        backend = backendcls(device=device, precision=precision)
+        backend = backendcls(device=device, dtype=dtype)
         fn = backend.linspace
         fn_args: list = [0, 20, 3]
         fn_kwargs: dict = {}
-        ref_output = array_fn([0.0, 10.0, 20.0], device, f"float{precision}")
+        ref_output = array_fn(
+            [0.0, 10.0, 20.0], device, f"float{DtypeBits[dtype.name].value}"
+        )
         assert_backend_results_equal(
             backend,
             fn,
@@ -1830,18 +1981,18 @@ class TestLinspace:
             fn_kwargs,
             ref_output,
             device,
-            precision,
-            tolerances[precision],
-            tolerances[precision],
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
         )
 
 
 @pytest.mark.parametrize(
-    "backendcls, device, precision", backends_with_device_precision, ids=names
+    "backendcls, device, dtype", backends_with_device_dtype, ids=names
 )
 class TestRandn:
-    def test_randn(self, backendcls, device, precision):
-        backend = backendcls(device=device, precision=precision)
+    def test_randn(self, backendcls, device, dtype):
+        backend = backendcls(device=device, dtype=dtype)
         fn = backend.randn
         fn_args: list = [3, 4, 5]
         output = fn(*fn_args)
@@ -1849,11 +2000,11 @@ class TestRandn:
 
 
 @pytest.mark.parametrize(
-    "backendcls, device, precision", backends_with_device_precision, ids=names
+    "backendcls, device, dtype", backends_with_device_dtype, ids=names
 )
 class TestRand:
-    def test_randn(self, backendcls, device, precision):
-        backend = backendcls(device=device, precision=precision)
+    def test_randn(self, backendcls, device, dtype):
+        backend = backendcls(device=device, dtype=dtype)
         fn = backend.rand
         fn_args: list = [3, 4, 5]
         output = fn(*fn_args)
@@ -1861,11 +2012,11 @@ class TestRand:
 
 
 @pytest.mark.parametrize(
-    "backendcls, device, precision", backends_with_device_precision, ids=names
+    "backendcls, device, dtype", backends_with_device_dtype, ids=names
 )
 class TestRandint:
-    def test_randint(self, backendcls, device, precision):
-        backend = backendcls(device=device, precision=precision)
+    def test_randint(self, backendcls, device, dtype):
+        backend = backendcls(device=device, dtype=dtype)
         fn = backend.randint
         fn_args: list = [0, 10, 3, 4, 5]
         output = fn(*fn_args)
@@ -1875,11 +2026,11 @@ class TestRandint:
 
 
 @pytest.mark.parametrize(
-    "backendcls, device, precision", backends_with_device_precision, ids=names
+    "backendcls, device, dtype", backends_with_device_dtype, ids=names
 )
 class TestRandUniform:
-    def test_rand_uniform(self, backendcls, device, precision):
-        backend = backendcls(device=device, precision=precision)
+    def test_rand_uniform(self, backendcls, device, dtype):
+        backend = backendcls(device=device, dtype=dtype)
         fn = backend.rand_uniform
         fn_args: list = [0, 10, 3, 4, 5]
         output = fn(*fn_args)

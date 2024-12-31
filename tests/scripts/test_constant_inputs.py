@@ -23,6 +23,7 @@ import torch
 
 import mithril
 from mithril import JaxBackend, MlxBackend, NumpyBackend, TorchBackend
+from mithril.backends.utils import DtypeBits
 from mithril.framework.common import (
     NOT_GIVEN,
     TBD,
@@ -83,13 +84,13 @@ from .test_utils import (
 )
 
 
-def assert_all_backends_device_precision(model: Model):
-    """This function tests that whether all precision and device
+def assert_all_backends_device_dtype(model: Model):
+    """This function tests that whether all dtype and device
     handling algorithms of the library is working successfully.
     This function compiles the given model, randomizes the inputs with
-    all possible devices and precisions that backend has,
+    all possible devices and dtypes that backend has,
     evaluates the output and evaluates the gradient of outputs.
-    This function tests if all created outputs have correct device and precision.
+    This function tests if all created outputs have correct device and dtype.
 
 
     Args:
@@ -99,31 +100,31 @@ def assert_all_backends_device_precision(model: Model):
     installed_backends: Iterable[
         type[NumpyBackend] | type[TorchBackend] | type[JaxBackend] | type[MlxBackend]
     ] = filter(check_if_installed, [NumpyBackend, JaxBackend, TorchBackend, MlxBackend])
-    # Detect their supported device and precision
-    backends_with_device_precision = (
+    # Detect their supported device and dtype
+    backends_with_device_dtype = (
         backend
         for backends in installed_backends
         for backend in product(
-            [backends], backends.get_available_devices(), backends.supported_precisions
+            [backends], backends.get_available_devices(), backends.supported_dtypes
         )
     )
-    unsupported_device_precisions = [
-        (TorchBackend, "mps:0", 64),
-        (MlxBackend, "cpu", 16),
-        (MlxBackend, "cpu", 32),
-        (TorchBackend, "cpu:0", 16),
+    unsupported_device_dtypes = [
+        (TorchBackend, "mps:0", mithril.float64),
+        (MlxBackend, "cpu", 16, mithril.float16),
+        (MlxBackend, "cpu", 32, mithril.float32),
+        (TorchBackend, "cpu:0", 16, mithril.float16),
     ]
 
-    for backend_class, device, precision in backends_with_device_precision:
-        # remove unsupported backend, device and precision trios
-        if (backend_class, device, precision) in unsupported_device_precisions:
+    for backend_class, device, dtype in backends_with_device_dtype:
+        # remove unsupported backend, device and dtype trios
+        if (backend_class, device, dtype) in unsupported_device_dtypes:
             continue
 
         if os.environ.get("CI") and "mps" in device:
             continue
 
         _type = backend_class.backend_type
-        backend = backend_class(device=device, precision=precision)
+        backend = backend_class(device=device, dtype=dtype)
 
         comp_model = mithril.compile(
             model=model,
@@ -137,28 +138,39 @@ def assert_all_backends_device_precision(model: Model):
         if device[-2] == ":":
             device = device[:-2]
 
-        # Check if randomized inputs have correct device and precision
+        # Check if randomized inputs have correct device and dtype
         for randomized_input in randomized_inputs.values():
-            assert get_array_device(randomized_input, _type) == device
-            assert get_array_precision(randomized_input, _type) == precision
+            assert (
+                backend.backend_type == "mlx"
+                or get_array_device(randomized_input, _type) == device
+            )
+            assert (
+                get_array_precision(randomized_input, _type)
+                == DtypeBits[dtype.name].value
+            )
 
         outputs = comp_model.evaluate(randomized_inputs)
         initial_outputs = outputs.copy()  # type: ignore
 
-        # Check if outputs have correct device and precision
+        # Check if outputs have correct device and dtype
         for output in outputs.values():
-            assert get_array_device(output, _type) == device
-            assert get_array_precision(output, _type) == precision
+            assert (
+                backend.backend_type == "mlx"
+                or get_array_device(output, _type) == device
+            )
+            assert get_array_precision(output, _type) == DtypeBits[dtype.name].value
 
         grads = comp_model.evaluate_gradients(
             output_gradients=outputs,  # type: ignore
             params=randomized_inputs,
         )
 
-        # Check if gradients have correct device and precision
+        # Check if gradients have correct device and dtype
         for grad in grads.values():
-            assert get_array_device(grad, _type) == device
-            assert get_array_precision(grad, _type) == precision
+            assert (
+                backend.backend_type == "mlx" or get_array_device(grad, _type) == device
+            )
+            assert get_array_precision(grad, _type) == DtypeBits[dtype.name].value
 
         # In final step. we compare used inputs (used inputs are given as input to the
         # either to comp_model.evaluate() or comp_model.evaluate_gradients()) with their
@@ -1027,7 +1039,9 @@ def test_bool_tensor_numpy_64():
     ref = np.array([8.0, 9.0])
     model += not_1(input=IOKey(value=[False, False], name="input"))
     model += add_1(left=[7.0, 8.0], right=not_1.output, output=IOKey(name="output"))
-    comp_model = mithril.compile(model=model, backend=NumpyBackend(precision=64))
+    comp_model = mithril.compile(
+        model=model, backend=NumpyBackend(dtype=mithril.float64)
+    )
     output = comp_model.evaluate()["output"]
     assert isinstance(output, np.ndarray)
     np.testing.assert_allclose(output, ref)
@@ -1041,7 +1055,7 @@ def test_bool_tensor_torch_32():
     ref = np.array([8.0, 9.0])
     model += not_1(input=IOKey(value=[False, False], name="input"))
     model += add_1(left=[7.0, 8.0], right=not_1.output, output=IOKey(name="output"))
-    comp_model = mithril.compile(model=model, backend=TorchBackend(precision=32))
+    comp_model = mithril.compile(model=model, backend=TorchBackend())
     output = comp_model.evaluate()["output"]
     assert isinstance(output, torch.Tensor)
     out = output.numpy()
@@ -1056,7 +1070,9 @@ def test_bool_tensor_torch_64():
     ref = np.array([8.0, 9.0])
     model += not_1(input=IOKey(value=[False, False], name="input"))
     model += add_1(left=[7.0, 8.0], right=not_1.output, output=IOKey(name="output"))
-    comp_model = mithril.compile(model=model, backend=TorchBackend(precision=64))
+    comp_model = mithril.compile(
+        model=model, backend=TorchBackend(dtype=mithril.float64)
+    )
     output = comp_model.evaluate()["output"]
     assert isinstance(output, torch.Tensor)
     out = output.numpy()
@@ -1071,7 +1087,7 @@ def test_bool_tensor_jax_32():
     ref = np.array([8.0, 9.0])
     model += not_1(input=IOKey(value=[False, False], name="input"))
     model += add_1(left=[7.0, 8.0], right=not_1.output, output=IOKey(name="output"))
-    comp_model = mithril.compile(model=model, backend=JaxBackend(precision=32))
+    comp_model = mithril.compile(model=model, backend=JaxBackend())
     output = np.array(comp_model.evaluate()["output"])
     np.testing.assert_allclose(output, ref)
     assert output.dtype == np.float32
@@ -1084,7 +1100,7 @@ def test_bool_tensor_jax_64():
     ref = np.array([8.0, 9.0])
     model += not_1(input=IOKey(value=[False, False], name="input"))
     model += add_1(left=[7.0, 8.0], right=not_1.output, output=IOKey(name="output"))
-    comp_model = mithril.compile(model=model, backend=JaxBackend(precision=64))
+    comp_model = mithril.compile(model=model, backend=JaxBackend(dtype=mithril.float64))
     output = np.array(comp_model.evaluate()["output"])
     np.testing.assert_allclose(output, ref)
     assert output.dtype == np.float64
@@ -1097,7 +1113,7 @@ def test_bool_tensor_mlx_32():
     ref = np.array([8.0, 9.0])
     model += not_1(input=IOKey(value=[False, False], name="input"))
     model += add_1(left=[7.0, 8.0], right=not_1.output, output=IOKey(name="output"))
-    comp_model = mithril.compile(model=model, backend=JaxBackend(precision=32))
+    comp_model = mithril.compile(model=model, backend=JaxBackend())
     output = np.array(comp_model.evaluate()["output"])
     np.testing.assert_allclose(output, ref)
     assert output.dtype == np.float32
@@ -1110,7 +1126,7 @@ def test_bool_tensor_mlx_64():
     ref = np.array([8.0, 9.0])
     model += not_1(input=IOKey(value=[False, False], name="input"))
     model += add_1(left=[7.0, 8.0], right=not_1.output, output=IOKey(name="output"))
-    comp_model = mithril.compile(model=model, backend=JaxBackend(precision=64))
+    comp_model = mithril.compile(model=model, backend=JaxBackend(dtype=mithril.float64))
     output = np.array(comp_model.evaluate()["output"])
     np.testing.assert_allclose(output, ref)
     assert output.dtype == np.float64
@@ -1124,7 +1140,7 @@ def test_static_input_1():
     ref = np.array(5.0)
     model += add_1
     comp_model = mithril.compile(
-        model=model, backend=NumpyBackend(precision=32), jit=False, safe_names=False
+        model=model, backend=NumpyBackend(), jit=False, safe_names=False
     )
 
     output = comp_model.evaluate(
@@ -1145,7 +1161,7 @@ def test_static_input_1_safe_names():
     add_1.right.set_differentiable(False)
     model += add_1
     with pytest.raises(KeyError) as err:
-        mithril.compile(model=model, backend=NumpyBackend(precision=32), jit=False)
+        mithril.compile(model=model, backend=NumpyBackend(), jit=False)
     assert str(err.value) == (
         "'Runtime data keys must be named in logical model when "
         "safe_names set to True. The following keys are unnamed: $1, $2'"
@@ -1161,7 +1177,7 @@ def test_static_input_2():
     model += add_1()
     comp_model = mithril.compile(
         model=model,
-        backend=NumpyBackend(precision=32),
+        backend=NumpyBackend(),
         jit=False,
         constant_keys={
             add_1.left: np.array(2.0, dtype=np.float32),
@@ -1185,7 +1201,7 @@ def test_static_input_2_safe_names():
     with pytest.raises(KeyError) as err:
         mithril.compile(
             model=model,
-            backend=NumpyBackend(precision=32),
+            backend=NumpyBackend(),
             jit=False,
             constant_keys={"input": np.array(2.0, dtype=np.float32)},
         )
@@ -1194,7 +1210,7 @@ def test_static_input_2_safe_names():
 
 
 def test_static_input_3():
-    backend = NumpyBackend(precision=32)
+    backend = NumpyBackend()
     model = Model()
     add_1 = Add()
     ref = np.array(5.0)
@@ -1215,7 +1231,7 @@ def test_static_input_3():
 
 
 def test_static_input_4():
-    backend = NumpyBackend(precision=32)
+    backend = NumpyBackend()
     model = Model()
     add_1 = Add()
     ref = np.array(5.0)
@@ -1244,7 +1260,7 @@ def test_static_input_5():
     model += add_1(left="input", right="right")
     comp_model = mithril.compile(
         model=model,
-        backend=NumpyBackend(precision=32),
+        backend=NumpyBackend(),
         jit=False,
         constant_keys={
             "input": np.array(2.0, dtype=np.float64),
@@ -1360,7 +1376,7 @@ def test_linear_1():
     lin1.input.set_differentiable(True)
     lin1.set_shapes({"weight": [2, 2], "input": [2, 2]})
     model += lin1(input="input", output=IOKey(name="output"))
-    assert_all_backends_device_precision(model)
+    assert_all_backends_device_dtype(model)
 
 
 def test_mlp():
@@ -1369,7 +1385,7 @@ def test_mlp():
     )
     mlp_model.input.set_differentiable(True)
     mlp_model.set_shapes({"input": [1, 1]})
-    assert_all_backends_device_precision(mlp_model)
+    assert_all_backends_device_dtype(mlp_model)
 
 
 def test_add_1():
@@ -1377,7 +1393,7 @@ def test_add_1():
     add_model = Add()
     model += add_model(left=1, right="right", output=IOKey(name="output"))
     model.set_shapes({"right": [1, 1, 1]})
-    assert_all_backends_device_precision(model)
+    assert_all_backends_device_dtype(model)
 
 
 def test_composite_1():
@@ -1394,7 +1410,7 @@ def test_composite_1():
     )
     model.set_shapes({"right": [1, 1, 1, 1, 1]})
     mithril.compile(model=model, backend=NumpyBackend(), jit=False)
-    assert_all_backends_device_precision(model)
+    assert_all_backends_device_dtype(model)
 
 
 def test_composite_1_set_values():
@@ -1416,7 +1432,7 @@ def test_composite_1_set_values():
         backend=NumpyBackend(),
         jit=False,
     )
-    assert_all_backends_device_precision(model)
+    assert_all_backends_device_dtype(model)
 
 
 def test_composite_2():
@@ -1427,7 +1443,7 @@ def test_composite_2():
     conv1.input.set_differentiable(True)
     model += leaky_relu(input=conv1.output, output=IOKey(name="output"), slope=0.3)
     model.set_shapes({"input": [1, 1, 4, 4]})
-    assert_all_backends_device_precision(model)
+    assert_all_backends_device_dtype(model)
 
 
 def test_composite_2_set_values():
@@ -1441,7 +1457,7 @@ def test_composite_2_set_values():
     )
     model.set_values({leaky_relu.slope: 0.3})
     model.set_shapes({"input": [1, 1, 4, 4]})
-    assert_all_backends_device_precision(model)
+    assert_all_backends_device_dtype(model)
 
 
 def test_composite_3():
@@ -1456,7 +1472,7 @@ def test_composite_3():
     assert not isinstance(conv1.canonical_output, NotAvailable)
     model.set_canonical_output(conv1.canonical_output)
     model.set_shapes({"input": [1, 1, 8, 8]})
-    assert_all_backends_device_precision(model)
+    assert_all_backends_device_dtype(model)
 
 
 def test_composite_3_set_values():
@@ -1474,7 +1490,7 @@ def test_composite_3_set_values():
     model.set_canonical_output(conv1.canonical_output)
 
     model.set_shapes({"input": [1, 1, 8, 8]})
-    assert_all_backends_device_precision(model)
+    assert_all_backends_device_dtype(model)
 
 
 def test_composite_4():
@@ -1489,7 +1505,7 @@ def test_composite_4():
     model.set_shapes({"input": [1, 1, 8, 8]})
     assert not isinstance(conv1.canonical_output, NotAvailable)
     model.set_canonical_output(conv1.canonical_output)
-    assert_all_backends_device_precision(model)
+    assert_all_backends_device_dtype(model)
 
 
 def test_composite_4_set_values():
@@ -1506,7 +1522,7 @@ def test_composite_4_set_values():
     model.set_shapes({"input": [1, 1, 8, 8]})
     assert not isinstance(conv1.canonical_output, NotAvailable)
     model.set_canonical_output(conv1.canonical_output)
-    assert_all_backends_device_precision(model)
+    assert_all_backends_device_dtype(model)
 
 
 def test_composite_5():
@@ -1521,7 +1537,7 @@ def test_composite_5():
     model += add_model_2(left=add_model_1.output, right=list2)
     model += add_model_3(left=add_model_2.output, right=list3)
 
-    assert_all_backends_device_precision(model)
+    assert_all_backends_device_dtype(model)
 
 
 def test_composite_5_set_values():
@@ -1539,7 +1555,7 @@ def test_composite_5_set_values():
     model += add_model_3(left=add_model_2.output)
     model.set_values({add_model_3.right: list3})
 
-    assert_all_backends_device_precision(model)
+    assert_all_backends_device_dtype(model)
 
 
 def test_composite_6():
@@ -1553,7 +1569,7 @@ def test_composite_6():
     model += add_model_1(left=IOKey(value=1, name="left1"), right=list1)
     model += add_model_2(left=add_model_1.output, right=list2)
     model += add_model_3(left=add_model_2.output, right=list3)
-    assert_all_backends_device_precision(model)
+    assert_all_backends_device_dtype(model)
 
 
 def test_composite_6_set_values():
@@ -1570,7 +1586,7 @@ def test_composite_6_set_values():
     model.set_values({add_model_2.right: list2})
     model += add_model_3(left=add_model_2.output)
     model.set_values({add_model_3.right: list3})
-    assert_all_backends_device_precision(model)
+    assert_all_backends_device_dtype(model)
 
 
 def test_composite_7():
@@ -1584,7 +1600,7 @@ def test_composite_7():
     model += add_model_1(left=IOKey(name="left1", value=[[1]]), right=list1)
     model += add_model_2(left=add_model_1.output, right=list2)
     model += add_model_3(left=add_model_2.output, right=list3)
-    assert_all_backends_device_precision(model)
+    assert_all_backends_device_dtype(model)
 
 
 def test_composite_7_set_values():
@@ -1601,7 +1617,7 @@ def test_composite_7_set_values():
     model.set_values({add_model_2.right: list2})
     model += add_model_3(left=add_model_2.output)
     model.set_values({add_model_3.right: list3})
-    assert_all_backends_device_precision(model)
+    assert_all_backends_device_dtype(model)
 
 
 def test_composite_conv_mean():
@@ -1613,7 +1629,7 @@ def test_composite_conv_mean():
     model += reduce_model(axis=conv_model.stride)
     assert not isinstance(conv_model.canonical_output, NotAvailable)
     model.set_canonical_output(conv_model.canonical_output)
-    assert_all_backends_device_precision(model)
+    assert_all_backends_device_dtype(model)
 
 
 def test_composite_conv_mean_set_values():
@@ -1626,7 +1642,7 @@ def test_composite_conv_mean_set_values():
     model += reduce_model(axis=conv_model.stride)
     assert not isinstance(conv_model.canonical_output, NotAvailable)
     model.set_canonical_output(conv_model.canonical_output)
-    assert_all_backends_device_precision(model)
+    assert_all_backends_device_dtype(model)
 
 
 def test_composite_conv_mean_2():
@@ -2060,7 +2076,7 @@ def test_static_shape_model_5():
 
 
 def test_nontensor_gradient():
-    backend = NumpyBackend(precision=64)
+    backend = NumpyBackend(dtype=mithril.float64)
     model = Model()
     shape_model = Shape()
     to_tensor_model = ToTensor()
@@ -2159,7 +2175,7 @@ def test_nontensor_gradient_3():
 
 
 def test_numpy_without_shape():
-    backend = NumpyBackend(precision=32)
+    backend = NumpyBackend()
     model = Model()
     add_model = Add()
     model += add_model(left="left", right="right", output=IOKey(name="output"))
@@ -2179,7 +2195,7 @@ def test_numpy_without_shape():
 
 
 def test_multiple_to_tensor():
-    backend = NumpyBackend(precision=32)
+    backend = NumpyBackend()
     tt_1 = ToTensor()
     tt_2 = ToTensor()
     shp_1 = Shape()

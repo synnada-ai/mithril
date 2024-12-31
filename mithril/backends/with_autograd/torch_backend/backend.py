@@ -26,7 +26,7 @@ from torch._functorch.eager_transforms import vjp as torch_vjp
 
 from ....core import Dtype
 from ...backend import PadWidthType, ParallelBackend
-from ...utils import process_shape
+from ...utils import DtypeBits, process_shape
 from . import ops, utils
 from .parallel import TorchParallel
 
@@ -53,16 +53,17 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
     def __init__(
         self,
         device: str = "cpu",
-        precision: int = 32,
+        dtype: Dtype = Dtype.float32,
         device_mesh: tuple[int, ...] | None = None,
     ) -> None:
         self._device = device
-        self._precision = precision
+        self._dtype = dtype
+        self._precision = DtypeBits[dtype.name].value
         self._parallel_manager: TorchParallel | None = None
 
         utils.get_device(device)  # Check if device is valid
 
-        super().__init__(device_mesh=device_mesh)
+        super().__init__(dtype=dtype, device_mesh=device_mesh)
         if device_mesh is not None:
             self._create_parallel(device_mesh)
 

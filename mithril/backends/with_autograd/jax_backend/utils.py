@@ -32,6 +32,7 @@ dtype_map: dict[str, jnp.dtype[Any]] = {
     "int64": jnp.int64,
     "long": jnp.int64,
     "float16": jnp.float16,
+    "bfloat16": jnp.bfloat16,
     "float32": jnp.float32,
     "float": jnp.float32,
     "float64": jnp.float64,
