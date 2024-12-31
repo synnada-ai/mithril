@@ -47,12 +47,12 @@ from mithril.models import (
     Mean,
     Model,
     PrimitiveModel,
-    PrimitiveSlice,
     PrimitiveUnion,
     Relu,
     ScalarItem,
     Shape,
     Sigmoid,
+    Slice,
     Sum,
     Tensor,
     TensorToList,
@@ -261,20 +261,25 @@ def test_slice_item_conversions():
     """Tests if right conversions done when slice and item operations
     exist.
     """
+
+    slice_model = Model()
+    slice_model += (slc := Slice())(start=None, stop=None, step=None)
+    slice_model += ScalarItem()(input="input", index=slc.output, output=IOKey("output"))
+
     # Manuel conversion
     model = Model()
     lin_1 = Linear(dimension=1)
     shp1 = Shape()
     item = ScalarItem()
     tensor_1 = ToTensor()
-    slice_model = PrimitiveSlice()
     tensor_2 = ToTensor()
     model += lin_1(input="input", weight="w", bias="b")
     model += shp1(input=lin_1.input)
     model += item(input=shp1.output, index=1)
     model += tensor_1(input=item.output)
-    model += slice_model(input=shp1.output)
-    model += tensor_2(input=slice_model.output)
+    model += (slc := Slice())(start=None, stop=None, step=None)
+    model += (sc_item := ScalarItem())(input=shp1.output, index=slc.output)
+    model += tensor_2(input=sc_item.output)  # type: ignore
     model += Add()(left=tensor_1.output, right=tensor_2.output, output="output")
     model_1 = model
 
@@ -289,7 +294,7 @@ def test_slice_item_conversions():
     shp2_ellipsis = shp2[:]
     assert shp2_ellipsis is not None
     slc = shp2_ellipsis.tensor()
-    model += Add()(left=shp_item, right=slc, output="output")
+    model += Add()(left=shp_item, right=slc, output="output")  # type: ignore
     model_2 = model
 
     # Provide backend and data.
@@ -1182,7 +1187,7 @@ def test_connect_9():
     with pytest.raises(ValueError) as err_info:
         model += Buffer()(input=conn, output=IOKey(name="output"))
 
-    error_msg = "Value is set before as [[2.0]]. A value can not be reset."
+    error_msg = "Value is set before as [[3.0]]. A value can not be reset."
     assert str(err_info.value) == error_msg
 
 
