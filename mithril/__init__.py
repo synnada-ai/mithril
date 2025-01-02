@@ -100,7 +100,6 @@ def compile(
     constant_keys: PhysicalConstantType[DataType] | None = None,
     data_keys: Iterable[str | Connection] | None = None,
     discard_keys: Iterable[str | Connection] | None = None,
-    jacobian_keys: Iterable[str | Connection] | None = None,
     trainable_keys: Iterable[str | Connection] | None = None,
     shapes: PhysicalShapeType | None = None,
     inference: builtins.bool = False,
@@ -135,7 +134,6 @@ def compile(
     constant_keys = constant_keys if constant_keys is not None else dict()
     data_keys = set(data_keys) if data_keys is not None else set()
     discard_keys = set(discard_keys) if discard_keys is not None else set()
-    jacobian_keys = set(jacobian_keys) if jacobian_keys is not None else set()
     shapes = shapes if shapes is not None else dict()
     trainable_keys = set(trainable_keys) if trainable_keys is not None else set()
 
@@ -146,7 +144,6 @@ def compile(
         data_keys=data_keys,
         constant_keys=constant_keys,
         trainable_keys=trainable_keys,
-        jacobian_keys=jacobian_keys,
         discard_keys=discard_keys,
         shapes=shapes,
         inference=inference,
