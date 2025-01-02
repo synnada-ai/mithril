@@ -34,7 +34,6 @@ def test_dollar_sign_str():
         "constant_keys",
         "data_keys",
         "discard_keys",
-        "jacobian_keys",
         "trainable_keys",
         "shapes",
     ]:
@@ -73,7 +72,6 @@ def test_connection_not_found():
         "constant_keys",
         "data_keys",
         "discard_keys",
-        "jacobian_keys",
         "trainable_keys",
         "shapes",
     ]:
@@ -105,7 +103,6 @@ def test_string_not_found():
         "constant_keys",
         "data_keys",
         "discard_keys",
-        "jacobian_keys",
         "trainable_keys",
         "shapes",
     ]:
@@ -256,22 +253,22 @@ def test_discard_keys_input_and_outputs_only():
     )
 
 
-def test_jacobian_keys_inputs_only():
-    """jacobian_keys can not include any keys
-    other than the inputs of the model.
-    """
-    model = Model()
-    model += (lin_model := Linear(1, True))(input="input", output="lin_out")
-    model += Multiply()(output=IOKey(name="output"))
+# def test_jacobian_keys_inputs_only():
+#     """jacobian_keys can not include any keys
+#     other than the inputs of the model.
+#     """
+#     model = Model()
+#     model += (lin_model := Linear(1, True))(input="input", output="lin_out")
+#     model += Multiply()(output=IOKey(name="output"))
 
-    backend = TorchBackend()
-    with pytest.raises(KeyError) as err_info:
-        ml_compile(model, backend, jacobian_keys={lin_model.output, "input"})
-    assert (
-        str(err_info.value)
-        == "'Provided jacobian keys must be subset of the input keys. "
-        "Invalid keys: lin_out.'"
-    )
+#     backend = TorchBackend()
+#     with pytest.raises(KeyError) as err_info:
+#         ml_compile(model, backend, jacobian_keys={lin_model.output, "input"})
+#     assert (
+#         str(err_info.value)
+#         == "'Provided jacobian keys must be subset of the input keys. "
+#         "Invalid keys: lin_out.'"
+#     )
 
 
 def test_iterable_type_keys():

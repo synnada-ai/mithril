@@ -15,11 +15,11 @@
 from __future__ import annotations
 
 import math
+import random
 import warnings
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass
-from functools import partial, reduce
 
 from ...backends.backend import Backend, ParallelBackend
 from ...core import DataType, GenericDataType
@@ -40,12 +40,12 @@ from ..common import (
     NotAvailable,
     ParamsEvalType,
     Scalar,
+    ShapeResultType,
     Table,
     Tensor,
     UniadicRecord,
     Updates,
     Variadic,
-    _ShapesType,
     create_shape_map,
     get_shapes,
     get_summary,
@@ -89,7 +89,6 @@ class PhysicalModel(GenericDataType[DataType]):
         data_keys: StringOrConnectionSetType,
         constant_keys: PhysicalConstantType[DataType],
         trainable_keys: StringOrConnectionSetType,
-        jacobian_keys: StringOrConnectionSetType,
         shapes: PhysicalShapeType,
         inference: bool,
         safe_shapes: bool,
@@ -146,6 +145,7 @@ class PhysicalModel(GenericDataType[DataType]):
                 while key_origin in flat_model.assigned_names:
                     key_origin = f"_{key_origin}"
 
+            assert key_origin is not None
             self._output_keys.add(key_origin)
             flat_model.rename_key(current_name, key_origin)
 
@@ -157,7 +157,6 @@ class PhysicalModel(GenericDataType[DataType]):
         _trainable_keys = {self._convert_key(model, key) for key in trainable_keys}
         _discard_keys = {self._convert_key(model, key) for key in discard_keys}
         _shapes = {self._convert_key(model, k): v for k, v in shapes.items()}
-        _jacobian_keys = {self._convert_key(model, key) for key in jacobian_keys}
 
         # Check provided constant and data_keys do not have
         # any preset value. Note that this check is done after key conversions.
@@ -166,9 +165,7 @@ class PhysicalModel(GenericDataType[DataType]):
         self._check_overridden_nontrainable_keys(model, constant_keys, data_keys)
 
         # Final validation process of provided keys.
-        self._validate_keys(
-            _constant_keys, _data_keys, _trainable_keys, _discard_keys, _jacobian_keys
-        )
+        self._validate_keys(_constant_keys, _data_keys, _trainable_keys, _discard_keys)
 
         # Set provided non-differentiable and trainable tensor keys.
         self._non_differentiable_keys: set[str] = _constant_keys.keys() | _data_keys
@@ -244,14 +241,15 @@ class PhysicalModel(GenericDataType[DataType]):
 
             self.flat_graph.add_value(p_model, mappings)
 
+        self.data_store.set_random_seed_keys(self.flat_graph.random_keys)
+
         for cached_key in list(self.data_store.cached_data.keys()):
-            self.data_store._infer_unused_keys(cached_key)
+            self.data_store.infer_unused_keys(cached_key)
 
         # First part of the pm with all the inferences.
         self._pre_compile(
             constant_keys=_constant_keys,
             data_keys=_data_keys,
-            jacobian_keys=_jacobian_keys,
             shapes=_shapes,
         )
 
@@ -262,9 +260,11 @@ class PhysicalModel(GenericDataType[DataType]):
             unnamed_inputs = model.input_keys - self._input_keys - self.discarded_keys
             unnamed_data_keys = sorted(
                 [
-                    key
-                    for key in unnamed_inputs
-                    if flat_model.external_mapping.get(key, key) in runtime_data_keys
+                    local_key
+                    for local_key in unnamed_inputs
+                    if (key := self.external_key_mapping.get(local_key, local_key))
+                    in runtime_data_keys
+                    and key not in self._random_seeds
                 ]
             )
             if unnamed_data_keys:
@@ -280,6 +280,10 @@ class PhysicalModel(GenericDataType[DataType]):
         data: DataEvalType[DataType] | None = None,
     ) -> DataEvalType[DataType]:
         return self.evaluate(params=params, data=data)
+
+    @property
+    def _random_seeds(self) -> dict[str, int]:
+        return self.data_store._random_seeds
 
     def _convert_key(self, model: BaseModel, key: str | Connection) -> str:
         if isinstance(key, Connection):
@@ -323,7 +327,6 @@ class PhysicalModel(GenericDataType[DataType]):
         data_keys: set[str],
         trainable_keys: set[str],
         discard_keys: set[str],
-        jacobian_keys: set[str],
     ) -> None:
         # Make sure no common keys in constant_keys, data_keys, trainable_keys
         # and discard_keys.
@@ -364,13 +367,6 @@ class PhysicalModel(GenericDataType[DataType]):
                 f"Invalid keys: {', '.join(str(key) for key in internal_discards)}."
             )
 
-        # Given jacobian keys must be subset of input keys.
-        if jacobian_diff := (jacobian_keys - self._input_keys):
-            raise KeyError(
-                "Provided jacobian keys must be subset of the input keys. "
-                f"Invalid keys: {', '.join(str(key) for key in jacobian_diff)}."
-            )
-
     def get_shapes(
         self,
         model: BaseModel | None = None,
@@ -378,7 +374,7 @@ class PhysicalModel(GenericDataType[DataType]):
         var_keys: dict[Variadic, str] | None = None,
         symbolic: bool = False,
         verbose: bool = False,
-    ) -> _ShapesType:
+    ) -> ShapeResultType:
         if model is not None:
             # Find corresponding data from self.data_store_data_memo.
             data_dict = {
@@ -401,10 +397,10 @@ class PhysicalModel(GenericDataType[DataType]):
 
     @property
     def data(self) -> dict[str, Tensor | Scalar]:
-        return self.data_store._all_data
+        return self.data_store.all_data
 
     @property
-    def shapes(self) -> _ShapesType:
+    def shapes(self) -> ShapeResultType:
         return self.get_shapes()
 
     @property
@@ -512,15 +508,7 @@ class PhysicalModel(GenericDataType[DataType]):
         constant_keys: dict[str, DataType | MainValueType],
         data_keys: set[str],
         shapes: PhysicalShapeType,
-        jacobian_keys: set[str],
     ) -> None:
-        if jacobian_keys and self.backend.is_manualgrad:
-            raise Exception(
-                "Jacobians are only calculated for the backends that have "
-                "autograd capability."
-            )
-
-        self.jacobian_keys = jacobian_keys
         self.ignore_grad_keys: set[str] = set()
 
         # Set given shapes.
@@ -612,80 +600,6 @@ class PhysicalModel(GenericDataType[DataType]):
             grad_fn
         )
         self._generated_evaluate_all_fn: EvaluateAllType[DataType] | None = eval_all_fn
-
-    def create_jacobian_fn(self, generated_fn: Callable):  # type: ignore
-        # TODO: Fix this method to make it picklable!
-        if self.backend.is_manualgrad:
-            raise (
-                NotImplementedError(
-                    "Currently Jacobian is not supported for manuel grad!"
-                )
-            )
-
-        # TODO: Consider to JIT this function.
-        def multiplier(x, y):  # type: ignore
-            return x * y  # type: ignore
-
-        def jacobian_fn(  # type: ignore
-            inputs: dict[str, DataType], data: dict[str, DataType] | None = None
-        ):
-            # Function for calculating jacobians for the requested
-            # outputs stated in jacobian keys. We use more efficient
-            # jacobian method considerin input-output dimensionalities.
-            if data is None:
-                data = {}
-
-            def jacobian_wrapper(input, output):  # type: ignore
-                total_inputs = inputs | input  # type: ignore
-
-                return generated_fn(params=total_inputs, data=data)[output]  # type: ignore
-
-            jacobians: dict[str, dict[str, DataType]] = {}
-
-            # Define default jacobian method as jacrev since
-            # output dimensionality is generally lower than input.
-            jacobian_method = self.backend.jacrev  # type: ignore
-
-            # Iterate over all requested outputs for Jacobian calculations.
-            for out in self.jacobian_keys:
-                jacobians[out] = {}
-                # Iterate over all trainable inputs.
-
-                jacobian_par_fn = jacobian_method(partial(jacobian_wrapper, output=out))  # type: ignore
-
-                for key in inputs:
-                    # if all(isinstance(dim, int) for dim in self.shapes[out]) and all(
-                    #     isinstance(dim, int) for dim in self.shapes[key]
-                    # ):
-                    key_shp = self.shapes[key]
-                    out_shp = self.shapes[out]
-                    if (
-                        isinstance(key_shp, list)
-                        and isinstance(out_shp, list)
-                        and is_list_int(key_shp)
-                        and is_list_int(out_shp)
-                    ):
-                        # If dimensions are known, jacrev is more efficient
-                        # for wide Jacobian matrices where output dimensionalitiy
-                        # is lower than input dimensionality.
-                        # jacfwd is more efficient in oppisite condition.
-                        cond = reduce(multiplier, out_shp) >= reduce(  # type: ignore
-                            multiplier,  # type: ignore
-                            key_shp,
-                        )
-                        jacobian_method = [self.backend.jacrev, self.backend.jacfwd][  # type: ignore
-                            cond
-                        ]
-                    # Provide input in dict format in order to get jacobians in dict
-                    # format since all inputs are originally provided in dict format.
-                    input = {key: inputs[key]}
-                    # jacobians[out] |= jacobian_method(
-                    #     partial(jacobian_wrapper, output=out)
-                    # )(input)
-                    jacobians[out] |= jacobian_par_fn(input)
-            return jacobians
-
-        return jacobian_fn
 
     def infer_ignore(
         self,
@@ -936,7 +850,7 @@ class PhysicalModel(GenericDataType[DataType]):
             name_mappings = define_unique_names(all_models)
             conn_info = self.extract_connection_info(name_mappings)  # type: ignore
 
-        model_shapes: dict[str, _ShapesType] = {
+        model_shapes: dict[str, ShapeResultType] = {
             sub_model_name: self.get_shapes(
                 sub_model, uni_keys, var_keys, symbolic, alternative_shapes
             )
@@ -946,7 +860,7 @@ class PhysicalModel(GenericDataType[DataType]):
         # calculate all key parameters and total parameters
         param_info, total_parameters = self._calculate_parameters(
             name_mappings,
-            data_to_key_map,  # type: ignore
+            data_to_key_map,
         )
 
         if print_info:
@@ -969,7 +883,7 @@ class PhysicalModel(GenericDataType[DataType]):
             table = get_summary(
                 conns=conn_info,
                 name=name,
-                shape=shape_info,  # type: ignore
+                shape=shape_info,
                 types=type_info,
                 params=param_info,
             )
@@ -1052,6 +966,15 @@ class PhysicalModel(GenericDataType[DataType]):
             )
         return conn_info
 
+    def set_random_seed_values(self, **seed_mapping: int) -> None:
+        self.data_store.set_random_seed_values(**seed_mapping)
+
+    def _step_random_seed_values(self) -> None:
+        for key, value in self.data_store._random_seeds.items():
+            random.seed(value)
+            new_seed = random.randint(0, 2**14)
+            self.data_store._random_seeds[key] = new_seed
+
     def _replace_with_primitive(
         self, model: Model, key_mappings: dict[str, str]
     ) -> tuple[PrimitiveModel, dict[str, str]]:
@@ -1102,6 +1025,11 @@ class PhysicalModel(GenericDataType[DataType]):
         params: ParamsEvalType[DataType] | None = None,
         data: DataEvalType[DataType] | None = None,
     ) -> DataEvalType[DataType]:
+        # Inject seed values.
+        data = (
+            self._random_seeds if data is None else data | self._random_seeds  # type: ignore[operator]
+        )
+        self._step_random_seed_values()
         if (
             isinstance(self.backend, ParallelBackend)
             and self.backend.get_parallel_manager() is not None
@@ -1116,6 +1044,9 @@ class PhysicalModel(GenericDataType[DataType]):
         data: DataEvalType[DataType] | None = None,
         output_gradients: ParamsEvalType[DataType] | None = None,
     ) -> ParamsEvalType[DataType]:
+        data = (
+            self._random_seeds if data is None else data | self._random_seeds  # type: ignore[operator]
+        )
         if self.inference:
             raise NotImplementedError(
                 "Inference mode does not support gradients calculation"
@@ -1136,6 +1067,9 @@ class PhysicalModel(GenericDataType[DataType]):
         data: DataEvalType[DataType] | None = None,
         output_gradients: ParamsEvalType[DataType] | None = None,
     ) -> tuple[DataEvalType[DataType], ParamsEvalType[DataType]]:
+        data = (
+            self._random_seeds if data is None else data | self._random_seeds  # type: ignore[operator]
+        )
         if self.inference:
             raise NotImplementedError(
                 "Inferece mode does not support gradients calculation"

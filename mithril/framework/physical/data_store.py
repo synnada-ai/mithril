@@ -60,6 +60,7 @@ class StaticDataStore(Generic[DataType]):
         # Final tensor values of data store.
         self.data_values: DataEvalType[DataType] = dict()
         self.constraint_solver: ConstraintSolver = deepcopy(solver, memo=memo)
+        self._random_seeds: dict[str, int] = dict()
 
     @property
     def all_data(self) -> dict[str, Tensor | Scalar]:
@@ -68,6 +69,10 @@ class StaticDataStore(Generic[DataType]):
     @property
     def cached_data(self) -> DataEvalType[DataType]:
         return self.data_values
+
+    @property
+    def random_seeds(self) -> dict[str, int]:
+        return self._random_seeds
 
     @property
     def runtime_static_keys(self) -> set[str]:
@@ -95,9 +100,13 @@ class StaticDataStore(Generic[DataType]):
     ) -> None:
         if key in self.data_values:
             self.data_values.pop(key)  # type: ignore
+
         self._runtime_static_keys.discard(key)
         if key in self.intermediate_non_differentiables:
             self.intermediate_non_differentiables.pop(key)
+
+        if key in self._random_seeds:
+            self._random_seeds.pop(key)
 
         if label_as_unused:
             self._unused_keys.add(key)
@@ -154,7 +163,7 @@ class StaticDataStore(Generic[DataType]):
 
         self.data_values[key] = value  # type: ignore
 
-    def _infer_unused_keys(self, key: str) -> None:
+    def infer_unused_keys(self, key: str) -> None:
         # Infers unused keys when "key" is set as static.
         output_keys = self.graph.output_keys
         queue = set(self.graph.get_source_keys(key, True))
@@ -196,7 +205,7 @@ class StaticDataStore(Generic[DataType]):
         # Some intermediate values may be calculated, update cached data.
         new_statics = self.update_cached_data(updates)
         for key in new_statics:
-            self._infer_unused_keys(key)
+            self.infer_unused_keys(key)
 
     def update_data(self, data: dict[str, Tensor | Scalar]) -> None:
         if data.keys() & self._all_data.keys():
@@ -308,7 +317,7 @@ class StaticDataStore(Generic[DataType]):
         self.constraint_solver(updates)
         statics = self.update_cached_data(updates) | updated_keys
         for static in statics:
-            self._infer_unused_keys(static)
+            self.infer_unused_keys(static)
 
         return statics, updates
 
@@ -395,3 +404,18 @@ class StaticDataStore(Generic[DataType]):
                 queue |= _queue
                 updates |= _updates
         return updates
+
+    def set_random_seed_keys(self, seed_keys: set[str]) -> None:
+        for key in seed_keys:
+            if self.all_data[key].value == TBD:
+                self._random_seeds[key] = 0
+            else:
+                value = self.all_data[key].value
+                assert isinstance(value, int)
+                self._random_seeds[key] = value
+
+    def set_random_seed_values(self, **seed_mapping: int) -> None:
+        for key, value in seed_mapping.items():
+            if key not in self._random_seeds:
+                raise KeyError(f"'{key}' key is not a random seed key!")
+            self._random_seeds[key] = value

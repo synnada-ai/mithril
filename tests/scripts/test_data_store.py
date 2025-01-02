@@ -47,7 +47,6 @@ def test_data_store_1():
         data_keys=set(),
         constant_keys=dict(),
         trainable_keys=set(),
-        jacobian_keys=set(),
         shapes=dict(),
         inference=False,
         safe_shapes=True,
@@ -77,7 +76,6 @@ def test_data_store_1_numpy():
         data_keys=set(),
         constant_keys=dict(),
         trainable_keys=set(),
-        jacobian_keys=set(),
         shapes=dict(),
         inference=False,
         safe_shapes=True,
@@ -139,7 +137,6 @@ def test_data_store_4():
         data_keys=set(),
         constant_keys=dict(),
         trainable_keys=set(),
-        jacobian_keys=set(),
         shapes=dict(),
         inference=False,
         safe_shapes=True,
@@ -351,6 +348,7 @@ def test_data_store_14():
         "output_8",
         "output_4",
         "stop",
+        "output_9",
     }
 
     infered_value = pm.data_store.data_values["out2"]
@@ -405,6 +403,7 @@ def test_data_store_15():
         "input2",
         "weight",
         "output_3",
+        "output_9",
     }
 
     infered_value = pm.data_store.data_values["out2"]
@@ -424,7 +423,6 @@ def test_data_store_16():
         data_keys=set(),
         constant_keys=dict(),
         trainable_keys=set(),
-        jacobian_keys=set(),
         shapes=dict(),
         inference=False,
         safe_shapes=True,
@@ -457,7 +455,6 @@ def test_data_store_17():
         data_keys=set(),
         constant_keys=dict(),
         trainable_keys=set(),
-        jacobian_keys=set(),
         shapes=dict(),
         inference=False,
         safe_shapes=True,
@@ -488,7 +485,6 @@ def test_data_store_18():
         data_keys=set(),
         constant_keys=dict(),
         trainable_keys=set(),
-        jacobian_keys=set(),
         shapes=dict(),
         inference=False,
         safe_shapes=True,
@@ -519,7 +515,6 @@ def test_data_store_19():
         data_keys=set(),
         constant_keys={"left": left, "right": right},
         trainable_keys=set(),
-        jacobian_keys=set(),
         shapes=dict(),
         inference=False,
         safe_shapes=True,
@@ -550,7 +545,6 @@ def test_data_store_20():
         data_keys=set(),
         constant_keys={"left": left, "right": right},
         trainable_keys=set(),
-        jacobian_keys=set(),
         shapes=dict(),
         inference=False,
         safe_shapes=True,

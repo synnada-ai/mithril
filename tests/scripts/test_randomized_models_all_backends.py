@@ -102,7 +102,7 @@ def test_randomized(case: str) -> None:
     }
     backends: list[
         type[NumpyBackend] | type[JaxBackend] | type[TorchBackend] | type[MlxBackend]
-    ] = [NumpyBackend, JaxBackend, TorchBackend, MlxBackend]
+    ] = [NumpyBackend, TorchBackend, JaxBackend, MlxBackend]
     backends = [backend for backend in backends if backend.is_installed]
     if MlxBackend in backends:
         test_precisions.append(32)

@@ -1,12 +1,14 @@
-name: CI
+name: CI-MacOS
 on:
   push:
     branches: [ dev, main ]
   pull_request:
     branches: [ dev, main ]
+env:
+  CI: true
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: macos-15-xlarge
     strategy:
       matrix:
         python-version: [3.12]
@@ -27,8 +29,9 @@ jobs:
       - name: Install Python dependencies
         run: |
           python3 -m pip install --upgrade pip
-          pip install torch==2.4.1 --index-url https://download.pytorch.org/whl/cpu
+          pip install torch==2.4.1
           pip install --upgrade "jax[cpu]"
+          pip install mlx
           pip install -r requirements/dev.txt
       - name: Run pre-commit
         run: |
@@ -45,7 +48,7 @@ jobs:
 
   on_failure:
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: macos-15-xlarge
     env:
       GH_TOKEN: ${{ github.token }}
     if: ${{ failure() }}

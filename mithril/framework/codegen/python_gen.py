@@ -242,10 +242,10 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
                     evaluate_all_fn is not None
                 ), "Evaluate all function is not defined!"
 
-                grad_fn = self.pm.backend.jit(grad_fn)
+                grad_fn = self.pm.backend.jit(grad_fn)  # type: ignore
                 evaluate_all_fn = self.pm.backend.jit(evaluate_all_fn)
 
-        return eval_fn, grad_fn, evaluate_all_fn
+        return eval_fn, grad_fn, evaluate_all_fn  # type: ignore
 
     def import_backend(self) -> ast.ImportFrom:
         backend = ast.ImportFrom(

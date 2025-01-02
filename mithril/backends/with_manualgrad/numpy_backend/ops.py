@@ -1221,8 +1221,11 @@ def pad(
     return np.pad(input, pad_width)
 
 
-def randn(*args, precision: int, cache: CacheType | None = None) -> np.ndarray:
-    return handle_data_precision(np.random.randn(*args[0]), precision)
+def randn(
+    shape: tuple[int, ...], *, key: int, precision: int, cache: CacheType | None = None
+) -> np.ndarray:
+    np.random.seed(key)
+    return handle_data_precision(np.random.randn(*shape), precision)
 
 
 def zeros_like(input: np.ndarray, cache: CacheType | None = None) -> np.ndarray:

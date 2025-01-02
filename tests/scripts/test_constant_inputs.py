@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 from collections.abc import Iterable, Mapping, Sequence
 from itertools import product
 from types import EllipsisType
@@ -117,6 +118,10 @@ def assert_all_backends_device_precision(model: Model):
         # remove unsupported backend, device and precision trios
         if (backend_class, device, precision) in unsupported_device_precisions:
             continue
+
+        if os.environ.get("CI") and "mps" in device:
+            continue
+
         _type = backend_class.backend_type
         backend = backend_class(device=device, precision=precision)
 
@@ -588,8 +593,7 @@ def test_scalar_mean_2_1():
     with pytest.raises(ValueError) as err_info:
         mean_model += mean_1(axis=1, input="input")
     assert (
-        str(err_info.value)
-        == "Given value 1 for local key: 'axis' has already being set to None!"
+        str(err_info.value) == "Value is set before as None. A value can not be reset."
     )
 
 
@@ -1324,7 +1328,7 @@ def test_static_input_6_error():
             out2=IOKey(name="output_1"),  # type: ignore
         )
     assert (
-        str(err_info.value) == "Value is set before as 1.0. A value can not be reset."
+        str(err_info.value) == "Value is set before as 3.0. A value can not be reset."
     )
 
 

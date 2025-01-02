@@ -55,7 +55,6 @@ from mithril.models import (
     NanToNum,
     NormModifier,
     NotEqual,
-    PrimitiveSlice,
     PrimitiveUnion,
     Prod,
     Randn,
@@ -750,15 +749,41 @@ def test_arange_2():
     )
 
 
-def test_randn():
+def test_randn_static_inference():
+    model = Randn(shape=(3, 4, 5), key=42)
+
+    for backend in default_backends:
+        pm = mithril.compile(model, backend, inference=True)
+        res_out1 = pm.evaluate()["output"]
+        res_out2 = pm.evaluate()["output"]
+
+        assert isinstance(res_out1, backend.DataType)  # type: ignore[attr-defined]
+        assert isinstance(res_out2, backend.DataType)  # type: ignore[attr-defined]
+        assert res_out1.shape == (3, 4, 5)
+        np.testing.assert_allclose(res_out1, res_out2)
+
+
+def test_randn_key():
     model = Randn(shape=(3, 4, 5))
 
     for backend in default_backends:
         pm = mithril.compile(model, backend, inference=True)
-        res_out = pm.evaluate()["output"]
+        pm.set_random_seed_values(key=42)
+        res_out1 = pm.evaluate()["output"]
+        pm.set_random_seed_values(key=42)
+        res_out2 = pm.evaluate()["output"]
+        pm.set_random_seed_values(key=43)
+        res_out3 = pm.evaluate()["output"]
 
-        assert isinstance(res_out, backend.DataType)  # type: ignore[attr-defined]
-        assert res_out.shape == (3, 4, 5)
+        assert isinstance(res_out1, backend.DataType)  # type: ignore[attr-defined]
+        assert isinstance(res_out2, backend.DataType)  # type: ignore[attr-defined]
+        assert isinstance(res_out3, backend.DataType)  # type: ignore[attr-defined]
+
+        assert res_out1.shape == (3, 4, 5)
+        np.testing.assert_allclose(res_out1, res_out2)
+        np.testing.assert_raises(
+            AssertionError, np.testing.assert_allclose, res_out1, res_out3
+        )
 
 
 def test_greater_1():
@@ -1692,7 +1717,13 @@ def test_scaled_dot_product_2():
 
 def test_slice_1():
     # Tuple slice
-    model = PrimitiveSlice(start=2, stop=3)
+
+    slice_model = Slice(step=None)
+    item_model = ScalarItem()
+
+    model = Model()
+    model += slice_model(start=2, stop=3)
+    model += item_model(input="input", index=slice_model.output, output=IOKey("output"))
 
     data = {"input": (1, 2, 3.0, 4, 5)}
 
@@ -1717,7 +1748,12 @@ def test_slice_1():
 
 def test_slice_2():
     # Tuple slice
-    model = PrimitiveSlice(start=None, stop=3)
+    slice_model = Slice(start=None, step=None)
+    item_model = ScalarItem()
+
+    model = Model()
+    model += slice_model(stop=3)
+    model += item_model(input="input", index=slice_model.output, output=IOKey("output"))
 
     data = {"input": (1, 2, 3.0, 4, 5)}
 
@@ -1742,7 +1778,12 @@ def test_slice_2():
 
 def test_slice_3():
     # Tuple slice
-    model = PrimitiveSlice(start=None, stop=3, step=2)
+    slice_model = Slice(start=None)
+    item_model = ScalarItem()
+
+    model = Model()
+    model += slice_model(stop=3, step=2)
+    model += item_model(input="input", index=slice_model.output, output=IOKey("output"))
 
     data = {"input": (1, 2, 3.0, 4, 5)}
 
@@ -1767,7 +1808,12 @@ def test_slice_3():
 
 def test_slice_4():
     # Tuple slice
-    model = PrimitiveSlice(start=None, stop=None, step=2)
+    slice_model = Slice(start=None, stop=None)
+    item_model = ScalarItem()
+
+    model = Model()
+    model += slice_model(step=2)
+    model += item_model(input="input", index=slice_model.output, output=IOKey("output"))
 
     data = {"input": (1, 2, 3.0, 4, 5)}
 
@@ -3339,7 +3385,7 @@ def test_slice_given_in_compile_data():
     """
     start = 1
     stop = 12
-    model = Slice(start, stop, step=TBD)
+    model = Slice(start, stop)
     reference_outputs = {"output": slice(1, 12, 2)}
 
     compile_and_compare(
@@ -3369,7 +3415,7 @@ def test_slice_given_in_compile_constant():
     """
     start = 1
     stop = 12
-    model = Slice(start, stop, step=TBD)
+    model = Slice(start, stop)
     reference_outputs = {"output": slice(1, 12, 2)}
 
     compile_and_compare(
@@ -3397,7 +3443,7 @@ def test_slice_all_keys_given_as_constants():
     Given in data: ...
     given as compile constant: 'start', 'stop', 'step'
     """
-    model = Slice(start=TBD, stop=TBD, step=TBD)
+    model = Slice()
     reference_outputs = {"output": slice(1, 12, 2)}
 
     compile_and_compare(
@@ -3425,7 +3471,7 @@ def test_slice_all_keys_given_in_data():
     Given in data: 'start', 'stop', 'step'
     given as compile constant: ...
     """
-    model = Slice(start=TBD, stop=TBD, step=TBD)
+    model = Slice()
     reference_outputs = {"output": slice(1, 12, 2)}
 
     compile_and_compare(
@@ -3453,7 +3499,7 @@ def test_slice_all_keys_given_in_constant_and_data():
     Given in data: 'start, stop'
     given as compile constant: 'step'
     """
-    model = Slice(start=TBD, stop=TBD, step=TBD)
+    model = Slice()
     reference_outputs = {"output": slice(1, 12, 2)}
 
     compile_and_compare(
@@ -3482,7 +3528,7 @@ def test_slice_all_keys_given_all_three_parts():
     given as compile constant: 'step'
     """
 
-    model = Slice(start=1, stop=TBD, step=TBD)
+    model = Slice(start=1)
     reference_outputs = {"output": slice(1, 12, 2)}
 
     compile_and_compare(

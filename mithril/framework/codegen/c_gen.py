@@ -250,7 +250,7 @@ class CGen(CodeGen[PyArray]):
             grad_inputs = [input_key + "_grad" for input_key in inputs]
             for idx in range(len(grad_inputs)):
                 fn_inputs: list[str] = (
-                    [output_key + "_grad", c_ast.Constant(idx), output_key]
+                    [output_key + "_grad", c_ast.Constant(idx).to_str(), output_key]
                     + inputs
                     + grad_inputs
                 )

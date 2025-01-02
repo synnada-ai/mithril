@@ -65,7 +65,7 @@ class Backend(ABC, Generic[DataType]):
     def device(self) -> Any:
         return self._device
 
-    def get_device(self):
+    def get_device(self) -> str:
         return self._device
 
     @property
@@ -1068,6 +1068,9 @@ class Backend(ABC, Generic[DataType]):
         NotImplementedError: If the method is not implemented.
         """
         raise NotImplementedError("jacobian is not implemented!")
+
+    def __repr__(self):
+        return f"<Backend(device={self._device}, precision={self.precision})>"
 
 
 class ParallelBackend(Backend[DataType]):

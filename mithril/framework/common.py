@@ -68,7 +68,7 @@ __all__ = [
     "Tensor",
     "Scalar",
     "ShapesType",
-    "_ShapesType",
+    "ShapeResultType",
     "get_summary_shapes",
     "get_summary_types",
     "ConstraintSolver",
@@ -724,7 +724,7 @@ class BaseData(Generic[T]):
                 self.differentiable = other.differentiable = is_diff
 
             if self.is_valued or other.is_valued:
-                valued, non_valued = (self, other) if self.is_valued else (other, self)
+                valued, non_valued = (other, self) if other.is_valued else (self, other)
                 updates |= non_valued.set_value(valued.value)
                 if non_valued is other:
                     if other.is_tensor:
@@ -871,19 +871,41 @@ class TemplateBase:
         key: slice
         | int
         | EllipsisType
-        | tuple[slice | int | None | EllipsisType, ...]
+        | tuple[slice | int | None | EllipsisType | TemplateBase, ...]
         | IOKey
+        | TemplateBase
         | None,
     ):
-        if key is ...:
-            key = slice(None)
-        if isinstance(key, slice):
-            start, stop, step = key.start, key.stop, key.step
-            return ExtendTemplate(connections=[self, start, stop, step], model="slice")
-        elif isinstance(key, int | tuple):
-            return ExtendTemplate(connections=[self, key], model="get_item")
-        else:
-            raise TypeError(f"Unsupported key type: {type(key)}")
+        match key:
+            case slice():
+                slice_output = ExtendTemplate(
+                    connections=[key.start, key.stop, key.step], model="slice"
+                )
+                output = ExtendTemplate(connections=[self, slice_output], model="index")
+
+            case int() | EllipsisType() | None:
+                output = ExtendTemplate(connections=[self, key], model="index")
+
+            case tuple():
+                connections: list[TemplateBase | int | None | EllipsisType] = []
+                for item in key:
+                    if isinstance(item, slice):
+                        slice_output = ExtendTemplate(
+                            connections=[item.start, item.stop, item.step],
+                            model="slice",
+                        )
+                        connections.append(slice_output)
+                    else:
+                        connections.append(item)
+                tuple_template = ExtendTemplate(
+                    connections=connections,  # type: ignore
+                    model="to_tuple",
+                    defaults={"n": len(key)},
+                )
+                output = ExtendTemplate(
+                    connections=[self, tuple_template], model="index"
+                )
+        return output
 
     def __add__(self, other: TemplateConnectionType):
         return ExtendTemplate(connections=[self, other], model="add")
@@ -917,12 +939,12 @@ class TemplateBase:
 
     def __pow__(self, other: TemplateConnectionType):
         return ExtendTemplate(
-            connections=[self, other], model="pow", defaults={"robust", "threshold"}
+            connections=[self, other], model="pow", defaults={"robust": False}
         )
 
     def __rpow__(self, other: TemplateConnectionType):
         return ExtendTemplate(
-            connections=[other, self], model="pow", defaults={"robust", "threshold"}
+            connections=[other, self], model="pow", defaults={"robust": False}
         )
 
     def __matmul__(self, other: TemplateConnectionType):
@@ -1072,7 +1094,7 @@ class TemplateBase:
 
     def sqrt(self):
         return ExtendTemplate(
-            connections=[self], model="sqrt", defaults={"robust", "cutoff"}
+            connections=[self], model="sqrt", defaults={"robust": False}
         )
 
     def exp(self):
@@ -1095,7 +1117,7 @@ class ExtendTemplate(TemplateBase):
         self,
         connections: list[TemplateConnectionType],
         model: str,
-        defaults: set[str] | None = None,
+        defaults: dict[str, Any] | None = None,
     ) -> None:
         for connection in connections:
             if isinstance(connection, str):
@@ -1107,7 +1129,7 @@ class ExtendTemplate(TemplateBase):
         self.model = model
 
         if defaults is None:
-            defaults = set()
+            defaults = {}
         self.defaults = defaults
         self.output_connection = None
 
@@ -1183,7 +1205,7 @@ ShapesType = (
     | Mapping[str, ShapeTemplateType]
     | Mapping[Connection, ShapeTemplateType]
 )
-_ShapesType = Mapping[str, ShapeTemplateType | list[ShapeTemplateType] | None]
+ShapeResultType = Mapping[str, ShapeTemplateType | list[ShapeTemplateType] | None]
 
 
 @dataclass
@@ -1219,6 +1241,7 @@ TemplateConnectionType = (
     | int
     | float
     | list[int | float]
+    | EllipsisType
     | tuple[slice | int | None | EllipsisType | TemplateBase, ...]
     | None
 )
@@ -3383,7 +3406,7 @@ def get_summary(
         )
 
         cell = input_table + sep + output_table
-        table.add_row([model_name, cell])
+        table.add_row([[model_name], cell])
 
     subheader_adjustments = ["left", "left", "left", "left", "left"]
     subheader_adjustments = [
@@ -3404,10 +3427,10 @@ def get_summary(
 
 
 def get_summary_shapes(
-    model_shapes: dict[str, _ShapesType],
+    model_shapes: dict[str, ShapeResultType],
     conn_info: dict[str, tuple[dict[str, list[str]], dict[str, list[str]]]],
 ):
-    shape_info: dict[str, tuple[_ShapesType, _ShapesType]] = {}
+    shape_info: dict[str, tuple[ShapeResultType, ShapeResultType]] = {}
     for model_name in conn_info:
         shape = model_shapes[model_name]
         input_conns, output_conns = conn_info[model_name]

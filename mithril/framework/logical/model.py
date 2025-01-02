@@ -73,7 +73,6 @@ from .essential_primitives import (
     Multiply,
     NotEqual,
     Power,
-    PrimitiveSlice,
     Prod,
     Reshape,
     ScalarItem,
@@ -81,6 +80,7 @@ from .essential_primitives import (
     ShiftLeft,
     ShiftRight,
     Size,
+    Slice,
     Split,
     Sqrt,
     Subtract,
@@ -136,13 +136,14 @@ ops_table: dict[str, type[PrimitiveModel]] = {
     "minus": Minus,
     "transpose": Transpose,
     "split": Split,
+    "slice": Slice,
+    "to_tuple": ToTuple,
 }
 
 
 coercion_table: dict[tuple[str, type[Tensor] | type[Scalar]], type[PrimitiveModel]] = {
-    ("get_item", Tensor): TensorItem,
-    ("get_item", Scalar): ScalarItem,
-    ("slice", Scalar): PrimitiveSlice,
+    ("index", Tensor): TensorItem,
+    ("index", Scalar): ScalarItem,
 }
 
 type_conversion_map: dict[
@@ -283,6 +284,7 @@ class Model(BaseModel):
         elif (
             local_input
             and local_val is not TBD
+            # and global_val is not TBD
             and conn_is_output
             and global_val != local_val
         ):
@@ -305,11 +307,11 @@ class Model(BaseModel):
         assert local_connection is not None, "Connection is not found!"
         match connection:
             case NullConnection():
-                connection = IOKey()
+                _connection = IOKey()
             case str():
-                connection = IOKey(name=connection)
+                _connection = IOKey(name=connection)
             case Connection():
-                connection = IOKey(connections={connection})
+                _connection = IOKey(connections={connection})
             case ExtendTemplate():
                 # Unroll ExtendTemplate
                 template_conn = model.conns.get_connection(key)
@@ -317,7 +319,7 @@ class Model(BaseModel):
                 con_data = self._unroll_template(
                     connection, type(template_conn.metadata.data)
                 )
-                connection = IOKey(connections={con_data.conn}, expose=False)
+                _connection = IOKey(connections={con_data.conn}, expose=False)
             case _ if isinstance(connection, MainValueInstance):
                 # find_dominant_type returns the dominant type in a container.
                 # If a container has a value of type Connection or ExtendTemplate
@@ -336,10 +338,10 @@ class Model(BaseModel):
 
                     result = conv_model.conns.get_connection("output")
                     assert result is not None
-                    connection = IOKey(connections={result.conn}, expose=None)
+                    _connection = IOKey(connections={result.conn}, expose=None)
                 else:
                     assert isinstance(connection, MainValueInstance)
-                    connection = IOKey(value=connection)
+                    _connection = IOKey(value=connection)
             case IOKey():
                 expose = connection.expose
                 name = connection.name
@@ -352,7 +354,7 @@ class Model(BaseModel):
                     and connection.connections == set()
                 ):
                     expose = True
-                connection = IOKey(
+                _connection = IOKey(
                     name=name,
                     expose=expose,
                     connections=connection.connections,
@@ -368,7 +370,7 @@ class Model(BaseModel):
                     "provide connection/key explicitly, or set canonical connections."
                 )
 
-        return connection
+        return _connection
 
     def update_key_name(self, connection: ConnectionData, key: str) -> None:
         for key_type in KeyType:
@@ -536,9 +538,8 @@ class Model(BaseModel):
             default_args = init_fun.__code__.co_varnames[
                 1 : init_fun.__code__.co_argcount
             ]
-            default_args_dict = {
-                key: TBD for key in default_args if key not in template.defaults
-            }
+            default_args_dict = {key: TBD for key in default_args}
+            default_args_dict |= template.defaults
             default_args_dict.pop("name")
 
             # TODO: Reconsider type ignore!

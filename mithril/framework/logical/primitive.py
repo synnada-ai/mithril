@@ -60,6 +60,8 @@ class PrimitiveModel(BaseModel):
         self._grad_formula = formula_key + "_grad"
 
         super().__init__(name=name)
+
+        self.random_keys: set[str] = set()
         # Get shape_templates of TensorTypes and create corresponding shapes.
         shape_templates = {
             key: value.shape
