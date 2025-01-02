@@ -40,7 +40,7 @@ class TorchCodeGen(PythonCodeGen[torch.Tensor]):
         g_input_keys: list[str],
         output_key: str,
         formula_key: str,
-    ):
+    ) -> tuple[ast.Assign, set[str]]:
         generated_fn, used_keys = self.create_primitive_call(
             fn, l_input_keys, g_input_keys
         )

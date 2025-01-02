@@ -85,7 +85,7 @@ def write_into_cache[T: np.ndarray[Any, Any] | tuple[Any, ...] | int | float](
     else:
         result = cache[key]
     # TODO: Resolve here
-    return result  # type: ignore
+    return result
 
 
 def get_submatrices1d(

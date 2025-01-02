@@ -397,7 +397,7 @@ def test_integration_collision_from_different_levels():
     pm_short = ml.compile(model, backend)
     pm_long = ml.compile(model, backend, use_short_namings=False)
 
-    input_short = {"d": backend.array([1, 2, 3]), "e_1": backend.array([4, 5, 6])}
+    input_short = {"d": backend.array([1, 2, 3]), "e": backend.array([4, 5, 6])}
     input_long = {
         "middle_d": backend.array([1, 2, 3]),
         "middle_e": backend.array([4, 5, 6]),
@@ -406,7 +406,7 @@ def test_integration_collision_from_different_levels():
     res_short = pm_short.evaluate(input_short)
     res_long = pm_long.evaluate(input_long)
 
-    expected_res = {"e": backend.array([5, 7, 9], dtype=ml.int64)}
+    expected_res = {"_e": backend.array([5, 7, 9], dtype=ml.int64)}
 
-    np.testing.assert_allclose(expected_res["e"], res_short["e"])  # type: ignore
-    np.testing.assert_allclose(expected_res["e"], res_long["e"])  # type: ignore
+    np.testing.assert_allclose(expected_res["_e"], res_short["_e"])  # type: ignore
+    np.testing.assert_allclose(expected_res["_e"], res_long["e"])  # type: ignore

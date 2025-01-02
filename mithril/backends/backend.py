@@ -57,14 +57,15 @@ class Backend(ABC, Generic[DataType]):
         #     setattr(self, key, value)
 
     @property
-    def precision(self):
+    def precision(self) -> int:
         return self._precision
 
+    #!!
     @property
-    def device(self):
+    def device(self) -> Any:
         return self._device
 
-    def get_device(self):
+    def get_device(self) -> str:
         return self._device
 
     @property
@@ -72,11 +73,11 @@ class Backend(ABC, Generic[DataType]):
         raise NotImplementedError("inf is not implemented")
 
     @property
-    def pi(self):
+    def pi(self) -> float:
         return math.pi
 
     @property
-    def e(self):
+    def e(self) -> float:
         return math.e
 
     @property
@@ -104,7 +105,7 @@ class Backend(ABC, Generic[DataType]):
     def block_until_ready(self, data: DataType) -> DataType | None:
         raise RuntimeError("Backend does not support block_until_ready method!")
 
-    def empty_cache(self):  # noqa: B027
+    def empty_cache(self) -> None:  # noqa: B027
         pass
         # print("Warning: empty_cache is not supported!")
 
@@ -126,7 +127,7 @@ class Backend(ABC, Generic[DataType]):
 
         return value
 
-    def __del__(self):
+    def __del__(self) -> None:
         self.empty_cache()
 
     @overload

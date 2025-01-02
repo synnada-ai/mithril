@@ -105,7 +105,7 @@ __all__ = [
 
 # Below functions are used in various constraints.
 def prod_fn(a: int | Uniadic, b: int | Uniadic) -> int:
-    return (a if isinstance(a, int) else a.value) * (  # type: ignore
+    return (a if isinstance(a, int) else a.value) * (
         b if isinstance(b, int) else b.value
     )
 
@@ -495,7 +495,7 @@ def scalar_item_reduce_input_type(
                         inner_type.append(output_type)
                     if arg is tuple:
                         inner_type.append(...)
-                    possible_types.append(arg[*inner_type])  # type: ignore
+                    possible_types.append(arg[*inner_type])
         return create_union_type(*possible_types)
     elif isinstance(input_type, GenericAlias):
         input_origin = input_type.__origin__

@@ -53,7 +53,7 @@ class MlxBackend(Backend[mx.array]):
         return False
 
     @property
-    def inf(self):
+    def inf(self) -> float:
         return mx.inf
 
     @property
