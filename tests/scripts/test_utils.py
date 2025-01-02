@@ -21,12 +21,13 @@ import numpy as np
 
 from mithril import Backend
 from mithril.framework.common import (
+    IOHyperEdge,
+    Scalar,
     ShapeRepr,
     ShapeTemplateType,
     Tensor,
     Uniadic,
 )
-from mithril.framework.logical import IOHyperEdge, Scalar
 from mithril.framework.physical import PhysicalModel
 from mithril.framework.utils import find_intersection_type, find_type
 from mithril.models.models import BaseModel, Model, PrimitiveModel

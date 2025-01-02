@@ -18,6 +18,7 @@ from collections.abc import Iterable
 
 from .backends.backend import Backend, UnavailableBackend
 from .core import (
+    Constant,
     DataType,
     bool,
     double,
@@ -33,7 +34,7 @@ from .core import (
     short,
 )
 from .framework.codegen import code_gen_map
-from .framework.common import TBD, Connection, Constant, IOKey
+from .framework.common import TBD, Connection, IOKey
 from .framework.physical.model import PhysicalConstantType, PhysicalShapeType
 from .models import BaseModel, PhysicalModel
 from .models.train_model import TrainModel

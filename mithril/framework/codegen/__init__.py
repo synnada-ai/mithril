@@ -45,7 +45,7 @@ try:
     from .c_gen import CGen
 
     code_gen_map[CBackend] = CGen
-except Exception:  # type: ignore
+except Exception:
     pass
 try:
     from ...backends.with_manualgrad.numpy_backend import NumpyBackend

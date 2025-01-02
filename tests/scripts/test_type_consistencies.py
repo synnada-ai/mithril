@@ -19,7 +19,7 @@ import pytest
 import torch
 
 import mithril
-from mithril.framework.common import NOT_GIVEN, ConnectionType
+from mithril.framework.common import NOT_GIVEN, BaseKey, ConnectionType
 from mithril.framework.utils import (
     find_intersection_type,
     find_type,
@@ -28,7 +28,6 @@ from mithril.framework.utils import (
 )
 from mithril.models import (
     TBD,
-    BaseKey,
     Convolution2D,
     ExtendInfo,
     IOKey,

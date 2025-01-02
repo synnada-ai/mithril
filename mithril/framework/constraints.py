@@ -19,6 +19,7 @@ from itertools import product, zip_longest
 from types import EllipsisType, GenericAlias, NoneType, UnionType
 from typing import get_origin
 
+from ..core import Constant
 from ..utils.type_utils import (
     is_axis_reduce_type,
     is_axis_reverse_type,
@@ -34,10 +35,8 @@ from ..utils.utils import PaddingType, find_dominant_type
 from .common import (
     DNF,
     TBD,
-    Constant,
     ConstrainResultType,
     ConstraintFunctionType,
-    NestedListType,
     PossibleValues,
     Scalar,
     ShapeRepr,
@@ -49,6 +48,7 @@ from .common import (
     Variadic,
 )
 from .utils import (
+    NestedListType,
     find_intersection_type,
     find_list_base_type,
     is_union,
@@ -105,9 +105,19 @@ __all__ = [
 
 # Below functions are used in various constraints.
 def prod_fn(a: int | Uniadic, b: int | Uniadic) -> int:
-    return (a if isinstance(a, int) else a.value) * (
-        b if isinstance(b, int) else b.value
-    )
+    if isinstance(a, Uniadic):
+        value_a = a.value
+        assert value_a is not None
+    else:
+        value_a = a
+
+    if isinstance(b, Uniadic):
+        value_b = b.value
+        assert value_b is not None
+    else:
+        value_b = b
+
+    return value_a * value_b
 
 
 def is_repr_known(repr: ShapeRepr) -> bool:
@@ -147,7 +157,7 @@ def _reduce_union_type(
     return new_type
 
 
-def general_tensor_type_constraint(*args: Tensor):
+def general_tensor_type_constraint(*args: Tensor) -> ConstrainResultType:
     # NOTE: Assumes first argument is always output as other constraints.
     # Also requires all types of args consists of any combination of
     # float, int and bool. For instance, int | float is an acceptable type
@@ -267,7 +277,7 @@ def general_tensor_type_constraint(*args: Tensor):
 
 def floor_divide_type_constraint(
     output: Tensor, numerator: Tensor, denominator: Tensor
-):
+) -> ConstrainResultType:
     status = False
     updates = Updates()
     # First be sure that output can only be of type float | int. So
@@ -298,7 +308,7 @@ def floor_divide_type_constraint(
 
 def scalar_slice_type_constraint(
     output: Scalar, input: Scalar, start: Scalar, stop: Scalar, step: Scalar
-):
+) -> ConstrainResultType:
     updates = Updates()
     output_type = output.type
     input_type = input.type
@@ -455,16 +465,16 @@ def check_index_type_compatibility(
     return True
 
 
-def scalar_item_reduce_input_type(
+def scalar_item_reduce_input_type(  # type: ignore
     output_type: type | UnionType | GenericAlias,
     input_type: type | UnionType | GenericAlias,
     index: int | slice | ToBeDetermined,
-):
+) -> type | UnionType | GenericAlias | None:
     possible_types = []
-    out_origin: type[list] | type[tuple] | type[UnionType] | None = get_origin(
+    out_origin: type[list] | type[tuple] | type[UnionType] | None = get_origin(  # type: ignore
         output_type
     )
-    input_origin: type[list] | type[tuple] | type[UnionType] | None = None
+    input_origin: type[list] | type[tuple] | type[UnionType] | None = None  # type: ignore
     # Look for compatible types in __args__ of input type with the output_type.
     if isinstance(input_type, UnionType):
         input_origin = UnionType
@@ -509,6 +519,8 @@ def scalar_item_reduce_input_type(
                     for arg in input_type.__args__:
                         if find_intersection_type(output_type, arg):
                             return input_type
+                        else:
+                            return None
                 else:
                     return input_type
 
@@ -531,7 +543,9 @@ def scalar_item_reduce_input_type(
         return input_type
 
 
-def scalar_item_type_constraint(output: Scalar, input: Scalar, index: Scalar):
+def scalar_item_type_constraint(
+    output: Scalar, input: Scalar, index: Scalar
+) -> ConstrainResultType:
     updates = Updates()
     assert not isinstance(input.type, NestedListType)
     assert not isinstance(output.type, NestedListType)
@@ -578,7 +592,9 @@ def scalar_item_type_constraint(output: Scalar, input: Scalar, index: Scalar):
     return status, updates
 
 
-def slice_constraints(output: Scalar, start: Scalar, stop: Scalar, step: Scalar):
+def slice_constraints(
+    output: Scalar, start: Scalar, stop: Scalar, step: Scalar
+) -> ConstrainResultType:
     updates = Updates()
     output_value = output.value
     start_value = start.value
@@ -612,7 +628,9 @@ def slice_constraints(output: Scalar, start: Scalar, stop: Scalar, step: Scalar)
     return status, updates
 
 
-def tensor_to_list_type_constraint(output: Scalar, input: Tensor):
+def tensor_to_list_type_constraint(
+    output: Scalar, input: Tensor
+) -> ConstrainResultType:
     status = not is_union(output.type)
     updates = Updates()
     assert input._temp_shape is not None
@@ -662,7 +680,7 @@ def tensor_to_list_type_constraint(output: Scalar, input: Tensor):
     return status, updates
 
 
-def reduce_type_constraint(output: Tensor, input: Tensor):
+def reduce_type_constraint(output: Tensor, input: Tensor) -> ConstrainResultType:
     updates = Updates()
     input_type = input.type
 
@@ -918,12 +936,14 @@ def bcast_update_all_possibilites(
     max_left_len: int | None = len(left)
     if left.root is not None:
         if left.root.possibles is not None:
+            assert max_left_len is not None
             max_left_len += left.root.max_len
         else:
             max_left_len = None
 
     if right.root is not None:
         if right.root.possibles is not None:
+            assert max_right_len is not None
             max_right_len += right.root.max_len
         else:
             max_right_len = None
@@ -1187,7 +1207,7 @@ def bacast_align_output(
     return updates
 
 
-def bcast_align_input(output: ShapeRepr, left: ShapeRepr, right: ShapeRepr):
+def bcast_align_input(output: ShapeRepr, left: ShapeRepr, right: ShapeRepr) -> Updates:
     # Example: output: [V1, 2, 3], left: [V2, 1, 1], right: [V3]
     # Result:  output: [V1, 2, 3], left: [V2, 1, 1], right: [V4, 2, 3]
 
@@ -1281,7 +1301,9 @@ def bcast_matrix_mult(
     return bcast_helper(output._temp_shape, left._temp_shape, right._temp_shape, 2)
 
 
-def check_reverse(left: list[Uniadic], right: list[Uniadic], output: list[Uniadic]):
+def check_reverse(
+    left: list[Uniadic], right: list[Uniadic], output: list[Uniadic]
+) -> bool:
     status = True
     left_reverse = left[::-1]
     right_reverse = right[::-1]
@@ -1315,7 +1337,7 @@ def check_reverse(left: list[Uniadic], right: list[Uniadic], output: list[Uniadi
 
 def bcast_exit_condition(
     output: ShapeRepr, left: ShapeRepr, right: ShapeRepr, index: int
-):
+) -> bool:
     return (
         output.root is None
         and left.root is None
@@ -1806,9 +1828,8 @@ def pad_constraints(
 
     def process_shape(
         shape: ShapeRepr, pad_value: tuple[tuple[int, int], ...], forward: bool = True
-    ):
+    ) -> tuple[list[Uniadic], list[Uniadic], bool]:
         prefix: list[Uniadic] = []
-        root = None
         suffix: list[Uniadic] = []
         status = True
 
@@ -1824,7 +1845,7 @@ def pad_constraints(
             )
             prefix.append(uni)
 
-        return prefix, root, suffix, status
+        return prefix, suffix, status
 
     if isinstance(pad_value, ToBeDetermined):
         return False, updates
@@ -1837,16 +1858,14 @@ def pad_constraints(
     updates |= output_shape.inner_match(prefix=temp_uniadics, root=None, suffix=[])
 
     # Forward inference
-    prefix, root, suffix, forward_status = process_shape(
-        input_shape, pad_value, forward=True
-    )
-    updates |= output_shape.inner_match(prefix=prefix, root=root, suffix=suffix)
+    prefix, suffix, forward_status = process_shape(input_shape, pad_value, forward=True)
+    updates |= output_shape.inner_match(prefix=prefix, root=None, suffix=suffix)
 
     # Backward inference
-    prefix, root, suffix, backward_status = process_shape(
+    prefix, suffix, backward_status = process_shape(
         output_shape, pad_value, forward=False
     )
-    updates |= input_shape.inner_match(prefix=prefix, root=root, suffix=suffix)
+    updates |= input_shape.inner_match(prefix=prefix, root=None, suffix=suffix)
     status = forward_status or backward_status
 
     return status, updates
@@ -2651,7 +2670,7 @@ def broadcast_to_constraints(
     return status, updates
 
 
-def validate_bcast(input: ShapeRepr, shape: tuple[int, ...]):
+def validate_bcast(input: ShapeRepr, shape: tuple[int, ...]) -> None:
     if input.root is None:
         if len(input) > len(shape):
             raise ValueError("Cannot broadcast to lower dimension")
@@ -3496,7 +3515,9 @@ def tensor_item_constraint_helper(
     return input_unis, output_unis, status, current_index
 
 
-def split_constraints(output: Tensor, input: Tensor, split_size: Scalar, axis: Scalar):
+def split_constraints(
+    output: Tensor, input: Tensor, split_size: Scalar, axis: Scalar
+) -> ConstrainResultType:
     status = False
     split_size_val = split_size.value
     axis_val = axis.value

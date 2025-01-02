@@ -24,7 +24,6 @@ from mithril.core import GenericDataType
 from mithril.framework.common import (
     TBD,
     ConstraintSolver,
-    NestedListType,
     PossibleValues,
     Scalar,
     ShapeRepr,
@@ -75,6 +74,7 @@ from mithril.framework.constraints import (
     type_constraints,
     where_constrains,
 )
+from mithril.framework.utils import NestedListType
 
 from .test_utils import check_shapes_semantically
 
