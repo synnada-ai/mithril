@@ -68,7 +68,7 @@ __all__ = [
     "Tensor",
     "Scalar",
     "ShapesType",
-    "_ShapesType",
+    "ShapeResultType",
     "get_summary_shapes",
     "get_summary_types",
     "ConstraintSolver",
@@ -195,6 +195,7 @@ ScalarValueType = (
     | tuple[Any, ...]
     | list[Any]
     | dict[Any, Any]
+    | Mapping[Any, Any]
     | Constant
     | slice
     | PaddingType
@@ -212,6 +213,7 @@ MainValueType = (
     | tuple[Any, ...]
     | list[Any]
     | dict[Any, Any]
+    | Mapping[Any, Any]
     | bool
     | None
     | EllipsisType
@@ -291,7 +293,7 @@ ItemType = TypeVar("ItemType")
 
 def update_equivalence_table(
     item1: ItemType, item2: ItemType, lookup_table: dict[ItemType, set[ItemType]]
-):
+) -> None:
     item_set1 = lookup_table.get(item1)
     item_set2 = lookup_table.get(item2)
     if item_set1 is None and item_set2 is None:
@@ -321,7 +323,7 @@ class ConstraintSolver:
         default_factory=lambda: {}
     )
 
-    def __call__(self, updates: Updates):
+    def __call__(self, updates: Updates) -> None:
         self.update_shapes(updates)
         solved_constrs: set[Constraint] = set()
         for constr_type in UpdateType:
@@ -332,7 +334,7 @@ class ConstraintSolver:
         constraint_type: UpdateType,
         updates: Updates,
         solved_constraints: set[Constraint],
-    ):
+    ) -> None:
         constraints = updates.constraints[constraint_type]
         while constraints:
             constr = constraints.pop()
@@ -370,14 +372,14 @@ class ConstraintSolver:
                 constraints.discard(constr)
 
     @staticmethod
-    def _combine_nodes(updates: Updates):
+    def _combine_nodes(updates: Updates) -> None:
         # Check if any node could be reduced after variadic updates add into
         # node_updates field.
         while updates.node_updates:
             node = updates.node_updates.pop()
             updates |= node.combine()
 
-    def _reduce_uniadic_referees(self, updates: Updates):
+    def _reduce_uniadic_referees(self, updates: Updates) -> None:
         while updates.uniadic_updates:
             uni = updates.uniadic_updates.pop()
             uni_val = uni.value
@@ -445,7 +447,7 @@ class ConstraintSolver:
 
         return updates
 
-    def clear(self):
+    def clear(self) -> None:
         self.symbol_store = {}
         self.constraint_map = {}
         self.empty_node = None
@@ -479,7 +481,7 @@ class ConstraintSolver:
         deleted.reprs = []
         return updates
 
-    def update_shapes(self, updates: Updates):
+    def update_shapes(self, updates: Updates) -> None:
         deletion_nodes: dict[ShapeNode, set[ShapeNode]] = {}
         # Note that update can be tuple also. First element of update
         # is always Tensor | Scalar. So this is the case, get first element
@@ -732,7 +734,7 @@ class BaseData(Generic[T]):
             self.finalize_match(other)
         return updates
 
-    def set_value(self, value: AllValueType) -> Updates:  # type: ignore[override]
+    def set_value(self, value: AllValueType) -> Updates:
         updates = Updates()
         if self.value is not TBD and self.value != value:
             raise ValueError(
@@ -1203,7 +1205,7 @@ ShapesType = (
     | Mapping[str, ShapeTemplateType]
     | Mapping[Connection, ShapeTemplateType]
 )
-_ShapesType = Mapping[str, ShapeTemplateType | list[ShapeTemplateType] | None]
+ShapeResultType = Mapping[str, ShapeTemplateType | list[ShapeTemplateType] | None]
 
 
 @dataclass
@@ -1398,7 +1400,7 @@ class Connections:
         return data.shape
 
     def set_value(self, con: ConnectionData, value: MainValueType):
-        self.get_data(con.key).set_value(value)  # type: ignore
+        self.get_data(con.key).set_value(value)
 
     def extract_metadata(self, key: str | Connection) -> IOHyperEdge:
         if isinstance(key, Connection):
@@ -2744,7 +2746,7 @@ class Constraint:
     def add_post_process(self, fn: ConstraintFunctionType):
         self.post_processes.add(fn)
 
-    def create_post_constraints(self):
+    def create_post_constraints(self) -> set[Constraint]:
         constraints: set[Constraint] = set()
         for fn in self.post_processes:
             constraints.add(Constraint(fn, self.type))
@@ -2902,7 +2904,7 @@ class Table:
         # adjust the table accordingly
         self._adjust_table()
         # calculate total table width
-        table_width = reduce(  # type: ignore
+        table_width = reduce(
             partial(add_lengths, const=(len(row) for row in row_sep)),
             self.each_row_width,
         )
@@ -2953,7 +2955,7 @@ class Table:
         self.header_str = header_str
         self.cell_str = cell_str
 
-    def display(self):
+    def display(self) -> None:
         """Prints the table"""
         print(self.header_str)
         print(self.cell_str)
@@ -2964,7 +2966,7 @@ class Table:
         arg_max_lengths: list[int],
         adjustments: list[str],
         *args: list[list[str]],
-    ):
+    ) -> list[str]:
         # Constructs subtable with given args
         subtable_list: list[str] = []
         elems: tuple[list[str], ...]
@@ -3404,7 +3406,7 @@ def get_summary(
         )
 
         cell = input_table + sep + output_table
-        table.add_row([model_name, cell])
+        table.add_row([[model_name], cell])
 
     subheader_adjustments = ["left", "left", "left", "left", "left"]
     subheader_adjustments = [
@@ -3425,10 +3427,10 @@ def get_summary(
 
 
 def get_summary_shapes(
-    model_shapes: dict[str, _ShapesType],
+    model_shapes: dict[str, ShapeResultType],
     conn_info: dict[str, tuple[dict[str, list[str]], dict[str, list[str]]]],
 ):
-    shape_info: dict[str, tuple[_ShapesType, _ShapesType]] = {}
+    shape_info: dict[str, tuple[ShapeResultType, ShapeResultType]] = {}
     for model_name in conn_info:
         shape = model_shapes[model_name]
         input_conns, output_conns = conn_info[model_name]

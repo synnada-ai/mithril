@@ -78,7 +78,7 @@ def robust_power_helper(
     input1: jax.Array, input2: jax.Array, threshold: jax.Array
 ) -> jax.Array:
     def cond_fun(cond: jax.Array, input1: jax.Array, input2: jax.Array) -> jax.Array:
-        return jax.lax.cond(
+        return jax.lax.cond(  # type: ignore
             cond,
             robust_power_under_threshold,
             robust_power_above_threshold,
@@ -284,7 +284,7 @@ def polynomial_features_helper(x: jax.Array, y: jax.Array) -> jax.Array:
     )
 
 
-def get_available_devices():
+def get_available_devices() -> list[str]:
     backends: set[str] = set(jax._src.xla_bridge.backends()) - set(["interpreter"])
     devices = [
         f"{backend.replace('METAL','mps')}:{idx}"

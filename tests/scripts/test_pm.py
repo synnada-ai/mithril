@@ -19,7 +19,7 @@ from mithril.framework.physical import PhysicalModel
 from mithril.models import Model, Randn
 
 
-def test_random_keys_not_provided():
+def testrandom_keys_not_provided():
     example_model = Model()
     example_model += Randn()(shape=(3, 4, 5, 6), output=ml.IOKey("out1"))
     example_model += Randn()(shape=(3, 4, 5, 1), output=ml.IOKey("out2"))
@@ -38,7 +38,7 @@ def test_random_keys_not_provided():
     np.testing.assert_raises(AssertionError, np.testing.assert_array_equal, res1, res2)
 
 
-def test_random_keys_some_of_provided():
+def testrandom_keys_some_of_provided():
     example_model = Model()
     # Static inference will infer this function
     example_model += Randn(key=42)(shape=(3, 4, 5, 6), output=ml.IOKey("out1"))
@@ -58,7 +58,7 @@ def test_random_keys_some_of_provided():
     np.testing.assert_array_equal(res1, res2)
 
 
-def test_set_random_keys():
+def test_setrandom_keys():
     example_model = Model()
     # Static inference will infer this function
     example_model += Randn(key=42)(shape=(3, 4, 5, 6), output=ml.IOKey("out1"))

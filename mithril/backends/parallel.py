@@ -37,10 +37,10 @@ class Parallel(ABC, Generic[DataType]):
     @abstractmethod
     def parallelize(
         self, tensor: DataType, device_mesh: tuple[int, ...] | None = None
-    ) -> dict[str, Any]:
+    ) -> DataType:
         raise NotImplementedError()
 
-    def clean_up(self):
+    def clean_up(self) -> None:
         self.callables = dict()
         self.device_mesh = None
         self.n_devices = -1

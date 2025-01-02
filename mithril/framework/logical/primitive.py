@@ -61,7 +61,7 @@ class PrimitiveModel(BaseModel):
 
         super().__init__(name=name)
 
-        self._random_keys: set[str] = set()
+        self.random_keys: set[str] = set()
         # Get shape_templates of TensorTypes and create corresponding shapes.
         shape_templates = {
             key: value.shape
@@ -99,7 +99,7 @@ class PrimitiveModel(BaseModel):
                 assert isinstance(value, BaseKey)
                 _value = Tensor(
                     shape=shapes[key].node,
-                    possible_types=get_mytensor_subtype(value_type),  # type: ignore
+                    possible_types=get_mytensor_subtype(value_type),
                     value=value.value,  # type: ignore
                     interval=value.interval,
                 )
@@ -109,7 +109,7 @@ class PrimitiveModel(BaseModel):
             else:
                 _value = Scalar(
                     possible_types=value_type,  # type: ignore
-                    value=value.value,  # type: ignore
+                    value=value.value,
                 )
 
             conn_data = self.create_connection(IOHyperEdge(_value), key)

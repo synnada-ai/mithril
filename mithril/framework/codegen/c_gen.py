@@ -250,7 +250,7 @@ class CGen(CodeGen[PyArray]):
             grad_inputs = [input_key + "_grad" for input_key in inputs]
             for idx in range(len(grad_inputs)):
                 fn_inputs: list[str] = (
-                    [output_key + "_grad", c_ast.Constant(idx), output_key]
+                    [output_key + "_grad", c_ast.Constant(idx).to_str(), output_key]
                     + inputs
                     + grad_inputs
                 )
@@ -277,7 +277,7 @@ class CGen(CodeGen[PyArray]):
 
         return evaluate_grad_fn, used_keys
 
-    def _get_backend_path(self):
+    def _get_backend_path(self) -> str:
         backend_path = backend.__file__
         return backend_path[: backend_path.rindex("/")]
 

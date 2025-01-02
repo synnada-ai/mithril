@@ -75,14 +75,14 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         return False
 
     @property
-    def inf(self):
+    def inf(self) -> float:
         return jax.numpy.inf
 
     @property
-    def nan(self):
+    def nan(self) -> float:
         return jax.numpy.nan
 
-    def get_backend_array_type(self):
+    def get_backend_array_type(self) -> type[jax.Array]:
         return jax.Array
 
     @property
@@ -98,7 +98,7 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         return utils.ArrayType
 
     @staticmethod
-    def get_available_devices():
+    def get_available_devices() -> list[str]:
         """Static method to get a list of available devices.
 
         Parameters
@@ -112,7 +112,7 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
     def register_primitive(fn: Callable[..., Any]) -> None:
         JaxBackend.registered_primitives[fn.__name__] = fn
 
-    def set_seed(self, seed: int):
+    def set_seed(self, seed: int) -> None:
         self.seed = seed
         self.prng_key = jax.random.PRNGKey(seed)
 
@@ -145,7 +145,7 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
 
     def register_callable(
         self, fn: Callable[..., Any], fn_name: str, jit: bool = False
-    ):
+    ) -> None:
         assert (
             self._parallel_manager is not None
         ), "Parallel manager is not initialized!"
@@ -153,7 +153,7 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         fn_name = str(id(self)) + fn_name
         return self._parallel_manager.register_callable(fn, fn_name, jit)
 
-    def _run_callable(self, *primals: jax.Array, fn_name: str):
+    def _run_callable(self, *primals: jax.Array, fn_name: str) -> Any:
         assert (
             self._parallel_manager is not None
         ), "Parallel manager is not initialized!"
@@ -161,7 +161,7 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         fn_name = str(id(self)) + fn_name
         return self._parallel_manager.run_callable(*primals, fn_name=fn_name)
 
-    def _create_parallel(self, device_mesh: tuple[int, ...]):
+    def _create_parallel(self, device_mesh: tuple[int, ...]) -> None:
         self._parallel_manager = JaxParallel(math.prod(device_mesh), self._device)
 
     def array(
@@ -538,7 +538,9 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
 
         return samples
 
-    def jit(self, *args: Any, **kwargs: Any):
+    def jit(  # type: ignore[override]
+        self, *args: Any, **kwargs: Any
+    ) -> Callable[..., jax.Array | tuple[jax.Array, ...]] | dict[str, jax.Array]:
         return jax.jit(*args, **kwargs)
 
     def grad(

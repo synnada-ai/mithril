@@ -1880,7 +1880,7 @@ class Randn(PrimitiveModel):
             key=BaseKey(type=int, value=key),
         )
 
-        self._random_keys.add("key")
+        self.random_keys.add("key")
         self.set_constraint(randn_constraints, keys=["output", "shape"])
 
     def __call__(  # type: ignore[override]
