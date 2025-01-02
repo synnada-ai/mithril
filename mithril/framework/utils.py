@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from functools import reduce
 from itertools import product
 from types import FunctionType, GenericAlias, UnionType
@@ -116,14 +116,14 @@ def align_shapes(all_dicts: list[dict[Any, Any]]) -> None:
                 else:
                     shape_dict[key] = [[str(val) for val in value]]
         max_val_dict = {}
-        all_values = [
+        all_values: list[list[str]] = [
             val
             for shape_dict in all_dicts
             for lst in shape_dict.values()
             for val in lst
             if lst != "--"
         ]
-        reversed_all_values = []
+        reversed_all_values: list[list[str]] = []
         for value in all_values:
             reversed_all_values.append(value[::-1])
         if all_values:
@@ -141,7 +141,7 @@ def align_shapes(all_dicts: list[dict[Any, Any]]) -> None:
         for shape_dict in all_dicts:
             for key, value in shape_dict.items():
                 if value != "--":
-                    t_list = []
+                    t_list: list[str] = []
                     for lst in value:
                         reversed_lst = lst[::-1]
                         reversed_lst = [
@@ -166,17 +166,17 @@ class GeneratedFunction:
         self.func = func
         self.metadata: dict[str, str] = metadata
 
-    def __reduce__(self):
+    def __reduce__(self) -> tuple[Callable[[str, str], Any], tuple[str, str]]:
         # Serialize the function code and metadata
         fn_name = self.metadata["fn_name"]
         source_code = self.metadata["source"]
         return (self._unpickle, (source_code, fn_name))
 
-    def __call__(self, *args: Any, **kwargs: Any):
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:
         return self.func(*args, **kwargs)
 
     @staticmethod
-    def _unpickle(source_code: str, fn_name: str):
+    def _unpickle(source_code: str, fn_name: str) -> FunctionType:
         # Compile the code string back to a code object
         code = compile(source_code, "<string>", "exec")
         namespace: dict[str, Any] = {}
@@ -385,7 +385,7 @@ def find_intersection_type(
                             for i in range(len(args_1))
                         ]
                     if common and None not in common:
-                        intersect.add(tuple[*common])  # type: ignore
+                        intersect.add(tuple[*common])
 
                 elif typ_1.__origin__ is list:
                     if len(args_2) > 1 or len(args_1) > 1:
@@ -395,7 +395,7 @@ def find_intersection_type(
                     else:
                         common = find_intersection_type(args_1[0], args_2[0])
                     if common:
-                        intersect.add(list[common])  # type: ignore[valid-type] # mypy does not accept list[arg]
+                        intersect.add(list[common])
     if intersect:
         result = reduce(lambda x, y: x | y, intersect)
         return result
@@ -440,11 +440,11 @@ def sort_type(
     Returns the sorted type of UnionTypes
     """
 
-    def sort_fn(type):
-        if hasattr(type, "__origin__"):
+    def sort_fn(type: type | UnionType | GenericAlias) -> str:
+        if isinstance(type, GenericAlias):
             return type.__origin__.__name__
         else:
-            return type.__name__
+            return str(type)
 
     if isinstance(type1, UnionType):
         types = []

@@ -54,7 +54,7 @@ class StaticDataStore(Generic[DataType]):
         self.graph: FlatGraph[DataType] = graph
         self.backend: Backend[DataType] = backend
         self.inference = inference
-        self.intermediate_non_differentiables: BiMap[str, Tensor | Scalar] = BiMap()  # type: ignore
+        self.intermediate_non_differentiables: BiMap[str, Tensor | Scalar] = BiMap()
         self._runtime_static_keys: set[str] = set()
         self._unused_keys: set[str] = set()
         # Final tensor values of data store.

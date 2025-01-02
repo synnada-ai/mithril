@@ -185,14 +185,18 @@ class OrderedSet(Generic[T]):
         return self.symmetric_difference(other)
 
 
-class BiMap[K, V](MutableMapping[K, V]):
+K = TypeVar("K")
+V = TypeVar("V")
+
+
+class BiMap(MutableMapping[K, V]):
     # Implements a bi-directional map for storing unique keys/values using two
     # dictionaries.
     # TODO: override __reversed__ for BiMap
     inverse: dict[V, K]
     _table: dict[K, V]
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         self.inverse = inverse = {}
         self._table = table = dict(*args, **kwargs)
         for key, value in table.items():

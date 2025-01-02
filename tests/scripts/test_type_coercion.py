@@ -28,11 +28,10 @@ from mithril.framework.common import (
     GenericTensorType,
     IOKey,
     MyTensor,
-    NestedListType,
     ShapeTemplateType,
     Updates,
-    find_intersection_type,
 )
+from mithril.framework.utils import NestedListType, find_intersection_type
 from mithril.models import (
     MLP,
     TBD,

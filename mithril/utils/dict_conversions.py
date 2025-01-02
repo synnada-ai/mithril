@@ -540,9 +540,9 @@ def item_to_json(item: IOKey):
     result: dict[str, Any] = {}
     if not isinstance(item.data.value, ToBeDetermined):
         result["value"] = item.data.value
-    if item.shape is not None:
-        shape_template = []
-        for symbol in item.shape:
+    if item.data.shape is not None:
+        shape_template: list[str] = []
+        for symbol in item.data.shape:
             if isinstance(symbol, tuple):  # variadic
                 shape_template.append(f"{symbol[0]},...")
             else:
