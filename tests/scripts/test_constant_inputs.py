@@ -110,6 +110,7 @@ def assert_all_backends_device_dtype(model: Model):
     )
     unsupported_device_dtypes = [
         (TorchBackend, "mps:0", mithril.float64),
+        (NumpyBackend, "cpu", 16, mithril.bfloat16),
         (MlxBackend, "cpu", 16, mithril.float16),
         (MlxBackend, "cpu", 32, mithril.float32),
         (TorchBackend, "cpu:0", 16, mithril.float16),
@@ -144,6 +145,7 @@ def assert_all_backends_device_dtype(model: Model):
                 backend.backend_type == "mlx"
                 or get_array_device(randomized_input, _type) == device
             )
+
             assert (
                 get_array_precision(randomized_input, _type)
                 == DtypeBits[dtype.name].value
@@ -177,7 +179,9 @@ def assert_all_backends_device_dtype(model: Model):
         # non-used copies. It is expected that their values are exactly the same. Aim
         # of this check is to make sure that no in-place changes are occurred in given
         # inputs.
-        if device == "cpu":
+        if (
+            device == "cpu" and dtype != mithril.bfloat16
+        ):  # Numpy does not support bfloat16
             for val1, val2 in zip(
                 randomized_inputs.values(),
                 initial_randomized_inputs.values(),

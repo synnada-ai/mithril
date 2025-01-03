@@ -21,7 +21,7 @@ import jax
 
 from ....core import Dtype
 from ...backend import PadWidthType, ParallelBackend
-from ...utils import DtypeBits, process_shape
+from ...utils import DtypeBits, DtypeSubTypes, process_shape
 from . import ops, utils
 from .parallel import JaxParallel
 
@@ -172,7 +172,7 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         dtype: Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
     ) -> jax.Array:
-        _dtype = utils.determine_dtype(input, dtype, self.precision)
+        _dtype = utils.determine_dtype(input, dtype, self._dtype, self._precision)
 
         with jax.default_device(self.device):
             array = jax.numpy.array(input, dtype=utils.dtype_map[_dtype])
@@ -304,7 +304,7 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         if prng_key is None:
             prng_key = self.prng_key
 
-        _dtype = self._process_dtype(dtype, int)
+        _dtype = self._process_dtype(dtype, "int")
         _shape = process_shape(shape)
 
         with jax.default_device(self.device):
@@ -348,7 +348,7 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         **kwargs: Any,
     ) -> jax.Array:
         default_type = (
-            float if any(isinstance(x, float) for x in (start, stop, step)) else int
+            "float" if any(isinstance(x, float) for x in (start, stop, step)) else "int"
         )
         _dtype = self._process_dtype(dtype, default_type)
 
@@ -664,14 +664,19 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
     def _process_dtype(
         self,
         dtype: Dtype | None = None,
-        default_type: type[float] | type[int] | type[bool] = float,
+        default_type: str | None = None,
     ) -> jax.numpy.dtype[Any]:
         if isinstance(dtype, Dtype):
             return utils.dtype_map[dtype.name]
         elif dtype is None:
-            return utils.dtype_map[default_type.__name__ + str(self.precision)]
+            if default_type is None:
+                default_type = self._get_default_subtype()
+            return utils.dtype_map[default_type + str(self.precision)]
         else:
             raise ValueError(f"Invalid dtype {dtype}")
 
     def _get_defualt_type(self):
-        return getattr(self, f"float{self.precision}")
+        return getattr(self, self._dtype.name)
+
+    def _get_default_subtype(self):
+        return DtypeSubTypes[self._dtype.name].value

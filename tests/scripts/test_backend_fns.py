@@ -172,7 +172,7 @@ tolerances = {
     "backendcls, device, dtype", backends_with_device_dtype, ids=names
 )
 class TestArray:
-    def test_array(self, backendcls, device, dtype):
+    def test_array_int(self, backendcls, device, dtype):
         backend = backendcls(device=device, dtype=dtype)
         array_fn = array_fns[backend.__class__]
         fn = backend.array
@@ -182,6 +182,26 @@ class TestArray:
         ref_output = array_fn(
             [1, 2, 3], str(device), f"int{DtypeBits[dtype.name].value}"
         )
+        assert_backend_results_equal(
+            backend,
+            fn,
+            fn_args,
+            fn_kwargs,
+            ref_output,
+            device,
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
+        )
+
+    def test_array_float(self, backendcls, device, dtype):
+        backend = backendcls(device=device, dtype=dtype)
+        array_fn = array_fns[backend.__class__]
+        fn = backend.array
+        fn_args = [[1.0, 2, 3]]
+        fn_kwargs: dict = {}
+
+        ref_output = array_fn([1, 2, 3], str(device), dtype.name)
         assert_backend_results_equal(
             backend,
             fn,
@@ -230,7 +250,7 @@ class TestZeros:
         ref_output = array_fn(
             [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]],
             device,
-            f"float{DtypeBits[dtype.name].value}",
+            dtype.name,
         )
         assert_backend_results_equal(
             backend,
@@ -275,7 +295,7 @@ class TestZeros:
         fn = backend.zeros
         fn_args = [()]
         fn_kwargs: dict = {}
-        ref_output = array_fn(0.0, device, f"float{DtypeBits[dtype.name].value}")
+        ref_output = array_fn(0.0, device, dtype.name)
 
         assert_backend_results_equal(
             backend,
@@ -304,7 +324,7 @@ class TestOnes:
         ref_output = array_fn(
             [[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]],
             device,
-            f"float{DtypeBits[dtype.name].value}",
+            dtype.name,
         )
 
         assert_backend_results_equal(
@@ -353,7 +373,7 @@ class TestOnes:
         fn_args = [()]
         fn_kwargs: dict = {}
 
-        ref_output = array_fn(1.0, device, f"float{DtypeBits[dtype.name].value}")
+        ref_output = array_fn(1.0, device, dtype.name)
         assert_backend_results_equal(
             backend,
             fn,
@@ -395,17 +415,18 @@ class TestArange:
         )
 
     def test_arange_float(self, backendcls, device, dtype):
+        if backendcls == ml.TorchBackend and dtype == ml.bfloat16 and "mps" in device:
+            pytest.skip("Torch does not support bfloat16 for MPS")
+
         array_fn = array_fns[backendcls]
         backend = backendcls(device=device, dtype=dtype)
 
         fn = backend.arange
         fn_args = [-3, 5, 2]
-        dtype = getattr(ml, f"float{DtypeBits[dtype.name].value}")
+        dtype = getattr(ml, dtype.name)
         fn_kwargs: dict = {"dtype": dtype}
 
-        ref_output = array_fn(
-            [-3, -1, 1, 3], device, f"float{DtypeBits[dtype.name].value}"
-        )
+        ref_output = array_fn([-3, -1, 1, 3], device, dtype.name)
         assert_backend_results_equal(
             backend,
             fn,
@@ -472,16 +493,10 @@ class TestFlatten:
         backend = backendcls(device=device, dtype=dtype)
 
         fn = backend.flatten
-        fn_args: list = [
-            array_fn(
-                [[1.0, 2.0], [3.0, 4.0]], device, f"float{DtypeBits[dtype.name].value}"
-            )
-        ]
+        fn_args: list = [array_fn([[1.0, 2.0], [3.0, 4.0]], device, dtype.name)]
         fn_kwargs: dict = {}
 
-        ref_output = array_fn(
-            [1.0, 2.0, 3.0, 4.0], device, f"float{DtypeBits[dtype.name].value}"
-        )
+        ref_output = array_fn([1.0, 2.0, 3.0, 4.0], device, dtype.name)
         assert_backend_results_equal(
             backend,
             fn,
@@ -547,15 +562,9 @@ class TestTranspose:
         backend = backendcls(device=device, dtype=dtype)
 
         fn = backend.transpose
-        fn_args: list = [
-            array_fn(
-                [[1.0, 2.0], [3.0, 4.0]], device, f"float{DtypeBits[dtype.name].value}"
-            )
-        ]
+        fn_args: list = [array_fn([[1.0, 2.0], [3.0, 4.0]], device, dtype.name)]
         fn_kwargs: dict = {}
-        ref_output = array_fn(
-            [[1.0, 3.0], [2.0, 4.0]], device, f"float{DtypeBits[dtype.name].value}"
-        )
+        ref_output = array_fn([[1.0, 3.0], [2.0, 4.0]], device, dtype.name)
 
         assert_backend_results_equal(
             backend,
@@ -627,17 +636,9 @@ class TestRelu:
         array_fn = array_fns[backendcls]
         backend = backendcls(device=device, dtype=dtype)
         fn = backend.relu
-        fn_args: list = [
-            array_fn(
-                [[0.0, 1e10], [-1e10, 4.0]],
-                device,
-                f"float{DtypeBits[dtype.name].value}",
-            )
-        ]
+        fn_args: list = [array_fn([[0.0, 1e10], [-1e10, 4.0]], device, dtype.name)]
         fn_kwargs: dict = {}
-        ref_output = array_fn(
-            [[0.0, 1e10], [0.0, 4.0]], device, f"float{DtypeBits[dtype.name].value}"
-        )
+        ref_output = array_fn([[0.0, 1e10], [0.0, 4.0]], device, dtype.name)
         assert_backend_results_equal(
             backend,
             fn,
@@ -654,15 +655,9 @@ class TestRelu:
         array_fn = array_fns[backendcls]
         backend = backendcls(device=device, dtype=dtype)
         fn = backend.relu
-        fn_args: list = [
-            array_fn(
-                [[-1.0, 2.0], [3.0, 4.0]], device, f"float{DtypeBits[dtype.name].value}"
-            )
-        ]
+        fn_args: list = [array_fn([[-1.0, 2.0], [3.0, 4.0]], device, dtype.name)]
         fn_kwargs: dict = {}
-        ref_output = array_fn(
-            [[0.0, 2.0], [3.0, 4.0]], device, f"float{DtypeBits[dtype.name].value}"
-        )
+        ref_output = array_fn([[0.0, 2.0], [3.0, 4.0]], device, dtype.name)
         assert_backend_results_equal(
             backend,
             fn,
@@ -684,11 +679,7 @@ class TestSigmoid:
         array_fn = array_fns[backendcls]
         backend = backendcls(device=device, dtype=dtype)
         fn = backend.sigmoid
-        fn_args: list = [
-            array_fn(
-                [[-1.0, 2.0], [3.0, 4.0]], device, f"float{DtypeBits[dtype.name].value}"
-            )
-        ]
+        fn_args: list = [array_fn([[-1.0, 2.0], [3.0, 4.0]], device, dtype.name)]
         fn_kwargs: dict = {}
         ref_output = array_fn(
             [
@@ -696,7 +687,7 @@ class TestSigmoid:
                 [0.9525741338729858, 0.9820137619972229],
             ],
             device,
-            f"float{DtypeBits[dtype.name].value}",
+            dtype.name,
         )
         assert_backend_results_equal(
             backend,
@@ -719,15 +710,9 @@ class TestSign:
         array_fn = array_fns[backendcls]
         backend = backendcls(device=device, dtype=dtype)
         fn = backend.sign
-        fn_args: list = [
-            array_fn(
-                [[-1.0, 2.0], [3.0, 4.0]], device, f"float{DtypeBits[dtype.name].value}"
-            )
-        ]
+        fn_args: list = [array_fn([[-1.0, 2.0], [3.0, 4.0]], device, dtype.name)]
         fn_kwargs: dict = {}
-        ref_output = array_fn(
-            [[-1.0, 1.0], [1.0, 1.0]], device, f"float{DtypeBits[dtype.name].value}"
-        )
+        ref_output = array_fn([[-1.0, 1.0], [1.0, 1.0]], device, dtype.name)
         assert_backend_results_equal(
             backend,
             fn,
@@ -772,15 +757,9 @@ class TestAbs:
         backend = backendcls(device=device, dtype=dtype)
         array_fn = array_fns[backend.__class__]
         fn = backend.abs
-        fn_args: list = [
-            array_fn(
-                [[-1.0, 2.0], [3.0, 4.0]], device, f"float{DtypeBits[dtype.name].value}"
-            )
-        ]
+        fn_args: list = [array_fn([[-1.0, 2.0], [3.0, 4.0]], device, dtype.name)]
         fn_kwargs: dict = {}
-        ref_output = array_fn(
-            [[1.0, 2.0], [3.0, 4.0]], device, f"float{DtypeBits[dtype.name].value}"
-        )
+        ref_output = array_fn([[1.0, 2.0], [3.0, 4.0]], device, dtype.name)
         assert_backend_results_equal(
             backend,
             fn,
@@ -820,9 +799,9 @@ class TestAbs:
         backend = backendcls(device=device, dtype=dtype)
         array_fn = array_fns[backend.__class__]
         fn = backend.abs
-        fn_args: list = [array_fn([0.0], device, f"float{DtypeBits[dtype.name].value}")]
+        fn_args: list = [array_fn([0.0], device, dtype.name)]
         fn_kwargs: dict = {}
-        ref_output = array_fn([0.0], device, f"float{DtypeBits[dtype.name].value}")
+        ref_output = array_fn([0.0], device, dtype.name)
         assert_backend_results_equal(
             backend,
             fn,
@@ -844,15 +823,9 @@ class TestOnesLike:
         array_fn = array_fns[backendcls]
         backend = backendcls(device=device, dtype=dtype)
         fn = backend.ones_like
-        fn_args: list = [
-            array_fn(
-                [[0.0, 0.0], [0.0, 0.0]], device, f"float{DtypeBits[dtype.name].value}"
-            )
-        ]
+        fn_args: list = [array_fn([[0.0, 0.0], [0.0, 0.0]], device, dtype.name)]
         fn_kwargs: dict = {}
-        ref_output = array_fn(
-            [[1.0, 1.0], [1.0, 1.0]], device, f"float{DtypeBits[dtype.name].value}"
-        )
+        ref_output = array_fn([[1.0, 1.0], [1.0, 1.0]], device, dtype.name)
         assert_backend_results_equal(
             backend,
             fn,
@@ -869,9 +842,9 @@ class TestOnesLike:
         array_fn = array_fns[backendcls]
         backend = backendcls(device=device, dtype=dtype)
         fn = backend.ones_like
-        fn_args: list = [array_fn(0.0, device, f"float{DtypeBits[dtype.name].value}")]
+        fn_args: list = [array_fn(0.0, device, dtype.name)]
         fn_kwargs: dict = {}
-        ref_output = array_fn(1.0, device, f"float{DtypeBits[dtype.name].value}")
+        ref_output = array_fn(1.0, device, dtype.name)
         assert_backend_results_equal(
             backend,
             fn,
@@ -893,15 +866,9 @@ class TestZerosLike:
         array_fn = array_fns[backendcls]
         backend = backendcls(device=device, dtype=dtype)
         fn = backend.zeros_like
-        fn_args: list = [
-            array_fn(
-                [[-1.0, 2.0], [3.0, 4.0]], device, f"float{DtypeBits[dtype.name].value}"
-            )
-        ]
+        fn_args: list = [array_fn([[-1.0, 2.0], [3.0, 4.0]], device, dtype.name)]
         fn_kwargs: dict = {}
-        ref_output = array_fn(
-            [[0.0, 0.0], [0.0, 0.0]], device, f"float{DtypeBits[dtype.name].value}"
-        )
+        ref_output = array_fn([[0.0, 0.0], [0.0, 0.0]], device, dtype.name)
         assert_backend_results_equal(
             backend,
             fn,
@@ -918,9 +885,9 @@ class TestZerosLike:
         array_fn = array_fns[backendcls]
         backend = backendcls(device=device, dtype=dtype)
         fn = backend.zeros_like
-        fn_args: list = [array_fn(0.0, device, f"float{DtypeBits[dtype.name].value}")]
+        fn_args: list = [array_fn(0.0, device, dtype.name)]
         fn_kwargs: dict = {}
-        ref_output = array_fn(0.0, device, f"float{DtypeBits[dtype.name].value}")
+        ref_output = array_fn(0.0, device, dtype.name)
         assert_backend_results_equal(
             backend,
             fn,
@@ -942,11 +909,7 @@ class TestSin:
         array_fn = array_fns[backendcls]
         backend = backendcls(device=device, dtype=dtype)
         fn = backend.sin
-        fn_args: list = [
-            array_fn(
-                [[-1.0, 2.0], [3.0, 4.0]], device, f"float{DtypeBits[dtype.name].value}"
-            )
-        ]
+        fn_args: list = [array_fn([[-1.0, 2.0], [3.0, 4.0]], device, dtype.name)]
         fn_kwargs: dict = {}
         ref_output = array_fn(
             [
@@ -954,7 +917,7 @@ class TestSin:
                 [0.1411200080598672, -0.7568024953079282],
             ],
             device,
-            f"float{DtypeBits[dtype.name].value}",
+            dtype.name,
         )
         assert_backend_results_equal(
             backend,
@@ -977,11 +940,7 @@ class TestCos:
         array_fn = array_fns[backendcls]
         backend = backendcls(device=device, dtype=dtype)
         fn = backend.cos
-        fn_args: list = [
-            array_fn(
-                [[-1.0, 2.0], [3.0, 4.0]], device, f"float{DtypeBits[dtype.name].value}"
-            )
-        ]
+        fn_args: list = [array_fn([[-1.0, 2.0], [3.0, 4.0]], device, dtype.name)]
         fn_kwargs: dict = {}
         ref_output = array_fn(
             [
@@ -989,7 +948,7 @@ class TestCos:
                 [-0.9899924966004454, -0.6536436208636119],
             ],
             device,
-            f"float{DtypeBits[dtype.name].value}",
+            dtype.name,
         )
         assert_backend_results_equal(
             backend,
@@ -1012,11 +971,7 @@ class TestTanh:
         array_fn = array_fns[backendcls]
         backend = backendcls(device=device, dtype=dtype)
         fn = backend.tanh
-        fn_args: list = [
-            array_fn(
-                [[-1.0, 2.0], [3.0, 4.0]], device, f"float{DtypeBits[dtype.name].value}"
-            )
-        ]
+        fn_args: list = [array_fn([[-1.0, 2.0], [3.0, 4.0]], device, dtype.name)]
         fn_kwargs: dict = {}
         ref_output = array_fn(
             [
@@ -1024,7 +979,7 @@ class TestTanh:
                 [0.9950547536867305, 0.999329299739067],
             ],
             device,
-            f"float{DtypeBits[dtype.name].value}",
+            dtype.name,
         )
         assert_backend_results_equal(
             backend,
@@ -1048,15 +1003,11 @@ class TestLeakyRelu:
         backend = backendcls(device=device, dtype=dtype)
         fn = backend.leaky_relu
         fn_args: list = [
-            array_fn(
-                [[-1.0, 2.0], [3.0, 4.0]], device, f"float{DtypeBits[dtype.name].value}"
-            ),
+            array_fn([[-1.0, 2.0], [3.0, 4.0]], device, dtype.name),
             0.1,
         ]
         fn_kwargs: dict = {}
-        ref_output = array_fn(
-            [[-0.1, 2.0], [3.0, 4.0]], device, f"float{DtypeBits[dtype.name].value}"
-        )
+        ref_output = array_fn([[-0.1, 2.0], [3.0, 4.0]], device, dtype.name)
         assert_backend_results_equal(
             backend,
             fn,
@@ -1078,11 +1029,7 @@ class TestSoftplus:
         array_fn = array_fns[backendcls]
         backend = backendcls(device=device, dtype=dtype)
         fn = backend.softplus
-        fn_args: list = [
-            array_fn(
-                [[-1.0, 2.0], [3.0, 4.0]], device, f"float{DtypeBits[dtype.name].value}"
-            )
-        ]
+        fn_args: list = [array_fn([[-1.0, 2.0], [3.0, 4.0]], device, dtype.name)]
         fn_kwargs: dict = {}
         ref_output = array_fn(
             [
@@ -1090,7 +1037,7 @@ class TestSoftplus:
                 [3.0485873222351074, 4.0181498527526855],
             ],
             device,
-            f"float{DtypeBits[dtype.name].value}",
+            dtype.name,
         )
         assert_backend_results_equal(
             backend,
@@ -1114,9 +1061,7 @@ class TestSoftmax:
         backend = backendcls(device=device, dtype=dtype)
         fn = backend.softmax
         fn_args: list = [
-            array_fn(
-                [[-1.0, 2.0], [3.0, 4.0]], device, f"float{DtypeBits[dtype.name].value}"
-            ),
+            array_fn([[-1.0, 2.0], [3.0, 4.0]], device, dtype.name),
             0,
         ]
         fn_kwargs: dict = {}
@@ -1126,7 +1071,7 @@ class TestSoftmax:
                 [0.9820137619972229, 0.8807970285415649],
             ],
             device,
-            f"float{DtypeBits[dtype.name].value}",
+            dtype.name,
         )
         assert_backend_results_equal(
             backend,
@@ -1149,16 +1094,12 @@ class TestLog:
         array_fn = array_fns[backendcls]
         backend = backendcls(device=device, dtype=dtype)
         fn = backend.log
-        fn_args: list = [
-            array_fn(
-                [[2.0, 1e-5], [1.0, 4.0]], device, f"float{DtypeBits[dtype.name].value}"
-            )
-        ]
+        fn_args: list = [array_fn([[2.0, 1e-5], [1.0, 4.0]], device, dtype.name)]
         fn_kwargs: dict = {}
         ref_output = array_fn(
             [[0.6931471824645996, -11.512925148010254], [0.0, 1.3862943649291992]],
             device,
-            f"float{DtypeBits[dtype.name].value}",
+            dtype.name,
         )
         assert_backend_results_equal(
             backend,
@@ -1185,7 +1126,7 @@ class TestIsNaN:
             array_fn(
                 [[2.0, backend.nan], [backend.nan, 4.0]],
                 device,
-                f"float{DtypeBits[dtype.name].value}",
+                dtype.name,
             )
         ]
         fn_kwargs: dict = {}
@@ -1215,13 +1156,11 @@ class TestSqueeze:
             array_fn(
                 [[[[[2.0, 1.0], [3.0, 4.0]]]]],
                 device,
-                f"float{DtypeBits[dtype.name].value}",
+                dtype.name,
             )
         ]
         fn_kwargs: dict = {}
-        ref_output = array_fn(
-            [[2.0, 1.0], [3.0, 4.0]], device, f"float{DtypeBits[dtype.name].value}"
-        )
+        ref_output = array_fn([[2.0, 1.0], [3.0, 4.0]], device, dtype.name)
         assert_backend_results_equal(
             backend,
             fn,
@@ -1238,11 +1177,9 @@ class TestSqueeze:
         array_fn = array_fns[backendcls]
         backend = backendcls(device=device, dtype=dtype)
         fn = backend.squeeze
-        fn_args: list = [
-            array_fn([[[[[[[[2.0]]]]]]]], device, f"float{DtypeBits[dtype.name].value}")
-        ]
+        fn_args: list = [array_fn([[[[[[[[2.0]]]]]]]], device, dtype.name)]
         fn_kwargs: dict = {}
-        ref_output = array_fn(2.0, device, f"float{DtypeBits[dtype.name].value}")
+        ref_output = array_fn(2.0, device, dtype.name)
         assert_backend_results_equal(
             backend,
             fn,
@@ -1268,14 +1205,12 @@ class TestReshape:
             array_fn(
                 [[[[[2.0, 1.0], [3.0, 4.0]]]]],
                 device,
-                f"float{DtypeBits[dtype.name].value}",
+                dtype.name,
             ),
             (4, 1),
         ]
         fn_kwargs: dict = {}
-        ref_output = array_fn(
-            [[2.0], [1.0], [3.0], [4.0]], device, f"float{DtypeBits[dtype.name].value}"
-        )
+        ref_output = array_fn([[2.0], [1.0], [3.0], [4.0]], device, dtype.name)
         assert_backend_results_equal(
             backend,
             fn,
@@ -1293,13 +1228,11 @@ class TestReshape:
         backend = backendcls(device=device, dtype=dtype)
         fn = backend.reshape
         fn_args: list = [
-            array_fn(
-                [[[[[[[[2.0]]]]]]]], device, f"float{DtypeBits[dtype.name].value}"
-            ),
+            array_fn([[[[[[[[2.0]]]]]]]], device, dtype.name),
             (1, 1),
         ]
         fn_kwargs: dict = {}
-        ref_output = array_fn([[2.0]], device, f"float{DtypeBits[dtype.name].value}")
+        ref_output = array_fn([[2.0]], device, dtype.name)
         assert_backend_results_equal(
             backend,
             fn,
@@ -1333,14 +1266,14 @@ class TestSort:
             array_fn(
                 [[[[[1.0, 2.0], [3.0, 4.0]]]]],
                 device,
-                f"float{DtypeBits[dtype.name].value}",
+                dtype.name,
             )
         ]
         fn_kwargs: dict = {}
         ref_output = array_fn(
             [[[[[1.0, 2.0], [3.0, 4.0]]]]],
             device,
-            f"float{DtypeBits[dtype.name].value}",
+            dtype.name,
         )
         assert_backend_results_equal(
             backend,
@@ -1364,13 +1297,11 @@ class TestExpandDims:
         backend = backendcls(device=device, dtype=dtype)
         fn = backend.expand_dims
         fn_args: list = [
-            array_fn([2.0, 3.0], device, f"float{DtypeBits[dtype.name].value}"),
+            array_fn([2.0, 3.0], device, dtype.name),
             1,
         ]
         fn_kwargs: dict = {}
-        ref_output = array_fn(
-            [[2.0], [3.0]], device, f"float{DtypeBits[dtype.name].value}"
-        )
+        ref_output = array_fn([[2.0], [3.0]], device, dtype.name)
         assert_backend_results_equal(
             backend,
             fn,
@@ -1394,15 +1325,13 @@ class TestStack:
         fn = backend.stack
         fn_args: list = [
             [
-                array_fn([2.0, 3.0], device, f"float{DtypeBits[dtype.name].value}"),
-                array_fn([4.0, 5.0], device, f"float{DtypeBits[dtype.name].value}"),
+                array_fn([2.0, 3.0], device, dtype.name),
+                array_fn([4.0, 5.0], device, dtype.name),
             ],
             0,
         ]
         fn_kwargs: dict = {}
-        ref_output = array_fn(
-            [[2.0, 3.0], [4.0, 5.0]], device, f"float{DtypeBits[dtype.name].value}"
-        )
+        ref_output = array_fn([[2.0, 3.0], [4.0, 5.0]], device, dtype.name)
         assert_backend_results_equal(
             backend,
             fn,
@@ -1421,15 +1350,13 @@ class TestStack:
         fn = backend.stack
         fn_args: list = [
             [
-                array_fn([2.0, 3.0], device, f"float{DtypeBits[dtype.name].value}"),
-                array_fn([4.0, 5.0], device, f"float{DtypeBits[dtype.name].value}"),
+                array_fn([2.0, 3.0], device, dtype.name),
+                array_fn([4.0, 5.0], device, dtype.name),
             ],
             1,
         ]
         fn_kwargs: dict = {}
-        ref_output = array_fn(
-            [[2.0, 4.0], [3.0, 5.0]], device, f"float{DtypeBits[dtype.name].value}"
-        )
+        ref_output = array_fn([[2.0, 4.0], [3.0, 5.0]], device, dtype.name)
         assert_backend_results_equal(
             backend,
             fn,
@@ -1453,15 +1380,13 @@ class TestCat:
         fn = backend.cat
         fn_args: list = [
             [
-                array_fn([[2.0, 3.0]], device, f"float{DtypeBits[dtype.name].value}"),
-                array_fn([[4.0, 5.0]], device, f"float{DtypeBits[dtype.name].value}"),
+                array_fn([[2.0, 3.0]], device, dtype.name),
+                array_fn([[4.0, 5.0]], device, dtype.name),
             ],
             0,
         ]
         fn_kwargs: dict = {}
-        ref_output = array_fn(
-            [[2.0, 3.0], [4.0, 5.0]], device, f"float{DtypeBits[dtype.name].value}"
-        )
+        ref_output = array_fn([[2.0, 3.0], [4.0, 5.0]], device, dtype.name)
         assert_backend_results_equal(
             backend,
             fn,
@@ -1480,15 +1405,13 @@ class TestCat:
         fn = backend.cat
         fn_args: list = [
             [
-                array_fn([[2.0, 3.0]], device, f"float{DtypeBits[dtype.name].value}"),
-                array_fn([[4.0, 5.0]], device, f"float{DtypeBits[dtype.name].value}"),
+                array_fn([[2.0, 3.0]], device, dtype.name),
+                array_fn([[4.0, 5.0]], device, dtype.name),
             ],
             1,
         ]
         fn_kwargs: dict = {}
-        ref_output = array_fn(
-            [[2.0, 3.0, 4.0, 5.0]], device, f"float{DtypeBits[dtype.name].value}"
-        )
+        ref_output = array_fn([[2.0, 3.0, 4.0, 5.0]], device, dtype.name)
         assert_backend_results_equal(
             backend,
             fn,
@@ -1511,16 +1434,14 @@ class TestPad:
         backend = backendcls(device=device, dtype=dtype)
         fn = backend.pad
         fn_args: list = [
-            array_fn(
-                [[2.0, 3.0], [4.0, 5.0]], device, f"float{DtypeBits[dtype.name].value}"
-            ),
+            array_fn([[2.0, 3.0], [4.0, 5.0]], device, dtype.name),
             ((0, 0), (1, 1)),
         ]
         fn_kwargs: dict = {}
         ref_output = array_fn(
             [[0.0, 2.0, 3.0, 0.0], [0.0, 4.0, 5.0, 0.0]],
             device,
-            f"float{DtypeBits[dtype.name].value}",
+            dtype.name,
         )
         assert_backend_results_equal(
             backend,
@@ -1542,7 +1463,7 @@ class TestPad:
             array_fn(
                 [[[2.0, 3.0], [4.0, 5.0]], [[2.0, 3.0], [4.0, 5.0]]],
                 device,
-                f"float{DtypeBits[dtype.name].value}",
+                dtype.name,
             ),
             ((0, 0), (1, 1), (2, 2)),
         ]
@@ -1563,7 +1484,7 @@ class TestPad:
                 ],
             ],
             device,
-            f"float{DtypeBits[dtype.name].value}",
+            dtype.name,
         )
         assert_backend_results_equal(
             backend,
@@ -1585,7 +1506,7 @@ class TestPad:
             array_fn(
                 [[[2.0, 3.0], [4.0, 5.0]], [[2.0, 3.0], [4.0, 5.0]]],
                 device,
-                f"float{DtypeBits[dtype.name].value}",
+                dtype.name,
             ),
             (1, 2),
         ]
@@ -1629,7 +1550,7 @@ class TestPad:
                 ],
             ],
             device,
-            f"float{DtypeBits[dtype.name].value}",
+            dtype.name,
         )
         assert_backend_results_equal(
             backend,
@@ -1648,9 +1569,7 @@ class TestPad:
         backend = backendcls(device=device, dtype=dtype)
         fn = backend.pad
         fn_args: list = [
-            array_fn(
-                [[2.0, 3.0], [4.0, 5.0]], device, f"float{DtypeBits[dtype.name].value}"
-            ),
+            array_fn([[2.0, 3.0], [4.0, 5.0]], device, dtype.name),
             1,
         ]
         fn_kwargs: dict = {}
@@ -1662,7 +1581,7 @@ class TestPad:
                 [0.0, 0.0, 0.0, 0.0],
             ],
             device,
-            f"float{DtypeBits[dtype.name].value}",
+            dtype.name,
         )
         assert_backend_results_equal(
             backend,
@@ -1942,12 +1861,10 @@ class TestTopK:
         array_fn = array_fns[backendcls]
         backend = backendcls(device=device, dtype=dtype)
         fn = backend.topk
-        input = array_fn(
-            [0, 1, 2, 3, 4, 5], device, f"float{DtypeBits[dtype.name].value}"
-        )
+        input = array_fn([0, 1, 2, 3, 4, 5], device, dtype.name)
         fn_args: list = [input, 3]
         fn_kwargs: dict = {}
-        ref_output = array_fn([5, 4, 3], device, f"float{DtypeBits[dtype.name].value}")
+        ref_output = array_fn([5, 4, 3], device, dtype.name)
         assert_backend_results_equal(
             backend,
             fn,
@@ -1971,9 +1888,7 @@ class TestLinspace:
         fn = backend.linspace
         fn_args: list = [0, 20, 3]
         fn_kwargs: dict = {}
-        ref_output = array_fn(
-            [0.0, 10.0, 20.0], device, f"float{DtypeBits[dtype.name].value}"
-        )
+        ref_output = array_fn([0.0, 10.0, 20.0], device, dtype.name)
         assert_backend_results_equal(
             backend,
             fn,

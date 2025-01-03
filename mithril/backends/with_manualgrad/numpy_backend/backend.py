@@ -116,7 +116,7 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
         return utils.accumulate_grads(gradient, input, cache, idx)
 
     def array(self, data: Any, *, dtype: Dtype | None = None) -> np.ndarray[Any, Any]:
-        _dtype = utils.determine_dtype(data, dtype, self.precision)
+        _dtype = utils.determine_dtype(data, dtype, self._dtype, self._precision)
 
         return np.array(data, dtype=utils.dtype_map[_dtype])
 

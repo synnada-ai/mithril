@@ -49,3 +49,15 @@ class DtypeBits(enum.IntEnum):
     bfloat16 = 16
     float32 = 32
     float64 = 64
+
+
+class DtypeSubTypes(enum.Enum):
+    bool = "bool"
+    int8 = "int"
+    int16 = "int"
+    int32 = "int"
+    int64 = "int"
+    float16 = "float"
+    bfloat16 = "bfloat"
+    float32 = "float"
+    float64 = "float"

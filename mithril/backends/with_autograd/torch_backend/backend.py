@@ -26,7 +26,7 @@ from torch._functorch.eager_transforms import vjp as torch_vjp
 
 from ....core import Dtype
 from ...backend import PadWidthType, ParallelBackend
-from ...utils import DtypeBits, process_shape
+from ...utils import DtypeBits, DtypeSubTypes, process_shape
 from . import ops, utils
 from .parallel import TorchParallel
 
@@ -205,7 +205,7 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
         dtype: Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
     ) -> torch.Tensor:
-        _dtype = utils.determine_dtype(input, dtype, self.precision)
+        _dtype = utils.determine_dtype(input, dtype, self._dtype, self._precision)
 
         array = torch.tensor(input, dtype=utils.dtype_map[_dtype], device=self._device)
         if self._parallel_manager is not None:
@@ -324,7 +324,7 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
         device_mesh: tuple[int, ...] | None = None,
         prng_key: Any = None,
     ) -> torch.Tensor:
-        _dtype = self._process_dtype(dtype, int)
+        _dtype = self._process_dtype(dtype, "int")
         _shape = process_shape(shape)
 
         array = torch.randint(low, high, _shape, dtype=_dtype, device=self._device)
@@ -357,7 +357,9 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
         **kwargs: int | float,
     ) -> torch.Tensor:
         default_type = (
-            float if any(isinstance(x, float) for x in (start, stop, step)) else int
+            self._get_default_subtype()
+            if any(isinstance(x, float) for x in (start, stop, step))
+            else "int"
         )
         _dtype = self._process_dtype(dtype, default_type)
 
@@ -654,11 +656,16 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
     def _process_dtype(
         self,
         dtype: Dtype | None = None,
-        default_type: type[float] | type[int] | type[bool] = float,
+        default_type: str | None = None,
     ) -> torch.dtype:
         if isinstance(dtype, Dtype):
             return utils.dtype_map[dtype.name]
         elif dtype is None:
-            return utils.dtype_map[default_type.__name__ + str(self.precision)]
+            if default_type is None:
+                default_type = self._get_default_subtype()
+            return utils.dtype_map[default_type + str(self.precision)]
         else:
             raise ValueError(f"Invalid dtype {dtype}")
+
+    def _get_default_subtype(self):
+        return DtypeSubTypes[self._dtype.name].value
