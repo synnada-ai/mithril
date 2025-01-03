@@ -234,6 +234,20 @@ def compile_and_compare(
 # Primitive Model Tests
 
 
+def test_jax():
+    arr = [1.0, 2.0, 3.0]
+    backends = [
+        JaxBackend(dtype=mithril.float16),
+        JaxBackend(dtype=mithril.float32),
+        JaxBackend(dtype=mithril.float64),
+        JaxBackend(dtype=mithril.bfloat16),
+    ]
+    for backend in backends:
+        print("Jax Backend: ", backend._dtype)
+        backend.array(arr)
+        print("Operation is successful!")
+
+
 def test_buffer_1():
     model = Buffer()
     compile_kwargs = {
@@ -2462,19 +2476,19 @@ def test_cast_int16():
     inp_int = np.array([1, -2, 3], dtype=np.int32)
     inp_float = np.array([1, -2, 3], dtype=np.float32)
     backends: list[TorchBackend | JaxBackend | NumpyBackend | MlxBackend] = [
-        TorchBackend(precision=16),
-        TorchBackend(precision=32),
-        TorchBackend(precision=64),
-        NumpyBackend(precision=16),
-        NumpyBackend(precision=32),
-        NumpyBackend(precision=64),
-        JaxBackend(precision=16),
-        JaxBackend(precision=32),
-        JaxBackend(precision=64),
+        TorchBackend(dtype=mithril.float16),
+        TorchBackend(dtype=mithril.float32),
+        TorchBackend(dtype=mithril.float64),
+        NumpyBackend(dtype=mithril.float16),
+        NumpyBackend(dtype=mithril.float32),
+        NumpyBackend(dtype=mithril.float64),
+        JaxBackend(dtype=mithril.float16),
+        JaxBackend(dtype=mithril.float32),
+        JaxBackend(dtype=mithril.float64),
     ]
 
     if platform.system() == "Darwin":
-        backends += [MlxBackend(precision=16), MlxBackend(precision=32)]
+        backends += [MlxBackend(dtype=mithril.float16), MlxBackend()]
 
     expected_dtypes = {
         "torch": torch.int16,
@@ -2509,19 +2523,19 @@ def test_cast_int32():
     inp_int = np.array([1, -2, 3], dtype=np.int32)
     inp_float = np.array([1, -2, 3], dtype=np.float32)
     backends: list[Backend] = [
-        TorchBackend(precision=16),
-        TorchBackend(precision=32),
-        TorchBackend(precision=64),
-        NumpyBackend(precision=16),
-        NumpyBackend(precision=32),
-        NumpyBackend(precision=64),
-        JaxBackend(precision=16),
-        JaxBackend(precision=32),
-        JaxBackend(precision=64),
+        TorchBackend(dtype=mithril.float16),
+        TorchBackend(dtype=mithril.float32),
+        TorchBackend(dtype=mithril.float64),
+        NumpyBackend(dtype=mithril.float16),
+        NumpyBackend(dtype=mithril.float32),
+        NumpyBackend(dtype=mithril.float64),
+        JaxBackend(dtype=mithril.float16),
+        JaxBackend(dtype=mithril.float32),
+        JaxBackend(dtype=mithril.float64),
     ]
 
     if platform.system() == "Darwin":
-        backends += [MlxBackend(precision=16), MlxBackend(precision=32)]
+        backends += [MlxBackend(dtype=mithril.float16), MlxBackend()]
 
     expected_dtypes = {
         "torch": torch.int32,
@@ -2555,19 +2569,19 @@ def test_cast_int64():
     inp_int = np.array([1, -2, 3], dtype=np.int32)
     inp_float = np.array([1, -2, 3], dtype=np.float32)
     backends: list[Backend] = [
-        TorchBackend(precision=16),
-        TorchBackend(precision=32),
-        TorchBackend(precision=64),
-        NumpyBackend(precision=16),
-        NumpyBackend(precision=32),
-        NumpyBackend(precision=64),
-        JaxBackend(precision=16),
-        JaxBackend(precision=32),
-        JaxBackend(precision=64),
+        TorchBackend(dtype=mithril.float16),
+        TorchBackend(dtype=mithril.float32),
+        TorchBackend(dtype=mithril.float64),
+        NumpyBackend(dtype=mithril.float16),
+        NumpyBackend(dtype=mithril.float32),
+        NumpyBackend(dtype=mithril.float64),
+        JaxBackend(dtype=mithril.float16),
+        JaxBackend(dtype=mithril.float32),
+        JaxBackend(dtype=mithril.float64),
     ]
 
     if platform.system() == "Darwin":
-        backends += [MlxBackend(precision=16), MlxBackend(precision=32)]
+        backends += [MlxBackend(dtype=mithril.float16), MlxBackend()]
 
     expected_dtypes = {
         "torch": torch.int64,
@@ -2599,19 +2613,19 @@ def test_cast_float16():
     inp_int = np.array([1, -2, 3], dtype=np.int32)
     inp_float = np.array([1, -2, 3], dtype=np.float32)
     backends: list[TorchBackend | JaxBackend | NumpyBackend | MlxBackend] = [
-        TorchBackend(precision=16),
-        TorchBackend(precision=32),
-        TorchBackend(precision=64),
-        NumpyBackend(precision=16),
-        NumpyBackend(precision=32),
-        NumpyBackend(precision=64),
-        JaxBackend(precision=16),
-        JaxBackend(precision=32),
-        JaxBackend(precision=64),
+        TorchBackend(dtype=mithril.float16),
+        TorchBackend(dtype=mithril.float32),
+        TorchBackend(dtype=mithril.float64),
+        NumpyBackend(dtype=mithril.float16),
+        NumpyBackend(dtype=mithril.float32),
+        NumpyBackend(dtype=mithril.float64),
+        JaxBackend(dtype=mithril.float16),
+        JaxBackend(dtype=mithril.float32),
+        JaxBackend(dtype=mithril.float64),
     ]
 
     if platform.system() == "Darwin":
-        backends += [MlxBackend(precision=16), MlxBackend(precision=32)]
+        backends += [MlxBackend(dtype=mithril.float16), MlxBackend()]
 
     expected_dtypes = {
         "torch": torch.float16,
@@ -2639,24 +2653,68 @@ def test_cast_float16():
             np.testing.assert_allclose(res, reference_outputs["output"])
 
 
+# def test_cast_bfloat16():
+#     model = Cast(dtype=mithril.bfloat16)
+#     inp_int = np.array([1, -2, 3], dtype=np.int32)
+#     inp_float = np.array([1, -2, 3], dtype=np.float32)
+#     backends: list[TorchBackend | JaxBackend | NumpyBackend | MlxBackend] = [
+#         TorchBackend(dtype=mithril.float16),
+#         TorchBackend(dtype=mithril.bfloat16),
+#         TorchBackend(dtype=mithril.float32),
+#         TorchBackend(dtype=mithril.float64),
+#         JaxBackend(dtype=mithril.float16),
+#         JaxBackend(dtype=mithril.bfloat16),
+#         JaxBackend(dtype=mithril.float32),
+#         JaxBackend(dtype=mithril.float64),
+#     ]
+
+#     if platform.system() == "Darwin":
+#         backends += [
+#             MlxBackend(dtype=mithril.float16),
+#             MlxBackend(dtype=mithril.bfloat16),
+#             MlxBackend(),
+#         ]
+
+#     expected_dtypes = {
+#         "torch": torch.bfloat16,
+#         "jax": jax.numpy.bfloat16,
+#         "mlx": mx.bfloat16,
+#     }
+
+#     statics = {"inp_int": inp_int, "inp_float": inp_float}
+
+#     for backend in backends:
+#         for static in statics.values():
+#             _static = backend.array(static)
+#             pm = mithril.compile(
+#                 model,
+#                 backend,  # type: ignore
+#                 constant_keys={"input": _static},
+#                 inference=True,
+#             )
+#             res = pm.evaluate()["output"]
+#             assert isinstance(res, backend.DataType)
+#             assert res.dtype == expected_dtypes[backend.backend_type]
+
+
 def test_cast_float32():
     model = Cast(dtype=mithril.float32)
     inp_int = np.array([1, -2, 3], dtype=np.int32)
     inp_float = np.array([1, -2, 3], dtype=np.float32)
     backends: list[Backend] = [
-        TorchBackend(precision=16),
-        TorchBackend(precision=32),
-        TorchBackend(precision=64),
-        NumpyBackend(precision=16),
-        NumpyBackend(precision=32),
-        NumpyBackend(precision=64),
-        JaxBackend(precision=16),
-        JaxBackend(precision=32),
-        JaxBackend(precision=64),
+        TorchBackend(dtype=mithril.float16),
+        TorchBackend(dtype=mithril.float32),
+        TorchBackend(dtype=mithril.float64),
+        NumpyBackend(dtype=mithril.float16),
+        NumpyBackend(dtype=mithril.float32),
+        NumpyBackend(dtype=mithril.float64),
+        JaxBackend(dtype=mithril.float16),
+        JaxBackend(dtype=mithril.float32),
+        JaxBackend(dtype=mithril.float64),
     ]
 
     if platform.system() == "Darwin":
-        backends += [MlxBackend(precision=16), MlxBackend(precision=32)]
+        backends += [MlxBackend(dtype=mithril.float16), MlxBackend()]
 
     expected_dtypes = {
         "torch": torch.float32,
@@ -2690,15 +2748,15 @@ def test_cast_float64():
     inp_int = np.array([1, -2, 3], dtype=np.int32)
     inp_float = np.array([1, -2, 3], dtype=np.float32)
     backends: list[Backend] = [
-        TorchBackend(precision=16),
-        TorchBackend(precision=32),
-        TorchBackend(precision=64),
-        NumpyBackend(precision=16),
-        NumpyBackend(precision=32),
-        NumpyBackend(precision=64),
-        JaxBackend(precision=16),
-        JaxBackend(precision=32),
-        JaxBackend(precision=64),
+        TorchBackend(dtype=mithril.float16),
+        TorchBackend(dtype=mithril.float32),
+        TorchBackend(dtype=mithril.float64),
+        NumpyBackend(dtype=mithril.float16),
+        NumpyBackend(dtype=mithril.float32),
+        NumpyBackend(dtype=mithril.float64),
+        JaxBackend(dtype=mithril.float16),
+        JaxBackend(dtype=mithril.float32),
+        JaxBackend(dtype=mithril.float64),
     ]
 
     expected_dtypes = {
@@ -2732,19 +2790,19 @@ def test_cast_bool():
     inp_int = np.array([1, -2, 3], dtype=np.int32)
     inp_float = np.array([1, -2, 3], dtype=np.float32)
     backends: list[Backend] = [
-        TorchBackend(precision=16),
-        TorchBackend(precision=32),
-        TorchBackend(precision=64),
-        NumpyBackend(precision=16),
-        NumpyBackend(precision=32),
-        NumpyBackend(precision=64),
-        JaxBackend(precision=16),
-        JaxBackend(precision=32),
-        JaxBackend(precision=64),
+        TorchBackend(dtype=mithril.float16),
+        TorchBackend(dtype=mithril.float32),
+        TorchBackend(dtype=mithril.float64),
+        NumpyBackend(dtype=mithril.float16),
+        NumpyBackend(dtype=mithril.float32),
+        NumpyBackend(dtype=mithril.float64),
+        JaxBackend(dtype=mithril.float16),
+        JaxBackend(dtype=mithril.float32),
+        JaxBackend(dtype=mithril.float64),
     ]
 
     if platform.system() == "Darwin":
-        backends += [MlxBackend(precision=16), MlxBackend(precision=32)]
+        backends += [MlxBackend(dtype=mithril.float16), MlxBackend()]
 
     expected_dtypes = {
         "torch": torch.bool,

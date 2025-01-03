@@ -71,9 +71,10 @@ class Dtype(enum.IntEnum):  # noqa N801
     int32 = 2
     int64 = 3
     float16 = 4
-    float32 = 5
-    float64 = 6
-    bool = 7
+    bfloat16 = 5
+    float32 = 6
+    float64 = 7
+    bool = 8
 
 
 int16: Dtype = Dtype.int16
@@ -84,6 +85,7 @@ int64: Dtype = Dtype.int64
 long = int64
 float16: Dtype = Dtype.float16
 half = float16
+bfloat16: Dtype = Dtype.bfloat16
 float32: Dtype = Dtype.float32
 float = float32
 float64: Dtype = Dtype.float64

@@ -56,9 +56,9 @@ from mithril.models import Model, Linear
 # Build a simple linear model
 model = Linear(16)
 
-# Create backends, specify the precision
-backend_jax = ml.JaxBackend(precision=64)
-backend_numpy = ml.NumpyBackend(precision=32)
+# Create backends, specify the default dtype
+backend_jax = ml.JaxBackend(dtype=ml.float64)
+backend_numpy = ml.NumpyBackend(dtype=ml.float32)
 
 # Compile the model with different backends, optionally specify
 # the file to write the generated code into and whether to use jit
