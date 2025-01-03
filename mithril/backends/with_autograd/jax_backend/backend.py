@@ -254,10 +254,9 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         *shape: int | tuple[int, ...] | list[int],
         dtype: Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
-        prng_key: Any = None,
+        key: int | None = None,
     ) -> jax.Array:
-        if prng_key is None:
-            prng_key = self.prng_key
+        prng_key = self._get_prng_key(key)
 
         _dtype = self._process_dtype(dtype)
         _shape = process_shape(shape)
@@ -275,10 +274,9 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         *shape: int | tuple[int, ...] | list[int],
         dtype: Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
-        prng_key: Any = None,
+        key: int | None = None,
     ) -> jax.Array:
-        if prng_key is None:
-            prng_key = self.prng_key
+        prng_key = self._get_prng_key(key)
 
         _dtype = self._process_dtype(dtype)
         _shape = process_shape(shape)
@@ -298,10 +296,9 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         *shape: int | tuple[int, ...] | list[int],
         dtype: Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
-        prng_key: Any = None,
+        key: int | None = None,
     ) -> jax.Array:
-        if prng_key is None:
-            prng_key = self.prng_key
+        prng_key = self._get_prng_key(key)
 
         _dtype = self._process_dtype(dtype, int)
         _shape = process_shape(shape)
@@ -321,10 +318,9 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         *shape: int | tuple[int, ...] | list[int],
         dtype: Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
-        prng_key: Any = None,
+        key: int | None = None,
     ) -> jax.Array:
-        if prng_key is None:
-            prng_key = self.prng_key
+        prng_key = self._get_prng_key(key)
 
         _dtype = self._process_dtype(dtype)
         _shape = process_shape(shape)
@@ -676,3 +672,8 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
 
     def _get_defualt_type(self):
         return getattr(self, f"float{self.precision}")
+
+    def _get_prng_key(self, key: int | None = None):
+        if key is None:
+            return self.prng_key
+        return jax.random.PRNGKey(key)
