@@ -234,6 +234,20 @@ def compile_and_compare(
 # Primitive Model Tests
 
 
+def test_jax():
+    arr = [1.0, 2.0, 3.0]
+    backends = [
+        JaxBackend(dtype=mithril.float16),
+        JaxBackend(dtype=mithril.float32),
+        JaxBackend(dtype=mithril.float64),
+        JaxBackend(dtype=mithril.bfloat16),
+    ]
+    for backend in backends:
+        print("Jax Backend: ", backend._dtype)
+        backend.array(arr)
+        print("Operation is successful!")
+
+
 def test_buffer_1():
     model = Buffer()
     compile_kwargs = {
