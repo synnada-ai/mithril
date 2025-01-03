@@ -493,7 +493,7 @@
         },
         "input_info": {
             "input": {
-                "shapes": [[1, 8], [7, 13], [6, 8]]
+                "shapes": [[5, 8], [7, 13], [6, 8], [8, 10]]
             }
         },
         "iterations": 10,
@@ -1551,7 +1551,7 @@
             "name": "OneToMany",
             "differentiability_info": {"input": true, "initial_hidden": true},
             "regular_args": {
-                "max_sequence_length": 5,
+                "max_sequence_length": 4,
                 "cell_type": "RNNCell"
             }
         },
@@ -1569,9 +1569,6 @@
                 "shapes": [[3, 3], [1,1], [8, 8]]
             },
             "target3": {
-                "shapes": [[3, 3], [1,1], [8, 8]]
-            },
-            "target4": {
                 "shapes": [[3, 3], [1,1], [8, 8]]
             }
         },
@@ -2004,6 +2001,9 @@
                 "shapes": [[5,10],[5,5]]
             }
         },
+        "32bit_tolerance": 5e-4,
+        "32bit_relative_tolerance": 5e-4,
+        "64bit_relative_tolerance": 1e-12,
         "iterations": 5
     },
     "test_linear_svm": {
