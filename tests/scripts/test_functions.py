@@ -345,7 +345,7 @@ def test_code_generator_2(file_path: str):
     buff3 = Buffer()
     buff4 = Buffer()
 
-    model += buff1(input="input", output=IOKey(name="output1"))
+    model += buff1(input=IOKey("input", type=MyTensor), output=IOKey(name="output1"))
     model += buff2(input=buff1.output)
     model += buff3(input=buff1.output)
     model += buff4(input=buff2.output, output=IOKey(name="output2"))
@@ -541,8 +541,10 @@ def test_code_generator_5(file_path: str):
 
     model += MyAdder()(input="input", rhs="rhs", output=IOKey(name="output"))
     context = TrainModel(model)
+    add = Add()
+    add.set_types(right=MyTensor)
     context.add_loss(
-        BinaryCrossEntropy(), reduce_steps=[Add()], input="output", target="target"
+        BinaryCrossEntropy(), reduce_steps=[add], input="output", target="target"
     )
     mithril.compile(
         model=context,
@@ -684,7 +686,9 @@ def test_code_generator_8(file_path: str):
     backend = CBackend()
 
     model = Model()
-    model += (add := Add())(left="left", right="right")
+    add = Add()
+    add.set_types(left=MyTensor, right=MyTensor)
+    model += add(left="left", right="right")
     model += Multiply()(left=add.output, right="right2", output="output")
 
     mithril.compile(model, backend=backend, jit=False, file_path=file_path)

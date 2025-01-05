@@ -22,7 +22,6 @@ from typing import Any
 from ..framework.common import (
     TBD,
     AllValueType,
-    Connect,
     ConnectionData,
     IOHyperEdge,
     IOKey,
@@ -71,11 +70,14 @@ enum_dict = {"PaddingType": PaddingType}
 
 def create_iokey_kwargs(info: dict[str, Any]) -> dict[str, Any]:
     kwargs = {}
-    for arg in ["name", "value", "shape", "expose"]:
+    for arg in ["name", "value", "shape", "type", "expose"]:
         if arg == "value" and (val := info.get(arg)) is not None:
             kwargs[arg] = MyTensor(val["tensor"]) if isinstance(val, dict) else val
         elif arg != "value":
-            kwargs[arg] = info.get(arg)
+            kwarg_val = info.get(arg)
+            if arg == "type" and kwarg_val == "tensor":
+                kwarg_val = MyTensor
+            kwargs[arg] = kwarg_val
     return kwargs
 
 
@@ -129,6 +131,10 @@ def dict_to_model(modelparams: dict[str, Any]) -> BaseModel:
         attrs = {"__init__": lambda self: super(self.__class__, self).__init__(**args)}
         model = type(model_name, (CustomPrimitiveModel,), attrs)()
 
+    types = params.get("types", {})
+    for key, typ in types.items():
+        if typ == "tensor":
+            model.set_types({key: MyTensor})
     unnamed_keys = params.get("unnamed_keys", [])
     differentiability_info: dict[str, bool] = params.get("differentiability_info", {})
     assigned_shapes = params.get("assigned_shapes", {})
@@ -139,9 +145,7 @@ def dict_to_model(modelparams: dict[str, Any]) -> BaseModel:
     for m_key, v in submodels.items():
         m = dict_to_model(v)
         submodels_dict[m_key] = m
-        mappings: dict[
-            str, IOKey | float | int | list | tuple | str | Connect | MyTensor
-        ] = {}
+        mappings: dict[str, IOKey | MyTensor | float | int | list | tuple | str] = {}
         for k, conn in connections[m_key].items():
             if conn in unnamed_keys and k in m._input_keys:
                 continue
@@ -151,17 +155,18 @@ def dict_to_model(modelparams: dict[str, Any]) -> BaseModel:
 
             elif isinstance(conn, dict):
                 if "connect" in conn:
+                    key_kwargs = {}
                     if (key := conn.get("key")) is not None:
                         key_kwargs = create_iokey_kwargs(conn["key"])
                         key = IOKey(**key_kwargs)
-                    mappings[k] = Connect(
-                        *[
+                    mappings[k] = IOKey(
+                        **key_kwargs,
+                        connections=[
                             getattr(submodels_dict[value[0]], value[1])
                             if isinstance(value, Sequence)
                             else value
                             for value in conn["connect"]
                         ],
-                        key=key,
                     )
                 elif "name" in conn:
                     key_kwargs = create_iokey_kwargs(conn)
@@ -199,6 +204,15 @@ def dict_to_model(modelparams: dict[str, Any]) -> BaseModel:
     if len(assigned_shapes) > 0:
         model.set_shapes(dict_to_shape(assigned_shapes))
 
+    types = {}
+    for key, typ in types.items():
+        if typ == "tensor":
+            types[key] = MyTensor
+        else:
+            types[key] = eval(typ)
+    if types:
+        model.set_types(types)
+
     return model
 
 
@@ -215,6 +229,7 @@ def model_to_dict(model: BaseModel) -> dict:
     model_dict["assigned_shapes"] = {}
     model_dict["differentiability_info"] = {}  # TODO: save only assigned info not all!
     model_dict["assigned_constraints"] = {}
+    model_dict["types"] = {}
 
     for key, con in model.conns.all.items():
         data = con.metadata
@@ -226,6 +241,12 @@ def model_to_dict(model: BaseModel) -> dict:
 
     for constrain in model.assigned_constraints:
         model_dict["assigned_constraints"] |= constrain
+
+    for key, typ in model.assigned_types.items():
+        if typ is MyTensor:
+            model_dict["types"][key] = "tensor"
+        else:
+            model_dict["types"][key] = {key: str(typ)}
 
     if (
         model_name != "Model"
@@ -295,10 +316,14 @@ def connection_to_dict(
             else:
                 key_value = {"name": connection.key, "value": val, "expose": True}
         elif not connection.key.startswith("$"):
+            # Check if the connection is exposed.
             if key in submodel.output_keys and connection.key in model.output_keys:
-                key_value = {"name": connection.key, "expose": True}
+                expose: bool | None = True
             else:
-                key_value = connection.key
+                # If the connection is an output of submodel but not
+                # output of the model, set expose to False. Else None.
+                expose = False if key in submodel.output_keys else None
+            key_value = {"name": connection.key, "expose": expose}
 
         if key_value is not None:
             connection_dict[key] = key_value

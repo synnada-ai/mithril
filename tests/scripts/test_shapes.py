@@ -16,6 +16,7 @@ from collections.abc import Mapping, Sequence
 from copy import deepcopy
 from itertools import combinations, product
 from types import EllipsisType, NoneType
+from typing import Any
 
 import numpy as np
 import pytest
@@ -56,7 +57,6 @@ from mithril.models import (
     Cast,
     Cholesky,
     Concat,
-    Connect,
     ConstraintSolver,
     Convolution1D,
     Convolution2D,
@@ -117,6 +117,7 @@ from mithril.models import (
     TsnePJoint,
     Unique,
     Updates,
+    ZerosLike,
     primitives,
 )
 
@@ -558,7 +559,7 @@ def test_shapes_4():
         input="", weight="weight1", output=IOKey(name="output2")
     )
     model += Linear(dimension=71)(
-        input="input", weight="weight2", output=Connect(l1.input, l2.input)
+        input="input", weight="weight2", output=IOKey(connections=[l1.input, l2.input])
     )
     shapes = {"input": [4, 256]}
     logical_ref: Mapping[str, list | None] = {
@@ -816,7 +817,7 @@ def test_simple_composite_1_static_shapes():
     model = Model()
     model += Multiply()(
         left=IOKey(value=MyTensor(0.5), name="left"),
-        right="input2",
+        right=IOKey("input2", type=MyTensor),
         output=IOKey(name="output"),
     )
     shapes = {"input2": [2, 2]}
@@ -835,7 +836,7 @@ def test_simple_composite_1_static_inputs():
     model = Model()
     model += Add()(
         left=IOKey(value=MyTensor(0.5), name="left"),
-        right="input2",
+        right=IOKey("input2", type=MyTensor),
         output=IOKey(name="output"),
     )
     static_inputs = {"input2": np.random.randn(2, 2)}
@@ -946,7 +947,9 @@ def test_simple_composite_2_extend_inputs():
 def test_simple_composite_2_static_shapes():
     model = Model()
     mult = Multiply()
-    model += mult(left=IOKey(value=MyTensor(2.0), name="left"), right="in1")
+    model += mult(
+        left=IOKey(value=MyTensor(2.0), name="left"), right=IOKey("in1", type=MyTensor)
+    )
     model += Divide()(
         numerator=IOKey(value=MyTensor(2.0), name="numerator"),
         denominator=mult.output,
@@ -976,7 +979,9 @@ def test_simple_composite_2_static_shapes():
 def test_simple_composite_2_static_inputs():
     model = Model()
     mult = Multiply()
-    model += mult(left=IOKey(value=MyTensor(2.0), name="left"), right="in1")
+    model += mult(
+        left=IOKey(value=MyTensor(2.0), name="left"), right=IOKey("in1", type=MyTensor)
+    )
     model += Divide()(
         numerator=IOKey(value=MyTensor(2.0), name="numerator"),
         denominator=mult.output,
@@ -1258,6 +1263,7 @@ def test_composite_1_set_shapes_4_2():
 def test_composite_1_set_shapes_5():
     model = Model()
     m1 = Multiply()
+    m1.set_types(left=MyTensor, right=MyTensor)
     m1.set_shapes({"right": [134, 47, 1, 1, 1]})
     model += m1(left="input1", right="input2")
     model += (m2 := Multiply())(left="input2", right=m1.output)
@@ -1308,6 +1314,7 @@ def test_composite_1_set_shapes_7_dfs():
 def test_composite_1_set_shapes_5_2():
     composite = Model()
     m1 = Multiply()
+    m1.set_types(left=MyTensor, right=MyTensor)
     composite += m1(left="input1", right="input2")
     composite += (m2 := Multiply())(left="input2", right=m1.output)
     add = Add()
@@ -1334,7 +1341,9 @@ def test_composite_1_set_shapes_5_2():
 def get_composite_1():
     # Create common composite_1 model for corresponding tests.
     composite_1 = Model()
-    composite_1 += (m1 := Multiply())(left="input1", right="input2")
+    composite_1 += (m1 := Multiply())(
+        left=IOKey("input1", type=MyTensor), right=IOKey("input2", type=MyTensor)
+    )
     composite_1 += (m2 := Multiply())(left="input2", right=m1.output)
     composite_1 += Add()(left=m2.output, right=m2.output, output=IOKey(name="output"))
     return composite_1
@@ -1635,18 +1644,22 @@ def test_composite_2_set_shapes_3():
     m3 = Model()
 
     mult1 = Multiply()
+    mult1.set_types(left=MyTensor, right=MyTensor)
     mult1.set_shapes({"left": [4, 5, 7, 1, 1]})
     m1 += mult1(left="input1", right="input2")
     m1 += (mult2 := Multiply())(left="input2", right=mult1.output)
     m1 += Add()(left=mult2.output, right=mult2.output, output=IOKey(name="output"))
 
     mult3 = Multiply()
+    mult3.set_types(left=MyTensor, right=MyTensor)
     mult3.set_shapes({"left": [4, 5, 7, 3, 4]})
     m2 += mult3(left="input1", right="input2")
     m2 += (mult4 := Multiply())(left="input2", right=mult3.output)
     m2 += Add()(left=mult4.output, right=mult4.output, output=IOKey(name="output"))
 
-    m3 += (add1 := Add())(left="input1", right="input2")
+    m3 += (add1 := Add())(
+        left=IOKey("input1", type=MyTensor), right=IOKey("input2", type=MyTensor)
+    )
     m3 += (mult5 := Multiply())(left="input2", right=add1.output)
     m3 += Add()(left=mult5.output, right=mult5.output, output=IOKey(name="output"))
 
@@ -1687,11 +1700,13 @@ def test_composite_2_set_shapes_3_1():
     m2 = Model()
 
     mult1 = Multiply()
+    mult1.set_types(left=MyTensor, right=MyTensor)
     mult1.set_shapes({"left": [4, 5, 7, 1, 1]})
     m1 += mult1(left="input1", right="input2")
     m1 += Multiply()(left="input2", right=mult1.output, output=IOKey(name="output"))
 
     mult3 = Multiply()
+    mult3.set_types(left=MyTensor, right=MyTensor)
     mult3.set_shapes({"left": [4, 5, 7, 3, 4]})
     m2 += mult3(left="input1", right="input2")
     m2 += Multiply()(left="input2", right=mult3.output, output=IOKey(name="output"))
@@ -1727,11 +1742,13 @@ def test_composite_2_set_shapes_3_2():
         m1 = Model()
 
         mult1 = Multiply()
+        mult1.set_types(left=MyTensor, right=MyTensor)
         mult1.set_shapes({"left": [4, 5, 7, 1, 1]})
         m1 += mult1(left="input1", right="input2")
         m1 += Multiply()(left="input2", right=mult1.output, output=IOKey(name="output"))
 
         mult3 = Multiply()
+        mult3.set_types(left=MyTensor)
         mult3.set_shapes({"left": [4, 5, 7, 3, 4]})
 
         composite += m1(input1="input1", input2="input2")
@@ -1761,10 +1778,12 @@ def get_composite_2():
     m2 = Model()
     m3 = Model()
     mult1 = Multiply()
+    mult1.set_types(left=MyTensor, right=MyTensor)
     m1 += mult1(left="input1", right="input2")
     m1 += (mult2 := Multiply())(left="input2", right=mult1.output)
     m1 += Add()(left=mult2.output, right=mult2.output, output=IOKey(name="output"))
     mult3 = Multiply()
+    mult3.set_types(left=MyTensor, right=MyTensor)
     m2 += mult3(left="input1", right="input2")
     m2 += (mult4 := Multiply())(left="input2", right=mult3.output)
     m2 += Add()(left=mult4.output, right=mult4.output, output=IOKey(name="output"))
@@ -2192,7 +2211,11 @@ def test_composite_2_static_inputs_2():
 def get_composite_3():
     composite_3 = Model()
     m1 = Model()
-    m1 += Add()(left="input1", right="input2", output=IOKey(name="output"))
+    m1 += Add()(
+        left=IOKey("input1", type=MyTensor),
+        right=IOKey("input2", type=MyTensor),
+        output=IOKey(name="output"),
+    )
     m2 = Model()
     m2 += m1(input1="input1", input2="input2")
     m2 += Add()(left="input1", right=m1.output, output=IOKey(name="output"))  # type: ignore
@@ -2260,7 +2283,7 @@ def test_composite_3_extend_shapes_1():
     m3 = Model()
     m3 += m2(right=IOKey(name="right"))
     m3 += Add()(
-        left=Connect(m1.left, key=IOKey(name="left")),  # type: ignore
+        left=IOKey(name="left", connections=[m1.left], expose=True),  # type: ignore
         right=m2.output,  # type: ignore
         output=IOKey(name="output"),
     )  # type: ignore
@@ -3520,12 +3543,17 @@ def test_logical_constraint_1():
 def test_logical_constraint_2():
     model = Model()
     add_1 = Add()
+    add_1.set_types(left=MyTensor, right=MyTensor)
     add_2 = Add()
     add_3 = Add()
     t_model = Transpose()
     model += add_1(left="in1", right="in2")
-    model += add_2(left=add_1.output, right="in3")
-    model += add_3(left=add_2.output, right="in4", output=IOKey(name="output"))
+    model += add_2(left=add_1.output, right=IOKey("in3", type=MyTensor))
+    model += add_3(
+        left=add_2.output,
+        right=IOKey("in4", type=MyTensor),
+        output=IOKey(name="output"),
+    )
     model += t_model(input="in1", output=IOKey(name="output1"), axes="axes")
     model.set_constraint(fn=reverse_constraints, keys=["in1", "in2", "axes"])
     model.set_constraint(fn=reverse_constraints, keys=["in2", "in3", "axes"])
@@ -5081,6 +5109,7 @@ def test_variadic_naming_11_3():
 
 
 def test_variadic_naming_12():
+    # TODO: What is purpose of this test?
     model = Model()
     buff_1 = Buffer()
     buff_2 = Buffer()
@@ -5092,8 +5121,12 @@ def test_variadic_naming_12():
 
 def test_variadic_naming_13():
     model = Model()
-    model += (mult := MatrixMultiply())(left="input", right="w")
-    model += Add()(left=mult.output, right="b", output=IOKey(name="output"))
+    model += (mult := MatrixMultiply())(
+        left=IOKey("input", type=MyTensor), right=IOKey("w", type=MyTensor)
+    )
+    model += Add()(
+        left=mult.output, right=IOKey("b", type=MyTensor), output=IOKey(name="output")
+    )
 
     shapes: dict[str, list] = {
         "input": ["N", ("Var_inter", ...), "d_in"],
@@ -5267,10 +5300,15 @@ def test_variadic_naming_17() -> None:
 
 def test_variadic_naming_18():
     add_model_1 = Add()
+    add_model_1.set_types(left=MyTensor, right=MyTensor)
     add_model_2 = Add()
+    add_model_2.set_types(right=MyTensor)
     add_model_3 = Add()
+    add_model_3.set_types(right=MyTensor)
     add_model_4 = Add()
+    add_model_4.set_types(right=MyTensor)
     add_model_5 = Add()
+    add_model_5.set_types(left=MyTensor, right=MyTensor)
     model = Model()
     model += add_model_1(left="left", right="right")
     model += add_model_2
@@ -5320,10 +5358,15 @@ def test_variadic_naming_18():
 def test_variadic_naming_19():
     for _ in range(100):
         add_model_1 = Add()
+        add_model_1.set_types(left=MyTensor, right=MyTensor)
         add_model_2 = Add()
+        add_model_2.set_types(right=MyTensor)
         add_model_3 = Add()
+        add_model_3.set_types(right=MyTensor)
         add_model_4 = Add()
+        add_model_4.set_types(right=MyTensor)
         add_model_5 = Add()
+        add_model_5.set_types(left=MyTensor, right=MyTensor)
         model = Model()
         model += add_model_1(left="left", right="right")
         model += add_model_2
@@ -5373,58 +5416,15 @@ def test_variadic_naming_19():
 
 def test_variadic_naming_20():
     add_model_1 = Add()
+    add_model_1.set_types(left=MyTensor, right=MyTensor)
     add_model_2 = Add()
+    add_model_2.set_types(right=MyTensor)
     add_model_3 = Add()
+    add_model_3.set_types(right=MyTensor)
     add_model_4 = Add()
+    add_model_4.set_types(right=MyTensor)
     add_model_5 = Add()
-    model = Model()
-    model += add_model_1(left="left", right="right")
-    model += add_model_2
-    model += add_model_3
-    model += add_model_4
-    model += add_model_5(left="", output=IOKey(name="output"))
-    shape_1: dict[str, list] = {"output": ["a", ("Var1", ...), "b"]}
-    shape_2: dict[str, list] = {"output": ["a", "b", ("Var1", ...)]}
-    shape_3: dict[str, list] = {
-        "left": [("Var1", ...), "a", "b", "c"],
-        "output": [("Var1", ...), "a", "b"],
-    }
-    model.set_shapes(shape_1)
-    model.set_shapes(shape_2)
-    model.set_shapes(shape_3)
-
-    ref_shapes: dict[str, list] = {
-        "$_Add_0_output": ["(V1, ...)", "u1", "u2", "u3"],
-        "$_Add_1_output": ["(V2, ...)", "u4", "u5", "u6"],
-        "$_Add_2_output": ["(V3, ...)", "u7", "u8", "u9"],
-        "$_Add_3_output": ["(V4, ...)", "u10", "u11", "u12"],
-        "left": [
-            ["(V5, ...)", "u13", "u14", "u15"],
-            ["u16", "u17", "(V6, ...)", "u15"],
-            ["u16", "(V7, ...)", "u14", "u15"],
-        ],
-        "right": ["(V8, ...)"],
-        "$_right_0": ["(V9, ...)"],
-        "$_right_1": ["(V10, ...)"],
-        "$_right_2": ["(V11, ...)"],
-        "$input": ["(V12, ...)"],
-        "$_right_3": ["(V13, ...)"],
-        "output": [
-            ["u16", "(V7, ...)", "u14"],
-            ["(V5, ...)", "u13", "u14"],
-            ["u16", "u17", "(V6, ...)"],
-        ],
-    }
-
-    assert_shapes(model, ref_shapes)
-
-
-def test_variadic_naming_21():
-    add_model_1 = Add()
-    add_model_2 = Add()
-    add_model_3 = Add()
-    add_model_4 = Add()
-    add_model_5 = Add()
+    add_model_5.set_types(left=MyTensor, right=MyTensor)
     model = Model()
     model += add_model_1(left="left", right="right")
     model += add_model_2
@@ -6659,13 +6659,14 @@ def test_total_repr_count_1():
         Unique: 2,
         Trapezoid: 2,
         AUCCore: 2,
+        ZerosLike: 1,
     }
     # find all primitives that are defined in primitives.py
     all_primitives_dict = (
         primitives.__dict__ | mithril.framework.essential_primitives.__dict__  # type: ignore
     )
     all_primitives = primitives.__all__ + mithril.framework.essential_primitives.__all__  # type: ignore
-    all_primitives_dict = {
+    all_primitives_dict: dict[type[PrimitiveModel], Any] = {
         value for key, value in all_primitives_dict.items() if key in all_primitives
     }
 
@@ -6681,6 +6682,14 @@ def test_total_repr_count_1():
             }
             # kwargs = {param: ... for param in model_init_params}
             model = primitive_model(**kwargs)
+            # Set all untyped connections to MyTensor type.
+            model.set_types(
+                {
+                    conn.conn: MyTensor
+                    for conn in model.conns.input_connections
+                    if conn.metadata.edge_type is TBD
+                }
+            )
             reprs = set()
 
             # find connections only with tensor data
@@ -7442,7 +7451,7 @@ def test_node_count_5():
     shapes: dict[str, list] = {"input": ["a", ("Var1", ...)]}
     buff_model.set_shapes(shapes)
     model += test_model
-    con = Connect(test_model.input2, buff_model.input)  # type: ignore
+    con = IOKey(connections=[test_model.input2, buff_model.input])  # type: ignore
     model += Buffer()(input=con, output=IOKey(name="output"))
     all_nodes = get_all_nodes(model)
 
@@ -7486,6 +7495,7 @@ def test_node_count_7():
 def test_node_count_8():
     model = Model()
     add_model1 = Add()
+    add_model1.set_types(left=MyTensor, right=MyTensor)
     add_model2 = Add()
     add_model3 = Add()
     model += add_model1(left="left", right="right")
@@ -7500,6 +7510,7 @@ def test_node_count_8():
 def test_node_count_9():
     model = Model()
     add_model1 = Add()
+    add_model1.set_types(left=MyTensor, right=MyTensor)
     add_model2 = Add()
     add_model3 = Add()
     model += add_model1(left="left", right="right")
@@ -7518,9 +7529,15 @@ def test_node_count_10():
     buff_model2 = Buffer()
     buff_model3 = Buffer()
 
-    submodel1 += buff_model1(input="input1", output=IOKey(name="output1"))
-    submodel1 += buff_model2(input="input2", output=IOKey(name="output2"))
-    submodel1 += buff_model3(input="input3", output=IOKey(name="output3"))
+    submodel1 += buff_model1(
+        input=IOKey("input1", type=MyTensor), output=IOKey(name="output1")
+    )
+    submodel1 += buff_model2(
+        input=IOKey("input2", type=MyTensor), output=IOKey(name="output2")
+    )
+    submodel1 += buff_model3(
+        input=IOKey("input3", type=MyTensor), output=IOKey(name="output3")
+    )
 
     model = Model()
     submodel2 = deepcopy(submodel1)
@@ -7550,7 +7567,11 @@ def test_node_count_10():
 def test_node_count_11():
     composite_3 = Model()
     m1 = Model()
-    m1 += Add()(left="input1", right="input2", output=IOKey(name="output"))
+    m1 += Add()(
+        left=IOKey("input1", type=MyTensor),
+        right=IOKey("input2", type=MyTensor),
+        output=IOKey(name="output"),
+    )
     m2 = Model()
     m2 += m1(input1="input1", input2="input2")
     m2 += Add()(left="input1", right=m1.output, output=IOKey(name="output"))  # type: ignore
@@ -9371,8 +9392,10 @@ def test_possible_variadic_values_29():
 # @pytest.mark.skip("Known missing feature")
 def test_impossible():
     m1 = Add()
+    m1.set_types(left=MyTensor, right=MyTensor)
     m1.set_shapes({"left": [1, 1]})
     m2 = Add()
+    m2.set_types(left=MyTensor, right=MyTensor)
     m2.set_shapes({"output": ["a", "b"]})
     model = Model()
     model.extend(m1, left="left", right="right", output="o1")
@@ -9391,8 +9414,10 @@ def test_impossible():
 # @pytest.mark.skip("Known missing feature")
 def test_less_impossible_yet_not_possible():
     m1 = Add()
+    m1.set_types(left=MyTensor, right=MyTensor)
     m1.set_shapes({"left": [1, 1]})
     m2 = Add()
+    m2.set_types(left=MyTensor, right=MyTensor)
     m2.set_shapes({"output": [2, 3]})
     model = Model()
     model.extend(m1, left="left", right="right", output="o1")
@@ -9634,7 +9659,7 @@ def test_connect_shapes():
     model = Model()
     model += relu1(input="")
     model += relu2(input="")
-    model += relu3(input="input", output=Connect(relu1.input, relu2.input))
+    model += relu3(input="input", output=IOKey(connections=[relu1.input, relu2.input]))
 
     assert model.shapes["input"] == [5, 7]
 
@@ -9724,6 +9749,8 @@ def test_bcast_4():
     model = Model()
     add1 = Add()
     add2 = Add()
+    add1.set_types(left=MyTensor, right=MyTensor)
+    add2.set_types(left=MyTensor, right=MyTensor)
 
     add1.set_shapes({"left": [1, 1]})
 
@@ -9754,6 +9781,8 @@ def test_bcast_4_len1():
     model = Model()
     add1 = Add()
     add2 = Add()
+    add1.set_types(left=MyTensor, right=MyTensor)
+    add2.set_types(left=MyTensor, right=MyTensor)
 
     add1.set_shapes({"left": [1]})
 
@@ -9774,6 +9803,8 @@ def test_bcast_pos_val_1():
     model = Model()
     add1 = Add()
     add2 = Add()
+    add1.set_types(left=MyTensor, right=MyTensor)
+    add2.set_types(left=MyTensor, right=MyTensor)
 
     add1.set_shapes({"left": [1, 1]})
     shape_1: dict[str, list] = {"right": [1, 1], "output": ["a", "b"]}

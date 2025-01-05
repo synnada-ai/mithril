@@ -141,7 +141,7 @@ def evaluate_case(
         # assert set(outputs.keys()) == set(reference_outputs)
         for k, v in reference_outputs.items():
             if isinstance(v, dict):
-                v = v[backend.type]
+                v = v[backend.backend_type]
             out = outputs.get(k, None)
             # We may not include any reference value for some keys for a certain test.
             # So we don't assert set(outputs.keys()) == set(reference_outputs) since
@@ -166,7 +166,7 @@ def evaluate_case(
 
         for k, v in reference_gradients.items():
             if isinstance(v, dict):
-                v = v[backend.type]
+                v = v[backend.backend_type]
             grad = model_grad[k]
             if grad is None:
                 assert v == grad

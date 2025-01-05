@@ -18,7 +18,6 @@ from copy import deepcopy
 
 from mithril.framework.common import (
     NOT_GIVEN,
-    Connect,
     Connection,
     ConnectionType,
     MyTensor,
@@ -180,7 +179,9 @@ def test_deleted_variadic_ref_count_5():
     all_variadics |= get_all_variadics(relu2 := Relu())
     all_variadics |= get_all_variadics(lin_model3 := Linear())
     all_variadics |= get_all_variadics(matmul1 := MatrixMultiply())
-    all_variadics |= get_all_variadics(add1 := Add())
+    add1 = Add()
+    add1.set_types({"left": MyTensor, "right": MyTensor})
+    all_variadics |= get_all_variadics(add1)
 
     model = Model()
     model += lin_model1
@@ -223,12 +224,24 @@ def test_deleted_variadic_ref_count_6():
 
 def test_deleted_variadic_ref_count_7():
     all_variadics = set()
-    all_variadics |= get_all_variadics(add_1 := Add())
-    all_variadics |= get_all_variadics(add_2 := Add())
-    all_variadics |= get_all_variadics(add_3 := Add())
-    all_variadics |= get_all_variadics(add_4 := Add())
-    all_variadics |= get_all_variadics(add_5 := Add())
-    all_variadics |= get_all_variadics(add_6 := Add())
+    add_1 = Add()
+    add_1.set_types({"left": MyTensor, "right": MyTensor})
+    add_2 = Add()
+    add_2.set_types({"left": MyTensor, "right": MyTensor})
+    add_3 = Add()
+    add_3.set_types({"left": MyTensor, "right": MyTensor})
+    add_4 = Add()
+    add_4.set_types({"left": MyTensor, "right": MyTensor})
+    add_5 = Add()
+    add_5.set_types({"left": MyTensor, "right": MyTensor})
+    add_6 = Add()
+    add_6.set_types({"left": MyTensor, "right": MyTensor})
+    all_variadics |= get_all_variadics(add_1)
+    all_variadics |= get_all_variadics(add_2)
+    all_variadics |= get_all_variadics(add_3)
+    all_variadics |= get_all_variadics(add_4)
+    all_variadics |= get_all_variadics(add_5)
+    all_variadics |= get_all_variadics(add_6)
 
     model = Model()
     model += add_1()
@@ -237,8 +250,15 @@ def test_deleted_variadic_ref_count_7():
     model += add_4(left="")
     model += add_5(left="")
 
-    conn = Connect(
-        add_1.left, add_1.right, add_2.left, add_2.right, add_3.left, add_3.right
+    conn = IOKey(
+        connections=[
+            add_1.left,
+            add_1.right,
+            add_2.left,
+            add_2.right,
+            add_3.left,
+            add_3.right,
+        ]
     )
 
     model += add_6(left=conn, right="right", output="output")
@@ -249,8 +269,12 @@ def test_deleted_variadic_ref_count_7():
 
 def test_deleted_variadic_ref_count_8():
     all_variadics = set()
-    all_variadics |= get_all_variadics(add1 := Add())
-    all_variadics |= get_all_variadics(add2 := Add())
+    add1 = Add()
+    add1.set_types({"left": MyTensor, "right": MyTensor})
+    add2 = Add()
+    add2.set_types({"left": MyTensor, "right": MyTensor})
+    all_variadics |= get_all_variadics(add1)
+    all_variadics |= get_all_variadics(add2)
     model1 = Model()
     model2 = Model()
     model1 += add1
@@ -264,7 +288,9 @@ def test_deleted_variadic_ref_count_8():
 
 def test_deleted_variadic_ref_count_9():
     all_variadics = set()
-    all_variadics |= get_all_variadics(add1 := Add())
+    add1 = Add()
+    add1.set_types({"left": MyTensor, "right": MyTensor})
+    all_variadics |= get_all_variadics(add1)
 
     model = Model()
     model += add1
@@ -279,10 +305,18 @@ def test_deleted_variadic_ref_count_9():
 
 def test_deleted_variadic_ref_count_10():
     all_variadics = set()
-    all_variadics |= get_all_variadics(buffer1 := Buffer())
-    all_variadics |= get_all_variadics(buffer2 := Buffer())
-    all_variadics |= get_all_variadics(buffer3 := Buffer())
-    all_variadics |= get_all_variadics(buffer4 := Buffer())
+    buffer1 = Buffer()
+    buffer1.set_types({"input": MyTensor})
+    buffer2 = Buffer()
+    buffer2.set_types({"input": MyTensor})
+    buffer3 = Buffer()
+    buffer3.set_types({"input": MyTensor})
+    buffer4 = Buffer()
+    buffer4.set_types({"input": MyTensor})
+    all_variadics |= get_all_variadics(buffer1)
+    all_variadics |= get_all_variadics(buffer2)
+    all_variadics |= get_all_variadics(buffer3)
+    all_variadics |= get_all_variadics(buffer4)
 
     model = Model()
 
@@ -300,6 +334,7 @@ def test_deleted_variadic_ref_count_10():
 def test_deleted_uniadic_ref_count_3():
     all_uniadics = set()
     add_model = Add()
+    add_model.set_types({"left": MyTensor, "right": MyTensor})
     add_model.set_shapes({"left": ["a", "b", "c", "d"]})
     all_uniadics |= get_all_uniadics(add_model)
 
@@ -315,7 +350,9 @@ def test_deleted_uniadic_ref_count_3():
 
 def test_deleted_uniadic_ref_count_4():
     model = Model()
-    model += (buff1 := Buffer())
+    buff1 = Buffer()
+    buff1.set_types({"input": MyTensor})
+    model += buff1
     model += Buffer()
     model += Buffer()
     model += Buffer()
@@ -460,10 +497,19 @@ def test_deleted_uniadic_ref_count_9():
 
 def test_deleted_repr_ref_count_1():
     all_reprs = set()
-    all_reprs |= get_all_reprs(buffer1 := Buffer())
-    all_reprs |= get_all_reprs(buffer2 := Buffer())
-    all_reprs |= get_all_reprs(buffer3 := Buffer())
-    all_reprs |= get_all_reprs(buffer4 := Buffer())
+    buffer1 = Buffer()
+    buffer1.set_types({"input": MyTensor})
+    buffer2 = Buffer()
+    buffer2.set_types({"input": MyTensor})
+    buffer3 = Buffer()
+    buffer3.set_types({"input": MyTensor})
+    buffer4 = Buffer()
+    buffer4.set_types({"input": MyTensor})
+
+    all_reprs |= get_all_reprs(buffer1)
+    all_reprs |= get_all_reprs(buffer2)
+    all_reprs |= get_all_reprs(buffer3)
+    all_reprs |= get_all_reprs(buffer4)
 
     model = Model()
     model += buffer1
@@ -472,15 +518,24 @@ def test_deleted_repr_ref_count_1():
     model += buffer4
 
     current_reprs = get_all_reprs(model)
+    print(sys.getrefcount(list(buffer1.input.metadata.shape.reprs)[0]))
     assert_objects_deleted(all_reprs, current_reprs, 3)
 
 
 def test_deleted_repr_ref_count_2():
     all_reprs = set()
-    all_reprs |= get_all_reprs(buffer1 := Buffer())
-    all_reprs |= get_all_reprs(buffer2 := Buffer())
-    all_reprs |= get_all_reprs(buffer3 := Buffer())
-    all_reprs |= get_all_reprs(buffer4 := Buffer())
+    buffer1 = Buffer()
+    buffer1.set_types(input=MyTensor)
+    buffer2 = Buffer()
+    buffer2.set_types(input=MyTensor)
+    buffer3 = Buffer()
+    buffer3.set_types(input=MyTensor)
+    buffer4 = Buffer()
+    buffer4.set_types(input=MyTensor)
+    all_reprs |= get_all_reprs(buffer1)
+    all_reprs |= get_all_reprs(buffer2)
+    all_reprs |= get_all_reprs(buffer3)
+    all_reprs |= get_all_reprs(buffer4)
 
     model = Model()
     model += buffer1
@@ -505,10 +560,18 @@ def test_deleted_repr_ref_count_2():
 
 def test_deleted_repr_ref_count_3():
     all_reprs = set()
-    all_reprs |= get_all_reprs(buffer1 := Buffer())
-    all_reprs |= get_all_reprs(buffer2 := Buffer())
-    all_reprs |= get_all_reprs(buffer3 := Buffer())
-    all_reprs |= get_all_reprs(buffer4 := Buffer())
+    buffer1 = Buffer()
+    buffer1.set_types(input=MyTensor)
+    buffer2 = Buffer()
+    buffer2.set_types(input=MyTensor)
+    buffer3 = Buffer()
+    buffer3.set_types(input=MyTensor)
+    buffer4 = Buffer()
+    buffer4.set_types(input=MyTensor)
+    all_reprs |= get_all_reprs(buffer1)
+    all_reprs |= get_all_reprs(buffer2)
+    all_reprs |= get_all_reprs(buffer3)
+    all_reprs |= get_all_reprs(buffer4)
 
     model = Model()
     model += buffer1
@@ -531,10 +594,18 @@ def test_deleted_repr_ref_count_3():
 
 def test_deleted_repr_ref_count_4():
     all_reprs = set()
-    all_reprs |= get_all_reprs(buffer1 := Buffer())
-    all_reprs |= get_all_reprs(buffer2 := Buffer())
-    all_reprs |= get_all_reprs(buffer3 := Buffer())
-    all_reprs |= get_all_reprs(buffer4 := Buffer())
+    buffer1 = Buffer()
+    buffer1.set_types(input=MyTensor)
+    buffer2 = Buffer()
+    buffer2.set_types(input=MyTensor)
+    buffer3 = Buffer()
+    buffer3.set_types(input=MyTensor)
+    buffer4 = Buffer()
+    buffer4.set_types(input=MyTensor)
+    all_reprs |= get_all_reprs(buffer1)
+    all_reprs |= get_all_reprs(buffer2)
+    all_reprs |= get_all_reprs(buffer3)
+    all_reprs |= get_all_reprs(buffer4)
 
     buffer1.set_shapes({"input": [1, 1]})
     all_reprs |= get_all_reprs(buffer1)
@@ -730,11 +801,14 @@ def test_deleted_repr_ref_count_8() -> None:
 
 def test_deleted_repr_ref_count_9():
     all_reprs = set()
-    all_reprs |= get_all_reprs(buffer1 := Buffer())
-    all_reprs |= get_all_reprs(buffer2 := Buffer())
+    buffer1 = Buffer()
+    buffer1.set_types(input=MyTensor)
+    buffer2 = Buffer()
+    buffer2.set_types(input=MyTensor)
+    all_reprs |= get_all_reprs(buffer1)
+    all_reprs |= get_all_reprs(buffer2)
 
     model = Model()
-
     model += buffer1(input="input1", output="output1")
     model += buffer2(input="input2", output="output2")
 
@@ -746,8 +820,12 @@ def test_deleted_repr_ref_count_9():
 
 def test_deleted_repr_ref_count_10():
     all_reprs = set()
-    all_reprs |= get_all_reprs(buffer1 := Buffer())
-    all_reprs |= get_all_reprs(buffer2 := Buffer())
+    buffer1 = Buffer()
+    buffer1.set_types(input=MyTensor)
+    buffer2 = Buffer()
+    buffer2.set_types(input=MyTensor)
+    all_reprs |= get_all_reprs(buffer1)
+    all_reprs |= get_all_reprs(buffer2)
 
     model = Model()
 
@@ -760,8 +838,12 @@ def test_deleted_repr_ref_count_10():
 
 def test_deleted_repr_ref_count_10_1():
     all_reprs = set()
-    all_reprs |= get_all_reprs(buffer1 := Buffer())
-    all_reprs |= get_all_reprs(buffer2 := Buffer())
+    buffer1 = Buffer()
+    buffer1.set_types(input=MyTensor)
+    buffer2 = Buffer()
+    buffer2.set_types(input=MyTensor)
+    all_reprs |= get_all_reprs(buffer1)
+    all_reprs |= get_all_reprs(buffer2)
 
     model = Model()
 
@@ -776,9 +858,15 @@ def test_deleted_repr_ref_count_10_1():
 
 def test_deleted_node_ref_count_1():
     all_reprs = set()
-    all_reprs |= get_all_nodes(buffer1 := Buffer())
-    all_reprs |= get_all_nodes(buffer2 := Buffer())
-    all_reprs |= get_all_nodes(buffer3 := Buffer())
+    buffer1 = Buffer()
+    buffer1.set_types(input=MyTensor)
+    buffer2 = Buffer()
+    buffer2.set_types(input=MyTensor)
+    buffer3 = Buffer()
+    buffer3.set_types(input=MyTensor)
+    all_reprs |= get_all_nodes(buffer1)
+    all_reprs |= get_all_nodes(buffer2)
+    all_reprs |= get_all_nodes(buffer3)
 
     model = Model()
 
@@ -792,9 +880,15 @@ def test_deleted_node_ref_count_1():
 
 def test_deleted_node_ref_count_2():
     all_reprs = set()
-    all_reprs |= get_all_nodes(buffer1 := Buffer())
-    all_reprs |= get_all_nodes(buffer2 := Buffer())
-    all_reprs |= get_all_nodes(buffer3 := Buffer())
+    buffer1 = Buffer()
+    buffer1.set_types(input=MyTensor)
+    buffer2 = Buffer()
+    buffer2.set_types(input=MyTensor)
+    buffer3 = Buffer()
+    buffer3.set_types(input=MyTensor)
+    all_reprs |= get_all_nodes(buffer1)
+    all_reprs |= get_all_nodes(buffer2)
+    all_reprs |= get_all_nodes(buffer3)
 
     model = Model()
 
@@ -813,9 +907,15 @@ def test_deleted_node_ref_count_2():
 
 def test_deleted_node_ref_count_3():
     all_reprs = set()
-    all_reprs |= get_all_nodes(add1 := Add())
-    all_reprs |= get_all_nodes(add2 := Add())
-    all_reprs |= get_all_nodes(add3 := Add())
+    add1 = Add()
+    add1.set_types(left=MyTensor, right=MyTensor)
+    add2 = Add()
+    add2.set_types(left=MyTensor, right=MyTensor)
+    add3 = Add()
+    add3.set_types(left=MyTensor, right=MyTensor)
+    all_reprs |= get_all_nodes(add1)
+    all_reprs |= get_all_nodes(add2)
+    all_reprs |= get_all_nodes(add3)
 
     model = Model()
 
@@ -829,10 +929,18 @@ def test_deleted_node_ref_count_3():
 
 def test_deleted_node_ref_count_4():
     all_reprs = set()
-    all_reprs |= get_all_nodes(buffer1 := Buffer())
-    all_reprs |= get_all_nodes(buffer2 := Buffer())
-    all_reprs |= get_all_nodes(buffer3 := Buffer())
-    all_reprs |= get_all_nodes(buffer4 := Buffer())
+    buffer1 = Buffer()
+    buffer1.set_types(input=MyTensor)
+    buffer2 = Buffer()
+    buffer2.set_types(input=MyTensor)
+    buffer3 = Buffer()
+    buffer3.set_types(input=MyTensor)
+    buffer4 = Buffer()
+    buffer4.set_types(input=MyTensor)
+    all_reprs |= get_all_nodes(buffer1)
+    all_reprs |= get_all_nodes(buffer2)
+    all_reprs |= get_all_nodes(buffer3)
+    all_reprs |= get_all_nodes(buffer4)
 
     model = Model()
 
@@ -904,7 +1012,8 @@ def test_deleted_tensors_ref_count_3():
     model += buffer4(input="input4", output=IOKey(name="output4"))
     model += buffer5(input="input5", output=IOKey(name="output5"))
     model += buffer6(input="input6", output=IOKey(name="output6"))
-    conn = Connect(buffer1.input, buffer2.input, buffer3.input, model.output4)  # type: ignore
+    connections = [buffer1.input, buffer2.input, buffer3.input, model.output4]  # type: ignore
+    conn = IOKey(connections=connections)
 
     model += buffer7(input=conn, output=IOKey(name="output"))
 
@@ -1129,7 +1238,8 @@ def test_deleted_edge_ref_count_6():
         output2=IOKey(name="output2"),
         output3=IOKey(name="output3"),
     )
-    conn = Connect(main_model.output1, main_model.input2, key=IOKey(name="abcd"))  # type: ignore
+    connections = [main_model.output1, main_model.input2]  # type: ignore
+    conn = IOKey(name="abcd", expose=True, connections=connections)
 
     main_model += sigmoid4(input=conn, output=IOKey(name="output5"))
 
@@ -1439,3 +1549,14 @@ def test_deleted_edge_ref_count() -> None:
     # also we have one additional ref in ref_var variables.
     # So refcount == 2 means it there is no additional reference left.
     assert sys.getrefcount(ref_var1) == 2 or sys.getrefcount(ref_var2) == 2
+
+
+def test_simple_test():
+    all_reprs = set()
+    buff = Buffer()
+    buff.set_types(input=MyTensor)
+    print("bbbuuufff: ", sys.getrefcount(list(buff.input.metadata.shape.reprs)[0]))
+    all_reprs |= get_all_reprs(buff)
+    while all_reprs:
+        obj = all_reprs.pop()
+        print("bbbuuufff: ", sys.getrefcount(obj))

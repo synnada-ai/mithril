@@ -21,14 +21,16 @@
             },
             "connections": {
                 "m1": {
-                    "left": "input1", "right": "input2"
+                    "left": {"name": "input1", "type": "tensor"}, 
+                    "right": {"name": "input2", "type": "tensor"}
                 },
                 "m2": {
-                    "left": "input2", "right": "input3"
+                    "left": {"name": "input2", "type": "tensor"}, 
+                    "right": {"name": "input3", "type": "tensor"}
                 },
                 "m3": {
-                    "left": "input1", 
-                    "right": "input3", 
+                    "left": {"name": "input1", "type": "tensor"}, 
+                    "right": {"name": "input3", "type": "tensor"}, 
                     "output": {
                         "name": "output3", 
                         "expose": true
@@ -96,14 +98,16 @@
             },
             "connections": {
                 "m1": {
-                    "left": "input1", "right": "input2"
+                    "left": {"name": "input1", "type": "tensor"}, 
+                    "right": {"name": "input2", "type": "tensor"}
                 },
                 "m2": {
-                    "left": "input2", "right": "input3"
+                    "left": {"name": "input2", "type": "tensor"}, 
+                    "right": {"name": "input3", "type": "tensor"}
                 },
                 "m3": {
-                    "left": "input1", 
-                    "right": "input3", 
+                    "left": {"name": "input1", "type": "tensor"}, 
+                    "right": {"name": "input3", "type": "tensor"}, 
                     "output": {
                         "name": "output3", 
                         "expose": true
@@ -170,14 +174,16 @@
             },
             "connections": {
                 "m1": {
-                    "left": "input1", "right": "input2"
+                    "left": {"name": "input1", "type": "tensor"}, 
+                    "right": {"name": "input2", "type": "tensor"}
                 },
                 "m2": {
-                    "left": "input2", "right": "input3"
+                    "left": {"name": "input2", "type": "tensor"}, 
+                    "right": {"name": "input3", "type": "tensor"}
                 },
                 "m3": {
-                    "left": "input1", 
-                    "right": "input3", 
+                    "left": {"name": "input1", "type": "tensor"}, 
+                    "right": {"name": "input3", "type": "tensor"}, 
                     "output": {
                         "name": "output3", 
                         "expose": true

@@ -17,6 +17,7 @@ import pytest
 from mithril.models import Add, Linear, Model, MyTensor, ScalarItem
 
 
+@pytest.mark.skip(reason="Value of each type of data can be set.")
 def test_freeze_set_values_primitive():
     model = Add()
     assert model.is_frozen is True
@@ -36,9 +37,11 @@ def test_freeze_set_values_extend_defined_logical():
     model._freeze()
     assert model.is_frozen is True
 
-    with pytest.raises(ValueError) as error_info:
-        model.set_values({"input": 1.0})
-    assert str(error_info.value) == "Model is frozen, can not set the key: input!"
+    # NOTE: Remove this check since value of every connection type
+    # can be set.
+    # with pytest.raises(ValueError) as error_info:
+    #     model.set_values({"input": 1.0})
+    # assert str(error_info.value) == "Model is frozen, can not set the key: input!"
 
     with pytest.raises(AttributeError) as attr_error_info:
         model += Add()
@@ -54,9 +57,11 @@ def test_freeze_set_values_extend_logical():
     model._freeze()
     assert model.is_frozen is True
 
-    with pytest.raises(ValueError) as error_info:
-        model.set_values({"right": 1.0})
-    assert str(error_info.value) == "Model is frozen, can not set the key: right!"
+    # NOTE: Remove this check since value of every connection type
+    # can be set.
+    # with pytest.raises(ValueError) as error_info:
+    #     model.set_values({"right": 1.0})
+    # assert str(error_info.value) == "Model is frozen, can not set the key: right!"
 
     with pytest.raises(AttributeError) as attr_error_info:
         model += Add()

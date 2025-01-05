@@ -31,6 +31,7 @@ from ..framework.common import (
     TensorValueType,
     ToBeDetermined,
 )
+from ..framework.constraints import polynomial_kernel_constraint
 from ..framework.logical.base import ExtendInfo
 from ..framework.logical.essential_primitives import (
     Absolute,
@@ -40,6 +41,7 @@ from ..framework.logical.essential_primitives import (
     Cast,
     Divide,
     DType,
+    Exponential,
     Greater,
     Length,
     MatrixMultiply,
@@ -67,7 +69,6 @@ from .primitives import (
     Concat,
     DistanceMatrix,
     Eigvalsh,
-    Exponential,
     Eye,
     EyeComplement,
     GPRAlpha,
@@ -567,8 +568,9 @@ class Linear(Model):
         weight_key = IOKey(name="weight", value=weight).transpose()
 
         if use_bias:
+            bias_key = IOKey(name="bias", value=bias, type=MyTensor)
             self += mult(left="input", right=weight_key)
-            self += Add()(left=mult.output, right="bias", output=output)
+            self += Add()(left=mult.output, right=bias_key, output=output)
             shapes["bias"] = [dim]
         else:
             self += mult(left="input", right=weight_key, output=output)
@@ -617,7 +619,9 @@ class ElementWiseAffine(Model):
 
         self += mult_model(left="input", right="weight")
         self += sum_model(
-            left=mult_model.output, right="bias", output=IOKey(name="output")
+            left=mult_model.output,
+            right="bias",
+            output=IOKey(name="output"),
         )
         self.input.set_differentiable(False)
         self._freeze()
@@ -702,8 +706,10 @@ class LayerNorm(Model):
         # Expects its input shape as [B, ..., d] d refers to normalized dimension
         mean = Mean(axis=-1, keepdim=True)
         numerator = Subtract()
+        numerator.set_types(left=MyTensor, right=MyTensor)
         var = Variance(axis=-1, correction=0, keepdim=True)
         add = Add()
+        add.set_types(left=MyTensor, right=MyTensor)
         denominator = Sqrt()
 
         self += mean(input="input")
@@ -723,11 +729,13 @@ class LayerNorm(Model):
 
         if use_scale:
             mult = Multiply()
+            mult.set_types(left=MyTensor, right=MyTensor)
             self += mult(left=self.canonical_output, right="weight")
             mult._set_shapes(shapes)
 
         if use_bias:
             add = Add()
+            add.set_types(left=MyTensor, right=MyTensor)
             self += add(left=self.canonical_output, right="bias")
             add._set_shapes(shapes)
 
@@ -787,7 +795,7 @@ class GroupNorm(Model):
         mean = input_key.mean(axis=-1, keepdim=True)
         var = input_key.var(axis=-1, keepdim=True)
 
-        input_key = (input_key - mean) / (var + MyTensor(eps)).sqrt()
+        input_key = (input_key - mean) / (var + eps).sqrt()
         self += Reshape()(input=input_key, shape=input_shape)
 
         self._set_shapes({"input": ["B", "C", "H", "W"]})
@@ -799,13 +807,15 @@ class GroupNorm(Model):
         }
 
         if use_scale:
+            weight_key = IOKey(name="weight", type=MyTensor[float])
             mult = Multiply()
-            self += mult(left=self.canonical_output, right="weight")
+            self += mult(left=self.canonical_output, right=weight_key)
             mult._set_shapes(shapes)
 
         if use_bias:
+            bias_key = IOKey(name="bias", type=MyTensor[float])
             add = Add()
-            self += add(left=self.canonical_output, right="bias")
+            self += add(left=self.canonical_output, right=bias_key)
             add._set_shapes(shapes)
 
         self += Buffer()(input=self.canonical_output, output=IOKey(name="output"))
@@ -972,9 +982,12 @@ class RBFKernel(Model):
             numerator=mult_model1.output, denominator=square_model2.output
         )
         self += exp_model(input=div_model.output)
-        self += l_square(left="l_scale", right="l_scale")
+        l_scale_key = IOKey(name="l_scale", type=MyTensor)
+        self += l_square(left=l_scale_key, right=l_scale_key)
         self += mult_model2(
-            left=l_square.output, right=exp_model.output, output=IOKey(name="output")
+            left=l_square.output,
+            right=exp_model.output,
+            output=IOKey(name="output"),
         )
 
         self.set_canonical_input("input1")
@@ -1037,19 +1050,20 @@ class PolynomialKernel(Model):
 
         self += transpose_model(input="input2")
         self += mult_model(left="input1", right=transpose_model.output)
+        # TODO: poly_coef and degree should not be defined as MyTensor manually.
         self += sum_model(left=mult_model.output, right="poly_coef")
         self += power_model(
             base=sum_model.output, exponent="degree", output=IOKey(name="output")
         )
-
         self._set_shapes(
             {
                 "input1": ["N", "d"],
                 "input2": ["M", "d"],
-                "poly_coef": [],
-                "degree": [],
                 "output": ["N", "M"],
             }
+        )
+        self._set_constraint(
+            fn=polynomial_kernel_constraint, keys=["poly_coef", "degree"]
         )
         self._freeze()
 
@@ -1214,7 +1228,10 @@ class LogisticRegression(Model):
         sigmoid_model = Sigmoid()
 
         self += linear_model(
-            input="input", weight="weight", bias="bias", output=IOKey(name="output")
+            input="input",
+            weight="weight",
+            bias="bias",
+            output=IOKey(name="output"),
         )
         self += sigmoid_model(
             input=linear_model.output, output=IOKey(name="probs_output")
@@ -1394,11 +1411,15 @@ class RNNCell(Cell):
         self += mult_model_1(input=slice_model.output, weight="w_hh")
         self += mult_model_2(input="input", weight="w_ih")
         self += sum_model_1(left=mult_model_1.output, right=mult_model_2.output)
-        self += sum_model_2(left=sum_model_1.output, right="bias_h")
+        self += sum_model_2(
+            left=sum_model_1.output, right=IOKey("bias_h", type=MyTensor)
+        )
         self += Tanh()(input=sum_model_2.output, output=IOKey(name="hidden"))
         self += mult_model_3(input="hidden", weight="w_ho")
         self += Add()(
-            left=mult_model_3.output, right="bias_o", output=IOKey(name="output")
+            left=mult_model_3.output,
+            right=IOKey("bias_o", type=MyTensor),
+            output=IOKey(name="output"),
         )
         shapes: dict[str, ShapeTemplateType] = {
             "input": ["N", 1, "d_in"],
@@ -1680,7 +1701,9 @@ class LSTMCellBody(Model):
             input=matrix_concat_model.output, weight="w_f", bias="bias_f"
         )
         self += sigmoid_model_1(input=forward_lin.output)
-        self += mult_model_1(left="prev_cell", right=sigmoid_model_1.output)
+        self += mult_model_1(
+            left=IOKey("prev_cell", type=MyTensor), right=sigmoid_model_1.output
+        )
         # Input gate processes.
         self += input_lin(input=matrix_concat_model.output, weight="w_i", bias="bias_i")
         self += sigmoid_model_2(input=input_lin.output)
@@ -2314,60 +2337,37 @@ class TSNECore(Model):
         mult_model = Multiply()
         kl_divergence_model = KLDivergence()
 
+        dist_key = IOKey("distances", type=MyTensor)
+        pred_dist_key = IOKey("pred_distances", type=MyTensor)
         # Always process with squared distances in TSNE calculations.
         if exact_distances:
             square_model = Square()
-            self += square_model(input="distances")
+            self += square_model(input=dist_key)
             if calculate_p_joint:
                 self += p_joint_model(
                     squared_distances=square_model.output, target_perplexity=perplexity
                 )
-            self += sum_model_1(left=MyTensor(1.0), right="pred_distances")
-            self += divide_model_1(
-                numerator=MyTensor(1.0), denominator=sum_model_1.output
-            )
-            self += size_model(input=getattr(self, "distances", "distances"))
-            self += zero_diagonal_model(N=size_model.output)
-            self += mult_model(
-                left=divide_model_1.output, right=zero_diagonal_model.output
-            )
-            self += sum_model_2(input=mult_model.output)
-            self += divide_model_2(
-                numerator=mult_model.output, denominator=sum_model_2.output
-            )
-            self += kl_divergence_model(
-                input=divide_model_2.output,
-                target=p_joint_model.output if calculate_p_joint else "p_joint",
-            )
-            self += sum_model_3(
-                input=kl_divergence_model.output, output=IOKey(name="output")
-            )
-
         else:
             if calculate_p_joint:
                 self += p_joint_model(
-                    squared_distances="distances", target_perplexity=perplexity
+                    squared_distances=dist_key, target_perplexity=perplexity
                 )
-            self += sum_model_1(left=MyTensor(1.0), right="pred_distances")
-            self += divide_model_1(
-                numerator=MyTensor(1.0), denominator=sum_model_1.output
-            )
-            self += size_model(input=getattr(self, "distances", "distances"))
-            self += zero_diagonal_model(N=size_model.output)
-            self += mult_model(
-                left=divide_model_1.output, right=zero_diagonal_model.output
-            )
-            self += sum_model_2(input=mult_model.output)
-            self += divide_model_2(
-                numerator=mult_model.output, denominator=sum_model_2.output
-            )
-            self += kl_divergence_model(
-                input=divide_model_2.output,
-                target=p_joint_model.output if calculate_p_joint else "p_joint",
-            )
-            self += sum_model_3(
-                input=kl_divergence_model.output, output=IOKey(name="output")
-            )
+        self += sum_model_1(left=1.0, right=pred_dist_key)
+        self += divide_model_1(numerator=1.0, denominator=sum_model_1.output)
+        self += size_model(input=dist_key)
+        self += zero_diagonal_model(N=size_model.output)
+        self += mult_model(left=divide_model_1.output, right=zero_diagonal_model.output)
+        self += sum_model_2(input=mult_model.output)
+        self += divide_model_2(
+            numerator=mult_model.output, denominator=sum_model_2.output
+        )
+        self += kl_divergence_model(
+            input=divide_model_2.output,
+            target=p_joint_model.output if calculate_p_joint else "p_joint",
+        )
+        self += sum_model_3(
+            input=kl_divergence_model.output, output=IOKey(name="output")
+        )
 
         self.distances.set_differentiable(False)
         self._set_shapes({"distances": ["N", "N"], "pred_distances": ["N", "N"]})
@@ -2855,8 +2855,8 @@ class Metric(Model):
             not is_binary or threshold is not None
         ), "Probs must be False if threshold is not None"
 
-        pred_key: IOKey | Connection = IOKey(name="pred")
-        label_key: IOKey | Connection = IOKey(name="label")
+        pred_key: IOKey | Connection = IOKey(name="pred", type=MyTensor)
+        label_key: IOKey | Connection = IOKey(name="label", type=MyTensor)
 
         if is_label_one_hot:
             self += ArgMax(axis=-1)(label_key, output="label_argmax")
@@ -2866,9 +2866,7 @@ class Metric(Model):
             self += ArgMax(axis=-1)(pred_key, output="pred_argmax")
             pred_key = self.pred_argmax
         elif is_binary and not is_pred_one_hot:
-            self += Greater()(
-                left=pred_key, right=MyTensor(threshold), output="greater_out"
-            )
+            self += Greater()(left=pred_key, right=threshold, output="greater_out")
             self += Where()(
                 cond="greater_out",
                 input1=MyTensor(1),
@@ -3445,8 +3443,8 @@ class AUC(Model):
         assert n_classes > 0, ""
         assert isinstance(n_classes, int)
 
-        label_key: IOKey | Connection = IOKey(name="label")
-        pred_key: IOKey | Connection = IOKey(name="pred")
+        label_key: IOKey | Connection = IOKey(name="label", type=MyTensor)
+        pred_key: IOKey | Connection = IOKey(name="pred", type=MyTensor)
 
         if is_label_one_hot:
             self += ArgMax(axis=-1)(label_key, output="label_argmax")
@@ -3507,7 +3505,6 @@ class SiLU(Model):
         self += Divide()(
             numerator="input", denominator="add", output=IOKey(name="output")
         )
-
         self._set_shapes({"input": [("Var", ...)], "output": [("Var", ...)]})
 
         self.input.set_differentiable(False)

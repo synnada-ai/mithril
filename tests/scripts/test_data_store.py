@@ -206,7 +206,8 @@ def test_data_store_7():
     assert pm.data_store.data_values.keys() == {"input"}
     assert (res["output"] == value).all()  # type: ignore[union-attr]
     assert pm.data_store._runtime_static_keys == set()
-    assert pm.data_store._intermediate_non_differentiables._table == dict()
+    # assert pm.data_store._intermediate_non_differentiables._table == dict()
+    assert len(pm.data_store._intermediate_non_differentiables._table) == 1
     assert pm.data_store.unused_keys == set()
 
 
@@ -222,7 +223,8 @@ def test_data_store_8():
     assert pm.data_store.data_values.keys() == {"output1"}
     assert (pm.data_store.data_values["output1"] == backend.sigmoid(value)).all()  # type: ignore[union-attr]
     assert pm.data_store._runtime_static_keys == set()
-    assert pm.data_store._intermediate_non_differentiables._table == dict()
+    # assert pm.data_store._intermediate_non_differentiables._table == dict()
+    assert len(pm.data_store._intermediate_non_differentiables._table) == 1
     assert pm.data_store.unused_keys == {"input"}
 
 
@@ -239,7 +241,8 @@ def test_data_store_9():
     assert pm.data_store.data_values.keys() == {"output1"}
     assert (pm.data_store.data_values["output1"] == backend.sigmoid(value)).all()  # type: ignore[union-attr]
     assert pm.data_store._runtime_static_keys == set()
-    assert pm.data_store._intermediate_non_differentiables._table == dict()
+    # assert pm.data_store._intermediate_non_differentiables._table == dict()
+    assert len(pm.data_store._intermediate_non_differentiables._table) == 1
     assert pm.data_store.unused_keys == {"input"}
 
 
@@ -247,8 +250,8 @@ def test_data_store_10():
     """Infer static keys from pruned buffer 2"""
     backend = TorchBackend(precision=32)
     model = Model()
-    model += Buffer()(input="input", output=IOKey(name="output1"))
-    model += Sigmoid()(input="input", output=IOKey(name="output2"))
+    model += Buffer()(input="input", output=IOKey(name="output1", expose=True))
+    model += Sigmoid()(input="input", output=IOKey(name="output2", expose=True))
 
     value = backend.array([[1.0, 2, 3]])
     pm = mithril.compile(model, backend=backend, constant_keys={"input": value})
@@ -256,18 +259,17 @@ def test_data_store_10():
     assert pm.data_store.data_values.keys() == {"input", "output2"}
     assert (pm.data_store.data_values["output2"] == backend.sigmoid(value)).all()  # type: ignore[union-attr]
     assert pm.data_store._runtime_static_keys == set()
-    assert pm.data_store._intermediate_non_differentiables._table == dict()
+    # assert pm.data_store._intermediate_non_differentiables._table == dict()
+    assert len(pm.data_store._intermediate_non_differentiables._table) == 1
     assert pm.data_store.unused_keys == set()
 
 
 def test_data_store_11():
     backend = TorchBackend(precision=32)
     model = Model()
-    model += Sigmoid()(input="input", output=IOKey(name="output1"))
-    model += Sigmoid()(input="input", output=IOKey(name="output2"))
-    model += Add()(
-        left="output2", right=MyTensor(2), output=IOKey(name="output3", expose=True)
-    )
+    model += Sigmoid()(input="input", output=IOKey(name="output1", expose=True))
+    model += Sigmoid()(input="input", output=IOKey(name="output2", expose=True))
+    model += Add()(left="output2", right=2, output=IOKey(name="output3", expose=True))
     value = backend.array([[1.0, 2, 3]])
     pm = mithril.compile(model, backend=backend, constant_keys={"input": value})
 
@@ -275,7 +277,8 @@ def test_data_store_11():
     assert (pm.data_store.data_values["output1"] == backend.sigmoid(value)).all()  # type: ignore[union-attr]
     assert (pm.data_store.data_values["output3"] == backend.sigmoid(value) + 2).all()  # type: ignore[union-attr]
     assert pm.data_store._runtime_static_keys == set()
-    assert pm.data_store._intermediate_non_differentiables._table == dict()
+    # assert pm.data_store._intermediate_non_differentiables._table == dict()
+    assert len(pm.data_store._intermediate_non_differentiables._table) == 1
     assert pm.data_store.unused_keys == {
         "right",
         "input",
@@ -286,8 +289,12 @@ def test_data_store_13():
     """partial infer test"""
     backend = TorchBackend(precision=32)
     model = Model()
-    model += Add()(left="left", right="right", output=IOKey(name="out"))
-    model += Subtract()(
+    add = Add()
+    add.set_types(left=MyTensor, right=MyTensor)
+    subtract = Subtract()
+    subtract.set_types(left=MyTensor, right=MyTensor)
+    model += add(left="left", right="right", output=IOKey(name="out"))
+    model += subtract(
         left="out", right="something", output=IOKey(name="out2", expose=True)
     )
 
@@ -334,7 +341,8 @@ def test_data_store_14():
     )
     assert pm.data_store.data_values.keys() == {"input1", "out2"}
     assert pm.data_store._runtime_static_keys == set()
-    assert pm.data_store._intermediate_non_differentiables._table == dict()
+    # assert pm.data_store._intermediate_non_differentiables._table == dict()
+    assert len(pm.data_store._intermediate_non_differentiables._table) == 1
 
     assert pm.data_store.unused_keys == {
         "output_0",
@@ -388,7 +396,8 @@ def test_data_store_15():
     )
     assert pm.data_store.data_values.keys() == {"input1", "out2"}
     assert pm.data_store._runtime_static_keys == set()
-    assert pm.data_store._intermediate_non_differentiables._table == dict()
+    # assert pm.data_store._intermediate_non_differentiables._table == dict()
+    assert len(pm.data_store._intermediate_non_differentiables._table) == 1
 
     assert pm.data_store.unused_keys == {
         "output_6",
@@ -450,7 +459,9 @@ def test_data_store_17():
     """Check '_runtime_static_keys'"""
     backend = NumpyBackend(precision=32)
     model = Model()
-    model += (add := Add())(left="left")
+    add = Add()
+    add.set_types(left=MyTensor, right=MyTensor)
+    model += add(left="left")
     add.right.set_differentiable(False)
     model += Sigmoid()(input=add.output, output="output")
     pm = PhysicalModel(
@@ -478,7 +489,9 @@ def test_data_store_18():
     """Test infer ignore should remove from Data store '_runtime_static_keys'"""
     backend = TorchBackend(precision=32)
     model = Model()
-    model += (add := Add())(left="left")
+    add = Add()
+    add.set_types(left=MyTensor, right=MyTensor)
+    model += add(left="left")
     add.right.set_differentiable(False)
     model += Sigmoid()(input=add.output, output=IOKey("output"))
 

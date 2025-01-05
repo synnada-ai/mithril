@@ -344,7 +344,7 @@ def pack_data_into_time_slots(
     data_sorted = data
 
     max_size = lengths[0]
-    if backend.type == "torch":
+    if backend.backend_type == "torch":
         padded = [
             backend.pad(arr[index], (0, 0, 0, max_size - arr[index].shape[0]))
             for arr in data
@@ -466,7 +466,7 @@ def find_boundary_point(
 
 
 def binary_search(
-    eval_fn: Callable,
+    eval_fn: Callable[[Any], Any],
     target: DataType,
     *,
     max_it: int = 1000,
@@ -499,7 +499,7 @@ def binary_search(
     """
     it = 0
 
-    def midpoint(a, b):
+    def midpoint(a: Any, b: Any) -> Any:
         return (a + b) / 2
 
     while (

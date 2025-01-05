@@ -23,7 +23,6 @@ from mithril.models import (
     MLP,
     Add,
     Buffer,
-    Connect,
     Convolution2D,
     CrossEntropy,
     CustomPrimitiveModel,
@@ -184,9 +183,15 @@ def test_constant_key():
 def test_constant_key_2():
     model = Model()
     model += (add := Add())(
-        left="input", right=IOKey(value=3).tensor(), output=IOKey(name="output")
+        left=IOKey("input", type=MyTensor),
+        right=IOKey(value=MyTensor(3)),
+        output=IOKey(name="output"),
     )
-    model += Add()(left="input2", right=add.right, output=IOKey(name="output2"))
+    model += Add()(
+        left=IOKey("input2", type=MyTensor),
+        right=add.right,
+        output=IOKey(name="output2"),
+    )
     model2 = Model()
     model2 += model(
         input2="input", output=IOKey(name="output"), output2=IOKey(name="output2")
@@ -490,7 +495,7 @@ def test_composite_9():
         input="", weight="weight1", output=IOKey(name="output2")
     )
     model += Linear(dimension=71)(
-        input="input", weight="weight2", output=Connect(l1.input, l2.input)
+        input="input", weight="weight2", output=IOKey(connections=[l1.input, l2.input])
     )
 
     model_dict_created = dict_conversions.model_to_dict(model)
@@ -517,7 +522,7 @@ def test_composite_10():
     model += Linear(dimension=71)(
         input="input",
         weight="weight2",
-        output=Connect("input1", "input2", key=IOKey(name="my_input")),
+        output=IOKey(name="my_input", connections=["input1", "input2"]),
     )
 
     model_dict_created = dict_conversions.model_to_dict(model)
@@ -544,7 +549,7 @@ def test_composite_10_expose_false():
     model += Linear(dimension=71)(
         input="input",
         weight="weight2",
-        output=Connect("input1", "input2", key=IOKey(name="my_input", expose=False)),
+        output=IOKey(name="my_input", connections=["input1", "input2"], expose=False),
     )
 
     model_dict_created = dict_conversions.model_to_dict(model)
@@ -589,7 +594,7 @@ def test_composite_12():
         Linear(dimension=71),
         input="input",
         weight="weight2",
-        output=Connect("input1", "input2", key=IOKey(name="my_input")),
+        output=IOKey(name="my_input", connections=["input1", "input2"]),
     )
 
     model_dict_created = dict_conversions.model_to_dict(model)
@@ -623,7 +628,7 @@ def test_composite_13():
         Linear(dimension=71),
         input="input",
         weight="weight2",
-        output=Connect("input1", "input2", key=IOKey(name="my_input")),
+        output=IOKey(name="my_input", connections=["input1", "input2"]),
     )
 
     model_dict_created = dict_conversions.model_to_dict(model)

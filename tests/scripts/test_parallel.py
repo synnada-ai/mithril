@@ -29,11 +29,11 @@ import mithril
 from mithril import compile
 from mithril.backends.with_autograd.torch_backend.parallel import TorchParallel
 from mithril.backends.with_autograd.torch_backend.utils import SharedCyclicQueue
+from mithril.framework.common import IOKey, MyTensor
 from mithril.models import (
     TBD,
     Add,
     Eye,
-    IOKey,
     Linear,
     Model,
     Multiply,
@@ -128,7 +128,7 @@ def test_torch_shared_cyclic_queue_4():
     writer.write(
         opcode1=1,
         opcode2=4,
-        args=[5, 5, (4, 2)],
+        args=(5, 5, (4, 2)),
         kwargs={"input": "something", "left": (1, 2, (3, 4))},
     )
 
@@ -141,7 +141,7 @@ def test_torch_shared_cyclic_queue_4():
     assert reader.read(rank=1) == (
         1,
         4,
-        [5, 5, (4, 2)],
+        (5, 5, (4, 2)),
         {"input": "something", "left": (1, 2, (3, 4))},
     )
     assert instruction[0] == "1"
@@ -409,7 +409,6 @@ def test_torch_parallel_3():
     # primitive to_tensor.
     model = Model()
     model += (linear := Linear(256))(input="input", weight="w", bias="b")
-    # model += (e := ToTensor())(input=Connect(name="to_tensor", value=TBD))
     model += (e := ToTensor())(input=IOKey(name="to_tensor", value=TBD))
     model += Add()(left=linear.output, right=e.output, output="output")
     backend = mithril.TorchBackend()
@@ -792,7 +791,7 @@ def test_torch_parallel_error_12():
     model = Model()
     model += Linear(256)(input="input", weight="w", bias="b")
     with pytest.raises(AssertionError) as e:
-        mithril.TorchBackend(device_mesh=2)
+        mithril.TorchBackend(device_mesh=2)  # type: ignore
 
     assert str(e.value) == "device_mesh must be a tuple or None."
 
@@ -802,7 +801,9 @@ def test_torch_parallel_multi_parallel_1():
     backend1 = create_parallel_backend(device_mesh=(2, 1))
     backend2 = create_parallel_backend(device_mesh=(2, 1))
     model = Model()
-    model += Add()(left="left", right="right")
+    model += Add()(
+        left=IOKey("left", type=MyTensor), right=IOKey("right", type=MyTensor)
+    )
     pm1 = compile(
         model,
         backend1,
@@ -812,7 +813,9 @@ def test_torch_parallel_multi_parallel_1():
     )
 
     model = Model()
-    model += Multiply()(left="left", right="right")
+    model += Multiply()(
+        left=IOKey("left", type=MyTensor), right=IOKey("right", type=MyTensor)
+    )
     pm2 = compile(
         model,
         backend2,

@@ -25,7 +25,6 @@ from mithril import JaxBackend, MlxBackend, NumpyBackend, TorchBackend
 from mithril.framework.common import (
     NOT_GIVEN,
     TBD,
-    Connect,
     Connection,
     ConnectionType,
     IOKey,
@@ -119,7 +118,7 @@ def assert_all_backends_device_precision(model: Model):
         # remove unsupported backend, device and precision trios
         if (backend_class, device, precision) in unsupported_device_precisions:
             continue
-        _type = backend_class.type
+        _type = backend_class.backend_type
         backend = backend_class(device=device, precision=precision)
 
         comp_model = mithril.compile(
@@ -453,7 +452,11 @@ def test_axis():
     relu = LeakyRelu()
     rob_pow = Power(robust=True)
     model += relu(input="input", slope=MyTensor(2.3))
-    model += rob_pow(base=relu.output, exponent="exponent", threshold=relu.slope)
+    model += rob_pow(
+        base=relu.output,
+        exponent=IOKey("exponent", type=MyTensor),
+        threshold=relu.slope,
+    )
 
     backend = NumpyBackend()
     compiled_model = mithril.compile(
@@ -482,6 +485,7 @@ def test_axis_1():
     model = Model()
     relu = LeakyRelu()
     rob_pow = Power(robust=True)
+    rob_pow.set_types(base=MyTensor, exponent=MyTensor)
     model += rob_pow(base="base", threshold=MyTensor(2.3), exponent="exponent")
     model += relu(input=rob_pow.output, slope=rob_pow.threshold)  # type: ignore
     # Check required value transfer occured in logical model
@@ -777,7 +781,9 @@ def test_static_2():
     model2 = Model()
     add_1 = Add()
     model1 += add_1(
-        left=MyTensor([2.0, 3.0]), right="right", output=IOKey(name="output")
+        left=MyTensor([2.0, 3.0]),
+        right=IOKey("right", type=MyTensor),
+        output=IOKey(name="output"),
     )
     model2 += model1
     comp_model = mithril.compile(model=model2, backend=NumpyBackend())
@@ -801,7 +807,7 @@ def test_static_2_set_values():
     model1 = Model()
     model2 = Model()
     add_1 = Add()
-    model1 += add_1(right="right", output=IOKey(name="output"))
+    model1 += add_1(right=IOKey("right", type=MyTensor), output=IOKey(name="output"))
     model1.set_values({add_1.left: MyTensor([2.0, 3.0])})
     model2 += model1
     comp_model = mithril.compile(model=model2, backend=NumpyBackend())
@@ -997,7 +1003,7 @@ def test_nontensor_extend_from_input_multiple_connection():
     model += mean1
     model += mean2
     model += mean3
-    model += mean4(axis=Connect(mean1.axis, mean2.axis, mean3.axis))
+    model += mean4(axis=IOKey(connections=[mean1.axis, mean2.axis, mean3.axis]))
     assert (
         mean1.axis.data.metadata
         == mean2.axis.data.metadata
@@ -1161,6 +1167,7 @@ def test_bool_tensor_mlx_64():
 def test_static_input_1():
     model = Model()
     add_1 = Add()
+    add_1.set_types(left=MyTensor, right=MyTensor)
     add_1.left.set_differentiable(False)
     add_1.right.set_differentiable(False)
     ref = np.array(5.0)
@@ -1183,6 +1190,7 @@ def test_static_input_1():
 def test_static_input_1_safe_names():
     model = Model()
     add_1 = Add()
+    add_1.set_types(left=MyTensor, right=MyTensor)
     add_1.left.set_differentiable(False)
     add_1.right.set_differentiable(False)
     model += add_1
@@ -1197,6 +1205,7 @@ def test_static_input_1_safe_names():
 def test_static_input_2():
     model = Model()
     add_1 = Add()
+    add_1.set_types(left=MyTensor, right=MyTensor)
     ref = np.array(5.0)
     add_1.left.set_differentiable(False)
     add_1.right.set_differentiable(False)
@@ -1221,6 +1230,7 @@ def test_static_input_2():
 def test_static_input_2_safe_names():
     model = Model()
     add_1 = Add()
+    add_1.set_types(left=MyTensor, right=MyTensor)
     add_1.left.set_differentiable(False)
     add_1.right.set_differentiable(False)
     model += add_1()
@@ -1239,6 +1249,7 @@ def test_static_input_3():
     backend = NumpyBackend(precision=32)
     model = Model()
     add_1 = Add()
+    add_1.set_types(left=MyTensor, right=MyTensor)
     ref = np.array(5.0)
     add_1.left.set_differentiable(False)
     add_1.right.set_differentiable(False)
@@ -1260,6 +1271,7 @@ def test_static_input_4():
     backend = NumpyBackend(precision=32)
     model = Model()
     add_1 = Add()
+    add_1.set_types(left=MyTensor, right=MyTensor)
     ref = np.array(5.0)
     model += add_1(left="in1", right="in2")
     comp_model = mithril.compile(
@@ -1280,6 +1292,7 @@ def test_static_input_4():
 def test_static_input_5():
     model = Model()
     add_1 = Add()
+    add_1.set_types(left=MyTensor, right=MyTensor)
     ref = np.array(5.0)
     add_1.left.set_differentiable(False)
     add_1.right.set_differentiable(False)
@@ -1417,7 +1430,11 @@ def test_mlp():
 def test_add_1():
     model = Model()
     add_model = Add()
-    model += add_model(left=MyTensor(1), right="right", output=IOKey(name="output"))
+    model += add_model(
+        left=MyTensor(1),
+        right=IOKey("right", type=MyTensor),
+        output=IOKey(name="output"),
+    )
     model.set_shapes({"right": [1, 1, 1]})
     assert_all_backends_device_precision(model)
 
@@ -1428,7 +1445,7 @@ def test_composite_1():
     shape_model = Shape()
     index_model = ScalarItem()
     red_model = Mean(axis=TBD)
-    model += add_model(left=MyTensor([[[1]]]), right="right")
+    model += add_model(left=MyTensor([[[1]]]), right=IOKey("right", type=MyTensor))
     model += shape_model(input=add_model.output)
     model += index_model(input=shape_model.output, index=1)
     model += red_model(
@@ -1445,7 +1462,7 @@ def test_composite_1_set_values():
     shape_model = Shape()
     index_model = ScalarItem()
     red_model = Mean(axis=TBD)
-    model += add_model(right="right")
+    model += add_model(right=IOKey("right", type=MyTensor))
     model.set_values({add_model.left: MyTensor([[[1]]])})
     model += shape_model(input=add_model.output)
     model += index_model(input=shape_model.output, index=1)
@@ -2123,7 +2140,9 @@ def test_nontensor_gradient():
     model += shape_model(input="input")
     model += relu(input="input")
     model += to_tensor_model(input=shape_model.output, output=IOKey(name="out1"))
-    model += add_model(left="in1", right=relu.output, output=IOKey(name="out2"))
+    model += add_model(
+        left=IOKey("in1", type=MyTensor), right=relu.output, output=IOKey(name="out2")
+    )
 
     ctx = TrainModel(model)
     ctx.add_loss(Buffer(), input="out1", reduce_steps=[Sum()])
@@ -2163,7 +2182,9 @@ def test_nontensor_gradient_2():
     model += add_model(
         left="", right=to_tensor_model.output, output=IOKey(name="output")
     )
-    model += mult_model(left="", right="right1", output=add_model.left)
+    model += mult_model(
+        left="", right=IOKey("right1", type=MyTensor), output=add_model.left
+    )
     model += relu_model(input="in1", output=mult_model.left)
     constant_keys = {
         "input": backend.array([[10.0, 2.0], [1.0, 1.0]]),
@@ -2215,7 +2236,11 @@ def test_numpy_without_shape():
     backend = NumpyBackend(precision=32)
     model = Model()
     add_model = Add()
-    model += add_model(left="left", right="right", output=IOKey(name="output"))
+    model += add_model(
+        left=IOKey("left", type=MyTensor),
+        right=IOKey("right", type=MyTensor),
+        output=IOKey(name="output"),
+    )
     model.set_shapes({"left": [], "right": []})
     ctx = TrainModel(model)
     ctx.add_loss(Buffer(), input="output", reduce_steps=[Mean()])
@@ -2245,12 +2270,16 @@ def test_multiple_to_tensor():
     model += shp_1("input")
     model += tt_1
     model += add_model(
-        left=model.canonical_output, right="right", output=IOKey(name="output")
+        left=model.canonical_output,
+        right=IOKey("right", type=MyTensor),
+        output=IOKey(name="output"),
     )
     model_1 += shp_2
     model_1 += tt_2
     model_1 += add_model_2(
-        left=model_1.canonical_output, right="right", output=IOKey(name="output")
+        left=model_1.canonical_output,
+        right=IOKey("right", type=MyTensor),
+        output=IOKey(name="output"),
     )
     model_2 += model(input="input")
     model_2 += model_1
@@ -2669,9 +2698,7 @@ def test_add_constant():
     model.set_values({"input": MyTensor([1.0])})
     backend = JaxBackend()
     pm = mithril.compile(model=model, backend=backend)
-    assert pm.evaluate(params={"w": backend.array([2.0])})["output"] == backend.array(
-        [3.0]
-    )
+    assert pm.evaluate(data={"w": 2.0})["output"] == backend.array([3.0])
 
 
 def test_add_constant_iokey():
@@ -2679,6 +2706,4 @@ def test_add_constant_iokey():
     model += Add()(left=IOKey("input", value=MyTensor([1.0])), right="w")
     backend = JaxBackend()
     pm = mithril.compile(model=model, backend=backend)
-    assert pm.evaluate(params={"w": backend.array([2.0])})["output"] == backend.array(
-        [3.0]
-    )
+    assert pm.evaluate(data={"w": 2.0})["output"] == backend.array([3.0])

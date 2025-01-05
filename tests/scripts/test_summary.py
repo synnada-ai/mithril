@@ -23,7 +23,6 @@ import mithril
 from mithril import JaxBackend, NumpyBackend, TorchBackend
 from mithril.framework.common import (
     NOT_GIVEN,
-    Connect,
     Connection,
     IOKey,
     MyTensor,
@@ -188,7 +187,7 @@ def test_extract_logical_connections_4():
         output3=IOKey(name="out_3"),
     )
     model += model_2(
-        output1=Connect(model_1.input1, model_1.input2),  # type: ignore
+        output1=IOKey(connections=[model_1.input1, model_1.input2]),  # type: ignore
         output2=IOKey(name="out_4"),
         output3=IOKey(name="out_5"),
         input1="in1",
@@ -1097,7 +1096,11 @@ def test_physical_model_summary_8():
     model = Model()
     random_kernel_model = Model()
     another_random_model = Model()
-    another_random_model += Add()(left="input1", right="input2", output="output")
+    another_random_model += Add()(
+        left=IOKey("input1", type=MyTensor),
+        right=IOKey("input2", type=MyTensor),
+        output="output",
+    )
     input1_shape: ShapeTemplateType = ["a", ("Var1", ...), "b"]
     another_random_model.set_shapes({"input1": input1_shape})
     random_kernel_model += (add1 := Add())(left="input1", right="input2")
@@ -1202,6 +1205,7 @@ def test_physical_summary_13():
 def test_physical_summary_14():
     model = Model()
     sig_model1 = Add()
+    sig_model1.set_types(left=MyTensor, right=MyTensor)
     sig_model2 = Add()
     model += sig_model1(left="left", right="right", output=IOKey("output1"))
     model += sig_model2(left="left", right="right", output=IOKey("output2"))
@@ -1362,8 +1366,16 @@ def test_logical_model_summary_2():
 
 def test_logical_model_summary_3():
     model = Model()
-    model += Add()(left="input1", right="input2", output=IOKey(name="output1"))
-    model += Add()(left="input1", right="input3", output=IOKey(name="output2"))
+    model += Add()(
+        left=IOKey("input1", type=MyTensor),
+        right=IOKey("input2", type=MyTensor),
+        output=IOKey(name="output1"),
+    )
+    model += Add()(
+        left="input1",
+        right=IOKey("input3", type=MyTensor),
+        output=IOKey(name="output2"),
+    )
     model += Add()(left="input2", right="input3", output=IOKey(name="output3"))
     model.set_canonical_input("input1")
     model.set_canonical_output("output1")
@@ -1396,7 +1408,9 @@ def test_logical_model_summary_3():
 
 def test_logical_model_summary_4():
     model_n = Model()
-    model_n += Add()
+    add = Add()
+    model_n += add
+    add.set_types(left=MyTensor, right=MyTensor)
     for _ in range(5):
         model_n += deepcopy(model_n)
 
@@ -1488,8 +1502,10 @@ def test_logical_model_summary_8():
 def test_logical_model_summary_9():
     model = Model()
     add_1, add_2 = Add(), Add()
+    add_1.set_types(left=MyTensor, right=MyTensor)
+    add_2.set_types(left=MyTensor, right=MyTensor)
     model += add_1(left="left")
-    model += add_2(output=Connect(add_1.left, add_1.right), left="left_1")
+    model += add_2(output=IOKey(connections=[add_1.left, add_1.right]), left="left_1")
     with redirect_stdout(StringIO()) as summary:
         model.summary(shapes=True, symbolic=True)
 
@@ -1503,6 +1519,8 @@ def test_logical_model_summary_9():
 def test_logical_model_summary_10():
     model = Model()
     add_1, add_2 = Add(), Add()
+    add_1.set_types(left=MyTensor, right=MyTensor)
+    add_2.set_types(left=MyTensor, right=MyTensor)
     model += add_1(left="left", right="right", output=IOKey(name="output"))
     model += add_2(left=add_1.left, output=IOKey(name="output1"))
 
@@ -1537,13 +1555,13 @@ def test_logical_model_summary_11():
     )
     model_n += model_2(
         input1="",
-        output1=Connect(model_3.input1, model_3.input2, model_3.input3),  # type: ignore
+        output1=IOKey(connections=[model_3.input1, model_3.input2, model_3.input3]),  # type: ignore
         output2=IOKey(name="output4"),
         output3=IOKey(name="output5"),
     )
     model_n += model_1(
         input1="",
-        output1=Connect(model_2.input1, model_2.input2, model_2.input3),  # type: ignore
+        output1=IOKey(connections=[model_2.input1, model_2.input2, model_2.input3]),  # type: ignore
     )
 
     with redirect_stdout(StringIO()) as summary:
@@ -1583,7 +1601,7 @@ def test_logical_model_summary_12():
         input1=model_1.output1,  # type: ignore
         input2=model_1.output2,  # type: ignore
         input3=model_1.output3,  # type: ignore
-        output1=Connect(model_3.input1, model_3.input2, model_3.input3),  # type: ignore
+        output1=IOKey(connections=[model_3.input1, model_3.input2, model_3.input3]),  # type: ignore
         output2=IOKey(name="output4"),
         output3=IOKey(name="output5"),
     )
@@ -1679,7 +1697,7 @@ def generate_comp_model():
     l_relu = LeakyRelu()
     test_model = Model()
     test_model += matmul(left="left", right="right")
-    test_model += add(left="in1", right=matmul.output)
+    test_model += add(left=IOKey("in1", type=MyTensor), right=matmul.output)
     test_model += sig(input=add.output)
     test_model += l_relu(input=sig.output, output="output")
     comp_model = mithril.compile(model=test_model, backend=JaxBackend())
@@ -1808,6 +1826,8 @@ def test_traincontext_summary_2():
     model = Model()
     add_1 = Add()
     add_2 = Add()
+    add_1.set_types(left=MyTensor, right=MyTensor)
+    add_2.set_types(left=MyTensor, right=MyTensor)
     matmul_1 = MatrixMultiply()
     model += add_1(left="input1", right="input2", output=IOKey(name="output1"))
     model += add_2(left="input3", right="input4", output=IOKey(name="output2"))
@@ -1825,7 +1845,9 @@ def test_traincontext_summary_2():
         target="target2",
         reduce_steps=[Sum()],
     )
-    ctx.add_loss(Add(), left=model.output3, right="right", reduce_steps=[Min()])  # type: ignore
+    loss_add = Add()
+    loss_add.set_types(left=MyTensor, right=MyTensor)
+    ctx.add_loss(loss_add, left=model.output3, right="right", reduce_steps=[Min()])  # type: ignore
     with redirect_stdout(StringIO()) as summary:
         ctx.summary(symbolic=True)
     ref_table = ""
@@ -1839,6 +1861,8 @@ def test_traincontext_summary_3():
     model = Model()
     add_1 = Add()
     add_2 = Add()
+    add_1.set_types(left=MyTensor, right=MyTensor)
+    add_2.set_types(left=MyTensor, right=MyTensor)
     matmul_1 = MatrixMultiply()
     model += add_1(left="in1", right="in2", output=IOKey(name="output1"))
     model += add_2(left="", output=IOKey(name="output2"))
@@ -1856,7 +1880,9 @@ def test_traincontext_summary_3():
         target="target2",
         reduce_steps=[Sum()],
     )
-    ctx.add_loss(Add(), left=model.output3, right="target3", reduce_steps=[Min()])  # type: ignore
+    loss_add = Add()
+    loss_add.set_types(left=MyTensor, right=MyTensor)
+    ctx.add_loss(loss_add, left=model.output3, right="target3", reduce_steps=[Min()])  # type: ignore
     ctx.add_regularization(L1(), input=add_1.left, coef=0.1)
 
     with redirect_stdout(StringIO()) as summary:
@@ -1873,6 +1899,8 @@ def test_traincontext_summary_4():
     model = Model()
     add_1 = Add()
     add_2 = Add()
+    add_1.set_types(left=MyTensor, right=MyTensor)
+    add_2.set_types(left=MyTensor, right=MyTensor)
     matmul_1 = MatrixMultiply()
     model += add_1(left="in1", right="in2", output=IOKey(name="output1"))
     model += add_2(left="", output=IOKey(name="output2"))
@@ -1890,7 +1918,9 @@ def test_traincontext_summary_4():
         target="target2",
         reduce_steps=[Sum(axis=1), Max(axis=2), Mean(axis=-1)],
     )
-    ctx.add_loss(Add(), left=model.output3, right="right")  # type: ignore
+    loss_add = Add()
+    loss_add.set_types(left=MyTensor, right=MyTensor)
+    ctx.add_loss(loss_add, left=model.output3, right="right")  # type: ignore
     ctx.add_regularization(L1(), input=add_1.left, coef=0.1)
     ctx.add_regularization(L1(), input=add_1.right, coef=0.1)
 
@@ -1908,6 +1938,8 @@ def test_traincontext_summary_5():
     model = Model()
     add_1 = Add()
     add_2 = Add()
+    add_1.set_types(left=MyTensor, right=MyTensor)
+    add_2.set_types(left=MyTensor, right=MyTensor)
     matmul_1 = MatrixMultiply()
     model += add_1(left="in1", right="in2", output=IOKey(name="output1"))
     model += add_2(output=IOKey(name="output2"))
@@ -1981,7 +2013,11 @@ def test_traincontext_summary_7():
     reg_model += Relu()(input="foo", output=IOKey(name="output"))
 
     loss_model = Model()
-    loss_model += Add()(left="l1", right="r1", output=IOKey(name="out"))
+    loss_model += Add()(
+        left=IOKey("l1", type=MyTensor),
+        right=IOKey("r1", type=MyTensor),
+        output=IOKey(name="out"),
+    )
     ctx.add_loss(loss_model, l1="output", r1="target", reduce_steps=[Mean()])
     ctx.add_regularization(reg_model, foo=re.compile("weight\\d"), coef=0.1)
     ctx.add_regularization(L1(), input=re.compile("weight\\d"), coef=0.1)

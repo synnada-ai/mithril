@@ -32,11 +32,17 @@ from ..common import (
 from ..constraints import (
     bcast,
     bcast_matrix_mult,
+    bcast_power,
+    buffer_constraint,
+    divide_type_constraint,
+    edge_type_constraint,
     floor_divide_type_constraint,
     general_tensor_type_constraint,
     item_constraints,
+    power_threshold_shape_constraint,
     reduce_constraints,
     reduce_type_constraint,
+    relational_operator_type_constraint,
     reshape_constraints,
     reverse_constraints,
     scalar_item_constraints,
@@ -44,6 +50,7 @@ from ..constraints import (
     scalar_slice_type_constraint,
     shape_constraints,
     size_constraints,
+    slice_constraints,
     split_constraints,
     tensor_item_constraints,
     tensor_slice_constraints,
@@ -73,6 +80,7 @@ __all__ = [
     "Reshape",
     "Length",
     "Size",
+    "Exponential",
     "PrimitiveSlice",
     "Item",
     "ScalarItem",
@@ -106,6 +114,7 @@ __all__ = [
     "Transpose",
     "Sqrt",
     "Split",
+    "Slice",
 ]
 ConstantType = float | int | Constant
 
@@ -120,13 +129,13 @@ class Buffer(PrimitiveModel):
         super().__init__(
             formula_key="buffer",
             name=name,
-            output=IOKey(shape=[("Var", ...)], type=MyTensor),
-            input=IOKey(shape=[("Var", ...)], type=MyTensor),
+            output=IOKey(),
+            input=IOKey(),
         )
         self.factory_inputs = {"input": input}
 
         self._set_constraint(
-            fn=general_tensor_type_constraint, keys=[PrimitiveModel.output_key, "input"]
+            fn=buffer_constraint, keys=[PrimitiveModel.output_key, "input"]
         )
 
     def __call__(  # type: ignore[override]
@@ -170,17 +179,15 @@ class ArithmeticOperation(PrimitiveModel):
         super().__init__(
             formula_key=formula_key,
             name=name,
-            output=IOKey(shape=[("Var_out", ...)], type=MyTensor),
-            left=IOKey(shape=[("Var_1", ...)], type=MyTensor),
-            right=IOKey(shape=[("Var_2", ...)], type=MyTensor),
+            output=IOKey(),
+            left=IOKey(),
+            right=IOKey(),
         )
 
         self._set_constraint(
-            fn=bcast, keys=[PrimitiveModel.output_key, "left", "right"]
-        )
-        self._set_constraint(
-            fn=general_tensor_type_constraint,
+            fn=edge_type_constraint,
             keys=[PrimitiveModel.output_key, "left", "right"],
+            post_processes={general_tensor_type_constraint, bcast},
         )
 
     def __call__(  # type: ignore[override]
@@ -213,27 +220,30 @@ class Power(PrimitiveModel):
             super().__init__(
                 formula_key="robust_power",
                 name=name,
-                output=IOKey(shape=[("Var_out", ...)], type=MyTensor),
-                base=IOKey(shape=[("Var_1", ...)], type=MyTensor),
-                exponent=IOKey(shape=[("Var_2", ...)], type=MyTensor),
-                threshold=IOKey(shape=[], type=MyTensor),
+                output=IOKey(),
+                base=IOKey(),
+                exponent=IOKey(),
+                threshold=IOKey(),
             )
-            self.threshold.set_differentiable(False)  # type: ignore
+            # self.threshold.set_differentiable(False)  # type: ignore
+            self._set_constraint(
+                fn=edge_type_constraint,
+                keys=[PrimitiveModel.output_key, "base", "exponent", "threshold"],
+                post_processes={general_tensor_type_constraint, bcast_power},
+            )
+            self.set_constraint(fn=power_threshold_shape_constraint, keys=["threshold"])
         else:
             super().__init__(
                 formula_key="power",
-                output=IOKey(shape=[("Var_out", ...)], type=MyTensor),
-                base=IOKey(shape=[("Var_1", ...)], type=MyTensor),
-                exponent=IOKey(shape=[("Var_2", ...)], type=MyTensor),
+                output=IOKey(),
+                base=IOKey(),
+                exponent=IOKey(),
             )
-
-        self._set_constraint(
-            fn=bcast, keys=[PrimitiveModel.output_key, "base", "exponent"]
-        )
-        self._set_constraint(
-            fn=general_tensor_type_constraint,
-            keys=[PrimitiveModel.output_key, "base", "exponent"],
-        )
+            self._set_constraint(
+                fn=edge_type_constraint,
+                keys=[PrimitiveModel.output_key, "base", "exponent"],
+                post_processes={general_tensor_type_constraint, bcast_power},
+            )
 
     def __call__(  # type: ignore[override]
         self,
@@ -304,13 +314,15 @@ class Divide(PrimitiveModel):
         super().__init__(
             formula_key="divide",
             name=name,
-            output=IOKey(shape=[("Var_out", ...)], type=MyTensor[float]),
-            numerator=IOKey(shape=[("Var_1", ...)], type=MyTensor),
-            denominator=IOKey(shape=[("Var_2", ...)], type=MyTensor),
+            output=IOKey(),
+            numerator=IOKey(),
+            denominator=IOKey(),
         )
         self.factory_inputs = {"numerator": numerator, "denominator": denominator}
         self._set_constraint(
-            fn=bcast, keys=[PrimitiveModel.output_key, "numerator", "denominator"]
+            fn=edge_type_constraint,
+            keys=[PrimitiveModel.output_key, "numerator", "denominator"],
+            post_processes={divide_type_constraint, bcast},
         )
         # TODO: Needs any type constraint??
 
@@ -411,7 +423,7 @@ class Shape(PrimitiveModel):
         super().__init__(
             formula_key="shape",
             name=name,
-            output=IOKey(shape=[], type=tuple[int, ...]),
+            output=IOKey(type=tuple[int, ...]),
             input=IOKey(shape=[("input", ...)], type=MyTensor),
         )
         self.factory_inputs = {"input": input}
@@ -1106,6 +1118,19 @@ class Minus(SingleInputOperation):
         self.factory_inputs = {"input": input}
 
 
+class Exponential(SingleInputOperation):
+    def __init__(
+        self, name: str | None = None, input: TensorValueType | ToBeDetermined = TBD
+    ) -> None:
+        super().__init__(
+            formula_key="exp",
+            name=name,
+            polymorphic_constraint=False,
+            output=IOKey(shape=[("Var", ...)], type=MyTensor[float]),
+        )
+        self.factory_inputs = {"input": input}
+
+
 class Sqrt(PrimitiveModel):
     input: Connection
     output: Connection
@@ -1167,12 +1192,16 @@ class RelationalOperators(PrimitiveModel):
         super().__init__(
             formula_key=formula_key,
             name=name,
-            output=IOKey(shape=[("Var1", ...)], type=MyTensor[bool]),
-            left=IOKey(shape=[("Var2", ...)], type=MyTensor),
-            right=IOKey(shape=[("Var3", ...)], type=MyTensor),
+            output=IOKey(),
+            left=IOKey(),
+            right=IOKey(),
         )
 
-        self._set_constraint(bcast, ["output", "left", "right"])
+        self._set_constraint(
+            edge_type_constraint,
+            ["output", "left", "right"],
+            post_processes={relational_operator_type_constraint, bcast},
+        )
 
     def __call__(  # type: ignore[override]
         self,
@@ -1499,3 +1528,40 @@ class Split(PrimitiveModel):
         return super().__call__(
             input=input, split_size=split_size, axis=axis, output=output
         )
+
+
+class Slice(PrimitiveModel):
+    start: Connection
+    stop: Connection
+    step: Connection
+    output: Connection
+
+    def __init__(
+        self,
+        start: int | None | ToBeDetermined = 0,
+        stop: int | None | ToBeDetermined = None,
+        step: int | None | ToBeDetermined = None,
+        name: str | None = None,
+    ):
+        super().__init__(
+            formula_key="primitive_slice",
+            name=name,
+            output=IOKey(type=slice),
+            start=IOKey(type=int | None, value=start),
+            stop=IOKey(type=int | None, value=stop),
+            step=IOKey(type=int | None, value=step),
+        )
+        self.factory_inputs = {"start": start, "stop": stop, "step": step}
+
+        self._set_constraint(
+            fn=slice_constraints, keys=["output", "start", "stop", "step"]
+        )
+
+    def __call__(  # type: ignore[override]
+        self,
+        start: ConnectionType = NOT_GIVEN,
+        stop: ConnectionType = NOT_GIVEN,
+        step: ConnectionType = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
+    ) -> ExtendInfo:
+        return super().__call__(start=start, stop=stop, step=step, output=output)

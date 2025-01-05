@@ -39,7 +39,6 @@ from mithril.models import (
     Add,
     Buffer,
     Concat,
-    Connect,
     ExtendInfo,
     FloorDivide,
     LeakyRelu,
@@ -159,10 +158,12 @@ def test_scalar_to_tensor_3():
     tensor_1 = ToTensor()
     tensor_2 = ToTensor()
     model += tensor_1(input=[[[1]]])
-    model += add_1(left=tensor_1.output, right="right")
+    model += add_1(left=tensor_1.output, right=IOKey("right", type=MyTensor))
     model += shp_1(input=add_1.output)
     model += tensor_2(input=shp_1.output)
-    model += Add()(left="left", right=tensor_2.output, output="output")
+    model += Add()(
+        left=IOKey("left", type=MyTensor), right=tensor_2.output, output="output"
+    )
 
     model_1 = model
 
@@ -170,9 +171,13 @@ def test_scalar_to_tensor_3():
     model = Model()
     add_2 = Add()
     shp_2 = Shape()
-    model += add_2(left=IOKey(value=[[[1]]]).tensor(), right="right")
+    model += add_2(
+        left=IOKey(value=[[[1]]]).tensor(), right=IOKey("right", type=MyTensor)
+    )
     model += shp_2(input=add_2.output)
-    model += Add()(left="left", right=shp_2.output.tensor(), output="output")
+    model += Add()(
+        left=IOKey("left", type=MyTensor), right=shp_2.output.tensor(), output="output"
+    )
     model_2 = model
 
     # Provide backend and data.
@@ -579,7 +584,7 @@ def test_type_propagation_2():
     model = Model()
     model += Add()(
         left=IOKey(value=MyTensor(1), name="left"),
-        right="right",
+        right=IOKey("right", type=MyTensor),
         output=IOKey(name="output"),
     )
     assert model.left.metadata.value_type is int  # type: ignore
@@ -592,7 +597,7 @@ def test_type_propagation_3():
     model = Model()
     model += Add()(
         left=IOKey(value=MyTensor(1.0), name="left"),
-        right="right",
+        right=IOKey("right", type=MyTensor),
         output=IOKey(name="output"),
     )
     assert model.left.metadata.value_type is float  # type: ignore
@@ -606,7 +611,7 @@ def test_type_propagation_4():
     add = Add()
     model += add(
         left=IOKey(value=MyTensor([True]), name="left"),
-        right="right",
+        right=IOKey("right", type=MyTensor),
         output=IOKey(name="output"),
     )
     assert add.left.metadata.value_type is bool
@@ -703,7 +708,8 @@ def test_type_propagation_8():
     model = Model()
     add = Add()
     model += add(
-        left=IOKey(value=MyTensor([1]), name="left"), right=IOKey(name="right")
+        left=IOKey(value=MyTensor([1]), name="left"),
+        right=IOKey(name="right", type=MyTensor),
     )
     primitive = ArtificialPrimitive(type=MyTensor[int | bool])
     model += primitive(input=add.output, output=IOKey(name="output"))
@@ -719,7 +725,10 @@ def test_type_propagation_9():
     model = Model(enforce_jit=False)
     add = Add()
     tensor_to_list = ArtificialPrimitive(type=MyTensor[float])
-    model += add(left=IOKey(value=MyTensor([1]), name="left"), right="right")
+    model += add(
+        left=IOKey(value=MyTensor([1]), name="left"),
+        right=IOKey("right", type=MyTensor),
+    )
     model += tensor_to_list(input=add.output, output=IOKey(name="output"))
 
     assert add.left.metadata.value_type is int
@@ -731,6 +740,7 @@ def test_type_propagation_10():
     """Tests type propagation."""
     model = Model(enforce_jit=False)
     add = Add()
+    add.set_types(left=MyTensor, right=MyTensor)
     tensor_to_list = ArtificialPrimitive(type=MyTensor[int | bool])
     model += add(left="right", right="right")
     model += tensor_to_list(input=add.output, output=IOKey(name="output"))
@@ -745,7 +755,10 @@ def test_type_propagation_floor_divide_1():
     model = Model()
     add = Add()
     floor_divide = FloorDivide()
-    model += add(left=IOKey(value=MyTensor([1]), name="left"), right="right")
+    model += add(
+        left=IOKey(value=MyTensor([1]), name="left"),
+        right=IOKey("right", type=MyTensor),
+    )
     model += floor_divide(
         numerator=add.left, denominator=add.output, output=IOKey(name="output")
     )
@@ -761,7 +774,10 @@ def test_type_propagation_floor_divide_2():
     add = Add()
     floor_div = FloorDivide()
     ap = ArtificialPrimitive(type=MyTensor[int])
-    model += add(left=IOKey(value=MyTensor([1]), name="left"), right="right")
+    model += add(
+        left=IOKey(value=MyTensor([1]), name="left"),
+        right=IOKey("right", type=MyTensor),
+    )
     model += floor_div(numerator=add.left, denominator=add.output)
     model += ap(input=floor_div.output, output=IOKey(name="output"))
 
@@ -778,7 +794,10 @@ def test_type_propagation_floor_divide_3():
     add = Add()
     floor_div = FloorDivide()
     ap = ArtificialPrimitive(type=MyTensor[int | float])
-    model += add(left=IOKey(value=MyTensor([1]), name="left"), right="right")
+    model += add(
+        left=IOKey(value=MyTensor([1]), name="left"),
+        right=IOKey("right", type=MyTensor),
+    )
     model += floor_div(numerator=add.left, denominator=add.output)
     model += ap(input=floor_div.output, output=IOKey(name="output"))
 
@@ -795,7 +814,10 @@ def test_type_propagation_floor_divide_4():
         model = Model()
         add = Add()
         floor_div = FloorDivide()
-        model += add(left=IOKey(value=MyTensor([1]), name="left"), right="right")
+        model += add(
+            left=IOKey(value=MyTensor([1]), name="left"),
+            right=IOKey("right", type=MyTensor),
+        )
         model += floor_div(numerator=add.left, denominator=add.output)
 
         with pytest.raises(TypeError) as error_info:
@@ -843,8 +865,11 @@ def test_connect_type_conv_handling_1():
     model = Model()
     model.extend((a1 := Buffer()), input="input1")
     model.extend((a2 := Buffer()), input="input2")
-    con_object = Connect(
-        a1.input, a2.input, key=IOKey(value=MyTensor([[2.0]]), name="abcd")
+    con_object = IOKey(
+        name="abcd",
+        connections=[a1.input, a2.input],
+        value=MyTensor([[2.0]]),
+        expose=True,
     )
     model.extend(
         mat_mul := MatrixMultiply(), left=con_object, output=IOKey(name="output")
@@ -856,8 +881,11 @@ def test_connect_type_conv_handling_1():
     model = Model()
     model.extend((a1 := Buffer()), input="input1")
     model.extend((a2 := Buffer()), input="input2")
-    con_object = Connect(
-        "input1", "input2", key=IOKey(value=MyTensor([[2.0]]), name="abcd")
+    con_object = IOKey(
+        connections=["input1", "input2"],
+        value=MyTensor([[2.0]]),
+        name="abcd",
+        expose=True,
     )
     model.extend(
         (mat_mul := MatrixMultiply()), left=con_object, output=IOKey(name="output")
@@ -869,8 +897,11 @@ def test_connect_type_conv_handling_1():
     model = Model()
     model.extend((a1 := Buffer()), input="input1")
     model.extend((a2 := Buffer()), input="input2")
-    con_object = Connect(
-        "input1", a2.input, key=IOKey(value=MyTensor([[2.0]]), name="abcd")
+    con_object = IOKey(
+        connections=["input1", a2.input],
+        value=MyTensor([[2.0]]),
+        name="abcd",
+        expose=True,
     )
     model.extend(
         (mat_mul := MatrixMultiply()), left=con_object, output=IOKey(name="output")
@@ -901,12 +932,8 @@ def test_connect_1():
     model += concat_model(
         input1="input1", input2="input2", input3="input3", output=IOKey(name="output")
     )
-    conn = Connect(
-        concat_model.input1,  # type: ignore
-        concat_model.input2,  # type: ignore
-        concat_model.input3,  # type: ignore
-        key=IOKey(name="abcd"),
-    )
+    conn_list = [concat_model.input1, concat_model.input2, concat_model.input3]  # type: ignore
+    conn = IOKey(connections=conn_list, name="abcd", expose=True)
     model += Sigmoid()(input=conn, output=IOKey(name="output1"))
 
     assert (
@@ -927,12 +954,9 @@ def test_connect_2():
     model += concat_model(
         input1="input1", input2="input2", input3="input3", output=IOKey(name="output")
     )
-    conn = Connect(
-        concat_model.input1,  # type: ignore
-        concat_model.input2,  # type: ignore
-        concat_model.input3,  # type: ignore
-        key=IOKey(name="abcd"),
-    )
+    conn_list = [concat_model.input1, concat_model.input2, concat_model.input3]  # type: ignore
+    conn = IOKey(connections=conn_list, name="abcd", expose=True)
+
     model += ToTensor()(conn)
 
     assert (
@@ -952,12 +976,9 @@ def test_connect_3():
     model += concat_model(
         input1="input1", input2="input2", input3="input3", output=IOKey(name="output")
     )
-    conn = Connect(
-        concat_model.input1,  # type: ignore
-        concat_model.input2,  # type: ignore
-        concat_model.input3,  # type: ignore
-        key=IOKey(name="abcd", value=3.0),
-    )
+    conn_list = [concat_model.input1, concat_model.input2, concat_model.input3]  # type: ignore
+    conn = IOKey(connections=conn_list, name="abcd", expose=True, value=3.0)
+
     model += (to_tensor := ToTensor())(conn)
 
     assert (
@@ -988,13 +1009,16 @@ def test_connect_4():
         input1="input1", input2="input2", input3="input3", output=IOKey(name="output")
     )
     model += union_model(input1="")
-    conn = Connect(
+    conn_list = [
         concat_model.input1,  # type: ignore
         concat_model.input2,  # type: ignore
         concat_model.input3,  # type: ignore
         union_model.input1.tensor(),  # type: ignore
-        key=IOKey(name="abcd", value=MyTensor((3, 2))),
+    ]
+    conn = IOKey(
+        connections=conn_list, name="abcd", expose=True, value=MyTensor((3, 2))
     )
+
     model += Buffer()(input=conn, output=IOKey(name="output1"))
     pm = compile(model=model, backend=backend, jit=False, inference=True)
 
@@ -1017,12 +1041,9 @@ def test_connect_6():
     model = Model()
     concat_model = Concat(n=3)
     model += concat_model(input1=MyTensor([[3.0]]), output=IOKey(name="output"))
-    conn = Connect(
-        concat_model.input1,  # type: ignore
-        concat_model.input2,  # type: ignore
-        concat_model.input3,  # type: ignore
-        key=IOKey(name="abcd"),
-    )
+    conn_list = [concat_model.input1, concat_model.input2, concat_model.input3]  # type: ignore
+    conn = IOKey(connections=conn_list, name="abcd", expose=True)
+
     model += Buffer()(input=conn, output=IOKey(name="output1"))
 
     pm = compile(model=model, backend=backend, jit=False)
@@ -1047,12 +1068,15 @@ def test_connect_7():
     model = Model()
     add_model_1 = Add()
     add_model_2 = Add()
+    add_model_1.set_types(left=MyTensor, right=MyTensor)
+    add_model_2.set_types(left=MyTensor, right=MyTensor)
     model += add_model_1(left="left", right="right", output=IOKey(name="output2"))
     model += add_model_2(left="left1", right="right1")
-    conn = Connect(
-        add_model_2.output,
-        model.right,  # type: ignore
-        key=IOKey(name="abcd", expose=False),
+
+    conn = IOKey(
+        connections=[add_model_2.output, model.right],  # type: ignore
+        name="abcd",
+        expose=False,
     )
     model += Buffer()(input=conn, output=IOKey(name="output"))
 
@@ -1098,9 +1122,12 @@ def test_connect_7_expose_output():
     model = Model()
     add_model_1 = Add()
     add_model_2 = Add()
+    add_model_1.set_types(left=MyTensor, right=MyTensor)
+    add_model_2.set_types(left=MyTensor, right=MyTensor)
     model += add_model_1(left="left", right="right", output=IOKey(name="output2"))
     model += add_model_2(left="left1", right="right1")
-    conn = Connect(add_model_2.output, model.right, key=IOKey(name="abcd"))  # type: ignore
+    conn_list = [add_model_2.output, model.right]  # type: ignore
+    conn = IOKey(name="abcd", expose=True, connections=conn_list)  # type: ignore
     model += (buf := Buffer())(input=conn, output=IOKey(name="output"))
 
     assert (
@@ -1151,15 +1178,18 @@ def test_connect_8():
     model = Model()
     add_model_1 = Add()
     add_model_2 = Add()
+    add_model_1.set_types(left=MyTensor, right=MyTensor)
+    add_model_2.set_types(left=MyTensor, right=MyTensor)
     model += add_model_1(left="left", right="right")
     model += add_model_2(
         left=add_model_1.output, right="right1", output=IOKey(name="output1")
     )
-    conn = Connect(
-        add_model_1.output,
-        model.right1,  # type: ignore
-        key=IOKey(name="abcd", expose=False),
+    conn = IOKey(
+        connections=[add_model_1.output, model.right1],  # type: ignore
+        name="abcd",
+        expose=False,
     )
+
     model += Buffer()(input=conn, output=IOKey(name="output"))
 
     pm = compile(model=model, backend=backend, jit=False)
@@ -1194,7 +1224,8 @@ def test_connect_9():
     model += concat_model(
         input1=MyTensor([[3.0]]), input2=MyTensor([[2.0]]), input3="input3"
     )
-    conn = Connect(concat_model.input1, concat_model.input2, concat_model.input3)  # type: ignore
+    con_list = [concat_model.input1, concat_model.input2, concat_model.input3]  # type: ignore
+    conn = IOKey(connections=con_list)
     with pytest.raises(ValueError) as err_info:
         model += Buffer()(input=conn, output=IOKey(name="output"))
 
@@ -1210,12 +1241,9 @@ def test_connect_10():
     model = Model()
     concat_model = Concat(n=3)
     model += concat_model(input1=MyTensor([[3.0]]), input3="input3")
-    conn = Connect(
-        concat_model.input1,  # type: ignore
-        concat_model.input2,  # type: ignore
-        concat_model.input3,  # type: ignore
-        key=IOKey(value=MyTensor(2.0)),
-    )
+    conn_list = [concat_model.input1, concat_model.input2, concat_model.input3]  # type: ignore
+    conn = IOKey(connections=conn_list, value=MyTensor(2.0), expose=True)
+
     with pytest.raises(ValueError) as err_info:
         model += Buffer()(input=conn, output=IOKey(name="output"))
 
@@ -1239,13 +1267,14 @@ def test_connect_11():
     union_model = PrimitiveUnion(n=2)
     model += concat_model(input1="", output=IOKey(name="output1"))
     model += union_model(input1="", output=IOKey(name="output2"))
-    conn = Connect(
+    conn_list = [
         concat_model.input1,  # type: ignore
         concat_model.input2,  # type: ignore
         union_model.input1,  # type: ignore
         union_model.input2,  # type: ignore
-        key=IOKey(value=(2.0,)),
-    )
+    ]
+    conn = IOKey(connections=conn_list, value=(2.0,), expose=True)
+
     model += Buffer()(input=conn, output=IOKey(name="output3"))
     pm = compile(model=model, backend=backend, jit=False)
     output = pm()
@@ -1274,12 +1303,14 @@ def test_connect_12():
     union_model = PrimitiveUnion(n=2)
     model += concat_model(input1="", output=IOKey(name="output1"))
     model += union_model(input1="", output=IOKey(name="output2"))
-    conn = Connect(
-        concat_model.input1,  # type: ignore
-        concat_model.input2,  # type: ignore
-        union_model.input1,  # type: ignore
-        union_model.input2,  # type: ignore
-        key=IOKey(value=(2.0,)),
+    conn = IOKey(
+        connections=[
+            concat_model.input1,  # type: ignore
+            concat_model.input2,  # type: ignore
+            union_model.input1,  # type: ignore
+            union_model.input2,  # type: ignore
+        ],
+        value=(2.0,),
     )
     model += Buffer()(input=conn, output=IOKey(name="output3"))
 
@@ -1301,7 +1332,7 @@ def test_tensor_to_scalar_4():
     # Auto conversion
     auto_model += Relu()(input="input")
     auto_model += (shp := Shape())
-    auto_model += Add()(left=shp.output.tensor())
+    auto_model += Add()(left=shp.output.tensor(), right=IOKey(type=MyTensor))
 
     # Manuel conversion
     manual_model = Model()
@@ -1309,7 +1340,7 @@ def test_tensor_to_scalar_4():
     manual_model += Relu()(input="input")
     manual_model += Shape()
     manual_model += ToTensor()
-    manual_model += Add()
+    manual_model += Add()(right=IOKey(type=MyTensor))
 
     backend = TorchBackend(precision=32)
 
@@ -1331,7 +1362,7 @@ def test_tensor_to_scalar_connect_1():
     axis2 = mean_model_2.axis
     axis3 = mean_model_3.axis
 
-    con = Connect(axis1, axis2, axis3, key=IOKey(name="axis4", value=(2, 3)))
+    con = IOKey(connections=[axis1, axis2, axis3], name="axis4", value=(2, 3))
     model += Mean(axis=TBD)(axis=con)
 
     assert axis1.data.metadata == axis2.data.metadata == axis3.data.metadata
@@ -1352,7 +1383,7 @@ def test_tensor_to_scalar_connect_3_error_existing_key():
     model += mean_model_2(axis="axis2")
     model += mean_model_3(axis="axis3")
 
-    con = Connect(axis1, axis2, axis3, key=IOKey(name="axis2", value=(2, 3)))
+    con = IOKey(connections=[axis1, axis2, axis3], name="axis2", value=(2, 3))
 
     model += Mean(axis=TBD)(axis=con)
 
@@ -1458,7 +1489,9 @@ def test_coercion_3():
     model = Model(enforce_jit=False)
     reduce_model = Sum(axis=TBD)
     add_model = Add()
-    model += add_model(left="left", right=IOKey(value=[0, 1]).tensor())
+    model += add_model(
+        left=IOKey("left", type=MyTensor), right=IOKey(value=[0, 1]).tensor()
+    )
     model += (to_list := TensorToList())(input=add_model.output)
     model += reduce_model(input="input", axis=to_list.output, output="output")
 
@@ -1478,7 +1511,9 @@ def test_coercion_4():
     model = Model(enforce_jit=False)
     reduce_model = Sum(axis=TBD)
     add_model = Add()
-    model += add_model(left="left", right=IOKey(value=[0, 1]).tensor())
+    model += add_model(
+        left=IOKey("left", type=MyTensor), right=IOKey(value=[0, 1]).tensor()
+    )
     model += (to_list := TensorToList())(input=add_model.output)
     model += reduce_model(input="input", axis=to_list.output, output="output")
 
@@ -1498,7 +1533,7 @@ def test_coercion_5():
     model = Model(enforce_jit=False)
     add = Add()
     to_list = TensorToList()
-    model += add(left="left", right=MyTensor([2.0]))
+    model += add(left=IOKey("left", type=MyTensor), right=MyTensor([2.0]))
     model += to_list(input=add.output)
     model += Buffer()(input=to_list.output.tensor(), output="output")
 
@@ -1547,6 +1582,9 @@ def test_tensor_to_scalar_template_2():
     buff_model_1 = Buffer()
     buff_model_2 = Buffer()
     buff_model_3 = Buffer()
+    buff_model_1.set_types(input=MyTensor)
+    buff_model_2.set_types(input=MyTensor)
+    buff_model_3.set_types(input=MyTensor)
     model += buff_model_1(input="input1")
     model += buff_model_2(input="input2")
     model += buff_model_3(input="input3")

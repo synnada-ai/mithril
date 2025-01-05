@@ -26,7 +26,6 @@ from ..common import (
     NOT_AVAILABLE,
     NOT_GIVEN,
     TBD,
-    Connect,
     Connection,
     ConnectionData,
     Connections,
@@ -96,7 +95,7 @@ class BaseModel(abc.ABC):
                     continue
                 match con:
                     case Connection():
-                        kwargs[key] = Connect(con, key=IOKey(value=val, expose=False))
+                        kwargs[key] = IOKey(value=val, connections=[con])
                         # TODO: Maybe we could check con's value if matches with val
                     case item if isinstance(item, MainValueInstance) and con != val:
                         raise ValueError(
@@ -111,27 +110,18 @@ class BaseModel(abc.ABC):
                                 f"Given IOKey for local key: '{key}' is not valid!"
                             )
                         else:
+                            _conns: list[Connection | str] = [
+                                item.conn if isinstance(item, ConnectionData) else item
+                                for item in con._connections
+                            ]
                             kwargs[key] = IOKey(
                                 name=con._name,
                                 value=val,
                                 shape=con._shape,
                                 type=con._type,
                                 expose=con._expose,
+                                connections=_conns,
                             )
-                    case Connect():
-                        if (io_key := con.key) is not None:
-                            if io_key._value is not TBD and not values_equal(
-                                io_key._value, val
-                            ):
-                                raise ValueError(
-                                    "Given IOKey in Connect for "
-                                    f"local key: '{key}' is not valid!"
-                                )
-                            else:
-                                io_key._value = val
-                        else:
-                            io_key = IOKey(value=val, expose=False)
-                            kwargs[key] = Connect(*con.connections, key=io_key)
                     case ExtendTemplate():
                         raise ValueError(
                             "Multi-write detected for a valued "
@@ -148,6 +138,9 @@ class BaseModel(abc.ABC):
         ] = {}
         self.assigned_shapes: list[ShapesType] = []
         self.assigned_constraints: list[dict[str, str | list[str]]] = []
+        self.assigned_types: dict[
+            str, type | UnionType | NestedListType | MyTensor
+        ] = {}
         self.conns = Connections()
         self.frozen_attributes: list[str] = []
         self.dependency_map = DependencyMap(self.conns)
@@ -310,6 +303,10 @@ class BaseModel(abc.ABC):
         # Apply updates to the shape nodes.
         for key in chain(shapes, kwargs):
             node, _inner_key = shape_nodes[key]
+            if (metadata := self.conns.get_data(_inner_key)).edge_type is TBD:
+                # If edge_type is not defined yet, set it to MyTensor since
+                # shape is provided.
+                updates |= metadata.set_type(MyTensor)
             shape_node = self.conns.get_shape_node(_inner_key)
             assert shape_node is not None
             updates |= shape_node.merge(node)
@@ -374,17 +371,6 @@ class BaseModel(abc.ABC):
         # Make all value updates in the outermost model.s
         model = self._get_outermost_parent()
         updates = Updates()
-        # TODO: Currently Setting values in fozen models are prevented only for Tensors.
-        # Scalar and Tensors should not be operated differently. This should be fixed.
-        for key in chain(config, kwargs):
-            metadata = self.conns.extract_metadata(key)
-            if metadata.edge_type is MyTensor and model.is_frozen:
-                conn_data = model.conns.get_con_by_metadata(metadata)
-                assert conn_data is not None
-                raise ValueError(
-                    f"Model is frozen, can not set the key: {conn_data.key}!"
-                )
-
         for key, value in chain(config.items(), kwargs.items()):
             # Perform metadata extraction process on self.
             metadata = self.conns.extract_metadata(key)
@@ -398,11 +384,11 @@ class BaseModel(abc.ABC):
 
     def set_types(
         self,
-        config: Mapping[str | Connection, type | UnionType | NestedListType]
-        | Mapping[Connection, type | UnionType | NestedListType]
-        | Mapping[str, type | UnionType | NestedListType]
+        config: Mapping[str | Connection, type | UnionType | NestedListType | MyTensor]
+        | Mapping[Connection, type | UnionType | NestedListType | MyTensor]
+        | Mapping[str, type | UnionType | NestedListType | MyTensor]
         | None = None,
-        **kwargs: type | UnionType | NestedListType,
+        **kwargs: type | UnionType | NestedListType | MyTensor,
     ):
         """
         Set types of any connection in the Model
@@ -421,13 +407,21 @@ class BaseModel(abc.ABC):
         """
         if config is None:
             config = {}
+        # Initialize assigned shapes dictionary to store assigned shapes.
+        assigned_types: dict[str, type | UnionType | NestedListType | MyTensor] = {}
 
         # Get the outermost parent as all the updates will happen here.
         model = self._get_outermost_parent()
         updates = Updates()
         for key, key_type in chain(config.items(), kwargs.items()):
             metadata = self.conns.extract_metadata(key)
+            conn = self.conns.get_con_by_metadata(metadata)
+            assert conn is not None
+            inner_key = conn.key
+            assigned_types[inner_key] = key_type
             updates |= metadata.set_type(key_type)  # type: ignore
+        # Store assigned types in the model.
+        self.assigned_types |= assigned_types
         # Run the constraints for updating affected connections.
         model.constraint_solver(updates)
 
@@ -473,7 +467,8 @@ class BaseModel(abc.ABC):
             post_processes = set()
         all_post_processes = post_processes | post_process_map.get(fn, set())
         for post_fn in all_post_processes:
-            constr.add_post_process(post_fn)
+            type = UpdateType.TYPE if post_fn in type_constraints else UpdateType.SHAPE
+            constr.add_post_process((post_fn, type))
 
         # _, updates = constr([hyper_edge.data for hyper_edge in hyper_edges])
         _, updates = constr(hyper_edges)
@@ -541,7 +536,11 @@ class BaseModel(abc.ABC):
 
     def _match_hyper_edges(self, left: IOHyperEdge, right: IOHyperEdge) -> Updates:
         # if type(left.data) is not type(right.data):
-        if (left.edge_type is MyTensor) ^ (right.edge_type is MyTensor):
+        l_type = left.edge_type
+        r_type = right.edge_type
+        if ((l_type is MyTensor) ^ (r_type is MyTensor)) and (
+            TBD not in (l_type, r_type)
+        ):
             raise TypeError(
                 "Types of connections are not consistent. Check connection types!"
             )
@@ -670,7 +669,7 @@ class DependencyMap:
                 self._cache_internal_references(conn, specs)
 
             if self.look_for_cyclic_connection(conn, specs):
-                raise Exception(
+                raise KeyError(
                     f"There exists a cyclic subgraph between {conn.key} key and "
                     f"{[spec.key for spec in specs]} key(s)!"
                 )

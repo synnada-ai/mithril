@@ -84,8 +84,9 @@ class PrimitiveModel(BaseModel):
                     edge = IOHyperEdge(value=tensor, interval=value._interval)
                     data_set.add(edge)
                 else:
+                    edge_type = TBD if value._type is None else value._type
                     edge = IOHyperEdge(
-                        type=value._type, value=value._value, interval=value._interval
+                        type=edge_type, value=value._value, interval=value._interval
                     )
 
             conn_data = self.create_connection(edge, key)

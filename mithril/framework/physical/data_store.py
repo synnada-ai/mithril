@@ -179,6 +179,25 @@ class StaticDataStore(Generic[DataType]):
                     else []
                 )
 
+    def _infer_tensor_value_type(
+        self, value: DataType
+    ) -> type[bool] | type[int] | type[float]:
+        val_type: type[bool] | type[int] | type[float]
+        data_dtype = str(value.dtype)
+        # Check value type is OK, and update type accordinly.
+        if "bool" in data_dtype:
+            val_type = bool
+        elif "int" in data_dtype:
+            val_type = int
+        elif "float" in data_dtype:
+            val_type = float
+        else:
+            raise TypeError(
+                f"Given type ({data_dtype}) is not supported. "
+                "Only float, int or bool types are accepted."
+            )
+        return val_type
+
     def set_shapes(
         self,
         shapes: Mapping[str, Sequence[int | None]]
@@ -210,8 +229,8 @@ class StaticDataStore(Generic[DataType]):
 
             # Distribute non-differentiable keys into 3 attributes using
             # type of values. If a key has a definite value, add it into cached_data.
-            # If key ends with "_cache", backend is manual and it does not apper as
-            # and input to the model, then directly add it to th cached_data because
+            # If key ends with "_cache", backend is manual and it does not appear as
+            # an input to the model, then directly add it into the cached_data because
             # these keys are internally created cache keys for the corresponding
             # primitive functions.
             if (
@@ -267,35 +286,18 @@ class StaticDataStore(Generic[DataType]):
             if (data := self._all_data.get(key, None)) is None:
                 raise KeyError(f"'{key}' key not found in model!")
 
-            if data.edge_type is MyTensor:
+            if self.is_scalar_type(value):  # TODO: Is this check really required?
+                updates |= data.set_value(value)
+            else:
                 assert not isinstance(value, MainValueInstance)
+                # Find type of tensor and set.
+                val_type = self._infer_tensor_value_type(value)
+                updates |= data.set_type(MyTensor[val_type])
                 assert data.shape is not None
                 # Find shape of tensor and set.
                 shape = list(value.shape)
                 updates |= data.shape.set_values(shape)
-                # Find type of tensor and set.
-                val_type: type[bool] | type[int] | type[float]
-                data_dtype = str(value.dtype)
-                # Check value type is OK, and update type accordinly.
-                if "bool" in data_dtype:
-                    val_type = bool
-                elif "int" in data_dtype:
-                    val_type = int
-                elif "float" in data_dtype:
-                    val_type = float
-                else:
-                    raise TypeError(
-                        f"Given type ({data_dtype}) is not supported. "
-                        "Only float, int or bool types are accepted."
-                    )
-                updates |= data.set_type(MyTensor[val_type])
-            elif self.is_scalar_type(value):  # TODO: Is this check really required?
-                updates |= data.set_value(value)
-            else:
-                raise ValueError(
-                    f"Given value type: {type(value)} does not match with "
-                    f"the type of data: {type(data)}!"
-                )
+
             self.data_values[key] = value  # type: ignore
             self._intermediate_non_differentiables.pop(key, None)
             if (

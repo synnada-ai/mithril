@@ -34,7 +34,6 @@ from mithril.framework.constraints import bcast
 from mithril.models import (
     TBD,
     Add,
-    Connect,
     CustomPrimitiveModel,
     IOKey,
     Item,
@@ -78,6 +77,7 @@ class MyModel(Model):
         super().__init__()
         mult_model = MatrixMultiply()
         sum_model = Add()
+        sum_model.set_types(left=MyTensor, right=MyTensor)
         self += mult_model(left="input", right="w")  # (10, 1)
         self += sum_model(left=mult_model.output, right="b")  # (10, 1)
         self += (sum_shp := Shape())(input=sum_model.output)  # (10, 1)
@@ -126,7 +126,9 @@ class MyModel2(Model):
         mult_model = MatrixMultiply()
         sum_model = Add()
         self += mult_model(left="input", right="w")  # (10, 1)
-        self += sum_model(left=mult_model.output, right="b")  # (10, 1)
+        self += sum_model(
+            left=mult_model.output, right=IOKey("b", type=MyTensor)
+        )  # (10, 1)
         self += (sum_shp := Shape())(input=sum_model.output)  # (10, 1)
         self += (uni := PrimitiveUnion(n=3))(
             input1=sum_shp.output, input2=1, input3=3
@@ -258,7 +260,7 @@ def test_logical_model_jittable_1():
     model += (add1 := Add())(left="l1", right="l2", output=IOKey(name="out1"))
     model += (add2 := Add())(left="l3", right="l4")
     with pytest.raises(Exception) as error_info:
-        model += Item()(input=Connect(add1.left, add2.left, key=IOKey(name="input")))
+        model += Item()(input=IOKey(name="input", connections=[add1.left, add2.left]))
     modified_msg = re.sub("\\s*", "", str(error_info.value))
     expected_msg = (
         "Model with enforced Jit can not be extended by a non-jittable model! \
@@ -275,7 +277,8 @@ def test_logical_model_jittable_2():
     model += (add1 := Add())(left="l1", right="l2", output=IOKey(name="out1"))
     model += (add2 := Add())(left="l3", right="l4")
     model.enforce_jit = False
-    model += Item()(input=Connect(add1.left, add2.left, key=IOKey(name="input")))
+    input = IOKey(name="input", connections=[add1.left, add2.left], expose=True)
+    model += Item()(input=input)
     assert not model.enforce_jit
 
 
@@ -287,7 +290,8 @@ def test_logical_model_jittable_3():
     model += (add1 := Add())(left="l1", right="l2", output=IOKey(name="out1"))
     model += (add2 := Add())(left="l3", right="l4")
     model.enforce_jit = False
-    model += Item()(input=Connect(add1.left, add2.left, key=IOKey(name="input")))
+    input = IOKey(name="input", connections=[add1.left, add2.left], expose=True)
+    model += Item()(input=input)
     assert not model.enforce_jit
 
 
@@ -296,10 +300,15 @@ def test_physical_model_jit_1():
     with jit = False, no errors will be raised when model is not jittable.
     """
     model = Model(enforce_jit=False)
-    model += (add1 := Add())(left="l1", right="l2", output=IOKey(name="out1"))
-    model += (add2 := Add())(left="l3", right="l4")
+    add1 = Add()
+    add1.set_types(left=MyTensor, right=MyTensor)
+    add2 = Add()
+    add2.set_types(left=MyTensor, right=MyTensor)
+    model += add1(left="l1", right="l2", output=IOKey(name="out1"))
+    model += add2(left="l3", right="l4")
     model.enforce_jit = False
-    model += Item()(input=Connect(add1.left, add2.left, key=IOKey(name="input")))
+    input = IOKey(name="input", connections=[add1.left, add2.left], expose=True)
+    model += Item()(input=input)
 
     backend = JaxBackend()
     compiled_model = compile(model=model, backend=backend, jit=False)
@@ -318,7 +327,8 @@ def test_physical_model_jit_2():
     model += (add1 := Add())(left="l1", right="l2", output=IOKey(name="out1"))
     model += (add2 := Add())(left="l3", right="l4")
     model.enforce_jit = False
-    model += Item()(input=Connect(add1.left, add2.left, key=IOKey(name="input")))
+    input = IOKey(name="input", connections=[add1.left, add2.left], expose=True)
+    model += Item()(input=input)
 
     backend = JaxBackend()
 
@@ -362,7 +372,9 @@ def test_jit_1():
 def test_jit_2():
     backend = JaxBackend()
     model = Model(enforce_jit=False)
-    model += (add_model := Add())(left="left", right="right")
+    model += (add_model := Add())(
+        left=IOKey("left", type=MyTensor), right=IOKey("right", type=MyTensor)
+    )
     in1 = add_model.output
     out1 = in1.shape()
     out2 = out1.tensor().sum()

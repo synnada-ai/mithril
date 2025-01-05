@@ -27,10 +27,12 @@ from mithril.models import (
     Buffer,
     Divide,
     Equal,
+    Exponential,
     FloorDivide,
     Greater,
     GreaterEqual,
     IOKey,
+    Item,
     Less,
     LessEqual,
     Linear,
@@ -633,6 +635,27 @@ def test_absolute():
     out = pm.evaluate()["output"]
     assert isinstance(out, jnp.ndarray)
     assert (backend.array([1.0, 2, 3, 0, 5, 6]) == out).all()
+
+
+def test_exp():
+    backend = JaxBackend(precision=32)
+    data = {"input": backend.array([1.0, -2, 3, 0, -5, 6])}
+
+    model1 = Model()
+    model1 += Buffer()(input="input")
+    output = model1.input.exp()  # type: ignore
+    model1 += Buffer()(input=output, output=IOKey(name="output"))
+
+    model2 = Model()
+    model2 += Buffer()(input="input")
+    model2 += (exp := Exponential())(input="input")
+    model2 += Buffer()(input=exp.output, output=IOKey(name="output"))
+    compare_models(model1, model2, backend, data)
+
+    pm = mithril.compile(model=model1, backend=backend, constant_keys=data)
+    out = pm.evaluate()["output"]
+    assert isinstance(out, jnp.ndarray)
+    assert (jnp.exp(data["input"]) == out).all()
 
 
 def test_mean():
@@ -1450,9 +1473,11 @@ def test_tensoritem_multiple_slice_1():
 
     model2 = Model()
     buffer_model_1 = Buffer()
-    model2 += buffer_model_1(input="input")
+    model2 += buffer_model_1(input=IOKey("input", type=MyTensor))
     conn = buffer_model_1.output[2:3, 4:6]
-    model2 += Buffer()(input=conn, output=IOKey("output"))
+    buffer_model_2 = Buffer()
+    buffer_model_2.set_types(input=MyTensor)
+    model2 += buffer_model_2(input=conn, output=IOKey("output"))
     check_logical_models(model1, model2)
 
 
@@ -1473,7 +1498,9 @@ def test_tensoritem_multiple_slice_2():
     buffer_model_1 = Buffer()
     model2 += buffer_model_1(input="input")
     conn = buffer_model_1.output[2:3, 4:6, ..., None, None]
-    model2 += Buffer()(input=conn, output=IOKey("output"))
+    buffer_model_3 = Buffer()
+    buffer_model_3.set_types(input=MyTensor)
+    model2 += buffer_model_3(input=conn, output=IOKey("output"))
     check_logical_models(model1, model2)
 
 
@@ -1502,7 +1529,9 @@ def test_tensoritem_multiple_slice_3():
 def test_tensor_item_with_ellipsis_at_beginning():
     input = IOKey("input", shape=(3, 4, 5))
     model = Model()
-    model += Buffer()(input=input[..., 3], output="output")
+    buff_model = Buffer()
+    buff_model.set_types(input=MyTensor)
+    model += buff_model(input=input[..., 3], output="output")
 
     backend = JaxBackend()
     data = {"input": backend.randn(3, 4, 5)}
@@ -1518,7 +1547,9 @@ def test_tensor_item_with_ellipsis_at_beginning():
 def test_tensor_item_with_ellipsis_in_middle():
     input = IOKey("input", shape=(2, 3, 4, 5, 6))
     model = Model()
-    model += Buffer()(input=input[0, ..., 3], output="output")
+    buff_model = Buffer()
+    buff_model.set_types(input=MyTensor)
+    model += buff_model(input=input[0, ..., 3], output="output")
 
     backend = JaxBackend()
     data = {"input": backend.randn(2, 3, 4, 5, 6)}
@@ -1659,3 +1690,23 @@ def test_immediate_values_with_extend_template_and_regular_case():
         == big_model_1.conns.latent_input_keys
         == {"$1"}
     )
+
+
+def test_item():
+    model1 = Model(enforce_jit=False)
+
+    buffer_model_1 = Buffer()
+    item_model = Item()
+    totensor = ToTensor()
+
+    model1 += buffer_model_1(input="input")
+    model1 += item_model(input=buffer_model_1.output)
+    model1 += totensor(input=item_model.output, output=IOKey("output"))
+
+    model2 = Model(enforce_jit=False)
+    buffer_model_1 = Buffer()
+    model2 += buffer_model_1(input="input")
+    conn = buffer_model_1.output.item()
+    model2 += ToTensor()(input=conn, output=IOKey("output"))
+
+    check_logical_models(model1, model2)

@@ -141,7 +141,9 @@ def test_set_non_typed_edge_with_tensor_value():
     assert (
         isinstance(edge.shape, ShapeNode)
         and edge.shape.referees == {edge}
-        and tensor.referees == {edge}
+        and tensor.referees == set()
+        # Tensor is not referred by any edge since edge's own
+        # tensor is created and matched with the given tensor.
     )
     assert edge.shape.get_shapes() == [1, 1]
 
@@ -150,6 +152,8 @@ def test_set_tensor_edge_with_tensor_value():
     shape_node = ShapeRepr(root=Variadic()).node
     tensor = MyTensor([[2.0]], shape=shape_node)
     edge = IOHyperEdge(type=MyTensor)
+    assert isinstance(edge._value, MyTensor)
+    edge_tensor = edge._value
     edge.set_value(tensor)
     assert (
         edge.edge_type is MyTensor
@@ -160,7 +164,8 @@ def test_set_tensor_edge_with_tensor_value():
     assert (
         isinstance(edge.shape, ShapeNode)
         and edge.shape.referees == {edge}
-        and tensor.referees == {edge}
+        and tensor.referees == set()
+        and edge_tensor.referees == {edge}
     )
     assert edge.shape.get_shapes() == [1, 1]
 

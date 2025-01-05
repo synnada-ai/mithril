@@ -14,7 +14,7 @@
 
 import mithril
 from mithril import JaxBackend
-from mithril.framework.common import IOKey
+from mithril.framework.common import IOKey, MyTensor
 from mithril.models import Add, Buffer, Linear, Model, Multiply
 
 
@@ -60,6 +60,7 @@ def test_convert_internal_data_to_trainable():
 
 def test_set_values_data_and_param():
     model = Multiply()
+    model.set_types(left=MyTensor, right=MyTensor)
     model.left.set_differentiable(False)
     assert model.left.metadata.is_non_diff
     model.left.set_differentiable(True)
@@ -70,10 +71,12 @@ def test_set_values_data_and_param():
 
 def test_match_tensor_with_value_data_and_param():
     model1 = Multiply()
+    model1.set_types(left=MyTensor)
     model1.left.set_differentiable(False)
     assert model1.left.metadata.is_non_diff
 
     model2 = Multiply()
+    model2.set_types(left=MyTensor)
     model2.left.set_differentiable(True)
     assert not model2.left.metadata.is_non_diff
 
@@ -85,10 +88,12 @@ def test_match_tensor_with_value_data_and_param():
 
 def test_match_tensor_with_value_data_and_param_rev():
     model2 = Multiply()
+    model2.set_types(left=MyTensor)
     model2.left.set_differentiable(True)
     assert not model2.left.metadata.is_non_diff
 
     model1 = Multiply()
+    model1.set_types(left=MyTensor)
     model1.left.set_differentiable(False)
     assert model1.left.metadata.is_non_diff
 
@@ -101,9 +106,11 @@ def test_match_tensor_with_value_data_and_param_rev():
 def test_non_trainability_flow_in_compile():
     model = Model()
     buff_model = Buffer()
+    buff_model.set_types(input=MyTensor)
     buff_model.input.set_differentiable(False)
     model += buff_model(input="input")
     mult = Multiply()
+    mult.set_types(left=MyTensor, right=MyTensor)
     mult.left.set_differentiable(False)
     model += mult(left="left", right=model.canonical_output, output="output")
 
@@ -117,7 +124,9 @@ def test_non_trainability_flow_in_compile_with_data_keys_1():
     buff_model = Buffer()
     model += buff_model(input="input")
     mult = Multiply()
-    model += mult(left="left", right=model.canonical_output, output="output")
+    model += mult(
+        left=IOKey("left", type=MyTensor), right=model.canonical_output, output="output"
+    )
 
     backend = JaxBackend()
     pm = mithril.compile(
@@ -131,7 +140,9 @@ def test_non_trainability_flow_in_compile_with_data_keys_2():
     buff_model = Buffer()
     model += buff_model(input="input")
     mult = Multiply()
-    model += mult(left="left", right=model.canonical_output, output="output")
+    model += mult(
+        left=IOKey("left", type=MyTensor), right=model.canonical_output, output="output"
+    )
 
     backend = JaxBackend()
     pm = mithril.compile(model, backend, data_keys={"input"})
@@ -143,8 +154,16 @@ def test_non_trainability_flow_in_compile_with_data_keys_3():
     buff_model = Buffer()
     model += buff_model(input="input", output="buff_out")
     mult = Multiply()
-    model += mult(left="left", right=model.canonical_output, output=IOKey("mult_out"))
-    model += Add()(left="left", right=buff_model.output, output=IOKey("add_out"))
+    model += mult(
+        left=IOKey("left", type=MyTensor),
+        right=model.canonical_output,
+        output=IOKey("mult_out"),
+    )
+    model += Add()(
+        left=IOKey("left", type=MyTensor),
+        right=buff_model.output,
+        output=IOKey("add_out"),
+    )
 
     backend = JaxBackend()
     pm = mithril.compile(model, backend, data_keys={"input"})
@@ -155,10 +174,15 @@ def test_non_trainability_flow_in_compile_with_data_keys_3():
 def test_trainability_flow_in_compile_with_trainable_keys():
     model = Model()
     buff_model = Buffer()
+    buff_model.set_types(input=MyTensor)
     buff_model.input.set_differentiable(False)
     model += buff_model(input="input", output="buff_out")
     mult = Multiply()
-    model += mult(left="left", right=model.canonical_output, output=IOKey("mult_out"))
+    model += mult(
+        left=IOKey("left", type=MyTensor),
+        right=model.canonical_output,
+        output=IOKey("mult_out"),
+    )
     model += Add()(left="left", right=buff_model.output, output=IOKey("add_out"))
     model.left.set_differentiable(False)  # type: ignore
 

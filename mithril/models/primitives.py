@@ -43,6 +43,7 @@ from ..framework.constraints import (
     padding_1d_constraint,
     padding_2d_constraint,
     polynomial_features_constraints,
+    randn_constraints,
     sliding_window_1d_constraints,
     sliding_window_2d_constraints,
     squeeze_constraints,
@@ -71,7 +72,6 @@ __all__ = [
     "Cosine",
     "Sign",
     "Square",
-    "Exponential",
     "Log",
     "StableReciprocal",
     "Relu",
@@ -94,6 +94,7 @@ __all__ = [
     "TsnePJoint",
     "EyeComplement",
     "Eye",
+    "ZerosLike",
     "Cholesky",
     "GPRAlpha",
     "GPRVOuter",
@@ -119,6 +120,7 @@ __all__ = [
     "Unique",
     "Trapezoid",
     "Pad",
+    "Randn",
 ]
 
 # Define types used to define keys:
@@ -669,19 +671,6 @@ class Square(SingleInputOperation):
         self, name: str | None = None, input: TensorValueType | ToBeDetermined = TBD
     ) -> None:
         super().__init__(formula_key="square", name=name)
-        self.factory_inputs = {"input": input}
-
-
-class Exponential(SingleInputOperation):
-    def __init__(
-        self, name: str | None = None, input: TensorValueType | ToBeDetermined = TBD
-    ) -> None:
-        super().__init__(
-            formula_key="exp",
-            name=name,
-            polymorphic_constraint=False,
-            output=IOKey(shape=[("Var", ...)], type=MyTensor[float]),
-        )
         self.factory_inputs = {"input": input}
 
 
@@ -1899,6 +1888,30 @@ class Arange(PrimitiveModel):
         return super().__call__(start=start, stop=stop, step=step, output=output)
 
 
+class Randn(PrimitiveModel):
+    shape: Connection
+    output: Connection
+
+    def __init__(
+        self, shape: tuple[int, ...] | ToBeDetermined = TBD, name: str | None = None
+    ) -> None:
+        super().__init__(
+            formula_key="randn",
+            name=name,
+            output=IOKey(shape=[("output", ...)], type=MyTensor),
+            shape=IOKey(type=tuple[int, ...], value=shape),
+        )
+
+        self.set_constraint(randn_constraints, keys=["output", "shape"])
+
+    def __call__(  # type: ignore[override]
+        self,
+        shape: ConnectionType = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
+    ) -> ExtendInfo:
+        return super().__call__(shape=shape, output=output)
+
+
 class BroadcastTo(PrimitiveModel):
     input: Connection
     shape: Connection
@@ -2405,7 +2418,7 @@ class Pad(PrimitiveModel):
     def __init__(
         self,
         name: str | None = None,
-        pad_width: list[tuple[int, int]] | ToBeDetermined = TBD,
+        pad_width: tuple[tuple[int, int], ...] | ToBeDetermined = TBD,
         input: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(
@@ -2428,3 +2441,24 @@ class Pad(PrimitiveModel):
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(input=input, pad_width=pad_width, output=output)
+
+
+class ZerosLike(PrimitiveModel):
+    input: Connection
+    output: Connection
+
+    def __init__(
+        self, name: str | None = None, input: TensorValueType | ToBeDetermined = TBD
+    ) -> None:
+        super().__init__(
+            formula_key="zeros_like",
+            name=name,
+            output=IOKey(shape=[("Var", ...)], type=MyTensor),
+            input=IOKey(shape=[("Var", ...)], type=MyTensor),
+        )
+        self.factory_inputs = {"input": input}
+
+    def __call__(  # type: ignore[override]
+        self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
+    ) -> ExtendInfo:
+        return super().__call__(input=input, output=output)

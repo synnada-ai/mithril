@@ -15,6 +15,7 @@
 from collections.abc import Callable, Iterator, Sequence
 from functools import partial
 from itertools import combinations_with_replacement
+from typing import Any
 
 import jax
 import jax.numpy as jnp
@@ -51,6 +52,7 @@ from ..common_primitives import (
     permute_tensor,
     power,
     primitive_embedding,
+    primitive_slice,
     reshape,
     scalar_item,
     sequence_slice,
@@ -197,6 +199,7 @@ __all__ = [
     "item",
     "scalar_item",
     "tensor_item",
+    "primitive_slice",
     "sequence_slice",
     "union",
     "length",
@@ -215,6 +218,7 @@ __all__ = [
     "trapezoid",
     "pad",
     "split",
+    "randn",
 ]
 
 
@@ -309,7 +313,7 @@ def relu(input: jax.Array) -> jax.Array:
     return functionals.relu(input)
 
 
-def leaky_relu(input: jax.Array, slope: jax.Array):
+def leaky_relu(input: jax.Array, slope: jax.Array) -> jax.Array:
     return functionals.leaky_relu(input, slope)
 
 
@@ -617,7 +621,9 @@ def cross_entropy(
     categorical: bool = True,
     robust: bool = False,
 ) -> jax.Array:
-    log: partial | Callable = partial(robust_log, cutoff=cutoff) if robust else jnp.log
+    log: partial[jax.Array] | Callable[..., jax.Array] = (
+        partial(robust_log, cutoff=cutoff) if robust else jnp.log
+    )
     _weights = calculate_cross_entropy_class_weights(
         input, target, categorical, weights
     )
@@ -644,7 +650,9 @@ def cross_entropy_with_logits(
     categorical: bool = True,
     robust: bool = False,
 ) -> jax.Array:
-    log: partial | Callable = partial(robust_log, cutoff=cutoff) if robust else jnp.log
+    log: partial[jax.Array] | Callable[..., jax.Array] = (
+        partial(robust_log, cutoff=cutoff) if robust else jnp.log
+    )
     _weights = calculate_cross_entropy_class_weights(
         input, target, categorical, weights
     )
@@ -692,7 +700,9 @@ def binary_cross_entropy(
     pos_weight: bool | float = 1.0,
     robust: bool = False,
 ) -> jax.Array:
-    log: partial | Callable = partial(robust_log, cutoff=cutoff) if robust else jnp.log
+    log: partial[jax.Array] | Callable[..., jax.Array] = (
+        partial(robust_log, cutoff=cutoff) if robust else jnp.log
+    )
 
     _pos_weight: jax.Array | float
     if isinstance(pos_weight, bool):
@@ -711,7 +721,9 @@ def binary_cross_entropy_with_logits(
     pos_weight: float | bool = 1.0,
     robust: bool = False,
 ) -> jax.Array:
-    log: partial | Callable = partial(robust_log, cutoff=cutoff) if robust else jnp.log
+    log: partial[jax.Array] | Callable[..., jax.Array] = (
+        partial(robust_log, cutoff=cutoff) if robust else jnp.log
+    )
 
     _pos_weight: jax.Array | float
     if isinstance(pos_weight, bool):
@@ -811,10 +823,8 @@ def size(input: jax.Array, dim: int | tuple[int, ...] | None) -> int | tuple[int
         return input.size
     if isinstance(dim, int):
         return input.shape[dim]
-    if isinstance(dim, tuple):
-        return tuple(input.shape[idx] for idx in dim)
     else:
-        raise ValueError(f"Unexpected dim: {dim}")
+        return tuple(input.shape[idx] for idx in dim)
 
 
 def flatten(input: jax.Array, *, start_dim: int = 0, end_dim: int = -1) -> jax.Array:
@@ -858,7 +868,7 @@ def tensor_to_list(input: jax.Array) -> NestedFloatOrIntOrBoolList:
     return input.tolist()
 
 
-def arange(*args, device: str, precision: int) -> jax.Array:
+def arange(*args: Any, device: str, precision: int) -> jax.Array:
     with jax.default_device(get_device(device)):
         return handle_data_precision(jnp.arange(*args), precision)
 
@@ -967,16 +977,16 @@ def gpr_v_outer(K: jax.Array, K_term: jax.Array, L: jax.Array) -> jax.Array:
     return v_outer
 
 
-def isnan(input):
+def isnan(input: jax.Array) -> jax.Array:
     return jnp.isnan(input)
 
 
 def nan_to_num(
-    input,
+    input: jax.Array,
     nan: int | float | None,
     posinf: int | float | None,
     neginf: int | float | None,
-):
+) -> jax.Array:
     return jnp.nan_to_num(input, nan=nan, posinf=posinf, neginf=neginf)  # type: ignore
 
 
@@ -1000,7 +1010,18 @@ def pad(input: jax.Array, pad_width: tuple[tuple[int, int], ...]):
     return jax.numpy.pad(input, pad_width)
 
 
-array_creation_funcs = ["arange", "to_tensor", "eye", "ones_with_zero_diag"]
+def randn(*args, device: str, precision: int) -> jax.Array:
+    with jax.default_device(get_device(device)):
+        return handle_data_precision(
+            jax.random.normal(jax.random.PRNGKey(42), *args), precision
+        )
+
+
+def zeros_like(input: jax.Array):
+    return jnp.zeros_like(input)
+
+
+array_creation_funcs = ["arange", "randn", "to_tensor", "eye", "ones_with_zero_diag"]
 primitive_func_dict = common_primitive_func_dict = {
     key: fn for key, fn in globals().items() if callable(fn)
 } | common_primitive_func_dict

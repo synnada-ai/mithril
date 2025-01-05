@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 import pickle
 import platform
 import re
@@ -59,7 +60,6 @@ from mithril.models import (
     BinaryCrossEntropy,
     Buffer,
     Concat,
-    Connect,
     Connection,
     ConstraintSolver,
     Convolution1D,
@@ -243,8 +243,9 @@ def test_model_with_misconnection_error():
     model += Add()
     final_model = Model()
     final_model += model
-    with pytest.raises(KeyError):
+    with pytest.raises(KeyError) as error_info:
         final_model += Add()(left=add.output)
+    assert str(error_info.value) == "'Requires accessible connection to be processed!'"
 
 
 def test_cyclic_extension_5():
@@ -262,7 +263,9 @@ def test_cyclic_extension_5():
     model += sum3(
         left="input5",
         right="input6",
-        output=Connect(sum1.left, sum2.right, key=IOKey(name="my_input", expose=False)),
+        output=IOKey(
+            name="my_input", expose=False, connections=[sum1.left, sum2.right]
+        ),
     )
 
     assert set(model._input_keys) == {"input2", "input3", "input5", "input6"}
@@ -955,6 +958,36 @@ def test_canonical_input_9():
     assert model.canonical_output == model.output  # type: ignore
 
 
+def test_canonical_input_10():
+    # Valued cannection cannot be canonical input
+    model = Model()
+    model += Add()(left=3, right="input2", output="output")
+
+    assert model.canonical_input is NOT_AVAILABLE
+
+
+def test_canonical_input_11():
+    # Valued cannection cannot be canonical input
+    model = Model()
+    model += (buff := Buffer())
+    model += Add()(left=3, right="input2", output="output")
+
+    canonical_input = model.canonical_input
+    assert not isinstance(canonical_input, NotAvailable)
+    assert canonical_input.metadata == buff.input.metadata
+
+
+def test_canonical_input_12():
+    # Valued cannection cannot be canonical input
+    model = Model()
+    model += (buff := Buffer())
+    model += Buffer()(input=3 / buff.output)
+
+    canonical_input = model.canonical_input
+    assert not isinstance(canonical_input, NotAvailable)
+    assert canonical_input.metadata == buff.input.metadata
+
+
 def test_canonical_dual_iadd_op():
     model1 = Model()
     model1 += (c1 := Convolution2D(3, 4))
@@ -1293,9 +1326,9 @@ def test_logical_model_compile_twice():
         constant_keys=static_keys_torch,
     )
 
-    assert torch_model.backend.type == "torch"
-    assert jax_model.backend.type == "jax"
-    assert np_model.backend.type == "numpy"
+    assert torch_model.backend.backend_type == "torch"
+    assert jax_model.backend.backend_type == "jax"
+    assert np_model.backend.backend_type == "numpy"
 
 
 def test_canonical_output_compile():
@@ -1326,7 +1359,7 @@ def test_canonical_output_compile():
 
 def test_static_key_names_consistency():
     model = Model()
-    model += Add()(left=MyTensor(3))
+    model += Add()(left=MyTensor(3), right=IOKey(type=MyTensor))
 
     pm = mithril.compile(model, TorchBackend())
     assert {"left", "right"} == pm._input_keys
@@ -1788,7 +1821,12 @@ def test_relational_operators_ignored_1():
 
 def test_relational_operators_ignored_2():
     model = Model()
-    model.extend(Less(), left="left", right="right", output=IOKey("relational_out"))
+    model.extend(
+        Less(),
+        left=IOKey("left", type=MyTensor),
+        right=IOKey("right", type=MyTensor),
+        output=IOKey("relational_out"),
+    )
     model.extend(
         Where(),
         cond=model.canonical_output,
@@ -1805,7 +1843,11 @@ def test_relational_operators_ignored_2():
 
 def test_relational_operators_ignored_3():
     model = Model()
-    model += Less()(left="left", right="right", output=IOKey(name="relational_out"))
+    model += Less()(
+        left=IOKey("left", type=MyTensor),
+        right=IOKey("right", type=MyTensor),
+        output=IOKey(name="relational_out"),
+    )
     model += Greater()(
         left="left", right=model.canonical_output, output=IOKey(name="ignore_this")
     )
@@ -2002,7 +2044,9 @@ def test_multiple_output_connections():
     model += add_2(output="out2")
 
     with pytest.raises(Exception) as err_info:
-        model += add_1(left="left", right="right", output=Connect(add_2.left, "out2"))
+        model += add_1(
+            left="left", right="right", output=IOKey(connections=[add_2.left, "out2"])
+        )
 
     assert (
         str(err_info.value)
@@ -2018,7 +2062,7 @@ def test_multiple_output_connections_2():
     model += add_1(
         left="left",
         right="right",
-        output=Connect(add_2.left, "in3", key=IOKey(name="my_internal_key")),
+        output=IOKey(name="my_internal_key", connections=[add_2.left, "in3"]),
     )
 
     assert (
@@ -2303,7 +2347,11 @@ def test_get_key_dependency_2():
 def test_regularization_1():
     # Test with single regularization and single reduce (mean) operation
     model = Model()
-    model += Multiply()(left="left", right="w", output="output")
+    model += Multiply()(
+        left=IOKey("left", type=MyTensor),
+        right=IOKey("w", type=MyTensor),
+        output="output",
+    )
 
     ctx = TrainModel(model)
     ctx.add_regularization(L2(), coef=MyTensor(1e-1), input=model.w)  # type: ignore
@@ -2322,7 +2370,12 @@ def test_regularization_1():
 def test_regularization_1_sanity_test():
     # Test with single regularization and single reduce (mean) operation
     model = Model()
-    model.extend(Multiply(), left="left", right="w", output="output")
+    model.extend(
+        Multiply(),
+        left=IOKey("left", type=MyTensor),
+        right=IOKey("w", type=MyTensor),
+        output="output",
+    )
 
     ctx = TrainModel(model)
     ctx.add_regularization(L2(), coef=MyTensor(1e-1), input=model.w)  # type: ignore
@@ -2343,7 +2396,11 @@ def test_regularization_1_sanity_test():
 def test_regularization_2():
     # Test with single regularization and single reduce (sum) operation
     model = Model()
-    model += Multiply()(left="left", right="w", output="output")
+    model += Multiply()(
+        left=IOKey("left", type=MyTensor),
+        right=IOKey("w", type=MyTensor),
+        output="output",
+    )
 
     ctx = TrainModel(model)
     ctx.add_regularization(L2(), coef=MyTensor(1e-1), input=model.w)  # type: ignore
@@ -2364,7 +2421,11 @@ def test_regularization_3():
     # Test with single regularization and multiple reduce (mean -> mean -> sum)
     # operations
     model = Model()
-    model += Multiply()(left="left", right="w", output="output")
+    model += Multiply()(
+        left=IOKey("left", type=MyTensor),
+        right=IOKey("w", type=MyTensor),
+        output="output",
+    )
 
     ctx = TrainModel(model)
     ctx.add_regularization(L2(), coef=MyTensor(1e-1), input=model.w)  # type: ignore
@@ -2389,7 +2450,11 @@ def test_regularization_3():
 def test_regularization_4():
     # Test with single regularization and multiple model with multiple reduce operations
     model = Model()
-    model += Multiply()(left="left", right="w", output=IOKey(name="output"))
+    model += Multiply()(
+        left=IOKey("left", type=MyTensor),
+        right=IOKey("w", type=MyTensor),
+        output=IOKey(name="output"),
+    )
     model += Multiply()(left="left", right="w", output=IOKey(name="output2"))
 
     ctx = TrainModel(model)
@@ -2422,8 +2487,14 @@ def test_regularization_4():
 def test_regularization_5():
     # Test with single regularization and multiple model with multiple reduce operations
     model = Model()
-    model += Multiply()(left="left", right="w", output=IOKey(name="output"))
-    model += Multiply()(left="left1", right="w", output=IOKey(name="output2"))
+    model += Multiply()(
+        left=IOKey("left", type=MyTensor),
+        right=IOKey("w", type=MyTensor),
+        output=IOKey(name="output"),
+    )
+    model += Multiply()(
+        left=IOKey("left1", type=MyTensor), right="w", output=IOKey(name="output2")
+    )
 
     ctx = TrainModel(model)
     ctx.add_regularization(L2(), coef=MyTensor(1e-1), input=model.w)  # type: ignore
@@ -2489,7 +2560,9 @@ def test_static_anlaysis_1():
         left=IOKey(value=MyTensor([[2.0]]), name="left"),
         right=IOKey(value=MyTensor([2.0]), name="right"),
     )
-    model += Add()(left=add1.output, output=IOKey(name="output1"))
+    model += Add()(
+        left=add1.output, right=IOKey(type=MyTensor), output=IOKey(name="output1")
+    )
 
     comp_model = mithril.compile(
         model=model,
@@ -2516,7 +2589,9 @@ def test_static_anlaysis_2():
         right=IOKey(value=MyTensor([2.0]), name="right"),
     )
     model += sum1(input=add1.output)
-    model += Add()(left=sum1.output, output=IOKey(name="output1"))
+    model += Add()(
+        left=sum1.output, right=IOKey(type=MyTensor), output=IOKey(name="output1")
+    )
 
     comp_model = mithril.compile(
         model=model,
@@ -2539,11 +2614,15 @@ def test_static_anlaysis_2():
 def test_static_anlaysis_4():
     model = Model()
     model += (add1 := Add())
+    add1.set_types(left=MyTensor, right=MyTensor)
     model += Convolution2D(kernel_size=1)
     model += (add2 := Add())
+    add2.set_types(right=MyTensor)
     model += (sum1 := Sum())
     model += (sub1 := Subtract())
+    sub1.set_types(right=MyTensor)
     model += (mul1 := Multiply())
+    mul1.set_types(right=MyTensor)
     model += (mat1 := MatrixMultiply())()
 
     model.set_canonical_input(add1.left)
@@ -2661,7 +2740,7 @@ def test_prune_4():
     add2 = Add()
     add3 = Add()
 
-    m += add0(left="input", right="input2")
+    m += add0(left=IOKey("input", type=MyTensor), right=IOKey("input2", type=MyTensor))
     m += add1(left="input", right="input2")  # Duplicate
     m += add2(left=add0.output, right=add0.output)
     m += add3(left=add1.output, right=add1.output)  # Duplicate
@@ -2692,7 +2771,7 @@ def test_prune_5():
     add1 = Add()
     add2 = Add()
     add3 = Add()
-    m += add0(left="input", right="input2")
+    m += add0(left=IOKey("input", type=MyTensor), right=IOKey("input2", type=MyTensor))
     m += add1(left="input", right="input2")  # Duplicate
     m += add2(left=add0.output, right=add1.output)
     m += Add()(left=add1.output, right=add0.output)
@@ -2720,16 +2799,22 @@ def test_prune_5():
 def test_prune_6():
     m1 = Model()
     add0 = Add()
-    m1 += add0(left="input", right="input2")
+    m1 += add0(left=IOKey("input", type=MyTensor), right=IOKey("input2", type=MyTensor))
     m1 += Add()(left=add0.output, right=add0.output, output=IOKey(name="output"))
 
     m2 = Model()
     add0 = Add()
-    m2 += add0(left="input", right="input2")  # Duplicate
+    m2 += add0(
+        left=IOKey("input", type=MyTensor), right=IOKey("input2", type=MyTensor)
+    )  # Duplicate
     m2 += Multiply()(left=add0.output, right=add0.output, output=IOKey(name="output"))
 
     m = Model()
-    m += m1(input="input", input2="input2", output=IOKey(name="auc"))
+    m += m1(
+        input=IOKey("input", type=MyTensor),
+        input2=IOKey("input2", type=MyTensor),
+        output=IOKey(name="auc"),
+    )
     m += m2(input="input", input2="input2", output=IOKey(name="acc"))
 
     compiled_model = compile(m, NumpyBackend())
@@ -2814,7 +2899,11 @@ def test_prune_9():
     m = Model()
     add0 = Add()
     add1 = Add()
-    m += add0(left="input", right="input2", output=IOKey(name="out_1"))
+    m += add0(
+        left=IOKey("input", type=MyTensor),
+        right=IOKey("input2", type=MyTensor),
+        output=IOKey(name="out_1"),
+    )
     m += add1(left=add0.output, right="input3")
     m += Add()(left=add0.output, right="input4")
     m += Add()(left=add1.output, right="input4")
@@ -2983,7 +3072,9 @@ def test_prune_15():
 def test_prune_valued_tensor_1():
     # Values different do not prune!
     model = Model()
-    model += Add()(left=MyTensor(5), right="input2", output=IOKey("output1"))
+    model += Add()(
+        left=MyTensor(5), right=IOKey("input2", type=MyTensor), output=IOKey("output1")
+    )
     model += Add()(left=MyTensor(3), right="input2", output=IOKey("output2"))
 
     backend = JaxBackend(precision=64)
@@ -3002,7 +3093,9 @@ def test_prune_valued_tensor_1():
 def test_prune_valued_tensor_2():
     # Values same prune!
     model = Model()
-    model += Add()(left=MyTensor(3), right="input2", output=IOKey("output1"))
+    model += Add()(
+        left=MyTensor(3), right=IOKey("input2", type=MyTensor), output=IOKey("output1")
+    )
     model += Add()(left=MyTensor(3), right="input2", output=IOKey("output2"))
 
     backend = JaxBackend(precision=64)
@@ -3022,8 +3115,14 @@ def test_prune_valued_tensor_2():
 
 def test_prune_valued_tensor_3():
     model = Model()
-    model += Add()(left="left", right="input2", output=IOKey("output1"))
-    model += Add()(left="left2", right="input2", output=IOKey("output2"))
+    model += Add()(
+        left=IOKey("left", type=MyTensor),
+        right=IOKey("input2", type=MyTensor),
+        output=IOKey("output1"),
+    )
+    model += Add()(
+        left=IOKey("left2", type=MyTensor), right="input2", output=IOKey("output2")
+    )
 
     backend = JaxBackend(precision=64)
 
@@ -3047,8 +3146,14 @@ def test_prune_valued_tensor_3():
 def test_prune_valued_tensor_4():
     # Compile time static value prune
     model = Model()
-    model += Add()(left="left", right="input2", output=IOKey("output1"))
-    model += Add()(left="left2", right="input3", output=IOKey("output2"))
+    model += Add()(
+        left=IOKey("left", type=MyTensor),
+        right=IOKey("input2", type=MyTensor),
+        output=IOKey("output1"),
+    )
+    model += Add()(
+        left=IOKey("left2", type=MyTensor), right="input3", output=IOKey("output2")
+    )
 
     backend = JaxBackend(precision=64)
 
@@ -3203,7 +3308,11 @@ def test_prune_duplicate_grad():
 
 def test_prune_tensor_match():
     model = Model()
-    model += Add()(left="input1", right="input2", output=IOKey(name="output1"))
+    model += Add()(
+        left=IOKey("input1", type=MyTensor),
+        right=IOKey("input2", type=MyTensor),
+        output=IOKey(name="output1"),
+    )
     model += Add()(left="input1", right="input2", output=IOKey(name="output2"))
     model += Add()(left="input1", right="input2", output=IOKey(name="output3"))
     backend = JaxBackend(precision=64)
@@ -3941,7 +4050,7 @@ def test_connect_1():
     relu3 = Relu()
     model += relu1(output="relu_output_1")
     model += relu2(input="", output="relu_output_2")
-    model += relu3(input="", output=Connect(relu1.input, relu2.input))
+    model += relu3(input="", output=IOKey(connections=[relu1.input, relu2.input]))
 
     assert (
         model.dag[relu1]["input"].metadata
@@ -3958,7 +4067,7 @@ def test_connect_2():
     model += relu1(input="in1", output="relu_output_1")
     model += relu2(input="in2", output="relu_output_2")
     model += relu3(
-        input="", output=Connect(relu1.input, relu2.input, key=IOKey(name="my_input"))
+        input="", output=IOKey(name="my_input", connections=[relu1.input, relu2.input])
     )
 
     assert (
@@ -3975,7 +4084,7 @@ def test_connect_3():
     relu3 = Relu()
     model += relu1(output="relu_output_1")
     model += relu2(input="", output="relu_output_2")
-    model += relu3(input=Connect(relu1.input, relu2.input))
+    model += relu3(input=IOKey(connections=[relu1.input, relu2.input]))
 
     assert (
         model.dag[relu1]["input"].metadata
@@ -3991,7 +4100,7 @@ def test_connect_4():
     relu3 = Relu()
     model += relu1(input="in1", output="relu_output_1")
     model += relu2(input="in2", output="relu_output_2")
-    model += relu3(input=Connect(relu1.input, relu2.input, key=IOKey(name="my_input")))
+    model += relu3(input=IOKey(name="my_input", connections=[relu1.input, relu2.input]))
 
     assert (
         model.dag[relu1]["input"].metadata
@@ -4008,7 +4117,7 @@ def test_connect_5():
     relu3 = Relu()
     model += relu1(input="in1", output="relu_output_1")
     model += relu2(input="", output="relu_output_2")
-    model += relu3(input=Connect(relu1.input, relu2.input))
+    model += relu3(input=IOKey(connections=[relu1.input, relu2.input]))
 
     assert (
         model.dag[relu1]["input"].key
@@ -4031,7 +4140,7 @@ def test_connect_6():
     model += relu2(input="in2", output="relu_output_2")
 
     with pytest.raises(KeyError) as error_info:
-        model += Relu()(input=Connect(relu1.input, relu2.input))
+        model += Relu()(input=IOKey(connections=[relu1.input, relu2.input]))
 
     assert str(error_info.value) == (
         "'Requires a connection to have only one unique key name but "
@@ -4110,13 +4219,18 @@ def test_connect_composite_2_extend_from_inputs():
     from mithril.utils.dict_conversions import dict_to_model
 
     submodel = dict_to_model(json_model)
+    submodel.set_types(left=MyTensor, right=MyTensor)
     model = Model()
     m1 = deepcopy(submodel)
     m2 = deepcopy(submodel)
     subcopy = deepcopy(submodel)
     model += m1(left="left", right="right")
-    model += m2(left=Connect(m1.output), right="right")  # type: ignore
-    model += subcopy(left=Connect(m2.output), right=Connect(m2.output), output="output")  # type: ignore
+    model += m2(left=IOKey(connections=[m1.output]), right="right")  # type: ignore
+    model += subcopy(
+        left=IOKey(connections=[m2.output]),  # type: ignore
+        right=IOKey(connections=[m2.output]),  # type: ignore
+        output="output",
+    )
 
     mithril.compile(model, backend=TorchBackend())
 
@@ -4132,9 +4246,9 @@ def test_composite_6_extend_from_inputs_connect():
     relu3 = Relu()
     relu4 = Relu()
     model += relu1(output="output")
-    model += relu2(input=Connect(relu1.input))
-    model += relu3(input="my_input", output=Connect(relu2.input))
-    model += relu4(input=Connect(relu3.input))
+    model += relu2(input=IOKey(connections=[relu1.input]))
+    model += relu3(input="my_input", output=IOKey(connections=[relu2.input]))
+    model += relu4(input=IOKey(connections=[relu3.input]))
 
     assert (
         relu2.input.data.metadata
@@ -4156,8 +4270,8 @@ def test_composite_4_extend_from_inputs_connect():
     relu3 = Relu()
     relu4 = Relu()
     model += relu1(input="my_input", output=IOKey(name="output"))
-    model += relu2(input=Connect(relu1.input))
-    model += relu3(input=Connect(relu2.input))
+    model += relu2(input=IOKey(connections=[relu1.input]))
+    model += relu3(input=IOKey(connections=[relu2.input]))
     model += relu4(input="input1", output="my_input")
 
     backend = TorchBackend()
@@ -4176,7 +4290,9 @@ def test_integration_composite_1_extend_from_inputs_1_with_connect():
     m2 = Layer(dimension=2, activation=Softmax())
     m1 = Layer(dimension=2, activation=Sigmoid())
     model += m2(weight="w1", bias="b1", output="output")
-    model += m1(input="input", weight="w0", bias="b0", output=Connect(m2.input))
+    model += m1(
+        input="input", weight="w0", bias="b0", output=IOKey(connections=[m2.input])
+    )
 
     assert m1.output.data.metadata == m2.input.data.metadata
 
@@ -4198,7 +4314,11 @@ def test_mlp_last_dimension_prop():
 def test_mlp_last_dimension_prop_2():
     model = Model()
     add_model = Add()
-    model += add_model(left="in1", right="in2", output=IOKey(name="output"))
+    model += add_model(
+        left=IOKey("in1", type=MyTensor),
+        right=IOKey("in2", type=MyTensor),
+        output=IOKey(name="output"),
+    )
 
     ctx = TrainModel(model)
     ctx.add_loss(AbsoluteError(), input="output", target=MyTensor([2.0]))
@@ -4220,7 +4340,7 @@ def test_connect_8():
     r2 = Relu()
     model += t(output="output1")
     model += r1(input="input2", output="output2")
-    model += r2(input="", output=Connect(t.input, r1.input))
+    model += r2(input="", output=IOKey(connections=[t.input, r1.input]))
 
     assert r1.input.data.metadata == r2.output.data.metadata == t.input.data.metadata
 
@@ -4232,7 +4352,7 @@ def test_connect_9():
     r2 = Relu()
     model += t(input="input1", output="output1")
     model += r1(input="", output="output2")
-    model += r2(input="", output=Connect("input1", r1.input))
+    model += r2(input="", output=IOKey(connections=["input1", r1.input]))
 
     assert (
         r1.input.data.metadata
@@ -4249,7 +4369,10 @@ def test_connect_10():
     r2 = Relu()
     model += t(input="input1", output=IOKey(name="output1"))
     model += r1(input="input2", output=IOKey(name="output2"))
-    model += r2(input="", output=Connect("input1", "input2", key=IOKey(name="mahmut")))
+    model += r2(
+        input="",
+        output=IOKey(connections=["input1", "input2"], expose=True, name="internal"),
+    )
 
     assert (
         r1.input.data.metadata
@@ -4280,7 +4403,7 @@ def test_connect_12():
     model += add2(left="l3", right="l4", output=IOKey(name="out2"))
 
     model += add3(
-        left=Connect(add1.left, add2.left, key=IOKey(name="left")),
+        left=IOKey(name="left", connections=[add1.left, add2.left]),
         right="right",
         output=IOKey(name="out3"),
     )
@@ -4298,7 +4421,7 @@ def test_connect_13():
     buf = Buffer()
     model += add1(left="l1", right="l2", output=IOKey(name="out1"))
     model += add2(left="l3", right="l4")
-    model += buf(input=Connect(add1.left, add2.left, key=IOKey(name="input")))
+    model += buf(input=IOKey(name="input", connections=[add1.left, add2.left]))
     model += Add()(left=add2.output, right=buf.output, output=IOKey(name="out2"))
 
     assert model._input_keys == {"input", "l2", "l4"}
@@ -4322,7 +4445,7 @@ def test_connect_error_1():
     with pytest.raises(Exception) as error_info:
         model += Relu()(
             input="input",
-            output=Connect("input1", "input2", "output3", key=IOKey(name="my_input")),
+            output=IOKey(name="my_input", connections=["input1", "input2", "output3"]),
         )
 
     assert (
@@ -4340,13 +4463,13 @@ def test_connect_error_2():
 
     with pytest.raises(KeyError) as error_info:
         model += Relu()(
-            input=Connect(
-                "input1", "input2", "output3", "output4", key=IOKey(name="my_input")
+            input=IOKey(
+                name="my_input", connections=["input1", "input2", "output3", "output4"]
             )
         )
 
     assert str(error_info.value) == (
-        "'Connect object can not have more than one output connection. "
+        "'IOKey object can not have more than one output connection. "
         "Multi-write error!'"
     )
 
@@ -4358,7 +4481,7 @@ def test_connect_error_5():
 
     with pytest.raises(KeyError) as error_info:
         model_2 += Relu()(
-            output=Connect(tanh.input, relu.input, key=IOKey(expose=True))
+            output=IOKey(expose=True, connections=[tanh.input, relu.input])
         )
 
     assert (
@@ -4376,7 +4499,7 @@ def test_connect_error_6():
     model += l2(input="input1", weight="w1", output=IOKey(name="output2"))
     model += l3(input="", output=IOKey(name="output3"))
     model += l4(
-        input=Connect("input1", "input2", "output3", key=IOKey(name="my_output"))
+        input=IOKey(name="my_output", connections=["input1", "input2", "output3"])
     )
 
     assert (
@@ -4455,7 +4578,11 @@ def test_add_loss_coef():
     tolerance = 1e-15
     backend = TorchBackend(precision=64)
     model = Model()
-    model += Multiply()(left="left", right="w", output=IOKey(name="output"))
+    model += Multiply()(
+        left=IOKey("left", type=MyTensor),
+        right=IOKey("w", type=MyTensor),
+        output=IOKey(name="output"),
+    )
 
     static_keys = {"left": backend.array([1.5]), "target": backend.array([1.0])}
 
@@ -4502,22 +4629,6 @@ def test_cycle_extend():
     assert (
         str(err.value)
         == "Given connection 'input1' should not belong to the extending model!"
-    )
-
-
-def test_cycle_extend_2():
-    model = Model()
-
-    model_2 = Model()
-    model_2 += Tanh()(input="input1", output=IOKey(name="output1"))
-    model_2 += Sine()(input="input2", output=IOKey(name="output2"))
-
-    with pytest.raises(KeyError) as err:
-        model += model_2(input2="input", output1="input", output2="output")
-
-    assert str(err.value) == (
-        "\"Given connections: '['input']' are used both in input and output keys, "
-        'which creates cycle!"'
     )
 
 
@@ -5127,9 +5238,8 @@ def test_dependency_map_latent_to_input():
 
     # Add third model which changes name of a latent input and
     # makes it a real input of the model.
-    model += (to_tensor := ToTensor())(
-        Connect(mean.axis, key=IOKey(name="mean_axis")), output="output"
-    )
+    conn = IOKey(name="mean_axis", connections=[mean.axis], expose=True)
+    model += (to_tensor := ToTensor())(conn, output="output")
     # Assert dependency map and connection keys status in model.
     output: ConnectionData = model.output.data  # type: ignore
     mean_axis: ConnectionData = model.mean_axis.data  # type: ignore
@@ -6294,6 +6404,7 @@ def test_deepcopy_1():
 def test_deepcopy_2():
     model = Model()
     add_model = Add()
+    add_model.set_types(left=MyTensor, right=MyTensor)
     model += add_model(left="left", right="right", output=IOKey(name="output"))
 
     copy_model1 = deepcopy(model)
@@ -6350,6 +6461,7 @@ def test_deepcopy_4():
     model = Model()
     model += Add()
     model += Add()
+    model.set_types({key: MyTensor for key in model.conns.input_keys})
     for _ in range(4):
         model += Model() + deepcopy(model)
 
@@ -6683,12 +6795,12 @@ def test_multi_write_7():
     model += add1(left="left1", right="right1", output="output1")
     model += add2(left="left2", right="right2", output="output2")
 
-    out = Connect(model.output1, model.output2)  # type: ignore
+    out = IOKey(connections=[model.output1, model.output2])  # type: ignore
     with pytest.raises(KeyError) as err_info:
         model += Buffer()(input=out, output="output3")
 
     assert str(err_info.value) == (
-        "'Connect object can not have more than one output connection. "
+        "'IOKey object can not have more than one output connection. "
         "Multi-write error!'"
     )
 
@@ -6926,20 +7038,16 @@ def test_extend_with_wrong_values():
 def test_cyclic_extend():
     with pytest.raises(KeyError) as error_info1:
         model = Model()
-        model += Relu()(input="input", output="input")
+        model += Relu()(input="input1", output="input1")
 
     with pytest.raises(KeyError) as error_info2:
         model = Model()
-        model += LogisticRegression()(input="input", probs_output="input")
+        model += LogisticRegression()(input="input1", probs_output="input1")
 
-    assert str(error_info1.value) == (
-        "\"Given connections: '['input']' are used both in input and output keys, "
-        'which creates cycle!"'
-    )
-    assert str(error_info2.value) == (
-        "\"Given connections: '['input']' are used both in input and output keys, "
-        'which creates cycle!"'
-    )
+    m1 = "There exists a cyclic subgraph between input1 key and ['input1'] key(s)!"
+    assert str(error_info1.value.args[0]) == m1
+    m = "There exists a cyclic subgraph between input1 key and ['$3', 'input1'] key(s)!"
+    assert str(error_info2.value.args[0]) == m
 
 
 def assert_repr_dict(data: dict[str, ShapeRepr], ref_shapes: dict):

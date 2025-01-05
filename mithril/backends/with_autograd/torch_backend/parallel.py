@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 import atexit
 import multiprocessing as mp
 import socket
@@ -55,7 +57,7 @@ class TorchParallel(Parallel[torch.Tensor]):
     used_ports: set[str] = set()
     device_meshes: dict[tuple[int, ...], DeviceMesh] = {}
 
-    def __new__(cls, *args, **kwargs):
+    def __new__(cls, *args: Any, **kwargs: Any):
         if not cls._instance:
             cls._instance = super().__new__(cls)
         return cls._instance
@@ -98,7 +100,9 @@ class TorchParallel(Parallel[torch.Tensor]):
         for process in processes:
             process.start()
 
-        self.data_queues: list[mp.Queue] = data_queues
+        self.data_queues: list[mp.Queue[str | Callable[..., torch.Tensor]]] = (
+            data_queues
+        )
         self.tensor_id_ref: dict[int, int] = {}
         while not self.initialized:
             port_name = self.get_portname()
@@ -125,7 +129,7 @@ class TorchParallel(Parallel[torch.Tensor]):
 
         return TorchParallel.device_meshes[mesh_shape]
 
-    def run_callable(self, *primals, fn_name: str):
+    def run_callable(self, *primals: Any, fn_name: str):
         primals_ref = apply_to_all_elems(
             lambda x: TensorRef(self.tensor_id_ref[id(x)])
             if isinstance(x, STensor)
@@ -149,7 +153,11 @@ class TorchParallel(Parallel[torch.Tensor]):
         return res
 
     def register_callable(
-        self, fn: Callable, fn_name: str, base_mesh: DeviceMesh, jit: bool = False
+        self,
+        fn: Callable[..., torch.Tensor],
+        fn_name: str,
+        base_mesh: DeviceMesh,
+        jit: bool = False,
     ) -> int:
         assert self.data_queues is not None, "Parallel manager is not initialized!"
 
@@ -278,7 +286,14 @@ class TorchParallel(Parallel[torch.Tensor]):
 
         self.instruction_queue.write(instruction.value, op_index, args, kwargs)
 
-    def _store_tensors(self, data):
+    def _store_tensors(
+        self,
+        data: dict[str, STensor | DTensor]
+        | tuple[STensor | DTensor, ...]
+        | list[STensor | DTensor]
+        | STensor
+        | DTensor,
+    ):
         match data:
             case dict():
                 return {key: self._store_tensors(value) for key, value in data.items()}
@@ -298,8 +313,8 @@ class TorchParallel(Parallel[torch.Tensor]):
         self,
         instruction: Instructions,
         op_name: str,
-        args: Any,
-        kwargs: Any,
+        args: tuple[Any, ...],
+        kwargs: dict[str, Any],
     ):
         if self.is_alive is False:
             return
@@ -338,7 +353,7 @@ class TorchParallel(Parallel[torch.Tensor]):
         STensor._callback = self._tensor_callback
         self.initialized = True
 
-    def _replicate_cache(self, fn: partial, device_mesh: DeviceMesh):
+    def _replicate_cache(self, fn: partial[Any], device_mesh: DeviceMesh):
         # Replicates cache data partially provided to evaluate and evaluate_gradients.
         if "cache" not in fn.keywords:
             return fn
@@ -362,11 +377,14 @@ class TorchParallel(Parallel[torch.Tensor]):
         fn.keywords["cache"] = cache_replicated
         return fn
 
-    def _process(self, rank: int, data_queue: mp.Queue):
+    def _process(
+        self, rank: int, data_queue: mp.Queue[str | Callable[..., torch.Tensor]]
+    ):
         self.tensor_ref: dict[int, DTensor | torch.Tensor] = {}
 
         while not self.initialized:
             port_name = data_queue.get()
+            assert isinstance(port_name, str)
             try:
                 self._initilize_parallel(rank, self.device, port_name)
             except Exception as e:
@@ -381,32 +399,31 @@ class TorchParallel(Parallel[torch.Tensor]):
             match base_instruction:
                 case Instructions.RUN_OP:
                     op_name = self.op_list[op_index]
-                    args = apply_to_all_elems(
+                    _args = apply_to_all_elems(
                         lambda x: self.tensor_ref[x.id]
                         if isinstance(x, TensorRef)
                         else x,
                         args,
                     )
-                    kwargs = apply_to_all_elems(
+                    _kwargs = apply_to_all_elems(
                         lambda x: self.tensor_ref[x.id]
                         if isinstance(x, TensorRef)
                         else x,
                         kwargs,
                     )
-                    result = getattr(torch_ops.aten, op_name)(*args, **kwargs)
+                    result = getattr(torch_ops.aten, op_name)(*_args, **_kwargs)
                     self.tensor_ref[self.tensor_counter] = (
                         result  # Result directly saved
                     )
                     self.tensor_counter += 1
-
                 case Instructions.FULL_TENSOR:
-                    tensor = apply_to_all_elems(
+                    _tensor = apply_to_all_elems(
                         lambda x: self.tensor_ref[x.id]
                         if isinstance(x, TensorRef)
                         else x,
                         args,
                     )[0]
-                    tensor.full_tensor()
+                    _tensor.full_tensor()
 
                 case Instructions.REGISTER_CALLABLE:
                     apply_jit = args[0]
@@ -421,6 +438,7 @@ class TorchParallel(Parallel[torch.Tensor]):
                     base_mesh = TorchParallel.device_meshes[base_mesh]
 
                     fn = data_queue.get()
+                    assert not isinstance(fn, str)
 
                     dist.barrier(self.communication_group)
 
@@ -433,12 +451,14 @@ class TorchParallel(Parallel[torch.Tensor]):
                             cache_refs,
                         )
                         fn.keywords["cache"] = caches
-                        fn = self._replicate_cache(fn, base_mesh)
+                        _fn = self._replicate_cache(fn, base_mesh)
+                        self.callables[fn_name] = _fn
 
                     if apply_jit == 1:
-                        fn = torch.compile(fn)
-
-                    self.callables[fn_name] = fn
+                        _fn = torch.compile(fn)
+                        self.callables[fn_name] = _fn
+                    else:
+                        self.callables[fn_name] = fn
 
                 case Instructions.RUN_REGISTERED:
                     fn = self.callables[kwargs["fn_name"]]

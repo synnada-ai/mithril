@@ -51,6 +51,7 @@ from mithril.framework.constraints import (
     item_constraints,
     pad_constraints,
     polynomial_features_constraints,
+    randn_constraints,
     reduce_constraints,
     reduce_type_constraint,
     reshape_constraints,
@@ -60,6 +61,7 @@ from mithril.framework.constraints import (
     scalar_slice_type_constraint,
     shape_constraints,
     size_constraints,
+    slice_constraints,
     sliding_window_2d_constraints,
     split_constraints,
     squeeze_constraints,
@@ -251,7 +253,9 @@ def assert_value_results(
     data: dict[str, IOHyperEdge], ref_results: dict[str, Any]
 ) -> None:
     for key, value in ref_results.items():
-        if isinstance(value, int | float | bool | tuple | list | str | ToBeDetermined):
+        if isinstance(
+            value, int | float | bool | tuple | list | str | ToBeDetermined | slice
+        ):
             assert data[key].value == value
         else:
             # If value is a tensor of any supported backend.
@@ -2617,6 +2621,90 @@ def test_arange_error_7():
         str(err_info.value)
         == "Arange output shape has minimum 1 dim(s) where it is a rank-0 array."
     )
+
+
+############# Randn #############
+
+
+def test_randn_1():
+    shapes: dict[str, list[int | str | tuple]] = {"output": ["a", "b", "c"]}
+    final_shapes = {"output": [3, 4, 5], "shape": []}
+    scalar_info = {"shape": IOHyperEdge(value=(3, 4, 5))}
+    assert_constraint_results(
+        shapes, {}, final_shapes, {}, randn_constraints, True, {"output"}, scalar_info
+    )
+
+
+def test_randn_2():
+    shapes: dict[str, list[int | str | tuple]] = {"output": ["a", 5, "c"]}
+    final_shapes = {"output": [3, 4, 5], "shape": []}
+    scalar_info = {"shape": IOHyperEdge(value=(3, 4, 5))}
+    try:
+        assert_constraint_results(
+            shapes,
+            {},
+            final_shapes,
+            {},
+            randn_constraints,
+            True,
+            {"output"},
+            scalar_info,
+        )
+    except ValueError as e:
+        assert str(e) == "Possible values mismatch!"
+
+
+def test_randn_3():
+    shapes: dict[str, list[int | str | tuple]] = {"output": ["a", "b", "c", "d"]}
+    final_shapes = {"output": [3, 4, 5], "shape": []}
+    scalar_info = {"shape": IOHyperEdge(value=(3, 4, 5))}
+    try:
+        assert_constraint_results(
+            shapes,
+            {},
+            final_shapes,
+            {},
+            randn_constraints,
+            True,
+            {"output"},
+            scalar_info,
+        )
+    except ValueError as e:
+        assert (
+            str(e) == "Shape mismatch. Output has 4 dim(s) where it must have 3 dim(s)."
+        )
+
+
+def test_randn_4():
+    shapes: dict[str, list[int | str | tuple]] = {"output": [("Var1", ...)]}
+    final_shapes = {"output": [3, 4, 5], "shape": []}
+    scalar_info = {"shape": IOHyperEdge(value=(3, 4, 5))}
+
+    assert_constraint_results(
+        shapes, {}, final_shapes, {}, randn_constraints, True, {"output"}, scalar_info
+    )
+
+
+def test_randn_5():
+    shapes: dict[str, list[int | str | tuple]] = {"output": [2, 3, 4, 5, ("Var1", ...)]}
+    final_shapes = {"output": [3, 4, 5], "shape": []}
+    scalar_info = {"shape": IOHyperEdge(value=(3, 4, 5))}
+    try:
+        assert_constraint_results(
+            shapes,
+            {},
+            final_shapes,
+            {},
+            randn_constraints,
+            True,
+            {"output"},
+            scalar_info,
+        )
+    except ValueError as e:
+        assert str(e) == (
+            "Shape mismatch. Output has minimum 4 dim(s) where it must have exactly "
+            "3 dim(s)."
+        )
 
 
 ############# MAXPOOL_2D #############
@@ -7903,4 +7991,136 @@ def test_bcast_with_var_possibles_4():
 
     assert_constraint_results(
         shapes, assignments, final_shapes, final_assignments, bcast, False, {"left"}
+    )
+
+
+def test_slice_given_input():
+    shapes: dict[str, list[int | str | tuple]] = {}
+    final_shapes: dict[str, list[int | str | tuple]] = {
+        "output": [],
+        "start": [],
+        "stop": [],
+        "step": [],
+    }
+    scalar_info = {
+        "output": IOHyperEdge(type=slice),
+        "start": IOHyperEdge(type=int | None, value=1),
+        "stop": IOHyperEdge(type=int | None, value=3),
+        "step": IOHyperEdge(type=int | None, value=5),
+    }
+    final_values = {
+        "output": slice(1, 3, 5),
+        "start": 1,
+        "stop": 3,
+        "step": 5,
+    }
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        slice_constraints,
+        True,
+        {"output"},
+        scalar_info,
+        final_values,
+    )
+
+
+def test_slice_given_missing_input():
+    shapes: dict[str, list[int | str | tuple]] = {}
+    final_shapes: dict[str, list[int | str | tuple]] = {
+        "output": [],
+        "start": [],
+        "stop": [],
+        "step": [],
+    }
+    scalar_info = {
+        "output": IOHyperEdge(type=slice, value=TBD),
+        "start": IOHyperEdge(type=int | None, value=1),
+        "stop": IOHyperEdge(type=int | None, value=3),
+        "step": IOHyperEdge(type=int | None, value=TBD),
+    }
+    final_values = {
+        "output": TBD,
+        "start": 1,
+        "stop": 3,
+        "step": TBD,
+    }
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        slice_constraints,
+        False,
+        set(),
+        scalar_info,
+        final_values,
+    )
+
+
+def test_slice_given_output():
+    shapes: dict[str, list[int | str | tuple]] = {}
+    final_shapes: dict[str, list[int | str | tuple]] = {
+        "output": [],
+        "start": [],
+        "stop": [],
+        "step": [],
+    }
+    scalar_info = {
+        "output": IOHyperEdge(type=slice, value=slice(1, 3, 5)),
+        "start": IOHyperEdge(type=int | None, value=1),
+        "stop": IOHyperEdge(type=int | None, value=3),
+        "step": IOHyperEdge(type=int | None, value=TBD),
+    }
+    final_values = {
+        "output": slice(1, 3, 5),
+        "start": 1,
+        "stop": 3,
+        "step": 5,
+    }
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        slice_constraints,
+        True,
+        {"step"},
+        scalar_info,
+        final_values,
+    )
+
+
+def test_slice_given_output_missing_all_inputs():
+    shapes: dict[str, list[int | str | tuple]] = {}
+    final_shapes: dict[str, list[int | str | tuple]] = {
+        "output": [],
+        "start": [],
+        "stop": [],
+        "step": [],
+    }
+    scalar_info = {
+        "output": IOHyperEdge(type=slice, value=slice(1, 3, 5)),
+        "start": IOHyperEdge(type=int | None, value=TBD),
+        "stop": IOHyperEdge(type=int | None, value=TBD),
+        "step": IOHyperEdge(type=int | None, value=TBD),
+    }
+    final_values = {
+        "output": slice(1, 3, 5),
+        "start": 1,
+        "stop": 3,
+        "step": 5,
+    }
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        slice_constraints,
+        True,
+        {"start", "stop", "step"},
+        scalar_info,
+        final_values,
     )

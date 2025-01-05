@@ -20,7 +20,7 @@ import torch
 
 import mithril
 from mithril import TorchBackend
-from mithril.framework.common import NOT_GIVEN, ConnectionType
+from mithril.framework.common import NOT_GIVEN, ConnectionType, IOKey, MyTensor
 from mithril.models import (
     TBD,
     AbsoluteError,
@@ -29,7 +29,6 @@ from mithril.models import (
     Cell,
     EncoderDecoder,
     ExtendInfo,
-    IOKey,
     LSTMCell,
     ManyToOne,
     MatrixMultiply,
@@ -214,15 +213,19 @@ class MySimpleRNNCellWithLinear(Cell):
         self += mult_model_1(left="input", right="w_ih")
         self += mult_model_2(left=slice_model_2.output, right="w_hh")
         self += sum_model_1(left=mult_model_1.output, right=mult_model_2.output)
-        self += sum_model_2(left=sum_model_1.output, right="bias_hh")
+        self += sum_model_2(
+            left=sum_model_1.output, right=IOKey("bias_hh", type=MyTensor)
+        )
         self += sum_model_3(
             left=sum_model_2.output,
-            right="bias_ih",
+            right=IOKey("bias_ih", type=MyTensor),
         )
         self += tanh(input=sum_model_3.output, output=IOKey("hidden"))
         self += mult_model_3(left="hidden", right="w_ho")
         self += sum_model_4(
-            left=mult_model_3.output, right="bias_o", output=IOKey("output")
+            left=mult_model_3.output,
+            right=IOKey("bias_o", type=MyTensor),
+            output=IOKey("output"),
         )
 
         # TODO: Commented code below does not work while above code does.
@@ -328,10 +331,12 @@ class MyRNNCell(Cell):
         self += mult_model_1(left="input", right="w_ih")
         self += mult_model_2(left=slice_model_2.output, right="w_hh")
         self += sum_model_1(left=mult_model_1.output, right=mult_model_2.output)
-        self += sum_model_2(left=sum_model_1.output, right="bias_hh")
+        self += sum_model_2(
+            left=sum_model_1.output, right=IOKey("bias_hh", type=MyTensor)
+        )
         self += sum_model_3(
             left=sum_model_2.output,
-            right="bias_ih",
+            right=IOKey("bias_ih", type=MyTensor),
         )
         self += tanh(input=sum_model_3.output, output=IOKey("hidden"))
 

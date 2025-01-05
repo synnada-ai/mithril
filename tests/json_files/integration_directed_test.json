@@ -2400,7 +2400,13 @@
         "model": {
             "name": "KernelizedSVM",
             "args": {
-                "kernel": "PolynomialKernel"
+                "kernel": {
+                    "name": "PolynomialKernel", 
+                    "types": {
+                        "poly_coef": "tensor",
+                        "degree": "tensor"
+                    }
+                }
             }
         },
         "static_keys": {
@@ -3203,7 +3209,11 @@
     "test_polynomial_kernel_1": {
         "model": {
             "name": "PolynomialKernel",
-            "differentiability_info": {"input2": true}
+            "differentiability_info": {"input2": true},
+            "types": {
+                "poly_coef": "tensor",
+                "degree": "tensor"
+            }
         },
         "inputs": {
             "input2": [[-1.0, 2.0], [1.0, 3.0]],
@@ -3240,7 +3250,11 @@
     "test_polynomial_kernel_2": {
         "model": {
             "name": "PolynomialKernel",
-            "differentiability_info": {"input1": true, "input2": true}
+            "differentiability_info": {"input1": true, "input2": true},
+            "types": {
+                "poly_coef": "tensor",
+                "degree": "tensor"
+            }
         },
         "inputs": {
             "input1": [[-1.0, 2.0, 1.0], [1.0, 3.0, 2.0], [-2, 1, -1]],

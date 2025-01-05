@@ -523,11 +523,11 @@
                     },
                     "connections": {
                         "m1": {
-                            "left": "input1",
+                            "left": {"name": "input1", "type": "tensor"},
                             "right": "input1"
                         },
                         "m2": {
-                            "left": "input2",
+                            "left": {"name": "input2", "type": "tensor"},
                             "right": {"connect": [["m1", "output"]]},
                             "output": {
                                 "name": "output",
@@ -545,8 +545,8 @@
             },
             "connections" : {
                 "m1": {
-                    "left": "input1",
-                    "right": "input2"
+                    "left": {"name": "input1", "type": "tensor"},
+                    "right": {"name": "input2", "type": "tensor"}
                 },
                 "m2": {
                     "left": {"connect": [["m1", "output"]]},
@@ -562,7 +562,7 @@
                 },
                 "m4": {
                     "left": "input2",
-                    "right": "input3"
+                    "right": {"name": "input3", "type": "tensor"}
                 },
                 "m5": {
                     "input": {"connect": [["m4", "output"]]},
@@ -603,11 +603,11 @@
                     },
                     "connections": {
                         "m1": {
-                            "left": "input1",
+                            "left": {"name": "input1", "type": "tensor"},
                             "right": "input1"
                         },
                         "m2": {
-                            "left": "input2",
+                            "left": {"name": "input2", "type": "tensor"},
                             "right": {"connect": [["m1", "output"]]},
                             "output": {
                                 "name": "output",
@@ -625,8 +625,8 @@
             },
             "connections" : {
                 "m1": {
-                    "left": "input1",
-                    "right": "input2"
+                    "left": {"name": "input1", "type": "tensor"},
+                    "right": {"name": "input2", "type": "tensor"}
                 },
                 "m2": {
                     "left": {"connect": [["m1", "output"]]},
@@ -646,7 +646,7 @@
                 },
                 "m4": {
                     "left": "input2",
-                    "right": "input3"
+                    "right": {"name": "input3", "type": "tensor"}
                 },
                 "m5": {
                     "input": {"connect": [["m4", "output"]]},
@@ -688,11 +688,11 @@
                     },
                     "connections": {
                         "m1": {
-                            "left": "input1",
+                            "left": {"name": "input1", "type": "tensor"},
                             "right": "input1"
                         },
                         "m2": {
-                            "left": "input2",
+                            "left": {"name": "input2", "type": "tensor"},
                             "right": {"connect": [["m1", "output"]]},
                             "output": {
                                 "name": "output",
@@ -710,8 +710,8 @@
             },
             "connections" : {
                 "m1": {
-                    "left": "input1",
-                    "right": "input2"
+                    "left": {"name": "input1", "type": "tensor"},
+                    "right": {"name": "input2", "type": "tensor"}
                 },
                 "m2": {
                     "left": {"connect": [["m1", "output"]]},
@@ -727,7 +727,7 @@
                 },
                 "m4": {
                     "left": "input2",
-                    "right": "input3"
+                    "right": {"name": "input3", "type": "tensor"}
                 },
                 "m5": {
                     "input": {"connect": [["m4", "output"]]},

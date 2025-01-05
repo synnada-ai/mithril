@@ -101,14 +101,16 @@ class PhysicalModel(GenericDataType[DataType]):
                 value = extend_info._connections.get(key, NOT_GIVEN)
                 # NOTE: Do not set default value if it is given in constant_keys.
                 value = (value, NOT_GIVEN)[key in constant_keys]
-                edge = model.conns.get_data(key)
-                default_val = edge.value
-                if value is NOT_GIVEN and default_val is TBD:
+                default_val = model.conns.get_data(key).value
+                if (value is NOT_GIVEN and default_val is TBD) or (
+                    key in model.output_keys
+                ):
                     # Non-valued connections are only named with their key names.
                     model_keys[key] = key
                 else:
                     val = default_val if default_val is not TBD else value
                     model_keys[key] = IOKey(key, val)  # type: ignore
+
             model = Model() + model(**model_keys)
 
         self.backend: Backend[DataType] = backend
@@ -213,21 +215,22 @@ class PhysicalModel(GenericDataType[DataType]):
                     data = model_data[key]
                     assert data.edge_type is MyTensor
                     shp = data.shape
+                    assert shp is not None
                     # assert shp is not None
                     shp.merge(key_shape.node)
 
             output = PrimitiveModel.output_key
             _data_dict: dict[str, IOHyperEdge] = {}
 
+            self._infer_differentiability(p_model, model_data)
             for inner_key in p_model.external_keys:
                 outer_key = mappings[inner_key]
                 if outer_key not in self.data:
                     _data_dict[outer_key] = model_data[inner_key]
             self.data_store.update_data(_data_dict)
-            self._infer_differentiability(p_model, mappings)
 
             # NOTE: maybe move adding cache to generate_code methods.
-            if self.backend.type == "numpy":
+            if self.backend.backend_type == "numpy":
                 cache_name = "_".join([mappings[output], p_model.cache_name])
                 mappings["cache"] = cache_name
                 cache_value: dict | None = None if self.inference else dict()
@@ -404,23 +407,23 @@ class PhysicalModel(GenericDataType[DataType]):
     def output_keys(self):
         return sorted(self._output_keys)
 
-    def _infer_differentiability(self, model: PrimitiveModel, dag: dict[str, str]):
+    def _infer_differentiability(
+        self, model: PrimitiveModel, model_data: dict[str, IOHyperEdge]
+    ):
         # Infer output differentiability only for the models
         # that have a Tensor type output.
-        if model.output.metadata.edge_type is MyTensor:
+        output_key = PrimitiveModel.output_key
+        output_edge = model_data[output_key]
+        if output_edge.edge_type is MyTensor:
             # If any of the inputs are differentiable, then
             # the output is also differentiable.
-            output_key = dag[PrimitiveModel.output_key]
-            for key, value in dag.items():
-                if (
-                    key != PrimitiveModel.output_key
-                    and not self.data[value].is_non_diff
-                ):
-                    self.data[output_key]._differentiable = True
+            for key, value in model_data.items():
+                if key != output_key and not value.is_non_diff:
+                    output_edge._differentiable = True
                     return
             # If all inputs are non-differentiable, then the output is also
             # non-differentiable.
-            self.data[output_key]._differentiable = False
+            output_edge._differentiable = False
 
     def randomize_params(
         self,
@@ -514,7 +517,7 @@ class PhysicalModel(GenericDataType[DataType]):
             conn_data = node.model.conns.get_connection("output")
             assert conn_data is not None
             if (conn_data.metadata.edge_type is not MyTensor) or (
-                not find_intersection_type(float, conn_data.metadata._value.type)
+                not find_intersection_type(float, conn_data.metadata.value_type)
             ):
                 self.ignore_grad_keys.add(
                     node.connections[PrimitiveModel.output_key].key
@@ -854,7 +857,7 @@ class PhysicalModel(GenericDataType[DataType]):
             output_keys = pm_output_keys
 
         pm_info = {
-            "Backend type": [self.backend.type],
+            "Backend type": [self.backend.backend_type],
             "Backend precision": [str(self.backend.precision)],
             "Backend device": [str(self.backend.device)],
             "Output keys": sorted(output_keys),

@@ -58,6 +58,7 @@ def test_error_not_robust_power_call_threshold_float():
 def test_compile_robust_power_call_with_default_threshold():
     backend = ml.TorchBackend()
     pow = Power(robust=True)
+    pow.set_types({"base": MyTensor, "exponent": MyTensor})
     pm = ml.compile(pow, backend)
     pm.evaluate(params={"base": backend.ones(3, 3), "exponent": backend.ones(3, 3)})
 
