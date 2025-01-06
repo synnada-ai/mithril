@@ -52,7 +52,7 @@ from mithril.models import (
 
 from .test_utils import assert_results_equal
 
-to_tensor = partial(to_tensor, precision=32, device="cpu")
+to_tensor = partial(to_tensor, device="cpu")
 
 ############################################################################################
 # In this file some of our models are tested to see if they are jittable

@@ -43,7 +43,7 @@ with open(no_grad_inference_tests) as f:
 
 @pytest.mark.parametrize("case", discard_keys_inference_tests_dict)
 def test_discard_keys_inference(case: str) -> None:
-    backend = JaxBackend(precision=64)
+    backend = JaxBackend(dtype=mithril.float64)
     current_case = discard_keys_inference_tests_dict[case]
 
     results = current_case["results"]
@@ -81,7 +81,7 @@ def test_discard_keys_inference(case: str) -> None:
 
 @pytest.mark.parametrize("case", static_keys_inference_tests_dict)
 def test_static_keys_inference(case: str) -> None:
-    backend = JaxBackend(precision=64)
+    backend = JaxBackend(dtype=mithril.float64)
     current_case = static_keys_inference_tests_dict[case]
 
     base_static_inputs = {
@@ -114,13 +114,13 @@ def test_no_grad_inference(
 ) -> None:
     current_case = no_grad_inference_tests_dict[case]
     evaluate_case(
-        JaxBackend(precision=64),
+        JaxBackend(dtype=mithril.float64),
         current_case,
         tolerance=tolerance,
         relative_tolerance=relative_tolerance,
     )
     evaluate_case(
-        TorchBackend(precision=64),
+        TorchBackend(dtype=mithril.float64),
         current_case,
         tolerance=tolerance,
         relative_tolerance=relative_tolerance,

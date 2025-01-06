@@ -16,6 +16,7 @@ import json
 
 import pytest
 
+import mithril
 from mithril import NumpyBackend
 from mithril.models import Add, Buffer, IOKey, Model, Relu, Sigmoid, TrainModel
 from tests.scripts.helper import evaluate_case
@@ -35,7 +36,7 @@ def test_error_models(
     error_message = error_info.get("error_message")
     with pytest.raises(Exception) as err_info:
         evaluate_case(
-            NumpyBackend(precision=64),
+            NumpyBackend(dtype=mithril.float64),
             current_case,
             tolerance=tolerance,
             relative_tolerance=relative_tolerance,

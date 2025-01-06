@@ -160,7 +160,7 @@ def assert_shapes(
     if physical_ref is not None:
         comp_model = mithril.compile(
             model=model,
-            backend=NumpyBackend(precision=32),
+            backend=NumpyBackend(),
             shapes=shapes,
             constant_keys=static_inputs,
             safe_shapes=True,

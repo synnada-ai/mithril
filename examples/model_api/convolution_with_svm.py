@@ -74,7 +74,7 @@ train_model.add_loss(
 )
 
 # Set up device and precision of our backend of choice
-backend = ml.TorchBackend(precision=32, device="mps")
+backend = ml.TorchBackend(device="mps")
 
 # Compile the model with given non-trainable keys
 compiled_model = ml.compile(

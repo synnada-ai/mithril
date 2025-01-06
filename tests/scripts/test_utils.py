@@ -580,7 +580,7 @@ def get_array_device(array, type):
         case "torch":
             return array.device.type
         case "mlx":
-            return "gpu"
+            return "cpu"
 
 
 def get_array_precision(array, type):

@@ -19,7 +19,7 @@ import mithril as ml
 from mithril.models import ManyToOne, Mean, RNNCell, SquaredError, TrainModel
 
 # Define backend. It would also work with any available backend you prefer.
-backend = ml.JaxBackend(precision=64)
+backend = ml.JaxBackend(dtype=ml.float64)
 
 batch_size = 20
 input_features = 10

@@ -60,7 +60,7 @@ def run_sample(
     )
 
     # Create backend.
-    backend_obj = backend_map[backend](precision=32, device="cpu")
+    backend_obj = backend_map[backend](device="cpu")
     # Set seed.
     backend_obj.set_seed(seed)
     # Compile gpt model.
