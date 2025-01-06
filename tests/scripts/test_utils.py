@@ -28,9 +28,11 @@ from mithril.framework.common import (
     Tensor,
     Uniadic,
 )
+from mithril.framework.logical.base import BaseModel
+from mithril.framework.logical.model import Model
+from mithril.framework.logical.primitive import PrimitiveModel
 from mithril.framework.physical import PhysicalModel
 from mithril.framework.utils import find_intersection_type, find_type
-from mithril.models.models import BaseModel, Model, PrimitiveModel
 from mithril.models.train_model import TrainModel
 from mithril.utils.dict_conversions import dict_to_model, model_dict
 from mithril.utils.type_utils import is_list_int

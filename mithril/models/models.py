@@ -2068,9 +2068,7 @@ class EncoderDecoderInference(Model):
 
         self._freeze()
 
-    def __call__(  # type: ignore[override]
-        self, **model_keys: ConnectionType
-    ) -> ExtendInfo:
+    def __call__(self, **model_keys: ConnectionType) -> ExtendInfo:
         return super().__call__(**model_keys)
 
 

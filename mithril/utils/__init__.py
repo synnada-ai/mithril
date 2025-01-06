@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-model_conversion_lut = {
+model_conversion_lut: dict[str, list[str]] = {
     "layer": ["activation"],
     "mlp": ["activations"],
     "distanceencoder": ["base_model"],

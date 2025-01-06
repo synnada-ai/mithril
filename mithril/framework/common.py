@@ -26,6 +26,7 @@ from typing import (
     Generic,
     Literal,
     Protocol,
+    TypedDict,
     TypeVar,
     get_args,
     get_origin,
@@ -283,6 +284,11 @@ class EvaluateAllType(Protocol, Generic[DataType]):
         data: DataEvalType[DataType] | None,
         output_gradients: ParamsEvalType[DataType] | None,
     ) -> tuple[DataEvalType[DataType], ParamsEvalType[DataType]]: ...
+
+
+class AssignedConstraintType(TypedDict):
+    fn: str
+    keys: list[str]
 
 
 LossKey = "loss"
