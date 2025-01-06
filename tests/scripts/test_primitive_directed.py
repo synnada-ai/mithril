@@ -19,12 +19,13 @@ from typing import Any
 import numpy as np
 import pytest
 
+import mithril as ml
 from mithril import Backend, JaxBackend, NumpyBackend, TorchBackend
 
 backends: list[Backend] = [
-    TorchBackend(precision=64),
-    NumpyBackend(precision=64),
-    JaxBackend(precision=64),
+    TorchBackend(dtype=ml.float64),
+    NumpyBackend(dtype=ml.float64),
+    JaxBackend(dtype=ml.float64),
 ]
 
 
@@ -1041,7 +1042,7 @@ def test_robust_sqrt_4():
         [0],
         {"input": input, "cutoff": cutoff},
         {},
-        [JaxBackend(precision=64)],
+        [JaxBackend(dtype=ml.float64)],
     )
     assert_backward(
         "robust_sqrt",
@@ -1050,7 +1051,7 @@ def test_robust_sqrt_4():
         [0],
         {"input": input, "cutoff": cutoff},
         {},
-        [NumpyBackend(precision=64), TorchBackend(precision=64)],
+        [NumpyBackend(dtype=ml.float64), TorchBackend(dtype=ml.float64)],
     )
 
 
@@ -1075,7 +1076,7 @@ def test_robust_sqrt_5():
         [0],
         {"input": input, "cutoff": cutoff},
         {},
-        [JaxBackend(precision=64)],
+        [JaxBackend(dtype=ml.float64)],
     )
     assert_backward(
         "robust_sqrt",
@@ -1084,7 +1085,7 @@ def test_robust_sqrt_5():
         [0],
         {"input": input, "cutoff": cutoff},
         {},
-        [NumpyBackend(precision=64), TorchBackend(precision=64)],
+        [NumpyBackend(dtype=ml.float64), TorchBackend(dtype=ml.float64)],
     )
 
 
@@ -1154,7 +1155,7 @@ def test_abs():
         [0],
         {"input": input},
         {},
-        [JaxBackend(precision=64)],
+        [JaxBackend(dtype=ml.float64)],
     )
     assert_backward(
         "abs",
@@ -1163,7 +1164,7 @@ def test_abs():
         [0],
         {"input": input},
         {},
-        [NumpyBackend(precision=64), TorchBackend(precision=64)],
+        [NumpyBackend(dtype=ml.float64), TorchBackend(dtype=ml.float64)],
     )
 
 
@@ -1735,7 +1736,7 @@ def test_absolute_error_2():
         [0, 1],
         {"input": input, "target": target},
         {},
-        [JaxBackend(precision=64)],
+        [JaxBackend(dtype=ml.float64)],
     )
     assert_backward(
         "absolute_error",
@@ -1744,7 +1745,7 @@ def test_absolute_error_2():
         [0, 1],
         {"input": input, "target": target},
         {},
-        [NumpyBackend(precision=64), TorchBackend(precision=64)],
+        [NumpyBackend(dtype=ml.float64), TorchBackend(dtype=ml.float64)],
     )
 
 
@@ -1767,7 +1768,7 @@ def test_absolute_error_3():
         [0, 1],
         {"input": input, "target": target},
         {},
-        [JaxBackend(precision=64)],
+        [JaxBackend(dtype=ml.float64)],
     )
     assert_backward(
         "absolute_error",
@@ -1776,7 +1777,7 @@ def test_absolute_error_3():
         [0, 1],
         {"input": input, "target": target},
         {},
-        [NumpyBackend(precision=64), TorchBackend(precision=64)],
+        [NumpyBackend(dtype=ml.float64), TorchBackend(dtype=ml.float64)],
     )
 
 
@@ -1823,7 +1824,7 @@ def test_absolute_error_4():
         [0, 1],
         {"input": input, "target": target},
         {},
-        [JaxBackend(precision=64)],
+        [JaxBackend(dtype=ml.float64)],
     )
     assert_backward(
         "absolute_error",
@@ -1832,7 +1833,7 @@ def test_absolute_error_4():
         [0, 1],
         {"input": input, "target": target},
         {},
-        [NumpyBackend(precision=64), TorchBackend(precision=64)],
+        [NumpyBackend(dtype=ml.float64), TorchBackend(dtype=ml.float64)],
     )
 
 
@@ -2002,7 +2003,7 @@ def test_cross_entropy_3():
         [0],
         {"input": input, "target": target, "weights": weights, "cutoff": cutoff},
         {"categorical": categorical, "robust": robust},
-        [JaxBackend(precision=64), NumpyBackend(precision=64)],
+        [JaxBackend(dtype=ml.float64), NumpyBackend(dtype=ml.float64)],
     )
 
     assert_backward(
@@ -2012,7 +2013,7 @@ def test_cross_entropy_3():
         [0],
         {"input": input, "target": target, "weights": weights},
         {"categorical": categorical, "cutoff": cutoff, "robust": robust},
-        [TorchBackend(precision=64)],
+        [TorchBackend(dtype=ml.float64)],
     )
 
 
@@ -2070,7 +2071,7 @@ def test_cross_entropy_5():
         [0],
         {"input": input, "target": target, "weights": weights, "cutoff": cutoff},
         {"categorical": categorical, "robust": robust},
-        [JaxBackend(precision=64), NumpyBackend(precision=64)],
+        [JaxBackend(dtype=ml.float64), NumpyBackend(dtype=ml.float64)],
     )
 
     assert_backward(
@@ -2080,7 +2081,7 @@ def test_cross_entropy_5():
         [0],
         {"input": input, "target": target, "weights": weights, "cutoff": cutoff},
         {"categorical": categorical, "robust": robust},
-        [TorchBackend(precision=64)],
+        [TorchBackend(dtype=ml.float64)],
     )
 
 
@@ -2381,7 +2382,7 @@ def test_binary_cross_entropy_with_logits_1():
         [0],
         {"input": input, "target": target, "cutoff": cutoff},
         {"pos_weight": pos_weight, "robust": robust},
-        [JaxBackend(precision=64)],
+        [JaxBackend(dtype=ml.float64)],
     )
 
     assert_backward(
@@ -2391,7 +2392,7 @@ def test_binary_cross_entropy_with_logits_1():
         [0],
         {"input": input, "target": target, "cutoff": cutoff},
         {"pos_weight": pos_weight, "robust": robust},
-        [TorchBackend(precision=64), NumpyBackend(precision=64)],
+        [TorchBackend(dtype=ml.float64), NumpyBackend(dtype=ml.float64)],
     )
 
 
@@ -2420,7 +2421,7 @@ def test_binary_cross_entropy_with_logits_2():
         [0],
         {"input": input, "target": target, "cutoff": cutoff},
         {"pos_weight": pos_weight, "robust": robust},
-        [JaxBackend(precision=64)],
+        [JaxBackend(dtype=ml.float64)],
     )
 
     assert_backward(
@@ -2430,7 +2431,7 @@ def test_binary_cross_entropy_with_logits_2():
         [0],
         {"input": input, "target": target, "cutoff": cutoff},
         {"pos_weight": pos_weight, "robust": robust},
-        [TorchBackend(precision=64), NumpyBackend(precision=64)],
+        [TorchBackend(dtype=ml.float64), NumpyBackend(dtype=ml.float64)],
     )
 
 
@@ -2509,7 +2510,7 @@ def test_binary_cross_entropy_with_logits_4():
         [0],
         {"input": input, "target": target, "cutoff": cutoff},
         {"pos_weight": pos_weight, "robust": robust},
-        [JaxBackend(precision=64)],
+        [JaxBackend(dtype=ml.float64)],
     )
 
     assert_backward(
@@ -2519,7 +2520,7 @@ def test_binary_cross_entropy_with_logits_4():
         [0],
         {"input": input, "target": target, "cutoff": cutoff},
         {"pos_weight": pos_weight, "robust": robust},
-        [TorchBackend(precision=64), NumpyBackend(precision=64)],
+        [TorchBackend(dtype=ml.float64), NumpyBackend(dtype=ml.float64)],
     )
 
 
@@ -2784,7 +2785,7 @@ def test_leaky_relu_1():
         [0],
         {"input": input, "slope": slope},
         {},
-        [JaxBackend(precision=64)],
+        [JaxBackend(dtype=ml.float64)],
     )
 
     assert_backward(
@@ -2794,7 +2795,7 @@ def test_leaky_relu_1():
         [0],
         {"input": input, "slope": slope},
         {},
-        [TorchBackend(precision=64), NumpyBackend(precision=64)],
+        [TorchBackend(dtype=ml.float64), NumpyBackend(dtype=ml.float64)],
     )
 
 
@@ -2815,7 +2816,7 @@ def test_leaky_relu_2():
         [0],
         {"input": input, "slope": slope},
         {},
-        [JaxBackend(precision=64)],
+        [JaxBackend(dtype=ml.float64)],
     )
 
     assert_backward(
@@ -2825,7 +2826,7 @@ def test_leaky_relu_2():
         [0],
         {"input": input, "slope": slope},
         {},
-        [TorchBackend(precision=64), NumpyBackend(precision=64)],
+        [TorchBackend(dtype=ml.float64), NumpyBackend(dtype=ml.float64)],
     )
 
 
@@ -2846,7 +2847,7 @@ def test_leaky_relu_3():
         [0],
         {"input": input, "slope": slope},
         {},
-        [JaxBackend(precision=64)],
+        [JaxBackend(dtype=ml.float64)],
     )
 
     assert_backward(
@@ -2856,7 +2857,7 @@ def test_leaky_relu_3():
         [0],
         {"input": input, "slope": slope},
         {},
-        [TorchBackend(precision=64), NumpyBackend(precision=64)],
+        [TorchBackend(dtype=ml.float64), NumpyBackend(dtype=ml.float64)],
     )
 
 
@@ -2980,7 +2981,7 @@ def test_robust_log_2():
         [0],
         {"input": input, "cutoff": cutoff},
         {},
-        [NumpyBackend(precision=64), JaxBackend(precision=64)],
+        [NumpyBackend(dtype=ml.float64), JaxBackend(dtype=ml.float64)],
     )
     assert_backward(
         "robust_log",
@@ -2989,7 +2990,7 @@ def test_robust_log_2():
         [0],
         {"input": input, "cutoff": cutoff},
         {},
-        [TorchBackend(precision=64)],
+        [TorchBackend(dtype=ml.float64)],
     )
 
 
@@ -3008,21 +3009,21 @@ def test_robust_log_3():
         jax_result,
         (input, cutoff),
         {},
-        backends=[JaxBackend(precision=64)],
+        backends=[JaxBackend(dtype=ml.float64)],
     )
     assert_forward(
         "robust_log",
         numpy_result,
         (input, cutoff),
         {},
-        backends=[NumpyBackend(precision=64)],
+        backends=[NumpyBackend(dtype=ml.float64)],
     )
     assert_forward(
         "robust_log",
         numpy_result,
         (input, cutoff),
         {},
-        backends=[TorchBackend(precision=64)],
+        backends=[TorchBackend(dtype=ml.float64)],
     )
     assert_backward(
         "robust_log",
@@ -3250,21 +3251,21 @@ def test_robust_power_7():
         jax_result,
         (base, exponent, cutoff),
         {},
-        backends=[JaxBackend(precision=64)],
+        backends=[JaxBackend(dtype=ml.float64)],
     )
     assert_forward(
         "robust_power",
         numpy_result,
         (base, exponent, cutoff),
         {},
-        backends=[NumpyBackend(precision=64)],
+        backends=[NumpyBackend(dtype=ml.float64)],
     )
     assert_forward(
         "robust_power",
         numpy_result,
         (base, exponent, cutoff),
         {},
-        backends=[TorchBackend(precision=64)],
+        backends=[TorchBackend(dtype=ml.float64)],
     )
 
     assert_backward(
@@ -3274,7 +3275,7 @@ def test_robust_power_7():
         [0],
         {"base": base, "exponent": exponent, "threshold": cutoff},
         {},
-        backends=[JaxBackend(precision=64)],
+        backends=[JaxBackend(dtype=ml.float64)],
     )
     assert_backward(
         "robust_power",
@@ -3283,7 +3284,7 @@ def test_robust_power_7():
         [0],
         {"base": base, "exponent": exponent, "threshold": cutoff},
         {},
-        backends=[NumpyBackend(precision=64), TorchBackend(precision=64)],
+        backends=[NumpyBackend(dtype=ml.float64), TorchBackend(dtype=ml.float64)],
     )
 
 

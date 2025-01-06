@@ -34,27 +34,27 @@ class Backend(ABC, Generic[DataType]):
 
     backend_type = ""
     device_type = None
-    supported_precisions = [16, 32, 64]
     is_installed = True
     _device: Any
     _precision: int
+    supported_dtypes = [
+        core.Dtype.float16,
+        core.Dtype.bfloat16,
+        core.Dtype.float32,
+        core.Dtype.float64,
+    ]
     primitive_function_dict: dict[str, Callable[..., DataType | Any]]
     registered_primitives: dict[str, Callable[..., DataType]]
     array_creation_funcs: list[str]
     primitive_fn_path: str
 
-    def __init__(self, precision: int = 32, device: str = "cpu") -> None:
-        # Check if given precision is a valid one.
-        if self.precision not in self.supported_precisions:
-            raise Exception(
-                f"'{self.precision}' bits precision is not available!"
-                " Available precisions: '{self.supported_precisions}'"
+    def __init__(self, dtype: core.Dtype = core.float32, device: str = "cpu") -> None:
+        # Check if given dtype is a valid one.
+        if dtype not in self.supported_dtypes:
+            raise ValueError(
+                f"Invalid dtype {dtype}. Supported dtypes are {self.supported_dtypes}."
             )
         self.seed = 10  # Can be set any integer.
-
-        # Initialize epsilon constants according to given precision.
-        # for key, value in core.epsilon_table[f"float{self.precision}"].items():
-        #     setattr(self, key, value)
 
     @property
     def precision(self) -> int:
@@ -1074,11 +1074,11 @@ class Backend(ABC, Generic[DataType]):
 
 
 class ParallelBackend(Backend[DataType]):
-    def __init__(self, device_mesh: tuple[int, ...] | None) -> None:
+    def __init__(self, dtype: core.Dtype, device_mesh: tuple[int, ...] | None) -> None:
         assert (
             isinstance(device_mesh, tuple) or device_mesh is None
         ), "device_mesh must be a tuple or None."
-        super().__init__()
+        super().__init__(dtype=dtype)
 
         self._raw_device_mesh = device_mesh
         self.n_devices = math.prod(device_mesh) if device_mesh is not None else 1

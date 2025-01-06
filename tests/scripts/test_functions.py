@@ -195,7 +195,9 @@ def test_flatten_dag_1():
     model4 += model2(in1=model1.output, in2=model1.output)  # type: ignore
     model4 += model3(in1=model2.output, in2=model2.output, output=IOKey(name="output"))  # type: ignore
 
-    comp_model = mithril.compile(model=model4, backend=JaxBackend(precision=64))
+    comp_model = mithril.compile(
+        model=model4, backend=JaxBackend(dtype=mithril.float64)
+    )
 
     flatted_primitive_model_list = [
         key.__class__ for key in comp_model.flat_graph.get_models()
@@ -255,7 +257,9 @@ def test_flatten_dag_2():
         out2=IOKey(name="out2"),
     )
 
-    comp_model = mithril.compile(model=model4, backend=JaxBackend(precision=64))
+    comp_model = mithril.compile(
+        model=model4, backend=JaxBackend(dtype=mithril.float64)
+    )
 
     flatted_primitive_model_list = [
         key.__class__ for key in comp_model.flat_graph.get_models()
@@ -298,7 +302,9 @@ def test_flatten_dag_3():
         sine,
     ]
 
-    comp_model = mithril.compile(model=model1, backend=JaxBackend(precision=64))
+    comp_model = mithril.compile(
+        model=model1, backend=JaxBackend(dtype=mithril.float64)
+    )
 
     flatted_primitive_model_list = [
         key.__class__ for key in comp_model.flat_graph.get_models()
@@ -317,7 +323,10 @@ def test_code_generator_1(file_path: str):
     model += Lin1(input="add1", output=IOKey(name="output"))
 
     mithril.compile(
-        model=model, backend=JaxBackend(precision=64), jit=False, file_path=file_path
+        model=model,
+        backend=JaxBackend(dtype=mithril.float64),
+        jit=False,
+        file_path=file_path,
     )
 
     file_name = os.path.basename(file_path).split(".")[0]
@@ -351,7 +360,10 @@ def test_code_generator_2(file_path: str):
     model += buff4(input=buff2.output, output=IOKey(name="output2"))
 
     mithril.compile(
-        model=model, backend=JaxBackend(precision=64), jit=False, file_path=file_path
+        model=model,
+        backend=JaxBackend(dtype=mithril.float64),
+        jit=False,
+        file_path=file_path,
     )
 
     file_name = os.path.basename(file_path).split(".")[0]
@@ -374,7 +386,10 @@ def test_code_generator_3(file_path: str):
     model += Linear2(input=Linear1.output, output=IOKey(name="output"))
 
     mithril.compile(
-        model=model, backend=JaxBackend(precision=64), jit=False, file_path=file_path
+        model=model,
+        backend=JaxBackend(dtype=mithril.float64),
+        jit=False,
+        file_path=file_path,
     )
 
     file_name = os.path.basename(file_path).split(".")[0]
@@ -437,7 +452,7 @@ def test_code_generator_4(file_path: str):
     )
     mithril.compile(
         model=context,
-        backend=NumpyBackend(precision=64),
+        backend=NumpyBackend(dtype=mithril.float64),
         jit=False,
         file_path=file_path,
         data_keys={"target"},
@@ -546,7 +561,7 @@ def test_code_generator_5(file_path: str):
     )
     mithril.compile(
         model=context,
-        backend=JaxBackend(precision=64),
+        backend=JaxBackend(dtype=mithril.float64),
         jit=False,
         file_path=file_path,
         data_keys={"target"},
@@ -575,7 +590,7 @@ def test_code_generator_5(file_path: str):
 def test_code_generator_6(file_path: str):
     # Case array creator primitive used in static
 
-    backend = TorchBackend(precision=32, device="cpu")
+    backend = TorchBackend(device="cpu")
 
     model = Model()
     layer2 = Layer(dimension=2, activation=Softmax())
@@ -628,7 +643,7 @@ def test_code_generator_6(file_path: str):
 def test_code_generator_7(file_path: str):
     # Case array creator partially initialized
 
-    backend = TorchBackend(precision=32, device="cpu")
+    backend = TorchBackend(device="cpu")
 
     model = Model()
     layer2 = Layer(dimension=2, activation=Softmax())

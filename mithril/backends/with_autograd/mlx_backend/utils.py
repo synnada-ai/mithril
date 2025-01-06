@@ -24,6 +24,7 @@ import numpy as np
 
 from .... import core
 from ....utils.utils import binary_search, find_dominant_type
+from ...utils import DtypeSubTypes
 
 ArrayType = mx.array
 
@@ -37,6 +38,7 @@ dtype_map: dict[str, mx.Dtype] = {
     "int64": mx.int64,
     "long": mx.int64,
     "float16": mx.float16,
+    "bfloat16": mx.bfloat16,
     "float32": mx.float32,
     "float": mx.float32,
     "bool": mx.bool_,  # type: ignore
@@ -45,10 +47,12 @@ dtype_map: dict[str, mx.Dtype] = {
 
 def get_available_devices():
     # For now available devices static
-    return ["cpu", "gpu"]
+    return ["cpu", "mps"]
 
 
 def get_device(device: str):
+    if device == "mps":
+        device = "gpu"
     return mx.Device(getattr(mx, device), 0)
 
 
@@ -372,7 +376,9 @@ def get_submatrices2d(
     )
 
 
-def determine_dtype(input: Any, dtype: core.Dtype | None, precision: int) -> str:
+def determine_dtype(
+    input: Any, dtype: core.Dtype | None, default_type: core.Dtype, precision: int
+) -> str:
     if isinstance(dtype, core.Dtype):
         return dtype.name
 
@@ -384,6 +390,9 @@ def determine_dtype(input: Any, dtype: core.Dtype | None, precision: int) -> str
         dtype_name = "".join(char for char in str(input.dtype) if not char.isdigit())
     else:
         dtype_name = find_dominant_type(input).__name__
+
+    if dtype_name == "float":
+        dtype_name = DtypeSubTypes[default_type.name].value
 
     return dtype_name + str(precision) if dtype_name != "bool" else "bool"
 

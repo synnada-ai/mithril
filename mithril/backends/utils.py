@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import enum
 from collections.abc import Sequence
 
 from ..utils.type_utils import is_tuple_int
@@ -36,3 +37,27 @@ def process_shape(
                 )
 
     return _shape
+
+
+class DtypeBits(enum.IntEnum):
+    bool = 8
+    int8 = 8
+    int16 = 16
+    int32 = 32
+    int64 = 64
+    float16 = 16
+    bfloat16 = 16
+    float32 = 32
+    float64 = 64
+
+
+class DtypeSubTypes(enum.Enum):
+    bool = "bool"
+    int8 = "int"
+    int16 = "int"
+    int32 = "int"
+    int64 = "int"
+    float16 = "float"
+    bfloat16 = "bfloat"
+    float32 = "float"
+    float64 = "float"
