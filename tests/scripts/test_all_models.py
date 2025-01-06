@@ -243,9 +243,7 @@ def test_jax():
         JaxBackend(dtype=mithril.bfloat16),
     ]
     for backend in backends:
-        print("Jax Backend: ", backend._dtype)
         backend.array(arr)
-        print("Operation is successful!")
 
 
 def test_buffer_1():
