@@ -18,7 +18,7 @@ from importlib import import_module
 
 import mithril
 from mithril import JaxBackend, MlxBackend, NumpyBackend, TorchBackend
-from mithril.models import Concat, Linear, Mean, Model, Relu, ToTensor
+from mithril.models import Arange, Concat, Linear, Mean, Model, Relu, ToTensor
 from tests.scripts.test_utils import compare_callables
 
 from ..utils import with_temp_file
@@ -404,3 +404,26 @@ def test_default_kwarg_reduction_2(file_path: str):
             file_path=file_path,
         )
         compare_callables(evaluate, eval_func)
+
+
+@with_temp_file(".py")
+def test_array_creation_primitive(file_path: str):
+    model = Model()
+    model += Arange(dtype=mithril.bfloat16)(stop="stop", output="output")
+
+    backend = TorchBackend()
+    mithril.compile(model, backend, inference=False, jit=False, file_path=file_path)
+
+    file_name = os.path.basename(file_path).split(".")[0]
+    eval_func = import_module("tmp." + file_name).evaluate
+
+    @typing.no_type_check  # type: ignore
+    def evaluate(params, data, cache):
+        _dtype = cache["_dtype"]
+        start = cache["start"]
+        step = cache["step"]
+        stop = data["stop"]
+        output = arange(start, stop, step, dtype=_dtype)
+        return {"output": output}
+
+    compare_callables(evaluate, eval_func)

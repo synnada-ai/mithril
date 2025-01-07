@@ -14,6 +14,7 @@
 import copy
 import logging
 import math
+import re
 from collections.abc import Callable, Iterator, Sequence
 from functools import partial
 from itertools import combinations_with_replacement
@@ -25,6 +26,7 @@ from scipy.special import erf
 
 from .... import core
 from ....utils.type_utils import is_tuple_int
+from ....utils.utils import find_dominant_type
 from ...utils import NestedFloatOrIntOrBoolList
 from ..common_primitives import (
     add,
@@ -77,9 +79,7 @@ from .utils import (
     find_optimal_sigmas,
     get_submatrices1d,
     get_submatrices2d,
-    get_type,
     handle_data_dtype,
-    handle_data_precision,
     log_sigmoid,
     log_softmax,
     make_array,
@@ -934,19 +934,6 @@ def broadcast_to(
     return np.broadcast_to(input, shape)
 
 
-def ones_with_zero_diag(
-    *args: Any, precision: int, cache: CacheType | None = None
-) -> np.ndarray[Any, Any]:
-    n, m = args
-    output = np.ones((n, m)) - np.eye(n, m) if m is not None else np.ones(n) - np.eye(n)
-
-    return handle_data_precision(output, precision=precision)
-
-
-def eye(*args, precision: int, cache: CacheType | None = None) -> np.ndarray[Any, Any]:
-    return handle_data_precision(np.eye(*args), precision=precision)
-
-
 def squeeze(
     input: np.ndarray[Any, Any], *, cache: CacheType | None = None
 ) -> np.ndarray[Any, Any]:
@@ -954,9 +941,55 @@ def squeeze(
 
 
 def to_tensor(
-    *input: NestedFloatOrIntOrBoolList, precision: int, cache: CacheType | None = None
+    *input: NestedFloatOrIntOrBoolList,
+    dtype: str | None = None,
+    device: str,
+    default_dtype: str,
+    cache: CacheType | None = None,
 ) -> np.ndarray[Any, Any]:
-    return np.array(input[0], dtype=get_type(input[0], precision=precision))
+    if dtype is None:
+        dtype = default_dtype
+
+    dominant_type = find_dominant_type(input)
+    _dtype = dominant_type.__name__
+
+    if _dtype != "bool":
+        _dtype += str(re.findall(r"\d+", dtype)[-1])
+
+    return np.array(input[0], dtype=_dtype)
+
+
+def eye(
+    N: int,
+    M: int | None,
+    *,
+    dtype: str | None = None,
+    device: str,
+    default_dtype: str,
+    cache: CacheType | None = None,
+) -> np.ndarray[Any, Any]:
+    if dtype is None:
+        dtype = default_dtype
+    return np.eye(N, M, dtype=dtype)
+
+
+def ones_with_zero_diag(
+    *args: Any,
+    dtype: str | None = None,
+    device: str,
+    default_dtype: str,
+    cache: CacheType | None = None,
+) -> np.ndarray[Any, Any]:
+    if dtype is None:
+        dtype = default_dtype
+    n, m = args
+    output = (
+        np.ones((n, m), dtype=dtype) - np.eye(n, m, dtype=dtype)
+        if m is not None
+        else np.ones(n, dtype=dtype) - np.eye(n, dtype=dtype)
+    )
+
+    return output
 
 
 def tensor_to_list(input: np.ndarray[Any, Any], cache: CacheType | None = None):
@@ -989,9 +1022,22 @@ def concat(
 
 
 def arange(
-    *args: int | float, precision: int, cache: CacheType | None = None
+    start: int | float,
+    stop: int | float,
+    step: int | float,
+    *,
+    dtype: str | None = None,
+    device: str,
+    default_dtype: str,
+    cache: CacheType | None = None,
 ) -> np.ndarray[Any, Any]:
-    return handle_data_precision(np.arange(*args), precision)
+    if dtype is None:
+        dtype = default_dtype
+
+    if len([item for item in [start, stop, step] if isinstance(item, float)]) == 0:
+        dtype = dtype.replace("float", "int").replace("bfloat", "int")
+
+    return np.arange(start, stop, step, dtype=dtype)
 
 
 def flatten(
@@ -1222,10 +1268,18 @@ def pad(
 
 
 def randn(
-    shape: tuple[int, ...], *, key: int, precision: int, cache: CacheType | None = None
+    shape: tuple[int, ...],
+    key: int,
+    *,
+    dtype: str | None = None,
+    device: str,
+    default_dtype: str,
+    cache: CacheType | None = None,
 ) -> np.ndarray:
     np.random.seed(key)
-    return handle_data_precision(np.random.randn(*shape), precision)
+    if dtype is None:
+        dtype = default_dtype
+    return np.random.randn(*shape).astype(dtype)
 
 
 def zeros_like(input: np.ndarray, cache: CacheType | None = None) -> np.ndarray:

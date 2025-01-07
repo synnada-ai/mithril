@@ -383,9 +383,8 @@ class StaticDataStore(Generic[DataType]):
 
                 # If function needs backend specific args
                 if model.formula_key in self.backend.array_creation_funcs:
-                    kwargs["precision"] = self.backend.precision
-                    if not self.backend.is_manualgrad:
-                        kwargs["device"] = self.backend.get_device()
+                    kwargs["default_dtype"] = self.backend._dtype.name
+                    kwargs["device"] = self.backend.get_device()
 
                 static_value = fn(*args, **kwargs)
 

@@ -1045,7 +1045,9 @@ class TemplateBase:
         return ExtendTemplate(connections=[self, dim], model="size")
 
     def tensor(self):
-        return ExtendTemplate(connections=[self], model="tensor")
+        return ExtendTemplate(
+            connections=[self], model="tensor", defaults={"dtype": None}
+        )
 
     def mean(
         self,

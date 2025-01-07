@@ -145,7 +145,11 @@ def test_data_store_4():
     )
     pm.data_store.set_shapes(shapes)
     # Only "output" key is not in unused_kexys.
-    assert pm.data_store.unused_keys == pm.shapes.keys() - {"output", "output_3"}
+    assert pm.data_store.unused_keys == pm.shapes.keys() - {
+        "output",
+        "output_3",
+        "_dtype",
+    }
 
 
 def test_data_store_5():
@@ -555,4 +559,4 @@ def test_data_store_20():
     assert pm.data_store.data_values.keys() == {"tensor_out"}
     assert pm.data_store.runtime_static_keys == set()
     assert pm.data_store.intermediate_non_differentiables._table.keys() == set()
-    assert pm.data_store.unused_keys == {"left", "output_1"}
+    assert pm.data_store.unused_keys == {"left", "output_1", "_dtype"}

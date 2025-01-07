@@ -23,13 +23,13 @@ from ..common import ShapeNode
 def partial_array_creation_func(
     backend: Backend[DataType], formula_key: str
 ) -> ast.stmt:
-    kwargs = [ast.keyword(arg="precision", value=ast.Constant(value=backend.precision))]
+    kwargs = [
+        ast.keyword(arg="default_dtype", value=ast.Constant(value=backend._dtype.name))
+    ]
 
-    # We don't need device in manulgrad(Numpy)
-    if not backend.is_manualgrad:
-        kwargs.append(
-            ast.keyword(arg="device", value=ast.Constant(value=backend.get_device()))
-        )
+    kwargs.append(
+        ast.keyword(arg="device", value=ast.Constant(value=backend.get_device()))
+    )
 
     partial_fn_call = ast.Call(
         func=ast.Name(id="partial", ctx=ast.Load()),

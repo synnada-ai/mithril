@@ -633,16 +633,22 @@ class ScalarItem(PrimitiveModel):
 
 class ToTensor(PrimitiveModel):
     input: Connection
+    dtype: Connection
     output: Connection
 
     def __init__(
-        self, name: str | None = None, input: TensorValueType | ToBeDetermined = TBD
+        self,
+        name: str | None = None,
+        input: TensorValueType | ToBeDetermined = TBD,
+        dtype: Dtype | None = None,
     ) -> None:
+        _dtype = dtype if dtype is not None else None
         super().__init__(
             formula_key="to_tensor",
             name=name,
             output=BaseKey(shape=[("Var", ...)], type=GenericTensorType),
             input=BaseKey(type=int | float | list | tuple, value=input),
+            dtype=BaseKey(type=str | None, value=_dtype),
         )
 
         self._set_constraint(
@@ -650,9 +656,12 @@ class ToTensor(PrimitiveModel):
         )
 
     def __call__(  # type: ignore[override]
-        self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
+        self,
+        input: ConnectionType = NOT_GIVEN,
+        dtype: ConnectionType = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
-        return super().__call__(input=input, output=output)
+        return super().__call__(input=input, dtype=dtype, output=output)
 
 
 class ToList(PrimitiveModel):

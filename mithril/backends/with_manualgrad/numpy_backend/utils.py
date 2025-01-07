@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import re
 from collections.abc import Callable, Iterable, Sequence
 from functools import partial
 from typing import Any
@@ -338,8 +339,23 @@ def handle_data_dtype(
     return data
 
 
-def make_array(input: int | float | np.ndarray[Any, Any], precision: int):
-    return handle_data_precision(np.array(input), precision=precision)
+def make_array(
+    input: int | float | np.ndarray[Any, Any],
+    *,
+    dtype: str | None = None,
+    device: str,
+    default_dtype: str,
+):
+    if dtype is None:
+        dtype = default_dtype
+
+    dtype = determine_dtype(
+        input,
+        None,
+        core.Dtype[default_dtype],
+        precision=int(re.findall(r"\d+", dtype)[-1]),
+    )
+    return np.array(input, dtype=dtype_map[dtype])
 
 
 def accumulate_grads(

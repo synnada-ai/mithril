@@ -36,6 +36,7 @@ class Backend(ABC, Generic[DataType]):
     device_type = None
     is_installed = True
     _device: Any
+    _dtype: core.Dtype
     _precision: int
     supported_dtypes = [
         core.Dtype.float16,
@@ -59,6 +60,10 @@ class Backend(ABC, Generic[DataType]):
     @property
     def precision(self) -> int:
         return self._precision
+
+    @property
+    def default_dtype(self):
+        return self._dtype
 
     #!!
     @property
