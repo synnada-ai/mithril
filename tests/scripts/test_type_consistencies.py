@@ -28,6 +28,7 @@ from mithril.framework.utils import (
 )
 from mithril.models import (
     TBD,
+    BaseKey,
     Convolution2D,
     ExtendInfo,
     IOKey,
@@ -50,9 +51,9 @@ class Model1(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="None",
-            input1=IOKey(type=tuple[int, ...]),
-            input2=IOKey(type=list[float]),
-            output=IOKey(type=tuple[tuple[int, ...]]),
+            input1=BaseKey(type=tuple[int, ...]),
+            input2=BaseKey(type=list[float]),
+            output=BaseKey(type=tuple[tuple[int, ...]]),
         )
 
     def __call__(  # type: ignore[override]
@@ -69,10 +70,10 @@ class Model2(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="None",
-            input1=IOKey(type=int | float),
-            input2=IOKey(type=int | str),
-            input3=IOKey(type=str | float),
-            output=IOKey(type=tuple[int | float, int | float, int | float]),
+            input1=BaseKey(type=int | float),
+            input2=BaseKey(type=int | str),
+            input3=BaseKey(type=str | float),
+            output=BaseKey(type=tuple[int | float, int | float, int | float]),
         )
 
     def __call__(  # type: ignore[override]
@@ -95,19 +96,21 @@ class Model3(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="None",
-            input1=IOKey(
+            input1=BaseKey(
                 type=tuple[tuple[int | float, ...], ...]
                 | list[int | float]
                 | tuple[int, int, int, int]
             ),
-            input2=IOKey(type=list[int] | tuple[int, ...] | tuple[tuple[int | float]]),
-            input3=IOKey(
+            input2=BaseKey(
+                type=list[int] | tuple[int, ...] | tuple[tuple[int | float]]
+            ),
+            input3=BaseKey(
                 type=list[tuple[int | tuple[float | int]]]
                 | int
                 | float
                 | tuple[int | float, ...]
             ),
-            output=IOKey(type=int | float | str | tuple[int, int]),
+            output=BaseKey(type=int | float | str | tuple[int, int]),
         )
 
     def __call__(  # type: ignore[override]
@@ -135,11 +138,12 @@ def test_default_given_extend_4_numpy_error():
     model1 = ReduceMult(axis=TBD)
     model2 = Mean(axis=1)
     model += model1(axis=IOKey("axis", value=None))
-    with pytest.raises(ValueError) as err_info:
+    with pytest.raises(TypeError) as err_info:
         model += model2(input="input2", axis=model1.axis, output="output")
 
     assert str(err_info.value) == (
-        "Value is set before as None. A value can not be reset."
+        "Acceptable types are <class 'NoneType'>, "
+        "but <class 'int'> type value is provided!"
     )
 
 
@@ -389,7 +393,7 @@ def test_type_16():
 
     with pytest.raises(TypeError) as err_info:
         model += sig_model_2(
-            input=IOKey(connections=[sig_model_1.input], value=MyTensor([False, True])),
+            input=IOKey(connections={sig_model_1.input}, value=MyTensor([False, True])),
             output=IOKey(name="output2"),
         )
     assert str(err_info.value) == (
@@ -408,7 +412,7 @@ def test_type_17():
         model.extend(
             sig_model_2,
             input=IOKey(
-                connections=[sig_model_1.input],
+                connections={sig_model_1.input},
                 value=MyTensor([False, True]),
                 name="a",
                 expose=True,

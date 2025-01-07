@@ -51,7 +51,7 @@ def test_discard_keys_inference(case: str) -> None:
 
     model = finalize_model(current_case)
     if isinstance(model, TrainModel):
-        model._finalize()
+        model.finalize()
 
     reference_output_keys = sorted(results.get("output_keys", {}))
     reference_discard_keys = sorted(results.get("discard_keys", {}))
@@ -63,7 +63,6 @@ def test_discard_keys_inference(case: str) -> None:
         data_keys=set(),
         constant_keys=dict(),
         trainable_keys=set(),
-        jacobian_keys=set(),
         shapes=dict(),
         inference=True,
         safe_shapes=True,
@@ -73,7 +72,7 @@ def test_discard_keys_inference(case: str) -> None:
 
     discarded_keys = pm.discarded_keys
     output_keys = pm.output_keys
-    hanging_keys = pm._flat_graph.hanging_keys
+    hanging_keys = pm.flat_graph.hanging_keys
     discard_keys |= {key for key in hanging_keys if key not in pm.output_keys}
 
     assert sorted(discarded_keys) == reference_discard_keys

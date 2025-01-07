@@ -22,6 +22,7 @@ import mithril
 from mithril import JaxBackend, NumpyBackend, TorchBackend, compile
 from mithril.framework.common import (
     NOT_GIVEN,
+    BaseKey,
     Connection,
     ConnectionType,
     IOHyperEdge,
@@ -47,12 +48,12 @@ from mithril.models import (
     Mean,
     Model,
     PrimitiveModel,
-    PrimitiveSlice,
     PrimitiveUnion,
     Relu,
     ScalarItem,
     Shape,
     Sigmoid,
+    Slice,
     Sum,
     TensorToList,
     ToTensor,
@@ -115,7 +116,7 @@ def test_scalar_to_tensor_2():
     lin_2 = Linear(dimension=2)
     model += lin_1(input="input_1", weight="w_1", bias="b_1")
     model += lin_2(input="input_2", weight="w_2", bias="b_2")
-    shp_1 = lin_1.input.shape()
+    shp_1 = lin_1.input.shape
     reshaped_1 = lin_2.output.reshape(shp_1)
     to_tensor = ToTensor()
     model += to_tensor(input=shp_1)
@@ -128,7 +129,7 @@ def test_scalar_to_tensor_2():
     lin_4 = Linear(dimension=2)
     model += lin_3(input="input_1", weight="w_1", bias="b_1")
     model += lin_4(input="input_2", weight="w_2", bias="b_2")
-    shp_2 = lin_3.input.shape()
+    shp_2 = lin_3.input.shape
     reshaped_2 = lin_4.output.reshape(shp_2)
     model += Add()(left=shp_2.tensor(), right=reshaped_2, output="output")
     model_2 = model
@@ -190,7 +191,7 @@ def test_scalar_to_tensor_3():
 
 
 def test_tensor_to_scalar_1():
-    """Model enforces Jit so we reshape with to_tensor_1_output.shape().
+    """Model enforces Jit so we reshape with to_tensor_1_output.shape.
     We can not directly reshape with to_tensor_1_output which is valued
     as [2, 1] in tensor domain since it requires TensorToList conversion before
     being argument to reshape method.
@@ -204,7 +205,7 @@ def test_tensor_to_scalar_1():
     model += to_tensor_1(input=[2, 1])
     model += to_tensor_2(input=[[1, 1]])
     model += add_1(left=to_tensor_1.output, right=to_tensor_2.output)
-    reshaped_1 = add_1.output.reshape(to_tensor_1.output.shape())
+    reshaped_1 = add_1.output.reshape(to_tensor_1.output.shape)
     model += Buffer()(input=reshaped_1, output="output")
     model_1 = model
 
@@ -214,7 +215,7 @@ def test_tensor_to_scalar_1():
     left = IOKey(value=[2, 1]).tensor()
     right = IOKey(value=[1, 1]).tensor()
     model += add_2(left=left, right=right)
-    reshaped_2 = add_2.output.reshape(add_2.left.shape())
+    reshaped_2 = add_2.output.reshape(add_2.left.shape)
     model += Buffer()(input=reshaped_2, output="output")
 
     model_2 = model
@@ -266,20 +267,25 @@ def test_slice_item_conversions():
     """Tests if right conversions done when slice and item operations
     exist.
     """
+
+    slice_model = Model()
+    slice_model += (slc := Slice())(start=None, stop=None, step=None)
+    slice_model += ScalarItem()(input="input", index=slc.output, output=IOKey("output"))
+
     # Manuel conversion
     model = Model()
     lin_1 = Linear(dimension=1)
     shp1 = Shape()
     item = ScalarItem()
     tensor_1 = ToTensor()
-    slice_model = PrimitiveSlice()
     tensor_2 = ToTensor()
     model += lin_1(input="input", weight="w", bias="b")
     model += shp1(input=lin_1.input)
     model += item(input=shp1.output, index=1)
     model += tensor_1(input=item.output)
-    model += slice_model(input=shp1.output)
-    model += tensor_2(input=slice_model.output)
+    model += (slc := Slice())(start=None, stop=None, step=None)
+    model += (sc_item := ScalarItem())(input=shp1.output, index=slc.output)
+    model += tensor_2(input=sc_item.output)  # type: ignore
     model += Add()(left=tensor_1.output, right=tensor_2.output, output="output")
     model_1 = model
 
@@ -287,14 +293,14 @@ def test_slice_item_conversions():
     model = Model()
     lin_2 = Linear(dimension=1)
     model += lin_2(input="input", weight="w", bias="b")
-    shp2 = lin_2.input.shape()
+    shp2 = lin_2.input.shape
     shp2_1 = shp2[1]
     assert shp2_1 is not None
     shp_item = shp2_1.tensor()
     shp2_ellipsis = shp2[:]
     assert shp2_ellipsis is not None
     slc = shp2_ellipsis.tensor()
-    model += Add()(left=shp_item, right=slc, output="output")
+    model += Add()(left=shp_item, right=slc, output="output")  # type: ignore
     model_2 = model
 
     # Provide backend and data.
@@ -312,7 +318,7 @@ def test_tuple_conversion_1():
     model = Model()
     lin_1 = Linear(dimension=2)
     model += lin_1(input="input", weight="w", bias="b")
-    shp1 = lin_1.output.shape()
+    shp1 = lin_1.output.shape
     model += ToTensor()(input=(shp1[0], shp1[1]), output="output")
     model_1 = model
 
@@ -321,7 +327,7 @@ def test_tuple_conversion_1():
     lin_2 = Linear(dimension=2)
     tupl = ToTuple(n=2)
     model += lin_2(input="input", weight="w", bias="b")
-    shp2 = lin_2.output.shape()
+    shp2 = lin_2.output.shape
     model += tupl(input1=shp2[0], input2=shp2[1])
     model += ToTensor()(input=tupl.output, output="output")  # type: ignore
     model_2 = model
@@ -342,7 +348,7 @@ def test_tuple_conversion_2():
     lin_1 = Linear(dimension=2)
     tt1 = ToTensor()
     model += lin_1(input=MyTensor([[1], [2.0]]), weight="w", bias="b")
-    shp1 = lin_1.input.shape()
+    shp1 = lin_1.input.shape
     model += tt1(input=(shp1[0], shp1[1]))
     model += Add()(left=lin_1.output, right=tt1.output, output="output")
     model_1 = model
@@ -388,7 +394,7 @@ def test_tuple_conversion_3():
     lin_1 = Linear(dimension=3)
     tt1 = ToTensor()
     model += lin_1(input=MyTensor([[1], [2.0]]), weight="w", bias="b")
-    shp1 = lin_1.input.shape()
+    shp1 = lin_1.input.shape
     model += tt1(input=(shp1[0], shp1[1], 3))
     model += Add()(left=lin_1.output, right=tt1.output, output="output")
     model_1 = model
@@ -434,7 +440,7 @@ def test_list_conversion_1():
     lin_1 = Linear(dimension=3)
     tt1 = ToTensor()
     model += lin_1(input=MyTensor([[1], [2.0]]), weight="w", bias="b")
-    shp1 = lin_1.input.shape()
+    shp1 = lin_1.input.shape
     model += tt1(input=[shp1[0], shp1[1], 3.0])
     model += Add()(left=lin_1.output, right=tt1.output, output="output")
     model_1 = model
@@ -479,7 +485,7 @@ def test_nested_list_conversion_1():
     lin_1 = Linear(dimension=3)
     tt1 = ToTensor()
     model += lin_1(input=MyTensor([[1], [2.0]]), weight="w", bias="b")
-    shp1 = lin_1.input.shape()
+    shp1 = lin_1.input.shape
     model += tt1(input=[[shp1[0], shp1[1], 3.0]])
     model += Add()(left=lin_1.output, right=tt1.output, output="output")
     model_1 = model
@@ -524,7 +530,7 @@ def test_nested_list_conversion_2():
     lin_1 = Linear(dimension=3)
     tt1 = ToTensor()
     model += lin_1(input="input", weight="w", bias="b")
-    shp1 = lin_1.input.shape()
+    shp1 = lin_1.input.shape
     model += tt1(input=[[shp1[0], shp1[1], 3.0]])
     model += Add()(left=lin_1.output, right=tt1.output, output="output")
     model_1 = model
@@ -671,8 +677,8 @@ class ArtificialPrimitive(PrimitiveModel):
     def __init__(self, type) -> None:
         super().__init__(
             formula_key="tensor_to_list",
-            output=IOKey(shape=[("Var1", ...)], type=MyTensor),
-            input=IOKey(shape=[("Var2", ...)], type=type),
+            output=BaseKey(shape=[("Var1", ...)], type=MyTensor),
+            input=BaseKey(shape=[("Var2", ...)], type=type),
         )
         self._set_constraint(
             fn=self.artificial_constraint, keys=[PrimitiveModel.output_key, "input"]
@@ -844,8 +850,8 @@ class Model1(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="buffer",
-            input=IOKey(shape=[("Var1", ...)], type=MyTensor),
-            output=IOKey(shape=[("Var1", ...)], type=MyTensor),
+            input=BaseKey(shape=[("Var1", ...)], type=MyTensor),
+            output=BaseKey(shape=[("Var1", ...)], type=MyTensor),
         )
 
     def __call__(  # type: ignore[override]
@@ -867,7 +873,7 @@ def test_connect_type_conv_handling_1():
     model.extend((a2 := Buffer()), input="input2")
     con_object = IOKey(
         name="abcd",
-        connections=[a1.input, a2.input],
+        connections={a1.input, a2.input},
         value=MyTensor([[2.0]]),
         expose=True,
     )
@@ -882,7 +888,7 @@ def test_connect_type_conv_handling_1():
     model.extend((a1 := Buffer()), input="input1")
     model.extend((a2 := Buffer()), input="input2")
     con_object = IOKey(
-        connections=["input1", "input2"],
+        connections={"input1", "input2"},
         value=MyTensor([[2.0]]),
         name="abcd",
         expose=True,
@@ -898,7 +904,7 @@ def test_connect_type_conv_handling_1():
     model.extend((a1 := Buffer()), input="input1")
     model.extend((a2 := Buffer()), input="input2")
     con_object = IOKey(
-        connections=["input1", a2.input],
+        connections={"input1", a2.input},
         value=MyTensor([[2.0]]),
         name="abcd",
         expose=True,
@@ -932,8 +938,8 @@ def test_connect_1():
     model += concat_model(
         input1="input1", input2="input2", input3="input3", output=IOKey(name="output")
     )
-    conn_list = [concat_model.input1, concat_model.input2, concat_model.input3]  # type: ignore
-    conn = IOKey(connections=conn_list, name="abcd", expose=True)
+    conns = {concat_model.input1, concat_model.input2, concat_model.input3}  # type: ignore
+    conn = IOKey(connections=conns, name="abcd", expose=True)
     model += Sigmoid()(input=conn, output=IOKey(name="output1"))
 
     assert (
@@ -954,8 +960,8 @@ def test_connect_2():
     model += concat_model(
         input1="input1", input2="input2", input3="input3", output=IOKey(name="output")
     )
-    conn_list = [concat_model.input1, concat_model.input2, concat_model.input3]  # type: ignore
-    conn = IOKey(connections=conn_list, name="abcd", expose=True)
+    conns = {concat_model.input1, concat_model.input2, concat_model.input3}  # type: ignore
+    conn = IOKey(connections=conns, name="abcd", expose=True)
 
     model += ToTensor()(conn)
 
@@ -976,8 +982,8 @@ def test_connect_3():
     model += concat_model(
         input1="input1", input2="input2", input3="input3", output=IOKey(name="output")
     )
-    conn_list = [concat_model.input1, concat_model.input2, concat_model.input3]  # type: ignore
-    conn = IOKey(connections=conn_list, name="abcd", expose=True, value=3.0)
+    conns = {concat_model.input1, concat_model.input2, concat_model.input3}  # type: ignore
+    conn = IOKey(connections=conns, name="abcd", expose=True, value=3.0)
 
     model += (to_tensor := ToTensor())(conn)
 
@@ -1009,15 +1015,13 @@ def test_connect_4():
         input1="input1", input2="input2", input3="input3", output=IOKey(name="output")
     )
     model += union_model(input1="")
-    conn_list = [
+    conns = {
         concat_model.input1,  # type: ignore
         concat_model.input2,  # type: ignore
         concat_model.input3,  # type: ignore
         union_model.input1.tensor(),  # type: ignore
-    ]
-    conn = IOKey(
-        connections=conn_list, name="abcd", expose=True, value=MyTensor((3, 2))
-    )
+    }
+    conn = IOKey(connections=conns, name="abcd", expose=True, value=MyTensor((3, 2)))
 
     model += Buffer()(input=conn, output=IOKey(name="output1"))
     pm = compile(model=model, backend=backend, jit=False, inference=True)
@@ -1041,7 +1045,7 @@ def test_connect_6():
     model = Model()
     concat_model = Concat(n=3)
     model += concat_model(input1=MyTensor([[3.0]]), output=IOKey(name="output"))
-    conn_list = [concat_model.input1, concat_model.input2, concat_model.input3]  # type: ignore
+    conn_list = {concat_model.input1, concat_model.input2, concat_model.input3}  # type: ignore
     conn = IOKey(connections=conn_list, name="abcd", expose=True)
 
     model += Buffer()(input=conn, output=IOKey(name="output1"))
@@ -1074,7 +1078,7 @@ def test_connect_7():
     model += add_model_2(left="left1", right="right1")
 
     conn = IOKey(
-        connections=[add_model_2.output, model.right],  # type: ignore
+        connections={add_model_2.output, model.right},  # type: ignore
         name="abcd",
         expose=False,
     )
@@ -1126,8 +1130,8 @@ def test_connect_7_expose_output():
     add_model_2.set_types(left=MyTensor, right=MyTensor)
     model += add_model_1(left="left", right="right", output=IOKey(name="output2"))
     model += add_model_2(left="left1", right="right1")
-    conn_list = [add_model_2.output, model.right]  # type: ignore
-    conn = IOKey(name="abcd", expose=True, connections=conn_list)  # type: ignore
+    conns = {add_model_2.output, model.right}  # type: ignore
+    conn = IOKey(name="abcd", expose=True, connections=conns)  # type: ignore
     model += (buf := Buffer())(input=conn, output=IOKey(name="output"))
 
     assert (
@@ -1185,7 +1189,7 @@ def test_connect_8():
         left=add_model_1.output, right="right1", output=IOKey(name="output1")
     )
     conn = IOKey(
-        connections=[add_model_1.output, model.right1],  # type: ignore
+        connections={add_model_1.output, model.right1},  # type: ignore
         name="abcd",
         expose=False,
     )
@@ -1224,12 +1228,12 @@ def test_connect_9():
     model += concat_model(
         input1=MyTensor([[3.0]]), input2=MyTensor([[2.0]]), input3="input3"
     )
-    con_list = [concat_model.input1, concat_model.input2, concat_model.input3]  # type: ignore
+    con_list = {concat_model.input1, concat_model.input2, concat_model.input3}  # type: ignore
     conn = IOKey(connections=con_list)
     with pytest.raises(ValueError) as err_info:
         model += Buffer()(input=conn, output=IOKey(name="output"))
 
-    error_msg = "Value is set before as [[2.0]]. A value can not be reset."
+    error_msg = "Value is set before as [[3.0]]. A value can not be reset."
     assert str(err_info.value) == error_msg
 
 
@@ -1241,7 +1245,7 @@ def test_connect_10():
     model = Model()
     concat_model = Concat(n=3)
     model += concat_model(input1=MyTensor([[3.0]]), input3="input3")
-    conn_list = [concat_model.input1, concat_model.input2, concat_model.input3]  # type: ignore
+    conn_list = {concat_model.input1, concat_model.input2, concat_model.input3}  # type: ignore
     conn = IOKey(connections=conn_list, value=MyTensor(2.0), expose=True)
 
     with pytest.raises(ValueError) as err_info:
@@ -1267,13 +1271,13 @@ def test_connect_11():
     union_model = PrimitiveUnion(n=2)
     model += concat_model(input1="", output=IOKey(name="output1"))
     model += union_model(input1="", output=IOKey(name="output2"))
-    conn_list = [
+    conns = {
         concat_model.input1,  # type: ignore
         concat_model.input2,  # type: ignore
         union_model.input1,  # type: ignore
         union_model.input2,  # type: ignore
-    ]
-    conn = IOKey(connections=conn_list, value=(2.0,), expose=True)
+    }
+    conn = IOKey(connections=conns, value=(2.0,), expose=True)
 
     model += Buffer()(input=conn, output=IOKey(name="output3"))
     pm = compile(model=model, backend=backend, jit=False)
@@ -1304,12 +1308,12 @@ def test_connect_12():
     model += concat_model(input1="", output=IOKey(name="output1"))
     model += union_model(input1="", output=IOKey(name="output2"))
     conn = IOKey(
-        connections=[
+        connections={
             concat_model.input1,  # type: ignore
             concat_model.input2,  # type: ignore
             union_model.input1,  # type: ignore
             union_model.input2,  # type: ignore
-        ],
+        },
         value=(2.0,),
     )
     model += Buffer()(input=conn, output=IOKey(name="output3"))
@@ -1362,7 +1366,7 @@ def test_tensor_to_scalar_connect_1():
     axis2 = mean_model_2.axis
     axis3 = mean_model_3.axis
 
-    con = IOKey(connections=[axis1, axis2, axis3], name="axis4", value=(2, 3))
+    con = IOKey(connections={axis1, axis2, axis3}, name="axis4", value=(2, 3))
     model += Mean(axis=TBD)(axis=con)
 
     assert axis1.data.metadata == axis2.data.metadata == axis3.data.metadata
@@ -1383,7 +1387,7 @@ def test_tensor_to_scalar_connect_3_error_existing_key():
     model += mean_model_2(axis="axis2")
     model += mean_model_3(axis="axis3")
 
-    con = IOKey(connections=[axis1, axis2, axis3], name="axis2", value=(2, 3))
+    con = IOKey(connections={axis1, axis2, axis3}, name="axis2", value=(2, 3))
 
     model += Mean(axis=TBD)(axis=con)
 
@@ -1566,7 +1570,7 @@ def test_tensor_to_scalar_template_1():
     model += buff_model_1(input="input1")
 
     in1 = buff_model_1.output
-    out1 = in1.shape().tensor() ** MyTensor(2)
+    out1 = in1.shape.tensor() ** 2
     model += Buffer()(input=out1, output="output")
 
     model.set_shapes({"input1": [3, 4, 5, 6]})
@@ -1592,7 +1596,7 @@ def test_tensor_to_scalar_template_2():
     in1 = buff_model_1.output
     in2 = buff_model_2.output
     in3 = buff_model_3.output
-    out1 = (in1.shape().tensor() ** MyTensor(2) * in2) @ in3 / MyTensor(2)
+    out1 = (in1.shape.tensor() ** 2 * in2) @ in3 / 2
     model += Buffer()(input=out1, output="output")
 
     pm = compile(model=model, backend=backend)

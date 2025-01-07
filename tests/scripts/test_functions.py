@@ -20,7 +20,7 @@ import mithril
 from mithril import CBackend, JaxBackend, NumpyBackend, TorchBackend
 from mithril.backends.with_manualgrad.numpy_backend.ops_grad import add_grad
 from mithril.framework import NOT_GIVEN, ConnectionType, ExtendInfo
-from mithril.framework.common import IOKey, MyTensor
+from mithril.framework.common import BaseKey, IOKey, MyTensor
 from mithril.framework.constraints import bcast
 from mithril.models import (
     Absolute,
@@ -198,7 +198,7 @@ def test_flatten_dag_1():
     comp_model = mithril.compile(model=model4, backend=JaxBackend(precision=64))
 
     flatted_primitive_model_list = [
-        key.__class__ for key in comp_model._flat_graph.get_models()
+        key.__class__ for key in comp_model.flat_graph.get_models()
     ]
 
     assert flatted_primitive_model_list == [
@@ -258,7 +258,7 @@ def test_flatten_dag_2():
     comp_model = mithril.compile(model=model4, backend=JaxBackend(precision=64))
 
     flatted_primitive_model_list = [
-        key.__class__ for key in comp_model._flat_graph.get_models()
+        key.__class__ for key in comp_model.flat_graph.get_models()
     ]
 
     assert flatted_primitive_model_list == [
@@ -301,7 +301,7 @@ def test_flatten_dag_3():
     comp_model = mithril.compile(model=model1, backend=JaxBackend(precision=64))
 
     flatted_primitive_model_list = [
-        key.__class__ for key in comp_model._flat_graph.get_models()
+        key.__class__ for key in comp_model.flat_graph.get_models()
     ]
 
     assert flatted_primitive_model_list == [
@@ -413,9 +413,9 @@ def test_code_generator_4(file_path: str):
         def __init__(self) -> None:
             super().__init__(
                 formula_key="my_adder",
-                output=IOKey(shape=[("Var_out", ...)], type=MyTensor),
-                input=IOKey(shape=[("Var_1", ...)], type=MyTensor),
-                rhs=IOKey(shape=[("Var_2", ...)], type=MyTensor),
+                output=BaseKey(shape=[("Var_out", ...)], type=MyTensor),
+                input=BaseKey(shape=[("Var_1", ...)], type=MyTensor),
+                rhs=BaseKey(shape=[("Var_2", ...)], type=MyTensor),
             )
             self.set_constraint(
                 fn=bcast, keys=[PrimitiveModel.output_key, "input", "rhs"]
@@ -522,9 +522,9 @@ def test_code_generator_5(file_path: str):
         def __init__(self) -> None:
             super().__init__(
                 formula_key="my_adder",
-                output=IOKey(shape=[("Var_out", ...)], type=MyTensor),
-                input=IOKey(shape=[("Var_1", ...)], type=MyTensor),
-                rhs=IOKey(shape=[("Var_2", ...)], type=MyTensor),
+                output=BaseKey(shape=[("Var_out", ...)], type=MyTensor),
+                input=BaseKey(shape=[("Var_1", ...)], type=MyTensor),
+                rhs=BaseKey(shape=[("Var_2", ...)], type=MyTensor),
             )
             self.set_constraint(
                 fn=bcast, keys=[PrimitiveModel.output_key, "input", "rhs"]

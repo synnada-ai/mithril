@@ -65,8 +65,8 @@ def apply_rope() -> Model:
     xk = IOKey("xk")
     freqs_cis = IOKey("freqs_cis")
 
-    xq_shape = xq.shape()
-    xk_shape = xk.shape()
+    xq_shape = xq.shape
+    xk_shape = xk.shape
     B, L, H = xq_shape[0], xq_shape[1], xq_shape[2]
     block += Reshape()(xq, shape=(B, L, H, -1, 1, 2), output="xq_")
     B, L, H = xk_shape[0], xk_shape[1], xk_shape[2]
@@ -96,7 +96,7 @@ def attention() -> Model:
     )
 
     # We can get named connection as model.'connection_name'
-    context_shape = block.context.shape()  # type: ignore[attr-defined]
+    context_shape = block.context.shape  # type: ignore[attr-defined]
     block += Transpose(axes=(0, 2, 1, 3))(block.context)  # type: ignore[attr-defined]
     # NOTE: Reshape input is automatically connected to Transpose output
     block += Reshape()(
@@ -137,7 +137,7 @@ def modulation(dim: int, double: bool, name: str | None = None):
 def rearrange(num_heads: int):
     block = Model()
     input = IOKey("input")
-    input_shaepe = input.shape()
+    input_shaepe = input.shape
     B, L = input_shaepe[0], input_shaepe[1]
     block += Reshape()(shape=(B, L, 3, num_heads, -1))
     block += Transpose(axes=(2, 0, 3, 1, 4))(output=IOKey("output"))
@@ -209,7 +209,7 @@ def double_stream_block(
     block += Concat(axis=2, n=2)(input1=txt_v, input2=img_v, output="v_concat")
 
     block += attention()(q="q_concat", k="k_concat", v="v_concat", pe=pe, output="attn")
-    # TODO: use'[:, txt.shape()[1] :]' when fixed.
+    # TODO: use'[:, txt.shape[1] :]' when fixed.
     img_attn = block.attn[:, 256:]  # type: ignore[attr-defined]
 
     block += Linear(hidden_size, name="img_attn_proj")(img_attn, output="img_proj")
@@ -234,7 +234,7 @@ def double_stream_block(
     )
     img = img + block.img_mod_2[2] * block.img_mlp  # type: ignore[attr-defined]
 
-    # TODO: Use txt.shape()[1]]
+    # TODO: Use txt.shape[1]]
     txt_attn = block.attn[:, :256]  # type: ignore[attr-defined]
     block += Linear(hidden_size, name="txt_attn_proj")(txt_attn, output="txt_proj")
 
@@ -355,7 +355,7 @@ def rope(dim: int, theta: int) -> Model:
     omega = 1.0 / (theta ** (block.arange / dim))  # type: ignore
     out = input[..., None] * omega
 
-    out_shape = out.shape()
+    out_shape = out.shape
     B, N, D = out_shape[0], out_shape[1], out_shape[2]
 
     block += Cosine()(out, output="cos")

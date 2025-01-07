@@ -17,6 +17,8 @@ import pytest
 
 from mithril.framework.common import (
     NOT_GIVEN,
+    TBD,
+    BaseKey,
     ConnectionType,
     IOHyperEdge,
     IOKey,
@@ -34,7 +36,8 @@ from mithril.models import (
     Model,
     PrimitiveModel,
     Relu,
-    TensorSlice,
+    Slice,
+    TensorItem,
     Transpose,
 )
 
@@ -59,8 +62,8 @@ def dummy_constraint(output: IOHyperEdge, input: IOHyperEdge):
         uniadics = [
             Uniadic(val + add_val) if val is not None else Uniadic() for val in values
         ]
-        updates |= var_repr._update_uniadics(var_repr.prefix, uniadics)
-        updates |= var_repr._update_uniadics(var_repr.reverse, uniadics)
+        updates |= var_repr.update_uniadics(var_repr.prefix, uniadics)
+        updates |= var_repr.update_uniadics(var_repr.reverse, uniadics)
         updates |= var_repr.remove_variadic(uniadics)
         status = None not in values
     else:
@@ -97,8 +100,8 @@ class Model1(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="buffer",
-            input=IOKey(shape=[("Var1", ...)], type=MyTensor),
-            output=IOKey(shape=[("Var2", ...)], type=MyTensor),
+            input=BaseKey(shape=[("Var1", ...)], type=MyTensor),
+            output=BaseKey(shape=[("Var2", ...)], type=MyTensor),
         )
         self._set_constraint(fn=dummy_constraint, keys=["output", "input"])
 
@@ -110,8 +113,8 @@ class Model2(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="buffer",
-            input=IOKey(shape=[("Var1", ...)], type=MyTensor),
-            output=IOKey(shape=[("Var2", ...)], type=MyTensor),
+            input=BaseKey(shape=[("Var1", ...)], type=MyTensor),
+            output=BaseKey(shape=[("Var2", ...)], type=MyTensor),
         )
         self._set_constraint(fn=dummy_constraint, keys=["output", "input"])
         self._set_constraint(
@@ -126,8 +129,8 @@ class Model3(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="buffer",
-            input=IOKey(shape=[("Var1", ...)], type=MyTensor[int | bool]),
-            output=IOKey(shape=[("Var2", ...)], type=MyTensor[int | bool]),
+            input=BaseKey(shape=[("Var1", ...)], type=MyTensor[int | bool]),
+            output=BaseKey(shape=[("Var2", ...)], type=MyTensor[int | bool]),
         )
         self._set_constraint(fn=dummy_constraint, keys=["output", "input"])
 
@@ -140,9 +143,9 @@ class MyAdd2(PrimitiveModel):
     def __init__(self, left, right, output) -> None:
         super().__init__(
             formula_key="add",
-            output=IOKey(shape=output, type=MyTensor),
-            left=IOKey(shape=left, type=MyTensor),
-            right=IOKey(shape=right, type=MyTensor),
+            output=BaseKey(shape=output, type=MyTensor),
+            left=BaseKey(shape=left, type=MyTensor),
+            right=BaseKey(shape=right, type=MyTensor),
         )
         self._set_constraint(
             fn=bcast, keys=[PrimitiveModel.output_key, "left", "right"]
@@ -818,23 +821,24 @@ def test_shape_constraint_counter_12():
 
 def test_shape_constraint_counter_13():
     model = Model()
-
-    model_1 = TensorSlice(start=0, stop=2, step=None)
+    slice_model = Slice(start=0, stop=2, step=None)
+    model_1 = TensorItem(index=TBD)
     model_2 = Add()
     model_3 = Add()
     model_4 = Add()
-
-    model += model_1
+    model += slice_model
+    model += model_1(input="", index=slice_model.output)
     model += model_2
     model += model_3
     model += model_4
     ref_dict = make_reference_dict(
         {
-            model_1.input: [1, 1],
-            model_1.start: [1],
-            model_1.stop: [1],
-            model_1.step: [1],
-            model_2.left: [1, 1, 1, 2],
+            slice_model.start: [],
+            slice_model.stop: [],
+            slice_model.step: [],
+            model_1.input: [1, 2],
+            model_1.index: [2],
+            model_2.left: [1, 1, 2, 2],
             model_2.right: [1, 2],
             model_3.left: [1, 1, 2, 2],
             model_3.right: [1, 2],
@@ -848,11 +852,12 @@ def test_shape_constraint_counter_13():
     model_2.set_shapes({"right": [1]})
     ref_dict = make_reference_dict(
         {
-            model_1.input: [1, 1],
-            model_1.start: [1],
-            model_1.stop: [1],
-            model_1.step: [1],
-            model_2.left: [1, 1, 1, 3],
+            slice_model.start: [],
+            slice_model.stop: [],
+            slice_model.step: [],
+            model_1.input: [1, 2],
+            model_1.index: [2],
+            model_2.left: [1, 1, 2, 3],
             model_2.right: [1, 3],
             model_3.left: [1, 1, 2, 3],
             model_3.right: [1, 2],
@@ -943,34 +948,55 @@ def test_shape_constraint_counter_14():
 def test_shape_constraint_counter_15():
     model = Model()
 
-    model_1 = TensorSlice(start=1, stop=None, step=None)
-    model_2 = TensorSlice(start=1, stop=None, step=None)
-    model_3 = TensorSlice(start=1, stop=None, step=None)
-    model_4 = TensorSlice(start=1, stop=None, step=None)
+    slice_1 = Slice()
+    slice_2 = Slice()
+    slice_3 = Slice()
+    slice_4 = Slice()
 
-    model += model_1
-    model += model_2
-    model += model_3
-    model += model_4
+    item_model_1 = TensorItem()
+    item_model_2 = TensorItem()
+    item_model_3 = TensorItem()
+    item_model_4 = TensorItem()
+
+    model_1 = Model()
+    model_1 += slice_1(start="start", stop="stop", step="step")
+    model_1 += item_model_1(input="input", index=slice_1.output, output=IOKey("output"))
+
+    model_2 = Model()
+    model_2 += slice_2(start="start", stop="stop", step="step")
+    model_2 += item_model_2(input="input", index=slice_2.output, output=IOKey("output"))
+
+    model_3 = Model()
+    model_3 += slice_3(start="start", stop="stop", step="step")
+    model_3 += item_model_3(input="input", index=slice_3.output, output=IOKey("output"))
+
+    model_4 = Model()
+    model_4 += slice_4(start="start", stop="stop", step="step")
+    model_4 += item_model_4(input="input", index=slice_4.output, output=IOKey("output"))
+
+    model += model_1(start=1, stop=None, step=None)
+    model += model_2(start=1, stop=None, step=None)
+    model += model_3(start=1, stop=None, step=None)
+    model += model_4(start=1, stop=None, step=None)
     ref_dict = make_reference_dict(
         {
-            model_1.input: [1, 2],
-            model_1.start: [2],
-            model_1.stop: [2],
-            model_1.step: [2],
-            model_2.input: [1, 1, 2, 3],
-            model_2.start: [3],
-            model_2.stop: [3],
-            model_2.step: [3],
-            model_3.input: [1, 1, 3, 3],
-            model_3.start: [3],
-            model_3.stop: [3],
-            model_3.step: [3],
-            model_4.input: [1, 1, 2, 3],
-            model_4.start: [2],
-            model_4.stop: [2],
-            model_4.step: [2],
-            model_4.output: [1, 2],
+            model_1.input: [1, 2],  # type: ignore
+            model_1.start: [],  # type: ignore
+            model_1.stop: [],  # type: ignore
+            model_1.step: [],  # type: ignore
+            model_2.input: [1, 1, 2, 2],  # type: ignore
+            model_2.start: [],  # type: ignore
+            model_2.stop: [],  # type: ignore
+            model_2.step: [],  # type: ignore
+            model_3.input: [1, 1, 2, 2],  # type: ignore
+            model_3.start: [],  # type: ignore
+            model_3.stop: [],  # type: ignore
+            model_3.step: [],  # type: ignore
+            model_4.input: [1, 1, 2, 2],  # type: ignore
+            model_4.start: [],  # type: ignore
+            model_4.stop: [],  # type: ignore
+            model_4.step: [],  # type: ignore
+            model_4.output: [1, 2],  # type: ignore
         }
     )
     assert_constr_counts(ref_dict)
@@ -978,23 +1004,23 @@ def test_shape_constraint_counter_15():
     model_1.set_shapes({"input": [9]})
     ref_dict = make_reference_dict(
         {
-            model_1.input: [1],
-            model_1.start: [],
-            model_1.stop: [],
-            model_1.step: [],
-            model_2.input: [1, 1],
-            model_2.start: [],
-            model_2.stop: [],
-            model_2.step: [],
-            model_3.input: [1, 1],
-            model_3.start: [],
-            model_3.stop: [],
-            model_3.step: [],
-            model_4.input: [1, 1],
-            model_4.start: [],
-            model_4.stop: [],
-            model_4.step: [],
-            model_4.output: [1],
+            model_1.input: [1],  # type: ignore
+            model_1.start: [],  # type: ignore
+            model_1.stop: [],  # type: ignore
+            model_1.step: [],  # type: ignore
+            model_2.input: [1, 1],  # type: ignore
+            model_2.start: [],  # type: ignore
+            model_2.stop: [],  # type: ignore
+            model_2.step: [],  # type: ignore
+            model_3.input: [1, 1],  # type: ignore
+            model_3.start: [],  # type: ignore
+            model_3.stop: [],  # type: ignore
+            model_3.step: [],  # type: ignore
+            model_4.input: [1, 1],  # type: ignore
+            model_4.start: [],  # type: ignore
+            model_4.stop: [],  # type: ignore
+            model_4.step: [],  # type: ignore
+            model_4.output: [1],  # type: ignore
         }
     )
     assert_constr_counts(ref_dict)

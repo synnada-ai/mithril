@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 from collections.abc import Iterable, Mapping, Sequence
 from itertools import product
 from types import EllipsisType
@@ -118,6 +119,10 @@ def assert_all_backends_device_precision(model: Model):
         # remove unsupported backend, device and precision trios
         if (backend_class, device, precision) in unsupported_device_precisions:
             continue
+
+        if os.environ.get("CI") and "mps" in device:
+            continue
+
         _type = backend_class.backend_type
         backend = backend_class(device=device, precision=precision)
 
@@ -596,8 +601,7 @@ def test_scalar_mean_2_1():
     with pytest.raises(ValueError) as err_info:
         mean_model += mean_1(axis=1, input="input")
     assert (
-        str(err_info.value)
-        == "Given value 1 for local key: 'axis' has already being set to None!"
+        str(err_info.value) == "Value is set before as None. A value can not be reset."
     )
 
 
@@ -1003,7 +1007,7 @@ def test_nontensor_extend_from_input_multiple_connection():
     model += mean1
     model += mean2
     model += mean3
-    model += mean4(axis=IOKey(connections=[mean1.axis, mean2.axis, mean3.axis]))
+    model += mean4(axis=IOKey(connections={mean1.axis, mean2.axis, mean3.axis}))
     assert (
         mean1.axis.data.metadata
         == mean2.axis.data.metadata
@@ -1383,7 +1387,7 @@ def test_static_input_6_error():
             out2=IOKey(name="output_1"),  # type: ignore
         )
     assert (
-        str(err_info.value) == "Value is set before as 1.0. A value can not be reset."
+        str(err_info.value) == "Value is set before as 3.0. A value can not be reset."
     )
 
 
@@ -2624,7 +2628,7 @@ def test_valued_conns_elevated_with_iokey():
     )
     # Note that string naming does not cause the connection
     # to be elevated as input to the upper level model.
-    assert model._input_keys == {"input", "start_dim"}
+    assert model.input_keys == {"input", "start_dim"}
     assert model.conns.latent_input_keys == {"end_dim"}
 
 
@@ -2640,7 +2644,7 @@ def test_valued_conns_elevated_with_unexposed_iokey():
     )
     # Note that string naming does not cause the connection
     # to be elevated as input to the upper level model.
-    assert model._input_keys == {"input", "start_dim"}
+    assert model.input_keys == {"input", "start_dim"}
     assert model.conns.latent_input_keys == {"end_dim"}
 
 
@@ -2648,7 +2652,7 @@ def test_scalar_conns_elevated_with_immediate_extend_value():
     model = Model()
     flatten = Flatten(start_dim=TBD, end_dim=TBD)
     model += flatten(input="input", start_dim=0, end_dim=4, output=IOKey(name="output"))
-    assert len(model._input_keys) == 3
+    assert len(model.input_keys) == 3
     assert len(model.conns.latent_input_keys) == 0
 
 

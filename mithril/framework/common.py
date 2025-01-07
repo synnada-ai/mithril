@@ -40,7 +40,7 @@ from ..core import (
     constant_type_table,
     epsilon_table,
 )
-from ..utils.utils import OrderedSet, PaddingType, find_dominant_type
+from ..utils.utils import PaddingType, find_dominant_type
 from .utils import (
     NestedListType,
     align_shapes,
@@ -51,7 +51,7 @@ from .utils import (
 )
 
 __all__ = [
-    "_get_shapes",
+    "get_shapes",
     "NOT_GIVEN",
     "TBD",
     "IOKey",
@@ -66,7 +66,7 @@ __all__ = [
     "Constraint",
     "create_shape_map",
     "ShapesType",
-    "_ShapesType",
+    "ShapeResultType",
     "get_summary_shapes",
     "get_summary_types",
     "ConstraintSolver",
@@ -208,6 +208,7 @@ ScalarValueType = (
     | tuple[Any, ...]
     | list[Any]
     | dict[Any, Any]
+    | Mapping[Any, Any]
     | Constant
     | slice
     | PaddingType
@@ -225,6 +226,7 @@ MainValueType = (
     | tuple[Any, ...]
     | list[Any]
     | dict[Any, Any]
+    | Mapping[Any, Any]
     | bool
     | None
     | EllipsisType
@@ -305,7 +307,7 @@ ItemType = TypeVar("ItemType")
 
 def update_equivalence_table(
     item1: ItemType, item2: ItemType, lookup_table: dict[ItemType, set[ItemType]]
-):
+) -> None:
     item_set1 = lookup_table.get(item1)
     item_set2 = lookup_table.get(item2)
     if item_set1 is None and item_set2 is None:
@@ -335,7 +337,7 @@ class ConstraintSolver:
         default_factory=lambda: {}
     )
 
-    def __call__(self, updates: Updates):
+    def __call__(self, updates: Updates) -> None:
         self.update_shapes(updates)
         solved_constrs: set[Constraint] = set()
         # for constr_type in UpdateType:
@@ -386,14 +388,14 @@ class ConstraintSolver:
                 updates.constraints[constraint_type].discard(constr)
 
     @staticmethod
-    def _combine_nodes(updates: Updates):
+    def _combine_nodes(updates: Updates) -> None:
         # Check if any node could be reduced after variadic updates add into
         # node_updates field.
         while updates.node_updates:
             node = updates.node_updates.pop()
             updates |= node.combine()
 
-    def _reduce_uniadic_referees(self, updates: Updates):
+    def _reduce_uniadic_referees(self, updates: Updates) -> None:
         while updates.uniadic_updates:
             uni = updates.uniadic_updates.pop()
             uni_val = uni.value
@@ -461,7 +463,7 @@ class ConstraintSolver:
 
         return updates
 
-    def clear(self):
+    def clear(self) -> None:
         self.symbol_store = {}
         self.constraint_map = {}
         self.empty_node = None
@@ -495,7 +497,7 @@ class ConstraintSolver:
         deleted.reprs = []
         return updates
 
-    def update_shapes(self, updates: Updates):
+    def update_shapes(self, updates: Updates) -> None:
         deletion_nodes: dict[ShapeNode, set[ShapeNode]] = {}
         # Reduce updated nodes' reprs if possible.
         self._combine_nodes(updates)
@@ -605,7 +607,7 @@ class Updates:
         return self
 
 
-def _get_shapes(
+def get_shapes(
     data_dict: dict[str, IOHyperEdge],
     uniadic_keys: dict[UniadicRecord, str] | None = None,
     varadic_keys: dict[Variadic, str] | None = None,
@@ -709,7 +711,7 @@ class MyTensor(Generic[TypeVarTensorType]):
             updates |= self.match_shapes(other)
             if self.value is not TBD or other.value is not TBD:
                 valued, non_valued = (
-                    (self, other) if self.value is not TBD else (other, self)
+                    (other, self) if other.value is not TBD else (self, other)
                 )
                 updates |= non_valued.set_value(valued.value)
             # Transfer all referees of other to self and update all
@@ -720,19 +722,6 @@ class MyTensor(Generic[TypeVarTensorType]):
                 edge._value = self
             other.referees = set()
         return updates
-
-    # def match_shapes(self, shape: ShapeNode):
-    #     updates = Updates()
-    #     if shape != self.shape:
-    #         updates |= self.shape.merge(shape)
-    #         self.shape.referees |= shape.referees
-    #         prev_node = shape
-    #         for ref in shape.referees:
-    #             assert isinstance(ref._value, MyTensor)
-    #             ref._value.shape = self.shape
-    #         prev_node.reprs = []
-    #         prev_node.referees = set()
-    #     return updates
 
     def match_shapes(self, other: MyTensor):
         updates = Updates()
@@ -786,13 +775,13 @@ class IOHyperEdge:
             self._create_and_set_tensor_value(available_types)
 
         self.interval: list[float | int] | None = interval
-        self._differentiable: bool = (
+        self.differentiable: bool = (
             self.value is TBD if self._type is MyTensor else False
         )
 
     @property
     def is_non_diff(self) -> bool:
-        return not self._differentiable
+        return not self.differentiable
 
     @property
     def is_valued(self) -> bool:
@@ -887,7 +876,7 @@ class IOHyperEdge:
             # Set type of MyTensor object using available_types
             assert isinstance(self._value, MyTensor)
             updates |= self._value.set_type(available_types)
-            self._differentiable = self.value is TBD
+            self.differentiable = self.value is TBD
             return updates
 
         # Scalar type setting.
@@ -907,7 +896,7 @@ class IOHyperEdge:
                     "is provided!"
                 )
             self._type = new_type
-            self._differentiable = False
+            self.differentiable = False
         return updates
 
     def set_value(self, value: MyTensor | ScalarValueType) -> Updates:
@@ -945,7 +934,7 @@ class IOHyperEdge:
                 self._value.shape.referees.add(self)
             # Add self to updates.
             updates.add(self)
-            self._differentiable = self.value is TBD
+            self.differentiable = self.value is TBD
         return updates
 
     def match(self, other: IOHyperEdge) -> Updates:
@@ -962,8 +951,8 @@ class IOHyperEdge:
                 self._value.shape.referees.discard(other)
                 updates.shape_updates.discard(other)
 
-            if self.is_valued or other.is_valued:
-                valued, non_valued = (self, other) if self.is_valued else (other, self)
+            elif self.is_valued or other.is_valued:
+                valued, non_valued = (other, self) if other.is_valued else (self, other)
                 updates |= non_valued.set_value(valued._value)
                 if non_valued is other:
                     updates.value_updates.discard(other)
@@ -990,9 +979,11 @@ class IOHyperEdge:
         self.type_constraints |= other.type_constraints
         other.shape_constraints = set()
         other.type_constraints = set()
-        # Update differentiability.
-        is_diff = self._differentiable | other._differentiable
-        self._differentiable = other._differentiable = is_diff
+        # Update differentiability if edge_type is Tensor and value is TBD.
+        # No update required if edge_type is Scalar or value is not TBD.
+        if isinstance(self._value, MyTensor) and self._value.value is TBD:
+            is_diff = self.differentiable | other.differentiable
+            self.differentiable = other.differentiable = is_diff
 
     def override_shape(self, shape: ShapeNode) -> None:
         if not isinstance(self._value, MyTensor):
@@ -1020,7 +1011,7 @@ def is_mytensor_type(type_obj) -> bool:
 
 
 # Check if a type is a specialization of MyTensor
-def get_mytensor_subtype(type_obj: MyTensor) -> type:
+def get_mytensor_subtype(type_obj: Any) -> type:
     return get_args(type_obj)[0]
 
 
@@ -1030,19 +1021,41 @@ class TemplateBase:
         key: slice
         | int
         | EllipsisType
-        | tuple[slice | int | None | EllipsisType, ...]
+        | tuple[slice | int | None | EllipsisType | TemplateBase, ...]
         | IOKey
+        | TemplateBase
         | None,
     ):
-        if key is ...:
-            key = slice(None)
-        if isinstance(key, slice):
-            start, stop, step = key.start, key.stop, key.step
-            return ExtendTemplate(connections=[self, start, stop, step], model="slice")
-        elif isinstance(key, int | tuple):
-            return ExtendTemplate(connections=[self, key], model="get_item")
-        else:
-            raise TypeError(f"Unsupported key type: {type(key)}")
+        match key:
+            case slice():
+                slice_output = ExtendTemplate(
+                    connections=[key.start, key.stop, key.step], model="slice"
+                )
+                output = ExtendTemplate(connections=[self, slice_output], model="index")
+
+            case int() | EllipsisType() | None:
+                output = ExtendTemplate(connections=[self, key], model="index")
+
+            case tuple():
+                connections: list[TemplateBase | int | None | EllipsisType] = []
+                for item in key:
+                    if isinstance(item, slice):
+                        slice_output = ExtendTemplate(
+                            connections=[item.start, item.stop, item.step],
+                            model="slice",
+                        )
+                        connections.append(slice_output)
+                    else:
+                        connections.append(item)
+                tuple_template = ExtendTemplate(
+                    connections=connections,  # type: ignore
+                    model="to_tuple",
+                    defaults={"n": len(key)},
+                )
+                output = ExtendTemplate(
+                    connections=[self, tuple_template], model="index"
+                )
+        return output
 
     def __add__(self, other: TemplateConnectionType):
         return ExtendTemplate(connections=[self, other], model="add")
@@ -1076,12 +1089,12 @@ class TemplateBase:
 
     def __pow__(self, other: TemplateConnectionType):
         return ExtendTemplate(
-            connections=[self, other], model="pow", defaults={"robust", "threshold"}
+            connections=[self, other], model="pow", defaults={"robust": False}
         )
 
     def __rpow__(self, other: TemplateConnectionType):
         return ExtendTemplate(
-            connections=[other, self], model="pow", defaults={"robust", "threshold"}
+            connections=[other, self], model="pow", defaults={"robust": False}
         )
 
     def __matmul__(self, other: TemplateConnectionType):
@@ -1175,10 +1188,11 @@ class TemplateBase:
     def len(self):
         return ExtendTemplate(connections=[self], model="len")
 
+    @property
     def shape(self):
         return ExtendTemplate(connections=[self], model="shape")
 
-    def reshape(self, shape: tuple[int, ...] | TemplateBase):
+    def reshape(self, shape: tuple[int | TemplateBase, ...] | TemplateBase):
         return ExtendTemplate(connections=[self, shape], model="reshape")
 
     def size(self, dim: int | tuple[int, ...] | TemplateBase | None = None):
@@ -1234,7 +1248,7 @@ class TemplateBase:
 
     def sqrt(self):
         return ExtendTemplate(
-            connections=[self], model="sqrt", defaults={"robust", "cutoff"}
+            connections=[self], model="sqrt", defaults={"robust": False}
         )
 
     def exp(self):
@@ -1257,7 +1271,7 @@ class ExtendTemplate(TemplateBase):
         self,
         connections: list[TemplateConnectionType],
         model: str,
-        defaults: set[str] | None = None,
+        defaults: dict[str, Any] | None = None,
     ) -> None:
         for connection in connections:
             if isinstance(connection, str):
@@ -1269,9 +1283,17 @@ class ExtendTemplate(TemplateBase):
         self.model = model
 
         if defaults is None:
-            defaults = set()
+            defaults = {}
         self.defaults = defaults
         self.output_connection = None
+
+
+@dataclass
+class BaseKey:
+    value: TensorValueType | MainValueType | ToBeDetermined | str = TBD
+    shape: ShapeTemplateType | None = None
+    type: NestedListType | UnionType | type | MyTensor | None = None
+    interval: list[float | int] | None = None
 
 
 class IOKey(TemplateBase):
@@ -1283,42 +1305,40 @@ class IOKey(TemplateBase):
         type: type[MyTensor] | NestedListType | UnionType | type | None = None,
         expose: bool | None = None,
         interval: list[float | int] | None = None,
-        connections: list[Connection | str] | None = None,
+        connections: set[Connection | str] | None = None,
     ) -> None:
         super().__init__()
-        self._name = name
-        self._value = value
-        self._shape = shape
-        self._type = type
+        # If shape is provided, type should be MyTensor.
         if shape is not None:
             if type is None:
-                self._type = MyTensor
+                type = MyTensor
             elif (type is not MyTensor) and (get_origin(type) is not MyTensor):
                 raise TypeError("Shape can not be provided for a non-tensor type!")
-        self._expose = expose
-        self._interval = interval
-        self._connections: OrderedSet[ConnectionData | str] = OrderedSet()
 
+        self.name = name
+        self.expose = expose
+        if connections is None:
+            connections = set()
+        self.connections: set[Connection | str] = connections
+        self.data = BaseKey(value, shape, type, interval)
         # TODO: Shape should not be [] also!
-        if self._value is not TBD and self._shape is not None and self._shape != []:
+        if (
+            self.data.value is not TBD
+            and self.data.shape is not None
+            and self.data.shape != []
+        ):
             raise ValueError(
                 f"Scalar values are shapeless, shape should be None or []. "
-                f"Got {self._shape}."
+                f"Got {self.data.shape}."
             )
 
-        if self._value is not TBD and self._type is not None:
-            value_type = find_type(self._value)
-            if find_intersection_type(value_type, self._type) is None:
+        if self.data.value is not TBD and self.data.type is not None:
+            value_type = find_type(self.data.value)
+            if find_intersection_type(value_type, self.data.type) is None:
                 raise TypeError(
                     f"type of the given value and given type does not match. Given "
-                    f"type is {self._type} while type of value is {value_type}"
+                    f"type is {self.data.type} while type of value is {value_type}"
                 )
-
-        connections = connections or []
-        for item in connections:
-            conn: ConnectionData | str
-            conn = item.data if isinstance(item, Connection) else item
-            self._connections.add(conn)
 
 
 class Connection(TemplateBase):
@@ -1345,7 +1365,7 @@ ShapesType = (
     | Mapping[str, ShapeTemplateType]
     | Mapping[Connection, ShapeTemplateType]
 )
-_ShapesType = Mapping[str, ShapeTemplateType | list[ShapeTemplateType] | None]
+ShapeResultType = Mapping[str, ShapeTemplateType | list[ShapeTemplateType] | None]
 
 
 @dataclass
@@ -1370,12 +1390,13 @@ class ConnectionData:
         return id(self) == id(other)
 
     def set_differentiable(self, differentiable: bool = True) -> None:
+        # TODO: Move this method to Model class as set_shapes, set_types etc.
         if self.metadata.edge_type is MyTensor:
-            self.metadata._differentiable = differentiable
+            self.metadata.differentiable = differentiable
         elif differentiable:
             if self.metadata.edge_type is not TBD:
                 raise ValueError("Scalar data can not be set as differentiable.")
-            self.metadata._differentiable = differentiable
+            self.metadata.differentiable = differentiable
 
 
 TemplateConnectionType = (
@@ -1383,7 +1404,8 @@ TemplateConnectionType = (
     | int
     | float
     | list[int | float]
-    | tuple[slice | int | None | EllipsisType, ...]
+    | EllipsisType
+    | tuple[slice | int | None | EllipsisType | TemplateBase, ...]
     | None
 )
 
@@ -1483,15 +1505,13 @@ class Connections:
         self.connections_dict.setdefault(metadata, set()).add(self)
 
     def set_connection_type(
-        self, connection: ConnectionData, con_type: KeyType
+        self,
+        connection: ConnectionData,
+        con_type: KeyType,
+        safe: bool = True,
     ) -> None:
-        if con_type == KeyType.OUTPUT and connection.is_key_autogenerated:
+        if safe and con_type == KeyType.OUTPUT and connection.is_key_autogenerated:
             raise KeyError("Connection without a name cannot be set as output")
-        self._set_connection_type(connection, con_type)
-
-    def _set_connection_type(
-        self, connection: ConnectionData, con_type: KeyType
-    ) -> None:
         key = connection.key
         for _type in KeyType:
             if _type == con_type:
@@ -1504,7 +1524,7 @@ class Connections:
             self._connection_dict[_type].pop(connection.key, None)
 
     def get_data(self, key: str) -> IOHyperEdge:
-        return self._get_metadata(key)
+        return self.get_metadata(key)
 
     def get_non_diff_keys(self):
         return {key for key, conn in self.all.items() if conn.metadata.is_non_diff}
@@ -1530,29 +1550,29 @@ class Connections:
     def get_cons_by_metadata(self, key: IOHyperEdge):
         return self.metadata_dict.get(key)
 
-    def _get_metadata(self, key: str) -> IOHyperEdge:
+    def get_metadata(self, key: str) -> IOHyperEdge:
         if (con := self.get_connection(key)) is not None:
             return con.metadata
         raise KeyError(f"Key '{key}' is not found in connections.")
 
     def get_key_origin(self, key: str) -> str | None:
-        return self._get_metadata(key).key_origin
+        return self.get_metadata(key).key_origin
 
     def get_shape_node(self, key: str) -> ShapeNode:
-        edge = self._get_metadata(key)
+        edge = self.get_metadata(key)
         if edge.edge_type is not MyTensor:
             raise ValueError("'Only Tensor type connections has shape!'")
         return edge.shape
 
     def set_value(self, con: ConnectionData, value: MainValueType):
-        self.get_data(con.key).set_value(value)  # type: ignore
+        self.get_data(con.key).set_value(value)
 
     def extract_metadata(self, key: str | Connection) -> IOHyperEdge:
         if isinstance(key, Connection):
             # Extract the key from the Connection object.
             metadata = key.metadata
         else:
-            metadata = self._get_metadata(key)
+            metadata = self.get_metadata(key)
         return metadata
 
 
@@ -2399,7 +2419,7 @@ class ShapeNode:
             for repr2 in other.reprs:
                 for repr1 in self.reprs:
                     # Match all reprs of other with self.reprs.
-                    updates |= repr1._match(repr2)
+                    updates |= repr1.match(repr2)
                     if (
                         len(repr1.prefix) == len(repr2.prefix)
                         and len(repr1.suffix) == len(repr2.suffix)
@@ -2432,7 +2452,7 @@ class ShapeNode:
         # Iterate over all repr pairs and remove matching reprs.
         for repr, other_repr in combinations(self.reprs, 2):
             if repr not in same_reprs and other_repr not in same_reprs:
-                updates |= repr._match(other_repr)
+                updates |= repr.match(other_repr)
                 if (
                     len(repr.prefix) == len(other_repr.prefix)
                     and len(repr.suffix) == len(other_repr.suffix)
@@ -2673,7 +2693,7 @@ class ShapeRepr:
         return len(self.prefix) + len(self.suffix)
 
     @staticmethod
-    def _update_uniadics(
+    def update_uniadics(
         outer_list: list[Uniadic], inner_list: list[Uniadic]
     ) -> Updates:
         updates = Updates()
@@ -2746,8 +2766,8 @@ class ShapeRepr:
                 "Determined shape representations should have same length."
             )
         # Match all parallel uniadics.
-        updates |= self._update_uniadics(self.prefix, prefix)
-        updates |= self._update_uniadics(
+        updates |= self.update_uniadics(self.prefix, prefix)
+        updates |= self.update_uniadics(
             self.reverse, suffix[::-1] if root is not None else prefix[::-1]
         )
         if bool(root) ^ bool(self.root):
@@ -2825,15 +2845,15 @@ class ShapeRepr:
                     )
         return updates
 
-    def _match(self, other: ShapeRepr) -> Updates:
+    def match(self, other: ShapeRepr) -> Updates:
         return self.inner_match(other.prefix, other.root, other.suffix)
 
     def set_values(self, values: Sequence[int | None]) -> Updates:
         updates = Updates()
         if self.root is not None:
             uniadics = [Uniadic(value) for value in values]
-            updates |= self._update_uniadics(self.prefix, uniadics)
-            updates |= self._update_uniadics(self.reverse, uniadics[::-1])
+            updates |= self.update_uniadics(self.prefix, uniadics)
+            updates |= self.update_uniadics(self.reverse, uniadics[::-1])
             updates |= self.remove_variadic(uniadics)
             # updates -= set(uniadics)
         else:
@@ -2898,7 +2918,7 @@ class Constraint:
     def add_post_process(self, process: tuple[ConstraintFunctionType, UpdateType]):
         self.post_processes.add(process)
 
-    def create_post_constraints(self):
+    def create_post_constraints(self) -> set[Constraint]:
         constraints: set[Constraint] = set()
         for process in self.post_processes:
             fn, type = process
@@ -3057,7 +3077,7 @@ class Table:
         # adjust the table accordingly
         self._adjust_table()
         # calculate total table width
-        table_width = reduce(  # type: ignore
+        table_width = reduce(
             partial(add_lengths, const=(len(row) for row in row_sep)),
             self.each_row_width,
         )
@@ -3108,7 +3128,7 @@ class Table:
         self.header_str = header_str
         self.cell_str = cell_str
 
-    def display(self):
+    def display(self) -> None:
         """Prints the table"""
         print(self.header_str)
         print(self.cell_str)
@@ -3119,7 +3139,7 @@ class Table:
         arg_max_lengths: list[int],
         adjustments: list[str],
         *args: list[list[str]],
-    ):
+    ) -> list[str]:
         # Constructs subtable with given args
         subtable_list: list[str] = []
         elems: tuple[list[str], ...]
@@ -3559,7 +3579,7 @@ def get_summary(
         )
 
         cell = input_table + sep + output_table
-        table.add_row([model_name, cell])
+        table.add_row([[model_name], cell])
 
     subheader_adjustments = ["left", "left", "left", "left", "left"]
     subheader_adjustments = [
@@ -3580,10 +3600,10 @@ def get_summary(
 
 
 def get_summary_shapes(
-    model_shapes: dict[str, _ShapesType],
+    model_shapes: dict[str, ShapeResultType],
     conn_info: dict[str, tuple[dict[str, list[str]], dict[str, list[str]]]],
 ):
-    shape_info: dict[str, tuple[_ShapesType, _ShapesType]] = {}
+    shape_info: dict[str, tuple[ShapeResultType, ShapeResultType]] = {}
     for model_name in conn_info:
         shape = model_shapes[model_name]
         input_conns, output_conns = conn_info[model_name]
@@ -3610,7 +3630,7 @@ def get_summary_types(
     for model, model_name in name_mappings.items():
         in_dict, out_dict = type_info.setdefault(model_name, ({}, {}))
         for key in model.conns.all:
-            key_mappings = model._generate_keys(include_outputs=True)
+            key_mappings = model.generate_keys(include_outputs=True)
             in_key = key_mappings.get(key, key)
             data = model.conns.get_data(key)
             pm_data = data_memo.get(id(data), data)
@@ -3620,7 +3640,7 @@ def get_summary_types(
             else:
                 sorted_type = sort_type(pm_data.value_type)
                 str_type = str(sorted_type)
-            if key in model._input_keys:
+            if key in model.input_keys:
                 in_dict[in_key] = str_type
             else:
                 out_dict[in_key] = str_type
@@ -3636,7 +3656,7 @@ def is_type_adjustment_required(data: dict[str, IOHyperEdge], inputs: list[str])
     if not (isinstance(left._value, MyTensor) and isinstance(right._value, MyTensor)):
         return False
 
-    rule1 = issubclass(float, left._value.type) and issubclass(int, right._value.type)
-    rule2 = issubclass(float, right._value.type) and issubclass(int, left._value.type)
+    rule1 = issubclass(float, left.value_type) and issubclass(int, right.value_type)
+    rule2 = issubclass(float, right.value_type) and issubclass(int, left.value_type)
 
     return rule1 | rule2

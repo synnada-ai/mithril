@@ -15,7 +15,6 @@
 import math
 import os
 from collections.abc import Callable, Sequence
-from functools import partial
 from typing import Any, overload
 
 import jax
@@ -76,19 +75,22 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         return False
 
     @property
-    def inf(self):
+    def inf(self) -> float:
         return jax.numpy.inf
 
     @property
-    def nan(self):
+    def nan(self) -> float:
         return jax.numpy.nan
 
-    def get_backend_array_type(self):
+    def get_backend_array_type(self) -> type[jax.Array]:
         return jax.Array
 
     @property
     def device(self):
         return utils.get_device(self._device)
+
+    def get_device(self):
+        return self._device
 
     # TODO: This property is weird! Investigate why this property is used.
     @property
@@ -96,7 +98,7 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         return utils.ArrayType
 
     @staticmethod
-    def get_available_devices():
+    def get_available_devices() -> list[str]:
         """Static method to get a list of available devices.
 
         Parameters
@@ -110,7 +112,7 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
     def register_primitive(fn: Callable[..., Any]) -> None:
         JaxBackend.registered_primitives[fn.__name__] = fn
 
-    def set_seed(self, seed: int):
+    def set_seed(self, seed: int) -> None:
         self.seed = seed
         self.prng_key = jax.random.PRNGKey(seed)
 
@@ -141,104 +143,9 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         """
         return data.block_until_ready()
 
-    def _creation_fn_wrapper(
-        self, fn: Callable[..., jax.Array]
-    ) -> Callable[..., jax.Array]:
-        """
-        Wrapper for array creation functions.
-
-        Parameters
-        ----------
-        fn: Callable
-            The original array creation function.
-
-        Returns
-        -------
-        Callable
-            A wrapped function that creates arrays with specified dtype and device.
-
-        Notes
-        -----
-        Ensures that arrays are created with the correct dtype and device.
-        """
-
-        array_conversion_fn = partial(
-            utils.creation_fn_wrapper,
-            fn=fn,
-            device=self._device,
-            precision=self.precision,
-        )
-        array_conversion_fn = partial(self._parallelize, fn=array_conversion_fn)
-
-        return array_conversion_fn
-
-    def _conversion_fn_wrapper(
-        self, fn: Callable[..., jax.Array]
-    ) -> Callable[..., jax.Array]:
-        """
-        Wrapper for array conversion functions.
-
-        Parameters
-        ----------
-        fn: Callable
-            The original array conversion function.
-
-        Returns
-        -------
-        Callable
-            A wrapped function that converts arrays with specified dtype and device.
-
-        Notes
-        -----
-        Handles the conversion of arrays between different dtypes and devices.
-
-        If dtype is provided, it uses `utils._handle_dtype` to ensure a valid dtype.
-        If the input data is a JAX Array, it ensures it's on the specified device.
-        If dtype is not provided, uses the default device and handles data precision.
-        """
-        array_conversion_fn = partial(
-            utils.conversion_fn_wrapper,
-            fn=fn,
-            device=self._device,
-            precision=self.precision,
-        )
-        array_conversion_fn = partial(self._parallelize, fn=array_conversion_fn)
-
-        return array_conversion_fn
-
-    def _parallelize(
-        self,
-        *args: Any,
-        fn: Callable[..., jax.Array],
-        device_mesh: tuple[int, ...],
-        **kwargs: Any,
-    ) -> jax.Array:
-        """
-        Parallelizes the function's return tensor across devices.
-
-        Parameters
-        ----------
-        fn : Callable
-            The function whose return tensor will be parallelized.
-
-        device_mesh : tuple[int, ...], optional
-            A tuple specifying the device mesh for parallelization.
-            If not provided, the default device mesh is used.
-
-        Returns
-        -------
-        Callable
-            Return tensor parallelized across the specified device mesh.
-        """
-
-        tensor: jax.Array = fn(*args, **kwargs)
-        if self._parallel_manager is None:
-            return tensor
-        return self._parallel_manager.parallelize(tensor, device_mesh)
-
-    def _register_callable(
+    def register_callable(
         self, fn: Callable[..., Any], fn_name: str, jit: bool = False
-    ):
+    ) -> None:
         assert (
             self._parallel_manager is not None
         ), "Parallel manager is not initialized!"
@@ -246,7 +153,7 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         fn_name = str(id(self)) + fn_name
         return self._parallel_manager.register_callable(fn, fn_name, jit)
 
-    def _run_callable(self, *primals: jax.Array, fn_name: str):
+    def _run_callable(self, *primals: jax.Array, fn_name: str) -> Any:
         assert (
             self._parallel_manager is not None
         ), "Parallel manager is not initialized!"
@@ -254,7 +161,7 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         fn_name = str(id(self)) + fn_name
         return self._parallel_manager.run_callable(*primals, fn_name=fn_name)
 
-    def _create_parallel(self, device_mesh: tuple[int, ...]):
+    def _create_parallel(self, device_mesh: tuple[int, ...]) -> None:
         self._parallel_manager = JaxParallel(math.prod(device_mesh), self._device)
 
     def array(
@@ -264,13 +171,15 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         dtype: Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
     ) -> jax.Array:
-        _dtype: jax.numpy.dtype[Any] | None = None
-        if isinstance(dtype, Dtype):
-            _dtype = utils.dtype_map[dtype.name]
-        result = self._conversion_fn_wrapper(jax.numpy.array)(
-            input, dtype=_dtype, device_mesh=device_mesh
-        )
-        return result
+        _dtype = utils.determine_dtype(input, dtype, self.precision)
+
+        with jax.default_device(self.device):
+            array = jax.numpy.array(input, dtype=utils.dtype_map[_dtype])
+
+        if self._parallel_manager is not None:
+            array = self._parallel_manager.parallelize(array, device_mesh)
+
+        return array
 
     def zeros(
         self,
@@ -278,14 +187,16 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         dtype: Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
     ) -> jax.Array:
-        _dtype: jax.numpy.dtype[Any] | None = None
-        if isinstance(dtype, Dtype):
-            _dtype = utils.dtype_map[dtype.name]
+        _dtype = self._process_dtype(dtype)
         _shape = process_shape(shape)
-        result = self._creation_fn_wrapper(jax.numpy.zeros)(
-            _shape, dtype=_dtype, device_mesh=device_mesh
-        )
-        return result
+
+        with jax.default_device(self.device):
+            array = jax.numpy.zeros(_shape, dtype=_dtype)
+
+        if self._parallel_manager is not None:
+            array = self._parallel_manager.parallelize(array, device_mesh)
+
+        return array
 
     def ones(
         self,
@@ -293,14 +204,16 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         dtype: Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
     ) -> jax.Array:
-        _dtype: jax.numpy.dtype[Any] | None = None
-        if isinstance(dtype, Dtype):
-            _dtype = utils.dtype_map[dtype.name]
+        _dtype = self._process_dtype(dtype)
         _shape = process_shape(shape)
-        result = self._creation_fn_wrapper(jax.numpy.ones)(
-            _shape, dtype=_dtype, device_mesh=device_mesh
-        )
-        return result
+
+        with jax.default_device(self.device):
+            array = jax.numpy.ones(_shape, dtype=_dtype)
+
+        if self._parallel_manager is not None:
+            array = self._parallel_manager.parallelize(array, device_mesh)
+
+        return array
 
     def ones_like(
         self,
@@ -309,13 +222,15 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         dtype: Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
     ) -> jax.Array:
-        _dtype: jax.numpy.dtype[Any] | None = None
-        if isinstance(dtype, Dtype):
-            _dtype = utils.dtype_map[dtype.name]
-        result = self._creation_fn_wrapper(jax.numpy.ones_like)(
-            input, dtype=_dtype, device_mesh=device_mesh
-        )
-        return result
+        _dtype = self._process_dtype(dtype) if dtype is not None else None
+
+        with jax.default_device(self.device):
+            array = jax.numpy.ones_like(input, dtype=_dtype)
+
+        if self._parallel_manager is not None:
+            array = self._parallel_manager.parallelize(array, device_mesh)
+
+        return array
 
     def zeros_like(
         self,
@@ -324,13 +239,15 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         dtype: Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
     ) -> jax.Array:
-        _dtype: jax.numpy.dtype[Any] | None = None
-        if isinstance(dtype, Dtype):
-            _dtype = utils.dtype_map[dtype.name]
-        result = self._creation_fn_wrapper(jax.numpy.zeros_like)(
-            input, dtype=_dtype, device_mesh=device_mesh
-        )
-        return result
+        _dtype = self._process_dtype(dtype) if dtype is not None else None
+
+        with jax.default_device(self.device):
+            array = jax.numpy.zeros_like(input, dtype=_dtype)
+
+        if self._parallel_manager is not None:
+            array = self._parallel_manager.parallelize(array, device_mesh)
+
+        return array
 
     def randn(
         self,
@@ -341,14 +258,17 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
     ) -> jax.Array:
         if prng_key is None:
             prng_key = self.prng_key
-        _dtype: jax.numpy.dtype[Any] | None = None
-        if isinstance(dtype, Dtype):
-            _dtype = utils.dtype_map[dtype.name]
+
+        _dtype = self._process_dtype(dtype)
         _shape = process_shape(shape)
-        result = self._creation_fn_wrapper(jax.random.normal)(
-            prng_key, _shape, dtype=_dtype, device_mesh=device_mesh
-        )
-        return result
+
+        with jax.default_device(self.device):
+            array = jax.random.normal(prng_key, _shape, dtype=_dtype)
+
+        if self._parallel_manager is not None:
+            array = self._parallel_manager.parallelize(array, device_mesh)
+
+        return array
 
     def rand(
         self,
@@ -359,14 +279,17 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
     ) -> jax.Array:
         if prng_key is None:
             prng_key = self.prng_key
-        _dtype: jax.numpy.dtype[Any] | None = None
-        if isinstance(dtype, Dtype):
-            _dtype = utils.dtype_map[dtype.name]
+
+        _dtype = self._process_dtype(dtype)
         _shape = process_shape(shape)
-        result = self._creation_fn_wrapper(jax.random.uniform)(
-            prng_key, _shape, dtype=_dtype, device_mesh=device_mesh
-        )
-        return result
+
+        with jax.default_device(self.device):
+            array = jax.random.normal(prng_key, _shape, dtype=_dtype)
+
+        if self._parallel_manager is not None:
+            array = self._parallel_manager.parallelize(array, device_mesh)
+
+        return array
 
     def randint(
         self,
@@ -379,19 +302,17 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
     ) -> jax.Array:
         if prng_key is None:
             prng_key = self.prng_key
-        _dtype: jax.numpy.dtype[Any] | None = None
-        if isinstance(dtype, Dtype):
-            _dtype = utils.dtype_map[dtype.name]
+
+        _dtype = self._process_dtype(dtype, int)
         _shape = process_shape(shape)
-        result = self._creation_fn_wrapper(jax.random.randint)(
-            prng_key,
-            _shape,
-            low,
-            high,
-            dtype=_dtype,
-            device_mesh=device_mesh,
-        )
-        return result
+
+        with jax.default_device(self.device):
+            array = jax.random.randint(prng_key, _shape, low, high, dtype=_dtype)
+
+        if self._parallel_manager is not None:
+            array = self._parallel_manager.parallelize(array, device_mesh)
+
+        return array
 
     def rand_uniform(
         self,
@@ -404,47 +325,56 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
     ) -> jax.Array:
         if prng_key is None:
             prng_key = self.prng_key
-        _dtype: jax.numpy.dtype[Any] | None = None
-        if isinstance(dtype, Dtype):
-            _dtype = utils.dtype_map[dtype.name]
+
+        _dtype = self._process_dtype(dtype)
         _shape = process_shape(shape)
-        return self._creation_fn_wrapper(jax.random.uniform)(
-            prng_key,
-            _shape,
-            dtype=_dtype,
-            minval=low,
-            maxval=high,
-            device_mesh=device_mesh,
-        )
+
+        with jax.default_device(self.device):
+            array = jax.random.uniform(prng_key, _shape, _dtype, low, high)
+
+        if self._parallel_manager is not None:
+            array = self._parallel_manager.parallelize(array, device_mesh)
+
+        return array
 
     def _arange(
         self,
-        *args: int | float,
+        start: int | float,
+        stop: int | float,
+        step: int | float,
         dtype: Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
         **kwargs: Any,
     ) -> jax.Array:
-        _dtype: jax.numpy.dtype[Any] | None = None
-        if isinstance(dtype, Dtype):
-            _dtype = utils.dtype_map[dtype.name]
-        return self._creation_fn_wrapper(jax.numpy.arange)(
-            *args, dtype=_dtype, device_mesh=device_mesh
+        default_type = (
+            float if any(isinstance(x, float) for x in (start, stop, step)) else int
         )
+        _dtype = self._process_dtype(dtype, default_type)
+
+        with jax.default_device(self.device):
+            array = jax.numpy.arange(start, stop, step, dtype=_dtype)
+
+        if self._parallel_manager is not None:
+            array = self._parallel_manager.parallelize(array, device_mesh)
+
+        return array
 
     def linspace(
         self,
         start: int | float | bool | jax.numpy.ndarray,
         stop: int | float | bool | jax.numpy.ndarray,
-        steps: int | jax.numpy.ndarray,
+        steps: int,
         dtype: Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
     ) -> jax.Array:
-        _dtype: jax.numpy.dtype[Any] | None = None
-        if isinstance(dtype, Dtype):
-            _dtype = utils.dtype_map[dtype.name]
-        return self._creation_fn_wrapper(jax.numpy.linspace)(
-            start, stop, steps, dtype=_dtype, device_mesh=device_mesh
-        )
+        _dtype = self._process_dtype(dtype)
+        with jax.default_device(self.device):
+            array = jax.numpy.linspace(start, stop, steps, dtype=_dtype)
+
+        if self._parallel_manager is not None:
+            array = self._parallel_manager.parallelize(array, device_mesh)
+
+        return array
 
     def flatten(
         self, input: jax.Array, start_dim: int = 0, end_dim: int = -1
@@ -608,7 +538,9 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
 
         return samples
 
-    def jit(self, *args: Any, **kwargs: Any):
+    def jit(  # type: ignore[override]
+        self, *args: Any, **kwargs: Any
+    ) -> Callable[..., jax.Array | tuple[jax.Array, ...]] | dict[str, jax.Array]:
         return jax.jit(*args, **kwargs)
 
     def grad(
@@ -729,3 +661,18 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         self, fn: Callable[..., dict[str, jax.Array]]
     ) -> Callable[..., dict[str, jax.Array]]:
         return jax.jacfwd(fn)
+
+    def _process_dtype(
+        self,
+        dtype: Dtype | None = None,
+        default_type: type[float] | type[int] | type[bool] = float,
+    ) -> jax.numpy.dtype[Any]:
+        if isinstance(dtype, Dtype):
+            return utils.dtype_map[dtype.name]
+        elif dtype is None:
+            return utils.dtype_map[default_type.__name__ + str(self.precision)]
+        else:
+            raise ValueError(f"Invalid dtype {dtype}")
+
+    def _get_defualt_type(self):
+        return getattr(self, f"float{self.precision}")

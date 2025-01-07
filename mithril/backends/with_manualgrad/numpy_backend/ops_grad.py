@@ -17,8 +17,8 @@ from itertools import zip_longest
 from typing import Any
 
 import numpy as np
-import scipy.linalg as slin  # type: ignore[import-untyped]
-from scipy.special import erf  # type: ignore[import-untyped]
+import scipy.linalg as slin
+from scipy.special import erf
 
 from ....utils.type_utils import is_tuple_int
 from .ops import hinge_loss, sigmoid, softmax
@@ -76,7 +76,6 @@ __all__ = [
     "softplus_grad",
     "gelu_grad",
     "stop_gradient_grad",
-    "tensor_slice_grad",
     "tensor_item_grad",
     "permute_tensor_grad",
     "transpose_grad",
@@ -808,19 +807,6 @@ def stop_gradient_grad(
     *inputs: np.ndarray[Any, Any],
 ) -> np.ndarray[Any, Any]:
     return np.zeros_like(output_gradient)
-
-
-def tensor_slice_grad(
-    output_gradient: np.ndarray[Any, Any],
-    cache: CacheType,
-    idx: int,
-    *inputs: np.ndarray[Any, Any],
-) -> np.ndarray[Any, Any]:
-    verify_shapes(inputs, idx, non_differentiables=[1, 2, 3, 4])
-    input, start, stop, step = inputs
-    grad = np.zeros_like(input)
-    grad[start:stop:step] = output_gradient
-    return grad
 
 
 def tensor_item_grad(

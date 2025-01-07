@@ -29,7 +29,7 @@ class CBackend(Backend[PyArray]):
     type = "c"
     SRC_PATH = "mithril/backends/with_manualgrad/c_backend/src"
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._precision = 32
         self._device = "cpu"
         self.primitive_function_dict = {}

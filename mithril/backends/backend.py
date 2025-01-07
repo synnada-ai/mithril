@@ -57,11 +57,15 @@ class Backend(ABC, Generic[DataType]):
         #     setattr(self, key, value)
 
     @property
-    def precision(self):
+    def precision(self) -> int:
         return self._precision
 
+    #!!
     @property
-    def device(self):
+    def device(self) -> Any:
+        return self._device
+
+    def get_device(self) -> str:
         return self._device
 
     @property
@@ -69,11 +73,11 @@ class Backend(ABC, Generic[DataType]):
         raise NotImplementedError("inf is not implemented")
 
     @property
-    def pi(self):
+    def pi(self) -> float:
         return math.pi
 
     @property
-    def e(self):
+    def e(self) -> float:
         return math.e
 
     @property
@@ -101,7 +105,7 @@ class Backend(ABC, Generic[DataType]):
     def block_until_ready(self, data: DataType) -> DataType | None:
         raise RuntimeError("Backend does not support block_until_ready method!")
 
-    def empty_cache(self):  # noqa: B027
+    def empty_cache(self) -> None:  # noqa: B027
         pass
         # print("Warning: empty_cache is not supported!")
 
@@ -123,7 +127,7 @@ class Backend(ABC, Generic[DataType]):
 
         return value
 
-    def __del__(self):
+    def __del__(self) -> None:
         self.empty_cache()
 
     @overload
@@ -146,8 +150,30 @@ class Backend(ABC, Generic[DataType]):
         dtype: core.Dtype | None = None,
     ) -> DataType: ...
 
-    def arange(self, *args: int | float, **kwargs: Any) -> DataType:
-        raise NotImplementedError("arange is not implemented!")
+    def arange(self, *args: int | float, **kwargs) -> DataType:
+        """Generate an array of evenly spaced values within a specified range."""
+        if len(args) == 0:
+            raise RuntimeError(
+                "arange() missing 1 required positional argument: 'stop'"
+            )
+        elif len(args) == 1:
+            return self._arange(0, args[0], 1, **kwargs)  # type: ignore
+        elif len(args) == 2:
+            if args[0] >= args[1]:
+                return self.array([])
+
+            return self._arange(  # type: ignore
+                args[0], args[1], 1, **kwargs
+            )
+        elif len(args) == 3:
+            return self._arange(  # type: ignore
+                args[0], args[1], args[2], **kwargs
+            )
+        else:
+            raise RuntimeError(
+                "arange() accepts 1 to 3 positional arguments,"
+                " but `f{len(args)}` were provided"
+            )
 
     def flatten(
         self, input: DataType, start_dim: int = 0, end_dim: int = -1
@@ -459,7 +485,7 @@ class Backend(ABC, Generic[DataType]):
         self,
         start: int | float | bool | DataType,
         stop: int | float | bool | DataType,
-        steps: int | DataType,
+        steps: int,
         dtype: core.Dtype | None = None,
     ) -> DataType:
         """
@@ -1043,6 +1069,9 @@ class Backend(ABC, Generic[DataType]):
         """
         raise NotImplementedError("jacobian is not implemented!")
 
+    def __repr__(self):
+        return f"<Backend(device={self._device}, precision={self.precision})>"
+
 
 class ParallelBackend(Backend[DataType]):
     def __init__(self, device_mesh: tuple[int, ...] | None) -> None:
@@ -1054,6 +1083,12 @@ class ParallelBackend(Backend[DataType]):
         self._raw_device_mesh = device_mesh
         self.n_devices = math.prod(device_mesh) if device_mesh is not None else 1
         self._parallel_manager: Parallel[DataType] | None
+
+    def get_parallel_manager(self) -> Parallel[DataType] | None:
+        return self._parallel_manager
+
+    def get_raw_device_mesh(self) -> tuple[int, ...] | None:
+        return self._raw_device_mesh
 
     def zeros(
         self,
@@ -1349,7 +1384,7 @@ class ParallelBackend(Backend[DataType]):
         self,
         start: int | float | bool | DataType,
         stop: int | float | bool | DataType,
-        steps: int | DataType,
+        steps: int,
         dtype: core.Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
     ) -> DataType:
@@ -1371,7 +1406,7 @@ class ParallelBackend(Backend[DataType]):
 
         raise NotImplementedError("linspace is not implemented!")
 
-    def _register_callable[T: Any](
+    def register_callable[T: Any](
         self, fn: Callable[..., T] | partial[T], fn_name: str, jit: bool
     ) -> None:
         raise NotImplementedError()

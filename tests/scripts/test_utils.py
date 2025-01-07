@@ -282,7 +282,7 @@ def get_all_data(model: BaseModel) -> set[IOHyperEdge]:
 def get_all_metadata(model: BaseModel) -> set[IOHyperEdge | None]:
     # recursively gets the all metadata in the model (IOHyperEdge)
     if isinstance(model, PrimitiveModel):
-        return {model.conns._get_metadata(key) for key in model.conns.all}
+        return {model.conns.get_metadata(key) for key in model.conns.all}
     assert isinstance(model, Model)
     data = set()
     for submodel in model.dag:
@@ -536,13 +536,13 @@ def assert_connections(
     compiled_model: PhysicalModel, expected_connections: dict[str, list[str | set[str]]]
 ):
     result_connections = {}
-    for key in compiled_model._flat_graph.all_target_keys:
-        if key not in compiled_model._flat_graph.connections:
+    for key in compiled_model.flat_graph.all_target_keys:
+        if key not in compiled_model.flat_graph.connections:
             continue
 
-        node = compiled_model._flat_graph.connections[key].node
+        node = compiled_model.flat_graph.connections[key].node
         assert node is not None
-        formula_key = node.model._formula_key
+        formula_key = node.model.formula_key
         keys = {conn.key for conn in node.connections.values() if conn.key != key}
 
         result_connections[key] = [formula_key, keys]

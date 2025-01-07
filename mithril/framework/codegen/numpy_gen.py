@@ -151,7 +151,7 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
             # Initialize gradients as zero with corresponding shapes.
             gradients: dict[str, np.ndarray[Any, Any]] = {}
             for key in (
-                self.pm._flat_graph.all_keys
+                self.pm.flat_graph.all_keys
                 - self.pm.data_store.all_static_keys
                 - self.pm.data_store.unused_keys
                 - self.pm.ignore_grad_keys
@@ -165,12 +165,12 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
                     out_data = key_cache["output"]
                 else:
                     # Removed primitives, to take shape of output take input shape
-                    _key = self.pm._flat_graph.get_source_keys(
+                    _key = self.pm.flat_graph.get_source_keys(
                         key, include_outputs=True
                     )[0]
                     _key_cache = cached_data.get(_key + "_cache", {})
                     assert isinstance(_key_cache, dict)
-                    if _key in self.pm._input_keys:
+                    if _key in self.pm.input_keys:
                         out_data = params[_key]
                     else:
                         out_data = _key_cache["output"]
@@ -211,11 +211,11 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
         return self.post_process_fns(eval_fn, grad_fn, jit)  # type: ignore
 
     def get_primitive_details(self, output_key: str):
-        model = self.pm._flat_graph.get_model(output_key)
+        model = self.pm.flat_graph.get_model(output_key)
 
-        global_input_keys = self.pm._flat_graph.get_source_keys(output_key)
+        global_input_keys = self.pm.flat_graph.get_source_keys(output_key)
         global_input_keys += [self.get_cache_name(output_key, model)]
-        local_input_keys = list(model._input_keys) + ["cache"]
+        local_input_keys = list(model.input_keys) + ["cache"]
 
         return model, global_input_keys, local_input_keys
 
@@ -328,17 +328,17 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
                 self.pm._output_keys
                 - possible_loss_keys
                 - (
-                    self.pm._flat_graph.all_source_keys
+                    self.pm.flat_graph.all_source_keys
                     | {
                         value
-                        for key, value in self.pm._flat_graph.output_dict.items()
+                        for key, value in self.pm.flat_graph.output_dict.items()
                         if key != value
                     }
                 )
             )
 
         # Move gradients back for keys in alias_map(pruned or optimized out keys)
-        for target_key, source_key in self.pm._flat_graph.output_dict.items():
+        for target_key, source_key in self.pm.flat_graph.output_dict.items():
             if target_key == source_key:
                 continue
             if target_key not in ignore_grad_keys:
@@ -367,15 +367,15 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
                 assign = ast.AugAssign(target=target, op=ast.Add(), value=source)
                 function_body.append(assign)
 
-        for output_key in reversed(self.pm._flat_graph.topological_order):
+        for output_key in reversed(self.pm.flat_graph.topological_order):
             if output_key in ignore_grad_keys:
                 continue
 
             # Iterate over Primitive models in topological order to add their formula.
-            model = self.pm._flat_graph.get_model(output_key)
+            model = self.pm.flat_graph.get_model(output_key)
 
-            output_key = self.pm._flat_graph.connections[output_key].key
-            inputs = list(self.pm._flat_graph.get_source_keys(output_key))
+            output_key = self.pm.flat_graph.connections[output_key].key
+            inputs = list(self.pm.flat_graph.get_source_keys(output_key))
 
             # Check if the model is disposable.
             if model.disposable:
@@ -386,14 +386,14 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
 
             # Get primitive function inputs order
             primitive_function = (
-                self.backend.primitive_function_dict[model._formula_key]
-                if model._formula_key in self.backend.primitive_function_dict
-                else self.backend.registered_primitives[model._formula_key]
+                self.backend.primitive_function_dict[model.formula_key]
+                if model.formula_key in self.backend.primitive_function_dict
+                else self.backend.registered_primitives[model.formula_key]
             )
             local_to_global_dict = {
                 key: value
                 for key, value in zip(
-                    list(model._input_keys) + ["cache"], inputs, strict=False
+                    list(model.input_keys) + ["cache"], inputs, strict=False
                 )
             }
             args, kwargs = prepare_function_args(
@@ -407,7 +407,7 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
             # Get local keys in ordered
             global_to_local_dict: dict[str, list[str]] = {}
             for key, value in zip(
-                list(model._input_keys) + ["cache"], inputs, strict=False
+                list(model.input_keys) + ["cache"], inputs, strict=False
             ):
                 global_to_local_dict.setdefault(value, [])
                 global_to_local_dict[value].append(key)
@@ -422,7 +422,7 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
             ]
 
             # Reorder global keys wrt primitive evaluate function local keys order
-            model_local_inputs = list(model._input_keys) + ["cache"]
+            model_local_inputs = list(model.input_keys) + ["cache"]
             _inputs = [
                 inputs[model_local_inputs.index(local_key)]
                 for local_key in primitive_local_inputs
@@ -448,7 +448,7 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
 
                 if grad_fn is None:
                     raise NotImplementedError(
-                        f"Primitive {model._formula_key} does not have vjp "
+                        f"Primitive {model.formula_key} does not have vjp "
                         "implementation!"
                     )
 
@@ -521,7 +521,7 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
         for key in sorted(used_keys):
             if (
                 key
-                in self.pm._flat_graph.all_target_keys
+                in self.pm.flat_graph.all_target_keys
                 | self.pm.data_store.cached_data.keys()
             ):
                 dict_type = "cache"

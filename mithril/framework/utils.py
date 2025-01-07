@@ -12,10 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections.abc import Iterable
 from functools import reduce
 from itertools import product
 from types import FunctionType, GenericAlias, UnionType
-from typing import Any
+from typing import TYPE_CHECKING, Any, TypeVar
+
+if TYPE_CHECKING:
+    from .logical.base import BaseModel
 
 
 class NestedListType:
@@ -33,11 +37,14 @@ class NestedListType:
         self.base_type = base_type
 
 
-def define_unique_names(models):
+T = TypeVar("T", bound="BaseModel")
+
+
+def define_unique_names(models: Iterable[T]) -> dict[T, str]:
     # TODO: Move this to Physical model (currently it is only used there)
     # TODO: Also add short-naming logic to this function
-    model_name_dict = {}
-    single_model_dict = {}
+    model_name_dict: dict[T, str] = {}
+    single_model_dict: dict[str, T] = {}
     model_count_dict: dict[str, int] = {}
 
     for model in models:

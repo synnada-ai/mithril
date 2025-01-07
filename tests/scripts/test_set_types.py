@@ -206,7 +206,7 @@ def test_types_iokey_3():
         output=IOKey(name="output2", type=MyTensor[float | int]),
     )
 
-    conn = IOKey("sub", connections=[buffer_model1.input, buffer_model2.input])
+    conn = IOKey("sub", connections={buffer_model1.input, buffer_model2.input})
 
     buffer_model3 = Buffer()
 

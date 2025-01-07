@@ -34,13 +34,13 @@ from mithril.framework.common import (
     NOT_AVAILABLE,
     NOT_GIVEN,
     TBD,
+    BaseKey,
     ConnectionData,
     ConnectionType,
     IOHyperEdge,
     IOKey,
     MyTensor,
     NotAvailable,
-    OrderedSet,
     ToBeDetermined,
     UniadicRecord,
     Variadic,
@@ -108,6 +108,7 @@ from mithril.models import (
     Where,
 )
 from mithril.utils.type_utils import is_list_int
+from mithril.utils.utils import OrderedSet
 
 from .helper import assert_models_equal
 from .test_shapes import check_shapes_semantically
@@ -264,11 +265,11 @@ def test_cyclic_extension_5():
         left="input5",
         right="input6",
         output=IOKey(
-            name="my_input", expose=False, connections=[sum1.left, sum2.right]
+            name="my_input", expose=False, connections={sum1.left, sum2.right}
         ),
     )
 
-    assert set(model._input_keys) == {"input2", "input3", "input5", "input6"}
+    assert set(model.input_keys) == {"input2", "input3", "input5", "input6"}
     assert model.conns.internal_keys == {"my_input"}
 
 
@@ -819,7 +820,7 @@ def test_canonical_output_exposed_2():
     model1 += Linear(dimension=16)(input=model1.canonical_output, output="output1")
 
     extend_info = model1(output1="output1")
-    assert extend_info._connections == {"output1": "output1"}
+    assert extend_info.connections == {"output1": "output1"}
 
 
 def test_canonical_output_exposed_3():
@@ -1231,9 +1232,9 @@ def test_reuse_pickled_registered_backend():
         def __init__(self) -> None:
             super().__init__(
                 formula_key="my_adder",
-                output=IOKey(shape=[("Var_out", ...)], type=MyTensor),
-                left=IOKey(shape=[("Var_1", ...)], type=MyTensor),
-                right=IOKey(shape=[("Var_2", ...)], type=MyTensor),
+                output=BaseKey(shape=[("Var_out", ...)], type=MyTensor),
+                left=BaseKey(shape=[("Var_1", ...)], type=MyTensor),
+                right=BaseKey(shape=[("Var_2", ...)], type=MyTensor),
             )
             self.set_constraint(
                 fn=bcast, keys=[PrimitiveModel.output_key, "left", "right"]
@@ -1362,7 +1363,7 @@ def test_static_key_names_consistency():
     model += Add()(left=MyTensor(3), right=IOKey(type=MyTensor))
 
     pm = mithril.compile(model, TorchBackend())
-    assert {"left", "right"} == pm._input_keys
+    assert {"left", "right"} == pm.input_keys
 
 
 def test_evaluate_replace():
@@ -1376,7 +1377,7 @@ def test_evaluate_replace():
         jit=False,
     )
 
-    assert set(comp_model._input_keys) == {"in", "for", "add"}
+    assert set(comp_model.input_keys) == {"in", "for", "add"}
 
 
 def test_evaluate_replace_2():
@@ -1400,7 +1401,7 @@ def test_evaluate_replace_2():
         backend=NumpyBackend(),
         jit=False,
     )
-    assert set(comp_model._input_keys) == {
+    assert set(comp_model.input_keys) == {
         "in",
         "for",
         "add",
@@ -1566,7 +1567,7 @@ def test_canonic_example():
     model += LeakyRelu()
     model += LeakyRelu()
     comp_model = compile(model=model, backend=NumpyBackend())
-    assert set(comp_model._input_keys) == {"slope_0", "slope_1", "input"}
+    assert set(comp_model.input_keys) == {"slope_0", "slope_1", "input"}
     assert set(comp_model.output_keys) == {"output"}
     inputs = {"input": np.array([[2.0, -1.0]])}
     assert_results_equal(
@@ -2045,7 +2046,7 @@ def test_multiple_output_connections():
 
     with pytest.raises(Exception) as err_info:
         model += add_1(
-            left="left", right="right", output=IOKey(connections=[add_2.left, "out2"])
+            left="left", right="right", output=IOKey(connections={add_2.left, "out2"})
         )
 
     assert (
@@ -2062,7 +2063,7 @@ def test_multiple_output_connections_2():
     model += add_1(
         left="left",
         right="right",
-        output=IOKey(name="my_internal_key", connections=[add_2.left, "in3"]),
+        output=IOKey(name="my_internal_key", connections={add_2.left, "in3"}),
     )
 
     assert (
@@ -2546,9 +2547,9 @@ def test_static_anlaysis():
     ignored_model_keys = (
         comp_model.data_store.cached_data.keys() | comp_model.discarded_keys
     )
-    ignored_output_keys = ignored_model_keys & comp_model._flat_graph.all_target_keys
+    ignored_output_keys = ignored_model_keys & comp_model.flat_graph.all_target_keys
     ignored_model_list = [
-        comp_model._flat_graph.get_model(key) for key in ignored_output_keys
+        comp_model.flat_graph.get_model(key) for key in ignored_output_keys
     ]
     assert ignored_model_list == [add1]
 
@@ -2571,11 +2572,9 @@ def test_static_anlaysis_1():
     discarded_model_keys = (
         comp_model.data_store.cached_data.keys() | comp_model.discarded_keys
     )
-    discarded_output_keys = (
-        discarded_model_keys & comp_model._flat_graph.all_target_keys
-    )
+    discarded_output_keys = discarded_model_keys & comp_model.flat_graph.all_target_keys
     discarded_model_list = [
-        comp_model._flat_graph.get_model(key) for key in discarded_output_keys
+        comp_model.flat_graph.get_model(key) for key in discarded_output_keys
     ]
     assert discarded_model_list == [add1]
 
@@ -2602,11 +2601,9 @@ def test_static_anlaysis_2():
         | comp_model.data_store.unused_keys
         | comp_model.discarded_keys
     )
-    discarded_output_keys = (
-        discarded_model_keys & comp_model._flat_graph.all_target_keys
-    )
+    discarded_output_keys = discarded_model_keys & comp_model.flat_graph.all_target_keys
     discarded_model_list = {
-        comp_model._flat_graph.get_model(key) for key in discarded_output_keys
+        comp_model.flat_graph.get_model(key) for key in discarded_output_keys
     }
     assert len(discarded_model_list) == 2
 
@@ -2630,7 +2627,7 @@ def test_static_anlaysis_4():
     comp_model = mithril.compile(model=model, backend=NumpyBackend())
 
     models = {add1, add2, sum1, sub1, mul1, mat1}
-    assert (models - comp_model._flat_graph.nodes.keys()) == {mat1}
+    assert (models - comp_model.flat_graph.nodes.keys()) == {mat1}
 
 
 def test_prune_1():
@@ -2662,7 +2659,7 @@ def test_prune_1():
     }
 
     assert_connections(compiled_model, expected_connections)
-    assert compiled_model._flat_graph.output_dict == expected_output_dict
+    assert compiled_model.flat_graph.output_dict == expected_output_dict
 
 
 def test_prune_2():
@@ -2694,7 +2691,7 @@ def test_prune_2():
     }
 
     assert_connections(compiled_model, expected_connections)
-    assert compiled_model._flat_graph.output_dict == expected_output_dict
+    assert compiled_model.flat_graph.output_dict == expected_output_dict
 
 
 def test_prune_3():
@@ -2730,7 +2727,7 @@ def test_prune_3():
     }
 
     assert_connections(compiled_model, expected_connections)
-    assert compiled_model._flat_graph.output_dict == expected_output_dict
+    assert compiled_model.flat_graph.output_dict == expected_output_dict
 
 
 def test_prune_4():
@@ -2762,7 +2759,7 @@ def test_prune_4():
     }
 
     assert_connections(compiled_model, expected_connections)
-    assert compiled_model._flat_graph.output_dict == expected_output_dict
+    assert compiled_model.flat_graph.output_dict == expected_output_dict
 
 
 def test_prune_5():
@@ -2793,7 +2790,7 @@ def test_prune_5():
     }
 
     assert_connections(compiled_model, expected_connections)
-    assert compiled_model._flat_graph.output_dict == expected_output_dict
+    assert compiled_model.flat_graph.output_dict == expected_output_dict
 
 
 def test_prune_6():
@@ -2833,7 +2830,7 @@ def test_prune_6():
     expected_output_dict = {"acc": "acc", "auc": "auc"}
 
     assert_connections(compiled_model, expected_connections)
-    assert compiled_model._flat_graph.output_dict == expected_output_dict
+    assert compiled_model.flat_graph.output_dict == expected_output_dict
 
 
 def test_prune_7():
@@ -2863,7 +2860,7 @@ def test_prune_7():
     }
 
     assert_connections(compiled_model, expected_connections)
-    assert compiled_model._flat_graph.output_dict == expected_output_dict
+    assert compiled_model.flat_graph.output_dict == expected_output_dict
 
 
 def test_prune_8():
@@ -2892,7 +2889,7 @@ def test_prune_8():
     }
 
     assert_connections(compiled_model, expected_connections)
-    assert compiled_model._flat_graph.output_dict == expected_output_dict
+    assert compiled_model.flat_graph.output_dict == expected_output_dict
 
 
 def test_prune_9():
@@ -2923,7 +2920,7 @@ def test_prune_9():
     }
 
     assert_connections(compiled_model, expected_connections)
-    assert compiled_model._flat_graph.output_dict == expected_output_dict
+    assert compiled_model.flat_graph.output_dict == expected_output_dict
 
 
 def test_prune_10():
@@ -2958,7 +2955,7 @@ def test_prune_10():
     }
 
     assert_connections(compiled_model, expected_connections)
-    assert compiled_model._flat_graph.output_dict == expected_output_dict
+    assert compiled_model.flat_graph.output_dict == expected_output_dict
 
 
 def test_prune_11():
@@ -2997,7 +2994,7 @@ def test_prune_11():
     }
 
     assert_connections(compiled_model, expected_connections)
-    assert compiled_model._flat_graph.output_dict == expected_output_dict
+    assert compiled_model.flat_graph.output_dict == expected_output_dict
 
 
 def test_prune_12():
@@ -3014,7 +3011,7 @@ def test_prune_12():
     expected_output_dict = {"out_3": "out_1", "out_2": "out_1", "out_1": "out_1"}
 
     assert_connections(compiled_model, expected_connections)
-    assert expected_output_dict == compiled_model._flat_graph.output_dict
+    assert expected_output_dict == compiled_model.flat_graph.output_dict
 
 
 def test_prune_13():
@@ -3031,7 +3028,7 @@ def test_prune_13():
     expected_output_dict = {"out_3": "out_1", "out_1": "out_1"}
 
     assert_connections(compiled_model, expected_connections)
-    assert expected_output_dict == compiled_model._flat_graph.output_dict
+    assert expected_output_dict == compiled_model.flat_graph.output_dict
 
 
 def test_prune_14():
@@ -3048,7 +3045,7 @@ def test_prune_14():
     expected_output_dict = {"out_3": "out_1", "out_2": "out_1", "out_1": "out_1"}
 
     assert_connections(compiled_model, expected_connections)
-    assert expected_output_dict == compiled_model._flat_graph.output_dict
+    assert expected_output_dict == compiled_model.flat_graph.output_dict
 
 
 def test_prune_15():
@@ -3066,7 +3063,7 @@ def test_prune_15():
     expected_output_dict = {"out_3": "out_3", "out_1": "out_1"}
 
     assert_connections(compiled_model, expected_connections)
-    assert expected_output_dict == compiled_model._flat_graph.output_dict
+    assert expected_output_dict == compiled_model.flat_graph.output_dict
 
 
 def test_prune_valued_tensor_1():
@@ -3110,7 +3107,7 @@ def test_prune_valued_tensor_2():
     expected_output_dict = {"output2": "output1", "output1": "output1"}
 
     assert_connections(compiled_model, expected_connections)
-    assert compiled_model._flat_graph.output_dict == expected_output_dict
+    assert compiled_model.flat_graph.output_dict == expected_output_dict
 
 
 def test_prune_valued_tensor_3():
@@ -3140,7 +3137,7 @@ def test_prune_valued_tensor_3():
     expected_output_dict = {"output2": "output1", "output1": "output1"}
 
     assert_connections(compiled_model, expected_connections)
-    assert compiled_model._flat_graph.output_dict == expected_output_dict
+    assert compiled_model.flat_graph.output_dict == expected_output_dict
 
 
 def test_prune_valued_tensor_4():
@@ -3172,7 +3169,7 @@ def test_prune_valued_tensor_4():
     expected_output_dict = {"output2": "output2", "output1": "output1"}
 
     assert_connections(compiled_model, expected_connections)
-    assert compiled_model._flat_graph.output_dict == expected_output_dict
+    assert compiled_model.flat_graph.output_dict == expected_output_dict
 
 
 def test_prune_valued_tensor_5():
@@ -3204,7 +3201,7 @@ def test_prune_valued_tensor_5():
     expected_output_dict = {"out1": "out2", "out2": "out2"}
 
     assert_connections(compiled_model, expected_connections)
-    assert compiled_model._flat_graph.output_dict == expected_output_dict
+    assert compiled_model.flat_graph.output_dict == expected_output_dict
 
 
 def test_prune_duplicate_grad():
@@ -3471,7 +3468,7 @@ def test_replace_with_primitive_2():
     assert expected_key_mapping == list(dag.values())[0]
     # assert {} == comp_model.non_differentiables
     assert set() == comp_model.data_store.all_static_keys
-    assert set(["query", "key", "mask", "value"]) == set(comp_model._input_keys)
+    assert set(["query", "key", "mask", "value"]) == set(comp_model.input_keys)
     assert set(["output"]) == set(comp_model.output_keys)
 
 
@@ -3505,7 +3502,7 @@ def test_replace_with_primitive_3():
     # assert {"q", "k", "v", "m", "output"} == comp_model.data_store.all_static_keys
     assert {"output"} == comp_model.data_store.all_static_keys
     assert {"q", "k", "v", "m"} == comp_model.data_store.unused_keys
-    assert set(["q", "k", "m", "v"]) == set(comp_model._input_keys)
+    assert set(["q", "k", "m", "v"]) == set(comp_model.input_keys)
     assert set(["output"]) == set(comp_model.output_keys)
 
 
@@ -3536,7 +3533,7 @@ def test_replace_with_primitive_4():
     assert expected_key_mapping == list(dag.values())[0]
     # assert {} == comp_model.non_differentiables
     assert {"q", "k", "m"} == comp_model.data_store.all_static_keys
-    assert set(["q", "k", "m", "v"]) == set(comp_model._input_keys)
+    assert set(["q", "k", "m", "v"]) == set(comp_model.input_keys)
     assert set(["output"]) == set(comp_model.output_keys)
 
 
@@ -3685,7 +3682,7 @@ def test_demo_model():
     model += Linear(1)
     pm = mithril.compile(model=model, backend=TorchBackend(), safe_names=False)
 
-    assert set(pm._input_keys) == {
+    assert set(pm.input_keys) == {
         "weight_0",
         "bias_1",
         "bias_3",
@@ -3768,9 +3765,9 @@ def test_flatgraph_4():
     )
 
     pm = mithril.compile(model=model, backend=backend)
-    assert pm._input_keys == {"relu_2"}
-    assert len(pm._flat_graph.all_source_keys) == 3
-    assert len(pm._flat_graph.all_target_keys) == 3
+    assert pm.input_keys == {"relu_2"}
+    assert len(pm.flat_graph.all_source_keys) == 3
+    assert len(pm.flat_graph.all_target_keys) == 3
 
 
 def test_empy_out_grad():
@@ -4050,7 +4047,7 @@ def test_connect_1():
     relu3 = Relu()
     model += relu1(output="relu_output_1")
     model += relu2(input="", output="relu_output_2")
-    model += relu3(input="", output=IOKey(connections=[relu1.input, relu2.input]))
+    model += relu3(input="", output=IOKey(connections={relu1.input, relu2.input}))
 
     assert (
         model.dag[relu1]["input"].metadata
@@ -4067,7 +4064,7 @@ def test_connect_2():
     model += relu1(input="in1", output="relu_output_1")
     model += relu2(input="in2", output="relu_output_2")
     model += relu3(
-        input="", output=IOKey(name="my_input", connections=[relu1.input, relu2.input])
+        input="", output=IOKey(name="my_input", connections={relu1.input, relu2.input})
     )
 
     assert (
@@ -4084,7 +4081,7 @@ def test_connect_3():
     relu3 = Relu()
     model += relu1(output="relu_output_1")
     model += relu2(input="", output="relu_output_2")
-    model += relu3(input=IOKey(connections=[relu1.input, relu2.input]))
+    model += relu3(input=IOKey(connections={relu1.input, relu2.input}))
 
     assert (
         model.dag[relu1]["input"].metadata
@@ -4100,7 +4097,7 @@ def test_connect_4():
     relu3 = Relu()
     model += relu1(input="in1", output="relu_output_1")
     model += relu2(input="in2", output="relu_output_2")
-    model += relu3(input=IOKey(name="my_input", connections=[relu1.input, relu2.input]))
+    model += relu3(input=IOKey(name="my_input", connections={relu1.input, relu2.input}))
 
     assert (
         model.dag[relu1]["input"].metadata
@@ -4117,7 +4114,7 @@ def test_connect_5():
     relu3 = Relu()
     model += relu1(input="in1", output="relu_output_1")
     model += relu2(input="", output="relu_output_2")
-    model += relu3(input=IOKey(connections=[relu1.input, relu2.input]))
+    model += relu3(input=IOKey(connections={relu1.input, relu2.input}))
 
     assert (
         model.dag[relu1]["input"].key
@@ -4140,7 +4137,7 @@ def test_connect_6():
     model += relu2(input="in2", output="relu_output_2")
 
     with pytest.raises(KeyError) as error_info:
-        model += Relu()(input=IOKey(connections=[relu1.input, relu2.input]))
+        model += Relu()(input=IOKey(connections={relu1.input, relu2.input}))
 
     assert str(error_info.value) == (
         "'Requires a connection to have only one unique key name but "
@@ -4191,7 +4188,7 @@ def test_dict_to_model_using_connect():
 
     model = dict_to_model(json_model)
 
-    assert model._input_keys == {"right", "left"}
+    assert model.input_keys == {"right", "left"}
 
 
 def test_connect_composite_2_extend_from_inputs():
@@ -4225,10 +4222,10 @@ def test_connect_composite_2_extend_from_inputs():
     m2 = deepcopy(submodel)
     subcopy = deepcopy(submodel)
     model += m1(left="left", right="right")
-    model += m2(left=IOKey(connections=[m1.output]), right="right")  # type: ignore
+    model += m2(left=IOKey(connections={m1.output}), right="right")  # type: ignore
     model += subcopy(
-        left=IOKey(connections=[m2.output]),  # type: ignore
-        right=IOKey(connections=[m2.output]),  # type: ignore
+        left=IOKey(connections={m2.output}),  # type: ignore
+        right=IOKey(connections={m2.output}),  # type: ignore
         output="output",
     )
 
@@ -4246,9 +4243,9 @@ def test_composite_6_extend_from_inputs_connect():
     relu3 = Relu()
     relu4 = Relu()
     model += relu1(output="output")
-    model += relu2(input=IOKey(connections=[relu1.input]))
-    model += relu3(input="my_input", output=IOKey(connections=[relu2.input]))
-    model += relu4(input=IOKey(connections=[relu3.input]))
+    model += relu2(input=IOKey(connections={relu1.input}))
+    model += relu3(input="my_input", output=IOKey(connections={relu2.input}))
+    model += relu4(input=IOKey(connections={relu3.input}))
 
     assert (
         relu2.input.data.metadata
@@ -4270,8 +4267,8 @@ def test_composite_4_extend_from_inputs_connect():
     relu3 = Relu()
     relu4 = Relu()
     model += relu1(input="my_input", output=IOKey(name="output"))
-    model += relu2(input=IOKey(connections=[relu1.input]))
-    model += relu3(input=IOKey(connections=[relu2.input]))
+    model += relu2(input=IOKey(connections={relu1.input}))
+    model += relu3(input=IOKey(connections={relu2.input}))
     model += relu4(input="input1", output="my_input")
 
     backend = TorchBackend()
@@ -4291,7 +4288,7 @@ def test_integration_composite_1_extend_from_inputs_1_with_connect():
     m1 = Layer(dimension=2, activation=Sigmoid())
     model += m2(weight="w1", bias="b1", output="output")
     model += m1(
-        input="input", weight="w0", bias="b0", output=IOKey(connections=[m2.input])
+        input="input", weight="w0", bias="b0", output=IOKey(connections={m2.input})
     )
 
     assert m1.output.data.metadata == m2.input.data.metadata
@@ -4340,7 +4337,7 @@ def test_connect_8():
     r2 = Relu()
     model += t(output="output1")
     model += r1(input="input2", output="output2")
-    model += r2(input="", output=IOKey(connections=[t.input, r1.input]))
+    model += r2(input="", output=IOKey(connections={t.input, r1.input}))
 
     assert r1.input.data.metadata == r2.output.data.metadata == t.input.data.metadata
 
@@ -4352,7 +4349,7 @@ def test_connect_9():
     r2 = Relu()
     model += t(input="input1", output="output1")
     model += r1(input="", output="output2")
-    model += r2(input="", output=IOKey(connections=["input1", r1.input]))
+    model += r2(input="", output=IOKey(connections={"input1", r1.input}))
 
     assert (
         r1.input.data.metadata
@@ -4371,7 +4368,7 @@ def test_connect_10():
     model += r1(input="input2", output=IOKey(name="output2"))
     model += r2(
         input="",
-        output=IOKey(connections=["input1", "input2"], expose=True, name="internal"),
+        output=IOKey(connections={"input1", "input2"}, expose=True, name="internal"),
     )
 
     assert (
@@ -4388,7 +4385,7 @@ def test_connect_11():
     add = Add()
     model += add(left=IOKey(value=TBD, name="a"), right="right")
 
-    assert model._input_keys == {"a", "right"}
+    assert model.input_keys == {"a", "right"}
     assert (
         model.dag[add]["left"].key == "a"
     )  # Checks "a" is assigned to the right connection.
@@ -4403,12 +4400,12 @@ def test_connect_12():
     model += add2(left="l3", right="l4", output=IOKey(name="out2"))
 
     model += add3(
-        left=IOKey(name="left", connections=[add1.left, add2.left]),
+        left=IOKey(name="left", connections={add1.left, add2.left}),
         right="right",
         output=IOKey(name="out3"),
     )
 
-    assert model._input_keys == {"left", "l2", "l4", "right"}
+    assert model.input_keys == {"left", "l2", "l4", "right"}
     assert (
         model.dag[add3]["left"].key == "left"
     )  # Checks "left" is assigned to the right connection.
@@ -4421,10 +4418,10 @@ def test_connect_13():
     buf = Buffer()
     model += add1(left="l1", right="l2", output=IOKey(name="out1"))
     model += add2(left="l3", right="l4")
-    model += buf(input=IOKey(name="input", connections=[add1.left, add2.left]))
+    model += buf(input=IOKey(name="input", connections={add1.left, add2.left}))
     model += Add()(left=add2.output, right=buf.output, output=IOKey(name="out2"))
 
-    assert model._input_keys == {"input", "l2", "l4"}
+    assert model.input_keys == {"input", "l2", "l4"}
 
 
 def test_connect_14():
@@ -4433,7 +4430,7 @@ def test_connect_14():
     model += Add()(left="l3", right="l4", output=IOKey(name="out2"))
     model += ToTensor()(input=IOKey(value=5, name="input"), output=IOKey(name="out3"))
 
-    assert model._input_keys == {"input", "l1", "l2", "l3", "l4"}
+    assert model.input_keys == {"input", "l1", "l2", "l3", "l4"}
 
 
 def test_connect_error_1():
@@ -4445,7 +4442,7 @@ def test_connect_error_1():
     with pytest.raises(Exception) as error_info:
         model += Relu()(
             input="input",
-            output=IOKey(name="my_input", connections=["input1", "input2", "output3"]),
+            output=IOKey(name="my_input", connections={"input1", "input2", "output3"}),
         )
 
     assert (
@@ -4464,7 +4461,7 @@ def test_connect_error_2():
     with pytest.raises(KeyError) as error_info:
         model += Relu()(
             input=IOKey(
-                name="my_input", connections=["input1", "input2", "output3", "output4"]
+                name="my_input", connections={"input1", "input2", "output3", "output4"}
             )
         )
 
@@ -4481,7 +4478,7 @@ def test_connect_error_5():
 
     with pytest.raises(KeyError) as error_info:
         model_2 += Relu()(
-            output=IOKey(expose=True, connections=[tanh.input, relu.input])
+            output=IOKey(expose=True, connections={tanh.input, relu.input})
         )
 
     assert (
@@ -4499,7 +4496,7 @@ def test_connect_error_6():
     model += l2(input="input1", weight="w1", output=IOKey(name="output2"))
     model += l3(input="", output=IOKey(name="output3"))
     model += l4(
-        input=IOKey(name="my_output", connections=["input1", "input2", "output3"])
+        input=IOKey(name="my_output", connections={"input1", "input2", "output3"})
     )
 
     assert (
@@ -4547,9 +4544,9 @@ def test_infer_static_register_fn():
         def __init__(self) -> None:
             super().__init__(
                 formula_key="my_adder",
-                output=IOKey(shape=[("Var_out", ...)], type=MyTensor),
-                left=IOKey(shape=[("Var_1", ...)], type=MyTensor),
-                right=IOKey(shape=[("Var_2", ...)], type=MyTensor),
+                output=BaseKey(shape=[("Var_out", ...)], type=MyTensor),
+                left=BaseKey(shape=[("Var_1", ...)], type=MyTensor),
+                right=BaseKey(shape=[("Var_2", ...)], type=MyTensor),
             )
             self.set_constraint(
                 fn=bcast, keys=[PrimitiveModel.output_key, "left", "right"]
@@ -5201,10 +5198,8 @@ def test_dependency_map_latent_to_input():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
-    assert (
-        expected_local_output_map == model.dependency_map._local_output_dependency_map
-    )
+    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
+    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
 
     # Add second model with global output.
     model += (buff := Buffer())(output=IOKey("buff_out"))
@@ -5231,14 +5226,12 @@ def test_dependency_map_latent_to_input():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
-    assert (
-        expected_local_output_map == model.dependency_map._local_output_dependency_map
-    )
+    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
+    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
 
     # Add third model which changes name of a latent input and
     # makes it a real input of the model.
-    conn = IOKey(name="mean_axis", connections=[mean.axis], expose=True)
+    conn = IOKey(name="mean_axis", connections={mean.axis}, expose=True)
     model += (to_tensor := ToTensor())(conn, output="output")
     # Assert dependency map and connection keys status in model.
     output: ConnectionData = model.output.data  # type: ignore
@@ -5268,10 +5261,8 @@ def test_dependency_map_latent_to_input():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
-    assert (
-        expected_local_output_map == model.dependency_map._local_output_dependency_map
-    )
+    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
+    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
 
 
 def test_dependency_map_1():
@@ -5298,10 +5289,8 @@ def test_dependency_map_1():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
-    assert (
-        expected_local_output_map == model.dependency_map._local_output_dependency_map
-    )
+    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
+    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
 
     assert (
         expected_global_input_map_cache
@@ -5339,10 +5328,8 @@ def test_dependency_map_1_set_outputs():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
-    assert (
-        expected_local_output_map == model.dependency_map._local_output_dependency_map
-    )
+    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
+    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
 
     assert (
         expected_global_input_map_cache
@@ -5402,10 +5389,8 @@ def test_dependency_map_2():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
-    assert (
-        expected_local_output_map == model.dependency_map._local_output_dependency_map
-    )
+    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
+    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
 
     assert (
         expected_global_input_map_cache
@@ -5467,10 +5452,8 @@ def test_dependency_map_2_set_outputs():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
-    assert (
-        expected_local_output_map == model.dependency_map._local_output_dependency_map
-    )
+    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
+    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
 
     assert (
         expected_global_input_map_cache
@@ -5522,10 +5505,8 @@ def test_dependency_map_3():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
-    assert (
-        expected_local_output_map == model.dependency_map._local_output_dependency_map
-    )
+    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
+    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
 
     assert (
         expected_global_input_map_cache
@@ -5578,10 +5559,8 @@ def test_dependency_map_3_set_outputs():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
-    assert (
-        expected_local_output_map == model.dependency_map._local_output_dependency_map
-    )
+    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
+    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
 
     assert (
         expected_global_input_map_cache
@@ -5633,10 +5612,8 @@ def test_dependency_map_4():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
-    assert (
-        expected_local_output_map == model.dependency_map._local_output_dependency_map
-    )
+    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
+    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
 
     assert (
         expected_global_input_map_cache
@@ -5689,10 +5666,8 @@ def test_dependency_map_4_set_outputs_1():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
-    assert (
-        expected_local_output_map == model.dependency_map._local_output_dependency_map
-    )
+    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
+    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
 
     assert (
         expected_global_input_map_cache
@@ -5746,10 +5721,8 @@ def test_dependency_map_4_set_outputs_2():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
-    assert (
-        expected_local_output_map == model.dependency_map._local_output_dependency_map
-    )
+    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
+    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
 
     assert (
         expected_global_input_map_cache
@@ -5813,10 +5786,8 @@ def test_dependency_map_5():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
-    assert (
-        expected_local_output_map == model.dependency_map._local_output_dependency_map
-    )
+    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
+    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
 
     assert (
         expected_global_input_map_cache
@@ -5881,10 +5852,8 @@ def test_dependency_map_5_set_outputs_1():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
-    assert (
-        expected_local_output_map == model.dependency_map._local_output_dependency_map
-    )
+    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
+    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
 
     assert (
         expected_global_input_map_cache
@@ -5949,10 +5918,8 @@ def test_dependency_map_5_set_outputs_2():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
-    assert (
-        expected_local_output_map == model.dependency_map._local_output_dependency_map
-    )
+    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
+    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
 
     assert (
         expected_global_input_map_cache
@@ -6016,10 +5983,8 @@ def test_dependency_map_6():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
-    assert (
-        expected_local_output_map == model.dependency_map._local_output_dependency_map
-    )
+    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
+    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
 
     assert (
         expected_global_input_map_cache
@@ -6086,10 +6051,8 @@ def test_dependency_map_6_set_outputs_1():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
-    assert (
-        expected_local_output_map == model.dependency_map._local_output_dependency_map
-    )
+    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
+    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
 
     assert (
         expected_global_input_map_cache
@@ -6154,10 +6117,8 @@ def test_dependency_map_6_set_outputs_2():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
-    assert (
-        expected_local_output_map == model.dependency_map._local_output_dependency_map
-    )
+    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
+    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
 
     assert (
         expected_global_input_map_cache
@@ -6223,10 +6184,8 @@ def test_dependency_map_7():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
-    assert (
-        expected_local_output_map == model.dependency_map._local_output_dependency_map
-    )
+    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
+    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
 
     assert (
         expected_global_input_map_cache
@@ -6293,10 +6252,8 @@ def test_dependency_map_7_set_outputs_1():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
-    assert (
-        expected_local_output_map == model.dependency_map._local_output_dependency_map
-    )
+    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
+    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
 
     assert (
         expected_global_input_map_cache
@@ -6363,10 +6320,8 @@ def test_dependency_map_7_set_outputs_2():
         expected_global_output_map == model.dependency_map._global_output_dependency_map
     )
 
-    assert expected_local_input_map == model.dependency_map._local_input_dependency_map
-    assert (
-        expected_local_output_map == model.dependency_map._local_output_dependency_map
-    )
+    assert expected_local_input_map == model.dependency_map.local_input_dependency_map
+    assert expected_local_output_map == model.dependency_map.local_output_dependency_map
 
     assert (
         expected_global_input_map_cache
@@ -6648,7 +6603,7 @@ def test_discard_trainables_1():
         shapes={"input": [1, 2], "sidein": [2, 3]},
     )
 
-    assert {"input"} == pm._input_keys
+    assert {"input"} == pm.input_keys
     assert {"sidein", "sideout"} == pm.discarded_keys
     assert pm.get_shapes(model) == {
         "input": [1, 2],
@@ -6667,7 +6622,7 @@ def test_discard_trainables_2():
 
     pm = compile(model, backend, shapes={"sidein": [1, 2]})
 
-    assert {"input"} == pm._input_keys
+    assert {"input"} == pm.input_keys
     assert {"sidein", "output_0"} == pm.discarded_keys
     assert pm.get_shapes(model) == {
         "$_Sigmoid_1_output": [1, 2],
@@ -6687,7 +6642,7 @@ def test_discard_trainables_3():
 
     pm = compile(model, backend, shapes={"sidein": [1, 2]})
 
-    assert {"input"} == pm._input_keys
+    assert {"input"} == pm.input_keys
     assert {"sidein", "output_0"} == pm.discarded_keys
     assert pm.get_shapes(model) == {
         "$_Sigmoid_1_output": [1, 2],
@@ -6716,7 +6671,7 @@ def test_discard_trainables_4():
         shapes={"sideout": [1, 2, 3]},
     )
 
-    assert {"input"} == pm._input_keys
+    assert {"input"} == pm.input_keys
     assert {"sidein", "output_0", "sideout"} == pm.discarded_keys
     assert pm.get_shapes(model) == {
         "$_Sigmoid_1_output": [1, 2, 3],
@@ -6795,7 +6750,7 @@ def test_multi_write_7():
     model += add1(left="left1", right="right1", output="output1")
     model += add2(left="left2", right="right2", output="output2")
 
-    out = IOKey(connections=[model.output1, model.output2])  # type: ignore
+    out = IOKey(connections={model.output1, model.output2})  # type: ignore
     with pytest.raises(KeyError) as err_info:
         model += Buffer()(input=out, output="output3")
 
@@ -7036,11 +6991,11 @@ def test_extend_with_wrong_values():
 
 
 def test_cyclic_extend():
-    with pytest.raises(KeyError) as error_info1:
+    with pytest.raises(Exception) as error_info1:
         model = Model()
         model += Relu()(input="input1", output="input1")
 
-    with pytest.raises(KeyError) as error_info2:
+    with pytest.raises(Exception) as error_info2:
         model = Model()
         model += LogisticRegression()(input="input1", probs_output="input1")
 
@@ -7414,7 +7369,7 @@ def test_generate_keys_duplicates():
     model2 = Model()
     model2 += model()
 
-    key_mappings = model2._generate_keys(include_internals=True)
+    key_mappings = model2.generate_keys(include_internals=True)
     expected_key_mappings = {
         "$1": "$left",
         "$2": "$right",
@@ -7486,17 +7441,17 @@ def test_string_iokey_value_1():
                 all_output_shapes = list(output)
                 # Create IOKey shape = and Scalar Input, type = MyTensors
                 # Note that equation is string
-                tensor_input = IOKey(shape=all_input_shapes, type=MyTensor)
-                tensor_output = IOKey(shape=all_output_shapes, type=MyTensor)
-                scalar_equation = IOKey(type=str, value=equation)
+                tensor_input = BaseKey(shape=all_input_shapes, type=MyTensor)
+                tensor_output = BaseKey(shape=all_output_shapes, type=MyTensor)
+                scalar_equation = BaseKey(type=str, value=equation)
 
             else:
                 # case where equation is TBD
-                tensor_input = IOKey(shape=[("Var1", ...)], type=MyTensor)
-                tensor_output = IOKey(shape=[("Var2", ...)], type=MyTensor)
-                scalar_equation = IOKey(type=str)
+                tensor_input = BaseKey(shape=[("Var1", ...)], type=MyTensor)
+                tensor_output = BaseKey(shape=[("Var2", ...)], type=MyTensor)
+                scalar_equation = BaseKey(type=str)
 
-            kwargs: dict[str, IOKey] = {
+            kwargs: dict[str, BaseKey] = {
                 "output": tensor_output,
                 "input": tensor_input,
                 "equation": scalar_equation,
@@ -7570,17 +7525,17 @@ def test_string_iokey_value_2():
                 all_output_shapes = list(output)
                 # Create TensorType and Scalar Inputs
                 # Note that equation is string
-                tensor_input = IOKey(shape=all_input_shapes, type=MyTensor)
-                tensor_output = IOKey(shape=all_output_shapes, type=MyTensor)
-                scalar_equation = IOKey(type=str, value=equation)
+                tensor_input = BaseKey(shape=all_input_shapes, type=MyTensor)
+                tensor_output = BaseKey(shape=all_output_shapes, type=MyTensor)
+                scalar_equation = BaseKey(type=str, value=equation)
 
             else:
                 # case where equation is TBD
-                tensor_input = IOKey(shape=[("Var1", ...)], type=MyTensor)
-                tensor_output = IOKey(shape=[("Var2", ...)], type=MyTensor)
-                scalar_equation = IOKey(type=str)
+                tensor_input = BaseKey(shape=[("Var1", ...)], type=MyTensor)
+                tensor_output = BaseKey(shape=[("Var2", ...)], type=MyTensor)
+                scalar_equation = BaseKey(type=str)
 
-            kwargs: dict[str, IOKey] = {
+            kwargs: dict[str, BaseKey] = {
                 "output": tensor_output,
                 "input": tensor_input,
                 "equation": scalar_equation,

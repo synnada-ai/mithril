@@ -58,7 +58,7 @@ class STensor(DTensor):
 
         dtensor = DTensor._op_dispatcher.dispatch(func, args, kwargs or {})
         if isinstance(dtensor, torch.Tensor):
-            stensor = STensor.from_dtensor(dtensor)  # type: ignore
+            stensor = STensor.from_dtensor(dtensor)
         else:
             stensor = dtensor
 

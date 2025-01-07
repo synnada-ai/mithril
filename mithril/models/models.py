@@ -26,6 +26,7 @@ from ..framework.common import (
     Connection,
     ConnectionType,
     IOKey,
+    MainValueType,
     MyTensor,
     ShapeTemplateType,
     TensorValueType,
@@ -53,10 +54,11 @@ from ..framework.logical.essential_primitives import (
     ScalarItem,
     Shape,
     Size,
+    Slice,
     Sqrt,
     Subtract,
     Sum,
-    TensorSlice,
+    TensorItem,
     Transpose,
     Variance,
 )
@@ -168,14 +170,6 @@ class Pool1D(Model):
         input: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
-        self.factory_inputs = {
-            "input": input,
-            "kernel_size": kernel_size,
-            "stride": stride,
-            "padding": padding,
-            "dilation": dilation,
-        }
-
         self.factory_args = {
             "kernel_size": convert_to_list(kernel_size),
             "stride": convert_to_list(stride),
@@ -197,7 +191,7 @@ class Pool1D(Model):
         )
 
         self += self.pool_model()(
-            input="input",
+            input=IOKey("input", value=input),
             kernel_size="kernel_size",
             stride=stride_conv.output,
             padding=pad_conv.output,
@@ -266,14 +260,6 @@ class Pool2D(Model):
         input: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
-        self.factory_inputs = {
-            "input": input,
-            "kernel_size": kernel_size,
-            "stride": stride,
-            "padding": padding,
-            "dilation": dilation,
-        }
-
         self.factory_args = {
             "kernel_size": convert_to_list(kernel_size),
             "stride": convert_to_list(stride),
@@ -305,7 +291,7 @@ class Pool2D(Model):
         self += pt_converter(input=p_converter.output)
         self += dt_converter(input=IOKey(name="dilation", value=dilation))
         self += self.pool_model()(
-            input="input",
+            input=IOKey("input", value=input),
             kernel_size=kt_converter.output,
             stride=st_converter.output,
             padding=pt_converter.output,
@@ -373,14 +359,6 @@ class Convolution1D(Model):
         weight: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
-        self.factory_inputs = {
-            "input": input,
-            "weight": weight,
-            "stride": stride,
-            "padding": padding,
-            "dilation": dilation,
-        }
-
         self.factory_args = {
             "kernel_size": convert_to_list(kernel_size),
             "out_channels": out_channels,
@@ -404,8 +382,8 @@ class Convolution1D(Model):
 
         conv_connections: dict[str, ConnectionType] = {
             "output": IOKey(name="output"),
-            "input": "input",
-            "weight": "weight",
+            "input": IOKey("input", value=input),
+            "weight": IOKey("weight", value=weight),
             "stride": IOKey(name="stride", value=stride),
             "padding": p_converter.output,
             "dilation": IOKey(name="dilation", value=dilation),
@@ -481,14 +459,6 @@ class Convolution2D(Model):
         if isinstance(dilation, list):
             dilation = convert_to_tuple(dilation)
 
-        self.factory_inputs = {
-            "input": input,
-            "weight": weight,
-            "stride": stride,
-            "padding": pad,
-            "dilation": dilation,
-        }
-
         k_shp = Shape()
         p_converter = PaddingConverter2D()
         st_converter = TupleConverter()
@@ -505,8 +475,8 @@ class Convolution2D(Model):
 
         conv_connections: dict[str, ConnectionType] = {
             "output": IOKey(name="output"),
-            "input": "input",
-            "weight": "weight",
+            "input": IOKey("input", value=input),
+            "weight": IOKey("weight", value=weight),
             "stride": st_converter.output,
             "padding": pt_converter.output,
             "dilation": dt_converter.output,
@@ -554,7 +524,6 @@ class Linear(Model):
     ) -> None:
         super().__init__(name=name)
         self.factory_args = {"dimension": dimension, "use_bias": use_bias}
-        self.factory_inputs = {"input": input, "weight": weight, "bias": bias}
         dim: int | str = "d_out" if dimension is None else dimension
         shapes: dict[str, ShapeTemplateType] = {
             "input": ["N", ("Var_inter", ...), "d_in"],
@@ -565,15 +534,16 @@ class Linear(Model):
         mult = MatrixMultiply()
 
         output = IOKey(name="output")
+        input_key = IOKey(name="input", value=input)
         weight_key = IOKey(name="weight", value=weight).transpose()
 
         if use_bias:
             bias_key = IOKey(name="bias", value=bias, type=MyTensor)
-            self += mult(left="input", right=weight_key)
+            self += mult(left=input_key, right=weight_key)
             self += Add()(left=mult.output, right=bias_key, output=output)
             shapes["bias"] = [dim]
         else:
-            self += mult(left="input", right=weight_key, output=output)
+            self += mult(left=input_key, right=weight_key, output=output)
 
         self._set_shapes(shapes)
         self.input.set_differentiable(False)
@@ -590,9 +560,9 @@ class Linear(Model):
     ) -> ExtendInfo:
         kwargs = {"input": input, "weight": weight, "output": output}
 
-        if "bias" not in self._input_keys and bias != NOT_GIVEN:
+        if "bias" not in self.input_keys and bias != NOT_GIVEN:
             raise KeyError("bias is not a valid input when 'use_bias' is False!")
-        elif "bias" in self._input_keys:
+        elif "bias" in self.input_keys:
             kwargs["bias"] = bias
 
         return super().__call__(**kwargs)
@@ -612,15 +582,16 @@ class ElementWiseAffine(Model):
         bias: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
-        self.factory_inputs = {"input": input, "weight": weight, "bias": bias}
 
         mult_model = Multiply()
         sum_model = Add()
 
-        self += mult_model(left="input", right="weight")
+        self += mult_model(
+            left=IOKey("input", value=input), right=IOKey("weight", value=weight)
+        )
         self += sum_model(
             left=mult_model.output,
-            right="bias",
+            right=IOKey(name="bias", value=bias),
             output=IOKey(name="output"),
         )
         self.input.set_differentiable(False)
@@ -657,10 +628,13 @@ class Layer(Model):
         bias: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
-        self.factory_inputs = {"input": input, "weight": weight, "bias": bias}
         self.factory_args = {"activation": activation, "dimension": dimension}
         linear_model = Linear(dimension=dimension)
-        self += linear_model(input="input", weight="weight", bias="bias")
+        self += linear_model(
+            input=IOKey("input", value=input),
+            weight=IOKey("weight", value=weight),
+            bias=IOKey("bias", value=bias),
+        )
         self += activation(input=linear_model.output, output=IOKey(name="output"))
         self._freeze()
 
@@ -696,12 +670,7 @@ class LayerNorm(Model):
         bias: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
-        self.factory_inputs = {"input": input, "weight": weight, "bias": bias}
-        self.factory_args = {
-            "use_scale": use_scale,
-            "use_bias": use_bias,
-            "eps": MyTensor(eps),
-        }
+        self.factory_args = {"use_scale": use_scale, "use_bias": use_bias, "eps": eps}
 
         # Expects its input shape as [B, ..., d] d refers to normalized dimension
         mean = Mean(axis=-1, keepdim=True)
@@ -709,13 +678,13 @@ class LayerNorm(Model):
         numerator.set_types(left=MyTensor, right=MyTensor)
         var = Variance(axis=-1, correction=0, keepdim=True)
         add = Add()
-        add.set_types(left=MyTensor, right=MyTensor)
+        add.set_types(left=MyTensor)
         denominator = Sqrt()
-
-        self += mean(input="input")
-        self += numerator(left="input", right=mean.output)
-        self += var(input="input")
-        self += add(left=var.output, right=MyTensor(eps))
+        in_key = IOKey("input", value=input)
+        self += mean(input=in_key)
+        self += numerator(left=in_key, right=mean.output)
+        self += var(input=in_key)
+        self += add(left=var.output, right=eps)
         self += denominator(input=add.output)
         self += Divide()(numerator=numerator.output, denominator=denominator.output)
 
@@ -730,15 +699,17 @@ class LayerNorm(Model):
         if use_scale:
             mult = Multiply()
             mult.set_types(left=MyTensor, right=MyTensor)
-            self += mult(left=self.canonical_output, right="weight")
+            self += mult(
+                left=self.canonical_output, right=IOKey("weight", value=weight)
+            )
             mult._set_shapes(shapes)
 
         if use_bias:
             add = Add()
             add.set_types(left=MyTensor, right=MyTensor)
-            self += add(left=self.canonical_output, right="bias")
+            self += add(left=self.canonical_output, right=IOKey("bias", value=bias))
             add._set_shapes(shapes)
-
+        # TODO: Remove below Buffer after required naming-related changes are done.
         self += Buffer()(input=self.canonical_output, output=IOKey(name="output"))
 
         self._freeze()
@@ -753,14 +724,14 @@ class LayerNorm(Model):
     ) -> ExtendInfo:
         kwargs = {"input": input, "output": output}
 
-        if "weight" not in self._input_keys and weight != NOT_GIVEN:
+        if "weight" not in self.input_keys and weight != NOT_GIVEN:
             raise KeyError("weight is not a valid input when 'use_scale' is False!")
-        elif "weight" in self._input_keys:
+        elif "weight" in self.input_keys:
             kwargs["weight"] = weight
 
-        if "bias" not in self._input_keys and bias != NOT_GIVEN:
+        if "bias" not in self.input_keys and bias != NOT_GIVEN:
             raise KeyError("bias is not a valid input when 'use_bias' is False!")
-        elif "bias" in self._input_keys:
+        elif "bias" in self.input_keys:
             kwargs["bias"] = bias
 
         return super().__call__(**kwargs)
@@ -783,11 +754,10 @@ class GroupNorm(Model):
         bias: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
-        self.factory_inputs = {"input": input, "weight": weight, "bias": bias}
 
         # Assumed input shape is [N, C, H, W]
-        input_key = IOKey(name="input")
-        input_shape = input_key.shape()
+        input_key = IOKey(name="input", value=input)
+        input_shape = input_key.shape
         B = input_shape[0]
 
         input_key = input_key.reshape((B, num_groups, -1))
@@ -807,13 +777,13 @@ class GroupNorm(Model):
         }
 
         if use_scale:
-            weight_key = IOKey(name="weight", type=MyTensor[float])
+            weight_key = IOKey(name="weight", type=MyTensor[float], value=weight)
             mult = Multiply()
             self += mult(left=self.canonical_output, right=weight_key)
             mult._set_shapes(shapes)
 
         if use_bias:
-            bias_key = IOKey(name="bias", type=MyTensor[float])
+            bias_key = IOKey(name="bias", type=MyTensor[float], value=bias)
             add = Add()
             self += add(left=self.canonical_output, right=bias_key)
             add._set_shapes(shapes)
@@ -830,14 +800,14 @@ class GroupNorm(Model):
     ) -> ExtendInfo:
         kwargs = {"input": input, "output": output}
 
-        if "weight" not in self._input_keys and weight != NOT_GIVEN:
+        if "weight" not in self.input_keys and weight != NOT_GIVEN:
             raise KeyError("weight is not a valid input when 'use_scale' is False!")
-        elif "weight" in self._input_keys:
+        elif "weight" in self.input_keys:
             kwargs["weight"] = weight
 
-        if "bias" not in self._input_keys and bias != NOT_GIVEN:
+        if "bias" not in self.input_keys and bias != NOT_GIVEN:
             raise KeyError("bias is not a valid input when 'use_bias' is False!")
-        elif "bias" in self._input_keys:
+        elif "bias" in self.input_keys:
             kwargs["bias"] = bias
 
         return super().__call__(**kwargs)
@@ -851,11 +821,10 @@ class L1(Model):
         self, name: str | None = None, input: TensorValueType | ToBeDetermined = TBD
     ) -> None:
         super().__init__(name=name)
-        self.factory_inputs = {"input": input}
 
         abs_model = Absolute()
 
-        self += abs_model(input="input")
+        self += abs_model(input=IOKey("input", value=input))
         self += Sum()(input=abs_model.output, output=IOKey(name="output"))
 
         self._freeze()
@@ -877,12 +846,10 @@ class L2(Model):
         self, name: str | None = None, input: TensorValueType | ToBeDetermined = TBD
     ) -> None:
         super().__init__(name=name)
-        self.factory_inputs = {"input": input}
-
         square = Square()
         sum = Sum()
 
-        self += square(input="input")
+        self += square(input=IOKey("input", value=input))
         self += sum(input=square.output)
         self += Multiply()(
             left=sum.output, right=MyTensor(0.5), output=IOKey(name="output")
@@ -911,14 +878,14 @@ class QuadraticFormRegularizer(Model):
         kernel: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
-        self.factory_inputs = {"input": input, "kernel": kernel}
-
         transpose_model = Transpose()
         dot_model1 = MatrixMultiply()
         dot_model2 = MatrixMultiply()
 
-        self += transpose_model(input="input")
-        self += dot_model1(left=transpose_model.input, right="kernel")
+        self += transpose_model(input=IOKey("input", value=input))
+        self += dot_model1(
+            left=transpose_model.input, right=IOKey("kernel", value=kernel)
+        )
         self += dot_model2(left=dot_model1.output, right=transpose_model.output)
         self += Multiply()(
             left=dot_model2.output, right=MyTensor(0.5), output=IOKey(name="output")
@@ -956,12 +923,6 @@ class RBFKernel(Model):
         sigma: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
-        self.factory_inputs = {
-            "input1": input1,
-            "input2": input2,
-            "l_scale": l_scale,
-            "sigma": sigma,
-        }
 
         euclidean_model = CartesianDifference()
         square_model1 = Square()
@@ -972,18 +933,20 @@ class RBFKernel(Model):
         exp_model = Exponential()
         mult_model2 = Multiply()
         l_square = Multiply()
+        l_key = IOKey("l_scale", value=l_scale)
 
-        self += euclidean_model(left="input1", right="input2")
+        self += euclidean_model(
+            left=IOKey("input1", value=input1), right=IOKey("input2", value=input2)
+        )
         self += square_model1(input=euclidean_model.output)
         self += sum_model(input=square_model1.output)
-        self += mult_model1(left=sum_model.output, right=MyTensor(-0.5))
-        self += square_model2(input="sigma")
+        self += mult_model1(left=sum_model.output, right=-0.5)
+        self += square_model2(input=IOKey("sigma", value=sigma))
         self += div_model(
             numerator=mult_model1.output, denominator=square_model2.output
         )
         self += exp_model(input=div_model.output)
-        l_scale_key = IOKey(name="l_scale", type=MyTensor)
-        self += l_square(left=l_scale_key, right=l_scale_key)
+        self += l_square(left=l_key, right=l_key)
         self += mult_model2(
             left=l_square.output,
             right=exp_model.output,
@@ -1036,24 +999,23 @@ class PolynomialKernel(Model):
         degree: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
-        self.factory_inputs = {
-            "input1": input1,
-            "input2": input2,
-            "poly_coef": poly_coef,
-            "degree": degree,
-        }
 
         transpose_model = Transpose()
         mult_model = MatrixMultiply()
         sum_model = Add()
         power_model = Power(robust=robust)  # TODO: Should it be usual Power or not???
 
-        self += transpose_model(input="input2")
-        self += mult_model(left="input1", right=transpose_model.output)
-        # TODO: poly_coef and degree should not be defined as MyTensor manually.
-        self += sum_model(left=mult_model.output, right="poly_coef")
+        self += transpose_model(input=IOKey("input2", value=input2))
+        self += mult_model(
+            left=IOKey("input1", value=input1), right=transpose_model.output
+        )
+        self += sum_model(
+            left=mult_model.output, right=IOKey("poly_coef", value=poly_coef)
+        )
         self += power_model(
-            base=sum_model.output, exponent="degree", output=IOKey(name="output")
+            base=sum_model.output,
+            exponent=IOKey("degree", value=degree),
+            output=IOKey(name="output"),
         )
         self._set_shapes(
             {
@@ -1095,29 +1057,23 @@ class KernelizedSVM(Model):
         self,
         kernel: BaseModel,
         name: str | None = None,
-        input1: TensorValueType | ToBeDetermined = TBD,
-        input2: TensorValueType | ToBeDetermined = TBD,
         weight: TensorValueType | ToBeDetermined = TBD,
         bias: TensorValueType | ToBeDetermined = TBD,
+        **kwargs: TensorValueType | ToBeDetermined,
     ) -> None:
-        if len(kernel._input_keys) < 2:
+        if len(kernel.input_keys) < 2:
             raise KeyError("Kernel requires at least two inputs!")
         if len(kernel.conns.output_keys) != 1:
             raise KeyError("Kernel requires single output!")
         super().__init__(name=name)
-        self.factory_inputs = {
-            "input1": input1,
-            "input2": input2,
-            "weight": weight,
-            "bias": bias,
-        }
+
         self.factory_args = {"kernel": kernel}
 
         linear_model = Linear()
         # Get kernel inputs from given model.
         kernel_input_args = {
-            key: key
-            for key in kernel._input_keys
+            key: IOKey(key, value=kwargs.get(key, TBD))
+            for key in kernel.input_keys
             if not kernel.conns.is_key_non_diff(key)
         }
         (kernel_output_name,) = kernel.conns.output_keys  # NOTE: Assumes single output!
@@ -1126,8 +1082,8 @@ class KernelizedSVM(Model):
         self += kernel(**kernel_input_args, **kernel_output_args)
         self += linear_model(
             input=kernel.canonical_output,
-            weight="weight",
-            bias="bias",
+            weight=IOKey("weight", value=weight),
+            bias=IOKey("bias", value=bias),
             output=IOKey(name="output"),
         )
 
@@ -1174,13 +1130,15 @@ class LinearSVM(Model):
         bias: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
-        self.factory_inputs = {"input": input, "weight": weight, "bias": bias}
 
         linear_model = Linear(dimension=1)
         decision_model = Sign()
 
         self += linear_model(
-            input="input", weight="weight", bias="bias", output=IOKey(name="output")
+            input=IOKey("input", value=input),
+            weight=IOKey("weight", value=weight),
+            bias=IOKey("bias", value=bias),
+            output=IOKey(name="output"),
         )
         self += decision_model(
             input=linear_model.output, output=IOKey(name="decision_output")
@@ -1222,15 +1180,14 @@ class LogisticRegression(Model):
         bias: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
-        self.factory_inputs = {"input": input, "weight": weight, "bias": bias}
 
         linear_model = Linear(dimension=1)
         sigmoid_model = Sigmoid()
 
         self += linear_model(
-            input="input",
-            weight="weight",
-            bias="bias",
+            input=IOKey("input", value=input),
+            weight=IOKey("weight", value=weight),
+            bias=IOKey("bias", value=bias),
             output=IOKey(name="output"),
         )
         self += sigmoid_model(
@@ -1272,7 +1229,6 @@ class MLP(Model):
         **weights_biases: TensorValueType | ToBeDetermined,
     ) -> None:
         super().__init__(name=name)
-        self.factory_inputs = {"input": input, **weights_biases}
         self.factory_args = {"activations": activations, "dimensions": dimensions}
         if len(activations) != len(dimensions):
             raise ValueError("Lengths of activations and dimensions must be equal!")
@@ -1288,10 +1244,12 @@ class MLP(Model):
 
         # Add first layer to the model in order to use as base for the
         # second model in the model extention loop.
+        weight_key = weight + "0"
+        bias_key = bias + "0"
         extend_kwargs: dict[str, ConnectionType] = {
-            "input": "input",
-            "weight": weight + "0",
-            "bias": bias + "0",
+            "input": IOKey("input", value=input),
+            "weight": IOKey(weight_key, weights_biases.get(weight_key, TBD)),
+            "bias": IOKey(bias_key, weights_biases.get(bias_key, TBD)),
         }
         if len(activations) == 1:
             extend_kwargs["output"] = IOKey(name="output")
@@ -1322,7 +1280,7 @@ class MLP(Model):
 
         self._freeze()
 
-    def __call__(  # type: ignore[override]
+    def __call__(
         self,
         input: ConnectionType = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
@@ -1382,43 +1340,42 @@ class RNNCell(Cell):
         bias_o: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
-        self.factory_inputs = {
-            "input": input,
-            "w_ih": w_ih,
-            "w_hh": w_hh,
-            "w_ho": w_ho,
-            "bias_h": bias_h,
-            "bias_o": bias_o,
-        }
 
         shape = Shape()
         scalar_item = ScalarItem()
-        slice_model = TensorSlice(stop=TBD)
+        slice_1 = Slice(stop=None, step=None)
+        slice_2 = Slice(start=None, step=None)
+        tensor_item_1 = TensorItem()
+        tensor_item_2 = TensorItem()
         mult_model_1 = Linear(use_bias=False)
         mult_model_2 = Linear(use_bias=False)
         mult_model_3 = Linear(use_bias=False)
         sum_model_1 = Add()
         sum_model_2 = Add()
 
-        self += shape(input="input")
+        self += shape(input=IOKey("input", value=input))
         self += scalar_item(input=shape.output, index=0)
-        self += TensorSlice(start=TBD)(
+        self += slice_1(start=scalar_item.output)
+        self += tensor_item_1(
             input="prev_hidden",
-            start=scalar_item.output,
+            index=slice_1.output,
             output=IOKey(name="hidden_compl"),
         )
-        self += slice_model(input="prev_hidden", stop=scalar_item.output)
-        self += mult_model_1(input=slice_model.output, weight="w_hh")
-        self += mult_model_2(input="input", weight="w_ih")
+        self += slice_2(start="", stop=scalar_item.output)
+        self += tensor_item_2(input="prev_hidden", index=slice_2.output)
+        self += mult_model_1(
+            input=tensor_item_2.output, weight=IOKey("w_hh", value=w_hh)
+        )
+        self += mult_model_2(input="input", weight=IOKey("w_ih", value=w_ih))
         self += sum_model_1(left=mult_model_1.output, right=mult_model_2.output)
         self += sum_model_2(
-            left=sum_model_1.output, right=IOKey("bias_h", type=MyTensor)
+            left=sum_model_1.output, right=IOKey("bias_h", value=bias_h)
         )
         self += Tanh()(input=sum_model_2.output, output=IOKey(name="hidden"))
-        self += mult_model_3(input="hidden", weight="w_ho")
+        self += mult_model_3(input="hidden", weight=IOKey("w_ho", value=w_ho))
         self += Add()(
             left=mult_model_3.output,
-            right=IOKey("bias_o", type=MyTensor),
+            right=IOKey("bias_o", value=bias_o),
             output=IOKey(name="output"),
         )
         shapes: dict[str, ShapeTemplateType] = {
@@ -1512,7 +1469,7 @@ class LSTMCell(Cell):
         bias_out: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
-        self.factory_inputs = {
+        factory_inputs = {
             "input": input,
             "w_i": w_i,
             "w_f": w_f,
@@ -1529,47 +1486,61 @@ class LSTMCell(Cell):
         cell_body = LSTMCellBody()
         shape_model = Shape()
         scalar_item = ScalarItem()
-        slice_model_1 = TensorSlice(stop=TBD)
-        slice_model_2 = TensorSlice(stop=TBD)
-        slice_model_3 = TensorSlice(start=TBD)
-        slice_model_4 = TensorSlice(stop=TBD)
 
-        self += shape_model(input="input")
+        slice_1 = Slice(start=None, step=None)
+        slice_2 = Slice(start=None, step=None)
+        slice_3 = Slice(stop=None, step=None)
+        slice_4 = Slice(start=None, step=None)
+        slice_5 = Slice(stop=None, step=None)
+
+        tensor_item_1 = TensorItem()
+        tensor_item_2 = TensorItem()
+        tensor_item_3 = TensorItem()
+        tensor_item_4 = TensorItem()
+        tensor_item_5 = TensorItem()
+
+        self += shape_model(input=IOKey("input", value=input))
         self += scalar_item(input=shape_model.output, index=0)
 
         # Forget gate processes.
-        self += slice_model_1(input="prev_cell", stop=scalar_item.output)
-        self += slice_model_2(input="prev_hidden", stop=scalar_item.output)
+        self += slice_1(start="", stop=scalar_item.output)
+        self += tensor_item_1(input="prev_cell", index=slice_1.output)
+
+        self += slice_2(start="", stop=scalar_item.output)
+        self += tensor_item_2(input="prev_hidden", index=slice_2.output)
 
         body_kwargs: dict[str, ConnectionType] = {
-            key: key for key in cell_body._input_keys if key[0] != "$"
+            key: IOKey(key, value=factory_inputs.get(key, TBD))
+            for key in cell_body.input_keys
+            if key[0] != "$"
         }
-        body_kwargs["prev_cell"] = slice_model_1.output
-        body_kwargs["prev_hidden"] = slice_model_2.output
+        body_kwargs["prev_cell"] = tensor_item_1.output
+        body_kwargs["prev_hidden"] = tensor_item_2.output
 
         self += cell_body(**body_kwargs)
 
-        self += slice_model_3(
-            input=cell_body.output,
-            start=scalar_item.output,
-            output=IOKey(name="hidden"),
+        self += slice_3(start=scalar_item.output)
+        self += tensor_item_3(
+            input=cell_body.output, index=slice_3.output, output=IOKey(name="hidden")
         )
 
-        self += slice_model_4(
-            input=cell_body.output, stop=scalar_item.output, output=IOKey(name="cell")
+        self += slice_4(start="", stop=scalar_item.output)
+        self += tensor_item_4(
+            input=cell_body.output, index=slice_4.output, output=IOKey(name="cell")
         )
 
         # Slice complement process.
-        self += TensorSlice(start=TBD)(
+        self += slice_5(start=scalar_item.output)
+        self += tensor_item_5(
             input="prev_hidden",
-            start=scalar_item.output,
+            index=slice_5.output,
             output=IOKey(name="hidden_compl"),
         )
         # Final output.
         self += Linear()(
             input="hidden",
-            weight="w_out",
-            bias="bias_out",
+            weight=IOKey("w_out", value=w_out),
+            bias=IOKey("bias_out", value=bias_out),
             output=IOKey(name="output"),
         )
         shapes: dict[str, ShapeTemplateType] = {
@@ -1666,20 +1637,6 @@ class LSTMCellBody(Model):
         bias_o: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
-        self.factory_inputs = {
-            "input": input,
-            "prev_hidden": prev_hidden,
-            "prev_cell": prev_cell,
-            "w_i": w_i,
-            "w_f": w_f,
-            "w_c": w_c,
-            "w_o": w_o,
-            "bias_f": bias_f,
-            "bias_i": bias_i,
-            "bias_c": bias_c,
-            "bias_o": bias_o,
-        }
-        self._set_formula_key("lstm_cell")
 
         matrix_concat_model = Concat(n=2, axis=-1)
         forward_lin = Linear()
@@ -1696,19 +1653,32 @@ class LSTMCellBody(Model):
         sigmoid_model_3 = Sigmoid()
         mult_model_3 = Multiply()
 
-        self += matrix_concat_model(input1="input", input2="prev_hidden")
+        self += matrix_concat_model(
+            input1=IOKey("input", value=input),
+            input2=IOKey("prev_hidden", value=prev_hidden),
+        )
         self += forward_lin(
-            input=matrix_concat_model.output, weight="w_f", bias="bias_f"
+            input=matrix_concat_model.output,
+            weight=IOKey("w_f", value=w_f),
+            bias=IOKey("bias_f", value=bias_f),
         )
         self += sigmoid_model_1(input=forward_lin.output)
         self += mult_model_1(
-            left=IOKey("prev_cell", type=MyTensor), right=sigmoid_model_1.output
+            left=IOKey("prev_cell", value=prev_cell), right=sigmoid_model_1.output
         )
         # Input gate processes.
-        self += input_lin(input=matrix_concat_model.output, weight="w_i", bias="bias_i")
+        self += input_lin(
+            input=matrix_concat_model.output,
+            weight=IOKey("w_i", value=w_i),
+            bias=IOKey("bias_i", value=bias_i),
+        )
         self += sigmoid_model_2(input=input_lin.output)
         # Cell state gate processes.
-        self += cell_lin(input=matrix_concat_model.output, weight="w_c", bias="bias_c")
+        self += cell_lin(
+            input=matrix_concat_model.output,
+            weight=IOKey("w_c", value=w_c),
+            bias=IOKey("bias_c", value=bias_c),
+        )
         self += tanh_model_1(input=cell_lin.output)
         # Input-cell gate multiplication.
         self += mult_model_2(left=sigmoid_model_2.output, right=tanh_model_1.output)
@@ -1718,7 +1688,9 @@ class LSTMCellBody(Model):
         self += tanh_model_2(input=sum_model_4.output)
         # Output gate process.
         self += out_gate_lin(
-            input=matrix_concat_model.output, weight="w_o", bias="bias_o"
+            input=matrix_concat_model.output,
+            weight=IOKey("w_o", value=w_o),
+            bias=IOKey("bias_o", value=bias_o),
         )
         self += sigmoid_model_3(input=out_gate_lin.output)
         # Final hidden state.
@@ -1778,12 +1750,17 @@ class LSTMCellBody(Model):
 
 
 class RNN(Model):
-    def __init__(self, cell_type: Cell, name: str | None = None, **kwargs) -> None:
+    def __init__(
+        self,
+        cell_type: Cell,
+        name: str | None = None,
+        # **kwargs: TensorValueType | MainValueType,
+    ) -> None:
         self.cell_type = cell_type
         super().__init__(name=name)
-        self.factory_inputs = kwargs
+        # self.set_values(**kwargs)
 
-    def __call__(self, **kwargs) -> ExtendInfo:  # type: ignore[override]
+    def __call__(self, **kwargs: ConnectionType) -> ExtendInfo:
         raise NotImplementedError("__call__ method not implemented!")
 
 
@@ -1797,19 +1774,23 @@ class OneToMany(RNN):
         teacher_forcing: bool = False,
         name: str | None = None,
         input: TensorValueType | ToBeDetermined = TBD,
-        **kwargs,
+        **kwargs: TensorValueType | MainValueType,
     ) -> None:
         super().__init__(cell_type=cell_type, name=name)
-        self.factory_inputs = {"input": input, **kwargs}
 
         cell = deepcopy(cell_type)
         prev_cell = cell
 
-        shared_keys_kwargs = {key: key for key in cell_type.shared_keys}
+        shared_keys_kwargs = {
+            key: IOKey(key, value=kwargs.get(key, TBD)) for key in cell_type.shared_keys
+        }
         output_kwargs = {cell_type.out_key: IOKey(name="output0")}
-        input_kwargs: dict[str, ConnectionType] = {"input": "input"}
+        input_kwargs: dict[str, ConnectionType] = {"input": IOKey("input", value=input)}
         initial_state_kwargs = {
-            f"prev_{key}": f"initial_{key}" for key in cell_type.state_keys
+            f"prev_{key}": IOKey(
+                f"initial_{key}", value=kwargs.get(f"initial_{key}", TBD)
+            )
+            for key in cell_type.state_keys
         }
 
         self += prev_cell(
@@ -1825,7 +1806,8 @@ class OneToMany(RNN):
             # current time step.
             shape_model = Shape()
             item_model = ScalarItem()
-            slice_model = TensorSlice(stop=TBD)
+            slice_model = Slice(start=None, step=None)
+            tensor_item = TensorItem()
 
             self += shape_model(input=f"target{idx}")
             self += item_model(input=shape_model.output, index=0)
@@ -1841,9 +1823,10 @@ class OneToMany(RNN):
                 # of previous time step as inputs to the current time step.
                 slice_input_1 = getattr(prev_cell, prev_cell.out_key)
 
-            self += slice_model(input=slice_input_1, stop=item_model.output)
+            self += slice_model(start="", stop=item_model.output)
+            self += tensor_item(input=slice_input_1, index=slice_model.output)
 
-            input_kwargs = {"input": slice_model.output}
+            input_kwargs = {"input": tensor_item.output}
             output_kwargs = {cell_type.out_key: IOKey(name=f"output{idx}")}
 
             self += current_cell(
@@ -1858,7 +1841,7 @@ class OneToMany(RNN):
             prev_cell = current_cell
         self._freeze()
 
-    def __call__(  # type: ignore[override]
+    def __call__(
         self, input: ConnectionType = NOT_GIVEN, **model_keys: ConnectionType
     ) -> ExtendInfo:
         return super(RNN, self).__call__(input=input, **model_keys)
@@ -1873,21 +1856,22 @@ class OneToManyInference(RNN):
         max_sequence_length: int,
         name: str | None = None,
         input: TensorValueType | ToBeDetermined = TBD,
-        **kwargs,
+        **kwargs: TensorValueType | ToBeDetermined,
     ) -> None:
         super().__init__(cell_type=cell_type, name=name)
-        self.factory_inputs = {"input": input, **kwargs}
 
         cell = deepcopy(cell_type)
         prev_cell = cell
 
         shared_keys_kwargs = {key: key for key in cell_type.shared_keys}
         output_kwargs = {cell_type.out_key: IOKey(name="output0")}
-        input_kwargs: dict[str, ConnectionType] = {"input": "input"}
+        input_kwargs: dict[str, ConnectionType] = {"input": IOKey("input", value=input)}
         initial_state_kwargs = {
-            f"prev_{key}": f"initial_{key}" for key in cell_type.state_keys
+            f"prev_{key}": IOKey(
+                f"initial_{key}", value=kwargs.get(f"initial_{key}", TBD)
+            )
+            for key in cell_type.state_keys
         }
-
         self += prev_cell(
             **(input_kwargs | shared_keys_kwargs | output_kwargs | initial_state_kwargs)
         )
@@ -1913,7 +1897,7 @@ class OneToManyInference(RNN):
             prev_cell = current_cell
         self._freeze()
 
-    def __call__(  # type: ignore[override]
+    def __call__(
         self, input: ConnectionType = NOT_GIVEN, **model_keys: ConnectionType
     ) -> ExtendInfo:
         return super(RNN, self).__call__(input=input, **model_keys)
@@ -1928,10 +1912,9 @@ class ManyToOne(RNN):
         max_sequence_length: int,
         name: str | None = None,
         hidden_concat: TensorValueType | ToBeDetermined = TBD,
-        **kwargs,
+        **kwargs: TensorValueType | ToBeDetermined,
     ) -> None:
         super().__init__(cell_type, name=name)
-        self.factory_inputs = {"hidden_concat": hidden_concat, **kwargs}
 
         prev_cell = deepcopy(cell_type)
 
@@ -1939,9 +1922,12 @@ class ManyToOne(RNN):
         concat_input_kwargs: dict[str, ConnectionType] = {}
         shared_keys_kwargs = {key: key for key in cell_type.shared_keys}
         output_kwargs = {cell_type.out_key: IOKey(name="output0")}
-        input_kwargs = {"input": "input0"}
+        input_kwargs = {"input": IOKey("input0", value=kwargs.get("input0", TBD))}
         initial_state_kwargs = {
-            f"prev_{key}": f"initial_{key}" for key in cell_type.state_keys
+            f"prev_{key}": IOKey(
+                f"initial_{key}", value=kwargs.get(f"initial_{key}", TBD)
+            )
+            for key in cell_type.state_keys
         }
 
         self += prev_cell(
@@ -1953,7 +1939,9 @@ class ManyToOne(RNN):
             state_keys_kwargs = {
                 f"prev_{key}": getattr(prev_cell, key) for key in cell_type.state_keys
             }
-            input_kwargs = {"input": f"input{idx}"}
+            input_kwargs = {
+                "input": IOKey(f"input{idx}", value=kwargs.get(f"input{idx}", TBD))
+            }
             output_kwargs = {cell_type.out_key: IOKey(name=f"output{idx}")}
 
             # For the last cell, include hidden
@@ -1981,11 +1969,14 @@ class ManyToOne(RNN):
             prev_cell = cur_cell
 
         # Add concat model with accumulated hidden states.
-        self += concat_model(**concat_input_kwargs, output=IOKey(name="hidden_concat"))
+        self += concat_model(
+            **concat_input_kwargs,
+            output=IOKey(name="hidden_concat", value=hidden_concat),
+        )
 
         self._freeze()
 
-    def __call__(  # type: ignore[override]
+    def __call__(
         self, hidden_concat: ConnectionType = NOT_GIVEN, **model_keys: ConnectionType
     ) -> ExtendInfo:
         return super(RNN, self).__call__(hidden_concat=hidden_concat, **model_keys)
@@ -2002,10 +1993,8 @@ class EncoderDecoder(Model):
         teacher_forcing: bool = False,
         name: str | None = None,
         indices: TensorValueType | ToBeDetermined = TBD,
-        **kwargs,
     ) -> None:
         super().__init__(name=name)
-        self.factory_inputs = {"indices": indices, **kwargs}
 
         # Encoder Model
         encoder = ManyToOne(
@@ -2021,18 +2010,20 @@ class EncoderDecoder(Model):
 
         permutation_model = PermuteTensor()
 
-        enc_input_mapping = {key: key for key in encoder._input_keys if "$" not in key}
+        enc_input_mapping = {key: key for key in encoder.input_keys if "$" not in key}
 
         dec_input_mapping = {
             key: "decoder_" + key if "target" not in key else key
-            for key in decoder._input_keys
+            for key in decoder.input_keys
             if "$" not in key and key != "initial_hidden"
         }
 
         dec_output_mapping = {key: IOKey(name=key) for key in decoder.conns.output_keys}
 
         self += encoder(**enc_input_mapping)
-        self += permutation_model(input=encoder.hidden_concat, indices="indices")
+        self += permutation_model(
+            input=encoder.hidden_concat, indices=IOKey("indices", value=indices)
+        )
         self += decoder(
             initial_hidden=permutation_model.output,
             **(dec_input_mapping | dec_output_mapping),
@@ -2040,7 +2031,7 @@ class EncoderDecoder(Model):
 
         self._freeze()
 
-    def __call__(  # type: ignore[override]
+    def __call__(
         self, indices: ConnectionType = NOT_GIVEN, **model_keys: ConnectionType
     ) -> ExtendInfo:
         return super().__call__(indices=indices, **model_keys)
@@ -2055,11 +2046,8 @@ class EncoderDecoderInference(Model):
         max_input_sequence_length: int,
         max_target_sequence_length: int,
         name: str | None = None,
-        indices: TensorValueType | ToBeDetermined = TBD,
-        **kwargs,
     ) -> None:
         super().__init__(name=name)
-        self.factory_inputs = {"indices": indices, **kwargs}
 
         # Encoder Model
         encoder = ManyToOne(
@@ -2071,11 +2059,11 @@ class EncoderDecoderInference(Model):
             cell_type=cell_type, max_sequence_length=max_target_sequence_length
         )
 
-        enc_input_mapping = {key: key for key in encoder._input_keys if "$" not in key}
+        enc_input_mapping = {key: key for key in encoder.input_keys if "$" not in key}
 
         dec_input_mapping = {
             key: "decoder_" + key if "target" not in key else key
-            for key in decoder._input_keys
+            for key in decoder.input_keys
             if "$" not in key and key != "initial_hidden"
         }
 
@@ -2090,9 +2078,9 @@ class EncoderDecoderInference(Model):
         self._freeze()
 
     def __call__(  # type: ignore[override]
-        self, indices: ConnectionType = NOT_GIVEN, **model_keys: ConnectionType
+        self, **model_keys: ConnectionType
     ) -> ExtendInfo:
-        return super().__call__(indices=indices, **model_keys)
+        return super().__call__(**model_keys)
 
 
 class EncoderDistanceMatrix(Model):
@@ -2108,22 +2096,21 @@ class EncoderDistanceMatrix(Model):
         name: str | None = None,
         input1: TensorValueType | ToBeDetermined = TBD,
         input2: TensorValueType | ToBeDetermined = TBD,
-        **kwargs,
     ) -> None:
         super().__init__(name=name)
-        self.factory_inputs = {"input1": input1, "input2": input2, **kwargs}
         self.factory_args = {"get_final_distance": get_final_distance, "robust": robust}
 
         dist_model = DistanceMatrix()
         modifier_model = NormModifier()
-
+        input1_key = IOKey("input1", value=input1)
+        input2_key = IOKey("input2", value=input2)
         if get_final_distance:
             reciprocal_model = Divide()
             power_model = Power(robust=robust)
 
             self += modifier_model(input="norm")
             self += dist_model(
-                left="input1", right="input2", norm=modifier_model.output
+                left=input1_key, right=input2_key, norm=modifier_model.output
             )
             self += reciprocal_model(
                 numerator=MyTensor(1.0), denominator=modifier_model.output
@@ -2171,17 +2158,16 @@ class PolynomialRegression(Model):
         bias: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
-        self.factory_inputs = {"input": input, "weight": weight, "bias": bias}
         self.factory_args = {"degree": degree, "dimension": dimension}
 
         linear_model = Linear(dimension=dimension)
         feature_model = PolynomialFeatures(degree=degree)
 
-        self += feature_model(input="input")
+        self += feature_model(input=IOKey("input", value=input))
         self += linear_model(
             input=feature_model.output,
-            weight="weight",
-            bias="bias",
+            weight=IOKey("weight", value=weight),
+            bias=IOKey("bias", value=bias),
             output=IOKey(name="output"),
         )
         self.input.set_differentiable(False)
@@ -2216,11 +2202,6 @@ class MDSCore(Model):
     ) -> None:
         self.factory_args = {"exact_distances": exact_distances, "robust": robust}
         super().__init__(name=name)
-        self.factory_inputs = {
-            "distances": distances,
-            "pred_distances": pred_distances,
-            "norm": norm,
-        }
 
         # Prepare models used in MDS.
         subtract_model = Subtract()
@@ -2237,12 +2218,15 @@ class MDSCore(Model):
         mult_model = Multiply()
 
         if exact_distances:
-            self += norm_model(input="norm")
+            self += norm_model(input=IOKey("norm", value=norm))
             self += reciprocal_model_1(input=norm_model.output)
             self += power_model_4(
-                base="pred_distances", exponent=reciprocal_model_1.output
+                base=IOKey("pred_distances", value=pred_distances),
+                exponent=reciprocal_model_1.output,
             )
-            self += subtract_model(left="distances", right=power_model_4.output)
+            self += subtract_model(
+                left=IOKey("distances", value=distances), right=power_model_4.output
+            )
             self += abs_model(input=subtract_model.output)
             self += power_model_1(base=abs_model.output, exponent=norm_model.output)
             self += sum_model_1(input=power_model_1.output)
@@ -2316,11 +2300,6 @@ class TSNECore(Model):
         p_joint: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
-        self.factory_inputs = {
-            "distances": distances,
-            "pred_distances": pred_distances,
-            "p_joint": p_joint,
-        }
         self.factory_args = {
             "exact_distances": exact_distances,
             "perplexity": perplexity,
@@ -2337,8 +2316,8 @@ class TSNECore(Model):
         mult_model = Multiply()
         kl_divergence_model = KLDivergence()
 
-        dist_key = IOKey("distances", type=MyTensor)
-        pred_dist_key = IOKey("pred_distances", type=MyTensor)
+        dist_key = IOKey("distances", value=distances)
+        pred_dist_key = IOKey("pred_distances", value=pred_distances)
         # Always process with squared distances in TSNE calculations.
         if exact_distances:
             square_model = Square()
@@ -2363,7 +2342,9 @@ class TSNECore(Model):
         )
         self += kl_divergence_model(
             input=divide_model_2.output,
-            target=p_joint_model.output if calculate_p_joint else "p_joint",
+            target=p_joint_model.output
+            if calculate_p_joint
+            else IOKey("p_joint", value=p_joint),
         )
         self += sum_model_3(
             input=kl_divergence_model.output, output=IOKey(name="output")
@@ -2386,7 +2367,7 @@ class TSNECore(Model):
             "output": output,
         }
 
-        if "p_joint" in self._input_keys:
+        if "p_joint" in self.input_keys:
             kwargs["p_joint"] = p_joint
         elif p_joint != NOT_GIVEN:
             raise ValueError("p_joint is only required when calculate_p_joint is True!")
@@ -2414,12 +2395,6 @@ class DistanceEncoder(Model):
         predicted_coords: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
-        self.factory_inputs = {
-            "input": input,
-            "coords": coords,
-            "norm": norm,
-            "predicted_coords": predicted_coords,
-        }
         self.factory_args = {"base_model": base_model, "input_type": input_type}
 
         assert input_type in ["distances", "powered_distances", "points"]
@@ -2431,9 +2406,13 @@ class DistanceEncoder(Model):
         #  the base model (i.e. "distances", "pred_distances")
         if input_type == "points":
             input_distance_matrix = EncoderDistanceMatrix(get_final_distance=False)
-            self += input_distance_matrix(input1="input", input2="input", norm="norm")
+            self += input_distance_matrix(
+                input1=IOKey("input", value=input),
+                input2="input",
+                norm=IOKey("norm", value=norm),
+            )
             self += coords_distance_matrix(
-                input1="coords", input2="coords", norm="norm"
+                input1=IOKey("coords", value=coords), input2="coords", norm="norm"
             )
 
             base_kwargs: dict[str, ConnectionType] = {
@@ -2445,7 +2424,7 @@ class DistanceEncoder(Model):
             if base_model.requires_norm:
                 base_kwargs["norm"] = "norm"
 
-            for key in base_model._input_keys:
+            for key in base_model.input_keys:
                 con = base_model.conns.get_connection(key)
                 assert con is not None
                 if key not in base_kwargs and not con.is_key_autogenerated:
@@ -2453,7 +2432,8 @@ class DistanceEncoder(Model):
 
             self += base_model(**base_kwargs)
             self += buffer_model(
-                input=self.coords, output=IOKey(name="predicted_coords")
+                input=self.coords,
+                output=IOKey(name="predicted_coords", value=predicted_coords),
             )
 
         else:
@@ -2497,7 +2477,7 @@ class DistanceEncoder(Model):
             "predicted_coords": predicted_coords,
             "output": output,
         }
-        if "input" in self._input_keys:
+        if "input" in self.input_keys:
             kwargs["input"] = input
         elif coords != NOT_GIVEN:
             raise ValueError("coords is only required when input_type is 'points'!")
@@ -2524,13 +2504,15 @@ class MDS(DistanceEncoder):
     ) -> None:
         assert input_type in ["distances", "powered_distances", "points"]
         base_model = MDSCore(exact_distances=(input_type == "distances"))
-        super().__init__(base_model=base_model, input_type=input_type, name=name)
-        self.factory_inputs = {
-            "input": input,
-            "coords": coords,
-            "norm": norm,
-            "predicted_coords": predicted_coords,
-        }
+        super().__init__(
+            base_model=base_model,
+            input_type=input_type,
+            name=name,
+            input=input,
+            coords=coords,
+            norm=norm,
+            predicted_coords=predicted_coords,
+        )
         self.factory_args = {"prediction_dim": prediction_dim, "input_type": input_type}
         self._set_shapes({"coords": [None, prediction_dim]})
         self._freeze()
@@ -2550,7 +2532,7 @@ class MDS(DistanceEncoder):
             "output": output,
         }
 
-        if "coords" in self._input_keys:
+        if "coords" in self.input_keys:
             kwargs["coords"] = coords
         elif coords != NOT_GIVEN:
             raise ValueError("coords is only required when input_type is 'points'!")
@@ -2582,12 +2564,14 @@ class TSNE(DistanceEncoder):
             perplexity=preplexity,
             exact_distances=(input_type == "distances"),
         )
-        super().__init__(base_model=base_model, input_type=input_type, name=name)
-        self.factory_inputs = {
-            "input": input,
-            "norm": norm,
-            "predicted_coords": predicted_coords,
-        }
+        super().__init__(
+            base_model=base_model,
+            input_type=input_type,
+            name=name,
+            input=input,
+            norm=norm,
+            predicted_coords=predicted_coords,
+        )
         self.factory_args = {
             "prediction_dim": prediction_dim,
             "input_type": input_type,
@@ -2635,16 +2619,7 @@ class GaussProcessRegressionCore(Model):
         confidence: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
-        self.factory_inputs = {
-            "label": label,
-            "s": s,
-            "k": k,
-            "k_star": k_star,
-            "mu": mu,
-            "loss": loss,
-            "prediction": prediction,
-            "confidence": confidence,
-        }
+
         # Prepare models used in GPR.
         size_model = Size(dim=0)
         K_term_eye_model = Eye()
@@ -2663,12 +2638,16 @@ class GaussProcessRegressionCore(Model):
         conf_diag_model = TransposedDiagonal()
         conf_model = Add()
 
-        self += size_model(input="k")
+        self += size_model(input=IOKey("k", value=k))
         self += K_term_eye_model(N=size_model.output)
-        self += K_term_mult_model(left="s", right=K_term_eye_model.output)
+        self += K_term_mult_model(
+            left=IOKey("s", value=s), right=K_term_eye_model.output
+        )
         self += K_term_model(left=self.k, right=K_term_mult_model.output)
         self += L_term_model(input=K_term_model.output)
-        self += label_mu_diff_model(left="label", right="mu")
+        self += label_mu_diff_model(
+            left=IOKey("label", value=label), right=IOKey("mu", value=mu)
+        )
         self += alpha_model(
             label_mu_diff=label_mu_diff_model.output,
             L=L_term_model.output,
@@ -2681,23 +2660,29 @@ class GaussProcessRegressionCore(Model):
             L=L_term_model.output,
             K_term=K_term_model.output,
             alpha=alpha_model.output,
-            output=IOKey(name="loss"),
+            output=IOKey(name="loss", value=loss),
         )
         # Prediction Pipeline.
         self += pred_t_model(input=self.k)
         self += pred_dot_model(left=pred_t_model.output, right=alpha_model.output)
         self += pred_model(
-            left=self.mu, right=pred_dot_model.output, output=IOKey(name="prediction")
+            left=self.mu,
+            right=pred_dot_model.output,
+            output=IOKey(name="prediction", value=prediction),
         )
         # Confidence Pipeline.
         self += conf_v_outer_model(
             K=self.k, L=L_term_model.output, K_term=K_term_model.output
         )
-        self += conf_sub_model(left="k_star", right=conf_v_outer_model.output)
+        self += conf_sub_model(
+            left=IOKey("k_star", value=k_star), right=conf_v_outer_model.output
+        )
         self += conf_diag_model(input=conf_sub_model.output)
         self += conf_abs_model(input=conf_diag_model.output)
         self += conf_model(
-            left=self.s, right=conf_abs_model.output, output=IOKey(name="confidence")
+            left=self.s,
+            right=conf_abs_model.output,
+            output=IOKey(name="confidence", value=confidence),
         )
 
         self.set_canonical_output(pred_model.output)
@@ -2757,13 +2742,6 @@ class GPRLoss(Model):
         alpha: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
-        self.factory_inputs = {
-            "labels": labels,
-            "mu": mu,
-            "L": L,
-            "K_term": K_term,
-            "alpha": alpha,
-        }
         self.factory_args = {"robust": robust}
 
         diff_model = Subtract()
@@ -2778,12 +2756,16 @@ class GPRLoss(Model):
         length_model = Length()
         sum_model_1 = Add()
 
-        self += diff_model(left="labels", right="mu")
+        self += diff_model(
+            left=IOKey("labels", value=labels), right=IOKey("mu", value=mu)
+        )
         self += transpose_model(input=diff_model.output)
-        self += dot_model(left=transpose_model.output, right="alpha")
+        self += dot_model(
+            left=transpose_model.output, right=IOKey("alpha", value=alpha)
+        )
         self += squeeze_model(input=dot_model.output)
         self += mult_model(left=squeeze_model.output, right=0.5)
-        self += eig_model(K_term="K_term", L="L")
+        self += eig_model(K_term=IOKey("K_term", value=K_term), L=IOKey("L", value=L))
         self += log_model(input=eig_model.output)
         self += sum_reduce_model(input=log_model.output)
         self += length_model(input=self.labels)
@@ -2848,15 +2830,14 @@ class Metric(Model):
         label: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
-        self.factory_inputs = {"pred": pred, "label": label}
         self.factory_args = {"threshold": threshold}
 
         assert (
             not is_binary or threshold is not None
         ), "Probs must be False if threshold is not None"
 
-        pred_key: IOKey | Connection = IOKey(name="pred", type=MyTensor)
-        label_key: IOKey | Connection = IOKey(name="label", type=MyTensor)
+        pred_key: IOKey | Connection = IOKey(name="pred", value=pred)
+        label_key: IOKey | Connection = IOKey(name="label", value=label)
 
         if is_label_one_hot:
             self += ArgMax(axis=-1)(label_key, output="label_argmax")
@@ -2923,16 +2904,21 @@ class Accuracy(Model):
         label: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
-        self.factory_inputs = {"pred": pred, "label": label}
         self += Metric(
             threshold=threshold,
             is_binary=is_binary,
             is_pred_one_hot=is_pred_one_hot,
             is_label_one_hot=is_label_one_hot,
-        )("pred", "label", "metric_out", "pred_formatted", "label_formatted")
+        )(
+            IOKey("pred", value=pred),
+            IOKey("label", value=label),
+            "metric_out",
+            "pred_formatted",
+            "label_formatted",
+        )
 
-        true_predictions = self.metric_out == MyTensor(0)
-        n_prediction = self.label_formatted.shape()[0]
+        true_predictions = self.metric_out == 0
+        n_prediction = self.label_formatted.shape[0]
 
         self += Sum()(input=true_predictions, output="n_true_predictions")
         self += Divide()(
@@ -2979,7 +2965,6 @@ class Precision(Model):
         label: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
-        self.factory_inputs = {"pred": pred, "label": label}
         self.factory_args = {"threshold": threshold}
 
         assert average in [
@@ -2996,7 +2981,13 @@ class Precision(Model):
             is_binary=is_binary,
             is_pred_one_hot=is_pred_one_hot,
             is_label_one_hot=is_label_one_hot,
-        )("pred", "label", "metric_out", "pred_formatted", "label_formatted")
+        )(
+            IOKey("pred", value=pred),
+            IOKey("label", value=label),
+            "metric_out",
+            "pred_formatted",
+            "label_formatted",
+        )
 
         if average == "micro":
             true_positive = self.metric_out == MyTensor(0)
@@ -3047,13 +3038,13 @@ class Precision(Model):
 
             self += Divide()(
                 numerator=sum_precision,
-                denominator=self.n_classes.shape()[0].tensor(),
+                denominator=self.n_classes.shape[0].tensor(),
                 output=IOKey(name="output"),
             )
 
         elif average == "weighted":
             precision = None
-            n_element = self.label_formatted.shape()[0]
+            n_element = self.label_formatted.shape[0]
             assert (
                 n_classes is not None
             ), "n_classes must be provided if average is or 'weighted'"
@@ -3134,7 +3125,6 @@ class Recall(Model):
         label: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
-        self.factory_inputs = {"pred": pred, "label": label}
         self.factory_args = {"threshold": threshold}
 
         assert average in [
@@ -3151,7 +3141,13 @@ class Recall(Model):
             is_binary=is_binary,
             is_pred_one_hot=is_pred_one_hot,
             is_label_one_hot=is_label_one_hot,
-        )("pred", "label", "metric_out", "pred_formatted", "label_formatted")
+        )(
+            IOKey("pred", value=pred),
+            IOKey("label", value=label),
+            "metric_out",
+            "pred_formatted",
+            "label_formatted",
+        )
 
         if average == "micro":
             true_positive = self.metric_out == MyTensor(0)
@@ -3201,7 +3197,7 @@ class Recall(Model):
 
             self += Divide()(
                 numerator=sum_recall,
-                denominator=self.n_classes.shape()[0].tensor(),
+                denominator=self.n_classes.shape[0].tensor(),
                 output=IOKey(name="output"),
             )
 
@@ -3210,7 +3206,7 @@ class Recall(Model):
             assert (
                 n_classes is not None
             ), "n_classes must be provided if average is or 'weighted'"
-            n_element = self.label_formatted.shape()[0]
+            n_element = self.label_formatted.shape[0]
             for idx in range(n_classes):
                 class_idxs = self.label_formatted == MyTensor(idx)
                 true_positive = (self.metric_out == MyTensor(0)) & class_idxs
@@ -3288,7 +3284,6 @@ class F1(Model):
         label: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
-        self.factory_inputs = {"pred": pred, "label": label}
         self.factory_args = {"threshold": threshold}
 
         assert average in [
@@ -3305,7 +3300,13 @@ class F1(Model):
             is_binary=is_binary,
             is_pred_one_hot=is_pred_one_hot,
             is_label_one_hot=is_label_one_hot,
-        )("pred", "label", "metric_out", "pred_formatted", "label_formatted")
+        )(
+            IOKey("pred", value=pred),
+            IOKey("label", value=label),
+            "metric_out",
+            "pred_formatted",
+            "label_formatted",
+        )
 
         if average == "micro":
             true_positive = self.metric_out == MyTensor(0)
@@ -3357,7 +3358,7 @@ class F1(Model):
             self += Unique()(input=self.label_formatted, output="n_classes")
             self += Divide()(
                 numerator=sum_precision,
-                denominator=self.n_classes.shape()[0].tensor(),
+                denominator=self.n_classes.shape[0].tensor(),
                 output=IOKey(name="output"),
             )
 
@@ -3366,7 +3367,7 @@ class F1(Model):
             assert (
                 n_classes is not None
             ), "n_classes must be provided if average is or 'weighted'"
-            n_element = self.label_formatted.shape()[0].tensor()
+            n_element = self.label_formatted.shape[0].tensor()
             for idx in range(n_classes):
                 class_idxs = self.label_formatted == MyTensor(idx)
                 true_positive = (self.metric_out == MyTensor(0)) & class_idxs
@@ -3438,13 +3439,12 @@ class AUC(Model):
         label: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
-        self.factory_inputs = {"pred": pred, "label": label}
 
         assert n_classes > 0, ""
         assert isinstance(n_classes, int)
 
-        label_key: IOKey | Connection = IOKey(name="label", type=MyTensor)
-        pred_key: IOKey | Connection = IOKey(name="pred", type=MyTensor)
+        label_key: IOKey | Connection = IOKey(name="label", type=MyTensor, value=label)
+        pred_key: IOKey | Connection = IOKey(name="pred", type=MyTensor, value=pred)
 
         if is_label_one_hot:
             self += ArgMax(axis=-1)(label_key, output="label_argmax")
@@ -3497,9 +3497,8 @@ class SiLU(Model):
         self, name: str | None = None, input: TensorValueType | ToBeDetermined = TBD
     ) -> None:
         super().__init__(name=name)
-        self.factory_inputs = {"input": input}
 
-        self += Minus()(input="input", output="minus")
+        self += Minus()(input=IOKey("input", value=input), output="minus")
         self += Exponential()(input="minus", output="exp")
         self += Add()(left=MyTensor(1), right="exp", output="add")
         self += Divide()(

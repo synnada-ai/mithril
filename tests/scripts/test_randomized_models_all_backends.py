@@ -102,7 +102,7 @@ def test_randomized(case: str) -> None:
     }
     backends: list[
         type[NumpyBackend] | type[JaxBackend] | type[TorchBackend] | type[MlxBackend]
-    ] = [NumpyBackend, JaxBackend, TorchBackend, MlxBackend]
+    ] = [NumpyBackend, TorchBackend, JaxBackend, MlxBackend]
     backends = [backend for backend in backends if backend.is_installed]
     if MlxBackend in backends:
         test_precisions.append(32)
@@ -177,7 +177,7 @@ def test_randomized(case: str) -> None:
             )
             static_inputs[init_key] = {
                 key: init_backend.array(value)
-                if model.conns._get_metadata(key).edge_type is MyTensor
+                if model.conns.get_metadata(key).edge_type is MyTensor
                 else value
                 for key, value in static_inputs[init_key].items()
             }
@@ -226,7 +226,7 @@ def test_randomized(case: str) -> None:
                 }
                 static_inputs[backend.backend_type] = {
                     key: backend.array(value)
-                    if model.conns._get_metadata(key).edge_type is MyTensor
+                    if model.conns.get_metadata(key).edge_type is MyTensor
                     else value
                     for key, value in static_inputs[init_key].items()
                 }

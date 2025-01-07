@@ -22,7 +22,6 @@ import mithril
 from mithril import TorchBackend
 from mithril.framework.common import NOT_GIVEN, ConnectionType, IOKey, MyTensor
 from mithril.models import (
-    TBD,
     AbsoluteError,
     Add,
     Buffer,
@@ -35,9 +34,10 @@ from mithril.models import (
     OneToMany,
     ScalarItem,
     Shape,
+    Slice,
     Sum,
     Tanh,
-    TensorSlice,
+    TensorItem,
     TrainModel,
 )
 from mithril.utils.utils import pack_data_into_time_slots
@@ -193,8 +193,12 @@ class MySimpleRNNCellWithLinear(Cell):
 
         shp_model = Shape()
         scalar_item = ScalarItem()
-        slice_model_1 = TensorSlice(start=TBD)
-        slice_model_2 = TensorSlice(stop=TBD)
+        slice_1 = Slice(stop=None, step=None)
+        slice_2 = Slice(start=None, step=None)
+
+        tensor_item_1 = TensorItem()
+        tensor_item_2 = TensorItem()
+
         mult_model_1 = MatrixMultiply()
         mult_model_2 = MatrixMultiply()
         sum_model_1 = Add()
@@ -206,12 +210,15 @@ class MySimpleRNNCellWithLinear(Cell):
 
         self += shp_model(input="input")
         self += scalar_item(input=shp_model.output, index=0)
-        self += slice_model_1(
-            input="prev_hidden", start=scalar_item.output, output=IOKey("hidden_compl")
+        self += slice_1(start=scalar_item.output)
+        self += tensor_item_1(
+            input="prev_hidden", index=slice_1.output, output=IOKey("hidden_compl")
         )
-        self += slice_model_2(input="prev_hidden", stop=scalar_item.output)
+
+        self += slice_2(start="", stop=scalar_item.output)
+        self += tensor_item_2(input="prev_hidden", index=slice_2.output)
         self += mult_model_1(left="input", right="w_ih")
-        self += mult_model_2(left=slice_model_2.output, right="w_hh")
+        self += mult_model_2(left=tensor_item_2.output, right="w_hh")
         self += sum_model_1(left=mult_model_1.output, right=mult_model_2.output)
         self += sum_model_2(
             left=sum_model_1.output, right=IOKey("bias_hh", type=MyTensor)
@@ -313,8 +320,13 @@ class MyRNNCell(Cell):
 
         shp_model = Shape()
         scalar_item = ScalarItem()
-        slice_model_1 = TensorSlice(start=TBD)
-        slice_model_2 = TensorSlice(stop=TBD)
+
+        slice_1 = Slice(stop=None, step=None)
+        slice_2 = Slice(start=None, step=None)
+
+        tensor_item_1 = TensorItem()
+        tensor_item_2 = TensorItem()
+
         mult_model_1 = MatrixMultiply()
         mult_model_2 = MatrixMultiply()
         sum_model_1 = Add()
@@ -324,12 +336,14 @@ class MyRNNCell(Cell):
 
         self += shp_model(input="input")
         self += scalar_item(input=shp_model.output, index=0)
-        self += slice_model_1(
-            input="prev_hidden", start=scalar_item.output, output=IOKey("hidden_compl")
+        self += slice_1(start=scalar_item.output)
+        self += tensor_item_1(
+            input="prev_hidden", index=slice_1.output, output=IOKey("hidden_compl")
         )
-        self += slice_model_2(input="prev_hidden", stop=scalar_item.output)
+        self += slice_2(start="", stop=scalar_item.output)
+        self += tensor_item_2(input="prev_hidden", index=slice_2.output)
         self += mult_model_1(left="input", right="w_ih")
-        self += mult_model_2(left=slice_model_2.output, right="w_hh")
+        self += mult_model_2(left=tensor_item_2.output, right="w_hh")
         self += sum_model_1(left=mult_model_1.output, right=mult_model_2.output)
         self += sum_model_2(
             left=sum_model_1.output, right=IOKey("bias_hh", type=MyTensor)

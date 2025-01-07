@@ -66,7 +66,7 @@ def assert_model_keys(
 
     pm = mithril.compile(model=model, backend=TorchBackend(), safe_names=False)
 
-    physical_inputs = set(pm._input_keys)
+    physical_inputs = set(pm.input_keys)
     assert physical_inputs == physical_inputs_ref, "physical inputs does not match."
 
     physical_outputs = set(pm.output_keys)
@@ -274,7 +274,7 @@ def test_7():
     model += (relu1 := Relu())(input="in1", output="relu1_output")
     model += (relu2 := Relu())(input="in2", output="relu2_output")
     model += (relu3 := Relu())(
-        input="", output=IOKey(name="my_input", connections=[relu1.input, relu2.input])
+        input="", output=IOKey(name="my_input", connections={relu1.input, relu2.input})
     )
     assert (
         model.dag[relu1]["input"].metadata
@@ -450,7 +450,7 @@ def test_iokey_shapes_3():
         input3=IOKey(name="input3", shape=[3, "a"]),
     )
 
-    conns = [main_model.input1, main_model.input2, main_model.input3]  # type: ignore
+    conns = {main_model.input1, main_model.input2, main_model.input3}  # type: ignore
     key = IOKey(name="input", connections=conns)
     main_model += Buffer()(input=key, output="output1")
 
@@ -614,7 +614,7 @@ def test_iokey_values_10():
     model = Model()
     sig_model_1 = Sigmoid()
     sig_model_2 = Sigmoid()
-    sig_model_1.input.data.metadata.set_type(MyTensor[float])
+    sig_model_1.input.metadata.set_type(MyTensor[float])
     model += sig_model_1(input="input", output=IOKey(name="output"))
 
     model += sig_model_2(
@@ -645,7 +645,7 @@ def test_iokey_values_11():
         input=IOKey(type=MyTensor[float], name="input"), output=IOKey(name="output2")
     )
 
-    assert sig_model_1.input.data.metadata.value_type is float
+    assert sig_model_1.input.metadata.value_type is float
 
 
 def test_iokey_values_12():
@@ -1163,7 +1163,7 @@ def test_compare_models_5():
     sigmoid = Sigmoid()
     add = Add()
     model2 += add(output=IOKey(name="output"))
-    conn = IOKey(connections=[add.left, add.right])
+    conn = IOKey(connections={add.left, add.right})
     model2 += sigmoid(input="input", output=conn)
     model2.set_shapes({"input": [2, 2]})
 
@@ -1208,7 +1208,7 @@ def test_iokey_template_1():
     )
     expected_result = np.array([8.0])
 
-    assert pm._input_keys == {"left", "right"}
+    assert pm.input_keys == {"left", "right"}
     assert pm.output_keys == ["output"]
     np.testing.assert_array_equal(res["output"], expected_result)
 
@@ -1230,7 +1230,7 @@ def test_iokey_template_2():
     )
     expected_result = np.array([5.0])
 
-    assert pm._input_keys == {"left", "right"}
+    assert pm.input_keys == {"left", "right"}
     assert pm.output_keys == ["output"]
     np.testing.assert_array_equal(res["output"], expected_result)
 
@@ -1249,7 +1249,7 @@ def test_iokey_template_3():
     res = pm.evaluate(params={"left": backend.array([2.0])})
     expected_result = np.array([5.0])
 
-    assert pm._input_keys == {"left", "input"}
+    assert pm.input_keys == {"left", "input"}
     assert pm.output_keys == ["output"]
     np.testing.assert_array_equal(res["output"], expected_result)
 
@@ -1258,7 +1258,7 @@ def test_iokey_template_4():
     model = Model()
 
     left = IOKey("left")
-    res = left.shape()[0]
+    res = left.shape[0]
 
     model += Buffer()(res.tensor(), IOKey("output"))
 
@@ -1268,7 +1268,7 @@ def test_iokey_template_4():
     res = pm.evaluate(params={"left": backend.ones((9, 8, 7))})
     expected_result = 9
 
-    assert pm._input_keys == {"left", "index"}
+    assert pm.input_keys == {"left", "index"}
     assert pm.output_keys == ["output"]
     np.testing.assert_array_equal(res["output"], expected_result)
 
@@ -1287,7 +1287,7 @@ def test_iokey_template_5():
     res = pm.evaluate(data={"left": [1, 2, 3]})
     expected_result = np.array([1, 2, 3])
 
-    assert pm._input_keys == {"left"}
+    assert pm.input_keys == {"left"}
     assert pm.output_keys == ["output"]
     np.testing.assert_array_equal(res["output"], expected_result)
 

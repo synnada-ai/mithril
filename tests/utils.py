@@ -85,16 +85,16 @@ def check_physical_models(
 ):
     if check_internals:
         # Check flat_graphs.
-        assert pm_1._flat_graph.all_source_keys == pm_2._flat_graph.all_source_keys
-        assert pm_1._flat_graph.all_target_keys == pm_2._flat_graph.all_target_keys
+        assert pm_1.flat_graph.all_source_keys == pm_2.flat_graph.all_source_keys
+        assert pm_1.flat_graph.all_target_keys == pm_2.flat_graph.all_target_keys
 
         # Check data stores.
         for key, value in pm_1.data.items():
             assert backend.all(value.value == pm_2.data[key].value)  # type: ignore
         assert pm_1.data_store.cached_data.keys() == pm_2.data_store.cached_data.keys()
         assert (
-            pm_1.data_store._intermediate_non_differentiables._table.keys()
-            == pm_2.data_store._intermediate_non_differentiables._table.keys()
+            pm_1.data_store.intermediate_non_differentiables._table.keys()
+            == pm_2.data_store.intermediate_non_differentiables._table.keys()
         )
         assert (
             pm_1.data_store.runtime_static_keys == pm_2.data_store.runtime_static_keys

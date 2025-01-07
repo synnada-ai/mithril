@@ -89,7 +89,6 @@ __all__ = [
     "scalar_item_constraints",
     "to_tuple_constraints",
     "tensor_item_constraints",
-    "tensor_slice_constraints",
     "tensor_to_list_type_constraint",
     "reduce_type_constraint",
     "type_constraints",
@@ -114,7 +113,7 @@ __all__ = [
 
 # Below functions are used in various constraints.
 def prod_fn(a: int | Uniadic, b: int | Uniadic) -> int:
-    return (a if isinstance(a, int) else a.value) * (  # type: ignore
+    return (a if isinstance(a, int) else a.value) * (
         b if isinstance(b, int) else b.value
     )
 
@@ -446,7 +445,7 @@ def scalar_slice_type_constraint(
 
 
 def scalar_item_type_constraint_forward_helper(
-    input_type: GenericAlias | UnionType | type, index_val: int | ToBeDetermined
+    input_type: GenericAlias | UnionType | type, index_val: int | slice | ToBeDetermined
 ) -> type | UnionType | GenericAlias:
     # forward inference of scalar item type constraint:
     # Examples:
@@ -455,34 +454,49 @@ def scalar_item_type_constraint_forward_helper(
 
     new_type = input_type
     if isinstance(input_type, GenericAlias):
-        if input_type.__origin__ is tuple:
+        origin = get_origin(input_type)
+        if origin is tuple:
             if ... in input_type.__args__:
+                variadic_required = True
                 # if second value is ellipsis, directly take first value
                 # (tuple[int, ...] -> int)
                 new_type = input_type.__args__[0]
             else:
                 # case when type of tuple is exact (ex: tuple[int, float])
                 if not isinstance(index_val, ToBeDetermined):
+                    variadic_required = False
                     # if index val is specified, directly take the corresponding item
                     # of type
-                    new_type = input_type.__args__[index_val]
+                    if isinstance(index_val, int):
+                        new_type = input_type.__args__[index_val]
+                    else:
+                        new_type = tuple[*input_type.__args__[index_val]]  # type: ignore
                 else:
+                    variadic_required = True
                     # if not specified this means it can be all of them,
                     # take union of all types inside tuple
                     new_type = create_union_type(*input_type.__args__)
 
-        elif input_type.__origin__ is list:
-            # if list, directly take first argument (list[int | float] -> int | float)
-            new_type = input_type.__args__[0]
+            if variadic_required and isinstance(index_val, slice):
+                new_type = tuple[new_type, ...]  # type: ignore
+
+        elif origin is list:
+            if isinstance(index_val, slice):
+                new_type = input_type
+            else:
+                new_type = input_type.__args__[0]
     elif input_type is list or input_type is tuple:
-        new_type = input_type | int | float | list
+        if isinstance(index_val, slice):
+            new_type = input_type
+        else:
+            new_type = input_type | int | float | list
 
     return new_type
 
 
 def check_index_type_compatibility(
     _type: type,
-    index: int | ToBeDetermined,
+    index: int | ToBeDetermined | slice,
     is_variadic: bool,
     raise_error: bool = False,
 ) -> bool:
@@ -493,7 +507,7 @@ def check_index_type_compatibility(
         and not is_variadic
     ):
         args_len = len(_type.__args__)
-        if not (-args_len <= index <= args_len - 1):
+        if isinstance(index, int) and not (-args_len <= index <= args_len - 1):
             if raise_error:
                 raise TypeError(
                     f"Index value {index} is out of range for type {_type}!"
@@ -505,7 +519,7 @@ def check_index_type_compatibility(
 def scalar_item_reduce_input_type(
     output_type: type | UnionType | GenericAlias,
     input_type: type | UnionType | GenericAlias,
-    index: int | ToBeDetermined,
+    index: int | slice | ToBeDetermined,
 ):
     possible_types = []
     out_origin: type[list] | type[tuple] | type[UnionType] | None = get_origin(
@@ -542,7 +556,7 @@ def scalar_item_reduce_input_type(
                         inner_type.append(output_type)
                     if arg is tuple:
                         inner_type.append(...)
-                    possible_types.append(arg[*inner_type])  # type: ignore
+                    possible_types.append(arg[*inner_type])
         return create_union_type(*possible_types)
     elif isinstance(input_type, GenericAlias):
         input_origin = input_type.__origin__
@@ -552,19 +566,28 @@ def scalar_item_reduce_input_type(
             input_origin, index, is_variadic, raise_error=True
         ):
             if index == ... or input_origin is list:
-                for arg in input_type.__args__:
-                    if find_intersection_type(output_type, arg):
-                        return input_type
+                if isinstance(index, int):
+                    for arg in input_type.__args__:
+                        if find_intersection_type(output_type, arg):
+                            return input_type
+                else:
+                    return input_type
+
             elif input_origin is tuple:
-                possible_types = [
-                    arg if idx != index else find_intersection_type(arg, output_type)
-                    for idx, arg in enumerate(input_type.__args__)
-                ]
-                return (
-                    input_origin[*possible_types, ...]  # type: ignore
-                    if is_variadic
-                    else input_origin[*possible_types]  # type: ignore
-                )
+                if isinstance(index, int):
+                    possible_types = [
+                        arg
+                        if idx != index
+                        else find_intersection_type(arg, output_type)
+                        for idx, arg in enumerate(input_type.__args__)
+                    ]
+                    return (
+                        input_origin[*possible_types, ...]  # type: ignore
+                        if is_variadic
+                        else input_origin[*possible_types]  # type: ignore
+                    )
+                else:
+                    return input_type
     else:
         return input_type
 
@@ -578,7 +601,11 @@ def scalar_item_type_constraint(
     input_type = input.value_type
     output_type = output.value_type
     index_value = index.value
-    assert isinstance(index_value, ToBeDetermined) or type(index_value) is int
+    assert (
+        isinstance(index_value, ToBeDetermined)
+        or type(index_value) is int
+        or type(index_value) is slice
+    )
 
     if not (
         isinstance(input_type, UnionType)
@@ -600,7 +627,11 @@ def scalar_item_type_constraint(
 
     # extract all possibilites and put it in to a list
     # TODO: This part should take NestedListType into account.
-    args = input_type.__args__ if isinstance(input_type, UnionType) else [input_type]
+    args = (
+        input.value_type.__args__
+        if isinstance(input.value_type, UnionType)
+        else [input.value_type]
+    )
 
     # Do the forward inference in all types in args, then make Union
     types = [
@@ -681,7 +712,7 @@ def tensor_to_list_type_constraint(output: IOHyperEdge, input: IOHyperEdge):
         updates |= set_edge_type(input, possible_input_types)
 
     # Create the base same as input type
-    base = input_type
+    base = input.value_type
     if in_shape.root is None:
         for _ in range(len(in_shape.prefix + in_shape.suffix)):
             # recursively cover list with base equal to number of all determined
@@ -694,7 +725,9 @@ def tensor_to_list_type_constraint(output: IOHyperEdge, input: IOHyperEdge):
     updates |= set_edge_type(output, base)
 
     if in_shape.root is not None:
-        status = not (is_union(output_type) or isinstance(output_type, NestedListType))
+        status = not (
+            is_union(output.value_type) or isinstance(output.value_type, NestedListType)
+        )
     else:
         status = True
 
@@ -703,8 +736,7 @@ def tensor_to_list_type_constraint(output: IOHyperEdge, input: IOHyperEdge):
 
 def reduce_type_constraint(output: IOHyperEdge, input: IOHyperEdge):
     updates = Updates()
-    assert isinstance(input._value, MyTensor) and isinstance(output._value, MyTensor)
-    input_type = input._value.type
+    input_type = input.value_type
 
     possible_output_types: list[type[int] | type[float] | type[bool]] = []
 
@@ -1511,8 +1543,8 @@ def reduce_constraints(
             axis_val = (axis_val,)
         elif axis_val is None:
             if keepdim_val is False:
-                updates |= input_shape._update_uniadics(input_shape.prefix, [])
-                updates |= output_shape._update_uniadics(output_shape.reverse, [])
+                updates |= input_shape.update_uniadics(input_shape.prefix, [])
+                updates |= output_shape.update_uniadics(output_shape.reverse, [])
                 if output_shape.root is not None:
                     updates |= output_shape.remove_variadic([])
         elif not isinstance(axis_val, tuple):
@@ -1679,10 +1711,10 @@ def reduce_constraints(
                 filtered_var_replacement: list[Uniadic] = list(
                     filter(None, var_replacement)
                 )
-                updates |= output_shape._update_uniadics(
+                updates |= output_shape.update_uniadics(
                     output_shape.prefix, filtered_var_replacement
                 )
-                updates |= output_shape._update_uniadics(
+                updates |= output_shape.update_uniadics(
                     output_shape.reverse, filtered_var_replacement[::-1]
                 )
                 updates |= output_shape.remove_variadic(filtered_var_replacement)
@@ -1734,8 +1766,8 @@ def reduce_constraints(
                         updates |= next(out_iter).match(replacement)
                 else:
                     input_uniadics.append(next(out_iter))
-            updates |= input_shape._update_uniadics(input_shape.prefix, input_uniadics)
-            updates |= input_shape._update_uniadics(
+            updates |= input_shape.update_uniadics(input_shape.prefix, input_uniadics)
+            updates |= input_shape.update_uniadics(
                 input_shape.reverse, input_uniadics[::-1]
             )
             updates |= input_shape.remove_variadic(input_uniadics)
@@ -1944,10 +1976,10 @@ def reverse_constraints(
     if axes_val is None:
         if output_shape.root is None:
             # TODO Maybe we should embed uniadic updates in remove_variadic
-            updates |= input_shape._update_uniadics(
+            updates |= input_shape.update_uniadics(
                 input_shape.prefix, output_shape.reverse
             )
-            updates |= input_shape._update_uniadics(
+            updates |= input_shape.update_uniadics(
                 input_shape.reverse, output_shape.prefix
             )
             if input_shape.root is not None:
@@ -1956,10 +1988,10 @@ def reverse_constraints(
                     raise ValueError("Shape mismatch in Transpose model")
             status = True
         if input_shape.root is None:
-            updates |= output_shape._update_uniadics(
+            updates |= output_shape.update_uniadics(
                 output_shape.prefix, input_shape.reverse
             )
-            updates |= output_shape._update_uniadics(
+            updates |= output_shape.update_uniadics(
                 output_shape.reverse, input_shape.prefix
             )
             if output_shape.root is not None:
@@ -1975,11 +2007,11 @@ def reverse_constraints(
         in_unis = [Uniadic() for _ in range(len(a_val))]
         out_unis = [in_unis[axis] for axis in a_val]
 
-        updates |= input_shape._update_uniadics(input_shape.prefix, in_unis)
-        updates |= input_shape._update_uniadics(input_shape.reverse, in_unis[::-1])
+        updates |= input_shape.update_uniadics(input_shape.prefix, in_unis)
+        updates |= input_shape.update_uniadics(input_shape.reverse, in_unis[::-1])
 
-        updates |= output_shape._update_uniadics(output_shape.prefix, out_unis)
-        updates |= output_shape._update_uniadics(output_shape.reverse, out_unis[::-1])
+        updates |= output_shape.update_uniadics(output_shape.prefix, out_unis)
+        updates |= output_shape.update_uniadics(output_shape.reverse, out_unis[::-1])
 
         if input_shape.root is not None:
             updates |= input_shape.remove_variadic(in_unis)
@@ -2599,10 +2631,10 @@ def arange_constraints(
         elif (min_dims := len(output_shape)) <= 1:
             if val > 0:
                 out_uniadic = [Uniadic()]
-                updates |= output_shape._update_uniadics(
+                updates |= output_shape.update_uniadics(
                     output_shape.prefix, out_uniadic
                 )
-                updates |= output_shape._update_uniadics(
+                updates |= output_shape.update_uniadics(
                     output_shape.reverse, out_uniadic
                 )
                 updates |= output_shape.remove_variadic(out_uniadic)
@@ -2647,8 +2679,8 @@ def randn_constraints(output: IOHyperEdge, shape: IOHyperEdge) -> ConstrainResul
                     f"must have exactly {len(shape_val)} dim(s)."
                 )
             out_uniadics = [Uniadic(dim) for dim in shape_val]
-            updates |= output_shape._update_uniadics(output_shape.prefix, out_uniadics)
-            updates |= output_shape._update_uniadics(
+            updates |= output_shape.update_uniadics(output_shape.prefix, out_uniadics)
+            updates |= output_shape.update_uniadics(
                 output_shape.reverse, out_uniadics[::-1]
             )
             updates |= output_shape.remove_variadic(out_uniadics)
@@ -2695,8 +2727,8 @@ def broadcast_to_constraints(
                     f"must have exactly {len(shape_val)} dim(s)."
                 )
             out_uniadics = [Uniadic(dim) for dim in shape_val]
-            updates |= output_shape._update_uniadics(output_shape.prefix, out_uniadics)
-            updates |= output_shape._update_uniadics(
+            updates |= output_shape.update_uniadics(output_shape.prefix, out_uniadics)
+            updates |= output_shape.update_uniadics(
                 output_shape.reverse, out_uniadics[::-1]
             )
             updates |= output_shape.remove_variadic(out_uniadics)
@@ -2786,8 +2818,8 @@ def reshape_constraints(
             out_uniadics = [
                 Uniadic(val) if val != -1 else Uniadic() for val in shape_val
             ]
-            updates |= output_shape._update_uniadics(output_shape.prefix, out_uniadics)
-            updates |= output_shape._update_uniadics(
+            updates |= output_shape.update_uniadics(output_shape.prefix, out_uniadics)
+            updates |= output_shape.update_uniadics(
                 output_shape.reverse, out_uniadics[::-1]
             )
             updates |= output_shape.remove_variadic(out_uniadics)
@@ -3257,7 +3289,7 @@ def swap_axes_constraints(
                 updates |= other[axis2_val].match(non_variadic[axis1_val])
 
             else:
-                updates |= other._match(non_variadic)
+                updates |= other.match(non_variadic)
                 other[axis1_val], other[axis2_val] = other[axis2_val], other[axis1_val]
             status = True
 
@@ -3402,7 +3434,11 @@ def scalar_item_constraints(
         or type(input.value) is list
     )
 
-    assert isinstance(index.value, ToBeDetermined) or type(index.value) is int
+    assert (
+        isinstance(index.value, ToBeDetermined)
+        or type(index.value) is int
+        or type(index.value) is slice
+    )
 
     updates = Updates()
     status = False
@@ -3412,7 +3448,9 @@ def scalar_item_constraints(
     ):
         updates |= output.set_value(input.value[index.value])
         status = True
-    elif not isinstance(input.value, ToBeDetermined) and isinstance(output.value, int):
+    elif not isinstance(input.value, ToBeDetermined) and isinstance(
+        output.value, int | float | bool
+    ):
         # Try to infer index value from input-output values. If
         # output value appears only once in input sequence, write its
         # index as the value of index argument.
@@ -3539,7 +3577,6 @@ def tensor_item_constraints(
                     input_shape.root,
                     (output_suffix + input_shape.reverse[idx_suf:])[::-1],
                 )
-
     return status, updated_symbols
 
 
@@ -3573,40 +3610,6 @@ def tensor_item_constraint_helper(
             case None:
                 output_unis.append(Uniadic(1))
     return input_unis, output_unis, status, current_index
-
-
-def tensor_slice_constraints(
-    output: IOHyperEdge,
-    input: IOHyperEdge,
-    start: IOHyperEdge,
-    stop: IOHyperEdge,
-    step: IOHyperEdge,
-) -> ConstrainResultType:
-    assert output._temp_shape is not None, "Output shape of TensorSlice is not set!"
-    assert input._temp_shape is not None, "Input shape of TensorSlice is not set!"
-    output_shape: ShapeRepr = output._temp_shape
-    input_shape: ShapeRepr = input._temp_shape
-    updated_symbols = Updates()
-    status = False
-
-    if input_shape.prefix and output_shape.prefix:
-        in_uni, out_uni = input_shape[0], output_shape[0]
-        if in_uni.value is not None and out_uni.value is not None:
-            status = True
-        else:
-            if (
-                start.value is not TBD
-                and stop.value is not TBD
-                and step.value is not TBD
-                and in_uni.value is not None
-            ):
-                slc = slice(start.value, stop.value, step.value)
-                out_val = len(list(range(in_uni.value))[slc])
-                out_uni.set_value(out_val)
-                updated_symbols.add(out_uni)
-                status = True
-
-    return status, updated_symbols
 
 
 def split_constraints(
@@ -3836,15 +3839,15 @@ def cross_entropy_constraint(
 
     if categorical_value is not TBD:
         if not categorical_value:
-            updates |= target_shape._match(input_shape)
+            updates |= target_shape.match(input_shape)
         else:
             N = Uniadic()
             C = Uniadic()
             var = Variadic()
             in_repr = ShapeRepr([N, C], var)
             target_repr = ShapeRepr([N], var)
-            updates = input_shape._match(in_repr)
-            updates = target_shape._match(target_repr)
+            updates = input_shape.match(in_repr)
+            updates = target_shape.match(target_repr)
 
         status = True
     return status, updates

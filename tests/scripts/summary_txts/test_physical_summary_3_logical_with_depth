@@ -36,7 +36,7 @@ Model Name   |                                     Model Keys
 =====================================================================================
 RBFKernel    |   Inputs  : input1  : [u1, u2] : bool | float | int : 'input1'        
              |             input2  : [u3, u2] : bool | float | int : 'input2'        
-             |             $right  :       [] : float              : -0.5            
+             |             $right  :       -- : float              : -0.5            
              |             sigma   :     [ 1] : bool | float | int : 'sigma'         
              |             l_scale :     [ 1] : bool | float | int : 'l_scale'       
              |   --------------------------------------------------------------------

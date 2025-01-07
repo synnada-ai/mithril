@@ -48,7 +48,6 @@ def test_data_store_1():
         data_keys=set(),
         constant_keys=dict(),
         trainable_keys=set(),
-        jacobian_keys=set(),
         shapes=dict(),
         inference=False,
         safe_shapes=True,
@@ -61,8 +60,8 @@ def test_data_store_1():
     pm.data_store.add_static_data(key, value)
     assert pm.data_store.data_values.keys() == {"input"}
     assert (pm.data_store.data_values[key].value == value).all()  # type: ignore [union-attr]
-    assert pm.data_store._runtime_static_keys == set()
-    assert pm.data_store._intermediate_non_differentiables._table == dict()
+    assert pm.data_store.runtime_static_keys == set()
+    assert pm.data_store.intermediate_non_differentiables._table == dict()
     assert pm.data_store.unused_keys == set()
 
 
@@ -78,7 +77,6 @@ def test_data_store_1_numpy():
         data_keys=set(),
         constant_keys=dict(),
         trainable_keys=set(),
-        jacobian_keys=set(),
         shapes=dict(),
         inference=False,
         safe_shapes=True,
@@ -95,8 +93,8 @@ def test_data_store_1_numpy():
         "output_cache",
     }
     assert (pm.data_store.data_values[key].value == value).all()  # type: ignore[union-attr]
-    assert pm.data_store._runtime_static_keys == set()
-    assert pm.data_store._intermediate_non_differentiables._table == dict()
+    assert pm.data_store.runtime_static_keys == set()
+    assert pm.data_store.intermediate_non_differentiables._table == dict()
     assert pm.data_store.unused_keys == set()
 
 
@@ -112,8 +110,8 @@ def test_data_store_3():
 
     assert pm.data_store.data_values.keys() == {"output_1"}
     assert (pm.data_store.data_values["output_1"] == backend.array(6.0)).all()  # type: ignore[union-attr]
-    assert pm.data_store._runtime_static_keys == set()
-    assert pm.data_store._intermediate_non_differentiables._table == dict()
+    assert pm.data_store.runtime_static_keys == set()
+    assert pm.data_store.intermediate_non_differentiables._table == dict()
     assert pm.data_store.unused_keys == {
         "input",
         "weight",
@@ -140,7 +138,6 @@ def test_data_store_4():
         data_keys=set(),
         constant_keys=dict(),
         trainable_keys=set(),
-        jacobian_keys=set(),
         shapes=dict(),
         inference=False,
         safe_shapes=True,
@@ -205,9 +202,8 @@ def test_data_store_7():
 
     assert pm.data_store.data_values.keys() == {"input"}
     assert (res["output"] == value).all()  # type: ignore[union-attr]
-    assert pm.data_store._runtime_static_keys == set()
-    # assert pm.data_store._intermediate_non_differentiables._table == dict()
-    assert len(pm.data_store._intermediate_non_differentiables._table) == 1
+    assert pm.data_store.runtime_static_keys == set()
+    assert pm.data_store.intermediate_non_differentiables._table == dict()
     assert pm.data_store.unused_keys == set()
 
 
@@ -222,9 +218,8 @@ def test_data_store_8():
 
     assert pm.data_store.data_values.keys() == {"output1"}
     assert (pm.data_store.data_values["output1"] == backend.sigmoid(value)).all()  # type: ignore[union-attr]
-    assert pm.data_store._runtime_static_keys == set()
-    # assert pm.data_store._intermediate_non_differentiables._table == dict()
-    assert len(pm.data_store._intermediate_non_differentiables._table) == 1
+    assert pm.data_store.runtime_static_keys == set()
+    assert pm.data_store.intermediate_non_differentiables._table == dict()
     assert pm.data_store.unused_keys == {"input"}
 
 
@@ -240,9 +235,8 @@ def test_data_store_9():
 
     assert pm.data_store.data_values.keys() == {"output1"}
     assert (pm.data_store.data_values["output1"] == backend.sigmoid(value)).all()  # type: ignore[union-attr]
-    assert pm.data_store._runtime_static_keys == set()
-    # assert pm.data_store._intermediate_non_differentiables._table == dict()
-    assert len(pm.data_store._intermediate_non_differentiables._table) == 1
+    assert pm.data_store.runtime_static_keys == set()
+    assert pm.data_store.intermediate_non_differentiables._table == dict()
     assert pm.data_store.unused_keys == {"input"}
 
 
@@ -258,9 +252,8 @@ def test_data_store_10():
 
     assert pm.data_store.data_values.keys() == {"input", "output2"}
     assert (pm.data_store.data_values["output2"] == backend.sigmoid(value)).all()  # type: ignore[union-attr]
-    assert pm.data_store._runtime_static_keys == set()
-    # assert pm.data_store._intermediate_non_differentiables._table == dict()
-    assert len(pm.data_store._intermediate_non_differentiables._table) == 1
+    assert pm.data_store.runtime_static_keys == set()
+    assert pm.data_store.intermediate_non_differentiables._table == dict()
     assert pm.data_store.unused_keys == set()
 
 
@@ -276,9 +269,8 @@ def test_data_store_11():
     assert pm.data_store.data_values.keys() == {"output1", "output3"}
     assert (pm.data_store.data_values["output1"] == backend.sigmoid(value)).all()  # type: ignore[union-attr]
     assert (pm.data_store.data_values["output3"] == backend.sigmoid(value) + 2).all()  # type: ignore[union-attr]
-    assert pm.data_store._runtime_static_keys == set()
-    # assert pm.data_store._intermediate_non_differentiables._table == dict()
-    assert len(pm.data_store._intermediate_non_differentiables._table) == 1
+    assert pm.data_store.runtime_static_keys == set()
+    assert pm.data_store.intermediate_non_differentiables._table == dict()
     assert pm.data_store.unused_keys == {
         "right",
         "input",
@@ -306,8 +298,8 @@ def test_data_store_13():
     )
 
     assert pm.data_store.data_values.keys() == {"out"}
-    assert pm.data_store._runtime_static_keys == set()
-    assert pm.data_store._intermediate_non_differentiables._table == dict()
+    assert pm.data_store.runtime_static_keys == set()
+    assert pm.data_store.intermediate_non_differentiables._table == dict()
     assert pm.data_store.unused_keys == {"left", "right"}
 
     infered_value = pm.data_store.data_values["out"]
@@ -340,9 +332,8 @@ def test_data_store_14():
         constant_keys={"input1": input1, "input2": input2, "weight": weight},
     )
     assert pm.data_store.data_values.keys() == {"input1", "out2"}
-    assert pm.data_store._runtime_static_keys == set()
-    # assert pm.data_store._intermediate_non_differentiables._table == dict()
-    assert len(pm.data_store._intermediate_non_differentiables._table) == 1
+    assert pm.data_store.runtime_static_keys == set()
+    assert pm.data_store.intermediate_non_differentiables._table == dict()
 
     assert pm.data_store.unused_keys == {
         "output_0",
@@ -362,6 +353,7 @@ def test_data_store_14():
         "output_8",
         "output_4",
         "stop",
+        "output_9",
     }
 
     infered_value = pm.data_store.data_values["out2"]
@@ -395,9 +387,8 @@ def test_data_store_15():
         constant_keys={"input1": input1, "input2": input2, "weight": weight},
     )
     assert pm.data_store.data_values.keys() == {"input1", "out2"}
-    assert pm.data_store._runtime_static_keys == set()
-    # assert pm.data_store._intermediate_non_differentiables._table == dict()
-    assert len(pm.data_store._intermediate_non_differentiables._table) == 1
+    assert pm.data_store.runtime_static_keys == set()
+    assert pm.data_store.intermediate_non_differentiables._table == dict()
 
     assert pm.data_store.unused_keys == {
         "output_6",
@@ -417,6 +408,7 @@ def test_data_store_15():
         "input2",
         "weight",
         "output_3",
+        "output_9",
     }
 
     infered_value = pm.data_store.data_values["out2"]
@@ -436,7 +428,6 @@ def test_data_store_16():
         data_keys=set(),
         constant_keys=dict(),
         trainable_keys=set(),
-        jacobian_keys=set(),
         shapes=dict(),
         inference=False,
         safe_shapes=True,
@@ -450,13 +441,13 @@ def test_data_store_16():
         "output_1_cache",
         "output_cache",
     }
-    assert pm.data_store._runtime_static_keys == {"input"}
-    assert pm.data_store._intermediate_non_differentiables._table.keys() == set()
+    assert pm.data_store.runtime_static_keys == {"input"}
+    assert pm.data_store.intermediate_non_differentiables._table.keys() == set()
     assert pm.data_store.unused_keys == set()
 
 
 def test_data_store_17():
-    """Check '_runtime_static_keys'"""
+    """Check 'runtime_static_keys'"""
     backend = NumpyBackend(precision=32)
     model = Model()
     add = Add()
@@ -471,7 +462,6 @@ def test_data_store_17():
         data_keys=set(),
         constant_keys=dict(),
         trainable_keys=set(),
-        jacobian_keys=set(),
         shapes=dict(),
         inference=False,
         safe_shapes=True,
@@ -480,13 +470,13 @@ def test_data_store_17():
     )
 
     assert pm.data_store.data_values.keys() == {"output_0_cache", "output_cache"}
-    assert pm.data_store._runtime_static_keys == {"right"}
-    assert pm.data_store._intermediate_non_differentiables._table.keys() == set()
+    assert pm.data_store.runtime_static_keys == {"right"}
+    assert pm.data_store.intermediate_non_differentiables._table.keys() == set()
     assert pm.data_store.unused_keys == set()
 
 
 def test_data_store_18():
-    """Test infer ignore should remove from Data store '_runtime_static_keys'"""
+    """Test infer ignore should remove from Data store 'runtime_static_keys'"""
     backend = TorchBackend(precision=32)
     model = Model()
     add = Add()
@@ -504,7 +494,6 @@ def test_data_store_18():
         data_keys=set(),
         constant_keys=dict(),
         trainable_keys=set(),
-        jacobian_keys=set(),
         shapes=dict(),
         inference=False,
         safe_shapes=True,
@@ -513,8 +502,8 @@ def test_data_store_18():
     )
 
     assert pm.data_store.data_values.keys() == set()
-    assert pm.data_store._runtime_static_keys == set()
-    assert pm.data_store._intermediate_non_differentiables._table.keys() == set()
+    assert pm.data_store.runtime_static_keys == set()
+    assert pm.data_store.intermediate_non_differentiables._table.keys() == set()
     assert pm.data_store.unused_keys == set()
 
 
@@ -535,7 +524,6 @@ def test_data_store_19():
         data_keys=set(),
         constant_keys={"left": left, "right": right},
         trainable_keys=set(),
-        jacobian_keys=set(),
         shapes=dict(),
         inference=False,
         safe_shapes=True,
@@ -544,8 +532,8 @@ def test_data_store_19():
     )
 
     assert pm.data_store.data_values.keys() == set()
-    assert pm.data_store._runtime_static_keys == set()
-    assert pm.data_store._intermediate_non_differentiables._table.keys() == set()
+    assert pm.data_store.runtime_static_keys == set()
+    assert pm.data_store.intermediate_non_differentiables._table.keys() == set()
     assert pm.data_store.unused_keys == set()
 
 
@@ -566,7 +554,6 @@ def test_data_store_20():
         data_keys=set(),
         constant_keys={"left": left, "right": right},
         trainable_keys=set(),
-        jacobian_keys=set(),
         shapes=dict(),
         inference=False,
         safe_shapes=True,
@@ -575,6 +562,6 @@ def test_data_store_20():
     )
 
     assert pm.data_store.data_values.keys() == {"tensor_out"}
-    assert pm.data_store._runtime_static_keys == set()
-    assert pm.data_store._intermediate_non_differentiables._table.keys() == set()
+    assert pm.data_store.runtime_static_keys == set()
+    assert pm.data_store.intermediate_non_differentiables._table.keys() == set()
     assert pm.data_store.unused_keys == {"left", "output_1"}

@@ -20,8 +20,8 @@ from itertools import combinations_with_replacement
 from typing import Any
 
 import numpy as np
-import scipy.linalg as slin  # type: ignore[import-untyped]
-from scipy.special import erf  # type: ignore[import-untyped]
+import scipy.linalg as slin
+from scipy.special import erf
 
 from .... import core
 from ....utils.type_utils import is_tuple_int
@@ -63,7 +63,6 @@ from ..common_primitives import (
     subtract,
     swapaxes,
     tensor_item,
-    tensor_slice,
     to_list,
     to_tuple,
     transpose,
@@ -182,7 +181,6 @@ __all__ = [
     "squared_error",
     "transpose",
     "square",
-    "tensor_slice",
     "buffer",
     "permute_tensor",
     "reshape",
@@ -1223,8 +1221,11 @@ def pad(
     return np.pad(input, pad_width)
 
 
-def randn(*args, precision: int, cache: CacheType | None = None) -> np.ndarray:
-    return handle_data_precision(np.random.randn(*args[0]), precision)
+def randn(
+    shape: tuple[int, ...], *, key: int, precision: int, cache: CacheType | None = None
+) -> np.ndarray:
+    np.random.seed(key)
+    return handle_data_precision(np.random.randn(*shape), precision)
 
 
 def zeros_like(input: np.ndarray, cache: CacheType | None = None) -> np.ndarray:

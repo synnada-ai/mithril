@@ -83,7 +83,7 @@ def test_tuple_argument_3():
     add_model_2 = Add()
     model += add_model(left="left", right="right")
     model += add_model_2(
-        left=(add_model.left.shape(), add_model.right.shape()),
+        left=(add_model.left.shape, add_model.right.shape),
         right=add_model.left + add_model.right,
         output="output",
     )
@@ -113,7 +113,7 @@ def test_tuple_argument_4():
     add_model_2 = Add()
     model += add_model(left="left", right="right")
     model += add_model_2(
-        left=(add_model.left.shape() * 2, add_model.right.shape() * 2),
+        left=(add_model.left.shape * 2, add_model.right.shape * 2),
         right=add_model.left + add_model.right,
         output="output",
     )
@@ -141,8 +141,8 @@ def test_tuple_argument_5():
     model += add_model(left="left", right="right")
     model += add_model_2(
         left=(
-            (add_model.left.shape()[0], add_model.left.shape()[0]),
-            (add_model.left.shape()[0], add_model.left.shape()[0]),
+            (add_model.left.shape[0], add_model.left.shape[0]),
+            (add_model.left.shape[0], add_model.left.shape[0]),
         ),
         right=add_model.left + add_model.right,
         output="output",
@@ -171,8 +171,8 @@ def test_list_tuple_mixed_argument_1():
     model += add_model(left="left", right="right")
     model += add_model_2(
         left=(
-            [add_model.left.shape()[0], add_model.left.shape()[0]],
-            [add_model.left.shape()[0], add_model.left.shape()[0]],
+            [add_model.left.shape[0], add_model.left.shape[0]],
+            [add_model.left.shape[0], add_model.left.shape[0]],
         ),
         right=add_model.left + add_model.right,
         output="output",
@@ -200,8 +200,8 @@ def test_list_tuple_mixed_argument_2():
 
     model += add_model(left="left", right="right")
 
-    left_first_shape = add_model.left.shape()[0]
-    right_first_shape = add_model.right.shape()[0]
+    left_first_shape = add_model.left.shape[0]
+    right_first_shape = add_model.right.shape[0]
 
     matmul_left = ([left_first_shape, 0], [2, right_first_shape])
 
@@ -301,7 +301,7 @@ def test_list_argument_3():
 
     model += add_model(left="left", right="right")
     model += add_model_2(
-        left=[add_model.left.shape(), add_model.right.shape()],
+        left=[add_model.left.shape, add_model.right.shape],
         right=add_model.left + add_model.right,
         output="output",
     )
@@ -332,7 +332,7 @@ def test_list_argument_4():
 
     model += add_model(left="left", right="right")
     model += add_model_2(
-        left=[add_model.left.shape() * 2, add_model.right.shape() * 2],
+        left=[add_model.left.shape * 2, add_model.right.shape * 2],
         right=add_model.left + add_model.right,
         output="output",
     )
@@ -361,8 +361,8 @@ def test_list_argument_5():
     model += add_model(left="left", right="right")
     model += add_model_2(
         left=[
-            [add_model.left.shape()[0], add_model.left.shape()[0]],
-            [add_model.left.shape()[0], add_model.left.shape()[0]],
+            [add_model.left.shape[0], add_model.left.shape[0]],
+            [add_model.left.shape[0], add_model.left.shape[0]],
         ],
         right=add_model.left + add_model.right,
         output="output",

@@ -28,14 +28,14 @@ def test_data_linear_compile():
     model += Linear()(input="input")
     backend = JaxBackend()
     pm = mithril.compile(model, backend)
-    assert "input" in pm.data_store._runtime_static_keys
+    assert "input" in pm.data_store.runtime_static_keys
 
 
 def test_convert_input_data_to_trainable():
     model = Model()
     model += Linear()(input="input")
     model += Linear()(weight=model.input)  # type: ignore
-    assert model.input.metadata._differentiable  # type: ignore
+    assert model.input.metadata.differentiable  # type: ignore
 
 
 def test_convert_input_data_to_trainable_compile():
@@ -47,7 +47,7 @@ def test_convert_input_data_to_trainable_compile():
     pm = mithril.compile(model, backend)
     assert (
         "input"
-        not in pm.data_store._runtime_static_keys | pm.data_store.cached_data.keys()
+        not in pm.data_store.runtime_static_keys | pm.data_store.cached_data.keys()
     )
 
 
@@ -55,7 +55,7 @@ def test_convert_internal_data_to_trainable():
     model = Model()
     model += Linear()(input="internal_key")
     model += Linear()(input="input", output=model.internal_key)  # type: ignore
-    assert model.internal_key.metadata._differentiable  # type: ignore
+    assert model.internal_key.metadata.differentiable  # type: ignore
 
 
 def test_set_values_data_and_param():
@@ -83,7 +83,7 @@ def test_match_tensor_with_value_data_and_param():
     model = Model()
     model += model1(left="my_input")
     model += model2(left="my_input")
-    assert model.my_input.metadata._differentiable  # type: ignore
+    assert model.my_input.metadata.differentiable  # type: ignore
 
 
 def test_match_tensor_with_value_data_and_param_rev():
@@ -116,7 +116,7 @@ def test_non_trainability_flow_in_compile():
 
     backend = JaxBackend()
     pm = mithril.compile(model, backend)
-    assert not pm.data_store.all_data["output"]._differentiable
+    assert not pm.data_store.all_data["output"].differentiable
 
 
 def test_non_trainability_flow_in_compile_with_data_keys_1():
@@ -132,7 +132,7 @@ def test_non_trainability_flow_in_compile_with_data_keys_1():
     pm = mithril.compile(
         model, backend, data_keys={"input"}, constant_keys={"left": backend.array(1.0)}
     )
-    assert not pm.data_store.all_data["output"]._differentiable
+    assert not pm.data_store.all_data["output"].differentiable
 
 
 def test_non_trainability_flow_in_compile_with_data_keys_2():
@@ -146,7 +146,7 @@ def test_non_trainability_flow_in_compile_with_data_keys_2():
 
     backend = JaxBackend()
     pm = mithril.compile(model, backend, data_keys={"input"})
-    assert pm.data_store.all_data["output"]._differentiable
+    assert pm.data_store.all_data["output"].differentiable
 
 
 def test_non_trainability_flow_in_compile_with_data_keys_3():
@@ -167,8 +167,8 @@ def test_non_trainability_flow_in_compile_with_data_keys_3():
 
     backend = JaxBackend()
     pm = mithril.compile(model, backend, data_keys={"input"})
-    assert pm.data_store.all_data["mult_out"]._differentiable
-    assert pm.data_store.all_data["add_out"]._differentiable
+    assert pm.data_store.all_data["mult_out"].differentiable
+    assert pm.data_store.all_data["add_out"].differentiable
 
 
 def test_trainability_flow_in_compile_with_trainable_keys():
@@ -188,5 +188,5 @@ def test_trainability_flow_in_compile_with_trainable_keys():
 
     backend = JaxBackend()
     pm = mithril.compile(model, backend, trainable_keys={"input"})
-    assert pm.data_store.all_data["mult_out"]._differentiable
-    assert pm.data_store.all_data["add_out"]._differentiable
+    assert pm.data_store.all_data["mult_out"].differentiable
+    assert pm.data_store.all_data["add_out"].differentiable

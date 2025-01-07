@@ -19,9 +19,9 @@ from ...utils.utils import OrderedSet
 from ..common import (
     NOT_AVAILABLE,
     TBD,
+    BaseKey,
     Connection,
     IOHyperEdge,
-    IOKey,
     KeyType,
     MyTensor,
     NotAvailable,
@@ -50,44 +50,50 @@ class PrimitiveModel(BaseModel):
         self,
         formula_key: str,
         name: str | None = None,
-        **kwargs: IOKey | IOHyperEdge,
+        **kwargs: BaseKey | IOHyperEdge,
     ) -> None:
         self._formula_key = formula_key
-        self.grad_formula = formula_key + "_grad"
+        self._grad_formula = formula_key + "_grad"
 
         super().__init__(name=name)
+
+        self.random_keys: set[str] = set()
         # Get shape_templates of TensorTypes and create corresponding shapes.
         shape_templates = {
-            key: value._shape
+            key: value.shape
             for key, value in kwargs.items()
-            if isinstance(value, IOKey) and value._shape is not None
+            if isinstance(value, BaseKey) and value.shape is not None
         }
         shapes = create_shape_map(shape_templates, self.constraint_solver)
         data_set: set[IOHyperEdge] = set()
         is_diff = False
         output_data: IOHyperEdge | None = None
         for key, value in kwargs.items():
-            if isinstance(value, IOKey):
+            if isinstance(value, BaseKey):
                 if (
-                    is_generic_tensor := (get_origin(value._type) is MyTensor)
-                ) or value._type is MyTensor:
+                    is_generic_tensor := (get_origin(value.type) is MyTensor)
+                ) or value.type is MyTensor:
                     tensor_types = (
-                        get_args(value._type)[0]
+                        get_args(value.type)[0]
                         if is_generic_tensor
                         else _UltimateTensorValueTypes
                     )
                     tensor = MyTensor(
-                        value=value._value,  #  type: ignore
+                        value=value.value,
                         type=tensor_types,
                         shape=shapes[key].node,
                     )
-                    edge = IOHyperEdge(value=tensor, interval=value._interval)
+                    edge = IOHyperEdge(value=tensor, interval=value.interval)
                     data_set.add(edge)
                 else:
-                    edge_type = TBD if value._type is None else value._type
+                    edge_type = TBD if value.type is None else value.type
                     edge = IOHyperEdge(
-                        type=edge_type, value=value._value, interval=value._interval
+                        type=edge_type, value=value.value, interval=value.interval
                     )
+            else:
+                raise TypeError(
+                    "PrimitiveModel's can only be instantiated with BaseKey type keys!"
+                )
 
             conn_data = self.create_connection(edge, key)
 
@@ -100,7 +106,7 @@ class PrimitiveModel(BaseModel):
         if isinstance(output_data, IOHyperEdge) and isinstance(
             output_data.edge_type, MyTensor
         ):
-            output_data._differentiable = is_diff
+            output_data.differentiable = is_diff
 
         # Initially run all given tensors' constraints
         self.constraint_solver.update_shapes(Updates(data_set))
@@ -111,20 +117,20 @@ class PrimitiveModel(BaseModel):
         output_conns = OrderedSet({out_conn})
 
         for conn in self.conns.input_connections:
-            self.dependency_map._local_input_dependency_map[conn] = [
+            self.dependency_map.local_input_dependency_map[conn] = [
                 (self, output_conns)
             ]
 
         for conn in output_conns:
-            self.dependency_map._local_output_dependency_map[conn] = (self, input_conns)
+            self.dependency_map.local_output_dependency_map[conn] = (self, input_conns)
 
-        self.dependency_map._cache_internal_references(out_conn, input_conns)
+        self.dependency_map.cache_internal_references(out_conn, input_conns)
         self.dependency_map.update_all_keys()
 
         # Link canonicals
-        if isinstance(self.canonical_input, NotAvailable) and len(self._input_keys) > 0:
+        if isinstance(self.canonical_input, NotAvailable) and len(self.input_keys) > 0:
             canonical_input_key = (
-                "input" if "input" in self._input_keys else next(iter(self._input_keys))
+                "input" if "input" in self.input_keys else next(iter(self.input_keys))
             )
             canonical_input_conn = self.conns.get_connection(canonical_input_key)
             if canonical_input_conn is None:
@@ -154,6 +160,14 @@ class PrimitiveModel(BaseModel):
             f"Primitive '{self.__class__.__name__}' model can not be extended!"
         )
 
+    @property
+    def formula_key(self) -> str:
+        return self._formula_key
+
+    @property
+    def grad_formula(self) -> str:
+        return self._grad_formula
+
     def extract_connection_info(
         self,
         name_mappings: dict[BaseModel, str],
@@ -171,7 +185,7 @@ class PrimitiveModel(BaseModel):
         conns: tuple[dict[str, list[str]], dict[str, list[str]]] = ({}, {})
 
         # Take the input_keys with tensor values
-        input_keys = tuple(self._input_keys)
+        input_keys = tuple(self.input_keys)
 
         for key in tuple(input_keys) + tuple(self.conns.output_keys):
             # find data of the key.

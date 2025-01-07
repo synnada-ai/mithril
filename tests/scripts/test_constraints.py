@@ -29,6 +29,7 @@ from mithril.framework.common import (
     NestedListType,
     PossibleValues,
     ShapeRepr,
+    ShapeResultType,
     ShapeTemplateType,
     ToBeDetermined,
     Uniadic,
@@ -36,7 +37,6 @@ from mithril.framework.common import (
     Updates,
     UpdateType,
     Variadic,
-    _ShapesType,
     create_shape_repr,
 )
 from mithril.framework.constraints import (
@@ -80,14 +80,16 @@ from .test_utils import check_shapes_semantically
 
 
 def is_type_checker(
-    ref_results: dict[str, type | NestedListType] | _ShapesType, constraint_fn: Callable
+    ref_results: dict[str, type | NestedListType] | ShapeResultType,
+    constraint_fn: Callable,
 ) -> TypeGuard[dict[str, type | NestedListType]]:
     return constraint_fn in type_constraints
 
 
 def is_shape_checker(
-    ref_results: dict[str, type | NestedListType] | _ShapesType, constraint_fn: Callable
-) -> TypeGuard[_ShapesType]:
+    ref_results: dict[str, type | NestedListType] | ShapeResultType,
+    constraint_fn: Callable,
+) -> TypeGuard[ShapeResultType]:
     return constraint_fn not in type_constraints
 
 
@@ -198,7 +200,7 @@ def extract_variadic_possibles(
 
 def assert_shape_results(
     data: dict[str, IOHyperEdge],
-    ref_results: _ShapesType,
+    ref_results: ShapeResultType,
     ref_assignments: AssignmentType,
     updated_symbols: Updates,
     expected_updates: set[str],
@@ -268,7 +270,7 @@ def assert_value_results(
 def make_assertions(
     constraint_fn: Callable,
     data: dict[str, IOHyperEdge],
-    ref_results: dict[str, type | NestedListType] | _ShapesType,
+    ref_results: dict[str, type | NestedListType] | ShapeResultType,
     ref_assignments: AssignmentType,
     updated_symbols: Updates,
     expected_updates: set[str],
@@ -6370,6 +6372,29 @@ def test_tensor_item_constraints_24():
             value=(None, ..., None, 1, slice(2, 5, None), slice(2, 4, None))
         )
     }
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        tensor_item_constraints,
+        True,
+        {"output"},
+        scalar_info,
+    )
+
+
+def test_tensor_item_constraints_25():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "input": [10, 1, 2],
+        "output": ["u1", 1, 2],
+    }
+    final_shapes = {
+        "input": [10, 1, 2],
+        "output": [5, 1, 2],
+        "index": [],
+    }
+    scalar_info = {"index": IOHyperEdge(value=(slice(5, None, None)))}
     assert_constraint_results(
         shapes,
         {},
