@@ -540,7 +540,7 @@ class Model(BaseModel):
             ]
             default_args_dict = {key: TBD for key in default_args}
             default_args_dict |= template.defaults
-            default_args_dict.pop("name")
+            default_args_dict.pop("name", None)
 
             # TODO: Reconsider type ignore!
             model: PrimitiveModel = model_type(**default_args_dict)  # type: ignore

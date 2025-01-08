@@ -154,9 +154,10 @@ class SupervisedLoss(PrimitiveModel):
         self,
         formula_key: str,
         polymorphic_constraint: bool = True,
-        name: str | None = None,
         input: TensorValueType | ToBeDetermined = TBD,
         target: TensorValueType | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
         **kwargs: BaseKey,
     ) -> None:
         default_kwargs: dict[str, BaseKey] = {
@@ -200,9 +201,10 @@ class SupervisedLoss(PrimitiveModel):
 class SquaredError(SupervisedLoss):
     def __init__(
         self,
-        name: str | None = None,
         input: TensorValueType | ToBeDetermined = TBD,
         target: TensorValueType | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="squared_error", name=name, input=input, target=target
@@ -212,9 +214,10 @@ class SquaredError(SupervisedLoss):
 class AbsoluteError(SupervisedLoss):
     def __init__(
         self,
-        name: str | None = None,
         input: TensorValueType | ToBeDetermined = TBD,
         target: TensorValueType | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="absolute_error", name=name, input=input, target=target
@@ -224,9 +227,9 @@ class AbsoluteError(SupervisedLoss):
 class HingeLoss(SupervisedLoss):
     def __init__(
         self,
-        name: str | None = None,
         input: TensorValueType | ToBeDetermined = TBD,
         target: TensorValueType | ToBeDetermined = TBD,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             polymorphic_constraint=False,
@@ -267,10 +270,11 @@ class QuantileLoss(PrimitiveModel):
 
     def __init__(
         self,
-        name: str | None = None,
         quantile: int | float | ToBeDetermined = TBD,
         input: TensorValueType | ToBeDetermined = TBD,
         target: TensorValueType | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="quantile_loss",
@@ -331,11 +335,12 @@ class CrossEntropy(PrimitiveModel):
         self,
         input_type: str = "logits",
         weights: list[float] | str = "",
-        name: str | None = None,
         input: TensorValueType | ToBeDetermined = TBD,
         target: TensorValueType | ToBeDetermined = TBD,
         robust: bool | ToBeDetermined = TBD,
         cutoff: ConstantType | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         self.factory_args = {"input_type": input_type, "weights": weights}
 
@@ -430,10 +435,10 @@ class KLDivergence(PrimitiveModel):
 
     def __init__(
         self,
-        name: str | None = None,
         input: TensorValueType | ToBeDetermined = TBD,
         target: TensorValueType | ToBeDetermined = TBD,
         cutoff: ConstantType | ToBeDetermined = TBD,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="kl_divergence",
@@ -483,11 +488,11 @@ class BinaryCrossEntropy(PrimitiveModel):
         self,
         input_type: str = "logits",
         pos_weight: float | str | ToBeDetermined = 1.0,
-        name: str | None = None,
         input: TensorValueType | ToBeDetermined = TBD,
         target: TensorValueType | ToBeDetermined = TBD,
         cutoff: ConstantType | ToBeDetermined = TBD,
         robust: bool | ToBeDetermined = TBD,
+        name: str | None = None,
     ) -> None:
         self.factory_args = {"input_type": input_type, "pos_weight": pos_weight}
 
@@ -558,10 +563,10 @@ class Log(PrimitiveModel):
     def __init__(
         self,
         robust: bool = False,
-        name: str | None = None,
         input: TensorValueType | ToBeDetermined = TBD,
         *,
         cutoff: ConstantType | ToBeDetermined = TBD,
+        name: str | None = None,
     ) -> None:
         self.robust = robust
         self.factory_args = {"robust": robust}
@@ -609,9 +614,10 @@ class StableReciprocal(PrimitiveModel):
 
     def __init__(
         self,
-        name: str | None = None,
         input: TensorValueType | ToBeDetermined = TBD,
         cutoff: ConstantType | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="stable_reciprocal",
@@ -632,7 +638,10 @@ class StableReciprocal(PrimitiveModel):
 
 class Sine(SingleInputOperation):
     def __init__(
-        self, name: str | None = None, input: TensorValueType | ToBeDetermined = TBD
+        self,
+        input: TensorValueType | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="sin",
@@ -645,7 +654,9 @@ class Sine(SingleInputOperation):
 
 class Cosine(SingleInputOperation):
     def __init__(
-        self, name: str | None = None, input: TensorValueType | ToBeDetermined = TBD
+        self,
+        input: TensorValueType | ToBeDetermined = TBD,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="cos",
@@ -658,7 +669,9 @@ class Cosine(SingleInputOperation):
 
 class Sign(SingleInputOperation):
     def __init__(
-        self, name: str | None = None, input: TensorValueType | ToBeDetermined = TBD
+        self,
+        input: TensorValueType | ToBeDetermined = TBD,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="sign",
@@ -671,7 +684,9 @@ class Sign(SingleInputOperation):
 
 class Square(SingleInputOperation):
     def __init__(
-        self, name: str | None = None, input: TensorValueType | ToBeDetermined = TBD
+        self,
+        input: TensorValueType | ToBeDetermined = TBD,
+        name: str | None = None,
     ) -> None:
         super().__init__(formula_key="square", name=name, input=input)
 
@@ -685,8 +700,9 @@ class Activation(PrimitiveModel):
         self,
         formula_key: str,
         polymorphic_constraint: bool = False,
-        name: str | None = None,
         input: TensorValueType | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
         **kwargs: BaseKey,
     ) -> None:
         # NOTE: Torch and JAX behave different for some activation functions.
@@ -715,7 +731,10 @@ class Activation(PrimitiveModel):
 
 class Relu(Activation):
     def __init__(
-        self, name: str | None = None, input: TensorValueType | ToBeDetermined = TBD
+        self,
+        input: TensorValueType | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="relu",
@@ -729,9 +748,10 @@ class Relu(Activation):
 class Gelu(Activation):
     def __init__(
         self,
-        name: str | None = None,
         approximate: bool = False,
         input: TensorValueType | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="gelu",
@@ -753,7 +773,10 @@ class Gelu(Activation):
 
 class Sigmoid(Activation):
     def __init__(
-        self, name: str | None = None, input: TensorValueType | ToBeDetermined = TBD
+        self,
+        input: TensorValueType | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(formula_key="sigmoid", name=name, input=input)
 
@@ -761,9 +784,10 @@ class Sigmoid(Activation):
 class Softmax(Activation):
     def __init__(
         self,
-        name: str | None = None,
         input: TensorValueType | ToBeDetermined = TBD,
         axis: int | None | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         axis_key = BaseKey(type=int | None, value=axis)
         super().__init__(formula_key="softmax", name=name, axis=axis_key, input=input)
@@ -779,14 +803,20 @@ class Softmax(Activation):
 
 class Softplus(Activation):
     def __init__(
-        self, name: str | None = None, input: TensorValueType | ToBeDetermined = TBD
+        self,
+        input: TensorValueType | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(formula_key="softplus", name=name, input=input)
 
 
 class Tanh(Activation):
     def __init__(
-        self, name: str | None = None, input: TensorValueType | ToBeDetermined = TBD
+        self,
+        input: TensorValueType | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(formula_key="tanh", name=name, input=input)
 
@@ -798,9 +828,10 @@ class LeakyRelu(Activation):
 
     def __init__(
         self,
-        name: str | None = None,
         slope: TensorValueType | ToBeDetermined = TBD,
         input: TensorValueType | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="leaky_relu",
@@ -823,7 +854,10 @@ class StopGradient(PrimitiveModel):
     output: Connection
 
     def __init__(
-        self, name: str | None = None, input: TensorValueType | ToBeDetermined = TBD
+        self,
+        input: TensorValueType | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="stop_gradient",
@@ -845,9 +879,10 @@ class CartesianDifference(PrimitiveModel):
 
     def __init__(
         self,
-        name: str | None = None,
         left: TensorValueType | ToBeDetermined = TBD,
         right: TensorValueType | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="cartesian_diff",
@@ -878,6 +913,7 @@ class Concat(PrimitiveModel):
         self,
         n: int,
         axis: int | None | ToBeDetermined = 0,
+        *,
         name: str | None = None,
         **kwargs: TensorValueType | ToBeDetermined,
     ) -> None:
@@ -914,6 +950,7 @@ class PrimitiveUnion(PrimitiveModel):
     def __init__(
         self,
         n: int = 1,
+        *,
         name: str | None = None,
         **kwargs: TensorValueType | ToBeDetermined,
     ) -> None:
@@ -941,9 +978,10 @@ class PermuteTensor(PrimitiveModel):
 
     def __init__(
         self,
-        name: str | None = None,
         indices: TensorValueType | ToBeDetermined = TBD,
         input: TensorValueType | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="permute_tensor",
@@ -981,13 +1019,13 @@ class PrimitiveConvolution1D(PrimitiveModel):
     def __init__(
         self,
         use_bias: bool = True,
-        name: str | None = None,
         input: TensorValueType | ToBeDetermined = TBD,
         weight: TensorValueType | ToBeDetermined = TBD,
         stride: int | ToBeDetermined = TBD,
         padding: int | tuple[int, int] | ToBeDetermined = TBD,
         dilation: int | ToBeDetermined = TBD,
         *,
+        name: str | None = None,
         bias: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         self.factory_args = {"use_bias": use_bias}
@@ -1073,7 +1111,6 @@ class PrimitiveConvolution2D(PrimitiveModel):
     def __init__(
         self,
         use_bias: bool = True,
-        name: str | None = None,
         input: TensorValueType | ToBeDetermined = TBD,
         weight: TensorValueType | ToBeDetermined = TBD,
         stride: int | tuple[int, int] | ToBeDetermined = TBD,
@@ -1083,6 +1120,7 @@ class PrimitiveConvolution2D(PrimitiveModel):
         | ToBeDetermined = TBD,
         dilation: int | tuple[int, int] | ToBeDetermined = TBD,
         *,
+        name: str | None = None,
         bias: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         self.factory_args = {"use_bias": use_bias}
@@ -1166,10 +1204,11 @@ class Flatten(PrimitiveModel):
 
     def __init__(
         self,
-        name: str | None = None,
         start_dim: int | ToBeDetermined = 0,
         end_dim: int | ToBeDetermined = -1,
         input: TensorValueType | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         self.factory_args = {"start_dim": start_dim, "end_dim": end_dim}
 
@@ -1213,12 +1252,13 @@ class PrimitiveMaxPool1D(PrimitiveModel):
 
     def __init__(
         self,
-        name: str | None = None,
         input: TensorValueType | ToBeDetermined = TBD,
         kernel_size: int | ToBeDetermined = TBD,
         stride: int | ToBeDetermined = TBD,
         padding: int | tuple[int, int] | ToBeDetermined = TBD,
         dilation: int | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="max_pool1d",
@@ -1267,9 +1307,10 @@ class PaddingConverter1D(PrimitiveModel):
 
     def __init__(
         self,
-        name: str | None = None,
         kernel_size: int | ToBeDetermined = TBD,
         input: int | PaddingType | tuple[int, int] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="padding_converter_1d",
@@ -1300,13 +1341,14 @@ class PaddingConverter2D(PrimitiveModel):
 
     def __init__(
         self,
-        name: str | None = None,
         kernel_size: int | tuple[int, int] | ToBeDetermined = TBD,
         input: int
         | PaddingType
         | tuple[int, int]
         | tuple[tuple[int, int], tuple[int, int]]
         | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="padding_converter_2d",
@@ -1345,9 +1387,10 @@ class StrideConverter(PrimitiveModel):
 
     def __init__(
         self,
-        name: str | None = None,
         kernel_size: int | tuple[int, int] | ToBeDetermined = TBD,
         input: int | PaddingType | tuple[int, int] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="stride_converter",
@@ -1376,12 +1419,13 @@ class TupleConverter(PrimitiveModel):
 
     def __init__(
         self,
-        name: str | None = None,
         input: int
         | PaddingType
         | tuple[int, int]
         | tuple[tuple[int, int], tuple[int, int]]
         | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="tuple_converter",
@@ -1418,7 +1462,6 @@ class PrimitiveMaxPool2D(PrimitiveModel):
 
     def __init__(
         self,
-        name: str | None = None,
         input: TensorValueType | ToBeDetermined = TBD,
         kernel_size: int | tuple[int, int] | ToBeDetermined = TBD,
         stride: int | tuple[int, int] | ToBeDetermined = TBD,
@@ -1427,6 +1470,8 @@ class PrimitiveMaxPool2D(PrimitiveModel):
         | tuple[tuple[int, int], tuple[int, int]]
         | ToBeDetermined = TBD,
         dilation: int | tuple[int, int] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="max_pool2d",
@@ -1498,7 +1543,10 @@ class NormModifier(PrimitiveModel):
     output: Connection
 
     def __init__(
-        self, name: str | None = None, input: TensorValueType | ToBeDetermined = TBD
+        self,
+        input: TensorValueType | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="norm_modifier",
@@ -1526,9 +1574,10 @@ class DistanceMatrix(PrimitiveModel):
     # TODO: torch.cdist handles batches of matrices, for now we don't.
     def __init__(
         self,
-        name: str | None = None,
         left: TensorValueType | ToBeDetermined = TBD,
         right: TensorValueType | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="distance_matrix",
@@ -1561,9 +1610,10 @@ class PolynomialFeatures(PrimitiveModel):
 
     def __init__(
         self,
-        name: str | None = None,
         degree: int | ToBeDetermined = TBD,
         input: TensorValueType | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="polynomial_features",
@@ -1599,10 +1649,11 @@ class TsnePJoint(PrimitiveModel):
 
     def __init__(
         self,
-        name: str | None = None,
         squared_distances: TensorValueType | ToBeDetermined = TBD,
         target_perplexity: float | ToBeDetermined = TBD,
         threshold: ConstantType | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="tsne_p_joint",
@@ -1639,9 +1690,10 @@ class EyeComplement(PrimitiveModel):
 
     def __init__(
         self,
-        name: str | None = None,
         N: int | ToBeDetermined = TBD,
         M: int | ToBeDetermined | None = None,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="ones_with_zero_diag",
@@ -1668,9 +1720,10 @@ class Eye(PrimitiveModel):
 
     def __init__(
         self,
-        name: str | None = None,
         N: int | ToBeDetermined = TBD,
         M: int | ToBeDetermined | None = None,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="eye",
@@ -1695,7 +1748,10 @@ class Cholesky(PrimitiveModel):
     output: Connection
 
     def __init__(
-        self, name: str | None = None, input: TensorValueType | ToBeDetermined = TBD
+        self,
+        input: TensorValueType | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="cholesky",
@@ -1718,10 +1774,11 @@ class GPRAlpha(PrimitiveModel):
 
     def __init__(
         self,
-        name: str | None = None,
         label_mu_diff: TensorValueType | ToBeDetermined = TBD,
         L: TensorValueType | ToBeDetermined = TBD,
         K_term: TensorValueType | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="gpr_alpha",
@@ -1754,10 +1811,11 @@ class GPRVOuter(PrimitiveModel):
 
     def __init__(
         self,
-        name: str | None = None,
         K: TensorValueType | ToBeDetermined = TBD,
         K_term: TensorValueType | ToBeDetermined = TBD,
         L: TensorValueType | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="gpr_v_outer",
@@ -1783,7 +1841,10 @@ class TransposedDiagonal(PrimitiveModel):
     output: Connection
 
     def __init__(
-        self, name: str | None = None, input: TensorValueType | ToBeDetermined = TBD
+        self,
+        input: TensorValueType | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="transposed_diag",
@@ -1810,10 +1871,11 @@ class Arange(PrimitiveModel):
 
     def __init__(
         self,
-        name: str | None = None,
         start: int | float | ToBeDetermined = 0,
         stop: int | float | ToBeDetermined = TBD,
         step: int | float | ToBeDetermined = 1,
+        *,
+        name: str | None = None,
     ) -> None:
         all_defined = False
         if (
@@ -1870,6 +1932,7 @@ class Randn(PrimitiveModel):
         self,
         shape: tuple[int, ...] | ToBeDetermined = TBD,
         key: int | ToBeDetermined = TBD,
+        *,
         name: str | None = None,
     ) -> None:
         super().__init__(
@@ -1900,8 +1963,9 @@ class BroadcastTo(PrimitiveModel):
     def __init__(
         self,
         shape: tuple[int, ...] | ToBeDetermined = TBD,
-        name: str | None = None,
         input: TensorValueType | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="broadcast_to",
@@ -1935,10 +1999,11 @@ class Eigvalsh(PrimitiveModel):
 
     def __init__(
         self,
-        name: str | None = None,
         K_term: TensorValueType | ToBeDetermined = TBD,
         L: TensorValueType | ToBeDetermined = TBD,
         threshold: ConstantType | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="eigvalsh",
@@ -1964,7 +2029,10 @@ class Squeeze(PrimitiveModel):
     output: Connection
 
     def __init__(
-        self, name: str | None = None, input: TensorValueType | ToBeDetermined = TBD
+        self,
+        input: TensorValueType | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="squeeze",
@@ -1991,9 +2059,10 @@ class AUCCore(PrimitiveModel):
 
     def __init__(
         self,
-        name: str | None = None,
         input: TensorValueType | ToBeDetermined = TBD,
         label: TensorValueType | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="auc_core",
@@ -2019,11 +2088,12 @@ class Embedding(PrimitiveModel):
 
     def __init__(
         self,
-        name: str | None = None,
         num_embeddings: int | None = None,
         dim: int | None = None,
         input: TensorValueType | ToBeDetermined = TBD,
         weight: TensorValueType | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         out_dim: int | str = "dim" if dim is None else dim
 
@@ -2063,7 +2133,6 @@ class ScaledDotProduct(PrimitiveModel):
 
     def __init__(
         self,
-        name: str | None = None,
         is_causal: bool | ToBeDetermined = True,
         scale: None | int | float | ToBeDetermined = None,
         dropout_p: float | ToBeDetermined = 0.0,
@@ -2072,6 +2141,8 @@ class ScaledDotProduct(PrimitiveModel):
         key: TensorValueType | ToBeDetermined = TBD,
         value: TensorValueType | ToBeDetermined = TBD,
         attn_mask: TensorValueType | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         # TODO: Reconsider how to get attn_mask, could it be A?
         assert (
@@ -2150,9 +2221,10 @@ class PositionalEncoding(PrimitiveModel):
     def __init__(
         self,
         hidden_dim: int | ToBeDetermined,
-        name: str | None = None,
         max_len: int | ToBeDetermined = 5000,
         input: TensorValueType | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         self.factory_args = {"hidden_dim": hidden_dim, "max_len": max_len}
 
@@ -2187,8 +2259,9 @@ class SwapAxes(PrimitiveModel):
         self,
         axis1: int | ToBeDetermined,
         axis2: int | ToBeDetermined,
-        name: str | None = None,
         input: TensorValueType | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         self.factory_args = {"axis1": axis1, "axis2": axis2}
 
@@ -2226,10 +2299,11 @@ class Where(PrimitiveModel):
 
     def __init__(
         self,
-        name: str | None = None,
         cond: TensorValueType | ToBeDetermined = TBD,
         input1: TensorValueType | ToBeDetermined = TBD,
         input2: TensorValueType | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="where",
@@ -2263,7 +2337,10 @@ class IsNan(PrimitiveModel):
     output: Connection
 
     def __init__(
-        self, name: str | None = None, input: TensorValueType | ToBeDetermined = TBD
+        self,
+        input: TensorValueType | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="isnan",
@@ -2283,7 +2360,10 @@ class Unique(PrimitiveModel):
     output: Connection
 
     def __init__(
-        self, name: str | None = None, input: TensorValueType | ToBeDetermined = TBD
+        self,
+        input: TensorValueType | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="unique",
@@ -2305,9 +2385,10 @@ class Trapezoid(PrimitiveModel):
 
     def __init__(
         self,
-        name: str | None = None,
         x: TensorValueType | ToBeDetermined = TBD,
         y: TensorValueType | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="trapezoid",
@@ -2335,11 +2416,12 @@ class NanToNum(PrimitiveModel):
 
     def __init__(
         self,
-        name: str | None = None,
         nan: float | ToBeDetermined = 0.0,
         posinf: float | None | ToBeDetermined = None,
         neginf: float | None | ToBeDetermined = None,
         input: TensorValueType | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="nan_to_num",
@@ -2371,9 +2453,10 @@ class Pad(PrimitiveModel):
 
     def __init__(
         self,
-        name: str | None = None,
         pad_width: tuple[tuple[int, int], ...] | ToBeDetermined = TBD,
         input: TensorValueType | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="pad",
@@ -2401,7 +2484,10 @@ class ZerosLike(PrimitiveModel):
     output: Connection
 
     def __init__(
-        self, name: str | None = None, input: TensorValueType | ToBeDetermined = TBD
+        self,
+        input: TensorValueType | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="zeros_like",
