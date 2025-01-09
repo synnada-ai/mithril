@@ -31,4 +31,4 @@ jobs:
           pip install --upgrade "jax[cpu]"
           pip install -r requirements/dev.txt
       - name: Execute testcase unit tests
-        run: pytest -s tests_examples/
+        run: pytest tests_examples/
