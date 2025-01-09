@@ -498,43 +498,31 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
             replacement: whether to sample with replacement
         """
         input = jax.numpy.asarray(probs)
-        if input.ndim == 1:
-            input = input[None, :]
-            squeeze_result = True
-        else:
-            squeeze_result = False
-
-        # Normalize probabilities
         input = input / jax.numpy.sum(input, axis=-1, keepdims=True)
+        batch_size = input.shape[:-1]
+        logits = jax.numpy.log(jax.numpy.maximum(input, 1e-37))
 
         if replacement:
             # Use categorical directly - much faster than choice
             samples = jax.random.categorical(
                 self.prng_key,
-                jax.numpy.log(jax.numpy.maximum(input, 1e-37)),  # avoid log(0)
-                shape=(input.shape[0], num_samples),
+                logits,  # avoid log(0)
+                shape=batch_size + (num_samples,),
             )
         else:
+            # TODO: This algorithm is not efficient for small num_samples
+            # consider more efficient algorithm
+
             # For without replacement, use Gumbel-max trick
             # This is much faster than using choice
-            z = -jax.numpy.log(
-                -jax.numpy.log(
-                    jax.random.uniform(
-                        self.prng_key,
-                        shape=(input.shape[0], input.shape[1], num_samples),
-                    )
-                )
-            )
-            # Add log probabilities for Gumbel-max trick
-            z = z + jax.numpy.log(jax.numpy.maximum(input, 1e-37))[..., None]
+            z = jax.random.gumbel(self.prng_key, shape=input.shape + (num_samples,))
+            # Add log probabilities for Gumbel-max trick,
+            z = z + logits[..., None]
             # Get top k indices
-            samples = jax.numpy.argsort(-z, axis=1)[:, :num_samples]
+            samples = jax.numpy.argsort(-z, axis=input.ndim - 1)[..., :num_samples, 0]
 
         # Update prng_key.
         self.prng_key, _ = jax.random.split(self.prng_key)
-
-        if squeeze_result:
-            samples = jax.numpy.squeeze(samples, axis=0)
 
         return samples
 
