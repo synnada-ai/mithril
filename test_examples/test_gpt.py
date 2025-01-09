@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+import platform
 import sys
 from contextlib import redirect_stdout
 from io import StringIO
@@ -20,7 +21,47 @@ from typing import Protocol
 
 import pytest
 
-from .test_api_examples import installed_backends
+from mithril import JaxBackend, MlxBackend, NumpyBackend, TorchBackend
+
+AllBackendsType = (
+    type[TorchBackend] | type[JaxBackend] | type[MlxBackend] | type[NumpyBackend]
+)
+
+installed_backends: list[AllBackendsType] = []
+try:
+    import torch  # noqa F401
+
+    torch.use_deterministic_algorithms(True)
+    torch.manual_seed(1337)
+
+    installed_backends.append(TorchBackend)
+except ImportError:
+    pass
+
+try:
+    import jax  # noqa F401
+    import jax.numpy as jnp  # noqa F401
+
+    installed_backends.append(JaxBackend)
+except ImportError:
+    pass
+
+try:
+    import numpy  # noqa F401
+
+    installed_backends.append(NumpyBackend)
+except ImportError:
+    pass
+
+try:
+    import mlx.core as mx  # noqa F401
+
+    if platform.system() != "Darwin" or os.environ.get("CI") == "true":
+        raise ImportError
+    installed_backends.append(MlxBackend)
+
+except ImportError:
+    pass
 
 backend_strings: list[str] = [backend.backend_type for backend in installed_backends]
 

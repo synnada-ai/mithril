@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import os
-import platform
 import sys
 from collections.abc import Callable
 from types import ModuleType
@@ -24,48 +23,9 @@ import pytest
 from mithril import (
     Backend,
     DataType,
-    JaxBackend,
-    MlxBackend,
-    NumpyBackend,
-    TorchBackend,
 )
 
-AllBackendsType = (
-    type[TorchBackend] | type[JaxBackend] | type[MlxBackend] | type[NumpyBackend]
-)
-
-installed_backends: list[AllBackendsType] = []
-try:
-    import torch  # noqa F401
-
-    installed_backends.append(TorchBackend)
-except ImportError:
-    pass
-
-try:
-    import jax  # noqa F401
-    import jax.numpy as jnp  # noqa F401
-
-    installed_backends.append(JaxBackend)
-except ImportError:
-    pass
-
-try:
-    import numpy  # noqa F401
-
-    installed_backends.append(NumpyBackend)
-except ImportError:
-    pass
-
-try:
-    import mlx.core as mx  # noqa F401
-
-    if platform.system() != "Darwin" or os.environ.get("CI") == "true":
-        raise ImportError
-    installed_backends.append(MlxBackend)
-
-except ImportError:
-    pass
+from .test_gpt import installed_backends
 
 
 class TestVariableLenghtOneToManyLSTM:
