@@ -80,7 +80,6 @@ from .utils import (
     dtype_map,
     find_optimal_sigmas,
     get_device,
-    handle_data_dtype,
     log_sigmoid,
     log_softmax,
     many_to_one_inference_helper,
@@ -109,6 +108,7 @@ __all__ = [
     "cos",
     "tanh",
     "relu",
+    "cast",
     "leaky_relu",
     "sigmoid",
     "softplus",
@@ -841,21 +841,23 @@ def matrix_concat(input1: jax.Array, input2: jax.Array) -> jax.Array:
     return jnp.concatenate((input1, input2), axis=input1.ndim - 1)
 
 
+### Array creation ops ###
+
+
 def to_tensor(
     input: NestedFloatOrIntOrBoolList,
     *,
-    dtype: str | None = None,
+    dtype: jnp.dtype | None = None,
     device: str,
     default_dtype: str,
 ) -> jax.Array:
-    if dtype is None:
-        dtype = default_dtype
+    dtype_str = default_dtype if dtype is None else dtype_map.inverse[dtype]
 
     dominant_type = find_dominant_type(input)
     _dtype = dominant_type.__name__
 
     if _dtype != "bool":
-        _dtype += str(re.findall(r"\d+", dtype)[-1])
+        _dtype += str(re.findall(r"\d+", dtype_str)[-1])
 
     with jax.default_device(get_device(device)):
         return jnp.array(input, dtype=dtype_map[_dtype])
@@ -865,27 +867,24 @@ def eye(
     N: int,
     M: int | None,
     *,
-    dtype: str | None = None,
+    dtype: jnp.dtype | None = None,
     device: str,
     default_dtype: str,
 ) -> jax.Array:
-    if dtype is None:
-        dtype = default_dtype
-
+    dtype = dtype_map[default_dtype] if dtype is None else dtype
     with jax.default_device(get_device(device)):
-        return jnp.eye(N, M, dtype=dtype_map[dtype])
+        return jnp.eye(N, M, dtype=dtype)
 
 
 def ones_with_zero_diag(
     N: int,
     M: int | None,
     *,
-    dtype: str | None = None,
+    dtype: jnp.dtype | None = None,
     device: str,
     default_dtype: str,
 ) -> jax.Array:
-    if dtype is None:
-        dtype = default_dtype
+    dtype = dtype_map[default_dtype] if dtype is None else dtype
 
     with jax.default_device(get_device(device)):
         return (
@@ -895,27 +894,26 @@ def ones_with_zero_diag(
         )
 
 
-def tensor_to_list(input: jax.Array) -> NestedFloatOrIntOrBoolList:
-    return input.tolist()
-
-
 def arange(
     start: int | float,
     stop: int | float,
     step: int | float,
     *,
-    dtype: str | None = None,
+    dtype: jnp.dtype | None = None,
     device: str,
     default_dtype: str,
 ) -> jax.Array:
-    if dtype is None:
-        dtype = default_dtype
+    _dtype = default_dtype if dtype is None else dtype_map.inverse[dtype]
 
     if len([item for item in [start, stop, step] if isinstance(item, float)]) == 0:
-        dtype = dtype.replace("float", "int").replace("bfloat", "int")
+        _dtype = _dtype.replace("float", "int").replace("bfloat", "int")
 
     with jax.default_device(get_device(device)):
-        return jnp.arange(start, stop, step, dtype=dtype_map[dtype])
+        return jnp.arange(start, stop, step, dtype=dtype_map[_dtype])
+
+
+def tensor_to_list(input: jax.Array) -> NestedFloatOrIntOrBoolList:
+    return input.tolist()
 
 
 def where(cond: jax.Array, input1: jax.Array, input2: jax.Array) -> jax.Array:
@@ -1035,8 +1033,8 @@ def nan_to_num(
     return jnp.nan_to_num(input, nan=nan, posinf=posinf, neginf=neginf)  # type: ignore
 
 
-def astype(input: jax.Array, dtype: core.Dtype | int) -> jax.Array:
-    return handle_data_dtype(input, dtype)
+def cast(input: jax.Array, dtype: jnp.dtype) -> jax.Array:
+    return input.astype(dtype)
 
 
 def dtype(input: jax.Array) -> core.Dtype:

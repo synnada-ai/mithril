@@ -71,6 +71,9 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         self.primitive_function_dict = ops.primitive_func_dict
         self.prng_key = jax.random.PRNGKey(self.seed)
 
+        for key, value in utils.dtype_map.items():
+            setattr(self, key, value)
+
     @property
     def is_manualgrad(self) -> bool:
         return False

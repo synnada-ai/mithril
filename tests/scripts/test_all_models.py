@@ -175,14 +175,20 @@ def compile_and_compare(
             elif out is not None:
                 if tolerance is not None and relative_tolerance is not None:
                     assert (
-                        all(backend.flatten(backend.abs(v - out) < tolerance))
-                        or all(
-                            backend.flatten(
-                                backend.abs(v - out)
-                                < backend.abs(v) * relative_tolerance
+                        (
+                            all(backend.flatten(backend.abs(v - out) < tolerance))
+                            or all(
+                                backend.flatten(
+                                    backend.abs(v - out)
+                                    < backend.abs(v) * relative_tolerance
+                                )
                             )
                         )
-                    ) and (out.shape == (() if isinstance(v, float) else v.shape))  # type: ignore
+                        and (
+                            out.shape == (() if isinstance(v, float) else v.shape)  # type: ignore
+                        )
+                        and (out.dtype == v.dtype)  # type: ignore
+                    )
                 else:
                     if not isinstance(eq := (out == v), bool):
                         eq = eq.all()
@@ -730,7 +736,7 @@ def test_where_2():
 def test_arange_1():
     model = Arange(start=0, stop=10, step=1)
 
-    reference_outputs = {"output": [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]}
+    reference_outputs = {"output": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]}
 
     compile_and_compare(
         model=model,
@@ -747,7 +753,7 @@ def test_arange_1():
 def test_arange_2():
     model = Arange(start=5, stop=10, step=2)
 
-    reference_outputs = {"output": [5.0, 7.0, 9.0]}
+    reference_outputs = {"output": [5, 7, 9]}
 
     compile_and_compare(
         model=model,
@@ -759,6 +765,75 @@ def test_arange_2():
         reference_gradients=None,
         tolerances=1e-6,
     )
+
+
+def test_arange_3():
+    model = Arange(start=5, stop=TBD, step=2)
+
+    reference_outputs = {"output": [5, 7, 9]}
+
+    compile_and_compare(
+        model=model,
+        compile_kwargs={"inference": True, "jit": False},
+        data={"stop": 10},
+        params={},
+        output_gradients={},
+        reference_outputs=reference_outputs,
+        reference_gradients=None,
+        assert_shapes=False,
+        tolerances=1e-6,
+    )
+
+
+def test_arange_static_inference_w_dtype():
+    dtypes = [mithril.float16, mithril.float32]
+    for dtype in dtypes:
+        model = Arange(start=0, stop=10, step=1, dtype=dtype)
+
+        reference_outputs = {"output": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]}
+
+        compile_and_compare(
+            model=model,
+            compile_kwargs={"inference": True},
+            data={},
+            params={},
+            output_gradients={},
+            reference_outputs=reference_outputs,
+            reference_gradients=None,
+            tolerances=1e-6,
+            backends=[
+                TorchBackend(dtype=dtype),
+                NumpyBackend(dtype=dtype),
+                JaxBackend(dtype=dtype),
+                MlxBackend(dtype=dtype),
+            ],
+        )
+
+
+def test_arange_w_dtype():
+    dtypes = [mithril.float16, mithril.float32]
+    for dtype in dtypes:
+        model = Arange(start=0, stop=TBD, step=1, dtype=dtype)
+
+        reference_outputs = {"output": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]}
+
+        compile_and_compare(
+            model=model,
+            compile_kwargs={"inference": True, "jit": False},
+            data={"stop": 10},
+            params={},
+            output_gradients={},
+            reference_outputs=reference_outputs,
+            reference_gradients=None,
+            assert_shapes=False,
+            tolerances=1e-6,
+            backends=[
+                TorchBackend(dtype=dtype),
+                NumpyBackend(dtype=dtype),
+                JaxBackend(dtype=dtype),
+                MlxBackend(dtype=dtype),
+            ],
+        )
 
 
 def test_randn_static_inference():
@@ -1277,7 +1352,6 @@ def test_reduce_prod_6():
         tolerances=1e-6,
         assert_shapes=False,
     )
-    ...
 
 
 def test_eye_1():
@@ -1333,6 +1407,60 @@ def test_eye_3():
         tolerances=1e-6,
         assert_shapes=False,
     )
+
+
+def test_eye_static_infer_with_dtype():
+    dtypes = [mithril.float16, mithril.float32]
+    for dtype in dtypes:
+        model = Eye(N=3, M=4, dtype=dtype)
+
+        reference_outputs = {
+            "output": [[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0]]
+        }
+        compile_and_compare(
+            model=model,
+            compile_kwargs={},
+            data={},
+            params={},
+            output_gradients={},
+            reference_outputs=reference_outputs,
+            reference_gradients=None,
+            tolerances=1e-6,
+            assert_shapes=False,
+            backends=[
+                JaxBackend(dtype=dtype),
+                TorchBackend(dtype=dtype),
+                NumpyBackend(dtype=dtype),
+                MlxBackend(dtype=dtype),
+            ],
+        )
+
+
+def test_eye_with_dtype():
+    dtypes = [mithril.float16, mithril.float32]
+    for dtype in dtypes:
+        model = Eye(N=3, M=TBD, dtype=dtype)
+
+        reference_outputs = {
+            "output": [[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0]]
+        }
+        compile_and_compare(
+            model=model,
+            compile_kwargs={"jit": False},
+            data={"M": 4},
+            params={},
+            output_gradients={},
+            reference_outputs=reference_outputs,
+            reference_gradients=None,
+            tolerances=1e-6,
+            assert_shapes=False,
+            backends=[
+                JaxBackend(dtype=dtype),
+                TorchBackend(dtype=dtype),
+                NumpyBackend(dtype=dtype),
+                MlxBackend(dtype=dtype),
+            ],
+        )
 
 
 def test_zeros_like():
@@ -1404,6 +1532,60 @@ def test_eye_complement_3():
         tolerances=1e-6,
         assert_shapes=False,
     )
+
+
+def test_eye_complement_static_infer_w_dtype():
+    dtypes = [mithril.float16, mithril.float32]
+    for dtype in dtypes:
+        model = EyeComplement(N=3, M=4, dtype=dtype)
+
+        reference_outputs = {
+            "output": [[0.0, 1.0, 1.0, 1.0], [1.0, 0.0, 1.0, 1.0], [1.0, 1.0, 0.0, 1.0]]
+        }
+        compile_and_compare(
+            model=model,
+            compile_kwargs={},
+            data={},
+            params={},
+            output_gradients={},
+            reference_outputs=reference_outputs,
+            reference_gradients=None,
+            tolerances=1e-6,
+            assert_shapes=False,
+            backends=[
+                JaxBackend(dtype=dtype),
+                TorchBackend(dtype=dtype),
+                NumpyBackend(dtype=dtype),
+                MlxBackend(dtype=dtype),
+            ],
+        )
+
+
+def test_eye_complement_w_dtype():
+    dtypes = [mithril.float16, mithril.float32]
+    for dtype in dtypes:
+        model = EyeComplement(N=3, M=TBD, dtype=dtype)
+
+        reference_outputs = {
+            "output": [[0.0, 1.0, 1.0, 1.0], [1.0, 0.0, 1.0, 1.0], [1.0, 1.0, 0.0, 1.0]]
+        }
+        compile_and_compare(
+            model=model,
+            compile_kwargs={"jit": False},
+            data={"M": 4},
+            params={},
+            output_gradients={},
+            reference_outputs=reference_outputs,
+            reference_gradients=None,
+            tolerances=1e-6,
+            assert_shapes=False,
+            backends=[
+                JaxBackend(dtype=dtype),
+                TorchBackend(dtype=dtype),
+                NumpyBackend(dtype=dtype),
+                MlxBackend(dtype=dtype),
+            ],
+        )
 
 
 def test_squeeze_1():

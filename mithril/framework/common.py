@@ -770,6 +770,10 @@ class BaseData(Generic[T]):
         physical_data = deepcopy(self, memo)
         if isinstance(self.value, Constant):
             physical_data.value = epsilon_table[backend.precision][self.value]
+
+        elif isinstance(self.value, Dtype):
+            physical_data.value = getattr(backend, self.value.name)
+
         return physical_data
 
     def match_shapes(self, other: BaseData[T]):

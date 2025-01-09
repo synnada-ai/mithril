@@ -93,9 +93,13 @@ def create_kwarg_dict(
     if kwdefaults is not None and reduce_with_defaults:
         for key, value in kwdefaults.items():
             provided_value = data_values.get(kwarg_keys_dict[key], TBD)
-            if value == provided_value and type(value) is type(provided_value):
-                removed_kwargs_dict[key] = kwarg_keys_dict[key]
-                kwarg_keys_dict.pop(key)
+            try:
+                if value == provided_value and type(value) is type(provided_value):
+                    removed_kwargs_dict[key] = kwarg_keys_dict[key]
+                    kwarg_keys_dict.pop(key)
+            except Exception:
+                # Some values are not comparable!
+                pass
 
     return kwarg_keys_dict, removed_kwargs_dict
 

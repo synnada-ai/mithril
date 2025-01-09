@@ -1645,15 +1645,13 @@ class EyeComplement(PrimitiveModel):
         M: int | ToBeDetermined | None = None,
         dtype: Dtype | None = None,
     ) -> None:
-        _dtype = dtype.name if dtype is not None else None
-
         super().__init__(
             formula_key="ones_with_zero_diag",
             name=name,
             output=BaseKey(shape=["N", "M"], type=MyTensor[float]),
             N=BaseKey(type=int, value=N),
             M=BaseKey(type=int | None, value=M),
-            dtype=BaseKey(type=str | None, value=_dtype),
+            dtype=BaseKey(type=Dtype | None, value=dtype),
         )
         self._set_constraint(fn=eye_constraints, keys=["output", "N", "M"])
 
@@ -1680,14 +1678,13 @@ class Eye(PrimitiveModel):
         M: int | ToBeDetermined | None = None,
         dtype: Dtype | None = None,
     ) -> None:
-        _dtype = dtype.name if dtype is not None else None
         super().__init__(
             formula_key="eye",
             name=name,
             output=BaseKey(shape=["N", "M"], type=MyTensor[float]),
             N=BaseKey(type=int, value=N),
             M=BaseKey(type=int | None, value=M),
-            dtype=BaseKey(type=str | None, value=_dtype),
+            dtype=BaseKey(type=Dtype | None, value=dtype),
         )
         self._set_constraint(fn=eye_constraints, keys=["output", "N", "M"])
 
@@ -1845,8 +1842,6 @@ class Arange(PrimitiveModel):
         else:
             output_shp = ["N"]
 
-        _dtype = dtype.name if dtype is not None else None
-
         super().__init__(
             formula_key="arange",
             name=name,
@@ -1854,7 +1849,7 @@ class Arange(PrimitiveModel):
             start=BaseKey(type=int | float, value=start),
             stop=BaseKey(type=int | float, value=stop),
             step=BaseKey(type=int | float, value=step),
-            dtype=BaseKey(type=str | None, value=_dtype),
+            dtype=BaseKey(type=Dtype | None, value=dtype),
         )
         self.set_canonical_input("stop")
 
@@ -1893,14 +1888,13 @@ class Randn(PrimitiveModel):
         dtype: Dtype | None = None,
         name: str | None = None,
     ) -> None:
-        _dtype = dtype.name if dtype is not None else None
         super().__init__(
             formula_key="randn",
             name=name,
             output=BaseKey(shape=[("output", ...)], type=GenericTensorType),
             shape=BaseKey(type=tuple[int, ...], value=shape),
             key=BaseKey(type=int, value=key),
-            dtype=BaseKey(type=str | None, value=_dtype),
+            dtype=BaseKey(type=Dtype | None, value=dtype),
         )
 
         self.random_keys.add("key")

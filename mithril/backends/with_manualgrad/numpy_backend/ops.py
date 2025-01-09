@@ -71,6 +71,7 @@ from ..common_primitives import (
     tuple_converter,
     union,
 )
+from . import utils
 from .utils import (
     CacheType,
     calc_prob_matrix,
@@ -79,7 +80,6 @@ from .utils import (
     find_optimal_sigmas,
     get_submatrices1d,
     get_submatrices2d,
-    handle_data_dtype,
     log_sigmoid,
     log_softmax,
     make_array,
@@ -106,6 +106,7 @@ __all__ = [
     "tanh",
     "sigmoid",
     "softplus",
+    "cast",
     "gelu",
     "softmax",
     "reduce_mean",
@@ -942,19 +943,18 @@ def squeeze(
 
 def to_tensor(
     *input: NestedFloatOrIntOrBoolList,
-    dtype: str | None = None,
+    dtype: np.dtype | None = None,
     device: str,
     default_dtype: str,
     cache: CacheType | None = None,
 ) -> np.ndarray[Any, Any]:
-    if dtype is None:
-        dtype = default_dtype
+    dtype_str = default_dtype if dtype is None else utils.dtype_map.inverse[dtype]
 
     dominant_type = find_dominant_type(input)
     _dtype = dominant_type.__name__
 
     if _dtype != "bool":
-        _dtype += str(re.findall(r"\d+", dtype)[-1])
+        _dtype += str(re.findall(r"\d+", dtype_str)[-1])
 
     return np.array(input[0], dtype=_dtype)
 
@@ -968,28 +968,47 @@ def eye(
     default_dtype: str,
     cache: CacheType | None = None,
 ) -> np.ndarray[Any, Any]:
-    if dtype is None:
-        dtype = default_dtype
+    dtype = utils.dtype_map[default_dtype] if dtype is None else dtype
+
     return np.eye(N, M, dtype=dtype)
 
 
 def ones_with_zero_diag(
-    *args: Any,
+    N: int,
+    M: int | None,
+    *,
     dtype: str | None = None,
     device: str,
     default_dtype: str,
     cache: CacheType | None = None,
 ) -> np.ndarray[Any, Any]:
-    if dtype is None:
-        dtype = default_dtype
-    n, m = args
+    dtype = utils.dtype_map[default_dtype] if dtype is None else dtype
+
     output = (
-        np.ones((n, m), dtype=dtype) - np.eye(n, m, dtype=dtype)
-        if m is not None
-        else np.ones(n, dtype=dtype) - np.eye(n, dtype=dtype)
+        np.ones((N, M), dtype=dtype) - np.eye(N, M, dtype=dtype)
+        if M is not None
+        else np.ones(N, dtype=dtype) - np.eye(N, dtype=dtype)
     )
 
     return output
+
+
+def arange(
+    start: int | float,
+    stop: int | float,
+    step: int | float,
+    *,
+    dtype: np.dtype | None = None,
+    device: str,
+    default_dtype: str,
+    cache: CacheType | None = None,
+) -> np.ndarray[Any, Any]:
+    _dtype = default_dtype if dtype is None else utils.dtype_map.inverse[dtype]
+
+    if len([item for item in [start, stop, step] if isinstance(item, float)]) == 0:
+        _dtype = _dtype.replace("float", "int").replace("bfloat", "int")
+
+    return np.arange(start, stop, step, dtype=_dtype)
 
 
 def tensor_to_list(input: np.ndarray[Any, Any], cache: CacheType | None = None):
@@ -1019,25 +1038,6 @@ def concat(
     *inputs: np.ndarray[Any, Any], axis: int | None = 0, cache: CacheType | None = None
 ) -> np.ndarray[Any, Any]:
     return np.concatenate([np.array(v) for v in inputs], axis=axis)
-
-
-def arange(
-    start: int | float,
-    stop: int | float,
-    step: int | float,
-    *,
-    dtype: str | None = None,
-    device: str,
-    default_dtype: str,
-    cache: CacheType | None = None,
-) -> np.ndarray[Any, Any]:
-    if dtype is None:
-        dtype = default_dtype
-
-    if len([item for item in [start, stop, step] if isinstance(item, float)]) == 0:
-        dtype = dtype.replace("float", "int").replace("bfloat", "int")
-
-    return np.arange(start, stop, step, dtype=dtype)
 
 
 def flatten(
@@ -1232,10 +1232,8 @@ def nan_to_num(
     return np.nan_to_num(input, nan=nan, posinf=posinf, neginf=neginf)
 
 
-def astype(
-    input: np.ndarray[Any, Any], dtype: core.Dtype | int
-) -> np.ndarray[Any, Any]:
-    return handle_data_dtype(input, dtype)
+def cast(input: np.ndarray[Any, Any], dtype: np.dtype) -> np.ndarray[Any, Any]:
+    return input.astype(dtype)
 
 
 def dtype(input: np.ndarray[Any, Any]) -> core.Dtype:

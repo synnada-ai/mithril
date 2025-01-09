@@ -21,24 +21,22 @@ import numpy as np
 
 from .... import core
 from ....utils.type_utils import is_int_tuple_tuple
-from ....utils.utils import binary_search, find_dominant_type
+from ....utils.utils import BiMap, binary_search, find_dominant_type
 from ...utils import DtypeSubTypes
 
 ArrayType = np.ndarray
 
-dtype_map: dict[str, Any] = {
-    "int16": np.int16,
-    "int32": np.int32,
-    "int": np.int32,
-    "int64": np.int64,
-    "long": np.int64,
-    "float16": np.float16,
-    "float32": np.float32,
-    "float": np.float32,
-    "float64": np.float64,
-    "double": np.float64,
-    "bool": np.bool_,
-}
+dtype_map: BiMap[str, Any] = BiMap(
+    {
+        "int16": np.int16,
+        "int32": np.int32,
+        "int64": np.int64,
+        "float16": np.float16,
+        "float32": np.float32,
+        "float64": np.float64,
+        "bool": np.bool_,
+    }
+)
 
 CacheType = dict[str, Any]
 

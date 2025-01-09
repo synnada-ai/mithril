@@ -72,6 +72,9 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
 
         torch.random.manual_seed(self.seed)
 
+        for key, value in utils.dtype_map.items():
+            setattr(self, key, value)
+
     @property
     def is_manualgrad(self) -> bool:
         return False

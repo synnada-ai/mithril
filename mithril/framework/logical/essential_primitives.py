@@ -503,7 +503,7 @@ class Cast(PrimitiveModel):
         self, name: str | None = None, dtype: Dtype | ToBeDetermined = TBD
     ) -> None:
         super().__init__(
-            formula_key="astype",
+            formula_key="cast",
             name=name,
             output=BaseKey(shape=[("Var", ...)], type=GenericTensorType),
             input=BaseKey(shape=[("Var", ...)], type=GenericTensorType),

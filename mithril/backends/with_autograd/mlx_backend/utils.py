@@ -23,26 +23,24 @@ import mlx.nn as nn
 import numpy as np
 
 from .... import core
-from ....utils.utils import binary_search, find_dominant_type
+from ....utils.utils import BiMap, binary_search, find_dominant_type
 from ...utils import DtypeSubTypes
 
 ArrayType = mx.array
 
 
-dtype_map: dict[str, mx.Dtype] = {
-    "int8": mx.int8,
-    "int16": mx.int16,
-    "short": mx.int16,
-    "int32": mx.int32,
-    "int": mx.int32,
-    "int64": mx.int64,
-    "long": mx.int64,
-    "float16": mx.float16,
-    "bfloat16": mx.bfloat16,
-    "float32": mx.float32,
-    "float": mx.float32,
-    "bool": mx.bool_,  # type: ignore
-}
+dtype_map: BiMap[str, mx.Dtype] = BiMap(
+    {
+        "int8": mx.int8,
+        "int16": mx.int16,
+        "int32": mx.int32,
+        "int64": mx.int64,
+        "float16": mx.float16,
+        "bfloat16": mx.bfloat16,
+        "float32": mx.float32,
+        "bool": mx.bool_,  # type: ignore
+    }
+)
 
 
 def get_available_devices():

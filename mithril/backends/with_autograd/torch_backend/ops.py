@@ -77,7 +77,6 @@ from .utils import (
     calculate_cross_entropy_class_weights,
     calculate_tpr_fpr,
     find_optimal_sigmas,
-    handle_data_dtype,
     log_sigmoid,
     log_softmax,
 )
@@ -203,7 +202,7 @@ __all__ = [
     "lstm_cell",
     "reduce_argmin",
     "reduce_argmax",
-    "astype",
+    "cast",
     "unique",
     "trapezoid",
     "pad",
@@ -851,21 +850,23 @@ def where(
     return torch.where(cond, input1, input2)
 
 
+### Array creation ops ###
+
+
 def to_tensor(
     input: NestedFloatOrIntOrBoolList,
     *,
-    dtype: str | None = None,
+    dtype: torch.dtype | None = None,
     device: str,
     default_dtype: str,
 ) -> torch.Tensor:
-    if dtype is None:
-        dtype = default_dtype
+    dtype_str = default_dtype if dtype is None else utils.dtype_map.inverse[dtype]
 
     dominant_type = find_dominant_type(input)
     _dtype = dominant_type.__name__
 
     if _dtype != "bool":
-        _dtype += str(re.findall(r"\d+", dtype)[-1])
+        _dtype += str(re.findall(r"\d+", dtype_str)[-1])
 
     return torch.tensor(input, device=device, dtype=utils.dtype_map[_dtype])
 
@@ -874,39 +875,55 @@ def eye(
     N: int,
     M: int | None,
     *,
-    dtype: str | None = None,
+    dtype: torch.dtype | None = None,
     device: str,
     default_dtype: str,
 ) -> torch.Tensor:
-    if dtype is None:
-        dtype = default_dtype
+    dtype = utils.dtype_map[default_dtype] if dtype is None else dtype
 
     if M is None:
-        return torch.eye(N, device=device, dtype=utils.dtype_map[dtype])
+        return torch.eye(N, device=device, dtype=dtype)
     else:
-        return torch.eye(N, M, device=device, dtype=utils.dtype_map[dtype])
+        return torch.eye(N, M, device=device, dtype=dtype)
 
 
 def ones_with_zero_diag(
     N: int,
     M: int | None,
     *,
-    dtype: str | None = None,
+    dtype: torch.dtype | None = None,
     device: str,
     default_dtype: str,
 ) -> torch.Tensor:
-    if dtype is None:
-        dtype = default_dtype
+    dtype = utils.dtype_map[default_dtype] if dtype is None else dtype
+
     if M is None:
-        output = torch.ones(N, dtype=utils.dtype_map[dtype]) - torch.eye(
-            N, dtype=utils.dtype_map[dtype]
+        output = torch.ones(N, dtype=dtype, device=device) - torch.eye(
+            N, dtype=dtype, device=device
         )
     else:
-        output = torch.ones((N, M), dtype=utils.dtype_map[dtype]) - torch.eye(
-            N, M, dtype=utils.dtype_map[dtype]
+        output = torch.ones((N, M), dtype=dtype, device=device) - torch.eye(
+            N, M, dtype=dtype, device=device
         )
 
     return output
+
+
+def arange(
+    start: int | float,
+    stop: int | float,
+    step: int | float,
+    *,
+    dtype: torch.dtype | None = None,
+    device: str,
+    default_dtype: str,
+) -> torch.Tensor:
+    _dtype = default_dtype if dtype is None else utils.dtype_map.inverse[dtype]
+
+    if len([item for item in [start, stop, step] if isinstance(item, float)]) == 0:
+        _dtype = _dtype.replace("bfloat", "int").replace("float", "int")
+
+    return torch.arange(start, stop, step, device=device, dtype=utils.dtype_map[_dtype])
 
 
 def tensor_to_list(input: torch.Tensor) -> NestedFloatOrIntOrBoolList:
@@ -917,24 +934,6 @@ def to_parallel(tensor: torch.Tensor, device_mesh: DeviceMesh) -> torch.Tensor:
     return distribute_tensor(
         tensor, device_mesh, [Replicate()] * len(device_mesh.shape)
     )
-
-
-def arange(
-    start: int | float,
-    stop: int | float,
-    step: int | float,
-    *,
-    dtype: str | None = None,
-    device: str,
-    default_dtype: str,
-) -> torch.Tensor:
-    if dtype is None:
-        dtype = default_dtype
-
-    if len([item for item in [start, stop, step] if isinstance(item, float)]) == 0:
-        dtype = dtype.replace("float", "int").replace("bfloat", "int")
-
-    return torch.arange(start, stop, step, device=device, dtype=utils.dtype_map[dtype])
 
 
 def concat(*inputs: torch.Tensor, axis: int | None = 0) -> torch.Tensor:
@@ -1140,8 +1139,8 @@ def nan_to_num(
     return torch.nan_to_num(input, nan=nan, posinf=posinf, neginf=neginf)
 
 
-def astype(input: torch.Tensor, dtype: core.Dtype | int) -> torch.Tensor:
-    return handle_data_dtype(input, dtype)
+def cast(input: torch.Tensor, dtype: torch.dtype) -> torch.Tensor:
+    return input.type(dtype)
 
 
 def dtype(input: torch.Tensor) -> core.Dtype:

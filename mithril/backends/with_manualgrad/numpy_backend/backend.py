@@ -62,6 +62,9 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
         self.primitive_grad_function_dict = ops_grad.primitive_grad_func_dict
         np.random.seed(self.seed)
 
+        for key, value in utils.dtype_map.items():
+            setattr(self, key, value)
+
     @property
     def is_manualgrad(self) -> bool:
         return True

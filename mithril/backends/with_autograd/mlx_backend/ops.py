@@ -88,6 +88,7 @@ __all__ = [
     "stable_reciprocal",
     "sin",
     "cos",
+    "cast",
     "tanh",
     "relu",
     "leaky_relu",
@@ -750,21 +751,23 @@ def primitive_accuracy(input1: mx.array, input2: mx.array) -> mx.array:
     return mx.mean(mx.equal(prediction, input2))
 
 
+### Array creation ops ###
+
+
 def to_tensor(
     input: NestedFloatOrIntOrBoolList,
     *,
-    dtype: str | None = None,
+    dtype: mx.Dtype | None = None,
     device: str,
     default_dtype: str,
 ) -> mx.array:
-    if dtype is None:
-        dtype = default_dtype
+    dtype_str = default_dtype if dtype is None else utils.dtype_map.inverse[dtype]
 
     dominant_type = find_dominant_type(input)
     _dtype = dominant_type.__name__
 
     if _dtype != "bool":
-        _dtype += str(re.findall(r"\d+", dtype)[-1])
+        _dtype += str(re.findall(r"\d+", dtype_str)[-1])
 
     return mx.array(input, dtype=utils.dtype_map[_dtype])
 
@@ -773,38 +776,30 @@ def eye(
     N: int,
     M: int | None,
     *,
-    dtype: str | None = None,
+    dtype: mx.Dtype | None = None,
     device: str,
     default_dtype: str,
 ) -> mx.array:
-    if dtype is None:
-        dtype = default_dtype
-    return mx.eye(N, M, dtype=utils.dtype_map[dtype])
+    dtype = utils.dtype_map[default_dtype] if dtype is None else dtype
+
+    return mx.eye(N, M, dtype=dtype)
 
 
 def ones_with_zero_diag(
     N: int,
     M: int | None,
     *,
-    dtype: str | None = None,
+    dtype: mx.Dtype | None = None,
     device: str,
     default_dtype: str,
 ) -> mx.array:
-    if dtype is None:
-        dtype = default_dtype
+    dtype = utils.dtype_map[default_dtype] if dtype is None else dtype
 
     return (
-        mx.ones(N, dtype=utils.dtype_map[dtype])
-        - mx.eye(N, dtype=utils.dtype_map[dtype])
+        mx.ones(N, dtype=dtype) - mx.eye(N, dtype=dtype)
         if M is None
-        else mx.ones((N, M), dtype=utils.dtype_map[dtype])
-        - mx.eye(N, M, dtype=utils.dtype_map[dtype])
+        else mx.ones((N, M), dtype=dtype) - mx.eye(N, M, dtype=dtype)
     )
-
-
-def tensor_to_list(input: mx.array) -> NestedFloatOrIntOrBoolList:
-    # MLX return type is object!
-    return input.tolist()  # type: ignore
 
 
 def arange(
@@ -812,17 +807,21 @@ def arange(
     stop: int | float,
     step: int | float,
     *,
-    dtype: str | None = None,
+    dtype: mx.Dtype | None = None,
     device: str,
     default_dtype: str,
 ) -> mx.array:
-    if dtype is None:
-        dtype = default_dtype
+    _dtype = default_dtype if dtype is None else utils.dtype_map.inverse[dtype]
 
     if len([item for item in [start, stop, step] if isinstance(item, float)]) == 0:
-        dtype = dtype.replace("float", "int").replace("bfloat", "int")
+        _dtype = _dtype.replace("float", "int").replace("bfloat", "int")
 
-    return mx.arange(start, stop, step, dtype=utils.dtype_map[dtype])  # type: ignore
+    return mx.arange(start, stop, step, dtype=utils.dtype_map[_dtype])  # type: ignore
+
+
+def tensor_to_list(input: mx.array) -> NestedFloatOrIntOrBoolList:
+    # MLX return type is object!
+    return input.tolist()  # type: ignore
 
 
 def concat(*inputs: mx.array, axis: AxisType = 0) -> mx.array:
@@ -924,8 +923,8 @@ def nan_to_num(
     # return mx.nan_to_num(input, nan = nan, posinf = posinf, neginf = neginf)
 
 
-def astype(input: mx.array, dtype: core.Dtype | int) -> mx.array:
-    return utils.handle_data_dtype(input, dtype)
+def cast(input: mx.array, dtype: mx.Dtype) -> mx.array:
+    return input.astype(dtype)
 
 
 def dtype(input: mx.array) -> core.Dtype:
