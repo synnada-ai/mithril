@@ -1,12 +1,14 @@
-name: Test-Examples
+name: Test-examples-CI
 on:
   push:
     branches: [ dev, main ]
   pull_request:
     branches: [ dev, main ]
+env:
+  CI: true
 jobs:
   build:
-    runs-on: macos-15-xlarge
+    runs-on: ubuntu-22.04
     strategy:
       matrix:
         python-version: [3.12]

@@ -44,6 +44,16 @@ class TestVariableLenghtOneToManyLSTM:
 
 
 class TestResnetLogicalModels:
+    # TODO: This test is somewhat incapable. It only tests if logical model
+    # can be created without error. However, it should also test if model is
+    # correct in a way that is compatible with the torchvision implementation.
+    # The problem is, it is not possible nor easy because original torch implementation
+    # also includes BatchNorm layers. Find a workaround.
+
+    # One of the potential solution could be importing resnet model and deactivating
+    # BatchNorm layers.
+    # https://discuss.pytorch.org/t/how-to-close-batchnorm-when-using-torchvision-models/21812
+
     @pytest.fixture(scope="class")
     def module(self) -> ModuleType:
         import examples.model_api.resnet_logical_models as resnet
