@@ -48,6 +48,8 @@ from mithril.framework.constraints import (
     eye_constraints,
     flatten_constrains,
     general_tensor_type_constraint,
+    indexer_constraints,
+    indexer_type_constraint,
     item_constraints,
     pad_constraints,
     polynomial_features_constraints,
@@ -56,8 +58,6 @@ from mithril.framework.constraints import (
     reduce_type_constraint,
     reshape_constraints,
     reverse_constraints,
-    scalar_item_constraints,
-    scalar_item_type_constraint,
     scalar_slice_type_constraint,
     shape_constraints,
     size_constraints,
@@ -66,7 +66,6 @@ from mithril.framework.constraints import (
     split_constraints,
     squeeze_constraints,
     swap_axes_constraints,
-    tensor_item_constraints,
     tensor_to_list_constraints,
     tensor_to_list_type_constraint,
     to_list_constraints,
@@ -5643,7 +5642,7 @@ def test_scalar_item_1():
         {},
         final_shapes,
         {},
-        scalar_item_constraints,
+        indexer_constraints,
         True,
         {"output"},
         scalar_info,
@@ -5669,7 +5668,7 @@ def test_scalar_item_2():
         {},
         final_shapes,
         {},
-        scalar_item_constraints,
+        indexer_constraints,
         False,
         set(),
         scalar_info,
@@ -5695,7 +5694,7 @@ def test_scalar_item_3():
         {},
         final_shapes,
         {},
-        scalar_item_constraints,
+        indexer_constraints,
         True,
         {"index"},
         scalar_info,
@@ -5772,7 +5771,7 @@ def test_polynomial_features_4():
     # TODO: Update the error message with a more informative one!
 
 
-def test_tensor_item_constraints_1():
+def test_indexer_constraints_1():
     shapes: dict[str, list[int | str | tuple]] = {
         "input": [("Var1", ...)],
         "output": [("Var2", ...)],
@@ -5784,14 +5783,14 @@ def test_tensor_item_constraints_1():
         {},
         final_shapes,
         {},
-        tensor_item_constraints,
+        indexer_constraints,
         True,
         {"input"},
         scalar_info,
     )
 
 
-def test_tensor_item_constraints_2():
+def test_indexer_constraints_2():
     shapes: dict[str, list[int | str | tuple]] = {
         "input": [("Var1", ...)],
         "output": [("Var2", ...)],
@@ -5807,14 +5806,14 @@ def test_tensor_item_constraints_2():
         {},
         final_shapes,
         {},
-        tensor_item_constraints,
+        indexer_constraints,
         True,
         {"input"},
         scalar_info,
     )
 
 
-def test_tensor_item_constraints_3():
+def test_indexer_constraints_3():
     shapes: dict[str, list[int | str | tuple]] = {
         "input": ["u1", "u2", ("Var1", ...)],
         "output": [("Var2", ...)],
@@ -5830,14 +5829,14 @@ def test_tensor_item_constraints_3():
         {},
         final_shapes,
         {},
-        tensor_item_constraints,
+        indexer_constraints,
         True,
         {"input"},
         scalar_info,
     )
 
 
-def test_tensor_item_constraints_4():
+def test_indexer_constraints_4():
     shapes: dict[str, list[int | str | tuple]] = {
         "input": [("Var1", ...)],
         "output": [("Var2", ...)],
@@ -5853,14 +5852,14 @@ def test_tensor_item_constraints_4():
         {},
         final_shapes,
         {},
-        tensor_item_constraints,
+        indexer_constraints,
         True,
         {"input", "output"},
         scalar_info,
     )
 
 
-def test_tensor_item_constraints_5():
+def test_indexer_constraints_5():
     shapes: dict[str, list[int | str | tuple]] = {
         "input": [10, ("Var1", ...)],
         "output": [("Var2", ...)],
@@ -5872,14 +5871,14 @@ def test_tensor_item_constraints_5():
         {},
         final_shapes,
         {},
-        tensor_item_constraints,
+        indexer_constraints,
         True,
         {"output"},
         scalar_info,
     )
 
 
-def test_tensor_item_constraints_6():
+def test_indexer_constraints_6():
     shapes: dict[str, list[int | str | tuple]] = {
         "input": ["u1", "u2", "u3"],
         "output": [("Var1", ...)],
@@ -5895,14 +5894,14 @@ def test_tensor_item_constraints_6():
         {},
         final_shapes,
         {},
-        tensor_item_constraints,
+        indexer_constraints,
         False,
         {"output"},
         scalar_info,
     )
 
 
-def test_tensor_item_constraints_7():
+def test_indexer_constraints_7():
     shapes: dict[str, list[int | str | tuple]] = {
         "input": ["u1", "u2", "u3", "u4", "u5", "u6", "u7", "u8"],
         "output": [("Var1", ...)],
@@ -5918,14 +5917,14 @@ def test_tensor_item_constraints_7():
         {},
         final_shapes,
         {},
-        tensor_item_constraints,
+        indexer_constraints,
         True,
         {"output"},
         scalar_info,
     )
 
 
-def test_tensor_item_constraints_8():
+def test_indexer_constraints_8():
     shapes: dict[str, list[int | str | tuple]] = {
         "input": ["u1", "u2", "u3", "u4", "u5", "u6", "u7", "u8"],
         "output": [("Var1", ...)],
@@ -5945,14 +5944,14 @@ def test_tensor_item_constraints_8():
         {},
         final_shapes,
         {},
-        tensor_item_constraints,
+        indexer_constraints,
         True,
         {"output"},
         scalar_info,
     )
 
 
-def test_tensor_item_constraints_9():
+def test_indexer_constraints_9():
     shapes: dict[str, list[int | str | tuple]] = {
         "input": ["u1", "u2", "u3", "u4", "u5", "u6", "u7", "u8"],
         "output": [("Var1", ...)],
@@ -5985,14 +5984,14 @@ def test_tensor_item_constraints_9():
         {},
         final_shapes,
         {},
-        tensor_item_constraints,
+        indexer_constraints,
         False,
         {"output"},
         scalar_info,
     )
 
 
-def test_tensor_item_constraints_10():
+def test_indexer_constraints_10():
     shapes: dict[str, list[int | str | tuple]] = {
         "input": [8, 9, 10, 11, 12, 13, 14, 15],
         "output": [("Var1", ...)],
@@ -6025,14 +6024,14 @@ def test_tensor_item_constraints_10():
         {},
         final_shapes,
         {},
-        tensor_item_constraints,
+        indexer_constraints,
         True,
         {"output"},
         scalar_info,
     )
 
 
-def test_tensor_item_constraints_11():
+def test_indexer_constraints_11():
     shapes: dict[str, list[int | str | tuple]] = {
         "input": ["u1", "u2", "u3", ("Var1", ...), "u4", "u5", "u6"],
         "output": [("Var2", ...)],
@@ -6048,14 +6047,14 @@ def test_tensor_item_constraints_11():
         {},
         final_shapes,
         {},
-        tensor_item_constraints,
+        indexer_constraints,
         True,
         {"output"},
         scalar_info,
     )
 
 
-def test_tensor_item_constraints_12():
+def test_indexer_constraints_12():
     shapes: dict[str, list[int | str | tuple]] = {
         "input": [("Var1", ...), "u1", "u2"],
         "output": [("Var2", ...)],
@@ -6075,14 +6074,14 @@ def test_tensor_item_constraints_12():
         {},
         final_shapes,
         {},
-        tensor_item_constraints,
+        indexer_constraints,
         False,
         {"output"},
         scalar_info,
     )
 
 
-def test_tensor_item_constraints_13():
+def test_indexer_constraints_13():
     shapes: dict[str, list[int | str | tuple]] = {
         "input": [("Var1", ...), "u1", "u2"],
         "output": [("Var2", ...)],
@@ -6100,14 +6099,14 @@ def test_tensor_item_constraints_13():
         {},
         final_shapes,
         {},
-        tensor_item_constraints,
+        indexer_constraints,
         False,
         {"output"},
         scalar_info,
     )
 
 
-def test_tensor_item_constraints_14():
+def test_indexer_constraints_14():
     shapes: dict[str, list[int | str | tuple]] = {
         "input": ["u1", ("Var1", ...), "u2"],
         "output": [("Var2", ...)],
@@ -6123,14 +6122,14 @@ def test_tensor_item_constraints_14():
         {},
         final_shapes,
         {},
-        tensor_item_constraints,
+        indexer_constraints,
         False,
         {"output", "input"},
         scalar_info,
     )
 
 
-def test_tensor_item_constraints_15():
+def test_indexer_constraints_15():
     shapes: dict[str, list[int | str | tuple]] = {
         "input": ["u1", "u2", ("Var1", ...)],
         "output": [("Var2", ...)],
@@ -6150,14 +6149,14 @@ def test_tensor_item_constraints_15():
         {},
         final_shapes,
         {},
-        tensor_item_constraints,
+        indexer_constraints,
         False,
         {"output"},
         scalar_info,
     )
 
 
-def test_tensor_item_constraints_16():
+def test_indexer_constraints_16():
     shapes: dict[str, list[int | str | tuple]] = {
         "input": [("Var1", ...), "u1", "u2"],
         "output": [("Var2", ...)],
@@ -6173,14 +6172,14 @@ def test_tensor_item_constraints_16():
         {},
         final_shapes,
         {},
-        tensor_item_constraints,
+        indexer_constraints,
         True,
         {"output"},
         scalar_info,
     )
 
 
-def test_tensor_item_constraints_17():
+def test_indexer_constraints_17():
     shapes: dict[str, list[int | str | tuple]] = {
         "input": [("Var1", ...), "u1", "u2"],
         "output": [("Var2", ...)],
@@ -6196,14 +6195,14 @@ def test_tensor_item_constraints_17():
         {},
         final_shapes,
         {},
-        tensor_item_constraints,
+        indexer_constraints,
         False,
         {"output"},
         scalar_info,
     )
 
 
-def test_tensor_item_constraints_18():
+def test_indexer_constraints_18():
     shapes: dict[str, list[int | str | tuple]] = {
         "input": [("Var1", ...), "u1", "u2"],
         "output": [("Var2", ...)],
@@ -6219,14 +6218,14 @@ def test_tensor_item_constraints_18():
         {},
         final_shapes,
         {},
-        tensor_item_constraints,
+        indexer_constraints,
         True,
         {"output"},
         scalar_info,
     )
 
 
-def test_tensor_item_constraints_19():
+def test_indexer_constraints_19():
     shapes: dict[str, list[int | str | tuple]] = {
         "input": ["u1", ("Var1", ...)],
         "output": [("Var2", ...)],
@@ -6242,14 +6241,14 @@ def test_tensor_item_constraints_19():
         {},
         final_shapes,
         {},
-        tensor_item_constraints,
+        indexer_constraints,
         False,
         {"input", "output"},
         scalar_info,
     )
 
 
-def test_tensor_item_constraints_20():
+def test_indexer_constraints_20():
     shapes: dict[str, list[int | str | tuple]] = {
         "input": ["u1", ("Var1", ...)],
         "output": [("Var2", ...)],
@@ -6269,14 +6268,14 @@ def test_tensor_item_constraints_20():
         {},
         final_shapes,
         {},
-        tensor_item_constraints,
+        indexer_constraints,
         False,
         {"input", "output"},
         scalar_info,
     )
 
 
-def test_tensor_item_constraints_21():
+def test_indexer_constraints_21():
     shapes: dict[str, list[int | str | tuple]] = {
         "input": ["u1", ("Var1", ...), 7],
         "output": [("Var2", ...)],
@@ -6304,14 +6303,14 @@ def test_tensor_item_constraints_21():
         {},
         final_shapes,
         {},
-        tensor_item_constraints,
+        indexer_constraints,
         False,
         {"input", "output"},
         scalar_info,
     )
 
 
-def test_tensor_item_constraints_22():
+def test_indexer_constraints_22():
     shapes: dict[str, list[int | str | tuple]] = {
         "input": ["u1", "u2", ("Var1", ...)],
         "output": [("Var2", ...)],
@@ -6327,14 +6326,14 @@ def test_tensor_item_constraints_22():
         {},
         final_shapes,
         {},
-        tensor_item_constraints,
+        indexer_constraints,
         True,
         {"output"},
         scalar_info,
     )
 
 
-def test_tensor_item_constraints_23():
+def test_indexer_constraints_23():
     shapes: dict[str, list[int | str | tuple]] = {
         "input": ["u1", ("Var1", ...), "u2"],
         "output": [("Var2", ...)],
@@ -6350,14 +6349,14 @@ def test_tensor_item_constraints_23():
         {},
         final_shapes,
         {},
-        tensor_item_constraints,
+        indexer_constraints,
         True,
         {"output"},
         scalar_info,
     )
 
 
-def test_tensor_item_constraints_24():
+def test_indexer_constraints_24():
     shapes: dict[str, list[int | str | tuple]] = {
         "input": [3, 4, 5, 6, 7],
         "output": [("Var2", ...)],
@@ -6377,14 +6376,14 @@ def test_tensor_item_constraints_24():
         {},
         final_shapes,
         {},
-        tensor_item_constraints,
+        indexer_constraints,
         True,
         {"output"},
         scalar_info,
     )
 
 
-def test_tensor_item_constraints_25():
+def test_indexer_constraints_25():
     shapes: dict[str, list[int | str | tuple]] = {
         "input": [10, 1, 2],
         "output": ["u1", 1, 2],
@@ -6400,7 +6399,7 @@ def test_tensor_item_constraints_25():
         {},
         final_shapes,
         {},
-        tensor_item_constraints,
+        indexer_constraints,
         True,
         {"output"},
         scalar_info,
@@ -6554,7 +6553,7 @@ def test_scalar_item_type_constraints_1():
         {},
         final_types,
         {},
-        scalar_item_type_constraint,
+        indexer_type_constraint,
         True,
         {"output"},
         scalar_info,
@@ -6573,7 +6572,7 @@ def test_scalar_item_type_constraints_2():
         "output": IOHyperEdge(type=list[float]),
     }
     assert_constraint_results(
-        {}, {}, final_types, {}, scalar_item_type_constraint, True, set(), scalar_info
+        {}, {}, final_types, {}, indexer_type_constraint, True, set(), scalar_info
     )
 
 
@@ -6593,7 +6592,7 @@ def test_scalar_item_type_constraints_3():
         {},
         final_types,
         {},
-        scalar_item_type_constraint,
+        indexer_type_constraint,
         True,
         {"input"},
         scalar_info,
@@ -6616,7 +6615,7 @@ def test_scalar_item_type_constraints_3_1():
         {},
         final_types,
         {},
-        scalar_item_type_constraint,
+        indexer_type_constraint,
         True,
         {"input"},
         scalar_info,
@@ -6639,7 +6638,7 @@ def test_scalar_item_type_constraints_4():
         {},
         final_types,
         {},
-        scalar_item_type_constraint,
+        indexer_type_constraint,
         False,
         {"output"},
         scalar_info,
@@ -6662,7 +6661,7 @@ def test_scalar_item_type_constraints_5():
         {},
         final_types,
         {},
-        scalar_item_type_constraint,
+        indexer_type_constraint,
         False,
         {"output"},
         scalar_info,
@@ -6684,7 +6683,7 @@ def test_scalar_item_type_constraints_6():
         {},
         final_types,
         {},
-        scalar_item_type_constraint,
+        indexer_type_constraint,
         True,
         {"input"},
         scalar_info,
@@ -6707,7 +6706,7 @@ def test_scalar_item_type_constraints_7():
         {},
         final_types,
         {},
-        scalar_item_type_constraint,
+        indexer_type_constraint,
         True,
         {"output"},
         scalar_info,
@@ -6738,7 +6737,7 @@ def test_scalar_item_type_constraints_8():
         {},
         final_types,
         {},
-        scalar_item_type_constraint,
+        indexer_type_constraint,
         True,
         {"output"},
         scalar_info,
@@ -6769,7 +6768,7 @@ def test_scalar_item_type_constraints_9():
         {},
         final_types,
         {},
-        scalar_item_type_constraint,
+        indexer_type_constraint,
         True,
         {"output"},
         scalar_info,
@@ -6796,7 +6795,7 @@ def test_scalar_item_type_constraints_10():
         "output": IOHyperEdge(type=output_type),
     }
     assert_constraint_results(
-        {}, {}, final_types, {}, scalar_item_type_constraint, True, set(), scalar_info
+        {}, {}, final_types, {}, indexer_type_constraint, True, set(), scalar_info
     )
 
 
@@ -6820,7 +6819,7 @@ def test_scalar_item_type_constraints_11():
         "output": IOHyperEdge(type=output_type),
     }
     assert_constraint_results(
-        {}, {}, final_types, {}, scalar_item_type_constraint, True, set(), scalar_info
+        {}, {}, final_types, {}, indexer_type_constraint, True, set(), scalar_info
     )
 
 
@@ -6848,7 +6847,7 @@ def test_scalar_item_type_constraints_12():
         {},
         final_types,
         {},
-        scalar_item_type_constraint,
+        indexer_type_constraint,
         True,
         {"input"},
         scalar_info,
@@ -6879,7 +6878,7 @@ def test_scalar_item_type_constraints_13():
         {},
         final_types,
         {},
-        scalar_item_type_constraint,
+        indexer_type_constraint,
         False,
         {"input"},
         scalar_info,
@@ -6894,7 +6893,7 @@ def test_scalar_item_type_constraints_14():
         "output": IOHyperEdge(type=int),
     }
     assert_constraint_results(
-        {}, {}, final_types, {}, scalar_item_type_constraint, True, set(), scalar_info
+        {}, {}, final_types, {}, indexer_type_constraint, True, set(), scalar_info
     )
 
 
@@ -6906,7 +6905,7 @@ def test_scalar_item_type_constraints_15():
         "output": IOHyperEdge(type=float),
     }
     assert_constraint_results(
-        {}, {}, final_types, {}, scalar_item_type_constraint, True, set(), scalar_info
+        {}, {}, final_types, {}, indexer_type_constraint, True, set(), scalar_info
     )
 
 
@@ -6926,7 +6925,7 @@ def test_scalar_item_type_constraints_16():
         {},
         final_types,
         {},
-        scalar_item_type_constraint,
+        indexer_type_constraint,
         False,
         {"input"},
         scalar_info,
@@ -6949,7 +6948,7 @@ def test_scalar_item_type_constraints_17():
         {},
         final_types,
         {},
-        scalar_item_type_constraint,
+        indexer_type_constraint,
         False,
         {"input"},
         scalar_info,
@@ -6972,7 +6971,7 @@ def test_scalar_item_type_constraints_18():
         {},
         final_types,
         {},
-        scalar_item_type_constraint,
+        indexer_type_constraint,
         False,
         {"input"},
         scalar_info,

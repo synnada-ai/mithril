@@ -15,7 +15,7 @@
 import pytest
 
 from mithril.framework import IOKey
-from mithril.models import Buffer, Model, MyTensor, ScalarItem, Sigmoid
+from mithril.models import Buffer, Indexer, Model, MyTensor, Sigmoid
 
 
 def test_set_types_1():
@@ -127,7 +127,7 @@ def test_set_types_6():
 
 def test_set_types_7():
     model = Model()
-    item_model = ScalarItem(index=1)
+    item_model = Indexer(index=1)
     model += item_model(input="input", output=IOKey("output"))
     model.set_types({"input": tuple[int, float, int]})
     input_data = model.input.metadata  # type: ignore
@@ -138,7 +138,7 @@ def test_set_types_7():
 
 def test_set_types_8():
     model = Model()
-    item_model = ScalarItem(index=1)
+    item_model = Indexer(index=1)
     model += item_model(input="input", output=IOKey("output"))
     item_model.set_types({"input": tuple[int, float, int]})
     input_data = model.input.metadata  # type: ignore
@@ -152,7 +152,7 @@ def test_set_types_9():
     model2 = Model()
     model3 = Model()
     model4 = Model()
-    item_model = ScalarItem(index=1)
+    item_model = Indexer(index=1)
     model1 += item_model(input="input", output=IOKey("output"))
     model2 += model1(input="input", output=IOKey("output"))
     model3 += model2(input="input", output=IOKey("output"))

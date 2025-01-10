@@ -391,7 +391,6 @@ def test_shapes_2():
         "stride_0": None,
         "output_4": None,
     }
-
     assert_shapes(model, logical_ref, physical_ref, shapes=shapes)
 
 
@@ -788,7 +787,7 @@ def test_simple_composite_1_extend_inputs():
         "output": [2, 2],
     }
 
-    assert_shapes(model, logical_ref, physical_ref)
+    assert_shapes(model, logical_ref, physical_ref, inference=True)
 
 
 def test_simple_composite_1_set_shapes_2():
@@ -849,7 +848,9 @@ def test_simple_composite_1_static_inputs():
     }
     physical_ref = {"left": [], "input2": [2, 2], "output": [2, 2]}
 
-    assert_shapes(model, logical_ref, physical_ref, static_inputs=static_inputs)
+    assert_shapes(
+        model, logical_ref, physical_ref, static_inputs=static_inputs, inference=True
+    )
 
 
 def test_simple_composite_2_set_shapes():
@@ -943,7 +944,7 @@ def test_simple_composite_2_extend_inputs():
         "numerator": [],
     }
 
-    assert_shapes(model, logical_ref, physical_ref)
+    assert_shapes(model, logical_ref, physical_ref, inference=True)
 
 
 def test_simple_composite_2_static_shapes():
@@ -1007,7 +1008,9 @@ def test_simple_composite_2_static_inputs():
         "numerator": [],
     }
 
-    assert_shapes(model, logical_ref, physical_ref, static_inputs=static_inputs)
+    assert_shapes(
+        model, logical_ref, physical_ref, static_inputs=static_inputs, inference=True
+    )
 
 
 def test_composite_1_set_shapes_1():
@@ -1408,7 +1411,7 @@ def test_composite_1_extend_inputs_1():
         "output_1": [1, 1, 1, 1, 134, 47, 1, 37, 43],
         "output": [1, 1, 1, 1, 134, 47, 1, 37, 43],
     }
-    assert_shapes(composite, logical_ref, physical_ref)
+    assert_shapes(composite, logical_ref, physical_ref, inference=True)
 
 
 @pytest.mark.skip(reason="Known Bugs")
@@ -1480,7 +1483,9 @@ def test_composite_1_static_inputs_1():
         "output": [1, 1, 1, 1, 134, 47, 1, 37, 43],
     }
 
-    assert_shapes(model, logical_ref, physical_ref, static_inputs=static_inputs)
+    assert_shapes(
+        model, logical_ref, physical_ref, static_inputs=static_inputs, inference=True
+    )
 
 
 @pytest.mark.skip(reason="Known Bugs")
@@ -2183,7 +2188,9 @@ def test_composite_2_static_inputs_1():
         "input1": np.random.randn(4, 5, 7, 1, 1),
         "input2": np.random.randn(1, 1, 7, 3, 4),
     }
-    assert_shapes(model, logical_ref, physical_ref, static_inputs=inputs)
+    assert_shapes(
+        model, logical_ref, physical_ref, static_inputs=inputs, inference=True
+    )
 
 
 @pytest.mark.skip(reason="Known Bugs")
@@ -2336,7 +2343,7 @@ def test_composite_3_extend_shapes_1():
         "output": [3, 4, 5, 6, 7],
     }
 
-    assert_shapes(composite_3, logical_ref, physical_ref)
+    assert_shapes(composite_3, logical_ref, physical_ref, inference=True)
 
 
 def test_composite_3_set_shapes_1_2():
@@ -2556,7 +2563,9 @@ def test_composite_3_static_inputs_2():
         "input1": np.random.randn(3, 4, 5, 6, 1),
         "input2": np.random.randn(1, 1, 1, 1, 7),
     }
-    assert_shapes(model, logical_ref, physical_ref, static_inputs=inputs)
+    assert_shapes(
+        model, logical_ref, physical_ref, static_inputs=inputs, inference=True
+    )
 
 
 def test_mlp_1_static_shapes():
@@ -10092,7 +10101,7 @@ def test_shapes_tensor_item_numeric():
         "$_Slice_2_output": None,
         "$_Slice_3_output": None,
         "$_ToTuple_4_output": None,
-        "$_TensorItem_5_output": [3, 1, 4, 2],
+        "$_Indexer_5_output": [3, 1, 4, 2],
         "output2": [3, 1, 4, 2],
         "input": [3, 4, 5],
         "$start_0": None,
@@ -10124,7 +10133,7 @@ def test_shapes_tensor_item_symbolic():
         "$_Slice_2_output": None,
         "$_Slice_3_output": None,
         "$_ToTuple_4_output": None,
-        "$_TensorItem_5_output": ["u4", 1, "u5", "u6", "(V2, ...)"],
+        "$_Indexer_5_output": ["u4", 1, "u5", "u6", "(V2, ...)"],
         "output2": ["u4", 1, "u5", "u6", "(V2, ...)"],
         "input": ["u1", "(V1, ...)", "u2", "u3"],
         "$start_0": None,

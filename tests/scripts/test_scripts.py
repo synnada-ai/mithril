@@ -1482,6 +1482,7 @@ def test_check_static_4():
             "weight": np.array([[4.0, 5.0]]),
             "bias": np.array([3.0]),
         },
+        inference=True,
     )
     outputs = comp_model.evaluate()
     ref_out = outputs["output"]
@@ -2079,7 +2080,10 @@ def test_static_concat():
 
     backend = NumpyBackend()
     pm = mithril.compile(
-        model=model, backend=backend, constant_keys={"input": backend.zeros(1)}
+        model=model,
+        backend=backend,
+        constant_keys={"input": backend.zeros(1)},
+        inference=True,
     )
     out = pm.evaluate()["output"]
     assert isinstance(out, np.ndarray)
@@ -3355,7 +3359,7 @@ def test_arange_2():
     for backend_class in backends:
         if backend_class.is_installed:
             backend = backend_class(precision=32)
-            cm = compile(m, backend)
+            cm = compile(m, backend, inference=True)
             np.testing.assert_allclose(
                 expected_result,
                 cm.evaluate({})["output"],  # type: ignore
@@ -3375,7 +3379,7 @@ def test_arange_3():
     for backend_class in backends:
         if backend_class.is_installed:
             backend = backend_class(precision=32)
-            cm = compile(m, backend)  # type: ignore
+            cm = compile(m, backend, inference=True)  # type: ignore
             out = cm.evaluate({})["output"]
             assert isinstance(out, backend.DataType)
             np.testing.assert_allclose(expected_result, out, rtol=1e-6, atol=1e-6)
@@ -4565,7 +4569,11 @@ def test_infer_static_register_fn():
     right = jax_backend.randn(5, 5)
 
     res = compile(
-        model, jax_backend, constant_keys={"left": left, "right": right}, jit=False
+        model,
+        jax_backend,
+        constant_keys={"left": left, "right": right},
+        jit=False,
+        inference=True,
     ).evaluate()
     assert (left + right == res["output"]).all()
 
@@ -6880,7 +6888,11 @@ def test_numpy_type_promotion_3():
     left = np.ones((3, 3), dtype=np.int16)
     right = np.ones((3, 3), dtype=np.float16)
     pm = compile(
-        model, backend=backend, jit=False, constant_keys={"left": left, "right": right}
+        model,
+        backend=backend,
+        jit=False,
+        constant_keys={"left": left, "right": right},
+        inference=True,
     )
 
     outputs = pm.evaluate()
@@ -6909,7 +6921,11 @@ def test_numpy_type_promotion_4():
     left = np.ones((3, 3), dtype=np.int32)
     right = np.ones((3, 3), dtype=np.float32)
     pm = compile(
-        model, backend=backend, jit=False, constant_keys={"left": left, "right": right}
+        model,
+        backend=backend,
+        jit=False,
+        constant_keys={"left": left, "right": right},
+        inference=True,
     )
     from typing import Any
 
@@ -7093,7 +7109,7 @@ def test_constant_1():
     model += Add()(
         left=MyTensor([0, 0]), right=MyTensor(Constant.EPSILON), output=IOKey("out")
     )
-    pm = compile(model, backend)
+    pm = compile(model, backend, inference=True)
 
     expected = np.array(
         [epsilon_table[precision][Constant.EPSILON]] * 2, dtype=np.float64
@@ -7112,7 +7128,7 @@ def test_constant_2():
         right=IOKey("right", MyTensor(Constant.EPSILON)),
         output=IOKey("out"),
     )
-    pm = compile(model, backend)
+    pm = compile(model, backend, inference=True)
 
     expected = np.array(
         [epsilon_table[precision][Constant.EPSILON]] * 2, dtype=np.float64
@@ -7129,7 +7145,7 @@ def test_constant_3():
     model += Add()(
         left=MyTensor([0, 0]), right=MyTensor(Constant.EPSILON), output=IOKey("out")
     )
-    pm = compile(model, backend)
+    pm = compile(model, backend, inference=True)
 
     expected = np.array(
         [epsilon_table[precision][Constant.EPSILON]] * 2, dtype=np.float32
@@ -7148,7 +7164,7 @@ def test_constant_4():
         right=IOKey("right", MyTensor(Constant.EPSILON)),
         output=IOKey("out"),
     )
-    pm = compile(model, backend)
+    pm = compile(model, backend, inference=True)
 
     expected = np.array(
         [epsilon_table[precision][Constant.EPSILON]] * 2, dtype=np.float32

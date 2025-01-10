@@ -41,6 +41,7 @@ from mithril.models import (
     Greater,
     GreaterEqual,
     GroupNorm,
+    Indexer,
     IOKey,
     IsNan,
     Less,
@@ -59,7 +60,6 @@ from mithril.models import (
     PrimitiveUnion,
     Prod,
     Randn,
-    ScalarItem,
     ScaledDotProduct,
     Shape,
     SiLU,
@@ -67,7 +67,6 @@ from mithril.models import (
     Slice,
     SquaredError,
     Squeeze,
-    TensorItem,
     ToList,
     ToTensor,
     ToTuple,
@@ -1279,7 +1278,7 @@ def test_eye_1():
     }
     compile_and_compare(
         model=model,
-        compile_kwargs={},
+        compile_kwargs={"inference": True},
         data={},
         params={},
         output_gradients={},
@@ -1350,7 +1349,7 @@ def test_eye_complement_1():
     reference_outputs = {"output": [[0.0, 1.0], [1.0, 0.0]]}
     compile_and_compare(
         model=model,
-        compile_kwargs={},
+        compile_kwargs={"inference": True},
         data={"N": 2},
         params={},
         output_gradients={},
@@ -1722,7 +1721,7 @@ def test_slice_1():
     # Tuple slice
 
     slice_model = Slice(step=None)
-    item_model = ScalarItem()
+    item_model = Indexer()
 
     model = Model()
     model += slice_model(start=2, stop=3)
@@ -1752,7 +1751,7 @@ def test_slice_1():
 def test_slice_2():
     # Tuple slice
     slice_model = Slice(start=None, step=None)
-    item_model = ScalarItem()
+    item_model = Indexer()
 
     model = Model()
     model += slice_model(stop=3)
@@ -1782,7 +1781,7 @@ def test_slice_2():
 def test_slice_3():
     # Tuple slice
     slice_model = Slice(start=None)
-    item_model = ScalarItem()
+    item_model = Indexer()
 
     model = Model()
     model += slice_model(stop=3, step=2)
@@ -1812,7 +1811,7 @@ def test_slice_3():
 def test_slice_4():
     # Tuple slice
     slice_model = Slice(start=None, stop=None)
-    item_model = ScalarItem()
+    item_model = Indexer()
 
     model = Model()
     model += slice_model(step=2)
@@ -1962,7 +1961,7 @@ def test_union_3():
 
 def test_index_1():
     # List index
-    model = ScalarItem(index=2)
+    model = Indexer(index=2)
 
     data = {"input": [1, 2, 3, 4, 5]}
 
@@ -1988,7 +1987,7 @@ def test_index_1():
 
 def test_index_2():
     # Tuple index
-    model = ScalarItem(index=2)
+    model = Indexer(index=2)
 
     data = {"input": (1, 2, 3.0, 4, 5)}
 
@@ -3556,7 +3555,7 @@ def test_slice_all_keys_given_all_three_parts():
 def test_tensor_item_with_slice_1():
     model = Model()
 
-    item_model = TensorItem()
+    item_model = Indexer()
     slice_model = Slice(start=0, stop=1, step=None)
 
     model += slice_model
@@ -3592,7 +3591,7 @@ def test_tensor_item_with_slice_1():
 def test_tensor_item_with_slice_2():
     model = Model()
 
-    item_model = TensorItem()
+    item_model = Indexer()
     slice_model = Slice(start=0, stop=2, step=None)
 
     model += slice_model

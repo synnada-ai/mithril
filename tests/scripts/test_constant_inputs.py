@@ -47,6 +47,7 @@ from mithril.models import (
     Eye,
     Flatten,
     Greater,
+    Indexer,
     LeakyRelu,
     Linear,
     Log,
@@ -63,7 +64,6 @@ from mithril.models import (
     Power,
     Relu,
     Reshape,
-    ScalarItem,
     Shape,
     Sigmoid,
     Sum,
@@ -84,7 +84,7 @@ from .test_utils import (
 )
 
 
-def assert_all_backends_device_precision(model: Model):
+def assert_all_backends_device_precision(model: Model, inference=False):
     """This function tests that whether all precision and device
     handling algorithms of the library is working successfully.
     This function compiles the given model, randomizes the inputs with
@@ -130,6 +130,7 @@ def assert_all_backends_device_precision(model: Model):
             model=model,
             backend=backend,  # type: ignore
             jit=False,
+            inference=inference,
         )
 
         randomized_inputs = comp_model.randomize_params()  # type: ignore # (check after DataType update)
@@ -151,15 +152,16 @@ def assert_all_backends_device_precision(model: Model):
             assert get_array_device(output, _type) == device
             assert get_array_precision(output, _type) == precision
 
-        grads = comp_model.evaluate_gradients(
-            output_gradients=outputs,  # type: ignore
-            params=randomized_inputs,
-        )
+        if not inference:
+            grads = comp_model.evaluate_gradients(
+                output_gradients=outputs,  # type: ignore
+                params=randomized_inputs,
+            )
 
-        # Check if gradients have correct device and precision
-        for grad in grads.values():
-            assert get_array_device(grad, _type) == device
-            assert get_array_precision(grad, _type) == precision
+            # Check if gradients have correct device and precision
+            for grad in grads.values():
+                assert get_array_device(grad, _type) == device
+                assert get_array_precision(grad, _type) == precision
 
         # In final step. we compare used inputs (used inputs are given as input to the
         # either to comp_model.evaluate() or comp_model.evaluate_gradients()) with their
@@ -293,7 +295,7 @@ def test_default_given_compile_numpy():
     static_inputs: dict[str, np.ndarray | int] = {"input": np_input, "axis": 0}
     expected_result = (np_input.mean(0) * 2).mean(0)
     compiled_model = mithril.compile(
-        model=model, backend=NumpyBackend(), constant_keys=static_inputs
+        model=model, backend=NumpyBackend(), constant_keys=static_inputs, inference=True
     )
     inputs = compiled_model.randomize_params()
     data = {"axis": None}
@@ -301,10 +303,6 @@ def test_default_given_compile_numpy():
     result = compiled_model.evaluate(inputs, data)
     out = result["output"]
     assert isinstance(out, np.ndarray)
-    output_gradients = {"output": np.ones_like(out)}
-    compiled_model.evaluate_gradients(
-        params=inputs, data=data, output_gradients=output_gradients
-    )
     np.testing.assert_array_equal(expected_result, out)
 
 
@@ -1034,7 +1032,7 @@ def test_bool_tensor_numpy_32():
     model += add_1(
         left=MyTensor([7.0, 8.0]), right=not_1.output, output=IOKey(name="output")
     )
-    comp_model = mithril.compile(model=model, backend=NumpyBackend())
+    comp_model = mithril.compile(model=model, backend=NumpyBackend(), inference=True)
     output = comp_model.evaluate()["output"]
     assert isinstance(output, np.ndarray)
     np.testing.assert_allclose(output, ref)
@@ -1051,7 +1049,7 @@ def test_bool_tensor_numpy_32_set_values():
         left=MyTensor([7.0, 8.0]), right=not_1.output, output=IOKey(name="output")
     )
     model.set_values({model.input: MyTensor([False, False])})  # type: ignore
-    comp_model = mithril.compile(model=model, backend=NumpyBackend())
+    comp_model = mithril.compile(model=model, backend=NumpyBackend(), inference=True)
     output = comp_model.evaluate()["output"]
     assert isinstance(output, np.ndarray)
     np.testing.assert_allclose(output, ref)
@@ -1067,7 +1065,9 @@ def test_bool_tensor_numpy_64():
     model += add_1(
         left=MyTensor([7.0, 8.0]), right=not_1.output, output=IOKey(name="output")
     )
-    comp_model = mithril.compile(model=model, backend=NumpyBackend(precision=64))
+    comp_model = mithril.compile(
+        model=model, backend=NumpyBackend(precision=64), inference=True
+    )
     output = comp_model.evaluate()["output"]
     assert isinstance(output, np.ndarray)
     np.testing.assert_allclose(output, ref)
@@ -1083,7 +1083,9 @@ def test_bool_tensor_torch_32():
     model += add_1(
         left=MyTensor([7.0, 8.0]), right=not_1.output, output=IOKey(name="output")
     )
-    comp_model = mithril.compile(model=model, backend=TorchBackend(precision=32))
+    comp_model = mithril.compile(
+        model=model, backend=TorchBackend(precision=32), inference=True
+    )
     output = comp_model.evaluate()["output"]
     assert isinstance(output, torch.Tensor)
     out = output.numpy()
@@ -1100,7 +1102,9 @@ def test_bool_tensor_torch_64():
     model += add_1(
         left=MyTensor([7.0, 8.0]), right=not_1.output, output=IOKey(name="output")
     )
-    comp_model = mithril.compile(model=model, backend=TorchBackend(precision=64))
+    comp_model = mithril.compile(
+        model=model, backend=TorchBackend(precision=64), inference=True
+    )
     output = comp_model.evaluate()["output"]
     assert isinstance(output, torch.Tensor)
     out = output.numpy()
@@ -1117,7 +1121,9 @@ def test_bool_tensor_jax_32():
     model += add_1(
         left=MyTensor([7.0, 8.0]), right=not_1.output, output=IOKey(name="output")
     )
-    comp_model = mithril.compile(model=model, backend=JaxBackend(precision=32))
+    comp_model = mithril.compile(
+        model=model, backend=JaxBackend(precision=32), inference=True
+    )
     output = np.array(comp_model.evaluate()["output"])
     np.testing.assert_allclose(output, ref)
     assert output.dtype == np.float32
@@ -1132,7 +1138,9 @@ def test_bool_tensor_jax_64():
     model += add_1(
         left=MyTensor([7.0, 8.0]), right=not_1.output, output=IOKey(name="output")
     )
-    comp_model = mithril.compile(model=model, backend=JaxBackend(precision=64))
+    comp_model = mithril.compile(
+        model=model, backend=JaxBackend(precision=64), inference=True
+    )
     output = np.array(comp_model.evaluate()["output"])
     np.testing.assert_allclose(output, ref)
     assert output.dtype == np.float64
@@ -1147,7 +1155,9 @@ def test_bool_tensor_mlx_32():
     model += add_1(
         left=MyTensor([7.0, 8.0]), right=not_1.output, output=IOKey(name="output")
     )
-    comp_model = mithril.compile(model=model, backend=JaxBackend(precision=32))
+    comp_model = mithril.compile(
+        model=model, backend=JaxBackend(precision=32), inference=True
+    )
     output = np.array(comp_model.evaluate()["output"])
     np.testing.assert_allclose(output, ref)
     assert output.dtype == np.float32
@@ -1162,7 +1172,9 @@ def test_bool_tensor_mlx_64():
     model += add_1(
         left=MyTensor([7.0, 8.0]), right=not_1.output, output=IOKey(name="output")
     )
-    comp_model = mithril.compile(model=model, backend=JaxBackend(precision=64))
+    comp_model = mithril.compile(
+        model=model, backend=JaxBackend(precision=64), inference=True
+    )
     output = np.array(comp_model.evaluate()["output"])
     np.testing.assert_allclose(output, ref)
     assert output.dtype == np.float64
@@ -1223,6 +1235,7 @@ def test_static_input_2():
             add_1.right: np.array(3.0, dtype=np.float32),
         },
         safe_names=False,
+        inference=True,
     )
 
     output = comp_model.evaluate()["output"]
@@ -1263,6 +1276,7 @@ def test_static_input_3():
         backend=backend,
         jit=False,
         constant_keys={add_1.left: backend.array(2.0), add_1.right: backend.array(3.0)},
+        inference=True,
     )
 
     output = comp_model.evaluate()["output"]
@@ -1309,6 +1323,7 @@ def test_static_input_5():
             "input": np.array(2.0, dtype=np.float64),
             "right": np.array(3.0, dtype=np.float64),
         },
+        inference=True,
     )
 
     output = comp_model.evaluate()["output"]
@@ -1330,7 +1345,7 @@ def test_static_input_6():
         output=IOKey(name="out1"),
     )
     model_1 += add_2(
-        left=add_1.left + MyTensor(1.0), right=add_1.right, output=IOKey(name="out2")
+        left=add_1.left + 1.0, right=add_1.right, output=IOKey(name="out2")
     )
 
     model_2 += add_3(
@@ -1341,7 +1356,9 @@ def test_static_input_6():
     model_2 += model_1(left=add_3.left, right=add_3.right, out2=IOKey(name="output_1"))
 
     backend = JaxBackend()
-    comp_model = mithril.compile(model=model_2, backend=backend, jit=False)
+    comp_model = mithril.compile(
+        model=model_2, backend=backend, jit=False, inference=True
+    )
     output = comp_model.evaluate()
 
     assert model_1.left.metadata.value == 3.0  # type: ignore  # It is Tensor type.
@@ -1447,7 +1464,7 @@ def test_composite_1():
     model = Model()
     add_model = Add()
     shape_model = Shape()
-    index_model = ScalarItem()
+    index_model = Indexer()
     red_model = Mean(axis=TBD)
     model += add_model(left=MyTensor([[[1]]]), right=IOKey("right", type=MyTensor))
     model += shape_model(input=add_model.output)
@@ -1464,7 +1481,7 @@ def test_composite_1_set_values():
     model = Model()
     add_model = Add()
     shape_model = Shape()
-    index_model = ScalarItem()
+    index_model = Indexer()
     red_model = Mean(axis=TBD)
     model += add_model(right=IOKey("right", type=MyTensor))
     model.set_values({add_model.left: MyTensor([[[1]]])})
@@ -1586,7 +1603,7 @@ def test_composite_5():
     model += add_model_2(left=add_model_1.output, right=list2)
     model += add_model_3(left=add_model_2.output, right=list3)
 
-    assert_all_backends_device_precision(model)
+    assert_all_backends_device_precision(model, inference=True)
 
 
 def test_composite_5_set_values():
@@ -1604,7 +1621,7 @@ def test_composite_5_set_values():
     model += add_model_3(left=add_model_2.output)
     model.set_values({add_model_3.right: list3})
 
-    assert_all_backends_device_precision(model)
+    assert_all_backends_device_precision(model, inference=True)
 
 
 def test_composite_6():
@@ -1618,7 +1635,7 @@ def test_composite_6():
     model += add_model_1(left=IOKey(value=MyTensor(1), name="left1"), right=list1)
     model += add_model_2(left=add_model_1.output, right=list2)
     model += add_model_3(left=add_model_2.output, right=list3)
-    assert_all_backends_device_precision(model)
+    assert_all_backends_device_precision(model, inference=True)
 
 
 def test_composite_6_set_values():
@@ -1635,7 +1652,7 @@ def test_composite_6_set_values():
     model.set_values({add_model_2.right: list2})
     model += add_model_3(left=add_model_2.output)
     model.set_values({add_model_3.right: list3})
-    assert_all_backends_device_precision(model)
+    assert_all_backends_device_precision(model, inference=True)
 
 
 def test_composite_7():
@@ -1649,7 +1666,7 @@ def test_composite_7():
     model += add_model_1(left=IOKey(name="left1", value=MyTensor([[1]])), right=list1)
     model += add_model_2(left=add_model_1.output, right=list2)
     model += add_model_3(left=add_model_2.output, right=list3)
-    assert_all_backends_device_precision(model)
+    assert_all_backends_device_precision(model, inference=True)
 
 
 def test_composite_7_set_values():
@@ -1666,7 +1683,7 @@ def test_composite_7_set_values():
     model.set_values({add_model_2.right: list2})
     model += add_model_3(left=add_model_2.output)
     model.set_values({add_model_3.right: list3})
-    assert_all_backends_device_precision(model)
+    assert_all_backends_device_precision(model, inference=True)
 
 
 def test_composite_conv_mean():
@@ -1738,7 +1755,9 @@ def test_unused_cached_values_1():
         weight=MyTensor([[1.0], [2.0]]),
         bias=MyTensor([3.0, 1.0]),
     )
-    comp_model = mithril.compile(model=model, backend=(backend := NumpyBackend()))
+    comp_model = mithril.compile(
+        model=model, backend=(backend := NumpyBackend()), inference=True
+    )
     dtype = backend.get_backend_array_type()
     cache = comp_model.data_store.data_values
     expected_cache = {"output": np.array([[6.0, 7.0], [5.0, 5.0]], dtype=dtype)}
@@ -1755,11 +1774,7 @@ def test_unused_cached_values_1():
     assert data_keys == set()
     # Try evaluate and evaluate gradients once.
     result = comp_model.evaluate(params={}, data={})
-    gradients = comp_model.evaluate_gradients(
-        params={}, data={}, output_gradients={"output": np.ones_like(result["output"])}
-    )
     assert np.all(result["output"] == np.array([[6.0, 7.0], [5.0, 5.0]], dtype=dtype))
-    assert gradients == {}
 
 
 def test_unused_cached_values_1_set_values():
@@ -1769,13 +1784,15 @@ def test_unused_cached_values_1_set_values():
     model = Model()
     linear_model = Linear(dimension=2)
     model += linear_model()
-    config: dict[Connection, list] = {
+    config: dict[Connection, MyTensor] = {
         linear_model.weight: MyTensor([[1.0], [2.0]]),
         linear_model.bias: MyTensor([3.0, 1.0]),
         linear_model.input: MyTensor([[3.0], [2.0]]),
     }
     model.set_values(config)
-    comp_model = mithril.compile(model=model, backend=(backend := NumpyBackend()))
+    comp_model = mithril.compile(
+        model=model, backend=(backend := NumpyBackend()), inference=True
+    )
     dtype = backend.get_backend_array_type()
     cache = comp_model.data_store.data_values
     expected_cache = {"output": np.array([[6.0, 7.0], [5.0, 5.0]], dtype=dtype)}
@@ -1787,11 +1804,7 @@ def test_unused_cached_values_1_set_values():
     assert data_keys == set()
     # Try evaluate and evaluate gradients once.
     result = comp_model.evaluate(params={}, data={})
-    gradients = comp_model.evaluate_gradients(
-        params={}, data={}, output_gradients={"output": np.ones_like(result["output"])}
-    )
     assert np.all(result["output"] == np.array([[6.0, 7.0], [5.0, 5.0]], dtype=dtype))
-    assert gradients == {}
 
 
 def test_unused_cached_values_2():
@@ -1986,7 +1999,7 @@ def test_static_shape_model_2():
     model += ToTensor()
     model += Relu()
     comp_model = mithril.compile(
-        model=model, backend=NumpyBackend(), shapes={"input": [8, 8]}
+        model=model, backend=NumpyBackend(), shapes={"input": [8, 8]}, inference=True
     )
     cache = comp_model.data_store.data_values
     expected_cache = {"output": np.array([8, 8], dtype=np.int32)}
@@ -1999,13 +2012,7 @@ def test_static_shape_model_2():
     assert data_keys == set()
     # Try evaluate and evaluate gradients once.
     result = comp_model.evaluate(params={}, data={})
-    gradients = comp_model.evaluate_gradients(
-        params={},
-        data={},
-        output_gradients={"output": np.ones_like(result["output"])},
-    )
     assert np.all(result["output"] == np.array([8, 8], dtype=np.int32))
-    assert gradients == {}
 
 
 def test_static_shape_model_2_error():
@@ -2035,7 +2042,10 @@ def test_static_shape_model_3():
 
     backend = NumpyBackend()
     comp_model = mithril.compile(
-        model=model, backend=backend, constant_keys={"input": backend.ones(8, 8)}
+        model=model,
+        backend=backend,
+        constant_keys={"input": backend.ones(8, 8)},
+        inference=True,
     )
     cache = comp_model.data_store.data_values
     expected_cache = {"output": np.array([8, 8], dtype=np.int32)}
@@ -2047,13 +2057,7 @@ def test_static_shape_model_3():
     assert data_keys == set()
     # Try evaluate and evaluate gradients once.
     result = comp_model.evaluate(params={}, data={})
-    gradients = comp_model.evaluate_gradients(
-        params={},
-        data={},
-        output_gradients={"output": np.ones_like(result["output"])},
-    )
     assert np.all(result["output"] == np.array([8, 8], dtype=np.int32))
-    assert gradients == {}
 
 
 def test_static_shape_model_4():
@@ -2066,7 +2070,10 @@ def test_static_shape_model_4():
 
     backend = NumpyBackend()
     comp_model = mithril.compile(
-        model=model, backend=backend, constant_keys={"input": backend.ones(8, 8)}
+        model=model,
+        backend=backend,
+        constant_keys={"input": backend.ones(8, 8)},
+        inference=True,
     )
     cache = comp_model.data_store.data_values
     expected_cache = {"output": np.array([8, 8], dtype=np.int32)}
@@ -2078,13 +2085,7 @@ def test_static_shape_model_4():
     assert data_keys == set()
     # Try evaluate and evaluate gradients once.
     result = comp_model.evaluate(params={}, data={})
-    gradients = comp_model.evaluate_gradients(
-        params={},
-        data={},
-        output_gradients={"output": np.ones_like(result["output"])},
-    )
     assert np.all(result["output"] == np.array([8, 8], dtype=np.int32))
-    assert gradients == {}
 
 
 def test_static_shape_model_5():
@@ -2510,7 +2511,9 @@ def test_transpose_axis_ellipsis_1():
 
     static_input = {"input": backend.randn(4, 3, 6, 7)}
 
-    pm_1 = mithril.compile(model=model_1, backend=backend, constant_keys=static_input)
+    pm_1 = mithril.compile(
+        model=model_1, backend=backend, constant_keys=static_input, inference=True
+    )
 
     model_2 = Model()
     transpose_model_2 = Transpose(axes=(2, 3, 0, 1))
@@ -2518,7 +2521,9 @@ def test_transpose_axis_ellipsis_1():
         input="input", output=IOKey(name="output"), axes=(2, 3, 0, 1)
     )
 
-    pm_2 = mithril.compile(model=model_2, backend=backend, constant_keys=static_input)
+    pm_2 = mithril.compile(
+        model=model_2, backend=backend, constant_keys=static_input, inference=True
+    )
 
     out_1 = pm_1.evaluate()
     out_2 = pm_2.evaluate()
@@ -2672,13 +2677,9 @@ def test_all_inputs_static():
     model = Model()
     model += Mean()(input=MyTensor([1.0, 2]))
     backend = NumpyBackend()
-    comp_model = mithril.compile(model=model, backend=backend)
+    comp_model = mithril.compile(model=model, backend=backend, inference=True)
     outputs = comp_model.evaluate()
-    grads = comp_model.evaluate_gradients(
-        output_gradients={"output": backend.array(1.0)}
-    )
     assert outputs["output"] == backend.array(1.5)
-    assert grads == {}
 
 
 def test_reshape_call_arg_vs_init_arg():

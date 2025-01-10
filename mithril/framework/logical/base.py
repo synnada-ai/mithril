@@ -391,7 +391,7 @@ class BaseModel(abc.ABC):
         var_keys: dict[Variadic, str] | None = None,
         symbolic: bool = True,
         verbose: bool = False,
-    ) -> ShapesType:
+    ) -> Mapping[str, ShapeTemplateType | list[ShapeTemplateType] | None]:
         return get_shapes(
             data_dict={key: value.metadata for key, value in self.conns.all.items()},
             uniadic_keys=uni_keys,

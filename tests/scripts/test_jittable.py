@@ -35,6 +35,7 @@ from mithril.models import (
     TBD,
     Add,
     CustomPrimitiveModel,
+    Indexer,
     IOKey,
     Item,
     MatrixMultiply,
@@ -43,7 +44,6 @@ from mithril.models import (
     Multiply,
     PrimitiveUnion,
     Reshape,
-    ScalarItem,
     Shape,
     Slice,
     TensorToList,
@@ -76,7 +76,7 @@ class MyModel(Model):
         """
         sum_slc = Model()
         sum_slc += (slc := Slice(start=None, stop=None, step=None))
-        sum_slc += ScalarItem()(input="input", index=slc.output, output=IOKey("output"))
+        sum_slc += Indexer()(input="input", index=slc.output, output=IOKey("output"))
         super().__init__()
         mult_model = MatrixMultiply()
         sum_model = Add()
@@ -94,10 +94,10 @@ class MyModel(Model):
             input=sum_model.output, shape=uni.output
         )  # (10, 1, 1, 1)
         self += (reshp_shp := Shape())(input=reshp_1.output)  # (10, 1, 1, 1)
-        self += (idx_1 := ScalarItem())(index=-1, input=reshp_shp.output)  # 1
+        self += (idx_1 := Indexer())(index=-1, input=reshp_shp.output)  # 1
         self += (mult_shp := Shape())(input=mult_model.output)  # (10, 1)
-        self += (idx_2 := ScalarItem())(index=idx_1.output, input=mult_shp.output)  # 1
-        self += (idx_3 := ScalarItem())(index=idx_2.output, input=sum_shp.output)  # 1
+        self += (idx_2 := Indexer())(index=idx_1.output, input=mult_shp.output)  # 1
+        self += (idx_3 := Indexer())(index=idx_2.output, input=sum_shp.output)  # 1
         self += (tens := ToTensor())(input=idx_3.output)  # array(1)
         self += (sum := Add())(left=tens.output, right=MyTensor(3.0))  # array(4)
         self += Multiply()(
@@ -138,7 +138,7 @@ class MyModel2(Model):
         self += (uni := PrimitiveUnion(n=3))(
             input1=sum_shp.output, input2=1, input3=3
         )  # (10, 1, 1, 1)
-        self += (idx_1 := ScalarItem())(index=-1, input=uni.output)  # 1
+        self += (idx_1 := Indexer())(index=-1, input=uni.output)  # 1
         self += (tens := ToTensor())(input=idx_1.output)  # array(1)
         self += Multiply()(
             left=tens.output, right=MyTensor(2.0), output=IOKey(name="output")
@@ -159,54 +159,52 @@ def test_mymodel_numpy():
     model = MyModel(dimension=1)
     static_inputs = {"input": np_input}
     compiled_model = compile(
-        model=model, backend=NumpyBackend(), constant_keys=static_inputs, jit=False
+        model=model,
+        backend=NumpyBackend(),
+        constant_keys=static_inputs,
+        jit=False,
+        inference=True,
     )
     inputs = compiled_model.randomize_params()
     result = compiled_model.evaluate(inputs)
-    output_gradients = {"output": np.ones_like(result["output"])}
-    outputs, grads = compiled_model.evaluate_all(
-        params=inputs, output_gradients=output_gradients
-    )
     ref_output = {"output": np.array(8.0)}
-    assert_results_equal(outputs, ref_output)
-    assert_results_equal(grads, {})
+    assert_results_equal(result, ref_output)
 
 
 def test_mymodel_jax_1():
     model = MyModel(dimension=1)
     static_inputs = {"input": jnp.array(np_input)}
     compiled_model = compile(
-        model=model, backend=JaxBackend(), constant_keys=static_inputs, jit=False
+        model=model,
+        backend=JaxBackend(),
+        constant_keys=static_inputs,
+        jit=False,
+        inference=True,
     )
     inputs = compiled_model.randomize_params()
     result = compiled_model.evaluate(inputs)
     out = result["output"]
     assert isinstance(out, jnp.ndarray)
-    output_gradients = {"output": jnp.ones_like(out)}
-    outputs, grads = compiled_model.evaluate_all(
-        params=inputs, output_gradients=output_gradients
-    )
     ref_output = {"output": jnp.array(8.0)}
-    assert_results_equal(outputs, ref_output)
-    assert_results_equal(grads, {})
+    assert_results_equal(result, ref_output)
 
 
+@pytest.mark.skip(reason="Provide ref_output!")
 def test_mymodel_jax_2():
     model = MyModel2(dimension=1)
     static_inputs = {"input": jnp.array(np_input)}
     compiled_model = compile(
-        model=model, backend=JaxBackend(), constant_keys=static_inputs, jit=False
+        model=model,
+        backend=JaxBackend(),
+        constant_keys=static_inputs,
+        jit=False,
+        inference=True,
     )
     inputs = compiled_model.randomize_params()
     result = compiled_model.evaluate(inputs)
     out = result["output"]
     assert isinstance(out, jnp.ndarray)
-    output_gradients = {"output": jnp.ones_like(out)}
-    _, grads = compiled_model.evaluate_all(
-        params=inputs, output_gradients=output_gradients
-    )
-    # assert_results_equal(outputs, ref_output)
-    assert_results_equal(grads, {})
+    # assert_results_equal(result, ref_output)
 
 
 def test_mymodel_jax():

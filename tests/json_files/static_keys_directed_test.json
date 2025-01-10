@@ -395,7 +395,7 @@
             "input1": [1, 1, 1, 1, 1, 1, 1, 37, 43],
             "input2": [1, 1, 1, 1, 1, 1, 1, 37, 43]
         },
-
+        "inference": true,
         "results": {
             "static_keys": ["input1", "input2", "output1", "output2", "output3", "output4", "output_0", "output_1", "output_3", "output_4"]
         }

@@ -254,10 +254,21 @@ def assert_models_equal(model1: BaseModel, model2: BaseModel):
             assert_models_equal(submodel1, submodel2)
 
 
-def assert_evaluations_equal(model1, model2, backend, static_keys):
-    pm_base = compile(model1, backend=backend, constant_keys=static_keys, jit=False)
+def assert_evaluations_equal(model1, model2, backend, static_keys, inference=False):
+    pm_base = compile(
+        model1,
+        backend=backend,
+        constant_keys=static_keys,
+        jit=False,
+        inference=inference,
+    )
     pm_recreated = compile(
-        model2, backend=backend, constant_keys=static_keys, jit=False, safe_names=False
+        model2,
+        backend=backend,
+        constant_keys=static_keys,
+        jit=False,
+        safe_names=False,
+        inference=inference,
     )
     inputs = pm_base.randomize_params()
     output_base = pm_base.evaluate(inputs)

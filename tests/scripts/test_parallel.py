@@ -599,7 +599,7 @@ def test_torch_static_parallel_2():
         "w": backend.ones([256, 128]),
         "b": backend.ones([256]),
     }
-    pm = compile(model, backend, jit=False, constant_keys=static_inputs)
+    pm = compile(model, backend, jit=False, constant_keys=static_inputs, inference=True)
 
     result = pm.evaluate()
     out = result["output"]
@@ -625,7 +625,7 @@ def test_torch_static_parallel_3():
         "b": backend.ones([256]),
         "input2": backend.ones((16, 16)),
     }
-    pm = compile(model, backend, jit=False, constant_keys=static_inputs)
+    pm = compile(model, backend, jit=False, constant_keys=static_inputs, inference=True)
 
     result = pm.evaluate()
     out1 = result["output"]

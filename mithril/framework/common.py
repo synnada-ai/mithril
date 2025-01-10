@@ -80,11 +80,6 @@ def values_equal(
 ) -> bool:
     if type(value1) is not type(value2):
         return False
-    # If any of values is MyTensor, directly return False in order
-    # to match Tensor values with other possible Tensors.
-    # if isinstance(value1, MyTensor) or isinstance(value2, MyTensor):
-    #     return False
-
     val1 = value1 if not isinstance(value1, MyTensor) else value1.value
     val2 = value2 if not isinstance(value2, MyTensor) else value2.value
     return val1 == val2
@@ -194,7 +189,7 @@ type ScalarType = (
     | type[slice]
     | type[PaddingType]
     | type[EllipsisType]
-    | type[ToBeDetermined]
+    | ToBeDetermined
     | type[str]
     | NestedListType
     | type[None]
@@ -704,8 +699,8 @@ class MyTensor(Generic[TypeVarTensorType]):
 
     def match(self, other: MyTensor) -> Updates:
         updates = Updates()
+        # TODO: Should it be "self is not other" instead of "self != other"?
         if self != other:
-            updates = Updates()
             updates |= self.set_type(other.type)
             updates |= other.set_type(self.type)
             updates |= self.match_shapes(other)
@@ -725,6 +720,8 @@ class MyTensor(Generic[TypeVarTensorType]):
 
     def match_shapes(self, other: MyTensor):
         updates = Updates()
+        # TODO: Should it be "other.shape is not self.shape"
+        # instead of "other.shape != self.shape"?
         if other.shape != self.shape:
             updates |= self.shape.merge(other.shape)
             self.shape.referees |= other.shape.referees
@@ -800,6 +797,14 @@ class IOHyperEdge:
         return self._value.shape if isinstance(self._value, MyTensor) else None
 
     @property
+    def type(self) -> type[MyTensor] | ScalarType:
+        return (
+            MyTensor[self._value.type]
+            if isinstance(self._value, MyTensor)
+            else self._type
+        )
+
+    @property
     def value_type(self):
         return self._value.type if isinstance(self._value, MyTensor) else self._type
 
@@ -873,10 +878,13 @@ class IOHyperEdge:
                 # to set type to MyTensor, we need to create a new MyTensor
                 # with a shape of Variadic type.
                 updates |= self._create_and_set_tensor_value(available_types)
-            # Set type of MyTensor object using available_types
-            assert isinstance(self._value, MyTensor)
-            updates |= self._value.set_type(available_types)
-            self.differentiable = self.value is TBD
+            else:
+                # Set type of MyTensor object using available_types
+                assert isinstance(self._value, MyTensor)
+                updates |= self._value.set_type(available_types)
+            self.differentiable = (self.value is TBD) and bool(
+                find_intersection_type(float, self._value.type)
+            )
             return updates
 
         # Scalar type setting.
@@ -919,10 +927,10 @@ class IOHyperEdge:
             if isinstance(self._value, MyTensor) and isinstance(value, MyTensor):
                 updates |= self._value.match(value)
             elif self.edge_type is TBD and isinstance(value, MyTensor):
-                # Directly set value and _type if edge type is TBD.
-                # Also add self to type_updates. Value updates will be added
-                # in the last step before return.
-                updates |= self._create_and_set_tensor_value(_UltimateTensorValueTypes)
+                # Value updates will be added in the last step before return.
+                # TODO: Consider to provide value type of given
+                # MyTensor object, not _UltimateTensorValueTypes.
+                updates |= self._create_and_set_tensor_value(value.type)
                 assert isinstance(self._value, MyTensor)
                 updates |= self._value.match(value)
             else:
@@ -940,8 +948,9 @@ class IOHyperEdge:
     def match(self, other: IOHyperEdge) -> Updates:
         # TODO: Get gloabal Updates object for global consistency.
         updates = Updates()
+        # TODO: Should it be "self is not other" instead of "self != other"?
         if self != other:
-            updates = Updates()
+            # TODO: If any valued edge, set_value only since it sets types as well.
             updates |= self.set_type(other._type)
             updates |= other.set_type(self._type)
 
@@ -957,6 +966,7 @@ class IOHyperEdge:
                 if non_valued is other:
                     updates.value_updates.discard(other)
                     updates.shape_updates.discard(other)
+
             self.finalize_match(other)
         return updates
 
@@ -1031,10 +1041,12 @@ class TemplateBase:
                 slice_output = ExtendTemplate(
                     connections=[key.start, key.stop, key.step], model="slice"
                 )
-                output = ExtendTemplate(connections=[self, slice_output], model="index")
+                output = ExtendTemplate(
+                    connections=[self, slice_output], model="indexer"
+                )
 
             case int() | EllipsisType() | None:
-                output = ExtendTemplate(connections=[self, key], model="index")
+                output = ExtendTemplate(connections=[self, key], model="indexer")
 
             case tuple():
                 connections: list[TemplateBase | int | None | EllipsisType] = []
@@ -1053,7 +1065,7 @@ class TemplateBase:
                     defaults={"n": len(key)},
                 )
                 output = ExtendTemplate(
-                    connections=[self, tuple_template], model="index"
+                    connections=[self, tuple_template], model="indexer"
                 )
         return output
 

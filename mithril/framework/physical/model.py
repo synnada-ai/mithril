@@ -180,7 +180,9 @@ class PhysicalModel(GenericDataType[DataType]):
         self.data_store: StaticDataStore[DataType] = StaticDataStore(
             self.flat_graph, backend, inference, model.constraint_solver, memo
         )
-
+        # Initialize an Updates object to store updates and pass it to the
+        # _pre_compile.
+        updates = Updates()
         for p_model, mappings in flat_model:
             model_shapes = {}
             if safe_shapes and p_model.safe_shapes:
@@ -196,17 +198,28 @@ class PhysicalModel(GenericDataType[DataType]):
                     self.backend, memo=memo
                 )
                 # Set differentiability of non-differentiable tensor inputs to False.
-                if physical_data.edge_type is MyTensor:
-                    # TODO: Second condition in if will be removed
-                    # after Primitive's compile handling updated..
-                    if (
-                        global_key in self._non_differentiable_keys
-                        or physical_data.value is not TBD
-                    ):
-                        # TODO: Create an API for setting differentiability of a tensor.
-                        physical_data.differentiable = False
-                    elif global_key in self._trainable_tensor_inputs:
-                        physical_data.differentiable = True
+                # if physical_data.edge_type is MyTensor:
+                # TODO: Second condition in if will be removed
+                # after Primitive's compile handling updated..
+                if (
+                    global_key in self._non_differentiable_keys
+                    or physical_data.value is not TBD
+                ):
+                    # TODO: Create an API for setting differentiability of a tensor.
+                    physical_data.differentiable = False
+                elif global_key in self._trainable_tensor_inputs:
+                    if physical_data.edge_type not in (MyTensor, TBD):
+                        raise ValueError(
+                            f"Non-tensor type data can not be trainable: {global_key}"
+                        )
+                    elif physical_data.edge_type is TBD:
+                        # Set physical data type to Tensor.
+                        updates |= physical_data.set_type(MyTensor)
+                    elif physical_data.value is not TBD:
+                        raise ValueError(
+                            f"Valued data can not be trainable: {global_key}"
+                        )
+                    physical_data.differentiable = True
 
                 model_data[key] = physical_data
                 self.data_store.data_memo[id(logical_data)] = physical_data
@@ -217,7 +230,11 @@ class PhysicalModel(GenericDataType[DataType]):
                     shp = data.shape
                     assert shp is not None
                     # assert shp is not None
-                    shp.merge(key_shape.node)
+                    updates |= shp.merge(key_shape.node)
+
+            # Since we may update type and shape, we need to call constraint
+            # solver to propagate updates.
+            self.data_store.constraint_solver(updates)
 
             output = PrimitiveModel.output_key
             _data_dict: dict[str, IOHyperEdge] = {}
@@ -511,15 +528,14 @@ class PhysicalModel(GenericDataType[DataType]):
         # Set given shapes.
         self.data_store.set_shapes(shapes)
 
-        for node in self.flat_graph.nodes.values():
-            conn_data = node.model.conns.get_connection("output")
-            assert conn_data is not None
-            if (conn_data.metadata.edge_type is not MyTensor) or (
-                not find_intersection_type(float, conn_data.metadata.value_type)
-            ):
-                self.ignore_grad_keys.add(
-                    node.connections[PrimitiveModel.output_key].key
-                )
+        # for node in self.flat_graph.nodes.values():
+        #     conn_edge = self.data[node.connections["output"].key]
+        #     if (conn_edge.edge_type is not MyTensor) or (
+        #         not find_intersection_type(float, conn_edge.value_type)
+        #     ):
+        #         self.ignore_grad_keys.add(
+        #             node.connections[PrimitiveModel.output_key].key
+        #         )
 
         self.flat_graph.prune_duplicate_nodes(self.data, constant_keys)
 
@@ -566,6 +582,10 @@ class PhysicalModel(GenericDataType[DataType]):
             self.discarded_keys, self._output_keys
         )
 
+        # TODO: Should we store ignored_grad_keys and discarded_keys
+        # as attributes?
+        self.ignore_grad_keys |= self.discarded_keys
+
         self.data_store.remove_keys_from_store(
             self.discarded_keys | self.flat_graph.unnecessary_keys.keys()
         )
@@ -584,7 +604,31 @@ class PhysicalModel(GenericDataType[DataType]):
                     "no need to provide data for it."
                 )
 
-        self.ignore_grad_keys |= self.discarded_keys
+        # Add non-tensor, valued and valued dropped data to ignored_grad_keys.
+        self.ignore_grad_keys |= {
+            key
+            for key, value in self.flat_graph.dropped_keys.items()
+            if value in self.data_store.data_values
+        }
+        for node in self.flat_graph.nodes.values():
+            _key = node.connections["output"].key
+            conn_edge = self.data.get(_key, None)
+            # TODO: If conn_edge is None, it means that the key is unused in data_store
+            # but not unnecessary in flat_graph. This case should be handled when
+            # flat_graph - data_store integration is updated.
+            if conn_edge is not None and (
+                (conn_edge.edge_type is not MyTensor)
+                or (
+                    (not find_intersection_type(float, conn_edge.value_type))
+                    or _key
+                    in (
+                        self.data_store.data_values.keys() | self.data_store.unused_keys
+                    )
+                )
+            ):
+                self.ignore_grad_keys.add(
+                    node.connections[PrimitiveModel.output_key].key
+                )
 
         if len(self._output_keys - self.ignore_grad_keys) == 0 and not self.inference:
             raise ValueError("All outputs gradient are ignored.")

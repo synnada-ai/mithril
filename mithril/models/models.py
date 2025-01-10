@@ -44,6 +44,7 @@ from ..framework.logical.essential_primitives import (
     DType,
     Exponential,
     Greater,
+    Indexer,
     Length,
     MatrixMultiply,
     Mean,
@@ -51,14 +52,12 @@ from ..framework.logical.essential_primitives import (
     Multiply,
     Power,
     Reshape,
-    ScalarItem,
     Shape,
     Size,
     Slice,
     Sqrt,
     Subtract,
     Sum,
-    TensorItem,
     Transpose,
     Variance,
 )
@@ -1342,11 +1341,11 @@ class RNNCell(Cell):
         super().__init__(name=name)
 
         shape = Shape()
-        scalar_item = ScalarItem()
+        scalar_item = Indexer()
         slice_1 = Slice(stop=None, step=None)
         slice_2 = Slice(start=None, step=None)
-        tensor_item_1 = TensorItem()
-        tensor_item_2 = TensorItem()
+        tensor_item_1 = Indexer()
+        tensor_item_2 = Indexer()
         mult_model_1 = Linear(use_bias=False)
         mult_model_2 = Linear(use_bias=False)
         mult_model_3 = Linear(use_bias=False)
@@ -1485,7 +1484,7 @@ class LSTMCell(Cell):
 
         cell_body = LSTMCellBody()
         shape_model = Shape()
-        scalar_item = ScalarItem()
+        scalar_item = Indexer()
 
         slice_1 = Slice(start=None, step=None)
         slice_2 = Slice(start=None, step=None)
@@ -1493,11 +1492,11 @@ class LSTMCell(Cell):
         slice_4 = Slice(start=None, step=None)
         slice_5 = Slice(stop=None, step=None)
 
-        tensor_item_1 = TensorItem()
-        tensor_item_2 = TensorItem()
-        tensor_item_3 = TensorItem()
-        tensor_item_4 = TensorItem()
-        tensor_item_5 = TensorItem()
+        tensor_item_1 = Indexer()
+        tensor_item_2 = Indexer()
+        tensor_item_3 = Indexer()
+        tensor_item_4 = Indexer()
+        tensor_item_5 = Indexer()
 
         self += shape_model(input=IOKey("input", value=input))
         self += scalar_item(input=shape_model.output, index=0)
@@ -1805,9 +1804,9 @@ class OneToMany(RNN):
             # Create slicing model which filters unnecessary data for
             # current time step.
             shape_model = Shape()
-            item_model = ScalarItem()
+            item_model = Indexer()
             slice_model = Slice(start=None, step=None)
-            tensor_item = TensorItem()
+            tensor_item = Indexer()
 
             self += shape_model(input=f"target{idx}")
             self += item_model(input=shape_model.output, index=0)

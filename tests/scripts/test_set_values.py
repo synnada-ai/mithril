@@ -257,7 +257,7 @@ def test_set_values_tensor_1():
     model2 += add_model_2(left="input1", right="input2", output="sub_input")
     add_model_2.set_values({"right": MyTensor([2.0])})
     model2.set_values({"input1": MyTensor([3.0])})
-    pm = mithril.compile(model=model2, backend=JaxBackend())
+    pm = mithril.compile(model=model2, backend=JaxBackend(), inference=True)
 
     ref_outputs = {"output": backend.array([8.0])}
 
@@ -280,7 +280,7 @@ def test_set_values_tensor_1_kwargs_arg():
     model2 += add_model_2(left="input1", right="input2", output="sub_input")
     # add_model_2.set_values({"right": [2.0]})
     model2.set_values({"input1": MyTensor([3.0])}, input2=MyTensor([2.0]))
-    pm = mithril.compile(model=model2, backend=JaxBackend())
+    pm = mithril.compile(model=model2, backend=JaxBackend(), inference=True)
 
     ref_outputs = {"output": backend.array([8.0])}
 
@@ -303,7 +303,7 @@ def test_set_values_tensor_2():
     model2 += add_model_2(left="input1", right="input2", output="sub_input")
     add_model_2.set_values({"right": MyTensor([2.0])})
     model2.set_values({"input1": MyTensor([3.0])})
-    pm = mithril.compile(model=model2, backend=JaxBackend())
+    pm = mithril.compile(model=model2, backend=JaxBackend(), inference=True)
 
     ref_outputs = {"output": backend.array([8.0])}
 
@@ -326,7 +326,7 @@ def test_set_values_tensor_3():
     model2 += add_model_2(left="input1", right="input2", output="sub_input")
     add_model_2.set_values({model2.input2: MyTensor([2.0])})  # type: ignore
     model2.set_values({add_model_2.left: MyTensor([3.0])})
-    pm = mithril.compile(model=model2, backend=JaxBackend())
+    pm = mithril.compile(model=model2, backend=JaxBackend(), inference=True)
 
     ref_outputs = {"output": backend.array([8.0])}
 

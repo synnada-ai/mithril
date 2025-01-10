@@ -61,7 +61,8 @@ __all__ = [
     "general_tensor_type_constraint",
     "floor_divide_type_constraint",
     "scalar_slice_type_constraint",
-    "scalar_item_type_constraint",
+    "indexer_initial_type_constraint",
+    "indexer_type_constraint",
     "slice_constraints",
     "bcast",
     "bcast_matrix_mult",
@@ -86,9 +87,8 @@ __all__ = [
     "validate_bcast",
     "eye_constraints",
     "item_constraints",
-    "scalar_item_constraints",
+    "indexer_constraints",
     "to_tuple_constraints",
-    "tensor_item_constraints",
     "tensor_to_list_type_constraint",
     "reduce_type_constraint",
     "type_constraints",
@@ -180,7 +180,7 @@ def edge_type_constraint(*args: IOHyperEdge):
         # If there is only one untyped input, set it as MyTensor.
         untyped_inputs = [input for input in inputs if input.edge_type is TBD]
         if len(untyped_inputs) == 1:
-            updates |= untyped_inputs[0].set_type(MyTensor)
+            updates |= untyped_inputs.pop().set_type(MyTensor)
             return True, updates
     elif output.edge_type is not TBD:
         # Scalar output means all inputs are scalar.
@@ -592,56 +592,87 @@ def scalar_item_reduce_input_type(
         return input_type
 
 
-def scalar_item_type_constraint(
+def indexer_initial_type_constraint(
     output: IOHyperEdge, input: IOHyperEdge, index: IOHyperEdge
 ):
+    status = False
     updates = Updates()
-    assert not isinstance(input.value_type, NestedListType)
-    assert not isinstance(output.value_type, NestedListType)
-    input_type = input.value_type
-    output_type = output.value_type
-    index_value = index.value
-    assert (
-        isinstance(index_value, ToBeDetermined)
-        or type(index_value) is int
-        or type(index_value) is slice
-    )
+    edge_types = {input.edge_type, output.edge_type}
+    if edge_types != {TBD}:
+        if MyTensor not in edge_types:
+            # Meaning that indexing scalar type data. Set general
+            # scalar type constraints on all arguments.
+            output_type = int | float | list | tuple
+            input_type = list | tuple
+            updates |= output.set_type(output_type)
+            updates |= input.set_type(input_type)
+            status = True
+        else:
+            tensor_edge = input if input.edge_type is MyTensor else output
+            assert isinstance(tensor_edge._value, MyTensor)
+            typ: type[MyTensor] = MyTensor[tensor_edge.value_type]
+            other_edge = (input, output)[tensor_edge is input]
+            updates |= other_edge.set_type(typ)
+            status = True
+    return status, updates
 
-    if not (
-        isinstance(input_type, UnionType)
-        or hasattr(input_type, "__origin__")
-        or input_type in [tuple, list]
-    ):
-        raise TypeError("Input type should be list, tuple or UnionType!")
 
-    if (
-        inferred_input_type := scalar_item_reduce_input_type(
-            output_type, input_type, index_value
+def indexer_type_constraint(
+    output: IOHyperEdge, input: IOHyperEdge, index: IOHyperEdge
+):
+    status = False
+    updates = Updates()
+    if input.edge_type not in (MyTensor, TBD):
+        # Input is a non-tensor type.
+        assert not isinstance(input.value_type, NestedListType)
+        assert not isinstance(output.value_type, NestedListType)
+        input_type = input.value_type
+        output_type = output.value_type
+        index_value = index.value
+        assert (
+            isinstance(index_value, ToBeDetermined)
+            or type(index_value) is int
+            or type(index_value) is slice
         )
-    ) is None:
-        raise TypeError(
-            f"Output type {output_type} is not compatible with input type {input_type}!"
+
+        if not (
+            isinstance(input_type, UnionType)
+            or hasattr(input_type, "__origin__")
+            or input_type in [tuple, list]
+        ):
+            raise TypeError("Input type should be list, tuple or UnionType!")
+
+        if (
+            inferred_input_type := scalar_item_reduce_input_type(
+                output_type, input_type, index_value
+            )
+        ) is None:
+            raise TypeError(
+                f"Output type {output_type} is not compatible with "
+                f"input type {input_type}!"
+            )
+
+        updates |= input.set_type(inferred_input_type)
+
+        # extract all possibilites and put it in to a list
+        # TODO: This part should take NestedListType into account.
+        args = (
+            input.value_type.__args__
+            if isinstance(input.value_type, UnionType)
+            else [input.value_type]
         )
 
-    updates |= input.set_type(inferred_input_type)
+        # Do the forward inference in all types in args, then make Union
+        types = [
+            scalar_item_type_constraint_forward_helper(arg, index_value) for arg in args
+        ]
+        inferred_out_type = create_union_type(*types)
 
-    # extract all possibilites and put it in to a list
-    # TODO: This part should take NestedListType into account.
-    args = (
-        input.value_type.__args__
-        if isinstance(input.value_type, UnionType)
-        else [input.value_type]
-    )
+        updates |= output.set_type(inferred_out_type)
 
-    # Do the forward inference in all types in args, then make Union
-    types = [
-        scalar_item_type_constraint_forward_helper(arg, index_value) for arg in args
-    ]
-    inferred_out_type = create_union_type(*types)
-
-    updates |= output.set_type(inferred_out_type)
-
-    status = not is_union(output.value_type)
+        status = not is_union(output.value_type)
+    elif input.edge_type is MyTensor:
+        status = True
     return status, updates
 
 
@@ -3505,8 +3536,8 @@ def to_list_constraints(output: IOHyperEdge, *args: IOHyperEdge) -> ConstrainRes
 def tensor_item_constraints(
     output: IOHyperEdge, input: IOHyperEdge, index: IOHyperEdge
 ) -> ConstrainResultType:
-    assert output._temp_shape is not None, "Output shape of TensorItem is not set!"
-    assert input._temp_shape is not None, "Input shape of TensorItem is not set!"
+    assert output._temp_shape is not None, "Output shape of Item is not set!"
+    assert input._temp_shape is not None, "Input shape of Item is not set!"
     input_shape: ShapeRepr = input._temp_shape
     output_shape: ShapeRepr = output._temp_shape
     index_val = index.value
@@ -3612,9 +3643,19 @@ def tensor_item_constraint_helper(
     return input_unis, output_unis, status, current_index
 
 
+def indexer_constraints(
+    output: IOHyperEdge, input: IOHyperEdge, index: IOHyperEdge
+) -> ConstrainResultType:
+    if input.edge_type is MyTensor:
+        return tensor_item_constraints(output, input, index)
+    elif input.edge_type is not TBD:
+        return scalar_item_constraints(output, input, index)
+    return False, Updates()
+
+
 def split_constraints(
     output: IOHyperEdge, input: IOHyperEdge, split_size: IOHyperEdge, axis: IOHyperEdge
-):
+) -> ConstrainResultType:
     status = False
     split_size_val = split_size.value
     axis_val = axis.value
@@ -3853,25 +3894,6 @@ def cross_entropy_constraint(
     return status, updates
 
 
-# def buffer_constraint(output: IOHyperEdge, input: IOHyperEdge) -> ConstrainResultType:
-#     updates = Updates()
-#     status = False
-#     if (edge_type := input.edge_type) is not TBD:
-#         # NOTE: This constraint is only a post-processing constraint
-#         # of edge_type_constraint. So it is assumed that all edge types
-#         # are defined.
-#         if edge_type is MyTensor:
-#             assert output._temp_shape is not None
-#             assert input._temp_shape is not None
-#             # prefix = output._temp_shape.prefix
-#             # suffix = output._temp_shape.suffix
-#             # root = output._temp_shape.root
-#             # updates |= input._temp_shape.inner_match(prefix, root, suffix)
-#             updates |= input._value.match_shapes(output._value)
-#         status = True
-#     return status, updates
-
-
 def buffer_constraint(output: IOHyperEdge, input: IOHyperEdge) -> ConstrainResultType:
     updates = Updates()
     status = False
@@ -3883,7 +3905,10 @@ def buffer_constraint(output: IOHyperEdge, input: IOHyperEdge) -> ConstrainResul
         typed_edge, other_edge = output, input
 
     if typed_edge is not None:
-        updates |= other_edge.set_value(typed_edge._value)
+        if typed_edge.edge_type is MyTensor:
+            updates |= other_edge.set_value(typed_edge._value)
+        else:
+            updates |= other_edge.set_type(typed_edge.edge_type)
         status = True
     return status, updates
 
@@ -3960,7 +3985,8 @@ type_constraints: set[ConstraintFunctionType] = {
     general_tensor_type_constraint,
     floor_divide_type_constraint,
     scalar_slice_type_constraint,
-    scalar_item_type_constraint,
+    indexer_initial_type_constraint,
+    indexer_type_constraint,
     tensor_to_list_type_constraint,
     reduce_type_constraint,
     relational_operator_type_constraint,

@@ -176,7 +176,11 @@ def test_constant_key():
 
     backend = JaxBackend(precision=64)
     assert_evaluations_equal(
-        model2, model_recreated, backend, static_keys={"input": backend.ones([4, 256])}
+        model2,
+        model_recreated,
+        backend,
+        static_keys={"input": backend.ones([4, 256])},
+        inference=True,
     )
 
 
@@ -675,7 +679,11 @@ def test_auto_iadd_1():
 
     backend = JaxBackend(precision=64)
     assert_evaluations_equal(
-        model, model_recreated, backend, static_keys={"input": backend.ones([4, 256])}
+        model,
+        model_recreated,
+        backend,
+        static_keys={"input": backend.ones([4, 256])},
+        inference=True,
     )
 
 
@@ -692,7 +700,11 @@ def test_auto_iadd_2():
 
     backend = JaxBackend(precision=64)
     assert_evaluations_equal(
-        model, model_recreated, backend, static_keys={"input": backend.ones([4, 256])}
+        model,
+        model_recreated,
+        backend,
+        static_keys={"input": backend.ones([4, 256])},
+        inference=True,
     )
 
 

@@ -38,6 +38,9 @@ from ..constraints import (
     edge_type_constraint,
     floor_divide_type_constraint,
     general_tensor_type_constraint,
+    indexer_constraints,
+    indexer_initial_type_constraint,
+    indexer_type_constraint,
     item_constraints,
     power_threshold_shape_constraint,
     reduce_constraints,
@@ -45,13 +48,10 @@ from ..constraints import (
     relational_operator_type_constraint,
     reshape_constraints,
     reverse_constraints,
-    scalar_item_constraints,
-    scalar_item_type_constraint,
     shape_constraints,
     size_constraints,
     slice_constraints,
     split_constraints,
-    tensor_item_constraints,
     tensor_to_list_constraints,
     tensor_to_list_type_constraint,
     to_list_constraints,
@@ -80,7 +80,8 @@ __all__ = [
     "Size",
     "Exponential",
     "Item",
-    "ScalarItem",
+    "Indexer",
+    # "ScalarItem",
     "ToTensor",
     "ToList",
     "TensorToList",
@@ -103,7 +104,6 @@ __all__ = [
     "LogicalXOr",
     "ShiftLeft",
     "ShiftRight",
-    "TensorItem",
     "ArgMax",
     "ArgMin",
     "Cast",
@@ -588,41 +588,41 @@ class Item(PrimitiveModel):
         return super().__call__(input=input, output=output)
 
 
-class ScalarItem(PrimitiveModel):
-    input: Connection
-    index: Connection
-    output: Connection
+# class ScalarItem(PrimitiveModel):
+#     input: Connection
+#     index: Connection
+#     output: Connection
 
-    def __init__(
-        self,
-        name: str | None = None,
-        index: int | ToBeDetermined = TBD,
-        input: TensorValueType | ToBeDetermined = TBD,
-    ) -> None:
-        super().__init__(
-            formula_key="scalar_item",
-            name=name,
-            output=BaseKey(type=int | float | list | tuple),
-            input=BaseKey(type=list | tuple, value=input),
-            index=BaseKey(type=int | slice, value=index),
-        )
+#     def __init__(
+#         self,
+#         name: str | None = None,
+#         index: int | ToBeDetermined = TBD,
+#         input: TensorValueType | ToBeDetermined = TBD,
+#     ) -> None:
+#         super().__init__(
+#             formula_key="index",
+#             name=name,
+#             output=BaseKey(type=int | float | list | tuple),
+#             input=BaseKey(type=list | tuple, value=input),
+#             index=BaseKey(type=int | slice, value=index),
+#         )
 
-        self._set_constraint(
-            fn=scalar_item_constraints,
-            keys=[PrimitiveModel.output_key, "input", "index"],
-        )
-        self._set_constraint(
-            fn=scalar_item_type_constraint,
-            keys=[PrimitiveModel.output_key, "input", "index"],
-        )
+#         self._set_constraint(
+#             fn=scalar_item_constraints,
+#             keys=[PrimitiveModel.output_key, "input", "index"],
+#         )
+#         self._set_constraint(
+#             fn=index_type_constraint,
+#             keys=[PrimitiveModel.output_key, "input", "index"],
+#         )
 
-    def __call__(  # type: ignore[override]
-        self,
-        input: ConnectionType = NOT_GIVEN,
-        index: ConnectionType = NOT_GIVEN,
-        output: ConnectionType = NOT_GIVEN,
-    ) -> ExtendInfo:
-        return super().__call__(input=input, index=index, output=output)
+# def __call__(  # type: ignore[override]
+#     self,
+#     input: ConnectionType = NOT_GIVEN,
+#     index: ConnectionType = NOT_GIVEN,
+#     output: ConnectionType = NOT_GIVEN,
+# ) -> ExtendInfo:
+#     return super().__call__(input=input, index=index, output=output)
 
 
 class ToTensor(PrimitiveModel):
@@ -1400,7 +1400,7 @@ class Slice(PrimitiveModel):
         return super().__call__(start=start, stop=stop, step=step, output=output)
 
 
-class TensorItem(PrimitiveModel):
+class Indexer(PrimitiveModel):
     input: Connection
     index: Connection
     output: Connection
@@ -1412,10 +1412,10 @@ class TensorItem(PrimitiveModel):
         input: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(
-            formula_key="tensor_item",
+            formula_key="indexer",
             name=name,
-            output=BaseKey(shape=[("Var2", ...)], type=MyTensor),
-            input=BaseKey(shape=[("Var1", ...)], type=MyTensor, value=input),
+            output=BaseKey(),
+            input=BaseKey(value=input),
             index=BaseKey(
                 type=int
                 | slice
@@ -1427,11 +1427,13 @@ class TensorItem(PrimitiveModel):
         )
 
         self._set_constraint(
-            fn=tensor_item_constraints,
-            keys=[PrimitiveModel.output_key, "input", "index"],
+            fn=edge_type_constraint, keys=[PrimitiveModel.output_key, "input"]
         )
+
         self._set_constraint(
-            fn=general_tensor_type_constraint, keys=[PrimitiveModel.output_key, "input"]
+            fn=indexer_initial_type_constraint,
+            keys=[PrimitiveModel.output_key, "input", "index"],
+            post_processes={indexer_type_constraint, indexer_constraints},
         )
 
     def __call__(  # type: ignore[override]

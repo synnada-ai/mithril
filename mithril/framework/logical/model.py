@@ -56,6 +56,7 @@ from .essential_primitives import (
     FloorDivide,
     Greater,
     GreaterEqual,
+    Indexer,
     Item,
     Length,
     Less,
@@ -74,7 +75,6 @@ from .essential_primitives import (
     Power,
     Prod,
     Reshape,
-    ScalarItem,
     Shape,
     ShiftLeft,
     ShiftRight,
@@ -84,7 +84,6 @@ from .essential_primitives import (
     Sqrt,
     Subtract,
     Sum,
-    TensorItem,
     TensorToList,
     ToList,
     ToTensor,
@@ -111,6 +110,7 @@ ops_table: dict[str, type[PrimitiveModel]] = {
     "tensor": ToTensor,
     "list": TensorToList,
     "item": Item,
+    "indexer": Indexer,
     "mean": Mean,
     "sqrt": Sqrt,
     "exp": Exponential,
@@ -140,10 +140,10 @@ ops_table: dict[str, type[PrimitiveModel]] = {
 }
 
 
-coercion_table: dict[tuple[str, type[MyTensor] | None], type[PrimitiveModel]] = {
-    ("index", MyTensor): TensorItem,
-    ("index", None): ScalarItem,
-}
+# coercion_table: dict[tuple[str, type[MyTensor] | None], type[PrimitiveModel]] = {
+#     ("index", MyTensor): Indexer,
+#     ("index", None): ScalarItem,
+# }
 
 
 class Model(BaseModel):
@@ -305,12 +305,9 @@ class Model(BaseModel):
                 _connection = IOKey(connections={connection})
             case ExtendTemplate():
                 # Unroll ExtendTemplate
-                template_conn = model.conns.get_connection(key)
-                assert template_conn is not None, "Connection type is not found!"
-                con_data = self._unroll_template(
-                    connection,
-                    MyTensor if template_conn.metadata.edge_type is MyTensor else None,
-                )
+                # template_conn = model.conns.get_connection(key)
+                # assert template_conn is not None, "Connection type is not found!"
+                con_data = self._unroll_template(connection)
                 _connection = IOKey(connections={con_data.conn}, expose=False)
             case _ if isinstance(connection, MainValueInstance | MyTensor):
                 # find_dominant_type returns the dominant type in a container.
@@ -513,23 +510,23 @@ class Model(BaseModel):
 
         return con_obj, updates
 
-    def _unroll_template(
-        self, template: ExtendTemplate, joint_type: type[MyTensor] | None
-    ) -> ConnectionData:
+    def _unroll_template(self, template: ExtendTemplate) -> ConnectionData:
         if template.output_connection is None:
             # Initialize all default init arguments of model as "..." other
             # than the keys in template.defaults, in order to provide
             # given connections to the model after it is created.
             # If we don't do that, it will throw error because of
             # re-setting a Tensor or Scalar value again in extend.
-            if (model_type := ops_table.get(template.model)) is None:
-                model_config = template.model, joint_type
-                model_type = coercion_table.get(model_config)
 
-            assert (
-                model_type is not None
-            ), "given model is not found in the ops_table or coercion_table"
+            # if (model_type := ops_table.get(template.model)) is None:
+            #     model_config = template.model, joint_type
+            #     model_type = coercion_table.get(model_config)
 
+            # assert (
+            #     model_type is not None
+            # ), "given model is not found in the ops_table or coercion_table"
+
+            model_type = ops_table[template.model]
             # TODO: Remove all TBD if default init arguments will be moved to call!!!
             init_fun = model_type.__init__
 
@@ -545,16 +542,9 @@ class Model(BaseModel):
             # TODO: Reconsider type ignore!
             model: PrimitiveModel = model_type(**default_args_dict)  # type: ignore
             connections: list[ConnectionType] = []
-            for idx, connection in enumerate(template.connections):
+            for connection in template.connections:
                 if isinstance(connection, ExtendTemplate):
-                    conn = model.conns.get_connection(list(model.input_keys)[idx])
-                    assert conn is not None
-                    conn_type = (
-                        MyTensor if conn.metadata.edge_type is MyTensor else None
-                    )
-                    connections.append(
-                        self._unroll_template(connection, conn_type).conn
-                    )
+                    connections.append(self._unroll_template(connection).conn)
                 else:
                     assert isinstance(
                         connection, ConnectionInstanceType

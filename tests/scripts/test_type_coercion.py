@@ -42,6 +42,7 @@ from mithril.models import (
     Concat,
     ExtendInfo,
     FloorDivide,
+    Indexer,
     LeakyRelu,
     Linear,
     MatrixMultiply,
@@ -50,7 +51,6 @@ from mithril.models import (
     PrimitiveModel,
     PrimitiveUnion,
     Relu,
-    ScalarItem,
     Shape,
     Sigmoid,
     Slice,
@@ -213,7 +213,7 @@ def test_tensor_to_scalar_1():
     model = Model()
     add_2 = Add()
     left = IOKey(value=[2, 1]).tensor()
-    right = IOKey(value=[1, 1]).tensor()
+    right = IOKey(value=[[1, 1]]).tensor()
     model += add_2(left=left, right=right)
     reshaped_2 = add_2.output.reshape(add_2.left.shape)
     model += Buffer()(input=reshaped_2, output="output")
@@ -224,7 +224,9 @@ def test_tensor_to_scalar_1():
     backend = JaxBackend(precision=32)
     data: dict[str, Any] = {}
     # Check equality.
-    compare_models(model_1, model_2, backend, data, check_internals=False)
+    compare_models(
+        model_1, model_2, backend, data, check_internals=False, inference=True
+    )
 
 
 def test_tensor_to_scalar_1_non_jittable():
@@ -260,7 +262,15 @@ def test_tensor_to_scalar_1_non_jittable():
     backend = JaxBackend(precision=32)
     data: dict[str, Any] = {}
     # Check equality.
-    compare_models(model_1, model_2, backend, data, jit=False, check_internals=False)
+    compare_models(
+        model_1,
+        model_2,
+        backend,
+        data,
+        jit=False,
+        check_internals=False,
+        inference=True,
+    )
 
 
 def test_slice_item_conversions():
@@ -270,13 +280,13 @@ def test_slice_item_conversions():
 
     slice_model = Model()
     slice_model += (slc := Slice())(start=None, stop=None, step=None)
-    slice_model += ScalarItem()(input="input", index=slc.output, output=IOKey("output"))
+    slice_model += Indexer()(input="input", index=slc.output, output=IOKey("output"))
 
     # Manuel conversion
     model = Model()
     lin_1 = Linear(dimension=1)
     shp1 = Shape()
-    item = ScalarItem()
+    item = Indexer()
     tensor_1 = ToTensor()
     tensor_2 = ToTensor()
     model += lin_1(input="input", weight="w", bias="b")
@@ -284,7 +294,7 @@ def test_slice_item_conversions():
     model += item(input=shp1.output, index=1)
     model += tensor_1(input=item.output)
     model += (slc := Slice())(start=None, stop=None, step=None)
-    model += (sc_item := ScalarItem())(input=shp1.output, index=slc.output)
+    model += (sc_item := Indexer())(input=shp1.output, index=slc.output)
     model += tensor_2(input=sc_item.output)  # type: ignore
     model += Add()(left=tensor_1.output, right=tensor_2.output, output="output")
     model_1 = model
@@ -307,7 +317,9 @@ def test_slice_item_conversions():
     backend = JaxBackend(precision=32)
     data = {"input": backend.array([[1.0], [2]])}
     # Check equality.
-    compare_models(model_1, model_2, backend, data, check_internals=False)
+    compare_models(
+        model_1, model_2, backend, data, check_internals=False, inference=True
+    )
 
 
 def test_tuple_conversion_1():
@@ -336,7 +348,7 @@ def test_tuple_conversion_1():
     backend = JaxBackend(precision=32)
     data = {"input": backend.array([[1.0], [2]])}
     # Check equality.
-    compare_models(model_1, model_2, backend, data)
+    compare_models(model_1, model_2, backend, data, inference=True)
 
 
 def test_tuple_conversion_2():
@@ -1050,7 +1062,7 @@ def test_connect_6():
 
     model += Buffer()(input=conn, output=IOKey(name="output1"))
 
-    pm = compile(model=model, backend=backend, jit=False)
+    pm = compile(model=model, backend=backend, jit=False, inference=True)
     output = pm.evaluate()
     ref_output = {
         "output": backend.array([[3.0], [3.0], [3.0]]),
@@ -1500,11 +1512,14 @@ def test_coercion_3():
     model += reduce_model(input="input", axis=to_list.output, output="output")
 
     pm = compile(model=model, backend=backend, jit=False)
-    params = {"input": backend.ones(1, 2, 3, 4, 5), "left": backend.array([1, 2])}
+    params = {"input": backend.ones(1, 2, 3, 4, 5)}
+    data = {"left": backend.array([1, 2])}
 
     output_gradients = {"output": backend.ones(1, 3, 5)}
 
-    outputs, grads = pm.evaluate_all(params=params, output_gradients=output_gradients)
+    outputs, grads = pm.evaluate_all(
+        params=params, data=data, output_gradients=output_gradients
+    )
 
     ref_outputs = {"output": backend.ones(1, 3, 5) * 8}
     assert_results_equal(outputs, ref_outputs)
@@ -1523,9 +1538,10 @@ def test_coercion_4():
 
     pm = compile(model=model, backend=backend, jit=False)
 
-    params = {"input": backend.ones(1, 2, 3, 4, 5), "left": backend.array([1, 2])}
+    params = {"input": backend.ones(1, 2, 3, 4, 5)}
+    data = {"left": backend.array([1, 2])}
     outputs, _ = pm.evaluate_all(
-        params=params, output_gradients={"output": backend.ones(1, 3, 5)}
+        params=params, data=data, output_gradients={"output": backend.ones(1, 3, 5)}
     )
 
     ref_outputs = {"output": backend.ones(1, 3, 5) * 8}
