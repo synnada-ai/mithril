@@ -961,9 +961,7 @@ def to_tensor(
     return np.array(input[0], dtype=get_type(input[0], precision=precision))
 
 
-def tensor_to_list(
-    input: np.ndarray[Any, Any], cache: CacheType | None = None
-) -> list[Any]:
+def tensor_to_list(input: np.ndarray[Any, Any], cache: CacheType | None = None) -> Any:
     return input.tolist()
 
 
