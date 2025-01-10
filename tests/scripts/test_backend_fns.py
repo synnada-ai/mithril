@@ -1852,7 +1852,7 @@ class TestRandn:
     "backendcls, device, precision", backends_with_device_precision, ids=names
 )
 class TestRand:
-    def test_randn(self, backendcls, device, precision):
+    def test_rand(self, backendcls, device, precision):
         backend = backendcls(device=device, precision=precision)
         fn = backend.rand
         fn_args: list = [3, 4, 5]

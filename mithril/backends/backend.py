@@ -392,7 +392,7 @@ class Backend(ABC, Generic[DataType]):
         self,
         *shape: int | tuple[int, ...] | list[int],
         dtype: core.Dtype | None = None,
-        prng_key: Any = None,
+        key: int | None = None,
     ) -> DataType:
         """Returns a new backend array filled with random samples between [0, 1).
 
@@ -414,7 +414,7 @@ class Backend(ABC, Generic[DataType]):
         self,
         *shape: int | tuple[int, ...] | list[int],
         dtype: core.Dtype | None = None,
-        prng_key: Any = None,
+        key: int | None = None,
     ) -> DataType:
         """Returns a new backend array filled with random samples between [0, 1).
 
@@ -438,7 +438,7 @@ class Backend(ABC, Generic[DataType]):
         high: int | float | bool | DataType,
         *shape: int | tuple[int, ...] | list[int],
         dtype: core.Dtype | None = None,
-        prng_key: Any = None,
+        key: int | None = None,
     ) -> DataType:
         """Returns a new backend array filled with random samples between [0, 1).
 
@@ -462,7 +462,7 @@ class Backend(ABC, Generic[DataType]):
         high: int,
         *shape: int | tuple[int, ...] | list[int],
         dtype: core.Dtype | None = None,
-        prng_key: Any = None,
+        key: int | None = None,
     ) -> DataType:
         """
         Generate an array of random integers between low (inclusive) and
@@ -1294,7 +1294,7 @@ class ParallelBackend(Backend[DataType]):
         *shape: int | tuple[int, ...] | list[int],
         dtype: core.Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
-        prng_key: Any = None,
+        key: int | None = None,
     ) -> DataType:
         """Returns a new backend array filled with random samples between [0, 1).
 
@@ -1317,7 +1317,7 @@ class ParallelBackend(Backend[DataType]):
         *shape: int | tuple[int, ...] | list[int],
         dtype: core.Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
-        prng_key: Any = None,
+        key: int | None = None,
     ) -> DataType:
         """Returns a new backend array filled with random samples between [0, 1).
 
@@ -1342,7 +1342,7 @@ class ParallelBackend(Backend[DataType]):
         *shape: int | tuple[int, ...] | list[int],
         dtype: core.Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
-        prng_key: Any = None,
+        key: int | None = None,
     ) -> DataType:
         """Returns a new backend array filled with random samples between [0, 1).
 
@@ -1367,7 +1367,7 @@ class ParallelBackend(Backend[DataType]):
         *shape: int | tuple[int, ...] | list[int],
         dtype: core.Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
-        prng_key: Any = None,
+        key: int | None = None,
     ) -> DataType:
         """Returns a new backend array filled with random samples between [0, 1).
 
