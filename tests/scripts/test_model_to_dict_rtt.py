@@ -39,6 +39,9 @@ from mithril.utils import dict_conversions
 
 from .helper import assert_evaluations_equal, assert_models_equal
 
+# TODO: assigned_constraint utility of dict to models are not tested.
+# add tests for assigned_constraint utility of dict to models
+
 
 def test_linear_expose():
     model = Model()

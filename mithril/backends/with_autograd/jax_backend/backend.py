@@ -27,7 +27,7 @@ from .parallel import JaxParallel
 
 __all__ = ["JaxBackend"]
 
-jax.config.update("jax_enable_x64", True)
+jax.config.update("jax_enable_x64", True)  # type: ignore
 
 
 class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
@@ -86,15 +86,15 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         return jax.Array
 
     @property
-    def device(self):
+    def device(self) -> jax.Device:
         return utils.get_device(self._device)
 
-    def get_device(self):
+    def get_device(self) -> Any:
         return self._device
 
     # TODO: This property is weird! Investigate why this property is used.
     @property
-    def DataType(self):  # noqa: N802
+    def DataType(self) -> type[jax.Array]:  # noqa: N802
         return utils.ArrayType
 
     @staticmethod
@@ -344,7 +344,6 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         step: int | float,
         dtype: Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
-        **kwargs: Any,
     ) -> jax.Array:
         default_type = (
             float if any(isinstance(x, float) for x in (start, stop, step)) else int
@@ -601,7 +600,7 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         *,
         cotangents: None,
         has_aux: bool = False,
-    ) -> tuple[Sequence[jax.Array], Callable, Sequence[jax.Array]]: ...
+    ) -> tuple[Sequence[jax.Array], Callable[..., Any], Sequence[jax.Array]]: ...
 
     @overload
     def vjp(
@@ -611,7 +610,7 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         *,
         cotangents: None,
         has_aux: bool = False,
-    ) -> tuple[dict[str, jax.Array], Callable, dict[str, jax.Array]]: ...
+    ) -> tuple[dict[str, jax.Array], Callable[..., Any], dict[str, jax.Array]]: ...
 
     def vjp(
         self,
@@ -628,10 +627,12 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         has_aux: bool = False,
     ) -> tuple[
         dict[str, jax.Array] | Sequence[jax.Array] | jax.Array,
-        dict[str, jax.Array] | list[jax.Array] | Callable,
+        dict[str, jax.Array] | list[jax.Array] | Callable[..., Any],
         dict[str, jax.Array] | Sequence[jax.Array] | jax.Array,
     ]:
-        _primals: list | dict | jax.Array = primals
+        _primals: (
+            list[jax.Array | dict[str, jax.Array]] | dict[str, jax.Array] | jax.Array
+        ) = primals  # type: ignore
         if isinstance(primals, dict | jax.Array):
             _primals = [primals]
         output, vjp, *aux = jax.vjp(fn, *_primals, has_aux=has_aux)  # type: ignore
@@ -652,14 +653,10 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
     ) -> Callable[..., dict[str, jax.Array]]:
         return jax.vmap(fn)
 
-    def jacrev(
-        self, fn: Callable[..., dict[str, jax.Array]]
-    ) -> Callable[..., dict[str, jax.Array]]:
+    def jacrev(self, fn: Callable[..., Any]) -> Callable[..., Any]:
         return jax.jacrev(fn)
 
-    def jacfwd(
-        self, fn: Callable[..., dict[str, jax.Array]]
-    ) -> Callable[..., dict[str, jax.Array]]:
+    def jacfwd(self, fn: Callable[..., Any]) -> Callable[..., Any]:
         return jax.jacfwd(fn)
 
     def _process_dtype(
@@ -674,5 +671,5 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         else:
             raise ValueError(f"Invalid dtype {dtype}")
 
-    def _get_defualt_type(self):
+    def _get_defualt_type(self) -> Dtype:
         return getattr(self, f"float{self.precision}")

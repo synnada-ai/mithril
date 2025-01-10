@@ -474,9 +474,7 @@ def test_axis():
     compiled_model.evaluate_gradients(
         input, output_gradients={"output": np.random.rand(4, 5, 8)}
     )
-    assert type(backend.array(2.3)), type(
-        compiled_model.data_store.cached_data["slope_1"].value
-    )
+    assert backend.array(2.3) == compiled_model.data_store.cached_data["slope"]
 
 
 def test_axis_1():
@@ -501,7 +499,7 @@ def test_axis_1():
         input, output_gradients={"output": np.random.rand(4, 5, 8)}
     )
     assert type(backend.array(2.3)), type(
-        compiled_model.data_store.cached_data["threshold_1"].value
+        compiled_model.data_store.cached_data["threshold_1"].value  # type: ignore
     )
 
 

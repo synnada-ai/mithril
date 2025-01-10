@@ -24,6 +24,7 @@ from typing import Any
 from ...utils.utils import OrderedSet
 from ..common import (
     NOT_AVAILABLE,
+    AssignedConstraintType,
     Connection,
     ConnectionData,
     Connections,
@@ -95,7 +96,7 @@ class BaseModel(abc.ABC):
             None  # TODO: maybe set it only to PrimitiveModel / Model.
         )
         self.assigned_shapes: list[ShapesType] = []
-        self.assigned_constraints: list[dict[str, str | list[str]]] = []
+        self.assigned_constraints: list[AssignedConstraintType] = []
         self.conns = Connections()
         self.frozen_attributes: list[str] = []
         self.dependency_map = DependencyMap(self.conns)

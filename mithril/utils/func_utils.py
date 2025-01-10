@@ -79,7 +79,7 @@ def prepare_function_args(
 def create_kwarg_dict(
     data_values: DataEvalType[DataType],
     kwarg_keys: list[str],
-    function: Callable,
+    function: Callable[..., Any],
     inputs: KeyMapType,
     reduce_with_defaults: bool,
 ) -> tuple[KeyMapType, KeyMapType]:
@@ -104,7 +104,7 @@ def reorganize_args(
     data_values: DataEvalType[DataType],
     arg_keys: dict[str, bool],
     kwarg_keys: list[str] | set[str],
-    function: Callable,
+    function: Callable[..., Any],
     inputs: KeyMapType,
     reduce_with_defaults: bool,
 ) -> dict[str, list[str]]:
@@ -152,7 +152,7 @@ def reorganize_args(
     return organized_arguments
 
 
-def is_make_array_required(data: Tensor | Scalar):
+def is_make_array_required(data: Tensor | Scalar) -> bool:
     if isinstance(data, Tensor):
         _temp_shape = next(iter(data.shape.reprs))
         # It is needed to guarantee that Tensor is at least one dimensional.

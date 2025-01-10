@@ -61,7 +61,7 @@ def test_bimultimap_1():
     values = [["a", "b", "c"], ["c", "b", "a"], ["a", "a", "a", "a", "a"]]
     keys = ["x", "y", "z"]
     dict_1 = {key: value for key, value in zip(keys, values, strict=False)}
-    bi_multi_map_obj = BiMultiMap(dict_1)
+    bi_multi_map_obj: BiMultiMap[str, list[str]] = BiMultiMap(dict_1)
     assert bi_multi_map_obj.inverse == {
         "a": ["x", "y", "z", "z", "z", "z", "z"],
         "b": ["x", "y"],
@@ -73,9 +73,13 @@ def test_bimultimap_2():
     values = [["a", "b", "c"], ["c", "b", "a"], ["a", "a", "a", "a", "a"]]
     keys = ["x", "y", "z"]
     dict_1 = {key: value for key, value in zip(keys, values, strict=False)}
-    bi_multi_map_obj = BiMultiMap(dict_1)
-    bi_multi_map_obj_inv = BiMultiMap(bi_multi_map_obj.inverse)
-    bi_multi_map_obj_inv_inv = BiMultiMap(bi_multi_map_obj_inv.inverse)
+    bi_multi_map_obj: BiMultiMap[str, list[str]] = BiMultiMap(dict_1)
+    bi_multi_map_obj_inv: BiMultiMap[str, list[str]] = BiMultiMap(
+        bi_multi_map_obj.inverse
+    )
+    bi_multi_map_obj_inv_inv: BiMultiMap[str, list[str]] = BiMultiMap(
+        bi_multi_map_obj_inv.inverse
+    )
     table1 = bi_multi_map_obj._table
     table2 = bi_multi_map_obj_inv_inv._table
 
@@ -88,7 +92,7 @@ def test_bimultimap_2():
         values.sort()
         assert values == value1
 
-    for key, values in table1_inverse.items():
+    for key, values in table1_inverse.items():  # type: ignore
         value1 = table2_inverse[key]
         value1.sort()
         values.sort()
@@ -100,12 +104,12 @@ def test_bimultimap_3():
     keys = ["x", "y", "z"]
     remove_item = "x"
     dict_1 = {key: value for key, value in zip(keys, values, strict=False)}
-    bi_multi_map_obj = BiMultiMap(dict_1)
+    bi_multi_map_obj: BiMultiMap[str, list[str]] = BiMultiMap(dict_1)
     table1_inv = deepcopy(bi_multi_map_obj.inverse)
     del bi_multi_map_obj[remove_item]
     table2_inv = bi_multi_map_obj.inverse
 
-    for key, values in table1_inv.items():
+    for key, values in table1_inv.items():  # type: ignore
         value1 = list(filter(lambda a: a != remove_item, values))
         value2 = table2_inv[key]
         value1.sort()

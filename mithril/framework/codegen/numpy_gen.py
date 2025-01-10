@@ -33,10 +33,11 @@ from ..common import (
     FinalCost,
     LossKey,
     ParamsEvalType,
+    Scalar,
     Tensor,
     is_type_adjustment_required,
 )
-from ..logical import PrimitiveModel, Scalar
+from ..logical import PrimitiveModel
 from .python_gen import PythonCodeGen, RawGradientType
 from .utils import check_repr_inequality
 
@@ -50,14 +51,14 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
         assert isinstance(self.pm.backend, NumpyBackend)
         self.backend: NumpyBackend = self.pm.backend
 
-    def generate_functions(self):
+    def generate_functions(self) -> list[ast.FunctionDef]:
         functions: list[ast.FunctionDef] = []
         functions.append(self.generate_evaluate())
         if not self.pm.inference:
             functions.append(self.generate_evaluate_gradients(self.pm.ignore_grad_keys))
         return functions
 
-    def generate_imports(self):
+    def generate_imports(self) -> list[ast.stmt]:
         imports = super().generate_imports()
 
         # Import grad functions
@@ -210,7 +211,9 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
 
         return self.post_process_fns(eval_fn, grad_fn, jit)  # type: ignore
 
-    def get_primitive_details(self, output_key: str):
+    def get_primitive_details(
+        self, output_key: str
+    ) -> tuple[PrimitiveModel, list[str], list[str]]:
         model = self.pm.flat_graph.get_model(output_key)
 
         global_input_keys = self.pm.flat_graph.get_source_keys(output_key)
@@ -227,7 +230,7 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
         g_input_keys: list[str],
         output_key: str,
         formula_key: str,
-    ):
+    ) -> tuple[ast.Assign, set[str]]:
         generated_fn, used_keys = self.create_primitive_call(
             fn, l_input_keys, g_input_keys
         )
@@ -275,16 +278,16 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
 
         return targets, used_keys
 
-    def get_cache_name(self, output_key: str, model: PrimitiveModel):
+    def get_cache_name(self, output_key: str, model: PrimitiveModel) -> str:
         cache_name = "_".join([output_key, model.cache_name])
         if cache_name not in self.pm.data_store._all_data:
             self.add_cache(model, output_key)
 
         return cache_name
 
-    def add_cache(self, model: PrimitiveModel, output_key: str):
+    def add_cache(self, model: PrimitiveModel, output_key: str) -> None:
         cache_name = "_".join([output_key, model.cache_name])
-        cache_value: dict | None = None if self.pm.inference else {}
+        cache_value: dict | None = None if self.pm.inference else {}  # type: ignore
         # Create A object for caches in manualgrad backend.
         self.pm.data_store.update_data({cache_name: Scalar(dict | None, cache_value)})
 

@@ -632,7 +632,7 @@ def cross_entropy(
                 f"Cross entropy got unexpected type for target '{target.dtype}'."
             )
 
-        return (  # type: ignore
+        return (
             -log(jnp.take_along_axis(input, target[:, None], axis=1)[:, 0])
             * _weights[target]
         )
@@ -897,7 +897,10 @@ def polynomial_features(input: jax.Array, *, degree: int = 2) -> jax.Array:
     samples, dims = input.shape
     identity = jnp.eye(dims + 1, dims + 1, dtype=input.dtype)
     data = jnp.hstack((jnp.ones((samples, 1), dtype=input.dtype), input))
-    powers: Iterator = map(sum, combinations_with_replacement(identity, degree))
+    powers: Iterator[jax.Array] = map(
+        sum,  # type: ignore
+        combinations_with_replacement(identity, degree),
+    )
     # Skip first element of powers. This is the bias term.
     next(powers)
     return jnp.hstack(
@@ -996,15 +999,15 @@ def dtype(input: jax.Array) -> core.Dtype:
     return getattr(core.Dtype, str(input.dtype))
 
 
-def logical_xor(left: jax.Array, right: jax.Array):
+def logical_xor(left: jax.Array, right: jax.Array) -> jax.Array:
     return left ^ right
 
 
-def split(input: jax.Array, split_size: int | list[int], axis: int = 0):
+def split(input: jax.Array, split_size: int | list[int], axis: int = 0) -> jax.Array:
     return jnp.stack(jnp.split(input, split_size, axis=axis))
 
 
-def pad(input: jax.Array, pad_width: tuple[tuple[int, int], ...]):
+def pad(input: jax.Array, pad_width: tuple[tuple[int, int], ...]) -> jax.Array:
     return jax.numpy.pad(input, pad_width)
 
 
@@ -1014,7 +1017,7 @@ def randn(shape: tuple[int, ...], key: int, device: str, precision: int) -> jax.
         return handle_data_precision(jax.random.normal(_key, shape), precision)
 
 
-def zeros_like(input: jax.Array):
+def zeros_like(input: jax.Array) -> jax.Array:
     return jnp.zeros_like(input)
 
 

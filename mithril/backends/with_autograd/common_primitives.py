@@ -92,51 +92,51 @@ def logical_not(input: DataType) -> DataType:
 
 
 def logical_or(left: DataType, right: DataType) -> DataType:
-    return left | right  # type: ignore
+    return left | right
 
 
 def logical_and(left: DataType, right: DataType) -> DataType:
-    return left & right  # type: ignore
+    return left & right
 
 
 def matrix_multiplication(left: DataType, right: DataType) -> DataType:
-    return left @ right  # type: ignore
+    return left @ right
 
 
 def add(left: DataType, right: DataType) -> DataType:
-    return left + right  # type: ignore
+    return left + right
 
 
 def subtract(left: DataType, right: DataType) -> DataType:
-    return left - right  # type: ignore
+    return left - right
 
 
 def multiplication(left: DataType, right: DataType) -> DataType:
-    return left * right  # type: ignore
+    return left * right
 
 
 def divide(numerator: DataType, denominator: DataType) -> DataType:
-    return numerator / denominator  # type: ignore
+    return numerator / denominator
 
 
 def floor_divide(numerator: DataType, denominator: DataType) -> DataType:
-    return numerator // denominator  # type: ignore
+    return numerator // denominator
 
 
 def shift_left(input: DataType, shift: DataType) -> DataType:
-    return input << shift  # type: ignore
+    return input << shift  # pyright: ignore
 
 
 def shift_right(input: DataType, shift: DataType) -> DataType:
-    return input >> shift  # type: ignore
+    return input >> shift  # pyright: ignore
 
 
 def power(base: DataType, exponent: DataType) -> DataType:
-    return base**exponent  # type: ignore
+    return base**exponent  # pyright: ignore
 
 
 def squared_error(input: DataType, target: DataType) -> DataType:
-    return (input - target) ** 2  # type: ignore
+    return (input - target) ** 2  # pyright: ignore
 
 
 def minus(input: DataType) -> DataType:
@@ -148,7 +148,7 @@ def transpose(
 ) -> DataType:
     if not axes:
         return input.T
-    return input.transpose(*axes)  # type: ignore
+    return input.transpose(*axes)  # pyright: ignore
 
 
 def swapaxes(input: DataType, axis1: int, axis2: int) -> DataType:
@@ -156,7 +156,7 @@ def swapaxes(input: DataType, axis1: int, axis2: int) -> DataType:
 
 
 def square(input: DataType) -> DataType:
-    return input * input  # type: ignore
+    return input * input  # pyright: ignore
 
 
 def buffer(input: DataType) -> DataType:
@@ -164,11 +164,11 @@ def buffer(input: DataType) -> DataType:
 
 
 def permute_tensor(input: DataType, indices: DataType) -> DataType:
-    return input[indices]  # type: ignore
+    return input[indices]  # pyright: ignore
 
 
 def reshape(input: DataType, shape: tuple[int, ...]) -> DataType:
-    return input.reshape(shape)  # type: ignore
+    return input.reshape(shape)  # pyright: ignore
 
 
 def item(input: DataType) -> int | float | bool:
@@ -178,7 +178,7 @@ def item(input: DataType) -> int | float | bool:
 def tensor_item(
     input: DataType, index: int | slice | tuple[int | slice, ...]
 ) -> DataType:
-    return input[index]  # type: ignore
+    return input[index]
 
 
 def primitive_slice(start: int | None, stop: int | None, step: int | None) -> slice:
@@ -190,11 +190,11 @@ def length(input: DataType) -> int:
 
 
 def cartesian_diff(left: DataType, right: DataType) -> DataType:
-    return left[:, None, :] - right[None, :, :]  # type: ignore
+    return left[:, None, :] - right[None, :, :]
 
 
 def primitive_embedding(input: DataType, weight: DataType) -> DataType:
-    return weight[input]  # type: ignore
+    return weight[input]
 
 
 def scalar_item(

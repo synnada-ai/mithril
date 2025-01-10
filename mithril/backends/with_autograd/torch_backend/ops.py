@@ -224,7 +224,7 @@ def log(input: torch.Tensor) -> torch.Tensor:
     return torch.log(input)
 
 
-def sign(input) -> torch.Tensor:
+def sign(input: torch.Tensor) -> torch.Tensor:
     return torch.sign(input)
 
 
@@ -236,7 +236,7 @@ def robust_power(
     base: torch.Tensor, exponent: torch.Tensor, threshold: torch.Tensor
 ) -> torch.Tensor:
     threshold1 = threshold
-    result_shape = torch.broadcast_shapes(base.shape, exponent.shape)
+    result_shape = torch.broadcast_shapes(base.shape, exponent.shape)  # type: ignore
     broadcasted_base = torch.broadcast_to(base, result_shape)
     broadcasted_exponent = torch.broadcast_to(exponent, result_shape)
     broadcasted_base = torch.abs(broadcasted_base)
@@ -461,7 +461,7 @@ def conv1d_bias(
     return torch.nn.functional.conv1d(
         input=input,
         weight=weight,
-        bias=torch.atleast_1d(bias.squeeze()),
+        bias=torch.atleast_1d(bias.squeeze()),  #  type: ignore
         stride=stride,
         padding=0,
         dilation=dilation,
@@ -516,7 +516,7 @@ def conv2d_bias(
     return F.conv2d(
         input=input,
         weight=weight,
-        bias=torch.atleast_1d(bias.squeeze()),
+        bias=torch.atleast_1d(bias.squeeze()),  #  type: ignore
         stride=stride,
         padding=_padding,
         dilation=dilation,
@@ -571,7 +571,9 @@ def max_pool2d(
     )
 
 
-def positional_encoding(input: torch.Tensor, hidden_dim: int, max_len: int):
+def positional_encoding(
+    input: torch.Tensor, hidden_dim: int, max_len: int
+) -> torch.Tensor:
     # TODO: Make positional encoding a composite model.
     pe = torch.zeros((max_len, hidden_dim))
     position = torch.arange(0, max_len)[:, None]
@@ -594,7 +596,7 @@ def scaled_dot_product_attention(
     dropout_p: float = 0.0,
     is_causal: bool = False,
     scale: float | int | None = None,
-):
+) -> torch.Tensor:
     # https://pytorch.org/docs/stable/generated/torch.nn.functional.scaled_dot_product_attention.html
     return F.scaled_dot_product_attention(
         query,
@@ -891,7 +893,7 @@ def concat(*inputs: torch.Tensor, axis: int | None = 0) -> torch.Tensor:
     if axis is None:
         return torch.concatenate([torch.flatten(v) for v in inputs])
     else:
-        return torch.concatenate([torch.atleast_1d(v) for v in inputs], dim=axis)
+        return torch.concatenate([torch.atleast_1d(v) for v in inputs], dim=axis)  # type: ignore
 
 
 def matrix_concat(input1: torch.Tensor, input2: torch.Tensor) -> torch.Tensor:
@@ -902,7 +904,9 @@ def stop_gradient(input: torch.Tensor) -> torch.Tensor:
     return input.detach()
 
 
-def flatten(input: torch.Tensor, *, start_dim: int = 0, end_dim: int = 1):
+def flatten(
+    input: torch.Tensor, *, start_dim: int = 0, end_dim: int = 1
+) -> torch.Tensor:
     return torch.flatten(input, start_dim, end_dim)
 
 
@@ -1077,7 +1081,7 @@ def gpr_v_outer(K: torch.Tensor, K_term: torch.Tensor, L: torch.Tensor) -> torch
     return v_outer
 
 
-def isnan(input: torch.Tensor):
+def isnan(input: torch.Tensor) -> torch.Tensor:
     return torch.isnan(input)
 
 
@@ -1086,7 +1090,7 @@ def nan_to_num(
     nan: int | float | None,
     posinf: int | float | None,
     neginf: int | float | None,
-):
+) -> torch.Tensor:
     return torch.nan_to_num(input, nan=nan, posinf=posinf, neginf=neginf)
 
 
@@ -1102,11 +1106,13 @@ def logical_xor(left: torch.Tensor, right: torch.Tensor) -> torch.Tensor:
     return torch.logical_xor(left, right)
 
 
-def split(input: torch.Tensor, split_size: int | list[int], axis: int = 0):
+def split(
+    input: torch.Tensor, split_size: int | list[int], axis: int = 0
+) -> torch.Tensor:
     return torch.stack(torch.tensor_split(input, split_size, dim=axis))
 
 
-def pad(input: torch.Tensor, pad_width: tuple[tuple[int, int], ...]):
+def pad(input: torch.Tensor, pad_width: tuple[tuple[int, int], ...]) -> torch.Tensor:
     _padding = tuple(pad_item for pad in reversed(pad_width) for pad_item in pad)
     return F.pad(input, _padding, "constant", 0)
 
