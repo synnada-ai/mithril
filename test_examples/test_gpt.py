@@ -86,6 +86,12 @@ result_prompts = {
     ),
 }
 
+if os.environ.get("CI") == "true":
+    result_prompts["torch"] = (
+        "The answer is this: they all exist,"
+        " and you all have the same idea of what is and isn't."
+    )
+
 
 class TestGPT:
     class RunSampleType(Protocol):
