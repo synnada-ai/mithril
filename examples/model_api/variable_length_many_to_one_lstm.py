@@ -32,7 +32,7 @@ from mithril.utils.utils import pack_data_into_time_slots, unpack_time_slot_data
 # given an ordered sequence of numbers.
 
 # Define the backend
-backend = ml.JaxBackend(precision=64)
+backend = ml.JaxBackend(precision=32)
 backend.set_seed(42)
 
 # Prepare training data. We will test the case for which the input data
@@ -42,11 +42,11 @@ backend.set_seed(42)
 # Create 100 pairs of input_target with random sequence lengths
 # with minimum length = 4, maximum length = 6.
 input_dim = 1
-hidden_dim = 40
+hidden_dim = 120
 output_dim = 1
-sample_size = 500
-min_length = 4
-max_length = 7
+sample_size = 600
+min_length = 3
+max_length = 3
 cell_type = LSTMCell
 
 # Create randomly generated input and target lengths.
@@ -59,7 +59,7 @@ target_lengths = backend.randint(min_length, max_length + 1, (sample_size,))
 train_data = []
 
 # Randomly generate start indices for each input sequence.
-start_indices = backend.randint(-100, 100, (sample_size,))
+start_indices = backend.randint(-30, 30, (sample_size,))
 for idx, start in enumerate(start_indices):
     # Prepare train data
     start = int(start)
@@ -131,20 +131,23 @@ compiled_model = ml.compile(
 
 # Randomize the trainable inputs.
 params: [str, backend.DataType] = compiled_model.randomize_params()  # type: ignore
-optimizer = optax.adam(learning_rate=0.005, b1=0.9, b2=0.999, eps=1e-13)
+optimizer = optax.adam(learning_rate=0.001, b1=0.9, b2=0.999, eps=1e-13)
 opt_state = optimizer.init(params)
-total_epochs = 6000
+total_epochs = 8000
 
 # Train the model.
 for epoch in range(total_epochs):
     outputs, gradients = compiled_model.evaluate_all(params)
     updates, opt_state = optimizer.update(gradients, opt_state)
     params = optax.apply_updates(params, updates)
-    print(outputs["final_cost"], f" -> Epoch: {epoch} / {total_epochs}")
+    final_cost = outputs["final_cost"]
+    if (epoch % 1600) == 0:
+        # Print the cost every 1600 epochs.
+        print(final_cost, f" -> Epoch: {epoch} / {total_epochs}")
 
 # Define the lengths for inference tests.
-inference_max_input = 5
-inference_max_target_length = 5
+inference_max_input = 3
+inference_max_target_length = 3
 starting_number = 3.0
 
 # Prepare the test input data.

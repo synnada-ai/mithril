@@ -382,107 +382,36 @@ class MlxBackend(Backend[mx.array]):
         self, probs: mx.array, num_samples: int, replacement: bool = False
     ) -> mx.array:
         """
-        MLX implementation matching torch.multinomial behavior.
+        Faster JAX implementation of multinomial sampling.
 
         Args:
-            probs: 1D or 2D array of probabilities.
-                If 2D, each row is a distribution
+            key: JAX PRNG key
+            input: 1D or 2D array of probabilities
             num_samples: number of samples to draw
             replacement: whether to sample with replacement
-            seed: random seed
-
-        Returns:
-            1D or 2D array of indices sampled according to probs
         """
-        probs = mx.array(probs)
-        if probs.ndim == 1:
-            probs = probs[None, :]  # Add batch dimension
-            squeeze_result = True
-        else:
-            squeeze_result = False
-
-        batch_size, num_categories = probs.shape
-
-        # Handle zero probabilities like PyTorch
-        zeros_mask = probs == 0
-        probs = mx.where(zeros_mask, 0, probs)
-
-        # Check if any row has all zeros
-        valid_probs = mx.any(probs > 0, axis=1)
-
-        # Normalize probabilities
-        probs = probs / mx.maximum(mx.sum(probs, axis=1, keepdims=True), 1e-10)
+        input = mx.array(probs)
+        input = input / mx.sum(input, axis=-1, keepdims=True)
+        batch_size = input.shape[:-1]
+        logits = mx.log(mx.maximum(input, 1e-37))
 
         if replacement:
-            # Generate uniform random numbers
-            u = mx.random.uniform(shape=(batch_size, num_samples, 1))
-
-            # Expand probs for comparison with random numbers
-            expanded_probs = mx.expand_dims(probs, 1)  # [batch, 1, num_categories]
-            cumsum = mx.cumsum(expanded_probs, axis=-1)  # [batch, 1, num_categories]
-
-            # Compare random numbers with cumulative probabilities
-            expanded_u = mx.broadcast_to(u, (batch_size, num_samples, num_categories))
-            expanded_cumsum = mx.broadcast_to(
-                cumsum, (batch_size, num_samples, num_categories)
-            )
-
-            # Count how many cumsum values are less than each random number
-            samples = mx.sum(expanded_u > expanded_cumsum, axis=-1)
-
-            # Handle invalid probability rows
-            samples = mx.where(
-                mx.expand_dims(valid_probs, -1), samples, mx.zeros_like(samples)
+            # Use categorical directly - much faster than choice
+            samples = mx.random.categorical(
+                logits,  # avoid log(0)
+                shape=batch_size + (num_samples,),
             )
         else:
-            if num_samples > num_categories:
-                raise ValueError(
-                    f"Cannot sample {num_samples} samples without replacement "
-                    f"from {num_categories} categories"
-                )
+            # TODO: This algorithm is not efficient for small num_samples
+            # consider more efficient algorithm
 
-            samples = mx.zeros((batch_size, num_samples), dtype=mx.int32)
-
-            for b in range(batch_size):
-                if not valid_probs[b]:
-                    continue
-
-                # Generate ordered random values for this batch
-                ordered_u = mx.sort(mx.random.uniform(shape=(num_categories,)))
-
-                # Convert probabilities to cumulative sum
-                p = probs[b]
-                cumsum = mx.cumsum(p)
-
-                # Track used indices to avoid replacement
-                used_mask = mx.zeros((num_categories,), dtype=mx.bool_)  # type: ignore
-                batch_samples = mx.zeros((num_samples,), dtype=mx.int32)
-
-                for i in range(num_samples):
-                    u = ordered_u[i]
-
-                    # Find index considering already used indices
-                    valid_cumsum = mx.where(used_mask, 2.0, cumsum)
-                    idx = mx.sum(u > valid_cumsum)
-
-                    # Update used mask and store result
-                    used_mask = mx.where(
-                        mx.arange(num_categories) == idx, True, used_mask
-                    )
-                    batch_samples = mx.where(
-                        mx.arange(num_samples) == i, idx, batch_samples
-                    )
-
-                # Update the samples array for this batch
-
-                samples = mx.where(
-                    mx.expand_dims(mx.arange(batch_size) == b, -1),  # type: ignore
-                    mx.expand_dims(batch_samples, 0),
-                    samples,
-                )
-
-        if squeeze_result:
-            samples = mx.squeeze(samples, axis=0)
+            # For without replacement, use Gumbel-max trick
+            # This is much faster than using choice
+            z = mx.random.gumbel(shape=input.shape + (num_samples,))
+            # Add log probabilities for Gumbel-max trick,
+            z = z + logits[..., None]
+            # Get top k indices
+            samples = mx.argsort(-z, axis=input.ndim - 1)[..., :num_samples, 0]
 
         return samples
 
