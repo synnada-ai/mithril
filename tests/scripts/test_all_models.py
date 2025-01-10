@@ -2500,8 +2500,8 @@ def test_cast_int16():
             res = pm.evaluate()
             res_out = res["output"]
             assert isinstance(res_out, backend.DataType)
-            assert res_out.dtype == expected_dtypes[backend.backend_type]
-            np.testing.assert_allclose(res_out, reference_outputs["output"])
+            assert res_out.dtype == expected_dtypes[backend.backend_type]  # type: ignore
+            np.testing.assert_allclose(res_out, reference_outputs["output"])  # type: ignore
 
 
 def test_cast_int32():
@@ -2635,8 +2635,8 @@ def test_cast_float16():
             )
             res = pm.evaluate()["output"]
             assert isinstance(res, backend.DataType)
-            assert res.dtype == expected_dtypes[backend.backend_type]
-            np.testing.assert_allclose(res, reference_outputs["output"])
+            assert res.dtype == expected_dtypes[backend.backend_type]  # type: ignore
+            np.testing.assert_allclose(res, reference_outputs["output"])  # type: ignore
 
 
 def test_cast_float32():

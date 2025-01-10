@@ -964,7 +964,7 @@ def to_tensor(
 def tensor_to_list(
     input: np.ndarray[Any, Any], cache: CacheType | None = None
 ) -> list[Any]:
-    return input.tolist()  # type: ignore
+    return input.tolist()
 
 
 def primitive_embedding(

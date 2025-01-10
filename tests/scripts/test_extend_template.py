@@ -1743,7 +1743,7 @@ def test_tensor_item_with_shape_dependent_slice():
 
     input1 = IOKey("input1")
     input2 = IOKey("input2")
-    output = input1[input2.shape[1] :]
+    output = input1[input2.shape[1] :]  # type: ignore
 
     model1 += Buffer()(input=output, output=IOKey("output"))
 
@@ -1771,7 +1771,7 @@ def test_tensor_item_with_tuple_of_shape_dependent_slices():
 
     input1 = IOKey("input1")
     input2 = IOKey("input2")
-    output = input1[input2.shape[1] :, : input2.shape[0]]
+    output = input1[input2.shape[1] :, : input2.shape[0]]  # type: ignore
 
     model1 += Buffer()(input=output, output=IOKey("output"))
 

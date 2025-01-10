@@ -3237,7 +3237,7 @@ def test_arange_1():
             # of Arange!
             out = cm.evaluate({})["output"]
             assert isinstance(out, backend.DataType)
-            np.testing.assert_allclose(expected_result, out, rtol=1e-6, atol=1e-6)
+            np.testing.assert_allclose(expected_result, out, rtol=1e-6, atol=1e-6)  # type: ignore
 
 
 def test_arange_2():
@@ -3272,7 +3272,7 @@ def test_arange_3():
             cm = compile(m, backend)  # type: ignore
             out = cm.evaluate({})["output"]
             assert isinstance(out, backend.DataType)
-            np.testing.assert_allclose(expected_result, out, rtol=1e-6, atol=1e-6)
+            np.testing.assert_allclose(expected_result, out, rtol=1e-6, atol=1e-6)  # type: ignore
 
 
 def test_size():
@@ -4080,7 +4080,7 @@ def test_dict_to_model_using_connect():
     }
     from mithril.utils.dict_conversions import dict_to_model
 
-    model = dict_to_model(json_model)
+    model = dict_to_model(json_model)  # type: ignore
 
     assert model.input_keys == {"right", "left"}
 
@@ -4109,7 +4109,7 @@ def test_connect_composite_2_extend_from_inputs():
     }
     from mithril.utils.dict_conversions import dict_to_model
 
-    submodel = dict_to_model(json_model)
+    submodel = dict_to_model(json_model)  # type: ignore
     model = Model()
     m1 = deepcopy(submodel)
     m2 = deepcopy(submodel)

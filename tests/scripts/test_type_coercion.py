@@ -292,8 +292,8 @@ def test_slice_item_conversions():
     shp_item = shp2_1.tensor()
     shp2_ellipsis = shp2[:]
     assert shp2_ellipsis is not None
-    slc = shp2_ellipsis.tensor()
-    model += Add()(left=shp_item, right=slc, output="output")  # type: ignore
+    _slc = shp2_ellipsis.tensor()
+    model += Add()(left=shp_item, right=_slc, output="output")  # type: ignore
     model_2 = model
 
     # Provide backend and data.
