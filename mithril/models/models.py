@@ -33,7 +33,7 @@ from ..framework.common import (
     ToBeDetermined,
 )
 from ..framework.constraints import polynomial_kernel_constraint
-from ..framework.logical.base import ExtendInfo
+from ..framework.logical.base import BaseModel, ExtendInfo
 from ..framework.logical.essential_primitives import (
     Absolute,
     Add,
@@ -61,7 +61,7 @@ from ..framework.logical.essential_primitives import (
     Transpose,
     Variance,
 )
-from ..framework.logical.primitive import BaseModel, PrimitiveModel
+from ..framework.logical.primitive import PrimitiveModel
 from ..utils.utils import PaddingType, convert_to_list, convert_to_tuple
 from .primitives import (
     AUCCore,
@@ -759,13 +759,13 @@ class GroupNorm(Model):
         input_shape = input_key.shape
         B = input_shape[0]
 
-        input_key = input_key.reshape((B, num_groups, -1))
+        _input_key = input_key.reshape((B, num_groups, -1))
 
-        mean = input_key.mean(axis=-1, keepdim=True)
-        var = input_key.var(axis=-1, keepdim=True)
+        mean = _input_key.mean(axis=-1, keepdim=True)
+        var = _input_key.var(axis=-1, keepdim=True)
 
-        input_key = (input_key - mean) / (var + eps).sqrt()
-        self += Reshape()(input=input_key, shape=input_shape)
+        _input_key = (_input_key - mean) / (var + eps).sqrt()
+        self += Reshape()(input=_input_key, shape=input_shape)
 
         self._set_shapes({"input": ["B", "C", "H", "W"]})
         self.input.set_differentiable(False)
@@ -2076,9 +2076,7 @@ class EncoderDecoderInference(Model):
 
         self._freeze()
 
-    def __call__(  # type: ignore[override]
-        self, **model_keys: ConnectionType
-    ) -> ExtendInfo:
+    def __call__(self, **model_keys: ConnectionType) -> ExtendInfo:
         return super().__call__(**model_keys)
 
 

@@ -30,31 +30,31 @@
                     "input": "input1"
                 },
                 "m2": {
-                    "input": {"connect": [["m1","output"]]}
+                    "input": {"key": {"connect": [["m1","output"]]}}
                 },
                 "m3": {
-                    "input": {"connect": [["m2","output"]]}
+                    "input": {"key": {"connect": [["m2","output"]]}}
                 },
                 "m4": {
-                    "input": {"connect": [["m2","output"]]}
+                    "input": {"key": {"connect": [["m2","output"]]}}
                 },
                 "m5": {
-                    "left": {"connect": [["m3","output"]]},
-                    "right": {"connect": [["m4","output"]]},
-                    "output": {
+                    "left": {"key": {"connect": [["m3","output"]]}},
+                    "right": {"key": {"connect": [["m4","output"]]}},
+                    "output": {"key": {
                         "name": "output2", 
                         "expose": true
-                    }
+                    }}
                 },
                 "m6": {
                     "input": "input2"
                 },
                 "m7": {
-                    "input": {"connect": [["m6","output"]]},
-                    "output": {
+                    "input": {"key": {"connect": [["m6","output"]]}},
+                    "output": {"key": {
                         "name": "output", 
                         "expose": true
-                    }
+                    }}
                 }
             }
         },
@@ -104,25 +104,25 @@
                             "input": "input2"
                         },
                         "m3": {
-                            "input": {"connect": [["m1","output"]]},
-                            "output": {
+                            "input": {"key": {"connect": [["m1","output"]]}},
+                            "output": {"key": {
                                 "name": "output3", 
                                 "expose": true
-                            }
+                            }}
                         },
                         "m4": {
-                            "input": {"connect": [["m2","output"]]},
-                            "output": {
+                            "input": {"key": {"connect": [["m2","output"]]}},
+                            "output": {"key": {
                                 "name": "output1", 
                                 "expose": true
-                            }
+                            }}
                         },
                         "m5": {
-                            "input": {"connect": [["m4","output"]]},
-                            "output": {
+                            "input": {"key": {"connect": [["m4","output"]]}},
+                            "output": {"key": {
                                 "name": "output2", 
                                 "expose": true
-                            }
+                            }}
                         }
                     }
                 },
@@ -139,33 +139,33 @@
                     "input": "input1"
                 },
                 "m2": {
-                    "input": {"connect": [["m1", "output"]]}
+                    "input": {"key": {"connect": [["m1", "output"]]}}
                 },
                 "m3": {
-                    "input1": {"connect": [["m1", "output"]]},
-                    "input2": {"connect": [["m2", "output"]]},
-                    "output1": {
+                    "input1": {"key": {"connect": [["m1", "output"]]}},
+                    "input2": {"key": {"connect": [["m2", "output"]]}},
+                    "output1": {"key": {
                         "name": "output1", 
                         "expose": true
-                    },
-                    "output2": {
+                    }},
+                    "output2": {"key": {
                         "name": "output2", 
                         "expose": true
-                    },
-                    "output3": {
+                    }},
+                    "output3": {"key": {
                         "name": "output4", 
                         "expose": true
-                    }
+                    }}
                 },
                 "m4": {
                     "input": "input2"
                 },
                 "m5": {
-                    "input": {"connect": [["m4", "input"]]},
-                    "output": {
+                    "input": {"key": {"connect": [["m4", "input"]]}},
+                    "output": {"key": {
                         "name": "output3", 
                         "expose": true
-                    }
+                    }}
                 }
             }
 
@@ -215,25 +215,25 @@
                             "input": "input2"
                         },
                         "m3": {
-                            "input": {"connect": [["m1","output"]]},
-                            "output": {
+                            "input": {"key": {"connect": [["m1","output"]]}},
+                            "output": {"key": {
                                 "name": "output3", 
                                 "expose": true
-                            }
+                            }}
                         },
                         "m4": {
-                            "input": {"connect": [["m2","output"]]},
-                            "output": {
+                            "input": {"key": {"connect": [["m2","output"]]}},
+                            "output": {"key": {
                                 "name": "output1", 
                                 "expose": true
-                            }
+                            }}
                         },
                         "m5": {
-                            "input": {"connect": [["m4","output"]]},
-                            "output": {
+                            "input": {"key": {"connect": [["m4","output"]]}},
+                            "output": {"key": {
                                 "name": "output2", 
                                 "expose": true
-                            }
+                            }}
                         }
                     }
                 },
@@ -250,33 +250,33 @@
                     "input": "input1"
                 },
                 "m2": {
-                    "input": {"connect": [["m1", "output"]]}
+                    "input": {"key": {"connect": [["m1", "output"]]}}
                 },
                 "m3": {
-                    "input1": {"connect": [["m1", "output"]]},
-                    "input2": {"connect": [["m2", "output"]]},
-                    "output1": {
+                    "input1": {"key": {"connect": [["m1", "output"]]}},
+                    "input2": {"key": {"connect": [["m2", "output"]]}},
+                    "output1": {"key": {
                         "name": "output1", 
                         "expose": true
-                    },
-                    "output2": {
+                    }},
+                    "output2": {"key": {
                         "name": "output2", 
                         "expose": true
-                    },
-                    "output3": {
+                    }},
+                    "output3": {"key": {
                         "name": "output4", 
                         "expose": true
-                    }
+                    }}
                 },
                 "m4": {
                     "input": "input2"
                 },
                 "m5": {
-                    "input": {"connect": [["m4", "output"]]},
-                    "output": {
+                    "input": {"key": {"connect": [["m4", "output"]]}},
+                    "output": {"key": {
                         "name": "output3", 
                         "expose": true
-                    }
+                    }}
                 }
 
             }
@@ -327,25 +327,25 @@
                             "input": "input2"
                         },
                         "m3": {
-                            "input": {"connect": [["m1","output"]]},
-                            "output": {
+                            "input": {"key": {"connect": [["m1","output"]]}},
+                            "output": {"key": {
                                 "name": "output3",
                                 "expose": true
-                            }
+                            }}
                         },
                         "m4": {
-                            "input": {"connect": [["m2","output"]]},
-                            "output": {
+                            "input": {"key": {"connect": [["m2","output"]]}},
+                            "output": {"key": {
                                 "name": "output1",
                                 "expose": true
-                            }
+                            }}
                         },
                         "m5": {
-                            "input": {"connect": [["m4","output"]]},
-                            "output": {
+                            "input": {"key": {"connect": [["m4","output"]]}},
+                            "output": {"key": {
                                 "name": "output2",
                                 "expose": true
-                            }
+                            }}
                         }
                     }
                 },
@@ -361,33 +361,33 @@
                     "input": "input1"
                 },
                 "m2": {
-                    "input": {"connect": [["m1", "output"]]}
+                    "input": {"key": {"connect": [["m1", "output"]]}}
                 },
                 "m3": {
-                    "input1": {"connect": [["m1", "output"]]},
-                    "input2": {"connect": [["m2", "output"]]},
-                    "output1": {
+                    "input1": {"key": {"connect": [["m1", "output"]]}},
+                    "input2": {"key": {"connect": [["m2", "output"]]}},
+                    "output1": {"key": {
                         "name": "output1",
                         "expose": true
-                    },
-                    "output2": {
+                    }},
+                    "output2": {"key": {
                         "name": "output2",
                         "expose": true
-                    },
-                    "output3": {
+                    }},
+                    "output3": {"key": {
                         "name": "output4",
                         "expose": true
-                    }
+                    }}
                 },
                 "m4": {
                     "input": "input2"
                 },
                 "m5": {
-                    "input": {"connect": [["m4", "output"]]},
-                    "output": {
+                    "input": {"key": {"connect": [["m4", "output"]]}},
+                    "output": {"key": {
                         "name": "output3",
                         "expose": true
-                    }
+                    }}
                 }
             }
         },
@@ -437,21 +437,21 @@
                             "input": "input2"
                         },
                         "m3": {
-                            "input": {"connect": [["m1","output"]]}
+                            "input": {"key": {"connect": [["m1","output"]]}}
                         },
                         "m4": {
-                            "input": {"connect": [["m2","output"]]},
-                            "output": {
+                            "input": {"key": {"connect": [["m2","output"]]}},
+                            "output": {"key": {
                                 "name": "output1",
                                 "expose": true
-                            }
+                            }}
                         },
                         "m5": {
-                            "input": {"connect": [["m4","output"]]},
-                            "output": {
+                            "input": {"key": {"connect": [["m4","output"]]}},
+                            "output": {"key": {
                                 "name": "output2",
                                 "expose": true
-                            }
+                            }}
                         }
                     }
                 },
@@ -468,29 +468,29 @@
                     "input": "input1"
                 },
                 "m2": {
-                    "input": {"connect": [["m1", "output"]]}
+                    "input": {"key": {"connect": [["m1", "output"]]}}
                 },
                 "m3": {
-                    "input1": {"connect": [["m1", "output"]]},
-                    "input2": {"connect": [["m2", "output"]]},
-                    "output1": {
+                    "input1": {"key": {"connect": [["m1", "output"]]}},
+                    "input2": {"key": {"connect": [["m2", "output"]]}},
+                    "output1": {"key": {
                         "name": "output1",
                         "expose": true
-                    },
-                    "output2": {
+                    }},
+                    "output2": {"key": {
                         "name": "output2",
                         "expose": true
-                    }
+                    }}
                 },
                 "m4": {
                     "input": "input2"
                 },
                 "m5": {
-                    "input": {"connect": [["m4", "input"]]},
-                    "output": {
+                    "input": {"key": {"connect": [["m4", "input"]]}},
+                    "output": {"key": {
                         "name": "output3",
                         "expose": true
-                    }
+                    }}
                 }
             }
         },
@@ -523,16 +523,16 @@
                     },
                     "connections": {
                         "m1": {
-                            "left": {"name": "input1", "type": "tensor"},
+                            "left": {"key": {"name": "input1", "type": "tensor"}},
                             "right": "input1"
                         },
                         "m2": {
-                            "left": {"name": "input2", "type": "tensor"},
-                            "right": {"connect": [["m1", "output"]]},
-                            "output": {
+                            "left": {"key": {"name": "input2", "type": "tensor"}},
+                            "right": {"key": {"connect": [["m1", "output"]]}},
+                            "output": {"key": {
                                 "name": "output",
                                 "expose": true
-                            }
+                            }}
                         }
                     }
                 },
@@ -545,31 +545,30 @@
             },
             "connections" : {
                 "m1": {
-                    "left": {"name": "input1", "type": "tensor"},
-                    "right": {"name": "input2", "type": "tensor"}
+                    "left": {"key": {"name": "input1", "type": "tensor"}},
+                    "right": {"key": {"name": "input2", "type": "tensor"}}
                 },
                 "m2": {
-                    "left": {"connect": [["m1", "output"]]},
-                    "right": {"connect": [["m1", "output"]]}
+                    "left": {"key": {"connect": [["m1", "output"]]}},
+                    "right": {"key": {"connect": [["m1", "output"]]}}
                 },
                 "m3": {
                     "input1": "input1",
                     "input2": "input1",
                     "output": {
-                        "name": "output1",
-                        "expose": true
+                        "key": {"name": "output1", "expose": true}
                     }
                 },
                 "m4": {
                     "left": "input2",
-                    "right": {"name": "input3", "type": "tensor"}
+                    "right": {"key": {"name": "input3", "type": "tensor"}}
                 },
                 "m5": {
-                    "input": {"connect": [["m4", "output"]]},
-                    "output": {
-                        "name": "output2",
+                    "input": {"key": {"connect": [["m4", "output"]]}},
+                    "output": {"key": 
+                        {"name": "output2",
                         "expose": true
-                    }
+                    }}
                 }
             }
         },
@@ -603,16 +602,16 @@
                     },
                     "connections": {
                         "m1": {
-                            "left": {"name": "input1", "type": "tensor"},
+                            "left": {"key": {"name": "input1", "type": "tensor"}},
                             "right": "input1"
                         },
                         "m2": {
-                            "left": {"name": "input2", "type": "tensor"},
-                            "right": {"connect": [["m1", "output"]]},
-                            "output": {
+                            "left": {"key": {"name": "input2", "type": "tensor"}},
+                            "right": {"key": {"connect": [["m1", "output"]]}},
+                            "output": {"key": {
                                 "name": "output",
                                 "expose": true
-                            }
+                            }}
                         }
                     }
                 },
@@ -625,35 +624,35 @@
             },
             "connections" : {
                 "m1": {
-                    "left": {"name": "input1", "type": "tensor"},
-                    "right": {"name": "input2", "type": "tensor"}
+                    "left": {"key": {"name": "input1", "type": "tensor"}},
+                    "right": {"key": {"name": "input2", "type": "tensor"}}
                 },
                 "m2": {
-                    "left": {"connect": [["m1", "output"]]},
-                    "right": {"connect": [["m1", "output"]]},
-                    "output": {
+                    "left": {"key": {"connect": [["m1", "output"]]}},
+                    "right": {"key": {"connect": [["m1", "output"]]}},
+                    "output": {"key": {
                         "name": "output3",
                         "expose": true
-                    }
+                    }}
                 },
                 "m3": {
                     "input1": "input1",
                     "input2": "input1",
-                    "output": {
-                        "name": "output1",
+                    "output": {"key": 
+                        {"name": "output1",
                         "expose": true
-                    }
+                    }}
                 },
                 "m4": {
                     "left": "input2",
-                    "right": {"name": "input3", "type": "tensor"}
+                    "right": {"key": {"name": "input3", "type": "tensor"}}
                 },
                 "m5": {
-                    "input": {"connect": [["m4", "output"]]},
-                    "output": {
-                        "name": "output2",
+                    "input": {"key": {"connect": [["m4", "output"]]}},
+                    "output": {"key": 
+                        {"name": "output2",
                         "expose": true
-                    }
+                    }}
                 }
             }
         },
@@ -688,16 +687,16 @@
                     },
                     "connections": {
                         "m1": {
-                            "left": {"name": "input1", "type": "tensor"},
+                            "left": {"key": {"name": "input1", "type": "tensor"}},
                             "right": "input1"
                         },
                         "m2": {
-                            "left": {"name": "input2", "type": "tensor"},
-                            "right": {"connect": [["m1", "output"]]},
-                            "output": {
+                            "left": {"key": {"name": "input2", "type": "tensor"}},
+                            "right": {"key": {"connect": [["m1", "output"]]}},
+                            "output": {"key": {
                                 "name": "output",
                                 "expose": true
-                            }
+                            }}
                         }
                     }
                 },
@@ -710,31 +709,31 @@
             },
             "connections" : {
                 "m1": {
-                    "left": {"name": "input1", "type": "tensor"},
-                    "right": {"name": "input2", "type": "tensor"}
+                    "left": {"key": {"name": "input1", "type": "tensor"}},
+                    "right": {"key": {"name": "input2", "type": "tensor"}}
                 },
                 "m2": {
-                    "left": {"connect": [["m1", "output"]]},
-                    "right": {"connect": [["m1", "output"]]}
+                    "left": {"key": {"connect": [["m1", "output"]]}},
+                    "right": {"key": {"connect": [["m1", "output"]]}}
                 },
                 "m3": {
                     "input1": "input1",
                     "input2": "input1",
-                    "output": {
-                        "name": "output1",
+                    "output": {"key": 
+                        {"name": "output1",
                         "expose": true
-                    }
+                    }}
                 },
                 "m4": {
                     "left": "input2",
-                    "right": {"name": "input3", "type": "tensor"}
+                    "right": {"key": {"name": "input3", "type": "tensor"}}
                 },
                 "m5": {
-                    "input": {"connect": [["m4", "output"]]},
-                    "output": {
-                        "name": "output2",
+                    "input": {"key": {"connect": [["m4", "output"]]}},
+                    "output": {"key": 
+                        {"name": "output2",
                         "expose": true
-                    }
+                    }}
                 }
             }
         },

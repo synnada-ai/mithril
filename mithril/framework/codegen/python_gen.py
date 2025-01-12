@@ -569,14 +569,14 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
         fn_all: EvaluateAllType[DataType]
         grad_fn: EvaluateGradientsType[DataType]
         if not self.pm.backend.is_manualgrad:
-            grad_fn = partial(  # type: ignore
+            grad_fn = partial(
                 self.compute_gradients,
                 raw_evaluate_fn=raw_evaluate_fn,
                 cache=self.pm.data_store.data_values,
                 include_output=False,
             )
             # Fix fn_all for mlx support!!
-            fn_all = partial(  # type: ignore
+            fn_all = partial(
                 self.compute_gradients,
                 raw_evaluate_fn=raw_evaluate_fn,
                 cache=self.pm.data_store.data_values,

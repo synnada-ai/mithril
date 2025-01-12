@@ -30,11 +30,11 @@ class Constant(Enum):
 
 
 constant_type_table = {
-    Constant.EPSILON: float,
-    Constant.LEFT_EPSILON: float,
-    Constant.MIN_POSITIVE_NORMAL: float,
-    Constant.MIN_POSITIVE_SUBNORMAL: float,
-    Constant.STABLE_RECIPROCAL_THRESHOLD: float,
+    Constant.EPSILON: py_builtins.float,
+    Constant.LEFT_EPSILON: py_builtins.float,
+    Constant.MIN_POSITIVE_NORMAL: py_builtins.float,
+    Constant.MIN_POSITIVE_SUBNORMAL: py_builtins.float,
+    Constant.STABLE_RECIPROCAL_THRESHOLD: py_builtins.float,
 }
 
 epsilon_table: dict[py_builtins.int, dict[Constant, py_builtins.float | None]] = {

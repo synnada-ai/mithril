@@ -3347,7 +3347,7 @@ def test_arange_1():
             # of Arange!
             out = cm.evaluate({})["output"]
             assert isinstance(out, backend.DataType)
-            np.testing.assert_allclose(expected_result, out, rtol=1e-6, atol=1e-6)
+            np.testing.assert_allclose(expected_result, out, rtol=1e-6, atol=1e-6)  # type: ignore
 
 
 def test_arange_2():
@@ -3382,7 +3382,7 @@ def test_arange_3():
             cm = compile(m, backend, inference=True)  # type: ignore
             out = cm.evaluate({})["output"]
             assert isinstance(out, backend.DataType)
-            np.testing.assert_allclose(expected_result, out, rtol=1e-6, atol=1e-6)
+            np.testing.assert_allclose(expected_result, out, rtol=1e-6, atol=1e-6)  # type: ignore
 
 
 def test_size():
@@ -4179,18 +4179,18 @@ def test_dict_to_model_using_connect():
             "m3": {"output": "output"},
             "m2": {
                 "left": "right",
-                "output": {"connect": [["m3", "left"], ["m3", "right"]]},
+                "output": {"key": {"connect": [["m3", "left"], ["m3", "right"]]}},
             },
             "m1": {
                 "left": "left",
                 "right": "right",
-                "output": {"connect": [["m2", "right"]]},
+                "output": {"key": {"connect": [["m2", "right"]]}},
             },
         },
     }
     from mithril.utils.dict_conversions import dict_to_model
 
-    model = dict_to_model(json_model)
+    model = dict_to_model(json_model)  # type: ignore
 
     assert model.input_keys == {"right", "left"}
 
@@ -4205,21 +4205,21 @@ def test_connect_composite_2_extend_from_inputs():
             "m1": {"name": "Add"},
         },
         "connections": {
-            "m3": {"output": {"name": "output", "expose": True}},
+            "m3": {"output": {"key": {"name": "output", "expose": True}}},
             "m2": {
                 "left": "right",
-                "output": {"connect": [["m3", "left"], ["m3", "right"]]},
+                "output": {"key": {"connect": [["m3", "left"], ["m3", "right"]]}},
             },
             "m1": {
                 "left": "left",
                 "right": "right",
-                "output": {"connect": [["m2", "right"]]},
+                "output": {"key": {"connect": [["m2", "right"]]}},
             },
         },
     }
     from mithril.utils.dict_conversions import dict_to_model
 
-    submodel = dict_to_model(json_model)
+    submodel = dict_to_model(json_model)  # type: ignore
     submodel.set_types(left=MyTensor, right=MyTensor)
     model = Model()
     m1 = deepcopy(submodel)

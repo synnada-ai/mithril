@@ -3315,13 +3315,13 @@
                     "input": "input", "weight": "w0", "bias": "b0"
                 },
                 "m2": {
-                    "input": {"connect": [["m1", "output"]]}, 
+                    "input": {"key": {"connect": [["m1", "output"]]}}, 
                     "weight": "w1", 
                     "bias": "b1", 
-                    "output": {
+                    "output": {"key": {
                         "name": "output", 
                         "expose": true
-                    }
+                    }}
                 }
             }
         },
@@ -3398,28 +3398,28 @@
                     "input": "input", 
                     "weight": "w0", 
                     "bias": "b0", 
-                    "output": {
+                    "output": {"key": {
                         "name": "output1", 
                         "expose": true
-                    }
+                    }}
                 },
                 "m2": {
                     "input": "output1", 
                     "weight": "w1", 
                     "bias": "b1", 
-                    "output": {
+                    "output": {"key": {
                         "name": "output2", 
                         "expose": true
-                    }
+                    }}
                 },
                 "m3": {
                     "input": "output2", 
                     "weight": "w2", 
                     "bias": "b2", 
-                    "output": {
+                    "output": {"key": {
                         "name": "output3", 
                         "expose": true
-                    }
+                    }}
                 }
             }
         },
@@ -3498,28 +3498,28 @@
                     "input": "input",
                     "weight": "w0",
                     "bias": "b0",
-                    "output": {
+                    "output": {"key": {
                         "name": "output1", 
                         "expose": true
-                    }
+                    }}
                 },
                 "m2": {
                     "input": "output1",
                     "weight": "w1",
                     "bias": "b1",
-                    "output": {
+                    "output": {"key": {
                         "name": "output2", 
                         "expose": true
-                    }
+                    }}
                 },
                 "m3": {
                     "input": "output2",
                     "weight": "w2",
                     "bias": "b2",
-                    "output": {
+                    "output": {"key": {
                         "name": "output3", 
                         "expose": true
-                    }
+                    }}
                 }
             }
         },
@@ -3605,28 +3605,28 @@
                     "input": "input",
                     "weight": "w0",
                     "bias": "b0",
-                    "output": {
+                    "output": {"key": {
                         "name": "output1", 
                         "expose": true
-                    }
+                    }}
                 },
                 "m2": {
                     "input": "output1",
                     "weight": "w1",
                     "bias": "b1",
-                    "output": {
+                    "output": {"key": {
                         "name": "output2", 
                         "expose": true
-                    }
+                    }}
                 },
                 "m3": {
                     "input": "output2",
                     "weight": "w2",
                     "bias": "b2",
-                    "output": {
+                    "output": {"key": {
                         "name": "output3", 
                         "expose": true
-                    }
+                    }}
                 }
             }
         },
@@ -3717,28 +3717,28 @@
                     "input": "input",
                     "weight": "w0",
                     "bias": "b0",
-                    "output": {
+                    "output": {"key": {
                         "name": "output1", 
                         "expose": true
-                    }
+                    }}
                 },
                 "m2": {
                     "input": "output1",
                     "weight": "w1",
                     "bias": "b1",
-                    "output": {
+                    "output": {"key": {
                         "name": "output2", 
                         "expose": true
-                    }
+                    }}
                 },
                 "m3": {
                     "input": "output2",
                     "weight": "w2",
                     "bias": "b2",
-                    "output": {
+                    "output": {"key": {
                         "name": "output3", 
                         "expose": true
-                    }
+                    }}
                 }
             }
         },
@@ -3829,28 +3829,28 @@
                     "input": "input",
                     "weight": "w0",
                     "bias": "b0",
-                    "output": {
+                    "output": {"key": {
                         "name": "output1", 
                         "expose": true
-                    }
+                    }}
                 },
                 "m2": {
                     "input": "output1",
                     "weight": "w1",
                     "bias": "b1",
-                    "output": {
+                    "output": {"key": {
                         "name": "output2", 
                         "expose": true
-                    }
+                    }}
                 },
                 "m3": {
                     "input": "output2",
                     "weight": "w2",
                     "bias": "b2",
-                    "output": {
+                    "output": {"key": {
                         "name": "output3", 
                         "expose": true
-                    }
+                    }}
                 }
             }
         },
@@ -3941,28 +3941,28 @@
                     "input": "input",
                     "weight": "w0",
                     "bias": "b0",
-                    "output": {
+                    "output": {"key": {
                         "name": "output1", 
                         "expose": true
-                    }
+                    }}
                 },
                 "m2": {
                     "input": "output1",
                     "weight": "w1",
                     "bias": "b1",
-                    "output": {
+                    "output": {"key": {
                         "name": "output2", 
                         "expose": true
-                    }
+                    }}
                 },
                 "m3": {
                     "input": "output2",
                     "weight": "w2",
                     "bias": "b2",
-                    "output": {
+                    "output": {"key": {
                         "name": "output3", 
                         "expose": true
-                    }
+                    }}
                 }
             }
         },
@@ -4042,28 +4042,28 @@
                     "input": "input",
                     "weight": "w0",
                     "bias": "b0",
-                    "output": {
+                    "output": {"key": {
                         "name": "output1", 
                         "expose": true
-                    }
+                    }}
                 },
                 "m2": {
                     "input": "output1",
                     "weight": "w1",
                     "bias": "b1",
-                    "output": {
+                    "output": {"key": {
                         "name": "output2", 
                         "expose": true
-                    }
+                    }}
                 },
                 "m3": {
                     "input": "output2",
                     "weight": "w2",
                     "bias": "b2",
-                    "output": {
+                    "output": {"key": {
                         "name": "output3", 
                         "expose": true
-                    }
+                    }}
                 }
             }
         },
@@ -4149,28 +4149,28 @@
                     "input": "input",
                     "weight": "w0",
                     "bias": "b0",
-                    "output": {
+                    "output": {"key": {
                         "name": "output1", 
                         "expose": true
-                    }
+                    }}
                 },
                 "m2": {
                     "input": "output1",
                     "weight": "w1",
                     "bias": "b1",
-                    "output": {
+                    "output": {"key": {
                         "name": "output2", 
                         "expose": true
-                    }
+                    }}
                 },
                 "m3": {
                     "input": "output2",
                     "weight": "w2",
                     "bias": "b2",
-                    "output": {
+                    "output": {"key": {
                         "name": "output3", 
                         "expose": true
-                    }
+                    }}
                 }
             }
         },
@@ -4256,28 +4256,28 @@
                     "input": "input",
                     "weight": "w0",
                     "bias": "b0",
-                    "output": {
+                    "output": {"key": {
                         "name": "output1", 
                         "expose": true
-                    }
+                    }}
                 },
                 "m2": {
                     "input": "output1",
                     "weight": "w1",
                     "bias": "b1",
-                    "output": {
+                    "output": {"key": {
                         "name": "output2", 
                         "expose": true
-                    }
+                    }}
                 },
                 "m3": {
                     "input": "output2",
                     "weight": "w2",
                     "bias": "b2",
-                    "output": {
+                    "output": {"key": {
                         "name": "output3", 
                         "expose": true
-                    }
+                    }}
                 }
             }
         },
@@ -4360,16 +4360,16 @@
                 "m2": {
                     "weight": "w1", 
                     "bias": "b1", 
-                    "output": {
+                    "output": {"key": {
                         "name": "output", 
                         "expose": true
-                    }
+                    }}
                 },
                 "m1": {
                     "input": "input", 
                     "weight": "w0", 
                     "bias": "b0", 
-                    "output": {"connect": [["m2", "input"]]}
+                    "output": {"key": {"connect": [["m2", "input"]]}}
                 }
             }
         },

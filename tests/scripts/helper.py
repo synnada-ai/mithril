@@ -14,9 +14,8 @@
 
 
 from mithril import Backend, Constant, compile, epsilon_table
-from mithril.models import BaseModel, IOHyperEdge, Model, MyTensor
-from mithril.models.primitives import PrimitiveModel
-from mithril.models.train_model import TrainModel
+from mithril.framework.common import IOHyperEdge, MyTensor
+from mithril.models import BaseModel, Model, PrimitiveModel, TrainModel
 from mithril.utils.dict_conversions import dict_to_model, model_to_dict
 from tests.scripts.test_utils import (
     assert_all_conn_key_are_same,

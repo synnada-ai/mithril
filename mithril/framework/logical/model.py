@@ -34,7 +34,6 @@ from ..common import (
     MainValueInstance,
     MainValueType,
     MyTensor,
-    NestedListType,
     NotAvailable,
     NullConnection,
     ShapeTemplateType,
@@ -46,7 +45,8 @@ from ..common import (
     get_summary_shapes,
     get_summary_types,
 )
-from .base import ExtendInfo
+from ..utils import NestedListType
+from .base import BaseModel, ExtendInfo
 from .essential_primitives import (
     Absolute,
     Add,
@@ -91,7 +91,7 @@ from .essential_primitives import (
     Transpose,
     Variance,
 )
-from .primitive import BaseModel, PrimitiveModel
+from .primitive import PrimitiveModel
 
 __all__ = ["Model"]
 
@@ -158,7 +158,7 @@ class Model(BaseModel):
 
         super().__init__(name=name, enforce_jit=enforce_jit)
 
-    def create_key_name(self):
+    def create_key_name(self) -> str:
         self.inter_key_count += 1
         return "$" + str(self.inter_key_count)
 
@@ -217,11 +217,6 @@ class Model(BaseModel):
                 # Create new output connection with given key name.
                 # TODO: Update here to use directly set_name method of Connections class
                 # after it is implemented.
-                # data: Tensor | Scalar = (
-                #     Scalar(metadata.data._type)
-                #     if isinstance(metadata.data, Scalar)
-                #     else Tensor(metadata.data.shape, metadata.data._type)
-                # )
                 edge = IOHyperEdge(metadata.edge_type)
 
                 new_conn = self.create_connection(edge, new_name)
@@ -232,7 +227,7 @@ class Model(BaseModel):
                 # Merge new_conn with given connection.
                 self.merge_connections(new_conn, conn_data)
 
-    def _set_formula_key(self, formula_key: str):
+    def _set_formula_key(self, formula_key: str) -> None:
         self.formula_key = formula_key
 
     def _check_multi_write(
@@ -659,7 +654,7 @@ class Model(BaseModel):
         self,
         model: Model | PrimitiveModel | BaseModel,
         **kwargs: ConnectionType,
-    ):
+    ) -> None:
         # Check possible errors before the extension.
         model.check_extendability()
         if self.parent is not None:
@@ -1096,7 +1091,10 @@ class Model(BaseModel):
 
         # construct the table based on relevant information
         table = get_summary(
-            conns=conn_info, name=name, shape=shape_info, types=type_info
+            conns=conn_info,
+            name=name,
+            shape=shape_info,  # type: ignore
+            types=type_info,
         )
 
         table.compile()
@@ -1123,7 +1121,7 @@ class Model(BaseModel):
         name_mappings: dict[BaseModel, str],
         data_to_key_map: dict[IOHyperEdge, list[str]] | None = None,
         data_memo: Mapping[int, IOHyperEdge] | None = None,
-    ):
+    ) -> dict[str, tuple[dict[str, list[str]], dict[str, list[str]]]]:
         conn_info: dict[str, tuple[dict[str, list[str]], dict[str, list[str]]]] = {}
         if self.input_keys:
             if data_to_key_map is None:

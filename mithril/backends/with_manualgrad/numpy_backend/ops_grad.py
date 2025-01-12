@@ -696,7 +696,7 @@ def reduce_prod_grad(
                 slice(None, None, None) if idx in _axis else num
                 for idx, num in enumerate(index)
             )
-            prod_array = np.ma.array(input[index_tuple], mask=False)
+            prod_array = np.ma.array(input[index_tuple], mask=False)  # type: ignore
             prod_idx = tuple(num for idx, num in enumerate(index) if idx in _axis)
             prod_array.mask[prod_idx] = True
             output[tuple(index)] = prod_array.prod()
@@ -796,7 +796,7 @@ def gelu_grad(
     else:
         s = input / np.sqrt(2)
         erf_prime = lambda x: (2 / np.sqrt(np.pi)) * np.exp(-(x**2))  # noqa: E731
-        grad = 0.5 + 0.5 * erf(s) + ((0.5 * input * erf_prime(s)) / np.sqrt(2))
+        grad = 0.5 + 0.5 * erf(s) + ((0.5 * input * erf_prime(s)) / np.sqrt(2))  # type: ignore
     return grad * output_gradient
 
 
@@ -1515,7 +1515,7 @@ def scaled_dot_product_attention_grad(
     dropout_p: float = 0.0,
     is_causal: bool = False,
     scale: float | int | None = None,
-):
+) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx, non_differentiables=[3, 4, 5, 6])
     if idx == 2:
         return matrix_multiplication_grad(
@@ -1589,7 +1589,7 @@ def split_grad(
     cache: CacheType,
     idx: int,
     *inputs: np.ndarray[Any, Any],
-):
+) -> np.ndarray[Any, Any]:
     input, split_size, axis = inputs
     input_shape = input.shape
     grad_input = np.zeros(input_shape, dtype=output_gradient[0].dtype)
@@ -1645,11 +1645,11 @@ def minus_grad(
 
 
 def zeros_like_grad(
-    output_gradient: np.ndarray,
+    output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray,
-) -> np.ndarray:
+    *inputs: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     return np.zeros_like(output_gradient)
 
 

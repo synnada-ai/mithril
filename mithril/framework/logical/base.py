@@ -25,6 +25,7 @@ from ...utils.utils import OrderedSet
 from ..common import (
     NOT_AVAILABLE,
     TBD,
+    AssignedConstraintType,
     Connection,
     ConnectionData,
     Connections,
@@ -99,6 +100,7 @@ class BaseModel(abc.ABC):
         self.assigned_types: dict[
             str, type | UnionType | NestedListType | MyTensor
         ] = {}
+        self.assigned_constraints: list[AssignedConstraintType] = []
         self.conns = Connections()
         self.frozen_attributes: list[str] = []
         self.dependency_map = DependencyMap(self.conns)

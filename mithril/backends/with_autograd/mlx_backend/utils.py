@@ -43,12 +43,12 @@ dtype_map: dict[str, mx.Dtype] = {
 }
 
 
-def get_available_devices():
+def get_available_devices() -> list[str]:
     # For now available devices static
     return ["cpu", "gpu"]
 
 
-def get_device(device: str):
+def get_device(device: str) -> mx.Device:
     return mx.Device(getattr(mx, device), 0)
 
 
@@ -71,7 +71,7 @@ def handle_data_dtype(data: mx.array, dtype: core.Dtype | int) -> mx.array:
     return data
 
 
-def polynomial_features_helper(arr1: mx.array, arr2: mx.array):
+def polynomial_features_helper(arr1: mx.array, arr2: mx.array) -> mx.array:
     # TODO: Consider using this function also in robust power.
     broadcasted_shape = np.broadcast_shapes(arr1.shape, arr2.shape)
     arr1 = mx.broadcast_to(arr1, broadcasted_shape)
@@ -223,7 +223,7 @@ def find_optimal_sigmas(
     sigmas: list[float] = []
 
     # Make fn that returns perplexity of this row given sigma
-    def eval_fn(sigma, i):
+    def eval_fn(sigma: float, i: int) -> mx.array:
         return perplexity_fn(negative_dist_sq[i, :], mx.array(sigma), i, threshold)
 
     # For each row of the matrix (each point in our dataset)
@@ -238,7 +238,9 @@ def find_optimal_sigmas(
     return mx.array(sigmas, dtype=negative_dist_sq.dtype)
 
 
-def log_sigmoid(input: mx.array, log: Callable[..., mx.array], robust: bool):
+def log_sigmoid(
+    input: mx.array, log: Callable[..., mx.array], robust: bool
+) -> mx.array:
     min = mx.minimum(0, input)
     input = mx.exp(-mx.abs(input))
     if not robust:
@@ -258,7 +260,7 @@ def calculate_binary_class_weight(labels: mx.array) -> mx.array:
     return (1 - labels.mean()) / labels.mean()
 
 
-def calculate_categorical_class_weight(labels: mx.array, num_classes: int):
+def calculate_categorical_class_weight(labels: mx.array, num_classes: int) -> mx.array:
     one_hot = mx.eye(num_classes)[labels]
     return calculate_class_weight(one_hot)
 
@@ -310,7 +312,7 @@ def get_submatrices1d(
     kernel_width_size: int,
     padding: int | tuple[int, int] = 0,
     stride: int = 1,
-):
+) -> mx.array:
     if isinstance(padding, tuple):
         input = mx.pad(input, ((0, 0), (0, 0), (padding[0], padding[1])))
 
@@ -337,7 +339,7 @@ def get_submatrices2d(
     kernel_width_size: int,
     padding: int | tuple[tuple[int, int], tuple[int, int]] = 0,
     stride: int = 1,
-):
+) -> mx.array:
     if isinstance(padding, tuple):
         input = mx.pad(
             input,

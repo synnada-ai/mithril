@@ -155,7 +155,7 @@ class PrimitiveModel(BaseModel):
 
         self._freeze()
 
-    def __iadd__(self, other: BaseModel):
+    def __iadd__(self, other: BaseModel) -> BaseModel:
         raise Exception(
             f"Primitive '{self.__class__.__name__}' model can not be extended!"
         )
@@ -173,7 +173,7 @@ class PrimitiveModel(BaseModel):
         name_mappings: dict[BaseModel, str],
         data_to_key_map: dict[IOHyperEdge, list[str]] | None = None,
         data_memo: Mapping[int, IOHyperEdge] | None = None,
-    ):
+    ) -> dict[str, tuple[dict[str, list[str]], dict[str, list[str]]]]:
         if data_to_key_map is None:
             data_to_key_map = {}
         if data_memo is None:
@@ -245,7 +245,10 @@ class PrimitiveModel(BaseModel):
 
         # construct the table based on relevant information
         table = get_summary(
-            conns=conn_info, name=name, shape=shape_info, types=type_info
+            conns=conn_info,
+            name=name,
+            shape=shape_info,  # type: ignore
+            types=type_info,
         )
 
         table.compile()

@@ -26,7 +26,6 @@ from mithril.framework.common import (
     ConstraintSolver,
     IOHyperEdge,
     MyTensor,
-    NestedListType,
     PossibleValues,
     ShapeRepr,
     ShapeResultType,
@@ -74,6 +73,7 @@ from mithril.framework.constraints import (
     type_constraints,
     where_constrains,
 )
+from mithril.framework.utils import NestedListType
 
 from .test_utils import check_shapes_semantically
 

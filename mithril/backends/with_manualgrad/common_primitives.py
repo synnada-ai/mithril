@@ -64,83 +64,93 @@ __all__ = [
 ]
 
 
-def greater(left: DataType, right: DataType, cache: CacheType = None):
+def greater(left: DataType, right: DataType, cache: CacheType = None) -> DataType:
     return left > right
 
 
-def greater_equal(left: DataType, right: DataType, cache: CacheType = None):
+def greater_equal(left: DataType, right: DataType, cache: CacheType = None) -> DataType:
     return left >= right
 
 
-def less(left: DataType, right: DataType, cache: CacheType = None):
+def less(left: DataType, right: DataType, cache: CacheType = None) -> DataType:
     return left < right
 
 
-def less_equal(left: DataType, right: DataType, cache: CacheType = None):
+def less_equal(left: DataType, right: DataType, cache: CacheType = None) -> DataType:
     return left <= right
 
 
-def equal(left: DataType, right: DataType, cache: CacheType = None):
-    return left == right
+def equal(left: DataType, right: DataType, cache: CacheType = None) -> DataType:
+    return left == right  # type: ignore
 
 
-def not_equal(left: DataType, right: DataType, cache: CacheType = None):
-    return left != right
+def not_equal(left: DataType, right: DataType, cache: CacheType = None) -> DataType:
+    return left != right  # type: ignore
 
 
-def logical_not(input: DataType, cache: CacheType = None):
+def logical_not(input: DataType, cache: CacheType = None) -> DataType:
     return ~input
 
 
-def logical_or(left: DataType, right: DataType, cache: CacheType = None):
+def logical_or(left: DataType, right: DataType, cache: CacheType = None) -> DataType:
     return left | right
 
 
-def logical_and(left: DataType, right: DataType, cache: CacheType = None):
+def logical_and(left: DataType, right: DataType, cache: CacheType = None) -> DataType:
     return left & right
 
 
-def matrix_multiplication(left: DataType, right: DataType, cache: CacheType = None):
+def matrix_multiplication(
+    left: DataType, right: DataType, cache: CacheType = None
+) -> DataType:
     return left @ right
 
 
-def multiplication(left: DataType, right: DataType, cache: CacheType = None):
+def multiplication(
+    left: DataType, right: DataType, cache: CacheType = None
+) -> DataType:
     return left * right
 
 
-def divide(numerator: DataType, denominator: DataType, cache: CacheType = None):
+def divide(
+    numerator: DataType, denominator: DataType, cache: CacheType = None
+) -> DataType:
     return numerator / denominator
 
 
-def floor_divide(numerator: DataType, denominator: DataType, cache: CacheType = None):
+def floor_divide(
+    numerator: DataType, denominator: DataType, cache: CacheType = None
+) -> DataType:
     return numerator // denominator
 
 
-def shift_left(input: DataType, shift: DataType, cache: CacheType = None):
+def shift_left(input: DataType, shift: DataType, cache: CacheType = None) -> DataType:
     return input << shift
 
 
-def shift_right(input: DataType, shift: DataType, cache: CacheType = None):
+def shift_right(input: DataType, shift: DataType, cache: CacheType = None) -> DataType:
     return input >> shift
 
 
-def minus(input: DataType):
+def minus(input: DataType) -> DataType:
     return -input
 
 
-def add(left: DataType, right: DataType, cache: CacheType = None):
+def add(left: DataType, right: DataType, cache: CacheType = None) -> DataType:
     return left + right
 
 
-def subtract(left: DataType, right: DataType, cache: CacheType = None):
+def subtract(left: DataType, right: DataType, cache: CacheType = None) -> DataType:
     return left - right
 
 
-def power(base: DataType, exponent: DataType, cache: CacheType = None):
+def power(base: DataType, exponent: DataType, cache: CacheType = None) -> DataType:
     return base**exponent
 
 
-def squared_error(input: DataType, target: DataType, cache: CacheType = None):
+def squared_error(
+    input: DataType, target: DataType, cache: CacheType = None
+) -> DataType:
     return (input - target) ** 2
 
 
@@ -153,17 +163,17 @@ def transpose(
     axes: list[int] | tuple[int, ...] | None = None,
     *,
     cache: CacheType = None,
-):
+) -> DataType:
     if not axes:
         return input.T
     return input.transpose(*axes)
 
 
-def square(input: DataType, cache: CacheType = None):
+def square(input: DataType, cache: CacheType = None) -> DataType:
     return input * input
 
 
-def buffer(input: DataType, cache: CacheType = None):
+def buffer(input: DataType, cache: CacheType = None) -> DataType:
     return input
 
 
@@ -173,7 +183,9 @@ def permute_tensor(
     return input[indices]
 
 
-def reshape(input: DataType, shape: tuple[int, ...], cache: CacheType = None):
+def reshape(
+    input: DataType, shape: tuple[int, ...], cache: CacheType = None
+) -> DataType:
     return input.reshape(shape)
 
 
@@ -201,11 +213,15 @@ def union(
     return result
 
 
-def to_tuple(*args: tuple[int | float | bool, ...], cache: CacheType = None):
+def to_tuple(
+    *args: tuple[int | float | bool, ...], cache: CacheType = None
+) -> tuple[Any, ...]:
     return tuple(args)
 
 
-def to_list(*args: tuple[int | float | bool, ...], cache: CacheType = None):
+def to_list(
+    *args: tuple[int | float | bool, ...], cache: CacheType = None
+) -> list[Any]:
     return list(args)
 
 
@@ -297,7 +313,7 @@ def indexer(
 
 def primitive_slice(
     start: int | None, stop: int | None, step: int | None, cache: CacheType = None
-):
+) -> slice:
     return slice(start, stop, step)
 
 
@@ -311,14 +327,16 @@ def stride_converter(
     input: int | tuple[int, int] | None,
     kernel_size: int | tuple[int, int],
     cache: CacheType = None,
-):
+) -> int | tuple[int, int]:
     if input is None:
         return kernel_size
     else:
         return input
 
 
-def tuple_converter(input: int | tuple[int, int], cache: CacheType = None):
+def tuple_converter(
+    input: int | tuple[int, int], cache: CacheType = None
+) -> tuple[int, int]:
     if isinstance(input, int):
         return (input, input)
     else:

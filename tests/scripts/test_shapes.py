@@ -39,6 +39,7 @@ from mithril.framework.common import (
     ShapeRepr,
     Uniadic,
     UniadicRecord,
+    Updates,
     Variadic,
 )
 from mithril.framework.constraints import reverse_constraints
@@ -117,7 +118,6 @@ from mithril.models import (
     Trapezoid,
     TsnePJoint,
     Unique,
-    Updates,
     ZerosLike,
     primitives,
 )

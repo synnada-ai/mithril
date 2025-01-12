@@ -545,9 +545,6 @@ def test_extract_logical_connections_13():
     assert conns == ref_conns
 
 
-ShapeCache = dict[UniadicRecord | Variadic, str]
-
-
 def test_extract_shapes_logical_1():
     model = Model()
     buff1 = Buffer()
@@ -556,8 +553,8 @@ def test_extract_shapes_logical_1():
     model += buff1(input="input")
     model += buff2(input=buff1.output)
     name_mappings = define_unique_names(model.dag)
-    uni_cache: ShapeCache = {}
-    var_cache: ShapeCache = {}
+    uni_cache: dict[UniadicRecord, str] = {}
+    var_cache: dict[Variadic, str] = {}
     conn_info = model.extract_connection_info(name_mappings)
     model_shapes = {
         sub_model_name: sub_model.get_shapes(uni_cache, var_cache, False, False)
@@ -578,8 +575,8 @@ def test_extract_shapes_logical_2():
     model += buff2(input=buff1.output)
     model.set_shapes({"input": [45, 96, 2]})
     name_mappings = define_unique_names(model.dag)
-    uni_cache: ShapeCache = {}
-    var_cache: ShapeCache = {}
+    uni_cache: dict[UniadicRecord, str] = {}
+    var_cache: dict[Variadic, str] = {}
     conn_info = model.extract_connection_info(name_mappings)
     model_shapes = {
         sub_model_name: sub_model.get_shapes(uni_cache, var_cache, False, False)
@@ -609,8 +606,8 @@ def test_extract_shapes_logical_3():
     model += relu_3
     relu_2.set_shapes({"input": [4, 2]})
     name_mappings = define_unique_names(model.dag)
-    uni_cache: ShapeCache = {}
-    var_cache: ShapeCache = {}
+    uni_cache: dict[UniadicRecord, str] = {}
+    var_cache: dict[Variadic, str] = {}
     conn_info = model.extract_connection_info(name_mappings)
     model_shapes = {
         sub_model_name: sub_model.get_shapes(uni_cache, var_cache, symbolic=True)
@@ -652,8 +649,8 @@ def test_extract_shapes_logical_4():
     model += conv_3
     model += relu_3
     name_mappings = define_unique_names(model.dag)
-    uni_cache: ShapeCache = {}
-    var_cache: ShapeCache = {}
+    uni_cache: dict[UniadicRecord, str] = {}
+    var_cache: dict[Variadic, str] = {}
     conn_info = model.extract_connection_info(name_mappings)
     model_shapes = {
         sub_model_name: sub_model.get_shapes(uni_cache, var_cache, symbolic=False)
@@ -726,8 +723,8 @@ def test_extract_shapes_logical_5():
     model += relu_3
     relu_2.set_shapes({"input": [None, None]})
     name_mappings = define_unique_names(model.dag)
-    uni_cache: ShapeCache = {}
-    var_cache: ShapeCache = {}
+    uni_cache: dict[UniadicRecord, str] = {}
+    var_cache: dict[Variadic, str] = {}
     conn_info = model.extract_connection_info(name_mappings)
     model_shapes = {
         sub_model_name: sub_model.get_shapes(uni_cache, var_cache, symbolic=True)

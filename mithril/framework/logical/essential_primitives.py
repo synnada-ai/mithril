@@ -152,7 +152,7 @@ class ToTuple(PrimitiveModel):
         key_definitions = {
             "output": BaseKey(
                 type=tuple[
-                    int | float | bool | list | tuple | slice | EllipsisType | None, ...
+                    int | float | bool | list | tuple | slice | EllipsisType | None, ...  # type: ignore
                 ]
             )
         }
@@ -177,7 +177,11 @@ class ArithmeticOperation(PrimitiveModel):
     output: Connection
 
     def __init__(
-        self, formula_key: str, name: str | None = None, left=TBD, right=TBD
+        self,
+        formula_key: str,
+        name: str | None = None,
+        left: TensorValueType | ToBeDetermined = TBD,
+        right: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(
             formula_key=formula_key,
@@ -652,11 +656,16 @@ class ToTensor(PrimitiveModel):
 class ToList(PrimitiveModel):
     output: Connection
 
-    def __init__(self, n: int, name: str | None = None, **kwargs) -> None:
+    def __init__(
+        self,
+        n: int,
+        name: str | None = None,
+        **kwargs: TensorValueType | ToBeDetermined,
+    ) -> None:
         self.factory_args = {"n": n}
         key_definitions = {}
         key_definitions["output"] = BaseKey(
-            type=list[int | float | bool | list | tuple]
+            type=list[int | float | bool | list | tuple]  # type: ignore
         )
         key_definitions |= {
             f"input{idx+1}": BaseKey(

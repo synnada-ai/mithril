@@ -1203,14 +1203,14 @@ def test_iokey_template_1():
     backend = TorchBackend()
 
     pm = mithril.compile(model=model, backend=backend, jit=False)
-    res = pm.evaluate(
+    out = pm.evaluate(
         params={"left": backend.array([2.0]), "right": backend.array([3.0])}
     )
     expected_result = np.array([8.0])
 
     assert pm.input_keys == {"left", "right"}
     assert pm.output_keys == ["output"]
-    np.testing.assert_array_equal(res["output"], expected_result)
+    np.testing.assert_array_equal(out["output"], expected_result)  # type: ignore
 
 
 def test_iokey_template_2():
@@ -1246,12 +1246,12 @@ def test_iokey_template_3():
     backend = TorchBackend()
 
     pm = mithril.compile(model=model, backend=backend, jit=False)
-    res = pm.evaluate(params={"left": backend.array([2.0])})
+    out = pm.evaluate(params={"left": backend.array([2.0])})
     expected_result = np.array([5.0])
 
     assert pm.input_keys == {"left", "input"}
     assert pm.output_keys == ["output"]
-    np.testing.assert_array_equal(res["output"], expected_result)
+    np.testing.assert_array_equal(out["output"], expected_result)  # type: ignore
 
 
 def test_iokey_template_4():
@@ -1265,12 +1265,12 @@ def test_iokey_template_4():
     backend = TorchBackend()
 
     pm = mithril.compile(model=model, backend=backend, jit=False)
-    res = pm.evaluate(params={"left": backend.ones((9, 8, 7))})
+    out = pm.evaluate(params={"left": backend.ones((9, 8, 7))})
     expected_result = 9
 
     assert pm.input_keys == {"left", "index"}
     assert pm.output_keys == ["output"]
-    np.testing.assert_array_equal(res["output"], expected_result)
+    np.testing.assert_array_equal(out["output"], expected_result)  # type: ignore
 
 
 def test_iokey_template_5():
@@ -1284,12 +1284,12 @@ def test_iokey_template_5():
     backend = TorchBackend()
 
     pm = mithril.compile(model=model, backend=backend, jit=False)
-    res = pm.evaluate(data={"left": [1, 2, 3]})
+    out = pm.evaluate(data={"left": [1, 2, 3]})
     expected_result = np.array([1, 2, 3])
 
     assert pm.input_keys == {"left"}
     assert pm.output_keys == ["output"]
-    np.testing.assert_array_equal(res["output"], expected_result)
+    np.testing.assert_array_equal(out["output"], expected_result)  # type: ignore
 
 
 def test_iokey_template_6():

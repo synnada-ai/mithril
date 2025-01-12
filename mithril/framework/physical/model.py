@@ -927,7 +927,7 @@ class PhysicalModel(GenericDataType[DataType]):
             table = get_summary(
                 conns=conn_info,
                 name=name,
-                shape=shape_info,
+                shape=shape_info,  # type: ignore
                 types=type_info,
                 params=param_info,
             )
@@ -1168,7 +1168,7 @@ class FlatModel:
         self.external_edges: dict[IOHyperEdge, str] = {}
         self.used_edges: set[IOHyperEdge] = set()
         self.key_origins: dict[str, int] = {}
-        self.reserved_keys = reserved_keys if reserved_keys else set()
+        self.reserved_keys: set[str] = reserved_keys if reserved_keys else set()
         self.queued_models: dict[
             IOHyperEdge, list[tuple[PrimitiveModel, dict[str, str], str]]
         ] = {}
