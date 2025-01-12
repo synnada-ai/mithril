@@ -252,9 +252,7 @@ def test_match_tensor_edge_with_tensor_edge_with_common_types():
     assert (
         edge1.all_constraints == {constr1, constr2} and edge2.all_constraints == set()
     )
-    assert updates.constraints[UpdateType.SHAPE] == set() and updates.constraints[
-        UpdateType.TYPE
-    ] == {constr2}
+    assert updates.constraints == {constr2}
     assert updates.value_updates == set()
     assert updates.shape_updates == set()
     assert updates.node_updates == {node2}  # NOTE: The shape node is useless actually.
@@ -305,9 +303,7 @@ def test_match_untyped_edge_with_tensor_edge():
     assert edge1.shape is edge2.shape
     assert edge1.shape.referees == {edge1}
     assert edge1.all_constraints == {constr} and edge2.all_constraints == set()
-    assert updates.constraints[UpdateType.SHAPE] == set() and updates.constraints[
-        UpdateType.TYPE
-    ] == {constr}
+    assert updates.constraints == {constr}
     assert updates.value_updates == set()
     assert updates.shape_updates == set()
     assert updates.node_updates == {node2}  # NOTE: The shape node is useless actually.
@@ -323,10 +319,7 @@ def test_match_untyped_edge_with_scalar_edge():
     updates = edge1.match(edge2)
     assert edge1.edge_type == float | bool
     assert edge1.all_constraints == {constr} and edge2.all_constraints == set()
-    assert (
-        updates.constraints[UpdateType.SHAPE] == set()
-        and updates.constraints[UpdateType.TYPE] == set()
-    )
+    assert updates.constraints == set()
     assert updates.value_updates == set()
     assert updates.shape_updates == set()
 
@@ -341,9 +334,6 @@ def test_match_scalar_edge_with_untyped_edge():
     updates = edge2.match(edge1)
     assert edge1.edge_type == float | bool
     assert edge1.all_constraints == set() and edge2.all_constraints == {constr}
-    assert (
-        updates.constraints[UpdateType.SHAPE] == set()
-        and updates.constraints[UpdateType.TYPE] == set()
-    )
+    assert updates.constraints == set()
     assert updates.value_updates == set()
     assert updates.shape_updates == set()

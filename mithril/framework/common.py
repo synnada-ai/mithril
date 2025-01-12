@@ -340,20 +340,8 @@ class ConstraintSolver:
 
     def __call__(self, updates: Updates) -> None:
         self.update_shapes(updates)
-        solved_constrs: set[Constraint] = set()
-        # for constr_type in UpdateType:
-        self._solver_loop(updates, solved_constrs)
-
-    def _solver_loop(
-        self,
-        # constraint_type: UpdateType,
-        updates: Updates,
-        solved_constraints: set[Constraint],
-    ):
-        # constraints = updates.constraints[constraint_type]
-        # while constraints:
-        #     constr = constraints.pop()
-        constraints = set.union(*updates.constraints.values())
+        solved_constraints: set[Constraint] = set()
+        constraints = updates.constraints
         while constraints:
             constr = constraints.pop()
             constraint_type = constr.type
@@ -363,14 +351,18 @@ class ConstraintSolver:
                 if constraint_type is UpdateType.SHAPE:
                     self.update_shapes(newly_added_symbols)
                 updates |= newly_added_symbols
-                new_constraints = newly_added_symbols.constraints[constraint_type]
+                new_constraints = {
+                    constr
+                    for constr in newly_added_symbols.constraints
+                    if constr.type is constraint_type
+                }
 
                 # If a constraint is solved, get its post_constraints and add to
                 # constraints set.
                 if status:
                     solved_constraints.add(constr)
                     self.constraint_map.pop(constr)
-                    # Remove constraint from hyper_edges' data.
+                    # Remove constraint from hyper_edges.
                     for hyper_edge in hyper_edges:
                         hyper_edge.remove_constraint(constr)
 
@@ -378,7 +370,7 @@ class ConstraintSolver:
                     for post_constr in post_constraints:
                         self.constraint_map[post_constr] = hyper_edges
 
-                        # Add post_constraints to hyper_edges' data.
+                        # Add post_constraints to hyper_edges.
                         for hyper_edge in hyper_edges:
                             hyper_edge.add_constraint(post_constr)
 
@@ -386,7 +378,6 @@ class ConstraintSolver:
 
                 constraints |= new_constraints
                 constraints.discard(constr)
-                updates.constraints[constraint_type].discard(constr)
 
     @staticmethod
     def _combine_nodes(updates: Updates) -> None:
@@ -553,9 +544,7 @@ class Updates:
     value_updates: set[IOHyperEdge] = field(default_factory=lambda: set())
     uniadic_updates: set[Uniadic] = field(default_factory=lambda: set())
     node_updates: set[ShapeNode] = field(default_factory=lambda: set())
-    constraints: dict[UpdateType, set[Constraint]] = field(
-        default_factory=lambda: {UpdateType.SHAPE: set(), UpdateType.TYPE: set()}
-    )
+    constraints: set[Constraint] = field(default_factory=lambda: set())
 
     def add(
         self,
@@ -578,14 +567,14 @@ class Updates:
 
     def _add_edge(self, symbol: IOHyperEdge) -> None:
         self.value_updates.add(symbol)
-        self.constraints[UpdateType.SHAPE] |= symbol.shape_constraints
+        self.constraints |= symbol.shape_constraints
 
     def _add_uniadic(self, symbol: Uniadic) -> None:
         self.uniadic_updates.add(symbol)
         for repr in symbol.metadata.reprs_dict:
             for tensor in repr.node.referees:
                 self.shape_updates.add(tensor)
-                self.constraints[UpdateType.SHAPE] |= tensor.shape_constraints
+                self.constraints |= tensor.shape_constraints
 
     def _add_variadic(self, symbol: Variadic) -> None:
         # self.symbol_updates.add(symbol)
@@ -593,14 +582,13 @@ class Updates:
             self.node_updates.add(repr.node)
             for tensor in repr.node.referees:
                 self.shape_updates.add(tensor)
-                self.constraints[UpdateType.SHAPE] |= tensor.shape_constraints
+                self.constraints |= tensor.shape_constraints
 
     def _add_type_update(self, symbol: IOHyperEdge) -> None:
-        self.constraints[UpdateType.TYPE] |= symbol.type_constraints
+        self.constraints |= symbol.type_constraints
 
     def __ior__(self, other: Updates) -> Updates:
-        self.constraints[UpdateType.SHAPE] |= other.constraints[UpdateType.SHAPE]
-        self.constraints[UpdateType.TYPE] |= other.constraints[UpdateType.TYPE]
+        self.constraints |= other.constraints
         self.shape_updates |= other.shape_updates
         self.uniadic_updates |= other.uniadic_updates
         self.node_updates |= other.node_updates
@@ -724,7 +712,7 @@ class MyTensor(Generic[TypeVarTensorType]):
             other.referees = set()
         return updates
 
-    def match_shapes(self, other: MyTensor):
+    def match_shapes(self, other: MyTensor) -> Updates:
         updates = Updates()
         # TODO: Should it be "other.shape is not self.shape"
         # instead of "other.shape != self.shape"?
@@ -811,11 +799,11 @@ class IOHyperEdge:
         )
 
     @property
-    def value_type(self):
+    def value_type(self) -> _TensorTypes | ScalarType:
         return self._value.type if isinstance(self._value, MyTensor) else self._type
 
     @property
-    def edge_type(self):
+    def edge_type(self) -> MyTensor | ScalarType:
         return self._type
 
     def _create_and_set_tensor_value(self, typ: _TensorTypes) -> Updates:
@@ -976,7 +964,7 @@ class IOHyperEdge:
             self.finalize_match(other)
         return updates
 
-    def add_constraint(self, constraint: Constraint):
+    def add_constraint(self, constraint: Constraint) -> None:
         if constraint.type == UpdateType.SHAPE:
             self.shape_constraints.add(constraint)
         elif constraint.type == UpdateType.TYPE:
@@ -1015,22 +1003,13 @@ class IOHyperEdge:
         physical_data = deepcopy(self, memo)
         if isinstance(self.value, Constant):
             final_val = epsilon_table[backend.precision][self.value]
+            assert final_val is not None
             if isinstance(physical_data._value, MyTensor):
                 physical_data._value.value = final_val
             else:
                 physical_data._value = final_val
             # physical_data.value = epsilon_table[backend.precision][self.value]
         return physical_data
-
-
-# Check if a type is a specialization of MyTensor
-def is_mytensor_type(type_obj) -> bool:
-    return type_obj is MyTensor or get_origin(type_obj) is MyTensor
-
-
-# Check if a type is a specialization of MyTensor
-def get_mytensor_subtype(type_obj: Any) -> type:
-    return get_args(type_obj)[0]
 
 
 class TemplateBase:
@@ -2465,7 +2444,7 @@ class ShapeNode:
 
             if add_constraint:
                 for tensor in self.referees:
-                    updates.constraints[UpdateType.SHAPE] |= tensor.shape_constraints
+                    updates.constraints |= tensor.shape_constraints
 
             for repr in resolved_reprs:
                 # remove_repr_from_symbols(repr)

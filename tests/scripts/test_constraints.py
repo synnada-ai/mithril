@@ -239,7 +239,11 @@ def assert_type_results(
     updated_constraints = set()
     for key in expected_updates:
         updated_constraints |= data[key].type_constraints
-    assert updated_constraints == updated_symbols.constraints[UpdateType.TYPE]
+    assert updated_constraints == {
+        constr
+        for constr in updated_symbols.constraints
+        if constr.type is UpdateType.TYPE
+    }
     # Then check final types with the expected ref_results.
     for key, value in data.items():
         if isinstance(value.value_type, NestedListType):

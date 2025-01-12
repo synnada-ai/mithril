@@ -205,7 +205,7 @@ def edge_type_constraint(*args: IOHyperEdge) -> ConstrainResultType:
 
 def general_forward_constraint():
     # TODO: Implement this function.
-    ...
+    pass
 
 
 def general_tensor_type_constraint(*args: IOHyperEdge) -> ConstrainResultType:
