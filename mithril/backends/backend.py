@@ -21,6 +21,7 @@ from typing import Any, Generic, overload
 from .. import core
 from ..core import DataType
 from .parallel import Parallel
+from .utils import StaticScalar
 
 __all__ = ["Backend"]
 
@@ -112,18 +113,18 @@ class Backend(ABC, Generic[DataType]):
     # TODO: Fix types in cast function when python
     # adds Higher-Kinded TypeVar support.
     # https://github.com/python/typing/issues/548#issuecomment-1193345123
-    def cast(self, value: Any) -> Any:
+    def cast(self, value: Any, dtype: core.Dtype | None = None) -> Any:
         # Simply casts given value to the backend's precision.
         # If type of value is not int or float, returns the
         # value as is.
         if isinstance(value, bool):
             return value
         elif isinstance(value, int | float):
-            return self.array(value).item()
+            return self.array(value, dtype=dtype).item()
         elif isinstance(value, tuple):
-            return tuple(self.cast(item) for item in value)
+            return tuple(self.cast(item, dtype=dtype) for item in value)
         elif isinstance(value, list):
-            return [self.cast(item) for item in value]
+            return [self.cast(item, dtype=dtype) for item in value]
 
         return value
 
@@ -864,6 +865,29 @@ class Backend(ABC, Generic[DataType]):
         self, probs: DataType, num_samples: int, replacement: bool = False
     ) -> DataType:
         raise NotImplementedError("multinomial is not implemented!")
+
+    def clip(
+        self,
+        input: DataType,
+        min: DataType | StaticScalar,
+        max: DataType | StaticScalar,
+    ) -> DataType:
+        """
+        Clip the values in the input array.
+
+        Parameters:
+        array (DataType): The input array to clip.
+        min (DataType): The minimum value to clip the array values.
+        max (DataType): The maximum value to clip the array values.
+
+        Returns:
+        DataType: The clipped array.
+
+        Raises:
+        NotImplementedError: If the method is not implemented.
+        """
+
+        raise NotImplementedError("clip is not implemented")
 
     def jit[**P, T](self, fn: Callable[P, T]) -> Callable[P, T]:
         """

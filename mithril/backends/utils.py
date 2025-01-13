@@ -18,6 +18,8 @@ from ..utils.type_utils import is_tuple_int
 
 NestedFloatOrIntOrBoolList = float | int | bool | list["NestedFloatOrIntOrBoolList"]
 
+StaticScalar = bool | int | float | complex
+
 
 def process_shape(
     shape: tuple[int | tuple[int, ...] | list[int], ...],

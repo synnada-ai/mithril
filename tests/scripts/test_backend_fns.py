@@ -14,9 +14,11 @@
 
 import os
 import platform
+import random
 from collections.abc import Callable
 from itertools import product
 
+import numpy as np
 import pytest
 
 import mithril as ml
@@ -1746,6 +1748,36 @@ class TestAtLeast2D:
         ref_output = (
             array_fn([[1]], device, f"int{precision}"),
             array_fn([[1]], device, f"int{precision}"),
+        )
+        assert_backend_results_equal(
+            backend,
+            fn,
+            fn_args,
+            fn_kwargs,
+            ref_output,
+            device,
+            precision,
+            tolerances[precision],
+            tolerances[precision],
+        )
+
+
+@pytest.mark.parametrize(
+    "backendcls, device, precision", backends_with_device_precision, ids=names
+)
+class TestClip:
+    def test_clip(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
+        backend = backendcls(device=device, precision=precision)
+        fn = backend.clip
+        input = array_fn(list(range(-10, 10, 1)), device, f"int{precision}")
+        min = random.randint(-10, 9)
+        max = random.randint(min, 10)
+
+        fn_args: list = [input, min, max]
+        fn_kwargs: dict = {}
+        ref_output = array_fn(
+            np.clip(list(range(-10, 10, 1)), min, max), device, f"int{precision}"
         )
         assert_backend_results_equal(
             backend,
