@@ -113,20 +113,10 @@ class Backend(ABC, Generic[DataType]):
     # TODO: Fix types in cast function when python
     # adds Higher-Kinded TypeVar support.
     # https://github.com/python/typing/issues/548#issuecomment-1193345123
-    def cast(self, value: Any, dtype: core.Dtype | None = None) -> Any:
-        # Simply casts given value to the backend's precision.
-        # If type of value is not int or float, returns the
-        # value as is.
-        if isinstance(value, bool):
-            return value
-        elif isinstance(value, int | float):
-            return self.array(value, dtype=dtype).item()
-        elif isinstance(value, tuple):
-            return tuple(self.cast(item, dtype=dtype) for item in value)
-        elif isinstance(value, list):
-            return [self.cast(item, dtype=dtype) for item in value]
+    def cast(self, value: DataType, dtype: core.Dtype | None = None) -> DataType:
+        # Simply casts given array to the backend's precision.
 
-        return value
+        return self.array(value, dtype=dtype)
 
     def __del__(self) -> None:
         self.empty_cache()

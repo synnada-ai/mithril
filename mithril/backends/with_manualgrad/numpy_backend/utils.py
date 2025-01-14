@@ -25,6 +25,7 @@ from ....utils.utils import binary_search, find_dominant_type
 ArrayType = np.ndarray
 
 dtype_map: dict[str, Any] = {
+    "int8": np.int8,
     "int16": np.int16,
     "int32": np.int32,
     "int": np.int32,

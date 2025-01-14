@@ -126,7 +126,9 @@ def assert_backend_results_equal(
     for out, ref in zip(output, ref_output, strict=False):
         assert tuple(out.shape) == tuple(ref.shape)
         assert get_array_device(out, backend.backend_type) == ref_output_device
-        assert get_array_precision(out, backend.backend_type) == ref_output_precision
+        assert get_array_precision(out, backend.backend_type) == get_array_precision(
+            ref, backend.backend_type
+        )
         assert testing_fn(out, ref, rtol=rtol, atol=atol)
 
 
@@ -1842,6 +1844,38 @@ class TestTopK:
             tolerances[precision],
             tolerances[precision],
         )
+
+
+@pytest.mark.parametrize(
+    "backendcls, device, precision", backends_with_device_precision, ids=names
+)
+class TestCast:
+    def test_cast(self, backendcls, device, precision):
+        array_fn = array_fns[backendcls]
+        backend = backendcls(device=device, precision=precision)
+        fn = backend.cast
+        input = array_fn(list(range(-10, 10, 1)), device, f"float{precision}")
+
+        for dtype in ml.core.Dtype:
+            if dtype.name == "float64":
+                continue
+
+            fn_args: list = [input, dtype]
+            fn_kwargs: dict = {}
+            ref_output = array_fn(list(range(-10, 10, 1)), device, dtype.name)
+            backend.cast(input, dtype)
+
+            assert_backend_results_equal(
+                backend,
+                fn,
+                fn_args,
+                fn_kwargs,
+                ref_output,
+                device,
+                precision,
+                tolerances[precision],
+                tolerances[precision],
+            )
 
 
 @pytest.mark.parametrize(
