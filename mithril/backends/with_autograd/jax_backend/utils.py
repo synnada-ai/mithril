@@ -27,6 +27,8 @@ from ...utils import DtypeSubTypes
 ArrayType = jax.Array
 
 dtype_map: dict[str, jnp.dtype[Any]] = {
+    "uint8": jnp.uint8,
+    "int8": jnp.int8,
     "int16": jnp.int16,
     "int32": jnp.int32,
     "int": jnp.int32,

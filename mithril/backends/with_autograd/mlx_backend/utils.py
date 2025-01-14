@@ -30,6 +30,7 @@ ArrayType = mx.array
 
 
 dtype_map: dict[str, mx.Dtype] = {
+    "uint8": mx.uint8,
     "int8": mx.int8,
     "int16": mx.int16,
     "short": mx.int16,
