@@ -67,7 +67,7 @@ class MLPJax(nn.Module):
     def __call__(self, inputs):
         x = inputs
         for lyr, actv in zip(self.layers, self.jax_activations, strict=False):
-            x = lyr(x)  # type: ignore
+            x = lyr(x)
             x = actv(x)  # type: ignore
         return x
 

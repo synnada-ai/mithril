@@ -21,10 +21,10 @@ from posixpath import basename, splitext
 from typing import Any, Generic, Literal, Protocol, overload
 
 from ...backends.backend import ParallelBackend
+from ...core import DataType
 from ...utils.func_utils import prepare_function_args
 from ..common import (
     DataEvalType,
-    DataType,
     EvaluateAllType,
     EvaluateGradientsType,
     EvaluateType,
@@ -104,7 +104,7 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
         self.globals: list[ast.stmt] = []
         self.functions: list[ast.stmt] = []
 
-    def generate_code(self, file_path: str | None = None):
+    def generate_code(self, file_path: str | None = None) -> None:
         self.file_path = file_path
         self.imports += self.generate_imports()
         self.functions += self.generate_functions()
@@ -119,10 +119,10 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
         if file_path is not None:
             self.write_code(file_path)
 
-    def generate_functions(self):
+    def generate_functions(self) -> list[ast.FunctionDef]:
         return [self.generate_evaluate()]
 
-    def write_code(self, file_path: str):
+    def write_code(self, file_path: str) -> None:
         if self.code is None:
             raise Exception(
                 "Code is not generated yet! Please call generate_code() first."
@@ -151,7 +151,7 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
         if self.file_path is not None:
             module_name = splitext(basename(self.file_path))[0]
 
-            module_spec = importlib.util.spec_from_file_location(  # type: ignore
+            module_spec = importlib.util.spec_from_file_location(
                 module_name, self.file_path
             )
             module = importlib.util.module_from_spec(module_spec)  # type: ignore
@@ -242,12 +242,12 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
                     evaluate_all_fn is not None
                 ), "Evaluate all function is not defined!"
 
-                grad_fn = self.pm.backend.jit(grad_fn)
+                grad_fn = self.pm.backend.jit(grad_fn)  # type: ignore
                 evaluate_all_fn = self.pm.backend.jit(evaluate_all_fn)
 
-        return eval_fn, grad_fn, evaluate_all_fn
+        return eval_fn, grad_fn, evaluate_all_fn  # type: ignore
 
-    def import_backend(self):
+    def import_backend(self) -> ast.ImportFrom:
         backend = ast.ImportFrom(
             module="mithril",
             names=[
@@ -261,7 +261,7 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
 
         return backend
 
-    def generate_imports(self):
+    def generate_imports(self) -> list[ast.stmt]:
         imports: list[ast.stmt] = []
         # Add import primitive functions
         imports.append(
@@ -295,7 +295,9 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
 
         return imports
 
-    def get_primitive_details(self, output_key: str):
+    def get_primitive_details(
+        self, output_key: str
+    ) -> tuple[PrimitiveModel, list[str], list[str]]:
         model = self.pm.flat_graph.get_model(output_key)
 
         global_input_keys = self.pm.flat_graph.get_source_keys(output_key)
@@ -311,7 +313,7 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
         g_input_keys: list[str],
         output_key: str,
         formula_key: str,
-    ):
+    ) -> tuple[ast.Assign, set[str]]:
         generated_fn, used_keys = self.create_primitive_call(
             fn, l_input_keys, g_input_keys
         )
@@ -321,9 +323,9 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
         if formula_key in self.pm.backend.array_creation_funcs:
             self.add_partial_function(formula_key)
 
-        return ast.Assign(targets, generated_fn), used_keys | _used_keys  # type: ignore
+        return ast.Assign(targets, generated_fn), used_keys | _used_keys
 
-    def generate_evaluate(self):
+    def generate_evaluate(self) -> ast.FunctionDef:
         input_body: list[ast.stmt] = []
         function_body: list[ast.stmt] = []
         return_values: list[ast.expr] = []
@@ -424,7 +426,9 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
 
         return ast.fix_missing_locations(func_def)
 
-    def append_inputs(self, input_body: list[ast.stmt], key: str, dict_type: str):
+    def append_inputs(
+        self, input_body: list[ast.stmt], key: str, dict_type: str
+    ) -> None:
         # In manual_grad type backends, cache contains all the required
         # data (local variables and outputs) for the corresponding function.
         # So if the key is not directly an output of a function get it from
@@ -538,7 +542,7 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
 
         return targets, {target_name}
 
-    def add_partial_function(self, formula_key: str):
+    def add_partial_function(self, formula_key: str) -> None:
         if formula_key in self.defined_partial_fns:
             return
 
@@ -561,11 +565,11 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
         # raw_evaluate_grad_fn: ManualGradWrapperFn[DataType] | None,
         raw_evaluate_fn: RawEvaluateType[DataType],
         raw_evaluate_grad_fn: ManualGradWrapperFn[DataType] | None,
-    ):
+    ) -> tuple[ManualGradWrapperFn[DataType], RawEvaluateType[DataType]]:
         fn_all: EvaluateAllType[DataType]
         grad_fn: EvaluateGradientsType[DataType]
         if not self.pm.backend.is_manualgrad:
-            grad_fn = partial(  # type: ignore
+            grad_fn = partial(
                 self.compute_gradients,
                 raw_evaluate_fn=raw_evaluate_fn,
                 cache=self.pm.data_store.data_values,
@@ -578,14 +582,14 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
                 cache=self.pm.data_store.data_values,
                 include_output=True,
             )
-            return grad_fn, fn_all
+            return grad_fn, fn_all  # type: ignore
         else:
             assert raw_evaluate_grad_fn is not None, "Gradient function is not defined!"
 
             fn_all = partial(raw_evaluate_grad_fn, include_output=True)  # type: ignore
             grad_fn = partial(raw_evaluate_grad_fn, include_output=False)  # type: ignore
 
-            return grad_fn, fn_all
+            return grad_fn, fn_all  # type: ignore
 
     @overload
     def compute_gradients(

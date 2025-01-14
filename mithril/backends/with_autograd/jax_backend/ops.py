@@ -424,7 +424,7 @@ def conv2d(
     stride: tuple[int, int] = (1, 1),
     padding: tuple[int, int] | tuple[tuple[int, int], tuple[int, int]] = (1, 1),
     dilation: tuple[int, int] = (1, 1),
-):
+) -> jax.Array:
     _padding_normalized: tuple[tuple[int, int], tuple[int, int]]
     if is_tuple_int(padding):
         _padding_normalized = ((padding[0], padding[0]), (padding[1], padding[1]))
@@ -451,7 +451,7 @@ def conv2d_bias(
     stride: tuple[int, int] = (1, 1),
     padding: tuple[int, int] | tuple[tuple[int, int], tuple[int, int]] = (1, 1),
     dilation: tuple[int, int] = (1, 1),
-):
+) -> jax.Array:
     return (
         conv2d(
             input=input,
@@ -559,7 +559,7 @@ def scaled_dot_product_attention(
     dropout_p: float = 0.0,
     is_causal: bool = False,
     scale: float | int | None = None,
-):
+) -> jax.Array:
     if dropout_p != 0.0:
         raise RuntimeError(
             "Currently Jax scaled_dot_product_attention only support dropout_p 0"
@@ -897,7 +897,10 @@ def polynomial_features(input: jax.Array, *, degree: int = 2) -> jax.Array:
     samples, dims = input.shape
     identity = jnp.eye(dims + 1, dims + 1, dtype=input.dtype)
     data = jnp.hstack((jnp.ones((samples, 1), dtype=input.dtype), input))
-    powers: Iterator = map(sum, combinations_with_replacement(identity, degree))
+    powers: Iterator[jax.Array] = map(
+        sum,  # type: ignore
+        combinations_with_replacement(identity, degree),
+    )
     # Skip first element of powers. This is the bias term.
     next(powers)
     return jnp.hstack(
@@ -996,15 +999,15 @@ def dtype(input: jax.Array) -> core.Dtype:
     return getattr(core.Dtype, str(input.dtype))
 
 
-def logical_xor(left: jax.Array, right: jax.Array):
+def logical_xor(left: jax.Array, right: jax.Array) -> jax.Array:
     return left ^ right
 
 
-def split(input: jax.Array, split_size: int | list[int], axis: int = 0):
+def split(input: jax.Array, split_size: int | list[int], axis: int = 0) -> jax.Array:
     return jnp.stack(jnp.split(input, split_size, axis=axis))
 
 
-def pad(input: jax.Array, pad_width: tuple[tuple[int, int], ...]):
+def pad(input: jax.Array, pad_width: tuple[tuple[int, int], ...]) -> jax.Array:
     return jax.numpy.pad(input, pad_width)
 
 
@@ -1014,7 +1017,7 @@ def randn(shape: tuple[int, ...], key: int, device: str, precision: int) -> jax.
         return handle_data_precision(jax.random.normal(_key, shape), precision)
 
 
-def zeros_like(input: jax.Array):
+def zeros_like(input: jax.Array) -> jax.Array:
     return jnp.zeros_like(input)
 
 

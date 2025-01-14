@@ -31,7 +31,7 @@ from ..framework.common import (
     TensorValueType,
     ToBeDetermined,
 )
-from ..framework.logical.base import ExtendInfo
+from ..framework.logical.base import BaseModel, ExtendInfo
 from ..framework.logical.essential_primitives import (
     Absolute,
     Add,
@@ -60,7 +60,7 @@ from ..framework.logical.essential_primitives import (
     Transpose,
     Variance,
 )
-from ..framework.logical.primitive import BaseModel, PrimitiveModel
+from ..framework.logical.primitive import PrimitiveModel
 from ..utils.utils import PaddingType, convert_to_list, convert_to_tuple
 from .primitives import (
     AUCCore,
@@ -754,13 +754,13 @@ class GroupNorm(Model):
         input_shape = input_key.shape
         B = input_shape[0]
 
-        input_key = input_key.reshape((B, num_groups, -1))
+        _input_key = input_key.reshape((B, num_groups, -1))
 
-        mean = input_key.mean(axis=-1, keepdim=True)
-        var = input_key.var(axis=-1, keepdim=True)
+        mean = _input_key.mean(axis=-1, keepdim=True)
+        var = _input_key.var(axis=-1, keepdim=True)
 
-        input_key = (input_key - mean) / (var + eps).sqrt()
-        self += Reshape()(input=input_key, shape=input_shape)
+        _input_key = (_input_key - mean) / (var + eps).sqrt()
+        self += Reshape()(input=_input_key, shape=input_shape)
 
         self._set_shapes({"input": ["B", "C", "H", "W"]})
         self.input.set_differentiable(False)
@@ -1271,7 +1271,7 @@ class MLP(Model):
 
         self._freeze()
 
-    def __call__(  # type: ignore[override]
+    def __call__(
         self,
         input: ConnectionType = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
@@ -1751,7 +1751,7 @@ class RNN(Model):
         super().__init__(name=name)
         # self.set_values(**kwargs)
 
-    def __call__(self, **kwargs) -> ExtendInfo:  # type: ignore[override]
+    def __call__(self, **kwargs: ConnectionType) -> ExtendInfo:
         raise NotImplementedError("__call__ method not implemented!")
 
 
@@ -1832,7 +1832,7 @@ class OneToMany(RNN):
             prev_cell = current_cell
         self._freeze()
 
-    def __call__(  # type: ignore[override]
+    def __call__(
         self, input: ConnectionType = NOT_GIVEN, **model_keys: ConnectionType
     ) -> ExtendInfo:
         return super(RNN, self).__call__(input=input, **model_keys)
@@ -1967,7 +1967,7 @@ class ManyToOne(RNN):
 
         self._freeze()
 
-    def __call__(  # type: ignore[override]
+    def __call__(
         self, hidden_concat: ConnectionType = NOT_GIVEN, **model_keys: ConnectionType
     ) -> ExtendInfo:
         return super(RNN, self).__call__(hidden_concat=hidden_concat, **model_keys)
@@ -2068,9 +2068,7 @@ class EncoderDecoderInference(Model):
 
         self._freeze()
 
-    def __call__(  # type: ignore[override]
-        self, **model_keys: ConnectionType
-    ) -> ExtendInfo:
+    def __call__(self, **model_keys: ConnectionType) -> ExtendInfo:
         return super().__call__(**model_keys)
 
 

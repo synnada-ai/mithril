@@ -67,8 +67,8 @@ for idx, start in enumerate(start_indices):
     target_end = int(input_end + target_lengths[idx])
 
     # NOTE: Pylance sees int, int type arguments but throws an error.
-    single_input = backend.arange(start, input_end).reshape(-1, input_dim)  # type: ignore
-    single_target = backend.arange(input_end, target_end).reshape(-1, output_dim)  # type: ignore
+    single_input = backend.arange(start, input_end).reshape(-1, input_dim)
+    single_target = backend.arange(input_end, target_end).reshape(-1, output_dim)
 
     single_data = (single_input, single_target)
     train_data.append(single_data)
@@ -150,7 +150,7 @@ starting_number = 3.0
 # Prepare the test input data.
 test_input = backend.arange(
     starting_number,
-    starting_number + inference_max_input,  # type: ignore
+    starting_number + inference_max_input,
 ).reshape(-1, input_dim)
 
 # Prepare the test data.
@@ -172,7 +172,7 @@ test_static_inputs = {
 
 # Prepare target values.
 test_target_values = backend.arange(
-    starting_number + inference_max_input,  # type: ignore
+    starting_number + inference_max_input,
     starting_number + inference_max_input + inference_max_target_length,
 )
 
@@ -204,4 +204,4 @@ unpacked_output_data = unpack_time_slot_data(
 )
 
 # Measure test error.
-error = backend.abs(unpacked_output_data.squeeze() - test_target_values).sum()  # type: ignore
+error = backend.abs(unpacked_output_data.squeeze() - test_target_values).sum()

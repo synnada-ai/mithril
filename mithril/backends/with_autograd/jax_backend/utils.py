@@ -103,7 +103,7 @@ def robust_power_helper(
 
 
 def robust_log_helper(input1: jax.Array, threshold: jax.Array) -> jax.Array:
-    def cond_fun(cond: jax.Array, input1: jax.Array):
+    def cond_fun(cond: jax.Array, input1: jax.Array) -> jax.Array:
         return jax.lax.cond(
             cond,
             lambda x: jnp.log(threshold) + (jnp.abs(x) / threshold) - 1.0,
@@ -116,7 +116,7 @@ def robust_log_helper(input1: jax.Array, threshold: jax.Array) -> jax.Array:
 
 
 def stable_reciprocal_helper(input1: jax.Array, threshold: jax.Array) -> jax.Array:
-    def cond_fun(cond: jax.Array, input1: jax.Array):
+    def cond_fun(cond: jax.Array, input1: jax.Array) -> jax.Array:
         return jax.lax.cond(
             cond,
             lambda x: -x / jnp.square(threshold)
@@ -130,7 +130,7 @@ def stable_reciprocal_helper(input1: jax.Array, threshold: jax.Array) -> jax.Arr
 
 
 def robust_sqrt_helper(input1: jax.Array, threshold: jax.Array) -> jax.Array:
-    def cond_fun(cond: jax.Array, input1: jax.Array):
+    def cond_fun(cond: jax.Array, input1: jax.Array) -> jax.Array:
         return jax.lax.cond(
             cond,
             lambda x: jnp.abs(x) * jnp.reciprocal(jnp.sqrt(threshold)),
@@ -288,7 +288,7 @@ def polynomial_features_helper(x: jax.Array, y: jax.Array) -> jax.Array:
     )
 
 
-def get_available_devices():
+def get_available_devices() -> list[str]:
     backends: set[str] = set(jax._src.xla_bridge.backends()) - set(["interpreter"])
     devices = [
         f"{backend.replace('METAL','mps')}:{idx}"
@@ -298,7 +298,7 @@ def get_available_devices():
     return devices
 
 
-def get_device(device: str):
+def get_device(device: str) -> jax.Device:
     backend, device_idx = _parse_device_string(device)
     filtered_list = list(
         filter(
@@ -321,7 +321,7 @@ def _get_available_backends() -> list[str]:
     return list(backends)
 
 
-def _parse_device_string(device: str):
+def _parse_device_string(device: str) -> tuple[str, int]:
     device_parts = device.split(":")
     backend = device_parts[0].replace("mps", "METAL")
     device_idx = 0
@@ -360,7 +360,9 @@ def handle_data_dtype(data: jax.Array, dtype: core.Dtype | int) -> jax.Array:
     return data
 
 
-def get_type(input: int | float | bool | Sequence[Any], precision: int):
+def get_type(
+    input: int | float | bool | Sequence[Any], precision: int
+) -> jax.numpy.dtype[Any]:
     type = find_dominant_type(input).__name__
     if type == "bool":
         return jax.numpy.bool_
@@ -368,7 +370,9 @@ def get_type(input: int | float | bool | Sequence[Any], precision: int):
     return getattr(jax.numpy, type + str(precision))
 
 
-def calculate_tpr_fpr(threshold: jax.Array, input: jax.Array, label: jax.Array):
+def calculate_tpr_fpr(
+    threshold: jax.Array, input: jax.Array, label: jax.Array
+) -> tuple[jax.Array, jax.Array]:
     input_c = input.copy()
 
     n_positive = (label == 1).sum()
@@ -383,7 +387,9 @@ def calculate_tpr_fpr(threshold: jax.Array, input: jax.Array, label: jax.Array):
     return tpr, fpr
 
 
-def log_sigmoid(input: jax.Array, log: Callable[..., jax.Array], robust: bool):
+def log_sigmoid(
+    input: jax.Array, log: Callable[..., jax.Array], robust: bool
+) -> jax.Array:
     min = jnp.minimum(0, input)
     input = jnp.exp(-jnp.abs(input))
     if not robust:
@@ -403,7 +409,9 @@ def calculate_binary_class_weight(labels: jax.Array) -> jax.Array:
     return (1 - labels.mean()) / labels.mean()
 
 
-def calculate_categorical_class_weight(labels: jax.Array, num_classes: int):
+def calculate_categorical_class_weight(
+    labels: jax.Array, num_classes: int
+) -> jax.Array:
     one_hot = jnp.eye(num_classes)[labels]
     return calculate_class_weight(one_hot)
 
@@ -422,7 +430,7 @@ def calculate_cross_entropy_class_weights(
     labels: jax.Array,
     is_categorical: bool,
     weights: bool | list[float],
-):
+) -> jax.Array:
     _weights = None
     with jax.default_device(next(iter(labels.devices()))):
         if isinstance(weights, bool):

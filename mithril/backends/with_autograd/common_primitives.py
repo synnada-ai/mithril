@@ -63,80 +63,80 @@ __all__ = [
 ]
 
 
-def greater(left: DataType, right: DataType):
+def greater(left: DataType, right: DataType) -> DataType:
     return left > right
 
 
-def greater_equal(left: DataType, right: DataType):
+def greater_equal(left: DataType, right: DataType) -> DataType:
     return left >= right
 
 
-def less(left: DataType, right: DataType):
+def less(left: DataType, right: DataType) -> DataType:
     return left < right
 
 
-def less_equal(left: DataType, right: DataType):
+def less_equal(left: DataType, right: DataType) -> DataType:
     return left <= right
 
 
-def equal(left: DataType, right: DataType):
-    return left == right
+def equal(left: DataType, right: DataType) -> DataType:
+    return left == right  # type: ignore
 
 
-def not_equal(left: DataType, right: DataType):
-    return left != right
+def not_equal(left: DataType, right: DataType) -> DataType:
+    return left != right  # type: ignore
 
 
-def logical_not(input: DataType):
+def logical_not(input: DataType) -> DataType:
     return ~input
 
 
-def logical_or(left: DataType, right: DataType):
+def logical_or(left: DataType, right: DataType) -> DataType:
     return left | right
 
 
-def logical_and(left: DataType, right: DataType):
+def logical_and(left: DataType, right: DataType) -> DataType:
     return left & right
 
 
-def matrix_multiplication(left: DataType, right: DataType):
+def matrix_multiplication(left: DataType, right: DataType) -> DataType:
     return left @ right
 
 
-def add(left: DataType, right: DataType):
+def add(left: DataType, right: DataType) -> DataType:
     return left + right
 
 
-def subtract(left: DataType, right: DataType):
+def subtract(left: DataType, right: DataType) -> DataType:
     return left - right
 
 
-def multiplication(left: DataType, right: DataType):
+def multiplication(left: DataType, right: DataType) -> DataType:
     return left * right
 
 
-def divide(numerator: DataType, denominator: DataType):
+def divide(numerator: DataType, denominator: DataType) -> DataType:
     return numerator / denominator
 
 
-def floor_divide(numerator: DataType, denominator: DataType):
+def floor_divide(numerator: DataType, denominator: DataType) -> DataType:
     return numerator // denominator
 
 
-def shift_left(input: DataType, shift: DataType):
-    return input << shift
+def shift_left(input: DataType, shift: DataType) -> DataType:
+    return input << shift  # pyright: ignore
 
 
-def shift_right(input: DataType, shift: DataType):
-    return input >> shift
+def shift_right(input: DataType, shift: DataType) -> DataType:
+    return input >> shift  # pyright: ignore
 
 
-def power(base: DataType, exponent: DataType):
-    return base**exponent
+def power(base: DataType, exponent: DataType) -> DataType:
+    return base**exponent  # pyright: ignore
 
 
-def squared_error(input: DataType, target: DataType):
-    return (input - target) ** 2
+def squared_error(input: DataType, target: DataType) -> DataType:
+    return (input - target) ** 2  # pyright: ignore
 
 
 def minus(input: DataType) -> DataType:
@@ -148,38 +148,40 @@ def transpose(
 ) -> DataType:
     if not axes:
         return input.T
-    return input.transpose(*axes)
+    return input.transpose(*axes)  # pyright: ignore
 
 
-def swapaxes(input: DataType, axis1: int, axis2: int):
+def swapaxes(input: DataType, axis1: int, axis2: int) -> DataType:
     return input.swapaxes(axis1, axis2)
 
 
-def square(input: DataType):
-    return input * input
+def square(input: DataType) -> DataType:
+    return input * input  # pyright: ignore
 
 
-def buffer(input: DataType):
+def buffer(input: DataType) -> DataType:
     return input
 
 
 def permute_tensor(input: DataType, indices: DataType) -> DataType:
-    return input[indices]  # type: ignore
+    return input[indices]  # pyright: ignore
 
 
 def reshape(input: DataType, shape: tuple[int, ...]) -> DataType:
-    return input.reshape(shape)
+    return input.reshape(shape)  # pyright: ignore
 
 
 def item(input: DataType) -> int | float | bool:
     return input.item()  # type: ignore
 
 
-def tensor_item(input: DataType, index: int | slice | tuple[int | slice, ...]):
+def tensor_item(
+    input: DataType, index: int | slice | tuple[int | slice, ...]
+) -> DataType:
     return input[index]
 
 
-def primitive_slice(start: int | None, stop: int | None, step: int | None):
+def primitive_slice(start: int | None, stop: int | None, step: int | None) -> slice:
     return slice(start, stop, step)
 
 
@@ -187,12 +189,12 @@ def length(input: DataType) -> int:
     return len(input)
 
 
-def cartesian_diff(left: DataType, right: DataType):
+def cartesian_diff(left: DataType, right: DataType) -> DataType:
     return left[:, None, :] - right[None, :, :]
 
 
 def primitive_embedding(input: DataType, weight: DataType) -> DataType:
-    return weight[input]  # type: ignore
+    return weight[input]
 
 
 def scalar_item(
@@ -218,11 +220,11 @@ def union(*inputs: int | float | tuple[int | float, ...]) -> tuple[int | float, 
     return result
 
 
-def to_tuple(*args: tuple[int | float | bool, ...]):
+def to_tuple(*args: int | float | bool) -> tuple[int | float | bool, ...]:
     return tuple(args)
 
 
-def to_list(*args: tuple[int | float | bool, ...]):
+def to_list(*args: int | float | bool) -> list[int | float | bool]:
     return list(args)
 
 
@@ -291,7 +293,7 @@ def padding_converter_2d(
 def stride_converter(
     input: int | PaddingType | tuple[int, int] | None,
     kernel_size: int | tuple[int, int],
-):
+) -> int | tuple[int, int] | PaddingType:
     if input is None:
         return kernel_size
     else:
@@ -303,7 +305,7 @@ def tuple_converter(
     | PaddingType
     | tuple[int, int]
     | tuple[tuple[int, int], tuple[int, int]],
-):
+) -> tuple[int, int] | tuple[tuple[int, int], tuple[int, int]] | PaddingType:
     if isinstance(input, int):
         return (input, input)
     else:

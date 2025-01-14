@@ -77,25 +77,25 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
         return False
 
     @property
-    def inf(self):
+    def inf(self) -> float:
         return torch.inf
 
     @property
-    def nan(self):
+    def nan(self) -> float:
         return torch.nan
 
     @property
-    def DataType(self):  # noqa: N802
+    def DataType(self) -> type[torch.Tensor]:  # noqa: N802
         return utils.ArrayType
 
     @property
-    def device(self):
+    def device(self) -> torch.device:
         return utils.get_device(self._device)
 
-    def get_backend_array_type(self):
+    def get_backend_array_type(self) -> type[torch.Tensor]:
         return torch.Tensor
 
-    def get_device(self):
+    def get_device(self) -> Any:
         return self._device
 
     @staticmethod
@@ -114,11 +114,13 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
 
         return utils.get_available_devices()
 
-    def set_seed(self, seed: int):
+    def set_seed(self, seed: int) -> None:
         self.seed = seed
         torch.random.manual_seed(seed)
 
-    def to_device(self, data: torch.Tensor, device: str, asynchronous: bool = False):
+    def to_device(
+        self, data: torch.Tensor, device: str, asynchronous: bool = False
+    ) -> torch.Tensor:
         """Move data to the specified device.
 
         Parameters
@@ -143,7 +145,7 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
 
     def register_callable(
         self, fn: Callable[..., torch.Tensor], fn_name: str, jit: bool = False
-    ):
+    ) -> None:
         """
         Register a callable function with the backend.
 
@@ -161,7 +163,7 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
             fn, fn_name, self.base_device_mesh, jit
         )
 
-    def _create_parallel(self, device_mesh: tuple[int, ...]):
+    def _create_parallel(self, device_mesh: tuple[int, ...]) -> None:
         assert isinstance(device_mesh, tuple), "Device mesh must be tuple or None!"
         assert isinstance(
             self._raw_device_mesh, tuple
@@ -174,7 +176,7 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
             self._raw_device_mesh
         )
 
-    def _run_callable(self, *primals: Any, fn_name: str):
+    def _run_callable(self, *primals: Any, fn_name: str) -> Any:
         assert (
             self._parallel_manager is not None
         ), "Parallel manager is not initialized!"
@@ -354,7 +356,6 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
         step: int | float,
         dtype: Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
-        **kwargs: int | float,
     ) -> torch.Tensor:
         default_type = (
             self._get_default_subtype()
@@ -495,17 +496,17 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
         self, inputs: torch.Tensor | tuple[torch.Tensor, ...]
     ) -> torch.Tensor | tuple[torch.Tensor, ...]:
         if isinstance(inputs, tuple):
-            return torch.atleast_1d(*inputs)
+            return torch.atleast_1d(*inputs)  # type: ignore
         else:
-            return torch.atleast_1d(inputs)
+            return torch.atleast_1d(inputs)  # type: ignore
 
     def atleast_2d(
         self, inputs: torch.Tensor | tuple[torch.Tensor, ...]
     ) -> torch.Tensor | tuple[torch.Tensor, ...]:
         if isinstance(inputs, tuple):
-            return torch.atleast_2d(*inputs)
+            return torch.atleast_2d(*inputs)  # type: ignore
         else:
-            return torch.atleast_2d(inputs)
+            return torch.atleast_2d(inputs)  # type: ignore
 
     def transpose(
         self, input: torch.Tensor, axes: tuple[int, ...] | list[int] | None = None
@@ -530,17 +531,19 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
     ) -> torch.Tensor:
         return torch.multinomial(probs, num_samples, replacement)
 
-    def jit(self, *args: Any, **kwargs: Any):
+    def jit(self, *args: Any, **kwargs: Any) -> Callable[..., Any]:
         backend = "inductor"
         if "mps" in self._device:
             backend = "aot_eager"
         return torch.compile(*args, backend=backend, **kwargs)
 
-    def grad(self, fn: Callable[..., torch.Tensor]):
+    def grad(
+        self, fn: Callable[..., dict[str, torch.Tensor]]
+    ) -> Callable[..., dict[str, torch.Tensor]]:
         return torch_grad(fn)
 
     def value_and_grad(
-        self, fn: Callable[..., torch.Tensor]
+        self, fn: Callable[..., dict[str, torch.Tensor]]
     ) -> Callable[..., tuple[dict[str, torch.Tensor], dict[str, torch.Tensor]]]:
         return torch_grad_and_value(fn)
 
@@ -596,7 +599,7 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
         *,
         cotangents: None,
         has_aux: bool = False,
-    ) -> tuple[Sequence[torch.Tensor], Callable, Sequence[torch.Tensor]]: ...
+    ) -> tuple[Sequence[torch.Tensor], Callable[..., Any], Sequence[torch.Tensor]]: ...
 
     @overload
     def vjp(
@@ -606,7 +609,9 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
         *,
         cotangents: None,
         has_aux: bool = False,
-    ) -> tuple[dict[str, torch.Tensor], Callable, dict[str, torch.Tensor]]: ...
+    ) -> tuple[
+        dict[str, torch.Tensor], Callable[..., Any], dict[str, torch.Tensor]
+    ]: ...
 
     def vjp(
         self,
@@ -623,12 +628,12 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
         has_aux: bool = False,
     ) -> tuple[
         dict[str, torch.Tensor] | Sequence[torch.Tensor] | torch.Tensor,
-        dict[str, torch.Tensor] | list[torch.Tensor] | Callable,
+        dict[str, torch.Tensor] | list[torch.Tensor] | Callable[..., Any],
         dict[str, torch.Tensor] | Sequence[torch.Tensor] | torch.Tensor,
     ]:
-        _primals: list | dict | torch.Tensor = primals
+        _primals: list[torch.Tensor] | dict[str, torch.Tensor] | torch.Tensor = primals
         if isinstance(primals, dict | torch.Tensor):
-            _primals = [primals]
+            _primals = [primals]  # type: ignore
         output, vjp, *aux = torch_vjp(fn, *_primals, has_aux=has_aux)
         if has_aux:
             (aux,) = aux
@@ -647,10 +652,10 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
     ) -> Callable[..., dict[str, torch.Tensor]]:
         return torch_vmap(fn)
 
-    def jacrev(self, fn: Callable[..., dict[str, torch.Tensor]]) -> Callable:
+    def jacrev(self, fn: Callable[..., torch.Tensor]) -> Callable[..., torch.Tensor]:
         return torch_jacrev(fn)
 
-    def jacfwd(self, fn: Callable[..., dict[str, torch.Tensor]]) -> Callable:
+    def jacfwd(self, fn: Callable[..., torch.Tensor]) -> Callable[..., torch.Tensor]:
         return torch_jacfwd(fn)
 
     def _process_dtype(

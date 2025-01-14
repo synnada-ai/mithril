@@ -63,7 +63,6 @@ def test_discard_keys_inference(case: str) -> None:
         data_keys=set(),
         constant_keys=dict(),
         trainable_keys=set(),
-        jacobian_keys=set(),
         shapes=dict(),
         inference=True,
         safe_shapes=True,

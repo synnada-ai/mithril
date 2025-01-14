@@ -154,7 +154,7 @@ def find_optimal_sigmas(
     sigmas: list[float] = []
 
     # Make fn that returns perplexity of this row given sigma
-    def eval_fn(sigma: float, i: int):
+    def eval_fn(sigma: float, i: int) -> torch.Tensor:
         return perplexity_fn(negative_dist_sq[i, :], torch.tensor(sigma), i, threshold)
 
     # For each row of the matrix (each point in our dataset)
@@ -235,7 +235,7 @@ def get_subtype(data: torch.Tensor) -> str:
 
 def calculate_tpr_fpr(
     threshold: torch.Tensor, input: torch.Tensor, label: torch.Tensor
-):
+) -> tuple[torch.Tensor, torch.Tensor]:
     input_c = input.clone()
 
     n_positive = (label == 1).sum()
@@ -262,7 +262,7 @@ def log_sigmoid(
 
 def log_softmax(
     input: torch.Tensor, log: Callable[..., torch.Tensor], robust: bool, axis: int = -1
-):
+) -> torch.Tensor:
     if not robust:
         return torch.log_softmax(input, dim=None)
     return input - log(torch.exp(input).sum(dim=axis, keepdim=True))
@@ -293,7 +293,7 @@ def calculate_cross_entropy_class_weights(
     labels: torch.Tensor,
     is_categorical: bool,
     weights: bool | list[float],
-):
+) -> torch.Tensor:
     _weights = None
     if isinstance(weights, bool):
         if is_categorical:
@@ -325,7 +325,7 @@ def calculate_cross_entropy_class_weights(
     return _weights
 
 
-def jit(*args, device: str, **kwargs) -> Callable:
+def jit(*args: Any, device: str, **kwargs: Any) -> Callable[..., torch.Tensor]:
     backend = "inductor"
     if "mps" in device:
         backend = "aot_eager"
@@ -333,7 +333,9 @@ def jit(*args, device: str, **kwargs) -> Callable:
     return torch.compile(*args, backend=backend, **kwargs)
 
 
-def init_dist_group(rank: int, world_size: int, device: str = "cpu", port: str = ""):
+def init_dist_group(
+    rank: int, world_size: int, device: str = "cpu", port: str = ""
+) -> None:
     os.environ["MASTER_ADDR"] = "localhost"
     os.environ["MASTER_PORT"] = port
     os.environ["WORLD_SIZE"] = str(world_size)
@@ -500,7 +502,7 @@ class SharedCyclicQueue:
         op_code2: int,
         args: Any,
         kwargs: Any = None,
-    ):
+    ) -> None:
         if kwargs is None:
             kwargs = {}
 
@@ -661,7 +663,7 @@ class SharedCyclicQueue:
     def _get_writer_index(self) -> int:
         return self._shm.buf[0]
 
-    def _cleanup(self, rank: int | None = None):
+    def _cleanup(self, rank: int | None = None) -> None:
         if rank is not None:
             # Set reader index to -1 to inform the writer reader is not reading anymore.
             with contextlib.suppress(Exception):
@@ -674,7 +676,7 @@ class SharedCyclicQueue:
             pass
 
 
-def check_device_mesh(base_mesh: DeviceMesh, device_mesh: tuple[int, ...]):
+def check_device_mesh(base_mesh: DeviceMesh, device_mesh: tuple[int, ...]) -> None:
     for idx, dim in enumerate(device_mesh):
         if dim < 1:
             raise ValueError(
@@ -708,7 +710,7 @@ def determine_dtype(
     return dtype_name + str(precision) if dtype_name != "bool" else "bool"
 
 
-def get_type(input: NestedTensorType, precision: int):
+def get_type(input: NestedTensorType, precision: int) -> torch.dtype:
     type = find_dominant_type(input).__name__
     if type == "bool":
         return torch.bool

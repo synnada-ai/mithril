@@ -57,14 +57,15 @@ class Backend(ABC, Generic[DataType]):
         self.seed = 10  # Can be set any integer.
 
     @property
-    def precision(self):
+    def precision(self) -> int:
         return self._precision
 
+    #!!
     @property
-    def device(self):
+    def device(self) -> Any:
         return self._device
 
-    def get_device(self):
+    def get_device(self) -> str:
         return self._device
 
     @property
@@ -72,11 +73,11 @@ class Backend(ABC, Generic[DataType]):
         raise NotImplementedError("inf is not implemented")
 
     @property
-    def pi(self):
+    def pi(self) -> float:
         return math.pi
 
     @property
-    def e(self):
+    def e(self) -> float:
         return math.e
 
     @property
@@ -104,7 +105,7 @@ class Backend(ABC, Generic[DataType]):
     def block_until_ready(self, data: DataType) -> DataType | None:
         raise RuntimeError("Backend does not support block_until_ready method!")
 
-    def empty_cache(self):  # noqa: B027
+    def empty_cache(self) -> None:  # noqa: B027
         pass
         # print("Warning: empty_cache is not supported!")
 
@@ -126,7 +127,7 @@ class Backend(ABC, Generic[DataType]):
 
         return value
 
-    def __del__(self):
+    def __del__(self) -> None:
         self.empty_cache()
 
     @overload
@@ -149,7 +150,7 @@ class Backend(ABC, Generic[DataType]):
         dtype: core.Dtype | None = None,
     ) -> DataType: ...
 
-    def arange(self, *args: int | float, **kwargs) -> DataType:
+    def arange(self, *args: int | float, **kwargs: Any) -> DataType:
         """Generate an array of evenly spaced values within a specified range."""
         if len(args) == 0:
             raise RuntimeError(
@@ -864,7 +865,7 @@ class Backend(ABC, Generic[DataType]):
     ) -> DataType:
         raise NotImplementedError("multinomial is not implemented!")
 
-    def jit[T: Any](self, fn: Callable[..., T]) -> Callable[..., T]:
+    def jit[**P, T](self, fn: Callable[P, T]) -> Callable[P, T]:
         """
         Just-in-time compile the given function.
 
@@ -879,7 +880,9 @@ class Backend(ABC, Generic[DataType]):
         """
         raise NotImplementedError("jit is not implemented!")
 
-    def grad(self, fn: Callable) -> Callable:
+    def grad(
+        self, fn: Callable[..., dict[str, DataType]]
+    ) -> Callable[..., dict[str, DataType]]:
         """
         Compute the gradient of the given function.
 
@@ -895,7 +898,7 @@ class Backend(ABC, Generic[DataType]):
         raise NotImplementedError("grad is not implemented!")
 
     def value_and_grad(
-        self, fn: Callable
+        self, fn: Callable[..., dict[str, DataType]]
     ) -> Callable[..., tuple[dict[str, DataType], dict[str, DataType]]]:
         """
         Compute the value and gradient of the given function.
@@ -960,7 +963,7 @@ class Backend(ABC, Generic[DataType]):
         *,
         cotangents: None,
         has_aux: bool = False,
-    ) -> tuple[Sequence[DataType], Callable, Sequence[DataType]]: ...
+    ) -> tuple[Sequence[DataType], Callable[..., Any], Sequence[DataType]]: ...
 
     @overload
     def vjp(
@@ -970,7 +973,7 @@ class Backend(ABC, Generic[DataType]):
         *,
         cotangents: None,
         has_aux: bool = False,
-    ) -> tuple[dict[str, DataType], Callable, dict[str, DataType]]: ...
+    ) -> tuple[dict[str, DataType], Callable[..., Any], dict[str, DataType]]: ...
 
     def vjp(
         self,
@@ -987,7 +990,7 @@ class Backend(ABC, Generic[DataType]):
         has_aux: bool = False,
     ) -> tuple[
         dict[str, DataType] | Sequence[DataType] | DataType,
-        dict[str, DataType] | list[DataType] | Callable,
+        dict[str, DataType] | list[DataType] | Callable[..., Any],
         dict[str, DataType] | Sequence[DataType] | DataType,
     ]:
         """
@@ -1023,7 +1026,7 @@ class Backend(ABC, Generic[DataType]):
         """
         raise NotImplementedError("vmap is not implemented!")
 
-    def jacrev(self, fn: Callable) -> Callable:
+    def jacrev(self, fn: Callable[..., Any]) -> Callable[..., Any]:
         """
         Compute the Jacobian of the given function using reverse-mode differentiation.
 
@@ -1038,7 +1041,7 @@ class Backend(ABC, Generic[DataType]):
         """
         raise NotImplementedError("jacrev is not implemented!")
 
-    def jacfwd(self, fn: Callable) -> Callable:
+    def jacfwd(self, fn: Callable[..., Any]) -> Callable[..., Any]:
         """
         Compute the Jacobian of the given function using forward-mode differentiation.
 
@@ -1053,7 +1056,7 @@ class Backend(ABC, Generic[DataType]):
         """
         raise NotImplementedError("jacfwd is not implemented!")
 
-    def jacobian(self, fn: Callable) -> Callable:
+    def jacobian(self, fn: Callable[..., Any]) -> Callable[..., Any]:
         """
         Compute the Jacobian of the given function.
 
@@ -1068,7 +1071,7 @@ class Backend(ABC, Generic[DataType]):
         """
         raise NotImplementedError("jacobian is not implemented!")
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<Backend(device={self._device}, precision={self.precision})>"
 
 
@@ -1257,7 +1260,10 @@ class ParallelBackend(Backend[DataType]):
     ) -> DataType: ...
 
     def arange(
-        self, *args: int | float, device_mesh: tuple[int, ...] | None = None, **kwargs
+        self,
+        *args: int | float,
+        device_mesh: tuple[int, ...] | None = None,
+        **kwargs: Any,
     ) -> DataType:
         """Generate an array of evenly spaced values within a specified range."""
         if len(args) == 0:

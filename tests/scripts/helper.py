@@ -14,8 +14,8 @@
 
 
 from mithril import Backend, Constant, compile, epsilon_table
+from mithril.framework.logical.primitive import PrimitiveModel
 from mithril.models import BaseModel, Model, Scalar, Tensor
-from mithril.models.primitives import PrimitiveModel
 from mithril.models.train_model import TrainModel
 from mithril.utils.dict_conversions import dict_to_model, model_to_dict
 from tests.scripts.test_utils import (

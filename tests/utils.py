@@ -93,8 +93,8 @@ def check_physical_models(
             assert backend.all(value.value == pm_2.data[key].value)  # type: ignore
         assert pm_1.data_store.cached_data.keys() == pm_2.data_store.cached_data.keys()
         assert (
-            pm_1.data_store._intermediate_non_differentiables._table.keys()
-            == pm_2.data_store._intermediate_non_differentiables._table.keys()
+            pm_1.data_store.intermediate_non_differentiables._table.keys()
+            == pm_2.data_store.intermediate_non_differentiables._table.keys()
         )
         assert (
             pm_1.data_store.runtime_static_keys == pm_2.data_store.runtime_static_keys

@@ -15,7 +15,7 @@
 from __future__ import annotations
 
 import abc
-from collections.abc import Mapping
+from collections.abc import KeysView, Mapping
 from dataclasses import dataclass
 from itertools import chain
 from types import UnionType
@@ -24,6 +24,7 @@ from typing import Any
 from ...utils.utils import OrderedSet
 from ..common import (
     NOT_AVAILABLE,
+    AssignedConstraintType,
     Connection,
     ConnectionData,
     Connections,
@@ -33,7 +34,6 @@ from ..common import (
     ConstraintSolver,
     IOHyperEdge,
     MainValueType,
-    NestedListType,
     NotAvailable,
     Scalar,
     ShapeNode,
@@ -49,6 +49,7 @@ from ..common import (
     get_shapes,
 )
 from ..constraints import post_process_map, type_constraints
+from ..utils import NestedListType
 
 __all__ = ["BaseModel", "ExtendInfo"]
 
@@ -58,7 +59,7 @@ class ExtendInfo:
     _model: BaseModel
     _connections: dict[str, ConnectionType]
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         external_keys = set(self._model.external_keys)
         if self._model.canonical_input is not NOT_AVAILABLE:
             external_keys.add(self._model.canonical_input.key)
@@ -70,11 +71,11 @@ class ExtendInfo:
                 raise KeyError(f"Key '{key}' is not a valid key for the model!")
 
     @property
-    def model(self):
+    def model(self) -> BaseModel:
         return self._model
 
     @property
-    def connections(self):
+    def connections(self) -> dict[str, ConnectionType]:
         return self._connections
 
 
@@ -95,7 +96,7 @@ class BaseModel(abc.ABC):
             None  # TODO: maybe set it only to PrimitiveModel / Model.
         )
         self.assigned_shapes: list[ShapesType] = []
-        self.assigned_constraints: list[dict[str, str | list[str]]] = []
+        self.assigned_constraints: list[AssignedConstraintType] = []
         self.conns = Connections()
         self.frozen_attributes: list[str] = []
         self.dependency_map = DependencyMap(self.conns)
@@ -134,23 +135,25 @@ class BaseModel(abc.ABC):
         return self._jittable
 
     @property
-    def shapes(self):
+    def shapes(
+        self,
+    ) -> Mapping[str, ShapeTemplateType | list[ShapeTemplateType] | None]:
         return self.get_shapes()
 
     @property
-    def external_keys(self):
+    def external_keys(self) -> KeysView[str]:
         return self.conns.io_keys
 
     @property
-    def input_keys(self):
+    def input_keys(self) -> KeysView[str]:
         return self.conns.input_keys
 
     @property
-    def _all_keys(self):
+    def _all_keys(self) -> KeysView[str]:
         return self.conns.all.keys()
 
     @property
-    def output_keys(self):
+    def output_keys(self) -> list[str]:
         output_keys = list(self.conns.output_keys)
         if (
             self.canonical_output is not NOT_AVAILABLE
@@ -159,12 +162,12 @@ class BaseModel(abc.ABC):
             output_keys.append("#canonical_output")
         return output_keys
 
-    def check_extendability(self):
+    def check_extendability(self) -> None:
         # Check possible errors before the extension.
         if self.parent is not None:
             raise AttributeError("Submodel of a model could not be extended!")
 
-    def _get_outermost_parent(self):
+    def _get_outermost_parent(self) -> BaseModel:
         model = self
         while model.parent is not None:
             model = model.parent
@@ -178,7 +181,7 @@ class BaseModel(abc.ABC):
     ) -> dict[str, str]:
         return {}
 
-    def __setattr__(self, name: str, value: Any):
+    def __setattr__(self, name: str, value: Any) -> None:
         # You need to be careful here to avoid infinite recursion
         if (
             getattr(self, "frozen_attributes", None) is not None
@@ -282,7 +285,7 @@ class BaseModel(abc.ABC):
         if key.key not in self.conns.input_keys:
             raise ValueError("Values of internal and output keys cannot be set.")
         # Data is scalar, set the value directly.
-        return key.metadata.data.set_value(value)  # type: ignore
+        return key.metadata.data.set_value(value)
 
     def set_shapes(
         self, config: ShapesType | None = None, **kwargs: ShapeTemplateType
@@ -351,7 +354,7 @@ class BaseModel(abc.ABC):
         | Mapping[str, type | UnionType | NestedListType]
         | None = None,
         **kwargs: type | UnionType | NestedListType,
-    ):
+    ) -> None:
         """
         Set types of any connection in the Model
 
@@ -404,7 +407,7 @@ class BaseModel(abc.ABC):
         keys: list[str],
         post_processes: set[ConstraintFunctionType] | None = None,
         type: UpdateType | None = None,
-    ):
+    ) -> None:
         all_conns = self.conns.all
         hyper_edges = [all_conns[key].metadata for key in keys]
         if type is None:
@@ -453,7 +456,7 @@ class BaseModel(abc.ABC):
         else:
             return self._canonical_output.conn
 
-    def set_canonical_input(self, given_conn: str | Connection):
+    def set_canonical_input(self, given_conn: str | Connection) -> None:
         if isinstance(given_conn, str):
             conn = self.conns.all.get(given_conn)
             if conn is None:
@@ -471,7 +474,7 @@ class BaseModel(abc.ABC):
 
         self._canonical_input = conn
 
-    def set_canonical_output(self, given_conn: str | Connection):
+    def set_canonical_output(self, given_conn: str | Connection) -> None:
         if isinstance(given_conn, str):
             conn = self.conns.all.get(given_conn)
             if conn is None:
@@ -521,7 +524,7 @@ class BaseModel(abc.ABC):
         updates = left.data.match(right.data)  # type: ignore
         return updates
 
-    def get_models_in_topological_order(self):
+    def get_models_in_topological_order(self) -> list[BaseModel]:
         dependency_map = self.dependency_map.local_output_dependency_map
         graph = {
             info[0]: OrderedSet(
@@ -542,7 +545,7 @@ class BaseModel(abc.ABC):
         graph: dict[BaseModel, OrderedSet[BaseModel]],
         top_order: list[BaseModel],
         visited: set[BaseModel],
-    ):
+    ) -> None:
         visited.add(node)
         for m in graph[node]:
             if m not in visited:
@@ -586,7 +589,9 @@ class DependencyMap:
         ] = {}
 
     # Add new model to dependency map, model_dag is created in extend
-    def add_model_dag(self, model: BaseModel, model_dag: dict[str, ConnectionData]):
+    def add_model_dag(
+        self, model: BaseModel, model_dag: dict[str, ConnectionData]
+    ) -> None:
         updated_conns: OrderedSet[ConnectionData] = OrderedSet()
         for local_key, conn in model_dag.items():
             if local_key in model.conns.input_keys:
@@ -629,7 +634,7 @@ class DependencyMap:
     # Caches extended connections to avoid traverse
     def cache_internal_references(
         self, output_conn: ConnectionData, dependent_conns: OrderedSet[ConnectionData]
-    ):
+    ) -> None:
         # Be sure all input and output keys has cache entry
         for conn in self.conns.input_connections:
             self._global_input_dependency_map_cache.setdefault(conn, OrderedSet())
@@ -696,13 +701,13 @@ class DependencyMap:
             )
 
     # Caches given input connection for later usage
-    def cache_conn_input_dependency(self, conn: ConnectionData):
+    def cache_conn_input_dependency(self, conn: ConnectionData) -> None:
         if conn not in self._global_input_dependency_map_cache:
             dependents = self.get_output_key_dependency(conn.key)
             self._global_input_dependency_map_cache[conn] = dependents
 
     # Caches given output connection for later usage
-    def cache_conn_output_dependency(self, conn: ConnectionData):
+    def cache_conn_output_dependency(self, conn: ConnectionData) -> None:
         if conn not in self._global_output_dependency_map_cache:
             dependents = self.get_input_key_dependency(conn.key)
             self._global_output_dependency_map_cache[conn] = dependents
@@ -740,7 +745,7 @@ class DependencyMap:
         return dependent_conns
 
     # Update dependecy map
-    def update_all_keys(self):
+    def update_all_keys(self) -> None:
         # This method is used in freeze, because in freeze dependencies changed
         # without updating dependency map.
         self.update_globals(
@@ -765,7 +770,9 @@ class DependencyMap:
 
     # Get dependent input connections if given output connection is cached
     # else returns None
-    def _get_from_output_cache(self, conn: ConnectionData):
+    def _get_from_output_cache(
+        self, conn: ConnectionData
+    ) -> OrderedSet[ConnectionData]:
         dependent_conns = self._global_output_dependency_map_cache.get(
             conn, OrderedSet()
         )
@@ -779,7 +786,7 @@ class DependencyMap:
         return dependent_conns
 
     # Update global dependency maps wrt given connections
-    def update_globals(self, updated_conns: OrderedSet[ConnectionData]):
+    def update_globals(self, updated_conns: OrderedSet[ConnectionData]) -> None:
         for input_conn in self.conns.input_connections:
             self._global_input_dependency_map.setdefault(input_conn, OrderedSet())
 
@@ -822,7 +829,7 @@ class DependencyMap:
             updated_conns |= OrderedSet(dependent_conns)
 
     # Retrieve dependent output connection keys given input key by traversing the graph.
-    def get_input_key_dependency(self, key: str):
+    def get_input_key_dependency(self, key: str) -> OrderedSet[ConnectionData]:
         if (given_conn := self.conns.get_connection(key)) is None:
             raise KeyError("Given key does not belong to the Model!")
         # If there already exists any input keys, add them.
@@ -864,7 +871,7 @@ class DependencyMap:
         return specs
 
     # Retrieve dependent input connection keys given output key by traversing the graph.
-    def get_output_key_dependency(self, key: str):
+    def get_output_key_dependency(self, key: str) -> OrderedSet[ConnectionData]:
         if (given_conn := self.conns.get_connection(key)) is None:
             raise KeyError("Given key does not belong to the Model!")
 
@@ -911,7 +918,9 @@ class DependencyMap:
                     )
             return False
 
-    def merge_global_connections(self, conn1: ConnectionData, conn2: ConnectionData):
+    def merge_global_connections(
+        self, conn1: ConnectionData, conn2: ConnectionData
+    ) -> None:
         conn1_global_out_dependency = self._global_output_dependency_map.get(conn1)
         conn2_global_out_dependency = self._global_output_dependency_map.pop(
             conn2, None
@@ -954,7 +963,7 @@ class DependencyMap:
                 self._global_output_dependency_map[dependent_conn].remove(conn2)
                 self._global_output_dependency_map[dependent_conn].add(conn1)
 
-    def merge_global_caches(self, conn1: ConnectionData, conn2: ConnectionData):
+    def merge_global_caches(self, conn1: ConnectionData, conn2: ConnectionData) -> None:
         conn1_global_out_cache = self._global_output_dependency_map_cache.get(conn1)
         conn2_global_out_cache = self._global_output_dependency_map_cache.pop(
             conn2, None

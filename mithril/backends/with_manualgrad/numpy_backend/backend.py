@@ -67,21 +67,21 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
         return True
 
     @property
-    def inf(self):
+    def inf(self) -> float:
         return np.inf
 
     @property
-    def nan(self):
+    def nan(self) -> float:
         return np.nan
 
     @property
-    def DataType(self):  # noqa: N802
+    def DataType(self) -> type[np.ndarray[Any, Any]]:  # noqa: N802
         return utils.ArrayType
 
-    def get_backend_array_type(self):
+    def get_backend_array_type(self) -> type[np.ndarray[Any, Any]]:
         return np.ndarray
 
-    def get_device(self):
+    def get_device(self) -> Any:
         return self._device
 
     @staticmethod
@@ -97,12 +97,14 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
         return ["cpu"]
 
     @staticmethod
-    def register_primitive(fn: Callable, fn_grad: Callable) -> None:  # type: ignore[override]
+    def register_primitive(  # type: ignore
+        fn: Callable[..., Any], fn_grad: Callable[..., np.ndarray[Any, Any]]
+    ) -> None:
         formula_key = fn.__name__
         NumpyBackend.registered_primitives[formula_key] = fn
         NumpyBackend.registered_primitives_grad_fn[formula_key + "_grad"] = fn_grad
 
-    def set_seed(self, seed: int):
+    def set_seed(self, seed: int) -> None:
         self.seed = seed
         np.random.seed(seed)
 

@@ -14,7 +14,7 @@
 
 from collections.abc import Mapping
 from functools import reduce
-from typing import Union, get_origin
+from typing import Union, get_args, get_origin
 
 from ...utils.utils import OrderedSet
 from ..common import (
@@ -31,7 +31,6 @@ from ..common import (
     Updates,
     Variadic,
     create_shape_map,
-    get_args,
     get_mytensor_subtype,
     get_summary,
     get_summary_shapes,
@@ -61,7 +60,7 @@ class PrimitiveModel(BaseModel):
 
         super().__init__(name=name)
 
-        self._random_keys: set[str] = set()
+        self.random_keys: set[str] = set()
         # Get shape_templates of TensorTypes and create corresponding shapes.
         shape_templates = {
             key: value.shape
@@ -99,7 +98,7 @@ class PrimitiveModel(BaseModel):
                 assert isinstance(value, BaseKey)
                 _value = Tensor(
                     shape=shapes[key].node,
-                    possible_types=get_mytensor_subtype(value_type),  # type: ignore
+                    possible_types=get_mytensor_subtype(value_type),
                     value=value.value,  # type: ignore
                     interval=value.interval,
                 )
@@ -109,7 +108,7 @@ class PrimitiveModel(BaseModel):
             else:
                 _value = Scalar(
                     possible_types=value_type,  # type: ignore
-                    value=value.value,  # type: ignore
+                    value=value.value,
                 )
 
             conn_data = self.create_connection(IOHyperEdge(_value), key)
@@ -170,7 +169,7 @@ class PrimitiveModel(BaseModel):
 
         self._freeze()
 
-    def __iadd__(self, other: BaseModel):
+    def __iadd__(self, other: BaseModel) -> BaseModel:
         raise Exception(
             f"Primitive '{self.__class__.__name__}' model can not be extended!"
         )
@@ -188,7 +187,7 @@ class PrimitiveModel(BaseModel):
         name_mappings: dict[BaseModel, str],
         data_to_key_map: dict[Scalar | Tensor, list[str]] | None = None,
         data_memo: Mapping[int, Tensor | Scalar] | None = None,
-    ):
+    ) -> dict[str, tuple[dict[str, list[str]], dict[str, list[str]]]]:
         if data_to_key_map is None:
             data_to_key_map = {}
         if data_memo is None:
@@ -260,7 +259,10 @@ class PrimitiveModel(BaseModel):
 
         # construct the table based on relevant information
         table = get_summary(
-            conns=conn_info, name=name, shape=shape_info, types=type_info
+            conns=conn_info,
+            name=name,
+            shape=shape_info,  # type: ignore
+            types=type_info,
         )
 
         table.compile()

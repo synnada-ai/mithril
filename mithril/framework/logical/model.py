@@ -33,7 +33,6 @@ from ..common import (
     KeyType,
     MainValueInstance,
     MainValueType,
-    NestedListType,
     NotAvailable,
     NullConnection,
     Scalar,
@@ -47,7 +46,8 @@ from ..common import (
     get_summary_shapes,
     get_summary_types,
 )
-from .base import ExtendInfo
+from ..utils import NestedListType
+from .base import BaseModel, ExtendInfo
 from .essential_primitives import (
     Absolute,
     Add,
@@ -93,7 +93,7 @@ from .essential_primitives import (
     Transpose,
     Variance,
 )
-from .primitive import BaseModel, PrimitiveModel
+from .primitive import PrimitiveModel
 
 __all__ = ["Model"]
 
@@ -169,7 +169,7 @@ class Model(BaseModel):
 
         super().__init__(name=name, enforce_jit=enforce_jit)
 
-    def create_key_name(self):
+    def create_key_name(self) -> str:
         self.inter_key_count += 1
         return "$" + str(self.inter_key_count)
 
@@ -241,7 +241,7 @@ class Model(BaseModel):
                 # Merge new_conn with given connection.
                 self.merge_connections(new_conn, conn_data)
 
-    def _set_formula_key(self, formula_key: str):
+    def _set_formula_key(self, formula_key: str) -> None:
         self.formula_key = formula_key
 
     def _check_multi_write(
@@ -307,11 +307,11 @@ class Model(BaseModel):
         assert local_connection is not None, "Connection is not found!"
         match connection:
             case NullConnection():
-                connection = IOKey()
+                _connection = IOKey()
             case str():
-                connection = IOKey(name=connection)
+                _connection = IOKey(name=connection)
             case Connection():
-                connection = IOKey(connections={connection})
+                _connection = IOKey(connections={connection})
             case ExtendTemplate():
                 # Unroll ExtendTemplate
                 template_conn = model.conns.get_connection(key)
@@ -319,7 +319,7 @@ class Model(BaseModel):
                 con_data = self._unroll_template(
                     connection, type(template_conn.metadata.data)
                 )
-                connection = IOKey(connections={con_data.conn}, expose=False)
+                _connection = IOKey(connections={con_data.conn}, expose=False)
             case _ if isinstance(connection, MainValueInstance):
                 # find_dominant_type returns the dominant type in a container.
                 # If a container has a value of type Connection or ExtendTemplate
@@ -338,10 +338,10 @@ class Model(BaseModel):
 
                     result = conv_model.conns.get_connection("output")
                     assert result is not None
-                    connection = IOKey(connections={result.conn}, expose=None)
+                    _connection = IOKey(connections={result.conn}, expose=None)
                 else:
                     assert isinstance(connection, MainValueInstance)
-                    connection = IOKey(value=connection)
+                    _connection = IOKey(value=connection)
             case IOKey():
                 expose = connection.expose
                 name = connection.name
@@ -354,7 +354,7 @@ class Model(BaseModel):
                     and connection.connections == set()
                 ):
                     expose = True
-                connection = IOKey(
+                _connection = IOKey(
                     name=name,
                     expose=expose,
                     connections=connection.connections,
@@ -370,7 +370,7 @@ class Model(BaseModel):
                     "provide connection/key explicitly, or set canonical connections."
                 )
 
-        return connection
+        return _connection
 
     def update_key_name(self, connection: ConnectionData, key: str) -> None:
         for key_type in KeyType:
@@ -667,7 +667,7 @@ class Model(BaseModel):
         self,
         model: Model | PrimitiveModel | BaseModel,
         **kwargs: ConnectionType,
-    ):
+    ) -> None:
         # Check possible errors before the extension.
         model.check_extendability()
         if self.parent is not None:
@@ -1104,7 +1104,10 @@ class Model(BaseModel):
 
         # construct the table based on relevant information
         table = get_summary(
-            conns=conn_info, name=name, shape=shape_info, types=type_info
+            conns=conn_info,
+            name=name,
+            shape=shape_info,  # type: ignore
+            types=type_info,
         )
 
         table.compile()
@@ -1131,7 +1134,7 @@ class Model(BaseModel):
         name_mappings: dict[BaseModel, str],
         data_to_key_map: dict[Tensor | Scalar, list[str]] | None = None,
         data_memo: Mapping[int, Tensor | Scalar] | None = None,
-    ):
+    ) -> dict[str, tuple[dict[str, list[str]], dict[str, list[str]]]]:
         conn_info: dict[str, tuple[dict[str, list[str]], dict[str, list[str]]]] = {}
         if self.input_keys:
             if data_to_key_map is None:
