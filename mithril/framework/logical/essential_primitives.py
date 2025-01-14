@@ -16,7 +16,6 @@ from collections.abc import Mapping, Sequence
 from types import EllipsisType, NoneType, UnionType
 
 from ... import core
-from ...core import Constant, Dtype
 from ..common import (
     NOT_GIVEN,
     TBD,
@@ -105,8 +104,12 @@ __all__ = [
     "Sqrt",
     "Split",
     "Slice",
+    "Dtype",
+    "Sine",
+    "Cosine",
 ]
-ConstantType = float | int | Constant
+
+ConstantType = float | int | core.Constant
 
 
 class Buffer(PrimitiveModel):
@@ -258,13 +261,13 @@ class Power(PrimitiveModel):
         exponent: ConnectionType = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
         *,
-        threshold: ConnectionType = Constant.MIN_POSITIVE_NORMAL,
+        threshold: ConnectionType = core.Constant.MIN_POSITIVE_NORMAL,
     ) -> ExtendInfo:
         kwargs = {"base": base, "exponent": exponent, "output": output}
-        is_constant = isinstance(threshold, Constant)
+        is_constant = isinstance(threshold, core.Constant)
         if self.robust:
             kwargs["threshold"] = threshold
-        elif not (is_constant and threshold == Constant.MIN_POSITIVE_NORMAL):
+        elif not (is_constant and threshold == core.Constant.MIN_POSITIVE_NORMAL):
             raise ValueError("Threshold cannot be specified when robust mode is off")
 
         return super().__call__(**kwargs)
@@ -504,14 +507,14 @@ class Cast(PrimitiveModel):
     output: Connection
 
     def __init__(
-        self, name: str | None = None, dtype: Dtype | ToBeDetermined = TBD
+        self, name: str | None = None, dtype: core.Dtype | ToBeDetermined = TBD
     ) -> None:
         super().__init__(
             formula_key="astype",
             name=name,
             output=BaseKey(shape=[("Var", ...)], type=GenericTensorType),
             input=BaseKey(shape=[("Var", ...)], type=GenericTensorType),
-            dtype=BaseKey(type=Dtype, value=dtype),
+            dtype=BaseKey(type=core.Dtype, value=dtype),
         )
 
     def __call__(  # type: ignore[override]
@@ -523,7 +526,7 @@ class Cast(PrimitiveModel):
         return super().__call__(input=input, dtype=dtype, output=output)
 
 
-class DType(PrimitiveModel):
+class Dtype(PrimitiveModel):
     input: Connection
     output: Connection
 
@@ -1033,14 +1036,14 @@ class Sqrt(PrimitiveModel):
         input: ConnectionType = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
         *,
-        cutoff: ConnectionType = Constant.MIN_POSITIVE_NORMAL,
+        cutoff: ConnectionType = core.Constant.MIN_POSITIVE_NORMAL,
     ) -> ExtendInfo:
         kwargs = {"input": input, "output": output}
 
-        is_constant = isinstance(cutoff, Constant)
+        is_constant = isinstance(cutoff, core.Constant)
         if self.robust:
             kwargs["cutoff"] = cutoff
-        elif not (is_constant and cutoff == Constant.MIN_POSITIVE_NORMAL):
+        elif not (is_constant and cutoff == core.Constant.MIN_POSITIVE_NORMAL):
             raise ValueError("Cutoff cannot be specified when robust mode is off")
 
         return super().__call__(**kwargs)
@@ -1458,3 +1461,29 @@ class TensorItem(PrimitiveModel):
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(input=input, index=index, output=output)
+
+
+class Sine(SingleInputOperation):
+    def __init__(
+        self, name: str | None = None, input: TensorValueType | ToBeDetermined = TBD
+    ) -> None:
+        super().__init__(
+            formula_key="sin",
+            name=name,
+            polymorphic_constraint=False,
+            input=input,
+            output=BaseKey(shape=[("Var", ...)], type=MyTensor[float]),
+        )
+
+
+class Cosine(SingleInputOperation):
+    def __init__(
+        self, name: str | None = None, input: TensorValueType | ToBeDetermined = TBD
+    ) -> None:
+        super().__init__(
+            formula_key="cos",
+            name=name,
+            polymorphic_constraint=False,
+            input=input,
+            output=BaseKey(shape=[("Var", ...)], type=MyTensor[float]),
+        )

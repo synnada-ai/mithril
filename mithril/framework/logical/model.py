@@ -51,7 +51,10 @@ from .base import BaseModel, ExtendInfo
 from .essential_primitives import (
     Absolute,
     Add,
+    Cast,
+    Cosine,
     Divide,
+    Dtype,
     Equal,
     Exponential,
     FloorDivide,
@@ -79,6 +82,7 @@ from .essential_primitives import (
     Shape,
     ShiftLeft,
     ShiftRight,
+    Sine,
     Size,
     Slice,
     Split,
@@ -138,6 +142,10 @@ ops_table: dict[str, type[PrimitiveModel]] = {
     "split": Split,
     "slice": Slice,
     "to_tuple": ToTuple,
+    "cast": Cast,
+    "dtype": Dtype,
+    "sin": Sine,
+    "cos": Cosine,
 }
 
 

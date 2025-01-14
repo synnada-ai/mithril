@@ -25,6 +25,8 @@ from mithril.models import (
     Absolute,
     Add,
     Buffer,
+    Cast,
+    Cosine,
     Divide,
     Equal,
     Exponential,
@@ -56,6 +58,7 @@ from mithril.models import (
     Shape,
     ShiftLeft,
     ShiftRight,
+    Sine,
     Slice,
     Split,
     Sum,
@@ -1320,6 +1323,81 @@ def test_minus():
     out = pm.evaluate()["output"]
     assert isinstance(out, jnp.ndarray)
     np.testing.assert_allclose(backend.array([-1.0, 2, -3, -0.5, 5, -6]), out, 1e-6)
+
+
+def test_cast():
+    backend = JaxBackend(precision=32)
+    data = {
+        "input": backend.array([1.0, -2, 3, 0.5, -5, 6]),
+    }
+
+    model1 = Model()
+    model1 += Buffer()(input="input")
+    output = model1.input.cast(mithril.float16)  # type: ignore
+    model1 += Buffer()(input=output, output=IOKey(name="output"))
+
+    model2 = Model()
+    model2 += Buffer()(input="input")
+    model2 += (cast := Cast())(input="input", dtype=mithril.float16)
+    model2 += Buffer()(input=cast.output, output=IOKey(name="output"))
+    compare_models(model1, model2, backend, data)
+
+    pm = mithril.compile(model=model1, backend=backend, constant_keys=data)
+    out = pm.evaluate()["output"]
+    assert isinstance(out, jnp.ndarray)
+    np.testing.assert_allclose(
+        backend.array([1.0, -2, 3, 0.5, -5, 6], dtype=mithril.float16), out, 1e-6
+    )
+
+
+def test_sin():
+    backend = JaxBackend(precision=32)
+    data = {
+        "input": backend.array([1.0, -2, 3, 0.5, -5, 6]),
+    }
+
+    model1 = Model()
+    model1 += Buffer()(input="input")
+    output = model1.input.sin()  # type: ignore
+    model1 += Buffer()(input=output, output=IOKey(name="output"))
+
+    model2 = Model()
+    model2 += Buffer()(input="input")
+    model2 += (sin := Sine())(input="input")
+    model2 += Buffer()(input=sin.output, output=IOKey(name="output"))
+    compare_models(model1, model2, backend, data)
+
+    pm = mithril.compile(model=model1, backend=backend, constant_keys=data)
+    out = pm.evaluate()["output"]
+    assert isinstance(out, jnp.ndarray)
+    np.testing.assert_allclose(
+        backend.sin(backend.array([1.0, -2, 3, 0.5, -5, 6])), out, 1e-6
+    )
+
+
+def test_cos():
+    backend = JaxBackend(precision=32)
+    data = {
+        "input": backend.array([1.0, -2, 3, 0.5, -5, 6]),
+    }
+
+    model1 = Model()
+    model1 += Buffer()(input="input")
+    output = model1.input.cos()  # type: ignore
+    model1 += Buffer()(input=output, output=IOKey(name="output"))
+
+    model2 = Model()
+    model2 += Buffer()(input="input")
+    model2 += (cos := Cosine())(input="input")
+    model2 += Buffer()(input=cos.output, output=IOKey(name="output"))
+    compare_models(model1, model2, backend, data)
+
+    pm = mithril.compile(model=model1, backend=backend, constant_keys=data)
+    out = pm.evaluate()["output"]
+    assert isinstance(out, jnp.ndarray)
+    np.testing.assert_allclose(
+        backend.cos(backend.array([1.0, -2, 3, 0.5, -5, 6])), out, 1e-6
+    )
 
 
 def test_use_submodel_conn_1():

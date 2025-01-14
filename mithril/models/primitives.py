@@ -68,8 +68,6 @@ __all__ = [
     "BinaryCrossEntropy",
     "HingeLoss",
     "QuadHingeLoss",
-    "Sine",
-    "Cosine",
     "Sign",
     "Square",
     "Log",
@@ -628,32 +626,6 @@ class StableReciprocal(PrimitiveModel):
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(input=input, cutoff=cutoff, output=output)
-
-
-class Sine(SingleInputOperation):
-    def __init__(
-        self, name: str | None = None, input: TensorValueType | ToBeDetermined = TBD
-    ) -> None:
-        super().__init__(
-            formula_key="sin",
-            name=name,
-            polymorphic_constraint=False,
-            input=input,
-            output=BaseKey(shape=[("Var", ...)], type=MyTensor[float]),
-        )
-
-
-class Cosine(SingleInputOperation):
-    def __init__(
-        self, name: str | None = None, input: TensorValueType | ToBeDetermined = TBD
-    ) -> None:
-        super().__init__(
-            formula_key="cos",
-            name=name,
-            polymorphic_constraint=False,
-            input=input,
-            output=BaseKey(shape=[("Var", ...)], type=MyTensor[float]),
-        )
 
 
 class Sign(SingleInputOperation):
