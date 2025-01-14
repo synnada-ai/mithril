@@ -672,5 +672,5 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
         else:
             raise ValueError(f"Invalid dtype {dtype}")
 
-    def _get_default_subtype(self):
+    def _get_default_subtype(self) -> str:
         return DtypeSubTypes[self._dtype.name].value

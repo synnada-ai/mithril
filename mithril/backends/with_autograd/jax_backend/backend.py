@@ -674,8 +674,8 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         else:
             raise ValueError(f"Invalid dtype {dtype}")
 
-    def _get_defualt_type(self):
+    def _get_defualt_type(self) -> jax.numpy.dtype[Any]:
         return getattr(self, self._dtype.name)
 
-    def _get_default_subtype(self):
+    def _get_default_subtype(self) -> str:
         return DtypeSubTypes[self._dtype.name].value
