@@ -16,7 +16,6 @@ from collections.abc import Mapping, Sequence
 from copy import deepcopy
 from itertools import combinations, product
 from types import EllipsisType, NoneType
-from typing import Any
 
 import numpy as np
 import pytest
@@ -37,6 +36,7 @@ from mithril.framework.common import (
     PossibleValues,
     ShapeNode,
     ShapeRepr,
+    ToBeDetermined,
     Uniadic,
     UniadicRecord,
     Updates,
@@ -6668,12 +6668,12 @@ def test_total_repr_count_1():
         ZerosLike: 1,
     }
     # find all primitives that are defined in primitives.py
-    all_primitives_dict = (
+    _all_primitives_dict = (
         primitives.__dict__ | mithril.framework.essential_primitives.__dict__  # type: ignore
     )
     all_primitives = primitives.__all__ + mithril.framework.essential_primitives.__all__  # type: ignore
-    all_primitives_dict: dict[type[PrimitiveModel], Any] = {
-        value for key, value in all_primitives_dict.items() if key in all_primitives
+    all_primitives_dict = {
+        value for key, value in _all_primitives_dict.items() if key in all_primitives
     }
 
     for primitive_model in all_primitives_dict:
@@ -6693,7 +6693,7 @@ def test_total_repr_count_1():
                 {
                     conn.conn: MyTensor
                     for conn in model.conns.input_connections
-                    if conn.metadata.edge_type is TBD
+                    if conn.metadata.edge_type is ToBeDetermined
                 }
             )
             reprs = set()

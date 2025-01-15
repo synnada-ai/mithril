@@ -42,6 +42,7 @@ from ..common import (
     ParamsEvalType,
     ShapeResultType,
     Table,
+    ToBeDetermined,
     UniadicRecord,
     Updates,
     Variadic,
@@ -208,11 +209,11 @@ class PhysicalModel(GenericDataType[DataType]):
                     # TODO: Create an API for setting differentiability of a tensor.
                     physical_data.differentiable = False
                 elif global_key in self._trainable_tensor_inputs:
-                    if physical_data.edge_type not in (MyTensor, TBD):
+                    if physical_data.edge_type not in (MyTensor, ToBeDetermined):
                         raise ValueError(
                             f"Non-tensor type data can not be trainable: {global_key}"
                         )
-                    elif physical_data.edge_type is TBD:
+                    elif physical_data.edge_type is ToBeDetermined:
                         # Set physical data type to Tensor.
                         updates |= physical_data.set_type(MyTensor)
                     elif physical_data.value is not TBD:
@@ -250,11 +251,14 @@ class PhysicalModel(GenericDataType[DataType]):
             if self.backend.backend_type == "numpy":
                 cache_name = "_".join([mappings[output], p_model.cache_name])
                 mappings["cache"] = cache_name
-                cache_value: DataEvalType[DataType] | None = (
+                # TODO: Why do we have to provide cach_value here? It is
+                # NONE | dict().
+                cache_value: dict[str, MainValueType] | None = (
                     None if self.inference else dict()
                 )
                 # Create A object for caches in manualgrad backend.
                 cache_scalar = IOHyperEdge(type=dict | None, value=cache_value)
+
                 self.data_store.update_data({cache_name: cache_scalar})
 
             self.flat_graph.add_value(p_model, mappings)

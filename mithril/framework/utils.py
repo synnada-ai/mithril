@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Sequence
 from functools import reduce
 from itertools import product
 from types import FunctionType, GenericAlias, UnionType
@@ -61,25 +61,6 @@ def define_unique_names(models: Iterable[T]) -> dict[T, str]:
     for m in single_model_dict.values():
         model_name_dict[m] = str(m.__class__.__name__)
     return model_name_dict
-
-
-def list_shape(ndarray: list | tuple | float | int) -> list[int]:
-    if isinstance(ndarray, list | tuple):
-        # More dimensions, so make a recursive call
-        outermost_size = len(ndarray)
-        row_shape = list_shape(ndarray[0])
-        for item in ndarray[1:]:
-            shape = list_shape(item)
-            if row_shape != shape:
-                raise ValueError(
-                    f"Shape mismatch: expected {row_shape}, but got {shape}. The list "
-                    "should not be ragged."
-                )
-
-        return [outermost_size, *row_shape]
-    else:
-        # No more dimensions, so we're done
-        return []
 
 
 def align_shapes(all_dicts: list[dict[Any, Any]]) -> None:
@@ -318,6 +299,14 @@ def find_intersection_type(
     subtypes_2 = set(type_2.__args__) if type(type_2) is UnionType else {type_2}
     intersect = subtypes_1 & subtypes_2
 
+    # Any (typing.Any) type can be coerced to all types, handle it.
+    if Any in subtypes_1:
+        intersect.update(subtypes_2)
+        subtypes_1.remove(Any)
+    if Any in subtypes_2:
+        intersect.update(subtypes_1)
+        subtypes_2.remove(Any)
+
     # if one of the subtypes have list or tuple without an origin (without square
     # brackets, ex: tuple), look for other set if it contains corresponding type
     # with origin (ex: tuple[int, int]) if the set contains it, add that type with
@@ -328,8 +317,14 @@ def find_intersection_type(
         for orig_type in (list, tuple):
             if orig_type in s_types:
                 for typ in other_set:
-                    if isinstance(typ, GenericAlias) and typ.__origin__ == orig_type:
-                        intersect.add(typ)
+                    # if isinstance(typ, GenericAlias) and typ.__origin__ == orig_type:
+                    if isinstance(typ, GenericAlias):
+                        if typ.__origin__ == orig_type:
+                            intersect.add(typ)
+                        elif typ.__origin__ == Sequence:
+                            intersect.add(
+                                orig_type[reduce(lambda x, y: x | y, typ.__args__)]
+                            )
 
     # Take tuple types from remaining sets and find intesection types
     # of all consistent pairs of cartesian product.
@@ -338,7 +333,12 @@ def find_intersection_type(
             continue
 
         args_1 = typ_1.__args__
-        assert typ_1.__origin__ is tuple or typ_1.__origin__ is list
+        assert (
+            typ_1.__origin__ is tuple
+            or typ_1.__origin__ is list
+            or typ_1.__origin__ is Sequence
+            or typ_1.__origin__ is dict
+        )
         for typ_2 in subtypes_2.difference(intersect):
             if not isinstance(typ_2, GenericAlias):
                 continue
@@ -348,6 +348,7 @@ def find_intersection_type(
                 typ_2.__origin__ is tuple
                 or typ_2.__origin__ is list
                 or typ_2.__origin__ is dict
+                or typ_2.__origin__ is Sequence
             )
             if typ_1.__origin__ == typ_2.__origin__:
                 if len(args_1) == 0 or len(args_2) == 0:
@@ -396,6 +397,40 @@ def find_intersection_type(
                         common = find_intersection_type(args_1[0], args_2[0])
                     if common:
                         intersect.add(list[common])
+                # TODO: Below code is duplicate of above code, refactor it.
+                elif typ_1.__origin__ is Sequence:
+                    if len(args_2) > 1 or len(args_1) > 1:
+                        raise TypeError(
+                            "args of type Sequence cannot take more than 1 element"
+                        )
+                    else:
+                        common = find_intersection_type(args_1[0], args_2[0])
+                    if common:
+                        intersect.add(Sequence[common])
+
+            elif Sequence in (typ_1.__origin__, typ_2.__origin__):
+                if typ_1.__origin__ == Sequence:
+                    coerced_type = typ_1
+                    other_type = typ_2
+                else:
+                    coerced_type = typ_2
+                    other_type = typ_1
+
+                other_origin = other_type.__origin__
+                assert isinstance(other_origin, type(list) | type(tuple))
+
+                # Replace Sequence with other origin type and resend them
+                # to find_intersection_type.
+                inner_args = reduce(lambda x, y: x | y, coerced_type.__args__)
+                updated_type = (
+                    other_origin[inner_args]
+                    if other_type.__origin__ is list
+                    else other_origin[inner_args, ...]
+                )
+                common = find_intersection_type(updated_type, other_type)
+                if common:
+                    intersect.add(common)
+
     if intersect:
         result = reduce(lambda x, y: x | y, intersect)
         return result

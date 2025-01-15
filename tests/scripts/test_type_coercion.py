@@ -358,7 +358,7 @@ def test_tuple_conversion_2():
     model = Model()
     lin_1 = Linear(dimension=2)
     tt1 = ToTensor()
-    model += lin_1(input=MyTensor([[1], [2.0]]), weight="w", bias="b")
+    model += lin_1(input=MyTensor([[1.0], [2.0]]), weight="w", bias="b")
     shp1 = lin_1.input.shape
     model += tt1(input=(shp1[0], shp1[1]))
     model += Add()(left=lin_1.output, right=tt1.output, output="output")
@@ -368,7 +368,7 @@ def test_tuple_conversion_2():
     model = Model()
     lin_2 = Linear(dimension=2)
     tt2 = ToTensor()
-    model += lin_2(input=MyTensor([[1], [2.0]]), weight="w", bias="b")
+    model += lin_2(input=MyTensor([[1.0], [2.0]]), weight="w", bias="b")
     model += tt2(input=(2, 1))
     model += Add()(left=lin_2.output, right=tt2.output, output="output")
     model_2 = model
@@ -404,7 +404,7 @@ def test_tuple_conversion_3():
     model = Model()
     lin_1 = Linear(dimension=3)
     tt1 = ToTensor()
-    model += lin_1(input=MyTensor([[1], [2.0]]), weight="w", bias="b")
+    model += lin_1(input=MyTensor([[1.0], [2.0]]), weight="w", bias="b")
     shp1 = lin_1.input.shape
     model += tt1(input=(shp1[0], shp1[1], 3))
     model += Add()(left=lin_1.output, right=tt1.output, output="output")
@@ -414,7 +414,7 @@ def test_tuple_conversion_3():
     model = Model()
     lin_2 = Linear(dimension=3)
     tt2 = ToTensor()
-    model += lin_2(input=MyTensor([[1], [2.0]]), weight="w", bias="b")
+    model += lin_2(input=MyTensor([[1.0], [2.0]]), weight="w", bias="b")
     model += tt2(input=(2, 1, 3.0))
     model += Add()(left=lin_2.output, right=tt2.output, output="output")
     model_2 = model
@@ -450,7 +450,7 @@ def test_list_conversion_1():
     model = Model()
     lin_1 = Linear(dimension=3)
     tt1 = ToTensor()
-    model += lin_1(input=MyTensor([[1], [2.0]]), weight="w", bias="b")
+    model += lin_1(input=MyTensor([[1.0], [2.0]]), weight="w", bias="b")
     shp1 = lin_1.input.shape
     model += tt1(input=[shp1[0], shp1[1], 3.0])
     model += Add()(left=lin_1.output, right=tt1.output, output="output")
@@ -460,7 +460,7 @@ def test_list_conversion_1():
     model = Model()
     lin_2 = Linear(dimension=3)
     tt2 = ToTensor()
-    model += lin_2(input=MyTensor([[1], [2.0]]), weight="w", bias="b")
+    model += lin_2(input=MyTensor([[1.0], [2.0]]), weight="w", bias="b")
     model += tt2(input=[2, 1, 3.0])
     model += Add()(left=lin_2.output, right=tt2.output, output="output")
     model_2 = model
@@ -495,7 +495,7 @@ def test_nested_list_conversion_1():
     model = Model()
     lin_1 = Linear(dimension=3)
     tt1 = ToTensor()
-    model += lin_1(input=MyTensor([[1], [2.0]]), weight="w", bias="b")
+    model += lin_1(input=MyTensor([[1.0], [2.0]]), weight="w", bias="b")
     shp1 = lin_1.input.shape
     model += tt1(input=[[shp1[0], shp1[1], 3.0]])
     model += Add()(left=lin_1.output, right=tt1.output, output="output")
@@ -505,7 +505,7 @@ def test_nested_list_conversion_1():
     model = Model()
     lin_2 = Linear(dimension=3)
     tt2 = ToTensor()
-    model += lin_2(input=MyTensor([[1], [2.0]]), weight="w", bias="b")
+    model += lin_2(input=MyTensor([[1.0], [2.0]]), weight="w", bias="b")
     model += tt2(input=[[2, 1, 3.0]])
     model += Add()(left=lin_2.output, right=tt2.output, output="output")
     model_2 = model

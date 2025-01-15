@@ -159,6 +159,7 @@ def reorganize_args(
 
 def is_make_array_required(data: IOHyperEdge) -> bool:
     if data.edge_type is MyTensor:
+        assert data.shape is not None
         _temp_shape = next(iter(data.shape.reprs))
         # It is needed to guarantee that Tensor is at least one dimensional.
         # Note that having variadic field does not imply greater dimensionality

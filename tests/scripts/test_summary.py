@@ -1808,7 +1808,7 @@ def test_traincontext_summary():
         reduce_steps=[Mean()],
         coef=MyTensor(0.1),
     )
-    ctx.add_regularization(L1(), coef=MyTensor(0.1), input="weight1")
+    ctx.add_regularization(L1(), coef=0.1, input="weight1")
     with redirect_stdout(StringIO()) as summary:
         ctx.summary()
 

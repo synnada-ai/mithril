@@ -1176,15 +1176,13 @@ def test_xor2():
     model1 = Model()
     model1 += Buffer()(input="input1")
     model1 += Buffer()(input="input2")
-    output = MyTensor([True, True, True, False, False, False]) ^ (
-        model1.input2 > MyTensor(3)
-    )  # type: ignore
+    output = MyTensor([True, True, True, False, False, False]) ^ (model1.input2 > 3)  # type: ignore
     model1 += Buffer()(input=output, output=IOKey(name="output"))
 
     model2 = Model()
     model2 += Buffer()(input="input1")
     model2 += Buffer()(input="input2")
-    model2 += (g2 := Greater())(left="input2", right=MyTensor(3))
+    model2 += (g2 := Greater())(left="input2", right=3)
     model2 += (lor := LogicalXOr())(
         left=MyTensor([True, True, True, False, False, False]), right=g2.output
     )

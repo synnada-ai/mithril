@@ -186,7 +186,7 @@ def indexer(
     | float
     | bool
 ):
-    return input[index]
+    return input[index]  # type: ignore
 
 
 def primitive_slice(start: int | None, stop: int | None, step: int | None) -> slice:

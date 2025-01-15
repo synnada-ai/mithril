@@ -90,7 +90,7 @@ class TrainModel(Model):
         self.factory_args = {"model": model}
         # TODO: If we add inputs as IOKey, we get multi-write error. Fix this.
         key_mappings = model.generate_keys(symbolic=False, include_internals=True)
-        extend_kwargs = {
+        extend_kwargs: dict[str, str | IOKey] = {
             key: key_mappings.get(
                 key, IOKey(name=key) if key in model.conns.output_keys else key
             )
@@ -112,8 +112,8 @@ class TrainModel(Model):
         self.regularization_keys: list[str] = []
         self.metric_keys: list[str] = []
         self.loss_combiner: BaseModel = Sum()
-        self.reg_coef_map: dict[float, set[Connection]] = {}
-        self.geomean_map: dict[str, list[tuple[Connection, float | MyTensor]]] = {}
+        self.reg_coef_map: dict[float | MyTensor[Any], set[Connection]] = {}
+        self.geomean_map: dict[str, list[tuple[Connection, float]]] = {}
         self.reduce_inputs: dict[str, list[tuple[Connection, Connection]]] = {}
 
     def __add__(self, model: ExtendInfo | PrimitiveModel | Model) -> Self:
@@ -287,7 +287,7 @@ class TrainModel(Model):
     def add_regularization(
         self,
         model: Model,
-        coef: float | MyTensor,
+        coef: float,
         reg_key: str | Connection | None = None,
         key_name: str | None = None,
         **kwargs: Any,
@@ -324,7 +324,7 @@ class TrainModel(Model):
     def _add_regularization(
         self,
         model: Model,
-        coef: float | MyTensor,
+        coef: float,
         reg_key: str | Connection | None = None,
         key_name: str | None = None,
         **kwargs: Any,
@@ -628,8 +628,6 @@ class TrainModel(Model):
             reg_table.add_header(["Reg Model", "Reg Key", "Reg Shape", "Coef"])
             for _, reg_info in self.geomean_map.items():
                 for conn, coef in reg_info:
-                    if isinstance(coef, MyTensor):
-                        coef = coef.value
                     r_list: list[str | list[str]] = []
                     assert conn.metadata is not None
                     conn_data = self.conns.get_con_by_metadata(conn.metadata)
@@ -701,7 +699,7 @@ class TrainModel(Model):
                     geo_mappings[reg_info].append(self.reduce_inputs[key])
 
         for reg_info, loss_connections in geo_mappings.items():
-            final_outputs: list[Connection | int] = []
+            final_outputs: list[Connection | MyTensor[int]] = []
             for reduce in loss_connections:
                 final_outputs.append(self._add_reduce_sizes(reduce))
             if final_outputs:
@@ -709,7 +707,7 @@ class TrainModel(Model):
                 final_output = final_outputs[0]
                 if (n_final_outputs := len(final_outputs)) > 0:
                     concat_model = Concat(n=n_final_outputs, axis=None)
-                    concat_kwargs: dict[str, int | Connection] = {}
+                    concat_kwargs: dict[str, MyTensor[int] | Connection] = {}
                     idx = 0
                     for key in concat_model.input_keys:
                         if not concat_model.conns.is_key_non_diff(key):
@@ -740,8 +738,8 @@ class TrainModel(Model):
 
     def _add_reduce_sizes(
         self, reduce_list: list[tuple[Connection, Connection]]
-    ) -> Connection | int:
-        final_output: Connection | MyTensor = MyTensor(1)
+    ) -> Connection | MyTensor[int]:
+        final_output: Connection | MyTensor[int] = MyTensor(1)
         sizes: list[Connection] = []
         for input, dim in reduce_list:
             m = _create_size()

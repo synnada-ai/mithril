@@ -519,6 +519,7 @@ def test_deleted_repr_ref_count_1():
     model += buffer4
 
     current_reprs = get_all_reprs(model)
+    assert buffer1.input.metadata.shape is not None
     print(sys.getrefcount(list(buffer1.input.metadata.shape.reprs)[0]))
     assert_objects_deleted(all_reprs, current_reprs, 3)
 
@@ -1556,6 +1557,7 @@ def test_simple_test():
     all_reprs = set()
     buff = Buffer()
     buff.set_types(input=MyTensor)
+    assert buff.input.metadata.shape is not None
     print("bbbuuufff: ", sys.getrefcount(list(buff.input.metadata.shape.reprs)[0]))
     all_reprs |= get_all_reprs(buff)
     while all_reprs:

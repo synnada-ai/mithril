@@ -14,8 +14,8 @@
 
 import pytest
 
-from mithril.framework import IOKey
-from mithril.models import Buffer, Indexer, Model, MyTensor, Sigmoid
+from mithril.framework import IOKey, MyTensor
+from mithril.models import Buffer, Indexer, Model, Sigmoid
 
 
 def test_set_types_1():

@@ -297,7 +297,7 @@ def test_type_10():
     lin_model = Linear()
     assert lin_model.input.data.metadata.value_type == int | float | bool
     model += lin_model(
-        input=IOKey(value=MyTensor([[False, 1], [True, False]]), name="input"),
+        input=IOKey(value=MyTensor([[False, 1], [True, False]]), name="input"),  # type: ignore
         weight="w",
         bias="b",
         output=IOKey(name="output"),
@@ -310,7 +310,7 @@ def test_type_11():
     lin_model = Linear()
     assert lin_model.input.data.metadata.value_type == int | float | bool
     model += lin_model(
-        input=IOKey(value=MyTensor([[False, 1], [2.2, False]]), name="input"),
+        input=IOKey(value=MyTensor([[False, 1], [2.2, False]]), name="input"),  # type: ignore
         weight="w",
         bias="b",
         output=IOKey(name="output"),
@@ -323,7 +323,7 @@ def test_type_12():
     lin_model = Linear()
     assert lin_model.input.data.metadata.value_type == int | float | bool
     model += lin_model(
-        input=IOKey(value=MyTensor([[False, 1], [2.2, False]]), name="input"),
+        input=IOKey(value=MyTensor([[False, 1], [2.2, False]]), name="input"),  # type: ignore
         weight="w",
         bias="b",
         output=IOKey(name="output"),
@@ -350,7 +350,7 @@ def test_type_14():
     lin_model = Linear()
     assert lin_model.input.data.metadata.value_type == int | float | bool
     model += lin_model(
-        input=IOKey(value=MyTensor([[False, 1.0], [2, 3]]), name="input"),
+        input=IOKey(value=MyTensor([[False, 1.0], [2, 3]]), name="input"),  # type: ignore
         weight="w",
         bias="b",
         output=IOKey(name="output"),

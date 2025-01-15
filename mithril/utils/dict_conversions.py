@@ -49,49 +49,52 @@ from ..utils import model_conversion_lut
 from ..utils.utils import PaddingType, convert_to_tuple
 
 
-class KeyDict(TypedDict):
+class KeyDict(TypedDict, total=False):
     name: str
-    expose: bool
+    expose: bool | None
     shape: list[int | str | None]
     value: TensorValueType | MainValueType | ToBeDetermined | str
     connect: list[list[str]]
+    type: str
+
+
+class ConnectionDict(TypedDict, total=False):
+    key: KeyDict
+    tensor: int | float | bool
 
 
 class LossDict(TypedDict):
-    model: ModelDict | PrimitiveModelDict
+    model: ModelDict
     reduce_steps: list[BaseModel] | None
     args: dict[str, str | Connection]
     coef: float | None
 
 
 class RegDict(TypedDict):
-    model: ModelDict | PrimitiveModelDict
+    model: ModelDict
     coef: float | None
     reg_key: str | Connection | None
     args: dict[str, str | Connection | re.Pattern[str]]
 
 
-class PrimitiveModelDict(TypedDict, total=False):
+class ModelDict(TypedDict, total=False):
     name: str
     args: dict[str, Any]
     assigned_shapes: dict[str, ShapeTemplateType]
     differentiability_info: dict[str, bool]
-    assigned_constraints: dict[str, AssignedConstraintType]
+    assigned_constraints: list[AssignedConstraintType]
     tuples: list[str]
     enums: dict[str, str]
     unnamed_keys: list[str]
     types: dict[str, str]
-
-
-class ModelDict(PrimitiveModelDict):
-    submodels: dict[str, PrimitiveModelDict | ModelDict]
-    connections: dict[str, dict[str, str | KeyDict]]
+    submodels: dict[str, ModelDict]
+    connections: dict[str, dict[str, str | ConnectionDict]]
     canonical_keys: dict[str, tuple[str, str]]
 
 
 class TrainModelDict(TypedDict):
     is_train_model: bool
-    model: ModelDict | PrimitiveModelDict
+    model: ModelDict
     losses: list[LossDict]
     regularizations: list[RegDict]
 
@@ -123,27 +126,30 @@ enum_dict = {"PaddingType": PaddingType}
 
 
 def create_iokey_kwargs(
-    info: dict[str, Any], submodels_dict: dict[str, BaseModel]
+    info: KeyDict, submodels_dict: dict[str, BaseModel]
 ) -> dict[str, Any]:
-    kwargs = info.copy()
-    if (val := kwargs.get("value")) is not None:
+    info_cpy = info.copy()
+    kwargs: dict[str, Any] = {}
+    if (val := info_cpy.get("value")) is not None:
         # Convert tensor values to MyTensor objects.
         kwargs["value"] = MyTensor(val["tensor"]) if isinstance(val, dict) else val
-    if (typ := kwargs.get("type")) is not None:
+    if (typ := info_cpy.get("type")) is not None:
         # Convert type strings to type objects.
         kwargs["type"] = MyTensor if typ == "tensor" else eval(typ)
-    if (conns := kwargs.pop("connect", None)) is not None:
+    if (conns := info_cpy.get("connect")) is not None:
         kwargs["connections"] = {
             getattr(submodels_dict[value[0]], value[1])
             if isinstance(value, Sequence)
             else value
             for value in conns
         }
+    kwargs["name"] = info_cpy.get("name")
+    kwargs["expose"] = info_cpy.get("expose")
     return kwargs
 
 
 def dict_to_model(
-    modelparams: PrimitiveModelDict | ModelDict | TrainModelDict | str,
+    modelparams: ModelDict | TrainModelDict | str,
 ) -> BaseModel:
     """Convert given dictionary to a model object.
 
@@ -161,15 +167,17 @@ def dict_to_model(
     # TODO: Simplify dict_to_model and frameworks (remove tracking
     #  the extend order of models).
     if isinstance(modelparams, str):
-        params = {"name": modelparams}
+        params: ModelDict = {"name": modelparams}
     elif "is_train_model" in modelparams:
         return dict_to_trainmodel(modelparams)  # type: ignore
     else:
-        params = deepcopy(modelparams)  # type: ignore
+        params = deepcopy(modelparams)
 
     args: dict[str, Any] = {}
-    connections: dict[str, dict[str, str | KeyDict]] = params.get("connections", {})  # type: ignore
-    submodels: dict[str, PrimitiveModelDict | ModelDict] = params.get("submodels", {})  # type: ignore
+    connections: dict[str, dict[str, str | ConnectionDict]] = params.get(
+        "connections", {}
+    )
+    submodels: dict[str, ModelDict] = params.get("submodels", {})
 
     if connections.keys() != submodels.keys():
         raise KeyError("Requires submodel keys and connections keys to be compatible!")
@@ -178,9 +186,9 @@ def dict_to_model(
         raise Exception("No model type is specified!")
     elif model_name.lower() in model_dict:
         model_class = model_dict[model_name.lower()]
-        args |= handle_dict_to_model_args(model_name, params.get("args", {}))  # type: ignore
-        tuples: list[str] = params.get("tuples", [])  # type: ignore
-        enums: dict[str, str] = params.get("enums", {})  # type: ignore
+        args |= handle_dict_to_model_args(model_name, params.get("args", {}))
+        tuples: list[str] = params.get("tuples", [])
+        enums: dict[str, str] = params.get("enums", {})
 
         for k, v in args.items():
             if k in tuples:
@@ -191,22 +199,30 @@ def dict_to_model(
         model = model_class(**args)
 
     else:  # Custom model
-        args |= handle_dict_to_model_args(model_name, params.get("args", {}))  # type: ignore
+        args |= handle_dict_to_model_args(model_name, params.get("args", {}))
         attrs: dict[str, Callable[..., Any]] = {
             "__init__": lambda self: super(self.__class__, self).__init__(**args)  # pyright: ignore
         }
         model = type(model_name, (CustomPrimitiveModel,), attrs)()
 
-    types = params.get("types", {})
+    types: dict[str, str] = params.get("types", {})
     # TODO: Set all types in a bulk.
+    set_types = {}
     for key, typ in types.items():
         if typ == "tensor":
-            model.set_types({key: MyTensor})
-    unnamed_keys: list[str] = params.get("unnamed_keys", [])  # type: ignore
-    differentiability_info: dict[str, bool] = params.get("differentiability_info", {})  # type: ignore
-    assigned_shapes = params.get("assigned_shapes", {})  # type: ignore
-    assigned_constraints = params.get("assigned_constraints", {})  # type: ignore
-    canonical_keys: dict[str, tuple[str, str]] = params.get("canonical_keys", {})  # type: ignore
+            set_types[key] = MyTensor
+        else:
+            # TODO: Get rid of using eval method. Find more secure
+            # way to convert strings into types and generic types.
+            set_types[key] = eval(typ)
+    if set_types:
+        model.set_types(set_types)
+
+    unnamed_keys: list[str] = params.get("unnamed_keys", [])
+    differentiability_info: dict[str, bool] = params.get("differentiability_info", {})
+    assigned_shapes = params.get("assigned_shapes", {})
+    assigned_constraints = params.get("assigned_constraints", [])
+    canonical_keys: dict[str, tuple[str, str]] = params.get("canonical_keys", {})
 
     submodels_dict = {}
     for m_key, v in submodels.items():
@@ -248,33 +264,34 @@ def dict_to_model(
         con.set_differentiable(value)
 
     if len(assigned_constraints) > 0:
-        constrain_fn = assigned_constraints["fn"]  # type: ignore
-        if constrain_fn not in constrain_fn_dict:
-            raise RuntimeError(
-                "In the process of creating a model from a dictionary, an unknown"
-                " constraint function was encountered!"
-            )
-        constrain_fn = constrain_fn_dict[constrain_fn]
-        model.set_constraint(constrain_fn, keys=assigned_constraints["keys"])  # type: ignore
+        for constr_info in assigned_constraints:
+            constrain_fn = constr_info["fn"]
+            if constrain_fn not in constrain_fn_dict:
+                raise RuntimeError(
+                    "In the process of creating a model from a dictionary, an unknown"
+                    " constraint function was encountered!"
+                )
+            constrain_fn = constrain_fn_dict[constrain_fn]
+            model.set_constraint(constrain_fn, keys=constr_info["keys"])  # type: ignore
 
     if len(assigned_shapes) > 0:
-        model.set_shapes(dict_to_shape(assigned_shapes))  # type: ignore
+        model.set_shapes(dict_to_shape(assigned_shapes))
 
-    types = {}
-    for key, typ in types.items():
-        if typ == "tensor":
-            types[key] = MyTensor
-        else:
-            # TODO: Get rid of using eval method. Find more secure
-            # way to convert strings into types and generic types.
-            types[key] = eval(typ)
-    if types:
-        model.set_types(types)
+    # types = {}
+    # for key, typ in types.items():
+    #     if typ == "tensor":
+    #         types[key] = MyTensor
+    #     else:
+    #         # TODO: Get rid of using eval method. Find more secure
+    #         # way to convert strings into types and generic types.
+    #         types[key] = eval(typ)
+    # if types:
+    #     model.set_types(types)
 
     return model
 
 
-def model_to_dict(model: BaseModel) -> TrainModelDict | ModelDict | PrimitiveModelDict:
+def model_to_dict(model: BaseModel) -> TrainModelDict | ModelDict:
     if isinstance(model, TrainModel):
         return train_model_to_dict(model)
 
@@ -282,7 +299,7 @@ def model_to_dict(model: BaseModel) -> TrainModelDict | ModelDict | PrimitiveMod
     args = handle_model_to_dict_args(model_name, model.factory_args)
     assigned_shapes: dict[str, ShapeTemplateType] = {}
     differentiablility_info: dict[str, bool] = {}
-    assigned_constraints: dict[str, AssignedConstraintType] = {}
+    assigned_constraints: list[AssignedConstraintType] = []
     types: dict[str, str] = {}
 
     for key, con in model.conns.all.items():
@@ -294,7 +311,7 @@ def model_to_dict(model: BaseModel) -> TrainModelDict | ModelDict | PrimitiveMod
         assigned_shapes |= shape_to_dict(shape)
 
     for constrain in model.assigned_constraints:
-        assigned_constraints |= constrain  # type: ignore
+        assigned_constraints.append(constrain)
 
     for key, typ in model.assigned_types.items():
         if typ is MyTensor:
@@ -307,7 +324,7 @@ def model_to_dict(model: BaseModel) -> TrainModelDict | ModelDict | PrimitiveMod
         and model_name in dir(models)
         or model_name not in dir(models)
     ):
-        model_dict: PrimitiveModelDict = {
+        model_dict: ModelDict = {
             "name": model_name,
             "args": args,
             "assigned_shapes": assigned_shapes,
@@ -317,9 +334,9 @@ def model_to_dict(model: BaseModel) -> TrainModelDict | ModelDict | PrimitiveMod
         }
         return model_dict
 
-    connection_dict: dict[str, dict[str, str | KeyDict]] = {}
+    connection_dict: dict[str, dict[str, str | ConnectionDict]] = {}
     canonical_keys: dict[str, tuple[str, str]] = {}
-    submodels: dict[str, PrimitiveModelDict | ModelDict] = {}
+    submodels: dict[str, ModelDict] = {}
 
     # IOHyperEdge -> [model_id, connection_name]
     submodel_connections: dict[IOHyperEdge, list[str]] = {}
@@ -363,12 +380,12 @@ def connection_to_dict(
     submodel: BaseModel,
     submodel_connections: dict[IOHyperEdge, list[str]],
     model_id: str,
-) -> dict[str, str | KeyDict]:
-    connection_dict: dict[str, MainValueType | str | KeyDict] = {}
+) -> dict[str, str | ConnectionDict]:
+    connection_dict: dict[str, MainValueType | str | ConnectionDict] = {}
     connections: dict[str, ConnectionData] = model.dag[submodel]
 
     for key, connection in connections.items():
-        key_value: dict[str, KeyDict] | None | str | AllValueType = None
+        key_value: ConnectionDict | None | str | AllValueType = None
         related_conn = submodel_connections.get(connection.metadata, [])
         is_valued = connection.metadata.is_non_diff and connection.metadata.value != TBD
         # Connection is defined and belong to another model
@@ -376,7 +393,7 @@ def connection_to_dict(
             key_value = {}
             key_value["key"] = {"connect": [related_conn]}
             if connection.key in model.output_keys:
-                key_value["key"] |= {"name": connection.key, "expose": True}  # type: ignore
+                key_value["key"] |= {"name": connection.key, "expose": True}
         elif is_valued and connection in model.conns.input_connections:
             val = connection.metadata.value
             assert not isinstance(val, ToBeDetermined)

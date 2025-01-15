@@ -25,6 +25,7 @@ from ..common import (
     KeyType,
     MyTensor,
     NotAvailable,
+    ToBeDetermined,
     UniadicRecord,
     Updates,
     Variadic,
@@ -78,6 +79,7 @@ class PrimitiveModel(BaseModel):
                         if is_generic_tensor
                         else _UltimateTensorValueTypes
                     )
+                    assert isinstance(value.value, ToBeDetermined | int | float | bool)
                     tensor = MyTensor(
                         value=value.value,
                         type=tensor_types,
@@ -86,7 +88,7 @@ class PrimitiveModel(BaseModel):
                     edge = IOHyperEdge(value=tensor, interval=value.interval)
                     data_set.add(edge)
                 else:
-                    edge_type = TBD if value.type is None else value.type
+                    edge_type = ToBeDetermined if value.type is None else value.type
                     edge = IOHyperEdge(
                         type=edge_type, value=value.value, interval=value.interval
                     )

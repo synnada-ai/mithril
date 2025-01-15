@@ -299,13 +299,13 @@ class StaticDataStore(Generic[DataType]):
             if self.is_scalar_type(value):  # TODO: Is this check really required?
                 updates |= data.set_value(value)
             else:
-                assert not isinstance(value, MainValueInstance)
+                assert not isinstance(value, MainValueInstance | ToBeDetermined)
                 # Find type of tensor and set.
                 val_type = self._infer_tensor_value_type(value)
-                updates |= data.set_type(MyTensor[val_type])
+                updates |= data.set_type(MyTensor[val_type])  # type: ignore
                 assert data.shape is not None
                 # Find shape of tensor and set.
-                shape = list(value.shape)  # type: ignore
+                shape = list(value.shape)
                 updates |= data.shape.set_values(shape)
             self.data_values[key] = value  # type: ignore
             self.intermediate_non_differentiables.pop(key, None)

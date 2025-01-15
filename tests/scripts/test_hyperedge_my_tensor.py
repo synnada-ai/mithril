@@ -21,6 +21,7 @@ from mithril.framework.common import (
     MyTensor,
     ShapeNode,
     ShapeRepr,
+    ToBeDetermined,
     UpdateType,
     Variadic,
 )
@@ -55,7 +56,7 @@ def test_init_with_tensor_int_or_float_type():
 
 def test_set_tensor_type():
     edge = IOHyperEdge()
-    assert edge.edge_type is TBD and edge._value is TBD and edge.value is TBD
+    assert edge.edge_type is ToBeDetermined and edge._value is TBD and edge.value is TBD
     assert edge.shape is None
     edge.set_type(MyTensor)
     assert (
@@ -70,7 +71,7 @@ def test_set_tensor_type():
 
 def test_set_generic_tensor_type():
     edge = IOHyperEdge()
-    assert edge.edge_type is TBD and edge._value is TBD and edge.value is TBD
+    assert edge.edge_type is ToBeDetermined and edge._value is TBD and edge.value is TBD
     assert edge.shape is None
     edge.set_type(MyTensor[int | float])
     assert (
@@ -85,7 +86,7 @@ def test_set_generic_tensor_type():
 
 def test_set_scalar_type():
     edge = IOHyperEdge()
-    assert edge.edge_type is TBD and edge._value is TBD and edge.value is TBD
+    assert edge.edge_type is ToBeDetermined and edge._value is TBD and edge.value is TBD
     assert edge.shape is None
     edge.set_type(int | float)
     assert edge.edge_type == int | float and edge._value is TBD and edge.value is TBD
@@ -245,8 +246,14 @@ def test_match_tensor_edge_with_tensor_edge_with_common_types():
     node2 = edge2.shape
 
     updates = edge1.match(edge2)
-    assert isinstance(edge1._value, MyTensor) and edge1.value_type is float
-    assert edge1._value.referees == {edge1} and edge2._value.referees == {edge1}
+    assert edge1.shape is not None
+    assert edge2.shape is not None
+    assert (
+        isinstance(edge1._value, MyTensor)
+        and edge1._value.referees == {edge1}
+        and edge1.value_type is float
+    )
+    assert isinstance(edge2._value, MyTensor) and edge2._value.referees == {edge1}
     assert edge1.shape is edge2.shape
     assert edge1.shape.referees == {edge1}
     assert (
@@ -298,8 +305,14 @@ def test_match_untyped_edge_with_tensor_edge():
     node2 = edge2.shape
 
     updates = edge1.match(edge2)
-    assert isinstance(edge1._value, MyTensor) and edge1.value_type == float | bool
-    assert edge1._value.referees == {edge1} and edge2._value.referees == {edge1}
+    assert edge1.shape is not None
+    assert edge2.shape is not None
+    assert (
+        isinstance(edge1._value, MyTensor)
+        and edge1._value.referees == {edge1}
+        and edge1.value_type == float | bool
+    )
+    assert isinstance(edge2._value, MyTensor) and edge2._value.referees == {edge1}
     assert edge1.shape is edge2.shape
     assert edge1.shape.referees == {edge1}
     assert edge1.all_constraints == {constr} and edge2.all_constraints == set()

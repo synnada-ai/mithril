@@ -6784,6 +6784,7 @@ def test_leaky_relu_trainable_slope():
     backend = JaxBackend()
     model = Model()
     model += LeakyRelu()(input="input", output="output", slope="slope")
+    model.set_types(slope=MyTensor)
 
     pm = mithril.compile(model=model, backend=backend)
     params = {"input": backend.array([-2.0, 2.0]), "slope": backend.array(0.2)}

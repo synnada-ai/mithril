@@ -32,11 +32,13 @@ from ..common import (
     IOKey,
     KeyType,
     MainValueInstance,
-    MainValueType,
     MyTensor,
     NotAvailable,
     NullConnection,
+    ScalarType,
+    ScalarValueType,
     ShapeTemplateType,
+    TensorValueType,
     ToBeDetermined,
     UniadicRecord,
     Updates,
@@ -300,8 +302,6 @@ class Model(BaseModel):
                 _connection = IOKey(connections={connection})
             case ExtendTemplate():
                 # Unroll ExtendTemplate
-                # template_conn = model.conns.get_connection(key)
-                # assert template_conn is not None, "Connection type is not found!"
                 con_data = self._unroll_template(connection)
                 _connection = IOKey(connections={con_data.conn}, expose=False)
             case _ if isinstance(connection, MainValueInstance | MyTensor):
@@ -384,9 +384,9 @@ class Model(BaseModel):
         expose = given_connection.expose
         outer_key = given_connection.name
         con_obj = None
-        set_value: ToBeDetermined | str | MainValueType | MyTensor | NullConnection = (
-            NOT_GIVEN
-        )
+        set_value: (
+            ToBeDetermined | str | ScalarValueType | MyTensor[Any] | NullConnection
+        ) = NOT_GIVEN
         if given_connection.data.value is not TBD:
             set_value = given_connection.data.value
 
@@ -507,20 +507,11 @@ class Model(BaseModel):
 
     def _unroll_template(self, template: ExtendTemplate) -> ConnectionData:
         if template.output_connection is None:
-            # Initialize all default init arguments of model as "..." other
+            # Initialize all default init arguments of model as TBD other
             # than the keys in template.defaults, in order to provide
             # given connections to the model after it is created.
             # If we don't do that, it will throw error because of
             # re-setting a Tensor or Scalar value again in extend.
-
-            # if (model_type := ops_table.get(template.model)) is None:
-            #     model_config = template.model, joint_type
-            #     model_type = coercion_table.get(model_config)
-
-            # assert (
-            #     model_type is not None
-            # ), "given model is not found in the ops_table or coercion_table"
-
             model_type = ops_table[template.model]
             # TODO: Remove all TBD if default init arguments will be moved to call!!!
             init_fun = model_type.__init__
@@ -679,7 +670,15 @@ class Model(BaseModel):
         updates = Updates()
 
         shape_info: dict[str, ShapeTemplateType] = {}
-        type_info: dict[str, type | UnionType | NestedListType] = {}
+        type_info: dict[
+            str,
+            type
+            | UnionType
+            | NestedListType
+            | ScalarType
+            | type[TensorValueType]
+            | MyTensor[Any],
+        ] = {}
 
         submodel_dag: dict[str, ConnectionData] = {}
         updates = self.constraint_solver.match(model.constraint_solver)

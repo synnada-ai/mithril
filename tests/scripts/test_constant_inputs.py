@@ -1852,7 +1852,7 @@ def test_unused_cached_values_2_set_values():
     model = Model()
     linear_model = Linear(dimension=2)
     model += linear_model()
-    config: dict[Connection, list] = {
+    config: dict[Connection, MyTensor] = {
         linear_model.weight: MyTensor([[1.0], [2.0]]),
         linear_model.bias: MyTensor([3.0, 1.0]),
     }

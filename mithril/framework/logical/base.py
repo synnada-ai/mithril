@@ -24,7 +24,6 @@ from typing import Any
 from ...utils.utils import OrderedSet
 from ..common import (
     NOT_AVAILABLE,
-    TBD,
     AssignedConstraintType,
     Connection,
     ConnectionData,
@@ -36,12 +35,14 @@ from ..common import (
     IOHyperEdge,
     MainValueType,
     MyTensor,
-    NestedListType,
     NotAvailable,
+    ScalarType,
     ShapeNode,
     ShapesType,
     ShapeTemplateType,
     ShapeType,
+    TensorValueType,
+    ToBeDetermined,
     UniadicRecord,
     Updates,
     UpdateType,
@@ -50,6 +51,7 @@ from ..common import (
     get_shapes,
 )
 from ..constraints import post_process_map, type_constraints
+from ..utils import NestedListType
 
 __all__ = ["BaseModel", "ExtendInfo"]
 
@@ -96,9 +98,14 @@ class BaseModel(abc.ABC):
             None  # TODO: maybe set it only to PrimitiveModel / Model.
         )
         self.assigned_shapes: list[ShapesType] = []
-        self.assigned_constraints: list[dict[str, str | list[str]]] = []
         self.assigned_types: dict[
-            str, type | UnionType | NestedListType | MyTensor
+            str,
+            type
+            | UnionType
+            | NestedListType
+            | ScalarType
+            | type[TensorValueType]
+            | MyTensor[Any],
         ] = {}
         self.assigned_constraints: list[AssignedConstraintType] = []
         self.conns = Connections()
@@ -265,7 +272,9 @@ class BaseModel(abc.ABC):
         # Apply updates to the shape nodes.
         for key in chain(shapes, kwargs):
             node, _inner_key = shape_nodes[key]
-            if (metadata := self.conns.get_data(_inner_key)).edge_type is TBD:
+            if (
+                metadata := self.conns.get_data(_inner_key)
+            ).edge_type is ToBeDetermined:
                 # If edge_type is not defined yet, set it to MyTensor since
                 # shape is provided.
                 updates |= metadata.set_type(MyTensor)
@@ -278,7 +287,9 @@ class BaseModel(abc.ABC):
 
         model.constraint_solver(updates)
 
-    def _set_value(self, key: ConnectionData, value: MainValueType | str) -> Updates:
+    def _set_value(
+        self, key: ConnectionData, value: MainValueType | MyTensor[Any] | str
+    ) -> Updates:
         """
         Set value for the given connection.
 
@@ -293,7 +304,7 @@ class BaseModel(abc.ABC):
         if key.key not in self.conns.input_keys:
             raise ValueError("Values of internal and output keys cannot be set.")
         # Data is scalar, set the value directly.
-        return key.metadata.set_value(value)  # type: ignore
+        return key.metadata.set_value(value)
 
     def set_shapes(
         self, config: ShapesType | None = None, **kwargs: ShapeTemplateType
@@ -304,11 +315,11 @@ class BaseModel(abc.ABC):
 
     def set_values(
         self,
-        config: Mapping[str | Connection, MyTensor | MainValueType | str]
-        | Mapping[Connection, MyTensor | MainValueType | str]
-        | Mapping[str, MyTensor | MainValueType | str]
+        config: Mapping[str | Connection, MyTensor[Any] | MainValueType | str]
+        | Mapping[Connection, MyTensor[Any] | MainValueType | str]
+        | Mapping[str, MyTensor[Any] | MainValueType | str]
         | None = None,
-        **kwargs: MyTensor | MainValueType | str,
+        **kwargs: MyTensor[Any] | MainValueType | str,
     ) -> None:
         """
         Set multiple values in the model.
@@ -346,12 +357,41 @@ class BaseModel(abc.ABC):
 
     def set_types(
         self,
-        config: Mapping[str | Connection, type | UnionType | NestedListType | MyTensor]
-        | Mapping[Connection, type | UnionType | NestedListType | MyTensor]
-        | Mapping[str, type | UnionType | NestedListType | MyTensor]
+        config: Mapping[
+            str | Connection,
+            type
+            | UnionType
+            | NestedListType
+            | ScalarType
+            | type[TensorValueType]
+            | type[MyTensor[Any]],
+        ]
+        | Mapping[
+            Connection,
+            type
+            | UnionType
+            | NestedListType
+            | ScalarType
+            | type[TensorValueType]
+            | type[MyTensor[Any]],
+        ]
+        | Mapping[
+            str,
+            type
+            | UnionType
+            | NestedListType
+            | ScalarType
+            | type[TensorValueType]
+            | type[MyTensor[Any]],
+        ]
         | None = None,
-        **kwargs: type | UnionType | NestedListType | MyTensor,
-    ):
+        **kwargs: type
+        | UnionType
+        | NestedListType
+        | ScalarType
+        | type[TensorValueType]
+        | type[MyTensor[Any]],
+    ) -> None:
         """
         Set types of any connection in the Model
 
@@ -370,7 +410,15 @@ class BaseModel(abc.ABC):
         if config is None:
             config = {}
         # Initialize assigned shapes dictionary to store assigned shapes.
-        assigned_types: dict[str, type | UnionType | NestedListType | MyTensor] = {}
+        assigned_types: dict[
+            str,
+            type
+            | UnionType
+            | NestedListType
+            | ScalarType
+            | type[TensorValueType]
+            | MyTensor[Any],
+        ] = {}
 
         # Get the outermost parent as all the updates will happen here.
         model = self._get_outermost_parent()
@@ -381,7 +429,7 @@ class BaseModel(abc.ABC):
             assert conn is not None
             inner_key = conn.key
             assigned_types[inner_key] = key_type
-            updates |= metadata.set_type(key_type)  # type: ignore
+            updates |= metadata.set_type(key_type)
         # Store assigned types in the model.
         self.assigned_types |= assigned_types
         # Run the constraints for updating affected connections.
@@ -501,7 +549,7 @@ class BaseModel(abc.ABC):
         l_type = left.edge_type
         r_type = right.edge_type
         if ((l_type is MyTensor) ^ (r_type is MyTensor)) and (
-            TBD not in (l_type, r_type)
+            ToBeDetermined not in (l_type, r_type)
         ):
             raise TypeError(
                 "Types of connections are not consistent. Check connection types!"
@@ -530,7 +578,7 @@ class BaseModel(abc.ABC):
         # Update IOHyperEdge's in constraint solver.
         self.constraint_solver.update_constraint_map(left, right)
         # Match data of each IOHyperEdge's.
-        updates = left.match(right)  # type: ignore
+        updates = left.match(right)
         return updates
 
     def get_models_in_topological_order(self) -> list[BaseModel]:

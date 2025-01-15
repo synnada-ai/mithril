@@ -121,6 +121,7 @@ def shape_map_to_tensor(
         edge = IOHyperEdge(value=tensor, key_origin=key)
         # set temp_shape. Since temp_shape of a Tensor initialized as None in its
         # constructor.
+        assert edge.shape is not None
         edge._temp_shape = next(iter(edge.shape.reprs))
         tensor_dict[key] = edge
     return tensor_dict
@@ -215,6 +216,7 @@ def assert_shape_results(
     assignments: AssignmentType = {}
     for key, value in data.items():
         if value.edge_type is MyTensor:
+            assert value.shape is not None
             shapes[key] = value.shape.get_shapes(uni_cache, var_cache, verbose=True)
             shape_repr = value._temp_shape
             assert shape_repr is not None
