@@ -18,7 +18,7 @@ from importlib import import_module
 
 import mithril
 from mithril import JaxBackend, MlxBackend, NumpyBackend, TorchBackend
-from mithril.models import Concat, Linear, Mean, Model, Relu, ToTensor
+from mithril.models import Concat, Convolution1D, Linear, Mean, Model, Relu, ToTensor
 from tests.scripts.test_utils import compare_callables
 
 from ..utils import with_temp_file
@@ -98,14 +98,13 @@ def test_multi_input_primitive(file_path: str):
     # Because of we set inference flag to False, caches will be stored
     @typing.no_type_check
     def evaluate(params, data, cache):
-        axes = cache["axes"]
         b = params["b"]
         input = params["input"]
         output_0_cache = cache["output_0_cache"]
         output_1_cache = cache["output_1_cache"]
         output_cache = cache["output_cache"]
         w = params["w"]
-        output_0 = output_0_cache["output"] = transpose(w, axes, cache=output_0_cache)
+        output_0 = output_0_cache["output"] = transpose(w, None, cache=output_0_cache)
         output_1 = output_1_cache["output"] = make_array(
             matrix_multiplication(input, output_0, output_1_cache)
         )
@@ -118,11 +117,10 @@ def test_multi_input_primitive(file_path: str):
 
     @typing.no_type_check  # type: ignore
     def evaluate(params, data, cache):
-        axes = cache["axes"]
         b = params["b"]
         input = params["input"]
         w = params["w"]
-        output_0 = transpose(w, axes)
+        output_0 = transpose(w, None)
         output_1 = make_array(matrix_multiplication(input, output_0))
         output = make_array(add(output_1, b))
         return {"output": output}
@@ -131,11 +129,10 @@ def test_multi_input_primitive(file_path: str):
 
     @typing.no_type_check  # type: ignore
     def evaluate(params, data, cache):
-        axes = cache["axes"]
         b = params["b"]
         input = params["input"]
         w = params["w"]
-        output_0 = transpose(w, axes)
+        output_0 = transpose(w, None)
         output_1 = matrix_multiplication(input, output_0)
         output = add(output_1, b)
         return {"output": output}
@@ -364,12 +361,9 @@ def test_default_kwarg_reduction_2(file_path: str):
 
     @typing.no_type_check
     def evaluate(params, data, cache):
-        axis = cache["axis"]
         input = params["input"]
         output_cache = cache["output_cache"]
-        output = output_cache["output"] = reduce_mean(
-            input, axis=axis, cache=output_cache
-        )
+        output = output_cache["output"] = reduce_mean(input, axis=3, cache=output_cache)
         return {"output": output}
 
     compare_callables(evaluate, eval_func)
@@ -378,15 +372,58 @@ def test_default_kwarg_reduction_2(file_path: str):
 
     @typing.no_type_check  # type: ignore
     def evaluate(params, data, cache):
-        axis = cache["axis"]
         input = params["input"]
-        output = reduce_mean(input, axis=axis)
+        output = reduce_mean(input, axis=3)
         return {"output": output}
 
     compare_callables(evaluate, eval_func)
 
     mithril.compile(model, JaxBackend(), inference=True, jit=False, file_path=file_path)
     compare_callables(evaluate, eval_func)
+    mithril.compile(
+        model,
+        TorchBackend(),
+        inference=True,
+        jit=False,
+        file_path=file_path,
+    )
+    compare_callables(evaluate, eval_func)
+    if platform.system() == "Darwin":
+        mithril.compile(
+            model,
+            MlxBackend(),
+            inference=True,
+            jit=False,
+            file_path=file_path,
+        )
+        compare_callables(evaluate, eval_func)
+
+
+@with_temp_file(".py")
+def test_inline_caching(file_path: str):
+    model = Model()
+    model += Convolution1D(
+        out_channels=384, kernel_size=3, stride=1, padding=1, name="conv1"
+    )(input="input", output="conv1_out")
+    backend = TorchBackend()
+
+    mithril.compile(model, backend, inference=False, jit=False, file_path=file_path)
+
+    file_name = os.path.basename(file_path).split(".")[0]
+    eval_func = import_module("tmp." + file_name).evaluate
+
+    @typing.no_type_check
+    def evaluate(params, data, cache):
+        bias = params["bias"]
+        input = data["input"]
+        weight = params["weight"]
+        conv1_out = conv1d_bias(input, weight, bias, dilation=1)
+        return {"conv1_out": conv1_out}
+
+    compare_callables(evaluate, eval_func)
+
+    mithril.compile(model, backend, inference=True, jit=False, file_path=file_path)
+
     mithril.compile(
         model,
         TorchBackend(),

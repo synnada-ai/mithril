@@ -21,10 +21,10 @@ from posixpath import basename, splitext
 from typing import Any, Generic, Literal, Protocol, overload
 
 from ...backends.backend import ParallelBackend
-from ...core import DataType
 from ...utils.func_utils import prepare_function_args
 from ..common import (
     DataEvalType,
+    DataType,
     EvaluateAllType,
     EvaluateGradientsType,
     EvaluateType,
@@ -104,7 +104,7 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
         self.globals: list[ast.stmt] = []
         self.functions: list[ast.stmt] = []
 
-    def generate_code(self, file_path: str | None = None) -> None:
+    def generate_code(self, file_path: str | None = None):
         self.file_path = file_path
         self.imports += self.generate_imports()
         self.functions += self.generate_functions()
@@ -119,10 +119,10 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
         if file_path is not None:
             self.write_code(file_path)
 
-    def generate_functions(self) -> list[ast.FunctionDef]:
+    def generate_functions(self):
         return [self.generate_evaluate()]
 
-    def write_code(self, file_path: str) -> None:
+    def write_code(self, file_path: str):
         if self.code is None:
             raise Exception(
                 "Code is not generated yet! Please call generate_code() first."
@@ -151,12 +151,12 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
         if self.file_path is not None:
             module_name = splitext(basename(self.file_path))[0]
 
-            module_spec = importlib.util.spec_from_file_location(
+            module_spec = importlib.util.spec_from_file_location(  # type: ignore
                 module_name, self.file_path
             )
             module = importlib.util.module_from_spec(module_spec)  # type: ignore
             module_spec.loader.exec_module(module)  # type: ignore
-            eval_fn: EvaluateType[DataType] = module.evaluate
+            eval_fn = module.evaluate
             eval_grad_fn = (
                 module.evaluate_gradients
                 if hasattr(module, "evaluate_gradients")
@@ -224,15 +224,15 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
             isinstance(self.pm.backend, ParallelBackend)
             and self.pm.backend.n_devices > 1
         ):
-            self.pm.backend.register_callable(eval_fn, "eval_fn", jit)
+            self.pm.backend._register_callable(eval_fn, "eval_fn", jit)
             if not self.pm.inference:
                 assert grad_fn is not None, "Gradient function is not defined!"
                 assert (
                     evaluate_all_fn is not None
                 ), "Evaluate all function is not defined!"
 
-                self.pm.backend.register_callable(grad_fn, "eval_grad_fn", jit)
-                self.pm.backend.register_callable(evaluate_all_fn, "eval_all_fn", jit)
+                self.pm.backend._register_callable(grad_fn, "eval_grad_fn", jit)
+                self.pm.backend._register_callable(evaluate_all_fn, "eval_all_fn", jit)
 
         elif jit and not self.pm.backend.is_manualgrad:
             eval_fn = self.pm.backend.jit(eval_fn)
@@ -242,18 +242,17 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
                     evaluate_all_fn is not None
                 ), "Evaluate all function is not defined!"
 
-                grad_fn = self.pm.backend.jit(grad_fn)  # type: ignore
+                grad_fn = self.pm.backend.jit(grad_fn)
                 evaluate_all_fn = self.pm.backend.jit(evaluate_all_fn)
 
-        return eval_fn, grad_fn, evaluate_all_fn  # type: ignore
+        return eval_fn, grad_fn, evaluate_all_fn
 
-    def import_backend(self) -> ast.ImportFrom:
+    def import_backend(self):
         backend = ast.ImportFrom(
             module="mithril",
             names=[
                 ast.alias(
-                    name=f"{self.pm.backend.backend_type.capitalize()}Backend",
-                    asname="Backend",
+                    name=f"{self.pm.backend.type.capitalize()}Backend", asname="Backend"
                 )
             ],
             level=0,
@@ -261,7 +260,7 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
 
         return backend
 
-    def generate_imports(self) -> list[ast.stmt]:
+    def generate_imports(self):
         imports: list[ast.stmt] = []
         # Add import primitive functions
         imports.append(
@@ -295,13 +294,11 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
 
         return imports
 
-    def get_primitive_details(
-        self, output_key: str
-    ) -> tuple[PrimitiveModel, list[str], list[str]]:
-        model = self.pm.flat_graph.get_model(output_key)
+    def get_primitive_details(self, output_key: str):
+        model = self.pm._flat_graph.get_model(output_key)
 
-        global_input_keys = self.pm.flat_graph.get_source_keys(output_key)
-        local_input_keys = list(model.input_keys)
+        global_input_keys = self.pm._flat_graph.get_source_keys(output_key)
+        local_input_keys = list(model._input_keys)
 
         return model, global_input_keys, local_input_keys
 
@@ -313,9 +310,10 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
         g_input_keys: list[str],
         output_key: str,
         formula_key: str,
-    ) -> tuple[ast.Assign, set[str]]:
+        cache: dict,
+    ):
         generated_fn, used_keys = self.create_primitive_call(
-            fn, l_input_keys, g_input_keys
+            fn, cache, l_input_keys, g_input_keys
         )
         targets, _used_keys = self.create_primitive_call_targets(
             output_key, model, self.pm.inference
@@ -323,28 +321,29 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
         if formula_key in self.pm.backend.array_creation_funcs:
             self.add_partial_function(formula_key)
 
-        return ast.Assign(targets, generated_fn), used_keys | _used_keys
+        return ast.Assign(targets, generated_fn), used_keys | _used_keys  # type: ignore
 
-    def generate_evaluate(self) -> ast.FunctionDef:
+    def generate_evaluate(self):
         input_body: list[ast.stmt] = []
         function_body: list[ast.stmt] = []
         return_values: list[ast.expr] = []
 
         used_keys: set[str] = set()
-        used_keys |= set(self.pm.flat_graph.output_dict.values())
+        used_keys |= set(self.pm._flat_graph.output_dict.values())
 
         unused_keys = self.pm.data_store.unused_keys
         cached_data_keys = self.pm.data_store.cached_data.keys()
         discarded_keys = self.pm.discarded_keys  # TODO: Consider is this necessary?
 
+        # print(cached_data_keys)
         # Iterate over Primitive models in topological order to add their formula.
-        for output_key in self.pm.flat_graph.topological_order:
+        for output_key in self.pm._flat_graph.topological_order:
             # Staticly infered and unused model will not be added
             if output_key in (cached_data_keys | unused_keys | discarded_keys):
                 continue
 
             model, g_input_keys, l_input_keys = self.get_primitive_details(output_key)
-            formula_key = model.formula_key
+            formula_key = model._formula_key
 
             primitive_function = (
                 self.pm.backend.primitive_function_dict[formula_key]
@@ -353,6 +352,7 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
             )
 
             # Create primitive call
+            # print(self.pm.data_store.cached_data)
             primitive_call, _used_keys = self.call_primitive(
                 model,
                 primitive_function,
@@ -360,30 +360,42 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
                 g_input_keys,
                 output_key,
                 formula_key,
+                self.pm.data_store.cached_data,
             )
 
             function_body.append(primitive_call)
 
             used_keys.add(output_key)
             used_keys |= _used_keys
-
+        inlined_types = [
+            "<class 'float'>",
+            "<class 'int'>",
+            "<class 'NoneType'>",
+            "<class 'str'>",
+            "<class 'tuple'>",
+            "<class 'bool'>",
+        ]
         for key in sorted(used_keys):
             if key in cached_data_keys:
                 dict_type = "cache"
             elif key in self.pm.data_store.runtime_static_keys:
                 dict_type = "data"
-            elif key not in self.pm.flat_graph.all_target_keys:
+            elif key not in self.pm._flat_graph.all_target_keys:
                 dict_type = "params"
             else:
                 continue
-
-            self.append_inputs(input_body, key, dict_type)
-
+            """If cached value is not a tensor, do not append it to code"""
+            if (key in self.pm.data_store.cached_data) and str(
+                type(self.pm.data_store.cached_data[key])
+            ) in inlined_types:
+                continue
+            else:
+                self.append_inputs(input_body, key, dict_type)
         # If output node is pruned adjust key name
         for output_key in self.pm.output_keys:
             # TODO: give an api to get outputdict
             return_values.append(
-                ast.Name(self.pm.flat_graph.output_dict[output_key], ast.Load())
+                ast.Name(self.pm._flat_graph.output_dict[output_key], ast.Load())
             )
 
         return_body: list[ast.stmt] = [
@@ -426,9 +438,7 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
 
         return ast.fix_missing_locations(func_def)
 
-    def append_inputs(
-        self, input_body: list[ast.stmt], key: str, dict_type: str
-    ) -> None:
+    def append_inputs(self, input_body: list[ast.stmt], key: str, dict_type: str):
         # In manual_grad type backends, cache contains all the required
         # data (local variables and outputs) for the corresponding function.
         # So if the key is not directly an output of a function get it from
@@ -438,7 +448,7 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
         else:
             val = key
 
-        if dict_type != "cache" or (key not in self.pm.flat_graph.all_target_keys):
+        if dict_type != "cache" or (key not in self.pm._flat_graph.all_target_keys):
             input_body.append(
                 ast.Assign(
                     targets=[ast.Name(id=val, ctx=ast.Store())],
@@ -476,6 +486,7 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
     def create_primitive_call(
         self,
         function: Callable[..., Any],
+        cache: dict,
         local_keys: list[str],
         global_keys: list[str],
         default_args: dict[str, ast.expr] | None = None,
@@ -483,12 +494,10 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
         """Generates a single function call AST (Abstract Syntax Tree)."""
         if default_args is None:
             default_args = {}
-
         formula_key = function.__name__
         inputs = {
             key: value for key, value in zip(local_keys, global_keys, strict=False)
         }
-
         # Prepare function arguments
         fn_args_mapping, fn_kwarg_dict = prepare_function_args(
             self.pm.data_store.data_values,
@@ -499,27 +508,44 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
         fn_arg_keys = [
             arg_key for arg_keys in fn_args_mapping.values() for arg_key in arg_keys
         ]
-        # Convert to AST nodes
-        args = [
-            convert_to_ast_arg(
-                arg_key,
-                list(self.pm.backend.primitive_function_dict.keys()),
-                defaults=default_args,  # type:ignore
-            )
-            for arg_key in fn_arg_keys
+        """Types that should be added inline are defined and appended
+        to code with their corresponding value."""
+        inlined_types = [
+            "<class 'float'>",
+            "<class 'int'>",
+            "<class 'NoneType'>",
+            "<class 'str'>",
+            "<class 'tuple'>",
+            "<class 'bool'>",
         ]
-        kwargs = [
-            convert_to_ast_kwarg(key, name, defaults=default_args)
-            for key, name in fn_kwarg_dict.items()
-        ]
-
+        args = []
+        for arg_key in fn_arg_keys:
+            if arg_key in cache and (str(type(cache[arg_key])) in inlined_types):
+                args.append(ast.Constant(cache[arg_key]))
+            else:
+                args.append(
+                    convert_to_ast_arg(
+                        arg_key,
+                        list(self.pm.backend.primitive_function_dict.keys()),
+                        defaults=default_args,  # type:ignore
+                    )
+                )
+        kwargs = []
+        for key, name in fn_kwarg_dict.items():
+            if fn_kwarg_dict[key] in cache and (
+                str(type(cache[fn_kwarg_dict[key]])) in inlined_types
+            ):
+                value = ast.Constant(cache[fn_kwarg_dict[key]])
+                kwargs.append(ast.keyword(arg=key, value=value))
+            else:
+                kwargs.append(convert_to_ast_kwarg(key, name, defaults=default_args))
         generated_fn = ast.Call(
             func=ast.Name(id=formula_key, ctx=ast.Load()),
             args=args,  # type:ignore
             keywords=kwargs,
         )
         used_keys = set(fn_arg_keys) | set(fn_kwarg_dict.values())
-
+        # print(ast.unparse(ast.fix_missing_locations(generated_fn)))
         return generated_fn, used_keys
 
     def create_primitive_call_targets(
@@ -542,7 +568,7 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
 
         return targets, {target_name}
 
-    def add_partial_function(self, formula_key: str) -> None:
+    def add_partial_function(self, formula_key: str):
         if formula_key in self.defined_partial_fns:
             return
 
@@ -565,11 +591,11 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
         # raw_evaluate_grad_fn: ManualGradWrapperFn[DataType] | None,
         raw_evaluate_fn: RawEvaluateType[DataType],
         raw_evaluate_grad_fn: ManualGradWrapperFn[DataType] | None,
-    ) -> tuple[ManualGradWrapperFn[DataType], RawEvaluateType[DataType]]:
+    ):
         fn_all: EvaluateAllType[DataType]
         grad_fn: EvaluateGradientsType[DataType]
         if not self.pm.backend.is_manualgrad:
-            grad_fn = partial(
+            grad_fn = partial(  # type: ignore
                 self.compute_gradients,
                 raw_evaluate_fn=raw_evaluate_fn,
                 cache=self.pm.data_store.data_values,
@@ -582,14 +608,14 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
                 cache=self.pm.data_store.data_values,
                 include_output=True,
             )
-            return grad_fn, fn_all  # type: ignore
+            return grad_fn, fn_all
         else:
             assert raw_evaluate_grad_fn is not None, "Gradient function is not defined!"
 
             fn_all = partial(raw_evaluate_grad_fn, include_output=True)  # type: ignore
             grad_fn = partial(raw_evaluate_grad_fn, include_output=False)  # type: ignore
 
-            return grad_fn, fn_all  # type: ignore
+            return grad_fn, fn_all
 
     @overload
     def compute_gradients(
