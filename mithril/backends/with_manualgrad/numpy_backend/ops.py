@@ -974,6 +974,24 @@ def primitive_embedding(
     return weight[input]
 
 
+def minimum(
+    left: np.ndarray[Any, Any],
+    right: np.ndarray[Any, Any],
+    *,
+    cache: CacheType | None = None,
+) -> np.ndarray[Any, Any]:
+    return np.minimum(left, right)
+
+
+def maximum(
+    left: np.ndarray[Any, Any],
+    right: np.ndarray[Any, Any],
+    *,
+    cache: CacheType | None = None,
+) -> np.ndarray[Any, Any]:
+    return np.maximum(left, right)
+
+
 def where(
     cond: np.ndarray[Any, Any],
     input1: np.ndarray[Any, Any],

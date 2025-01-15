@@ -871,6 +871,14 @@ def arange(*args: Any, device: str, precision: int) -> jax.Array:
         return handle_data_precision(jnp.arange(*args), precision)
 
 
+def minimum(left: jax.Array, right: jax.Array) -> jax.Array:
+    return jnp.minimum(left, right)
+
+
+def maximum(left: jax.Array, right: jax.Array) -> jax.Array:
+    return jnp.maximum(left, right)
+
+
 def where(cond: jax.Array, input1: jax.Array, input2: jax.Array) -> jax.Array:
     return jnp.where(cond, input1, input2)
 
