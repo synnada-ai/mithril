@@ -22,21 +22,6 @@ if TYPE_CHECKING:
     from .logical.base import BaseModel
 
 
-class NestedListType:
-    """
-    Represents a nested list type.
-
-    Attributes:
-        base_type (type): The base type of the nested list.
-    """
-
-    __slots__ = "base_type"
-    base_type: type | UnionType
-
-    def __init__(self, base_type: type | UnionType):
-        self.base_type = base_type
-
-
 T = TypeVar("T", bound="BaseModel")
 
 
@@ -208,13 +193,10 @@ def find_list_base_type(
     | type[int]
     | type[bool]
     | UnionType
-    | NestedListType
     | GenericAlias,
 ) -> set[type | UnionType]:
     result: set[type | UnionType] = set()
-    if isinstance(type_def, NestedListType):
-        result.add(type_def.base_type)
-    elif isinstance(type_def, GenericAlias):
+    if isinstance(type_def, GenericAlias):
         origin: type[list[Any]] | type[tuple[Any, ...]] = type_def.__origin__
         if origin is list:
             # Means there exists recursive list type.
@@ -223,13 +205,14 @@ def find_list_base_type(
     elif isinstance(type_def, UnionType):
         for arg in type_def.__args__:
             result.update(find_list_base_type(arg))
-    elif type_def not in (int, float, bool, list):
+    elif type_def in (int, float, bool):
+        result.add(type_def)
+    else:
         raise Exception(
             f"{type_def} type is not supported in recursive list. Only int, float or "
             "bool types are supported."
         )
-    elif type_def in (int, float, bool):
-        result.add(type_def)
+
     return result
 
 
@@ -248,52 +231,9 @@ def find_list_depth(arg_type: type | UnionType | GenericAlias) -> int:
 
 
 def find_intersection_type(
-    type_1: type | UnionType | GenericAlias | NestedListType,
-    type_2: type | UnionType | GenericAlias | NestedListType,
-) -> type | UnionType | None | NestedListType:
-    # If NestedListTtype type exists in any arguments
-    # first unroll NestedListTtype type into a certain
-    # depth same as the other type if other is non-NestedListType.
-    # Else if both are NestedListType, constraint their base type
-    # into their intersection.
-    nested_types: list[NestedListType] = []
-    if isinstance(type_1, NestedListType):
-        nested_types.append(type_1)
-    if isinstance(type_2, NestedListType):
-        nested_types.append(type_2)
-
-    if len(nested_types) == 1:
-        regular_type, nested_type = (
-            (type_2, type_1) if isinstance(type_1, NestedListType) else (type_1, type_2)
-        )
-        assert not isinstance(regular_type, NestedListType)
-        assert isinstance(nested_type, NestedListType)
-        # If regular type is list, we can not know its depth, so simply
-        # return nested type.
-        if (
-            isinstance(regular_type, UnionType) and list in regular_type.__args__
-        ) or regular_type is list:
-            return nested_type
-
-        # Find depth of the list type and unroll nested type to that depth.
-        depth = find_list_depth(regular_type)
-        base: type | UnionType = nested_type.base_type
-        final = base
-        for _ in range(depth):
-            base = list[base]  # type: ignore[valid-type] # mypy does not accept list[arg]
-            final |= base
-        # Assign new type representation to the corresponding argument.
-        if type(type_1) is NestedListType:
-            type_1 = final
-        else:
-            type_2 = final
-    elif len(nested_types) == 2:
-        # Means both types are NestedListType.
-        # Constrain larger union type to the smaller one.
-        base_type_1 = nested_types[0].base_type
-        base_type_2 = nested_types[1].base_type
-        return NestedListType(find_intersection_type(base_type_1, base_type_2))  # type: ignore
-
+    type_1: type | UnionType | GenericAlias,
+    type_2: type | UnionType | GenericAlias,
+) -> type | UnionType | None:
     # First find direct intersections.
     subtypes_1 = set(type_1.__args__) if type(type_1) is UnionType else {type_1}
     subtypes_2 = set(type_2.__args__) if type(type_2) is UnionType else {type_2}
@@ -449,7 +389,7 @@ def find_type[T](connection: T) -> type[T]:
         return type(connection)
 
 
-def is_union(typ: type | UnionType | GenericAlias | NestedListType) -> bool:
+def is_union(typ: type | UnionType | GenericAlias) -> bool:
     if isinstance(typ, GenericAlias):
         if ... in typ.__args__:
             return True

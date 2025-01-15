@@ -43,7 +43,6 @@ from ..core import (
 )
 from ..utils.utils import PaddingType, find_dominant_type
 from .utils import (
-    NestedListType,
     align_shapes,
     find_intersection_type,
     find_type,
@@ -195,7 +194,6 @@ type ScalarType = (
     | type[EllipsisType]
     | type[ToBeDetermined]
     | type[str]
-    | NestedListType
     | type[None]
     | UnionType
     | GenericAlias
@@ -293,6 +291,8 @@ TensorToListType = (
     | list[list[list[list[_UltimateTensorValueTypes]]]]
     | list[list[list[list[list[_UltimateTensorValueTypes]]]]]
 )
+
+MaxListDepth = 5
 
 ParamsEvalType = dict[str, DataType]
 DataEvalType = Mapping[str, DataType | MainValueType | str]
@@ -717,7 +717,6 @@ class MyTensor(Generic[TypeVarTensorType]):
                     f"Acceptable types are {self.type}, but {typ} type value "
                     "is provided!"
                 )
-            assert not isinstance(new_type, NestedListType | None)
             self.type = new_type
             # Add all referee edges into the updates.
             for edge in self.referees:
@@ -884,19 +883,19 @@ class IOHyperEdge:
         return updates
 
     def _types_equal(self, other_type: type[MyTensor[Any]] | ScalarType) -> bool:
-        self_type: type[MyTensor[Any]] | ScalarType | type[ToBeDetermined]
+        # self_type: type[MyTensor[Any]] | ScalarType | type[ToBeDetermined]
 
-        if isinstance(self._type, NestedListType):
-            self_type = self._type.base_type
-        else:
-            self_type = self._type
+        # if isinstance(self._type, NestedListType):
+        #     self_type = self._type.base_type
+        # else:
+        #     self_type = self._type
 
-        if isinstance(other_type, NestedListType):
-            other_type = other_type.base_type
-        else:
-            other_type = other_type
+        # if isinstance(other_type, NestedListType):
+        #     other_type = other_type.base_type
+        # else:
+        #     other_type = other_type
 
-        return self_type == other_type
+        return self._type == other_type
 
     def _values_equal(
         self, other_value: MyTensor[Any] | ScalarValueType | ToBeDetermined

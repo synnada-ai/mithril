@@ -38,6 +38,7 @@ from .common import (
     ConstrainResultType,
     ConstraintFunctionType,
     IOHyperEdge,
+    MaxListDepth,
     MyTensor,
     PossibleValues,
     ScalarValueType,
@@ -47,10 +48,10 @@ from .common import (
     Updates,
     UpdateType,
     Variadic,
+    _TensorTypes,
     list_shape,
 )
 from .utils import (
-    NestedListType,
     find_intersection_type,
     find_list_base_type,
     is_union,
@@ -111,6 +112,20 @@ __all__ = [
 ]
 
 
+def generate_nested_list_type(
+    base_type: _TensorTypes, min_depth: int = 0, max_depth: int = MaxListDepth
+) -> type[list[Any]] | _TensorTypes:
+    types = set()
+    typ: type[list[Any]] | _TensorTypes = base_type
+    for depth in range(6):
+        if depth > max_depth:
+            break
+        if depth >= min_depth:
+            types.add(typ)
+        typ = list[typ]  # type: ignore
+    return reduce(lambda x, y: x | y, types)
+
+
 # Below functions are used in various constraints.
 def prod_fn(a: int | Uniadic, b: int | Uniadic) -> int:
     if isinstance(a, Uniadic):
@@ -145,7 +160,7 @@ def create_union_type(
 
 
 def _reduce_union_type(
-    output_type: type | UnionType | GenericAlias | NestedListType,
+    output_type: type | UnionType | GenericAlias,
     arg_type: UnionType,
 ) -> None | set[type]:
     eliminated: set[type[int] | type[float] | type[bool]] | None = {float}
@@ -644,9 +659,6 @@ def indexer_type_constraint(
     updates = Updates()
     if input.edge_type not in (MyTensor, ToBeDetermined):
         # Input is a non-tensor type.
-        assert not isinstance(output.value_type, NestedListType)
-        assert not isinstance(input.value_type, NestedListType)
-
         input_type = input.value_type
         output_type = output.value_type
         index_value = index.value
@@ -736,9 +748,9 @@ def slice_constraints(
 def tensor_to_list_type_constraint(
     output: IOHyperEdge, input: IOHyperEdge
 ) -> ConstrainResultType:
+    updates = Updates()
     input_type = input.value_type
     output_type = output.value_type
-    updates = Updates()
     assert input.shape is not None
     in_shape: ShapeRepr = input.shape.reprs[0]
     assert (
@@ -746,7 +758,7 @@ def tensor_to_list_type_constraint(
         or output_type is float
         or output_type is int
         or output_type is bool
-        or isinstance(output_type, NestedListType | UnionType)
+        or isinstance(output_type, UnionType)
         or (isinstance(output_type, GenericAlias) and output_type.__origin__ is list)
     )
 
@@ -762,28 +774,26 @@ def tensor_to_list_type_constraint(
                 f"Input type {input_type} is not compatible with output type "
                 f"{output_type}!"
             )
-        assert not isinstance(possible_input_types, NestedListType)
         updates |= set_edge_type(input, possible_input_types)
 
-    # Create the base same as input type
-    base = input.value_type
-    if in_shape.root is None:
-        for _ in range(len(in_shape.prefix + in_shape.suffix)):
-            # recursively cover list with base equal to number of all determined
-            # uniadics
-            base = list[base]  # type: ignore
-    else:
-        # if input has variadic, add also list['NestedFloatOrIntOrBoolList']
-        base = NestedListType(base)  # type: ignore
+    # Create output nested type using the input type as base type.
+    # Uniadic numbers define min depth of nested list. If input
+    # has no variadic shape then uniadic numbers also define
+    # max depth of nested list.
+    min_depth = len(in_shape.prefix + in_shape.suffix)
+    max_depth = min_depth if in_shape.root is None else MaxListDepth
+    assert isinstance(
+        input.value_type, type(int) | type(float) | type(bool) | UnionType
+    )
+    base = generate_nested_list_type(
+        input.value_type,
+        min_depth=len(in_shape.prefix + in_shape.suffix),
+        max_depth=max_depth,
+    )
 
     updates |= set_edge_type(output, base)
 
-    if in_shape.root is not None:
-        status = not (
-            is_union(output.value_type) or isinstance(output.value_type, NestedListType)
-        )
-    else:
-        status = True
+    status = not is_union(output.value_type) if in_shape.root is not None else True
 
     return status, updates
 
@@ -3436,18 +3446,12 @@ def tensor_to_list_constraints(
     assert input._temp_shape is not None, "Input shape of TensorToList is not set!"
     input_shape: ShapeRepr = input._temp_shape
     output_val = output.value
-    assert (
-        isinstance(output_val, ToBeDetermined)
-        or type(output_val) is list
-        or isinstance(output_val, NestedListType)
-    )
+    assert isinstance(output_val, ToBeDetermined) or type(output_val) is list
     updates = Updates()
     output_value = output.value
     input_shape = input._temp_shape
     status = False
-    if not isinstance(output_val, ToBeDetermined) and not isinstance(
-        output_val, NestedListType
-    ):
+    if not isinstance(output_val, ToBeDetermined):
         shape: list[Uniadic] = []
         if isinstance(output_value, list | tuple):
             shape = [Uniadic(idx) for idx in list_shape(list(output_val))]

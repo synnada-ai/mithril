@@ -47,7 +47,6 @@ from ..common import (
     get_summary_shapes,
     get_summary_types,
 )
-from ..utils import NestedListType
 from .base import BaseModel, ExtendInfo
 from .essential_primitives import (
     Absolute,
@@ -672,12 +671,7 @@ class Model(BaseModel):
         shape_info: dict[str, ShapeTemplateType] = {}
         type_info: dict[
             str,
-            type
-            | UnionType
-            | NestedListType
-            | ScalarType
-            | type[TensorValueType]
-            | MyTensor[Any],
+            type | UnionType | ScalarType | type[TensorValueType] | MyTensor[Any],
         ] = {}
 
         submodel_dag: dict[str, ConnectionData] = {}

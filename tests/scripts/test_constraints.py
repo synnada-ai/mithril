@@ -30,6 +30,7 @@ from mithril.framework.common import (
     ShapeRepr,
     ShapeResultType,
     ShapeTemplateType,
+    TensorToListType,
     ToBeDetermined,
     Uniadic,
     UniadicRecord,
@@ -47,6 +48,7 @@ from mithril.framework.constraints import (
     eye_constraints,
     flatten_constrains,
     general_tensor_type_constraint,
+    generate_nested_list_type,
     indexer_constraints,
     indexer_type_constraint,
     item_constraints,
@@ -73,20 +75,19 @@ from mithril.framework.constraints import (
     type_constraints,
     where_constrains,
 )
-from mithril.framework.utils import NestedListType
 
 from .test_utils import check_shapes_semantically
 
 
 def is_type_checker(
-    ref_results: dict[str, type | NestedListType] | ShapeResultType,
+    ref_results: dict[str, type] | ShapeResultType,
     constraint_fn: Callable,
-) -> TypeGuard[dict[str, type | NestedListType]]:
+) -> TypeGuard[dict[str, type]]:
     return constraint_fn in type_constraints
 
 
 def is_shape_checker(
-    ref_results: dict[str, type | NestedListType] | ShapeResultType,
+    ref_results: dict[str, type] | ShapeResultType,
     constraint_fn: Callable,
 ) -> TypeGuard[ShapeResultType]:
     return constraint_fn not in type_constraints
@@ -233,7 +234,7 @@ def assert_shape_results(
 
 def assert_type_results(
     data: dict[str, IOHyperEdge],
-    ref_results: dict[str, type | NestedListType],
+    ref_results: dict[str, type],
     updated_symbols: Updates,
     expected_updates: set[str],
 ) -> None:
@@ -248,12 +249,7 @@ def assert_type_results(
     }
     # Then check final types with the expected ref_results.
     for key, value in data.items():
-        if isinstance(value.value_type, NestedListType):
-            result = ref_results[key]
-            assert isinstance(result, NestedListType)
-            assert value.value_type.base_type == result.base_type
-        else:
-            assert value.value_type == ref_results[key]
+        assert value.value_type == ref_results[key]
 
 
 def assert_value_results(
@@ -275,7 +271,7 @@ def assert_value_results(
 def make_assertions(
     constraint_fn: Callable,
     data: dict[str, IOHyperEdge],
-    ref_results: dict[str, type | NestedListType] | ShapeResultType,
+    ref_results: dict[str, type] | ShapeResultType,
     ref_assignments: AssignmentType,
     updated_symbols: Updates,
     expected_updates: set[str],
@@ -7252,10 +7248,10 @@ def test_tensor_to_list_type_constraints_1():
         "input": ["u1", ("Var1", ...), "u2"],
     }
     scalar_info = {
-        "output": IOHyperEdge(type=list, value=TBD),
+        "output": IOHyperEdge(type=TensorToListType, value=TBD),
     }
     final_types = {
-        "output": NestedListType(int | float | bool),
+        "output": generate_nested_list_type(int | float | bool, min_depth=2),
         "input": int | float | bool,
     }
     assert_constraint_results(
@@ -7275,10 +7271,12 @@ def test_tensor_to_list_type_constraints_2():
         "input": ["u1", "u2", "u2"],
     }
     scalar_info = {
-        "output": IOHyperEdge(type=list, value=TBD),
+        "output": IOHyperEdge(type=TensorToListType, value=TBD),
     }
     final_types = {
-        "output": list[list[list[int | bool | float]]],
+        "output": generate_nested_list_type(
+            int | float | bool, min_depth=3, max_depth=3
+        ),
         "input": int | float | bool,
     }
     assert_constraint_results(
@@ -7298,7 +7296,7 @@ def test_tensor_to_list_type_constraints_3():
         "input": ["u1", "u2", ("Var1", ...), "u3"],
     }
     scalar_info = {
-        "output": IOHyperEdge(type=list[list[list[list[int]]]], value=TBD),
+        "output": IOHyperEdge(type=generate_nested_list_type(int, 4, 4), value=TBD),
     }
     final_types = {"output": list[list[list[list[int]]]], "input": int}
     assert_constraint_results(

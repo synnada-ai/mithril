@@ -51,7 +51,6 @@ from ..common import (
     get_shapes,
 )
 from ..constraints import post_process_map, type_constraints
-from ..utils import NestedListType
 
 __all__ = ["BaseModel", "ExtendInfo"]
 
@@ -100,12 +99,7 @@ class BaseModel(abc.ABC):
         self.assigned_shapes: list[ShapesType] = []
         self.assigned_types: dict[
             str,
-            type
-            | UnionType
-            | NestedListType
-            | ScalarType
-            | type[TensorValueType]
-            | MyTensor[Any],
+            type | UnionType | ScalarType | type[TensorValueType] | MyTensor[Any],
         ] = {}
         self.assigned_constraints: list[AssignedConstraintType] = []
         self.conns = Connections()
@@ -359,35 +353,19 @@ class BaseModel(abc.ABC):
         self,
         config: Mapping[
             str | Connection,
-            type
-            | UnionType
-            | NestedListType
-            | ScalarType
-            | type[TensorValueType]
-            | type[MyTensor[Any]],
+            type | UnionType | ScalarType | type[TensorValueType] | type[MyTensor[Any]],
         ]
         | Mapping[
             Connection,
-            type
-            | UnionType
-            | NestedListType
-            | ScalarType
-            | type[TensorValueType]
-            | type[MyTensor[Any]],
+            type | UnionType | ScalarType | type[TensorValueType] | type[MyTensor[Any]],
         ]
         | Mapping[
             str,
-            type
-            | UnionType
-            | NestedListType
-            | ScalarType
-            | type[TensorValueType]
-            | type[MyTensor[Any]],
+            type | UnionType | ScalarType | type[TensorValueType] | type[MyTensor[Any]],
         ]
         | None = None,
         **kwargs: type
         | UnionType
-        | NestedListType
         | ScalarType
         | type[TensorValueType]
         | type[MyTensor[Any]],
@@ -412,12 +390,7 @@ class BaseModel(abc.ABC):
         # Initialize assigned shapes dictionary to store assigned shapes.
         assigned_types: dict[
             str,
-            type
-            | UnionType
-            | NestedListType
-            | ScalarType
-            | type[TensorValueType]
-            | MyTensor[Any],
+            type | UnionType | ScalarType | type[TensorValueType] | MyTensor[Any],
         ] = {}
 
         # Get the outermost parent as all the updates will happen here.
