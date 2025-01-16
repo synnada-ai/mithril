@@ -22,9 +22,9 @@ import numpy as np
 from mithril import Backend
 from mithril.framework.common import (
     IOHyperEdge,
-    MyTensor,
     ShapeRepr,
     ShapeTemplateType,
+    Tensor,
     Uniadic,
 )
 from mithril.framework.logical import BaseModel, Model, PrimitiveModel
@@ -74,7 +74,7 @@ def dict_to_output_specs(specs_dict: dict[str, dict]) -> dict[str, dict]:
                     **loss.get("params", {})
                 )
                 result[key]["loss_kwargs"] = {
-                    k: MyTensor(v["tensor"])
+                    k: Tensor(v["tensor"])
                     if isinstance(v, dict) and "tensor" in v
                     else v
                     for k, v in loss.get("call_kwargs", {}).items()
@@ -157,7 +157,7 @@ def finalize_model(params: dict[str, Any]):
                 reg_extend[key] = re.compile(reg_extend[key])
             coef = reg["coef"]
             reg_extend["coef"] = (
-                MyTensor(coef["tensor"])
+                Tensor(coef["tensor"])
                 if isinstance(coef, dict) and "tensor" in coef
                 else coef
             )
@@ -296,7 +296,7 @@ def get_all_nodes(model: BaseModel):
     node_set = {
         data.shape
         for data in all_data
-        if data.edge_type is MyTensor
+        if data.edge_type is Tensor
         if data.shape is not None
     }
     return node_set

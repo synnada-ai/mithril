@@ -29,9 +29,9 @@ from ..framework.common import (
     IOHyperEdge,
     IOKey,
     KeyType,
-    MyTensor,
     NotAvailable,
     Table,
+    Tensor,
     UniadicRecord,
     Variadic,
     get_shapes,
@@ -112,7 +112,7 @@ class TrainModel(Model):
         self.regularization_keys: list[str] = []
         self.metric_keys: list[str] = []
         self.loss_combiner: BaseModel = Sum()
-        self.reg_coef_map: dict[float | MyTensor[Any], set[Connection]] = {}
+        self.reg_coef_map: dict[float | Tensor[Any], set[Connection]] = {}
         self.geomean_map: dict[str, list[tuple[Connection, float]]] = {}
         self.reduce_inputs: dict[str, list[tuple[Connection, Connection]]] = {}
 
@@ -610,7 +610,7 @@ class TrainModel(Model):
                         reduce_str += ", "
                 t_list.append([reduce_str[:-2]])
                 coef = loss_dict["coef"]
-                if isinstance(coef, MyTensor):
+                if isinstance(coef, Tensor):
                     coef = coef.value
                 t_list.append([str(coef)])
                 loss_table.add_row(t_list)
@@ -699,7 +699,7 @@ class TrainModel(Model):
                     geo_mappings[reg_info].append(self.reduce_inputs[key])
 
         for reg_info, loss_connections in geo_mappings.items():
-            final_outputs: list[Connection | MyTensor[int]] = []
+            final_outputs: list[Connection | Tensor[int]] = []
             for reduce in loss_connections:
                 final_outputs.append(self._add_reduce_sizes(reduce))
             if final_outputs:
@@ -707,7 +707,7 @@ class TrainModel(Model):
                 final_output = final_outputs[0]
                 if (n_final_outputs := len(final_outputs)) > 0:
                     concat_model = Concat(n=n_final_outputs, axis=None)
-                    concat_kwargs: dict[str, MyTensor[int] | Connection] = {}
+                    concat_kwargs: dict[str, Tensor[int] | Connection] = {}
                     idx = 0
                     for key in concat_model.input_keys:
                         if not concat_model.conns.is_key_non_diff(key):
@@ -723,7 +723,7 @@ class TrainModel(Model):
                     self.extend(
                         power := Power(),
                         base=final_output,
-                        exponent=MyTensor([1 / n_final_outputs]),
+                        exponent=Tensor([1 / n_final_outputs]),
                     )
                     final_output = power.output
                 # Add Divide Model to divide final_output to geo_mean.
@@ -738,8 +738,8 @@ class TrainModel(Model):
 
     def _add_reduce_sizes(
         self, reduce_list: list[tuple[Connection, Connection]]
-    ) -> Connection | MyTensor[int]:
-        final_output: Connection | MyTensor[int] = MyTensor(1)
+    ) -> Connection | Tensor[int]:
+        final_output: Connection | Tensor[int] = Tensor(1)
         sizes: list[Connection] = []
         for input, dim in reduce_list:
             m = _create_size()

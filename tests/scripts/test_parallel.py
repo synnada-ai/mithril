@@ -29,7 +29,7 @@ import mithril
 from mithril import compile
 from mithril.backends.with_autograd.torch_backend.parallel import TorchParallel
 from mithril.backends.with_autograd.torch_backend.utils import SharedCyclicQueue
-from mithril.framework.common import IOKey, MyTensor
+from mithril.framework.common import IOKey, Tensor
 from mithril.models import (
     TBD,
     Add,
@@ -801,9 +801,7 @@ def test_torch_parallel_multi_parallel_1():
     backend1 = create_parallel_backend(device_mesh=(2, 1))
     backend2 = create_parallel_backend(device_mesh=(2, 1))
     model = Model()
-    model += Add()(
-        left=IOKey("left", type=MyTensor), right=IOKey("right", type=MyTensor)
-    )
+    model += Add()(left=IOKey("left", type=Tensor), right=IOKey("right", type=Tensor))
     pm1 = compile(
         model,
         backend1,
@@ -814,7 +812,7 @@ def test_torch_parallel_multi_parallel_1():
 
     model = Model()
     model += Multiply()(
-        left=IOKey("left", type=MyTensor), right=IOKey("right", type=MyTensor)
+        left=IOKey("left", type=Tensor), right=IOKey("right", type=Tensor)
     )
     pm2 = compile(
         model,

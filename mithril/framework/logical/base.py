@@ -34,13 +34,13 @@ from ..common import (
     ConstraintSolver,
     IOHyperEdge,
     MainValueType,
-    MyTensor,
     NotAvailable,
     ScalarType,
     ShapeNode,
     ShapesType,
     ShapeTemplateType,
     ShapeType,
+    Tensor,
     TensorValueType,
     ToBeDetermined,
     UniadicRecord,
@@ -99,7 +99,7 @@ class BaseModel(abc.ABC):
         self.assigned_shapes: list[ShapesType] = []
         self.assigned_types: dict[
             str,
-            type | UnionType | ScalarType | type[TensorValueType] | MyTensor[Any],
+            type | UnionType | ScalarType | type[TensorValueType] | Tensor[Any],
         ] = {}
         self.assigned_constraints: list[AssignedConstraintType] = []
         self.conns = Connections()
@@ -269,9 +269,9 @@ class BaseModel(abc.ABC):
             if (
                 metadata := self.conns.get_data(_inner_key)
             ).edge_type is ToBeDetermined:
-                # If edge_type is not defined yet, set it to MyTensor since
+                # If edge_type is not defined yet, set it to Tensor since
                 # shape is provided.
-                updates |= metadata.set_type(MyTensor)
+                updates |= metadata.set_type(Tensor)
             shape_node = self.conns.get_shape_node(_inner_key)
             assert shape_node is not None
             updates |= shape_node.merge(node)
@@ -282,7 +282,7 @@ class BaseModel(abc.ABC):
         model.constraint_solver(updates)
 
     def _set_value(
-        self, key: ConnectionData, value: MainValueType | MyTensor[Any] | str
+        self, key: ConnectionData, value: MainValueType | Tensor[Any] | str
     ) -> Updates:
         """
         Set value for the given connection.
@@ -309,11 +309,11 @@ class BaseModel(abc.ABC):
 
     def set_values(
         self,
-        config: Mapping[str | Connection, MyTensor[Any] | MainValueType | str]
-        | Mapping[Connection, MyTensor[Any] | MainValueType | str]
-        | Mapping[str, MyTensor[Any] | MainValueType | str]
+        config: Mapping[str | Connection, Tensor[Any] | MainValueType | str]
+        | Mapping[Connection, Tensor[Any] | MainValueType | str]
+        | Mapping[str, Tensor[Any] | MainValueType | str]
         | None = None,
-        **kwargs: MyTensor[Any] | MainValueType | str,
+        **kwargs: Tensor[Any] | MainValueType | str,
     ) -> None:
         """
         Set multiple values in the model.
@@ -353,22 +353,22 @@ class BaseModel(abc.ABC):
         self,
         config: Mapping[
             str | Connection,
-            type | UnionType | ScalarType | type[TensorValueType] | type[MyTensor[Any]],
+            type | UnionType | ScalarType | type[TensorValueType] | type[Tensor[Any]],
         ]
         | Mapping[
             Connection,
-            type | UnionType | ScalarType | type[TensorValueType] | type[MyTensor[Any]],
+            type | UnionType | ScalarType | type[TensorValueType] | type[Tensor[Any]],
         ]
         | Mapping[
             str,
-            type | UnionType | ScalarType | type[TensorValueType] | type[MyTensor[Any]],
+            type | UnionType | ScalarType | type[TensorValueType] | type[Tensor[Any]],
         ]
         | None = None,
         **kwargs: type
         | UnionType
         | ScalarType
         | type[TensorValueType]
-        | type[MyTensor[Any]],
+        | type[Tensor[Any]],
     ) -> None:
         """
         Set types of any connection in the Model
@@ -390,7 +390,7 @@ class BaseModel(abc.ABC):
         # Initialize assigned shapes dictionary to store assigned shapes.
         assigned_types: dict[
             str,
-            type | UnionType | ScalarType | type[TensorValueType] | MyTensor[Any],
+            type | UnionType | ScalarType | type[TensorValueType] | Tensor[Any],
         ] = {}
 
         # Get the outermost parent as all the updates will happen here.
@@ -521,7 +521,7 @@ class BaseModel(abc.ABC):
         # if type(left.data) is not type(right.data):
         l_type = left.edge_type
         r_type = right.edge_type
-        if ((l_type is MyTensor) ^ (r_type is MyTensor)) and (
+        if ((l_type is Tensor) ^ (r_type is Tensor)) and (
             ToBeDetermined not in (l_type, r_type)
         ):
             raise TypeError(

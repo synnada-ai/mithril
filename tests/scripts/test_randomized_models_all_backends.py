@@ -20,7 +20,7 @@ import numpy as np
 import pytest
 
 from mithril import JaxBackend, MlxBackend, NumpyBackend, TorchBackend, compile, models
-from mithril.framework.common import MyTensor
+from mithril.framework.common import Tensor
 from mithril.utils.dict_conversions import dict_to_model
 from tests.scripts.test_utils import (
     dict_to_random,
@@ -178,7 +178,7 @@ def test_randomized(case: str) -> None:
             )
             static_inputs[init_key] = {
                 key: init_backend.array(value)
-                if model.conns.get_metadata(key).edge_type is MyTensor
+                if model.conns.get_metadata(key).edge_type is Tensor
                 else value
                 for key, value in static_inputs[init_key].items()
             }
@@ -228,7 +228,7 @@ def test_randomized(case: str) -> None:
                 }
                 static_inputs[backend.backend_type] = {
                     key: backend.array(value)
-                    if model.conns.get_metadata(key).edge_type is MyTensor
+                    if model.conns.get_metadata(key).edge_type is Tensor
                     else value
                     for key, value in static_inputs[init_key].items()
                 }

@@ -26,13 +26,13 @@ from mithril.models import (
     IOKey,
     Linear,
     Model,
-    MyTensor,
     PhysicalModel,
     PrimitiveUnion,
     Relu,
     Shape,
     Sigmoid,
     Subtract,
+    Tensor,
     ToTensor,
 )
 
@@ -288,9 +288,9 @@ def test_data_store_13():
     backend = TorchBackend(precision=32)
     model = Model()
     add = Add()
-    add.set_types(left=MyTensor, right=MyTensor)
+    add.set_types(left=Tensor, right=Tensor)
     subtract = Subtract()
-    subtract.set_types(left=MyTensor, right=MyTensor)
+    subtract.set_types(left=Tensor, right=Tensor)
     model += add(left="left", right="right", output=IOKey(name="out"))
     model += subtract(
         left="out", right="something", output=IOKey(name="out2", expose=True)
@@ -459,7 +459,7 @@ def test_data_store_17():
     backend = NumpyBackend(precision=32)
     model = Model()
     add = Add()
-    add.set_types(left=MyTensor, right=MyTensor)
+    add.set_types(left=Tensor, right=Tensor)
     model += add(left="left")
     add.right.set_differentiable(False)
     model += Sigmoid()(input=add.output, output="output")
@@ -488,7 +488,7 @@ def test_data_store_18():
     backend = TorchBackend(precision=32)
     model = Model()
     add = Add()
-    add.set_types(left=MyTensor, right=MyTensor)
+    add.set_types(left=Tensor, right=Tensor)
     model += add(left="left")
     add.right.set_differentiable(False)
     model += Sigmoid()(input=add.output, output=IOKey("output"))

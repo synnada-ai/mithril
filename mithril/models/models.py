@@ -28,8 +28,8 @@ from ..framework.common import (
     ConnectionType,
     IOKey,
     MainValueType,
-    MyTensor,
     ShapeTemplateType,
+    Tensor,
     ToBeDetermined,
 )
 from ..framework.constraints import polynomial_kernel_constraint
@@ -166,7 +166,7 @@ class Pool1D(Model):
         padding: int | PaddingType | tuple[int, int] | ToBeDetermined = (0, 0),
         dilation: int | ToBeDetermined = 1,
         name: str | None = None,
-        input: MyTensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
         self.factory_args = {
@@ -256,7 +256,7 @@ class Pool2D(Model):
         padding: int | PaddingType | tuple[int, int] | ToBeDetermined = (0, 0),
         dilation: int | ToBeDetermined = 1,
         name: str | None = None,
-        input: MyTensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
         self.factory_args = {
@@ -354,8 +354,8 @@ class Convolution1D(Model):
         dilation: int | ToBeDetermined = 1,
         use_bias: bool = True,
         name: str | None = None,
-        input: MyTensor[Any] | ToBeDetermined = TBD,
-        weight: MyTensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[Any] | ToBeDetermined = TBD,
+        weight: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
         self.factory_args = {
@@ -434,8 +434,8 @@ class Convolution2D(Model):
         dilation: int | tuple[int, int] | ToBeDetermined = (1, 1),
         use_bias: bool = True,
         name: str | None = None,
-        input: MyTensor[Any] | ToBeDetermined = TBD,
-        weight: MyTensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[Any] | ToBeDetermined = TBD,
+        weight: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
         self.factory_args = {
@@ -517,9 +517,9 @@ class Linear(Model):
         dimension: int | None = None,
         use_bias: bool = True,
         name: str | None = None,
-        input: MyTensor[Any] | ToBeDetermined = TBD,
-        weight: MyTensor[Any] | ToBeDetermined = TBD,
-        bias: MyTensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[Any] | ToBeDetermined = TBD,
+        weight: Tensor[Any] | ToBeDetermined = TBD,
+        bias: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
         self.factory_args = {"dimension": dimension, "use_bias": use_bias}
@@ -537,7 +537,7 @@ class Linear(Model):
         weight_key = IOKey(name="weight", value=weight).transpose()
 
         if use_bias:
-            bias_key = IOKey(name="bias", value=bias, type=MyTensor)
+            bias_key = IOKey(name="bias", value=bias, type=Tensor)
             self += mult(left=input_key, right=weight_key)
             self += Add()(left=mult.output, right=bias_key, output=output)
             shapes["bias"] = [dim]
@@ -576,9 +576,9 @@ class ElementWiseAffine(Model):
     def __init__(
         self,
         name: str | None = None,
-        input: MyTensor[Any] | ToBeDetermined = TBD,
-        weight: MyTensor[Any] | ToBeDetermined = TBD,
-        bias: MyTensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[Any] | ToBeDetermined = TBD,
+        weight: Tensor[Any] | ToBeDetermined = TBD,
+        bias: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
 
@@ -622,9 +622,9 @@ class Layer(Model):
         activation: BaseModel,
         dimension: int | None = None,
         name: str | None = None,
-        input: MyTensor[Any] | ToBeDetermined = TBD,
-        weight: MyTensor[Any] | ToBeDetermined = TBD,
-        bias: MyTensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[Any] | ToBeDetermined = TBD,
+        weight: Tensor[Any] | ToBeDetermined = TBD,
+        bias: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
         self.factory_args = {"activation": activation, "dimension": dimension}
@@ -664,9 +664,9 @@ class LayerNorm(Model):
         use_bias: bool = True,
         eps: float = 1e-5,
         name: str | None = None,
-        input: MyTensor[Any] | ToBeDetermined = TBD,
-        weight: MyTensor[Any] | ToBeDetermined = TBD,
-        bias: MyTensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[Any] | ToBeDetermined = TBD,
+        weight: Tensor[Any] | ToBeDetermined = TBD,
+        bias: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
         self.factory_args = {"use_scale": use_scale, "use_bias": use_bias, "eps": eps}
@@ -674,10 +674,10 @@ class LayerNorm(Model):
         # Expects its input shape as [B, ..., d] d refers to normalized dimension
         mean = Mean(axis=-1, keepdim=True)
         numerator = Subtract()
-        numerator.set_types(left=MyTensor, right=MyTensor)
+        numerator.set_types(left=Tensor, right=Tensor)
         var = Variance(axis=-1, correction=0, keepdim=True)
         add = Add()
-        add.set_types(left=MyTensor)
+        add.set_types(left=Tensor)
         denominator = Sqrt()
         in_key = IOKey("input", value=input)
         self += mean(input=in_key)
@@ -697,7 +697,7 @@ class LayerNorm(Model):
 
         if use_scale:
             mult = Multiply()
-            mult.set_types(left=MyTensor, right=MyTensor)
+            mult.set_types(left=Tensor, right=Tensor)
             self += mult(
                 left=self.canonical_output, right=IOKey("weight", value=weight)
             )
@@ -705,7 +705,7 @@ class LayerNorm(Model):
 
         if use_bias:
             add = Add()
-            add.set_types(left=MyTensor, right=MyTensor)
+            add.set_types(left=Tensor, right=Tensor)
             self += add(left=self.canonical_output, right=IOKey("bias", value=bias))
             add._set_shapes(shapes)
         # TODO: Remove below Buffer after required naming-related changes are done.
@@ -747,10 +747,10 @@ class GroupNorm(Model):
         use_bias: bool = True,
         eps: float = 1e-5,
         name: str | None = None,
-        input: MyTensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[Any] | ToBeDetermined = TBD,
         *,
-        weight: MyTensor[Any] | ToBeDetermined = TBD,
-        bias: MyTensor[Any] | ToBeDetermined = TBD,
+        weight: Tensor[Any] | ToBeDetermined = TBD,
+        bias: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
 
@@ -776,13 +776,13 @@ class GroupNorm(Model):
         }
 
         if use_scale:
-            weight_key = IOKey(name="weight", type=MyTensor[float], value=weight)
+            weight_key = IOKey(name="weight", type=Tensor[float], value=weight)
             mult = Multiply()
             self += mult(left=self.canonical_output, right=weight_key)
             mult._set_shapes(shapes)
 
         if use_bias:
-            bias_key = IOKey(name="bias", type=MyTensor[float], value=bias)
+            bias_key = IOKey(name="bias", type=Tensor[float], value=bias)
             add = Add()
             self += add(left=self.canonical_output, right=bias_key)
             add._set_shapes(shapes)
@@ -817,7 +817,7 @@ class L1(Model):
     output: Connection
 
     def __init__(
-        self, name: str | None = None, input: MyTensor[Any] | ToBeDetermined = TBD
+        self, name: str | None = None, input: Tensor[Any] | ToBeDetermined = TBD
     ) -> None:
         super().__init__(name=name)
 
@@ -842,7 +842,7 @@ class L2(Model):
     output: Connection
 
     def __init__(
-        self, name: str | None = None, input: MyTensor[Any] | ToBeDetermined = TBD
+        self, name: str | None = None, input: Tensor[Any] | ToBeDetermined = TBD
     ) -> None:
         super().__init__(name=name)
         square = Square()
@@ -851,7 +851,7 @@ class L2(Model):
         self += square(input=IOKey("input", value=input))
         self += sum(input=square.output)
         self += Multiply()(
-            left=sum.output, right=MyTensor(0.5), output=IOKey(name="output")
+            left=sum.output, right=Tensor(0.5), output=IOKey(name="output")
         )
 
         self._freeze()
@@ -873,8 +873,8 @@ class QuadraticFormRegularizer(Model):
     def __init__(
         self,
         name: str | None = None,
-        input: MyTensor[Any] | ToBeDetermined = TBD,
-        kernel: MyTensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[Any] | ToBeDetermined = TBD,
+        kernel: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
         transpose_model = Transpose()
@@ -887,7 +887,7 @@ class QuadraticFormRegularizer(Model):
         )
         self += dot_model2(left=dot_model1.output, right=transpose_model.output)
         self += Multiply()(
-            left=dot_model2.output, right=MyTensor(0.5), output=IOKey(name="output")
+            left=dot_model2.output, right=Tensor(0.5), output=IOKey(name="output")
         )
         shapes: dict[str, ShapeTemplateType] = {"input": [1, "N"], "kernel": ["N", "N"]}
         self._set_shapes(shapes)
@@ -916,10 +916,10 @@ class RBFKernel(Model):
     def __init__(
         self,
         name: str | None = None,
-        input1: MyTensor[Any] | ToBeDetermined = TBD,
-        input2: MyTensor[Any] | ToBeDetermined = TBD,
-        l_scale: MyTensor[Any] | ToBeDetermined = TBD,
-        sigma: MyTensor[Any] | ToBeDetermined = TBD,
+        input1: Tensor[Any] | ToBeDetermined = TBD,
+        input2: Tensor[Any] | ToBeDetermined = TBD,
+        l_scale: Tensor[Any] | ToBeDetermined = TBD,
+        sigma: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
 
@@ -992,10 +992,10 @@ class PolynomialKernel(Model):
         self,
         robust: bool = True,
         name: str | None = None,
-        input1: MyTensor[Any] | ToBeDetermined = TBD,
-        input2: MyTensor[Any] | ToBeDetermined = TBD,
-        poly_coef: MyTensor[Any] | ToBeDetermined = TBD,
-        degree: MyTensor[Any] | ToBeDetermined = TBD,
+        input1: Tensor[Any] | ToBeDetermined = TBD,
+        input2: Tensor[Any] | ToBeDetermined = TBD,
+        poly_coef: Tensor[Any] | ToBeDetermined = TBD,
+        degree: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
 
@@ -1056,9 +1056,9 @@ class KernelizedSVM(Model):
         self,
         kernel: BaseModel,
         name: str | None = None,
-        weight: MyTensor[Any] | ToBeDetermined = TBD,
-        bias: MyTensor[Any] | ToBeDetermined = TBD,
-        **kwargs: MyTensor[Any] | ToBeDetermined,
+        weight: Tensor[Any] | ToBeDetermined = TBD,
+        bias: Tensor[Any] | ToBeDetermined = TBD,
+        **kwargs: Tensor[Any] | ToBeDetermined,
     ) -> None:
         if len(kernel.input_keys) < 2:
             raise KeyError("Kernel requires at least two inputs!")
@@ -1124,9 +1124,9 @@ class LinearSVM(Model):
     def __init__(
         self,
         name: str | None = None,
-        input: MyTensor[Any] | ToBeDetermined = TBD,
-        weight: MyTensor[Any] | ToBeDetermined = TBD,
-        bias: MyTensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[Any] | ToBeDetermined = TBD,
+        weight: Tensor[Any] | ToBeDetermined = TBD,
+        bias: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
 
@@ -1174,9 +1174,9 @@ class LogisticRegression(Model):
     def __init__(
         self,
         name: str | None = None,
-        input: MyTensor[Any] | ToBeDetermined = TBD,
-        weight: MyTensor[Any] | ToBeDetermined = TBD,
-        bias: MyTensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[Any] | ToBeDetermined = TBD,
+        weight: Tensor[Any] | ToBeDetermined = TBD,
+        bias: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
 
@@ -1224,8 +1224,8 @@ class MLP(Model):
         dimensions: Sequence[int | None],
         input_name_templates: dict[str, str] | None = None,
         name: str | None = None,
-        input: MyTensor[Any] | ToBeDetermined = TBD,
-        **weights_biases: MyTensor[Any] | ToBeDetermined,
+        input: Tensor[Any] | ToBeDetermined = TBD,
+        **weights_biases: Tensor[Any] | ToBeDetermined,
     ) -> None:
         super().__init__(name=name)
         self.factory_args = {"activations": activations, "dimensions": dimensions}
@@ -1331,12 +1331,12 @@ class RNNCell(Cell):
     def __init__(
         self,
         name: str | None = None,
-        input: MyTensor[Any] | ToBeDetermined = TBD,
-        w_ih: MyTensor[Any] | ToBeDetermined = TBD,
-        w_hh: MyTensor[Any] | ToBeDetermined = TBD,
-        w_ho: MyTensor[Any] | ToBeDetermined = TBD,
-        bias_h: MyTensor[Any] | ToBeDetermined = TBD,
-        bias_o: MyTensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[Any] | ToBeDetermined = TBD,
+        w_ih: Tensor[Any] | ToBeDetermined = TBD,
+        w_hh: Tensor[Any] | ToBeDetermined = TBD,
+        w_ho: Tensor[Any] | ToBeDetermined = TBD,
+        bias_h: Tensor[Any] | ToBeDetermined = TBD,
+        bias_o: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
 
@@ -1455,17 +1455,17 @@ class LSTMCell(Cell):
     def __init__(
         self,
         name: str | None = None,
-        input: MyTensor[Any] | ToBeDetermined = TBD,
-        w_i: MyTensor[Any] | ToBeDetermined = TBD,
-        w_f: MyTensor[Any] | ToBeDetermined = TBD,
-        w_c: MyTensor[Any] | ToBeDetermined = TBD,
-        w_o: MyTensor[Any] | ToBeDetermined = TBD,
-        w_out: MyTensor[Any] | ToBeDetermined = TBD,
-        bias_f: MyTensor[Any] | ToBeDetermined = TBD,
-        bias_i: MyTensor[Any] | ToBeDetermined = TBD,
-        bias_c: MyTensor[Any] | ToBeDetermined = TBD,
-        bias_o: MyTensor[Any] | ToBeDetermined = TBD,
-        bias_out: MyTensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[Any] | ToBeDetermined = TBD,
+        w_i: Tensor[Any] | ToBeDetermined = TBD,
+        w_f: Tensor[Any] | ToBeDetermined = TBD,
+        w_c: Tensor[Any] | ToBeDetermined = TBD,
+        w_o: Tensor[Any] | ToBeDetermined = TBD,
+        w_out: Tensor[Any] | ToBeDetermined = TBD,
+        bias_f: Tensor[Any] | ToBeDetermined = TBD,
+        bias_i: Tensor[Any] | ToBeDetermined = TBD,
+        bias_c: Tensor[Any] | ToBeDetermined = TBD,
+        bias_o: Tensor[Any] | ToBeDetermined = TBD,
+        bias_out: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
         factory_inputs = {
@@ -1623,17 +1623,17 @@ class LSTMCellBody(Model):
     def __init__(
         self,
         name: str | None = None,
-        input: MyTensor[Any] | ToBeDetermined = TBD,
-        prev_hidden: MyTensor[Any] | ToBeDetermined = TBD,
-        prev_cell: MyTensor[Any] | ToBeDetermined = TBD,
-        w_i: MyTensor[Any] | ToBeDetermined = TBD,
-        w_f: MyTensor[Any] | ToBeDetermined = TBD,
-        w_c: MyTensor[Any] | ToBeDetermined = TBD,
-        w_o: MyTensor[Any] | ToBeDetermined = TBD,
-        bias_f: MyTensor[Any] | ToBeDetermined = TBD,
-        bias_i: MyTensor[Any] | ToBeDetermined = TBD,
-        bias_c: MyTensor[Any] | ToBeDetermined = TBD,
-        bias_o: MyTensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[Any] | ToBeDetermined = TBD,
+        prev_hidden: Tensor[Any] | ToBeDetermined = TBD,
+        prev_cell: Tensor[Any] | ToBeDetermined = TBD,
+        w_i: Tensor[Any] | ToBeDetermined = TBD,
+        w_f: Tensor[Any] | ToBeDetermined = TBD,
+        w_c: Tensor[Any] | ToBeDetermined = TBD,
+        w_o: Tensor[Any] | ToBeDetermined = TBD,
+        bias_f: Tensor[Any] | ToBeDetermined = TBD,
+        bias_i: Tensor[Any] | ToBeDetermined = TBD,
+        bias_c: Tensor[Any] | ToBeDetermined = TBD,
+        bias_o: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
 
@@ -1753,7 +1753,7 @@ class RNN(Model):
         self,
         cell_type: Cell,
         name: str | None = None,
-        # **kwargs: MyTensor[Any] | MainValueType,
+        # **kwargs: Tensor[Any] | MainValueType,
     ) -> None:
         self.cell_type = cell_type
         super().__init__(name=name)
@@ -1772,8 +1772,8 @@ class OneToMany(RNN):
         max_sequence_length: int,
         teacher_forcing: bool = False,
         name: str | None = None,
-        input: MyTensor[Any] | ToBeDetermined = TBD,
-        **kwargs: MyTensor[Any] | MainValueType,
+        input: Tensor[Any] | ToBeDetermined = TBD,
+        **kwargs: Tensor[Any] | MainValueType,
     ) -> None:
         super().__init__(cell_type=cell_type, name=name)
 
@@ -1854,8 +1854,8 @@ class OneToManyInference(RNN):
         cell_type: Cell,
         max_sequence_length: int,
         name: str | None = None,
-        input: MyTensor[Any] | ToBeDetermined = TBD,
-        **kwargs: MyTensor[Any] | ToBeDetermined,
+        input: Tensor[Any] | ToBeDetermined = TBD,
+        **kwargs: Tensor[Any] | ToBeDetermined,
     ) -> None:
         super().__init__(cell_type=cell_type, name=name)
 
@@ -1910,8 +1910,8 @@ class ManyToOne(RNN):
         cell_type: Cell,
         max_sequence_length: int,
         name: str | None = None,
-        hidden_concat: MyTensor[Any] | ToBeDetermined = TBD,
-        **kwargs: MyTensor[Any] | ToBeDetermined,
+        hidden_concat: Tensor[Any] | ToBeDetermined = TBD,
+        **kwargs: Tensor[Any] | ToBeDetermined,
     ) -> None:
         super().__init__(cell_type, name=name)
 
@@ -1991,7 +1991,7 @@ class EncoderDecoder(Model):
         max_target_sequence_length: int,
         teacher_forcing: bool = False,
         name: str | None = None,
-        indices: MyTensor[Any] | ToBeDetermined = TBD,
+        indices: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
 
@@ -2091,8 +2091,8 @@ class EncoderDistanceMatrix(Model):
         get_final_distance: bool = True,
         robust: bool = True,
         name: str | None = None,
-        input1: MyTensor[Any] | ToBeDetermined = TBD,
-        input2: MyTensor[Any] | ToBeDetermined = TBD,
+        input1: Tensor[Any] | ToBeDetermined = TBD,
+        input2: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
         self.factory_args = {"get_final_distance": get_final_distance, "robust": robust}
@@ -2110,7 +2110,7 @@ class EncoderDistanceMatrix(Model):
                 left=input1_key, right=input2_key, norm=modifier_model.output
             )
             self += reciprocal_model(
-                numerator=MyTensor(1.0), denominator=modifier_model.output
+                numerator=Tensor(1.0), denominator=modifier_model.output
             )
             self += power_model(
                 base=dist_model.output,
@@ -2150,9 +2150,9 @@ class PolynomialRegression(Model):
         degree: int,
         dimension: int | None = None,
         name: str | None = None,
-        input: MyTensor[Any] | ToBeDetermined = TBD,
-        weight: MyTensor[Any] | ToBeDetermined = TBD,
-        bias: MyTensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[Any] | ToBeDetermined = TBD,
+        weight: Tensor[Any] | ToBeDetermined = TBD,
+        bias: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
         self.factory_args = {"degree": degree, "dimension": dimension}
@@ -2193,9 +2193,9 @@ class MDSCore(Model):
         exact_distances: bool = True,
         robust: bool = True,
         name: str | None = None,
-        distances: MyTensor[Any] | ToBeDetermined = TBD,
-        pred_distances: MyTensor[Any] | ToBeDetermined = TBD,
-        norm: MyTensor[Any] | ToBeDetermined = TBD,
+        distances: Tensor[Any] | ToBeDetermined = TBD,
+        pred_distances: Tensor[Any] | ToBeDetermined = TBD,
+        norm: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         self.factory_args = {"exact_distances": exact_distances, "robust": robust}
         super().__init__(name=name)
@@ -2292,9 +2292,9 @@ class TSNECore(Model):
         calculate_p_joint: bool = False,
         perplexity: float = 20.0,
         name: str | None = None,
-        distances: MyTensor[Any] | ToBeDetermined = TBD,
-        pred_distances: MyTensor[Any] | ToBeDetermined = TBD,
-        p_joint: MyTensor[Any] | ToBeDetermined = TBD,
+        distances: Tensor[Any] | ToBeDetermined = TBD,
+        pred_distances: Tensor[Any] | ToBeDetermined = TBD,
+        p_joint: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
         self.factory_args = {
@@ -2386,10 +2386,10 @@ class DistanceEncoder(Model):
         base_model: MDSCore | TSNECore,
         input_type: str = "distances",
         name: str | None = None,
-        input: MyTensor[Any] | ToBeDetermined = TBD,
-        coords: MyTensor[Any] | ToBeDetermined = TBD,
-        norm: MyTensor[Any] | ToBeDetermined = TBD,
-        predicted_coords: MyTensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[Any] | ToBeDetermined = TBD,
+        coords: Tensor[Any] | ToBeDetermined = TBD,
+        norm: Tensor[Any] | ToBeDetermined = TBD,
+        predicted_coords: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
         self.factory_args = {"base_model": base_model, "input_type": input_type}
@@ -2494,10 +2494,10 @@ class MDS(DistanceEncoder):
         prediction_dim: int,
         input_type: str = "distances",
         name: str | None = None,
-        input: MyTensor[Any] | ToBeDetermined = TBD,
-        coords: MyTensor[Any] | ToBeDetermined = TBD,
-        norm: MyTensor[Any] | ToBeDetermined = TBD,
-        predicted_coords: MyTensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[Any] | ToBeDetermined = TBD,
+        coords: Tensor[Any] | ToBeDetermined = TBD,
+        norm: Tensor[Any] | ToBeDetermined = TBD,
+        predicted_coords: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         assert input_type in ["distances", "powered_distances", "points"]
         base_model = MDSCore(exact_distances=(input_type == "distances"))
@@ -2551,9 +2551,9 @@ class TSNE(DistanceEncoder):
         preplexity: float = 20.0,
         calculate_p_joint: bool = False,
         name: str | None = None,
-        input: MyTensor[Any] | ToBeDetermined = TBD,
-        norm: MyTensor[Any] | ToBeDetermined = TBD,
-        predicted_coords: MyTensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[Any] | ToBeDetermined = TBD,
+        norm: Tensor[Any] | ToBeDetermined = TBD,
+        predicted_coords: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         assert input_type in ["distances", "powered_distances", "points"]
         base_model = TSNECore(
@@ -2606,14 +2606,14 @@ class GaussProcessRegressionCore(Model):
     def __init__(
         self,
         name: str | None = None,
-        s: MyTensor[Any] | ToBeDetermined = TBD,
-        k: MyTensor[Any] | ToBeDetermined = TBD,
-        k_star: MyTensor[Any] | ToBeDetermined = TBD,
-        mu: MyTensor[Any] | ToBeDetermined = TBD,
-        label: MyTensor[Any] | ToBeDetermined = TBD,
-        loss: MyTensor[Any] | ToBeDetermined = TBD,
-        prediction: MyTensor[Any] | ToBeDetermined = TBD,
-        confidence: MyTensor[Any] | ToBeDetermined = TBD,
+        s: Tensor[Any] | ToBeDetermined = TBD,
+        k: Tensor[Any] | ToBeDetermined = TBD,
+        k_star: Tensor[Any] | ToBeDetermined = TBD,
+        mu: Tensor[Any] | ToBeDetermined = TBD,
+        label: Tensor[Any] | ToBeDetermined = TBD,
+        loss: Tensor[Any] | ToBeDetermined = TBD,
+        prediction: Tensor[Any] | ToBeDetermined = TBD,
+        confidence: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
 
@@ -2732,11 +2732,11 @@ class GPRLoss(Model):
         self,
         robust: bool = False,
         name: str | None = None,
-        labels: MyTensor[Any] | ToBeDetermined = TBD,
-        mu: MyTensor[Any] | ToBeDetermined = TBD,
-        L: MyTensor[Any] | ToBeDetermined = TBD,
-        K_term: MyTensor[Any] | ToBeDetermined = TBD,
-        alpha: MyTensor[Any] | ToBeDetermined = TBD,
+        labels: Tensor[Any] | ToBeDetermined = TBD,
+        mu: Tensor[Any] | ToBeDetermined = TBD,
+        L: Tensor[Any] | ToBeDetermined = TBD,
+        K_term: Tensor[Any] | ToBeDetermined = TBD,
+        alpha: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
         self.factory_args = {"robust": robust}
@@ -2823,8 +2823,8 @@ class Metric(Model):
         is_pred_one_hot: bool = True,
         is_label_one_hot: bool = True,
         name: str | None = None,
-        pred: MyTensor[Any] | ToBeDetermined = TBD,
-        label: MyTensor[Any] | ToBeDetermined = TBD,
+        pred: Tensor[Any] | ToBeDetermined = TBD,
+        label: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
         self.factory_args = {"threshold": threshold}
@@ -2847,8 +2847,8 @@ class Metric(Model):
             self += Greater()(left=pred_key, right=threshold, output="greater_out")
             self += Where()(
                 cond="greater_out",
-                input1=MyTensor(1),
-                input2=MyTensor(0),
+                input1=Tensor(1),
+                input2=Tensor(0),
                 output="pred_comp",
             )
             pred_key = self.pred_comp
@@ -2897,8 +2897,8 @@ class Accuracy(Model):
         is_pred_one_hot: bool = True,
         is_label_one_hot: bool = True,
         name: str | None = None,
-        pred: MyTensor[Any] | ToBeDetermined = TBD,
-        label: MyTensor[Any] | ToBeDetermined = TBD,
+        pred: Tensor[Any] | ToBeDetermined = TBD,
+        label: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
         self += Metric(
@@ -2958,8 +2958,8 @@ class Precision(Model):
         is_pred_one_hot: bool = True,
         is_label_one_hot: bool = True,
         name: str | None = None,
-        pred: MyTensor[Any] | ToBeDetermined = TBD,
-        label: MyTensor[Any] | ToBeDetermined = TBD,
+        pred: Tensor[Any] | ToBeDetermined = TBD,
+        label: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
         self.factory_args = {"threshold": threshold}
@@ -2987,8 +2987,8 @@ class Precision(Model):
         )
 
         if average == "micro":
-            true_positive = self.metric_out == MyTensor(0)
-            false_positive = self.metric_out != MyTensor(0)
+            true_positive = self.metric_out == Tensor(0)
+            false_positive = self.metric_out != Tensor(0)
             self += Sum()(input=true_positive, output="n_true_positive")
             self += Sum()(input=false_positive, output="n_false_positive")
 
@@ -3004,9 +3004,9 @@ class Precision(Model):
                 n_classes is not None
             ), "n_classes must be provided if average is or 'macro'"
             for idx in range(n_classes):
-                class_idxs = self.label_formatted == MyTensor(idx)
-                true_positive = (self.metric_out == MyTensor(0)) & class_idxs
-                false_positive = (self.pred_formatted == MyTensor(idx)) & ~class_idxs
+                class_idxs = self.label_formatted == Tensor(idx)
+                true_positive = (self.metric_out == Tensor(0)) & class_idxs
+                false_positive = (self.pred_formatted == Tensor(idx)) & ~class_idxs
 
                 self += Sum()(input=true_positive, output=f"true_positive_{idx}")
                 self += Sum()(input=false_positive, output=f"false_positive_{idx}")
@@ -3014,8 +3014,8 @@ class Precision(Model):
                     self, f"false_positive_{idx}"
                 )
                 self += Where()(
-                    denominator == MyTensor(0),
-                    MyTensor(1),
+                    denominator == Tensor(0),
+                    Tensor(1),
                     denominator,
                     f"denominator_{idx}",
                 )
@@ -3046,9 +3046,9 @@ class Precision(Model):
                 n_classes is not None
             ), "n_classes must be provided if average is or 'weighted'"
             for idx in range(n_classes):
-                class_idxs = self.label_formatted == MyTensor(idx)
-                true_positive = (self.metric_out == MyTensor(0)) & class_idxs
-                false_positive = (self.pred_formatted == MyTensor(idx)) & ~class_idxs
+                class_idxs = self.label_formatted == Tensor(idx)
+                true_positive = (self.metric_out == Tensor(0)) & class_idxs
+                false_positive = (self.pred_formatted == Tensor(idx)) & ~class_idxs
                 self += Sum()(input=class_idxs, output=f"n_class_{idx}")
 
                 self += Sum()(input=true_positive, output=f"true_positive_{idx}")
@@ -3057,8 +3057,8 @@ class Precision(Model):
                     self, f"false_positive_{idx}"
                 )
                 self += Where()(
-                    denominator == MyTensor(0),
-                    MyTensor(1),
+                    denominator == Tensor(0),
+                    Tensor(1),
                     denominator,
                     f"denominator_{idx}",
                 )
@@ -3118,8 +3118,8 @@ class Recall(Model):
         is_pred_one_hot: bool = True,
         is_label_one_hot: bool = True,
         name: str | None = None,
-        pred: MyTensor[Any] | ToBeDetermined = TBD,
-        label: MyTensor[Any] | ToBeDetermined = TBD,
+        pred: Tensor[Any] | ToBeDetermined = TBD,
+        label: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
         self.factory_args = {"threshold": threshold}
@@ -3147,8 +3147,8 @@ class Recall(Model):
         )
 
         if average == "micro":
-            true_positive = self.metric_out == MyTensor(0)
-            false_negative = self.metric_out != MyTensor(0)
+            true_positive = self.metric_out == Tensor(0)
+            false_negative = self.metric_out != Tensor(0)
             self += Sum()(input=true_positive, output="n_true_positive")
             self += Sum()(input=false_negative, output="n_false_negative")
 
@@ -3164,9 +3164,9 @@ class Recall(Model):
                 n_classes is not None
             ), "n_classes must be provided if average is or 'macro'"
             for idx in range(n_classes):
-                class_idxs = self.label_formatted == MyTensor(idx)
-                true_positive = (self.metric_out == MyTensor(0)) & class_idxs
-                false_negative = (self.pred_formatted != MyTensor(idx)) & class_idxs
+                class_idxs = self.label_formatted == Tensor(idx)
+                true_positive = (self.metric_out == Tensor(0)) & class_idxs
+                false_negative = (self.pred_formatted != Tensor(idx)) & class_idxs
 
                 self += Sum()(input=true_positive, output=f"true_positive_{idx}")
                 self += Sum()(input=false_negative, output=f"false_negative_{idx}")
@@ -3174,8 +3174,8 @@ class Recall(Model):
                     self, f"false_negative_{idx}"
                 )
                 self += Where()(
-                    denominator == MyTensor(0),
-                    MyTensor(1),
+                    denominator == Tensor(0),
+                    Tensor(1),
                     denominator,
                     f"denominator_{idx}",
                 )
@@ -3205,9 +3205,9 @@ class Recall(Model):
             ), "n_classes must be provided if average is or 'weighted'"
             n_element = self.label_formatted.shape[0]
             for idx in range(n_classes):
-                class_idxs = self.label_formatted == MyTensor(idx)
-                true_positive = (self.metric_out == MyTensor(0)) & class_idxs
-                false_negative = (self.pred_formatted != MyTensor(idx)) & class_idxs
+                class_idxs = self.label_formatted == Tensor(idx)
+                true_positive = (self.metric_out == Tensor(0)) & class_idxs
+                false_negative = (self.pred_formatted != Tensor(idx)) & class_idxs
                 self += Sum()(input=class_idxs, output=f"n_class_{idx}")
 
                 self += Sum()(input=true_positive, output=f"true_positive_{idx}")
@@ -3216,8 +3216,8 @@ class Recall(Model):
                     self, f"false_negative_{idx}"
                 )
                 self += Where()(
-                    denominator == MyTensor(0),
-                    MyTensor(1),
+                    denominator == Tensor(0),
+                    Tensor(1),
                     denominator,
                     f"denominator_{idx}",
                 )
@@ -3277,8 +3277,8 @@ class F1(Model):
         is_pred_one_hot: bool = True,
         is_label_one_hot: bool = True,
         name: str | None = None,
-        pred: MyTensor[Any] | ToBeDetermined = TBD,
-        label: MyTensor[Any] | ToBeDetermined = TBD,
+        pred: Tensor[Any] | ToBeDetermined = TBD,
+        label: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
         self.factory_args = {"threshold": threshold}
@@ -3306,8 +3306,8 @@ class F1(Model):
         )
 
         if average == "micro":
-            true_positive = self.metric_out == MyTensor(0)
-            false_positive = self.metric_out != MyTensor(0)
+            true_positive = self.metric_out == Tensor(0)
+            false_positive = self.metric_out != Tensor(0)
             self += Sum()(input=true_positive, output="n_true_positive")
             self += Sum()(input=false_positive, output="n_false_positive")
 
@@ -3323,21 +3323,21 @@ class F1(Model):
                 n_classes is not None
             ), "n_classes must be provided if average is or 'macro'"
             for idx in range(n_classes):
-                class_idxs = self.label_formatted == MyTensor(idx)
-                true_positive = (self.metric_out == MyTensor(0)) & class_idxs
-                false_negative = (self.pred_formatted != MyTensor(idx)) & class_idxs
-                false_positive = (self.pred_formatted == MyTensor(idx)) & ~class_idxs
+                class_idxs = self.label_formatted == Tensor(idx)
+                true_positive = (self.metric_out == Tensor(0)) & class_idxs
+                false_negative = (self.pred_formatted != Tensor(idx)) & class_idxs
+                false_positive = (self.pred_formatted == Tensor(idx)) & ~class_idxs
 
                 self += Sum()(input=true_positive, output=f"true_positive_{idx}")
                 self += Sum()(input=false_positive, output=f"false_positive_{idx}")
                 self += Sum()(input=false_negative, output=f"false_negative_{idx}")
-                denominator = getattr(self, f"true_positive_{idx}") + MyTensor(0.5) * (
+                denominator = getattr(self, f"true_positive_{idx}") + Tensor(0.5) * (
                     getattr(self, f"false_positive_{idx}")
                     + getattr(self, f"false_negative_{idx}")
                 )
                 self += Where()(
-                    denominator == MyTensor(0),
-                    MyTensor(1),
+                    denominator == Tensor(0),
+                    Tensor(1),
                     denominator,
                     f"denominator_{idx}",
                 )
@@ -3366,22 +3366,22 @@ class F1(Model):
             ), "n_classes must be provided if average is or 'weighted'"
             n_element = self.label_formatted.shape[0].tensor()
             for idx in range(n_classes):
-                class_idxs = self.label_formatted == MyTensor(idx)
-                true_positive = (self.metric_out == MyTensor(0)) & class_idxs
-                false_negative = (self.pred_formatted != MyTensor(idx)) & class_idxs
-                false_positive = (self.pred_formatted == MyTensor(idx)) & ~class_idxs
+                class_idxs = self.label_formatted == Tensor(idx)
+                true_positive = (self.metric_out == Tensor(0)) & class_idxs
+                false_negative = (self.pred_formatted != Tensor(idx)) & class_idxs
+                false_positive = (self.pred_formatted == Tensor(idx)) & ~class_idxs
                 self += Sum()(input=class_idxs, output=f"n_class_{idx}")
 
                 self += Sum()(input=true_positive, output=f"true_positive_{idx}")
                 self += Sum()(input=false_positive, output=f"false_positive_{idx}")
                 self += Sum()(input=false_negative, output=f"false_negative_{idx}")
-                denominator = getattr(self, f"true_positive_{idx}") + MyTensor(0.5) * (
+                denominator = getattr(self, f"true_positive_{idx}") + Tensor(0.5) * (
                     getattr(self, f"false_positive_{idx}")
                     + getattr(self, f"false_negative_{idx}")
                 )
                 self += Where()(
-                    denominator == MyTensor(0),
-                    MyTensor(1),
+                    denominator == Tensor(0),
+                    Tensor(1),
                     denominator,
                     f"denominator_{idx}",
                 )
@@ -3432,16 +3432,16 @@ class AUC(Model):
         n_classes: int,
         is_label_one_hot: bool = True,
         name: str | None = None,
-        pred: MyTensor[Any] | ToBeDetermined = TBD,
-        label: MyTensor[Any] | ToBeDetermined = TBD,
+        pred: Tensor[Any] | ToBeDetermined = TBD,
+        label: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(name=name)
 
         assert n_classes > 0, ""
         assert isinstance(n_classes, int)
 
-        label_key: IOKey | Connection = IOKey(name="label", type=MyTensor, value=label)
-        pred_key: IOKey | Connection = IOKey(name="pred", type=MyTensor, value=pred)
+        label_key: IOKey | Connection = IOKey(name="label", type=Tensor, value=label)
+        pred_key: IOKey | Connection = IOKey(name="pred", type=Tensor, value=pred)
 
         if is_label_one_hot:
             self += ArgMax(axis=-1)(label_key, output="label_argmax")
@@ -3449,7 +3449,7 @@ class AUC(Model):
 
         auc_score = None
         for class_idx in range(n_classes):
-            class_label = label_key == MyTensor(class_idx)
+            class_label = label_key == Tensor(class_idx)
             pred_class = pred_key[:, class_idx] if n_classes != 1 else pred_key
 
             self += AUCCore()(pred_class, class_label, f"auc_core_{class_idx}")
@@ -3459,13 +3459,9 @@ class AUC(Model):
                 output=IOKey(f"auc_class_{class_idx}"),
             )
             if auc_score is None:
-                auc_score = getattr(self, f"auc_class_{class_idx}") / MyTensor(
-                    n_classes
-                )
+                auc_score = getattr(self, f"auc_class_{class_idx}") / Tensor(n_classes)
             else:
-                auc_score += getattr(self, f"auc_class_{class_idx}") / MyTensor(
-                    n_classes
-                )
+                auc_score += getattr(self, f"auc_class_{class_idx}") / Tensor(n_classes)
 
         self += Buffer()(auc_score, IOKey("output"))
 
@@ -3491,13 +3487,13 @@ class SiLU(Model):
     output: Connection
 
     def __init__(
-        self, name: str | None = None, input: MyTensor[Any] | ToBeDetermined = TBD
+        self, name: str | None = None, input: Tensor[Any] | ToBeDetermined = TBD
     ) -> None:
         super().__init__(name=name)
 
         self += Minus()(input=IOKey("input", value=input), output="minus")
         self += Exponential()(input="minus", output="exp")
-        self += Add()(left=MyTensor(1), right="exp", output="add")
+        self += Add()(left=Tensor(1), right="exp", output="add")
         self += Divide()(
             numerator="input", denominator="add", output=IOKey(name="output")
         )

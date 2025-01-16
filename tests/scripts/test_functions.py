@@ -20,7 +20,7 @@ import mithril
 from mithril import CBackend, JaxBackend, NumpyBackend, TorchBackend
 from mithril.backends.with_manualgrad.numpy_backend.ops_grad import add_grad
 from mithril.framework import NOT_GIVEN, ConnectionType, ExtendInfo
-from mithril.framework.common import BaseKey, IOKey, MyTensor
+from mithril.framework.common import BaseKey, IOKey, Tensor
 from mithril.framework.constraints import bcast
 from mithril.models import (
     Absolute,
@@ -349,7 +349,7 @@ def test_code_generator_2(file_path: str):
     buff3 = Buffer()
     buff4 = Buffer()
 
-    model += buff1(input=IOKey("input", type=MyTensor), output=IOKey(name="output1"))
+    model += buff1(input=IOKey("input", type=Tensor), output=IOKey(name="output1"))
     model += buff2(input=buff1.output)
     model += buff3(input=buff1.output)
     model += buff4(input=buff2.output, output=IOKey(name="output2"))
@@ -417,9 +417,9 @@ def test_code_generator_4(file_path: str):
         def __init__(self) -> None:
             super().__init__(
                 formula_key="my_adder",
-                output=BaseKey(shape=[("Var_out", ...)], type=MyTensor),
-                input=BaseKey(shape=[("Var_1", ...)], type=MyTensor),
-                rhs=BaseKey(shape=[("Var_2", ...)], type=MyTensor),
+                output=BaseKey(shape=[("Var_out", ...)], type=Tensor),
+                input=BaseKey(shape=[("Var_1", ...)], type=Tensor),
+                rhs=BaseKey(shape=[("Var_2", ...)], type=Tensor),
             )
             self.set_constraint(
                 fn=bcast, keys=[PrimitiveModel.output_key, "input", "rhs"]
@@ -526,9 +526,9 @@ def test_code_generator_5(file_path: str):
         def __init__(self) -> None:
             super().__init__(
                 formula_key="my_adder",
-                output=BaseKey(shape=[("Var_out", ...)], type=MyTensor),
-                input=BaseKey(shape=[("Var_1", ...)], type=MyTensor),
-                rhs=BaseKey(shape=[("Var_2", ...)], type=MyTensor),
+                output=BaseKey(shape=[("Var_out", ...)], type=Tensor),
+                input=BaseKey(shape=[("Var_1", ...)], type=Tensor),
+                rhs=BaseKey(shape=[("Var_2", ...)], type=Tensor),
             )
             self.set_constraint(
                 fn=bcast, keys=[PrimitiveModel.output_key, "input", "rhs"]
@@ -546,7 +546,7 @@ def test_code_generator_5(file_path: str):
     model += MyAdder()(input="input", rhs="rhs", output=IOKey(name="output"))
     context = TrainModel(model)
     add = Add()
-    add.set_types(right=MyTensor)
+    add.set_types(right=Tensor)
     context.add_loss(
         BinaryCrossEntropy(), reduce_steps=[add], input="output", target="target"
     )
@@ -691,7 +691,7 @@ def test_code_generator_8(file_path: str):
 
     model = Model()
     add = Add()
-    add.set_types(left=MyTensor, right=MyTensor)
+    add.set_types(left=Tensor, right=Tensor)
     model += add(left="left", right="right")
     model += Multiply()(left=add.output, right="right2", output="output")
 

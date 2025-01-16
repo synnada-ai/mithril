@@ -23,8 +23,8 @@ from ..common import (
     Connection,
     IOHyperEdge,
     KeyType,
-    MyTensor,
     NotAvailable,
+    Tensor,
     ToBeDetermined,
     UniadicRecord,
     Updates,
@@ -72,15 +72,15 @@ class PrimitiveModel(BaseModel):
         for key, value in kwargs.items():
             if isinstance(value, BaseKey):
                 if (
-                    is_generic_tensor := (get_origin(value.type) is MyTensor)
-                ) or value.type is MyTensor:
+                    is_generic_tensor := (get_origin(value.type) is Tensor)
+                ) or value.type is Tensor:
                     tensor_types = (
                         get_args(value.type)[0]
                         if is_generic_tensor
                         else _UltimateTensorValueTypes
                     )
                     assert isinstance(value.value, ToBeDetermined | int | float | bool)
-                    tensor = MyTensor(
+                    tensor = Tensor(
                         value=value.value,
                         type=tensor_types,
                         shape=shapes[key].node,
@@ -106,7 +106,7 @@ class PrimitiveModel(BaseModel):
                 self.conns.set_connection_type(conn_data, KeyType.INPUT)
                 is_diff |= not edge.is_non_diff
         if isinstance(output_data, IOHyperEdge) and isinstance(
-            output_data.edge_type, MyTensor
+            output_data.edge_type, Tensor
         ):
             output_data.differentiable = is_diff
 
@@ -198,7 +198,7 @@ class PrimitiveModel(BaseModel):
             # try to find outer key's real name in data_to_key_map
             outer_key = data_to_key_map.get(key_data, [key])
             outer_key = ["'" + key + "'" for key in outer_key]
-            if key_data.edge_type is not MyTensor and key_data.value is not TBD:
+            if key_data.edge_type is not Tensor and key_data.value is not TBD:
                 # If value of the scalar is determined, write that value directly.
                 outer_key = [str(key_data.value)]
             conn.extend(outer_key)

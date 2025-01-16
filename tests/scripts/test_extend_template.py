@@ -48,7 +48,6 @@ from mithril.models import (
     Minus,
     Model,
     Multiply,
-    MyTensor,
     NotEqual,
     Power,
     Prod,
@@ -60,6 +59,7 @@ from mithril.models import (
     Slice,
     Split,
     Sum,
+    Tensor,
     ToTensor,
     ToTuple,
     Variance,
@@ -245,25 +245,25 @@ def test_right_add():
     # Create with shortcut using left add.
     model_1 = Model()
     model_1 += Linear(dimension=2)(input="input", weight="weight", bias="bias")
-    add_1 = model_1.input + MyTensor(2.0)  # type: ignore
+    add_1 = model_1.input + Tensor(2.0)  # type: ignore
     model_1 += Mean()(input=add_1, output=IOKey(name="output"))
 
     # Create with shortcut using right add.
     model_2 = Model()
     model_2 += Linear(dimension=2)(input="input", weight="weight", bias="bias")
-    add_2 = MyTensor(2.0) + model_2.input  # type: ignore
+    add_2 = Tensor(2.0) + model_2.input  # type: ignore
     model_2 += Mean()(input=add_2, output=IOKey(name="output"))
 
     # Create first model with extend.
     model_3 = Model()
     model_3 += Linear(dimension=2)(input="input", weight="weight", bias="bias")
-    model_3 += (add_3 := Add())(left=model_3.input, right=MyTensor(2.0))  # type: ignore
+    model_3 += (add_3 := Add())(left=model_3.input, right=Tensor(2.0))  # type: ignore
     model_3 += Mean()(input=add_3.output, output=IOKey(name="output"))
 
     # Create second model with extend.
     model_4 = Model()
     model_4 += Linear(dimension=2)(input="input", weight="weight", bias="bias")
-    model_4 += (add_4 := Add())(left=MyTensor(2.0), right=model_4.input)  # type: ignore
+    model_4 += (add_4 := Add())(left=Tensor(2.0), right=model_4.input)  # type: ignore
     model_4 += Mean()(input=add_4.output, output=IOKey(name="output"))
 
     # Provide backend and data.
@@ -297,13 +297,13 @@ def test_right_add_three_term():
     # Create with shortcut using left add.
     model_1 = Model()
     model_1 += Linear(dimension=2)(input="input", weight="weight", bias="bias")
-    add_1 = model_1.input + MyTensor(2.0) + MyTensor(3.0)  # type: ignore
+    add_1 = model_1.input + Tensor(2.0) + Tensor(3.0)  # type: ignore
     model_1 += Mean()(input=add_1, output=IOKey(name="output"))
 
     # Create with shortcut using right add.
     model_2 = Model()
     model_2 += Linear(dimension=2)(input="input", weight="weight", bias="bias")
-    add_2 = MyTensor(5.0) + model_2.input  # type: ignore
+    add_2 = Tensor(5.0) + model_2.input  # type: ignore
     model_2 += Mean()(input=add_2, output=IOKey(name="output"))
 
     # Provide backend and data.
@@ -327,25 +327,25 @@ def test_right_pow():
     # Create with shortcut using left add.
     model_1 = Model()
     model_1 += Linear(dimension=2)(input="input", weight="weight", bias="bias")
-    pow_1 = model_1.input ** MyTensor(2.0)  # type: ignore
+    pow_1 = model_1.input ** Tensor(2.0)  # type: ignore
     model_1 += Mean()(input=pow_1, output=IOKey(name="output"))
 
     # Create with shortcut using right add.
     model_2 = Model()
     model_2 += Linear(dimension=2)(input="input", weight="weight", bias="bias")
-    pow_2 = MyTensor(2.0) ** model_2.input  # type: ignore
+    pow_2 = Tensor(2.0) ** model_2.input  # type: ignore
     model_2 += Mean()(input=pow_2, output=IOKey(name="output"))
 
     # Create first model with extend.
     model_3 = Model()
     model_3 += Linear(dimension=2)(input="input", weight="weight", bias="bias")
-    model_3 += (pow_3 := Power())(base=model_3.input, exponent=MyTensor(2.0))  # type: ignore
+    model_3 += (pow_3 := Power())(base=model_3.input, exponent=Tensor(2.0))  # type: ignore
     model_3 += Mean()(input=pow_3.output, output=IOKey(name="output"))
 
     # Create second model with extend.
     model_4 = Model()
     model_4 += Linear(dimension=2)(input="input", weight="weight", bias="bias")
-    model_4 += (pow_4 := Power())(base=MyTensor(2.0), exponent=model_4.input)  # type: ignore
+    model_4 += (pow_4 := Power())(base=Tensor(2.0), exponent=model_4.input)  # type: ignore
     model_4 += Mean()(input=pow_4.output, output=IOKey(name="output"))
 
     # Provide backend and data.
@@ -482,12 +482,12 @@ def test_mul():
 
     model1 = Model()
     model1 += Buffer()(input="input")
-    output = model1.input * MyTensor(2)  # type: ignore
+    output = model1.input * Tensor(2)  # type: ignore
     model1 += Buffer()(input=output, output=IOKey(name="output"))
 
     model2 = Model()
     model2 += Buffer()(input="input")
-    model2 += (mul := Multiply())(left="input", right=MyTensor(2))
+    model2 += (mul := Multiply())(left="input", right=Tensor(2))
     model2 += Buffer()(input=mul.output, output=IOKey(name="output"))
     compare_models(model1, model2, backend, data, inference=True)
 
@@ -503,12 +503,12 @@ def test_rmul():
 
     model1 = Model()
     model1 += Buffer()(input="input")
-    output = MyTensor(2) * model1.input  # type: ignore
+    output = Tensor(2) * model1.input  # type: ignore
     model1 += Buffer()(input=output, output=IOKey(name="output"))
 
     model2 = Model()
     model2 += Buffer()(input="input")
-    model2 += (mul := Multiply())(left=MyTensor(2), right="input")
+    model2 += (mul := Multiply())(left=Tensor(2), right="input")
     model2 += Buffer()(input=mul.output, output=IOKey(name="output"))
     compare_models(model1, model2, backend, data, inference=True)
 
@@ -524,12 +524,12 @@ def test_div():
 
     model1 = Model()
     model1 += Buffer()(input="input")
-    output = model1.input / MyTensor(2)  # type: ignore
+    output = model1.input / Tensor(2)  # type: ignore
     model1 += Buffer()(input=output, output=IOKey(name="output"))
 
     model2 = Model()
     model2 += Buffer()(input="input")
-    model2 += (div := Divide())(numerator="input", denominator=MyTensor(2))
+    model2 += (div := Divide())(numerator="input", denominator=Tensor(2))
     model2 += Buffer()(input=div.output, output=IOKey(name="output"))
     compare_models(model1, model2, backend, data, inference=True)
 
@@ -547,12 +547,12 @@ def test_rdiv():
 
     model1 = Model()
     model1 += Buffer()(input="input")
-    output = MyTensor(2) / model1.input  # type: ignore
+    output = Tensor(2) / model1.input  # type: ignore
     model1 += Buffer()(input=output, output=IOKey(name="output"))
 
     model2 = Model()
     model2 += Buffer()(input="input")
-    model2 += (div := Divide())(numerator=MyTensor(2), denominator="input")
+    model2 += (div := Divide())(numerator=Tensor(2), denominator="input")
     model2 += Buffer()(input=div.output, output=IOKey(name="output"))
     compare_models(model1, model2, backend, data, inference=True)
 
@@ -570,12 +570,12 @@ def test_floor_div():
 
     model1 = Model()
     model1 += Buffer()(input="input")
-    output = model1.input // MyTensor(2)  # type: ignore
+    output = model1.input // Tensor(2)  # type: ignore
     model1 += Buffer()(input=output, output=IOKey(name="output"))
 
     model2 = Model()
     model2 += Buffer()(input="input")
-    model2 += (div := FloorDivide())(numerator="input", denominator=MyTensor(2))
+    model2 += (div := FloorDivide())(numerator="input", denominator=Tensor(2))
     model2 += Buffer()(input=div.output, output=IOKey(name="output"))
     compare_models(model1, model2, backend, data, inference=True)
 
@@ -593,12 +593,12 @@ def test_rfloor_div():
 
     model1 = Model()
     model1 += Buffer()(input="input")
-    output = MyTensor(2) // model1.input  # type: ignore
+    output = Tensor(2) // model1.input  # type: ignore
     model1 += Buffer()(input=output, output=IOKey(name="output"))
 
     model2 = Model()
     model2 += Buffer()(input="input")
-    model2 += (div := FloorDivide())(numerator=MyTensor(2), denominator="input")
+    model2 += (div := FloorDivide())(numerator=Tensor(2), denominator="input")
     model2 += Buffer()(input=div.output, output=IOKey(name="output"))
     compare_models(model1, model2, backend, data, inference=True)
     pm = mithril.compile(
@@ -615,12 +615,12 @@ def test_pow():
 
     model1 = Model()
     model1 += Buffer()(input="input")
-    output = model1.input ** MyTensor(2)  # type: ignore
+    output = model1.input ** Tensor(2)  # type: ignore
     model1 += Buffer()(input=output, output=IOKey(name="output"))
 
     model2 = Model()
     model2 += Buffer()(input="input")
-    model2 += (div := Power())(base="input", exponent=MyTensor(2))
+    model2 += (div := Power())(base="input", exponent=Tensor(2))
     model2 += Buffer()(input=div.output, output=IOKey(name="output"))
     compare_models(model1, model2, backend, data, inference=True)
 
@@ -638,12 +638,12 @@ def test_rpow():
 
     model1 = Model()
     model1 += Buffer()(input="input")
-    output = MyTensor(2) ** model1.input  # type: ignore
+    output = Tensor(2) ** model1.input  # type: ignore
     model1 += Buffer()(input=output, output=IOKey(name="output"))
 
     model2 = Model()
     model2 += Buffer()(input="input")
-    model2 += (div := Power())(base=MyTensor(2), exponent="input")
+    model2 += (div := Power())(base=Tensor(2), exponent="input")
     model2 += Buffer()(input=div.output, output=IOKey(name="output"))
     compare_models(model1, model2, backend, data, inference=True)
 
@@ -1074,14 +1074,14 @@ def test_and():
     model1 = Model()
     model1 += Buffer()(input="input1")
     model1 += Buffer()(input="input2")
-    output = (model1.input1 > MyTensor(0)) & (model1.input2 > MyTensor(3))  # type: ignore
+    output = (model1.input1 > Tensor(0)) & (model1.input2 > Tensor(3))  # type: ignore
     model1 += Buffer()(input=output, output=IOKey(name="output"))
 
     model2 = Model()
     model2 += Buffer()(input="input1")
     model2 += Buffer()(input="input2")
-    model2 += (g1 := Greater())(left="input1", right=MyTensor(0))
-    model2 += (g2 := Greater())(left="input2", right=MyTensor(3))
+    model2 += (g1 := Greater())(left="input1", right=Tensor(0))
+    model2 += (g2 := Greater())(left="input2", right=Tensor(3))
     model2 += (land := LogicalAnd())(left=g1.output, right=g2.output)
     model2 += Buffer()(input=land.output, output=IOKey(name="output"))
     compare_models(model1, model2, backend, data, inference=True)
@@ -1108,14 +1108,14 @@ def test_or():
     model1 = Model()
     model1 += Buffer()(input="input1")
     model1 += Buffer()(input="input2")
-    output = (model1.input1 > MyTensor(0)) | (model1.input2 > MyTensor(3))  # type: ignore
+    output = (model1.input1 > Tensor(0)) | (model1.input2 > Tensor(3))  # type: ignore
     model1 += Buffer()(input=output, output=IOKey(name="output"))
 
     model2 = Model()
     model2 += Buffer()(input="input1")
     model2 += Buffer()(input="input2")
-    model2 += (g1 := Greater())(left="input1", right=MyTensor(0))
-    model2 += (g2 := Greater())(left="input2", right=MyTensor(3))
+    model2 += (g1 := Greater())(left="input1", right=Tensor(0))
+    model2 += (g2 := Greater())(left="input2", right=Tensor(3))
     model2 += (lor := LogicalOr())(left=g1.output, right=g2.output)
     model2 += Buffer()(input=lor.output, output=IOKey(name="output"))
     compare_models(model1, model2, backend, data, inference=True)
@@ -1142,14 +1142,14 @@ def test_xor():
     model1 = Model()
     model1 += Buffer()(input="input1")
     model1 += Buffer()(input="input2")
-    output = (model1.input1 > MyTensor(0)) ^ (model1.input2 > MyTensor(3))  # type: ignore
+    output = (model1.input1 > Tensor(0)) ^ (model1.input2 > Tensor(3))  # type: ignore
     model1 += Buffer()(input=output, output=IOKey(name="output"))
 
     model2 = Model()
     model2 += Buffer()(input="input1")
     model2 += Buffer()(input="input2")
-    model2 += (g1 := Greater())(left="input1", right=MyTensor(0))
-    model2 += (g2 := Greater())(left="input2", right=MyTensor(3))
+    model2 += (g1 := Greater())(left="input1", right=Tensor(0))
+    model2 += (g2 := Greater())(left="input2", right=Tensor(3))
     model2 += (lor := LogicalXOr())(left=g1.output, right=g2.output)
     model2 += Buffer()(input=lor.output, output=IOKey(name="output"))
     compare_models(model1, model2, backend, data, inference=True)
@@ -1176,7 +1176,7 @@ def test_xor2():
     model1 = Model()
     model1 += Buffer()(input="input1")
     model1 += Buffer()(input="input2")
-    output = MyTensor([True, True, True, False, False, False]) ^ (model1.input2 > 3)  # type: ignore
+    output = Tensor([True, True, True, False, False, False]) ^ (model1.input2 > 3)  # type: ignore
     model1 += Buffer()(input=output, output=IOKey(name="output"))
 
     model2 = Model()
@@ -1184,7 +1184,7 @@ def test_xor2():
     model2 += Buffer()(input="input2")
     model2 += (g2 := Greater())(left="input2", right=3)
     model2 += (lor := LogicalXOr())(
-        left=MyTensor([True, True, True, False, False, False]), right=g2.output
+        left=Tensor([True, True, True, False, False, False]), right=g2.output
     )
     model2 += Buffer()(input=lor.output, output=IOKey(name="output"))
     compare_models(model1, model2, backend, data, inference=True)
@@ -1236,13 +1236,13 @@ def test_lshift_2():
     model1 = Model()
     model1 += Buffer()(input="input")
     model1 += Buffer()(input="shift")
-    output = model1.input << MyTensor(2)  # type: ignore
+    output = model1.input << Tensor(2)  # type: ignore
     model1 += Buffer()(input=output, output=IOKey(name="output"))
 
     model2 = Model()
     model2 += Buffer()(input="input")
     model2 += Buffer()(input="shift")
-    model2 += (sl := ShiftLeft())(input="input", shift=MyTensor(2))
+    model2 += (sl := ShiftLeft())(input="input", shift=Tensor(2))
     model2 += Buffer()(input=sl.output, output=IOKey(name="output"))
     compare_models(model1, model2, backend, data, inference=True)
 
@@ -1260,12 +1260,12 @@ def test_lshift_3():
 
     model1 = Model()
     model1 += Buffer()(input="input")
-    output = MyTensor(2) << model1.input  # type: ignore
+    output = Tensor(2) << model1.input  # type: ignore
     model1 += Buffer()(input=output, output=IOKey(name="output"))
 
     model2 = Model()
     model2 += Buffer()(input="input")
-    model2 += (sl := ShiftLeft())(input=MyTensor(2), shift="input")
+    model2 += (sl := ShiftLeft())(input=Tensor(2), shift="input")
     model2 += Buffer()(input=sl.output, output=IOKey(name="output"))
     compare_models(model1, model2, backend, data, inference=True)
 
@@ -1312,13 +1312,13 @@ def test_rshift_2():
     model1 = Model()
     model1 += Buffer()(input="input")
     model1 += Buffer()(input="shift")
-    output = model1.input >> MyTensor(2)  # type: ignore
+    output = model1.input >> Tensor(2)  # type: ignore
     model1 += Buffer()(input=output, output=IOKey(name="output"))
 
     model2 = Model()
     model2 += Buffer()(input="input")
     model2 += Buffer()(input="shift")
-    model2 += (sl := ShiftRight())(input="input", shift=MyTensor(2))
+    model2 += (sl := ShiftRight())(input="input", shift=Tensor(2))
     model2 += Buffer()(input=sl.output, output=IOKey(name="output"))
     compare_models(model1, model2, backend, data, inference=True)
 
@@ -1336,12 +1336,12 @@ def test_rshift_3():
 
     model1 = Model()
     model1 += Buffer()(input="input")
-    output = MyTensor(2) >> model1.input  # type: ignore
+    output = Tensor(2) >> model1.input  # type: ignore
     model1 += Buffer()(input=output, output=IOKey(name="output"))
 
     model2 = Model()
     model2 += Buffer()(input="input")
-    model2 += (sl := ShiftRight())(input=MyTensor(2), shift="input")
+    model2 += (sl := ShiftRight())(input=Tensor(2), shift="input")
     model2 += Buffer()(input=sl.output, output=IOKey(name="output"))
     compare_models(model1, model2, backend, data, inference=True)
 
@@ -1384,11 +1384,11 @@ def test_use_submodel_conn_1():
 
     modelsub = Model()
     modelsub += Buffer()(input="input1", output=IOKey(name="output"))
-    x = (modelsub.input1 + MyTensor(3)) / MyTensor(2)  # type: ignore
+    x = (modelsub.input1 + Tensor(3)) / Tensor(2)  # type: ignore
 
     model1 = Model()
     model1 += modelsub(input1="input1")
-    x += MyTensor(3)
+    x += Tensor(3)
     model1 += Buffer()(input=x, output=IOKey(name="output"))
 
     modelsub2 = Model()
@@ -1396,9 +1396,9 @@ def test_use_submodel_conn_1():
 
     model2 = Model()
     model2 += modelsub2(input1="input1")
-    model2 += (add := Add())(left="input1", right=MyTensor(3))
-    model2 += (div := Divide())(numerator=add.output, denominator=MyTensor(2))
-    model2 += (add2 := Add())(left=div.output, right=MyTensor(3))
+    model2 += (add := Add())(left="input1", right=Tensor(3))
+    model2 += (div := Divide())(numerator=add.output, denominator=Tensor(2))
+    model2 += (add2 := Add())(left=div.output, right=Tensor(3))
     model2 += Buffer()(input=add2.output, output=IOKey(name="output"))
 
     compare_models(model1, model2, backend, data, inference=True)
@@ -1417,15 +1417,15 @@ def test_use_multiple_times():
 
     model1 = Model()
     model1 += Buffer()(input="input1", output=IOKey(name="output"))
-    x = (model1.input1 + MyTensor(3)) / MyTensor(2)  # type: ignore
+    x = (model1.input1 + Tensor(3)) / Tensor(2)  # type: ignore
     model1 += Buffer()(input=x, output=IOKey(name="output1"))
     model1 += Relu()(input=x, output=IOKey(name="output2"))
 
     model2 = Model()
     model2 += Buffer()(input="input1", output=IOKey(name="output"))
-    model2 += Add()(left="input1", right=MyTensor(3))
+    model2 += Add()(left="input1", right=Tensor(3))
     model2 += (div := Divide())(
-        numerator=model2.canonical_output, denominator=MyTensor(2)
+        numerator=model2.canonical_output, denominator=Tensor(2)
     )
     model2 += Buffer()(input=div.output, output=IOKey(name="output1"))
     model2 += Relu()(input=div.output, output=IOKey(name="output2"))
@@ -1473,10 +1473,10 @@ def test_index_multiple_slice_1():
 
     model2 = Model()
     buffer_model_1 = Buffer()
-    model2 += buffer_model_1(input=IOKey("input", type=MyTensor))
+    model2 += buffer_model_1(input=IOKey("input", type=Tensor))
     conn = buffer_model_1.output[2:3, 4:6]
     buffer_model_2 = Buffer()
-    buffer_model_2.set_types(input=MyTensor)
+    buffer_model_2.set_types(input=Tensor)
     model2 += buffer_model_2(input=conn, output=IOKey("output"))
     check_logical_models(model1, model2)
 
@@ -1508,7 +1508,7 @@ def test_index_multiple_slice_2():
     model2 += buffer_model_1(input="input")
     conn = buffer_model_1.output[2:3, 4:6, ..., None, None]
     buffer_model_3 = Buffer()
-    buffer_model_3.set_types(input=MyTensor)
+    buffer_model_3.set_types(input=Tensor)
     model2 += buffer_model_3(input=conn, output=IOKey("output"))
     check_logical_models(model1, model2)
 
@@ -1552,7 +1552,7 @@ def test_tensor_item_with_ellipsis_at_beginning():
     input = IOKey("input", shape=(3, 4, 5))
     model = Model()
     buff_model = Buffer()
-    buff_model.set_types(input=MyTensor)
+    buff_model.set_types(input=Tensor)
     model += buff_model(input=input[..., 3], output="output")
 
     backend = JaxBackend()
@@ -1570,7 +1570,7 @@ def test_tensor_item_with_ellipsis_in_middle():
     input = IOKey("input", shape=(2, 3, 4, 5, 6))
     model = Model()
     buff_model = Buffer()
-    buff_model.set_types(input=MyTensor)
+    buff_model.set_types(input=Tensor)
     model += buff_model(input=input[0, ..., 3], output="output")
 
     backend = JaxBackend()

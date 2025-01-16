@@ -33,13 +33,11 @@ from typing import (
     overload,
 )
 
-from ..backends.backend import Backend
 from ..core import (
     Constant,
     DataType,
     Dtype,
     constant_type_table,
-    epsilon_table,
 )
 from ..utils.utils import PaddingType, find_dominant_type
 from .utils import (
@@ -60,7 +58,7 @@ __all__ = [
     "Connection",
     "ConnectionData",
     "Connections",
-    "MyTensor",
+    "Tensor",
     "ShapeNode",
     "ShapeRepr",
     "Constraint",
@@ -73,17 +71,6 @@ __all__ = [
     "NOT_AVAILABLE",
     "NotAvailable",
 ]
-
-
-def values_equal(
-    value1: MyTensor[Any] | ScalarValueType | ToBeDetermined,
-    value2: MyTensor[Any] | ScalarValueType | ToBeDetermined,
-) -> bool:
-    if type(value1) is not type(value2):
-        return False
-    val1 = value1 if not isinstance(value1, MyTensor) else value1.value
-    val2 = value2 if not isinstance(value2, MyTensor) else value2.value
-    return val1 == val2
 
 
 class SingletonObject:
@@ -183,8 +170,6 @@ type ScalarType = (
     type[int]
     | type[float]
     | type[bool]
-    # | type[tuple[Any, ...]]
-    # | type[list[Any]]
     | type[Sequence[Any]]
     | type[dict[Any, Any]]
     | type[Mapping[Any, Any]]
@@ -203,10 +188,7 @@ ScalarValueType = (
     | float
     | bool
     | Sequence[Any]
-    # | tuple[Any, ...]
-    # | list[Any]
     | dict[Any, Any]
-    # | Mapping[Any, Any]
     | Constant
     | slice
     | PaddingType
@@ -214,7 +196,6 @@ ScalarValueType = (
     | Dtype
     | ToBeDetermined
     | str
-    # | NestedListType
     | None
 )
 ShapeTemplateType = Sequence[int | str | tuple[str, EllipsisType] | None]
@@ -222,11 +203,8 @@ ReduceType = int | tuple[int, ...] | None | ToBeDetermined
 MainValueType = (
     int
     | float
-    # | tuple[Any, ...]
-    # | list[Any]
     | Sequence[Any]
     | dict[Any, Any]
-    # | Mapping[Any, Any]
     | bool
     | None
     | EllipsisType
@@ -240,8 +218,6 @@ MainValueType = (
 MainValueInstance = (
     int
     | float
-    # | tuple  # type: ignore
-    # | list  # type: ignore
     | Sequence  # type: ignore
     | dict  # type: ignore
     | bool
@@ -253,8 +229,6 @@ MainValueInstance = (
     | Dtype
 )
 
-
-# TypeVarTensorType = TypeVar("TypeVarTensorType", int, float, bool)
 TypeVarTensorType = TypeVar(
     "TypeVarTensorType",
     int,
@@ -265,12 +239,12 @@ TypeVarTensorType = TypeVar(
     float | bool,
     int | float | bool,
 )
-# Availale types for MyTensor type ("_type" attribute of MyTensor class).
+# Availale types for Tensor type ("_type" attribute of Tensor class).
 _TensorTypes = type[int] | type[float] | type[bool] | UnionType
-# Ultimate tensor value types for MyTensor class. This is the
+# Ultimate tensor value types for Tensor class. This is the
 # final types of physical tensors.
 _UltimateTensorValueTypes = int | float | bool
-# Nested Sequence type values for MyTensor class.
+# Nested Sequence type values for Tensor class.
 _TensorValueType = (
     _UltimateTensorValueTypes
     | Sequence[int | float | bool]
@@ -279,8 +253,8 @@ _TensorValueType = (
     | Sequence[Sequence[Sequence[Sequence[int | float | bool]]]]
     | Sequence[Sequence[Sequence[Sequence[Sequence[int | float | bool]]]]]
 )
-# Logical value types for MyTensor class("value" attribute of
-# MyTensor class).
+# Logical value types for Tensor class (i.e. "value" attribute of
+# Tensor class).
 TensorValueType = _TensorValueType | Constant | ToBeDetermined
 
 TensorToListType = (
@@ -292,10 +266,10 @@ TensorToListType = (
     | list[list[list[list[list[_UltimateTensorValueTypes]]]]]
 )
 
-MaxListDepth = 5
+MaxNestedListDepth = 5
 
 ParamsEvalType = dict[str, DataType]
-DataEvalType = Mapping[str, DataType | MainValueType | str]
+DataEvalType = Mapping[str, DataType | ScalarValueType | str]
 
 
 class EvaluateType(Protocol, Generic[DataType]):
@@ -603,17 +577,17 @@ class Updates:
     def _add_uniadic(self, symbol: Uniadic) -> None:
         self.uniadic_updates.add(symbol)
         for repr in symbol.metadata.reprs_dict:
-            for tensor in repr.node.referees:
-                self.shape_updates.add(tensor)
-                self.constraints |= tensor.shape_constraints
+            for edge in repr.node.referees:
+                self.shape_updates.add(edge)
+                self.constraints |= edge.shape_constraints
 
     def _add_variadic(self, symbol: Variadic) -> None:
         # self.symbol_updates.add(symbol)
         for repr in symbol.reprs:
             self.node_updates.add(repr.node)
-            for tensor in repr.node.referees:
-                self.shape_updates.add(tensor)
-                self.constraints |= tensor.shape_constraints
+            for edge in repr.node.referees:
+                self.shape_updates.add(edge)
+                self.constraints |= edge.shape_constraints
 
     def _add_type_update(self, symbol: IOHyperEdge) -> None:
         self.constraints |= symbol.type_constraints
@@ -644,7 +618,7 @@ def get_shapes(
     shapes: dict[str, ShapeTemplateType | list[ShapeTemplateType] | None] = {}
     for key, data in data_dict.items():
         key_name = key_mappings.get(key, key)
-        if data.edge_type is MyTensor:
+        if data.edge_type is Tensor:
             assert data.shape is not None
             shapes[key_name] = data.shape.get_shapes(
                 uniadic_keys, varadic_keys, symbolic, verbose
@@ -658,11 +632,11 @@ AllValueType = TensorValueType | ScalarValueType | ToBeDetermined
 
 
 def _find_type(
-    value: MyTensor[Any] | ScalarValueType,
-) -> type[MyTensor[Any]] | ScalarType:
+    value: Tensor[Any] | ScalarValueType,
+) -> type[Tensor[Any]] | ScalarType:
     typ: type
-    if isinstance(value, MyTensor):
-        typ = MyTensor[value.type]  # type: ignore
+    if isinstance(value, Tensor):
+        typ = Tensor[value.type]  # type: ignore
     elif isinstance(value, Constant):
         typ = constant_type_table[value]
     else:
@@ -682,15 +656,13 @@ def list_shape(ndarray: TensorValueType) -> list[int]:
                     f"Shape mismatch: expected {row_shape}, but got {shape}. The list "
                     "should not be ragged."
                 )
-
         return [outermost_size, *row_shape]
     else:
         # No more dimensions, so we're done
         return []
 
 
-# TODO: Convert MyTensor to Tensor when Tensor and Scalar is removed
-class MyTensor(Generic[TypeVarTensorType]):
+class Tensor(Generic[TypeVarTensorType]):
     def __init__(
         self,
         value: TensorValueType = TBD,
@@ -742,7 +714,7 @@ class MyTensor(Generic[TypeVarTensorType]):
             updates |= self.shape.set_values(shape)
         return updates
 
-    def match(self, other: MyTensor[Any]) -> Updates:
+    def match(self, other: Tensor[Any]) -> Updates:
         updates = Updates()
         # TODO: Should it be "self is not other" instead of "self != other"?
         if self != other:
@@ -763,7 +735,7 @@ class MyTensor(Generic[TypeVarTensorType]):
             other.referees = set()
         return updates
 
-    def match_shapes(self, other: MyTensor[Any]) -> Updates:
+    def match_shapes(self, other: Tensor[Any]) -> Updates:
         updates = Updates()
         # TODO: Should it be "other.shape is not self.shape"
         # instead of "other.shape != self.shape"?
@@ -772,7 +744,7 @@ class MyTensor(Generic[TypeVarTensorType]):
             self.shape.referees |= other.shape.referees
             prev_node = other.shape
             for ref in other.shape.referees:
-                assert isinstance(ref._value, MyTensor)
+                assert isinstance(ref._value, Tensor)
                 ref._value.shape = self.shape
             prev_node.reprs = []
             prev_node.referees = set()
@@ -780,44 +752,40 @@ class MyTensor(Generic[TypeVarTensorType]):
 
 
 class IOHyperEdge:
+    _type: type[Tensor[Any]] | type[TensorValueType] | ScalarType
+    _value: Tensor[Any] | TensorValueType | ScalarValueType | ToBeDetermined
+
     def __init__(
         self,
-        type: type[MyTensor[Any]] | type[TensorValueType] | ScalarType = ToBeDetermined,
-        value: MyTensor[Any] | TensorValueType | ScalarValueType | ToBeDetermined = TBD,
+        type: type[Tensor[Any]] | type[TensorValueType] | ScalarType = ToBeDetermined,
+        value: Tensor[Any] | TensorValueType | ScalarValueType | ToBeDetermined = TBD,
         key_origin: str | None = None,
         interval: list[float | int] | None = None,
     ) -> None:
         self.key_origin = key_origin
-        self._type = type
         self.shape_constraints: set[Constraint] = set()
         self.type_constraints: set[Constraint] = set()
         self._temp_shape: ShapeRepr | None = None  # set random repr
-        self._value = value
-        # If any value is provided, set it.
-        if not isinstance(value, ToBeDetermined):
-            if isinstance(self._value, MyTensor):
-                self._type = MyTensor
-                self._value.referees.add(self)
-                self._value.shape.referees.add(self)
-            else:
-                val_typ = _find_type(value)
-                if self._type is ToBeDetermined:
-                    self._type = val_typ
-                else:
-                    self._type = find_intersection_type(val_typ, self._type)  # type: ignore
+        # Initially set type and value as not determined yet.
+        self._type = ToBeDetermined
+        self._value = TBD
         # If Tensor type is provided, create a new Tensor object and
-        # set it as value. If a generic type provided take types in it
-        # into account.
-        if type is MyTensor or get_origin(type) is MyTensor:
+        # set it as value else directly set type. If a generic type provided
+        # take args of generic type into account.
+        if type is Tensor or get_origin(type) is Tensor:
             available_types = (
-                _UltimateTensorValueTypes if type is MyTensor else get_args(type)[0]
+                _UltimateTensorValueTypes if type is Tensor else get_args(type)[0]
             )
             self._create_and_set_tensor_value(available_types)
+        else:
+            self._type = type
+
+        # If any value is provided, set it.
+        if value is not TBD:
+            self.set_value(value)
 
         self.interval: list[float | int] | None = interval
-        self.differentiable: bool = (
-            self.value is TBD if self._type is MyTensor else False
-        )
+        self.differentiable: bool = self.value is TBD if self._type is Tensor else False
 
     @property
     def is_non_diff(self) -> bool:
@@ -833,31 +801,23 @@ class IOHyperEdge:
 
     @property
     def value(self) -> _TensorValueType | ScalarValueType | ToBeDetermined:
-        return self._value.value if isinstance(self._value, MyTensor) else self._value
+        return self._value.value if isinstance(self._value, Tensor) else self._value
 
     @property
     def shape(self) -> ShapeNode | None:
-        if isinstance(self._value, MyTensor):
+        if isinstance(self._value, Tensor):
             return self._value.shape
         return None
 
-    # @property
-    # def type(self) -> type[MyTensor] | ScalarType:
-    #     return (
-    #         MyTensor[self._value.type]
-    #         if isinstance(self._value, MyTensor)
-    #         else self._type
-    #     )
-
     @property
     def value_type(self) -> _TensorTypes | ScalarType:
-        if isinstance(self._value, MyTensor):
+        if isinstance(self._value, Tensor):
             return self._value.type
         else:
             return self._type  # type: ignore
 
     @property
-    def edge_type(self) -> type[MyTensor[Any]] | ScalarType:
+    def edge_type(self) -> type[Tensor[Any]] | ScalarType:
         return self._type
 
     def _create_and_set_tensor_value(self, typ: _TensorTypes) -> Updates:
@@ -867,56 +827,33 @@ class IOHyperEdge:
         shape_node = ShapeRepr(root=Variadic()).node
         # Create a new tensor with the shape node and add self to
         # its referees and shape referees.
-        tensor = MyTensor(type=typ, shape=shape_node)
+        tensor = Tensor(type=typ, shape=shape_node)
         tensor.referees.add(self)
         tensor.shape.referees.add(self)
-        # Set type of the edge to MyTensor.
-        if self._type is not MyTensor:
-            self._type = MyTensor
+        # Set type of the edge to Tensor.
+        if self._type is not Tensor:
+            self._type = Tensor
             updates.add(self, UpdateType.TYPE)
-        # Set value as the created tensor using set_value API if
-        # self._value is MyTensor object else directly set _value.
-        if isinstance(self._value, MyTensor):
-            updates |= self.set_value(tensor)
-        else:
-            self._value = tensor
+        self._value = tensor
         return updates
 
-    def _types_equal(self, other_type: type[MyTensor[Any]] | ScalarType) -> bool:
-        # self_type: type[MyTensor[Any]] | ScalarType | type[ToBeDetermined]
-
-        # if isinstance(self._type, NestedListType):
-        #     self_type = self._type.base_type
-        # else:
-        #     self_type = self._type
-
-        # if isinstance(other_type, NestedListType):
-        #     other_type = other_type.base_type
-        # else:
-        #     other_type = other_type
-
-        return self._type == other_type
-
-    def _values_equal(
-        self, other_value: MyTensor[Any] | ScalarValueType | ToBeDetermined
+    def _value_compatible(
+        self, other_value: Tensor[Any] | ScalarValueType | ToBeDetermined
     ) -> bool:
-        # TODO: Can we use values_equal function instead of this method??
-        # Checks other_value and self.value equality.
-        if other_value is TBD or (
-            isinstance(other_value, MyTensor) and other_value.value is TBD
-        ):
-            return True
+        if self._value is not TBD:
+            if type(self._value) is not type(other_value):
+                return False
+            _other_value = (
+                other_value.value if isinstance(other_value, Tensor) else other_value
+            )
+            return self.value is TBD or self.value == _other_value
+        return True
 
-        _other_value = (
-            other_value.value if isinstance(other_value, MyTensor) else other_value
-        )
-        return self.value == _other_value
-
-    def set_type(self, typ: type[MyTensor[Any]] | ScalarType) -> Updates:
+    def set_type(self, typ: type[Tensor[Any]] | ScalarType) -> Updates:
         updates = Updates()
         # Tensor type setting.
-        if (is_generic := (get_origin(typ) is MyTensor)) or typ is MyTensor:
-            if not (self._type is MyTensor or self._type is ToBeDetermined):
+        if (is_generic := (get_origin(typ) is Tensor)) or typ is Tensor:
+            if not (self._type is Tensor or self._type is ToBeDetermined):
                 raise TypeError("Can not set Tensor type to a Scalar edge.")
 
             available_types = (
@@ -925,23 +862,23 @@ class IOHyperEdge:
             if self._type is ToBeDetermined:
                 # This is the case when the base type is not determined yet,
                 # meaning it can be of any type. So, if it is requested
-                # to set type to MyTensor, we need to create a new MyTensor
+                # to set type to Tensor, we need to create a new Tensor
                 # with a shape of Variadic type.
                 updates |= self._create_and_set_tensor_value(available_types)
             else:
-                # Set type of MyTensor object using available_types
-                assert isinstance(self._value, MyTensor)
+                # Set type of Tensor object using available_types
+                assert isinstance(self._value, Tensor)
                 updates |= self._value.set_type(available_types)
-            assert isinstance(self._value, MyTensor)  # TODO: Duplicate check.
+            assert isinstance(self._value, Tensor)  # TODO: Duplicate check.
             self.differentiable = (self.value is TBD) and bool(
                 find_intersection_type(float, self._value.type)
             )
             return updates
 
-        elif self._type is MyTensor and typ is not ToBeDetermined:
+        elif self._type is Tensor and typ is not ToBeDetermined:
             raise TypeError("Can not set Scalar type to a Tensor edge.")
 
-        elif not (typ is ToBeDetermined or self._types_equal(typ)):
+        elif not (typ is ToBeDetermined or self._type == typ):
             # Scalar type setting.
             updates.add(self, UpdateType.TYPE)
             new_type = (
@@ -959,42 +896,44 @@ class IOHyperEdge:
         return updates
 
     def set_value(
-        self, value: MyTensor[Any] | ScalarValueType | ToBeDetermined
+        self, value: Tensor[Any] | ScalarValueType | ToBeDetermined
     ) -> Updates:
         updates = Updates()
         # If type of self and type of value is not compatible, raise an error.
-        if isinstance(value, MyTensor) and (
-            self._type not in (MyTensor, ToBeDetermined)
-        ):
+        if isinstance(value, Tensor) and (self._type not in (Tensor, ToBeDetermined)):
             raise ValueError("Can not set Tensor value to a Scalar edge.")
-        if not isinstance(value, MyTensor) and self._type is MyTensor:
+        if not isinstance(value, Tensor) and self._type is Tensor:
             raise ValueError("Can not set Scalar value to a Tensor edge.")
 
-        if self.value is not TBD and not self._values_equal(value):
+        if not self._value_compatible(value):
             raise ValueError(
                 f"Value is set before as {self.value}. A value can not be reset."
             )
 
-        if isinstance(value, MyTensor) or not (
-            isinstance(value, ToBeDetermined) or values_equal(self._value, value)
+        if isinstance(value, Tensor) or not (
+            isinstance(value, ToBeDetermined) or self.value == value
         ):
-            # If both values are MyTensor, match them.
-            if isinstance(self._value, MyTensor) and isinstance(value, MyTensor):
+            # If both values are Tensor, match them.
+            if isinstance(self._value, Tensor) and isinstance(value, Tensor):
                 updates |= self._value.match(value)
-            elif self.edge_type is ToBeDetermined and isinstance(value, MyTensor):
-                # Value updates will be added in the last step before return.
-                # TODO: Consider to provide value type of given
-                # MyTensor object, not _UltimateTensorValueTypes.
-                updates |= self._create_and_set_tensor_value(value.type)
-                assert isinstance(self._value, MyTensor)
-                updates |= self._value.match(value)
+            elif self.edge_type is ToBeDetermined and isinstance(value, Tensor):
+                self._value = value
+                self._type = Tensor
+                # Add self to referees of value and shape.
+                self._value.referees.add(self)
+                self._value.shape.referees.add(self)
+                # Add self as a type update since type has just updated to Tensor.
+                updates.add(self, UpdateType.TYPE)
+                # TODO: When two edges set to the same tensor value using
+                # different Tensor objects, we need to merge their nodes into
+                # a single node. In order to track this, we need to add all
+                # uniadic symbols of all reprs to the updates.
+                for repr in value.shape.reprs:
+                    for symbol in repr.prefix + repr.suffix:
+                        updates.add(symbol)
             else:
                 updates |= self.set_type(_find_type(value))
                 self._value = value
-            # Add self to referees of value and shape.
-            if isinstance(self._value, MyTensor):
-                self._value.referees.add(self)
-                self._value.shape.referees.add(self)
             # Add self to updates.
             updates.add(self)
             self.differentiable = self.value is TBD
@@ -1009,7 +948,7 @@ class IOHyperEdge:
             updates |= self.set_type(other._type)
             updates |= other.set_type(self._type)
 
-            if isinstance(self._value, MyTensor) and isinstance(other._value, MyTensor):
+            if isinstance(self._value, Tensor) and isinstance(other._value, Tensor):
                 updates |= self._value.match(other._value)
                 self._value.referees.discard(other)
                 self._value.shape.referees.discard(other)
@@ -1046,31 +985,14 @@ class IOHyperEdge:
         other.type_constraints = set()
         # Update differentiability if edge_type is Tensor and value is TBD.
         # No update required if edge_type is Scalar or value is not TBD.
-        if isinstance(self._value, MyTensor) and self._value.value is TBD:
+        if isinstance(self._value, Tensor) and self._value.value is TBD:
             is_diff = self.differentiable | other.differentiable
             self.differentiable = other.differentiable = is_diff
 
     def override_shape(self, shape: ShapeNode) -> None:
-        if not isinstance(self._value, MyTensor):
+        if not isinstance(self._value, Tensor):
             raise ValueError("Scalar edges cannot have any shape.")
         self._value.shape = shape
-
-    def make_physical(
-        self, backend: Backend[DataType], memo: dict[int, IOHyperEdge]
-    ) -> IOHyperEdge:
-        if id(self) in memo:
-            return memo[id(self)]
-
-        physical_data = deepcopy(self, memo)
-        if isinstance(self.value, Constant):
-            final_val = epsilon_table[backend.precision][self.value]
-            assert final_val is not None
-            if isinstance(physical_data._value, MyTensor):
-                physical_data._value.value = final_val
-            else:
-                physical_data._value = final_val
-            # physical_data.value = epsilon_table[backend.precision][self.value]
-        return physical_data
 
 
 class TemplateBase:
@@ -1186,7 +1108,7 @@ class TemplateBase:
 
     def __eq__(self, other: object) -> ExtendTemplate:  # type: ignore[override]
         if isinstance(
-            other, int | float | bool | list | Connection | IOKey | tuple | MyTensor
+            other, int | float | bool | list | Connection | IOKey | tuple | Tensor
         ):
             return ExtendTemplate(connections=[self, other], model="eq")
         else:
@@ -1197,7 +1119,7 @@ class TemplateBase:
 
     def __ne__(self, other: object) -> ExtendTemplate:  # type: ignore[override]
         if isinstance(
-            other, int | float | bool | list | Connection | IOKey | tuple | MyTensor
+            other, int | float | bool | list | Connection | IOKey | tuple | Tensor
         ):
             return ExtendTemplate(connections=[self, other], model="ne")
         else:
@@ -1356,17 +1278,10 @@ class ExtendTemplate(TemplateBase):
 
 @dataclass
 class BaseKey:
-    value: MyTensor[Any] | ScalarValueType | TensorValueType | ToBeDetermined | str = (
-        TBD
-    )
+    value: Tensor[Any] | ScalarValueType | TensorValueType | ToBeDetermined | str = TBD
     shape: ShapeTemplateType | None = None
     type: (
-        UnionType
-        | type
-        | type[MyTensor[Any]]
-        | type[TensorValueType]
-        | ScalarType
-        | None
+        UnionType | type | type[Tensor[Any]] | type[TensorValueType] | ScalarType | None
     ) = None
     interval: list[float | int] | None = None
 
@@ -1375,7 +1290,7 @@ class IOKey(TemplateBase):
     def __init__(
         self,
         name: str | None = None,
-        value: MyTensor[Any]
+        value: Tensor[Any]
         | ScalarValueType
         | TensorValueType
         | ToBeDetermined
@@ -1383,7 +1298,7 @@ class IOKey(TemplateBase):
         shape: ShapeTemplateType | None = None,
         type: UnionType
         | type
-        | type[MyTensor[Any]]
+        | type[Tensor[Any]]
         | type[TensorValueType]
         | ScalarType
         | None = None,
@@ -1392,11 +1307,11 @@ class IOKey(TemplateBase):
         connections: set[Connection | str] | None = None,
     ) -> None:
         super().__init__()
-        # If shape is provided, type should be MyTensor.
+        # If shape is provided, type should be Tensor.
         if shape is not None:
             if type is None:
-                type = MyTensor
-            elif (type is not MyTensor) and (get_origin(type) is not MyTensor):
+                type = Tensor
+            elif (type is not Tensor) and (get_origin(type) is not Tensor):
                 raise TypeError("Shape can not be provided for a non-tensor type!")
 
         self.name = name
@@ -1475,7 +1390,7 @@ class ConnectionData:
 
     def set_differentiable(self, differentiable: bool = True) -> None:
         # TODO: Move this method to Model class as set_shapes, set_types etc.
-        if self.metadata.edge_type is MyTensor:
+        if self.metadata.edge_type is Tensor:
             self.metadata.differentiable = differentiable
         elif differentiable:
             if self.metadata.edge_type is not ToBeDetermined:
@@ -1491,7 +1406,7 @@ TemplateConnectionType = (
     | EllipsisType
     | tuple[slice | int | None | EllipsisType | TemplateBase, ...]
     | None
-    | MyTensor[Any]
+    | Tensor[Any]
 )
 
 
@@ -1503,7 +1418,7 @@ ConnectionType = (
     | IOKey
     | Connection
     | NotAvailable
-    | MyTensor[Any]
+    | Tensor[Any]
 )
 
 ConnectionInstanceType = (
@@ -1514,7 +1429,7 @@ ConnectionInstanceType = (
     | IOKey
     | Connection
     | NotAvailable
-    | MyTensor  # type: ignore
+    | Tensor  # type: ignore
 )
 
 
@@ -1645,7 +1560,7 @@ class Connections:
 
     def get_shape_node(self, key: str) -> ShapeNode:
         edge = self.get_metadata(key)
-        if edge.edge_type is not MyTensor:
+        if edge.edge_type is not Tensor:
             raise ValueError("'Only Tensor type connections has shape!'")
         assert edge.shape is not None
         return edge.shape
@@ -2988,7 +2903,7 @@ class Constraint:
         status = False
         updates = Updates()
         if self.type == UpdateType.SHAPE:
-            tensor_keys = [key for key in keys if key.edge_type is MyTensor]
+            tensor_keys = [key for key in keys if key.edge_type is Tensor]
             for reprs in product(*[key.shape.reprs for key in tensor_keys]):  # type: ignore
                 for idx, repr in enumerate(reprs):
                     tensor_keys[idx]._temp_shape = repr
@@ -3746,7 +3661,7 @@ def is_type_adjustment_required(
     inputs = inputs[:2]
     left = data[inputs[0]]
     right = data[inputs[1]]
-    if not (isinstance(left._value, MyTensor) and isinstance(right._value, MyTensor)):
+    if not (isinstance(left._value, Tensor) and isinstance(right._value, Tensor)):
         return False
 
     rule1 = issubclass(float, left._value.type) and issubclass(int, right._value.type)

@@ -29,7 +29,7 @@ from mithril.backends.with_autograd.jax_backend.ops import (
     to_tensor,
 )
 from mithril.framework import NOT_GIVEN, ConnectionType, ExtendInfo
-from mithril.framework.common import BaseKey, MyTensor
+from mithril.framework.common import BaseKey, Tensor
 from mithril.framework.constraints import bcast
 from mithril.models import (
     TBD,
@@ -80,7 +80,7 @@ class MyModel(Model):
         super().__init__()
         mult_model = MatrixMultiply()
         sum_model = Add()
-        sum_model.set_types(left=MyTensor, right=MyTensor)
+        sum_model.set_types(left=Tensor, right=Tensor)
         self += mult_model(left="input", right="w")  # (10, 1)
         self += sum_model(left=mult_model.output, right="b")  # (10, 1)
         self += (sum_shp := Shape())(input=sum_model.output)  # (10, 1)
@@ -99,9 +99,9 @@ class MyModel(Model):
         self += (idx_2 := Indexer())(index=idx_1.output, input=mult_shp.output)  # 1
         self += (idx_3 := Indexer())(index=idx_2.output, input=sum_shp.output)  # 1
         self += (tens := ToTensor())(input=idx_3.output)  # array(1)
-        self += (sum := Add())(left=tens.output, right=MyTensor(3.0))  # array(4)
+        self += (sum := Add())(left=tens.output, right=Tensor(3.0))  # array(4)
         self += Multiply()(
-            left=sum.output, right=MyTensor(2.0), output=IOKey(name="output")
+            left=sum.output, right=Tensor(2.0), output=IOKey(name="output")
         )  # array(8)
 
         shapes: Mapping[str, Sequence[str | tuple[str, EllipsisType] | int | None]] = {
@@ -132,7 +132,7 @@ class MyModel2(Model):
         sum_model = Add()
         self += mult_model(left="input", right="w")  # (10, 1)
         self += sum_model(
-            left=mult_model.output, right=IOKey("b", type=MyTensor)
+            left=mult_model.output, right=IOKey("b", type=Tensor)
         )  # (10, 1)
         self += (sum_shp := Shape())(input=sum_model.output)  # (10, 1)
         self += (uni := PrimitiveUnion(n=3))(
@@ -141,7 +141,7 @@ class MyModel2(Model):
         self += (idx_1 := Indexer())(index=-1, input=uni.output)  # 1
         self += (tens := ToTensor())(input=idx_1.output)  # array(1)
         self += Multiply()(
-            left=tens.output, right=MyTensor(2.0), output=IOKey(name="output")
+            left=tens.output, right=Tensor(2.0), output=IOKey(name="output")
         )  # array(8)
 
         shapes: Mapping[str, Sequence[str | tuple[str, EllipsisType] | int | None]] = {
@@ -227,9 +227,9 @@ def test_mymodel_jax():
         def __init__(self) -> None:
             super().__init__(
                 formula_key="adder",
-                output=BaseKey(shape=[("Var_out", ...)], type=MyTensor),
-                left=BaseKey(shape=[("Var_1", ...)], type=MyTensor),
-                right=BaseKey(shape=[("Var_2", ...)], type=MyTensor),
+                output=BaseKey(shape=[("Var_out", ...)], type=Tensor),
+                left=BaseKey(shape=[("Var_1", ...)], type=Tensor),
+                right=BaseKey(shape=[("Var_2", ...)], type=Tensor),
             )
             self.set_constraint(fn=bcast, keys=["output", "left", "right"])
 
@@ -304,9 +304,9 @@ def test_physical_model_jit_1():
     """
     model = Model(enforce_jit=False)
     add1 = Add()
-    add1.set_types(left=MyTensor, right=MyTensor)
+    add1.set_types(left=Tensor, right=Tensor)
     add2 = Add()
-    add2.set_types(left=MyTensor, right=MyTensor)
+    add2.set_types(left=Tensor, right=Tensor)
     model += add1(left="l1", right="l2", output=IOKey(name="out1"))
     model += add2(left="l3", right="l4")
     model.enforce_jit = False
@@ -355,9 +355,9 @@ def test_jit_1():
         def __init__(self) -> None:
             super().__init__(
                 formula_key="adder",
-                output=BaseKey(shape=[("Var_out", ...)], type=MyTensor),
-                left=BaseKey(shape=[("Var_1", ...)], type=MyTensor),
-                right=BaseKey(shape=[("Var_2", ...)], type=MyTensor),
+                output=BaseKey(shape=[("Var_out", ...)], type=Tensor),
+                left=BaseKey(shape=[("Var_1", ...)], type=Tensor),
+                right=BaseKey(shape=[("Var_2", ...)], type=Tensor),
             )
             self.set_constraint(fn=bcast, keys=["output", "left", "right"])
 
@@ -376,7 +376,7 @@ def test_jit_2():
     backend = JaxBackend()
     model = Model(enforce_jit=False)
     model += (add_model := Add())(
-        left=IOKey("left", type=MyTensor), right=IOKey("right", type=MyTensor)
+        left=IOKey("left", type=Tensor), right=IOKey("right", type=Tensor)
     )
     in1 = add_model.output
     out1 = in1.shape

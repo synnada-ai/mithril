@@ -23,7 +23,7 @@ import torch
 
 import mithril
 from mithril import Backend, JaxBackend, MlxBackend, NumpyBackend, TorchBackend
-from mithril.framework.common import MyTensor
+from mithril.framework.common import Tensor
 from mithril.models import (
     TBD,
     Arange,
@@ -236,7 +236,7 @@ def compile_and_compare(
 
 def test_buffer_1():
     model = Buffer()
-    model.set_types(input=MyTensor)
+    model.set_types(input=Tensor)
     compile_kwargs = {
         "constant_keys": {"input": [[1.0, 2.0, 3.0], [1.0, 2.0, 3.0]]},
         "inference": True,
@@ -255,7 +255,7 @@ def test_buffer_1():
 
 def test_buffer_2():
     model = Buffer()
-    model.set_types(input=MyTensor)
+    model.set_types(input=Tensor)
     params = {"input": [[1.0, 2.0, 3.0], [1.0, 2.0, 3.0]]}
     output_gradients = {"output": [[12.0, 13.0, 14.0], [15.0, 16.0, 17.0]]}
     reference_outputs = {"output": [[1.0, 2.0, 3.0], [1.0, 2.0, 3.0]]}

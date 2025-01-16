@@ -29,8 +29,8 @@ from mithril.framework.common import (
     Connection,
     ConnectionType,
     IOKey,
-    MyTensor,
     NotAvailable,
+    Tensor,
     ToBeDetermined,
 )
 from mithril.framework.logical import ExtendInfo
@@ -196,7 +196,7 @@ class ReduceMult(Model):
         rdc = Mean(axis=axis)
         self += rdc(input="input", axis="axis")
         self += Multiply()(
-            left=rdc.output, right=MyTensor(2.0), output=IOKey(name="output")
+            left=rdc.output, right=Tensor(2.0), output=IOKey(name="output")
         )
         shapes: Mapping[str, Sequence[str | tuple[str, EllipsisType]]] = {
             "input": ["N", ("Var_inter", ...), "d_in"]
@@ -252,7 +252,7 @@ def test_make_static_numpy_error():
 
     rdc = Mean(axis=0)
     model += rdc(input="input", axis="axis")
-    model += Multiply()(left=rdc.output, right=MyTensor(0), output=mult_out)
+    model += Multiply()(left=rdc.output, right=Tensor(0), output=mult_out)
     model += mean_model(input=mult_out, axis="axis", output=IOKey(name="output"))
     constant_keys = {"input": np_input}
     data_keys = {"axis"}
@@ -414,7 +414,7 @@ def test_constant_numpy():
     rdc = Mean(axis=0)
     model += rdc(input="input", axis="axis")
     model += Multiply()(
-        left=rdc.output, right=IOKey(value=MyTensor(2.0), name="rhs"), output=mult_out
+        left=rdc.output, right=IOKey(value=Tensor(2.0), name="rhs"), output=mult_out
     )
     model += mean_model(input=mult_out, axis="axis", output=IOKey(name="output"))
     other_model = Model()
@@ -438,7 +438,7 @@ def test_constant_numpy_set_values():
     mult_out = IOKey(name="mult_out")
     model += rdc(input="input", axis="axis")
     model += Multiply()(left=rdc.output, right=IOKey(name="rhs"), output=mult_out)
-    model.set_values({"rhs": MyTensor(2.0)})
+    model.set_values({"rhs": Tensor(2.0)})
     model += mean_model(input=mult_out, axis="axis", output=IOKey(name="output"))
     other_model = Model()
     other_model += Mean(axis=TBD)(input="input", axis="axis")
@@ -454,10 +454,10 @@ def test_axis():
     model = Model()
     relu = LeakyRelu()
     rob_pow = Power(robust=True)
-    model += relu(input="input", slope=MyTensor(2.3))
+    model += relu(input="input", slope=Tensor(2.3))
     model += rob_pow(
         base=relu.output,
-        exponent=IOKey("exponent", type=MyTensor),
+        exponent=IOKey("exponent", type=Tensor),
         threshold=relu.slope,
     )
 
@@ -486,8 +486,8 @@ def test_axis_1():
     model = Model()
     relu = LeakyRelu()
     rob_pow = Power(robust=True)
-    rob_pow.set_types(base=MyTensor, exponent=MyTensor)
-    model += rob_pow(base="base", threshold=MyTensor(2.3), exponent="exponent")
+    rob_pow.set_types(base=Tensor, exponent=Tensor)
+    model += rob_pow(base="base", threshold=Tensor(2.3), exponent="exponent")
     model += relu(input=rob_pow.output, slope=rob_pow.threshold)  # type: ignore
     # Check required value transfer occured in logical model
     # assert relu.conns.get_data("slope").value == 2.3
@@ -530,7 +530,7 @@ def test_mean_1():
     model = Model()
     buff1 = Buffer()
     model += buff1(
-        input=IOKey(value=MyTensor([[2.0, 3.0], [1.0, 7.0]]), name="input"),
+        input=IOKey(value=Tensor([[2.0, 3.0], [1.0, 7.0]]), name="input"),
         output=IOKey(name="output"),
     )
     with pytest.raises(ValueError) as err_info:
@@ -556,7 +556,7 @@ def test_mean_1_set_values_1():
     model = Model()
     buff1 = Buffer()
     model += buff1(
-        input=IOKey(value=MyTensor([[2.0, 3.0], [1.0, 7.0]]), name="input"),
+        input=IOKey(value=Tensor([[2.0, 3.0], [1.0, 7.0]]), name="input"),
         output=IOKey(name="output"),
     )
     # model.make_static("input", [[2.0, 3.0], [1.0, 7.0]])
@@ -583,7 +583,7 @@ def test_mean_1_set_values_2():
     model = Model()
     buff1 = Buffer()
     model += buff1(
-        input=IOKey(value=MyTensor([[2.0, 3.0], [1.0, 7.0]]), name="input"),
+        input=IOKey(value=Tensor([[2.0, 3.0], [1.0, 7.0]]), name="input"),
         output=IOKey(name="output"),
     )
     with pytest.raises(ValueError) as err_info:
@@ -605,11 +605,11 @@ def test_scalar_mean_2_2():
     mean_model = Model()
     rob_pow = Model()
     rob_pow += Power(robust=True)(
-        threshold=IOKey(name="threshold", value=MyTensor(1.3)), base="base"
+        threshold=IOKey(name="threshold", value=Tensor(1.3)), base="base"
     )
 
     with pytest.raises(ValueError) as err_info:
-        mean_model += rob_pow(threshold=MyTensor(1.5), base="input")
+        mean_model += rob_pow(threshold=Tensor(1.5), base="input")
     assert (
         str(err_info.value) == "Value is set before as 1.3. A value can not be reset."
     )
@@ -643,9 +643,9 @@ def test_scalar_1():
     model2 = Model()
     add_1 = Add()
     add_2 = Add()
-    model1 += add_1(left=MyTensor([4.0, 5.0]), right=MyTensor([8.0, 9.0]))
+    model1 += add_1(left=Tensor([4.0, 5.0]), right=Tensor([8.0, 9.0]))
     model2 += add_2(
-        left=IOKey(name="left_2", value=MyTensor([7.0, 11.0])),
+        left=IOKey(name="left_2", value=Tensor([7.0, 11.0])),
         output=IOKey(name="output"),
     )
     with pytest.raises(ValueError) as err_info:
@@ -663,11 +663,9 @@ def test_scalar_1_set_values():
     add_1 = Add()
     add_2 = Add()
     model1 += add_1
-    model1.set_values(
-        {add_1.left: MyTensor([4.0, 5.0]), add_1.right: MyTensor([8.0, 9.0])}
-    )
+    model1.set_values({add_1.left: Tensor([4.0, 5.0]), add_1.right: Tensor([8.0, 9.0])})
     model2 += add_2(
-        left=IOKey(name="left_2", value=MyTensor([7.0, 11.0])),
+        left=IOKey(name="left_2", value=Tensor([7.0, 11.0])),
         output=IOKey(name="output"),
     )
     with pytest.raises(ValueError) as err_info:
@@ -684,9 +682,9 @@ def test_scalar_2():
     add = Add()
     with pytest.raises(KeyError) as err_info:
         model += add(
-            left=MyTensor([4.0, 5.0]),
-            right=MyTensor([8.0, 9.0]),
-            output=MyTensor([7.0, 8.0]),
+            left=Tensor([4.0, 5.0]),
+            right=Tensor([8.0, 9.0]),
+            output=Tensor([7.0, 8.0]),
         )
     assert str(err_info.value) == (
         "'output key is an output of the model, output values could not be "
@@ -701,9 +699,9 @@ def test_scalar_2_set_values():
     with pytest.raises(ValueError) as err_info:
         model.set_values(
             {
-                "left": MyTensor([4.0, 5.0]),
-                "right": MyTensor([8.0, 9.0]),
-                "output": MyTensor([7.0, 8.0]),
+                "left": Tensor([4.0, 5.0]),
+                "right": Tensor([8.0, 9.0]),
+                "output": Tensor([7.0, 8.0]),
             }
         )
 
@@ -765,11 +763,9 @@ def test_static_1():
     """
     model1 = Model()
     add_1 = Add()
-    model1 += add_1(
-        left=MyTensor([2.0, 3.0]), right="right", output=IOKey(name="output")
-    )
+    model1 += add_1(left=Tensor([2.0, 3.0]), right="right", output=IOKey(name="output"))
     with pytest.raises(Exception) as err_info:
-        model1.set_values({add_1.left: MyTensor([3.0, 4.0])})
+        model1.set_values({add_1.left: Tensor([3.0, 4.0])})
     assert (
         str(err_info.value)
         == "Value is set before as [2.0, 3.0]. A value can not be reset."
@@ -781,8 +777,8 @@ def test_static_2():
     model2 = Model()
     add_1 = Add()
     model1 += add_1(
-        left=MyTensor([2.0, 3.0]),
-        right=IOKey("right", type=MyTensor),
+        left=Tensor([2.0, 3.0]),
+        right=IOKey("right", type=Tensor),
         output=IOKey(name="output"),
     )
     model2 += model1
@@ -807,8 +803,8 @@ def test_static_2_set_values():
     model1 = Model()
     model2 = Model()
     add_1 = Add()
-    model1 += add_1(right=IOKey("right", type=MyTensor), output=IOKey(name="output"))
-    model1.set_values({add_1.left: MyTensor([2.0, 3.0])})
+    model1 += add_1(right=IOKey("right", type=Tensor), output=IOKey(name="output"))
+    model1.set_values({add_1.left: Tensor([2.0, 3.0])})
     model2 += model1
     comp_model = mithril.compile(model=model2, backend=NumpyBackend())
 
@@ -832,9 +828,7 @@ def test_static_3_connection_not_found():
     model1 = Model()
     model2 = Model()
     add_1 = Add()
-    model1 += add_1(
-        left="left", right=MyTensor([2.0, 3.0]), output=IOKey(name="output")
-    )
+    model1 += add_1(left="left", right=Tensor([2.0, 3.0]), output=IOKey(name="output"))
     model2 += model1
     assert not isinstance(model2.canonical_input, NotAvailable)
     connection = add_1.right
@@ -856,9 +850,7 @@ def test_valued_canonical_input_not_available():
     model1 = Model()
     model2 = Model()
     add_1 = Add()
-    model1 += add_1(
-        left=MyTensor([2.0, 3.0]), right="right", output=IOKey(name="output")
-    )
+    model1 += add_1(left=Tensor([2.0, 3.0]), right="right", output=IOKey(name="output"))
     model2 += model1
     assert isinstance(model2.canonical_input, NotAvailable)
 
@@ -870,17 +862,15 @@ def test_static_3_set_values_and_remove_canonical_input():
     model1 += add_1(right="right", output=IOKey(name="output"))
     # Setting a connection to a value makes that connection
     # not visible from outer model.
-    model1.set_values({add_1.left: MyTensor([2.0, 3.0])})
+    model1.set_values({add_1.left: Tensor([2.0, 3.0])})
     model2 += model1
     assert isinstance(model2.canonical_input, NotAvailable)
 
 
 def test_static_4():
     model = Model()
-    model += Greater()(left="input", right=MyTensor(0.6))
-    model += Where()(
-        cond=model.canonical_output, input1=MyTensor(1), input2=MyTensor(0)
-    )
+    model += Greater()(left="input", right=Tensor(0.6))
+    model += Where()(cond=model.canonical_output, input1=Tensor(1), input2=Tensor(0))
 
     backend = TorchBackend()
     compiled_model = mithril.compile(
@@ -899,10 +889,8 @@ def test_static_4():
 def test_static_4_set_values():
     model = Model()
     model += (gr := Greater())(left="input")
-    model.set_values({gr.right: MyTensor(0.6)})
-    model += Where()(
-        cond=model.canonical_output, input1=MyTensor(1), input2=MyTensor(0)
-    )
+    model.set_values({gr.right: Tensor(0.6)})
+    model += Where()(cond=model.canonical_output, input1=Tensor(1), input2=Tensor(0))
 
     backend = TorchBackend()
     compiled_model = mithril.compile(
@@ -1026,9 +1014,9 @@ def test_bool_tensor_numpy_32():
     not_1 = LogicalNot()
     add_1 = Add()
     ref = np.array([8.0, 9.0])
-    model += not_1(input=IOKey(value=MyTensor([False, False]), name="input"))
+    model += not_1(input=IOKey(value=Tensor([False, False]), name="input"))
     model += add_1(
-        left=MyTensor([7.0, 8.0]), right=not_1.output, output=IOKey(name="output")
+        left=Tensor([7.0, 8.0]), right=not_1.output, output=IOKey(name="output")
     )
     comp_model = mithril.compile(model=model, backend=NumpyBackend(), inference=True)
     output = comp_model.evaluate()["output"]
@@ -1044,9 +1032,9 @@ def test_bool_tensor_numpy_32_set_values():
     ref = np.array([8.0, 9.0])
     model += not_1(input=IOKey(name="input", value=TBD))
     model += add_1(
-        left=MyTensor([7.0, 8.0]), right=not_1.output, output=IOKey(name="output")
+        left=Tensor([7.0, 8.0]), right=not_1.output, output=IOKey(name="output")
     )
-    model.set_values({model.input: MyTensor([False, False])})  # type: ignore
+    model.set_values({model.input: Tensor([False, False])})  # type: ignore
     comp_model = mithril.compile(model=model, backend=NumpyBackend(), inference=True)
     output = comp_model.evaluate()["output"]
     assert isinstance(output, np.ndarray)
@@ -1059,9 +1047,9 @@ def test_bool_tensor_numpy_64():
     not_1 = LogicalNot()
     add_1 = Add()
     ref = np.array([8.0, 9.0])
-    model += not_1(input=IOKey(value=MyTensor([False, False]), name="input"))
+    model += not_1(input=IOKey(value=Tensor([False, False]), name="input"))
     model += add_1(
-        left=MyTensor([7.0, 8.0]), right=not_1.output, output=IOKey(name="output")
+        left=Tensor([7.0, 8.0]), right=not_1.output, output=IOKey(name="output")
     )
     comp_model = mithril.compile(
         model=model, backend=NumpyBackend(precision=64), inference=True
@@ -1077,9 +1065,9 @@ def test_bool_tensor_torch_32():
     not_1 = LogicalNot()
     add_1 = Add()
     ref = np.array([8.0, 9.0])
-    model += not_1(input=IOKey(value=MyTensor([False, False]), name="input"))
+    model += not_1(input=IOKey(value=Tensor([False, False]), name="input"))
     model += add_1(
-        left=MyTensor([7.0, 8.0]), right=not_1.output, output=IOKey(name="output")
+        left=Tensor([7.0, 8.0]), right=not_1.output, output=IOKey(name="output")
     )
     comp_model = mithril.compile(
         model=model, backend=TorchBackend(precision=32), inference=True
@@ -1096,9 +1084,9 @@ def test_bool_tensor_torch_64():
     not_1 = LogicalNot()
     add_1 = Add()
     ref = np.array([8.0, 9.0])
-    model += not_1(input=IOKey(value=MyTensor([False, False]), name="input"))
+    model += not_1(input=IOKey(value=Tensor([False, False]), name="input"))
     model += add_1(
-        left=MyTensor([7.0, 8.0]), right=not_1.output, output=IOKey(name="output")
+        left=Tensor([7.0, 8.0]), right=not_1.output, output=IOKey(name="output")
     )
     comp_model = mithril.compile(
         model=model, backend=TorchBackend(precision=64), inference=True
@@ -1115,9 +1103,9 @@ def test_bool_tensor_jax_32():
     not_1 = LogicalNot()
     add_1 = Add()
     ref = np.array([8.0, 9.0])
-    model += not_1(input=IOKey(value=MyTensor([False, False]), name="input"))
+    model += not_1(input=IOKey(value=Tensor([False, False]), name="input"))
     model += add_1(
-        left=MyTensor([7.0, 8.0]), right=not_1.output, output=IOKey(name="output")
+        left=Tensor([7.0, 8.0]), right=not_1.output, output=IOKey(name="output")
     )
     comp_model = mithril.compile(
         model=model, backend=JaxBackend(precision=32), inference=True
@@ -1132,9 +1120,9 @@ def test_bool_tensor_jax_64():
     not_1 = LogicalNot()
     add_1 = Add()
     ref = np.array([8.0, 9.0])
-    model += not_1(input=IOKey(value=MyTensor([False, False]), name="input"))
+    model += not_1(input=IOKey(value=Tensor([False, False]), name="input"))
     model += add_1(
-        left=MyTensor([7.0, 8.0]), right=not_1.output, output=IOKey(name="output")
+        left=Tensor([7.0, 8.0]), right=not_1.output, output=IOKey(name="output")
     )
     comp_model = mithril.compile(
         model=model, backend=JaxBackend(precision=64), inference=True
@@ -1149,9 +1137,9 @@ def test_bool_tensor_mlx_32():
     not_1 = LogicalNot()
     add_1 = Add()
     ref = np.array([8.0, 9.0])
-    model += not_1(input=IOKey(value=MyTensor([False, False]), name="input"))
+    model += not_1(input=IOKey(value=Tensor([False, False]), name="input"))
     model += add_1(
-        left=MyTensor([7.0, 8.0]), right=not_1.output, output=IOKey(name="output")
+        left=Tensor([7.0, 8.0]), right=not_1.output, output=IOKey(name="output")
     )
     comp_model = mithril.compile(
         model=model, backend=JaxBackend(precision=32), inference=True
@@ -1166,9 +1154,9 @@ def test_bool_tensor_mlx_64():
     not_1 = LogicalNot()
     add_1 = Add()
     ref = np.array([8.0, 9.0])
-    model += not_1(input=IOKey(value=MyTensor([False, False]), name="input"))
+    model += not_1(input=IOKey(value=Tensor([False, False]), name="input"))
     model += add_1(
-        left=MyTensor([7.0, 8.0]), right=not_1.output, output=IOKey(name="output")
+        left=Tensor([7.0, 8.0]), right=not_1.output, output=IOKey(name="output")
     )
     comp_model = mithril.compile(
         model=model, backend=JaxBackend(precision=64), inference=True
@@ -1181,7 +1169,7 @@ def test_bool_tensor_mlx_64():
 def test_static_input_1():
     model = Model()
     add_1 = Add()
-    add_1.set_types(left=MyTensor, right=MyTensor)
+    add_1.set_types(left=Tensor, right=Tensor)
     add_1.left.set_differentiable(False)
     add_1.right.set_differentiable(False)
     ref = np.array(5.0)
@@ -1204,7 +1192,7 @@ def test_static_input_1():
 def test_static_input_1_safe_names():
     model = Model()
     add_1 = Add()
-    add_1.set_types(left=MyTensor, right=MyTensor)
+    add_1.set_types(left=Tensor, right=Tensor)
     add_1.left.set_differentiable(False)
     add_1.right.set_differentiable(False)
     model += add_1
@@ -1219,7 +1207,7 @@ def test_static_input_1_safe_names():
 def test_static_input_2():
     model = Model()
     add_1 = Add()
-    add_1.set_types(left=MyTensor, right=MyTensor)
+    add_1.set_types(left=Tensor, right=Tensor)
     ref = np.array(5.0)
     add_1.left.set_differentiable(False)
     add_1.right.set_differentiable(False)
@@ -1245,7 +1233,7 @@ def test_static_input_2():
 def test_static_input_2_safe_names():
     model = Model()
     add_1 = Add()
-    add_1.set_types(left=MyTensor, right=MyTensor)
+    add_1.set_types(left=Tensor, right=Tensor)
     add_1.left.set_differentiable(False)
     add_1.right.set_differentiable(False)
     model += add_1()
@@ -1264,7 +1252,7 @@ def test_static_input_3():
     backend = NumpyBackend(precision=32)
     model = Model()
     add_1 = Add()
-    add_1.set_types(left=MyTensor, right=MyTensor)
+    add_1.set_types(left=Tensor, right=Tensor)
     ref = np.array(5.0)
     add_1.left.set_differentiable(False)
     add_1.right.set_differentiable(False)
@@ -1287,7 +1275,7 @@ def test_static_input_4():
     backend = NumpyBackend(precision=32)
     model = Model()
     add_1 = Add()
-    add_1.set_types(left=MyTensor, right=MyTensor)
+    add_1.set_types(left=Tensor, right=Tensor)
     ref = np.array(5.0)
     model += add_1(left="in1", right="in2")
     comp_model = mithril.compile(
@@ -1308,7 +1296,7 @@ def test_static_input_4():
 def test_static_input_5():
     model = Model()
     add_1 = Add()
-    add_1.set_types(left=MyTensor, right=MyTensor)
+    add_1.set_types(left=Tensor, right=Tensor)
     ref = np.array(5.0)
     add_1.left.set_differentiable(False)
     add_1.right.set_differentiable(False)
@@ -1347,8 +1335,8 @@ def test_static_input_6():
     )
 
     model_2 += add_3(
-        left=IOKey(value=MyTensor(3.0), name="left"),
-        right=IOKey(value=MyTensor(4.0), name="right"),
+        left=IOKey(value=Tensor(3.0), name="left"),
+        right=IOKey(value=Tensor(4.0), name="right"),
         output=IOKey(name="output"),
     )
     model_2 += model_1(left=add_3.left, right=add_3.right, out2=IOKey(name="output_1"))
@@ -1384,15 +1372,15 @@ def test_static_input_6_error():
     add_3 = Add()
 
     model_1 += add_1(
-        left=IOKey(value=MyTensor(1.0), name="left"),
+        left=IOKey(value=Tensor(1.0), name="left"),
         right=IOKey(value=TBD, name="right"),
         output=IOKey(name="out1"),
     )
     model_1 += add_2(left=add_1.left, right=add_1.right, output=IOKey(name="out2"))
 
     model_2 += add_3(
-        left=IOKey(value=MyTensor(3.0), name="left"),
-        right=IOKey(value=MyTensor(4.0), name="right"),
+        left=IOKey(value=Tensor(3.0), name="left"),
+        right=IOKey(value=Tensor(4.0), name="right"),
         output=IOKey(name="output"),
     )
     with pytest.raises(ValueError) as err_info:
@@ -1414,8 +1402,8 @@ def test_static_input_7():
     add_3 = Add()
 
     model_1 += add_1(
-        left=IOKey(value=MyTensor(3.0), name="left"),
-        right=IOKey(value=MyTensor(4.0), name="right"),
+        left=IOKey(value=Tensor(3.0), name="left"),
+        right=IOKey(value=Tensor(4.0), name="right"),
         output=IOKey(name="out1"),
     )
     model_1 += add_2(left=add_1.left, right=add_1.right, output="out2")
@@ -1450,8 +1438,8 @@ def test_add_1():
     model = Model()
     add_model = Add()
     model += add_model(
-        left=MyTensor(1),
-        right=IOKey("right", type=MyTensor),
+        left=Tensor(1),
+        right=IOKey("right", type=Tensor),
         output=IOKey(name="output"),
     )
     model.set_shapes({"right": [1, 1, 1]})
@@ -1464,7 +1452,7 @@ def test_composite_1():
     shape_model = Shape()
     index_model = Indexer()
     red_model = Mean(axis=TBD)
-    model += add_model(left=MyTensor([[[1]]]), right=IOKey("right", type=MyTensor))
+    model += add_model(left=Tensor([[[1]]]), right=IOKey("right", type=Tensor))
     model += shape_model(input=add_model.output)
     model += index_model(input=shape_model.output, index=1)
     model += red_model(
@@ -1481,8 +1469,8 @@ def test_composite_1_set_values():
     shape_model = Shape()
     index_model = Indexer()
     red_model = Mean(axis=TBD)
-    model += add_model(right=IOKey("right", type=MyTensor))
-    model.set_values({add_model.left: MyTensor([[[1]]])})
+    model += add_model(right=IOKey("right", type=Tensor))
+    model.set_values({add_model.left: Tensor([[[1]]])})
     model += shape_model(input=add_model.output)
     model += index_model(input=shape_model.output, index=1)
     model += red_model(
@@ -1504,7 +1492,7 @@ def test_composite_2():
     model += conv1(input="input")
     conv1.input.set_differentiable(True)
     model += leaky_relu(
-        input=conv1.output, output=IOKey(name="output"), slope=MyTensor(0.3)
+        input=conv1.output, output=IOKey(name="output"), slope=Tensor(0.3)
     )
     model.set_shapes({"input": [1, 1, 4, 4]})
     assert_all_backends_device_precision(model)
@@ -1519,7 +1507,7 @@ def test_composite_2_set_values():
     model += leaky_relu(
         input=conv1.output, output=IOKey(name="output"), slope=NOT_GIVEN
     )
-    model.set_values({leaky_relu.slope: MyTensor(0.3)})
+    model.set_values({leaky_relu.slope: Tensor(0.3)})
     model.set_shapes({"input": [1, 1, 4, 4]})
     assert_all_backends_device_precision(model)
 
@@ -1531,7 +1519,7 @@ def test_composite_3():
     mean_model = Mean(axis=TBD)
     model += conv1(input="input", stride=(2, 3))
     conv1.input.set_differentiable(True)
-    model += leaky_relu(input=conv1.output, slope=MyTensor(0.3))
+    model += leaky_relu(input=conv1.output, slope=Tensor(0.3))
     model += mean_model(axis=conv1.stride)
     assert not isinstance(conv1.canonical_output, NotAvailable)
     model.set_canonical_output(conv1.canonical_output)
@@ -1548,7 +1536,7 @@ def test_composite_3_set_values():
     conv1.input.set_differentiable(True)
     model.set_values({conv1.stride: (2, 3)})
     model += leaky_relu(input=conv1.output, slope=NOT_GIVEN)
-    model.set_values({leaky_relu.slope: MyTensor(0.3)})
+    model.set_values({leaky_relu.slope: Tensor(0.3)})
     model += mean_model(axis=conv1.stride)
     assert not isinstance(conv1.canonical_output, NotAvailable)
     model.set_canonical_output(conv1.canonical_output)
@@ -1564,7 +1552,7 @@ def test_composite_4():
     mean_model = Mean(axis=TBD)
     model += conv1(input="input", stride=(2, 3))
     conv1.input.set_differentiable(True)
-    model += leaky_relu(input=conv1.output, slope=MyTensor(0.3))
+    model += leaky_relu(input=conv1.output, slope=Tensor(0.3))
     model += mean_model(axis=conv1.stride)
     model.set_shapes({"input": [1, 1, 8, 8]})
     assert not isinstance(conv1.canonical_output, NotAvailable)
@@ -1581,7 +1569,7 @@ def test_composite_4_set_values():
     conv1.input.set_differentiable(True)
     model.set_values({conv1.stride: (2, 3)})
     model += leaky_relu(input=conv1.output, slope=NOT_GIVEN)
-    model.set_values({leaky_relu.slope: MyTensor(0.3)})
+    model.set_values({leaky_relu.slope: Tensor(0.3)})
     model += mean_model(axis=conv1.stride)
     model.set_shapes({"input": [1, 1, 8, 8]})
     assert not isinstance(conv1.canonical_output, NotAvailable)
@@ -1590,9 +1578,9 @@ def test_composite_4_set_values():
 
 
 def test_composite_5():
-    list1 = MyTensor(np.random.randn(2, 3, 4).tolist())
-    list2 = MyTensor(np.random.randn(1, 3, 4).tolist())
-    list3 = MyTensor(np.random.randn(2, 2, 1, 1, 1).tolist())
+    list1 = Tensor(np.random.randn(2, 3, 4).tolist())
+    list2 = Tensor(np.random.randn(1, 3, 4).tolist())
+    list3 = Tensor(np.random.randn(2, 2, 1, 1, 1).tolist())
     model = Model()
     add_model_1 = Add()
     add_model_2 = Add()
@@ -1605,9 +1593,9 @@ def test_composite_5():
 
 
 def test_composite_5_set_values():
-    list1 = MyTensor(np.random.randn(2, 3, 4).tolist())
-    list2 = MyTensor(np.random.randn(1, 3, 4).tolist())
-    list3 = MyTensor(np.random.randn(2, 2, 1, 1, 1).tolist())
+    list1 = Tensor(np.random.randn(2, 3, 4).tolist())
+    list2 = Tensor(np.random.randn(1, 3, 4).tolist())
+    list3 = Tensor(np.random.randn(2, 2, 1, 1, 1).tolist())
     model = Model()
     add_model_1 = Add()
     add_model_2 = Add()
@@ -1623,29 +1611,29 @@ def test_composite_5_set_values():
 
 
 def test_composite_6():
-    list1 = MyTensor(np.random.randn(2, 3, 4).tolist())
-    list2 = MyTensor(np.random.randn(1, 3, 4).tolist())
-    list3 = MyTensor(np.random.randn(2, 2, 1, 1, 1).tolist())
+    list1 = Tensor(np.random.randn(2, 3, 4).tolist())
+    list2 = Tensor(np.random.randn(1, 3, 4).tolist())
+    list3 = Tensor(np.random.randn(2, 2, 1, 1, 1).tolist())
     model = Model()
     add_model_1 = Add()
     add_model_2 = Add()
     add_model_3 = Add()
-    model += add_model_1(left=IOKey(value=MyTensor(1), name="left1"), right=list1)
+    model += add_model_1(left=IOKey(value=Tensor(1), name="left1"), right=list1)
     model += add_model_2(left=add_model_1.output, right=list2)
     model += add_model_3(left=add_model_2.output, right=list3)
     assert_all_backends_device_precision(model, inference=True)
 
 
 def test_composite_6_set_values():
-    list1 = MyTensor(np.random.randn(2, 3, 4).tolist())
-    list2 = MyTensor(np.random.randn(1, 3, 4).tolist())
-    list3 = MyTensor(np.random.randn(2, 2, 1, 1, 1).tolist())
+    list1 = Tensor(np.random.randn(2, 3, 4).tolist())
+    list2 = Tensor(np.random.randn(1, 3, 4).tolist())
+    list3 = Tensor(np.random.randn(2, 2, 1, 1, 1).tolist())
     model = Model()
     add_model_1 = Add()
     add_model_2 = Add()
     add_model_3 = Add()
     model += add_model_1(left=IOKey(name="left1"))
-    model.set_values({add_model_1.left: MyTensor(1), add_model_1.right: list1})
+    model.set_values({add_model_1.left: Tensor(1), add_model_1.right: list1})
     model += add_model_2(left=add_model_1.output)
     model.set_values({add_model_2.right: list2})
     model += add_model_3(left=add_model_2.output)
@@ -1654,29 +1642,29 @@ def test_composite_6_set_values():
 
 
 def test_composite_7():
-    list1 = MyTensor(np.random.randn(2, 3, 4).tolist())
-    list2 = MyTensor(np.random.randn(1, 3, 4).tolist())
-    list3 = MyTensor(np.random.randn(2, 2, 1, 1, 1).tolist())
+    list1 = Tensor(np.random.randn(2, 3, 4).tolist())
+    list2 = Tensor(np.random.randn(1, 3, 4).tolist())
+    list3 = Tensor(np.random.randn(2, 2, 1, 1, 1).tolist())
     model = Model()
     add_model_1 = Add()
     add_model_2 = Add()
     add_model_3 = Add()
-    model += add_model_1(left=IOKey(name="left1", value=MyTensor([[1]])), right=list1)
+    model += add_model_1(left=IOKey(name="left1", value=Tensor([[1]])), right=list1)
     model += add_model_2(left=add_model_1.output, right=list2)
     model += add_model_3(left=add_model_2.output, right=list3)
     assert_all_backends_device_precision(model, inference=True)
 
 
 def test_composite_7_set_values():
-    list1 = MyTensor(np.random.randn(2, 3, 4).tolist())
-    list2 = MyTensor(np.random.randn(1, 3, 4).tolist())
-    list3 = MyTensor(np.random.randn(2, 2, 1, 1, 1).tolist())
+    list1 = Tensor(np.random.randn(2, 3, 4).tolist())
+    list2 = Tensor(np.random.randn(1, 3, 4).tolist())
+    list3 = Tensor(np.random.randn(2, 2, 1, 1, 1).tolist())
     model = Model()
     add_model_1 = Add()
     add_model_2 = Add()
     add_model_3 = Add()
     model += add_model_1(left=IOKey(name="left1"))
-    model.set_values({add_model_1.left: MyTensor([[1]]), add_model_1.right: list1})
+    model.set_values({add_model_1.left: Tensor([[1]]), add_model_1.right: list1})
     model += add_model_2(left=add_model_1.output)
     model.set_values({add_model_2.right: list2})
     model += add_model_3(left=add_model_2.output)
@@ -1685,7 +1673,7 @@ def test_composite_7_set_values():
 
 
 def test_composite_conv_mean():
-    list1 = MyTensor(np.random.randn(1, 1, 8, 8).tolist())
+    list1 = Tensor(np.random.randn(1, 1, 8, 8).tolist())
     model = Model()
     conv_model = Convolution2D(kernel_size=2, out_channels=1, stride=(2, 3))
     reduce_model = Mean(axis=TBD)
@@ -1697,7 +1685,7 @@ def test_composite_conv_mean():
 
 
 def test_composite_conv_mean_set_values():
-    list1 = MyTensor(np.random.randn(1, 1, 8, 8).tolist())
+    list1 = Tensor(np.random.randn(1, 1, 8, 8).tolist())
     model = Model()
     conv_model = Convolution2D(kernel_size=2, out_channels=1, stride=(2, 3))
     reduce_model = Mean(axis=TBD)
@@ -1710,7 +1698,7 @@ def test_composite_conv_mean_set_values():
 
 
 def test_composite_conv_mean_2():
-    list1 = MyTensor(np.ones((1, 1, 8, 8)).tolist())
+    list1 = Tensor(np.ones((1, 1, 8, 8)).tolist())
     model = Model()
     conv_model = Convolution2D(kernel_size=2, out_channels=1, stride=TBD)
     reduce_model = Sum(axis=TBD)
@@ -1726,7 +1714,7 @@ def test_composite_conv_mean_2():
 
 
 def test_composite_conv_mean_2_set_values():
-    list1 = MyTensor(np.ones((1, 1, 8, 8)).tolist())
+    list1 = Tensor(np.ones((1, 1, 8, 8)).tolist())
     model = Model()
     conv_model = Convolution2D(kernel_size=2, out_channels=1, stride=TBD)
     reduce_model = Sum(axis=TBD)
@@ -1749,9 +1737,9 @@ def test_unused_cached_values_1():
     model = Model()
     linear_model = Linear(dimension=2)
     model += linear_model(
-        input=MyTensor([[3.0], [2.0]]),
-        weight=MyTensor([[1.0], [2.0]]),
-        bias=MyTensor([3.0, 1.0]),
+        input=Tensor([[3.0], [2.0]]),
+        weight=Tensor([[1.0], [2.0]]),
+        bias=Tensor([3.0, 1.0]),
     )
     comp_model = mithril.compile(
         model=model, backend=(backend := NumpyBackend()), inference=True
@@ -1782,10 +1770,10 @@ def test_unused_cached_values_1_set_values():
     model = Model()
     linear_model = Linear(dimension=2)
     model += linear_model()
-    config: dict[Connection, MyTensor] = {
-        linear_model.weight: MyTensor([[1.0], [2.0]]),
-        linear_model.bias: MyTensor([3.0, 1.0]),
-        linear_model.input: MyTensor([[3.0], [2.0]]),
+    config: dict[Connection, Tensor] = {
+        linear_model.weight: Tensor([[1.0], [2.0]]),
+        linear_model.bias: Tensor([3.0, 1.0]),
+        linear_model.input: Tensor([[3.0], [2.0]]),
     }
     model.set_values(config)
     comp_model = mithril.compile(
@@ -1811,7 +1799,7 @@ def test_unused_cached_values_2():
     """
     model = Model()
     linear_model = Linear(dimension=2)
-    model += linear_model(weight=MyTensor([[1.0], [2.0]]), bias=MyTensor([3.0, 1.0]))
+    model += linear_model(weight=Tensor([[1.0], [2.0]]), bias=Tensor([3.0, 1.0]))
     comp_model = mithril.compile(
         model=model, backend=(backend := NumpyBackend()), safe_names=False
     )
@@ -1852,9 +1840,9 @@ def test_unused_cached_values_2_set_values():
     model = Model()
     linear_model = Linear(dimension=2)
     model += linear_model()
-    config: dict[Connection, MyTensor] = {
-        linear_model.weight: MyTensor([[1.0], [2.0]]),
-        linear_model.bias: MyTensor([3.0, 1.0]),
+    config: dict[Connection, Tensor] = {
+        linear_model.weight: Tensor([[1.0], [2.0]]),
+        linear_model.bias: Tensor([3.0, 1.0]),
     }
     model.set_values(config)
     comp_model = mithril.compile(
@@ -1894,9 +1882,7 @@ def test_unused_cached_values_3():
     """
     model = Model()
     linear_model = Linear(dimension=2)
-    model += linear_model(
-        input=MyTensor([[3.0], [2.0]]), weight=MyTensor([[1.0], [2.0]])
-    )
+    model += linear_model(input=Tensor([[3.0], [2.0]]), weight=Tensor([[1.0], [2.0]]))
     linear_model.bias.set_differentiable(False)
     comp_model = mithril.compile(
         model=model, backend=(backend := NumpyBackend()), safe_names=False
@@ -1936,8 +1922,8 @@ def test_unused_cached_values_3_set_values():
     model += linear_model()
     model.set_values(
         {
-            linear_model.input: MyTensor([[3.0], [2.0]]),
-            linear_model.weight: MyTensor([[1.0], [2.0]]),
+            linear_model.input: Tensor([[3.0], [2.0]]),
+            linear_model.weight: Tensor([[1.0], [2.0]]),
         }
     )
     linear_model.bias.set_differentiable(False)
@@ -2144,7 +2130,7 @@ def test_nontensor_gradient():
     model += relu(input="input")
     model += to_tensor_model(input=shape_model.output, output=IOKey(name="out1"))
     model += add_model(
-        left=IOKey("in1", type=MyTensor), right=relu.output, output=IOKey(name="out2")
+        left=IOKey("in1", type=Tensor), right=relu.output, output=IOKey(name="out2")
     )
 
     ctx = TrainModel(model)
@@ -2186,7 +2172,7 @@ def test_nontensor_gradient_2():
         left="", right=to_tensor_model.output, output=IOKey(name="output")
     )
     model += mult_model(
-        left="", right=IOKey("right1", type=MyTensor), output=add_model.left
+        left="", right=IOKey("right1", type=Tensor), output=add_model.left
     )
     model += relu_model(input="in1", output=mult_model.left)
     constant_keys = {
@@ -2240,8 +2226,8 @@ def test_numpy_without_shape():
     model = Model()
     add_model = Add()
     model += add_model(
-        left=IOKey("left", type=MyTensor),
-        right=IOKey("right", type=MyTensor),
+        left=IOKey("left", type=Tensor),
+        right=IOKey("right", type=Tensor),
         output=IOKey(name="output"),
     )
     model.set_shapes({"left": [], "right": []})
@@ -2274,14 +2260,14 @@ def test_multiple_to_tensor():
     model += tt_1
     model += add_model(
         left=model.canonical_output,
-        right=IOKey("right", type=MyTensor),
+        right=IOKey("right", type=Tensor),
         output=IOKey(name="output"),
     )
     model_1 += shp_2
     model_1 += tt_2
     model_1 += add_model_2(
         left=model_1.canonical_output,
-        right=IOKey("right", type=MyTensor),
+        right=IOKey("right", type=Tensor),
         output=IOKey(name="output"),
     )
     model_2 += model(input="input")
@@ -2673,7 +2659,7 @@ def test_multi_write_to_local_output_key():
 
 def test_all_inputs_static():
     model = Model()
-    model += Mean()(input=MyTensor([1.0, 2]))
+    model += Mean()(input=Tensor([1.0, 2]))
     backend = NumpyBackend()
     comp_model = mithril.compile(model=model, backend=backend, inference=True)
     outputs = comp_model.evaluate()
@@ -2698,15 +2684,15 @@ def test_reshape_call_arg_vs_init_arg():
 def test_add_constant():
     model = Model()
     model += Add()(left="input", right="w")
-    model.set_values({"input": MyTensor([1.0])})
+    model.set_values({"input": Tensor([1.0])})
     backend = JaxBackend()
-    pm = mithril.compile(model=model, backend=backend)
+    pm = mithril.compile(model=model, backend=backend, inference=True)
     assert pm.evaluate(data={"w": 2.0})["output"] == backend.array([3.0])
 
 
 def test_add_constant_iokey():
     model = Model()
-    model += Add()(left=IOKey("input", value=MyTensor([1.0])), right="w")
+    model += Add()(left=IOKey("input", value=Tensor([1.0])), right="w")
     backend = JaxBackend()
-    pm = mithril.compile(model=model, backend=backend)
+    pm = mithril.compile(model=model, backend=backend, inference=True)
     assert pm.evaluate(data={"w": 2.0})["output"] == backend.array([3.0])

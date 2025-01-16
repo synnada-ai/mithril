@@ -25,11 +25,11 @@ from mithril.framework.common import (
     TBD,
     ConstraintSolver,
     IOHyperEdge,
-    MyTensor,
     PossibleValues,
     ShapeRepr,
     ShapeResultType,
     ShapeTemplateType,
+    Tensor,
     TensorToListType,
     ToBeDetermined,
     Uniadic,
@@ -118,7 +118,7 @@ def shape_map_to_tensor(
     # Simply converts ShapeRepr objects to Tensor types.
     tensor_dict = {}
     for key, value in shape_map.items():
-        tensor = MyTensor(type=float | int | bool, shape=value.node)
+        tensor = Tensor(type=float | int | bool, shape=value.node)
         edge = IOHyperEdge(value=tensor, key_origin=key)
         # set temp_shape. Since temp_shape of a Tensor initialized as None in its
         # constructor.
@@ -216,7 +216,7 @@ def assert_shape_results(
     shapes = {}
     assignments: AssignmentType = {}
     for key, value in data.items():
-        if value.edge_type is MyTensor:
+        if value.edge_type is Tensor:
             assert value.shape is not None
             shapes[key] = value.shape.get_shapes(uni_cache, var_cache, verbose=True)
             shape_repr = value._temp_shape
@@ -262,7 +262,7 @@ def assert_value_results(
             assert data[key].value == value
         else:
             # If value is a tensor of any supported backend.
-            assert data[key].edge_type is MyTensor
+            assert data[key].edge_type is Tensor
             d_val = data[key].value
             assert GenericDataType.is_tensor_type(d_val)
             assert (d_val == value).all()

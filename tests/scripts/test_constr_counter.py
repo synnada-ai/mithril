@@ -22,8 +22,8 @@ from mithril.framework.common import (
     ConnectionType,
     IOHyperEdge,
     IOKey,
-    MyTensor,
     ShapeRepr,
+    Tensor,
     Uniadic,
     Updates,
 )
@@ -48,8 +48,8 @@ def dummy_constraint(output: IOHyperEdge, input: IOHyperEdge):
     # updated_symbols = set()
     updates = Updates()
     status = False
-    output_repr = output._temp_shape if output.edge_type is MyTensor else output.value
-    input_repr = input._temp_shape if input.edge_type is MyTensor else input.value
+    output_repr = output._temp_shape if output.edge_type is Tensor else output.value
+    input_repr = input._temp_shape if input.edge_type is Tensor else input.value
     assert isinstance(output_repr, ShapeRepr)
     assert isinstance(input_repr, ShapeRepr)
     if bool(input_repr.root) ^ bool(output_repr.root):
@@ -100,8 +100,8 @@ class Model1(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="buffer",
-            input=BaseKey(shape=[("Var1", ...)], type=MyTensor),
-            output=BaseKey(shape=[("Var2", ...)], type=MyTensor),
+            input=BaseKey(shape=[("Var1", ...)], type=Tensor),
+            output=BaseKey(shape=[("Var2", ...)], type=Tensor),
         )
         self._set_constraint(fn=dummy_constraint, keys=["output", "input"])
 
@@ -113,8 +113,8 @@ class Model2(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="buffer",
-            input=BaseKey(shape=[("Var1", ...)], type=MyTensor),
-            output=BaseKey(shape=[("Var2", ...)], type=MyTensor),
+            input=BaseKey(shape=[("Var1", ...)], type=Tensor),
+            output=BaseKey(shape=[("Var2", ...)], type=Tensor),
         )
         self._set_constraint(fn=dummy_constraint, keys=["output", "input"])
         self._set_constraint(
@@ -129,8 +129,8 @@ class Model3(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="buffer",
-            input=BaseKey(shape=[("Var1", ...)], type=MyTensor[int | bool]),
-            output=BaseKey(shape=[("Var2", ...)], type=MyTensor[int | bool]),
+            input=BaseKey(shape=[("Var1", ...)], type=Tensor[int | bool]),
+            output=BaseKey(shape=[("Var2", ...)], type=Tensor[int | bool]),
         )
         self._set_constraint(fn=dummy_constraint, keys=["output", "input"])
 
@@ -143,9 +143,9 @@ class MyAdd2(PrimitiveModel):
     def __init__(self, left, right, output) -> None:
         super().__init__(
             formula_key="add",
-            output=BaseKey(shape=output, type=MyTensor),
-            left=BaseKey(shape=left, type=MyTensor),
-            right=BaseKey(shape=right, type=MyTensor),
+            output=BaseKey(shape=output, type=Tensor),
+            left=BaseKey(shape=left, type=Tensor),
+            right=BaseKey(shape=right, type=Tensor),
         )
         self._set_constraint(
             fn=bcast, keys=[PrimitiveModel.output_key, "left", "right"]
@@ -952,7 +952,7 @@ def test_shape_constraint_counter_15():
     slice_4 = Slice()
 
     item_model_1 = Indexer()
-    item_model_1.set_types(input=MyTensor)
+    item_model_1.set_types(input=Tensor)
     item_model_2 = Indexer()
     item_model_3 = Indexer()
     item_model_4 = Indexer()
@@ -1038,9 +1038,9 @@ def test_shape_constraint_counter_16():
     model = Model()
 
     model_1 = Add()
-    model_1.set_types(left=MyTensor, right=MyTensor)
+    model_1.set_types(left=Tensor, right=Tensor)
     model_2 = Add()
-    model_2.set_types(left=MyTensor, right=MyTensor)
+    model_2.set_types(left=Tensor, right=Tensor)
 
     model += model_1
     model += model_2
@@ -1189,9 +1189,9 @@ def test_error_check_counter_1():
     """Checks if bcast_error_check works robust."""
     model = Model()
     add1 = Add()
-    add1.set_types(left=MyTensor, right=MyTensor)
+    add1.set_types(left=Tensor, right=Tensor)
     add2 = Add()
-    add2.set_types(left=MyTensor, right=MyTensor)
+    add2.set_types(left=Tensor, right=Tensor)
     model += add1
     model += add2
 

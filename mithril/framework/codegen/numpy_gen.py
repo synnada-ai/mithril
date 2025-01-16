@@ -33,8 +33,8 @@ from ..common import (
     FinalCost,
     IOHyperEdge,
     LossKey,
-    MyTensor,
     ParamsEvalType,
+    Tensor,
     is_type_adjustment_required,
 )
 from ..logical import PrimitiveModel
@@ -312,7 +312,7 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
             key
             for key in all_ignored_keys
             if key in self.pm.data
-            and isinstance((edge := self.pm.data[key])._value, MyTensor)
+            and isinstance((edge := self.pm.data[key])._value, Tensor)
             and find_intersection_type(edge._value.type, float)
         }
 
@@ -320,7 +320,7 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
         # for key in all_ignored_keys:
         #     if key in self.pm.data:
         #         edge = self.pm.data[key]
-        #         if isinstance(edge._value, MyTensor):
+        #         if isinstance(edge._value, Tensor):
         #             if find_intersection_type(edge._value.type, float):
         #                     weak_ignored_keys |= {key}
 

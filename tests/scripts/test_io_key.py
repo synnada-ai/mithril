@@ -20,7 +20,7 @@ import torch
 
 import mithril
 from mithril import TorchBackend
-from mithril.framework.common import TBD, IOKey, MyTensor, ToBeDetermined
+from mithril.framework.common import TBD, IOKey, Tensor, ToBeDetermined
 from mithril.models import (
     Add,
     Buffer,
@@ -170,7 +170,7 @@ def test_4():
     """Tests the case where the IOKey is defined with name and value."""
     model = Model()
     model += Linear(1)(
-        bias=IOKey(name="bias_2", value=MyTensor([1.0])), weight="weight_2"
+        bias=IOKey(name="bias_2", value=Tensor([1.0])), weight="weight_2"
     )
     model += Linear(1)(input=model.canonical_output, bias="bias_3", output="output1")
 
@@ -614,11 +614,11 @@ def test_iokey_values_10():
     model = Model()
     sig_model_1 = Sigmoid()
     sig_model_2 = Sigmoid()
-    sig_model_1.input.metadata.set_type(MyTensor[float])
+    sig_model_1.input.metadata.set_type(Tensor[float])
     model += sig_model_1(input="input", output=IOKey(name="output"))
 
     model += sig_model_2(
-        input=IOKey(value=MyTensor([1.0, 2.0]), name="input"),
+        input=IOKey(value=Tensor([1.0, 2.0]), name="input"),
         output=IOKey(name="output2"),
     )
     backend = mithril.TorchBackend()
@@ -642,7 +642,7 @@ def test_iokey_values_11():
     model += sig_model_1(input="input", output=IOKey(name="output"))
 
     model += sig_model_2(
-        input=IOKey(type=MyTensor[float], name="input"), output=IOKey(name="output2")
+        input=IOKey(type=Tensor[float], name="input"), output=IOKey(name="output2")
     )
 
     assert sig_model_1.input.metadata.value_type is float
@@ -658,7 +658,7 @@ def test_iokey_values_12():
     model += sig_model_2(
         input=IOKey(shape=[1, 2, 3, 4], name="input"), output=IOKey(name="output2")
     )
-    assert sig_model_1.input.data.metadata.edge_type is MyTensor
+    assert sig_model_1.input.data.metadata.edge_type is Tensor
     assert sig_model_1.input.data.metadata.shape is not None
     assert sig_model_1.input.data.metadata.shape.get_shapes() == [1, 2, 3, 4]
 
@@ -696,7 +696,7 @@ def test_iokey_tensor_input_all_args():
     backend = TorchBackend()
     # collect all possible values
     possible_names = ["left", None]
-    possible_values = [MyTensor([[2.0]]), TBD]
+    possible_values = [Tensor([[2.0]]), TBD]
     possible_shapes = [[1, 1], None]
     possible_expose = [True, False]
 
@@ -708,7 +708,7 @@ def test_iokey_tensor_input_all_args():
     for name, value, shape, expose in product(*all_args):  # type: ignore [call-overload]
         model = Model()
         sub_model = Add()
-        sub_model.set_types(left=MyTensor, right=MyTensor)
+        sub_model.set_types(left=Tensor, right=Tensor)
 
         try:
             # try to create an IOKey instance
@@ -801,7 +801,7 @@ def test_iokey_scalar_output_all_args():
             output = IOKey(name=name, value=value, shape=shape, expose=expose)
         except Exception as e:
             # if it fails and raises an error, try to catch the error
-            if (not isinstance(value, MyTensor | ToBeDetermined)) and shape:
+            if (not isinstance(value, Tensor | ToBeDetermined)) and shape:
                 # if non-tensor value and shape is both given, It is an expected error
                 assert isinstance(e, ValueError)
                 assert e.args[0] == (
@@ -991,7 +991,7 @@ def test_iokey_tensor_output_all_args():
     for name, value, shape, expose in product(*all_args):  # type: ignore [call-overload]
         model = Model(enforce_jit=False)
         sub_model = Add()
-        sub_model.set_types(left=MyTensor, right=MyTensor)
+        sub_model.set_types(left=Tensor, right=Tensor)
 
         try:
             # try to create an IOKey instance
@@ -1050,18 +1050,18 @@ def test_compare_models_1():
     backend = TorchBackend()
     model1 = Model()
     add = Add()
-    add.set_types(left=MyTensor, right=MyTensor)
+    add.set_types(left=Tensor, right=Tensor)
     multiply = Multiply()
-    multiply.set_types(left=MyTensor, right=MyTensor)
+    multiply.set_types(left=Tensor, right=Tensor)
 
     model1 += add(left="input1", right="input2", output="sub_out")
     model1 += multiply(left="sub_out", right="input3", output=IOKey("output"))
 
     model2 = Model()
     add = Add()
-    add.set_types(left=MyTensor, right=MyTensor)
+    add.set_types(left=Tensor, right=Tensor)
     multiply = Multiply()
-    multiply.set_types(left=MyTensor, right=MyTensor)
+    multiply.set_types(left=Tensor, right=Tensor)
 
     model2 += add(left="input1", right="input2")
     model2 += multiply(left=add.output, right="input3", output=IOKey("output"))
@@ -1192,8 +1192,8 @@ def test_error_1():
 
 
 def test_iokey_template_1():
-    left = IOKey("left", type=MyTensor)
-    right = IOKey("right", type=MyTensor)
+    left = IOKey("left", type=Tensor)
+    right = IOKey("right", type=Tensor)
 
     res = left**right
 
@@ -1216,8 +1216,8 @@ def test_iokey_template_1():
 def test_iokey_template_2():
     model = Model()
 
-    left = IOKey("left", type=MyTensor)
-    model += Buffer()(IOKey("right", type=MyTensor))
+    left = IOKey("left", type=Tensor)
+    model += Buffer()(IOKey("right", type=Tensor))
     res = left + model.right  # type: ignore
 
     model += Buffer()(res, IOKey("output"))
@@ -1238,7 +1238,7 @@ def test_iokey_template_2():
 def test_iokey_template_3():
     model = Model()
 
-    left = IOKey("left", type=MyTensor)
+    left = IOKey("left", type=Tensor)
     res = left + IOKey(value=3.0).tensor()
 
     model += Buffer()(res, IOKey("output"))
@@ -1297,7 +1297,7 @@ def test_iokey_template_6():
 
     input = IOKey("input")
     buff = Buffer()
-    buff.set_types(input=MyTensor)
+    buff.set_types(input=Tensor)
     model += buff(input[0], IOKey("output"))
     backend = TorchBackend()
     pm = mithril.compile(model=model, backend=backend, jit=False)
@@ -1368,7 +1368,7 @@ def test_iokey_template_10():
 
     input = IOKey("input")
 
-    model += Buffer()(input, IOKey("output1", type=MyTensor))
+    model += Buffer()(input, IOKey("output1", type=Tensor))
     model += Buffer()(input, IOKey("output2"))
     backend = TorchBackend()
     pm = mithril.compile(model=model, backend=backend, inference=True, jit=False)
@@ -1387,7 +1387,7 @@ def test_iokey_template_11():
 
     input = IOKey("input")
 
-    model += Buffer()(input, IOKey("output1", type=MyTensor))
+    model += Buffer()(input, IOKey("output1", type=Tensor))
     model += Buffer()(input, output=IOKey("output2"))
     backend = TorchBackend()
     pm = mithril.compile(model=model, backend=backend, inference=True, jit=False)
@@ -1407,7 +1407,7 @@ def test_iokey_template_12():
 
     input = IOKey("input")
 
-    sub_model += Buffer()(input, IOKey("output", type=MyTensor))
+    sub_model += Buffer()(input, IOKey("output", type=Tensor))
     model += sub_model(input=input, output=IOKey("output"))
 
     backend = TorchBackend()

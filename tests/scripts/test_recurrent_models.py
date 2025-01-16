@@ -20,7 +20,7 @@ import torch
 
 import mithril
 from mithril import TorchBackend
-from mithril.framework.common import NOT_GIVEN, ConnectionType, IOKey, MyTensor
+from mithril.framework.common import NOT_GIVEN, ConnectionType, IOKey, Tensor
 from mithril.models import (
     AbsoluteError,
     Add,
@@ -220,17 +220,17 @@ class MySimpleRNNCellWithLinear(Cell):
         self += mult_model_2(left=tensor_item_2.output, right="w_hh")
         self += sum_model_1(left=mult_model_1.output, right=mult_model_2.output)
         self += sum_model_2(
-            left=sum_model_1.output, right=IOKey("bias_hh", type=MyTensor)
+            left=sum_model_1.output, right=IOKey("bias_hh", type=Tensor)
         )
         self += sum_model_3(
             left=sum_model_2.output,
-            right=IOKey("bias_ih", type=MyTensor),
+            right=IOKey("bias_ih", type=Tensor),
         )
         self += tanh(input=sum_model_3.output, output=IOKey("hidden"))
         self += mult_model_3(left="hidden", right="w_ho")
         self += sum_model_4(
             left=mult_model_3.output,
-            right=IOKey("bias_o", type=MyTensor),
+            right=IOKey("bias_o", type=Tensor),
             output=IOKey("output"),
         )
 
@@ -345,11 +345,11 @@ class MyRNNCell(Cell):
         self += mult_model_2(left=tensor_item_2.output, right="w_hh")
         self += sum_model_1(left=mult_model_1.output, right=mult_model_2.output)
         self += sum_model_2(
-            left=sum_model_1.output, right=IOKey("bias_hh", type=MyTensor)
+            left=sum_model_1.output, right=IOKey("bias_hh", type=Tensor)
         )
         self += sum_model_3(
             left=sum_model_2.output,
-            right=IOKey("bias_ih", type=MyTensor),
+            right=IOKey("bias_ih", type=Tensor),
         )
         self += tanh(input=sum_model_3.output, output=IOKey("hidden"))
 

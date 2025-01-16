@@ -32,12 +32,12 @@ from ..common import (
     IOKey,
     KeyType,
     MainValueInstance,
-    MyTensor,
     NotAvailable,
     NullConnection,
     ScalarType,
     ScalarValueType,
     ShapeTemplateType,
+    Tensor,
     TensorValueType,
     ToBeDetermined,
     UniadicRecord,
@@ -141,8 +141,8 @@ ops_table: dict[str, type[PrimitiveModel]] = {
 }
 
 
-# coercion_table: dict[tuple[str, type[MyTensor] | None], type[PrimitiveModel]] = {
-#     ("index", MyTensor): Indexer,
+# coercion_table: dict[tuple[str, type[Tensor] | None], type[PrimitiveModel]] = {
+#     ("index", Tensor): Indexer,
 #     ("index", None): ScalarItem,
 # }
 
@@ -303,7 +303,7 @@ class Model(BaseModel):
                 # Unroll ExtendTemplate
                 con_data = self._unroll_template(connection)
                 _connection = IOKey(connections={con_data.conn}, expose=False)
-            case _ if isinstance(connection, MainValueInstance | MyTensor):
+            case _ if isinstance(connection, MainValueInstance | Tensor):
                 # find_dominant_type returns the dominant type in a container.
                 # If a container has a value of type Connection or ExtendTemplate
                 # we add necessary models.
@@ -323,7 +323,7 @@ class Model(BaseModel):
                     assert result is not None
                     _connection = IOKey(connections={result.conn}, expose=None)
                 else:
-                    assert isinstance(connection, MainValueInstance | MyTensor)
+                    assert isinstance(connection, MainValueInstance | Tensor)
                     _connection = IOKey(value=connection)
             case IOKey():
                 expose = connection.expose
@@ -384,7 +384,7 @@ class Model(BaseModel):
         outer_key = given_connection.name
         con_obj = None
         set_value: (
-            ToBeDetermined | str | ScalarValueType | MyTensor[Any] | NullConnection
+            ToBeDetermined | str | ScalarValueType | Tensor[Any] | NullConnection
         ) = NOT_GIVEN
         if given_connection.data.value is not TBD:
             set_value = given_connection.data.value
@@ -671,7 +671,7 @@ class Model(BaseModel):
         shape_info: dict[str, ShapeTemplateType] = {}
         type_info: dict[
             str,
-            type | UnionType | ScalarType | type[TensorValueType] | MyTensor[Any],
+            type | UnionType | ScalarType | type[TensorValueType] | Tensor[Any],
         ] = {}
 
         submodel_dag: dict[str, ConnectionData] = {}
@@ -700,7 +700,7 @@ class Model(BaseModel):
             con_obj, _updates = self._add_connection(model, local_key, value, updates)
             updates |= _updates
             submodel_dag[local_key] = con_obj
-            if con_obj.metadata.edge_type is MyTensor:
+            if con_obj.metadata.edge_type is Tensor:
                 updates.shape_updates.add(con_obj.metadata)
 
         # Replace shape info keys, which are local keys, with global equivalents.

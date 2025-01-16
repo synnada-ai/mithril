@@ -15,13 +15,13 @@
 import pytest
 
 import mithril as ml
-from mithril.models import Model, MyTensor, Power
+from mithril.models import Model, Power, Tensor
 
 
 def test_power_call_threshold_iokey():
     model = Model()
     pow = Power(robust=True)
-    model += pow(threshold=ml.IOKey("t", MyTensor(0.1)))
+    model += pow(threshold=ml.IOKey("t", Tensor(0.1)))
     assert model.t.metadata.value == 0.1  # type: ignore
 
 
@@ -58,7 +58,7 @@ def test_error_not_robust_power_call_threshold_float():
 def test_compile_robust_power_call_with_default_threshold():
     backend = ml.TorchBackend()
     pow = Power(robust=True)
-    # pow.set_types({"base": MyTensor, "exponent": MyTensor})
+    # pow.set_types({"base": Tensor, "exponent": Tensor})
     pm = ml.compile(pow, backend)
     pm.evaluate(params={"base": backend.ones(3, 3), "exponent": backend.ones(3, 3)})
 

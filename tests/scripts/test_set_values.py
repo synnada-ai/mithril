@@ -24,9 +24,9 @@ from mithril.models import (
     Linear,
     Mean,
     Model,
-    MyTensor,
     Relu,
     Shape,
+    Tensor,
 )
 
 from ..utils import check_evaluations, compare_models, init_params
@@ -40,19 +40,19 @@ def test_1():
 
     model = Model()
     model += Linear(2)(input="input", weight="weight", bias="bias", output="output")
-    model.set_values({"bias": MyTensor([1, 2.0])})
+    model.set_values({"bias": Tensor([1, 2.0])})
     model_1 = model
 
     model = Model()
     lin = Linear(2)
     model += lin(input="input", weight="weight", bias="bias", output="output")
-    model.set_values({lin.bias: MyTensor([1, 2.0])})
+    model.set_values({lin.bias: Tensor([1, 2.0])})
     model_2 = model
 
     model = Model()
     lin = Linear(2)
     model += lin(input="input", weight="weight", bias="bias", output="output")
-    lin.set_values({"bias": MyTensor([1, 2.0])})
+    lin.set_values({"bias": Tensor([1, 2.0])})
     model_3 = model
 
     model = Model()
@@ -60,7 +60,7 @@ def test_1():
     model += lin(
         input="input",
         weight="weight",
-        bias=IOKey(name="bias", value=MyTensor([1, 2.0])),
+        bias=IOKey(name="bias", value=Tensor([1, 2.0])),
         output="output",
     )
     model_4 = model
@@ -255,8 +255,8 @@ def test_set_values_tensor_1():
     add_model_2 = Add()
     model2 += model1(input1="input1", input2="sub_input", output=IOKey("output"))
     model2 += add_model_2(left="input1", right="input2", output="sub_input")
-    add_model_2.set_values({"right": MyTensor([2.0])})
-    model2.set_values({"input1": MyTensor([3.0])})
+    add_model_2.set_values({"right": Tensor([2.0])})
+    model2.set_values({"input1": Tensor([3.0])})
     pm = mithril.compile(model=model2, backend=JaxBackend(), inference=True)
 
     ref_outputs = {"output": backend.array([8.0])}
@@ -279,7 +279,7 @@ def test_set_values_tensor_1_kwargs_arg():
     model2 += model1(input1="input1", input2="sub_input", output=IOKey("output"))
     model2 += add_model_2(left="input1", right="input2", output="sub_input")
     # add_model_2.set_values({"right": [2.0]})
-    model2.set_values({"input1": MyTensor([3.0])}, input2=MyTensor([2.0]))
+    model2.set_values({"input1": Tensor([3.0])}, input2=Tensor([2.0]))
     pm = mithril.compile(model=model2, backend=JaxBackend(), inference=True)
 
     ref_outputs = {"output": backend.array([8.0])}
@@ -301,8 +301,8 @@ def test_set_values_tensor_2():
     add_model_2 = Add()
     model2 += model1(input1="input1", input2="sub_input", output=IOKey("output"))
     model2 += add_model_2(left="input1", right="input2", output="sub_input")
-    add_model_2.set_values({"right": MyTensor([2.0])})
-    model2.set_values({"input1": MyTensor([3.0])})
+    add_model_2.set_values({"right": Tensor([2.0])})
+    model2.set_values({"input1": Tensor([3.0])})
     pm = mithril.compile(model=model2, backend=JaxBackend(), inference=True)
 
     ref_outputs = {"output": backend.array([8.0])}
@@ -324,8 +324,8 @@ def test_set_values_tensor_3():
     add_model_2 = Add()
     model2 += model1(input1="input1", input2="sub_input", output=IOKey("output"))
     model2 += add_model_2(left="input1", right="input2", output="sub_input")
-    add_model_2.set_values({model2.input2: MyTensor([2.0])})  # type: ignore
-    model2.set_values({add_model_2.left: MyTensor([3.0])})
+    add_model_2.set_values({model2.input2: Tensor([2.0])})  # type: ignore
+    model2.set_values({add_model_2.left: Tensor([3.0])})
     pm = mithril.compile(model=model2, backend=JaxBackend(), inference=True)
 
     ref_outputs = {"output": backend.array([8.0])}
@@ -345,7 +345,7 @@ def test_set_values_tensor_4():
     model += relu3(input="sub_out_2", output=IOKey("output"))
 
     with pytest.raises(Exception) as err_info:
-        model.set_values({"sub_out_2": MyTensor([2, 3, 4])})
+        model.set_values({"sub_out_2": Tensor([2, 3, 4])})
     assert str(err_info.value) == "Values of internal and output keys cannot be set."
 
 
@@ -359,7 +359,7 @@ def test_set_values_tensor_5():
     model += relu3(input="sub_out_2", output=IOKey("output"))
 
     with pytest.raises(Exception) as err_info:
-        model.set_values({"output": MyTensor([2, 3, 4])})
+        model.set_values({"output": Tensor([2, 3, 4])})
     assert str(err_info.value) == "Values of internal and output keys cannot be set."
 
 
@@ -373,5 +373,5 @@ def test_set_values_tensor_6():
     model += relu3(input="sub_out_2", output=IOKey("output"))
 
     with pytest.raises(Exception) as err_info:
-        model.set_values({relu2.output: MyTensor([2, 3, 4])})
+        model.set_values({relu2.output: Tensor([2, 3, 4])})
     assert str(err_info.value) == "Values of internal and output keys cannot be set."

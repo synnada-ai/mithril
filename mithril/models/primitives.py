@@ -24,7 +24,7 @@ from ..framework.common import (
     BaseKey,
     Connection,
     ConnectionType,
-    MyTensor,
+    Tensor,
     ToBeDetermined,
 )
 from ..framework.constraints import (
@@ -154,14 +154,14 @@ class SupervisedLoss(PrimitiveModel):
         formula_key: str,
         polymorphic_constraint: bool = True,
         name: str | None = None,
-        input: MyTensor[Any] | ToBeDetermined = TBD,
-        target: MyTensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[Any] | ToBeDetermined = TBD,
+        target: Tensor[Any] | ToBeDetermined = TBD,
         **kwargs: BaseKey,
     ) -> None:
         default_kwargs: dict[str, BaseKey] = {
-            "output": BaseKey(shape=[("Var_1", ...)], type=MyTensor),
-            "input": BaseKey(shape=[("Var_2", ...)], type=MyTensor, value=input),
-            "target": BaseKey(shape=[("Var_3", ...)], type=MyTensor, value=target),
+            "output": BaseKey(shape=[("Var_1", ...)], type=Tensor),
+            "input": BaseKey(shape=[("Var_2", ...)], type=Tensor, value=input),
+            "target": BaseKey(shape=[("Var_3", ...)], type=Tensor, value=target),
         }
         # Finalize kwargs.
         kwargs = default_kwargs | kwargs
@@ -196,8 +196,8 @@ class SquaredError(SupervisedLoss):
     def __init__(
         self,
         name: str | None = None,
-        input: MyTensor[Any] | ToBeDetermined = TBD,
-        target: MyTensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[Any] | ToBeDetermined = TBD,
+        target: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(
             formula_key="squared_error", name=name, input=input, target=target
@@ -208,8 +208,8 @@ class AbsoluteError(SupervisedLoss):
     def __init__(
         self,
         name: str | None = None,
-        input: MyTensor[Any] | ToBeDetermined = TBD,
-        target: MyTensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[Any] | ToBeDetermined = TBD,
+        target: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(
             formula_key="absolute_error", name=name, input=input, target=target
@@ -220,14 +220,14 @@ class HingeLoss(SupervisedLoss):
     def __init__(
         self,
         name: str | None = None,
-        input: MyTensor[Any] | ToBeDetermined = TBD,
-        target: MyTensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[Any] | ToBeDetermined = TBD,
+        target: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(
             polymorphic_constraint=False,
             formula_key="hinge_loss",
             name=name,
-            output=BaseKey(shape=["N", ("Var", ...)], type=MyTensor[float]),
+            output=BaseKey(shape=["N", ("Var", ...)], type=Tensor[float]),
             input=input,
             target=target,
         )
@@ -237,14 +237,14 @@ class QuadHingeLoss(SupervisedLoss):
     def __init__(
         self,
         name: str | None = None,
-        input: MyTensor[Any] | ToBeDetermined = TBD,
-        target: MyTensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[Any] | ToBeDetermined = TBD,
+        target: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(
             polymorphic_constraint=False,
             formula_key="quad_hinge_loss",
             name=name,
-            output=BaseKey(shape=["N", ("Var", ...)], type=MyTensor[float]),
+            output=BaseKey(shape=["N", ("Var", ...)], type=Tensor[float]),
             input=input,
             target=target,
         )
@@ -264,16 +264,16 @@ class QuantileLoss(PrimitiveModel):
         self,
         name: str | None = None,
         quantile: int | float | ToBeDetermined = TBD,
-        input: MyTensor[Any] | ToBeDetermined = TBD,
-        target: MyTensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[Any] | ToBeDetermined = TBD,
+        target: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(
             formula_key="quantile_loss",
             name=name,
-            output=BaseKey(shape=[("Var_1", ...)], type=MyTensor),
-            input=BaseKey(shape=[("Var_2", ...)], type=MyTensor, value=input),
-            target=BaseKey(shape=[("Var_3", ...)], type=MyTensor, value=target),
-            quantile=BaseKey(shape=[], type=MyTensor[int | float], value=quantile),
+            output=BaseKey(shape=[("Var_1", ...)], type=Tensor),
+            input=BaseKey(shape=[("Var_2", ...)], type=Tensor, value=input),
+            target=BaseKey(shape=[("Var_3", ...)], type=Tensor, value=target),
+            quantile=BaseKey(shape=[], type=Tensor[int | float], value=quantile),
         )
 
         self._set_constraint(
@@ -323,8 +323,8 @@ class CrossEntropy(PrimitiveModel):
         input_type: str = "logits",
         weights: list[float] | str = "",
         name: str | None = None,
-        input: MyTensor[Any] | ToBeDetermined = TBD,
-        target: MyTensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[Any] | ToBeDetermined = TBD,
+        target: Tensor[Any] | ToBeDetermined = TBD,
         robust: bool | ToBeDetermined = TBD,
         cutoff: ConstantType | ToBeDetermined = TBD,
     ) -> None:
@@ -342,16 +342,14 @@ class CrossEntropy(PrimitiveModel):
             final_weights = weights
 
         kwargs: dict[str, BaseKey] = {
-            "output": BaseKey(shape=["N", ("Var", ...)], type=MyTensor[float]),
-            "input": BaseKey(
-                shape=["N", "C", ("Var", ...)], type=MyTensor, value=input
-            ),
+            "output": BaseKey(shape=["N", ("Var", ...)], type=Tensor[float]),
+            "input": BaseKey(shape=["N", "C", ("Var", ...)], type=Tensor, value=input),
             "target": BaseKey(
-                shape=["N", ("VarTarget", ...)], type=MyTensor, value=target
+                shape=["N", ("VarTarget", ...)], type=Tensor, value=target
             ),
             "weights": BaseKey(type=weights_type, value=final_weights),
             "categorical": BaseKey(type=bool),
-            "cutoff": BaseKey(shape=[], type=MyTensor, value=cutoff),
+            "cutoff": BaseKey(shape=[], type=Tensor, value=cutoff),
             "robust": BaseKey(type=bool, value=robust),
         }
 
@@ -405,9 +403,9 @@ class CrossEntropy(PrimitiveModel):
                 )
         else:
             if isinstance(cutoff, Constant) and cutoff == Constant.MIN_POSITIVE_NORMAL:
-                # NOTE: Since we can not provide MyTensor objects as default
+                # NOTE: Since we can not provide Tensor objects as default
                 # arguments, we need to convert default value.
-                cutoff = MyTensor(cutoff)
+                cutoff = Tensor(cutoff)
             kwargs |= {"cutoff": cutoff, "robust": robust}
 
         return super().__call__(**kwargs)
@@ -426,17 +424,17 @@ class KLDivergence(PrimitiveModel):
     def __init__(
         self,
         name: str | None = None,
-        input: MyTensor[Any] | ToBeDetermined = TBD,
-        target: MyTensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[Any] | ToBeDetermined = TBD,
+        target: Tensor[Any] | ToBeDetermined = TBD,
         cutoff: ConstantType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(
             formula_key="kl_divergence",
             name=name,
-            output=BaseKey(shape=[("Var_1", ...)], type=MyTensor[float]),
-            input=BaseKey(shape=[("Var_2", ...)], type=MyTensor, value=input),
-            target=BaseKey(shape=[("Var_3", ...)], type=MyTensor, value=target),
-            cutoff=BaseKey(shape=[], type=MyTensor, value=cutoff),
+            output=BaseKey(shape=[("Var_1", ...)], type=Tensor[float]),
+            input=BaseKey(shape=[("Var_2", ...)], type=Tensor, value=input),
+            target=BaseKey(shape=[("Var_3", ...)], type=Tensor, value=target),
+            cutoff=BaseKey(shape=[], type=Tensor, value=cutoff),
         )
 
         self.safe_shapes = {
@@ -456,9 +454,9 @@ class KLDivergence(PrimitiveModel):
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         if isinstance(cutoff, Constant) and cutoff == Constant.MIN_POSITIVE_NORMAL:
-            # NOTE: Since we can not provide MyTensor objects as default
+            # NOTE: Since we can not provide Tensor objects as default
             # arguments, we need to convert default value.
-            cutoff = MyTensor(cutoff)
+            cutoff = Tensor(cutoff)
         return super().__call__(
             input=input, target=target, cutoff=cutoff, output=output
         )
@@ -481,9 +479,9 @@ class BinaryCrossEntropy(PrimitiveModel):
         input_type: str = "logits",
         pos_weight: float | str | ToBeDetermined = 1.0,
         name: str | None = None,
-        input: MyTensor[Any] | ToBeDetermined = TBD,
-        target: MyTensor[Any] | ToBeDetermined = TBD,
-        cutoff: MyTensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[Any] | ToBeDetermined = TBD,
+        target: Tensor[Any] | ToBeDetermined = TBD,
+        cutoff: Tensor[Any] | ToBeDetermined = TBD,
         robust: bool | ToBeDetermined = TBD,
     ) -> None:
         self.factory_args = {"input_type": input_type, "pos_weight": pos_weight}
@@ -500,11 +498,11 @@ class BinaryCrossEntropy(PrimitiveModel):
             float | bool if pos_weight in (..., None) else type(pos_weight)
         )
         kwargs: dict[str, BaseKey] = {
-            "output": BaseKey(shape=[("Var_out", ...)], type=MyTensor[float]),
-            "input": BaseKey(shape=[("Var_out", ...)], type=MyTensor, value=input),
+            "output": BaseKey(shape=[("Var_out", ...)], type=Tensor[float]),
+            "input": BaseKey(shape=[("Var_out", ...)], type=Tensor, value=input),
             "target": BaseKey(
                 shape=[("Var_out", ...)],
-                type=MyTensor[int | float],
+                type=Tensor[int | float],
                 value=target,
             ),
             "pos_weight": BaseKey(type=pos_weight_type, value=pos_weight),
@@ -554,9 +552,9 @@ class Log(PrimitiveModel):
         self,
         robust: bool = False,
         name: str | None = None,
-        input: MyTensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[Any] | ToBeDetermined = TBD,
         *,
-        cutoff: MyTensor[Any] | ToBeDetermined = TBD,
+        cutoff: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         self.robust = robust
         self.factory_args = {"robust": robust}
@@ -565,16 +563,16 @@ class Log(PrimitiveModel):
             super().__init__(
                 formula_key="robust_log",
                 name=name,
-                output=BaseKey(shape=[("Var", ...)], type=MyTensor[float]),
-                input=BaseKey(shape=[("Var", ...)], type=MyTensor, value=input),
-                cutoff=BaseKey(shape=[], type=MyTensor, value=cutoff),
+                output=BaseKey(shape=[("Var", ...)], type=Tensor[float]),
+                input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
+                cutoff=BaseKey(shape=[], type=Tensor, value=cutoff),
             )
         else:
             super().__init__(
                 formula_key="log",
                 name=name,
-                output=BaseKey(shape=[("Var", ...)], type=MyTensor[float]),
-                input=BaseKey(shape=[("Var", ...)], type=MyTensor, value=input),
+                output=BaseKey(shape=[("Var", ...)], type=Tensor[float]),
+                input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
             )
 
     def __call__(  # type: ignore[override]
@@ -591,9 +589,9 @@ class Log(PrimitiveModel):
         )
         if self.robust:
             if default:
-                # NOTE: Since we can not provide MyTensor objects as default
+                # NOTE: Since we can not provide Tensor objects as default
                 # arguments, we need to convert default value.
-                cutoff = MyTensor(cutoff)  # type: ignore
+                cutoff = Tensor(cutoff)  # type: ignore
             kwargs["cutoff"] = cutoff
         elif not default:
             raise ValueError("Cutoff cannot be specified when robust mode is off")
@@ -609,14 +607,14 @@ class StableReciprocal(PrimitiveModel):
     def __init__(
         self,
         name: str | None = None,
-        input: MyTensor[Any] | ToBeDetermined = TBD,
-        cutoff: MyTensor[int | float] | ToBeDetermined = TBD,
+        input: Tensor[Any] | ToBeDetermined = TBD,
+        cutoff: Tensor[int | float] | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(
             formula_key="stable_reciprocal",
             name=name,
-            output=BaseKey(shape=[("Var", ...)], type=MyTensor[float]),
-            input=BaseKey(shape=[("Var", ...)], type=MyTensor, value=input),
+            output=BaseKey(shape=[("Var", ...)], type=Tensor[float]),
+            input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
             cutoff=BaseKey(shape=[], value=cutoff),
         )
 
@@ -630,54 +628,54 @@ class StableReciprocal(PrimitiveModel):
             isinstance(cutoff, Constant)
             and cutoff == Constant.STABLE_RECIPROCAL_THRESHOLD
         ):
-            # NOTE: Since we can not provide MyTensor objects as default
+            # NOTE: Since we can not provide Tensor objects as default
             # arguments, we need to convert default value.
-            cutoff = MyTensor(cutoff)
+            cutoff = Tensor(cutoff)
         return super().__call__(input=input, cutoff=cutoff, output=output)
 
 
 class Sine(SingleInputOperation):
     def __init__(
-        self, name: str | None = None, input: MyTensor[Any] | ToBeDetermined = TBD
+        self, name: str | None = None, input: Tensor[Any] | ToBeDetermined = TBD
     ) -> None:
         super().__init__(
             formula_key="sin",
             name=name,
             polymorphic_constraint=False,
             input=input,
-            output=BaseKey(shape=[("Var", ...)], type=MyTensor[float]),
+            output=BaseKey(shape=[("Var", ...)], type=Tensor[float]),
         )
 
 
 class Cosine(SingleInputOperation):
     def __init__(
-        self, name: str | None = None, input: MyTensor[Any] | ToBeDetermined = TBD
+        self, name: str | None = None, input: Tensor[Any] | ToBeDetermined = TBD
     ) -> None:
         super().__init__(
             formula_key="cos",
             name=name,
             polymorphic_constraint=False,
             input=input,
-            output=BaseKey(shape=[("Var", ...)], type=MyTensor[float]),
+            output=BaseKey(shape=[("Var", ...)], type=Tensor[float]),
         )
 
 
 class Sign(SingleInputOperation):
     def __init__(
-        self, name: str | None = None, input: MyTensor[Any] | ToBeDetermined = TBD
+        self, name: str | None = None, input: Tensor[Any] | ToBeDetermined = TBD
     ) -> None:
         super().__init__(
             formula_key="sign",
             name=name,
             polymorphic_constraint=False,
             input=input,
-            output=BaseKey(shape=[("Var", ...)], type=MyTensor[int]),
+            output=BaseKey(shape=[("Var", ...)], type=Tensor[int]),
         )
 
 
 class Square(SingleInputOperation):
     def __init__(
-        self, name: str | None = None, input: MyTensor[Any] | ToBeDetermined = TBD
+        self, name: str | None = None, input: Tensor[Any] | ToBeDetermined = TBD
     ) -> None:
         super().__init__(formula_key="square", name=name, input=input)
 
@@ -692,7 +690,7 @@ class Activation(PrimitiveModel):
         formula_key: str,
         polymorphic_constraint: bool = False,
         name: str | None = None,
-        input: MyTensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[Any] | ToBeDetermined = TBD,
         **kwargs: BaseKey,
     ) -> None:
         # NOTE: Torch and JAX behave different for some activation functions.
@@ -700,8 +698,8 @@ class Activation(PrimitiveModel):
         # Torch assumes only float inputs for these activations. Since JAX handles
         # more general case, default types are written taking this into account.
         default_kwargs: dict[str, BaseKey] = dict(
-            input=BaseKey(shape=[("Var", ...)], type=MyTensor, value=input),
-            output=BaseKey(shape=[("Var", ...)], type=MyTensor[float]),
+            input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
+            output=BaseKey(shape=[("Var", ...)], type=Tensor[float]),
         )
         # Finalize kwargs.
         kwargs = default_kwargs | kwargs
@@ -721,14 +719,14 @@ class Activation(PrimitiveModel):
 
 class Relu(Activation):
     def __init__(
-        self, name: str | None = None, input: MyTensor[Any] | ToBeDetermined = TBD
+        self, name: str | None = None, input: Tensor[Any] | ToBeDetermined = TBD
     ) -> None:
         super().__init__(
             formula_key="relu",
             name=name,
             polymorphic_constraint=True,
             input=input,
-            output=BaseKey(shape=[("Var", ...)], type=MyTensor),
+            output=BaseKey(shape=[("Var", ...)], type=Tensor),
         )
 
 
@@ -737,7 +735,7 @@ class Gelu(Activation):
         self,
         name: str | None = None,
         approximate: bool = False,
-        input: MyTensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(
             formula_key="gelu",
@@ -759,7 +757,7 @@ class Gelu(Activation):
 
 class Sigmoid(Activation):
     def __init__(
-        self, name: str | None = None, input: MyTensor[Any] | ToBeDetermined = TBD
+        self, name: str | None = None, input: Tensor[Any] | ToBeDetermined = TBD
     ) -> None:
         super().__init__(formula_key="sigmoid", name=name, input=input)
 
@@ -768,7 +766,7 @@ class Softmax(Activation):
     def __init__(
         self,
         name: str | None = None,
-        input: MyTensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[Any] | ToBeDetermined = TBD,
         axis: int | None | ToBeDetermined = TBD,
     ) -> None:
         axis_key = BaseKey(type=int | None, value=axis)
@@ -785,14 +783,14 @@ class Softmax(Activation):
 
 class Softplus(Activation):
     def __init__(
-        self, name: str | None = None, input: MyTensor[Any] | ToBeDetermined = TBD
+        self, name: str | None = None, input: Tensor[Any] | ToBeDetermined = TBD
     ) -> None:
         super().__init__(formula_key="softplus", name=name, input=input)
 
 
 class Tanh(Activation):
     def __init__(
-        self, name: str | None = None, input: MyTensor[Any] | ToBeDetermined = TBD
+        self, name: str | None = None, input: Tensor[Any] | ToBeDetermined = TBD
     ) -> None:
         super().__init__(formula_key="tanh", name=name, input=input)
 
@@ -805,8 +803,8 @@ class LeakyRelu(Activation):
     def __init__(
         self,
         name: str | None = None,
-        slope: MyTensor[Any] | int | float | ToBeDetermined = TBD,
-        input: MyTensor[Any] | ToBeDetermined = TBD,
+        slope: Tensor[Any] | int | float | ToBeDetermined = TBD,
+        input: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(
             formula_key="leaky_relu",
@@ -829,13 +827,13 @@ class StopGradient(PrimitiveModel):
     output: Connection
 
     def __init__(
-        self, name: str | None = None, input: MyTensor[Any] | ToBeDetermined = TBD
+        self, name: str | None = None, input: Tensor[Any] | ToBeDetermined = TBD
     ) -> None:
         super().__init__(
             formula_key="stop_gradient",
             name=name,
-            output=BaseKey(shape=[("Var", ...)], type=MyTensor),
-            input=BaseKey(shape=[("Var", ...)], type=MyTensor, value=input),
+            output=BaseKey(shape=[("Var", ...)], type=Tensor),
+            input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
         )
 
     def __call__(  # type: ignore[override]
@@ -852,15 +850,15 @@ class CartesianDifference(PrimitiveModel):
     def __init__(
         self,
         name: str | None = None,
-        left: MyTensor[Any] | ToBeDetermined = TBD,
-        right: MyTensor[Any] | ToBeDetermined = TBD,
+        left: Tensor[Any] | ToBeDetermined = TBD,
+        right: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(
             formula_key="cartesian_diff",
             name=name,
-            output=BaseKey(shape=["N", "M", "dim"], type=MyTensor),
-            left=BaseKey(shape=["N", "dim"], type=MyTensor, value=left),
-            right=BaseKey(shape=["M", "dim"], type=MyTensor, value=right),
+            output=BaseKey(shape=["N", "M", "dim"], type=Tensor),
+            left=BaseKey(shape=["N", "dim"], type=Tensor, value=left),
+            right=BaseKey(shape=["M", "dim"], type=Tensor, value=right),
         )
         self._set_constraint(
             fn=general_tensor_type_constraint,
@@ -885,16 +883,16 @@ class Concat(PrimitiveModel):
         n: int,
         axis: int | None | ToBeDetermined = 0,
         name: str | None = None,
-        **kwargs: MyTensor[Any] | ToBeDetermined,
+        **kwargs: Tensor[Any] | ToBeDetermined,
     ) -> None:
         self.factory_args = {"n": n, "axis": axis}
 
         key_definitions: dict[str, BaseKey] = {}
-        key_definitions["output"] = BaseKey(shape=[("Var_out", ...)], type=MyTensor)
+        key_definitions["output"] = BaseKey(shape=[("Var_out", ...)], type=Tensor)
         key_definitions |= {
             f"input{idx+1}": BaseKey(
                 shape=[(f"Var_{idx + 1}", ...)],
-                type=MyTensor,
+                type=Tensor,
                 value=kwargs.get(f"input{idx + 1}", TBD),
             )
             for idx in range(n)
@@ -946,15 +944,15 @@ class PermuteTensor(PrimitiveModel):
     def __init__(
         self,
         name: str | None = None,
-        indices: MyTensor[Any] | ToBeDetermined = TBD,
-        input: MyTensor[Any] | ToBeDetermined = TBD,
+        indices: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(
             formula_key="permute_tensor",
             name=name,
-            output=BaseKey(shape=["N", ("Var", ...)], type=MyTensor),
-            input=BaseKey(shape=["N", ("Var", ...)], type=MyTensor, value=input),
-            indices=BaseKey(shape=["N"], type=MyTensor, value=indices),
+            output=BaseKey(shape=["N", ("Var", ...)], type=Tensor),
+            input=BaseKey(shape=["N", ("Var", ...)], type=Tensor, value=input),
+            indices=BaseKey(shape=["N"], type=Tensor, value=indices),
         )
 
         self._set_constraint(
@@ -984,25 +982,25 @@ class PrimitiveConvolution1D(PrimitiveModel):
         self,
         use_bias: bool = True,
         name: str | None = None,
-        input: MyTensor[Any] | ToBeDetermined = TBD,
-        weight: MyTensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[Any] | ToBeDetermined = TBD,
+        weight: Tensor[Any] | ToBeDetermined = TBD,
         stride: int | ToBeDetermined = TBD,
         padding: int | tuple[int, int] | ToBeDetermined = TBD,
         dilation: int | ToBeDetermined = TBD,
         *,
-        bias: MyTensor[Any] | ToBeDetermined = TBD,
+        bias: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         self.factory_args = {"use_bias": use_bias}
         formula_key = "conv1d_bias"
         kwargs: dict[str, BaseKey] = {
-            "output": BaseKey(shape=["N", "out_channels", "d_out"], type=MyTensor),
-            "input": BaseKey(shape=["N", "C_in", "d_in"], type=MyTensor, value=input),
+            "output": BaseKey(shape=["N", "out_channels", "d_out"], type=Tensor),
+            "input": BaseKey(shape=["N", "C_in", "d_in"], type=Tensor, value=input),
             "weight": BaseKey(
                 shape=["out_channels", "C_in", "kernel_size"],
-                type=MyTensor,
+                type=Tensor,
                 value=weight,
             ),
-            "bias": BaseKey(shape=[1, "out_channels", 1], type=MyTensor, value=bias),
+            "bias": BaseKey(shape=[1, "out_channels", 1], type=Tensor, value=bias),
             "stride": BaseKey(type=int, value=stride),
             "padding": BaseKey(type=int | tuple[int, int], value=padding),
             "dilation": BaseKey(type=int, value=dilation),
@@ -1070,8 +1068,8 @@ class PrimitiveConvolution2D(PrimitiveModel):
         self,
         use_bias: bool = True,
         name: str | None = None,
-        input: MyTensor[Any] | ToBeDetermined = TBD,
-        weight: MyTensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[Any] | ToBeDetermined = TBD,
+        weight: Tensor[Any] | ToBeDetermined = TBD,
         stride: int | tuple[int, int] | ToBeDetermined = TBD,
         padding: int
         | tuple[int, int]
@@ -1079,21 +1077,21 @@ class PrimitiveConvolution2D(PrimitiveModel):
         | ToBeDetermined = TBD,
         dilation: int | tuple[int, int] | ToBeDetermined = TBD,
         *,
-        bias: MyTensor[Any] | ToBeDetermined = TBD,
+        bias: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         self.factory_args = {"use_bias": use_bias}
         formula_key = "conv2d_bias"
         kwargs: dict[str, BaseKey] = {
             "output": BaseKey(
-                shape=["N", "out_channels", "H_out", "W_out"], type=MyTensor
+                shape=["N", "out_channels", "H_out", "W_out"], type=Tensor
             ),
-            "input": BaseKey(shape=["N", "C_in", "H", "W"], type=MyTensor, value=input),
+            "input": BaseKey(shape=["N", "C_in", "H", "W"], type=Tensor, value=input),
             "weight": BaseKey(
                 shape=["out_channels", "C_in", "kernel_size_0", "kernel_size_1"],
-                type=MyTensor,
+                type=Tensor,
                 value=weight,
             ),
-            "bias": BaseKey(shape=[1, "out_channels", 1, 1], type=MyTensor, value=bias),
+            "bias": BaseKey(shape=[1, "out_channels", 1, 1], type=Tensor, value=bias),
             "stride": BaseKey(type=int | tuple[int, int], value=stride),
             "padding": BaseKey(
                 type=int | tuple[int, int] | tuple[tuple[int, int], tuple[int, int]],
@@ -1161,13 +1159,13 @@ class Flatten(PrimitiveModel):
         name: str | None = None,
         start_dim: int | ToBeDetermined = 0,
         end_dim: int | ToBeDetermined = -1,
-        input: MyTensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         self.factory_args = {"start_dim": start_dim, "end_dim": end_dim}
 
         key_definitions: dict[str, BaseKey] = {
-            "output": BaseKey(shape=[("C_out", ...)], type=MyTensor),
-            "input": BaseKey(shape=[("C_in", ...)], type=MyTensor, value=input),
+            "output": BaseKey(shape=[("C_out", ...)], type=Tensor),
+            "input": BaseKey(shape=[("C_in", ...)], type=Tensor, value=input),
             "start_dim": BaseKey(type=int, value=start_dim),
             "end_dim": BaseKey(type=int, value=end_dim),
         }
@@ -1204,7 +1202,7 @@ class PrimitiveMaxPool1D(PrimitiveModel):
     def __init__(
         self,
         name: str | None = None,
-        input: MyTensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[Any] | ToBeDetermined = TBD,
         kernel_size: int | ToBeDetermined = TBD,
         stride: int | ToBeDetermined = TBD,
         padding: int | tuple[int, int] | ToBeDetermined = TBD,
@@ -1213,8 +1211,8 @@ class PrimitiveMaxPool1D(PrimitiveModel):
         super().__init__(
             formula_key="max_pool1d",
             name=name,
-            output=BaseKey(shape=["N", ("C_in", ...), "W_out"], type=MyTensor),
-            input=BaseKey(shape=["N", ("C_in", ...), "W"], type=MyTensor, value=input),
+            output=BaseKey(shape=["N", ("C_in", ...), "W_out"], type=Tensor),
+            input=BaseKey(shape=["N", ("C_in", ...), "W"], type=Tensor, value=input),
             kernel_size=BaseKey(type=int, value=kernel_size),
             stride=BaseKey(type=int, value=stride),
             padding=BaseKey(type=tuple[int, int], value=padding),
@@ -1407,7 +1405,7 @@ class PrimitiveMaxPool2D(PrimitiveModel):
     def __init__(
         self,
         name: str | None = None,
-        input: MyTensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[Any] | ToBeDetermined = TBD,
         kernel_size: int | tuple[int, int] | ToBeDetermined = TBD,
         stride: int | tuple[int, int] | ToBeDetermined = TBD,
         padding: int
@@ -1419,10 +1417,10 @@ class PrimitiveMaxPool2D(PrimitiveModel):
         super().__init__(
             formula_key="max_pool2d",
             name=name,
-            output=BaseKey(shape=["N", ("C_in", ...), "H_out", "W_out"], type=MyTensor),
+            output=BaseKey(shape=["N", ("C_in", ...), "H_out", "W_out"], type=Tensor),
             input=BaseKey(
                 shape=["N", ("C_in", ...), "H", "W"],
-                type=MyTensor,
+                type=Tensor,
                 value=input,
             ),
             kernel_size=BaseKey(type=tuple[int, int], value=kernel_size),
@@ -1484,13 +1482,13 @@ class NormModifier(PrimitiveModel):
     output: Connection
 
     def __init__(
-        self, name: str | None = None, input: MyTensor[Any] | ToBeDetermined = TBD
+        self, name: str | None = None, input: Tensor[Any] | ToBeDetermined = TBD
     ) -> None:
         super().__init__(
             formula_key="norm_modifier",
             name=name,
-            output=BaseKey(shape=[], type=MyTensor),
-            input=BaseKey(shape=[], type=MyTensor, value=input),
+            output=BaseKey(shape=[], type=Tensor),
+            input=BaseKey(shape=[], type=Tensor, value=input),
         )
 
         self._set_constraint(
@@ -1513,16 +1511,16 @@ class DistanceMatrix(PrimitiveModel):
     def __init__(
         self,
         name: str | None = None,
-        left: MyTensor[Any] | ToBeDetermined = TBD,
-        right: MyTensor[Any] | ToBeDetermined = TBD,
+        left: Tensor[Any] | ToBeDetermined = TBD,
+        right: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(
             formula_key="distance_matrix",
             name=name,
-            output=BaseKey(shape=["N", "M"], type=MyTensor),
-            left=BaseKey(shape=["N", "d"], type=MyTensor, value=left),
-            right=BaseKey(shape=["M", "d"], type=MyTensor, value=right),
-            norm=BaseKey(shape=[], type=MyTensor),
+            output=BaseKey(shape=["N", "M"], type=Tensor),
+            left=BaseKey(shape=["N", "d"], type=Tensor, value=left),
+            right=BaseKey(shape=["M", "d"], type=Tensor, value=right),
+            norm=BaseKey(shape=[], type=Tensor),
         )
 
         self._set_constraint(
@@ -1549,13 +1547,13 @@ class PolynomialFeatures(PrimitiveModel):
         self,
         name: str | None = None,
         degree: int | ToBeDetermined = TBD,
-        input: MyTensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(
             formula_key="polynomial_features",
             name=name,
-            output=BaseKey(shape=["N", "d_out"], type=MyTensor),
-            input=BaseKey(shape=["N", "d_in"], type=MyTensor, value=input),
+            output=BaseKey(shape=["N", "d_out"], type=Tensor),
+            input=BaseKey(shape=["N", "d_in"], type=Tensor, value=input),
             degree=BaseKey(type=int, value=degree),
         )
 
@@ -1586,21 +1584,21 @@ class TsnePJoint(PrimitiveModel):
     def __init__(
         self,
         name: str | None = None,
-        squared_distances: MyTensor[Any] | ToBeDetermined = TBD,
+        squared_distances: Tensor[Any] | ToBeDetermined = TBD,
         target_perplexity: float | ToBeDetermined = TBD,
-        threshold: MyTensor[Any] | ToBeDetermined = TBD,
+        threshold: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(
             formula_key="tsne_p_joint",
             name=name,
-            output=BaseKey(shape=["N", "M"], type=MyTensor[float]),
+            output=BaseKey(shape=["N", "M"], type=Tensor[float]),
             squared_distances=BaseKey(
-                shape=["N", "M"], type=MyTensor, value=squared_distances
+                shape=["N", "M"], type=Tensor, value=squared_distances
             ),
             target_perplexity=BaseKey(
-                shape=[], type=MyTensor[float], value=target_perplexity
+                shape=[], type=Tensor[float], value=target_perplexity
             ),
-            threshold=BaseKey(shape=[], type=MyTensor, value=threshold),
+            threshold=BaseKey(shape=[], type=Tensor, value=threshold),
         )
 
     def __call__(  # type: ignore[override]
@@ -1632,7 +1630,7 @@ class EyeComplement(PrimitiveModel):
         super().__init__(
             formula_key="ones_with_zero_diag",
             name=name,
-            output=BaseKey(shape=["N", "M"], type=MyTensor[float]),
+            output=BaseKey(shape=["N", "M"], type=Tensor[float]),
             N=BaseKey(type=int, value=N),
             M=BaseKey(type=int | None, value=M),
         )
@@ -1661,7 +1659,7 @@ class Eye(PrimitiveModel):
         super().__init__(
             formula_key="eye",
             name=name,
-            output=BaseKey(shape=["N", "M"], type=MyTensor[float]),
+            output=BaseKey(shape=["N", "M"], type=Tensor[float]),
             N=BaseKey(type=int, value=N),
             M=BaseKey(type=int | None, value=M),
         )
@@ -1681,13 +1679,13 @@ class Cholesky(PrimitiveModel):
     output: Connection
 
     def __init__(
-        self, name: str | None = None, input: MyTensor[Any] | ToBeDetermined = TBD
+        self, name: str | None = None, input: Tensor[Any] | ToBeDetermined = TBD
     ) -> None:
         super().__init__(
             formula_key="cholesky",
             name=name,
-            output=BaseKey(shape=["N", "N"], type=MyTensor[float]),
-            input=BaseKey(shape=["N", "N"], type=MyTensor, value=input),
+            output=BaseKey(shape=["N", "N"], type=Tensor[float]),
+            input=BaseKey(shape=["N", "N"], type=Tensor, value=input),
         )
 
     def __call__(  # type: ignore[override]
@@ -1705,17 +1703,17 @@ class GPRAlpha(PrimitiveModel):
     def __init__(
         self,
         name: str | None = None,
-        label_mu_diff: MyTensor[Any] | ToBeDetermined = TBD,
-        L: MyTensor[Any] | ToBeDetermined = TBD,
-        K_term: MyTensor[Any] | ToBeDetermined = TBD,
+        label_mu_diff: Tensor[Any] | ToBeDetermined = TBD,
+        L: Tensor[Any] | ToBeDetermined = TBD,
+        K_term: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(
             formula_key="gpr_alpha",
             name=name,
-            output=BaseKey(shape=["N", 1], type=MyTensor[float]),
-            label_mu_diff=BaseKey(shape=["N", 1], type=MyTensor, value=label_mu_diff),
-            L=BaseKey(shape=["N", "N"], type=MyTensor, value=L),
-            K_term=BaseKey(shape=["N", "N"], type=MyTensor, value=K_term),
+            output=BaseKey(shape=["N", 1], type=Tensor[float]),
+            label_mu_diff=BaseKey(shape=["N", 1], type=Tensor, value=label_mu_diff),
+            L=BaseKey(shape=["N", "N"], type=Tensor, value=L),
+            K_term=BaseKey(shape=["N", "N"], type=Tensor, value=K_term),
         )
 
     def __call__(  # type: ignore[override]
@@ -1739,17 +1737,17 @@ class GPRVOuter(PrimitiveModel):
     def __init__(
         self,
         name: str | None = None,
-        K: MyTensor[Any] | ToBeDetermined = TBD,
-        K_term: MyTensor[Any] | ToBeDetermined = TBD,
-        L: MyTensor[Any] | ToBeDetermined = TBD,
+        K: Tensor[Any] | ToBeDetermined = TBD,
+        K_term: Tensor[Any] | ToBeDetermined = TBD,
+        L: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(
             formula_key="gpr_v_outer",
             name=name,
-            output=BaseKey(shape=["N", "N"], type=MyTensor[float]),
-            K=BaseKey(shape=["N", "N"], type=MyTensor, value=K),
-            K_term=BaseKey(shape=["N", "N"], type=MyTensor, value=K_term),
-            L=BaseKey(shape=["N", "N"], type=MyTensor, value=L),
+            output=BaseKey(shape=["N", "N"], type=Tensor[float]),
+            K=BaseKey(shape=["N", "N"], type=Tensor, value=K),
+            K_term=BaseKey(shape=["N", "N"], type=Tensor, value=K_term),
+            L=BaseKey(shape=["N", "N"], type=Tensor, value=L),
         )
 
     def __call__(  # type: ignore[override]
@@ -1767,13 +1765,13 @@ class TransposedDiagonal(PrimitiveModel):
     output: Connection
 
     def __init__(
-        self, name: str | None = None, input: MyTensor[Any] | ToBeDetermined = TBD
+        self, name: str | None = None, input: Tensor[Any] | ToBeDetermined = TBD
     ) -> None:
         super().__init__(
             formula_key="transposed_diag",
             name=name,
-            output=BaseKey(shape=["N", 1], type=MyTensor),
-            input=BaseKey(shape=["N", "N"], type=MyTensor, value=input),
+            output=BaseKey(shape=["N", 1], type=Tensor),
+            input=BaseKey(shape=["N", "N"], type=Tensor, value=input),
         )
 
         self._set_constraint(
@@ -1819,7 +1817,7 @@ class Arange(PrimitiveModel):
         super().__init__(
             formula_key="arange",
             name=name,
-            output=BaseKey(shape=output_shp, type=MyTensor),
+            output=BaseKey(shape=output_shp, type=Tensor),
             start=BaseKey(type=int | float, value=start),
             stop=BaseKey(type=int | float, value=stop),
             step=BaseKey(type=int | float, value=step),
@@ -1859,7 +1857,7 @@ class Randn(PrimitiveModel):
         super().__init__(
             formula_key="randn",
             name=name,
-            output=BaseKey(shape=[("output", ...)], type=MyTensor),
+            output=BaseKey(shape=[("output", ...)], type=Tensor),
             shape=BaseKey(type=tuple[int, ...], value=shape),
             key=BaseKey(type=int, value=key),
         )
@@ -1885,13 +1883,13 @@ class BroadcastTo(PrimitiveModel):
         self,
         shape: tuple[int, ...] | ToBeDetermined = TBD,
         name: str | None = None,
-        input: MyTensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(
             formula_key="broadcast_to",
             name=name,
-            output=BaseKey(shape=[("output", ...)], type=MyTensor),
-            input=BaseKey(shape=[("input", ...)], type=MyTensor, value=input),
+            output=BaseKey(shape=[("output", ...)], type=Tensor),
+            input=BaseKey(shape=[("input", ...)], type=Tensor, value=input),
             shape=BaseKey(type=tuple[int, ...], value=shape),
         )
 
@@ -1920,17 +1918,17 @@ class Eigvalsh(PrimitiveModel):
     def __init__(
         self,
         name: str | None = None,
-        K_term: MyTensor[Any] | ToBeDetermined = TBD,
-        L: MyTensor[Any] | ToBeDetermined = TBD,
+        K_term: Tensor[Any] | ToBeDetermined = TBD,
+        L: Tensor[Any] | ToBeDetermined = TBD,
         threshold: ConstantType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(
             formula_key="eigvalsh",
             name=name,
-            output=BaseKey(shape=["N", 1], type=MyTensor[float]),
-            K_term=BaseKey(shape=["N", "N"], type=MyTensor, value=K_term),
-            L=BaseKey(shape=["N", "N"], type=MyTensor, value=L),
-            threshold=BaseKey(shape=[], type=MyTensor, value=threshold),
+            output=BaseKey(shape=["N", 1], type=Tensor[float]),
+            K_term=BaseKey(shape=["N", "N"], type=Tensor, value=K_term),
+            L=BaseKey(shape=["N", "N"], type=Tensor, value=L),
+            threshold=BaseKey(shape=[], type=Tensor, value=threshold),
         )
 
     def __call__(  # type: ignore[override]
@@ -1948,13 +1946,13 @@ class Squeeze(PrimitiveModel):
     output: Connection
 
     def __init__(
-        self, name: str | None = None, input: MyTensor[Any] | ToBeDetermined = TBD
+        self, name: str | None = None, input: Tensor[Any] | ToBeDetermined = TBD
     ) -> None:
         super().__init__(
             formula_key="squeeze",
             name=name,
-            output=BaseKey(shape=[("Var_out", ...)], type=MyTensor),
-            input=BaseKey(shape=[("Var", ...)], type=MyTensor, value=input),
+            output=BaseKey(shape=[("Var_out", ...)], type=Tensor),
+            input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
         )
 
         self._set_constraint(fn=squeeze_constraints, keys=["output", "input"])
@@ -1976,15 +1974,15 @@ class AUCCore(PrimitiveModel):
     def __init__(
         self,
         name: str | None = None,
-        input: MyTensor[Any] | ToBeDetermined = TBD,
-        label: MyTensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[Any] | ToBeDetermined = TBD,
+        label: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(
             formula_key="auc_core",
             name=name,
-            output=BaseKey(shape=[2, "M"], type=MyTensor[float]),
-            input=BaseKey(shape=["N"], type=MyTensor, value=input),
-            label=BaseKey(shape=["N"], type=MyTensor, value=label),
+            output=BaseKey(shape=[2, "M"], type=Tensor[float]),
+            input=BaseKey(shape=["N"], type=Tensor, value=input),
+            label=BaseKey(shape=["N"], type=Tensor, value=label),
         )
 
     def __call__(  # type: ignore[override]
@@ -2006,19 +2004,17 @@ class Embedding(PrimitiveModel):
         name: str | None = None,
         num_embeddings: int | None = None,
         dim: int | None = None,
-        input: MyTensor[Any] | ToBeDetermined = TBD,
-        weight: MyTensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[Any] | ToBeDetermined = TBD,
+        weight: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         out_dim: int | str = "dim" if dim is None else dim
 
         super().__init__(
             formula_key="primitive_embedding",
             name=name,
-            output=BaseKey(shape=[("N1", ...), "d1", out_dim], type=MyTensor),
-            input=BaseKey(shape=[("N1", ...), "d1"], type=MyTensor[int], value=input),
-            weight=BaseKey(
-                shape=[num_embeddings, out_dim], type=MyTensor, value=weight
-            ),
+            output=BaseKey(shape=[("N1", ...), "d1", out_dim], type=Tensor),
+            input=BaseKey(shape=[("N1", ...), "d1"], type=Tensor[int], value=input),
+            weight=BaseKey(shape=[num_embeddings, out_dim], type=Tensor, value=weight),
         )
 
         self._set_constraint(
@@ -2052,10 +2048,10 @@ class ScaledDotProduct(PrimitiveModel):
         scale: None | int | float | ToBeDetermined = None,
         dropout_p: float | ToBeDetermined = 0.0,
         use_attn_mask: bool = False,
-        query: MyTensor[Any] | ToBeDetermined = TBD,
-        key: MyTensor[Any] | ToBeDetermined = TBD,
-        value: MyTensor[Any] | ToBeDetermined = TBD,
-        attn_mask: MyTensor[Any] | ToBeDetermined = TBD,
+        query: Tensor[Any] | ToBeDetermined = TBD,
+        key: Tensor[Any] | ToBeDetermined = TBD,
+        value: Tensor[Any] | ToBeDetermined = TBD,
+        attn_mask: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         # TODO: Reconsider how to get attn_mask, could it be A?
         assert (
@@ -2066,14 +2062,10 @@ class ScaledDotProduct(PrimitiveModel):
 
         formula_key = "scaled_dot_product_attention"
         kwargs: dict[str, BaseKey] = {
-            "output": BaseKey(shape=[("Var", ...), "L", "O"], type=MyTensor[float]),
-            "query": BaseKey(
-                shape=[("Var", ...), "L", "E"], type=MyTensor, value=query
-            ),
-            "key": BaseKey(shape=[("Var", ...), "S", "E"], type=MyTensor, value=key),
-            "value": BaseKey(
-                shape=[("Var", ...), "S", "O"], type=MyTensor, value=value
-            ),
+            "output": BaseKey(shape=[("Var", ...), "L", "O"], type=Tensor[float]),
+            "query": BaseKey(shape=[("Var", ...), "L", "E"], type=Tensor, value=query),
+            "key": BaseKey(shape=[("Var", ...), "S", "E"], type=Tensor, value=key),
+            "value": BaseKey(shape=[("Var", ...), "S", "O"], type=Tensor, value=value),
             "dropout_p": BaseKey(type=float, value=dropout_p),
             "attn_mask": BaseKey(type=NoneType, value=None),
             "is_causal": BaseKey(type=bool, value=is_causal),
@@ -2082,7 +2074,7 @@ class ScaledDotProduct(PrimitiveModel):
 
         if use_attn_mask:
             kwargs["attn_mask"] = BaseKey(
-                shape=["L", "S"], type=MyTensor, value=attn_mask
+                shape=["L", "S"], type=Tensor, value=attn_mask
             )
 
         super().__init__(formula_key=formula_key, name=name, **kwargs)
@@ -2134,15 +2126,15 @@ class PositionalEncoding(PrimitiveModel):
         hidden_dim: int | ToBeDetermined,
         name: str | None = None,
         max_len: int | ToBeDetermined = 5000,
-        input: MyTensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         self.factory_args = {"hidden_dim": hidden_dim, "max_len": max_len}
 
         super().__init__(
             formula_key="positional_encoding",
             name=name,
-            output=BaseKey(shape=[("N1", ...)], type=MyTensor),
-            input=BaseKey(shape=[("N1", ...)], type=MyTensor, value=input),
+            output=BaseKey(shape=[("N1", ...)], type=Tensor),
+            input=BaseKey(shape=[("N1", ...)], type=Tensor, value=input),
             hidden_dim=BaseKey(type=int, value=hidden_dim),
             max_len=BaseKey(type=int, value=max_len),
         )
@@ -2170,15 +2162,15 @@ class SwapAxes(PrimitiveModel):
         axis1: int | ToBeDetermined,
         axis2: int | ToBeDetermined,
         name: str | None = None,
-        input: MyTensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         self.factory_args = {"axis1": axis1, "axis2": axis2}
 
         super().__init__(
             formula_key="swapaxes",
             name=name,
-            output=BaseKey(shape=[("Var_out", ...)], type=MyTensor),
-            input=BaseKey(shape=[("Var_in", ...)], type=MyTensor, value=input),
+            output=BaseKey(shape=[("Var_out", ...)], type=Tensor),
+            input=BaseKey(shape=[("Var_in", ...)], type=Tensor, value=input),
             axis1=BaseKey(type=int, value=axis1),
             axis2=BaseKey(type=int, value=axis2),
         )
@@ -2209,17 +2201,17 @@ class Where(PrimitiveModel):
     def __init__(
         self,
         name: str | None = None,
-        cond: MyTensor[Any] | ToBeDetermined = TBD,
-        input1: MyTensor[Any] | ToBeDetermined = TBD,
-        input2: MyTensor[Any] | ToBeDetermined = TBD,
+        cond: Tensor[Any] | ToBeDetermined = TBD,
+        input1: Tensor[Any] | ToBeDetermined = TBD,
+        input2: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(
             formula_key="where",
             name=name,
-            output=BaseKey(shape=[("Var_out", ...)], type=MyTensor),
-            cond=BaseKey(shape=[("Var3", ...)], type=MyTensor[bool], value=cond),
-            input1=BaseKey(shape=[("Var1", ...)], type=MyTensor, value=input1),
-            input2=BaseKey(shape=[("Var2", ...)], type=MyTensor, value=input2),
+            output=BaseKey(shape=[("Var_out", ...)], type=Tensor),
+            cond=BaseKey(shape=[("Var3", ...)], type=Tensor[bool], value=cond),
+            input1=BaseKey(shape=[("Var1", ...)], type=Tensor, value=input1),
+            input2=BaseKey(shape=[("Var2", ...)], type=Tensor, value=input2),
         )
 
         self._set_constraint(
@@ -2245,13 +2237,13 @@ class IsNan(PrimitiveModel):
     output: Connection
 
     def __init__(
-        self, name: str | None = None, input: MyTensor[Any] | ToBeDetermined = TBD
+        self, name: str | None = None, input: Tensor[Any] | ToBeDetermined = TBD
     ) -> None:
         super().__init__(
             formula_key="isnan",
             name=name,
-            output=BaseKey(shape=[("Var", ...)], type=MyTensor[bool]),
-            input=BaseKey(shape=[("Var", ...)], type=MyTensor, value=input),
+            output=BaseKey(shape=[("Var", ...)], type=Tensor[bool]),
+            input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
         )
 
     def __call__(  # type: ignore[override]
@@ -2265,13 +2257,13 @@ class Unique(PrimitiveModel):
     output: Connection
 
     def __init__(
-        self, name: str | None = None, input: MyTensor[Any] | ToBeDetermined = TBD
+        self, name: str | None = None, input: Tensor[Any] | ToBeDetermined = TBD
     ) -> None:
         super().__init__(
             formula_key="unique",
             name=name,
-            input=BaseKey(shape=[("Var1", ...)], type=MyTensor, value=input),
-            output=BaseKey(shape=[("Var2", ...)], type=MyTensor),
+            input=BaseKey(shape=[("Var1", ...)], type=Tensor, value=input),
+            output=BaseKey(shape=[("Var2", ...)], type=Tensor),
         )
 
     def __call__(  # type: ignore[override]
@@ -2288,15 +2280,15 @@ class Trapezoid(PrimitiveModel):
     def __init__(
         self,
         name: str | None = None,
-        x: MyTensor[Any] | ToBeDetermined = TBD,
-        y: MyTensor[Any] | ToBeDetermined = TBD,
+        x: Tensor[Any] | ToBeDetermined = TBD,
+        y: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(
             formula_key="trapezoid",
             name=name,
-            output=BaseKey(shape=[], type=MyTensor),
-            y=BaseKey(shape=[("Var", ...)], type=MyTensor, value=y),
-            x=BaseKey(shape=[("Var", ...)], type=MyTensor, value=x),
+            output=BaseKey(shape=[], type=Tensor),
+            y=BaseKey(shape=[("Var", ...)], type=Tensor, value=y),
+            x=BaseKey(shape=[("Var", ...)], type=Tensor, value=x),
         )
 
     def __call__(  # type: ignore[override]
@@ -2321,13 +2313,13 @@ class NanToNum(PrimitiveModel):
         nan: float | ToBeDetermined = 0.0,
         posinf: float | None | ToBeDetermined = None,
         neginf: float | None | ToBeDetermined = None,
-        input: MyTensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(
             formula_key="nan_to_num",
             name=name,
-            output=BaseKey(shape=[("Var", ...)], type=MyTensor),
-            input=BaseKey(shape=[("Var", ...)], type=MyTensor, value=input),
+            output=BaseKey(shape=[("Var", ...)], type=Tensor),
+            input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
             nan=BaseKey(type=float, value=nan),
             posinf=BaseKey(type=float | None, value=posinf),
             neginf=BaseKey(type=float | None, value=neginf),
@@ -2355,13 +2347,13 @@ class Pad(PrimitiveModel):
         self,
         name: str | None = None,
         pad_width: tuple[tuple[int, int], ...] | ToBeDetermined = TBD,
-        input: MyTensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[Any] | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(
             formula_key="pad",
             name=name,
-            output=BaseKey(shape=[("Var2", ...)], type=MyTensor),
-            input=BaseKey(shape=[("Var1", ...)], type=MyTensor, value=input),
+            output=BaseKey(shape=[("Var2", ...)], type=Tensor),
+            input=BaseKey(shape=[("Var1", ...)], type=Tensor, value=input),
             pad_width=BaseKey(type=tuple[tuple[int, int], ...], value=pad_width),
         )
 
@@ -2383,13 +2375,13 @@ class ZerosLike(PrimitiveModel):
     output: Connection
 
     def __init__(
-        self, name: str | None = None, input: MyTensor[Any] | ToBeDetermined = TBD
+        self, name: str | None = None, input: Tensor[Any] | ToBeDetermined = TBD
     ) -> None:
         super().__init__(
             formula_key="zeros_like",
             name=name,
-            output=BaseKey(shape=[("Var", ...)], type=MyTensor),
-            input=BaseKey(shape=[("Var", ...)], type=MyTensor, value=input),
+            output=BaseKey(shape=[("Var", ...)], type=Tensor),
+            input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
         )
 
     def __call__(  # type: ignore[override]

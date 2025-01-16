@@ -14,7 +14,7 @@
 
 import pytest
 
-from mithril.models import Add, Indexer, Linear, Model, MyTensor
+from mithril.models import Add, Indexer, Linear, Model, Tensor
 
 
 @pytest.mark.skip(reason="Value of each type of data can be set.")
@@ -53,7 +53,7 @@ def test_freeze_set_values_extend_logical():
     model += Add()(left="left", right="right")
     assert model.is_frozen is False
 
-    model.set_values({"left": MyTensor(1.0)})
+    model.set_values({"left": Tensor(1.0)})
     model._freeze()
     assert model.is_frozen is True
 

@@ -37,11 +37,11 @@ from ..common import (
     IOHyperEdge,
     IOKey,
     MainValueType,
-    MyTensor,
     NotAvailable,
     ParamsEvalType,
     ShapeResultType,
     Table,
+    Tensor,
     ToBeDetermined,
     UniadicRecord,
     Updates,
@@ -195,27 +195,19 @@ class PhysicalModel(GenericDataType[DataType]):
             for key in p_model.conns.all:
                 global_key = mappings[key]
                 logical_data = p_model.conns.get_data(key)
-                physical_data: IOHyperEdge = logical_data.make_physical(
-                    self.backend, memo=memo
-                )
-                # Set differentiability of non-differentiable tensor inputs to False.
-                # if physical_data.edge_type is MyTensor:
-                # TODO: Second condition in if will be removed
-                # after Primitive's compile handling updated..
-                if (
-                    global_key in self._non_differentiable_keys
-                    or physical_data.value is not TBD
-                ):
+                physical_data: IOHyperEdge = deepcopy(logical_data, memo=memo)
+
+                if global_key in self._non_differentiable_keys:
                     # TODO: Create an API for setting differentiability of a tensor.
                     physical_data.differentiable = False
                 elif global_key in self._trainable_tensor_inputs:
-                    if physical_data.edge_type not in (MyTensor, ToBeDetermined):
+                    if physical_data.edge_type not in (Tensor, ToBeDetermined):
                         raise ValueError(
                             f"Non-tensor type data can not be trainable: {global_key}"
                         )
                     elif physical_data.edge_type is ToBeDetermined:
                         # Set physical data type to Tensor.
-                        updates |= physical_data.set_type(MyTensor)
+                        updates |= physical_data.set_type(Tensor)
                     elif physical_data.value is not TBD:
                         raise ValueError(
                             f"Valued data can not be trainable: {global_key}"
@@ -227,7 +219,7 @@ class PhysicalModel(GenericDataType[DataType]):
 
                 if key_shape := model_shapes.get(key):
                     data = model_data[key]
-                    assert data.edge_type is MyTensor
+                    assert data.edge_type is Tensor
                     shp = data.shape
                     assert shp is not None
                     # assert shp is not None
@@ -251,13 +243,13 @@ class PhysicalModel(GenericDataType[DataType]):
             if self.backend.backend_type == "numpy":
                 cache_name = "_".join([mappings[output], p_model.cache_name])
                 mappings["cache"] = cache_name
-                # TODO: Why do we have to provide cach_value here? It is
+                # TODO: Why do we have to provide cache_value here? It is
                 # NONE | dict().
                 cache_value: dict[str, MainValueType] | None = (
                     None if self.inference else dict()
                 )
                 # Create A object for caches in manualgrad backend.
-                cache_scalar = IOHyperEdge(type=dict | None, value=cache_value)
+                cache_scalar = IOHyperEdge(type=dict | type(None), value=cache_value)
 
                 self.data_store.update_data({cache_name: cache_scalar})
 
@@ -438,7 +430,7 @@ class PhysicalModel(GenericDataType[DataType]):
         # that have a Tensor type output.
         output_key = PrimitiveModel.output_key
         output_edge = model_data[output_key]
-        if output_edge.edge_type is MyTensor:
+        if output_edge.edge_type is Tensor:
             # If any of the inputs are differentiable, then
             # the output is also differentiable.
             for key, value in model_data.items():
@@ -534,7 +526,7 @@ class PhysicalModel(GenericDataType[DataType]):
 
         # for node in self.flat_graph.nodes.values():
         #     conn_edge = self.data[node.connections["output"].key]
-        #     if (conn_edge.edge_type is not MyTensor) or (
+        #     if (conn_edge.edge_type is not Tensor) or (
         #         not find_intersection_type(float, conn_edge.value_type)
         #     ):
         #         self.ignore_grad_keys.add(
@@ -565,7 +557,7 @@ class PhysicalModel(GenericDataType[DataType]):
         for value in self.data_store.intermediate_non_differentiables.inverse:
             # there can exist some inferred intermediate scalar keys in logical model.
             # find those keys and add to cached datas
-            if (value.edge_type is not MyTensor) and (value.value is not TBD):
+            if (value.edge_type is not Tensor) and (value.value is not TBD):
                 updates.add(value)
 
         self.data_store.update_cached_data(updates)
@@ -621,7 +613,7 @@ class PhysicalModel(GenericDataType[DataType]):
             # but not unnecessary in flat_graph. This case should be handled when
             # flat_graph - data_store integration is updated.
             if conn_edge is not None and (
-                (conn_edge.edge_type is not MyTensor)
+                (conn_edge.edge_type is not Tensor)
                 or (
                     (not find_intersection_type(float, conn_edge.value_type))
                     or _key
@@ -974,7 +966,7 @@ class PhysicalModel(GenericDataType[DataType]):
                     # model. Indicate it accordingly
                     input_name = "'" + connection.key + "'"
                     input_data = model.conns.all[input_key].metadata
-                    if input_data.edge_type is not MyTensor:
+                    if input_data.edge_type is not Tensor:
                         # If value of the scalar is determined, write that value
                         pm_input_data = self.data_store.data_memo[id(input_data)]
                         if (val := pm_input_data.value) is not TBD:

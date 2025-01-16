@@ -19,7 +19,7 @@ import numpy as np
 
 from mithril import CBackend, NumpyBackend, compile
 from mithril.backends.with_manualgrad.c_backend.src.array import PyArray
-from mithril.framework.common import IOKey, MyTensor
+from mithril.framework.common import IOKey, Tensor
 from mithril.models import Add, Model, Multiply
 
 from ..utils import with_temp_file
@@ -29,7 +29,7 @@ def test_cbackend_1():
     model = Model()
 
     model += Add()(left="left", right="right", output="output")
-    model.set_types(left=MyTensor, right=MyTensor)
+    model.set_types(left=Tensor, right=Tensor)
 
     c_backend = CBackend()
     np_backend = NumpyBackend()
@@ -85,7 +85,7 @@ def test_cbackend_2(file_path: str):
 
     model += add(left="left", right="right", output=IOKey(name="output"))
     model += Add()(left="left2", right="output", output=IOKey(name="output2"))
-    model.set_types(left=MyTensor, left2=MyTensor, right=MyTensor)
+    model.set_types(left=Tensor, left2=Tensor, right=Tensor)
 
     c_backend = CBackend()
     np_backend = NumpyBackend()
@@ -151,7 +151,7 @@ def test_cbackend_3():
     model += add(left="left", right="right")
     model += Multiply()(left=add.output, right="mul", output=IOKey(name="output"))
     model += Multiply()(left=add.output, right="output", output=IOKey(name="output2"))
-    model.set_types(left=MyTensor, mul=MyTensor, right=MyTensor)
+    model.set_types(left=Tensor, mul=Tensor, right=Tensor)
 
     c_backend = CBackend()
     np_backend = NumpyBackend()
@@ -213,7 +213,7 @@ def test_broadcast_1():
 
     model += add(left="left", right="right")
     model += Multiply()(left=add.output, right="mul", output="output")
-    model.set_types(left=MyTensor, mul=MyTensor, right=MyTensor)
+    model.set_types(left=Tensor, mul=Tensor, right=Tensor)
 
     c_backend = CBackend()
 
@@ -246,7 +246,7 @@ def test_broadcast_2():
 
     model += add(left="left", right="right")
     model += Multiply()(left=add.output, right="mul", output="output")
-    model.set_types(left=MyTensor, mul=MyTensor, right=MyTensor)
+    model.set_types(left=Tensor, mul=Tensor, right=Tensor)
 
     c_backend = CBackend()
 

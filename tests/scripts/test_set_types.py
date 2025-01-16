@@ -14,7 +14,7 @@
 
 import pytest
 
-from mithril.framework import IOKey, MyTensor
+from mithril.framework import IOKey, Tensor
 from mithril.models import Buffer, Indexer, Model, Sigmoid
 
 
@@ -22,7 +22,7 @@ def test_set_types_1():
     model = Model()
     sig_model = Sigmoid()
     model += sig_model(input="input", output=IOKey("output"))
-    model.set_types({"input": MyTensor[int]})
+    model.set_types({"input": Tensor[int]})
     input_data = sig_model.input.metadata
     assert input_data.value_type is int
 
@@ -31,7 +31,7 @@ def test_set_types_1_kwargs_arg():
     model = Model()
     sig_model = Sigmoid()
     model += sig_model(input="input", output=IOKey("output"))
-    model.set_types(input=MyTensor[int])
+    model.set_types(input=Tensor[int])
     input_data = sig_model.input.metadata
     assert input_data.value_type is int
 
@@ -40,7 +40,7 @@ def test_set_types_2():
     model = Model()
     buffer_model = Buffer()
     model += buffer_model(input="input", output=IOKey(name="output"))
-    model.set_types({"input": MyTensor[int | bool]})
+    model.set_types({"input": Tensor[int | bool]})
     input_data = buffer_model.input.metadata
     assert input_data.value_type == int | bool
 
@@ -49,7 +49,7 @@ def test_set_types_2_kwargs_arg():
     model = Model()
     buffer_model = Buffer()
     model += buffer_model(input="input", output=IOKey(name="output"))
-    model.set_types(input=MyTensor[int | bool])
+    model.set_types(input=Tensor[int | bool])
     input_data = buffer_model.input.metadata
     assert input_data.value_type == int | bool
 
@@ -58,7 +58,7 @@ def test_set_types_3():
     model = Model()
     buffer_model = Buffer()
     model += buffer_model(input="input", output=IOKey(name="output"))
-    model.set_types({buffer_model.input: MyTensor[int | bool]})
+    model.set_types({buffer_model.input: Tensor[int | bool]})
     input_data = buffer_model.input.metadata
     assert input_data.value_type == int | bool
 
@@ -67,7 +67,7 @@ def test_set_types_3_kwargs_arg_1():
     model = Model()
     buffer_model = Buffer()
     model += buffer_model(input="input", output=IOKey(name="output"))
-    model.set_types(input=MyTensor[int | bool])
+    model.set_types(input=Tensor[int | bool])
     input_data = buffer_model.input.metadata
     assert input_data.value_type == int | bool
 
@@ -76,7 +76,7 @@ def test_set_types_3_kwargs_arg_2():
     model = Model()
     buffer_model = Buffer()
     model += buffer_model(input="input", output=IOKey(name="output"))
-    buffer_model.set_types(input=MyTensor[int | bool])
+    buffer_model.set_types(input=Tensor[int | bool])
     input_data = buffer_model.input.metadata
     assert input_data.value_type == int | bool
 
@@ -85,7 +85,7 @@ def test_set_types_4():
     model = Model()
     buffer_model = Buffer()
     model += buffer_model(input="input", output=IOKey(name="output"))
-    model.set_types({model.input: MyTensor[int | bool]})  # type: ignore
+    model.set_types({model.input: Tensor[int | bool]})  # type: ignore
     input_data = buffer_model.input.metadata
     assert input_data.value_type == int | bool
 
@@ -96,7 +96,7 @@ def test_set_types_5():
     buffer_model_2 = Buffer()
     model += buffer_model_1(input="input1", output=IOKey(name="output1"))
     model += buffer_model_2(input="input2", output=IOKey(name="output2"))
-    model.set_types({model.input1: MyTensor[int | bool], "input2": MyTensor[float]})  # type: ignore
+    model.set_types({model.input1: Tensor[int | bool], "input2": Tensor[float]})  # type: ignore
     input_data_1 = buffer_model_1.input.metadata
     input_data_2 = buffer_model_2.input.metadata
     assert input_data_1.value_type == int | bool
@@ -110,7 +110,7 @@ def test_set_types_5_key_error():
     model += buffer_model_1(input="input1", output=IOKey(name="output1"))
     model += buffer_model_2(input="input2", output=IOKey(name="output2"))
     with pytest.raises(KeyError) as err_info:
-        model.set_types({model.input1: MyTensor[int | bool], "input": MyTensor[float]})  # type: ignore
+        model.set_types({model.input1: Tensor[int | bool], "input": Tensor[float]})  # type: ignore
     assert str(err_info.value) == "\"Key 'input' is not found in connections.\""
 
 
@@ -120,7 +120,7 @@ def test_set_types_6():
     buffer_model_2 = Buffer()
     model += buffer_model_1(input="input1", output=IOKey(name="output1"))
     model += buffer_model_2(input="input2", output=IOKey(name="output2"))
-    model.set_types({model.input1: MyTensor[int | bool], "input2": MyTensor[float]})  # type: ignore
+    model.set_types({model.input1: Tensor[int | bool], "input2": Tensor[float]})  # type: ignore
     with pytest.raises(TypeError):
         model.set_types({"input1": float})
 
@@ -168,9 +168,7 @@ def test_set_types_9():
 def test_types_iokey_1():
     model = Model()
     buffer_model = Buffer()
-    model += buffer_model(
-        input="input", output=IOKey(name="output", type=MyTensor[int])
-    )
+    model += buffer_model(input="input", output=IOKey(name="output", type=Tensor[int]))
     output_data = model.output.metadata  # type: ignore
     input_data = model.input.metadata  # type: ignore
     assert output_data.value_type is int
@@ -182,10 +180,10 @@ def test_types_iokey_2():
     buffer_model1 = Buffer()
     buffer_model2 = Buffer()
     model += buffer_model1(
-        input="input", output=IOKey(name="output", type=MyTensor[int | float])
+        input="input", output=IOKey(name="output", type=Tensor[int | float])
     )
     model += buffer_model2(
-        input="output", output=IOKey(name="output2", type=MyTensor[int])
+        input="output", output=IOKey(name="output2", type=Tensor[int])
     )
 
     output_data = model.output2.metadata  # type: ignore
@@ -200,10 +198,10 @@ def test_types_iokey_3():
     model = Model()
     buffer_model1 = Buffer()
     buffer_model2 = Buffer()
-    model += buffer_model1(input=IOKey(name="input1", type=MyTensor[bool | float]))
+    model += buffer_model1(input=IOKey(name="input1", type=Tensor[bool | float]))
     model += buffer_model2(
-        input=IOKey(name="input2", type=MyTensor[int | float]),
-        output=IOKey(name="output2", type=MyTensor[float | int]),
+        input=IOKey(name="input2", type=Tensor[int | float]),
+        output=IOKey(name="output2", type=Tensor[float | int]),
     )
 
     conn = IOKey("sub", connections={buffer_model1.input, buffer_model2.input})

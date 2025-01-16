@@ -18,23 +18,23 @@ from mithril.framework.common import (
     TBD,
     Constraint,
     IOHyperEdge,
-    MyTensor,
     ShapeNode,
     ShapeRepr,
+    Tensor,
     ToBeDetermined,
     UpdateType,
     Variadic,
 )
 from mithril.framework.constraints import reduce_constraints, reduce_type_constraint
 
-############## Type Setting Tests ##############
+############## Type Setting and Initialization Tests ##############
 
 
 def test_init_with_tensor_default_type():
-    edge = IOHyperEdge(MyTensor)
+    edge = IOHyperEdge(Tensor)
     assert (
-        edge.edge_type is MyTensor
-        and isinstance(edge._value, MyTensor)
+        edge.edge_type is Tensor
+        and isinstance(edge._value, Tensor)
         and edge.value_type == int | float | bool
         and edge.value is TBD
     )
@@ -43,10 +43,10 @@ def test_init_with_tensor_default_type():
 
 
 def test_init_with_tensor_int_or_float_type():
-    edge = IOHyperEdge(MyTensor[int | float])
+    edge = IOHyperEdge(Tensor[int | float])
     assert (
-        edge.edge_type is MyTensor
-        and isinstance(edge._value, MyTensor)
+        edge.edge_type is Tensor
+        and isinstance(edge._value, Tensor)
         and edge.value_type == int | float
         and edge.value is TBD
     )
@@ -54,14 +54,69 @@ def test_init_with_tensor_int_or_float_type():
     assert edge in edge._value.referees and edge in edge._value.shape.referees
 
 
+def test_init_with_tensor_type_tensor_value():
+    edge = IOHyperEdge(Tensor[int | float], value=Tensor([[2.0]]))
+    assert (
+        edge.edge_type is Tensor
+        and isinstance(edge._value, Tensor)
+        and edge.value_type is float
+        and edge.value == [[2.0]]
+    )
+    assert isinstance(edge.shape, ShapeNode)
+    assert edge in edge._value.referees and edge in edge._value.shape.referees
+
+
+def test_init_with_scalar_type_scalar_value():
+    edge = IOHyperEdge(int | float, value=2.0)
+    assert (
+        edge.edge_type is float
+        and isinstance(edge._value, float)
+        and edge.value_type is float
+        and edge.value == 2.0
+    )
+    assert edge.shape is None
+
+
+def test_init_with_wrong_tensor_type_tensor_value():
+    with pytest.raises(TypeError) as err_info:
+        IOHyperEdge(Tensor[int | bool], value=Tensor([[2.0]]))
+    assert (
+        str(err_info.value)
+        == "Acceptable types are int | bool, but <class 'float'> type "
+        "value is provided!"
+    )
+
+
+def test_init_with_wrong_scalar_type_scalar_value():
+    with pytest.raises(TypeError) as err_info:
+        IOHyperEdge(int | bool, value=2.0)
+    assert (
+        str(err_info.value)
+        == "Acceptable types are int | bool, but <class 'float'> type "
+        "value is provided!"
+    )
+
+
+def test_init_with_scalar_type_tensor_value():
+    with pytest.raises(ValueError) as err_info:
+        IOHyperEdge(int | bool, value=Tensor(2.0))
+    assert str(err_info.value) == "Can not set Tensor value to a Scalar edge."
+
+
+def test_init_with_tensor_type_scalar_value():
+    with pytest.raises(ValueError) as err_info:
+        IOHyperEdge(Tensor[int | bool], value=2.0)
+    assert str(err_info.value) == "Can not set Scalar value to a Tensor edge."
+
+
 def test_set_tensor_type():
     edge = IOHyperEdge()
     assert edge.edge_type is ToBeDetermined and edge._value is TBD and edge.value is TBD
     assert edge.shape is None
-    edge.set_type(MyTensor)
+    edge.set_type(Tensor)
     assert (
-        edge.edge_type is MyTensor
-        and isinstance(edge._value, MyTensor)
+        edge.edge_type is Tensor
+        and isinstance(edge._value, Tensor)
         and edge.value is TBD
     )
     assert edge.value_type == int | float | bool
@@ -73,10 +128,10 @@ def test_set_generic_tensor_type():
     edge = IOHyperEdge()
     assert edge.edge_type is ToBeDetermined and edge._value is TBD and edge.value is TBD
     assert edge.shape is None
-    edge.set_type(MyTensor[int | float])
+    edge.set_type(Tensor[int | float])
     assert (
-        edge.edge_type is MyTensor
-        and isinstance(edge._value, MyTensor)
+        edge.edge_type is Tensor
+        and isinstance(edge._value, Tensor)
         and edge.value is TBD
     )
     assert edge.value_type == int | float
@@ -96,12 +151,12 @@ def test_set_scalar_type():
 def test_set_scalar_edge_type_to_tensor_type():
     edge = IOHyperEdge(type=int | float)
     with pytest.raises(TypeError) as err_info:
-        edge.set_type(MyTensor)
+        edge.set_type(Tensor)
     assert str(err_info.value) == "Can not set Tensor type to a Scalar edge."
 
 
 def test_set_tensor_edge_type_to_scalar_type():
-    edge = IOHyperEdge(type=MyTensor)
+    edge = IOHyperEdge(type=Tensor)
     with pytest.raises(TypeError) as err_info:
         edge.set_type(int | float)
     assert str(err_info.value) == "Can not set Scalar type to a Tensor edge."
@@ -112,11 +167,11 @@ def test_set_tensor_edge_type_to_scalar_type():
 
 def test_init_with_tensor_value():
     shape_node = ShapeRepr(root=Variadic()).node
-    tensor = MyTensor([[2.0]], shape=shape_node)
+    tensor = Tensor([[2.0]], shape=shape_node)
     edge = IOHyperEdge(value=tensor)
     assert (
-        edge.edge_type is MyTensor
-        and isinstance(edge._value, MyTensor)
+        edge.edge_type is Tensor
+        and isinstance(edge._value, Tensor)
         and edge.value_type is float
         and edge.value == [[2.0]]
     )
@@ -130,19 +185,19 @@ def test_init_with_tensor_value():
 
 def test_set_non_typed_edge_with_tensor_value():
     shape_node = ShapeRepr(root=Variadic()).node
-    tensor = MyTensor([[2.0]], shape=shape_node)
+    tensor = Tensor([[2.0]], shape=shape_node)
     edge = IOHyperEdge()
     edge.set_value(tensor)
     assert (
-        edge.edge_type is MyTensor
-        and isinstance(edge._value, MyTensor)
+        edge.edge_type is Tensor
+        and isinstance(edge._value, Tensor)
         and edge.value_type is float
         and edge.value == [[2.0]]
     )
     assert (
         isinstance(edge.shape, ShapeNode)
         and edge.shape.referees == {edge}
-        and tensor.referees == set()
+        and tensor.referees == {edge}
         # Tensor is not referred by any edge since edge's own
         # tensor is created and matched with the given tensor.
     )
@@ -151,14 +206,14 @@ def test_set_non_typed_edge_with_tensor_value():
 
 def test_set_tensor_edge_with_tensor_value():
     shape_node = ShapeRepr(root=Variadic()).node
-    tensor = MyTensor([[2.0]], shape=shape_node)
-    edge = IOHyperEdge(type=MyTensor)
-    assert isinstance(edge._value, MyTensor)
+    tensor = Tensor([[2.0]], shape=shape_node)
+    edge = IOHyperEdge(type=Tensor)
+    assert isinstance(edge._value, Tensor)
     edge_tensor = edge._value
     edge.set_value(tensor)
     assert (
-        edge.edge_type is MyTensor
-        and isinstance(edge._value, MyTensor)
+        edge.edge_type is Tensor
+        and isinstance(edge._value, Tensor)
         and edge.value_type is float
         and edge.value == [[2.0]]
     )
@@ -183,7 +238,7 @@ def test_set_scalar_edge_with_scalar_value():
 
 def test_set_scalar_edge_with_tensor_value():
     shape_node = ShapeRepr(root=Variadic()).node
-    tensor = MyTensor([[2.0]], shape=shape_node)
+    tensor = Tensor([[2.0]], shape=shape_node)
     edge = IOHyperEdge(type=int | float)
     with pytest.raises(ValueError) as err_info:
         edge.set_value(tensor)
@@ -191,7 +246,7 @@ def test_set_scalar_edge_with_tensor_value():
 
 
 def test_set_tensor_edge_with_scalar_value():
-    edge = IOHyperEdge(type=MyTensor)
+    edge = IOHyperEdge(type=Tensor)
     with pytest.raises(ValueError) as err_info:
         edge.set_value(3)
     assert str(err_info.value) == "Can not set Scalar value to a Tensor edge."
@@ -199,10 +254,10 @@ def test_set_tensor_edge_with_scalar_value():
 
 def test_set_tensor_edge_with_different_tensor_value():
     shape_node = ShapeRepr(root=Variadic()).node
-    tensor = MyTensor([[2.0]], shape=shape_node)
+    tensor = Tensor([[2.0]], shape=shape_node)
     edge = IOHyperEdge(value=tensor)
     with pytest.raises(ValueError) as err_info:
-        edge.set_value(MyTensor([[3.0]], shape=ShapeRepr(root=Variadic()).node))
+        edge.set_value(Tensor([[3.0]], shape=ShapeRepr(root=Variadic()).node))
     assert (
         str(err_info.value)
         == "Value is set before as [[2.0]]. A value can not be reset."
@@ -210,10 +265,10 @@ def test_set_tensor_edge_with_different_tensor_value():
 
 
 def test_set_tensor_edge_with_different_type_tensor_value():
-    edge = IOHyperEdge(type=MyTensor[int | bool])
+    edge = IOHyperEdge(type=Tensor[int | bool])
     with pytest.raises(TypeError) as err_info:
         shape_node = ShapeRepr(root=Variadic()).node
-        tensor = MyTensor([[2.0]], shape=shape_node)
+        tensor = Tensor([[2.0]], shape=shape_node)
         edge.set_value(tensor)
     assert (
         str(err_info.value)
@@ -237,11 +292,11 @@ def test_set_scalar_edge_with_different_type_scalar_value():
 
 def test_match_tensor_edge_with_tensor_edge_with_common_types():
     constr1 = Constraint(fn=reduce_constraints, type=UpdateType.SHAPE)
-    edge1 = IOHyperEdge(type=MyTensor[int | float])
+    edge1 = IOHyperEdge(type=Tensor[int | float])
     edge1.add_constraint(constr1)
 
     constr2 = Constraint(fn=reduce_type_constraint, type=UpdateType.TYPE)
-    edge2 = IOHyperEdge(type=MyTensor[float | bool])
+    edge2 = IOHyperEdge(type=Tensor[float | bool])
     edge2.add_constraint(constr2)
     node2 = edge2.shape
 
@@ -249,11 +304,11 @@ def test_match_tensor_edge_with_tensor_edge_with_common_types():
     assert edge1.shape is not None
     assert edge2.shape is not None
     assert (
-        isinstance(edge1._value, MyTensor)
+        isinstance(edge1._value, Tensor)
         and edge1._value.referees == {edge1}
         and edge1.value_type is float
     )
-    assert isinstance(edge2._value, MyTensor) and edge2._value.referees == {edge1}
+    assert isinstance(edge2._value, Tensor) and edge2._value.referees == {edge1}
     assert edge1.shape is edge2.shape
     assert edge1.shape.referees == {edge1}
     assert (
@@ -266,8 +321,8 @@ def test_match_tensor_edge_with_tensor_edge_with_common_types():
 
 
 def test_match_tensor_edge_with_tensor_edge_with_no_common_types():
-    edge1 = IOHyperEdge(type=MyTensor[int | float])
-    edge2 = IOHyperEdge(type=MyTensor[bool])
+    edge1 = IOHyperEdge(type=Tensor[int | float])
+    edge2 = IOHyperEdge(type=Tensor[bool])
 
     with pytest.raises(TypeError) as err_info:
         edge1.match(edge2)
@@ -279,7 +334,7 @@ def test_match_tensor_edge_with_tensor_edge_with_no_common_types():
 
 
 def test_match_tensor_edge_with_scalar_edge():
-    edge1 = IOHyperEdge(type=MyTensor[int | float])
+    edge1 = IOHyperEdge(type=Tensor[int | float])
     edge2 = IOHyperEdge(type=float | bool)
 
     with pytest.raises(TypeError) as err_info:
@@ -288,7 +343,7 @@ def test_match_tensor_edge_with_scalar_edge():
 
 
 def test_match_scalar_edge_with_tensor_edge():
-    edge1 = IOHyperEdge(type=MyTensor[int | float])
+    edge1 = IOHyperEdge(type=Tensor[int | float])
     edge2 = IOHyperEdge(type=float | bool)
 
     with pytest.raises(TypeError) as err_info:
@@ -300,7 +355,7 @@ def test_match_untyped_edge_with_tensor_edge():
     edge1 = IOHyperEdge()  # Untyped edge
 
     constr = Constraint(fn=reduce_type_constraint, type=UpdateType.TYPE)
-    edge2 = IOHyperEdge(type=MyTensor[float | bool])
+    edge2 = IOHyperEdge(type=Tensor[float | bool])
     edge2.add_constraint(constr)
     node2 = edge2.shape
 
@@ -308,11 +363,11 @@ def test_match_untyped_edge_with_tensor_edge():
     assert edge1.shape is not None
     assert edge2.shape is not None
     assert (
-        isinstance(edge1._value, MyTensor)
+        isinstance(edge1._value, Tensor)
         and edge1._value.referees == {edge1}
         and edge1.value_type == float | bool
     )
-    assert isinstance(edge2._value, MyTensor) and edge2._value.referees == {edge1}
+    assert isinstance(edge2._value, Tensor) and edge2._value.referees == {edge1}
     assert edge1.shape is edge2.shape
     assert edge1.shape.referees == {edge1}
     assert edge1.all_constraints == {constr} and edge2.all_constraints == set()

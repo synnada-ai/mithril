@@ -15,7 +15,7 @@
 import pytest
 
 from mithril import JaxBackend, TorchBackend, compile
-from mithril.framework.common import IOKey, MyTensor
+from mithril.framework.common import IOKey, Tensor
 from mithril.models import Add, MatrixMultiply, Model, ToTensor
 
 from .test_utils import assert_results_equal
@@ -27,7 +27,7 @@ def test_tuple_argument_1():
     model = Model()
     add = Add()
     model += add(
-        left=IOKey("left", type=MyTensor), right=MyTensor([3.0, 4, 5]), output="output"
+        left=IOKey("left", type=Tensor), right=Tensor([3.0, 4, 5]), output="output"
     )
 
     pm = compile(model=model, backend=backend)
@@ -240,7 +240,7 @@ def test_list_argument_1():
     model = Model()
     add = Add()
     model += add(
-        left=IOKey("left", type=MyTensor), right=MyTensor([3.0, 4, 5]), output="output"
+        left=IOKey("left", type=Tensor), right=Tensor([3.0, 4, 5]), output="output"
     )
 
     pm = compile(model=model, backend=backend)
