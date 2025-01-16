@@ -919,7 +919,7 @@ def test_str_axis_set_shapes():
         mean.set_values({"axis": "axis"})  # type: ignore
 
     assert str(err_info.value) == (
-        "Acceptable types are int | tuple[int, ...] | None | list[int], "
+        "Acceptable types are None | int | list[int] | tuple[int, ...], "
         "but <class 'str'> type value is provided!"
     )
 
@@ -930,7 +930,7 @@ def test_float_axis_2():
     with pytest.raises(TypeError) as err_info:
         model1 += mean1(axis=3.0)
     assert str(err_info.value) == (
-        "Acceptable types are int | tuple[int, ...] | None | list[int], but "
+        "Acceptable types are None | int | list[int] | tuple[int, ...], but "
         "<class 'float'> type value is provided!"
     )
 
@@ -940,7 +940,7 @@ def test_float_axis_2_set_values():
     with pytest.raises(TypeError) as err_info:
         mean1.set_values({"axis": 3.0})
     assert str(err_info.value) == (
-        "Acceptable types are int | tuple[int, ...] | None | list[int], but "
+        "Acceptable types are None | int | list[int] | tuple[int, ...], but "
         "<class 'float'> type value is provided!"
     )
 

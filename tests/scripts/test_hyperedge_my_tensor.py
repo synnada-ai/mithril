@@ -82,7 +82,7 @@ def test_init_with_wrong_tensor_type_tensor_value():
         IOHyperEdge(Tensor[int | bool], value=Tensor([[2.0]]))
     assert (
         str(err_info.value)
-        == "Acceptable types are int | bool, but <class 'float'> type "
+        == "Acceptable types are bool | int, but <class 'float'> type "
         "value is provided!"
     )
 
@@ -92,7 +92,7 @@ def test_init_with_wrong_scalar_type_scalar_value():
         IOHyperEdge(int | bool, value=2.0)
     assert (
         str(err_info.value)
-        == "Acceptable types are int | bool, but <class 'float'> type "
+        == "Acceptable types are bool | int, but <class 'float'> type "
         "value is provided!"
     )
 
@@ -272,7 +272,7 @@ def test_set_tensor_edge_with_different_type_tensor_value():
         edge.set_value(tensor)
     assert (
         str(err_info.value)
-        == "Acceptable types are int | bool, but <class 'float'> type "
+        == "Acceptable types are bool | int, but <class 'float'> type "
         "value is provided!"
     )
 
@@ -282,7 +282,7 @@ def test_set_scalar_edge_with_different_type_scalar_value():
     with pytest.raises(TypeError) as err_info:
         edge.set_value([1, 2])
     assert (
-        str(err_info.value) == "Acceptable types are int | bool, but list[int] type "
+        str(err_info.value) == "Acceptable types are bool | int, but list[int] type "
         "value is provided!"
     )
 
@@ -328,7 +328,7 @@ def test_match_tensor_edge_with_tensor_edge_with_no_common_types():
         edge1.match(edge2)
     assert (
         str(err_info.value)
-        == "Acceptable types are int | float, but <class 'bool'> type "
+        == "Acceptable types are float | int, but <class 'bool'> type "
         "value is provided!"
     )
 

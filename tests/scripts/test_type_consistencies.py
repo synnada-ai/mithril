@@ -257,7 +257,7 @@ def test_type_7():
         model += test_model_3(input1="", input3="input1")
     assert (
         str(err_info.value)
-        == "Acceptable types are <class 'int'>, but str | float type value is provided!"
+        == "Acceptable types are <class 'int'>, but float | str type value is provided!"
     )
 
 
@@ -274,7 +274,7 @@ def test_type_8():
     with pytest.raises(TypeError) as err_info:
         model += model2(input1="input1")
     assert str(err_info.value) == (
-        "Acceptable types are tuple[int, int, int, int], but int | float type "
+        "Acceptable types are tuple[int, int, int, int], but float | int type "
         "value is provided!"
     )
 

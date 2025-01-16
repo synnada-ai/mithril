@@ -686,8 +686,8 @@ class Tensor(Generic[TypeVarTensorType]):
             new_type = find_intersection_type(typ, self.type)
             if not new_type:
                 raise TypeError(
-                    f"Acceptable types are {self.type}, but {typ} type value "
-                    "is provided!"
+                    f"Acceptable types are {sort_type(self.type)}, but "
+                    f"{sort_type(typ)} type value is provided!"
                 )
             self.type = new_type
             # Add all referee edges into the updates.
@@ -831,9 +831,8 @@ class IOHyperEdge:
         tensor.referees.add(self)
         tensor.shape.referees.add(self)
         # Set type of the edge to Tensor.
-        if self._type is not Tensor:
-            self._type = Tensor
-            updates.add(self, UpdateType.TYPE)
+        self._type = Tensor
+        updates.add(self, UpdateType.TYPE)
         self._value = tensor
         return updates
 
@@ -859,7 +858,7 @@ class IOHyperEdge:
             available_types = (
                 get_args(typ)[0] if is_generic else _UltimateTensorValueTypes
             )
-            if self._type is ToBeDetermined:
+            if not isinstance(self._value, Tensor):
                 # This is the case when the base type is not determined yet,
                 # meaning it can be of any type. So, if it is requested
                 # to set type to Tensor, we need to create a new Tensor
@@ -867,7 +866,7 @@ class IOHyperEdge:
                 updates |= self._create_and_set_tensor_value(available_types)
             else:
                 # Set type of Tensor object using available_types
-                assert isinstance(self._value, Tensor)
+                # assert isinstance(self._value, Tensor)
                 updates |= self._value.set_type(available_types)
             assert isinstance(self._value, Tensor)  # TODO: Duplicate check.
             self.differentiable = (self.value is TBD) and bool(
@@ -888,8 +887,8 @@ class IOHyperEdge:
             )
             if not new_type:
                 raise TypeError(
-                    f"Acceptable types are {self._type}, but {typ} type value "
-                    "is provided!"
+                    f"Acceptable types are {sort_type(self._type)}, but "
+                    f"{sort_type(typ)} type value is provided!"
                 )
             self._type = new_type
             self.differentiable = False
