@@ -41,7 +41,6 @@ from ..common import (
     ShapeTemplateType,
     ShapeType,
     Tensor,
-    TensorValueType,
     ToBeDetermined,
     UniadicRecord,
     Updates,
@@ -99,7 +98,7 @@ class BaseModel(abc.ABC):
         self.assigned_shapes: list[ShapesType] = []
         self.assigned_types: dict[
             str,
-            type | UnionType | ScalarType | type[TensorValueType] | Tensor[Any],
+            type | UnionType | ScalarType | Tensor[Any],
         ] = {}
         self.assigned_constraints: list[AssignedConstraintType] = []
         self.conns = Connections()
@@ -353,22 +352,18 @@ class BaseModel(abc.ABC):
         self,
         config: Mapping[
             str | Connection,
-            type | UnionType | ScalarType | type[TensorValueType] | type[Tensor[Any]],
+            type | UnionType | ScalarType | type[Tensor[Any]],
         ]
         | Mapping[
             Connection,
-            type | UnionType | ScalarType | type[TensorValueType] | type[Tensor[Any]],
+            type | UnionType | ScalarType | type[Tensor[Any]],
         ]
         | Mapping[
             str,
-            type | UnionType | ScalarType | type[TensorValueType] | type[Tensor[Any]],
+            type | UnionType | ScalarType | type[Tensor[Any]],
         ]
         | None = None,
-        **kwargs: type
-        | UnionType
-        | ScalarType
-        | type[TensorValueType]
-        | type[Tensor[Any]],
+        **kwargs: type | UnionType | ScalarType | type[Tensor[Any]],
     ) -> None:
         """
         Set types of any connection in the Model
@@ -390,7 +385,7 @@ class BaseModel(abc.ABC):
         # Initialize assigned shapes dictionary to store assigned shapes.
         assigned_types: dict[
             str,
-            type | UnionType | ScalarType | type[TensorValueType] | Tensor[Any],
+            type | UnionType | ScalarType | Tensor[Any],
         ] = {}
 
         # Get the outermost parent as all the updates will happen here.
@@ -453,7 +448,6 @@ class BaseModel(abc.ABC):
             type = UpdateType.TYPE if post_fn in type_constraints else UpdateType.SHAPE
             constr.add_post_process((post_fn, type))
 
-        # _, updates = constr([hyper_edge.data for hyper_edge in hyper_edges])
         _, updates = constr(hyper_edges)
         self.constraint_solver(updates)
 

@@ -276,18 +276,6 @@ def dict_to_model(
 
     if len(assigned_shapes) > 0:
         model.set_shapes(dict_to_shape(assigned_shapes))
-
-    # types = {}
-    # for key, typ in types.items():
-    #     if typ == "tensor":
-    #         types[key] = Tensor
-    #     else:
-    #         # TODO: Get rid of using eval method. Find more secure
-    #         # way to convert strings into types and generic types.
-    #         types[key] = eval(typ)
-    # if types:
-    #     model.set_types(types)
-
     return model
 
 

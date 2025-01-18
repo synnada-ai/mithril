@@ -106,7 +106,6 @@ __all__ = [
     "buffer_constraint",
     "relational_operator_type_constraint",
     "divide_type_constraint",
-    "power_threshold_shape_constraint",
     "bcast_power",
     "polynomial_kernel_constraint",
 ]
@@ -188,10 +187,11 @@ def set_edge_type(edge: IOHyperEdge, new_type: Any) -> Updates:
     return edge.set_type(type)
 
 
-def edge_type_constraint(*args: IOHyperEdge) -> ConstrainResultType:
-    # NOTE: Assumes first argument is always output as other constraints.
-    output, *inputs = args
+def edge_type_constraint(
+    output: IOHyperEdge, *inputs: IOHyperEdge
+) -> ConstrainResultType:
     updates = Updates()
+    status = False
     # First set output edge_type to Tensor if any Tensor type inputs
     # exists.
     input_edge_types = {input.edge_type for input in inputs}
@@ -206,16 +206,17 @@ def edge_type_constraint(*args: IOHyperEdge) -> ConstrainResultType:
         ]
         if len(untyped_inputs) == 1:
             updates |= untyped_inputs.pop().set_type(Tensor)
-            return True, updates
+            status = True
     elif output.edge_type is not ToBeDetermined:
         # Scalar output means all inputs are scalar.
         for input in inputs:
             updates |= input.set_type(ScalarValueType)
+        status = True
 
-    # If no TBD edge_type exists, return True.
+    # If no ToBeDetermined edge_type exists, return True.
     if ToBeDetermined not in input_edge_types:
-        return True, updates
-    return False, updates
+        status = True
+    return status, updates
 
 
 def general_forward_constraint() -> None:
@@ -1433,8 +1434,8 @@ def _bcast(
 
     if merge_edge is not None:
         assert isinstance(merge_edge._value, Tensor)
-        assert isinstance(output._value, Tensor)
-        return True, merge_edge._value.match_shapes(output._value)
+        assert output.shape is not None
+        return True, merge_edge._value.match_shapes(output.shape)
 
     return False, Updates()
 
@@ -3976,20 +3977,6 @@ def divide_type_constraint(
         status = True
     elif ToBeDetermined not in (numerator.edge_type, denominator.edge_type):
         updates |= output.set_type(float)
-        status = True
-    return status, updates
-
-
-def power_threshold_shape_constraint(threshold: IOHyperEdge) -> ConstrainResultType:
-    updates = Updates()
-    status = False
-    if threshold.edge_type is Tensor:
-        assert threshold.shape is not None
-        updates |= threshold.shape.set_values([])
-        status = True
-    elif threshold.edge_type is not ToBeDetermined:
-        # There is nothing to do for scalar threshold,
-        # simply set status to True.
         status = True
     return status, updates
 

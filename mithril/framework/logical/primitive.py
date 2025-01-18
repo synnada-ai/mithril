@@ -29,7 +29,6 @@ from ..common import (
     UniadicRecord,
     Updates,
     Variadic,
-    _UltimateTensorValueTypes,
     create_shape_map,
     get_summary,
     get_summary_shapes,
@@ -77,7 +76,7 @@ class PrimitiveModel(BaseModel):
                     tensor_types = (
                         get_args(value.type)[0]
                         if is_generic_tensor
-                        else _UltimateTensorValueTypes
+                        else int | float | bool
                     )
                     assert isinstance(value.value, ToBeDetermined | int | float | bool)
                     tensor = Tensor(

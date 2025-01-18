@@ -524,19 +524,9 @@ class PhysicalModel(GenericDataType[DataType]):
         # Set given shapes.
         self.data_store.set_shapes(shapes)
 
-        # for node in self.flat_graph.nodes.values():
-        #     conn_edge = self.data[node.connections["output"].key]
-        #     if (conn_edge.edge_type is not Tensor) or (
-        #         not find_intersection_type(float, conn_edge.value_type)
-        #     ):
-        #         self.ignore_grad_keys.add(
-        #             node.connections[PrimitiveModel.output_key].key
-        #         )
-
         self.flat_graph.prune_duplicate_nodes(self.data, constant_keys)
 
         updates = Updates()
-
         reverse_data_memo = {
             value: key for key, value in self.data_store.data_memo.items()
         }
@@ -569,7 +559,6 @@ class PhysicalModel(GenericDataType[DataType]):
 
         # Extract idle keys which are not an output
         # of the model nor an input to a PrimitiveModel.
-
         self.discarded_keys |= {
             key for key in self.flat_graph.hanging_keys if key not in self.output_keys
         }

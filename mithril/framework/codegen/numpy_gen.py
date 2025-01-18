@@ -312,8 +312,8 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
             key
             for key in all_ignored_keys
             if key in self.pm.data
-            and isinstance((edge := self.pm.data[key])._value, Tensor)
-            and find_intersection_type(edge._value.type, float)
+            and self.pm.data[key].edge_type is Tensor
+            and find_intersection_type(self.pm.data[key].value_type, float)
         }
 
         # weak_ignored_keys = set()

@@ -44,7 +44,6 @@ from ..constraints import (
     indexer_initial_type_constraint,
     indexer_type_constraint,
     item_constraints,
-    power_threshold_shape_constraint,
     reduce_constraints,
     reduce_type_constraint,
     relational_operator_type_constraint,
@@ -82,7 +81,6 @@ __all__ = [
     "Exponential",
     "Item",
     "Indexer",
-    # "ScalarItem",
     "ToTensor",
     "ToList",
     "TensorToList",
@@ -234,13 +232,12 @@ class Power(PrimitiveModel):
                 exponent=BaseKey(shape=[("exp", ...)], type=Tensor, value=exponent),
                 threshold=BaseKey(shape=[], type=Tensor),
             )
-            # self.threshold.set_differentiable(False)  # type: ignore
+
             self._set_constraint(
                 fn=edge_type_constraint,
                 keys=[PrimitiveModel.output_key, "base", "exponent", "threshold"],
                 post_processes={general_tensor_type_constraint, bcast_power},
             )
-            self.set_constraint(fn=power_threshold_shape_constraint, keys=["threshold"])
         else:
             super().__init__(
                 formula_key="power",
@@ -594,43 +591,6 @@ class Item(PrimitiveModel):
         self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
     ) -> ExtendInfo:
         return super().__call__(input=input, output=output)
-
-
-# class ScalarItem(PrimitiveModel):
-#     input: Connection
-#     index: Connection
-#     output: Connection
-
-#     def __init__(
-#         self,
-#         name: str | None = None,
-#         index: int | ToBeDetermined = TBD,
-#         input: TensorValueType | ToBeDetermined = TBD,
-#     ) -> None:
-#         super().__init__(
-#             formula_key="index",
-#             name=name,
-#             output=BaseKey(type=int | float | list | tuple),
-#             input=BaseKey(type=list | tuple, value=input),
-#             index=BaseKey(type=int | slice, value=index),
-#         )
-
-#         self._set_constraint(
-#             fn=scalar_item_constraints,
-#             keys=[PrimitiveModel.output_key, "input", "index"],
-#         )
-#         self._set_constraint(
-#             fn=index_type_constraint,
-#             keys=[PrimitiveModel.output_key, "input", "index"],
-#         )
-
-# def __call__(  # type: ignore[override]
-#     self,
-#     input: ConnectionType = NOT_GIVEN,
-#     index: ConnectionType = NOT_GIVEN,
-#     output: ConnectionType = NOT_GIVEN,
-# ) -> ExtendInfo:
-#     return super().__call__(input=input, index=index, output=output)
 
 
 class ToTensor(PrimitiveModel):

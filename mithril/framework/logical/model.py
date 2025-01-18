@@ -38,7 +38,6 @@ from ..common import (
     ScalarValueType,
     ShapeTemplateType,
     Tensor,
-    TensorValueType,
     ToBeDetermined,
     UniadicRecord,
     Updates,
@@ -139,12 +138,6 @@ ops_table: dict[str, type[PrimitiveModel]] = {
     "slice": Slice,
     "to_tuple": ToTuple,
 }
-
-
-# coercion_table: dict[tuple[str, type[Tensor] | None], type[PrimitiveModel]] = {
-#     ("index", Tensor): Indexer,
-#     ("index", None): ScalarItem,
-# }
 
 
 class Model(BaseModel):
@@ -671,7 +664,7 @@ class Model(BaseModel):
         shape_info: dict[str, ShapeTemplateType] = {}
         type_info: dict[
             str,
-            type | UnionType | ScalarType | type[TensorValueType] | Tensor[Any],
+            type | UnionType | ScalarType | type[Tensor[Any]],
         ] = {}
 
         submodel_dag: dict[str, ConnectionData] = {}
@@ -716,9 +709,6 @@ class Model(BaseModel):
             shape_info,
             updates=updates,
         )  # TODO: Should "trace" be set to True?.
-
-        # # Set given types.
-        # self.set_types(type_info)
 
         model.constraint_solver.clear()
         model.conns.connections_dict = {}

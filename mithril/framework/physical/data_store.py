@@ -223,7 +223,7 @@ class StaticDataStore(Generic[DataType]):
                 key = key.key
             assert isinstance(key, str)
             if (data := self._all_data[key]).edge_type is not Tensor:
-                raise ValueError("Scalar data can not have shape!")
+                raise ValueError("Non-tensor data can not have shape!")
             assert data.shape is not None
             updates |= data.shape.set_values(value)
         self.constraint_solver(updates)
