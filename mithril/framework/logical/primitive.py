@@ -49,6 +49,7 @@ class PrimitiveModel(BaseModel):
     def __init__(
         self,
         formula_key: str,
+        *,
         name: str | None = None,
         **kwargs: BaseKey | IOHyperEdge,
     ) -> None:

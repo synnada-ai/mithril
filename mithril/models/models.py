@@ -165,8 +165,9 @@ class Pool1D(Model):
         stride: int | None | ToBeDetermined = None,
         padding: int | PaddingType | tuple[int, int] | ToBeDetermined = (0, 0),
         dilation: int | ToBeDetermined = 1,
-        name: str | None = None,
         input: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(name=name)
         self.factory_args = {
@@ -255,8 +256,9 @@ class Pool2D(Model):
         stride: int | None | tuple[int, int] | ToBeDetermined = None,
         padding: int | PaddingType | tuple[int, int] | ToBeDetermined = (0, 0),
         dilation: int | ToBeDetermined = 1,
-        name: str | None = None,
         input: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(name=name)
         self.factory_args = {
@@ -353,9 +355,10 @@ class Convolution1D(Model):
         padding: int | PaddingType | tuple[int, int] | ToBeDetermined = 0,
         dilation: int | ToBeDetermined = 1,
         use_bias: bool = True,
-        name: str | None = None,
         input: Tensor[Any] | ToBeDetermined = TBD,
         weight: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(name=name)
         self.factory_args = {
@@ -433,9 +436,10 @@ class Convolution2D(Model):
         | ToBeDetermined = (0, 0),
         dilation: int | tuple[int, int] | ToBeDetermined = (1, 1),
         use_bias: bool = True,
-        name: str | None = None,
         input: Tensor[Any] | ToBeDetermined = TBD,
         weight: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(name=name)
         self.factory_args = {
@@ -516,10 +520,11 @@ class Linear(Model):
         self,
         dimension: int | None = None,
         use_bias: bool = True,
-        name: str | None = None,
         input: Tensor[Any] | ToBeDetermined = TBD,
         weight: Tensor[Any] | ToBeDetermined = TBD,
         bias: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(name=name)
         self.factory_args = {"dimension": dimension, "use_bias": use_bias}
@@ -575,10 +580,11 @@ class ElementWiseAffine(Model):
 
     def __init__(
         self,
-        name: str | None = None,
         input: Tensor[Any] | ToBeDetermined = TBD,
         weight: Tensor[Any] | ToBeDetermined = TBD,
         bias: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(name=name)
 
@@ -621,10 +627,11 @@ class Layer(Model):
         self,
         activation: BaseModel,
         dimension: int | None = None,
-        name: str | None = None,
         input: Tensor[Any] | ToBeDetermined = TBD,
         weight: Tensor[Any] | ToBeDetermined = TBD,
         bias: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(name=name)
         self.factory_args = {"activation": activation, "dimension": dimension}
@@ -663,10 +670,11 @@ class LayerNorm(Model):
         use_scale: bool = True,
         use_bias: bool = True,
         eps: float = 1e-5,
-        name: str | None = None,
         input: Tensor[Any] | ToBeDetermined = TBD,
         weight: Tensor[Any] | ToBeDetermined = TBD,
         bias: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(name=name)
         self.factory_args = {"use_scale": use_scale, "use_bias": use_bias, "eps": eps}
@@ -746,11 +754,11 @@ class GroupNorm(Model):
         use_scale: bool = True,
         use_bias: bool = True,
         eps: float = 1e-5,
-        name: str | None = None,
         input: Tensor[Any] | ToBeDetermined = TBD,
         *,
         weight: Tensor[Any] | ToBeDetermined = TBD,
         bias: Tensor[Any] | ToBeDetermined = TBD,
+        name: str | None = None,
     ) -> None:
         super().__init__(name=name)
 
@@ -817,7 +825,7 @@ class L1(Model):
     output: Connection
 
     def __init__(
-        self, name: str | None = None, input: Tensor[Any] | ToBeDetermined = TBD
+        self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
     ) -> None:
         super().__init__(name=name)
 
@@ -842,7 +850,7 @@ class L2(Model):
     output: Connection
 
     def __init__(
-        self, name: str | None = None, input: Tensor[Any] | ToBeDetermined = TBD
+        self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
     ) -> None:
         super().__init__(name=name)
         square = Square()
@@ -872,9 +880,10 @@ class QuadraticFormRegularizer(Model):
 
     def __init__(
         self,
-        name: str | None = None,
         input: Tensor[Any] | ToBeDetermined = TBD,
         kernel: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(name=name)
         transpose_model = Transpose()
@@ -915,11 +924,12 @@ class RBFKernel(Model):
 
     def __init__(
         self,
-        name: str | None = None,
         input1: Tensor[Any] | ToBeDetermined = TBD,
         input2: Tensor[Any] | ToBeDetermined = TBD,
         l_scale: Tensor[Any] | ToBeDetermined = TBD,
         sigma: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(name=name)
 
@@ -991,11 +1001,12 @@ class PolynomialKernel(Model):
     def __init__(
         self,
         robust: bool = True,
-        name: str | None = None,
         input1: Tensor[Any] | ToBeDetermined = TBD,
         input2: Tensor[Any] | ToBeDetermined = TBD,
         poly_coef: Tensor[Any] | ToBeDetermined = TBD,
         degree: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(name=name)
 
@@ -1055,9 +1066,10 @@ class KernelizedSVM(Model):
     def __init__(
         self,
         kernel: BaseModel,
-        name: str | None = None,
         weight: Tensor[Any] | ToBeDetermined = TBD,
         bias: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
         **kwargs: Tensor[Any] | ToBeDetermined,
     ) -> None:
         if len(kernel.input_keys) < 2:
@@ -1123,10 +1135,11 @@ class LinearSVM(Model):
 
     def __init__(
         self,
-        name: str | None = None,
         input: Tensor[Any] | ToBeDetermined = TBD,
         weight: Tensor[Any] | ToBeDetermined = TBD,
         bias: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(name=name)
 
@@ -1173,10 +1186,11 @@ class LogisticRegression(Model):
 
     def __init__(
         self,
-        name: str | None = None,
         input: Tensor[Any] | ToBeDetermined = TBD,
         weight: Tensor[Any] | ToBeDetermined = TBD,
         bias: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(name=name)
 
@@ -1223,8 +1237,9 @@ class MLP(Model):
         activations: list[BaseModel],
         dimensions: Sequence[int | None],
         input_name_templates: dict[str, str] | None = None,
-        name: str | None = None,
         input: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
         **weights_biases: Tensor[Any] | ToBeDetermined,
     ) -> None:
         super().__init__(name=name)
@@ -1330,13 +1345,14 @@ class RNNCell(Cell):
 
     def __init__(
         self,
-        name: str | None = None,
         input: Tensor[Any] | ToBeDetermined = TBD,
         w_ih: Tensor[Any] | ToBeDetermined = TBD,
         w_hh: Tensor[Any] | ToBeDetermined = TBD,
         w_ho: Tensor[Any] | ToBeDetermined = TBD,
         bias_h: Tensor[Any] | ToBeDetermined = TBD,
         bias_o: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(name=name)
 
@@ -1454,7 +1470,6 @@ class LSTMCell(Cell):
 
     def __init__(
         self,
-        name: str | None = None,
         input: Tensor[Any] | ToBeDetermined = TBD,
         w_i: Tensor[Any] | ToBeDetermined = TBD,
         w_f: Tensor[Any] | ToBeDetermined = TBD,
@@ -1466,6 +1481,8 @@ class LSTMCell(Cell):
         bias_c: Tensor[Any] | ToBeDetermined = TBD,
         bias_o: Tensor[Any] | ToBeDetermined = TBD,
         bias_out: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(name=name)
         factory_inputs = {
@@ -1622,7 +1639,6 @@ class LSTMCellBody(Model):
 
     def __init__(
         self,
-        name: str | None = None,
         input: Tensor[Any] | ToBeDetermined = TBD,
         prev_hidden: Tensor[Any] | ToBeDetermined = TBD,
         prev_cell: Tensor[Any] | ToBeDetermined = TBD,
@@ -1634,6 +1650,8 @@ class LSTMCellBody(Model):
         bias_i: Tensor[Any] | ToBeDetermined = TBD,
         bias_c: Tensor[Any] | ToBeDetermined = TBD,
         bias_o: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(name=name)
 
@@ -1752,6 +1770,7 @@ class RNN(Model):
     def __init__(
         self,
         cell_type: Cell,
+        *,
         name: str | None = None,
         # **kwargs: Tensor[Any] | MainValueType,
     ) -> None:
@@ -1771,8 +1790,9 @@ class OneToMany(RNN):
         cell_type: Cell,
         max_sequence_length: int,
         teacher_forcing: bool = False,
-        name: str | None = None,
         input: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
         **kwargs: Tensor[Any] | MainValueType,
     ) -> None:
         super().__init__(cell_type=cell_type, name=name)
@@ -1853,8 +1873,9 @@ class OneToManyInference(RNN):
         self,
         cell_type: Cell,
         max_sequence_length: int,
-        name: str | None = None,
         input: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
         **kwargs: Tensor[Any] | ToBeDetermined,
     ) -> None:
         super().__init__(cell_type=cell_type, name=name)
@@ -1909,8 +1930,9 @@ class ManyToOne(RNN):
         self,
         cell_type: Cell,
         max_sequence_length: int,
-        name: str | None = None,
         hidden_concat: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
         **kwargs: Tensor[Any] | ToBeDetermined,
     ) -> None:
         super().__init__(cell_type, name=name)
@@ -1990,8 +2012,9 @@ class EncoderDecoder(Model):
         max_input_sequence_length: int,
         max_target_sequence_length: int,
         teacher_forcing: bool = False,
-        name: str | None = None,
         indices: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(name=name)
 
@@ -2044,6 +2067,7 @@ class EncoderDecoderInference(Model):
         cell_type: Cell,
         max_input_sequence_length: int,
         max_target_sequence_length: int,
+        *,
         name: str | None = None,
     ) -> None:
         super().__init__(name=name)
@@ -2090,9 +2114,10 @@ class EncoderDistanceMatrix(Model):
         self,
         get_final_distance: bool = True,
         robust: bool = True,
-        name: str | None = None,
         input1: Tensor[Any] | ToBeDetermined = TBD,
         input2: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(name=name)
         self.factory_args = {"get_final_distance": get_final_distance, "robust": robust}
@@ -2149,10 +2174,11 @@ class PolynomialRegression(Model):
         self,
         degree: int,
         dimension: int | None = None,
-        name: str | None = None,
         input: Tensor[Any] | ToBeDetermined = TBD,
         weight: Tensor[Any] | ToBeDetermined = TBD,
         bias: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(name=name)
         self.factory_args = {"degree": degree, "dimension": dimension}
@@ -2192,10 +2218,11 @@ class MDSCore(Model):
         self,
         exact_distances: bool = True,
         robust: bool = True,
-        name: str | None = None,
         distances: Tensor[Any] | ToBeDetermined = TBD,
         pred_distances: Tensor[Any] | ToBeDetermined = TBD,
         norm: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         self.factory_args = {"exact_distances": exact_distances, "robust": robust}
         super().__init__(name=name)
@@ -2291,10 +2318,11 @@ class TSNECore(Model):
         exact_distances: bool = True,
         calculate_p_joint: bool = False,
         perplexity: float = 20.0,
-        name: str | None = None,
         distances: Tensor[Any] | ToBeDetermined = TBD,
         pred_distances: Tensor[Any] | ToBeDetermined = TBD,
         p_joint: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(name=name)
         self.factory_args = {
@@ -2385,11 +2413,12 @@ class DistanceEncoder(Model):
         self,
         base_model: MDSCore | TSNECore,
         input_type: str = "distances",
-        name: str | None = None,
         input: Tensor[Any] | ToBeDetermined = TBD,
         coords: Tensor[Any] | ToBeDetermined = TBD,
         norm: Tensor[Any] | ToBeDetermined = TBD,
         predicted_coords: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(name=name)
         self.factory_args = {"base_model": base_model, "input_type": input_type}
@@ -2493,11 +2522,12 @@ class MDS(DistanceEncoder):
         self,
         prediction_dim: int,
         input_type: str = "distances",
-        name: str | None = None,
         input: Tensor[Any] | ToBeDetermined = TBD,
         coords: Tensor[Any] | ToBeDetermined = TBD,
         norm: Tensor[Any] | ToBeDetermined = TBD,
         predicted_coords: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         assert input_type in ["distances", "powered_distances", "points"]
         base_model = MDSCore(exact_distances=(input_type == "distances"))
@@ -2550,10 +2580,11 @@ class TSNE(DistanceEncoder):
         input_type: str = "distances",
         preplexity: float = 20.0,
         calculate_p_joint: bool = False,
-        name: str | None = None,
         input: Tensor[Any] | ToBeDetermined = TBD,
         norm: Tensor[Any] | ToBeDetermined = TBD,
         predicted_coords: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         assert input_type in ["distances", "powered_distances", "points"]
         base_model = TSNECore(
@@ -2605,7 +2636,6 @@ class GaussProcessRegressionCore(Model):
 
     def __init__(
         self,
-        name: str | None = None,
         s: Tensor[Any] | ToBeDetermined = TBD,
         k: Tensor[Any] | ToBeDetermined = TBD,
         k_star: Tensor[Any] | ToBeDetermined = TBD,
@@ -2614,6 +2644,8 @@ class GaussProcessRegressionCore(Model):
         loss: Tensor[Any] | ToBeDetermined = TBD,
         prediction: Tensor[Any] | ToBeDetermined = TBD,
         confidence: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(name=name)
 
@@ -2731,12 +2763,13 @@ class GPRLoss(Model):
     def __init__(
         self,
         robust: bool = False,
-        name: str | None = None,
         labels: Tensor[Any] | ToBeDetermined = TBD,
         mu: Tensor[Any] | ToBeDetermined = TBD,
         L: Tensor[Any] | ToBeDetermined = TBD,
         K_term: Tensor[Any] | ToBeDetermined = TBD,
         alpha: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(name=name)
         self.factory_args = {"robust": robust}
@@ -2822,9 +2855,10 @@ class Metric(Model):
         is_binary: bool = False,
         is_pred_one_hot: bool = True,
         is_label_one_hot: bool = True,
-        name: str | None = None,
         pred: Tensor[Any] | ToBeDetermined = TBD,
         label: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(name=name)
         self.factory_args = {"threshold": threshold}
@@ -2896,9 +2930,10 @@ class Accuracy(Model):
         is_binary: bool = False,
         is_pred_one_hot: bool = True,
         is_label_one_hot: bool = True,
-        name: str | None = None,
         pred: Tensor[Any] | ToBeDetermined = TBD,
         label: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(name=name)
         self += Metric(
@@ -2957,9 +2992,10 @@ class Precision(Model):
         is_binary: bool = False,
         is_pred_one_hot: bool = True,
         is_label_one_hot: bool = True,
-        name: str | None = None,
         pred: Tensor[Any] | ToBeDetermined = TBD,
         label: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(name=name)
         self.factory_args = {"threshold": threshold}
@@ -3117,9 +3153,10 @@ class Recall(Model):
         is_binary: bool = False,
         is_pred_one_hot: bool = True,
         is_label_one_hot: bool = True,
-        name: str | None = None,
         pred: Tensor[Any] | ToBeDetermined = TBD,
         label: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(name=name)
         self.factory_args = {"threshold": threshold}
@@ -3276,9 +3313,10 @@ class F1(Model):
         is_binary: bool = False,
         is_pred_one_hot: bool = True,
         is_label_one_hot: bool = True,
-        name: str | None = None,
         pred: Tensor[Any] | ToBeDetermined = TBD,
         label: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(name=name)
         self.factory_args = {"threshold": threshold}
@@ -3431,9 +3469,10 @@ class AUC(Model):
         self,
         n_classes: int,
         is_label_one_hot: bool = True,
-        name: str | None = None,
         pred: Tensor[Any] | ToBeDetermined = TBD,
         label: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(name=name)
 
@@ -3487,7 +3526,7 @@ class SiLU(Model):
     output: Connection
 
     def __init__(
-        self, name: str | None = None, input: Tensor[Any] | ToBeDetermined = TBD
+        self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
     ) -> None:
         super().__init__(name=name)
 
