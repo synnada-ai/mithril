@@ -269,7 +269,7 @@
             "regularizations": [
                 {
                     "model": "l1",
-                    "coef": 1e-1,
+                    "coef": {"tensor": 1e-1},
                     "input": "weight"
                 }
             ],
@@ -314,7 +314,7 @@
                 "loss": {
                     "fn": "QuantileLoss",
                     "call_kwargs": {
-                        "quantile": 0.5
+                        "quantile": {"tensor": 0.5}
                     }
                 }, 
                 "reduce_steps": ["Mean"], 
@@ -353,7 +353,7 @@
                 "loss": {
                     "fn": "QuantileLoss",
                     "call_kwargs": {
-                        "quantile": 0.9
+                        "quantile":{"tensor": 0.9}
                     }
                 }, 
                 "reduce_steps": ["Mean"], 
@@ -393,7 +393,7 @@
                 "loss": {
                     "fn": "QuantileLoss",
                     "call_kwargs": {
-                        "quantile": 0.9
+                        "quantile": {"tensor": 0.9}
                     }
                 }, 
                 "reduce_steps": ["Mean"], 
@@ -432,7 +432,7 @@
                 "loss": {
                     "fn": "QuantileLoss",
                     "call_kwargs": {
-                        "quantile": 1e-15
+                        "quantile": {"tensor": 1e-15} 
                     }
                 }, 
                 "reduce_steps": ["Mean"], 
@@ -471,7 +471,7 @@
                 "loss": {
                     "fn": "QuantileLoss",
                     "call_kwargs": {
-                        "quantile": 0.2
+                        "quantile": {"tensor": 0.2} 
                     }
                 }, 
                 "reduce_steps": ["Mean"], 
@@ -510,7 +510,7 @@
                 "loss": {
                     "fn": "QuantileLoss",
                     "call_kwargs": {
-                        "quantile": 0.99999999999
+                        "quantile": {"tensor": 0.99999999999}  
                     }
                 }, 
                 "reduce_steps": ["Mean"], 
@@ -547,7 +547,7 @@
         "regularizations": [
             {
                 "model": "l1",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "weight"
             }
         ],
@@ -556,7 +556,7 @@
                 "loss": {
                     "fn": "QuantileLoss",
                     "call_kwargs": {
-                        "quantile": 0.99999999999
+                        "quantile": {"tensor": 0.99999999999} 
                     }
                 }, 
                 "reduce_steps": ["Mean"], 
@@ -593,7 +593,7 @@
         "regularizations": [
             {
                 "model": "l2",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "weight"
             }
         ],
@@ -602,7 +602,7 @@
                 "loss": {
                     "fn": "QuantileLoss",
                     "call_kwargs": {
-                        "quantile": 0.99999999999
+                        "quantile": {"tensor": 0.99999999999}
                     }
                 }, 
                 "reduce_steps": ["Mean"], 
@@ -903,7 +903,7 @@
         "regularizations": [
             {
                 "model": "l1",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "weight"
             }
         ],
@@ -944,7 +944,7 @@
         "regularizations": [
             {
                 "model": "l2",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "weight"
             }
         ],
@@ -1152,7 +1152,7 @@
         "regularizations": [
             {
                 "model": "l2",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "weight"
             }
         ],
@@ -1191,7 +1191,7 @@
         "regularizations": [
             {
                 "model": "l2",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "weight"
             }
         ],
@@ -1230,7 +1230,7 @@
         "regularizations": [
             {
                 "model": "l2",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "weight"
             }
         ],
@@ -1269,7 +1269,7 @@
         "regularizations": [
             {
                 "model": "l2",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "weight"
             }
         ],
@@ -1527,12 +1527,12 @@
         "regularizations": [
             {
                 "model": "l1",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "weight0"
             },
             {
                 "model": "l1",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "weight1"
             }
         ],
@@ -1582,7 +1582,7 @@
         "regularizations": [
             {
                 "model": "l2",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "weight\\d",
                 "regex": true
             }
@@ -1794,7 +1794,7 @@
         "regularizations": [
             {
                 "model": "l2",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "weight"
             }
         ],
@@ -1832,12 +1832,12 @@
         "regularizations": [
             {
                 "model": "l2",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "weight"
             },
             {
                 "model": "l1",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "weight"
             }
         ],
@@ -1904,12 +1904,12 @@
         "regularizations": [
             {
                 "model": "l2",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "weight"
             },            
             {
                 "model": "l2",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "bias"
             }
         ],
@@ -2125,7 +2125,7 @@
         "regularizations": [
             {
                 "model": "l1",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "weight"
             }
         ],
@@ -2167,7 +2167,7 @@
         "regularizations": [
             {
                 "model": "l2",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "weight"
             }
         ],
@@ -2277,12 +2277,12 @@
         "regularizations": [
             {
                 "model": "l2",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "weight"
             },
             {
                 "model": "l2",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "bias"
             }
         ],
@@ -2341,7 +2341,7 @@
         "regularizations": [
             {
                 "model": "quadraticformregularizer",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "weight",
                 "kernel": "kernel"
             }
@@ -2400,7 +2400,13 @@
         "model": {
             "name": "KernelizedSVM",
             "args": {
-                "kernel": "PolynomialKernel"
+                "kernel": {
+                    "name": "PolynomialKernel", 
+                    "types": {
+                        "poly_coef": "tensor",
+                        "degree": "tensor"
+                    }
+                }
             }
         },
         "static_keys": {
@@ -2425,7 +2431,7 @@
         "regularizations": [
             {
                 "model": "quadraticformregularizer",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "weight",
                 "kernel": "kernel"
             }
@@ -2471,7 +2477,7 @@
         "regularizations": [
             {
                 "model": "quadraticformregularizer",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "weight",
                 "kernel": "kernel"
             }
@@ -2543,7 +2549,7 @@
         "regularizations": [
             {
                 "model": "l2",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "weight"
             }
         ], 
@@ -3203,7 +3209,11 @@
     "test_polynomial_kernel_1": {
         "model": {
             "name": "PolynomialKernel",
-            "differentiability_info": {"input2": true}
+            "differentiability_info": {"input2": true},
+            "types": {
+                "poly_coef": "tensor",
+                "degree": "tensor"
+            }
         },
         "inputs": {
             "input2": [[-1.0, 2.0], [1.0, 3.0]],
@@ -3240,7 +3250,11 @@
     "test_polynomial_kernel_2": {
         "model": {
             "name": "PolynomialKernel",
-            "differentiability_info": {"input1": true, "input2": true}
+            "differentiability_info": {"input1": true, "input2": true},
+            "types": {
+                "poly_coef": "tensor",
+                "degree": "tensor"
+            }
         },
         "inputs": {
             "input1": [[-1.0, 2.0, 1.0], [1.0, 3.0, 2.0], [-2, 1, -1]],
@@ -3301,20 +3315,20 @@
                     "input": "input", "weight": "w0", "bias": "b0"
                 },
                 "m2": {
-                    "input": {"connect": [["m1", "output"]]}, 
+                    "input": {"key": {"connect": [["m1", "output"]]}}, 
                     "weight": "w1", 
                     "bias": "b1", 
-                    "output": {
+                    "output": {"key": {
                         "name": "output", 
                         "expose": true
-                    }
+                    }}
                 }
             }
         },
         "regularizations": [
             {
                 "model": "l2",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "w\\d", 
                 "regex": true
             }
@@ -3384,28 +3398,28 @@
                     "input": "input", 
                     "weight": "w0", 
                     "bias": "b0", 
-                    "output": {
+                    "output": {"key": {
                         "name": "output1", 
                         "expose": true
-                    }
+                    }}
                 },
                 "m2": {
                     "input": "output1", 
                     "weight": "w1", 
                     "bias": "b1", 
-                    "output": {
+                    "output": {"key": {
                         "name": "output2", 
                         "expose": true
-                    }
+                    }}
                 },
                 "m3": {
                     "input": "output2", 
                     "weight": "w2", 
                     "bias": "b2", 
-                    "output": {
+                    "output": {"key": {
                         "name": "output3", 
                         "expose": true
-                    }
+                    }}
                 }
             }
         },
@@ -3484,28 +3498,28 @@
                     "input": "input",
                     "weight": "w0",
                     "bias": "b0",
-                    "output": {
+                    "output": {"key": {
                         "name": "output1", 
                         "expose": true
-                    }
+                    }}
                 },
                 "m2": {
                     "input": "output1",
                     "weight": "w1",
                     "bias": "b1",
-                    "output": {
+                    "output": {"key": {
                         "name": "output2", 
                         "expose": true
-                    }
+                    }}
                 },
                 "m3": {
                     "input": "output2",
                     "weight": "w2",
                     "bias": "b2",
-                    "output": {
+                    "output": {"key": {
                         "name": "output3", 
                         "expose": true
-                    }
+                    }}
                 }
             }
         },
@@ -3524,7 +3538,7 @@
         "regularizations": [
             {
                 "model": "l1",
-                "coef": 2e-1,
+                "coef": {"tensor": 2e-1},
                 "input": "w2"
             }
         ],
@@ -3591,28 +3605,28 @@
                     "input": "input",
                     "weight": "w0",
                     "bias": "b0",
-                    "output": {
+                    "output": {"key": {
                         "name": "output1", 
                         "expose": true
-                    }
+                    }}
                 },
                 "m2": {
                     "input": "output1",
                     "weight": "w1",
                     "bias": "b1",
-                    "output": {
+                    "output": {"key": {
                         "name": "output2", 
                         "expose": true
-                    }
+                    }}
                 },
                 "m3": {
                     "input": "output2",
                     "weight": "w2",
                     "bias": "b2",
-                    "output": {
+                    "output": {"key": {
                         "name": "output3", 
                         "expose": true
-                    }
+                    }}
                 }
             }
         },
@@ -3631,12 +3645,12 @@
         "regularizations": [
             {
                 "model": "l2",
-                "coef": 2e-1,
+                "coef": {"tensor": 2e-1},
                 "input": "w2"
             },
             {
                 "model": "l1",
-                "coef": 2e-1,
+                "coef": {"tensor": 2e-1},
                 "input": "w2"
             }
         ],
@@ -3703,28 +3717,28 @@
                     "input": "input",
                     "weight": "w0",
                     "bias": "b0",
-                    "output": {
+                    "output": {"key": {
                         "name": "output1", 
                         "expose": true
-                    }
+                    }}
                 },
                 "m2": {
                     "input": "output1",
                     "weight": "w1",
                     "bias": "b1",
-                    "output": {
+                    "output": {"key": {
                         "name": "output2", 
                         "expose": true
-                    }
+                    }}
                 },
                 "m3": {
                     "input": "output2",
                     "weight": "w2",
                     "bias": "b2",
-                    "output": {
+                    "output": {"key": {
                         "name": "output3", 
                         "expose": true
-                    }
+                    }}
                 }
             }
         },
@@ -3743,12 +3757,12 @@
         "regularizations": [
             {
                 "model": "l1",
-                "coef": 2e-1,
+                "coef": {"tensor": 2e-1},
                 "input": "w2"
             },
             {
                 "model": "l1",
-                "coef": 2e-1,
+                "coef": {"tensor": 2e-1},
                 "input": "w1"
             }
         ],
@@ -3815,28 +3829,28 @@
                     "input": "input",
                     "weight": "w0",
                     "bias": "b0",
-                    "output": {
+                    "output": {"key": {
                         "name": "output1", 
                         "expose": true
-                    }
+                    }}
                 },
                 "m2": {
                     "input": "output1",
                     "weight": "w1",
                     "bias": "b1",
-                    "output": {
+                    "output": {"key": {
                         "name": "output2", 
                         "expose": true
-                    }
+                    }}
                 },
                 "m3": {
                     "input": "output2",
                     "weight": "w2",
                     "bias": "b2",
-                    "output": {
+                    "output": {"key": {
                         "name": "output3", 
                         "expose": true
-                    }
+                    }}
                 }
             }
         },
@@ -3855,12 +3869,12 @@
         "regularizations": [
             {
                 "model": "l1",
-                "coef": 2e-1,
+                "coef": {"tensor": 2e-1},
                 "input": "w1"
             },
             {
                 "model": "l1",
-                "coef": 2e-1,
+                "coef": {"tensor": 2e-1},
                 "input": "w2"
             }
         ],
@@ -3927,28 +3941,28 @@
                     "input": "input",
                     "weight": "w0",
                     "bias": "b0",
-                    "output": {
+                    "output": {"key": {
                         "name": "output1", 
                         "expose": true
-                    }
+                    }}
                 },
                 "m2": {
                     "input": "output1",
                     "weight": "w1",
                     "bias": "b1",
-                    "output": {
+                    "output": {"key": {
                         "name": "output2", 
                         "expose": true
-                    }
+                    }}
                 },
                 "m3": {
                     "input": "output2",
                     "weight": "w2",
                     "bias": "b2",
-                    "output": {
+                    "output": {"key": {
                         "name": "output3", 
                         "expose": true
-                    }
+                    }}
                 }
             }
         },
@@ -4028,28 +4042,28 @@
                     "input": "input",
                     "weight": "w0",
                     "bias": "b0",
-                    "output": {
+                    "output": {"key": {
                         "name": "output1", 
                         "expose": true
-                    }
+                    }}
                 },
                 "m2": {
                     "input": "output1",
                     "weight": "w1",
                     "bias": "b1",
-                    "output": {
+                    "output": {"key": {
                         "name": "output2", 
                         "expose": true
-                    }
+                    }}
                 },
                 "m3": {
                     "input": "output2",
                     "weight": "w2",
                     "bias": "b2",
-                    "output": {
+                    "output": {"key": {
                         "name": "output3", 
                         "expose": true
-                    }
+                    }}
                 }
             }
         },
@@ -4059,7 +4073,7 @@
         "regularizations": [
             {
                 "model": "l1",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "w1"
             }
         ],
@@ -4135,28 +4149,28 @@
                     "input": "input",
                     "weight": "w0",
                     "bias": "b0",
-                    "output": {
+                    "output": {"key": {
                         "name": "output1", 
                         "expose": true
-                    }
+                    }}
                 },
                 "m2": {
                     "input": "output1",
                     "weight": "w1",
                     "bias": "b1",
-                    "output": {
+                    "output": {"key": {
                         "name": "output2", 
                         "expose": true
-                    }
+                    }}
                 },
                 "m3": {
                     "input": "output2",
                     "weight": "w2",
                     "bias": "b2",
-                    "output": {
+                    "output": {"key": {
                         "name": "output3", 
                         "expose": true
-                    }
+                    }}
                 }
             }
         },
@@ -4166,7 +4180,7 @@
         "regularizations": [
             {
                 "model": "l1",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "w0"
             }
         ],
@@ -4242,28 +4256,28 @@
                     "input": "input",
                     "weight": "w0",
                     "bias": "b0",
-                    "output": {
+                    "output": {"key": {
                         "name": "output1", 
                         "expose": true
-                    }
+                    }}
                 },
                 "m2": {
                     "input": "output1",
                     "weight": "w1",
                     "bias": "b1",
-                    "output": {
+                    "output": {"key": {
                         "name": "output2", 
                         "expose": true
-                    }
+                    }}
                 },
                 "m3": {
                     "input": "output2",
                     "weight": "w2",
                     "bias": "b2",
-                    "output": {
+                    "output": {"key": {
                         "name": "output3", 
                         "expose": true
-                    }
+                    }}
                 }
             }
         },
@@ -4273,12 +4287,12 @@
         "regularizations": [
             {
                 "model": "l1",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "w0"
             },        
             {
                 "model": "l1",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "w1"
             }
         ],
@@ -4346,23 +4360,23 @@
                 "m2": {
                     "weight": "w1", 
                     "bias": "b1", 
-                    "output": {
+                    "output": {"key": {
                         "name": "output", 
                         "expose": true
-                    }
+                    }}
                 },
                 "m1": {
                     "input": "input", 
                     "weight": "w0", 
                     "bias": "b0", 
-                    "output": {"connect": [["m2", "input"]]}
+                    "output": {"key": {"connect": [["m2", "input"]]}}
                 }
             }
         },
         "regularizations": [
             {
                 "model": "l2",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "w\\d", 
                 "regex": true
             }

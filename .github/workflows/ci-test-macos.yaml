@@ -31,7 +31,7 @@ jobs:
           python3 -m pip install --upgrade pip
           pip install torch==2.4.1
           pip install --upgrade "jax[cpu]"
-          pip install mlx
+          pip install mlx==0.21.1
           pip install -r requirements/dev.txt
       - name: Run pre-commit
         run: |

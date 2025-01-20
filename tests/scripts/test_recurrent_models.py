@@ -20,7 +20,7 @@ import torch
 
 import mithril
 from mithril import TorchBackend
-from mithril.framework.common import NOT_GIVEN, ConnectionType
+from mithril.framework.common import NOT_GIVEN, ConnectionType, IOKey, Tensor
 from mithril.models import (
     AbsoluteError,
     Add,
@@ -28,17 +28,15 @@ from mithril.models import (
     Cell,
     EncoderDecoder,
     ExtendInfo,
-    IOKey,
+    Indexer,
     LSTMCell,
     ManyToOne,
     MatrixMultiply,
     OneToMany,
-    ScalarItem,
     Shape,
     Slice,
     Sum,
     Tanh,
-    TensorItem,
     TrainModel,
 )
 from mithril.utils.utils import pack_data_into_time_slots
@@ -193,12 +191,12 @@ class MySimpleRNNCellWithLinear(Cell):
         super().__init__()
 
         shp_model = Shape()
-        scalar_item = ScalarItem()
+        indexer = Indexer()
         slice_1 = Slice(stop=None, step=None)
         slice_2 = Slice(start=None, step=None)
 
-        tensor_item_1 = TensorItem()
-        tensor_item_2 = TensorItem()
+        tensor_item_1 = Indexer()
+        tensor_item_2 = Indexer()
 
         mult_model_1 = MatrixMultiply()
         mult_model_2 = MatrixMultiply()
@@ -210,32 +208,36 @@ class MySimpleRNNCellWithLinear(Cell):
         sum_model_4 = Add()
 
         self += shp_model(input="input")
-        self += scalar_item(input=shp_model.output, index=0)
-        self += slice_1(start=scalar_item.output)
+        self += indexer(input=shp_model.output, index=0)
+        self += slice_1(start=indexer.output)
         self += tensor_item_1(
             input="prev_hidden", index=slice_1.output, output=IOKey("hidden_compl")
         )
 
-        self += slice_2(start="", stop=scalar_item.output)
+        self += slice_2(start="", stop=indexer.output)
         self += tensor_item_2(input="prev_hidden", index=slice_2.output)
         self += mult_model_1(left="input", right="w_ih")
         self += mult_model_2(left=tensor_item_2.output, right="w_hh")
         self += sum_model_1(left=mult_model_1.output, right=mult_model_2.output)
-        self += sum_model_2(left=sum_model_1.output, right="bias_hh")
+        self += sum_model_2(
+            left=sum_model_1.output, right=IOKey("bias_hh", type=Tensor)
+        )
         self += sum_model_3(
             left=sum_model_2.output,
-            right="bias_ih",
+            right=IOKey("bias_ih", type=Tensor),
         )
         self += tanh(input=sum_model_3.output, output=IOKey("hidden"))
         self += mult_model_3(left="hidden", right="w_ho")
         self += sum_model_4(
-            left=mult_model_3.output, right="bias_o", output=IOKey("output")
+            left=mult_model_3.output,
+            right=IOKey("bias_o", type=Tensor),
+            output=IOKey("output"),
         )
 
         # TODO: Commented code below does not work while above code does.
         # There may be a bug. Investigate in detail
         # self += Shape()(input = "input", output = "shp_output")
-        # self += ScalarItem(index = 0)(input = "shp_output", output = "scalar_out")
+        # self += Indexer(index = 0)(input = "shp_output", output = "scalar_out")
         # self += TensorSlice(start = ...)(input = "prev_hidden", start = "scalar_out",
         #           output = IOKey("hidden_compl"))
         # self += TensorSlice(stop = ...)(input = "prev_hidden", stop = "scalar_out",
@@ -316,13 +318,13 @@ class MyRNNCell(Cell):
         super().__init__()
 
         shp_model = Shape()
-        scalar_item = ScalarItem()
+        indexer = Indexer()
 
         slice_1 = Slice(stop=None, step=None)
         slice_2 = Slice(start=None, step=None)
 
-        tensor_item_1 = TensorItem()
-        tensor_item_2 = TensorItem()
+        tensor_item_1 = Indexer()
+        tensor_item_2 = Indexer()
 
         mult_model_1 = MatrixMultiply()
         mult_model_2 = MatrixMultiply()
@@ -332,20 +334,22 @@ class MyRNNCell(Cell):
         tanh = Tanh()
 
         self += shp_model(input="input")
-        self += scalar_item(input=shp_model.output, index=0)
-        self += slice_1(start=scalar_item.output)
+        self += indexer(input=shp_model.output, index=0)
+        self += slice_1(start=indexer.output)
         self += tensor_item_1(
             input="prev_hidden", index=slice_1.output, output=IOKey("hidden_compl")
         )
-        self += slice_2(start="", stop=scalar_item.output)
+        self += slice_2(start="", stop=indexer.output)
         self += tensor_item_2(input="prev_hidden", index=slice_2.output)
         self += mult_model_1(left="input", right="w_ih")
         self += mult_model_2(left=tensor_item_2.output, right="w_hh")
         self += sum_model_1(left=mult_model_1.output, right=mult_model_2.output)
-        self += sum_model_2(left=sum_model_1.output, right="bias_hh")
+        self += sum_model_2(
+            left=sum_model_1.output, right=IOKey("bias_hh", type=Tensor)
+        )
         self += sum_model_3(
             left=sum_model_2.output,
-            right="bias_ih",
+            right=IOKey("bias_ih", type=Tensor),
         )
         self += tanh(input=sum_model_3.output, output=IOKey("hidden"))
 

@@ -20,7 +20,7 @@ import mithril
 from mithril import CBackend, JaxBackend, NumpyBackend, TorchBackend
 from mithril.backends.with_manualgrad.numpy_backend.ops_grad import add_grad
 from mithril.framework import NOT_GIVEN, ConnectionType, ExtendInfo
-from mithril.framework.common import BaseKey, GenericTensorType, IOKey
+from mithril.framework.common import BaseKey, IOKey, Tensor
 from mithril.framework.constraints import bcast
 from mithril.models import (
     Absolute,
@@ -61,7 +61,7 @@ def test_bimultimap_1():
     values = [["a", "b", "c"], ["c", "b", "a"], ["a", "a", "a", "a", "a"]]
     keys = ["x", "y", "z"]
     dict_1 = {key: value for key, value in zip(keys, values, strict=False)}
-    bi_multi_map_obj = BiMultiMap(dict_1)
+    bi_multi_map_obj: BiMultiMap[str, list[str]] = BiMultiMap(dict_1)
     assert bi_multi_map_obj.inverse == {
         "a": ["x", "y", "z", "z", "z", "z", "z"],
         "b": ["x", "y"],
@@ -73,9 +73,13 @@ def test_bimultimap_2():
     values = [["a", "b", "c"], ["c", "b", "a"], ["a", "a", "a", "a", "a"]]
     keys = ["x", "y", "z"]
     dict_1 = {key: value for key, value in zip(keys, values, strict=False)}
-    bi_multi_map_obj = BiMultiMap(dict_1)
-    bi_multi_map_obj_inv = BiMultiMap(bi_multi_map_obj.inverse)
-    bi_multi_map_obj_inv_inv = BiMultiMap(bi_multi_map_obj_inv.inverse)
+    bi_multi_map_obj: BiMultiMap[str, list[str]] = BiMultiMap(dict_1)
+    bi_multi_map_obj_inv: BiMultiMap[str, list[str]] = BiMultiMap(
+        bi_multi_map_obj.inverse
+    )
+    bi_multi_map_obj_inv_inv: BiMultiMap[str, list[str]] = BiMultiMap(
+        bi_multi_map_obj_inv.inverse
+    )
     table1 = bi_multi_map_obj._table
     table2 = bi_multi_map_obj_inv_inv._table
 
@@ -88,7 +92,7 @@ def test_bimultimap_2():
         values.sort()
         assert values == value1
 
-    for key, values in table1_inverse.items():
+    for key, values in table1_inverse.items():  # type: ignore
         value1 = table2_inverse[key]
         value1.sort()
         values.sort()
@@ -100,12 +104,12 @@ def test_bimultimap_3():
     keys = ["x", "y", "z"]
     remove_item = "x"
     dict_1 = {key: value for key, value in zip(keys, values, strict=False)}
-    bi_multi_map_obj = BiMultiMap(dict_1)
+    bi_multi_map_obj: BiMultiMap[str, list[str]] = BiMultiMap(dict_1)
     table1_inv = deepcopy(bi_multi_map_obj.inverse)
     del bi_multi_map_obj[remove_item]
     table2_inv = bi_multi_map_obj.inverse
 
-    for key, values in table1_inv.items():
+    for key, values in table1_inv.items():  # type: ignore
         value1 = list(filter(lambda a: a != remove_item, values))
         value2 = table2_inv[key]
         value1.sort()
@@ -345,7 +349,7 @@ def test_code_generator_2(file_path: str):
     buff3 = Buffer()
     buff4 = Buffer()
 
-    model += buff1(input="input", output=IOKey(name="output1"))
+    model += buff1(input=IOKey("input", type=Tensor), output=IOKey(name="output1"))
     model += buff2(input=buff1.output)
     model += buff3(input=buff1.output)
     model += buff4(input=buff2.output, output=IOKey(name="output2"))
@@ -413,9 +417,9 @@ def test_code_generator_4(file_path: str):
         def __init__(self) -> None:
             super().__init__(
                 formula_key="my_adder",
-                output=BaseKey(shape=[("Var_out", ...)], type=GenericTensorType),
-                input=BaseKey(shape=[("Var_1", ...)], type=GenericTensorType),
-                rhs=BaseKey(shape=[("Var_2", ...)], type=GenericTensorType),
+                output=BaseKey(shape=[("Var_out", ...)], type=Tensor),
+                input=BaseKey(shape=[("Var_1", ...)], type=Tensor),
+                rhs=BaseKey(shape=[("Var_2", ...)], type=Tensor),
             )
             self.set_constraint(
                 fn=bcast, keys=[PrimitiveModel.output_key, "input", "rhs"]
@@ -522,9 +526,9 @@ def test_code_generator_5(file_path: str):
         def __init__(self) -> None:
             super().__init__(
                 formula_key="my_adder",
-                output=BaseKey(shape=[("Var_out", ...)], type=GenericTensorType),
-                input=BaseKey(shape=[("Var_1", ...)], type=GenericTensorType),
-                rhs=BaseKey(shape=[("Var_2", ...)], type=GenericTensorType),
+                output=BaseKey(shape=[("Var_out", ...)], type=Tensor),
+                input=BaseKey(shape=[("Var_1", ...)], type=Tensor),
+                rhs=BaseKey(shape=[("Var_2", ...)], type=Tensor),
             )
             self.set_constraint(
                 fn=bcast, keys=[PrimitiveModel.output_key, "input", "rhs"]
@@ -541,8 +545,10 @@ def test_code_generator_5(file_path: str):
 
     model += MyAdder()(input="input", rhs="rhs", output=IOKey(name="output"))
     context = TrainModel(model)
+    add = Add()
+    add.set_types(right=Tensor)
     context.add_loss(
-        BinaryCrossEntropy(), reduce_steps=[Add()], input="output", target="target"
+        BinaryCrossEntropy(), reduce_steps=[add], input="output", target="target"
     )
     mithril.compile(
         model=context,
@@ -684,7 +690,9 @@ def test_code_generator_8(file_path: str):
     backend = CBackend()
 
     model = Model()
-    model += (add := Add())(left="left", right="right")
+    add = Add()
+    add.set_types(left=Tensor, right=Tensor)
+    model += add(left="left", right="right")
     model += Multiply()(left=add.output, right="right2", output="output")
 
     mithril.compile(model, backend=backend, jit=False, file_path=file_path)

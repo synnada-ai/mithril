@@ -14,9 +14,8 @@
 
 
 from mithril import Backend, Constant, compile, epsilon_table
-from mithril.models import BaseModel, Model, Scalar, Tensor
-from mithril.models.primitives import PrimitiveModel
-from mithril.models.train_model import TrainModel
+from mithril.framework.common import IOHyperEdge, Tensor
+from mithril.models import BaseModel, Model, PrimitiveModel, TrainModel
 from mithril.utils.dict_conversions import dict_to_model, model_to_dict
 from tests.scripts.test_utils import (
     assert_all_conn_key_are_same,
@@ -57,7 +56,7 @@ def evaluate_case(
     model = finalize_model(current_case)
     # Convert static keys to array if they are not scalar.
     for key, value in static_keys.items():
-        if isinstance(model.conns.get_metadata(key).data, Scalar):
+        if model.conns.get_metadata(key).edge_type is not Tensor:
             static_keys[key] = value
         else:
             static_keys[key] = convert_to_array(backend, value)
@@ -87,12 +86,12 @@ def evaluate_case(
         for data in all_data:
             copied_data = compiled_model.data_store.data_memo.get(id(data))
             if copied_data and copied_data not in unused_data:
-                assert isinstance(copied_data, Tensor | Scalar)
+                assert isinstance(copied_data, IOHyperEdge)
                 if isinstance((data_value := data.value), Constant):
                     data_value = epsilon_table[backend.precision][data_value]
                 assert data_value == copied_data.value
 
-                if isinstance(data, Tensor):
+                if data.edge_type is Tensor:
                     assert id(data.value) == id(copied_data.value)
 
         # Evaluate model.
@@ -238,7 +237,7 @@ def assert_models_equal(model1: BaseModel, model2: BaseModel):
                 strict=False,
             ):
                 assert conn1[0] == conn2[0]
-                if isinstance(conn1[1], Tensor):
+                if conn1[1].metadata._type is Tensor:
                     assert conn1[1].metadata.shape is not None
                     assert conn2[1].metadata.shape is not None
                     assert (
@@ -254,10 +253,21 @@ def assert_models_equal(model1: BaseModel, model2: BaseModel):
             assert_models_equal(submodel1, submodel2)
 
 
-def assert_evaluations_equal(model1, model2, backend, static_keys):
-    pm_base = compile(model1, backend=backend, constant_keys=static_keys, jit=False)
+def assert_evaluations_equal(model1, model2, backend, static_keys, inference=False):
+    pm_base = compile(
+        model1,
+        backend=backend,
+        constant_keys=static_keys,
+        jit=False,
+        inference=inference,
+    )
     pm_recreated = compile(
-        model2, backend=backend, constant_keys=static_keys, jit=False, safe_names=False
+        model2,
+        backend=backend,
+        constant_keys=static_keys,
+        jit=False,
+        safe_names=False,
+        inference=inference,
     )
     inputs = pm_base.randomize_params()
     output_base = pm_base.evaluate(inputs)

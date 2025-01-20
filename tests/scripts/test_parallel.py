@@ -29,11 +29,11 @@ import mithril
 from mithril import compile
 from mithril.backends.with_autograd.torch_backend.parallel import TorchParallel
 from mithril.backends.with_autograd.torch_backend.utils import SharedCyclicQueue
+from mithril.framework.common import IOKey, Tensor
 from mithril.models import (
     TBD,
     Add,
     Eye,
-    IOKey,
     Linear,
     Model,
     Multiply,
@@ -599,7 +599,7 @@ def test_torch_static_parallel_2():
         "w": backend.ones([256, 128]),
         "b": backend.ones([256]),
     }
-    pm = compile(model, backend, jit=False, constant_keys=static_inputs)
+    pm = compile(model, backend, jit=False, constant_keys=static_inputs, inference=True)
 
     result = pm.evaluate()
     out = result["output"]
@@ -625,7 +625,7 @@ def test_torch_static_parallel_3():
         "b": backend.ones([256]),
         "input2": backend.ones((16, 16)),
     }
-    pm = compile(model, backend, jit=False, constant_keys=static_inputs)
+    pm = compile(model, backend, jit=False, constant_keys=static_inputs, inference=True)
 
     result = pm.evaluate()
     out1 = result["output"]
@@ -801,7 +801,7 @@ def test_torch_parallel_multi_parallel_1():
     backend1 = create_parallel_backend(device_mesh=(2, 1))
     backend2 = create_parallel_backend(device_mesh=(2, 1))
     model = Model()
-    model += Add()(left="left", right="right")
+    model += Add()(left=IOKey("left", type=Tensor), right=IOKey("right", type=Tensor))
     pm1 = compile(
         model,
         backend1,
@@ -811,7 +811,9 @@ def test_torch_parallel_multi_parallel_1():
     )
 
     model = Model()
-    model += Multiply()(left="left", right="right")
+    model += Multiply()(
+        left=IOKey("left", type=Tensor), right=IOKey("right", type=Tensor)
+    )
     pm2 = compile(
         model,
         backend2,

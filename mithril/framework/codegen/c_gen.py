@@ -21,7 +21,11 @@ from functools import partial
 from ...backends.with_manualgrad.c_backend import CBackend, backend
 from ...backends.with_manualgrad.c_backend.src import array
 from ...backends.with_manualgrad.c_backend.src.array import Array, PyArray
-from ...framework.common import Tensor
+from ...framework.common import (
+    EvaluateAllType,
+    EvaluateGradientsType,
+    EvaluateType,
+)
 from ...utils.type_utils import is_list_int
 from ..physical.model import PhysicalModel
 from . import c_ast
@@ -50,7 +54,7 @@ class CGen(CodeGen[PyArray]):
         header_path = os.path.join(self._get_backend_path(), "src", "cbackend.h")
         return [c_ast.Include(header_path, system=False)]
 
-    def generate_code(self, file_path: str | None = None):
+    def generate_code(self, file_path: str | None = None) -> None:
         self.file_path = file_path
 
         self.imports = self.generate_imports()  # type: ignore
@@ -75,7 +79,13 @@ class CGen(CodeGen[PyArray]):
 
         self.code = generated_code
 
-    def compile_code(self, jit: bool = False, compile_flags: list[str] | None = None):
+    def compile_code(
+        self, jit: bool = False, compile_flags: list[str] | None = None
+    ) -> tuple[
+        EvaluateType[PyArray],
+        EvaluateGradientsType[PyArray] | None,
+        EvaluateAllType[PyArray] | None,
+    ]:
         assert not jit, "JIT is not yet supported for CBackend"
         assert self.file_path is not None, "Code has not been generated yet!"
 
@@ -146,7 +156,7 @@ class CGen(CodeGen[PyArray]):
             data: dict[str, PyArray] | None = None,
             output_gradients: dict[str, PyArray] | None = None,
             include_output: bool = False,
-        ):
+        ) -> dict[str, PyArray]:
             if data is None:
                 data = {}
 
@@ -183,10 +193,10 @@ class CGen(CodeGen[PyArray]):
 
             return {key: inputs[key + "_grad"] for key in params}
 
-        return (
+        return (  # type: ignore
             evaluate_wrapper,
             evaluate_gradients_wrapper,
-            partial(evaluate_gradients_wrapper, include_output=True),
+            partial(evaluate_gradients_wrapper, include_output=True),  # type: ignore
         )
 
     def create_primitive_call(self, formula_name: str, args: list[str]) -> c_ast.Expr:
@@ -283,7 +293,7 @@ class CGen(CodeGen[PyArray]):
 
     def _get_array_shape(self, key: str) -> tuple[int, ...]:
         array_data = self.pm.data[key]
-        assert isinstance(array_data, Tensor)
+        assert array_data.shape is not None
         shape = array_data.shape.reprs[0].get_shapes()
 
         if is_list_int(shape):
