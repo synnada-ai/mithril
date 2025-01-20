@@ -22,7 +22,7 @@ import mlx.nn as nn
 
 from ....core import Dtype
 from ...backend import Backend, PadWidthType
-from ...utils import DtypeBits, DtypeSubTypes, process_shape
+from ...utils import DtypeSubTypes, process_shape
 from . import ops, utils
 
 __all__ = ["MlxBackend"]
@@ -44,7 +44,6 @@ class MlxBackend(Backend[mx.array]):
             os.environ["XLA_PYTHON_CLIENT_ALLOCATOR"] = "platform"
 
         self._dtype = dtype
-        self._precision = DtypeBits[dtype.name].value
         self._device = device
         super().__init__(dtype=dtype)
 
@@ -177,7 +176,7 @@ class MlxBackend(Backend[mx.array]):
         return [output]
 
     def array(self, input: Any, *, dtype: Dtype | None = None) -> mx.array:
-        _dtype = utils.determine_dtype(input, dtype, self._dtype, self._precision)
+        _dtype = utils.determine_dtype(input, dtype, self._dtype, self.precision)
         return mx.array(input, dtype=utils.dtype_map[_dtype])
 
     def zeros(

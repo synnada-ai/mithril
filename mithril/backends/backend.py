@@ -21,6 +21,7 @@ from typing import Any, Generic, overload
 from .. import core
 from ..core import DataType
 from .parallel import Parallel
+from .utils import DtypeBits
 
 __all__ = ["Backend"]
 
@@ -36,7 +37,7 @@ class Backend(ABC, Generic[DataType]):
     device_type = None
     is_installed = True
     _device: Any
-    _precision: int
+    _dtype: core.Dtype
     supported_dtypes = [
         core.Dtype.float16,
         core.Dtype.bfloat16,
@@ -58,7 +59,7 @@ class Backend(ABC, Generic[DataType]):
 
     @property
     def precision(self) -> int:
-        return self._precision
+        return DtypeBits[self._dtype.name].value
 
     #!!
     @property

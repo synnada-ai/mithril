@@ -19,7 +19,7 @@ import numpy as np
 
 from ....core import Dtype
 from ...backend import Backend, PadWidthType
-from ...utils import DtypeBits, process_shape
+from ...utils import process_shape
 from ..common_primitives import CacheType
 from . import ops, ops_grad, utils
 
@@ -46,7 +46,6 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
 
     def __init__(self, device: str = "cpu", dtype: Dtype = Dtype.float32) -> None:
         self._dtype = dtype
-        self._precision = DtypeBits[dtype.name].value
 
         if device != "cpu":
             raise RuntimeError(
@@ -118,7 +117,7 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
         return utils.accumulate_grads(gradient, input, cache, idx)
 
     def array(self, data: Any, *, dtype: Dtype | None = None) -> np.ndarray[Any, Any]:
-        _dtype = utils.determine_dtype(data, dtype, self._dtype, self._precision)
+        _dtype = utils.determine_dtype(data, dtype, self._dtype, self.precision)
 
         return np.array(data, dtype=utils.dtype_map[_dtype])
 

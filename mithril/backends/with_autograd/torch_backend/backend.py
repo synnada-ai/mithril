@@ -26,7 +26,7 @@ from torch._functorch.eager_transforms import vjp as torch_vjp
 
 from ....core import Dtype
 from ...backend import PadWidthType, ParallelBackend
-from ...utils import DtypeBits, DtypeSubTypes, process_shape
+from ...utils import DtypeSubTypes, process_shape
 from . import ops, utils
 from .parallel import TorchParallel
 
@@ -58,7 +58,6 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
     ) -> None:
         self._device = device
         self._dtype = dtype
-        self._precision = DtypeBits[dtype.name].value
         self._parallel_manager: TorchParallel | None = None
 
         utils.get_device(device)  # Check if device is valid
@@ -207,7 +206,7 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
         dtype: Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
     ) -> torch.Tensor:
-        _dtype = utils.determine_dtype(input, dtype, self._dtype, self._precision)
+        _dtype = utils.determine_dtype(input, dtype, self._dtype, self.precision)
 
         array = torch.tensor(input, dtype=utils.dtype_map[_dtype], device=self._device)
         if self._parallel_manager is not None:
