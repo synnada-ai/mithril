@@ -779,6 +779,14 @@ def matrix_concat(input1: mx.array, input2: mx.array) -> mx.array:
     return mx.concatenate([input1, input2], axis=input1.ndim - 1)
 
 
+def minimum(left: mx.array, right: mx.array) -> mx.array:
+    return mx.minimum(left, right)
+
+
+def maximum(left: mx.array, right: mx.array) -> mx.array:
+    return mx.maximum(left, right)
+
+
 def where(cond: mx.array, input1: mx.array, input2: mx.array) -> mx.array:
     return mx.where(cond, input1, input2)
 

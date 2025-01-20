@@ -110,6 +110,8 @@ __all__ = [
     "Sqrt",
     "Split",
     "Slice",
+    "Minimum",
+    "Maximum",
 ]
 ConstantType = float | int | Constant
 
@@ -315,6 +317,26 @@ class Multiply(ArithmeticOperation):
         super().__init__(
             formula_key="multiplication", name=name, left=left, right=right
         )
+
+
+class Minimum(ArithmeticOperation):
+    def __init__(
+        self,
+        name: str | None = None,
+        left: TensorValueType | ToBeDetermined = TBD,
+        right: TensorValueType | ToBeDetermined = TBD,
+    ) -> None:
+        super().__init__(formula_key="minimum", name=name, left=left, right=right)
+
+
+class Maximum(ArithmeticOperation):
+    def __init__(
+        self,
+        name: str | None = None,
+        left: TensorValueType | ToBeDetermined = TBD,
+        right: TensorValueType | ToBeDetermined = TBD,
+    ) -> None:
+        super().__init__(formula_key="maximum", name=name, left=left, right=right)
 
 
 class Divide(PrimitiveModel):

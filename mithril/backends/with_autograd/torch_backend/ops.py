@@ -861,6 +861,14 @@ def transpose(
         return input.permute(*axes)
 
 
+def minimum(left: torch.Tensor, right: torch.Tensor) -> torch.Tensor:
+    return torch.minimum(left, right)
+
+
+def maximum(left: torch.Tensor, right: torch.Tensor) -> torch.Tensor:
+    return torch.maximum(left, right)
+
+
 def where(
     cond: torch.Tensor, input1: torch.Tensor, input2: torch.Tensor
 ) -> torch.Tensor:
