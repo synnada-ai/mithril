@@ -20,7 +20,7 @@ import torch
 
 import mithril
 from mithril import TorchBackend
-from mithril.framework.common import TBD, IOKey, Tensor
+from mithril.framework.common import TBD, IOKey, Tensor, ToBeDetermined
 from mithril.models import (
     Add,
     Buffer,
@@ -42,7 +42,7 @@ from .test_utils import (
 
 def assert_conns_values_equal(ref_conn_dict: dict):
     for conn, value in ref_conn_dict.items():
-        assert conn.metadata.data.value == value
+        assert conn.metadata.value == value
 
 
 def assert_model_keys(
@@ -169,7 +169,9 @@ def test_3():
 def test_4():
     """Tests the case where the IOKey is defined with name and value."""
     model = Model()
-    model += Linear(1)(bias=IOKey(name="bias_2", value=[1.0]), weight="weight_2")
+    model += Linear(1)(
+        bias=IOKey(name="bias_2", value=Tensor([1.0])), weight="weight_2"
+    )
     model += Linear(1)(input=model.canonical_output, bias="bias_3", output="output1")
 
     expected_input_keys = {"$4", "bias_3", "bias_2", "weight_2", "$2"}
@@ -393,9 +395,9 @@ def test_iokey_shapes_1():
     buff2 = Buffer()
 
     model += buff1(input="input")
-    model += buff2(input=buff1.output, output=IOKey("ouptut", shape=[10]))
+    model += buff2(input=buff1.output, output=IOKey("output", shape=[10]))
 
-    expected_shapes = {"$_Buffer_0_output": [10], "input": [10], "ouptut": [10]}
+    expected_shapes = {"$_Buffer_0_output": [10], "input": [10], "output": [10]}
 
     check_shapes_semantically(model.shapes, expected_shapes)
 
@@ -509,7 +511,7 @@ def test_iokey_values_4():
     model += mean_model1(axis=IOKey(name="myaxis1", value=2, expose=False))
     main_model += model
     assert len(main_model.conns.input_connections) == 1
-    assert model.myaxis1.metadata.data.value == 2  # type: ignore
+    assert model.myaxis1.metadata.value == 2  # type: ignore
 
 
 def test_iokey_values_5():
@@ -612,11 +614,12 @@ def test_iokey_values_10():
     model = Model()
     sig_model_1 = Sigmoid()
     sig_model_2 = Sigmoid()
-    sig_model_1.input.data.metadata.data.type = float
+    sig_model_1.input.metadata.set_type(Tensor[float])
     model += sig_model_1(input="input", output=IOKey(name="output"))
 
     model += sig_model_2(
-        input=IOKey(value=[1.0, 2.0], name="input"), output=IOKey(name="output2")
+        input=IOKey(value=Tensor([1.0, 2.0]), name="input"),
+        output=IOKey(name="output2"),
     )
     backend = mithril.TorchBackend()
     pm = mithril.compile(model, backend, inference=True)
@@ -639,10 +642,10 @@ def test_iokey_values_11():
     model += sig_model_1(input="input", output=IOKey(name="output"))
 
     model += sig_model_2(
-        input=IOKey(type=float, name="input"), output=IOKey(name="output2")
+        input=IOKey(type=Tensor[float], name="input"), output=IOKey(name="output2")
     )
 
-    assert sig_model_1.input.data.metadata.data.type is float
+    assert sig_model_1.input.metadata.value_type is float
 
 
 def test_iokey_values_12():
@@ -655,9 +658,9 @@ def test_iokey_values_12():
     model += sig_model_2(
         input=IOKey(shape=[1, 2, 3, 4], name="input"), output=IOKey(name="output2")
     )
-    assert isinstance(sig_model_1.input.data.metadata.data, Tensor)
-    assert sig_model_1.input.data.metadata.data.shape is not None
-    assert sig_model_1.input.data.metadata.data.shape.get_shapes() == [1, 2, 3, 4]
+    assert sig_model_1.input.data.metadata.edge_type is Tensor
+    assert sig_model_1.input.data.metadata.shape is not None
+    assert sig_model_1.input.data.metadata.shape.get_shapes() == [1, 2, 3, 4]
 
 
 def test_iokey_name_not_given_output_error():
@@ -693,7 +696,7 @@ def test_iokey_tensor_input_all_args():
     backend = TorchBackend()
     # collect all possible values
     possible_names = ["left", None]
-    possible_values = [[[2.0]], TBD]
+    possible_values = [Tensor([[2.0]]), TBD]
     possible_shapes = [[1, 1], None]
     possible_expose = [True, False]
 
@@ -705,6 +708,7 @@ def test_iokey_tensor_input_all_args():
     for name, value, shape, expose in product(*all_args):  # type: ignore [call-overload]
         model = Model()
         sub_model = Add()
+        sub_model.set_types(left=Tensor, right=Tensor)
 
         try:
             # try to create an IOKey instance
@@ -797,8 +801,8 @@ def test_iokey_scalar_output_all_args():
             output = IOKey(name=name, value=value, shape=shape, expose=expose)
         except Exception as e:
             # if it fails and raises an error, try to catch the error
-            if value and shape:
-                # if value and shape is both given, It is an expected error
+            if (not isinstance(value, Tensor | ToBeDetermined)) and shape:
+                # if non-tensor value and shape is both given, It is an expected error
                 assert isinstance(e, ValueError)
                 assert e.args[0] == (
                     "Scalar values are shapeless, shape should be None or []. "
@@ -811,6 +815,8 @@ def test_iokey_scalar_output_all_args():
             continue
 
         try:
+            if name is None and expose:
+                ...
             # try to extend the model
             model += sub_model(input="input", output=output)
         except Exception as e:
@@ -828,9 +834,10 @@ def test_iokey_scalar_output_all_args():
                 assert e.args[0] == "Connection without a name cannot be set as output"
 
             elif shape:
-                # it is an expected error
-                assert isinstance(e, ValueError)
-                assert e.args[0] == "'Shape cannot be set for scalar type values'"
+                # Since providing shape within IOKey means it is Tensor type,
+                # it is an expected type error.
+                assert isinstance(e, TypeError)
+                assert e.args[0] == "Can not set Tensor type to a Scalar edge."
 
             else:
                 # it is an unexpected error. Raise given exception in that case
@@ -920,9 +927,10 @@ def test_iokey_scalar_input_all_args():
                 )
 
             elif shape:
-                # it is an expected error
-                assert isinstance(e, ValueError)
-                assert e.args[0] == "'Shape cannot be set for scalar type values'"
+                # Since providing shape within IOKey means it is Tensor type,
+                # it is an expected type error.
+                assert isinstance(e, TypeError)
+                assert e.args[0] == "Can not set Tensor type to a Scalar edge."
 
             else:
                 # it is an unexpected error. Raise given exception in that case
@@ -983,6 +991,7 @@ def test_iokey_tensor_output_all_args():
     for name, value, shape, expose in product(*all_args):  # type: ignore [call-overload]
         model = Model(enforce_jit=False)
         sub_model = Add()
+        sub_model.set_types(left=Tensor, right=Tensor)
 
         try:
             # try to create an IOKey instance
@@ -1041,14 +1050,18 @@ def test_compare_models_1():
     backend = TorchBackend()
     model1 = Model()
     add = Add()
+    add.set_types(left=Tensor, right=Tensor)
     multiply = Multiply()
+    multiply.set_types(left=Tensor, right=Tensor)
 
     model1 += add(left="input1", right="input2", output="sub_out")
     model1 += multiply(left="sub_out", right="input3", output=IOKey("output"))
 
     model2 = Model()
     add = Add()
+    add.set_types(left=Tensor, right=Tensor)
     multiply = Multiply()
+    multiply.set_types(left=Tensor, right=Tensor)
 
     model2 += add(left="input1", right="input2")
     model2 += multiply(left=add.output, right="input3", output=IOKey("output"))
@@ -1162,9 +1175,9 @@ def test_iokey_shape_error_1():
     model = Model()
     mean_model = Mean(axis=TBD)
 
-    with pytest.raises(ValueError) as err_info:
+    with pytest.raises(TypeError) as err_info:
         model += mean_model(axis=IOKey(name="axis", shape=[2, 3]))
-    assert str(err_info.value) == "'Shape cannot be set for scalar type values'"
+    assert str(err_info.value) == "Can not set Tensor type to a Scalar edge."
 
 
 def test_error_1():
@@ -1179,8 +1192,8 @@ def test_error_1():
 
 
 def test_iokey_template_1():
-    left = IOKey("left")
-    right = IOKey("right")
+    left = IOKey("left", type=Tensor)
+    right = IOKey("right", type=Tensor)
 
     res = left**right
 
@@ -1203,8 +1216,8 @@ def test_iokey_template_1():
 def test_iokey_template_2():
     model = Model()
 
-    left = IOKey("left")
-    model += Buffer()("right")
+    left = IOKey("left", type=Tensor)
+    model += Buffer()(IOKey("right", type=Tensor))
     res = left + model.right  # type: ignore
 
     model += Buffer()(res, IOKey("output"))
@@ -1225,7 +1238,7 @@ def test_iokey_template_2():
 def test_iokey_template_3():
     model = Model()
 
-    left = IOKey("left")
+    left = IOKey("left", type=Tensor)
     res = left + IOKey(value=3.0).tensor()
 
     model += Buffer()(res, IOKey("output"))
@@ -1283,7 +1296,9 @@ def test_iokey_template_6():
     model = Model()
 
     input = IOKey("input")
-    model += Buffer()(input[0], IOKey("output"))
+    buff = Buffer()
+    buff.set_types(input=Tensor)
+    model += buff(input[0], IOKey("output"))
     backend = TorchBackend()
     pm = mithril.compile(model=model, backend=backend, jit=False)
 
@@ -1353,7 +1368,7 @@ def test_iokey_template_10():
 
     input = IOKey("input")
 
-    model += Buffer()(input, IOKey("output1"))
+    model += Buffer()(input, IOKey("output1", type=Tensor))
     model += Buffer()(input, IOKey("output2"))
     backend = TorchBackend()
     pm = mithril.compile(model=model, backend=backend, inference=True, jit=False)
@@ -1372,7 +1387,7 @@ def test_iokey_template_11():
 
     input = IOKey("input")
 
-    model += Buffer()(input, IOKey("output1"))
+    model += Buffer()(input, IOKey("output1", type=Tensor))
     model += Buffer()(input, output=IOKey("output2"))
     backend = TorchBackend()
     pm = mithril.compile(model=model, backend=backend, inference=True, jit=False)
@@ -1392,7 +1407,7 @@ def test_iokey_template_12():
 
     input = IOKey("input")
 
-    sub_model += Buffer()(input, IOKey("output"))
+    sub_model += Buffer()(input, IOKey("output", type=Tensor))
     model += sub_model(input=input, output=IOKey("output"))
 
     backend = TorchBackend()

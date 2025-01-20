@@ -123,6 +123,7 @@ def test_randomized(case: str) -> None:
         # np.random.seed(10)
 
         current_case = deepcopy(randomized_cases[case])
+        inference = current_case.get("inference", False)
         iterations = current_case.pop("iterations", 10)
 
         tolerance = current_case.pop(f"{dtype}bit_tolerance", test_tolerances[dtype])
@@ -177,7 +178,7 @@ def test_randomized(case: str) -> None:
             )
             static_inputs[init_key] = {
                 key: init_backend.array(value)
-                if isinstance(model.conns.get_metadata(key).data, Tensor)
+                if model.conns.get_metadata(key).edge_type is Tensor
                 else value
                 for key, value in static_inputs[init_key].items()
             }
@@ -201,6 +202,7 @@ def test_randomized(case: str) -> None:
                 backend=init_backend,  # type: ignore
                 shapes=shapes,
                 jit=True,
+                inference=inference,
             )
 
             inputs[init_key] = compiled_model.randomize_params()
@@ -226,13 +228,17 @@ def test_randomized(case: str) -> None:
                 }
                 static_inputs[backend.backend_type] = {
                     key: backend.array(value)
-                    if isinstance(model.conns.get_metadata(key).data, Tensor)
+                    if model.conns.get_metadata(key).edge_type is Tensor
                     else value
                     for key, value in static_inputs[init_key].items()
                 }
 
-            gradients[init_key] = compiled_model.evaluate_gradients(
-                inputs[init_key], output_gradients=output_gradients[init_key]
+            gradients[init_key] = (
+                compiled_model.evaluate_gradients(
+                    inputs[init_key], output_gradients=output_gradients[init_key]
+                )
+                if not inference
+                else {}
             )
 
             for backend in avaliable_backends:
@@ -242,12 +248,17 @@ def test_randomized(case: str) -> None:
                     backend=backend,  # type: ignore[reportArgumentType]
                     shapes=shapes,
                     jit=True,
+                    inference=inference,
                 )
                 outputs[backend.backend_type], gradients[backend.backend_type] = (
-                    compiled_model.evaluate_all(
-                        inputs[backend.backend_type],
-                        output_gradients=output_gradients[backend.backend_type],
+                    (
+                        compiled_model.evaluate_all(
+                            inputs[backend.backend_type],
+                            output_gradients=output_gradients[backend.backend_type],
+                        )
                     )
+                    if not inference
+                    else (compiled_model.evaluate(inputs[backend.backend_type]), {})
                 )
 
             numeric_shape_dict: dict[str, tuple[int | None, ...] | tuple[()]] = (

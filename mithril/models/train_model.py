@@ -31,6 +31,7 @@ from ..framework.common import (
     KeyType,
     NotAvailable,
     Table,
+    Tensor,
     UniadicRecord,
     Variadic,
     get_shapes,
@@ -89,7 +90,7 @@ class TrainModel(Model):
         self.factory_args = {"model": model}
         # TODO: If we add inputs as IOKey, we get multi-write error. Fix this.
         key_mappings = model.generate_keys(symbolic=False, include_internals=True)
-        extend_kwargs = {
+        extend_kwargs: dict[str, str | IOKey] = {
             key: key_mappings.get(
                 key, IOKey(name=key) if key in model.conns.output_keys else key
             )
@@ -111,7 +112,7 @@ class TrainModel(Model):
         self.regularization_keys: list[str] = []
         self.metric_keys: list[str] = []
         self.loss_combiner: BaseModel = Sum()
-        self.reg_coef_map: dict[float, set[Connection]] = {}
+        self.reg_coef_map: dict[float | Tensor[Any], set[Connection]] = {}
         self.geomean_map: dict[str, list[tuple[Connection, float]]] = {}
         self.reduce_inputs: dict[str, list[tuple[Connection, Connection]]] = {}
 
@@ -557,7 +558,7 @@ class TrainModel(Model):
         for sub_model, sub_model_name in name_mappings.items():
             model_shapes[sub_model_name] = get_shapes(
                 data_dict={
-                    key: value.metadata.data
+                    key: value.metadata
                     for key, value in sub_model.conns.all.items()
                     if key in sub_model.conns.io_keys
                 },
@@ -608,7 +609,10 @@ class TrainModel(Model):
                             reduce_str += reduce.__class__.__name__ + f"(axis = {axis})"
                         reduce_str += ", "
                 t_list.append([reduce_str[:-2]])
-                t_list.append([str(loss_dict["coef"])])
+                coef = loss_dict["coef"]
+                if isinstance(coef, Tensor):
+                    coef = coef.value
+                t_list.append([str(coef)])
                 loss_table.add_row(t_list)
             loss_table.compile(row_sep=["  |  ", " | ", " | ", "  |  ", "  |  "])
             loss_table.display()
@@ -695,7 +699,7 @@ class TrainModel(Model):
                     geo_mappings[reg_info].append(self.reduce_inputs[key])
 
         for reg_info, loss_connections in geo_mappings.items():
-            final_outputs: list[Connection | int] = []
+            final_outputs: list[Connection | Tensor[int]] = []
             for reduce in loss_connections:
                 final_outputs.append(self._add_reduce_sizes(reduce))
             if final_outputs:
@@ -703,7 +707,7 @@ class TrainModel(Model):
                 final_output = final_outputs[0]
                 if (n_final_outputs := len(final_outputs)) > 0:
                     concat_model = Concat(n=n_final_outputs, axis=None)
-                    concat_kwargs: dict[str, int | Connection] = {}
+                    concat_kwargs: dict[str, Tensor[int] | Connection] = {}
                     idx = 0
                     for key in concat_model.input_keys:
                         if not concat_model.conns.is_key_non_diff(key):
@@ -719,7 +723,7 @@ class TrainModel(Model):
                     self.extend(
                         power := Power(),
                         base=final_output,
-                        exponent=[1 / n_final_outputs],
+                        exponent=Tensor([1 / n_final_outputs]),
                     )
                     final_output = power.output
                 # Add Divide Model to divide final_output to geo_mean.
@@ -734,8 +738,8 @@ class TrainModel(Model):
 
     def _add_reduce_sizes(
         self, reduce_list: list[tuple[Connection, Connection]]
-    ) -> Connection | int:
-        final_output: Connection | int = 1
+    ) -> Connection | Tensor[int]:
+        final_output: Connection | Tensor[int] = Tensor(1)
         sizes: list[Connection] = []
         for input, dim in reduce_list:
             m = _create_size()

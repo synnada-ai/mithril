@@ -45,11 +45,11 @@
                 },
                 "m2": {
                     "left": "input2",
-                    "right": {"connect": [["m1","output"]]}
+                    "right": {"key": {"connect": [["m1","output"]]}}
                 },
                 "m3": {
-                    "left": {"connect": [["m2","output"]]},
-                    "right": {"connect": [["m2","output"]]},
+                    "left": {"key": {"connect": [["m2","output"]]}},
+                    "right": {"key": {"connect": [["m2","output"]]}},
                     "output": "output"
                 }
             }
@@ -81,11 +81,11 @@
                 },
                 "m2": {
                     "left": "input2",
-                    "right": {"connect": [["m1","output"]]}
+                    "right": {"key": {"connect": [["m1","output"]]}}
                 },
                 "m3": {
-                    "left": {"connect": [["m2","output"]]},
-                    "right": {"connect": [["m2","output"]]},
+                    "left": {"key": {"connect": [["m2","output"]]}},
+                    "right": {"key": {"connect": [["m2","output"]]}},
                     "output": "output"
                 }
 
@@ -132,33 +132,33 @@
                     "input": "input1"
                 },
                 "m2": {
-                    "input": {"connect": [["m1", "output"]]}
+                    "input": {"key": {"connect": [["m1", "output"]]}}
                 },
                 "m3": {
-                    "input": {"connect": [["m2", "output"]]}
+                    "input": {"key": {"connect": [["m2", "output"]]}}
                 },
                 "m4": {
-                    "input": {"connect": [["m2", "output"]]}
+                    "input": {"key": {"connect": [["m2", "output"]]}}
                 },
                 "m5": {
-                    "input": {"connect": [["m3", "output"]]}
+                    "input": {"key": {"connect": [["m3", "output"]]}}
                 },
                 "m6": {
-                    "input": {"connect": [["m5", "output"]]},
-                    "output": {
+                    "input": {"key": {"connect": [["m5", "output"]]}},
+                    "output": {"key": {
                         "name": "output1", 
                         "expose": true
-                    }
+                    }}
                 },
                 "m7": {
-                    "input": {"connect": [["m4", "output"]]}
+                    "input": {"key": {"connect": [["m4", "output"]]}}
                 },
                 "m8": {
-                    "input": {"connect": [["m7", "output"]]},
-                    "output": {
+                    "input": {"key": {"connect": [["m7", "output"]]}},
+                    "output": {"key": {
                         "name": "output2", 
                         "expose": true
-                    }
+                    }}
                 }
             }
         },
@@ -226,7 +226,7 @@
         "regularizations": [
             {
                 "model": "l1",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "weight"
             }
         ],
@@ -250,7 +250,7 @@
         "regularizations": [
             {
                 "model": "l1",
-                "coef": 1e-1,
+                "coef": {"tensor": 1e-1},
                 "input": "weight"
             }
         ],
