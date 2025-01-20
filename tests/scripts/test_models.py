@@ -16,6 +16,7 @@ import json
 
 import pytest
 
+import mithril
 from mithril import JaxBackend, NumpyBackend, TorchBackend
 from tests.scripts.helper import evaluate_case
 
@@ -50,21 +51,21 @@ def test_directed_models(
 ) -> None:
     current_case = directed_cases[case]
     evaluate_case(
-        NumpyBackend(precision=64),
+        NumpyBackend(dtype=mithril.float64),
         current_case,
         tolerance=tolerance,
         relative_tolerance=relative_tolerance,
         test_rtt=False,
     )
     evaluate_case(
-        JaxBackend(precision=64),
+        JaxBackend(dtype=mithril.float64),
         current_case,
         tolerance=tolerance,
         relative_tolerance=relative_tolerance,
         test_rtt=False,
     )
     evaluate_case(
-        TorchBackend(precision=64),
+        TorchBackend(dtype=mithril.float64),
         current_case,
         tolerance=tolerance,
         relative_tolerance=relative_tolerance,
@@ -80,21 +81,21 @@ def test_integrated_models(
     # Consider template logic for dict conversions.
     current_case = integrated_cases[case]
     evaluate_case(
-        TorchBackend(precision=64),
+        TorchBackend(dtype=mithril.float64),
         current_case,
         tolerance=tolerance,
         relative_tolerance=relative_tolerance,
         test_rtt=True,
     )
     evaluate_case(
-        NumpyBackend(precision=64),
+        NumpyBackend(dtype=mithril.float64),
         current_case,
         tolerance=tolerance,
         relative_tolerance=relative_tolerance,
         test_rtt=True,
     )
     evaluate_case(
-        JaxBackend(precision=64),
+        JaxBackend(dtype=mithril.float64),
         current_case,
         tolerance=tolerance,
         relative_tolerance=relative_tolerance,

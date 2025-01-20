@@ -19,6 +19,7 @@ from copy import deepcopy
 import numpy as np
 import pytest
 
+import mithril as ml
 from mithril import JaxBackend, MlxBackend, NumpyBackend, TorchBackend, compile, models
 from mithril.framework.common import Tensor
 from mithril.utils.dict_conversions import dict_to_model
@@ -71,7 +72,7 @@ ignored_models = {
     "Length",
     "Model",
     "Cholesky",
-    "Precision",
+    "dtype",
     "AUC",
     "PrimitiveUnion",
     "Eigvalsh",
@@ -87,34 +88,35 @@ missing_models = all_models - tested_models - ignored_models
 
 @pytest.mark.parametrize("case", randomized_cases)
 def test_randomized(case: str) -> None:
-    test_precisions = [64]
+    test_dtypes = [ml.float64]
     # TODO: Tolerance handling will be updated when
     # automatic weight initialization algorithm is implemented.
-    # For now we used fixed tolerances for each precision for
+    # For now we used fixed tolerances for each dtype for
     # every random weight distribution, which is wrong.
     test_tolerances = {
-        32: {"eval": 1e-5, "grad": 1e-4},
-        64: {"eval": 1e-13, "grad": 1e-12},
+        ml.float32: {"eval": 1e-5, "grad": 1e-4},
+        ml.float64: {"eval": 1e-13, "grad": 1e-12},
     }
     test_relative_tolerances = {
-        32: {"eval": 1e-5, "grad": 1e-4},
-        64: {"eval": 1e-13, "grad": 1e-12},
+        ml.float32: {"eval": 1e-5, "grad": 1e-4},
+        ml.float64: {"eval": 1e-13, "grad": 1e-12},
     }
     backends: list[
         type[NumpyBackend] | type[JaxBackend] | type[TorchBackend] | type[MlxBackend]
     ] = [NumpyBackend, TorchBackend, JaxBackend, MlxBackend]
     backends = [backend for backend in backends if backend.is_installed]
-    if MlxBackend in backends:
-        test_precisions.append(32)
 
-    for precision in reversed(test_precisions):
+    if MlxBackend in backends:
+        test_dtypes.append(ml.float32)
+
+    for dtype in reversed(test_dtypes):
         inputs: dict = {}
         outputs: dict = {}
         gradients: dict = {}
         avaliable_backends = [
-            backend(precision=precision)
+            backend(dtype=dtype)
             for backend in backends
-            if precision in backend.supported_precisions
+            if dtype in backend.supported_dtypes
         ]
         output_gradients: dict = {}
         static_inputs = {}
@@ -124,11 +126,9 @@ def test_randomized(case: str) -> None:
         inference = current_case.get("inference", False)
         iterations = current_case.pop("iterations", 10)
 
-        tolerance = current_case.pop(
-            f"{precision}bit_tolerance", test_tolerances[precision]
-        )
+        tolerance = current_case.pop(f"{dtype}bit_tolerance", test_tolerances[dtype])
         relative_tolerance = current_case.pop(
-            f"{precision}bit_relative_tolerance", test_relative_tolerances[precision]
+            f"{dtype}bit_relative_tolerance", test_relative_tolerances[dtype]
         )
 
         # Configure tolerances if given as a single value

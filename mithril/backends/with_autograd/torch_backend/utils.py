@@ -32,18 +32,21 @@ from torch.distributed._tensor import DeviceMesh
 
 from .... import core
 from ....utils.utils import binary_search, find_dominant_type
+from ...utils import DtypeSubTypes
 
 AVAILABLE_BACKEND_TYPES = ["cpu", "cuda"]
 
 ArrayType = torch.Tensor
 NestedTensorType = int | float | bool | Sequence["NestedTensorType"]
 dtype_map: dict[str, torch.dtype] = {
+    "uint8": torch.uint8,
     "int16": torch.int16,
     "int32": torch.int32,
     "int": torch.int32,
     "int64": torch.int64,
     "long": torch.int64,
     "float16": torch.float16,
+    "bfloat16": torch.bfloat16,
     "float32": torch.float32,
     "float": torch.float32,
     "float64": torch.float64,
@@ -686,7 +689,9 @@ def check_device_mesh(base_mesh: DeviceMesh, device_mesh: tuple[int, ...]) -> No
             )
 
 
-def determine_dtype(input: Any, dtype: core.Dtype | None, precision: int) -> str:
+def determine_dtype(
+    input: Any, dtype: core.Dtype | None, default_dtype: core.Dtype, precision: int
+) -> str:
     if isinstance(dtype, core.Dtype):
         return dtype.name
 
@@ -698,6 +703,9 @@ def determine_dtype(input: Any, dtype: core.Dtype | None, precision: int) -> str
         dtype_name = "".join(char for char in str(input.dtype) if not char.isdigit())
     else:
         dtype_name = find_dominant_type(input).__name__
+
+    if dtype_name == "float":
+        dtype_name = DtypeSubTypes[default_dtype.name].value
 
     return dtype_name + str(precision) if dtype_name != "bool" else "bool"
 

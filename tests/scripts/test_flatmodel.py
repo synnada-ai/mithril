@@ -319,7 +319,7 @@ def test_integration_with_all_defined():
     add = Add()
     add.set_types(left=Tensor, right=Tensor)
     model += add(left="a", right="b", output="c")
-    backend = JaxBackend(precision=64)
+    backend = JaxBackend(dtype=ml.float64)
 
     pm_short = ml.compile(model, backend)
     pm_long = ml.compile(model, backend, use_short_namings=False)
@@ -335,7 +335,7 @@ def test_integration_with_all_defined():
 
 
 def test_integration_with_some_undefined():
-    backend = ml.JaxBackend(precision=64)
+    backend = ml.JaxBackend(dtype=ml.float64)
 
     model = Model()
     add = Add()
@@ -368,7 +368,7 @@ def test_integration_multi_level_name_with_lowest_definition():
     model = Model()
     model += model1
 
-    backend = JaxBackend(precision=64)
+    backend = JaxBackend(dtype=ml.float64)
 
     pm_short = ml.compile(model, backend)
     pm_long = ml.compile(model, backend, use_short_namings=False)
@@ -400,7 +400,7 @@ def test_integration_collision_from_different_levels():
     model = Model(name="upper")
     model += model1
 
-    backend = JaxBackend(precision=64)
+    backend = JaxBackend(dtype=ml.float64)
 
     pm_short = ml.compile(model, backend)
     pm_long = ml.compile(model, backend, use_short_namings=False)

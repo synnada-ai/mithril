@@ -30,13 +30,16 @@ class CBackend(Backend[PyArray]):
     SRC_PATH = "mithril/backends/with_manualgrad/c_backend/src"
 
     def __init__(self) -> None:
-        self._precision = 32
         self._device = "cpu"
         self.primitive_function_dict = {}
 
     @property
     def is_manualgrad(self) -> bool:
         return True
+
+    @property
+    def precision(self) -> int:
+        return 32
 
     def set_seed(self, seed: int) -> None:
         pass

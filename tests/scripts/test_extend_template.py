@@ -83,7 +83,7 @@ def test_two_conns():
     model_2 += Mean()(input=add_2.output, output=IOKey(name="output"))
 
     # Provide backend and data.
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {"input": backend.array([[1.0, 2]])}
     # Check equality.
     compare_models(model_1, model_2, backend, data)
@@ -108,7 +108,7 @@ def test_conn_template():
     model_2 += Add()(left=add_3.output, right=add_4.output, output=IOKey(name="output"))
 
     # Provide backend and data.
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {"input": backend.array([[1.0, 2]])}
     # Check equality.
     compare_models(model_1, model_2, backend, data)
@@ -140,7 +140,7 @@ def test_template_template():
     )
 
     # Provide backend and data.
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {"input_1": backend.array([[1.0, 2]]), "input_2": backend.array([[2.0, 3]])}
     # Check equality.
     compare_models(model_1, model_2, backend, data)
@@ -167,7 +167,7 @@ def test_shape_reshape():
     )
 
     # Provide backend and data.
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {
         "input_1": backend.array([[1.0], [2]]),
         "input_2": backend.array([[2.0, 3]]),
@@ -195,7 +195,7 @@ def test_shape_reshape():
 #     )
 
 #     # Provide backend and data.
-#     backend = JaxBackend(precision=32)
+#     backend = JaxBackend()
 #     data = {
 #         "input_1": backend.array([[1.0], [2]]),
 #         "input_2": backend.array([[2.0, 3]]),
@@ -232,7 +232,7 @@ def test_slice_item():
     )
 
     # Provide backend and data.
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {"input": backend.array([[1.0], [2]])}
     # Check equality.
     compare_models(
@@ -267,7 +267,7 @@ def test_right_add():
     model_4 += Mean()(input=add_4.output, output=IOKey(name="output"))
 
     # Provide backend and data.
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {"input": backend.array([[1.0, 2]])}
 
     # Check equalities.
@@ -307,7 +307,7 @@ def test_right_add_three_term():
     model_2 += Mean()(input=add_2, output=IOKey(name="output"))
 
     # Provide backend and data.
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {"input": backend.array([[1.0, 2]])}
 
     # Also check two physical models evaluates to same values (also gradients).
@@ -349,7 +349,7 @@ def test_right_pow():
     model_4 += Mean()(input=pow_4.output, output=IOKey(name="output"))
 
     # Provide backend and data.
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {"input": backend.array([[1.0, 2]])}
 
     # Check equalities.
@@ -377,7 +377,7 @@ def test_multiple_op_order_1():
     """
 
     # Provide backend and data.
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {"input": backend.array([[1.0, 5]])}
 
     model_1 = Model()
@@ -398,7 +398,7 @@ def test_multiple_op_order_2():
     """The model should be able to handle operations in the correct order
     when testing multiple operations with different precedences (+, -, *, ...).
     """
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {"input": backend.array([[1.0, 5], [2, 3]])}
 
     model = Model()
@@ -418,7 +418,7 @@ def test_multiple_op_order_2():
 
 def test_sequence_slice_1():
     """Tests slice works properly"""
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {"input": [1.0, 2, 3, 4, 5, 6]}
     model = Model()
     model += Indexer()(input="input")
@@ -433,7 +433,7 @@ def test_sequence_slice_1():
 
 def test_sequence_slice_2():
     """Tests slice works properly"""
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {"input": [1.0, 2, 3, 4, 5, 6]}
     model = Model()
     model += Indexer()(input="input")
@@ -448,7 +448,7 @@ def test_sequence_slice_2():
 
 def test_sequence_slice_3():
     """Tests slice works properly"""
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {"input": [1.0, 2, 3, 4, 5, 6]}
     model = Model()
     model += Indexer()(input="input")
@@ -463,7 +463,7 @@ def test_sequence_slice_3():
 
 def test_sequence_slice_4():
     """Tests slice works properly"""
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {"input": [1.0, 2, 3, 4, 5, 6]}
     model = Model()
     model += Indexer()(input="input")
@@ -477,7 +477,7 @@ def test_sequence_slice_4():
 
 
 def test_mul():
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {"input": backend.array([1.0, -2, 3, 0, -5, 6])}
 
     model1 = Model()
@@ -498,7 +498,7 @@ def test_mul():
 
 
 def test_rmul():
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {"input": backend.array([1.0, -2, 3, 0, -5, 6])}
 
     model1 = Model()
@@ -519,7 +519,7 @@ def test_rmul():
 
 
 def test_div():
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {"input": backend.array([1.0, -2, 3, 0, -5, 6])}
 
     model1 = Model()
@@ -542,7 +542,7 @@ def test_div():
 
 
 def test_rdiv():
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {"input": backend.array([1.0, -2, 3, 1, -5, 6])}
 
     model1 = Model()
@@ -565,7 +565,7 @@ def test_rdiv():
 
 
 def test_floor_div():
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {"input": backend.array([1.0, -2, 3, 0, -5, 6])}
 
     model1 = Model()
@@ -588,7 +588,7 @@ def test_floor_div():
 
 
 def test_rfloor_div():
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {"input": backend.array([1.0, -2, 3, 1, -5, 6])}
 
     model1 = Model()
@@ -610,7 +610,7 @@ def test_rfloor_div():
 
 
 def test_pow():
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {"input": backend.array([1.0, -2, 3, 0, -5, 6])}
 
     model1 = Model()
@@ -633,7 +633,7 @@ def test_pow():
 
 
 def test_rpow():
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {"input": backend.array([1.0, -2, 3, 0, -5, 6])}
 
     model1 = Model()
@@ -656,7 +656,7 @@ def test_rpow():
 
 
 def test_absolute():
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {"input": backend.array([1.0, -2, 3, 0, -5, 6])}
 
     model1 = Model()
@@ -679,7 +679,7 @@ def test_absolute():
 
 
 def test_exp():
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {"input": backend.array([1.0, -2, 3, 0, -5, 6])}
 
     model1 = Model()
@@ -702,7 +702,7 @@ def test_exp():
 
 
 def test_mean():
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {"input": backend.array([1.0, -2, 3, 0, -5, 6])}
 
     model1 = Model()
@@ -725,7 +725,7 @@ def test_mean():
 
 
 def test_max():
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {"input": backend.array([1.0, -2, 3, 0, -5, 6])}
 
     model1 = Model()
@@ -748,7 +748,7 @@ def test_max():
 
 
 def test_sum():
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {"input": backend.array([1.0, -2, 3, 0, -5, 6])}
 
     model1 = Model()
@@ -771,7 +771,7 @@ def test_sum():
 
 
 def test_min():
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {"input": backend.array([1.0, -2, 3, 0, -5, 6])}
 
     model1 = Model()
@@ -794,7 +794,7 @@ def test_min():
 
 
 def test_prod():
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {"input": backend.array([1.0, -2, 3, 0.5, -5, 6])}
 
     model1 = Model()
@@ -817,7 +817,7 @@ def test_prod():
 
 
 def test_variance():
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {"input": backend.array([1.0, -2, 3, 0.5, -5, 6])}
 
     model1 = Model()
@@ -840,7 +840,7 @@ def test_variance():
 
 
 def test_greater_than():
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {
         "input1": backend.array([1.0, -2, 3, 0.5, -5, 6]),
         "input2": backend.array([3.0, -2, 0, 10, -10, 6]),
@@ -872,7 +872,7 @@ def test_greater_than():
 
 
 def test_greater_equal():
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {
         "input1": backend.array([1.0, -2, 3, 0.5, -5, 6]),
         "input2": backend.array([3.0, -2, 0, 10, -10, 6]),
@@ -904,7 +904,7 @@ def test_greater_equal():
 
 
 def test_less_than():
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {
         "input1": backend.array([1.0, -2, 3, 0.5, -5, 6]),
         "input2": backend.array([3.0, -2, 0, 10, -10, 6]),
@@ -936,7 +936,7 @@ def test_less_than():
 
 
 def test_less_equal():
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {
         "input1": backend.array([1.0, -2, 3, 0.5, -5, 6]),
         "input2": backend.array([3.0, -2, 0, 10, -10, 6]),
@@ -968,7 +968,7 @@ def test_less_equal():
 
 
 def test_equal():
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {
         "input1": backend.array([1.0, -2, 3, 0.5, -5, 6]),
         "input2": backend.array([3.0, -2, 0, 10, -10, 6]),
@@ -1000,7 +1000,7 @@ def test_equal():
 
 
 def test_not_equal():
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {
         "input1": backend.array([1.0, -2, 3, 0.5, -5, 6]),
         "input2": backend.array([3.0, -2, 0, 10, -10, 6]),
@@ -1032,7 +1032,7 @@ def test_not_equal():
 
 
 def test_not():
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {
         "input1": backend.array([1.0, -2, 3, 0.5, -5, 6]),
         "input2": backend.array([3.0, -2, 0, 10, -10, 6]),
@@ -1065,7 +1065,7 @@ def test_not():
 
 
 def test_and():
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {
         "input1": backend.array([1.0, -2, 3, 0.5, -5, 6]),
         "input2": backend.array([3.0, -2, 0, 10, -10, 6]),
@@ -1099,7 +1099,7 @@ def test_and():
 
 
 def test_or():
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {
         "input1": backend.array([1.0, -2, 3, 0.5, -5, 6]),
         "input2": backend.array([3.0, -2, 0, 10, -10, 6]),
@@ -1133,7 +1133,7 @@ def test_or():
 
 
 def test_xor():
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {
         "input1": backend.array([1.0, -2, 3, 0.5, -5, 6]),
         "input2": backend.array([3.0, -2, 0, 10, -10, 6]),
@@ -1167,7 +1167,7 @@ def test_xor():
 
 
 def test_xor2():
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {
         "input1": backend.array([1.0, -2, 3, 0.5, -5, 6]),
         "input2": backend.array([3.0, -2, 0, 10, -10, 6]),
@@ -1202,7 +1202,7 @@ def test_xor2():
 
 
 def test_lshift_1():
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {
         "input": backend.array([1, -2, 3, 5, -5, 6]),
         "shift": backend.array([1, 1, 2, 3, 1, 1]),
@@ -1230,7 +1230,7 @@ def test_lshift_1():
 
 
 def test_lshift_2():
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {"input": backend.array([1, -2, 3, 5, -5, 6])}
 
     model1 = Model()
@@ -1255,7 +1255,7 @@ def test_lshift_2():
 
 
 def test_lshift_3():
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {"input": backend.array([1, -2, 3, 5, -1, 6])}
 
     model1 = Model()
@@ -1278,7 +1278,7 @@ def test_lshift_3():
 
 
 def test_rshift_1():
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {
         "input": backend.array([1, -2, 3, 5, -5, 6]),
         "shift": backend.array([1, 1, 2, 3, 1, 1]),
@@ -1306,7 +1306,7 @@ def test_rshift_1():
 
 
 def test_rshift_2():
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {"input": backend.array([1, -2, 3, 5, -5, 6])}
 
     model1 = Model()
@@ -1331,7 +1331,7 @@ def test_rshift_2():
 
 
 def test_rshift_3():
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {"input": backend.array([1, -2, 3, 5, -1, 0])}
 
     model1 = Model()
@@ -1354,7 +1354,7 @@ def test_rshift_3():
 
 
 def test_minus():
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {
         "input": backend.array([1.0, -2, 3, 0.5, -5, 6]),
     }
@@ -1379,7 +1379,7 @@ def test_minus():
 
 
 def test_use_submodel_conn_1():
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {"input1": backend.array([1.0, -2, 3, 0.5, -5, 6])}
 
     modelsub = Model()
@@ -1412,7 +1412,7 @@ def test_use_submodel_conn_1():
 
 
 def test_use_multiple_times():
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {"input1": backend.array([1.0, -2, 3, 0.5, -5, 6])}
 
     model1 = Model()
@@ -1671,7 +1671,7 @@ def test_split_direct():
 
 
 def test_split_compare_with_explicit():
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {"input": backend.ones(8, 16)}
 
     model1 = Model()

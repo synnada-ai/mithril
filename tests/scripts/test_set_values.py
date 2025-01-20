@@ -66,7 +66,7 @@ def test_1():
     model_4 = model
 
     # Provide backend and data.
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {"input": backend.array([[1.0, 2], [3, 4]])}
     # Check equality.
     compare_models(model_1, model_2, backend, data)

@@ -91,7 +91,7 @@ def test_scalar_to_tensor_1():
     model_2 = model
 
     # Provide backend and data.
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {
         "input_1": backend.array([[1.0, 2]]),
         "input_2": backend.array(
@@ -133,7 +133,7 @@ def test_scalar_to_tensor_2():
     model_2 = model
 
     # Provide backend and data.
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {
         "input_1": backend.array([[1.0], [2]]),
         "input_2": backend.array(
@@ -180,7 +180,7 @@ def test_scalar_to_tensor_3():
     model_2 = model
 
     # Provide backend and data.
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {
         "right": backend.array([[1.0], [2]]),
     }
@@ -219,7 +219,7 @@ def test_tensor_to_scalar_1():
     model_2 = model
 
     # Provide backend and data.
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data: dict[str, Any] = {}
     # Check equality.
     compare_models(
@@ -257,7 +257,7 @@ def test_tensor_to_scalar_1_non_jittable():
     model_2 = model
 
     # Provide backend and data.
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data: dict[str, Any] = {}
     # Check equality.
     compare_models(
@@ -312,7 +312,7 @@ def test_slice_item_conversions():
     model_2 = model
 
     # Provide backend and data.
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {"input": backend.array([[1.0], [2]])}
     # Check equality.
     compare_models(
@@ -343,7 +343,7 @@ def test_tuple_conversion_1():
     model_2 = model
 
     # Provide backend and data.
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {"input": backend.array([[1.0], [2]])}
     # Check equality.
     compare_models(model_1, model_2, backend, data, inference=True)
@@ -373,7 +373,7 @@ def test_tuple_conversion_2():
     model_2 = model
 
     # Provide backend and data.
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     # Check equality.
     pm_1 = mithril.compile(model=model_1, backend=backend)
     pm_2 = mithril.compile(model=model_2, backend=backend)
@@ -419,7 +419,7 @@ def test_tuple_conversion_3():
     model_2 = model
 
     # Provide backend and data.
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     # Check equality.
     pm_1 = mithril.compile(model=model_1, backend=backend)
     pm_2 = mithril.compile(model=model_2, backend=backend)
@@ -465,7 +465,7 @@ def test_list_conversion_1():
     model_2 = model
 
     # Provide backend and data.
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     # Check equality.
     pm_1 = mithril.compile(model=model_1, backend=backend)
     pm_2 = mithril.compile(model=model_2, backend=backend)
@@ -510,7 +510,7 @@ def test_nested_list_conversion_1():
     model_2 = model
 
     # Provide backend and data.
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     # Check equality.
     pm_1 = mithril.compile(model=model_1, backend=backend)
     pm_2 = mithril.compile(model=model_2, backend=backend)
@@ -555,7 +555,7 @@ def test_nested_list_conversion_2():
     model_2 = model
 
     # Provide backend and data.
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {"input": backend.array([[1.0], [2.0]])}
     # Check equality.
     pm_1 = mithril.compile(model=model_1, backend=backend, constant_keys=data)
@@ -926,7 +926,7 @@ def test_connect_type_conv_handling_1():
     model_3 = model
 
     # Provide backend and data.
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data: dict[str, Any] = {}
     # Check equality.
     compare_models(model_1, model_2, backend, data)
@@ -1356,7 +1356,7 @@ def test_tensor_to_scalar_4():
     manual_model += ToTensor()
     manual_model += Add()(right=IOKey(type=Tensor))
 
-    backend = TorchBackend(precision=32)
+    backend = TorchBackend()
 
     data = {"input": backend.array([2.0])}
 
@@ -1451,7 +1451,7 @@ def test_coercion_1():
 
 
 def test_coercion_2():
-    backend = TorchBackend(precision=32)
+    backend = TorchBackend()
     model = Model()
     reduce_model_1 = Sum(axis=TBD)
     reduce_model_2 = Sum(axis=TBD)

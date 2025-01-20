@@ -147,7 +147,7 @@ def test_composite_1_extend_from_inputs():
     static_keys = {"input": np.array([[1.0]]), "target": np.array([0])}
 
     compiled_model = mithril.compile(
-        context, backend=NumpyBackend(precision=64), constant_keys=static_keys
+        context, backend=NumpyBackend(dtype=mithril.float64), constant_keys=static_keys
     )
 
     inputs = {
@@ -185,7 +185,7 @@ def test_composite_1_extend_from_inputs():
     static_keys = {"input": np.array([[1.0]]), "target": np.array([0])}
 
     compiled_model = mithril.compile(
-        context, backend=NumpyBackend(precision=64), constant_keys=static_keys
+        context, backend=NumpyBackend(dtype=mithril.float64), constant_keys=static_keys
     )
 
     inputs = {
@@ -283,9 +283,9 @@ def test_different_backend_compile():
     static_keys = {"input": np.array([[1.0]])}
 
     available_backends: list[Backend] = [
-        JaxBackend(precision=64),
-        TorchBackend(precision=64),
-        NumpyBackend(precision=64),
+        JaxBackend(dtype=mithril.float64),
+        TorchBackend(dtype=mithril.float64),
+        NumpyBackend(dtype=mithril.float64),
     ]
     for backend in available_backends:
         model = Model()
@@ -327,7 +327,7 @@ def test_recursive_model_error():
     model3 += sum3(left="input", right=model2.output, output="output")  # type: ignore
 
     with pytest.raises(ValueError) as err_info:
-        mithril.compile(model=model2, backend=NumpyBackend(precision=64))
+        mithril.compile(model=model2, backend=NumpyBackend(dtype=mithril.float64))
 
     assert str(err_info.value) == "Model with a parent could not be compiled!"
 
@@ -348,7 +348,9 @@ def test_recursive_model():
     model3 += model2(input="input", right="right")
     model3 += sum3(left="input", right=model2.output, output="output")  # type: ignore
 
-    comp_model = mithril.compile(model=model3, backend=NumpyBackend(precision=64))
+    comp_model = mithril.compile(
+        model=model3, backend=NumpyBackend(dtype=mithril.float64)
+    )
     assert comp_model.shapes["output"] == [2, 3, 4, 5, 6, 7]
 
 
@@ -375,7 +377,7 @@ def test_shape():
     model += model2(input1=model1.output1, input2=model1.output2)  # type: ignore
     model += model3(input2="", output1=model1.input1, output2=model1.input2)  # type: ignore
 
-    comp_model = mithril.compile(model, backend=NumpyBackend(precision=64))
+    comp_model = mithril.compile(model, backend=NumpyBackend(dtype=mithril.float64))
     assert comp_model.shapes["output"] == [5, 6, 8, 9, 10]
 
 
@@ -392,7 +394,9 @@ def test_1_set_shapes_bug():
         linear2.weight: [32, 32],
         linear2.bias: [None],
     }
-    comp_model = mithril.compile(model, NumpyBackend(precision=64), shapes=shapes)
+    comp_model = mithril.compile(
+        model, NumpyBackend(dtype=mithril.float64), shapes=shapes
+    )
 
     assert comp_model.shapes["input"] == [120, 120]
     assert comp_model.shapes["output"] == [120, 32]
@@ -415,7 +419,7 @@ def test_2_set_shapes_bug():
     linear1.set_shapes(shape_1)
     linear2.set_shapes(shape_2)
 
-    comp_model = mithril.compile(model, NumpyBackend(precision=64))
+    comp_model = mithril.compile(model, NumpyBackend(dtype=mithril.float64))
 
     assert comp_model.shapes["input"] == [120, 120]
     assert comp_model.shapes["output"] == [120, 32]
@@ -1020,7 +1024,7 @@ def test_flatten1():
 
     shapes = {"input": [2, 3, 4, 5, 3, 4, 5]}
     c_model = mithril.compile(
-        model=model, backend=NumpyBackend(precision=64), shapes=shapes
+        model=model, backend=NumpyBackend(dtype=mithril.float64), shapes=shapes
     )
     assert c_model.shapes["output"] == [2, 3, 60, 4, 5]
 
@@ -1044,7 +1048,7 @@ def test_compile_gradients_boolean():
 
     static_keys = {"input": np.array([[1.0]]), "target": np.array([0])}
 
-    backend = NumpyBackend(precision=64)
+    backend = NumpyBackend(dtype=mithril.float64)
     compiled_model = mithril.compile(
         context, backend=backend, constant_keys=static_keys, inference=True
     )
@@ -1099,14 +1103,14 @@ def test_convolution_shape():
 
     comp_model = mithril.compile(
         model=model,
-        backend=NumpyBackend(precision=32),
+        backend=NumpyBackend(),
         shapes={conv1.input: [8, 3, 64, 64]},
         safe_names=False,
     )
 
     comp_model2 = mithril.compile(
         model=model1,
-        backend=NumpyBackend(precision=32),
+        backend=NumpyBackend(),
         shapes={pol1.input: [5, 5]},
         safe_names=False,
     )
@@ -1115,9 +1119,9 @@ def test_convolution_shape():
 
 
 def test_pickle_empty_backend():
-    jax_backend = JaxBackend(precision=64)
-    numpy_backend = NumpyBackend(precision=64)
-    torch_backend = TorchBackend(precision=64)
+    jax_backend = JaxBackend(dtype=mithril.float64)
+    numpy_backend = NumpyBackend(dtype=mithril.float64)
+    torch_backend = TorchBackend(dtype=mithril.float64)
 
     pickled_jax = pickle.dumps(jax_backend)
     pickled_numpy = pickle.dumps(numpy_backend)
@@ -1175,7 +1179,7 @@ def test_pickle_empty_backend():
 def test_pickle_registered_backend():
     numpy_backend = NumpyBackend()
     torch_backend = TorchBackend()
-    jax_backend = JaxBackend(precision=64)
+    jax_backend = JaxBackend(dtype=mithril.float64)
 
     def my_adder(input, rhs):
         return input + rhs
@@ -1202,7 +1206,7 @@ def test_pickle_registered_backend():
 def test_reuse_pickled_registered_backend():
     numpy_backend = NumpyBackend()
     torch_backend = TorchBackend()
-    jax_backend = JaxBackend(precision=64)
+    jax_backend = JaxBackend(dtype=mithril.float64)
 
     @typing.no_type_check
     def my_adder(left, right):
@@ -1309,21 +1313,21 @@ def test_logical_model_compile_twice():
     train_model = context
     np_model = mithril.compile(
         train_model,
-        backend=NumpyBackend(precision=64),
+        backend=NumpyBackend(dtype=mithril.float64),
         constant_keys=static_keys_np,
     )
     static_keys_jax = {"input": jnp.array([[1.0]]), "target": jnp.array([0])}
 
     jax_model = mithril.compile(
         train_model,
-        backend=JaxBackend(precision=64),
+        backend=JaxBackend(dtype=mithril.float64),
         constant_keys=static_keys_jax,
     )
 
     static_keys_torch = {"input": torch.tensor([[1.0]]), "target": torch.tensor([0])}
     torch_model = mithril.compile(
         train_model,
-        backend=TorchBackend(precision=64),
+        backend=TorchBackend(dtype=mithril.float64),
         constant_keys=static_keys_torch,
     )
 
@@ -1352,7 +1356,7 @@ def test_canonical_output_compile():
     static_keys = {"input": np.array([[1.0]]), "target": np.array([0])}
 
     model1 = mithril.compile(
-        context, backend=NumpyBackend(precision=64), constant_keys=static_keys
+        context, backend=NumpyBackend(dtype=mithril.float64), constant_keys=static_keys
     )
 
     assert model1.output_keys == ["final_cost", "output"]
@@ -1424,7 +1428,7 @@ def test_check_static_1():
 
     comp_model = compile(
         model=model,
-        backend=NumpyBackend(precision=32),
+        backend=NumpyBackend(),
         jit=False,
         inference=True,
     )
@@ -1443,7 +1447,7 @@ def test_check_static_2():
         input=Tensor([[2, 3], [1, 4]]), weight="weight", bias="bias", output="output"
     )
 
-    comp_model = compile(model=model, backend=NumpyBackend(precision=32))
+    comp_model = compile(model=model, backend=NumpyBackend())
     inputs = {"weight": np.array([[4.0, 5.0]]), "bias": np.array([3.0])}
     outputs = comp_model.evaluate(inputs)
     ref_out = outputs["output"]
@@ -1461,7 +1465,7 @@ def test_check_static_3():
         output="output",
     )
 
-    comp_model = compile(model=model, backend=NumpyBackend(precision=32))
+    comp_model = compile(model=model, backend=NumpyBackend())
     inputs = {"bias": np.array([3.0])}
     outputs = comp_model.evaluate(inputs)
     ref_out = outputs["output"]
@@ -1476,7 +1480,7 @@ def test_check_static_4():
 
     comp_model = compile(
         model=model,
-        backend=NumpyBackend(precision=32),
+        backend=NumpyBackend(),
         constant_keys={
             "input": np.array([[2.0, 3.0], [1.0, 4.0]]),
             "weight": np.array([[4.0, 5.0]]),
@@ -1497,7 +1501,7 @@ def test_check_static_5():
 
     comp_model = compile(
         model=model,
-        backend=NumpyBackend(precision=32),
+        backend=NumpyBackend(),
         jit=False,
         data_keys={"input", "weight", "bias"},
     )
@@ -1527,7 +1531,7 @@ def test_check_static_6():
     # now mypy skipped as this api will be changed
     comp_model = mithril.compile(  # type: ignore
         model=model,
-        backend=NumpyBackend(precision=32),
+        backend=NumpyBackend(),
         jit=False,
         data_keys={"weight"},
         constant_keys={"bias": np.array([3.0])},
@@ -1622,9 +1626,9 @@ def test_batch_minibatch_grad():
     target = np.random.randint(low=0, high=10, size=(8))
 
     for backend in [
-        TorchBackend(precision=64),
-        JaxBackend(precision=64),
-        NumpyBackend(precision=64),
+        TorchBackend(dtype=mithril.float64),
+        JaxBackend(dtype=mithril.float64),
+        NumpyBackend(dtype=mithril.float64),
     ]:
         backend = TorchBackend()
         pm = compile(
@@ -1681,7 +1685,7 @@ def test_batch_minibatch_grad():
 
 
 def test_train_context_numpy():
-    backend = NumpyBackend(precision=32)
+    backend = NumpyBackend()
     model = Model()
     model += Linear(8)(input="input", output=IOKey(name="output"))
     model += Linear(16)(input=model.canonical_output, output=IOKey(name="output2"))
@@ -1716,7 +1720,7 @@ def test_train_context_numpy():
 
 
 def test_train_context_example():
-    backend = NumpyBackend(precision=32)
+    backend = NumpyBackend()
     model = Model()
     model += Linear(1)(input="input", output=IOKey(name="output"))
     model += Linear(1)(input=model.canonical_output, output=IOKey(name="output2"))
@@ -1802,7 +1806,7 @@ def test_list_input_1():
     with pytest.raises(ValueError) as err_info:
         mithril.compile(
             model=model,
-            backend=NumpyBackend(precision=32),
+            backend=NumpyBackend(),
             constant_keys={"input": [[2.3, 4.7], [2.5, 8.9]]},
             shapes={"input": [2, 2]},
         )
@@ -1862,16 +1866,16 @@ def test_relational_operators_ignored_3():
 
 def test_arange_primitive():
     backends: list[type[Backend]] = [JaxBackend, TorchBackend, NumpyBackend, MlxBackend]
-    precisions = [32, 64]
+    dtypes = [mithril.float32, mithril.float64]
     for backend in backends:
         if not backend.is_installed:
             continue
 
-        for precision in precisions:
-            if precision not in backend.supported_precisions:
+        for dtype in dtypes:
+            if dtype not in backend.supported_dtypes:
                 continue
 
-            _backend = backend(precision=precision)
+            _backend = backend(dtype=dtype)
             arange_len = 20
             model = Model()
             layer2 = Layer(dimension=2, activation=Softmax())
@@ -1904,16 +1908,16 @@ def test_arange_primitive():
 
 def test_to_tensor_primitive():
     backends: list[type[Backend]] = [JaxBackend, TorchBackend, NumpyBackend, MlxBackend]
-    precisions = [32, 64]
+    dtypes = [mithril.float32, mithril.float64]
     for backend in backends:
         if not backend.is_installed:
             continue
 
-        for precision in precisions:
-            if precision not in backend.supported_precisions:
+        for dtype in dtypes:
+            if dtype not in backend.supported_dtypes:
                 continue
 
-            _backend = backend(precision=precision)
+            _backend = backend(dtype=dtype)
 
             model = Model()
             layer2 = Layer(dimension=2, activation=Softmax())
@@ -2155,7 +2159,7 @@ def test_reduce_overlap_shapes():
 
 
 def test_reduce_overlap_shapes_1():
-    backend = NumpyBackend(precision=32)
+    backend = NumpyBackend()
     model = Model()
     relu_model_1 = Relu()
     relu_model_2 = Relu()
@@ -2361,7 +2365,7 @@ def test_regularization_1():
     ctx = TrainModel(model)
     ctx.add_regularization(L2(), coef=Tensor(1e-1), input=model.w)  # type: ignore
     ctx.add_loss(SquaredError(), [Mean()], input=model.output, target="target")  # type: ignore
-    backend = TorchBackend(precision=64)
+    backend = TorchBackend(dtype=mithril.float64)
     static_keys = {"left": backend.array([0.0]), "target": backend.zeros(3, 2, 1)}
     compiled_model = mithril.compile(ctx, backend=backend, constant_keys=static_keys)
     result = compiled_model.evaluate(
@@ -2385,7 +2389,7 @@ def test_regularization_1_sanity_test():
     ctx = TrainModel(model)
     ctx.add_regularization(L2(), coef=Tensor(1e-1), input=model.w)  # type: ignore
     ctx.add_loss(SquaredError(), [Mean()], input=model.output, target="target")  # type: ignore
-    backend = TorchBackend(precision=64)
+    backend = TorchBackend(dtype=mithril.float64)
     static_keys = {"left": backend.array([0.0]), "target": backend.array([0.0])}
     compiled_model = mithril.compile(
         ctx, backend=backend, constant_keys=static_keys, safe_shapes=False
@@ -2410,7 +2414,7 @@ def test_regularization_2():
     ctx = TrainModel(model)
     ctx.add_regularization(L2(), coef=Tensor(1e-1), input=model.w)  # type: ignore
     ctx.add_loss(SquaredError(), [Sum()], input=model.output, target="target")  # type: ignore
-    backend = TorchBackend(precision=64)
+    backend = TorchBackend(dtype=mithril.float64)
     static_keys = {"left": backend.array([0.0]), "target": backend.zeros(3, 2, 1)}
     compiled_model = mithril.compile(ctx, backend=backend, constant_keys=static_keys)
     result = compiled_model.evaluate(
@@ -2440,7 +2444,7 @@ def test_regularization_3():
         input=model.output,  # type: ignore
         target="target",
     )
-    backend = TorchBackend(precision=64)
+    backend = TorchBackend(dtype=mithril.float64)
     static_keys = {
         "left": backend.array([0.0]),
         "target": backend.zeros(2, 3, 4, 5, 6, 7),
@@ -2476,7 +2480,7 @@ def test_regularization_4():
         input=model.output2,  # type: ignore
         target="target",
     )
-    backend = TorchBackend(precision=64)
+    backend = TorchBackend(dtype=mithril.float64)
     static_keys = {
         "left": backend.array([0.0]),
         "target": backend.zeros(2, 2, 4, 8, 6, 7),
@@ -2521,7 +2525,7 @@ def test_regularization_5():
         input=model.output2,  # type: ignore
         target="target",
     )
-    backend = TorchBackend(precision=64)
+    backend = TorchBackend(dtype=mithril.float64)
     static_keys = {
         "left": backend.array([0.0]),
         "target": backend.zeros(2, 2, 4, 8, 6, 7),
@@ -3078,7 +3082,7 @@ def test_prune_valued_tensor_1():
     )
     model += Add()(left=Tensor(3), right="input2", output=IOKey("output2"))
 
-    backend = JaxBackend(precision=64)
+    backend = JaxBackend(dtype=mithril.float64)
 
     compiled_model = compile(
         model, backend=backend, shapes={"input2": [4, 4]}, jit=False
@@ -3099,7 +3103,7 @@ def test_prune_valued_tensor_2():
     )
     model += Add()(left=Tensor(3), right="input2", output=IOKey("output2"))
 
-    backend = JaxBackend(precision=64)
+    backend = JaxBackend(dtype=mithril.float64)
 
     compiled_model = compile(
         model, backend=backend, shapes={"input2": [4, 4]}, jit=False
@@ -3125,7 +3129,7 @@ def test_prune_valued_tensor_3():
         left=IOKey("left2", type=Tensor), right="input2", output=IOKey("output2")
     )
 
-    backend = JaxBackend(precision=64)
+    backend = JaxBackend(dtype=mithril.float64)
 
     compiled_model = compile(
         model,
@@ -3156,7 +3160,7 @@ def test_prune_valued_tensor_4():
         left=IOKey("left2", type=Tensor), right="input3", output=IOKey("output2")
     )
 
-    backend = JaxBackend(precision=64)
+    backend = JaxBackend(dtype=mithril.float64)
 
     compiled_model = compile(
         model,
@@ -3230,7 +3234,7 @@ def test_prune_duplicate_grad():
     model += mm3(left=mm1.output, right=div2.output)
     model += Add()(left=mm2.output, right=mm3.output, output="output")
 
-    backend = NumpyBackend(precision=64)
+    backend = NumpyBackend(dtype=mithril.float64)
     pm = compile(
         model,
         backend=backend,
@@ -3316,7 +3320,7 @@ def test_prune_tensor_match():
     )
     model += Add()(left="input1", right="input2", output=IOKey(name="output2"))
     model += Add()(left="input1", right="input2", output=IOKey(name="output3"))
-    backend = JaxBackend(precision=64)
+    backend = JaxBackend(dtype=mithril.float64)
 
     pm = compile(
         model,
@@ -3338,7 +3342,7 @@ def test_arange_1():
     ] = [TorchBackend, JaxBackend, NumpyBackend, MlxBackend]
     for backend_class in backends:
         if backend_class.is_installed:
-            backend = backend_class(precision=32)
+            backend = backend_class()
             cm = compile(
                 m,
                 backend,
@@ -3358,7 +3362,7 @@ def test_arange_2():
     backends: list[type[Backend]] = [TorchBackend, JaxBackend, NumpyBackend, MlxBackend]
     for backend_class in backends:
         if backend_class.is_installed:
-            backend = backend_class(precision=32)
+            backend = backend_class()
             cm = compile(m, backend, inference=True)
             np.testing.assert_allclose(
                 expected_result,
@@ -3378,7 +3382,7 @@ def test_arange_3():
     ] = [TorchBackend, JaxBackend, NumpyBackend, MlxBackend]
     for backend_class in backends:
         if backend_class.is_installed:
-            backend = backend_class(precision=32)
+            backend = backend_class()
             cm = compile(m, backend, inference=True)  # type: ignore
             out = cm.evaluate({})["output"]
             assert isinstance(out, backend.DataType)
@@ -3410,7 +3414,7 @@ def test_size():
     for model, expected_result in zip(models, expected_results, strict=False):
         for backend_class in backends:
             if backend_class.is_installed:
-                backend = backend_class(precision=32)
+                backend = backend_class()
                 cm = compile(model, backend, data_keys={"input"}, inference=True)
                 np.testing.assert_allclose(
                     expected_result,
@@ -3554,7 +3558,7 @@ def test_replace_with_primitive_5():
 
 
 def test_generate_gradients():
-    backend = NumpyBackend(precision=32)
+    backend = NumpyBackend()
     model = Model()
     model += Linear(8)(input="input", output=IOKey(name="output"))
     model += Linear(16)(input=model.canonical_output, output=IOKey(name="output2"))
@@ -3604,7 +3608,7 @@ def test_generate_gradients():
 
 
 def test_evaluate_all_2():
-    backend = NumpyBackend(precision=32)
+    backend = NumpyBackend()
     model = Model()
     model += Linear(8)(input="input", output=IOKey(name="output"))
     model += Linear(16)(input=model.canonical_output, output=IOKey(name="output2"))
@@ -3750,7 +3754,7 @@ def test_flatgraph_3():
 
 
 def test_flatgraph_4():
-    backend = TorchBackend(precision=64)
+    backend = TorchBackend(dtype=mithril.float64)
     model_1 = Model()
     model_1 += Relu()(input="relu_1", output=IOKey(name="output_1"))
     model_1 += Relu()(input="relu_2", output=IOKey(name="output_2"))
@@ -4539,7 +4543,7 @@ def test_metadata_dict_update():
 
 
 def test_infer_static_register_fn():
-    jax_backend = JaxBackend(precision=64)
+    jax_backend = JaxBackend(dtype=mithril.float64)
 
     def my_adder(left, right):
         return left + right
@@ -4581,7 +4585,7 @@ def test_infer_static_register_fn():
 def test_add_loss_coef():
     # Test with single regularization and single reduce (mean) operation
     tolerance = 1e-15
-    backend = TorchBackend(precision=64)
+    backend = TorchBackend(dtype=mithril.float64)
     model = Model()
     model += Multiply()(
         left=IOKey("left", type=Tensor),
@@ -4638,7 +4642,7 @@ def test_cycle_extend():
 
 
 def test_cycle_handling_1():
-    backend = TorchBackend(precision=64)
+    backend = TorchBackend(dtype=mithril.float64)
     model = Model()
 
     model_2 = Model()
@@ -4748,7 +4752,7 @@ def test_cycle_handling_1():
 
 
 def test_cycle_handling_2():
-    backend = TorchBackend(precision=64)
+    backend = TorchBackend(dtype=mithril.float64)
     model = Model()
     model_1 = Model()
     model_1 += Relu()(input="input1", output=IOKey(name="output1"))
@@ -4873,7 +4877,7 @@ def test_cycle_handling_2():
 
 
 def test_cycle_handling_3():
-    backend = TorchBackend(precision=64)
+    backend = TorchBackend(dtype=mithril.float64)
     model = Model()
 
     model_1 = Model()
@@ -5023,7 +5027,7 @@ def test_cycle_handling_3():
     "Can not generate the right code when leaky relu slope is " "not exposed."
 )
 def test_cycle_handling_3_error_if_slope_not_exposed():
-    backend = TorchBackend(precision=64)
+    backend = TorchBackend(dtype=mithril.float64)
     model = Model()
 
     model_1 = Model()
@@ -6548,7 +6552,7 @@ def test_to_tensor():
     input2 = [False, True, False]  # bool
 
     # Test for torch
-    pm_torch = compile(model, TorchBackend(precision=64))
+    pm_torch = compile(model, TorchBackend(dtype=mithril.float64))
     result_torch = pm_torch.evaluate({}, {"input": input1})["output"]
     assert isinstance(result_torch, torch.Tensor)
     expected_torch = torch.tensor(input1, dtype=torch.float64)
@@ -6560,7 +6564,7 @@ def test_to_tensor():
     assert (result_torch == expected_torch).all()
 
     # Test for Jax
-    pm_jax = compile(model, JaxBackend(precision=64), jit=False)
+    pm_jax = compile(model, JaxBackend(dtype=mithril.float64), jit=False)
     result = pm_jax.evaluate({}, {"input": input1})["output"]
     assert isinstance(result, jax.numpy.ndarray)
     expected = jax.numpy.array(input1, jax.numpy.float64)
@@ -6573,7 +6577,7 @@ def test_to_tensor():
 
     # Test for MLX
     if platform.system() == "Darwin":
-        pm_mlx = compile(model, MlxBackend(precision=32))
+        pm_mlx = compile(model, MlxBackend())
         result_mlx = pm_mlx.evaluate({}, {"input": input1})["output"]
         assert isinstance(result_mlx, mx.array)
         expected_mlx = mx.array(input1, mx.float32)
@@ -6585,7 +6589,7 @@ def test_to_tensor():
         assert (result_mlx == expected).all()  # type: ignore
 
     # Test for Numpy
-    pm_numpy = compile(model, NumpyBackend(precision=64), jit=False)
+    pm_numpy = compile(model, NumpyBackend(dtype=mithril.float64), jit=False)
     result_numpy = pm_numpy.evaluate({}, {"input": input1})["output"]
     assert isinstance(result_numpy, np.ndarray)
     expected_numpy = np.array(input1, np.float64)
@@ -6804,7 +6808,7 @@ def test_numpy_type_promotion_1():
     # In Numpy types are promoted if same precision float and int are used
     # float16 + int16 -> float32
 
-    backend = NumpyBackend(precision=16)
+    backend = NumpyBackend(dtype=mithril.float16)
 
     model = Model()
     model += Add()(left="left", right="right", output="out1")
@@ -6839,7 +6843,7 @@ def test_numpy_type_promotion_2():
     # In Numpy types are promoted if same precision float and int are used
     # float32 + int32 -> float64
 
-    backend = NumpyBackend(precision=32)
+    backend = NumpyBackend()
 
     model = Model()
     model += Add()(left="left", right="right", output="out1")
@@ -6875,7 +6879,7 @@ def test_numpy_type_promotion_3():
     # float16 + int16 -> float32
     # static inference
 
-    backend = NumpyBackend(precision=16)
+    backend = NumpyBackend(dtype=mithril.float16)
 
     model = Model()
     model += Add()(left="left", right="right", output="out1")
@@ -6908,7 +6912,7 @@ def test_numpy_type_promotion_4():
     # float32 + int32 -> float64
     # static inference
 
-    backend = NumpyBackend(precision=32)
+    backend = NumpyBackend()
 
     model = Model()
     model += Add()(left="left", right="right", output="out1")
@@ -6940,7 +6944,7 @@ def test_numpy_type_promotion_5():
     # In Numpy types are promoted if same precision float and int are used
     # float16 + int16 -> float32
 
-    backend = NumpyBackend(precision=16)
+    backend = NumpyBackend(dtype=mithril.float16)
 
     model = Model()
     model += Add()(left="left", right="right", output="out1")
@@ -7104,25 +7108,21 @@ def test_create_shape_map_error_2():
 
 
 def test_constant_1():
-    precision = 64
-    backend = NumpyBackend(precision=precision)
+    backend = NumpyBackend(dtype=mithril.float64)
     model = Model()
     model += Add()(
         left=Tensor([0, 0]), right=Tensor(Constant.EPSILON), output=IOKey("out")
     )
     pm = compile(model, backend, inference=True)
 
-    expected = np.array(
-        [epsilon_table[precision][Constant.EPSILON]] * 2, dtype=np.float64
-    )
+    expected = np.array([epsilon_table[64][Constant.EPSILON]] * 2, dtype=np.float64)
     out = pm.evaluate()["out"]
     assert isinstance(out, np.ndarray)
     np.testing.assert_almost_equal(out, expected, 20)
 
 
 def test_constant_2():
-    precision = 64
-    backend = NumpyBackend(precision=precision)
+    backend = NumpyBackend(dtype=mithril.float64)
     model = Model()
     model += Add()(
         left=Tensor([0, 0]),
@@ -7131,34 +7131,28 @@ def test_constant_2():
     )
     pm = compile(model, backend, inference=True)
 
-    expected = np.array(
-        [epsilon_table[precision][Constant.EPSILON]] * 2, dtype=np.float64
-    )
+    expected = np.array([epsilon_table[64][Constant.EPSILON]] * 2, dtype=np.float64)
     out = pm.evaluate()["out"]
     assert isinstance(out, np.ndarray)
     np.testing.assert_almost_equal(out, expected, 20)
 
 
 def test_constant_3():
-    precision = 32
-    backend = NumpyBackend(precision=precision)
+    backend = NumpyBackend(dtype=mithril.float32)
     model = Model()
     model += Add()(
         left=Tensor([0, 0]), right=Tensor(Constant.EPSILON), output=IOKey("out")
     )
     pm = compile(model, backend, inference=True)
 
-    expected = np.array(
-        [epsilon_table[precision][Constant.EPSILON]] * 2, dtype=np.float32
-    )
+    expected = np.array([epsilon_table[32][Constant.EPSILON]] * 2, dtype=np.float32)
     out = pm.evaluate()["out"]
     assert isinstance(out, np.ndarray)
     np.testing.assert_almost_equal(out, expected, 20)
 
 
 def test_constant_4():
-    precision = 32
-    backend = NumpyBackend(precision=precision)
+    backend = NumpyBackend(dtype=mithril.float32)
     model = Model()
     model += Add()(
         left=Tensor([0, 0]),
@@ -7167,9 +7161,7 @@ def test_constant_4():
     )
     pm = compile(model, backend, inference=True)
 
-    expected = np.array(
-        [epsilon_table[precision][Constant.EPSILON]] * 2, dtype=np.float32
-    )
+    expected = np.array([epsilon_table[32][Constant.EPSILON]] * 2, dtype=np.float32)
     out = pm.evaluate()["out"]
     assert isinstance(out, np.ndarray)
     np.testing.assert_almost_equal(out, expected, 20)

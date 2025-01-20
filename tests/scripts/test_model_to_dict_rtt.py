@@ -55,7 +55,7 @@ def test_linear_expose():
     assert model_dict_created == model_dict_recreated
     assert_models_equal(model, model_recreated)
 
-    backend = JaxBackend(precision=64)
+    backend = JaxBackend(dtype=mithril.float64)
     assert_evaluations_equal(
         model, model_recreated, backend, static_keys={"input": backend.ones([4, 256])}
     )
@@ -77,7 +77,7 @@ def test_linear_expose_set_shapes():
     assert model.shapes == model_recreated.shapes
     assert_models_equal(model, model_recreated)
 
-    backend = JaxBackend(precision=64)
+    backend = JaxBackend(dtype=mithril.float64)
     assert_evaluations_equal(
         model, model_recreated, backend, static_keys={"input": backend.ones([4, 256])}
     )
@@ -99,7 +99,7 @@ def test_linear_expose_set_shapes_extend_from_inputs():
     assert model.shapes == model_recreated.shapes
     assert_models_equal(model, model_recreated)
 
-    backend = JaxBackend(precision=64)
+    backend = JaxBackend(dtype=mithril.float64)
     assert_evaluations_equal(
         model, model_recreated, backend, static_keys={"input": backend.ones([4, 256])}
     )
@@ -118,7 +118,7 @@ def test_linear_set_diff():
     assert model_dict_created == model_dict_recreated
     assert_models_equal(model, model_recreated)
 
-    backend = JaxBackend(precision=64)
+    backend = JaxBackend(dtype=mithril.float64)
     assert_evaluations_equal(
         model,
         model_recreated,
@@ -142,7 +142,7 @@ def test_linear_expose_2():
     assert model_dict_created == model_dict_recreated
     assert_models_equal(model, model_recreated)
 
-    backend = JaxBackend(precision=64)
+    backend = JaxBackend(dtype=mithril.float64)
     assert_evaluations_equal(
         model, model_recreated, backend, static_keys={"input": backend.ones([4, 256])}
     )
@@ -158,7 +158,7 @@ def test_linear_not_expose():
     assert model_dict_created == model_dict_recreated
     assert_models_equal(model, model_recreated)
 
-    backend = JaxBackend(precision=64)
+    backend = JaxBackend(dtype=mithril.float64)
     assert_evaluations_equal(
         model, model_recreated, backend, static_keys={"input": backend.ones([4, 256])}
     )
@@ -177,7 +177,7 @@ def test_constant_key():
     assert model_dict_created == model_dict_recreated
     assert_models_equal(model2, model_recreated)
 
-    backend = JaxBackend(precision=64)
+    backend = JaxBackend(dtype=mithril.float64)
     assert_evaluations_equal(
         model2,
         model_recreated,
@@ -211,7 +211,7 @@ def test_constant_key_2():
     assert model_dict_created == model_dict_recreated
     assert_models_equal(model2, model_recreated)
 
-    backend = JaxBackend(precision=64)
+    backend = JaxBackend(dtype=mithril.float64)
     assert_evaluations_equal(
         model2, model_recreated, backend, static_keys={"input": backend.ones([4, 256])}
     )
@@ -226,7 +226,7 @@ def test_linear_directly():
     assert model_dict_created == model_dict_recreated
     assert_models_equal(model, model_recreated)
 
-    backend = JaxBackend(precision=64)
+    backend = JaxBackend(dtype=mithril.float64)
     assert_evaluations_equal(
         model, model_recreated, backend, static_keys={"input": backend.ones([4, 256])}
     )
@@ -242,7 +242,7 @@ def test_mlp_directly():
     assert model_dict_created == model_dict_recreated
     assert_models_equal(model, model_recreated)
 
-    backend = JaxBackend(precision=64)
+    backend = JaxBackend(dtype=mithril.float64)
     assert_evaluations_equal(
         model, model_recreated, backend, static_keys={"input": backend.ones([4, 256])}
     )
@@ -263,7 +263,7 @@ def test_composite_1():
     assert model_dict_created == model_dict_recreated
     assert_models_equal(model, model_recreated)
 
-    backend = JaxBackend(precision=64)
+    backend = JaxBackend(dtype=mithril.float64)
     assert_evaluations_equal(
         model, model_recreated, backend, static_keys={"input": backend.ones([4, 256])}
     )
@@ -286,7 +286,7 @@ def test_composite_2():
     assert model_dict_created == model_dict_recreated
     assert_models_equal(model, model_recreated)
 
-    backend = JaxBackend(precision=64)
+    backend = JaxBackend(dtype=mithril.float64)
     assert_evaluations_equal(
         model, model_recreated, backend, static_keys={"input": backend.ones([4, 256])}
     )
@@ -307,7 +307,7 @@ def test_composite_2_1():
     assert model_dict_created == model_dict_recreated
     assert_models_equal(model, model_recreated)
 
-    backend = JaxBackend(precision=64)
+    backend = JaxBackend(dtype=mithril.float64)
     assert_evaluations_equal(
         model, model_recreated, backend, static_keys={"input": backend.ones([4, 256])}
     )
@@ -326,7 +326,7 @@ def test_composite_2_2():
     assert model_dict_created == model_dict_recreated
     assert_models_equal(model, model_recreated)
 
-    backend = JaxBackend(precision=64)
+    backend = JaxBackend(dtype=mithril.float64)
     assert_evaluations_equal(
         model, model_recreated, backend, static_keys={"input": backend.ones([4, 256])}
     )
@@ -345,7 +345,7 @@ def test_composite_2_3():
     assert model_dict_created == model_dict_recreated
     assert_models_equal(model, model_recreated)
 
-    backend = JaxBackend(precision=64)
+    backend = JaxBackend(dtype=mithril.float64)
     assert_evaluations_equal(
         model, model_recreated, backend, static_keys={"input": backend.ones([4, 256])}
     )
@@ -369,7 +369,7 @@ def test_composite_3():
     assert model_dict_created == model_dict_recreated
     assert_models_equal(model, model_recreated)
 
-    backend = JaxBackend(precision=64)
+    backend = JaxBackend(dtype=mithril.float64)
     assert_evaluations_equal(
         model,
         model_recreated,
@@ -396,7 +396,7 @@ def test_composite_4():
     assert model_dict_created == model_dict_recreated
     assert_models_equal(model, model_recreated)
 
-    backend = JaxBackend(precision=64)
+    backend = JaxBackend(dtype=mithril.float64)
     assert_evaluations_equal(
         model, model_recreated, backend, static_keys={"input": backend.ones([4, 256])}
     )
@@ -420,7 +420,7 @@ def test_composite_5():
     assert model_dict_created == model_dict_recreated
     assert_models_equal(model, model_recreated)
 
-    backend = JaxBackend(precision=64)
+    backend = JaxBackend(dtype=mithril.float64)
     assert_evaluations_equal(
         model,
         model_recreated,
@@ -447,7 +447,7 @@ def test_composite_6():
     assert model_dict_created == model_dict_recreated
     assert_models_equal(model, model_recreated)
 
-    backend = JaxBackend(precision=64)
+    backend = JaxBackend(dtype=mithril.float64)
     assert_evaluations_equal(
         model,
         model_recreated,
@@ -469,7 +469,7 @@ def test_composite_7():
     assert model_dict_created == model_dict_recreated
     assert_models_equal(model, model_recreated)
 
-    backend = JaxBackend(precision=64)
+    backend = JaxBackend(dtype=mithril.float64)
     assert_evaluations_equal(
         model, model_recreated, backend, static_keys={"input2": backend.ones([4, 256])}
     )
@@ -486,7 +486,7 @@ def test_composite_8():
     assert model_dict_created == model_dict_recreated
     assert_models_equal(model, model_recreated)
 
-    backend = JaxBackend(precision=64)
+    backend = JaxBackend(dtype=mithril.float64)
     assert_evaluations_equal(
         model,
         model_recreated,
@@ -512,7 +512,7 @@ def test_composite_9():
     assert model_dict_created == model_dict_recreated
     assert_models_equal(model, model_recreated)
 
-    backend = JaxBackend(precision=64)
+    backend = JaxBackend(dtype=mithril.float64)
     assert_evaluations_equal(
         model, model_recreated, backend, static_keys={"input": backend.ones([4, 256])}
     )
@@ -539,7 +539,7 @@ def test_composite_10():
     assert model_dict_created == model_dict_recreated
     assert_models_equal(model, model_recreated)
 
-    backend = JaxBackend(precision=64)
+    backend = JaxBackend(dtype=mithril.float64)
     assert_evaluations_equal(
         model, model_recreated, backend, static_keys={"input": backend.ones([4, 256])}
     )
@@ -566,7 +566,7 @@ def test_composite_10_expose_false():
     assert model_dict_created == model_dict_recreated
     assert_models_equal(model, model_recreated)
 
-    backend = JaxBackend(precision=64)
+    backend = JaxBackend(dtype=mithril.float64)
     assert_evaluations_equal(
         model, model_recreated, backend, static_keys={"input": backend.ones([4, 256])}
     )
@@ -610,7 +610,7 @@ def test_composite_12():
 
     assert model_dict_created == model_dict_recreated
 
-    backend = JaxBackend(precision=64)
+    backend = JaxBackend(dtype=mithril.float64)
     assert_evaluations_equal(
         model, model_recreated, backend, static_keys={"input": backend.ones([4, 256])}
     )
@@ -644,7 +644,7 @@ def test_composite_13():
 
     assert model_dict_created == model_dict_recreated
 
-    backend = JaxBackend(precision=64)
+    backend = JaxBackend(dtype=mithril.float64)
     assert_evaluations_equal(
         model, model_recreated, backend, static_keys={"input": backend.ones([4, 256])}
     )
@@ -663,7 +663,7 @@ def test_basic_extend_from_input():
 
     assert model_dict_created == model_dict_recreated
 
-    backend = JaxBackend(precision=64)
+    backend = JaxBackend(dtype=mithril.float64)
     assert_evaluations_equal(
         model, model_recreated, backend, static_keys={"input": backend.ones([4, 256])}
     )
@@ -680,7 +680,7 @@ def test_auto_iadd_1():
     assert model_dict_created == model_dict_recreated
     assert_models_equal(model, model_recreated)
 
-    backend = JaxBackend(precision=64)
+    backend = JaxBackend(dtype=mithril.float64)
     assert_evaluations_equal(
         model,
         model_recreated,
@@ -701,7 +701,7 @@ def test_auto_iadd_2():
     assert model_dict_created == model_dict_recreated
     assert_models_equal(model, model_recreated)
 
-    backend = JaxBackend(precision=64)
+    backend = JaxBackend(dtype=mithril.float64)
     assert_evaluations_equal(
         model,
         model_recreated,
@@ -723,7 +723,7 @@ def test_convolution():
     assert model_dict_created == model_dict_recreated
     assert_models_equal(model, model_recreated)
 
-    backend = JaxBackend(precision=64)
+    backend = JaxBackend(dtype=mithril.float64)
     assert_evaluations_equal(
         model,
         model_recreated,
@@ -744,7 +744,7 @@ def test_tbd():
     assert model_dict_created == model_dict_recreated
     assert_models_equal(model, model_recreated)
 
-    backend = JaxBackend(precision=64)
+    backend = JaxBackend(dtype=mithril.float64)
     assert_evaluations_equal(
         model,
         model_recreated,
@@ -774,7 +774,7 @@ def test_train_context_1():
     assert context_dict == context_dict_recreated
     assert_models_equal(context, context_recreated)
 
-    backend = TorchBackend(precision=64)
+    backend = TorchBackend(dtype=mithril.float64)
     assert_evaluations_equal(
         context,
         context_recreated,
@@ -809,7 +809,7 @@ def test_train_context_2():
     assert context_dict == context_dict_recreated
     assert_models_equal(context, context_recreated)
 
-    backend = TorchBackend(precision=64)
+    backend = TorchBackend(dtype=mithril.float64)
     assert_evaluations_equal(
         context,
         context_recreated,
@@ -844,7 +844,7 @@ def test_set_values_constant_1():
     assert model_dict_created == model_dict_recreated
     assert_models_equal(model, model_recreated)
 
-    backend = JaxBackend(precision=64)
+    backend = JaxBackend(dtype=mithril.float64)
     assert_evaluations_equal(
         model,
         model_recreated,
@@ -879,7 +879,7 @@ def test_set_values_constant_2():
     assert model_dict_created == model_dict_recreated
     assert_models_equal(model, model_recreated)
 
-    backend = JaxBackend(precision=64)
+    backend = JaxBackend(dtype=mithril.float64)
     assert_evaluations_equal(
         model,
         model_recreated,
