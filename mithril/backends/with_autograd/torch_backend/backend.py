@@ -69,7 +69,7 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
         self.array_creation_funcs = ops.array_creation_funcs
         self.primitive_function_dict = ops.primitive_func_dict
 
-        self.generator = torch.Generator(device=self.device).manual_seed(0)
+        self._generator = torch.Generator(device=self.device).manual_seed(0)
 
     @property
     def is_manualgrad(self) -> bool:
@@ -115,7 +115,7 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
 
     def set_seed(self, seed: int):
         self.seed = seed
-        self.generator.manual_seed(seed)
+        self._generator.manual_seed(seed)
 
     def to_device(self, data: torch.Tensor, device: str, asynchronous: bool = False):
         """Move data to the specified device.
@@ -662,7 +662,7 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
 
     def _get_generator(self, key: int | None):
         if key is None:
-            return self.generator
+            return self._generator
         else:
             return torch.Generator(device=self.device).manual_seed(key)
 
