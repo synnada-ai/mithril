@@ -15,7 +15,7 @@
 from __future__ import annotations
 
 import abc
-from collections.abc import Mapping
+from collections.abc import KeysView, Mapping
 from dataclasses import dataclass
 from itertools import chain
 from types import UnionType
@@ -24,8 +24,7 @@ from typing import Any
 from ...utils.utils import OrderedSet
 from ..common import (
     NOT_AVAILABLE,
-    NOT_GIVEN,
-    TBD,
+    AssignedConstraintType,
     Connection,
     ConnectionData,
     Connections,
@@ -33,20 +32,15 @@ from ..common import (
     Constraint,
     ConstraintFunctionType,
     ConstraintSolver,
-    ExtendTemplate,
     IOHyperEdge,
-    IOKey,
-    MainValueInstance,
     MainValueType,
-    NestedListType,
     NotAvailable,
-    Scalar,
+    ScalarType,
     ShapeNode,
     ShapesType,
     ShapeTemplateType,
     ShapeType,
     Tensor,
-    TensorValueType,
     ToBeDetermined,
     UniadicRecord,
     Updates,
@@ -65,7 +59,7 @@ class ExtendInfo:
     _model: BaseModel
     _connections: dict[str, ConnectionType]
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         external_keys = set(self._model.external_keys)
         if self._model.canonical_input is not NOT_AVAILABLE:
             external_keys.add(self._model.canonical_input.key)
@@ -77,11 +71,11 @@ class ExtendInfo:
                 raise KeyError(f"Key '{key}' is not a valid key for the model!")
 
     @property
-    def model(self):
+    def model(self) -> BaseModel:
         return self._model
 
     @property
-    def connections(self):
+    def connections(self) -> dict[str, ConnectionType]:
         return self._connections
 
 
@@ -95,52 +89,18 @@ class BaseModel(abc.ABC):
     factory_args: dict[str, Any] = {}
 
     def __call__(self, **kwargs: ConnectionType) -> ExtendInfo:
-        for key, val in self.factory_inputs.items():
-            if val is not TBD:
-                if key not in kwargs or (con := kwargs[key]) is NOT_GIVEN:
-                    kwargs[key] = val  # type: ignore
-                    continue
-                match con:
-                    case Connection():
-                        kwargs[key] = IOKey(value=val, connections={con})
-                        # TODO: Maybe we could check con's value if matches with val
-                    case item if isinstance(item, MainValueInstance) and con != val:
-                        raise ValueError(
-                            f"Given value {con} for local key: '{key}' "
-                            f"has already being set to {val}!"
-                        )
-                    case str():
-                        kwargs[key] = IOKey(name=con, value=val, expose=False)
-                    case IOKey():
-                        if con.data.value is not TBD and con.data.value != val:
-                            raise ValueError(
-                                f"Given IOKey for local key: '{key}' is not valid!"
-                            )
-                        else:
-                            kwargs[key] = IOKey(
-                                name=con.name,
-                                expose=con.expose,
-                                connections=con.connections,
-                                type=con.data.type,
-                                shape=con.data.shape,
-                                value=val,
-                            )
-                    case ExtendTemplate():
-                        raise ValueError(
-                            "Multi-write detected for a valued "
-                            f"local key: '{key}' is not valid!"
-                        )
         return ExtendInfo(self, kwargs)
 
     def __init__(self, name: str | None = None, enforce_jit: bool = True) -> None:
         self.parent: BaseModel | None = (
             None  # TODO: maybe set it only to PrimitiveModel / Model.
         )
-        self.factory_inputs: dict[
-            str, TensorValueType | MainValueType | ToBeDetermined
-        ] = {}
         self.assigned_shapes: list[ShapesType] = []
-        self.assigned_constraints: list[dict[str, str | list[str]]] = []
+        self.assigned_types: dict[
+            str,
+            type | UnionType | ScalarType | Tensor[Any],
+        ] = {}
+        self.assigned_constraints: list[AssignedConstraintType] = []
         self.conns = Connections()
         self.frozen_attributes: list[str] = []
         self.dependency_map = DependencyMap(self.conns)
@@ -179,23 +139,25 @@ class BaseModel(abc.ABC):
         return self._jittable
 
     @property
-    def shapes(self):
+    def shapes(
+        self,
+    ) -> Mapping[str, ShapeTemplateType | list[ShapeTemplateType] | None]:
         return self.get_shapes()
 
     @property
-    def external_keys(self):
+    def external_keys(self) -> KeysView[str]:
         return self.conns.io_keys
 
     @property
-    def input_keys(self):
+    def input_keys(self) -> KeysView[str]:
         return self.conns.input_keys
 
     @property
-    def _all_keys(self):
+    def _all_keys(self) -> KeysView[str]:
         return self.conns.all.keys()
 
     @property
-    def output_keys(self):
+    def output_keys(self) -> list[str]:
         output_keys = list(self.conns.output_keys)
         if (
             self.canonical_output is not NOT_AVAILABLE
@@ -204,12 +166,12 @@ class BaseModel(abc.ABC):
             output_keys.append("#canonical_output")
         return output_keys
 
-    def check_extendability(self):
+    def check_extendability(self) -> None:
         # Check possible errors before the extension.
         if self.parent is not None:
             raise AttributeError("Submodel of a model could not be extended!")
 
-    def _get_outermost_parent(self):
+    def _get_outermost_parent(self) -> BaseModel:
         model = self
         while model.parent is not None:
             model = model.parent
@@ -223,7 +185,7 @@ class BaseModel(abc.ABC):
     ) -> dict[str, str]:
         return {}
 
-    def __setattr__(self, name: str, value: Any):
+    def __setattr__(self, name: str, value: Any) -> None:
         # You need to be careful here to avoid infinite recursion
         if (
             getattr(self, "frozen_attributes", None) is not None
@@ -243,8 +205,8 @@ class BaseModel(abc.ABC):
     def extract_connection_info(
         self,
         name_mappings: dict[BaseModel, str],
-        data_to_key_map: dict[Tensor | Scalar, list[str]] | None = None,
-        data_memo: Mapping[int, Tensor | Scalar] | None = None,
+        data_to_key_map: dict[IOHyperEdge, list[str]] | None = None,
+        data_memo: Mapping[int, IOHyperEdge] | None = None,
     ) -> dict[str, tuple[dict[str, list[str]], dict[str, list[str]]]]:
         raise NotImplementedError("Implement extract_connection_info method!")
 
@@ -303,6 +265,12 @@ class BaseModel(abc.ABC):
         # Apply updates to the shape nodes.
         for key in chain(shapes, kwargs):
             node, _inner_key = shape_nodes[key]
+            if (
+                metadata := self.conns.get_data(_inner_key)
+            ).edge_type is ToBeDetermined:
+                # If edge_type is not defined yet, set it to Tensor since
+                # shape is provided.
+                updates |= metadata.set_type(Tensor)
             shape_node = self.conns.get_shape_node(_inner_key)
             assert shape_node is not None
             updates |= shape_node.merge(node)
@@ -312,7 +280,9 @@ class BaseModel(abc.ABC):
 
         model.constraint_solver(updates)
 
-    def _set_value(self, key: ConnectionData, value: MainValueType | str) -> Updates:
+    def _set_value(
+        self, key: ConnectionData, value: MainValueType | Tensor[Any] | str
+    ) -> Updates:
         """
         Set value for the given connection.
 
@@ -327,7 +297,7 @@ class BaseModel(abc.ABC):
         if key.key not in self.conns.input_keys:
             raise ValueError("Values of internal and output keys cannot be set.")
         # Data is scalar, set the value directly.
-        return key.metadata.data.set_value(value)  # type: ignore
+        return key.metadata.set_value(value)
 
     def set_shapes(
         self, config: ShapesType | None = None, **kwargs: ShapeTemplateType
@@ -338,11 +308,11 @@ class BaseModel(abc.ABC):
 
     def set_values(
         self,
-        config: Mapping[str | Connection, MainValueType | str]
-        | Mapping[Connection, MainValueType | str]
-        | Mapping[str, MainValueType | str]
+        config: Mapping[str | Connection, Tensor[Any] | MainValueType | str]
+        | Mapping[Connection, Tensor[Any] | MainValueType | str]
+        | Mapping[str, Tensor[Any] | MainValueType | str]
         | None = None,
-        **kwargs: MainValueType | str,
+        **kwargs: Tensor[Any] | MainValueType | str,
     ) -> None:
         """
         Set multiple values in the model.
@@ -367,17 +337,6 @@ class BaseModel(abc.ABC):
         # Make all value updates in the outermost model.s
         model = self._get_outermost_parent()
         updates = Updates()
-        # TODO: Currently Setting values in fozen models are prevented only for Tensors.
-        # Scalar and Tensors should not be operated differently. This should be fixed.
-        for key in chain(config, kwargs):
-            metadata = self.conns.extract_metadata(key)
-            if isinstance(metadata.data, Tensor) and model.is_frozen:
-                conn_data = model.conns.get_con_by_metadata(metadata)
-                assert conn_data is not None
-                raise ValueError(
-                    f"Model is frozen, can not set the key: {conn_data.key}!"
-                )
-
         for key, value in chain(config.items(), kwargs.items()):
             # Perform metadata extraction process on self.
             metadata = self.conns.extract_metadata(key)
@@ -391,12 +350,21 @@ class BaseModel(abc.ABC):
 
     def set_types(
         self,
-        config: Mapping[str | Connection, type | UnionType | NestedListType]
-        | Mapping[Connection, type | UnionType | NestedListType]
-        | Mapping[str, type | UnionType | NestedListType]
+        config: Mapping[
+            str | Connection,
+            type | UnionType | ScalarType | type[Tensor[Any]],
+        ]
+        | Mapping[
+            Connection,
+            type | UnionType | ScalarType | type[Tensor[Any]],
+        ]
+        | Mapping[
+            str,
+            type | UnionType | ScalarType | type[Tensor[Any]],
+        ]
         | None = None,
-        **kwargs: type | UnionType | NestedListType,
-    ):
+        **kwargs: type | UnionType | ScalarType | type[Tensor[Any]],
+    ) -> None:
         """
         Set types of any connection in the Model
 
@@ -414,14 +382,24 @@ class BaseModel(abc.ABC):
         """
         if config is None:
             config = {}
+        # Initialize assigned shapes dictionary to store assigned shapes.
+        assigned_types: dict[
+            str,
+            type | UnionType | ScalarType | Tensor[Any],
+        ] = {}
 
         # Get the outermost parent as all the updates will happen here.
         model = self._get_outermost_parent()
         updates = Updates()
         for key, key_type in chain(config.items(), kwargs.items()):
             metadata = self.conns.extract_metadata(key)
-            data = metadata.data
-            updates |= data.set_type(key_type)  # type: ignore
+            conn = self.conns.get_con_by_metadata(metadata)
+            assert conn is not None
+            inner_key = conn.key
+            assigned_types[inner_key] = key_type
+            updates |= metadata.set_type(key_type)
+        # Store assigned types in the model.
+        self.assigned_types |= assigned_types
         # Run the constraints for updating affected connections.
         model.constraint_solver(updates)
 
@@ -433,9 +411,7 @@ class BaseModel(abc.ABC):
         verbose: bool = False,
     ) -> Mapping[str, ShapeTemplateType | list[ShapeTemplateType] | None]:
         return get_shapes(
-            data_dict={
-                key: value.metadata.data for key, value in self.conns.all.items()
-            },
+            data_dict={key: value.metadata for key, value in self.conns.all.items()},
             uniadic_keys=uni_keys,
             varadic_keys=var_keys,
             symbolic=symbolic,
@@ -449,7 +425,7 @@ class BaseModel(abc.ABC):
         keys: list[str],
         post_processes: set[ConstraintFunctionType] | None = None,
         type: UpdateType | None = None,
-    ):
+    ) -> None:
         all_conns = self.conns.all
         hyper_edges = [all_conns[key].metadata for key in keys]
         if type is None:
@@ -461,7 +437,7 @@ class BaseModel(abc.ABC):
         constr = Constraint(fn=fn, type=type)
         self.constraint_solver.constraint_map[constr] = hyper_edges
         for hyper_edge in hyper_edges:
-            hyper_edge.data.add_constraint(constr)
+            hyper_edge.add_constraint(constr)
 
         # Get union of all given and default post processes for the given
         # constraint and update post_processes field.
@@ -469,9 +445,10 @@ class BaseModel(abc.ABC):
             post_processes = set()
         all_post_processes = post_processes | post_process_map.get(fn, set())
         for post_fn in all_post_processes:
-            constr.add_post_process(post_fn)
+            type = UpdateType.TYPE if post_fn in type_constraints else UpdateType.SHAPE
+            constr.add_post_process((post_fn, type))
 
-        _, updates = constr([hyper_edge.data for hyper_edge in hyper_edges])
+        _, updates = constr(hyper_edges)
         self.constraint_solver(updates)
 
     def set_constraint(
@@ -498,7 +475,7 @@ class BaseModel(abc.ABC):
         else:
             return self._canonical_output.conn
 
-    def set_canonical_input(self, given_conn: str | Connection):
+    def set_canonical_input(self, given_conn: str | Connection) -> None:
         if isinstance(given_conn, str):
             conn = self.conns.all.get(given_conn)
             if conn is None:
@@ -516,7 +493,7 @@ class BaseModel(abc.ABC):
 
         self._canonical_input = conn
 
-    def set_canonical_output(self, given_conn: str | Connection):
+    def set_canonical_output(self, given_conn: str | Connection) -> None:
         if isinstance(given_conn, str):
             conn = self.conns.all.get(given_conn)
             if conn is None:
@@ -535,7 +512,12 @@ class BaseModel(abc.ABC):
         self._canonical_output = conn
 
     def _match_hyper_edges(self, left: IOHyperEdge, right: IOHyperEdge) -> Updates:
-        if type(left.data) is not type(right.data):
+        # if type(left.data) is not type(right.data):
+        l_type = left.edge_type
+        r_type = right.edge_type
+        if ((l_type is Tensor) ^ (r_type is Tensor)) and (
+            ToBeDetermined not in (l_type, r_type)
+        ):
             raise TypeError(
                 "Types of connections are not consistent. Check connection types!"
             )
@@ -563,10 +545,10 @@ class BaseModel(abc.ABC):
         # Update IOHyperEdge's in constraint solver.
         self.constraint_solver.update_constraint_map(left, right)
         # Match data of each IOHyperEdge's.
-        updates = left.data.match(right.data)  # type: ignore
+        updates = left.match(right)
         return updates
 
-    def get_models_in_topological_order(self):
+    def get_models_in_topological_order(self) -> list[BaseModel]:
         dependency_map = self.dependency_map.local_output_dependency_map
         graph = {
             info[0]: OrderedSet(
@@ -587,7 +569,7 @@ class BaseModel(abc.ABC):
         graph: dict[BaseModel, OrderedSet[BaseModel]],
         top_order: list[BaseModel],
         visited: set[BaseModel],
-    ):
+    ) -> None:
         visited.add(node)
         for m in graph[node]:
             if m not in visited:
@@ -631,7 +613,9 @@ class DependencyMap:
         ] = {}
 
     # Add new model to dependency map, model_dag is created in extend
-    def add_model_dag(self, model: BaseModel, model_dag: dict[str, ConnectionData]):
+    def add_model_dag(
+        self, model: BaseModel, model_dag: dict[str, ConnectionData]
+    ) -> None:
         updated_conns: OrderedSet[ConnectionData] = OrderedSet()
         for local_key, conn in model_dag.items():
             if local_key in model.conns.input_keys:
@@ -674,7 +658,7 @@ class DependencyMap:
     # Caches extended connections to avoid traverse
     def cache_internal_references(
         self, output_conn: ConnectionData, dependent_conns: OrderedSet[ConnectionData]
-    ):
+    ) -> None:
         # Be sure all input and output keys has cache entry
         for conn in self.conns.input_connections:
             self._global_input_dependency_map_cache.setdefault(conn, OrderedSet())
@@ -741,13 +725,13 @@ class DependencyMap:
             )
 
     # Caches given input connection for later usage
-    def cache_conn_input_dependency(self, conn: ConnectionData):
+    def cache_conn_input_dependency(self, conn: ConnectionData) -> None:
         if conn not in self._global_input_dependency_map_cache:
             dependents = self.get_output_key_dependency(conn.key)
             self._global_input_dependency_map_cache[conn] = dependents
 
     # Caches given output connection for later usage
-    def cache_conn_output_dependency(self, conn: ConnectionData):
+    def cache_conn_output_dependency(self, conn: ConnectionData) -> None:
         if conn not in self._global_output_dependency_map_cache:
             dependents = self.get_input_key_dependency(conn.key)
             self._global_output_dependency_map_cache[conn] = dependents
@@ -785,7 +769,7 @@ class DependencyMap:
         return dependent_conns
 
     # Update dependecy map
-    def update_all_keys(self):
+    def update_all_keys(self) -> None:
         # This method is used in freeze, because in freeze dependencies changed
         # without updating dependency map.
         self.update_globals(
@@ -810,7 +794,9 @@ class DependencyMap:
 
     # Get dependent input connections if given output connection is cached
     # else returns None
-    def _get_from_output_cache(self, conn: ConnectionData):
+    def _get_from_output_cache(
+        self, conn: ConnectionData
+    ) -> OrderedSet[ConnectionData]:
         dependent_conns = self._global_output_dependency_map_cache.get(
             conn, OrderedSet()
         )
@@ -824,7 +810,7 @@ class DependencyMap:
         return dependent_conns
 
     # Update global dependency maps wrt given connections
-    def update_globals(self, updated_conns: OrderedSet[ConnectionData]):
+    def update_globals(self, updated_conns: OrderedSet[ConnectionData]) -> None:
         for input_conn in self.conns.input_connections:
             self._global_input_dependency_map.setdefault(input_conn, OrderedSet())
 
@@ -867,7 +853,7 @@ class DependencyMap:
             updated_conns |= OrderedSet(dependent_conns)
 
     # Retrieve dependent output connection keys given input key by traversing the graph.
-    def get_input_key_dependency(self, key: str):
+    def get_input_key_dependency(self, key: str) -> OrderedSet[ConnectionData]:
         if (given_conn := self.conns.get_connection(key)) is None:
             raise KeyError("Given key does not belong to the Model!")
         # If there already exists any input keys, add them.
@@ -909,7 +895,7 @@ class DependencyMap:
         return specs
 
     # Retrieve dependent input connection keys given output key by traversing the graph.
-    def get_output_key_dependency(self, key: str):
+    def get_output_key_dependency(self, key: str) -> OrderedSet[ConnectionData]:
         if (given_conn := self.conns.get_connection(key)) is None:
             raise KeyError("Given key does not belong to the Model!")
 
@@ -956,7 +942,9 @@ class DependencyMap:
                     )
             return False
 
-    def merge_global_connections(self, conn1: ConnectionData, conn2: ConnectionData):
+    def merge_global_connections(
+        self, conn1: ConnectionData, conn2: ConnectionData
+    ) -> None:
         conn1_global_out_dependency = self._global_output_dependency_map.get(conn1)
         conn2_global_out_dependency = self._global_output_dependency_map.pop(
             conn2, None
@@ -999,7 +987,7 @@ class DependencyMap:
                 self._global_output_dependency_map[dependent_conn].remove(conn2)
                 self._global_output_dependency_map[dependent_conn].add(conn1)
 
-    def merge_global_caches(self, conn1: ConnectionData, conn2: ConnectionData):
+    def merge_global_caches(self, conn1: ConnectionData, conn2: ConnectionData) -> None:
         conn1_global_out_cache = self._global_output_dependency_map_cache.get(conn1)
         conn2_global_out_cache = self._global_output_dependency_map_cache.pop(
             conn2, None

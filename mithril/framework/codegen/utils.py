@@ -15,7 +15,8 @@
 import ast
 import keyword
 
-from ...backends.backend import Backend, DataType
+from ...backends.backend import Backend
+from ...core import DataType
 from ..common import ShapeNode
 
 

@@ -21,7 +21,6 @@ from typing import Any, Literal, overload
 import numpy as np
 
 from ...backends.with_manualgrad.numpy_backend import NumpyBackend
-from ...core import Dtype
 from ...framework.physical.model import PhysicalModel
 from ...framework.utils import find_intersection_type
 from ...utils.func_utils import is_make_array_required, prepare_function_args
@@ -31,12 +30,13 @@ from ..common import (
     EvaluateGradientsType,
     EvaluateType,
     FinalCost,
+    IOHyperEdge,
     LossKey,
     ParamsEvalType,
     Tensor,
     is_type_adjustment_required,
 )
-from ..logical import PrimitiveModel, Scalar
+from ..logical import PrimitiveModel
 from .python_gen import PythonCodeGen, RawGradientType
 from .utils import check_repr_inequality
 
@@ -50,14 +50,14 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
         assert isinstance(self.pm.backend, NumpyBackend)
         self.backend: NumpyBackend = self.pm.backend
 
-    def generate_functions(self):
+    def generate_functions(self) -> list[ast.FunctionDef]:
         functions: list[ast.FunctionDef] = []
         functions.append(self.generate_evaluate())
         if not self.pm.inference:
             functions.append(self.generate_evaluate_gradients(self.pm.ignore_grad_keys))
         return functions
 
-    def generate_imports(self):
+    def generate_imports(self) -> list[ast.stmt]:
         imports = super().generate_imports()
 
         # Import grad functions
@@ -174,11 +174,12 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
                         out_data = params[_key]
                     else:
                         out_data = _key_cache["output"]
-                # dtype = getattr(self.backend, f"float{self.backend.precision}")
+
                 assert isinstance(out_data, np.ndarray)
-                # dtype = getattr(Dtype, f"float{self.backend.precision}")
-                dtype = Dtype[f"float{self.backend.precision}"]
-                gradients[key] = self.backend.zeros_like(out_data, dtype=dtype)
+
+                gradients[key] = self.backend.zeros_like(
+                    out_data, dtype=self.backend._dtype
+                )
 
             if output_gradients is None:
                 if FinalCost not in self.pm._output_keys:
@@ -210,7 +211,9 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
 
         return self.post_process_fns(eval_fn, grad_fn, jit)  # type: ignore
 
-    def get_primitive_details(self, output_key: str):
+    def get_primitive_details(
+        self, output_key: str
+    ) -> tuple[PrimitiveModel, list[str], list[str]]:
         model = self.pm.flat_graph.get_model(output_key)
 
         global_input_keys = self.pm.flat_graph.get_source_keys(output_key)
@@ -227,7 +230,7 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
         g_input_keys: list[str],
         output_key: str,
         formula_key: str,
-    ):
+    ) -> tuple[ast.Assign, set[str]]:
         generated_fn, used_keys = self.create_primitive_call(
             fn, l_input_keys, g_input_keys
         )
@@ -275,18 +278,20 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
 
         return targets, used_keys
 
-    def get_cache_name(self, output_key: str, model: PrimitiveModel):
+    def get_cache_name(self, output_key: str, model: PrimitiveModel) -> str:
         cache_name = "_".join([output_key, model.cache_name])
         if cache_name not in self.pm.data_store._all_data:
             self.add_cache(model, output_key)
 
         return cache_name
 
-    def add_cache(self, model: PrimitiveModel, output_key: str):
+    def add_cache(self, model: PrimitiveModel, output_key: str) -> None:
         cache_name = "_".join([output_key, model.cache_name])
-        cache_value: dict | None = None if self.pm.inference else {}
-        # Create A object for caches in manualgrad backend.
-        self.pm.data_store.update_data({cache_name: Scalar(dict | None, cache_value)})
+        cache_value: dict[str, Any] | None = None if self.pm.inference else {}
+        # Create a scalar for caches in manualgrad backend.
+        self.pm.data_store.update_data(
+            {cache_name: IOHyperEdge(dict | None, cache_value)}
+        )
 
     def generate_evaluate_gradients(
         self, ignore_grad_keys: set[str]
@@ -307,9 +312,17 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
             key
             for key in all_ignored_keys
             if key in self.pm.data
-            and isinstance(self.pm.data[key], Tensor)
-            and find_intersection_type(self.pm.data[key].type, float)
+            and self.pm.data[key].edge_type is Tensor
+            and find_intersection_type(self.pm.data[key].value_type, float)
         }
+
+        # weak_ignored_keys = set()
+        # for key in all_ignored_keys:
+        #     if key in self.pm.data:
+        #         edge = self.pm.data[key]
+        #         if isinstance(edge._value, Tensor):
+        #             if find_intersection_type(edge._value.type, float):
+        #                     weak_ignored_keys |= {key}
 
         strict_ignored_keys = all_ignored_keys - weak_ignored_keys
 
@@ -489,9 +502,9 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
                     manipulated_key = global_input_key
 
                 if (
-                    isinstance(in_tensor := self.pm.data[global_input_key], Tensor)
-                    and isinstance(out_tensor := self.pm.data[output_key], Tensor)
-                    and check_repr_inequality(in_tensor.shape, out_tensor.shape)
+                    (in_shape := self.pm.data[global_input_key].shape) is not None
+                    and (out_shape := self.pm.data[output_key].shape) is not None
+                    and check_repr_inequality(in_shape, out_shape)
                 ):
                     generated_fn = ast.Call(
                         func=ast.Name(id="accumulate_grads", ctx=ast.Load()),

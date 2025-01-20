@@ -32,12 +32,12 @@ class JaxParallel(Parallel[jax.numpy.ndarray]):
         )
         super().__init__(n_devices)
 
-    def run_callable(self, *primals: jax.Array, fn_name: str):
+    def run_callable(self, *primals: jax.Array, fn_name: str) -> Any:
         return self.callables[fn_name](*primals)
 
     def parallelize(
         self, tensor: jax.Array, device_mesh: tuple[int, ...] | None = None
-    ):
+    ) -> jax.Array:
         # Jax reuqires math.prod(device_mesh) == n_devices. To replicate a dimension
         # call 'replicate' method of Positional Sharding Object. Therefore, we need to
         # transform user provided device mesh to the one that satisfies the condition,
@@ -67,11 +67,13 @@ class JaxParallel(Parallel[jax.numpy.ndarray]):
 
         return jax.device_put(tensor, sharding)
 
-    def register_callable(self, fn: Callable[..., Any], fn_name: str, jit: bool):
+    def register_callable(
+        self, fn: Callable[..., Any], fn_name: str, jit: bool
+    ) -> None:
         if jit:
             fn = jax.jit(fn)
 
         self.callables[fn_name] = fn
 
-    def clean_up(self):
+    def clean_up(self) -> None:
         self.callables = {}

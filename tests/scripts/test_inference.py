@@ -43,7 +43,7 @@ with open(no_grad_inference_tests) as f:
 
 @pytest.mark.parametrize("case", discard_keys_inference_tests_dict)
 def test_discard_keys_inference(case: str) -> None:
-    backend = JaxBackend(precision=64)
+    backend = JaxBackend(dtype=mithril.float64)
     current_case = discard_keys_inference_tests_dict[case]
 
     results = current_case["results"]
@@ -63,7 +63,6 @@ def test_discard_keys_inference(case: str) -> None:
         data_keys=set(),
         constant_keys=dict(),
         trainable_keys=set(),
-        jacobian_keys=set(),
         shapes=dict(),
         inference=True,
         safe_shapes=True,
@@ -82,7 +81,7 @@ def test_discard_keys_inference(case: str) -> None:
 
 @pytest.mark.parametrize("case", static_keys_inference_tests_dict)
 def test_static_keys_inference(case: str) -> None:
-    backend = JaxBackend(precision=64)
+    backend = JaxBackend(dtype=mithril.float64)
     current_case = static_keys_inference_tests_dict[case]
 
     base_static_inputs = {
@@ -98,8 +97,13 @@ def test_static_keys_inference(case: str) -> None:
     discard_keys = set(current_case.get("discard_keys", []))
 
     model = finalize_model(current_case)
+
     compiled_model = mithril.compile(
-        model, backend=backend, discard_keys=discard_keys, constant_keys=static_inputs
+        model,
+        backend=backend,
+        discard_keys=discard_keys,
+        constant_keys=static_inputs,
+        inference=current_case.get("inference", False),
     )
     # model_static_keys = sorted([key for key in compiled_model.static_keys.keys()])
     model_static_keys = sorted(
@@ -115,13 +119,13 @@ def test_no_grad_inference(
 ) -> None:
     current_case = no_grad_inference_tests_dict[case]
     evaluate_case(
-        JaxBackend(precision=64),
+        JaxBackend(dtype=mithril.float64),
         current_case,
         tolerance=tolerance,
         relative_tolerance=relative_tolerance,
     )
     evaluate_case(
-        TorchBackend(precision=64),
+        TorchBackend(dtype=mithril.float64),
         current_case,
         tolerance=tolerance,
         relative_tolerance=relative_tolerance,

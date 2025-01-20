@@ -24,19 +24,19 @@ from mithril.core import GenericDataType
 from mithril.framework.common import (
     TBD,
     ConstraintSolver,
-    NestedListType,
+    IOHyperEdge,
     PossibleValues,
-    Scalar,
     ShapeRepr,
+    ShapeResultType,
     ShapeTemplateType,
     Tensor,
+    TensorToListType,
     ToBeDetermined,
     Uniadic,
     UniadicRecord,
     Updates,
     UpdateType,
     Variadic,
-    _ShapesType,
     create_shape_repr,
 )
 from mithril.framework.constraints import (
@@ -48,6 +48,9 @@ from mithril.framework.constraints import (
     eye_constraints,
     flatten_constrains,
     general_tensor_type_constraint,
+    generate_nested_list_type,
+    indexer_constraints,
+    indexer_type_constraint,
     item_constraints,
     pad_constraints,
     polynomial_features_constraints,
@@ -56,8 +59,6 @@ from mithril.framework.constraints import (
     reduce_type_constraint,
     reshape_constraints,
     reverse_constraints,
-    scalar_item_constraints,
-    scalar_item_type_constraint,
     scalar_slice_type_constraint,
     shape_constraints,
     size_constraints,
@@ -66,7 +67,6 @@ from mithril.framework.constraints import (
     split_constraints,
     squeeze_constraints,
     swap_axes_constraints,
-    tensor_item_constraints,
     tensor_to_list_constraints,
     tensor_to_list_type_constraint,
     to_list_constraints,
@@ -80,14 +80,16 @@ from .test_utils import check_shapes_semantically
 
 
 def is_type_checker(
-    ref_results: dict[str, type | NestedListType] | _ShapesType, constraint_fn: Callable
-) -> TypeGuard[dict[str, type | NestedListType]]:
+    ref_results: dict[str, type] | ShapeResultType,
+    constraint_fn: Callable,
+) -> TypeGuard[dict[str, type]]:
     return constraint_fn in type_constraints
 
 
 def is_shape_checker(
-    ref_results: dict[str, type | NestedListType] | _ShapesType, constraint_fn: Callable
-) -> TypeGuard[_ShapesType]:
+    ref_results: dict[str, type] | ShapeResultType,
+    constraint_fn: Callable,
+) -> TypeGuard[ShapeResultType]:
     return constraint_fn not in type_constraints
 
 
@@ -112,15 +114,17 @@ AssignmentType = (
 
 def shape_map_to_tensor(
     shape_map: dict[str, ShapeRepr],
-) -> Mapping[str, Tensor | Scalar]:
+) -> Mapping[str, IOHyperEdge]:
     # Simply converts ShapeRepr objects to Tensor types.
     tensor_dict = {}
     for key, value in shape_map.items():
-        tensor = Tensor(value.node, float | int | bool)
+        tensor = Tensor(type=float | int | bool, shape=value.node)
+        edge = IOHyperEdge(value=tensor, key_origin=key)
         # set temp_shape. Since temp_shape of a Tensor initialized as None in its
         # constructor.
-        tensor._temp_shape = next(iter(tensor.shape.reprs))
-        tensor_dict[key] = tensor
+        assert edge.shape is not None
+        edge._temp_shape = next(iter(edge.shape.reprs))
+        tensor_dict[key] = edge
     return tensor_dict
 
 
@@ -196,8 +200,8 @@ def extract_variadic_possibles(
 
 
 def assert_shape_results(
-    data: dict[str, Tensor | Scalar],
-    ref_results: _ShapesType,
+    data: dict[str, IOHyperEdge],
+    ref_results: ShapeResultType,
     ref_assignments: AssignmentType,
     updated_symbols: Updates,
     expected_updates: set[str],
@@ -212,7 +216,8 @@ def assert_shape_results(
     shapes = {}
     assignments: AssignmentType = {}
     for key, value in data.items():
-        if isinstance(value, Tensor):
+        if value.edge_type is Tensor:
+            assert value.shape is not None
             shapes[key] = value.shape.get_shapes(uni_cache, var_cache, verbose=True)
             shape_repr = value._temp_shape
             assert shape_repr is not None
@@ -228,8 +233,8 @@ def assert_shape_results(
 
 
 def assert_type_results(
-    data: dict[str, Tensor | Scalar],
-    ref_results: dict[str, type | NestedListType],
+    data: dict[str, IOHyperEdge],
+    ref_results: dict[str, type],
     updated_symbols: Updates,
     expected_updates: set[str],
 ) -> None:
@@ -237,19 +242,18 @@ def assert_type_results(
     updated_constraints = set()
     for key in expected_updates:
         updated_constraints |= data[key].type_constraints
-    assert updated_constraints == updated_symbols.constraints[UpdateType.TYPE]
+    assert updated_constraints == {
+        constr
+        for constr in updated_symbols.constraints
+        if constr.type is UpdateType.TYPE
+    }
     # Then check final types with the expected ref_results.
     for key, value in data.items():
-        if isinstance(value.type, NestedListType):
-            result = ref_results[key]
-            assert isinstance(result, NestedListType)
-            assert value.type.base_type == result.base_type
-        else:
-            assert value.type == ref_results[key]
+        assert value.value_type == ref_results[key]
 
 
 def assert_value_results(
-    data: dict[str, Tensor | Scalar], ref_results: dict[str, Any]
+    data: dict[str, IOHyperEdge], ref_results: dict[str, Any]
 ) -> None:
     for key, value in ref_results.items():
         if isinstance(
@@ -258,7 +262,7 @@ def assert_value_results(
             assert data[key].value == value
         else:
             # If value is a tensor of any supported backend.
-            assert isinstance(data[key], Tensor)
+            assert data[key].edge_type is Tensor
             d_val = data[key].value
             assert GenericDataType.is_tensor_type(d_val)
             assert (d_val == value).all()
@@ -266,8 +270,8 @@ def assert_value_results(
 
 def make_assertions(
     constraint_fn: Callable,
-    data: dict[str, Tensor | Scalar],
-    ref_results: dict[str, type | NestedListType] | _ShapesType,
+    data: dict[str, IOHyperEdge],
+    ref_results: dict[str, type] | ShapeResultType,
     ref_assignments: AssignmentType,
     updated_symbols: Updates,
     expected_updates: set[str],
@@ -296,7 +300,7 @@ def assert_constraint_results(
     constraint_fn: Callable,
     expected_status: bool,
     expected_updates: set[str],
-    scalar_data: Mapping[str, Scalar] | None = None,
+    scalar_data: Mapping[str, IOHyperEdge] | None = None,
     final_values: dict[str, Any] | None = None,
     initial_values: dict[str, Any] | None = None,
     initial_types: Mapping[str, type | UnionType] | None = None,
@@ -328,7 +332,7 @@ def _assert_constraint_results(
     constraint_fn: Callable,
     expected_status: bool,
     expected_updates: set[str],
-    scalar_data: Mapping[str, Scalar] | None = None,
+    scalar_data: Mapping[str, IOHyperEdge] | None = None,
     final_values: dict[str, Any] | None = None,
     initial_values: dict[str, Any] | None = None,
     initial_types: Mapping[str, type | UnionType] | None = None,
@@ -363,7 +367,7 @@ def _assert_constraint_results(
     # If initial types are given, set them.
     if initial_types is not None:
         for key, type in initial_types.items():
-            data[key].type = type
+            data[key]._value.set_type(type)
 
     # If any initial values are given, set them.
     for key, value in initial_values.items():
@@ -1365,7 +1369,10 @@ def test_reduce_forward_1():
         "input": [3, 4, 5],
     }
     final_shapes = {"output": [3, 5], "input": [3, 4, 5], "axis": [], "keepdim": []}
-    scalar_info = {"axis": Scalar(int, value=1), "keepdim": Scalar(value=False)}
+    scalar_info = {
+        "axis": IOHyperEdge(type=int, value=1),
+        "keepdim": IOHyperEdge(value=False),
+    }
     assert_constraint_results(
         shapes, {}, final_shapes, {}, reduce_constraints, True, {"output"}, scalar_info
     )
@@ -1378,7 +1385,10 @@ def test_reduce_forward_2():
         "input": [3, 4, 5, 6],
     }
     final_shapes = {"output": [3, 5], "input": [3, 4, 5, 6], "axis": [], "keepdim": []}
-    scalar_info = {"axis": Scalar(value=(1, 3)), "keepdim": Scalar(value=False)}
+    scalar_info = {
+        "axis": IOHyperEdge(value=(1, 3)),
+        "keepdim": IOHyperEdge(value=False),
+    }
     assert_constraint_results(
         shapes, {}, final_shapes, {}, reduce_constraints, True, {"output"}, scalar_info
     )
@@ -1391,7 +1401,10 @@ def test_reduce_forward_3():
         "input": [3, 4, 5, 6],
     }
     final_shapes = {"output": [3, 5], "input": [3, 4, 5, 6], "axis": [], "keepdim": []}
-    scalar_info = {"axis": Scalar(value=(-1, 1)), "keepdim": Scalar(value=False)}
+    scalar_info = {
+        "axis": IOHyperEdge(value=(-1, 1)),
+        "keepdim": IOHyperEdge(value=False),
+    }
     assert_constraint_results(
         shapes, {}, final_shapes, {}, reduce_constraints, True, {"output"}, scalar_info
     )
@@ -1404,7 +1417,10 @@ def test_reduce_forward_4():
         "input": [3, 4, 5, 6],
     }
     final_shapes = {"output": [3, 5], "input": [3, 4, 5, 6], "axis": [], "keepdim": []}
-    scalar_info = {"axis": Scalar(value=(-1, 1)), "keepdim": Scalar(value=False)}
+    scalar_info = {
+        "axis": IOHyperEdge(value=(-1, 1)),
+        "keepdim": IOHyperEdge(value=False),
+    }
     assert_constraint_results(
         shapes, {}, final_shapes, {}, reduce_constraints, True, {"output"}, scalar_info
     )
@@ -1421,7 +1437,7 @@ def test_reduce_forward_5():
         "axis": [],
         "keepdim": [],
     }
-    scalar_info = {"axis": Scalar(value=0), "keepdim": Scalar(value=False)}
+    scalar_info = {"axis": IOHyperEdge(value=0), "keepdim": IOHyperEdge(value=False)}
     assert_constraint_results(
         shapes, {}, final_shapes, {}, reduce_constraints, False, set(), scalar_info
     )
@@ -1439,7 +1455,10 @@ def test_reduce_forward_6():
         "axis": [],
         "keepdim": [],
     }
-    scalar_info = {"axis": Scalar(value=(2, -4)), "keepdim": Scalar(value=False)}
+    scalar_info = {
+        "axis": IOHyperEdge(value=(2, -4)),
+        "keepdim": IOHyperEdge(value=False),
+    }
     assert_constraint_results(
         shapes,
         {},
@@ -1463,7 +1482,10 @@ def test_reduce_forward_7():
         "axis": [],
         "keepdim": [],
     }
-    scalar_info = {"axis": Scalar(value=(2, -2)), "keepdim": Scalar(value=False)}
+    scalar_info = {
+        "axis": IOHyperEdge(value=(2, -2)),
+        "keepdim": IOHyperEdge(value=False),
+    }
     assert_constraint_results(
         shapes,
         {},
@@ -1487,7 +1509,10 @@ def test_reduce_forward_8():
         "axis": [],
         "keepdim": [],
     }
-    scalar_info = {"axis": Scalar(value=(1, -2)), "keepdim": Scalar(value=False)}
+    scalar_info = {
+        "axis": IOHyperEdge(value=(1, -2)),
+        "keepdim": IOHyperEdge(value=False),
+    }
     assert_constraint_results(
         shapes, {}, final_shapes, {}, reduce_constraints, False, {"input"}, scalar_info
     )
@@ -1504,7 +1529,10 @@ def test_reduce_forward_9():
         "axis": [],
         "keepdim": [],
     }
-    scalar_info = {"axis": Scalar(value=(1, -2)), "keepdim": Scalar(value=False)}
+    scalar_info = {
+        "axis": IOHyperEdge(value=(1, -2)),
+        "keepdim": IOHyperEdge(value=False),
+    }
     assert_constraint_results(
         shapes, {}, final_shapes, {}, reduce_constraints, False, {"input"}, scalar_info
     )
@@ -1521,7 +1549,10 @@ def test_reduce_forward_10():
         "axis": [],
         "keepdim": [],
     }
-    scalar_info = {"axis": Scalar(value=(1, -2)), "keepdim": Scalar(value=False)}
+    scalar_info = {
+        "axis": IOHyperEdge(value=(1, -2)),
+        "keepdim": IOHyperEdge(value=False),
+    }
     assert_constraint_results(
         shapes, {}, final_shapes, {}, reduce_constraints, False, set(), scalar_info
     )
@@ -1538,7 +1569,10 @@ def test_reduce_forward_11():
         "axis": [],
         "keepdim": [],
     }
-    scalar_info = {"axis": Scalar(value=(1, -3, -4)), "keepdim": Scalar(value=False)}
+    scalar_info = {
+        "axis": IOHyperEdge(value=(1, -3, -4)),
+        "keepdim": IOHyperEdge(value=False),
+    }
     assert_constraint_results(
         shapes,
         {},
@@ -1562,7 +1596,10 @@ def test_reduce_forward_12():
         "axis": [],
         "keepdim": [],
     }
-    scalar_info = {"axis": Scalar(value=(1, -3, -5)), "keepdim": Scalar(value=False)}
+    scalar_info = {
+        "axis": IOHyperEdge(value=(1, -3, -5)),
+        "keepdim": IOHyperEdge(value=False),
+    }
     assert_constraint_results(
         shapes,
         {},
@@ -1586,7 +1623,10 @@ def test_reduce_forward_13():
         "axis": [],
         "keepdim": [],
     }
-    scalar_info = {"axis": Scalar(value=(1, 2)), "keepdim": Scalar(value=False)}
+    scalar_info = {
+        "axis": IOHyperEdge(value=(1, 2)),
+        "keepdim": IOHyperEdge(value=False),
+    }
     assert_constraint_results(
         shapes, {}, final_shapes, {}, reduce_constraints, True, {"output"}, scalar_info
     )
@@ -1603,7 +1643,10 @@ def test_reduce_forward_14():
         "axis": [],
         "keepdim": [],
     }
-    scalar_info = {"axis": Scalar(value=(-1, -2)), "keepdim": Scalar(value=False)}
+    scalar_info = {
+        "axis": IOHyperEdge(value=(-1, -2)),
+        "keepdim": IOHyperEdge(value=False),
+    }
     assert_constraint_results(
         shapes, {}, final_shapes, {}, reduce_constraints, False, {"output"}, scalar_info
     )
@@ -1620,7 +1663,10 @@ def test_reduce_forward_15():
         "axis": [],
         "keepdim": [],
     }
-    scalar_info = {"axis": Scalar(value=(-1, -2)), "keepdim": Scalar(value=False)}
+    scalar_info = {
+        "axis": IOHyperEdge(value=(-1, -2)),
+        "keepdim": IOHyperEdge(value=False),
+    }
     assert_constraint_results(
         shapes, {}, final_shapes, {}, reduce_constraints, False, {"input"}, scalar_info
     )
@@ -1637,7 +1683,7 @@ def test_reduce_forward_16():
         "axis": [],
         "keepdim": [],
     }
-    scalar_info = {"axis": Scalar(value=0), "keepdim": Scalar(value=True)}
+    scalar_info = {"axis": IOHyperEdge(value=0), "keepdim": IOHyperEdge(value=True)}
     assert_constraint_results(
         shapes, {}, final_shapes, {}, reduce_constraints, True, {"output"}, scalar_info
     )
@@ -1654,7 +1700,7 @@ def test_reduce_forward_17():
         "axis": [],
         "keepdim": [],
     }
-    scalar_info = {"axis": Scalar(value=-1), "keepdim": Scalar(value=True)}
+    scalar_info = {"axis": IOHyperEdge(value=-1), "keepdim": IOHyperEdge(value=True)}
     assert_constraint_results(
         shapes, {}, final_shapes, {}, reduce_constraints, True, {"output"}, scalar_info
     )
@@ -1671,7 +1717,7 @@ def test_reduce_forward_18():
         "axis": [],
         "keepdim": [],
     }
-    scalar_info = {"axis": Scalar(value=-1), "keepdim": Scalar(value=True)}
+    scalar_info = {"axis": IOHyperEdge(value=-1), "keepdim": IOHyperEdge(value=True)}
     assert_constraint_results(
         shapes,
         {},
@@ -1687,7 +1733,10 @@ def test_reduce_forward_18():
 def test_reduce_forward_error_3():
     """Should work with no problem with axis = (-1, 1)."""
     shapes: dict[str, list[int | str | tuple]] = {"output": [], "input": [3, 4]}
-    scalar_info = {"axis": Scalar(value=(-1, 0, 1)), "keepdim": Scalar(value=False)}
+    scalar_info = {
+        "axis": IOHyperEdge(value=(-1, 0, 1)),
+        "keepdim": IOHyperEdge(value=False),
+    }
     with pytest.raises(ValueError) as err_info:
         assert_constraint_results(
             shapes, {}, {}, {}, reduce_constraints, False, set(), scalar_info
@@ -1703,7 +1752,7 @@ def test_reduce_forward_error_1():
         "output": ["a", "b", "c"],
         "input": [3, 4, 5],
     }
-    scalar_info = {"axis": Scalar(value=1), "keepdim": Scalar(value=False)}
+    scalar_info = {"axis": IOHyperEdge(value=1), "keepdim": IOHyperEdge(value=False)}
     with pytest.raises(ValueError) as err_info:
         assert_constraint_results(
             shapes, {}, {}, {}, reduce_constraints, False, set(), scalar_info
@@ -1722,7 +1771,10 @@ def test_reduce_forward_error_2():
         "output": ["a", "b"],
         "input": [3, 4, 5],
     }
-    scalar_info = {"axis": Scalar(value=(1, 2)), "keepdim": Scalar(value=False)}
+    scalar_info = {
+        "axis": IOHyperEdge(value=(1, 2)),
+        "keepdim": IOHyperEdge(value=False),
+    }
     with pytest.raises(ValueError) as err_info:
         assert_constraint_results(
             shapes, {}, {}, {}, reduce_constraints, False, set(), scalar_info
@@ -1741,7 +1793,7 @@ def test_reduce_backward_error_1():
         "output": [3, 4, 5],
         "input": ["a", "b", "c"],
     }
-    scalar_info = {"axis": Scalar(value=(1)), "keepdim": Scalar(value=False)}
+    scalar_info = {"axis": IOHyperEdge(value=(1)), "keepdim": IOHyperEdge(value=False)}
     with pytest.raises(ValueError) as err_info:
         assert_constraint_results(
             shapes, {}, {}, {}, reduce_constraints, False, set(), scalar_info
@@ -1764,7 +1816,7 @@ def test_reduce_backward_1():
         "axis": [],
         "keepdim": [],
     }
-    scalar_info = {"axis": Scalar(value=1), "keepdim": Scalar(value=False)}
+    scalar_info = {"axis": IOHyperEdge(value=1), "keepdim": IOHyperEdge(value=False)}
     assert_constraint_results(
         shapes, {}, final_shapes, {}, reduce_constraints, True, {"input"}, scalar_info
     )
@@ -1782,7 +1834,10 @@ def test_reduce_backward_2():
         "axis": [],
         "keepdim": [],
     }
-    scalar_info = {"axis": Scalar(value=(-2, 2)), "keepdim": Scalar(value=False)}
+    scalar_info = {
+        "axis": IOHyperEdge(value=(-2, 2)),
+        "keepdim": IOHyperEdge(value=False),
+    }
     assert_constraint_results(
         shapes, {}, final_shapes, {}, reduce_constraints, True, {"input"}, scalar_info
     )
@@ -1802,7 +1857,10 @@ def test_reduce_forward_backward_1():
         "axis": [],
         "keepdim": [],
     }
-    scalar_info = {"axis": Scalar(value=(-2, 2)), "keepdim": Scalar(value=False)}
+    scalar_info = {
+        "axis": IOHyperEdge(value=(-2, 2)),
+        "keepdim": IOHyperEdge(value=False),
+    }
     assert_constraint_results(
         shapes,
         {},
@@ -1823,7 +1881,10 @@ def test_reduce_forward_backward_error_1():
         "output": [3, "b", 5],
         "input": ["a", 2, "c", "d", "e", "f"],
     }
-    scalar_info = {"axis": Scalar(value=(-2, 2)), "keepdim": Scalar(value=False)}
+    scalar_info = {
+        "axis": IOHyperEdge(value=(-2, 2)),
+        "keepdim": IOHyperEdge(value=False),
+    }
     with pytest.raises(ValueError) as err_info:
         assert_constraint_results(
             shapes, {}, {}, {}, reduce_constraints, False, set(), scalar_info
@@ -1846,7 +1907,10 @@ def test_reduce_axis_valued_keep_dim_true():
         "axis": [],
         "keepdim": [],
     }
-    scalar_info = {"axis": Scalar(value=(1, 2, -2, -3)), "keepdim": Scalar(value=True)}
+    scalar_info = {
+        "axis": IOHyperEdge(value=(1, 2, -2, -3)),
+        "keepdim": IOHyperEdge(value=True),
+    }
     assert_constraint_results(
         shapes, {}, final_shapes, {}, reduce_constraints, True, {"output"}, scalar_info
     )
@@ -1864,7 +1928,7 @@ def test_reduce_axis_none_keep_dim_true():
         "axis": [],
         "keepdim": [],
     }
-    scalar_info = {"axis": Scalar(value=None), "keepdim": Scalar(value=True)}
+    scalar_info = {"axis": IOHyperEdge(value=None), "keepdim": IOHyperEdge(value=True)}
     assert_constraint_results(
         shapes, {}, final_shapes, {}, reduce_constraints, True, {"output"}, scalar_info
     )
@@ -1883,8 +1947,8 @@ def test_reduce_axis_none_keep_dim_tbd():
         "keepdim": [],
     }
     scalar_info = {
-        "axis": Scalar(value=None),
-        "keepdim": Scalar(possible_types=int, value=TBD),
+        "axis": IOHyperEdge(value=None),
+        "keepdim": IOHyperEdge(type=int, value=TBD),
     }
     assert_constraint_results(
         shapes, {}, final_shapes, {}, reduce_constraints, False, set(), scalar_info
@@ -1904,8 +1968,8 @@ def test_reduce_axis_valued_keep_dim_tbd():
         "keepdim": [],
     }
     scalar_info = {
-        "axis": Scalar(value=(1, 2, -2, -3)),
-        "keepdim": Scalar(possible_types=int),
+        "axis": IOHyperEdge(value=(1, 2, -2, -3)),
+        "keepdim": IOHyperEdge(type=int),
     }
     assert_constraint_results(
         shapes, {}, final_shapes, {}, reduce_constraints, False, set(), scalar_info
@@ -1925,8 +1989,8 @@ def test_reduce_axis_valued_keep_dim_false_input_variadic():
         "keepdim": [],
     }
     scalar_info = {
-        "axis": Scalar(value=(1, 2, -2, -3)),
-        "keepdim": Scalar(possible_types=bool, value=False),
+        "axis": IOHyperEdge(value=(1, 2, -2, -3)),
+        "keepdim": IOHyperEdge(type=bool, value=False),
     }
     assert_constraint_results(
         shapes,
@@ -1953,8 +2017,8 @@ def test_reduce_axis_valued_keep_dim_tbd_input_variadic():
         "keepdim": [],
     }
     scalar_info = {
-        "axis": Scalar(value=(1, 2, -2, -3)),
-        "keepdim": Scalar(possible_types=bool),
+        "axis": IOHyperEdge(value=(1, 2, -2, -3)),
+        "keepdim": IOHyperEdge(type=bool),
     }
     assert_constraint_results(
         shapes, {}, final_shapes, {}, reduce_constraints, False, {"input"}, scalar_info
@@ -1973,7 +2037,10 @@ def test_reduce_backward_3():
         "axis": [],
         "keepdim": [],
     }
-    scalar_info = {"axis": Scalar(value=(1, -2)), "keepdim": Scalar(value=False)}
+    scalar_info = {
+        "axis": IOHyperEdge(value=(1, -2)),
+        "keepdim": IOHyperEdge(value=False),
+    }
     assert_constraint_results(
         shapes, {}, final_shapes, {}, reduce_constraints, True, {"input"}, scalar_info
     )
@@ -1991,7 +2058,10 @@ def test_reduce_backward_4():
         "axis": [],
         "keepdim": [],
     }
-    scalar_info = {"axis": Scalar(value=(1, -2)), "keepdim": Scalar(value=True)}
+    scalar_info = {
+        "axis": IOHyperEdge(value=(1, -2)),
+        "keepdim": IOHyperEdge(value=True),
+    }
     assert_constraint_results(
         shapes,
         {},
@@ -2016,7 +2086,10 @@ def test_reduce_backward_5():
         "axis": [],
         "keepdim": [],
     }
-    scalar_info = {"axis": Scalar(value=(1, -2)), "keepdim": Scalar(value=True)}
+    scalar_info = {
+        "axis": IOHyperEdge(value=(1, -2)),
+        "keepdim": IOHyperEdge(value=True),
+    }
     assert_constraint_results(
         shapes, {}, final_shapes, {}, reduce_constraints, True, {"input"}, scalar_info
     )
@@ -2030,7 +2103,10 @@ def test_reduce_backward_5_error():
         "output": [4, 2, 1, 7],
         "input": [("Var", ...)],
     }
-    scalar_info = {"axis": Scalar(value=(1, -2)), "keepdim": Scalar(value=True)}
+    scalar_info = {
+        "axis": IOHyperEdge(value=(1, -2)),
+        "keepdim": IOHyperEdge(value=True),
+    }
     with pytest.raises(ValueError) as err_info:
         assert_constraint_results(
             shapes, {}, {}, {}, reduce_constraints, True, {"input"}, scalar_info
@@ -2051,7 +2127,7 @@ def test_pad_all_inputs_defined_forward_zero_pad():
         "input": [1, 2, 3, 4],
         "pad_width": [],
     }
-    scalar_info = {"pad_width": Scalar(value=((0, 0), (0, 0), (0, 0), (0, 0)))}
+    scalar_info = {"pad_width": IOHyperEdge(value=((0, 0), (0, 0), (0, 0), (0, 0)))}
     assert_constraint_results(
         shapes, {}, final_shapes, {}, pad_constraints, True, {"output"}, scalar_info
     )
@@ -2067,7 +2143,7 @@ def test_pad_all_inputs_defined_forward_one_pad_symmetric():
         "input": [1, 2, 3, 4],
         "pad_width": [],
     }
-    scalar_info = {"pad_width": Scalar(value=((1, 1), (1, 1), (1, 1), (1, 1)))}
+    scalar_info = {"pad_width": IOHyperEdge(value=((1, 1), (1, 1), (1, 1), (1, 1)))}
     assert_constraint_results(
         shapes, {}, final_shapes, {}, pad_constraints, True, {"output"}, scalar_info
     )
@@ -2083,7 +2159,7 @@ def test_pad_all_inputs_defined_forward_one_pad_asymmetric():
         "input": [1, 2, 3, 4],
         "pad_width": [],
     }
-    scalar_info = {"pad_width": Scalar(value=((0, 1), (0, 1), (0, 1), (0, 1)))}
+    scalar_info = {"pad_width": IOHyperEdge(value=((0, 1), (0, 1), (0, 1), (0, 1)))}
     assert_constraint_results(
         shapes, {}, final_shapes, {}, pad_constraints, True, {"output"}, scalar_info
     )
@@ -2099,7 +2175,7 @@ def test_pad_all_inputs_defined_forward_random_pad():
         "input": [1, 2, 3, 4],
         "pad_width": [],
     }
-    scalar_info = {"pad_width": Scalar(value=((0, 1), (2, 3), (5, 0), (9, 12)))}
+    scalar_info = {"pad_width": IOHyperEdge(value=((0, 1), (2, 3), (5, 0), (9, 12)))}
     assert_constraint_results(
         shapes, {}, final_shapes, {}, pad_constraints, True, {"output"}, scalar_info
     )
@@ -2115,7 +2191,7 @@ def test_pad_some_inputs_defined_forward_random_pad():
         "input": ["a", 2, 3, 4],
         "pad_width": [],
     }
-    scalar_info = {"pad_width": Scalar(value=((0, 1), (2, 3), (5, 0), (9, 12)))}
+    scalar_info = {"pad_width": IOHyperEdge(value=((0, 1), (2, 3), (5, 0), (9, 12)))}
     assert_constraint_results(
         shapes, {}, final_shapes, {}, pad_constraints, False, {"output"}, scalar_info
     )
@@ -2131,7 +2207,9 @@ def test_pad_input_with_variadic_forward_random_pad():
         "input": ["a", "b", 3, "c", 4],
         "pad_width": [],
     }
-    scalar_info = {"pad_width": Scalar(value=((0, 1), (2, 3), (5, 0), (1, 1), (9, 12)))}
+    scalar_info = {
+        "pad_width": IOHyperEdge(value=((0, 1), (2, 3), (5, 0), (1, 1), (9, 12)))
+    }
     assert_constraint_results(
         shapes,
         {},
@@ -2154,7 +2232,7 @@ def test_pad_output_defined_backward_zero_pad():
         "input": [3, 4, 5, 6],
         "pad_width": [],
     }
-    scalar_info = {"pad_width": Scalar(value=((0, 0), (0, 0), (0, 0), (0, 0)))}
+    scalar_info = {"pad_width": IOHyperEdge(value=((0, 0), (0, 0), (0, 0), (0, 0)))}
     assert_constraint_results(
         shapes, {}, final_shapes, {}, pad_constraints, True, {"input"}, scalar_info
     )
@@ -2170,7 +2248,7 @@ def test_pad_output_defined_backward_one_pad_symmetric():
         "input": [1, 2, 3, 4],
         "pad_width": [],
     }
-    scalar_info = {"pad_width": Scalar(value=((1, 1), (1, 1), (1, 1), (1, 1)))}
+    scalar_info = {"pad_width": IOHyperEdge(value=((1, 1), (1, 1), (1, 1), (1, 1)))}
     assert_constraint_results(
         shapes, {}, final_shapes, {}, pad_constraints, True, {"input"}, scalar_info
     )
@@ -2186,7 +2264,7 @@ def test_pad_output_defined_backward_one_pad_asymmetric():
         "input": [2, 3, 4, 5],
         "pad_width": [],
     }
-    scalar_info = {"pad_width": Scalar(value=((0, 1), (0, 1), (0, 1), (0, 1)))}
+    scalar_info = {"pad_width": IOHyperEdge(value=((0, 1), (0, 1), (0, 1), (0, 1)))}
     assert_constraint_results(
         shapes, {}, final_shapes, {}, pad_constraints, True, {"input"}, scalar_info
     )
@@ -2202,7 +2280,7 @@ def test_pad_output_defined_backward_random_pad():
         "input": [1, 2, 3, 4],
         "pad_width": [],
     }
-    scalar_info = {"pad_width": Scalar(value=((0, 1), (2, 3), (5, 0), (9, 12)))}
+    scalar_info = {"pad_width": IOHyperEdge(value=((0, 1), (2, 3), (5, 0), (9, 12)))}
     assert_constraint_results(
         shapes, {}, final_shapes, {}, pad_constraints, True, {"input"}, scalar_info
     )
@@ -2218,7 +2296,9 @@ def test_pad_output_with_variadic_forward_random_pad():
         "input": ["a", "b", 3, "c", 4],
         "pad_width": [],
     }
-    scalar_info = {"pad_width": Scalar(value=((0, 1), (2, 3), (5, 0), (1, 1), (9, 12)))}
+    scalar_info = {
+        "pad_width": IOHyperEdge(value=((0, 1), (2, 3), (5, 0), (1, 1), (9, 12)))
+    }
     assert_constraint_results(
         shapes,
         {},
@@ -2241,7 +2321,7 @@ def test_pad_input_output_mismatch_error():
         "input": [1, 2, 3, 4],
         "pad_width": [],
     }
-    scalar_info = {"pad_width": Scalar(value=((0, 1), (2, 3), (5, 0), (9, 12)))}
+    scalar_info = {"pad_width": IOHyperEdge(value=((0, 1), (2, 3), (5, 0), (9, 12)))}
     with pytest.raises(ValueError) as err_info:
         assert_constraint_results(
             shapes, {}, final_shapes, {}, pad_constraints, True, {"input"}, scalar_info
@@ -2259,7 +2339,7 @@ def test_pad_pad_width_tbd():
         "input": ["a", 2, 3, 4],
         "pad_width": [],
     }
-    scalar_info = {"pad_width": Scalar(possible_types=tuple | ToBeDetermined)}
+    scalar_info = {"pad_width": IOHyperEdge(type=tuple | ToBeDetermined)}
     assert_constraint_results(
         shapes, {}, final_shapes, {}, pad_constraints, False, set(), scalar_info
     )
@@ -2273,9 +2353,9 @@ def test_arange_1():
     shapes: dict[str, list[int | str | tuple]] = {"output": ["a"]}
     final_shapes = {"output": [4], "start": [], "stop": [], "step": []}
     scalar_info = {
-        "start": Scalar(value=1),
-        "stop": Scalar(value=5),
-        "step": Scalar(value=1),
+        "start": IOHyperEdge(value=1),
+        "stop": IOHyperEdge(value=5),
+        "step": IOHyperEdge(value=1),
     }
     assert_constraint_results(
         shapes, {}, final_shapes, {}, arange_constraints, True, {"output"}, scalar_info
@@ -2287,9 +2367,9 @@ def test_arange_2():
     shapes: dict[str, list[int | str | tuple]] = {"output": ["a"]}
     final_shapes = {"output": [2], "start": [], "stop": [], "step": []}
     scalar_info = {
-        "start": Scalar(value=1),
-        "stop": Scalar(value=5),
-        "step": Scalar(value=2),
+        "start": IOHyperEdge(value=1),
+        "stop": IOHyperEdge(value=5),
+        "step": IOHyperEdge(value=2),
     }
     assert_constraint_results(
         shapes, {}, final_shapes, {}, arange_constraints, True, {"output"}, scalar_info
@@ -2301,9 +2381,9 @@ def test_arange_3():
     shapes: dict[str, list[int | str | tuple]] = {"output": ["a"]}
     final_shapes = {"output": [4], "start": [], "stop": [], "step": []}
     scalar_info = {
-        "start": Scalar(value=1),
-        "stop": Scalar(value=5),
-        "step": Scalar(value=1.1),
+        "start": IOHyperEdge(value=1),
+        "stop": IOHyperEdge(value=5),
+        "step": IOHyperEdge(value=1.1),
     }
     assert_constraint_results(
         shapes, {}, final_shapes, {}, arange_constraints, True, {"output"}, scalar_info
@@ -2317,9 +2397,9 @@ def test_arange_4():
     shapes: dict[str, list[int | str | tuple]] = {"output": ["a"]}
     final_shapes = {"output": [4], "start": [], "stop": [], "step": []}
     scalar_info = {
-        "start": Scalar(value=-1),
-        "stop": Scalar(value=-5),
-        "step": Scalar(value=-1.1),
+        "start": IOHyperEdge(value=-1),
+        "stop": IOHyperEdge(value=-5),
+        "step": IOHyperEdge(value=-1.1),
     }
     assert_constraint_results(
         shapes, {}, final_shapes, {}, arange_constraints, True, {"output"}, scalar_info
@@ -2333,9 +2413,9 @@ def test_arange_5():
     shapes: dict[str, list[int | str | tuple]] = {"output": ["a"]}
     final_shapes = {"output": [4], "start": [], "stop": [], "step": []}
     scalar_info = {
-        "start": Scalar(value=5),
-        "stop": Scalar(value=1),
-        "step": Scalar(value=-1.1),
+        "start": IOHyperEdge(value=5),
+        "stop": IOHyperEdge(value=1),
+        "step": IOHyperEdge(value=-1.1),
     }
     assert_constraint_results(
         shapes, {}, final_shapes, {}, arange_constraints, True, {"output"}, scalar_info
@@ -2349,9 +2429,9 @@ def test_arange_6():
     shapes: dict[str, list[int | str | tuple]] = {"output": ["a"]}
     final_shapes = {"output": [5], "start": [], "stop": [], "step": []}
     scalar_info = {
-        "start": Scalar(value=5.2),
-        "stop": Scalar(value=1.34),
-        "step": Scalar(value=-0.9),
+        "start": IOHyperEdge(value=5.2),
+        "stop": IOHyperEdge(value=1.34),
+        "step": IOHyperEdge(value=-0.9),
     }
     assert_constraint_results(
         shapes, {}, final_shapes, {}, arange_constraints, True, {"output"}, scalar_info
@@ -2365,9 +2445,9 @@ def test_arange_7():
     shapes: dict[str, list[int | str | tuple]] = {"output": [5]}
     final_shapes = {"output": [5], "start": [], "stop": [], "step": []}
     scalar_info = {
-        "start": Scalar(value=5.2),
-        "stop": Scalar(value=1.34),
-        "step": Scalar(int | float, value=TBD),
+        "start": IOHyperEdge(value=5.2),
+        "stop": IOHyperEdge(value=1.34),
+        "step": IOHyperEdge(int | float, value=TBD),
     }
     assert_constraint_results(
         shapes, {}, final_shapes, {}, arange_constraints, False, set(), scalar_info
@@ -2387,9 +2467,9 @@ def test_arange_8():
         "step": [],
     }
     scalar_info = {
-        "start": Scalar(value=1),
-        "stop": Scalar(value=1),
-        "step": Scalar(value=1),
+        "start": IOHyperEdge(value=1),
+        "stop": IOHyperEdge(value=1),
+        "step": IOHyperEdge(value=1),
     }
     assert_constraint_results(
         shapes, {}, final_shapes, {}, arange_constraints, True, set(), scalar_info
@@ -2409,9 +2489,9 @@ def test_arange_9():
         "step": [],
     }
     scalar_info = {
-        "start": Scalar(value=1),
-        "stop": Scalar(value=1),
-        "step": Scalar(value=1),
+        "start": IOHyperEdge(value=1),
+        "stop": IOHyperEdge(value=1),
+        "step": IOHyperEdge(value=1),
     }
     assert_constraint_results(
         shapes, {}, final_shapes, {}, arange_constraints, True, {"output"}, scalar_info
@@ -2421,9 +2501,9 @@ def test_arange_9():
 def test_arange_error_1():
     shapes: dict[str, list[int | str | tuple]] = {"output": ["a"]}
     scalar_info = {
-        "start": Scalar(value=1),
-        "stop": Scalar(value=5),
-        "step": Scalar(value=-0.9),
+        "start": IOHyperEdge(value=1),
+        "stop": IOHyperEdge(value=5),
+        "step": IOHyperEdge(value=-0.9),
     }
     with pytest.raises(ValueError) as err_info:
         assert_constraint_results(
@@ -2438,9 +2518,9 @@ def test_arange_error_1():
 def test_arange_error_2():
     shapes: dict[str, list[int | str | tuple]] = {"output": ["a"]}
     scalar_info = {
-        "start": Scalar(value=4),
-        "stop": Scalar(value=1),
-        "step": Scalar(value=0.9),
+        "start": IOHyperEdge(value=4),
+        "stop": IOHyperEdge(value=1),
+        "step": IOHyperEdge(value=0.9),
     }
     with pytest.raises(ValueError) as err_info:
         assert_constraint_results(
@@ -2455,9 +2535,9 @@ def test_arange_error_2():
 def test_arange_error_3():
     shapes: dict[str, list[int | str | tuple]] = {"output": ["a", ("V", ...), "b"]}
     scalar_info = {
-        "start": Scalar(value=1),
-        "stop": Scalar(value=5),
-        "step": Scalar(value=2),
+        "start": IOHyperEdge(value=1),
+        "stop": IOHyperEdge(value=5),
+        "step": IOHyperEdge(value=2),
     }
     with pytest.raises(ValueError) as err_info:
         assert_constraint_results(
@@ -2472,9 +2552,9 @@ def test_arange_error_3():
 def test_arange_error_4():
     shapes: dict[str, list[int | str | tuple]] = {"output": ["a", "b"]}
     scalar_info = {
-        "start": Scalar(value=1),
-        "stop": Scalar(value=5),
-        "step": Scalar(value=2),
+        "start": IOHyperEdge(value=1),
+        "stop": IOHyperEdge(value=5),
+        "step": IOHyperEdge(value=2),
     }
     with pytest.raises(ValueError) as err_info:
         assert_constraint_results(
@@ -2492,9 +2572,9 @@ def test_arange_error_5():
     """
     shapes: dict[str, list[int | str | tuple]] = {"output": ["a"]}
     scalar_info = {
-        "start": Scalar(value=1),
-        "stop": Scalar(value=1),
-        "step": Scalar(value=2),
+        "start": IOHyperEdge(value=1),
+        "stop": IOHyperEdge(value=1),
+        "step": IOHyperEdge(value=2),
     }
     with pytest.raises(ValueError) as err_info:
         assert_constraint_results(
@@ -2512,9 +2592,9 @@ def test_arange_error_6():
     """
     shapes: dict[str, list[int | str | tuple]] = {"output": ["a", ("V", ...), "b"]}
     scalar_info = {
-        "start": Scalar(value=1),
-        "stop": Scalar(value=3),
-        "step": Scalar(value=1),
+        "start": IOHyperEdge(value=1),
+        "stop": IOHyperEdge(value=3),
+        "step": IOHyperEdge(value=1),
     }
     with pytest.raises(ValueError) as err_info:
         assert_constraint_results(
@@ -2532,9 +2612,9 @@ def test_arange_error_7():
     """
     shapes: dict[str, list[int | str | tuple]] = {"output": [("V", ...), "b"]}
     scalar_info = {
-        "start": Scalar(value=1),
-        "stop": Scalar(value=1),
-        "step": Scalar(value=1),
+        "start": IOHyperEdge(value=1),
+        "stop": IOHyperEdge(value=1),
+        "step": IOHyperEdge(value=1),
     }
     with pytest.raises(ValueError) as err_info:
         assert_constraint_results(
@@ -2552,7 +2632,7 @@ def test_arange_error_7():
 def test_randn_1():
     shapes: dict[str, list[int | str | tuple]] = {"output": ["a", "b", "c"]}
     final_shapes = {"output": [3, 4, 5], "shape": []}
-    scalar_info = {"shape": Scalar(value=(3, 4, 5))}
+    scalar_info = {"shape": IOHyperEdge(value=(3, 4, 5))}
     assert_constraint_results(
         shapes, {}, final_shapes, {}, randn_constraints, True, {"output"}, scalar_info
     )
@@ -2561,7 +2641,7 @@ def test_randn_1():
 def test_randn_2():
     shapes: dict[str, list[int | str | tuple]] = {"output": ["a", 5, "c"]}
     final_shapes = {"output": [3, 4, 5], "shape": []}
-    scalar_info = {"shape": Scalar(value=(3, 4, 5))}
+    scalar_info = {"shape": IOHyperEdge(value=(3, 4, 5))}
     try:
         assert_constraint_results(
             shapes,
@@ -2580,7 +2660,7 @@ def test_randn_2():
 def test_randn_3():
     shapes: dict[str, list[int | str | tuple]] = {"output": ["a", "b", "c", "d"]}
     final_shapes = {"output": [3, 4, 5], "shape": []}
-    scalar_info = {"shape": Scalar(value=(3, 4, 5))}
+    scalar_info = {"shape": IOHyperEdge(value=(3, 4, 5))}
     try:
         assert_constraint_results(
             shapes,
@@ -2601,7 +2681,7 @@ def test_randn_3():
 def test_randn_4():
     shapes: dict[str, list[int | str | tuple]] = {"output": [("Var1", ...)]}
     final_shapes = {"output": [3, 4, 5], "shape": []}
-    scalar_info = {"shape": Scalar(value=(3, 4, 5))}
+    scalar_info = {"shape": IOHyperEdge(value=(3, 4, 5))}
 
     assert_constraint_results(
         shapes, {}, final_shapes, {}, randn_constraints, True, {"output"}, scalar_info
@@ -2611,7 +2691,7 @@ def test_randn_4():
 def test_randn_5():
     shapes: dict[str, list[int | str | tuple]] = {"output": [2, 3, 4, 5, ("Var1", ...)]}
     final_shapes = {"output": [3, 4, 5], "shape": []}
-    scalar_info = {"shape": Scalar(value=(3, 4, 5))}
+    scalar_info = {"shape": IOHyperEdge(value=(3, 4, 5))}
     try:
         assert_constraint_results(
             shapes,
@@ -2647,10 +2727,10 @@ def test_max_pool_1():
         "kernel_size": [],
     }
     scalar_info = {
-        "stride": Scalar(value=(1, 1)),
-        "padding": Scalar(value=(0, 0)),
-        "dilation": Scalar(value=(1, 1)),
-        "kernel_size": Scalar(value=(3, 3)),
+        "stride": IOHyperEdge(value=(1, 1)),
+        "padding": IOHyperEdge(value=(0, 0)),
+        "dilation": IOHyperEdge(value=(1, 1)),
+        "kernel_size": IOHyperEdge(value=(3, 3)),
     }
     assert_constraint_results(
         shapes,
@@ -2678,10 +2758,10 @@ def test_max_pool_2():
         "kernel_size": [],
     }
     scalar_info = {
-        "stride": Scalar(value=(1, 1)),
-        "padding": Scalar(value=(0, 0)),
-        "dilation": Scalar(value=(1, 1)),
-        "kernel_size": Scalar(value=(5, 5)),
+        "stride": IOHyperEdge(value=(1, 1)),
+        "padding": IOHyperEdge(value=(0, 0)),
+        "dilation": IOHyperEdge(value=(1, 1)),
+        "kernel_size": IOHyperEdge(value=(5, 5)),
     }
     assert_constraint_results(
         shapes,
@@ -2701,10 +2781,10 @@ def test_max_pool_3_error():
         "input": [10, 10, 10, 10],
     }
     scalar_info = {
-        "stride": Scalar(value=(1, 1)),
-        "padding": Scalar(value=(0, 0)),
-        "dilation": Scalar(value=(1, 1)),
-        "kernel_size": Scalar(value=(12, 12)),
+        "stride": IOHyperEdge(value=(1, 1)),
+        "padding": IOHyperEdge(value=(0, 0)),
+        "dilation": IOHyperEdge(value=(1, 1)),
+        "kernel_size": IOHyperEdge(value=(12, 12)),
     }
 
     with pytest.raises(Exception) as err_info:
@@ -2731,10 +2811,10 @@ def test_max_pool_4():
         "kernel_size": [],
     }
     scalar_info = {
-        "stride": Scalar(value=(2, 1)),
-        "padding": Scalar(value=(0, 0)),
-        "dilation": Scalar(value=(1, 1)),
-        "kernel_size": Scalar(value=(3, 3)),
+        "stride": IOHyperEdge(value=(2, 1)),
+        "padding": IOHyperEdge(value=(0, 0)),
+        "dilation": IOHyperEdge(value=(1, 1)),
+        "kernel_size": IOHyperEdge(value=(3, 3)),
     }
     assert_constraint_results(
         shapes,
@@ -2762,10 +2842,10 @@ def test_max_pool_5():
         "kernel_size": [],
     }
     scalar_info = {
-        "stride": Scalar(value=(2, 1)),
-        "padding": Scalar(value=(1, 1)),
-        "dilation": Scalar(value=(1, 1)),
-        "kernel_size": Scalar(value=(3, 3)),
+        "stride": IOHyperEdge(value=(2, 1)),
+        "padding": IOHyperEdge(value=(1, 1)),
+        "dilation": IOHyperEdge(value=(1, 1)),
+        "kernel_size": IOHyperEdge(value=(3, 3)),
     }
     assert_constraint_results(
         shapes,
@@ -2793,10 +2873,10 @@ def test_max_pool_6():
         "kernel_size": [],
     }
     scalar_info = {
-        "stride": Scalar(value=(2, 1)),
-        "padding": Scalar(value=(1, 2)),
-        "dilation": Scalar(value=(1, 1)),
-        "kernel_size": Scalar(value=(3, 3)),
+        "stride": IOHyperEdge(value=(2, 1)),
+        "padding": IOHyperEdge(value=(1, 2)),
+        "dilation": IOHyperEdge(value=(1, 1)),
+        "kernel_size": IOHyperEdge(value=(3, 3)),
     }
     assert_constraint_results(
         shapes,
@@ -2824,10 +2904,10 @@ def test_max_pool_7():
         "kernel_size": [],
     }
     scalar_info = {
-        "stride": Scalar(value=(2, 1)),
-        "padding": Scalar(value=(1, 2)),
-        "dilation": Scalar(value=(3, 1)),
-        "kernel_size": Scalar(value=(3, 3)),
+        "stride": IOHyperEdge(value=(2, 1)),
+        "padding": IOHyperEdge(value=(1, 2)),
+        "dilation": IOHyperEdge(value=(3, 1)),
+        "kernel_size": IOHyperEdge(value=(3, 3)),
     }
     assert_constraint_results(
         shapes,
@@ -2855,10 +2935,10 @@ def test_max_pool_8():
         "kernel_size": [],
     }
     scalar_info = {
-        "stride": Scalar(value=(2, 1)),
-        "padding": Scalar(value=(1, 2)),
-        "dilation": Scalar(value=(3, 1)),
-        "kernel_size": Scalar(value=(3, 3)),
+        "stride": IOHyperEdge(value=(2, 1)),
+        "padding": IOHyperEdge(value=(1, 2)),
+        "dilation": IOHyperEdge(value=(3, 1)),
+        "kernel_size": IOHyperEdge(value=(3, 3)),
     }
     assert_constraint_results(
         shapes,
@@ -2886,10 +2966,10 @@ def test_max_pool_9():
         "kernel_size": [],
     }
     scalar_info = {
-        "stride": Scalar(value=(2, 1)),
-        "padding": Scalar(value=(1, 2)),
-        "dilation": Scalar(value=(3, 1)),
-        "kernel_size": Scalar(value=(3, 3)),
+        "stride": IOHyperEdge(value=(2, 1)),
+        "padding": IOHyperEdge(value=(1, 2)),
+        "dilation": IOHyperEdge(value=(3, 1)),
+        "kernel_size": IOHyperEdge(value=(3, 3)),
     }
     assert_constraint_results(
         shapes,
@@ -2917,10 +2997,10 @@ def test_max_pool_10():
         "kernel_size": [],
     }
     scalar_info = {
-        "stride": Scalar(value=(2, 1)),
-        "padding": Scalar(value=(0, 0)),
-        "dilation": Scalar(value=(1, 1)),
-        "kernel_size": Scalar(value=(3, 3)),
+        "stride": IOHyperEdge(value=(2, 1)),
+        "padding": IOHyperEdge(value=(0, 0)),
+        "dilation": IOHyperEdge(value=(1, 1)),
+        "kernel_size": IOHyperEdge(value=(3, 3)),
     }
     assert_constraint_results(
         shapes,
@@ -2948,10 +3028,10 @@ def test_max_pool_11():
         "kernel_size": [],
     }
     scalar_info = {
-        "stride": Scalar(value=(2, 1)),
-        "padding": Scalar(value=(0, 0)),
-        "dilation": Scalar(value=(1, 1)),
-        "kernel_size": Scalar(value=(3, 3)),
+        "stride": IOHyperEdge(value=(2, 1)),
+        "padding": IOHyperEdge(value=(0, 0)),
+        "dilation": IOHyperEdge(value=(1, 1)),
+        "kernel_size": IOHyperEdge(value=(3, 3)),
     }
     assert_constraint_results(
         shapes,
@@ -2979,10 +3059,10 @@ def test_max_pool_12():
         "kernel_size": [],
     }
     scalar_info = {
-        "stride": Scalar(value=(2, 1)),
-        "padding": Scalar(value=(0, 0)),
-        "dilation": Scalar(value=(1, 1)),
-        "kernel_size": Scalar(value=(3, 3)),
+        "stride": IOHyperEdge(value=(2, 1)),
+        "padding": IOHyperEdge(value=(0, 0)),
+        "dilation": IOHyperEdge(value=(1, 1)),
+        "kernel_size": IOHyperEdge(value=(3, 3)),
     }
     assert_constraint_results(
         shapes,
@@ -3010,10 +3090,10 @@ def test_max_pool_13():
         "kernel_size": [],
     }
     scalar_info = {
-        "stride": Scalar(value=(2, 1)),
-        "padding": Scalar(value=(0, 0)),
-        "dilation": Scalar(value=(1, 1)),
-        "kernel_size": Scalar(value=(3, 3)),
+        "stride": IOHyperEdge(value=(2, 1)),
+        "padding": IOHyperEdge(value=(0, 0)),
+        "dilation": IOHyperEdge(value=(1, 1)),
+        "kernel_size": IOHyperEdge(value=(3, 3)),
     }
     assert_constraint_results(
         shapes,
@@ -3039,7 +3119,7 @@ def test_broadcast_to_1():
         "input": [("V2", ...)],
     }
     final_shapes = {"output": [1, 2], "input": ["(V2, ...)"], "shape": []}
-    scalar_info = {"shape": Scalar(value=(1, 2))}
+    scalar_info = {"shape": IOHyperEdge(value=(1, 2))}
     assert_constraint_results(
         shapes,
         {},
@@ -3061,7 +3141,7 @@ def test_broadcast_to_2():
         "input": [("V2", ...)],
     }
     final_shapes = {"output": [1, 2], "input": ["(V2, ...)"], "shape": []}
-    scalar_info = {"shape": Scalar(value=(1, 2))}
+    scalar_info = {"shape": IOHyperEdge(value=(1, 2))}
     assert_constraint_results(
         shapes,
         {},
@@ -3083,7 +3163,7 @@ def test_broadcast_to_3():
         "input": [("V2", ...)],
     }
     final_shapes = {"output": ["(V, ...)"], "input": ["(V2, ...)"], "shape": []}
-    scalar_info = {"shape": Scalar(tuple[int, ...], value=TBD)}
+    scalar_info = {"shape": IOHyperEdge(tuple[int, ...], value=TBD)}
     assert_constraint_results(
         shapes,
         {},
@@ -3105,7 +3185,7 @@ def test_broadcast_to_4():
         "input": [("V2", ...)],
     }
     final_shapes = {"output": ["a", "b"], "input": ["(V2, ...)"], "shape": []}
-    scalar_info = {"shape": Scalar(tuple[int, ...], value=TBD)}
+    scalar_info = {"shape": IOHyperEdge(tuple[int, ...], value=TBD)}
     assert_constraint_results(
         shapes,
         {},
@@ -3127,7 +3207,7 @@ def test_broadcast_to_5():
         "input": [("V2", ...)],
     }
     final_shapes = {"output": [3, 4, 5], "input": ["(V2, ...)"], "shape": []}
-    scalar_info = {"shape": Scalar(value=(3, 4, 5))}
+    scalar_info = {"shape": IOHyperEdge(value=(3, 4, 5))}
     assert_constraint_results(
         shapes,
         {},
@@ -3148,7 +3228,7 @@ def test_broadcast_to_error_1():
         "output": ["a"],
         "input": [("V2", ...)],
     }
-    scalar_info = {"shape": Scalar(value=(1, 2))}
+    scalar_info = {"shape": IOHyperEdge(value=(1, 2))}
     with pytest.raises(ValueError) as err_info:
         assert_constraint_results(
             shapes, {}, {}, {}, broadcast_to_constraints, False, set(), scalar_info
@@ -3167,7 +3247,7 @@ def test_broadcast_to_error_2():
         "output": ["a", ("V", ...), "b"],
         "input": [("V2", ...)],
     }
-    scalar_info = {"shape": Scalar(value=(3,))}
+    scalar_info = {"shape": IOHyperEdge(value=(3,))}
     with pytest.raises(ValueError) as err_info:
         assert_constraint_results(
             shapes, {}, {}, {}, broadcast_to_constraints, False, set(), scalar_info
@@ -3190,7 +3270,7 @@ def test_reshape_1():
         "input": [1, 2, 3],
     }
     final_shapes = {"output": [6], "input": [1, 2, 3], "shape": []}
-    scalar_info = {"shape": Scalar(value=(6,))}
+    scalar_info = {"shape": IOHyperEdge(value=(6,))}
     assert_constraint_results(
         shapes, {}, final_shapes, {}, reshape_constraints, True, {"output"}, scalar_info
     )
@@ -3206,7 +3286,7 @@ def test_reshape_2():
         "input": [("in", ...)],
     }
     final_shapes = {"output": [6, 1], "input": ["(in, ...)"], "shape": []}
-    scalar_info = {"shape": Scalar(value=(6, 1))}
+    scalar_info = {"shape": IOHyperEdge(value=(6, 1))}
     assert_constraint_results(
         shapes,
         {},
@@ -3228,7 +3308,7 @@ def test_reshape_3():
         "input": [1, 2, 3],
     }
     final_shapes = {"output": [3, 2], "input": [1, 2, 3], "shape": []}
-    scalar_info = {"shape": Scalar(value=(3, 2))}
+    scalar_info = {"shape": IOHyperEdge(value=(3, 2))}
     assert_constraint_results(
         shapes, {}, final_shapes, {}, reshape_constraints, True, {"output"}, scalar_info
     )
@@ -3244,7 +3324,7 @@ def test_reshape_4():
         "input": [("in", ...)],
     }
     final_shapes = {"output": [2, 3], "input": ["(in, ...)"], "shape": []}
-    scalar_info = {"shape": Scalar(value=(2, 3))}
+    scalar_info = {"shape": IOHyperEdge(value=(2, 3))}
     assert_constraint_results(
         shapes,
         {},
@@ -3267,7 +3347,7 @@ def test_reshape_5():
         "input": [("in", ...)],
     }
     final_shapes = {"output": [1, 2, 3], "input": ["(in, ...)"], "shape": []}
-    scalar_info = {"shape": Scalar(tuple[int, ...], value=TBD)}
+    scalar_info = {"shape": IOHyperEdge(tuple[int, ...], value=TBD)}
     assert_constraint_results(
         shapes, {}, final_shapes, {}, reshape_constraints, False, {"shape"}, scalar_info
     )
@@ -3283,7 +3363,7 @@ def test_reshape_6():
         "input": [1, 2, 3],
     }
     final_shapes = {"output": [3, 2], "input": [1, 2, 3], "shape": []}
-    scalar_info = {"shape": Scalar(value=(-1, 2))}
+    scalar_info = {"shape": IOHyperEdge(value=(-1, 2))}
     assert_constraint_results(
         shapes, {}, final_shapes, {}, reshape_constraints, True, {"output"}, scalar_info
     )
@@ -3299,7 +3379,7 @@ def test_reshape_7():
         "input": [1, 2, 3],
     }
     final_shapes = {"output": [3, 2], "input": [1, 2, 3], "shape": []}
-    scalar_info = {"shape": Scalar(value=(-1, 2))}
+    scalar_info = {"shape": IOHyperEdge(value=(-1, 2))}
     assert_constraint_results(
         shapes, {}, final_shapes, {}, reshape_constraints, True, {"output"}, scalar_info
     )
@@ -3315,7 +3395,7 @@ def test_reshape_8():
         "input": [1, 2, 3, 4, 5, 6],
     }
     final_shapes = {"output": [5, 2, 36, 2], "input": [1, 2, 3, 4, 5, 6], "shape": []}
-    scalar_info = {"shape": Scalar(value=(5, 2, -1, 2))}
+    scalar_info = {"shape": IOHyperEdge(value=(5, 2, -1, 2))}
     assert_constraint_results(
         shapes, {}, final_shapes, {}, reshape_constraints, True, {"output"}, scalar_info
     )
@@ -3329,7 +3409,7 @@ def test_reshape_error_1():
         "output": [("V", ...)],
         "input": [1, 2, 3, 4],
     }
-    scalar_info = {"shape": Scalar(value=(2, 5))}
+    scalar_info = {"shape": IOHyperEdge(value=(2, 5))}
     with pytest.raises(ValueError) as err_info:
         assert_constraint_results(
             shapes, {}, {}, {}, reshape_constraints, False, set(), scalar_info
@@ -3345,7 +3425,7 @@ def test_reshape_error_2():
         "output": ["a", "b", "c"],
         "input": [1, 2, 3, 4],
     }
-    scalar_info = {"shape": Scalar(value=(2, 5))}
+    scalar_info = {"shape": IOHyperEdge(value=(2, 5))}
     with pytest.raises(ValueError) as err_info:
         assert_constraint_results(
             shapes, {}, {}, {}, reshape_constraints, False, set(), scalar_info
@@ -3361,7 +3441,7 @@ def test_reshape_error_3():
         "output": ["a", "b", "c"],
         "input": [1, 2, 3, 4],
     }
-    scalar_info = {"shape": Scalar(value=(2, 12))}
+    scalar_info = {"shape": IOHyperEdge(value=(2, 12))}
     with pytest.raises(ValueError) as err_info:
         assert_constraint_results(
             shapes, {}, {}, {}, reshape_constraints, False, set(), scalar_info
@@ -3380,7 +3460,7 @@ def test_reshape_error_4():
         "output": ["a", ("V", ...), "b", "c"],
         "input": [1, 2, 3, 4],
     }
-    scalar_info = {"shape": Scalar(value=(2, 12))}
+    scalar_info = {"shape": IOHyperEdge(value=(2, 12))}
     with pytest.raises(ValueError) as err_info:
         assert_constraint_results(
             shapes, {}, {}, {}, reshape_constraints, False, set(), scalar_info
@@ -3399,7 +3479,7 @@ def test_reshape_error_5():
         "output": [2, 2],
         "input": [1, 2, 3, 4],
     }
-    scalar_info = {"shape": Scalar(tuple[int, ...], value=TBD)}
+    scalar_info = {"shape": IOHyperEdge(tuple[int, ...], value=TBD)}
     with pytest.raises(ValueError) as err_info:
         assert_constraint_results(
             shapes, {}, {}, {}, reshape_constraints, False, set(), scalar_info
@@ -3644,8 +3724,8 @@ def test_size_1():
     }
     final_shapes = {"input": ["a", "b", "c", "(V1, ...)"], "output": [], "dim": []}
     scalar_info = {
-        "dim": Scalar(value=2),
-        "output": Scalar(possible_types=int | tuple[int, ...], value=TBD),
+        "dim": IOHyperEdge(value=2),
+        "output": IOHyperEdge(type=int | tuple[int, ...], value=TBD),
     }
     assert_constraint_results(
         shapes, {}, final_shapes, {}, size_constraints, False, {"input"}, scalar_info
@@ -3659,8 +3739,8 @@ def test_size_2():
     shapes: dict[str, list[int | str | tuple]] = {"input": [("in", ...)]}
     final_shapes = {"input": ["(in, ...)"], "output": [], "dim": []}
     scalar_info = {
-        "dim": Scalar(value=None),
-        "output": Scalar(possible_types=int | tuple[int, ...], value=TBD),
+        "dim": IOHyperEdge(value=None),
+        "output": IOHyperEdge(type=int | tuple[int, ...], value=TBD),
     }
     assert_constraint_results(
         shapes, {}, final_shapes, {}, size_constraints, False, set(), scalar_info
@@ -3672,8 +3752,8 @@ def test_size_3():
     final_shapes = {"input": [2, 3, 4], "output": [], "dim": []}
     final_values = {"output": 2}
     scalar_info = {
-        "dim": Scalar(value=0),
-        "output": Scalar(possible_types=int | tuple[int, ...], value=TBD),
+        "dim": IOHyperEdge(value=0),
+        "output": IOHyperEdge(type=int | tuple[int, ...], value=TBD),
     }
 
     assert_constraint_results(
@@ -3696,8 +3776,8 @@ def test_size_4():
     final_shapes = {"input": [2, 3, 4], "output": [], "dim": []}
     final_values = {"output": (3, 4)}
     scalar_info = {
-        "dim": Scalar(value=(1, 2)),
-        "output": Scalar(possible_types=int | tuple[int, ...], value=TBD),
+        "dim": IOHyperEdge(value=(1, 2)),
+        "output": IOHyperEdge(type=int | tuple[int, ...], value=TBD),
     }
     assert_constraint_results(
         shapes,
@@ -3717,8 +3797,8 @@ def test_size_5():
     final_shapes = {"input": [2, 3, 4], "output": [], "dim": []}
     final_values = {"output": (4, 2)}
     scalar_info = {
-        "dim": Scalar(value=(-1, 0)),
-        "output": Scalar(possible_types=int | tuple[int, ...], value=TBD),
+        "dim": IOHyperEdge(value=(-1, 0)),
+        "output": IOHyperEdge(type=int | tuple[int, ...], value=TBD),
     }
     assert_constraint_results(
         shapes,
@@ -3740,8 +3820,8 @@ def test_size_6():
     final_shapes = {"input": [2, 3, 4], "output": [], "dim": []}
     final_values = {"output": (3, 2, 4)}
     scalar_info = {
-        "dim": Scalar(value=(1, 0, 2)),
-        "output": Scalar(possible_types=int | tuple[int, ...], value=TBD),
+        "dim": IOHyperEdge(value=(1, 0, 2)),
+        "output": IOHyperEdge(type=int | tuple[int, ...], value=TBD),
     }
     assert_constraint_results(
         shapes,
@@ -3761,8 +3841,8 @@ def test_size_7():
     final_shapes = {"input": [2, 3, 4], "output": [], "dim": []}
     final_values = {"output": (4, 3)}
     scalar_info = {
-        "dim": Scalar(value=(-1, -2)),
-        "output": Scalar(possible_types=int | tuple[int, ...], value=TBD),
+        "dim": IOHyperEdge(value=(-1, -2)),
+        "output": IOHyperEdge(type=int | tuple[int, ...], value=TBD),
     }
     assert_constraint_results(
         shapes,
@@ -3784,8 +3864,8 @@ def test_size_8():
     final_shapes = {"input": [2, 3, 4, "(V1, ...)", 1, 5], "output": [], "dim": []}
     final_values = {"output": (2, 3)}
     scalar_info = {
-        "dim": Scalar(value=(0, 1)),
-        "output": Scalar(possible_types=int | tuple[int, ...], value=TBD),
+        "dim": IOHyperEdge(value=(0, 1)),
+        "output": IOHyperEdge(type=int | tuple[int, ...], value=TBD),
     }
     assert_constraint_results(
         shapes,
@@ -3807,8 +3887,8 @@ def test_size_9():
     final_shapes = {"input": [2, 3, 4, "(V1, ...)", 1, 5], "output": [], "dim": []}
     final_values = {"output": 4}
     scalar_info = {
-        "dim": Scalar(value=2),
-        "output": Scalar(possible_types=int | tuple[int, ...], value=TBD),
+        "dim": IOHyperEdge(value=2),
+        "output": IOHyperEdge(type=int | tuple[int, ...], value=TBD),
     }
     assert_constraint_results(
         shapes,
@@ -3827,7 +3907,10 @@ def test_size_10():
     shapes: dict[str, list[int | str | tuple]] = {"input": ["u1", "u2", "u3"]}
     final_shapes = {"input": ["u1", 3, 4], "output": [], "dim": []}
     final_values = {"output": (3, 4)}
-    scalar_info = {"dim": Scalar(value=(1, 2)), "output": Scalar(value=(3, 4))}
+    scalar_info = {
+        "dim": IOHyperEdge(value=(1, 2)),
+        "output": IOHyperEdge(value=(3, 4)),
+    }
     assert_constraint_results(
         shapes,
         {},
@@ -3851,7 +3934,10 @@ def test_size_11():
         "dim": [],
     }
     final_values = {"output": (7, 10)}
-    scalar_info = {"dim": Scalar(value=(-1, 1)), "output": Scalar(value=(7, 10))}
+    scalar_info = {
+        "dim": IOHyperEdge(value=(-1, 1)),
+        "output": IOHyperEdge(value=(7, 10)),
+    }
     assert_constraint_results(
         shapes,
         {},
@@ -3869,7 +3955,10 @@ def test_size_12():
     shapes: dict[str, list[int | str | tuple]] = {"input": [("Var1", ...)]}
     final_shapes = {"input": ["a", 10, "b", "(V1, ...)"], "output": [], "dim": []}
     final_values = {"output": (7, 10)}
-    scalar_info = {"dim": Scalar(value=(-3, 1)), "output": Scalar(value=(7, 10))}
+    scalar_info = {
+        "dim": IOHyperEdge(value=(-3, 1)),
+        "output": IOHyperEdge(value=(7, 10)),
+    }
     assert_constraint_results(
         shapes,
         {},
@@ -3888,8 +3977,8 @@ def test_size_13():
     final_shapes = {"input": [2, 3, 4], "output": [], "dim": []}
     final_values = {"output": 4}
     scalar_info = {
-        "dim": Scalar(value=-1),
-        "output": Scalar(possible_types=int | tuple[int, ...], value=TBD),
+        "dim": IOHyperEdge(value=-1),
+        "output": IOHyperEdge(type=int | tuple[int, ...], value=TBD),
     }
     assert_constraint_results(
         shapes,
@@ -3918,7 +4007,7 @@ def test_flatten_1():
         "start_dim": [],
         "end_dim": [],
     }
-    scalar_info = {"start_dim": Scalar(value=3), "end_dim": Scalar(value=-3)}
+    scalar_info = {"start_dim": IOHyperEdge(value=3), "end_dim": IOHyperEdge(value=-3)}
     assert_constraint_results(
         shapes,
         {},
@@ -3944,8 +4033,8 @@ def test_flatten_2():
         "end_dim": [],
     }
     scalar_info = {
-        "start_dim": Scalar(possible_types=int | type(...), value=3),
-        "end_dim": Scalar(possible_types=int | type(...), value=5),
+        "start_dim": IOHyperEdge(type=int | type(...), value=3),
+        "end_dim": IOHyperEdge(type=int | type(...), value=5),
     }
     assert_constraint_results(
         shapes,
@@ -3972,8 +4061,8 @@ def test_flatten_3():
         "end_dim": [],
     }
     scalar_info = {
-        "start_dim": Scalar(possible_types=int | type(...), value=3),
-        "end_dim": Scalar(possible_types=int | type(...), value=3),
+        "start_dim": IOHyperEdge(type=int | type(...), value=3),
+        "end_dim": IOHyperEdge(type=int | type(...), value=3),
     }
     assert_constraint_results(
         shapes,
@@ -3999,7 +4088,10 @@ def test_flatten_4():
         "start_dim": [],
         "end_dim": [],
     }
-    scalar_info = {"start_dim": Scalar(int, value=-3), "end_dim": Scalar(int, value=-2)}
+    scalar_info = {
+        "start_dim": IOHyperEdge(int, value=-3),
+        "end_dim": IOHyperEdge(int, value=-2),
+    }
     assert_constraint_results(
         shapes,
         {},
@@ -4024,7 +4116,10 @@ def test_flatten_5():
         "start_dim": [],
         "end_dim": [],
     }
-    scalar_info = {"start_dim": Scalar(int, value=-3), "end_dim": Scalar(int, value=-3)}
+    scalar_info = {
+        "start_dim": IOHyperEdge(int, value=-3),
+        "end_dim": IOHyperEdge(int, value=-3),
+    }
     assert_constraint_results(
         shapes,
         {},
@@ -4049,7 +4144,10 @@ def test_flatten_6():
         "start_dim": [],
         "end_dim": [],
     }
-    scalar_info = {"start_dim": Scalar(int, value=TBD), "end_dim": Scalar(int, value=3)}
+    scalar_info = {
+        "start_dim": IOHyperEdge(int, value=TBD),
+        "end_dim": IOHyperEdge(int, value=3),
+    }
     assert_constraint_results(
         shapes,
         {},
@@ -4075,8 +4173,8 @@ def test_flatten_7():
         "end_dim": [],
     }
     scalar_info = {
-        "start_dim": Scalar(int, value=TBD),
-        "end_dim": Scalar(int, value=-3),
+        "start_dim": IOHyperEdge(int, value=TBD),
+        "end_dim": IOHyperEdge(int, value=-3),
     }
     assert_constraint_results(
         shapes,
@@ -4102,7 +4200,10 @@ def test_flatten_8():
         "start_dim": [],
         "end_dim": [],
     }
-    scalar_info = {"start_dim": Scalar(int, value=3), "end_dim": Scalar(int, value=TBD)}
+    scalar_info = {
+        "start_dim": IOHyperEdge(int, value=3),
+        "end_dim": IOHyperEdge(int, value=TBD),
+    }
     assert_constraint_results(
         shapes,
         {},
@@ -4128,8 +4229,8 @@ def test_flatten_9():
         "end_dim": [],
     }
     scalar_info = {
-        "start_dim": Scalar(int, value=-3),
-        "end_dim": Scalar(int, value=TBD),
+        "start_dim": IOHyperEdge(int, value=-3),
+        "end_dim": IOHyperEdge(int, value=TBD),
     }
     assert_constraint_results(
         shapes,
@@ -4161,7 +4262,7 @@ def test_swap_axes_1():
         "axis1": [],
         "axis2": [],
     }
-    scalar_info = {"axis1": Scalar(value=3), "axis2": Scalar(value=-5)}
+    scalar_info = {"axis1": IOHyperEdge(value=3), "axis2": IOHyperEdge(value=-5)}
     assert_constraint_results(
         shapes,
         {},
@@ -4189,7 +4290,7 @@ def test_swap_axes_2():
         "axis1": [],
         "axis2": [],
     }
-    scalar_info = {"axis1": Scalar(value=3), "axis2": Scalar(value=-2)}
+    scalar_info = {"axis1": IOHyperEdge(value=3), "axis2": IOHyperEdge(value=-2)}
     assert_constraint_results(
         shapes,
         {},
@@ -4217,7 +4318,7 @@ def test_swap_axes_3():
         "axis1": [],
         "axis2": [],
     }
-    scalar_info = {"axis1": Scalar(value=3), "axis2": Scalar(value=1)}
+    scalar_info = {"axis1": IOHyperEdge(value=3), "axis2": IOHyperEdge(value=1)}
     assert_constraint_results(
         shapes,
         {},
@@ -4245,7 +4346,7 @@ def test_swap_axes_4():
         "axis1": [],
         "axis2": [],
     }
-    scalar_info = {"axis1": Scalar(value=-3), "axis2": Scalar(value=-5)}
+    scalar_info = {"axis1": IOHyperEdge(value=-3), "axis2": IOHyperEdge(value=-5)}
     assert_constraint_results(
         shapes,
         {},
@@ -4274,7 +4375,7 @@ def test_swap_axes_5():
         "axis1": [],
         "axis2": [],
     }
-    scalar_info = {"axis1": Scalar(value=3), "axis2": Scalar(value=1)}
+    scalar_info = {"axis1": IOHyperEdge(value=3), "axis2": IOHyperEdge(value=1)}
     assert_constraint_results(
         shapes,
         {},
@@ -4303,7 +4404,7 @@ def test_swap_axes_6():
         "axis1": [],
         "axis2": [],
     }
-    scalar_info = {"axis1": Scalar(value=-3), "axis2": Scalar(value=-1)}
+    scalar_info = {"axis1": IOHyperEdge(value=-3), "axis2": IOHyperEdge(value=-1)}
     assert_constraint_results(
         shapes,
         {},
@@ -4332,7 +4433,7 @@ def test_swap_axes_7():
         "axis1": [],
         "axis2": [],
     }
-    scalar_info = {"axis1": Scalar(value=-3), "axis2": Scalar(value=-1)}
+    scalar_info = {"axis1": IOHyperEdge(value=-3), "axis2": IOHyperEdge(value=-1)}
     assert_constraint_results(
         shapes,
         {},
@@ -4356,7 +4457,7 @@ def test_to_tensor_1():
         "input": [],
     }
     value = [[2, 3, 4], [2, 3, 4]]
-    scalar_info = {"input": Scalar(value=value)}
+    scalar_info = {"input": IOHyperEdge(value=value)}
     final_values = {"input": value}
     assert_constraint_results(
         shapes,
@@ -4379,7 +4480,7 @@ def test_to_tensor_2():
         "input": [],
     }
     value = np.random.rand(3, 4, 5, 6, 7, 8).tolist()
-    scalar_info = {"input": Scalar(value=value)}
+    scalar_info = {"input": IOHyperEdge(value=value)}
     final_values = {"input": value}
     assert_constraint_results(
         shapes,
@@ -4402,7 +4503,7 @@ def test_to_tensor_3():
         "input": [],
     }
     value = np.random.rand(3, 4, 5, 6, 7, 8).tolist()
-    scalar_info = {"input": Scalar(value=value)}
+    scalar_info = {"input": IOHyperEdge(value=value)}
     final_values = {"input": value}
     assert_constraint_results(
         shapes,
@@ -4421,7 +4522,7 @@ def test_to_tensor_4_error():
     """Should work with no problem"""
     shapes: dict[str, list[int | str | tuple]] = {"output": ["u1", ("V1", ...), "u1"]}
     value = np.random.rand(3, 4, 5, 6, 7, 8).tolist()
-    scalar_info = {"input": Scalar(value=value)}
+    scalar_info = {"input": IOHyperEdge(value=value)}
     with pytest.raises(ValueError) as err_info:
         assert_constraint_results(
             shapes, {}, {}, {}, to_tensor_constraints, False, set(), scalar_info
@@ -4437,7 +4538,7 @@ def test_to_tensor_5():
         "input": [],
     }
     value = np.random.rand(3, 3, 3).tolist()
-    scalar_info = {"input": Scalar(value=value)}
+    scalar_info = {"input": IOHyperEdge(value=value)}
     final_values = {"input": value}
     assert_constraint_results(
         shapes,
@@ -4460,7 +4561,7 @@ def test_to_tensor_6():
         "input": [],
     }
     value = 3.0
-    scalar_info = {"input": Scalar(value=value)}
+    scalar_info = {"input": IOHyperEdge(value=value)}
     final_values = {"input": value}
     assert_constraint_results(
         shapes,
@@ -4479,7 +4580,7 @@ def test_to_tensor_7_error():
     """Should work with no problem"""
     shapes: dict[str, list[int | str | tuple]] = {"output": ["u1", "u2"]}
     value = 3.0
-    scalar_info = {"input": Scalar(value=value)}
+    scalar_info = {"input": IOHyperEdge(value=value)}
     with pytest.raises(ValueError) as err_info:
         assert_constraint_results(
             shapes, {}, {}, {}, to_tensor_constraints, False, set(), scalar_info
@@ -4491,7 +4592,7 @@ def test_to_tensor_8_error():
     """Should work with no problem"""
     shapes: dict[str, list[int | str | tuple]] = {"output": ["u1", "u1", "u1"]}
     value = np.random.rand(3, 4, 5).tolist()
-    scalar_info = {"input": Scalar(value=value)}
+    scalar_info = {"input": IOHyperEdge(value=value)}
     with pytest.raises(ValueError) as err_info:
         assert_constraint_results(
             shapes, {}, {}, {}, to_tensor_constraints, False, set(), scalar_info
@@ -4513,7 +4614,7 @@ def test_reverse_1():
         "input": ["u1", "u1", "u1"],
         "axes": [],
     }
-    scalar_info = {"axes": Scalar(value=None)}
+    scalar_info = {"axes": IOHyperEdge(value=None)}
     assert_constraint_results(
         shapes, {}, final_shapes, {}, reverse_constraints, True, set(), scalar_info
     )
@@ -4530,7 +4631,7 @@ def test_reverse_2():
         "input": ["u1", "u2", "u3"],
         "axes": [],
     }
-    scalar_info = {"axes": Scalar(value=None)}
+    scalar_info = {"axes": IOHyperEdge(value=None)}
     assert_constraint_results(
         shapes, {}, final_shapes, {}, reverse_constraints, True, {"output"}, scalar_info
     )
@@ -4547,7 +4648,7 @@ def test_reverse_3():
         "input": ["u1", "u2", "u3"],
         "axes": [],
     }
-    scalar_info = {"axes": Scalar(value=[1, 0, 2])}
+    scalar_info = {"axes": IOHyperEdge(value=[1, 0, 2])}
     assert_constraint_results(
         shapes, {}, final_shapes, {}, reverse_constraints, True, {"output"}, scalar_info
     )
@@ -4564,7 +4665,7 @@ def test_reverse_4():
         "input": ["u2", "u1", "u3"],
         "axes": [],
     }
-    scalar_info = {"axes": Scalar(value=[1, 0, 2])}
+    scalar_info = {"axes": IOHyperEdge(value=[1, 0, 2])}
     assert_constraint_results(
         shapes, {}, final_shapes, {}, reverse_constraints, True, {"input"}, scalar_info
     )
@@ -4749,7 +4850,7 @@ def test_concat_1():
         "input2": ["u1", "u2", "u3", 4],
         "input3": ["u1", "u2", "u3", 5],
     }
-    scalar_info = {"axis": Scalar(value=-1)}
+    scalar_info = {"axis": IOHyperEdge(value=-1)}
     assert_constraint_results(
         shapes,
         {},
@@ -4779,7 +4880,7 @@ def test_concat_2():
         "input2": ["u1", "u2", "u3", 4],
         "input3": ["u1", "u2", "u3", 5],
     }
-    scalar_info = {"axis": Scalar(value=-1)}
+    scalar_info = {"axis": IOHyperEdge(value=-1)}
     assert_constraint_results(
         shapes,
         {},
@@ -4808,7 +4909,7 @@ def test_concat_3():
         "input2": [3],
         "input3": [1],
     }
-    scalar_info = {"axis": Scalar(value=-1)}
+    scalar_info = {"axis": IOHyperEdge(value=-1)}
     assert_constraint_results(
         shapes,
         {},
@@ -4837,7 +4938,7 @@ def test_concat_4():
         "input2": ["(Var1, ...)", 2, "u1"],
         "input3": ["(Var1, ...)", 1, "u1"],
     }
-    scalar_info = {"axis": Scalar(value=-2)}
+    scalar_info = {"axis": IOHyperEdge(value=-2)}
     assert_constraint_results(
         shapes,
         {},
@@ -4866,7 +4967,7 @@ def test_concat_5():
         "input2": ["(V1, ...)", "z", "b", "c", "d"],
         "input3": ["(V1, ...)", "t", "b", "c", "d"],
     }
-    scalar_info = {"axis": Scalar(value=-4)}
+    scalar_info = {"axis": IOHyperEdge(value=-4)}
     assert_constraint_results(
         shapes,
         {},
@@ -4895,7 +4996,7 @@ def test_concat_6():
         "input2": ["(Var3, ...)"],
         "input3": ["(Var4, ...)"],
     }
-    scalar_info = {"axis": Scalar(value=None)}
+    scalar_info = {"axis": IOHyperEdge(value=None)}
     assert_constraint_results(
         shapes,
         {},
@@ -4924,7 +5025,7 @@ def test_concat_7():
         "input2": [6, 7, 8, 9],
         "input3": [2, 1, 1, 2, 3, 4],
     }
-    scalar_info = {"axis": Scalar(value=None)}
+    scalar_info = {"axis": IOHyperEdge(value=None)}
     assert_constraint_results(
         shapes,
         {},
@@ -4953,7 +5054,7 @@ def test_concat_8():
         "input2": [6, 7, 8, 9],
         "input3": [2, 1, 1, 2, 3, 4],
     }
-    scalar_info = {"axis": Scalar(value=None)}
+    scalar_info = {"axis": IOHyperEdge(value=None)}
     assert_constraint_results(
         shapes,
         {},
@@ -4982,7 +5083,7 @@ def test_concat_9():
         "input2": [6, 7, 8, 9],
         "input3": [2, 1, 1, 2, 3, 4],
     }
-    scalar_info = {"axis": Scalar(value=None)}
+    scalar_info = {"axis": IOHyperEdge(value=None)}
     assert_constraint_results(
         shapes,
         {},
@@ -5002,7 +5103,7 @@ def test_concat_9():
 def test_shape_1():
     shapes: dict[str, list[int | str | tuple]] = {"input": [3, 4, 5]}
     final_shapes = {"input": [3, 4, 5], "output": []}
-    scalar_info = {"output": Scalar(tuple[int, ...] | type(...), value=TBD)}
+    scalar_info = {"output": IOHyperEdge(tuple[int, ...] | type(...), value=TBD)}
     final_values = {"output": (3, 4, 5)}
     assert_constraint_results(
         shapes,
@@ -5020,7 +5121,7 @@ def test_shape_1():
 def test_shape_2():
     shapes: dict[str, list[int | str | tuple]] = {"input": [1]}
     final_shapes = {"input": [1], "output": []}
-    scalar_info = {"output": Scalar(tuple[int, ...] | type(...), value=TBD)}
+    scalar_info = {"output": IOHyperEdge(tuple[int, ...] | type(...), value=TBD)}
     final_values = {"output": (1,)}
     assert_constraint_results(
         shapes,
@@ -5038,7 +5139,7 @@ def test_shape_2():
 def test_shape_3():
     shapes: dict[str, list[int | str | tuple]] = {"input": [("Var1", ...)]}
     final_shapes = {"input": [3, 4, 5, 6, 7], "output": []}
-    scalar_info = {"output": Scalar(value=(3, 4, 5, 6, 7))}
+    scalar_info = {"output": IOHyperEdge(value=(3, 4, 5, 6, 7))}
     final_values = {"output": (3, 4, 5, 6, 7)}
     assert_constraint_results(
         shapes,
@@ -5058,7 +5159,7 @@ def test_shape_4():
         "input": ["u1", "u2", "u3", ("Var1", ...), "u4", "u5"]
     }
     final_shapes = {"input": [3, 4, 5, 6, 7], "output": []}
-    scalar_info = {"output": Scalar(value=(3, 4, 5, 6, 7))}
+    scalar_info = {"output": IOHyperEdge(value=(3, 4, 5, 6, 7))}
     final_values = {"output": (3, 4, 5, 6, 7)}
     assert_constraint_results(
         shapes,
@@ -5078,7 +5179,7 @@ def test_shape_5():
         "input": ["u1", "u2", "u3", ("Var1", ...), "u4", "u4"]
     }
     final_shapes = {"input": [3, 4, 5, 6, 6], "output": []}
-    scalar_info = {"output": Scalar(value=(3, 4, 5, 6, 6))}
+    scalar_info = {"output": IOHyperEdge(value=(3, 4, 5, 6, 6))}
     final_values = {"output": (3, 4, 5, 6, 6)}
     assert_constraint_results(
         shapes,
@@ -5102,10 +5203,10 @@ def test_to_tuple_forward():
         "input3": [],
     }
     scalar_info = {
-        "output": Scalar(possible_types=tuple[int, ...] | type(...), value=TBD),
-        "input1": Scalar(value=3),
-        "input2": Scalar(value=4),
-        "input3": Scalar(value=5),
+        "output": IOHyperEdge(type=tuple[int, ...] | type(...), value=TBD),
+        "input1": IOHyperEdge(value=3),
+        "input2": IOHyperEdge(value=4),
+        "input3": IOHyperEdge(value=5),
     }
     final_values = {"output": (3, 4, 5), "input1": 3, "input2": 4, "input3": 5}
     assert_constraint_results(
@@ -5131,15 +5232,15 @@ def test_to_tuple_reverse_1():
         "input3": [],
     }
     scalar_info = {
-        "output": Scalar(value=(3, 4, 5)),
-        "input1": Scalar(
-            possible_types=int | float | bool | list | tuple | type(...), value=TBD
+        "output": IOHyperEdge(value=(3, 4, 5)),
+        "input1": IOHyperEdge(
+            type=int | float | bool | list | tuple | type(...), value=TBD
         ),
-        "input2": Scalar(
-            possible_types=int | float | bool | list | tuple | type(...), value=TBD
+        "input2": IOHyperEdge(
+            type=int | float | bool | list | tuple | type(...), value=TBD
         ),
-        "input3": Scalar(
-            possible_types=int | float | bool | list | tuple | type(...), value=TBD
+        "input3": IOHyperEdge(
+            type=int | float | bool | list | tuple | type(...), value=TBD
         ),
     }
     final_values = {"output": (3, 4, 5), "input1": 3, "input2": 4, "input3": 5}
@@ -5166,10 +5267,10 @@ def test_to_tuple_reverse_2():
         "input3": [],
     }
     scalar_info = {
-        "output": Scalar(value=(3, 4, 5)),
-        "input1": Scalar(possible_types=int | float | bool, value=3),
-        "input2": Scalar(possible_types=int | float | bool, value=TBD),
-        "input3": Scalar(possible_types=int | float | bool, value=5),
+        "output": IOHyperEdge(value=(3, 4, 5)),
+        "input1": IOHyperEdge(type=int | float | bool, value=3),
+        "input2": IOHyperEdge(type=int | float | bool, value=TBD),
+        "input3": IOHyperEdge(type=int | float | bool, value=5),
     }
     final_values = {"output": (3, 4, 5), "input1": 3, "input2": 4, "input3": 5}
     assert_constraint_results(
@@ -5195,10 +5296,10 @@ def test_to_list_forward():
         "input3": [],
     }
     scalar_info = {
-        "output": Scalar(possible_types=list[int] | type(...), value=TBD),
-        "input1": Scalar(value=3),
-        "input2": Scalar(value=4),
-        "input3": Scalar(value=5),
+        "output": IOHyperEdge(type=list[int] | type(...), value=TBD),
+        "input1": IOHyperEdge(value=3),
+        "input2": IOHyperEdge(value=4),
+        "input3": IOHyperEdge(value=5),
     }
     final_values = {"output": [3, 4, 5], "input1": 3, "input2": 4, "input3": 5}
     assert_constraint_results(
@@ -5224,15 +5325,15 @@ def test_to_list_reverse_1():
         "input3": [],
     }
     scalar_info = {
-        "output": Scalar(possible_types=list[int] | type(...), value=[3, 4, 5]),
-        "input1": Scalar(
-            possible_types=int | float | bool | list | tuple | type(...), value=TBD
+        "output": IOHyperEdge(type=list[int] | type(...), value=[3, 4, 5]),
+        "input1": IOHyperEdge(
+            type=int | float | bool | list | tuple | type(...), value=TBD
         ),
-        "input2": Scalar(
-            possible_types=int | float | bool | list | tuple | type(...), value=TBD
+        "input2": IOHyperEdge(
+            type=int | float | bool | list | tuple | type(...), value=TBD
         ),
-        "input3": Scalar(
-            possible_types=int | float | bool | list | tuple | type(...), value=TBD
+        "input3": IOHyperEdge(
+            type=int | float | bool | list | tuple | type(...), value=TBD
         ),
     }
     final_values = {"output": [3, 4, 5], "input1": 3, "input2": 4, "input3": 5}
@@ -5259,10 +5360,10 @@ def test_to_list_reverse_2():
         "input3": [],
     }
     scalar_info = {
-        "output": Scalar(value=[3, 4, 5]),
-        "input1": Scalar(value=3),
-        "input2": Scalar(possible_types=int | float | bool, value=TBD),
-        "input3": Scalar(value=5),
+        "output": IOHyperEdge(value=[3, 4, 5]),
+        "input1": IOHyperEdge(value=3),
+        "input2": IOHyperEdge(type=int | float | bool, value=TBD),
+        "input3": IOHyperEdge(value=5),
     }
     final_values = {"output": [3, 4, 5], "input1": 3, "input2": 4, "input3": 5}
     assert_constraint_results(
@@ -5356,7 +5457,7 @@ def test_eye_1():
         "output": ["u1", "u2"],
     }
     final_shapes = {"output": [1, 1], "N": [], "M": []}
-    scalar_info = {"N": Scalar(int, value=1), "M": Scalar(int, value=1)}
+    scalar_info = {"N": IOHyperEdge(int, value=1), "M": IOHyperEdge(int, value=1)}
     assert_constraint_results(
         shapes, {}, final_shapes, {}, eye_constraints, True, {"output"}, scalar_info
     )
@@ -5367,7 +5468,7 @@ def test_eye_2():
         "output": ["u1", "u2"],
     }
     final_shapes = {"output": [1, 4], "N": [], "M": []}
-    scalar_info = {"N": Scalar(int, value=1), "M": Scalar(int, value=4)}
+    scalar_info = {"N": IOHyperEdge(int, value=1), "M": IOHyperEdge(int, value=4)}
     assert_constraint_results(
         shapes, {}, final_shapes, {}, eye_constraints, True, {"output"}, scalar_info
     )
@@ -5378,7 +5479,7 @@ def test_eye_3():
         "output": ["u1", "u2"],
     }
     final_shapes = {"output": [1, "u2"], "N": [], "M": []}
-    scalar_info = {"N": Scalar(int, value=1), "M": Scalar(int)}
+    scalar_info = {"N": IOHyperEdge(int, value=1), "M": IOHyperEdge(int)}
     assert_constraint_results(
         shapes, {}, final_shapes, {}, eye_constraints, False, {"output"}, scalar_info
     )
@@ -5389,7 +5490,7 @@ def test_eye_4():
         "output": ["u1", "u2"],
     }
     final_shapes = {"output": ["u1", 2], "N": [], "M": []}
-    scalar_info = {"N": Scalar(int), "M": Scalar(int, value=2)}
+    scalar_info = {"N": IOHyperEdge(int), "M": IOHyperEdge(int, value=2)}
     assert_constraint_results(
         shapes, {}, final_shapes, {}, eye_constraints, False, {"output"}, scalar_info
     )
@@ -5400,7 +5501,7 @@ def test_eye_5():
         "output": ["u1", "u2"],
     }
     final_shapes = {"output": ["u1", "u2"], "N": [], "M": []}
-    scalar_info = {"N": Scalar(int), "M": Scalar(int)}
+    scalar_info = {"N": IOHyperEdge(int), "M": IOHyperEdge(int)}
     assert_constraint_results(
         shapes, {}, final_shapes, {}, eye_constraints, False, set(), scalar_info
     )
@@ -5411,7 +5512,7 @@ def test_eye_5():
 #     final_shapes = {"input": [2, 3], "output": []}
 #     value = np.ones((2, 3))
 #     scalar_info = {
-#         "output": Scalar(possible_types=list[list[float]] | type(...)),
+#         "output": IOHyperEdge(type=list[list[float]] | type(...)),
 #     }
 #     final_values = {"output": [[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]], "input": value}
 #     assert_constraint_results(
@@ -5433,7 +5534,7 @@ def test_eye_5():
 #     final_shapes = {"input": [2, 3], "output": []}
 #     value = np.ones((2, 3), dtype=int)
 #     scalar_info = {
-#         "output": Scalar(possible_types=list[list[int]] | type(...)),
+#         "output": IOHyperEdge(type=list[list[int]] | type(...)),
 #     }
 #     final_values = {"output": [[1, 1, 1], [1, 1, 1]], "input": value}
 #     assert_constraint_results(
@@ -5454,7 +5555,7 @@ def test_tensor_to_list_backward_1():
     shapes: dict[str, list[int | str | tuple]] = {"input": [("Var1", ...)]}
     final_shapes = {"input": [2, 3], "output": []}
     scalar_info = {
-        "output": Scalar(value=[[1, 1, 1], [1, 1, 1]]),
+        "output": IOHyperEdge(value=[[1, 1, 1], [1, 1, 1]]),
     }
     final_values = {"output": [[1, 1, 1], [1, 1, 1]]}
     assert_constraint_results(
@@ -5473,7 +5574,7 @@ def test_tensor_to_list_backward_1():
 def test_tensor_to_list_backward_2():
     shapes: dict[str, list[int | str | tuple]] = {"input": [("Var1", ...)]}
     scalar_info = {
-        "output": Scalar(value=[[1, 1, 1], [1, 1]]),
+        "output": IOHyperEdge(value=[[1, 1, 1], [1, 1]]),
     }
     with pytest.raises(ValueError) as err_info:
         assert_constraint_results(
@@ -5488,7 +5589,7 @@ def test_tensor_to_list_backward_2():
 def test_item_constraints_1():
     shapes: dict[str, list[int | str | tuple]] = {"input": [("Var1", ...)]}
     final_shapes = {"input": ["(Var1, ...)"], "output": []}
-    scalar_info = {"output": Scalar(possible_types=int | float | bool | type(...))}
+    scalar_info = {"output": IOHyperEdge(type=int | float | bool | type(...))}
     assert_constraint_results(
         shapes, {}, final_shapes, {}, item_constraints, False, set(), scalar_info
     )
@@ -5497,7 +5598,7 @@ def test_item_constraints_1():
 def test_item_constraints_2():
     shapes: dict[str, list[int | str | tuple]] = {"input": []}
     final_shapes: dict[str, list[int | str | tuple]] = {"input": [], "output": []}
-    scalar_info = {"output": Scalar(possible_types=int | float | bool | type(...))}
+    scalar_info = {"output": IOHyperEdge(type=int | float | bool | type(...))}
     assert_constraint_results(
         shapes, {}, final_shapes, {}, item_constraints, True, set(), scalar_info
     )
@@ -5506,7 +5607,7 @@ def test_item_constraints_2():
 def test_item_constraints_3():
     shapes: dict[str, list[int | str | tuple]] = {"input": [1, 1, 1]}
     final_shapes = {"input": [1, 1, 1], "output": []}
-    scalar_info = {"output": Scalar(possible_types=int | float | bool | type(...))}
+    scalar_info = {"output": IOHyperEdge(type=int | float | bool | type(...))}
     assert_constraint_results(
         shapes, {}, final_shapes, {}, item_constraints, True, set(), scalar_info
     )
@@ -5514,7 +5615,7 @@ def test_item_constraints_3():
 
 def test_item_constraints_4():
     shapes: dict[str, list[int | str | tuple]] = {"input": [1, 2, 1]}
-    scalar_info = {"output": Scalar(possible_types=int | float | bool | type(...))}
+    scalar_info = {"output": IOHyperEdge(type=int | float | bool | type(...))}
     with pytest.raises(ValueError) as err_info:
         assert_constraint_results(
             shapes, {}, {}, {}, item_constraints, False, set(), scalar_info
@@ -5533,9 +5634,9 @@ def test_scalar_item_1():
         "index": [],
     }
     scalar_info = {
-        "output": Scalar(possible_types=int | float | bool | type(...)),
-        "input": Scalar(possible_types=list[int], value=[1, 2, 3]),
-        "index": Scalar(possible_types=int, value=2),
+        "output": IOHyperEdge(type=int | float | bool | type(...)),
+        "input": IOHyperEdge(type=list[int], value=[1, 2, 3]),
+        "index": IOHyperEdge(type=int, value=2),
     }
     final_values = {"output": 3, "input": [1, 2, 3], "index": 2}
     assert_constraint_results(
@@ -5543,7 +5644,7 @@ def test_scalar_item_1():
         {},
         final_shapes,
         {},
-        scalar_item_constraints,
+        indexer_constraints,
         True,
         {"output"},
         scalar_info,
@@ -5559,9 +5660,9 @@ def test_scalar_item_2():
         "index": [],
     }
     scalar_info = {
-        "output": Scalar(possible_types=int | float | bool | type(...)),
-        "input": Scalar(possible_types=list[int] | type(...), value=TBD),
-        "index": Scalar(possible_types=int, value=2),
+        "output": IOHyperEdge(type=int | float | bool | type(...)),
+        "input": IOHyperEdge(type=list[int] | type(...), value=TBD),
+        "index": IOHyperEdge(type=int, value=2),
     }
     final_values = {"output": TBD, "input": TBD, "index": 2}
     assert_constraint_results(
@@ -5569,7 +5670,7 @@ def test_scalar_item_2():
         {},
         final_shapes,
         {},
-        scalar_item_constraints,
+        indexer_constraints,
         False,
         set(),
         scalar_info,
@@ -5585,9 +5686,9 @@ def test_scalar_item_3():
         "index": [],
     }
     scalar_info = {
-        "output": Scalar(possible_types=int | float | bool | type(...), value=2),
-        "input": Scalar(possible_types=list[int] | type(...), value=[1, 2, 3]),
-        "index": Scalar(possible_types=int | type(...), value=TBD),
+        "output": IOHyperEdge(type=int | float | bool | type(...), value=2),
+        "input": IOHyperEdge(type=list[int] | type(...), value=[1, 2, 3]),
+        "index": IOHyperEdge(type=int | type(...), value=TBD),
     }
     final_values = {"output": 2, "input": [1, 2, 3], "index": 1}
     assert_constraint_results(
@@ -5595,7 +5696,7 @@ def test_scalar_item_3():
         {},
         final_shapes,
         {},
-        scalar_item_constraints,
+        indexer_constraints,
         True,
         {"index"},
         scalar_info,
@@ -5606,7 +5707,7 @@ def test_scalar_item_3():
 def test_polynomial_features_1():
     shapes: dict[str, list[int | str | tuple]] = {"input": [4, 2], "output": [4, "u1"]}
     final_shapes = {"input": [4, 2], "output": [4, 5], "degree": []}
-    scalar_info = {"degree": Scalar(possible_types=int, value=2)}
+    scalar_info = {"degree": IOHyperEdge(type=int, value=2)}
     assert_constraint_results(
         shapes,
         {},
@@ -5622,7 +5723,7 @@ def test_polynomial_features_1():
 def test_polynomial_features_2():
     shapes: dict[str, list[int | str | tuple]] = {"input": [4, 2], "output": [4, "u1"]}
     final_shapes = {"input": [4, 2], "output": [4, 9], "degree": []}
-    scalar_info = {"degree": Scalar(possible_types=int, value=3)}
+    scalar_info = {"degree": IOHyperEdge(type=int, value=3)}
     assert_constraint_results(
         shapes,
         {},
@@ -5638,7 +5739,7 @@ def test_polynomial_features_2():
 def test_polynomial_features_3():
     shapes: dict[str, list[int | str | tuple]] = {"input": [4, "u1"], "output": [4, 9]}
     final_shapes = {"input": [4, 2], "output": [4, 9], "degree": []}
-    scalar_info = {"degree": Scalar(possible_types=int, value=3)}
+    scalar_info = {"degree": IOHyperEdge(type=int, value=3)}
     assert_constraint_results(
         shapes,
         {},
@@ -5653,7 +5754,7 @@ def test_polynomial_features_3():
 
 def test_polynomial_features_4():
     shapes: dict[str, list[int | str | tuple]] = {"input": [4, "u1"], "output": [4, 8]}
-    scalar_info = {"degree": Scalar(possible_types=int, value=3)}
+    scalar_info = {"degree": IOHyperEdge(type=int, value=3)}
     with pytest.raises(ValueError) as err_info:
         assert_constraint_results(
             shapes,
@@ -5672,26 +5773,26 @@ def test_polynomial_features_4():
     # TODO: Update the error message with a more informative one!
 
 
-def test_tensor_item_constraints_1():
+def test_indexer_constraints_1():
     shapes: dict[str, list[int | str | tuple]] = {
         "input": [("Var1", ...)],
         "output": [("Var2", ...)],
     }
     final_shapes = {"input": ["a", "(V1, ...)"], "output": ["(V1, ...)"], "index": []}
-    scalar_info = {"index": Scalar(value=1)}
+    scalar_info = {"index": IOHyperEdge(value=1)}
     assert_constraint_results(
         shapes,
         {},
         final_shapes,
         {},
-        tensor_item_constraints,
+        indexer_constraints,
         True,
         {"input"},
         scalar_info,
     )
 
 
-def test_tensor_item_constraints_2():
+def test_indexer_constraints_2():
     shapes: dict[str, list[int | str | tuple]] = {
         "input": [("Var1", ...)],
         "output": [("Var2", ...)],
@@ -5701,20 +5802,20 @@ def test_tensor_item_constraints_2():
         "output": ["(V1, ...)"],
         "index": [],
     }
-    scalar_info = {"index": Scalar(value=(1, 2, 3))}
+    scalar_info = {"index": IOHyperEdge(value=(1, 2, 3))}
     assert_constraint_results(
         shapes,
         {},
         final_shapes,
         {},
-        tensor_item_constraints,
+        indexer_constraints,
         True,
         {"input"},
         scalar_info,
     )
 
 
-def test_tensor_item_constraints_3():
+def test_indexer_constraints_3():
     shapes: dict[str, list[int | str | tuple]] = {
         "input": ["u1", "u2", ("Var1", ...)],
         "output": [("Var2", ...)],
@@ -5724,20 +5825,20 @@ def test_tensor_item_constraints_3():
         "output": ["(V1, ...)"],
         "index": [],
     }
-    scalar_info = {"index": Scalar(value=(1, 2, 3))}
+    scalar_info = {"index": IOHyperEdge(value=(1, 2, 3))}
     assert_constraint_results(
         shapes,
         {},
         final_shapes,
         {},
-        tensor_item_constraints,
+        indexer_constraints,
         True,
         {"input"},
         scalar_info,
     )
 
 
-def test_tensor_item_constraints_4():
+def test_indexer_constraints_4():
     shapes: dict[str, list[int | str | tuple]] = {
         "input": [("Var1", ...)],
         "output": [("Var2", ...)],
@@ -5747,39 +5848,39 @@ def test_tensor_item_constraints_4():
         "output": [1, 1, "(V1, ...)"],
         "index": [],
     }
-    scalar_info = {"index": Scalar(value=(None, None, 3))}
+    scalar_info = {"index": IOHyperEdge(value=(None, None, 3))}
     assert_constraint_results(
         shapes,
         {},
         final_shapes,
         {},
-        tensor_item_constraints,
+        indexer_constraints,
         True,
         {"input", "output"},
         scalar_info,
     )
 
 
-def test_tensor_item_constraints_5():
+def test_indexer_constraints_5():
     shapes: dict[str, list[int | str | tuple]] = {
         "input": [10, ("Var1", ...)],
         "output": [("Var2", ...)],
     }
     final_shapes = {"input": [10, "(V1, ...)"], "output": [3, "(V1, ...)"], "index": []}
-    scalar_info = {"index": Scalar(value=slice(2, 5, None))}
+    scalar_info = {"index": IOHyperEdge(value=slice(2, 5, None))}
     assert_constraint_results(
         shapes,
         {},
         final_shapes,
         {},
-        tensor_item_constraints,
+        indexer_constraints,
         True,
         {"output"},
         scalar_info,
     )
 
 
-def test_tensor_item_constraints_6():
+def test_indexer_constraints_6():
     shapes: dict[str, list[int | str | tuple]] = {
         "input": ["u1", "u2", "u3"],
         "output": [("Var1", ...)],
@@ -5789,20 +5890,20 @@ def test_tensor_item_constraints_6():
         "output": ["u4", "u5", "u3"],
         "index": [],
     }
-    scalar_info = {"index": Scalar(value=(slice(2, 5, None), slice(2, 5, None)))}
+    scalar_info = {"index": IOHyperEdge(value=(slice(2, 5, None), slice(2, 5, None)))}
     assert_constraint_results(
         shapes,
         {},
         final_shapes,
         {},
-        tensor_item_constraints,
+        indexer_constraints,
         False,
         {"output"},
         scalar_info,
     )
 
 
-def test_tensor_item_constraints_7():
+def test_indexer_constraints_7():
     shapes: dict[str, list[int | str | tuple]] = {
         "input": ["u1", "u2", "u3", "u4", "u5", "u6", "u7", "u8"],
         "output": [("Var1", ...)],
@@ -5812,20 +5913,20 @@ def test_tensor_item_constraints_7():
         "output": ["u4", "u5", "u6"],
         "index": [],
     }
-    scalar_info = {"index": Scalar(value=(1, 2, 3, ..., 1, 0))}
+    scalar_info = {"index": IOHyperEdge(value=(1, 2, 3, ..., 1, 0))}
     assert_constraint_results(
         shapes,
         {},
         final_shapes,
         {},
-        tensor_item_constraints,
+        indexer_constraints,
         True,
         {"output"},
         scalar_info,
     )
 
 
-def test_tensor_item_constraints_8():
+def test_indexer_constraints_8():
     shapes: dict[str, list[int | str | tuple]] = {
         "input": ["u1", "u2", "u3", "u4", "u5", "u6", "u7", "u8"],
         "output": [("Var1", ...)],
@@ -5836,21 +5937,23 @@ def test_tensor_item_constraints_8():
         "index": [],
     }
     scalar_info = {
-        "index": Scalar(value=(1, None, None, 2, None, 3, None, ..., None, 1, 0, None))
+        "index": IOHyperEdge(
+            value=(1, None, None, 2, None, 3, None, ..., None, 1, 0, None)
+        )
     }
     assert_constraint_results(
         shapes,
         {},
         final_shapes,
         {},
-        tensor_item_constraints,
+        indexer_constraints,
         True,
         {"output"},
         scalar_info,
     )
 
 
-def test_tensor_item_constraints_9():
+def test_indexer_constraints_9():
     shapes: dict[str, list[int | str | tuple]] = {
         "input": ["u1", "u2", "u3", "u4", "u5", "u6", "u7", "u8"],
         "output": [("Var1", ...)],
@@ -5861,7 +5964,7 @@ def test_tensor_item_constraints_9():
         "index": [],
     }
     scalar_info = {
-        "index": Scalar(
+        "index": IOHyperEdge(
             value=(
                 1,
                 slice(2, None, None),
@@ -5883,14 +5986,14 @@ def test_tensor_item_constraints_9():
         {},
         final_shapes,
         {},
-        tensor_item_constraints,
+        indexer_constraints,
         False,
         {"output"},
         scalar_info,
     )
 
 
-def test_tensor_item_constraints_10():
+def test_indexer_constraints_10():
     shapes: dict[str, list[int | str | tuple]] = {
         "input": [8, 9, 10, 11, 12, 13, 14, 15],
         "output": [("Var1", ...)],
@@ -5901,7 +6004,7 @@ def test_tensor_item_constraints_10():
         "index": [],
     }
     scalar_info = {
-        "index": Scalar(
+        "index": IOHyperEdge(
             value=(
                 1,
                 slice(2, None, None),
@@ -5923,14 +6026,14 @@ def test_tensor_item_constraints_10():
         {},
         final_shapes,
         {},
-        tensor_item_constraints,
+        indexer_constraints,
         True,
         {"output"},
         scalar_info,
     )
 
 
-def test_tensor_item_constraints_11():
+def test_indexer_constraints_11():
     shapes: dict[str, list[int | str | tuple]] = {
         "input": ["u1", "u2", "u3", ("Var1", ...), "u4", "u5", "u6"],
         "output": [("Var2", ...)],
@@ -5940,20 +6043,20 @@ def test_tensor_item_constraints_11():
         "output": [1, "(V1, ...)"],
         "index": [],
     }
-    scalar_info = {"index": Scalar(value=(1, 2, None, 3, ..., 2, 3, 4))}
+    scalar_info = {"index": IOHyperEdge(value=(1, 2, None, 3, ..., 2, 3, 4))}
     assert_constraint_results(
         shapes,
         {},
         final_shapes,
         {},
-        tensor_item_constraints,
+        indexer_constraints,
         True,
         {"output"},
         scalar_info,
     )
 
 
-def test_tensor_item_constraints_12():
+def test_indexer_constraints_12():
     shapes: dict[str, list[int | str | tuple]] = {
         "input": [("Var1", ...), "u1", "u2"],
         "output": [("Var2", ...)],
@@ -5964,21 +6067,23 @@ def test_tensor_item_constraints_12():
         "index": [],
     }
     scalar_info = {
-        "index": Scalar(value=(slice(None, None, None), None, slice(None, None, None)))
+        "index": IOHyperEdge(
+            value=(slice(None, None, None), None, slice(None, None, None))
+        )
     }
     assert_constraint_results(
         shapes,
         {},
         final_shapes,
         {},
-        tensor_item_constraints,
+        indexer_constraints,
         False,
         {"output"},
         scalar_info,
     )
 
 
-def test_tensor_item_constraints_13():
+def test_indexer_constraints_13():
     shapes: dict[str, list[int | str | tuple]] = {
         "input": [("Var1", ...), "u1", "u2"],
         "output": [("Var2", ...)],
@@ -5988,20 +6093,22 @@ def test_tensor_item_constraints_13():
         "output": ["u3", "u4", "(V2, ...)"],
         "index": [],
     }
-    scalar_info = {"index": Scalar(value=(slice(2, None, None), slice(3, None, None)))}
+    scalar_info = {
+        "index": IOHyperEdge(value=(slice(2, None, None), slice(3, None, None)))
+    }
     assert_constraint_results(
         shapes,
         {},
         final_shapes,
         {},
-        tensor_item_constraints,
+        indexer_constraints,
         False,
         {"output"},
         scalar_info,
     )
 
 
-def test_tensor_item_constraints_14():
+def test_indexer_constraints_14():
     shapes: dict[str, list[int | str | tuple]] = {
         "input": ["u1", ("Var1", ...), "u2"],
         "output": [("Var2", ...)],
@@ -6011,20 +6118,20 @@ def test_tensor_item_constraints_14():
         "output": [1, 1, "u4", "(V2, ...)"],
         "index": [],
     }
-    scalar_info = {"index": Scalar(value=(3, 4, None, None, slice(2, None, None)))}
+    scalar_info = {"index": IOHyperEdge(value=(3, 4, None, None, slice(2, None, None)))}
     assert_constraint_results(
         shapes,
         {},
         final_shapes,
         {},
-        tensor_item_constraints,
+        indexer_constraints,
         False,
         {"output", "input"},
         scalar_info,
     )
 
 
-def test_tensor_item_constraints_15():
+def test_indexer_constraints_15():
     shapes: dict[str, list[int | str | tuple]] = {
         "input": ["u1", "u2", ("Var1", ...)],
         "output": [("Var2", ...)],
@@ -6035,7 +6142,7 @@ def test_tensor_item_constraints_15():
         "index": [],
     }
     scalar_info = {
-        "index": Scalar(
+        "index": IOHyperEdge(
             value=(..., slice(None, None, None), None, slice(2, None, None))
         )
     }
@@ -6044,14 +6151,14 @@ def test_tensor_item_constraints_15():
         {},
         final_shapes,
         {},
-        tensor_item_constraints,
+        indexer_constraints,
         False,
         {"output"},
         scalar_info,
     )
 
 
-def test_tensor_item_constraints_16():
+def test_indexer_constraints_16():
     shapes: dict[str, list[int | str | tuple]] = {
         "input": [("Var1", ...), "u1", "u2"],
         "output": [("Var2", ...)],
@@ -6061,20 +6168,20 @@ def test_tensor_item_constraints_16():
         "output": ["(V1, ...)", "u1", "u2", 1],
         "index": [],
     }
-    scalar_info = {"index": Scalar(value=(..., None))}
+    scalar_info = {"index": IOHyperEdge(value=(..., None))}
     assert_constraint_results(
         shapes,
         {},
         final_shapes,
         {},
-        tensor_item_constraints,
+        indexer_constraints,
         True,
         {"output"},
         scalar_info,
     )
 
 
-def test_tensor_item_constraints_17():
+def test_indexer_constraints_17():
     shapes: dict[str, list[int | str | tuple]] = {
         "input": [("Var1", ...), "u1", "u2"],
         "output": [("Var2", ...)],
@@ -6084,20 +6191,20 @@ def test_tensor_item_constraints_17():
         "output": ["(V1, ...)", "u1", 1, "u3", 1],
         "index": [],
     }
-    scalar_info = {"index": Scalar(value=(..., None, slice(2, None, None), None))}
+    scalar_info = {"index": IOHyperEdge(value=(..., None, slice(2, None, None), None))}
     assert_constraint_results(
         shapes,
         {},
         final_shapes,
         {},
-        tensor_item_constraints,
+        indexer_constraints,
         False,
         {"output"},
         scalar_info,
     )
 
 
-def test_tensor_item_constraints_18():
+def test_indexer_constraints_18():
     shapes: dict[str, list[int | str | tuple]] = {
         "input": [("Var1", ...), "u1", "u2"],
         "output": [("Var2", ...)],
@@ -6107,20 +6214,20 @@ def test_tensor_item_constraints_18():
         "output": ["(V1, ...)", "u1", 1, 1],
         "index": [],
     }
-    scalar_info = {"index": Scalar(value=(..., None, 2, None))}
+    scalar_info = {"index": IOHyperEdge(value=(..., None, 2, None))}
     assert_constraint_results(
         shapes,
         {},
         final_shapes,
         {},
-        tensor_item_constraints,
+        indexer_constraints,
         True,
         {"output"},
         scalar_info,
     )
 
 
-def test_tensor_item_constraints_19():
+def test_indexer_constraints_19():
     shapes: dict[str, list[int | str | tuple]] = {
         "input": ["u1", ("Var1", ...)],
         "output": [("Var2", ...)],
@@ -6130,20 +6237,20 @@ def test_tensor_item_constraints_19():
         "output": ["(V2, ...)", 1, 1],
         "index": [],
     }
-    scalar_info = {"index": Scalar(value=(..., None, 2, None, 3))}
+    scalar_info = {"index": IOHyperEdge(value=(..., None, 2, None, 3))}
     assert_constraint_results(
         shapes,
         {},
         final_shapes,
         {},
-        tensor_item_constraints,
+        indexer_constraints,
         False,
         {"input", "output"},
         scalar_info,
     )
 
 
-def test_tensor_item_constraints_20():
+def test_indexer_constraints_20():
     shapes: dict[str, list[int | str | tuple]] = {
         "input": ["u1", ("Var1", ...)],
         "output": [("Var2", ...)],
@@ -6154,7 +6261,7 @@ def test_tensor_item_constraints_20():
         "index": [],
     }
     scalar_info = {
-        "index": Scalar(
+        "index": IOHyperEdge(
             value=(..., None, None, None, slice(2, None, None), slice(2, None, None))
         )
     }
@@ -6163,14 +6270,14 @@ def test_tensor_item_constraints_20():
         {},
         final_shapes,
         {},
-        tensor_item_constraints,
+        indexer_constraints,
         False,
         {"input", "output"},
         scalar_info,
     )
 
 
-def test_tensor_item_constraints_21():
+def test_indexer_constraints_21():
     shapes: dict[str, list[int | str | tuple]] = {
         "input": ["u1", ("Var1", ...), 7],
         "output": [("Var2", ...)],
@@ -6181,7 +6288,7 @@ def test_tensor_item_constraints_21():
         "index": [],
     }
     scalar_info = {
-        "index": Scalar(
+        "index": IOHyperEdge(
             value=(
                 ...,
                 None,
@@ -6198,14 +6305,14 @@ def test_tensor_item_constraints_21():
         {},
         final_shapes,
         {},
-        tensor_item_constraints,
+        indexer_constraints,
         False,
         {"input", "output"},
         scalar_info,
     )
 
 
-def test_tensor_item_constraints_22():
+def test_indexer_constraints_22():
     shapes: dict[str, list[int | str | tuple]] = {
         "input": ["u1", "u2", ("Var1", ...)],
         "output": [("Var2", ...)],
@@ -6215,20 +6322,20 @@ def test_tensor_item_constraints_22():
         "output": [1, 1, "u1", "u2", "(V1, ...)"],
         "index": [],
     }
-    scalar_info = {"index": Scalar(value=(None, None))}
+    scalar_info = {"index": IOHyperEdge(value=(None, None))}
     assert_constraint_results(
         shapes,
         {},
         final_shapes,
         {},
-        tensor_item_constraints,
+        indexer_constraints,
         True,
         {"output"},
         scalar_info,
     )
 
 
-def test_tensor_item_constraints_23():
+def test_indexer_constraints_23():
     shapes: dict[str, list[int | str | tuple]] = {
         "input": ["u1", ("Var1", ...), "u2"],
         "output": [("Var2", ...)],
@@ -6238,20 +6345,20 @@ def test_tensor_item_constraints_23():
         "output": [1, "u1", "(V1, ...)", "u2", 1],
         "index": [],
     }
-    scalar_info = {"index": Scalar(value=(None, ..., None))}
+    scalar_info = {"index": IOHyperEdge(value=(None, ..., None))}
     assert_constraint_results(
         shapes,
         {},
         final_shapes,
         {},
-        tensor_item_constraints,
+        indexer_constraints,
         True,
         {"output"},
         scalar_info,
     )
 
 
-def test_tensor_item_constraints_24():
+def test_indexer_constraints_24():
     shapes: dict[str, list[int | str | tuple]] = {
         "input": [3, 4, 5, 6, 7],
         "output": [("Var2", ...)],
@@ -6262,7 +6369,7 @@ def test_tensor_item_constraints_24():
         "index": [],
     }
     scalar_info = {
-        "index": Scalar(
+        "index": IOHyperEdge(
             value=(None, ..., None, 1, slice(2, 5, None), slice(2, 4, None))
         )
     }
@@ -6271,14 +6378,14 @@ def test_tensor_item_constraints_24():
         {},
         final_shapes,
         {},
-        tensor_item_constraints,
+        indexer_constraints,
         True,
         {"output"},
         scalar_info,
     )
 
 
-def test_tensor_item_constraints_25():
+def test_indexer_constraints_25():
     shapes: dict[str, list[int | str | tuple]] = {
         "input": [10, 1, 2],
         "output": ["u1", 1, 2],
@@ -6288,13 +6395,13 @@ def test_tensor_item_constraints_25():
         "output": [5, 1, 2],
         "index": [],
     }
-    scalar_info = {"index": Scalar(value=(slice(5, None, None)))}
+    scalar_info = {"index": IOHyperEdge(value=(slice(5, None, None)))}
     assert_constraint_results(
         shapes,
         {},
         final_shapes,
         {},
-        tensor_item_constraints,
+        indexer_constraints,
         True,
         {"output"},
         scalar_info,
@@ -6313,8 +6420,8 @@ def test_split_constraints_1():
         "axis": [],
     }
     scalar_info = {
-        "split_size": Scalar(value=3),
-        "axis": Scalar(value=0),
+        "split_size": IOHyperEdge(value=3),
+        "axis": IOHyperEdge(value=0),
     }
     assert_constraint_results(
         shapes,
@@ -6340,8 +6447,8 @@ def test_split_constraints_2():
         "axis": [],
     }
     scalar_info = {
-        "split_size": Scalar(value=2),
-        "axis": Scalar(value=1),
+        "split_size": IOHyperEdge(value=2),
+        "axis": IOHyperEdge(value=1),
     }
     assert_constraint_results(
         shapes,
@@ -6367,8 +6474,8 @@ def test_split_constraints_3():
         "axis": [],
     }
     scalar_info = {
-        "split_size": Scalar(value=1),
-        "axis": Scalar(value=1),
+        "split_size": IOHyperEdge(value=1),
+        "axis": IOHyperEdge(value=1),
     }
     assert_constraint_results(
         shapes,
@@ -6394,8 +6501,8 @@ def test_split_constraints_4():
         "axis": [],
     }
     scalar_info = {
-        "split_size": Scalar(value=2),
-        "axis": Scalar(value=-1),
+        "split_size": IOHyperEdge(value=2),
+        "axis": IOHyperEdge(value=-1),
     }
     assert_constraint_results(
         shapes,
@@ -6421,8 +6528,8 @@ def test_split_constraints_5():
         "axis": [],
     }
     scalar_info = {
-        "split_size": Scalar(value=2),
-        "axis": Scalar(value=-1),
+        "split_size": IOHyperEdge(value=2),
+        "axis": IOHyperEdge(value=-1),
     }
     assert_constraint_results(
         shapes,
@@ -6439,16 +6546,16 @@ def test_split_constraints_5():
 def test_scalar_item_type_constraints_1():
     final_types = {"output": list[int], "input": list[list[int]], "index": int}
     scalar_info = {
-        "index": Scalar(value=3),
-        "input": Scalar(possible_types=list[list[int]]),
-        "output": Scalar(possible_types=list),
+        "index": IOHyperEdge(value=3),
+        "input": IOHyperEdge(type=list[list[int]]),
+        "output": IOHyperEdge(type=list),
     }
     assert_constraint_results(
         {},
         {},
         final_types,
         {},
-        scalar_item_type_constraint,
+        indexer_type_constraint,
         True,
         {"output"},
         scalar_info,
@@ -6462,12 +6569,12 @@ def test_scalar_item_type_constraints_2():
         "index": int,
     }
     scalar_info = {
-        "index": Scalar(value=3),
-        "input": Scalar(possible_types=list[list[int | float]]),
-        "output": Scalar(possible_types=list[float]),
+        "index": IOHyperEdge(value=3),
+        "input": IOHyperEdge(type=list[list[int | float]]),
+        "output": IOHyperEdge(type=list[float]),
     }
     assert_constraint_results(
-        {}, {}, final_types, {}, scalar_item_type_constraint, True, set(), scalar_info
+        {}, {}, final_types, {}, indexer_type_constraint, True, set(), scalar_info
     )
 
 
@@ -6478,16 +6585,16 @@ def test_scalar_item_type_constraints_3():
         "output": list[float],
     }
     scalar_info = {
-        "index": Scalar(value=3),
-        "input": Scalar(possible_types=list | tuple),
-        "output": Scalar(possible_types=list[float]),
+        "index": IOHyperEdge(value=3),
+        "input": IOHyperEdge(type=list | tuple),
+        "output": IOHyperEdge(type=list[float]),
     }
     assert_constraint_results(
         {},
         {},
         final_types,
         {},
-        scalar_item_type_constraint,
+        indexer_type_constraint,
         True,
         {"input"},
         scalar_info,
@@ -6501,16 +6608,16 @@ def test_scalar_item_type_constraints_3_1():
         "output": list[float],
     }
     scalar_info = {
-        "index": Scalar(value=3),
-        "input": Scalar(possible_types=list | tuple[list[float], ...]),
-        "output": Scalar(possible_types=list[float]),
+        "index": IOHyperEdge(value=3),
+        "input": IOHyperEdge(type=list | tuple[list[float], ...]),
+        "output": IOHyperEdge(type=list[float]),
     }
     assert_constraint_results(
         {},
         {},
         final_types,
         {},
-        scalar_item_type_constraint,
+        indexer_type_constraint,
         True,
         {"input"},
         scalar_info,
@@ -6524,16 +6631,16 @@ def test_scalar_item_type_constraints_4():
         "output": tuple[list[int | str], ...],
     }
     scalar_info = {
-        "index": Scalar(value=3),
-        "input": Scalar(possible_types=list[tuple[list[int | str], ...]]),
-        "output": Scalar(possible_types=tuple[list[int | str | bool], ...]),
+        "index": IOHyperEdge(value=3),
+        "input": IOHyperEdge(type=list[tuple[list[int | str], ...]]),
+        "output": IOHyperEdge(type=tuple[list[int | str | bool], ...]),
     }
     assert_constraint_results(
         {},
         {},
         final_types,
         {},
-        scalar_item_type_constraint,
+        indexer_type_constraint,
         False,
         {"output"},
         scalar_info,
@@ -6547,16 +6654,16 @@ def test_scalar_item_type_constraints_5():
         "output": int | float,
     }
     scalar_info = {
-        "index": Scalar(possible_types=int, value=TBD),
-        "input": Scalar(possible_types=tuple[int, float, str, int, float]),
-        "output": Scalar(possible_types=int | bool | float),
+        "index": IOHyperEdge(type=int, value=TBD),
+        "input": IOHyperEdge(type=tuple[int, float, str, int, float]),
+        "output": IOHyperEdge(type=int | bool | float),
     }
     assert_constraint_results(
         {},
         {},
         final_types,
         {},
-        scalar_item_type_constraint,
+        indexer_type_constraint,
         False,
         {"output"},
         scalar_info,
@@ -6566,19 +6673,19 @@ def test_scalar_item_type_constraints_5():
 def test_scalar_item_type_constraints_6():
     final_types = {"index": int, "input": list[int], "output": int}
     scalar_info = {
-        "index": Scalar(
-            possible_types=int,
+        "index": IOHyperEdge(
+            type=int,
             value=TBD,
         ),
-        "input": Scalar(possible_types=list[int] | list[float]),
-        "output": Scalar(possible_types=int),
+        "input": IOHyperEdge(type=list[int] | list[float]),
+        "output": IOHyperEdge(type=int),
     }
     assert_constraint_results(
         {},
         {},
         final_types,
         {},
-        scalar_item_type_constraint,
+        indexer_type_constraint,
         True,
         {"input"},
         scalar_info,
@@ -6592,16 +6699,16 @@ def test_scalar_item_type_constraints_7():
         "output": bool,
     }
     scalar_info = {
-        "index": Scalar(value=2, possible_types=int),
-        "input": Scalar(possible_types=tuple[int, float, bool, float, int]),
-        "output": Scalar(possible_types=int | float | bool),
+        "index": IOHyperEdge(value=2, type=int),
+        "input": IOHyperEdge(type=tuple[int, float, bool, float, int]),
+        "output": IOHyperEdge(type=int | float | bool),
     }
     assert_constraint_results(
         {},
         {},
         final_types,
         {},
-        scalar_item_type_constraint,
+        indexer_type_constraint,
         True,
         {"output"},
         scalar_info,
@@ -6623,16 +6730,16 @@ def test_scalar_item_type_constraints_8():
         "output": final_output_type,
     }
     scalar_info = {
-        "index": Scalar(value=TBD, possible_types=index_type),
-        "input": Scalar(possible_types=input_type),
-        "output": Scalar(possible_types=output_type),
+        "index": IOHyperEdge(value=TBD, type=index_type),
+        "input": IOHyperEdge(type=input_type),
+        "output": IOHyperEdge(type=output_type),
     }
     assert_constraint_results(
         {},
         {},
         final_types,
         {},
-        scalar_item_type_constraint,
+        indexer_type_constraint,
         True,
         {"output"},
         scalar_info,
@@ -6654,16 +6761,16 @@ def test_scalar_item_type_constraints_9():
         "output": final_output_type,
     }
     scalar_info = {
-        "index": Scalar(value=TBD, possible_types=index_type),
-        "input": Scalar(possible_types=input_type),
-        "output": Scalar(possible_types=output_type),
+        "index": IOHyperEdge(value=TBD, type=index_type),
+        "input": IOHyperEdge(type=input_type),
+        "output": IOHyperEdge(type=output_type),
     }
     assert_constraint_results(
         {},
         {},
         final_types,
         {},
-        scalar_item_type_constraint,
+        indexer_type_constraint,
         True,
         {"output"},
         scalar_info,
@@ -6685,12 +6792,12 @@ def test_scalar_item_type_constraints_10():
         "output": final_output_type,
     }
     scalar_info = {
-        "index": Scalar(value=TBD, possible_types=index_type),
-        "input": Scalar(possible_types=input_type),
-        "output": Scalar(possible_types=output_type),
+        "index": IOHyperEdge(value=TBD, type=index_type),
+        "input": IOHyperEdge(type=input_type),
+        "output": IOHyperEdge(type=output_type),
     }
     assert_constraint_results(
-        {}, {}, final_types, {}, scalar_item_type_constraint, True, set(), scalar_info
+        {}, {}, final_types, {}, indexer_type_constraint, True, set(), scalar_info
     )
 
 
@@ -6709,12 +6816,12 @@ def test_scalar_item_type_constraints_11():
         "output": final_output_type,
     }
     scalar_info = {
-        "index": Scalar(value=TBD, possible_types=index_type),
-        "input": Scalar(possible_types=input_type),
-        "output": Scalar(possible_types=output_type),
+        "index": IOHyperEdge(value=TBD, type=index_type),
+        "input": IOHyperEdge(type=input_type),
+        "output": IOHyperEdge(type=output_type),
     }
     assert_constraint_results(
-        {}, {}, final_types, {}, scalar_item_type_constraint, True, set(), scalar_info
+        {}, {}, final_types, {}, indexer_type_constraint, True, set(), scalar_info
     )
 
 
@@ -6733,16 +6840,16 @@ def test_scalar_item_type_constraints_12():
         "output": final_output_type,
     }
     scalar_info = {
-        "index": Scalar(value=TBD, possible_types=index_type),
-        "input": Scalar(possible_types=input_type),
-        "output": Scalar(possible_types=output_type),
+        "index": IOHyperEdge(value=TBD, type=index_type),
+        "input": IOHyperEdge(type=input_type),
+        "output": IOHyperEdge(type=output_type),
     }
     assert_constraint_results(
         {},
         {},
         final_types,
         {},
-        scalar_item_type_constraint,
+        indexer_type_constraint,
         True,
         {"input"},
         scalar_info,
@@ -6764,16 +6871,16 @@ def test_scalar_item_type_constraints_13():
         "output": final_output_type,
     }
     scalar_info = {
-        "index": Scalar(value=TBD, possible_types=index_type),
-        "input": Scalar(possible_types=input_type),
-        "output": Scalar(possible_types=output_type),
+        "index": IOHyperEdge(value=TBD, type=index_type),
+        "input": IOHyperEdge(type=input_type),
+        "output": IOHyperEdge(type=output_type),
     }
     assert_constraint_results(
         {},
         {},
         final_types,
         {},
-        scalar_item_type_constraint,
+        indexer_type_constraint,
         False,
         {"input"},
         scalar_info,
@@ -6783,24 +6890,24 @@ def test_scalar_item_type_constraints_13():
 def test_scalar_item_type_constraints_14():
     final_types = {"index": int, "input": list[int], "output": int}
     scalar_info = {
-        "index": Scalar(value=TBD, possible_types=int),
-        "input": Scalar(possible_types=list[int]),
-        "output": Scalar(possible_types=int),
+        "index": IOHyperEdge(value=TBD, type=int),
+        "input": IOHyperEdge(type=list[int]),
+        "output": IOHyperEdge(type=int),
     }
     assert_constraint_results(
-        {}, {}, final_types, {}, scalar_item_type_constraint, True, set(), scalar_info
+        {}, {}, final_types, {}, indexer_type_constraint, True, set(), scalar_info
     )
 
 
 def test_scalar_item_type_constraints_15():
     final_types = {"index": int, "input": list[float], "output": float}
     scalar_info = {
-        "index": Scalar(value=TBD, possible_types=int),
-        "input": Scalar(possible_types=list[int] | list[float]),
-        "output": Scalar(possible_types=float),
+        "index": IOHyperEdge(value=TBD, type=int),
+        "input": IOHyperEdge(type=list[int] | list[float]),
+        "output": IOHyperEdge(type=float),
     }
     assert_constraint_results(
-        {}, {}, final_types, {}, scalar_item_type_constraint, True, set(), scalar_info
+        {}, {}, final_types, {}, indexer_type_constraint, True, set(), scalar_info
     )
 
 
@@ -6811,16 +6918,16 @@ def test_scalar_item_type_constraints_16():
         "output": int | float,
     }
     scalar_info = {
-        "index": Scalar(value=TBD, possible_types=int),
-        "input": Scalar(possible_types=list[int] | list[float]),
-        "output": Scalar(possible_types=int | float),
+        "index": IOHyperEdge(value=TBD, type=int),
+        "input": IOHyperEdge(type=list[int] | list[float]),
+        "output": IOHyperEdge(type=int | float),
     }
     assert_constraint_results(
         {},
         {},
         final_types,
         {},
-        scalar_item_type_constraint,
+        indexer_type_constraint,
         False,
         {"input"},
         scalar_info,
@@ -6834,16 +6941,16 @@ def test_scalar_item_type_constraints_17():
         "output": int | float,
     }
     scalar_info = {
-        "index": Scalar(value=TBD, possible_types=int),
-        "input": Scalar(possible_types=list[int] | list[float]),
-        "output": Scalar(possible_types=int | float),
+        "index": IOHyperEdge(value=TBD, type=int),
+        "input": IOHyperEdge(type=list[int] | list[float]),
+        "output": IOHyperEdge(type=int | float),
     }
     assert_constraint_results(
         {},
         {},
         final_types,
         {},
-        scalar_item_type_constraint,
+        indexer_type_constraint,
         False,
         {"input"},
         scalar_info,
@@ -6857,16 +6964,16 @@ def test_scalar_item_type_constraints_18():
         "output": int | float,
     }
     scalar_info = {
-        "index": Scalar(value=TBD, possible_types=int),
-        "input": Scalar(possible_types=list[int] | list[float]),
-        "output": Scalar(possible_types=int | float),
+        "index": IOHyperEdge(value=TBD, type=int),
+        "input": IOHyperEdge(type=list[int] | list[float]),
+        "output": IOHyperEdge(type=int | float),
     }
     assert_constraint_results(
         {},
         {},
         final_types,
         {},
-        scalar_item_type_constraint,
+        indexer_type_constraint,
         False,
         {"input"},
         scalar_info,
@@ -6882,11 +6989,11 @@ def test_scalar_slice_type_constraints_1():
         "output": tuple[int, ...],
     }
     scalar_info = {
-        "start": Scalar(value=None, possible_types=int | NoneType),
-        "stop": Scalar(value=None, possible_types=int | NoneType),
-        "step": Scalar(value=None, possible_types=int | NoneType),
-        "input": Scalar(possible_types=tuple[int, ...]),
-        "output": Scalar(possible_types=tuple),
+        "start": IOHyperEdge(value=None, type=int | NoneType),
+        "stop": IOHyperEdge(value=None, type=int | NoneType),
+        "step": IOHyperEdge(value=None, type=int | NoneType),
+        "input": IOHyperEdge(type=tuple[int, ...]),
+        "output": IOHyperEdge(type=tuple),
     }
     assert_constraint_results(
         {},
@@ -6909,11 +7016,11 @@ def test_scalar_slice_type_constraints_2():
         "output": tuple[int, int, int, int],
     }
     scalar_info = {
-        "start": Scalar(value=None, possible_types=int | NoneType),
-        "stop": Scalar(value=None, possible_types=int | NoneType),
-        "step": Scalar(value=None, possible_types=int | NoneType),
-        "input": Scalar(possible_types=tuple[int, int, int, int]),
-        "output": Scalar(possible_types=tuple | list | int),
+        "start": IOHyperEdge(value=None, type=int | NoneType),
+        "stop": IOHyperEdge(value=None, type=int | NoneType),
+        "step": IOHyperEdge(value=None, type=int | NoneType),
+        "input": IOHyperEdge(type=tuple[int, int, int, int]),
+        "output": IOHyperEdge(type=tuple | list | int),
     }
     assert_constraint_results(
         {},
@@ -6936,11 +7043,11 @@ def test_scalar_slice_type_constraints_3():
         "output": list[list[list[int]]],
     }
     scalar_info = {
-        "start": Scalar(value=None, possible_types=int | NoneType),
-        "stop": Scalar(value=None, possible_types=int | NoneType),
-        "step": Scalar(value=None, possible_types=int | NoneType),
-        "input": Scalar(possible_types=list[list[list[int]]]),
-        "output": Scalar(possible_types=list | tuple),
+        "start": IOHyperEdge(value=None, type=int | NoneType),
+        "stop": IOHyperEdge(value=None, type=int | NoneType),
+        "step": IOHyperEdge(value=None, type=int | NoneType),
+        "input": IOHyperEdge(type=list[list[list[int]]]),
+        "output": IOHyperEdge(type=list | tuple),
     }
     assert_constraint_results(
         {},
@@ -6963,11 +7070,11 @@ def test_scalar_slice_type_constraints_4():
         "output": tuple[int, int, int],
     }
     scalar_info = {
-        "start": Scalar(value=None, possible_types=int | NoneType),
-        "stop": Scalar(value=None, possible_types=int | NoneType),
-        "step": Scalar(value=None, possible_types=int | NoneType),
-        "input": Scalar(possible_types=tuple),
-        "output": Scalar(possible_types=tuple[int, int, int]),
+        "start": IOHyperEdge(value=None, type=int | NoneType),
+        "stop": IOHyperEdge(value=None, type=int | NoneType),
+        "step": IOHyperEdge(value=None, type=int | NoneType),
+        "input": IOHyperEdge(type=tuple),
+        "output": IOHyperEdge(type=tuple[int, int, int]),
     }
     assert_constraint_results(
         {},
@@ -6990,11 +7097,11 @@ def test_scalar_slice_type_constraints_5():
         "output": tuple[int, int, int],
     }
     scalar_info = {
-        "start": Scalar(value=TBD, possible_types=int | NoneType),
-        "stop": Scalar(value=TBD, possible_types=int | NoneType),
-        "step": Scalar(value=TBD, possible_types=int | NoneType),
-        "input": Scalar(possible_types=tuple),
-        "output": Scalar(possible_types=tuple[int, int, int]),
+        "start": IOHyperEdge(value=TBD, type=int | NoneType),
+        "stop": IOHyperEdge(value=TBD, type=int | NoneType),
+        "step": IOHyperEdge(value=TBD, type=int | NoneType),
+        "input": IOHyperEdge(type=tuple),
+        "output": IOHyperEdge(type=tuple[int, int, int]),
     }
     assert_constraint_results(
         {}, {}, final_types, {}, scalar_slice_type_constraint, True, set(), scalar_info
@@ -7010,11 +7117,11 @@ def test_scalar_slice_type_constraints_6():
         "output": tuple[int, int, int],
     }
     scalar_info = {
-        "start": Scalar(value=TBD, possible_types=int | NoneType),
-        "stop": Scalar(value=TBD, possible_types=int | NoneType),
-        "step": Scalar(value=TBD, possible_types=int | NoneType),
-        "input": Scalar(possible_types=tuple | list | int),
-        "output": Scalar(possible_types=tuple[int, int, int]),
+        "start": IOHyperEdge(value=TBD, type=int | NoneType),
+        "stop": IOHyperEdge(value=TBD, type=int | NoneType),
+        "step": IOHyperEdge(value=TBD, type=int | NoneType),
+        "input": IOHyperEdge(type=tuple | list | int),
+        "output": IOHyperEdge(type=tuple[int, int, int]),
     }
     assert_constraint_results(
         {},
@@ -7037,11 +7144,11 @@ def test_scalar_slice_type_constraints_7():
         "output": tuple[int, float],
     }
     scalar_info = {
-        "start": Scalar(value=0),
-        "stop": Scalar(value=2),
-        "step": Scalar(value=None, possible_types=int | NoneType),
-        "input": Scalar(possible_types=tuple[int, float, list, int, int]),
-        "output": Scalar(possible_types=tuple),
+        "start": IOHyperEdge(value=0),
+        "stop": IOHyperEdge(value=2),
+        "step": IOHyperEdge(value=None, type=int | NoneType),
+        "input": IOHyperEdge(type=tuple[int, float, list, int, int]),
+        "output": IOHyperEdge(type=tuple),
     }
     assert_constraint_results(
         {},
@@ -7064,11 +7171,11 @@ def test_scalar_slice_type_constraints_8():
         "output": tuple[int, int, int],
     }
     scalar_info = {
-        "start": Scalar(value=None, possible_types=int | NoneType),
-        "stop": Scalar(value=None, possible_types=int | NoneType),
-        "step": Scalar(value=None, possible_types=int | NoneType),
-        "input": Scalar(possible_types=tuple | list | bool | str),
-        "output": Scalar(possible_types=tuple[int, int, int]),
+        "start": IOHyperEdge(value=None, type=int | NoneType),
+        "stop": IOHyperEdge(value=None, type=int | NoneType),
+        "step": IOHyperEdge(value=None, type=int | NoneType),
+        "input": IOHyperEdge(type=tuple | list | bool | str),
+        "output": IOHyperEdge(type=tuple[int, int, int]),
     }
     assert_constraint_results(
         {},
@@ -7091,11 +7198,11 @@ def test_scalar_slice_type_constraints_9():
         "output": list[list[int | float]],
     }
     scalar_info = {
-        "start": Scalar(value=None, possible_types=int | NoneType),
-        "stop": Scalar(value=None, possible_types=int | NoneType),
-        "step": Scalar(value=None, possible_types=int | NoneType),
-        "input": Scalar(possible_types=list | tuple),
-        "output": Scalar(possible_types=list[list[int | float]]),
+        "start": IOHyperEdge(value=None, type=int | NoneType),
+        "stop": IOHyperEdge(value=None, type=int | NoneType),
+        "step": IOHyperEdge(value=None, type=int | NoneType),
+        "input": IOHyperEdge(type=list | tuple),
+        "output": IOHyperEdge(type=list[list[int | float]]),
     }
     assert_constraint_results(
         {},
@@ -7118,11 +7225,11 @@ def test_scalar_slice_type_constraints_10():
         "output": list[list[int] | list[float]],
     }
     scalar_info = {
-        "start": Scalar(value=None, possible_types=int | NoneType),
-        "stop": Scalar(value=None, possible_types=int | NoneType),
-        "step": Scalar(value=None, possible_types=int | NoneType),
-        "input": Scalar(possible_types=list[list[int] | list[float]]),
-        "output": Scalar(possible_types=list[list[int | float]]),
+        "start": IOHyperEdge(value=None, type=int | NoneType),
+        "stop": IOHyperEdge(value=None, type=int | NoneType),
+        "step": IOHyperEdge(value=None, type=int | NoneType),
+        "input": IOHyperEdge(type=list[list[int] | list[float]]),
+        "output": IOHyperEdge(type=list[list[int | float]]),
     }
     assert_constraint_results(
         {},
@@ -7141,10 +7248,10 @@ def test_tensor_to_list_type_constraints_1():
         "input": ["u1", ("Var1", ...), "u2"],
     }
     scalar_info = {
-        "output": Scalar(possible_types=list, value=TBD),
+        "output": IOHyperEdge(type=TensorToListType, value=TBD),
     }
     final_types = {
-        "output": NestedListType(int | float | bool),
+        "output": generate_nested_list_type(int | float | bool, min_depth=2),
         "input": int | float | bool,
     }
     assert_constraint_results(
@@ -7164,10 +7271,12 @@ def test_tensor_to_list_type_constraints_2():
         "input": ["u1", "u2", "u2"],
     }
     scalar_info = {
-        "output": Scalar(possible_types=list, value=TBD),
+        "output": IOHyperEdge(type=TensorToListType, value=TBD),
     }
     final_types = {
-        "output": list[list[list[int | bool | float]]],
+        "output": generate_nested_list_type(
+            int | float | bool, min_depth=3, max_depth=3
+        ),
         "input": int | float | bool,
     }
     assert_constraint_results(
@@ -7187,7 +7296,7 @@ def test_tensor_to_list_type_constraints_3():
         "input": ["u1", "u2", ("Var1", ...), "u3"],
     }
     scalar_info = {
-        "output": Scalar(possible_types=list[list[list[list[int]]]], value=TBD),
+        "output": IOHyperEdge(type=generate_nested_list_type(int, 4, 4), value=TBD),
     }
     final_types = {"output": list[list[list[list[int]]]], "input": int}
     assert_constraint_results(
@@ -7207,7 +7316,7 @@ def test_tensor_to_list_type_constraints_4():
         "input": ["u1"],
     }
     scalar_info = {
-        "output": Scalar(possible_types=list[int | float], value=TBD),
+        "output": IOHyperEdge(type=list[int | float], value=TBD),
     }
     final_types = {"output": list[int | float], "input": int | float}
     assert_constraint_results(
@@ -7922,10 +8031,10 @@ def test_slice_given_input():
         "step": [],
     }
     scalar_info = {
-        "output": Scalar(possible_types=slice, value=TBD),
-        "start": Scalar(possible_types=int | None, value=1),
-        "stop": Scalar(possible_types=int | None, value=3),
-        "step": Scalar(possible_types=int | None, value=5),
+        "output": IOHyperEdge(type=slice),
+        "start": IOHyperEdge(type=int | None, value=1),
+        "stop": IOHyperEdge(type=int | None, value=3),
+        "step": IOHyperEdge(type=int | None, value=5),
     }
     final_values = {
         "output": slice(1, 3, 5),
@@ -7955,10 +8064,10 @@ def test_slice_given_missing_input():
         "step": [],
     }
     scalar_info = {
-        "output": Scalar(possible_types=slice, value=TBD),
-        "start": Scalar(possible_types=int | None, value=1),
-        "stop": Scalar(possible_types=int | None, value=3),
-        "step": Scalar(possible_types=int | None, value=TBD),
+        "output": IOHyperEdge(type=slice, value=TBD),
+        "start": IOHyperEdge(type=int | None, value=1),
+        "stop": IOHyperEdge(type=int | None, value=3),
+        "step": IOHyperEdge(type=int | None, value=TBD),
     }
     final_values = {
         "output": TBD,
@@ -7988,10 +8097,10 @@ def test_slice_given_output():
         "step": [],
     }
     scalar_info = {
-        "output": Scalar(possible_types=slice, value=slice(1, 3, 5)),
-        "start": Scalar(possible_types=int | None, value=1),
-        "stop": Scalar(possible_types=int | None, value=3),
-        "step": Scalar(possible_types=int | None, value=TBD),
+        "output": IOHyperEdge(type=slice, value=slice(1, 3, 5)),
+        "start": IOHyperEdge(type=int | None, value=1),
+        "stop": IOHyperEdge(type=int | None, value=3),
+        "step": IOHyperEdge(type=int | None, value=TBD),
     }
     final_values = {
         "output": slice(1, 3, 5),
@@ -8021,10 +8130,10 @@ def test_slice_given_output_missing_all_inputs():
         "step": [],
     }
     scalar_info = {
-        "output": Scalar(possible_types=slice, value=slice(1, 3, 5)),
-        "start": Scalar(possible_types=int | None, value=TBD),
-        "stop": Scalar(possible_types=int | None, value=TBD),
-        "step": Scalar(possible_types=int | None, value=TBD),
+        "output": IOHyperEdge(type=slice, value=slice(1, 3, 5)),
+        "start": IOHyperEdge(type=int | None, value=TBD),
+        "stop": IOHyperEdge(type=int | None, value=TBD),
+        "step": IOHyperEdge(type=int | None, value=TBD),
     }
     final_values = {
         "output": slice(1, 3, 5),

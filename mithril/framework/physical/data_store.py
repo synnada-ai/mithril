@@ -17,19 +17,18 @@ from copy import deepcopy
 from typing import Any, Generic, TypeGuard
 
 from ...backends.backend import Backend
-from ...core import DataType, data_types, epsilon_table
+from ...core import Constant, DataType, data_types, epsilon_table
 from ...utils.func_utils import is_make_array_required, prepare_function_args
 from ...utils.utils import BiMap
 from ..common import (
     TBD,
     AllValueType,
     Connection,
-    Constant,
     ConstraintSolver,
     DataEvalType,
+    IOHyperEdge,
     MainValueInstance,
     MainValueType,
-    Scalar,
     Tensor,
     ToBeDetermined,
     Updates,
@@ -45,30 +44,32 @@ class StaticDataStore(Generic[DataType]):
         backend: Backend[DataType],
         inference: bool,
         solver: ConstraintSolver,
-        memo: dict[int, Tensor | Scalar] | None = None,
+        memo: dict[int, IOHyperEdge] | None = None,
     ) -> None:
         if memo is None:
             memo = {}
 
-        self._all_data: dict[str, Tensor | Scalar] = dict()
-        self.data_memo: dict[int, Tensor | Scalar] = dict()
+        self._all_data: dict[str, IOHyperEdge] = dict()
+        self.data_memo: dict[int, IOHyperEdge] = dict()
         self.graph: FlatGraph[DataType] = graph
         self.backend: Backend[DataType] = backend
         self.inference = inference
-        self._intermediate_non_differentiables: BiMap[str, Tensor | Scalar] = BiMap()
+        self.intermediate_non_differentiables: BiMap[str, IOHyperEdge] = BiMap()
         self._runtime_static_keys: set[str] = set()
         self._unused_keys: set[str] = set()
         # Final tensor values of data store.
+        # TODO: Constant types are not allowed in data_values but DataEvalType
+        # includes it.
         self.data_values: DataEvalType[DataType] = dict()
         self.constraint_solver: ConstraintSolver = deepcopy(solver, memo=memo)
         self._random_seeds: dict[str, int] = dict()
 
     @property
-    def all_data(self):
+    def all_data(self) -> dict[str, IOHyperEdge]:
         return self._all_data
 
     @property
-    def cached_data(self):
+    def cached_data(self) -> DataEvalType[DataType]:
         return self.data_values
 
     @property
@@ -91,22 +92,22 @@ class StaticDataStore(Generic[DataType]):
     def is_scalar_type(t: Any) -> TypeGuard[MainValueType]:
         return not isinstance(t, tuple(data_types))
 
-    def remove_keys_from_store(self, keys: set[str]):
-        keys -= set(self.graph.output_keys)
+    def remove_keys_from_store(self, keys: set[str]) -> None:
         for key in keys:
-            self.remove_key_from_store(key, label_as_unused=False, hard_remove=True)
+            hard_remove = key not in self.graph.output_keys
+            self.remove_key_from_store(
+                key, label_as_unused=False, hard_remove=hard_remove
+            )
 
     def remove_key_from_store(
         self, key: str, label_as_unused: bool = True, hard_remove: bool = False
-    ):
-        # Remove key from all attributes.
+    ) -> None:
         if key in self.data_values:
             self.data_values.pop(key)  # type: ignore
 
         self._runtime_static_keys.discard(key)
-
-        if key in self._intermediate_non_differentiables:
-            self._intermediate_non_differentiables.pop(key)
+        if key in self.intermediate_non_differentiables:
+            self.intermediate_non_differentiables.pop(key)
 
         if key in self._random_seeds:
             self._random_seeds.pop(key)
@@ -121,7 +122,7 @@ class StaticDataStore(Generic[DataType]):
             self._all_data.pop(key)
             self._clear_constraints(key)
 
-    def _clear_constraints(self, key: str):
+    def _clear_constraints(self, key: str) -> None:
         if key not in self._all_data:
             return
 
@@ -132,16 +133,16 @@ class StaticDataStore(Generic[DataType]):
                 self._all_data[source_key].shape_constraints -= shape_constraints
                 self._all_data[source_key].type_constraints -= type_constraints
 
-    def _update_cached_data(self, updated_data: Updates) -> set[str]:
+    def update_cached_data(self, updated_data: Updates) -> set[str]:
         # If any data value is found by shape inference algorithms
         # transfer this data in cached_data.
         transferred_keys: set[str] = set()
         updated_inter_data = (
             updated_data.value_updates
-            & self._intermediate_non_differentiables.inverse.keys()
+            & self.intermediate_non_differentiables.inverse.keys()
         )
         for data in updated_inter_data:
-            key = self._intermediate_non_differentiables.inverse[data]
+            key = self.intermediate_non_differentiables.inverse[data]
             if key in self.data_values or data.value is not TBD:
                 if key in self.data_values:
                     raise KeyError(
@@ -152,21 +153,22 @@ class StaticDataStore(Generic[DataType]):
                     self._set_data_value(key, data)
                 transferred_keys.add(key)
         for key in transferred_keys:
-            self._intermediate_non_differentiables.pop(key)
+            self.intermediate_non_differentiables.pop(key)
         return transferred_keys
 
-    def _set_data_value(self, key: str, data: Tensor | Scalar):
+    def _set_data_value(self, key: str, data: IOHyperEdge) -> None:
         value: DataType | AllValueType = data.value
         assert not isinstance(value, ToBeDetermined)
-        if isinstance(data, Tensor):
-            if isinstance(value, Constant):
-                value = self.backend.array(epsilon_table[self.backend.precision][value])
-            else:
-                value = self.backend.array(value)
+        # If value is a constant, get its corresponding value for
+        # the backend.
+        if isinstance(value, Constant):
+            value = epsilon_table[self.backend.precision][value]
 
+        if data.edge_type is Tensor:
+            value = self.backend.array(value)
         self.data_values[key] = value  # type: ignore
 
-    def _infer_unused_keys(self, key: str):
+    def infer_unused_keys(self, key: str) -> None:
         # Infers unused keys when "key" is set as static.
         output_keys = self.graph.output_keys
         queue = set(self.graph.get_source_keys(key, True))
@@ -190,6 +192,25 @@ class StaticDataStore(Generic[DataType]):
                     else []
                 )
 
+    def _infer_tensor_value_type(
+        self, value: DataType
+    ) -> type[bool] | type[int] | type[float]:
+        val_type: type[bool] | type[int] | type[float]
+        data_dtype = str(value.dtype)
+        # Check value type is OK, and update type accordinly.
+        if "bool" in data_dtype:
+            val_type = bool
+        elif "int" in data_dtype:
+            val_type = int
+        elif "float" in data_dtype:
+            val_type = float
+        else:
+            raise TypeError(
+                f"Given type ({data_dtype}) is not supported. "
+                "Only float, int or bool types are accepted."
+            )
+        return val_type
+
     def set_shapes(
         self,
         shapes: Mapping[str, Sequence[int | None]]
@@ -201,16 +222,17 @@ class StaticDataStore(Generic[DataType]):
             if isinstance(key, Connection):
                 key = key.key
             assert isinstance(key, str)
-            if isinstance(data := self._all_data[key], Scalar):
-                raise ValueError("Scalar data can not have shape!")
+            if (data := self._all_data[key]).edge_type is not Tensor:
+                raise ValueError("Non-tensor data can not have shape!")
+            assert data.shape is not None
             updates |= data.shape.set_values(value)
         self.constraint_solver(updates)
         # Some intermediate values may be calculated, update cached data.
-        new_statics = self._update_cached_data(updates)
+        new_statics = self.update_cached_data(updates)
         for key in new_statics:
-            self._infer_unused_keys(key)
+            self.infer_unused_keys(key)
 
-    def update_data(self, data: dict[str, Tensor | Scalar]):
+    def update_data(self, data: dict[str, IOHyperEdge]) -> None:
         if data.keys() & self._all_data.keys():
             raise Exception("Some keys are already in data store!")
         self._all_data |= data
@@ -220,8 +242,8 @@ class StaticDataStore(Generic[DataType]):
 
             # Distribute non-differentiable keys into 3 attributes using
             # type of values. If a key has a definite value, add it into cached_data.
-            # If key ends with "_cache", backend is manual and it does not apper as
-            # and input to the model, then directly add it to th cached_data because
+            # If key ends with "_cache", backend is manual and it does not appear as
+            # an input to the model, then directly add it into the cached_data because
             # these keys are internally created cache keys for the corresponding
             # primitive functions.
             if (
@@ -236,7 +258,7 @@ class StaticDataStore(Generic[DataType]):
                 if value.value is not TBD:
                     self._set_data_value(key, value)
                 else:
-                    self._intermediate_non_differentiables[key] = value
+                    self.intermediate_non_differentiables[key] = value
 
     def set_static_keys(
         self,
@@ -248,11 +270,8 @@ class StaticDataStore(Generic[DataType]):
                 raise KeyError(
                     "Requires static key to be in the input keys of the model!"
                 )
-            if not (
-                isinstance(self._all_data[key], Scalar)
-                or isinstance(
-                    value, ToBeDetermined | self.backend.get_backend_array_type()
-                )
+            if (self._all_data[key].edge_type is Tensor) and not isinstance(
+                value, ToBeDetermined | self.backend.get_backend_array_type()
             ):
                 raise ValueError(
                     "Requires given arrays to be of same type with given backend!"
@@ -280,47 +299,30 @@ class StaticDataStore(Generic[DataType]):
             if (data := self._all_data.get(key, None)) is None:
                 raise KeyError(f"'{key}' key not found in model!")
 
-            if isinstance(data, Tensor):
-                assert not isinstance(value, MainValueInstance)
+            if self.is_scalar_type(value):  # TODO: Is this check really required?
+                updates |= data.set_value(value)
+            else:
+                assert not isinstance(value, MainValueInstance | ToBeDetermined)
+                # Find type of tensor and set.
+                val_type = self._infer_tensor_value_type(value)
+                updates |= data.set_type(Tensor[val_type])  # type: ignore
+                assert data.shape is not None
                 # Find shape of tensor and set.
                 shape = list(value.shape)
                 updates |= data.shape.set_values(shape)
-                # Find type of tensor and set.
-                val_type: type[bool] | type[int] | type[float]
-                data_dtype = str(value.dtype)
-                # Check value type is OK, and update type accordinly.
-                if "bool" in data_dtype:
-                    val_type = bool
-                elif "int" in data_dtype:
-                    val_type = int
-                elif "float" in data_dtype:
-                    val_type = float
-                else:
-                    raise TypeError(
-                        f"Given type ({data_dtype}) is not supported. "
-                        "Only float, int or bool types are accepted."
-                    )
-                updates |= data.set_type(val_type)
-            elif isinstance(data, Scalar) and self.is_scalar_type(value):
-                updates |= data.set_value(value)
-            else:
-                raise ValueError(
-                    f"Given value type: {type(value)} does not match with "
-                    f"the type of data: {type(data)}!"
-                )
             self.data_values[key] = value  # type: ignore
-            self._intermediate_non_differentiables.pop(key, None)
+            self.intermediate_non_differentiables.pop(key, None)
             if (
-                key not in self._intermediate_non_differentiables
+                key not in self.intermediate_non_differentiables
                 and key in self.runtime_static_keys
             ):
                 self._runtime_static_keys.remove(key)
         # Finally update cached_data, infer unused keys and
         # return newly added static keys.
         self.constraint_solver(updates)
-        statics = self._update_cached_data(updates) | updated_keys
+        statics = self.update_cached_data(updates) | updated_keys
         for static in statics:
-            self._infer_unused_keys(static)
+            self.infer_unused_keys(static)
 
         return statics, updates
 
@@ -408,20 +410,17 @@ class StaticDataStore(Generic[DataType]):
                 updates |= _updates
         return updates
 
-    def set_random_seed_keys(self, seed_keys: set[str]):
+    def set_random_seed_keys(self, seed_keys: set[str]) -> None:
         for key in seed_keys:
             if self.all_data[key].value == TBD:
                 self._random_seeds[key] = 0
             else:
-                self._random_seeds[key] = self.all_data[key].value
+                value = self.all_data[key].value
+                assert isinstance(value, int)
+                self._random_seeds[key] = value
 
-    def set_random_seed_values(self, **seed_mapping: int):
+    def set_random_seed_values(self, **seed_mapping: int) -> None:
         for key, value in seed_mapping.items():
             if key not in self._random_seeds:
                 raise KeyError(f"'{key}' key is not a random seed key!")
-            if not isinstance(value, int):
-                raise TypeError(
-                    f"Random seed value for '{key}' key must be an integer!"
-                )
-
             self._random_seeds[key] = value

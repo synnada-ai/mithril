@@ -21,10 +21,13 @@ import numpy as np
 from .... import core
 from ....utils.type_utils import is_int_tuple_tuple
 from ....utils.utils import binary_search, find_dominant_type
+from ...utils import DtypeSubTypes
 
 ArrayType = np.ndarray
 
 dtype_map: dict[str, Any] = {
+    "uint8": np.uint8,
+    "int8": np.int8,
     "int16": np.int16,
     "int32": np.int32,
     "int": np.int32,
@@ -85,7 +88,7 @@ def write_into_cache[T: np.ndarray[Any, Any] | tuple[Any, ...] | int | float](
     else:
         result = cache[key]
     # TODO: Resolve here
-    return result  # type: ignore
+    return result
 
 
 def get_submatrices1d(
@@ -95,7 +98,7 @@ def get_submatrices1d(
     padding: tuple[int, int] = (0, 0),
     stride: int = 1,
     dilate: int = 0,
-):  # TODO: Return type???
+) -> np.ndarray[Any, Any]:
     working_input = input
     working_pad = padding
     # dilate the input if necessary
@@ -131,7 +134,7 @@ def get_submatrices2d(
     padding: tuple[tuple[int, int], tuple[int, int]] = ((0, 0), (0, 0)),
     stride: int = 1,
     dilate: int = 0,
-):  # TODO: Return type???
+) -> np.ndarray[Any, Any]:
     working_input = input
     working_pad = padding
     # dilate the input if necessary
@@ -267,7 +270,7 @@ def find_optimal_sigmas(
     sigmas: list[float] = []
 
     # Make fn that returns perplexity of this row given sigma
-    def eval_fn(sigma: float, i: int):
+    def eval_fn(sigma: float, i: int) -> np.ndarray[Any, Any]:
         return perplexity_fn(negative_dist_sq[i, :], np.array(sigma), i, threshold)
 
     # For each row of the matrix (each point in our dataset)
@@ -337,7 +340,9 @@ def handle_data_dtype(
     return data
 
 
-def make_array(input: int | float | np.ndarray[Any, Any], precision: int):
+def make_array(
+    input: int | float | np.ndarray[Any, Any], precision: int
+) -> np.ndarray[Any, Any]:
     return handle_data_precision(np.array(input), precision=precision)
 
 
@@ -379,7 +384,7 @@ def _accumulate_grads_helper(
 
 def log_sigmoid(
     input: np.ndarray[Any, Any], log: Callable[..., np.ndarray[Any, Any]], robust: bool
-):
+) -> np.ndarray[Any, Any]:
     min = np.minimum(0, input)
     input = np.exp(-np.abs(input))
     if not robust:
@@ -392,7 +397,7 @@ def log_softmax(
     log: Callable[..., np.ndarray[Any, Any]],
     robust: bool,
     axis: int = -1,
-):
+) -> np.ndarray[Any, Any]:
     return input - log(np.exp(input).sum(axis=axis, keepdims=True))
 
 
@@ -448,7 +453,9 @@ def calculate_cross_entropy_class_weights(
     return _weights
 
 
-def determine_dtype(input: Any, dtype: core.Dtype | None, precision: int) -> str:
+def determine_dtype(
+    input: Any, dtype: core.Dtype | None, default_dtype: core.Dtype, precision: int
+) -> str:
     if isinstance(dtype, core.Dtype):
         return dtype.name
 
@@ -457,16 +464,19 @@ def determine_dtype(input: Any, dtype: core.Dtype | None, precision: int) -> str
     else:
         dtype_name = find_dominant_type(input).__name__
 
+    if dtype_name == "float":
+        dtype_name = DtypeSubTypes[default_dtype.name].value
+
     return dtype_name + str(precision) if dtype_name != "bool" else "bool"
 
 
 def get_type(
     input: int | float | bool | Sequence[int | float | bool | Sequence[Any]],
     precision: int,
-):
+) -> np.dtype[Any]:
     type = find_dominant_type(input).__name__
     if type == "bool":
-        return np.bool_
+        return np.bool_  # type: ignore
 
     return getattr(np, type + str(precision))
 

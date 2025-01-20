@@ -32,11 +32,10 @@ from ..common import (
     IOKey,
     KeyType,
     MainValueInstance,
-    MainValueType,
-    NestedListType,
     NotAvailable,
     NullConnection,
-    Scalar,
+    ScalarType,
+    ScalarValueType,
     ShapeTemplateType,
     Tensor,
     ToBeDetermined,
@@ -47,7 +46,7 @@ from ..common import (
     get_summary_shapes,
     get_summary_types,
 )
-from .base import ExtendInfo
+from .base import BaseModel, ExtendInfo
 from .essential_primitives import (
     Absolute,
     Add,
@@ -57,6 +56,7 @@ from .essential_primitives import (
     FloorDivide,
     Greater,
     GreaterEqual,
+    Indexer,
     Item,
     Length,
     Less,
@@ -75,7 +75,6 @@ from .essential_primitives import (
     Power,
     Prod,
     Reshape,
-    ScalarItem,
     Shape,
     ShiftLeft,
     ShiftRight,
@@ -85,7 +84,6 @@ from .essential_primitives import (
     Sqrt,
     Subtract,
     Sum,
-    TensorItem,
     TensorToList,
     ToList,
     ToTensor,
@@ -93,7 +91,7 @@ from .essential_primitives import (
     Transpose,
     Variance,
 )
-from .primitive import BaseModel, PrimitiveModel
+from .primitive import PrimitiveModel
 
 __all__ = ["Model"]
 
@@ -112,6 +110,7 @@ ops_table: dict[str, type[PrimitiveModel]] = {
     "tensor": ToTensor,
     "list": TensorToList,
     "item": Item,
+    "indexer": Indexer,
     "mean": Mean,
     "sqrt": Sqrt,
     "exp": Exponential,
@@ -141,22 +140,6 @@ ops_table: dict[str, type[PrimitiveModel]] = {
 }
 
 
-coercion_table: dict[tuple[str, type[Tensor] | type[Scalar]], type[PrimitiveModel]] = {
-    ("index", Tensor): TensorItem,
-    ("index", Scalar): ScalarItem,
-}
-
-type_conversion_map: dict[
-    tuple[type[Tensor] | type[Scalar], type[Tensor] | type[Scalar]],
-    type[ToTensor] | type[TensorToList] | None,
-] = {
-    (Scalar, Tensor): ToTensor,
-    (Tensor, Scalar): TensorToList,
-    (Tensor, Tensor): None,
-    (Scalar, Scalar): None,
-}
-
-
 class Model(BaseModel):
     def __init__(
         self,
@@ -169,7 +152,7 @@ class Model(BaseModel):
 
         super().__init__(name=name, enforce_jit=enforce_jit)
 
-    def create_key_name(self):
+    def create_key_name(self) -> str:
         self.inter_key_count += 1
         return "$" + str(self.inter_key_count)
 
@@ -226,14 +209,11 @@ class Model(BaseModel):
 
             else:  # Named connections.
                 # Create new output connection with given key name.
+                # TODO: Update here to use directly set_name method of Connections class
+                # after it is implemented.
+                edge = IOHyperEdge(metadata.edge_type)
 
-                data: Tensor | Scalar = (
-                    Scalar(metadata.data.type)
-                    if isinstance(metadata.data, Scalar)
-                    else Tensor(metadata.data.shape, metadata.data.type)
-                )
-
-                new_conn = self.create_connection(IOHyperEdge(data), new_name)
+                new_conn = self.create_connection(edge, new_name)
 
                 # Set connection as output and update dependency map.
                 self.conns.set_connection_type(new_conn, KeyType.OUTPUT)
@@ -241,7 +221,7 @@ class Model(BaseModel):
                 # Merge new_conn with given connection.
                 self.merge_connections(new_conn, conn_data)
 
-    def _set_formula_key(self, formula_key: str):
+    def _set_formula_key(self, formula_key: str) -> None:
         self.formula_key = formula_key
 
     def _check_multi_write(
@@ -273,8 +253,8 @@ class Model(BaseModel):
                     "Given connections are both output connections. Multi-write error!"
                 )
 
-        local_val = local_connection.metadata.data.value
-        global_val = connection.metadata.data.value
+        local_val = local_connection.metadata.value
+        global_val = connection.metadata.value
 
         if conn_is_output and not local_input:
             # Check if 2 connections are both output of any models.
@@ -284,6 +264,7 @@ class Model(BaseModel):
         elif (
             local_input
             and local_val is not TBD
+            # and global_val is not TBD
             and conn_is_output
             and global_val != local_val
         ):
@@ -306,20 +287,16 @@ class Model(BaseModel):
         assert local_connection is not None, "Connection is not found!"
         match connection:
             case NullConnection():
-                connection = IOKey()
+                _connection = IOKey()
             case str():
-                connection = IOKey(name=connection)
+                _connection = IOKey(name=connection)
             case Connection():
-                connection = IOKey(connections={connection})
+                _connection = IOKey(connections={connection})
             case ExtendTemplate():
                 # Unroll ExtendTemplate
-                template_conn = model.conns.get_connection(key)
-                assert template_conn is not None, "Connection type is not found!"
-                con_data = self._unroll_template(
-                    connection, type(template_conn.metadata.data)
-                )
-                connection = IOKey(connections={con_data.conn}, expose=False)
-            case _ if isinstance(connection, MainValueInstance):
+                con_data = self._unroll_template(connection)
+                _connection = IOKey(connections={con_data.conn}, expose=False)
+            case _ if isinstance(connection, MainValueInstance | Tensor):
                 # find_dominant_type returns the dominant type in a container.
                 # If a container has a value of type Connection or ExtendTemplate
                 # we add necessary models.
@@ -337,10 +314,10 @@ class Model(BaseModel):
 
                     result = conv_model.conns.get_connection("output")
                     assert result is not None
-                    connection = IOKey(connections={result.conn}, expose=None)
+                    _connection = IOKey(connections={result.conn}, expose=None)
                 else:
-                    assert isinstance(connection, MainValueInstance)
-                    connection = IOKey(value=connection)
+                    assert isinstance(connection, MainValueInstance | Tensor)
+                    _connection = IOKey(value=connection)
             case IOKey():
                 expose = connection.expose
                 name = connection.name
@@ -353,7 +330,7 @@ class Model(BaseModel):
                     and connection.connections == set()
                 ):
                     expose = True
-                connection = IOKey(
+                _connection = IOKey(
                     name=name,
                     expose=expose,
                     connections=connection.connections,
@@ -369,7 +346,7 @@ class Model(BaseModel):
                     "provide connection/key explicitly, or set canonical connections."
                 )
 
-        return connection
+        return _connection
 
     def update_key_name(self, connection: ConnectionData, key: str) -> None:
         for key_type in KeyType:
@@ -388,18 +365,20 @@ class Model(BaseModel):
         model: BaseModel,
         local_key: str,
         given_connection: IOKey,
+        updates: Updates,
     ) -> tuple[ConnectionData, Updates]:
-        updates = Updates()
         is_input = local_key in model.input_keys
         local_connection = model.conns.get_connection(local_key)
         assert local_connection is not None, "Connection is not found!"
-        is_not_valued = local_connection.metadata.data.value is TBD
+        is_not_valued = local_connection.metadata.value is TBD
 
         d_map = self.dependency_map.local_output_dependency_map
         expose = given_connection.expose
         outer_key = given_connection.name
         con_obj = None
-        set_value: ToBeDetermined | str | MainValueType | NullConnection = NOT_GIVEN
+        set_value: (
+            ToBeDetermined | str | ScalarValueType | Tensor[Any] | NullConnection
+        ) = NOT_GIVEN
         if given_connection.data.value is not TBD:
             set_value = given_connection.data.value
 
@@ -414,7 +393,7 @@ class Model(BaseModel):
                 expose is False
                 and is_input
                 and set_value is NOT_GIVEN
-                and local_connection.metadata.data.value is TBD
+                and local_connection.metadata.value is TBD
                 and (con_obj is None or con_obj not in d_map)
             ):
                 raise ValueError(
@@ -485,7 +464,7 @@ class Model(BaseModel):
         # If any value provided, set.
         assert con_obj is not None
         if not isinstance(set_value, NullConnection):
-            updates |= con_obj.metadata.data.set_value(set_value)
+            updates |= con_obj.metadata.set_value(set_value)
 
         # Check multi-write error for con_obj.
         self._check_multi_write(is_input, local_connection, con_obj)
@@ -510,25 +489,22 @@ class Model(BaseModel):
         bitwise_key_type = (unexposed << 1 | is_output) + 1  # (unexpose, is_output)
         self.conns.set_connection_type(con_obj, KeyType(bitwise_key_type))
 
+        # If any type provided, set using models set_types method
+        # in order to execute constraint solver to propagate type
+        # updates along the model keys.
+        if (set_type := given_connection.data.type) is not None:
+            model.set_types({local_connection.conn: set_type})
+
         return con_obj, updates
 
-    def _unroll_template(
-        self, template: ExtendTemplate, joint_type: type[Tensor] | type[Scalar]
-    ) -> ConnectionData:
+    def _unroll_template(self, template: ExtendTemplate) -> ConnectionData:
         if template.output_connection is None:
-            # Initialize all default init arguments of model as "..." other
+            # Initialize all default init arguments of model as TBD other
             # than the keys in template.defaults, in order to provide
             # given connections to the model after it is created.
             # If we don't do that, it will throw error because of
             # re-setting a Tensor or Scalar value again in extend.
-            if (model_type := ops_table.get(template.model)) is None:
-                model_config = template.model, joint_type
-                model_type = coercion_table.get(model_config)
-
-            assert (
-                model_type is not None
-            ), "given model is not found in the ops_table or coercion_table"
-
+            model_type = ops_table[template.model]
             # TODO: Remove all TBD if default init arguments will be moved to call!!!
             init_fun = model_type.__init__
 
@@ -539,19 +515,14 @@ class Model(BaseModel):
             ]
             default_args_dict = {key: TBD for key in default_args}
             default_args_dict |= template.defaults
-            default_args_dict.pop("name")
+            default_args_dict.pop("name", None)
 
             # TODO: Reconsider type ignore!
             model: PrimitiveModel = model_type(**default_args_dict)  # type: ignore
             connections: list[ConnectionType] = []
-            for idx, connection in enumerate(template.connections):
+            for connection in template.connections:
                 if isinstance(connection, ExtendTemplate):
-                    conn = model.conns.get_connection(list(model.input_keys)[idx])
-                    assert conn is not None
-                    conn_type = conn.metadata.data.__class__
-                    connections.append(
-                        self._unroll_template(connection, conn_type).conn
-                    )
+                    connections.append(self._unroll_template(connection).conn)
                 else:
                     assert isinstance(
                         connection, ConnectionInstanceType
@@ -666,7 +637,7 @@ class Model(BaseModel):
         self,
         model: Model | PrimitiveModel | BaseModel,
         **kwargs: ConnectionType,
-    ):
+    ) -> None:
         # Check possible errors before the extension.
         model.check_extendability()
         if self.parent is not None:
@@ -691,7 +662,10 @@ class Model(BaseModel):
         updates = Updates()
 
         shape_info: dict[str, ShapeTemplateType] = {}
-        type_info: dict[str, type | UnionType | NestedListType] = {}
+        type_info: dict[
+            str,
+            type | UnionType | ScalarType | type[Tensor[Any]],
+        ] = {}
 
         submodel_dag: dict[str, ConnectionData] = {}
         updates = self.constraint_solver.match(model.constraint_solver)
@@ -716,11 +690,11 @@ class Model(BaseModel):
             if value.data.type is not None:
                 type_info[local_key] = value.data.type
 
-            con_obj, _updates = self._add_connection(model, local_key, value)
+            con_obj, _updates = self._add_connection(model, local_key, value, updates)
             updates |= _updates
             submodel_dag[local_key] = con_obj
-            if isinstance(con_obj.metadata.data, Tensor):
-                updates.shape_updates.add(con_obj.metadata.data)
+            if con_obj.metadata.edge_type is Tensor:
+                updates.shape_updates.add(con_obj.metadata)
 
         # Replace shape info keys, which are local keys, with global equivalents.
         shape_info = {
@@ -736,9 +710,6 @@ class Model(BaseModel):
             updates=updates,
         )  # TODO: Should "trace" be set to True?.
 
-        # Set given types.
-        self.set_types(type_info)
-
         model.constraint_solver.clear()
         model.conns.connections_dict = {}
 
@@ -751,7 +722,7 @@ class Model(BaseModel):
         # Update Canonicals
         if isinstance(c_input := model.canonical_input, Connection):
             c_input_obj = self.conns.get_con_by_metadata(c_input.data.metadata)
-            if c_input_obj is not None and c_input_obj.metadata.data.value is TBD:
+            if c_input_obj is not None and c_input_obj.metadata.value is TBD:
                 if c_input_obj not in self.dependency_map.local_output_dependency_map:
                     # Update canonical input with model canonical input
                     if c_input_obj not in self.conns.input_connections:
@@ -1103,7 +1074,10 @@ class Model(BaseModel):
 
         # construct the table based on relevant information
         table = get_summary(
-            conns=conn_info, name=name, shape=shape_info, types=type_info
+            conns=conn_info,
+            name=name,
+            shape=shape_info,  # type: ignore
+            types=type_info,
         )
 
         table.compile()
@@ -1128,9 +1102,9 @@ class Model(BaseModel):
     def extract_connection_info(
         self,
         name_mappings: dict[BaseModel, str],
-        data_to_key_map: dict[Tensor | Scalar, list[str]] | None = None,
-        data_memo: Mapping[int, Tensor | Scalar] | None = None,
-    ):
+        data_to_key_map: dict[IOHyperEdge, list[str]] | None = None,
+        data_memo: Mapping[int, IOHyperEdge] | None = None,
+    ) -> dict[str, tuple[dict[str, list[str]], dict[str, list[str]]]]:
         conn_info: dict[str, tuple[dict[str, list[str]], dict[str, list[str]]]] = {}
         if self.input_keys:
             if data_to_key_map is None:
@@ -1154,7 +1128,7 @@ class Model(BaseModel):
             key_mappings = self.generate_keys(
                 include_internals=False, include_outputs=True
             )
-            data_map = {key: conn.metadata.data for key, conn in self.conns.all.items()}
+            data_map = {key: conn.metadata for key, conn in self.conns.all.items()}
 
             # Sort in topological order
             sorted_models = self.get_models_in_topological_order()
@@ -1171,7 +1145,7 @@ class Model(BaseModel):
                     include_internals=False, include_outputs=True
                 )
                 m_data_map = {
-                    key: conn.metadata.data for key, conn in model.conns.all.items()
+                    key: conn.metadata for key, conn in model.conns.all.items()
                 }
                 for inner_key in input_keys + tuple(model.conns.output_keys):
                     # Find the data of the key, if data memo is given, extract its

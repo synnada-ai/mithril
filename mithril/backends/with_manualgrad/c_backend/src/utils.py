@@ -19,7 +19,7 @@ import numpy as np
 from .array import Array, PyArray, lib, to_c_float_array, to_c_int_array
 
 
-def to_numpy(array: PyArray):
+def to_numpy(array: PyArray) -> np.ndarray[Any, Any]:
     return np.ctypeslib.as_array(array.arr.contents.data, shape=(array.shape))
 
 
@@ -28,6 +28,6 @@ def from_numpy(array: np.ndarray[Any, Any]) -> PyArray:
     ndim = len(shape)
 
     c_shape = to_c_int_array(shape)
-    c_data = to_c_float_array(array)
+    c_data = to_c_float_array(array)  # type: ignore
     arr: Array = lib.create_struct(c_data, ndim, c_shape)
     return PyArray(arr, shape)
