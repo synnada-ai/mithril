@@ -319,7 +319,7 @@ def test_integration_with_all_defined():
     add = Add()
     add.set_types(left=Tensor, right=Tensor)
     model += add(left="a", right="b", output="c")
-    backend =  JaxBackend(dtype=ml.float64)
+    backend = JaxBackend(dtype=ml.float64)
 
     pm_short = ml.compile(model, backend)
     pm_long = ml.compile(model, backend, use_short_namings=False)
