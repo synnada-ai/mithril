@@ -417,7 +417,7 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
         else:
             raise ValueError(f"Invalid dtype {dtype}")
 
-    def _set_seed(self, seed: int | None):
+    def _set_seed(self, seed: int | None) -> None:
         if seed is None:
             seed = self._seed_generator.integers(0, 2**14)
         np.random.seed(seed)

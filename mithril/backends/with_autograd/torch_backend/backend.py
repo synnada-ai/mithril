@@ -667,7 +667,7 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
     def jacfwd(self, fn: Callable[..., torch.Tensor]) -> Callable[..., torch.Tensor]:
         return torch_jacfwd(fn)
 
-    def _get_generator(self, key: int | None):
+    def _get_generator(self, key: int | None) -> torch.Generator:
         if key is None:
             return self._generator
         else:

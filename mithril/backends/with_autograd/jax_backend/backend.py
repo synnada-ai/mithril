@@ -669,7 +669,7 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         else:
             raise ValueError(f"Invalid dtype {dtype}")
 
-    def _get_prng_key(self, key: int | None = None):
+    def _get_prng_key(self, key: int | None = None) -> jax.Array:
         if key is None:
             return self.prng_key
         return jax.random.PRNGKey(key)
