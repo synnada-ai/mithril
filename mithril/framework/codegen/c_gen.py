@@ -25,7 +25,6 @@ from ...framework.common import (
     EvaluateAllType,
     EvaluateGradientsType,
     EvaluateType,
-    Tensor,
 )
 from ...utils.type_utils import is_list_int
 from ..physical.model import PhysicalModel
@@ -294,7 +293,7 @@ class CGen(CodeGen[PyArray]):
 
     def _get_array_shape(self, key: str) -> tuple[int, ...]:
         array_data = self.pm.data[key]
-        assert isinstance(array_data, Tensor)
+        assert array_data.shape is not None
         shape = array_data.shape.reprs[0].get_shapes()
 
         if is_list_int(shape):

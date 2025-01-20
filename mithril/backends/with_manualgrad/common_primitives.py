@@ -47,8 +47,7 @@ __all__ = [
     "permute_tensor",
     "reshape",
     "item",
-    "scalar_item",
-    "tensor_item",
+    "indexer",
     "primitive_slice",
     "swapaxes",
     "sequence_slice",
@@ -194,14 +193,6 @@ def item(input: DataType) -> int | float | bool:
     return input.item()  # type: ignore[return-value]
 
 
-def scalar_item(
-    input: list[int | float | bool] | tuple[int | float | bool, ...],
-    index: int,
-    cache: CacheType = None,
-) -> int | float:
-    return input[index]
-
-
 def sequence_slice(
     input: list[int | float] | tuple[int | float, ...],
     start: int | None,
@@ -304,12 +295,20 @@ def padding_converter_2d(
     return output
 
 
-def tensor_item(
-    input: DataType,
+# TODO: Overload this function.
+def indexer(
+    input: DataType | list[int | float | bool] | tuple[int | float | bool, ...],
     index: int | slice | tuple[int | slice, ...],
     cache: CacheType = None,
-) -> DataType:
-    return input[index]
+) -> (
+    DataType
+    | list[int | float | bool]
+    | tuple[int | float | bool, ...]
+    | int
+    | float
+    | bool
+):
+    return input[index]  # type: ignore
 
 
 def primitive_slice(

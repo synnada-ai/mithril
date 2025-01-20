@@ -18,10 +18,10 @@ import numpy as np
 
 import mithril as ml
 from mithril import JaxBackend
+from mithril.framework.common import IOKey, Tensor
 from mithril.framework.physical.model import FlatModel
 from mithril.models import (
     Add,
-    IOKey,
     Linear,
     Model,
     Relu,
@@ -316,7 +316,9 @@ def test_linear_flat():
 
 def test_integration_with_all_defined():
     model = Model()
-    model += Add()(left="a", right="b", output="c")
+    add = Add()
+    add.set_types(left=Tensor, right=Tensor)
+    model += add(left="a", right="b", output="c")
     backend = JaxBackend(precision=64)
 
     pm_short = ml.compile(model, backend)
@@ -336,7 +338,9 @@ def test_integration_with_some_undefined():
     backend = ml.JaxBackend(precision=64)
 
     model = Model()
-    model += Add()(right="b", output="c")
+    add = Add()
+    add.set_types(left=Tensor, right=Tensor)
+    model += add(right="b", output="c")
 
     pm_short = ml.compile(model, backend)
     pm_long = ml.compile(model, backend, use_short_namings=False)
@@ -355,7 +359,9 @@ def test_integration_with_some_undefined():
 
 def test_integration_multi_level_name_with_lowest_definition():
     model2 = Model("adder")
-    model2 += Add()(left="a", right="b", output="c")
+    add = Add()
+    add.set_types(left=Tensor, right=Tensor)
+    model2 += add(left="a", right="b", output="c")
 
     model1 = Model(name="model")
     model1 += model2
@@ -385,7 +391,9 @@ def test_integration_multi_level_name_with_lowest_definition():
 
 def test_integration_collision_from_different_levels():
     model2 = Model()
-    model2 += Add()(left="a", right="b", output="e")
+    add = Add()
+    add.set_types(left=Tensor, right=Tensor)
+    model2 += add(left="a", right="b", output="e")
 
     model1 = Model(name="middle")
     model1 += model2(a="d", b="e")

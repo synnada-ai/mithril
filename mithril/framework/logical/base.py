@@ -35,12 +35,13 @@ from ..common import (
     IOHyperEdge,
     MainValueType,
     NotAvailable,
-    Scalar,
+    ScalarType,
     ShapeNode,
     ShapesType,
     ShapeTemplateType,
     ShapeType,
     Tensor,
+    ToBeDetermined,
     UniadicRecord,
     Updates,
     UpdateType,
@@ -49,7 +50,6 @@ from ..common import (
     get_shapes,
 )
 from ..constraints import post_process_map, type_constraints
-from ..utils import NestedListType
 
 __all__ = ["BaseModel", "ExtendInfo"]
 
@@ -96,6 +96,10 @@ class BaseModel(abc.ABC):
             None  # TODO: maybe set it only to PrimitiveModel / Model.
         )
         self.assigned_shapes: list[ShapesType] = []
+        self.assigned_types: dict[
+            str,
+            type | UnionType | ScalarType | Tensor[Any],
+        ] = {}
         self.assigned_constraints: list[AssignedConstraintType] = []
         self.conns = Connections()
         self.frozen_attributes: list[str] = []
@@ -201,8 +205,8 @@ class BaseModel(abc.ABC):
     def extract_connection_info(
         self,
         name_mappings: dict[BaseModel, str],
-        data_to_key_map: dict[Tensor | Scalar, list[str]] | None = None,
-        data_memo: Mapping[int, Tensor | Scalar] | None = None,
+        data_to_key_map: dict[IOHyperEdge, list[str]] | None = None,
+        data_memo: Mapping[int, IOHyperEdge] | None = None,
     ) -> dict[str, tuple[dict[str, list[str]], dict[str, list[str]]]]:
         raise NotImplementedError("Implement extract_connection_info method!")
 
@@ -261,6 +265,12 @@ class BaseModel(abc.ABC):
         # Apply updates to the shape nodes.
         for key in chain(shapes, kwargs):
             node, _inner_key = shape_nodes[key]
+            if (
+                metadata := self.conns.get_data(_inner_key)
+            ).edge_type is ToBeDetermined:
+                # If edge_type is not defined yet, set it to Tensor since
+                # shape is provided.
+                updates |= metadata.set_type(Tensor)
             shape_node = self.conns.get_shape_node(_inner_key)
             assert shape_node is not None
             updates |= shape_node.merge(node)
@@ -270,7 +280,9 @@ class BaseModel(abc.ABC):
 
         model.constraint_solver(updates)
 
-    def _set_value(self, key: ConnectionData, value: MainValueType | str) -> Updates:
+    def _set_value(
+        self, key: ConnectionData, value: MainValueType | Tensor[Any] | str
+    ) -> Updates:
         """
         Set value for the given connection.
 
@@ -285,7 +297,7 @@ class BaseModel(abc.ABC):
         if key.key not in self.conns.input_keys:
             raise ValueError("Values of internal and output keys cannot be set.")
         # Data is scalar, set the value directly.
-        return key.metadata.data.set_value(value)
+        return key.metadata.set_value(value)
 
     def set_shapes(
         self, config: ShapesType | None = None, **kwargs: ShapeTemplateType
@@ -296,11 +308,11 @@ class BaseModel(abc.ABC):
 
     def set_values(
         self,
-        config: Mapping[str | Connection, MainValueType | str]
-        | Mapping[Connection, MainValueType | str]
-        | Mapping[str, MainValueType | str]
+        config: Mapping[str | Connection, Tensor[Any] | MainValueType | str]
+        | Mapping[Connection, Tensor[Any] | MainValueType | str]
+        | Mapping[str, Tensor[Any] | MainValueType | str]
         | None = None,
-        **kwargs: MainValueType | str,
+        **kwargs: Tensor[Any] | MainValueType | str,
     ) -> None:
         """
         Set multiple values in the model.
@@ -325,17 +337,6 @@ class BaseModel(abc.ABC):
         # Make all value updates in the outermost model.s
         model = self._get_outermost_parent()
         updates = Updates()
-        # TODO: Currently Setting values in fozen models are prevented only for Tensors.
-        # Scalar and Tensors should not be operated differently. This should be fixed.
-        for key in chain(config, kwargs):
-            metadata = self.conns.extract_metadata(key)
-            if isinstance(metadata.data, Tensor) and model.is_frozen:
-                conn_data = model.conns.get_con_by_metadata(metadata)
-                assert conn_data is not None
-                raise ValueError(
-                    f"Model is frozen, can not set the key: {conn_data.key}!"
-                )
-
         for key, value in chain(config.items(), kwargs.items()):
             # Perform metadata extraction process on self.
             metadata = self.conns.extract_metadata(key)
@@ -349,11 +350,20 @@ class BaseModel(abc.ABC):
 
     def set_types(
         self,
-        config: Mapping[str | Connection, type | UnionType | NestedListType]
-        | Mapping[Connection, type | UnionType | NestedListType]
-        | Mapping[str, type | UnionType | NestedListType]
+        config: Mapping[
+            str | Connection,
+            type | UnionType | ScalarType | type[Tensor[Any]],
+        ]
+        | Mapping[
+            Connection,
+            type | UnionType | ScalarType | type[Tensor[Any]],
+        ]
+        | Mapping[
+            str,
+            type | UnionType | ScalarType | type[Tensor[Any]],
+        ]
         | None = None,
-        **kwargs: type | UnionType | NestedListType,
+        **kwargs: type | UnionType | ScalarType | type[Tensor[Any]],
     ) -> None:
         """
         Set types of any connection in the Model
@@ -372,14 +382,24 @@ class BaseModel(abc.ABC):
         """
         if config is None:
             config = {}
+        # Initialize assigned shapes dictionary to store assigned shapes.
+        assigned_types: dict[
+            str,
+            type | UnionType | ScalarType | Tensor[Any],
+        ] = {}
 
         # Get the outermost parent as all the updates will happen here.
         model = self._get_outermost_parent()
         updates = Updates()
         for key, key_type in chain(config.items(), kwargs.items()):
             metadata = self.conns.extract_metadata(key)
-            data = metadata.data
-            updates |= data.set_type(key_type)  # type: ignore
+            conn = self.conns.get_con_by_metadata(metadata)
+            assert conn is not None
+            inner_key = conn.key
+            assigned_types[inner_key] = key_type
+            updates |= metadata.set_type(key_type)
+        # Store assigned types in the model.
+        self.assigned_types |= assigned_types
         # Run the constraints for updating affected connections.
         model.constraint_solver(updates)
 
@@ -391,9 +411,7 @@ class BaseModel(abc.ABC):
         verbose: bool = False,
     ) -> Mapping[str, ShapeTemplateType | list[ShapeTemplateType] | None]:
         return get_shapes(
-            data_dict={
-                key: value.metadata.data for key, value in self.conns.all.items()
-            },
+            data_dict={key: value.metadata for key, value in self.conns.all.items()},
             uniadic_keys=uni_keys,
             varadic_keys=var_keys,
             symbolic=symbolic,
@@ -419,7 +437,7 @@ class BaseModel(abc.ABC):
         constr = Constraint(fn=fn, type=type)
         self.constraint_solver.constraint_map[constr] = hyper_edges
         for hyper_edge in hyper_edges:
-            hyper_edge.data.add_constraint(constr)
+            hyper_edge.add_constraint(constr)
 
         # Get union of all given and default post processes for the given
         # constraint and update post_processes field.
@@ -427,9 +445,10 @@ class BaseModel(abc.ABC):
             post_processes = set()
         all_post_processes = post_processes | post_process_map.get(fn, set())
         for post_fn in all_post_processes:
-            constr.add_post_process(post_fn)
+            type = UpdateType.TYPE if post_fn in type_constraints else UpdateType.SHAPE
+            constr.add_post_process((post_fn, type))
 
-        _, updates = constr([hyper_edge.data for hyper_edge in hyper_edges])
+        _, updates = constr(hyper_edges)
         self.constraint_solver(updates)
 
     def set_constraint(
@@ -493,7 +512,12 @@ class BaseModel(abc.ABC):
         self._canonical_output = conn
 
     def _match_hyper_edges(self, left: IOHyperEdge, right: IOHyperEdge) -> Updates:
-        if type(left.data) is not type(right.data):
+        # if type(left.data) is not type(right.data):
+        l_type = left.edge_type
+        r_type = right.edge_type
+        if ((l_type is Tensor) ^ (r_type is Tensor)) and (
+            ToBeDetermined not in (l_type, r_type)
+        ):
             raise TypeError(
                 "Types of connections are not consistent. Check connection types!"
             )
@@ -521,7 +545,7 @@ class BaseModel(abc.ABC):
         # Update IOHyperEdge's in constraint solver.
         self.constraint_solver.update_constraint_map(left, right)
         # Match data of each IOHyperEdge's.
-        updates = left.data.match(right.data)  # type: ignore
+        updates = left.match(right)
         return updates
 
     def get_models_in_topological_order(self) -> list[BaseModel]:

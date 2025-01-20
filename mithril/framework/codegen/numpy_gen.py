@@ -31,9 +31,9 @@ from ..common import (
     EvaluateGradientsType,
     EvaluateType,
     FinalCost,
+    IOHyperEdge,
     LossKey,
     ParamsEvalType,
-    Scalar,
     Tensor,
     is_type_adjustment_required,
 )
@@ -287,9 +287,11 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
 
     def add_cache(self, model: PrimitiveModel, output_key: str) -> None:
         cache_name = "_".join([output_key, model.cache_name])
-        cache_value: dict | None = None if self.pm.inference else {}  # type: ignore
-        # Create A object for caches in manualgrad backend.
-        self.pm.data_store.update_data({cache_name: Scalar(dict | None, cache_value)})
+        cache_value: dict[str, Any] | None = None if self.pm.inference else {}
+        # Create a scalar for caches in manualgrad backend.
+        self.pm.data_store.update_data(
+            {cache_name: IOHyperEdge(dict | None, cache_value)}
+        )
 
     def generate_evaluate_gradients(
         self, ignore_grad_keys: set[str]
@@ -310,9 +312,17 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
             key
             for key in all_ignored_keys
             if key in self.pm.data
-            and isinstance(self.pm.data[key], Tensor)
-            and find_intersection_type(self.pm.data[key].type, float)
+            and self.pm.data[key].edge_type is Tensor
+            and find_intersection_type(self.pm.data[key].value_type, float)
         }
+
+        # weak_ignored_keys = set()
+        # for key in all_ignored_keys:
+        #     if key in self.pm.data:
+        #         edge = self.pm.data[key]
+        #         if isinstance(edge._value, Tensor):
+        #             if find_intersection_type(edge._value.type, float):
+        #                     weak_ignored_keys |= {key}
 
         strict_ignored_keys = all_ignored_keys - weak_ignored_keys
 
@@ -492,9 +502,9 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
                     manipulated_key = global_input_key
 
                 if (
-                    isinstance(in_tensor := self.pm.data[global_input_key], Tensor)
-                    and isinstance(out_tensor := self.pm.data[output_key], Tensor)
-                    and check_repr_inequality(in_tensor.shape, out_tensor.shape)
+                    (in_shape := self.pm.data[global_input_key].shape) is not None
+                    and (out_shape := self.pm.data[output_key].shape) is not None
+                    and check_repr_inequality(in_shape, out_shape)
                 ):
                     generated_fn = ast.Call(
                         func=ast.Name(id="accumulate_grads", ctx=ast.Load()),
