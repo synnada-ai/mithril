@@ -150,12 +150,10 @@ class TestCnnForecastSineTraining:
 
         return cnn
 
-    def test_cnn_test_error(self, module: ModuleType):
-        error = module.outputs["final_cost"]
+    def test_cnn_train_error(self, module: ModuleType):
+        error = module.total_loss / len(module.dataloader)
         assert error < 1e-6
-        ...
 
-    def test_cnn_training_error(self, module: ModuleType):
+    def test_cnn_test_error(self, module: ModuleType):
         error = abs(module.y_test - module.pred)
         assert error < 0.01
-        ...
