@@ -21,7 +21,6 @@ from typing import Any, Literal, overload
 import numpy as np
 
 from ...backends.with_manualgrad.numpy_backend import NumpyBackend
-from ...core import Dtype
 from ...framework.physical.model import PhysicalModel
 from ...framework.utils import find_intersection_type
 from ...utils.func_utils import is_make_array_required, prepare_function_args
@@ -175,11 +174,12 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
                         out_data = params[_key]
                     else:
                         out_data = _key_cache["output"]
-                # dtype = getattr(self.backend, f"float{self.backend.precision}")
+
                 assert isinstance(out_data, np.ndarray)
-                # dtype = getattr(Dtype, f"float{self.backend.precision}")
-                dtype = Dtype[f"float{self.backend.precision}"]
-                gradients[key] = self.backend.zeros_like(out_data, dtype=dtype)
+
+                gradients[key] = self.backend.zeros_like(
+                    out_data, dtype=self.backend._dtype
+                )
 
             if output_gradients is None:
                 if FinalCost not in self.pm._output_keys:
