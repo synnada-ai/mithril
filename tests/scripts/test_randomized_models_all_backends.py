@@ -21,6 +21,7 @@ import pytest
 
 import mithril as ml
 from mithril import JaxBackend, MlxBackend, NumpyBackend, TorchBackend, compile, models
+from mithril.backends.utils import DtypeBits
 from mithril.framework.common import Tensor
 from mithril.utils.dict_conversions import dict_to_model
 from tests.scripts.test_utils import (
@@ -120,15 +121,15 @@ def test_randomized(case: str) -> None:
         ]
         output_gradients: dict = {}
         static_inputs = {}
-        # np.random.seed(10)
+        nbits = DtypeBits[dtype.name].value
 
         current_case = deepcopy(randomized_cases[case])
         inference = current_case.get("inference", False)
         iterations = current_case.pop("iterations", 10)
 
-        tolerance = current_case.pop(f"{dtype}bit_tolerance", test_tolerances[dtype])
+        tolerance = current_case.pop(f"{nbits}bit_tolerance", test_tolerances[dtype])
         relative_tolerance = current_case.pop(
-            f"{dtype}bit_relative_tolerance", test_relative_tolerances[dtype]
+            f"{nbits}bit_relative_tolerance", test_relative_tolerances[dtype]
         )
 
         # Configure tolerances if given as a single value
