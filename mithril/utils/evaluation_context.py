@@ -16,12 +16,12 @@ import dataclasses
 from typing import Any
 
 from ..backends.backend import Backend
-from ..models.models import Model
+from ..framework.logical.model import Model
 
 
 @dataclasses.dataclass
 class EvaluationContext:
-    backend: Backend
+    backend: Backend[Any]
     model: Model
     inputs: dict[str, Any]
     data: dict[str, Any]

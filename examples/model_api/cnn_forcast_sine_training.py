@@ -31,7 +31,7 @@ from mithril.models import (
 # TODO: Remove numpy dependencies from the code.
 
 # Define backend. It would also work with any available backend you prefer.
-backend = ml.TorchBackend(precision=32)
+backend = ml.TorchBackend()
 
 
 # Generate synthetic data: a sine wave

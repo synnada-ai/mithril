@@ -12,10 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 import re
 from collections.abc import Callable
 from copy import deepcopy
-from typing import Any, Self
+from typing import Any, Self, TypedDict
 
 from ..framework import BaseModel, ExtendInfo, Model
 from ..framework.common import (
@@ -28,6 +30,7 @@ from ..framework.common import (
     IOKey,
     KeyType,
     Table,
+    Tensor,
     UniadicRecord,
     Variadic,
     get_shapes,
@@ -46,13 +49,28 @@ from ..framework.logical import (
     Sum,
     ToTensor,
 )
+from ..framework.logical.primitive import PrimitiveModel
 from ..framework.physical.model import FinalCost, LossKey
-from .primitives import Concat, PrimitiveModel
+from .primitives import Concat
 
 __all__ = ["TrainModel"]
 
 
-def _create_size():
+class LossModelDict(TypedDict):
+    loss_model: BaseModel
+    reduce_steps: list[BaseModel] | None
+    args: dict[str, str | Connection]
+    coef: float | None
+
+
+class RegModelDict(TypedDict):
+    reg_model: BaseModel
+    coef: float | None
+    reg_key: str | Connection | None
+    args: dict[str, str | Connection | re.Pattern[str]]
+
+
+def _create_size() -> Model:
     # This is a temporary function to create size model with tensor output.
     # Convert _create_size() to directly Size() model after type constraints added.
     size_model = Model()
@@ -65,13 +83,13 @@ class TrainModel(Model):
     def __init__(self, model: BaseModel) -> None:
         super().__init__()
         self._model = model
-        self._losses: list[dict[str, Any]] = []
-        self._regularizations: list[dict[str, Any]] = []
+        self._losses: list[LossModelDict] = []
+        self._regularizations: list[RegModelDict] = []
         self._is_finalized = False
         self.factory_args = {"model": model}
         # TODO: If we add inputs as IOKey, we get multi-write error. Fix this.
         key_mappings = model.generate_keys(symbolic=False, include_internals=True)
-        extend_kwargs = {
+        extend_kwargs: dict[str, str | IOKey] = {
             key: key_mappings.get(
                 key, IOKey(name=key) if key in model.conns.output_keys else key
             )
@@ -93,7 +111,7 @@ class TrainModel(Model):
         self.regularization_keys: list[str] = []
         self.metric_keys: list[str] = []
         self.loss_combiner: BaseModel = Sum()
-        self.reg_coef_map: dict[float, set[Connection]] = {}
+        self.reg_coef_map: dict[float | Tensor[Any], set[Connection]] = {}
         self.geomean_map: dict[str, list[tuple[Connection, float]]] = {}
         self.reduce_inputs: dict[str, list[tuple[Connection, Connection]]] = {}
 
@@ -111,7 +129,7 @@ class TrainModel(Model):
 
     __iadd__ = __add__
 
-    def check_extendability(self):
+    def check_extendability(self) -> None:
         raise AttributeError("TrainModel could extend any other model!")
 
     @staticmethod
@@ -122,7 +140,7 @@ class TrainModel(Model):
         return getattr(model, out_key)
 
     @staticmethod
-    def check_finalized(fn: Callable[..., Any]) -> Callable[..., Any]:
+    def check_finalized[T: Any](fn: Callable[..., T]) -> Callable[..., Any]:
         """Decorator to check if given TrainModel is finalized or not.
 
         Parameters
@@ -131,7 +149,7 @@ class TrainModel(Model):
             Any of TrainModel modification methods.
         """
 
-        def check_fn(context: "TrainModel", *args: Any, **kwargs: Any):
+        def check_fn(context: TrainModel, *args: Any, **kwargs: Any) -> T:
             if context._is_finalized:
                 raise Exception(
                     "No modifications can be made to a finalized TrainModel!"
@@ -273,7 +291,7 @@ class TrainModel(Model):
         reg_key: str | Connection | None = None,
         key_name: str | None = None,
         **kwargs: Any,
-    ):
+    ) -> None:
         keys = set(model.input_keys) - model.conns.get_non_diff_keys()
         if set(kwargs.keys()) != keys:
             raise KeyError(
@@ -419,10 +437,10 @@ class TrainModel(Model):
             prev_out_key = prev_out_con
 
     @check_finalized
-    def set_loss_combiner(self, loss_combiner: Model):
+    def set_loss_combiner(self, loss_combiner: Model) -> None:
         self.loss_combiner = loss_combiner
 
-    def _add_loss_combiner(self):
+    def _add_loss_combiner(self) -> None:
         # Adds final Concat and Sum
         # models if there exists a loss.
         # Else looks for any regularization output and if
@@ -463,7 +481,7 @@ class TrainModel(Model):
                 output=IOKey(name=loss_output_key),
             )
 
-    def finalize(self):
+    def finalize(self) -> None:
         # Apply finalization steps if and only if not finalized before.
         if not self._is_finalized:
             self._add_geo_mean()
@@ -513,7 +531,7 @@ class TrainModel(Model):
         uni_cache: dict[UniadicRecord, str] | None = None,
         var_cache: dict[Variadic, str] | None = None,
         depth: int = 0,
-    ):
+    ) -> None:
         # TODO: Use all the arguments given above:
         uni_cache = {}
         var_cache = {}
@@ -540,7 +558,7 @@ class TrainModel(Model):
         for sub_model, sub_model_name in name_mappings.items():
             model_shapes[sub_model_name] = get_shapes(
                 data_dict={
-                    key: value.metadata.data
+                    key: value.metadata
                     for key, value in sub_model.conns.all.items()
                     if key in sub_model.conns.io_keys
                 },
@@ -591,7 +609,10 @@ class TrainModel(Model):
                             reduce_str += reduce.__class__.__name__ + f"(axis = {axis})"
                         reduce_str += ", "
                 t_list.append([reduce_str[:-2]])
-                t_list.append([str(loss_dict["coef"])])
+                coef = loss_dict["coef"]
+                if isinstance(coef, Tensor):
+                    coef = coef.value
+                t_list.append([str(coef)])
                 loss_table.add_row(t_list)
             loss_table.compile(row_sep=["  |  ", " | ", " | ", "  |  ", "  |  "])
             loss_table.display()
@@ -657,7 +678,7 @@ class TrainModel(Model):
             metric_table.compile(row_sep=["  |  ", " | ", " | ", "  |  "])
             metric_table.display()
 
-    def _add_geo_mean(self):
+    def _add_geo_mean(self) -> None:
         # Find all loss / reg_key dependencies.
         # geo_mappings: dict[Connection, list[tuple[Connection, Connection]]] = {}
         geo_mappings: dict[
@@ -678,7 +699,7 @@ class TrainModel(Model):
                     geo_mappings[reg_info].append(self.reduce_inputs[key])
 
         for reg_info, loss_connections in geo_mappings.items():
-            final_outputs: list[Connection | int] = []
+            final_outputs: list[Connection | Tensor[int]] = []
             for reduce in loss_connections:
                 final_outputs.append(self._add_reduce_sizes(reduce))
             if final_outputs:
@@ -686,7 +707,7 @@ class TrainModel(Model):
                 final_output = final_outputs[0]
                 if (n_final_outputs := len(final_outputs)) > 0:
                     concat_model = Concat(n=n_final_outputs, axis=None)
-                    concat_kwargs: dict[str, int | Connection] = {}
+                    concat_kwargs: dict[str, Tensor[int] | Connection] = {}
                     idx = 0
                     for key in concat_model.input_keys:
                         if not concat_model.conns.is_key_non_diff(key):
@@ -702,7 +723,7 @@ class TrainModel(Model):
                     self.extend(
                         power := Power(),
                         base=final_output,
-                        exponent=[1 / n_final_outputs],
+                        exponent=Tensor([1 / n_final_outputs]),
                     )
                     final_output = power.output
                 # Add Divide Model to divide final_output to geo_mean.
@@ -715,8 +736,10 @@ class TrainModel(Model):
                 assert out_con is not None
                 self.reg_coef_map[coef].add(out_con.conn)
 
-    def _add_reduce_sizes(self, reduce_list: list[tuple[Connection, Connection]]):
-        final_output: Connection | int = 1
+    def _add_reduce_sizes(
+        self, reduce_list: list[tuple[Connection, Connection]]
+    ) -> Connection | Tensor[int]:
+        final_output: Connection | Tensor[int] = Tensor(1)
         sizes: list[Connection] = []
         for input, dim in reduce_list:
             m = _create_size()

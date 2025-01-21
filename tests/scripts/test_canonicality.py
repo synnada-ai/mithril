@@ -15,7 +15,7 @@
 import pytest
 from copy import deepcopy
 
-from mithril.framework.common import IOKey
+from mithril.framework.common import IOKey, Tensor
 from mithril.models import (
     Add,
     Buffer,
@@ -410,7 +410,7 @@ def test_canonical_input_7():
 
     assert model.conns.cins == set()
     assert model.conns.couts == {
-        model.conns.get_con_by_metadata(model_2.output1.data.metadata)
+        model.conns.get_con_by_metadata(model_2.output1.data.metadata) # type: ignore
     }
 
 
@@ -536,31 +536,31 @@ def test_set_cout():
 
 
 def test_set_values():
-    model = Model() + Add()(left="left", right="right")
-    model.set_cin("left", "right")
+    model1 = Model() + Add()(left="left", right="right")
+    model1.set_cin("left", "right")
 
-    assert model.conns.cins == {model.left.data, model.right.data}
-    model.set_values(left=[[3]])
-    assert model.conns.cins == {model.right.data}
-    model.set_values(right=[[3]])
-    assert model.conns.cins == set()
+    assert model1.conns.cins == {model1.left.data, model1.right.data} # type: ignore
+    model1.set_values(left=Tensor([[3]]))
+    assert model1.conns.cins == {model1.right.data} # type: ignore
+    model1.set_values(right=Tensor([[3]]))
+    assert model1.conns.cins == set()
     
-    model = Add(left=[[3]])
-    model.set_cin("left", "right", safe=False)
-    assert model.conns.cins == {model.right.data}
+    model2 = Add(left=Tensor([[3]]))
+    model2.set_cin("left", "right", safe=False)
+    assert model2.conns.cins == {model2.right.data}
 
-    model = Add(right=[[3]])
-    model.set_cin("left", "right", safe=False)
-    assert model.conns.cins == {model.left.data}
+    model3 = Add(right=Tensor([[3]]))
+    model3.set_cin("left", "right", safe=False)
+    assert model3.conns.cins == {model3.left.data}
 
-    model = Add(left=[[3]], right=[[3]])
-    model.set_cin("left", "right", safe=False)
-    assert model.conns.cins == set()
+    model4 = Add(left=Tensor([[3]]), right=Tensor([[3]]))
+    model4.set_cin("left", "right", safe=False)
+    assert model4.conns.cins == set()
 
 # TODO: Add more tests for available single_canonical_input
 def test_child_single_available_canonical_input_with_name():
     model = Model()
-    model |= Linear(input=[[3]])
+    model |= Linear(input=Tensor([[3]]))
 
     add_model = Add()
     add_model.set_cin("left", "right")
@@ -574,18 +574,18 @@ def test_child_single_available_canonical_input_with_name():
 
 def test_child_single_available_canonical_input_with_values():
     model = Model()
-    model |= Linear(input=[[3]])
+    model |= Linear(input=Tensor([[3]]))
 
     add_model = Add()
     add_model.set_cin("left", "right")
 
-    model += add_model(right=[[3]])
+    model += add_model(right=Tensor([[3]]))
     assert model.conns.cins == set()
 
 
 def test_child_single_available_canonical_input_with_io_key():
     model = Model()
-    model |= Linear(input=[[3]])
+    model |= Linear(input=Tensor([[3]]))
 
     add_model = Add()
     add_model.set_cin("left", "right")
@@ -598,19 +598,19 @@ def test_child_single_available_canonical_input_with_io_key():
 
 def test_child_single_available_canonical_input_with_valued_io_key():
     model = Model()
-    model |= Linear(input=[[3]])
+    model |= Linear(input=Tensor([[3]]))
 
     add_model = Add()
     add_model.set_cin("left", "right")
 
-    model += add_model(right=IOKey("right", [[3]]))
+    model += add_model(right=IOKey("right", Tensor([[3]])))
     assert model.conns.cins == set()
 
 
 def test_child_single_available_canonical_input_with_connection():
     model = Model()
-    model |= Linear()(input=[[3]], output="lin_out1")
-    model |= Linear()(input=[[3]], output="lin_out2")
+    model |= Linear()(input=Tensor([[3]]), output="lin_out1")
+    model |= Linear()(input=Tensor([[3]]), output="lin_out2")
     model.set_cout("lin_out1")
 
     add_model = Add()
@@ -622,8 +622,8 @@ def test_child_single_available_canonical_input_with_connection():
 
 def test_child_zero_available_canonical_input():
     model = Model()
-    model |= Linear()(input=[[3]], output="lin_out1")
-    model |= Linear()(input=[[3]], output="lin_out2")
+    model |= Linear()(input=Tensor([[3]]), output="lin_out1")
+    model |= Linear()(input=Tensor([[3]]), output="lin_out2")
     model.set_cout("lin_out1")
 
     add_model = Add()
@@ -635,7 +635,7 @@ def test_child_zero_available_canonical_input():
 
 def test_child_zero_canonical_input():
     model = Model()
-    model |= Linear()(input=[[3]], output="lin_out1")
+    model |= Linear()(input=Tensor([[3]]), output="lin_out1")
     model.set_cout("lin_out1")
 
     add_model = Add()
@@ -648,13 +648,13 @@ def test_child_single_canonical_input():
     assert model.conns.cins == set()
 
     model |= Buffer()(input="input1", output="output1")
-    assert model.conns.cins == {model.input1.data}
+    assert model.conns.cins == {model.input1.data} # type: ignore
 
     model |= Buffer()(input="input2", output="input1")
-    assert model.conns.cins == {model.input2.data}
+    assert model.conns.cins == {model.input2.data} # type: ignore
 
     model |= Buffer()(input="input3", output="input2")
-    assert model.conns.cins == {model.input3.data}
+    assert model.conns.cins == {model.input3.data} # type: ignore
 
 
 def test_parent_single_canonical_output():
@@ -662,13 +662,13 @@ def test_parent_single_canonical_output():
     assert model.conns.couts == set()
 
     model |= Buffer()(input="input1", output="output1")
-    assert model.conns.couts == {model.output1.data}
+    assert model.conns.couts == {model.output1.data} # type: ignore
 
     model += Buffer()(output="output2")
-    assert model.conns.couts == {model.output2.data}
+    assert model.conns.couts == {model.output2.data} # type: ignore
 
     model += Buffer()(output="output3")
-    assert model.conns.couts == {model.output3.data}
+    assert model.conns.couts == {model.output3.data} # type: ignore
 
 
 def test_child_multi_canonical_input_error():
@@ -717,13 +717,15 @@ def test_new_connection_unconnected_input():
     assert model.conns.cins == set()
 
     model |= Relu()(input="input1", output="output1")
-    assert model.conns.cins == {model.input1.data}
+    assert model.conns.cins == {model.input1.data} # type: ignore
 
     model |= Relu()(input="input2", output="output2")
-    assert model.conns.cins == {model.input1.data, model.input2.data}
+    assert model.conns.cins == {model.input1.data, model.input2.data} # type: ignore
 
     model |= Relu()(input="input3", output="output3")
-    assert model.conns.cins == {model.input1.data, model.input2.data, model.input3.data}
+    assert model.conns.cins == {
+        model.input1.data, model.input2.data, model.input3.data # type: ignore
+    }
 
 
 def test_new_connection_exposed_internal_output():
@@ -731,13 +733,15 @@ def test_new_connection_exposed_internal_output():
     assert model.conns.couts == set()
 
     model |= Relu()(input="input1", output=IOKey("output1", expose=True))
-    assert model.conns.couts == {model.output1.data}
+    assert model.conns.couts == {model.output1.data} # type: ignore
 
     model |= Relu()(input="input2", output=IOKey("input1", expose=True))
-    assert model.conns.couts == {model.output1.data, model.input1.data}
+    assert model.conns.couts == {model.output1.data, model.input1.data} # type: ignore
 
     model |= Relu()(input="input3", output=IOKey("input2", expose=True))
-    assert model.conns.couts == {model.output1.data, model.input1.data, model.input2.data}
+    assert model.conns.couts == {
+        model.output1.data, model.input1.data, model.input2.data # type: ignore
+    }
 
 
 def test_new_connection_multi_output_without_call():
@@ -819,11 +823,11 @@ def test_existing_connection_parent_input_updated_to_input():
     assert model.conns.cins == set()
 
     model |= Relu()(input="input1")
-    assert model.conns.cins == {model.input1.data}
+    assert model.conns.cins == {model.input1.data} # type: ignore
 
     # Add Relu input to existing input1
     model |= Relu()(input="input1")
-    assert model.conns.cins == {model.input1.data}
+    assert model.conns.cins == {model.input1.data} # type: ignore
 
 
 def test_existing_connection_parent_input_updated_to_internal():
@@ -831,67 +835,70 @@ def test_existing_connection_parent_input_updated_to_internal():
     assert model.conns.cins == set()
 
     model |= Relu()(input="input1")
-    assert model.conns.cins == {model.input1.data}
+    assert model.conns.cins == {model.input1.data} # type: ignore
 
     # Add Relu input to existing input1
-    model |= Relu(input=[[3]])(output="input1") # input1 is now internal
+    model |= Relu(input=Tensor(3))(output="input1") # input1 is now internal
     assert model.conns.cins == set()
 
 def test_existing_connection_parent_internal_updated_to_internal():
     model = Model()
     model |= Relu()(input="input1", output="output1")
-    assert model.conns.couts == {model.output1.data}
+    assert model.conns.couts == {model.output1.data} # type: ignore
 
     model += Relu()(output="output2")
-    assert model.conns.couts == {model.output2.data}
+    assert model.conns.couts == {model.output2.data} # type: ignore
 
     # Make internal output1 stay internal
-    model |= Relu()(model.output1, output="output3")
-    assert model.conns.couts == {model.output2.data, model.output3.data}
+    model |= Relu()(model.output1, output="output3") # type: ignore
+    assert model.conns.couts == {model.output2.data, model.output3.data} # type: ignore
 
 
 def test_existing_connection_parent_internal_updated_to_output():
     model = Model()
     model |= Relu()(input="input1", output="output1")
-    assert model.conns.couts == {model.output1.data}
+    assert model.conns.couts == {model.output1.data} # type: ignore
 
     model += Relu()(output="output2")
-    assert model.conns.couts == {model.output2.data}
+    assert model.conns.couts == {model.output2.data} # type: ignore
 
     # Make internal output1 exposed
-    model |= Relu()(input=IOKey(connections={model.output1}, expose=True), output="output3")
-    assert model.conns.couts == {model.output2.data, model.output3.data}
+    in_key = IOKey(connections={model.output1}, expose=True) # type: ignore
+    model |= Relu()(input=in_key, output="output3")
+    assert model.conns.couts == {model.output2.data, model.output3.data} # type: ignore
 
 
 def test_existing_connection_parent_internal_updated_to_output2():
     model = Model()
     model |= Relu()(input="input1", output="output1")
-    assert model.conns.couts == {model.output1.data}
+    assert model.conns.couts == {model.output1.data} # type: ignore
 
     # Make internal output1 exposed
-    model |= Relu()(input=IOKey(connections={model.output1}, expose=True), output="output3")
-    assert model.conns.couts == {model.output3.data}
+    in_key = IOKey(connections={model.output1}, expose=True) # type: ignore
+    model |= Relu()(input=in_key, output="output3") 
+    assert model.conns.couts == {model.output3.data} # type: ignore
 
 
 def test_existing_connection_parent_internal_updated_to_output3():
     model = Model()
     model |= Relu()(input="input1", output=IOKey("output1"))
     model += Relu()(output="output3")
-    assert model.conns.couts == {model.output3.data}
+    assert model.conns.couts == {model.output3.data} # type: ignore
 
 
     model = Model()
     model |= Relu()(input="input1", output=IOKey("output1"))
-    model |= Relu()(input=model.output1, output="output3")
-    assert model.conns.couts == {model.output3.data}
+    model |= Relu()(input=model.output1, output="output3") # type: ignore
+    assert model.conns.couts == {model.output3.data} # type: ignore
 
 
 def test_existing_connection_parent_output_updated_to_internal():
     model = Model()
     model |= Relu()(input="input1", output="output1")
-    assert model.conns.couts == {model.output1.data}
-
-    model |= Relu()(input=model.output1, output="output2") # output1 is now internal
-    assert model.conns.couts == {model.output2.data}
+    assert model.conns.couts == {model.output1.data} # type: ignore
+    
+    # output1 is now internal
+    model |= Relu()(input=model.output1, output="output2")  # type: ignore
+    assert model.conns.couts == {model.output2.data} # type: ignore
 
 # TODO: Add tests with IOKey with multiple connections for input and output

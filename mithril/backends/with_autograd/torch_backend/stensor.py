@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 from collections.abc import Callable
 from typing import Any
 
@@ -25,10 +27,10 @@ class STensor(DTensor):
     # STensor works exactly like PyTorch Dtensor except one main difference,
     # for every operation it is going to it will send a message via callback
     # function to the distribution center.
-    _callback: Callable
+    _callback: Callable[..., Any]
 
     @staticmethod
-    def extract_ref(data):
+    def extract_ref(data: Any) -> Any:
         match data:
             case dict():
                 return {key: STensor.extract_ref(value) for key, value in data.items()}
@@ -48,7 +50,7 @@ class STensor(DTensor):
         types: Any,
         args: tuple[Any, ...] = (),
         kwargs: dict[str, Any] | None = None,
-    ):
+    ) -> Any:
         operator_name = func._name.split("::")[1].split(".")[0]
         args_ref = STensor.extract_ref(args)
         kwargs_ref = STensor.extract_ref(kwargs)
@@ -72,28 +74,28 @@ class STensor(DTensor):
         STensor._callback(Instructions.FULL_TENSOR, -1, (ref,), {})
         return DTensor.full_tensor(self)
 
-    def to_dtensor(self):
-        return DTensor(  # type: ignore
+    def to_dtensor(self) -> DTensor:
+        return DTensor(
             self._local_tensor,
             self._spec,
             requires_grad=self.requires_grad,
         )
 
     @staticmethod
-    def from_dtensor(dtensor: DTensor):
+    def from_dtensor(dtensor: DTensor) -> STensor:
         return STensor(
             dtensor._local_tensor,
             dtensor._spec,
             requires_grad=dtensor.requires_grad,
         )
 
-    def __repr__(self):  # type: ignore[override]
+    def __repr__(self) -> str:  # type: ignore[override]
         return (
             f"STensor(local_tensor={self._local_tensor},"
             f"device_mesh={self._spec.mesh},"
             f"placements={self._spec.placements})"
         )
 
-    def __del__(self):
+    def __del__(self) -> None:
         ref = TensorRef(id(self))
         STensor._callback(Instructions.DELETE, -1, (ref,), {})

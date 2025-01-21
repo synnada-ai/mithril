@@ -24,7 +24,8 @@ from benchmarks.speed_benchmarks.speed_helper import (
     create_compl_mlp,
     measure_time_and_grads_mithril,
 )
-from mithril import TorchBackend
+from mithril import TorchBackend, core
+from mithril.backends.utils import DtypeBits
 from mithril.models import (
     AbsoluteError,
     Gelu,
@@ -138,14 +139,14 @@ def mlp_v_torch(
     activations: list,
     dimensions: list[int],
     input_shape: tuple[int, int],
-    precision: int,
+    dtype: core.Dtype,
     iterations: int,
 ):
     lr = 0.001
     batch_size, _input_shape = input_shape[-1], input_shape[0]
     output_shape = [_input_shape] + [dimensions[-1]]
     device = "cpu"
-    dtype_torch = getattr(torch, f"float{precision}")
+    dtype_torch = getattr(torch, f"float{DtypeBits[dtype.name]}")
     torch.set_default_dtype(dtype_torch)
 
     inputs = {
@@ -170,7 +171,7 @@ def mlp_v_torch(
     )
     comp_ctx = mithril.compile(
         model=ctx,
-        backend=TorchBackend(device=device, precision=precision),
+        backend=TorchBackend(device=device, dtype=dtype),
         constant_keys=inputs,
     )
     randomized_inputs = comp_ctx.randomize_params()
@@ -207,7 +208,7 @@ def conv_v_torch(
     activations: list,
     dimensions: list[int],
     input_shape: tuple[int, int, int, int],
-    precision: int,
+    dtype: core.Dtype,
     iterations: int,
     stride: tuple[int, int] | int,
     padding: int,
@@ -215,7 +216,7 @@ def conv_v_torch(
     lr = 0.001
     batch_size, in_shape, tensor_shape = input_shape[0], input_shape[1], input_shape[2:]
     device = "cpu"
-    dtype_torch = getattr(torch, f"float{precision}")
+    dtype_torch = getattr(torch, f"float{DtypeBits[dtype.name]}")
     torch.set_default_dtype(dtype_torch)
     inputs = {
         "input": torch.randn(*input_shape, device=device),
@@ -252,7 +253,7 @@ def conv_v_torch(
     )
     comp_ctx = mithril.compile(
         model=ctx,
-        backend=TorchBackend(device=device, precision=precision),
+        backend=TorchBackend(device=device, dtype=dtype),
         constant_keys=inputs,
     )
     randomized_inputs = comp_ctx.randomize_params()

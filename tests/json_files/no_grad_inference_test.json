@@ -21,34 +21,36 @@
             },
             "connections": {
                 "m1": {
-                    "left": "input1", "right": "input2"
+                    "left": {"key": {"name": "input1", "type": "tensor"}}, 
+                    "right": {"key": {"name": "input2", "type": "tensor"}}
                 },
                 "m2": {
-                    "left": "input2", "right": "input3"
+                    "left": {"key": {"name": "input2", "type": "tensor"}}, 
+                    "right": {"key": {"name": "input3", "type": "tensor"}}
                 },
                 "m3": {
-                    "left": "input1", 
-                    "right": "input3", 
-                    "output": {
+                    "left": {"key": {"name": "input1", "type": "tensor"}}, 
+                    "right": {"key": {"name": "input3", "type": "tensor"}}, 
+                    "output": {"key": {
                         "name": "output3", 
                         "expose": true
-                    }
+                    }}
                 },
                 "m4": {
-                    "left": {"connect": [["m1", "output"]]}, 
-                    "right": {"connect": [["m2","output"]]}, 
-                    "output": {
+                    "left": {"key": {"connect": [["m1", "output"]]}}, 
+                    "right": {"key": {"connect": [["m2","output"]]}}, 
+                    "output": {"key": {
                         "name": "output1", 
                         "expose": true
-                    }
+                    }}
                 },
                 "m5": {
-                    "left": {"connect": [["m2", "output"]]}, 
-                    "right": {"connect": [["m3","output"]]}, 
-                    "output": {
+                    "left": {"key": {"connect": [["m2", "output"]]}}, 
+                    "right": {"key": {"connect": [["m3","output"]]}}, 
+                    "output": {"key": {
                         "name": "output2", 
                         "expose": true
-                    }
+                    }}
                 }
             }
         },
@@ -96,34 +98,36 @@
             },
             "connections": {
                 "m1": {
-                    "left": "input1", "right": "input2"
+                    "left": {"key": {"name": "input1", "type": "tensor"}}, 
+                    "right": {"key": {"name": "input2", "type": "tensor"}}
                 },
                 "m2": {
-                    "left": "input2", "right": "input3"
+                    "left": {"key": {"name": "input2", "type": "tensor"}}, 
+                    "right": {"key": {"name": "input3", "type": "tensor"}}
                 },
                 "m3": {
-                    "left": "input1", 
-                    "right": "input3", 
-                    "output": {
+                    "left": {"key": {"name": "input1", "type": "tensor"}}, 
+                    "right": {"key": {"name": "input3", "type": "tensor"}}, 
+                    "output": {"key": {
                         "name": "output3", 
                         "expose": true
-                    }
+                    }}
                 },
                 "m4": {
-                    "left": {"connect": [["m1", "output"]]}, 
-                    "right": {"connect": [["m2","output"]]}, 
-                    "output": {
+                    "left": {"key": {"connect": [["m1", "output"]]}}, 
+                    "right": {"key": {"connect": [["m2","output"]]}}, 
+                    "output": {"key": {
                         "name": "output1", 
                         "expose": true
-                    }
+                    }}
                 },
                 "m5": {
-                    "left": {"connect": [["m2", "output"]]}, 
-                    "right": {"connect": [["m3","output"]]}, 
-                    "output": {
+                    "left": {"key": {"connect": [["m2", "output"]]}}, 
+                    "right": {"key": {"connect": [["m3","output"]]}}, 
+                    "output": {"key": {
                         "name": "output2", 
                         "expose": true
-                    }
+                    }}
                 }
             }
         },
@@ -170,34 +174,36 @@
             },
             "connections": {
                 "m1": {
-                    "left": "input1", "right": "input2"
+                    "left": {"key": {"name": "input1", "type": "tensor"}}, 
+                    "right": {"key": {"name": "input2", "type": "tensor"}}
                 },
                 "m2": {
-                    "left": "input2", "right": "input3"
+                    "left": {"key": {"name": "input2", "type": "tensor"}}, 
+                    "right": {"key": {"name": "input3", "type": "tensor"}}
                 },
                 "m3": {
-                    "left": "input1", 
-                    "right": "input3", 
-                    "output": {
+                    "left": {"key": {"name": "input1", "type": "tensor"}}, 
+                    "right": {"key": {"name": "input3", "type": "tensor"}}, 
+                    "output": {"key": {
                         "name": "output3", 
                         "expose": true
-                    }
+                    }}
                 },
                 "m4": {
-                    "left": {"connect": [["m1", "output"]]}, 
-                    "right": {"connect": [["m2","output"]]}, 
-                    "output": {
+                    "left": {"key": {"connect": [["m1", "output"]]}}, 
+                    "right": {"key": {"connect": [["m2","output"]]}}, 
+                    "output": {"key": {
                         "name": "output1", 
                         "expose": true
-                    }
+                    }}
                 },
                 "m5": {
-                    "left": {"connect": [["m2", "output"]]}, 
-                    "right": {"connect": [["m3","output"]]}, 
-                    "output": {
+                    "left": {"key": {"connect": [["m2", "output"]]}}, 
+                    "right": {"key": {"connect": [["m3","output"]]}}, 
+                    "output": {"key": {
                         "name": "output2", 
                         "expose": true
-                    }
+                    }}
                 }
             }
         },
