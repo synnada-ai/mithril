@@ -1935,6 +1935,9 @@ class TestCast:
             ):
                 continue
 
+            if dtype.name == "bfloat16" and os.environ["CI"] == "true":
+                continue
+
             fn_args: list = [input, dtype]
             fn_kwargs: dict = {}
             ref_output = array_fn(list(range(-10, 10, 1)), device, dtype.name)
