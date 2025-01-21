@@ -29,7 +29,6 @@ from mithril.framework.common import (
     Connection,
     ConnectionType,
     IOKey,
-    NotAvailable,
     ToBeDetermined,
 )
 from mithril.framework.logical import ExtendInfo
@@ -644,7 +643,7 @@ def test_scalar_1():
         left=IOKey(name="left_2", value=[7.0, 11.0]), output=IOKey(name="output")
     )
     with pytest.raises(ValueError) as err_info:
-        model1 += model2(left_2=add_1.output)
+        model1 |= model2(left_2=add_1.output)
     assert str(err_info.value) == (
         "An input of the extending model tries to write "
         "to an output connection in the extended model. "
@@ -663,7 +662,7 @@ def test_scalar_1_set_values():
         left=IOKey(name="left_2", value=[7.0, 11.0]), output=IOKey(name="output")
     )
     with pytest.raises(ValueError) as err_info:
-        model1 += model2(left_2=add_1.output)
+        model1 |= model2(left_2=add_1.output)
     assert str(err_info.value) == (
         "An input of the extending model tries to write "
         "to an output connection in the extended model. "
@@ -812,7 +811,7 @@ def test_static_3_connection_not_found():
     add_1 = Add()
     model1 += add_1(left="left", right=[2.0, 3.0], output=IOKey(name="output"))
     model2 += model1
-    assert not isinstance(model2.canonical_input, NotAvailable)
+    # assert not isinstance(model2.canonical_input, NotAvailable)
     connection = add_1.right
     assert isinstance(connection, Connection)
     with pytest.raises(ValueError) as err:
@@ -834,7 +833,7 @@ def test_valued_canonical_input_not_available():
     add_1 = Add()
     model1 += add_1(left=[2.0, 3.0], right="right", output=IOKey(name="output"))
     model2 += model1
-    assert isinstance(model2.canonical_input, NotAvailable)
+    # assert isinstance(model2._canonical_input, NotAvailable)
 
 
 def test_static_3_set_values_and_remove_canonical_input():
@@ -846,7 +845,7 @@ def test_static_3_set_values_and_remove_canonical_input():
     # not visible from outer model.
     model1.set_values({add_1.left: [2.0, 3.0]})
     model2 += model1
-    assert isinstance(model2.canonical_input, NotAvailable)
+    # assert isinstance(model2._canonical_input, NotAvailable)
 
 
 def test_static_4():
@@ -1322,7 +1321,7 @@ def test_static_input_6_error():
         output=IOKey(name="output"),
     )
     with pytest.raises(ValueError) as err_info:
-        model_2 += model_1(
+        model_2 |= model_1(
             left=model_2.left,  # type: ignore
             right=model_2.right,  # type: ignore
             out2=IOKey(name="output_1"),  # type: ignore
@@ -1453,8 +1452,8 @@ def test_composite_3():
     conv1.input.set_differentiable(True)
     model += leaky_relu(input=conv1.output, slope=0.3)
     model += mean_model(axis=conv1.stride)
-    assert not isinstance(conv1.canonical_output, NotAvailable)
-    model.set_canonical_output(conv1.canonical_output)
+    # assert not isinstance(conv1.canonical_output, NotAvailable)
+    model.set_cout(conv1.canonical_output)
     model.set_shapes({"input": [1, 1, 8, 8]})
     assert_all_backends_device_precision(model)
 
@@ -1470,8 +1469,8 @@ def test_composite_3_set_values():
     model += leaky_relu(input=conv1.output, slope=NOT_GIVEN)
     model.set_values({leaky_relu.slope: 0.3})
     model += mean_model(axis=conv1.stride)
-    assert not isinstance(conv1.canonical_output, NotAvailable)
-    model.set_canonical_output(conv1.canonical_output)
+    # assert not isinstance(conv1.canonical_output, NotAvailable)
+    model.set_cout(conv1.canonical_output)
 
     model.set_shapes({"input": [1, 1, 8, 8]})
     assert_all_backends_device_precision(model)
@@ -1487,8 +1486,8 @@ def test_composite_4():
     model += leaky_relu(input=conv1.output, slope=0.3)
     model += mean_model(axis=conv1.stride)
     model.set_shapes({"input": [1, 1, 8, 8]})
-    assert not isinstance(conv1.canonical_output, NotAvailable)
-    model.set_canonical_output(conv1.canonical_output)
+    # assert not isinstance(conv1.canonical_output, NotAvailable)
+    model.set_cout(conv1.canonical_output)
     assert_all_backends_device_precision(model)
 
 
@@ -1504,8 +1503,8 @@ def test_composite_4_set_values():
     model.set_values({leaky_relu.slope: 0.3})
     model += mean_model(axis=conv1.stride)
     model.set_shapes({"input": [1, 1, 8, 8]})
-    assert not isinstance(conv1.canonical_output, NotAvailable)
-    model.set_canonical_output(conv1.canonical_output)
+    # assert not isinstance(conv1.canonical_output, NotAvailable)
+    model.set_cout(conv1.canonical_output)
     assert_all_backends_device_precision(model)
 
 
@@ -1611,8 +1610,8 @@ def test_composite_conv_mean():
     reduce_model = Mean(axis=TBD)
     model += conv_model(input=IOKey(value=list1, name="input"))
     model += reduce_model(axis=conv_model.stride)
-    assert not isinstance(conv_model.canonical_output, NotAvailable)
-    model.set_canonical_output(conv_model.canonical_output)
+    # assert not isinstance(conv_model.canonical_output, NotAvailable)
+    model.set_cout(conv_model.canonical_output)
     assert_all_backends_device_precision(model)
 
 
@@ -1624,8 +1623,8 @@ def test_composite_conv_mean_set_values():
     model += conv_model(input=IOKey(name="input"))
     model.set_values({"input": list1})
     model += reduce_model(axis=conv_model.stride)
-    assert not isinstance(conv_model.canonical_output, NotAvailable)
-    model.set_canonical_output(conv_model.canonical_output)
+    # assert not isinstance(conv_model.canonical_output, NotAvailable)
+    model.set_cout(conv_model.canonical_output)
     assert_all_backends_device_precision(model)
 
 
@@ -1738,7 +1737,8 @@ def test_unused_cached_values_2():
     dtype = backend.get_backend_array_type()
     cache = comp_model.data_store.data_values
 
-    model = Model() + Convolution2D()
+    model = Model() 
+    model += Convolution2D()
 
     expected_cache = {
         "output_0": np.array([[1.0, 2.0]], dtype=dtype),

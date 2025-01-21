@@ -31,7 +31,6 @@ import mithril
 from mithril import Backend, JaxBackend, MlxBackend, NumpyBackend, TorchBackend, compile
 from mithril.core import Constant, epsilon_table
 from mithril.framework.common import (
-    NOT_AVAILABLE,
     NOT_GIVEN,
     TBD,
     BaseKey,
@@ -39,7 +38,6 @@ from mithril.framework.common import (
     ConnectionType,
     GenericTensorType,
     IOKey,
-    NotAvailable,
     ToBeDetermined,
     UniadicRecord,
     Variadic,
@@ -267,7 +265,7 @@ def test_cyclic_extension_5():
     )
 
     assert set(model.input_keys) == {"input2", "input3", "input5", "input6"}
-    assert model.conns.internal_keys == {"my_input"}
+    assert model.conns.latent_output_keys == {"my_input"}
 
 
 def test_different_backend_compile():
@@ -370,7 +368,7 @@ def test_shape():
 
     model += model1(input2="", output2=IOKey(name="output"))
     model += model2(input1=model1.output1, input2=model1.output2)  # type: ignore
-    model += model3(input2="", output1=model1.input1, output2=model1.input2)  # type: ignore
+    model |= model3(input2="", output1=model1.input1, output2=model1.input2)  # type: ignore
 
     comp_model = mithril.compile(model, backend=NumpyBackend(precision=64))
     assert comp_model.shapes["output"] == [5, 6, 8, 9, 10]
@@ -452,560 +450,6 @@ def test_3_solve_constraint_extend():
     model += m
     m.set_shapes({"left": [3, 3], "right": [3, 3, 3]})
     assert m.shapes == {"left": [3, 3], "right": [3, 3, 3], "output": [3, 3, 3]}
-
-
-def test_canonical_output_1():
-    # extend to the canvas model
-    model = Model()
-    conv = Convolution2D(3, 4)
-    model += conv()
-    assert not isinstance(model.canonical_input, NotAvailable)
-    assert model.canonical_input.data == model.conns.get_con_by_metadata(
-        conv.input.data.metadata
-    )
-    assert not isinstance(model.canonical_output, NotAvailable)
-    assert model.canonical_output.data == model.conns.get_con_by_metadata(
-        conv.output.data.metadata
-    )
-
-    model = Model()
-    conv = Convolution2D(3, 4)
-    model += conv(input="input")
-
-    assert not isinstance(model.canonical_input, NotAvailable)
-    assert not isinstance(model.canonical_output, NotAvailable)
-    assert model.canonical_input.data.key == "input"
-    assert model.canonical_output.data == model.conns.get_con_by_metadata(
-        conv.output.data.metadata
-    )
-
-    model = Model()
-    conv = Convolution2D(3, 4)
-    model += conv(output="output")
-
-    assert not isinstance(model.canonical_input, NotAvailable)
-    assert not isinstance(model.canonical_output, NotAvailable)
-    assert model.canonical_input.data == model.conns.get_con_by_metadata(
-        conv.input.data.metadata
-    )
-    assert model.canonical_output.data.key == "output"
-
-    model = Model()
-    conv = Convolution2D(3, 4)
-    model += conv(input="input", output="output")
-
-    assert not isinstance(model.canonical_input, NotAvailable)
-    assert not isinstance(model.canonical_output, NotAvailable)
-    assert model.canonical_input.data.key == "input"
-    assert model.canonical_output.data.key == "output"
-
-
-def test_canonical_output_2():
-    # iadd operator to the canvas model
-    model = Model()
-    model += (c1 := Convolution2D(3, 4))
-    # += operator defaultly sets input="input" if there is not any input
-
-    assert not isinstance(model.canonical_input, NotAvailable)
-    assert not isinstance(model.canonical_output, NotAvailable)
-    assert model.canonical_input.data == model.conns.get_con_by_metadata(
-        c1.input.data.metadata
-    )
-    assert model.canonical_output.data == model.conns.get_con_by_metadata(
-        c1.output.data.metadata
-    )
-
-
-def test_canonical_output_3():
-    # First iadd operator then extend
-    model = Model()
-    c1 = Convolution2D(3, 4)
-    c2 = Convolution2D(3, 4)
-    model += c1
-    model += c2(input=c1.output)
-
-    assert not isinstance(model.canonical_input, NotAvailable)
-    assert not isinstance(model.canonical_output, NotAvailable)
-
-    assert model.canonical_input.data == model.conns.get_con_by_metadata(
-        c1.input.data.metadata
-    )
-    assert model.canonical_output.data == model.conns.get_con_by_metadata(
-        c2.output.data.metadata
-    )
-
-
-def test_canonical_output_4():
-    # First iadd operator then extend but use canonical_output to extend
-    model = Model()
-    c1 = Convolution2D(3, 4)
-    c2 = Convolution2D(3, 4)
-    model += c1
-    model += c2(input=model.canonical_output)
-
-    assert not isinstance(model.canonical_input, NotAvailable)
-    assert not isinstance(model.canonical_output, NotAvailable)
-
-    assert model.canonical_input.data == model.conns.get_con_by_metadata(
-        c1.input.data.metadata
-    )
-    assert model.canonical_output.data == model.conns.get_con_by_metadata(
-        c2.output.data.metadata
-    )
-
-
-def test_canonical_output_5():
-    # First extend then iadd operator
-    model = Model()
-    model += Convolution2D(3, 4)(input="input")
-    model += (c2 := Convolution2D(3, 4))
-
-    assert not isinstance(model.canonical_input, NotAvailable)
-    assert not isinstance(model.canonical_output, NotAvailable)
-
-    assert model.canonical_input.data.key == "input"
-    assert model.canonical_output.data == model.conns.get_con_by_metadata(
-        c2.output.data.metadata
-    )
-
-
-def test_canonical_output_6():
-    # Don't use canonical output in extend
-    model = Model()
-    l1 = LogisticRegression()
-    l2 = Linear()
-    model += l1(input="input")
-    model += l2(input=l1.probs_output)
-
-    assert not isinstance(model.canonical_input, NotAvailable)
-    assert not isinstance(model.canonical_output, NotAvailable)
-
-    assert model.canonical_input.data == model.conns.get_con_by_metadata(
-        l1.input.data.metadata
-    )
-    assert model.canonical_output.data == model.conns.get_con_by_metadata(
-        l2.output.data.metadata
-    )
-
-    model = Model()
-    l1 = LogisticRegression()
-    l2 = Linear()
-
-    model += l1(input="input")
-    model += l2(input=l1.output)
-
-    assert not isinstance(model.canonical_input, NotAvailable)
-    assert not isinstance(model.canonical_output, NotAvailable)
-
-    assert model.canonical_input.data == model.conns.get_con_by_metadata(
-        l1.input.data.metadata
-    )
-    assert model.canonical_output.data == model.conns.get_con_by_metadata(
-        l2.output.data.metadata
-    )
-
-
-def test_canonical_output_7():
-    modelsub = Model()
-    modelsub += Sigmoid()(input="in1", output=IOKey(name="out1"))
-    modelsub += Sigmoid()(input="in2", output=IOKey(name="out2"))
-    modelsub += Sigmoid()(input="in3", output=IOKey(name="out3"))
-
-    assert not isinstance(modelsub.canonical_input, NotAvailable)
-    assert not isinstance(modelsub.canonical_output, NotAvailable)
-
-    assert modelsub.canonical_input.data.key == "in3"
-    assert modelsub.canonical_output.data.key == "out3"
-
-    modelsub2 = deepcopy(modelsub)
-
-    model = Model()
-    model += modelsub(
-        in1="in1",
-        in2="in2",
-        in3="in3",
-        out1=IOKey(name="out1"),
-        out2=IOKey(name="out2"),
-        out3=IOKey(name="out3"),
-    )
-    model += modelsub2(in3="", in2="out2", in1="out1", out1=IOKey(name="out4"))
-
-    assert not isinstance(model.canonical_input, NotAvailable)
-    assert not isinstance(model.canonical_output, NotAvailable)
-
-    assert model.canonical_input.data == model.conns.get_con_by_metadata(
-        modelsub2.in3.data.metadata  # type: ignore
-    )
-    assert model.canonical_output.data == model.conns.get_con_by_metadata(
-        modelsub2.out3.data.metadata  # type: ignore
-    )
-
-
-def test_canonical_output_8():
-    modelsub = Model()
-    modelsub += Sigmoid()(input="in1", output=IOKey(name="out1"))
-    modelsub += Sigmoid()(input="in2", output=IOKey(name="out2"))
-
-    modelsub2 = deepcopy(modelsub)
-
-    model = Model()
-    model += modelsub(
-        in1="in1", in2="in2", out1=IOKey(name="out1"), out2=IOKey(name="out2")
-    )
-    model += modelsub2(in2="out2", in1="out1", out1=IOKey(name="out4"))
-
-    assert not isinstance(model.canonical_input, NotAvailable)
-    assert not isinstance(model.canonical_output, NotAvailable)
-
-    assert model.canonical_input.data == model.conns.get_con_by_metadata(
-        modelsub.in2.data.metadata  # type: ignore
-    )
-    assert model.canonical_output.data == model.conns.get_con_by_metadata(
-        modelsub2.out2.data.metadata  # type: ignore
-    )
-
-
-def test_canonical_output_9():
-    modelsub = Model()
-    modelsub += Sigmoid()(input="in1", output=IOKey(name="out1"))
-    modelsub += Sigmoid()(input="in2", output=IOKey(name="out2"))
-
-    modelsub2 = deepcopy(modelsub)
-
-    model = Model()
-    model += modelsub(
-        in1="in1", in2="in2", out1=IOKey(name="out1"), out2=IOKey(name="out2")
-    )
-    model += modelsub2(in1="out2", in2="out1", out1=IOKey(name="out4"))
-
-    assert not isinstance(model.canonical_input, NotAvailable)
-    assert not isinstance(model.canonical_output, NotAvailable)
-
-    assert model.canonical_input.data == model.conns.get_con_by_metadata(
-        modelsub.in2.data.metadata  # type: ignore
-    )
-    assert model.canonical_output.data == model.conns.get_con_by_metadata(
-        modelsub2.out2.data.metadata  # type: ignore
-    )
-
-
-def test_canonical_output_10():
-    # Canonical output is None
-    modelsub = Model()
-    modelsub += Sigmoid()(input="in1", output=IOKey(name="out1"))
-    modelsub += Sigmoid()(input="in2", output=IOKey(name="out2"))
-
-    modelsub2 = deepcopy(modelsub)
-
-    model = Model()
-    model += modelsub(
-        in1="in1", in2="in2", out1=IOKey(name="out1"), out2=IOKey(name="out2")
-    )
-    model += modelsub2(in2="out2", out2="in1")
-
-    assert not isinstance(model.canonical_input, NotAvailable)
-
-    assert model.canonical_input.data == model.conns.get_con_by_metadata(
-        modelsub.in2.data.metadata  # type: ignore
-    )
-    assert model.canonical_output is NOT_AVAILABLE
-
-
-def test_canonical_output_11():
-    # Canonical input is None
-    modelsub = Model()
-    modelsub += Sigmoid()(input="in1", output=IOKey(name="out1"))
-    modelsub += Sigmoid()(input="in2", output=IOKey(name="out2"))
-
-    model = Model()
-    model += modelsub(
-        in1="in1", in2="in2", out1=IOKey(name="out1"), out2=IOKey(name="out2")
-    )
-    model += Sigmoid()(input="out1", output="in2")
-
-    assert not isinstance(model.canonical_output, NotAvailable)
-
-    assert model.canonical_input is NOT_AVAILABLE
-    assert model.canonical_output.data == model.conns.get_con_by_metadata(
-        modelsub.out2.data.metadata  # type: ignore
-    )
-
-
-def test_canonical_output_12():
-    modelsub = Model()
-    modelsub += Sigmoid()(input="in1", output=IOKey(name="out1"))
-    modelsub += Sigmoid()(input="in2", output=IOKey(name="out2"))
-
-    modelsub2 = deepcopy(modelsub)
-
-    model = Model()
-    model += modelsub(
-        in1="in1", in2="in2", out1=IOKey(name="out1"), out2=IOKey(name="out2")
-    )
-    model += modelsub2(in2="out2", out2="in1")
-
-    with pytest.raises(ValueError) as err_info:
-        model += Relu()(input=model.canonical_output, output="output")
-
-    assert str(err_info.value) == (
-        "Given value for key: 'input' is not available. Probably Canonical "
-        "input/output connections are used, but the model canonical connections "
-        "is not determined. Please provide connection/key explicitly, or set "
-        "canonical connections."
-    )
-
-
-def test_canonical_output_13():
-    modelsub = Model()
-    modelsub += Sigmoid()(input="in1", output=IOKey(name="out1"))
-    modelsub += Sigmoid()(input="in2", output=IOKey(name="out2"))
-
-    model = Model()
-    model += modelsub(
-        in1="in1", in2="in2", out1=IOKey(name="out1"), out2=IOKey(name="out2")
-    )
-    model += Sigmoid()(input="out1", output="in2")
-
-    with pytest.raises(ValueError) as err_info:
-        model += Relu()(input="input", output=model.canonical_input)
-
-    assert str(err_info.value) == (
-        "Given value for key: 'output' is not available. Probably Canonical "
-        "input/output connections are used, but the model canonical connections "
-        "is not determined. Please provide connection/key explicitly, or set "
-        "canonical connections."
-    )
-
-
-def test_canonical_output_14():
-    # Canonical output is NOT_AVAILABLE for a while then redetermined
-    modelsub = Model()
-    modelsub += Sigmoid()(input="in1", output=IOKey(name="out1"))
-    modelsub += Sigmoid()(input="in2", output=IOKey(name="out2"))
-
-    modelsub2 = deepcopy(modelsub)
-
-    model = Model()
-    model += modelsub(
-        in1="in1", in2="in2", out1=IOKey(name="out1"), out2=IOKey(name="out2")
-    )
-    model += modelsub2(in2="out2", out2="in1")
-
-    model += Relu()(input=IOKey("input"), output=IOKey("output"))
-
-    assert model.canonical_input == model.input  # type: ignore
-    assert model.canonical_output == model.output  # type: ignore
-
-
-def test_canonical_output_exposed_1():
-    model1 = Model()
-    model1 += Linear(dimension=32)
-    model1 += Relu()
-    model1 += Linear(dimension=16)(input=model1.canonical_output, output="output1")
-
-    model1._freeze()
-
-    assert list(model1.conns.output_keys) == ["output1"]
-    assert "output1" in model1.external_keys
-
-
-def test_canonical_output_exposed_2():
-    # Canonical output should be considered as exposed in extend info
-    model1 = Model()
-    model1 += Linear(dimension=32)
-    model1 += Relu()
-    model1 += Linear(dimension=16)(input=model1.canonical_output, output="output1")
-
-    extend_info = model1(output1="output1")
-    assert extend_info.connections == {"output1": "output1"}
-
-
-def test_canonical_output_exposed_3():
-    model1 = Model()
-    model1 += Linear(dimension=32)
-    model1 += Relu()
-    model1 += Linear(dimension=16)(input=model1.canonical_output, output="output1")
-
-    model = Model()
-    model += model1(output1="output1")
-
-    model._freeze()
-    assert list(model.output_keys) == ["output1"]
-
-
-def test_canonical_input_1():
-    # Override canonical input keep canonical output same
-    model = Model()
-    linear = Linear()
-    model += linear(input="input1")
-    model += LogisticRegression()(input="input2", output="input1")
-
-    assert not isinstance(model.canonical_input, NotAvailable)
-    assert not isinstance(model.canonical_output, NotAvailable)
-
-    assert model.canonical_input.data.key == "input2"
-    assert model.canonical_output.data == model.conns.get_con_by_metadata(
-        linear.output.data.metadata
-    )
-    # assert model.canonical_output.key == 'Linear_0_output'
-
-
-def test_canonical_input_2():
-    # Override canonical input and canonical output
-    model = Model()
-    linear = LogisticRegression()
-    model += Linear()(input="input1")
-    model += linear(input="input2", probs_output="input1")
-
-    assert not isinstance(model.canonical_input, NotAvailable)
-    assert not isinstance(model.canonical_output, NotAvailable)
-
-    assert model.canonical_input.data.key == "input2"
-    assert model.canonical_output.data == model.conns.get_con_by_metadata(
-        linear.output.data.metadata
-    )
-    # assert model.canonical_output.key == 'LogisticRegression_1_output'
-
-
-def test_canonical_input_3():
-    # Override canonical input keep canonical output same but complex
-    model = Model()
-    linear = Linear()
-    model += Linear()(input="input1")
-    model += linear(input="input2")
-    model += LogisticRegression()(input="input3", output="input1")
-
-    assert not isinstance(model.canonical_input, NotAvailable)
-    assert not isinstance(model.canonical_output, NotAvailable)
-
-    assert model.canonical_input.data.key == "input3"
-    assert model.canonical_output.data == model.conns.get_con_by_metadata(
-        linear.output.data.metadata
-    )
-    # assert model.canonical_output.key == 'Linear_0_output'
-
-
-def test_canonical_input_5():
-    # Override canonical input keep canonical output same but complex
-    model = Model()
-    model += (l1 := Linear())
-    model += Linear()
-    model += (l2 := Linear())
-    model += Linear()(input=l2.output, output="my_output")
-
-    assert not isinstance(model.canonical_input, NotAvailable)
-    assert not isinstance(model.canonical_output, NotAvailable)
-
-    assert model.canonical_input.data == model.conns.get_con_by_metadata(
-        l1.input.data.metadata
-    )
-    assert model.canonical_output.data.key == "my_output"
-
-
-def test_canonical_input_7():
-    model = Model()
-    model_1 = Model()
-    model_1 += Relu()(input="input1", output=IOKey(name="output1"))
-    model_1 += Sigmoid()(input="input2", output=IOKey(name="output2"))
-    gelu5 = Gelu()
-
-    model_2 = Model()
-    model_2 += Tanh()(input="input1", output=IOKey(name="output1"))
-    model_2 += Sine()(input="input2", output=IOKey(name="output2"))
-    model += gelu5()
-    model += model_1(input2="", input1="input", output1=gelu5.input)
-    model += model_2(
-        input2=gelu5.output,
-        output2=model_1.input2,  # type: ignore
-        input1=model_1.output2,  # type: ignore
-        output1=IOKey(name="output"),
-    )
-
-    assert model.canonical_input is NOT_AVAILABLE
-    assert model.canonical_output is NOT_AVAILABLE
-
-
-def test_canonical_input_8():
-    model = Model()
-
-    model += Tanh()(input="input1", output="output1")
-    model += Sine()(input="input2", output="input1")
-
-    assert not isinstance(model.canonical_input, NotAvailable)
-    assert not isinstance(model.canonical_output, NotAvailable)
-
-    assert model.canonical_input.data.key == "input2"
-    assert model.canonical_output.data.key == "output1"
-
-
-def test_canonical_input_9():
-    # Canonical input is NOT_AVAILABLE for a while then redetermined
-    modelsub = Model()
-    modelsub += Sigmoid()(input="in1", output=IOKey(name="out1"))
-    modelsub += Sigmoid()(input="in2", output=IOKey(name="out2"))
-
-    model = Model()
-    model += modelsub(
-        in1="in1", in2="in2", out1=IOKey(name="out1"), out2=IOKey(name="out2")
-    )
-    model += Sigmoid()(input="out1", output="in2")
-
-    model += Relu()(input="input", output="output")
-
-    assert model.canonical_input == model.input  # type: ignore
-    assert model.canonical_output == model.output  # type: ignore
-
-
-def test_canonical_input_10():
-    # Valued cannection cannot be canonical input
-    model = Model()
-    model += Add()(left=3, right="input2", output="output")
-
-    assert model.canonical_input is NOT_AVAILABLE
-
-
-def test_canonical_input_11():
-    # Valued cannection cannot be canonical input
-    model = Model()
-    model += (buff := Buffer())
-    model += Add()(left=3, right="input2", output="output")
-
-    canonical_input = model.canonical_input
-    assert not isinstance(canonical_input, NotAvailable)
-    assert canonical_input.metadata == buff.input.metadata
-
-
-def test_canonical_input_12():
-    # Valued cannection cannot be canonical input
-    model = Model()
-    model += (buff := Buffer())
-    model += Buffer()(input=3 / buff.output)
-
-    canonical_input = model.canonical_input
-    assert not isinstance(canonical_input, NotAvailable)
-    assert canonical_input.metadata == buff.input.metadata
-
-
-def test_canonical_dual_iadd_op():
-    model1 = Model()
-    model1 += (c1 := Convolution2D(3, 4))
-    model1 += Convolution2D(3, 4)
-
-    model = Model()
-    model += model1
-    model += Convolution2D(3, 4)
-    model += (c4 := Convolution2D(3, 4))
-
-    assert not isinstance(model.canonical_input, NotAvailable)
-    assert not isinstance(model.canonical_output, NotAvailable)
-
-    assert model.canonical_input.data == model.conns.get_con_by_metadata(
-        c1.input.data.metadata
-    )
-    assert model.canonical_output.data == model.conns.get_con_by_metadata(
-        c4.output.data.metadata
-    )
-    # assert model.canonical_output.key == 'Convolution2D_2_output'
 
 
 def test_flatten1():
@@ -1952,8 +1396,8 @@ def test_flatten_dag0():
     lin3.input.set_differentiable(True)
 
     l5.set_shapes({"input": [1, 1]})
-    model.set_canonical_output(l1.output)
-    model.set_canonical_input(l1.input)
+    model.set_cout(l1.output)
+    model.set_cin(l1.input)
     pm = mithril.compile(model, backend)
     params = {
         "input_4": backend.array([[1.0]]),
@@ -2546,8 +1990,8 @@ def test_static_anlaysis_4():
     model += (mul1 := Multiply())
     model += (mat1 := MatrixMultiply())()
 
-    model.set_canonical_input(add1.left)
-    model.set_canonical_output(mul1.output)
+    model.set_cin(add1.left)
+    model.set_cout(mul1.output)
     comp_model = mithril.compile(model=model, backend=NumpyBackend())
 
     models = {add1, add2, sum1, sub1, mul1, mat1}
@@ -2692,12 +2136,14 @@ def test_prune_5():
     add1 = Add()
     add2 = Add()
     add3 = Add()
+    add4 = Add()
     m += add0(left="input", right="input2")
     m += add1(left="input", right="input2")  # Duplicate
     m += add2(left=add0.output, right=add1.output)
     m += Add()(left=add1.output, right=add0.output)
     m += add3(left=add1.output, right=add0.output)  # Duplicate
-    m += Add()(left=add2.output, right=add3.output)
+    m += add4(left=add2.output, right=add3.output)
+    m.set_cout(add4.output)
 
     compiled_model = compile(m, NumpyBackend())
     expected_connections: dict[str, list[str | set[str]]] = {
@@ -4049,7 +3495,7 @@ def test_composite_6_extend_from_inputs_script_error():
     model += relu3(input="input", output=relu2.input)
 
     with pytest.raises(KeyError) as error_info:
-        model += Relu()(output=relu3.input)
+        model |= Relu()(output=relu3.input)
 
     assert str(error_info.value) == (
         "\"The key 'input' is a reserved key which could not be used for "
@@ -4139,6 +3585,7 @@ def test_composite_6_extend_from_inputs_connect():
     model += relu2(input=IOKey(connections={relu1.input}))
     model += relu3(input="my_input", output=IOKey(connections={relu2.input}))
     model += relu4(input=IOKey(connections={relu3.input}))
+    model.set_cout(relu4.output)
 
     assert (
         relu2.input.data.metadata
@@ -4326,10 +3773,10 @@ def test_connect_error_1():
     model = Model()
     model += Relu()(input="input2", output=IOKey(name="output"))
     model += Relu()(input="input1", output=IOKey(name="output2"))
-    model += Relu()(output=IOKey(name="output3"))
+    model |= Relu()(output=IOKey(name="output3"))
 
     with pytest.raises(Exception) as error_info:
-        model += Relu()(
+        model |= Relu()(
             input="input",
             output=IOKey(name="my_input", connections={"input1", "input2", "output3"}),
         )
@@ -4344,11 +3791,11 @@ def test_connect_error_2():
     model = Model()
     model += Relu()(input="input2", output=IOKey(name="output"))
     model += Relu()(input="input1", output=IOKey(name="output2"))
-    model += Relu()(output=IOKey(name="output3"))
-    model += Relu()(output=IOKey(name="output4"))
+    model |= Relu()(output=IOKey(name="output3"))
+    model |= Relu()(output=IOKey(name="output4"))
 
     with pytest.raises(KeyError) as error_info:
-        model += Relu()(
+        model |= Relu()(
             input=IOKey(
                 name="my_input", connections={"input1", "input2", "output3", "output4"}
             )
@@ -4363,10 +3810,10 @@ def test_connect_error_2():
 def test_connect_error_5():
     model_2 = Model()
     model_2 += (tanh := Tanh())(output=IOKey(name="output1"))
-    model_2 += (relu := Relu())(output=IOKey(name="output2"))
+    model_2 |= (relu := Relu())(output=IOKey(name="output2"))
 
     with pytest.raises(KeyError) as error_info:
-        model_2 += Relu()(
+        model_2 |= Relu()(
             output=IOKey(expose=True, connections={tanh.input, relu.input})
         )
 
@@ -6295,11 +5742,12 @@ def test_deepcopy_3():
 
 
 def test_deepcopy_4():
-    model = Model()
-    model += Add()
-    model += Add()
+    _model = Model()
+    _model += Add()
+    _model += Add()
     for _ in range(4):
-        model += Model() + deepcopy(model)
+        model = Model() 
+        model += deepcopy(_model)
 
     all_data = get_all_data(model)
     compiled_model = mithril.compile(model=model, backend=NumpyBackend())
@@ -6517,9 +5965,9 @@ def test_discard_trainables_3():
     # Let the key hanging, compile should understand and discard the input key
     backend = JaxBackend()
     model = Model()
-    model += Relu()(input="input", output=IOKey(name="output"))
-    model += Sigmoid()(input="sidein")
-    model += Buffer()(input=model.canonical_output)
+    model |= Relu()(input="input", output=IOKey(name="output"))
+    model |= (sigmoid := Sigmoid())(input="sidein")
+    model |= Buffer()(input=sigmoid.output)
 
     pm = compile(model, backend, shapes={"sidein": [1, 2]})
 
@@ -6679,13 +6127,14 @@ def test_numpy_type_promotion_1():
     backend = NumpyBackend(precision=16)
 
     model = Model()
-    model += Add()(left="left", right="right", output="out1")
-    model += Subtract()(left="left", right="right", output="out2")
-    model += Divide()(numerator="left", denominator="right", output="out3")
-    model += FloorDivide()(numerator="left", denominator="right", output="out4")
-    model += Power()(base="left", exponent="right", output="out5")
-    model += Multiply()(left="left", right="right", output="out6")
-    model += MatrixMultiply()(left="left", right="right", output="out7")
+    model |= Add()(left="left", right="right", output="out1")
+    model |= Subtract()(left="left", right="right", output="out2")
+    model |= Divide()(numerator="left", denominator="right", output="out3")
+    model |= FloorDivide()(numerator="left", denominator="right", output="out4")
+    model |= Power()(base="left", exponent="right", output="out5")
+    model |= Multiply()(left="left", right="right", output="out6")
+    model |= MatrixMultiply()(left="left", right="right", output="out7")
+    model.set_cout("out7")
 
     pm = compile(
         model,
@@ -6714,13 +6163,14 @@ def test_numpy_type_promotion_2():
     backend = NumpyBackend(precision=32)
 
     model = Model()
-    model += Add()(left="left", right="right", output="out1")
-    model += Subtract()(left="left", right="right", output="out2")
-    model += Divide()(numerator="left", denominator="right", output="out3")
-    model += FloorDivide()(numerator="left", denominator="right", output="out4")
-    model += Power()(base="left", exponent="right", output="out5")
-    model += Multiply()(left="left", right="right", output="out6")
-    model += MatrixMultiply()(left="left", right="right", output="out7")
+    model |= Add()(left="left", right="right", output="out1")
+    model |= Subtract()(left="left", right="right", output="out2")
+    model |= Divide()(numerator="left", denominator="right", output="out3")
+    model |= FloorDivide()(numerator="left", denominator="right", output="out4")
+    model |= Power()(base="left", exponent="right", output="out5")
+    model |= Multiply()(left="left", right="right", output="out6")
+    model |= MatrixMultiply()(left="left", right="right", output="out7")
+    model.set_cout("out7")
 
     pm = compile(
         model,
@@ -6750,13 +6200,14 @@ def test_numpy_type_promotion_3():
     backend = NumpyBackend(precision=16)
 
     model = Model()
-    model += Add()(left="left", right="right", output="out1")
-    model += Subtract()(left="left", right="right", output="out2")
-    model += Divide()(numerator="left", denominator="right", output="out3")
-    model += FloorDivide()(numerator="left", denominator="right", output="out4")
-    model += Power()(base="left", exponent="right", output="out5")
-    model += Multiply()(left="left", right="right", output="out6")
-    model += MatrixMultiply()(left="left", right="right", output="out7")
+    model |= Add()(left="left", right="right", output="out1")
+    model |= Subtract()(left="left", right="right", output="out2")
+    model |= Divide()(numerator="left", denominator="right", output="out3")
+    model |= FloorDivide()(numerator="left", denominator="right", output="out4")
+    model |= Power()(base="left", exponent="right", output="out5")
+    model |= Multiply()(left="left", right="right", output="out6")
+    model |= MatrixMultiply()(left="left", right="right", output="out7")
+    model.set_cout("out7")
 
     left = np.ones((3, 3), dtype=np.int16)
     right = np.ones((3, 3), dtype=np.float16)
@@ -6779,13 +6230,14 @@ def test_numpy_type_promotion_4():
     backend = NumpyBackend(precision=32)
 
     model = Model()
-    model += Add()(left="left", right="right", output="out1")
-    model += Subtract()(left="left", right="right", output="out2")
-    model += Divide()(numerator="left", denominator="right", output="out3")
-    model += FloorDivide()(numerator="left", denominator="right", output="out4")
-    model += Power()(base="left", exponent="right", output="out5")
-    model += Multiply()(left="left", right="right", output="out6")
-    model += MatrixMultiply()(left="left", right="right", output="out7")
+    model |= Add()(left="left", right="right", output="out1")
+    model |= Subtract()(left="left", right="right", output="out2")
+    model |= Divide()(numerator="left", denominator="right", output="out3")
+    model |= FloorDivide()(numerator="left", denominator="right", output="out4")
+    model |= Power()(base="left", exponent="right", output="out5")
+    model |= Multiply()(left="left", right="right", output="out6")
+    model |= MatrixMultiply()(left="left", right="right", output="out7")
+    model.set_cout("out7")
 
     left = np.ones((3, 3), dtype=np.int32)
     right = np.ones((3, 3), dtype=np.float32)
@@ -6807,13 +6259,14 @@ def test_numpy_type_promotion_5():
     backend = NumpyBackend(precision=16)
 
     model = Model()
-    model += Add()(left="left", right="right", output="out1")
-    model += Subtract()(left="left", right="right", output="out2")
-    model += Divide()(numerator="left", denominator="right", output="out3")
-    model += FloorDivide()(numerator="left", denominator="right", output="out4")
-    model += Power()(base="left", exponent="right", output="out5")
-    model += Multiply()(left="left", right="right", output="out6")
-    model += MatrixMultiply()(left="left", right="right", output="out7")
+    model |= Add()(left="left", right="right", output="out1")
+    model |= Subtract()(left="left", right="right", output="out2")
+    model |= Divide()(numerator="left", denominator="right", output="out3")
+    model |= FloorDivide()(numerator="left", denominator="right", output="out4")
+    model |= Power()(base="left", exponent="right", output="out5")
+    model |= Multiply()(left="left", right="right", output="out6")
+    model |= MatrixMultiply()(left="left", right="right", output="out7")
+    model.set_cout("out7")
 
     # mypy fails in below compilation as
     # it cannot infer exact type of
@@ -7105,8 +6558,9 @@ def test_iadd_3():
     model = Model()
     model += MatrixMultiply()(right="w1")
     model += Relu()
-    model += Sigmoid()(input="")
-    model += MatrixMultiply()(right="w4")
+    model += (sigmoid := Sigmoid())(input="")
+    model += (mult := MatrixMultiply())(left=sigmoid.output, right="w4")
+    model.set_cout(mult.output)
 
     compiled_model = compile(model, JaxBackend())
 
@@ -7121,6 +6575,8 @@ def test_iadd_4():
     model_sub = Model()
     model_sub += Sigmoid()(IOKey("in1"), IOKey("out1"))
     model_sub += Sigmoid()(IOKey("in2"), IOKey("out2"))
+    model_sub.set_cout("out2")
+    model_sub.set_cin("in2")
 
     model_sub2 = deepcopy(model_sub)
 
@@ -7166,6 +6622,8 @@ def test_iadd_6():
     modelsub = Model()
     modelsub += Sigmoid()(input="in1", output=IOKey(name="out1"))
     modelsub += Sigmoid()(input="in2", output=IOKey(name="out2"))
+    modelsub.set_cout("out2")
+    modelsub.set_cin("in2")
 
     modelsub2 = deepcopy(modelsub)
 
@@ -7175,14 +6633,11 @@ def test_iadd_6():
     )
     model += modelsub2(in2="out2", out2="in1")
 
-    with pytest.raises(ValueError) as err_info:
+    with pytest.raises(KeyError) as err_info:
         model += Relu()
 
     assert str(err_info.value) == (
-        "Given value for key: 'input' is not available. Probably Canonical "
-        "input/output connections are used, but the model canonical connections "
-        "is not determined. Please provide connection/key explicitly, or set canonical "
-        "connections."
+        "'Model must have exactly one canonical output!'"
     )
 
 
@@ -7190,8 +6645,9 @@ def test_iadd_7():
     model = Model()
     model += MatrixMultiply()(right="w1")
     model += Relu()
-    model += Sigmoid()(input=IOKey(""))
-    model += MatrixMultiply()(right="w4")
+    model += (sigmoid := Sigmoid())(input="")
+    model += (mult := MatrixMultiply())(left=sigmoid.output, right="w4")
+    model.set_cout(mult.output)
 
     compiled_model = compile(model, JaxBackend())
 
@@ -7207,8 +6663,9 @@ def test_iadd_8():
     model = Model()
     model += MatrixMultiply()(right="w1")
     model += Relu()
-    model += Sigmoid()(input=IOKey("asd"))
-    model += MatrixMultiply()(right="w4")
+    model += (sigmoid := Sigmoid())(input=IOKey("asd"))
+    model += (mult := MatrixMultiply())(left=sigmoid.output, right="w4")
+    model.set_cout(mult.output)
 
     compiled_model = compile(model, JaxBackend())
 
@@ -7234,6 +6691,7 @@ def test_generate_keys_duplicates():
     model = Model()
     model += Add()(left="left", right="right", output=IOKey("output"))
     model += Add()(left="left2", right="right2")
+    model.set_cin("left2")
 
     model2 = Model()
     model2 += model()
@@ -7254,7 +6712,9 @@ def test_generate_keys_duplicates():
 def test_output_keys_canonical_output_1():
     model = Model()
     model += Add()(left="left", right="right", output=IOKey("output"))
-    model += Add()(left="left2", right="right2")
+    model += (add := Add())(left="left2", right="right2")
+    model.set_cin("left2")
+    model.set_cout(add.output)
 
     model2 = Model()
     model2 += model()
@@ -7265,7 +6725,9 @@ def test_output_keys_canonical_output_1():
 def test_output_keys_canonical_output_2():
     model = Model()
     model += Add()(left="left", right="right", output=IOKey("output"))
-    model += Add()(left="left2", right="right2")
+    model += (add := Add())(left="left2", right="right2")
+    model.set_cin("left2")
+    model.set_cout(add.output)
 
     model2 = Model()
     model2 += model(output=IOKey("output"))

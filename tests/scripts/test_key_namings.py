@@ -266,8 +266,8 @@ def test_generate_input_keys_3():
     model = Model()
     model += sig1(input="in_left", output=IOKey(name="out_left"))
     model += sig2(input="in_right", output=IOKey(name="out_right"))
-    model.set_canonical_input("in_left")
-    model.set_canonical_output("out_left")
+    model.set_cin("in_left")
+    model.set_cout("out_left")
     model1 = deepcopy(model)
     model2 = deepcopy(model)
     model3 = deepcopy(model)
@@ -292,8 +292,8 @@ def test_generate_input_keys_4():
     model = Model()
     model += sig1(input="in_left", output=IOKey(name="out_left"))
     model += sig2(input="in_right", output=IOKey(name="out_right"))
-    model.set_canonical_input("in_left")
-    model.set_canonical_output("out_left")
+    model.set_cin("in_left")
+    model.set_cout("out_left")
     model1 = deepcopy(model)
     model2 = deepcopy(model)
     model3 = deepcopy(model)
@@ -591,7 +591,8 @@ def test_generate_key_naming_7():
 def test_generate_key_naming_8():
     model = Model()
     model += Linear()(weight="_weight", output=IOKey(name="output1"))
-    model += Linear()(input="", output=IOKey(name="output2"))
+    model += (lin := Linear())(input="", output=IOKey(name="output2"))
+    model.set_cin(lin.input)
     logical_ref = {
         "$2": "$_input",
         "$3": "$bias_0",
@@ -607,7 +608,8 @@ def test_generate_key_naming_9():
     model = Model()
     model += Buffer()(output=IOKey(name="output1"))
     model += Buffer()(input="", output=IOKey(name="output2"))
-    model += Buffer()(input="", output=IOKey(name="output3"))
+    model += (buff := Buffer())(input="", output=IOKey(name="output3"))
+    model.set_cin(buff.input)
     logical_ref = {"$1": "$_input_0", "$2": "$_input_1", "$3": "$input"}
     physical_ref = {"input_1", "input_2", "input_0"}
     assert_keys(model, logical_ref=logical_ref, physical_ref=physical_ref)
@@ -617,7 +619,8 @@ def test_generate_key_naming_10():
     model = Model()
     model += Buffer()(output=IOKey(name="output1"))
     model += Buffer()(input="_input", output=IOKey(name="output2"))
-    model += Buffer()(input="", output=IOKey(name="output3"))
+    model += (buff := Buffer())(input="", output=IOKey(name="output3"))
+    model.set_cin(buff.input)
     logical_ref = {"$1": "$__input", "$2": "$input"}
     physical_ref = {"input_0", "input_1", "_input"}
     assert_keys(model, logical_ref=logical_ref, physical_ref=physical_ref)
@@ -628,7 +631,9 @@ def test_generate_key_naming_11():
     model += Buffer()(output=IOKey(name="output1"))
     model += Buffer()(input="_input", output=IOKey(name="output2"))
     model += Buffer()(input="", output=IOKey(name="output3"))
-    model += Buffer()(input="", output=IOKey(name="output4"))
+    model += (buff := Buffer())(input="", output=IOKey(name="output4"))
+    model.set_cin(buff.input)
+
     logical_ref = {
         "$1": "$__input_0",
         "$2": "$__input_1",
@@ -641,7 +646,8 @@ def test_generate_key_naming_11():
 def test_generate_key_naming_12():
     model = Model()
     model += Linear()(output=IOKey(name="output1"))
-    model += Linear()(input="", output=IOKey(name="output2"))
+    model += (lin := Linear())(input="", output=IOKey(name="output2"))
+    model.set_cin(lin.input)
     logical_ref = {
         "$1": "$weight_0",
         "$3": "$_input",
@@ -657,7 +663,8 @@ def test_generate_key_naming_12():
 def test_generate_key_naming_13():
     model = Model()
     model += Linear()(output=IOKey(name="output1"))
-    model += Linear()(input="", weight="_weight", output=IOKey(name="output2"))
+    model += (lin := Linear())(input="", weight="_weight", output=IOKey(name="output2"))
+    model.set_cin(lin.input)
     logical_ref = {
         "$1": "$weight",
         "$3": "$_input",
@@ -672,7 +679,9 @@ def test_generate_key_naming_13():
 def test_generate_key_naming_14():
     model = Model()
     model += Linear()(output=IOKey(name="output1"))
-    model += Linear()(input="", weight="weight", output=IOKey(name="output2"))
+    model += (lin := Linear())(input="", weight="weight", output=IOKey(name="output2"))
+    model.set_cin(lin.input)
+
     logical_ref = {
         "$1": "$_weight",
         "$3": "$_input",
@@ -688,7 +697,8 @@ def test_generate_key_naming_15():
     model = Model()
     model += Linear()(output=IOKey(name="output1"))
     model += Linear()(input="", weight="weight", output=IOKey(name="output2"))
-    model += Linear()(input="", weight="_weight", output=IOKey(name="output3"))
+    model += (lin := Linear())(input="", weight="_weight", output=IOKey(name="output3"))
+    model.set_cin(lin.input)
     logical_ref = {
         "$1": "$__weight",
         "$3": "$_input_0",
@@ -717,7 +727,8 @@ def test_generate_key_naming_16():
     model += Linear()(output=IOKey(name="output1"))
     model += Linear()(input="", weight="weight", output=IOKey(name="output2"))
     model += Linear()(input="", weight="_weight", output=IOKey(name="output3"))
-    model += Linear()(input="", output=IOKey(name="output4"))
+    model += (lin := Linear())(input="", output=IOKey(name="output4"))
+    model.set_cin(lin.input)
     logical_ref = {
         "$1": "$__weight_0",
         "$3": "$_input_0",
@@ -756,7 +767,8 @@ def test_generate_key_naming_17():
         weight="weight", output1=IOKey(name="output1"), output2=IOKey(name="output2")
     )
     outer_model += Linear()(input="", weight="_weight", output=IOKey(name="output3"))
-    outer_model += Linear()(input="", output=IOKey(name="output4"))
+    outer_model += (lin := Linear())(input="", output=IOKey(name="output4"))
+    outer_model.set_cin(lin.input)
     logical_ref = {
         "$1": "$__weight_0",
         "$2": "$_input_0",
@@ -797,6 +809,7 @@ def test_generate_key_naming_18():
     model += lin2(input="", weight="weight", output=IOKey(name="output2"))
     model += lin3(input="", output=IOKey(name="output3"))
     model += lin4(input="", output=IOKey(name="output4"))
+    model.set_cin(lin4.input)
     logical_ref = {
         "$1": "$_Linear_0_axes",
         "$4": "$_Linear_1_axes",

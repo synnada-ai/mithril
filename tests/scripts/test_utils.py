@@ -366,7 +366,7 @@ def check_shapes_semantically(
     )  # Reverse mapping from items in shape_2 to shape_1.
 
     # Ensure both shapes have the same keys.
-    assert shape_1.keys() == shape_2.keys(), "Shape keys do not match."
+    assert set(shape_1.keys()) == set(shape_2.keys()), "Shape keys do not match."
     for key, list_1 in shape_1.items():
         list_2 = shape_2[key]
         if list_1 is not None and list_2 is not None:

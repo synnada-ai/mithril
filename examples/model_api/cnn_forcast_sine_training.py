@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import matplotlib.pyplot as plt
-import numpy as np
 from torch.utils.data import DataLoader, TensorDataset
 from utils.optimizers import Adam
 
@@ -119,22 +117,27 @@ X_test, y_test = generate_sine_wave(seq_len, 1)
 data = {"input": X_test, "target": y_test}
 pred = pm.evaluate(params, data)["predictions"]
 
-# Plot the sequence data and its prediction.
-plt.plot(
-    np.arange(seq_len),
-    X_test.reshape(seq_len),
-    label="Data",
-    color="green",
-    marker="o",
-    linestyle="",
-)
-plt.plot(
-    seq_len,
-    pred.reshape(1),  # type: ignore
-    label="Predicted",
-    color="red",
-    marker="o",
-    linestyle="",
-)
-plt.legend()
-plt.show()
+def plot_sine_wave(seq_len, X_test, pred):
+    import matplotlib.pyplot as plt
+    import numpy as np
+    # Plot the sequence data and its prediction.
+    plt.plot(
+        np.arange(seq_len),
+        X_test.reshape(seq_len),
+        label="Data",
+        color="green",
+        marker="o",
+        linestyle="",
+    )
+    plt.plot(
+        seq_len,
+        pred.reshape(1),  # type: ignore
+        label="Predicted",
+        color="red",
+        marker="o",
+        linestyle="",
+    )
+    plt.legend()
+    plt.show()
+
+# plot_sine_wave(seq_len, X_test, pred)

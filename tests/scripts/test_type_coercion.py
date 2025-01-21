@@ -77,6 +77,7 @@ def test_scalar_to_tensor_1():
     tensor = ToTensor()
     model += tensor(input=2.0)
     model += Add()(left=tensor.output, right=add_3, output="output")
+    model.set_cout("output")
     model_1 = model
 
     # Auto conversion.
@@ -89,7 +90,7 @@ def test_scalar_to_tensor_1():
     add_5 = lin_4.input + lin_4.bias
     add_6 = add_4 + add_5
     model += Add()(left=IOKey(value=2.0).tensor(), right=add_6, output="output")
-
+    model.set_cout("output")
     model_2 = model
 
     # Provide backend and data.
@@ -121,6 +122,7 @@ def test_scalar_to_tensor_2():
     to_tensor = ToTensor()
     model += to_tensor(input=shp_1)
     model += Add()(left=to_tensor.output, right=reshaped_1, output="output")
+    model.set_cout("output")
     model_1 = model
 
     # Auto conversion
@@ -132,6 +134,7 @@ def test_scalar_to_tensor_2():
     shp_2 = lin_3.input.shape
     reshaped_2 = lin_4.output.reshape(shp_2)
     model += Add()(left=shp_2.tensor(), right=reshaped_2, output="output")
+    model.set_cout("output")
     model_2 = model
 
     # Provide backend and data.
@@ -281,6 +284,7 @@ def test_slice_item_conversions():
     model += (sc_item := ScalarItem())(input=shp1.output, index=slc.output)
     model += tensor_2(input=sc_item.output)  # type: ignore
     model += Add()(left=tensor_1.output, right=tensor_2.output, output="output")
+    model.set_cout("output")
     model_1 = model
 
     # Auto conversion
@@ -295,6 +299,7 @@ def test_slice_item_conversions():
     assert shp2_ellipsis is not None
     slc = shp2_ellipsis.tensor()
     model += Add()(left=shp_item, right=slc, output="output")  # type: ignore
+    model.set_cout("output")
     model_2 = model
 
     # Provide backend and data.

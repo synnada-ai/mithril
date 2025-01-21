@@ -1365,8 +1365,8 @@ def test_use_multiple_times():
 
     model2 = Model()
     model2 += Buffer()(input="input1", output=IOKey(name="output"))
-    model2 += Add()(left="input1", right=3)
-    model2 += (div := Divide())(numerator=model2.canonical_output, denominator=2)
+    model2 += (add := Add())(left="input1", right=3)
+    model2 += (div := Divide())(numerator=add.output, denominator=2)
     model2 += Buffer()(input=div.output, output=IOKey(name="output1"))
     model2 += Relu()(input=div.output, output=IOKey(name="output2"))
 

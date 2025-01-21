@@ -127,20 +127,19 @@ def test_extract_logical_connections_1():
         ),
     }
 
-
 def test_extract_logical_connections_2():
     model = Model()
     sig1 = Sigmoid()
     sig2 = Sigmoid()
     model += sig1(input="input1", output=IOKey(name="output1"))
     model += sig2(input="input2", output=IOKey(name="output2"))
-    model.set_canonical_input("input1")
-    model.set_canonical_output("output1")
+    model.set_cin("input1")
+    model.set_cout("output1")
     buff3 = Relu()
     model2 = Model()
     model2 += model()
     model2 += buff3(input=model.output1, output=model.input2)  # type: ignore
-    model2.set_canonical_input(model.input1)  # type: ignore
+    model2.set_cin(model.input1)  # type: ignore
     name_mappings = define_unique_names(model2.dag)
     conns = model2.extract_connection_info(name_mappings)
     ref_conns = {
@@ -401,8 +400,8 @@ def test_extract_logical_connections_10():
     model_0 += buff_1(input="input1")
     model_0 += buff_2(input="input2")
     model_0 += buff_3(input="input3")
-    model_0.set_canonical_input("input1")
-    model_0.set_canonical_output(buff_1.output)
+    model_0.set_cin("input1")
+    model_0.set_cout(buff_1.output)
 
     model_1 = deepcopy(model_0)
     model_2 = deepcopy(model_0)
@@ -772,8 +771,8 @@ def test_define_unique_names_1():
     model += lin_5
     model += lin_6
     model += buffer
-    model += KernelizedSVM_0
-    model += KernelizedSVM_1
+    model |= KernelizedSVM_0(input1=model.canonical_output)
+    model |= KernelizedSVM_1(input1=model.canonical_output)
 
     lin_0.input.set_differentiable(True)
     name_dict = define_unique_names(model.dag)
@@ -990,6 +989,7 @@ def test_physical_summary_4():
     model_1 = KernelizedSVM(kernel=RBFKernel())
     model_1.input1.set_differentiable(True)
     model_1.input2.set_differentiable(True)
+    model_1.set_cin("input1")
     model_2 = MLP(
         activations=[Sigmoid(), Tanh(), Relu(), LeakyRelu()], dimensions=[3, 4, 5, 6]
     )
@@ -1191,6 +1191,7 @@ def test_physical_summary_13():
     sig_model3 = Sigmoid()
     model += sig_model1(input="input", output="output1")
     model += sig_model2(input="input", output="output2")
+    model.set_cout("output2")
     comp_model = mithril.compile(model=model, backend=JaxBackend())
     with pytest.raises(ValueError) as err_info:
         comp_model.summary(model=sig_model3)
@@ -1283,6 +1284,7 @@ def test_physical_summary_17():
     model += lin_model_1(input="input", weight="weight", bias="b", output="output1")
     model += lin_model_2(input="input", weight="weight", bias="b", output="output2")
     model += lin_model_3(input="input", weight="weight", bias="b", output="output3")
+    model.set_cout("output3")
     lin_model_1.input.set_differentiable(True)
 
     comp_model = mithril.compile(model=model, backend=JaxBackend())
@@ -1363,8 +1365,8 @@ def test_logical_model_summary_3():
     model += Add()(left="input1", right="input2", output=IOKey(name="output1"))
     model += Add()(left="input1", right="input3", output=IOKey(name="output2"))
     model += Add()(left="input2", right="input3", output=IOKey(name="output3"))
-    model.set_canonical_input("input1")
-    model.set_canonical_output("output1")
+    model.set_cin("input1")
+    model.set_cout("output1")
 
     model_1 = Model()
     model_1 += (m1 := deepcopy(model))()
@@ -1381,7 +1383,7 @@ def test_logical_model_summary_3():
         output2="output3",
         output3="output4",
     )
-    model_1.set_canonical_output("output2")
+    model_1.set_cout("output2")
     with redirect_stdout(StringIO()) as summary:
         model.summary(shapes=True, symbolic=True)
 
@@ -1520,8 +1522,8 @@ def test_logical_model_summary_11():
     model += sig_1(input="input1", output=IOKey(name="output1"))
     model += sig_2(input="input2", output=IOKey(name="output2"))
     model += sig_3(input="input3", output=IOKey(name="output3"))
-    model.set_canonical_input("input1")
-    model.set_canonical_output("output1")
+    model.set_cin("input1")
+    model.set_cout("output1")
 
     model_1, model_2, model_3 = deepcopy(model), deepcopy(model), deepcopy(model)
 
@@ -1606,6 +1608,7 @@ def test_logical_model_summary_13():
     model += linear2(input=model.output1)  # type: ignore
     model1 += model
     model1 += linear3(input=model.output1)  # type: ignore
+    model1.set_cout(linear3.output)
 
     with redirect_stdout(StringIO()) as summary:
         model1.summary(shapes=True, symbolic=True)
@@ -1841,6 +1844,7 @@ def test_traincontext_summary_3():
     model += add_1(left="in1", right="in2", output=IOKey(name="output1"))
     model += add_2(left="", output=IOKey(name="output2"))
     model += matmul_1(left="", output=IOKey(name="output3"))
+    model.set_cin(matmul_1.left)
     ctx = TrainModel(model)
     ctx.add_loss(
         SquaredError(),
@@ -1875,6 +1879,8 @@ def test_traincontext_summary_4():
     model += add_1(left="in1", right="in2", output=IOKey(name="output1"))
     model += add_2(left="", output=IOKey(name="output2"))
     model += matmul_1(left="", output=IOKey(name="output3"))
+    model.set_cin(matmul_1.left)
+
     ctx = TrainModel(model)
     ctx.add_loss(
         SquaredError(),

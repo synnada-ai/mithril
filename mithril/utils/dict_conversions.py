@@ -165,16 +165,14 @@ def dict_to_model(modelparams: dict[str, Any]) -> BaseModel:
                     mappings[k] = IOKey(**key_kwargs)
 
         assert isinstance(model, Model)
-        model += m(**mappings)
+        # model += m(**mappings)
+        model |= m(**mappings)
 
     if "model" in canonical_keys:
-        candidate_canonical_in = model.conns.get_connection(canonical_keys["model"][0])
-        candidate_canonical_out = model.conns.get_connection(canonical_keys["model"][1])
-
-        if candidate_canonical_in is not None:
-            model._canonical_input = candidate_canonical_in
-        if candidate_canonical_out is not None:
-            model._canonical_output = candidate_canonical_out
+        if canonical_keys["model"][0] is not None:
+            model.set_cin(*canonical_keys["model"][0])
+        if canonical_keys["model"][1] is not None:
+            model.set_cout(*canonical_keys["model"][1])
 
     for key, value in differentiability_info.items():
         con = model.conns.get_connection(key)
@@ -250,17 +248,23 @@ def model_to_dict(model: BaseModel) -> dict:
         connection_dict[model_id] = connection_to_dict(
             model, submodel, submodel_connections, model_id
         )
+        # canonical_keys[model_id] = (
+        #     submodel.canonical_input.key,
+        #     submodel.canonical_output.key,
+        # )
         canonical_keys[model_id] = (
-            submodel.canonical_input.key,
-            submodel.canonical_output.key,
+            get_keys(submodel.conns.cins),
+            get_keys(submodel.conns.couts)
         )
-    canonical_keys["model"] = (model.canonical_input.key, model._canonical_output.key)
+    canonical_keys["model"] = (get_keys(model.conns.cins), get_keys(model.conns.couts))
 
     model_dict["submodels"] = submodels
     model_dict["connections"] = connection_dict
     model_dict["canonical_keys"] = canonical_keys
     return model_dict
 
+def get_keys(canonicals: set[ConnectionData]):
+    return {con.key for con in canonicals}
 
 def connection_to_dict(
     model: Model,
@@ -299,8 +303,8 @@ def connection_to_dict(
         if key_value is not None:
             connection_dict[key] = key_value
 
-    if submodel.canonical_input.key not in connection_dict:
-        connection_dict[submodel.canonical_input.key] = ""
+    # if submodel.canonical_input.key not in connection_dict:
+    #     connection_dict[submodel.canonical_input.key] = ""
 
     return connection_dict
 

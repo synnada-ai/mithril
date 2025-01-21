@@ -1722,8 +1722,8 @@ def test_slice_1():
     item_model = ScalarItem()
 
     model = Model()
-    model += slice_model(start=2, stop=3)
-    model += item_model(input="input", index=slice_model.output, output=IOKey("output"))
+    model |= slice_model(start=2, stop=3)
+    model |= item_model(input="input", index=slice_model.output, output=IOKey("output"))
 
     data = {"input": (1, 2, 3.0, 4, 5)}
 
@@ -1752,8 +1752,8 @@ def test_slice_2():
     item_model = ScalarItem()
 
     model = Model()
-    model += slice_model(stop=3)
-    model += item_model(input="input", index=slice_model.output, output=IOKey("output"))
+    model |= slice_model(stop=3)
+    model |= item_model(input="input", index=slice_model.output, output=IOKey("output"))
 
     data = {"input": (1, 2, 3.0, 4, 5)}
 
@@ -1782,8 +1782,8 @@ def test_slice_3():
     item_model = ScalarItem()
 
     model = Model()
-    model += slice_model(stop=3, step=2)
-    model += item_model(input="input", index=slice_model.output, output=IOKey("output"))
+    model |= slice_model(stop=3, step=2)
+    model |= item_model(input="input", index=slice_model.output, output=IOKey("output"))
 
     data = {"input": (1, 2, 3.0, 4, 5)}
 
@@ -1812,8 +1812,8 @@ def test_slice_4():
     item_model = ScalarItem()
 
     model = Model()
-    model += slice_model(step=2)
-    model += item_model(input="input", index=slice_model.output, output=IOKey("output"))
+    model |= slice_model(step=2)
+    model |= item_model(input="input", index=slice_model.output, output=IOKey("output"))
 
     data = {"input": (1, 2, 3.0, 4, 5)}
 
@@ -3556,8 +3556,8 @@ def test_tensor_item_with_slice_1():
     item_model = TensorItem()
     slice_model = Slice(start=0, stop=1, step=None)
 
-    model += slice_model
-    model += item_model(input="input", index=slice_model.output, output=IOKey("output"))
+    model |= slice_model
+    model |= item_model(input="input", index=slice_model.output, output=IOKey("output"))
 
     input = {"input": [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]}
 
@@ -3592,8 +3592,8 @@ def test_tensor_item_with_slice_2():
     item_model = TensorItem()
     slice_model = Slice(start=0, stop=2, step=None)
 
-    model += slice_model
-    model += item_model(input="input", index=slice_model.output, output=IOKey("output"))
+    model |= slice_model
+    model |= item_model(input="input", index=slice_model.output, output=IOKey("output"))
 
     input = {"input": [[[1.0, 2.0]], [[3.0, 4.0]], [[5.0, 6.0]]]}
 

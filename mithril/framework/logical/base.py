@@ -23,7 +23,6 @@ from typing import Any
 
 from ...utils.utils import OrderedSet
 from ..common import (
-    NOT_AVAILABLE,
     Connection,
     ConnectionData,
     Connections,
@@ -33,7 +32,6 @@ from ..common import (
     ConstraintSolver,
     IOHyperEdge,
     MainValueType,
-    NotAvailable,
     Scalar,
     ShapeNode,
     ShapesType,
@@ -46,6 +44,7 @@ from ..common import (
     Variadic,
     create_shape_repr,
     get_shapes,
+    TBD
 )
 from ..constraints import post_process_map, type_constraints
 from ..utils import NestedListType
@@ -59,11 +58,9 @@ class ExtendInfo:
     _connections: dict[str, ConnectionType]
 
     def __post_init__(self) -> None:
-        external_keys = set(self._model.external_keys)
-        if self._model.canonical_input is not NOT_AVAILABLE:
-            external_keys.add(self._model.canonical_input.key)
-        if self._model.canonical_output is not NOT_AVAILABLE:
-            external_keys.add(self._model.canonical_output.key)
+        external_keys = set(self._model.external_keys) \
+            | {item.key for item in self._model.conns.couts} \
+            | {item.key for item in self._model.conns.cins}
 
         for key in self._connections:
             if key not in external_keys:
@@ -99,8 +96,6 @@ class BaseModel(abc.ABC):
         self.conns = Connections()
         self.frozen_attributes: list[str] = []
         self.dependency_map = DependencyMap(self.conns)
-        self._canonical_input: ConnectionData | NotAvailable = NOT_AVAILABLE
-        self._canonical_output: ConnectionData | NotAvailable = NOT_AVAILABLE
         self.name = name
         self._enforce_jit = enforce_jit
         self._jittable = True
@@ -155,7 +150,7 @@ class BaseModel(abc.ABC):
     def output_keys(self) -> list[str]:
         output_keys = list(self.conns.output_keys)
         if (
-            self.canonical_output is not NOT_AVAILABLE
+            len(self.conns.couts) == 1
             and self.canonical_output.key not in output_keys
         ):
             output_keys.append("#canonical_output")
@@ -283,6 +278,8 @@ class BaseModel(abc.ABC):
 
         if key.key not in self.conns.input_keys:
             raise ValueError("Values of internal and output keys cannot be set.")
+        if value != TBD:
+            self.conns.cins.discard(key)
         # Data is scalar, set the value directly.
         return key.metadata.data.set_value(value)
 
@@ -442,54 +439,67 @@ class BaseModel(abc.ABC):
         self._set_constraint(fn, keys, post_processes, type=type)
 
     @property
-    def canonical_input(self) -> Connection | NotAvailable:
-        if isinstance(self._canonical_input, ConnectionData):
-            return self._canonical_input.conn
-        else:
-            return NOT_AVAILABLE
+    def canonical_input(self) -> Connection:
+        if len(self.conns.cins) != 1:
+            raise KeyError("Model must have exactly one canonical input!")
+        return next(iter(self.conns.cins)).conn
 
     @property
-    def canonical_output(self) -> Connection | NotAvailable:
-        if isinstance(self._canonical_output, NotAvailable):
-            return self._canonical_output
-        else:
-            return self._canonical_output.conn
+    def canonical_output(self) -> Connection:
+        if len(self.conns.couts) != 1:
+            raise KeyError("Model must have exactly one canonical output!")
+        return next(iter(self.conns.couts)).conn
 
-    def set_canonical_input(self, given_conn: str | Connection) -> None:
-        if isinstance(given_conn, str):
-            conn = self.conns.all.get(given_conn)
-            if conn is None:
-                raise ValueError("Provided 'key' is not belong to the model!")
-        else:
-            conn = given_conn.data
 
-        conn = self.conns.get_con_by_metadata(conn.metadata)
+    def set_cin(self, *connections: str | Connection, safe=True) -> None:
+        self.conns.cins = set()
+        for given_conn in reversed(connections):
+            if isinstance(given_conn, str):
+                conn = self.conns.all.get(given_conn)
+                if conn is None:
+                    raise ValueError("Provided 'key' is not belong to the model!")
+            else:
+                conn = given_conn.data
 
-        if conn not in self.dependency_map.local_input_dependency_map:
-            raise ValueError(
-                "To set a connection as canonical input, connection must be an "
-                "input connection!"
-            )
+            conn = self.conns.get_con_by_metadata(conn.metadata)
+            assert isinstance(conn, ConnectionData)
+            is_valued = conn.metadata.data.value is not TBD
+            if conn not in self.dependency_map.local_input_dependency_map:
+                raise ValueError(
+                    "To set a connection as canonical input, connection must be an "
+                    "input connection!"
+                )
+            elif is_valued:
+                if safe:
+                    raise ValueError(
+                        "To set a connection as canonical input, "
+                        "connection must be unvalued!"
+                    )
+            else:
+                self.conns.cins.add(conn)
 
-        self._canonical_input = conn
+    def set_cout(self, *connections: str | Connection, safe=True) -> None:
+        self.conns.couts = set()
+        for given_conn in reversed(connections):
+            if isinstance(given_conn, str):
+                conn = self.conns.all.get(given_conn)
+                if conn is None:
+                    raise ValueError("Provided 'key' is not belong to the model!")
+            else:
+                conn = given_conn.data
 
-    def set_canonical_output(self, given_conn: str | Connection) -> None:
-        if isinstance(given_conn, str):
-            conn = self.conns.all.get(given_conn)
-            if conn is None:
-                raise ValueError("Provided 'key' is not belong to the model!")
-        else:
-            conn = given_conn.data
+            conn = self.conns.get_con_by_metadata(conn.metadata)
+            assert isinstance(conn, ConnectionData)
+            is_valued = conn.metadata.data.value is not TBD
+            if conn not in self.dependency_map.local_output_dependency_map or is_valued:
+                if safe:
+                    raise ValueError(
+                        "To set a connection as canonical output, connection must be an "
+                        "output connection!"
+                    )
+            else:
+                self.conns.couts.add(conn)
 
-        conn = self.conns.get_con_by_metadata(conn.metadata)
-
-        if conn not in self.dependency_map.local_output_dependency_map:
-            raise ValueError(
-                "To set a connection as canonical output, connection must be an "
-                "output connection!"
-            )
-
-        self._canonical_output = conn
 
     def _match_hyper_edges(self, left: IOHyperEdge, right: IOHyperEdge) -> Updates:
         if type(left.data) is not type(right.data):

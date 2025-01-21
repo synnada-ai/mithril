@@ -188,6 +188,7 @@ class ArithmeticOperation(PrimitiveModel):
             fn=general_tensor_type_constraint,
             keys=[PrimitiveModel.output_key, "left", "right"],
         )
+        # self.set_cin(self.right, self.left)
 
     def __call__(  # type: ignore[override]
         self,

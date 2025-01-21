@@ -590,6 +590,7 @@ def test_composite_12():
         weight="weight2",
         output=IOKey(name="my_input", connections={"input1", "input2"}),
     )
+    model.set_cout("output2")
 
     model_dict_created = dict_conversions.model_to_dict(model)
     model_recreated = dict_conversions.dict_to_model(model_dict_created)
@@ -624,6 +625,7 @@ def test_composite_13():
         weight="weight2",
         output=IOKey(name="my_input", connections={"input1", "input2"}),
     )
+    model.set_cout("output2")
 
     model_dict_created = dict_conversions.model_to_dict(model)
     model_recreated = dict_conversions.dict_to_model(model_dict_created)

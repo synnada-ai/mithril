@@ -211,12 +211,12 @@ class MySimpleRNNCellWithLinear(Cell):
 
         self += shp_model(input="input")
         self += scalar_item(input=shp_model.output, index=0)
-        self += slice_1(start=scalar_item.output)
+        self |= slice_1(start=scalar_item.output)
         self += tensor_item_1(
             input="prev_hidden", index=slice_1.output, output=IOKey("hidden_compl")
         )
 
-        self += slice_2(start="", stop=scalar_item.output)
+        self |= slice_2(start="", stop=scalar_item.output)
         self += tensor_item_2(input="prev_hidden", index=slice_2.output)
         self += mult_model_1(left="input", right="w_ih")
         self += mult_model_2(left=tensor_item_2.output, right="w_hh")
@@ -267,6 +267,8 @@ class MySimpleRNNCellWithLinear(Cell):
             "bias_ih": ["d_hid"],
             "bias_o": ["d_out"],
         }
+        self.set_cin("input", safe=False)
+        self.set_cout("output")
 
         self._set_shapes(shapes)
         self._freeze()
@@ -333,11 +335,11 @@ class MyRNNCell(Cell):
 
         self += shp_model(input="input")
         self += scalar_item(input=shp_model.output, index=0)
-        self += slice_1(start=scalar_item.output)
+        self |= slice_1(start=scalar_item.output)
         self += tensor_item_1(
             input="prev_hidden", index=slice_1.output, output=IOKey("hidden_compl")
         )
-        self += slice_2(start="", stop=scalar_item.output)
+        self |= slice_2(start="", stop=scalar_item.output)
         self += tensor_item_2(input="prev_hidden", index=slice_2.output)
         self += mult_model_1(left="input", right="w_ih")
         self += mult_model_2(left=tensor_item_2.output, right="w_hh")
@@ -358,6 +360,8 @@ class MyRNNCell(Cell):
             "bias_ih": ["d_hid"],
         }
         self._set_shapes(shapes)
+        self.set_cin("input", safe=False)
+        self.set_cout("hidden")
         self._freeze()
 
     def __call__(  # type: ignore[override]
