@@ -26,7 +26,7 @@ from torch._functorch.eager_transforms import vjp as torch_vjp
 
 from ....core import Dtype
 from ...backend import PadWidthType, ParallelBackend
-from ...utils import DtypeSubTypes, process_shape
+from ...utils import DtypeSubTypes, StaticScalar, process_shape
 from . import ops, utils
 from .parallel import TorchParallel
 
@@ -529,6 +529,14 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
         self, probs: torch.Tensor, num_samples: int, replacement: bool = False
     ) -> torch.Tensor:
         return torch.multinomial(probs, num_samples, replacement)
+
+    def clip(
+        self,
+        input: torch.Tensor,
+        min: torch.Tensor | StaticScalar,
+        max: torch.Tensor | StaticScalar,
+    ) -> torch.Tensor:
+        return torch.clamp(input, min, max)  # type: ignore [arg-type]
 
     def jit(self, *args: Any, **kwargs: Any) -> Callable[..., Any]:
         backend = "inductor"

@@ -22,7 +22,7 @@ import mlx.nn as nn
 
 from ....core import Dtype
 from ...backend import Backend, PadWidthType
-from ...utils import DtypeSubTypes, process_shape
+from ...utils import DtypeSubTypes, StaticScalar, process_shape
 from . import ops, utils
 
 __all__ = ["MlxBackend"]
@@ -488,6 +488,14 @@ class MlxBackend(Backend[mx.array]):
             samples = mx.squeeze(samples, axis=0)
 
         return samples
+
+    def clip(
+        self,
+        input: mx.array,
+        min: mx.array | StaticScalar,
+        max: mx.array | StaticScalar,
+    ) -> mx.array:
+        return mx.clip(input, min, max)
 
     def jit[**P, T](self, fn: Callable[P, T]) -> Callable[P, T]:
         return fn

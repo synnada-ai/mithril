@@ -19,7 +19,7 @@ import numpy as np
 
 from ....core import Dtype
 from ...backend import Backend, PadWidthType
-from ...utils import process_shape
+from ...utils import StaticScalar, process_shape
 from ..common_primitives import CacheType
 from . import ops, ops_grad, utils
 
@@ -401,6 +401,14 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
             samples = np.squeeze(samples, axis=0)
 
         return samples
+
+    def clip(
+        self,
+        input: np.ndarray[Any, Any],
+        min: np.ndarray[Any, Any] | StaticScalar,
+        max: np.ndarray[Any, Any] | StaticScalar,
+    ) -> np.ndarray[Any, Any]:
+        return np.clip(input, min, max)
 
     def _process_dtype(
         self,

@@ -14,15 +14,19 @@
 
 import os
 import platform
+import random
 from collections.abc import Callable
 from itertools import product
 
+import numpy as np
 import pytest
 
 import mithril as ml
 from mithril import JaxBackend, MlxBackend, NumpyBackend, TorchBackend
 from mithril.backends.utils import DtypeBits
 from mithril.core import Dtype
+
+from .test_utils import get_array_device, get_array_precision
 
 # Create instances of each backend
 backends = [ml.NumpyBackend, ml.TorchBackend, ml.MlxBackend]
@@ -124,16 +128,17 @@ def assert_backend_results_equal(
     if not isinstance(ref_output, tuple | list):
         ref_output = (ref_output,)
 
-    # for out, ref in zip(output, ref_output, strict=False):
-    #     assert tuple(output[0].shape) == tuple(ref_output[0].shape)
-    #     assert (
-    #         backend.backend_type == "mlx"
-    #         or get_array_device(output[0], backend.backend_type) == ref_output_device
-    #     )
-    #     assert (
-    #         get_array_precision(output[0], backend.backend_type)
-    #         == DtypeBits[ref_output_dtype.name].value
-    #     )
+    for out, ref in zip(output, ref_output, strict=False):
+        assert tuple(out.shape) == tuple(ref.shape)
+        assert (
+            backend.backend_type == "mlx"
+            or get_array_device(output[0], backend.backend_type) == ref_output_device
+        )
+        assert get_array_precision(out, backend.backend_type) == get_array_precision(
+            ref, backend.backend_type
+        )
+        assert testing_fn(out, ref, rtol=rtol, atol=atol)
+
     assert testing_fn(output[0], ref_output[0], rtol=rtol, atol=atol)
 
 
@@ -1830,6 +1835,36 @@ class TestAtLeast2D:
 @pytest.mark.parametrize(
     "backendcls, device, dtype", backends_with_device_dtype, ids=names
 )
+class TestClip:
+    def test_clip(self, backendcls, device, dtype):
+        array_fn = array_fns[backendcls]
+        backend = backendcls(device=device, dtype=dtype)
+        fn = backend.clip
+        input = array_fn(list(range(-10, 10, 1)), device, dtype.name)
+        min = random.randint(-10, 9)
+        max = random.randint(min, 10)
+
+        fn_args: list = [input, min, max]
+        fn_kwargs: dict = {}
+        ref_output = array_fn(
+            np.clip(list(range(-10, 10, 1)), min, max), device, dtype.name
+        )
+        assert_backend_results_equal(
+            backend,
+            fn,
+            fn_args,
+            fn_kwargs,
+            ref_output,
+            device,
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
+        )
+
+
+@pytest.mark.parametrize(
+    "backendcls, device, dtype", backends_with_device_dtype, ids=names
+)
 class TestWhere:
     def test_where(self, backendcls, device, dtype):
         array_fn = array_fns[backendcls]
@@ -1881,6 +1916,44 @@ class TestTopK:
             tolerances[dtype],
             tolerances[dtype],
         )
+
+
+@pytest.mark.parametrize(
+    "backendcls, device, dtype", backends_with_device_dtype, ids=names
+)
+class TestCast:
+    def test_cast(self, backendcls, device, dtype):
+        array_fn = array_fns[backendcls]
+        backend = backendcls(device=device, dtype=dtype)
+        fn = backend.cast
+        input = array_fn(list(range(-10, 10, 1)), device, dtype.name)
+
+        for dtype in ml.core.Dtype:
+            if (
+                dtype.name in ["float64", "uint8"]
+                or dtype not in backend.supported_dtypes
+            ):
+                continue
+
+            if dtype.name == "bfloat16" and os.environ["CI"] == "true":
+                continue
+
+            fn_args: list = [input, dtype]
+            fn_kwargs: dict = {}
+            ref_output = array_fn(list(range(-10, 10, 1)), device, dtype.name)
+            backend.cast(input, dtype)
+
+            assert_backend_results_equal(
+                backend,
+                fn,
+                fn_args,
+                fn_kwargs,
+                ref_output,
+                device,
+                dtype,
+                tolerances.get(dtype.name, 1e-2),
+                tolerances.get(dtype.name, 1e-2),
+            )
 
 
 @pytest.mark.parametrize(

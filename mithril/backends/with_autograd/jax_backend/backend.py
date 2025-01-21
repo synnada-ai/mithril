@@ -21,7 +21,7 @@ import jax
 
 from ....core import Dtype
 from ...backend import PadWidthType, ParallelBackend
-from ...utils import DtypeSubTypes, process_shape
+from ...utils import DtypeSubTypes, StaticScalar, process_shape
 from . import ops, utils
 from .parallel import JaxParallel
 
@@ -536,6 +536,14 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
             samples = jax.numpy.squeeze(samples, axis=0)
 
         return samples
+
+    def clip(
+        self,
+        input: jax.Array,
+        min: jax.Array | StaticScalar,
+        max: jax.Array | StaticScalar,
+    ) -> jax.Array:
+        return input.clip(min=min, max=max)
 
     def jit(  # type: ignore[override]
         self, *args: Any, **kwargs: Any
