@@ -167,7 +167,9 @@
                 "shapes": [[1,4],[1,4]]
             }
         },
-        "iterations": 20
+        "iterations": 20,
+        "32bit_tolerance": 1e-5,
+        "32bit_relative_tolerance": 1e-5
     },
 
     "test_polynomial_regression": {
