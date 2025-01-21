@@ -1493,7 +1493,10 @@ class Indexer(PrimitiveModel):
 
 class Sine(SingleInputOperation):
     def __init__(
-        self, name: str | None = None, input: TensorValueType | ToBeDetermined = TBD
+        self,
+        input: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="sin",
@@ -1506,7 +1509,10 @@ class Sine(SingleInputOperation):
 
 class Cosine(SingleInputOperation):
     def __init__(
-        self, name: str | None = None, input: TensorValueType | ToBeDetermined = TBD
+        self,
+        input: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="cos",

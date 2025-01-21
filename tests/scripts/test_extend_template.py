@@ -1382,7 +1382,7 @@ def test_minus():
 
 
 def test_cast():
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {
         "input": backend.array([1.0, -2, 3, 0.5, -5, 6]),
     }
@@ -1396,9 +1396,11 @@ def test_cast():
     model2 += Buffer()(input="input")
     model2 += (cast := Cast())(input="input", dtype=mithril.float16)
     model2 += Buffer()(input=cast.output, output=IOKey(name="output"))
-    compare_models(model1, model2, backend, data)
+    compare_models(model1, model2, backend, data, inference=True)
 
-    pm = mithril.compile(model=model1, backend=backend, constant_keys=data)
+    pm = mithril.compile(
+        model=model1, backend=backend, constant_keys=data, inference=True
+    )
     out = pm.evaluate()["output"]
     assert isinstance(out, jnp.ndarray)
     np.testing.assert_allclose(
@@ -1407,7 +1409,7 @@ def test_cast():
 
 
 def test_sin():
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {
         "input": backend.array([1.0, -2, 3, 0.5, -5, 6]),
     }
@@ -1421,9 +1423,11 @@ def test_sin():
     model2 += Buffer()(input="input")
     model2 += (sin := Sine())(input="input")
     model2 += Buffer()(input=sin.output, output=IOKey(name="output"))
-    compare_models(model1, model2, backend, data)
+    compare_models(model1, model2, backend, data, inference=True)
 
-    pm = mithril.compile(model=model1, backend=backend, constant_keys=data)
+    pm = mithril.compile(
+        model=model1, backend=backend, constant_keys=data, inference=True
+    )
     out = pm.evaluate()["output"]
     assert isinstance(out, jnp.ndarray)
     np.testing.assert_allclose(
@@ -1432,7 +1436,7 @@ def test_sin():
 
 
 def test_cos():
-    backend = JaxBackend(precision=32)
+    backend = JaxBackend()
     data = {
         "input": backend.array([1.0, -2, 3, 0.5, -5, 6]),
     }
@@ -1446,9 +1450,11 @@ def test_cos():
     model2 += Buffer()(input="input")
     model2 += (cos := Cosine())(input="input")
     model2 += Buffer()(input=cos.output, output=IOKey(name="output"))
-    compare_models(model1, model2, backend, data)
+    compare_models(model1, model2, backend, data, inference=True)
 
-    pm = mithril.compile(model=model1, backend=backend, constant_keys=data)
+    pm = mithril.compile(
+        model=model1, backend=backend, constant_keys=data, inference=True
+    )
     out = pm.evaluate()["output"]
     assert isinstance(out, jnp.ndarray)
     np.testing.assert_allclose(
