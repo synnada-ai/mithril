@@ -1220,6 +1220,18 @@ class TemplateBase:
     def item(self) -> ExtendTemplate:
         return ExtendTemplate(connections=[self], model="item")
 
+    def cast(self, dtype: Dtype | None = None) -> ExtendTemplate:
+        return ExtendTemplate(connections=[self, dtype], model="cast")
+
+    def dtype(self) -> ExtendTemplate:
+        return ExtendTemplate(connections=[self], model="dtype")
+
+    def sin(self) -> ExtendTemplate:
+        return ExtendTemplate(connections=[self], model="sin")
+
+    def cos(self) -> ExtendTemplate:
+        return ExtendTemplate(connections=[self], model="cos")
+
 
 class ExtendTemplate(TemplateBase):
     output_connection: ConnectionData | None

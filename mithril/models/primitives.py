@@ -67,8 +67,6 @@ __all__ = [
     "BinaryCrossEntropy",
     "HingeLoss",
     "QuadHingeLoss",
-    "Sine",
-    "Cosine",
     "Sign",
     "Square",
     "Log",
@@ -640,32 +638,6 @@ class StableReciprocal(PrimitiveModel):
             # arguments, we need to convert default value.
             cutoff = Tensor(cutoff)
         return super().__call__(input=input, cutoff=cutoff, output=output)
-
-
-class Sine(SingleInputOperation):
-    def __init__(
-        self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
-    ) -> None:
-        super().__init__(
-            formula_key="sin",
-            name=name,
-            polymorphic_constraint=False,
-            input=input,
-            output=BaseKey(shape=[("Var", ...)], type=Tensor[float]),
-        )
-
-
-class Cosine(SingleInputOperation):
-    def __init__(
-        self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
-    ) -> None:
-        super().__init__(
-            formula_key="cos",
-            name=name,
-            polymorphic_constraint=False,
-            input=input,
-            output=BaseKey(shape=[("Var", ...)], type=Tensor[float]),
-        )
 
 
 class Sign(SingleInputOperation):
