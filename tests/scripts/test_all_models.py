@@ -52,6 +52,8 @@ from mithril.models import (
     LogicalNot,
     LogicalOr,
     LogicalXOr,
+    Maximum,
+    Minimum,
     Minus,
     Model,
     NanToNum,
@@ -714,6 +716,42 @@ def test_where_2():
         reference_gradients=reference_gradients,
         tolerances=1e-6,
         assert_shapes=False,
+    )
+
+
+def test_minimum():
+    model = Minimum()
+
+    statics = {"left": [5.0, 0.0, 9.0, 10.0, 4.0], "right": [6.0, 0.0, 8.0, 9.0, 11.0]}
+    reference_outputs = {"output": [5.0, 0.0, 8.0, 9.0, 4.0]}
+
+    compile_and_compare(
+        model=model,
+        compile_kwargs={"constant_keys": statics, "inference": True},
+        data={},
+        params={},
+        output_gradients={},
+        reference_outputs=reference_outputs,
+        reference_gradients=None,
+        tolerances=None,
+    )
+
+
+def test_maximum():
+    model = Maximum()
+
+    statics = {"left": [5.0, 0.0, 9.0, 10.0, 4.0], "right": [6.0, 0.0, 8.0, 9.0, 11.0]}
+    reference_outputs = {"output": [6.0, 0.0, 9.0, 10.0, 11.0]}
+
+    compile_and_compare(
+        model=model,
+        compile_kwargs={"constant_keys": statics, "inference": True},
+        data={},
+        params={},
+        output_gradients={},
+        reference_outputs=reference_outputs,
+        reference_gradients=None,
+        tolerances=None,
     )
 
 

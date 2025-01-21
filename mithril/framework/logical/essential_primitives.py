@@ -112,6 +112,8 @@ __all__ = [
     "Dtype",
     "Sine",
     "Cosine",
+    "Minimum",
+    "Maximum",
 ]
 
 ConstantType = float | int | core.Constant
@@ -318,6 +320,26 @@ class Multiply(ArithmeticOperation):
         super().__init__(
             formula_key="multiplication", name=name, left=left, right=right
         )
+
+
+class Minimum(ArithmeticOperation):
+    def __init__(
+        self,
+        name: str | None = None,
+        left: TensorValueType | ToBeDetermined = TBD,
+        right: TensorValueType | ToBeDetermined = TBD,
+    ) -> None:
+        super().__init__(formula_key="minimum", name=name, left=left, right=right)
+
+
+class Maximum(ArithmeticOperation):
+    def __init__(
+        self,
+        name: str | None = None,
+        left: TensorValueType | ToBeDetermined = TBD,
+        right: TensorValueType | ToBeDetermined = TBD,
+    ) -> None:
+        super().__init__(formula_key="maximum", name=name, left=left, right=right)
 
 
 class Divide(PrimitiveModel):
@@ -1019,7 +1041,8 @@ class Sqrt(PrimitiveModel):
         kwargs = {"input": input, "output": output}
 
         default = (
-            isinstance(cutoff, core.Constant) and cutoff == core.Constant.MIN_POSITIVE_NORMAL
+            isinstance(cutoff, core.Constant)
+            and cutoff == core.Constant.MIN_POSITIVE_NORMAL
         )
         if self.robust:
             if default:
