@@ -17,7 +17,12 @@ from copy import deepcopy
 from typing import Any
 
 from ..core import DataType
-from ..framework.common import TBD, DataEvalType, Scalar, Tensor
+from ..framework.common import (  # , Scalar, Tensor
+    TBD,
+    DataEvalType,
+    IOHyperEdge,
+    Tensor,
+)
 
 KeyMapType = dict[str, str]
 
@@ -152,8 +157,9 @@ def reorganize_args(
     return organized_arguments
 
 
-def is_make_array_required(data: Tensor | Scalar) -> bool:
-    if isinstance(data, Tensor):
+def is_make_array_required(data: IOHyperEdge) -> bool:
+    if data.edge_type is Tensor:
+        assert data.shape is not None
         _temp_shape = next(iter(data.shape.reprs))
         # It is needed to guarantee that Tensor is at least one dimensional.
         # Note that having variadic field does not imply greater dimensionality

@@ -21,9 +21,8 @@ from ...core import DataType, GenericDataType
 from ..common import (
     TBD,
     AllValueType,
+    IOHyperEdge,
     MainValueType,
-    Scalar,
-    Tensor,
     ToBeDetermined,
     ValueType,
 )
@@ -96,6 +95,7 @@ class FlatGraph(GenericDataType[DataType]):
         self._topological_order: list[str] = []
         self._input_keys = input_keys
         self.random_keys: set[str] = set()
+        self._pruned_keys: dict[str, str] = {}
 
         self.output_dict: dict[str, str] = {key: key for key in output_keys}
         self._temp_connection_info: dict[str, str] = {}
@@ -212,6 +212,18 @@ class FlatGraph(GenericDataType[DataType]):
     def all_source_keys(self) -> set[str]:
         return self._all_source_keys
 
+    @property
+    def pruned_keys(self) -> dict[str, str]:
+        return self._pruned_keys
+
+    @property
+    def dropped_keys(self) -> dict[str, str]:
+        return self._temp_connection_info
+
+    @property
+    def unnecessary_keys(self) -> dict[str, str]:
+        return self.pruned_keys | self.dropped_keys
+
     def _update_topological_order(self) -> None:
         self._topological_order = [
             node.connections[PrimitiveModel.output_key].key
@@ -324,10 +336,9 @@ class FlatGraph(GenericDataType[DataType]):
 
     def prune_duplicate_nodes(
         self,
-        data: dict[str, Tensor | Scalar],
+        data: dict[str, IOHyperEdge],
         constant_keys: Mapping[str, DataType | MainValueType],
-    ) -> dict[str, str]:
-        pruned_keys: dict[str, str] = {}
+    ) -> None:
         for node in list(self.nodes.values()):
             conn = self._is_duplicate(node, data, constant_keys)
             if conn is None:
@@ -335,14 +346,12 @@ class FlatGraph(GenericDataType[DataType]):
 
             key = node.connections["output"].key
             self._prune_node(node, conn)
-            pruned_keys[key] = conn.key
-
-        return pruned_keys
+            self._pruned_keys[key] = conn.key
 
     def _is_duplicate(
         self,
         node: Node,
-        data: dict[str, Tensor | Scalar],
+        data: dict[str, IOHyperEdge],
         constant_keys: Mapping[str, DataType | MainValueType],
     ) -> Connection | None:
         # Model id is a unique key for unique operation

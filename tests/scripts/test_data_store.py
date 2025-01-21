@@ -22,23 +22,24 @@ from mithril.models import (
     Add,
     Buffer,
     Convolution2D,
+    Indexer,
     IOKey,
     Linear,
     Model,
     PhysicalModel,
     PrimitiveUnion,
     Relu,
-    ScalarItem,
     Shape,
     Sigmoid,
     Subtract,
+    Tensor,
     ToTensor,
 )
 
 
 @pytest.mark.skip(reason="Move this test to DataStore method tests.")
 def test_data_store_1():
-    backend = TorchBackend(precision=32)
+    backend = TorchBackend()
     model = Linear(dimension=1)
     pm = PhysicalModel(
         model=model,
@@ -67,7 +68,7 @@ def test_data_store_1():
 @pytest.mark.skip(reason="Move this test to DataStore method tests.")
 def test_data_store_1_numpy():
     """Tests add_static_data works as expected for Numpy backend."""
-    backend = NumpyBackend(precision=32)
+    backend = NumpyBackend()
     model = Linear(dimension=1)
     pm = PhysicalModel(
         model=model,
@@ -99,7 +100,7 @@ def test_data_store_1_numpy():
 
 def test_data_store_3():
     """Tests all private attributes of DataStore are correct after compilation."""
-    backend = TorchBackend(precision=32)
+    backend = TorchBackend()
     model = Linear(dimension=1)
     static_data = {
         "input": backend.array([[1.0, 2, 3]]),
@@ -124,7 +125,7 @@ def test_data_store_4():
     corresponding keys. In this test, all inputs other than "output","_Shape_1_output"
     and "" should be unused.
     """
-    backend = TorchBackend(precision=32)
+    backend = TorchBackend()
     model = Model()
     model += Linear()(input="input", weight="weight", bias="bias")
     model += Shape()
@@ -154,13 +155,13 @@ def test_data_store_5():
     converts it only to corresponding backend tensor. So all keys other
     that "output" would become unused.
     """
-    backend = TorchBackend(precision=32)
+    backend = TorchBackend()
     model = Model()
     model += Linear()(input="input", weight="weight", bias="bias")
     model += Shape()
     model += ToTensor()
     shapes = {"input": [3, 2], "weight": [2, 2], "bias": [2]}
-    pm = mithril.compile(model, backend=backend, shapes=shapes)
+    pm = mithril.compile(model, backend=backend, shapes=shapes, inference=True)
     # Only "output" key is not in unused_keys.
     assert pm.data_store.unused_keys == pm.data.keys() - {"output"}
 
@@ -169,7 +170,7 @@ def test_data_store_6_error():
     """Tests if expected Exception raised when providing a static key in
     compile, if the key is an unusued key.
     """
-    backend = TorchBackend(precision=32)
+    backend = TorchBackend()
     model = Model()
     model += Linear()(input="input", weight="weight", bias="bias")
     model += Shape()
@@ -192,11 +193,13 @@ def test_data_store_7():
     # TODO: This test is expects cached_data to be "input" and "output" but
     # after we fix corresponding flat_graph handlings, it will be changed
     # to expect only "output" as cached_data and "input" as unused_keys.
-    backend = TorchBackend(precision=32)
+    backend = TorchBackend()
     model = Buffer()
 
     value = backend.array([[1.0, 2, 3]])
-    pm = mithril.compile(model, backend=backend, constant_keys={"input": value})
+    pm = mithril.compile(
+        model, backend=backend, constant_keys={"input": value}, inference=True
+    )
     res = pm.evaluate()
 
     assert pm.data_store.data_values.keys() == {"input"}
@@ -207,7 +210,7 @@ def test_data_store_7():
 
 
 def test_data_store_8():
-    backend = TorchBackend(precision=32)
+    backend = TorchBackend()
     model = Model()
     model += Sigmoid()(input="input", output=IOKey(name="output1"))
     model += Sigmoid()(input="input", output=IOKey(name="output2"))
@@ -224,13 +227,15 @@ def test_data_store_8():
 
 def test_data_store_9():
     """Infer static keys from pruned buffer"""
-    backend = TorchBackend(precision=32)
+    backend = TorchBackend()
     model = Model()
     model += Buffer()(input="input")
     model += Sigmoid()(input="input", output=IOKey(name="output1"))
 
     value = backend.array([[1.0, 2, 3]])
-    pm = mithril.compile(model, backend=backend, constant_keys={"input": value})
+    pm = mithril.compile(
+        model, backend=backend, constant_keys={"input": value}, inference=True
+    )
 
     assert pm.data_store.data_values.keys() == {"output1"}
     assert (pm.data_store.data_values["output1"] == backend.sigmoid(value)).all()  # type: ignore[union-attr]
@@ -241,13 +246,15 @@ def test_data_store_9():
 
 def test_data_store_10():
     """Infer static keys from pruned buffer 2"""
-    backend = TorchBackend(precision=32)
+    backend = TorchBackend()
     model = Model()
     model += Buffer()(input="input", output=IOKey(name="output1", expose=True))
     model += Sigmoid()(input="input", output=IOKey(name="output2", expose=True))
 
     value = backend.array([[1.0, 2, 3]])
-    pm = mithril.compile(model, backend=backend, constant_keys={"input": value})
+    pm = mithril.compile(
+        model, backend=backend, constant_keys={"input": value}, inference=True
+    )
 
     assert pm.data_store.data_values.keys() == {"input", "output2"}
     assert (pm.data_store.data_values["output2"] == backend.sigmoid(value)).all()  # type: ignore[union-attr]
@@ -257,7 +264,7 @@ def test_data_store_10():
 
 
 def test_data_store_11():
-    backend = TorchBackend(precision=32)
+    backend = TorchBackend()
     model = Model()
     model += Sigmoid()(input="input", output=IOKey(name="output1", expose=True))
     model += Sigmoid()(input="input", output=IOKey(name="output2", expose=True))
@@ -278,10 +285,14 @@ def test_data_store_11():
 
 def test_data_store_13():
     """partial infer test"""
-    backend = TorchBackend(precision=32)
+    backend = TorchBackend()
     model = Model()
-    model += Add()(left="left", right="right", output=IOKey(name="out"))
-    model += Subtract()(
+    add = Add()
+    add.set_types(left=Tensor, right=Tensor)
+    subtract = Subtract()
+    subtract.set_types(left=Tensor, right=Tensor)
+    model += add(left="left", right="right", output=IOKey(name="out"))
+    model += subtract(
         left="out", right="something", output=IOKey(name="out2", expose=True)
     )
 
@@ -304,11 +315,11 @@ def test_data_store_13():
 
 def test_data_store_14():
     """Infer statics with shapes"""
-    backend = TorchBackend(precision=32)
+    backend = TorchBackend()
     model = Model()
     model += Buffer()(input="input1", output=IOKey(name="out1", expose=True))
     model += (s := Shape())(input="out1")
-    model += (i := ScalarItem(index=1))(input=s.output)
+    model += (i := Indexer(index=1))(input=s.output)
     model += (u := PrimitiveUnion(2))(input1=i.output, input2=i.output)
     model += Convolution2D(kernel_size=3, out_channels=10, stride=TBD, use_bias=False)(
         input="input2",
@@ -325,6 +336,7 @@ def test_data_store_14():
         model,
         backend=backend,
         constant_keys={"input1": input1, "input2": input2, "weight": weight},
+        inference=True,
     )
     assert pm.data_store.data_values.keys() == {"input1", "out2"}
     assert pm.data_store.runtime_static_keys == set()
@@ -359,11 +371,11 @@ def test_data_store_14():
 
 def test_data_store_15():
     """Infer statics with shapes"""
-    backend = TorchBackend(precision=32)
+    backend = TorchBackend()
     model = Model()
     model += Buffer()(input="input1", output=IOKey(name="out1", expose=True))
     model += (s := Shape())(input="out1")
-    model += (i := ScalarItem(index=1))(input=s.output)
+    model += (i := Indexer(index=1))(input=s.output)
     model += (u := PrimitiveUnion(2))(input1=i.output, input2=i.output)
     model += Convolution2D(kernel_size=3, out_channels=10, stride=TBD, use_bias=False)(
         input="input2",
@@ -380,6 +392,7 @@ def test_data_store_15():
         model,
         backend=backend,
         constant_keys={"input1": input1, "input2": input2, "weight": weight},
+        inference=True,
     )
     assert pm.data_store.data_values.keys() == {"input1", "out2"}
     assert pm.data_store.runtime_static_keys == set()
@@ -414,7 +427,7 @@ def test_data_store_15():
 
 def test_data_store_16():
     """Tests add_static_data works as expected for Numpy backend."""
-    backend = NumpyBackend(precision=32)
+    backend = NumpyBackend()
     model = Linear(dimension=1)
     pm = PhysicalModel(
         model=model,
@@ -443,9 +456,11 @@ def test_data_store_16():
 
 def test_data_store_17():
     """Check 'runtime_static_keys'"""
-    backend = NumpyBackend(precision=32)
+    backend = NumpyBackend()
     model = Model()
-    model += (add := Add())(left="left")
+    add = Add()
+    add.set_types(left=Tensor, right=Tensor)
+    model += add(left="left")
     add.right.set_differentiable(False)
     model += Sigmoid()(input=add.output, output="output")
     pm = PhysicalModel(
@@ -470,9 +485,11 @@ def test_data_store_17():
 
 def test_data_store_18():
     """Test infer ignore should remove from Data store 'runtime_static_keys'"""
-    backend = TorchBackend(precision=32)
+    backend = TorchBackend()
     model = Model()
-    model += (add := Add())(left="left")
+    add = Add()
+    add.set_types(left=Tensor, right=Tensor)
+    model += add(left="left")
     add.right.set_differentiable(False)
     model += Sigmoid()(input=add.output, output=IOKey("output"))
 
@@ -500,7 +517,7 @@ def test_data_store_18():
 
 def test_data_store_19():
     """Test infer ignore should remove infered data from Data store"""
-    backend = TorchBackend(precision=32)
+    backend = TorchBackend()
     model = Model()
     model += (add := Add())(left="left", right="right")
     model += Sigmoid()(input=add.output, output=IOKey("output"))
@@ -530,7 +547,7 @@ def test_data_store_19():
 
 def test_data_store_20():
     """Test data store holds intermediate non-differentiables correctly."""
-    backend = TorchBackend(precision=32)
+    backend = TorchBackend()
     model = Model()
     model += (add := Add())(left="left", right="right")
     model += (shp := Shape())(input=add.left)
@@ -546,7 +563,7 @@ def test_data_store_20():
         constant_keys={"left": left, "right": right},
         trainable_keys=set(),
         shapes=dict(),
-        inference=False,
+        inference=True,
         safe_shapes=True,
         safe_names=True,
         use_short_namings=True,

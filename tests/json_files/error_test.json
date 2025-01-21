@@ -23,7 +23,7 @@
                     "weight": "weight1", "bias": "bias1", "output": "output"
                 },
                 "m1": {
-                    "input": "input", "weight": "weight0", "bias": "bias0", "output": {"connect": [["m2", "input"]]}
+                    "input": "input", "weight": "weight0", "bias": "bias0", "output": {"key": {"connect": [["m2", "input"]]}}
                 }
             }
         },
@@ -113,7 +113,7 @@
                     "weight": "weight1", "bias": "bias1", "output": "output"
                 },
                 "m1": {
-                    "input": "input", "weight": "weight0", "bias": "bias0", "output": {"connect": [["m2", "input"]]}
+                    "input": "input", "weight": "weight0", "bias": "bias0", "output": {"key": {"connect": [["m2", "input"]]}}
                 }
             }
         },

@@ -23,6 +23,7 @@ import torch
 
 import mithril
 from mithril import Backend, JaxBackend, MlxBackend, NumpyBackend, TorchBackend
+from mithril.framework.common import Tensor
 from mithril.models import (
     TBD,
     Arange,
@@ -40,6 +41,7 @@ from mithril.models import (
     Greater,
     GreaterEqual,
     GroupNorm,
+    Indexer,
     IOKey,
     IsNan,
     Less,
@@ -58,7 +60,6 @@ from mithril.models import (
     PrimitiveUnion,
     Prod,
     Randn,
-    ScalarItem,
     ScaledDotProduct,
     Shape,
     SiLU,
@@ -66,7 +67,6 @@ from mithril.models import (
     Slice,
     SquaredError,
     Squeeze,
-    TensorItem,
     ToList,
     ToTensor,
     ToTuple,
@@ -236,6 +236,7 @@ def compile_and_compare(
 
 def test_buffer_1():
     model = Buffer()
+    model.set_types(input=Tensor)
     compile_kwargs = {
         "constant_keys": {"input": [[1.0, 2.0, 3.0], [1.0, 2.0, 3.0]]},
         "inference": True,
@@ -254,6 +255,7 @@ def test_buffer_1():
 
 def test_buffer_2():
     model = Buffer()
+    model.set_types(input=Tensor)
     params = {"input": [[1.0, 2.0, 3.0], [1.0, 2.0, 3.0]]}
     output_gradients = {"output": [[12.0, 13.0, 14.0], [15.0, 16.0, 17.0]]}
     reference_outputs = {"output": [[1.0, 2.0, 3.0], [1.0, 2.0, 3.0]]}
@@ -1276,7 +1278,7 @@ def test_eye_1():
     }
     compile_and_compare(
         model=model,
-        compile_kwargs={},
+        compile_kwargs={"inference": True},
         data={},
         params={},
         output_gradients={},
@@ -1347,7 +1349,7 @@ def test_eye_complement_1():
     reference_outputs = {"output": [[0.0, 1.0], [1.0, 0.0]]}
     compile_and_compare(
         model=model,
-        compile_kwargs={},
+        compile_kwargs={"inference": True},
         data={"N": 2},
         params={},
         output_gradients={},
@@ -1719,7 +1721,7 @@ def test_slice_1():
     # Tuple slice
 
     slice_model = Slice(step=None)
-    item_model = ScalarItem()
+    item_model = Indexer()
 
     model = Model()
     model += slice_model(start=2, stop=3)
@@ -1749,7 +1751,7 @@ def test_slice_1():
 def test_slice_2():
     # Tuple slice
     slice_model = Slice(start=None, step=None)
-    item_model = ScalarItem()
+    item_model = Indexer()
 
     model = Model()
     model += slice_model(stop=3)
@@ -1779,7 +1781,7 @@ def test_slice_2():
 def test_slice_3():
     # Tuple slice
     slice_model = Slice(start=None)
-    item_model = ScalarItem()
+    item_model = Indexer()
 
     model = Model()
     model += slice_model(stop=3, step=2)
@@ -1809,7 +1811,7 @@ def test_slice_3():
 def test_slice_4():
     # Tuple slice
     slice_model = Slice(start=None, stop=None)
-    item_model = ScalarItem()
+    item_model = Indexer()
 
     model = Model()
     model += slice_model(step=2)
@@ -1959,7 +1961,7 @@ def test_union_3():
 
 def test_index_1():
     # List index
-    model = ScalarItem(index=2)
+    model = Indexer(index=2)
 
     data = {"input": [1, 2, 3, 4, 5]}
 
@@ -1985,7 +1987,7 @@ def test_index_1():
 
 def test_index_2():
     # Tuple index
-    model = ScalarItem(index=2)
+    model = Indexer(index=2)
 
     data = {"input": (1, 2, 3.0, 4, 5)}
 
@@ -2462,19 +2464,21 @@ def test_cast_int16():
     inp_int = np.array([1, -2, 3], dtype=np.int32)
     inp_float = np.array([1, -2, 3], dtype=np.float32)
     backends: list[TorchBackend | JaxBackend | NumpyBackend | MlxBackend] = [
-        TorchBackend(precision=16),
-        TorchBackend(precision=32),
-        TorchBackend(precision=64),
-        NumpyBackend(precision=16),
-        NumpyBackend(precision=32),
-        NumpyBackend(precision=64),
-        JaxBackend(precision=16),
-        JaxBackend(precision=32),
-        JaxBackend(precision=64),
+        TorchBackend(dtype=mithril.float16),
+        TorchBackend(dtype=mithril.bfloat16),
+        TorchBackend(dtype=mithril.float32),
+        TorchBackend(dtype=mithril.float64),
+        NumpyBackend(dtype=mithril.float16),
+        NumpyBackend(dtype=mithril.float32),
+        NumpyBackend(dtype=mithril.float64),
+        JaxBackend(dtype=mithril.float16),
+        JaxBackend(dtype=mithril.bfloat16),
+        JaxBackend(dtype=mithril.float32),
+        JaxBackend(dtype=mithril.float64),
     ]
 
     if platform.system() == "Darwin":
-        backends += [MlxBackend(precision=16), MlxBackend(precision=32)]
+        backends += [MlxBackend(dtype=mithril.float16), MlxBackend()]
 
     expected_dtypes = {
         "torch": torch.int16,
@@ -2509,19 +2513,21 @@ def test_cast_int32():
     inp_int = np.array([1, -2, 3], dtype=np.int32)
     inp_float = np.array([1, -2, 3], dtype=np.float32)
     backends: list[Backend] = [
-        TorchBackend(precision=16),
-        TorchBackend(precision=32),
-        TorchBackend(precision=64),
-        NumpyBackend(precision=16),
-        NumpyBackend(precision=32),
-        NumpyBackend(precision=64),
-        JaxBackend(precision=16),
-        JaxBackend(precision=32),
-        JaxBackend(precision=64),
+        TorchBackend(dtype=mithril.float16),
+        TorchBackend(dtype=mithril.bfloat16),
+        TorchBackend(dtype=mithril.float32),
+        TorchBackend(dtype=mithril.float64),
+        NumpyBackend(dtype=mithril.float16),
+        NumpyBackend(dtype=mithril.float32),
+        NumpyBackend(dtype=mithril.float64),
+        JaxBackend(dtype=mithril.float16),
+        JaxBackend(dtype=mithril.bfloat16),
+        JaxBackend(dtype=mithril.float32),
+        JaxBackend(dtype=mithril.float64),
     ]
 
     if platform.system() == "Darwin":
-        backends += [MlxBackend(precision=16), MlxBackend(precision=32)]
+        backends += [MlxBackend(dtype=mithril.float16), MlxBackend()]
 
     expected_dtypes = {
         "torch": torch.int32,
@@ -2555,19 +2561,21 @@ def test_cast_int64():
     inp_int = np.array([1, -2, 3], dtype=np.int32)
     inp_float = np.array([1, -2, 3], dtype=np.float32)
     backends: list[Backend] = [
-        TorchBackend(precision=16),
-        TorchBackend(precision=32),
-        TorchBackend(precision=64),
-        NumpyBackend(precision=16),
-        NumpyBackend(precision=32),
-        NumpyBackend(precision=64),
-        JaxBackend(precision=16),
-        JaxBackend(precision=32),
-        JaxBackend(precision=64),
+        TorchBackend(dtype=mithril.float16),
+        TorchBackend(dtype=mithril.bfloat16),
+        TorchBackend(dtype=mithril.float32),
+        TorchBackend(dtype=mithril.float64),
+        NumpyBackend(dtype=mithril.float16),
+        NumpyBackend(dtype=mithril.float32),
+        NumpyBackend(dtype=mithril.float64),
+        JaxBackend(dtype=mithril.float16),
+        JaxBackend(dtype=mithril.bfloat16),
+        JaxBackend(dtype=mithril.float32),
+        JaxBackend(dtype=mithril.float64),
     ]
 
     if platform.system() == "Darwin":
-        backends += [MlxBackend(precision=16), MlxBackend(precision=32)]
+        backends += [MlxBackend(dtype=mithril.float16), MlxBackend()]
 
     expected_dtypes = {
         "torch": torch.int64,
@@ -2599,19 +2607,21 @@ def test_cast_float16():
     inp_int = np.array([1, -2, 3], dtype=np.int32)
     inp_float = np.array([1, -2, 3], dtype=np.float32)
     backends: list[TorchBackend | JaxBackend | NumpyBackend | MlxBackend] = [
-        TorchBackend(precision=16),
-        TorchBackend(precision=32),
-        TorchBackend(precision=64),
-        NumpyBackend(precision=16),
-        NumpyBackend(precision=32),
-        NumpyBackend(precision=64),
-        JaxBackend(precision=16),
-        JaxBackend(precision=32),
-        JaxBackend(precision=64),
+        TorchBackend(dtype=mithril.float16),
+        TorchBackend(dtype=mithril.bfloat16),
+        TorchBackend(dtype=mithril.float32),
+        TorchBackend(dtype=mithril.float64),
+        NumpyBackend(dtype=mithril.float16),
+        NumpyBackend(dtype=mithril.float32),
+        NumpyBackend(dtype=mithril.float64),
+        JaxBackend(dtype=mithril.float16),
+        JaxBackend(dtype=mithril.bfloat16),
+        JaxBackend(dtype=mithril.float32),
+        JaxBackend(dtype=mithril.float64),
     ]
 
     if platform.system() == "Darwin":
-        backends += [MlxBackend(precision=16), MlxBackend(precision=32)]
+        backends += [MlxBackend(dtype=mithril.float16), MlxBackend()]
 
     expected_dtypes = {
         "torch": torch.float16,
@@ -2644,19 +2654,21 @@ def test_cast_float32():
     inp_int = np.array([1, -2, 3], dtype=np.int32)
     inp_float = np.array([1, -2, 3], dtype=np.float32)
     backends: list[Backend] = [
-        TorchBackend(precision=16),
-        TorchBackend(precision=32),
-        TorchBackend(precision=64),
-        NumpyBackend(precision=16),
-        NumpyBackend(precision=32),
-        NumpyBackend(precision=64),
-        JaxBackend(precision=16),
-        JaxBackend(precision=32),
-        JaxBackend(precision=64),
+        TorchBackend(dtype=mithril.float16),
+        TorchBackend(dtype=mithril.bfloat16),
+        TorchBackend(dtype=mithril.float32),
+        TorchBackend(dtype=mithril.float64),
+        NumpyBackend(dtype=mithril.float16),
+        NumpyBackend(dtype=mithril.float32),
+        NumpyBackend(dtype=mithril.float64),
+        JaxBackend(dtype=mithril.float16),
+        JaxBackend(dtype=mithril.bfloat16),
+        JaxBackend(dtype=mithril.float32),
+        JaxBackend(dtype=mithril.float64),
     ]
 
     if platform.system() == "Darwin":
-        backends += [MlxBackend(precision=16), MlxBackend(precision=32)]
+        backends += [MlxBackend(dtype=mithril.float16), MlxBackend()]
 
     expected_dtypes = {
         "torch": torch.float32,
@@ -2690,15 +2702,17 @@ def test_cast_float64():
     inp_int = np.array([1, -2, 3], dtype=np.int32)
     inp_float = np.array([1, -2, 3], dtype=np.float32)
     backends: list[Backend] = [
-        TorchBackend(precision=16),
-        TorchBackend(precision=32),
-        TorchBackend(precision=64),
-        NumpyBackend(precision=16),
-        NumpyBackend(precision=32),
-        NumpyBackend(precision=64),
-        JaxBackend(precision=16),
-        JaxBackend(precision=32),
-        JaxBackend(precision=64),
+        TorchBackend(dtype=mithril.float16),
+        TorchBackend(dtype=mithril.bfloat16),
+        TorchBackend(dtype=mithril.float32),
+        TorchBackend(dtype=mithril.float64),
+        NumpyBackend(dtype=mithril.float16),
+        NumpyBackend(dtype=mithril.float32),
+        NumpyBackend(dtype=mithril.float64),
+        JaxBackend(dtype=mithril.float16),
+        JaxBackend(dtype=mithril.bfloat16),
+        JaxBackend(dtype=mithril.float32),
+        JaxBackend(dtype=mithril.float64),
     ]
 
     expected_dtypes = {
@@ -2732,19 +2746,21 @@ def test_cast_bool():
     inp_int = np.array([1, -2, 3], dtype=np.int32)
     inp_float = np.array([1, -2, 3], dtype=np.float32)
     backends: list[Backend] = [
-        TorchBackend(precision=16),
-        TorchBackend(precision=32),
-        TorchBackend(precision=64),
-        NumpyBackend(precision=16),
-        NumpyBackend(precision=32),
-        NumpyBackend(precision=64),
-        JaxBackend(precision=16),
-        JaxBackend(precision=32),
-        JaxBackend(precision=64),
+        TorchBackend(dtype=mithril.float16),
+        TorchBackend(dtype=mithril.bfloat16),
+        TorchBackend(dtype=mithril.float32),
+        TorchBackend(dtype=mithril.float64),
+        NumpyBackend(dtype=mithril.float16),
+        NumpyBackend(dtype=mithril.float32),
+        NumpyBackend(dtype=mithril.float64),
+        JaxBackend(dtype=mithril.float16),
+        JaxBackend(dtype=mithril.bfloat16),
+        JaxBackend(dtype=mithril.float32),
+        JaxBackend(dtype=mithril.float64),
     ]
 
     if platform.system() == "Darwin":
-        backends += [MlxBackend(precision=16), MlxBackend(precision=32)]
+        backends += [MlxBackend(dtype=mithril.float16), MlxBackend()]
 
     expected_dtypes = {
         "torch": torch.bool,
@@ -3553,7 +3569,7 @@ def test_slice_all_keys_given_all_three_parts():
 def test_tensor_item_with_slice_1():
     model = Model()
 
-    item_model = TensorItem()
+    item_model = Indexer()
     slice_model = Slice(start=0, stop=1, step=None)
 
     model += slice_model
@@ -3589,7 +3605,7 @@ def test_tensor_item_with_slice_1():
 def test_tensor_item_with_slice_2():
     model = Model()
 
-    item_model = TensorItem()
+    item_model = Indexer()
     slice_model = Slice(start=0, stop=2, step=None)
 
     model += slice_model

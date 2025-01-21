@@ -39,10 +39,10 @@ from ..common import (
     MainValueType,
     NotAvailable,
     ParamsEvalType,
-    Scalar,
     ShapeResultType,
     Table,
     Tensor,
+    ToBeDetermined,
     UniadicRecord,
     Updates,
     Variadic,
@@ -177,11 +177,13 @@ class PhysicalModel(GenericDataType[DataType]):
         self.flat_graph: FlatGraph[DataType] = FlatGraph(
             self._input_keys, self._output_keys
         )
-        memo: dict[int, Tensor | Scalar] = {}
+        memo: dict[int, IOHyperEdge] = {}
         self.data_store: StaticDataStore[DataType] = StaticDataStore(
             self.flat_graph, backend, inference, model.constraint_solver, memo
         )
-
+        # Initialize an Updates object to store updates and pass it to the
+        # _pre_compile.
+        updates = Updates()
         for p_model, mappings in flat_model:
             model_shapes = {}
             if safe_shapes and p_model.safe_shapes:
@@ -189,54 +191,66 @@ class PhysicalModel(GenericDataType[DataType]):
                     p_model.safe_shapes, self.data_store.constraint_solver
                 )
 
-            model_data: dict[str, Tensor | Scalar] = {}
+            model_data: dict[str, IOHyperEdge] = {}
             for key in p_model.conns.all:
                 global_key = mappings[key]
                 logical_data = p_model.conns.get_data(key)
-                physical_data: Tensor | Scalar = logical_data.make_physical(
-                    self.backend, memo=memo
-                )
-                # Set differentiability of non-differentiable tensor inputs to False.
-                if isinstance(physical_data, Tensor):
-                    # TODO: Second condition in if will be removed
-                    # after Primitive's compile handling updated..
-                    if (
-                        global_key in self._non_differentiable_keys
-                        or physical_data.value is not TBD
-                    ):
-                        # TODO: Create an API for setting differentiability of a tensor.
-                        physical_data.differentiable = False
-                    elif global_key in self._trainable_tensor_inputs:
-                        physical_data.differentiable = True
+                physical_data: IOHyperEdge = deepcopy(logical_data, memo=memo)
+
+                if global_key in self._non_differentiable_keys:
+                    # TODO: Create an API for setting differentiability of a tensor.
+                    physical_data.differentiable = False
+                elif global_key in self._trainable_tensor_inputs:
+                    if physical_data.edge_type not in (Tensor, ToBeDetermined):
+                        raise ValueError(
+                            f"Non-tensor type data can not be trainable: {global_key}"
+                        )
+                    elif physical_data.edge_type is ToBeDetermined:
+                        # Set physical data type to Tensor.
+                        updates |= physical_data.set_type(Tensor)
+                    elif physical_data.value is not TBD:
+                        raise ValueError(
+                            f"Valued data can not be trainable: {global_key}"
+                        )
+                    physical_data.differentiable = True
 
                 model_data[key] = physical_data
                 self.data_store.data_memo[id(logical_data)] = physical_data
 
                 if key_shape := model_shapes.get(key):
                     data = model_data[key]
-                    assert isinstance(data, Tensor)
+                    assert data.edge_type is Tensor
                     shp = data.shape
-                    shp.merge(key_shape.node)
+                    assert shp is not None
+                    # assert shp is not None
+                    updates |= shp.merge(key_shape.node)
+
+            # Since we may update type and shape, we need to call constraint
+            # solver to propagate updates.
+            self.data_store.constraint_solver(updates)
 
             output = PrimitiveModel.output_key
-            _data_dict: dict[str, Tensor | Scalar] = {}
+            _data_dict: dict[str, IOHyperEdge] = {}
 
+            self._infer_differentiability(model_data)
             for inner_key in p_model.external_keys:
                 outer_key = mappings[inner_key]
                 if outer_key not in self.data:
                     _data_dict[outer_key] = model_data[inner_key]
             self.data_store.update_data(_data_dict)
-            self._infer_differentiability(p_model, mappings)
 
             # NOTE: maybe move adding cache to generate_code methods.
             if self.backend.backend_type == "numpy":
                 cache_name = "_".join([mappings[output], p_model.cache_name])
                 mappings["cache"] = cache_name
-                cache_value: DataEvalType[DataType] | None = (
+                # TODO: Why do we have to provide cache_value here? It is
+                # NONE | dict().
+                cache_value: dict[str, MainValueType] | None = (
                     None if self.inference else dict()
                 )
                 # Create A object for caches in manualgrad backend.
-                cache_scalar = Scalar(dict | None, cache_value)
+                cache_scalar = IOHyperEdge(type=dict | type(None), value=cache_value)
+
                 self.data_store.update_data({cache_name: cache_scalar})
 
             self.flat_graph.add_value(p_model, mappings)
@@ -310,7 +324,7 @@ class PhysicalModel(GenericDataType[DataType]):
     ) -> None:
         for key in constant_keys.keys() | data_keys:
             if isinstance(key, Connection):
-                value = key.metadata.data.value
+                value = key.metadata.value
                 key_type = "connection"
             else:
                 value = model.conns.get_data(key).value
@@ -378,7 +392,7 @@ class PhysicalModel(GenericDataType[DataType]):
         if model is not None:
             # Find corresponding data from self.data_store_data_memo.
             data_dict = {
-                key: self.data_store.data_memo[id(value.metadata.data)]
+                key: self.data_store.data_memo[id(value.metadata)]
                 for key, value in model.conns.all.items()
             }
             key_mappings = model.generate_keys(include_outputs=True)
@@ -396,7 +410,7 @@ class PhysicalModel(GenericDataType[DataType]):
         )
 
     @property
-    def data(self) -> dict[str, Tensor | Scalar]:
+    def data(self) -> dict[str, IOHyperEdge]:
         return self.data_store.all_data
 
     @property
@@ -411,25 +425,21 @@ class PhysicalModel(GenericDataType[DataType]):
     def input_keys(self) -> set[str]:
         return self._input_keys
 
-    def _infer_differentiability(
-        self, model: PrimitiveModel, dag: dict[str, str]
-    ) -> None:
+    def _infer_differentiability(self, model_data: dict[str, IOHyperEdge]) -> None:
         # Infer output differentiability only for the models
         # that have a Tensor type output.
-        if isinstance(model.output.metadata.data, Tensor):
+        output_key = PrimitiveModel.output_key
+        output_edge = model_data[output_key]
+        if output_edge.edge_type is Tensor:
             # If any of the inputs are differentiable, then
             # the output is also differentiable.
-            output_key = dag[PrimitiveModel.output_key]
-            for key, value in dag.items():
-                if (
-                    key != PrimitiveModel.output_key
-                    and not self.data[value].is_non_diff
-                ):
-                    self.data[output_key].differentiable = True
+            for key, value in model_data.items():
+                if key != output_key and not value.is_non_diff:
+                    output_edge.differentiable = True
                     return
             # If all inputs are non-differentiable, then the output is also
             # non-differentiable.
-            self.data[output_key].differentiable = False
+            output_edge.differentiable = False
 
     def randomize_params(
         self,
@@ -514,25 +524,14 @@ class PhysicalModel(GenericDataType[DataType]):
         # Set given shapes.
         self.data_store.set_shapes(shapes)
 
-        for node in self.flat_graph.nodes.values():
-            conn_data = node.model.conns.get_connection("output")
-            assert conn_data is not None
-            if isinstance(conn_data.metadata.data, Scalar) or (
-                not find_intersection_type(float, conn_data.metadata.data.type)
-            ):
-                self.ignore_grad_keys.add(
-                    node.connections[PrimitiveModel.output_key].key
-                )
-
-        pruned_keys = self.flat_graph.prune_duplicate_nodes(self.data, constant_keys)
+        self.flat_graph.prune_duplicate_nodes(self.data, constant_keys)
 
         updates = Updates()
-
         reverse_data_memo = {
             value: key for key, value in self.data_store.data_memo.items()
         }
 
-        for key, conn_key in pruned_keys.items():
+        for key, conn_key in self.flat_graph.unnecessary_keys.items():
             pruned_data = self.data[key]
             remained_data = self.data[conn_key]
 
@@ -541,13 +540,14 @@ class PhysicalModel(GenericDataType[DataType]):
             logical_id = reverse_data_memo[pruned_data]
             self.data_store.data_memo[logical_id] = remained_data
 
-            updates |= remained_data.match(pruned_data)  # type: ignore
+            if key in self.flat_graph.pruned_keys:
+                updates |= remained_data.match(pruned_data)
             self.data[key] = remained_data
 
         for value in self.data_store.intermediate_non_differentiables.inverse:
             # there can exist some inferred intermediate scalar keys in logical model.
             # find those keys and add to cached datas
-            if isinstance(value, Scalar) and value.value is not TBD:
+            if (value.edge_type is not Tensor) and (value.value is not TBD):
                 updates.add(value)
 
         self.data_store.update_cached_data(updates)
@@ -559,7 +559,6 @@ class PhysicalModel(GenericDataType[DataType]):
 
         # Extract idle keys which are not an output
         # of the model nor an input to a PrimitiveModel.
-
         self.discarded_keys |= {
             key for key in self.flat_graph.hanging_keys if key not in self.output_keys
         }
@@ -568,7 +567,13 @@ class PhysicalModel(GenericDataType[DataType]):
             self.discarded_keys, self._output_keys
         )
 
-        self.data_store.remove_keys_from_store(self.discarded_keys | pruned_keys.keys())
+        # TODO: Should we store ignored_grad_keys and discarded_keys
+        # as attributes?
+        self.ignore_grad_keys |= self.discarded_keys
+
+        self.data_store.remove_keys_from_store(
+            self.discarded_keys | self.flat_graph.unnecessary_keys.keys()
+        )
 
         # Infer and store all static keys using user provided constant keys and
         # the non-tensor constants defined in logical model.
@@ -584,7 +589,31 @@ class PhysicalModel(GenericDataType[DataType]):
                     "no need to provide data for it."
                 )
 
-        self.ignore_grad_keys |= self.discarded_keys
+        # Add non-tensor, valued and valued dropped data to ignored_grad_keys.
+        self.ignore_grad_keys |= {
+            key
+            for key, value in self.flat_graph.dropped_keys.items()
+            if value in self.data_store.data_values
+        }
+        for node in self.flat_graph.nodes.values():
+            _key = node.connections["output"].key
+            conn_edge = self.data.get(_key, None)
+            # TODO: If conn_edge is None, it means that the key is unused in data_store
+            # but not unnecessary in flat_graph. This case should be handled when
+            # flat_graph - data_store integration is updated.
+            if conn_edge is not None and (
+                (conn_edge.edge_type is not Tensor)
+                or (
+                    (not find_intersection_type(float, conn_edge.value_type))
+                    or _key
+                    in (
+                        self.data_store.data_values.keys() | self.data_store.unused_keys
+                    )
+                )
+            ):
+                self.ignore_grad_keys.add(
+                    node.connections[PrimitiveModel.output_key].key
+                )
 
         if len(self._output_keys - self.ignore_grad_keys) == 0 and not self.inference:
             raise ValueError("All outputs gradient are ignored.")
@@ -670,10 +699,10 @@ class PhysicalModel(GenericDataType[DataType]):
     def _calculate_parameters(
         self,
         name_mappings: dict[BaseModel, str],
-        data_to_key_map: dict[Tensor | Scalar, list[str]] | None = None,
+        data_to_key_map: dict[IOHyperEdge, list[str]] | None = None,
     ) -> tuple[dict[str, tuple[dict[str, str], dict[str, str]]], str]:
         total_params: int = 0
-        seen_data: set[Tensor] = set()
+        seen_data: set[IOHyperEdge] = set()
         exact_param_status: bool = True
         param_info: dict[str, tuple[dict[str, str], dict[str, str]]] = {}
         if data_to_key_map is None:
@@ -704,7 +733,7 @@ class PhysicalModel(GenericDataType[DataType]):
                     in_dict[inner_key] = "0"
                     continue
 
-                assert isinstance(pm_data, Tensor)
+                assert pm_data.shape is not None
                 in_shape = pm_data.shape.get_shapes()
                 if is_list_int(in_shape):
                     # case where the key is trainable and it has shape known
@@ -741,7 +770,7 @@ class PhysicalModel(GenericDataType[DataType]):
     def _print_model_info(
         self,
         total_params: str,
-        data_to_key_map: dict[Tensor | Scalar, list[str]],
+        data_to_key_map: dict[IOHyperEdge, list[str]],
         model: BaseModel | None = None,
     ) -> None:
         # Find constant inputs of the model.
@@ -766,7 +795,7 @@ class PhysicalModel(GenericDataType[DataType]):
             projected_keys: set[str] = set()
             for conn in model.conns.all.values():
                 if (
-                    data := self.data_store.data_memo.get(id(conn.metadata.data))
+                    data := self.data_store.data_memo.get(id(conn.metadata))
                 ) is not None and (pm_keys := data_to_key_map.get(data)):
                     projected_keys.update(pm_keys)
 
@@ -817,13 +846,13 @@ class PhysicalModel(GenericDataType[DataType]):
         if model is None and depth != 0:
             raise ValueError("Depth cannot be specified when model is not given")
         if model is not None:
-            sample_data = next(iter(model.conns.metadata_dict)).data
+            sample_data = next(iter(model.conns.metadata_dict))
             if self.data_store.data_memo.get(id(sample_data)) is None:
                 raise ValueError("Given model is not a part of compiled model")
 
         # If model is not None, create data to key map. this dict will point
         # determined key names in physical model.
-        data_to_key_map: dict[Tensor | Scalar, list[str]] = {}
+        data_to_key_map: dict[IOHyperEdge, list[str]] = {}
         for key, value in self.data.items():
             data_to_key_map.setdefault(value, []).append(key)
 
@@ -925,8 +954,8 @@ class PhysicalModel(GenericDataType[DataType]):
                     # that input key. Meaning that input key is an input to overall
                     # model. Indicate it accordingly
                     input_name = "'" + connection.key + "'"
-                    input_data = model.conns.all[input_key].metadata.data
-                    if isinstance(input_data, Scalar):
+                    input_data = model.conns.all[input_key].metadata
+                    if input_data.edge_type is not Tensor:
                         # If value of the scalar is determined, write that value
                         pm_input_data = self.data_store.data_memo[id(input_data)]
                         if (val := pm_input_data.value) is not TBD:
@@ -1005,7 +1034,7 @@ class PhysicalModel(GenericDataType[DataType]):
             if key[0] == "$":
                 self.data.pop(key)
 
-        kwargs = {key: model.conns.all[key].metadata.data for key in external_keys}
+        kwargs = {key: model.conns.all[key].metadata for key in external_keys}
 
         primitive = PrimitiveModel(
             formula_key=model.formula_key, name=model.name, **kwargs
@@ -1382,7 +1411,7 @@ class FlatModel:
         """
 
         for conn in model.conns.input_connections:
-            if conn.metadata.data.value is TBD and conn.metadata not in self.used_edges:
+            if conn.metadata.value is TBD and conn.metadata not in self.used_edges:
                 return False
         return True
 
