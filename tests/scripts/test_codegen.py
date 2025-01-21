@@ -18,12 +18,22 @@ from importlib import import_module
 
 import mithril
 from mithril import JaxBackend, MlxBackend, NumpyBackend, TorchBackend
-from mithril.models import Concat, Convolution1D, Linear, Mean, Model, Relu, ToTensor,Shape
+from mithril.models import (
+    Concat,
+    Convolution1D,
+    Linear,
+    Mean,
+    Model,
+    Relu,
+    Shape,
+    ToTensor,
+)
 from tests.scripts.test_utils import compare_callables
 
 from ..utils import with_temp_file
 
 # ruff: noqa: F821
+
 
 def list_full(fill_value, *shapes):
     if len(shapes) == 0:
@@ -31,6 +41,8 @@ def list_full(fill_value, *shapes):
     else:
         first_shape, other_shapes = shapes[0], shapes[1:]
         return [list_full(fill_value, *other_shapes) for _ in range(first_shape)]
+
+
 @with_temp_file(".py")
 def test_single_input_primitive(file_path):
     model = Model()
@@ -426,19 +438,27 @@ def test_inline_caching_1(file_path: str):
         return {"conv1_out": conv1_out}
 
     compare_callables(evaluate, eval_func)
+
+
 @with_temp_file(".py")
 def test_inline_caching_2(file_path: str):
-    
     model = Shape()
     backend = TorchBackend(device="cpu")
     statics = {"input": backend.array(list_full(1.0, 2, 3, 4, 5, 1, 2))}
-    mithril.compile(model, backend,constant_keys=statics ,inference=True, jit=False,file_path=file_path)
+    mithril.compile(
+        model,
+        backend,
+        constant_keys=statics,
+        inference=True,
+        jit=False,
+        file_path=file_path,
+    )
 
     file_name = os.path.basename(file_path).split(".")[0]
     eval_func = import_module("tmp." + file_name).evaluate
 
     @typing.no_type_check
     def evaluate(params, data, cache):
-        return {'output': (2, 3, 4, 5, 1, 2)}
+        return {"output": (2, 3, 4, 5, 1, 2)}
 
     compare_callables(evaluate, eval_func)
