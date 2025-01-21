@@ -21,7 +21,6 @@ import jax
 
 from ....core import Dtype
 from ...backend import PadWidthType, ParallelBackend
-from ...utils import DtypeBits, DtypeSubTypes, process_shape
 from ...utils import DtypeSubTypes, StaticScalar, process_shape
 from . import ops, utils
 from .parallel import JaxParallel

@@ -62,7 +62,7 @@ class Backend(ABC, Generic[DataType]):
         return DtypeBits[self._dtype.name].value
 
     @property
-    def default_dtype(self):
+    def default_dtype(self) -> core.Dtype:
         return self._dtype
 
     #!!

@@ -17,7 +17,7 @@ from copy import deepcopy
 from typing import Any, Generic, TypeGuard
 
 from ...backends.backend import Backend
-from ...core import Constant, DataType, data_types, epsilon_table
+from ...core import Constant, DataType, Dtype, data_types, epsilon_table
 from ...utils.func_utils import is_make_array_required, prepare_function_args
 from ...utils.utils import BiMap
 from ..common import (
@@ -166,6 +166,8 @@ class StaticDataStore(Generic[DataType]):
 
         if data.edge_type is Tensor:
             value = self.backend.array(value)
+        if isinstance(value, Dtype):
+            value = getattr(self.backend, value.name)
         self.data_values[key] = value  # type: ignore
 
     def infer_unused_keys(self, key: str) -> None:

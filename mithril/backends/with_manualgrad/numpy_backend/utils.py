@@ -22,7 +22,6 @@ import numpy as np
 from .... import core
 from ....utils.type_utils import is_int_tuple_tuple
 from ....utils.utils import BiMap, binary_search, find_dominant_type
-from ....utils.utils import binary_search, find_dominant_type
 from ...utils import DtypeSubTypes
 
 ArrayType = np.ndarray
@@ -344,7 +343,7 @@ def make_array(
     dtype: str | None = None,
     device: str,
     default_dtype: str,
-):
+) -> np.ndarray[Any, Any]:
     if dtype is None:
         dtype = default_dtype
 

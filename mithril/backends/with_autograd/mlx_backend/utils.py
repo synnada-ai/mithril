@@ -24,7 +24,6 @@ import numpy as np
 
 from .... import core
 from ....utils.utils import BiMap, binary_search, find_dominant_type
-from ....utils.utils import binary_search, find_dominant_type
 from ...utils import DtypeSubTypes
 
 ArrayType = mx.array

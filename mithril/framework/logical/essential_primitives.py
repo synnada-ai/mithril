@@ -640,7 +640,7 @@ class ToTensor(PrimitiveModel):
     def __init__(
         self,
         input: TensorValueType | ToBeDetermined = TBD,
-        dtype: Dtype | None = None,
+        dtype: core.Dtype | None = None,
         *,
         name: str | None = None,
     ) -> None:

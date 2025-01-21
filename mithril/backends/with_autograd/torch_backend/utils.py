@@ -32,7 +32,6 @@ from torch.distributed._tensor import DeviceMesh
 
 from .... import core
 from ....utils.utils import BiMap, binary_search, find_dominant_type
-from ....utils.utils import binary_search, find_dominant_type
 from ...utils import DtypeSubTypes
 
 AVAILABLE_BACKEND_TYPES = ["cpu", "cuda"]

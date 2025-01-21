@@ -1459,7 +1459,7 @@ def test_eye_static_infer_with_dtype():
         }
         compile_and_compare(
             model=model,
-            compile_kwargs={},
+            compile_kwargs={"inference": True},
             data={},
             params={},
             output_gradients={},
@@ -1584,7 +1584,7 @@ def test_eye_complement_static_infer_w_dtype():
         }
         compile_and_compare(
             model=model,
-            compile_kwargs={},
+            compile_kwargs={"inference": True},
             data={},
             params={},
             output_gradients={},

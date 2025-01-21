@@ -22,7 +22,6 @@ import mlx.nn as nn
 
 from ....core import Dtype
 from ...backend import Backend, PadWidthType
-from ...utils import DtypeBits, DtypeSubTypes, process_shape
 from ...utils import DtypeSubTypes, StaticScalar, process_shape
 from . import ops, utils
 

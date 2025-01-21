@@ -941,7 +941,7 @@ def squeeze(
 
 def to_tensor(
     *input: NestedFloatOrIntOrBoolList,
-    dtype: np.dtype | None = None,
+    dtype: np.dtype[Any] | None = None,
     device: str,
     default_dtype: str,
     cache: CacheType | None = None,
@@ -996,7 +996,7 @@ def arange(
     stop: int | float,
     step: int | float,
     *,
-    dtype: np.dtype | None = None,
+    dtype: np.dtype[Any] | None = None,
     device: str,
     default_dtype: str,
     cache: CacheType | None = None,
@@ -1250,7 +1250,7 @@ def nan_to_num(
     return np.nan_to_num(input, nan=nan, posinf=posinf, neginf=neginf)
 
 
-def cast(input: np.ndarray[Any, Any], dtype: np.dtype) -> np.ndarray[Any, Any]:
+def cast(input: np.ndarray[Any, Any], dtype: np.dtype[Any]) -> np.ndarray[Any, Any]:
     return input.astype(dtype)
 
 
@@ -1291,7 +1291,7 @@ def randn(
     device: str,
     default_dtype: str,
     cache: CacheType | None = None,
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     np.random.seed(key)
     if dtype is None:
         dtype = default_dtype

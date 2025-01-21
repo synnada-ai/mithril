@@ -19,7 +19,6 @@ import numpy as np
 
 from ....core import Dtype
 from ...backend import Backend, PadWidthType
-from ...utils import DtypeBits, process_shape
 from ...utils import StaticScalar, process_shape
 from ..common_primitives import CacheType
 from . import ops, ops_grad, utils

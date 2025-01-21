@@ -16,13 +16,13 @@ import re
 from collections.abc import Callable, Iterator, Sequence
 from functools import partial
 from itertools import combinations_with_replacement
+from typing import Any
 
 import jax
 import jax.numpy as jnp
 import jax.scipy.linalg as slin
 from jax import lax, vmap
 from jax import nn as functionals
-from typing import Any
 
 from .... import core
 from ....utils.type_utils import is_tuple_int
@@ -846,7 +846,7 @@ def matrix_concat(input1: jax.Array, input2: jax.Array) -> jax.Array:
 def to_tensor(
     input: NestedFloatOrIntOrBoolList,
     *,
-    dtype: jnp.dtype | None = None,
+    dtype: jnp.dtype[Any] | None = None,
     device: str,
     default_dtype: str,
 ) -> jax.Array:
@@ -866,7 +866,7 @@ def eye(
     N: int,
     M: int | None,
     *,
-    dtype: jnp.dtype | None = None,
+    dtype: jnp.dtype[Any] | None = None,
     device: str,
     default_dtype: str,
 ) -> jax.Array:
@@ -879,7 +879,7 @@ def ones_with_zero_diag(
     N: int,
     M: int | None,
     *,
-    dtype: jnp.dtype | None = None,
+    dtype: jnp.dtype[Any] | None = None,
     device: str,
     default_dtype: str,
 ) -> jax.Array:
@@ -898,7 +898,7 @@ def arange(
     stop: int | float,
     step: int | float,
     *,
-    dtype: jnp.dtype | None = None,
+    dtype: jnp.dtype[Any] | None = None,
     device: str,
     default_dtype: str,
 ) -> jax.Array:
@@ -913,6 +913,7 @@ def arange(
 
 def tensor_to_list(input: jax.Array) -> NestedFloatOrIntOrBoolList:
     return input.tolist()
+
 
 def minimum(left: jax.Array, right: jax.Array) -> jax.Array:
     return jnp.minimum(left, right)
@@ -1042,7 +1043,7 @@ def nan_to_num(
     return jnp.nan_to_num(input, nan=nan, posinf=posinf, neginf=neginf)  # type: ignore
 
 
-def cast(input: jax.Array, dtype: jnp.dtype) -> jax.Array:
+def cast(input: jax.Array, dtype: jnp.dtype[Any]) -> jax.Array:
     return input.astype(dtype)
 
 

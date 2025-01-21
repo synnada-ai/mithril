@@ -180,6 +180,7 @@ type ScalarType = (
     | type[ToBeDetermined]
     | type[str]
     | type[None]
+    | type[Dtype]
     | UnionType
     | GenericAlias
 )
@@ -1164,7 +1165,7 @@ class TemplateBase:
     ) -> ExtendTemplate:
         return ExtendTemplate(connections=[self, dim], model="size")
 
-    def tensor(self):
+    def tensor(self) -> ExtendTemplate:
         return ExtendTemplate(
             connections=[self], model="tensor", defaults={"dtype": None}
         )

@@ -141,6 +141,7 @@ def assert_backend_results_equal(
 
     assert testing_fn(output[0], ref_output[0], rtol=rtol, atol=atol)
 
+
 unsupported_device_dtypes: list[tuple[type[ml.Backend], str, Dtype]] = [
     (ml.TorchBackend, "mps:0", Dtype.float64),
     (ml.TorchBackend, "cpu:0", Dtype.float16),
@@ -1934,7 +1935,7 @@ class TestCast:
             ):
                 continue
 
-            if dtype.name == "bfloat16" and os.environ["CI"] == "true":
+            if dtype.name == "bfloat16" and os.environ.get("CI", "false") == "true":
                 continue
 
             fn_args: list = [input, dtype]

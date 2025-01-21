@@ -814,7 +814,7 @@ def arange(
     if len([item for item in [start, stop, step] if isinstance(item, float)]) == 0:
         _dtype = _dtype.replace("float", "int").replace("bfloat", "int")
 
-    return mx.arange(start, stop, step, dtype=utils.dtype_map[_dtype])  # type: ignore
+    return mx.arange(start, stop, step, dtype=utils.dtype_map[_dtype])
 
 
 def tensor_to_list(input: mx.array) -> NestedFloatOrIntOrBoolList:
