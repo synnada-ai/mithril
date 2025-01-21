@@ -22,16 +22,17 @@ from mithril.models import (
     Add,
     Buffer,
     Convolution2D,
+    Indexer,
     IOKey,
     Linear,
     Model,
     PhysicalModel,
     PrimitiveUnion,
     Relu,
-    ScalarItem,
     Shape,
     Sigmoid,
     Subtract,
+    Tensor,
     ToTensor,
 )
 
@@ -164,7 +165,7 @@ def test_data_store_5():
     model += Shape()
     model += ToTensor()
     shapes = {"input": [3, 2], "weight": [2, 2], "bias": [2]}
-    pm = mithril.compile(model, backend=backend, shapes=shapes)
+    pm = mithril.compile(model, backend=backend, shapes=shapes, inference=True)
     # Only "output" key is not in unused_keys.
     assert pm.data_store.unused_keys == pm.data.keys() - {"output"}
 
@@ -200,7 +201,9 @@ def test_data_store_7():
     model = Buffer()
 
     value = backend.array([[1.0, 2, 3]])
-    pm = mithril.compile(model, backend=backend, constant_keys={"input": value})
+    pm = mithril.compile(
+        model, backend=backend, constant_keys={"input": value}, inference=True
+    )
     res = pm.evaluate()
 
     assert pm.data_store.data_values.keys() == {"input"}
@@ -234,7 +237,9 @@ def test_data_store_9():
     model += Sigmoid()(input="input", output=IOKey(name="output1"))
 
     value = backend.array([[1.0, 2, 3]])
-    pm = mithril.compile(model, backend=backend, constant_keys={"input": value})
+    pm = mithril.compile(
+        model, backend=backend, constant_keys={"input": value}, inference=True
+    )
 
     assert pm.data_store.data_values.keys() == {"output1"}
     assert (pm.data_store.data_values["output1"] == backend.sigmoid(value)).all()  # type: ignore[union-attr]
@@ -251,7 +256,9 @@ def test_data_store_10():
     model += Sigmoid()(input="input", output=IOKey(name="output2", expose=True))
 
     value = backend.array([[1.0, 2, 3]])
-    pm = mithril.compile(model, backend=backend, constant_keys={"input": value})
+    pm = mithril.compile(
+        model, backend=backend, constant_keys={"input": value}, inference=True
+    )
 
     assert pm.data_store.data_values.keys() == {"input", "output2"}
     assert (pm.data_store.data_values["output2"] == backend.sigmoid(value)).all()  # type: ignore[union-attr]
@@ -284,8 +291,12 @@ def test_data_store_13():
     """partial infer test"""
     backend = TorchBackend()
     model = Model()
-    model += Add()(left="left", right="right", output=IOKey(name="out"))
-    model += Subtract()(
+    add = Add()
+    add.set_types(left=Tensor, right=Tensor)
+    subtract = Subtract()
+    subtract.set_types(left=Tensor, right=Tensor)
+    model += add(left="left", right="right", output=IOKey(name="out"))
+    model += subtract(
         left="out", right="something", output=IOKey(name="out2", expose=True)
     )
 
@@ -312,7 +323,7 @@ def test_data_store_14():
     model = Model()
     model += Buffer()(input="input1", output=IOKey(name="out1", expose=True))
     model += (s := Shape())(input="out1")
-    model += (i := ScalarItem(index=1))(input=s.output)
+    model += (i := Indexer(index=1))(input=s.output)
     model += (u := PrimitiveUnion(2))(input1=i.output, input2=i.output)
     model += Convolution2D(kernel_size=3, out_channels=10, stride=TBD, use_bias=False)(
         input="input2",
@@ -329,6 +340,7 @@ def test_data_store_14():
         model,
         backend=backend,
         constant_keys={"input1": input1, "input2": input2, "weight": weight},
+        inference=True,
     )
     assert pm.data_store.data_values.keys() == {"input1", "out2"}
     assert pm.data_store.runtime_static_keys == set()
@@ -367,7 +379,7 @@ def test_data_store_15():
     model = Model()
     model += Buffer()(input="input1", output=IOKey(name="out1", expose=True))
     model += (s := Shape())(input="out1")
-    model += (i := ScalarItem(index=1))(input=s.output)
+    model += (i := Indexer(index=1))(input=s.output)
     model += (u := PrimitiveUnion(2))(input1=i.output, input2=i.output)
     model += Convolution2D(kernel_size=3, out_channels=10, stride=TBD, use_bias=False)(
         input="input2",
@@ -384,6 +396,7 @@ def test_data_store_15():
         model,
         backend=backend,
         constant_keys={"input1": input1, "input2": input2, "weight": weight},
+        inference=True,
     )
     assert pm.data_store.data_values.keys() == {"input1", "out2"}
     assert pm.data_store.runtime_static_keys == set()
@@ -449,7 +462,9 @@ def test_data_store_17():
     """Check 'runtime_static_keys'"""
     backend = NumpyBackend()
     model = Model()
-    model += (add := Add())(left="left")
+    add = Add()
+    add.set_types(left=Tensor, right=Tensor)
+    model += add(left="left")
     add.right.set_differentiable(False)
     model += Sigmoid()(input=add.output, output="output")
     pm = PhysicalModel(
@@ -476,7 +491,9 @@ def test_data_store_18():
     """Test infer ignore should remove from Data store 'runtime_static_keys'"""
     backend = TorchBackend()
     model = Model()
-    model += (add := Add())(left="left")
+    add = Add()
+    add.set_types(left=Tensor, right=Tensor)
+    model += add(left="left")
     add.right.set_differentiable(False)
     model += Sigmoid()(input=add.output, output=IOKey("output"))
 
@@ -550,7 +567,7 @@ def test_data_store_20():
         constant_keys={"left": left, "right": right},
         trainable_keys=set(),
         shapes=dict(),
-        inference=False,
+        inference=True,
         safe_shapes=True,
         safe_names=True,
         use_short_namings=True,

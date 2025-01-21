@@ -23,6 +23,7 @@ import mlx.nn as nn
 from ....core import Dtype
 from ...backend import Backend, PadWidthType
 from ...utils import DtypeBits, DtypeSubTypes, process_shape
+from ...utils import DtypeSubTypes, StaticScalar, process_shape
 from . import ops, utils
 
 __all__ = ["MlxBackend"]
@@ -44,7 +45,6 @@ class MlxBackend(Backend[mx.array]):
             os.environ["XLA_PYTHON_CLIENT_ALLOCATOR"] = "platform"
 
         self._dtype = dtype
-        self._precision = DtypeBits[dtype.name].value
         self._device = device
         super().__init__(dtype=dtype)
 
@@ -64,34 +64,34 @@ class MlxBackend(Backend[mx.array]):
         return mx.inf
 
     @property
-    def nan(self):
+    def nan(self) -> float:
         return mx.nan
 
     @property
-    def device(self):
+    def device(self) -> Any:
         utils.get_device(self._device)
 
-    def get_device(self):
+    def get_device(self) -> Any:
         return self._device
 
     @property
-    def DataType(self):  # noqa: N802
+    def DataType(self) -> type[mx.array]:  # noqa: N802
         return utils.ArrayType
 
     # TODO: This property is weird! Investigate why this property is used.
 
-    def get_backend_array_type(self):
+    def get_backend_array_type(self) -> type[mx.array]:
         return mx.array
 
     @staticmethod
-    def get_available_devices():
+    def get_available_devices() -> list[str]:
         return utils.get_available_devices()
 
     @staticmethod
     def register_primitive(fn: Callable[..., mx.array]) -> None:
         MlxBackend.registered_primitives[fn.__name__] = fn
 
-    def set_seed(self, seed: int):
+    def set_seed(self, seed: int) -> None:
         self.seed = seed
         mx.random.seed(seed)
 
@@ -100,7 +100,7 @@ class MlxBackend(Backend[mx.array]):
     ) -> mx.array:
         return data
 
-    def block_until_ready(self, data: mx.array):
+    def block_until_ready(self, data: mx.array) -> None:
         mx.eval(data)
 
     def _handle_dict_type_fun(
@@ -108,7 +108,7 @@ class MlxBackend(Backend[mx.array]):
         *inputs: mx.array,
         keys: list[str],
         cotangent_keys: list[str],
-        fn: Callable,
+        fn: Callable[..., Any],
         output_keys: list[str],
         has_aux: bool,
     ) -> list[mx.array]:
@@ -139,7 +139,7 @@ class MlxBackend(Backend[mx.array]):
         self,
         *inputs: mx.array,
         cotangents: Sequence[mx.array] | mx.array,
-        fn: Callable,
+        fn: Callable[..., Any],
         has_aux: bool,
     ) -> list[mx.array]:
         _output = fn(*inputs)
@@ -180,7 +180,7 @@ class MlxBackend(Backend[mx.array]):
         return [output]
 
     def array(self, input: Any, *, dtype: Dtype | None = None) -> mx.array:
-        _dtype = utils.determine_dtype(input, dtype, self._dtype, self._precision)
+        _dtype = utils.determine_dtype(input, dtype, self._dtype, self.precision)
         return mx.array(input, dtype=utils.dtype_map[_dtype])
 
     def zeros(
@@ -493,13 +493,25 @@ class MlxBackend(Backend[mx.array]):
 
         return samples
 
-    def jit(self, fn: Callable[..., Any]) -> Callable[..., Any]:
+    def clip(
+        self,
+        input: mx.array,
+        min: mx.array | StaticScalar,
+        max: mx.array | StaticScalar,
+    ) -> mx.array:
+        return mx.clip(input, min, max)
+
+    def jit[**P, T](self, fn: Callable[P, T]) -> Callable[P, T]:
         return fn
 
-    def grad(self, fn: Callable[..., mx.array]) -> Callable[..., mx.array]:
+    def grad(
+        self, fn: Callable[..., dict[str, mx.array]]
+    ) -> Callable[..., dict[str, mx.array]]:
         return mx.grad(fn)
 
-    def value_and_grad(self, fn: Callable[..., mx.array]) -> Callable:
+    def value_and_grad(
+        self, fn: Callable[..., dict[str, mx.array]]
+    ) -> Callable[..., tuple[dict[str, mx.array], dict[str, mx.array]]]:
         return mx.value_and_grad(fn)
 
     @overload
@@ -550,7 +562,7 @@ class MlxBackend(Backend[mx.array]):
         *,
         cotangents: None,
         has_aux: bool = False,
-    ) -> tuple[Sequence[mx.array], Callable, Sequence[mx.array]]: ...
+    ) -> tuple[Sequence[mx.array], Callable[..., Any], Sequence[mx.array]]: ...
 
     @overload
     def vjp(
@@ -560,7 +572,7 @@ class MlxBackend(Backend[mx.array]):
         *,
         cotangents: None,
         has_aux: bool = False,
-    ) -> tuple[dict[str, mx.array], Callable, dict[str, mx.array]]: ...
+    ) -> tuple[dict[str, mx.array], Callable[..., Any], dict[str, mx.array]]: ...
 
     def vjp(
         self,
@@ -577,7 +589,7 @@ class MlxBackend(Backend[mx.array]):
         has_aux: bool = False,
     ) -> tuple[
         dict[str, mx.array] | Sequence[mx.array] | mx.array,
-        dict[str, mx.array] | list[mx.array] | Callable,
+        dict[str, mx.array] | list[mx.array] | Callable[..., Any],
         dict[str, mx.array] | Sequence[mx.array] | mx.array,
     ]:
         if cotangents is None:
@@ -668,5 +680,5 @@ class MlxBackend(Backend[mx.array]):
         else:
             raise ValueError(f"Invalid dtype {dtype}")
 
-    def _get_default_subtype(self):
+    def _get_default_subtype(self) -> str:
         return DtypeSubTypes[self._dtype.name].value

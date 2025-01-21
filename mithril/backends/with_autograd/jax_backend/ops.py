@@ -22,6 +22,7 @@ import jax.numpy as jnp
 import jax.scipy.linalg as slin
 from jax import lax, vmap
 from jax import nn as functionals
+from typing import Any
 
 from .... import core
 from ....utils.type_utils import is_tuple_int
@@ -37,6 +38,7 @@ from ..common_primitives import (
     floor_divide,
     greater,
     greater_equal,
+    indexer,
     item,
     length,
     less,
@@ -55,7 +57,6 @@ from ..common_primitives import (
     primitive_embedding,
     primitive_slice,
     reshape,
-    scalar_item,
     sequence_slice,
     shift_left,
     shift_right,
@@ -64,7 +65,6 @@ from ..common_primitives import (
     stride_converter,
     subtract,
     swapaxes,
-    tensor_item,
     to_list,
     to_tuple,
     transpose,
@@ -195,8 +195,7 @@ __all__ = [
     "permute_tensor",
     "reshape",
     "item",
-    "scalar_item",
-    "tensor_item",
+    "indexer",
     "primitive_slice",
     "sequence_slice",
     "union",
@@ -632,7 +631,7 @@ def cross_entropy(
                 f"Cross entropy got unexpected type for target '{target.dtype}'."
             )
 
-        return (  # type: ignore
+        return (
             -log(jnp.take_along_axis(input, target[:, None], axis=1)[:, 0])
             * _weights[target]
         )
@@ -915,6 +914,13 @@ def arange(
 def tensor_to_list(input: jax.Array) -> NestedFloatOrIntOrBoolList:
     return input.tolist()
 
+def minimum(left: jax.Array, right: jax.Array) -> jax.Array:
+    return jnp.minimum(left, right)
+
+
+def maximum(left: jax.Array, right: jax.Array) -> jax.Array:
+    return jnp.maximum(left, right)
+
 
 def where(cond: jax.Array, input1: jax.Array, input2: jax.Array) -> jax.Array:
     return jnp.where(cond, input1, input2)
@@ -942,7 +948,10 @@ def polynomial_features(input: jax.Array, *, degree: int = 2) -> jax.Array:
     samples, dims = input.shape
     identity = jnp.eye(dims + 1, dims + 1, dtype=input.dtype)
     data = jnp.hstack((jnp.ones((samples, 1), dtype=input.dtype), input))
-    powers: Iterator = map(sum, combinations_with_replacement(identity, degree))
+    powers: Iterator[jax.Array] = map(
+        sum,  # type: ignore
+        combinations_with_replacement(identity, degree),
+    )
     # Skip first element of powers. This is the bias term.
     next(powers)
     return jnp.hstack(
@@ -1041,15 +1050,15 @@ def dtype(input: jax.Array) -> core.Dtype:
     return getattr(core.Dtype, str(input.dtype))
 
 
-def logical_xor(left: jax.Array, right: jax.Array):
+def logical_xor(left: jax.Array, right: jax.Array) -> jax.Array:
     return left ^ right
 
 
-def split(input: jax.Array, split_size: int | list[int], axis: int = 0):
+def split(input: jax.Array, split_size: int | list[int], axis: int = 0) -> jax.Array:
     return jnp.stack(jnp.split(input, split_size, axis=axis))
 
 
-def pad(input: jax.Array, pad_width: tuple[tuple[int, int], ...]):
+def pad(input: jax.Array, pad_width: tuple[tuple[int, int], ...]) -> jax.Array:
     return jax.numpy.pad(input, pad_width)
 
 
@@ -1069,7 +1078,7 @@ def randn(
         return jax.random.normal(_key, shape, dtype=dtype_map[dtype])
 
 
-def zeros_like(input: jax.Array):
+def zeros_like(input: jax.Array) -> jax.Array:
     return jnp.zeros_like(input)
 
 

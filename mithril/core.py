@@ -30,11 +30,11 @@ class Constant(Enum):
 
 
 constant_type_table = {
-    Constant.EPSILON: float,
-    Constant.LEFT_EPSILON: float,
-    Constant.MIN_POSITIVE_NORMAL: float,
-    Constant.MIN_POSITIVE_SUBNORMAL: float,
-    Constant.STABLE_RECIPROCAL_THRESHOLD: float,
+    Constant.EPSILON: py_builtins.float,
+    Constant.LEFT_EPSILON: py_builtins.float,
+    Constant.MIN_POSITIVE_NORMAL: py_builtins.float,
+    Constant.MIN_POSITIVE_SUBNORMAL: py_builtins.float,
+    Constant.STABLE_RECIPROCAL_THRESHOLD: py_builtins.float,
 }
 
 epsilon_table: dict[py_builtins.int, dict[Constant, py_builtins.float | None]] = {
@@ -66,15 +66,16 @@ epsilon_table: dict[py_builtins.int, dict[Constant, py_builtins.float | None]] =
 
 
 class Dtype(enum.IntEnum):  # noqa N801
-    int8 = 0
-    int16 = 1
-    int32 = 2
-    int64 = 3
-    float16 = 4
-    bfloat16 = 5
-    float32 = 6
-    float64 = 7
-    bool = 8
+    uint8 = 0
+    int8 = 1
+    int16 = 2
+    int32 = 3
+    int64 = 4
+    float16 = 5
+    bfloat16 = 6
+    float32 = 7
+    float64 = 8
+    bool = 9
 
 
 int16: Dtype = Dtype.int16

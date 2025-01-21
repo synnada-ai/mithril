@@ -27,6 +27,7 @@ from mithril.framework.common import (
     IOKey,
     ShapeTemplateType,
     Table,
+    Tensor,
     UniadicRecord,
     Variadic,
     get_summary_shapes,
@@ -544,9 +545,6 @@ def test_extract_logical_connections_13():
     assert conns == ref_conns
 
 
-ShapeCache = dict[UniadicRecord | Variadic, str]
-
-
 def test_extract_shapes_logical_1():
     model = Model()
     buff1 = Buffer()
@@ -555,8 +553,8 @@ def test_extract_shapes_logical_1():
     model += buff1(input="input")
     model += buff2(input=buff1.output)
     name_mappings = define_unique_names(model.dag)
-    uni_cache: ShapeCache = {}
-    var_cache: ShapeCache = {}
+    uni_cache: dict[UniadicRecord, str] = {}
+    var_cache: dict[Variadic, str] = {}
     conn_info = model.extract_connection_info(name_mappings)
     model_shapes = {
         sub_model_name: sub_model.get_shapes(uni_cache, var_cache, False, False)
@@ -577,8 +575,8 @@ def test_extract_shapes_logical_2():
     model += buff2(input=buff1.output)
     model.set_shapes({"input": [45, 96, 2]})
     name_mappings = define_unique_names(model.dag)
-    uni_cache: ShapeCache = {}
-    var_cache: ShapeCache = {}
+    uni_cache: dict[UniadicRecord, str] = {}
+    var_cache: dict[Variadic, str] = {}
     conn_info = model.extract_connection_info(name_mappings)
     model_shapes = {
         sub_model_name: sub_model.get_shapes(uni_cache, var_cache, False, False)
@@ -608,8 +606,8 @@ def test_extract_shapes_logical_3():
     model += relu_3
     relu_2.set_shapes({"input": [4, 2]})
     name_mappings = define_unique_names(model.dag)
-    uni_cache: ShapeCache = {}
-    var_cache: ShapeCache = {}
+    uni_cache: dict[UniadicRecord, str] = {}
+    var_cache: dict[Variadic, str] = {}
     conn_info = model.extract_connection_info(name_mappings)
     model_shapes = {
         sub_model_name: sub_model.get_shapes(uni_cache, var_cache, symbolic=True)
@@ -651,8 +649,8 @@ def test_extract_shapes_logical_4():
     model += conv_3
     model += relu_3
     name_mappings = define_unique_names(model.dag)
-    uni_cache: ShapeCache = {}
-    var_cache: ShapeCache = {}
+    uni_cache: dict[UniadicRecord, str] = {}
+    var_cache: dict[Variadic, str] = {}
     conn_info = model.extract_connection_info(name_mappings)
     model_shapes = {
         sub_model_name: sub_model.get_shapes(uni_cache, var_cache, symbolic=False)
@@ -725,8 +723,8 @@ def test_extract_shapes_logical_5():
     model += relu_3
     relu_2.set_shapes({"input": [None, None]})
     name_mappings = define_unique_names(model.dag)
-    uni_cache: ShapeCache = {}
-    var_cache: ShapeCache = {}
+    uni_cache: dict[UniadicRecord, str] = {}
+    var_cache: dict[Variadic, str] = {}
     conn_info = model.extract_connection_info(name_mappings)
     model_shapes = {
         sub_model_name: sub_model.get_shapes(uni_cache, var_cache, symbolic=True)
@@ -895,7 +893,7 @@ def test_physical_summary_1():
     model += LeakyRelu()
     model += (lin1 := Linear(dimension=3))
     model += (l_relu := LeakyRelu())(slope=NOT_GIVEN)
-    l_relu.set_values({"slope": 1e-1})
+    l_relu.set_values({"slope": Tensor(1e-1)})
     model += Relu()
     lin1.set_shapes({"input": [3, 5]})
     comp_model = mithril.compile(
@@ -1095,7 +1093,11 @@ def test_physical_model_summary_8():
     model = Model()
     random_kernel_model = Model()
     another_random_model = Model()
-    another_random_model += Add()(left="input1", right="input2", output="output")
+    another_random_model += Add()(
+        left=IOKey("input1", type=Tensor),
+        right=IOKey("input2", type=Tensor),
+        output="output",
+    )
     input1_shape: ShapeTemplateType = ["a", ("Var1", ...), "b"]
     another_random_model.set_shapes({"input1": input1_shape})
     random_kernel_model += (add1 := Add())(left="input1", right="input2")
@@ -1200,6 +1202,7 @@ def test_physical_summary_13():
 def test_physical_summary_14():
     model = Model()
     sig_model1 = Add()
+    sig_model1.set_types(left=Tensor, right=Tensor)
     sig_model2 = Add()
     model += sig_model1(left="left", right="right", output=IOKey("output1"))
     model += sig_model2(left="left", right="right", output=IOKey("output2"))
@@ -1360,8 +1363,16 @@ def test_logical_model_summary_2():
 
 def test_logical_model_summary_3():
     model = Model()
-    model += Add()(left="input1", right="input2", output=IOKey(name="output1"))
-    model += Add()(left="input1", right="input3", output=IOKey(name="output2"))
+    model += Add()(
+        left=IOKey("input1", type=Tensor),
+        right=IOKey("input2", type=Tensor),
+        output=IOKey(name="output1"),
+    )
+    model += Add()(
+        left="input1",
+        right=IOKey("input3", type=Tensor),
+        output=IOKey(name="output2"),
+    )
     model += Add()(left="input2", right="input3", output=IOKey(name="output3"))
     model.set_canonical_input("input1")
     model.set_canonical_output("output1")
@@ -1394,7 +1405,9 @@ def test_logical_model_summary_3():
 
 def test_logical_model_summary_4():
     model_n = Model()
-    model_n += Add()
+    add = Add()
+    model_n += add
+    add.set_types(left=Tensor, right=Tensor)
     for _ in range(5):
         model_n += deepcopy(model_n)
 
@@ -1486,6 +1499,8 @@ def test_logical_model_summary_8():
 def test_logical_model_summary_9():
     model = Model()
     add_1, add_2 = Add(), Add()
+    add_1.set_types(left=Tensor, right=Tensor)
+    add_2.set_types(left=Tensor, right=Tensor)
     model += add_1(left="left")
     model += add_2(output=IOKey(connections={add_1.left, add_1.right}), left="left_1")
     with redirect_stdout(StringIO()) as summary:
@@ -1501,6 +1516,8 @@ def test_logical_model_summary_9():
 def test_logical_model_summary_10():
     model = Model()
     add_1, add_2 = Add(), Add()
+    add_1.set_types(left=Tensor, right=Tensor)
+    add_2.set_types(left=Tensor, right=Tensor)
     model += add_1(left="left", right="right", output=IOKey(name="output"))
     model += add_2(left=add_1.left, output=IOKey(name="output1"))
 
@@ -1677,7 +1694,7 @@ def generate_comp_model():
     l_relu = LeakyRelu()
     test_model = Model()
     test_model += matmul(left="left", right="right")
-    test_model += add(left="in1", right=matmul.output)
+    test_model += add(left=IOKey("in1", type=Tensor), right=matmul.output)
     test_model += sig(input=add.output)
     test_model += l_relu(input=sig.output, output="output")
     comp_model = mithril.compile(model=test_model, backend=JaxBackend())
@@ -1789,7 +1806,7 @@ def test_traincontext_summary():
         input=model.output,
         target="target",
         reduce_steps=[Mean()],
-        coef=0.1,
+        coef=Tensor(0.1),
     )
     ctx.add_regularization(L1(), coef=0.1, input="weight1")
     with redirect_stdout(StringIO()) as summary:
@@ -1806,6 +1823,8 @@ def test_traincontext_summary_2():
     model = Model()
     add_1 = Add()
     add_2 = Add()
+    add_1.set_types(left=Tensor, right=Tensor)
+    add_2.set_types(left=Tensor, right=Tensor)
     matmul_1 = MatrixMultiply()
     model += add_1(left="input1", right="input2", output=IOKey(name="output1"))
     model += add_2(left="input3", right="input4", output=IOKey(name="output2"))
@@ -1823,7 +1842,9 @@ def test_traincontext_summary_2():
         target="target2",
         reduce_steps=[Sum()],
     )
-    ctx.add_loss(Add(), left=model.output3, right="right", reduce_steps=[Min()])  # type: ignore
+    loss_add = Add()
+    loss_add.set_types(left=Tensor, right=Tensor)
+    ctx.add_loss(loss_add, left=model.output3, right="right", reduce_steps=[Min()])  # type: ignore
     with redirect_stdout(StringIO()) as summary:
         ctx.summary(symbolic=True)
     ref_table = ""
@@ -1837,6 +1858,8 @@ def test_traincontext_summary_3():
     model = Model()
     add_1 = Add()
     add_2 = Add()
+    add_1.set_types(left=Tensor, right=Tensor)
+    add_2.set_types(left=Tensor, right=Tensor)
     matmul_1 = MatrixMultiply()
     model += add_1(left="in1", right="in2", output=IOKey(name="output1"))
     model += add_2(left="", output=IOKey(name="output2"))
@@ -1854,7 +1877,9 @@ def test_traincontext_summary_3():
         target="target2",
         reduce_steps=[Sum()],
     )
-    ctx.add_loss(Add(), left=model.output3, right="target3", reduce_steps=[Min()])  # type: ignore
+    loss_add = Add()
+    loss_add.set_types(left=Tensor, right=Tensor)
+    ctx.add_loss(loss_add, left=model.output3, right="target3", reduce_steps=[Min()])  # type: ignore
     ctx.add_regularization(L1(), input=add_1.left, coef=0.1)
 
     with redirect_stdout(StringIO()) as summary:
@@ -1871,6 +1896,8 @@ def test_traincontext_summary_4():
     model = Model()
     add_1 = Add()
     add_2 = Add()
+    add_1.set_types(left=Tensor, right=Tensor)
+    add_2.set_types(left=Tensor, right=Tensor)
     matmul_1 = MatrixMultiply()
     model += add_1(left="in1", right="in2", output=IOKey(name="output1"))
     model += add_2(left="", output=IOKey(name="output2"))
@@ -1888,7 +1915,9 @@ def test_traincontext_summary_4():
         target="target2",
         reduce_steps=[Sum(axis=1), Max(axis=2), Mean(axis=-1)],
     )
-    ctx.add_loss(Add(), left=model.output3, right="right")  # type: ignore
+    loss_add = Add()
+    loss_add.set_types(left=Tensor, right=Tensor)
+    ctx.add_loss(loss_add, left=model.output3, right="right")  # type: ignore
     ctx.add_regularization(L1(), input=add_1.left, coef=0.1)
     ctx.add_regularization(L1(), input=add_1.right, coef=0.1)
 
@@ -1906,6 +1935,8 @@ def test_traincontext_summary_5():
     model = Model()
     add_1 = Add()
     add_2 = Add()
+    add_1.set_types(left=Tensor, right=Tensor)
+    add_2.set_types(left=Tensor, right=Tensor)
     matmul_1 = MatrixMultiply()
     model += add_1(left="in1", right="in2", output=IOKey(name="output1"))
     model += add_2(output=IOKey(name="output2"))
@@ -1924,8 +1955,8 @@ def test_traincontext_summary_5():
         reduce_steps=[Sum(axis=1), Max(axis=2), Mean(axis=-1)],
     )
     ctx.add_loss(Add(), left=model.output3, right="right")  # type: ignore
-    ctx.add_regularization(L1(), input=add_1.left, coef=0.1)
-    ctx.add_regularization(L1(), input=add_1.right, coef=0.1)
+    ctx.add_regularization(L1(), input=add_1.left, coef=Tensor(0.1))
+    ctx.add_regularization(L1(), input=add_1.right, coef=Tensor(0.1))
     comp_model = mithril.compile(model=ctx, backend=NumpyBackend(), safe_shapes=False)
     with redirect_stdout(StringIO()) as summary:
         comp_model.summary(model=add_1, verbose=True)
@@ -1979,7 +2010,11 @@ def test_traincontext_summary_7():
     reg_model += Relu()(input="foo", output=IOKey(name="output"))
 
     loss_model = Model()
-    loss_model += Add()(left="l1", right="r1", output=IOKey(name="out"))
+    loss_model += Add()(
+        left=IOKey("l1", type=Tensor),
+        right=IOKey("r1", type=Tensor),
+        output=IOKey(name="out"),
+    )
     ctx.add_loss(loss_model, l1="output", r1="target", reduce_steps=[Mean()])
     ctx.add_regularization(reg_model, foo=re.compile("weight\\d"), coef=0.1)
     ctx.add_regularization(L1(), input=re.compile("weight\\d"), coef=0.1)

@@ -20,6 +20,7 @@ import numpy as np
 from ....core import Dtype
 from ...backend import Backend, PadWidthType
 from ...utils import DtypeBits, process_shape
+from ...utils import StaticScalar, process_shape
 from ..common_primitives import CacheType
 from . import ops, ops_grad, utils
 
@@ -46,7 +47,6 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
 
     def __init__(self, device: str = "cpu", dtype: Dtype = Dtype.float32) -> None:
         self._dtype = dtype
-        self._precision = DtypeBits[dtype.name].value
 
         if device != "cpu":
             raise RuntimeError(
@@ -70,21 +70,21 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
         return True
 
     @property
-    def inf(self):
+    def inf(self) -> float:
         return np.inf
 
     @property
-    def nan(self):
+    def nan(self) -> float:
         return np.nan
 
     @property
-    def DataType(self):  # noqa: N802
+    def DataType(self) -> type[np.ndarray[Any, Any]]:  # noqa: N802
         return utils.ArrayType
 
-    def get_backend_array_type(self):
+    def get_backend_array_type(self) -> type[np.ndarray[Any, Any]]:
         return np.ndarray
 
-    def get_device(self):
+    def get_device(self) -> Any:
         return self._device
 
     @staticmethod
@@ -100,12 +100,14 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
         return ["cpu"]
 
     @staticmethod
-    def register_primitive(fn: Callable, fn_grad: Callable) -> None:  # type: ignore[override]
+    def register_primitive(  # type: ignore
+        fn: Callable[..., Any], fn_grad: Callable[..., np.ndarray[Any, Any]]
+    ) -> None:
         formula_key = fn.__name__
         NumpyBackend.registered_primitives[formula_key] = fn
         NumpyBackend.registered_primitives_grad_fn[formula_key + "_grad"] = fn_grad
 
-    def set_seed(self, seed: int):
+    def set_seed(self, seed: int) -> None:
         self.seed = seed
         np.random.seed(seed)
 
@@ -119,7 +121,7 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
         return utils.accumulate_grads(gradient, input, cache, idx)
 
     def array(self, data: Any, *, dtype: Dtype | None = None) -> np.ndarray[Any, Any]:
-        _dtype = utils.determine_dtype(data, dtype, self._dtype, self._precision)
+        _dtype = utils.determine_dtype(data, dtype, self._dtype, self.precision)
 
         return np.array(data, dtype=utils.dtype_map[_dtype])
 
@@ -403,6 +405,14 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
             samples = np.squeeze(samples, axis=0)
 
         return samples
+
+    def clip(
+        self,
+        input: np.ndarray[Any, Any],
+        min: np.ndarray[Any, Any] | StaticScalar,
+        max: np.ndarray[Any, Any] | StaticScalar,
+    ) -> np.ndarray[Any, Any]:
+        return np.clip(input, min, max)
 
     def _process_dtype(
         self,

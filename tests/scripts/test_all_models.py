@@ -23,6 +23,7 @@ import torch
 
 import mithril
 from mithril import Backend, JaxBackend, MlxBackend, NumpyBackend, TorchBackend
+from mithril.framework.common import Tensor
 from mithril.models import (
     TBD,
     Arange,
@@ -33,13 +34,14 @@ from mithril.models import (
     Buffer,
     Cast,
     Convolution1D,
-    DType,
+    Dtype,
     Equal,
     Eye,
     EyeComplement,
     Greater,
     GreaterEqual,
     GroupNorm,
+    Indexer,
     IOKey,
     IsNan,
     Less,
@@ -50,6 +52,8 @@ from mithril.models import (
     LogicalNot,
     LogicalOr,
     LogicalXOr,
+    Maximum,
+    Minimum,
     Minus,
     Model,
     NanToNum,
@@ -58,7 +62,6 @@ from mithril.models import (
     PrimitiveUnion,
     Prod,
     Randn,
-    ScalarItem,
     ScaledDotProduct,
     Shape,
     SiLU,
@@ -66,7 +69,6 @@ from mithril.models import (
     Slice,
     SquaredError,
     Squeeze,
-    TensorItem,
     ToList,
     ToTensor,
     ToTuple,
@@ -254,6 +256,7 @@ def test_jax():
 
 def test_buffer_1():
     model = Buffer()
+    model.set_types(input=Tensor)
     compile_kwargs = {
         "constant_keys": {"input": [[1.0, 2.0, 3.0], [1.0, 2.0, 3.0]]},
         "inference": True,
@@ -272,6 +275,7 @@ def test_buffer_1():
 
 def test_buffer_2():
     model = Buffer()
+    model.set_types(input=Tensor)
     params = {"input": [[1.0, 2.0, 3.0], [1.0, 2.0, 3.0]]}
     output_gradients = {"output": [[12.0, 13.0, 14.0], [15.0, 16.0, 17.0]]}
     reference_outputs = {"output": [[1.0, 2.0, 3.0], [1.0, 2.0, 3.0]]}
@@ -730,6 +734,42 @@ def test_where_2():
         reference_gradients=reference_gradients,
         tolerances=1e-6,
         assert_shapes=False,
+    )
+
+
+def test_minimum():
+    model = Minimum()
+
+    statics = {"left": [5.0, 0.0, 9.0, 10.0, 4.0], "right": [6.0, 0.0, 8.0, 9.0, 11.0]}
+    reference_outputs = {"output": [5.0, 0.0, 8.0, 9.0, 4.0]}
+
+    compile_and_compare(
+        model=model,
+        compile_kwargs={"constant_keys": statics, "inference": True},
+        data={},
+        params={},
+        output_gradients={},
+        reference_outputs=reference_outputs,
+        reference_gradients=None,
+        tolerances=None,
+    )
+
+
+def test_maximum():
+    model = Maximum()
+
+    statics = {"left": [5.0, 0.0, 9.0, 10.0, 4.0], "right": [6.0, 0.0, 8.0, 9.0, 11.0]}
+    reference_outputs = {"output": [6.0, 0.0, 9.0, 10.0, 11.0]}
+
+    compile_and_compare(
+        model=model,
+        compile_kwargs={"constant_keys": statics, "inference": True},
+        data={},
+        params={},
+        output_gradients={},
+        reference_outputs=reference_outputs,
+        reference_gradients=None,
+        tolerances=None,
     )
 
 
@@ -1362,7 +1402,7 @@ def test_eye_1():
     }
     compile_and_compare(
         model=model,
-        compile_kwargs={},
+        compile_kwargs={"inference": True},
         data={},
         params={},
         output_gradients={},
@@ -1487,7 +1527,7 @@ def test_eye_complement_1():
     reference_outputs = {"output": [[0.0, 1.0], [1.0, 0.0]]}
     compile_and_compare(
         model=model,
-        compile_kwargs={},
+        compile_kwargs={"inference": True},
         data={"N": 2},
         params={},
         output_gradients={},
@@ -1913,7 +1953,7 @@ def test_slice_1():
     # Tuple slice
 
     slice_model = Slice(step=None)
-    item_model = ScalarItem()
+    item_model = Indexer()
 
     model = Model()
     model += slice_model(start=2, stop=3)
@@ -1943,7 +1983,7 @@ def test_slice_1():
 def test_slice_2():
     # Tuple slice
     slice_model = Slice(start=None, step=None)
-    item_model = ScalarItem()
+    item_model = Indexer()
 
     model = Model()
     model += slice_model(stop=3)
@@ -1973,7 +2013,7 @@ def test_slice_2():
 def test_slice_3():
     # Tuple slice
     slice_model = Slice(start=None)
-    item_model = ScalarItem()
+    item_model = Indexer()
 
     model = Model()
     model += slice_model(stop=3, step=2)
@@ -2003,7 +2043,7 @@ def test_slice_3():
 def test_slice_4():
     # Tuple slice
     slice_model = Slice(start=None, stop=None)
-    item_model = ScalarItem()
+    item_model = Indexer()
 
     model = Model()
     model += slice_model(step=2)
@@ -2153,7 +2193,7 @@ def test_union_3():
 
 def test_index_1():
     # List index
-    model = ScalarItem(index=2)
+    model = Indexer(index=2)
 
     data = {"input": [1, 2, 3, 4, 5]}
 
@@ -2179,7 +2219,7 @@ def test_index_1():
 
 def test_index_2():
     # Tuple index
-    model = ScalarItem(index=2)
+    model = Indexer(index=2)
 
     data = {"input": (1, 2, 3.0, 4, 5)}
 
@@ -2657,12 +2697,14 @@ def test_cast_int16():
     inp_float = np.array([1, -2, 3], dtype=np.float32)
     backends: list[TorchBackend | JaxBackend | NumpyBackend | MlxBackend] = [
         TorchBackend(dtype=mithril.float16),
+        TorchBackend(dtype=mithril.bfloat16),
         TorchBackend(dtype=mithril.float32),
         TorchBackend(dtype=mithril.float64),
         NumpyBackend(dtype=mithril.float16),
         NumpyBackend(dtype=mithril.float32),
         NumpyBackend(dtype=mithril.float64),
         JaxBackend(dtype=mithril.float16),
+        JaxBackend(dtype=mithril.bfloat16),
         JaxBackend(dtype=mithril.float32),
         JaxBackend(dtype=mithril.float64),
     ]
@@ -2694,8 +2736,8 @@ def test_cast_int16():
             res = pm.evaluate()
             res_out = res["output"]
             assert isinstance(res_out, backend.DataType)
-            assert res_out.dtype == expected_dtypes[backend.backend_type]
-            np.testing.assert_allclose(res_out, reference_outputs["output"])
+            assert res_out.dtype == expected_dtypes[backend.backend_type]  # type: ignore
+            np.testing.assert_allclose(res_out, reference_outputs["output"])  # type: ignore
 
 
 def test_cast_int32():
@@ -2704,12 +2746,14 @@ def test_cast_int32():
     inp_float = np.array([1, -2, 3], dtype=np.float32)
     backends: list[Backend] = [
         TorchBackend(dtype=mithril.float16),
+        TorchBackend(dtype=mithril.bfloat16),
         TorchBackend(dtype=mithril.float32),
         TorchBackend(dtype=mithril.float64),
         NumpyBackend(dtype=mithril.float16),
         NumpyBackend(dtype=mithril.float32),
         NumpyBackend(dtype=mithril.float64),
         JaxBackend(dtype=mithril.float16),
+        JaxBackend(dtype=mithril.bfloat16),
         JaxBackend(dtype=mithril.float32),
         JaxBackend(dtype=mithril.float64),
     ]
@@ -2750,12 +2794,14 @@ def test_cast_int64():
     inp_float = np.array([1, -2, 3], dtype=np.float32)
     backends: list[Backend] = [
         TorchBackend(dtype=mithril.float16),
+        TorchBackend(dtype=mithril.bfloat16),
         TorchBackend(dtype=mithril.float32),
         TorchBackend(dtype=mithril.float64),
         NumpyBackend(dtype=mithril.float16),
         NumpyBackend(dtype=mithril.float32),
         NumpyBackend(dtype=mithril.float64),
         JaxBackend(dtype=mithril.float16),
+        JaxBackend(dtype=mithril.bfloat16),
         JaxBackend(dtype=mithril.float32),
         JaxBackend(dtype=mithril.float64),
     ]
@@ -2794,12 +2840,14 @@ def test_cast_float16():
     inp_float = np.array([1, -2, 3], dtype=np.float32)
     backends: list[TorchBackend | JaxBackend | NumpyBackend | MlxBackend] = [
         TorchBackend(dtype=mithril.float16),
+        TorchBackend(dtype=mithril.bfloat16),
         TorchBackend(dtype=mithril.float32),
         TorchBackend(dtype=mithril.float64),
         NumpyBackend(dtype=mithril.float16),
         NumpyBackend(dtype=mithril.float32),
         NumpyBackend(dtype=mithril.float64),
         JaxBackend(dtype=mithril.float16),
+        JaxBackend(dtype=mithril.bfloat16),
         JaxBackend(dtype=mithril.float32),
         JaxBackend(dtype=mithril.float64),
     ]
@@ -2829,8 +2877,8 @@ def test_cast_float16():
             )
             res = pm.evaluate()["output"]
             assert isinstance(res, backend.DataType)
-            assert res.dtype == expected_dtypes[backend.backend_type]
-            np.testing.assert_allclose(res, reference_outputs["output"])
+            assert res.dtype == expected_dtypes[backend.backend_type]  # type: ignore
+            np.testing.assert_allclose(res, reference_outputs["output"])  # type: ignore
 
 
 # def test_cast_bfloat16():
@@ -2883,12 +2931,14 @@ def test_cast_float32():
     inp_float = np.array([1, -2, 3], dtype=np.float32)
     backends: list[Backend] = [
         TorchBackend(dtype=mithril.float16),
+        TorchBackend(dtype=mithril.bfloat16),
         TorchBackend(dtype=mithril.float32),
         TorchBackend(dtype=mithril.float64),
         NumpyBackend(dtype=mithril.float16),
         NumpyBackend(dtype=mithril.float32),
         NumpyBackend(dtype=mithril.float64),
         JaxBackend(dtype=mithril.float16),
+        JaxBackend(dtype=mithril.bfloat16),
         JaxBackend(dtype=mithril.float32),
         JaxBackend(dtype=mithril.float64),
     ]
@@ -2929,12 +2979,14 @@ def test_cast_float64():
     inp_float = np.array([1, -2, 3], dtype=np.float32)
     backends: list[Backend] = [
         TorchBackend(dtype=mithril.float16),
+        TorchBackend(dtype=mithril.bfloat16),
         TorchBackend(dtype=mithril.float32),
         TorchBackend(dtype=mithril.float64),
         NumpyBackend(dtype=mithril.float16),
         NumpyBackend(dtype=mithril.float32),
         NumpyBackend(dtype=mithril.float64),
         JaxBackend(dtype=mithril.float16),
+        JaxBackend(dtype=mithril.bfloat16),
         JaxBackend(dtype=mithril.float32),
         JaxBackend(dtype=mithril.float64),
     ]
@@ -2971,12 +3023,14 @@ def test_cast_bool():
     inp_float = np.array([1, -2, 3], dtype=np.float32)
     backends: list[Backend] = [
         TorchBackend(dtype=mithril.float16),
+        TorchBackend(dtype=mithril.bfloat16),
         TorchBackend(dtype=mithril.float32),
         TorchBackend(dtype=mithril.float64),
         NumpyBackend(dtype=mithril.float16),
         NumpyBackend(dtype=mithril.float32),
         NumpyBackend(dtype=mithril.float64),
         JaxBackend(dtype=mithril.float16),
+        JaxBackend(dtype=mithril.bfloat16),
         JaxBackend(dtype=mithril.float32),
         JaxBackend(dtype=mithril.float64),
     ]
@@ -3012,7 +3066,7 @@ def test_cast_bool():
 
 
 def test_dtype_int16():
-    model = DType()
+    model = Dtype()
     converter = Cast(dtype=mithril.int16)
 
     backends: list[Backend] = [TorchBackend(), JaxBackend(), NumpyBackend()]
@@ -3040,7 +3094,7 @@ def test_dtype_int16():
 
 
 def test_dtype_int32():
-    model = DType()
+    model = Dtype()
     converter = Cast(dtype=mithril.int32)
 
     backends: list[Backend] = [TorchBackend(), JaxBackend(), NumpyBackend()]
@@ -3068,7 +3122,7 @@ def test_dtype_int32():
 
 
 def test_dtype_int64():
-    model = DType()
+    model = Dtype()
     converter = Cast(dtype=mithril.int64)
 
     backends: list[Backend] = [TorchBackend(), JaxBackend(), NumpyBackend()]
@@ -3096,7 +3150,7 @@ def test_dtype_int64():
 
 
 def test_dtype_float16():
-    model = DType()
+    model = Dtype()
     converter = Cast(dtype=mithril.float16)
 
     backends: list[Backend] = [TorchBackend(), JaxBackend(), NumpyBackend()]
@@ -3124,7 +3178,7 @@ def test_dtype_float16():
 
 
 def test_dtype_float32():
-    model = DType()
+    model = Dtype()
     converter = Cast(dtype=mithril.float32)
 
     backends: list[Backend] = [TorchBackend(), JaxBackend(), NumpyBackend()]
@@ -3152,7 +3206,7 @@ def test_dtype_float32():
 
 
 def test_dtype_float64():
-    model = DType()
+    model = Dtype()
     converter = Cast(dtype=mithril.float64)
 
     backends: list[Backend] = [TorchBackend(), NumpyBackend()]
@@ -3791,7 +3845,7 @@ def test_slice_all_keys_given_all_three_parts():
 def test_tensor_item_with_slice_1():
     model = Model()
 
-    item_model = TensorItem()
+    item_model = Indexer()
     slice_model = Slice(start=0, stop=1, step=None)
 
     model += slice_model
@@ -3827,7 +3881,7 @@ def test_tensor_item_with_slice_1():
 def test_tensor_item_with_slice_2():
     model = Model()
 
-    item_model = TensorItem()
+    item_model = Indexer()
     slice_model = Slice(start=0, stop=2, step=None)
 
     model += slice_model

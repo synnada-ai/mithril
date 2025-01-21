@@ -97,8 +97,13 @@ def test_static_keys_inference(case: str) -> None:
     discard_keys = set(current_case.get("discard_keys", []))
 
     model = finalize_model(current_case)
+
     compiled_model = mithril.compile(
-        model, backend=backend, discard_keys=discard_keys, constant_keys=static_inputs
+        model,
+        backend=backend,
+        discard_keys=discard_keys,
+        constant_keys=static_inputs,
+        inference=current_case.get("inference", False),
     )
     # model_static_keys = sorted([key for key in compiled_model.static_keys.keys()])
     model_static_keys = sorted(

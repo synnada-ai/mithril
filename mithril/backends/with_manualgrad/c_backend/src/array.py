@@ -16,6 +16,8 @@ import ctypes
 import os
 from typing import Any
 
+import numpy as np
+
 current_file_path = os.path.abspath(__file__)
 
 lib = ctypes.CDLL(os.path.join(os.path.dirname(current_file_path), "libmithrilc.so"))
@@ -51,11 +53,13 @@ lib.create_full_struct.argtypes = [
 lib.delete_struct.argtypes = [ctypes.POINTER(Array)]
 
 
-def to_c_int_array(lst: list[Any] | tuple[Any, ...]):
+def to_c_int_array(lst: list[int] | tuple[int, ...]) -> ctypes.Array[ctypes.c_int]:
     return (ctypes.c_int * len(lst))(*lst)
 
 
-def to_c_float_array(arr):
+def to_c_float_array(
+    arr: list[float] | tuple[float, ...] | np.ndarray[Any, Any],
+) -> ctypes.Array[ctypes.c_float]:
     return arr.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
 
 
