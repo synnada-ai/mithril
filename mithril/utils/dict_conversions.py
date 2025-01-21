@@ -89,7 +89,7 @@ class ModelDict(TypedDict, total=False):
     types: dict[str, str]
     submodels: dict[str, ModelDict]
     connections: dict[str, dict[str, str | ConnectionDict]]
-    canonical_keys: dict[str, tuple[str, str]]
+    canonical_keys: dict[str, tuple[set[str], set[str]]]
 
 
 class TrainModelDict(TypedDict):
@@ -222,7 +222,9 @@ def dict_to_model(
     differentiability_info: dict[str, bool] = params.get("differentiability_info", {})
     assigned_shapes = params.get("assigned_shapes", {})
     assigned_constraints = params.get("assigned_constraints", [])
-    canonical_keys: dict[str, tuple[str, str]] = params.get("canonical_keys", {})
+    canonical_keys: dict[str, tuple[set[str], set[str]]] = params.get(
+        "canonical_keys", {}
+    )
 
     submodels_dict = {}
     for m_key, v in submodels.items():
@@ -319,7 +321,7 @@ def model_to_dict(model: BaseModel) -> TrainModelDict | ModelDict:
         return model_dict
 
     connection_dict: dict[str, dict[str, str | ConnectionDict]] = {}
-    canonical_keys: dict[str, tuple[str, str]] = {}
+    canonical_keys: dict[str, tuple[set[str], set[str]]] = {}
     submodels: dict[str, ModelDict] = {}
 
     # IOHyperEdge -> [model_id, connection_name]
@@ -339,13 +341,9 @@ def model_to_dict(model: BaseModel) -> TrainModelDict | ModelDict:
         connection_dict[model_id] = connection_to_dict(
             model, submodel, submodel_connections, model_id
         )
-        # canonical_keys[model_id] = (
-        #     submodel.canonical_input.key,
-        #     submodel.canonical_output.key,
-        # )
         canonical_keys[model_id] = (
             get_keys(submodel.conns.cins),
-            get_keys(submodel.conns.couts)
+            get_keys(submodel.conns.couts),
         )
     canonical_keys["model"] = (get_keys(model.conns.cins), get_keys(model.conns.couts))
 
@@ -362,8 +360,10 @@ def model_to_dict(model: BaseModel) -> TrainModelDict | ModelDict:
     }
     return composite_model_dict
 
-def get_keys(canonicals: set[ConnectionData]):
+
+def get_keys(canonicals: set[ConnectionData]) -> set[str]:
     return {con.key for con in canonicals}
+
 
 def connection_to_dict(
     model: Model,

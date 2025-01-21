@@ -49,7 +49,6 @@ from ..framework.logical import (
     Sum,
     ToTensor,
 )
-from ..framework.logical.primitive import PrimitiveModel
 from ..framework.physical.model import FinalCost, LossKey
 from .primitives import Concat
 
@@ -115,7 +114,7 @@ class TrainModel(Model):
         self.geomean_map: dict[str, list[tuple[Connection, float]]] = {}
         self.reduce_inputs: dict[str, list[tuple[Connection, Connection]]] = {}
 
-    def __add__(self, model: ExtendInfo | PrimitiveModel | Model) -> Self:
+    def __add__(self, model: ExtendInfo | BaseModel) -> Self:
         """This function allows models to be added sequentially via "+=" operator.
         There are several conditions for a model to be sequentially added:
         if added model has single input, connect that input directly.
@@ -186,7 +185,7 @@ class TrainModel(Model):
         else:
             if len(self.conns.couts) != 1:
                 raise KeyError("Canonical output of given model is not available!")
-            c_out, = self.conns.couts
+            (c_out,) = self.conns.couts
             outputs_conns_metadata.add(c_out.metadata)
 
         is_loss_connected = False
@@ -386,13 +385,13 @@ class TrainModel(Model):
                 # kwargs[out.key] = key_name
                 kwargs[out.key] = IOKey(name=key_name)
 
-            self.extend(
-                model,
-                **{
-                    key: value.conn if isinstance(value, ConnectionData) else value
-                    for key, value in model(**kwargs).connections.items()
-                },
-            )
+            keywords = {}
+            for key, value in model(**kwargs).connections.items():
+                if isinstance(value, ConnectionData):
+                    keywords[key] = value.conn
+                else:
+                    keywords[key] = value
+            self.extend(model, **keywords)
             if isinstance(outer_key := kwargs[reg_str], ConnectionData):
                 outer_key = outer_key.key
 

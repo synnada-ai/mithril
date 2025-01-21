@@ -113,7 +113,7 @@ class PhysicalModel(GenericDataType[DataType]):
                     val = default_val if default_val is not TBD else value
                     model_keys[key] = IOKey(key, val)  # type: ignore
 
-            model = Model() 
+            model = Model()
             model |= _model(**model_keys)
 
         self.backend: Backend[DataType] = backend

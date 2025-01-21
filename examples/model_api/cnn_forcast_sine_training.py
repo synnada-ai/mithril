@@ -117,9 +117,11 @@ X_test, y_test = generate_sine_wave(seq_len, 1)
 data = {"input": X_test, "target": y_test}
 pred = pm.evaluate(params, data)["predictions"]
 
+
 def plot_sine_wave(seq_len, X_test, pred):
     import matplotlib.pyplot as plt
     import numpy as np
+
     # Plot the sequence data and its prediction.
     plt.plot(
         np.arange(seq_len),
@@ -139,5 +141,6 @@ def plot_sine_wave(seq_len, X_test, pred):
     )
     plt.legend()
     plt.show()
+
 
 # plot_sine_wave(seq_len, X_test, pred)

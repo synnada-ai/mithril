@@ -484,7 +484,9 @@ class Model(BaseModel):
             else:
                 key_type = (KeyType.LATENT_OUTPUT, KeyType.INTERNAL)[con_obj in d_map]
         else:
-            key_type = (KeyType.OUTPUT, KeyType.INPUT)[is_input and con_obj not in d_map]
+            key_type = (KeyType.OUTPUT, KeyType.INPUT)[
+                is_input and con_obj not in d_map
+            ]
         if con_obj in d_map:
             self.conns.couts.discard(con_obj)
         self.conns.set_connection_type(con_obj, key_type)
@@ -671,8 +673,10 @@ class Model(BaseModel):
         updates = self.constraint_solver.match(model.constraint_solver)
 
         # Add canonical output if it is not in external_keys
-        external_keys = list(model.external_keys) 
-        external_keys += [item.key for item in model.conns.couts if item.key not in external_keys]
+        external_keys = list(model.external_keys)
+        external_keys += [
+            item.key for item in model.conns.couts if item.key not in external_keys
+        ]
 
         io_keys: dict[str, IOKey] = {
             key: self._convert_to_iokey(model, key, kwargs.get(key, NOT_GIVEN))
@@ -718,12 +722,20 @@ class Model(BaseModel):
         # Update Canonicals
         for c_input in model.conns.cins:
             c_in = self.conns.get_con_by_metadata(c_input.metadata)
-            if c_in is not None and c_in not in self.dependency_map.local_output_dependency_map and c_in in self.conns.input_connections and c_in.metadata.value is TBD:
+            if (
+                c_in is not None
+                and c_in not in self.dependency_map.local_output_dependency_map
+                and c_in in self.conns.input_connections
+                and c_in.metadata.value is TBD
+            ):
                 self.conns.cins.add(c_in)
 
         for c_output in model.conns.couts:
             c_out = self.conns.get_con_by_metadata(c_output.metadata)
-            if c_out is not None and (c_out not in self.dependency_map.local_input_dependency_map or c_out in self.conns.output_connections):
+            if c_out is not None and (
+                c_out not in self.dependency_map.local_input_dependency_map
+                or c_out in self.conns.output_connections
+            ):
                 self.conns.couts.add(c_out)
 
         # Update jittablity by using model's jittablity.
@@ -751,7 +763,6 @@ class Model(BaseModel):
 
         self.extend(model, **kwargs)
         return self
-    
 
     def __add__(self, info: ExtendInfo | BaseModel) -> Self:
         # TODO: Check if info is a valid info for canonical connections.
@@ -759,24 +770,32 @@ class Model(BaseModel):
         if isinstance(info, BaseModel):
             info = info()
         model, kwargs = info.model, info.connections
-        not_given_keys = {key for key, val in kwargs.items() if val is not NullConnection()}
+        not_given_keys = {
+            key for key, val in kwargs.items() if val is not NullConnection()
+        }
         available_cin = {item.key for item in model.conns.cins} - not_given_keys
         if len(self.dag) > 0:
             if len(model.conns.cins) == 0:
-                raise KeyError("No existing canonical input is found to extension model! Use |= operator.")
+                raise KeyError(
+                    "No existing canonical input is found "
+                    "to extension model! Use |= operator."
+                )
             if len(available_cin) > 1:
-                raise KeyError("Multiple canonical inputs are not allowed! Use |= operator.")
+                raise KeyError(
+                    "Multiple canonical inputs are not allowed! Use |= operator."
+                )
             if len(available_cin) == 1:
                 kwargs[next(iter(available_cin))] = self.canonical_output
         return self._extend(model, kwargs)
-    __iadd__ = __add__
 
+    __iadd__ = __add__
 
     def __or__(self, info: ExtendInfo | BaseModel) -> Self:
         # TODO: Check if info is a valid info for extend.
         if isinstance(info, BaseModel):
             info = info()
         return self._extend(info.model, info.connections)
+
     __ior__ = __or__
 
     @staticmethod
@@ -1077,11 +1096,7 @@ class Model(BaseModel):
             # handle the case when model is constructed with += operation. In that case,
             # directly take canonical output as the output_key.
             output_keys = (
-                (
-                    [self.canonical_output.key]
-                    if len(self.conns.couts) == 1
-                    else []
-                )
+                ([self.canonical_output.key] if len(self.conns.couts) == 1 else [])
                 if not self.conns.output_keys
                 else self.conns.output_keys
             )

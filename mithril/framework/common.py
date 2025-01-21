@@ -1251,16 +1251,8 @@ class BaseKey:
     shape: ShapeTemplateType | None = None
     type: UnionType | type | type[Tensor[Any]] | ScalarType | None = None
     interval: list[float | int] | None = None
-
     # TODO: Add __post_init__ to check types and values
-    # def __post_init__(self) -> None:
-    #     if not isinstance(self.value, ToBeDetermined):
-    #         value_type = _find_type(self.value)
-    #         if self.type is not None and find_intersection_type(value_type, self.type) is None:
-    #             raise TypeError(
-    #                 f"type of the given value and given type does not match. Given "
-    #                 f"type is {self.type} while type of value is {value_type}"
-    #             )
+
 
 class IOKey(TemplateBase):
     def __init__(
@@ -1520,8 +1512,11 @@ class Connections:
         outputs = self._connection_dict[KeyType.OUTPUT]
         latent_inputs = self._connection_dict[KeyType.LATENT_INPUT]
         latent_outputs = self._connection_dict[KeyType.LATENT_OUTPUT]
-        return internals.get(key, inputs.get(
-            key, outputs.get(key, latent_inputs.get(key, latent_outputs.get(key))))
+        return internals.get(
+            key,
+            inputs.get(
+                key, outputs.get(key, latent_inputs.get(key, latent_outputs.get(key)))
+            ),
         )
 
     def get_con_by_metadata(self, key: IOHyperEdge) -> ConnectionData | None:

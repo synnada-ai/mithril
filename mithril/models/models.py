@@ -1880,7 +1880,6 @@ class OneToMany(RNN):
         self.set_cout(current_cell.output)
         self._freeze()
 
-
     def __call__(
         self, input: ConnectionType = NOT_GIVEN, **model_keys: ConnectionType
     ) -> ExtendInfo:

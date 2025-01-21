@@ -23,6 +23,7 @@ from typing import Any
 
 from ...utils.utils import OrderedSet
 from ..common import (
+    TBD,
     AssignedConstraintType,
     Connection,
     ConnectionData,
@@ -46,7 +47,6 @@ from ..common import (
     Variadic,
     create_shape_repr,
     get_shapes,
-    TBD
 )
 from ..constraints import post_process_map, type_constraints
 
@@ -59,9 +59,11 @@ class ExtendInfo:
     _connections: dict[str, ConnectionType]
 
     def __post_init__(self) -> None:
-        external_keys = set(self._model.external_keys) \
-            | {item.key for item in self._model.conns.couts} \
+        external_keys = (
+            set(self._model.external_keys)
+            | {item.key for item in self._model.conns.couts}
             | {item.key for item in self._model.conns.cins}
+        )
 
         for key in self._connections:
             if key not in external_keys:
@@ -154,10 +156,7 @@ class BaseModel(abc.ABC):
     @property
     def output_keys(self) -> list[str]:
         output_keys = list(self.conns.output_keys)
-        if (
-            len(self.conns.couts) == 1
-            and self.canonical_output.key not in output_keys
-        ):
+        if len(self.conns.couts) == 1 and self.canonical_output.key not in output_keys:
             output_keys.append("#canonical_output")
         return output_keys
 
@@ -470,8 +469,7 @@ class BaseModel(abc.ABC):
             raise KeyError("Model must have exactly one canonical output!")
         return next(iter(self.conns.couts)).conn
 
-
-    def set_cin(self, *connections: str | Connection, safe=True) -> None:
+    def set_cin(self, *connections: str | Connection, safe: bool = True) -> None:
         self.conns.cins = set()
         for given_conn in reversed(connections):
             if isinstance(given_conn, str):
@@ -498,7 +496,7 @@ class BaseModel(abc.ABC):
             else:
                 self.conns.cins.add(conn)
 
-    def set_cout(self, *connections: str | Connection, safe=True) -> None:
+    def set_cout(self, *connections: str | Connection, safe: bool = True) -> None:
         self.conns.couts = set()
         for given_conn in reversed(connections):
             if isinstance(given_conn, str):
@@ -514,12 +512,11 @@ class BaseModel(abc.ABC):
             if conn not in self.dependency_map.local_output_dependency_map or is_valued:
                 if safe:
                     raise ValueError(
-                        "To set a connection as canonical output, connection must be an "
-                        "output connection!"
+                        "To set a connection as canonical output, "
+                        "connection must be an output connection!"
                     )
             else:
                 self.conns.couts.add(conn)
-
 
     def _match_hyper_edges(self, left: IOHyperEdge, right: IOHyperEdge) -> Updates:
         # if type(left.data) is not type(right.data):

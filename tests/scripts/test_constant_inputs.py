@@ -1813,7 +1813,7 @@ def test_unused_cached_values_2():
     dtype = backend.get_backend_array_type()
     cache = comp_model.data_store.data_values
 
-    model = Model() 
+    model = Model()
     model += Convolution2D()
 
     expected_cache = {

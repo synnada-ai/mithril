@@ -128,6 +128,7 @@ def test_extract_logical_connections_1():
         ),
     }
 
+
 def test_extract_logical_connections_2():
     model = Model()
     sig1 = Sigmoid()

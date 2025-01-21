@@ -44,6 +44,7 @@ def assert_conns_values_equal(ref_conn_dict: dict):
     for conn, value in ref_conn_dict.items():
         assert conn.metadata.value == value
 
+
 # TODO: we should add logical_latent_inputs_ref, logical_latent_outputs_ref!
 def assert_model_keys(
     model: Model,
@@ -153,7 +154,7 @@ def test_3():
 
     expected_input_keys = {"$2", "weight_2", "$3", "$5", "bias_3"}
     expected_internal_keys = {"$4"}
-    expected_latent_input_keys = {"output1"}
+    # expected_latent_input_keys = {"output1"}
     expected_pm_input_keys = {"input", "weight_2", "bias", "weight", "bias_3"}
     expected_pm_output_keys = {"output1"}
 

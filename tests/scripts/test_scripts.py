@@ -5877,7 +5877,7 @@ def test_deepcopy_4():
     _model += Add()
     _model.set_types({key: Tensor for key in _model.conns.input_keys})
     for _ in range(4):
-        model = Model() 
+        model = Model()
         model += deepcopy(_model)
 
     all_data = get_all_data(model)
@@ -6776,9 +6776,7 @@ def test_iadd_6():
     with pytest.raises(KeyError) as err_info:
         model += Relu()
 
-    assert str(err_info.value) == (
-        "'Model must have exactly one canonical output!'"
-    )
+    assert str(err_info.value) == ("'Model must have exactly one canonical output!'")
 
 
 def test_iadd_7():
