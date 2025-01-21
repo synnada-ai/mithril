@@ -18,14 +18,19 @@ from importlib import import_module
 
 import mithril
 from mithril import JaxBackend, MlxBackend, NumpyBackend, TorchBackend
-from mithril.models import Concat, Convolution1D, Linear, Mean, Model, Relu, ToTensor
+from mithril.models import Concat, Convolution1D, Linear, Mean, Model, Relu, ToTensor,Shape
 from tests.scripts.test_utils import compare_callables
 
 from ..utils import with_temp_file
 
 # ruff: noqa: F821
 
-
+def list_full(fill_value, *shapes):
+    if len(shapes) == 0:
+        return fill_value
+    else:
+        first_shape, other_shapes = shapes[0], shapes[1:]
+        return [list_full(fill_value, *other_shapes) for _ in range(first_shape)]
 @with_temp_file(".py")
 def test_single_input_primitive(file_path):
     model = Model()
@@ -400,7 +405,7 @@ def test_default_kwarg_reduction_2(file_path: str):
 
 
 @with_temp_file(".py")
-def test_inline_caching(file_path: str):
+def test_inline_caching_1(file_path: str):
     model = Model()
     model += Convolution1D(
         out_channels=384, kernel_size=3, stride=1, padding=1, name="conv1"
@@ -419,5 +424,21 @@ def test_inline_caching(file_path: str):
         weight = params["weight"]
         conv1_out = conv1d_bias(input, weight, bias, dilation=1)
         return {"conv1_out": conv1_out}
+
+    compare_callables(evaluate, eval_func)
+@with_temp_file(".py")
+def test_inline_caching_2(file_path: str):
+    
+    model = Shape()
+    backend = TorchBackend(device="cpu")
+    statics = {"input": backend.array(list_full(1.0, 2, 3, 4, 5, 1, 2))}
+    mithril.compile(model, backend,constant_keys=statics ,inference=True, jit=False,file_path=file_path)
+
+    file_name = os.path.basename(file_path).split(".")[0]
+    eval_func = import_module("tmp." + file_name).evaluate
+
+    @typing.no_type_check
+    def evaluate(params, data, cache):
+        return {'output': (2, 3, 4, 5, 1, 2)}
 
     compare_callables(evaluate, eval_func)
