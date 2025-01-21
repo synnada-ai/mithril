@@ -34,6 +34,7 @@ from ..common_primitives import (
     floor_divide,
     greater,
     greater_equal,
+    indexer,
     item,
     length,
     less,
@@ -52,7 +53,6 @@ from ..common_primitives import (
     primitive_embedding,
     primitive_slice,
     reshape,
-    scalar_item,
     sequence_slice,
     shift_left,
     shift_right,
@@ -61,7 +61,6 @@ from ..common_primitives import (
     stride_converter,
     subtract,
     swapaxes,
-    tensor_item,
     to_list,
     to_tuple,
     transpose,
@@ -167,8 +166,7 @@ __all__ = [
     "permute_tensor",
     "reshape",
     "item",
-    "scalar_item",
-    "tensor_item",
+    "indexer",
     "primitive_slice",
     "sequence_slice",
     "union",
@@ -779,6 +777,14 @@ def concat(*inputs: mx.array, axis: AxisType = 0) -> mx.array:
 
 def matrix_concat(input1: mx.array, input2: mx.array) -> mx.array:
     return mx.concatenate([input1, input2], axis=input1.ndim - 1)
+
+
+def minimum(left: mx.array, right: mx.array) -> mx.array:
+    return mx.minimum(left, right)
+
+
+def maximum(left: mx.array, right: mx.array) -> mx.array:
+    return mx.maximum(left, right)
 
 
 def where(cond: mx.array, input1: mx.array, input2: mx.array) -> mx.array:

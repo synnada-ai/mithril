@@ -22,10 +22,12 @@ from jax import vmap
 
 from .... import core
 from ....utils.utils import binary_search, find_dominant_type
+from ...utils import DtypeSubTypes
 
 ArrayType = jax.Array
 
 dtype_map: dict[str, jnp.dtype[Any]] = {
+    "uint8": jnp.uint8,
     "int8": jnp.int8,
     "int16": jnp.int16,
     "int32": jnp.int32,
@@ -33,6 +35,7 @@ dtype_map: dict[str, jnp.dtype[Any]] = {
     "int64": jnp.int64,
     "long": jnp.int64,
     "float16": jnp.float16,
+    "bfloat16": jnp.bfloat16,
     "float32": jnp.float32,
     "float": jnp.float32,
     "float64": jnp.float64,
@@ -456,7 +459,9 @@ def calculate_cross_entropy_class_weights(
     return _weights
 
 
-def determine_dtype(input: Any, dtype: core.Dtype | None, precision: int) -> str:
+def determine_dtype(
+    input: Any, dtype: core.Dtype | None, default_dtype: core.Dtype, precision: int
+) -> str:
     if isinstance(dtype, core.Dtype):
         return dtype.name
 
@@ -468,5 +473,8 @@ def determine_dtype(input: Any, dtype: core.Dtype | None, precision: int) -> str
         dtype_name = "".join(char for char in str(input.dtype) if not char.isdigit())
     else:
         dtype_name = find_dominant_type(input).__name__
+
+    if dtype_name == "float":
+        dtype_name = DtypeSubTypes[default_dtype.name].value
 
     return dtype_name + str(precision) if dtype_name != "bool" else "bool"

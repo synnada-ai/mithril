@@ -76,7 +76,7 @@ __all__ = [
     "softplus_grad",
     "gelu_grad",
     "stop_gradient_grad",
-    "tensor_item_grad",
+    "indexer_grad",
     "permute_tensor_grad",
     "transpose_grad",
     "square_grad",
@@ -809,7 +809,7 @@ def stop_gradient_grad(
     return np.zeros_like(output_gradient)
 
 
-def tensor_item_grad(
+def indexer_grad(
     output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,

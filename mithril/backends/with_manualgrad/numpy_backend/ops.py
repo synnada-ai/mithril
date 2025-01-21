@@ -36,6 +36,7 @@ from ..common_primitives import (
     floor_divide,
     greater,
     greater_equal,
+    indexer,
     item,
     length,
     less,
@@ -53,7 +54,6 @@ from ..common_primitives import (
     power,
     primitive_slice,
     reshape,
-    scalar_item,
     sequence_slice,
     shift_left,
     shift_right,
@@ -62,7 +62,6 @@ from ..common_primitives import (
     stride_converter,
     subtract,
     swapaxes,
-    tensor_item,
     to_list,
     to_tuple,
     transpose,
@@ -185,8 +184,7 @@ __all__ = [
     "permute_tensor",
     "reshape",
     "item",
-    "scalar_item",
-    "tensor_item",
+    "indexer",
     "primitive_slice",
     "swapaxes",
     "sequence_slice",
@@ -972,6 +970,24 @@ def primitive_embedding(
     cache: CacheType | None = None,
 ) -> np.ndarray[Any, Any]:
     return weight[input]
+
+
+def minimum(
+    left: np.ndarray[Any, Any],
+    right: np.ndarray[Any, Any],
+    *,
+    cache: CacheType | None = None,
+) -> np.ndarray[Any, Any]:
+    return np.minimum(left, right)
+
+
+def maximum(
+    left: np.ndarray[Any, Any],
+    right: np.ndarray[Any, Any],
+    *,
+    cache: CacheType | None = None,
+) -> np.ndarray[Any, Any]:
+    return np.maximum(left, right)
 
 
 def where(

@@ -46,8 +46,7 @@ __all__ = [
     "permute_tensor",
     "reshape",
     "item",
-    "scalar_item",
-    "tensor_item",
+    "indexer",
     "sequence_slice",
     "union",
     "length",
@@ -175,10 +174,19 @@ def item(input: DataType) -> int | float | bool:
     return input.item()  # type: ignore
 
 
-def tensor_item(
-    input: DataType, index: int | slice | tuple[int | slice, ...]
-) -> DataType:
-    return input[index]
+# TODO: Overload this function.
+def indexer(
+    input: DataType | list[int | float | bool] | tuple[int | float | bool, ...],
+    index: int | slice | tuple[int | slice, ...],
+) -> (
+    DataType
+    | list[int | float | bool]
+    | tuple[int | float | bool, ...]
+    | int
+    | float
+    | bool
+):
+    return input[index]  # type: ignore
 
 
 def primitive_slice(start: int | None, stop: int | None, step: int | None) -> slice:
@@ -195,12 +203,6 @@ def cartesian_diff(left: DataType, right: DataType) -> DataType:
 
 def primitive_embedding(input: DataType, weight: DataType) -> DataType:
     return weight[input]
-
-
-def scalar_item(
-    input: list[int | float | bool] | tuple[int | float | bool, ...], index: int
-) -> int | float:
-    return input[index]
 
 
 def sequence_slice(

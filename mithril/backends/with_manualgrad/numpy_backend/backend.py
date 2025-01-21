@@ -39,12 +39,14 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
     backend_type = "numpy"
 
     registered_primitives = {}
+    supported_dtypes = [Dtype.float16, Dtype.float32, Dtype.float64]
     primitive_fn_path = "mithril.backends.with_manualgrad.numpy_backend.ops"
     primitive_grad_fn_path = "mithril.backends.with_manualgrad.numpy_backend.ops_grad"
     registered_primitives_grad_fn: dict[str, Callable[..., np.ndarray[Any, Any]]] = {}
 
-    def __init__(self, device: str = "cpu", precision: int = 32) -> None:
-        self._precision = precision
+    def __init__(self, device: str = "cpu", dtype: Dtype = Dtype.float32) -> None:
+        self._dtype = dtype
+
         if device != "cpu":
             raise RuntimeError(
                 f"Specified device: '{device}' is not available!"
@@ -52,7 +54,7 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
             )
         self._device = device
 
-        super().__init__()
+        super().__init__(dtype=dtype)
 
         self.array_creation_funcs = ops.array_creation_funcs
         self.primitive_function_dict = ops.primitive_func_dict
@@ -115,7 +117,7 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
         return utils.accumulate_grads(gradient, input, cache, idx)
 
     def array(self, data: Any, *, dtype: Dtype | None = None) -> np.ndarray[Any, Any]:
-        _dtype = utils.determine_dtype(data, dtype, self.precision)
+        _dtype = utils.determine_dtype(data, dtype, self._dtype, self.precision)
 
         return np.array(data, dtype=utils.dtype_map[_dtype])
 
