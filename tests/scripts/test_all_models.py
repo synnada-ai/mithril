@@ -828,6 +828,14 @@ def test_arange_3():
 def test_arange_static_inference_w_dtype():
     dtypes = [mithril.float16, mithril.float32]
     for dtype in dtypes:
+        backends: list[Backend[Any]] = [
+            TorchBackend(dtype=dtype),
+            NumpyBackend(dtype=dtype),
+            JaxBackend(dtype=dtype),
+        ]
+        if platform.system() == "Darwin":
+            backends.append(MlxBackend(dtype=dtype))
+
         model = Arange(start=0, stop=10, step=1, dtype=dtype)
 
         reference_outputs = {"output": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]}
@@ -841,18 +849,21 @@ def test_arange_static_inference_w_dtype():
             reference_outputs=reference_outputs,
             reference_gradients=None,
             tolerances=1e-6,
-            backends=[
-                TorchBackend(dtype=dtype),
-                NumpyBackend(dtype=dtype),
-                JaxBackend(dtype=dtype),
-                MlxBackend(dtype=dtype),
-            ],
+            backends=backends,
         )
 
 
 def test_arange_w_dtype():
     dtypes = [mithril.float16, mithril.float32]
     for dtype in dtypes:
+        backends: list[Backend[Any]] = [
+            TorchBackend(dtype=dtype),
+            NumpyBackend(dtype=dtype),
+            JaxBackend(dtype=dtype),
+        ]
+        if platform.system() == "Darwin":
+            backends.append(MlxBackend(dtype=dtype))
+
         model = Arange(start=0, stop=TBD, step=1, dtype=dtype)
 
         reference_outputs = {"output": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]}
@@ -867,12 +878,7 @@ def test_arange_w_dtype():
             reference_gradients=None,
             assert_shapes=False,
             tolerances=1e-6,
-            backends=[
-                TorchBackend(dtype=dtype),
-                NumpyBackend(dtype=dtype),
-                JaxBackend(dtype=dtype),
-                MlxBackend(dtype=dtype),
-            ],
+            backends=backends,
         )
 
 
@@ -1452,6 +1458,14 @@ def test_eye_3():
 def test_eye_static_infer_with_dtype():
     dtypes = [mithril.float16, mithril.float32]
     for dtype in dtypes:
+        backends: list[Backend[Any]] = [
+            TorchBackend(dtype=dtype),
+            NumpyBackend(dtype=dtype),
+            JaxBackend(dtype=dtype),
+        ]
+        if platform.system() == "Darwin":
+            backends.append(MlxBackend(dtype=dtype))
+
         model = Eye(N=3, M=4, dtype=dtype)
 
         reference_outputs = {
@@ -1467,18 +1481,21 @@ def test_eye_static_infer_with_dtype():
             reference_gradients=None,
             tolerances=1e-6,
             assert_shapes=False,
-            backends=[
-                JaxBackend(dtype=dtype),
-                TorchBackend(dtype=dtype),
-                NumpyBackend(dtype=dtype),
-                MlxBackend(dtype=dtype),
-            ],
+            backends=backends,
         )
 
 
 def test_eye_with_dtype():
     dtypes = [mithril.float16, mithril.float32]
     for dtype in dtypes:
+        backends: list[Backend[Any]] = [
+            TorchBackend(dtype=dtype),
+            NumpyBackend(dtype=dtype),
+            JaxBackend(dtype=dtype),
+        ]
+        if platform.system() == "Darwin":
+            backends.append(MlxBackend(dtype=dtype))
+
         model = Eye(N=3, M=TBD, dtype=dtype)
 
         reference_outputs = {
@@ -1494,12 +1511,7 @@ def test_eye_with_dtype():
             reference_gradients=None,
             tolerances=1e-6,
             assert_shapes=False,
-            backends=[
-                JaxBackend(dtype=dtype),
-                TorchBackend(dtype=dtype),
-                NumpyBackend(dtype=dtype),
-                MlxBackend(dtype=dtype),
-            ],
+            backends=backends,
         )
 
 
@@ -1577,6 +1589,14 @@ def test_eye_complement_3():
 def test_eye_complement_static_infer_w_dtype():
     dtypes = [mithril.float16, mithril.float32]
     for dtype in dtypes:
+        backends: list[Backend[Any]] = [
+            TorchBackend(dtype=dtype),
+            NumpyBackend(dtype=dtype),
+            JaxBackend(dtype=dtype),
+        ]
+        if platform.system() == "Darwin":
+            backends.append(MlxBackend(dtype=dtype))
+
         model = EyeComplement(N=3, M=4, dtype=dtype)
 
         reference_outputs = {
@@ -1592,18 +1612,21 @@ def test_eye_complement_static_infer_w_dtype():
             reference_gradients=None,
             tolerances=1e-6,
             assert_shapes=False,
-            backends=[
-                JaxBackend(dtype=dtype),
-                TorchBackend(dtype=dtype),
-                NumpyBackend(dtype=dtype),
-                MlxBackend(dtype=dtype),
-            ],
+            backends=backends,
         )
 
 
 def test_eye_complement_w_dtype():
     dtypes = [mithril.float16, mithril.float32]
     for dtype in dtypes:
+        backends: list[Backend[Any]] = [
+            TorchBackend(dtype=dtype),
+            NumpyBackend(dtype=dtype),
+            JaxBackend(dtype=dtype),
+        ]
+        if platform.system() == "Darwin":
+            backends.append(MlxBackend(dtype=dtype))
+
         model = EyeComplement(N=3, M=TBD, dtype=dtype)
 
         reference_outputs = {
@@ -1619,12 +1642,7 @@ def test_eye_complement_w_dtype():
             reference_gradients=None,
             tolerances=1e-6,
             assert_shapes=False,
-            backends=[
-                JaxBackend(dtype=dtype),
-                TorchBackend(dtype=dtype),
-                NumpyBackend(dtype=dtype),
-                MlxBackend(dtype=dtype),
-            ],
+            backends=backends,
         )
 
 
