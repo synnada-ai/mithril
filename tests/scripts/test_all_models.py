@@ -34,7 +34,7 @@ from mithril.models import (
     Buffer,
     Cast,
     Convolution1D,
-    DType,
+    Dtype,
     Equal,
     Eye,
     EyeComplement,
@@ -2828,7 +2828,7 @@ def test_cast_bool():
 
 
 def test_dtype_int16():
-    model = DType()
+    model = Dtype()
     converter = Cast(dtype=mithril.int16)
 
     backends: list[Backend] = [TorchBackend(), JaxBackend(), NumpyBackend()]
@@ -2856,7 +2856,7 @@ def test_dtype_int16():
 
 
 def test_dtype_int32():
-    model = DType()
+    model = Dtype()
     converter = Cast(dtype=mithril.int32)
 
     backends: list[Backend] = [TorchBackend(), JaxBackend(), NumpyBackend()]
@@ -2884,7 +2884,7 @@ def test_dtype_int32():
 
 
 def test_dtype_int64():
-    model = DType()
+    model = Dtype()
     converter = Cast(dtype=mithril.int64)
 
     backends: list[Backend] = [TorchBackend(), JaxBackend(), NumpyBackend()]
@@ -2912,7 +2912,7 @@ def test_dtype_int64():
 
 
 def test_dtype_float16():
-    model = DType()
+    model = Dtype()
     converter = Cast(dtype=mithril.float16)
 
     backends: list[Backend] = [TorchBackend(), JaxBackend(), NumpyBackend()]
@@ -2940,7 +2940,7 @@ def test_dtype_float16():
 
 
 def test_dtype_float32():
-    model = DType()
+    model = Dtype()
     converter = Cast(dtype=mithril.float32)
 
     backends: list[Backend] = [TorchBackend(), JaxBackend(), NumpyBackend()]
@@ -2968,7 +2968,7 @@ def test_dtype_float32():
 
 
 def test_dtype_float64():
-    model = DType()
+    model = Dtype()
     converter = Cast(dtype=mithril.float64)
 
     backends: list[Backend] = [TorchBackend(), NumpyBackend()]
