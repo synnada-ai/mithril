@@ -49,7 +49,7 @@ class MlxBackend(Backend[mx.array]):
 
         self.array_creation_funcs = ops.array_creation_funcs
         self.primitive_function_dict = ops.primitive_func_dict
-        mx.random.seed(self.seed)
+        self.prng_key = mx.random.key(self.seed)
 
     @property
     def is_manualgrad(self) -> bool:
@@ -89,7 +89,7 @@ class MlxBackend(Backend[mx.array]):
 
     def set_seed(self, seed: int) -> None:
         self.seed = seed
-        mx.random.seed(seed)
+        self.prng_key = mx.random.key(seed)
 
     def to_device(
         self, data: mx.array, device: str, asynchronous: bool = True
@@ -209,21 +209,23 @@ class MlxBackend(Backend[mx.array]):
         self,
         *shape: int | tuple[int, ...] | list[int],
         dtype: Dtype | None = None,
-        prng_key: Any = None,
+        key: int | None = None,
     ) -> mx.array:
+        prng_key = self._get_prng_key(key)
         _dtype = self._process_dtype(dtype)
         _shape = process_shape(shape)
-        return mx.random.normal(shape=_shape, dtype=_dtype)
+        return mx.random.normal(shape=_shape, dtype=_dtype, key=prng_key)
 
     def rand(
         self,
         *shape: int | tuple[int, ...] | list[int],
         dtype: Dtype | None = None,
-        prng_key: Any = None,
+        key: int | None = None,
     ) -> mx.array:
+        prng_key = self._get_prng_key(key)
         _dtype = self._process_dtype(dtype)
         _shape = process_shape(shape)
-        return mx.random.uniform(shape=_shape, dtype=_dtype)
+        return mx.random.uniform(shape=_shape, dtype=_dtype, key=prng_key)
 
     def randint(
         self,
@@ -231,11 +233,12 @@ class MlxBackend(Backend[mx.array]):
         high: int,
         *shape: int | tuple[int, ...] | list[int],
         dtype: Dtype | None = None,
-        prng_key: Any = None,
+        key: int | None = None,
     ) -> mx.array:
+        prng_key = self._get_prng_key(key)
         _dtype = self._process_dtype(dtype, "int")
         _shape = process_shape(shape)
-        return mx.random.randint(low, high, shape=_shape, dtype=_dtype)
+        return mx.random.randint(low, high, shape=_shape, dtype=_dtype, key=prng_key)
 
     def rand_uniform(
         self,
@@ -243,11 +246,12 @@ class MlxBackend(Backend[mx.array]):
         high: int | float | bool | mx.array,
         *shape: int | tuple[int, ...] | list[int],
         dtype: Dtype | None = None,
-        prng_key: Any = None,
+        key: int | None = None,
     ) -> mx.array:
+        prng_key = self._get_prng_key(key)
         _dtype = self._process_dtype(dtype)
         _shape = process_shape(shape)
-        return mx.random.uniform(low, high, shape=_shape, dtype=_dtype)
+        return mx.random.uniform(low, high, shape=_shape, dtype=_dtype, key=prng_key)
 
     def _arange(
         self,
@@ -675,6 +679,12 @@ class MlxBackend(Backend[mx.array]):
             return utils.dtype_map[default_type + str(self.precision)]
         else:
             raise ValueError(f"Invalid dtype {dtype}")
+
+    def _get_prng_key(self, key: int | None) -> mx.array:
+        if key is None:
+            return self.prng_key
+        else:
+            return mx.random.key(key)
 
     def _get_default_subtype(self) -> str:
         return DtypeSubTypes[self._dtype.name].value
