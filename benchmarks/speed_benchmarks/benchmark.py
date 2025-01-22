@@ -12,15 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import mithril as ml
 from benchmarks.speed_benchmarks.jax_fns import mlp_v_jax
 from benchmarks.speed_benchmarks.speed_helper import colorize_str
 from benchmarks.speed_benchmarks.torch_fns import conv_v_torch, mlp_v_torch
+from mithril.backends.utils import DtypeBits
 from mithril.framework.common import Table
 from mithril.models import Relu, Sigmoid, Tanh
 
 # MLX is not included due to Ubuntu OS in Github
 backends = ["Torch", "Jax"]
-precisions = [64, 32, 16]
+dtypes = [ml.float64, ml.float32, ml.float16]
 
 iterations = 100
 table = Table()
@@ -55,20 +57,20 @@ input_shape = (128, 256)
 
 for backend in backends:
     fn = mlp_v_jax if backend == "Jax" else mlp_v_torch
-    for precision in precisions:
-        if not (precision == 16 and backend == "Torch"):
+    for dtype in dtypes:
+        if not (DtypeBits[dtype.name].value == 16 and backend == "Torch"):
             num_params, time_backend, time_mithril = fn(
                 activations=activations,
                 dimensions=dimensions,
                 input_shape=input_shape,
                 iterations=iterations,
-                precision=precision,
+                dtype=dtype,
             )
             table.add_row(
                 [
                     "MLP Large",
                     backend,
-                    str(precision),
+                    str(dtype),
                     str(num_params),
                     f"{time_backend:.4f}",
                     f"{time_mithril:.4f}",
@@ -82,20 +84,20 @@ dimensions = [256, 256, 1]
 
 for backend in backends:
     fn = mlp_v_jax if backend == "Jax" else mlp_v_torch
-    for precision in precisions:
-        if not (precision == 16 and backend == "Torch"):
+    for dtype in dtypes:
+        if not (DtypeBits[dtype.name].value == 16 and backend == "Torch"):
             num_params, time_backend, time_mithril = fn(
                 activations=activations,
                 dimensions=dimensions,
                 input_shape=(128, 128),
                 iterations=iterations,
-                precision=precision,
+                dtype=dtype,
             )
             table.add_row(
                 [
                     "MLP Small",
                     backend,
-                    str(precision),
+                    dtype.name,
                     str(num_params),
                     f"{time_backend:.4f}",
                     f"{time_mithril:.4f}",
@@ -107,13 +109,13 @@ activations = [Sigmoid, Relu, Tanh]
 dimensions = [12, 16, 32]
 stride = (2, 2)
 padding = 1
-for precision in [32, 64]:
+for dtype in [ml.float32, ml.float64]:
     num_params, time_backend, time_mithril = conv_v_torch(
         activations=activations,
         dimensions=dimensions,
         input_shape=(4, 4, 128, 128),
         iterations=iterations,
-        precision=precision,
+        dtype=dtype,
         stride=stride,
         padding=padding,
     )
@@ -121,7 +123,7 @@ for precision in [32, 64]:
         [
             "Conv Small",
             "Torch",
-            str(precision),
+            dtype.name,
             str(num_params),
             f"{time_backend:.4f}",
             f"{time_mithril:.4f}",
@@ -134,13 +136,13 @@ activations = [Sigmoid, Relu, Tanh, Sigmoid]
 dimensions = [1024, 1024, 1024, 256]
 stride = (2, 2)
 padding = 2
-for precision in [32, 64]:
+for dtype in [ml.float32, ml.float64]:
     num_params, time_backend, time_mithril = conv_v_torch(
         activations=activations,
         dimensions=dimensions,
         input_shape=(2, 1, 128, 128),
         iterations=iterations,
-        precision=precision,
+        dtype=dtype,
         stride=stride,
         padding=padding,
     )
@@ -148,7 +150,7 @@ for precision in [32, 64]:
         [
             "Conv Large",
             "Torch",
-            str(precision),
+            dtype.name,
             str(num_params),
             f"{time_backend:.4f}",
             f"{time_mithril:.4f}",

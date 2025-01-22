@@ -39,7 +39,7 @@ class Call(Expr):
     name: str
     args: list[str] | list[Expr]
 
-    def to_str(self):
+    def to_str(self) -> str:
         args_str = ", ".join(
             [arg.to_str() if isinstance(arg, Expr) else arg for arg in self.args]
         )
@@ -51,7 +51,7 @@ class Call(Expr):
 class Constant(Expr):
     value: int | float
 
-    def to_str(self):
+    def to_str(self) -> str:
         return str(self.value)
 
     def __str__(self) -> str:
@@ -63,7 +63,7 @@ class Parameter:
     type: str
     name: str
 
-    def to_str(self):
+    def to_str(self) -> str:
         return f"{self.type} {self.name}"
 
 
@@ -74,7 +74,7 @@ class FunctionDef(Stmt):
     params: list[Parameter]
     body: Sequence[Stmt | Expr]
 
-    def to_str(self):
+    def to_str(self) -> str:
         params_str = (
             "\n\t" + ",\n\t".join([param.to_str() for param in self.params]) + "\n"
         )
@@ -86,7 +86,7 @@ class FunctionDef(Stmt):
 class Return(Stmt):
     value: Expr
 
-    def to_str(self):
+    def to_str(self) -> str:
         return f"return {self.value.to_str()};"
 
 
@@ -95,7 +95,7 @@ class Include(AST):
     header: str
     system: bool = False  # True for system headers, False for user-defined headers
 
-    def to_str(self):
+    def to_str(self) -> str:
         if self.system:
             return f"#include <{self.header}>"
         else:
@@ -110,7 +110,7 @@ class FILE(AST):
         FunctionDef
     ]  # Union[FunctionDef, VariableDecl]]  # Add other top-level declarations as needed
 
-    def to_str(self):
+    def to_str(self) -> str:
         includes_str = "\n".join(include.to_str() for include in self.includes)
         globals_str = "\n".join(stmt.to_str() for stmt in self.globals)
         declarations_str = "\n\n".join(decl.to_str() for decl in self.declarations)

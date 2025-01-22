@@ -36,6 +36,7 @@ from ..common_primitives import (
     floor_divide,
     greater,
     greater_equal,
+    indexer,
     item,
     length,
     less,
@@ -53,7 +54,6 @@ from ..common_primitives import (
     power,
     primitive_slice,
     reshape,
-    scalar_item,
     sequence_slice,
     shift_left,
     shift_right,
@@ -62,7 +62,6 @@ from ..common_primitives import (
     stride_converter,
     subtract,
     swapaxes,
-    tensor_item,
     to_list,
     to_tuple,
     transpose,
@@ -185,8 +184,7 @@ __all__ = [
     "permute_tensor",
     "reshape",
     "item",
-    "scalar_item",
-    "tensor_item",
+    "indexer",
     "primitive_slice",
     "swapaxes",
     "sequence_slice",
@@ -274,7 +272,7 @@ def unique(
 def trapezoid(
     y: np.ndarray[Any, Any], x: np.ndarray[Any, Any] | None = None
 ) -> np.float64 | np.ndarray[Any, Any]:
-    return np.trapezoid(y, x)
+    return np.trapezoid(y, x)  # type: ignore
 
 
 def robust_power(
@@ -359,7 +357,7 @@ def leaky_relu(
     input: np.ndarray[Any, Any],
     slope: float | np.ndarray[Any, Any],
     cache: CacheType | None = None,
-):
+) -> np.ndarray[Any, Any]:
     return np.maximum(np.array(0.0, dtype=input.dtype), input) + slope * np.minimum(
         np.array(0.0, dtype=input.dtype), input
     )
@@ -662,7 +660,7 @@ def scaled_dot_product_attention(
     is_causal: bool = False,
     scale: bool | None = None,
     cache: CacheType | None = None,
-):
+) -> np.ndarray[Any, Any]:
     if dropout_p != 0.0:
         raise RuntimeError(
             "Currently Numpy scaled_dot_product_attention only support dropout_p 0"
@@ -943,8 +941,10 @@ def ones_with_zero_diag(
     return handle_data_precision(output, precision=precision)
 
 
-def eye(*args, precision: int, cache: CacheType | None = None) -> np.ndarray[Any, Any]:
-    return handle_data_precision(np.eye(*args), precision=precision)
+def eye(
+    *args: int, precision: int, cache: CacheType | None = None
+) -> np.ndarray[Any, Any]:
+    return handle_data_precision(np.eye(*args), precision=precision)  # type: ignore
 
 
 def squeeze(
@@ -959,7 +959,7 @@ def to_tensor(
     return np.array(input[0], dtype=get_type(input[0], precision=precision))
 
 
-def tensor_to_list(input: np.ndarray[Any, Any], cache: CacheType | None = None):
+def tensor_to_list(input: np.ndarray[Any, Any], cache: CacheType | None = None) -> Any:
     return input.tolist()
 
 
@@ -970,6 +970,24 @@ def primitive_embedding(
     cache: CacheType | None = None,
 ) -> np.ndarray[Any, Any]:
     return weight[input]
+
+
+def minimum(
+    left: np.ndarray[Any, Any],
+    right: np.ndarray[Any, Any],
+    *,
+    cache: CacheType | None = None,
+) -> np.ndarray[Any, Any]:
+    return np.minimum(left, right)
+
+
+def maximum(
+    left: np.ndarray[Any, Any],
+    right: np.ndarray[Any, Any],
+    *,
+    cache: CacheType | None = None,
+) -> np.ndarray[Any, Any]:
+    return np.maximum(left, right)
 
 
 def where(
@@ -1029,7 +1047,7 @@ def size(
     input: np.ndarray[Any, Any],
     dim: int | tuple[int, ...] | None,
     cache: CacheType | None = None,
-) -> int | tuple[int]:
+) -> int | tuple[int, ...]:
     if dim is None:
         return input.size
     if isinstance(dim, int):
@@ -1171,7 +1189,9 @@ def gpr_v_outer(
     return v_outer
 
 
-def isnan(input: np.ndarray[Any, Any], *, cache: CacheType | None = None):
+def isnan(
+    input: np.ndarray[Any, Any], *, cache: CacheType | None = None
+) -> np.ndarray[Any, Any]:
     return np.isnan(input)
 
 
@@ -1182,7 +1202,7 @@ def nan_to_num(
     neginf: float | None,
     *,
     cache: CacheType | None = None,
-):
+) -> np.ndarray[Any, Any]:
     return np.nan_to_num(input, nan=nan, posinf=posinf, neginf=neginf)
 
 
@@ -1209,7 +1229,7 @@ def split(
     split_size: int | list[int],
     axis: int = 0,
     cache: CacheType | None = None,
-):
+) -> np.ndarray[Any, Any]:
     return np.stack(np.split(input, split_size, axis=axis))
 
 
@@ -1217,18 +1237,20 @@ def pad(
     input: np.ndarray[Any, Any],
     pad_width: tuple[tuple[int, int], ...],
     cache: CacheType | None = None,
-):
+) -> np.ndarray[Any, Any]:
     return np.pad(input, pad_width)
 
 
 def randn(
     shape: tuple[int, ...], *, key: int, precision: int, cache: CacheType | None = None
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     np.random.seed(key)
     return handle_data_precision(np.random.randn(*shape), precision)
 
 
-def zeros_like(input: np.ndarray, cache: CacheType | None = None) -> np.ndarray:
+def zeros_like(
+    input: np.ndarray[Any, Any], cache: CacheType | None = None
+) -> np.ndarray[Any, Any]:
     return np.zeros_like(input)
 
 

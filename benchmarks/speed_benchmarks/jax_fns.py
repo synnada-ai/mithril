@@ -25,7 +25,8 @@ from benchmarks.speed_benchmarks.speed_helper import (
     create_compl_mlp,
     measure_time_and_grads_mithril,
 )
-from mithril import JaxBackend
+from mithril import JaxBackend, core
+from mithril.backends.utils import DtypeBits
 from mithril.models import (
     AbsoluteError,
     Gelu,
@@ -200,7 +201,7 @@ def mlp_v_jax(
     activations: list,
     dimensions: list[int],
     input_shape: tuple[int, int],
-    precision: int,
+    dtype: core.Dtype,
     iterations: int,
 ):
     lr = 0.001
@@ -208,7 +209,7 @@ def mlp_v_jax(
     # batch_size, input_shape = input_shape[-1], input_shape[0]
     output_shape = [_input_shape] + [dimensions[-1]]
     device = "cpu"
-    dtype_jax = getattr(jnp, f"float{precision}")
+    dtype_jax = getattr(jnp, f"float{DtypeBits[dtype.name]}")
     device = "cpu"
     inputs = {
         "input": jnp.array(np.random.randn(batch_size, *input_shape), dtype=dtype_jax),
@@ -231,7 +232,7 @@ def mlp_v_jax(
     )
     comp_ctx = mithril.compile(
         model=ctx,
-        backend=JaxBackend(device=device, precision=precision),
+        backend=JaxBackend(device=device, dtype=dtype),
         constant_keys=inputs,
     )
 
