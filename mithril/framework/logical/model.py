@@ -498,6 +498,19 @@ class Model(BaseModel):
         if con_obj in d_map:
             self.conns.couts.discard(con_obj)
         self.conns.set_connection_type(con_obj, key_type)
+        # Update Canonicals
+        if (
+            local_connection in model.conns.cins
+            and con_obj in self.conns.input_connections
+            and con_obj.metadata.value is TBD
+        ):
+            self.conns.cins.add(con_obj)
+
+        if local_connection in model.conns.couts and (
+            con_obj not in self.dependency_map.local_input_dependency_map
+            or con_obj in self.conns.output_connections
+        ):
+            self.conns.couts.add(con_obj)
 
         # If any type provided, set using models set_types method
         # in order to execute constraint solver to propagate type
@@ -727,25 +740,6 @@ class Model(BaseModel):
 
         self.dependency_map.add_model_dag(model, model_dag)
 
-        # Update Canonicals
-        for c_input in model.conns.cins:
-            c_in = self.conns.get_con_by_metadata(c_input.metadata)
-            if (
-                c_in is not None
-                and c_in not in self.dependency_map.local_output_dependency_map
-                and c_in in self.conns.input_connections
-                and c_in.metadata.value is TBD
-            ):
-                self.conns.cins.add(c_in)
-
-        for c_output in model.conns.couts:
-            c_out = self.conns.get_con_by_metadata(c_output.metadata)
-            if c_out is not None and (
-                c_out not in self.dependency_map.local_input_dependency_map
-                or c_out in self.conns.output_connections
-            ):
-                self.conns.couts.add(c_out)
-
         # Update jittablity by using model's jittablity.
         self._jittable &= model.jittable
 
@@ -778,10 +772,8 @@ class Model(BaseModel):
         if isinstance(info, BaseModel):
             info = info()
         model, kwargs = info.model, info.connections
-        not_given_keys = {
-            key for key, val in kwargs.items() if val is not NullConnection()
-        }
-        available_cin = {item.key for item in model.conns.cins} - not_given_keys
+        given_keys = {key for key, val in kwargs.items() if val is not NullConnection()}
+        available_cin = {item.key for item in model.conns.cins} - given_keys
         if len(self.dag) > 0:
             if len(model.conns.cins) == 0:
                 raise KeyError(
@@ -865,7 +857,8 @@ class Model(BaseModel):
             new_key = key
             if key[0] != "$":
                 continue
-
+            # TODO: Discuss if we want to generate input key only
+            # if len(self.conns.cins) == 1, or we could name all canonical inputs.
             if (
                 len(self.conns.cins) == 1
                 and key == self.canonical_input.key
@@ -1103,6 +1096,9 @@ class Model(BaseModel):
 
             # handle the case when model is constructed with += operation. In that case,
             # directly take canonical output as the output_key.
+
+            # TODO: We may expose all canonical outputs for summary instead of
+            # checking only len(self.conns.couts) == 1.
             output_keys = (
                 ([self.canonical_output.key] if len(self.conns.couts) == 1 else [])
                 if not self.conns.output_keys

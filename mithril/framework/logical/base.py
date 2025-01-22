@@ -156,8 +156,6 @@ class BaseModel(abc.ABC):
     @property
     def output_keys(self) -> list[str]:
         output_keys = list(self.conns.output_keys)
-        if len(self.conns.couts) == 1 and self.canonical_output.key not in output_keys:
-            output_keys.append("#canonical_output")
         return output_keys
 
     def check_extendability(self) -> None:
@@ -471,16 +469,9 @@ class BaseModel(abc.ABC):
 
     def set_cin(self, *connections: str | Connection, safe: bool = True) -> None:
         self.conns.cins = set()
-        for given_conn in reversed(connections):
-            if isinstance(given_conn, str):
-                conn = self.conns.all.get(given_conn)
-                if conn is None:
-                    raise ValueError("Provided 'key' is not belong to the model!")
-            else:
-                conn = given_conn.data
+        for given_conn in connections:
+            conn = self.conns.get_extracted_connection(given_conn)
 
-            conn = self.conns.get_con_by_metadata(conn.metadata)
-            assert isinstance(conn, ConnectionData)
             is_valued = conn.metadata.value is not TBD
             if conn not in self.dependency_map.local_input_dependency_map:
                 raise ValueError(
@@ -498,16 +489,8 @@ class BaseModel(abc.ABC):
 
     def set_cout(self, *connections: str | Connection, safe: bool = True) -> None:
         self.conns.couts = set()
-        for given_conn in reversed(connections):
-            if isinstance(given_conn, str):
-                conn = self.conns.all.get(given_conn)
-                if conn is None:
-                    raise ValueError("Provided 'key' is not belong to the model!")
-            else:
-                conn = given_conn.data
-
-            conn = self.conns.get_con_by_metadata(conn.metadata)
-            assert isinstance(conn, ConnectionData)
+        for given_conn in connections:
+            conn = self.conns.get_extracted_connection(given_conn)
             is_valued = conn.metadata.value is not TBD
             if conn not in self.dependency_map.local_output_dependency_map or is_valued:
                 if safe:

@@ -134,6 +134,8 @@ class PhysicalModel(GenericDataType[DataType]):
         # TODO: This is a temporary solution, a better way will be implemented
         # in another PR.
         if len(model.conns.output_keys) == 0:
+            # TODO: We may accept len(model.conns.couts) >= 1 and raise
+            # if len(model.conns.couts) == 0.
             if len(model.conns.couts) != 1:
                 raise ValueError("Models with no output keys can not be compiled.")
 

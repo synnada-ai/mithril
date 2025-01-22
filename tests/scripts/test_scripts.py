@@ -6822,7 +6822,7 @@ def test_output_keys_canonical_output_1():
     model2 = Model()
     model2 += model()
 
-    assert set(model2.output_keys) == set(["#canonical_output"])
+    assert set(model2.output_keys) == set()
 
 
 def test_output_keys_canonical_output_2():
@@ -6835,7 +6835,7 @@ def test_output_keys_canonical_output_2():
     model2 = Model()
     model2 += model(output=IOKey("output"))
 
-    assert set(model2.output_keys) == set(["output", "#canonical_output"])
+    assert set(model2.output_keys) == set(["output"])
 
 
 def test_string_iokey_value_1():
