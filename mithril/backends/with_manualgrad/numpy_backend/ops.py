@@ -274,7 +274,7 @@ def unique(
 def trapezoid(
     y: np.ndarray[Any, Any], x: np.ndarray[Any, Any] | None = None
 ) -> np.float64 | np.ndarray[Any, Any]:
-    return np.trapezoid(y, x)
+    return np.trapezoid(y, x)  # type: ignore
 
 
 def robust_power(
@@ -1029,7 +1029,7 @@ def size(
     input: np.ndarray[Any, Any],
     dim: int | tuple[int, ...] | None,
     cache: CacheType | None = None,
-) -> int | tuple[int]:
+) -> int | tuple[int, ...]:
     if dim is None:
         return input.size
     if isinstance(dim, int):

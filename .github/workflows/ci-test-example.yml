@@ -35,4 +35,4 @@ jobs:
           pip install tiktoken
           pip install transformers
       - name: Execute testcase unit tests
-        run: pytest test_examples/
+        run: pytest -s test_examples/

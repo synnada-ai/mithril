@@ -356,7 +356,7 @@ def accumulate_grads(
     )
     # TODO: raise exception for len(gradient.shape) < len(input.shape) condition
     if axes and not len(gradient.shape) < len(input.shape):
-        return np.reshape(np.sum(gradient, axis=axes), input.shape)
+        return np.reshape(np.sum(gradient, axis=axes), input.shape)  # type: ignore
     else:
         return gradient
 
