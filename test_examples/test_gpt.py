@@ -82,8 +82,13 @@ result_prompts = {
 
 if os.environ.get("CI") == "true":
     result_prompts["torch"] = (
-        "The answer is this: they all exist,"
-        " and you all have the same idea of what is and isn't."
+        " It's easy to say that the answer to life is in heaven. "
+        "There is no heaven, nor there is there any universe to be found."
+    )
+
+    result_prompts["jax"] = (
+        "As my own students have noticed,"
+        " religion seems to be the only way in which you can"
     )
 
 
