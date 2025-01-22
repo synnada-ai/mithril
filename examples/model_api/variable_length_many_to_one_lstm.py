@@ -32,7 +32,7 @@ from mithril.utils.utils import pack_data_into_time_slots, unpack_time_slot_data
 # given an ordered sequence of numbers.
 
 # Define the backend
-backend = ml.JaxBackend(precision=32)
+backend = ml.JaxBackend(dtype=ml.float32)
 backend.set_seed(42)
 
 # Prepare training data. We will test the case for which the input data

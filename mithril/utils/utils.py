@@ -40,7 +40,7 @@ class PaddingType(IntEnum):
     SAME = 1
 
 
-def convert_specs_to_dict(specs):
+def convert_specs_to_dict(specs: Any) -> str | dict[str, Any] | list[Any]:
     """This function converts given specs to
     dict which could be saved to JSON.
 
@@ -140,7 +140,7 @@ class OrderedSet(Generic[T]):
     def issuperset(self, other: OrderedSet[T]) -> bool:
         return set(self._data).issuperset(other)
 
-    def isdisjoint(self, other: OrderedSet[T]):
+    def isdisjoint(self, other: OrderedSet[T]) -> bool:
         return set(self._data).isdisjoint(other)
 
     def __len__(self) -> int:
@@ -152,17 +152,17 @@ class OrderedSet(Generic[T]):
     def __iter__(self) -> Iterator[T]:
         return iter(self._data)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"OrderedSet({list(self._data)})"
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if isinstance(other, set):
             return set(self._data) == other
         if not isinstance(other, OrderedSet):
             return False
         return list(self._data) == list(other._data)
 
-    def __ne__(self, other):
+    def __ne__(self, other: object) -> bool:
         return not self.__eq__(other)
 
     def __or__(self, other: OrderedSet[T]) -> OrderedSet[T]:
@@ -185,14 +185,18 @@ class OrderedSet(Generic[T]):
         return self.symmetric_difference(other)
 
 
-class BiMap[K, V](MutableMapping[K, V]):
+K = TypeVar("K")
+V = TypeVar("V")
+
+
+class BiMap(MutableMapping[K, V]):
     # Implements a bi-directional map for storing unique keys/values using two
     # dictionaries.
     # TODO: override __reversed__ for BiMap
     inverse: dict[V, K]
     _table: dict[K, V]
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         self.inverse = inverse = {}
         self._table = table = dict(*args, **kwargs)
         for key, value in table.items():
@@ -226,60 +230,61 @@ class BiMap[K, V](MutableMapping[K, V]):
         return len(self._table)
 
 
-class BiMultiMap(MutableMapping):
-    def __init__(self, *args, **kwargs):
-        self.inverse = {}
+class BiMultiMap(MutableMapping[K, V]):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        self.inverse: dict[V, list[K]] = {}
         self._table = table = dict(*args, **kwargs)
         for key, value in table.items():
             self.__add_inverse_values(key, value)
 
-    def __add_inverse_values(self, key, value):
+    def __add_inverse_values(self, key: K, value: V) -> None:
         if isinstance(value, list):
             for v in value:
                 self.inverse.setdefault(v, []).append(key)
         else:
             raise TypeError("Requires list type for values!")
 
-    def remove_inverse_values(self, key):
+    def remove_inverse_values(self, key: K) -> None:
         for k in self._table[key]:
             self.inverse[k].remove(key)
             # Remove k from inverse map if it has no output connection.
             if self.inverse[k] == []:
                 del self.inverse[k]
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: K) -> V:
         return self._table[key]
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key: K, value: V) -> None:
         if key in self._table:
             self.remove_inverse_values(key)
         self._table[key] = value
         self.__add_inverse_values(key, value)
 
-    def __delitem__(self, key):
+    def __delitem__(self, key: K) -> None:
         # TODO: test here.
         self.remove_inverse_values(key)
         del self._table[key]
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[K]:
         return iter(self._table)
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self._table)
 
 
+# TODO: annotate this fn's types more precisely.
 def pack_data_into_time_slots(
-    data,
-    backend,
-    lengths=None,
-    key: tuple = ("input",),
+    data: Any,
+    backend: Any,
+    lengths: Any = None,
+    key: tuple[Any, ...] = ("input",),
     index: int = 0,
     return_indices: bool = False,
     sorted_data: bool = False,
-) -> tuple:
+) -> tuple[Any, ...]:
     # TODO: Very slow. Try to jit or something else for faster execution.
-    def find_slot_lengths(stacked_data, lengths):
-        time_slots = {}
+    def find_slot_lengths(stacked_data: Any, lengths: Any) -> dict[str, DataType]:
+        time_slots: dict[str, DataType] = {}
         for i in range(max_length):
             slot_samples = len(lengths)
             time_slots[key[0] + f"{i}"] = stacked_data[:slot_samples, i, :][
@@ -361,7 +366,7 @@ def unpack_time_slot_data(
 
 
 def pack_encoder_target_data_into_time_slots(
-    backend,
+    backend: Backend[DataType],
     data: list[tuple[DataType, ...]],
     lengths: None | DataType = None,
     key: tuple[str, ...] = ("target",),
@@ -369,14 +374,15 @@ def pack_encoder_target_data_into_time_slots(
     # TODO: Very slow. Try to jit or something else for faster execution.
     # In order to use this function properly, data should be sorted
     # wrt input lengths.
-    time_slots = {}
+    time_slots = {}  # type: ignore
     if lengths is None:
         lengths = backend.array([d[0].shape[0] for d in data])
     unique_lengths = backend.unique(lengths)
     for length in unique_lengths:
+        assert isinstance(length, int)
         target_key = key[0] + f"{length - 1}"
         filter = lengths == length
-        filtered_data: list = list(compress(data, filter))
+        filtered_data: list[DataType] = list(compress(data, filter))
         time_data = backend.stack([d[1] for d in filtered_data], axis=0)
         time_slots[target_key] = time_data
     return time_slots
@@ -389,7 +395,7 @@ def find_boundary_point(
     boundary: float,
     it: int,
     max_it: int,
-) -> tuple:
+) -> tuple[float, int]:
     """Finds the farthest point from "start", towards "boundary", that satisfies
     that attains the same function value with that of "start".
 
@@ -482,9 +488,11 @@ def binary_search(
     return lower, upper
 
 
-def convert_to_tuple(nested_list) -> tuple:
+def convert_to_tuple[T: Any](
+    nested_list: list[T] | tuple[T, ...] | T,
+) -> tuple[T, ...] | T:
     if isinstance(nested_list, list):
-        return tuple(convert_to_tuple(item) for item in nested_list)
+        return tuple(convert_to_tuple(item) for item in nested_list)  # type: ignore
     else:
         return nested_list
 

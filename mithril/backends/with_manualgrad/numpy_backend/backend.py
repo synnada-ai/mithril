@@ -19,7 +19,7 @@ import numpy as np
 
 from ....core import Dtype
 from ...backend import Backend, PadWidthType
-from ...utils import process_shape
+from ...utils import StaticScalar, process_shape
 from ..common_primitives import CacheType
 from . import ops, ops_grad, utils
 
@@ -39,12 +39,14 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
     backend_type = "numpy"
 
     registered_primitives = {}
+    supported_dtypes = [Dtype.float16, Dtype.float32, Dtype.float64]
     primitive_fn_path = "mithril.backends.with_manualgrad.numpy_backend.ops"
     primitive_grad_fn_path = "mithril.backends.with_manualgrad.numpy_backend.ops_grad"
     registered_primitives_grad_fn: dict[str, Callable[..., np.ndarray[Any, Any]]] = {}
 
-    def __init__(self, device: str = "cpu", precision: int = 32) -> None:
-        self._precision = precision
+    def __init__(self, device: str = "cpu", dtype: Dtype = Dtype.float32) -> None:
+        self._dtype = dtype
+
         if device != "cpu":
             raise RuntimeError(
                 f"Specified device: '{device}' is not available!"
@@ -52,33 +54,33 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
             )
         self._device = device
 
-        super().__init__()
+        super().__init__(dtype=dtype)
 
         self.array_creation_funcs = ops.array_creation_funcs
         self.primitive_function_dict = ops.primitive_func_dict
         self.primitive_grad_function_dict = ops_grad.primitive_grad_func_dict
-        np.random.seed(self.seed)
+        self._seed_generator = np.random.default_rng(self.seed)
 
     @property
     def is_manualgrad(self) -> bool:
         return True
 
     @property
-    def inf(self):
+    def inf(self) -> float:
         return np.inf
 
     @property
-    def nan(self):
+    def nan(self) -> float:
         return np.nan
 
     @property
-    def DataType(self):  # noqa: N802
+    def DataType(self) -> type[np.ndarray[Any, Any]]:  # noqa: N802
         return utils.ArrayType
 
-    def get_backend_array_type(self):
+    def get_backend_array_type(self) -> type[np.ndarray[Any, Any]]:
         return np.ndarray
 
-    def get_device(self):
+    def get_device(self) -> Any:
         return self._device
 
     @staticmethod
@@ -94,14 +96,16 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
         return ["cpu"]
 
     @staticmethod
-    def register_primitive(fn: Callable, fn_grad: Callable) -> None:  # type: ignore[override]
+    def register_primitive(  # type: ignore
+        fn: Callable[..., Any], fn_grad: Callable[..., np.ndarray[Any, Any]]
+    ) -> None:
         formula_key = fn.__name__
         NumpyBackend.registered_primitives[formula_key] = fn
         NumpyBackend.registered_primitives_grad_fn[formula_key + "_grad"] = fn_grad
 
-    def set_seed(self, seed: int):
+    def set_seed(self, seed: int) -> None:
         self.seed = seed
-        np.random.seed(seed)
+        self._seed_generator = np.random.default_rng(seed)
 
     def accumulate_grads(
         self,
@@ -113,7 +117,7 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
         return utils.accumulate_grads(gradient, input, cache, idx)
 
     def array(self, data: Any, *, dtype: Dtype | None = None) -> np.ndarray[Any, Any]:
-        _dtype = utils.determine_dtype(data, dtype, self.precision)
+        _dtype = utils.determine_dtype(data, dtype, self._dtype, self.precision)
 
         return np.array(data, dtype=utils.dtype_map[_dtype])
 
@@ -147,8 +151,9 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
         self,
         *shape: int | tuple[int, ...] | list[int],
         dtype: Dtype | None = None,
-        prng_key: Any = None,
+        key: int | None = None,
     ) -> np.ndarray[Any, Any]:
+        self._set_seed(key)
         _dtype = self._process_dtype(dtype)
         _shape = process_shape(shape)
         return np.array(np.random.randn(*_shape), dtype=_dtype)
@@ -157,8 +162,9 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
         self,
         *shape: int | tuple[int, ...] | list[int],
         dtype: Dtype | None = None,
-        prng_key: Any = None,
+        key: int | None = None,
     ) -> np.ndarray[Any, Any]:
+        self._set_seed(key)
         _dtype = self._process_dtype(dtype)
         _shape = process_shape(shape)
         return np.array(np.random.rand(*_shape), dtype=_dtype)
@@ -169,8 +175,9 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
         high: int,
         *shape: int | tuple[int, ...] | list[int],
         dtype: Dtype | None = None,
-        prng_key: Any = None,
+        key: int | None = None,
     ) -> np.ndarray[Any, Any]:
+        self._set_seed(key)
         _dtype = self._process_dtype(dtype, int)
         _shape = process_shape(shape)
         return np.random.randint(low, high, size=_shape).astype(_dtype)
@@ -181,8 +188,9 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
         high: int | float | bool | np.ndarray[Any, Any],
         *shape: int | tuple[int, ...] | list[int],
         dtype: Dtype | None = None,
-        prng_key: Any = None,
+        key: int | None = None,
     ) -> np.ndarray[Any, Any]:
+        self._set_seed(key)
         _dtype = self._process_dtype(dtype)
         _shape = process_shape(shape)
         return np.array(np.random.uniform(low, high, size=_shape), dtype=_dtype)
@@ -206,7 +214,6 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
         stop: int | float | bool | np.ndarray[Any, Any],
         steps: int,
         dtype: Dtype | None = None,
-        device_mesh: tuple[int, ...] | None = None,
     ) -> np.ndarray[Any, Any]:
         _dtype = self._process_dtype(dtype)
         return np.linspace(start, stop, steps, dtype=_dtype)
@@ -355,8 +362,13 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
         return values
 
     def multinomial(
-        self, probs: np.ndarray[Any, Any], num_samples: int, replacement: bool = False
+        self,
+        probs: np.ndarray[Any, Any],
+        num_samples: int,
+        replacement: bool = False,
+        key: int | None = None,
     ) -> np.ndarray[Any, Any]:
+        self._set_seed(key)
         # input = np.asarray(probs)
         if probs.ndim == 1:
             probs = probs[None, :]
@@ -398,6 +410,14 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
 
         return samples
 
+    def clip(
+        self,
+        input: np.ndarray[Any, Any],
+        min: np.ndarray[Any, Any] | StaticScalar,
+        max: np.ndarray[Any, Any] | StaticScalar,
+    ) -> np.ndarray[Any, Any]:
+        return np.clip(input, min, max)
+
     def _process_dtype(
         self,
         dtype: Dtype | None = None,
@@ -409,3 +429,8 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
             return utils.dtype_map[default_type.__name__ + str(self.precision)]
         else:
             raise ValueError(f"Invalid dtype {dtype}")
+
+    def _set_seed(self, seed: int | None) -> None:
+        if seed is None:
+            seed = self._seed_generator.integers(0, 2**14)
+        np.random.seed(seed)

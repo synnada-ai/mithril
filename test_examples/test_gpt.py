@@ -65,25 +65,19 @@ except ImportError:
 
 backend_strings: list[str] = [backend.backend_type for backend in installed_backends]
 
-backend_tokens = {"torch": 30, "jax": 25, "numpy": 22, "mlx": 19}
+backend_tokens = {"torch": 30, "jax": 25, "numpy": 22, "mlx": 30}
 
 result_prompts = {
     "torch": (
-        "Do you know the answer to life, the universe, and everything?"
-        " If not, you can't begin to answer it."
+        " The answer is a little more complicated than that, because,"
+        " in the book, Platonism states that all creation is made by God "
     ),
-    "jax": (
-        "From an Englishman's perspective, life, "
-        "the universe and everything are called the 'facts' about the universe."
-    ),
+    "jax": ("How does that matter? How does that matter matter that much?"),
     "numpy": (
-        "This is the question that the atheist philosopher Peter Singer "
-        "famously posed for the early modern philosopher Theodor Adorno."
+        "That's the question you should ask yourself when you're "
+        "designing your own homes. Maybe you want to create something"
     ),
-    "mlx": (
-        "Are we being taken advantage of?"
-        " That's where the idea of being an astronaut comes in."
-    ),
+    "mlx": ("There is light, there is temperature, and there is time."),
 }
 
 if os.environ.get("CI") == "true":
@@ -119,7 +113,7 @@ class TestGPT:
         with redirect_stdout(StringIO()) as prompt_output:
             run_sample_fn(
                 backend,
-                start="What is the answer to life, the universe, and everything?",
+                start="What is the answer to life, the universe?",
                 max_new_tokens=backend_tokens[backend],
                 num_samples=1,
             )

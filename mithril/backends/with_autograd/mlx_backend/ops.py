@@ -34,6 +34,7 @@ from ..common_primitives import (
     floor_divide,
     greater,
     greater_equal,
+    indexer,
     item,
     length,
     less,
@@ -52,7 +53,6 @@ from ..common_primitives import (
     primitive_embedding,
     primitive_slice,
     reshape,
-    scalar_item,
     sequence_slice,
     shift_left,
     shift_right,
@@ -61,7 +61,6 @@ from ..common_primitives import (
     stride_converter,
     subtract,
     swapaxes,
-    tensor_item,
     to_list,
     to_tuple,
     transpose,
@@ -167,8 +166,7 @@ __all__ = [
     "permute_tensor",
     "reshape",
     "item",
-    "scalar_item",
-    "tensor_item",
+    "indexer",
     "primitive_slice",
     "sequence_slice",
     "union",
@@ -532,7 +530,7 @@ def scaled_dot_product_attention(
     dropout_p: float = 0.0,
     is_causal: bool = False,
     scale: float | int | None = None,
-):
+) -> mx.array:
     if dropout_p != 0.0:
         raise RuntimeError(
             "Currently MLX scaled_dot_product_attention only support dropout_p 0"
@@ -781,6 +779,14 @@ def matrix_concat(input1: mx.array, input2: mx.array) -> mx.array:
     return mx.concatenate([input1, input2], axis=input1.ndim - 1)
 
 
+def minimum(left: mx.array, right: mx.array) -> mx.array:
+    return mx.minimum(left, right)
+
+
+def maximum(left: mx.array, right: mx.array) -> mx.array:
+    return mx.maximum(left, right)
+
+
 def where(cond: mx.array, input1: mx.array, input2: mx.array) -> mx.array:
     return mx.where(cond, input1, input2)
 
@@ -846,7 +852,10 @@ def polynomial_features(input: mx.array, *, degree: int = 2) -> mx.array:
     samples, dims = input.shape
     identity = mx.eye(dims + 1, dims + 1, dtype=input.dtype)
     data = mx.concatenate([mx.ones((samples, 1), dtype=input.dtype), input], axis=1)
-    powers: Iterator = map(sum, combinations_with_replacement(identity, degree))
+    powers: Iterator[mx.array] = map(
+        sum,  # type: ignore
+        combinations_with_replacement(identity, degree),
+    )
     # Skip first element of powers. This is the bias term.
     next(powers)
     return mx.concatenate(
@@ -867,7 +876,7 @@ def nan_to_num(
     nan: int | float | None,
     posinf: int | float | None,
     neginf: int | float | None,
-):
+) -> mx.array:
     raise NotImplementedError("nan_to_num is not implemented in mlx!")
     # return mx.nan_to_num(input, nan = nan, posinf = posinf, neginf = neginf)
 
@@ -880,15 +889,15 @@ def dtype(input: mx.array) -> core.Dtype:
     return getattr(core, str(input.dtype).split(".")[-1])
 
 
-def logical_xor(left: mx.array, right: mx.array):
+def logical_xor(left: mx.array, right: mx.array) -> mx.array:
     return mx.bitwise_xor(left, right)
 
 
-def split(input: mx.array, split_size: int | list[int], axis: int = 0):
+def split(input: mx.array, split_size: int | list[int], axis: int = 0) -> mx.array:
     return mx.stack(mx.split(input, split_size, axis=axis))  # type: ignore
 
 
-def pad(input: mx.array, pad_width: tuple[tuple[int, int], ...]):
+def pad(input: mx.array, pad_width: tuple[tuple[int, int], ...]) -> mx.array:
     return mx.pad(input, pad_width)
 
 
@@ -898,7 +907,7 @@ def randn(shape: tuple[int], key: int, device: str, precision: int) -> mx.array:
     return utils.handle_data_precision(out, precision)
 
 
-def zeros_like(input: mx.array):
+def zeros_like(input: mx.array) -> mx.array:
     return mx.zeros_like(input)
 
 

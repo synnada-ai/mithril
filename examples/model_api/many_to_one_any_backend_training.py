@@ -19,7 +19,7 @@ from mithril.core import DataType
 from mithril.models import ManyToOne, Mean, RNNCell, SquaredError, TrainModel
 
 # Define backend. It would also work with any available backend you prefer.
-backend = ml.TorchBackend(precision=64)
+backend = ml.TorchBackend(dtype=ml.float64)
 
 batch_size = 20
 input_features = 10

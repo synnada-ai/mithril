@@ -53,11 +53,11 @@ class TorchParallel(Parallel[torch.Tensor]):
     for multi-GPU training using PyTorch distributed backend.
     """
 
-    _instance = None
+    _instance: TorchParallel | None = None
     used_ports: set[str] = set()
     device_meshes: dict[tuple[int, ...], DeviceMesh] = {}
 
-    def __new__(cls, *args: Any, **kwargs: Any):
+    def __new__(cls, *args: Any, **kwargs: Any) -> TorchParallel:
         if not cls._instance:
             cls._instance = super().__new__(cls)
         return cls._instance
@@ -81,7 +81,7 @@ class TorchParallel(Parallel[torch.Tensor]):
 
         self._init_processes()
 
-    def _init_processes(self):
+    def _init_processes(self) -> None:
         self.op_list = dir(torch_ops.aten)
         self.instruction_queue = SharedCyclicQueue(self.n_devices)
 
@@ -129,7 +129,7 @@ class TorchParallel(Parallel[torch.Tensor]):
 
         return TorchParallel.device_meshes[mesh_shape]
 
-    def run_callable(self, *primals: Any, fn_name: str):
+    def run_callable(self, *primals: Any, fn_name: str) -> Any:
         primals_ref = apply_to_all_elems(
             lambda x: TensorRef(self.tensor_id_ref[id(x)])
             if isinstance(x, STensor)
@@ -200,7 +200,7 @@ class TorchParallel(Parallel[torch.Tensor]):
         tensor: torch.Tensor,
         base_mesh: DeviceMesh,
         device_mesh: tuple[int, ...] | None = None,
-    ):
+    ) -> STensor:
         assert (
             type(tensor) is torch.Tensor
         ), f"shard_tensor expects a torch.Tensor, but got a {type(tensor).__name__}"
@@ -271,7 +271,7 @@ class TorchParallel(Parallel[torch.Tensor]):
         args: Any = None,
         kwargs: Any = None,
         async_op: bool = True,
-    ):
+    ) -> None:
         if kwargs is None:
             kwargs = {}
 
@@ -293,14 +293,20 @@ class TorchParallel(Parallel[torch.Tensor]):
         | list[STensor | DTensor]
         | STensor
         | DTensor,
+    ) -> (
+        STensor
+        | DTensor
+        | dict[str, STensor | DTensor]
+        | tuple[STensor | DTensor, ...]
+        | list[STensor | DTensor]
     ):
         match data:
             case dict():
-                return {key: self._store_tensors(value) for key, value in data.items()}
+                return {key: self._store_tensors(value) for key, value in data.items()}  # type: ignore
             case tuple():
-                return tuple(self._store_tensors(value) for value in data)
+                return tuple(self._store_tensors(value) for value in data)  # type: ignore
             case list():
-                return [self._store_tensors(value) for value in data]
+                return [self._store_tensors(value) for value in data]  # type: ignore
             case STensor():
                 self._save_result_callback(id(data))
             case DTensor():
@@ -315,37 +321,39 @@ class TorchParallel(Parallel[torch.Tensor]):
         op_name: str,
         args: tuple[Any, ...],
         kwargs: dict[str, Any],
-    ):
-        if self.is_alive is False:
-            return
+    ) -> Callable[[int], None] | None:
+        if self.is_alive:
+            args = apply_to_all_elems(
+                lambda x: TensorRef(self.tensor_id_ref[x.id])
+                if isinstance(x, TensorRef)
+                else x,
+                args,
+            )
 
-        args = apply_to_all_elems(
-            lambda x: TensorRef(self.tensor_id_ref[x.id])
-            if isinstance(x, TensorRef)
-            else x,
-            args,
-        )
+            kwargs = apply_to_all_elems(
+                lambda x: TensorRef(self.tensor_id_ref[x.id])
+                if isinstance(x, TensorRef)
+                else x,
+                kwargs,
+            )
 
-        kwargs = apply_to_all_elems(
-            lambda x: TensorRef(self.tensor_id_ref[x.id])
-            if isinstance(x, TensorRef)
-            else x,
-            kwargs,
-        )
+            self._send_instrcs(instruction, op_name, args, kwargs)
+            return self._save_result_callback
+        else:
+            return None
 
-        self._send_instrcs(instruction, op_name, args, kwargs)
-        return self._save_result_callback
-
-    def _save_result_callback(self, result_id: int):
+    def _save_result_callback(self, result_id: int) -> None:
         self.tensor_id_ref[result_id] = self.tensor_counter
         self.tensor_counter += 1
 
-    def _run_method(self, method_name: str, tensor: DTensor, args: tuple[DTensor, ...]):
+    def _run_method(
+        self, method_name: str, tensor: DTensor, args: tuple[DTensor, ...]
+    ) -> None:
         res = getattr(tensor, method_name)(*args)
         self.tensor_id_ref[self.tensor_counter] = res
         self.tensor_counter += 1
 
-    def _initilize_parallel(self, rank: int, device: str, port_name: str):
+    def _initilize_parallel(self, rank: int, device: str, port_name: str) -> None:
         init_dist_group(
             rank=rank, world_size=self.n_devices, device=device, port=port_name
         )
@@ -353,7 +361,9 @@ class TorchParallel(Parallel[torch.Tensor]):
         STensor._callback = self._tensor_callback
         self.initialized = True
 
-    def _replicate_cache(self, fn: partial[Any], device_mesh: DeviceMesh):
+    def _replicate_cache(
+        self, fn: partial[Any], device_mesh: DeviceMesh
+    ) -> Callable[..., Any]:
         # Replicates cache data partially provided to evaluate and evaluate_gradients.
         if "cache" not in fn.keywords:
             return fn
@@ -379,7 +389,7 @@ class TorchParallel(Parallel[torch.Tensor]):
 
     def _process(
         self, rank: int, data_queue: mp.Queue[str | Callable[..., torch.Tensor]]
-    ):
+    ) -> None:
         self.tensor_ref: dict[int, DTensor | torch.Tensor] = {}
 
         while not self.initialized:
@@ -521,7 +531,7 @@ class TorchParallel(Parallel[torch.Tensor]):
                 case _:
                     raise NotImplementedError("Something went wrong!")
 
-    def get_portname(self):
+    def get_portname(self) -> str:
         sock = socket.socket()
         sock.bind(("", 0))
         portname = str(sock.getsockname()[1])
@@ -533,7 +543,7 @@ class TorchParallel(Parallel[torch.Tensor]):
 
         return portname
 
-    def clean_up(self):
+    def clean_up(self) -> None:
         if not self.is_alive:
             return
 

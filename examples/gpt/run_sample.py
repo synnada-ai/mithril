@@ -43,7 +43,7 @@ def run_sample(
     num_samples: int = 10,
     max_new_tokens: int = 500,
     top_k: int = 200,
-    seed: int = 1337,
+    seed: int = 42,
     temperature: float = 0.8,
 ):
     # TODO: This recursion limit is minimum we can have for now.
@@ -61,7 +61,7 @@ def run_sample(
     )
 
     # Create backend.
-    backend_obj = backend_map[backend](precision=32, device="cpu")
+    backend_obj = backend_map[backend](device="cpu")
     # Set seed.
     backend_obj.set_seed(seed)
     # Compile gpt model.

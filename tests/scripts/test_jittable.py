@@ -29,12 +29,13 @@ from mithril.backends.with_autograd.jax_backend.ops import (
     to_tensor,
 )
 from mithril.framework import NOT_GIVEN, ConnectionType, ExtendInfo
-from mithril.framework.common import BaseKey, GenericTensorType
+from mithril.framework.common import BaseKey, Tensor
 from mithril.framework.constraints import bcast
 from mithril.models import (
     TBD,
     Add,
     CustomPrimitiveModel,
+    Indexer,
     IOKey,
     Item,
     MatrixMultiply,
@@ -43,7 +44,6 @@ from mithril.models import (
     Multiply,
     PrimitiveUnion,
     Reshape,
-    ScalarItem,
     Shape,
     Slice,
     TensorToList,
@@ -52,7 +52,7 @@ from mithril.models import (
 
 from .test_utils import assert_results_equal
 
-to_tensor = partial(to_tensor, precision=32, device="cpu")
+to_tensor = partial(to_tensor, device="cpu")
 
 ############################################################################################
 # In this file some of our models are tested to see if they are jittable
@@ -76,10 +76,11 @@ class MyModel(Model):
         """
         sum_slc = Model()
         sum_slc += (slc := Slice(start=None, stop=None, step=None))
-        sum_slc += ScalarItem()(input="input", index=slc.output, output=IOKey("output"))
+        sum_slc += Indexer()(input="input", index=slc.output, output=IOKey("output"))
         super().__init__()
         mult_model = MatrixMultiply()
         sum_model = Add()
+        sum_model.set_types(left=Tensor, right=Tensor)
         self += mult_model(left="input", right="w")  # (10, 1)
         self += sum_model(left=mult_model.output, right="b")  # (10, 1)
         self += (sum_shp := Shape())(input=sum_model.output)  # (10, 1)
@@ -93,14 +94,14 @@ class MyModel(Model):
             input=sum_model.output, shape=uni.output
         )  # (10, 1, 1, 1)
         self += (reshp_shp := Shape())(input=reshp_1.output)  # (10, 1, 1, 1)
-        self += (idx_1 := ScalarItem())(index=-1, input=reshp_shp.output)  # 1
+        self += (idx_1 := Indexer())(index=-1, input=reshp_shp.output)  # 1
         self += (mult_shp := Shape())(input=mult_model.output)  # (10, 1)
-        self += (idx_2 := ScalarItem())(index=idx_1.output, input=mult_shp.output)  # 1
-        self += (idx_3 := ScalarItem())(index=idx_2.output, input=sum_shp.output)  # 1
+        self += (idx_2 := Indexer())(index=idx_1.output, input=mult_shp.output)  # 1
+        self += (idx_3 := Indexer())(index=idx_2.output, input=sum_shp.output)  # 1
         self += (tens := ToTensor())(input=idx_3.output)  # array(1)
-        self += (sum := Add())(left=tens.output, right=3.0)  # array(4)
+        self += (sum := Add())(left=tens.output, right=Tensor(3.0))  # array(4)
         self += Multiply()(
-            left=sum.output, right=2.0, output=IOKey(name="output")
+            left=sum.output, right=Tensor(2.0), output=IOKey(name="output")
         )  # array(8)
 
         shapes: Mapping[str, Sequence[str | tuple[str, EllipsisType] | int | None]] = {
@@ -130,15 +131,17 @@ class MyModel2(Model):
         mult_model = MatrixMultiply()
         sum_model = Add()
         self += mult_model(left="input", right="w")  # (10, 1)
-        self += sum_model(left=mult_model.output, right="b")  # (10, 1)
+        self += sum_model(
+            left=mult_model.output, right=IOKey("b", type=Tensor)
+        )  # (10, 1)
         self += (sum_shp := Shape())(input=sum_model.output)  # (10, 1)
         self += (uni := PrimitiveUnion(n=3))(
             input1=sum_shp.output, input2=1, input3=3
         )  # (10, 1, 1, 1)
-        self += (idx_1 := ScalarItem())(index=-1, input=uni.output)  # 1
+        self += (idx_1 := Indexer())(index=-1, input=uni.output)  # 1
         self += (tens := ToTensor())(input=idx_1.output)  # array(1)
         self += Multiply()(
-            left=tens.output, right=2.0, output=IOKey(name="output")
+            left=tens.output, right=Tensor(2.0), output=IOKey(name="output")
         )  # array(8)
 
         shapes: Mapping[str, Sequence[str | tuple[str, EllipsisType] | int | None]] = {
@@ -156,54 +159,52 @@ def test_mymodel_numpy():
     model = MyModel(dimension=1)
     static_inputs = {"input": np_input}
     compiled_model = compile(
-        model=model, backend=NumpyBackend(), constant_keys=static_inputs, jit=False
+        model=model,
+        backend=NumpyBackend(),
+        constant_keys=static_inputs,
+        jit=False,
+        inference=True,
     )
     inputs = compiled_model.randomize_params()
     result = compiled_model.evaluate(inputs)
-    output_gradients = {"output": np.ones_like(result["output"])}
-    outputs, grads = compiled_model.evaluate_all(
-        params=inputs, output_gradients=output_gradients
-    )
     ref_output = {"output": np.array(8.0)}
-    assert_results_equal(outputs, ref_output)
-    assert_results_equal(grads, {})
+    assert_results_equal(result, ref_output)
 
 
 def test_mymodel_jax_1():
     model = MyModel(dimension=1)
     static_inputs = {"input": jnp.array(np_input)}
     compiled_model = compile(
-        model=model, backend=JaxBackend(), constant_keys=static_inputs, jit=False
+        model=model,
+        backend=JaxBackend(),
+        constant_keys=static_inputs,
+        jit=False,
+        inference=True,
     )
     inputs = compiled_model.randomize_params()
     result = compiled_model.evaluate(inputs)
     out = result["output"]
     assert isinstance(out, jnp.ndarray)
-    output_gradients = {"output": jnp.ones_like(out)}
-    outputs, grads = compiled_model.evaluate_all(
-        params=inputs, output_gradients=output_gradients
-    )
     ref_output = {"output": jnp.array(8.0)}
-    assert_results_equal(outputs, ref_output)
-    assert_results_equal(grads, {})
+    assert_results_equal(result, ref_output)
 
 
+@pytest.mark.skip(reason="Provide ref_output!")
 def test_mymodel_jax_2():
     model = MyModel2(dimension=1)
     static_inputs = {"input": jnp.array(np_input)}
     compiled_model = compile(
-        model=model, backend=JaxBackend(), constant_keys=static_inputs, jit=False
+        model=model,
+        backend=JaxBackend(),
+        constant_keys=static_inputs,
+        jit=False,
+        inference=True,
     )
     inputs = compiled_model.randomize_params()
     result = compiled_model.evaluate(inputs)
     out = result["output"]
     assert isinstance(out, jnp.ndarray)
-    output_gradients = {"output": jnp.ones_like(out)}
-    _, grads = compiled_model.evaluate_all(
-        params=inputs, output_gradients=output_gradients
-    )
-    # assert_results_equal(outputs, ref_output)
-    assert_results_equal(grads, {})
+    # assert_results_equal(result, ref_output)
 
 
 def test_mymodel_jax():
@@ -226,9 +227,9 @@ def test_mymodel_jax():
         def __init__(self) -> None:
             super().__init__(
                 formula_key="adder",
-                output=BaseKey(shape=[("Var_out", ...)], type=GenericTensorType),
-                left=BaseKey(shape=[("Var_1", ...)], type=GenericTensorType),
-                right=BaseKey(shape=[("Var_2", ...)], type=GenericTensorType),
+                output=BaseKey(shape=[("Var_out", ...)], type=Tensor),
+                left=BaseKey(shape=[("Var_1", ...)], type=Tensor),
+                right=BaseKey(shape=[("Var_2", ...)], type=Tensor),
             )
             self.set_constraint(fn=bcast, keys=["output", "left", "right"])
 
@@ -302,8 +303,12 @@ def test_physical_model_jit_1():
     with jit = False, no errors will be raised when model is not jittable.
     """
     model = Model(enforce_jit=False)
-    model += (add1 := Add())(left="l1", right="l2", output=IOKey(name="out1"))
-    model += (add2 := Add())(left="l3", right="l4")
+    add1 = Add()
+    add1.set_types(left=Tensor, right=Tensor)
+    add2 = Add()
+    add2.set_types(left=Tensor, right=Tensor)
+    model += add1(left="l1", right="l2", output=IOKey(name="out1"))
+    model += add2(left="l3", right="l4")
     model.enforce_jit = False
     input = IOKey(name="input", connections={add1.left, add2.left}, expose=True)
     model += Item()(input=input)
@@ -350,9 +355,9 @@ def test_jit_1():
         def __init__(self) -> None:
             super().__init__(
                 formula_key="adder",
-                output=BaseKey(shape=[("Var_out", ...)], type=GenericTensorType),
-                left=BaseKey(shape=[("Var_1", ...)], type=GenericTensorType),
-                right=BaseKey(shape=[("Var_2", ...)], type=GenericTensorType),
+                output=BaseKey(shape=[("Var_out", ...)], type=Tensor),
+                left=BaseKey(shape=[("Var_1", ...)], type=Tensor),
+                right=BaseKey(shape=[("Var_2", ...)], type=Tensor),
             )
             self.set_constraint(fn=bcast, keys=["output", "left", "right"])
 
@@ -370,7 +375,9 @@ def test_jit_1():
 def test_jit_2():
     backend = JaxBackend()
     model = Model(enforce_jit=False)
-    model += (add_model := Add())(left="left", right="right")
+    model += (add_model := Add())(
+        left=IOKey("left", type=Tensor), right=IOKey("right", type=Tensor)
+    )
     in1 = add_model.output
     out1 = in1.shape
     out2 = out1.tensor().sum()

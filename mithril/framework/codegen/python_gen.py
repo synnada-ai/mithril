@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import ast
+import enum
 import importlib
 import keyword
 from collections.abc import Callable
@@ -29,6 +30,7 @@ from ..common import (
     EvaluateGradientsType,
     EvaluateType,
     ParamsEvalType,
+    Tensor,
 )
 from ..logical import PrimitiveModel
 from ..physical.model import PhysicalModel
@@ -295,6 +297,13 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
 
         return imports
 
+    def is_static_scalar(self, key: str) -> bool:
+        return (
+            key in self.pm.data_store.cached_data
+            and self.pm.data[key].edge_type != Tensor
+            and not isinstance(self.pm.data_store.cached_data[key], enum.Enum)
+        )
+
     def get_primitive_details(
         self, output_key: str
     ) -> tuple[PrimitiveModel, list[str], list[str]]:
@@ -366,7 +375,6 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
 
             used_keys.add(output_key)
             used_keys |= _used_keys
-
         for key in sorted(used_keys):
             if key in cached_data_keys:
                 dict_type = "cache"
@@ -377,14 +385,21 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
             else:
                 continue
 
-            self.append_inputs(input_body, key, dict_type)
+            """If cached value is not a tensor, do not append it to code"""
+            if not self.is_static_scalar(key):
+                self.append_inputs(input_body, key, dict_type)
 
         # If output node is pruned adjust key name
         for output_key in self.pm.output_keys:
             # TODO: give an api to get outputdict
-            return_values.append(
-                ast.Name(self.pm.flat_graph.output_dict[output_key], ast.Load())
-            )
+            if self.is_static_scalar(output_key):
+                return_values.append(
+                    ast.Constant(self.pm.data_store.cached_data[output_key])
+                )
+            else:
+                return_values.append(
+                    ast.Name(self.pm.flat_graph.output_dict[output_key], ast.Load())
+                )
 
         return_body: list[ast.stmt] = [
             (
@@ -399,7 +414,6 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
                 )
             )
         ]
-
         # Define function arguments
         ast_args = [ast.arg("params"), ast.arg("data"), ast.arg("cache")]
         final_args = ast.arguments(
@@ -423,7 +437,6 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
             lineno=1,
             col_offset=0,
         )
-
         return ast.fix_missing_locations(func_def)
 
     def append_inputs(
@@ -437,7 +450,6 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
             val = f"_{key}"
         else:
             val = key
-
         if dict_type != "cache" or (key not in self.pm.flat_graph.all_target_keys):
             input_body.append(
                 ast.Assign(
@@ -483,12 +495,11 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
         """Generates a single function call AST (Abstract Syntax Tree)."""
         if default_args is None:
             default_args = {}
-
+        cache = self.pm.data_store.cached_data
         formula_key = function.__name__
         inputs = {
             key: value for key, value in zip(local_keys, global_keys, strict=False)
         }
-
         # Prepare function arguments
         fn_args_mapping, fn_kwarg_dict = prepare_function_args(
             self.pm.data_store.data_values,
@@ -500,18 +511,27 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
             arg_key for arg_keys in fn_args_mapping.values() for arg_key in arg_keys
         ]
         # Convert to AST nodes
-        args = [
-            convert_to_ast_arg(
-                arg_key,
-                list(self.pm.backend.primitive_function_dict.keys()),
-                defaults=default_args,  # type:ignore
-            )
-            for arg_key in fn_arg_keys
-        ]
-        kwargs = [
-            convert_to_ast_kwarg(key, name, defaults=default_args)
-            for key, name in fn_kwarg_dict.items()
-        ]
+        """Types that should be added inline are defined and appended 
+        to code with their corresponding value."""
+        args = []
+        for arg_key in fn_arg_keys:
+            if self.is_static_scalar(arg_key):
+                args.append(ast.Constant(cache[arg_key]))
+            else:
+                args.append(
+                    convert_to_ast_arg(
+                        arg_key,
+                        list(self.pm.backend.primitive_function_dict.keys()),
+                        defaults=default_args,  # type:ignore
+                    )
+                )
+        kwargs = []
+        for key, name in fn_kwarg_dict.items():
+            if self.is_static_scalar(name):
+                value = ast.Constant(cache[fn_kwarg_dict[key]])
+                kwargs.append(ast.keyword(arg=key, value=value))
+            else:
+                kwargs.append(convert_to_ast_kwarg(key, name, defaults=default_args))
 
         generated_fn = ast.Call(
             func=ast.Name(id=formula_key, ctx=ast.Load()),
@@ -569,14 +589,14 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
         fn_all: EvaluateAllType[DataType]
         grad_fn: EvaluateGradientsType[DataType]
         if not self.pm.backend.is_manualgrad:
-            grad_fn = partial(  # type: ignore
+            grad_fn = partial(
                 self.compute_gradients,
                 raw_evaluate_fn=raw_evaluate_fn,
                 cache=self.pm.data_store.data_values,
                 include_output=False,
             )
             # Fix fn_all for mlx support!!
-            fn_all = partial(  # type: ignore
+            fn_all = partial(
                 self.compute_gradients,
                 raw_evaluate_fn=raw_evaluate_fn,
                 cache=self.pm.data_store.data_values,

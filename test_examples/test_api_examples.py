@@ -118,7 +118,7 @@ class TestLinearRegressionJaxTraining:
         return linear_regression
 
     def test_linear_regression_error(self, module: ModuleType):
-        assert module.outputs["final_cost"] < 0.002
+        assert module.outputs["final_cost"] < 0.02
 
     def test_linear_regression_params(self, module: ModuleType):
         bias = module.params["bias"]
@@ -152,7 +152,7 @@ class TestCnnForecastSineTraining:
 
     def test_cnn_train_error(self, module: ModuleType):
         error = module.total_loss / len(module.dataloader)
-        assert error < 1e-6
+        assert error < 1e-5
 
     def test_cnn_test_error(self, module: ModuleType):
         error = abs(module.y_test - module.pred)

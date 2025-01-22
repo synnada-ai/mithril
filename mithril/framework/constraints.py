@@ -17,8 +17,9 @@ from collections.abc import Sequence
 from functools import reduce
 from itertools import product, zip_longest
 from types import EllipsisType, GenericAlias, NoneType, UnionType
-from typing import get_origin
+from typing import Any, get_origin
 
+from ..core import Constant
 from ..utils.type_utils import (
     is_axis_reduce_type,
     is_axis_reverse_type,
@@ -34,12 +35,12 @@ from ..utils.utils import PaddingType, find_dominant_type
 from .common import (
     DNF,
     TBD,
-    Constant,
     ConstrainResultType,
     ConstraintFunctionType,
-    NestedListType,
+    IOHyperEdge,
+    MaxNestedListDepth,
     PossibleValues,
-    Scalar,
+    ScalarValueType,
     ShapeRepr,
     Tensor,
     ToBeDetermined,
@@ -47,19 +48,22 @@ from .common import (
     Updates,
     UpdateType,
     Variadic,
+    _TensorTypes,
+    list_shape,
 )
 from .utils import (
     find_intersection_type,
     find_list_base_type,
     is_union,
-    list_shape,
 )
 
 __all__ = [
+    "edge_type_constraint",
     "general_tensor_type_constraint",
     "floor_divide_type_constraint",
     "scalar_slice_type_constraint",
-    "scalar_item_type_constraint",
+    "indexer_initial_type_constraint",
+    "indexer_type_constraint",
     "slice_constraints",
     "bcast",
     "bcast_matrix_mult",
@@ -84,9 +88,8 @@ __all__ = [
     "validate_bcast",
     "eye_constraints",
     "item_constraints",
-    "scalar_item_constraints",
+    "indexer_constraints",
     "to_tuple_constraints",
-    "tensor_item_constraints",
     "tensor_to_list_type_constraint",
     "reduce_type_constraint",
     "type_constraints",
@@ -100,14 +103,41 @@ __all__ = [
     "pad_constraints",
     "split_constraints",
     "randn_constraints",
+    "buffer_constraint",
+    "relational_operator_type_constraint",
+    "divide_type_constraint",
+    "bcast_power",
+    "polynomial_kernel_constraint",
 ]
+
+
+def generate_nested_list_type(
+    base_type: _TensorTypes, min_depth: int = 0, max_depth: int = MaxNestedListDepth
+) -> type[list[Any]] | _TensorTypes:
+    types = set()
+    typ: type[list[Any]] | _TensorTypes = base_type
+    for depth in range(max_depth + 1):
+        if depth >= min_depth:
+            types.add(typ)
+        typ = list[typ]  # type: ignore
+    return reduce(lambda x, y: x | y, types)
 
 
 # Below functions are used in various constraints.
 def prod_fn(a: int | Uniadic, b: int | Uniadic) -> int:
-    return (a if isinstance(a, int) else a.value) * (
-        b if isinstance(b, int) else b.value
-    )
+    if isinstance(a, Uniadic):
+        value_a = a.value
+        assert value_a is not None
+    else:
+        value_a = a
+
+    if isinstance(b, Uniadic):
+        value_b = b.value
+        assert value_b is not None
+    else:
+        value_b = b
+
+    return value_a * value_b
 
 
 def is_repr_known(repr: ShapeRepr) -> bool:
@@ -127,7 +157,7 @@ def create_union_type(
 
 
 def _reduce_union_type(
-    output_type: type | UnionType | GenericAlias | NestedListType,
+    output_type: type | UnionType | GenericAlias,
     arg_type: UnionType,
 ) -> None | set[type]:
     eliminated: set[type[int] | type[float] | type[bool]] | None = {float}
@@ -147,7 +177,54 @@ def _reduce_union_type(
     return new_type
 
 
-def general_tensor_type_constraint(*args: Tensor):
+def set_edge_type(edge: IOHyperEdge, new_type: Any) -> Updates:
+    # Used for type setting for polymorphic IOHyperEdges.
+    # Simply wraps new type into Tensor if edge_type is Tensor,
+    # else sets directly.
+    type = new_type
+    if edge.edge_type is Tensor:
+        type = Tensor[new_type]
+    return edge.set_type(type)
+
+
+def edge_type_constraint(
+    output: IOHyperEdge, *inputs: IOHyperEdge
+) -> ConstrainResultType:
+    updates = Updates()
+    status = False
+    # First set output edge_type to Tensor if any Tensor type inputs
+    # exists.
+    input_edge_types = {input.edge_type for input in inputs}
+    if Tensor in input_edge_types:
+        if output.edge_type is not Tensor:
+            updates |= output.set_type(Tensor)
+    elif output.edge_type is Tensor:
+        # Reverse edge_type inference.
+        # If there is only one untyped input, set it as Tensor.
+        untyped_inputs = [
+            input for input in inputs if input.edge_type is ToBeDetermined
+        ]
+        if len(untyped_inputs) == 1:
+            updates |= untyped_inputs.pop().set_type(Tensor)
+            status = True
+    elif output.edge_type is not ToBeDetermined:
+        # Scalar output means all inputs are scalar.
+        for input in inputs:
+            updates |= input.set_type(ScalarValueType)
+        status = True
+
+    # If no ToBeDetermined edge_type exists, return True.
+    if ToBeDetermined not in input_edge_types:
+        status = True
+    return status, updates
+
+
+def general_forward_constraint() -> None:
+    # TODO: Implement this function.
+    pass
+
+
+def general_tensor_type_constraint(*args: IOHyperEdge) -> ConstrainResultType:
     # NOTE: Assumes first argument is always output as other constraints.
     # Also requires all types of args consists of any combination of
     # float, int and bool. For instance, int | float is an acceptable type
@@ -157,10 +234,11 @@ def general_tensor_type_constraint(*args: Tensor):
     output, *inputs = args
     arg_types: set[type | UnionType] = set()
     all_possible_types: set[type | UnionType] = set()
-    union_types: set[tuple[Tensor, UnionType]] = set()
+    union_types: set[tuple[IOHyperEdge, UnionType]] = set()
     # Set all different types and also Union types in input args.
     for arg in inputs:
-        typ = arg.type
+        typ = arg.value_type
+        assert isinstance(typ, type(int) | type(float) | type(bool) | UnionType)
         arg_types.add(typ)
         if isinstance(typ, UnionType):
             union_types.add((arg, typ))
@@ -172,57 +250,64 @@ def general_tensor_type_constraint(*args: Tensor):
     if unsupported := (all_possible_types - {int, float, bool}):
         raise TypeError(f"Possible Unsupported type(s) ({unsupported}) detected!")
 
+    # assert isinstance(output._value, Tensor)
     # Try reverse type inference first.
-    if not isinstance(output.type, UnionType):
+    if output.value_type is not TBD and not isinstance(output.value_type, UnionType):
         # Means output has a definite type (int, float or bool).
-        out_exists = output.type in arg_types
+        assert isinstance(
+            output.value_type, type(int) | type(float) | type(bool) | UnionType
+        )
+        out_exists = output.value_type in arg_types
         related_unions = {
-            pair for pair in union_types if output.type in pair[1].__args__
+            pair for pair in union_types if output.value_type in pair[1].__args__
         }
         if not (out_exists or related_unions):
             # At least one of arg_types or UnionTypes must contain
             # output type.
             raise TypeError(
-                f"None of arguments consist of type {output.type} which is the "
+                f"None of arguments consist of type {output.value_type} which is the "
                 "exact output type!"
             )
         elif not out_exists and len(related_unions) == 1:
             # If only one of them contains output type, enforce this union
             # type to be same as output type.
             arg = related_unions.pop()[0]
-            updates |= arg.set_type(output.type)
+            # updates |= arg.set_type(Tensor[output.value_type])
+            updates |= set_edge_type(arg, output.value_type)
             status = True
         # Update Union type arguments.
         for pair in related_unions:
             arg, arg_type = pair
-            new_type = _reduce_union_type(output.type, arg_type)
+            new_type = _reduce_union_type(output.value_type, arg_type)
             if new_type is not None:
                 uni_type = create_union_type(*new_type)
                 assert not isinstance(uni_type, GenericAlias)
-                updates |= arg.set_type(uni_type)
+                # updates |= arg.set_type(Tensor[uni_type])
+                updates |= set_edge_type(arg, uni_type)
         if not out_exists:
             # If any one of inputs became same type as output, set
             # status True.
             for pair in related_unions:
-                if pair[0].type == output.type:
+                if pair[0].value_type == output.value_type:
                     status = True
                     break
-    elif output.type == int | bool:
+    elif output.value_type == int | bool:
         if float in arg_types:
             raise TypeError(
                 "One of arguments value is float which is not possible when output "
                 "type is int | bool"
             )
         else:
+            # assert isinstance(output.value_type, type(float))
             # We can eliminate any float possibility from Union type args.
             for pair in union_types:
                 arg, arg_type = pair
-                new_type = _reduce_union_type(output.type, arg_type)
+                new_type = _reduce_union_type(output.value_type, arg_type)
                 if new_type is not None:
                     uni_type = create_union_type(*new_type)
                     assert not isinstance(uni_type, GenericAlias)
-                    updates |= arg.set_type(uni_type)
-
+                    # updates |= arg.set_type(Tensor[uni_type])
+                    updates |= set_edge_type(arg, uni_type)
     # Try forward type inference.
     out_type = None
     if not status:
@@ -245,63 +330,71 @@ def general_tensor_type_constraint(*args: Tensor):
             if not union_types:
                 out_type = bool
             elif all_possible_types.issuperset({float, int}):
-                if output.type != float | int | bool:
+                if output.value_type != float | int | bool:
                     out_type = float | int | bool
             elif all_possible_types.issuperset({float}):
-                if output.type != float | bool:
+                if output.value_type != float | bool:
                     out_type = float | bool
-            elif all_possible_types.issuperset({int}) and output.type != int | bool:
+            elif (
+                all_possible_types.issuperset({int}) and output.value_type != int | bool
+            ):
                 out_type = int | bool
         elif int | float in arg_types:
             out_type = int | float
 
     # Set output type if inferred.
     if out_type is not None:
-        updates |= output.set_type(out_type)
+        # updates |= output.set_type(Tensor[out_type])
+        updates |= set_edge_type(output, out_type)
         # If out_type became non-union type, set status to True.
-        if not isinstance(out_type, UnionType):
+        if not isinstance(out_type, UnionType | ToBeDetermined):
             status = True
 
     return status, updates
 
 
 def floor_divide_type_constraint(
-    output: Tensor, numerator: Tensor, denominator: Tensor
-):
+    output: IOHyperEdge, numerator: IOHyperEdge, denominator: IOHyperEdge
+) -> ConstrainResultType:
     status = False
     updates = Updates()
     # First be sure that output can only be of type float | int. So
     # constrain its type to float | int.
-    updates |= output.set_type(int | float)
+    updates |= set_edge_type(output, int | float)
     # Try reverse type inference first.
-    if output.type is int:
+    if output.value_type is int:
         # Only possible when numerator and denominator are integers or booleans.
-        updates |= numerator.set_type(int | bool)
-        updates |= denominator.set_type(int | bool)
+        updates |= set_edge_type(numerator, int | bool)
+        updates |= set_edge_type(denominator, int | bool)
         status = True
-    elif output.type is float:
+    elif output.value_type is float:
         # At least one of inputs is float.
         if (
-            isinstance(numerator.type, UnionType)
-            and float not in numerator.type.__args__
+            isinstance(numerator.value_type, UnionType)
+            and float not in numerator.value_type.__args__
         ):
-            updates |= denominator.set_type(float)
+            updates |= set_edge_type(denominator, float)
             status = True
         elif (
-            isinstance(denominator.type, UnionType)
-            and float not in denominator.type.__args__
+            isinstance(denominator.value_type, UnionType)
+            and float not in denominator.value_type.__args__
         ):
-            updates |= numerator.set_type(float)
+            updates |= set_edge_type(numerator, float)
             status = True
     return status, updates
 
 
 def scalar_slice_type_constraint(
-    output: Scalar, input: Scalar, start: Scalar, stop: Scalar, step: Scalar
-):
+    output: IOHyperEdge,
+    input: IOHyperEdge,
+    start: IOHyperEdge,
+    stop: IOHyperEdge,
+    step: IOHyperEdge,
+) -> ConstrainResultType:
     updates = Updates()
-    output_type = output.type
-    input_type = input.type
+
+    output_type = output.value_type
+    input_type = input.value_type
 
     assert (
         isinstance(start.value, ToBeDetermined)
@@ -379,7 +472,7 @@ def scalar_slice_type_constraint(
         else:
             raise TypeError("Inferred types does not match in slice constraints!")
 
-    status = not is_union(output.type)
+    status = not is_union(output.value_type)
     return status, updates
 
 
@@ -455,16 +548,16 @@ def check_index_type_compatibility(
     return True
 
 
-def scalar_item_reduce_input_type(
+def scalar_item_reduce_input_type(  # type: ignore
     output_type: type | UnionType | GenericAlias,
     input_type: type | UnionType | GenericAlias,
     index: int | slice | ToBeDetermined,
-):
+) -> type | UnionType | GenericAlias | None:
     possible_types = []
-    out_origin: type[list] | type[tuple] | type[UnionType] | None = get_origin(
+    out_origin: type[list] | type[tuple] | type[UnionType] | None = get_origin(  # type: ignore
         output_type
     )
-    input_origin: type[list] | type[tuple] | type[UnionType] | None = None
+    input_origin: type[list] | type[tuple] | type[UnionType] | None = None  # type: ignore
     # Look for compatible types in __args__ of input type with the output_type.
     if isinstance(input_type, UnionType):
         input_origin = UnionType
@@ -509,6 +602,8 @@ def scalar_item_reduce_input_type(
                     for arg in input_type.__args__:
                         if find_intersection_type(output_type, arg):
                             return input_type
+                        else:
+                            return None
                 else:
                     return input_type
 
@@ -531,54 +626,91 @@ def scalar_item_reduce_input_type(
         return input_type
 
 
-def scalar_item_type_constraint(output: Scalar, input: Scalar, index: Scalar):
+def indexer_initial_type_constraint(
+    output: IOHyperEdge, input: IOHyperEdge, index: IOHyperEdge
+) -> ConstrainResultType:
+    status = False
     updates = Updates()
-    assert not isinstance(input.type, NestedListType)
-    assert not isinstance(output.type, NestedListType)
-    input_type = input.type
-    output_type = output.type
-    index_value = index.value
-    assert (
-        isinstance(index_value, ToBeDetermined)
-        or type(index_value) is int
-        or type(index_value) is slice
-    )
+    edge_types = {input.edge_type, output.edge_type}
+    if edge_types != {ToBeDetermined}:
+        if Tensor not in edge_types:
+            # Meaning that indexing scalar type data. Set general
+            # scalar type constraints on all arguments.
 
-    if not (
-        isinstance(input_type, UnionType)
-        or hasattr(input_type, "__origin__")
-        or input_type in [tuple, list]
-    ):
-        raise TypeError("Input type should be list, tuple or UnionType!")
-
-    if (
-        inferred_input_type := scalar_item_reduce_input_type(
-            output_type, input_type, index_value
-        )
-    ) is None:
-        raise TypeError(
-            f"Output type {output_type} is not compatible with input type {input_type}!"
-        )
-
-    updates |= input.set_type(inferred_input_type)
-
-    # extract all possibilites and put it in to a list
-    # TODO: This part should take NestedListType into account.
-    args = input.type.__args__ if isinstance(input.type, UnionType) else [input.type]
-
-    # Do the forward inference in all types in args, then make Union
-    types = [
-        scalar_item_type_constraint_forward_helper(arg, index_value) for arg in args
-    ]
-    inferred_out_type = create_union_type(*types)
-
-    updates |= output.set_type(inferred_out_type)
-
-    status = not is_union(output.type)
+            # TODO: Types should be more specific.
+            updates |= output.set_type(int | float | list[Any] | tuple[Any, ...])
+            updates |= input.set_type(list[Any] | tuple[Any, ...])
+            status = True
+        else:
+            tensor_edge = input if input.edge_type is Tensor else output
+            assert isinstance(tensor_edge._value, Tensor)
+            typ: type[Tensor[Any]] = Tensor[tensor_edge.value_type]  # type: ignore
+            other_edge = (input, output)[tensor_edge is input]
+            updates |= other_edge.set_type(typ)
+            status = True
     return status, updates
 
 
-def slice_constraints(output: Scalar, start: Scalar, stop: Scalar, step: Scalar):
+def indexer_type_constraint(
+    output: IOHyperEdge, input: IOHyperEdge, index: IOHyperEdge
+) -> ConstrainResultType:
+    status = False
+    updates = Updates()
+    if input.edge_type not in (Tensor, ToBeDetermined):
+        # Input is a non-tensor type.
+        input_type = input.value_type
+        output_type = output.value_type
+        index_value = index.value
+        assert (
+            isinstance(index_value, ToBeDetermined)
+            or type(index_value) is int
+            or type(index_value) is slice
+        )
+
+        if not (
+            isinstance(input_type, UnionType)
+            or hasattr(input_type, "__origin__")
+            or input_type in [tuple, list]
+        ):
+            raise TypeError("Input type should be list, tuple or UnionType!")
+
+        if (
+            inferred_input_type := scalar_item_reduce_input_type(
+                output_type, input_type, index_value
+            )
+        ) is None:
+            raise TypeError(
+                f"Output type {output_type} is not compatible with "
+                f"input type {input_type}!"
+            )
+
+        updates |= input.set_type(inferred_input_type)
+
+        # extract all possibilites and put it in to a list
+        # TODO: This part should take NestedListType into account.
+        args = (
+            input.value_type.__args__
+            if isinstance(input.value_type, UnionType)
+            else [input.value_type]
+        )
+
+        # Do the forward inference in all types in args, then make Union
+        types = [
+            scalar_item_type_constraint_forward_helper(arg, index_value) for arg in args
+        ]
+        inferred_out_type = create_union_type(*types)
+
+        updates |= output.set_type(inferred_out_type)
+
+        status = not is_union(output.value_type)
+    elif input.edge_type is Tensor:
+        status = True
+    return status, updates
+
+
+def slice_constraints(
+    output: IOHyperEdge, start: IOHyperEdge, stop: IOHyperEdge, step: IOHyperEdge
+) -> ConstrainResultType:
     updates = Updates()
     output_value = output.value
     start_value = start.value
@@ -612,59 +744,69 @@ def slice_constraints(output: Scalar, start: Scalar, stop: Scalar, step: Scalar)
     return status, updates
 
 
-def tensor_to_list_type_constraint(output: Scalar, input: Tensor):
-    status = not is_union(output.type)
+def tensor_to_list_type_constraint(
+    output: IOHyperEdge, input: IOHyperEdge
+) -> ConstrainResultType:
     updates = Updates()
-    assert input._temp_shape is not None
-    in_shape: ShapeRepr = input._temp_shape
+    input_type = input.value_type
+    output_type = output.value_type
+    assert input.shape is not None
+    in_shape: ShapeRepr = input.shape.reprs[0]
     assert (
-        output.type is list
-        or output.type is float
-        or output.type is int
-        or output.type is bool
-        or isinstance(output.type, NestedListType | UnionType)
-        or (isinstance(output.type, GenericAlias) and output.type.__origin__ is list)
+        output_type is list
+        or output_type is float
+        or output_type is int
+        or output_type is bool
+        or isinstance(output_type, UnionType)
+        or (isinstance(output_type, GenericAlias) and output_type.__origin__ is list)
     )
 
     # If input type is UnionType, try to constrain it using output type
-    if get_origin(input.type) == UnionType and (
-        out_types := find_list_base_type(output.type)  # type: ignore  # (MyPy bug)
+    if get_origin(input_type) == UnionType and (
+        out_types := find_list_base_type(output_type)  # type: ignore
     ):
         possible_input_types = find_intersection_type(
-            input.type, create_union_type(*out_types)
+            input_type, create_union_type(*out_types)
         )
         if not possible_input_types:
             raise TypeError(
-                f"Input type {input.type} is not compatible with output type "
-                f"{output.type}!"
+                f"Input type {input_type} is not compatible with output type "
+                f"{output_type}!"
             )
-        assert not isinstance(possible_input_types, NestedListType)
-        updates |= input.set_type(possible_input_types)
+        updates |= set_edge_type(input, possible_input_types)
 
-    # Create the base same as input type
-    base = input.type
-    if in_shape.root is None:
-        for _ in range(len(in_shape.prefix + in_shape.suffix)):
-            # recursively cover list with base equal to number of all determined
-            # uniadics
-            base = list[base]  # type: ignore
-    else:
-        # if input has variadic, add also list['NestedFloatOrIntOrBoolList']
-        base = NestedListType(base)  # type: ignore
+    # Create output nested type using the input type as base type.
+    # Uniadic numbers define min depth of nested list. If input
+    # has no variadic shape then uniadic numbers also define
+    # max depth of nested list.
+    min_depth = len(in_shape.prefix + in_shape.suffix)
+    max_depth = min_depth if in_shape.root is None else MaxNestedListDepth
+    assert isinstance(
+        input.value_type, type(int) | type(float) | type(bool) | UnionType
+    )
+    base = generate_nested_list_type(
+        input.value_type,
+        min_depth=len(in_shape.prefix + in_shape.suffix),
+        max_depth=max_depth,
+    )
 
-    updates |= output.set_type(base)
+    updates |= set_edge_type(output, base)
 
-    if in_shape.root is not None:
-        status = not (is_union(output.type) or isinstance(output.type, NestedListType))
-    else:
-        status = True
+    status = not is_union(output.value_type) if in_shape.root is not None else True
 
     return status, updates
 
 
-def reduce_type_constraint(output: Tensor, input: Tensor):
+def reduce_type_constraint(
+    output: IOHyperEdge, input: IOHyperEdge
+) -> ConstrainResultType:
     updates = Updates()
-    input_type = input.type
+
+    assert isinstance(
+        input.value_type, type(int) | type(float) | type(bool) | UnionType
+    )
+
+    input_type = input.value_type
 
     possible_output_types: list[type[int] | type[float] | type[bool]] = []
 
@@ -679,17 +821,17 @@ def reduce_type_constraint(output: Tensor, input: Tensor):
 
     union_output_types = create_union_type(*possible_output_types)
     assert not isinstance(union_output_types, GenericAlias)
-    updates |= output.set_type(union_output_types)
+    updates |= output.set_type(Tensor[union_output_types])  # type: ignore
 
     ### Reverse Inference ###
-    if output.type is float:
+    if output.value_type is float:
         # if output type is float, it is guaranteed that input will be float
-        updates |= input.set_type(float)
-    elif output.type is int:
+        updates |= input.set_type(Tensor[float])
+    elif output.value_type is int:
         # if output type is int, input should either be int or bool
-        updates |= input.set_type(bool | int)
+        updates |= input.set_type(Tensor[bool | int])
 
-    status = not isinstance(output.type, UnionType)
+    status = not isinstance(output.value_type, UnionType)
 
     return status, updates
 
@@ -918,12 +1060,14 @@ def bcast_update_all_possibilites(
     max_left_len: int | None = len(left)
     if left.root is not None:
         if left.root.possibles is not None:
+            assert max_left_len is not None
             max_left_len += left.root.max_len
         else:
             max_left_len = None
 
     if right.root is not None:
         if right.root.possibles is not None:
+            assert max_right_len is not None
             max_right_len += right.root.max_len
         else:
             max_right_len = None
@@ -1187,7 +1331,7 @@ def bacast_align_output(
     return updates
 
 
-def bcast_align_input(output: ShapeRepr, left: ShapeRepr, right: ShapeRepr):
+def bcast_align_input(output: ShapeRepr, left: ShapeRepr, right: ShapeRepr) -> Updates:
     # Example: output: [V1, 2, 3], left: [V2, 1, 1], right: [V3]
     # Result:  output: [V1, 2, 3], left: [V2, 1, 1], right: [V4, 2, 3]
 
@@ -1265,23 +1409,60 @@ def bcast_helper(
     return bcast_exit_condition(output, left, right, index), updates
 
 
-def bcast(output: Tensor, left: Tensor, right: Tensor) -> ConstrainResultType:
-    assert output._temp_shape is not None, "Output shape of broadcast is not set!"
-    assert left._temp_shape is not None, "Left shape of broadcast is not set!"
-    assert right._temp_shape is not None, "Right shape of broadcast is not set!"
-    return bcast_helper(output._temp_shape, left._temp_shape, right._temp_shape, 0)
+def _bcast(
+    output: IOHyperEdge, left: IOHyperEdge, right: IOHyperEdge, index: int
+) -> ConstrainResultType:
+    l_type = left.edge_type
+    r_type = right.edge_type
+    if l_type is Tensor and r_type is Tensor:
+        assert output._temp_shape is not None, "Output shape of broadcast is not set!"
+        assert left._temp_shape is not None, "Left shape of broadcast is not set!"
+        assert right._temp_shape is not None, "Right shape of broadcast is not set!"
+        return bcast_helper(
+            output._temp_shape, left._temp_shape, right._temp_shape, index
+        )
+    elif not ({Tensor, ToBeDetermined} & {l_type, r_type, output.edge_type}):
+        # Means all edges are scalar types. Simply return True
+        # without any updates.
+        return True, Updates()
+
+    merge_edge: IOHyperEdge | None = None
+    if left.edge_type is Tensor:
+        merge_edge = left
+    elif right.edge_type is Tensor:
+        merge_edge = right
+
+    if merge_edge is not None:
+        assert isinstance(merge_edge._value, Tensor)
+        assert output.shape is not None
+        return True, merge_edge._value.match_shapes(output.shape)
+
+    return False, Updates()
+
+
+def bcast(
+    output: IOHyperEdge, left: IOHyperEdge, right: IOHyperEdge
+) -> ConstrainResultType:
+    return _bcast(output, left, right, 0)
 
 
 def bcast_matrix_mult(
-    output: Tensor, left: Tensor, right: Tensor
+    output: IOHyperEdge, left: IOHyperEdge, right: IOHyperEdge
 ) -> ConstrainResultType:
-    assert output._temp_shape is not None, "Output shape of broadcast is not set!"
-    assert left._temp_shape is not None, "Left shape of broadcast is not set!"
-    assert right._temp_shape is not None, "Right shape of broadcast is not set!"
-    return bcast_helper(output._temp_shape, left._temp_shape, right._temp_shape, 2)
+    return _bcast(output, left, right, 2)
 
 
-def check_reverse(left: list[Uniadic], right: list[Uniadic], output: list[Uniadic]):
+def bcast_power(
+    output: IOHyperEdge, base: IOHyperEdge, exponent: IOHyperEdge, *args: IOHyperEdge
+) -> ConstrainResultType:
+    # NOTE: threshold input only exists in robust mode, so it is represented
+    # as *args.
+    return _bcast(output, base, exponent, 0)
+
+
+def check_reverse(
+    left: list[Uniadic], right: list[Uniadic], output: list[Uniadic]
+) -> bool:
     status = True
     left_reverse = left[::-1]
     right_reverse = right[::-1]
@@ -1315,7 +1496,7 @@ def check_reverse(left: list[Uniadic], right: list[Uniadic], output: list[Uniadi
 
 def bcast_exit_condition(
     output: ShapeRepr, left: ShapeRepr, right: ShapeRepr, index: int
-):
+) -> bool:
     return (
         output.root is None
         and left.root is None
@@ -1325,9 +1506,9 @@ def bcast_exit_condition(
 
 
 def bcast_error_check(
-    output: Tensor,
-    left: Tensor,
-    right: Tensor,
+    output: IOHyperEdge,
+    left: IOHyperEdge,
+    right: IOHyperEdge,
     index: int = 0,
 ) -> ConstrainResultType:
     assert left._temp_shape is not None, "Left shape of broadcast is not set!"
@@ -1410,13 +1591,13 @@ def bcast_is_compatible(
 
 
 def bcast_mat_mul_check(
-    output: Tensor, left: Tensor, right: Tensor
+    output: IOHyperEdge, left: IOHyperEdge, right: IOHyperEdge
 ) -> ConstrainResultType:
     return bcast_error_check(output, left, right, index=2)
 
 
 def reduce_constraints(
-    output: Tensor, input: Tensor, axis: Scalar, keepdim: Scalar
+    output: IOHyperEdge, input: IOHyperEdge, axis: IOHyperEdge, keepdim: IOHyperEdge
 ) -> ConstrainResultType:
     updates = Updates()
     assert input._temp_shape is not None, "Input shape of reduce is not set!"
@@ -1425,8 +1606,8 @@ def reduce_constraints(
     output_shape: ShapeRepr = output._temp_shape
     axis_val = axis.value
     keepdim_val = keepdim.value
-    assert is_axis_reduce_type(axis_val) or isinstance(
-        axis_val, ToBeDetermined
+    assert axis_val is TBD or is_axis_reduce_type(
+        axis_val
     ), f"given axis value {axis_val} is not valid!"
     assert isinstance(
         keepdim_val, bool | ToBeDetermined
@@ -1671,7 +1852,7 @@ def reduce_constraints(
 
 
 def concat_constraints(
-    output: Tensor, axis: Scalar, *inputs: Tensor
+    output: IOHyperEdge, axis: IOHyperEdge, *inputs: IOHyperEdge
 ) -> ConstrainResultType:
     status = False
     updates = Updates()
@@ -1795,7 +1976,7 @@ def concat_constraints(
 
 
 def pad_constraints(
-    output: Tensor, input: Tensor, pad_width: Scalar
+    output: IOHyperEdge, input: IOHyperEdge, pad_width: IOHyperEdge
 ) -> ConstrainResultType:
     updates = Updates()
     pad_value: tuple[tuple[int, int], ...] | ToBeDetermined = pad_width.value  # type: ignore
@@ -1806,9 +1987,8 @@ def pad_constraints(
 
     def process_shape(
         shape: ShapeRepr, pad_value: tuple[tuple[int, int], ...], forward: bool = True
-    ):
+    ) -> tuple[list[Uniadic], list[Uniadic], bool]:
         prefix: list[Uniadic] = []
-        root = None
         suffix: list[Uniadic] = []
         status = True
 
@@ -1824,7 +2004,7 @@ def pad_constraints(
             )
             prefix.append(uni)
 
-        return prefix, root, suffix, status
+        return prefix, suffix, status
 
     if isinstance(pad_value, ToBeDetermined):
         return False, updates
@@ -1837,23 +2017,21 @@ def pad_constraints(
     updates |= output_shape.inner_match(prefix=temp_uniadics, root=None, suffix=[])
 
     # Forward inference
-    prefix, root, suffix, forward_status = process_shape(
-        input_shape, pad_value, forward=True
-    )
-    updates |= output_shape.inner_match(prefix=prefix, root=root, suffix=suffix)
+    prefix, suffix, forward_status = process_shape(input_shape, pad_value, forward=True)
+    updates |= output_shape.inner_match(prefix=prefix, root=None, suffix=suffix)
 
     # Backward inference
-    prefix, root, suffix, backward_status = process_shape(
+    prefix, suffix, backward_status = process_shape(
         output_shape, pad_value, forward=False
     )
-    updates |= input_shape.inner_match(prefix=prefix, root=root, suffix=suffix)
+    updates |= input_shape.inner_match(prefix=prefix, root=None, suffix=suffix)
     status = forward_status or backward_status
 
     return status, updates
 
 
 def reverse_constraints(
-    output: Tensor, input: Tensor, axes: Scalar
+    output: IOHyperEdge, input: IOHyperEdge, axes: IOHyperEdge
 ) -> ConstrainResultType:
     status = False
     assert input._temp_shape is not None, "Input shape of reverse is not set!"
@@ -1862,9 +2040,7 @@ def reverse_constraints(
     input_shape: ShapeRepr = input._temp_shape
     output_shape: ShapeRepr = output._temp_shape
     axes_val = axes.value
-    assert is_axis_reverse_type(axes_val) or isinstance(
-        axes_val, ToBeDetermined
-    ), "Invalid axis value!"
+    assert axes_val is TBD or is_axis_reverse_type(axes_val), "Invalid axis value!"
     status = False
     updates = Updates()
 
@@ -1919,7 +2095,7 @@ def reverse_constraints(
 
 
 def polynomial_features_constraints(
-    output: Tensor, input: Tensor, degree: Scalar
+    output: IOHyperEdge, input: IOHyperEdge, degree: IOHyperEdge
 ) -> ConstrainResultType:
     status = False
     updates = Updates()
@@ -2017,12 +2193,12 @@ def sliding_window_constraint_helper(
 
 
 def sliding_window_1d_constraints(
-    output: Tensor,
-    input: Tensor,
-    stride: Scalar,
-    padding: Scalar,
-    dilation: Scalar,
-    kernel_size: Scalar,
+    output: IOHyperEdge,
+    input: IOHyperEdge,
+    stride: IOHyperEdge,
+    padding: IOHyperEdge,
+    dilation: IOHyperEdge,
+    kernel_size: IOHyperEdge,
 ) -> ConstrainResultType:
     updates = Updates()
     status = False
@@ -2073,12 +2249,12 @@ def sliding_window_1d_constraints(
 
 
 def conv_1d_constraints(
-    output: Tensor,
-    input: Tensor,
-    stride: Scalar,
-    padding: Scalar,
-    dilation: Scalar,
-    kernel: Tensor,
+    output: IOHyperEdge,
+    input: IOHyperEdge,
+    stride: IOHyperEdge,
+    padding: IOHyperEdge,
+    dilation: IOHyperEdge,
+    kernel: IOHyperEdge,
 ) -> ConstrainResultType:
     updates = Updates()
     status = False
@@ -2103,6 +2279,7 @@ def conv_1d_constraints(
         type(dilation_val) is int or type(dilation_val) is ToBeDetermined
     ), "Invalid dilation value!"
     kernel_size_val: ToBeDetermined | int = TBD
+    assert kernel.shape is not None
     if len(kernel_shp := kernel.shape.get_shapes()) == 3 and isinstance(
         kernel_shp[-1], int
     ):
@@ -2136,12 +2313,12 @@ def conv_1d_constraints(
 
 # TODO: Change name (Conv also uses the constraint below)
 def sliding_window_2d_constraints(
-    output: Tensor,
-    input: Tensor,
-    stride: Scalar,
-    padding: Scalar,
-    dilation: Scalar,
-    kernel_size: Scalar,
+    output: IOHyperEdge,
+    input: IOHyperEdge,
+    stride: IOHyperEdge,
+    padding: IOHyperEdge,
+    dilation: IOHyperEdge,
+    kernel_size: IOHyperEdge,
 ) -> ConstrainResultType:
     status = False
     updates = Updates()
@@ -2211,12 +2388,12 @@ def sliding_window_2d_constraints(
 
 
 def conv_2d_constraints(
-    output: Tensor,
-    input: Tensor,
-    stride: Scalar,
-    padding: Scalar,
-    dilation: Scalar,
-    kernel: Tensor,
+    output: IOHyperEdge,
+    input: IOHyperEdge,
+    stride: IOHyperEdge,
+    padding: IOHyperEdge,
+    dilation: IOHyperEdge,
+    kernel: IOHyperEdge,
 ) -> ConstrainResultType:
     status = False
     updates = Updates()
@@ -2241,6 +2418,7 @@ def conv_2d_constraints(
 
     kernel_size_0: ToBeDetermined | int = TBD
     kernel_size_1: ToBeDetermined | int = TBD
+    assert kernel.shape is not None
     if (
         len(kernel_shp := kernel.shape.get_shapes()) == 4
         and isinstance(kernel_shp[-1], int)
@@ -2293,7 +2471,10 @@ def conv_2d_constraints(
 
 
 def flatten_constrains(
-    output: Tensor, input: Tensor, start_dim: Scalar, end_dim: Scalar
+    output: IOHyperEdge,
+    input: IOHyperEdge,
+    start_dim: IOHyperEdge,
+    end_dim: IOHyperEdge,
 ) -> ConstrainResultType:
     status = False
     updates = Updates()
@@ -2435,7 +2616,7 @@ def flatten_constrains(
 
 
 def where_constrains(
-    output: Tensor, cond: Tensor, input1: Tensor, input2: Tensor
+    output: IOHyperEdge, cond: IOHyperEdge, input1: IOHyperEdge, input2: IOHyperEdge
 ) -> ConstrainResultType:
     # TODO: Find a way to implement this constraint without creating a Tensor and
     # ShapeRepr
@@ -2460,7 +2641,7 @@ def where_constrains(
 
 
 def arange_constraints(
-    output: Tensor, start: Scalar, stop: Scalar, step: Scalar
+    output: IOHyperEdge, start: IOHyperEdge, stop: IOHyperEdge, step: IOHyperEdge
 ) -> ConstrainResultType:
     assert output._temp_shape is not None, "Output shape of Arange is not set!"
     output_shape: ShapeRepr = output._temp_shape
@@ -2547,7 +2728,7 @@ def arange_constraints(
     return status, updates
 
 
-def randn_constraints(output: Tensor, shape: Scalar) -> ConstrainResultType:
+def randn_constraints(output: IOHyperEdge, shape: IOHyperEdge) -> ConstrainResultType:
     status = False
     updates = Updates()
     assert output._temp_shape is not None, "Output shape of Reshape is not set!"
@@ -2594,7 +2775,7 @@ def randn_constraints(output: Tensor, shape: Scalar) -> ConstrainResultType:
 
 
 def broadcast_to_constraints(
-    output: Tensor, shape: Scalar, input: Tensor
+    output: IOHyperEdge, shape: IOHyperEdge, input: IOHyperEdge
 ) -> ConstrainResultType:
     status = False
     updates = Updates()
@@ -2651,7 +2832,7 @@ def broadcast_to_constraints(
     return status, updates
 
 
-def validate_bcast(input: ShapeRepr, shape: tuple[int, ...]):
+def validate_bcast(input: ShapeRepr, shape: tuple[int, ...]) -> None:
     if input.root is None:
         if len(input) > len(shape):
             raise ValueError("Cannot broadcast to lower dimension")
@@ -2662,7 +2843,7 @@ def validate_bcast(input: ShapeRepr, shape: tuple[int, ...]):
 
 
 def reshape_constraints(
-    output: Tensor, input: Tensor, shape: Scalar
+    output: IOHyperEdge, input: IOHyperEdge, shape: IOHyperEdge
 ) -> ConstrainResultType:
     # TODO: We can add inference for the case where
     # shape = (1,2,3,4), input_shape = (1, 2, 4, "u1") for example.
@@ -2782,8 +2963,8 @@ def reshape_constraints(
         values: list[int | None] | tuple[int | None, ...] = [
             uni.value for uni in output_shape.prefix
         ]
-        assert isinstance(shape.type, GenericAlias)
-        if shape.type.__origin__ is tuple:
+        assert isinstance(shape.value_type, GenericAlias)
+        if shape.value_type.__origin__ is tuple:
             values = tuple(values)
         # TODO: This update assumes no -1 is given in shapes. However,
         # situations may occur where shape is given with -1.
@@ -2797,7 +2978,7 @@ def reshape_constraints(
     return status, updates
 
 
-def squeeze_constraints(output: Tensor, input: Tensor) -> ConstrainResultType:
+def squeeze_constraints(output: IOHyperEdge, input: IOHyperEdge) -> ConstrainResultType:
     updates = Updates()
     assert input._temp_shape is not None, "Input shape of Squeeze is not set!"
     assert output._temp_shape is not None, "Output shape of Squeeze is not set!"
@@ -2870,7 +3051,9 @@ def squeeze_constraints(output: Tensor, input: Tensor) -> ConstrainResultType:
     return status, updates
 
 
-def size_constraints(output: Scalar, input: Tensor, dim: Scalar) -> ConstrainResultType:
+def size_constraints(
+    output: IOHyperEdge, input: IOHyperEdge, dim: IOHyperEdge
+) -> ConstrainResultType:
     assert input._temp_shape is not None, "Input shape of Size is not set!"
     input_shape: ShapeRepr = input._temp_shape
 
@@ -2879,15 +3062,15 @@ def size_constraints(output: Scalar, input: Tensor, dim: Scalar) -> ConstrainRes
     dim_val = dim.value
     output_val = output.value
     assert (
-        type(dim_val) is int
-        or is_tuple_int(dim_val)
-        or isinstance(dim_val, ToBeDetermined)
+        isinstance(dim_val, ToBeDetermined)
+        or type(dim_val) is int
         or dim_val is None
+        or is_tuple_int(dim_val)
     )
     assert (
-        type(output_val) is int
+        isinstance(output_val, ToBeDetermined)
+        or type(output_val) is int
         or is_tuple_int(output_val)
-        or isinstance(output_val, ToBeDetermined)
     )
     if not isinstance(dim_val, ToBeDetermined):
         is_int = False
@@ -3018,7 +3201,7 @@ def size_constraints(output: Scalar, input: Tensor, dim: Scalar) -> ConstrainRes
     return status, updates
 
 
-def shape_constraints(output: Scalar, input: Tensor) -> ConstrainResultType:
+def shape_constraints(output: IOHyperEdge, input: IOHyperEdge) -> ConstrainResultType:
     assert input._temp_shape is not None, "Input shape of Shape is not set!"
     input_shape: ShapeRepr = input._temp_shape
     output_val = output.value
@@ -3040,7 +3223,9 @@ def shape_constraints(output: Scalar, input: Tensor) -> ConstrainResultType:
     return status, updates
 
 
-def eye_constraints(output: Tensor, N: Scalar, M: Scalar) -> ConstrainResultType:
+def eye_constraints(
+    output: IOHyperEdge, N: IOHyperEdge, M: IOHyperEdge
+) -> ConstrainResultType:
     updates = Updates()
     assert output._temp_shape is not None, "Output shape of Eye is not set!"
     output_shape: ShapeRepr = output._temp_shape
@@ -3065,12 +3250,12 @@ def eye_constraints(output: Tensor, N: Scalar, M: Scalar) -> ConstrainResultType
     elif m_uni_valued and not m_valued:
         M.set_value(m_uni.value)
         updates.add(M)
-    all_items: list[Scalar | Uniadic] = [N, M, n_uni, m_uni]
+    all_items: list[IOHyperEdge | Uniadic] = [N, M, n_uni, m_uni]
     return all(isinstance(s.value, int) for s in all_items), updates
 
 
 def swap_axes_constraints(
-    output: Tensor, input: Tensor, axis1: Scalar, axis2: Scalar
+    output: IOHyperEdge, input: IOHyperEdge, axis1: IOHyperEdge, axis2: IOHyperEdge
 ) -> ConstrainResultType:
     assert input._temp_shape is not None, "Input shape of SwapAxes is not set!"
     assert output._temp_shape is not None, "Output shape of SwapAxes is not set!"
@@ -3201,7 +3386,9 @@ def swap_axes_constraints(
     return status, updates
 
 
-def to_tensor_constraints(output: Tensor, input: Scalar) -> ConstrainResultType:
+def to_tensor_constraints(
+    output: IOHyperEdge, input: IOHyperEdge
+) -> ConstrainResultType:
     updates = Updates()
     status = False
     assert output._temp_shape is not None, "Output shape of ToTensor is not set!"
@@ -3222,12 +3409,12 @@ def to_tensor_constraints(output: Tensor, input: Scalar) -> ConstrainResultType:
             # list_shape function takes only list type input.
             shape = [idx for idx in list_shape(list(input_val))]
             typ = find_dominant_type(input_val)
-            updates |= output.set_type(typ)
+            updates |= output.set_type(Tensor[typ])  # type: ignore
             updates.add(output, update_type=UpdateType.TYPE)
         elif isinstance(input_val, float | int):
-            assert isinstance(input.type, type(int) | type(float))
+            assert isinstance(input.value_type, type(int) | type(float))
             shape = []
-            updates |= output.set_type(input.type)
+            updates |= output.set_type(Tensor[input.value_type])  # type: ignore
             updates.add(output, update_type=UpdateType.TYPE)
         if output_shape.root is None:
             if len(shape) != len(output_shape.prefix):
@@ -3252,22 +3439,18 @@ def to_tensor_constraints(output: Tensor, input: Scalar) -> ConstrainResultType:
     return status, updates
 
 
-def tensor_to_list_constraints(output: Scalar, input: Tensor) -> ConstrainResultType:
+def tensor_to_list_constraints(
+    output: IOHyperEdge, input: IOHyperEdge
+) -> ConstrainResultType:
     assert input._temp_shape is not None, "Input shape of TensorToList is not set!"
     input_shape: ShapeRepr = input._temp_shape
     output_val = output.value
-    assert (
-        isinstance(output_val, ToBeDetermined)
-        or type(output_val) is list
-        or isinstance(output_val, NestedListType)
-    )
+    assert isinstance(output_val, ToBeDetermined) or type(output_val) is list
     updates = Updates()
     output_value = output.value
     input_shape = input._temp_shape
     status = False
-    if not isinstance(output_val, ToBeDetermined) and not isinstance(
-        output_val, NestedListType
-    ):
+    if not isinstance(output_val, ToBeDetermined):
         shape: list[Uniadic] = []
         if isinstance(output_value, list | tuple):
             shape = [Uniadic(idx) for idx in list_shape(list(output_val))]
@@ -3278,7 +3461,7 @@ def tensor_to_list_constraints(output: Scalar, input: Tensor) -> ConstrainResult
     return status, updates
 
 
-def item_constraints(output: Scalar, input: Tensor) -> ConstrainResultType:
+def item_constraints(output: IOHyperEdge, input: IOHyperEdge) -> ConstrainResultType:
     assert input._temp_shape is not None, "Input shape of Item is not set!"
     input_shape: ShapeRepr = input._temp_shape
     updates = Updates()
@@ -3301,7 +3484,7 @@ def item_constraints(output: Scalar, input: Tensor) -> ConstrainResultType:
 
 
 def scalar_item_constraints(
-    output: Scalar, input: Scalar, index: Scalar
+    output: IOHyperEdge, input: IOHyperEdge, index: IOHyperEdge
 ) -> ConstrainResultType:
     assert (
         isinstance(output.value, ToBeDetermined)
@@ -3344,7 +3527,9 @@ def scalar_item_constraints(
     return status, updates
 
 
-def to_tuple_constraints(output: Scalar, *args: Scalar) -> ConstrainResultType:
+def to_tuple_constraints(
+    output: IOHyperEdge, *args: IOHyperEdge
+) -> ConstrainResultType:
     updates = Updates()
     status = False
     assert isinstance(output.value, ToBeDetermined) or type(output.value) is tuple
@@ -3361,7 +3546,7 @@ def to_tuple_constraints(output: Scalar, *args: Scalar) -> ConstrainResultType:
     return status, updates
 
 
-def to_list_constraints(output: Scalar, *args: Scalar) -> ConstrainResultType:
+def to_list_constraints(output: IOHyperEdge, *args: IOHyperEdge) -> ConstrainResultType:
     updates = Updates()
     status = False
     assert isinstance(output.value, ToBeDetermined) or type(output.value) is list
@@ -3383,14 +3568,11 @@ def to_list_constraints(output: Scalar, *args: Scalar) -> ConstrainResultType:
     return status, updates
 
 
-constrain_fn_dict = {key: fn for key, fn in globals().items() if callable(fn)}
-
-
 def tensor_item_constraints(
-    output: Tensor, input: Tensor, index: Scalar
+    output: IOHyperEdge, input: IOHyperEdge, index: IOHyperEdge
 ) -> ConstrainResultType:
-    assert output._temp_shape is not None, "Output shape of TensorItem is not set!"
-    assert input._temp_shape is not None, "Input shape of TensorItem is not set!"
+    assert output._temp_shape is not None, "Output shape of Item is not set!"
+    assert input._temp_shape is not None, "Input shape of Item is not set!"
     input_shape: ShapeRepr = input._temp_shape
     output_shape: ShapeRepr = output._temp_shape
     index_val = index.value
@@ -3411,6 +3593,9 @@ def tensor_item_constraints(
         index_suffix: tuple[int | slice | EllipsisType | None, ...]
         if not isinstance(index_val, tuple):
             index_val = (index_val,)
+
+        assert is_index_type(index_val)
+
         if ... in index_val:
             # Firstly, find if there is an ellipsis in,
             # index, then find the loaction of index and,
@@ -3496,7 +3681,19 @@ def tensor_item_constraint_helper(
     return input_unis, output_unis, status, current_index
 
 
-def split_constraints(output: Tensor, input: Tensor, split_size: Scalar, axis: Scalar):
+def indexer_constraints(
+    output: IOHyperEdge, input: IOHyperEdge, index: IOHyperEdge
+) -> ConstrainResultType:
+    if input.edge_type is Tensor:
+        return tensor_item_constraints(output, input, index)
+    elif input.edge_type is not ToBeDetermined:
+        return scalar_item_constraints(output, input, index)
+    return False, Updates()
+
+
+def split_constraints(
+    output: IOHyperEdge, input: IOHyperEdge, split_size: IOHyperEdge, axis: IOHyperEdge
+) -> ConstrainResultType:
     status = False
     split_size_val = split_size.value
     axis_val = axis.value
@@ -3571,7 +3768,7 @@ def split_constraints(output: Tensor, input: Tensor, split_size: Scalar, axis: S
 
 
 def padding_1d_constraint(
-    output: Scalar, input: Scalar, kernel_size: Scalar
+    output: IOHyperEdge, input: IOHyperEdge, kernel_size: IOHyperEdge
 ) -> ConstrainResultType:
     status = False
     updates = Updates()
@@ -3606,7 +3803,7 @@ def padding_1d_constraint(
 
 
 def padding_2d_constraint(
-    output: Scalar, input: Scalar, kernel_size: Scalar
+    output: IOHyperEdge, input: IOHyperEdge, kernel_size: IOHyperEdge
 ) -> ConstrainResultType:
     status = False
     updates = Updates()
@@ -3652,7 +3849,7 @@ def padding_2d_constraint(
 
 
 def stride_constraint(
-    output: Scalar, input: Scalar, kernel_size: Scalar
+    output: IOHyperEdge, input: IOHyperEdge, kernel_size: IOHyperEdge
 ) -> ConstrainResultType:
     status = False
     updates = Updates()
@@ -3688,7 +3885,9 @@ def stride_constraint(
     return status, updates
 
 
-def tuple_converter_constraint(output: Scalar, input: Scalar) -> ConstrainResultType:
+def tuple_converter_constraint(
+    output: IOHyperEdge, input: IOHyperEdge
+) -> ConstrainResultType:
     status = False
     updates = Updates()
     input_value = input.value
@@ -3705,7 +3904,7 @@ def tuple_converter_constraint(output: Scalar, input: Scalar) -> ConstrainResult
 
 
 def cross_entropy_constraint(
-    categorical: Scalar, input: Tensor, target: Tensor
+    categorical: IOHyperEdge, input: IOHyperEdge, target: IOHyperEdge
 ) -> ConstrainResultType:
     assert input._temp_shape is not None, "Input shape of reverse is not set!"
     assert target._temp_shape is not None, "Target shape of reverse is not set!"
@@ -3733,13 +3932,90 @@ def cross_entropy_constraint(
     return status, updates
 
 
+def buffer_constraint(output: IOHyperEdge, input: IOHyperEdge) -> ConstrainResultType:
+    updates = Updates()
+    status = False
+    typed_edge: IOHyperEdge | None = None
+
+    if input.edge_type is not ToBeDetermined:
+        typed_edge, other_edge = input, output
+    elif output.edge_type is not ToBeDetermined:
+        typed_edge, other_edge = output, input
+
+    if typed_edge is not None:
+        if typed_edge.edge_type is Tensor:
+            updates |= other_edge.set_value(typed_edge._value)
+        else:
+            updates |= other_edge.set_type(typed_edge.edge_type)
+        status = True
+    return status, updates
+
+
+def relational_operator_type_constraint(
+    output: IOHyperEdge, input1: IOHyperEdge, input2: IOHyperEdge
+) -> ConstrainResultType:
+    updates = Updates()
+    status = False
+    # Forward inference.
+    if Tensor in (input1.edge_type, input2.edge_type):
+        updates |= output.set_type(Tensor[bool])
+        status = True
+    elif ToBeDetermined not in (input1.edge_type, input2.edge_type):
+        updates |= output.set_type(bool)
+        status = True
+    return status, updates
+
+
+def divide_type_constraint(
+    output: IOHyperEdge, numerator: IOHyperEdge, denominator: IOHyperEdge
+) -> ConstrainResultType:
+    updates = Updates()
+    status = False
+    # Forward inference.
+    if Tensor in (numerator.edge_type, denominator.edge_type):
+        updates |= output.set_type(Tensor[float])
+        status = True
+    elif ToBeDetermined not in (numerator.edge_type, denominator.edge_type):
+        updates |= output.set_type(float)
+        status = True
+    return status, updates
+
+
+def polynomial_kernel_constraint(
+    poly_coef: IOHyperEdge, degree: IOHyperEdge
+) -> ConstrainResultType:
+    updates = Updates()
+    coef_status = False
+    degree_status = False
+    # poly_coef update.
+    if poly_coef.edge_type is not ToBeDetermined:
+        coef_status = True
+        if poly_coef.edge_type is Tensor:
+            assert poly_coef.shape is not None
+            updates |= poly_coef.shape.set_values([])
+    # degree update.
+    if degree.edge_type is not ToBeDetermined:
+        degree_status = True
+        if degree.edge_type is Tensor:
+            assert degree.shape is not None
+            updates |= degree.shape.set_values([])
+    return coef_status & degree_status, updates
+
+
+constrain_fn_dict = {key: fn for key, fn in globals().items() if callable(fn)}
+
 type_constraints: set[ConstraintFunctionType] = {
+    edge_type_constraint,
     general_tensor_type_constraint,
     floor_divide_type_constraint,
     scalar_slice_type_constraint,
-    scalar_item_type_constraint,
+    indexer_initial_type_constraint,
+    indexer_type_constraint,
     tensor_to_list_type_constraint,
     reduce_type_constraint,
+    relational_operator_type_constraint,
+    divide_type_constraint,
+    buffer_constraint,
 }
 
 post_process_map: dict[ConstraintFunctionType, set[ConstraintFunctionType]] = {
