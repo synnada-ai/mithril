@@ -19,7 +19,7 @@ from copy import copy, deepcopy
 from dataclasses import dataclass, field
 from enum import Enum
 from functools import partial, reduce
-from itertools import combinations, cycle, product, zip_longest
+from itertools import chain, combinations, cycle, product, zip_longest
 from types import EllipsisType, GenericAlias, UnionType
 from typing import (
     Any,
@@ -689,6 +689,8 @@ class Tensor(Generic[TypeVarTensorType]):
 
     def set_type(self, typ: _TensorTypes) -> Updates:
         updates = Updates()
+        # if self.type != typ:
+        #     new_type = find_intersection_type(typ, self.type)
         if self.type != (new_type := find_intersection_type(typ, self.type)):
             if not new_type:
                 raise TypeError(
@@ -936,6 +938,9 @@ class IOHyperEdge:
             updates |= other.set_type(self._type)
 
             if isinstance(self._value, Tensor) and isinstance(other._value, Tensor):
+                if self._value.type != other._value.type:
+                    for edge in chain(self._value.referees, other._value.referees):
+                        updates.add(edge, UpdateType.TYPE)
                 updates |= self._value.match(other._value)
                 self._value.referees.discard(other)
                 self._value.shape.referees.discard(other)
