@@ -637,7 +637,7 @@ AllValueType = TensorValueType | ScalarValueType | ToBeDetermined
 @overload
 def _find_type(value: Constant) -> type[int] | type[float] | type[bool]: ...
 @overload
-def _find_type(value: Tensor[Any]) -> type[Tensor[Any]]: ...
+def _find_type(value: Tensor[TypeVarTensorType]) -> type[Tensor[TypeVarTensorType]]: ...
 @overload
 def _find_type(value: range) -> list[int]: ...
 @overload
@@ -657,18 +657,16 @@ def _find_type(
     return typ
 
 
+def check_uniformity(sublist: SequenceValType) -> None:
+    """Check if all sublists have the same length."""
+    lengths = {len(item) if isinstance(item, Sequence) else -1 for item in sublist}
+    if len(lengths) > 1:
+        raise ValueError("Inconsistent dimensions found in the list.")
+
+
 def process_value(
     value: TensorValueType,
 ) -> tuple[list[int], TensorValueType, type[int] | type[float] | type[bool]]:
-    def check_uniformity(sublist: _TensorValueType) -> None:
-        """Check if all sublists have the same length."""
-        if isinstance(sublist, Sequence):
-            lengths = [
-                len(item) if isinstance(item, Sequence) else -1 for item in sublist
-            ]
-            if len(set(lengths)) > 1:
-                raise ValueError("Inconsistent dimensions found in the list.")
-
     # If value is not a sequence, directly return empty shape, value and
     # its type directly.
     if not isinstance(value, tuple | list | range):
@@ -679,11 +677,11 @@ def process_value(
         )  # type: ignore
 
     # Convert range types into list.
-    if isinstance(value, range):
+    elif isinstance(value, range):
         value = list(value)
-
-    # Check for incompatible dimensions.
-    check_uniformity(value)
+    else:
+        # Check for incompatible dimensions.
+        check_uniformity(value)
 
     # Initialize result as an empty sequence of same type as value.
     result: list[Any] | tuple[Any, ...] = list() if isinstance(value, list) else tuple()

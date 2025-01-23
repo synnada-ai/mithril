@@ -388,8 +388,6 @@ def find_type[T](connection: T) -> type[T]:
         else:
             result: UnionType | type = reduce(lambda x, y: x | y, element_types)
             return list[result]  # type: ignore
-    # elif isinstance(connection, range):
-    #     return list[int]
     else:
         return type(connection)
 
