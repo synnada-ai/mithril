@@ -520,20 +520,24 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
             if self.is_static_scalar(arg_key):
                 args.append(ast.Constant(cache[arg_key]))
             else:
-                args.append(convert_to_ast_arg(
-                    arg_key,
-                    self._var_ref_ast(arg_key, ast.Load()),
-                    defaults=default_args,  # type:ignore
-                ))
+                args.append(
+                    convert_to_ast_arg(
+                        arg_key,
+                        self._var_ref_ast(arg_key, ast.Load()),
+                        defaults=default_args,  # type:ignore
+                    )
+                )
         kwargs = []
         for key, name in fn_kwarg_dict.items():
             if self.is_static_scalar(name):
                 value = ast.Constant(cache[fn_kwarg_dict[key]])
                 kwargs.append(ast.keyword(arg=key, value=value))
             else:
-                kwargs.append(convert_to_ast_kwarg(
-                    key, self._var_ref_ast(name, ast.Load()), defaults=default_args
-                ))
+                kwargs.append(
+                    convert_to_ast_kwarg(
+                        key, self._var_ref_ast(name, ast.Load()), defaults=default_args
+                    )
+                )
 
         generated_fn = ast.Call(
             func=ast.Name(id=formula_key, ctx=ast.Load()),

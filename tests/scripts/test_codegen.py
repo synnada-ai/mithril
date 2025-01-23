@@ -18,8 +18,8 @@ from importlib import import_module
 
 import mithril
 from mithril import JaxBackend, MlxBackend, NumpyBackend, TorchBackend
-from mithril.models import Arange, Concat, Linear, Mean, Model, Relu, ToTensor
 from mithril.models import (
+    Arange,
     Concat,
     Convolution1D,
     Linear,
@@ -430,13 +430,12 @@ def test_array_creation_primitive(file_path: str):
 
     @typing.no_type_check  # type: ignore
     def evaluate(params, data, cache):
-        _dtype = cache['_dtype']
-        stop = data['stop']
+        _dtype = cache["_dtype"]
+        stop = data["stop"]
         output = arange(0, stop, 1, dtype=_dtype)
-        return {'output': output}
+        return {"output": output}
 
     compare_callables(evaluate, eval_func)
-
 
 
 @with_temp_file(".py")
