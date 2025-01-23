@@ -126,7 +126,9 @@ def test_multi_input_primitive(file_path: str):
         output_1 = output_1_cache["output"] = make_array(
             matrix_multiplication(input, output_0, output_1_cache)
         )
+        del output_0
         output = output_cache["output"] = make_array(add(output_1, b, output_cache))
+        del output_1
         return {"output": output}
 
     compare_callables(evaluate, eval_func)
@@ -140,7 +142,9 @@ def test_multi_input_primitive(file_path: str):
         w = params["w"]
         output_0 = transpose(w, None)
         output_1 = make_array(matrix_multiplication(input, output_0))
+        del output_0
         output = make_array(add(output_1, b))
+        del output_1
         return {"output": output}
 
     compare_callables(evaluate, eval_func)
@@ -152,7 +156,9 @@ def test_multi_input_primitive(file_path: str):
         w = params["w"]
         output_0 = transpose(w, None)
         output_1 = matrix_multiplication(input, output_0)
+        del output_0
         output = add(output_1, b)
+        del output_1
         return {"output": output}
 
     mithril.compile(model, JaxBackend(), inference=True, jit=False, file_path=file_path)
