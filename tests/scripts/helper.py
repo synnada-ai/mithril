@@ -191,13 +191,19 @@ def assert_models_equal(model1: BaseModel, model2: BaseModel):
     model1_keys = model1.generate_keys()
     model2_keys = model2.generate_keys()
 
-    if model1.canonical_input is not None and model2.canonical_input is not None:
-        assert model1_keys.get(
-            key := model1.canonical_input.key, key
-        ) == model2_keys.get(key := model2.canonical_input.key, key)
-        assert model1_keys.get(
-            key := model1.canonical_output.key, key
-        ) == model2_keys.get(key := model2.canonical_output.key, key)
+    # if model1.cin is not None and model2.cin is not None:
+    #     assert model1_keys.get(
+    #         key := model1.cin.key, key
+    #     ) == model2_keys.get(key := model2.cin.key, key)
+    #     assert model1_keys.get(
+    #         key := model1.cout.key, key
+    #     ) == model2_keys.get(key := model2.cout.key, key)
+    assert {model1_keys.get(con.key, con.key) for con in model2.conns.cins} == {
+        model2_keys.get(con.key, con.key) for con in model2.conns.cins
+    }
+    assert {model1_keys.get(con.key, con.key) for con in model2.conns.couts} == {
+        model2_keys.get(con.key, con.key) for con in model2.conns.couts
+    }
 
     # NOTE: Below assertions will be uncommented after converting
     # model's dag from topological order to insertion order.

@@ -76,12 +76,12 @@ cnn_model += Linear(1)
 
 # Wrap it with TrainModel for training.
 train_model = TrainModel(cnn_model)
-train_model.set_outputs(predictions=cnn_model.canonical_output)  # type: ignore
+train_model.set_outputs(predictions=cnn_model.cout)  # type: ignore
 
 # Add loss to the output of the model.
 train_model.add_loss(
     SquaredError(),
-    input=cnn_model.canonical_output,
+    input=cnn_model.cout,
     target="target",
     reduce_steps=[Mean()],
 )
@@ -119,3 +119,31 @@ for epoch in range(num_epochs):
 X_test, y_test = generate_sine_wave(seq_len, 1)
 data = {"input": X_test, "target": y_test}
 pred = pm.evaluate(params, data)["predictions"]
+
+
+def plot_sine_wave(seq_len, X_test, pred):
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    # Plot the sequence data and its prediction.
+    plt.plot(
+        np.arange(seq_len),
+        X_test.reshape(seq_len),
+        label="Data",
+        color="green",
+        marker="o",
+        linestyle="",
+    )
+    plt.plot(
+        seq_len,
+        pred.reshape(1),  # type: ignore
+        label="Predicted",
+        color="red",
+        marker="o",
+        linestyle="",
+    )
+    plt.legend()
+    plt.show()
+
+
+# plot_sine_wave(seq_len, X_test, pred)

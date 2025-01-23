@@ -1836,7 +1836,8 @@ class Arange(PrimitiveModel):
             step=BaseKey(type=int | float, value=step),
             dtype=BaseKey(type=Dtype | None, value=dtype),
         )
-        self.set_canonical_input("stop")
+        # self.set_canonical_input("stop")
+        self.set_cin("stop", safe=False)
 
         if not all_defined:
             self._set_constraint(

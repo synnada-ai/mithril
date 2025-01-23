@@ -89,7 +89,7 @@ class ModelDict(TypedDict, total=False):
     types: dict[str, str]
     submodels: dict[str, ModelDict]
     connections: dict[str, dict[str, str | ConnectionDict]]
-    canonical_keys: dict[str, tuple[str, str]]
+    canonical_keys: dict[str, tuple[set[str], set[str]]]
 
 
 class TrainModelDict(TypedDict):
@@ -222,7 +222,9 @@ def dict_to_model(
     differentiability_info: dict[str, bool] = params.get("differentiability_info", {})
     assigned_shapes = params.get("assigned_shapes", {})
     assigned_constraints = params.get("assigned_constraints", [])
-    canonical_keys: dict[str, tuple[str, str]] = params.get("canonical_keys", {})
+    canonical_keys: dict[str, tuple[set[str], set[str]]] = params.get(
+        "canonical_keys", {}
+    )
 
     submodels_dict = {}
     for m_key, v in submodels.items():
@@ -245,18 +247,14 @@ def dict_to_model(
                     mappings[k] = Tensor(conn["tensor"])
 
         assert isinstance(model, Model)
-        model += m(**mappings)
+        # model += m(**mappings)
+        model |= m(**mappings)
 
     if "model" in canonical_keys:
-        c_keys = canonical_keys["model"]
-        assert isinstance(c_keys, tuple)
-        candidate_canonical_in = model.conns.get_connection(c_keys[0])
-        candidate_canonical_out = model.conns.get_connection(c_keys[1])
-
-        if candidate_canonical_in is not None:
-            model._canonical_input = candidate_canonical_in
-        if candidate_canonical_out is not None:
-            model._canonical_output = candidate_canonical_out
+        if canonical_keys["model"][0] is not None:
+            model.set_cin(*canonical_keys["model"][0])
+        if canonical_keys["model"][1] is not None:
+            model.set_cout(*canonical_keys["model"][1])
 
     for key, value in differentiability_info.items():
         con = model.conns.get_connection(key)
@@ -323,7 +321,7 @@ def model_to_dict(model: BaseModel) -> TrainModelDict | ModelDict:
         return model_dict
 
     connection_dict: dict[str, dict[str, str | ConnectionDict]] = {}
-    canonical_keys: dict[str, tuple[str, str]] = {}
+    canonical_keys: dict[str, tuple[set[str], set[str]]] = {}
     submodels: dict[str, ModelDict] = {}
 
     # IOHyperEdge -> [model_id, connection_name]
@@ -344,10 +342,10 @@ def model_to_dict(model: BaseModel) -> TrainModelDict | ModelDict:
             model, submodel, submodel_connections, model_id
         )
         canonical_keys[model_id] = (
-            submodel.canonical_input.key,
-            submodel.canonical_output.key,
+            get_keys(submodel.conns.cins),
+            get_keys(submodel.conns.couts),
         )
-    canonical_keys["model"] = (model.canonical_input.key, model.canonical_output.key)
+    canonical_keys["model"] = (get_keys(model.conns.cins), get_keys(model.conns.couts))
 
     composite_model_dict: ModelDict = {
         "name": model_name,
@@ -361,6 +359,10 @@ def model_to_dict(model: BaseModel) -> TrainModelDict | ModelDict:
         "submodels": submodels,
     }
     return composite_model_dict
+
+
+def get_keys(canonicals: set[ConnectionData]) -> set[str]:
+    return {con.key for con in canonicals}
 
 
 def connection_to_dict(
@@ -410,8 +412,8 @@ def connection_to_dict(
         if key_value is not None:
             connection_dict[key] = key_value
 
-    if submodel.canonical_input.key not in connection_dict:
-        connection_dict[submodel.canonical_input.key] = ""
+    # if submodel.cin.key not in connection_dict:
+    #     connection_dict[submodel.cin.key] = ""
 
     return connection_dict  # type: ignore
 

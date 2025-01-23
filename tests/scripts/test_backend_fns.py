@@ -1935,7 +1935,7 @@ class TestCast:
             ):
                 continue
 
-            if dtype.name == "bfloat16" and os.environ.get("CI") == "true":
+            if dtype.name == "bfloat16" and os.environ.get("CI", "false") == "true":
                 continue
 
             fn_args: list = [input, dtype]

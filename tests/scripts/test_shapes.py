@@ -319,7 +319,7 @@ def test_shapes_2():
     model += Convolution2D(kernel_size=3, out_channels=64, padding=1)
     model += Convolution2D(kernel_size=3, out_channels=64, padding=1)
     model += Convolution2D(kernel_size=3, out_channels=64, padding=1)(
-        input=model.canonical_output, output=IOKey(name="output")
+        input=model.cout, output=IOKey(name="output")
     )
 
     shapes = {"input": [8, 3, 64, 64]}
@@ -420,7 +420,7 @@ def test_shapes_3():
     model += deepcopy(model)  # 16x16, 10x10
     model += deepcopy(model)  # 8x8, 6x6
     model += Convolution2D(kernel_size=3, out_channels=64, padding=1)(
-        input=model.canonical_output, output=IOKey(name="output")
+        input=model.cout, output=IOKey(name="output")
     )
 
     shapes = {"input": [8, 3, 64, 64]}
@@ -863,7 +863,6 @@ def test_simple_composite_2_set_shapes():
         denominator=mult.output,
         output=IOKey(name="output"),
     )
-    model.set_canonical_input(mult.left)
 
     logical_ref = {
         "left": [],
@@ -893,7 +892,6 @@ def test_simple_composite_2_set_shapes_2():
         output=IOKey(name="output"),
     )
     mult.set_shapes({"right": [2, 2]})
-    model.set_canonical_input(mult.left)
 
     logical_ref = {
         "left": [],
@@ -926,7 +924,6 @@ def test_simple_composite_2_extend_inputs():
         denominator=mult.output,
         output=IOKey(name="output"),
     )
-    model.set_canonical_input(mult.left)
     mult.set_shapes({"right": [2, 2]})
 
     logical_ref = {
@@ -958,7 +955,6 @@ def test_simple_composite_2_static_shapes():
         denominator=mult.output,
         output=IOKey(name="output"),
     )
-    model.set_canonical_input(mult.left)
     shapes = {"in1": [2, 2]}
 
     logical_ref = {
@@ -990,7 +986,6 @@ def test_simple_composite_2_static_inputs():
         denominator=mult.output,
         output=IOKey(name="output"),
     )
-    model.set_canonical_input(mult.left)
     static_inputs = {"in1": np.random.randn(2, 2)}
 
     logical_ref = {
@@ -1386,7 +1381,6 @@ def test_composite_1_extend_inputs_1():
     )
     composite += (m2 := Multiply())(left=m1.right, right=m1.output)
     composite += Add()(left=m2.output, right=m2.output, output=IOKey(name="output"))
-    composite.set_canonical_input(m1.left)
     key_mappings = composite.generate_keys()
 
     m1_out_metadata = composite.conns.get_con_by_metadata(m1.output.metadata)
@@ -4297,7 +4291,7 @@ def test_multiple_shape_reprs_2():
     model = Model()
     m1, m2, m3, m4 = tuple(MyVariadic10() for _ in range(4))
     model += m1(input1="input1")
-    assert model.get_shapes(verbose=True)["input1"] == ["u2", "u3", "(V1, ...)"]
+    assert model.get_shapes(verbose=True)["input1"] == ["u1", "u2", "(V1, ...)"]
     model += m2(input2="input1")
     input_1_con = model.conns.get_connection("input1")
     assert input_1_con is not None
@@ -4335,7 +4329,7 @@ def test_multiple_shape_reprs_3():
         model = Model()
         m1, m2, m3, m4, m5 = tuple(MyVariadic10() for _ in range(5))
         model += m1(input1="input1")
-        assert model.get_shapes(verbose=True)["input1"] == ["u2", "u3", "(V1, ...)"]
+        assert model.get_shapes(verbose=True)["input1"] == ["u1", "u2", "(V1, ...)"]
         model += m2(input2="input1")
 
         input_1_con = model.conns.get_connection("input1")
@@ -5346,7 +5340,7 @@ def test_variadic_naming_18():
         "$_right_0": ["(V10, ...)"],
         "$_right_1": ["(V11, ...)"],
         "$_right_2": ["(V12, ...)"],
-        "$input": ["(V13, ...)"],
+        "$_left": ["(V13, ...)"],
         "$_right_3": ["(V14, ...)"],
         "output": [
             ["u16", "u17", "u18", "(V7, ...)"],
@@ -5406,7 +5400,7 @@ def test_variadic_naming_19():
         "$_right_0": ["(V9, ...)"],
         "$_right_1": ["(V10, ...)"],
         "$_right_2": ["(V11, ...)"],
-        "$input": ["(V12, ...)"],
+        "$_left": ["(V12, ...)"],
         "$_right_3": ["(V13, ...)"],
         "output": [
             ["u17", "u18", "u19", "(V5, ...)", "u20"],
@@ -5459,7 +5453,7 @@ def test_variadic_naming_20():
         "$_right_0": ["(V9, ...)"],
         "$_right_1": ["(V10, ...)"],
         "$_right_2": ["(V11, ...)"],
-        "$input": ["(V12, ...)"],
+        "$_left": ["(V12, ...)"],
         "$_right_3": ["(V13, ...)"],
         "output": [
             ["u16", "(V7, ...)", "u14"],
@@ -6536,13 +6530,14 @@ def test_prune_match_5():
     model_sub += s1(input="input")
     model_sub += Squeeze()(input=s1.output)
     model_sub += Squeeze()
-    model_sub += Gelu()(input=model_sub.canonical_output, output=IOKey(name="out1"))
+    model_sub += Gelu()(input=model_sub.cout, output=IOKey(name="out1"))
 
     model += model_sub(input="input", out1=IOKey(name="out1"))
     model += s2(input="input")
+    model.set_cout(s2.output)
     model += Squeeze()
     model += Squeeze()
-    model += Relu()(input=model.canonical_output, output=IOKey(name="out2"))
+    model += Relu()(input=model.cout, output=IOKey(name="out2"))
 
     shape: dict[str, list] = {
         "input": ["(V1, ...)"],

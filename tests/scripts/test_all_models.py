@@ -462,7 +462,7 @@ def test_train_model_linear_1():
 def test_conv1d_1():
     model = Convolution1D(3, 2)
     train_model = TrainModel(model)
-    train_model.add_loss(SquaredError(), input=model.canonical_output, target="target")
+    train_model.add_loss(SquaredError(), input=model.cout, target="target")
 
     statics = {
         "input": [[[1.0, 2.0, 3.0, 4.0, 5.0]]],
@@ -499,7 +499,7 @@ def test_conv1d_1():
 def test_conv1d_2():
     model = Convolution1D(4, 2)
     train_model = TrainModel(model)
-    train_model.add_loss(SquaredError(), input=model.canonical_output, target="target")
+    train_model.add_loss(SquaredError(), input=model.cout, target="target")
 
     statics = {
         "input": [[[1.0, 2.0, 3.0, 4.0, 5.0]]],
@@ -533,7 +533,7 @@ def test_conv1d_2():
 def test_conv1d_3():
     model = Convolution1D(3, 2, use_bias=False)
     train_model = TrainModel(model)
-    train_model.add_loss(SquaredError(), input=model.canonical_output, target="target")
+    train_model.add_loss(SquaredError(), input=model.cout, target="target")
 
     statics = {
         "input": [[[1.0, 2.0, 3.0, 4.0, 5.0]]],
@@ -566,7 +566,7 @@ def test_conv1d_3():
 def test_conv1d_4():
     model = Convolution1D(3, 2, stride=2, use_bias=False)
     train_model = TrainModel(model)
-    train_model.add_loss(SquaredError(), input=model.canonical_output, target="target")
+    train_model.add_loss(SquaredError(), input=model.cout, target="target")
 
     statics = {
         "input": [[[1.0, 2.0, 3.0, 4.0, 5.0]]],
@@ -596,7 +596,7 @@ def test_conv1d_4():
 def test_conv1d_5():
     model = Convolution1D(3, 2, padding=1, use_bias=False)
     train_model = TrainModel(model)
-    train_model.add_loss(SquaredError(), input=model.canonical_output, target="target")
+    train_model.add_loss(SquaredError(), input=model.cout, target="target")
 
     statics = {
         "input": [[[1.0, 2.0, 3.0, 4.0, 5.0]]],
@@ -629,7 +629,7 @@ def test_conv1d_5():
 def test_conv1d_6():
     model = Convolution1D(3, 2, padding=1, use_bias=True)
     train_model = TrainModel(model)
-    train_model.add_loss(SquaredError(), input=model.canonical_output, target="target")
+    train_model.add_loss(SquaredError(), input=model.cout, target="target")
 
     statics = {
         "input": [[[1.0, 2.0, 3.0, 4.0, 5.0]]],
@@ -1962,8 +1962,8 @@ def test_slice_1():
     item_model = Indexer()
 
     model = Model()
-    model += slice_model(start=2, stop=3)
-    model += item_model(input="input", index=slice_model.output, output=IOKey("output"))
+    model |= slice_model(start=2, stop=3)
+    model |= item_model(input="input", index=slice_model.output, output=IOKey("output"))
 
     data = {"input": (1, 2, 3.0, 4, 5)}
 
@@ -1992,8 +1992,8 @@ def test_slice_2():
     item_model = Indexer()
 
     model = Model()
-    model += slice_model(stop=3)
-    model += item_model(input="input", index=slice_model.output, output=IOKey("output"))
+    model |= slice_model(stop=3)
+    model |= item_model(input="input", index=slice_model.output, output=IOKey("output"))
 
     data = {"input": (1, 2, 3.0, 4, 5)}
 
@@ -2022,8 +2022,8 @@ def test_slice_3():
     item_model = Indexer()
 
     model = Model()
-    model += slice_model(stop=3, step=2)
-    model += item_model(input="input", index=slice_model.output, output=IOKey("output"))
+    model |= slice_model(stop=3, step=2)
+    model |= item_model(input="input", index=slice_model.output, output=IOKey("output"))
 
     data = {"input": (1, 2, 3.0, 4, 5)}
 
@@ -2052,8 +2052,8 @@ def test_slice_4():
     item_model = Indexer()
 
     model = Model()
-    model += slice_model(step=2)
-    model += item_model(input="input", index=slice_model.output, output=IOKey("output"))
+    model |= slice_model(step=2)
+    model |= item_model(input="input", index=slice_model.output, output=IOKey("output"))
 
     data = {"input": (1, 2, 3.0, 4, 5)}
 
@@ -3854,8 +3854,8 @@ def test_tensor_item_with_slice_1():
     item_model = Indexer()
     slice_model = Slice(start=0, stop=1, step=None)
 
-    model += slice_model
-    model += item_model(input="input", index=slice_model.output, output=IOKey("output"))
+    model |= slice_model
+    model |= item_model(input="input", index=slice_model.output, output=IOKey("output"))
 
     input = {"input": [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]}
 
@@ -3890,8 +3890,8 @@ def test_tensor_item_with_slice_2():
     item_model = Indexer()
     slice_model = Slice(start=0, stop=2, step=None)
 
-    model += slice_model
-    model += item_model(input="input", index=slice_model.output, output=IOKey("output"))
+    model |= slice_model
+    model |= item_model(input="input", index=slice_model.output, output=IOKey("output"))
 
     input = {"input": [[[1.0, 2.0]], [[3.0, 4.0]], [[5.0, 6.0]]]}
 

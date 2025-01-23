@@ -77,7 +77,7 @@ def create_compl_conv(
             model += conv1
         model += MaxPool2D(kernel_size=(2, 2))
         model += activation()
-    model += Flatten()(input=model.canonical_output, output="output")
+    model += Flatten()(input=model.cout, output="output")
     return model
 
 

@@ -29,7 +29,6 @@ from ..framework.common import (
     IOHyperEdge,
     IOKey,
     KeyType,
-    NotAvailable,
     Table,
     Tensor,
     UniadicRecord,
@@ -50,7 +49,6 @@ from ..framework.logical import (
     Sum,
     ToTensor,
 )
-from ..framework.logical.primitive import PrimitiveModel
 from ..framework.physical.model import FinalCost, LossKey
 from .primitives import Concat
 
@@ -116,7 +114,7 @@ class TrainModel(Model):
         self.geomean_map: dict[str, list[tuple[Connection, float]]] = {}
         self.reduce_inputs: dict[str, list[tuple[Connection, Connection]]] = {}
 
-    def __add__(self, model: ExtendInfo | PrimitiveModel | Model) -> Self:
+    def __add__(self, model: ExtendInfo | BaseModel) -> Self:
         """This function allows models to be added sequentially via "+=" operator.
         There are several conditions for a model to be sequentially added:
         if added model has single input, connect that input directly.
@@ -185,11 +183,10 @@ class TrainModel(Model):
                 else:
                     outputs_conns_metadata.add(given_conn.metadata)
         else:
-            c_out = self._canonical_output
-            if isinstance(c_out, NotAvailable):
+            if len(self.conns.couts) != 1:
                 raise KeyError("Canonical output of given model is not available!")
-            else:
-                outputs_conns_metadata.add(c_out.metadata)
+            (c_out,) = self.conns.couts
+            outputs_conns_metadata.add(c_out.metadata)
 
         is_loss_connected = False
         for value in kwargs.values():
@@ -239,13 +236,15 @@ class TrainModel(Model):
         for key in kwargs:
             if key in loss_model.conns.output_keys:
                 raise KeyError("Output of the loss model cannot be defined!")
-        self._extend(loss_model(**kwargs))
+        # self._extend(loss_model(**kwargs))
+        # self._extend(loss_model, kwargs)
+        self._extend(loss_model, loss_model(**kwargs).connections)
         prev_out_key = self.get_single_output(loss_model).data
         if (prev_con := self.conns.get_con_by_metadata(prev_out_key.metadata)) is None:
             raise KeyError("Given key does not belong to the Model!")
         loss_key = prev_con.key
         for i, m in enumerate(reduce_steps):
-            in_key = m.canonical_input.key
+            in_key = m.cin.key
             if i == len(reduce_steps) - 1 and key_name is not None and coef is None:
                 out_key = self.get_single_output(m).key
                 # self.extend(m, **{in_key: prev_out_key.conn, out_key: key_name})
@@ -313,13 +312,11 @@ class TrainModel(Model):
                 "args": kwargs,
             }
         )
-        canonical_input = self.canonical_input
-        canonical_output = self.canonical_output
-        assert not isinstance(canonical_input, NotAvailable)
-        assert not isinstance(canonical_output, NotAvailable)
+        canonical_inputs = {con_data.conn for con_data in self.conns.cins}
+        canonical_outputs = {con_data.conn for con_data in self.conns.couts}
         self._add_regularization(model, coef, reg_key, key_name, **kwargs)
-        self.set_canonical_input(canonical_input)
-        self.set_canonical_output(canonical_output)
+        self.set_cin(*canonical_inputs)
+        self.set_cout(*canonical_outputs)
 
     def _add_regularization(
         self,
@@ -337,7 +334,7 @@ class TrainModel(Model):
             case Connection():
                 reg_str = reg_key.data.key
             case None:
-                reg_str = model.canonical_input.key
+                reg_str = model.cin.key
         if any([isinstance(value, re.Pattern) for value in kwargs.values()]):
             if len(kwargs) > 1:
                 raise Exception(
@@ -388,13 +385,13 @@ class TrainModel(Model):
                 # kwargs[out.key] = key_name
                 kwargs[out.key] = IOKey(name=key_name)
 
-            self.extend(
-                model,
-                **{
-                    key: value.conn if isinstance(value, ConnectionData) else value
-                    for key, value in kwargs.items()
-                },
-            )
+            keywords = {}
+            for key, value in model(**kwargs).connections.items():
+                if isinstance(value, ConnectionData):
+                    keywords[key] = value.conn
+                else:
+                    keywords[key] = value
+            self.extend(model, **keywords)
             if isinstance(outer_key := kwargs[reg_str], ConnectionData):
                 outer_key = outer_key.key
 
@@ -415,14 +412,15 @@ class TrainModel(Model):
         # TODO: Somehow we need to imply metric is attached and self model
         # could not be extended or be used as another model's child model.
         # self._extend(model, **kwargs)
-        self.extend(model, **kwargs)
+        # self.extend(model, **kwargs)
+        self.extend(model, **model(**kwargs).connections)
 
         if not reduce_steps:
             reduce_steps = [Buffer()]
         prev_out_key = self.get_single_output(model)
 
         for i, m in enumerate(reduce_steps):
-            in_key = m.canonical_input.key
+            in_key = m.cin.key
             if i == len(reduce_steps) - 1 and key_name is not None:
                 out = self.get_single_output(m).data
                 # self.extend(m, **{in_key: prev_out_key, out.key: key_name})
@@ -510,6 +508,7 @@ class TrainModel(Model):
                 self.extend(
                     Sum(), input=reg_concat.output, output=IOKey(name=FinalCost)
                 )
+                self.set_cout(FinalCost)
                 loss_con = self.conns.get_connection(LossKey)
                 assert loss_con is not None
                 self.conns.set_connection_type(loss_con, KeyType.INTERNAL)
@@ -639,7 +638,7 @@ class TrainModel(Model):
                     m_name = name_mappings[model]
                     conns = conn_info[m_name][0]
                     shape = shape_info[m_name][0]
-                    reg_key = model.canonical_input.key
+                    reg_key = model.cin.key
                     updated_reg_key = model.generate_keys(include_outputs=True).get(
                         reg_key, reg_key
                     )

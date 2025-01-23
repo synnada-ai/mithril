@@ -37,7 +37,6 @@ from ..common import (
     IOHyperEdge,
     IOKey,
     MainValueType,
-    NotAvailable,
     ParamsEvalType,
     ShapeResultType,
     Table,
@@ -97,16 +96,16 @@ class PhysicalModel(GenericDataType[DataType]):
     ) -> None:
         if isinstance(model, PrimitiveModel):
             # TODO: Remove wrapping with Model in the future.
-            model = deepcopy(model)
-            extend_info = model()
+            _model = deepcopy(model)
+            extend_info = _model()
             model_keys: dict[str, ConnectionType] = {}
-            for key in model.external_keys:
+            for key in _model.external_keys:
                 value = extend_info.connections.get(key, NOT_GIVEN)
                 # NOTE: Do not set default value if it is given in constant_keys.
                 value = (value, NOT_GIVEN)[key in constant_keys]
-                default_val = model.conns.get_data(key).value
+                default_val = _model.conns.get_data(key).value
                 if (value is NOT_GIVEN and default_val is TBD) or (
-                    key in model.output_keys
+                    key in _model.output_keys
                 ):
                     # Non-valued connections are only named with their key names.
                     model_keys[key] = key
@@ -114,7 +113,8 @@ class PhysicalModel(GenericDataType[DataType]):
                     val = default_val if default_val is not TBD else value
                     model_keys[key] = IOKey(key, val)  # type: ignore
 
-            model = Model() + model(**model_keys)
+            model = Model()
+            model |= _model(**model_keys)
 
         self.backend: Backend[DataType] = backend
         self._output_keys: set[str] = set(model.conns.output_keys)
@@ -134,20 +134,19 @@ class PhysicalModel(GenericDataType[DataType]):
         # TODO: This is a temporary solution, a better way will be implemented
         # in another PR.
         if len(model.conns.output_keys) == 0:
-            if isinstance(model.canonical_output, NotAvailable):
-                raise ValueError("Models with no output keys can not be compiled.")
+            if len(model.conns.couts) == 0:
+                raise KeyError("Models with no output keys can not be compiled.")
 
-            current_name = flat_model.assigned_edges[
-                model.canonical_output.metadata
-            ].name
-            key_origin = model.canonical_output.metadata.key_origin
-            if key_origin != current_name:
-                while key_origin in flat_model.assigned_names:
-                    key_origin = f"_{key_origin}"
+            for cout in model.conns.couts:
+                current_name = flat_model.assigned_edges[cout.metadata].name
+                key_origin = cout.metadata.key_origin
+                if key_origin != current_name:
+                    while key_origin in flat_model.assigned_names:
+                        key_origin = f"_{key_origin}"
 
-            assert key_origin is not None
-            self._output_keys.add(key_origin)
-            flat_model.rename_key(current_name, key_origin)
+                assert key_origin is not None
+                self._output_keys.add(key_origin)
+                flat_model.rename_key(current_name, key_origin)
 
         # Map given logical model key namings into physical key naming space.
         _constant_keys = {

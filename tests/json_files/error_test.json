@@ -85,8 +85,8 @@
             }
         },
         "error_info": {
-            "error_type": "ValueError",
-            "error_message": "Models with no output keys can not be compiled."
+            "error_type": "KeyError",
+            "error_message": "'Models with no output keys can not be compiled.'"
         }
     },
     "test_Composite_shape_mismatch_error": {
