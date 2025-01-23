@@ -18,6 +18,7 @@ import warnings
 from collections.abc import Callable
 from typing import Any
 
+import numpy as np
 import tiktoken
 from model import create_gpt
 from transformers import GPT2LMHeadModel
@@ -42,7 +43,7 @@ def run_sample(
     num_samples: int = 10,
     max_new_tokens: int = 500,
     top_k: int = 200,
-    seed: int = 1337,
+    seed: int = 42,
     temperature: float = 0.8,
 ):
     # TODO: This recursion limit is minimum we can have for now.
@@ -111,9 +112,9 @@ def get_weights(backend: Backend):
     for key in sd_hf:
         ml_key = key.replace(".", "_")
         if any(key.endswith(w) for w in transposed):
-            params[ml_key] = backend.array(sd_hf[key].T)
+            params[ml_key] = backend.array(np.array(sd_hf[key].T))
         else:
-            params[ml_key] = backend.array(sd_hf[key])
+            params[ml_key] = backend.array(np.array(sd_hf[key]))
 
     return params
 

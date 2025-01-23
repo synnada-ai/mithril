@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import matplotlib.pyplot as plt
-import numpy as np
 from torch.utils.data import DataLoader, TensorDataset
 from utils.optimizers import Adam
 
@@ -112,29 +110,12 @@ for epoch in range(num_epochs):
         outputs, gradients = pm.evaluate_all(params, data)
         params, opt_state = optimizer.update_params(params, gradients, opt_state)
         total_loss += outputs["final_cost"]  # type: ignore
-    print(f"Epoch: {epoch} / {num_epochs} -> ", total_loss / len(dataloader))
+
+    if (epoch % 100) == 0:
+        # Print the cost every 100 epochs.
+        print(f"Epoch: {epoch} / {num_epochs} -> ", total_loss / len(dataloader))
 
 # Test with single sample.
 X_test, y_test = generate_sine_wave(seq_len, 1)
 data = {"input": X_test, "target": y_test}
 pred = pm.evaluate(params, data)["predictions"]
-
-# Plot the sequence data and its prediction.
-plt.plot(
-    np.arange(seq_len),
-    X_test.reshape(seq_len),
-    label="Data",
-    color="green",
-    marker="o",
-    linestyle="",
-)
-plt.plot(
-    seq_len,
-    pred.reshape(1),  # type: ignore
-    label="Predicted",
-    color="red",
-    marker="o",
-    linestyle="",
-)
-plt.legend()
-plt.show()

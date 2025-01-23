@@ -544,9 +544,15 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
         return torch.topk(input, k)[0]  # TODO: Returns different tuple type???
 
     def multinomial(
-        self, probs: torch.Tensor, num_samples: int, replacement: bool = False
+        self,
+        probs: torch.Tensor,
+        num_samples: int,
+        replacement: bool = False,
+        key: int | None = None,
     ) -> torch.Tensor:
-        return torch.multinomial(probs, num_samples, replacement)
+        return torch.multinomial(
+            probs, num_samples, replacement, generator=self._get_generator(key)
+        )
 
     def clip(
         self,

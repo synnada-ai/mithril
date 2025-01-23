@@ -690,8 +690,9 @@ class Tensor(Generic[TypeVarTensorType]):
 
     def set_type(self, typ: _TensorTypes) -> Updates:
         updates = Updates()
-        if self.type != typ:
-            new_type = find_intersection_type(typ, self.type)
+        # if self.type != typ:
+        #     new_type = find_intersection_type(typ, self.type)
+        if self.type != (new_type := find_intersection_type(typ, self.type)):
             if not new_type:
                 raise TypeError(
                     f"Acceptable types are {sort_type(self.type)}, but "

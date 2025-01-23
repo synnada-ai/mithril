@@ -370,8 +370,13 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
         return values
 
     def multinomial(
-        self, probs: np.ndarray[Any, Any], num_samples: int, replacement: bool = False
+        self,
+        probs: np.ndarray[Any, Any],
+        num_samples: int,
+        replacement: bool = False,
+        key: int | None = None,
     ) -> np.ndarray[Any, Any]:
+        self._set_seed(key)
         # input = np.asarray(probs)
         if probs.ndim == 1:
             probs = probs[None, :]
