@@ -39,6 +39,7 @@ AVAILABLE_BACKEND_TYPES = ["cpu", "cuda"]
 ArrayType = torch.Tensor
 NestedTensorType = int | float | bool | Sequence["NestedTensorType"]
 dtype_map: dict[str, torch.dtype] = {
+    "int8": torch.int8,
     "uint8": torch.uint8,
     "int16": torch.int16,
     "int32": torch.int32,

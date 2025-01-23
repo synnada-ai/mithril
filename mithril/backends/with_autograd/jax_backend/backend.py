@@ -21,7 +21,7 @@ import jax
 
 from ....core import Dtype
 from ...backend import PadWidthType, ParallelBackend
-from ...utils import DtypeSubTypes, process_shape
+from ...utils import DtypeSubTypes, StaticScalar, process_shape
 from . import ops, utils
 from .parallel import JaxParallel
 
@@ -254,10 +254,9 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         *shape: int | tuple[int, ...] | list[int],
         dtype: Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
-        prng_key: Any = None,
+        key: int | None = None,
     ) -> jax.Array:
-        if prng_key is None:
-            prng_key = self.prng_key
+        prng_key = self._get_prng_key(key)
 
         _dtype = self._process_dtype(dtype)
         _shape = process_shape(shape)
@@ -275,10 +274,9 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         *shape: int | tuple[int, ...] | list[int],
         dtype: Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
-        prng_key: Any = None,
+        key: int | None = None,
     ) -> jax.Array:
-        if prng_key is None:
-            prng_key = self.prng_key
+        prng_key = self._get_prng_key(key)
 
         _dtype = self._process_dtype(dtype)
         _shape = process_shape(shape)
@@ -298,10 +296,9 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         *shape: int | tuple[int, ...] | list[int],
         dtype: Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
-        prng_key: Any = None,
+        key: int | None = None,
     ) -> jax.Array:
-        if prng_key is None:
-            prng_key = self.prng_key
+        prng_key = self._get_prng_key(key)
 
         _dtype = self._process_dtype(dtype, "int")
         _shape = process_shape(shape)
@@ -321,10 +318,9 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         *shape: int | tuple[int, ...] | list[int],
         dtype: Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
-        prng_key: Any = None,
+        key: int | None = None,
     ) -> jax.Array:
-        if prng_key is None:
-            prng_key = self.prng_key
+        prng_key = self._get_prng_key(key)
 
         _dtype = self._process_dtype(dtype)
         _shape = process_shape(shape)
@@ -485,7 +481,11 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         return jax.lax.top_k(input, k)[0]
 
     def multinomial(
-        self, probs: jax.Array, num_samples: int, replacement: bool = False
+        self,
+        probs: jax.Array,
+        num_samples: int,
+        replacement: bool = False,
+        key: int | None = None,
     ) -> jax.Array:
         """
         Faster JAX implementation of multinomial sampling.
@@ -496,46 +496,40 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
             num_samples: number of samples to draw
             replacement: whether to sample with replacement
         """
+        prng_key = self._get_prng_key(key)
         input = jax.numpy.asarray(probs)
-        if input.ndim == 1:
-            input = input[None, :]
-            squeeze_result = True
-        else:
-            squeeze_result = False
-
-        # Normalize probabilities
         input = input / jax.numpy.sum(input, axis=-1, keepdims=True)
+        batch_size = input.shape[:-1]
+        logits = jax.numpy.log(jax.numpy.maximum(input, 1e-37))
 
         if replacement:
             # Use categorical directly - much faster than choice
             samples = jax.random.categorical(
-                self.prng_key,
-                jax.numpy.log(jax.numpy.maximum(input, 1e-37)),  # avoid log(0)
-                shape=(input.shape[0], num_samples),
+                prng_key,
+                logits,  # avoid log(0)
+                shape=batch_size + (num_samples,),
             )
         else:
+            # TODO: This algorithm is not efficient for small num_samples
+            # consider more efficient algorithm
+
             # For without replacement, use Gumbel-max trick
             # This is much faster than using choice
-            z = -jax.numpy.log(
-                -jax.numpy.log(
-                    jax.random.uniform(
-                        self.prng_key,
-                        shape=(input.shape[0], input.shape[1], num_samples),
-                    )
-                )
-            )
-            # Add log probabilities for Gumbel-max trick
-            z = z + jax.numpy.log(jax.numpy.maximum(input, 1e-37))[..., None]
+            z = jax.random.gumbel(prng_key, shape=input.shape + (num_samples,))
+            # Add log probabilities for Gumbel-max trick,
+            z = z + logits[..., None]
             # Get top k indices
-            samples = jax.numpy.argsort(-z, axis=1)[:, :num_samples]
-
-        # Update prng_key.
-        self.prng_key, _ = jax.random.split(self.prng_key)
-
-        if squeeze_result:
-            samples = jax.numpy.squeeze(samples, axis=0)
+            samples = jax.numpy.argsort(-z, axis=input.ndim - 1)[..., :num_samples, 0]
 
         return samples
+
+    def clip(
+        self,
+        input: jax.Array,
+        min: jax.Array | StaticScalar,
+        max: jax.Array | StaticScalar,
+    ) -> jax.Array:
+        return input.clip(min=min, max=max)
 
     def jit(  # type: ignore[override]
         self, *args: Any, **kwargs: Any
@@ -672,6 +666,13 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
             return utils.dtype_map[default_type + str(self.precision)]
         else:
             raise ValueError(f"Invalid dtype {dtype}")
+
+    def _get_prng_key(self, key: int | None = None) -> jax.Array:
+        if key is None:
+            _key = self.prng_key
+            self.prng_key, _ = jax.random.split(_key)
+            return _key
+        return jax.random.PRNGKey(key)
 
     def _get_defualt_type(self) -> jax.numpy.dtype[Any]:
         return getattr(self, self._dtype.name)

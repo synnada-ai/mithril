@@ -17,7 +17,6 @@ from types import EllipsisType, NoneType, UnionType
 from typing import Any
 
 from ... import core
-from ...core import Constant, Dtype
 from ..common import (
     NOT_GIVEN,
     TBD,
@@ -110,10 +109,14 @@ __all__ = [
     "Sqrt",
     "Split",
     "Slice",
+    "Dtype",
+    "Sine",
+    "Cosine",
     "Minimum",
     "Maximum",
 ]
-ConstantType = float | int | Constant
+
+ConstantType = float | int | core.Constant
 
 
 class Buffer(PrimitiveModel):
@@ -265,12 +268,12 @@ class Power(PrimitiveModel):
         output: ConnectionType = NOT_GIVEN,
         *,
         name: str | None = None,
-        threshold: ConnectionType = Constant.MIN_POSITIVE_NORMAL,
+        threshold: ConnectionType = core.Constant.MIN_POSITIVE_NORMAL,
     ) -> ExtendInfo:
         kwargs = {"base": base, "exponent": exponent, "output": output}
         default = (
-            isinstance(threshold, Constant)
-            and threshold == Constant.MIN_POSITIVE_NORMAL
+            isinstance(threshold, core.Constant)
+            and threshold == core.Constant.MIN_POSITIVE_NORMAL
         )
         if self.robust:
             # NOTE: Since we can not provide Tensor objects as default
@@ -534,14 +537,14 @@ class Cast(PrimitiveModel):
     output: Connection
 
     def __init__(
-        self, dtype: Dtype | ToBeDetermined = TBD, *, name: str | None = None
+        self, dtype: core.Dtype | ToBeDetermined = TBD, *, name: str | None = None
     ) -> None:
         super().__init__(
             formula_key="astype",
             name=name,
             output=BaseKey(shape=[("Var", ...)], type=Tensor),
             input=BaseKey(shape=[("Var", ...)], type=Tensor),
-            dtype=BaseKey(type=Dtype, value=dtype),
+            dtype=BaseKey(type=core.Dtype, value=dtype),
         )
 
     def __call__(  # type: ignore[override]
@@ -553,7 +556,7 @@ class Cast(PrimitiveModel):
         return super().__call__(input=input, dtype=dtype, output=output)
 
 
-class DType(PrimitiveModel):
+class Dtype(PrimitiveModel):
     input: Connection
     output: Connection
 
@@ -1033,12 +1036,13 @@ class Sqrt(PrimitiveModel):
         input: ConnectionType = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
         *,
-        cutoff: ConnectionType = Constant.MIN_POSITIVE_NORMAL,
+        cutoff: ConnectionType = core.Constant.MIN_POSITIVE_NORMAL,
     ) -> ExtendInfo:
         kwargs = {"input": input, "output": output}
 
         default = (
-            isinstance(cutoff, Constant) and cutoff == Constant.MIN_POSITIVE_NORMAL
+            isinstance(cutoff, core.Constant)
+            and cutoff == core.Constant.MIN_POSITIVE_NORMAL
         )
         if self.robust:
             if default:
@@ -1485,3 +1489,35 @@ class Indexer(PrimitiveModel):
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(input=input, index=index, output=output)
+
+
+class Sine(SingleInputOperation):
+    def __init__(
+        self,
+        input: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(
+            formula_key="sin",
+            name=name,
+            polymorphic_constraint=False,
+            input=input,
+            output=BaseKey(shape=[("Var", ...)], type=Tensor[float]),
+        )
+
+
+class Cosine(SingleInputOperation):
+    def __init__(
+        self,
+        input: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(
+            formula_key="cos",
+            name=name,
+            polymorphic_constraint=False,
+            input=input,
+            output=BaseKey(shape=[("Var", ...)], type=Tensor[float]),
+        )

@@ -339,10 +339,9 @@ def test_code_generator_1(file_path: str):
     @typing.no_type_check
     def evaluate(params, data, cache):
         add1 = data["add1"]
-        axes = cache["axes"]
         bias = params["bias"]
         weight = params["weight"]
-        output_0 = transpose(weight, axes)
+        output_0 = transpose(weight, None)
         output_1 = matrix_multiplication(add1, output_0)
         output = add(output_1, bias)
         return {"output": output}
@@ -401,17 +400,15 @@ def test_code_generator_3(file_path: str):
 
     @typing.no_type_check
     def evaluate(params, data, cache):
-        axes_0 = cache["axes_0"]
-        axes_1 = cache["axes_1"]
         bias_0 = params["bias_0"]
         bias_1 = params["bias_1"]
         input = data["input"]
         weight_0 = params["weight_0"]
         weight_1 = params["weight_1"]
-        output_0 = transpose(weight_0, axes_0)
+        output_0 = transpose(weight_0, None)
         output_1 = matrix_multiplication(input, output_0)
         output_2 = add(output_1, bias_0)
-        output_3 = transpose(weight_1, axes_1)
+        output_3 = transpose(weight_1, None)
         output_4 = matrix_multiplication(output_2, output_3)
         output = add(output_4, bias_1)
         return {"output": output}
@@ -467,7 +464,6 @@ def test_code_generator_4(file_path: str):
 
     @typing.no_type_check
     def evaluate(params, data, cache):
-        cutoff = cache["cutoff"]
         input = params["input"]
         output_0_cache = cache["output_0_cache"]
         output_1_cache = cache["output_1_cache"]
@@ -477,7 +473,7 @@ def test_code_generator_4(file_path: str):
         output = output_cache["output"] = make_array(my_adder(input, rhs, output_cache))
         output_0 = output_0_cache["output"] = make_array(
             binary_cross_entropy_with_logits(
-                output, target, cutoff, cache=output_0_cache
+                output, target, 2.2250738585072014e-308, cache=output_0_cache
             )
         )
         output_1 = output_1_cache["output"] = make_array(
@@ -487,7 +483,6 @@ def test_code_generator_4(file_path: str):
 
     @typing.no_type_check
     def evaluate_gradients(params, gradients, data, cache):
-        cutoff = cache["cutoff"]
         input = params["input"]
         output = cache["output_cache"]["output"]
         output_0 = cache["output_0_cache"]["output"]
@@ -507,7 +502,12 @@ def test_code_generator_4(file_path: str):
         )
         gradients["output"] += make_array(
             binary_cross_entropy_with_logits_grad(
-                gradients["output_0"], output_0_cache, 0, output, target, cutoff
+                gradients["output_0"],
+                output_0_cache,
+                0,
+                output,
+                target,
+                2.2250738585072014e-308,
             )
         )
         gradients["input"] += accumulate_grads(
@@ -578,13 +578,14 @@ def test_code_generator_5(file_path: str):
 
     @typing.no_type_check
     def evaluate(params, data, cache):
-        cutoff = cache["cutoff"]
         input = params["input"]
         rhs = params["rhs"]
         right = params["right"]
         target = data["target"]
         output = my_adder(input, rhs)
-        output_0 = binary_cross_entropy_with_logits(output, target, cutoff)
+        output_0 = binary_cross_entropy_with_logits(
+            output, target, 2.2250738585072014e-308
+        )
         output_1 = add(output_0, right)
         return {"final_cost": output_1, "output": output}
 
@@ -625,19 +626,17 @@ def test_code_generator_6(file_path: str):
     @typing.no_type_check
     def evaluate(params, data, cache):
         arange_res = cache["arange_res"]
-        axes = cache["axes"]
         b1 = params["b1"]
         cutoff = cache["cutoff"]
         input = data["input"]
         target = cache["target"]
         w1 = params["w1"]
-        weights = cache["weights"]
-        output_0 = transpose(w1, axes)
+        output_0 = transpose(w1, None)
         output_1 = matrix_multiplication(input, output_0)
         output_2 = add(output_1, b1)
         output_3 = softmax(output_2)
         output = add(arange_res, output_3)
-        output_4 = cross_entropy(output, target, weights, cutoff)
+        output_4 = cross_entropy(output, target, False, cutoff)
         output_5 = reduce_mean(output_4)
         return {"arange_res": arange_res, "final_cost": output_5, "output": output}
 
@@ -679,19 +678,17 @@ def test_code_generator_7(file_path: str):
     @typing.no_type_check
     def evaluate(params, data, cache):
         arange_res = cache["arange_res"]
-        axes = cache["axes"]
         b1 = params["b1"]
         cutoff = cache["cutoff"]
         input = data["input"]
         target = cache["target"]
         w1 = params["w1"]
-        weights = cache["weights"]
-        output_0 = transpose(w1, axes)
+        output_0 = transpose(w1, None)
         output_1 = matrix_multiplication(input, output_0)
         output_2 = add(output_1, b1)
         output_3 = softmax(output_2)
         output = add(arange_res, output_3)
-        output_5 = cross_entropy(output, target, weights, cutoff)
+        output_5 = cross_entropy(output, target, False, cutoff)
         output_6 = reduce_mean(output_5)
         return {"arange_res": arange_res, "final_cost": output_6, "output": output}
 

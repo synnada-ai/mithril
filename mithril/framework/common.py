@@ -727,8 +727,9 @@ class Tensor(Generic[TypeVarTensorType]):
 
     def set_type(self, typ: _TensorTypes) -> Updates:
         updates = Updates()
-        if self.type != typ:
-            new_type = find_intersection_type(typ, self.type)
+        # if self.type != typ:
+        #     new_type = find_intersection_type(typ, self.type)
+        if self.type != (new_type := find_intersection_type(typ, self.type)):
             if not new_type:
                 raise TypeError(
                     f"Acceptable types are {sort_type(self.type)}, but "
@@ -1269,6 +1270,18 @@ class TemplateBase:
 
     def item(self) -> ExtendTemplate:
         return ExtendTemplate(connections=[self], model="item")
+
+    def cast(self, dtype: Dtype | None = None) -> ExtendTemplate:
+        return ExtendTemplate(connections=[self, dtype], model="cast")
+
+    def dtype(self) -> ExtendTemplate:
+        return ExtendTemplate(connections=[self], model="dtype")
+
+    def sin(self) -> ExtendTemplate:
+        return ExtendTemplate(connections=[self], model="sin")
+
+    def cos(self) -> ExtendTemplate:
+        return ExtendTemplate(connections=[self], model="cos")
 
 
 class ExtendTemplate(TemplateBase):
