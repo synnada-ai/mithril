@@ -53,13 +53,13 @@ def prepare_function_args(
     )
 
     # Array creation functions requires device and
-    # precision to properly create tensor
+    # default_dtype to properly create tensor
     if formula_key in array_creation_funcs:
-        # Remove precision and device from kwarg_keys
-        # we will partially provide them
-        fn_args_dict.pop("precision", None)
-        if "precision" in fn_kwarg_keys:
-            fn_kwarg_keys.remove("precision")
+        # Remove default_dtype and device from kwarg_keys
+        # we will provide them with partial function
+        fn_args_dict.pop("default_dtype", None)
+        if "default_dtype" in fn_kwarg_keys:
+            fn_kwarg_keys.remove("default_dtype")
 
         fn_args_dict.pop("device", None)
         if "device" in fn_kwarg_keys:
@@ -98,9 +98,13 @@ def create_kwarg_dict(
     if kwdefaults is not None and reduce_with_defaults:
         for key, value in kwdefaults.items():
             provided_value = data_values.get(kwarg_keys_dict[key], TBD)
-            if value == provided_value and type(value) is type(provided_value):
-                removed_kwargs_dict[key] = kwarg_keys_dict[key]
-                kwarg_keys_dict.pop(key)
+            try:
+                if value == provided_value and type(value) is type(provided_value):
+                    removed_kwargs_dict[key] = kwarg_keys_dict[key]
+                    kwarg_keys_dict.pop(key)
+            except Exception:
+                # Some values are not comparable!
+                pass
 
     return kwarg_keys_dict, removed_kwargs_dict
 

@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import re
 from collections.abc import Callable, Iterable, Sequence
 from functools import partial
 from typing import Any
@@ -20,26 +21,25 @@ import numpy as np
 
 from .... import core
 from ....utils.type_utils import is_int_tuple_tuple
-from ....utils.utils import binary_search, find_dominant_type
+from ....utils.utils import BiMap, binary_search, find_dominant_type
 from ...utils import DtypeSubTypes
 
+CODEGEN_CONFIG: dict[str, bool] = {
+    "specify_device": False,
+}
 ArrayType = np.ndarray
 
-dtype_map: dict[str, Any] = {
-    "uint8": np.uint8,
-    "int8": np.int8,
-    "int16": np.int16,
-    "int32": np.int32,
-    "int": np.int32,
-    "int64": np.int64,
-    "long": np.int64,
-    "float16": np.float16,
-    "float32": np.float32,
-    "float": np.float32,
-    "float64": np.float64,
-    "double": np.float64,
-    "bool": np.bool_,
-}
+dtype_map: BiMap[str, Any] = BiMap(
+    {
+        "int16": np.int16,
+        "int32": np.int32,
+        "int64": np.int64,
+        "float16": np.float16,
+        "float32": np.float32,
+        "float64": np.float64,
+        "bool": np.bool_,
+    }
+)
 
 CacheType = dict[str, Any]
 
@@ -341,9 +341,21 @@ def handle_data_dtype(
 
 
 def make_array(
-    input: int | float | np.ndarray[Any, Any], precision: int
+    input: int | float | np.ndarray[Any, Any],
+    *,
+    dtype: str | None = None,
+    default_dtype: str,
 ) -> np.ndarray[Any, Any]:
-    return handle_data_precision(np.array(input), precision=precision)
+    if dtype is None:
+        dtype = default_dtype
+
+    dtype = determine_dtype(
+        input,
+        None,
+        core.Dtype[default_dtype],
+        precision=int(re.findall(r"\d+", dtype)[-1]),
+    )
+    return np.array(input, dtype=dtype_map[dtype])
 
 
 def accumulate_grads(

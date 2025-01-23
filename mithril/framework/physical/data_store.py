@@ -17,7 +17,7 @@ from copy import deepcopy
 from typing import Any, Generic, TypeGuard
 
 from ...backends.backend import Backend
-from ...core import Constant, DataType, data_types, epsilon_table
+from ...core import Constant, DataType, Dtype, data_types, epsilon_table
 from ...utils.func_utils import is_make_array_required, prepare_function_args
 from ...utils.utils import BiMap
 from ..common import (
@@ -166,6 +166,8 @@ class StaticDataStore(Generic[DataType]):
 
         if data.edge_type is Tensor:
             value = self.backend.array(value)
+        elif isinstance(value, Dtype):
+            value = getattr(self.backend, value.name)
         self.data_values[key] = value  # type: ignore
 
     def infer_unused_keys(self, key: str) -> None:
@@ -388,8 +390,8 @@ class StaticDataStore(Generic[DataType]):
 
                 # If function needs backend specific args
                 if model.formula_key in self.backend.array_creation_funcs:
-                    kwargs["precision"] = self.backend.precision
-                    if not self.backend.is_manualgrad:
+                    kwargs["default_dtype"] = self.backend._dtype.name
+                    if self.backend.codegen_config["specify_device"]:
                         kwargs["device"] = self.backend.get_device()
 
                 static_value = fn(*args, **kwargs)

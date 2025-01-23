@@ -135,13 +135,13 @@ def test_extract_logical_connections_2():
     sig2 = Sigmoid()
     model += sig1(input="input1", output=IOKey(name="output1"))
     model += sig2(input="input2", output=IOKey(name="output2"))
-    model.set_canonical_input("input1")
-    model.set_canonical_output("output1")
+    model.set_cin("input1")
+    model.set_cout("output1")
     buff3 = Relu()
     model2 = Model()
     model2 += model()
     model2 += buff3(input=model.output1, output=model.input2)  # type: ignore
-    model2.set_canonical_input(model.input1)  # type: ignore
+    model2.set_cin(model.input1)  # type: ignore
     name_mappings = define_unique_names(model2.dag)
     conns = model2.extract_connection_info(name_mappings)
     ref_conns = {
@@ -402,8 +402,8 @@ def test_extract_logical_connections_10():
     model_0 += buff_1(input="input1")
     model_0 += buff_2(input="input2")
     model_0 += buff_3(input="input3")
-    model_0.set_canonical_input("input1")
-    model_0.set_canonical_output(buff_1.output)
+    model_0.set_cin("input1")
+    model_0.set_cout(buff_1.output)
 
     model_1 = deepcopy(model_0)
     model_2 = deepcopy(model_0)
@@ -770,8 +770,8 @@ def test_define_unique_names_1():
     model += lin_5
     model += lin_6
     model += buffer
-    model += KernelizedSVM_0
-    model += KernelizedSVM_1
+    model |= KernelizedSVM_0(input1=model.cout)
+    model |= KernelizedSVM_1(input1=model.cout)
 
     lin_0.input.set_differentiable(True)
     name_dict = define_unique_names(model.dag)
@@ -918,8 +918,8 @@ def test_physical_summary_2():
     model += LeakyRelu()
     model += Linear(dimension=3)
     model += model1
-    assert isinstance(model.canonical_input, Connection)
-    model.canonical_input.set_differentiable(True)
+    assert isinstance(model.cin, Connection)
+    model.cin.set_differentiable(True)
 
     comp_model = mithril.compile(
         model=model, backend=NumpyBackend(), shapes={"input": [5, 5]}
@@ -988,6 +988,7 @@ def test_physical_summary_4():
     model_1 = KernelizedSVM(kernel=RBFKernel())
     model_1.input1.set_differentiable(True)
     model_1.input2.set_differentiable(True)
+    model_1.set_cin("input1")
     model_2 = MLP(
         activations=[Sigmoid(), Tanh(), Relu(), LeakyRelu()], dimensions=[3, 4, 5, 6]
     )
@@ -1193,6 +1194,7 @@ def test_physical_summary_13():
     sig_model3 = Sigmoid()
     model += sig_model1(input="input", output="output1")
     model += sig_model2(input="input", output="output2")
+    model.set_cout("output2")
     comp_model = mithril.compile(model=model, backend=JaxBackend())
     with pytest.raises(ValueError) as err_info:
         comp_model.summary(model=sig_model3)
@@ -1286,6 +1288,7 @@ def test_physical_summary_17():
     model += lin_model_1(input="input", weight="weight", bias="b", output="output1")
     model += lin_model_2(input="input", weight="weight", bias="b", output="output2")
     model += lin_model_3(input="input", weight="weight", bias="b", output="output3")
+    model.set_cout("output3")
     lin_model_1.input.set_differentiable(True)
 
     comp_model = mithril.compile(model=model, backend=JaxBackend())
@@ -1302,8 +1305,8 @@ def test_physical_summary_17():
 
 def test_resnet_18_physical_summary():
     model = resnet18(1)
-    assert isinstance(model.canonical_input, Connection)
-    model.canonical_input.set_differentiable(True)
+    assert isinstance(model.cin, Connection)
+    model.cin.set_differentiable(True)
     comp_model = mithril.compile(model=model, backend=TorchBackend(), jit=False)
 
     with redirect_stdout(StringIO()) as summary:
@@ -1374,8 +1377,8 @@ def test_logical_model_summary_3():
         output=IOKey(name="output2"),
     )
     model += Add()(left="input2", right="input3", output=IOKey(name="output3"))
-    model.set_canonical_input("input1")
-    model.set_canonical_output("output1")
+    model.set_cin("input1")
+    model.set_cout("output1")
 
     model_1 = Model()
     model_1 += (m1 := deepcopy(model))()
@@ -1392,7 +1395,7 @@ def test_logical_model_summary_3():
         output2="output3",
         output3="output4",
     )
-    model_1.set_canonical_output("output2")
+    model_1.set_cout("output2")
     with redirect_stdout(StringIO()) as summary:
         model.summary(shapes=True, symbolic=True)
 
@@ -1537,8 +1540,8 @@ def test_logical_model_summary_11():
     model += sig_1(input="input1", output=IOKey(name="output1"))
     model += sig_2(input="input2", output=IOKey(name="output2"))
     model += sig_3(input="input3", output=IOKey(name="output3"))
-    model.set_canonical_input("input1")
-    model.set_canonical_output("output1")
+    model.set_cin("input1")
+    model.set_cout("output1")
 
     model_1, model_2, model_3 = deepcopy(model), deepcopy(model), deepcopy(model)
 
@@ -1623,6 +1626,7 @@ def test_logical_model_summary_13():
     model += linear2(input=model.output1)  # type: ignore
     model1 += model
     model1 += linear3(input=model.output1)  # type: ignore
+    model1.set_cout(linear3.output)
 
     with redirect_stdout(StringIO()) as summary:
         model1.summary(shapes=True, symbolic=True)
@@ -1684,7 +1688,7 @@ def test_primitive_model_summary_3():
     with open("tests/scripts/summary_txts/test_primitive_model_summary_3") as f:
         ref_table = f.read()
 
-    assert "\n" + summary.getvalue() == ref_table
+    assert summary.getvalue() == ref_table
 
 
 def generate_comp_model():
@@ -1864,6 +1868,7 @@ def test_traincontext_summary_3():
     model += add_1(left="in1", right="in2", output=IOKey(name="output1"))
     model += add_2(left="", output=IOKey(name="output2"))
     model += matmul_1(left="", output=IOKey(name="output3"))
+    model.set_cin(matmul_1.left)
     ctx = TrainModel(model)
     ctx.add_loss(
         SquaredError(),
@@ -1902,6 +1907,8 @@ def test_traincontext_summary_4():
     model += add_1(left="in1", right="in2", output=IOKey(name="output1"))
     model += add_2(left="", output=IOKey(name="output2"))
     model += matmul_1(left="", output=IOKey(name="output3"))
+    model.set_cin(matmul_1.left)
+
     ctx = TrainModel(model)
     ctx.add_loss(
         SquaredError(),

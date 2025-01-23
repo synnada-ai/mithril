@@ -14,6 +14,7 @@
 
 import logging
 import math
+import re
 from collections.abc import Callable, Iterator, Sequence
 from functools import partial
 from itertools import combinations_with_replacement
@@ -24,6 +25,7 @@ from torch.distributed._tensor import DeviceMesh, Replicate, distribute_tensor
 
 from .... import core
 from ....utils.type_utils import is_int_tuple_tuple
+from ....utils.utils import find_dominant_type
 from ...utils import NestedFloatOrIntOrBoolList
 from ..common_primitives import (
     add,
@@ -67,15 +69,13 @@ from ..common_primitives import (
     tuple_converter,
     union,
 )
+from . import utils
 from .utils import (
     calc_prob_matrix,
     calculate_binary_class_weight,
     calculate_cross_entropy_class_weights,
     calculate_tpr_fpr,
     find_optimal_sigmas,
-    get_type,
-    handle_data_dtype,
-    handle_data_precision,
     log_sigmoid,
     log_softmax,
 )
@@ -200,7 +200,7 @@ __all__ = [
     "lstm_cell",
     "reduce_argmin",
     "reduce_argmax",
-    "astype",
+    "cast",
     "unique",
     "trapezoid",
     "pad",
@@ -797,25 +797,8 @@ def kl_divergence(
     )
 
 
-def eye(N: int, M: int | None, *, device: str, precision: int) -> torch.Tensor:
-    if M is None:
-        return handle_data_precision(torch.eye(N, device=device), precision)
-    else:
-        return handle_data_precision(torch.eye(N, M, device=device), precision)
-
-
 def transposed_diag(input: torch.Tensor) -> torch.Tensor:
     return torch.diag(input)[:, None]
-
-
-def ones_with_zero_diag(
-    N: int, M: int | None, device: str, precision: int
-) -> torch.Tensor:
-    if M is None:
-        output = torch.ones(N) - torch.eye(N)
-    else:
-        output = torch.ones((N, M)) - torch.eye(N, M)
-    return handle_data_precision(output, precision)
 
 
 def unique(input: torch.Tensor) -> torch.Tensor:
@@ -875,10 +858,80 @@ def where(
     return torch.where(cond, input1, input2)
 
 
+### Array creation ops ###
+
+
 def to_tensor(
-    input: NestedFloatOrIntOrBoolList, device: str, precision: int
+    input: NestedFloatOrIntOrBoolList,
+    *,
+    dtype: torch.dtype | None = None,
+    device: str,
+    default_dtype: str,
 ) -> torch.Tensor:
-    return torch.tensor(input, device=device, dtype=get_type(input, precision))
+    dtype_str = default_dtype if dtype is None else utils.dtype_map.inverse[dtype]
+
+    dominant_type = find_dominant_type(input)
+    _dtype = dominant_type.__name__
+
+    if _dtype != "bool":
+        _dtype += str(re.findall(r"\d+", dtype_str)[-1])
+
+    return torch.tensor(input, device=device, dtype=utils.dtype_map[_dtype])
+
+
+def eye(
+    N: int,
+    M: int | None,
+    *,
+    dtype: torch.dtype | None = None,
+    device: str,
+    default_dtype: str,
+) -> torch.Tensor:
+    dtype = utils.dtype_map[default_dtype] if dtype is None else dtype
+
+    if M is None:
+        return torch.eye(N, device=device, dtype=dtype)
+    else:
+        return torch.eye(N, M, device=device, dtype=dtype)
+
+
+def ones_with_zero_diag(
+    N: int,
+    M: int | None,
+    *,
+    dtype: torch.dtype | None = None,
+    device: str,
+    default_dtype: str,
+) -> torch.Tensor:
+    dtype = utils.dtype_map[default_dtype] if dtype is None else dtype
+
+    if M is None:
+        output = torch.ones(N, dtype=dtype, device=device) - torch.eye(
+            N, dtype=dtype, device=device
+        )
+    else:
+        output = torch.ones((N, M), dtype=dtype, device=device) - torch.eye(
+            N, M, dtype=dtype, device=device
+        )
+
+    return output
+
+
+def arange(
+    start: int | float,
+    stop: int | float,
+    step: int | float,
+    *,
+    dtype: torch.dtype | None = None,
+    device: str,
+    default_dtype: str,
+) -> torch.Tensor:
+    _dtype = default_dtype if dtype is None else utils.dtype_map.inverse[dtype]
+
+    if len([item for item in [start, stop, step] if isinstance(item, float)]) == 0:
+        _dtype = _dtype.replace("bfloat", "int").replace("float", "int")
+
+    return torch.arange(start, stop, step, device=device, dtype=utils.dtype_map[_dtype])
 
 
 def tensor_to_list(input: torch.Tensor) -> NestedFloatOrIntOrBoolList:
@@ -889,10 +942,6 @@ def to_parallel(tensor: torch.Tensor, device_mesh: DeviceMesh) -> torch.Tensor:
     return distribute_tensor(
         tensor, device_mesh, [Replicate()] * len(device_mesh.shape)
     )
-
-
-def arange(*args: int | float, device: torch.device, precision: int) -> torch.Tensor:
-    return handle_data_precision(torch.arange(*args, device=device), precision)
 
 
 def concat(*inputs: torch.Tensor, axis: int | None = 0) -> torch.Tensor:
@@ -1100,8 +1149,8 @@ def nan_to_num(
     return torch.nan_to_num(input, nan=nan, posinf=posinf, neginf=neginf)
 
 
-def astype(input: torch.Tensor, dtype: core.Dtype | int) -> torch.Tensor:
-    return handle_data_dtype(input, dtype)
+def cast(input: torch.Tensor, dtype: torch.dtype) -> torch.Tensor:
+    return input.type(dtype)
 
 
 def dtype(input: torch.Tensor) -> core.Dtype:
@@ -1124,11 +1173,18 @@ def pad(input: torch.Tensor, pad_width: tuple[tuple[int, int], ...]) -> torch.Te
 
 
 def randn(
-    shape: tuple[int, ...], key: int, device: torch.device, precision: int
+    shape: tuple[int, ...],
+    key: int,
+    *,
+    dtype: str | None = None,
+    device: str,
+    default_dtype: str,
 ) -> torch.Tensor:
     generator = torch.manual_seed(key)
-    return handle_data_precision(
-        torch.randn(shape, generator=generator, device=device), precision
+    if dtype is None:
+        dtype = default_dtype
+    return torch.randn(
+        shape, generator=generator, device=device, dtype=utils.dtype_map[dtype]
     )
 
 

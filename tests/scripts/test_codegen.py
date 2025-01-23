@@ -19,6 +19,7 @@ from importlib import import_module
 import mithril
 from mithril import JaxBackend, MlxBackend, NumpyBackend, TorchBackend
 from mithril.models import (
+    Arange,
     Concat,
     Convolution1D,
     Linear,
@@ -125,7 +126,9 @@ def test_multi_input_primitive(file_path: str):
         output_1 = output_1_cache["output"] = make_array(
             matrix_multiplication(input, output_0, output_1_cache)
         )
+        del output_0
         output = output_cache["output"] = make_array(add(output_1, b, output_cache))
+        del output_1
         return {"output": output}
 
     compare_callables(evaluate, eval_func)
@@ -139,7 +142,9 @@ def test_multi_input_primitive(file_path: str):
         w = params["w"]
         output_0 = transpose(w, None)
         output_1 = make_array(matrix_multiplication(input, output_0))
+        del output_0
         output = make_array(add(output_1, b))
+        del output_1
         return {"output": output}
 
     compare_callables(evaluate, eval_func)
@@ -151,7 +156,9 @@ def test_multi_input_primitive(file_path: str):
         w = params["w"]
         output_0 = transpose(w, None)
         output_1 = matrix_multiplication(input, output_0)
+        del output_0
         output = add(output_1, b)
+        del output_1
         return {"output": output}
 
     mithril.compile(model, JaxBackend(), inference=True, jit=False, file_path=file_path)
@@ -414,6 +421,27 @@ def test_default_kwarg_reduction_2(file_path: str):
             file_path=file_path,
         )
         compare_callables(evaluate, eval_func)
+
+
+@with_temp_file(".py")
+def test_array_creation_primitive(file_path: str):
+    model = Model()
+    model += Arange(dtype=mithril.bfloat16)(stop="stop", output="output")
+
+    backend = TorchBackend()
+    mithril.compile(model, backend, inference=False, jit=False, file_path=file_path)
+
+    file_name = os.path.basename(file_path).split(".")[0]
+    eval_func = import_module("tmp." + file_name).evaluate
+
+    @typing.no_type_check  # type: ignore
+    def evaluate(params, data, cache):
+        _dtype = cache["_dtype"]
+        stop = data["stop"]
+        output = arange(0, stop, 1, dtype=_dtype)
+        return {"output": output}
+
+    compare_callables(evaluate, eval_func)
 
 
 @with_temp_file(".py")

@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import math
+import re
 from collections.abc import Callable, Iterator, Sequence
 from functools import partial
 from itertools import combinations_with_replacement
@@ -23,6 +24,7 @@ import numpy as np
 
 from .... import core
 from ....utils.type_utils import is_int_tuple_tuple, is_tuple_int
+from ....utils.utils import find_dominant_type
 from ...utils import NestedFloatOrIntOrBoolList
 from ..common_primitives import (
     add,
@@ -85,6 +87,7 @@ __all__ = [
     "stable_reciprocal",
     "sin",
     "cos",
+    "cast",
     "tanh",
     "relu",
     "leaky_relu",
@@ -713,15 +716,6 @@ def quad_hinge_loss(input: mx.array, target: mx.array) -> mx.array:
     return hinge_loss(input, target) ** 2
 
 
-def eye(N: int, M: int | None, *, device: str, precision: int) -> mx.array:
-    return utils.handle_data_precision(mx.eye(N, M), precision)
-
-
-def ones_with_zero_diag(N: int, M: int | None, device: str, precision: int) -> mx.array:
-    output = mx.ones(N) - mx.eye(N) if M is None else mx.ones((N, M)) - mx.eye(N, M)
-    return utils.handle_data_precision(output, precision)
-
-
 def transposed_diag(input: mx.array) -> mx.array:
     return mx.diag(input)[:, None]
 
@@ -755,20 +749,77 @@ def primitive_accuracy(input1: mx.array, input2: mx.array) -> mx.array:
     return mx.mean(mx.equal(prediction, input2))
 
 
+### Array creation ops ###
+
+
 def to_tensor(
-    input: NestedFloatOrIntOrBoolList, device: str, precision: int
+    input: NestedFloatOrIntOrBoolList,
+    *,
+    dtype: mx.Dtype | None = None,
+    device: str,
+    default_dtype: str,
 ) -> mx.array:
-    return mx.array(input, dtype=utils.get_type(input, precision))
+    dtype_str = default_dtype if dtype is None else utils.dtype_map.inverse[dtype]
+
+    dominant_type = find_dominant_type(input)
+    _dtype = dominant_type.__name__
+
+    if _dtype != "bool":
+        _dtype += str(re.findall(r"\d+", dtype_str)[-1])
+
+    return mx.array(input, dtype=utils.dtype_map[_dtype])
+
+
+def eye(
+    N: int,
+    M: int | None,
+    *,
+    dtype: mx.Dtype | None = None,
+    device: str,
+    default_dtype: str,
+) -> mx.array:
+    dtype = utils.dtype_map[default_dtype] if dtype is None else dtype
+
+    return mx.eye(N, M, dtype=dtype)
+
+
+def ones_with_zero_diag(
+    N: int,
+    M: int | None,
+    *,
+    dtype: mx.Dtype | None = None,
+    device: str,
+    default_dtype: str,
+) -> mx.array:
+    dtype = utils.dtype_map[default_dtype] if dtype is None else dtype
+
+    return (
+        mx.ones(N, dtype=dtype) - mx.eye(N, dtype=dtype)
+        if M is None
+        else mx.ones((N, M), dtype=dtype) - mx.eye(N, M, dtype=dtype)
+    )
+
+
+def arange(
+    start: int | float,
+    stop: int | float,
+    step: int | float,
+    *,
+    dtype: mx.Dtype | None = None,
+    device: str,
+    default_dtype: str,
+) -> mx.array:
+    _dtype = default_dtype if dtype is None else utils.dtype_map.inverse[dtype]
+
+    if len([item for item in [start, stop, step] if isinstance(item, float)]) == 0:
+        _dtype = _dtype.replace("float", "int").replace("bfloat", "int")
+
+    return mx.arange(start, stop, step, dtype=utils.dtype_map[_dtype])
 
 
 def tensor_to_list(input: mx.array) -> NestedFloatOrIntOrBoolList:
     # MLX return type is object!
     return input.tolist()  # type: ignore
-
-
-def arange(*args: int | float, device: str, precision: int) -> mx.array:
-    out = mx.arange(*args)
-    return utils.handle_data_precision(out, precision)
 
 
 def concat(*inputs: mx.array, axis: AxisType = 0) -> mx.array:
@@ -881,8 +932,8 @@ def nan_to_num(
     # return mx.nan_to_num(input, nan = nan, posinf = posinf, neginf = neginf)
 
 
-def astype(input: mx.array, dtype: core.Dtype | int) -> mx.array:
-    return utils.handle_data_dtype(input, dtype)
+def cast(input: mx.array, dtype: mx.Dtype) -> mx.array:
+    return input.astype(dtype)
 
 
 def dtype(input: mx.array) -> core.Dtype:
@@ -901,10 +952,19 @@ def pad(input: mx.array, pad_width: tuple[tuple[int, int], ...]) -> mx.array:
     return mx.pad(input, pad_width)
 
 
-def randn(shape: tuple[int], key: int, device: str, precision: int) -> mx.array:
+def randn(
+    shape: tuple[int],
+    key: int,
+    *,
+    dtype: str | None = None,
+    device: str,
+    default_dtype: str,
+) -> mx.array:
     _key = mx.random.key(key)
-    out = mx.random.normal(shape, key=_key)
-    return utils.handle_data_precision(out, precision)
+    if dtype is None:
+        dtype = default_dtype
+
+    return mx.random.normal(shape, key=_key, dtype=utils.dtype_map[dtype])
 
 
 def zeros_like(input: mx.array) -> mx.array:

@@ -343,7 +343,9 @@ def test_code_generator_1(file_path: str):
         weight = params["weight"]
         output_0 = transpose(weight, None)
         output_1 = matrix_multiplication(add1, output_0)
+        del output_0
         output = add(output_1, bias)
+        del output_1
         return {"output": output}
 
     compare_callables(evaluate, eval_func)
@@ -407,10 +409,15 @@ def test_code_generator_3(file_path: str):
         weight_1 = params["weight_1"]
         output_0 = transpose(weight_0, None)
         output_1 = matrix_multiplication(input, output_0)
+        del output_0
         output_2 = add(output_1, bias_0)
+        del output_1
         output_3 = transpose(weight_1, None)
         output_4 = matrix_multiplication(output_2, output_3)
+        del output_2
+        del output_3
         output = add(output_4, bias_1)
+        del output_4
         return {"output": output}
 
     compare_callables(evaluate, eval_func)
@@ -479,6 +486,7 @@ def test_code_generator_4(file_path: str):
         output_1 = output_1_cache["output"] = make_array(
             reduce_mean(output_0, cache=output_1_cache)
         )
+        del output_0
         return {"final_cost": output_1, "output": output}
 
     @typing.no_type_check
@@ -587,6 +595,7 @@ def test_code_generator_5(file_path: str):
             output, target, 2.2250738585072014e-308
         )
         output_1 = add(output_0, right)
+        del output_0
         return {"final_cost": output_1, "output": output}
 
     compare_callables(evaluate, eval_func.evaluate)
@@ -633,11 +642,16 @@ def test_code_generator_6(file_path: str):
         w1 = params["w1"]
         output_0 = transpose(w1, None)
         output_1 = matrix_multiplication(input, output_0)
+        del output_0
         output_2 = add(output_1, b1)
+        del output_1
         output_3 = softmax(output_2)
+        del output_2
         output = add(arange_res, output_3)
+        del output_3
         output_4 = cross_entropy(output, target, False, cutoff)
         output_5 = reduce_mean(output_4)
+        del output_4
         return {"arange_res": arange_res, "final_cost": output_5, "output": output}
 
     compare_callables(evaluate, eval_func.evaluate)
@@ -685,11 +699,16 @@ def test_code_generator_7(file_path: str):
         w1 = params["w1"]
         output_0 = transpose(w1, None)
         output_1 = matrix_multiplication(input, output_0)
+        del output_0
         output_2 = add(output_1, b1)
+        del output_1
         output_3 = softmax(output_2)
+        del output_2
         output = add(arange_res, output_3)
+        del output_3
         output_5 = cross_entropy(output, target, False, cutoff)
         output_6 = reduce_mean(output_5)
+        del output_5
         return {"arange_res": arange_res, "final_cost": output_6, "output": output}
 
     compare_callables(evaluate, eval_func.evaluate)
