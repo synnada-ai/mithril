@@ -41,16 +41,16 @@ def basic_block(
 
 
 def bottleneck(
-    out_channels: int, downsample: Model | None = None, dilation: int = 1
+    out_channels: int, stride: int = 1, downsample: Model | None = None
 ) -> Model:
     model = Model()
-    model += Convolution2D(kernel_size=1, out_channels=out_channels, stride=1)
+    model += Convolution2D(kernel_size=1, out_channels=out_channels, stride=stride)
     model += Relu()
     model += Convolution2D(
-        kernel_size=3, out_channels=out_channels, padding=1, stride=1, dilation=dilation
+        kernel_size=3, out_channels=out_channels, padding=1, stride=stride
     )
     model += Relu()
-    model += Convolution2D(kernel_size=1, out_channels=out_channels, stride=1)
+    model += Convolution2D(kernel_size=1, out_channels=out_channels, stride=stride)
     skip_in = model.canonical_output
 
     if downsample is not None:
