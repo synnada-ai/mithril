@@ -231,6 +231,13 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
     ) -> np.ndarray[Any, Any]:
         return ops.flatten(input, start_dim=start_dim, end_dim=end_dim)
 
+    def concat(
+        self,
+        inputs: list[np.ndarray[Any, Any]] | tuple[np.ndarray[Any, Any], ...],
+        axis: int = 0,
+    ) -> np.ndarray[Any, Any]:
+        return np.concatenate(inputs, axis=axis)
+
     def abs(self, input: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         return np.abs(input)
 
@@ -425,6 +432,16 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
         max: np.ndarray[Any, Any] | StaticScalar,
     ) -> np.ndarray[Any, Any]:
         return np.clip(input, min, max)
+
+    def convert_to_logical(self, input: Any, force: bool = False) -> Any:
+        # Try dtype:
+        if isinstance(input, np.dtype):
+            return Dtype[input.name]
+
+        if force:
+            raise ValueError(f"Invalid value '{input}'!")
+
+        return input
 
     def _process_dtype(
         self,

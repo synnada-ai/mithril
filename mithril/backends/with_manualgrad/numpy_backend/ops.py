@@ -24,7 +24,6 @@ import numpy as np
 import scipy.linalg as slin
 from scipy.special import erf
 
-from .... import core
 from ....utils.type_utils import is_tuple_int
 from ....utils.utils import find_dominant_type
 from ...utils import NestedFloatOrIntOrBoolList
@@ -207,6 +206,10 @@ __all__ = [
     "pad",
     "split",
     "randn",
+    "minimum",
+    "maximum",
+    "dtype",
+    "zeros_like",
 ]
 
 
@@ -960,7 +963,7 @@ def eye(
     N: int,
     M: int | None,
     *,
-    dtype: str | None = None,
+    dtype: np.dtype[Any] | None = None,
     default_dtype: str,
     cache: CacheType | None = None,
 ) -> np.ndarray[Any, Any]:
@@ -973,7 +976,7 @@ def ones_with_zero_diag(
     N: int,
     M: int | None,
     *,
-    dtype: str | None = None,
+    dtype: np.dtype[Any] | None = None,
     default_dtype: str,
     cache: CacheType | None = None,
 ) -> np.ndarray[Any, Any]:
@@ -1000,7 +1003,7 @@ def arange(
     _dtype = default_dtype if dtype is None else utils.dtype_map.inverse[dtype]
 
     if len([item for item in [start, stop, step] if isinstance(item, float)]) == 0:
-        _dtype = _dtype.replace("float", "int").replace("bfloat", "int")
+        _dtype = _dtype.replace("bfloat", "int").replace("float", "int")
 
     return np.arange(start, stop, step, dtype=_dtype)
 
@@ -1250,8 +1253,8 @@ def cast(input: np.ndarray[Any, Any], dtype: np.dtype[Any]) -> np.ndarray[Any, A
     return input.astype(dtype)
 
 
-def dtype(input: np.ndarray[Any, Any]) -> core.Dtype:
-    return getattr(core, str(input.dtype))
+def dtype(input: np.ndarray[Any, Any]) -> np.dtype[Any]:
+    return input.dtype
 
 
 def logical_xor(

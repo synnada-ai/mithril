@@ -201,6 +201,31 @@ class Backend(ABC, Generic[DataType]):
 
         raise NotImplementedError("flatten is not implemented!")
 
+    def concat(
+        self, inputs: tuple[DataType, ...] | list[DataType], axis: int = 0
+    ) -> DataType:
+        """
+        Concatenate a sequence of arrays along an existing axis.
+
+        Parameters
+        ----------
+        arrays : list[DataType]
+            The sequence of arrays to concatenate.
+        axis : int, optional
+            The axis along which to concatenate the arrays. Defaults to 0.
+
+        Returns
+        -------
+        DataType
+            The concatenated array.
+
+        Raises
+        ------
+        NotImplementedError
+            If the method is not implemented.
+        """
+        raise NotImplementedError("concat is not implemented!")
+
     def sign(self, input: DataType) -> DataType:
         """
         Computes the element-wise sign values of the given array.
@@ -1092,6 +1117,22 @@ class Backend(ABC, Generic[DataType]):
         NotImplementedError: If the method is not implemented.
         """
         raise NotImplementedError("jacobian is not implemented!")
+
+    def convert_to_logical(self, input: Any, force: bool = False) -> Any:
+        """
+        Convert the input to a logical type.
+
+        Parameters:
+        input (Any): The input to convert.
+        force (bool): If True, force the conversion.
+
+        Returns:
+        Any: The input converted to a logical type.
+
+        Raises:
+        NotImplementedError: If the method is not implemented.
+        """
+        raise NotImplementedError("convert_to_logical is not implemented!")
 
     def __repr__(self) -> str:
         return f"<Backend(device={self._device}, precision={self.precision})>"

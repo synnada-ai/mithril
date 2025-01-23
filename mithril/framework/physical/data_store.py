@@ -301,8 +301,11 @@ class StaticDataStore(Generic[DataType]):
             if (data := self._all_data.get(key, None)) is None:
                 raise KeyError(f"'{key}' key not found in model!")
 
-            if self.is_scalar_type(value):  # TODO: Is this check really required?
-                updates |= data.set_value(value)
+            logical_value = self.backend.convert_to_logical(value)
+            if self.is_scalar_type(
+                logical_value
+            ):  # TODO: Is this check really required?
+                updates |= data.set_value(logical_value)
             else:
                 assert not isinstance(value, MainValueInstance | ToBeDetermined)
                 # Find type of tensor and set.

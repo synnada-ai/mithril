@@ -411,6 +411,11 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
     ) -> torch.Tensor:
         return torch.flatten(input, start_dim=start_dim, end_dim=end_dim)
 
+    def concat(
+        self, inputs: tuple[torch.Tensor, ...] | list[torch.Tensor], axis: int = 0
+    ) -> torch.Tensor:
+        return torch.cat(inputs, dim=axis)
+
     def abs(self, input: torch.Tensor) -> torch.Tensor:
         return torch.abs(input)
 
@@ -688,6 +693,16 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
 
     def jacfwd(self, fn: Callable[..., torch.Tensor]) -> Callable[..., torch.Tensor]:
         return torch_jacfwd(fn)
+
+    def convert_to_logical(self, input: Any, force: bool = False) -> Any:
+        # Try dtype:
+        if isinstance(input, torch.dtype):
+            return Dtype[utils.dtype_map.inverse[input]]
+
+        if force:
+            raise ValueError(f"Invalid value '{input}'!")
+
+        return input
 
     def _get_generator(self, key: int | None) -> torch.Generator:
         if key is None:

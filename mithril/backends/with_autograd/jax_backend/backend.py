@@ -384,6 +384,11 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
     ) -> jax.Array:
         return ops.flatten(input, start_dim=start_dim, end_dim=end_dim)
 
+    def concat(
+        self, inputs: tuple[jax.Array, ...] | list[jax.Array], axis: int = 0
+    ) -> jax.Array:
+        return jax.numpy.concat(inputs, axis=axis)
+
     def abs(self, input: jax.Array) -> jax.Array:
         return jax.numpy.abs(input)
 
@@ -660,6 +665,16 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
 
     def jacfwd(self, fn: Callable[..., Any]) -> Callable[..., Any]:
         return jax.jacfwd(fn)
+
+    def convert_to_logical(self, input: Any, force: bool = False) -> Any:
+        # Try dtype:
+        if isinstance(input, jax.numpy.float32.__class__):
+            return Dtype[utils.dtype_map.inverse[input]]
+
+        if force:
+            raise ValueError(f"Invalid value '{input}'!")
+
+        return input
 
     def _process_dtype(
         self,

@@ -23,7 +23,6 @@ import torch
 import torch.nn.functional as F  # noqa: N812
 from torch.distributed._tensor import DeviceMesh, Replicate, distribute_tensor
 
-from .... import core
 from ....utils.type_utils import is_int_tuple_tuple
 from ....utils.utils import find_dominant_type
 from ...utils import NestedFloatOrIntOrBoolList
@@ -53,7 +52,6 @@ from ..common_primitives import (
     padding_converter_2d,
     permute_tensor,
     power,
-    primitive_embedding,
     primitive_slice,
     reshape,
     sequence_slice,
@@ -206,6 +204,10 @@ __all__ = [
     "pad",
     "split",
     "randn",
+    "minimum",
+    "maximum",
+    "dtype",
+    "zeros_like",
 ]
 
 
@@ -1153,8 +1155,8 @@ def cast(input: torch.Tensor, dtype: torch.dtype) -> torch.Tensor:
     return input.type(dtype)
 
 
-def dtype(input: torch.Tensor) -> core.Dtype:
-    return getattr(core, str(input.dtype).split(".")[-1])
+def dtype(input: torch.Tensor) -> torch.dtype:
+    return input.dtype
 
 
 def logical_xor(left: torch.Tensor, right: torch.Tensor) -> torch.Tensor:
@@ -1190,6 +1192,10 @@ def randn(
 
 def zeros_like(input: torch.Tensor) -> torch.Tensor:
     return torch.zeros_like(input)
+
+
+def primitive_embedding(input: torch.Tensor, weight: torch.Tensor) -> torch.Tensor:
+    return weight[input.long()]
 
 
 array_creation_funcs = ["arange", "randn", "to_tensor", "eye", "ones_with_zero_diag"]

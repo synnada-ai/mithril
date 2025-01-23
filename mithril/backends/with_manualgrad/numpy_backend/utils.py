@@ -29,7 +29,7 @@ CODEGEN_CONFIG: dict[str, bool] = {
 }
 ArrayType = np.ndarray
 
-dtype_map: BiMap[str, Any] = BiMap(
+dtype_map: BiMap[str, np.dtype[Any]] = BiMap(
     {
         "int16": np.int16,
         "int32": np.int32,
