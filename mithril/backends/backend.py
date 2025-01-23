@@ -61,6 +61,10 @@ class Backend(ABC, Generic[DataType]):
     def precision(self) -> int:
         return DtypeBits[self._dtype.name].value
 
+    @property
+    def default_dtype(self) -> core.Dtype:
+        return self._dtype
+
     #!!
     @property
     def device(self) -> Any:
@@ -84,6 +88,10 @@ class Backend(ABC, Generic[DataType]):
     @property
     def is_manualgrad(self) -> bool:
         raise NotImplementedError("is_manualgrad is not implemented")
+
+    @property
+    def codegen_config(self) -> dict[str, bool]:
+        raise NotImplementedError("codegen_config is not implemented")
 
     def get_backend_array_type(self) -> type[DataType]:
         raise NotImplementedError("get_backend_array_type is not implemented")

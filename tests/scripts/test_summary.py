@@ -1688,7 +1688,7 @@ def test_primitive_model_summary_3():
     with open("tests/scripts/summary_txts/test_primitive_model_summary_3") as f:
         ref_table = f.read()
 
-    assert "\n" + summary.getvalue() == ref_table
+    assert summary.getvalue() == ref_table
 
 
 def generate_comp_model():
