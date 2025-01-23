@@ -24,6 +24,9 @@ from ....utils.type_utils import is_int_tuple_tuple
 from ....utils.utils import BiMap, binary_search, find_dominant_type
 from ...utils import DtypeSubTypes
 
+CODEGEN_CONFIG: dict[str, bool] = {
+    "specify_device": False,
+}
 ArrayType = np.ndarray
 
 dtype_map: BiMap[str, Any] = BiMap(
@@ -341,7 +344,6 @@ def make_array(
     input: int | float | np.ndarray[Any, Any],
     *,
     dtype: str | None = None,
-    device: str,
     default_dtype: str,
 ) -> np.ndarray[Any, Any]:
     if dtype is None:

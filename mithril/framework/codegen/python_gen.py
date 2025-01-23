@@ -746,10 +746,8 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
 
     # Variable references will be created with this function
     def _var_ref_ast(self, name: str, ctx: ast.expr_context) -> ast.Name:
-        name = self._make_non_keyword(name)
-        return ast.Name(id=name, ctx=ctx)
-
-    def _make_non_keyword(self, name: str) -> str:
+        # Make non keyword
         if keyword.iskeyword(name) or name in self.backend.primitive_function_dict:
-            return "_" + name
-        return name
+            name = "_" + name
+
+        return ast.Name(id=name, ctx=ctx)

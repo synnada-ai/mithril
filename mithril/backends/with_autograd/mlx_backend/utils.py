@@ -26,6 +26,10 @@ from .... import core
 from ....utils.utils import BiMap, binary_search, find_dominant_type
 from ...utils import DtypeSubTypes
 
+CODEGEN_CONFIG: dict[str, bool] = {
+    "specify_device": True,
+}
+
 ArrayType = mx.array
 
 

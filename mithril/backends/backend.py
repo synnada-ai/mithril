@@ -89,6 +89,10 @@ class Backend(ABC, Generic[DataType]):
     def is_manualgrad(self) -> bool:
         raise NotImplementedError("is_manualgrad is not implemented")
 
+    @property
+    def codegen_config(self) -> dict[str, bool]:
+        raise NotImplementedError("codegen_config is not implemented")
+
     def get_backend_array_type(self) -> type[DataType]:
         raise NotImplementedError("get_backend_array_type is not implemented")
 

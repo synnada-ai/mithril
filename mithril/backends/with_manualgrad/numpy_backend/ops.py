@@ -942,7 +942,6 @@ def squeeze(
 def to_tensor(
     *input: NestedFloatOrIntOrBoolList,
     dtype: np.dtype[Any] | None = None,
-    device: str,
     default_dtype: str,
     cache: CacheType | None = None,
 ) -> np.ndarray[Any, Any]:
@@ -962,7 +961,6 @@ def eye(
     M: int | None,
     *,
     dtype: str | None = None,
-    device: str,
     default_dtype: str,
     cache: CacheType | None = None,
 ) -> np.ndarray[Any, Any]:
@@ -976,7 +974,6 @@ def ones_with_zero_diag(
     M: int | None,
     *,
     dtype: str | None = None,
-    device: str,
     default_dtype: str,
     cache: CacheType | None = None,
 ) -> np.ndarray[Any, Any]:
@@ -997,7 +994,6 @@ def arange(
     step: int | float,
     *,
     dtype: np.dtype[Any] | None = None,
-    device: str,
     default_dtype: str,
     cache: CacheType | None = None,
 ) -> np.ndarray[Any, Any]:
@@ -1288,7 +1284,6 @@ def randn(
     key: int,
     *,
     dtype: str | None = None,
-    device: str,
     default_dtype: str,
     cache: CacheType | None = None,
 ) -> np.ndarray[Any, Any]:

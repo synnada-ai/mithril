@@ -24,6 +24,7 @@ from ...backend import PadWidthType, ParallelBackend
 from ...utils import DtypeSubTypes, StaticScalar, process_shape
 from . import ops, utils
 from .parallel import JaxParallel
+from .utils import CODEGEN_CONFIG
 
 __all__ = ["JaxBackend"]
 
@@ -99,6 +100,10 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
     @property
     def DataType(self) -> type[jax.Array]:  # noqa: N802
         return utils.ArrayType
+
+    @property
+    def codegen_config(self) -> dict[str, bool]:
+        return CODEGEN_CONFIG
 
     @staticmethod
     def get_available_devices() -> list[str]:

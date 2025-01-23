@@ -24,6 +24,10 @@ from .... import core
 from ....utils.utils import BiMap, binary_search, find_dominant_type
 from ...utils import DtypeSubTypes
 
+CODEGEN_CONFIG: dict[str, bool] = {
+    "specify_device": True,
+}
+
 ArrayType = jax.Array
 
 dtype_map: BiMap[str, jnp.dtype[Any]] = BiMap(

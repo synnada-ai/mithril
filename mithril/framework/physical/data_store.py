@@ -166,7 +166,7 @@ class StaticDataStore(Generic[DataType]):
 
         if data.edge_type is Tensor:
             value = self.backend.array(value)
-        if isinstance(value, Dtype):
+        elif isinstance(value, Dtype):
             value = getattr(self.backend, value.name)
         self.data_values[key] = value  # type: ignore
 
@@ -391,7 +391,8 @@ class StaticDataStore(Generic[DataType]):
                 # If function needs backend specific args
                 if model.formula_key in self.backend.array_creation_funcs:
                     kwargs["default_dtype"] = self.backend._dtype.name
-                    kwargs["device"] = self.backend.get_device()
+                    if self.backend.codegen_config["specify_device"]:
+                        kwargs["device"] = self.backend.get_device()
 
                 static_value = fn(*args, **kwargs)
 

@@ -27,9 +27,10 @@ def partial_array_creation_func(
         ast.keyword(arg="default_dtype", value=ast.Constant(value=backend._dtype.name))
     ]
 
-    kwargs.append(
-        ast.keyword(arg="device", value=ast.Constant(value=backend.get_device()))
-    )
+    if backend.codegen_config["specify_device"]:
+        kwargs.append(
+            ast.keyword(arg="device", value=ast.Constant(value=backend.get_device()))
+        )
 
     partial_fn_call = ast.Call(
         func=ast.Name(id="partial", ctx=ast.Load()),
