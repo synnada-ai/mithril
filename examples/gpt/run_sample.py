@@ -47,7 +47,7 @@ def run_sample(
 ):
     # TODO: This recursion limit is minimum we can have for now.
     # We may further improve this limit in the future.
-    sys.setrecursionlimit(734)
+    sys.setrecursionlimit(692)
     # Model Configuration
     block_size = 100
     gpt = create_gpt(

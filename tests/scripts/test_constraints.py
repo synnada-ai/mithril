@@ -5580,10 +5580,7 @@ def test_tensor_to_list_backward_2():
         assert_constraint_results(
             shapes, {}, {}, {}, tensor_to_list_constraints, False, set(), scalar_info
         )
-    assert (
-        str(err_info.value)
-        == "Shape mismatch: expected [3], but got [2]. The list should not be ragged."
-    )
+    assert str(err_info.value) == "Inconsistent dimensions found in the list."
 
 
 def test_item_constraints_1():
