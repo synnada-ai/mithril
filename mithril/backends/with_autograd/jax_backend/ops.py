@@ -36,6 +36,7 @@ from ..common_primitives import (
     floor_divide,
     greater,
     greater_equal,
+    indexer,
     item,
     length,
     less,
@@ -54,7 +55,6 @@ from ..common_primitives import (
     primitive_embedding,
     primitive_slice,
     reshape,
-    scalar_item,
     sequence_slice,
     shift_left,
     shift_right,
@@ -63,7 +63,6 @@ from ..common_primitives import (
     stride_converter,
     subtract,
     swapaxes,
-    tensor_item,
     to_list,
     to_tuple,
     transpose,
@@ -195,8 +194,7 @@ __all__ = [
     "permute_tensor",
     "reshape",
     "item",
-    "scalar_item",
-    "tensor_item",
+    "indexer",
     "primitive_slice",
     "sequence_slice",
     "union",
@@ -869,6 +867,14 @@ def tensor_to_list(input: jax.Array) -> NestedFloatOrIntOrBoolList:
 def arange(*args: Any, device: str, precision: int) -> jax.Array:
     with jax.default_device(get_device(device)):
         return handle_data_precision(jnp.arange(*args), precision)
+
+
+def minimum(left: jax.Array, right: jax.Array) -> jax.Array:
+    return jnp.minimum(left, right)
+
+
+def maximum(left: jax.Array, right: jax.Array) -> jax.Array:
+    return jnp.maximum(left, right)
 
 
 def where(cond: jax.Array, input1: jax.Array, input2: jax.Array) -> jax.Array:

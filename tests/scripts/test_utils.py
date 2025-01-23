@@ -22,15 +22,12 @@ import numpy as np
 from mithril import Backend
 from mithril.framework.common import (
     IOHyperEdge,
-    Scalar,
     ShapeRepr,
     ShapeTemplateType,
     Tensor,
     Uniadic,
 )
-from mithril.framework.logical.base import BaseModel
-from mithril.framework.logical.model import Model
-from mithril.framework.logical.primitive import PrimitiveModel
+from mithril.framework.logical import BaseModel, Model, PrimitiveModel
 from mithril.framework.physical import PhysicalModel
 from mithril.framework.utils import find_intersection_type, find_type
 from mithril.models.train_model import TrainModel
@@ -76,7 +73,12 @@ def dict_to_output_specs(specs_dict: dict[str, dict]) -> dict[str, dict]:
                 result[key]["loss"] = model_dict[loss["fn"].lower()](
                     **loss.get("params", {})
                 )
-                result[key]["loss_kwargs"] = loss.get("call_kwargs", {})
+                result[key]["loss_kwargs"] = {
+                    k: Tensor(v["tensor"])
+                    if isinstance(v, dict) and "tensor" in v
+                    else v
+                    for k, v in loss.get("call_kwargs", {}).items()
+                }
             else:
                 raise TypeError("Unsupported Loss type!")
         # Set reduce steps.
@@ -153,7 +155,12 @@ def finalize_model(params: dict[str, Any]):
                     raise IndexError("Regex requires single input.")
                 (key,) = reg_extend.keys()
                 reg_extend[key] = re.compile(reg_extend[key])
-            reg_extend["coef"] = reg["coef"]
+            coef = reg["coef"]
+            reg_extend["coef"] = (
+                Tensor(coef["tensor"])
+                if isinstance(coef, dict) and "tensor" in coef
+                else coef
+            )
             train_model.add_regularization(dict_to_model(reg["model"]), **reg_extend)
 
         if final_loss_combiner_model:
@@ -261,7 +268,7 @@ def assert_metadata_equal(*args):
         assert first_conn.data.metadata == other_conn.data.metadata
 
 
-def get_all_data(model: BaseModel) -> set[Scalar | Tensor]:
+def get_all_data(model: BaseModel) -> set[IOHyperEdge]:
     # recursively gets the all data in the model (Tensor or Scalar)
     if isinstance(model, PrimitiveModel):
         return {model.conns.get_data(key) for key in model.conns.all}
@@ -289,7 +296,7 @@ def get_all_nodes(model: BaseModel):
     node_set = {
         data.shape
         for data in all_data
-        if isinstance(data, Tensor)
+        if data.edge_type is Tensor
         if data.shape is not None
     }
     return node_set
@@ -583,7 +590,7 @@ def get_array_device(array, type):
         case "torch":
             return array.device.type
         case "mlx":
-            return "gpu"
+            return "cpu"
 
 
 def get_array_precision(array, type):

@@ -35,6 +35,7 @@ from ..common_primitives import (
     floor_divide,
     greater,
     greater_equal,
+    indexer,
     item,
     length,
     less,
@@ -53,7 +54,6 @@ from ..common_primitives import (
     primitive_embedding,
     primitive_slice,
     reshape,
-    scalar_item,
     sequence_slice,
     shift_left,
     shift_right,
@@ -62,7 +62,6 @@ from ..common_primitives import (
     stride_converter,
     subtract,
     swapaxes,
-    tensor_item,
     to_list,
     to_tuple,
     tuple_converter,
@@ -184,8 +183,7 @@ __all__ = [
     "permute_tensor",
     "reshape",
     "item",
-    "scalar_item",
-    "tensor_item",
+    "indexer",
     "primitive_slice",
     "sequence_slice",
     "union",
@@ -861,6 +859,14 @@ def transpose(
         return input.permute(*reversed(range(input.ndim)))
     else:
         return input.permute(*axes)
+
+
+def minimum(left: torch.Tensor, right: torch.Tensor) -> torch.Tensor:
+    return torch.minimum(left, right)
+
+
+def maximum(left: torch.Tensor, right: torch.Tensor) -> torch.Tensor:
+    return torch.maximum(left, right)
 
 
 def where(

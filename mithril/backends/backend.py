@@ -21,6 +21,7 @@ from typing import Any, Generic, overload
 from .. import core
 from ..core import DataType
 from .parallel import Parallel
+from .utils import DtypeBits, StaticScalar
 
 __all__ = ["Backend"]
 
@@ -34,31 +35,31 @@ class Backend(ABC, Generic[DataType]):
 
     backend_type = ""
     device_type = None
-    supported_precisions = [16, 32, 64]
     is_installed = True
     _device: Any
-    _precision: int
+    _dtype: core.Dtype
+    supported_dtypes = [
+        core.Dtype.float16,
+        core.Dtype.bfloat16,
+        core.Dtype.float32,
+        core.Dtype.float64,
+    ]
     primitive_function_dict: dict[str, Callable[..., DataType | Any]]
     registered_primitives: dict[str, Callable[..., DataType]]
     array_creation_funcs: list[str]
     primitive_fn_path: str
 
-    def __init__(self, precision: int = 32, device: str = "cpu") -> None:
-        # Check if given precision is a valid one.
-        if self.precision not in self.supported_precisions:
-            raise Exception(
-                f"'{self.precision}' bits precision is not available!"
-                " Available precisions: '{self.supported_precisions}'"
+    def __init__(self, dtype: core.Dtype = core.float32, device: str = "cpu") -> None:
+        # Check if given dtype is a valid one.
+        if dtype not in self.supported_dtypes:
+            raise ValueError(
+                f"Invalid dtype {dtype}. Supported dtypes are {self.supported_dtypes}."
             )
         self.seed = 10  # Can be set any integer.
 
-        # Initialize epsilon constants according to given precision.
-        # for key, value in core.epsilon_table[f"float{self.precision}"].items():
-        #     setattr(self, key, value)
-
     @property
     def precision(self) -> int:
-        return self._precision
+        return DtypeBits[self._dtype.name].value
 
     #!!
     @property
@@ -112,20 +113,10 @@ class Backend(ABC, Generic[DataType]):
     # TODO: Fix types in cast function when python
     # adds Higher-Kinded TypeVar support.
     # https://github.com/python/typing/issues/548#issuecomment-1193345123
-    def cast(self, value: Any) -> Any:
-        # Simply casts given value to the backend's precision.
-        # If type of value is not int or float, returns the
-        # value as is.
-        if isinstance(value, bool):
-            return value
-        elif isinstance(value, int | float):
-            return self.array(value).item()
-        elif isinstance(value, tuple):
-            return tuple(self.cast(item) for item in value)
-        elif isinstance(value, list):
-            return [self.cast(item) for item in value]
+    def cast(self, value: DataType, dtype: core.Dtype | None = None) -> DataType:
+        # Simply casts given array to the backend's precision.
 
-        return value
+        return self.array(value, dtype=dtype)
 
     def __del__(self) -> None:
         self.empty_cache()
@@ -392,7 +383,7 @@ class Backend(ABC, Generic[DataType]):
         self,
         *shape: int | tuple[int, ...] | list[int],
         dtype: core.Dtype | None = None,
-        prng_key: Any = None,
+        key: int | None = None,
     ) -> DataType:
         """Returns a new backend array filled with random samples between [0, 1).
 
@@ -414,7 +405,7 @@ class Backend(ABC, Generic[DataType]):
         self,
         *shape: int | tuple[int, ...] | list[int],
         dtype: core.Dtype | None = None,
-        prng_key: Any = None,
+        key: int | None = None,
     ) -> DataType:
         """Returns a new backend array filled with random samples between [0, 1).
 
@@ -438,7 +429,7 @@ class Backend(ABC, Generic[DataType]):
         high: int | float | bool | DataType,
         *shape: int | tuple[int, ...] | list[int],
         dtype: core.Dtype | None = None,
-        prng_key: Any = None,
+        key: int | None = None,
     ) -> DataType:
         """Returns a new backend array filled with random samples between [0, 1).
 
@@ -462,7 +453,7 @@ class Backend(ABC, Generic[DataType]):
         high: int,
         *shape: int | tuple[int, ...] | list[int],
         dtype: core.Dtype | None = None,
-        prng_key: Any = None,
+        key: int | None = None,
     ) -> DataType:
         """
         Generate an array of random integers between low (inclusive) and
@@ -865,6 +856,29 @@ class Backend(ABC, Generic[DataType]):
     ) -> DataType:
         raise NotImplementedError("multinomial is not implemented!")
 
+    def clip(
+        self,
+        input: DataType,
+        min: DataType | StaticScalar,
+        max: DataType | StaticScalar,
+    ) -> DataType:
+        """
+        Clip the values in the input array.
+
+        Parameters:
+        array (DataType): The input array to clip.
+        min (DataType): The minimum value to clip the array values.
+        max (DataType): The maximum value to clip the array values.
+
+        Returns:
+        DataType: The clipped array.
+
+        Raises:
+        NotImplementedError: If the method is not implemented.
+        """
+
+        raise NotImplementedError("clip is not implemented")
+
     def jit[**P, T](self, fn: Callable[P, T]) -> Callable[P, T]:
         """
         Just-in-time compile the given function.
@@ -1076,11 +1090,11 @@ class Backend(ABC, Generic[DataType]):
 
 
 class ParallelBackend(Backend[DataType]):
-    def __init__(self, device_mesh: tuple[int, ...] | None) -> None:
+    def __init__(self, dtype: core.Dtype, device_mesh: tuple[int, ...] | None) -> None:
         assert (
             isinstance(device_mesh, tuple) or device_mesh is None
         ), "device_mesh must be a tuple or None."
-        super().__init__()
+        super().__init__(dtype=dtype)
 
         self._raw_device_mesh = device_mesh
         self.n_devices = math.prod(device_mesh) if device_mesh is not None else 1
@@ -1294,7 +1308,7 @@ class ParallelBackend(Backend[DataType]):
         *shape: int | tuple[int, ...] | list[int],
         dtype: core.Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
-        prng_key: Any = None,
+        key: int | None = None,
     ) -> DataType:
         """Returns a new backend array filled with random samples between [0, 1).
 
@@ -1317,7 +1331,7 @@ class ParallelBackend(Backend[DataType]):
         *shape: int | tuple[int, ...] | list[int],
         dtype: core.Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
-        prng_key: Any = None,
+        key: int | None = None,
     ) -> DataType:
         """Returns a new backend array filled with random samples between [0, 1).
 
@@ -1342,7 +1356,7 @@ class ParallelBackend(Backend[DataType]):
         *shape: int | tuple[int, ...] | list[int],
         dtype: core.Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
-        prng_key: Any = None,
+        key: int | None = None,
     ) -> DataType:
         """Returns a new backend array filled with random samples between [0, 1).
 
@@ -1367,7 +1381,7 @@ class ParallelBackend(Backend[DataType]):
         *shape: int | tuple[int, ...] | list[int],
         dtype: core.Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
-        prng_key: Any = None,
+        key: int | None = None,
     ) -> DataType:
         """Returns a new backend array filled with random samples between [0, 1).
 

@@ -22,7 +22,7 @@ import mlx.nn as nn
 
 from ....core import Dtype
 from ...backend import Backend, PadWidthType
-from ...utils import process_shape
+from ...utils import DtypeSubTypes, StaticScalar, process_shape
 from . import ops, utils
 
 __all__ = ["MlxBackend"]
@@ -30,23 +30,26 @@ __all__ = ["MlxBackend"]
 
 class MlxBackend(Backend[mx.array]):
     backend_type = "mlx"
-    supported_precisions = [16, 32]
+    supported_dtypes = [Dtype.float16, Dtype.bfloat16, Dtype.float32]
     registered_primitives: dict[str, Callable[..., mx.array]] = {}
     primitive_fn_path = "mithril.backends.with_autograd.mlx_backend.ops"
 
     def __init__(
-        self, device: str = "cpu", precision: int = 32, eager_free: bool = False
+        self,
+        device: str = "cpu",
+        dtype: Dtype = Dtype.float32,
+        eager_free: bool = False,
     ) -> None:
         if eager_free:
             os.environ["XLA_PYTHON_CLIENT_ALLOCATOR"] = "platform"
 
-        self._precision = precision
+        self._dtype = dtype
         self._device = device
-        super().__init__()
+        super().__init__(dtype=dtype)
 
         self.array_creation_funcs = ops.array_creation_funcs
         self.primitive_function_dict = ops.primitive_func_dict
-        mx.random.seed(self.seed)
+        self.prng_key = mx.random.key(self.seed)
 
     @property
     def is_manualgrad(self) -> bool:
@@ -86,7 +89,7 @@ class MlxBackend(Backend[mx.array]):
 
     def set_seed(self, seed: int) -> None:
         self.seed = seed
-        mx.random.seed(seed)
+        self.prng_key = mx.random.key(seed)
 
     def to_device(
         self, data: mx.array, device: str, asynchronous: bool = True
@@ -173,7 +176,7 @@ class MlxBackend(Backend[mx.array]):
         return [output]
 
     def array(self, input: Any, *, dtype: Dtype | None = None) -> mx.array:
-        _dtype = utils.determine_dtype(input, dtype, self.precision)
+        _dtype = utils.determine_dtype(input, dtype, self._dtype, self.precision)
         return mx.array(input, dtype=utils.dtype_map[_dtype])
 
     def zeros(
@@ -206,21 +209,23 @@ class MlxBackend(Backend[mx.array]):
         self,
         *shape: int | tuple[int, ...] | list[int],
         dtype: Dtype | None = None,
-        prng_key: Any = None,
+        key: int | None = None,
     ) -> mx.array:
+        prng_key = self._get_prng_key(key)
         _dtype = self._process_dtype(dtype)
         _shape = process_shape(shape)
-        return mx.random.normal(shape=_shape, dtype=_dtype)
+        return mx.random.normal(shape=_shape, dtype=_dtype, key=prng_key)
 
     def rand(
         self,
         *shape: int | tuple[int, ...] | list[int],
         dtype: Dtype | None = None,
-        prng_key: Any = None,
+        key: int | None = None,
     ) -> mx.array:
+        prng_key = self._get_prng_key(key)
         _dtype = self._process_dtype(dtype)
         _shape = process_shape(shape)
-        return mx.random.uniform(shape=_shape, dtype=_dtype)
+        return mx.random.uniform(shape=_shape, dtype=_dtype, key=prng_key)
 
     def randint(
         self,
@@ -228,11 +233,12 @@ class MlxBackend(Backend[mx.array]):
         high: int,
         *shape: int | tuple[int, ...] | list[int],
         dtype: Dtype | None = None,
-        prng_key: Any = None,
+        key: int | None = None,
     ) -> mx.array:
-        _dtype = self._process_dtype(dtype, int)
+        prng_key = self._get_prng_key(key)
+        _dtype = self._process_dtype(dtype, "int")
         _shape = process_shape(shape)
-        return mx.random.randint(low, high, shape=_shape, dtype=_dtype)
+        return mx.random.randint(low, high, shape=_shape, dtype=_dtype, key=prng_key)
 
     def rand_uniform(
         self,
@@ -240,11 +246,12 @@ class MlxBackend(Backend[mx.array]):
         high: int | float | bool | mx.array,
         *shape: int | tuple[int, ...] | list[int],
         dtype: Dtype | None = None,
-        prng_key: Any = None,
+        key: int | None = None,
     ) -> mx.array:
+        prng_key = self._get_prng_key(key)
         _dtype = self._process_dtype(dtype)
         _shape = process_shape(shape)
-        return mx.random.uniform(low, high, shape=_shape, dtype=_dtype)
+        return mx.random.uniform(low, high, shape=_shape, dtype=_dtype, key=prng_key)
 
     def _arange(
         self,
@@ -254,7 +261,7 @@ class MlxBackend(Backend[mx.array]):
         dtype: Dtype | None = None,
     ) -> mx.array:
         default_type = (
-            float if any(isinstance(x, float) for x in (start, stop, step)) else int
+            "float" if any(isinstance(x, float) for x in (start, stop, step)) else "int"
         )
         _dtype = self._process_dtype(dtype, default_type)
 
@@ -379,112 +386,55 @@ class MlxBackend(Backend[mx.array]):
         return -mx.sort(-mx.topk(input, k))
 
     def multinomial(
-        self, probs: mx.array, num_samples: int, replacement: bool = False
+        self,
+        probs: mx.array,
+        num_samples: int,
+        replacement: bool = False,
+        key: int | None = None,
     ) -> mx.array:
         """
-        MLX implementation matching torch.multinomial behavior.
+        Faster JAX implementation of multinomial sampling.
 
         Args:
-            probs: 1D or 2D array of probabilities.
-                If 2D, each row is a distribution
+            key: JAX PRNG key
+            input: 1D or 2D array of probabilities
             num_samples: number of samples to draw
             replacement: whether to sample with replacement
-            seed: random seed
-
-        Returns:
-            1D or 2D array of indices sampled according to probs
         """
-        probs = mx.array(probs)
-        if probs.ndim == 1:
-            probs = probs[None, :]  # Add batch dimension
-            squeeze_result = True
-        else:
-            squeeze_result = False
-
-        batch_size, num_categories = probs.shape
-
-        # Handle zero probabilities like PyTorch
-        zeros_mask = probs == 0
-        probs = mx.where(zeros_mask, 0, probs)
-
-        # Check if any row has all zeros
-        valid_probs = mx.any(probs > 0, axis=1)
-
-        # Normalize probabilities
-        probs = probs / mx.maximum(mx.sum(probs, axis=1, keepdims=True), 1e-10)
+        prng_key = self._get_prng_key(key)
+        input = mx.array(probs)
+        input = input / mx.sum(input, axis=-1, keepdims=True)
+        batch_size = input.shape[:-1]
+        logits = mx.log(mx.maximum(input, 1e-37))
 
         if replacement:
-            # Generate uniform random numbers
-            u = mx.random.uniform(shape=(batch_size, num_samples, 1))
-
-            # Expand probs for comparison with random numbers
-            expanded_probs = mx.expand_dims(probs, 1)  # [batch, 1, num_categories]
-            cumsum = mx.cumsum(expanded_probs, axis=-1)  # [batch, 1, num_categories]
-
-            # Compare random numbers with cumulative probabilities
-            expanded_u = mx.broadcast_to(u, (batch_size, num_samples, num_categories))
-            expanded_cumsum = mx.broadcast_to(
-                cumsum, (batch_size, num_samples, num_categories)
-            )
-
-            # Count how many cumsum values are less than each random number
-            samples = mx.sum(expanded_u > expanded_cumsum, axis=-1)
-
-            # Handle invalid probability rows
-            samples = mx.where(
-                mx.expand_dims(valid_probs, -1), samples, mx.zeros_like(samples)
+            # Use categorical directly - much faster than choice
+            samples = mx.random.categorical(
+                logits,  # avoid log(0)
+                shape=batch_size + (num_samples,),
+                key=prng_key,
             )
         else:
-            if num_samples > num_categories:
-                raise ValueError(
-                    f"Cannot sample {num_samples} samples without replacement "
-                    f"from {num_categories} categories"
-                )
+            # TODO: This algorithm is not efficient for small num_samples
+            # consider more efficient algorithm
 
-            samples = mx.zeros((batch_size, num_samples), dtype=mx.int32)
-
-            for b in range(batch_size):
-                if not valid_probs[b]:
-                    continue
-
-                # Generate ordered random values for this batch
-                ordered_u = mx.sort(mx.random.uniform(shape=(num_categories,)))
-
-                # Convert probabilities to cumulative sum
-                p = probs[b]
-                cumsum = mx.cumsum(p)
-
-                # Track used indices to avoid replacement
-                used_mask = mx.zeros((num_categories,), dtype=mx.bool_)  # type: ignore
-                batch_samples = mx.zeros((num_samples,), dtype=mx.int32)
-
-                for i in range(num_samples):
-                    u = ordered_u[i]
-
-                    # Find index considering already used indices
-                    valid_cumsum = mx.where(used_mask, 2.0, cumsum)
-                    idx = mx.sum(u > valid_cumsum)
-
-                    # Update used mask and store result
-                    used_mask = mx.where(
-                        mx.arange(num_categories) == idx, True, used_mask
-                    )
-                    batch_samples = mx.where(
-                        mx.arange(num_samples) == i, idx, batch_samples
-                    )
-
-                # Update the samples array for this batch
-
-                samples = mx.where(
-                    mx.expand_dims(mx.arange(batch_size) == b, -1),  # type: ignore
-                    mx.expand_dims(batch_samples, 0),
-                    samples,
-                )
-
-        if squeeze_result:
-            samples = mx.squeeze(samples, axis=0)
+            # For without replacement, use Gumbel-max trick
+            # This is much faster than using choice
+            z = mx.random.gumbel(shape=input.shape + (num_samples,), key=prng_key)  # type: ignore
+            # Add log probabilities for Gumbel-max trick,
+            z = z + logits[..., None]
+            # Get top k indices
+            samples = mx.argsort(-z, axis=input.ndim - 1)[..., :num_samples, 0]
 
         return samples
+
+    def clip(
+        self,
+        input: mx.array,
+        min: mx.array | StaticScalar,
+        max: mx.array | StaticScalar,
+    ) -> mx.array:
+        return mx.clip(input, min, max)
 
     def jit[**P, T](self, fn: Callable[P, T]) -> Callable[P, T]:
         return fn
@@ -654,11 +604,23 @@ class MlxBackend(Backend[mx.array]):
     def _process_dtype(
         self,
         dtype: Dtype | None = None,
-        default_type: type[float] | type[int] | type[bool] = float,
+        default_type: str | None = None,
     ) -> mx.Dtype:
         if isinstance(dtype, Dtype):
             return utils.dtype_map[dtype.name]
         elif dtype is None:
-            return utils.dtype_map[default_type.__name__ + str(self.precision)]
+            if default_type is None:
+                default_type = self._get_default_subtype()
+            return utils.dtype_map[default_type + str(self.precision)]
         else:
             raise ValueError(f"Invalid dtype {dtype}")
+
+    def _get_prng_key(self, key: int | None) -> mx.array:
+        if key is None:
+            _key = self.prng_key
+            self.prng_key, _ = mx.random.split(_key)
+            return _key
+        return mx.random.key(key)
+
+    def _get_default_subtype(self) -> str:
+        return DtypeSubTypes[self._dtype.name].value

@@ -26,7 +26,7 @@ from torch._functorch.eager_transforms import vjp as torch_vjp
 
 from ....core import Dtype
 from ...backend import PadWidthType, ParallelBackend
-from ...utils import process_shape
+from ...utils import DtypeSubTypes, StaticScalar, process_shape
 from . import ops, utils
 from .parallel import TorchParallel
 
@@ -53,23 +53,23 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
     def __init__(
         self,
         device: str = "cpu",
-        precision: int = 32,
+        dtype: Dtype = Dtype.float32,
         device_mesh: tuple[int, ...] | None = None,
     ) -> None:
         self._device = device
-        self._precision = precision
+        self._dtype = dtype
         self._parallel_manager: TorchParallel | None = None
 
         utils.get_device(device)  # Check if device is valid
 
-        super().__init__(device_mesh=device_mesh)
+        super().__init__(dtype=dtype, device_mesh=device_mesh)
         if device_mesh is not None:
             self._create_parallel(device_mesh)
 
         self.array_creation_funcs = ops.array_creation_funcs
         self.primitive_function_dict = ops.primitive_func_dict
 
-        torch.random.manual_seed(self.seed)
+        self._generator = torch.Generator(device=self.device).manual_seed(0)
 
     @property
     def is_manualgrad(self) -> bool:
@@ -115,7 +115,7 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
 
     def set_seed(self, seed: int) -> None:
         self.seed = seed
-        torch.random.manual_seed(seed)
+        self._generator.manual_seed(seed)
 
     def to_device(
         self, data: torch.Tensor, device: str, asynchronous: bool = False
@@ -206,7 +206,7 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
         dtype: Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
     ) -> torch.Tensor:
-        _dtype = utils.determine_dtype(input, dtype, self.precision)
+        _dtype = utils.determine_dtype(input, dtype, self._dtype, self.precision)
 
         array = torch.tensor(input, dtype=utils.dtype_map[_dtype], device=self._device)
         if self._parallel_manager is not None:
@@ -286,13 +286,17 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
         *shape: int | tuple[int, ...] | list[int],
         dtype: Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
-        prng_key: Any = None,
+        key: int | None = None,
     ) -> torch.Tensor:
+        generator = self._get_generator(key)
+
         _dtype = self._process_dtype(dtype)
         _shape = process_shape(shape)
 
         # TODO: PRNG key is not used
-        array = torch.randn(_shape, dtype=_dtype, device=self._device)
+        array = torch.randn(
+            _shape, dtype=_dtype, device=self._device, generator=generator
+        )
         if self._parallel_manager is not None:
             array = self._parallel_manager.parallelize(
                 array, self.base_device_mesh, device_mesh
@@ -304,12 +308,15 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
         *shape: int | tuple[int, ...] | list[int],
         dtype: Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
-        prng_key: Any = None,
+        key: int | None = None,
     ) -> torch.Tensor:
+        generator = self._get_generator(key)
         _dtype = self._process_dtype(dtype)
         _shape = process_shape(shape)
 
-        array = torch.rand(_shape, dtype=_dtype, device=self._device)
+        array = torch.rand(
+            _shape, dtype=_dtype, device=self._device, generator=generator
+        )
         if self._parallel_manager is not None:
             array = self._parallel_manager.parallelize(
                 array, self.base_device_mesh, device_mesh
@@ -323,12 +330,15 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
         *shape: int | tuple[int, ...] | list[int],
         dtype: Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
-        prng_key: Any = None,
+        key: int | None = None,
     ) -> torch.Tensor:
-        _dtype = self._process_dtype(dtype, int)
+        generator = self._get_generator(key)
+        _dtype = self._process_dtype(dtype, "int")
         _shape = process_shape(shape)
 
-        array = torch.randint(low, high, _shape, dtype=_dtype, device=self._device)
+        array = torch.randint(
+            low, high, _shape, dtype=_dtype, device=self._device, generator=generator
+        )
         if self._parallel_manager is not None:
             array = self._parallel_manager.parallelize(
                 array, self.base_device_mesh, device_mesh
@@ -342,10 +352,10 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
         *shape: int | tuple[int, ...] | list[int],
         dtype: Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
-        prng_key: Any = None,
+        key: int | None = None,
     ) -> torch.Tensor:
         return (low - high) * self.rand(
-            *shape, dtype=dtype, device_mesh=device_mesh
+            *shape, dtype=dtype, device_mesh=device_mesh, key=key
         ) + high
 
     def _arange(
@@ -357,7 +367,9 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
         device_mesh: tuple[int, ...] | None = None,
     ) -> torch.Tensor:
         default_type = (
-            float if any(isinstance(x, float) for x in (start, stop, step)) else int
+            self._get_default_subtype()
+            if any(isinstance(x, float) for x in (start, stop, step))
+            else "int"
         )
         _dtype = self._process_dtype(dtype, default_type)
 
@@ -524,9 +536,23 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
         return torch.topk(input, k)[0]  # TODO: Returns different tuple type???
 
     def multinomial(
-        self, probs: torch.Tensor, num_samples: int, replacement: bool = False
+        self,
+        probs: torch.Tensor,
+        num_samples: int,
+        replacement: bool = False,
+        key: int | None = None,
     ) -> torch.Tensor:
-        return torch.multinomial(probs, num_samples, replacement)
+        return torch.multinomial(
+            probs, num_samples, replacement, generator=self._get_generator(key)
+        )
+
+    def clip(
+        self,
+        input: torch.Tensor,
+        min: torch.Tensor | StaticScalar,
+        max: torch.Tensor | StaticScalar,
+    ) -> torch.Tensor:
+        return torch.clamp(input, min, max)  # type: ignore [arg-type]
 
     def jit(self, *args: Any, **kwargs: Any) -> Callable[..., Any]:
         backend = "inductor"
@@ -655,14 +681,25 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
     def jacfwd(self, fn: Callable[..., torch.Tensor]) -> Callable[..., torch.Tensor]:
         return torch_jacfwd(fn)
 
+    def _get_generator(self, key: int | None) -> torch.Generator:
+        if key is None:
+            return self._generator
+        else:
+            return torch.Generator(device=self.device).manual_seed(key)
+
     def _process_dtype(
         self,
         dtype: Dtype | None = None,
-        default_type: type[float] | type[int] | type[bool] = float,
+        default_type: str | None = None,
     ) -> torch.dtype:
         if isinstance(dtype, Dtype):
             return utils.dtype_map[dtype.name]
         elif dtype is None:
-            return utils.dtype_map[default_type.__name__ + str(self.precision)]
+            if default_type is None:
+                default_type = self._get_default_subtype()
+            return utils.dtype_map[default_type + str(self.precision)]
         else:
             raise ValueError(f"Invalid dtype {dtype}")
+
+    def _get_default_subtype(self) -> str:
+        return DtypeSubTypes[self._dtype.name].value

@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import ast
+import enum
 import keyword
 from collections.abc import Callable
 from functools import partial
@@ -21,7 +22,6 @@ from typing import Any, Literal, overload
 import numpy as np
 
 from ...backends.with_manualgrad.numpy_backend import NumpyBackend
-from ...core import Dtype
 from ...framework.physical.model import PhysicalModel
 from ...framework.utils import find_intersection_type
 from ...utils.func_utils import is_make_array_required, prepare_function_args
@@ -31,9 +31,9 @@ from ..common import (
     EvaluateGradientsType,
     EvaluateType,
     FinalCost,
+    IOHyperEdge,
     LossKey,
     ParamsEvalType,
-    Scalar,
     Tensor,
     is_type_adjustment_required,
 )
@@ -175,11 +175,12 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
                         out_data = params[_key]
                     else:
                         out_data = _key_cache["output"]
-                # dtype = getattr(self.backend, f"float{self.backend.precision}")
+
                 assert isinstance(out_data, np.ndarray)
-                # dtype = getattr(Dtype, f"float{self.backend.precision}")
-                dtype = Dtype[f"float{self.backend.precision}"]
-                gradients[key] = self.backend.zeros_like(out_data, dtype=dtype)
+
+                gradients[key] = self.backend.zeros_like(
+                    out_data, dtype=self.backend._dtype
+                )
 
             if output_gradients is None:
                 if FinalCost not in self.pm._output_keys:
@@ -221,6 +222,14 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
         local_input_keys = list(model.input_keys) + ["cache"]
 
         return model, global_input_keys, local_input_keys
+
+    def is_static_scalar(self, key: str) -> bool:
+        return (
+            key in self.pm.data_store.cached_data
+            and self.pm.data[key].edge_type != Tensor
+            and not key.endswith("_cache")  # temporarily added until cache removed
+            and not isinstance(self.pm.data_store.cached_data[key], enum.Enum)
+        )
 
     def call_primitive(
         self,
@@ -287,9 +296,11 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
 
     def add_cache(self, model: PrimitiveModel, output_key: str) -> None:
         cache_name = "_".join([output_key, model.cache_name])
-        cache_value: dict | None = None if self.pm.inference else {}  # type: ignore
-        # Create A object for caches in manualgrad backend.
-        self.pm.data_store.update_data({cache_name: Scalar(dict | None, cache_value)})
+        cache_value: dict[str, Any] | None = None if self.pm.inference else {}
+        # Create a scalar for caches in manualgrad backend.
+        self.pm.data_store.update_data(
+            {cache_name: IOHyperEdge(dict | None, cache_value)}
+        )
 
     def generate_evaluate_gradients(
         self, ignore_grad_keys: set[str]
@@ -310,9 +321,17 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
             key
             for key in all_ignored_keys
             if key in self.pm.data
-            and isinstance(self.pm.data[key], Tensor)
-            and find_intersection_type(self.pm.data[key].type, float)
+            and self.pm.data[key].edge_type is Tensor
+            and find_intersection_type(self.pm.data[key].value_type, float)
         }
+
+        # weak_ignored_keys = set()
+        # for key in all_ignored_keys:
+        #     if key in self.pm.data:
+        #         edge = self.pm.data[key]
+        #         if isinstance(edge._value, Tensor):
+        #             if find_intersection_type(edge._value.type, float):
+        #                     weak_ignored_keys |= {key}
 
         strict_ignored_keys = all_ignored_keys - weak_ignored_keys
 
@@ -492,9 +511,9 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
                     manipulated_key = global_input_key
 
                 if (
-                    isinstance(in_tensor := self.pm.data[global_input_key], Tensor)
-                    and isinstance(out_tensor := self.pm.data[output_key], Tensor)
-                    and check_repr_inequality(in_tensor.shape, out_tensor.shape)
+                    (in_shape := self.pm.data[global_input_key].shape) is not None
+                    and (out_shape := self.pm.data[output_key].shape) is not None
+                    and check_repr_inequality(in_shape, out_shape)
                 ):
                     generated_fn = ast.Call(
                         func=ast.Name(id="accumulate_grads", ctx=ast.Load()),
@@ -530,7 +549,9 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
                 dict_type = "data"
             else:
                 dict_type = "params"
-            self.append_inputs(input_body, key, dict_type)
+            """If cached value is not a tensor, do not append it to code"""
+            if not self.is_static_scalar(key):
+                self.append_inputs(input_body, key, dict_type)
 
         ast_args = [
             ast.arg("params"),

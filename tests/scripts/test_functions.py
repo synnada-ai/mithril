@@ -20,7 +20,7 @@ import mithril
 from mithril import CBackend, JaxBackend, NumpyBackend, TorchBackend
 from mithril.backends.with_manualgrad.numpy_backend.ops_grad import add_grad
 from mithril.framework import NOT_GIVEN, ConnectionType, ExtendInfo
-from mithril.framework.common import BaseKey, GenericTensorType, IOKey
+from mithril.framework.common import BaseKey, IOKey, Tensor
 from mithril.framework.constraints import bcast
 from mithril.models import (
     Absolute,
@@ -199,7 +199,9 @@ def test_flatten_dag_1():
     model4 += model2(in1=model1.output, in2=model1.output)  # type: ignore
     model4 += model3(in1=model2.output, in2=model2.output, output=IOKey(name="output"))  # type: ignore
 
-    comp_model = mithril.compile(model=model4, backend=JaxBackend(precision=64))
+    comp_model = mithril.compile(
+        model=model4, backend=JaxBackend(dtype=mithril.float64)
+    )
 
     flatted_primitive_model_list = [
         key.__class__ for key in comp_model.flat_graph.get_models()
@@ -259,7 +261,9 @@ def test_flatten_dag_2():
         out2=IOKey(name="out2"),
     )
 
-    comp_model = mithril.compile(model=model4, backend=JaxBackend(precision=64))
+    comp_model = mithril.compile(
+        model=model4, backend=JaxBackend(dtype=mithril.float64)
+    )
 
     flatted_primitive_model_list = [
         key.__class__ for key in comp_model.flat_graph.get_models()
@@ -302,7 +306,9 @@ def test_flatten_dag_3():
         sine,
     ]
 
-    comp_model = mithril.compile(model=model1, backend=JaxBackend(precision=64))
+    comp_model = mithril.compile(
+        model=model1, backend=JaxBackend(dtype=mithril.float64)
+    )
 
     flatted_primitive_model_list = [
         key.__class__ for key in comp_model.flat_graph.get_models()
@@ -321,7 +327,10 @@ def test_code_generator_1(file_path: str):
     model += Lin1(input="add1", output=IOKey(name="output"))
 
     mithril.compile(
-        model=model, backend=JaxBackend(precision=64), jit=False, file_path=file_path
+        model=model,
+        backend=JaxBackend(dtype=mithril.float64),
+        jit=False,
+        file_path=file_path,
     )
 
     file_name = os.path.basename(file_path).split(".")[0]
@@ -330,10 +339,9 @@ def test_code_generator_1(file_path: str):
     @typing.no_type_check
     def evaluate(params, data, cache):
         add1 = data["add1"]
-        axes = cache["axes"]
         bias = params["bias"]
         weight = params["weight"]
-        output_0 = transpose(weight, axes)
+        output_0 = transpose(weight, None)
         output_1 = matrix_multiplication(add1, output_0)
         del output_0
         output = add(output_1, bias)
@@ -351,13 +359,16 @@ def test_code_generator_2(file_path: str):
     buff3 = Buffer()
     buff4 = Buffer()
 
-    model += buff1(input="input", output=IOKey(name="output1"))
+    model += buff1(input=IOKey("input", type=Tensor), output=IOKey(name="output1"))
     model += buff2(input=buff1.output)
     model += buff3(input=buff1.output)
     model += buff4(input=buff2.output, output=IOKey(name="output2"))
 
     mithril.compile(
-        model=model, backend=JaxBackend(precision=64), jit=False, file_path=file_path
+        model=model,
+        backend=JaxBackend(dtype=mithril.float64),
+        jit=False,
+        file_path=file_path,
     )
 
     file_name = os.path.basename(file_path).split(".")[0]
@@ -380,7 +391,10 @@ def test_code_generator_3(file_path: str):
     model += Linear2(input=Linear1.output, output=IOKey(name="output"))
 
     mithril.compile(
-        model=model, backend=JaxBackend(precision=64), jit=False, file_path=file_path
+        model=model,
+        backend=JaxBackend(dtype=mithril.float64),
+        jit=False,
+        file_path=file_path,
     )
 
     file_name = os.path.basename(file_path).split(".")[0]
@@ -388,19 +402,17 @@ def test_code_generator_3(file_path: str):
 
     @typing.no_type_check
     def evaluate(params, data, cache):
-        axes_0 = cache["axes_0"]
-        axes_1 = cache["axes_1"]
         bias_0 = params["bias_0"]
         bias_1 = params["bias_1"]
         input = data["input"]
         weight_0 = params["weight_0"]
         weight_1 = params["weight_1"]
-        output_0 = transpose(weight_0, axes_0)
+        output_0 = transpose(weight_0, None)
         output_1 = matrix_multiplication(input, output_0)
         del output_0
         output_2 = add(output_1, bias_0)
         del output_1
-        output_3 = transpose(weight_1, axes_1)
+        output_3 = transpose(weight_1, None)
         output_4 = matrix_multiplication(output_2, output_3)
         del output_2
         del output_3
@@ -424,9 +436,9 @@ def test_code_generator_4(file_path: str):
         def __init__(self) -> None:
             super().__init__(
                 formula_key="my_adder",
-                output=BaseKey(shape=[("Var_out", ...)], type=GenericTensorType),
-                input=BaseKey(shape=[("Var_1", ...)], type=GenericTensorType),
-                rhs=BaseKey(shape=[("Var_2", ...)], type=GenericTensorType),
+                output=BaseKey(shape=[("Var_out", ...)], type=Tensor),
+                input=BaseKey(shape=[("Var_1", ...)], type=Tensor),
+                rhs=BaseKey(shape=[("Var_2", ...)], type=Tensor),
             )
             self.set_constraint(
                 fn=bcast, keys=[PrimitiveModel.output_key, "input", "rhs"]
@@ -448,7 +460,7 @@ def test_code_generator_4(file_path: str):
     )
     mithril.compile(
         model=context,
-        backend=NumpyBackend(precision=64),
+        backend=NumpyBackend(dtype=mithril.float64),
         jit=False,
         file_path=file_path,
         data_keys={"target"},
@@ -459,7 +471,6 @@ def test_code_generator_4(file_path: str):
 
     @typing.no_type_check
     def evaluate(params, data, cache):
-        cutoff = cache["cutoff"]
         input = params["input"]
         output_0_cache = cache["output_0_cache"]
         output_1_cache = cache["output_1_cache"]
@@ -469,7 +480,7 @@ def test_code_generator_4(file_path: str):
         output = output_cache["output"] = make_array(my_adder(input, rhs, output_cache))
         output_0 = output_0_cache["output"] = make_array(
             binary_cross_entropy_with_logits(
-                output, target, cutoff, cache=output_0_cache
+                output, target, 2.2250738585072014e-308, cache=output_0_cache
             )
         )
         output_1 = output_1_cache["output"] = make_array(
@@ -480,7 +491,6 @@ def test_code_generator_4(file_path: str):
 
     @typing.no_type_check
     def evaluate_gradients(params, gradients, data, cache):
-        cutoff = cache["cutoff"]
         input = params["input"]
         output = cache["output_cache"]["output"]
         output_0 = cache["output_0_cache"]["output"]
@@ -500,7 +510,12 @@ def test_code_generator_4(file_path: str):
         )
         gradients["output"] += make_array(
             binary_cross_entropy_with_logits_grad(
-                gradients["output_0"], output_0_cache, 0, output, target, cutoff
+                gradients["output_0"],
+                output_0_cache,
+                0,
+                output,
+                target,
+                2.2250738585072014e-308,
             )
         )
         gradients["input"] += accumulate_grads(
@@ -534,9 +549,9 @@ def test_code_generator_5(file_path: str):
         def __init__(self) -> None:
             super().__init__(
                 formula_key="my_adder",
-                output=BaseKey(shape=[("Var_out", ...)], type=GenericTensorType),
-                input=BaseKey(shape=[("Var_1", ...)], type=GenericTensorType),
-                rhs=BaseKey(shape=[("Var_2", ...)], type=GenericTensorType),
+                output=BaseKey(shape=[("Var_out", ...)], type=Tensor),
+                input=BaseKey(shape=[("Var_1", ...)], type=Tensor),
+                rhs=BaseKey(shape=[("Var_2", ...)], type=Tensor),
             )
             self.set_constraint(
                 fn=bcast, keys=[PrimitiveModel.output_key, "input", "rhs"]
@@ -553,12 +568,14 @@ def test_code_generator_5(file_path: str):
 
     model += MyAdder()(input="input", rhs="rhs", output=IOKey(name="output"))
     context = TrainModel(model)
+    add = Add()
+    add.set_types(right=Tensor)
     context.add_loss(
-        BinaryCrossEntropy(), reduce_steps=[Add()], input="output", target="target"
+        BinaryCrossEntropy(), reduce_steps=[add], input="output", target="target"
     )
     mithril.compile(
         model=context,
-        backend=JaxBackend(precision=64),
+        backend=JaxBackend(dtype=mithril.float64),
         jit=False,
         file_path=file_path,
         data_keys={"target"},
@@ -569,13 +586,14 @@ def test_code_generator_5(file_path: str):
 
     @typing.no_type_check
     def evaluate(params, data, cache):
-        cutoff = cache["cutoff"]
         input = params["input"]
         rhs = params["rhs"]
         right = params["right"]
         target = data["target"]
         output = my_adder(input, rhs)
-        output_0 = binary_cross_entropy_with_logits(output, target, cutoff)
+        output_0 = binary_cross_entropy_with_logits(
+            output, target, 2.2250738585072014e-308
+        )
         output_1 = add(output_0, right)
         del output_0
         return {"final_cost": output_1, "output": output}
@@ -588,7 +606,7 @@ def test_code_generator_5(file_path: str):
 def test_code_generator_6(file_path: str):
     # Case array creator primitive used in static
 
-    backend = TorchBackend(precision=32, device="cpu")
+    backend = TorchBackend(device="cpu")
 
     model = Model()
     layer2 = Layer(dimension=2, activation=Softmax())
@@ -617,14 +635,12 @@ def test_code_generator_6(file_path: str):
     @typing.no_type_check
     def evaluate(params, data, cache):
         arange_res = cache["arange_res"]
-        axes = cache["axes"]
         b1 = params["b1"]
         cutoff = cache["cutoff"]
         input = data["input"]
         target = cache["target"]
         w1 = params["w1"]
-        weights = cache["weights"]
-        output_0 = transpose(w1, axes)
+        output_0 = transpose(w1, None)
         output_1 = matrix_multiplication(input, output_0)
         del output_0
         output_2 = add(output_1, b1)
@@ -633,7 +649,7 @@ def test_code_generator_6(file_path: str):
         del output_2
         output = add(arange_res, output_3)
         del output_3
-        output_4 = cross_entropy(output, target, weights, cutoff)
+        output_4 = cross_entropy(output, target, False, cutoff)
         output_5 = reduce_mean(output_4)
         del output_4
         return {"arange_res": arange_res, "final_cost": output_5, "output": output}
@@ -646,7 +662,7 @@ def test_code_generator_6(file_path: str):
 def test_code_generator_7(file_path: str):
     # Case array creator partially initialized
 
-    backend = TorchBackend(precision=32, device="cpu")
+    backend = TorchBackend(device="cpu")
 
     model = Model()
     layer2 = Layer(dimension=2, activation=Softmax())
@@ -676,14 +692,12 @@ def test_code_generator_7(file_path: str):
     @typing.no_type_check
     def evaluate(params, data, cache):
         arange_res = cache["arange_res"]
-        axes = cache["axes"]
         b1 = params["b1"]
         cutoff = cache["cutoff"]
         input = data["input"]
         target = cache["target"]
         w1 = params["w1"]
-        weights = cache["weights"]
-        output_0 = transpose(w1, axes)
+        output_0 = transpose(w1, None)
         output_1 = matrix_multiplication(input, output_0)
         del output_0
         output_2 = add(output_1, b1)
@@ -692,7 +706,7 @@ def test_code_generator_7(file_path: str):
         del output_2
         output = add(arange_res, output_3)
         del output_3
-        output_5 = cross_entropy(output, target, weights, cutoff)
+        output_5 = cross_entropy(output, target, False, cutoff)
         output_6 = reduce_mean(output_5)
         del output_5
         return {"arange_res": arange_res, "final_cost": output_6, "output": output}
@@ -707,7 +721,9 @@ def test_code_generator_8(file_path: str):
     backend = CBackend()
 
     model = Model()
-    model += (add := Add())(left="left", right="right")
+    add = Add()
+    add.set_types(left=Tensor, right=Tensor)
+    model += add(left="left", right="right")
     model += Multiply()(left=add.output, right="right2", output="output")
 
     mithril.compile(model, backend=backend, jit=False, file_path=file_path)

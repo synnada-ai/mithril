@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Sequence
 from functools import reduce
 from itertools import product
 from types import FunctionType, GenericAlias, UnionType
@@ -20,21 +20,6 @@ from typing import TYPE_CHECKING, Any, TypeVar
 
 if TYPE_CHECKING:
     from .logical.base import BaseModel
-
-
-class NestedListType:
-    """
-    Represents a nested list type.
-
-    Attributes:
-        base_type (type): The base type of the nested list.
-    """
-
-    __slots__ = "base_type"
-    base_type: type | UnionType
-
-    def __init__(self, base_type: type | UnionType):
-        self.base_type = base_type
 
 
 T = TypeVar("T", bound="BaseModel")
@@ -61,25 +46,6 @@ def define_unique_names(models: Iterable[T]) -> dict[T, str]:
     for m in single_model_dict.values():
         model_name_dict[m] = str(m.__class__.__name__)
     return model_name_dict
-
-
-def list_shape(ndarray: list[float | int] | float | int) -> list[int]:
-    if isinstance(ndarray, list | tuple):
-        # More dimensions, so make a recursive call
-        outermost_size = len(ndarray)
-        row_shape = list_shape(ndarray[0])
-        for item in ndarray[1:]:
-            shape = list_shape(item)
-            if row_shape != shape:
-                raise ValueError(
-                    f"Shape mismatch: expected {row_shape}, but got {shape}. The list "
-                    "should not be ragged."
-                )
-
-        return [outermost_size, *row_shape]
-    else:
-        # No more dimensions, so we're done
-        return []
 
 
 def align_shapes(all_dicts: list[dict[Any, Any]]) -> None:
@@ -227,13 +193,10 @@ def find_list_base_type(
     | type[int]
     | type[bool]
     | UnionType
-    | NestedListType
     | GenericAlias,
 ) -> set[type | UnionType]:
     result: set[type | UnionType] = set()
-    if isinstance(type_def, NestedListType):
-        result.add(type_def.base_type)
-    elif isinstance(type_def, GenericAlias):
+    if isinstance(type_def, GenericAlias):
         origin: type[list[Any]] | type[tuple[Any, ...]] = type_def.__origin__
         if origin is list:
             # Means there exists recursive list type.
@@ -242,13 +205,14 @@ def find_list_base_type(
     elif isinstance(type_def, UnionType):
         for arg in type_def.__args__:
             result.update(find_list_base_type(arg))
-    elif type_def not in (int, float, bool, list):
+    elif type_def in (int, float, bool):
+        result.add(type_def)
+    else:
         raise Exception(
             f"{type_def} type is not supported in recursive list. Only int, float or "
             "bool types are supported."
         )
-    elif type_def in (int, float, bool):
-        result.add(type_def)
+
     return result
 
 
@@ -267,56 +231,21 @@ def find_list_depth(arg_type: type | UnionType | GenericAlias) -> int:
 
 
 def find_intersection_type(
-    type_1: type | UnionType | GenericAlias | NestedListType,
-    type_2: type | UnionType | GenericAlias | NestedListType,
-) -> type | UnionType | None | NestedListType:
-    # If NestedListTtype type exists in any arguments
-    # first unroll NestedListTtype type into a certain
-    # depth same as the other type if other is non-NestedListType.
-    # Else if both are NestedListType, constraint their base type
-    # into their intersection.
-    nested_types: list[NestedListType] = []
-    if isinstance(type_1, NestedListType):
-        nested_types.append(type_1)
-    if isinstance(type_2, NestedListType):
-        nested_types.append(type_2)
-
-    if len(nested_types) == 1:
-        regular_type, nested_type = (
-            (type_2, type_1) if isinstance(type_1, NestedListType) else (type_1, type_2)
-        )
-        assert not isinstance(regular_type, NestedListType)
-        assert isinstance(nested_type, NestedListType)
-        # If regular type is list, we can not know its depth, so simply
-        # return nested type.
-        if (
-            isinstance(regular_type, UnionType) and list in regular_type.__args__
-        ) or regular_type is list:
-            return nested_type
-
-        # Find depth of the list type and unroll nested type to that depth.
-        depth = find_list_depth(regular_type)
-        base: type | UnionType = nested_type.base_type
-        final = base
-        for _ in range(depth):
-            base = list[base]  # type: ignore[valid-type] # mypy does not accept list[arg]
-            final |= base
-        # Assign new type representation to the corresponding argument.
-        if type(type_1) is NestedListType:
-            type_1 = final
-        else:
-            type_2 = final
-    elif len(nested_types) == 2:
-        # Means both types are NestedListType.
-        # Constrain larger union type to the smaller one.
-        base_type_1 = nested_types[0].base_type
-        base_type_2 = nested_types[1].base_type
-        return NestedListType(find_intersection_type(base_type_1, base_type_2))  # type: ignore
-
+    type_1: type | UnionType | GenericAlias,
+    type_2: type | UnionType | GenericAlias,
+) -> type | UnionType | None:
     # First find direct intersections.
     subtypes_1 = set(type_1.__args__) if type(type_1) is UnionType else {type_1}
     subtypes_2 = set(type_2.__args__) if type(type_2) is UnionType else {type_2}
     intersect = subtypes_1 & subtypes_2
+
+    # Any (typing.Any) type can be coerced to all types, handle it.
+    if Any in subtypes_1:
+        intersect.update(subtypes_2)
+        subtypes_1.remove(Any)
+    if Any in subtypes_2:
+        intersect.update(subtypes_1)
+        subtypes_2.remove(Any)
 
     # if one of the subtypes have list or tuple without an origin (without square
     # brackets, ex: tuple), look for other set if it contains corresponding type
@@ -328,8 +257,14 @@ def find_intersection_type(
         for orig_type in (list, tuple):
             if orig_type in s_types:
                 for typ in other_set:
-                    if isinstance(typ, GenericAlias) and typ.__origin__ == orig_type:
-                        intersect.add(typ)
+                    # if isinstance(typ, GenericAlias) and typ.__origin__ == orig_type:
+                    if isinstance(typ, GenericAlias):
+                        if typ.__origin__ == orig_type:
+                            intersect.add(typ)
+                        elif typ.__origin__ == Sequence:
+                            intersect.add(
+                                orig_type[reduce(lambda x, y: x | y, typ.__args__)]
+                            )
 
     # Take tuple types from remaining sets and find intesection types
     # of all consistent pairs of cartesian product.
@@ -338,7 +273,12 @@ def find_intersection_type(
             continue
 
         args_1 = typ_1.__args__
-        assert typ_1.__origin__ is tuple or typ_1.__origin__ is list
+        assert (
+            typ_1.__origin__ is tuple
+            or typ_1.__origin__ is list
+            or typ_1.__origin__ is Sequence
+            or typ_1.__origin__ is dict
+        )
         for typ_2 in subtypes_2.difference(intersect):
             if not isinstance(typ_2, GenericAlias):
                 continue
@@ -348,6 +288,7 @@ def find_intersection_type(
                 typ_2.__origin__ is tuple
                 or typ_2.__origin__ is list
                 or typ_2.__origin__ is dict
+                or typ_2.__origin__ is Sequence
             )
             if typ_1.__origin__ == typ_2.__origin__:
                 if len(args_1) == 0 or len(args_2) == 0:
@@ -396,6 +337,40 @@ def find_intersection_type(
                         common = find_intersection_type(args_1[0], args_2[0])
                     if common:
                         intersect.add(list[common])
+                # TODO: Below code is duplicate of above code, refactor it.
+                elif typ_1.__origin__ is Sequence:
+                    if len(args_2) > 1 or len(args_1) > 1:
+                        raise TypeError(
+                            "args of type Sequence cannot take more than 1 element"
+                        )
+                    else:
+                        common = find_intersection_type(args_1[0], args_2[0])
+                    if common:
+                        intersect.add(Sequence[common])
+
+            elif Sequence in (typ_1.__origin__, typ_2.__origin__):
+                if typ_1.__origin__ == Sequence:
+                    coerced_type = typ_1
+                    other_type = typ_2
+                else:
+                    coerced_type = typ_2
+                    other_type = typ_1
+
+                other_origin = other_type.__origin__
+                assert isinstance(other_origin, type(list) | type(tuple))
+
+                # Replace Sequence with other origin type and resend them
+                # to find_intersection_type.
+                inner_args = reduce(lambda x, y: x | y, coerced_type.__args__)
+                updated_type = (
+                    other_origin[inner_args]
+                    if other_type.__origin__ is list
+                    else other_origin[inner_args, ...]
+                )
+                common = find_intersection_type(updated_type, other_type)
+                if common:
+                    intersect.add(common)
+
     if intersect:
         result = reduce(lambda x, y: x | y, intersect)
         return result
@@ -414,7 +389,7 @@ def find_type[T](connection: T) -> type[T]:
         return type(connection)
 
 
-def is_union(typ: type | UnionType | GenericAlias | NestedListType) -> bool:
+def is_union(typ: type | UnionType | GenericAlias) -> bool:
     if isinstance(typ, GenericAlias):
         if ... in typ.__args__:
             return True
