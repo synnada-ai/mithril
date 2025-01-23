@@ -273,7 +273,7 @@ def unique(
 def trapezoid(
     y: np.ndarray[Any, Any], x: np.ndarray[Any, Any] | None = None
 ) -> np.float64 | np.ndarray[Any, Any]:
-    return np.trapezoid(y, x)  # type: ignore
+    return np.trapezoid(y, x)
 
 
 def robust_power(
