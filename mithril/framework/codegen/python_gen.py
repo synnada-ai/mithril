@@ -22,7 +22,7 @@ from posixpath import basename, splitext
 from typing import Any, Generic, Literal, Protocol, overload
 
 from ...backends.backend import ParallelBackend
-from ...core import DataType
+from ...core import DataType, Dtype
 from ...utils.func_utils import prepare_function_args
 from ..common import (
     DataEvalType,
@@ -105,6 +105,7 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
         self.imports: list[ast.stmt] = []
         self.globals: list[ast.stmt] = []
         self.functions: list[ast.stmt] = []
+        self.backend = self.pm.backend
 
     def generate_code(self, file_path: str | None = None) -> None:
         self.file_path = file_path
@@ -301,6 +302,7 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
         return (
             key in self.pm.data_store.cached_data
             and self.pm.data[key].edge_type != Tensor
+            and self.pm.data[key].edge_type != Dtype
             and not isinstance(self.pm.data_store.cached_data[key], enum.Enum)
         )
 
@@ -453,7 +455,7 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
         if dict_type != "cache" or (key not in self.pm.flat_graph.all_target_keys):
             input_body.append(
                 ast.Assign(
-                    targets=[ast.Name(id=val, ctx=ast.Store())],
+                    targets=[self._var_ref_ast(val, ast.Store())],
                     value=ast.Subscript(
                         value=ast.Name(id=dict_type, ctx=ast.Load()),
                         slice=ast.Constant(value=key),
@@ -480,7 +482,7 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
             slc = ast.Constant(value="output" if key not in cached_data else key)
             input_body.append(
                 ast.Assign(
-                    targets=[ast.Name(id=val, ctx=ast.Store())],
+                    targets=[self._var_ref_ast(val, ast.Store())],
                     value=ast.Subscript(value=data_dict, slice=slc, ctx=ast.Load()),
                 )
             )
@@ -521,7 +523,7 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
                 args.append(
                     convert_to_ast_arg(
                         arg_key,
-                        list(self.pm.backend.primitive_function_dict.keys()),
+                        self._var_ref_ast(arg_key, ast.Load()),
                         defaults=default_args,  # type:ignore
                     )
                 )
@@ -531,7 +533,11 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
                 value = ast.Constant(cache[fn_kwarg_dict[key]])
                 kwargs.append(ast.keyword(arg=key, value=value))
             else:
-                kwargs.append(convert_to_ast_kwarg(key, name, defaults=default_args))
+                kwargs.append(
+                    convert_to_ast_kwarg(
+                        key, self._var_ref_ast(name, ast.Load()), defaults=default_args
+                    )
+                )
 
         generated_fn = ast.Call(
             func=ast.Name(id=formula_key, ctx=ast.Load()),
@@ -553,12 +559,7 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
         else:
             target_name = output_key
 
-        targets: list[ast.expr] = [
-            ast.Name(
-                id=target_name,
-                ctx=ast.Store(),
-            )
-        ]
+        targets: list[ast.expr] = [self._var_ref_ast(target_name, ast.Store())]
 
         return targets, {target_name}
 
@@ -742,3 +743,11 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
             )
 
         return outputs, aux  # type: ignore
+
+    # Variable references will be created with this function
+    def _var_ref_ast(self, name: str, ctx: ast.expr_context) -> ast.Name:
+        # Make non keyword
+        if keyword.iskeyword(name) or name in self.backend.primitive_function_dict:
+            name = "_" + name
+
+        return ast.Name(id=name, ctx=ctx)

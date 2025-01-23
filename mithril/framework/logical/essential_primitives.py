@@ -540,7 +540,7 @@ class Cast(PrimitiveModel):
         self, dtype: core.Dtype | ToBeDetermined = TBD, *, name: str | None = None
     ) -> None:
         super().__init__(
-            formula_key="astype",
+            formula_key="cast",
             name=name,
             output=BaseKey(shape=[("Var", ...)], type=Tensor),
             input=BaseKey(shape=[("Var", ...)], type=Tensor),
@@ -634,16 +634,22 @@ class Item(PrimitiveModel):
 
 class ToTensor(PrimitiveModel):
     input: Connection
+    dtype: Connection
     output: Connection
 
     def __init__(
-        self, input: TensorValueType | ToBeDetermined = TBD, *, name: str | None = None
+        self,
+        input: TensorValueType | ToBeDetermined = TBD,
+        dtype: core.Dtype | None = None,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="to_tensor",
             name=name,
             output=BaseKey(shape=[("Var", ...)], type=Tensor),
             input=BaseKey(type=TensorValueType, value=input),
+            dtype=BaseKey(type=core.Dtype | None, value=dtype),
         )
 
         self._set_constraint(
@@ -651,9 +657,12 @@ class ToTensor(PrimitiveModel):
         )
 
     def __call__(  # type: ignore[override]
-        self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
+        self,
+        input: ConnectionType = NOT_GIVEN,
+        dtype: ConnectionType = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
-        return super().__call__(input=input, output=output)
+        return super().__call__(input=input, dtype=dtype, output=output)
 
 
 class ToList(PrimitiveModel):

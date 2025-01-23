@@ -29,6 +29,7 @@ from ...backend import PadWidthType, ParallelBackend
 from ...utils import DtypeSubTypes, StaticScalar, process_shape
 from . import ops, utils
 from .parallel import TorchParallel
+from .utils import CODEGEN_CONFIG
 
 __all__ = ["TorchBackend"]
 
@@ -71,6 +72,9 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
 
         self._generator = torch.Generator(device=self.device).manual_seed(0)
 
+        for key, value in utils.dtype_map.items():
+            setattr(self, key, value)
+
     @property
     def is_manualgrad(self) -> bool:
         return False
@@ -86,6 +90,10 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
     @property
     def DataType(self) -> type[torch.Tensor]:  # noqa: N802
         return utils.ArrayType
+
+    @property
+    def codegen_config(self) -> dict[str, bool]:
+        return CODEGEN_CONFIG
 
     @property
     def device(self) -> torch.device:

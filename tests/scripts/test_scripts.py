@@ -5209,10 +5209,11 @@ def test_dependency_map_latent_to_input():
     # Add third model which changes name of a latent input and
     # makes it a real input of the model.
     conn = IOKey(name="mean_axis", connections={mean.axis}, expose=True)
-    model += (to_tensor := ToTensor())(conn, output="output")
+    model += (to_tensor := ToTensor())(conn, dtype="dtype", output="output")
     # Assert dependency map and connection keys status in model.
     output: ConnectionData = model.output.data  # type: ignore
     mean_axis: ConnectionData = model.mean_axis.data  # type: ignore
+    dtype: ConnectionData = model.dtype.data  # type: ignore
     expected_global_input_map = {
         input: OrderedSet([buff_out]),
         mean_axis: OrderedSet([]),
@@ -5224,11 +5225,12 @@ def test_dependency_map_latent_to_input():
         mean_axis: [(mean, {mean_out}), (to_tensor, {output})],
         keepdim: [(mean, {mean_out})],
         mean_out: [(buff, {buff_out})],
+        dtype: [(to_tensor, {output})],
     }
     expected_local_output_map = {
         mean_out: (mean, {input, mean_axis, keepdim}),
         buff_out: (buff, {mean_out}),
-        output: (to_tensor, {mean_axis}),
+        output: (to_tensor, {mean_axis, dtype}),
     }
 
     assert (

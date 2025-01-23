@@ -22,6 +22,7 @@ from ...backend import Backend, PadWidthType
 from ...utils import StaticScalar, process_shape
 from ..common_primitives import CacheType
 from . import ops, ops_grad, utils
+from .utils import CODEGEN_CONFIG
 
 
 class NumpyBackend(Backend[np.ndarray[Any, Any]]):
@@ -61,6 +62,9 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
         self.primitive_grad_function_dict = ops_grad.primitive_grad_func_dict
         self._seed_generator = np.random.default_rng(self.seed)
 
+        for key, value in utils.dtype_map.items():
+            setattr(self, key, value)
+
     @property
     def is_manualgrad(self) -> bool:
         return True
@@ -76,6 +80,10 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
     @property
     def DataType(self) -> type[np.ndarray[Any, Any]]:  # noqa: N802
         return utils.ArrayType
+
+    @property
+    def codegen_config(self) -> dict[str, bool]:
+        return CODEGEN_CONFIG
 
     def get_backend_array_type(self) -> type[np.ndarray[Any, Any]]:
         return np.ndarray

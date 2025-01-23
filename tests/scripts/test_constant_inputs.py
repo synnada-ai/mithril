@@ -1815,7 +1815,7 @@ def test_unused_cached_values_2():
     comp_model = ml.compile(
         model=model, backend=(backend := NumpyBackend()), safe_names=False
     )
-    dtype = backend.get_backend_array_type()
+    dtype = backend._dtype.name
     cache = comp_model.data_store.data_values
 
     model = Model() + Convolution2D()
@@ -1860,7 +1860,7 @@ def test_unused_cached_values_2_set_values():
     comp_model = ml.compile(
         model=model, backend=(backend := NumpyBackend()), safe_names=False
     )
-    dtype = backend.get_backend_array_type()
+    dtype = backend._dtype.name
     cache = comp_model.data_store.data_values
 
     expected_cache = {
@@ -1899,7 +1899,7 @@ def test_unused_cached_values_3():
     comp_model = ml.compile(
         model=model, backend=(backend := NumpyBackend()), safe_names=False
     )
-    dtype = backend.get_backend_array_type()
+    dtype = backend._dtype.name
     cache = comp_model.data_store.data_values
 
     expected_cache = {
@@ -1942,7 +1942,7 @@ def test_unused_cached_values_3_set_values():
     comp_model = ml.compile(
         model=model, backend=(backend := NumpyBackend()), safe_names=False
     )
-    dtype = backend.get_backend_array_type()
+    dtype = backend._dtype.name
     cache = comp_model.data_store.data_values
 
     expected_cache = {

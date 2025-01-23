@@ -24,6 +24,7 @@ from ....core import Dtype
 from ...backend import Backend, PadWidthType
 from ...utils import DtypeSubTypes, StaticScalar, process_shape
 from . import ops, utils
+from .utils import CODEGEN_CONFIG
 
 __all__ = ["MlxBackend"]
 
@@ -51,6 +52,9 @@ class MlxBackend(Backend[mx.array]):
         self.primitive_function_dict = ops.primitive_func_dict
         self.prng_key = mx.random.key(self.seed)
 
+        for key, value in utils.dtype_map.items():
+            setattr(self, key, value)
+
     @property
     def is_manualgrad(self) -> bool:
         return False
@@ -66,6 +70,10 @@ class MlxBackend(Backend[mx.array]):
     @property
     def device(self) -> Any:
         utils.get_device(self._device)
+
+    @property
+    def codegen_config(self) -> dict[str, bool]:
+        return CODEGEN_CONFIG
 
     def get_device(self) -> Any:
         return self._device

@@ -14,6 +14,7 @@
 import copy
 import logging
 import math
+import re
 from collections.abc import Callable, Iterator, Sequence
 from functools import partial
 from itertools import combinations_with_replacement
@@ -25,6 +26,7 @@ from scipy.special import erf
 
 from .... import core
 from ....utils.type_utils import is_tuple_int
+from ....utils.utils import find_dominant_type
 from ...utils import NestedFloatOrIntOrBoolList
 from ..common_primitives import (
     add,
@@ -68,6 +70,7 @@ from ..common_primitives import (
     tuple_converter,
     union,
 )
+from . import utils
 from .utils import (
     CacheType,
     calc_prob_matrix,
@@ -76,9 +79,6 @@ from .utils import (
     find_optimal_sigmas,
     get_submatrices1d,
     get_submatrices2d,
-    get_type,
-    handle_data_dtype,
-    handle_data_precision,
     log_sigmoid,
     log_softmax,
     make_array,
@@ -105,6 +105,7 @@ __all__ = [
     "tanh",
     "sigmoid",
     "softplus",
+    "cast",
     "gelu",
     "softmax",
     "reduce_mean",
@@ -932,21 +933,6 @@ def broadcast_to(
     return np.broadcast_to(input, shape)
 
 
-def ones_with_zero_diag(
-    *args: Any, precision: int, cache: CacheType | None = None
-) -> np.ndarray[Any, Any]:
-    n, m = args
-    output = np.ones((n, m)) - np.eye(n, m) if m is not None else np.ones(n) - np.eye(n)
-
-    return handle_data_precision(output, precision=precision)
-
-
-def eye(
-    *args: int, precision: int, cache: CacheType | None = None
-) -> np.ndarray[Any, Any]:
-    return handle_data_precision(np.eye(*args), precision=precision)  # type: ignore
-
-
 def squeeze(
     input: np.ndarray[Any, Any], *, cache: CacheType | None = None
 ) -> np.ndarray[Any, Any]:
@@ -954,9 +940,69 @@ def squeeze(
 
 
 def to_tensor(
-    *input: NestedFloatOrIntOrBoolList, precision: int, cache: CacheType | None = None
+    *input: NestedFloatOrIntOrBoolList,
+    dtype: np.dtype[Any] | None = None,
+    default_dtype: str,
+    cache: CacheType | None = None,
 ) -> np.ndarray[Any, Any]:
-    return np.array(input[0], dtype=get_type(input[0], precision=precision))
+    dtype_str = default_dtype if dtype is None else utils.dtype_map.inverse[dtype]
+
+    dominant_type = find_dominant_type(input)
+    _dtype = dominant_type.__name__
+
+    if _dtype != "bool":
+        _dtype += str(re.findall(r"\d+", dtype_str)[-1])
+
+    return np.array(input[0], dtype=_dtype)
+
+
+def eye(
+    N: int,
+    M: int | None,
+    *,
+    dtype: str | None = None,
+    default_dtype: str,
+    cache: CacheType | None = None,
+) -> np.ndarray[Any, Any]:
+    dtype = utils.dtype_map[default_dtype] if dtype is None else dtype
+
+    return np.eye(N, M, dtype=dtype)
+
+
+def ones_with_zero_diag(
+    N: int,
+    M: int | None,
+    *,
+    dtype: str | None = None,
+    default_dtype: str,
+    cache: CacheType | None = None,
+) -> np.ndarray[Any, Any]:
+    dtype = utils.dtype_map[default_dtype] if dtype is None else dtype
+
+    output = (
+        np.ones((N, M), dtype=dtype) - np.eye(N, M, dtype=dtype)
+        if M is not None
+        else np.ones(N, dtype=dtype) - np.eye(N, dtype=dtype)
+    )
+
+    return output
+
+
+def arange(
+    start: int | float,
+    stop: int | float,
+    step: int | float,
+    *,
+    dtype: np.dtype[Any] | None = None,
+    default_dtype: str,
+    cache: CacheType | None = None,
+) -> np.ndarray[Any, Any]:
+    _dtype = default_dtype if dtype is None else utils.dtype_map.inverse[dtype]
+
+    if len([item for item in [start, stop, step] if isinstance(item, float)]) == 0:
+        _dtype = _dtype.replace("float", "int").replace("bfloat", "int")
+
+    return np.arange(start, stop, step, dtype=_dtype)
 
 
 def tensor_to_list(input: np.ndarray[Any, Any], cache: CacheType | None = None) -> Any:
@@ -1004,12 +1050,6 @@ def concat(
     *inputs: np.ndarray[Any, Any], axis: int | None = 0, cache: CacheType | None = None
 ) -> np.ndarray[Any, Any]:
     return np.concatenate([np.array(v) for v in inputs], axis=axis)
-
-
-def arange(
-    *args: int | float, precision: int, cache: CacheType | None = None
-) -> np.ndarray[Any, Any]:
-    return handle_data_precision(np.arange(*args), precision)
 
 
 def flatten(
@@ -1206,10 +1246,8 @@ def nan_to_num(
     return np.nan_to_num(input, nan=nan, posinf=posinf, neginf=neginf)
 
 
-def astype(
-    input: np.ndarray[Any, Any], dtype: core.Dtype | int
-) -> np.ndarray[Any, Any]:
-    return handle_data_dtype(input, dtype)
+def cast(input: np.ndarray[Any, Any], dtype: np.dtype[Any]) -> np.ndarray[Any, Any]:
+    return input.astype(dtype)
 
 
 def dtype(input: np.ndarray[Any, Any]) -> core.Dtype:
@@ -1242,10 +1280,17 @@ def pad(
 
 
 def randn(
-    shape: tuple[int, ...], *, key: int, precision: int, cache: CacheType | None = None
+    shape: tuple[int, ...],
+    key: int,
+    *,
+    dtype: str | None = None,
+    default_dtype: str,
+    cache: CacheType | None = None,
 ) -> np.ndarray[Any, Any]:
     np.random.seed(key)
-    return handle_data_precision(np.random.randn(*shape), precision)
+    if dtype is None:
+        dtype = default_dtype
+    return np.random.randn(*shape).astype(dtype)
 
 
 def zeros_like(

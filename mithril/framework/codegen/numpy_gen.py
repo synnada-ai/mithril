@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import ast
-import enum
 import keyword
 from collections.abc import Callable
 from functools import partial
@@ -224,12 +223,10 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
         return model, global_input_keys, local_input_keys
 
     def is_static_scalar(self, key: str) -> bool:
-        return (
-            key in self.pm.data_store.cached_data
-            and self.pm.data[key].edge_type != Tensor
-            and not key.endswith("_cache")  # temporarily added until cache removed
-            and not isinstance(self.pm.data_store.cached_data[key], enum.Enum)
-        )
+        is_static = super().is_static_scalar(key)
+        return is_static and not key.endswith(
+            "_cache"
+        )  # temporarily added until cache removed
 
     def call_primitive(
         self,

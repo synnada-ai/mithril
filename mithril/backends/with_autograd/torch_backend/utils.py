@@ -31,29 +31,29 @@ import torch.distributed as dist
 from torch.distributed._tensor import DeviceMesh
 
 from .... import core
-from ....utils.utils import binary_search, find_dominant_type
+from ....utils.utils import BiMap, binary_search, find_dominant_type
 from ...utils import DtypeSubTypes
+
+CODEGEN_CONFIG: dict[str, bool] = {
+    "specify_device": True,
+}
 
 AVAILABLE_BACKEND_TYPES = ["cpu", "cuda"]
 
 ArrayType = torch.Tensor
 NestedTensorType = int | float | bool | Sequence["NestedTensorType"]
-dtype_map: dict[str, torch.dtype] = {
-    "int8": torch.int8,
-    "uint8": torch.uint8,
-    "int16": torch.int16,
-    "int32": torch.int32,
-    "int": torch.int32,
-    "int64": torch.int64,
-    "long": torch.int64,
-    "float16": torch.float16,
-    "bfloat16": torch.bfloat16,
-    "float32": torch.float32,
-    "float": torch.float32,
-    "float64": torch.float64,
-    "double": torch.float64,
-    "bool": torch.bool,
-}
+dtype_map: BiMap[str, torch.dtype] = BiMap(
+    {
+        "int16": torch.int16,
+        "int32": torch.int32,
+        "int64": torch.int64,
+        "float16": torch.float16,
+        "bfloat16": torch.bfloat16,
+        "float32": torch.float32,
+        "float64": torch.float64,
+        "bool": torch.bool,
+    }
+)
 
 
 def tsne_softmax(
