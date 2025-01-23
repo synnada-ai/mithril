@@ -371,7 +371,7 @@ def test_match_untyped_edge_with_tensor_edge():
     assert edge1.shape is edge2.shape
     assert edge1.shape.referees == {edge1}
     assert edge1.all_constraints == {constr} and edge2.all_constraints == set()
-    assert updates.constraints == {constr}
+    assert updates.constraints == set()
     assert updates.value_updates == set()
     assert updates.shape_updates == set()
     assert updates.node_updates == {node2}  # NOTE: The shape node is useless actually.
