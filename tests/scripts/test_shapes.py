@@ -319,7 +319,7 @@ def test_shapes_2():
     model += Convolution2D(kernel_size=3, out_channels=64, padding=1)
     model += Convolution2D(kernel_size=3, out_channels=64, padding=1)
     model += Convolution2D(kernel_size=3, out_channels=64, padding=1)(
-        input=model.canonical_output, output=IOKey(name="output")
+        input=model.cout, output=IOKey(name="output")
     )
 
     shapes = {"input": [8, 3, 64, 64]}
@@ -420,7 +420,7 @@ def test_shapes_3():
     model += deepcopy(model)  # 16x16, 10x10
     model += deepcopy(model)  # 8x8, 6x6
     model += Convolution2D(kernel_size=3, out_channels=64, padding=1)(
-        input=model.canonical_output, output=IOKey(name="output")
+        input=model.cout, output=IOKey(name="output")
     )
 
     shapes = {"input": [8, 3, 64, 64]}
@@ -6530,14 +6530,14 @@ def test_prune_match_5():
     model_sub += s1(input="input")
     model_sub += Squeeze()(input=s1.output)
     model_sub += Squeeze()
-    model_sub += Gelu()(input=model_sub.canonical_output, output=IOKey(name="out1"))
+    model_sub += Gelu()(input=model_sub.cout, output=IOKey(name="out1"))
 
     model += model_sub(input="input", out1=IOKey(name="out1"))
     model += s2(input="input")
     model.set_cout(s2.output)
     model += Squeeze()
     model += Squeeze()
-    model += Relu()(input=model.canonical_output, output=IOKey(name="out2"))
+    model += Relu()(input=model.cout, output=IOKey(name="out2"))
 
     shape: dict[str, list] = {
         "input": ["(V1, ...)"],

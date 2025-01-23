@@ -412,8 +412,8 @@ def connection_to_dict(
         if key_value is not None:
             connection_dict[key] = key_value
 
-    # if submodel.canonical_input.key not in connection_dict:
-    #     connection_dict[submodel.canonical_input.key] = ""
+    # if submodel.cin.key not in connection_dict:
+    #     connection_dict[submodel.cin.key] = ""
 
     return connection_dict  # type: ignore
 

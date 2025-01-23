@@ -225,10 +225,10 @@ def test_model_with_connection():
     model = Model()
     model += Add()
     model += (add := Add())
-    model_canonical_output = model.canonical_output
+    model_canonical_output = model.cout
     final_model = Model()
     final_model += model
-    final_model_canonical_output = final_model.canonical_output
+    final_model_canonical_output = final_model.cout
     final_model += (add_1 := Add())(left=add.output)
 
     assert_metadata_equal(
@@ -536,7 +536,7 @@ def test_convolution_shape():
 
     model = Model()
     model += conv1
-    model += add1(right=Tensor(1), left=model.canonical_output)
+    model += add1(right=Tensor(1), left=model.cout)
     model += conv2
     model += conv3
 
@@ -587,7 +587,7 @@ def test_pickle_empty_backend():
     model.input.set_differentiable(True)
     model.set_shapes({"input": [5, 5]})
     ctx = TrainModel(model)
-    ctx.add_loss(Buffer(), input=model.canonical_output)
+    ctx.add_loss(Buffer(), input=model.cout)
 
     comp_model_1 = mithril.compile(model=ctx, backend=numpy_backend)
     comp_model_2 = mithril.compile(model=ctx, backend=jax_backend)
@@ -1001,8 +1001,8 @@ def test_cyclic_extension():
     model1 += relu4
     model1 += model(
         input1="input",
-        input2=model1.canonical_output,
-        output1=model1.canonical_input,
+        input2=model1.cout,
+        output1=model1.cin,
         output2=IOKey("output"),
     )
     comp_model = mithril.compile(model=model1, backend=NumpyBackend())
@@ -1132,7 +1132,7 @@ def test_train_context_numpy():
     backend = NumpyBackend()
     model = Model()
     model += Linear(8)(input="input", output=IOKey(name="output"))
-    model += Linear(16)(input=model.canonical_output, output=IOKey(name="output2"))
+    model += Linear(16)(input=model.cout, output=IOKey(name="output2"))
 
     context = TrainModel(model)
     context.add_loss(CrossEntropy(), [Mean()], input="output", target="target")
@@ -1167,7 +1167,7 @@ def test_train_context_example():
     backend = NumpyBackend()
     model = Model()
     model += Linear(1)(input="input", output=IOKey(name="output"))
-    model += Linear(1)(input=model.canonical_output, output=IOKey(name="output2"))
+    model += Linear(1)(input=model.cout, output=IOKey(name="output2"))
     model.input.set_differentiable(True)  # type: ignore
 
     context = TrainModel(model)
@@ -1218,10 +1218,10 @@ def test_traincontext_3():
     model = Model()
     model += Linear(dimension=1)
     model += Squeeze()
-    model += Sigmoid()(input=model.canonical_output, output="output1")
+    model += Sigmoid()(input=model.cout, output="output1")
 
     context = TrainModel(model)
-    output = model.canonical_output
+    output = model.cout
     context.add_loss(bce := BinaryCrossEntropy(), input=output, target="target")
 
     assert_metadata_equal(bce.input, output)
@@ -1234,10 +1234,8 @@ def test_traincontext_4():
     model += Sigmoid()
 
     context = TrainModel(model)
-    output = model.canonical_output
-    context.add_loss(
-        bce := BinaryCrossEntropy(), input=model.canonical_output, target="target"
-    )
+    output = model.cout
+    context.add_loss(bce := BinaryCrossEntropy(), input=model.cout, target="target")
 
     assert_metadata_equal(bce.input, output)
 
@@ -1279,7 +1277,7 @@ def test_relational_operators_ignored_2():
     )
     model.extend(
         Where(),
-        cond=model.canonical_output,
+        cond=model.cout,
         input1="inp1",
         input2="inp2",
         output=IOKey("where_out"),
@@ -1298,9 +1296,7 @@ def test_relational_operators_ignored_3():
         right=IOKey("right", type=Tensor),
         output=IOKey(name="relational_out"),
     )
-    model += Greater()(
-        left="left", right=model.canonical_output, output=IOKey(name="ignore_this")
-    )
+    model += Greater()(left="left", right=model.cout, output=IOKey(name="ignore_this"))
 
     pm = compile(model, NumpyBackend(), inference=True)
     assert (
@@ -1466,7 +1462,7 @@ def test_geo_mean_1():
     lin.input.set_differentiable(True)
 
     context = TrainModel(model)
-    context.add_loss(Buffer(), input=model.canonical_output)
+    context.add_loss(Buffer(), input=model.cout)
     context.add_regularization(L1(), Tensor(0.1), input="weight2")
 
     pm = mithril.compile(context, backend, jit=False)
@@ -2972,7 +2968,7 @@ def test_generate_gradients():
     backend = NumpyBackend()
     model = Model()
     model += Linear(8)(input="input", output=IOKey(name="output"))
-    model += Linear(16)(input=model.canonical_output, output=IOKey(name="output2"))
+    model += Linear(16)(input=model.cout, output=IOKey(name="output2"))
 
     context = TrainModel(model)
     context.add_loss(CrossEntropy(), [Mean()], input="output", target="target")
@@ -3022,7 +3018,7 @@ def test_evaluate_all_2():
     backend = NumpyBackend()
     model = Model()
     model += Linear(8)(input="input", output=IOKey(name="output"))
-    model += Linear(16)(input=model.canonical_output, output=IOKey(name="output2"))
+    model += Linear(16)(input=model.cout, output=IOKey(name="output2"))
 
     context = TrainModel(model)
     context.add_loss(CrossEntropy(), [Mean()], input="output", target="target")
@@ -3721,7 +3717,7 @@ def test_mlp_last_dimension_prop():
     loss_model.set_shapes(loss_model.safe_shapes)
     ctx.add_loss(
         loss_model,
-        input=mlp_model.canonical_output,
+        input=mlp_model.cout,
         target=Tensor([[2.2, 4.2], [2.2, 4.2]]),
         reduce_steps=[Mean()],
     )
@@ -6646,7 +6642,7 @@ def test_iadd_2():
     model += MatrixMultiply()(right="w1")
     model += Relu()
     model += Sigmoid()
-    model += MatrixMultiply()(left=model.canonical_output, right="w4")
+    model += MatrixMultiply()(left=model.cout, right="w4")
 
     compiled_model = compile(model, JaxBackend())
 
@@ -6741,7 +6737,10 @@ def test_iadd_6():
     with pytest.raises(KeyError) as err_info:
         model += Relu()
 
-    assert str(err_info.value) == ("'Model must have exactly one canonical output!'")
+    assert str(err_info.value) == (
+        "'Currently, there exists 0 canonical outputs, "
+        "model should have exactly one canonical output!'"
+    )
 
 
 def test_iadd_7():

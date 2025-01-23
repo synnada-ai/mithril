@@ -76,12 +76,12 @@ cnn_model += Linear(1)
 
 # Wrap it with TrainModel for training.
 train_model = TrainModel(cnn_model)
-train_model.set_outputs(predictions=cnn_model.canonical_output)  # type: ignore
+train_model.set_outputs(predictions=cnn_model.cout)  # type: ignore
 
 # Add loss to the output of the model.
 train_model.add_loss(
     SquaredError(),
-    input=cnn_model.canonical_output,
+    input=cnn_model.cout,
     target="target",
     reduce_steps=[Mean()],
 )

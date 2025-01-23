@@ -41,9 +41,7 @@ def test_finalize_keys_0():
     model += Linear(10)
     model += Linear(10)
     model += Linear(10)
-    model += Linear(10)(
-        input=model.canonical_output, bias="bias_3", output=IOKey(name="output1")
-    )
+    model += Linear(10)(input=model.cout, bias="bias_3", output=IOKey(name="output1"))
     pm = mithril.compile(model, TorchBackend(), safe_names=False)
     assert set(pm.input_keys) == set(
         (
@@ -214,7 +212,7 @@ def test_generate_input_keys_1():
         "$12": "$bias_2",
     }
 
-    model += Linear(10)(input="", output=model.canonical_input)
+    model += Linear(10)(input="", output=model.cin)
     key_mappings = model.generate_keys(include_internals=False)
     assert key_mappings == {
         "$14": "$weight_0",
@@ -302,9 +300,7 @@ def test_generate_input_keys_4():
     model_0 += model1
     model_0 += model2
     model_0 += model3
-    model_0 += Linear(10)(
-        input=model_0.canonical_output, weight="in_left_1", bias="in_right_1"
-    )
+    model_0 += Linear(10)(input=model_0.cout, weight="in_left_1", bias="in_right_1")
     key_mappings = model_0.generate_keys(include_internals=False)
     assert key_mappings == {
         "$1": "$input",
@@ -319,7 +315,7 @@ def test_generate_input_keys_5():
     model = Model()
     for _ in range(5):
         model += Sigmoid()
-    model += Linear()(input=model.canonical_output, weight="input")
+    model += Linear()(input=model.cout, weight="input")
     key_mappings = model.generate_keys(include_internals=False)
     assert key_mappings == {"$1": "$_input", "$8": "$bias"}
 
@@ -330,7 +326,7 @@ def test_generate_input_keys_6():
     key_mappings = model.generate_keys(include_internals=False)
     assert key_mappings == {"$1": "$weight", "$3": "$input", "$4": "$bias"}
 
-    model += Linear()(input="", output=model.canonical_input)
+    model += Linear()(input="", output=model.cin)
     key_mappings = model.generate_keys(include_internals=False)
     assert key_mappings == {
         "$6": "$weight_0",
@@ -340,7 +336,7 @@ def test_generate_input_keys_6():
         "$4": "$bias_1",
     }
 
-    model += Linear()(input="", output=model.canonical_input)
+    model += Linear()(input="", output=model.cin)
     key_mappings = model.generate_keys(include_internals=False)
     assert key_mappings == {
         "$10": "$weight_0",
@@ -352,7 +348,7 @@ def test_generate_input_keys_6():
         "$4": "$bias_2",
     }
 
-    model += Linear()(input="", output=model.canonical_input)
+    model += Linear()(input="", output=model.cin)
     key_mappings = model.generate_keys(include_internals=False)
     assert key_mappings == {
         "$14": "$weight_0",
@@ -366,7 +362,7 @@ def test_generate_input_keys_6():
         "$4": "$bias_3",
     }
 
-    model += Linear()(input="", output=model.canonical_input)
+    model += Linear()(input="", output=model.cin)
     key_mappings = model.generate_keys(include_internals=False)
     assert key_mappings == {
         "$18": "$weight_0",
@@ -473,7 +469,7 @@ def test_generate_input_keys_10():
     con3 = Concat(n=3)
     model1 += con1
     model1 += con2
-    model1 += con3(input1=model1.canonical_output, input2="input2_1")
+    model1 += con3(input1=model1.cout, input2="input2_1")
     model2 = deepcopy(model1)
     model3 = deepcopy(model2)
     model4 = deepcopy(model3)

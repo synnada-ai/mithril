@@ -785,7 +785,7 @@ class Model(BaseModel):
                     "Multiple canonical inputs are not allowed! Use |= operator."
                 )
             if len(available_cin) == 1:
-                kwargs[next(iter(available_cin))] = self.canonical_output
+                kwargs[next(iter(available_cin))] = self.cout
         return self._extend(model, kwargs)
 
     __iadd__ = __add__
@@ -861,7 +861,7 @@ class Model(BaseModel):
             # if len(self.conns.cins) == 1, or we could name all canonical inputs.
             if (
                 len(self.conns.cins) == 1
-                and key == self.canonical_input.key
+                and key == self.cin.key
                 and "input" not in self.input_keys
             ):
                 # Handle canonical input
@@ -1100,7 +1100,7 @@ class Model(BaseModel):
             # TODO: We may expose all canonical outputs for summary instead of
             # checking only len(self.conns.couts) == 1.
             output_keys = (
-                ([self.canonical_output.key] if len(self.conns.couts) == 1 else [])
+                ([self.cout.key] if len(self.conns.couts) == 1 else [])
                 if not self.conns.output_keys
                 else self.conns.output_keys
             )

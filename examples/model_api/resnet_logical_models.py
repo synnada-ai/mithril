@@ -25,14 +25,14 @@ def basic_block(
     block += Convolution2D(
         kernel_size=3, out_channels=out_channels, padding=1, stride=stride
     )
-    model_input = block.canonical_input
+    model_input = block.cin
     block += Relu()
     block += Convolution2D(kernel_size=3, out_channels=out_channels, padding=1)
-    skip_in = block.canonical_output
+    skip_in = block.cout
 
     if downsample is not None:
         block += downsample(input=model_input)
-        block += Add()(left=downsample.canonical_output, right=skip_in)
+        block += Add()(left=downsample.cout, right=skip_in)
     else:
         block += Add()(left=model_input, right=skip_in)
 
@@ -51,13 +51,13 @@ def bottleneck(
     )
     model += Relu()
     model += Convolution2D(kernel_size=1, out_channels=out_channels, stride=stride)
-    skip_in = model.canonical_output
+    skip_in = model.cout
 
     if downsample is not None:
-        model += downsample(input=model.canonical_input)
-        model += Add()(left=downsample.canonical_output, right=skip_in)
+        model += downsample(input=model.cin)
+        model += Add()(left=downsample.cout, right=skip_in)
     else:
-        model += Add()(left=model.canonical_input, right=skip_in)
+        model += Add()(left=model.cin, right=skip_in)
 
     model += Relu()
     return model
@@ -84,7 +84,7 @@ def resnet(n_classes: int, block: Callable, layers: list[int]) -> Model:
     resnet += Flatten(start_dim=1)
 
     resnet += Linear(dimension=n_classes)(
-        input=resnet.canonical_output, output=IOKey(name="output")
+        input=resnet.cout, output=IOKey(name="output")
     )
     return resnet
 

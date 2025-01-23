@@ -70,11 +70,11 @@ def create_block(name, dims, num_heads, bias=True, eps=1e-5):
     block = Model(name=name)
     block += LayerNorm(use_bias=bias, eps=eps, name="ln_1")("input")
     block += causal_attention(dims, num_heads, bias)
-    block += Add()("input", block.canonical_output, "add_out")
+    block += Add()("input", block.cout, "add_out")
     block += LayerNorm(use_bias=bias, eps=eps, name="ln_2")
     block += mlp(dims)
 
-    block += Add()("add_out", right=block.canonical_output)
+    block += Add()("add_out", right=block.cout)
     return block
 
 

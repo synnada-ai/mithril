@@ -456,7 +456,7 @@ def test_train_model_linear_1():
 def test_conv1d_1():
     model = Convolution1D(3, 2)
     train_model = TrainModel(model)
-    train_model.add_loss(SquaredError(), input=model.canonical_output, target="target")
+    train_model.add_loss(SquaredError(), input=model.cout, target="target")
 
     statics = {
         "input": [[[1.0, 2.0, 3.0, 4.0, 5.0]]],
@@ -493,7 +493,7 @@ def test_conv1d_1():
 def test_conv1d_2():
     model = Convolution1D(4, 2)
     train_model = TrainModel(model)
-    train_model.add_loss(SquaredError(), input=model.canonical_output, target="target")
+    train_model.add_loss(SquaredError(), input=model.cout, target="target")
 
     statics = {
         "input": [[[1.0, 2.0, 3.0, 4.0, 5.0]]],
@@ -527,7 +527,7 @@ def test_conv1d_2():
 def test_conv1d_3():
     model = Convolution1D(3, 2, use_bias=False)
     train_model = TrainModel(model)
-    train_model.add_loss(SquaredError(), input=model.canonical_output, target="target")
+    train_model.add_loss(SquaredError(), input=model.cout, target="target")
 
     statics = {
         "input": [[[1.0, 2.0, 3.0, 4.0, 5.0]]],
@@ -560,7 +560,7 @@ def test_conv1d_3():
 def test_conv1d_4():
     model = Convolution1D(3, 2, stride=2, use_bias=False)
     train_model = TrainModel(model)
-    train_model.add_loss(SquaredError(), input=model.canonical_output, target="target")
+    train_model.add_loss(SquaredError(), input=model.cout, target="target")
 
     statics = {
         "input": [[[1.0, 2.0, 3.0, 4.0, 5.0]]],
@@ -590,7 +590,7 @@ def test_conv1d_4():
 def test_conv1d_5():
     model = Convolution1D(3, 2, padding=1, use_bias=False)
     train_model = TrainModel(model)
-    train_model.add_loss(SquaredError(), input=model.canonical_output, target="target")
+    train_model.add_loss(SquaredError(), input=model.cout, target="target")
 
     statics = {
         "input": [[[1.0, 2.0, 3.0, 4.0, 5.0]]],
@@ -623,7 +623,7 @@ def test_conv1d_5():
 def test_conv1d_6():
     model = Convolution1D(3, 2, padding=1, use_bias=True)
     train_model = TrainModel(model)
-    train_model.add_loss(SquaredError(), input=model.canonical_output, target="target")
+    train_model.add_loss(SquaredError(), input=model.cout, target="target")
 
     statics = {
         "input": [[[1.0, 2.0, 3.0, 4.0, 5.0]]],

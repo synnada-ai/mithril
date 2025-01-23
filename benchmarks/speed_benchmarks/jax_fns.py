@@ -226,7 +226,7 @@ def mlp_v_jax(
     ctx = TrainModel(mlp_compl)
     ctx.add_loss(
         AbsoluteError(),
-        input=mlp_compl.canonical_output,
+        input=mlp_compl.cout,
         target="target",
         reduce_steps=[Mean()],
     )

@@ -244,7 +244,7 @@ class TrainModel(Model):
             raise KeyError("Given key does not belong to the Model!")
         loss_key = prev_con.key
         for i, m in enumerate(reduce_steps):
-            in_key = m.canonical_input.key
+            in_key = m.cin.key
             if i == len(reduce_steps) - 1 and key_name is not None and coef is None:
                 out_key = self.get_single_output(m).key
                 # self.extend(m, **{in_key: prev_out_key.conn, out_key: key_name})
@@ -334,7 +334,7 @@ class TrainModel(Model):
             case Connection():
                 reg_str = reg_key.data.key
             case None:
-                reg_str = model.canonical_input.key
+                reg_str = model.cin.key
         if any([isinstance(value, re.Pattern) for value in kwargs.values()]):
             if len(kwargs) > 1:
                 raise Exception(
@@ -420,7 +420,7 @@ class TrainModel(Model):
         prev_out_key = self.get_single_output(model)
 
         for i, m in enumerate(reduce_steps):
-            in_key = m.canonical_input.key
+            in_key = m.cin.key
             if i == len(reduce_steps) - 1 and key_name is not None:
                 out = self.get_single_output(m).data
                 # self.extend(m, **{in_key: prev_out_key, out.key: key_name})
@@ -638,7 +638,7 @@ class TrainModel(Model):
                     m_name = name_mappings[model]
                     conns = conn_info[m_name][0]
                     shape = shape_info[m_name][0]
-                    reg_key = model.canonical_input.key
+                    reg_key = model.cin.key
                     updated_reg_key = model.generate_keys(include_outputs=True).get(
                         reg_key, reg_key
                     )

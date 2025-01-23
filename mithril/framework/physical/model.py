@@ -134,22 +134,19 @@ class PhysicalModel(GenericDataType[DataType]):
         # TODO: This is a temporary solution, a better way will be implemented
         # in another PR.
         if len(model.conns.output_keys) == 0:
-            # TODO: We may accept len(model.conns.couts) >= 1 and raise
-            # if len(model.conns.couts) == 0.
-            if len(model.conns.couts) != 1:
-                raise ValueError("Models with no output keys can not be compiled.")
+            if len(model.conns.couts) == 0:
+                raise KeyError("Models with no output keys can not be compiled.")
 
-            current_name = flat_model.assigned_edges[
-                model.canonical_output.metadata
-            ].name
-            key_origin = model.canonical_output.metadata.key_origin
-            if key_origin != current_name:
-                while key_origin in flat_model.assigned_names:
-                    key_origin = f"_{key_origin}"
+            for cout in model.conns.couts:
+                current_name = flat_model.assigned_edges[cout.metadata].name
+                key_origin = cout.metadata.key_origin
+                if key_origin != current_name:
+                    while key_origin in flat_model.assigned_names:
+                        key_origin = f"_{key_origin}"
 
-            assert key_origin is not None
-            self._output_keys.add(key_origin)
-            flat_model.rename_key(current_name, key_origin)
+                assert key_origin is not None
+                self._output_keys.add(key_origin)
+                flat_model.rename_key(current_name, key_origin)
 
         # Map given logical model key namings into physical key naming space.
         _constant_keys = {

@@ -456,15 +456,22 @@ class BaseModel(abc.ABC):
         self._set_constraint(fn, keys, post_processes, type=type)
 
     @property
-    def canonical_input(self) -> Connection:
-        if len(self.conns.cins) != 1:
-            raise KeyError("Model must have exactly one canonical input!")
+    def cin(self) -> Connection:
+        if (cin_len := len(self.conns.cins)) != 1:
+            raise KeyError(
+                f"Currently, there exists {cin_len} canonical inputs, model "
+                "should have exactly one canonical input!"
+            )
         return next(iter(self.conns.cins)).conn
 
     @property
-    def canonical_output(self) -> Connection:
-        if len(self.conns.couts) != 1:
-            raise KeyError("Model must have exactly one canonical output!")
+    def cout(self) -> Connection:
+        if (cout_len := len(self.conns.couts)) != 1:
+            raise KeyError(
+                f"Currently, there exists {cout_len} canonical outputs, model "
+                "should have exactly one canonical output!"
+            )
+
         return next(iter(self.conns.couts)).conn
 
     def set_cin(self, *connections: str | Connection, safe: bool = True) -> None:

@@ -711,18 +711,16 @@ class LayerNorm(Model):
         if use_scale:
             mult = Multiply()
             mult.set_types(left=Tensor, right=Tensor)
-            self += mult(
-                left=self.canonical_output, right=IOKey("weight", value=weight)
-            )
+            self += mult(left=self.cout, right=IOKey("weight", value=weight))
             mult._set_shapes(shapes)
 
         if use_bias:
             add = Add()
             add.set_types(left=Tensor, right=Tensor)
-            self += add(left=self.canonical_output, right=IOKey("bias", value=bias))
+            self += add(left=self.cout, right=IOKey("bias", value=bias))
             add._set_shapes(shapes)
         # TODO: Remove below Buffer after required naming-related changes are done.
-        self += Buffer()(input=self.canonical_output, output=IOKey(name="output"))
+        self += Buffer()(input=self.cout, output=IOKey(name="output"))
         self.set_cin("input", safe=False)
         self._freeze()
 
@@ -791,16 +789,16 @@ class GroupNorm(Model):
         if use_scale:
             weight_key = IOKey(name="weight", type=Tensor[float], value=weight)
             mult = Multiply()
-            self |= mult(left=self.canonical_output, right=weight_key)
+            self |= mult(left=self.cout, right=weight_key)
             mult._set_shapes(shapes)
 
         if use_bias:
             bias_key = IOKey(name="bias", type=Tensor[float], value=bias)
             add = Add()
-            self |= add(left=self.canonical_output, right=bias_key)
+            self |= add(left=self.cout, right=bias_key)
             add._set_shapes(shapes)
 
-        self |= Buffer()(input=self.canonical_output, output=IOKey(name="output"))
+        self |= Buffer()(input=self.cout, output=IOKey(name="output"))
         self.set_cin("input", safe=False)
         self._freeze()
 
@@ -1104,7 +1102,7 @@ class KernelizedSVM(Model):
 
         self += kernel(**kernel_input_args, **kernel_output_args)
         self += linear_model(
-            input=kernel.canonical_output,
+            input=kernel.cout,
             weight=IOKey("weight", value=weight),
             bias=IOKey("bias", value=bias),
             output=IOKey(name="output"),
@@ -2071,7 +2069,7 @@ class EncoderDecoder(Model):
             initial_hidden=permutation_model.output,
             **(dec_input_mapping | dec_output_mapping),
         )
-        self.set_cout(decoder.canonical_output)
+        self.set_cout(decoder.cout)
 
         self._freeze()
 
@@ -2119,7 +2117,7 @@ class EncoderDecoderInference(Model):
             initial_hidden=encoder.hidden_concat,
             **(dec_input_mapping | dec_output_mapping),
         )
-        self.set_cout(decoder.canonical_output)
+        self.set_cout(decoder.cout)
         self._freeze()
 
     def __call__(self, **model_keys: ConnectionType) -> ExtendInfo:

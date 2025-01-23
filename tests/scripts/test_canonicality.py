@@ -16,6 +16,7 @@ from copy import deepcopy
 
 import pytest
 
+import mithril as ml
 from mithril.framework.common import IOKey, Tensor
 from mithril.models import (
     Add,
@@ -37,37 +38,29 @@ def test_canonical_output_1():
     model = Model()
     conv = Convolution2D(3, 4)
     model += conv()
-    assert model.canonical_input.data == model.conns.get_con_by_metadata(
-        conv.input.data.metadata
-    )
-    assert model.canonical_output.data == model.conns.get_con_by_metadata(
-        conv.output.data.metadata
-    )
+    assert model.cin.data == model.conns.get_con_by_metadata(conv.input.data.metadata)
+    assert model.cout.data == model.conns.get_con_by_metadata(conv.output.data.metadata)
 
     model = Model()
     conv = Convolution2D(3, 4)
     model += conv(input="input")
 
-    assert model.canonical_input.data.key == "input"
-    assert model.canonical_output.data == model.conns.get_con_by_metadata(
-        conv.output.data.metadata
-    )
+    assert model.cin.data.key == "input"
+    assert model.cout.data == model.conns.get_con_by_metadata(conv.output.data.metadata)
 
     model = Model()
     conv = Convolution2D(3, 4)
     model += conv(output="output")
 
-    assert model.canonical_input.data == model.conns.get_con_by_metadata(
-        conv.input.data.metadata
-    )
-    assert model.canonical_output.data.key == "output"
+    assert model.cin.data == model.conns.get_con_by_metadata(conv.input.data.metadata)
+    assert model.cout.data.key == "output"
 
     model = Model()
     conv = Convolution2D(3, 4)
     model += conv(input="input", output="output")
 
-    assert model.canonical_input.data.key == "input"
-    assert model.canonical_output.data.key == "output"
+    assert model.cin.data.key == "input"
+    assert model.cout.data.key == "output"
 
 
 def test_canonical_output_2():
@@ -76,12 +69,8 @@ def test_canonical_output_2():
     model += (c1 := Convolution2D(3, 4))
     # += operator defaultly sets input="input" if there is not any input
 
-    assert model.canonical_input.data == model.conns.get_con_by_metadata(
-        c1.input.data.metadata
-    )
-    assert model.canonical_output.data == model.conns.get_con_by_metadata(
-        c1.output.data.metadata
-    )
+    assert model.cin.data == model.conns.get_con_by_metadata(c1.input.data.metadata)
+    assert model.cout.data == model.conns.get_con_by_metadata(c1.output.data.metadata)
 
 
 def test_canonical_output_3():
@@ -92,12 +81,8 @@ def test_canonical_output_3():
     model += c1
     model += c2(input=c1.output)
 
-    assert model.canonical_input.data == model.conns.get_con_by_metadata(
-        c1.input.data.metadata
-    )
-    assert model.canonical_output.data == model.conns.get_con_by_metadata(
-        c2.output.data.metadata
-    )
+    assert model.cin.data == model.conns.get_con_by_metadata(c1.input.data.metadata)
+    assert model.cout.data == model.conns.get_con_by_metadata(c2.output.data.metadata)
 
 
 def test_canonical_output_4():
@@ -106,14 +91,10 @@ def test_canonical_output_4():
     c1 = Convolution2D(3, 4)
     c2 = Convolution2D(3, 4)
     model += c1
-    model += c2(input=model.canonical_output)
+    model += c2(input=model.cout)
 
-    assert model.canonical_input.data == model.conns.get_con_by_metadata(
-        c1.input.data.metadata
-    )
-    assert model.canonical_output.data == model.conns.get_con_by_metadata(
-        c2.output.data.metadata
-    )
+    assert model.cin.data == model.conns.get_con_by_metadata(c1.input.data.metadata)
+    assert model.cout.data == model.conns.get_con_by_metadata(c2.output.data.metadata)
 
 
 def test_canonical_output_5():
@@ -122,10 +103,8 @@ def test_canonical_output_5():
     model += Convolution2D(3, 4)(input="input")
     model += (c2 := Convolution2D(3, 4))
 
-    assert model.canonical_input.data.key == "input"
-    assert model.canonical_output.data == model.conns.get_con_by_metadata(
-        c2.output.data.metadata
-    )
+    assert model.cin.data.key == "input"
+    assert model.cout.data == model.conns.get_con_by_metadata(c2.output.data.metadata)
 
 
 def test_canonical_output_6():
@@ -136,9 +115,7 @@ def test_canonical_output_6():
     model += l1(input="input")
     model += l2(input=l1.probs_output)
 
-    assert model.canonical_input.data == model.conns.get_con_by_metadata(
-        l1.input.data.metadata
-    )
+    assert model.cin.data == model.conns.get_con_by_metadata(l1.input.data.metadata)
 
     assert model.conns.cins == {model.conns.get_con_by_metadata(l1.input.data.metadata)}
 
@@ -154,9 +131,7 @@ def test_canonical_output_6():
     model += l1(input="input")
     model += l2(input=l1.output)
 
-    assert model.canonical_input.data == model.conns.get_con_by_metadata(
-        l1.input.data.metadata
-    )
+    assert model.cin.data == model.conns.get_con_by_metadata(l1.input.data.metadata)
 
     assert model.conns.cins == {model.conns.get_con_by_metadata(l1.input.data.metadata)}
 
@@ -180,10 +155,10 @@ def test_canonical_output_8():
     )
     model += modelsub2(in2="out2", in1="out1", out1=IOKey(name="out4"))
 
-    assert model.canonical_input.data == model.conns.get_con_by_metadata(
+    assert model.cin.data == model.conns.get_con_by_metadata(
         modelsub.in2.data.metadata  # type: ignore
     )
-    assert model.canonical_output.data == model.conns.get_con_by_metadata(
+    assert model.cout.data == model.conns.get_con_by_metadata(
         modelsub2.out2.data.metadata  # type: ignore
     )
 
@@ -203,10 +178,10 @@ def test_canonical_output_9():
     )
     model += modelsub2(in1="out2", in2="out1", out1=IOKey(name="out4"))
 
-    assert model.canonical_input.data == model.conns.get_con_by_metadata(
+    assert model.cin.data == model.conns.get_con_by_metadata(
         modelsub.in2.data.metadata  # type: ignore
     )
-    assert model.canonical_output.data == model.conns.get_con_by_metadata(
+    assert model.cout.data == model.conns.get_con_by_metadata(
         modelsub2.out2.data.metadata  # type: ignore
     )
 
@@ -227,7 +202,7 @@ def test_canonical_output_10():
     )
     model += modelsub2(in2="out2", out2="in1")
 
-    assert model.canonical_input.data == model.conns.get_con_by_metadata(
+    assert model.cin.data == model.conns.get_con_by_metadata(
         modelsub.in2.data.metadata  # type: ignore
     )
     assert model.conns.couts == set()
@@ -248,7 +223,7 @@ def test_canonical_output_11():
     model += Sigmoid()(input="out1", output="in2")
 
     assert model.conns.cins == set()
-    assert model.canonical_output.data == model.conns.get_con_by_metadata(
+    assert model.cout.data == model.conns.get_con_by_metadata(
         modelsub.out2.data.metadata  # type: ignore
     )
 
@@ -285,7 +260,7 @@ def test_canonical_output_exposed_1():
     model1 = Model()
     model1 += Linear(dimension=32)
     model1 += Relu()
-    model1 += Linear(dimension=16)(input=model1.canonical_output, output="output1")
+    model1 += Linear(dimension=16)(input=model1.cout, output="output1")
 
     model1._freeze()
 
@@ -298,7 +273,7 @@ def test_canonical_output_exposed_2():
     model1 = Model()
     model1 += Linear(dimension=32)
     model1 += Relu()
-    model1 += Linear(dimension=16)(input=model1.canonical_output, output="output1")
+    model1 += Linear(dimension=16)(input=model1.cout, output="output1")
 
     extend_info = model1(output1="output1")
     assert extend_info.connections == {"output1": "output1"}
@@ -308,7 +283,7 @@ def test_canonical_output_exposed_3():
     model1 = Model()
     model1 += Linear(dimension=32)
     model1 += Relu()
-    model1 += Linear(dimension=16)(input=model1.canonical_output, output="output1")
+    model1 += Linear(dimension=16)(input=model1.cout, output="output1")
 
     model = Model()
     model += model1(output1="output1")
@@ -324,11 +299,11 @@ def test_canonical_input_1():
     model += linear(input="input1")
     model += LogisticRegression()(input="input2", output="input1")
 
-    assert model.canonical_input.data.key == "input2"
-    assert model.canonical_output.data == model.conns.get_con_by_metadata(
+    assert model.cin.data.key == "input2"
+    assert model.cout.data == model.conns.get_con_by_metadata(
         linear.output.data.metadata
     )
-    # assert model.canonical_output.key == 'Linear_0_output'
+    # assert model.cout.key == 'Linear_0_output'
 
 
 def test_canonical_input_2():
@@ -338,7 +313,7 @@ def test_canonical_input_2():
     model += (lin1 := Linear())(input="input1")
     model += logistic(input="input2", probs_output="input1")
 
-    assert model.canonical_input.data.key == "input2"
+    assert model.cin.data.key == "input2"
 
     assert model.conns.couts == {
         model.conns.get_con_by_metadata(lin1.output.data.metadata),
@@ -376,10 +351,8 @@ def test_canonical_input_5():
     model += (l2 := Linear())
     model += Linear()(input=l2.output, output="my_output")
 
-    assert model.canonical_input.data == model.conns.get_con_by_metadata(
-        l1.input.data.metadata
-    )
-    assert model.canonical_output.data.key == "my_output"
+    assert model.cin.data == model.conns.get_con_by_metadata(l1.input.data.metadata)
+    assert model.cout.data.key == "my_output"
 
 
 def test_canonical_input_7():
@@ -417,8 +390,8 @@ def test_canonical_input_8():
     model += Tanh()(input="input1", output="output1")
     model += Sine()(input="input2", output="input1")
 
-    assert model.canonical_input.data.key == "input2"
-    assert model.canonical_output.data.key == "output1"
+    assert model.cin.data.key == "input2"
+    assert model.cout.data.key == "output1"
 
 
 def test_canonical_input_9():
@@ -461,7 +434,7 @@ def test_canonical_input_11():
     model += (buff := Buffer())
     model += Add()(left=3, right="input2", output="output")
 
-    canonical_input = model.canonical_input
+    canonical_input = model.cin
     assert canonical_input.metadata == buff.input.metadata
 
 
@@ -471,7 +444,7 @@ def test_canonical_input_12():
     model += (buff := Buffer())
     model += Buffer()(input=3 / buff.output)
 
-    canonical_input = model.canonical_input
+    canonical_input = model.cin
     assert canonical_input.metadata == buff.input.metadata
 
 
@@ -485,55 +458,55 @@ def test_canonical_dual_iadd_op():
     model += Convolution2D(3, 4)
     model += (c4 := Convolution2D(3, 4))
 
-    assert model.canonical_input.data == model.conns.get_con_by_metadata(
-        c1.input.data.metadata
-    )
-    assert model.canonical_output.data == model.conns.get_con_by_metadata(
-        c4.output.data.metadata
-    )
+    assert model.cin.data == model.conns.get_con_by_metadata(c1.input.data.metadata)
+    assert model.cout.data == model.conns.get_con_by_metadata(c4.output.data.metadata)
 
 
 def test_set_cin():
     model = LogisticRegression()
     # Change cin to weight.
     model.set_cin("weight")
-    assert model.canonical_input == model.weight
+    assert model.cin == model.weight
     # Change cin to bias.
     model.set_cin("bias")
-    assert model.canonical_input == model.bias
+    assert model.cin == model.bias
     # Set previous cin ("weight") again.
     model.set_cin("weight")
-    assert model.canonical_input == model.weight
+    assert model.cin == model.weight
     # Try setting multiple cin
     model.set_cin("weight", "bias")
     assert model.conns.cins == {model.weight.data, model.bias.data}
     # TODO: we can directly raise an error in cin property
     with pytest.raises(KeyError) as err_info:
-        cin = model.canonical_input
-        model.set_cin(cin.key)
-    assert str(err_info.value) == "'Model must have exactly one canonical input!'"
+        assert model.cin
+    assert (
+        str(err_info.value) == "'Currently, there exists 2 canonical inputs, "
+        "model should have exactly one canonical input!'"
+    )
 
 
 def test_set_cout():
     model = LogisticRegression()
     # Change cout to probs_output.
     model.set_cout("probs_output")
-    assert model.canonical_output == model.probs_output
+    assert model.cout == model.probs_output
     # Change cout to output.
     model.set_cout("output")
-    assert model.canonical_output == model.output
+    assert model.cout == model.output
     # Set previous cout ("probs_output") again.
     model.set_cout("probs_output")
-    assert model.canonical_output == model.probs_output
+    assert model.cout == model.probs_output
     # Try setting multiple cout
     model.set_cout("probs_output", "output")
     assert model.conns.couts == {model.probs_output.data, model.output.data}
     # TODO: we can directly raise an error in cout property
     with pytest.raises(KeyError) as err_info:
-        cout = model.canonical_output
-        model.set_cin(cout.key)
+        assert model.cout
 
-    assert str(err_info.value) == "'Model must have exactly one canonical output!'"
+    assert (
+        str(err_info.value) == "'Currently, there exists 2 canonical outputs, "
+        "model should have exactly one canonical output!'"
+    )
 
 
 def test_set_values():
@@ -631,7 +604,7 @@ def test_child_zero_available_canonical_input():
     add_model = Add()
     add_model.set_cin("left", "right")
 
-    model += add_model(left=model.canonical_output, right="lin_out2")
+    model += add_model(left=model.cout, right="lin_out2")
     assert model.conns.cins == set()
 
 
@@ -696,7 +669,11 @@ def test_parent_multi_canonical_output_error():
 
     with pytest.raises(KeyError) as err_info:
         parent += Buffer()
-    ref = "'Model must have exactly one canonical output!'"
+    ref = (
+        "'Currently, there exists 2 canonical outputs, "
+        "model should have exactly one canonical output!'"
+    )
+
     assert str(err_info.value) == ref
 
 
@@ -721,7 +698,10 @@ def test_parent_no_canonical_output_error():
 
     with pytest.raises(KeyError) as err_info:
         parent += Buffer()
-    ref = "'Model must have exactly one canonical output!'"
+    ref = (
+        "'Currently, there exists 0 canonical outputs, "
+        "model should have exactly one canonical output!'"
+    )
     assert str(err_info.value) == ref
 
 
@@ -776,7 +756,7 @@ def test_unexposed_canonical_output_connection_after_freeze():
     model += Linear()
     assert len(model.conns.output_connections) == 0
     model._freeze()
-    assert set(model.conns.output_connections) == {model.canonical_output.data}
+    assert set(model.conns.output_connections) == {model.cout.data}
 
 
 def test_unexposed_canonical_output_connection_after_extension():
@@ -788,8 +768,8 @@ def test_unexposed_canonical_output_connection_after_extension():
     bigger_model = Model()
     bigger_model |= model
 
-    assert bigger_model.canonical_output.data == bigger_model.conns.get_con_by_metadata(
-        model.canonical_output.data.metadata
+    assert bigger_model.cout.data == bigger_model.conns.get_con_by_metadata(
+        model.cout.data.metadata
     )
 
 
@@ -933,3 +913,27 @@ def test_existing_connection_parent_output_updated_to_internal():
 
 
 # TODO: Add tests with IOKey with multiple connections for input and output
+
+
+def test_compile_multi_canonical_output_no_exposed_output():
+    model = Model()
+    model |= Relu()
+    model |= Relu()
+    model |= Relu()
+
+    backend = ml.JaxBackend()
+    pm = ml.compile(model, backend)
+    assert pm.output_keys == {"__output", "_output", "output"}
+
+
+def test_error_compile_no_canonical_output_no_exposed_output():
+    model = Model()
+    model |= Relu()
+    model |= Relu()
+    model |= Relu()
+    model.set_cout()
+
+    backend = ml.JaxBackend()
+    with pytest.raises(KeyError) as err_info:
+        ml.compile(model, backend)
+    assert str(err_info.value) == "'Models with no output keys can not be compiled.'"

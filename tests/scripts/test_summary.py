@@ -770,8 +770,8 @@ def test_define_unique_names_1():
     model += lin_5
     model += lin_6
     model += buffer
-    model |= KernelizedSVM_0(input1=model.canonical_output)
-    model |= KernelizedSVM_1(input1=model.canonical_output)
+    model |= KernelizedSVM_0(input1=model.cout)
+    model |= KernelizedSVM_1(input1=model.cout)
 
     lin_0.input.set_differentiable(True)
     name_dict = define_unique_names(model.dag)
@@ -918,8 +918,8 @@ def test_physical_summary_2():
     model += LeakyRelu()
     model += Linear(dimension=3)
     model += model1
-    assert isinstance(model.canonical_input, Connection)
-    model.canonical_input.set_differentiable(True)
+    assert isinstance(model.cin, Connection)
+    model.cin.set_differentiable(True)
 
     comp_model = mithril.compile(
         model=model, backend=NumpyBackend(), shapes={"input": [5, 5]}
@@ -1305,8 +1305,8 @@ def test_physical_summary_17():
 
 def test_resnet_18_physical_summary():
     model = resnet18(1)
-    assert isinstance(model.canonical_input, Connection)
-    model.canonical_input.set_differentiable(True)
+    assert isinstance(model.cin, Connection)
+    model.cin.set_differentiable(True)
     comp_model = mithril.compile(model=model, backend=TorchBackend(), jit=False)
 
     with redirect_stdout(StringIO()) as summary:

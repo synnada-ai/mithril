@@ -97,7 +97,7 @@ def test_1():
     model = Model()
     model += Linear(10)(weight=IOKey(name="weight_2"))
     model += Linear(10)(
-        input=model.canonical_output,
+        input=model.cout,
         bias=IOKey(name="bias_3"),
         output=IOKey(name="output1"),
     )
@@ -124,9 +124,7 @@ def test_2():
     """
     model = Model()
     model += Linear(10)(weight="weight_2")
-    model += Linear(10)(
-        input=model.canonical_output, bias="bias_3", output=IOKey(name="output1")
-    )
+    model += Linear(10)(input=model.cout, bias="bias_3", output=IOKey(name="output1"))
 
     expected_input_keys = {"$2", "weight_2", "$3", "$5", "bias_3"}
     expected_output_keys = {"output1"}
@@ -150,7 +148,7 @@ def test_3():
     """
     model = Model()
     model += Linear(10)(weight="weight_2")
-    model += Linear(10)(input=model.canonical_output, bias="bias_3", output="output1")
+    model += Linear(10)(input=model.cout, bias="bias_3", output="output1")
 
     expected_input_keys = {"$2", "weight_2", "$3", "$5", "bias_3"}
     expected_internal_keys = {"$4"}
@@ -174,7 +172,7 @@ def test_4():
     model += Linear(1)(
         bias=IOKey(name="bias_2", value=Tensor([1.0])), weight="weight_2"
     )
-    model += Linear(1)(input=model.canonical_output, bias="bias_3", output="output1")
+    model += Linear(1)(input=model.cout, bias="bias_3", output="output1")
 
     expected_input_keys = {"$4", "bias_3", "bias_2", "weight_2", "$2"}
     expected_internal_keys = {"$3"}
@@ -195,7 +193,7 @@ def test_5():
     """Tests the case where the IOKey is defined with name and shape."""
     model = Model()
     model += Linear()(bias=IOKey(name="bias_2", shape=[2]), weight="weight_2")
-    model += Linear()(input=model.canonical_output, bias="bias_3", output="output1")
+    model += Linear()(input=model.cout, bias="bias_3", output="output1")
 
     expected_input_keys = {"weight_2", "bias_2", "bias_3", "$2", "$4"}
     expected_internal_keys = {"$3"}
@@ -236,7 +234,7 @@ def test_6():
         input="input", bias="bias_1", weight=IOKey(name="weight_1", shape=[10, 2])
     )
     model += Linear()(
-        input=model.canonical_output,
+        input=model.cout,
         bias=IOKey(name="bias_2", shape=[5]),
         output=IOKey(name="output1"),
     )
