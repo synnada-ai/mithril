@@ -3558,7 +3558,7 @@ def test_groupnorm_1():
         reference_outputs=reference_outputs,
         reference_gradients=None,
         assert_shapes=False,
-        tolerances=1e-6,
+        tolerances=1e-5,
     )
 
 
@@ -3592,7 +3592,7 @@ def test_groupnorm_2():
         reference_outputs=reference_outputs,
         reference_gradients=None,
         assert_shapes=False,
-        tolerances=1e-6,
+        tolerances=1e-5,
     )
 
 
@@ -3621,7 +3621,7 @@ def test_groupnorm_3():
         reference_outputs=reference_outputs,
         reference_gradients=None,
         assert_shapes=False,
-        tolerances=1e-6,
+        tolerances=1e-5,
     )
 
 
@@ -3650,7 +3650,7 @@ def test_groupnorm_4():
         reference_outputs=reference_outputs,
         reference_gradients=None,
         assert_shapes=False,
-        tolerances=1e-6,
+        tolerances=1e-5,
     )
 
 

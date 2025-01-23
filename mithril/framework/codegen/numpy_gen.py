@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import ast
+import enum
 import keyword
 from collections.abc import Callable
 from functools import partial
@@ -221,6 +222,10 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
         local_input_keys = list(model.input_keys) + ["cache"]
 
         return model, global_input_keys, local_input_keys
+
+    def is_static_scalar(self, key: str) -> bool:
+        is_static = super().is_static_scalar(key)
+        return is_static and not key.endswith("_cache")  # temporarily added until cache removed
 
     def call_primitive(
         self,
@@ -540,7 +545,9 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
                 dict_type = "data"
             else:
                 dict_type = "params"
-            self.append_inputs(input_body, key, dict_type)
+            """If cached value is not a tensor, do not append it to code"""
+            if not self.is_static_scalar(key):
+                self.append_inputs(input_body, key, dict_type)
 
         ast_args = [
             ast.arg("params"),
