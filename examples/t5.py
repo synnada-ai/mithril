@@ -433,7 +433,7 @@ def load_weights(name: str):
 
     weights = {}
     with safe_open(str(path / "model.safetensors"), framework="np", device="cpu") as f:  # type: ignore
-        for k in f.keys():
+        for k in f.keys():  # noqa: SIM118
             weights[k] = f.get_tensor(k)
 
     weights = sanitize(weights)
