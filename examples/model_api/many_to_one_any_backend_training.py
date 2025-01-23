@@ -12,20 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 from utils.optimizers import Adam
 
 import mithril as ml
+from mithril.core import DataType
 from mithril.models import ManyToOne, Mean, RNNCell, SquaredError, TrainModel
 
 # Define backend. It would also work with any available backend you prefer.
-backend = ml.JaxBackend(dtype=ml.float64)
+backend = ml.TorchBackend(dtype=ml.float64)
 
 batch_size = 20
 input_features = 10
 hidden_features = 30
 max_seq_length = 5
 output_features = 10
+
 
 # Define a ManyToOne model with LSTMCell.
 cell_type = RNNCell()
@@ -42,27 +43,35 @@ train_model.add_loss(
     reduce_steps=[Mean()],
 )
 
-# Define static keys of the model and initialize them randomly.
-constant_keys = {
-    "initial_hidden": backend.randn(batch_size, 1, hidden_features),
-    "target": backend.randn(batch_size, 1, output_features),
-} | {
-    f"input{i}": backend.randn(batch_size, 1, input_features)
-    for i in range(max_seq_length)
-}
 
-# Finally, compile the model.
-pm = ml.compile(model=train_model, constant_keys=constant_keys, backend=backend)
+def compile_and_train(
+    backend: ml.Backend[DataType],
+) -> tuple[dict[str, DataType], dict[str, DataType]]:
+    # Define static keys of the model and initialize them randomly.
+    constant_keys = {
+        "initial_hidden": backend.randn(batch_size, 1, hidden_features),
+        "target": backend.randn(batch_size, 1, output_features),
+    } | {
+        f"input{i}": backend.randn(batch_size, 1, input_features)
+        for i in range(max_seq_length)
+    }
 
-# Randomize the parameters of the model.
-params = pm.randomize_params()
+    # Finally, compile the model.
+    pm = ml.compile(model=train_model, constant_keys=constant_keys, backend=backend)
 
-# Pick an optimizer.
-optimizer = Adam(lr=0.0003, beta1=0.9, beta2=0.999)
-opt_state = optimizer.init(backend, params)
+    # Randomize the parameters of the model.
+    params = pm.randomize_params()
 
-num_epochs = 5000
-for i in range(num_epochs):
-    outputs, gradients = pm.evaluate_all(params, constant_keys)
-    params, opt_state = optimizer.update_params(params, gradients, opt_state)
-    print(f"Epoch: {i} / {num_epochs} -> ", outputs["final_cost"])
+    # Pick an optimizer.
+    optimizer = Adam(lr=0.0003, beta1=0.9, beta2=0.999)
+    opt_state = optimizer.init(backend, params)
+
+    num_epochs = 5000
+    for i in range(num_epochs):
+        outputs, gradients = pm.evaluate_all(params, constant_keys)
+        params, opt_state = optimizer.update_params(params, gradients, opt_state)
+        if (i % 1000) == 0:
+            # Print the cost every 1000 epochs.
+            print(f"Epoch: {i} / {num_epochs} -> ", outputs["final_cost"])
+
+    return params, outputs  # type: ignore

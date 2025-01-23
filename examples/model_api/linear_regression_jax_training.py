@@ -59,4 +59,7 @@ for i in range(num_epochs):
     outputs, gradients = pm.evaluate_all(params)
     updates, opt_state = optimizer.update(gradients, opt_state)
     params = optax.apply_updates(params, updates)
-    print(f"Epoch: {i} / {num_epochs} -> ", outputs["final_cost"])
+
+    if (i % 2000) == 0:
+        # Print the cost every 2000 epochs
+        print(f"Epoch: {i} / {num_epochs} -> ", outputs["final_cost"])

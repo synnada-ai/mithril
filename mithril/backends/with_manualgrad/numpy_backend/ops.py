@@ -1047,7 +1047,7 @@ def size(
     input: np.ndarray[Any, Any],
     dim: int | tuple[int, ...] | None,
     cache: CacheType | None = None,
-) -> int | tuple[int]:
+) -> int | tuple[int, ...]:
     if dim is None:
         return input.size
     if isinstance(dim, int):

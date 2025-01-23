@@ -110,7 +110,10 @@ for epoch in range(num_epochs):
         outputs, gradients = pm.evaluate_all(params, data)
         params, opt_state = optimizer.update_params(params, gradients, opt_state)
         total_loss += outputs["final_cost"]  # type: ignore
-    print(f"Epoch: {epoch} / {num_epochs} -> ", total_loss / len(dataloader))
+
+    if (epoch % 100) == 0:
+        # Print the cost every 100 epochs.
+        print(f"Epoch: {epoch} / {num_epochs} -> ", total_loss / len(dataloader))
 
 # Test with single sample.
 X_test, y_test = generate_sine_wave(seq_len, 1)

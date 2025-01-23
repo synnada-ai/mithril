@@ -2014,6 +2014,8 @@ class ManyToOne(RNN):
             **concat_input_kwargs,
             output=IOKey(name="hidden_concat", value=hidden_concat),
         )
+        self.set_cin("input0")
+        self.set_cout("hidden_concat")
         self._freeze()
 
     def __call__(
@@ -2061,11 +2063,11 @@ class EncoderDecoder(Model):
 
         dec_output_mapping = {key: IOKey(name=key) for key in decoder.conns.output_keys}
 
-        self += encoder(**enc_input_mapping)
-        self += permutation_model(
+        self |= encoder(**enc_input_mapping)
+        self |= permutation_model(
             input=encoder.hidden_concat, indices=IOKey("indices", value=indices)
         )
-        self += decoder(
+        self |= decoder(
             initial_hidden=permutation_model.output,
             **(dec_input_mapping | dec_output_mapping),
         )
@@ -2112,12 +2114,12 @@ class EncoderDecoderInference(Model):
 
         dec_output_mapping = {key: IOKey(name=key) for key in decoder.conns.output_keys}
 
-        self += encoder(**enc_input_mapping)
-        self += decoder(
+        self |= encoder(**enc_input_mapping)
+        self |= decoder(
             initial_hidden=encoder.hidden_concat,
             **(dec_input_mapping | dec_output_mapping),
         )
-
+        self.set_cout(decoder.canonical_output)
         self._freeze()
 
     def __call__(self, **model_keys: ConnectionType) -> ExtendInfo:
