@@ -923,7 +923,7 @@ def test_compile_multi_canonical_output_no_exposed_output():
 
     backend = ml.JaxBackend()
     pm = ml.compile(model, backend)
-    assert pm.output_keys == {"__output", "_output", "output"}
+    assert pm.output_keys == ["__output", "_output", "output"]
 
 
 def test_error_compile_no_canonical_output_no_exposed_output():
