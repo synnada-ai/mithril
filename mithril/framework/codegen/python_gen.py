@@ -380,19 +380,20 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
             function_body.append(primitive_call)
 
             for used_key in g_input_keys:
-                if used_key in self.pm.flat_graph.output_dict.values():
-                    continue
-
-                if used_key in deleted_vars:
+                if (
+                    used_key in self.pm.flat_graph.output_dict.values()
+                    or used_key in deleted_vars
+                    or (
+                        used_key in self.pm.input_keys  # Inputs shouldn't deleted
+                        or used_key in self.pm.data_store.all_static_keys
+                    )
+                ):
                     continue
 
                 keys = set(self.pm.flat_graph.get_target_keys(used_key, False)) - (
                     cached_data_keys | unused_keys | discarded_keys
                 )
-                if (
-                    keys.issubset(assigned_output_keys)
-                    and used_key in assigned_output_keys
-                ):
+                if keys.issubset(assigned_output_keys):
                     function_body.append(
                         ast.Delete(targets=[ast.Name(id=used_key, ctx=ast.Del())])
                     )
