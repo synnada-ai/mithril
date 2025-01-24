@@ -65,7 +65,7 @@ class Tokenizer:
         return self._decoder_start_id
 
     def encode(self, s: str):
-        return backend.array(
+        return self.backend.array(
             self._tokenizer(
                 s,
                 return_tensors="np",
@@ -510,13 +510,7 @@ def generate(
         yield _y
 
 
-# TODO: Cache is not supported
-
-if __name__ == "__main__":
-    prompt = "translate English to German: I am not in danger, I am the danger."
-
-    backend = ml.MlxBackend(dtype=ml.float32)
-
+def run(prompt: str, backend: ml.Backend):
     weights, config = load_weights("t5-small")
     for key in list(weights.keys()):
         weights[key.replace(".", "_")] = backend.array(weights.pop(key))
@@ -542,8 +536,16 @@ if __name__ == "__main__":
         use_short_namings=False,
     )
 
+    print("Prompt:", prompt)
+    print("Generated text:", end="", flush=True)
     for token in generate(prompt, encoder_pm, decoder_pm, tokenizer, weights, backend):
         if token.item() == tokenizer.eos_id:
             print()
             break
         print(tokenizer.decode(token.item()), end="", flush=True)
+
+# TODO: Cache is not supported
+
+if __name__ == "__main__":
+    prompt = "translate English to German: I am not in danger, I am the danger."
+    run(prompt, ml.TorchBackend(dtype=ml.bfloat16))
