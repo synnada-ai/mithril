@@ -668,8 +668,10 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
 
     def convert_to_logical(self, input: Any, force: bool = False) -> Any:
         # Try dtype:
-        if isinstance(input, jax.numpy.float32.__class__):
+        if input.__hash__ and input in utils.dtype_map.inverse:
             return Dtype[utils.dtype_map.inverse[input]]
+        elif isinstance(input, jax.numpy.dtype):
+            return Dtype[input.name]
 
         if force:
             raise ValueError(f"Invalid value '{input}'!")

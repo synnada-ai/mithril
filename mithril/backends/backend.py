@@ -1134,9 +1134,6 @@ class Backend(ABC, Generic[DataType]):
         """
         raise NotImplementedError("convert_to_logical is not implemented!")
 
-    def __repr__(self) -> str:
-        return f"<Backend(device={self._device}, precision={self.precision})>"
-
 
 class ParallelBackend(Backend[DataType]):
     def __init__(self, dtype: core.Dtype, device_mesh: tuple[int, ...] | None) -> None:
