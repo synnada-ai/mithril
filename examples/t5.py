@@ -544,6 +544,7 @@ def run(prompt: str, backend: ml.Backend):
             break
         print(tokenizer.decode(token.item()), end="", flush=True)
 
+
 # TODO: Cache is not supported
 
 if __name__ == "__main__":

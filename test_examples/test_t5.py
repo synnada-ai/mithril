@@ -23,15 +23,21 @@ import pytest
 
 import mithril as ml
 
-installed_backends: list[type[ml.Backend]] = [ml.TorchBackend, ml.JaxBackend, ml.NumpyBackend]
+installed_backends: list[type[ml.Backend]] = [
+    ml.TorchBackend,
+    ml.JaxBackend,
+    ml.NumpyBackend,
+]
 
 if platform.system() == "Darwin":
     installed_backends.append(ml.MlxBackend)
 
 
 prompt = "translate English to German: I am not in danger, I am the danger."
-expected_response = 'Prompt: translate English to German: I am not in danger, I am the danger.\nGenerated text: Ich bin nicht in Gefahr, ich bin die Gefahr.\n'
-
+expected_response = (
+    "Prompt: translate English to German: I am not in danger,"
+    " I am the danger.\nGenerated text: Ich bin nicht in Gefahr, ich bin die Gefahr.\n"
+)
 
 
 class TestT5:
@@ -55,8 +61,8 @@ class TestT5:
         with redirect_stdout(StringIO()) as prompt_output:
             run_fn(
                 "translate English to German: I am not in danger, I am the danger.",
-                backend()
+                backend(),
             )
         output = prompt_output.getvalue()
-        
+
         assert output == expected_response
