@@ -68,9 +68,9 @@ backend_strings: list[str] = [backend.backend_type for backend in installed_back
 backend_tokens = {"torch": 30, "jax": 25, "numpy": 22, "mlx": 30}
 
 result_prompt = """They went up by the stair because they thought this
- would make a better impression. They stood in a row in front of Mrs. Darling
- with their hats off and wishing they were not wearing their pirate clothes.
- They said nothing but their eyes asked her to have them."""
+would make a better impression. They stood in a row in front of Mrs. Darling
+with their hats off and wishing they were not wearing their pirate clothes.
+They said nothing but their eyes asked her to have them.""".replace("\n", " ")
 
 
 class TestGPT:
