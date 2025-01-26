@@ -13,6 +13,8 @@
 # limitations under the License.
 
 
+from typing import get_origin
+
 import pytest
 
 from mithril.framework.common import (
@@ -48,8 +50,12 @@ def dummy_constraint(output: IOHyperEdge, input: IOHyperEdge):
     # updated_symbols = set()
     updates = Updates()
     status = False
-    output_repr = output._temp_shape if output.edge_type is Tensor else output.value
-    input_repr = input._temp_shape if input.edge_type is Tensor else input.value
+    output_repr = (
+        output._temp_shape if get_origin(output.edge_type) is Tensor else output.value
+    )
+    input_repr = (
+        input._temp_shape if get_origin(input.edge_type) is Tensor else input.value
+    )
     assert isinstance(output_repr, ShapeRepr)
     assert isinstance(input_repr, ShapeRepr)
     if bool(input_repr.root) ^ bool(output_repr.root):
@@ -101,7 +107,10 @@ class Model1(PrimitiveModel):
         super().__init__(
             formula_key="buffer",
             input=BaseKey(shape=[("Var1", ...)], type=Tensor),
-            output=BaseKey(shape=[("Var2", ...)], type=Tensor),
+            output=BaseKey(
+                shape=[("Var2", ...)],
+                type=Tensor,
+            ),
         )
         self._set_constraint(fn=dummy_constraint, keys=["output", "input"])
 

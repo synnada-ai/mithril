@@ -95,7 +95,7 @@ def test_process_value_inconsistent_shape():
 
 def test_tensor_initialization_1():
     sequence: list[list[int] | Sequence[int]] = [[0, 1, 2], range(3, 6)]
-    tensor = Tensor(sequence)
+    tensor: Tensor[float] = Tensor(sequence)
     assert tensor.value == [[0, 1, 2], [3, 4, 5]]
     assert tensor.shape.get_shapes() == [2, 3]
     assert tensor.type is int
@@ -105,7 +105,7 @@ def test_tensor_initialization_2():
     sequence: list[list[list[int | float] | Sequence[int]]] = [
         [[0, 1.0, 2], range(3, 6)]
     ]
-    tensor = Tensor(sequence)
+    tensor: Tensor[float] = Tensor(sequence)
     assert tensor.value == [[[0, 1.0, 2], [3, 4, 5]]]
     assert tensor.shape.get_shapes() == [1, 2, 3]
     assert tensor.type is float
@@ -115,7 +115,7 @@ def test_tensor_initialization_3():
     sequence: list[list[list[int | float] | Sequence[int]]] = [
         [[0, 1.0, 2], [True, False, True]]
     ]
-    tensor = Tensor(sequence)
+    tensor: Tensor[float] = Tensor(sequence)
     assert tensor.value == [[[0, 1.0, 2], [True, False, True]]]
     assert tensor.shape.get_shapes() == [1, 2, 3]
     assert tensor.type is float

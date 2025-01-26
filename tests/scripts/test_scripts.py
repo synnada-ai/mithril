@@ -19,6 +19,7 @@ import re
 import typing
 from copy import deepcopy
 from functools import partial
+from typing import get_origin
 
 import jax
 import mlx.core as mx
@@ -1942,7 +1943,9 @@ def test_regularization_5():
         output=IOKey(name="output"),
     )
     model += Multiply()(
-        left=IOKey("left1", type=Tensor), right="w", output=IOKey(name="output2")
+        left=IOKey("left1", type=Tensor),
+        right="w",
+        output=IOKey(name="output2"),
     )
 
     ctx = TrainModel(model)
@@ -2010,7 +2013,9 @@ def test_static_anlaysis_1():
         right=IOKey(value=Tensor([2.0]), name="right"),
     )
     model += Add()(
-        left=add1.output, right=IOKey(type=Tensor), output=IOKey(name="output1")
+        left=add1.output,
+        right=IOKey(type=Tensor),
+        output=IOKey(name="output1"),
     )
 
     comp_model = mithril.compile(
@@ -2037,7 +2042,9 @@ def test_static_anlaysis_2():
     )
     model += sum1(input=add1.output)
     model += Add()(
-        left=sum1.output, right=IOKey(type=Tensor), output=IOKey(name="output1")
+        left=sum1.output,
+        right=IOKey(type=Tensor),
+        output=IOKey(name="output1"),
     )
 
     comp_model = mithril.compile(
@@ -2185,7 +2192,10 @@ def test_prune_4():
     add2 = Add()
     add3 = Add()
 
-    m += add0(left=IOKey("input", type=Tensor), right=IOKey("input2", type=Tensor))
+    m += add0(
+        left=IOKey("input", type=Tensor),
+        right=IOKey("input2", type=Tensor),
+    )
     m += add1(left="input", right="input2")  # Duplicate
     m += add2(left=add0.output, right=add0.output)
     m += add3(left=add1.output, right=add1.output)  # Duplicate
@@ -2217,7 +2227,10 @@ def test_prune_5():
     add2 = Add()
     add3 = Add()
     add4 = Add()
-    m += add0(left=IOKey("input", type=Tensor), right=IOKey("input2", type=Tensor))
+    m += add0(
+        left=IOKey("input", type=Tensor),
+        right=IOKey("input2", type=Tensor),
+    )
     m += add1(left="input", right="input2")  # Duplicate
     m += add2(left=add0.output, right=add1.output)
     m += Add()(left=add1.output, right=add0.output)
@@ -2246,13 +2259,17 @@ def test_prune_5():
 def test_prune_6():
     m1 = Model()
     add0 = Add()
-    m1 += add0(left=IOKey("input", type=Tensor), right=IOKey("input2", type=Tensor))
+    m1 += add0(
+        left=IOKey("input", type=Tensor),
+        right=IOKey("input2", type=Tensor),
+    )
     m1 += Add()(left=add0.output, right=add0.output, output=IOKey(name="output"))
 
     m2 = Model()
     add0 = Add()
     m2 += add0(
-        left=IOKey("input", type=Tensor), right=IOKey("input2", type=Tensor)
+        left=IOKey("input", type=Tensor),
+        right=IOKey("input2", type=Tensor),
     )  # Duplicate
     m2 += Multiply()(left=add0.output, right=add0.output, output=IOKey(name="output"))
 
@@ -2520,7 +2537,9 @@ def test_prune_valued_tensor_1():
     # Values different do not prune!
     model = Model()
     model += Add()(
-        left=Tensor(5), right=IOKey("input2", type=Tensor), output=IOKey("output1")
+        left=Tensor(5),
+        right=IOKey("input2", type=Tensor),
+        output=IOKey("output1"),
     )
     model += Add()(left=Tensor(3), right="input2", output=IOKey("output2"))
 
@@ -2541,7 +2560,9 @@ def test_prune_valued_tensor_2():
     # Values same prune!
     model = Model()
     model += Add()(
-        left=Tensor(3), right=IOKey("input2", type=Tensor), output=IOKey("output1")
+        left=Tensor(3),
+        right=IOKey("input2", type=Tensor),
+        output=IOKey("output1"),
     )
     model += Add()(left=Tensor(3), right="input2", output=IOKey("output2"))
 
@@ -2568,7 +2589,9 @@ def test_prune_valued_tensor_3():
         output=IOKey("output1"),
     )
     model += Add()(
-        left=IOKey("left2", type=Tensor), right="input2", output=IOKey("output2")
+        left=IOKey("left2", type=Tensor),
+        right="input2",
+        output=IOKey("output2"),
     )
 
     backend = JaxBackend(dtype=mithril.float64)
@@ -2599,7 +2622,9 @@ def test_prune_valued_tensor_4():
         output=IOKey("output1"),
     )
     model += Add()(
-        left=IOKey("left2", type=Tensor), right="input3", output=IOKey("output2")
+        left=IOKey("left2", type=Tensor),
+        right="input3",
+        output=IOKey("output2"),
     )
 
     backend = JaxBackend(dtype=mithril.float64)
@@ -5774,7 +5799,7 @@ def test_deepcopy_1():
         if copied_data not in unused_data:
             assert isinstance(copied_data, IOHyperEdge)
             assert data.value == copied_data.value
-            if data.edge_type is Tensor:
+            if get_origin(data.edge_type) is Tensor:
                 assert id(data.value) == id(copied_data.value)
 
 
@@ -5802,7 +5827,7 @@ def test_deepcopy_2():
         if copied_data not in unused_data:
             assert isinstance(copied_data, IOHyperEdge)
             assert data.value == copied_data.value
-            if data.edge_type is Tensor:
+            if get_origin(data.edge_type) is Tensor:
                 assert id(data.value) == id(copied_data.value)
 
 
@@ -5830,7 +5855,7 @@ def test_deepcopy_3():
         if copied_data not in unused_data:
             assert isinstance(copied_data, IOHyperEdge)
             assert data.value == copied_data.value
-            if data.edge_type is Tensor:
+            if get_origin(data.edge_type) is Tensor:
                 assert id(data.value) == id(copied_data.value)
 
 
@@ -5855,7 +5880,7 @@ def test_deepcopy_4():
         if copied_data not in unused_data:
             assert isinstance(copied_data, IOHyperEdge)
             assert data.value == copied_data.value
-            if data.edge_type is Tensor:
+            if get_origin(data.edge_type) is Tensor:
                 assert id(data.value) == id(copied_data.value)
 
 
@@ -5891,7 +5916,7 @@ def test_deepcopy_5():
         if copied_data not in unused_data:
             assert isinstance(copied_data, IOHyperEdge)
             assert data.value == copied_data.value
-            if data.edge_type is Tensor:
+            if get_origin(data.edge_type) is Tensor:
                 assert id(data.value) == id(copied_data.value)
 
 

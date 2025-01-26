@@ -19,7 +19,7 @@ import keyword
 from collections.abc import Callable
 from functools import partial
 from posixpath import basename, splitext
-from typing import Any, Generic, Literal, Protocol, overload
+from typing import Any, Generic, Literal, Protocol, get_origin, overload
 
 from ...backends.backend import ParallelBackend
 from ...core import DataType, Dtype
@@ -301,7 +301,7 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
     def is_static_scalar(self, key: str) -> bool:
         return (
             key in self.pm.data_store.cached_data
-            and self.pm.data[key].edge_type != Tensor
+            and get_origin(self.pm.data[key].edge_type) != Tensor
             and self.pm.data[key].edge_type != Dtype
             and not isinstance(self.pm.data_store.cached_data[key], enum.Enum)
         )

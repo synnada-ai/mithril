@@ -27,7 +27,9 @@ from typing import (
     Literal,
     Protocol,
     TypedDict,
+    TypeGuard,
     TypeVar,
+    Union,
     get_args,
     get_origin,
     overload,
@@ -42,7 +44,6 @@ from ..core import (
 from ..utils.utils import PaddingType
 from .utils import (
     align_shapes,
-    find_intersection_type,
     find_type,
     sort_type,
 )
@@ -221,13 +222,8 @@ MainValueInstance = (
 
 TypeVarTensorType = TypeVar(
     "TypeVarTensorType",
-    int,
-    float,
-    bool,
-    int | float,
-    int | bool,
-    float | bool,
-    int | float | bool,
+    bound=int | float | bool,
+    covariant=True,
 )
 # Availale types for Tensor type ("_type" attribute of Tensor class).
 _TensorTypes = type[int] | type[float] | type[bool] | UnionType
@@ -475,7 +471,7 @@ class ConstraintSolver:
         updates = remaining.merge(deleted)
         # Iterate over deleted nodes referees to remove deleted node.
         for ref in deleted.referees:
-            if ref.edge_type is not Tensor:
+            if get_origin(ref.edge_type) is not Tensor:
                 raise ValueError("Non-tensor edges cannot have any shape.")
             assert isinstance(ref._value, Tensor)
             ref._value.shape = remaining
@@ -611,7 +607,7 @@ def get_shapes(
     shapes: dict[str, ShapeTemplateType | list[ShapeTemplateType] | None] = {}
     for key, data in data_dict.items():
         key_name = key_mappings.get(key, key)
-        if data.edge_type is Tensor:
+        if get_origin(data.edge_type) is Tensor:
             assert data.shape is not None
             shapes[key_name] = data.shape.get_shapes(
                 uniadic_keys, varadic_keys, symbolic, verbose
@@ -635,8 +631,8 @@ def _find_type(value: ScalarValueType) -> ScalarType: ...
 
 
 def _find_type(
-    value: Tensor[Any] | ScalarValueType | range,
-) -> type[Tensor[Any]] | ScalarType | list[int]:
+    value: Tensor[TypeVarTensorType] | ScalarValueType | range,
+) -> type[Tensor[TypeVarTensorType]] | ScalarType | list[int]:
     typ: type
     if isinstance(value, Tensor):
         typ = Tensor[value.type]  # type: ignore
@@ -678,7 +674,7 @@ def process_value(
 
     dominant_type: type[bool] | type[int] | type[float] = bool
     for item in value:
-        # Recursively determine the shape, value and type of sublists.
+        # Recursively determine the shape, value and type of sub items.
         sub_shape, sub_val, sub_type = process_value(item)
         assert not isinstance(sub_val, Constant)
 
@@ -693,6 +689,167 @@ def process_value(
             dominant_type = int
 
     return [len(result)] + sub_shape, result, dominant_type
+
+
+def find_intersection_type(
+    type_1: type | UnionType | GenericAlias | type[Tensor[int | float | bool]],
+    type_2: type | UnionType | GenericAlias | type[Tensor[int | float | bool]],
+) -> type | UnionType | GenericAlias | type[Tensor[int | float | bool]] | None:
+    # ToBeDetermined type can be coerced to all types.
+    if type_1 is ToBeDetermined:
+        return type_2
+    if type_2 is ToBeDetermined:
+        return type_1
+
+    # First find direct intersections.
+    subtypes_1 = (
+        set(get_args(type_1)) if get_origin(type_1) in (UnionType, Union) else {type_1}
+    )
+    subtypes_2 = (
+        set(get_args(type_2)) if get_origin(type_2) in (UnionType, Union) else {type_2}
+    )
+    intersect = subtypes_1 & subtypes_2
+
+    # Handle coercion of Any (typing.Any) type to all other types.
+    if Any in subtypes_1:
+        intersect.update(subtypes_2)
+        subtypes_1.remove(Any)
+    if Any in subtypes_2:
+        intersect.update(subtypes_1)
+        subtypes_2.remove(Any)
+
+    # if one of the subtypes have list or tuple without an origin (without square
+    # brackets, ex: tuple), look for other set if it contains corresponding type
+    # with origin (ex: tuple[int, int]) if the set contains it, add that type with
+    # origin (since it contains more information)
+
+    for s_types in (subtypes_1, subtypes_2):
+        other_set = subtypes_2 if s_types == subtypes_1 else subtypes_1
+        for orig_type in (list, tuple, range):
+            if orig_type in s_types:
+                for typ in other_set:
+                    if isinstance(typ, GenericAlias):
+                        if typ.__origin__ == orig_type:
+                            intersect.add(typ)
+                        elif typ.__origin__ == Sequence:
+                            if orig_type is range:
+                                if find_intersection_type(int, typ.__args__[0]):
+                                    intersect.add(range)
+                            else:
+                                intersect.add(
+                                    orig_type[reduce(lambda x, y: x | y, typ.__args__)]  # type: ignore
+                                )
+
+    # Take tuple types from remaining sets and find intesection types
+    # of all consistent pairs of cartesian product.
+    for typ_1 in subtypes_1.difference(intersect):
+        # if not isinstance(typ_1, GenericAlias):
+        if get_origin(typ_1) is not None:
+            args_1 = typ_1.__args__
+            for typ_2 in subtypes_2.difference(intersect):
+                # if not isinstance(typ_2, GenericAlias):
+                if get_origin(typ_2) is not None:
+                    args_2 = typ_2.__args__
+                    if typ_1.__origin__ == typ_2.__origin__:
+                        if len(args_1) == 0 or len(args_2) == 0:
+                            # if one of the lengths of the args_1 and args_2 are zero,
+                            # this means one of the types with origin are empty list or
+                            # tuple, in that case, take the empty one (tuple[()], or
+                            # list[()]) as intersection type.
+                            common: Any = typ_1.__origin__[()]
+
+                        elif typ_1.__origin__ is tuple:
+                            ellipsis_1 = ... in args_1
+                            ellipsis_2 = ... in args_2
+                            common = False
+                            if ellipsis_1 and ellipsis_2:
+                                common = find_intersection_type(args_1[0], args_2[0])
+                                if common:
+                                    common = [common, ...]
+                            elif ellipsis_1:
+                                # Remove ellipsis and replace it with base type
+                                # as many times as length of args_2
+                                common = [
+                                    find_intersection_type(args_1[0], args_2[i])
+                                    for i in range(len(args_2))
+                                ]
+                            elif ellipsis_2:
+                                # Remove ellipsis and replace it with base type
+                                # as many times as length of args_1
+                                common = [
+                                    find_intersection_type(args_1[i], args_2[0])
+                                    for i in range(len(args_1))
+                                ]
+                            elif len(args_1) == len(args_2):
+                                common = [
+                                    find_intersection_type(args_1[i], args_2[i])
+                                    for i in range(len(args_1))
+                                ]
+                            if common and None not in common:
+                                intersect.add(tuple[*common])
+
+                        elif typ_1.__origin__ in (list, Tensor):
+                            if len(args_2) > 1 or len(args_1) > 1:
+                                raise TypeError(
+                                    "args of type list cannot take more than 1 element"
+                                )
+                            else:
+                                common = find_intersection_type(args_1[0], args_2[0])
+                            if common:
+                                intersect.add(
+                                    list[common]
+                                    if typ_1.__origin__ is list
+                                    else Tensor[common]
+                                )
+                        # TODO: Below code is duplicate of above code, refactor it.
+                        elif typ_1.__origin__ is Sequence:
+                            if len(args_2) > 1 or len(args_1) > 1:
+                                raise TypeError(
+                                    "args of type Sequence cannot take "
+                                    "more than 1 element"
+                                )
+                            else:
+                                common = find_intersection_type(args_1[0], args_2[0])
+                            if common:
+                                intersect.add(Sequence[common])
+
+                    elif Sequence in (typ_1.__origin__, typ_2.__origin__):
+                        if typ_1.__origin__ == Sequence:
+                            coerced_type = typ_1
+                            other_type = typ_2
+                        else:
+                            coerced_type = typ_2
+                            other_type = typ_1
+
+                        other_origin = other_type.__origin__
+                        if other_origin is not Tensor:
+                            # Sequence type can only be replaced with list or tuple.
+                            assert isinstance(other_origin, type(list) | type(tuple))
+
+                            # Replace Sequence with other origin type and resend them
+                            # to find_intersection_type.
+                            inner_args = reduce(
+                                lambda x, y: x | y, coerced_type.__args__
+                            )
+                            updated_type = (
+                                other_origin[inner_args]
+                                if other_type.__origin__ is list
+                                else other_origin[inner_args, ...]
+                            )
+                            common = find_intersection_type(updated_type, other_type)
+                            if common:
+                                intersect.add(common)
+
+    if intersect:
+        result = reduce(lambda x, y: x | y, intersect)
+        return result
+    return None
+
+
+def is_tensor_type(
+    typ: type | UnionType | GenericAlias | type[Tensor[int | float | bool]] | None,
+) -> TypeGuard[type[Tensor[int | float | bool]]]:
+    return get_origin(typ) is Tensor or typ is Tensor
 
 
 class Tensor(Generic[TypeVarTensorType]):
@@ -715,14 +872,14 @@ class Tensor(Generic[TypeVarTensorType]):
 
     def set_type(self, typ: _TensorTypes) -> Updates:
         updates = Updates()
-        # if self.type != typ:
-        #     new_type = find_intersection_type(typ, self.type)
         if self.type != (new_type := find_intersection_type(typ, self.type)):
             if not new_type:
                 raise TypeError(
                     f"Acceptable types are {sort_type(self.type)}, but "
-                    f"{sort_type(typ)} type value is provided!"
+                    f"{sort_type(typ)} type is provided!"
                 )
+            # TODO: Update below assertion!
+            assert not (is_tensor_type(new_type) or isinstance(new_type, GenericAlias))
             self.type = new_type
             # Add all referee edges into the updates.
             for edge in self.referees:
@@ -749,7 +906,7 @@ class Tensor(Generic[TypeVarTensorType]):
             self.value = val
         return updates
 
-    def match(self, other: Tensor[Any]) -> Updates:
+    def match(self, other: Tensor[int | float | bool]) -> Updates:
         updates = Updates()
         if self is not other:
             updates |= self.set_type(other.type)
@@ -785,13 +942,13 @@ class Tensor(Generic[TypeVarTensorType]):
 
 
 class IOHyperEdge:
-    _type: type[Tensor[Any]] | ScalarType
-    _value: Tensor[Any] | ScalarValueType | ToBeDetermined
+    _type: type[Tensor[int | float | bool]] | ScalarType
+    _value: Tensor[int | float | bool] | ScalarValueType
 
     def __init__(
         self,
-        type: type[Tensor[Any]] | ScalarType = ToBeDetermined,
-        value: Tensor[Any] | ScalarValueType | ToBeDetermined = TBD,
+        type: type[Tensor[int | float | bool]] | ScalarType = ToBeDetermined,
+        value: Tensor[int | float | bool] | ScalarValueType = TBD,
         key_origin: str | None = None,
         interval: list[float | int] | None = None,
     ) -> None:
@@ -799,6 +956,8 @@ class IOHyperEdge:
         self.shape_constraints: set[Constraint] = set()
         self.type_constraints: set[Constraint] = set()
         self._temp_shape: ShapeRepr | None = None  # set random repr
+        self.differentiable: bool = False
+        self.interval: list[float | int] | None = interval
         # Initially set type and value as not determined yet.
         self._type = ToBeDetermined
         self._value = TBD
@@ -807,8 +966,16 @@ class IOHyperEdge:
         # If any value is provided, set it.
         if value is not TBD:
             self.set_value(value)
-        self.interval: list[float | int] | None = interval
-        self.differentiable: bool = self.value is TBD if self._type is Tensor else False
+
+    @property
+    def is_polymorphic(self) -> bool:
+        # Returns if the edge is of polymorphic type or not.
+        if self._type is ToBeDetermined:
+            return True
+        # Look for possible tensor and scalar types.
+        tensor_possible = find_intersection_type(Tensor[int | float | bool], self._type)
+        scalar_possible = find_intersection_type(ScalarValueType, self._type)
+        return None not in (tensor_possible, scalar_possible)
 
     @property
     def is_non_diff(self) -> bool:
@@ -840,24 +1007,27 @@ class IOHyperEdge:
             return self._type  # type: ignore
 
     @property
-    def edge_type(self) -> type[Tensor[Any]] | ScalarType:
+    def edge_type(self) -> type[Tensor[int | float | bool]] | ScalarType:
         return self._type
 
-    def _create_and_set_tensor_value(self, typ: _TensorTypes) -> Updates:
+    def _create_and_set_tensor_value(
+        self, typ: type[Tensor[int | float | bool]]
+    ) -> Updates:
         updates = Updates()
         # Create a new tensor and add self to its referees
         # and shape referees.
-        tensor = Tensor(type=typ)
+        tensor_typ = get_args(typ)[0]
+        tensor: Tensor[int | float | bool] = Tensor(type=tensor_typ)
         tensor.referees.add(self)
         tensor.shape.referees.add(self)
         # Set type of the edge to Tensor.
-        self._type = Tensor
+        self._type = typ
         updates.add(self, UpdateType.TYPE)
         self._value = tensor
         return updates
 
     def _value_compatible(
-        self, other_value: Tensor[Any] | ScalarValueType | ToBeDetermined
+        self, other_value: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined
     ) -> bool:
         if self._value is not TBD:
             if type(self._value) is not type(other_value):
@@ -868,86 +1038,80 @@ class IOHyperEdge:
             return self.value is TBD or self.value == _other_value
         return True
 
-    def set_type(self, typ: type[Tensor[Any]] | ScalarType) -> Updates:
+    def set_type(self, typ: type[Tensor[int | float | bool]] | ScalarType) -> Updates:
         updates = Updates()
-        # Tensor type setting.
-        if (is_generic := (get_origin(typ) is Tensor)) or typ is Tensor:
-            if not (self._type is Tensor or self._type is ToBeDetermined):
-                raise TypeError("Can not set Tensor type to a Scalar edge.")
-
-            available_types = get_args(typ)[0] if is_generic else int | float | bool
-            if not isinstance(self._value, Tensor):
-                # This is the case when the base type is not determined yet,
-                # meaning it can be of any type. So, if it is requested
-                # to set type to Tensor, we need to create a new Tensor
-                # with a shape of Variadic type.
-                updates |= self._create_and_set_tensor_value(available_types)
-            else:
-                # Set type of Tensor object using available_types
-                # assert isinstance(self._value, Tensor)
-                updates |= self._value.set_type(available_types)
-            assert isinstance(self._value, Tensor)  # TODO: Duplicate check.
-            self.differentiable = (self.value is TBD) and bool(
-                find_intersection_type(float, self._value.type)
-            )
-            return updates
-
-        elif self._type is Tensor and typ is not ToBeDetermined:
-            raise TypeError("Can not set Scalar type to a Tensor edge.")
-
-        elif not (typ is ToBeDetermined or self._type == typ):
-            # Scalar type setting.
-            updates.add(self, UpdateType.TYPE)
-            new_type = (
-                find_intersection_type(typ, self._type)
-                if self._type is not ToBeDetermined
-                else typ
-            )
-            if not new_type:
+        if self._type != typ:
+            new_type = find_intersection_type(self._type, typ)
+            # If new_type is not different from the current type, return updates.
+            if self._type == new_type:
+                return updates
+            # None new_type means incompatible types are provided,
+            # raise TypeError.
+            if new_type is None:
                 raise TypeError(
                     f"Acceptable types are {sort_type(self._type)}, but "
-                    f"{sort_type(typ)} type value is provided!"
+                    f"{sort_type(typ)} type is provided!"
                 )
+            elif is_tensor_type(new_type):
+                # new_type is strictly a tensor type.
+                if not isinstance(self._value, Tensor):
+                    # This is the case when the base type is not determined yet,
+                    # meaning it can be of any type. So, if it is requested
+                    # to set type to Tensor, we need to create a new Tensor
+                    # with a shape of Variadic type.
+                    updates |= self._create_and_set_tensor_value(new_type)
+                else:
+                    # Set type of Tensor object using available_types
+                    updates |= self._value.set_type(get_args(new_type)[0])
+            # Add self as type update, set new type and update differentiability.
+            updates.add(self, UpdateType.TYPE)
             self._type = new_type
-            self.differentiable = False
+            self.differentiable = (self.value is TBD) and bool(
+                find_intersection_type(Tensor[float], self._type)
+            )
         return updates
 
     def set_value(
-        self, value: Tensor[Any] | ScalarValueType | ToBeDetermined
+        self, value: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined
     ) -> Updates:
         updates = Updates()
+        tensor_possible = find_intersection_type(Tensor[int | float | bool], self._type)
         # If type of self and type of value is not compatible, raise an error.
-        if isinstance(value, Tensor) and (self._type not in (Tensor, ToBeDetermined)):
+        if isinstance(value, Tensor) and not (
+            self._type is ToBeDetermined or tensor_possible
+        ):
             raise ValueError("Can not set Tensor value to a Scalar edge.")
-        if not isinstance(value, Tensor) and self._type is Tensor:
+        if not isinstance(value, Tensor) and get_origin(self._type) is Tensor:
             raise ValueError("Can not set Scalar value to a Tensor edge.")
-
+        # If any value different than  self._value is provided, raise error.
         if not self._value_compatible(value):
             raise ValueError(
                 f"Value is set before as {self.value}. A value can not be reset."
             )
 
-        if isinstance(value, Tensor) or not (
-            isinstance(value, ToBeDetermined) or self.value == value
-        ):
-            # If both values are Tensor, match them.
-            if isinstance(self._value, Tensor) and isinstance(value, Tensor):
-                updates |= self._value.match(value)
-            elif self.edge_type is ToBeDetermined and isinstance(value, Tensor):
-                self._value = value
-                self._type = Tensor
-                # Add self to referees of value and shape.
-                self._value.referees.add(self)
-                self._value.shape.referees.add(self)
-                # Add self as a type update since type has just updated to Tensor.
-                updates.add(self, UpdateType.TYPE)
-                # TODO: When two edges set to the same tensor value using
-                # different Tensor objects, we need to merge their nodes into
-                # a single node. In order to track this, we need to add all
-                # uniadic symbols of all reprs to the updates.
-                for repr in value.shape.reprs:
-                    for symbol in repr.prefix + repr.suffix:
-                        updates.add(symbol)
+        if not (isinstance(value, ToBeDetermined) or self._value == value):
+            # Note that two tensor objects having same value are not equal.
+            # Tensor values always have to be matched with the existing one
+            # or set as the new value.
+            if isinstance(value, Tensor):
+                if isinstance(self._value, Tensor):
+                    # If both values are Tensor, match them.
+                    updates |= self._value.match(value)
+                elif self.is_polymorphic:
+                    self._value = value
+                    self._type = Tensor[self._value.type]  # type: ignore
+                    # Add self to referees of value and shape.
+                    self._value.referees.add(self)
+                    self._value.shape.referees.add(self)
+                    # Add self as a type update since type has just updated to Tensor.
+                    updates.add(self, UpdateType.TYPE)
+                    # TODO: When two edges set to the same tensor value using
+                    # different Tensor objects, we need to merge their nodes into
+                    # a single node. In order to track this, we need to add all
+                    # uniadic symbols of all reprs to the updates.
+                    for repr in value.shape.reprs:
+                        for symbol in repr.prefix + repr.suffix:
+                            updates.add(symbol)
             else:
                 updates |= self.set_type(_find_type(value))
                 self._value = value
@@ -1300,31 +1464,37 @@ class ExtendTemplate(TemplateBase):
 
 @dataclass
 class BaseKey:
-    value: Tensor[Any] | ScalarValueType | TensorValueType | ToBeDetermined | str = TBD
+    value: (
+        Tensor[int | float | bool]
+        | ScalarValueType
+        | TensorValueType
+        | ToBeDetermined
+        | str
+    ) = TBD
     shape: ShapeTemplateType | None = None
-    type: UnionType | type | type[Tensor[Any]] | ScalarType | None = None
+    type: UnionType | type | type[Tensor[int | float | bool]] | ScalarType | None = None
     interval: list[float | int] | None = None
-    # TODO: Add __post_init__ to check types and values
 
-    # TODO: Add __post_init__ to check types and values
-    # def __post_init__(self) -> None:
-    #     if not isinstance(self.value, ToBeDetermined):
-    #         value_type = _find_type(self.value)
-    #         if self.type is not None and
-    #           find_intersection_type(value_type, self.type) is None:
-    #             raise TypeError(
-    #                 f"type of the given value and given type does not match. Given "
-    #                 f"type is {self.type} while type of value is {value_type}"
-    #             )
+    def __post_init__(self) -> None:
+        # Convert to generic Tensor type if Tensor type is provided.
+        if self.type is Tensor:
+            self.type = Tensor[int | float | bool]
 
 
 class IOKey(TemplateBase):
     def __init__(
         self,
         name: str | None = None,
-        value: Tensor[Any] | ScalarValueType | ToBeDetermined | str = TBD,
+        value: Tensor[int | float | bool]
+        | ScalarValueType
+        | ToBeDetermined
+        | str = TBD,
         shape: ShapeTemplateType | None = None,
-        type: UnionType | type | type[Tensor[Any]] | ScalarType | None = None,
+        type: UnionType
+        | type
+        | type[Tensor[int | float | bool]]
+        | ScalarType
+        | None = None,
         expose: bool | None = None,
         interval: list[float | int] | None = None,
         connections: set[Connection | str] | None = None,
@@ -1333,9 +1503,12 @@ class IOKey(TemplateBase):
         # If shape is provided, type should be Tensor.
         if shape is not None:
             if type is None:
-                type = Tensor
-            elif (type is not Tensor) and (get_origin(type) is not Tensor):
+                type = Tensor[int | float | bool]
+            elif get_origin(type) is not Tensor:
                 raise TypeError("Shape can not be provided for a non-tensor type!")
+        elif type is Tensor:
+            # Convert to generic Tensor type if Tensor type is provided.
+            type = Tensor[int | float | bool]
 
         self.name = name
         self.expose = expose
@@ -1413,7 +1586,7 @@ class ConnectionData:
 
     def set_differentiable(self, differentiable: bool = True) -> None:
         # TODO: Move this method to Model class as set_shapes, set_types etc.
-        if self.metadata.edge_type is Tensor:
+        if get_origin(self.metadata.edge_type) is Tensor:
             self.metadata.differentiable = differentiable
         elif differentiable:
             if self.metadata.edge_type is not ToBeDetermined:
@@ -1429,7 +1602,7 @@ TemplateConnectionType = (
     | EllipsisType
     | tuple[slice | int | None | EllipsisType | TemplateBase, ...]
     | None
-    | Tensor[Any]
+    | Tensor[int | float | bool]
 )
 
 
@@ -1440,7 +1613,7 @@ ConnectionType = (
     | NullConnection
     | IOKey
     | Connection
-    | Tensor[Any]
+    | Tensor[int | float | bool]
 )
 
 ConnectionInstanceType = (
@@ -1602,7 +1775,7 @@ class Connections:
 
     def get_shape_node(self, key: str) -> ShapeNode:
         edge = self.get_metadata(key)
-        if edge.edge_type is not Tensor:
+        if get_origin(edge.edge_type) is not Tensor:
             raise ValueError("'Only Tensor type connections has shape!'")
         assert edge.shape is not None
         return edge.shape
@@ -2596,6 +2769,8 @@ class ShapeNode:
                     )
                 ):
                     most_informative_repr = repr
+        if most_informative_repr is None:
+            ...
         assert most_informative_repr is not None
         return most_informative_repr
 
@@ -2948,7 +3123,7 @@ class Constraint:
         status = False
         updates = Updates()
         if self.type == UpdateType.SHAPE:
-            tensor_keys = [key for key in keys if key.edge_type is Tensor]
+            tensor_keys = [key for key in keys if get_origin(key.edge_type) is Tensor]
             for reprs in product(*[key.shape.reprs for key in tensor_keys]):  # type: ignore
                 for idx, repr in enumerate(reprs):
                     tensor_keys[idx]._temp_shape = repr

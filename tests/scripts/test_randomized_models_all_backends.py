@@ -15,6 +15,7 @@
 import inspect
 import json
 from copy import deepcopy
+from typing import get_origin
 
 import numpy as np
 import pytest
@@ -179,7 +180,7 @@ def test_randomized(case: str) -> None:
             )
             static_inputs[init_key] = {
                 key: init_backend.array(value)
-                if model.conns.get_metadata(key).edge_type is Tensor
+                if get_origin(model.conns.get_metadata(key).edge_type) is Tensor
                 else value
                 for key, value in static_inputs[init_key].items()
             }
@@ -229,7 +230,7 @@ def test_randomized(case: str) -> None:
                 }
                 static_inputs[backend.backend_type] = {
                     key: backend.array(value)
-                    if model.conns.get_metadata(key).edge_type is Tensor
+                    if get_origin(model.conns.get_metadata(key).edge_type) is Tensor
                     else value
                     for key, value in static_inputs[init_key].items()
                 }
