@@ -12,7 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections.abc import Sequence
 from types import EllipsisType, NoneType, UnionType
+from typing import Any
 
 import numpy as np
 import pytest
@@ -754,6 +756,60 @@ def test_find_intersection_types_24():
 def test_find_intersection_types_25():
     type_1: type = tuple[int | float]
     type_2: type = tuple[int, float]
+    assert find_intersection_type(type_1, type_2) is None
+
+
+def test_find_intersection_types_26():
+    type_1: type = range
+    type_2: type = Sequence[int | float]
+    assert find_intersection_type(type_1, type_2) is range
+
+
+def test_find_intersection_types_27():
+    type_1: type = tuple[range, list[int | float]]
+    type_2: type = Sequence[Sequence[int | float]]
+    assert find_intersection_type(type_1, type_2) == tuple[range, list[int | float]]
+
+
+def test_find_intersection_types_28():
+    type_1: type = tuple[range, list[int | float]]
+    type_2: type = Sequence[list[int | float]]
+    assert find_intersection_type(type_1, type_2) is None
+
+
+def test_find_intersection_types_29():
+    type_1: type = tuple[range, list[int | float]]
+    type_2: type = Sequence[Any]
+    assert find_intersection_type(type_1, type_2) == tuple[range, list[int | float]]
+
+
+def test_find_intersection_types_30():
+    type_1: type = tuple[range, list[int | float]]
+    type_2: type = Sequence[range]
+    assert find_intersection_type(type_1, type_2) is None
+
+
+def test_find_intersection_types_31():
+    type_1: type = tuple[range, list[int | float]]
+    type_2: type = Sequence[list[int | float]]
+    assert find_intersection_type(type_1, type_2) is None
+
+
+def test_find_intersection_types_32():
+    type_1: type = tuple[range, list[int | float]]
+    type_2: type = tuple[list[int | float], range]
+    assert find_intersection_type(type_1, type_2) is None
+
+
+def test_find_intersection_types_33():
+    type_1: type = tuple[range, list[int | float]]
+    type_2: type = tuple[range, list[int]]
+    assert find_intersection_type(type_1, type_2) == tuple[range, list[int]]
+
+
+def test_find_intersection_types_34():
+    type_1: type = range
+    type_2: type = Sequence[bool | float]
     assert find_intersection_type(type_1, type_2) is None
 
 

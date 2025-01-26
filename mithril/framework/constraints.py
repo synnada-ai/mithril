@@ -31,7 +31,7 @@ from ..utils.type_utils import (
     is_tuple_int_or_none,
     is_tuple_of_two_ints,
 )
-from ..utils.utils import PaddingType, find_dominant_type
+from ..utils.utils import PaddingType
 from .common import (
     DNF,
     TBD,
@@ -49,7 +49,7 @@ from .common import (
     UpdateType,
     Variadic,
     _TensorTypes,
-    list_shape,
+    process_value,
 )
 from .utils import (
     find_intersection_type,
@@ -3404,11 +3404,9 @@ def to_tensor_constraints(
     ), "Invalid input value!"
 
     if not isinstance(input_val, ToBeDetermined):
-        shape = []
+        shape: list[int] = []
         if isinstance(input_val, list | tuple):
-            # list_shape function takes only list type input.
-            shape = [idx for idx in list_shape(list(input_val))]
-            typ = find_dominant_type(input_val)
+            shape, _, typ = process_value(input_val)
             updates |= output.set_type(Tensor[typ])  # type: ignore
             updates.add(output, update_type=UpdateType.TYPE)
         elif isinstance(input_val, float | int):
@@ -3453,7 +3451,8 @@ def tensor_to_list_constraints(
     if not isinstance(output_val, ToBeDetermined):
         shape: list[Uniadic] = []
         if isinstance(output_value, list | tuple):
-            shape = [Uniadic(idx) for idx in list_shape(list(output_val))]
+            shp, *_ = process_value(output_val)
+            shape = [Uniadic(idx) for idx in shp]
 
         updates |= input_shape.inner_match(prefix=shape)
         status = True
