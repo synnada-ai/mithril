@@ -34,5 +34,6 @@ jobs:
           pip install -r requirements/dev.txt
           pip install tiktoken
           pip install transformers
+          pip install librosa
       - name: Execute testcase unit tests
         run: pytest -s test_examples/
