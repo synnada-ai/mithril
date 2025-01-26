@@ -18,6 +18,7 @@ from collections.abc import Callable, Sequence
 from typing import Any, overload
 
 import jax
+import jax.numpy as jnp
 
 from ....core import Dtype
 from ...backend import PadWidthType, ParallelBackend
@@ -415,6 +416,11 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         # TODO: dim can be Sequence[int] as well. Should work
         # for all backends.
         return ops.softmax(input, axis=dim)
+
+    def argmax(
+        self, input: jax.Array, *, axis: int | None = None, keepdim: bool = False
+    ) -> jax.Array:
+        return jnp.argmax(input, axis=axis, keepdims=keepdim)
 
     def log(self, input: jax.Array) -> jax.Array:
         return jax.numpy.log(input)

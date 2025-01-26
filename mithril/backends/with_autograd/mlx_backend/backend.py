@@ -99,6 +99,11 @@ class MlxBackend(Backend[mx.array]):
         self.seed = seed
         self.prng_key = mx.random.key(seed)
 
+    def argmax(
+        self, input: mx.array, *, axis: AxisType = None, keepdim: bool = False
+    ) -> mx.array:
+        return mx.argmax(input, axis=axis, keepdims=keepdim)
+
     def to_device(
         self, data: mx.array, device: str, asynchronous: bool = True
     ) -> mx.array:

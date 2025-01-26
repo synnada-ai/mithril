@@ -143,6 +143,16 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
         _shape = process_shape(shape)
         return np.ones(_shape, dtype=_dtype)
 
+    def argmax(
+        self,
+        input: np.ndarray[Any, Any],
+        *,
+        axis: int | None = None,
+        keepdim: bool = False,
+        cache: CacheType | None = None,
+    ) -> np.ndarray[Any, Any]:
+        return np.argmax(input, axis=axis, keepdims=keepdim)
+
     def ones_like(
         self, input: np.ndarray[Any, Any], *, dtype: Dtype | None = None
     ) -> np.ndarray[Any, Any]:
