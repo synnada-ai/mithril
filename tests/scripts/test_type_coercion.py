@@ -695,7 +695,7 @@ class ArtificialPrimitive(PrimitiveModel):
             output=BaseKey(shape=[("Var1", ...)], type=Tensor),
             input=BaseKey(shape=[("Var2", ...)], type=type),
         )
-        self._set_constraint(
+        self._add_constraint(
             fn=self.artificial_constraint, keys=[PrimitiveModel.output_key, "input"]
         )
 

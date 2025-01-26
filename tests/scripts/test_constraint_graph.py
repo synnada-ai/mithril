@@ -115,11 +115,11 @@ class TestThreeSequential(ThreeConstraintsTest):
         # constr_1 ----> constr_2 ----> constr_3
 
         model = Sigmoid()
-        c1 = model.set_constraint(fn=self.constraint_1, keys=["input", "output"])
-        c2 = model.set_constraint(
+        c1 = model.add_constraint(fn=self.constraint_1, keys=["input", "output"])
+        c2 = model.add_constraint(
             fn=self.constraint_2, keys=["input", "output"], dependencies={c1}
         )
-        model.set_constraint(
+        model.add_constraint(
             fn=self.constraint_3, keys=["input", "output"], dependencies={c2}
         )
         return model
@@ -145,11 +145,11 @@ class TestThreeOneToMany(ThreeConstraintsTest):
         #              + ---> constr_3
 
         model = Sigmoid()
-        c1 = model.set_constraint(fn=self.constraint_1, keys=["input", "output"])
-        model.set_constraint(
+        c1 = model.add_constraint(fn=self.constraint_1, keys=["input", "output"])
+        model.add_constraint(
             fn=self.constraint_2, keys=["input", "output"], dependencies={c1}
         )
-        model.set_constraint(
+        model.add_constraint(
             fn=self.constraint_3, keys=["input", "output"], dependencies={c1}
         )
         return model
@@ -175,9 +175,9 @@ class TestThreeManyToOne(ThreeConstraintsTest):
         #  constr_2 --- +
 
         model = Sigmoid()
-        c1 = model.set_constraint(fn=self.constraint_1, keys=["input", "output"])
-        c2 = model.set_constraint(fn=self.constraint_2, keys=["input", "output"])
-        model.set_constraint(
+        c1 = model.add_constraint(fn=self.constraint_1, keys=["input", "output"])
+        c2 = model.add_constraint(fn=self.constraint_2, keys=["input", "output"])
+        model.add_constraint(
             fn=self.constraint_3, keys=["input", "output"], dependencies={c1, c2}
         )
         return model
@@ -212,16 +212,16 @@ class TestFourDiamond(FourConstraintsTest):
 
         model = Sigmoid()
 
-        c1 = model.set_constraint(fn=self.constraint_1, keys=["input", "output"])
-        c2 = model.set_constraint(
+        c1 = model.add_constraint(fn=self.constraint_1, keys=["input", "output"])
+        c2 = model.add_constraint(
             fn=self.constraint_2, keys=["input", "output"], dependencies={c1}
         )
 
-        c3 = model.set_constraint(
+        c3 = model.add_constraint(
             fn=self.constraint_3, keys=["input", "output"], dependencies={c1}
         )
 
-        model.set_constraint(
+        model.add_constraint(
             fn=self.constraint_4, keys=["input", "output"], dependencies={c2, c3}
         )
         return model
@@ -309,14 +309,14 @@ class TestFourManyToMany(FourConstraintsTest):
 
         model = Sigmoid()
 
-        c1 = model.set_constraint(fn=self.constraint_1, keys=["input", "output"])
-        c2 = model.set_constraint(fn=self.constraint_2, keys=["input", "output"])
+        c1 = model.add_constraint(fn=self.constraint_1, keys=["input", "output"])
+        c2 = model.add_constraint(fn=self.constraint_2, keys=["input", "output"])
 
-        model.set_constraint(
+        model.add_constraint(
             fn=self.constraint_3, keys=["input", "output"], dependencies={c1, c2}
         )
 
-        model.set_constraint(
+        model.add_constraint(
             fn=self.constraint_4, keys=["input", "output"], dependencies={c1, c2}
         )
         return model
@@ -349,14 +349,14 @@ class TestFourTwoSequential(FourConstraintsTest):
 
         model = Sigmoid()
 
-        c1 = model.set_constraint(fn=self.constraint_1, keys=["input", "output"])
-        model.set_constraint(
+        c1 = model.add_constraint(fn=self.constraint_1, keys=["input", "output"])
+        model.add_constraint(
             fn=self.constraint_2, keys=["input", "output"], dependencies={c1}
         )
 
-        c3 = model.set_constraint(fn=self.constraint_3, keys=["input", "output"])
+        c3 = model.add_constraint(fn=self.constraint_3, keys=["input", "output"])
 
-        model.set_constraint(
+        model.add_constraint(
             fn=self.constraint_4, keys=["input", "output"], dependencies={c3}
         )
         return model

@@ -103,7 +103,7 @@ class Model1(PrimitiveModel):
             input=BaseKey(shape=[("Var1", ...)], type=Tensor),
             output=BaseKey(shape=[("Var2", ...)], type=Tensor),
         )
-        self._set_constraint(fn=dummy_constraint, keys=["output", "input"])
+        self._add_constraint(fn=dummy_constraint, keys=["output", "input"])
 
 
 class Model2(PrimitiveModel):
@@ -116,8 +116,8 @@ class Model2(PrimitiveModel):
             input=BaseKey(shape=[("Var1", ...)], type=Tensor),
             output=BaseKey(shape=[("Var2", ...)], type=Tensor),
         )
-        self._set_constraint(fn=dummy_constraint, keys=["output", "input"])
-        self._set_constraint(
+        self._add_constraint(fn=dummy_constraint, keys=["output", "input"])
+        self._add_constraint(
             fn=general_tensor_type_constraint, keys=["output", "input"]
         )
 
@@ -132,7 +132,7 @@ class Model3(PrimitiveModel):
             input=BaseKey(shape=[("Var1", ...)], type=Tensor[int | bool]),
             output=BaseKey(shape=[("Var2", ...)], type=Tensor[int | bool]),
         )
-        self._set_constraint(fn=dummy_constraint, keys=["output", "input"])
+        self._add_constraint(fn=dummy_constraint, keys=["output", "input"])
 
 
 class MyAdd2(PrimitiveModel):
@@ -147,7 +147,7 @@ class MyAdd2(PrimitiveModel):
             left=BaseKey(shape=left, type=Tensor),
             right=BaseKey(shape=right, type=Tensor),
         )
-        self._set_constraint(
+        self._add_constraint(
             fn=bcast, keys=[PrimitiveModel.output_key, "left", "right"]
         )
 

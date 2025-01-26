@@ -413,7 +413,7 @@ class BaseModel(abc.ABC):
             key_mappings=self.generate_keys(include_outputs=True),
         )
 
-    def _set_constraint(
+    def _add_constraint(
         self,
         fn: ConstraintFunctionType,
         keys: list[str],
@@ -444,7 +444,7 @@ class BaseModel(abc.ABC):
         self.constraint_solver.solver_loop({constr})
         return constr
 
-    def set_constraint(
+    def add_constraint(
         self,
         fn: ConstraintFunctionType,
         keys: list[str],
@@ -452,7 +452,7 @@ class BaseModel(abc.ABC):
         dependencies: set[Constraint] | None = None,
     ) -> Constraint:
         self.assigned_constraints.append({"fn": fn.__name__, "keys": keys})
-        return self._set_constraint(fn, keys, type, dependencies)
+        return self._add_constraint(fn, keys, type, dependencies)
 
     @property
     def cin(self) -> Connection:
