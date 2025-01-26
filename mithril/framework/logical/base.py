@@ -48,7 +48,7 @@ from ..common import (
     create_shape_repr,
     get_shapes,
 )
-from ..constraints import post_process_map, type_constraints
+from ..constraints import type_constraints
 
 __all__ = ["BaseModel", "ExtendInfo"]
 
@@ -417,11 +417,17 @@ class BaseModel(abc.ABC):
         self,
         fn: ConstraintFunctionType,
         keys: list[str],
-        post_processes: set[ConstraintFunctionType] | None = None,
         type: UpdateType | None = None,
-    ) -> None:
+        dependencies: set[Constraint] | None = None,
+    ) -> Constraint:
         all_conns = self.conns.all
         hyper_edges = [all_conns[key].metadata for key in keys]
+
+        if dependencies is None:
+            dependencies = set()
+        unresolved_dependencies = (
+            dependencies & self.constraint_solver.constraint_map.keys()
+        )
         if type is None:
             # TODO: separate type_constraints and shape constraints into two files under
             # constraints folder. Then, check if fn is not in any of those types set
@@ -429,31 +435,24 @@ class BaseModel(abc.ABC):
             # while other one is UpdateType.Type, raise Exception!
             type = UpdateType.TYPE if fn in type_constraints else UpdateType.SHAPE
         constr = Constraint(fn=fn, type=type)
+        constr.add_dependencies(*unresolved_dependencies)
+
         self.constraint_solver.constraint_map[constr] = hyper_edges
         for hyper_edge in hyper_edges:
             hyper_edge.add_constraint(constr)
 
-        # Get union of all given and default post processes for the given
-        # constraint and update post_processes field.
-        if post_processes is None:
-            post_processes = set()
-        all_post_processes = post_processes | post_process_map.get(fn, set())
-        for post_fn in all_post_processes:
-            type = UpdateType.TYPE if post_fn in type_constraints else UpdateType.SHAPE
-            constr.add_post_process((post_fn, type))
-
-        _, updates = constr(hyper_edges)
-        self.constraint_solver(updates)
+        self.constraint_solver.solver_loop({constr})
+        return constr
 
     def set_constraint(
         self,
         fn: ConstraintFunctionType,
         keys: list[str],
-        post_processes: set[ConstraintFunctionType] | None = None,
         type: UpdateType = UpdateType.SHAPE,
-    ) -> None:
+        dependencies: set[Constraint] | None = None,
+    ) -> Constraint:
         self.assigned_constraints.append({"fn": fn.__name__, "keys": keys})
-        self._set_constraint(fn, keys, post_processes, type=type)
+        return self._set_constraint(fn, keys, type, dependencies)
 
     @property
     def cin(self) -> Connection:

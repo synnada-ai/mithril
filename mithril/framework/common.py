@@ -336,12 +336,14 @@ class ConstraintSolver:
 
     def __call__(self, updates: Updates) -> None:
         self.update_shapes(updates)
-        solved_constraints: set[Constraint] = set()
-        constraints = updates.constraints
+        updates |= self.solver_loop(updates.constraints)
+
+    def solver_loop(self, constraints: set[Constraint]) -> Updates:
+        updates = Updates()
         while constraints:
             constr = constraints.pop()
-            constraint_type = constr.type
-            if constr not in solved_constraints and constr in self.constraint_map:
+            if (not constr.parents) and (constr in self.constraint_map):
+                constraint_type = constr.type
                 hyper_edges = self.constraint_map[constr]
                 status, newly_added_symbols = constr(hyper_edges)
                 if constraint_type is UpdateType.SHAPE:
@@ -353,27 +355,18 @@ class ConstraintSolver:
                     if constr.type is constraint_type
                 }
 
-                # If a constraint is solved, get its post_constraints and add to
-                # constraints set.
                 if status:
-                    solved_constraints.add(constr)
+                    # Remove all occurences of constraint.
                     self.constraint_map.pop(constr)
-                    # Remove constraint from hyper_edges.
                     for hyper_edge in hyper_edges:
                         hyper_edge.remove_constraint(constr)
 
-                    post_constraints = constr.create_post_constraints()
-                    for post_constr in post_constraints:
-                        self.constraint_map[post_constr] = hyper_edges
-
-                        # Add post_constraints to hyper_edges.
-                        for hyper_edge in hyper_edges:
-                            hyper_edge.add_constraint(post_constr)
-
-                    constraints |= post_constraints
+                    # Add dependent constraints to constraints set.
+                    constraints |= constr.pop_dependencies()
 
                 constraints |= new_constraints
                 constraints.discard(constr)
+        return updates
 
     @staticmethod
     def _combine_nodes(updates: Updates) -> None:
@@ -2892,9 +2885,8 @@ class Constraint:
     fn: ConstraintFunctionType
     type: UpdateType = UpdateType.SHAPE
     call_counter: int = 0
-    post_processes: set[tuple[ConstraintFunctionType, UpdateType]] = field(
-        default_factory=lambda: set()
-    )
+    parents: set[Constraint] = field(default_factory=lambda: set())
+    children: set[Constraint] = field(default_factory=lambda: set())
 
     def __call__(self, keys: list[IOHyperEdge]) -> ConstrainResultType:
         status = False
@@ -2916,17 +2908,17 @@ class Constraint:
         self.call_counter += 1
         return status, updates
 
-    def add_post_process(
-        self, process: tuple[ConstraintFunctionType, UpdateType]
-    ) -> None:
-        self.post_processes.add(process)
+    def add_dependencies(self, *args: Constraint) -> None:
+        self.parents.update(args)
+        for constr in args:
+            constr.children.add(self)
 
-    def create_post_constraints(self) -> set[Constraint]:
-        constraints: set[Constraint] = set()
-        for process in self.post_processes:
-            fn, type = process
-            constraints.add(Constraint(fn, type))
-        return constraints
+    def pop_dependencies(self) -> set[Constraint]:
+        for constr in self.children:
+            constr.parents.remove(self)
+        children = self.children
+        self.children = set()
+        return children
 
     def __hash__(self) -> int:
         return hash(id(self))

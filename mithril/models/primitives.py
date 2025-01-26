@@ -30,6 +30,7 @@ from ..framework.common import (
 from ..framework.constraints import (
     arange_constraints,
     bcast,
+    bcast_error_check,
     broadcast_to_constraints,
     concat_constraints,
     conv_1d_constraints,
@@ -166,9 +167,16 @@ class SupervisedLoss(PrimitiveModel):
         super().__init__(formula_key=formula_key, name=name, **kwargs)
 
         # Set constraints.
-        self._set_constraint(
+        bcast_constraint = self._set_constraint(
             fn=bcast, keys=[PrimitiveModel.output_key, "input", "target"]
         )
+
+        self._set_constraint(
+            fn=bcast_error_check,
+            keys=[PrimitiveModel.output_key, "input", "target"],
+            dependencies={bcast_constraint},
+        )
+
         if polymorphic_constraint:
             self._set_constraint(
                 fn=general_tensor_type_constraint,
@@ -279,9 +287,16 @@ class QuantileLoss(PrimitiveModel):
             quantile=BaseKey(shape=[], type=Tensor[int | float], value=quantile),
         )
 
-        self._set_constraint(
+        bcast_constraint = self._set_constraint(
             fn=bcast, keys=[PrimitiveModel.output_key, "input", "target"]
         )
+
+        self._set_constraint(
+            fn=bcast_error_check,
+            keys=[PrimitiveModel.output_key, "input", "target"],
+            dependencies={bcast_constraint},
+        )
+
         self._set_constraint(
             fn=general_tensor_type_constraint,
             keys=[PrimitiveModel.output_key, "input", "target", "quantile"],
@@ -446,8 +461,14 @@ class KLDivergence(PrimitiveModel):
             "input": ["N", ("Var", ...)],
             "target": ["N", ("Var", ...)],
         }
-        self._set_constraint(
+        bcast_constraint = self._set_constraint(
             fn=bcast, keys=[PrimitiveModel.output_key, "input", "target"]
+        )
+
+        self._set_constraint(
+            fn=bcast_error_check,
+            keys=[PrimitiveModel.output_key, "input", "target"],
+            dependencies={bcast_constraint},
         )
 
     def __call__(  # type: ignore[override]
@@ -526,8 +547,14 @@ class BinaryCrossEntropy(PrimitiveModel):
 
         super().__init__(formula_key=formula_key, name=name, **kwargs)
 
-        self._set_constraint(
+        bcast_constraint = self._set_constraint(
             fn=bcast, keys=[PrimitiveModel.output_key, "input", "target"]
+        )
+
+        self._set_constraint(
+            fn=bcast_error_check,
+            keys=[PrimitiveModel.output_key, "input", "target"],
+            dependencies={bcast_constraint},
         )
 
     def __call__(  # type: ignore[override]

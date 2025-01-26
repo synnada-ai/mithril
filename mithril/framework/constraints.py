@@ -93,7 +93,6 @@ __all__ = [
     "tensor_to_list_type_constraint",
     "reduce_type_constraint",
     "type_constraints",
-    "post_process_map",
     "padding_1d_constraint",
     "padding_2d_constraint",
     "stride_constraint",
@@ -106,7 +105,6 @@ __all__ = [
     "buffer_constraint",
     "relational_operator_type_constraint",
     "divide_type_constraint",
-    "bcast_power",
     "polynomial_kernel_constraint",
 ]
 
@@ -1452,14 +1450,6 @@ def bcast_matrix_mult(
     return _bcast(output, left, right, 2)
 
 
-def bcast_power(
-    output: IOHyperEdge, base: IOHyperEdge, exponent: IOHyperEdge, *args: IOHyperEdge
-) -> ConstrainResultType:
-    # NOTE: threshold input only exists in robust mode, so it is represented
-    # as *args.
-    return _bcast(output, base, exponent, 0)
-
-
 def check_reverse(
     left: list[Uniadic], right: list[Uniadic], output: list[Uniadic]
 ) -> bool:
@@ -1511,6 +1501,8 @@ def bcast_error_check(
     right: IOHyperEdge,
     index: int = 0,
 ) -> ConstrainResultType:
+    if left.edge_type is not Tensor or right.edge_type is not Tensor:
+        return True, Updates()
     assert left._temp_shape is not None, "Left shape of broadcast is not set!"
     assert right._temp_shape is not None, "Right shape of broadcast is not set!"
     assert output._temp_shape is not None, "Output shape of broadcast is not set!"
@@ -1743,19 +1735,18 @@ def reduce_constraints(
                                 else:
                                     out_suffix.pop(0)
 
-                        if out_prefix or out_suffix:
-                            pos_len = pos_idx if pos_idx is not None else 0
-                            neg_len = neg_idx if neg_idx is not None else 0
-                            if (
-                                len(input_shape.prefix) >= pos_len
-                                and len(input_shape.suffix) >= neg_len
-                            ):
-                                var = input_shape.root
-                            else:
-                                var = Variadic()
-                            updates |= output_shape.inner_match(
-                                prefix=out_prefix, root=var, suffix=out_suffix
-                            )
+                        pos_len = pos_idx if pos_idx is not None else 0
+                        neg_len = neg_idx if neg_idx is not None else 0
+                        if (
+                            len(input_shape.prefix) >= pos_len
+                            and len(input_shape.suffix) >= neg_len
+                        ):
+                            var = input_shape.root
+                        else:
+                            var = Variadic()
+                        updates |= output_shape.inner_match(
+                            prefix=out_prefix, root=var, suffix=out_suffix
+                        )
 
         if input_shape.root is None and keepdim_val is not TBD:
             if axis_val is None:
@@ -4016,9 +4007,4 @@ type_constraints: set[ConstraintFunctionType] = {
     relational_operator_type_constraint,
     divide_type_constraint,
     buffer_constraint,
-}
-
-post_process_map: dict[ConstraintFunctionType, set[ConstraintFunctionType]] = {
-    bcast: {bcast_error_check},
-    bcast_matrix_mult: {bcast_mat_mul_check},
 }

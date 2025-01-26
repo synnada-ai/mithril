@@ -23,6 +23,7 @@ from ..common import (
     BaseKey,
     Connection,
     ConnectionType,
+    Constraint,
     ScalarValueType,
     ShapeTemplateType,
     Tensor,
@@ -32,8 +33,9 @@ from ..common import (
 )
 from ..constraints import (
     bcast,
+    bcast_error_check,
+    bcast_mat_mul_check,
     bcast_matrix_mult,
-    bcast_power,
     buffer_constraint,
     divide_type_constraint,
     edge_type_constraint,
@@ -200,12 +202,28 @@ class ArithmeticOperation(PrimitiveModel):
             right=BaseKey(value=right),
         )
 
-        self._set_constraint(
+        edge_constraint = self._set_constraint(
             fn=edge_type_constraint,
             keys=[PrimitiveModel.output_key, "left", "right"],
-            post_processes={general_tensor_type_constraint, bcast},
         )
-        # self.set_cin(self.right, self.left)
+
+        self._set_constraint(
+            fn=general_tensor_type_constraint,
+            keys=[PrimitiveModel.output_key, "left", "right"],
+            dependencies={edge_constraint},
+        )
+
+        bcast_constraint = self._set_constraint(
+            fn=bcast,
+            keys=[PrimitiveModel.output_key, "left", "right"],
+            dependencies={edge_constraint},
+        )
+
+        self._set_constraint(
+            fn=bcast_error_check,
+            keys=[PrimitiveModel.output_key, "left", "right"],
+            dependencies={bcast_constraint},
+        )
 
     def __call__(  # type: ignore[override]
         self,
@@ -243,11 +261,8 @@ class Power(PrimitiveModel):
                 threshold=BaseKey(shape=[], type=Tensor),
             )
 
-            self._set_constraint(
-                fn=edge_type_constraint,
-                keys=[PrimitiveModel.output_key, "base", "exponent", "threshold"],
-                post_processes={general_tensor_type_constraint, bcast_power},
-            )
+            constrs: set[Constraint] = set()
+
         else:
             super().__init__(
                 formula_key="power",
@@ -256,11 +271,29 @@ class Power(PrimitiveModel):
                 base=BaseKey(value=base),
                 exponent=BaseKey(value=exponent),
             )
-            self._set_constraint(
+            edge_constraint = self._set_constraint(
                 fn=edge_type_constraint,
                 keys=[PrimitiveModel.output_key, "base", "exponent"],
-                post_processes={general_tensor_type_constraint, bcast_power},
             )
+            constrs = {edge_constraint}
+
+        self._set_constraint(
+            fn=general_tensor_type_constraint,
+            keys=[PrimitiveModel.output_key, "base", "exponent"],
+            dependencies=constrs,
+        )
+
+        bcast_constraint = self._set_constraint(
+            fn=bcast,
+            keys=[PrimitiveModel.output_key, "base", "exponent"],
+            dependencies=constrs,
+        )
+
+        self._set_constraint(
+            fn=bcast_error_check,
+            keys=[PrimitiveModel.output_key, "base", "exponent"],
+            dependencies={bcast_constraint},
+        )
 
     def __call__(  # type: ignore[override]
         self,
@@ -362,10 +395,21 @@ class Divide(PrimitiveModel):
             numerator=BaseKey(value=numerator),
             denominator=BaseKey(value=denominator),
         )
-        self._set_constraint(
+        edge_constraint = self._set_constraint(
             fn=edge_type_constraint,
             keys=[PrimitiveModel.output_key, "numerator", "denominator"],
-            post_processes={divide_type_constraint, bcast},
+        )
+
+        self._set_constraint(
+            fn=divide_type_constraint,
+            keys=[PrimitiveModel.output_key, "numerator", "denominator"],
+            dependencies={edge_constraint},
+        )
+
+        self._set_constraint(
+            fn=bcast,
+            keys=[PrimitiveModel.output_key, "numerator", "denominator"],
+            dependencies={edge_constraint},
         )
 
     def __call__(  # type: ignore[override]
@@ -400,9 +444,16 @@ class FloorDivide(PrimitiveModel):
             denominator=BaseKey(shape=[("Var_2", ...)], type=Tensor, value=denominator),
         )
 
-        self._set_constraint(
+        bcast_constraint = self._set_constraint(
             fn=bcast, keys=[PrimitiveModel.output_key, "numerator", "denominator"]
         )
+
+        self._set_constraint(
+            fn=bcast_error_check,
+            keys=[PrimitiveModel.output_key, "numerator", "denominator"],
+            dependencies={bcast_constraint},
+        )
+
         self._set_constraint(
             fn=floor_divide_type_constraint,
             keys=[PrimitiveModel.output_key, "numerator", "denominator"],
@@ -438,9 +489,16 @@ class MatrixMultiply(PrimitiveModel):
             left=BaseKey(shape=[("Var1", ...), "x", "y"], type=Tensor, value=left),
             right=BaseKey(shape=[("Var2", ...), "y", "z"], type=Tensor, value=right),
         )
-        self._set_constraint(
+        bcast_constraint = self._set_constraint(
             fn=bcast_matrix_mult, keys=[PrimitiveModel.output_key, "left", "right"]
         )
+
+        self._set_constraint(
+            fn=bcast_mat_mul_check,
+            keys=[PrimitiveModel.output_key, "left", "right"],
+            dependencies={bcast_constraint},
+        )
+
         self._set_constraint(
             fn=general_tensor_type_constraint,
             keys=[PrimitiveModel.output_key, "left", "right"],
@@ -1087,10 +1145,21 @@ class RelationalOperators(PrimitiveModel):
             right=BaseKey(value=right),
         )
 
-        self._set_constraint(
+        edge_constraint = self._set_constraint(
             edge_type_constraint,
             ["output", "left", "right"],
-            post_processes={relational_operator_type_constraint, bcast},
+        )
+
+        self._set_constraint(
+            relational_operator_type_constraint,
+            ["output", "left", "right"],
+            dependencies={edge_constraint},
+        )
+
+        self._set_constraint(
+            bcast,
+            ["output", "left", "right"],
+            dependencies={edge_constraint},
         )
 
     def __call__(  # type: ignore[override]
@@ -1482,14 +1551,26 @@ class Indexer(PrimitiveModel):
             ),
         )
 
-        self._set_constraint(
+        edge_constraints = self._set_constraint(
             fn=edge_type_constraint, keys=[PrimitiveModel.output_key, "input"]
         )
 
-        self._set_constraint(
+        indexer_initial_constraints = self._set_constraint(
             fn=indexer_initial_type_constraint,
             keys=[PrimitiveModel.output_key, "input", "index"],
-            post_processes={indexer_type_constraint, indexer_constraints},
+            dependencies={edge_constraints},
+        )
+
+        self._set_constraint(
+            fn=indexer_constraints,
+            keys=[PrimitiveModel.output_key, "input", "index"],
+            dependencies={indexer_initial_constraints},
+        )
+
+        self._set_constraint(
+            fn=indexer_type_constraint,
+            keys=[PrimitiveModel.output_key, "input", "index"],
+            dependencies={indexer_initial_constraints},
         )
 
     def __call__(  # type: ignore[override]
