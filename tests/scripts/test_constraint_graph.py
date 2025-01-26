@@ -24,21 +24,27 @@ class ConstrGraphTestBase:
     result_map: dict[tuple[bool, ...], list[str]]
 
     def model(self) -> PrimitiveModel:
+        # model with constraint graph
         raise NotImplementedError()
 
     def reset_state(self):
+        # resets state of the class variables
+        # to be used again
         self.conditions = (False,) * len(self.conditions)
         self.trace_list = []
 
     def assert_results(self, *conds: bool):
         self.reset_state()
         model = self.model()
-        self.conditions = conds
-        model.set_shapes(input=["a"])
+        self.conditions = conds  # set conditions
+        model.set_shapes(input=["a"])  # trigger constraint solver loop
         assert sorted(self.trace_list) == sorted(self.result_map[conds])
 
 
 class ThreeConstraints(ConstrGraphTestBase):
+    # class that defines three constraints
+    # each constraint returns True or False based on the condition
+    # if returns true, it appends the constraint name to the trace_list
     conditions: tuple[bool, ...] = (False, False, False)
 
     def constraint_1(
@@ -73,11 +79,13 @@ class ThreeConstraints(ConstrGraphTestBase):
 @pytest.mark.parametrize("cond2", [True, False])
 @pytest.mark.parametrize("cond1", [True, False])
 class ThreeConstraintsTest(ThreeConstraints):
-    def test_model(self, cond1: bool, cond2: bool, cond3: bool):
+    # runs test for all possible conditions
+    def test_conditions(self, cond1: bool, cond2: bool, cond3: bool):
         self.assert_results(cond1, cond2, cond3)
 
 
 class FourConstraints(ThreeConstraints):
+    # adds another constraint to the ThreeConstraints
     conditions: tuple[bool, ...] = (False, False, False, False)
 
     def constraint_4(
@@ -95,7 +103,8 @@ class FourConstraints(ThreeConstraints):
 @pytest.mark.parametrize("cond2", [True, False])
 @pytest.mark.parametrize("cond1", [True, False])
 class FourConstraintsTest(FourConstraints):
-    def test_model(self, cond1: bool, cond2: bool, cond3: bool, cond4: bool):
+    # runs test for all possible conditions
+    def test_conditions(self, cond1: bool, cond2: bool, cond3: bool, cond4: bool):
         self.assert_results(cond1, cond2, cond3, cond4)
 
 
