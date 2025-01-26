@@ -87,7 +87,7 @@ class TestGPT:
         sys.path.append(os.path.dirname(file_path))
         import examples.whisper.run_whisper as run_whisper
 
-        return run_whisper.run_inference
+        return run_whisper.run_inference  # type:ignore
 
     @pytest.mark.parametrize("backend", backend_strings)
     def test_run_sample(self, backend: str, run_sample_fn: RunSampleType):

@@ -120,8 +120,8 @@ def run_inference(file_path: str, backend: str) -> str:
             data={"input": input_features, "decoder_input_ids": decoder_input_ids},
         )
         logits = outputs["output"]
-        logits = logits[:, -1, :]
-        token = backend_obj.argmax(logits)
+        logits = logits[:, -1, :]  # type: ignore
+        token = backend_obj.argmax(logits)  # type: ignore
         decoded_text.append(int(token))
         decoder_input_ids = backend_obj.array([decoded_text])
     transcription = convert_ids_to_text(decoder_input_ids.tolist()[0], reverse_dict)
