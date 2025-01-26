@@ -89,6 +89,8 @@ class TestGPT:
     @pytest.mark.parametrize("backend", backend_strings)
     def test_run_sample(self, backend: str, run_sample_fn: RunSampleType):
         with redirect_stdout(StringIO()) as prompt_output:
-            run_sample_fn(file_path="1040-133433-0001.flac", backend=backend)
+            run_sample_fn(
+                file_path="examples/whisper/1040-133433-0001.flac", backend=backend
+            )
         output = prompt_output.getvalue()
         assert result_prompt in output

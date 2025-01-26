@@ -126,7 +126,6 @@ def run_inference(file_path: str, backend: str) -> str:
         decoder_input_ids = backend_obj.array([decoded_text])
     transcription = convert_ids_to_text(decoder_input_ids.tolist()[0], reverse_dict)
     print(transcription[1:])
-    return transcription[1:]
 
 
 def main():

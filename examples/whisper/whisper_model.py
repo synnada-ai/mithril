@@ -40,25 +40,25 @@ def whisper_attention(
     k_project = Linear(input_dim, name="k_proj", use_bias=False)
     q_project = Linear(input_dim, name="q_proj")
     model += q_project(input="input", output="q")
-    shp_con = model.input.shape
+    shp_con = model.input.shape  # type: ignore
     reshape_con = (shp_con[0], shp_con[1], num_heads, -1)
-    tq = model.q.reshape(reshape_con).transpose(t_axes)
+    tq = model.q.reshape(reshape_con).transpose(t_axes)  # type: ignore
     if cross_attention:
         model += v_project(input="xa", output="v")
         model += k_project(input="xa", output="k")
-        shp_con_2 = model.xa.shape
+        shp_con_2 = model.xa.shape  # type: ignore
         reshape_kv = (shp_con_2[0], shp_con_2[1], num_heads, -1)
-        tk = model.k.reshape(reshape_kv).transpose(t_axes)
-        tv = model.v.reshape(reshape_kv).transpose(t_axes)
+        tk = model.k.reshape(reshape_kv).transpose(t_axes)  # type: ignore
+        tv = model.v.reshape(reshape_kv).transpose(t_axes)  # type: ignore
     else:
         model += v_project(input="input", output="v")
-        model += k_project(input="input", output="k")
-        tk = model.k.reshape(reshape_con).transpose(t_axes)
-        tv = model.v.reshape(reshape_con).transpose(t_axes)
+        model += k_project(input="input", output="k")  # type: ignore
+        tk = model.k.reshape(reshape_con).transpose(t_axes)  # type: ignore
+        tv = model.v.reshape(reshape_con).transpose(t_axes)  # type: ignore
     model += ScaledDotProduct(is_causal=is_causal)(
         query=tq, key=tk, value=tv, output="sdp_out"
     )
-    t_sdp = model.sdp_out.transpose(t_axes).reshape(shp_con[:3])
+    t_sdp = model.sdp_out.transpose(t_axes).reshape(shp_con[:3])  # type: ignore
     model += Linear(input_dim, name="out_proj")(t_sdp)
     return model
 
@@ -76,7 +76,7 @@ def encoder_block(num_layers: int, input_dim: int, num_heads: int, ffn_dim: int)
         block += Linear(ffn_dim, name="fc1")
         block += Gelu()
         block += Linear(input_dim, name="fc2")(output="ffn_out")
-        block += Add()("attn_res", block.ffn_out)
+        block += Add()("attn_res", block.ffn_out)  # type: ignore
         layers += block
     return layers
 
@@ -102,7 +102,7 @@ def decoder_block(num_layers: int, input_dim: int, num_heads: int, ffn_dim: int)
         block += Linear(ffn_dim, name="fc1")
         block += Gelu()
         block += Linear(input_dim, name="fc2")(output="ffn_out")
-        block += Add()("cross_attn_out", block.ffn_out)
+        block += Add()("cross_attn_out", block.ffn_out)  # type: ignore
         block.set_cin("layer_in")
         layers += block(encoder_hidden_states="encoder_hidden_states")
     return layers
@@ -119,7 +119,7 @@ def whisper_encoder(num_layers: int, input_dim: int, num_heads: int, ffn_dim: in
         out_channels=input_dim, kernel_size=3, stride=2, padding=1, name="conv2"
     )(input="gelu1_out", output="conv2_out")
     model += Gelu()(input="conv2_out", output="gelu2_out")
-    processed_out = model.gelu2_out.transpose((0, 2, 1))
+    processed_out = model.gelu2_out.transpose((0, 2, 1))  # type: ignore
     model += Arange()(stop=1500, output="embedding_in")
     model += Embedding(name="embed_positions", num_embeddings=1500, dim=input_dim)(
         input="embedding_in", output="pos_out"
