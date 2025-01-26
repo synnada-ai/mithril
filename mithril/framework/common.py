@@ -39,7 +39,7 @@ from ..core import (
     Dtype,
     constant_type_table,
 )
-from ..utils.utils import PaddingType, find_dominant_type
+from ..utils.utils import PaddingType
 from .utils import (
     align_shapes,
     find_intersection_type,
@@ -231,33 +231,30 @@ TypeVarTensorType = TypeVar(
 )
 # Availale types for Tensor type ("_type" attribute of Tensor class).
 _TensorTypes = type[int] | type[float] | type[bool] | UnionType
-# Nested Sequence type values for Tensor class.
-_TensorValueType = (
-    int
-    | float
-    | bool
-    | Sequence[int | float | bool]
-    | Sequence[Sequence[int | float | bool]]
-    | Sequence[Sequence[Sequence[int | float | bool]]]
-    | Sequence[Sequence[Sequence[Sequence[int | float | bool]]]]
-    | Sequence[Sequence[Sequence[Sequence[Sequence[int | float | bool]]]]]
+ValType = int | float | bool
+SequenceValType = (
+    Sequence[ValType]
+    | Sequence[Sequence[ValType]]
+    | Sequence[Sequence[Sequence[ValType]]]
+    | Sequence[Sequence[Sequence[Sequence[ValType]]]]
+    | Sequence[Sequence[Sequence[Sequence[Sequence[ValType]]]]]
 )
+ListValType = (
+    list[ValType]
+    | list[list[ValType]]
+    | list[list[list[ValType]]]
+    | list[list[list[list[ValType]]]]
+    | list[list[list[list[list[ValType]]]]]
+)
+# Nested Sequence type values for Tensor class.
+_TensorValueType = ValType | SequenceValType
 # Logical value types for Tensor class (i.e. "value" attribute of
 # Tensor class).
 TensorValueType = _TensorValueType | Constant
 
 # TODO: This kind of type definitions will be updated as recursive
 # definitions when mypy supports recursive types.
-TensorToListType = (
-    int
-    | float
-    | bool
-    | list[int | float | bool]
-    | list[list[int | float | bool]]
-    | list[list[list[int | float | bool]]]
-    | list[list[list[list[int | float | bool]]]]
-    | list[list[list[list[list[int | float | bool]]]]]
-)
+TensorToListType = ValType | ListValType
 
 MaxNestedListDepth = 5
 
@@ -620,9 +617,19 @@ def get_shapes(
 AllValueType = TensorValueType | ScalarValueType | ToBeDetermined
 
 
+@overload
+def _find_type(value: Constant) -> type[int] | type[float] | type[bool]: ...
+@overload
+def _find_type(value: Tensor[TypeVarTensorType]) -> type[Tensor[TypeVarTensorType]]: ...
+@overload
+def _find_type(value: range) -> list[int]: ...
+@overload
+def _find_type(value: ScalarValueType) -> ScalarType: ...
+
+
 def _find_type(
-    value: Tensor[Any] | ScalarValueType,
-) -> type[Tensor[Any]] | ScalarType:
+    value: Tensor[Any] | ScalarValueType | range,
+) -> type[Tensor[Any]] | ScalarType | list[int]:
     typ: type
     if isinstance(value, Tensor):
         typ = Tensor[value.type]  # type: ignore
@@ -633,23 +640,52 @@ def _find_type(
     return typ
 
 
-def list_shape(ndarray: TensorValueType) -> list[int]:
-    # TODO: Handle TOBeDetermined case.
-    if isinstance(ndarray, list | tuple):
-        # More dimensions, so make a recursive call
-        outermost_size = len(ndarray)
-        row_shape = list_shape(ndarray[0])
-        for item in ndarray[1:]:
-            shape = list_shape(item)
-            if row_shape != shape:
-                raise ValueError(
-                    f"Shape mismatch: expected {row_shape}, but got {shape}. The list "
-                    "should not be ragged."
-                )
-        return [outermost_size, *row_shape]
+def check_uniformity(sublist: SequenceValType) -> None:
+    """Check if all sublists have the same length."""
+    lengths = {len(item) if isinstance(item, Sequence) else -1 for item in sublist}
+    if len(lengths) > 1:
+        raise ValueError("Inconsistent dimensions found in the list.")
+
+
+def process_value(
+    value: TensorValueType,
+) -> tuple[list[int], TensorValueType, type[int] | type[float] | type[bool]]:
+    # If value is not a sequence, directly return empty shape, value and
+    # its type directly.
+    if not isinstance(value, tuple | list | range):
+        return (
+            [],
+            value,
+            type(value) if not isinstance(value, Constant) else _find_type(value),
+        )  # type: ignore
+
+    # Convert range types into list.
+    elif isinstance(value, range):
+        value = list(value)
     else:
-        # No more dimensions, so we're done
-        return []
+        # Check for incompatible dimensions.
+        check_uniformity(value)
+
+    # Initialize result as an empty sequence of same type as value.
+    result: list[Any] | tuple[Any, ...] = list() if isinstance(value, list) else tuple()
+
+    dominant_type: type[bool] | type[int] | type[float] = bool
+    for item in value:
+        # Recursively determine the shape, value and type of sublists.
+        sub_shape, sub_val, sub_type = process_value(item)
+        assert not isinstance(sub_val, Constant)
+
+        if isinstance(result, list):
+            result.append(sub_val)
+        else:
+            result += (sub_val,)
+
+        if sub_type is float:
+            dominant_type = float
+        elif sub_type is int and dominant_type is bool:
+            dominant_type = int
+
+    return [len(result)] + sub_shape, result, dominant_type
 
 
 class Tensor(Generic[TypeVarTensorType]):
@@ -692,17 +728,18 @@ class Tensor(Generic[TypeVarTensorType]):
                 f"Value is set before as {self.value}. A value can not be reset."
             )
         updates = Updates()
-        # Find and set type.
-        updates |= self.set_type(find_dominant_type(value))
         # Set value.
         if self.value is TBD:
+            # Infer shape, final_value and type from the value.
+            shape, val, typ = process_value(value)
+            # Set type.
+            updates |= self.set_type(typ)
+            # Set shape.
+            updates |= self.shape.set_values(shape)
             # Add all referee edges into the updates.
             for edge in self.referees:
                 updates.add(edge)
-            self.value = value
-            # Infer shape from the value and set.
-            shape = list_shape(value)
-            updates |= self.shape.set_values(shape)
+            self.value = val
         return updates
 
     def match(self, other: Tensor[Any]) -> Updates:
@@ -1261,6 +1298,17 @@ class BaseKey:
     type: UnionType | type | type[Tensor[Any]] | ScalarType | None = None
     interval: list[float | int] | None = None
     # TODO: Add __post_init__ to check types and values
+
+    # TODO: Add __post_init__ to check types and values
+    # def __post_init__(self) -> None:
+    #     if not isinstance(self.value, ToBeDetermined):
+    #         value_type = _find_type(self.value)
+    #         if self.type is not None and
+    #           find_intersection_type(value_type, self.type) is None:
+    #             raise TypeError(
+    #                 f"type of the given value and given type does not match. Given "
+    #                 f"type is {self.type} while type of value is {value_type}"
+    #             )
 
 
 class IOKey(TemplateBase):

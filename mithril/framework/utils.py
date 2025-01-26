@@ -239,7 +239,7 @@ def find_intersection_type(
     subtypes_2 = set(type_2.__args__) if type(type_2) is UnionType else {type_2}
     intersect = subtypes_1 & subtypes_2
 
-    # Any (typing.Any) type can be coerced to all types, handle it.
+    # Handle coercion of Any (typing.Any) type to all other types.
     if Any in subtypes_1:
         intersect.update(subtypes_2)
         subtypes_1.remove(Any)
@@ -254,17 +254,20 @@ def find_intersection_type(
 
     for s_types in (subtypes_1, subtypes_2):
         other_set = subtypes_2 if s_types == subtypes_1 else subtypes_1
-        for orig_type in (list, tuple):
+        for orig_type in (list, tuple, range):
             if orig_type in s_types:
                 for typ in other_set:
-                    # if isinstance(typ, GenericAlias) and typ.__origin__ == orig_type:
                     if isinstance(typ, GenericAlias):
                         if typ.__origin__ == orig_type:
                             intersect.add(typ)
                         elif typ.__origin__ == Sequence:
-                            intersect.add(
-                                orig_type[reduce(lambda x, y: x | y, typ.__args__)]
-                            )
+                            if orig_type is range:
+                                if find_intersection_type(int, typ.__args__[0]):
+                                    intersect.add(range)
+                            else:
+                                intersect.add(
+                                    orig_type[reduce(lambda x, y: x | y, typ.__args__)]  # type: ignore
+                                )
 
     # Take tuple types from remaining sets and find intesection types
     # of all consistent pairs of cartesian product.
