@@ -33,7 +33,8 @@ def whisper_attention(
     is_causal: bool = False,
     cross_attention: bool = False,
 ):
-    """Attention implementation for self attention in encoder-decoder, and cross-attention in decoder"""
+    """Attention implementation for self attention in encoder-decoder,
+    and cross-attention in decoder"""
     model = Model(name=name)
     t_axes = (0, 2, 1, 3)
     v_project = Linear(input_dim, name="v_proj")
