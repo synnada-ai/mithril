@@ -30,6 +30,7 @@ __all__ = ["MlxBackend"]
 
 AxisType = None | int | Sequence[int]
 
+
 class MlxBackend(Backend[mx.array]):
     backend_type = "mlx"
     supported_dtypes = [Dtype.float16, Dtype.bfloat16, Dtype.float32]
