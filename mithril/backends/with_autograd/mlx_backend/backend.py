@@ -28,6 +28,7 @@ from .utils import CODEGEN_CONFIG
 
 __all__ = ["MlxBackend"]
 
+AxisType = None | int | Sequence[int]
 
 class MlxBackend(Backend[mx.array]):
     backend_type = "mlx"
