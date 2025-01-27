@@ -27,7 +27,6 @@ from . import ops, utils
 from .utils import CODEGEN_CONFIG
 
 __all__ = ["MlxBackend"]
-AxisType = None | int | Sequence[int]
 
 
 class MlxBackend(Backend[mx.array]):
@@ -101,7 +100,7 @@ class MlxBackend(Backend[mx.array]):
         self.prng_key = mx.random.key(seed)
 
     def argmax(
-        self, input: mx.array, *, axis: AxisType = None, keepdim: bool = False
+        self, input: mx.array, axis: AxisType = None, keepdim: bool = False
     ) -> mx.array:
         return mx.argmax(input, axis=axis, keepdims=keepdim)
 
