@@ -146,7 +146,6 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
     def argmax(
         self,
         input: np.ndarray[Any, Any],
-        *,
         axis: int | None = None,
         keepdim: bool = False,
         cache: CacheType | None = None,
