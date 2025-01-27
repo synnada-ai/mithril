@@ -73,7 +73,7 @@ with their hats off and wishing they were not wearing their pirate clothes.
 They said nothing but their eyes asked her to have them.""".replace("\n", " ")
 
 
-class TestGPT:
+class TestWhisper:
     class RunSampleType(Protocol):
         def __call__(
             self,
