@@ -1109,7 +1109,7 @@ class TestArgmax:
             array_fn([[-1.0, 2.0], [3.0, 4.0]], device, dtype.name),
             0,
         ]
-        fn_kwargs = {}
+        fn_kwargs: dict = {}
 
         ref_output = array_fn([1, 1], device, "int64")
 
