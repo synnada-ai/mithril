@@ -19,6 +19,7 @@ from typing import Any, overload
 
 import jax
 import jax.numpy as jnp
+
 from ....core import Dtype
 from ...backend import PadWidthType, ParallelBackend
 from ...utils import DtypeSubTypes, StaticScalar, process_shape
@@ -29,6 +30,8 @@ from .utils import CODEGEN_CONFIG
 __all__ = ["JaxBackend"]
 
 jax.config.update("jax_enable_x64", True)  # type: ignore
+
+AxisType = None | int | Sequence[int]
 
 
 class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
