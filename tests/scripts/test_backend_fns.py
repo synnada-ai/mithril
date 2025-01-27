@@ -1099,6 +1099,36 @@ class TestSoftmax:
 @pytest.mark.parametrize(
     "backendcls, device, dtype", backends_with_device_dtype, ids=names
 )
+class TestArgmax:
+    def test_argmax(self, backendcls, device, dtype):
+        array_fn = array_fns[backendcls]
+        backend = backendcls(device=device, dtype=dtype)
+        fn = backend.argmax
+
+        fn_args = [
+            array_fn([[-1.0, 2.0], [3.0, 4.0]], device, dtype.name),
+            0,
+        ]
+        fn_kwargs = {}
+
+        ref_output = array_fn([1, 1], device, "int64")
+
+        assert_backend_results_equal(
+            backend,
+            fn,
+            fn_args,
+            fn_kwargs,
+            ref_output,
+            device,
+            dtype,
+            tolerances[dtype],
+            tolerances[dtype],
+        )
+
+
+@pytest.mark.parametrize(
+    "backendcls, device, dtype", backends_with_device_dtype, ids=names
+)
 class TestLog:
     def test_log(self, backendcls, device, dtype):
         array_fn = array_fns[backendcls]
