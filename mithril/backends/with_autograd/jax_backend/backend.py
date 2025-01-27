@@ -19,7 +19,6 @@ from typing import Any, overload
 
 import jax
 import jax.numpy as jnp
-
 from ....core import Dtype
 from ...backend import PadWidthType, ParallelBackend
 from ...utils import DtypeSubTypes, StaticScalar, process_shape
@@ -418,7 +417,7 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         return ops.softmax(input, axis=dim)
 
     def argmax(
-        self, input: jax.Array, *, axis: int | None = None, keepdim: bool = False
+        self, input: jax.Array, axis: int | None = None, keepdim: bool = False
     ) -> jax.Array:
         return jnp.argmax(input, axis=axis, keepdims=keepdim)
 
