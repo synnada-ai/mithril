@@ -215,8 +215,8 @@ def assert_all_nodes_unique(model: BaseModel):
     """
     all_nodes = get_all_nodes(model)
 
-    uni_cache: dict[UniadicRecord | Variadic, str] = {}
-    var_cache: dict[UniadicRecord | Variadic, str] = {}
+    uni_cache: dict[UniadicRecord, str] = {}
+    var_cache: dict[Variadic, str] = {}
 
     for node1, node2 in combinations(all_nodes, 2):
         node1_shapes = node1.get_shapes(uni_cache, var_cache, verbose=True)

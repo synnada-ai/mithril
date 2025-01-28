@@ -85,14 +85,13 @@ __all__ = [
     "tensor_to_list_constraints",
     "to_list_constraints",
     "where_constrains",
-    "validate_bcast",
     "eye_constraints",
     "item_constraints",
     "indexer_constraints",
     "to_tuple_constraints",
     "tensor_to_list_type_constraint",
     "reduce_type_constraint",
-    "type_constraints",
+    "constraint_type_map",
     "padding_1d_constraint",
     "padding_2d_constraint",
     "stride_constraint",
@@ -3230,17 +3229,18 @@ def eye_constraints(
         assert isinstance(N.value, int)
         n_uni.set_value(N.value)
         updates.add(n_uni)
+
     elif n_uni_valued and not n_valued:
-        N.set_value(n_uni.value)
-        updates.add(N)
+        updates |= N.set_value(n_uni.value)
 
     if m_valued and not m_uni_valued:
         assert isinstance(M.value, int | NoneType)
         m_uni.set_value(M.value)
         updates.add(m_uni)
+
     elif m_uni_valued and not m_valued:
-        M.set_value(m_uni.value)
-        updates.add(M)
+        updates |= M.set_value(m_uni.value)
+
     all_items: list[IOHyperEdge | Uniadic] = [N, M, n_uni, m_uni]
     return all(isinstance(s.value, int) for s in all_items), updates
 
@@ -3511,8 +3511,7 @@ def scalar_item_constraints(
         # output value appears only once in input sequence, write its
         # index as the value of index argument.
         if input.value.count(output.value) == 1:
-            index.set_value(input.value.index(output.value))
-            updates._add_edge(index)
+            updates |= index.set_value(input.value.index(output.value))
             status = True
     return status, updates
 
@@ -3994,16 +3993,29 @@ def polynomial_kernel_constraint(
 
 constrain_fn_dict = {key: fn for key, fn in globals().items() if callable(fn)}
 
-type_constraints: set[ConstraintFunctionType] = {
-    edge_type_constraint,
-    general_tensor_type_constraint,
-    floor_divide_type_constraint,
-    scalar_slice_type_constraint,
-    indexer_initial_type_constraint,
-    indexer_type_constraint,
-    tensor_to_list_type_constraint,
-    reduce_type_constraint,
-    relational_operator_type_constraint,
-    divide_type_constraint,
-    buffer_constraint,
+constraint_type_map: dict[ConstraintFunctionType, list[UpdateType]] = {
+    edge_type_constraint: [UpdateType.TYPE],
+    general_tensor_type_constraint: [UpdateType.TYPE],
+    floor_divide_type_constraint: [UpdateType.TYPE],
+    scalar_slice_type_constraint: [UpdateType.TYPE],
+    indexer_initial_type_constraint: [UpdateType.TYPE],
+    indexer_type_constraint: [UpdateType.TYPE],
+    slice_constraints: [UpdateType.VALUE],
+    bcast: [UpdateType.SHAPE],
+    bcast_matrix_mult: [UpdateType.SHAPE],
+    to_tensor_constraints: [UpdateType.SHAPE, UpdateType.TYPE],
+    tensor_to_list_constraints: [UpdateType.SHAPE, UpdateType.TYPE],
+    to_list_constraints: [UpdateType.VALUE],
+    where_constrains: [UpdateType.SHAPE],
+    item_constraints: [UpdateType.SHAPE],
+    to_tuple_constraints: [UpdateType.VALUE],
+    tensor_to_list_type_constraint: [UpdateType.TYPE],
+    reduce_type_constraint: [UpdateType.TYPE],
+    padding_1d_constraint: [UpdateType.VALUE],
+    padding_2d_constraint: [UpdateType.VALUE],
+    stride_constraint: [UpdateType.VALUE],
+    tuple_converter_constraint: [UpdateType.VALUE],
+    buffer_constraint: [UpdateType.TYPE, UpdateType.VALUE],
+    relational_operator_type_constraint: [UpdateType.TYPE],
+    divide_type_constraint: [UpdateType.TYPE],
 }
