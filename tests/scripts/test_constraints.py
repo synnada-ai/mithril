@@ -15,7 +15,7 @@
 from collections.abc import Callable, Mapping
 from copy import deepcopy
 from types import EllipsisType, NoneType, UnionType
-from typing import Any, TypeGuard, get_origin
+from typing import Any, TypeGuard
 
 import numpy as np
 import pytest
@@ -218,7 +218,7 @@ def assert_shape_results(
     shapes = {}
     assignments: AssignmentType = {}
     for key, value in data.items():
-        if get_origin(value.edge_type) is Tensor:
+        if value.is_tensor:
             assert value.shape is not None
             shapes[key] = value.shape.get_shapes(uni_cache, var_cache, verbose=True)
             shape_repr = value._temp_shape
@@ -264,7 +264,7 @@ def assert_value_results(
             assert data[key].value == value
         else:
             # If value is a tensor of any supported backend.
-            assert get_origin(data[key].edge_type) is Tensor
+            assert data[key].is_tensor
             d_val = data[key].value
             assert GenericDataType.is_tensor_type(d_val)
             assert (d_val == value).all()

@@ -16,7 +16,7 @@ import ast
 import keyword
 from collections.abc import Callable
 from functools import partial
-from typing import Any, Literal, get_origin, overload
+from typing import Any, Literal, overload
 
 import numpy as np
 
@@ -32,7 +32,6 @@ from ..common import (
     IOHyperEdge,
     LossKey,
     ParamsEvalType,
-    Tensor,
     find_intersection_type,
     is_type_adjustment_required,
 )
@@ -318,7 +317,7 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
             key
             for key in all_ignored_keys
             if key in self.pm.data
-            and get_origin(self.pm.data[key].edge_type) is Tensor
+            and self.pm.data[key].is_tensor
             and find_intersection_type(self.pm.data[key].value_type, float)
         }
 

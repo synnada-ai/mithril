@@ -179,7 +179,7 @@ def set_edge_type(edge: IOHyperEdge, new_type: Any) -> Updates:
     # Simply wraps new type into Tensor if edge_type is Tensor,
     # else sets directly.
     type = new_type
-    if get_origin(edge.edge_type) is Tensor:
+    if edge.is_tensor:
         type = Tensor[new_type]
     return edge.set_type(type)
 
@@ -190,9 +190,9 @@ def edge_type_constraint(
     updates = Updates()
     status = False
     tensor_exists: bool = False
-    tensor_output: bool = get_origin(output.edge_type) is Tensor
+    tensor_output: bool = output.is_tensor
     for input in inputs:
-        if get_origin(input.edge_type) is Tensor:
+        if input.is_tensor:
             tensor_exists = True
             break
     # First set output edge_type to Tensor if any Tensor type inputs
@@ -645,7 +645,7 @@ def indexer_initial_type_constraint(
             updates |= input.set_type(list[Any] | tuple[Any, ...])
             status = True
         else:
-            tensor_edge = input if get_origin(input.edge_type) is Tensor else output
+            tensor_edge = input if input.is_tensor else output
             assert isinstance(tensor_edge._value, Tensor)
             typ: type[Tensor[int | float | bool]] = Tensor[tensor_edge.value_type]  # type: ignore
             other_edge = (input, output)[tensor_edge is input]
@@ -659,7 +659,7 @@ def indexer_type_constraint(
 ) -> ConstrainResultType:
     status = False
     updates = Updates()
-    if not (get_origin(input.edge_type) is Tensor or input.edge_type is ToBeDetermined):
+    if not (input.is_tensor or input.edge_type is ToBeDetermined):
         # Input is a non-tensor type.
         input_type = input.value_type
         output_type = output.value_type
@@ -706,7 +706,7 @@ def indexer_type_constraint(
         updates |= output.set_type(inferred_out_type)
 
         status = not is_union(output.value_type)
-    elif get_origin(input.edge_type) is Tensor:
+    elif input.is_tensor:
         status = True
     return status, updates
 
@@ -1415,9 +1415,9 @@ def bcast_helper(
 def _bcast(
     output: IOHyperEdge, left: IOHyperEdge, right: IOHyperEdge, index: int
 ) -> ConstrainResultType:
-    l_type = Tensor if get_origin(left.edge_type) is Tensor else left.edge_type
-    r_type = Tensor if get_origin(right.edge_type) is Tensor else right.edge_type
-    o_type = Tensor if get_origin(output.edge_type) is Tensor else output.edge_type
+    l_type = Tensor if left.is_tensor else left.edge_type
+    r_type = Tensor if right.is_tensor else right.edge_type
+    o_type = Tensor if output.is_tensor else output.edge_type
     if l_type is Tensor and r_type is Tensor:
         assert output._temp_shape is not None, "Output shape of broadcast is not set!"
         assert left._temp_shape is not None, "Left shape of broadcast is not set!"
@@ -3687,7 +3687,7 @@ def tensor_item_constraint_helper(
 def indexer_constraints(
     output: IOHyperEdge, input: IOHyperEdge, index: IOHyperEdge
 ) -> ConstrainResultType:
-    if get_origin(input.edge_type) is Tensor:
+    if input.is_tensor:
         return tensor_item_constraints(output, input, index)
     elif input.edge_type is not ToBeDetermined:
         return scalar_item_constraints(output, input, index)
@@ -3960,7 +3960,7 @@ def relational_operator_type_constraint(
     updates = Updates()
     status = False
     # Forward inference.
-    if Tensor in (get_origin(input1.edge_type), get_origin(input2.edge_type)):
+    if input1.is_tensor or input2.is_tensor:
         updates |= output.set_type(Tensor[bool])
         status = True
     elif ToBeDetermined not in (input1.edge_type, input2.edge_type):
@@ -3975,7 +3975,7 @@ def divide_type_constraint(
     updates = Updates()
     status = False
     # Forward inference.
-    if Tensor in (get_origin(numerator.edge_type), get_origin(denominator.edge_type)):
+    if numerator.is_tensor or denominator.is_tensor:
         updates |= output.set_type(Tensor[float])
         status = True
     elif ToBeDetermined not in (numerator.edge_type, denominator.edge_type):
@@ -3993,13 +3993,13 @@ def polynomial_kernel_constraint(
     # poly_coef update.
     if poly_coef.edge_type is not ToBeDetermined:
         coef_status = True
-        if get_origin(poly_coef.edge_type) is Tensor:
+        if poly_coef.is_tensor:
             assert poly_coef.shape is not None
             updates |= poly_coef.shape.set_values([])
     # degree update.
     if degree.edge_type is not ToBeDetermined:
         degree_status = True
-        if get_origin(degree.edge_type) is Tensor:
+        if degree.is_tensor:
             assert degree.shape is not None
             updates |= degree.shape.set_values([])
     return coef_status & degree_status, updates

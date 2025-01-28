@@ -471,7 +471,7 @@ class ConstraintSolver:
         updates = remaining.merge(deleted)
         # Iterate over deleted nodes referees to remove deleted node.
         for ref in deleted.referees:
-            if get_origin(ref.edge_type) is not Tensor:
+            if not ref.is_tensor:
                 raise ValueError("Non-tensor edges cannot have any shape.")
             assert isinstance(ref._value, Tensor)
             ref._value.shape = remaining
@@ -607,7 +607,7 @@ def get_shapes(
     shapes: dict[str, ShapeTemplateType | list[ShapeTemplateType] | None] = {}
     for key, data in data_dict.items():
         key_name = key_mappings.get(key, key)
-        if get_origin(data.edge_type) is Tensor:
+        if data.is_tensor:
             assert data.shape is not None
             shapes[key_name] = data.shape.get_shapes(
                 uniadic_keys, varadic_keys, symbolic, verbose
@@ -695,6 +695,12 @@ def find_intersection_type(
     type_1: type | UnionType | GenericAlias | type[Tensor[int | float | bool]],
     type_2: type | UnionType | GenericAlias | type[Tensor[int | float | bool]],
 ) -> type | UnionType | GenericAlias | type[Tensor[int | float | bool]] | None:
+    # If non-generic Tensor type is provided, convert it to generic Tensor type.
+    if type_1 is Tensor:
+        type_1 = Tensor[int | float | bool]
+    if type_2 is Tensor:
+        type_2 = Tensor[int | float | bool]
+
     # ToBeDetermined type can be coerced to all types.
     if type_1 is ToBeDetermined:
         return type_2
@@ -978,6 +984,10 @@ class IOHyperEdge:
         return None not in (tensor_possible, scalar_possible)
 
     @property
+    def is_tensor(self) -> bool:
+        return get_origin(self._type) is Tensor
+
+    @property
     def is_non_diff(self) -> bool:
         return not self.differentiable
 
@@ -1081,7 +1091,7 @@ class IOHyperEdge:
             self._type is ToBeDetermined or tensor_possible
         ):
             raise ValueError("Can not set Tensor value to a Scalar edge.")
-        if not isinstance(value, Tensor) and get_origin(self._type) is Tensor:
+        if not isinstance(value, Tensor) and self.is_tensor:
             raise ValueError("Can not set Scalar value to a Tensor edge.")
         # If any value different than  self._value is provided, raise error.
         if not self._value_compatible(value):
@@ -1475,11 +1485,6 @@ class BaseKey:
     type: UnionType | type | type[Tensor[int | float | bool]] | ScalarType | None = None
     interval: list[float | int] | None = None
 
-    def __post_init__(self) -> None:
-        # Convert to generic Tensor type if Tensor type is provided.
-        if self.type is Tensor:
-            self.type = Tensor[int | float | bool]
-
 
 class IOKey(TemplateBase):
     def __init__(
@@ -1586,7 +1591,7 @@ class ConnectionData:
 
     def set_differentiable(self, differentiable: bool = True) -> None:
         # TODO: Move this method to Model class as set_shapes, set_types etc.
-        if get_origin(self.metadata.edge_type) is Tensor:
+        if self.metadata.is_tensor:
             self.metadata.differentiable = differentiable
         elif differentiable:
             if self.metadata.edge_type is not ToBeDetermined:
@@ -1775,7 +1780,7 @@ class Connections:
 
     def get_shape_node(self, key: str) -> ShapeNode:
         edge = self.get_metadata(key)
-        if get_origin(edge.edge_type) is not Tensor:
+        if not edge.is_tensor:
             raise ValueError("'Only Tensor type connections has shape!'")
         assert edge.shape is not None
         return edge.shape
@@ -2769,8 +2774,7 @@ class ShapeNode:
                     )
                 ):
                     most_informative_repr = repr
-        if most_informative_repr is None:
-            ...
+
         assert most_informative_repr is not None
         return most_informative_repr
 
@@ -3123,7 +3127,7 @@ class Constraint:
         status = False
         updates = Updates()
         if self.type == UpdateType.SHAPE:
-            tensor_keys = [key for key in keys if get_origin(key.edge_type) is Tensor]
+            tensor_keys = [key for key in keys if key.is_tensor]
             for reprs in product(*[key.shape.reprs for key in tensor_keys]):  # type: ignore
                 for idx, repr in enumerate(reprs):
                     tensor_keys[idx]._temp_shape = repr

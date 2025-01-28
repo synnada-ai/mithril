@@ -20,7 +20,6 @@ import warnings
 from collections.abc import Mapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import get_origin
 
 from ...backends.backend import Backend, ParallelBackend
 from ...core import DataType, GenericDataType
@@ -204,7 +203,7 @@ class PhysicalModel(GenericDataType[DataType]):
                 elif global_key in self._trainable_tensor_inputs:
                     # if physical_data.edge_type not in (Tensor, ToBeDetermined):
                     if not (
-                        get_origin(physical_data.edge_type) is Tensor
+                        physical_data.is_tensor
                         or physical_data.edge_type is ToBeDetermined
                     ):
                         raise ValueError(
@@ -224,7 +223,7 @@ class PhysicalModel(GenericDataType[DataType]):
 
                 if key_shape := model_shapes.get(key):
                     data = model_data[key]
-                    assert get_origin(data.edge_type) is Tensor
+                    assert data.is_tensor
                     shp = data.shape
                     assert shp is not None
                     # assert shp is not None
@@ -435,7 +434,7 @@ class PhysicalModel(GenericDataType[DataType]):
         # that have a Tensor type output.
         output_key = PrimitiveModel.output_key
         output_edge = model_data[output_key]
-        if get_origin(output_edge.edge_type) is Tensor:
+        if output_edge.is_tensor:
             # If any of the inputs are differentiable, then
             # the output is also differentiable.
             for key, value in model_data.items():
@@ -552,7 +551,7 @@ class PhysicalModel(GenericDataType[DataType]):
         for value in self.data_store.intermediate_non_differentiables.inverse:
             # there can exist some inferred intermediate scalar keys in logical model.
             # find those keys and add to cached datas
-            if (get_origin(value.edge_type) is not Tensor) and (value.value is not TBD):
+            if not value.is_tensor and (value.value is not TBD):
                 updates.add(value)
 
         self.data_store.update_cached_data(updates)
@@ -607,7 +606,7 @@ class PhysicalModel(GenericDataType[DataType]):
             # but not unnecessary in flat_graph. This case should be handled when
             # flat_graph - data_store integration is updated.
             if conn_edge is not None and (
-                (get_origin(conn_edge.edge_type) is not Tensor)
+                (not conn_edge.is_tensor)
                 or (
                     (not find_intersection_type(float, conn_edge.value_type))
                     or _key
@@ -960,7 +959,7 @@ class PhysicalModel(GenericDataType[DataType]):
                     # model. Indicate it accordingly
                     input_name = "'" + connection.key + "'"
                     input_data = model.conns.all[input_key].metadata
-                    if get_origin(input_data.edge_type) is not Tensor:
+                    if not input_data.is_tensor:
                         # If value of the scalar is determined, write that value
                         pm_input_data = self.data_store.data_memo[id(input_data)]
                         if (val := pm_input_data.value) is not TBD:

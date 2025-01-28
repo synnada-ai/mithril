@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import get_origin
 
 import pytest
 
@@ -35,7 +34,7 @@ from mithril.framework.constraints import reduce_constraints, reduce_type_constr
 def test_init_with_tensor_default_type():
     edge = IOHyperEdge(Tensor[int | float | bool])
     assert (
-        get_origin(edge.edge_type) is Tensor
+        edge.is_tensor
         and isinstance(edge._value, Tensor)
         and edge.value_type == int | float | bool
         and edge.value is TBD
@@ -47,7 +46,7 @@ def test_init_with_tensor_default_type():
 def test_init_with_tensor_int_or_float_type():
     edge = IOHyperEdge(Tensor[int | float])
     assert (
-        get_origin(edge.edge_type) is Tensor
+        edge.is_tensor
         and isinstance(edge._value, Tensor)
         and edge.value_type == int | float
         and edge.value is TBD
@@ -59,7 +58,7 @@ def test_init_with_tensor_int_or_float_type():
 def test_init_with_tensor_type_tensor_value():
     edge = IOHyperEdge(Tensor[int | float], value=Tensor([[2.0]]))
     assert (
-        get_origin(edge.edge_type) is Tensor
+        edge.is_tensor
         and isinstance(edge._value, Tensor)
         and edge.value_type is float
         and edge.value == [[2.0]]
@@ -116,11 +115,7 @@ def test_set_tensor_type():
     assert edge.edge_type is ToBeDetermined and edge._value is TBD and edge.value is TBD
     assert edge.shape is None
     edge.set_type(Tensor[int | float | bool])
-    assert (
-        get_origin(edge.edge_type) is Tensor
-        and isinstance(edge._value, Tensor)
-        and edge.value is TBD
-    )
+    assert edge.is_tensor and isinstance(edge._value, Tensor) and edge.value is TBD
     assert edge.value_type == int | float | bool
     assert isinstance(edge.shape, ShapeNode)
     assert edge in edge._value.referees and edge in edge._value.shape.referees
@@ -131,11 +126,7 @@ def test_set_generic_tensor_type():
     assert edge.edge_type is ToBeDetermined and edge._value is TBD and edge.value is TBD
     assert edge.shape is None
     edge.set_type(Tensor[int | float])
-    assert (
-        get_origin(edge.edge_type) is Tensor
-        and isinstance(edge._value, Tensor)
-        and edge.value is TBD
-    )
+    assert edge.is_tensor and isinstance(edge._value, Tensor) and edge.value is TBD
     assert edge.value_type == int | float
     assert isinstance(edge.shape, ShapeNode)
     assert edge in edge._value.referees and edge in edge._value.shape.referees
@@ -179,7 +170,7 @@ def test_init_with_tensor_value():
     tensor: Tensor[float] = Tensor([[2.0]], shape=shape_node)
     edge = IOHyperEdge(value=tensor)
     assert (
-        get_origin(edge.edge_type) is Tensor
+        edge.is_tensor
         and isinstance(edge._value, Tensor)
         and edge.value_type is float
         and edge.value == [[2.0]]
@@ -198,7 +189,7 @@ def test_set_non_typed_edge_with_tensor_value():
     edge = IOHyperEdge()
     edge.set_value(tensor)
     assert (
-        get_origin(edge.edge_type) is Tensor
+        edge.is_tensor
         and isinstance(edge._value, Tensor)
         and edge.value_type is float
         and edge.value == [[2.0]]
@@ -221,7 +212,7 @@ def test_set_tensor_edge_with_tensor_value():
     edge_tensor = edge._value
     edge.set_value(tensor)
     assert (
-        get_origin(edge.edge_type) is Tensor
+        edge.is_tensor
         and isinstance(edge._value, Tensor)
         and edge.value_type is float
         and edge.value == [[2.0]]

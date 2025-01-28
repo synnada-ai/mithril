@@ -19,7 +19,6 @@ import re
 import typing
 from copy import deepcopy
 from functools import partial
-from typing import get_origin
 
 import jax
 import mlx.core as mx
@@ -5799,7 +5798,7 @@ def test_deepcopy_1():
         if copied_data not in unused_data:
             assert isinstance(copied_data, IOHyperEdge)
             assert data.value == copied_data.value
-            if get_origin(data.edge_type) is Tensor:
+            if data.is_tensor:
                 assert id(data.value) == id(copied_data.value)
 
 
@@ -5827,7 +5826,7 @@ def test_deepcopy_2():
         if copied_data not in unused_data:
             assert isinstance(copied_data, IOHyperEdge)
             assert data.value == copied_data.value
-            if get_origin(data.edge_type) is Tensor:
+            if data.is_tensor:
                 assert id(data.value) == id(copied_data.value)
 
 
@@ -5855,7 +5854,7 @@ def test_deepcopy_3():
         if copied_data not in unused_data:
             assert isinstance(copied_data, IOHyperEdge)
             assert data.value == copied_data.value
-            if get_origin(data.edge_type) is Tensor:
+            if data.is_tensor:
                 assert id(data.value) == id(copied_data.value)
 
 
@@ -5880,7 +5879,7 @@ def test_deepcopy_4():
         if copied_data not in unused_data:
             assert isinstance(copied_data, IOHyperEdge)
             assert data.value == copied_data.value
-            if get_origin(data.edge_type) is Tensor:
+            if data.is_tensor:
                 assert id(data.value) == id(copied_data.value)
 
 
@@ -5916,7 +5915,7 @@ def test_deepcopy_5():
         if copied_data not in unused_data:
             assert isinstance(copied_data, IOHyperEdge)
             assert data.value == copied_data.value
-            if get_origin(data.edge_type) is Tensor:
+            if data.is_tensor:
                 assert id(data.value) == id(copied_data.value)
 
 

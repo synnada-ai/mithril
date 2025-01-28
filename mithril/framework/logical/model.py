@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from types import UnionType
-from typing import Any, Self, get_origin
+from typing import Any, Self
 
 from ...utils.utils import OrderedSet, find_dominant_type
 from ..common import (
@@ -718,7 +718,7 @@ class Model(BaseModel):
             con_obj, _updates = self._add_connection(model, local_key, value, updates)
             updates |= _updates
             submodel_dag[local_key] = con_obj
-            if get_origin(con_obj.metadata.edge_type) is Tensor:
+            if con_obj.metadata.is_tensor:
                 updates.shape_updates.add(con_obj.metadata)
 
         # Replace shape info keys, which are local keys, with global equivalents.

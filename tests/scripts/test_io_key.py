@@ -13,7 +13,6 @@
 # limitations under the License.
 
 from itertools import product
-from typing import get_origin
 
 import numpy as np
 import pytest
@@ -663,7 +662,7 @@ def test_iokey_values_12():
     model += sig_model_2(
         input=IOKey(shape=[1, 2, 3, 4], name="input"), output=IOKey(name="output2")
     )
-    assert get_origin(sig_model_1.input.data.metadata.edge_type) is Tensor
+    assert sig_model_1.input.metadata.is_tensor
     assert sig_model_1.input.data.metadata.shape is not None
     assert sig_model_1.input.data.metadata.shape.get_shapes() == [1, 2, 3, 4]
 

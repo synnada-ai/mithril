@@ -14,7 +14,7 @@
 
 from collections.abc import Mapping, Sequence
 from copy import deepcopy
-from typing import Any, Generic, TypeGuard, get_origin
+from typing import Any, Generic, TypeGuard
 
 from ...backends.backend import Backend
 from ...core import Constant, DataType, Dtype, data_types, epsilon_table
@@ -164,7 +164,7 @@ class StaticDataStore(Generic[DataType]):
         if isinstance(value, Constant):
             value = epsilon_table[self.backend.precision][value]
 
-        if get_origin(data.edge_type) is Tensor:
+        if data.is_tensor:
             value = self.backend.array(value)
         elif isinstance(value, Dtype):
             value = getattr(self.backend, value.name)
@@ -224,7 +224,7 @@ class StaticDataStore(Generic[DataType]):
             if isinstance(key, Connection):
                 key = key.key
             assert isinstance(key, str)
-            if get_origin((data := self._all_data[key]).edge_type) is not Tensor:
+            if not (data := self._all_data[key]).is_tensor:
                 raise ValueError("Non-tensor data can not have shape!")
             assert data.shape is not None
             updates |= data.shape.set_values(value)
@@ -272,7 +272,7 @@ class StaticDataStore(Generic[DataType]):
                 raise KeyError(
                     "Requires static key to be in the input keys of the model!"
                 )
-            if (get_origin(self._all_data[key].edge_type) is Tensor) and not isinstance(
+            if self._all_data[key].is_tensor and not isinstance(
                 value, ToBeDetermined | self.backend.get_backend_array_type()
             ):
                 raise ValueError(

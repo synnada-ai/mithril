@@ -16,7 +16,6 @@ from collections.abc import Mapping, Sequence
 from copy import deepcopy
 from itertools import combinations, product
 from types import EllipsisType, NoneType
-from typing import get_origin
 
 import numpy as np
 import pytest
@@ -4437,7 +4436,7 @@ def test_total_repr_count():
 
     edge = var2.input.data.metadata
 
-    assert get_origin(edge.edge_type) is Tensor
+    assert edge.is_tensor
     assert edge.shape is not None
     assert len(edge.shape.reprs) == 2
 
@@ -4445,7 +4444,7 @@ def test_total_repr_count():
 def test_total_repr_count_linear_1():
     model = Linear()
     edge = model.input.metadata
-    assert get_origin(edge.edge_type) is Tensor
+    assert edge.is_tensor
     assert edge.shape is not None
     shp_repr = next(iter(edge.shape.reprs))
 
@@ -5724,12 +5723,12 @@ def test_same_uniadic_1() -> None:
     model.set_shapes(shape_1)
     model.set_shapes(shape_2)
     in_data = model.input.metadata
-    assert get_origin(in_data.edge_type) is Tensor
+    assert in_data.is_tensor
     assert (node := in_data.shape) is not None
     input_repr = next(iter(node.reprs))
 
     out_data = model.output.metadata
-    assert get_origin(out_data.edge_type) is Tensor
+    assert out_data.is_tensor
     assert out_data.shape is not None
     output_repr = next(iter(out_data.shape.reprs))
 
@@ -5768,10 +5767,10 @@ def test_same_uniadic_2() -> None:
     model.set_shapes(shape_1)
     model.set_shapes(shape_2)
 
-    assert get_origin(model.input.metadata.edge_type) is Tensor
+    assert model.input.metadata.is_tensor
     assert (in_node := model.input.metadata.shape) is not None
     input_repr = next(iter(in_node.reprs))
-    assert get_origin(model.output.metadata.edge_type) is Tensor
+    assert model.output.metadata.is_tensor
     assert (out_node := model.output.metadata.shape) is not None
     output_repr = next(iter(out_node.reprs))
 
@@ -5856,7 +5855,7 @@ def test_same_uniadic_5():
     buffer.set_shapes(shape_1)
     buffer.set_shapes(shape_2)
 
-    assert get_origin(buffer.input.metadata.edge_type) is Tensor
+    assert buffer.input.metadata.is_tensor
     assert buffer.input.metadata.shape is not None
     input_reprs = buffer.input.metadata.shape.reprs
 
@@ -6724,9 +6723,7 @@ def test_total_repr_count_1():
 
             # find connections only with tensor data
             all_tensor_conns = {
-                con
-                for con in model.conns.all.values()
-                if get_origin(con.metadata.edge_type) is Tensor
+                con for con in model.conns.all.values() if con.metadata.is_tensor
             }
 
             # Find all reprs that are linked to shape reprs of the tensors
@@ -6864,18 +6861,18 @@ def test_node_count_1():
     # Check total existing node count
     all_nodes = set()
     for con in model.conns.all.values():
-        assert get_origin(con.metadata.edge_type) is Tensor
+        assert con.metadata.is_tensor
         all_nodes.add(con.metadata.shape)
     assert len(all_nodes) == 1
 
     # Check total variadics repr count
-    assert get_origin(sub_model.input.metadata.edge_type) is Tensor
+    assert sub_model.input.metadata.is_tensor
     assert (in_node := sub_model.input.metadata.shape) is not None
     assert (in_repr := next(iter(in_node.reprs))) is not None
     assert in_repr.root is not None
     assert len(in_repr.root.reprs) == 1
 
-    assert get_origin(sub_model.output.metadata.edge_type) is Tensor
+    assert sub_model.output.metadata.is_tensor
     assert (out_node := sub_model.output.metadata.shape) is not None
     assert (out_repr := next(iter(out_node.reprs))) is not None
     assert out_repr.root is not None
@@ -6895,7 +6892,7 @@ def test_node_count_2():
     all_nodes = set()
     for con in model.conns.all.values():
         edge = con.metadata
-        assert get_origin(edge.edge_type) is Tensor
+        assert edge.is_tensor
         all_nodes.add(edge.shape)
 
     assert len(all_nodes) == 2
@@ -6917,7 +6914,7 @@ def test_node_count_3():
     shapes = set()
     for con in model.conns.all.values():
         edge = con.metadata
-        assert get_origin(edge.edge_type) is Tensor
+        assert edge.is_tensor
         shapes.add(edge.shape)
 
     assert len(shapes) == 3
@@ -7456,7 +7453,7 @@ def test_node_count_4():
     model += Buffer()
     model += test_model
     all_nodes = get_all_nodes(model)
-    assert get_origin(buff_model.input.metadata.edge_type) is Tensor
+    assert buff_model.input.metadata.is_tensor
     ref_all_nodes = {
         test_model.output.metadata.shape,  # type: ignore
         buff_model.input.metadata.shape,
@@ -7496,7 +7493,7 @@ def test_node_count_5():
     all_nodes = get_all_nodes(model)
 
     data = buff_model.input.metadata
-    assert get_origin(data.edge_type) is Tensor
+    assert data.is_tensor
     ref_all_nodes = {data.shape}
     assert all_nodes == ref_all_nodes
 
@@ -7512,7 +7509,7 @@ def test_node_count_6():
     all_nodes = get_all_nodes(model)
 
     data = buff_model.input.metadata
-    assert get_origin(data.edge_type) is Tensor
+    assert data.is_tensor
 
     ref_all_nodes = {data.shape}
     assert all_nodes == ref_all_nodes
@@ -7527,7 +7524,7 @@ def test_node_count_7():
     for _ in range(5):
         model += deepcopy(model)
     all_nodes = get_all_nodes(model)
-    assert get_origin(buff_model.input.metadata.edge_type) is Tensor
+    assert buff_model.input.metadata.is_tensor
     ref_all_nodes = {buff_model.input.metadata.shape}
     assert all_nodes == ref_all_nodes
 
@@ -7721,7 +7718,7 @@ def test_node_count_16() -> None:
 
     all_nodes = get_all_nodes(model)
     data = test_model.input.metadata
-    assert get_origin(data.edge_type) is Tensor
+    assert data.is_tensor
     ref_all_nodes = {data.shape}
     assert all_nodes == ref_all_nodes
 
@@ -7750,7 +7747,7 @@ def test_node_count_18() -> None:
     model += MyModel()
 
     all_nodes = get_all_nodes(model)
-    assert get_origin(test_model.input.metadata.edge_type) is Tensor
+    assert test_model.input.metadata.is_tensor
     ref_all_nodes = {test_model.input.metadata.shape}
     assert all_nodes == ref_all_nodes
 
@@ -7780,9 +7777,9 @@ def test_node_count_19() -> None:
         model += MyModel()
 
     all_nodes = get_all_nodes(model)
-    assert get_origin(test_model1.input.metadata.edge_type) is Tensor
-    assert get_origin(test_model2.input.metadata.edge_type) is Tensor
-    assert get_origin(test_model3.input.metadata.edge_type) is Tensor
+    assert test_model1.input.metadata.is_tensor
+    assert test_model2.input.metadata.is_tensor
+    assert test_model3.input.metadata.is_tensor
     ref_all_nodes = {
         test_model1.input.metadata.shape,
         test_model2.input.metadata.shape,
@@ -7816,9 +7813,9 @@ def test_node_count_20() -> None:
         model += MyModel()
 
     all_nodes = get_all_nodes(model)
-    assert get_origin(test_model1.input.metadata.edge_type) is Tensor
-    assert get_origin(test_model2.input.metadata.edge_type) is Tensor
-    assert get_origin(test_model3.input.metadata.edge_type) is Tensor
+    assert test_model1.input.metadata.is_tensor
+    assert test_model2.input.metadata.is_tensor
+    assert test_model3.input.metadata.is_tensor
     ref_all_nodes = {
         test_model1.input.metadata.shape,
         test_model2.input.metadata.shape,
@@ -7852,9 +7849,9 @@ def test_node_count_21() -> None:
         model += MyModel()
 
     all_nodes = get_all_nodes(model)
-    assert get_origin(test_model1.input.metadata.edge_type) is Tensor
-    assert get_origin(test_model2.input.metadata.edge_type) is Tensor
-    assert get_origin(test_model3.input.metadata.edge_type) is Tensor
+    assert test_model1.input.metadata.is_tensor
+    assert test_model2.input.metadata.is_tensor
+    assert test_model3.input.metadata.is_tensor
     ref_all_nodes = {
         test_model1.input.metadata.shape,
         test_model2.input.metadata.shape,
@@ -7893,7 +7890,7 @@ def test_uniadic_repr_count_2():
     }
     model.set_shapes(shape_1)
 
-    assert get_origin(buff_model1.input.metadata.edge_type) is Tensor
+    assert buff_model1.input.metadata.is_tensor
     data_shape = buff_model1.input.metadata.shape
 
     assert data_shape is not None
@@ -7928,7 +7925,7 @@ def test_uniadic_repr_count_3():
         }
     )
 
-    assert get_origin(buff_model1.input.metadata.edge_type) is Tensor
+    assert buff_model1.input.metadata.is_tensor
     data_shape = buff_model1.input.metadata.shape
 
     assert data_shape is not None
@@ -8037,7 +8034,7 @@ def test_uniadic_repr_count_5():
 
     model.set_shapes(shapes)
 
-    assert get_origin(buff_model1.input.metadata.edge_type) is Tensor
+    assert buff_model1.input.metadata.is_tensor
     data_shape = buff_model1.input.metadata.shape
 
     assert data_shape is not None
@@ -8232,7 +8229,7 @@ def test_possible_uniadic_values_directed_8():
     buff_model = Buffer()
     buff_model.set_shapes({"input": ["a", "b"]})
 
-    assert get_origin(buff_model.input.metadata.edge_type) is Tensor
+    assert buff_model.input.metadata.is_tensor
     data_shape = buff_model.input.metadata.shape
 
     assert data_shape is not None
@@ -8252,7 +8249,7 @@ def test_possible_uniadic_values_directed_9():
     buff_model = Buffer()
     buff_model.set_shapes({"input": ["a", "b", "c", "d"]})
 
-    assert get_origin(buff_model.input.metadata.edge_type) is Tensor
+    assert buff_model.input.metadata.is_tensor
     data_shape = buff_model.input.metadata.shape
 
     assert data_shape is not None
@@ -9716,7 +9713,7 @@ def test_remove_variadic():
     with pytest.raises(Exception) as err_info:
         # model.shape_map["output"].remove_variadic([Uniadic(5)])
         data = model.conns.get_data("output")
-        assert get_origin(data.edge_type) is Tensor
+        assert data.is_tensor
         data_shape = data.shape
         assert data_shape is not None
         next(iter(data_shape.reprs)).remove_variadic([Uniadic(5)])
@@ -9733,7 +9730,7 @@ def test_bcast_left():
     }
     model.set_shapes(shape_1)
 
-    assert get_origin(model.output.metadata.edge_type) is Tensor
+    assert model.output.metadata.is_tensor
     data_shape = model.output.metadata.shape
     assert data_shape is not None
     assert data_shape.get_shapes() == [2, "u1", "(V1, ...)"]
@@ -9760,7 +9757,7 @@ def test_bcast_left_2():
     }
     model.set_shapes(shape_1)
 
-    assert get_origin(model.output.metadata.edge_type) is Tensor
+    assert model.output.metadata.is_tensor
     data_shape = model.output.metadata.shape
 
     assert data_shape is not None
@@ -9780,7 +9777,7 @@ def test_bcast_left_3():
         }
     )
 
-    assert get_origin(model.output.metadata.edge_type) is Tensor
+    assert model.output.metadata.is_tensor
     data_shape = model.output.metadata.shape
 
     assert data_shape is not None
