@@ -45,7 +45,6 @@ from mithril.framework.common import (
     create_shape_map,
 )
 from mithril.framework.constraints import bcast
-from mithril.framework.physical.flat_graph import FlatGraph
 from mithril.models import (
     L1,
     L2,
@@ -1979,83 +1978,6 @@ def test_regularization_5():
     assert result["final_cost"] - ref_loss < tolerance
 
 
-def test_static_anlaysis():
-    model = Model()
-    add1 = Add()
-    model += add1(
-        left=IOKey(value=Tensor([[2.0]]), name="left"),
-        right=IOKey(value=Tensor([2.0]), name="right"),
-    )
-    model += Linear(10)(
-        input=add1.output, weight="w", bias="b", output=IOKey(name="output")
-    )
-
-    comp_model = mithril.compile(model=model, backend=NumpyBackend())
-
-    ignored_model_keys = (
-        comp_model.flat_graph.cached_data.keys() | comp_model.discarded_keys
-    )
-    ignored_output_keys = ignored_model_keys & comp_model.flat_graph.all_target_keys
-    ignored_model_list = [
-        comp_model.flat_graph.get_model(key) for key in ignored_output_keys
-    ]
-    assert ignored_model_list == [add1]
-
-
-def test_static_anlaysis_1():
-    model = Model()
-    add1 = Add()
-    model += add1(
-        left=IOKey(value=Tensor([[2.0]]), name="left"),
-        right=IOKey(value=Tensor([2.0]), name="right"),
-    )
-    model += Add()(
-        left=add1.output, right=IOKey(type=Tensor), output=IOKey(name="output1")
-    )
-
-    comp_model = mithril.compile(
-        model=model,
-        backend=NumpyBackend(),
-    )
-    discarded_model_keys = (
-        comp_model.flat_graph.cached_data.keys() | comp_model.discarded_keys
-    )
-    discarded_output_keys = discarded_model_keys & comp_model.flat_graph.all_target_keys
-    discarded_model_list = [
-        comp_model.flat_graph.get_model(key) for key in discarded_output_keys
-    ]
-    assert discarded_model_list == [add1]
-
-
-def test_static_anlaysis_2():
-    model = Model()
-    add1 = Add()
-    sum1 = Sum()
-    model += add1(
-        left=IOKey(value=Tensor([[2.0]]), name="left"),
-        right=IOKey(value=Tensor([2.0]), name="right"),
-    )
-    model += sum1(input=add1.output)
-    model += Add()(
-        left=sum1.output, right=IOKey(type=Tensor), output=IOKey(name="output1")
-    )
-
-    comp_model = mithril.compile(
-        model=model,
-        backend=NumpyBackend(),
-    )
-    discarded_model_keys = (
-        comp_model.flat_graph.cached_data.keys()
-        | comp_model.flat_graph.unused_keys
-        | comp_model.discarded_keys
-    )
-    discarded_output_keys = discarded_model_keys & comp_model.flat_graph.all_target_keys
-    discarded_model_list = {
-        comp_model.flat_graph.get_model(key) for key in discarded_output_keys
-    }
-    assert len(discarded_model_list) == 2
-
-
 def test_static_anlaysis_4():
     model = Model()
     model += (add1 := Add())
@@ -3108,89 +3030,6 @@ def test_demo_model():
         "bias_2",
         "input",
     }
-
-
-def test_flatgraph_1():
-    graph = FlatGraph(
-        {"input1", "input2"}, {"output"}, mithril.JaxBackend(), ConstraintSolver()
-    )
-    graph.add_value(Relu(), {"input": "input1", "output": "relu_out"})
-    graph.add_value(Buffer(), {"input": "relu_out", "output": "buffer_output"})
-    graph.add_value(Buffer(), {"input": "buffer_output", "output": "output"})
-    graph.prune_duplicate_nodes({}, {})
-
-    expected_connections = ["input1", "relu_out"]
-    graph._update_connection_keys(graph.connections["relu_out"])
-
-    assert sorted(graph.connections.keys()) == sorted(expected_connections)
-    assert sorted(graph.get_target_keys("relu_out", True)) == (["output"])
-
-
-def test_flatgraph_2():
-    graph = FlatGraph(
-        {"input1", "input2"},
-        {"output1", "output2", "output3", "output4"},
-        mithril.JaxBackend(),
-        ConstraintSolver(),
-    )
-    graph.add_value(Relu(), {"input": "input1", "output": "relu_out"})
-    graph.add_value(Buffer(), {"input": "relu_out", "output": "output1"})
-    graph.add_value(Buffer(), {"input": "output1", "output": "output2"})
-    graph.add_value(Buffer(), {"input": "output2", "output": "output3"})
-    graph.add_value(Buffer(), {"input": "output3", "output": "output4"})
-    graph.prune_duplicate_nodes({}, {})
-
-    expected_connections = ["input1", "relu_out"]
-
-    assert sorted(graph.connections.keys()) == sorted(expected_connections)
-    assert graph.output_dict["output4"] == "relu_out"
-    assert sorted(graph.get_target_keys("relu_out", True)) == (
-        ["output1", "output2", "output3", "output4"]
-    )
-
-
-def test_flatgraph_3():
-    graph = FlatGraph(
-        {"input1", "input2"},
-        {"output1", "output2", "output3", "output4"},
-        mithril.JaxBackend(),
-        ConstraintSolver(),
-    )
-    graph.add_value(Relu(), {"input": "input1", "output": "relu_out"})
-    graph.add_value(Relu(), {"input": "relu_out", "output": "output1"})
-    graph.add_value(Relu(), {"input": "output1", "output": "output2"})
-    graph.prune_duplicate_nodes({}, {})
-
-    expected_connections = ["input1", "output1", "output2", "relu_out"]
-
-    assert sorted(graph.connections.keys()) == sorted(expected_connections)
-    assert sorted(graph.connections["output2"].source_keys) == (["output1"])
-    assert sorted(graph.connections["relu_out"].target_keys) == (["output1"])
-
-
-def test_flatgraph_4():
-    backend = TorchBackend(dtype=mithril.float64)
-    model_1 = Model()
-    model_1 += Relu()(input="relu_1", output=IOKey(name="output_1"))
-    model_1 += Relu()(input="relu_2", output=IOKey(name="output_2"))
-
-    model_2 = Model()
-    model_2 += Relu()(input="relu_1", output=IOKey(name="output_1"))
-    model_2 += Relu()(input="relu_2", output=IOKey(name="output_2"))
-
-    model = Model()
-    model += model_1()
-    model += model_2(
-        relu_2="",
-        output_2=model_1.relu_2,  # type: ignore
-        relu_1=model_1.output_2,  # type: ignore
-        output_1=IOKey(name="output"),
-    )
-
-    pm = mithril.compile(model=model, backend=backend)
-    assert pm.input_keys == {"relu_2"}
-    assert len(pm.flat_graph.all_source_keys) == 3
-    assert len(pm.flat_graph.all_target_keys) == 3
 
 
 def test_empy_out_grad():

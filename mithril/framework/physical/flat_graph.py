@@ -540,16 +540,30 @@ class FlatGraph(GenericDataType[DataType]):
         connections = set(node.connections.values())
         output_conn = node.connections[PrimitiveModel.output_key]
 
-        # To remove node, node should not be used any other nodes!
-        if len(output_conn.connections) == 0:
+        # To remove node, node should not be used any other nodes or
+        # Output of this node is already cached, so we can remove this node.
+        if len(output_conn.connections) == 0 or output_conn.key in self.all_data:
             for conn in connections - {output_conn}:
                 conn.connections -= connections
 
                 self._update_connection_keys(conn)
 
-            self._remove_conn(output_conn)
+                if len(conn.target_keys) == 0 and len(conn.source_keys) == 0:
+                    # Connection is not used by any other connections
+                    self._remove_conn(conn)
+
+            if len(output_conn.connections) == 0:
+                self._remove_conn(output_conn)
+
             self.nodes.pop(node.model)
 
+        else:
+            raise ValueError(
+                "Node can not be removed, because it is used by other nodes!"
+            )
+
+        self._update_all_source_keys()
+        self._update_all_target_keys()
         self._update_topological_order()
 
     def _remove_conn(self, conn: GConnection) -> None:
@@ -753,6 +767,11 @@ class FlatGraph(GenericDataType[DataType]):
         statics = self.data_store.update_cached_data(updates) | updated_keys
         for static in statics:
             self.infer_unused_keys(static)
+
+        if key in self._all_target_keys and self.connections[key].node is not None:
+            self._remove_node(self.connections[key].node)
+        # elif key in self._all_source_keys:
+        #     self._remove_conn(self.connections[key])
 
         return statics, updates
 
