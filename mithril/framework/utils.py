@@ -13,7 +13,6 @@
 # limitations under the License.
 
 from collections.abc import Callable, Iterable
-from functools import reduce
 from itertools import product
 from types import FunctionType, GenericAlias, UnionType
 from typing import TYPE_CHECKING, Any, TypeVar
@@ -230,16 +229,16 @@ def find_list_depth(arg_type: type | UnionType | GenericAlias) -> int:
     return max_depth
 
 
-def find_type[T](connection: T) -> type[T]:
-    if isinstance(connection, tuple | list):
-        element_types: list[Any] = [find_type(elem) for elem in connection]
-        if isinstance(connection, tuple):
-            return tuple[*element_types]  # type: ignore
-        else:
-            result: UnionType | type = reduce(lambda x, y: x | y, element_types)
-            return list[result]  # type: ignore
-    else:
-        return type(connection)
+# def find_type[T](connection: T) -> type[T]:
+#     if isinstance(connection, tuple | list):
+#         element_types: list[Any] = [find_type(elem) for elem in connection]
+#         if isinstance(connection, tuple):
+#             return tuple[*element_types]  # type: ignore
+#         else:
+#             result: UnionType | type = reduce(lambda x, y: x | y, element_types)
+#             return list[result]  # type: ignore
+#     else:
+#         return type(connection)
 
 
 def is_union(typ: type | UnionType | GenericAlias) -> bool:

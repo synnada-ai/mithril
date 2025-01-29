@@ -701,11 +701,11 @@ class ToList(PrimitiveModel):
         self.factory_args = {"n": n}
         key_definitions = {}
         key_definitions["output"] = BaseKey(
-            type=list[int | float | bool | list | tuple]  # type: ignore
+            type=list[int | float | bool | list | tuple | Tensor[int | float | bool]]  # type: ignore
         )
         key_definitions |= {
             f"input{idx+1}": BaseKey(
-                type=int | float | bool | list | tuple,
+                type=int | float | bool | list | tuple | Tensor[int | float | bool],
                 value=kwargs.get(f"input{idx+1}", TBD),
             )
             for idx in range(n)

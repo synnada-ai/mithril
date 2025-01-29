@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from types import NoneType
 
 from ..core import Constant, Dtype
@@ -30,7 +31,6 @@ from ..framework.constraints import (
     arange_constraints,
     bcast,
     broadcast_to_constraints,
-    concat_constraints,
     conv_1d_constraints,
     conv_2d_constraints,
     cross_entropy_constraint,
@@ -879,41 +879,70 @@ class CartesianDifference(PrimitiveModel):
         return super().__call__(left=left, right=right, output=output)
 
 
+# class Concat(PrimitiveModel):
+#     output: Connection
+#     axis: Connection
+
+#     def __init__(
+#         self,
+#         n: int,
+#         axis: int | None | ToBeDetermined = 0,
+#         *,
+#         name: str | None = None,
+#         **kwargs: Tensor[int | float | bool] | ToBeDetermined,
+#     ) -> None:
+#         self.factory_args = {"n": n, "axis": axis}
+
+#         key_definitions: dict[str, BaseKey] = {}
+#         key_definitions["output"] = BaseKey(shape=[("Var_out", ...)], type=Tensor)
+#         key_definitions |= {
+#             f"input{idx+1}": BaseKey(
+#                 shape=[(f"Var_{idx + 1}", ...)],
+#                 type=Tensor,
+#                 value=kwargs.get(f"input{idx + 1}", TBD),
+#             )
+#             for idx in range(n)
+#         }
+#         key_definitions["axis"] = BaseKey(type=int | None, value=axis)
+#         super().__init__(formula_key="concat", name=name, **key_definitions)
+
+#         input_keys = [key for key in self.input_keys if key != "axis"]
+#         self._set_constraint(
+#             fn=concat_constraints, keys=["output"] + ["axis"] + input_keys
+#         )
+#         self._set_constraint(
+#             fn=general_tensor_type_constraint,
+#             keys=[PrimitiveModel.output_key] + input_keys,
+#         )
+
+
 class Concat(PrimitiveModel):
     output: Connection
     axis: Connection
 
     def __init__(
         self,
-        n: int,
+        input: Sequence[Tensor[int | float | bool]] | ToBeDetermined = TBD,
         axis: int | None | ToBeDetermined = 0,
         *,
         name: str | None = None,
-        **kwargs: Tensor[int | float | bool] | ToBeDetermined,
     ) -> None:
-        self.factory_args = {"n": n, "axis": axis}
+        self.factory_args = {"axis": axis}
 
-        key_definitions: dict[str, BaseKey] = {}
-        key_definitions["output"] = BaseKey(shape=[("Var_out", ...)], type=Tensor)
-        key_definitions |= {
-            f"input{idx+1}": BaseKey(
-                shape=[(f"Var_{idx + 1}", ...)],
-                type=Tensor,
-                value=kwargs.get(f"input{idx + 1}", TBD),
-            )
-            for idx in range(n)
-        }
-        key_definitions["axis"] = BaseKey(type=int | None, value=axis)
-        super().__init__(formula_key="concat", name=name, **key_definitions)
+        super().__init__(
+            formula_key="concat",
+            name=name,
+            output=BaseKey(shape=[("Var_out", ...)], type=Tensor),
+            input=BaseKey(type=Sequence[Tensor[int | float | bool]], value=input),
+        )
 
-        input_keys = [key for key in self.input_keys if key != "axis"]
-        self._set_constraint(
-            fn=concat_constraints, keys=["output"] + ["axis"] + input_keys
-        )
-        self._set_constraint(
-            fn=general_tensor_type_constraint,
-            keys=[PrimitiveModel.output_key] + input_keys,
-        )
+        # self._set_constraint(
+        #     fn=concat_constraints, keys=[PrimitiveModel.output_key, "input"]
+        # )
+        # self._set_constraint(
+        #     fn=general_tensor_type_constraint,
+        #     keys=[PrimitiveModel.output_key, "input"],
+        # )
 
 
 class PrimitiveUnion(PrimitiveModel):

@@ -27,9 +27,9 @@ from mithril.framework.common import (
     ConnectionType,
     ToBeDetermined,
     find_intersection_type,
+    find_type,
 )
 from mithril.framework.utils import (
-    find_type,
     infer_all_possible_types,
     sort_type,
 )
@@ -856,6 +856,12 @@ def test_find_intersection_types_41():
     type_1 = Tensor[int] | Tensor[int | float]
     type_2 = Tensor[int | float]
     assert find_intersection_type(type_1, type_2) == Tensor[int | float]
+
+
+def test_find_intersection_types_42():
+    type_1 = list[int]
+    type_2 = list[int | float]
+    assert find_intersection_type(type_1, type_2) == list[int]
 
 
 def test_find_type_1():

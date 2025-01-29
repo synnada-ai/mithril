@@ -497,3 +497,82 @@ def test_match_mixed_type_edge_with_mixed_type_edge_2():
     assert updates.constraints == {constr}
     assert updates.value_updates == set()
     assert updates.shape_updates == set()
+
+
+def test_match_mixed_type_edge_with_mixed_type_edge_3():
+    edge1 = IOHyperEdge(type=Tensor[int | float] | int | float)  # Mixed type edge.
+
+    constr = Constraint(fn=reduce_type_constraint, type=UpdateType.TYPE)
+    edge2 = IOHyperEdge(type=float | bool | Tensor[int | float | bool])
+    edge2.add_constraint(constr)
+
+    updates = edge1.match(edge2)
+    assert edge1.edge_type == float | Tensor[int | float]
+    assert edge1.is_polymorphic
+    assert edge1.all_constraints == {constr} and edge2.all_constraints == set()
+    assert updates.constraints == {constr}
+    assert updates.value_updates == set()
+    assert updates.shape_updates == set()
+
+
+def test_list_of_tensor_type_edge_match():
+    edge1 = IOHyperEdge(type=list[Tensor[int | float | bool]])
+
+    constr = Constraint(fn=reduce_type_constraint, type=UpdateType.TYPE)
+    edge2 = IOHyperEdge(type=list[Tensor[int | float]])
+    edge2.add_constraint(constr)
+
+    updates = edge1.match(edge2)
+    assert edge1.edge_type == list[Tensor[int | float]]
+    assert not edge1.is_polymorphic
+    assert edge1.all_constraints == {constr} and edge2.all_constraints == set()
+    assert updates.constraints == set()
+    assert updates.value_updates == set()
+    assert updates.shape_updates == set()
+
+
+def test_set_list_of_mixed_type_value():
+    edge1 = IOHyperEdge(value=[Tensor(1), 5.0, Tensor(False)])
+
+    assert edge1.edge_type == list[Tensor[int | bool] | float]
+    assert not edge1.is_polymorphic
+
+
+def test_list_of_tensor_type_edge_match_with_list_of_tensor_value_edge():
+    value: list[Tensor[int | float]] = [Tensor(1.0), Tensor(2), Tensor(3.0)]
+    edge1 = IOHyperEdge(value=value)
+
+    constr = Constraint(fn=reduce_type_constraint, type=UpdateType.TYPE)
+    edge2 = IOHyperEdge(type=list[Tensor[int | float]])
+    edge2.add_constraint(constr)
+
+    updates = edge1.match(edge2)
+    assert edge1.edge_type == list[Tensor[int | float]]
+    assert edge1._value == value
+    assert not edge1.is_polymorphic
+    assert edge1.all_constraints == {constr} and edge2.all_constraints == set()
+    assert updates.constraints == set()
+    assert updates.value_updates == set()
+    assert updates.shape_updates == set()
+
+
+def test_list_of_tensor_value_edge_match_with_list_of_tensor_value_edge():
+    value1: list[Tensor[int | float]] = [Tensor(1.0), Tensor(2), Tensor(3.0)]
+    edge1 = IOHyperEdge(value=value1)
+
+    constr = Constraint(fn=reduce_type_constraint, type=UpdateType.TYPE)
+    value2: list[Tensor[int | float]] = [Tensor(), Tensor(), Tensor()]
+    edge2 = IOHyperEdge(value=value2)
+    edge2.add_constraint(constr)
+
+    updates = edge1.match(edge2)
+    assert edge1.edge_type == list[Tensor[int | float]]
+    assert isinstance(edge1._value, list)
+    assert {
+        edge1._value[idx].value == tensor.value for idx, tensor in enumerate(value1)
+    }
+    assert not edge1.is_polymorphic
+    assert edge1.all_constraints == {constr} and edge2.all_constraints == set()
+    assert updates.constraints == set()
+    assert updates.value_updates == set()
+    assert updates.shape_updates == set()
