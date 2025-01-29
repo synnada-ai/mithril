@@ -527,34 +527,6 @@ class PhysicalModel(GenericDataType[DataType]):
 
         self.flat_graph.prune_duplicate_nodes(self.data, constant_keys)
 
-        updates = Updates()
-        reverse_data_memo = {
-            value: key for key, value in self.flat_graph.data_memo.items()
-        }
-
-        for key, conn_key in self.flat_graph.unnecessary_keys.items():
-            pruned_data = self.data[key]
-            remained_data = self.data[conn_key]
-
-            # find the occurrence of pruned data in data memo and replace it with
-            # remained data
-            logical_id = reverse_data_memo[pruned_data]
-            self.flat_graph.data_memo[logical_id] = remained_data
-
-            if key in self.flat_graph.pruned_keys:
-                updates |= remained_data.match(pruned_data)
-            self.data[key] = remained_data
-
-        for value in self.flat_graph.intermediate_non_differentiables.inverse:
-            # there can exist some inferred intermediate scalar keys in logical model.
-            # find those keys and add to cached datas
-            if (value.edge_type is not Tensor) and (value.value is not TBD):
-                updates.add(value)
-
-        self.flat_graph.update_cached_data(updates)
-
-        self.flat_graph.constraint_solver(updates)
-
         # Set given static keys
         self.flat_graph.set_static_keys(constant_keys)
 

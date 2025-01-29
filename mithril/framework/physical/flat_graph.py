@@ -108,6 +108,7 @@ class FlatGraph(GenericDataType[DataType]):
         if memo is None:
             memo = {}
 
+        self.backend = backend
         self.nodes: dict[PrimitiveModel, Node] = {}
         self.connections: dict[
             str, GConnection
@@ -127,7 +128,6 @@ class FlatGraph(GenericDataType[DataType]):
         self.value_table: dict[str, DataType | ValueType] = {}
 
         self.data_store: StaticDataStore[DataType] = StaticDataStore(backend, inference)
-        self.backend = backend
 
         self.constraint_solver: ConstraintSolver = deepcopy(solver, memo=memo)
 
@@ -413,14 +413,36 @@ class FlatGraph(GenericDataType[DataType]):
         data: dict[str, IOHyperEdge],
         constant_keys: Mapping[str, DataType | MainValueType],
     ) -> None:
+        reverse_data_memo = {value: key for key, value in self.data_memo.items()}
+
+        updates = Updates()
+
         for node in list(self.nodes.values()):
             conn = self._is_duplicate(node, data, constant_keys)
             if conn is None:
                 continue
 
-            key = node.connections["output"].key
+            pruned_key = node.connections["output"].key
+            source_key = conn.key
             self._prune_node(node, conn)
-            self._pruned_keys[key] = conn.key
+            self._pruned_keys[pruned_key] = source_key
+
+            ## Update Data Memo
+            pruned_data = self.all_data[pruned_key]
+            remained_data = self.all_data[source_key]
+
+            # find the occurrence of pruned data in data memo and replace it with
+            # remained data
+            logical_id = reverse_data_memo[pruned_data]
+            self.data_memo[logical_id] = remained_data
+
+            self.data_store.all_data[pruned_key] = remained_data
+
+            # Match shapes
+            updates |= remained_data.match(pruned_data)
+
+        self.data_store.update_cached_data(updates)
+        self.constraint_solver(updates)
 
     def _is_duplicate(
         self,
