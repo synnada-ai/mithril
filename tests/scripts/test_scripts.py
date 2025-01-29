@@ -1993,7 +1993,7 @@ def test_static_anlaysis():
     comp_model = mithril.compile(model=model, backend=NumpyBackend())
 
     ignored_model_keys = (
-        comp_model.data_store.cached_data.keys() | comp_model.discarded_keys
+        comp_model.flat_graph.cached_data.keys() | comp_model.discarded_keys
     )
     ignored_output_keys = ignored_model_keys & comp_model.flat_graph.all_target_keys
     ignored_model_list = [
@@ -2018,7 +2018,7 @@ def test_static_anlaysis_1():
         backend=NumpyBackend(),
     )
     discarded_model_keys = (
-        comp_model.data_store.cached_data.keys() | comp_model.discarded_keys
+        comp_model.flat_graph.cached_data.keys() | comp_model.discarded_keys
     )
     discarded_output_keys = discarded_model_keys & comp_model.flat_graph.all_target_keys
     discarded_model_list = [
@@ -2045,8 +2045,8 @@ def test_static_anlaysis_2():
         backend=NumpyBackend(),
     )
     discarded_model_keys = (
-        comp_model.data_store.cached_data.keys()
-        | comp_model.data_store.unused_keys
+        comp_model.flat_graph.cached_data.keys()
+        | comp_model.flat_graph.unused_keys
         | comp_model.discarded_keys
     )
     discarded_output_keys = discarded_model_keys & comp_model.flat_graph.all_target_keys
@@ -2882,7 +2882,7 @@ def test_replace_with_primitive_2():
     assert ScaledDotProduct not in [item.__class__ for item in dag]
     assert expected_key_mapping == list(dag.values())[0]
     # assert {} == comp_model.non_differentiables
-    assert set() == comp_model.data_store.all_static_keys
+    assert set() == comp_model.flat_graph.all_static_keys
     assert set(["query", "key", "mask", "value"]) == set(comp_model.input_keys)
     assert set(["output"]) == set(comp_model.output_keys)
 
@@ -2914,9 +2914,9 @@ def test_replace_with_primitive_3():
     assert ScaledDotProduct not in [item.__class__ for item in dag]
     assert expected_key_mapping == list(dag.values())[0]
     # assert {} == comp_model.non_differentiables
-    # assert {"q", "k", "v", "m", "output"} == comp_model.data_store.all_static_keys
-    assert {"output"} == comp_model.data_store.all_static_keys
-    assert {"q", "k", "v", "m"} == comp_model.data_store.unused_keys
+    # assert {"q", "k", "v", "m", "output"} == comp_model.flat_graph.all_static_keys
+    assert {"output"} == comp_model.flat_graph.all_static_keys
+    assert {"q", "k", "v", "m"} == comp_model.flat_graph.unused_keys
     assert set(["q", "k", "m", "v"]) == set(comp_model.input_keys)
     assert set(["output"]) == set(comp_model.output_keys)
 
@@ -2947,7 +2947,7 @@ def test_replace_with_primitive_4():
     assert ScaledDotProduct not in [item.__class__ for item in dag]
     assert expected_key_mapping == list(dag.values())[0]
     # assert {} == comp_model.non_differentiables
-    assert {"q", "k", "m"} == comp_model.data_store.all_static_keys
+    assert {"q", "k", "m"} == comp_model.flat_graph.all_static_keys
     assert set(["q", "k", "m", "v"]) == set(comp_model.input_keys)
     assert set(["output"]) == set(comp_model.output_keys)
 
@@ -3111,7 +3111,9 @@ def test_demo_model():
 
 
 def test_flatgraph_1():
-    graph = FlatGraph({"input1", "input2"}, {"output"})
+    graph = FlatGraph(
+        {"input1", "input2"}, {"output"}, mithril.JaxBackend(), ConstraintSolver()
+    )
     graph.add_value(Relu(), {"input": "input1", "output": "relu_out"})
     graph.add_value(Buffer(), {"input": "relu_out", "output": "buffer_output"})
     graph.add_value(Buffer(), {"input": "buffer_output", "output": "output"})
@@ -3126,7 +3128,10 @@ def test_flatgraph_1():
 
 def test_flatgraph_2():
     graph = FlatGraph(
-        {"input1", "input2"}, {"output1", "output2", "output3", "output4"}
+        {"input1", "input2"},
+        {"output1", "output2", "output3", "output4"},
+        mithril.JaxBackend(),
+        ConstraintSolver(),
     )
     graph.add_value(Relu(), {"input": "input1", "output": "relu_out"})
     graph.add_value(Buffer(), {"input": "relu_out", "output": "output1"})
@@ -3146,7 +3151,10 @@ def test_flatgraph_2():
 
 def test_flatgraph_3():
     graph = FlatGraph(
-        {"input1", "input2"}, {"output1", "output2", "output3", "output4"}
+        {"input1", "input2"},
+        {"output1", "output2", "output3", "output4"},
+        mithril.JaxBackend(),
+        ConstraintSolver(),
     )
     graph.add_value(Relu(), {"input": "input1", "output": "relu_out"})
     graph.add_value(Relu(), {"input": "relu_out", "output": "output1"})
@@ -5766,11 +5774,11 @@ def test_deepcopy_1():
     compiled_model = mithril.compile(model=model, backend=NumpyBackend())
     unused_data = {
         compiled_model.data[key]
-        for key in compiled_model.data_store.unused_keys
-        | compiled_model.data_store.cached_data.keys()
+        for key in compiled_model.flat_graph.unused_keys
+        | compiled_model.flat_graph.cached_data.keys()
     }
     for data in all_data:
-        copied_data = compiled_model.data_store.data_memo.get(id(data))
+        copied_data = compiled_model.flat_graph.data_memo.get(id(data))
         if copied_data not in unused_data:
             assert isinstance(copied_data, IOHyperEdge)
             assert data.value == copied_data.value
@@ -5794,11 +5802,11 @@ def test_deepcopy_2():
     compiled_model = mithril.compile(model=model, backend=NumpyBackend())
     unused_data = {
         compiled_model.data[key]
-        for key in compiled_model.data_store.unused_keys
-        | compiled_model.data_store.cached_data.keys()
+        for key in compiled_model.flat_graph.unused_keys
+        | compiled_model.flat_graph.cached_data.keys()
     }
     for data in all_data:
-        copied_data = compiled_model.data_store.data_memo.get(id(data))
+        copied_data = compiled_model.flat_graph.data_memo.get(id(data))
         if copied_data not in unused_data:
             assert isinstance(copied_data, IOHyperEdge)
             assert data.value == copied_data.value
@@ -5822,11 +5830,11 @@ def test_deepcopy_3():
     )
     unused_data = {
         compiled_model.data.get(key)
-        for key in compiled_model.data_store.unused_keys
-        | compiled_model.data_store.cached_data.keys()
+        for key in compiled_model.flat_graph.unused_keys
+        | compiled_model.flat_graph.cached_data.keys()
     }
     for data in all_data:
-        copied_data = compiled_model.data_store.data_memo.get(id(data))
+        copied_data = compiled_model.flat_graph.data_memo.get(id(data))
         if copied_data not in unused_data:
             assert isinstance(copied_data, IOHyperEdge)
             assert data.value == copied_data.value
@@ -5847,11 +5855,11 @@ def test_deepcopy_4():
     compiled_model = mithril.compile(model=model, backend=NumpyBackend())
     unused_data = {
         compiled_model.data.get(key)
-        for key in compiled_model.data_store.unused_keys
-        | compiled_model.data_store.cached_data.keys()
+        for key in compiled_model.flat_graph.unused_keys
+        | compiled_model.flat_graph.cached_data.keys()
     }
     for data in all_data:
-        copied_data = compiled_model.data_store.data_memo.get(id(data))
+        copied_data = compiled_model.flat_graph.data_memo.get(id(data))
         if copied_data not in unused_data:
             assert isinstance(copied_data, IOHyperEdge)
             assert data.value == copied_data.value
@@ -5882,11 +5890,11 @@ def test_deepcopy_5():
     )
     unused_data = {
         compiled_model.data.get(key)
-        for key in compiled_model.data_store.unused_keys
-        | compiled_model.data_store.cached_data.keys()
+        for key in compiled_model.flat_graph.unused_keys
+        | compiled_model.flat_graph.cached_data.keys()
     }
     for data in all_data:
-        copied_data = compiled_model.data_store.data_memo.get(id(data))
+        copied_data = compiled_model.flat_graph.data_memo.get(id(data))
         assert copied_data is not None
         if copied_data not in unused_data:
             assert isinstance(copied_data, IOHyperEdge)

@@ -175,8 +175,8 @@ class CGen(CodeGen[PyArray]):
             # Create gradients for all params
             for key in (
                 self.pm.flat_graph.all_source_keys
-                - self.pm.data_store.all_static_keys
-                - self.pm.data_store.unused_keys
+                - self.pm.flat_graph.all_static_keys
+                - self.pm.flat_graph.unused_keys
                 - self.pm.ignore_grad_keys
             ):
                 # In CBackend we are creating all internal gradients with zeros.
@@ -206,8 +206,8 @@ class CGen(CodeGen[PyArray]):
         fn_body: list[c_ast.Expr] = []
         used_keys: set[str] = set()
 
-        unused_keys = self.pm.data_store.unused_keys
-        cached_data_keys = self.pm.data_store.cached_data.keys()
+        unused_keys = self.pm.flat_graph.unused_keys
+        cached_data_keys = self.pm.flat_graph.cached_data.keys()
 
         for output_key in self.pm.flat_graph.topological_order:
             # Staticly infered and unused model will not be added
@@ -241,8 +241,8 @@ class CGen(CodeGen[PyArray]):
 
         all_ignored_keys = (
             self.pm.ignore_grad_keys
-            | self.pm.data_store.all_static_keys
-            | self.pm.data_store.unused_keys
+            | self.pm.flat_graph.all_static_keys
+            | self.pm.flat_graph.unused_keys
         )
         all_ignored_keys, _ = self.pm.infer_ignore(
             set(), self.pm._output_keys, all_ignored_keys, update_graph=False

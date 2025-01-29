@@ -214,7 +214,7 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
         eval_fn: EvaluateType[DataType] | partial[Any] = partial(
             self.compute_evaluate,
             fn=raw_eval_fn,
-            cache=self.pm.data_store.data_values,
+            cache=self.pm.flat_graph.cached_data,
         )
         grad_fn = None
         evaluate_all_fn = None
@@ -300,10 +300,10 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
 
     def is_static_scalar(self, key: str) -> bool:
         return (
-            key in self.pm.data_store.cached_data
+            key in self.pm.flat_graph.cached_data
             and self.pm.data[key].edge_type != Tensor
             and self.pm.data[key].edge_type != Dtype
-            and not isinstance(self.pm.data_store.cached_data[key], enum.Enum)
+            and not isinstance(self.pm.flat_graph.cached_data[key], enum.Enum)
         )
 
     def get_primitive_details(
@@ -344,8 +344,8 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
         used_keys: set[str] = set()
         used_keys |= set(self.pm.flat_graph.output_dict.values())
 
-        unused_keys = self.pm.data_store.unused_keys
-        cached_data_keys = self.pm.data_store.cached_data.keys()
+        unused_keys = self.pm.flat_graph.unused_keys
+        cached_data_keys = self.pm.flat_graph.cached_data.keys()
         discarded_keys = self.pm.discarded_keys  # TODO: Consider is this necessary?
 
         deleted_vars: set[str] = set()
@@ -387,7 +387,7 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
                     or used_key in deleted_vars
                     or (
                         used_key in self.pm.input_keys  # Inputs shouldn't deleted
-                        or used_key in self.pm.data_store.all_static_keys
+                        or used_key in self.pm.flat_graph.all_static_keys
                     )
                 ):
                     continue
@@ -404,7 +404,7 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
         for key in sorted(used_keys):
             if key in cached_data_keys:
                 dict_type = "cache"
-            elif key in self.pm.data_store.runtime_static_keys:
+            elif key in self.pm.flat_graph.runtime_static_keys:
                 dict_type = "data"
             elif key not in self.pm.flat_graph.all_target_keys:
                 dict_type = "params"
@@ -420,7 +420,7 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
             # TODO: give an api to get outputdict
             if self.is_static_scalar(output_key):
                 return_values.append(
-                    ast.Constant(self.pm.data_store.cached_data[output_key])
+                    ast.Constant(self.pm.flat_graph.cached_data[output_key])
                 )
             else:
                 return_values.append(
@@ -490,7 +490,7 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
         else:
             # If key is an output of a function, then get the corresponding
             # function cache from general cache and then get "output" from there.
-            cached_data = self.pm.data_store.cached_data
+            cached_data = self.pm.flat_graph.cached_data
             data_dict: ast.Subscript | ast.Name
             if key not in cached_data:
                 cache_name = key + "_cache"
@@ -521,14 +521,14 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
         """Generates a single function call AST (Abstract Syntax Tree)."""
         if default_args is None:
             default_args = {}
-        cache = self.pm.data_store.cached_data
+        cache = self.pm.flat_graph.cached_data
         formula_key = function.__name__
         inputs = {
             key: value for key, value in zip(local_keys, global_keys, strict=False)
         }
         # Prepare function arguments
         fn_args_mapping, fn_kwarg_dict = prepare_function_args(
-            self.pm.data_store.data_values,
+            self.pm.flat_graph.cached_data,
             function,
             inputs,
             self.pm.backend.array_creation_funcs,
@@ -617,14 +617,14 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
             grad_fn = partial(
                 self.compute_gradients,
                 raw_evaluate_fn=raw_evaluate_fn,
-                cache=self.pm.data_store.data_values,
+                cache=self.pm.flat_graph.cached_data,
                 include_output=False,
             )
             # Fix fn_all for mlx support!!
             fn_all = partial(
                 self.compute_gradients,
                 raw_evaluate_fn=raw_evaluate_fn,
-                cache=self.pm.data_store.data_values,
+                cache=self.pm.flat_graph.cached_data,
                 include_output=True,
             )
             return grad_fn, fn_all  # type: ignore

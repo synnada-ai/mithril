@@ -107,8 +107,8 @@ def test_static_keys_inference(case: str) -> None:
     )
     # model_static_keys = sorted([key for key in compiled_model.static_keys.keys()])
     model_static_keys = sorted(
-        compiled_model.data_store.all_static_keys
-        | compiled_model.data_store.unused_keys
+        compiled_model.flat_graph.all_static_keys
+        | compiled_model.flat_graph.unused_keys
     )
     assert model_static_keys == sorted(results)
 

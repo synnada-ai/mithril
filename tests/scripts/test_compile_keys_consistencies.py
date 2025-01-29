@@ -284,4 +284,4 @@ def test_iterable_type_keys():
     for typ in [list, tuple, set, dict]:
         value = dict([("input", None)]) if typ is dict else typ(["input"])
         pm = ml_compile(model, backend, trainable_keys=value)
-        assert pm.data_store.all_static_keys == {"axes"}
+        assert pm.flat_graph.all_static_keys == {"axes"}
