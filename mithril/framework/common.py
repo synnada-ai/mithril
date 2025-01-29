@@ -333,6 +333,8 @@ class ConstraintSolver:
 
     def __call__(self, updates: Updates) -> None:
         self.update_shapes(updates)
+        # Here we are updating Updates object because we are
+        # using it in DataStore's `update_cached_data`.
         updates |= self.solver_loop(updates.constraints)
 
     def solver_loop(self, constraints: set[Constraint]) -> Updates:
@@ -346,20 +348,13 @@ class ConstraintSolver:
                 if constraint_type is UpdateType.SHAPE:
                     self.update_shapes(newly_added_symbols)
                 updates |= newly_added_symbols
-                new_constraints = {
-                    constr
-                    for constr in newly_added_symbols.constraints
-                    if constr.type is constraint_type
-                }
+                new_constraints = newly_added_symbols.constraints
 
                 if status:
                     # Remove all occurences of constraint.
                     self.constraint_map.pop(constr)
                     for hyper_edge in hyper_edges:
                         hyper_edge.remove_constraint(constr)
-
-                    # Add dependent constraints to constraints set.
-                    constraints |= constr.pop_dependencies()
 
                 constraints |= new_constraints
                 constraints.discard(constr)
@@ -990,10 +985,8 @@ class IOHyperEdge:
 
     def remove_constraint(self, constraint: Constraint) -> None:
         # TODO: check why pop raises!
-        if constraint.type == UpdateType.SHAPE:
-            self.shape_constraints.discard(constraint)
-        elif constraint.type == UpdateType.TYPE:
-            self.type_constraints.discard(constraint)
+        self.shape_constraints.discard(constraint)
+        self.type_constraints.discard(constraint)
 
 
 class TemplateBase:
@@ -2952,7 +2945,9 @@ class Constraint:
         elif self.type == UpdateType.TYPE:
             status, newly_added_symbols = self.fn(*keys)
             updates |= newly_added_symbols
-
+        if status:
+            updates.constraints |= self.children
+            self.clear()
         self.call_counter += 1
         return status, updates
 
@@ -2961,12 +2956,15 @@ class Constraint:
         for constr in args:
             constr.children.add(self)
 
-    def pop_dependencies(self) -> set[Constraint]:
+    def clear(self) -> None:
         for constr in self.children:
             constr.parents.remove(self)
-        children = self.children
+
+        for constr in self.parents:
+            constr.children.remove(self)
+
+        self.parents = set()
         self.children = set()
-        return children
 
     def __hash__(self) -> int:
         return hash(id(self))

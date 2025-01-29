@@ -14,7 +14,13 @@
 
 import pytest
 
-from mithril.framework.common import ConstrainResultType, IOHyperEdge, Updates
+from mithril.framework.common import (
+    ConstrainResultType,
+    Constraint,
+    IOHyperEdge,
+    Updates,
+    UpdateType,
+)
 from mithril.models import PrimitiveModel, Sigmoid
 
 
@@ -79,6 +85,28 @@ class ThreeConstraints(ConstrGraphTestBase):
 @pytest.mark.parametrize("cond2", [True, False])
 @pytest.mark.parametrize("cond1", [True, False])
 class ThreeConstraintsTest(ThreeConstraints):
+    """Test base class for testing dependency
+    graphs including three constraints,
+
+    In order to use this Test base, create a subclass that inherits from this class
+
+    subclass should have two fields defined:
+       1. result_map: dict[tuple[bool, ...], list[str]]
+       2. model: Callable[[], PrimitiveModel]
+
+    result_map defines result for each possible condition of constraints
+
+    model should return a PrimitiveModel object with constraints defined
+
+    in each constraints, if its conditions true, appends its name to trace_list
+    (namely, c1, c2, c3). However, if a constraint has dependencies, it cannot be
+    called and therefore, its name will not be appended to trace_list.
+
+    keys of result_map defines each conditions, and values are the expected results
+    of trace list. (see examples of TestThreeSequential, TestThreeOneToMany,
+    TestThreeManyToOne)
+    """
+
     # runs test for all possible conditions
     def test_conditions(self, cond1: bool, cond2: bool, cond3: bool):
         self.assert_results(cond1, cond2, cond3)
@@ -369,3 +397,99 @@ class TestFourTwoSequential(FourConstraintsTest):
             fn=self.constraint_4, keys=["input", "output"], dependencies={c3}
         )
         return model
+
+
+def mock_constraint_fn(input: IOHyperEdge, output: IOHyperEdge) -> ConstrainResultType:
+    return True, Updates()
+
+
+def test_constraint_objects_single_dependency():
+    a = Constraint(fn=mock_constraint_fn, type=UpdateType.SHAPE)
+    b = Constraint(fn=mock_constraint_fn, type=UpdateType.SHAPE)
+
+    b.add_dependencies(a)
+
+    assert a.children == {b}
+    assert a.parents == set()
+    assert b.children == set()
+    assert b.parents == {a}
+
+
+def test_constraint_objects_multiple_sequential_dependency():
+    a = Constraint(fn=mock_constraint_fn, type=UpdateType.SHAPE)
+    b = Constraint(fn=mock_constraint_fn, type=UpdateType.SHAPE)
+    c = Constraint(fn=mock_constraint_fn, type=UpdateType.SHAPE)
+
+    c.add_dependencies(b)
+    b.add_dependencies(a)
+
+    assert a.parents == set()
+    assert a.children == {b}
+
+    assert b.parents == {a}
+    assert b.children == {c}
+
+    assert c.parents == {b}
+    assert c.children == set()
+
+
+def test_constraint_objects_multiple_sequential_dependency_clear():
+    a = Constraint(fn=mock_constraint_fn, type=UpdateType.SHAPE)
+    b = Constraint(fn=mock_constraint_fn, type=UpdateType.SHAPE)
+    c = Constraint(fn=mock_constraint_fn, type=UpdateType.SHAPE)
+
+    c.add_dependencies(b)
+    b.add_dependencies(a)
+
+    a.clear()
+
+    assert a.parents == set()
+    assert a.children == set()
+
+    assert b.parents == set()
+    assert b.children == {c}
+
+    assert c.parents == {b}
+    assert c.children == set()
+
+
+def test_constraint_objects_multiple_sequential_dependency_clear_two_constraint():
+    a = Constraint(fn=mock_constraint_fn, type=UpdateType.SHAPE)
+    b = Constraint(fn=mock_constraint_fn, type=UpdateType.SHAPE)
+    c = Constraint(fn=mock_constraint_fn, type=UpdateType.SHAPE)
+
+    c.add_dependencies(b)
+    b.add_dependencies(a)
+
+    a.clear()
+    b.clear()
+
+    assert a.parents == set()
+    assert a.children == set()
+
+    assert b.parents == set()
+    assert b.children == set()
+
+    assert c.parents == set()
+    assert c.children == set()
+
+
+def test_constraint_objects_multiple_sequential_dependency_clear_call():
+    a = Constraint(fn=mock_constraint_fn, type=UpdateType.SHAPE)
+    b = Constraint(fn=mock_constraint_fn, type=UpdateType.SHAPE)
+    c = Constraint(fn=mock_constraint_fn, type=UpdateType.SHAPE)
+
+    c.add_dependencies(b)
+    b.add_dependencies(a)
+
+    a([IOHyperEdge(), IOHyperEdge()])
+    b([IOHyperEdge(), IOHyperEdge()])
+
+    assert a.parents == set()
+    assert a.children == set()
+
+    assert b.parents == set()
+    assert b.children == set()
+
+    assert c.parents == set()
+    assert c.children == set()
