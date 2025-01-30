@@ -231,7 +231,7 @@ def test_mymodel_jax():
                 left=BaseKey(shape=[("Var_1", ...)], type=Tensor),
                 right=BaseKey(shape=[("Var_2", ...)], type=Tensor),
             )
-            self.set_constraint(fn=bcast, keys=["output", "left", "right"])
+            self.add_constraint(fn=bcast, keys=["output", "left", "right"])
 
         def __call__(  # type: ignore[override]
             self,
@@ -359,7 +359,7 @@ def test_jit_1():
                 left=BaseKey(shape=[("Var_1", ...)], type=Tensor),
                 right=BaseKey(shape=[("Var_2", ...)], type=Tensor),
             )
-            self.set_constraint(fn=bcast, keys=["output", "left", "right"])
+            self.add_constraint(fn=bcast, keys=["output", "left", "right"])
 
     add_model = Add()
     model = Model()

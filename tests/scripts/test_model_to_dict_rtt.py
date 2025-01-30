@@ -945,7 +945,7 @@ def test_make_shape_constraint():
                 input=BaseKey(shape=[("Var_1", ...)], type=Tensor),
                 rhs=BaseKey(type=int, value=threshold),
             )
-            self.set_constraint(
+            self.add_constraint(
                 fn=squeeze_constraints, keys=[CustomPrimitiveModel.output_key, "input"]
             )
 

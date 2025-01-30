@@ -118,7 +118,9 @@ def shape_map_to_tensor(
     # Simply converts ShapeRepr objects to Tensor types.
     tensor_dict = {}
     for key, value in shape_map.items():
-        tensor = Tensor(type=float | int | bool, shape=value.node)
+        tensor: Tensor[int | float | bool] = Tensor(
+            type=float | int | bool, shape=value.node
+        )
         edge = IOHyperEdge(value=tensor, key_origin=key)
         # set temp_shape. Since temp_shape of a Tensor initialized as None in its
         # constructor.
@@ -216,7 +218,7 @@ def assert_shape_results(
     shapes = {}
     assignments: AssignmentType = {}
     for key, value in data.items():
-        if value.edge_type is Tensor:
+        if value.is_tensor:
             assert value.shape is not None
             shapes[key] = value.shape.get_shapes(uni_cache, var_cache, verbose=True)
             shape_repr = value._temp_shape
@@ -262,7 +264,7 @@ def assert_value_results(
             assert data[key].value == value
         else:
             # If value is a tensor of any supported backend.
-            assert data[key].edge_type is Tensor
+            assert data[key].is_tensor
             d_val = data[key].value
             assert GenericDataType.is_tensor_type(d_val)
             assert (d_val == value).all()
@@ -2022,6 +2024,28 @@ def test_reduce_axis_valued_keep_dim_tbd_input_variadic():
     }
     assert_constraint_results(
         shapes, {}, final_shapes, {}, reduce_constraints, False, {"input"}, scalar_info
+    )
+
+
+# @pytest.mark.skip("Fix reduce constraints")
+def test_reduce_with_given_axis():
+    """Test multiple none axis and keepdim"""
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [("Var1", ...)],
+        "input": [("Var2", ...)],
+    }
+    final_shapes = {
+        "output": ["(Var1, ...)"],
+        "input": ["(Var1, ...)", "u1", "u2"],
+        "axis": [],
+        "keepdim": [],
+    }
+    scalar_info = {
+        "axis": IOHyperEdge(value=(-1, -2)),
+        "keepdim": IOHyperEdge(type=bool, value=False),
+    }
+    assert_constraint_results(
+        shapes, {}, final_shapes, {}, reduce_constraints, True, {"input"}, scalar_info
     )
 
 
