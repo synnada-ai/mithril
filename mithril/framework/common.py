@@ -334,6 +334,8 @@ class ConstraintSolver:
 
     def __call__(self, updates: Updates) -> None:
         self.update_shapes(updates)
+        # Here we are updating Updates object because we are
+        # using it in DataStore's `update_cached_data`.
         updates |= self.solver_loop(updates.constraints)
 
     def solver_loop(self, constraints: set[Constraint]) -> Updates:
@@ -346,7 +348,7 @@ class ConstraintSolver:
                 if UpdateType.SHAPE in constr.type:
                     self.update_shapes(newly_added_symbols)
                 updates |= newly_added_symbols
-                constraints |= newly_added_symbols.constraints
+                new_constraints = newly_added_symbols.constraints
 
                 if status:
                     # Remove all occurences of constraint.
@@ -354,9 +356,7 @@ class ConstraintSolver:
                     for hyper_edge in hyper_edges:
                         hyper_edge.remove_constraint(constr)
 
-                    # Add dependent constraints to constraints set.
-                    constraints |= constr.pop_dependencies()
-
+                constraints |= new_constraints
                 constraints.discard(constr)
         return updates
 
@@ -2949,7 +2949,9 @@ class Constraint:
         else:
             status, newly_added_symbols = self.fn(*keys)
             updates |= newly_added_symbols
-
+        if status:
+            updates.constraints |= self.children
+            self.clear()
         self.call_counter += 1
         return status, updates
 
@@ -2958,12 +2960,15 @@ class Constraint:
         for constr in args:
             constr.children.add(self)
 
-    def pop_dependencies(self) -> set[Constraint]:
+    def clear(self) -> None:
         for constr in self.children:
             constr.parents.remove(self)
-        children = self.children
+
+        for constr in self.parents:
+            constr.children.remove(self)
+
+        self.parents = set()
         self.children = set()
-        return children
 
     def __hash__(self) -> int:
         return hash(id(self))
