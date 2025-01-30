@@ -536,7 +536,7 @@ class PhysicalModel(GenericDataType[DataType]):
             key for key in self.flat_graph.hanging_keys if key not in self.output_keys
         }
 
-        self.discarded_keys, self._output_keys = self.infer_ignore(
+        self.discarded_keys, self._output_keys = self.flat_graph.infer_ignore(
             self.discarded_keys, self._output_keys
         )
 
@@ -602,72 +602,6 @@ class PhysicalModel(GenericDataType[DataType]):
             grad_fn
         )
         self._generated_evaluate_all_fn: EvaluateAllType[DataType] | None = eval_all_fn
-
-    def infer_ignore(
-        self,
-        weak_keys: set[str],
-        output_keys: set[str],
-        strict_keys: set[str] | None = None,
-        update_graph: bool = True,
-    ) -> tuple[set[str], set[str]]:
-        """
-        Infers the keys which will be ignored
-
-
-        Parameters
-        ----------
-        keys : set[str]
-            output keys that will be ignored,
-            it must be given from user during compilation
-
-        output_keys: tuple[str, ...]
-            output keys of the model
-
-        Returns
-        -------
-        tuple[Callable, Callable]
-            _description_
-
-
-        Returns
-        -------
-        tuple[set[str], tuple[str, ...]]
-            Returns keys that will be ignored during ignore keys inference algorithm
-            also returns updated output_keys in a tuple
-        """
-        if strict_keys is None:
-            strict_keys = set()
-
-        # Remove non_leaf ignored keys from output keys and ignored keys
-        # e.g. Logistic Regression output (logits) is also an input to probs_out
-        # in this case logits_out will become an internal key.
-        keys = weak_keys | strict_keys
-        non_leaf_keys = {
-            key
-            for key in weak_keys
-            if key in self.flat_graph.all_source_keys and key in output_keys
-        }
-        # Internal keys will be removed from output_keys but also they will
-        # be removed from current ignored keys.
-        keys -= non_leaf_keys
-        output_keys -= non_leaf_keys
-
-        queue = keys.copy()
-        while queue:
-            key = queue.pop()
-            # try forward inference (check if any inference is possible
-            # from inputs to outputs)
-            self.flat_graph.infer_ignore_step(key, keys, queue, from_source=True)
-            # try bacward inference (check if any inference possible
-            # from outputs to inputs)
-            self.flat_graph.infer_ignore_step(key, keys, queue, from_source=False)
-
-            if update_graph:
-                self.flat_graph.remove_key(key)
-                output_keys.discard(key)
-                self._input_keys.discard(key)
-
-        return keys, output_keys
 
     def _calculate_parameters(
         self,

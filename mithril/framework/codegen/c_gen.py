@@ -244,7 +244,7 @@ class CGen(CodeGen[PyArray]):
             | self.pm.flat_graph.all_static_keys
             | self.pm.flat_graph.unused_keys
         )
-        all_ignored_keys, _ = self.pm.infer_ignore(
+        all_ignored_keys, _ = self.pm.flat_graph.infer_ignore(
             set(), self.pm._output_keys, all_ignored_keys, update_graph=False
         )
 

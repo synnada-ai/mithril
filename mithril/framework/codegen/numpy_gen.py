@@ -332,7 +332,7 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
 
         strict_ignored_keys = all_ignored_keys - weak_ignored_keys
 
-        ignore_grad_keys, _ = self.pm.infer_ignore(
+        ignore_grad_keys, _ = self.pm.flat_graph.infer_ignore(
             weak_ignored_keys,
             self.pm._output_keys,
             strict_ignored_keys,

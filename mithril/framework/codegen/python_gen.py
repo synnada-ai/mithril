@@ -354,7 +354,7 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
         # Iterate over Primitive models in topological order to add their formula.
         for output_key in self.pm.flat_graph.topological_order:
             # Staticly infered and unused model will not be added
-            if output_key in (cached_data_keys | unused_keys | discarded_keys):
+            if output_key in (cached_data_keys | unused_keys):
                 continue
 
             model, g_input_keys, l_input_keys = self.get_primitive_details(output_key)

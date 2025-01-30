@@ -13,9 +13,11 @@
 # limitations under the License.
 
 
+import pytest
+
 import mithril as ml
 from mithril.framework.physical.flat_graph import FlatGraph
-from mithril.models import Add, Buffer, ConstraintSolver, Model, Relu
+from mithril.models import Add, Buffer, ConstraintSolver, Model, Relu, Sigmoid, Tanh
 
 
 def test_flatgraph_1():
@@ -181,3 +183,112 @@ def test_infer_static_4():
     assert pm.flat_graph.all_target_keys == set()
     assert pm.flat_graph.topological_order == []
     assert pm.flat_graph.output_dict == {"output": "output", "relu_out": "relu_out"}
+
+
+def test_discard_primitive():
+    # Discard one of the primitives
+    backend = ml.TorchBackend(dtype=ml.float32)
+    model = Model()
+    model += Sigmoid()(input="input1", output=ml.IOKey(name="output1"))
+    model += (relu := Relu())(input="input2", output=ml.IOKey(name="output2"))
+
+    pm = ml.compile(
+        model=model,
+        backend=backend,
+        discard_keys={"output1"},
+        inference=True,
+    )
+
+    assert len(pm.flat_graph.nodes) == 1 and relu in pm.flat_graph.nodes
+    assert pm.flat_graph.all_source_keys == {"input2"}
+    assert pm.flat_graph.all_target_keys == {"output2"}
+    assert pm.flat_graph.topological_order == ["output2"]
+
+
+def test_discard_partial_of_sequence():
+    # Discard partial of a sequence
+    backend = ml.TorchBackend(dtype=ml.float32)
+    model = Model()
+    model += (sig := Sigmoid())(input="input1", output=ml.IOKey(name="output1"))
+    model += Tanh()(input="output1", output=ml.IOKey(name="output3"))
+    model += (relu2 := Relu())(input="input2", output=ml.IOKey(name="output2"))
+
+    pm = ml.compile(
+        model=model,
+        backend=backend,
+        discard_keys={"output3"},
+        inference=True,
+    )
+
+    assert (
+        len(pm.flat_graph.nodes) == 2
+        and relu2 in pm.flat_graph.nodes
+        and sig in pm.flat_graph.nodes
+    )
+    assert pm.flat_graph.all_source_keys == {"input1", "input2"}
+    assert pm.flat_graph.all_target_keys == {"output1", "output2"}
+    assert pm.flat_graph.topological_order == ["output1", "output2"]
+
+
+def test_discard_whole_sequence():
+    # Discard whole sequence
+    backend = ml.TorchBackend(dtype=ml.float32)
+    model = Model()
+    model += Sigmoid()(input="input1", output="output1")
+    model += Tanh()(input="output1", output=ml.IOKey(name="output3"))
+    model += (relu := Relu())(input="input2", output=ml.IOKey(name="output2"))
+
+    pm = ml.compile(
+        model=model,
+        backend=backend,
+        discard_keys={"output3"},
+        inference=True,
+    )
+
+    assert len(pm.flat_graph.nodes) == 1 and relu in pm.flat_graph.nodes
+    assert pm.flat_graph.all_source_keys == {"input2"}
+    assert pm.flat_graph.all_target_keys == {"output2"}
+    assert pm.flat_graph.topological_order == ["output2"]
+
+
+def test_discard_everthing():
+    # Discard everything
+    backend = ml.TorchBackend(dtype=ml.float32)
+    model = Model()
+    model += Sigmoid()(input="input1", output="output1")
+    model += Tanh()(input="output1", output=ml.IOKey(name="output3"))
+    model += Relu()(input="input2", output=ml.IOKey(name="output2"))
+
+    pm = ml.compile(
+        model=model,
+        backend=backend,
+        discard_keys={"output3", "output2"},
+        inference=True,
+    )
+
+    assert pm.flat_graph.nodes == {}
+    assert pm.flat_graph.all_source_keys == set()
+    assert pm.flat_graph.all_target_keys == set()
+    assert pm.flat_graph.topological_order == []
+
+
+def test_discard_from_middle():
+    # Discard everything
+    backend = ml.TorchBackend(dtype=ml.float32)
+    model = Model()
+    model += Sigmoid()(input="input1", output="output1")
+    model += Tanh()(input="output1", output=ml.IOKey(name="output3"))
+    model += Relu()(input="input2", output=ml.IOKey(name="output2"))
+
+    with pytest.raises(KeyError) as e:
+        ml.compile(
+            model=model,
+            backend=backend,
+            discard_keys={"output1"},
+            inference=True,
+        )
+
+    assert str(e.value) == (
+        "'Provided discard keys must be subset of the input keys and output keys. "
+        "Invalid keys: output1.'"
+    )
