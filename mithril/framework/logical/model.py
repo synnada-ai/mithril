@@ -376,7 +376,11 @@ class Model(BaseModel):
         outer_key = given_connection.name
         con_obj = None
         set_value: (
-            ToBeDetermined | str | ScalarValueType | Tensor[Any] | NullConnection
+            ToBeDetermined
+            | str
+            | ScalarValueType
+            | Tensor[int | float | bool]
+            | NullConnection
         ) = NOT_GIVEN
         if given_connection.data.value is not TBD:
             set_value = given_connection.data.value
@@ -687,7 +691,7 @@ class Model(BaseModel):
         shape_info: dict[str, ShapeTemplateType] = {}
         type_info: dict[
             str,
-            type | UnionType | ScalarType | type[Tensor[Any]],
+            type | UnionType | ScalarType | type[Tensor[int | float | bool]],
         ] = {}
 
         submodel_dag: dict[str, ConnectionData] = {}
@@ -714,7 +718,7 @@ class Model(BaseModel):
             con_obj, _updates = self._add_connection(model, local_key, value, updates)
             updates |= _updates
             submodel_dag[local_key] = con_obj
-            if con_obj.metadata.edge_type is Tensor:
+            if con_obj.metadata.is_tensor:
                 updates.shape_updates.add(con_obj.metadata)
 
         # Replace shape info keys, which are local keys, with global equivalents.

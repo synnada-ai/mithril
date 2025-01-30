@@ -69,18 +69,16 @@ class PrimitiveModel(BaseModel):
         output_data: IOHyperEdge | None = None
         for key, value in kwargs.items():
             if isinstance(value, BaseKey):
-                if (
-                    is_generic_tensor := (get_origin(value.type) is Tensor)
-                ) or value.type is Tensor:
-                    tensor_types = (
-                        get_args(value.type)[0]
-                        if is_generic_tensor
-                        else int | float | bool
+                if get_origin(value.type) is Tensor or value.type is Tensor:
+                    val_type = (
+                        Tensor[int | float | bool]
+                        if value.type is Tensor
+                        else value.type
                     )
                     if not isinstance(tensor := value.value, Tensor):
                         assert isinstance(value.value, ToBeDetermined)
                         tensor = Tensor(
-                            type=tensor_types,
+                            type=get_args(val_type)[0],
                             shape=shapes[key].node,
                         )
                     edge = IOHyperEdge(value=tensor, interval=value.interval)
@@ -186,7 +184,7 @@ class PrimitiveModel(BaseModel):
             # try to find outer key's real name in data_to_key_map
             outer_key = data_to_key_map.get(key_data, [key])
             outer_key = ["'" + key + "'" for key in outer_key]
-            if key_data.edge_type is not Tensor and key_data.value is not TBD:
+            if not key_data.is_tensor and key_data.value is not TBD:
                 # If value of the scalar is determined, write that value directly.
                 outer_key = [str(key_data.value)]
             conn.extend(outer_key)

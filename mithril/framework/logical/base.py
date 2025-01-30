@@ -97,7 +97,7 @@ class BaseModel(abc.ABC):
         self.assigned_shapes: list[ShapesType] = []
         self.assigned_types: dict[
             str,
-            type | UnionType | ScalarType | Tensor[Any],
+            type | UnionType | ScalarType | Tensor[int | float | bool],
         ] = {}
         self.assigned_constraints: list[AssignedConstraintType] = []
         self.conns = Connections()
@@ -257,12 +257,10 @@ class BaseModel(abc.ABC):
         # Apply updates to the shape nodes.
         for key in chain(shapes, kwargs):
             node, _inner_key = shape_nodes[key]
-            if (
-                metadata := self.conns.get_data(_inner_key)
-            ).edge_type is ToBeDetermined:
+            if (metadata := self.conns.get_data(_inner_key)).is_polymorphic:
                 # If edge_type is not defined yet, set it to Tensor since
                 # shape is provided.
-                updates |= metadata.set_type(Tensor)
+                updates |= metadata.set_type(Tensor[int | float | bool])
             shape_node = self.conns.get_shape_node(_inner_key)
             assert shape_node is not None
             updates |= shape_node.merge(node)
@@ -273,7 +271,9 @@ class BaseModel(abc.ABC):
         model.constraint_solver(updates)
 
     def _set_value(
-        self, key: ConnectionData, value: MainValueType | Tensor[Any] | str
+        self,
+        key: ConnectionData,
+        value: MainValueType | Tensor[int | float | bool] | str,
     ) -> Updates:
         """
         Set value for the given connection.
@@ -302,11 +302,13 @@ class BaseModel(abc.ABC):
 
     def set_values(
         self,
-        config: Mapping[str | Connection, Tensor[Any] | MainValueType | str]
-        | Mapping[Connection, Tensor[Any] | MainValueType | str]
-        | Mapping[str, Tensor[Any] | MainValueType | str]
+        config: Mapping[
+            str | Connection, Tensor[int | float | bool] | MainValueType | str
+        ]
+        | Mapping[Connection, Tensor[int | float | bool] | MainValueType | str]
+        | Mapping[str, Tensor[int | float | bool] | MainValueType | str]
         | None = None,
-        **kwargs: Tensor[Any] | MainValueType | str,
+        **kwargs: Tensor[int | float | bool] | MainValueType | str,
     ) -> None:
         """
         Set multiple values in the model.
@@ -346,18 +348,18 @@ class BaseModel(abc.ABC):
         self,
         config: Mapping[
             str | Connection,
-            type | UnionType | ScalarType | type[Tensor[Any]],
+            type | UnionType | ScalarType | type[Tensor[int | float | bool]],
         ]
         | Mapping[
             Connection,
-            type | UnionType | ScalarType | type[Tensor[Any]],
+            type | UnionType | ScalarType | type[Tensor[int | float | bool]],
         ]
         | Mapping[
             str,
-            type | UnionType | ScalarType | type[Tensor[Any]],
+            type | UnionType | ScalarType | type[Tensor[int | float | bool]],
         ]
         | None = None,
-        **kwargs: type | UnionType | ScalarType | type[Tensor[Any]],
+        **kwargs: type | UnionType | ScalarType | type[Tensor[int | float | bool]],
     ) -> None:
         """
         Set types of any connection in the Model
@@ -379,7 +381,7 @@ class BaseModel(abc.ABC):
         # Initialize assigned shapes dictionary to store assigned shapes.
         assigned_types: dict[
             str,
-            type | UnionType | ScalarType | Tensor[Any],
+            type | UnionType | ScalarType | Tensor[int | float | bool],
         ] = {}
 
         # Get the outermost parent as all the updates will happen here.
@@ -390,6 +392,8 @@ class BaseModel(abc.ABC):
             conn = self.conns.get_con_by_metadata(metadata)
             assert conn is not None
             inner_key = conn.key
+            if key_type is Tensor:
+                key_type = Tensor[int | float | bool]
             assigned_types[inner_key] = key_type
             updates |= metadata.set_type(key_type)
         # Store assigned types in the model.

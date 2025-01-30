@@ -21,7 +21,6 @@ from ..framework.common import (  # , Scalar, Tensor
     TBD,
     DataEvalType,
     IOHyperEdge,
-    Tensor,
 )
 
 KeyMapType = dict[str, str]
@@ -162,7 +161,7 @@ def reorganize_args(
 
 
 def is_make_array_required(data: IOHyperEdge) -> bool:
-    if data.edge_type is Tensor:
+    if data.is_tensor:
         assert data.shape is not None
         _temp_shape = next(iter(data.shape.reprs))
         # It is needed to guarantee that Tensor is at least one dimensional.

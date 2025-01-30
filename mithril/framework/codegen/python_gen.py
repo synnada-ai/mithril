@@ -30,7 +30,6 @@ from ..common import (
     EvaluateGradientsType,
     EvaluateType,
     ParamsEvalType,
-    Tensor,
 )
 from ..logical import PrimitiveModel
 from ..physical.model import PhysicalModel
@@ -301,7 +300,7 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
     def is_static_scalar(self, key: str) -> bool:
         return (
             key in self.pm.data_store.cached_data
-            and self.pm.data[key].edge_type != Tensor
+            and not self.pm.data[key].is_tensor
             and self.pm.data[key].edge_type != Dtype
             and not isinstance(self.pm.data_store.cached_data[key], enum.Enum)
         )
