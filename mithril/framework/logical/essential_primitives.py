@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from collections.abc import Mapping, Sequence
+from functools import partial
 from types import EllipsisType, NoneType, UnionType
 from typing import Any
 
@@ -40,6 +41,7 @@ from ..constraints import (
     divide_type_constraint,
     edge_type_constraint,
     floor_divide_type_constraint,
+    general_scalar_inference_constructor,
     general_tensor_type_constraint,
     indexer_constraints,
     indexer_initial_type_constraint,
@@ -224,6 +226,7 @@ class ArithmeticOperation(PrimitiveModel):
             keys=[PrimitiveModel.output_key, "left", "right"],
             dependencies={bcast_constraint},
         )
+        self.edge_constraint = edge_constraint
 
     def __call__(  # type: ignore[override]
         self,
@@ -330,6 +333,13 @@ class Add(ArithmeticOperation):
         name: str | None = None,
     ) -> None:
         super().__init__(formula_key="add", name=name, left=left, right=right)
+
+        self._add_constraint(
+            partial(general_scalar_inference_constructor, callable=lambda x, y: x + y),
+            keys=[PrimitiveModel.output_key, "left", "right"],
+            dependencies={self.edge_constraint},
+        )
+        ...
 
 
 class Subtract(ArithmeticOperation):

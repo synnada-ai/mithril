@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import math
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from functools import reduce
 from itertools import product, zip_longest
 from types import EllipsisType, GenericAlias, NoneType, UnionType
@@ -105,7 +105,26 @@ __all__ = [
     "relational_operator_type_constraint",
     "divide_type_constraint",
     "polynomial_kernel_constraint",
+    "general_scalar_inference_constructor",
 ]
+
+
+def general_scalar_inference_constructor(
+    *keys: IOHyperEdge, callable: Callable[..., Any]
+) -> ConstrainResultType:
+    is_all_scalar = all(io.edge_type is not Tensor for io in keys)
+    updates = Updates()
+    if is_all_scalar:
+        output, *inputs = keys
+        input_values = [input.value for input in inputs]
+        if TBD not in input_values:
+            output_value = callable(*input_values)
+            updates |= output.set_value(output_value)
+            return True, updates
+        else:
+            return False, updates
+    else:
+        return True, Updates()
 
 
 def generate_nested_list_type(
@@ -195,6 +214,11 @@ def edge_type_constraint(
     if Tensor in input_edge_types:
         if output.edge_type is not Tensor:
             updates |= output.set_type(Tensor)
+
+    elif ToBeDetermined not in input_edge_types:
+        if output.edge_type is not Tensor:
+            updates |= output.set_type(ScalarValueType)
+            status = True
     elif output.edge_type is Tensor:
         # Reverse edge_type inference.
         # If there is only one untyped input, set it as Tensor.
