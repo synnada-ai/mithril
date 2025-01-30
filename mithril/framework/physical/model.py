@@ -46,6 +46,7 @@ from ..common import (
     Updates,
     Variadic,
     create_shape_map,
+    find_intersection_type,
     get_shapes,
     get_summary,
     get_summary_shapes,
@@ -54,7 +55,7 @@ from ..common import (
 from ..logical.base import BaseModel
 from ..logical.model import Model
 from ..logical.primitive import PrimitiveModel
-from ..utils import define_unique_names, find_intersection_type
+from ..utils import define_unique_names
 from .data_store import StaticDataStore
 from .flat_graph import FlatGraph
 
@@ -200,13 +201,17 @@ class PhysicalModel(GenericDataType[DataType]):
                     # TODO: Create an API for setting differentiability of a tensor.
                     physical_data.differentiable = False
                 elif global_key in self._trainable_tensor_inputs:
-                    if physical_data.edge_type not in (Tensor, ToBeDetermined):
+                    # if physical_data.edge_type not in (Tensor, ToBeDetermined):
+                    if not (
+                        physical_data.is_tensor
+                        or physical_data.edge_type is ToBeDetermined
+                    ):
                         raise ValueError(
                             f"Non-tensor type data can not be trainable: {global_key}"
                         )
                     elif physical_data.edge_type is ToBeDetermined:
                         # Set physical data type to Tensor.
-                        updates |= physical_data.set_type(Tensor)
+                        updates |= physical_data.set_type(Tensor[float])
                     elif physical_data.value is not TBD:
                         raise ValueError(
                             f"Valued data can not be trainable: {global_key}"
@@ -218,7 +223,7 @@ class PhysicalModel(GenericDataType[DataType]):
 
                 if key_shape := model_shapes.get(key):
                     data = model_data[key]
-                    assert data.edge_type is Tensor
+                    assert data.is_tensor
                     shp = data.shape
                     assert shp is not None
                     # assert shp is not None
@@ -429,7 +434,7 @@ class PhysicalModel(GenericDataType[DataType]):
         # that have a Tensor type output.
         output_key = PrimitiveModel.output_key
         output_edge = model_data[output_key]
-        if output_edge.edge_type is Tensor:
+        if output_edge.is_tensor:
             # If any of the inputs are differentiable, then
             # the output is also differentiable.
             for key, value in model_data.items():
@@ -546,7 +551,7 @@ class PhysicalModel(GenericDataType[DataType]):
         for value in self.data_store.intermediate_non_differentiables.inverse:
             # there can exist some inferred intermediate scalar keys in logical model.
             # find those keys and add to cached datas
-            if (value.edge_type is not Tensor) and (value.value is not TBD):
+            if not value.is_tensor and (value.value is not TBD):
                 updates.add(value)
 
         self.data_store.update_cached_data(updates)
@@ -601,7 +606,7 @@ class PhysicalModel(GenericDataType[DataType]):
             # but not unnecessary in flat_graph. This case should be handled when
             # flat_graph - data_store integration is updated.
             if conn_edge is not None and (
-                (conn_edge.edge_type is not Tensor)
+                (not conn_edge.is_tensor)
                 or (
                     (not find_intersection_type(float, conn_edge.value_type))
                     or _key
@@ -954,7 +959,7 @@ class PhysicalModel(GenericDataType[DataType]):
                     # model. Indicate it accordingly
                     input_name = "'" + connection.key + "'"
                     input_data = model.conns.all[input_key].metadata
-                    if input_data.edge_type is not Tensor:
+                    if not input_data.is_tensor:
                         # If value of the scalar is determined, write that value
                         pm_input_data = self.data_store.data_memo[id(input_data)]
                         if (val := pm_input_data.value) is not TBD:

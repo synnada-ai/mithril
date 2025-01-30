@@ -769,7 +769,7 @@ def test_simple_composite_1_set_shapes():
 def test_simple_composite_1_extend_inputs():
     model = Model()
     mult = Multiply()
-    right_input = Tensor(np.random.randn(2, 2).tolist())
+    right_input: Tensor[float] = Tensor(np.random.randn(2, 2).tolist())
     model += mult(
         left=IOKey(value=Tensor([[2.0]]), name="left"),
         right=IOKey(value=right_input, name="right"),
@@ -914,7 +914,7 @@ def test_simple_composite_2_set_shapes_2():
 def test_simple_composite_2_extend_inputs():
     model = Model()
     mult = Multiply()
-    Multiply_0_right = Tensor(np.random.randn(2, 2).tolist())
+    Multiply_0_right: Tensor[float] = Tensor(np.random.randn(2, 2).tolist())
     model += mult(
         left=IOKey(value=Tensor(2.0), name="left"),
         right=IOKey(value=Multiply_0_right, name="in1"),
@@ -948,7 +948,8 @@ def test_simple_composite_2_static_shapes():
     model = Model()
     mult = Multiply()
     model += mult(
-        left=IOKey(value=Tensor(2.0), name="left"), right=IOKey("in1", type=Tensor)
+        left=IOKey(value=Tensor(2.0), name="left"),
+        right=IOKey("in1", type=Tensor),
     )
     model += Divide()(
         numerator=IOKey(value=Tensor(2.0), name="numerator"),
@@ -979,7 +980,8 @@ def test_simple_composite_2_static_inputs():
     model = Model()
     mult = Multiply()
     model += mult(
-        left=IOKey(value=Tensor(2.0), name="left"), right=IOKey("in1", type=Tensor)
+        left=IOKey(value=Tensor(2.0), name="left"),
+        right=IOKey("in1", type=Tensor),
     )
     model += Divide()(
         numerator=IOKey(value=Tensor(2.0), name="numerator"),
@@ -1342,7 +1344,8 @@ def get_composite_1():
     # Create common composite_1 model for corresponding tests.
     composite_1 = Model()
     composite_1 += (m1 := Multiply())(
-        left=IOKey("input1", type=Tensor), right=IOKey("input2", type=Tensor)
+        left=IOKey("input1", type=Tensor),
+        right=IOKey("input2", type=Tensor),
     )
     composite_1 += (m2 := Multiply())(left="input2", right=m1.output)
     composite_1 += Add()(left=m2.output, right=m2.output, output=IOKey(name="output"))
@@ -1373,8 +1376,10 @@ def test_composite_1_static_shapes_1():
 def test_composite_1_extend_inputs_1():
     composite = Model()
     m1 = Multiply()
-    Multiply_0_left = Tensor(np.random.randn(1, 1, 1, 1, 1, 1, 1, 37, 43).tolist())
-    Multiply_0_right = Tensor(np.random.randn(134, 47, 1, 1, 1).tolist())
+    Multiply_0_left: Tensor[float] = Tensor(
+        np.random.randn(1, 1, 1, 1, 1, 1, 1, 37, 43).tolist()
+    )
+    Multiply_0_right: Tensor[float] = Tensor(np.random.randn(134, 47, 1, 1, 1).tolist())
     composite += m1(
         left=IOKey(value=Multiply_0_left, name="left"),
         right=IOKey(value=Multiply_0_right, name="right"),
@@ -1659,7 +1664,8 @@ def test_composite_2_set_shapes_3():
     m2 += Add()(left=mult4.output, right=mult4.output, output=IOKey(name="output"))
 
     m3 += (add1 := Add())(
-        left=IOKey("input1", type=Tensor), right=IOKey("input2", type=Tensor)
+        left=IOKey("input1", type=Tensor),
+        right=IOKey("input2", type=Tensor),
     )
     m3 += (mult5 := Multiply())(left="input2", right=add1.output)
     m3 += Add()(left=mult5.output, right=mult5.output, output=IOKey(name="output"))
@@ -2273,8 +2279,8 @@ def test_composite_3_extend_shapes_1():
     composite_3 = Model()
     m1 = Model()
     add1 = Add()
-    add_1_left = Tensor(np.random.randn(3, 4, 5, 6, 1).tolist())
-    add_1_right = Tensor(np.random.randn(1, 1, 1, 1, 7).tolist())
+    add_1_left: Tensor[float] = Tensor(np.random.randn(3, 4, 5, 6, 1).tolist())
+    add_1_right: Tensor[float] = Tensor(np.random.randn(1, 1, 1, 1, 7).tolist())
     m1 += add1(
         left=IOKey(value=add_1_left, name="left"),
         right=IOKey(value=add_1_right, name="right"),
@@ -4124,7 +4130,10 @@ class MyVariadic8(PrimitiveModel):
             input1=BaseKey(shape=["u1", "u2", "u3", ("Var1", ...)], type=Tensor),
             input2=BaseKey(shape=["u4", "u5", ("Var2", ...), "u6"], type=Tensor),
             input3=BaseKey(shape=["u7", ("Var3", ...), "u8", "u9"], type=Tensor),
-            input4=BaseKey(shape=[("Var4", ...), "u10", "u11", "u12"], type=Tensor),
+            input4=BaseKey(
+                shape=[("Var4", ...), "u10", "u11", "u12"],
+                type=Tensor,
+            ),
             input5=BaseKey(
                 shape=[("Var5", ...), "u13", "u14", "u15", "u16"],
                 type=Tensor,
@@ -4205,8 +4214,14 @@ class MyVariadic10(PrimitiveModel):
             input1=BaseKey(shape=["u1", "u2", ("Var1", ...)], type=Tensor),
             input2=BaseKey(shape=["u3", ("Var2", ...), "u4"], type=Tensor),
             input3=BaseKey(shape=[("Var3", ...), "u5", "u6"], type=Tensor),
-            input4=BaseKey(shape=["u7", "u8", ("Var4", ...), "u9", "u10"], type=Tensor),
-            input5=BaseKey(shape=["u11", ("Var4", ...), "u12", "u13"], type=Tensor),
+            input4=BaseKey(
+                shape=["u7", "u8", ("Var4", ...), "u9", "u10"],
+                type=Tensor,
+            ),
+            input5=BaseKey(
+                shape=["u11", ("Var4", ...), "u12", "u13"],
+                type=Tensor,
+            ),
             output=BaseKey(shape=["u5", "u5"], type=Tensor),
         )
 
@@ -4421,7 +4436,7 @@ def test_total_repr_count():
 
     edge = var2.input.data.metadata
 
-    assert edge.edge_type is Tensor
+    assert edge.is_tensor
     assert edge.shape is not None
     assert len(edge.shape.reprs) == 2
 
@@ -4429,7 +4444,7 @@ def test_total_repr_count():
 def test_total_repr_count_linear_1():
     model = Linear()
     edge = model.input.metadata
-    assert edge.edge_type is Tensor
+    assert edge.is_tensor
     assert edge.shape is not None
     shp_repr = next(iter(edge.shape.reprs))
 
@@ -5120,10 +5135,13 @@ def test_variadic_naming_12():
 def test_variadic_naming_13():
     model = Model()
     model += (mult := MatrixMultiply())(
-        left=IOKey("input", type=Tensor), right=IOKey("w", type=Tensor)
+        left=IOKey("input", type=Tensor),
+        right=IOKey("w", type=Tensor),
     )
     model += Add()(
-        left=mult.output, right=IOKey("b", type=Tensor), output=IOKey(name="output")
+        left=mult.output,
+        right=IOKey("b", type=Tensor),
+        output=IOKey(name="output"),
     )
 
     shapes: dict[str, list] = {
@@ -5540,8 +5558,14 @@ def test_variadic_naming_25() -> None:
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=BaseKey(shape=[("Var1", ...), "a", "b", "c"], type=Tensor),
-                output=BaseKey(shape=["c", ("Var1", ...), "a", "b"], type=Tensor),
+                input=BaseKey(
+                    shape=[("Var1", ...), "a", "b", "c"],
+                    type=Tensor,
+                ),
+                output=BaseKey(
+                    shape=["c", ("Var1", ...), "a", "b"],
+                    type=Tensor,
+                ),
             )
 
         def __call__(  # type: ignore[override]
@@ -5676,7 +5700,10 @@ def test_same_uniadic_1() -> None:
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=BaseKey(shape=[("Var1", ...), "u1", "u2", "u3"], type=Tensor),
+                input=BaseKey(
+                    shape=[("Var1", ...), "u1", "u2", "u3"],
+                    type=Tensor,
+                ),
                 output=BaseKey(shape=[("Var1", ...), "u4"], type=Tensor),
             )
 
@@ -5696,12 +5723,12 @@ def test_same_uniadic_1() -> None:
     model.set_shapes(shape_1)
     model.set_shapes(shape_2)
     in_data = model.input.metadata
-    assert in_data.edge_type is Tensor
+    assert in_data.is_tensor
     assert (node := in_data.shape) is not None
     input_repr = next(iter(node.reprs))
 
     out_data = model.output.metadata
-    assert out_data.edge_type is Tensor
+    assert out_data.is_tensor
     assert out_data.shape is not None
     output_repr = next(iter(out_data.shape.reprs))
 
@@ -5716,7 +5743,10 @@ def test_same_uniadic_2() -> None:
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=BaseKey(shape=[("Var1", ...), "u1", "u2", "u3"], type=Tensor),
+                input=BaseKey(
+                    shape=[("Var1", ...), "u1", "u2", "u3"],
+                    type=Tensor,
+                ),
                 output=BaseKey(shape=[("Var1", ...), "u4"], type=Tensor),
             )
 
@@ -5737,10 +5767,10 @@ def test_same_uniadic_2() -> None:
     model.set_shapes(shape_1)
     model.set_shapes(shape_2)
 
-    assert model.input.metadata.edge_type is Tensor
+    assert model.input.metadata.is_tensor
     assert (in_node := model.input.metadata.shape) is not None
     input_repr = next(iter(in_node.reprs))
-    assert model.output.metadata.edge_type is Tensor
+    assert model.output.metadata.is_tensor
     assert (out_node := model.output.metadata.shape) is not None
     output_repr = next(iter(out_node.reprs))
 
@@ -5825,7 +5855,7 @@ def test_same_uniadic_5():
     buffer.set_shapes(shape_1)
     buffer.set_shapes(shape_2)
 
-    assert buffer.input.metadata.edge_type is Tensor
+    assert buffer.input.metadata.is_tensor
     assert buffer.input.metadata.shape is not None
     input_reprs = buffer.input.metadata.shape.reprs
 
@@ -6693,9 +6723,7 @@ def test_total_repr_count_1():
 
             # find connections only with tensor data
             all_tensor_conns = {
-                con
-                for con in model.conns.all.values()
-                if con.metadata.edge_type is Tensor
+                con for con in model.conns.all.values() if con.metadata.is_tensor
             }
 
             # Find all reprs that are linked to shape reprs of the tensors
@@ -6833,18 +6861,18 @@ def test_node_count_1():
     # Check total existing node count
     all_nodes = set()
     for con in model.conns.all.values():
-        assert con.metadata.edge_type is Tensor
+        assert con.metadata.is_tensor
         all_nodes.add(con.metadata.shape)
     assert len(all_nodes) == 1
 
     # Check total variadics repr count
-    assert sub_model.input.metadata.edge_type is Tensor
+    assert sub_model.input.metadata.is_tensor
     assert (in_node := sub_model.input.metadata.shape) is not None
     assert (in_repr := next(iter(in_node.reprs))) is not None
     assert in_repr.root is not None
     assert len(in_repr.root.reprs) == 1
 
-    assert sub_model.output.metadata.edge_type is Tensor
+    assert sub_model.output.metadata.is_tensor
     assert (out_node := sub_model.output.metadata.shape) is not None
     assert (out_repr := next(iter(out_node.reprs))) is not None
     assert out_repr.root is not None
@@ -6864,7 +6892,7 @@ def test_node_count_2():
     all_nodes = set()
     for con in model.conns.all.values():
         edge = con.metadata
-        assert edge.edge_type is Tensor
+        assert edge.is_tensor
         all_nodes.add(edge.shape)
 
     assert len(all_nodes) == 2
@@ -6886,7 +6914,7 @@ def test_node_count_3():
     shapes = set()
     for con in model.conns.all.values():
         edge = con.metadata
-        assert edge.edge_type is Tensor
+        assert edge.is_tensor
         shapes.add(edge.shape)
 
     assert len(shapes) == 3
@@ -6919,7 +6947,10 @@ def test_equalize_lengths_of_unmatchable_reprs_of_different_sizes_with_extend_1(
             super().__init__(
                 formula_key="buffer",
                 input=BaseKey(shape=["a", ("Var1", ...)], type=Tensor),
-                output=BaseKey(shape=[("Var1", ...), "c", "d", "e"], type=Tensor),
+                output=BaseKey(
+                    shape=[("Var1", ...), "c", "d", "e"],
+                    type=Tensor,
+                ),
             )
 
     model = Model()
@@ -6941,7 +6972,10 @@ def test_equalize_lengths_of_unmatchable_reprs_of_different_sizes_with_extend_2(
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
-                input=BaseKey(shape=[("Var1", ...), "c", "d", "e"], type=Tensor),
+                input=BaseKey(
+                    shape=[("Var1", ...), "c", "d", "e"],
+                    type=Tensor,
+                ),
                 output=BaseKey(shape=["a", "b", ("Var1", ...)], type=Tensor),
             )
 
@@ -7419,7 +7453,7 @@ def test_node_count_4():
     model += Buffer()
     model += test_model
     all_nodes = get_all_nodes(model)
-    assert buff_model.input.metadata.edge_type is Tensor
+    assert buff_model.input.metadata.is_tensor
     ref_all_nodes = {
         test_model.output.metadata.shape,  # type: ignore
         buff_model.input.metadata.shape,
@@ -7459,7 +7493,7 @@ def test_node_count_5():
     all_nodes = get_all_nodes(model)
 
     data = buff_model.input.metadata
-    assert data.edge_type is Tensor
+    assert data.is_tensor
     ref_all_nodes = {data.shape}
     assert all_nodes == ref_all_nodes
 
@@ -7475,7 +7509,7 @@ def test_node_count_6():
     all_nodes = get_all_nodes(model)
 
     data = buff_model.input.metadata
-    assert data.edge_type is Tensor
+    assert data.is_tensor
 
     ref_all_nodes = {data.shape}
     assert all_nodes == ref_all_nodes
@@ -7490,7 +7524,7 @@ def test_node_count_7():
     for _ in range(5):
         model += deepcopy(model)
     all_nodes = get_all_nodes(model)
-    assert buff_model.input.metadata.edge_type is Tensor
+    assert buff_model.input.metadata.is_tensor
     ref_all_nodes = {buff_model.input.metadata.shape}
     assert all_nodes == ref_all_nodes
 
@@ -7533,13 +7567,16 @@ def test_node_count_10():
     buff_model3 = Buffer()
 
     submodel1 += buff_model1(
-        input=IOKey("input1", type=Tensor), output=IOKey(name="output1")
+        input=IOKey("input1", type=Tensor),
+        output=IOKey(name="output1"),
     )
     submodel1 += buff_model2(
-        input=IOKey("input2", type=Tensor), output=IOKey(name="output2")
+        input=IOKey("input2", type=Tensor),
+        output=IOKey(name="output2"),
     )
     submodel1 += buff_model3(
-        input=IOKey("input3", type=Tensor), output=IOKey(name="output3")
+        input=IOKey("input3", type=Tensor),
+        output=IOKey(name="output3"),
     )
 
     model = Model()
@@ -7681,7 +7718,7 @@ def test_node_count_16() -> None:
 
     all_nodes = get_all_nodes(model)
     data = test_model.input.metadata
-    assert data.edge_type is Tensor
+    assert data.is_tensor
     ref_all_nodes = {data.shape}
     assert all_nodes == ref_all_nodes
 
@@ -7710,7 +7747,7 @@ def test_node_count_18() -> None:
     model += MyModel()
 
     all_nodes = get_all_nodes(model)
-    assert test_model.input.metadata.edge_type is Tensor
+    assert test_model.input.metadata.is_tensor
     ref_all_nodes = {test_model.input.metadata.shape}
     assert all_nodes == ref_all_nodes
 
@@ -7740,9 +7777,9 @@ def test_node_count_19() -> None:
         model += MyModel()
 
     all_nodes = get_all_nodes(model)
-    assert test_model1.input.metadata.edge_type is Tensor
-    assert test_model2.input.metadata.edge_type is Tensor
-    assert test_model3.input.metadata.edge_type is Tensor
+    assert test_model1.input.metadata.is_tensor
+    assert test_model2.input.metadata.is_tensor
+    assert test_model3.input.metadata.is_tensor
     ref_all_nodes = {
         test_model1.input.metadata.shape,
         test_model2.input.metadata.shape,
@@ -7776,9 +7813,9 @@ def test_node_count_20() -> None:
         model += MyModel()
 
     all_nodes = get_all_nodes(model)
-    assert test_model1.input.metadata.edge_type is Tensor
-    assert test_model2.input.metadata.edge_type is Tensor
-    assert test_model3.input.metadata.edge_type is Tensor
+    assert test_model1.input.metadata.is_tensor
+    assert test_model2.input.metadata.is_tensor
+    assert test_model3.input.metadata.is_tensor
     ref_all_nodes = {
         test_model1.input.metadata.shape,
         test_model2.input.metadata.shape,
@@ -7812,9 +7849,9 @@ def test_node_count_21() -> None:
         model += MyModel()
 
     all_nodes = get_all_nodes(model)
-    assert test_model1.input.metadata.edge_type is Tensor
-    assert test_model2.input.metadata.edge_type is Tensor
-    assert test_model3.input.metadata.edge_type is Tensor
+    assert test_model1.input.metadata.is_tensor
+    assert test_model2.input.metadata.is_tensor
+    assert test_model3.input.metadata.is_tensor
     ref_all_nodes = {
         test_model1.input.metadata.shape,
         test_model2.input.metadata.shape,
@@ -7853,7 +7890,7 @@ def test_uniadic_repr_count_2():
     }
     model.set_shapes(shape_1)
 
-    assert buff_model1.input.metadata.edge_type is Tensor
+    assert buff_model1.input.metadata.is_tensor
     data_shape = buff_model1.input.metadata.shape
 
     assert data_shape is not None
@@ -7888,7 +7925,7 @@ def test_uniadic_repr_count_3():
         }
     )
 
-    assert buff_model1.input.metadata.edge_type is Tensor
+    assert buff_model1.input.metadata.is_tensor
     data_shape = buff_model1.input.metadata.shape
 
     assert data_shape is not None
@@ -7997,7 +8034,7 @@ def test_uniadic_repr_count_5():
 
     model.set_shapes(shapes)
 
-    assert buff_model1.input.metadata.edge_type is Tensor
+    assert buff_model1.input.metadata.is_tensor
     data_shape = buff_model1.input.metadata.shape
 
     assert data_shape is not None
@@ -8123,8 +8160,8 @@ def test_add_model_with_scalar_input():
     model = Model()
     add1 = Add()
 
-    left_input = Tensor(np.ones((3, 4, 5, 6, 7)).tolist())
-    right_input = Tensor(np.ones((3, 4, 5, 6, 7)).tolist())
+    left_input: Tensor[float] = Tensor(np.ones((3, 4, 5, 6, 7)).tolist())
+    right_input: Tensor[float] = Tensor(np.ones((3, 4, 5, 6, 7)).tolist())
     model += add1(left=left_input, right=right_input, output=IOKey(name="output"))
     assert_all_nodes_unique(model)
 
@@ -8192,7 +8229,7 @@ def test_possible_uniadic_values_directed_8():
     buff_model = Buffer()
     buff_model.set_shapes({"input": ["a", "b"]})
 
-    assert buff_model.input.metadata.edge_type is Tensor
+    assert buff_model.input.metadata.is_tensor
     data_shape = buff_model.input.metadata.shape
 
     assert data_shape is not None
@@ -8212,7 +8249,7 @@ def test_possible_uniadic_values_directed_9():
     buff_model = Buffer()
     buff_model.set_shapes({"input": ["a", "b", "c", "d"]})
 
-    assert buff_model.input.metadata.edge_type is Tensor
+    assert buff_model.input.metadata.is_tensor
     data_shape = buff_model.input.metadata.shape
 
     assert data_shape is not None
@@ -9676,7 +9713,7 @@ def test_remove_variadic():
     with pytest.raises(Exception) as err_info:
         # model.shape_map["output"].remove_variadic([Uniadic(5)])
         data = model.conns.get_data("output")
-        assert data.edge_type is Tensor
+        assert data.is_tensor
         data_shape = data.shape
         assert data_shape is not None
         next(iter(data_shape.reprs)).remove_variadic([Uniadic(5)])
@@ -9693,7 +9730,7 @@ def test_bcast_left():
     }
     model.set_shapes(shape_1)
 
-    assert model.output.metadata.edge_type is Tensor
+    assert model.output.metadata.is_tensor
     data_shape = model.output.metadata.shape
     assert data_shape is not None
     assert data_shape.get_shapes() == [2, "u1", "(V1, ...)"]
@@ -9720,7 +9757,7 @@ def test_bcast_left_2():
     }
     model.set_shapes(shape_1)
 
-    assert model.output.metadata.edge_type is Tensor
+    assert model.output.metadata.is_tensor
     data_shape = model.output.metadata.shape
 
     assert data_shape is not None
@@ -9740,7 +9777,7 @@ def test_bcast_left_3():
         }
     )
 
-    assert model.output.metadata.edge_type is Tensor
+    assert model.output.metadata.is_tensor
     data_shape = model.output.metadata.shape
 
     assert data_shape is not None

@@ -118,7 +118,9 @@ def shape_map_to_tensor(
     # Simply converts ShapeRepr objects to Tensor types.
     tensor_dict = {}
     for key, value in shape_map.items():
-        tensor = Tensor(type=float | int | bool, shape=value.node)
+        tensor: Tensor[int | float | bool] = Tensor(
+            type=float | int | bool, shape=value.node
+        )
         edge = IOHyperEdge(value=tensor, key_origin=key)
         # set temp_shape. Since temp_shape of a Tensor initialized as None in its
         # constructor.
@@ -216,7 +218,7 @@ def assert_shape_results(
     shapes = {}
     assignments: AssignmentType = {}
     for key, value in data.items():
-        if value.edge_type is Tensor:
+        if value.is_tensor:
             assert value.shape is not None
             shapes[key] = value.shape.get_shapes(uni_cache, var_cache, verbose=True)
             shape_repr = value._temp_shape
@@ -262,7 +264,7 @@ def assert_value_results(
             assert data[key].value == value
         else:
             # If value is a tensor of any supported backend.
-            assert data[key].edge_type is Tensor
+            assert data[key].is_tensor
             d_val = data[key].value
             assert GenericDataType.is_tensor_type(d_val)
             assert (d_val == value).all()
