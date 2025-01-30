@@ -49,13 +49,10 @@ from .common import (
     UpdateType,
     Variadic,
     _TensorTypes,
+    find_intersection_type,
     process_value,
 )
-from .utils import (
-    find_intersection_type,
-    find_list_base_type,
-    is_union,
-)
+from .utils import find_list_base_type, is_union
 
 __all__ = [
     "edge_type_constraint",
@@ -105,26 +102,8 @@ __all__ = [
     "relational_operator_type_constraint",
     "divide_type_constraint",
     "polynomial_kernel_constraint",
-    "general_scalar_inference_constructor",
+    "general_forward_constraint",
 ]
-
-
-def general_scalar_inference_constructor(
-    *keys: IOHyperEdge, callable: Callable[..., Any]
-) -> ConstrainResultType:
-    is_all_scalar = all(io.edge_type is not Tensor for io in keys)
-    updates = Updates()
-    if is_all_scalar:
-        output, *inputs = keys
-        input_values = [input.value for input in inputs]
-        if TBD not in input_values:
-            output_value = callable(*input_values)
-            updates |= output.set_value(output_value)
-            return True, updates
-        else:
-            return False, updates
-    else:
-        return True, Updates()
 
 
 def generate_nested_list_type(
@@ -198,7 +177,7 @@ def set_edge_type(edge: IOHyperEdge, new_type: Any) -> Updates:
     # Simply wraps new type into Tensor if edge_type is Tensor,
     # else sets directly.
     type = new_type
-    if edge.edge_type is Tensor:
+    if edge.is_tensor:
         type = Tensor[new_type]
     return edge.set_type(type)
 
@@ -207,42 +186,47 @@ def edge_type_constraint(
     output: IOHyperEdge, *inputs: IOHyperEdge
 ) -> ConstrainResultType:
     updates = Updates()
-    status = False
-    # First set output edge_type to Tensor if any Tensor type inputs
-    # exists.
-    input_edge_types = {input.edge_type for input in inputs}
-    if Tensor in input_edge_types:
-        if output.edge_type is not Tensor:
-            updates |= output.set_type(Tensor)
 
-    elif ToBeDetermined not in input_edge_types:
-        if output.edge_type is not Tensor:
-            updates |= output.set_type(ScalarValueType)
-            status = True
-    elif output.edge_type is Tensor:
-        # Reverse edge_type inference.
+    ### Forward Inference ###
+    if any(input.is_tensor for input in inputs):
+        # if any Tensor input exists, set output type to Tensor.
+        updates |= output.set_type(Tensor[int | float | bool])
+
+    elif all(input.is_scalar for input in inputs):
+        # if all types of input is scalar, set output type to scalar.
+        updates |= output.set_type(ScalarValueType)
+
+    ### Reverse Inference ###
+    elif output.is_tensor:
         # If there is only one untyped input, set it as Tensor.
-        untyped_inputs = [
-            input for input in inputs if input.edge_type is ToBeDetermined
-        ]
+        untyped_inputs = {input for input in inputs if input.is_polymorphic}
         if len(untyped_inputs) == 1:
-            updates |= untyped_inputs.pop().set_type(Tensor)
-            status = True
-    elif output.edge_type is not ToBeDetermined:
+            updates |= untyped_inputs.pop().set_type(Tensor[int | float | bool])
+
+    elif output.is_scalar:
         # Scalar output means all inputs are scalar.
         for input in inputs:
             updates |= input.set_type(ScalarValueType)
-        status = True
 
-    # If no ToBeDetermined edge_type exists, return True.
-    if ToBeDetermined not in input_edge_types:
-        status = True
-    return status, updates
+    # If no polymorphic edge_type exists, return True.
+    return not any(input.is_polymorphic for input in inputs), updates
 
 
-def general_forward_constraint() -> None:
-    # TODO: Implement this function.
-    pass
+def general_forward_constraint(
+    *keys: IOHyperEdge, callable: Callable[..., Any]
+) -> ConstrainResultType:
+    updates = Updates()
+    if all(io.is_scalar for io in keys):
+        output, *inputs = keys
+        input_values = [input.value for input in inputs]
+        if TBD not in input_values:
+            output_value = callable(*input_values)
+            updates |= output.set_value(output_value)
+            return True, updates
+        else:
+            return False, updates
+    else:
+        return True, Updates()
 
 
 def general_tensor_type_constraint(*args: IOHyperEdge) -> ConstrainResultType:
@@ -654,18 +638,17 @@ def indexer_initial_type_constraint(
     updates = Updates()
     edge_types = {input.edge_type, output.edge_type}
     if edge_types != {ToBeDetermined}:
-        if Tensor not in edge_types:
+        if Tensor not in {get_origin(typ) for typ in edge_types}:
             # Meaning that indexing scalar type data. Set general
             # scalar type constraints on all arguments.
-
             # TODO: Types should be more specific.
             updates |= output.set_type(int | float | list[Any] | tuple[Any, ...])
             updates |= input.set_type(list[Any] | tuple[Any, ...])
             status = True
         else:
-            tensor_edge = input if input.edge_type is Tensor else output
+            tensor_edge = input if input.is_tensor else output
             assert isinstance(tensor_edge._value, Tensor)
-            typ: type[Tensor[Any]] = Tensor[tensor_edge.value_type]  # type: ignore
+            typ: type[Tensor[int | float | bool]] = Tensor[tensor_edge.value_type]  # type: ignore
             other_edge = (input, output)[tensor_edge is input]
             updates |= other_edge.set_type(typ)
             status = True
@@ -677,7 +660,7 @@ def indexer_type_constraint(
 ) -> ConstrainResultType:
     status = False
     updates = Updates()
-    if input.edge_type not in (Tensor, ToBeDetermined):
+    if not (input.is_tensor or input.edge_type is ToBeDetermined):
         # Input is a non-tensor type.
         input_type = input.value_type
         output_type = output.value_type
@@ -724,7 +707,7 @@ def indexer_type_constraint(
         updates |= output.set_type(inferred_out_type)
 
         status = not is_union(output.value_type)
-    elif input.edge_type is Tensor:
+    elif input.is_tensor:
         status = True
     return status, updates
 
@@ -1433,8 +1416,9 @@ def bcast_helper(
 def _bcast(
     output: IOHyperEdge, left: IOHyperEdge, right: IOHyperEdge, index: int
 ) -> ConstrainResultType:
-    l_type = left.edge_type
-    r_type = right.edge_type
+    l_type = Tensor if left.is_tensor else left.edge_type
+    r_type = Tensor if right.is_tensor else right.edge_type
+    o_type = Tensor if output.is_tensor else output.edge_type
     if l_type is Tensor and r_type is Tensor:
         assert output._temp_shape is not None, "Output shape of broadcast is not set!"
         assert left._temp_shape is not None, "Left shape of broadcast is not set!"
@@ -1442,15 +1426,15 @@ def _bcast(
         return bcast_helper(
             output._temp_shape, left._temp_shape, right._temp_shape, index
         )
-    elif not ({Tensor, ToBeDetermined} & {l_type, r_type, output.edge_type}):
+    elif not ({Tensor, ToBeDetermined} & {l_type, r_type, o_type}):
         # Means all edges are scalar types. Simply return True
         # without any updates.
         return True, Updates()
 
     merge_edge: IOHyperEdge | None = None
-    if left.edge_type is Tensor:
+    if l_type is Tensor:
         merge_edge = left
-    elif right.edge_type is Tensor:
+    elif r_type is Tensor:
         merge_edge = right
 
     if merge_edge is not None:
@@ -3697,7 +3681,7 @@ def tensor_item_constraint_helper(
 def indexer_constraints(
     output: IOHyperEdge, input: IOHyperEdge, index: IOHyperEdge
 ) -> ConstrainResultType:
-    if input.edge_type is Tensor:
+    if input.is_tensor:
         return tensor_item_constraints(output, input, index)
     elif input.edge_type is not ToBeDetermined:
         return scalar_item_constraints(output, input, index)
@@ -3956,7 +3940,7 @@ def buffer_constraint(output: IOHyperEdge, input: IOHyperEdge) -> ConstrainResul
         typed_edge, other_edge = output, input
 
     if typed_edge is not None:
-        if typed_edge.edge_type is Tensor:
+        if typed_edge._value is not TBD:
             updates |= other_edge.set_value(typed_edge._value)
         else:
             updates |= other_edge.set_type(typed_edge.edge_type)
@@ -3970,7 +3954,7 @@ def relational_operator_type_constraint(
     updates = Updates()
     status = False
     # Forward inference.
-    if Tensor in (input1.edge_type, input2.edge_type):
+    if input1.is_tensor or input2.is_tensor:
         updates |= output.set_type(Tensor[bool])
         status = True
     elif ToBeDetermined not in (input1.edge_type, input2.edge_type):
@@ -3985,7 +3969,7 @@ def divide_type_constraint(
     updates = Updates()
     status = False
     # Forward inference.
-    if Tensor in (numerator.edge_type, denominator.edge_type):
+    if numerator.is_tensor or denominator.is_tensor:
         updates |= output.set_type(Tensor[float])
         status = True
     elif ToBeDetermined not in (numerator.edge_type, denominator.edge_type):
@@ -4003,13 +3987,13 @@ def polynomial_kernel_constraint(
     # poly_coef update.
     if poly_coef.edge_type is not ToBeDetermined:
         coef_status = True
-        if poly_coef.edge_type is Tensor:
+        if poly_coef.is_tensor:
             assert poly_coef.shape is not None
             updates |= poly_coef.shape.set_values([])
     # degree update.
     if degree.edge_type is not ToBeDetermined:
         degree_status = True
-        if degree.edge_type is Tensor:
+        if degree.is_tensor:
             assert degree.shape is not None
             updates |= degree.shape.set_values([])
     return coef_status & degree_status, updates
