@@ -329,44 +329,32 @@ class ConstraintSolver:
 
     def __call__(self, updates: Updates) -> None:
         self.update_shapes(updates)
-        solved_constraints: set[Constraint] = set()
-        constraints = updates.constraints
+        # Here we are updating Updates object because we are
+        # using it in DataStore's `update_cached_data`.
+        updates |= self.solver_loop(updates.constraints)
+
+    def solver_loop(self, constraints: set[Constraint]) -> Updates:
+        updates = Updates()
         while constraints:
             constr = constraints.pop()
-            constraint_type = constr.type
-            if constr not in solved_constraints and constr in self.constraint_map:
+            if (not constr.parents) and (constr in self.constraint_map):
+                constraint_type = constr.type
                 hyper_edges = self.constraint_map[constr]
                 status, newly_added_symbols = constr(hyper_edges)
                 if constraint_type is UpdateType.SHAPE:
                     self.update_shapes(newly_added_symbols)
                 updates |= newly_added_symbols
-                new_constraints = {
-                    constr
-                    for constr in newly_added_symbols.constraints
-                    if constr.type is constraint_type
-                }
+                new_constraints = newly_added_symbols.constraints
 
-                # If a constraint is solved, get its post_constraints and add to
-                # constraints set.
                 if status:
-                    solved_constraints.add(constr)
+                    # Remove all occurences of constraint.
                     self.constraint_map.pop(constr)
-                    # Remove constraint from hyper_edges.
                     for hyper_edge in hyper_edges:
                         hyper_edge.remove_constraint(constr)
 
-                    post_constraints = constr.create_post_constraints()
-                    for post_constr in post_constraints:
-                        self.constraint_map[post_constr] = hyper_edges
-
-                        # Add post_constraints to hyper_edges.
-                        for hyper_edge in hyper_edges:
-                            hyper_edge.add_constraint(post_constr)
-
-                    constraints |= post_constraints
-
                 constraints |= new_constraints
                 constraints.discard(constr)
+        return updates
 
     @staticmethod
     def _combine_nodes(updates: Updates) -> None:
@@ -1171,10 +1159,8 @@ class IOHyperEdge:
 
     def remove_constraint(self, constraint: Constraint) -> None:
         # TODO: check why pop raises!
-        if constraint.type == UpdateType.SHAPE:
-            self.shape_constraints.discard(constraint)
-        elif constraint.type == UpdateType.TYPE:
-            self.type_constraints.discard(constraint)
+        self.shape_constraints.discard(constraint)
+        self.type_constraints.discard(constraint)
 
 
 class TemplateBase:
@@ -3119,9 +3105,8 @@ class Constraint:
     fn: ConstraintFunctionType
     type: UpdateType = UpdateType.SHAPE
     call_counter: int = 0
-    post_processes: set[tuple[ConstraintFunctionType, UpdateType]] = field(
-        default_factory=lambda: set()
-    )
+    parents: set[Constraint] = field(default_factory=lambda: set())
+    children: set[Constraint] = field(default_factory=lambda: set())
 
     def __call__(self, keys: list[IOHyperEdge]) -> ConstrainResultType:
         status = False
@@ -3139,21 +3124,26 @@ class Constraint:
         elif self.type == UpdateType.TYPE:
             status, newly_added_symbols = self.fn(*keys)
             updates |= newly_added_symbols
-
+        if status:
+            updates.constraints |= self.children
+            self.clear()
         self.call_counter += 1
         return status, updates
 
-    def add_post_process(
-        self, process: tuple[ConstraintFunctionType, UpdateType]
-    ) -> None:
-        self.post_processes.add(process)
+    def add_dependencies(self, *args: Constraint) -> None:
+        self.parents.update(args)
+        for constr in args:
+            constr.children.add(self)
 
-    def create_post_constraints(self) -> set[Constraint]:
-        constraints: set[Constraint] = set()
-        for process in self.post_processes:
-            fn, type = process
-            constraints.add(Constraint(fn, type))
-        return constraints
+    def clear(self) -> None:
+        for constr in self.children:
+            constr.parents.remove(self)
+
+        for constr in self.parents:
+            constr.children.remove(self)
+
+        self.parents = set()
+        self.children = set()
 
     def __hash__(self) -> int:
         return hash(id(self))

@@ -684,7 +684,7 @@ def test_reuse_pickled_registered_backend():
                 left=BaseKey(shape=[("Var_1", ...)], type=Tensor),
                 right=BaseKey(shape=[("Var_2", ...)], type=Tensor),
             )
-            self.set_constraint(
+            self.add_constraint(
                 fn=bcast, keys=[PrimitiveModel.output_key, "left", "right"]
             )
 
@@ -3988,7 +3988,7 @@ def test_infer_static_register_fn():
                 left=BaseKey(shape=[("Var_1", ...)], type=Tensor),
                 right=BaseKey(shape=[("Var_2", ...)], type=Tensor),
             )
-            self.set_constraint(
+            self.add_constraint(
                 fn=bcast, keys=[PrimitiveModel.output_key, "left", "right"]
             )
 

@@ -29,6 +29,7 @@ from ..framework.common import (
 from ..framework.constraints import (
     arange_constraints,
     bcast,
+    bcast_error_check,
     broadcast_to_constraints,
     concat_constraints,
     conv_1d_constraints,
@@ -165,11 +166,18 @@ class SupervisedLoss(PrimitiveModel):
         super().__init__(formula_key=formula_key, name=name, **kwargs)
 
         # Set constraints.
-        self._set_constraint(
+        bcast_constraint = self._add_constraint(
             fn=bcast, keys=[PrimitiveModel.output_key, "input", "target"]
         )
+
+        self._add_constraint(
+            fn=bcast_error_check,
+            keys=[PrimitiveModel.output_key, "input", "target"],
+            dependencies={bcast_constraint},
+        )
+
         if polymorphic_constraint:
-            self._set_constraint(
+            self._add_constraint(
                 fn=general_tensor_type_constraint,
                 keys=[PrimitiveModel.output_key, "input", "target"],
             )
@@ -278,10 +286,17 @@ class QuantileLoss(PrimitiveModel):
             quantile=BaseKey(shape=[], type=Tensor[int | float], value=quantile),
         )
 
-        self._set_constraint(
+        bcast_constraint = self._add_constraint(
             fn=bcast, keys=[PrimitiveModel.output_key, "input", "target"]
         )
-        self._set_constraint(
+
+        self._add_constraint(
+            fn=bcast_error_check,
+            keys=[PrimitiveModel.output_key, "input", "target"],
+            dependencies={bcast_constraint},
+        )
+
+        self._add_constraint(
             fn=general_tensor_type_constraint,
             keys=[PrimitiveModel.output_key, "input", "target", "quantile"],
         )
@@ -372,7 +387,7 @@ class CrossEntropy(PrimitiveModel):
 
         super().__init__(formula_key=formula_key, name=name, **kwargs)
 
-        self._set_constraint(
+        self._add_constraint(
             fn=cross_entropy_constraint, keys=["categorical", "input", "target"]
         )
 
@@ -445,8 +460,14 @@ class KLDivergence(PrimitiveModel):
             "input": ["N", ("Var", ...)],
             "target": ["N", ("Var", ...)],
         }
-        self._set_constraint(
+        bcast_constraint = self._add_constraint(
             fn=bcast, keys=[PrimitiveModel.output_key, "input", "target"]
+        )
+
+        self._add_constraint(
+            fn=bcast_error_check,
+            keys=[PrimitiveModel.output_key, "input", "target"],
+            dependencies={bcast_constraint},
         )
 
     def __call__(  # type: ignore[override]
@@ -525,8 +546,14 @@ class BinaryCrossEntropy(PrimitiveModel):
 
         super().__init__(formula_key=formula_key, name=name, **kwargs)
 
-        self._set_constraint(
+        bcast_constraint = self._add_constraint(
             fn=bcast, keys=[PrimitiveModel.output_key, "input", "target"]
+        )
+
+        self._add_constraint(
+            fn=bcast_error_check,
+            keys=[PrimitiveModel.output_key, "input", "target"],
+            dependencies={bcast_constraint},
         )
 
     def __call__(  # type: ignore[override]
@@ -692,7 +719,7 @@ class Activation(PrimitiveModel):
         super().__init__(formula_key, name=name, **kwargs)
 
         if polymorphic_constraint:
-            self._set_constraint(
+            self._add_constraint(
                 fn=general_tensor_type_constraint,
                 keys=[PrimitiveModel.output_key, "input"],
             )
@@ -865,7 +892,7 @@ class CartesianDifference(PrimitiveModel):
             left=BaseKey(shape=["N", "dim"], type=Tensor, value=left),
             right=BaseKey(shape=["M", "dim"], type=Tensor, value=right),
         )
-        self._set_constraint(
+        self._add_constraint(
             fn=general_tensor_type_constraint,
             keys=[PrimitiveModel.output_key, "left", "right"],
         )
@@ -907,10 +934,10 @@ class Concat(PrimitiveModel):
         super().__init__(formula_key="concat", name=name, **key_definitions)
 
         input_keys = [key for key in self.input_keys if key != "axis"]
-        self._set_constraint(
+        self._add_constraint(
             fn=concat_constraints, keys=["output"] + ["axis"] + input_keys
         )
-        self._set_constraint(
+        self._add_constraint(
             fn=general_tensor_type_constraint,
             keys=[PrimitiveModel.output_key] + input_keys,
         )
@@ -963,7 +990,7 @@ class PermuteTensor(PrimitiveModel):
             indices=BaseKey(shape=["N"], type=Tensor, value=indices),
         )
 
-        self._set_constraint(
+        self._add_constraint(
             fn=general_tensor_type_constraint, keys=[PrimitiveModel.output_key, "input"]
         )
         self.indices.set_differentiable(False)
@@ -1020,7 +1047,7 @@ class PrimitiveConvolution1D(PrimitiveModel):
 
         super().__init__(formula_key=formula_key, name=name, **kwargs)
 
-        self._set_constraint(
+        self._add_constraint(
             fn=conv_1d_constraints,
             keys=["output", "input", "stride", "padding", "dilation", "weight"],
         )
@@ -1029,7 +1056,7 @@ class PrimitiveConvolution1D(PrimitiveModel):
         if use_bias:
             constraint_keys.append("bias")
 
-        self._set_constraint(
+        self._add_constraint(
             fn=general_tensor_type_constraint,
             keys=[PrimitiveModel.output_key] + constraint_keys,
         )
@@ -1114,7 +1141,7 @@ class PrimitiveConvolution2D(PrimitiveModel):
 
         super().__init__(formula_key, name=name, **kwargs)
 
-        self._set_constraint(
+        self._add_constraint(
             fn=conv_2d_constraints,
             keys=["output", "input", "stride", "padding", "dilation", "weight"],
         )
@@ -1122,7 +1149,7 @@ class PrimitiveConvolution2D(PrimitiveModel):
         constraint_keys = ["input", "weight"]
         if use_bias:
             constraint_keys.append("bias")
-        self._set_constraint(
+        self._add_constraint(
             fn=general_tensor_type_constraint,
             keys=[PrimitiveModel.output_key] + constraint_keys,
         )
@@ -1180,11 +1207,11 @@ class Flatten(PrimitiveModel):
         }
         super().__init__(formula_key="flatten", name=name, **key_definitions)
 
-        self._set_constraint(
+        self._add_constraint(
             fn=flatten_constrains,
             keys=[PrimitiveModel.output_key, "input", "start_dim", "end_dim"],
         )
-        self._set_constraint(
+        self._add_constraint(
             fn=general_tensor_type_constraint, keys=[PrimitiveModel.output_key, "input"]
         )
 
@@ -1228,12 +1255,12 @@ class PrimitiveMaxPool1D(PrimitiveModel):
             padding=BaseKey(type=tuple[int, int], value=padding),
             dilation=BaseKey(type=int, value=dilation),
         )
-        self._set_constraint(
+        self._add_constraint(
             fn=sliding_window_1d_constraints,
             keys=["output", "input", "stride", "padding", "dilation", "kernel_size"],
         )
         # TODO: Torch does not accept any int type inputs but JAX implementation does.
-        self._set_constraint(
+        self._add_constraint(
             fn=general_tensor_type_constraint, keys=[PrimitiveModel.output_key, "input"]
         )
 
@@ -1276,7 +1303,7 @@ class PaddingConverter1D(PrimitiveModel):
             kernel_size=BaseKey(type=int, value=kernel_size),
         )
 
-        self._set_constraint(
+        self._add_constraint(
             fn=padding_1d_constraint,
             keys=[PrimitiveModel.output_key, "input", "kernel_size"],
         )
@@ -1322,7 +1349,7 @@ class PaddingConverter2D(PrimitiveModel):
             kernel_size=BaseKey(type=tuple[int, int], value=kernel_size),
         )
 
-        self._set_constraint(
+        self._add_constraint(
             fn=padding_2d_constraint,
             keys=[PrimitiveModel.output_key, "input", "kernel_size"],
         )
@@ -1355,7 +1382,7 @@ class StrideConverter(PrimitiveModel):
             input=BaseKey(type=int | PaddingType | tuple[int, int] | None, value=input),
             kernel_size=BaseKey(type=int | tuple[int, int], value=kernel_size),
         )
-        self._set_constraint(
+        self._add_constraint(
             fn=stride_constraint,
             keys=[PrimitiveModel.output_key, "input", "kernel_size"],
         )
@@ -1398,7 +1425,7 @@ class TupleConverter(PrimitiveModel):
                 value=input,
             ),
         )
-        self._set_constraint(
+        self._add_constraint(
             fn=tuple_converter_constraint, keys=[PrimitiveModel.output_key, "input"]
         )
 
@@ -1447,11 +1474,11 @@ class PrimitiveMaxPool2D(PrimitiveModel):
             dilation=BaseKey(type=tuple[int, int], value=dilation),
         )
 
-        self._set_constraint(
+        self._add_constraint(
             fn=sliding_window_2d_constraints,
             keys=["output", "input", "stride", "padding", "dilation", "kernel_size"],
         )
-        self._set_constraint(
+        self._add_constraint(
             fn=general_tensor_type_constraint, keys=[PrimitiveModel.output_key, "input"]
         )
 
@@ -1509,7 +1536,7 @@ class NormModifier(PrimitiveModel):
             input=BaseKey(shape=[], type=Tensor, value=input),
         )
 
-        self._set_constraint(
+        self._add_constraint(
             fn=general_tensor_type_constraint, keys=[PrimitiveModel.output_key, "input"]
         )
 
@@ -1542,7 +1569,7 @@ class DistanceMatrix(PrimitiveModel):
             norm=BaseKey(shape=[], type=Tensor),
         )
 
-        self._set_constraint(
+        self._add_constraint(
             fn=general_tensor_type_constraint,
             keys=[PrimitiveModel.output_key, "left", "right", "norm"],
         )
@@ -1577,10 +1604,10 @@ class PolynomialFeatures(PrimitiveModel):
             degree=BaseKey(type=int, value=degree),
         )
 
-        self._set_constraint(
+        self._add_constraint(
             fn=polynomial_features_constraints, keys=["output", "input", "degree"]
         )
-        self._set_constraint(
+        self._add_constraint(
             fn=general_tensor_type_constraint, keys=[PrimitiveModel.output_key, "input"]
         )
 
@@ -1659,7 +1686,7 @@ class EyeComplement(PrimitiveModel):
             M=BaseKey(type=int | None, value=M),
             dtype=BaseKey(type=Dtype | None, value=dtype),
         )
-        self._set_constraint(fn=eye_constraints, keys=["output", "N", "M"])
+        self._add_constraint(fn=eye_constraints, keys=["output", "N", "M"])
 
     def __call__(  # type: ignore[override]
         self,
@@ -1693,7 +1720,7 @@ class Eye(PrimitiveModel):
             M=BaseKey(type=int | None, value=M),
             dtype=BaseKey(type=Dtype | None, value=dtype),
         )
-        self._set_constraint(fn=eye_constraints, keys=["output", "N", "M"])
+        self._add_constraint(fn=eye_constraints, keys=["output", "N", "M"])
 
     def __call__(  # type: ignore[override]
         self,
@@ -1813,7 +1840,7 @@ class TransposedDiagonal(PrimitiveModel):
             input=BaseKey(shape=["N", "N"], type=Tensor, value=input),
         )
 
-        self._set_constraint(
+        self._add_constraint(
             fn=general_tensor_type_constraint, keys=[PrimitiveModel.output_key, "input"]
         )
 
@@ -1869,10 +1896,10 @@ class Arange(PrimitiveModel):
         self.set_cin("stop", safe=False)
 
         if not all_defined:
-            self._set_constraint(
+            self._add_constraint(
                 fn=arange_constraints, keys=["output", "start", "stop", "step"]
             )
-        self._set_constraint(
+        self._add_constraint(
             fn=general_tensor_type_constraint,
             keys=[PrimitiveModel.output_key, "start", "stop", "step"],
         )
@@ -1914,7 +1941,7 @@ class Randn(PrimitiveModel):
         )
 
         self.random_keys.add("key")
-        self.set_constraint(randn_constraints, keys=["output", "shape"])
+        self.add_constraint(randn_constraints, keys=["output", "shape"])
 
     def __call__(  # type: ignore[override]
         self,
@@ -1946,10 +1973,10 @@ class BroadcastTo(PrimitiveModel):
             shape=BaseKey(type=tuple[int, ...], value=shape),
         )
 
-        self.set_constraint(
+        self.add_constraint(
             fn=broadcast_to_constraints, keys=["output", "shape", "input"]
         )
-        self._set_constraint(
+        self._add_constraint(
             fn=general_tensor_type_constraint, keys=[PrimitiveModel.output_key, "input"]
         )
 
@@ -2012,8 +2039,8 @@ class Squeeze(PrimitiveModel):
             input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
         )
 
-        self._set_constraint(fn=squeeze_constraints, keys=["output", "input"])
-        self._set_constraint(
+        self._add_constraint(fn=squeeze_constraints, keys=["output", "input"])
+        self._add_constraint(
             fn=general_tensor_type_constraint, keys=[PrimitiveModel.output_key, "input"]
         )
 
@@ -2076,7 +2103,7 @@ class Embedding(PrimitiveModel):
             weight=BaseKey(shape=[num_embeddings, out_dim], type=Tensor, value=weight),
         )
 
-        self._set_constraint(
+        self._add_constraint(
             fn=general_tensor_type_constraint,
             keys=[PrimitiveModel.output_key, "weight"],
         )
@@ -2237,10 +2264,10 @@ class SwapAxes(PrimitiveModel):
             axis2=BaseKey(type=int, value=axis2),
         )
 
-        self._set_constraint(
+        self._add_constraint(
             fn=swap_axes_constraints, keys=["output", "input", "axis1", "axis2"]
         )
-        self._set_constraint(
+        self._add_constraint(
             fn=general_tensor_type_constraint, keys=[PrimitiveModel.output_key, "input"]
         )
 
@@ -2277,10 +2304,10 @@ class Where(PrimitiveModel):
             input2=BaseKey(shape=[("Var2", ...)], type=Tensor, value=input2),
         )
 
-        self._set_constraint(
+        self._add_constraint(
             fn=where_constrains, keys=["output", "cond", "input1", "input2"]
         )
-        self._set_constraint(
+        self._add_constraint(
             fn=general_tensor_type_constraint,
             keys=[PrimitiveModel.output_key, "input1", "input2"],
         )
@@ -2429,7 +2456,7 @@ class Pad(PrimitiveModel):
             pad_width=BaseKey(type=tuple[tuple[int, int], ...], value=pad_width),
         )
 
-        self._set_constraint(
+        self._add_constraint(
             fn=pad_constraints, keys=[PrimitiveModel.output_key, "input", "pad_width"]
         )
 

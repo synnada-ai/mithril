@@ -2027,6 +2027,28 @@ def test_reduce_axis_valued_keep_dim_tbd_input_variadic():
     )
 
 
+# @pytest.mark.skip("Fix reduce constraints")
+def test_reduce_with_given_axis():
+    """Test multiple none axis and keepdim"""
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [("Var1", ...)],
+        "input": [("Var2", ...)],
+    }
+    final_shapes = {
+        "output": ["(Var1, ...)"],
+        "input": ["(Var1, ...)", "u1", "u2"],
+        "axis": [],
+        "keepdim": [],
+    }
+    scalar_info = {
+        "axis": IOHyperEdge(value=(-1, -2)),
+        "keepdim": IOHyperEdge(type=bool, value=False),
+    }
+    assert_constraint_results(
+        shapes, {}, final_shapes, {}, reduce_constraints, True, {"input"}, scalar_info
+    )
+
+
 def test_reduce_backward_3():
     """Test multiple positive/negative axis"""
     shapes: dict[str, list[int | str | tuple]] = {

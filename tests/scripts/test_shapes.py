@@ -3538,7 +3538,7 @@ def test_logical_constraint_1():
     model += t_model_3
     model += t_model_4
     model += t_model_5(input=t_model_4.output, output=IOKey(name="output"))
-    model.set_constraint(fn=reverse_constraints, keys=["input", "output", "axis"])
+    model.add_constraint(fn=reverse_constraints, keys=["input", "output", "axis"])
     model.set_shapes({"input": [1, 2, 3, 4, 5, 6]})
     assert model.get_shapes(verbose=True)["input"] == [1, 2, 3, 4, 5, 6]
     assert model.get_shapes(verbose=True)["output"] == [6, 5, 4, 3, 2, 1]
@@ -3559,9 +3559,9 @@ def test_logical_constraint_2():
         output=IOKey(name="output"),
     )
     model += t_model(input="in1", output=IOKey(name="output1"), axes="axes")
-    model.set_constraint(fn=reverse_constraints, keys=["in1", "in2", "axes"])
-    model.set_constraint(fn=reverse_constraints, keys=["in2", "in3", "axes"])
-    model.set_constraint(fn=reverse_constraints, keys=["in3", "in4", "axes"])
+    model.add_constraint(fn=reverse_constraints, keys=["in1", "in2", "axes"])
+    model.add_constraint(fn=reverse_constraints, keys=["in2", "in3", "axes"])
+    model.add_constraint(fn=reverse_constraints, keys=["in3", "in4", "axes"])
     model.set_shapes({"in1": [6, 6, 1, 1, 1, 1]})
     logical_ref = {
         "in1": [6, 6, 1, 1, 1, 1],

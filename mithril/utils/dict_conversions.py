@@ -270,7 +270,7 @@ def dict_to_model(
                     " constraint function was encountered!"
                 )
             constrain_fn = constrain_fn_dict[constrain_fn]
-            model.set_constraint(constrain_fn, keys=constr_info["keys"])  # type: ignore
+            model.add_constraint(constrain_fn, keys=constr_info["keys"])  # type: ignore
 
     if len(assigned_shapes) > 0:
         model.set_shapes(dict_to_shape(assigned_shapes))
