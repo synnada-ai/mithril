@@ -23,15 +23,13 @@ from mithril import JaxBackend, NumpyBackend, TorchBackend, compile
 from mithril.framework.common import (
     NOT_GIVEN,
     BaseKey,
-    Connection,
-    ConnectionType,
     IOHyperEdge,
-    IOKey,
     ShapeTemplateType,
     Tensor,
     Updates,
 )
 from mithril.framework.constraints import set_edge_type
+from mithril.framework.logical.model import Connection, ConnectionType, IOKey
 from mithril.models import (
     MLP,
     TBD,
@@ -685,13 +683,13 @@ def test_type_propagation_7():
     assert model.output.metadata.value_type is float  # type: ignore
 
 
-class ArtificialPrimitive(PrimitiveModel):
+class ArtificialPrimitive(Model):
     input: Connection
     output: Connection
 
     def __init__(self, type) -> None:
-        super().__init__(
-            formula_key="tensor_to_list",
+        super().__init__(formula_key="tensor_to_list")
+        self._register_base_keys(
             output=BaseKey(shape=[("Var1", ...)], type=Tensor),
             input=BaseKey(shape=[("Var2", ...)], type=type),
         )
@@ -861,10 +859,10 @@ def test_type_propagation_floor_divide_4():
         )
 
 
-class Model1(PrimitiveModel):
+class Model1(Model):
     def __init__(self) -> None:
-        super().__init__(
-            formula_key="buffer",
+        super().__init__(formula_key="buffer")
+        self._register_base_keys(
             input=BaseKey(shape=[("Var1", ...)], type=Tensor),
             output=BaseKey(shape=[("Var1", ...)], type=Tensor),
         )
@@ -892,8 +890,9 @@ def test_connect_type_conv_handling_1():
         value=Tensor([[2.0]]),
         expose=True,
     )
-    model.extend(
-        mat_mul := MatrixMultiply(), left=con_object, output=IOKey(name="output")
+    model._extend(
+        mat_mul := MatrixMultiply(),
+        {"left": con_object, "output": IOKey(name="output")},
     )
     mat_mul.set_shapes({"output": output_shape})
     model_1 = model
@@ -908,8 +907,9 @@ def test_connect_type_conv_handling_1():
         name="abcd",
         expose=True,
     )
-    model.extend(
-        (mat_mul := MatrixMultiply()), left=con_object, output=IOKey(name="output")
+    model._extend(
+        (mat_mul := MatrixMultiply()),
+        {"left": con_object, "output": IOKey(name="output")},
     )
     mat_mul.set_shapes({"output": output_shape})
     model_2 = model
@@ -924,8 +924,9 @@ def test_connect_type_conv_handling_1():
         name="abcd",
         expose=True,
     )
-    model.extend(
-        (mat_mul := MatrixMultiply()), left=con_object, output=IOKey(name="output")
+    model._extend(
+        (mat_mul := MatrixMultiply()),
+        {"left": con_object, "output": IOKey(name="output")},
     )
     mat_mul.set_shapes({"output": output_shape})
     model_3 = model

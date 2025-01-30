@@ -21,7 +21,7 @@ from typing import Any, Literal, overload
 import numpy as np
 
 from ...backends.with_manualgrad.numpy_backend import NumpyBackend
-from ...framework.physical.model import PhysicalModel
+from ...framework.physical.model import CACHE_NAME, PhysicalModel
 from ...framework.utils import find_intersection_type
 from ...utils.func_utils import is_make_array_required, prepare_function_args
 from ..common import (
@@ -36,7 +36,7 @@ from ..common import (
     Tensor,
     is_type_adjustment_required,
 )
-from ..logical import PrimitiveModel
+from ..logical import PRIMITIVE_OUTPUT_KEY, PrimitiveModel
 from .python_gen import PythonCodeGen, RawGradientType
 from .utils import check_repr_inequality
 
@@ -272,12 +272,12 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
 
         if not self.pm.inference:
             # TODO: Change this with cache refactor
-            cache_name = output_key + f"_{model.cache_name}"
+            cache_name = output_key + f"_{CACHE_NAME}"
             used_keys.add(cache_name)
             targets.append(
                 ast.Subscript(
                     value=ast.Name(id=cache_name, ctx=ast.Load()),
-                    slice=ast.Constant(value=PrimitiveModel.output_key),
+                    slice=ast.Constant(value=PRIMITIVE_OUTPUT_KEY),
                     ctx=ast.Store(),
                 )
             )
@@ -285,14 +285,14 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
         return targets, used_keys
 
     def get_cache_name(self, output_key: str, model: PrimitiveModel) -> str:
-        cache_name = "_".join([output_key, model.cache_name])
+        cache_name = "_".join([output_key, CACHE_NAME])
         if cache_name not in self.pm.data_store._all_data:
             self.add_cache(model, output_key)
 
         return cache_name
 
     def add_cache(self, model: PrimitiveModel, output_key: str) -> None:
-        cache_name = "_".join([output_key, model.cache_name])
+        cache_name = "_".join([output_key, CACHE_NAME])
         cache_value: dict[str, Any] | None = None if self.pm.inference else {}
         # Create a scalar for caches in manualgrad backend.
         self.pm.data_store.update_data(
@@ -402,6 +402,7 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
                 )
 
             # Get primitive function inputs order
+            assert model.formula_key is not None
             primitive_function = (
                 self.backend.primitive_function_dict[model.formula_key]
                 if model.formula_key in self.backend.primitive_function_dict

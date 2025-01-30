@@ -35,9 +35,7 @@ from mithril.framework.common import (
     TBD,
     BaseKey,
     ConnectionData,
-    ConnectionType,
     IOHyperEdge,
-    IOKey,
     Tensor,
     ToBeDetermined,
     UniadicRecord,
@@ -59,6 +57,7 @@ from mithril.models import (
     Buffer,
     Concat,
     Connection,
+    ConnectionType,
     ConstraintSolver,
     Convolution1D,
     Convolution2D,
@@ -70,6 +69,7 @@ from mithril.models import (
     FloorDivide,
     Gelu,
     Greater,
+    IOKey,
     Layer,
     LeakyRelu,
     Less,
@@ -676,10 +676,10 @@ def test_reuse_pickled_registered_backend():
     u_numpy_backend = pickle.loads(pickled_numpy)
     u_torch_backend = pickle.loads(pickled_torch)
 
-    class MyAdder(PrimitiveModel):
+    class MyAdder(Model):
         def __init__(self) -> None:
-            super().__init__(
-                formula_key="my_adder",
+            super().__init__(formula_key="my_adder")
+            self._register_base_keys(
                 output=BaseKey(shape=[("Var_out", ...)], type=Tensor),
                 left=BaseKey(shape=[("Var_1", ...)], type=Tensor),
                 right=BaseKey(shape=[("Var_2", ...)], type=Tensor),
@@ -1269,18 +1269,22 @@ def test_relational_operators_ignored_1():
 
 def test_relational_operators_ignored_2():
     model = Model()
-    model.extend(
+    model._extend(
         Less(),
-        left=IOKey("left", type=Tensor),
-        right=IOKey("right", type=Tensor),
-        output=IOKey("relational_out"),
+        {
+            "left": IOKey("left", type=Tensor),
+            "right": IOKey("right", type=Tensor),
+            "output": IOKey("relational_out"),
+        },
     )
-    model.extend(
+    model._extend(
         Where(),
-        cond=model.cout,
-        input1="inp1",
-        input2="inp2",
-        output=IOKey("where_out"),
+        {
+            "cond": model.cout,
+            "input1": "inp1",
+            "input2": "inp2",
+            "output": IOKey("where_out"),
+        },
     )
     pm = compile(model, NumpyBackend())
     assert (
@@ -1662,15 +1666,23 @@ def test_geomean_evaluate():
     model1 = Model()
     lin1 = Linear(dimension=10)
     lin12 = Linear(dimension=10)
-    model1.extend(
-        lin1, input="input", weight="weight", bias="bias", output=IOKey("output1")
+    model1._extend(
+        lin1,
+        {
+            "input": "input",
+            "weight": "weight",
+            "bias": "bias",
+            "output": IOKey("output1"),
+        },
     )
-    model1.extend(
+    model1._extend(
         lin12,
-        input=lin1.output,
-        weight="weight1",
-        bias="bias1",
-        output=IOKey("output2"),
+        {
+            "input": lin1.output,
+            "weight": "weight1",
+            "bias": "bias1",
+            "output": IOKey("output2"),
+        },
     )
     model1.set_shapes({"input": [10, 10, 10]})
     lin1.input.set_differentiable(True)
@@ -1688,15 +1700,23 @@ def test_geomean_evaluate():
     model2 = Model()
     lin2 = Linear()
     lin22 = Linear(dimension=10)
-    model2.extend(
-        lin2, input="input", weight="weight", bias="bias", output=IOKey("output1")
+    model2._extend(
+        lin2,
+        {
+            "input": "input",
+            "weight": "weight",
+            "bias": "bias",
+            "output": IOKey("output1"),
+        },
     )
-    model2.extend(
+    model2._extend(
         lin22,
-        input=lin2.output,
-        weight="weight1",
-        bias="bias1",
-        output=IOKey("output2"),
+        {
+            "input": lin2.output,
+            "weight": "weight1",
+            "bias": "bias1",
+            "output": IOKey("output2"),
+        },
     )
     lin2.input.set_differentiable(True)
     ctx2 = TrainModel(model2)
@@ -3229,23 +3249,23 @@ def test_empy_out_grad():
 def geomean_multigpu_test():
     model = Model()
     model.extend(l1 := Linear(16), input="input1")
-    model.extend(l2 := Linear(32), w="w", input=l1.output)
-    model.extend(l3 := Linear(32), w="w", input=l1.output)
+    model.extend(l2 := Linear(32), w="w", input=l1.output.data)
+    model.extend(l3 := Linear(32), w="w", input=l1.output.data)
 
     # Classification
-    model.extend(add := Add(), left=l3.output, right=l2.output)
-    model.extend(pow := Power(), base=add.output, exponent=2)
-    model.extend(mul := Multiply(), left=pow.output)
-    model.extend(abs := Absolute(), input=mul.output)
-    model.extend(sqrt := Sqrt(), input=abs.output)
-    model.extend(mul2 := Multiply(), left=sqrt.output, right="input2")
-    model.extend(div := Divide(), numerator=mul2.output, denominator=1.0)
-    model.extend(Softmax(), input=div.output, output="out1")
+    model.extend(add := Add(), left=l3.output.data, right=l2.output.data)
+    model.extend(pow := Power(), base=add.output.data, exponent=2)
+    model.extend(mul := Multiply(), left=pow.output.data)
+    model.extend(abs := Absolute(), input=mul.output.data)
+    model.extend(sqrt := Sqrt(), input=abs.output.data)
+    model.extend(mul2 := Multiply(), left=sqrt.output.data, right="input2")
+    model.extend(div := Divide(), numerator=mul2.output.data, denominator=1.0)
+    model.extend(Softmax(), input=div.output.data, output="out1")
 
     # Regression
-    model.extend(mul := Multiply(), left=l2.output, right=l3.output)
-    model.extend(add2 := Add(), left=mul.output, right="input3")
-    model.extend(Divide(), numerator=add2.output, denominator=40.0, output="out2")
+    model.extend(mul := Multiply(), left=l2.output.data, right=l3.output.data)
+    model.extend(add2 := Add(), left=mul.output.data, right="input3")
+    model.extend(Divide(), numerator=add2.output.data, denominator=40.0, output="out2")
 
     context = TrainModel(model)
     context.add_loss(
@@ -3956,10 +3976,10 @@ def test_infer_static_register_fn():
     def my_adder(left, right):
         return left + right
 
-    class MyAdder(PrimitiveModel):
+    class MyAdder(Model):
         def __init__(self) -> None:
-            super().__init__(
-                formula_key="my_adder",
+            super().__init__(formula_key="my_adder")
+            self._register_base_keys(
                 output=BaseKey(shape=[("Var_out", ...)], type=Tensor),
                 left=BaseKey(shape=[("Var_1", ...)], type=Tensor),
                 right=BaseKey(shape=[("Var_2", ...)], type=Tensor),
@@ -6861,7 +6881,7 @@ def test_string_iokey_value_1():
         return torch.einsum(equation, input)
 
     # Define einsum primitive Model
-    class ReduceEinsum(PrimitiveModel):
+    class ReduceEinsum(Model):
         # Small Einsum Model that is written for test purposes.
         # Now it only supports single input and single output
 
@@ -6892,7 +6912,8 @@ def test_string_iokey_value_1():
                 "equation": scalar_equation,
             }
 
-            super().__init__(formula_key="einsum", name=name, **kwargs)
+            super().__init__(formula_key="einsum", name=name)
+            self._register_base_keys(**kwargs)
             self._freeze()
 
         def __call__(  # type: ignore[override]
@@ -6945,7 +6966,7 @@ def test_string_iokey_value_2():
         return torch.einsum(equation, input)
 
     # Define einsum primitive Model
-    class ReduceEinsum(PrimitiveModel):
+    class ReduceEinsum(Model):
         # Small Einsum Model that is written for test purposes.
         # Now it only supports single input and single output
 
@@ -6976,7 +6997,8 @@ def test_string_iokey_value_2():
                 "equation": scalar_equation,
             }
 
-            super().__init__(formula_key="einsum", name=name, **kwargs)
+            super().__init__(formula_key="einsum", name=name)
+            self._register_base_keys(**kwargs)
             self._freeze()
 
         def __call__(  # type: ignore[override]

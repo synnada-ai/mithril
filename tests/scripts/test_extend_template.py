@@ -79,6 +79,7 @@ def test_two_conns():
     add_1 = model_1.input + model_1.bias  # type: ignore
     model_1 += Mean()(input=add_1, output=IOKey(name="output"))
 
+    # from mithril.framework.logical.essential_primitives import AddOp
     # Create with extend.
     model_2 = Model()
     model_2 += Linear(dimension=2)(input="input", weight="weight", bias="bias")

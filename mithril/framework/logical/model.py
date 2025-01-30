@@ -14,23 +14,22 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from types import UnionType
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+from types import EllipsisType, UnionType
 from typing import Any, Self
 
-from ...utils.utils import OrderedSet, find_dominant_type
+from ...core import Dtype as CoreDtype
+from ...utils.utils import find_dominant_type
 from ..common import (
     NOT_GIVEN,
     TBD,
-    Connection,
+    BaseKey,
     ConnectionData,
-    ConnectionInstanceType,
-    ConnectionType,
-    ExtendTemplate,
     IOHyperEdge,
-    IOKey,
     KeyType,
     MainValueInstance,
+    MainValueType,
     NullConnection,
     ScalarType,
     ScalarValueType,
@@ -38,292 +37,533 @@ from ..common import (
     Tensor,
     ToBeDetermined,
     UniadicRecord,
-    Updates,
     Variadic,
     get_summary,
     get_summary_shapes,
     get_summary_types,
 )
-from .base import BaseModel, ExtendInfo
+
+# from .base import BaseModel, ConnectionDataType
+from .base import BaseModel
 from .essential_primitives import (
-    Absolute,
-    Add,
-    Cast,
-    Cosine,
-    Divide,
-    Dtype,
-    Equal,
-    Exponential,
-    FloorDivide,
-    Greater,
-    GreaterEqual,
-    Indexer,
-    Item,
-    Length,
-    Less,
-    LessEqual,
-    LogicalAnd,
-    LogicalNot,
-    LogicalOr,
-    LogicalXOr,
-    MatrixMultiply,
-    Max,
-    Mean,
-    Min,
-    Minus,
-    Multiply,
-    NotEqual,
-    Power,
-    Prod,
-    Reshape,
-    Shape,
-    ShiftLeft,
-    ShiftRight,
-    Sine,
-    Size,
-    Slice,
-    Split,
-    Sqrt,
-    Subtract,
-    Sum,
-    TensorToList,
-    ToList,
-    ToTensor,
-    ToTuple,
-    Transpose,
-    Variance,
+    AbsoluteOp,
+    AddOp,
+    CastOp,
+    CosineOp,
+    DivideOp,
+    DtypeOp,
+    EqualOp,
+    ExponentialOp,
+    FloorDivideOp,
+    GreaterEqualOp,
+    GreaterOp,
+    IndexerOp,
+    ItemOp,
+    LengthOp,
+    LessEqualOp,
+    LessOp,
+    LogicalAndOp,
+    LogicalNotOp,
+    LogicalOrOp,
+    LogicalXOrOp,
+    MatrixMultiplyOp,
+    MaxOp,
+    MeanOp,
+    MinOp,
+    MinusOp,
+    MultiplyOp,
+    NotEqualOp,
+    PowerOp,
+    ProdOp,
+    ReshapeOp,
+    ShapeOp,
+    ShiftLeftOp,
+    ShiftRightOp,
+    SineOp,
+    SizeOp,
+    SliceOp,
+    SplitOp,
+    SqrtOp,
+    SubtractOp,
+    SumOp,
+    ToListOp,
+    ToTensorOp,
+    ToTupleOp,
+    TransposeOp,
+    VarianceOp,
 )
 from .primitive import PrimitiveModel
 
-__all__ = ["Model"]
-
-ops_table: dict[str, type[PrimitiveModel]] = {
-    "add": Add,
-    "sub": Subtract,
-    "div": Divide,
-    "fdiv": FloorDivide,
-    "mul": Multiply,
-    "pow": Power,
-    "matmul": MatrixMultiply,
-    "shape": Shape,
-    "reshape": Reshape,
-    "len": Length,
-    "size": Size,
-    "tensor": ToTensor,
-    "list": TensorToList,
-    "item": Item,
-    "indexer": Indexer,
-    "mean": Mean,
-    "sqrt": Sqrt,
-    "exp": Exponential,
-    "sum": Sum,
-    "max": Max,
-    "min": Min,
-    "abs": Absolute,
-    "prod": Prod,
-    "var": Variance,
-    "gt": Greater,
-    "ge": GreaterEqual,
-    "lt": Less,
-    "le": LessEqual,
-    "eq": Equal,
-    "ne": NotEqual,
-    "not": LogicalNot,
-    "and": LogicalAnd,
-    "or": LogicalOr,
-    "xor": LogicalXOr,
-    "lshift": ShiftLeft,
-    "rshift": ShiftRight,
-    "minus": Minus,
-    "transpose": Transpose,
-    "split": Split,
-    "slice": Slice,
-    "to_tuple": ToTuple,
-    "cast": Cast,
-    "dtype": Dtype,
-    "sin": Sine,
-    "cos": Cosine,
-}
+__all__ = [
+    "Connection",
+    "IOKey",
+    "ExtendTemplate",
+    "ExtendInfo",
+    "Model",
+    "ConnectionType",
+    "ConnectionInstanceType",
+    "TemplateConnectionType",
+    "define_unique_names",
+]
 
 
-class Model(BaseModel):
+class TemplateBase:
+    def __getitem__(
+        self,
+        key: slice
+        | int
+        | EllipsisType
+        | tuple[slice | int | None | EllipsisType | TemplateBase, ...]
+        | IOKey
+        | TemplateBase
+        | None,
+    ) -> ExtendTemplate:
+        match key:
+            case slice():
+                slice_output = ExtendTemplate(
+                    connections=[key.start, key.stop, key.step], model=SliceOp
+                )
+                output = ExtendTemplate(
+                    connections=[self, slice_output], model=IndexerOp
+                )
+
+            case int() | EllipsisType() | None:
+                output = ExtendTemplate(connections=[self, key], model=IndexerOp)
+
+            case tuple():
+                connections: list[TemplateBase | int | None | EllipsisType] = []
+                for item in key:
+                    if isinstance(item, slice):
+                        slice_output = ExtendTemplate(
+                            connections=[item.start, item.stop, item.step],
+                            model=SliceOp,
+                        )
+                        connections.append(slice_output)
+                    else:
+                        connections.append(item)
+                tuple_template = ExtendTemplate(
+                    connections=connections,
+                    model=ToTupleOp,
+                    defaults={"n": len(key)},
+                )
+                output = ExtendTemplate(
+                    connections=[self, tuple_template], model=IndexerOp
+                )
+        return output
+
+    def __add__(self, other: TemplateConnectionType) -> ExtendTemplate:
+        return ExtendTemplate(connections=[self, other], model=AddOp)
+
+    def __radd__(self, other: TemplateConnectionType) -> ExtendTemplate:
+        return ExtendTemplate(connections=[other, self], model=AddOp)
+
+    def __sub__(self, other: TemplateConnectionType) -> ExtendTemplate:
+        return ExtendTemplate(connections=[self, other], model=SubtractOp)
+
+    def __rsub__(self, other: TemplateConnectionType) -> ExtendTemplate:
+        return ExtendTemplate(connections=[other, self], model=SubtractOp)
+
+    def __mul__(self, other: TemplateConnectionType) -> ExtendTemplate:
+        return ExtendTemplate(connections=[self, other], model=MultiplyOp)
+
+    def __rmul__(self, other: TemplateConnectionType) -> ExtendTemplate:
+        return ExtendTemplate(connections=[other, self], model=MultiplyOp)
+
+    def __truediv__(self, other: TemplateConnectionType) -> ExtendTemplate:
+        return ExtendTemplate(connections=[self, other], model=DivideOp)
+
+    def __rtruediv__(self, other: TemplateConnectionType) -> ExtendTemplate:
+        return ExtendTemplate(connections=[other, self], model=DivideOp)
+
+    def __floordiv__(self, other: TemplateConnectionType) -> ExtendTemplate:
+        return ExtendTemplate(connections=[self, other], model=FloorDivideOp)
+
+    def __rfloordiv__(self, other: TemplateConnectionType) -> ExtendTemplate:
+        return ExtendTemplate(connections=[other, self], model=FloorDivideOp)
+
+    def __pow__(self, other: TemplateConnectionType) -> ExtendTemplate:
+        return ExtendTemplate(
+            connections=[self, other], model=PowerOp, defaults={"robust": False}
+        )
+
+    def __rpow__(self, other: TemplateConnectionType) -> ExtendTemplate:
+        return ExtendTemplate(
+            connections=[other, self], model=PowerOp, defaults={"robust": False}
+        )
+
+    def __matmul__(self, other: TemplateConnectionType) -> ExtendTemplate:
+        return ExtendTemplate(connections=[self, other], model=MatrixMultiplyOp)
+
+    def __gt__(self, other: TemplateConnectionType) -> ExtendTemplate:
+        return ExtendTemplate(connections=[self, other], model=GreaterOp)
+
+    def __rgt__(self, other: TemplateConnectionType) -> ExtendTemplate:
+        return ExtendTemplate(connections=[other, self], model=GreaterOp)
+
+    def __ge__(self, other: TemplateConnectionType) -> ExtendTemplate:
+        return ExtendTemplate(connections=[self, other], model=GreaterEqualOp)
+
+    def __rge__(self, other: TemplateConnectionType) -> ExtendTemplate:
+        return ExtendTemplate(connections=[other, self], model=GreaterEqualOp)
+
+    def __lt__(self, other: TemplateConnectionType) -> ExtendTemplate:
+        return ExtendTemplate(connections=[self, other], model=LessOp)
+
+    def __rlt__(self, other: TemplateConnectionType) -> ExtendTemplate:
+        return ExtendTemplate(connections=[other, self], model=LessOp)
+
+    def __le__(self, other: TemplateConnectionType) -> ExtendTemplate:
+        return ExtendTemplate(connections=[self, other], model=LessEqualOp)
+
+    def __rle__(self, other: TemplateConnectionType) -> ExtendTemplate:
+        return ExtendTemplate(connections=[other, self], model=LessEqualOp)
+
+    def __eq__(self, other: object) -> ExtendTemplate:  # type: ignore[override]
+        if isinstance(
+            other, int | float | bool | list | Connection | IOKey | tuple | Tensor
+        ):
+            return ExtendTemplate(connections=[self, other], model=EqualOp)
+        else:
+            raise ValueError("Unsupported type for equality operation.")
+
+    def __req__(self, other: TemplateConnectionType) -> ExtendTemplate:
+        return ExtendTemplate(connections=[other, self], model=EqualOp)
+
+    def __ne__(self, other: object) -> ExtendTemplate:  # type: ignore[override]
+        if isinstance(
+            other, int | float | bool | list | Connection | IOKey | tuple | Tensor
+        ):
+            return ExtendTemplate(connections=[self, other], model=NotEqualOp)
+        else:
+            raise ValueError("Unsupported type for equality operation.")
+
+    def __rne__(self, other: TemplateConnectionType) -> ExtendTemplate:
+        return ExtendTemplate(connections=[other, self], model=NotEqualOp)
+
+    def __and__(self, other: TemplateConnectionType) -> ExtendTemplate:
+        return ExtendTemplate(connections=[self, other], model=LogicalAndOp)
+
+    def __rand__(self, other: TemplateConnectionType) -> ExtendTemplate:
+        return ExtendTemplate(connections=[other, self], model=LogicalAndOp)
+
+    def __or__(self, other: TemplateConnectionType) -> ExtendTemplate:
+        return ExtendTemplate(connections=[self, other], model=LogicalOrOp)
+
+    def __ror__(self, other: TemplateConnectionType) -> ExtendTemplate:
+        return ExtendTemplate(connections=[other, self], model=LogicalOrOp)
+
+    def __xor__(self, other: TemplateConnectionType) -> ExtendTemplate:
+        return ExtendTemplate(connections=[self, other], model=LogicalXOrOp)
+
+    def __rxor__(self, other: TemplateConnectionType) -> ExtendTemplate:
+        return ExtendTemplate(connections=[other, self], model=LogicalXOrOp)
+
+    def __lshift__(self, other: TemplateConnectionType) -> ExtendTemplate:
+        return ExtendTemplate(connections=[self, other], model=ShiftLeftOp)
+
+    def __rlshift__(self, other: TemplateConnectionType) -> ExtendTemplate:
+        return ExtendTemplate(connections=[other, self], model=ShiftLeftOp)
+
+    def __rshift__(self, other: TemplateConnectionType) -> ExtendTemplate:
+        return ExtendTemplate(connections=[self, other], model=ShiftRightOp)
+
+    def __rrshift__(self, other: TemplateConnectionType) -> ExtendTemplate:
+        return ExtendTemplate(connections=[other, self], model=ShiftRightOp)
+
+    def __invert__(self) -> ExtendTemplate:
+        return ExtendTemplate(connections=[self], model=LogicalNotOp)
+
+    def __neg__(self) -> ExtendTemplate:
+        return ExtendTemplate(connections=[self], model=MinusOp)
+
+    def abs(self) -> ExtendTemplate:
+        return ExtendTemplate(connections=[self], model=AbsoluteOp)
+
+    def len(self) -> ExtendTemplate:
+        return ExtendTemplate(connections=[self], model=LengthOp)
+
+    @property
+    def shape(self) -> ExtendTemplate:
+        return ExtendTemplate(connections=[self], model=ShapeOp)
+
+    def reshape(
+        self, shape: tuple[int | TemplateBase, ...] | TemplateBase
+    ) -> ExtendTemplate:
+        return ExtendTemplate(connections=[self, shape], model=ReshapeOp)
+
+    def size(
+        self, dim: int | tuple[int, ...] | TemplateBase | None = None
+    ) -> ExtendTemplate:
+        return ExtendTemplate(connections=[self, dim], model=SizeOp)
+
+    def tensor(self) -> ExtendTemplate:
+        return ExtendTemplate(
+            connections=[self], model=ToTensorOp, defaults={"dtype": None}
+        )
+
+    def mean(
+        self,
+        axis: int | tuple[int, ...] | TemplateBase | None = None,
+        keepdim: bool = False,
+    ) -> ExtendTemplate:
+        return ExtendTemplate(connections=[self, axis, keepdim], model=MeanOp)
+
+    def sum(
+        self,
+        axis: int | tuple[int, ...] | TemplateBase | None = None,
+        keepdim: bool = False,
+    ) -> ExtendTemplate:
+        return ExtendTemplate(connections=[self, axis, keepdim], model=SumOp)
+
+    def max(
+        self,
+        axis: int | tuple[int, ...] | TemplateBase | None = None,
+        keepdim: bool = False,
+    ) -> ExtendTemplate:
+        return ExtendTemplate(connections=[self, axis, keepdim], model=MaxOp)
+
+    def min(
+        self,
+        axis: int | tuple[int, ...] | TemplateBase | None = None,
+        keepdim: bool = False,
+    ) -> ExtendTemplate:
+        return ExtendTemplate(connections=[self, axis, keepdim], model=MinOp)
+
+    def prod(
+        self,
+        axis: int | tuple[int, ...] | TemplateBase | None = None,
+        keepdim: bool = False,
+    ) -> ExtendTemplate:
+        return ExtendTemplate(connections=[self, axis, keepdim], model=ProdOp)
+
+    def var(
+        self,
+        axis: int | tuple[int, ...] | TemplateBase | None = None,
+        keepdim: bool = False,
+        correction: float | None = 0.0,
+    ) -> ExtendTemplate:
+        return ExtendTemplate(
+            connections=[self, axis, keepdim, correction], model=VarianceOp
+        )
+
+    def sqrt(self) -> ExtendTemplate:
+        return ExtendTemplate(
+            connections=[self], model=SqrtOp, defaults={"robust": False}
+        )
+
+    def exp(self) -> ExtendTemplate:
+        return ExtendTemplate(connections=[self], model=ExponentialOp)
+
+    def transpose(
+        self, axes: tuple[int, ...] | TemplateBase | None = None
+    ) -> ExtendTemplate:
+        return ExtendTemplate(connections=[self, axes], model=TransposeOp)
+
+    def split(self, split_size: int, axis: int) -> ExtendTemplate:
+        return ExtendTemplate(connections=[self, split_size, axis], model=SplitOp)
+
+    def item(self) -> ExtendTemplate:
+        return ExtendTemplate(connections=[self], model=ItemOp)
+
+    def cast(self, dtype: CoreDtype | None = None) -> ExtendTemplate:
+        return ExtendTemplate(connections=[self, dtype], model=CastOp)
+
+    def dtype(self) -> ExtendTemplate:
+        return ExtendTemplate(connections=[self], model=DtypeOp)
+
+    def sin(self) -> ExtendTemplate:
+        return ExtendTemplate(connections=[self], model=SineOp)
+
+    def cos(self) -> ExtendTemplate:
+        return ExtendTemplate(connections=[self], model=CosineOp)
+
+
+class Connection(TemplateBase):
+    def __init__(self, data: ConnectionData) -> None:
+        self.data = data
+
+    @property
+    def key(self) -> str:
+        return self.data.key
+
+    @property
+    def metadata(self) -> IOHyperEdge:
+        return self.data.metadata
+
+    def set_differentiable(self, differentiable: bool = True) -> None:
+        self.data.set_differentiable(differentiable)
+
+    def __hash__(self) -> int:
+        return hash(id(self))
+
+
+class IOKey(BaseKey, TemplateBase):
     def __init__(
         self,
         name: str | None = None,
-        enforce_jit: bool = True,
+        value: Tensor[Any] | ScalarValueType | ToBeDetermined | str = TBD,
+        shape: ShapeTemplateType | None = None,
+        type: UnionType | type | type[Tensor[Any]] | ScalarType | None = None,
+        expose: bool | None = None,
+        interval: list[float | int] | None = None,
+        connections: set[Connection | str] | None = None,
     ) -> None:
-        self.dag: dict[BaseModel, dict[str, ConnectionData]] = {}
-        self.inter_key_count: int = 0
-        self.formula_key: str | None = None
+        _connections: set[ConnectionData | str] = {
+            con.data if isinstance(con, Connection) else con
+            for con in connections or set()
+        }
 
-        super().__init__(name=name, enforce_jit=enforce_jit)
+        super().__init__(
+            name=name,
+            value=value,
+            shape=shape,
+            type=type,
+            expose=expose,
+            interval=interval,
+            connections=_connections,
+        )
 
-    def create_key_name(self) -> str:
-        self.inter_key_count += 1
-        return "$" + str(self.inter_key_count)
 
-    def create_connection(
+class ExtendTemplate(TemplateBase):
+    output_connection: ConnectionData | None
+
+    def __init__(
+        self,
+        connections: Sequence[TemplateConnectionType],
+        model: type[BaseModel],
+        defaults: dict[str, Any] | None = None,
+    ) -> None:
+        for connection in connections:
+            if isinstance(connection, str):
+                raise ValueError(
+                    "In extend template operations, 'str' is not a valid type."
+                )
+
+        self.connections = connections
+        self.model = model
+
+        if defaults is None:
+            defaults = {}
+        self.defaults = defaults
+        self.output_connection = None
+
+
+@dataclass
+class ExtendInfo:
+    _model: BaseModel
+    _connections: dict[str, ConnectionType]
+
+    def __post_init__(self) -> None:
+        external_keys = (
+            set(self._model.external_keys)
+            | {item.key for item in self._model.conns.couts}
+            | {item.key for item in self._model.conns.cins}
+        )
+
+        for key in self._connections:
+            if key not in external_keys:
+                raise KeyError(f"Key '{key}' is not a valid key for the model!")
+
+    @property
+    def model(self) -> BaseModel:
+        return self._model
+
+    @property
+    def connections(self) -> dict[str, ConnectionType]:
+        return self._connections
+
+
+TemplateConnectionType = (
+    TemplateBase
+    | int
+    | float
+    | list[int | float]
+    | EllipsisType
+    | tuple[slice | int | None | EllipsisType | TemplateBase, ...]
+    | None
+    | Tensor[Any]
+)
+
+
+ConnectionType = (
+    str
+    | MainValueType
+    | ExtendTemplate
+    | NullConnection
+    | BaseKey
+    | Connection
+    | Tensor[Any]
+)
+
+ConnectionInstanceType = (
+    str
+    | MainValueInstance
+    | ExtendTemplate
+    | NullConnection
+    | BaseKey
+    | Connection
+    | Tensor  # type: ignore
+)
+
+
+class Model(BaseModel):
+    def _post_init(self) -> None:
+        self.connection_map: dict[ConnectionData, Connection] = {}
+
+    def __call__(self, **kwargs: ConnectionType) -> ExtendInfo:
+        return ExtendInfo(self, kwargs)
+
+    def _create_connection(
         self, metadata: IOHyperEdge, key: str | None = None
     ) -> ConnectionData:
-        # If key is not provided, create a new key name and
-        # label it as auto-generated.
-        if is_key_autogenerated := key is None:
-            key = self.create_key_name()
-
-        con = self._create_connection(metadata, key, is_key_autogenerated)
-
-        if not is_key_autogenerated:
-            # Set key_origin into metadata
-            metadata.key_origin = key
+        con_data = super()._create_connection(metadata, key)
+        con = Connection(con_data)
+        self.connection_map[con_data] = con
+        if not con_data.is_key_autogenerated:
+            assert key is not None
             setattr(self, key, con)
+        return con_data
 
-        return con.data
-
-    def set_outputs(self, *args: str | Connection, **kwargs: str | Connection) -> None:
-        if self.parent is not None:
-            raise Exception("Child model's outputs cannot be set.")
-        # Convert all args and kwargs to tuple.
-        # Convert all args and kwargs to tuple.
-        pairs = tuple([(None, arg) for arg in args]) + tuple(kwargs.items())
-
-        for pair in pairs:
-            new_name, name = pair
-            metadata = self.conns.extract_metadata(name)
-
-            # Check the connection is valid.
-            if (conn_data := self.conns.get_con_by_metadata(metadata)) is None:
-                raise KeyError("Requires valid key or Connection to set output!")
-
-            # Check if given metadata is already an output.
-            if conn_data in self.conns.output_connections:
-                raise KeyError(f"'{conn_data.key}' key is already set as output!")
-
-            if conn_data in self.conns.input_connections:
-                raise KeyError("Input of the overall model cannot be set as output.")
-
-            # Autogenerated keys can not be set directly as output without a name.
-            if new_name is None and conn_data.key.startswith("$"):
-                raise KeyError(
-                    "Autogenerated keys can only be set as output if"
-                    " a name is provided for the connection as keyworded argument."
-                )
-
-            if new_name is None:  # Non-named connections.
-                # Set connection as output and update dependency map.
-                self.conns.set_connection_type(conn_data, KeyType.OUTPUT)
-                self.dependency_map.update_globals(OrderedSet({conn_data}))
-
-            else:  # Named connections.
-                # Create new output connection with given key name.
-                # TODO: Update here to use directly set_name method of Connections class
-                # after it is implemented.
-                edge = IOHyperEdge(metadata.edge_type)
-
-                new_conn = self.create_connection(edge, new_name)
-
-                # Set connection as output and update dependency map.
-                self.conns.set_connection_type(new_conn, KeyType.OUTPUT)
-
-                # Merge new_conn with given connection.
-                self.merge_connections(new_conn, conn_data)
-
-    def _set_formula_key(self, formula_key: str) -> None:
-        self.formula_key = formula_key
-
-    def _check_multi_write(
-        self,
-        local_input: bool,
-        local_connection: ConnectionData,
-        connection: ConnectionData,
-    ) -> None:
-        conn_is_output = (
-            self.dependency_map.local_output_dependency_map.get(connection, None)
-            is not None
-        )
-        if local_connection.key in self.conns.all and connection.key in self.conns.all:
-            local_conn_is_output = (
-                self.dependency_map.local_output_dependency_map.get(
-                    local_connection, None
-                )
-                is not None
-            )
-            if (
-                conn_is_output
-                and local_conn_is_output
-                and local_connection.key != connection.key
-            ):
-                # Check if 2 connections are part of main model. If it is the case,
-                # We expect at least one of them is not an input of the main model,
-                # otherwise condition is Multi-write error
-                raise Exception(
-                    "Given connections are both output connections. Multi-write error!"
-                )
-
-        local_val = local_connection.metadata.value
-        global_val = connection.metadata.value
-
-        if conn_is_output and not local_input:
-            # Check if 2 connections are both output of any models.
-            raise Exception(
-                "Given connections are both output connections. Multi-write error!"
-            )
-        elif (
-            local_input
-            and local_val is not TBD
-            # and global_val is not TBD
-            and conn_is_output
-            and global_val != local_val
-        ):
-            raise ValueError(
-                "An input of the extending model tries to write "
-                "to an output connection in the extended model. "
-                "Multi-write error!"
-            )
-        elif not local_input and global_val is not TBD and local_val != global_val:
-            raise ValueError(
-                "A valued connection of the extended model tries to write "
-                "to an output connection of the extending model. "
-                "Multi-write error!"
-            )
-
-    def _convert_to_iokey(
+    # TODO: Refactor _convert_to_base_key / _unroll_template relation.
+    def _convert_to_base_key(
         self, model: BaseModel, key: str, connection: ConnectionType
-    ) -> IOKey:
+    ) -> BaseKey | ConnectionData | MainValueInstance | NullConnection | str:
         local_connection = model.conns.get_connection(key)
         assert local_connection is not None, "Connection is not found!"
+        _connection: BaseKey | ConnectionData | MainValueInstance | NullConnection | str
         match connection:
-            case NullConnection():
-                _connection = IOKey()
-            case str():
-                _connection = IOKey(name=connection)
             case Connection():
-                _connection = IOKey(connections={connection})
+                _connection = connection.data
             case ExtendTemplate():
                 # Unroll ExtendTemplate
                 con_data = self._unroll_template(connection)
-                _connection = IOKey(connections={con_data.conn}, expose=False)
-            case _ if isinstance(connection, MainValueInstance | Tensor):
+                _connection = BaseKey(connections={con_data}, expose=False)
+            case _ if isinstance(
+                connection, MainValueInstance | Tensor
+            ) and not isinstance(connection, str):
                 # find_dominant_type returns the dominant type in a container.
                 # If a container has a value of type Connection or ExtendTemplate
                 # we add necessary models.
                 if isinstance(connection, tuple | list) and find_dominant_type(
                     connection, raise_error=False
                 ) in [ConnectionData, ExtendTemplate, Connection, IOKey]:
-                    kwargs = {
-                        f"input{idx + 1}": item for idx, item in enumerate(connection)
-                    }
                     connection_model = (
-                        ToTuple if isinstance(connection, tuple) else ToList
+                        ToTupleOp if isinstance(connection, tuple) else ToListOp
                     )
+                    kwargs = {  # TODO: Refactor this part. We do not send model, key!
+                        f"input{idx + 1}": self._convert_to_base_key(model, key, item)
+                        for idx, item in enumerate(connection)
+                    }
+
                     conv_model = connection_model(n=len(connection))
                     self.extend(conv_model, **kwargs)
 
                     result = conv_model.conns.get_connection("output")
                     assert result is not None
-                    _connection = IOKey(connections={result.conn}, expose=None)
+                    _connection = BaseKey(connections={result}, expose=None)
                 else:
                     assert isinstance(connection, MainValueInstance | Tensor)
-                    _connection = IOKey(value=connection)
+                    _connection = BaseKey(value=connection)
             case IOKey():
                 expose = connection.expose
                 name = connection.name
@@ -336,7 +576,7 @@ class Model(BaseModel):
                     and connection.connections == set()
                 ):
                     expose = True
-                _connection = IOKey(
+                _connection = BaseKey(
                     name=name,
                     expose=expose,
                     connections=connection.connections,
@@ -344,181 +584,38 @@ class Model(BaseModel):
                     shape=connection.data.shape,
                     value=connection.data.value,
                 )
+            case _:
+                _connection = connection  # type: ignore
+        if (
+            isinstance(_connection, BaseKey)
+            and _connection.name is not None
+            and len(_connection.connections) > 0
+        ):
+            initial_conn = next(iter(_connection.connections))
+            if isinstance(initial_conn, str):
+                _initial_conn = self.conns.get_connection(initial_conn)
+            else:
+                _initial_conn = self.conns.get_con_by_metadata(initial_conn.metadata)
+            assert isinstance(_initial_conn, ConnectionData)
+            self.update_key_name(_initial_conn, _connection.name)
+            _connection.connections.remove(initial_conn)
+            _connection.connections.add(_initial_conn)
 
         return _connection
 
     def update_key_name(self, connection: ConnectionData, key: str) -> None:
+        con_data = self.conns.get_extracted_connection(connection)
         for key_type in KeyType:
             key_dict = self.conns._connection_dict[key_type]
-            if key_dict.get(connection.key) is not None:
-                key_dict[key] = key_dict.pop(connection.conn.key)
-                # Update connection key
-                connection.key = key
-                connection.is_key_autogenerated = False
-                connection.metadata.key_origin = key
-                setattr(self, key, connection.conn)
+            if key_dict.get(con_data.key) is not None:
+                conn = self.connection_map[con_data]
+                key_dict[key] = key_dict.pop(con_data.key)
+                # Update con_data key
+                con_data.key = key
+                con_data.is_key_autogenerated = False
+                con_data.metadata.key_origin = key
+                setattr(self, key, conn)
                 break
-
-    def _add_connection(
-        self,
-        model: BaseModel,
-        local_key: str,
-        given_connection: IOKey,
-        updates: Updates,
-    ) -> tuple[ConnectionData, Updates]:
-        is_input = local_key in model.input_keys
-        local_connection = model.conns.get_connection(local_key)
-        assert local_connection is not None, "Connection is not found!"
-        is_not_valued = local_connection.metadata.value is TBD
-
-        d_map = self.dependency_map.local_output_dependency_map
-        expose = given_connection.expose
-        outer_key = given_connection.name
-        con_obj = None
-        set_value: (
-            ToBeDetermined | str | ScalarValueType | Tensor[Any] | NullConnection
-        ) = NOT_GIVEN
-        if given_connection.data.value is not TBD:
-            set_value = given_connection.data.value
-
-        if given_connection.connections == set():
-            if outer_key is not None:
-                con_obj = self.conns.get_connection(outer_key)
-            if outer_key is None or con_obj is None:
-                if expose is None and is_input and is_not_valued:
-                    expose = True
-                con_obj = self.create_connection(local_connection.metadata, outer_key)
-            if (
-                expose is False
-                and is_input
-                and set_value is NOT_GIVEN
-                and local_connection.metadata.value is TBD
-                and (con_obj is None or con_obj not in d_map)
-            ):
-                raise ValueError(
-                    "Expose flag cannot be false when "
-                    "no value is provided for input keys!"
-                )
-        else:
-            initial_conn: ConnectionData
-            for idx, conn in enumerate(given_connection.connections):
-                if isinstance(conn, str):
-                    _conn = self.conns.get_connection(conn)
-                else:
-                    _conn = self.conns.get_con_by_metadata(conn.data.metadata)
-                    if conn.data in model.conns.all.values():
-                        raise ValueError(
-                            f"Given connection '{conn.data.key}' should not "
-                            "belong to the extending model!"
-                        )
-
-                if not isinstance(_conn, ConnectionData):
-                    raise KeyError("Requires accessible connection to be processed!")
-                if idx == 0:
-                    initial_conn = _conn
-                    if outer_key is not None:
-                        self.update_key_name(initial_conn, outer_key)
-                else:
-                    if _conn in d_map:
-                        if initial_conn in d_map:
-                            raise KeyError(
-                                "IOKey object can not have more than one output "
-                                "connection. Multi-write error!"
-                            )
-                        initial_conn, _conn = _conn, initial_conn
-                    if (
-                        not outer_key
-                        and not initial_conn.is_key_autogenerated
-                        and not _conn.is_key_autogenerated
-                    ):
-                        raise KeyError(
-                            "Requires a connection to have only one unique key "
-                            "name but encountered more!"
-                        )
-                    updates |= self.merge_connections(initial_conn, _conn)
-            if outer_key is None and not initial_conn.is_key_autogenerated:
-                outer_key = initial_conn.key
-            if not outer_key and initial_conn in d_map and expose is True:
-                raise KeyError("Connection without a name cannot be set as output")
-            con_obj = initial_conn
-
-        # Name "input" can only be used for input connections.
-        is_key_name_input = con_obj is not None and (con_key := con_obj.key) == "input"
-        if not is_input and (outer_key == "input" or is_key_name_input):
-            raise KeyError(
-                "The key 'input' is a reserved key which could not be used for "
-                "internal keys."
-            )
-
-        if not is_input and not isinstance(set_value, NullConnection):
-            raise KeyError(
-                f"{local_key} key is an output of the model, output values could "
-                "not be set in extend."
-            )
-
-        # Inherit submodel connections dict
-        self.conns.connections_dict.setdefault(local_connection.metadata, set())
-        self.conns.connections_dict[local_connection.metadata] |= (
-            model.conns.connections_dict.pop(local_connection.metadata, set())
-        )
-
-        # If any value provided, set.
-        assert con_obj is not None
-        if not isinstance(set_value, NullConnection):
-            updates |= con_obj.metadata.set_value(set_value)
-
-        # Check multi-write error for con_obj.
-        self._check_multi_write(is_input, local_connection, con_obj)
-
-        # If match required, perform.
-        if con_obj.metadata != local_connection.metadata:
-            local_key_origin = local_connection.metadata.key_origin
-            updates |= self._match_hyper_edges(
-                con_obj.metadata, local_connection.metadata
-            )
-            # If local_connection is an output of the model,
-            # update con_obj "key_origin" with local_connection's key_origin.
-            if (
-                not is_input
-                and outer_key not in self.conns.output_keys
-                or con_obj.metadata.key_origin is None
-            ):
-                con_obj.metadata.key_origin = local_key_origin
-
-        unexposed = not (expose or (is_input and con_key in self.conns.io_keys))
-        if unexposed:
-            if is_input:
-                key_type = (KeyType.LATENT_INPUT, KeyType.INTERNAL)[con_obj in d_map]
-            else:
-                key_type = (KeyType.LATENT_OUTPUT, KeyType.INTERNAL)[con_obj in d_map]
-        else:
-            key_type = (KeyType.OUTPUT, KeyType.INPUT)[
-                is_input and con_obj not in d_map
-            ]
-        if con_obj in d_map:
-            self.conns.couts.discard(con_obj)
-        self.conns.set_connection_type(con_obj, key_type)
-        # Update Canonicals
-        if (
-            local_connection in model.conns.cins
-            and con_obj in self.conns.input_connections
-            and con_obj.metadata.value is TBD
-        ):
-            self.conns.cins.add(con_obj)
-
-        if local_connection in model.conns.couts and (
-            con_obj not in self.dependency_map.local_input_dependency_map
-            or con_obj in self.conns.output_connections
-        ):
-            self.conns.couts.add(con_obj)
-
-        # If any type provided, set using models set_types method
-        # in order to execute constraint solver to propagate type
-        # updates along the model keys.
-        if (set_type := given_connection.data.type) is not None:
-            model.set_types({local_connection.conn: set_type})
-
-        return con_obj, updates
 
     def _unroll_template(self, template: ExtendTemplate) -> ConnectionData:
         if template.output_connection is None:
@@ -527,9 +624,8 @@ class Model(BaseModel):
             # given connections to the model after it is created.
             # If we don't do that, it will throw error because of
             # re-setting a Tensor or Scalar value again in extend.
-            model_type = ops_table[template.model]
             # TODO: Remove all TBD if default init arguments will be moved to call!!!
-            init_fun = model_type.__init__
+            init_fun = template.model.__init__
 
             # "self" argument is common for all models, Exclude it by
             # starting co_varnames from 1st index.
@@ -541,22 +637,14 @@ class Model(BaseModel):
             default_args_dict.pop("name", None)
 
             # TODO: Reconsider type ignore!
-            model: PrimitiveModel = model_type(**default_args_dict)  # type: ignore
-            connections: list[ConnectionType] = []
-            for connection in template.connections:
-                if isinstance(connection, ExtendTemplate):
-                    connections.append(self._unroll_template(connection).conn)
-                else:
-                    assert isinstance(
-                        connection, ConnectionInstanceType
-                    )  # TODO: check if needed
-                    connections.append(connection)
+            model: PrimitiveModel = template.model(**default_args_dict)  # type: ignore
+
             self.extend(
                 model,
                 **{
-                    local_key: outer_con
+                    local_key: self._convert_to_base_key(model, local_key, outer_con)  # type: ignore
                     for local_key, outer_con in zip(
-                        model.input_keys, connections, strict=False
+                        model.input_keys, template.connections, strict=False
                     )
                 },
             )
@@ -564,184 +652,6 @@ class Model(BaseModel):
             template.output_connection = model.conns.get_connection("output")
             assert template.output_connection is not None
         return template.output_connection
-
-    def merge_connections(
-        self, connection1: ConnectionData, connection2: ConnectionData
-    ) -> Updates:
-        # This method is used if there is 2 Connection objects to represent same Edge.
-        # In this case, connection2 is updated with connection1's data and it is removed
-        # from dag, dependency_map, self attribute (if exists) and Connections object.
-
-        # TODO: Check multi-write error for Connect type.
-
-        main_connection1 = self.conns.get_con_by_metadata(connection1.metadata)
-        main_connection2 = self.conns.get_con_by_metadata(connection2.metadata)
-
-        if (
-            main_connection1 is None
-            or main_connection2 is None
-            or main_connection1 == main_connection2
-        ):
-            return Updates()
-
-        # Remove main_connection2 from connections dict
-        con1_key = main_connection1.key
-
-        if connection2 in self.conns.output_connections:
-            if con1_key not in self.conns.output_keys:
-                self.conns.set_connection_type(connection1, KeyType.OUTPUT)
-            if con1_key in self.input_keys:
-                self.conns.set_connection_type(main_connection1, KeyType.INTERNAL)
-        elif (
-            main_connection2 in self.conns.internal_connections
-            and con1_key in self.input_keys
-        ):
-            self.conns.set_connection_type(main_connection1, KeyType.INTERNAL)
-
-        # Switch all connection2 objects with connection1 object in current dag.
-        for m, m_info in self.dag.items():
-            local_conns = m.conns.get_cons_by_metadata(main_connection2.metadata)
-            if local_conns is None:
-                continue
-
-            for local_conn in local_conns:
-                if m_info.get(local_conn.key) is not None:
-                    self.dag[m][local_conn.key] = main_connection1
-
-        # Update dependecy map, we need to update only local maps
-        for (
-            o_conn,
-            key_info,
-        ) in self.dependency_map.local_output_dependency_map.items():
-            if main_connection2 in key_info[1]:
-                self.dependency_map.local_output_dependency_map[o_conn][1].remove(
-                    main_connection2
-                )
-                self.dependency_map.local_output_dependency_map[o_conn][1].add(
-                    main_connection1
-                )
-
-        if main_connection2 in self.dependency_map.local_output_dependency_map:
-            self.dependency_map.local_output_dependency_map[main_connection1] = (
-                self.dependency_map.local_output_dependency_map.pop(main_connection2)
-            )
-
-        if main_connection2 in self.dependency_map.local_input_dependency_map:
-            old_dependencies = self.dependency_map.local_input_dependency_map.pop(
-                main_connection2
-            )
-            self.dependency_map.local_input_dependency_map.setdefault(
-                main_connection1, old_dependencies
-            )
-            for dependecy in old_dependencies:
-                if (
-                    dependecy
-                    not in self.dependency_map.local_input_dependency_map[
-                        main_connection1
-                    ]
-                ):
-                    self.dependency_map.local_input_dependency_map[
-                        main_connection1
-                    ].append(dependecy)
-
-        self.dependency_map.merge_global_connections(main_connection1, main_connection2)
-        self.dependency_map.merge_global_caches(main_connection1, main_connection2)
-        updates = self._match_hyper_edges(
-            main_connection1.metadata, main_connection2.metadata
-        )
-
-        self.conns.remove_connection(main_connection2)
-
-        main_connection2.key = main_connection1.key
-        main_connection2.is_key_autogenerated = main_connection1.is_key_autogenerated
-        return updates
-
-    def extend(
-        self,
-        model: Model | PrimitiveModel | BaseModel,
-        **kwargs: ConnectionType,
-    ) -> None:
-        # Check possible errors before the extension.
-        model.check_extendability()
-        if self.parent is not None:
-            raise AttributeError("Child model could not be re-extended!")
-        if self == model:
-            raise KeyError("Model can not extend with itself!")
-        if self._enforce_jit and not model.jittable:
-            raise Exception(
-                "Model with enforced Jit can not be extended by a non-jittable model! \
-                            Jit can be unforced by setting enforce_jit = False"
-            )
-        if model.name is not None:
-            # TODO: We could store model names in a set to check if it is unique.
-            for m in self.dag:
-                if m.name == model.name:
-                    raise KeyError(f"Model already has a submodel named {model.name}.")
-
-        model.parent = self
-        # Freeze the model.
-        model._freeze()
-
-        updates = Updates()
-
-        shape_info: dict[str, ShapeTemplateType] = {}
-        type_info: dict[
-            str,
-            type | UnionType | ScalarType | type[Tensor[Any]],
-        ] = {}
-
-        submodel_dag: dict[str, ConnectionData] = {}
-        updates = self.constraint_solver.match(model.constraint_solver)
-
-        # Add canonical output if it is not in external_keys
-        external_keys = list(model.external_keys)
-        external_keys += [
-            item.key for item in model.conns.couts if item.key not in external_keys
-        ]
-
-        io_keys: dict[str, IOKey] = {
-            key: self._convert_to_iokey(model, key, kwargs.get(key, NOT_GIVEN))
-            for key in external_keys
-        }
-
-        for local_key, value in io_keys.items():
-            if value.data.shape is not None:
-                shape_info |= {local_key: value.data.shape}
-
-            if value.data.type is not None:
-                type_info[local_key] = value.data.type
-
-            con_obj, _updates = self._add_connection(model, local_key, value, updates)
-            updates |= _updates
-            submodel_dag[local_key] = con_obj
-            if con_obj.metadata.edge_type is Tensor:
-                updates.shape_updates.add(con_obj.metadata)
-
-        # Replace shape info keys, which are local keys, with global equivalents.
-        shape_info = {
-            submodel_dag[key].key: template for key, template in shape_info.items()
-        }
-        type_info = {
-            submodel_dag[key].key: template for key, template in type_info.items()
-        }
-
-        # Set given shapes.
-        self._set_shapes(
-            shape_info,
-            updates=updates,
-        )  # TODO: Should "trace" be set to True?.
-
-        model.constraint_solver.clear()
-        model.conns.connections_dict = {}
-
-        # Insert to self dag as a FrozenDict.""
-        # Since we update dag in merge_connections, we could not use FrozenDict.
-        self.dag[model] = model_dag = submodel_dag
-
-        self.dependency_map.add_model_dag(model, model_dag)
-
-        # Update jittablity by using model's jittablity.
-        self._jittable &= model.jittable
 
     def _extend(self, model: BaseModel, kwargs: dict[str, ConnectionType]) -> Self:
         if self.is_frozen:
@@ -763,10 +673,40 @@ class Model(BaseModel):
                 else:
                     kwargs[key] = _value
 
-        self.extend(model, **kwargs)
+        # Add canonical output if it is not in external_keys
+        external_keys = list(model.external_keys)
+        external_keys += [
+            item.key for item in model.conns.couts if item.key not in external_keys
+        ]
+
+        kwargs = {
+            key: self._convert_to_base_key(model, key, kwargs.get(key, NOT_GIVEN))  # type: ignore
+            for key in external_keys
+        }
+        self.extend(model, **kwargs)  # type: ignore
         return self
 
-    def __add__(self, info: ExtendInfo | BaseModel) -> Self:
+    @property
+    def cout(self) -> Connection:
+        return self.connection_map[self._cout]
+
+    @property
+    def cin(self) -> Connection:
+        return self.connection_map[self._cin]
+
+    def set_cin(self, *connections: str | Connection, safe: bool = True) -> None:
+        data: list[str | ConnectionData] = [
+            item if isinstance(item, str) else item.data for item in connections
+        ]
+        self._set_cin(*data, safe=safe)
+
+    def set_cout(self, *connections: str | Connection, safe: bool = True) -> None:
+        data: list[str | ConnectionData] = [
+            item if isinstance(item, str) else item.data for item in connections
+        ]
+        self._set_cout(*data, safe=safe)
+
+    def __add__(self, info: ExtendInfo | Model) -> Self:
         # TODO: Check if info is a valid info for canonical connections.
         # TODO: Add canonical connection information to info.
         if isinstance(info, BaseModel):
@@ -790,227 +730,101 @@ class Model(BaseModel):
 
     __iadd__ = __add__
 
-    def __or__(self, info: ExtendInfo | BaseModel) -> Self:
+    def __or__(self, info: ExtendInfo | Model) -> Self:
         # TODO: Check if info is a valid info for extend.
-        if isinstance(info, BaseModel):
+        if isinstance(info, Model):
             info = info()
         return self._extend(info.model, info.connections)
 
     __ior__ = __or__
 
-    @staticmethod
-    def _update_key_name(
-        new_key: str,
-        underscored_keys: set[str],
-        raw_keys: dict[str, list[str]],
-        key_mappings: dict[str, str],
-        key_origin: str,
-        input_set: set[str],
-    ) -> tuple[str, str]:
-        # Add underscore if generated key name exists in input keys
-        key_prefix = "_"
-        # check any of key_prefix + raw_keys[key_origin] in input keys
-        flag = True
-        while flag:
-            flag = False
-            for item in raw_keys[key_origin]:
-                if key_prefix + key_mappings[item] in input_set | set(
-                    key_mappings.values()
-                ):
-                    key_prefix += "_"
-                    flag = True
+    ShapeType = (
+        Mapping[str | Connection, ShapeTemplateType]
+        | Mapping[str, ShapeTemplateType]
+        | Mapping[Connection, ShapeTemplateType]
+    )
 
-        new_key = key_prefix + new_key
-        underscored_keys.add(key_origin)
-        # Update same origin key names that has been previously added.
-        for raw_key in raw_keys[key_origin]:
-            key_mappings[raw_key] = key_prefix + key_mappings[raw_key]
-        raw_keys[key_prefix + key_origin] = raw_keys.pop(key_origin)
-        key_origin = key_prefix + key_origin
-        return new_key, key_origin
+    def set_shapes(
+        self, config: ShapeType | None = None, **kwargs: ShapeTemplateType
+    ) -> None:
+        if config is None:
+            config = {}
+        _config: dict[str | ConnectionData, ShapeTemplateType] = {
+            key.data if isinstance(key, Connection) else key: value
+            for key, value in config.items()
+        }
+        self._set_shapes(_config, trace=True, updates=None, **kwargs)
 
-    def generate_keys(
+    def set_values(
         self,
-        symbolic: bool = True,
-        include_internals: bool = True,
-        include_outputs: bool = False,
-    ) -> dict[str, str]:
-        key_mappings: dict[str, str] = {}
-        raw_keys: dict[str, list[str]] = {}
-        underscored_keys = set[str]()
+        config: Mapping[str | Connection, Tensor[Any] | MainValueType | str]
+        | Mapping[Connection, Tensor[Any] | MainValueType | str]
+        | Mapping[str, Tensor[Any] | MainValueType | str]
+        | None = None,
+        **kwargs: Tensor[Any] | MainValueType | str,
+    ) -> None:
+        if config is None:
+            config = {}
+        _config: dict[str | ConnectionData, Tensor[Any] | MainValueType | str] = {
+            key if isinstance(key, str) else key.data: value
+            for key, value in config.items()
+        }
+        self._set_values(_config, **kwargs)
 
-        if include_outputs:
-            input_set = set(self.external_keys)
-            keys = "external_keys"
-        else:
-            input_set = set(self.input_keys)
-            keys = "input_keys"
-
-        sorted_inputs = [
-            self.dag[m][key].key
-            for m in self.get_models_in_topological_order()
-            for key in getattr(m, keys)
-            if self.dag[m][key].key in input_set
+    def set_types(
+        self,
+        config: Mapping[
+            str | Connection,
+            type | UnionType | ScalarType | type[Tensor[Any]],
         ]
-        # TODO: remove duplicate loop traverse
-        for key in sorted_inputs:
-            new_key = key
-            if key[0] != "$":
-                continue
-            # TODO: Discuss if we want to generate input key only
-            # if len(self.conns.cins) == 1, or we could name all canonical inputs.
-            if (
-                len(self.conns.cins) == 1
-                and key == self.cin.key
-                and "input" not in self.input_keys
-            ):
-                # Handle canonical input
-                new_key = "input"
-            else:
-                key_origin = self.conns.get_key_origin(key)
-                assert key_origin is not None
-                # Add prefix until key_origin not in underscored_keys and input_keys.
-                while (
-                    key_origin in (underscored_keys | self.input_keys)
-                    or key_origin == "input"
-                ):
-                    key_origin = "_" + key_origin
+        | Mapping[
+            Connection,
+            type | UnionType | ScalarType | type[Tensor[Any]],
+        ]
+        | Mapping[
+            str,
+            type | UnionType | ScalarType | type[Tensor[Any]],
+        ]
+        | None = None,
+        **kwargs: type | UnionType | ScalarType | type[Tensor[Any]],
+    ) -> None:
+        """
+        Set types of any connection in the Model
 
-                raw_keys.setdefault(key_origin, [])
-                key_idx = len(raw_keys[key_origin])
-                if key_idx == 0:
-                    # Set key origin as is for the initial key.
-                    key_suffix = ""
-                else:
-                    key_suffix = "_" + str(key_idx)
-                    if key_idx == 1:
-                        # Update initial key if same key origin is encountered
-                        # (add index to initial key).
-                        raw_key = raw_keys[key_origin][0]
-                        key_mappings[raw_key] = key_mappings[raw_key] + "_0"
-                        if key_mappings[raw_key] in self.input_keys:
-                            new_key, key_origin = self._update_key_name(
-                                new_key,
-                                underscored_keys,
-                                raw_keys,
-                                key_mappings,
-                                key_origin,
-                                set(self.input_keys),
-                            )
+        This method updates types in given connections.
+        connections can be given either as Connection or their string
+        equivalent. Giving a valid type for given connections, this method
+        will update the connections's types and thereafter runs the
+        constraints to update affected connections' types.
 
-                new_key = key_origin + key_suffix
-                if new_key in self.input_keys:
-                    new_key, key_origin = self._update_key_name(
-                        new_key,
-                        underscored_keys,
-                        raw_keys,
-                        key_mappings,
-                        key_origin,
-                        set(self.input_keys),
-                    )
-                raw_keys[key_origin].append(key)
-            key_mappings[key] = new_key
+        Args:
+            values (dict[str | Connection, MainValueType]): A dictionary where
+            keys are either strings or Connection objects, and values are
+            of type of type or UnionType objects.
 
-        if include_internals:
-            sorted_models = self.get_models_in_topological_order()
-            internal_key_mappings: dict[str, str] = {}
-            for idx, m in enumerate(sorted_models):
-                for key in m.external_keys:
-                    outer_conn = self.dag[m][key]
-                    outer_key = outer_conn.key
-                    if outer_key[0] == "$":
-                        # if key is autogenerated, generate a name for the key
-                        model_name = m.__class__.__name__
-                        key_origin = outer_conn.metadata.key_origin
-                        assert key_origin is not None
+        """
+        if config is None:
+            config = {}
+        _config: dict[
+            str | ConnectionData, type | UnionType | ScalarType | type[Tensor[Any]]
+        ] = {
+            key if isinstance(key, str) else key.data: value
+            for key, value in config.items()
+        }
+        self._set_types(_config, **kwargs)
 
-                        generated_name = (
-                            "_" + model_name + "_" + str(idx) + "_" + key_origin
-                        )
+    def set_outputs(self, *args: str | Connection, **kwargs: str | Connection) -> None:
+        _args: list[str | ConnectionData] = [
+            key if isinstance(key, str) else key.data for key in args
+        ]
+        _kwargs: dict[str, str | ConnectionData] = {
+            key: value if isinstance(value, str) else value.data
+            for key, value in kwargs.items()
+        }
+        self._set_outputs(*_args, **_kwargs)
 
-                        # if key is an output key, directly write it
-                        # to the internal_key_mappings
-                        # or
-                        # if key is an input key, first check if the key
-                        # is already in internal_key mappings to avoid
-                        # overwrite
-                        write_to_internal_key_mappings = (
-                            key in m.conns.output_keys
-                            or internal_key_mappings.get(
-                                outer_key, key_mappings.get(outer_key)
-                            )
-                            is None
-                        )
-
-                        while (
-                            generated_name in internal_key_mappings.values()
-                            and write_to_internal_key_mappings
-                        ):
-                            assert key_origin is not None
-                            key_origin = "_" + key_origin
-                            generated_name = (
-                                "_" + model_name + "_" + str(idx) + "_" + key_origin
-                            )
-
-                        if write_to_internal_key_mappings:
-                            internal_key_mappings[outer_key] = generated_name
-
-            key_mappings = internal_key_mappings | key_mappings
-        if symbolic:
-            key_mappings = {key: "$" + value for key, value in key_mappings.items()}
-        return key_mappings
-
-    def get_unique_submodel_names(self) -> dict[BaseModel, str]:
-        name_mapping: dict[BaseModel, str] = {}
-        existing_names: set[str] = set()
-        model_type_dict: dict[str, list[BaseModel]] = {}
-
-        # First, assign existing names and track used names.
-        # Also save unnamed models to model_type_dict.
-        for model in self.dag:
-            if model.name:
-                name_mapping[model] = model.name
-                existing_names.add(model.name)
-            else:
-                model_type_dict.setdefault(model.__class__.__name__, []).append(model)
-
-        # Iterate over different model types among unnamed models.
-        for model_type, model_list in model_type_dict.items():
-            counter = 0
-            # Iterate over same class model objects to name them.
-            for i, model in enumerate(model_list):
-                if len(model_list) == 1:
-                    # If there is only one model of a type, do not increment counter.
-                    counter -= 1
-                    name = model_type
-                else:
-                    name = f"{model_type}_{counter + i}"
-                while name in existing_names:
-                    counter += 1  # counter is incremented until a unique name is found.
-                    name = f"{model_type}_{counter + i}"
-                name_mapping[model] = name
-                existing_names.add(name)
-        return name_mapping
-
-    def _freeze(self) -> None:
-        for cout in self.conns.couts:
-            self.conns.set_connection_type(cout, KeyType.OUTPUT, safe=False)
-        self.dependency_map.update_all_keys()
-
-        # Name unnamed submodels before freezing considering the insertion order.
-        model_names = self.get_unique_submodel_names()
-        for m in self.dag:
-            if m.name is None:
-                m.name = model_names[m]
-
-        if self.formula_key is not None:
-            # Must be convertable to primitive.
-            assert len(self.conns.output_keys) == 1, (
-                "Logical models have altenative primitive implementation must "
-                "have only 1 output."
-            )
-        super()._freeze()
-
+    # TODO: Update summary, this should work same with both
+    # Logical Model and PrimitiveModel
     def summary(
         self,
         shapes: bool = True,
@@ -1022,6 +836,48 @@ class Model(BaseModel):
         var_cache: dict[Variadic, str] | None = None,
         depth: int = 0,
     ) -> None:
+        self_name = self.class_name
+        if self.is_primitive:
+            if uni_cache is None:
+                uni_cache = {}
+            if var_cache is None:
+                var_cache = {}
+
+            _type_info = None
+            shape_info = None
+            name_mappings: dict[BaseModel, str] = {self: name if name else self_name}
+            # extract model topology
+            conn_info = self.extract_connection_info(name_mappings)
+
+            model_shapes = {
+                sub_model_name: sub_model.get_shapes(
+                    uni_cache, var_cache, symbolic, alternative_shapes
+                )
+                for sub_model, sub_model_name in name_mappings.items()
+            }
+            if shapes:
+                # extract model shapes
+                shape_info = get_summary_shapes(model_shapes, conn_info)
+
+            if types:
+                # extract model types
+                _type_info = get_summary_types(name_mappings)
+
+            if not name:
+                name = self_name
+
+            # construct the table based on relevant information
+            table = get_summary(
+                conns=conn_info,
+                name=name,
+                shape=shape_info,  # type: ignore
+                types=_type_info,
+            )
+
+            table.compile()
+            table.display()
+            return
+
         if uni_cache is None:
             uni_cache = {}
         if var_cache is None:
@@ -1051,7 +907,7 @@ class Model(BaseModel):
 
         # TODO: Remove name argument from summary method
         if not name and (name := self.name) is None:
-            name = self.__class__.__name__
+            name = self_name
 
         # construct the table based on relevant information
         table = get_summary(
@@ -1076,151 +932,31 @@ class Model(BaseModel):
                     "var_cache": var_cache,
                     "types": types,
                 }
-                if isinstance(model, PrimitiveModel):
+                if model.is_primitive:
                     kwargs.pop("depth")
-                model.summary(**kwargs)
+                model.summary(**kwargs)  # type: ignore
 
-    def extract_connection_info(
-        self,
-        name_mappings: dict[BaseModel, str],
-        data_to_key_map: dict[IOHyperEdge, list[str]] | None = None,
-        data_memo: Mapping[int, IOHyperEdge] | None = None,
-    ) -> dict[str, tuple[dict[str, list[str]], dict[str, list[str]]]]:
-        conn_info: dict[str, tuple[dict[str, list[str]], dict[str, list[str]]]] = {}
-        if self.input_keys:
-            if data_to_key_map is None:
-                data_to_key_map = {}
-            if data_memo is None:
-                data_memo = {}
-            model_key_map: dict[BaseModel, dict[str, str]] = {}
 
-            # handle the case when model is constructed with += operation. In that case,
-            # directly take canonical output as the output_key.
+def define_unique_names(
+    models: list[BaseModel] | dict[BaseModel, Any],
+) -> dict[BaseModel, str]:
+    # TODO: Move this to Physical model (currently it is only used there)
+    # TODO: Also add short-naming logic to this function
+    model_name_dict = {}
+    single_model_dict = {}
+    model_count_dict: dict[str, int] = {}
 
-            # TODO: We may expose all canonical outputs for summary instead of
-            # checking only len(self.conns.couts) == 1.
-            output_keys = (
-                ([self.cout.key] if len(self.conns.couts) == 1 else [])
-                if not self.conns.output_keys
-                else self.conns.output_keys
-            )
-            # extract key mappings and data map of outer model
-            key_mappings = self.generate_keys(
-                include_internals=False, include_outputs=True
-            )
-            data_map = {key: conn.metadata for key, conn in self.conns.all.items()}
+    for model in models:
+        class_name = model.class_name
+        if model_count_dict.setdefault(class_name, 0) == 0:
+            single_model_dict[class_name] = model
+        else:
+            single_model_dict.pop(class_name, None)
+        model_name_dict[model] = (
+            str(class_name) + "_" + str(model_count_dict[class_name])
+        )
+        model_count_dict[class_name] += 1
 
-            # Sort in topological order
-            sorted_models = self.get_models_in_topological_order()
-
-            for model in sorted_models:
-                model_name = name_mappings[model]
-                m_info = self.dag[model]
-                # set default structure of conn_info and shape_info
-                conns = conn_info.setdefault(model_name, ({}, {}))
-                # include input keys with Tensor value
-                input_keys = tuple(model.input_keys)
-                # Generate sub_model key_map and data map
-                model_key_map[model] = m_key_mappings = model.generate_keys(
-                    include_internals=False, include_outputs=True
-                )
-                m_data_map = {
-                    key: conn.metadata for key, conn in model.conns.all.items()
-                }
-                for inner_key in input_keys + tuple(model.conns.output_keys):
-                    # Find the data of the key, if data memo is given, extract its
-                    # copied version and extract the shapes
-                    key_data = data_memo.get(
-                        id(m_data_map[inner_key]), m_data_map[inner_key]
-                    )
-
-                    # Find inner and outer keys. Also find their updated version based
-                    # on their key mappings
-                    updated_inner_key = m_key_mappings.get(inner_key, inner_key)
-                    outer_conn = m_info[inner_key]
-                    outer_key = outer_conn.key
-                    updated_outer_key = data_to_key_map.get(
-                        key_data, [key_mappings.get(outer_key, outer_key)]
-                    )
-
-                    # take and setdefault connection list in which update will be done
-                    conn = conns[inner_key in model.conns.output_keys].setdefault(
-                        updated_inner_key, []
-                    )
-                    if inner_key not in input_keys:
-                        continue
-
-                    if (val := key_data.value) is not TBD:
-                        conn.append(str(val))
-
-                    elif outer_key in self.input_keys:
-                        # If outer_key in input_keys of overall model, it means
-                        # the input key is overall input to the model. Do the
-                        # updates accordingly
-                        input_name = ["'" + key + "'" for key in updated_outer_key]
-                        conn.extend(input_name)
-                    else:
-                        # if input_key is not in self.input_keys, that means this
-                        # input key connected to a model and it is an internal
-                        # connection. Find the connected model and do the intializations
-                        con_model = self.dependency_map.local_output_dependency_map[
-                            outer_conn
-                        ][0]
-                        con_generated_keys = model_key_map.setdefault(
-                            con_model,
-                            con_model.generate_keys(
-                                include_internals=False, include_outputs=True
-                            ),
-                        )
-                        conn_info.setdefault(name_mappings[con_model], ({}, {}))
-                        model_conn = m_info[inner_key]
-                        con = con_model.conns.get_con_by_metadata(model_conn.metadata)
-                        assert con is not None, "Connection is not found"
-                        con_key = con.key
-
-                        con_key = con_generated_keys.get(con_key, con_key)
-                        # Since being internal key means having two sided connection,
-                        # Two updates on conn_info dict needs to be done. one for
-                        # model's input key and other for connected_model's output
-                        # key. do the updates accordingly.
-                        conn_info[model_name][0].setdefault(
-                            updated_inner_key, []
-                        ).append(name_mappings[con_model] + "." + con_key)
-                        conn_info[name_mappings[con_model]][1].setdefault(
-                            con_key, []
-                        ).append(model_name + "." + updated_inner_key)
-
-            for outer_key in output_keys:
-                # Lastly, traverse through output keys of the overall model
-                # Find the connected model, and find the inner key by finding
-                # the metadata
-                metadata = self.conns.get_metadata(outer_key)
-                outer_out_conn = self.conns.get_connection(outer_key)
-
-                assert metadata is not None, "Metadata is not found!"
-                assert outer_out_conn is not None, "Connection is not found"
-
-                model = self.dependency_map.local_output_dependency_map[outer_out_conn][
-                    0
-                ]
-                other_conn = model.conns.get_con_by_metadata(metadata)
-                assert other_conn is not None, "Connection is not found"
-
-                inner_key = other_conn.key
-                updated_inner_key = model_key_map[model].get(inner_key, inner_key)
-                key_data = data_memo.get(id(data_map[outer_key]), data_map[outer_key])
-                updated_outer_key = data_to_key_map.get(
-                    key_data, [key_mappings.get(outer_key, outer_key)]
-                )
-                if updated_outer_key[0][0] == "$":
-                    # There is only possibilty of outer key is found to be with $ sign.
-                    # That is, if model is constructed with += operator. In that case,
-                    # canonical output will be external key even if it is not named by
-                    #  user. Therefore, handle the case with dicrectly writing $output
-                    updated_outer_key = ["$output"]
-                model_name = name_mappings[model]
-                conn_info[model_name][1][updated_inner_key].extend(
-                    ["'" + key + "'" for key in updated_outer_key]
-                )
-
-        return conn_info
+    for m in single_model_dict.values():
+        model_name_dict[m] = str(m.class_name)
+    return model_name_dict

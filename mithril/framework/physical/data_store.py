@@ -23,7 +23,6 @@ from ...utils.utils import BiMap
 from ..common import (
     TBD,
     AllValueType,
-    Connection,
     ConstraintSolver,
     DataEvalType,
     IOHyperEdge,
@@ -34,6 +33,7 @@ from ..common import (
     Updates,
     is_type_adjustment_required,
 )
+from ..logical.model import Connection
 from .flat_graph import FlatGraph
 
 
@@ -361,7 +361,7 @@ class StaticDataStore(Generic[DataType]):
                 )
 
                 static_value: DataType | MainValueType
-
+                assert model.formula_key is not None
                 fn = fn_dict[model.formula_key]
 
                 # Orginize args and kwargs

@@ -20,10 +20,11 @@ import torch
 
 import mithril
 from mithril import TorchBackend
-from mithril.framework.common import TBD, IOKey, Tensor, ToBeDetermined
+from mithril.framework.common import TBD, Tensor, ToBeDetermined
 from mithril.models import (
     Add,
     Buffer,
+    IOKey,
     Linear,
     Mean,
     Model,

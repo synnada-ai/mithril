@@ -20,15 +20,17 @@ import torch
 
 import mithril
 from mithril import TorchBackend
-from mithril.framework.common import NOT_GIVEN, ConnectionType, IOKey, Tensor
+from mithril.framework.common import NOT_GIVEN, Tensor
 from mithril.models import (
     AbsoluteError,
     Add,
     Buffer,
     Cell,
+    ConnectionType,
     EncoderDecoder,
     ExtendInfo,
     Indexer,
+    IOKey,
     LSTMCell,
     ManyToOne,
     MatrixMultiply,

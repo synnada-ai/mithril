@@ -18,7 +18,6 @@ from time import perf_counter
 
 from mithril.models import (
     MLP,
-    BaseModel,
     Convolution2D,
     Flatten,
     MaxPool2D,
@@ -84,7 +83,7 @@ def create_compl_conv(
 def create_compl_mlp(
     input_size: int,
     dimensions: Sequence[int | None],
-    activations: list[type[BaseModel]],
+    activations: list[type[Model]],
 ):
     """Mithril's MLP wrapper with input size
 

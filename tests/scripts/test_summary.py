@@ -23,8 +23,6 @@ import mithril
 from mithril import JaxBackend, NumpyBackend, TorchBackend
 from mithril.framework.common import (
     NOT_GIVEN,
-    Connection,
-    IOKey,
     ShapeTemplateType,
     Table,
     Tensor,
@@ -32,7 +30,6 @@ from mithril.framework.common import (
     Variadic,
     get_summary_shapes,
 )
-from mithril.framework.utils import define_unique_names
 from mithril.models import (
     L1,
     L2,
@@ -40,11 +37,13 @@ from mithril.models import (
     Add,
     Buffer,
     Concat,
+    Connection,
     Convolution1D,
     Convolution2D,
     CrossEntropy,
     Divide,
     Flatten,
+    IOKey,
     KernelizedSVM,
     LeakyRelu,
     Linear,
@@ -65,6 +64,7 @@ from mithril.models import (
     Tanh,
     ToTensor,
     TrainModel,
+    define_unique_names,
 )
 
 # TODO: Remove dependency to examples folder (Create a model zoo and include ResNets)!

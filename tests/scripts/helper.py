@@ -229,7 +229,8 @@ def assert_models_equal(model1: BaseModel, model2: BaseModel):
         else:
             assert arg1 == arg2
 
-    if isinstance(model1, Model) and isinstance(model2, Model):
+    # if isinstance(model1, Model) and isinstance(model2, Model):
+    if not model1.is_primitive and not model2.is_primitive:
         assert len(model1.dag) == len(model2.dag)
         for submodel1, submodel2 in zip(
             model1.get_models_in_topological_order(),

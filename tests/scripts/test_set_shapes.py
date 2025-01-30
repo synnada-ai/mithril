@@ -13,8 +13,7 @@
 # limitations under the License.
 
 
-from mithril.framework.common import IOKey
-from mithril.models import Add, Model, Sigmoid
+from mithril.models import Add, IOKey, Model, Sigmoid
 
 from .test_utils import check_shapes_semantically
 

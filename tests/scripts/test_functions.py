@@ -20,7 +20,7 @@ import mithril
 from mithril import CBackend, JaxBackend, NumpyBackend, TorchBackend
 from mithril.backends.with_manualgrad.numpy_backend.ops_grad import add_grad
 from mithril.framework import NOT_GIVEN, ConnectionType, ExtendInfo
-from mithril.framework.common import BaseKey, IOKey, Tensor
+from mithril.framework.common import BaseKey, Tensor
 from mithril.framework.constraints import bcast
 from mithril.models import (
     Absolute,
@@ -32,6 +32,7 @@ from mithril.models import (
     Cosine,
     CrossEntropy,
     Divide,
+    IOKey,
     Layer,
     Linear,
     LinearSVM,
@@ -432,10 +433,10 @@ def test_code_generator_4(file_path: str):
 
     NumpyBackend.register_primitive(my_adder, add_grad)
 
-    class MyAdder(PrimitiveModel):
+    class MyAdder(Model):
         def __init__(self) -> None:
-            super().__init__(
-                formula_key="my_adder",
+            super().__init__(formula_key="my_adder")
+            self._register_base_keys(
                 output=BaseKey(shape=[("Var_out", ...)], type=Tensor),
                 input=BaseKey(shape=[("Var_1", ...)], type=Tensor),
                 rhs=BaseKey(shape=[("Var_2", ...)], type=Tensor),
@@ -545,10 +546,10 @@ def test_code_generator_5(file_path: str):
 
     JaxBackend.register_primitive(my_adder)
 
-    class MyAdder(PrimitiveModel):
+    class MyAdder(Model):
         def __init__(self) -> None:
-            super().__init__(
-                formula_key="my_adder",
+            super().__init__(formula_key="my_adder")
+            self._register_base_keys(
                 output=BaseKey(shape=[("Var_out", ...)], type=Tensor),
                 input=BaseKey(shape=[("Var_1", ...)], type=Tensor),
                 rhs=BaseKey(shape=[("Var_2", ...)], type=Tensor),

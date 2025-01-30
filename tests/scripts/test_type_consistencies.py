@@ -21,7 +21,8 @@ import pytest
 import torch
 
 import mithril
-from mithril.framework.common import NOT_GIVEN, BaseKey, ConnectionType
+from mithril.framework.common import NOT_GIVEN, BaseKey
+from mithril.framework.logical.model import ConnectionType
 from mithril.framework.utils import (
     find_intersection_type,
     find_type,
@@ -37,7 +38,6 @@ from mithril.models import (
     Mean,
     Model,
     Multiply,
-    PrimitiveModel,
     PrimitiveUnion,
     Shape,
     Sigmoid,
@@ -48,10 +48,10 @@ from mithril.utils.utils import find_dominant_type
 from .test_constant_inputs import ReduceMult
 
 
-class Model1(PrimitiveModel):
+class Model1(Model):
     def __init__(self) -> None:
-        super().__init__(
-            formula_key="None",
+        super().__init__(formula_key="None")
+        self._register_base_keys(
             input1=BaseKey(type=tuple[int, ...]),
             input2=BaseKey(type=list[float]),
             output=BaseKey(type=tuple[tuple[int, ...]]),
@@ -67,10 +67,10 @@ class Model1(PrimitiveModel):
         return ExtendInfo(self, kwargs)
 
 
-class Model2(PrimitiveModel):
+class Model2(Model):
     def __init__(self) -> None:
-        super().__init__(
-            formula_key="None",
+        super().__init__(formula_key="None")
+        self._register_base_keys(
             input1=BaseKey(type=int | float),
             input2=BaseKey(type=int | str),
             input3=BaseKey(type=str | float),
@@ -93,10 +93,10 @@ class Model2(PrimitiveModel):
         return ExtendInfo(self, kwargs)
 
 
-class Model3(PrimitiveModel):
+class Model3(Model):
     def __init__(self) -> None:
-        super().__init__(
-            formula_key="None",
+        super().__init__(formula_key="None")
+        self._register_base_keys(
             input1=BaseKey(
                 type=tuple[tuple[int | float, ...], ...]
                 | list[int | float]

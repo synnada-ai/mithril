@@ -20,21 +20,23 @@ from collections.abc import Sequence
 from copy import deepcopy
 from typing import Any
 
-from ..framework import Model
 from ..framework.common import (
     NOT_GIVEN,
     TBD,
-    Connection,
-    ConnectionType,
-    IOKey,
     MainValueType,
     ShapeTemplateType,
     Tensor,
     ToBeDetermined,
 )
 from ..framework.constraints import polynomial_kernel_constraint
-from ..framework.logical.base import BaseModel, ExtendInfo
-from ..framework.logical.essential_primitives import (
+from ..framework.logical.model import (
+    Connection,
+    ConnectionType,
+    ExtendInfo,
+    IOKey,
+    Model,
+)
+from ..framework.logical.user_essential_primitives import (
     Absolute,
     Add,
     ArgMax,
@@ -61,7 +63,6 @@ from ..framework.logical.essential_primitives import (
     Transpose,
     Variance,
 )
-from ..framework.logical.primitive import PrimitiveModel
 from ..utils.utils import PaddingType, convert_to_list, convert_to_tuple
 from .primitives import (
     AUCCore,
@@ -156,7 +157,7 @@ class Pool1D(Model):
     output: Connection
 
     @property
-    def pool_model(self) -> type[BaseModel]:
+    def pool_model(self) -> type[Model]:
         raise NotImplementedError("Pool Model should be indicated!")
 
     def __init__(
@@ -223,7 +224,7 @@ class Pool1D(Model):
 
 class MaxPool1D(Pool1D):
     @property
-    def pool_model(self) -> type[PrimitiveModel]:
+    def pool_model(self) -> type[Model]:
         return PrimitiveMaxPool1D
 
 
@@ -248,7 +249,7 @@ class Pool2D(Model):
     output: Connection
 
     @property
-    def pool_model(self) -> type[BaseModel]:
+    def pool_model(self) -> type[Model]:
         raise NotImplementedError("Pool Model should be indicated!")
 
     def __init__(
@@ -325,7 +326,7 @@ class Pool2D(Model):
 
 class MaxPool2D(Pool2D):
     @property
-    def pool_model(self) -> type[PrimitiveModel]:
+    def pool_model(self) -> type[Model]:
         return PrimitiveMaxPool2D
 
 
@@ -629,7 +630,7 @@ class Layer(Model):
 
     def __init__(
         self,
-        activation: BaseModel,
+        activation: Model,
         dimension: int | None = None,
         input: Tensor[Any] | ToBeDetermined = TBD,
         weight: Tensor[Any] | ToBeDetermined = TBD,
@@ -1075,7 +1076,7 @@ class KernelizedSVM(Model):
 
     def __init__(
         self,
-        kernel: BaseModel,
+        kernel: Model,
         weight: Tensor[Any] | ToBeDetermined = TBD,
         bias: Tensor[Any] | ToBeDetermined = TBD,
         *,
@@ -1246,7 +1247,7 @@ class MLP(Model):
 
     def __init__(
         self,
-        activations: list[BaseModel],
+        activations: list[Model],
         dimensions: Sequence[int | None],
         input_name_templates: dict[str, str] | None = None,
         input: Tensor[Any] | ToBeDetermined = TBD,

@@ -18,10 +18,11 @@ import numpy as np
 
 import mithril as ml
 from mithril import JaxBackend
-from mithril.framework.common import IOKey, Tensor
+from mithril.framework.common import Tensor
 from mithril.framework.physical.model import FlatModel
 from mithril.models import (
     Add,
+    IOKey,
     Linear,
     Model,
     Relu,

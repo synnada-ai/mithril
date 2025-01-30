@@ -19,8 +19,8 @@ import numpy as np
 
 from mithril import CBackend, NumpyBackend, compile
 from mithril.backends.with_manualgrad.c_backend.src.array import PyArray
-from mithril.framework.common import IOKey, Tensor
-from mithril.models import Add, Model, Multiply
+from mithril.framework.common import Tensor
+from mithril.models import Add, IOKey, Model, Multiply
 
 from ..utils import with_temp_file
 

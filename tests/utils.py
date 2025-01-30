@@ -29,7 +29,11 @@ def check_logical_models(model_1: Model, model_2: Model):
         dag_1.items(), dag_2.items(), strict=False
     ):
         # Check dag keys of each model.
-        assert key_1.__class__.__name__ == key_2.__class__.__name__
+        assert (
+            key_1.__class__.__name__ == key_2.__class__.__name__
+            or key_1.__class__.__name__ + "Op" == key_2.__class__.__name__
+            or key_1.__class__.__name__ == key_2.__class__.__name__ + "Op"
+        )
         for (in_1, conn_1), (in_2, conn_2) in zip(
             value_1.items(), value_2.items(), strict=False
         ):

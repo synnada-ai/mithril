@@ -16,11 +16,12 @@ from copy import deepcopy
 
 import mithril
 from mithril import TorchBackend
-from mithril.framework.common import IOKey, Tensor
+from mithril.framework.common import Tensor
 from mithril.models import (
     Add,
     Buffer,
     Concat,
+    IOKey,
     Linear,
     Model,
     Sigmoid,
