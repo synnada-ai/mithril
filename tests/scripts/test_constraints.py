@@ -14,6 +14,7 @@
 
 from collections.abc import Callable, Mapping
 from copy import deepcopy
+from functools import partial
 from types import EllipsisType, NoneType, UnionType
 from typing import Any, TypeGuard
 
@@ -49,6 +50,7 @@ from mithril.framework.constraints import (
     constraint_type_map,
     eye_constraints,
     flatten_constrains,
+    general_forward_constraint,
     general_tensor_type_constraint,
     generate_nested_list_type,
     indexer_constraints,
@@ -8181,4 +8183,176 @@ def test_slice_given_output_missing_all_inputs():
         {"start", "stop", "step"},
         scalar_info,
         final_values,
+    )
+
+
+def test_general_forward_add_scalar():
+    add_constraint = partial(general_forward_constraint, callable=lambda x, y: x + y)
+    shapes: dict[str, list[int | str | tuple]] = {}
+    final_shapes: dict[str, list[int | str | tuple]] = {
+        "output": [],
+        "left": [],
+        "right": [],
+    }
+    scalar_info = {
+        "output": IOHyperEdge(type=int | float | bool, value=TBD),
+        "left": IOHyperEdge(value=2.0),
+        "right": IOHyperEdge(value=3.0),
+    }
+    final_values = {
+        "output": 5.0,
+        "left": 2.0,
+        "right": 3.0,
+    }
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        add_constraint,
+        True,
+        {"output"},
+        scalar_info,
+        final_values,
+        variadic_fn=True,
+    )
+
+
+def test_general_forward_add_tensor():
+    add_constraint = partial(general_forward_constraint, callable=lambda x, y: x + y)
+    shapes = {"output": ["z"], "left": ["y"], "right": ["x"]}
+    final_shapes: dict[str, list[int | str | tuple]] = {
+        "output": ["z"],
+        "left": ["y"],
+        "right": ["x"],
+    }
+    assert_constraint_results(
+        shapes, {}, final_shapes, {}, add_constraint, True, set(), variadic_fn=True
+    )
+
+
+def test_general_forward_add_mixed():
+    add_constraint = partial(general_forward_constraint, callable=lambda x, y: x + y)
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [],
+        "left": ["c"],
+        "right": [],
+    }
+    final_shapes = {"output": [], "left": ["c"], "right": []}
+    scalar_info = {
+        "right": IOHyperEdge(value=(1.0)),
+    }
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        add_constraint,
+        True,
+        set(),
+        scalar_info,
+        variadic_fn=True,
+    )
+
+
+def test_general_forward_add_siso():
+    siso_constraint = partial(general_forward_constraint, callable=lambda x: 3 * x)
+    shapes: dict[str, list[int | str | tuple]] = {}
+    final_shapes: dict[str, list[int | str | tuple]] = {
+        "output": [],
+        "input": [],
+    }
+    scalar_info = {
+        "output": IOHyperEdge(type=int | float | bool, value=TBD),
+        "input": IOHyperEdge(value=2.0),
+    }
+    final_values = {
+        "output": 6.0,
+        "input": 2.0,
+    }
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        siso_constraint,
+        True,
+        {"output"},
+        scalar_info,
+        final_values,
+        variadic_fn=True,
+    )
+
+
+def test_general_forward_add_3_inputs_status_true():
+    three_input_constraint = partial(
+        general_forward_constraint, callable=lambda x, y, z: 2 * x + 3 * y + z
+    )
+    shapes: dict[str, list[int | str | tuple]] = {}
+    final_shapes: dict[str, list[int | str | tuple]] = {
+        "output": [],
+        "input1": [],
+        "input2": [],
+        "input3": [],
+    }
+    scalar_info = {
+        "output": IOHyperEdge(type=int | float | bool, value=TBD),
+        "input1": IOHyperEdge(value=3.0),
+        "input2": IOHyperEdge(value=4.0),
+        "input3": IOHyperEdge(value=5.0),
+    }
+    final_values = {
+        "output": 23.0,
+        "input1": 3.0,
+        "input2": 4.0,
+        "input3": 5.0,
+    }
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        three_input_constraint,
+        True,
+        {"output"},
+        scalar_info,
+        final_values,
+        variadic_fn=True,
+    )
+
+
+def test_general_forward_add_3_inputs_status_false():
+    three_input_constraint = partial(
+        general_forward_constraint, callable=lambda x, y, z: 2 * x + 3 * y + z
+    )
+    shapes: dict[str, list[int | str | tuple]] = {}
+    final_shapes: dict[str, list[int | str | tuple]] = {
+        "output": [],
+        "input1": [],
+        "input2": [],
+        "input3": [],
+    }
+    scalar_info = {
+        "output": IOHyperEdge(type=int | float | bool, value=TBD),
+        "input1": IOHyperEdge(value=3.0),
+        "input2": IOHyperEdge(type=int | float | bool, value=TBD),
+        "input3": IOHyperEdge(value=5.0),
+    }
+    final_values = {
+        "output": TBD,
+        "input1": 3.0,
+        "input2": TBD,
+        "input3": 5.0,
+    }
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        three_input_constraint,
+        False,
+        set(),
+        scalar_info,
+        final_values,
+        variadic_fn=True,
     )

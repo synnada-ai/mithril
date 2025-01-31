@@ -216,17 +216,17 @@ def general_forward_constraint(
     *keys: IOHyperEdge, callable: Callable[..., Any]
 ) -> ConstrainResultType:
     updates = Updates()
+    status = True
     if all(io.is_scalar for io in keys):
         output, *inputs = keys
         input_values = [input.value for input in inputs]
         if TBD not in input_values:
             output_value = callable(*input_values)
             updates |= output.set_value(output_value)
-            return True, updates
+            status = True
         else:
-            return False, updates
-    else:
-        return True, Updates()
+            status = False
+    return status, updates
 
 
 def general_tensor_type_constraint(*args: IOHyperEdge) -> ConstrainResultType:
@@ -3932,19 +3932,34 @@ def cross_entropy_constraint(
 def buffer_constraint(output: IOHyperEdge, input: IOHyperEdge) -> ConstrainResultType:
     updates = Updates()
     status = False
-    typed_edge: IOHyperEdge | None = None
+    is_input_polymorphic: bool = input.is_polymorphic
+    is_output_polymorphic: bool = output.is_polymorphic
 
-    if input.edge_type is not ToBeDetermined:
-        typed_edge, other_edge = input, output
-    elif output.edge_type is not ToBeDetermined:
-        typed_edge, other_edge = output, input
+    if not (is_input_polymorphic and is_output_polymorphic):
+        # at least one of them is not polymorphic
 
-    if typed_edge is not None:
-        if typed_edge._value is not TBD:
-            updates |= other_edge.set_value(typed_edge._value)
+        if is_input_polymorphic ^ is_output_polymorphic:
+            # one of them is polymorphic while other is not
+            typed, non_typed = (
+                (input, output) if is_output_polymorphic else (output, input)
+            )
+            updates |= non_typed.set_type(typed.edge_type)
+            updates |= non_typed.set_value(typed._value)
+            if typed.is_tensor or typed.value is not TBD:
+                status = True
         else:
-            updates |= other_edge.set_type(typed_edge.edge_type)
-        status = True
+            # both are not polymorphic
+            updates |= output.set_type(input.edge_type)
+            updates |= input.set_type(output.edge_type)
+            is_input_valued = input._value is not TBD
+            is_output_valued = output._value is not TBD
+            if is_input_valued ^ is_output_valued:
+                valued, non_valued = (
+                    (input, output) if is_input_valued else (output, input)
+                )
+                updates |= non_valued.set_value(valued._value)
+                status = True
+
     return status, updates
 
 

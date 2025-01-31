@@ -553,6 +553,7 @@ def test_mean_1():
         input=IOKey(value=Tensor([[2.0, 3.0], [1.0, 7.0]]), name="input"),
         output=IOKey(name="output"),
     )
+    ...
     with pytest.raises(ValueError) as err_info:
         model += mean_model(input=buff1.output, output=IOKey(name="output1"))
     assert str(err_info.value) == "Requires minimum of 4 dimensionality, got 2."
