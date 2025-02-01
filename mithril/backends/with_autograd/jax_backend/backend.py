@@ -532,11 +532,11 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
 
             # For without replacement, use Gumbel-max trick
             # This is much faster than using choice
-            z = jax.random.gumbel(prng_key, shape=input.shape + (num_samples,))
+            z = jax.random.gumbel(prng_key, shape=probs.shape + (num_samples,))
             # Add log probabilities for Gumbel-max trick,
             z = z + logits[..., None]
             # Get top k indices
-            samples = jax.numpy.argsort(-z, axis=input.ndim - 1)[..., :num_samples, 0]
+            samples = jax.numpy.argsort(-z, axis=probs.ndim - 1)[..., :num_samples, 0]
 
         return samples
 
