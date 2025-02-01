@@ -513,17 +513,18 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
             replacement: whether to sample with replacement
         """
         prng_key = self._get_prng_key(key)
-        input = jax.numpy.asarray(probs)
-        input = input / jax.numpy.sum(input, axis=-1, keepdims=True)
-        batch_size = input.shape[:-1]
-        logits = jax.numpy.log(jax.numpy.maximum(input, 1e-37))
+        probs = jnp.asarray(probs)
+        probs = probs / jnp.sum(probs, axis=-1, keepdims=True)
+
+        # Mask zero probabilities to avoid log(0) without adding small constants
+        logits = jnp.where(probs > 0, jnp.log(probs), -jnp.inf)
 
         if replacement:
             # Use categorical directly - much faster than choice
             samples = jax.random.categorical(
                 prng_key,
                 logits,  # avoid log(0)
-                shape=batch_size + (num_samples,),
+                shape=probs.shape[:-1] + (num_samples,),
             )
         else:
             # TODO: This algorithm is not efficient for small num_samples
