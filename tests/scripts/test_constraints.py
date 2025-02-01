@@ -252,11 +252,11 @@ def assert_type_results(
     # First check type updates with the expected updates.
     updated_constraints = set()
     for key in expected_updates:
-        updated_constraints |= data[key].type_constraints
+        updated_constraints |= data[key].constraints[UpdateType.TYPE]
     assert updated_constraints == {
         constr
         for constr in updated_symbols.constraints
-        if UpdateType.TYPE in constr.type
+        if UpdateType.TYPE in constr.types
     }
     # Then check final types with the expected ref_results.
     for key, value in data.items():

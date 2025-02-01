@@ -421,7 +421,7 @@ class BaseModel(abc.ABC):
         self,
         fn: ConstraintFunctionType,
         keys: list[str],
-        type: list[UpdateType] | None = None,
+        types: list[UpdateType] | None = None,
         dependencies: set[Constraint] | None = None,
     ) -> Constraint:
         all_conns = self.conns.all
@@ -432,9 +432,9 @@ class BaseModel(abc.ABC):
         unresolved_dependencies = (
             dependencies & self.constraint_solver.constraint_map.keys()
         )
-        if type is None:
-            type = constraint_type_map.get(fn, [UpdateType.SHAPE, UpdateType.VALUE])
-        constr = Constraint(fn=fn, type=type)
+        if types is None:
+            types = constraint_type_map.get(fn, [UpdateType.SHAPE, UpdateType.VALUE])
+        constr = Constraint(fn=fn, types=types)
         constr.add_dependencies(*unresolved_dependencies)
 
         self.constraint_solver.constraint_map[constr] = hyper_edges

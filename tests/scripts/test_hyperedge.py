@@ -291,11 +291,11 @@ def test_set_scalar_edge_with_different_type_scalar_value():
 
 
 def test_match_tensor_edge_with_tensor_edge_with_common_types():
-    constr1 = Constraint(fn=reduce_constraints, type=[UpdateType.SHAPE])
+    constr1 = Constraint(fn=reduce_constraints, types=[UpdateType.SHAPE])
     edge1 = IOHyperEdge(type=Tensor[int | float])
     edge1.add_constraint(constr1)
 
-    constr2 = Constraint(fn=reduce_type_constraint, type=[UpdateType.TYPE])
+    constr2 = Constraint(fn=reduce_type_constraint, types=[UpdateType.TYPE])
     edge2 = IOHyperEdge(type=Tensor[float | bool])
     edge2.add_constraint(constr2)
     node2 = edge2.shape
@@ -361,7 +361,7 @@ def test_match_scalar_edge_with_tensor_edge():
 def test_match_untyped_edge_with_tensor_edge():
     edge1 = IOHyperEdge()  # Untyped edge
 
-    constr = Constraint(fn=reduce_type_constraint, type=[UpdateType.TYPE])
+    constr = Constraint(fn=reduce_type_constraint, types=[UpdateType.TYPE])
     edge2 = IOHyperEdge(type=Tensor[float | bool])
     edge2.add_constraint(constr)
     node2 = edge2.shape
@@ -387,7 +387,7 @@ def test_match_untyped_edge_with_tensor_edge():
 def test_match_untyped_edge_with_scalar_edge():
     edge1 = IOHyperEdge()  # Untyped edge
 
-    constr = Constraint(fn=reduce_type_constraint, type=[UpdateType.TYPE])
+    constr = Constraint(fn=reduce_type_constraint, types=[UpdateType.TYPE])
     edge2 = IOHyperEdge(type=float | bool)
     edge2.add_constraint(constr)
 
@@ -402,7 +402,7 @@ def test_match_untyped_edge_with_scalar_edge():
 def test_match_scalar_edge_with_untyped_edge():
     edge1 = IOHyperEdge()  # Untyped edge
 
-    constr = Constraint(fn=reduce_type_constraint, type=[UpdateType.TYPE])
+    constr = Constraint(fn=reduce_type_constraint, types=[UpdateType.TYPE])
     edge2 = IOHyperEdge(type=float | bool)
     edge2.add_constraint(constr)
 
@@ -417,7 +417,7 @@ def test_match_scalar_edge_with_untyped_edge():
 def test_match_mixed_type_edge_with_tensor_edge():
     edge1 = IOHyperEdge(type=Tensor[int | float] | int | float)  # Mixed type edge.
 
-    constr = Constraint(fn=reduce_type_constraint, type=[UpdateType.TYPE])
+    constr = Constraint(fn=reduce_type_constraint, types=[UpdateType.TYPE])
     edge2 = IOHyperEdge(type=Tensor[float | bool])
     edge2.add_constraint(constr)
     node2 = edge2.shape
@@ -445,7 +445,7 @@ def test_match_mixed_type_edge_with_tensor_edge():
 def test_match_mixed_type_edge_with_scalar_edge():
     edge1 = IOHyperEdge(type=Tensor[int | float] | int | float)  # Mixed type edge.
 
-    constr = Constraint(fn=reduce_type_constraint, type=[UpdateType.TYPE])
+    constr = Constraint(fn=reduce_type_constraint, types=[UpdateType.TYPE])
     edge2 = IOHyperEdge(type=float | bool)
     edge2.add_constraint(constr)
 
@@ -461,7 +461,7 @@ def test_match_mixed_type_edge_with_scalar_edge():
 def test_match_mixed_type_edge_with_mixed_type_edge_1():
     edge1 = IOHyperEdge(type=Tensor[int | float] | int | float)  # Mixed type edge.
 
-    constr = Constraint(fn=reduce_type_constraint, type=[UpdateType.TYPE])
+    constr = Constraint(fn=reduce_type_constraint, types=[UpdateType.TYPE])
     edge2 = IOHyperEdge(type=float | bool | Tensor[float | bool])
     edge2.add_constraint(constr)
 
@@ -477,7 +477,7 @@ def test_match_mixed_type_edge_with_mixed_type_edge_1():
 def test_match_mixed_type_edge_with_mixed_type_edge_2():
     edge1 = IOHyperEdge(type=Tensor[int | float] | int | float)  # Mixed type edge.
 
-    constr = Constraint(fn=reduce_type_constraint, type=[UpdateType.TYPE])
+    constr = Constraint(fn=reduce_type_constraint, types=[UpdateType.TYPE])
     edge2 = IOHyperEdge(type=float | bool | Tensor[bool])
     edge2.add_constraint(constr)
 
