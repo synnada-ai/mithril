@@ -130,6 +130,7 @@ AUTO = Auto()
 class UpdateType(Enum):
     SHAPE = 1
     TYPE = 2
+    VALUE = 3
 
 
 class KeyType(Enum):
@@ -338,10 +339,9 @@ class ConstraintSolver:
         while constraints:
             constr = constraints.pop()
             if (not constr.parents) and (constr in self.constraint_map):
-                constraint_type = constr.type
                 hyper_edges = self.constraint_map[constr]
                 status, newly_added_symbols = constr(hyper_edges)
-                if constraint_type is UpdateType.SHAPE:
+                if UpdateType.SHAPE in constr.types:
                     self.update_shapes(newly_added_symbols)
                 updates |= newly_added_symbols
                 new_constraints = newly_added_symbols.constraints
@@ -533,41 +533,27 @@ class Updates:
         symbol: IOHyperEdge | Uniadic | Variadic,
         update_type: UpdateType = UpdateType.SHAPE,
     ) -> None:
-        # TODO: Use match case here
-        if update_type == UpdateType.SHAPE:
-            if isinstance(symbol, Uniadic):
+        match symbol:
+            case Uniadic():
                 self._add_uniadic(symbol)
-            elif isinstance(symbol, Variadic):
+            case Variadic():
                 self._add_variadic(symbol)
-            else:
-                self._add_edge(symbol)
-
-            # TODO: Fill here after type_updates added to class
-        elif update_type == UpdateType.TYPE:
-            assert isinstance(symbol, IOHyperEdge)
-            self._add_type_update(symbol)
-
-    def _add_edge(self, symbol: IOHyperEdge) -> None:
-        self.value_updates.add(symbol)
-        self.constraints |= symbol.shape_constraints
+            case IOHyperEdge():
+                self.constraints |= symbol.constraints[update_type]
 
     def _add_uniadic(self, symbol: Uniadic) -> None:
         self.uniadic_updates.add(symbol)
         for repr in symbol.metadata.reprs_dict:
             for edge in repr.node.referees:
                 self.shape_updates.add(edge)
-                self.constraints |= edge.shape_constraints
+                self.constraints |= edge.constraints[UpdateType.SHAPE]
 
     def _add_variadic(self, symbol: Variadic) -> None:
-        # self.symbol_updates.add(symbol)
         for repr in symbol.reprs:
             self.node_updates.add(repr.node)
             for edge in repr.node.referees:
                 self.shape_updates.add(edge)
-                self.constraints |= edge.shape_constraints
-
-    def _add_type_update(self, symbol: IOHyperEdge) -> None:
-        self.constraints |= symbol.type_constraints
+                self.constraints |= edge.constraints[UpdateType.SHAPE]
 
     def __ior__(self, other: Updates) -> Updates:
         self.constraints |= other.constraints
@@ -896,7 +882,8 @@ class Tensor(Generic[TypeVarTensorType]):
             updates |= self.shape.set_values(shape)
             # Add all referee edges into the updates.
             for edge in self.referees:
-                updates.add(edge)
+                updates.add(edge, update_type=UpdateType.VALUE)
+                updates.add(edge, update_type=UpdateType.SHAPE)
             self.value = val
         return updates
 
@@ -947,8 +934,9 @@ class IOHyperEdge:
         interval: list[float | int] | None = None,
     ) -> None:
         self.key_origin = key_origin
-        self.shape_constraints: set[Constraint] = set()
-        self.type_constraints: set[Constraint] = set()
+        self.constraints: dict[UpdateType, set[Constraint]] = {
+            type: set() for type in UpdateType
+        }
         self._temp_shape: ShapeRepr | None = None  # set random repr
         self.differentiable: bool = False
         self.interval: list[float | int] | None = interval
@@ -985,7 +973,8 @@ class IOHyperEdge:
 
     @property
     def all_constraints(self) -> set[Constraint]:
-        return self.shape_constraints | self.type_constraints
+        result: set[Constraint] = set().union(*self.constraints.values())
+        return result
 
     @property
     def value(self) -> _TensorValueType | ScalarValueType | ToBeDetermined:
@@ -1103,6 +1092,7 @@ class IOHyperEdge:
                     self._value.shape.referees.add(self)
                     # Add self as a type update since type has just updated to Tensor.
                     updates.add(self, UpdateType.TYPE)
+                    updates.add(self, UpdateType.SHAPE)
                     # TODO: When two edges set to the same tensor value using
                     # different Tensor objects, we need to merge their nodes into
                     # a single node. In order to track this, we need to add all
@@ -1113,8 +1103,9 @@ class IOHyperEdge:
             else:
                 updates |= self.set_type(_find_type(value))
                 self._value = value
+                updates.add(self, UpdateType.VALUE)
+                updates.value_updates.add(self)
             # Add self to updates.
-            updates.add(self)
             self.differentiable = self.value is TBD
         return updates
 
@@ -1139,11 +1130,11 @@ class IOHyperEdge:
                     updates.value_updates.discard(other)
                     updates.shape_updates.discard(other)
         # After modifications done, propagate other constraints into self.
-        self.shape_constraints |= other.shape_constraints
-        self.type_constraints |= other.type_constraints
-        # Set other's constraints to empty.
-        other.shape_constraints = set()
-        other.type_constraints = set()
+
+        for type in UpdateType:
+            self.constraints[type] |= other.constraints[type]
+            other.constraints[type] = set()
+
         # Update differentiability.
         if isinstance(self._value, Tensor) and self._value.value is TBD:
             is_diff = self.differentiable | other.differentiable
@@ -1152,15 +1143,12 @@ class IOHyperEdge:
         return updates
 
     def add_constraint(self, constraint: Constraint) -> None:
-        if constraint.type == UpdateType.SHAPE:
-            self.shape_constraints.add(constraint)
-        elif constraint.type == UpdateType.TYPE:
-            self.type_constraints.add(constraint)
+        for type in constraint.types:
+            self.constraints[type].add(constraint)
 
     def remove_constraint(self, constraint: Constraint) -> None:
-        # TODO: check why pop raises!
-        self.shape_constraints.discard(constraint)
-        self.type_constraints.discard(constraint)
+        for type in constraint.types:
+            self.constraints[type].discard(constraint)
 
 
 class TemplateBase:
@@ -2651,7 +2639,7 @@ class ShapeNode:
 
             if add_constraint:
                 for tensor in self.referees:
-                    updates.constraints |= tensor.shape_constraints
+                    updates.constraints |= tensor.constraints[UpdateType.SHAPE]
 
             for repr in resolved_reprs:
                 # remove_repr_from_symbols(repr)
@@ -3103,7 +3091,7 @@ class ShapeRepr:
 @dataclass
 class Constraint:
     fn: ConstraintFunctionType
-    type: UpdateType = UpdateType.SHAPE
+    types: list[UpdateType] = field(default_factory=lambda: [UpdateType.SHAPE])
     call_counter: int = 0
     parents: set[Constraint] = field(default_factory=lambda: set())
     children: set[Constraint] = field(default_factory=lambda: set())
@@ -3111,7 +3099,7 @@ class Constraint:
     def __call__(self, keys: list[IOHyperEdge]) -> ConstrainResultType:
         status = False
         updates = Updates()
-        if self.type == UpdateType.SHAPE:
+        if UpdateType.SHAPE in self.types:
             tensor_keys = [key for key in keys if key.is_tensor]
             for reprs in product(*[key.shape.reprs for key in tensor_keys]):  # type: ignore
                 for idx, repr in enumerate(reprs):
@@ -3119,9 +3107,9 @@ class Constraint:
                 status, newly_added_symbols = self.fn(*keys)
                 updates |= newly_added_symbols
                 # Clear temp_shape.
-                for idx, _ in enumerate(reprs):
+                for idx in range(len(reprs)):
                     tensor_keys[idx]._temp_shape = None
-        elif self.type == UpdateType.TYPE:
+        else:
             status, newly_added_symbols = self.fn(*keys)
             updates |= newly_added_symbols
         if status:

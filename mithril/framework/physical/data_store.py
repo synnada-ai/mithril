@@ -32,6 +32,7 @@ from ..common import (
     Tensor,
     ToBeDetermined,
     Updates,
+    UpdateType,
     is_type_adjustment_required,
 )
 from .flat_graph import FlatGraph
@@ -126,12 +127,20 @@ class StaticDataStore(Generic[DataType]):
         if key not in self._all_data:
             return
 
-        shape_constraints = self._all_data[key].shape_constraints
-        type_constraints = self._all_data[key].type_constraints
+        shape_constraints = self._all_data[key].constraints[UpdateType.SHAPE]
+        type_constraints = self._all_data[key].constraints[UpdateType.TYPE]
+        value_constraints = self._all_data[key].constraints[UpdateType.VALUE]
         for source_key in self.graph.get_source_keys(key):
             if source_key in self._all_data:
-                self._all_data[source_key].shape_constraints -= shape_constraints
-                self._all_data[source_key].type_constraints -= type_constraints
+                self._all_data[source_key].constraints[UpdateType.SHAPE] -= (
+                    shape_constraints
+                )
+                self._all_data[source_key].constraints[UpdateType.TYPE] -= (
+                    type_constraints
+                )
+                self._all_data[source_key].constraints[UpdateType.VALUE] -= (
+                    value_constraints
+                )
 
     def update_cached_data(self, updated_data: Updates) -> set[str]:
         # If any data value is found by shape inference algorithms
