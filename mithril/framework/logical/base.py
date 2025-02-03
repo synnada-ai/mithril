@@ -48,7 +48,7 @@ from ..common import (
     create_shape_repr,
     get_shapes,
 )
-from ..constraints import type_constraints
+from ..constraints import constraint_type_map
 
 __all__ = ["BaseModel", "ExtendInfo"]
 
@@ -421,7 +421,7 @@ class BaseModel(abc.ABC):
         self,
         fn: ConstraintFunctionType,
         keys: list[str],
-        type: UpdateType | None = None,
+        types: list[UpdateType] | None = None,
         dependencies: set[Constraint] | None = None,
     ) -> Constraint:
         all_conns = self.conns.all
@@ -432,13 +432,9 @@ class BaseModel(abc.ABC):
         unresolved_dependencies = (
             dependencies & self.constraint_solver.constraint_map.keys()
         )
-        if type is None:
-            # TODO: separate type_constraints and shape constraints into two files under
-            # constraints folder. Then, check if fn is not in any of those types set
-            # _type to None. If _type and type are both None or one is UpdateType.SHAPE
-            # while other one is UpdateType.Type, raise Exception!
-            type = UpdateType.TYPE if fn in type_constraints else UpdateType.SHAPE
-        constr = Constraint(fn=fn, type=type)
+        if types is None:
+            types = constraint_type_map.get(fn, [UpdateType.SHAPE, UpdateType.VALUE])
+        constr = Constraint(fn=fn, types=types)
         constr.add_dependencies(*unresolved_dependencies)
 
         self.constraint_solver.constraint_map[constr] = hyper_edges
@@ -452,7 +448,7 @@ class BaseModel(abc.ABC):
         self,
         fn: ConstraintFunctionType,
         keys: list[str],
-        type: UpdateType = UpdateType.SHAPE,
+        type: list[UpdateType] | None = None,
         dependencies: set[Constraint] | None = None,
     ) -> Constraint:
         self.assigned_constraints.append({"fn": fn.__name__, "keys": keys})

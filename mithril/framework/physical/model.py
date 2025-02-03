@@ -44,6 +44,7 @@ from ..common import (
     ToBeDetermined,
     UniadicRecord,
     Updates,
+    UpdateType,
     Variadic,
     create_shape_map,
     find_intersection_type,
@@ -552,7 +553,7 @@ class PhysicalModel(GenericDataType[DataType]):
             # there can exist some inferred intermediate scalar keys in logical model.
             # find those keys and add to cached datas
             if not value.is_tensor and (value.value is not TBD):
-                updates.add(value)
+                updates.add(value, update_type=UpdateType.VALUE)
 
         self.data_store.update_cached_data(updates)
 

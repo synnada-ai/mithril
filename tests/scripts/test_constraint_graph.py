@@ -404,8 +404,8 @@ def mock_constraint_fn(input: IOHyperEdge, output: IOHyperEdge) -> ConstrainResu
 
 
 def test_constraint_objects_single_dependency():
-    a = Constraint(fn=mock_constraint_fn, type=UpdateType.SHAPE)
-    b = Constraint(fn=mock_constraint_fn, type=UpdateType.SHAPE)
+    a = Constraint(fn=mock_constraint_fn, types=[UpdateType.SHAPE])
+    b = Constraint(fn=mock_constraint_fn, types=[UpdateType.SHAPE])
 
     b.add_dependencies(a)
 
@@ -416,9 +416,9 @@ def test_constraint_objects_single_dependency():
 
 
 def test_constraint_objects_multiple_sequential_dependency():
-    a = Constraint(fn=mock_constraint_fn, type=UpdateType.SHAPE)
-    b = Constraint(fn=mock_constraint_fn, type=UpdateType.SHAPE)
-    c = Constraint(fn=mock_constraint_fn, type=UpdateType.SHAPE)
+    a = Constraint(fn=mock_constraint_fn, types=[UpdateType.SHAPE])
+    b = Constraint(fn=mock_constraint_fn, types=[UpdateType.SHAPE])
+    c = Constraint(fn=mock_constraint_fn, types=[UpdateType.SHAPE])
 
     c.add_dependencies(b)
     b.add_dependencies(a)
@@ -434,9 +434,9 @@ def test_constraint_objects_multiple_sequential_dependency():
 
 
 def test_constraint_objects_multiple_sequential_dependency_clear():
-    a = Constraint(fn=mock_constraint_fn, type=UpdateType.SHAPE)
-    b = Constraint(fn=mock_constraint_fn, type=UpdateType.SHAPE)
-    c = Constraint(fn=mock_constraint_fn, type=UpdateType.SHAPE)
+    a = Constraint(fn=mock_constraint_fn, types=[UpdateType.SHAPE])
+    b = Constraint(fn=mock_constraint_fn, types=[UpdateType.SHAPE])
+    c = Constraint(fn=mock_constraint_fn, types=[UpdateType.SHAPE])
 
     c.add_dependencies(b)
     b.add_dependencies(a)
@@ -454,9 +454,9 @@ def test_constraint_objects_multiple_sequential_dependency_clear():
 
 
 def test_constraint_objects_multiple_sequential_dependency_clear_two_constraint():
-    a = Constraint(fn=mock_constraint_fn, type=UpdateType.SHAPE)
-    b = Constraint(fn=mock_constraint_fn, type=UpdateType.SHAPE)
-    c = Constraint(fn=mock_constraint_fn, type=UpdateType.SHAPE)
+    a = Constraint(fn=mock_constraint_fn, types=[UpdateType.SHAPE])
+    b = Constraint(fn=mock_constraint_fn, types=[UpdateType.SHAPE])
+    c = Constraint(fn=mock_constraint_fn, types=[UpdateType.SHAPE])
 
     c.add_dependencies(b)
     b.add_dependencies(a)
@@ -475,9 +475,9 @@ def test_constraint_objects_multiple_sequential_dependency_clear_two_constraint(
 
 
 def test_constraint_objects_multiple_sequential_dependency_clear_call():
-    a = Constraint(fn=mock_constraint_fn, type=UpdateType.SHAPE)
-    b = Constraint(fn=mock_constraint_fn, type=UpdateType.SHAPE)
-    c = Constraint(fn=mock_constraint_fn, type=UpdateType.SHAPE)
+    a = Constraint(fn=mock_constraint_fn, types=[UpdateType.SHAPE])
+    b = Constraint(fn=mock_constraint_fn, types=[UpdateType.SHAPE])
+    c = Constraint(fn=mock_constraint_fn, types=[UpdateType.SHAPE])
 
     c.add_dependencies(b)
     b.add_dependencies(a)

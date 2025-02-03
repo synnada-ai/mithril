@@ -23,6 +23,7 @@ import pytest
 from mithril.core import GenericDataType
 from mithril.framework.common import (
     TBD,
+    ConstraintFunctionType,
     ConstraintSolver,
     IOHyperEdge,
     PossibleValues,
@@ -45,6 +46,7 @@ from mithril.framework.constraints import (
     bcast_matrix_mult,
     broadcast_to_constraints,
     concat_constraints,
+    constraint_type_map,
     eye_constraints,
     flatten_constrains,
     general_tensor_type_constraint,
@@ -72,7 +74,6 @@ from mithril.framework.constraints import (
     to_list_constraints,
     to_tensor_constraints,
     to_tuple_constraints,
-    type_constraints,
     where_constrains,
 )
 
@@ -81,16 +82,24 @@ from .test_utils import check_shapes_semantically
 
 def is_type_checker(
     ref_results: dict[str, type] | ShapeResultType,
-    constraint_fn: Callable,
+    constraint_fn: ConstraintFunctionType,
 ) -> TypeGuard[dict[str, type]]:
-    return constraint_fn in type_constraints
+    types = constraint_type_map.get(constraint_fn)
+    if types:
+        return UpdateType.TYPE in types
+    else:
+        return False
 
 
 def is_shape_checker(
     ref_results: dict[str, type] | ShapeResultType,
-    constraint_fn: Callable,
+    constraint_fn: ConstraintFunctionType,
 ) -> TypeGuard[ShapeResultType]:
-    return constraint_fn not in type_constraints
+    types = constraint_type_map.get(constraint_fn)
+    if types:
+        return bool({UpdateType.SHAPE, UpdateType.VALUE} & set(types))
+    else:
+        return True
 
 
 ######################### Helper Functions #########################
@@ -243,11 +252,11 @@ def assert_type_results(
     # First check type updates with the expected updates.
     updated_constraints = set()
     for key in expected_updates:
-        updated_constraints |= data[key].type_constraints
+        updated_constraints |= data[key].constraints[UpdateType.TYPE]
     assert updated_constraints == {
         constr
         for constr in updated_symbols.constraints
-        if constr.type is UpdateType.TYPE
+        if UpdateType.TYPE in constr.types
     }
     # Then check final types with the expected ref_results.
     for key, value in data.items():
@@ -280,13 +289,13 @@ def make_assertions(
     final_values: dict[str, Any],
 ) -> None:
     # Check final shapes with the expected ref_shapes. Also check updated symbols.
-    if is_type_checker(ref_results, constraint_fn):
-        assert_type_results(data, ref_results, updated_symbols, expected_updates)
-    else:
-        assert is_shape_checker(ref_results, constraint_fn)
+    if is_shape_checker(ref_results, constraint_fn):
         assert_shape_results(
             data, ref_results, ref_assignments, updated_symbols, expected_updates
         )
+    else:
+        assert is_type_checker(ref_results, constraint_fn)
+        assert_type_results(data, ref_results, updated_symbols, expected_updates)
     # NOTE: There is no other possibilities. Only for type cheking!
 
     # Check final values with the expected final_values.

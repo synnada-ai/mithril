@@ -1111,7 +1111,8 @@ class TestArgmax:
         ]
         fn_kwargs: dict = {}
 
-        ref_output = array_fn([1, 1], device, "int64")
+        precision = "int32" if backendcls is MlxBackend else "int64"
+        ref_output = array_fn([1, 1], device, precision)
 
         assert_backend_results_equal(
             backend,
