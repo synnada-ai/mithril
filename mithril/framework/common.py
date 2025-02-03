@@ -341,7 +341,7 @@ class ConstraintSolver:
             if (not constr.parents) and (constr in self.constraint_map):
                 hyper_edges = self.constraint_map[constr]
                 status, newly_added_symbols = constr(hyper_edges)
-                if UpdateType.SHAPE in constr.type:
+                if UpdateType.SHAPE in constr.types:
                     self.update_shapes(newly_added_symbols)
                 updates |= newly_added_symbols
                 new_constraints = newly_added_symbols.constraints
@@ -539,27 +539,21 @@ class Updates:
             case Variadic():
                 self._add_variadic(symbol)
             case IOHyperEdge():
-                match update_type:
-                    case UpdateType.SHAPE:
-                        self.constraints |= symbol.shape_constraints
-                    case UpdateType.TYPE:
-                        self.constraints |= symbol.type_constraints
-                    case UpdateType.VALUE:
-                        self.constraints |= symbol.value_constraints
+                self.constraints |= symbol.constraints[update_type]
 
     def _add_uniadic(self, symbol: Uniadic) -> None:
         self.uniadic_updates.add(symbol)
         for repr in symbol.metadata.reprs_dict:
             for edge in repr.node.referees:
                 self.shape_updates.add(edge)
-                self.constraints |= edge.shape_constraints
+                self.constraints |= edge.constraints[UpdateType.SHAPE]
 
     def _add_variadic(self, symbol: Variadic) -> None:
         for repr in symbol.reprs:
             self.node_updates.add(repr.node)
             for edge in repr.node.referees:
                 self.shape_updates.add(edge)
-                self.constraints |= edge.shape_constraints
+                self.constraints |= edge.constraints[UpdateType.SHAPE]
 
     def __ior__(self, other: Updates) -> Updates:
         self.constraints |= other.constraints
@@ -940,9 +934,9 @@ class IOHyperEdge:
         interval: list[float | int] | None = None,
     ) -> None:
         self.key_origin = key_origin
-        self.shape_constraints: set[Constraint] = set()
-        self.value_constraints: set[Constraint] = set()
-        self.type_constraints: set[Constraint] = set()
+        self.constraints: dict[UpdateType, set[Constraint]] = {
+            type: set() for type in UpdateType
+        }
         self._temp_shape: ShapeRepr | None = None  # set random repr
         self.differentiable: bool = False
         self.interval: list[float | int] | None = interval
@@ -987,7 +981,8 @@ class IOHyperEdge:
 
     @property
     def all_constraints(self) -> set[Constraint]:
-        return self.shape_constraints | self.type_constraints | self.value_constraints
+        result: set[Constraint] = set().union(*self.constraints.values())
+        return result
 
     @property
     def value(self) -> _TensorValueType | ScalarValueType | ToBeDetermined:
@@ -1143,13 +1138,11 @@ class IOHyperEdge:
                     updates.value_updates.discard(other)
                     updates.shape_updates.discard(other)
         # After modifications done, propagate other constraints into self.
-        self.shape_constraints |= other.shape_constraints
-        self.type_constraints |= other.type_constraints
-        self.value_constraints |= other.value_constraints
-        # Set other's constraints to empty.
-        other.shape_constraints = set()
-        other.type_constraints = set()
-        other.value_constraints = set()
+
+        for type in UpdateType:
+            self.constraints[type] |= other.constraints[type]
+            other.constraints[type] = set()
+
         # Update differentiability.
         if isinstance(self._value, Tensor) and self._value.value is TBD:
             is_diff = self.differentiable | other.differentiable
@@ -1158,21 +1151,12 @@ class IOHyperEdge:
         return updates
 
     def add_constraint(self, constraint: Constraint) -> None:
-        if UpdateType.SHAPE in constraint.type:
-            self.shape_constraints.add(constraint)
-        if UpdateType.TYPE in constraint.type:
-            self.type_constraints.add(constraint)
-        if UpdateType.VALUE in constraint.type:
-            self.value_constraints.add(constraint)
+        for type in constraint.types:
+            self.constraints[type].add(constraint)
 
     def remove_constraint(self, constraint: Constraint) -> None:
-        # TODO: check why pop raises!
-        if UpdateType.SHAPE in constraint.type:
-            self.shape_constraints.discard(constraint)
-        if UpdateType.TYPE in constraint.type:
-            self.type_constraints.discard(constraint)
-        if UpdateType.VALUE in constraint.type:
-            self.value_constraints.discard(constraint)
+        for type in constraint.types:
+            self.constraints[type].discard(constraint)
 
 
 class TemplateBase:
@@ -2663,7 +2647,7 @@ class ShapeNode:
 
             if add_constraint:
                 for tensor in self.referees:
-                    updates.constraints |= tensor.shape_constraints
+                    updates.constraints |= tensor.constraints[UpdateType.SHAPE]
 
             for repr in resolved_reprs:
                 # remove_repr_from_symbols(repr)
@@ -3115,7 +3099,7 @@ class ShapeRepr:
 @dataclass
 class Constraint:
     fn: ConstraintFunctionType
-    type: list[UpdateType] = field(default_factory=lambda: [UpdateType.SHAPE])
+    types: list[UpdateType] = field(default_factory=lambda: [UpdateType.SHAPE])
     call_counter: int = 0
     parents: set[Constraint] = field(default_factory=lambda: set())
     children: set[Constraint] = field(default_factory=lambda: set())
@@ -3123,7 +3107,7 @@ class Constraint:
     def __call__(self, keys: list[IOHyperEdge]) -> ConstrainResultType:
         status = False
         updates = Updates()
-        if UpdateType.SHAPE in self.type:
+        if UpdateType.SHAPE in self.types:
             tensor_keys = [key for key in keys if key.is_tensor]
             for reprs in product(*[key.shape.reprs for key in tensor_keys]):  # type: ignore
                 for idx, repr in enumerate(reprs):

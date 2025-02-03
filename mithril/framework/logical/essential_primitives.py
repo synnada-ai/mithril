@@ -286,13 +286,6 @@ class Power(PrimitiveModel):
                 fn=edge_type_constraint,
                 keys=[PrimitiveModel.output_key, "base", "exponent"],
             )
-
-            self._add_constraint(
-                partial(general_forward_constraint, callable=lambda x, y: x**y),
-                keys=[PrimitiveModel.output_key, "base", "exponent"],
-                dependencies={edge_constraint},
-            )
-
             constrs = {edge_constraint}
 
         self._add_constraint(
@@ -312,6 +305,14 @@ class Power(PrimitiveModel):
             keys=[PrimitiveModel.output_key, "base", "exponent"],
             dependencies={bcast_constraint},
         )
+
+        self._add_constraint(
+            partial(general_forward_constraint, callable=lambda x, y: x**y),
+            keys=[PrimitiveModel.output_key, "base", "exponent"],
+            dependencies=constrs,
+        )
+
+        constrs = constrs
 
     def __call__(  # type: ignore[override]
         self,
