@@ -515,9 +515,7 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         prng_key = self._get_prng_key(key)
         probs = jnp.asarray(probs)
         probs = probs / jnp.sum(probs, axis=-1, keepdims=True)
-
-        # Mask zero probabilities to avoid log(0) without adding small constants
-        logits = jnp.where(probs > 0, jnp.log(probs), -jnp.inf)
+        logits = jnp.log(probs)
 
         if replacement:
             # Use categorical directly - much faster than choice

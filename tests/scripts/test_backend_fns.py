@@ -2060,3 +2060,42 @@ class TestRandUniform:
         assert not backend.any(output < 0)
         assert not backend.any(output > 10)
         assert list(output.shape) == fn_args[2:]
+
+
+@pytest.mark.parametrize(
+    "backendcls, device, dtype", backends_with_device_dtype, ids=names
+)
+class TestMultinomial:
+    def test_multinomial_with_replacement(self, backendcls, device, dtype):
+        backend = backendcls(device=device, dtype=dtype)
+        fn = backend.multinomial
+        fn_args = [backend.array([0.1, 0.3, 0.6]), 5]
+
+        output = fn(*fn_args, replacement=True)
+
+        assert not backend.any(output < 0)
+        assert not backend.any(output >= len(fn_args[0]))
+        assert list(output.shape) == [fn_args[1]]
+
+    def test_multinomial_without_replacement(self, backendcls, device, dtype):
+        backend = backendcls(device=device, dtype=dtype)
+        fn = backend.multinomial
+        fn_args = [backend.array([0.2, 0.3, 0.5]), 3]
+
+        output = fn(*fn_args, replacement=False)
+
+        assert not backend.any(output < 0)
+        assert not backend.any(output >= len(fn_args[0]))
+        assert list(output.shape) == [fn_args[1]]
+
+    def test_multinomial_invalid_probabilities(self, backendcls, device, dtype):
+        backend = backendcls(device=device, dtype=dtype)
+        fn = backend.multinomial
+
+        array_size = 1000
+        fn_args = [backend.array([0.0] * 500 + [1.0] + [0.0] * (array_size - 501)), 100]  # Sample 100 times
+
+        output = fn(*fn_args, replacement=True)
+
+        assert list(output.shape) == [fn_args[1]]
+        assert backend.all(output == 500)
