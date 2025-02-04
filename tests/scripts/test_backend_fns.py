@@ -2093,7 +2093,7 @@ class TestMultinomial:
         fn = backend.multinomial
 
         array_size = 1000
-        fn_args = [backend.array([0.0] * 500 + [1.0] + [0.0] * (array_size - 501)), 100]  # Sample 100 times
+        fn_args = [backend.array([0.0] * 500 + [1.0] + [0.0] * (array_size - 501)), 100]
 
         output = fn(*fn_args, replacement=True)
 
