@@ -170,6 +170,24 @@ class StaticDataStore(Generic[DataType]):
             value = getattr(self.backend, value.name)
         self.data_values[key] = value  # type: ignore
 
+    # Add constant values of given models __call__ to constant_keys if any.
+    @staticmethod
+    def convert_data_to_physical(
+        value: AllValueType, backend: Backend[DataType]
+    ) -> DataType | AllValueType:
+        match value:
+            case Constant():
+                value = epsilon_table[backend.precision][value]
+            case Dtype():
+                value = getattr(backend, value.name)
+            case Tensor():
+                value = backend.array(
+                    StaticDataStore.convert_data_to_physical(value.value, backend)
+                )
+            case _:
+                value = value
+        return value
+
     def infer_unused_keys(self, key: str) -> None:
         # Infers unused keys when "key" is set as static.
         output_keys = self.graph.output_keys

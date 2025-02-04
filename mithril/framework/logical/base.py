@@ -17,7 +17,7 @@ from __future__ import annotations
 from collections.abc import KeysView, Mapping
 from itertools import chain
 from types import UnionType
-from typing import Any, get_args, get_origin
+from typing import Any
 
 from ...utils.utils import OrderedSet
 from ..common import (
@@ -48,7 +48,6 @@ from ..common import (
     Updates,
     UpdateType,
     Variadic,
-    create_shape_map,
     create_shape_repr,
     get_shapes,
 )
@@ -1413,107 +1412,6 @@ class BaseModel:
         # Match data of each IOHyperEdge's.
         updates = left.match(right)
         return updates
-
-    # TODO: Move _register_base_keys and register_base_keys methods to PrimitiveModel.
-    def _register_base_keys(self, **keys: BaseKey | IOHyperEdge) -> None:
-        if not self.is_primitive:
-            raise ValueError("Base keys can only be registered for empty models!")
-        self.random_keys: set[str] = set()
-        # Get shape_templates of TensorTypes and create corresponding shapes.
-        shape_templates = {
-            key: value.data.shape
-            for key, value in keys.items()
-            if isinstance(value, BaseKey) and value.data.shape is not None
-        }
-        shapes = create_shape_map(shape_templates, self.constraint_solver)
-        data_set: set[IOHyperEdge] = set()
-        is_diff = False
-        output_data: IOHyperEdge | None = None
-        for key, value in keys.items():
-            if isinstance(value, BaseKey):
-                if (
-                    is_generic_tensor := (get_origin(value.data.type) is Tensor)
-                ) or value.data.type is Tensor:
-                    tensor_types = (
-                        get_args(value.data.type)[0]
-                        if is_generic_tensor
-                        else int | float | bool
-                    )
-                    if not isinstance(tensor := value.data.value, Tensor):
-                        assert isinstance(value.data.value, ToBeDetermined)
-                        tensor = Tensor(
-                            type=tensor_types,
-                            shape=shapes[key].node,
-                        )
-                    edge = IOHyperEdge(value=tensor, interval=value.data.interval)
-                    data_set.add(edge)
-                else:
-                    edge_type = (
-                        ToBeDetermined if value.data.type is None else value.data.type
-                    )
-                    edge = IOHyperEdge(
-                        type=edge_type,
-                        value=value.data.value,
-                        interval=value.data.interval,
-                    )
-            else:
-                raise TypeError(
-                    "PrimitiveModel's can only be instantiated with BaseKey type keys!"
-                )
-
-            conn_data = self._create_connection(edge, key)
-
-            if key == "output":
-                self.conns.set_connection_type(conn_data, KeyType.OUTPUT)
-                output_data = edge
-            else:
-                self.conns.set_connection_type(conn_data, KeyType.INPUT)
-                is_diff |= not edge.is_non_diff
-        if isinstance(output_data, IOHyperEdge) and isinstance(
-            output_data.edge_type, Tensor
-        ):
-            output_data.differentiable = is_diff
-
-        # Initially run all given tensors' constraints
-        self.constraint_solver.update_shapes(Updates(data_set))
-
-        input_conns = OrderedSet({conn for conn in self.conns.input_connections})
-        out_conn = self.conns.get_connection("output")
-        assert out_conn is not None
-        output_conns = OrderedSet({out_conn})
-
-        for conn in self.conns.input_connections:
-            self.dependency_map.local_input_dependency_map[conn] = [
-                (self, output_conns)
-            ]
-
-        for conn in output_conns:
-            self.dependency_map.local_output_dependency_map[conn] = (self, input_conns)
-
-        self.dependency_map.cache_internal_references(out_conn, input_conns)
-        self.dependency_map.update_all_keys()
-
-        # Link canonicals
-        canonical_input_key = (
-            "input" if "input" in self.input_keys else next(iter(self.input_keys))
-        )
-        canonical_input_conn = self.conns.get_connection(canonical_input_key)
-        if canonical_input_conn is not None:
-            self._set_cin(canonical_input_conn, safe=False)
-
-        canonical_output_key = (
-            "output"
-            if "output" in self.conns.output_keys
-            else next(iter(self.conns.output_keys))
-        )
-        canonical_output_conn = self.conns.get_connection(canonical_output_key)
-        if canonical_output_conn is not None:
-            self._set_cout(canonical_output_conn, safe=False)
-        self._freeze()
-
-    def register_base_keys(self, **keys: BaseKey) -> None:
-        self._register_base_keys(**keys)
-        self.factory_args = {"formula_key": self.formula_key} | keys
 
 
 class DependencyMap:

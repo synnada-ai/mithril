@@ -119,11 +119,9 @@ class BufferOp(PrimitiveModel):
     def __init__(
         self,
         input: Tensor[Any] | ScalarValueType | ToBeDetermined = TBD,
-        *,
-        name: str | None = None,
     ) -> None:
-        super().__init__(formula_key="buffer", name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key="buffer",
             output=BaseKey(),
             input=BaseKey(value=input),
         )
@@ -137,8 +135,6 @@ class ToTupleOp(PrimitiveModel):
     def __init__(
         self,
         n: int,
-        *,
-        name: str | None = None,
         **kwargs: Tensor[Any] | ScalarValueType | ToBeDetermined,
     ) -> None:
         self.factory_args = {"n": n}
@@ -157,8 +153,7 @@ class ToTupleOp(PrimitiveModel):
             for idx in range(n)
         }
 
-        super().__init__(formula_key="to_tuple", name=name)
-        self._register_base_keys(**key_definitions)
+        super().__init__(formula_key="to_tuple", name=None, **key_definitions)
         self._set_constraint(
             fn=to_tuple_constraints,
             keys=[PrimitiveModel.output_key] + [key for key in self.input_keys],
@@ -174,8 +169,9 @@ class ArithmeticOp(PrimitiveModel):
         *,
         name: str | None = None,
     ) -> None:
-        super().__init__(formula_key=formula_key, name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key=formula_key,
+            name=name,
             output=BaseKey(),
             left=BaseKey(value=left),
             right=BaseKey(value=right),
@@ -202,8 +198,9 @@ class PowerOp(PrimitiveModel):
         assert isinstance(robust, bool), "Robust must be a boolean value!"
 
         if robust:
-            super().__init__(formula_key="robust_power", name=name)
-            self._register_base_keys(
+            super().__init__(
+                formula_key="robust_power",
+                name=name,
                 output=BaseKey(shape=[("out", ...)], type=Tensor),
                 base=BaseKey(shape=[("base", ...)], type=Tensor, value=base),
                 exponent=BaseKey(shape=[("exp", ...)], type=Tensor, value=exponent),
@@ -216,8 +213,9 @@ class PowerOp(PrimitiveModel):
                 post_processes={general_tensor_type_constraint, bcast_power},
             )
         else:
-            super().__init__(formula_key="power", name=name)
-            self._register_base_keys(
+            super().__init__(
+                formula_key="power",
+                name=name,
                 output=BaseKey(),
                 base=BaseKey(value=base),
                 exponent=BaseKey(value=exponent),
@@ -267,21 +265,19 @@ class MultiplyOp(ArithmeticOp):
 class MinimumOp(ArithmeticOp):
     def __init__(
         self,
-        name: str | None = None,
         left: TensorValueType | ToBeDetermined = TBD,
         right: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
-        super().__init__(formula_key="minimum", name=name, left=left, right=right)
+        super().__init__(formula_key="minimum", left=left, right=right)
 
 
 class MaximumOp(ArithmeticOp):
     def __init__(
         self,
-        name: str | None = None,
         left: TensorValueType | ToBeDetermined = TBD,
         right: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
-        super().__init__(formula_key="maximum", name=name, left=left, right=right)
+        super().__init__(formula_key="maximum", left=left, right=right)
 
 
 class DivideOp(PrimitiveModel):
@@ -292,8 +288,9 @@ class DivideOp(PrimitiveModel):
         *,
         name: str | None = None,
     ) -> None:
-        super().__init__(formula_key="divide", name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key="divide",
+            name=name,
             output=BaseKey(),
             numerator=BaseKey(value=numerator),
             denominator=BaseKey(value=denominator),
@@ -314,8 +311,9 @@ class FloorDivideOp(PrimitiveModel):
         *,
         name: str | None = None,
     ) -> None:
-        super().__init__(formula_key="floor_divide", name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key="floor_divide",
+            name=name,
             output=BaseKey(shape=[("Var_out", ...)], type=Tensor),
             numerator=BaseKey(shape=[("Var_1", ...)], type=Tensor, value=numerator),
             denominator=BaseKey(shape=[("Var_2", ...)], type=Tensor, value=denominator),
@@ -338,8 +336,9 @@ class MatrixMultiplyOp(PrimitiveModel):
         *,
         name: str | None = None,
     ) -> None:
-        super().__init__(formula_key="matrix_multiplication", name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key="matrix_multiplication",
+            name=name,
             output=BaseKey(shape=[("Var3", ...), "x", "z"], type=Tensor),
             left=BaseKey(shape=[("Var1", ...), "x", "y"], type=Tensor, value=left),
             right=BaseKey(shape=[("Var2", ...), "y", "z"], type=Tensor, value=right),
@@ -357,8 +356,9 @@ class ShapeOp(PrimitiveModel):
     def __init__(
         self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
     ) -> None:
-        super().__init__(formula_key="shape", name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key="shape",
+            name=name,
             output=BaseKey(type=tuple[int, ...]),
             input=BaseKey(shape=[("input", ...)], type=Tensor, value=input),
         )
@@ -379,8 +379,9 @@ class ReshapeOp(PrimitiveModel):
         else:
             output_shape_map = [key if key != -1 else None for key in shape]
 
-        super().__init__(formula_key="reshape", name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key="reshape",
+            name=name,
             output=BaseKey(shape=output_shape_map, type=Tensor),
             input=BaseKey(shape=[("input", ...)], type=Tensor, value=input),
             shape=BaseKey(type=tuple[int | None, ...] | list[int | None], value=shape),
@@ -392,8 +393,9 @@ class LengthOp(PrimitiveModel):
     def __init__(
         self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
     ) -> None:
-        super().__init__(formula_key="length", name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key="length",
+            name=name,
             output=BaseKey(type=int),
             input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
         )
@@ -403,8 +405,9 @@ class CastOp(PrimitiveModel):
     def __init__(
         self, dtype: core.Dtype | ToBeDetermined = TBD, *, name: str | None = None
     ) -> None:
-        super().__init__(formula_key="cast", name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key="cast",
+            name=name,
             output=BaseKey(shape=[("Var", ...)], type=Tensor),
             input=BaseKey(shape=[("Var", ...)], type=Tensor),
             dtype=BaseKey(type=core.Dtype, value=dtype),
@@ -415,8 +418,9 @@ class DtypeOp(PrimitiveModel):
     def __init__(
         self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
     ) -> None:
-        super().__init__(formula_key="dtype", name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key="dtype",
+            name=name,
             output=BaseKey(type=core.Dtype),
             input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
         )
@@ -431,8 +435,9 @@ class SizeOp(PrimitiveModel):
         name: str | None = None,
     ) -> None:
         self.factory_args = {"dim": dim}
-        super().__init__(formula_key="size", name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key="size",
+            name=name,
             output=BaseKey(type=int | tuple[int, ...]),
             input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
             dim=BaseKey(type=int | tuple[int, ...] | None, value=dim),
@@ -444,8 +449,9 @@ class ItemOp(PrimitiveModel):
     def __init__(
         self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
     ) -> None:
-        super().__init__(formula_key="item", name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key="item",
+            name=name,
             output=BaseKey(type=int | float),
             input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
         )
@@ -464,8 +470,9 @@ class ToTensorOp(PrimitiveModel):
         *,
         name: str | None = None,
     ) -> None:
-        super().__init__(formula_key="to_tensor", name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key="to_tensor",
+            name=name,
             output=BaseKey(shape=[("Var", ...)], type=Tensor),
             input=BaseKey(type=TensorValueType, value=input),
             dtype=BaseKey(type=core.Dtype | None, value=dtype),
@@ -497,8 +504,7 @@ class ToListOp(PrimitiveModel):
             for idx in range(n)
         }
 
-        super().__init__(formula_key="to_list", name=name)
-        self._register_base_keys(**key_definitions)
+        super().__init__(formula_key="to_list", name=name, **key_definitions)
 
         self._set_constraint(
             fn=to_list_constraints,
@@ -510,8 +516,9 @@ class TensorToListOp(PrimitiveModel):
     def __init__(
         self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
     ) -> None:
-        super().__init__(formula_key="tensor_to_list", name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key="tensor_to_list",
+            name=name,
             output=BaseKey(type=TensorToListType),
             input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
         )
@@ -554,8 +561,7 @@ class ReduceOp(PrimitiveModel):
             "axis": BaseKey(type=axis_type, value=axis),
             "keepdim": BaseKey(type=bool, value=keepdim),
         }
-        super().__init__(formula_key=formula_key, name=name)
-        self._register_base_keys(**(init_kwargs | kwargs))
+        super().__init__(formula_key=formula_key, name=name, **(init_kwargs | kwargs))
 
         self._set_constraint(
             fn=reduce_constraints,
@@ -587,7 +593,7 @@ class SumOp(ReduceOp):
     def __init__(
         self,
         axis: int | tuple[int, ...] | None | ToBeDetermined = None,
-        keepdim: bool = False,
+        keepdim: bool | ToBeDetermined = False,
         input: Tensor[Any] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
@@ -604,7 +610,7 @@ class MaxOp(ReduceOp):
     def __init__(
         self,
         axis: int | tuple[int, ...] | None | ToBeDetermined = None,
-        keepdim: bool = False,
+        keepdim: bool | ToBeDetermined = False,
         input: Tensor[Any] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
@@ -620,8 +626,8 @@ class MaxOp(ReduceOp):
 class ArgMaxOp(ReduceOp):
     def __init__(
         self,
-        axis: int | None | ToBeDetermined = None,
-        keepdim: bool = False,
+        axis: int | tuple[int, ...] | None | ToBeDetermined = None,
+        keepdim: bool | ToBeDetermined = False,
         input: Tensor[Any] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
@@ -641,7 +647,7 @@ class MinOp(ReduceOp):
     def __init__(
         self,
         axis: int | tuple[int, ...] | None | ToBeDetermined = None,
-        keepdim: bool = False,
+        keepdim: bool | ToBeDetermined = False,
         input: Tensor[Any] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
@@ -658,7 +664,7 @@ class ArgMinOp(ReduceOp):
     def __init__(
         self,
         axis: int | tuple[int, ...] | None | ToBeDetermined = None,
-        keepdim: bool = False,
+        keepdim: bool | ToBeDetermined = False,
         input: Tensor[Any] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
@@ -678,7 +684,7 @@ class ProdOp(ReduceOp):
     def __init__(
         self,
         axis: int | tuple[int, ...] | None | ToBeDetermined = None,
-        keepdim: bool = False,
+        keepdim: bool | ToBeDetermined = False,
         input: Tensor[Any] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
@@ -699,7 +705,7 @@ class VarianceOp(ReduceOp):
     def __init__(
         self,
         axis: int | tuple[int, ...] | None | ToBeDetermined = None,
-        keepdim: bool = False,
+        keepdim: bool | ToBeDetermined = False,
         correction: int | float | None = 0.0,
         input: Tensor[Any] | ToBeDetermined = TBD,
         *,
@@ -734,8 +740,7 @@ class SingleInputOperationOp(PrimitiveModel):
         )
         # Finalize kwargs.
         new_kwargs: Mapping[str, BaseKey] = default_kwargs | kwargs
-        super().__init__(formula_key=formula_key, name=name)
-        self._register_base_keys(**new_kwargs)
+        super().__init__(formula_key=formula_key, name=name, **new_kwargs)
 
         if polymorphic_constraint:
             self._set_constraint(
@@ -784,15 +789,17 @@ class SqrtOp(PrimitiveModel):
         self.factory_args = {"robust": robust}
 
         if robust:
-            super().__init__(formula_key="robust_sqrt", name=name)
-            self._register_base_keys(
+            super().__init__(
+                formula_key="robust_sqrt",
+                name=name,
                 output=BaseKey(shape=[("Var", ...)], type=Tensor[float]),
                 input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
                 cutoff=BaseKey(shape=[], type=Tensor, value=cutoff),
             )
         else:
-            super().__init__(formula_key="sqrt", name=name)
-            self._register_base_keys(
+            super().__init__(
+                formula_key="sqrt",
+                name=name,
                 output=BaseKey(shape=[("Var", ...)], type=Tensor),
                 input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
             )
@@ -807,8 +814,9 @@ class RelationalOperatorsOp(PrimitiveModel):
         *,
         name: str | None = None,
     ) -> None:
-        super().__init__(formula_key=formula_key, name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key=formula_key,
+            name=name,
             output=BaseKey(),
             left=BaseKey(value=left),
             right=BaseKey(value=right),
@@ -891,8 +899,9 @@ class LogicalNotOp(PrimitiveModel):
     def __init__(
         self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
     ) -> None:
-        super().__init__(formula_key="logical_not", name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key="logical_not",
+            name=name,
             output=BaseKey(shape=[("Var", ...)], type=Tensor[bool]),
             input=BaseKey(shape=[("Var", ...)], type=Tensor[bool], value=input),
         )
@@ -907,8 +916,9 @@ class BitwiseOperatorsOp(PrimitiveModel):
         *,
         name: str | None = None,
     ) -> None:
-        super().__init__(formula_key=formula_key, name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key=formula_key,
+            name=name,
             output=BaseKey(shape=[("Var1", ...)], type=Tensor[bool]),
             left=BaseKey(shape=[("Var2", ...)], type=Tensor[bool], value=left),
             right=BaseKey(shape=[("Var3", ...)], type=Tensor[bool], value=right),
@@ -958,8 +968,9 @@ class ShiftLeftOp(PrimitiveModel):
         *,
         name: str | None = None,
     ) -> None:
-        super().__init__(formula_key="shift_left", name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key="shift_left",
+            name=name,
             output=BaseKey(shape=[("Var3", ...)], type=Tensor[int]),
             input=BaseKey(shape=[("Var1", ...)], type=Tensor[int], value=input),
             shift=BaseKey(shape=[("Var2", ...)], type=Tensor[int], value=shift),
@@ -975,8 +986,9 @@ class ShiftRightOp(PrimitiveModel):
         *,
         name: str | None = None,
     ) -> None:
-        super().__init__(formula_key="shift_right", name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key="shift_right",
+            name=name,
             output=BaseKey(shape=[("Var3", ...)], type=Tensor),
             input=BaseKey(shape=[("Var1", ...)], type=Tensor, value=input),
             shift=BaseKey(shape=[("Var2", ...)], type=Tensor, value=shift),
@@ -994,9 +1006,10 @@ class TransposeOp(PrimitiveModel):
     ) -> None:
         self.factory_args = {"axes": axes}
 
-        super().__init__(formula_key="transpose", name=name)
         if axes is None:
-            self._register_base_keys(
+            super().__init__(
+                formula_key="transpose",
+                name=name,
                 output=BaseKey(shape=[("Var_out", ...)], type=Tensor),
                 input=BaseKey(shape=[("Var_in", ...)], type=Tensor, value=input),
                 axes=BaseKey(type=NoneType, value=axes),
@@ -1009,14 +1022,18 @@ class TransposeOp(PrimitiveModel):
             axes = [axes] if isinstance(axes, int) else axes
             input_shapes = [f"x_{i}" for i in range(len(axes))]
             output_shapes = [input_shapes[i] for i in axes]
-            self._register_base_keys(
+            super().__init__(
+                formula_key="transpose",
+                name=name,
                 output=BaseKey(shape=output_shapes, type=Tensor),
                 input=BaseKey(shape=input_shapes, type=Tensor, value=input),
                 axes=BaseKey(type=int | tuple[int, ...], value=axes),
             )
 
         elif axes is TBD:
-            self._register_base_keys(
+            super().__init__(
+                formula_key="transpose",
+                name=name,
                 output=BaseKey(shape=[("Var_out", ...)], type=Tensor),
                 input=BaseKey(shape=[("Var_in", ...)], type=Tensor, value=input),
                 axes=BaseKey(type=int | tuple[int, ...] | None, value=axes),
@@ -1039,8 +1056,9 @@ class SplitOp(PrimitiveModel):
         *,
         name: str | None = None,
     ):
-        super().__init__(formula_key="split", name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key="split",
+            name=name,
             output=BaseKey(shape=[("Var2", ...)], type=Tensor),
             input=BaseKey(shape=[("Var1", ...)], type=Tensor, value=input),
             split_size=BaseKey(type=int, value=split_size),
@@ -1060,8 +1078,9 @@ class SliceOp(PrimitiveModel):
         *,
         name: str | None = None,
     ):
-        super().__init__(formula_key="primitive_slice", name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key="primitive_slice",
+            name=name,
             output=BaseKey(type=slice),
             start=BaseKey(type=int | None, value=start),
             stop=BaseKey(type=int | None, value=stop),
@@ -1080,8 +1099,9 @@ class IndexerOp(PrimitiveModel):
         *,
         name: str | None = None,
     ) -> None:
-        super().__init__(formula_key="indexer", name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key="indexer",
+            name=name,
             output=BaseKey(),
             input=BaseKey(value=input),
             index=BaseKey(

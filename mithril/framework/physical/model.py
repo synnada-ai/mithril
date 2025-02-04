@@ -51,8 +51,6 @@ from ..common import (
 from ..logical.base import BaseModel
 from ..logical.model import (
     Connection,
-    ConnectionType,
-    IOKey,
     Model,
     define_unique_names,
 )
@@ -87,7 +85,7 @@ CACHE_NAME = "cache"
 class PhysicalModel(GenericDataType[DataType]):
     def __init__(
         self,
-        model: BaseModel,
+        model: Model,
         backend: Backend[DataType],
         *,
         discard_keys: StringOrConnectionSetType,
@@ -102,29 +100,13 @@ class PhysicalModel(GenericDataType[DataType]):
     ) -> None:
         if len(model.conns.output_keys) == 0 and len(model.conns.couts) == 0:
             raise KeyError("Models with no output keys can not be compiled.")
-        # if isinstance(model, PrimitiveModel):
-        if model.is_primitive:
-            # TODO: Remove wrapping with Model in the future.
-            _model = deepcopy(model)
-            assert isinstance(_model, Model)
-            extend_info = _model()
-            model_keys: dict[str, ConnectionType] = {}
-            for key in _model.external_keys:
-                value = extend_info.connections.get(key, NOT_GIVEN)
-                # NOTE: Do not set default value if it is given in constant_keys.
-                value = (value, NOT_GIVEN)[key in constant_keys]
-                default_val = _model.conns.get_data(key).value
-                if (value is NOT_GIVEN and default_val is TBD) or (
-                    key in _model.output_keys
-                ):
-                    # Non-valued connections are only named with their key names.
-                    model_keys[key] = key
-                else:
-                    val = default_val if default_val is not TBD else value
-                    model_keys[key] = IOKey(key, val)  # type: ignore
 
-            model = Model()
-            model |= _model(**model_keys)
+        # TODO: Update StaticDataStore.convert_data_to_physical function.
+        constant_keys = {  # type: ignore
+            key: StaticDataStore.convert_data_to_physical(value, backend)  # type: ignore
+            for key, value in model().connections.items()
+            if value is not NOT_GIVEN
+        } | constant_keys
 
         self.backend: Backend[DataType] = backend
         self._output_keys: set[str] = set(model.conns.output_keys)
@@ -1043,8 +1025,9 @@ class PhysicalModel(GenericDataType[DataType]):
 
         kwargs = {key: model.conns.all[key].metadata for key in external_keys}
 
-        primitive = PrimitiveModel(formula_key=model.formula_key, name=model.name)
-        primitive._register_base_keys(**kwargs)
+        primitive = PrimitiveModel(
+            formula_key=model.formula_key, name=model.name, **kwargs
+        )
         primitive.parent = model.parent
 
         p_key_mappings: dict[str, str] = {}
@@ -1315,13 +1298,12 @@ class FlatModel:
         if mappings is None:
             mappings = {}
 
-        # if isinstance(model, PrimitiveModel):
-        if model.is_primitive:
-            if not self._is_primitive_ready(model):  # type: ignore
-                self._add_primitive_to_queue(model, mappings, parent_name)  # type: ignore
+        if isinstance(model, PrimitiveModel):
+            if not self._is_primitive_ready(model):
+                self._add_primitive_to_queue(model, mappings, parent_name)
                 return
 
-            self._process_primitive_model(model, mappings, parent_name)  # type: ignore
+            self._process_primitive_model(model, mappings, parent_name)
 
         elif isinstance(model, Model):
             self._process_model(model, mappings, parent_name)

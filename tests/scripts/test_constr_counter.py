@@ -40,6 +40,7 @@ from mithril.models import (
     Slice,
     Transpose,
 )
+from mithril.models.primitives import UserPrimitiveModel
 
 
 def dummy_constraint(output: IOHyperEdge, input: IOHyperEdge):
@@ -93,26 +94,26 @@ def dummy_constraint(output: IOHyperEdge, input: IOHyperEdge):
     return status, updates
 
 
-class Model1(Model):
+class Model1(UserPrimitiveModel):
     input: Connection
     output: Connection
 
     def __init__(self) -> None:
-        super().__init__(formula_key="buffer")
-        self._register_base_keys(
+        super().__init__(
+            formula_key="buffer",
             input=BaseKey(shape=[("Var1", ...)], type=Tensor),
             output=BaseKey(shape=[("Var2", ...)], type=Tensor),
         )
         self._set_constraint(fn=dummy_constraint, keys=["output", "input"])
 
 
-class Model2(Model):
+class Model2(UserPrimitiveModel):
     input: Connection
     output: Connection
 
     def __init__(self) -> None:
-        super().__init__(formula_key="buffer")
-        self._register_base_keys(
+        super().__init__(
+            formula_key="buffer",
             input=BaseKey(shape=[("Var1", ...)], type=Tensor),
             output=BaseKey(shape=[("Var2", ...)], type=Tensor),
         )
@@ -122,27 +123,27 @@ class Model2(Model):
         )
 
 
-class Model3(Model):
+class Model3(UserPrimitiveModel):
     input: Connection
     output: Connection
 
     def __init__(self) -> None:
-        super().__init__(formula_key="buffer")
-        self._register_base_keys(
+        super().__init__(
+            formula_key="buffer",
             input=BaseKey(shape=[("Var1", ...)], type=Tensor[int | bool]),
             output=BaseKey(shape=[("Var2", ...)], type=Tensor[int | bool]),
         )
         self._set_constraint(fn=dummy_constraint, keys=["output", "input"])
 
 
-class MyAdd2(Model):
+class MyAdd2(UserPrimitiveModel):
     left: Connection
     right: Connection
     output: Connection
 
     def __init__(self, left, right, output) -> None:
-        super().__init__(formula_key="add")
-        self._register_base_keys(
+        super().__init__(
+            formula_key="add",
             output=BaseKey(shape=output, type=Tensor),
             left=BaseKey(shape=left, type=Tensor),
             right=BaseKey(shape=right, type=Tensor),

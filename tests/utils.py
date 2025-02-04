@@ -18,7 +18,16 @@ import tempfile
 
 import mithril
 from mithril import Backend, DataType
-from mithril.models import Model, PhysicalModel
+from mithril.framework.common import BaseKey
+from mithril.framework.constraints import bcast
+from mithril.models import (
+    ExtendInfo,
+    Model,
+    PhysicalModel,
+    PrimitiveModel,
+    Tensor,
+)
+from mithril.models.primitives import UserPrimitiveModel
 
 
 def check_logical_models(model_1: Model, model_2: Model):
@@ -164,3 +173,24 @@ def with_temp_file(suffix: str):
         return wrapper
 
     return decorator
+
+
+def get_primitive(model: Model) -> PrimitiveModel:
+    m = next(iter(model.dag.keys()))
+    assert isinstance(m, PrimitiveModel)
+    return m
+
+
+class MyAdder(UserPrimitiveModel):
+    def __init__(self) -> None:
+        super().__init__(
+            formula_key="my_adder",
+            output=BaseKey(shape=[("Var_out", ...)], type=Tensor),
+            left=BaseKey(shape=[("Var_1", ...)], type=Tensor),
+            right=BaseKey(shape=[("Var_2", ...)], type=Tensor),
+        )
+        self.set_constraint(fn=bcast, keys=[PrimitiveModel.output_key, "left", "right"])
+
+    def __call__(self, left, right, output):  # type: ignore[override]
+        kwargs = {"left": left, "right": right, "output": output}
+        return ExtendInfo(self, kwargs)

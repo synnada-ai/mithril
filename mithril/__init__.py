@@ -38,7 +38,7 @@ from .framework.codegen import code_gen_map
 from .framework.common import TBD
 from .framework.logical import Connection, IOKey
 from .framework.physical.model import PhysicalConstantType, PhysicalShapeType
-from .models import BaseModel, PhysicalModel
+from .models import Model, PhysicalModel
 from .models.train_model import TrainModel
 
 __all__ = [
@@ -98,7 +98,7 @@ except ImportError:
 
 
 def compile(
-    model: BaseModel,
+    model: Model,
     backend: Backend[DataType],
     *,
     constant_keys: PhysicalConstantType[DataType] | None = None,

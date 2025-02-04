@@ -653,7 +653,11 @@ class Model(BaseModel):
             assert template.output_connection is not None
         return template.output_connection
 
-    def _extend(self, model: BaseModel, kwargs: dict[str, ConnectionType]) -> Self:
+    def _extend(
+        self, model: BaseModel, kwargs: dict[str, ConnectionType] | None = None
+    ) -> Self:
+        if kwargs is None:
+            kwargs = {}
         if self.is_frozen:
             raise AttributeError("Model is frozen and can not be extended!")
 
@@ -678,7 +682,6 @@ class Model(BaseModel):
         external_keys += [
             item.key for item in model.conns.couts if item.key not in external_keys
         ]
-
         kwargs = {
             key: self._convert_to_base_key(model, key, kwargs.get(key, NOT_GIVEN))  # type: ignore
             for key in external_keys
@@ -947,7 +950,7 @@ def define_unique_names(
     model_count_dict: dict[str, int] = {}
 
     for model in models:
-        class_name = model.class_name
+        class_name = model.name or model.class_name
         if model_count_dict.setdefault(class_name, 0) == 0:
             single_model_dict[class_name] = model
         else:
@@ -958,5 +961,5 @@ def define_unique_names(
         model_count_dict[class_name] += 1
 
     for m in single_model_dict.values():
-        model_name_dict[m] = str(m.class_name)
+        model_name_dict[m] = m.name or str(m.class_name)
     return model_name_dict

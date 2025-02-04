@@ -121,7 +121,9 @@ from mithril.models import (
     ZerosLike,
     primitives,
 )
+from mithril.models.primitives import UserPrimitiveModel
 
+from ..utils import get_primitive
 from .test_utils import (
     check_shapes_semantically,
     check_single_shape_semantically,
@@ -611,6 +613,7 @@ def test_linear_1_set_shapes():
     ctx = TrainModel(model)
     loss_model = SquaredError()
     loss_model.set_shapes(loss_model.safe_shapes)
+    loss_model.set_shapes(get_primitive(loss_model).safe_shapes)
     ctx.add_loss(
         loss_model=loss_model, reduce_steps=[Mean()], input="output", target="target"
     )
@@ -648,7 +651,7 @@ def test_linear_1_static_shapes():
     shapes = {"input": [100, 4], "target": [100, 1]}
     ctx = TrainModel(model)
     loss_model = SquaredError()
-    loss_model.set_shapes(loss_model.safe_shapes)
+    loss_model.set_shapes(get_primitive(loss_model).safe_shapes)
     ctx.add_loss(
         loss_model=loss_model, reduce_steps=[Mean()], input="output", target="target"
     )
@@ -699,7 +702,7 @@ def test_linear_1_static_inputs():
     }
     ctx = TrainModel(model)
     loss_model = SquaredError()
-    loss_model.set_shapes(loss_model.safe_shapes)
+    loss_model.set_shapes(get_primitive(loss_model).safe_shapes)
     ctx.add_loss(
         loss_model=loss_model, reduce_steps=[Mean()], input="output", target="target"
     )
@@ -2566,7 +2569,7 @@ def test_mlp_1_static_shapes():
     model = MLP(activations=[Softplus(), Buffer(), Buffer()], dimensions=[5, 10, 1])
     ctx = TrainModel(model)
     loss_model = SquaredError()
-    loss_model.set_shapes(loss_model.safe_shapes)
+    loss_model.set_shapes(get_primitive(loss_model).safe_shapes)
     ctx.add_loss(loss_model, input=model.output, target="target", reduce_steps=[Mean()])
     static_input_shapes = {"input": [100, 4], "target": [100, 1]}
     logical_ref: dict[str, list | None] = {
@@ -2680,7 +2683,7 @@ def test_mlp_1_static_inputs():
     model = MLP(activations=[Softplus(), Buffer(), Buffer()], dimensions=[5, 10, 1])
     ctx = TrainModel(model)
     loss_model = SquaredError()
-    loss_model.set_shapes(loss_model.safe_shapes)
+    loss_model.set_shapes(get_primitive(loss_model).safe_shapes)
 
     ctx.add_loss(loss_model, input=model.output, target="target", reduce_steps=[Mean()])
     static_inputs = {
@@ -2952,13 +2955,13 @@ def test_shape_1():
     assert_shapes(model, logical_ref, physical_ref)
 
 
-class Model1(Model):
+class Model1(UserPrimitiveModel):
     input: Connection
     output: Connection
 
     def __init__(self) -> None:
-        super().__init__(formula_key="relu")
-        self._register_base_keys(
+        super().__init__(
+            formula_key="relu",
             input=BaseKey(shape=[("Var1", ...)], type=Tensor),
             output=BaseKey(shape=[("Var1", ...), "u1", "u2"], type=Tensor),
         )
@@ -2969,13 +2972,13 @@ class Model1(Model):
         return ExtendInfo(self, {"input": input, "output": output})
 
 
-class Model2(Model):
+class Model2(UserPrimitiveModel):
     input: Connection
     output: Connection
 
     def __init__(self) -> None:
-        super().__init__(formula_key="relu")
-        self._register_base_keys(
+        super().__init__(
+            formula_key="relu",
             input=BaseKey(shape=[("Var1", ...), "u1"], type=Tensor),
             output=BaseKey(shape=["u1", ("Var1", ...)], type=Tensor),
         )
@@ -2986,15 +2989,15 @@ class Model2(Model):
         return ExtendInfo(self, {"input": input, "output": output})
 
 
-class Model3(Model):
+class Model3(UserPrimitiveModel):
     input1: Connection
     input2: Connection
     output: Connection
     axis: Connection
 
     def __init__(self) -> None:
-        super().__init__(formula_key="concat")
-        self._register_base_keys(
+        super().__init__(
+            formula_key="concat",
             input1=BaseKey(shape=["u1", "u2", "u3"], type=Tensor),
             input2=BaseKey(shape=["u3", "u2", "u1"], type=Tensor),
             output=BaseKey(shape=["u1", ("Var1", ...), "u3"], type=Tensor),
@@ -3010,13 +3013,13 @@ class Model3(Model):
         return ExtendInfo(self, {"input1": input1, "output": output, "input2": input2})
 
 
-class Model4(Model):
+class Model4(UserPrimitiveModel):
     input: Connection
     output: Connection
 
     def __init__(self) -> None:
-        super().__init__(formula_key="relu")
-        self._register_base_keys(
+        super().__init__(
+            formula_key="relu",
             input=BaseKey(shape=[("Var1", ...)], type=Tensor),
             output=BaseKey(shape=[("Var1", ...), 1], type=Tensor),
         )
@@ -3027,14 +3030,14 @@ class Model4(Model):
         return ExtendInfo(self, {"input": input, "output": output})
 
 
-class Model5(Model):
+class Model5(UserPrimitiveModel):
     input: Connection
     output: Connection
     axis: Connection
 
     def __init__(self, axis=None) -> None:
-        super().__init__(formula_key="relu")
-        self._register_base_keys(
+        super().__init__(
+            formula_key="relu",
             input=BaseKey(shape=[("Var1", ...)], type=Tensor),
             output=BaseKey(shape=[("Var2", ...)], type=Tensor),
             axis=BaseKey(type=NoneType | list[int], value=axis),
@@ -3049,13 +3052,13 @@ class Model5(Model):
         return ExtendInfo(self, {"input": input, "output": output, "axis": axis})
 
 
-class Model6(Model):
+class Model6(UserPrimitiveModel):
     input: Connection
     output: Connection
 
     def __init__(self) -> None:
-        super().__init__(formula_key="relu")
-        self._register_base_keys(
+        super().__init__(
+            formula_key="relu",
             input=BaseKey(shape=["u1", ("Var1", ...)], type=Tensor),
             output=BaseKey(shape=[("Var1", ...), "u1"], type=Tensor),
         )
@@ -3066,13 +3069,13 @@ class Model6(Model):
         return ExtendInfo(self, {"input": input, "output": output})
 
 
-class Model7(Model):
+class Model7(UserPrimitiveModel):
     input: Connection
     output: Connection
 
     def __init__(self) -> None:
-        super().__init__(formula_key="relu")
-        self._register_base_keys(
+        super().__init__(
+            formula_key="relu",
             input=BaseKey(shape=["u1", ("Var1", ...)], type=Tensor),
             output=BaseKey(shape=["u1", ("Var1", ...)], type=Tensor),
         )
@@ -3083,13 +3086,13 @@ class Model7(Model):
         return ExtendInfo(self, {"input": input, "output": output})
 
 
-class Model8(Model):
+class Model8(UserPrimitiveModel):
     input: Connection
     output: Connection
 
     def __init__(self) -> None:
-        super().__init__(formula_key="relu")
-        self._register_base_keys(
+        super().__init__(
+            formula_key="relu",
             input=BaseKey(shape=[("Var1", ...), "u1"], type=Tensor),
             output=BaseKey(shape=[("Var1", ...), "u1"], type=Tensor),
         )
@@ -3100,13 +3103,13 @@ class Model8(Model):
         return ExtendInfo(self, {"input": input, "output": output})
 
 
-class Model9(Model):
+class Model9(UserPrimitiveModel):
     input: Connection
     output: Connection
 
     def __init__(self) -> None:
-        super().__init__(formula_key="buffer")
-        self._register_base_keys(
+        super().__init__(
+            formula_key="relu",
             input=BaseKey(shape=["u1", ("Var1", ...)], type=Tensor),
             output=BaseKey(shape=["u2", "u1", ("Var1", ...)], type=Tensor),
         )
@@ -3990,13 +3993,13 @@ def test_variadic_naming_1():
 
 
 # Test models for Variadic naming tests.
-class MyVariadic1(Model):
+class MyVariadic1(UserPrimitiveModel):
     input: Connection
     output: Connection
 
     def __init__(self) -> None:
-        super().__init__(formula_key="buffer")
-        self._register_base_keys(
+        super().__init__(
+            formula_key="buffer",
             input=BaseKey(shape=[("Var1", ...), "a"], type=Tensor),
             output=BaseKey(shape=[("Var1", ...), "a"], type=Tensor),
         )
@@ -4007,13 +4010,13 @@ class MyVariadic1(Model):
         return ExtendInfo(self, {"input": input, "output": output})
 
 
-class MyVariadic2(Model):
+class MyVariadic2(UserPrimitiveModel):
     input: Connection
     output: Connection
 
     def __init__(self) -> None:
-        super().__init__(formula_key="buffer")
-        self._register_base_keys(
+        super().__init__(
+            formula_key="buffer",
             input=BaseKey(shape=[("Var1", ...), "a", "b"], type=Tensor),
             output=BaseKey(shape=[("Var1", ...), "a", "b"], type=Tensor),
         )
@@ -4024,13 +4027,13 @@ class MyVariadic2(Model):
         return ExtendInfo(self, {"input": input, "output": output})
 
 
-class MyVariadic3(Model):
+class MyVariadic3(UserPrimitiveModel):
     input: Connection
     output: Connection
 
     def __init__(self) -> None:
-        super().__init__(formula_key="buffer")
-        self._register_base_keys(
+        super().__init__(
+            formula_key="buffer",
             input=BaseKey(shape=["a", "b", ("Var1", ...)], type=Tensor),
             output=BaseKey(shape=["a", "b", ("Var1", ...)], type=Tensor),
         )
@@ -4041,13 +4044,13 @@ class MyVariadic3(Model):
         return ExtendInfo(self, {"input": input, "output": output})
 
 
-class MyVariadic4(Model):
+class MyVariadic4(UserPrimitiveModel):
     input: Connection
     output: Connection
 
     def __init__(self) -> None:
-        super().__init__(formula_key="buffer")
-        self._register_base_keys(
+        super().__init__(
+            formula_key="buffer",
             input=BaseKey(shape=["a", ("Var1", ...)], type=Tensor),
             output=BaseKey(shape=["a", ("Var1", ...)], type=Tensor),
         )
@@ -4058,13 +4061,13 @@ class MyVariadic4(Model):
         return ExtendInfo(self, {"input": input, "output": output})
 
 
-class MyVariadic5(Model):
+class MyVariadic5(UserPrimitiveModel):
     input: Connection
     output: Connection
 
     def __init__(self) -> None:
-        super().__init__(formula_key="buffer")
-        self._register_base_keys(
+        super().__init__(
+            formula_key="buffer",
             input=BaseKey(shape=[("Var1", ...), "a", "b"], type=Tensor),
             output=BaseKey(shape=[("Var1", ...), "a"], type=Tensor),
         )
@@ -4075,13 +4078,13 @@ class MyVariadic5(Model):
         return ExtendInfo(self, {"input": input, "output": output})
 
 
-class MyVariadic6(Model):
+class MyVariadic6(UserPrimitiveModel):
     input: Connection
     output: Connection
 
     def __init__(self) -> None:
-        super().__init__(formula_key="buffer")
-        self._register_base_keys(
+        super().__init__(
+            formula_key="buffer",
             input=BaseKey(shape=[("Var1", ...), "a"], type=Tensor),
             output=BaseKey(shape=["a", "a"], type=Tensor),
         )
@@ -4092,13 +4095,13 @@ class MyVariadic6(Model):
         return ExtendInfo(self, {"input": input, "output": output})
 
 
-class MyVariadic7(Model):
+class MyVariadic7(UserPrimitiveModel):
     input: Connection
     output: Connection
 
     def __init__(self) -> None:
-        super().__init__(formula_key="buffer")
-        self._register_base_keys(
+        super().__init__(
+            formula_key="buffer",
             input=BaseKey(shape=[("Var1", ...), "u1", "u2"], type=Tensor),
             output=BaseKey(shape=["u3", ("Var2", ...), "u4"], type=Tensor),
         )
@@ -4109,7 +4112,7 @@ class MyVariadic7(Model):
         return ExtendInfo(self, {"input": input, "output": output})
 
 
-class MyVariadic8(Model):
+class MyVariadic8(UserPrimitiveModel):
     input1: Connection
     input2: Connection
     input3: Connection
@@ -4119,8 +4122,8 @@ class MyVariadic8(Model):
     output: Connection
 
     def __init__(self) -> None:
-        super().__init__(formula_key="buffer")
-        self._register_base_keys(
+        super().__init__(
+            formula_key="buffer",
             input1=BaseKey(shape=["u1", "u2", "u3", ("Var1", ...)], type=Tensor),
             input2=BaseKey(shape=["u4", "u5", ("Var2", ...), "u6"], type=Tensor),
             input3=BaseKey(shape=["u7", ("Var3", ...), "u8", "u9"], type=Tensor),
@@ -4163,15 +4166,15 @@ class MyVariadic8(Model):
         )
 
 
-class MyVariadic9(Model):
+class MyVariadic9(UserPrimitiveModel):
     input1: Connection
     input2: Connection
     input3: Connection
     output: Connection
 
     def __init__(self) -> None:
-        super().__init__(formula_key="buffer")
-        self._register_base_keys(
+        super().__init__(
+            formula_key="buffer",
             input1=BaseKey(shape=["u1", ("Var1", ...)], type=Tensor),
             input2=BaseKey(shape=[("Var2", ...), "u2"], type=Tensor),
             input3=BaseKey(shape=["u3", ("Var3", ...), "u4"], type=Tensor),
@@ -4191,7 +4194,7 @@ class MyVariadic9(Model):
         )
 
 
-class MyVariadic10(Model):
+class MyVariadic10(UserPrimitiveModel):
     input1: Connection
     input2: Connection
     input3: Connection
@@ -4200,8 +4203,8 @@ class MyVariadic10(Model):
     output: Connection
 
     def __init__(self) -> None:
-        super().__init__(formula_key="buffer")
-        self._register_base_keys(
+        super().__init__(
+            formula_key="buffer",
             input1=BaseKey(shape=["u1", "u2", ("Var1", ...)], type=Tensor),
             input2=BaseKey(shape=["u3", ("Var2", ...), "u4"], type=Tensor),
             input3=BaseKey(shape=[("Var3", ...), "u5", "u6"], type=Tensor),
@@ -4232,13 +4235,13 @@ class MyVariadic10(Model):
         )
 
 
-class MyVariadic11(Model):
+class MyVariadic11(UserPrimitiveModel):
     input: Connection
     output: Connection
 
     def __init__(self) -> None:
-        super().__init__(formula_key="buffer")
-        self._register_base_keys(
+        super().__init__(
+            formula_key="buffer",
             input=BaseKey(shape=["a", ("Var1", ...)], type=Tensor),
             output=BaseKey(shape=["a", ("Var1", ...), "b"], type=Tensor),
         )
@@ -4249,13 +4252,13 @@ class MyVariadic11(Model):
         return ExtendInfo(self, {"input": input, "output": output})
 
 
-class MyVariadic12(Model):
+class MyVariadic12(UserPrimitiveModel):
     input: Connection
     output: Connection
 
     def __init__(self) -> None:
-        super().__init__(formula_key="buffer")
-        self._register_base_keys(
+        super().__init__(
+            formula_key="buffer",
             input=BaseKey(shape=["a", "b", ("Var1", ...)], type=Tensor),
             output=BaseKey(shape=["a", "b", "c", ("Var1", ...)], type=Tensor),
         )
@@ -5147,14 +5150,14 @@ def test_variadic_naming_13():
 
 
 def test_variadic_naming_14() -> None:
-    class MyModel(Model):
+    class MyModel(UserPrimitiveModel):
         input1: Connection
         input2: Connection
         output: Connection
 
         def __init__(self) -> None:
-            super().__init__(formula_key="buffer")
-            self._register_base_keys(
+            super().__init__(
+                formula_key="buffer",
                 input1=BaseKey(shape=["a", ("Var1", ...), "b"], type=Tensor),
                 input2=BaseKey(shape=[("Var1", ...)], type=Tensor),
                 output=BaseKey(shape=["a", ("Var1", ...), "c"], type=Tensor),
@@ -5179,14 +5182,14 @@ def test_variadic_naming_14() -> None:
 
 
 def test_variadic_naming_15() -> None:
-    class MyModel(Model):
+    class MyModel(UserPrimitiveModel):
         input1: Connection
         input2: Connection
         output: Connection
 
         def __init__(self) -> None:
-            super().__init__(formula_key="buffer")
-            self._register_base_keys(
+            super().__init__(
+                formula_key="buffer",
                 input1=BaseKey(shape=["a", ("Var1", ...), "b"], type=Tensor),
                 input2=BaseKey(shape=["b", "c"], type=Tensor),
                 output=BaseKey(shape=["a", ("Var1", ...), "c"], type=Tensor),
@@ -5208,13 +5211,13 @@ def test_variadic_naming_15() -> None:
 
 
 def test_variadic_naming_16() -> None:
-    class MyModel(Model):
+    class MyModel(UserPrimitiveModel):
         input: Connection
         output: Connection
 
         def __init__(self) -> None:
-            super().__init__(formula_key="buffer")
-            self._register_base_keys(
+            super().__init__(
+                formula_key="buffer",
                 input=BaseKey(shape=["a", ("Var1", ...), "b"], type=Tensor),
                 output=BaseKey(shape=["b", ("Var1", ...), "a"], type=Tensor),
             )
@@ -5249,13 +5252,13 @@ def test_variadic_naming_16() -> None:
 
 
 def test_variadic_naming_17() -> None:
-    class MyModel(Model):
+    class MyModel(UserPrimitiveModel):
         input: Connection
         output: Connection
 
         def __init__(self) -> None:
-            super().__init__(formula_key="buffer")
-            self._register_base_keys(
+            super().__init__(
+                formula_key="buffer",
                 input=BaseKey(shape=["a", ("Var1", ...), "b"], type=Tensor),
                 output=BaseKey(shape=["b", ("Var1", ...), "a"], type=Tensor),
             )
@@ -5533,13 +5536,13 @@ def test_variadic_naming_24():
 
 
 def test_variadic_naming_25() -> None:
-    class MyModel(Model):
+    class MyModel(UserPrimitiveModel):
         input: Connection
         output: Connection
 
         def __init__(self) -> None:
-            super().__init__(formula_key="buffer")
-            self._register_base_keys(
+            super().__init__(
+                formula_key="buffer",
                 input=BaseKey(shape=[("Var1", ...), "a", "b", "c"], type=Tensor),
                 output=BaseKey(shape=["c", ("Var1", ...), "a", "b"], type=Tensor),
             )
@@ -5574,15 +5577,15 @@ def test_variadic_naming_25() -> None:
 
 
 def test_variadic_naming_26() -> None:
-    class MyModel(Model):
+    class MyModel(UserPrimitiveModel):
         input1: Connection
         input2: Connection
         input3: Connection
         output: Connection
 
         def __init__(self) -> None:
-            super().__init__(formula_key="buffer")
-            self._register_base_keys(
+            super().__init__(
+                formula_key="buffer",
                 input1=BaseKey(shape=["a", ("Var1", ...), "b"], type=Tensor),
                 input2=BaseKey(shape=["_a", ("Var1", ...), "_b"], type=Tensor),
                 input3=BaseKey(shape=["b", "c"], type=Tensor),
@@ -5626,13 +5629,13 @@ def test_variadic_naming_26() -> None:
 
 
 def test_variadic_naming_27() -> None:
-    class MyModel(Model):
+    class MyModel(UserPrimitiveModel):
         input: Connection
         output: Connection
 
         def __init__(self) -> None:
-            super().__init__(formula_key="buffer")
-            self._register_base_keys(
+            super().__init__(
+                formula_key="buffer",
                 input=BaseKey(shape=[("Var1", ...), "u1"], type=Tensor),
                 output=BaseKey(shape=[("Var1", ...)], type=Tensor),
             )
@@ -5669,13 +5672,13 @@ def test_variadic_naming_27() -> None:
 
 
 def test_same_uniadic_1() -> None:
-    class MyModel(Model):
+    class MyModel(UserPrimitiveModel):
         input: Connection
         output: Connection
 
         def __init__(self) -> None:
-            super().__init__(formula_key="buffer")
-            self._register_base_keys(
+            super().__init__(
+                formula_key="buffer",
                 input=BaseKey(shape=[("Var1", ...), "u1", "u2", "u3"], type=Tensor),
                 output=BaseKey(shape=[("Var1", ...), "u4"], type=Tensor),
             )
@@ -5709,13 +5712,13 @@ def test_same_uniadic_1() -> None:
 
 
 def test_same_uniadic_2() -> None:
-    class MyModel(Model):
+    class MyModel(UserPrimitiveModel):
         input: Connection
         output: Connection
 
         def __init__(self) -> None:
-            super().__init__(formula_key="buffer")
-            self._register_base_keys(
+            super().__init__(
+                formula_key="buffer",
                 input=BaseKey(shape=[("Var1", ...), "u1", "u2", "u3"], type=Tensor),
                 output=BaseKey(shape=[("Var1", ...), "u4"], type=Tensor),
             )
@@ -6620,6 +6623,7 @@ def test_total_repr_count_1():
         PrimitiveModel,
         ToList,
         ScaledDotProduct,
+        UserPrimitiveModel,
     }
     ref_counts = {
         Exponential: 1,
@@ -6895,10 +6899,10 @@ def test_node_count_3():
 
 
 def test_repr_count_1():
-    class MyModel(Model):
+    class MyModel(UserPrimitiveModel):
         def __init__(self) -> None:
-            super().__init__(formula_key="buffer")
-            self._register_base_keys(
+            super().__init__(
+                formula_key="buffer",
                 input=BaseKey(shape=["a", "b"], type=Tensor),
                 output=BaseKey(shape=["b", "c", "d"], type=Tensor),
             )
@@ -6914,10 +6918,10 @@ def test_repr_count_1():
 
 
 def test_equalize_lengths_of_unmatchable_reprs_of_different_sizes_with_extend_1():
-    class MyModel(Model):
+    class MyModel(UserPrimitiveModel):
         def __init__(self) -> None:
-            super().__init__(formula_key="buffer")
-            self._register_base_keys(
+            super().__init__(
+                formula_key="buffer",
                 input=BaseKey(shape=["a", ("Var1", ...)], type=Tensor),
                 output=BaseKey(shape=[("Var1", ...), "c", "d", "e"], type=Tensor),
             )
@@ -6937,10 +6941,10 @@ def test_equalize_lengths_of_unmatchable_reprs_of_different_sizes_with_extend_1(
 
 
 def test_equalize_lengths_of_unmatchable_reprs_of_different_sizes_with_extend_2():
-    class MyModel(Model):
+    class MyModel(UserPrimitiveModel):
         def __init__(self) -> None:
-            super().__init__(formula_key="buffer")
-            self._register_base_keys(
+            super().__init__(
+                formula_key="buffer",
                 input=BaseKey(shape=[("Var1", ...), "c", "d", "e"], type=Tensor),
                 output=BaseKey(shape=["a", "b", ("Var1", ...)], type=Tensor),
             )
@@ -7395,10 +7399,10 @@ def test_numeric_compatibility_inference_10():
 
 
 def test_node_count_4():
-    class MyModel(Model):
+    class MyModel(UserPrimitiveModel):
         def __init__(self) -> None:
-            super().__init__(formula_key="buffer")
-            self._register_base_keys(
+            super().__init__(
+                formula_key="buffer",
                 input=BaseKey(shape=["a", ("Var1", ...)], type=Tensor),
                 output=BaseKey(shape=[("Var1", ...), "b"], type=Tensor),
             )
@@ -7428,10 +7432,10 @@ def test_node_count_4():
 
 
 def test_node_count_5():
-    class MyModel(Model):
+    class MyModel(UserPrimitiveModel):
         def __init__(self) -> None:
-            super().__init__(formula_key="buffer")
-            self._register_base_keys(
+            super().__init__(
+                formula_key="buffer",
                 input1=BaseKey(shape=["a", ("Var1", ...)], type=Tensor),
                 input2=BaseKey(shape=[("Var1", ...), "b"], type=Tensor),
                 output=BaseKey(shape=["a", ("Var1", ...)], type=Tensor),
@@ -7657,13 +7661,13 @@ def test_node_count_15():
 
 
 def test_node_count_16() -> None:
-    class MyModel(Model):
+    class MyModel(UserPrimitiveModel):
         input: Connection
         output: Connection
 
         def __init__(self) -> None:
-            super().__init__(formula_key="buffer")
-            self._register_base_keys(
+            super().__init__(
+                formula_key="buffer",
                 input=BaseKey(shape=[5, 5], type=Tensor),
                 output=BaseKey(shape=[5, 5], type=Tensor),
             )
@@ -7687,13 +7691,13 @@ def test_node_count_16() -> None:
 
 
 def test_node_count_18() -> None:
-    class MyModel(Model):
+    class MyModel(UserPrimitiveModel):
         input: Connection
         output: Connection
 
         def __init__(self) -> None:
-            super().__init__(formula_key="buffer")
-            self._register_base_keys(
+            super().__init__(
+                formula_key="buffer",
                 input=BaseKey(shape=["a", "b"], type=Tensor),
                 output=BaseKey(shape=["a", "b"], type=Tensor),
             )
@@ -7716,13 +7720,13 @@ def test_node_count_18() -> None:
 
 
 def test_node_count_19() -> None:
-    class MyModel(Model):
+    class MyModel(UserPrimitiveModel):
         input: Connection
         output: Connection
 
         def __init__(self) -> None:
-            super().__init__(formula_key="buffer")
-            self._register_base_keys(
+            super().__init__(
+                formula_key="buffer",
                 input=BaseKey(shape=["a", ("V1", ...), "b", "c"], type=Tensor),
                 output=BaseKey(shape=["c", ("V1", ...), "a", "b"], type=Tensor),
             )
@@ -7752,13 +7756,13 @@ def test_node_count_19() -> None:
 
 
 def test_node_count_20() -> None:
-    class MyModel(Model):
+    class MyModel(UserPrimitiveModel):
         input: Connection
         output: Connection
 
         def __init__(self) -> None:
-            super().__init__(formula_key="buffer")
-            self._register_base_keys(
+            super().__init__(
+                formula_key="buffer",
                 input=BaseKey(shape=["a", "b", "c"], type=Tensor),
                 output=BaseKey(shape=["b", "c", "a"], type=Tensor),
             )
@@ -7788,13 +7792,13 @@ def test_node_count_20() -> None:
 
 
 def test_node_count_21() -> None:
-    class MyModel(Model):
+    class MyModel(UserPrimitiveModel):
         input: Connection
         output: Connection
 
         def __init__(self) -> None:
-            super().__init__(formula_key="buffer")
-            self._register_base_keys(
+            super().__init__(
+                formula_key="buffer",
                 input=BaseKey(shape=[], type=Tensor),
                 output=BaseKey(shape=[], type=Tensor),
             )

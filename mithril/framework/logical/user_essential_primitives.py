@@ -13,8 +13,21 @@
 # limitations under the License.
 
 
+from collections.abc import Sequence
+from typing import Any
+
 from ... import core
-from ..common import NOT_GIVEN, Tensor
+
+# from .essential_primitives import *
+from ..common import (
+    NOT_GIVEN,
+    TBD,
+    BaseKey,
+    ScalarValueType,
+    Tensor,
+    TensorValueType,
+    ToBeDetermined,
+)
 from .essential_primitives import (
     AbsoluteOp,
     AddOp,
@@ -68,9 +81,7 @@ from .essential_primitives import (
     TransposeOp,
     VarianceOp,
 )
-
-# from .essential_primitives import *
-from .model import Connection, ConnectionType, ExtendInfo, Model
+from .model import Connection, ConnectionType, ExtendInfo, IOKey, Model
 from .primitive import PrimitiveModel
 
 __all__ = [
@@ -128,12 +139,65 @@ __all__ = [
     "Maximum",
 ]
 
+from typing import overload
+
 ConstantType = float | int | core.Constant
 
 
-class Buffer(Model, BufferOp):
+# TODO: merge this file to primitives file
+class UserPrimitiveModel(Model):
+    @overload
+    def __init__(
+        self,
+        *,
+        name: str | None = None,
+        formula_key: str | None = None,
+        **kwargs: BaseKey,
+    ) -> None: ...
+
+    @overload
+    def __init__(
+        self,
+        *,
+        name: str | None = None,
+        model: PrimitiveModel | None = None,
+    ) -> None: ...
+
+    def __init__(  # type: ignore
+        self,
+        *,
+        name: str | None = None,
+        model: PrimitiveModel | None = None,
+        formula_key: str | None = None,
+        **kwargs: BaseKey,
+    ) -> None:
+        _kwargs: dict[str, ConnectionType]
+        if not ((formula_key is None) ^ (model is None)):
+            raise ValueError("Either formula_key or model must be provided")
+        elif model is None:
+            model = PrimitiveModel(
+                formula_key=formula_key, name=self.__class__.__name__, **kwargs
+            )
+            _kwargs = {key: IOKey(key, expose=True) for key in kwargs}
+        else:
+            if kwargs != {}:
+                raise ValueError("kwargs must be empty when model is provided")
+            _kwargs = {key: IOKey(key, expose=True) for key in model.external_keys}
+        super().__init__(name=name, enforce_jit=model._jittable)
+        self._extend(model, _kwargs)
+
+
+class Buffer(UserPrimitiveModel):
     input: Connection
     output: Connection
+
+    def __init__(
+        self,
+        input: Tensor[Any] | ScalarValueType | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name, model=BufferOp(input=input))
 
     def __call__(  # type: ignore[override]
         self,
@@ -143,15 +207,32 @@ class Buffer(Model, BufferOp):
         return super().__call__(input=input, output=output)
 
 
-class ToTuple(Model, ToTupleOp):
+class ToTuple(UserPrimitiveModel):
     input: Connection
     output: Connection
 
+    def __init__(
+        self,
+        n: int,
+        *,
+        name: str | None = None,
+        **kwargs: Tensor[Any] | ScalarValueType | ToBeDetermined,
+    ) -> None:
+        super().__init__(name=name, model=ToTupleOp(n, **kwargs))
 
-class ArithmeticOperation(Model):
+
+class ArithmeticOperation(UserPrimitiveModel):
     left: Connection
     right: Connection
     output: Connection
+
+    def __init__(
+        self,
+        model: PrimitiveModel,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name, model=model)
 
     def __call__(  # type: ignore[override]
         self,
@@ -162,10 +243,22 @@ class ArithmeticOperation(Model):
         return super().__call__(left=left, right=right, output=output)
 
 
-class Power(Model, PowerOp):
+class Power(UserPrimitiveModel):
     base: Connection
     exponent: Connection
     output: Connection
+
+    def __init__(
+        self,
+        robust: bool = False,
+        base: Tensor[Any] | int | float | ToBeDetermined = TBD,
+        exponent: Tensor[Any] | int | float | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        self.robust = robust
+        m = PowerOp(robust=robust, base=base, exponent=exponent)
+        super().__init__(name=name, model=m)
 
     def __call__(  # type: ignore[override]
         self,
@@ -192,30 +285,75 @@ class Power(Model, PowerOp):
         return super().__call__(**kwargs)
 
 
-class Add(ArithmeticOperation, AddOp):
-    pass
+class Add(ArithmeticOperation):
+    def __init__(
+        self,
+        left: Tensor[Any] | ScalarValueType | ToBeDetermined = TBD,
+        right: Tensor[Any] | ScalarValueType | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(AddOp(left=left, right=right), name=name)
 
 
-class Subtract(ArithmeticOperation, SubtractOp):
-    pass
+class Subtract(ArithmeticOperation):
+    def __init__(
+        self,
+        left: Tensor[Any] | ScalarValueType | ToBeDetermined = TBD,
+        right: Tensor[Any] | ScalarValueType | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(SubtractOp(left=left, right=right), name=name)
 
 
-class Multiply(ArithmeticOperation, MultiplyOp):
-    pass
+class Multiply(ArithmeticOperation):
+    def __init__(
+        self,
+        left: Tensor[Any] | ScalarValueType | ToBeDetermined = TBD,
+        right: Tensor[Any] | ScalarValueType | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(MultiplyOp(left=left, right=right), name=name)
 
 
-class Minimum(ArithmeticOperation, MinimumOp):
-    pass
+class Minimum(ArithmeticOperation):
+    def __init__(
+        self,
+        left: TensorValueType | ToBeDetermined = TBD,
+        right: TensorValueType | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(MinimumOp(left=left, right=right), name=name)
 
 
-class Maximum(ArithmeticOperation, MaximumOp):
-    pass
+class Maximum(ArithmeticOperation):
+    def __init__(
+        self,
+        left: TensorValueType | ToBeDetermined = TBD,
+        right: TensorValueType | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(MaximumOp(left=left, right=right), name=name)
 
 
-class Divide(Model, DivideOp):
+class Divide(UserPrimitiveModel):
     numerator: Connection
     denominator: Connection
     output: Connection
+
+    def __init__(
+        self,
+        numerator: Tensor[Any] | ScalarValueType | ToBeDetermined = TBD,
+        denominator: Tensor[Any] | ScalarValueType | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        m = DivideOp(numerator=numerator, denominator=denominator)
+        super().__init__(name=name, model=m)
 
     def __call__(  # type: ignore[override]
         self,
@@ -228,10 +366,20 @@ class Divide(Model, DivideOp):
         )
 
 
-class FloorDivide(Model, FloorDivideOp):
+class FloorDivide(UserPrimitiveModel):
     numerator: Connection
     denominator: Connection
     output: Connection
+
+    def __init__(
+        self,
+        numerator: Tensor[Any] | ToBeDetermined = TBD,
+        denominator: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        m = FloorDivideOp(numerator=numerator, denominator=denominator)
+        super().__init__(name=name, model=m)
 
     def __call__(  # type: ignore[override]
         self,
@@ -244,10 +392,19 @@ class FloorDivide(Model, FloorDivideOp):
         )
 
 
-class MatrixMultiply(Model, MatrixMultiplyOp):
+class MatrixMultiply(UserPrimitiveModel):
     left: Connection
     right: Connection
     output: Connection
+
+    def __init__(
+        self,
+        left: Tensor[Any] | ToBeDetermined = TBD,
+        right: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name, model=MatrixMultiplyOp(left=left, right=right))
 
     def __call__(  # type: ignore[override]
         self,
@@ -258,9 +415,14 @@ class MatrixMultiply(Model, MatrixMultiplyOp):
         return super().__call__(left=left, right=right, output=output)
 
 
-class Shape(Model, ShapeOp):
+class Shape(UserPrimitiveModel):
     input: Connection
     output: Connection
+
+    def __init__(
+        self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
+    ) -> None:
+        super().__init__(name=name, model=ShapeOp(input=input))
 
     def __call__(  # type: ignore[override]
         self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
@@ -268,10 +430,19 @@ class Shape(Model, ShapeOp):
         return super().__call__(input=input, output=output)
 
 
-class Reshape(Model, ReshapeOp):
+class Reshape(UserPrimitiveModel):
     input: Connection
     shape: Connection
     output: Connection
+
+    def __init__(
+        self,
+        shape: tuple[int | None, ...] | list[int] | ToBeDetermined = TBD,
+        input: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name, model=ReshapeOp(shape=shape, input=input))
 
     def __call__(  # type: ignore[override]
         self,
@@ -282,9 +453,14 @@ class Reshape(Model, ReshapeOp):
         return super().__call__(input=input, shape=shape, output=output)
 
 
-class Length(Model, LengthOp):
+class Length(UserPrimitiveModel):
     input: Connection
     output: Connection
+
+    def __init__(
+        self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
+    ) -> None:
+        super().__init__(name=name, model=LengthOp(input=input))
 
     def __call__(  # type: ignore[override]
         self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
@@ -292,10 +468,15 @@ class Length(Model, LengthOp):
         return super().__call__(input=input, output=output)
 
 
-class Cast(Model, CastOp):
+class Cast(UserPrimitiveModel):
     input: Connection
     dtype: Connection
     output: Connection
+
+    def __init__(
+        self, dtype: core.Dtype | ToBeDetermined = TBD, *, name: str | None = None
+    ) -> None:
+        super().__init__(name=name, model=CastOp(dtype=dtype))
 
     def __call__(  # type: ignore[override]
         self,
@@ -306,9 +487,14 @@ class Cast(Model, CastOp):
         return super().__call__(input=input, dtype=dtype, output=output)
 
 
-class Dtype(Model, DtypeOp):
+class Dtype(UserPrimitiveModel):
     input: Connection
     output: Connection
+
+    def __init__(
+        self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
+    ) -> None:
+        super().__init__(name=name, model=DtypeOp(input=input))
 
     def __call__(  # type: ignore[override]
         self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
@@ -316,10 +502,19 @@ class Dtype(Model, DtypeOp):
         return super().__call__(input=input, output=output)
 
 
-class Size(Model, SizeOp):
+class Size(UserPrimitiveModel):
     input: Connection
     dim: Connection
     output: Connection
+
+    def __init__(
+        self,
+        dim: int | tuple[int, ...] | None | ToBeDetermined = None,
+        input: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name, model=SizeOp(input=input, dim=dim))
 
     def __call__(  # type: ignore[override]
         self,
@@ -330,9 +525,14 @@ class Size(Model, SizeOp):
         return super().__call__(input=input, dim=dim, output=output)
 
 
-class Item(Model, ItemOp):
+class Item(UserPrimitiveModel):
     input: Connection
     output: Connection
+
+    def __init__(
+        self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
+    ) -> None:
+        super().__init__(name=name, model=ItemOp(input=input))
 
     def __call__(  # type: ignore[override]
         self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
@@ -340,10 +540,19 @@ class Item(Model, ItemOp):
         return super().__call__(input=input, output=output)
 
 
-class ToTensor(Model, ToTensorOp):
+class ToTensor(UserPrimitiveModel):
     input: Connection
     dtype: Connection
     output: Connection
+
+    def __init__(
+        self,
+        input: TensorValueType | ToBeDetermined = TBD,
+        dtype: core.Dtype | None = None,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name, model=ToTensorOp(input=input, dtype=dtype))
 
     def __call__(  # type: ignore[override]
         self,
@@ -354,13 +563,30 @@ class ToTensor(Model, ToTensorOp):
         return super().__call__(input=input, dtype=dtype, output=output)
 
 
-class ToList(Model, ToListOp):
+class ToList(UserPrimitiveModel):
     output: Connection
 
+    def __init__(
+        self,
+        n: int,
+        *,
+        name: str | None = None,
+        **kwargs: ScalarValueType | ToBeDetermined,
+    ) -> None:
+        super().__init__(name=name, model=ToListOp(n, name=name, **kwargs))
 
-class TensorToList(Model, TensorToListOp):
+
+class TensorToList(UserPrimitiveModel):
     input: Connection
     output: Connection
+
+    def __init__(
+        self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
+    ) -> None:
+        self._enforce_jit = False
+        m = TensorToListOp(input=input)
+        m._enforce_jit = False
+        super().__init__(name=name, model=m)
 
     def __call__(  # type: ignore[override]
         self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
@@ -368,11 +594,14 @@ class TensorToList(Model, TensorToListOp):
         return super().__call__(input=input, output=output)
 
 
-class ReduceOp(Model):
+class Reduce(UserPrimitiveModel):
     input: Connection
     axis: Connection
     keepdim: Connection
     output: Connection
+
+    def __init__(self, model: PrimitiveModel, *, name: str | None = None) -> None:
+        super().__init__(name=name, model=model)
 
     def __call__(  # type: ignore[override]
         self,
@@ -384,36 +613,114 @@ class ReduceOp(Model):
         return super().__call__(input=input, axis=axis, keepdim=keepdim, output=output)
 
 
-class Mean(ReduceOp, MeanOp):
-    pass
+class Mean(Reduce):
+    def __init__(
+        self,
+        axis: int | tuple[int, ...] | None | ToBeDetermined = None,
+        keepdim: bool | ToBeDetermined = False,
+        input: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        self.factory_args = {"axis": axis, "keepdim": keepdim}
+        super().__init__(MeanOp(axis=axis, keepdim=keepdim, input=input), name=name)
 
 
-class Sum(ReduceOp, SumOp):
-    pass
+class Sum(Reduce):
+    def __init__(
+        self,
+        axis: int | tuple[int, ...] | None | ToBeDetermined = None,
+        keepdim: bool | ToBeDetermined = False,
+        input: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        self.factory_args = {"axis": axis, "keepdim": keepdim}
+        super().__init__(SumOp(axis=axis, keepdim=keepdim, input=input), name=name)
 
 
-class Max(ReduceOp, MaxOp):
-    pass
+class Max(Reduce):
+    def __init__(
+        self,
+        axis: int | tuple[int, ...] | None | ToBeDetermined = None,
+        keepdim: bool | ToBeDetermined = False,
+        input: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        self.factory_args = {"axis": axis, "keepdim": keepdim}
+        super().__init__(MaxOp(axis=axis, keepdim=keepdim, input=input), name=name)
 
 
-class ArgMax(ReduceOp, ArgMaxOp):
-    pass
+class ArgMax(Reduce):
+    def __init__(
+        self,
+        axis: int | tuple[int, ...] | None | ToBeDetermined = None,
+        keepdim: bool | ToBeDetermined = False,
+        input: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        self.factory_args = {"axis": axis, "keepdim": keepdim}
+        super().__init__(ArgMaxOp(axis=axis, keepdim=keepdim, input=input), name=name)
 
 
-class Min(ReduceOp, MinOp):
-    pass
+class Min(Reduce):
+    def __init__(
+        self,
+        axis: int | tuple[int, ...] | None | ToBeDetermined = None,
+        keepdim: bool | ToBeDetermined = False,
+        input: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        self.factory_args = {"axis": axis, "keepdim": keepdim}
+        super().__init__(MinOp(axis=axis, keepdim=keepdim, input=input), name=name)
 
 
-class ArgMin(ReduceOp, ArgMinOp):
-    pass
+class ArgMin(Reduce):
+    def __init__(
+        self,
+        axis: int | tuple[int, ...] | None | ToBeDetermined = None,
+        keepdim: bool | ToBeDetermined = False,
+        input: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        self.factory_args = {"axis": axis, "keepdim": keepdim}
+        super().__init__(ArgMinOp(axis=axis, keepdim=keepdim, input=input), name=name)
 
 
-class Prod(ReduceOp, ProdOp):
-    pass
+class Prod(Reduce):
+    def __init__(
+        self,
+        axis: int | tuple[int, ...] | None | ToBeDetermined = None,
+        keepdim: bool | ToBeDetermined = False,
+        input: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        self.factory_args = {"axis": axis, "keepdim": keepdim}
+        super().__init__(ProdOp(axis=axis, keepdim=keepdim, input=input), name=name)
 
 
-class Variance(ReduceOp, VarianceOp):
+class Variance(Reduce):
     correction: Connection
+
+    def __init__(
+        self,
+        axis: int | tuple[int, ...] | None | ToBeDetermined = None,
+        keepdim: bool | ToBeDetermined = False,
+        correction: int | float | None = 0.0,
+        input: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        self.factory_args = {"axis": axis, "keepdim": keepdim, "correction": correction}
+        super().__init__(
+            VarianceOp(axis=axis, keepdim=keepdim, input=input, correction=correction),
+            name=name,
+        )
 
     def __call__(  # type: ignore[override]
         self,
@@ -423,7 +730,7 @@ class Variance(ReduceOp, VarianceOp):
         correction: ConnectionType = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
-        return super(ReduceOp, self).__call__(
+        return super(Reduce, self).__call__(
             input=input,
             axis=axis,
             keepdim=keepdim,
@@ -432,7 +739,7 @@ class Variance(ReduceOp, VarianceOp):
         )
 
 
-class SingleInputOp(Model):
+class SingleInputModel(UserPrimitiveModel):
     input: Connection
     output: Connection
 
@@ -442,21 +749,42 @@ class SingleInputOp(Model):
         return super().__call__(input=input, output=output)
 
 
-class Absolute(SingleInputOp, AbsoluteOp):
-    pass
+class Absolute(SingleInputModel):
+    def __init__(
+        self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
+    ) -> None:
+        super().__init__(name=name, model=AbsoluteOp(input=input))
 
 
-class Minus(SingleInputOp, MinusOp):
-    pass
+class Minus(SingleInputModel):
+    def __init__(
+        self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
+    ) -> None:
+        super().__init__(name=name, model=MinusOp(input=input))
 
 
-class Exponential(SingleInputOp, ExponentialOp):
-    pass
+class Exponential(SingleInputModel):
+    def __init__(
+        self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
+    ) -> None:
+        super().__init__(name=name, model=ExponentialOp(input=input))
 
 
-class Sqrt(Model, SqrtOp):
+class Sqrt(UserPrimitiveModel):
     input: Connection
     output: Connection
+
+    def __init__(
+        self,
+        robust: bool = False,
+        input: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        cutoff: Tensor[Any] | ToBeDetermined = TBD,
+        name: str | None = None,
+    ) -> None:
+        self.robust = robust
+        m = SqrtOp(robust=robust, input=input, cutoff=cutoff)
+        super().__init__(name=name, model=m)
 
     def __call__(  # type: ignore[override]
         self,
@@ -483,7 +811,7 @@ class Sqrt(Model, SqrtOp):
         return super().__call__(**kwargs)
 
 
-class RelationalOp(Model):
+class RelationalModel(UserPrimitiveModel):
     left: Connection
     right: Connection
     output: Connection
@@ -497,33 +825,80 @@ class RelationalOp(Model):
         return super().__call__(left=left, right=right, output=output)
 
 
-class Greater(RelationalOp, GreaterOp):
-    pass
+class Greater(RelationalModel):
+    def __init__(
+        self,
+        left: Tensor[Any] | ToBeDetermined = TBD,
+        right: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name, model=GreaterOp(left=left, right=right))
 
 
-class Less(RelationalOp, LessOp):
-    pass
+class Less(RelationalModel):
+    def __init__(
+        self,
+        left: Tensor[Any] | ToBeDetermined = TBD,
+        right: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name, model=LessOp(left=left, right=right))
 
 
-class Equal(RelationalOp, EqualOp):
-    pass
+class Equal(RelationalModel):
+    def __init__(
+        self,
+        left: Tensor[Any] | ToBeDetermined = TBD,
+        right: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name, model=EqualOp(left=left, right=right))
 
 
-class NotEqual(RelationalOp, NotEqualOp):
-    pass
+class NotEqual(RelationalModel):
+    def __init__(
+        self,
+        left: Tensor[Any] | ToBeDetermined = TBD,
+        right: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name, model=NotEqualOp(left=left, right=right))
 
 
-class LessEqual(RelationalOp, LessEqualOp):
-    pass
+class LessEqual(RelationalModel):
+    def __init__(
+        self,
+        left: Tensor[Any] | ToBeDetermined = TBD,
+        right: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name, model=LessEqualOp(left=left, right=right))
 
 
-class GreaterEqual(RelationalOp, GreaterEqualOp):
-    pass
+class GreaterEqual(RelationalModel):
+    def __init__(
+        self,
+        left: Tensor[Any] | ToBeDetermined = TBD,
+        right: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name, model=GreaterEqualOp(left=left, right=right))
 
 
-class LogicalNot(Model, LogicalNotOp):
+class LogicalNot(UserPrimitiveModel):
     input: Connection
     output: Connection
+
+    def __init__(
+        self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
+    ) -> None:
+        super().__init__(name=name, model=LogicalNotOp(input=input))
 
     def __call__(  # type: ignore[override]
         self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
@@ -531,7 +906,7 @@ class LogicalNot(Model, LogicalNotOp):
         return super().__call__(input=input, output=output)
 
 
-class BitwiseOperators(Model):
+class BitwiseOperators(UserPrimitiveModel):
     left: Connection
     right: Connection
     output: Connection
@@ -545,22 +920,52 @@ class BitwiseOperators(Model):
         return super().__call__(left=left, right=right, output=output)
 
 
-class LogicalAnd(BitwiseOperators, LogicalAndOp):
-    pass
+class LogicalAnd(BitwiseOperators):
+    def __init__(
+        self,
+        left: Tensor[Any] | ToBeDetermined = TBD,
+        right: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name, model=LogicalAndOp(left=left, right=right))
 
 
-class LogicalOr(BitwiseOperators, LogicalOrOp):
-    pass
+class LogicalOr(BitwiseOperators):
+    def __init__(
+        self,
+        left: Tensor[Any] | ToBeDetermined = TBD,
+        right: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name, model=LogicalOrOp(left=left, right=right))
 
 
-class LogicalXOr(BitwiseOperators, LogicalXOrOp):
-    pass
+class LogicalXOr(BitwiseOperators):
+    def __init__(
+        self,
+        left: Tensor[Any] | ToBeDetermined = TBD,
+        right: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name, model=LogicalXOrOp(left=left, right=right))
 
 
-class ShiftLeft(Model, ShiftLeftOp):
+class ShiftLeft(UserPrimitiveModel):
     input: Connection
     shift: Connection
     output: Connection
+
+    def __init__(
+        self,
+        input: Tensor[Any] | ToBeDetermined = TBD,
+        shift: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name, model=ShiftLeftOp(input=input, shift=shift))
 
     def __call__(  # type: ignore[override]
         self,
@@ -571,10 +976,19 @@ class ShiftLeft(Model, ShiftLeftOp):
         return super().__call__(input=input, shift=shift, output=output)
 
 
-class ShiftRight(Model, ShiftRightOp):
+class ShiftRight(UserPrimitiveModel):
     input: Connection
     shift: Connection
     output: Connection
+
+    def __init__(
+        self,
+        input: Tensor[Any] | ToBeDetermined = TBD,
+        shift: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name, model=ShiftRightOp(input=input, shift=shift))
 
     def __call__(  # type: ignore[override]
         self,
@@ -585,12 +999,21 @@ class ShiftRight(Model, ShiftRightOp):
         return super().__call__(input=input, shift=shift, output=output)
 
 
-class Transpose(Model, TransposeOp):
+class Transpose(UserPrimitiveModel):
     # NOTE: Consider if axes type list[int] is conventionally True since it is generally
     # used tuple[int] in these type of cases
     input: Connection
     axes: Connection
     output: Connection
+
+    def __init__(
+        self,
+        axes: int | list[int] | tuple[int, ...] | None | ToBeDetermined = None,
+        input: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name, model=TransposeOp(input=input, axes=axes))
 
     def __call__(  # type: ignore[override]
         self,
@@ -601,11 +1024,22 @@ class Transpose(Model, TransposeOp):
         return super().__call__(input=input, axes=axes, output=output)
 
 
-class Split(Model, SplitOp):
+class Split(UserPrimitiveModel):
     split_size: Connection
     axis: Connection
     input: Connection
     output: Connection
+
+    def __init__(
+        self,
+        split_size: int,  # TODO: should we add default for split_size?
+        axis: int = 0,
+        input: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ):
+        m = SplitOp(split_size=split_size, axis=axis, input=input)
+        super().__init__(name=name, model=m)
 
     def __call__(  # type: ignore[override]
         self,
@@ -619,11 +1053,21 @@ class Split(Model, SplitOp):
         )
 
 
-class Slice(Model, SliceOp):
+class Slice(UserPrimitiveModel):
     start: Connection
     stop: Connection
     step: Connection
     output: Connection
+
+    def __init__(
+        self,
+        start: int | None | ToBeDetermined = TBD,
+        stop: int | None | ToBeDetermined = TBD,
+        step: int | None | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ):
+        super().__init__(name=name, model=SliceOp(start=start, stop=stop, step=step))
 
     def __call__(  # type: ignore[override]
         self,
@@ -635,10 +1079,19 @@ class Slice(Model, SliceOp):
         return super().__call__(start=start, stop=stop, step=step, output=output)
 
 
-class Indexer(Model, IndexerOp):
+class Indexer(UserPrimitiveModel):
     input: Connection
     index: Connection
     output: Connection
+
+    def __init__(
+        self,
+        index: int | ToBeDetermined = TBD,
+        input: Tensor[Any] | Sequence[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name, model=IndexerOp(input=input, index=index))
 
     def __call__(  # type: ignore[override]
         self,
@@ -649,19 +1102,21 @@ class Indexer(Model, IndexerOp):
         return super().__call__(input=input, index=index, output=output)
 
 
-class SingleInputOperation(Model):
-    input: Connection
-    output: Connection
-
-    def __call__(  # type: ignore[override]
-        self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
-    ) -> ExtendInfo:
-        return super().__call__(input=input, output=output)
-
-
-class Sine(SingleInputOperation, SineOp):
-    pass
+class Sine(SingleInputModel):
+    def __init__(
+        self,
+        input: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name, model=SineOp(input=input))
 
 
-class Cosine(SingleInputOperation, CosineOp):
-    pass
+class Cosine(SingleInputModel):
+    def __init__(
+        self,
+        input: Tensor[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name, model=CosineOp(input=input))

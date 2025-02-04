@@ -52,6 +52,7 @@ from ..framework.constraints import (
 from ..framework.logical import Model
 from ..framework.logical.model import Connection, ConnectionType, ExtendInfo
 from ..framework.logical.primitive import PrimitiveModel
+from ..framework.logical.user_essential_primitives import UserPrimitiveModel
 from ..utils.utils import PaddingType
 
 __all__ = [
@@ -116,14 +117,11 @@ __all__ = [
     "Trapezoid",
     "Pad",
     "Randn",
+    "UserPrimitiveModel",
 ]
 
 # Define types used to define keys:
 ConstantType = float | int | Constant
-
-
-class UserPrimitiveModel(PrimitiveModel, Model):
-    pass
 
 
 class CustomPrimitiveModel(UserPrimitiveModel):
@@ -131,8 +129,7 @@ class CustomPrimitiveModel(UserPrimitiveModel):
         self, formula_key: str, name: str | None = None, **kwargs: BaseKey
     ) -> None:
         self.factory_args = {"formula_key": formula_key} | kwargs
-        super().__init__(formula_key=formula_key, name=name)
-        self._register_base_keys(**kwargs)
+        super().__init__(formula_key=formula_key, name=name, **kwargs)
 
 
 ########################## Supervised Loss Types ##########################
@@ -166,8 +163,7 @@ class SupervisedLoss(UserPrimitiveModel):
         }
         # Finalize kwargs.
         kwargs = default_kwargs | kwargs
-        super().__init__(formula_key=formula_key, name=name)
-        self._register_base_keys(**kwargs)
+        super().__init__(formula_key=formula_key, name=name, **kwargs)
 
         # Set constraints.
         self._set_constraint(
@@ -179,7 +175,7 @@ class SupervisedLoss(UserPrimitiveModel):
                 keys=[PrimitiveModel.output_key, "input", "target"],
             )
 
-        self.safe_shapes = {
+        next(iter(self.dag)).safe_shapes = {
             "output": ["N", ("Var", ...)],
             "input": ["N", ("Var", ...)],
             "target": ["N", ("Var", ...)],
@@ -274,8 +270,9 @@ class QuantileLoss(UserPrimitiveModel):
         *,
         name: str | None = None,
     ) -> None:
-        super().__init__(formula_key="quantile_loss", name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key="quantile_loss",
+            name=name,
             output=BaseKey(shape=[("Var_1", ...)], type=Tensor),
             input=BaseKey(shape=[("Var_2", ...)], type=Tensor, value=input),
             target=BaseKey(shape=[("Var_3", ...)], type=Tensor, value=target),
@@ -290,7 +287,7 @@ class QuantileLoss(UserPrimitiveModel):
             keys=[PrimitiveModel.output_key, "input", "target", "quantile"],
         )
 
-        self.safe_shapes = {
+        next(iter(self.dag)).safe_shapes = {
             "output": ["N", ("Var", ...)],
             "input": ["N", ("Var", ...)],
             "target": ["N", ("Var", ...)],
@@ -374,8 +371,7 @@ class CrossEntropy(UserPrimitiveModel):
                 " Available input types: 'logits', 'probs', and 'log_probs'."
             )
 
-        super().__init__(formula_key=formula_key, name=name)
-        self._register_base_keys(**kwargs)
+        super().__init__(formula_key=formula_key, name=name, **kwargs)
 
         self._set_constraint(
             fn=cross_entropy_constraint, keys=["categorical", "input", "target"]
@@ -399,7 +395,7 @@ class CrossEntropy(UserPrimitiveModel):
             "output": output,
         }
         # Check if the given argument set is valid.
-        if self.formula_key == "cross_entropy_with_log_probs":
+        if next(iter(self.dag)).formula_key == "cross_entropy_with_log_probs":
             args: list[str] = []
             if robust is not False:
                 args.append("robust")
@@ -436,15 +432,16 @@ class KLDivergence(UserPrimitiveModel):
         cutoff: ConstantType | ToBeDetermined = TBD,
         name: str | None = None,
     ) -> None:
-        super().__init__(formula_key="kl_divergence", name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key="kl_divergence",
+            name=name,
             output=BaseKey(shape=[("Var_1", ...)], type=Tensor[float]),
             input=BaseKey(shape=[("Var_2", ...)], type=Tensor, value=input),
             target=BaseKey(shape=[("Var_3", ...)], type=Tensor, value=target),
             cutoff=BaseKey(shape=[], type=Tensor, value=cutoff),
         )
 
-        self.safe_shapes = {
+        next(iter(self.dag)).safe_shapes = {
             "output": ["N", ("Var", ...)],
             "input": ["N", ("Var", ...)],
             "target": ["N", ("Var", ...)],
@@ -527,8 +524,7 @@ class BinaryCrossEntropy(UserPrimitiveModel):
                              '{input_type}' input type. Available    \
                              input types: 'logits' and 'probs'.")
 
-        super().__init__(formula_key=formula_key, name=name)
-        self._register_base_keys(**kwargs)
+        super().__init__(formula_key=formula_key, name=name, **kwargs)
 
         self._set_constraint(
             fn=bcast, keys=[PrimitiveModel.output_key, "input", "target"]
@@ -569,15 +565,17 @@ class Log(UserPrimitiveModel):
         self.factory_args = {"robust": robust}
 
         if robust:
-            super().__init__(formula_key="robust_log", name=name)
-            self._register_base_keys(
+            super().__init__(
+                formula_key="robust_log",
+                name=name,
                 output=BaseKey(shape=[("Var", ...)], type=Tensor[float]),
                 input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
                 cutoff=BaseKey(shape=[], type=Tensor, value=cutoff),
             )
         else:
-            super().__init__(formula_key="log", name=name)
-            self._register_base_keys(
+            super().__init__(
+                formula_key="log",
+                name=name,
                 output=BaseKey(shape=[("Var", ...)], type=Tensor[float]),
                 input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
             )
@@ -618,8 +616,9 @@ class StableReciprocal(UserPrimitiveModel):
         *,
         name: str | None = None,
     ) -> None:
-        super().__init__(formula_key="stable_reciprocal", name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key="stable_reciprocal",
+            name=name,
             output=BaseKey(shape=[("Var", ...)], type=Tensor[float]),
             input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
             cutoff=BaseKey(shape=[], value=cutoff),
@@ -648,8 +647,9 @@ class Sign(UserPrimitiveModel):
     def __init__(
         self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
     ) -> None:
-        super().__init__(formula_key="sign", name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key="sign",
+            name=name,
             output=BaseKey(shape=[("Var", ...)], type=Tensor[float]),
             input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
         )
@@ -667,8 +667,9 @@ class Square(UserPrimitiveModel):
     def __init__(
         self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
     ) -> None:
-        super().__init__(formula_key="square", name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key="square",
+            name=name,
             output=BaseKey(shape=[("Var", ...)], type=Tensor[float]),
             input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
         )
@@ -703,8 +704,7 @@ class Activation(UserPrimitiveModel):
         )
         # Finalize kwargs.
         kwargs = default_kwargs | kwargs
-        super().__init__(formula_key=formula_key, name=name)
-        self._register_base_keys(**kwargs)
+        super().__init__(name=name, formula_key=formula_key, **kwargs)
 
         if polymorphic_constraint:
             self._set_constraint(
@@ -831,8 +831,10 @@ class StopGradient(UserPrimitiveModel):
     def __init__(
         self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
     ) -> None:
-        super().__init__(formula_key="stop_gradient", name=name)
-        self._register_base_keys(
+        # super().__init__(formula_key="stop_gradient", name=name)
+        super().__init__(
+            name=name,
+            formula_key="stop_gradient",
             output=BaseKey(shape=[("Var", ...)], type=Tensor),
             input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
         )
@@ -855,12 +857,15 @@ class CartesianDifference(UserPrimitiveModel):
         *,
         name: str | None = None,
     ) -> None:
-        super().__init__(formula_key="cartesian_diff", name=name)
-        self._register_base_keys(
+        # super().__init__(formula_key="cartesian_diff", name=name)
+        super().__init__(
+            name=name,
+            formula_key="cartesian_diff",
             output=BaseKey(shape=["N", "M", "dim"], type=Tensor),
             left=BaseKey(shape=["N", "dim"], type=Tensor, value=left),
             right=BaseKey(shape=["M", "dim"], type=Tensor, value=right),
         )
+
         self._set_constraint(
             fn=general_tensor_type_constraint,
             keys=[PrimitiveModel.output_key, "left", "right"],
@@ -900,8 +905,7 @@ class Concat(UserPrimitiveModel):
             for idx in range(n)
         }
         key_definitions["axis"] = BaseKey(type=int | None, value=axis)
-        super().__init__(formula_key="concat", name=name)
-        self._register_base_keys(**key_definitions)
+        super().__init__(formula_key="concat", name=name, **key_definitions)
 
         input_keys = [key for key in self.input_keys if key != "axis"]
         self._set_constraint(
@@ -932,8 +936,9 @@ class PrimitiveUnion(UserPrimitiveModel):
             for idx in range(n)
         }
 
-        super().__init__(formula_key="union", name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key="union",
+            name=name,
             output=BaseKey(type=tuple[int | float, ...]),
             **input_definitions,
         )
@@ -951,8 +956,9 @@ class PermuteTensor(UserPrimitiveModel):
         *,
         name: str | None = None,
     ) -> None:
-        super().__init__(formula_key="permute_tensor", name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key="permute_tensor",
+            name=name,
             output=BaseKey(shape=["N", ("Var", ...)], type=Tensor),
             input=BaseKey(shape=["N", ("Var", ...)], type=Tensor, value=input),
             indices=BaseKey(shape=["N"], type=Tensor, value=indices),
@@ -1013,8 +1019,7 @@ class PrimitiveConvolution1D(UserPrimitiveModel):
             formula_key = "conv1d"
             kwargs.pop("bias")
 
-        super().__init__(formula_key=formula_key, name=name)
-        self._register_base_keys(**kwargs)
+        super().__init__(formula_key=formula_key, name=name, **kwargs)
 
         self._set_constraint(
             fn=conv_1d_constraints,
@@ -1108,8 +1113,7 @@ class PrimitiveConvolution2D(UserPrimitiveModel):
             formula_key = "conv2d"
             kwargs.pop("bias")
 
-        super().__init__(formula_key=formula_key, name=name)
-        self._register_base_keys(**kwargs)
+        super().__init__(formula_key=formula_key, name=name, **kwargs)
 
         self._set_constraint(
             fn=conv_2d_constraints,
@@ -1176,8 +1180,7 @@ class Flatten(UserPrimitiveModel):
             "start_dim": BaseKey(type=int, value=start_dim),
             "end_dim": BaseKey(type=int, value=end_dim),
         }
-        super().__init__(formula_key="flatten", name=name)
-        self._register_base_keys(**key_definitions)
+        super().__init__(formula_key="flatten", name=name, **key_definitions)
 
         self._set_constraint(
             fn=flatten_constrains,
@@ -1217,8 +1220,9 @@ class PrimitiveMaxPool1D(UserPrimitiveModel):
         *,
         name: str | None = None,
     ) -> None:
-        super().__init__(formula_key="max_pool1d", name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key="max_pool1d",
+            name=name,
             output=BaseKey(shape=["N", ("C_in", ...), "W_out"], type=Tensor),
             input=BaseKey(shape=["N", ("C_in", ...), "W"], type=Tensor, value=input),
             kernel_size=BaseKey(type=int, value=kernel_size),
@@ -1266,8 +1270,9 @@ class PaddingConverter1D(UserPrimitiveModel):
         *,
         name: str | None = None,
     ) -> None:
-        super().__init__(formula_key="padding_converter_1d", name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key="padding_converter_1d",
+            name=name,
             output=BaseKey(type=tuple[int, int]),
             input=BaseKey(type=int | PaddingType | tuple[int, int], value=input),
             kernel_size=BaseKey(type=int, value=kernel_size),
@@ -1303,8 +1308,9 @@ class PaddingConverter2D(UserPrimitiveModel):
         *,
         name: str | None = None,
     ) -> None:
-        super().__init__(formula_key="padding_converter_2d", name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key="padding_converter_2d",
+            name=name,
             output=BaseKey(
                 type=tuple[int, int] | tuple[tuple[int, int], tuple[int, int]]
             ),
@@ -1344,8 +1350,9 @@ class StrideConverter(UserPrimitiveModel):
         *,
         name: str | None = None,
     ) -> None:
-        super().__init__(formula_key="stride_converter", name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key="stride_converter",
+            name=name,
             output=BaseKey(type=int | tuple[int, int]),
             input=BaseKey(type=int | PaddingType | tuple[int, int] | None, value=input),
             kernel_size=BaseKey(type=int | tuple[int, int], value=kernel_size),
@@ -1378,8 +1385,9 @@ class TupleConverter(UserPrimitiveModel):
         *,
         name: str | None = None,
     ) -> None:
-        super().__init__(formula_key="tuple_converter", name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key="tuple_converter",
+            name=name,
             output=BaseKey(
                 type=tuple[int, int] | tuple[tuple[int, int], tuple[int, int]]
             ),
@@ -1423,8 +1431,9 @@ class PrimitiveMaxPool2D(UserPrimitiveModel):
         *,
         name: str | None = None,
     ) -> None:
-        super().__init__(formula_key="max_pool2d", name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key="max_pool2d",
+            name=name,
             output=BaseKey(shape=["N", ("C_in", ...), "H_out", "W_out"], type=Tensor),
             input=BaseKey(
                 shape=["N", ("C_in", ...), "H", "W"],
@@ -1492,8 +1501,9 @@ class NormModifier(UserPrimitiveModel):
     def __init__(
         self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
     ) -> None:
-        super().__init__(formula_key="norm_modifier", name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key="norm_modifier",
+            name=name,
             output=BaseKey(shape=[], type=Tensor),
             input=BaseKey(shape=[], type=Tensor, value=input),
         )
@@ -1522,8 +1532,9 @@ class DistanceMatrix(UserPrimitiveModel):
         *,
         name: str | None = None,
     ) -> None:
-        super().__init__(formula_key="distance_matrix", name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key="distance_matrix",
+            name=name,
             output=BaseKey(shape=["N", "M"], type=Tensor),
             left=BaseKey(shape=["N", "d"], type=Tensor, value=left),
             right=BaseKey(shape=["M", "d"], type=Tensor, value=right),
@@ -1557,8 +1568,9 @@ class PolynomialFeatures(UserPrimitiveModel):
         *,
         name: str | None = None,
     ) -> None:
-        super().__init__(formula_key="polynomial_features", name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key="polynomial_features",
+            name=name,
             output=BaseKey(shape=["N", "d_out"], type=Tensor),
             input=BaseKey(shape=["N", "d_in"], type=Tensor, value=input),
             degree=BaseKey(type=int, value=degree),
@@ -1596,8 +1608,9 @@ class TsnePJoint(UserPrimitiveModel):
         *,
         name: str | None = None,
     ) -> None:
-        super().__init__(formula_key="tsne_p_joint", name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key="tsne_p_joint",
+            name=name,
             output=BaseKey(shape=["N", "M"], type=Tensor[float]),
             squared_distances=BaseKey(
                 shape=["N", "M"], type=Tensor, value=squared_distances
@@ -1637,8 +1650,9 @@ class EyeComplement(UserPrimitiveModel):
         *,
         name: str | None = None,
     ) -> None:
-        super().__init__(formula_key="ones_with_zero_diag", name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key="ones_with_zero_diag",
+            name=name,
             output=BaseKey(shape=["N", "M"], type=Tensor[float]),
             N=BaseKey(type=int, value=N),
             M=BaseKey(type=int | None, value=M),
@@ -1670,8 +1684,9 @@ class Eye(UserPrimitiveModel):
         *,
         name: str | None = None,
     ) -> None:
-        super().__init__(formula_key="eye", name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key="eye",
+            name=name,
             output=BaseKey(shape=["N", "M"], type=Tensor[float]),
             N=BaseKey(type=int, value=N),
             M=BaseKey(type=int | None, value=M),
@@ -1696,8 +1711,9 @@ class Cholesky(UserPrimitiveModel):
     def __init__(
         self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
     ) -> None:
-        super().__init__(formula_key="cholesky", name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key="cholesky",
+            name=name,
             output=BaseKey(shape=["N", "N"], type=Tensor[float]),
             input=BaseKey(shape=["N", "N"], type=Tensor, value=input),
         )
@@ -1722,8 +1738,9 @@ class GPRAlpha(UserPrimitiveModel):
         *,
         name: str | None = None,
     ) -> None:
-        super().__init__(formula_key="gpr_alpha", name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key="gpr_alpha",
+            name=name,
             output=BaseKey(shape=["N", 1], type=Tensor[float]),
             label_mu_diff=BaseKey(shape=["N", 1], type=Tensor, value=label_mu_diff),
             L=BaseKey(shape=["N", "N"], type=Tensor, value=L),
@@ -1756,8 +1773,9 @@ class GPRVOuter(UserPrimitiveModel):
         *,
         name: str | None = None,
     ) -> None:
-        super().__init__(formula_key="gpr_v_outer", name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key="gpr_v_outer",
+            name=name,
             output=BaseKey(shape=["N", "N"], type=Tensor[float]),
             K=BaseKey(shape=["N", "N"], type=Tensor, value=K),
             K_term=BaseKey(shape=["N", "N"], type=Tensor, value=K_term),
@@ -1781,8 +1799,9 @@ class TransposedDiagonal(UserPrimitiveModel):
     def __init__(
         self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
     ) -> None:
-        super().__init__(formula_key="transposed_diag", name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key="transposed_diag",
+            name=name,
             output=BaseKey(shape=["N", 1], type=Tensor),
             input=BaseKey(shape=["N", "N"], type=Tensor, value=input),
         )
@@ -1830,8 +1849,9 @@ class Arange(UserPrimitiveModel):
         else:
             output_shp = ["N"]
 
-        super().__init__(formula_key="arange", name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key="arange",
+            name=name,
             output=BaseKey(shape=output_shp, type=Tensor),
             start=BaseKey(type=int | float, value=start),
             stop=BaseKey(type=int | float, value=stop),
@@ -1877,15 +1897,17 @@ class Randn(UserPrimitiveModel):
         *,
         name: str | None = None,
     ) -> None:
-        super().__init__(formula_key="randn", name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key="randn",
+            name=name,
             output=BaseKey(shape=[("output", ...)], type=Tensor),
             shape=BaseKey(type=tuple[int, ...], value=shape),
             key=BaseKey(type=int, value=key),
             dtype=BaseKey(type=Dtype | None, value=dtype),
         )
-
-        self.random_keys.add("key")
+        op_model = next(iter(self.dag))
+        assert isinstance(op_model, PrimitiveModel)
+        op_model.random_keys.add("key")  # since random_keys must be in primitive models
         self.set_constraint(randn_constraints, keys=["output", "shape"])
 
     def __call__(  # type: ignore[override]
@@ -1910,8 +1932,9 @@ class BroadcastTo(UserPrimitiveModel):
         *,
         name: str | None = None,
     ) -> None:
-        super().__init__(formula_key="broadcast_to", name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key="broadcast_to",
+            name=name,
             output=BaseKey(shape=[("output", ...)], type=Tensor),
             input=BaseKey(shape=[("input", ...)], type=Tensor, value=input),
             shape=BaseKey(type=tuple[int, ...], value=shape),
@@ -1947,8 +1970,9 @@ class Eigvalsh(UserPrimitiveModel):
         *,
         name: str | None = None,
     ) -> None:
-        super().__init__(formula_key="eigvalsh", name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key="eigvalsh",
+            name=name,
             output=BaseKey(shape=["N", 1], type=Tensor[float]),
             K_term=BaseKey(shape=["N", "N"], type=Tensor, value=K_term),
             L=BaseKey(shape=["N", "N"], type=Tensor, value=L),
@@ -1972,8 +1996,9 @@ class Squeeze(UserPrimitiveModel):
     def __init__(
         self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
     ) -> None:
-        super().__init__(formula_key="squeeze", name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key="squeeze",
+            name=name,
             output=BaseKey(shape=[("Var_out", ...)], type=Tensor),
             input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
         )
@@ -2001,8 +2026,9 @@ class AUCCore(UserPrimitiveModel):
         *,
         name: str | None = None,
     ) -> None:
-        super().__init__(formula_key="auc_core", name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key="auc_core",
+            name=name,
             output=BaseKey(shape=[2, "M"], type=Tensor[float]),
             input=BaseKey(shape=["N"], type=Tensor, value=input),
             label=BaseKey(shape=["N"], type=Tensor, value=label),
@@ -2033,8 +2059,9 @@ class Embedding(UserPrimitiveModel):
     ) -> None:
         out_dim: int | str = "dim" if dim is None else dim
 
-        super().__init__(formula_key="primitive_embedding", name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key="primitive_embedding",
+            name=name,
             output=BaseKey(shape=[("N1", ...), "d1", out_dim], type=Tensor),
             input=BaseKey(shape=[("N1", ...), "d1"], type=Tensor[int], value=input),
             weight=BaseKey(shape=[num_embeddings, out_dim], type=Tensor, value=weight),
@@ -2101,8 +2128,7 @@ class ScaledDotProduct(UserPrimitiveModel):
                 shape=["L", "S"], type=Tensor, value=attn_mask
             )
 
-        super().__init__(formula_key=formula_key, name=name)
-        self._register_base_keys(**kwargs)
+        super().__init__(formula_key=formula_key, name=name, **kwargs)
 
     def __call__(  # type: ignore[override]
         self,
@@ -2157,8 +2183,9 @@ class PositionalEncoding(UserPrimitiveModel):
     ) -> None:
         self.factory_args = {"hidden_dim": hidden_dim, "max_len": max_len}
 
-        super().__init__(formula_key="positional_encoding", name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key="positional_encoding",
+            name=name,
             output=BaseKey(shape=[("N1", ...)], type=Tensor),
             input=BaseKey(shape=[("N1", ...)], type=Tensor, value=input),
             hidden_dim=BaseKey(type=int, value=hidden_dim),
@@ -2193,8 +2220,9 @@ class SwapAxes(UserPrimitiveModel):
     ) -> None:
         self.factory_args = {"axis1": axis1, "axis2": axis2}
 
-        super().__init__(formula_key="swapaxes", name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key="swapaxes",
+            name=name,
             output=BaseKey(shape=[("Var_out", ...)], type=Tensor),
             input=BaseKey(shape=[("Var_in", ...)], type=Tensor, value=input),
             axis1=BaseKey(type=int, value=axis1),
@@ -2232,8 +2260,9 @@ class Where(UserPrimitiveModel):
         *,
         name: str | None = None,
     ) -> None:
-        super().__init__(formula_key="where", name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key="where",
+            name=name,
             output=BaseKey(shape=[("Var_out", ...)], type=Tensor),
             cond=BaseKey(shape=[("Var3", ...)], type=Tensor[bool], value=cond),
             input1=BaseKey(shape=[("Var1", ...)], type=Tensor, value=input1),
@@ -2265,8 +2294,9 @@ class IsNan(UserPrimitiveModel):
     def __init__(
         self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
     ) -> None:
-        super().__init__(formula_key="isnan", name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key="isnan",
+            name=name,
             output=BaseKey(shape=[("Var", ...)], type=Tensor[bool]),
             input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
         )
@@ -2284,8 +2314,9 @@ class Unique(UserPrimitiveModel):
     def __init__(
         self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
     ) -> None:
-        super().__init__(formula_key="unique", name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key="unique",
+            name=name,
             input=BaseKey(shape=[("Var1", ...)], type=Tensor, value=input),
             output=BaseKey(shape=[("Var2", ...)], type=Tensor),
         )
@@ -2308,8 +2339,9 @@ class Trapezoid(UserPrimitiveModel):
         *,
         name: str | None = None,
     ) -> None:
-        super().__init__(formula_key="trapezoid", name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key="trapezoid",
+            name=name,
             output=BaseKey(shape=[], type=Tensor),
             y=BaseKey(shape=[("Var", ...)], type=Tensor, value=y),
             x=BaseKey(shape=[("Var", ...)], type=Tensor, value=x),
@@ -2340,8 +2372,9 @@ class NanToNum(UserPrimitiveModel):
         *,
         name: str | None = None,
     ) -> None:
-        super().__init__(formula_key="nan_to_num", name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key="nan_to_num",
+            name=name,
             output=BaseKey(shape=[("Var", ...)], type=Tensor),
             input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
             nan=BaseKey(type=float, value=nan),
@@ -2374,8 +2407,9 @@ class Pad(UserPrimitiveModel):
         *,
         name: str | None = None,
     ) -> None:
-        super().__init__(formula_key="pad", name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key="pad",
+            name=name,
             output=BaseKey(shape=[("Var2", ...)], type=Tensor),
             input=BaseKey(shape=[("Var1", ...)], type=Tensor, value=input),
             pad_width=BaseKey(type=tuple[tuple[int, int], ...], value=pad_width),
@@ -2401,8 +2435,9 @@ class ZerosLike(UserPrimitiveModel):
     def __init__(
         self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
     ) -> None:
-        super().__init__(formula_key="zeros_like", name=name)
-        self._register_base_keys(
+        super().__init__(
+            formula_key="zeros_like",
+            name=name,
             output=BaseKey(shape=[("Var", ...)], type=Tensor),
             input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
         )

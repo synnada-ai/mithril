@@ -887,6 +887,9 @@ def test_table_5():
     assert n_of_cols == 4
 
 
+a = 1
+
+
 def test_physical_summary_1():
     model = Model()
     model += Linear(dimension=5)(input="input")

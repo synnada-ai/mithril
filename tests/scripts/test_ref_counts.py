@@ -40,6 +40,7 @@ from mithril.models import (
     Sigmoid,
     Sum,
 )
+from mithril.models.primitives import UserPrimitiveModel
 
 from .test_utils import (
     get_all_data,
@@ -73,13 +74,13 @@ def assert_objects_deleted(
 
 
 def test_deleted_variadic_ref_count_1() -> None:
-    class TestModel(Model):
+    class TestModel(UserPrimitiveModel):
         input: Connection
         output: Connection
 
         def __init__(self) -> None:
-            super().__init__(formula_key="buffer")
-            self._register_base_keys(
+            super().__init__(
+                formula_key="buffer",
                 input=BaseKey(shape=["a", "b", ("Var1", ...)], type=Tensor),
                 output=BaseKey(shape=["c", "d", ("Var2", ...)], type=Tensor),
             )
@@ -106,13 +107,13 @@ def test_deleted_variadic_ref_count_1() -> None:
 def test_deleted_variadic_ref_count_2() -> None:
     model = Model()
 
-    class MyModel(Model):
+    class MyModel(UserPrimitiveModel):
         input: Connection
         output: Connection
 
         def __init__(self) -> None:
-            super().__init__(formula_key="buffer")
-            self._register_base_keys(
+            super().__init__(
+                formula_key="buffer",
                 input=BaseKey(shape=[("Var1", ...)], type=Tensor),
                 output=BaseKey(shape=[("Var1", ...)], type=Tensor),
             )
@@ -371,10 +372,10 @@ def test_deleted_uniadic_ref_count_4():
 
 
 def test_deleted_uniadic_ref_count_5():
-    class MyModel(Model):
+    class MyModel(UserPrimitiveModel):
         def __init__(self) -> None:
-            super().__init__(formula_key="buffer")
-            self._register_base_keys(
+            super().__init__(
+                formula_key="buffer",
                 input=BaseKey(shape=["a", "b"], type=Tensor),
                 output=BaseKey(shape=["c", "d"], type=Tensor),
             )
@@ -410,10 +411,10 @@ def test_deleted_uniadic_ref_count_6():
 
 
 def test_deleted_uniadic_ref_count_7():
-    class MyModel(Model):
+    class MyModel(UserPrimitiveModel):
         def __init__(self) -> None:
-            super().__init__(formula_key="buffer")
-            self._register_base_keys(
+            super().__init__(
+                formula_key="buffer",
                 input=BaseKey(shape=["a", "b", "c"], type=Tensor),
                 output=BaseKey(shape=["c", "d", "e"], type=Tensor),
             )
@@ -435,10 +436,10 @@ def test_deleted_uniadic_ref_count_7():
 
 
 def test_deleted_uniadic_ref_count_8():
-    class MyModel(Model):
+    class MyModel(UserPrimitiveModel):
         def __init__(self) -> None:
-            super().__init__(formula_key="buffer")
-            self._register_base_keys(
+            super().__init__(
+                formula_key="buffer",
                 input=BaseKey(shape=["a", "b", "c"], type=Tensor),
                 output=BaseKey(shape=["d", "e", "f"], type=Tensor),
             )
@@ -466,10 +467,10 @@ def test_deleted_uniadic_ref_count_8():
 
 
 def test_deleted_uniadic_ref_count_9():
-    class MyModel(Model):
+    class MyModel(UserPrimitiveModel):
         def __init__(self) -> None:
-            super().__init__(formula_key="buffer")
-            self._register_base_keys(
+            super().__init__(
+                formula_key="buffer",
                 input=BaseKey(shape=[1, 1, 1], type=Tensor),
                 output=BaseKey(shape=[1, 1, 1], type=Tensor),
             )
@@ -622,13 +623,13 @@ def test_deleted_repr_ref_count_4():
 
 
 def test_deleted_repr_ref_count_5() -> None:
-    class MyModel(Model):
+    class MyModel(UserPrimitiveModel):
         input: Connection
         output: Connection
 
         def __init__(self) -> None:
-            super().__init__(formula_key="buffer")
-            self._register_base_keys(
+            super().__init__(
+                formula_key="buffer",
                 input=BaseKey(shape=[("Var1", ...), "a"], type=Tensor),
                 output=BaseKey(shape=["a", ("Var1", ...)], type=Tensor),
             )
@@ -676,13 +677,13 @@ def test_deleted_repr_ref_count_5() -> None:
 
 # @pytest.mark.skip("investigate later")
 def test_deleted_repr_ref_count_6() -> None:
-    class MyModel(Model):
+    class MyModel(UserPrimitiveModel):
         input: Connection
         output: Connection
 
         def __init__(self) -> None:
-            super().__init__(formula_key="buffer")
-            self._register_base_keys(
+            super().__init__(
+                formula_key="buffer",
                 input=BaseKey(shape=[("Var1", ...), "a"], type=Tensor),
                 output=BaseKey(shape=["a", ("Var1", ...)], type=Tensor),
             )
@@ -729,13 +730,13 @@ def test_deleted_repr_ref_count_6() -> None:
 
 
 def test_deleted_repr_ref_count_7() -> None:
-    class MyModel(Model):
+    class MyModel(UserPrimitiveModel):
         input: Connection
         output: Connection
 
         def __init__(self) -> None:
-            super().__init__(formula_key="buffer")
-            self._register_base_keys(
+            super().__init__(
+                formula_key="buffer",
                 input=BaseKey(shape=[("Var1", ...), "a"], type=Tensor),
                 output=BaseKey(shape=["a", ("Var1", ...)], type=Tensor),
             )
@@ -765,13 +766,13 @@ def test_deleted_repr_ref_count_7() -> None:
 
 
 def test_deleted_repr_ref_count_8() -> None:
-    class MyModel(Model):
+    class MyModel(UserPrimitiveModel):
         input: Connection
         output: Connection
 
         def __init__(self) -> None:
-            super().__init__(formula_key="buffer")
-            self._register_base_keys(
+            super().__init__(
+                formula_key="buffer",
                 input=BaseKey(shape=["a", "b"], type=Tensor),
                 output=BaseKey(shape=["b", "a"], type=Tensor),
             )
@@ -1363,13 +1364,13 @@ def test_deleted_uni_record_ref_count_5():
 def test_deleted_uniadic_ref_count_2() -> None:
     model = Model()
 
-    class MyModel(Model):
+    class MyModel(UserPrimitiveModel):
         input: Connection
         output: Connection
 
         def __init__(self) -> None:
-            super().__init__(formula_key="buffer")
-            self._register_base_keys(
+            super().__init__(
+                formula_key="buffer",
                 input=BaseKey(shape=["a1"], type=Tensor),
                 output=BaseKey(shape=["a2"], type=Tensor),
             )
@@ -1403,13 +1404,13 @@ def test_deleted_uniadic_ref_count_2() -> None:
 
 
 def test_deleted_uniadic_ref_count() -> None:
-    class MyModel(Model):
+    class MyModel(UserPrimitiveModel):
         input: Connection
         output: Connection
 
         def __init__(self) -> None:
-            super().__init__(formula_key="buffer")
-            self._register_base_keys(
+            super().__init__(
+                formula_key="buffer",
                 input=BaseKey(shape=["a", "b"], type=Tensor),
                 output=BaseKey(shape=["c", "d"], type=Tensor),
             )
@@ -1435,13 +1436,13 @@ def test_deleted_uniadic_ref_count() -> None:
 
 
 def test_deleted_repr_ref_count() -> None:
-    class MyModel(Model):
+    class MyModel(UserPrimitiveModel):
         input: Connection
         output: Connection
 
         def __init__(self) -> None:
-            super().__init__(formula_key="buffer")
-            self._register_base_keys(
+            super().__init__(
+                formula_key="buffer",
                 input=BaseKey(shape=["a", "b"], type=Tensor),
                 output=BaseKey(shape=["c", "d"], type=Tensor),
             )
@@ -1467,13 +1468,13 @@ def test_deleted_repr_ref_count() -> None:
 
 
 def test_deleted_node_ref_count() -> None:
-    class MyModel(Model):
+    class MyModel(UserPrimitiveModel):
         input: Connection
         output: Connection
 
         def __init__(self) -> None:
-            super().__init__(formula_key="buffer")
-            self._register_base_keys(
+            super().__init__(
+                formula_key="buffer",
                 input=BaseKey(shape=["a", "b"], type=Tensor),
                 output=BaseKey(shape=["c", "d"], type=Tensor),
             )
@@ -1497,13 +1498,13 @@ def test_deleted_node_ref_count() -> None:
 
 
 def test_deleted_tensor_ref_count() -> None:
-    class MyModel(Model):
+    class MyModel(UserPrimitiveModel):
         input: Connection
         output: Connection
 
         def __init__(self) -> None:
-            super().__init__(formula_key="buffer")
-            self._register_base_keys(
+            super().__init__(
+                formula_key="buffer",
                 input=BaseKey(shape=["a", "b"], type=Tensor),
                 output=BaseKey(shape=["c", "d"], type=Tensor),
             )
@@ -1525,13 +1526,13 @@ def test_deleted_tensor_ref_count() -> None:
 
 
 def test_deleted_edge_ref_count() -> None:
-    class MyModel(Model):
+    class MyModel(UserPrimitiveModel):
         input: Connection
         output: Connection
 
         def __init__(self) -> None:
-            super().__init__(formula_key="buffer")
-            self._register_base_keys(
+            super().__init__(
+                formula_key="buffer",
                 input=BaseKey(shape=["a", "b"], type=Tensor),
                 output=BaseKey(shape=["c", "d"], type=Tensor),
             )

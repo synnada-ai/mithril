@@ -42,7 +42,6 @@ from mithril.framework.common import (
     Variadic,
     create_shape_map,
 )
-from mithril.framework.constraints import bcast
 from mithril.framework.physical.flat_graph import FlatGraph
 from mithril.models import (
     L1,
@@ -84,7 +83,6 @@ from mithril.models import (
     Multiply,
     PolynomialFeatures,
     Power,
-    PrimitiveModel,
     Prod,
     Relu,
     Reshape,
@@ -105,9 +103,11 @@ from mithril.models import (
     TrainModel,
     Where,
 )
+from mithril.models.primitives import UserPrimitiveModel
 from mithril.utils.type_utils import is_list_int
 from mithril.utils.utils import OrderedSet
 
+from ..utils import MyAdder, get_primitive
 from .helper import assert_models_equal
 from .test_shapes import check_shapes_semantically
 from .test_utils import (
@@ -675,22 +675,6 @@ def test_reuse_pickled_registered_backend():
     u_jax_backend = pickle.loads(pickled_jax)
     u_numpy_backend = pickle.loads(pickled_numpy)
     u_torch_backend = pickle.loads(pickled_torch)
-
-    class MyAdder(Model):
-        def __init__(self) -> None:
-            super().__init__(formula_key="my_adder")
-            self._register_base_keys(
-                output=BaseKey(shape=[("Var_out", ...)], type=Tensor),
-                left=BaseKey(shape=[("Var_1", ...)], type=Tensor),
-                right=BaseKey(shape=[("Var_2", ...)], type=Tensor),
-            )
-            self.set_constraint(
-                fn=bcast, keys=[PrimitiveModel.output_key, "left", "right"]
-            )
-
-        def __call__(self, left, right, output):  # type: ignore[override]
-            kwargs = {"left": left, "right": right, "output": output}
-            return ExtendInfo(self, kwargs)
 
     model = Model()
     model += MyAdder()(left="left", right="right", output="output")
@@ -2019,7 +2003,7 @@ def test_static_anlaysis():
     ignored_model_list = [
         comp_model.flat_graph.get_model(key) for key in ignored_output_keys
     ]
-    assert ignored_model_list == [add1]
+    assert ignored_model_list == [get_primitive(add1)]
 
 
 def test_static_anlaysis_1():
@@ -2044,7 +2028,7 @@ def test_static_anlaysis_1():
     discarded_model_list = [
         comp_model.flat_graph.get_model(key) for key in discarded_output_keys
     ]
-    assert discarded_model_list == [add1]
+    assert discarded_model_list == [get_primitive(add1)]
 
 
 def test_static_anlaysis_2():
@@ -2095,7 +2079,8 @@ def test_static_anlaysis_4():
     comp_model = mithril.compile(model=model, backend=NumpyBackend())
 
     models = {add1, add2, sum1, sub1, mul1, mat1}
-    assert (models - comp_model.flat_graph.nodes.keys()) == {mat1}
+    _models = {get_primitive(model) for model in models}
+    assert (_models - comp_model.flat_graph.nodes.keys()) == {get_primitive(mat1)}
 
 
 def test_prune_1():
@@ -3132,9 +3117,13 @@ def test_demo_model():
 
 def test_flatgraph_1():
     graph = FlatGraph({"input1", "input2"}, {"output"})
-    graph.add_value(Relu(), {"input": "input1", "output": "relu_out"})
-    graph.add_value(Buffer(), {"input": "relu_out", "output": "buffer_output"})
-    graph.add_value(Buffer(), {"input": "buffer_output", "output": "output"})
+    graph.add_value(get_primitive(Relu()), {"input": "input1", "output": "relu_out"})
+    graph.add_value(
+        get_primitive(Buffer()), {"input": "relu_out", "output": "buffer_output"}
+    )
+    graph.add_value(
+        get_primitive(Buffer()), {"input": "buffer_output", "output": "output"}
+    )
     graph.prune_duplicate_nodes({}, {})
 
     expected_connections = ["input1", "relu_out"]
@@ -3148,11 +3137,11 @@ def test_flatgraph_2():
     graph = FlatGraph(
         {"input1", "input2"}, {"output1", "output2", "output3", "output4"}
     )
-    graph.add_value(Relu(), {"input": "input1", "output": "relu_out"})
-    graph.add_value(Buffer(), {"input": "relu_out", "output": "output1"})
-    graph.add_value(Buffer(), {"input": "output1", "output": "output2"})
-    graph.add_value(Buffer(), {"input": "output2", "output": "output3"})
-    graph.add_value(Buffer(), {"input": "output3", "output": "output4"})
+    graph.add_value(get_primitive(Relu()), {"input": "input1", "output": "relu_out"})
+    graph.add_value(get_primitive(Buffer()), {"input": "relu_out", "output": "output1"})
+    graph.add_value(get_primitive(Buffer()), {"input": "output1", "output": "output2"})
+    graph.add_value(get_primitive(Buffer()), {"input": "output2", "output": "output3"})
+    graph.add_value(get_primitive(Buffer()), {"input": "output3", "output": "output4"})
     graph.prune_duplicate_nodes({}, {})
 
     expected_connections = ["input1", "relu_out"]
@@ -3168,9 +3157,9 @@ def test_flatgraph_3():
     graph = FlatGraph(
         {"input1", "input2"}, {"output1", "output2", "output3", "output4"}
     )
-    graph.add_value(Relu(), {"input": "input1", "output": "relu_out"})
-    graph.add_value(Relu(), {"input": "relu_out", "output": "output1"})
-    graph.add_value(Relu(), {"input": "output1", "output": "output2"})
+    graph.add_value(get_primitive(Relu()), {"input": "input1", "output": "relu_out"})
+    graph.add_value(get_primitive(Relu()), {"input": "relu_out", "output": "output1"})
+    graph.add_value(get_primitive(Relu()), {"input": "output1", "output": "output2"})
     graph.prune_duplicate_nodes({}, {})
 
     expected_connections = ["input1", "output1", "output2", "relu_out"]
@@ -3734,7 +3723,7 @@ def test_mlp_last_dimension_prop():
     mlp_model = MLP(activations=[Relu(), Relu(), Relu()], dimensions=[12, 24, None])
     ctx = TrainModel(mlp_model)
     loss_model = SquaredError()
-    loss_model.set_shapes(loss_model.safe_shapes)
+    loss_model.set_shapes(get_primitive(loss_model).safe_shapes)
     ctx.add_loss(
         loss_model,
         input=mlp_model.cout,
@@ -3975,22 +3964,6 @@ def test_infer_static_register_fn():
 
     def my_adder(left, right):
         return left + right
-
-    class MyAdder(Model):
-        def __init__(self) -> None:
-            super().__init__(formula_key="my_adder")
-            self._register_base_keys(
-                output=BaseKey(shape=[("Var_out", ...)], type=Tensor),
-                left=BaseKey(shape=[("Var_1", ...)], type=Tensor),
-                right=BaseKey(shape=[("Var_2", ...)], type=Tensor),
-            )
-            self.set_constraint(
-                fn=bcast, keys=[PrimitiveModel.output_key, "left", "right"]
-            )
-
-        def __call__(self, left, right, output):  # type: ignore[override]
-            kwargs = {"left": left, "right": right, "output": output}
-            return ExtendInfo(self, kwargs)
 
     JaxBackend.register_primitive(my_adder)
 
@@ -6881,7 +6854,7 @@ def test_string_iokey_value_1():
         return torch.einsum(equation, input)
 
     # Define einsum primitive Model
-    class ReduceEinsum(Model):
+    class ReduceEinsum(UserPrimitiveModel):
         # Small Einsum Model that is written for test purposes.
         # Now it only supports single input and single output
 
@@ -6912,9 +6885,7 @@ def test_string_iokey_value_1():
                 "equation": scalar_equation,
             }
 
-            super().__init__(formula_key="einsum", name=name)
-            self._register_base_keys(**kwargs)
-            self._freeze()
+            super().__init__(formula_key="einsum", name=name, **kwargs)
 
         def __call__(  # type: ignore[override]
             self,
@@ -6966,7 +6937,7 @@ def test_string_iokey_value_2():
         return torch.einsum(equation, input)
 
     # Define einsum primitive Model
-    class ReduceEinsum(Model):
+    class ReduceEinsum(UserPrimitiveModel):
         # Small Einsum Model that is written for test purposes.
         # Now it only supports single input and single output
 
@@ -6997,9 +6968,7 @@ def test_string_iokey_value_2():
                 "equation": scalar_equation,
             }
 
-            super().__init__(formula_key="einsum", name=name)
-            self._register_base_keys(**kwargs)
-            self._freeze()
+            super().__init__(formula_key="einsum", name=name, **kwargs)
 
         def __call__(  # type: ignore[override]
             self,

@@ -43,15 +43,16 @@ from mithril.models import (
     Sigmoid,
     Tensor,
 )
+from mithril.models.primitives import UserPrimitiveModel
 from mithril.utils.utils import find_dominant_type
 
 from .test_constant_inputs import ReduceMult
 
 
-class Model1(Model):
+class Model1(UserPrimitiveModel):
     def __init__(self) -> None:
-        super().__init__(formula_key="None")
-        self._register_base_keys(
+        super().__init__(
+            formula_key="None",
             input1=BaseKey(type=tuple[int, ...]),
             input2=BaseKey(type=list[float]),
             output=BaseKey(type=tuple[tuple[int, ...]]),
@@ -67,10 +68,10 @@ class Model1(Model):
         return ExtendInfo(self, kwargs)
 
 
-class Model2(Model):
+class Model2(UserPrimitiveModel):
     def __init__(self) -> None:
-        super().__init__(formula_key="None")
-        self._register_base_keys(
+        super().__init__(
+            formula_key="None",
             input1=BaseKey(type=int | float),
             input2=BaseKey(type=int | str),
             input3=BaseKey(type=str | float),
@@ -93,10 +94,10 @@ class Model2(Model):
         return ExtendInfo(self, kwargs)
 
 
-class Model3(Model):
+class Model3(UserPrimitiveModel):
     def __init__(self) -> None:
-        super().__init__(formula_key="None")
-        self._register_base_keys(
+        super().__init__(
+            formula_key="None",
             input1=BaseKey(
                 type=tuple[tuple[int | float, ...], ...]
                 | list[int | float]

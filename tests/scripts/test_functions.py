@@ -19,9 +19,7 @@ from importlib import import_module
 import mithril
 from mithril import CBackend, JaxBackend, NumpyBackend, TorchBackend
 from mithril.backends.with_manualgrad.numpy_backend.ops_grad import add_grad
-from mithril.framework import NOT_GIVEN, ConnectionType, ExtendInfo
-from mithril.framework.common import BaseKey, Tensor
-from mithril.framework.constraints import bcast
+from mithril.framework.common import Tensor
 from mithril.models import (
     Absolute,
     Add,
@@ -40,7 +38,6 @@ from mithril.models import (
     Model,
     Multiply,
     Power,
-    PrimitiveModel,
     Relu,
     Sigmoid,
     Sine,
@@ -53,7 +50,7 @@ from mithril.models import (
 from mithril.utils.utils import BiMultiMap
 from tests.scripts.test_utils import compare_callables
 
-from ..utils import with_temp_file
+from ..utils import MyAdder, get_primitive, with_temp_file
 
 # ruff: noqa: F821
 
@@ -209,7 +206,7 @@ def test_flatten_dag_1():
     ]
 
     assert flatted_primitive_model_list == [
-        model.__class__ for model in ordered_model_list
+        get_primitive(model).__class__ for model in ordered_model_list
     ]
 
 
@@ -271,7 +268,7 @@ def test_flatten_dag_2():
     ]
 
     assert flatted_primitive_model_list == [
-        model.__class__ for model in ordered_model_list
+        get_primitive(model).__class__ for model in ordered_model_list
     ]
 
 
@@ -316,7 +313,7 @@ def test_flatten_dag_3():
     ]
 
     assert flatted_primitive_model_list == [
-        model.__class__ for model in ordered_model_list
+        get_primitive(model).__class__ for model in ordered_model_list
     ]
 
 
@@ -428,33 +425,12 @@ def test_code_generator_3(file_path: str):
 def test_code_generator_4(file_path: str):
     model = Model()
 
-    def my_adder(input, rhs, cache: None):
-        return input + rhs
+    def my_adder(left, right, cache: None):
+        return left + right
 
     NumpyBackend.register_primitive(my_adder, add_grad)
 
-    class MyAdder(Model):
-        def __init__(self) -> None:
-            super().__init__(formula_key="my_adder")
-            self._register_base_keys(
-                output=BaseKey(shape=[("Var_out", ...)], type=Tensor),
-                input=BaseKey(shape=[("Var_1", ...)], type=Tensor),
-                rhs=BaseKey(shape=[("Var_2", ...)], type=Tensor),
-            )
-            self.set_constraint(
-                fn=bcast, keys=[PrimitiveModel.output_key, "input", "rhs"]
-            )
-
-        def __call__(  # type: ignore[override]
-            self,
-            input: ConnectionType = NOT_GIVEN,
-            rhs: ConnectionType = NOT_GIVEN,
-            output: ConnectionType = NOT_GIVEN,
-        ) -> ExtendInfo:
-            kwargs = {"input": input, "rhs": rhs, "output": output}
-            return ExtendInfo(self, kwargs)
-
-    model += MyAdder()(input="input", rhs="rhs", output=IOKey(name="output"))
+    model += MyAdder()(left="left", right="right", output=IOKey(name="output"))
     context = TrainModel(model)
     context.add_loss(
         BinaryCrossEntropy(), reduce_steps=[Mean()], input="output", target="target"
@@ -472,13 +448,15 @@ def test_code_generator_4(file_path: str):
 
     @typing.no_type_check
     def evaluate(params, data, cache):
-        input = params["input"]
+        left = params["left"]
         output_0_cache = cache["output_0_cache"]
         output_1_cache = cache["output_1_cache"]
         output_cache = cache["output_cache"]
-        rhs = params["rhs"]
+        right = params["right"]
         target = data["target"]
-        output = output_cache["output"] = make_array(my_adder(input, rhs, output_cache))
+        output = output_cache["output"] = make_array(
+            my_adder(left, right, output_cache)
+        )
         output_0 = output_0_cache["output"] = make_array(
             binary_cross_entropy_with_logits(
                 output, target, 2.2250738585072014e-308, cache=output_0_cache
@@ -492,13 +470,13 @@ def test_code_generator_4(file_path: str):
 
     @typing.no_type_check
     def evaluate_gradients(params, gradients, data, cache):
-        input = params["input"]
+        left = params["left"]
         output = cache["output_cache"]["output"]
         output_0 = cache["output_0_cache"]["output"]
         output_0_cache = cache["output_0_cache"]
         output_1_cache = cache["output_1_cache"]
         output_cache = cache["output_cache"]
-        rhs = params["rhs"]
+        right = params["right"]
         target = data["target"]
         gradients["output_1"] += gradients["final_cost"]
         gradients["output_0"] += accumulate_grads(
@@ -519,15 +497,15 @@ def test_code_generator_4(file_path: str):
                 2.2250738585072014e-308,
             )
         )
-        gradients["input"] += accumulate_grads(
-            make_array(add_grad(gradients["output"], output_cache, 0, input, rhs)),
-            input,
+        gradients["left"] += accumulate_grads(
+            make_array(add_grad(gradients["output"], output_cache, 0, left, right)),
+            left,
             output_cache,
             0,
         )
-        gradients["rhs"] += accumulate_grads(
-            make_array(add_grad(gradients["output"], output_cache, 1, input, rhs)),
-            rhs,
+        gradients["right"] += accumulate_grads(
+            make_array(add_grad(gradients["output"], output_cache, 1, left, right)),
+            right,
             output_cache,
             1,
         )
@@ -541,33 +519,12 @@ def test_code_generator_4(file_path: str):
 def test_code_generator_5(file_path: str):
     model = Model()
 
-    def my_adder(input, rhs):
-        return input + rhs
+    def my_adder(left, right):
+        return left + right
 
     JaxBackend.register_primitive(my_adder)
 
-    class MyAdder(Model):
-        def __init__(self) -> None:
-            super().__init__(formula_key="my_adder")
-            self._register_base_keys(
-                output=BaseKey(shape=[("Var_out", ...)], type=Tensor),
-                input=BaseKey(shape=[("Var_1", ...)], type=Tensor),
-                rhs=BaseKey(shape=[("Var_2", ...)], type=Tensor),
-            )
-            self.set_constraint(
-                fn=bcast, keys=[PrimitiveModel.output_key, "input", "rhs"]
-            )
-
-        def __call__(  # type: ignore[override]
-            self,
-            input: ConnectionType = NOT_GIVEN,
-            rhs: ConnectionType = NOT_GIVEN,
-            output: ConnectionType = NOT_GIVEN,
-        ) -> ExtendInfo:
-            kwargs = {"input": input, "rhs": rhs, "output": output}
-            return ExtendInfo(self, kwargs)
-
-    model += MyAdder()(input="input", rhs="rhs", output=IOKey(name="output"))
+    model += MyAdder()(left="left", right="right", output=IOKey(name="output"))
     context = TrainModel(model)
     add = Add()
     add.set_types(right=Tensor)
@@ -587,15 +544,15 @@ def test_code_generator_5(file_path: str):
 
     @typing.no_type_check
     def evaluate(params, data, cache):
-        input = params["input"]
-        rhs = params["rhs"]
+        left = params["left"]
         right = params["right"]
+        right_0 = params["right_0"]
         target = data["target"]
-        output = my_adder(input, rhs)
+        output = my_adder(left, right)
         output_0 = binary_cross_entropy_with_logits(
             output, target, 2.2250738585072014e-308
         )
-        output_1 = add(output_0, right)
+        output_1 = add(output_0, right_0)
         del output_0
         return {"final_cost": output_1, "output": output}
 

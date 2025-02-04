@@ -29,7 +29,6 @@ from mithril.models import (
     Arange,
     ArgMax,
     ArgMin,
-    BaseModel,
     BroadcastTo,
     Buffer,
     Cast,
@@ -93,7 +92,7 @@ default_backends: list[Backend] = [TorchBackend(), NumpyBackend(), JaxBackend()]
 
 
 def compile_and_compare(
-    model: BaseModel,
+    model: Model,
     compile_kwargs: dict[str, Any],
     data: dict[str, Any],
     params: dict[str, Any],

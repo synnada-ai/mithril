@@ -26,7 +26,7 @@ from ..common import (
     ToBeDetermined,
     ValueType,
 )
-from ..logical import Buffer
+from ..logical.essential_primitives import BufferOp
 from ..logical.primitive import PrimitiveModel
 
 
@@ -138,7 +138,7 @@ class FlatGraph(GenericDataType[DataType]):
             self.random_keys |= {keys[key] for key in model.random_keys}
 
         # Buffer primitives are not added to the graph
-        if isinstance(model, Buffer):
+        if isinstance(model, BufferOp):
             self.update_output_keys(keys["output"], keys["input"])
             self._temp_connection_info[keys["output"]] = keys["input"]
 

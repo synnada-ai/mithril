@@ -55,6 +55,7 @@ from mithril.models import (
     ToTensor,
     ToTuple,
 )
+from mithril.models.primitives import UserPrimitiveModel
 
 from ..utils import compare_models
 from .test_utils import assert_results_equal
@@ -683,13 +684,13 @@ def test_type_propagation_7():
     assert model.output.metadata.value_type is float  # type: ignore
 
 
-class ArtificialPrimitive(Model):
+class ArtificialPrimitive(UserPrimitiveModel):
     input: Connection
     output: Connection
 
     def __init__(self, type) -> None:
-        super().__init__(formula_key="tensor_to_list")
-        self._register_base_keys(
+        super().__init__(
+            formula_key="tensor_to_list",
             output=BaseKey(shape=[("Var1", ...)], type=Tensor),
             input=BaseKey(shape=[("Var2", ...)], type=type),
         )
@@ -859,10 +860,10 @@ def test_type_propagation_floor_divide_4():
         )
 
 
-class Model1(Model):
+class Model1(UserPrimitiveModel):
     def __init__(self) -> None:
-        super().__init__(formula_key="buffer")
-        self._register_base_keys(
+        super().__init__(
+            formula_key="buffer",
             input=BaseKey(shape=[("Var1", ...)], type=Tensor),
             output=BaseKey(shape=[("Var1", ...)], type=Tensor),
         )
