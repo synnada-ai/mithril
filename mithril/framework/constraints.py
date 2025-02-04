@@ -223,7 +223,6 @@ def general_forward_constraint(
         if TBD not in input_values:
             output_value = callable(*input_values)
             updates |= output.set_value(output_value)
-            status = True
         else:
             status = False
     return status, updates

@@ -82,7 +82,7 @@ class TestScalarInference:
         assert main_model.output.metadata.value == ref_output
 
     @pytest.fixture(scope="class")
-    def shape(self) -> Model:
+    def shape_model(self) -> Model:
         add_model = Add()
 
         model = Model()
@@ -98,7 +98,7 @@ class TestScalarInference:
         return model
 
     @pytest.fixture(scope="class")
-    def complicated_shape(self) -> Model:
+    def complicated_shape_model(self) -> Model:
         model = Model()
         model += Shape()
         shape_output = model.cout
@@ -113,20 +113,38 @@ class TestScalarInference:
         model.set_shapes({model.cin: [8, 2, 14, 10]})
         return model
 
-    def test_shape_model_output_basic(self, shape: Model):
-        assert isinstance(shape, SupportsOutput)
-        assert shape.output.metadata.value == 6
+    def test_shape_model_output_basic(self, shape_model: Model):
+        assert isinstance(shape_model, SupportsOutput)
+        assert shape_model.output.metadata.value == 6
 
-    def test_check_compilability_of_shape_model_basic(self, shape: Model):
-        pm = ml.compile(shape, backend=ml.JaxBackend(), inference=True)
+    def test_check_compilability_of_shape_model_basic(self, shape_model: Model):
+        pm = ml.compile(shape_model, backend=ml.JaxBackend(), inference=True)
         assert pm.evaluate()["output"] == 6
 
-    def test_shape_model_output_complicated(self, complicated_shape: Model):
-        assert isinstance(complicated_shape, SupportsOutput)
-        assert complicated_shape.output.metadata.value == 75.0
+    def test_shape_model_output_complicated(self, complicated_shape_model: Model):
+        assert isinstance(complicated_shape_model, SupportsOutput)
+        assert complicated_shape_model.output.metadata.value == 75.0
 
     def test_check_compilability_of_shape_model_complicated(
-        self, complicated_shape: Model
+        self, complicated_shape_model: Model
     ):
-        pm = ml.compile(complicated_shape, backend=ml.JaxBackend(), inference=True)
+        pm = ml.compile(
+            complicated_shape_model, backend=ml.JaxBackend(), inference=True
+        )
         assert pm.evaluate()["output"] == 75.0
+
+    def test_model_with_set_value(self):
+        in1 = IOKey("in1")
+        in2 = IOKey("in2")
+        in3 = IOKey("in3")
+        in4 = IOKey("in4")
+        in5 = IOKey("in5")
+
+        out = ((in1**in2) / (in3 + in4)) * in5
+        model = Model()
+        model += Add()(out, 1, IOKey("output"))
+        assert isinstance(model, SupportsOutput)
+        assert model.output.metadata.value == TBD
+        model.set_values({"in1": 2, "in2": 6, "in3": 7, "in4": 1})
+        model.set_values({"in5": 3})
+        assert model.output.metadata.value == 25.0

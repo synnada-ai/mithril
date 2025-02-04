@@ -445,7 +445,7 @@ class Divide(PrimitiveModel):
             dependencies={edge_constraint},
         )
 
-        self._add_constraint(
+        bcast_constraint = self._add_constraint(
             fn=bcast,
             keys=[PrimitiveModel.output_key, "numerator", "denominator"],
             dependencies={edge_constraint},
@@ -455,6 +455,12 @@ class Divide(PrimitiveModel):
             partial(general_forward_constraint, callable=lambda x, y: x / y),
             keys=[PrimitiveModel.output_key, "numerator", "denominator"],
             dependencies={edge_constraint},
+        )
+
+        self._add_constraint(
+            fn=bcast_error_check,
+            keys=[PrimitiveModel.output_key, "numerator", "denominator"],
+            dependencies={bcast_constraint},
         )
 
     def __call__(  # type: ignore[override]
@@ -500,7 +506,7 @@ class FloorDivide(PrimitiveModel):
             dependencies={edge_constraint},
         )
 
-        self._add_constraint(
+        bcast_constraint = self._add_constraint(
             fn=bcast,
             keys=[PrimitiveModel.output_key, "numerator", "denominator"],
             dependencies={edge_constraint},
@@ -510,6 +516,12 @@ class FloorDivide(PrimitiveModel):
             partial(general_forward_constraint, callable=lambda x, y: x // y),
             keys=[PrimitiveModel.output_key, "numerator", "denominator"],
             dependencies={edge_constraint},
+        )
+
+        self._add_constraint(
+            fn=bcast_error_check,
+            keys=[PrimitiveModel.output_key, "numerator", "denominator"],
+            dependencies={bcast_constraint},
         )
 
     def __call__(  # type: ignore[override]
