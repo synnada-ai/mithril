@@ -206,14 +206,7 @@ class CGen(CodeGen[PyArray]):
         fn_body: list[c_ast.Expr] = []
         used_keys: set[str] = set()
 
-        unused_keys = self.pm.flat_graph.unused_keys
-        cached_data_keys = self.pm.flat_graph.cached_data.keys()
-
         for output_key in self.pm.flat_graph.topological_order:
-            # Staticly infered and unused model will not be added
-            if output_key in (cached_data_keys | unused_keys):
-                continue
-
             model = self.pm.flat_graph.get_model(output_key)
             inputs = self.pm.flat_graph.get_source_keys(output_key)
 

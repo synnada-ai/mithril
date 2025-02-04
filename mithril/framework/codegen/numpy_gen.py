@@ -372,9 +372,6 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
                 function_body.append(assign)
 
         for output_key in reversed(self.pm.flat_graph.topological_order):
-            if output_key in ignore_grad_keys:
-                continue
-
             # Iterate over Primitive models in topological order to add their formula.
             model = self.pm.flat_graph.get_model(output_key)
 
