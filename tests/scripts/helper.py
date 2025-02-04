@@ -56,7 +56,7 @@ def evaluate_case(
     model = finalize_model(current_case)
     # Convert static keys to array if they are not scalar.
     for key, value in static_keys.items():
-        if model.conns.get_metadata(key).edge_type is not Tensor:
+        if not model.conns.get_metadata(key).is_tensor:
             static_keys[key] = value
         else:
             static_keys[key] = convert_to_array(backend, value)
@@ -96,7 +96,7 @@ def evaluate_case(
                     data_value = epsilon_table[backend.precision][data_value]
                 assert data_value == copied_data.value
 
-                if data.edge_type is Tensor:
+                if data.is_tensor:
                     assert id(data.value) == id(copied_data.value)
 
         # Evaluate model.

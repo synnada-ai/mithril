@@ -938,7 +938,7 @@ def test_str_axis_set_shapes():
 
     assert str(err_info.value) == (
         "Acceptable types are None | int | list[int] | tuple[int, ...], "
-        "but <class 'str'> type value is provided!"
+        "but <class 'str'> type is provided!"
     )
 
 
@@ -949,7 +949,7 @@ def test_float_axis_2():
         model1 += mean1(axis=3.0)
     assert str(err_info.value) == (
         "Acceptable types are None | int | list[int] | tuple[int, ...], but "
-        "<class 'float'> type value is provided!"
+        "<class 'float'> type is provided!"
     )
 
 
@@ -959,7 +959,7 @@ def test_float_axis_2_set_values():
         mean1.set_values({"axis": 3.0})
     assert str(err_info.value) == (
         "Acceptable types are None | int | list[int] | tuple[int, ...], but "
-        "<class 'float'> type value is provided!"
+        "<class 'float'> type is provided!"
     )
 
 
@@ -978,8 +978,7 @@ def test_static_type():
         model1 += poly_feat_1(input="", degree=conv2d.stride)
 
     assert str(err.value) == (
-        "Acceptable types are tuple[int, int], but <class 'int'> "
-        "type value is provided!"
+        "Acceptable types are tuple[int, int], but <class 'int'> " "type is provided!"
     )
 
 
@@ -993,8 +992,7 @@ def test_static_type_set_value():
         model1 += poly_feat_1(input="", degree=conv2d.stride)
 
     assert str(err.value) == (
-        "Acceptable types are tuple[int, int], but <class 'int'> "
-        "type value is provided!"
+        "Acceptable types are tuple[int, int], but <class 'int'> " "type is provided!"
     )
 
 
@@ -1586,9 +1584,9 @@ def test_composite_4_set_values():
 
 
 def test_composite_5():
-    list1 = Tensor(np.random.randn(2, 3, 4).tolist())
-    list2 = Tensor(np.random.randn(1, 3, 4).tolist())
-    list3 = Tensor(np.random.randn(2, 2, 1, 1, 1).tolist())
+    list1: Tensor[float] = Tensor(np.random.randn(2, 3, 4).tolist())
+    list2: Tensor[float] = Tensor(np.random.randn(1, 3, 4).tolist())
+    list3: Tensor[float] = Tensor(np.random.randn(2, 2, 1, 1, 1).tolist())
     model = Model()
     add_model_1 = Add()
     add_model_2 = Add()
@@ -1601,9 +1599,9 @@ def test_composite_5():
 
 
 def test_composite_5_set_values():
-    list1 = Tensor(np.random.randn(2, 3, 4).tolist())
-    list2 = Tensor(np.random.randn(1, 3, 4).tolist())
-    list3 = Tensor(np.random.randn(2, 2, 1, 1, 1).tolist())
+    list1: Tensor[float] = Tensor(np.random.randn(2, 3, 4).tolist())
+    list2: Tensor[float] = Tensor(np.random.randn(1, 3, 4).tolist())
+    list3: Tensor[float] = Tensor(np.random.randn(2, 2, 1, 1, 1).tolist())
     model = Model()
     add_model_1 = Add()
     add_model_2 = Add()
@@ -1619,9 +1617,9 @@ def test_composite_5_set_values():
 
 
 def test_composite_6():
-    list1 = Tensor(np.random.randn(2, 3, 4).tolist())
-    list2 = Tensor(np.random.randn(1, 3, 4).tolist())
-    list3 = Tensor(np.random.randn(2, 2, 1, 1, 1).tolist())
+    list1: Tensor[float] = Tensor(np.random.randn(2, 3, 4).tolist())
+    list2: Tensor[float] = Tensor(np.random.randn(1, 3, 4).tolist())
+    list3: Tensor[float] = Tensor(np.random.randn(2, 2, 1, 1, 1).tolist())
     model = Model()
     add_model_1 = Add()
     add_model_2 = Add()
@@ -1633,9 +1631,9 @@ def test_composite_6():
 
 
 def test_composite_6_set_values():
-    list1 = Tensor(np.random.randn(2, 3, 4).tolist())
-    list2 = Tensor(np.random.randn(1, 3, 4).tolist())
-    list3 = Tensor(np.random.randn(2, 2, 1, 1, 1).tolist())
+    list1: Tensor[float] = Tensor(np.random.randn(2, 3, 4).tolist())
+    list2: Tensor[float] = Tensor(np.random.randn(1, 3, 4).tolist())
+    list3: Tensor[float] = Tensor(np.random.randn(2, 2, 1, 1, 1).tolist())
     model = Model()
     add_model_1 = Add()
     add_model_2 = Add()
@@ -1651,9 +1649,9 @@ def test_composite_6_set_values():
 
 
 def test_composite_7():
-    list1 = Tensor(np.random.randn(2, 3, 4).tolist())
-    list2 = Tensor(np.random.randn(1, 3, 4).tolist())
-    list3 = Tensor(np.random.randn(2, 2, 1, 1, 1).tolist())
+    list1: Tensor[float] = Tensor(np.random.randn(2, 3, 4).tolist())
+    list2: Tensor[float] = Tensor(np.random.randn(1, 3, 4).tolist())
+    list3: Tensor[float] = Tensor(np.random.randn(2, 2, 1, 1, 1).tolist())
     model = Model()
     add_model_1 = Add()
     add_model_2 = Add()
@@ -1666,9 +1664,9 @@ def test_composite_7():
 
 
 def test_composite_7_set_values():
-    list1 = Tensor(np.random.randn(2, 3, 4).tolist())
-    list2 = Tensor(np.random.randn(1, 3, 4).tolist())
-    list3 = Tensor(np.random.randn(2, 2, 1, 1, 1).tolist())
+    list1: Tensor[float] = Tensor(np.random.randn(2, 3, 4).tolist())
+    list2: Tensor[float] = Tensor(np.random.randn(1, 3, 4).tolist())
+    list3: Tensor[float] = Tensor(np.random.randn(2, 2, 1, 1, 1).tolist())
     model = Model()
     add_model_1 = Add()
     add_model_2 = Add()
@@ -1684,7 +1682,7 @@ def test_composite_7_set_values():
 
 
 def test_composite_conv_mean():
-    list1 = Tensor(np.random.randn(1, 1, 8, 8).tolist())
+    list1: Tensor[float] = Tensor(np.random.randn(1, 1, 8, 8).tolist())
     model = Model()
     conv_model = Convolution2D(kernel_size=2, out_channels=1, stride=(2, 3))
     reduce_model = Mean(axis=TBD)
@@ -1695,7 +1693,7 @@ def test_composite_conv_mean():
 
 
 def test_composite_conv_mean_set_values():
-    list1 = Tensor(np.random.randn(1, 1, 8, 8).tolist())
+    list1: Tensor[float] = Tensor(np.random.randn(1, 1, 8, 8).tolist())
     model = Model()
     conv_model = Convolution2D(kernel_size=2, out_channels=1, stride=(2, 3))
     reduce_model = Mean(axis=TBD)
@@ -1707,7 +1705,7 @@ def test_composite_conv_mean_set_values():
 
 
 def test_composite_conv_mean_2():
-    list1 = Tensor(np.ones((1, 1, 8, 8)).tolist())
+    list1: Tensor[float] = Tensor(np.ones((1, 1, 8, 8)).tolist())
     model = Model()
     conv_model = Convolution2D(kernel_size=2, out_channels=1, stride=TBD)
     reduce_model = Sum(axis=TBD)
@@ -1723,7 +1721,7 @@ def test_composite_conv_mean_2():
 
 
 def test_composite_conv_mean_2_set_values():
-    list1 = Tensor(np.ones((1, 1, 8, 8)).tolist())
+    list1: Tensor[float] = Tensor(np.ones((1, 1, 8, 8)).tolist())
     model = Model()
     conv_model = Convolution2D(kernel_size=2, out_channels=1, stride=TBD)
     reduce_model = Sum(axis=TBD)

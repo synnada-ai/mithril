@@ -49,13 +49,10 @@ from .common import (
     UpdateType,
     Variadic,
     _TensorTypes,
+    find_intersection_type,
     process_value,
 )
-from .utils import (
-    find_intersection_type,
-    find_list_base_type,
-    is_union,
-)
+from .utils import find_list_base_type, is_union
 
 __all__ = [
     "edge_type_constraint",
@@ -85,15 +82,13 @@ __all__ = [
     "tensor_to_list_constraints",
     "to_list_constraints",
     "where_constrains",
-    "validate_bcast",
     "eye_constraints",
     "item_constraints",
     "indexer_constraints",
     "to_tuple_constraints",
     "tensor_to_list_type_constraint",
     "reduce_type_constraint",
-    "type_constraints",
-    "post_process_map",
+    "constraint_type_map",
     "padding_1d_constraint",
     "padding_2d_constraint",
     "stride_constraint",
@@ -106,7 +101,6 @@ __all__ = [
     "buffer_constraint",
     "relational_operator_type_constraint",
     "divide_type_constraint",
-    "bcast_power",
     "polynomial_kernel_constraint",
 ]
 
@@ -182,7 +176,7 @@ def set_edge_type(edge: IOHyperEdge, new_type: Any) -> Updates:
     # Simply wraps new type into Tensor if edge_type is Tensor,
     # else sets directly.
     type = new_type
-    if edge.edge_type is Tensor:
+    if edge.is_tensor:
         type = Tensor[new_type]
     return edge.set_type(type)
 
@@ -192,29 +186,36 @@ def edge_type_constraint(
 ) -> ConstrainResultType:
     updates = Updates()
     status = False
+    tensor_exists: bool = False
+    tensor_output: bool = output.is_tensor
+    for input in inputs:
+        if input.is_tensor:
+            tensor_exists = True
+            break
     # First set output edge_type to Tensor if any Tensor type inputs
     # exists.
-    input_edge_types = {input.edge_type for input in inputs}
-    if Tensor in input_edge_types:
-        if output.edge_type is not Tensor:
-            updates |= output.set_type(Tensor)
-    elif output.edge_type is Tensor:
+    if tensor_exists:
+        if not tensor_output:
+            updates |= output.set_type(Tensor[int | float | bool])
+    elif tensor_output:
         # Reverse edge_type inference.
         # If there is only one untyped input, set it as Tensor.
         untyped_inputs = [
             input for input in inputs if input.edge_type is ToBeDetermined
         ]
         if len(untyped_inputs) == 1:
-            updates |= untyped_inputs.pop().set_type(Tensor)
+            updates |= untyped_inputs.pop().set_type(Tensor[int | float | bool])
             status = True
-    elif output.edge_type is not ToBeDetermined:
+    elif output.edge_type is not ToBeDetermined and (
+        find_intersection_type(Tensor[int | float | bool], output.edge_type) is None
+    ):
         # Scalar output means all inputs are scalar.
         for input in inputs:
             updates |= input.set_type(ScalarValueType)
         status = True
 
-    # If no ToBeDetermined edge_type exists, return True.
-    if ToBeDetermined not in input_edge_types:
+    # If no polymorphic edge_type exists, return True.
+    if all({not input.is_polymorphic for input in inputs}):
         status = True
     return status, updates
 
@@ -633,18 +634,17 @@ def indexer_initial_type_constraint(
     updates = Updates()
     edge_types = {input.edge_type, output.edge_type}
     if edge_types != {ToBeDetermined}:
-        if Tensor not in edge_types:
+        if Tensor not in {get_origin(typ) for typ in edge_types}:
             # Meaning that indexing scalar type data. Set general
             # scalar type constraints on all arguments.
-
             # TODO: Types should be more specific.
             updates |= output.set_type(int | float | list[Any] | tuple[Any, ...])
             updates |= input.set_type(list[Any] | tuple[Any, ...])
             status = True
         else:
-            tensor_edge = input if input.edge_type is Tensor else output
+            tensor_edge = input if input.is_tensor else output
             assert isinstance(tensor_edge._value, Tensor)
-            typ: type[Tensor[Any]] = Tensor[tensor_edge.value_type]  # type: ignore
+            typ: type[Tensor[int | float | bool]] = Tensor[tensor_edge.value_type]  # type: ignore
             other_edge = (input, output)[tensor_edge is input]
             updates |= other_edge.set_type(typ)
             status = True
@@ -656,7 +656,7 @@ def indexer_type_constraint(
 ) -> ConstrainResultType:
     status = False
     updates = Updates()
-    if input.edge_type not in (Tensor, ToBeDetermined):
+    if not (input.is_tensor or input.edge_type is ToBeDetermined):
         # Input is a non-tensor type.
         input_type = input.value_type
         output_type = output.value_type
@@ -703,7 +703,7 @@ def indexer_type_constraint(
         updates |= output.set_type(inferred_out_type)
 
         status = not is_union(output.value_type)
-    elif input.edge_type is Tensor:
+    elif input.is_tensor:
         status = True
     return status, updates
 
@@ -1412,8 +1412,9 @@ def bcast_helper(
 def _bcast(
     output: IOHyperEdge, left: IOHyperEdge, right: IOHyperEdge, index: int
 ) -> ConstrainResultType:
-    l_type = left.edge_type
-    r_type = right.edge_type
+    l_type = Tensor if left.is_tensor else left.edge_type
+    r_type = Tensor if right.is_tensor else right.edge_type
+    o_type = Tensor if output.is_tensor else output.edge_type
     if l_type is Tensor and r_type is Tensor:
         assert output._temp_shape is not None, "Output shape of broadcast is not set!"
         assert left._temp_shape is not None, "Left shape of broadcast is not set!"
@@ -1421,15 +1422,15 @@ def _bcast(
         return bcast_helper(
             output._temp_shape, left._temp_shape, right._temp_shape, index
         )
-    elif not ({Tensor, ToBeDetermined} & {l_type, r_type, output.edge_type}):
+    elif not ({Tensor, ToBeDetermined} & {l_type, r_type, o_type}):
         # Means all edges are scalar types. Simply return True
         # without any updates.
         return True, Updates()
 
     merge_edge: IOHyperEdge | None = None
-    if left.edge_type is Tensor:
+    if l_type is Tensor:
         merge_edge = left
-    elif right.edge_type is Tensor:
+    elif r_type is Tensor:
         merge_edge = right
 
     if merge_edge is not None:
@@ -1450,14 +1451,6 @@ def bcast_matrix_mult(
     output: IOHyperEdge, left: IOHyperEdge, right: IOHyperEdge
 ) -> ConstrainResultType:
     return _bcast(output, left, right, 2)
-
-
-def bcast_power(
-    output: IOHyperEdge, base: IOHyperEdge, exponent: IOHyperEdge, *args: IOHyperEdge
-) -> ConstrainResultType:
-    # NOTE: threshold input only exists in robust mode, so it is represented
-    # as *args.
-    return _bcast(output, base, exponent, 0)
 
 
 def check_reverse(
@@ -1511,6 +1504,8 @@ def bcast_error_check(
     right: IOHyperEdge,
     index: int = 0,
 ) -> ConstrainResultType:
+    if left.edge_type is not Tensor or right.edge_type is not Tensor:
+        return True, Updates()
     assert left._temp_shape is not None, "Left shape of broadcast is not set!"
     assert right._temp_shape is not None, "Right shape of broadcast is not set!"
     assert output._temp_shape is not None, "Output shape of broadcast is not set!"
@@ -1743,19 +1738,18 @@ def reduce_constraints(
                                 else:
                                     out_suffix.pop(0)
 
-                        if out_prefix or out_suffix:
-                            pos_len = pos_idx if pos_idx is not None else 0
-                            neg_len = neg_idx if neg_idx is not None else 0
-                            if (
-                                len(input_shape.prefix) >= pos_len
-                                and len(input_shape.suffix) >= neg_len
-                            ):
-                                var = input_shape.root
-                            else:
-                                var = Variadic()
-                            updates |= output_shape.inner_match(
-                                prefix=out_prefix, root=var, suffix=out_suffix
-                            )
+                        pos_len = pos_idx if pos_idx is not None else 0
+                        neg_len = neg_idx if neg_idx is not None else 0
+                        if (
+                            len(input_shape.prefix) >= pos_len
+                            and len(input_shape.suffix) >= neg_len
+                        ):
+                            var = input_shape.root
+                        else:
+                            var = Variadic()
+                        updates |= output_shape.inner_match(
+                            prefix=out_prefix, root=var, suffix=out_suffix
+                        )
 
         if input_shape.root is None and keepdim_val is not TBD:
             if axis_val is None:
@@ -3239,17 +3233,18 @@ def eye_constraints(
         assert isinstance(N.value, int)
         n_uni.set_value(N.value)
         updates.add(n_uni)
+
     elif n_uni_valued and not n_valued:
-        N.set_value(n_uni.value)
-        updates.add(N)
+        updates |= N.set_value(n_uni.value)
 
     if m_valued and not m_uni_valued:
         assert isinstance(M.value, int | NoneType)
         m_uni.set_value(M.value)
         updates.add(m_uni)
+
     elif m_uni_valued and not m_valued:
-        M.set_value(m_uni.value)
-        updates.add(M)
+        updates |= M.set_value(m_uni.value)
+
     all_items: list[IOHyperEdge | Uniadic] = [N, M, n_uni, m_uni]
     return all(isinstance(s.value, int) for s in all_items), updates
 
@@ -3520,8 +3515,7 @@ def scalar_item_constraints(
         # output value appears only once in input sequence, write its
         # index as the value of index argument.
         if input.value.count(output.value) == 1:
-            index.set_value(input.value.index(output.value))
-            updates._add_edge(index)
+            updates |= index.set_value(input.value.index(output.value))
             status = True
     return status, updates
 
@@ -3683,7 +3677,7 @@ def tensor_item_constraint_helper(
 def indexer_constraints(
     output: IOHyperEdge, input: IOHyperEdge, index: IOHyperEdge
 ) -> ConstrainResultType:
-    if input.edge_type is Tensor:
+    if input.is_tensor:
         return tensor_item_constraints(output, input, index)
     elif input.edge_type is not ToBeDetermined:
         return scalar_item_constraints(output, input, index)
@@ -3942,7 +3936,7 @@ def buffer_constraint(output: IOHyperEdge, input: IOHyperEdge) -> ConstrainResul
         typed_edge, other_edge = output, input
 
     if typed_edge is not None:
-        if typed_edge.edge_type is Tensor:
+        if typed_edge._value is not TBD:
             updates |= other_edge.set_value(typed_edge._value)
         else:
             updates |= other_edge.set_type(typed_edge.edge_type)
@@ -3956,7 +3950,7 @@ def relational_operator_type_constraint(
     updates = Updates()
     status = False
     # Forward inference.
-    if Tensor in (input1.edge_type, input2.edge_type):
+    if input1.is_tensor or input2.is_tensor:
         updates |= output.set_type(Tensor[bool])
         status = True
     elif ToBeDetermined not in (input1.edge_type, input2.edge_type):
@@ -3971,7 +3965,7 @@ def divide_type_constraint(
     updates = Updates()
     status = False
     # Forward inference.
-    if Tensor in (numerator.edge_type, denominator.edge_type):
+    if numerator.is_tensor or denominator.is_tensor:
         updates |= output.set_type(Tensor[float])
         status = True
     elif ToBeDetermined not in (numerator.edge_type, denominator.edge_type):
@@ -3989,13 +3983,13 @@ def polynomial_kernel_constraint(
     # poly_coef update.
     if poly_coef.edge_type is not ToBeDetermined:
         coef_status = True
-        if poly_coef.edge_type is Tensor:
+        if poly_coef.is_tensor:
             assert poly_coef.shape is not None
             updates |= poly_coef.shape.set_values([])
     # degree update.
     if degree.edge_type is not ToBeDetermined:
         degree_status = True
-        if degree.edge_type is Tensor:
+        if degree.is_tensor:
             assert degree.shape is not None
             updates |= degree.shape.set_values([])
     return coef_status & degree_status, updates
@@ -4003,21 +3997,29 @@ def polynomial_kernel_constraint(
 
 constrain_fn_dict = {key: fn for key, fn in globals().items() if callable(fn)}
 
-type_constraints: set[ConstraintFunctionType] = {
-    edge_type_constraint,
-    general_tensor_type_constraint,
-    floor_divide_type_constraint,
-    scalar_slice_type_constraint,
-    indexer_initial_type_constraint,
-    indexer_type_constraint,
-    tensor_to_list_type_constraint,
-    reduce_type_constraint,
-    relational_operator_type_constraint,
-    divide_type_constraint,
-    buffer_constraint,
-}
-
-post_process_map: dict[ConstraintFunctionType, set[ConstraintFunctionType]] = {
-    bcast: {bcast_error_check},
-    bcast_matrix_mult: {bcast_mat_mul_check},
+constraint_type_map: dict[ConstraintFunctionType, list[UpdateType]] = {
+    edge_type_constraint: [UpdateType.TYPE],
+    general_tensor_type_constraint: [UpdateType.TYPE],
+    floor_divide_type_constraint: [UpdateType.TYPE],
+    scalar_slice_type_constraint: [UpdateType.TYPE],
+    indexer_initial_type_constraint: [UpdateType.TYPE],
+    indexer_type_constraint: [UpdateType.TYPE],
+    slice_constraints: [UpdateType.VALUE],
+    bcast: [UpdateType.SHAPE],
+    bcast_matrix_mult: [UpdateType.SHAPE],
+    to_tensor_constraints: [UpdateType.SHAPE, UpdateType.TYPE],
+    tensor_to_list_constraints: [UpdateType.SHAPE, UpdateType.TYPE],
+    to_list_constraints: [UpdateType.VALUE],
+    where_constrains: [UpdateType.SHAPE],
+    item_constraints: [UpdateType.SHAPE],
+    to_tuple_constraints: [UpdateType.VALUE],
+    tensor_to_list_type_constraint: [UpdateType.TYPE],
+    reduce_type_constraint: [UpdateType.TYPE],
+    padding_1d_constraint: [UpdateType.VALUE],
+    padding_2d_constraint: [UpdateType.VALUE],
+    stride_constraint: [UpdateType.VALUE],
+    tuple_converter_constraint: [UpdateType.VALUE],
+    buffer_constraint: [UpdateType.TYPE, UpdateType.VALUE],
+    relational_operator_type_constraint: [UpdateType.TYPE],
+    divide_type_constraint: [UpdateType.TYPE],
 }

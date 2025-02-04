@@ -100,6 +100,7 @@ def test_data_store_1_numpy():
 
 def test_data_store_3():
     """Tests all private attributes of DataStore are correct after compilation."""
+
     backend = TorchBackend()
     model = Linear(dimension=1)
     static_data = {

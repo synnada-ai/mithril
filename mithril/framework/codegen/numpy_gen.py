@@ -22,7 +22,6 @@ import numpy as np
 
 from ...backends.with_manualgrad.numpy_backend import NumpyBackend
 from ...framework.physical.model import PhysicalModel
-from ...framework.utils import find_intersection_type
 from ...utils.func_utils import is_make_array_required, prepare_function_args
 from ..common import (
     DataEvalType,
@@ -33,7 +32,7 @@ from ..common import (
     IOHyperEdge,
     LossKey,
     ParamsEvalType,
-    Tensor,
+    find_intersection_type,
     is_type_adjustment_required,
 )
 from ..logical import PrimitiveModel
@@ -314,7 +313,7 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
             key
             for key in all_ignored_keys
             if key in self.pm.data
-            and self.pm.data[key].edge_type is Tensor
+            and self.pm.data[key].is_tensor
             and find_intersection_type(self.pm.data[key].value_type, float)
         }
 

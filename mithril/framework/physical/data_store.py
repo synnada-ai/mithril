@@ -23,9 +23,9 @@ from ..common import (
     DataEvalType,
     IOHyperEdge,
     MainValueType,
-    Tensor,
     ToBeDetermined,
     Updates,
+    UpdateType,
 )
 
 
@@ -90,6 +90,26 @@ class StaticDataStore(Generic[DataType]):
 
         if hard_remove and key in self._all_data:
             self._all_data.pop(key)
+            self._clear_constraints(key)
+
+    def _clear_constraints(self, key: str) -> None:
+        if key not in self._all_data:
+            return
+
+        shape_constraints = self._all_data[key].constraints[UpdateType.SHAPE]
+        type_constraints = self._all_data[key].constraints[UpdateType.TYPE]
+        value_constraints = self._all_data[key].constraints[UpdateType.VALUE]
+        for source_key in self.graph.get_source_keys(key):
+            if source_key in self._all_data:
+                self._all_data[source_key].constraints[UpdateType.SHAPE] -= (
+                    shape_constraints
+                )
+                self._all_data[source_key].constraints[UpdateType.TYPE] -= (
+                    type_constraints
+                )
+                self._all_data[source_key].constraints[UpdateType.VALUE] -= (
+                    value_constraints
+                )
 
     def update_cached_data(self, updated_data: Updates) -> set[str]:
         # If any data value is found by shape inference algorithms
@@ -122,7 +142,7 @@ class StaticDataStore(Generic[DataType]):
         if isinstance(value, Constant):
             value = epsilon_table[self.backend.precision][value]
 
-        if data.edge_type is Tensor:
+        if data.is_tensor:
             value = self.backend.array(value)
         elif isinstance(value, Dtype):
             value = getattr(self.backend, value.name)
