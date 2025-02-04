@@ -258,8 +258,8 @@ class PhysicalModel(GenericDataType[DataType]):
 
         self.flat_graph.set_random_seed_keys(self.flat_graph.random_keys)
 
-        for cached_key in list(self.flat_graph.cached_data.keys()):
-            self.flat_graph.infer_unused_keys(cached_key)
+        # for cached_key in list(self.flat_graph.cached_data.keys()):
+        #     self.flat_graph.infer_unused_keys(cached_key)
 
         # First part of the pm with all the inferences.
         self._pre_compile(
@@ -525,28 +525,28 @@ class PhysicalModel(GenericDataType[DataType]):
         # Set given shapes.
         self.flat_graph.set_shapes(shapes)
 
-        self.flat_graph.prune_duplicate_nodes(self.data, constant_keys)
+        # self.flat_graph.prune_duplicate_nodes(self.data, constant_keys)
 
         # Set given static keys
         self.flat_graph.set_static_keys(constant_keys)
 
         # Extract idle keys which are not an output
         # of the model nor an input to a PrimitiveModel.
-        self.discarded_keys |= {
-            key for key in self.flat_graph.hanging_keys if key not in self.output_keys
-        }
+        # self.discarded_keys |= {
+        #     key for key in self.flat_graph.hanging_keys if key not in self.output_keys
+        # }
 
-        self.discarded_keys, self._output_keys = self.flat_graph.infer_ignore(
-            self.discarded_keys, self._output_keys
-        )
+        # self.discarded_keys, self._output_keys = self.flat_graph.infer_ignore(
+        #     self.discarded_keys, self._output_keys
+        # )
 
         # TODO: Should we store ignored_grad_keys and discarded_keys
         # as attributes?
-        self.ignore_grad_keys |= self.discarded_keys
+        # self.ignore_grad_keys |= self.discarded_keys
 
-        self.flat_graph.remove_keys_from_store(
-            self.discarded_keys | self.flat_graph.unnecessary_keys.keys()
-        )
+        # self.flat_graph.remove_keys_from_store(
+        #     self.discarded_keys | self.flat_graph.unnecessary_keys.keys()
+        # )
 
         # Infer and store all static keys using user provided constant keys and
         # the non-tensor constants defined in logical model.
@@ -562,12 +562,16 @@ class PhysicalModel(GenericDataType[DataType]):
                     "no need to provide data for it."
                 )
 
-        # Add non-tensor, valued and valued dropped data to ignored_grad_keys.
-        self.ignore_grad_keys |= {
-            key
-            for key, value in self.flat_graph.dropped_keys.items()
-            if value in self.flat_graph.cached_data
+        self.flat_graph.prune_duplicate_nodes(self.data, constant_keys)
+
+        self.discarded_keys |= {
+            key for key in self.flat_graph.hanging_keys if key not in self.output_keys
         }
+
+        self.discarded_keys, self._output_keys = self.flat_graph.infer_ignore(
+            self.discarded_keys, self._output_keys
+        )
+
         for node in self.flat_graph.nodes.values():
             _key = node.connections["output"].key
             conn_edge = self.data.get(_key, None)
@@ -590,6 +594,13 @@ class PhysicalModel(GenericDataType[DataType]):
 
         if len(self._output_keys - self.ignore_grad_keys) == 0 and not self.inference:
             raise ValueError("All outputs gradient are ignored.")
+
+        # for discarded_key in self.discarded_keys:
+        #     if discarded_key not in self.flat_graph.connections:
+        #         continue
+        #     conn = self.flat_graph.connections[discarded_key]
+        #     if conn.node is not None:
+        #         self.flat_graph._remove_node(conn.node)
 
     def generate_functions(
         self,

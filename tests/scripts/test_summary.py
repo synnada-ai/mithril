@@ -1154,7 +1154,7 @@ def test_physical_summary_10():
     with open("tests/scripts/summary_txts/test_physical_summary_10") as f:
         ref_table = f.read()
 
-    assert "\n" + summary.getvalue() == ref_table
+    assert summary.getvalue() == ref_table
 
 
 def test_physical_summary_11():
@@ -1169,7 +1169,7 @@ def test_physical_summary_11():
     ref_table = ""
     with open("tests/scripts/summary_txts/test_physical_summary_11") as f:
         ref_table = f.read()
-    assert "\n" + summary.getvalue() == ref_table
+    assert summary.getvalue() == ref_table
 
 
 def test_physical_summary_12():
@@ -1213,10 +1213,12 @@ def test_physical_summary_14():
     )
     with redirect_stdout(StringIO()) as summary:
         comp_model.summary(model=sig_model2, verbose=True)
+
     ref_table = ""
     with open("tests/scripts/summary_txts/test_physical_summary_14") as f:
         ref_table = f.read()
-    assert "\n" + summary.getvalue() == ref_table
+
+    assert summary.getvalue() == ref_table
 
 
 def test_physical_summary_15():
@@ -1247,6 +1249,7 @@ def test_physical_summary_15():
     ref_table = ""
     with open("tests/scripts/summary_txts/test_physical_summary_15") as f:
         ref_table = f.read()
+
     assert summary.getvalue() == ref_table
 
 

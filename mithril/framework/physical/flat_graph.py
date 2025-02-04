@@ -28,6 +28,7 @@ from ..common import (
     AllValueType,
     Connection,
     ConstraintSolver,
+    DataEvalType,
     IOHyperEdge,
     MainValueInstance,
     MainValueType,
@@ -100,7 +101,7 @@ class FlatGraph(GenericDataType[DataType]):
         self,
         input_keys: set[str],
         output_keys: set[str],
-        backend: ml.Backend,
+        backend: ml.Backend[DataType],
         solver: ConstraintSolver,
         memo: dict[int, IOHyperEdge] | None = None,
         inference: bool = False,
@@ -108,7 +109,7 @@ class FlatGraph(GenericDataType[DataType]):
         if memo is None:
             memo = {}
 
-        self.backend = backend
+        self.backend: ml.Backend[DataType] = backend
         self.nodes: dict[PrimitiveModel, Node] = {}
         self.connections: dict[
             str, GConnection
@@ -122,7 +123,7 @@ class FlatGraph(GenericDataType[DataType]):
         self._pruned_keys: dict[str, str] = {}
 
         self.output_dict: dict[str, str] = {key: key for key in output_keys}
-        self._temp_connection_info: dict[str, str] = {}
+        self._temp_connection_info: dict[GConnection, GConnection] = {}
 
         self.unique_model_table: dict[str, GConnection] = {}
         self.value_table: dict[str, DataType | ValueType] = {}
@@ -176,7 +177,7 @@ class FlatGraph(GenericDataType[DataType]):
         return self.data_store.all_data
 
     @property
-    def cached_data(self) -> dict[str, IOHyperEdge]:
+    def cached_data(self) -> DataEvalType[DataType]:
         return self.data_store.cached_data
 
     @property
@@ -196,62 +197,42 @@ class FlatGraph(GenericDataType[DataType]):
     def update_cached_data(self, updates: Updates) -> set[str]:
         return self.data_store.update_cached_data(updates)
 
-    def remove_key_from_store(
-        self, key: str, label_as_unused: bool = True, hard_remove: bool = False
-    ) -> None:
-        self.data_store.remove_key_from_store(key, label_as_unused, hard_remove)
-
     def add_value(self, model: PrimitiveModel, keys: dict[str, str]) -> None:
         output_key = keys[PrimitiveModel.output_key]
-        keys = {
-            key: self._temp_connection_info.get(value, value)
-            for key, value in keys.items()
-        }
 
         if model.random_keys:
             self.random_keys |= {keys[key] for key in model.random_keys}
 
-        # Buffer primitives are not added to the graph
-        if isinstance(model, Buffer):
-            self.update_output_keys(keys["output"], keys["input"])
-            self._temp_connection_info[keys["output"]] = keys["input"]
+        node = Node(model, {})
 
-            if keys["input"] in self.connections:
-                self._update_connection_keys(self.connections[keys["input"]])
+        # Create output connection of the new Node.
+        out_conn = GConnection(node, output_key, [], [], set())
 
-        else:
-            node = Node(model, {})
+        self.connections[output_key] = out_conn
+        node.connections[PrimitiveModel.output_key] = out_conn
 
-            # Create output connection of the new Node.
-            out_conn = GConnection(node, output_key, [], [], set())
+        # Create input connections
+        for inner_key, outer_key in keys.items():
+            if inner_key == PrimitiveModel.output_key:
+                continue
 
-            self.connections[output_key] = out_conn
-            node.connections[PrimitiveModel.output_key] = out_conn
+            conn = self.connections.get(outer_key, None)
+            # New input
+            if conn is None:
+                conn = GConnection(None, outer_key, [], [], set())
+                self.connections[outer_key] = conn
 
-            # Create input connections
-            for inner_key, outer_key in keys.items():
-                if inner_key == PrimitiveModel.output_key:
-                    continue
+            self._all_source_keys.add(conn.key)
+            conn.connections.add(out_conn)
+            node.connections[inner_key] = conn
 
-                conn = self.connections.get(outer_key, None)
-                # New input
-                if conn is None:
-                    conn = GConnection(None, outer_key, [], [], set())
-                    self.connections[outer_key] = conn
+        self.nodes[model] = node
 
-                self._all_source_keys.add(conn.key)
-                conn.connections.add(out_conn)
-                node.connections[inner_key] = conn
+        self._all_target_keys.add(output_key)
+        self._topological_order.append(node.connections[PrimitiveModel.output_key].key)
 
-            self.nodes[model] = node
-
-            self._all_target_keys.add(output_key)
-            self._topological_order.append(
-                node.connections[PrimitiveModel.output_key].key
-            )
-
-            for conn in node.connections.values():
-                self._update_connection_keys(conn)
+        for conn in node.connections.values():
+            self._update_connection_keys(conn)
 
         self._update_all_source_keys()
         self._update_all_target_keys()
@@ -261,11 +242,11 @@ class FlatGraph(GenericDataType[DataType]):
         # should be updated with the new reference key.
         for key, value in self._temp_connection_info.items():
             if value == output_key:
-                self._temp_connection_info[key] = new_reference_key
+                self._temp_connection_info[key] = self.connections[new_reference_key]
 
-        for key, value in self.output_dict.items():
-            if value == output_key:
-                self.output_dict[key] = new_reference_key
+        for key_str, value_str in self.output_dict.items():
+            if value_str == output_key:
+                self.output_dict[key_str] = new_reference_key
 
     def update_output_keys(self, output_key: str, new_reference_key: str) -> bool:
         if output_key not in self.output_dict:
@@ -289,14 +270,6 @@ class FlatGraph(GenericDataType[DataType]):
     @property
     def pruned_keys(self) -> dict[str, str]:
         return self._pruned_keys
-
-    @property
-    def dropped_keys(self) -> dict[str, str]:
-        return self._temp_connection_info
-
-    @property
-    def unnecessary_keys(self) -> dict[str, str]:
-        return self.pruned_keys | self.dropped_keys
 
     def _update_topological_order(self) -> None:
         self._topological_order = [
@@ -418,28 +391,57 @@ class FlatGraph(GenericDataType[DataType]):
         updates = Updates()
 
         for node in list(self.nodes.values()):
-            conn = self._is_duplicate(node, data, constant_keys)
-            if conn is None:
+            if node.connections["output"].key in self.data_store.data_values:
+                self._remove_node(node)
                 continue
 
-            pruned_key = node.connections["output"].key
-            source_key = conn.key
-            self._prune_node(node, conn)
-            self._pruned_keys[pruned_key] = source_key
+            if isinstance(node.model, Buffer):
+                input_conn = node.connections["input"]
+                input_conn = self._temp_connection_info.get(input_conn, input_conn)
+                output_conn = node.connections["output"]
+                self.update_output_keys(output_conn.key, input_conn.key)
+                self._temp_connection_info[output_conn] = input_conn
 
-            ## Update Data Memo
-            pruned_data = self.all_data[pruned_key]
-            remained_data = self.all_data[source_key]
+                input_conn.connections.discard(output_conn)
+                input_conn.connections |= output_conn.connections
 
-            # find the occurrence of pruned data in data memo and replace it with
-            # remained data
-            logical_id = reverse_data_memo[pruned_data]
-            self.data_memo[logical_id] = remained_data
+                # Update target conn source keys
+                for target_conn in list(output_conn.connections):
+                    if target_conn.node is None:
+                        continue
+                    for key, target_conn_source in target_conn.node.connections.items():
+                        if target_conn_source == output_conn:
+                            target_conn.node.connections[key] = input_conn
+                            self._update_connection_keys(target_conn)
 
-            self.data_store.all_data[pruned_key] = remained_data
+                    output_conn.connections.discard(target_conn)
 
-            # Match shapes
-            updates |= remained_data.match(pruned_data)
+                self._update_connection_keys(input_conn)
+                self._update_connection_keys(output_conn)
+                self._remove_node(node)
+                continue
+
+            # Check duplicate
+            conn = self._is_duplicate(node, data, constant_keys)
+            if conn is not None:
+                pruned_key = node.connections["output"].key
+                source_key = conn.key
+
+                ## Update Data Memo
+                pruned_data = self.all_data[pruned_key]
+                remained_data = self.all_data[source_key]
+
+                # find the occurrence of pruned data in data memo and replace it with
+                # remained data
+                logical_id = reverse_data_memo[pruned_data]
+                self.data_memo[logical_id] = remained_data
+
+                # Match shapes
+                updates |= remained_data.match(pruned_data)
+
+                # Finally prune the node
+                self._prune_node(node, conn)
+                self._pruned_keys[pruned_key] = source_key
 
         self.data_store.update_cached_data(updates)
         self.constraint_solver(updates)
@@ -552,10 +554,17 @@ class FlatGraph(GenericDataType[DataType]):
                     # Connection is not used by any other connections
                     self._remove_conn(conn)
 
-            if len(output_conn.connections) == 0:
+            if (
+                len(output_conn.connections) == 0
+                and output_conn.key not in self.output_dict.values()
+            ):
                 self._remove_conn(output_conn)
 
+            else:
+                output_conn.node = None
+
             self.nodes.pop(node.model)
+            node.connections.clear()
 
         else:
             raise ValueError(
@@ -567,6 +576,9 @@ class FlatGraph(GenericDataType[DataType]):
         self._update_topological_order()
 
     def _remove_conn(self, conn: GConnection) -> None:
+        if conn.key in self.connections and conn.key not in self.output_dict.values():
+            self.data_store.remove_key_from_store(conn.key, hard_remove=True)
+
         self.connections.pop(conn.key, None)
 
         # Remove connection from other connections
@@ -765,13 +777,6 @@ class FlatGraph(GenericDataType[DataType]):
         # return newly added static keys.
         self.constraint_solver(updates)
         statics = self.data_store.update_cached_data(updates) | updated_keys
-        for static in statics:
-            self.infer_unused_keys(static)
-
-        if key in self._all_target_keys and self.connections[key].node is not None:
-            self._remove_node(self.connections[key].node)
-        # elif key in self._all_source_keys:
-        #     self._remove_conn(self.connections[key])
 
         return statics, updates
 
@@ -884,9 +889,7 @@ class FlatGraph(GenericDataType[DataType]):
             updates |= data.shape.set_values(value)
         self.constraint_solver(updates)
         # Some intermediate values may be calculated, update cached data.
-        new_statics = self.data_store.update_cached_data(updates)
-        for key in new_statics:
-            self.infer_unused_keys(key)
+        self.data_store.update_cached_data(updates)
 
     def update_data(self, data: dict[str, IOHyperEdge]) -> None:
         if data.keys() & self.data_store._all_data.keys():
@@ -916,9 +919,7 @@ class FlatGraph(GenericDataType[DataType]):
                 else:
                     self.data_store.intermediate_non_differentiables[key] = value
 
-    def remove_keys_from_store(self, keys: set[str]) -> None:
-        for key in keys:
-            hard_remove = key not in self.output_keys
-            self.data_store.remove_key_from_store(
-                key, label_as_unused=False, hard_remove=hard_remove
-            )
+    def remove_key_from_store(
+        self, key: str, label_as_unused: bool = True, hard_remove: bool = False
+    ) -> None:
+        self.data_store.remove_key_from_store(key, label_as_unused, hard_remove)

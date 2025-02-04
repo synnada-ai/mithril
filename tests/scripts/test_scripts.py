@@ -2658,7 +2658,11 @@ def test_prune_tensor_match():
         jit=False,
     )
 
-    assert pm.data["output1"] == pm.data["output2"] == pm.data["output3"]
+    assert pm.flat_graph.output_dict == {
+        "output1": "output1",
+        "output2": "output1",
+        "output3": "output1",
+    }
 
 
 def test_arange_1():
@@ -5639,14 +5643,12 @@ def test_deepcopy_2():
 
     all_data = get_all_data(model)
     compiled_model = mithril.compile(model=model, backend=NumpyBackend())
-    unused_data = {
-        compiled_model.data[key]
-        for key in compiled_model.flat_graph.unused_keys
-        | compiled_model.flat_graph.cached_data.keys()
+    cached_data = {
+        compiled_model.data[key] for key in compiled_model.flat_graph.cached_data
     }
     for data in all_data:
         copied_data = compiled_model.flat_graph.data_memo.get(id(data))
-        if copied_data not in unused_data:
+        if copied_data not in cached_data:
             assert isinstance(copied_data, IOHyperEdge)
             assert data.value == copied_data.value
             if data.edge_type is Tensor:

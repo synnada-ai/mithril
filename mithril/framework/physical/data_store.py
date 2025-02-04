@@ -88,7 +88,7 @@ class StaticDataStore(Generic[DataType]):
         if label_as_unused:
             self._unused_keys.add(key)
 
-        if hard_remove:
+        if hard_remove and key in self._all_data:
             self._all_data.pop(key)
 
     def update_cached_data(self, updated_data: Updates) -> set[str]:

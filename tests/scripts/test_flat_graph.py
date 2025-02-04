@@ -30,7 +30,6 @@ def test_flatgraph_1():
     graph.prune_duplicate_nodes({}, {})
 
     expected_connections = ["input1", "relu_out"]
-    graph._update_connection_keys(graph.connections["relu_out"])
 
     assert sorted(graph.connections.keys()) == sorted(expected_connections)
     assert sorted(graph.get_target_keys("relu_out", True)) == (["output"])

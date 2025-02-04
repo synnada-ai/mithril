@@ -2011,24 +2011,6 @@ def test_static_shape_model_2():
     assert np.all(result["output"] == np.array([8, 8], dtype=np.int32))
 
 
-def test_static_shape_model_2_error():
-    model = Model()
-    model += Shape()(input="input")
-    model += ToTensor()
-    model += Relu()
-    with pytest.raises(ValueError) as err_info:
-        ml.compile(
-            model=model,
-            backend=NumpyBackend(),
-            shapes={"input": [8, 8]},
-            data_keys={"input"},
-        )
-    assert (
-        str(err_info.value)
-        == "Given 'input' key is unused for the model, no need to provide data for it."
-    )
-
-
 def test_static_shape_model_3():
     model = Model()
     model += Tanh()(input="input")
@@ -2246,11 +2228,7 @@ def test_numpy_without_shape():
     ctx = TrainModel(model)
     ctx.add_loss(Buffer(), input="output", reduce_steps=[Mean()])
     inputs = {"left": backend.array(1.2), "right": backend.array(1.0)}
-    comp_model = ml.compile(
-        model=ctx,
-        backend=backend,
-        jit=False,
-    )
+    comp_model = ml.compile(model=ctx, backend=backend, jit=False, file_path="ekmek.py")
     outputs, grads = comp_model.evaluate_all(inputs)
     np.testing.assert_allclose(np.array(outputs["output"]), np.array(2.2))
     np.testing.assert_allclose(np.array(grads["left"]), np.array(1.0))

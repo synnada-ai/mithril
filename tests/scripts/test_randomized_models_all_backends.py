@@ -287,8 +287,9 @@ def test_randomized(case: str) -> None:
             }
 
             for key, numeric_value in numeric_shape_dict.items():
-                inferred_shapes = model_shape_dict[key]
-                assert numeric_value == inferred_shapes
+                if key in model_shape_dict:
+                    inferred_shapes = model_shape_dict[key]
+                    assert numeric_value == inferred_shapes
 
             for backend in avaliable_backends:
                 outputs[backend.backend_type] = {

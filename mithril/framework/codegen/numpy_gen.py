@@ -306,11 +306,7 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
         function_body: list[ast.stmt] = []
         used_keys: set[str] = set()
 
-        all_ignored_keys = (
-            ignore_grad_keys
-            | self.pm.flat_graph.all_static_keys
-            | self.pm.flat_graph.unused_keys
-        )
+        all_ignored_keys = ignore_grad_keys | self.pm.flat_graph.all_static_keys
 
         # TODO: Is this should be here?
         # Seperate ignored keys into two types of weak and strict ignored keys.
@@ -321,14 +317,6 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
             and self.pm.data[key].edge_type is Tensor
             and find_intersection_type(self.pm.data[key].value_type, float)
         }
-
-        # weak_ignored_keys = set()
-        # for key in all_ignored_keys:
-        #     if key in self.pm.data:
-        #         edge = self.pm.data[key]
-        #         if isinstance(edge._value, Tensor):
-        #             if find_intersection_type(edge._value.type, float):
-        #                     weak_ignored_keys |= {key}
 
         strict_ignored_keys = all_ignored_keys - weak_ignored_keys
 

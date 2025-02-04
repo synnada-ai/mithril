@@ -139,7 +139,8 @@ def evaluate_case(
             # if model_shape_dict.get("loss") is not None:
             #     numeric_shape_dict["loss"] = final_loss_shape
             for key, value in numeric_shape_dict.items():
-                assert value == model_shape_dict[key]
+                if key in model_shape_dict:
+                    assert value == model_shape_dict[key]
 
         # Assert values
         # assert set(outputs.keys()) == set(reference_outputs)

@@ -179,8 +179,10 @@ def assert_shapes(
     if shapes is not None:
         assert isinstance(shapes, dict)
         model.set_shapes(shapes)
+
     if static_inputs is not None:
         model.set_shapes({key: value.shape for key, value in static_inputs.items()})
+
     comp_shapes = {
         key: value
         for key, value in comp_model.shapes.items()
@@ -372,24 +374,37 @@ def test_shapes_2():
         "$_Convolution2D_4_dilation": None,
     }
     physical_ref = {
-        "output_7": [8, 64, 64, 64],
-        "output_15": [8, 64, 64, 64],
-        "output_23": [8, 64, 64, 64],
-        "output_31": [8, 64, 64, 64],
         "weight_0": [64, 3, 3, 3],
+        "output_4": None,
+        "output_5": None,
+        "output_6": None,
         "input": [8, 3, 64, 64],
         "bias_0": [1, 64, 1, 1],
+        "output_7": [8, 64, 64, 64],
         "weight_1": [64, 64, 3, 3],
+        "output_12": None,
+        "output_13": None,
+        "output_14": None,
         "bias_1": [1, 64, 1, 1],
+        "output_15": [8, 64, 64, 64],
         "weight_2": [64, 64, 3, 3],
+        "output_20": None,
+        "output_21": None,
+        "output_22": None,
         "bias_2": [1, 64, 1, 1],
+        "output_23": [8, 64, 64, 64],
         "weight_3": [64, 64, 3, 3],
+        "output_28": None,
+        "output_29": None,
+        "output_30": None,
         "bias_3": [1, 64, 1, 1],
+        "output_31": [8, 64, 64, 64],
         "weight_4": [64, 64, 3, 3],
+        "output_36": None,
+        "output_37": None,
+        "output_38": None,
         "bias_4": [1, 64, 1, 1],
         "output": [8, 64, 64, 64],
-        "stride_0": None,
-        "output_4": None,
     }
     assert_shapes(model, logical_ref, physical_ref, shapes=shapes)
 
@@ -481,74 +496,110 @@ def test_shapes_3():
 
     physical_ref = {
         "weight_0": [64, 3, 3, 3],
-        "start_0": None,
-        "stop_0": None,
-        "step_0": None,
-        "output_1": None,
-        "stride_0": None,
         "output_4": None,
+        "output_5": None,
+        "output_6": None,
         "input": [8, 3, 64, 64],
         "bias_0": [1, 64, 1, 1],
         "output_7": [8, 64, 64, 64],
         "weight_1": [64, 64, 3, 3],
-        "output_8": None,
-        "output_10": None,
+        "output_12": None,
+        "output_13": None,
+        "output_14": None,
         "bias_1": [1, 64, 1, 1],
         "output_15": [8, 64, 64, 64],
         "weight_2": [64, 64, 3, 3],
-        "padding_2": None,
-        "output_19": None,
+        "output_20": None,
         "output_21": None,
+        "output_22": None,
         "bias_2": [1, 64, 1, 1],
         "output_23": [8, 64, 62, 62],
         "weight_3": [64, 64, 3, 3],
-        "padding_3": None,
-        "output_27": None,
-        "stride_3": None,
         "output_28": None,
         "output_29": None,
+        "output_30": None,
         "bias_3": [1, 64, 1, 1],
         "output_31": [8, 64, 33, 33],
         "weight_4": [64, 64, 3, 3],
+        "output_36": None,
+        "output_37": None,
+        "output_38": None,
         "bias_4": [1, 64, 1, 1],
         "output_39": [8, 64, 33, 33],
         "weight_5": [64, 64, 3, 3],
+        "output_44": None,
+        "output_45": None,
+        "output_46": None,
         "bias_5": [1, 64, 1, 1],
         "output_47": [8, 64, 33, 33],
         "weight_6": [64, 64, 3, 3],
+        "output_52": None,
+        "output_53": None,
+        "output_54": None,
         "bias_6": [1, 64, 1, 1],
         "output_55": [8, 64, 31, 31],
         "weight_7": [64, 64, 3, 3],
+        "output_60": None,
+        "output_61": None,
+        "output_62": None,
         "bias_7": [1, 64, 1, 1],
         "output_63": [8, 64, 18, 18],
         "weight_8": [64, 64, 3, 3],
+        "output_68": None,
+        "output_69": None,
+        "output_70": None,
         "bias_8": [1, 64, 1, 1],
         "output_71": [8, 64, 18, 18],
         "weight_9": [64, 64, 3, 3],
+        "output_76": None,
+        "output_77": None,
+        "output_78": None,
         "bias_9": [1, 64, 1, 1],
         "output_79": [8, 64, 18, 18],
         "weight_10": [64, 64, 3, 3],
+        "output_84": None,
+        "output_85": None,
+        "output_86": None,
         "bias_10": [1, 64, 1, 1],
         "output_87": [8, 64, 16, 16],
         "weight_11": [64, 64, 3, 3],
+        "output_92": None,
+        "output_93": None,
+        "output_94": None,
         "bias_11": [1, 64, 1, 1],
         "output_95": [8, 64, 10, 10],
         "weight_12": [64, 64, 3, 3],
+        "output_100": None,
+        "output_101": None,
+        "output_102": None,
         "bias_12": [1, 64, 1, 1],
         "output_103": [8, 64, 10, 10],
         "weight_13": [64, 64, 3, 3],
+        "output_108": None,
+        "output_109": None,
+        "output_110": None,
         "bias_13": [1, 64, 1, 1],
         "output_111": [8, 64, 10, 10],
         "weight_14": [64, 64, 3, 3],
+        "output_116": None,
+        "output_117": None,
+        "output_118": None,
         "bias_14": [1, 64, 1, 1],
         "output_119": [8, 64, 8, 8],
         "weight_15": [64, 64, 3, 3],
+        "output_124": None,
+        "output_125": None,
+        "output_126": None,
         "bias_15": [1, 64, 1, 1],
         "output_127": [8, 64, 6, 6],
         "weight_16": [64, 64, 3, 3],
+        "output_132": None,
+        "output_133": None,
+        "output_134": None,
         "bias_16": [1, 64, 1, 1],
         "output": [8, 64, 6, 6],
     }
+
     assert_shapes(model, logical_ref, physical_ref, shapes=shapes)
 
 
@@ -782,8 +833,6 @@ def test_simple_composite_1_extend_inputs():
         "left": [1, 1],
     }
     physical_ref = {
-        "left": [1, 1],
-        "right": [2, 2],
         "output": [2, 2],
     }
 
@@ -846,7 +895,7 @@ def test_simple_composite_1_static_inputs():
         "output": ["(V1, ...)"],
         "left": [],
     }
-    physical_ref = {"left": [], "input2": [2, 2], "output": [2, 2]}
+    physical_ref = {"output": [2, 2]}
 
     assert_shapes(
         model, logical_ref, physical_ref, static_inputs=static_inputs, inference=True
@@ -934,11 +983,7 @@ def test_simple_composite_2_extend_inputs():
         "output": [2, 2],
     }
     physical_ref = {
-        "left": [],
-        "in1": [2, 2],
-        "output_0": [2, 2],
         "output": [2, 2],
-        "numerator": [],
     }
 
     assert_shapes(model, logical_ref, physical_ref, inference=True)
@@ -995,13 +1040,7 @@ def test_simple_composite_2_static_inputs():
         "$_Multiply_0_output": ["(V1, ...)"],
         "output": ["(V1, ...)"],
     }
-    physical_ref = {
-        "left": [],
-        "in1": [2, 2],
-        "output_0": [2, 2],
-        "output": [2, 2],
-        "numerator": [],
-    }
+    physical_ref = {"output": [2, 2]}
 
     assert_shapes(
         model, logical_ref, physical_ref, static_inputs=static_inputs, inference=True
@@ -1399,10 +1438,6 @@ def test_composite_1_extend_inputs_1():
         "output": [1, 1, 1, 1, 134, 47, 1, 37, 43],
     }
     physical_ref = {
-        "left": [1, 1, 1, 1, 1, 1, 1, 37, 43],
-        "right": [134, 47, 1, 1, 1],
-        "output_0": [1, 1, 1, 1, 134, 47, 1, 37, 43],
-        "output_1": [1, 1, 1, 1, 134, 47, 1, 37, 43],
         "output": [1, 1, 1, 1, 134, 47, 1, 37, 43],
     }
     assert_shapes(composite, logical_ref, physical_ref, inference=True)
@@ -1470,10 +1505,6 @@ def test_composite_1_static_inputs_1():
         "output": ["(V4, ...)"],
     }
     physical_ref = {
-        "input1": [1, 1, 1, 1, 1, 1, 1, 37, 43],
-        "input2": [134, 47, 1, 1, 1],
-        "output_0": [1, 1, 1, 1, 134, 47, 1, 37, 43],
-        "output_1": [1, 1, 1, 1, 134, 47, 1, 37, 43],
         "output": [1, 1, 1, 1, 134, 47, 1, 37, 43],
     }
 
@@ -2165,16 +2196,6 @@ def test_composite_2_static_inputs_1():
         "output": ["(V4, ...)"],
     }
     physical_ref = {
-        "input1": [4, 5, 7, 1, 1],
-        "input2": [1, 1, 7, 3, 4],
-        "output_0": [4, 5, 7, 3, 4],
-        "output_1": [4, 5, 7, 3, 4],
-        "output_2": [4, 5, 7, 3, 4],
-        "output_3": [4, 5, 7, 3, 4],
-        "output_4": [4, 5, 7, 3, 4],
-        "output_5": [4, 5, 7, 3, 4],
-        "output_6": [4, 5, 7, 3, 4],
-        "output_7": [4, 5, 7, 3, 4],
         "output": [4, 5, 7, 3, 4],
     }
 
@@ -2328,12 +2349,6 @@ def test_composite_3_extend_shapes_1():
         "output": [3, 4, 5, 6, 7],
     }
     physical_ref = {
-        "left": [3, 4, 5, 6, 1],
-        "right": [1, 1, 1, 1, 7],
-        "output_0": [3, 4, 5, 6, 7],
-        "output_1": [3, 4, 5, 6, 7],
-        "output_2": [3, 4, 5, 6, 7],
-        "output_3": [3, 4, 5, 6, 7],
         "output": [3, 4, 5, 6, 7],
     }
 
@@ -2364,12 +2379,6 @@ def test_composite_3_set_shapes_1_2():
         "output": [3, 4, 5, 6, 7],
     }
     physical_ref = {
-        "input1": [3, 4, 5, 6, 1],
-        "input2": [1, 1, 1, 1, 7],
-        "output_0": [3, 4, 5, 6, 7],
-        "output_1": [3, 4, 5, 6, 7],
-        "output_2": [3, 4, 5, 6, 7],
-        "output_3": [3, 4, 5, 6, 7],
         "output": [3, 4, 5, 6, 7],
     }
 
@@ -2545,12 +2554,6 @@ def test_composite_3_static_inputs_2():
         "output": ["(V4, ...)"],
     }
     physical_ref = {
-        "input1": [3, 4, 5, 6, 1],
-        "input2": [1, 1, 1, 1, 7],
-        "output_0": [3, 4, 5, 6, 7],
-        "output_1": [3, 4, 5, 6, 7],
-        "output_2": [3, 4, 5, 6, 7],
-        "output_3": [3, 4, 5, 6, 7],
         "output": [3, 4, 5, 6, 7],
     }
     inputs = {
@@ -2606,13 +2609,13 @@ def test_mlp_1_static_shapes():
         "output_9": [100, 1],
         "bias2": [1],
         "output_10": [100, 1],
-        "output": [100, 1],
         "target": [100, 1],
         "output_11": [100, 1],
         "axis": None,
         "keepdim": None,
         "output_12": [],
     }
+
     assert_shapes(
         ctx,
         logical_ref,
@@ -2666,7 +2669,6 @@ def test_mlp_1_set_shapes():
         "output_9": [100, 1],
         "bias2": [1],
         "output_10": [100, 1],
-        "output": [100, 1],
         "target": [100, 1],
         "output_11": [100, 1],
         "axis": None,
@@ -2724,7 +2726,6 @@ def test_mlp_1_static_inputs():
         "output_9": [100, 1],
         "bias2": [1],
         "output_10": [100, 1],
-        "output": [100, 1],
         "target": [100, 1],
         "output_11": [100, 1],
         "axis": None,
@@ -2948,7 +2949,7 @@ def test_shape_1():
         "$_Buffer_0_output": [5, 6, 7],
         "output": [5, 6, 7],
     }
-    physical_ref = {"input": [5, 6, 7], "output": [5, 6, 7]}
+    physical_ref = {"input": [5, 6, 7]}
     assert_shapes(model, logical_ref, physical_ref)
 
 
@@ -3176,10 +3177,7 @@ def test_shape_3():
         "$_Model_1_output1": [3, 4, 5, 6],
         "output2": [3, 4, 5, 6],
     }
-    physical_ref = {
-        "input1": [3, 4, 5, 6],
-        "output2": [3, 4, 5, 6],
-    }
+    physical_ref = {"input1": [3, 4, 5, 6]}
     assert_shapes(model, logical_ref, physical_ref)
 
 
@@ -3511,12 +3509,8 @@ def test_transpose_1():
         "my_input": [3, 4, 5],
         "output": [5, 4, 3],
     }
-    physical_ref = {
-        "input1": [3, 4, 5],
-        "my_input": [3, 4, 5],
-        "axes": None,
-        "output": [5, 4, 3],
-    }
+    physical_ref = {"input1": [3, 4, 5], "axes": None, "output": [5, 4, 3]}
+
     assert_shapes(model, logical_ref, physical_ref)
 
 
@@ -6414,7 +6408,6 @@ def test_prune_match_1():
     p_shape: dict[str, list] = {
         "input": ["..."],
         "out1": [3, 2, "..."],
-        "out2": [3, 2, "..."],
     }
 
     assert_shapes(model, shape, physical_ref=p_shape)
