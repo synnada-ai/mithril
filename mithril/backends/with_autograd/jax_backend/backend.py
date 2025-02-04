@@ -513,7 +513,6 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
             replacement: whether to sample with replacement
         """
         prng_key = self._get_prng_key(key)
-        probs = jnp.asarray(probs)
         probs = probs / jnp.sum(probs, axis=-1, keepdims=True)
         logits = jnp.log(probs)
 
@@ -521,7 +520,7 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
             # Use categorical directly - much faster than choice
             samples = jax.random.categorical(
                 prng_key,
-                logits,  # avoid log(0)
+                logits,
                 shape=probs.shape[:-1] + (num_samples,),
             )
         else:
