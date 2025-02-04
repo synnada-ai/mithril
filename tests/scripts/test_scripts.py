@@ -1993,14 +1993,7 @@ def test_static_anlaysis():
 
     comp_model = mithril.compile(model=model, backend=NumpyBackend())
 
-    ignored_model_keys = (
-        comp_model.data_store.cached_data.keys() | comp_model.discarded_keys
-    )
-    ignored_output_keys = ignored_model_keys & comp_model.flat_graph.all_target_keys
-    ignored_model_list = [
-        comp_model.flat_graph.get_model(key) for key in ignored_output_keys
-    ]
-    assert ignored_model_list == [add1]
+    assert add1 not in comp_model.flat_graph.nodes
 
 
 def test_static_anlaysis_1():
@@ -2020,14 +2013,8 @@ def test_static_anlaysis_1():
         model=model,
         backend=NumpyBackend(),
     )
-    discarded_model_keys = (
-        comp_model.data_store.cached_data.keys() | comp_model.discarded_keys
-    )
-    discarded_output_keys = discarded_model_keys & comp_model.flat_graph.all_target_keys
-    discarded_model_list = [
-        comp_model.flat_graph.get_model(key) for key in discarded_output_keys
-    ]
-    assert discarded_model_list == [add1]
+
+    assert add1 not in comp_model.flat_graph.nodes
 
 
 def test_static_anlaysis_2():
@@ -2049,16 +2036,11 @@ def test_static_anlaysis_2():
         model=model,
         backend=NumpyBackend(),
     )
-    discarded_model_keys = (
-        comp_model.data_store.cached_data.keys()
-        | comp_model.data_store.unused_keys
-        | comp_model.discarded_keys
+
+    assert (
+        sum1 not in comp_model.flat_graph.nodes
+        and add1 not in comp_model.flat_graph.nodes
     )
-    discarded_output_keys = discarded_model_keys & comp_model.flat_graph.all_target_keys
-    discarded_model_list = {
-        comp_model.flat_graph.get_model(key) for key in discarded_output_keys
-    }
-    assert len(discarded_model_list) == 2
 
 
 def test_static_anlaysis_4():

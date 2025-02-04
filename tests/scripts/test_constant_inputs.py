@@ -2226,7 +2226,7 @@ def test_numpy_without_shape():
     ctx = TrainModel(model)
     ctx.add_loss(Buffer(), input="output", reduce_steps=[Mean()])
     inputs = {"left": backend.array(1.2), "right": backend.array(1.0)}
-    comp_model = ml.compile(model=ctx, backend=backend, jit=False, file_path="ekmek.py")
+    comp_model = ml.compile(model=ctx, backend=backend)
     outputs, grads = comp_model.evaluate_all(inputs)
     np.testing.assert_allclose(np.array(outputs["output"]), np.array(2.2))
     np.testing.assert_allclose(np.array(grads["left"]), np.array(1.0))

@@ -2385,6 +2385,12 @@ def test_composite_3_set_shapes_1_2():
         "output": [3, 4, 5, 6, 7],
     }
     physical_ref = {
+        "input1": [3, 4, 5, 6, 1],
+        "input2": [1, 1, 1, 1, 7],
+        "output_0": [3, 4, 5, 6, 7],
+        "output_1": [3, 4, 5, 6, 7],
+        "output_2": [3, 4, 5, 6, 7],
+        "output_3": [3, 4, 5, 6, 7],
         "output": [3, 4, 5, 6, 7],
     }
 

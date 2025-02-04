@@ -44,7 +44,6 @@ from ..common import (
     ToBeDetermined,
     UniadicRecord,
     Updates,
-    UpdateType,
     Variadic,
     create_shape_map,
     find_intersection_type,
@@ -56,9 +55,7 @@ from ..common import (
 from ..logical.base import BaseModel
 from ..logical.model import Model
 from ..logical.primitive import PrimitiveModel
-from ..utils import define_unique_names, find_intersection_type
 from ..utils import define_unique_names
-from .data_store import StaticDataStore
 from .flat_graph import FlatGraph
 
 __all__ = ["PhysicalModel"]
@@ -532,7 +529,6 @@ class PhysicalModel(GenericDataType[DataType]):
 
         # Set given shapes.
         self.flat_graph.set_shapes(shapes)
-
 
         # Set given static keys
         self.flat_graph.set_static_keys(constant_keys)

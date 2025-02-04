@@ -35,6 +35,7 @@ from ..common import (
     Tensor,
     ToBeDetermined,
     Updates,
+    UpdateType,
     ValueType,
     is_type_adjustment_required,
 )
@@ -409,6 +410,7 @@ class FlatGraph(GenericDataType[DataType]):
                 for target_conn in list(output_conn.connections):
                     if target_conn.node is None:
                         continue
+
                     for key, target_conn_source in target_conn.node.connections.items():
                         if target_conn_source == output_conn:
                             target_conn.node.connections[key] = input_conn
@@ -577,7 +579,7 @@ class FlatGraph(GenericDataType[DataType]):
 
     def _remove_conn(self, conn: GConnection) -> None:
         if conn.key in self.connections and conn.key not in self.output_dict.values():
-            self.data_store.remove_key_from_store(conn.key, hard_remove=True)
+            self.remove_key_from_store(conn.key, hard_remove=True)
 
         self.connections.pop(conn.key, None)
 
@@ -638,12 +640,12 @@ class FlatGraph(GenericDataType[DataType]):
         updates = Updates()
         while queue:
             key = queue.pop()
-            if (key not in self.all_source_keys) or key in self.data_store.unused_keys:
+            if (key not in self.all_source_keys) or key in self.unused_keys:
                 continue
 
             for value in self.get_target_keys(key):
                 # Value is already in statics or unused keys, then skip.
-                if value in (statics.keys() | self.data_store.unused_keys):
+                if value in (statics.keys() | self.unused_keys):
                     continue
 
                 value_mapping = self.get_source_keys(value)
@@ -700,7 +702,7 @@ class FlatGraph(GenericDataType[DataType]):
 
                 # Check astype needed
                 if self.backend.is_manualgrad and is_type_adjustment_required(
-                    self.data_store.all_data, value_mapping
+                    self.all_data, value_mapping
                 ):
                     static_value = self.backend.array(static_value)
 
@@ -724,7 +726,7 @@ class FlatGraph(GenericDataType[DataType]):
                 raise KeyError(
                     "Requires static key to be in the input keys of the model!"
                 )
-            if (self.data_store._all_data[key].edge_type is Tensor) and not isinstance(
+            if self.data_store._all_data[key].is_tensor and not isinstance(
                 value, ToBeDetermined | self.backend.get_backend_array_type()
             ):
                 raise ValueError(
@@ -739,18 +741,18 @@ class FlatGraph(GenericDataType[DataType]):
     ) -> tuple[set[str], Updates]:
         updates = Updates()
         updated_keys = {key}
-        if key in self.data_store.data_values:
+        if key in self.cached_data:
             raise ValueError(
                 f"Statically given key: {key} has been already set as static "
                 "with a value!"
             )
-        if key in self.data_store.unused_keys:
+        if key in self.unused_keys:
             raise ValueError(
                 f"Given '{key}' key is unused for the model, no need to provide "
                 "data for it."
             )
         else:
-            if (data := self.data_store._all_data.get(key, None)) is None:
+            if (data := self.all_data.get(key, None)) is None:
                 raise KeyError(f"'{key}' key not found in model!")
 
             if self.data_store.is_scalar_type(
@@ -766,17 +768,17 @@ class FlatGraph(GenericDataType[DataType]):
                 # Find shape of tensor and set.
                 shape = list(value.shape)
                 updates |= data.shape.set_values(shape)
-            self.data_store.data_values[key] = value  # type: ignore
-            self.data_store.intermediate_non_differentiables.pop(key, None)
+            self.cached_data[key] = value  # type: ignore
+            self.intermediate_non_differentiables.pop(key, None)
             if (
-                key not in self.data_store.intermediate_non_differentiables
-                and key in self.data_store.runtime_static_keys
+                key not in self.intermediate_non_differentiables
+                and key in self.runtime_static_keys
             ):
                 self.data_store._runtime_static_keys.remove(key)
         # Finally update cached_data, infer unused keys and
         # return newly added static keys.
         self.constraint_solver(updates)
-        statics = self.data_store.update_cached_data(updates) | updated_keys
+        statics = self.update_cached_data(updates) | updated_keys
 
         return statics, updates
 
@@ -883,7 +885,7 @@ class FlatGraph(GenericDataType[DataType]):
             if isinstance(key, Connection):
                 key = key.key
             assert isinstance(key, str)
-            if (data := self.data_store._all_data[key]).edge_type is not Tensor:
+            if not (data := self.data_store._all_data[key]).is_tensor:
                 raise ValueError("Non-tensor data can not have shape!")
             assert data.shape is not None
             updates |= data.shape.set_values(value)
@@ -923,3 +925,25 @@ class FlatGraph(GenericDataType[DataType]):
         self, key: str, label_as_unused: bool = True, hard_remove: bool = False
     ) -> None:
         self.data_store.remove_key_from_store(key, label_as_unused, hard_remove)
+
+        if hard_remove:
+            self._clear_constraints(key)
+
+    def _clear_constraints(self, key: str) -> None:
+        if key not in self.all_data:
+            return
+
+        shape_constraints = self.all_data[key].constraints[UpdateType.SHAPE]
+        type_constraints = self.all_data[key].constraints[UpdateType.TYPE]
+        value_constraints = self.all_data[key].constraints[UpdateType.VALUE]
+        for source_key in self.get_source_keys(key):
+            if source_key in self.all_data:
+                self.all_data[source_key].constraints[UpdateType.SHAPE] -= (
+                    shape_constraints
+                )
+                self.all_data[source_key].constraints[UpdateType.TYPE] -= (
+                    type_constraints
+                )
+                self.all_data[source_key].constraints[UpdateType.VALUE] -= (
+                    value_constraints
+                )
