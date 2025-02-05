@@ -18,7 +18,6 @@ import math
 from abc import abstractmethod
 from collections.abc import Sequence
 from copy import deepcopy
-from typing import Any
 
 from ..framework.common import (
     NOT_GIVEN,
@@ -166,7 +165,7 @@ class Pool1D(Model):
         stride: int | None | ToBeDetermined = None,
         padding: int | PaddingType | tuple[int, int] | ToBeDetermined = (0, 0),
         dilation: int | ToBeDetermined = 1,
-        input: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -258,7 +257,7 @@ class Pool2D(Model):
         stride: int | None | tuple[int, int] | ToBeDetermined = None,
         padding: int | PaddingType | tuple[int, int] | ToBeDetermined = (0, 0),
         dilation: int | ToBeDetermined = 1,
-        input: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -358,8 +357,8 @@ class Convolution1D(Model):
         padding: int | PaddingType | tuple[int, int] | ToBeDetermined = 0,
         dilation: int | ToBeDetermined = 1,
         use_bias: bool = True,
-        input: Tensor[Any] | ToBeDetermined = TBD,
-        weight: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        weight: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -440,8 +439,8 @@ class Convolution2D(Model):
         | ToBeDetermined = (0, 0),
         dilation: int | tuple[int, int] | ToBeDetermined = (1, 1),
         use_bias: bool = True,
-        input: Tensor[Any] | ToBeDetermined = TBD,
-        weight: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        weight: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -525,9 +524,9 @@ class Linear(Model):
         self,
         dimension: int | None = None,
         use_bias: bool = True,
-        input: Tensor[Any] | ToBeDetermined = TBD,
-        weight: Tensor[Any] | ToBeDetermined = TBD,
-        bias: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        weight: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        bias: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -546,7 +545,7 @@ class Linear(Model):
         input_key = IOKey(name="input", value=input)
         weight_key = IOKey(name="weight", value=weight).transpose()
         if use_bias:
-            bias_key = IOKey(name="bias", value=bias, type=Tensor)
+            bias_key = IOKey(name="bias", value=bias, type=Tensor[int | float | bool])
             self |= mult(left=input_key, right=weight_key)
             self |= Add()(left=mult.output, right=bias_key, output=output)
             shapes["bias"] = [dim]
@@ -584,9 +583,9 @@ class ElementWiseAffine(Model):
 
     def __init__(
         self,
-        input: Tensor[Any] | ToBeDetermined = TBD,
-        weight: Tensor[Any] | ToBeDetermined = TBD,
-        bias: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        weight: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        bias: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -632,9 +631,9 @@ class Layer(Model):
         self,
         activation: Model,
         dimension: int | None = None,
-        input: Tensor[Any] | ToBeDetermined = TBD,
-        weight: Tensor[Any] | ToBeDetermined = TBD,
-        bias: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        weight: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        bias: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -676,9 +675,9 @@ class LayerNorm(Model):
         use_scale: bool = True,
         use_bias: bool = True,
         eps: float = 1e-5,
-        input: Tensor[Any] | ToBeDetermined = TBD,
-        weight: Tensor[Any] | ToBeDetermined = TBD,
-        bias: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        weight: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        bias: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -688,10 +687,12 @@ class LayerNorm(Model):
         # Expects its input shape as [B, ..., d] d refers to normalized dimension
         mean = Mean(axis=-1, keepdim=True)
         numerator = Subtract()
-        numerator.set_types(left=Tensor, right=Tensor)
+        numerator.set_types(
+            left=Tensor[int | float | bool], right=Tensor[int | float | bool]
+        )
         var = Variance(axis=-1, correction=0, keepdim=True)
         add = Add()
-        add.set_types(left=Tensor)
+        add.set_types(left=Tensor[int | float | bool])
         denominator = Sqrt()
         in_key = IOKey("input", value=input)
         self += mean(input=in_key)
@@ -711,13 +712,17 @@ class LayerNorm(Model):
 
         if use_scale:
             mult = Multiply()
-            mult.set_types(left=Tensor, right=Tensor)
+            mult.set_types(
+                left=Tensor[int | float | bool], right=Tensor[int | float | bool]
+            )
             self += mult(left=self.cout, right=IOKey("weight", value=weight))
             mult._set_shapes(shapes)
 
         if use_bias:
             add = Add()
-            add.set_types(left=Tensor, right=Tensor)
+            add.set_types(
+                left=Tensor[int | float | bool], right=Tensor[int | float | bool]
+            )
             self += add(left=self.cout, right=IOKey("bias", value=bias))
             add._set_shapes(shapes)
         # TODO: Remove below Buffer after required naming-related changes are done.
@@ -758,10 +763,10 @@ class GroupNorm(Model):
         use_scale: bool = True,
         use_bias: bool = True,
         eps: float = 1e-5,
-        input: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
-        weight: Tensor[Any] | ToBeDetermined = TBD,
-        bias: Tensor[Any] | ToBeDetermined = TBD,
+        weight: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        bias: Tensor[int | float | bool] | ToBeDetermined = TBD,
         name: str | None = None,
     ) -> None:
         super().__init__(name=name)
@@ -831,7 +836,10 @@ class L1(Model):
     output: Connection
 
     def __init__(
-        self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
+        self,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(name=name)
 
@@ -858,7 +866,10 @@ class L2(Model):
     output: Connection
 
     def __init__(
-        self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
+        self,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(name=name)
         square = Square()
@@ -889,8 +900,8 @@ class QuadraticFormRegularizer(Model):
 
     def __init__(
         self,
-        input: Tensor[Any] | ToBeDetermined = TBD,
-        kernel: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        kernel: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -934,10 +945,10 @@ class RBFKernel(Model):
 
     def __init__(
         self,
-        input1: Tensor[Any] | ToBeDetermined = TBD,
-        input2: Tensor[Any] | ToBeDetermined = TBD,
-        l_scale: Tensor[Any] | ToBeDetermined = TBD,
-        sigma: Tensor[Any] | ToBeDetermined = TBD,
+        input1: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        input2: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        l_scale: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        sigma: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -1012,10 +1023,10 @@ class PolynomialKernel(Model):
     def __init__(
         self,
         robust: bool = True,
-        input1: Tensor[Any] | ToBeDetermined = TBD,
-        input2: Tensor[Any] | ToBeDetermined = TBD,
-        poly_coef: Tensor[Any] | ToBeDetermined = TBD,
-        degree: Tensor[Any] | ToBeDetermined = TBD,
+        input1: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        input2: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        poly_coef: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        degree: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -1045,7 +1056,7 @@ class PolynomialKernel(Model):
                 "output": ["N", "M"],
             }
         )
-        self._set_constraint(
+        self._add_constraint(
             fn=polynomial_kernel_constraint, keys=["poly_coef", "degree"]
         )
         self._freeze()
@@ -1077,11 +1088,11 @@ class KernelizedSVM(Model):
     def __init__(
         self,
         kernel: Model,
-        weight: Tensor[Any] | ToBeDetermined = TBD,
-        bias: Tensor[Any] | ToBeDetermined = TBD,
+        weight: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        bias: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
-        **kwargs: Tensor[Any] | ToBeDetermined,
+        **kwargs: Tensor[int | float | bool] | ToBeDetermined,
     ) -> None:
         if len(kernel.input_keys) < 2:
             raise KeyError("Kernel requires at least two inputs!")
@@ -1148,9 +1159,9 @@ class LinearSVM(Model):
 
     def __init__(
         self,
-        input: Tensor[Any] | ToBeDetermined = TBD,
-        weight: Tensor[Any] | ToBeDetermined = TBD,
-        bias: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        weight: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        bias: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -1199,9 +1210,9 @@ class LogisticRegression(Model):
 
     def __init__(
         self,
-        input: Tensor[Any] | ToBeDetermined = TBD,
-        weight: Tensor[Any] | ToBeDetermined = TBD,
-        bias: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        weight: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        bias: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -1250,10 +1261,10 @@ class MLP(Model):
         activations: list[Model],
         dimensions: Sequence[int | None],
         input_name_templates: dict[str, str] | None = None,
-        input: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
-        **weights_biases: Tensor[Any] | ToBeDetermined,
+        **weights_biases: Tensor[int | float | bool] | ToBeDetermined,
     ) -> None:
         super().__init__(name=name)
         self.factory_args = {"activations": activations, "dimensions": dimensions}
@@ -1358,12 +1369,12 @@ class RNNCell(Cell):
 
     def __init__(
         self,
-        input: Tensor[Any] | ToBeDetermined = TBD,
-        w_ih: Tensor[Any] | ToBeDetermined = TBD,
-        w_hh: Tensor[Any] | ToBeDetermined = TBD,
-        w_ho: Tensor[Any] | ToBeDetermined = TBD,
-        bias_h: Tensor[Any] | ToBeDetermined = TBD,
-        bias_o: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        w_ih: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        w_hh: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        w_ho: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        bias_h: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        bias_o: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -1485,17 +1496,17 @@ class LSTMCell(Cell):
 
     def __init__(
         self,
-        input: Tensor[Any] | ToBeDetermined = TBD,
-        w_i: Tensor[Any] | ToBeDetermined = TBD,
-        w_f: Tensor[Any] | ToBeDetermined = TBD,
-        w_c: Tensor[Any] | ToBeDetermined = TBD,
-        w_o: Tensor[Any] | ToBeDetermined = TBD,
-        w_out: Tensor[Any] | ToBeDetermined = TBD,
-        bias_f: Tensor[Any] | ToBeDetermined = TBD,
-        bias_i: Tensor[Any] | ToBeDetermined = TBD,
-        bias_c: Tensor[Any] | ToBeDetermined = TBD,
-        bias_o: Tensor[Any] | ToBeDetermined = TBD,
-        bias_out: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        w_i: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        w_f: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        w_c: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        w_o: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        w_out: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        bias_f: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        bias_i: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        bias_c: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        bias_o: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        bias_out: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -1656,17 +1667,17 @@ class LSTMCellBody(Model):
 
     def __init__(
         self,
-        input: Tensor[Any] | ToBeDetermined = TBD,
-        prev_hidden: Tensor[Any] | ToBeDetermined = TBD,
-        prev_cell: Tensor[Any] | ToBeDetermined = TBD,
-        w_i: Tensor[Any] | ToBeDetermined = TBD,
-        w_f: Tensor[Any] | ToBeDetermined = TBD,
-        w_c: Tensor[Any] | ToBeDetermined = TBD,
-        w_o: Tensor[Any] | ToBeDetermined = TBD,
-        bias_f: Tensor[Any] | ToBeDetermined = TBD,
-        bias_i: Tensor[Any] | ToBeDetermined = TBD,
-        bias_c: Tensor[Any] | ToBeDetermined = TBD,
-        bias_o: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        prev_hidden: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        prev_cell: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        w_i: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        w_f: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        w_c: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        w_o: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        bias_f: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        bias_i: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        bias_c: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        bias_o: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -1789,7 +1800,7 @@ class RNN(Model):
         cell_type: Cell,
         *,
         name: str | None = None,
-        # **kwargs: Tensor[Any] | MainValueType,
+        # **kwargs: Tensor[int | float | bool] | MainValueType,
     ) -> None:
         self.cell_type = cell_type
         super().__init__(name=name)
@@ -1807,10 +1818,10 @@ class OneToMany(RNN):
         cell_type: Cell,
         max_sequence_length: int,
         teacher_forcing: bool = False,
-        input: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
-        **kwargs: Tensor[Any] | MainValueType,
+        **kwargs: Tensor[int | float | bool] | MainValueType,
     ) -> None:
         super().__init__(cell_type=cell_type, name=name)
 
@@ -1892,10 +1903,10 @@ class OneToManyInference(RNN):
         self,
         cell_type: Cell,
         max_sequence_length: int,
-        input: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
-        **kwargs: Tensor[Any] | ToBeDetermined,
+        **kwargs: Tensor[int | float | bool] | ToBeDetermined,
     ) -> None:
         super().__init__(cell_type=cell_type, name=name)
 
@@ -1949,10 +1960,10 @@ class ManyToOne(RNN):
         self,
         cell_type: Cell,
         max_sequence_length: int,
-        hidden_concat: Tensor[Any] | ToBeDetermined = TBD,
+        hidden_concat: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
-        **kwargs: Tensor[Any] | ToBeDetermined,
+        **kwargs: Tensor[int | float | bool] | ToBeDetermined,
     ) -> None:
         super().__init__(cell_type, name=name)
 
@@ -2032,7 +2043,7 @@ class EncoderDecoder(Model):
         max_input_sequence_length: int,
         max_target_sequence_length: int,
         teacher_forcing: bool = False,
-        indices: Tensor[Any] | ToBeDetermined = TBD,
+        indices: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -2135,8 +2146,8 @@ class EncoderDistanceMatrix(Model):
         self,
         get_final_distance: bool = True,
         robust: bool = True,
-        input1: Tensor[Any] | ToBeDetermined = TBD,
-        input2: Tensor[Any] | ToBeDetermined = TBD,
+        input1: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        input2: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -2195,9 +2206,9 @@ class PolynomialRegression(Model):
         self,
         degree: int,
         dimension: int | None = None,
-        input: Tensor[Any] | ToBeDetermined = TBD,
-        weight: Tensor[Any] | ToBeDetermined = TBD,
-        bias: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        weight: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        bias: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -2239,9 +2250,9 @@ class MDSCore(Model):
         self,
         exact_distances: bool = True,
         robust: bool = True,
-        distances: Tensor[Any] | ToBeDetermined = TBD,
-        pred_distances: Tensor[Any] | ToBeDetermined = TBD,
-        norm: Tensor[Any] | ToBeDetermined = TBD,
+        distances: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        pred_distances: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        norm: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -2339,9 +2350,9 @@ class TSNECore(Model):
         exact_distances: bool = True,
         calculate_p_joint: bool = False,
         perplexity: float = 20.0,
-        distances: Tensor[Any] | ToBeDetermined = TBD,
-        pred_distances: Tensor[Any] | ToBeDetermined = TBD,
-        p_joint: Tensor[Any] | ToBeDetermined = TBD,
+        distances: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        pred_distances: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        p_joint: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -2436,10 +2447,10 @@ class DistanceEncoder(Model):
         self,
         base_model: MDSCore | TSNECore,
         input_type: str = "distances",
-        input: Tensor[Any] | ToBeDetermined = TBD,
-        coords: Tensor[Any] | ToBeDetermined = TBD,
-        norm: Tensor[Any] | ToBeDetermined = TBD,
-        predicted_coords: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        coords: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        norm: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        predicted_coords: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -2545,10 +2556,10 @@ class MDS(DistanceEncoder):
         self,
         prediction_dim: int,
         input_type: str = "distances",
-        input: Tensor[Any] | ToBeDetermined = TBD,
-        coords: Tensor[Any] | ToBeDetermined = TBD,
-        norm: Tensor[Any] | ToBeDetermined = TBD,
-        predicted_coords: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        coords: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        norm: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        predicted_coords: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -2603,9 +2614,9 @@ class TSNE(DistanceEncoder):
         input_type: str = "distances",
         preplexity: float = 20.0,
         calculate_p_joint: bool = False,
-        input: Tensor[Any] | ToBeDetermined = TBD,
-        norm: Tensor[Any] | ToBeDetermined = TBD,
-        predicted_coords: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        norm: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        predicted_coords: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -2659,14 +2670,14 @@ class GaussProcessRegressionCore(Model):
 
     def __init__(
         self,
-        s: Tensor[Any] | ToBeDetermined = TBD,
-        k: Tensor[Any] | ToBeDetermined = TBD,
-        k_star: Tensor[Any] | ToBeDetermined = TBD,
-        mu: Tensor[Any] | ToBeDetermined = TBD,
-        label: Tensor[Any] | ToBeDetermined = TBD,
-        loss: Tensor[Any] | ToBeDetermined = TBD,
-        prediction: Tensor[Any] | ToBeDetermined = TBD,
-        confidence: Tensor[Any] | ToBeDetermined = TBD,
+        s: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        k: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        k_star: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        mu: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        label: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        loss: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        prediction: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        confidence: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -2786,11 +2797,11 @@ class GPRLoss(Model):
     def __init__(
         self,
         robust: bool = False,
-        labels: Tensor[Any] | ToBeDetermined = TBD,
-        mu: Tensor[Any] | ToBeDetermined = TBD,
-        L: Tensor[Any] | ToBeDetermined = TBD,
-        K_term: Tensor[Any] | ToBeDetermined = TBD,
-        alpha: Tensor[Any] | ToBeDetermined = TBD,
+        labels: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        mu: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        L: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        K_term: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        alpha: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -2878,8 +2889,8 @@ class Metric(Model):
         is_binary: bool = False,
         is_pred_one_hot: bool = True,
         is_label_one_hot: bool = True,
-        pred: Tensor[Any] | ToBeDetermined = TBD,
-        label: Tensor[Any] | ToBeDetermined = TBD,
+        pred: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        label: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -2953,8 +2964,8 @@ class Accuracy(Model):
         is_binary: bool = False,
         is_pred_one_hot: bool = True,
         is_label_one_hot: bool = True,
-        pred: Tensor[Any] | ToBeDetermined = TBD,
-        label: Tensor[Any] | ToBeDetermined = TBD,
+        pred: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        label: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -3015,8 +3026,8 @@ class Precision(Model):
         is_binary: bool = False,
         is_pred_one_hot: bool = True,
         is_label_one_hot: bool = True,
-        pred: Tensor[Any] | ToBeDetermined = TBD,
-        label: Tensor[Any] | ToBeDetermined = TBD,
+        pred: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        label: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -3176,8 +3187,8 @@ class Recall(Model):
         is_binary: bool = False,
         is_pred_one_hot: bool = True,
         is_label_one_hot: bool = True,
-        pred: Tensor[Any] | ToBeDetermined = TBD,
-        label: Tensor[Any] | ToBeDetermined = TBD,
+        pred: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        label: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -3336,8 +3347,8 @@ class F1(Model):
         is_binary: bool = False,
         is_pred_one_hot: bool = True,
         is_label_one_hot: bool = True,
-        pred: Tensor[Any] | ToBeDetermined = TBD,
-        label: Tensor[Any] | ToBeDetermined = TBD,
+        pred: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        label: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -3492,8 +3503,8 @@ class AUC(Model):
         self,
         n_classes: int,
         is_label_one_hot: bool = True,
-        pred: Tensor[Any] | ToBeDetermined = TBD,
-        label: Tensor[Any] | ToBeDetermined = TBD,
+        pred: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        label: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -3549,7 +3560,10 @@ class SiLU(Model):
     output: Connection
 
     def __init__(
-        self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
+        self,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(name=name)
 

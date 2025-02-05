@@ -401,9 +401,16 @@ class IOKey(BaseKey, TemplateBase):
     def __init__(
         self,
         name: str | None = None,
-        value: Tensor[Any] | ScalarValueType | ToBeDetermined | str = TBD,
+        value: Tensor[int | float | bool]
+        | ScalarValueType
+        | ToBeDetermined
+        | str = TBD,
         shape: ShapeTemplateType | None = None,
-        type: UnionType | type | type[Tensor[Any]] | ScalarType | None = None,
+        type: UnionType
+        | type
+        | type[Tensor[int | float | bool]]
+        | ScalarType
+        | None = None,
         expose: bool | None = None,
         interval: list[float | int] | None = None,
         connections: set[Connection | str] | None = None,
@@ -481,18 +488,17 @@ TemplateConnectionType = (
     | EllipsisType
     | tuple[slice | int | None | EllipsisType | TemplateBase, ...]
     | None
-    | Tensor[Any]
+    | Tensor[int | float | bool]
 )
-
 
 ConnectionType = (
     str
     | MainValueType
     | ExtendTemplate
     | NullConnection
-    | BaseKey
+    | IOKey
     | Connection
-    | Tensor[Any]
+    | Tensor[int | float | bool]
 )
 
 ConnectionInstanceType = (
@@ -500,7 +506,7 @@ ConnectionInstanceType = (
     | MainValueInstance
     | ExtendTemplate
     | NullConnection
-    | BaseKey
+    | IOKey
     | Connection
     | Tensor  # type: ignore
 )
@@ -766,15 +772,19 @@ class Model(BaseModel):
 
     def set_values(
         self,
-        config: Mapping[str | Connection, Tensor[Any] | MainValueType | str]
-        | Mapping[Connection, Tensor[Any] | MainValueType | str]
-        | Mapping[str, Tensor[Any] | MainValueType | str]
+        config: Mapping[
+            str | Connection, Tensor[int | float | bool] | MainValueType | str
+        ]
+        | Mapping[Connection, Tensor[int | float | bool] | MainValueType | str]
+        | Mapping[str, Tensor[int | float | bool] | MainValueType | str]
         | None = None,
-        **kwargs: Tensor[Any] | MainValueType | str,
+        **kwargs: Tensor[int | float | bool] | MainValueType | str,
     ) -> None:
         if config is None:
             config = {}
-        _config: dict[str | ConnectionData, Tensor[Any] | MainValueType | str] = {
+        _config: dict[
+            str | ConnectionData, Tensor[int | float | bool] | MainValueType | str
+        ] = {
             key if isinstance(key, str) else key.data: value
             for key, value in config.items()
         }
@@ -784,18 +794,18 @@ class Model(BaseModel):
         self,
         config: Mapping[
             str | Connection,
-            type | UnionType | ScalarType | type[Tensor[Any]],
+            type | UnionType | ScalarType | type[Tensor[int | float | bool]],
         ]
         | Mapping[
             Connection,
-            type | UnionType | ScalarType | type[Tensor[Any]],
+            type | UnionType | ScalarType | type[Tensor[int | float | bool]],
         ]
         | Mapping[
             str,
-            type | UnionType | ScalarType | type[Tensor[Any]],
+            type | UnionType | ScalarType | type[Tensor[int | float | bool]],
         ]
         | None = None,
-        **kwargs: type | UnionType | ScalarType | type[Tensor[Any]],
+        **kwargs: type | UnionType | ScalarType | type[Tensor[int | float | bool]],
     ) -> None:
         """
         Set types of any connection in the Model
@@ -815,7 +825,8 @@ class Model(BaseModel):
         if config is None:
             config = {}
         _config: dict[
-            str | ConnectionData, type | UnionType | ScalarType | type[Tensor[Any]]
+            str | ConnectionData,
+            type | UnionType | ScalarType | type[Tensor[int | float | bool]],
         ] = {
             key if isinstance(key, str) else key.data: value
             for key, value in config.items()

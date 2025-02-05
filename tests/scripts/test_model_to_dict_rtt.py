@@ -32,6 +32,7 @@ from mithril.models import (
     Linear,
     Mean,
     Model,
+    PrimitiveModel,
     Relu,
     Sigmoid,
     SquaredError,
@@ -949,7 +950,9 @@ def test_make_shape_constraint():
                 input=BaseKey(shape=[("Var_1", ...)], type=Tensor),
                 rhs=BaseKey(type=int, value=threshold),
             )
-            self.set_constraint(fn=squeeze_constraints, keys=["output", "input"])
+            self.add_constraint(
+                fn=squeeze_constraints, keys=[PrimitiveModel.output_key, "input"]
+            )
 
     model += MyAdder()(input="input")
     # model.extend(MyAdder(), input = "input")

@@ -192,7 +192,7 @@ class Buffer(UserPrimitiveModel):
 
     def __init__(
         self,
-        input: Tensor[Any] | ScalarValueType | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -215,7 +215,7 @@ class ToTuple(UserPrimitiveModel):
         n: int,
         *,
         name: str | None = None,
-        **kwargs: Tensor[Any] | ScalarValueType | ToBeDetermined,
+        **kwargs: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined,
     ) -> None:
         super().__init__(name=name, model=ToTupleOp(n, **kwargs))
 
@@ -250,8 +250,8 @@ class Power(UserPrimitiveModel):
     def __init__(
         self,
         robust: bool = False,
-        base: Tensor[Any] | int | float | ToBeDetermined = TBD,
-        exponent: Tensor[Any] | int | float | ToBeDetermined = TBD,
+        base: Tensor[int | float | bool] | int | float | ToBeDetermined = TBD,
+        exponent: Tensor[int | float | bool] | int | float | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -287,8 +287,8 @@ class Power(UserPrimitiveModel):
 class Add(ArithmeticOperation):
     def __init__(
         self,
-        left: Tensor[Any] | ScalarValueType | ToBeDetermined = TBD,
-        right: Tensor[Any] | ScalarValueType | ToBeDetermined = TBD,
+        left: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -298,8 +298,8 @@ class Add(ArithmeticOperation):
 class Subtract(ArithmeticOperation):
     def __init__(
         self,
-        left: Tensor[Any] | ScalarValueType | ToBeDetermined = TBD,
-        right: Tensor[Any] | ScalarValueType | ToBeDetermined = TBD,
+        left: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -309,8 +309,8 @@ class Subtract(ArithmeticOperation):
 class Multiply(ArithmeticOperation):
     def __init__(
         self,
-        left: Tensor[Any] | ScalarValueType | ToBeDetermined = TBD,
-        right: Tensor[Any] | ScalarValueType | ToBeDetermined = TBD,
+        left: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -346,8 +346,10 @@ class Divide(UserPrimitiveModel):
 
     def __init__(
         self,
-        numerator: Tensor[Any] | ScalarValueType | ToBeDetermined = TBD,
-        denominator: Tensor[Any] | ScalarValueType | ToBeDetermined = TBD,
+        numerator: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
+        denominator: Tensor[int | float | bool]
+        | ScalarValueType
+        | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -372,8 +374,8 @@ class FloorDivide(UserPrimitiveModel):
 
     def __init__(
         self,
-        numerator: Tensor[Any] | ToBeDetermined = TBD,
-        denominator: Tensor[Any] | ToBeDetermined = TBD,
+        numerator: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        denominator: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -398,8 +400,8 @@ class MatrixMultiply(UserPrimitiveModel):
 
     def __init__(
         self,
-        left: Tensor[Any] | ToBeDetermined = TBD,
-        right: Tensor[Any] | ToBeDetermined = TBD,
+        left: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -419,7 +421,10 @@ class Shape(UserPrimitiveModel):
     output: Connection
 
     def __init__(
-        self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
+        self,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(name=name, model=ShapeOp(input=input))
 
@@ -437,7 +442,7 @@ class Reshape(UserPrimitiveModel):
     def __init__(
         self,
         shape: tuple[int | None, ...] | list[int] | ToBeDetermined = TBD,
-        input: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -457,7 +462,10 @@ class Length(UserPrimitiveModel):
     output: Connection
 
     def __init__(
-        self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
+        self,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(name=name, model=LengthOp(input=input))
 
@@ -491,7 +499,10 @@ class Dtype(UserPrimitiveModel):
     output: Connection
 
     def __init__(
-        self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
+        self,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(name=name, model=DtypeOp(input=input))
 
@@ -509,7 +520,7 @@ class Size(UserPrimitiveModel):
     def __init__(
         self,
         dim: int | tuple[int, ...] | None | ToBeDetermined = None,
-        input: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -529,7 +540,10 @@ class Item(UserPrimitiveModel):
     output: Connection
 
     def __init__(
-        self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
+        self,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(name=name, model=ItemOp(input=input))
 
@@ -580,7 +594,10 @@ class TensorToList(UserPrimitiveModel):
     output: Connection
 
     def __init__(
-        self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
+        self,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         self._enforce_jit = False
         m = TensorToListOp(input=input)
@@ -617,7 +634,7 @@ class Mean(Reduce):
         self,
         axis: int | tuple[int, ...] | None | ToBeDetermined = None,
         keepdim: bool | ToBeDetermined = False,
-        input: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -630,7 +647,7 @@ class Sum(Reduce):
         self,
         axis: int | tuple[int, ...] | None | ToBeDetermined = None,
         keepdim: bool | ToBeDetermined = False,
-        input: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -643,7 +660,7 @@ class Max(Reduce):
         self,
         axis: int | tuple[int, ...] | None | ToBeDetermined = None,
         keepdim: bool | ToBeDetermined = False,
-        input: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -654,9 +671,9 @@ class Max(Reduce):
 class ArgMax(Reduce):
     def __init__(
         self,
-        axis: int | tuple[int, ...] | None | ToBeDetermined = None,
+        axis: int | None | ToBeDetermined = None,
         keepdim: bool | ToBeDetermined = False,
-        input: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -669,7 +686,7 @@ class Min(Reduce):
         self,
         axis: int | tuple[int, ...] | None | ToBeDetermined = None,
         keepdim: bool | ToBeDetermined = False,
-        input: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -682,7 +699,7 @@ class ArgMin(Reduce):
         self,
         axis: int | tuple[int, ...] | None | ToBeDetermined = None,
         keepdim: bool | ToBeDetermined = False,
-        input: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -695,7 +712,7 @@ class Prod(Reduce):
         self,
         axis: int | tuple[int, ...] | None | ToBeDetermined = None,
         keepdim: bool | ToBeDetermined = False,
-        input: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -711,7 +728,7 @@ class Variance(Reduce):
         axis: int | tuple[int, ...] | None | ToBeDetermined = None,
         keepdim: bool | ToBeDetermined = False,
         correction: int | float | None = 0.0,
-        input: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -750,21 +767,30 @@ class SingleInputModel(UserPrimitiveModel):
 
 class Absolute(SingleInputModel):
     def __init__(
-        self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
+        self,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(name=name, model=AbsoluteOp(input=input))
 
 
 class Minus(SingleInputModel):
     def __init__(
-        self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
+        self,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(name=name, model=MinusOp(input=input))
 
 
 class Exponential(SingleInputModel):
     def __init__(
-        self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
+        self,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(name=name, model=ExponentialOp(input=input))
 
@@ -776,9 +802,9 @@ class Sqrt(UserPrimitiveModel):
     def __init__(
         self,
         robust: bool = False,
-        input: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
-        cutoff: Tensor[Any] | ToBeDetermined = TBD,
+        cutoff: Tensor[int | float | bool] | ToBeDetermined = TBD,
         name: str | None = None,
     ) -> None:
         self.robust = robust
@@ -827,8 +853,8 @@ class RelationalModel(UserPrimitiveModel):
 class Greater(RelationalModel):
     def __init__(
         self,
-        left: Tensor[Any] | ToBeDetermined = TBD,
-        right: Tensor[Any] | ToBeDetermined = TBD,
+        left: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -838,8 +864,8 @@ class Greater(RelationalModel):
 class Less(RelationalModel):
     def __init__(
         self,
-        left: Tensor[Any] | ToBeDetermined = TBD,
-        right: Tensor[Any] | ToBeDetermined = TBD,
+        left: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -849,8 +875,8 @@ class Less(RelationalModel):
 class Equal(RelationalModel):
     def __init__(
         self,
-        left: Tensor[Any] | ToBeDetermined = TBD,
-        right: Tensor[Any] | ToBeDetermined = TBD,
+        left: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -860,8 +886,8 @@ class Equal(RelationalModel):
 class NotEqual(RelationalModel):
     def __init__(
         self,
-        left: Tensor[Any] | ToBeDetermined = TBD,
-        right: Tensor[Any] | ToBeDetermined = TBD,
+        left: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -871,8 +897,8 @@ class NotEqual(RelationalModel):
 class LessEqual(RelationalModel):
     def __init__(
         self,
-        left: Tensor[Any] | ToBeDetermined = TBD,
-        right: Tensor[Any] | ToBeDetermined = TBD,
+        left: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -882,8 +908,8 @@ class LessEqual(RelationalModel):
 class GreaterEqual(RelationalModel):
     def __init__(
         self,
-        left: Tensor[Any] | ToBeDetermined = TBD,
-        right: Tensor[Any] | ToBeDetermined = TBD,
+        left: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -895,7 +921,10 @@ class LogicalNot(UserPrimitiveModel):
     output: Connection
 
     def __init__(
-        self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
+        self,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(name=name, model=LogicalNotOp(input=input))
 
@@ -922,8 +951,8 @@ class BitwiseOperators(UserPrimitiveModel):
 class LogicalAnd(BitwiseOperators):
     def __init__(
         self,
-        left: Tensor[Any] | ToBeDetermined = TBD,
-        right: Tensor[Any] | ToBeDetermined = TBD,
+        left: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -933,8 +962,8 @@ class LogicalAnd(BitwiseOperators):
 class LogicalOr(BitwiseOperators):
     def __init__(
         self,
-        left: Tensor[Any] | ToBeDetermined = TBD,
-        right: Tensor[Any] | ToBeDetermined = TBD,
+        left: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -944,8 +973,8 @@ class LogicalOr(BitwiseOperators):
 class LogicalXOr(BitwiseOperators):
     def __init__(
         self,
-        left: Tensor[Any] | ToBeDetermined = TBD,
-        right: Tensor[Any] | ToBeDetermined = TBD,
+        left: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -959,8 +988,8 @@ class ShiftLeft(UserPrimitiveModel):
 
     def __init__(
         self,
-        input: Tensor[Any] | ToBeDetermined = TBD,
-        shift: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        shift: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -982,8 +1011,8 @@ class ShiftRight(UserPrimitiveModel):
 
     def __init__(
         self,
-        input: Tensor[Any] | ToBeDetermined = TBD,
-        shift: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        shift: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -1008,7 +1037,7 @@ class Transpose(UserPrimitiveModel):
     def __init__(
         self,
         axes: int | list[int] | tuple[int, ...] | None | ToBeDetermined = None,
-        input: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -1033,7 +1062,7 @@ class Split(UserPrimitiveModel):
         self,
         split_size: int,  # TODO: should we add default for split_size?
         axis: int = 0,
-        input: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ):
@@ -1086,7 +1115,7 @@ class Indexer(UserPrimitiveModel):
     def __init__(
         self,
         index: int | ToBeDetermined = TBD,
-        input: Tensor[Any] | Sequence[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | Sequence[Any] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -1104,7 +1133,7 @@ class Indexer(UserPrimitiveModel):
 class Sine(SingleInputModel):
     def __init__(
         self,
-        input: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -1114,7 +1143,7 @@ class Sine(SingleInputModel):
 class Cosine(SingleInputModel):
     def __init__(
         self,
-        input: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:

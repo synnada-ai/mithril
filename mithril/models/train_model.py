@@ -115,7 +115,9 @@ class TrainModel(Model):
         self.regularization_keys: list[str] = []
         self.metric_keys: list[str] = []
         self.loss_combiner: BaseModel = Sum()
-        self.reg_coef_map: dict[float | Tensor[Any], set[ConnectionData]] = {}
+        self.reg_coef_map: dict[
+            float | Tensor[int | float | bool], set[ConnectionData]
+        ] = {}
         self.geomean_map: dict[str, list[tuple[ConnectionData, float]]] = {}
         self.reduce_inputs: dict[str, list[tuple[ConnectionData, ConnectionData]]] = {}
 

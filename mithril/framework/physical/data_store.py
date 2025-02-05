@@ -31,6 +31,7 @@ from ..common import (
     Tensor,
     ToBeDetermined,
     Updates,
+    UpdateType,
     is_type_adjustment_required,
 )
 from ..logical.model import Connection
@@ -126,12 +127,20 @@ class StaticDataStore(Generic[DataType]):
         if key not in self._all_data:
             return
 
-        shape_constraints = self._all_data[key].shape_constraints
-        type_constraints = self._all_data[key].type_constraints
+        shape_constraints = self._all_data[key].constraints[UpdateType.SHAPE]
+        type_constraints = self._all_data[key].constraints[UpdateType.TYPE]
+        value_constraints = self._all_data[key].constraints[UpdateType.VALUE]
         for source_key in self.graph.get_source_keys(key):
             if source_key in self._all_data:
-                self._all_data[source_key].shape_constraints -= shape_constraints
-                self._all_data[source_key].type_constraints -= type_constraints
+                self._all_data[source_key].constraints[UpdateType.SHAPE] -= (
+                    shape_constraints
+                )
+                self._all_data[source_key].constraints[UpdateType.TYPE] -= (
+                    type_constraints
+                )
+                self._all_data[source_key].constraints[UpdateType.VALUE] -= (
+                    value_constraints
+                )
 
     def update_cached_data(self, updated_data: Updates) -> set[str]:
         # If any data value is found by shape inference algorithms
@@ -164,7 +173,7 @@ class StaticDataStore(Generic[DataType]):
         if isinstance(value, Constant):
             value = epsilon_table[self.backend.precision][value]
 
-        if data.edge_type is Tensor:
+        if data.is_tensor:
             value = self.backend.array(value)
         elif isinstance(value, Dtype):
             value = getattr(self.backend, value.name)
@@ -242,7 +251,7 @@ class StaticDataStore(Generic[DataType]):
             if isinstance(key, Connection):
                 key = key.key
             assert isinstance(key, str)
-            if (data := self._all_data[key]).edge_type is not Tensor:
+            if not (data := self._all_data[key]).is_tensor:
                 raise ValueError("Non-tensor data can not have shape!")
             assert data.shape is not None
             updates |= data.shape.set_values(value)
@@ -290,7 +299,7 @@ class StaticDataStore(Generic[DataType]):
                 raise KeyError(
                     "Requires static key to be in the input keys of the model!"
                 )
-            if (self._all_data[key].edge_type is Tensor) and not isinstance(
+            if self._all_data[key].is_tensor and not isinstance(
                 value, ToBeDetermined | self.backend.get_backend_array_type()
             ):
                 raise ValueError(

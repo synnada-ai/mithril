@@ -51,7 +51,7 @@ from ..common import (
     create_shape_repr,
     get_shapes,
 )
-from ..constraints import post_process_map, type_constraints
+from ..constraints import constraint_type_map
 
 __all__ = ["BaseModel"]
 
@@ -79,7 +79,7 @@ class BaseModel:
         self.assigned_shapes: list[ShapesType] = []
         self.assigned_types: dict[
             str,
-            type | UnionType | ScalarType | Tensor[Any],
+            type | UnionType | ScalarType | Tensor[int | float | bool],
         ] = {}
         self.assigned_constraints: list[AssignedConstraintType] = []
         self.conns = Connections()
@@ -267,7 +267,11 @@ class BaseModel:
         outer_key = given_connection.name
         con_obj = None
         set_value: (
-            ToBeDetermined | str | ScalarValueType | Tensor[Any] | NullConnection
+            ToBeDetermined
+            | str
+            | ScalarValueType
+            | Tensor[int | float | bool]
+            | NullConnection
         ) = NOT_GIVEN
         if given_connection.data.value is not TBD:
             set_value = given_connection.data.value
@@ -534,7 +538,7 @@ class BaseModel:
         shape_info: dict[str, ShapeTemplateType] = {}
         type_info: dict[
             str,
-            type | UnionType | ScalarType | type[Tensor[Any]],
+            type | UnionType | ScalarType | type[Tensor[int | float | bool]],
         ] = {}
 
         submodel_dag: dict[str, ConnectionData] = {}
@@ -561,7 +565,7 @@ class BaseModel:
             con_obj, _updates = self._add_connection(model, local_key, value, updates)
             updates |= _updates
             submodel_dag[local_key] = con_obj
-            if con_obj.metadata.edge_type is Tensor:
+            if con_obj.metadata.is_tensor:
                 updates.shape_updates.add(con_obj.metadata)
 
         # Replace shape info keys, which are local keys, with global equivalents.
@@ -1135,12 +1139,10 @@ class BaseModel:
         # Apply updates to the shape nodes.
         for key in chain(shapes, kwargs):
             node, _inner_key = shape_nodes[key]
-            if (
-                metadata := self.conns.get_data(_inner_key)
-            ).edge_type is ToBeDetermined:
+            if (metadata := self.conns.get_data(_inner_key)).is_polymorphic:
                 # If edge_type is not defined yet, set it to Tensor since
                 # shape is provided.
-                updates |= metadata.set_type(Tensor)
+                updates |= metadata.set_type(Tensor[int | float | bool])
             shape_node = self.conns.get_shape_node(_inner_key)
             assert shape_node is not None
             updates |= shape_node.merge(node)
@@ -1154,25 +1156,25 @@ class BaseModel:
         self,
         config: Mapping[
             str | ConnectionData,
-            type | UnionType | ScalarType | type[Tensor[Any]],
+            type | UnionType | ScalarType | type[Tensor[int | float | bool]],
         ]
         | Mapping[
             ConnectionData,
-            type | UnionType | ScalarType | type[Tensor[Any]],
+            type | UnionType | ScalarType | type[Tensor[int | float | bool]],
         ]
         | Mapping[
             str,
-            type | UnionType | ScalarType | type[Tensor[Any]],
+            type | UnionType | ScalarType | type[Tensor[int | float | bool]],
         ]
         | None = None,
-        **kwargs: type | UnionType | ScalarType | type[Tensor[Any]],
+        **kwargs: type | UnionType | ScalarType | type[Tensor[int | float | bool]],
     ) -> None:  # Initialize assigned shapes dictionary to store assigned shapes.
         if config is None:
             config = {}
 
         assigned_types: dict[
             str,
-            type | UnionType | ScalarType | Tensor[Any],
+            type | UnionType | ScalarType | Tensor[int | float | bool],
         ] = {}
 
         # Get the outermost parent as all the updates will happen here.
@@ -1191,7 +1193,9 @@ class BaseModel:
         model.constraint_solver(updates)
 
     def _set_value(
-        self, key: ConnectionData, value: MainValueType | Tensor[Any] | str
+        self,
+        key: ConnectionData,
+        value: MainValueType | Tensor[int | float | bool] | str,
     ) -> Updates:
         """
         Set value for the given connection.
@@ -1213,11 +1217,13 @@ class BaseModel:
 
     def _set_values(
         self,
-        config: Mapping[str | ConnectionData, Tensor[Any] | MainValueType | str]
-        | Mapping[ConnectionData, Tensor[Any] | MainValueType | str]
-        | Mapping[str, Tensor[Any] | MainValueType | str]
+        config: Mapping[
+            str | ConnectionData, Tensor[int | float | bool] | MainValueType | str
+        ]
+        | Mapping[ConnectionData, Tensor[int | float | bool] | MainValueType | str]
+        | Mapping[str, Tensor[int | float | bool] | MainValueType | str]
         | None = None,
-        **kwargs: Tensor[Any] | MainValueType | str,
+        **kwargs: Tensor[int | float | bool] | MainValueType | str,
     ) -> None:
         """
         Set multiple values in the model.
@@ -1269,47 +1275,42 @@ class BaseModel:
             key_mappings=self.generate_keys(include_outputs=True),
         )
 
-    def _set_constraint(
+    def _add_constraint(
         self,
         fn: ConstraintFunctionType,
         keys: list[str],
-        post_processes: set[ConstraintFunctionType] | None = None,
-        type: UpdateType | None = None,
-    ) -> None:
+        types: list[UpdateType] | None = None,
+        dependencies: set[Constraint] | None = None,
+    ) -> Constraint:
         all_conns = self.conns.all
         hyper_edges = [all_conns[key].metadata for key in keys]
-        if type is None:
-            # TODO: separate type_constraints and shape constraints into two files under
-            # constraints folder. Then, check if fn is not in any of those types set
-            # _type to None. If _type and type are both None or one is UpdateType.SHAPE
-            # while other one is UpdateType.Type, raise Exception!
-            type = UpdateType.TYPE if fn in type_constraints else UpdateType.SHAPE
-        constr = Constraint(fn=fn, type=type)
+
+        if dependencies is None:
+            dependencies = set()
+        unresolved_dependencies = (
+            dependencies & self.constraint_solver.constraint_map.keys()
+        )
+        if types is None:
+            types = constraint_type_map.get(fn, [UpdateType.SHAPE, UpdateType.VALUE])
+        constr = Constraint(fn=fn, types=types)
+        constr.add_dependencies(*unresolved_dependencies)
+
         self.constraint_solver.constraint_map[constr] = hyper_edges
         for hyper_edge in hyper_edges:
             hyper_edge.add_constraint(constr)
 
-        # Get union of all given and default post processes for the given
-        # constraint and update post_processes field.
-        if post_processes is None:
-            post_processes = set()
-        all_post_processes = post_processes | post_process_map.get(fn, set())
-        for post_fn in all_post_processes:
-            type = UpdateType.TYPE if post_fn in type_constraints else UpdateType.SHAPE
-            constr.add_post_process((post_fn, type))
+        self.constraint_solver.solver_loop({constr})
+        return constr
 
-        _, updates = constr(hyper_edges)
-        self.constraint_solver(updates)
-
-    def set_constraint(
+    def add_constraint(
         self,
         fn: ConstraintFunctionType,
         keys: list[str],
-        post_processes: set[ConstraintFunctionType] | None = None,
-        type: UpdateType = UpdateType.SHAPE,
-    ) -> None:
+        type: list[UpdateType] | None = None,
+        dependencies: set[Constraint] | None = None,
+    ) -> Constraint:
         self.assigned_constraints.append({"fn": fn.__name__, "keys": keys})
-        self._set_constraint(fn, keys, post_processes, type=type)
+        return self._add_constraint(fn, keys, type, dependencies)
 
     @property
     def _cin(self) -> ConnectionData:

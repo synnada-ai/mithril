@@ -57,18 +57,11 @@ class PrimitiveModel(BaseModel):
         output_data: IOHyperEdge | None = None
         for key, value in keys.items():
             if isinstance(value, BaseKey):
-                if (
-                    is_generic_tensor := (get_origin(value.data.type) is Tensor)
-                ) or value.data.type is Tensor:
-                    tensor_types = (
-                        get_args(value.data.type)[0]
-                        if is_generic_tensor
-                        else int | float | bool
-                    )
+                if get_origin(value.data.type) is Tensor:
                     if not isinstance(tensor := value.data.value, Tensor):
                         assert isinstance(value.data.value, ToBeDetermined)
                         tensor = Tensor(
-                            type=tensor_types,
+                            type=get_args(value.data.type)[0],
                             shape=shapes[key].node,
                         )
                     edge = IOHyperEdge(value=tensor, interval=value.data.interval)

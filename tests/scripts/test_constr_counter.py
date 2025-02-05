@@ -49,8 +49,8 @@ def dummy_constraint(output: IOHyperEdge, input: IOHyperEdge):
     # updated_symbols = set()
     updates = Updates()
     status = False
-    output_repr = output._temp_shape if output.edge_type is Tensor else output.value
-    input_repr = input._temp_shape if input.edge_type is Tensor else input.value
+    output_repr = output._temp_shape if output.is_tensor else output.value
+    input_repr = input._temp_shape if input.is_tensor else input.value
     assert isinstance(output_repr, ShapeRepr)
     assert isinstance(input_repr, ShapeRepr)
     if bool(input_repr.root) ^ bool(output_repr.root):
@@ -102,9 +102,12 @@ class Model1(UserPrimitiveModel):
         super().__init__(
             formula_key="buffer",
             input=BaseKey(shape=[("Var1", ...)], type=Tensor),
-            output=BaseKey(shape=[("Var2", ...)], type=Tensor),
+            output=BaseKey(
+                shape=[("Var2", ...)],
+                type=Tensor,
+            ),
         )
-        self._set_constraint(fn=dummy_constraint, keys=["output", "input"])
+        self._add_constraint(fn=dummy_constraint, keys=["output", "input"])
 
 
 class Model2(UserPrimitiveModel):
@@ -117,8 +120,8 @@ class Model2(UserPrimitiveModel):
             input=BaseKey(shape=[("Var1", ...)], type=Tensor),
             output=BaseKey(shape=[("Var2", ...)], type=Tensor),
         )
-        self._set_constraint(fn=dummy_constraint, keys=["output", "input"])
-        self._set_constraint(
+        self._add_constraint(fn=dummy_constraint, keys=["output", "input"])
+        self._add_constraint(
             fn=general_tensor_type_constraint, keys=["output", "input"]
         )
 
@@ -133,7 +136,7 @@ class Model3(UserPrimitiveModel):
             input=BaseKey(shape=[("Var1", ...)], type=Tensor[int | bool]),
             output=BaseKey(shape=[("Var2", ...)], type=Tensor[int | bool]),
         )
-        self._set_constraint(fn=dummy_constraint, keys=["output", "input"])
+        self._add_constraint(fn=dummy_constraint, keys=["output", "input"])
 
 
 class MyAdd2(UserPrimitiveModel):
@@ -148,7 +151,7 @@ class MyAdd2(UserPrimitiveModel):
             left=BaseKey(shape=left, type=Tensor),
             right=BaseKey(shape=right, type=Tensor),
         )
-        self._set_constraint(
+        self._add_constraint(
             fn=bcast, keys=[PrimitiveModel.output_key, "left", "right"]
         )
 
@@ -202,7 +205,13 @@ def test_shape_constraint_counter_1():
     model = Model()
     model += (add := Add())
     # edge_type_constr = 1
-    ref_dict = make_reference_dict({add.left: [1], add.right: [1], add.output: [1]})
+    ref_dict = make_reference_dict(
+        {
+            add.left: [0, 0, 0, 0, 1],
+            add.right: [0, 0, 0, 0, 1],
+            add.output: [0, 0, 0, 0, 1],
+        }
+    )
     assert_constr_counts(ref_dict)
     add.set_shapes({"left": [1, 2], "right": [1, 2]})
     # edge_type_constr solved, bcast solved, only general_type_constr
@@ -218,11 +227,11 @@ def test_shape_constraint_counter_2():
 
     ref_dict = make_reference_dict(
         {
-            add1.left: [1],
-            add1.right: [1],
-            add2.left: [1, 1],
-            add2.right: [1],
-            add2.output: [1],
+            add1.left: [0, 0, 0, 0, 1],
+            add1.right: [0, 0, 0, 0, 1],
+            add2.left: [0, 0, 0, 0, 0, 0, 0, 0, 1, 1],
+            add2.right: [0, 0, 0, 0, 1],
+            add2.output: [0, 0, 0, 0, 1],
         }
     )
     assert_constr_counts(ref_dict)
@@ -233,10 +242,10 @@ def test_shape_constraint_counter_2():
         {
             add1.left: [1],
             add1.right: [1],
-            add1.output: [1, 2],
-            add2.left: [1, 2],
-            add2.right: [2],
-            add2.output: [2],
+            add1.output: [0, 0, 0, 0, 1, 2],
+            add2.left: [0, 0, 0, 0, 1, 2],
+            add2.right: [0, 0, 0, 0, 2],
+            add2.output: [0, 0, 0, 0, 2],
         }
     )
     assert_constr_counts(ref_dict)
@@ -263,15 +272,15 @@ def test_shape_constraint_counter_3():
     model += (add3 := Add())
     ref_dict = make_reference_dict(
         {
-            add1.left: [1],
-            add1.right: [1],
-            add1.output: [1, 1],
-            add2.left: [1, 1],
-            add2.right: [1],
-            add2.output: [1, 1],
-            add3.left: [1, 1],
-            add3.right: [1],
-            add3.output: [1],
+            add1.left: [0, 0, 0, 0, 1],
+            add1.right: [0, 0, 0, 0, 1],
+            add1.output: [0, 0, 0, 0, 0, 0, 0, 0, 1, 1],
+            add2.left: [0, 0, 0, 0, 0, 0, 0, 0, 1, 1],
+            add2.right: [0, 0, 0, 0, 1],
+            add2.output: [0, 0, 0, 0, 0, 0, 0, 0, 1, 1],
+            add3.left: [0, 0, 0, 0, 0, 0, 0, 0, 1, 1],
+            add3.right: [0, 0, 0, 0, 1],
+            add3.output: [0, 0, 0, 0, 1],
         }
     )
     assert_constr_counts(ref_dict)
@@ -281,13 +290,13 @@ def test_shape_constraint_counter_3():
         {
             add1.left: [1],
             add1.right: [1],
-            add1.output: [1, 2],
-            add2.left: [1, 2],
-            add2.right: [2],
-            add2.output: [2, 2],
-            add3.left: [2, 2],
-            add3.right: [2],
-            add3.output: [2],
+            add1.output: [0, 0, 0, 0, 1, 2],
+            add2.left: [0, 0, 0, 0, 1, 2],
+            add2.right: [0, 0, 0, 0, 2],
+            add2.output: [0, 0, 0, 0, 0, 0, 0, 0, 2, 2],
+            add3.left: [0, 0, 0, 0, 0, 0, 0, 0, 2, 2],
+            add3.right: [0, 0, 0, 0, 2],
+            add3.output: [0, 0, 0, 0, 2],
         }
     )
     assert_constr_counts(ref_dict)
@@ -300,10 +309,10 @@ def test_shape_constraint_counter_3():
             add1.output: [1, 1],
             add2.left: [1, 1],
             add2.right: [1],
-            add2.output: [1, 2],
-            add3.left: [1, 2],
-            add3.right: [2],
-            add3.output: [2],
+            add2.output: [0, 0, 0, 0, 1, 2],
+            add3.left: [0, 0, 0, 0, 1, 2],
+            add3.right: [0, 0, 0, 0, 2],
+            add3.output: [0, 0, 0, 0, 2],
         }
     )
     assert_constr_counts(ref_dict)
@@ -317,15 +326,15 @@ def test_shape_constraint_counter_4():
     model += (add4 := Add())
     ref_dict = make_reference_dict(
         {
-            add1.left: [1],
-            add1.right: [1],
-            add2.left: [1, 1],
-            add2.right: [1],
-            add3.left: [1, 1],
-            add3.right: [1],
-            add4.left: [1, 1],
-            add4.right: [1],
-            add4.output: [1],
+            add1.left: [0, 0, 0, 0, 1],
+            add1.right: [0, 0, 0, 0, 1],
+            add2.left: [0, 0, 0, 0, 0, 0, 0, 0, 1, 1],
+            add2.right: [0, 0, 0, 0, 1],
+            add3.left: [0, 0, 0, 0, 0, 0, 0, 0, 1, 1],
+            add3.right: [0, 0, 0, 0, 1],
+            add4.left: [0, 0, 0, 0, 0, 0, 0, 0, 1, 1],
+            add4.right: [0, 0, 0, 0, 1],
+            add4.output: [0, 0, 0, 0, 1],
         }
     )
     assert_constr_counts(ref_dict)
@@ -335,13 +344,13 @@ def test_shape_constraint_counter_4():
         {
             add1.left: [1],
             add1.right: [1],
-            add2.left: [1, 2],
-            add2.right: [2],
-            add3.left: [2, 2],
-            add3.right: [2],
-            add4.left: [2, 2],
-            add4.right: [2],
-            add4.output: [2],
+            add2.left: [0, 0, 0, 0, 1, 2],
+            add2.right: [0, 0, 0, 0, 2],
+            add3.left: [0, 0, 0, 0, 0, 0, 0, 0, 2, 2],
+            add3.right: [0, 0, 0, 0, 2],
+            add4.left: [0, 0, 0, 0, 0, 0, 0, 0, 2, 2],
+            add4.right: [0, 0, 0, 0, 2],
+            add4.output: [0, 0, 0, 0, 2],
         }
     )
     assert_constr_counts(ref_dict)
@@ -353,11 +362,11 @@ def test_shape_constraint_counter_4():
             add1.right: [1],
             add2.left: [1, 1],
             add2.right: [1],
-            add3.left: [1, 2],
-            add3.right: [2],
-            add4.left: [2, 2],
-            add4.right: [2],
-            add4.output: [2],
+            add3.left: [0, 0, 0, 0, 1, 2],
+            add3.right: [0, 0, 0, 0, 2],
+            add4.left: [0, 0, 0, 0, 0, 0, 0, 0, 2, 2],
+            add4.right: [0, 0, 0, 0, 2],
+            add4.output: [0, 0, 0, 0, 2],
         }
     )
     assert_constr_counts(ref_dict)
@@ -373,19 +382,19 @@ def test_shape_constraint_counter_5():
     model += (add6 := Add())
     ref_dict = make_reference_dict(
         {
-            add1.left: [1],
-            add1.right: [1],
-            add2.left: [1, 1],
-            add2.right: [1],
-            add3.left: [1, 1],
-            add3.right: [1],
-            add4.left: [1, 1],
-            add4.right: [1],
-            add5.left: [1, 1],
-            add5.right: [1],
-            add6.left: [1, 1],
-            add6.right: [1],
-            add6.output: [1],
+            add1.left: [0, 0, 0, 0, 1],
+            add1.right: [0, 0, 0, 0, 1],
+            add2.left: [0, 0, 0, 0, 0, 0, 0, 0, 1, 1],
+            add2.right: [0, 0, 0, 0, 1],
+            add3.left: [0, 0, 0, 0, 0, 0, 0, 0, 1, 1],
+            add3.right: [0, 0, 0, 0, 1],
+            add4.left: [0, 0, 0, 0, 0, 0, 0, 0, 1, 1],
+            add4.right: [0, 0, 0, 0, 1],
+            add5.left: [0, 0, 0, 0, 0, 0, 0, 0, 1, 1],
+            add5.right: [0, 0, 0, 0, 1],
+            add6.left: [0, 0, 0, 0, 0, 0, 0, 0, 1, 1],
+            add6.right: [0, 0, 0, 0, 1],
+            add6.output: [0, 0, 0, 0, 1],
         }
     )
     assert_constr_counts(ref_dict)
@@ -395,17 +404,17 @@ def test_shape_constraint_counter_5():
         {
             add1.left: [1],
             add1.right: [1],
-            add2.left: [1, 2],
-            add2.right: [2],
-            add3.left: [2, 2],
-            add3.right: [2],
-            add4.left: [2, 2],
-            add4.right: [2],
-            add5.left: [2, 2],
-            add5.right: [2],
-            add6.left: [2, 2],
-            add6.right: [2],
-            add6.output: [2],
+            add2.left: [0, 0, 0, 0, 1, 2],
+            add2.right: [0, 0, 0, 0, 2],
+            add3.left: [0, 0, 0, 0, 0, 0, 0, 0, 2, 2],
+            add3.right: [0, 0, 0, 0, 2],
+            add4.left: [0, 0, 0, 0, 0, 0, 0, 0, 2, 2],
+            add4.right: [0, 0, 0, 0, 2],
+            add5.left: [0, 0, 0, 0, 0, 0, 0, 0, 2, 2],
+            add5.right: [0, 0, 0, 0, 2],
+            add6.left: [0, 0, 0, 0, 0, 0, 0, 0, 2, 2],
+            add6.right: [0, 0, 0, 0, 2],
+            add6.output: [0, 0, 0, 0, 2],
         }
     )
     assert_constr_counts(ref_dict)
@@ -417,15 +426,15 @@ def test_shape_constraint_counter_5():
             add1.right: [1],
             add2.left: [1, 1],
             add1.right: [1],
-            add3.left: [1, 2],
-            add3.right: [2],
-            add4.left: [2, 2],
-            add4.right: [2],
-            add5.left: [2, 2],
-            add5.right: [2],
-            add6.left: [2, 2],
-            add6.right: [2],
-            add6.output: [2],
+            add3.left: [0, 0, 0, 0, 1, 2],
+            add3.right: [0, 0, 0, 0, 2],
+            add4.left: [0, 0, 0, 0, 0, 0, 0, 0, 2, 2],
+            add4.right: [0, 0, 0, 0, 2],
+            add5.left: [0, 0, 0, 0, 0, 0, 0, 0, 2, 2],
+            add5.right: [0, 0, 0, 0, 2],
+            add6.left: [0, 0, 0, 0, 0, 0, 0, 0, 2, 2],
+            add6.right: [0, 0, 0, 0, 2],
+            add6.output: [0, 0, 0, 0, 2],
         }
     )
     assert_constr_counts(ref_dict)
@@ -756,10 +765,10 @@ def test_shape_constraint_counter_12():
     model += (model_2 := Add())(left="input1", right=model_1.output)
     ref_dict = make_reference_dict(
         {
-            model_1.left: [1, 1],
-            model_1.right: [1],
-            model_2.right: [1, 1],
-            model_2.output: [1],
+            model_1.left: [0, 0, 0, 0, 0, 0, 0, 0, 1, 1],
+            model_1.right: [0, 0, 0, 0, 1],
+            model_2.right: [0, 0, 0, 0, 0, 0, 0, 0, 1, 1],
+            model_2.output: [0, 0, 0, 0, 1],
         }
     )
     assert_constr_counts(ref_dict)
@@ -767,10 +776,10 @@ def test_shape_constraint_counter_12():
     model += (model_3 := Transpose())
     ref_dict = make_reference_dict(
         {
-            model_1.left: [1, 2],
-            model_1.right: [1],
-            model_2.right: [1, 2],
-            model_3.input: [1, 2, 2],
+            model_1.left: [0, 0, 0, 0, 0, 0, 0, 0, 1, 2],
+            model_1.right: [0, 0, 0, 0, 1],
+            model_2.right: [0, 0, 0, 0, 0, 0, 0, 0, 1, 2],
+            model_3.input: [0, 0, 0, 0, 1, 2, 2],
             model_3.output: [1, 2],
         }
     )
@@ -779,10 +788,10 @@ def test_shape_constraint_counter_12():
     model += (model_4 := Transpose())
     ref_dict = make_reference_dict(
         {
-            model_1.left: [1, 2],
-            model_1.right: [1],
-            model_2.right: [1, 2],
-            model_3.input: [1, 2, 2],
+            model_1.left: [0, 0, 0, 0, 0, 0, 0, 0, 1, 2],
+            model_1.right: [0, 0, 0, 0, 1],
+            model_2.right: [0, 0, 0, 0, 0, 0, 0, 0, 1, 2],
+            model_3.input: [0, 0, 0, 0, 1, 2, 2],
             model_4.input: [1, 1, 2, 2],
             model_4.output: [1, 2],
         }
@@ -792,10 +801,10 @@ def test_shape_constraint_counter_12():
     model += (model_5 := Transpose())
     ref_dict = make_reference_dict(
         {
-            model_1.left: [1, 2],
-            model_1.right: [1],
-            model_2.right: [1, 2],
-            model_3.input: [1, 2, 2],
+            model_1.left: [0, 0, 0, 0, 0, 0, 0, 0, 1, 2],
+            model_1.right: [0, 0, 0, 0, 1],
+            model_2.right: [0, 0, 0, 0, 0, 0, 0, 0, 1, 2],
+            model_3.input: [0, 0, 0, 0, 1, 2, 2],
             model_4.input: [1, 1, 2, 2],
             model_5.input: [1, 1, 2, 2],
             model_5.output: [1, 2],
@@ -835,15 +844,15 @@ def test_shape_constraint_counter_13():
             slice_model.start: [],
             slice_model.stop: [],
             slice_model.step: [],
-            model_1.input: [1, 2],
-            model_1.index: [2],
-            model_2.left: [1, 1, 2],
-            model_2.right: [1],
-            model_3.left: [1, 1],
-            model_3.right: [1],
-            model_4.left: [1, 1],
-            model_4.right: [1],
-            model_4.output: [1],
+            model_1.input: [0, 0, 0, 1],
+            model_1.index: [0, 0, 0],
+            model_2.left: [0, 0, 0, 0, 0, 0, 0, 1, 1],
+            model_2.right: [0, 0, 0, 0, 1],
+            model_3.left: [0, 0, 0, 0, 0, 0, 0, 0, 1, 1],
+            model_3.right: [0, 0, 0, 0, 1],
+            model_4.left: [0, 0, 0, 0, 0, 0, 0, 0, 1, 1],
+            model_4.right: [0, 0, 0, 0, 1],
+            model_4.output: [0, 0, 0, 0, 1],
         }
     )
     assert_constr_counts(ref_dict)
@@ -854,15 +863,15 @@ def test_shape_constraint_counter_13():
             slice_model.start: [],
             slice_model.stop: [],
             slice_model.step: [],
-            model_1.input: [1, 2],
-            model_1.index: [2],
-            model_2.left: [1, 2, 2],
-            model_2.right: [2],
-            model_3.left: [2, 2],
-            model_3.right: [2],
-            model_4.left: [2, 2],
-            model_4.right: [2],
-            model_4.output: [2],
+            model_1.input: [0, 0, 0, 1],
+            model_1.index: [0, 0, 0],
+            model_2.left: [0, 0, 0, 0, 0, 0, 0, 1, 2],
+            model_2.right: [0, 0, 0, 0, 2],
+            model_3.left: [0, 0, 0, 0, 0, 0, 0, 0, 2, 2],
+            model_3.right: [0, 0, 0, 0, 2],
+            model_4.left: [0, 0, 0, 0, 0, 0, 0, 0, 2, 2],
+            model_4.right: [0, 0, 0, 0, 2],
+            model_4.output: [0, 0, 0, 0, 2],
         }
     )
     assert_constr_counts(ref_dict)
@@ -882,15 +891,15 @@ def test_shape_constraint_counter_14():
     model += model_4
     ref_dict = make_reference_dict(
         {
-            model_1.left: [1],
-            model_1.right: [1],
-            model_2.left: [1, 1],
-            model_2.right: [1],
-            model_3.left: [1, 1],
-            model_3.right: [1],
-            model_4.left: [1, 1],
-            model_4.right: [1],
-            model_4.output: [1],
+            model_1.left: [0, 0, 0, 0, 1],
+            model_1.right: [0, 0, 0, 0, 1],
+            model_2.left: [0, 0, 0, 0, 0, 0, 0, 0, 1, 1],
+            model_2.right: [0, 0, 0, 0, 1],
+            model_3.left: [0, 0, 0, 0, 0, 0, 0, 0, 1, 1],
+            model_3.right: [0, 0, 0, 0, 1],
+            model_4.left: [0, 0, 0, 0, 0, 0, 0, 0, 1, 1],
+            model_4.right: [0, 0, 0, 0, 1],
+            model_4.output: [0, 0, 0, 0, 1],
         }
     )
     assert_constr_counts(ref_dict)
@@ -898,15 +907,15 @@ def test_shape_constraint_counter_14():
     model_1.set_shapes({"right": [4, 4]})
     ref_dict = make_reference_dict(
         {
-            model_1.left: [2],
-            model_1.right: [2],
-            model_2.left: [2, 2],
-            model_2.right: [2],
-            model_3.left: [2, 2],
-            model_3.right: [2],
-            model_4.left: [2, 2],
-            model_4.right: [2],
-            model_4.output: [2],
+            model_1.left: [0, 0, 0, 0, 2],
+            model_1.right: [0, 0, 0, 0, 2],
+            model_2.left: [0, 0, 0, 0, 0, 0, 0, 0, 2, 2],
+            model_2.right: [0, 0, 0, 0, 2],
+            model_3.left: [0, 0, 0, 0, 0, 0, 0, 0, 2, 2],
+            model_3.right: [0, 0, 0, 0, 2],
+            model_4.left: [0, 0, 0, 0, 0, 0, 0, 0, 2, 2],
+            model_4.right: [0, 0, 0, 0, 2],
+            model_4.output: [0, 0, 0, 0, 2],
         }
     )
     assert_constr_counts(ref_dict)
@@ -916,13 +925,13 @@ def test_shape_constraint_counter_14():
         {
             model_1.left: [1],
             model_1.right: [1],
-            model_2.left: [1, 2],
-            model_2.right: [2],
-            model_3.left: [2, 2],
-            model_3.right: [2],
-            model_4.left: [2, 2],
-            model_4.right: [2],
-            model_4.output: [2],
+            model_2.left: [0, 0, 0, 0, 1, 2],
+            model_2.right: [0, 0, 0, 0, 2],
+            model_3.left: [0, 0, 0, 0, 0, 0, 0, 0, 2, 2],
+            model_3.right: [0, 0, 0, 0, 2],
+            model_4.left: [0, 0, 0, 0, 0, 0, 0, 0, 2, 2],
+            model_4.right: [0, 0, 0, 0, 2],
+            model_4.output: [0, 0, 0, 0, 2],
         }
     )
     assert_constr_counts(ref_dict)
@@ -934,11 +943,11 @@ def test_shape_constraint_counter_14():
             model_1.right: [1],
             model_2.left: [1, 1],
             model_2.right: [1],
-            model_3.left: [1, 2],
-            model_3.right: [2],
-            model_4.left: [2, 2],
-            model_4.right: [2],
-            model_4.output: [2],
+            model_3.left: [0, 0, 0, 0, 1, 2],
+            model_3.right: [0, 0, 0, 0, 2],
+            model_4.left: [0, 0, 0, 0, 0, 0, 0, 0, 2, 2],
+            model_4.right: [0, 0, 0, 0, 2],
+            model_4.output: [0, 0, 0, 0, 2],
         }
     )
     assert_constr_counts(ref_dict)
@@ -1047,11 +1056,11 @@ def test_shape_constraint_counter_16():
     model += model_2
     ref_dict = make_reference_dict(
         {
-            model_1.left: [1, 1],
-            model_1.right: [1, 1],
-            model_2.left: [1, 1, 1, 2],
-            model_2.right: [1, 2],
-            model_2.output: [1, 2],
+            model_1.left: [0, 1, 1],
+            model_1.right: [0, 1, 1],
+            model_2.left: [0, 0, 1, 1, 1, 2],
+            model_2.right: [0, 1, 2],
+            model_2.output: [0, 1, 2],
         }
     )
     assert_constr_counts(ref_dict)
@@ -1059,11 +1068,11 @@ def test_shape_constraint_counter_16():
     model_1.set_shapes({"right": [1] * 100})
     ref_dict = make_reference_dict(
         {
-            model_1.left: [1, 2],
-            model_1.right: [1, 2],
-            model_2.left: [1, 1, 2, 3],
-            model_2.right: [1, 3],
-            model_2.output: [1, 3],
+            model_1.left: [0, 1, 2],
+            model_1.right: [0, 1, 2],
+            model_2.left: [0, 0, 1, 1, 2, 3],
+            model_2.right: [0, 1, 3],
+            model_2.output: [0, 1, 3],
         }
     )
     assert_constr_counts(ref_dict)
@@ -1073,9 +1082,9 @@ def test_shape_constraint_counter_16():
         {
             model_1.left: [1],
             model_1.right: [1],
-            model_2.left: [1, 1, 4],
-            model_2.right: [1, 4],
-            model_2.output: [1, 4],
+            model_2.left: [0, 1, 1, 4],
+            model_2.right: [0, 1, 4],
+            model_2.output: [0, 1, 4],
         }
     )
     assert_constr_counts(ref_dict)

@@ -663,7 +663,7 @@ def test_iokey_values_12():
     model += sig_model_2(
         input=IOKey(shape=[1, 2, 3, 4], name="input"), output=IOKey(name="output2")
     )
-    assert sig_model_1.input.data.metadata.edge_type is Tensor
+    assert sig_model_1.input.metadata.is_tensor
     assert sig_model_1.input.data.metadata.shape is not None
     assert sig_model_1.input.data.metadata.shape.get_shapes() == [1, 2, 3, 4]
 
@@ -820,8 +820,6 @@ def test_iokey_scalar_output_all_args():
             continue
 
         try:
-            if name is None and expose:
-                ...
             # try to extend the model
             model += sub_model(input="input", output=output)
         except Exception as e:
@@ -842,7 +840,11 @@ def test_iokey_scalar_output_all_args():
                 # Since providing shape within IOKey means it is Tensor type,
                 # it is an expected type error.
                 assert isinstance(e, TypeError)
-                assert e.args[0] == "Can not set Tensor type to a Scalar edge."
+                assert (
+                    e.args[0] == "Acceptable types are tuple[int, ...], but "
+                    "mithril.framework.common.Tensor[int | float | bool] type "
+                    "is provided!"
+                )
 
             else:
                 # it is an unexpected error. Raise given exception in that case
@@ -935,7 +937,12 @@ def test_iokey_scalar_input_all_args():
                 # Since providing shape within IOKey means it is Tensor type,
                 # it is an expected type error.
                 assert isinstance(e, TypeError)
-                assert e.args[0] == "Can not set Tensor type to a Scalar edge."
+                assert (
+                    e.args[0]
+                    == "Acceptable types are None | int | list[int] | tuple[int, ...], "
+                    "but mithril.framework.common.Tensor[int | float | bool] type "
+                    "is provided!"
+                )
 
             else:
                 # it is an unexpected error. Raise given exception in that case
@@ -1182,7 +1189,12 @@ def test_iokey_shape_error_1():
 
     with pytest.raises(TypeError) as err_info:
         model += mean_model(axis=IOKey(name="axis", shape=[2, 3]))
-    assert str(err_info.value) == "Can not set Tensor type to a Scalar edge."
+    assert (
+        str(err_info.value)
+        == "Acceptable types are None | int | list[int] | tuple[int, ...], but "
+        "mithril.framework.common.Tensor[int | float | bool] type "
+        "is provided!"
+    )
 
 
 def test_error_1():

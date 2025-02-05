@@ -189,7 +189,7 @@ class MyAdder(UserPrimitiveModel):
             left=BaseKey(shape=[("Var_1", ...)], type=Tensor),
             right=BaseKey(shape=[("Var_2", ...)], type=Tensor),
         )
-        self.set_constraint(fn=bcast, keys=[PrimitiveModel.output_key, "left", "right"])
+        self.add_constraint(fn=bcast, keys=[PrimitiveModel.output_key, "left", "right"])
 
     def __call__(self, left, right, output):  # type: ignore[override]
         kwargs = {"left": left, "right": right, "output": output}

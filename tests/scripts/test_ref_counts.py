@@ -89,8 +89,8 @@ def test_deleted_variadic_ref_count_1() -> None:
     submodel1 = TestModel()
     submodel2 = TestModel()
 
-    assert submodel1.output.metadata.edge_type is Tensor
-    assert submodel2.output.metadata.edge_type is Tensor
+    assert submodel1.output.metadata.is_tensor
+    assert submodel2.output.metadata.is_tensor
     assert submodel1.output.metadata.shape is not None
     assert submodel2.input.metadata.shape is not None
     ref_var1 = next(iter(submodel1.output.metadata.shape.reprs)).root
@@ -121,8 +121,8 @@ def test_deleted_variadic_ref_count_2() -> None:
     buff_model1 = MyModel()
     buff_model2 = MyModel()
 
-    assert buff_model1.input.metadata.edge_type is Tensor
-    assert buff_model2.input.metadata.edge_type is Tensor
+    assert buff_model1.input.metadata.is_tensor
+    assert buff_model2.input.metadata.is_tensor
     assert buff_model1.input.metadata.shape is not None
     assert buff_model2.output.metadata.shape is not None
     ref_var1 = next(iter(buff_model1.input.metadata.shape.reprs)).root
@@ -1378,8 +1378,8 @@ def test_deleted_uniadic_ref_count_2() -> None:
     buff_model1 = MyModel()
     buff_model2 = MyModel()
 
-    assert buff_model1.output.metadata.edge_type is Tensor
-    assert buff_model2.input.metadata.edge_type is Tensor
+    assert buff_model1.output.metadata.is_tensor
+    assert buff_model2.input.metadata.is_tensor
     assert buff_model1.output.metadata.shape is not None
     assert buff_model2.input.metadata.shape is not None
     ref_var1 = next(iter(buff_model1.output.metadata.shape.reprs))[0]
@@ -1391,7 +1391,7 @@ def test_deleted_uniadic_ref_count_2() -> None:
     diff_roots = set()
 
     for tensor in get_all_data(model):
-        assert tensor.edge_type is Tensor
+        assert tensor.is_tensor
         node = tensor.shape
         assert node is not None
         for repr in node.reprs:
@@ -1419,8 +1419,8 @@ def test_deleted_uniadic_ref_count() -> None:
     submodel1 = MyModel()
     submodel2 = MyModel()
 
-    assert submodel1.output.metadata.edge_type is Tensor
-    assert submodel2.input.metadata.edge_type is Tensor
+    assert submodel1.output.metadata.is_tensor
+    assert submodel2.input.metadata.is_tensor
     assert submodel1.output.metadata.shape is not None
     assert submodel2.input.metadata.shape is not None
     ref_var1 = next(iter(submodel1.output.metadata.shape.reprs))[0]
@@ -1451,8 +1451,8 @@ def test_deleted_repr_ref_count() -> None:
     submodel1 = MyModel()
     submodel2 = MyModel()
 
-    assert submodel1.output.metadata.edge_type is Tensor
-    assert submodel2.input.metadata.edge_type is Tensor
+    assert submodel1.output.metadata.is_tensor
+    assert submodel2.input.metadata.is_tensor
     assert submodel1.output.metadata.shape is not None
     assert submodel2.input.metadata.shape is not None
     ref_var1 = next(iter(submodel1.output.metadata.shape.reprs))
@@ -1483,8 +1483,8 @@ def test_deleted_node_ref_count() -> None:
     submodel1 = MyModel()
     submodel2 = MyModel()
 
-    assert submodel1.output.metadata.edge_type is Tensor
-    assert submodel2.input.metadata.edge_type is Tensor
+    assert submodel1.output.metadata.is_tensor
+    assert submodel2.input.metadata.is_tensor
     ref_var1 = submodel1.output.metadata.shape
     ref_var2 = submodel2.input.metadata.shape
 

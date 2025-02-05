@@ -15,7 +15,6 @@
 from __future__ import annotations
 
 from types import NoneType
-from typing import Any
 
 from ..core import Constant, Dtype
 from ..framework.common import (
@@ -28,6 +27,7 @@ from ..framework.common import (
 from ..framework.constraints import (
     arange_constraints,
     bcast,
+    bcast_error_check,
     broadcast_to_constraints,
     concat_constraints,
     conv_1d_constraints,
@@ -152,8 +152,8 @@ class SupervisedLoss(UserPrimitiveModel):
         formula_key: str,
         polymorphic_constraint: bool = True,
         name: str | None = None,
-        input: Tensor[Any] | ToBeDetermined = TBD,
-        target: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        target: Tensor[int | float | bool] | ToBeDetermined = TBD,
         **kwargs: BaseKey,
     ) -> None:
         default_kwargs: dict[str, BaseKey] = {
@@ -166,11 +166,18 @@ class SupervisedLoss(UserPrimitiveModel):
         super().__init__(formula_key=formula_key, name=name, **kwargs)
 
         # Set constraints.
-        self._set_constraint(
+        bcast_constraint = self._add_constraint(
             fn=bcast, keys=[PrimitiveModel.output_key, "input", "target"]
         )
+
+        self._add_constraint(
+            fn=bcast_error_check,
+            keys=[PrimitiveModel.output_key, "input", "target"],
+            dependencies={bcast_constraint},
+        )
+
         if polymorphic_constraint:
-            self._set_constraint(
+            self._add_constraint(
                 fn=general_tensor_type_constraint,
                 keys=[PrimitiveModel.output_key, "input", "target"],
             )
@@ -193,8 +200,8 @@ class SupervisedLoss(UserPrimitiveModel):
 class SquaredError(SupervisedLoss):
     def __init__(
         self,
-        input: Tensor[Any] | ToBeDetermined = TBD,
-        target: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        target: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -206,8 +213,8 @@ class SquaredError(SupervisedLoss):
 class AbsoluteError(SupervisedLoss):
     def __init__(
         self,
-        input: Tensor[Any] | ToBeDetermined = TBD,
-        target: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        target: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -219,8 +226,8 @@ class AbsoluteError(SupervisedLoss):
 class HingeLoss(SupervisedLoss):
     def __init__(
         self,
-        input: Tensor[Any] | ToBeDetermined = TBD,
-        target: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        target: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -237,8 +244,8 @@ class HingeLoss(SupervisedLoss):
 class QuadHingeLoss(SupervisedLoss):
     def __init__(
         self,
-        input: Tensor[Any] | ToBeDetermined = TBD,
-        target: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        target: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -265,8 +272,8 @@ class QuantileLoss(UserPrimitiveModel):
     def __init__(
         self,
         quantile: int | float | ToBeDetermined = TBD,
-        input: Tensor[Any] | ToBeDetermined = TBD,
-        target: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        target: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -279,10 +286,17 @@ class QuantileLoss(UserPrimitiveModel):
             quantile=BaseKey(shape=[], type=Tensor[int | float], value=quantile),
         )
 
-        self._set_constraint(
+        bcast_constraint = self._add_constraint(
             fn=bcast, keys=[PrimitiveModel.output_key, "input", "target"]
         )
-        self._set_constraint(
+
+        self._add_constraint(
+            fn=bcast_error_check,
+            keys=[PrimitiveModel.output_key, "input", "target"],
+            dependencies={bcast_constraint},
+        )
+
+        self._add_constraint(
             fn=general_tensor_type_constraint,
             keys=[PrimitiveModel.output_key, "input", "target", "quantile"],
         )
@@ -325,8 +339,8 @@ class CrossEntropy(UserPrimitiveModel):
         self,
         input_type: str = "logits",
         weights: list[float] | str = "",
-        input: Tensor[Any] | ToBeDetermined = TBD,
-        target: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        target: Tensor[int | float | bool] | ToBeDetermined = TBD,
         robust: bool | ToBeDetermined = TBD,
         cutoff: ConstantType | ToBeDetermined = TBD,
         *,
@@ -373,7 +387,7 @@ class CrossEntropy(UserPrimitiveModel):
 
         super().__init__(formula_key=formula_key, name=name, **kwargs)
 
-        self._set_constraint(
+        self._add_constraint(
             fn=cross_entropy_constraint, keys=["categorical", "input", "target"]
         )
 
@@ -427,8 +441,8 @@ class KLDivergence(UserPrimitiveModel):
 
     def __init__(
         self,
-        input: Tensor[Any] | ToBeDetermined = TBD,
-        target: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        target: Tensor[int | float | bool] | ToBeDetermined = TBD,
         cutoff: ConstantType | ToBeDetermined = TBD,
         name: str | None = None,
     ) -> None:
@@ -446,8 +460,14 @@ class KLDivergence(UserPrimitiveModel):
             "input": ["N", ("Var", ...)],
             "target": ["N", ("Var", ...)],
         }
-        self._set_constraint(
+        bcast_constraint = self._add_constraint(
             fn=bcast, keys=[PrimitiveModel.output_key, "input", "target"]
+        )
+
+        self._add_constraint(
+            fn=bcast_error_check,
+            keys=[PrimitiveModel.output_key, "input", "target"],
+            dependencies={bcast_constraint},
         )
 
     def __call__(  # type: ignore[override]
@@ -482,9 +502,9 @@ class BinaryCrossEntropy(UserPrimitiveModel):
         self,
         input_type: str = "logits",
         pos_weight: float | str | ToBeDetermined = 1.0,
-        input: Tensor[Any] | ToBeDetermined = TBD,
-        target: Tensor[Any] | ToBeDetermined = TBD,
-        cutoff: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        target: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        cutoff: Tensor[int | float | bool] | ToBeDetermined = TBD,
         robust: bool | ToBeDetermined = TBD,
         *,
         name: str | None = None,
@@ -526,8 +546,14 @@ class BinaryCrossEntropy(UserPrimitiveModel):
 
         super().__init__(formula_key=formula_key, name=name, **kwargs)
 
-        self._set_constraint(
+        bcast_constraint = self._add_constraint(
             fn=bcast, keys=[PrimitiveModel.output_key, "input", "target"]
+        )
+
+        self._add_constraint(
+            fn=bcast_error_check,
+            keys=[PrimitiveModel.output_key, "input", "target"],
+            dependencies={bcast_constraint},
         )
 
     def __call__(  # type: ignore[override]
@@ -556,9 +582,9 @@ class Log(UserPrimitiveModel):
     def __init__(
         self,
         robust: bool = False,
-        input: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
-        cutoff: Tensor[Any] | ToBeDetermined = TBD,
+        cutoff: Tensor[int | float | bool] | ToBeDetermined = TBD,
         name: str | None = None,
     ) -> None:
         self.robust = robust
@@ -611,7 +637,7 @@ class StableReciprocal(UserPrimitiveModel):
 
     def __init__(
         self,
-        input: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         cutoff: Tensor[int | float] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
@@ -645,7 +671,10 @@ class Sign(UserPrimitiveModel):
     output: Connection
 
     def __init__(
-        self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
+        self,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="sign",
@@ -665,7 +694,10 @@ class Square(UserPrimitiveModel):
     output: Connection
 
     def __init__(
-        self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
+        self,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="square",
@@ -689,7 +721,7 @@ class Activation(UserPrimitiveModel):
         self,
         formula_key: str,
         polymorphic_constraint: bool = False,
-        input: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
         **kwargs: BaseKey,
@@ -707,7 +739,7 @@ class Activation(UserPrimitiveModel):
         super().__init__(name=name, formula_key=formula_key, **kwargs)
 
         if polymorphic_constraint:
-            self._set_constraint(
+            self._add_constraint(
                 fn=general_tensor_type_constraint,
                 keys=[PrimitiveModel.output_key, "input"],
             )
@@ -720,7 +752,10 @@ class Activation(UserPrimitiveModel):
 
 class Relu(Activation):
     def __init__(
-        self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
+        self,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="relu",
@@ -735,7 +770,7 @@ class Gelu(Activation):
     def __init__(
         self,
         approximate: bool = False,
-        input: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -757,7 +792,10 @@ class Gelu(Activation):
 
 class Sigmoid(Activation):
     def __init__(
-        self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
+        self,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(formula_key="sigmoid", name=name, input=input)
 
@@ -765,7 +803,7 @@ class Sigmoid(Activation):
 class Softmax(Activation):
     def __init__(
         self,
-        input: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         axis: int | None | ToBeDetermined = TBD,
         *,
         name: str | None = None,
@@ -784,14 +822,20 @@ class Softmax(Activation):
 
 class Softplus(Activation):
     def __init__(
-        self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
+        self,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(formula_key="softplus", name=name, input=input)
 
 
 class Tanh(Activation):
     def __init__(
-        self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
+        self,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(formula_key="tanh", name=name, input=input)
 
@@ -803,8 +847,8 @@ class LeakyRelu(Activation):
 
     def __init__(
         self,
-        slope: Tensor[Any] | int | float | ToBeDetermined = TBD,
-        input: Tensor[Any] | ToBeDetermined = TBD,
+        slope: Tensor[int | float | bool] | int | float | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -829,7 +873,10 @@ class StopGradient(UserPrimitiveModel):
     output: Connection
 
     def __init__(
-        self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
+        self,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         # super().__init__(formula_key="stop_gradient", name=name)
         super().__init__(
@@ -852,8 +899,8 @@ class CartesianDifference(UserPrimitiveModel):
 
     def __init__(
         self,
-        left: Tensor[Any] | ToBeDetermined = TBD,
-        right: Tensor[Any] | ToBeDetermined = TBD,
+        left: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -865,8 +912,7 @@ class CartesianDifference(UserPrimitiveModel):
             left=BaseKey(shape=["N", "dim"], type=Tensor, value=left),
             right=BaseKey(shape=["M", "dim"], type=Tensor, value=right),
         )
-
-        self._set_constraint(
+        self._add_constraint(
             fn=general_tensor_type_constraint,
             keys=[PrimitiveModel.output_key, "left", "right"],
         )
@@ -890,7 +936,7 @@ class Concat(UserPrimitiveModel):
         axis: int | None | ToBeDetermined = 0,
         *,
         name: str | None = None,
-        **kwargs: Tensor[Any] | ToBeDetermined,
+        **kwargs: Tensor[int | float | bool] | ToBeDetermined,
     ) -> None:
         self.factory_args = {"n": n, "axis": axis}
 
@@ -908,10 +954,10 @@ class Concat(UserPrimitiveModel):
         super().__init__(formula_key="concat", name=name, **key_definitions)
 
         input_keys = [key for key in self.input_keys if key != "axis"]
-        self._set_constraint(
+        self._add_constraint(
             fn=concat_constraints, keys=["output"] + ["axis"] + input_keys
         )
-        self._set_constraint(
+        self._add_constraint(
             fn=general_tensor_type_constraint,
             keys=[PrimitiveModel.output_key] + input_keys,
         )
@@ -951,8 +997,8 @@ class PermuteTensor(UserPrimitiveModel):
 
     def __init__(
         self,
-        indices: Tensor[Any] | ToBeDetermined = TBD,
-        input: Tensor[Any] | ToBeDetermined = TBD,
+        indices: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -964,7 +1010,7 @@ class PermuteTensor(UserPrimitiveModel):
             indices=BaseKey(shape=["N"], type=Tensor, value=indices),
         )
 
-        self._set_constraint(
+        self._add_constraint(
             fn=general_tensor_type_constraint, keys=[PrimitiveModel.output_key, "input"]
         )
         self.indices.set_differentiable(False)
@@ -990,13 +1036,13 @@ class PrimitiveConvolution1D(UserPrimitiveModel):
     def __init__(
         self,
         use_bias: bool = True,
-        input: Tensor[Any] | ToBeDetermined = TBD,
-        weight: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        weight: Tensor[int | float | bool] | ToBeDetermined = TBD,
         stride: int | ToBeDetermined = TBD,
         padding: int | tuple[int, int] | ToBeDetermined = TBD,
         dilation: int | ToBeDetermined = TBD,
         *,
-        bias: Tensor[Any] | ToBeDetermined = TBD,
+        bias: Tensor[int | float | bool] | ToBeDetermined = TBD,
         name: str | None = None,
     ) -> None:
         self.factory_args = {"use_bias": use_bias}
@@ -1021,7 +1067,7 @@ class PrimitiveConvolution1D(UserPrimitiveModel):
 
         super().__init__(formula_key=formula_key, name=name, **kwargs)
 
-        self._set_constraint(
+        self._add_constraint(
             fn=conv_1d_constraints,
             keys=["output", "input", "stride", "padding", "dilation", "weight"],
         )
@@ -1030,7 +1076,7 @@ class PrimitiveConvolution1D(UserPrimitiveModel):
         if use_bias:
             constraint_keys.append("bias")
 
-        self._set_constraint(
+        self._add_constraint(
             fn=general_tensor_type_constraint,
             keys=[PrimitiveModel.output_key] + constraint_keys,
         )
@@ -1076,8 +1122,8 @@ class PrimitiveConvolution2D(UserPrimitiveModel):
     def __init__(
         self,
         use_bias: bool = True,
-        input: Tensor[Any] | ToBeDetermined = TBD,
-        weight: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        weight: Tensor[int | float | bool] | ToBeDetermined = TBD,
         stride: int | tuple[int, int] | ToBeDetermined = TBD,
         padding: int
         | tuple[int, int]
@@ -1085,7 +1131,7 @@ class PrimitiveConvolution2D(UserPrimitiveModel):
         | ToBeDetermined = TBD,
         dilation: int | tuple[int, int] | ToBeDetermined = TBD,
         *,
-        bias: Tensor[Any] | ToBeDetermined = TBD,
+        bias: Tensor[int | float | bool] | ToBeDetermined = TBD,
         name: str | None = None,
     ) -> None:
         self.factory_args = {"use_bias": use_bias}
@@ -1115,7 +1161,7 @@ class PrimitiveConvolution2D(UserPrimitiveModel):
 
         super().__init__(formula_key=formula_key, name=name, **kwargs)
 
-        self._set_constraint(
+        self._add_constraint(
             fn=conv_2d_constraints,
             keys=["output", "input", "stride", "padding", "dilation", "weight"],
         )
@@ -1123,7 +1169,7 @@ class PrimitiveConvolution2D(UserPrimitiveModel):
         constraint_keys = ["input", "weight"]
         if use_bias:
             constraint_keys.append("bias")
-        self._set_constraint(
+        self._add_constraint(
             fn=general_tensor_type_constraint,
             keys=[PrimitiveModel.output_key] + constraint_keys,
         )
@@ -1168,7 +1214,7 @@ class Flatten(UserPrimitiveModel):
         self,
         start_dim: int | ToBeDetermined = 0,
         end_dim: int | ToBeDetermined = -1,
-        input: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -1182,11 +1228,11 @@ class Flatten(UserPrimitiveModel):
         }
         super().__init__(formula_key="flatten", name=name, **key_definitions)
 
-        self._set_constraint(
+        self._add_constraint(
             fn=flatten_constrains,
             keys=[PrimitiveModel.output_key, "input", "start_dim", "end_dim"],
         )
-        self._set_constraint(
+        self._add_constraint(
             fn=general_tensor_type_constraint, keys=[PrimitiveModel.output_key, "input"]
         )
 
@@ -1212,7 +1258,7 @@ class PrimitiveMaxPool1D(UserPrimitiveModel):
 
     def __init__(
         self,
-        input: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         kernel_size: int | ToBeDetermined = TBD,
         stride: int | ToBeDetermined = TBD,
         padding: int | tuple[int, int] | ToBeDetermined = TBD,
@@ -1230,12 +1276,12 @@ class PrimitiveMaxPool1D(UserPrimitiveModel):
             padding=BaseKey(type=tuple[int, int], value=padding),
             dilation=BaseKey(type=int, value=dilation),
         )
-        self._set_constraint(
+        self._add_constraint(
             fn=sliding_window_1d_constraints,
             keys=["output", "input", "stride", "padding", "dilation", "kernel_size"],
         )
         # TODO: Torch does not accept any int type inputs but JAX implementation does.
-        self._set_constraint(
+        self._add_constraint(
             fn=general_tensor_type_constraint, keys=[PrimitiveModel.output_key, "input"]
         )
 
@@ -1278,7 +1324,7 @@ class PaddingConverter1D(UserPrimitiveModel):
             kernel_size=BaseKey(type=int, value=kernel_size),
         )
 
-        self._set_constraint(
+        self._add_constraint(
             fn=padding_1d_constraint,
             keys=[PrimitiveModel.output_key, "input", "kernel_size"],
         )
@@ -1324,7 +1370,7 @@ class PaddingConverter2D(UserPrimitiveModel):
             kernel_size=BaseKey(type=tuple[int, int], value=kernel_size),
         )
 
-        self._set_constraint(
+        self._add_constraint(
             fn=padding_2d_constraint,
             keys=[PrimitiveModel.output_key, "input", "kernel_size"],
         )
@@ -1357,7 +1403,7 @@ class StrideConverter(UserPrimitiveModel):
             input=BaseKey(type=int | PaddingType | tuple[int, int] | None, value=input),
             kernel_size=BaseKey(type=int | tuple[int, int], value=kernel_size),
         )
-        self._set_constraint(
+        self._add_constraint(
             fn=stride_constraint,
             keys=[PrimitiveModel.output_key, "input", "kernel_size"],
         )
@@ -1400,7 +1446,7 @@ class TupleConverter(UserPrimitiveModel):
                 value=input,
             ),
         )
-        self._set_constraint(
+        self._add_constraint(
             fn=tuple_converter_constraint, keys=[PrimitiveModel.output_key, "input"]
         )
 
@@ -1420,7 +1466,7 @@ class PrimitiveMaxPool2D(UserPrimitiveModel):
 
     def __init__(
         self,
-        input: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         kernel_size: int | tuple[int, int] | ToBeDetermined = TBD,
         stride: int | tuple[int, int] | ToBeDetermined = TBD,
         padding: int
@@ -1449,11 +1495,11 @@ class PrimitiveMaxPool2D(UserPrimitiveModel):
             dilation=BaseKey(type=tuple[int, int], value=dilation),
         )
 
-        self._set_constraint(
+        self._add_constraint(
             fn=sliding_window_2d_constraints,
             keys=["output", "input", "stride", "padding", "dilation", "kernel_size"],
         )
-        self._set_constraint(
+        self._add_constraint(
             fn=general_tensor_type_constraint, keys=[PrimitiveModel.output_key, "input"]
         )
 
@@ -1499,7 +1545,10 @@ class NormModifier(UserPrimitiveModel):
     output: Connection
 
     def __init__(
-        self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
+        self,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="norm_modifier",
@@ -1508,7 +1557,7 @@ class NormModifier(UserPrimitiveModel):
             input=BaseKey(shape=[], type=Tensor, value=input),
         )
 
-        self._set_constraint(
+        self._add_constraint(
             fn=general_tensor_type_constraint, keys=[PrimitiveModel.output_key, "input"]
         )
 
@@ -1527,8 +1576,8 @@ class DistanceMatrix(UserPrimitiveModel):
     # TODO: torch.cdist handles batches of matrices, for now we don't.
     def __init__(
         self,
-        left: Tensor[Any] | ToBeDetermined = TBD,
-        right: Tensor[Any] | ToBeDetermined = TBD,
+        left: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -1541,7 +1590,7 @@ class DistanceMatrix(UserPrimitiveModel):
             norm=BaseKey(shape=[], type=Tensor),
         )
 
-        self._set_constraint(
+        self._add_constraint(
             fn=general_tensor_type_constraint,
             keys=[PrimitiveModel.output_key, "left", "right", "norm"],
         )
@@ -1564,7 +1613,7 @@ class PolynomialFeatures(UserPrimitiveModel):
     def __init__(
         self,
         degree: int | ToBeDetermined = TBD,
-        input: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -1576,10 +1625,10 @@ class PolynomialFeatures(UserPrimitiveModel):
             degree=BaseKey(type=int, value=degree),
         )
 
-        self._set_constraint(
+        self._add_constraint(
             fn=polynomial_features_constraints, keys=["output", "input", "degree"]
         )
-        self._set_constraint(
+        self._add_constraint(
             fn=general_tensor_type_constraint, keys=[PrimitiveModel.output_key, "input"]
         )
 
@@ -1602,9 +1651,9 @@ class TsnePJoint(UserPrimitiveModel):
 
     def __init__(
         self,
-        squared_distances: Tensor[Any] | ToBeDetermined = TBD,
+        squared_distances: Tensor[int | float | bool] | ToBeDetermined = TBD,
         target_perplexity: float | ToBeDetermined = TBD,
-        threshold: Tensor[Any] | ToBeDetermined = TBD,
+        threshold: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -1658,7 +1707,7 @@ class EyeComplement(UserPrimitiveModel):
             M=BaseKey(type=int | None, value=M),
             dtype=BaseKey(type=Dtype | None, value=dtype),
         )
-        self._set_constraint(fn=eye_constraints, keys=["output", "N", "M"])
+        self._add_constraint(fn=eye_constraints, keys=["output", "N", "M"])
 
     def __call__(  # type: ignore[override]
         self,
@@ -1692,7 +1741,7 @@ class Eye(UserPrimitiveModel):
             M=BaseKey(type=int | None, value=M),
             dtype=BaseKey(type=Dtype | None, value=dtype),
         )
-        self._set_constraint(fn=eye_constraints, keys=["output", "N", "M"])
+        self._add_constraint(fn=eye_constraints, keys=["output", "N", "M"])
 
     def __call__(  # type: ignore[override]
         self,
@@ -1709,7 +1758,10 @@ class Cholesky(UserPrimitiveModel):
     output: Connection
 
     def __init__(
-        self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
+        self,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="cholesky",
@@ -1732,9 +1784,9 @@ class GPRAlpha(UserPrimitiveModel):
 
     def __init__(
         self,
-        label_mu_diff: Tensor[Any] | ToBeDetermined = TBD,
-        L: Tensor[Any] | ToBeDetermined = TBD,
-        K_term: Tensor[Any] | ToBeDetermined = TBD,
+        label_mu_diff: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        L: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        K_term: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -1767,9 +1819,9 @@ class GPRVOuter(UserPrimitiveModel):
 
     def __init__(
         self,
-        K: Tensor[Any] | ToBeDetermined = TBD,
-        K_term: Tensor[Any] | ToBeDetermined = TBD,
-        L: Tensor[Any] | ToBeDetermined = TBD,
+        K: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        K_term: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        L: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -1797,7 +1849,10 @@ class TransposedDiagonal(UserPrimitiveModel):
     output: Connection
 
     def __init__(
-        self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
+        self,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="transposed_diag",
@@ -1806,7 +1861,7 @@ class TransposedDiagonal(UserPrimitiveModel):
             input=BaseKey(shape=["N", "N"], type=Tensor, value=input),
         )
 
-        self._set_constraint(
+        self._add_constraint(
             fn=general_tensor_type_constraint, keys=[PrimitiveModel.output_key, "input"]
         )
 
@@ -1862,10 +1917,10 @@ class Arange(UserPrimitiveModel):
         self.set_cin("stop", safe=False)
 
         if not all_defined:
-            self._set_constraint(
+            self._add_constraint(
                 fn=arange_constraints, keys=["output", "start", "stop", "step"]
             )
-        self._set_constraint(
+        self._add_constraint(
             fn=general_tensor_type_constraint,
             keys=[PrimitiveModel.output_key, "start", "stop", "step"],
         )
@@ -1905,10 +1960,11 @@ class Randn(UserPrimitiveModel):
             key=BaseKey(type=int, value=key),
             dtype=BaseKey(type=Dtype | None, value=dtype),
         )
+
         op_model = next(iter(self.dag))
         assert isinstance(op_model, PrimitiveModel)
         op_model.random_keys.add("key")  # since random_keys must be in primitive models
-        self.set_constraint(randn_constraints, keys=["output", "shape"])
+        self.add_constraint(randn_constraints, keys=["output", "shape"])
 
     def __call__(  # type: ignore[override]
         self,
@@ -1928,7 +1984,7 @@ class BroadcastTo(UserPrimitiveModel):
     def __init__(
         self,
         shape: tuple[int, ...] | ToBeDetermined = TBD,
-        input: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -1940,10 +1996,10 @@ class BroadcastTo(UserPrimitiveModel):
             shape=BaseKey(type=tuple[int, ...], value=shape),
         )
 
-        self.set_constraint(
+        self.add_constraint(
             fn=broadcast_to_constraints, keys=["output", "shape", "input"]
         )
-        self._set_constraint(
+        self._add_constraint(
             fn=general_tensor_type_constraint, keys=[PrimitiveModel.output_key, "input"]
         )
 
@@ -1964,8 +2020,8 @@ class Eigvalsh(UserPrimitiveModel):
 
     def __init__(
         self,
-        K_term: Tensor[Any] | ToBeDetermined = TBD,
-        L: Tensor[Any] | ToBeDetermined = TBD,
+        K_term: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        L: Tensor[int | float | bool] | ToBeDetermined = TBD,
         threshold: ConstantType | ToBeDetermined = TBD,
         *,
         name: str | None = None,
@@ -1994,7 +2050,10 @@ class Squeeze(UserPrimitiveModel):
     output: Connection
 
     def __init__(
-        self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
+        self,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="squeeze",
@@ -2003,8 +2062,8 @@ class Squeeze(UserPrimitiveModel):
             input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
         )
 
-        self._set_constraint(fn=squeeze_constraints, keys=["output", "input"])
-        self._set_constraint(
+        self._add_constraint(fn=squeeze_constraints, keys=["output", "input"])
+        self._add_constraint(
             fn=general_tensor_type_constraint, keys=[PrimitiveModel.output_key, "input"]
         )
 
@@ -2021,8 +2080,8 @@ class AUCCore(UserPrimitiveModel):
 
     def __init__(
         self,
-        input: Tensor[Any] | ToBeDetermined = TBD,
-        label: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        label: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -2052,8 +2111,8 @@ class Embedding(UserPrimitiveModel):
         self,
         num_embeddings: int | None = None,
         dim: int | None = None,
-        input: Tensor[Any] | ToBeDetermined = TBD,
-        weight: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        weight: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -2067,7 +2126,7 @@ class Embedding(UserPrimitiveModel):
             weight=BaseKey(shape=[num_embeddings, out_dim], type=Tensor, value=weight),
         )
 
-        self._set_constraint(
+        self._add_constraint(
             fn=general_tensor_type_constraint,
             keys=[PrimitiveModel.output_key, "weight"],
         )
@@ -2097,10 +2156,10 @@ class ScaledDotProduct(UserPrimitiveModel):
         scale: None | int | float | ToBeDetermined = None,
         dropout_p: float | ToBeDetermined = 0.0,
         use_attn_mask: bool = False,
-        query: Tensor[Any] | ToBeDetermined = TBD,
-        key: Tensor[Any] | ToBeDetermined = TBD,
-        value: Tensor[Any] | ToBeDetermined = TBD,
-        attn_mask: Tensor[Any] | ToBeDetermined = TBD,
+        query: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        key: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        value: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        attn_mask: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -2177,7 +2236,7 @@ class PositionalEncoding(UserPrimitiveModel):
         self,
         hidden_dim: int | ToBeDetermined,
         max_len: int | ToBeDetermined = 5000,
-        input: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -2214,7 +2273,7 @@ class SwapAxes(UserPrimitiveModel):
         self,
         axis1: int | ToBeDetermined,
         axis2: int | ToBeDetermined,
-        input: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -2229,10 +2288,10 @@ class SwapAxes(UserPrimitiveModel):
             axis2=BaseKey(type=int, value=axis2),
         )
 
-        self._set_constraint(
+        self._add_constraint(
             fn=swap_axes_constraints, keys=["output", "input", "axis1", "axis2"]
         )
-        self._set_constraint(
+        self._add_constraint(
             fn=general_tensor_type_constraint, keys=[PrimitiveModel.output_key, "input"]
         )
 
@@ -2254,9 +2313,9 @@ class Where(UserPrimitiveModel):
 
     def __init__(
         self,
-        cond: Tensor[Any] | ToBeDetermined = TBD,
-        input1: Tensor[Any] | ToBeDetermined = TBD,
-        input2: Tensor[Any] | ToBeDetermined = TBD,
+        cond: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        input1: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        input2: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -2269,10 +2328,10 @@ class Where(UserPrimitiveModel):
             input2=BaseKey(shape=[("Var2", ...)], type=Tensor, value=input2),
         )
 
-        self._set_constraint(
+        self._add_constraint(
             fn=where_constrains, keys=["output", "cond", "input1", "input2"]
         )
-        self._set_constraint(
+        self._add_constraint(
             fn=general_tensor_type_constraint,
             keys=[PrimitiveModel.output_key, "input1", "input2"],
         )
@@ -2292,7 +2351,10 @@ class IsNan(UserPrimitiveModel):
     output: Connection
 
     def __init__(
-        self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
+        self,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="isnan",
@@ -2312,7 +2374,10 @@ class Unique(UserPrimitiveModel):
     output: Connection
 
     def __init__(
-        self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
+        self,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="unique",
@@ -2334,8 +2399,8 @@ class Trapezoid(UserPrimitiveModel):
 
     def __init__(
         self,
-        x: Tensor[Any] | ToBeDetermined = TBD,
-        y: Tensor[Any] | ToBeDetermined = TBD,
+        x: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        y: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -2368,7 +2433,7 @@ class NanToNum(UserPrimitiveModel):
         nan: float | ToBeDetermined = 0.0,
         posinf: float | None | ToBeDetermined = None,
         neginf: float | None | ToBeDetermined = None,
-        input: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -2403,7 +2468,7 @@ class Pad(UserPrimitiveModel):
     def __init__(
         self,
         pad_width: tuple[tuple[int, int], ...] | ToBeDetermined = TBD,
-        input: Tensor[Any] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -2415,7 +2480,7 @@ class Pad(UserPrimitiveModel):
             pad_width=BaseKey(type=tuple[tuple[int, int], ...], value=pad_width),
         )
 
-        self._set_constraint(
+        self._add_constraint(
             fn=pad_constraints, keys=[PrimitiveModel.output_key, "input", "pad_width"]
         )
 
@@ -2433,7 +2498,10 @@ class ZerosLike(UserPrimitiveModel):
     output: Connection
 
     def __init__(
-        self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
+        self,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="zeros_like",
