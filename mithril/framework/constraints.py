@@ -251,8 +251,8 @@ def general_tensor_type_constraint(*args: IOHyperEdge) -> ConstrainResultType:
             all_possible_types.add(typ)
 
     # Check existance of any possible unsupported types
-    if unsupported := (all_possible_types - {int, float, bool}):
-        raise TypeError(f"Possible Unsupported type(s) ({unsupported}) detected!")
+    if all_possible_types - {int, float, bool}:
+        return status, updates
 
     # assert isinstance(output._value, Tensor)
     # Try reverse type inference first.
@@ -3986,7 +3986,7 @@ def divide_type_constraint(
     if numerator.is_tensor or denominator.is_tensor:
         updates |= output.set_type(Tensor[float])
         status = True
-    elif ToBeDetermined not in (numerator.edge_type, denominator.edge_type):
+    else:
         updates |= output.set_type(float)
         status = True
     return status, updates

@@ -1245,10 +1245,16 @@ class RelationalOperators(PrimitiveModel):
             dependencies={edge_constraint},
         )
 
-        self._add_constraint(
+        bcast_constraint = self._add_constraint(
             bcast,
             ["output", "left", "right"],
             dependencies={edge_constraint},
+        )
+
+        self._add_constraint(
+            fn=bcast_error_check,
+            keys=[PrimitiveModel.output_key, "left", "right"],
+            dependencies={bcast_constraint},
         )
         self.edge_constraint = edge_constraint
 

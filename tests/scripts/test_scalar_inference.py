@@ -134,17 +134,19 @@ class TestScalarInference:
         assert pm.evaluate()["output"] == 75.0
 
     def test_model_with_set_value(self):
-        in1 = IOKey("in1")
-        in2 = IOKey("in2")
-        in3 = IOKey("in3")
-        in4 = IOKey("in4")
-        in5 = IOKey("in5")
+        for _ in range(50):
+            in1 = IOKey("in1")
+            in2 = IOKey("in2")
+            in3 = IOKey("in3")
+            in4 = IOKey("in4")
+            in5 = IOKey("in5")
 
-        out = ((in1**in2) / (in3 + in4)) * in5
-        model = Model()
-        model += Add()(out, 1, IOKey("output"))
-        assert isinstance(model, SupportsOutput)
-        assert model.output.metadata.value == TBD
-        model.set_values({"in1": 2, "in2": 6, "in3": 7, "in4": 1})
-        model.set_values({"in5": 3})
-        assert model.output.metadata.value == 25.0
+            out = (in1**in2) / (in3 + in4)
+            model = Model()
+            model += (mul := Multiply())(out, in5)
+            model += Add()(mul.output, 1, IOKey("output"))
+            assert isinstance(model, SupportsOutput)
+            assert model.output.metadata.value == TBD
+            model.set_values({"in1": 2, "in2": 6, "in3": 7, "in4": 1})
+            model.set_values({"in5": 3})
+            assert model.output.metadata.value == 25.0
