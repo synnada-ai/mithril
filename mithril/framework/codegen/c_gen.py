@@ -221,7 +221,6 @@ class CGen(CodeGen[PyArray]):
             inputs = [output_key] + inputs
 
             # Create primitive call
-            assert model.formula_key is not None
             p_call = self.create_primitive_call(model.formula_key, inputs)
             fn_body.append(p_call)
 
@@ -267,7 +266,6 @@ class CGen(CodeGen[PyArray]):
                 )
 
                 # Create primitive call
-                assert model.formula_key is not None
                 p_call = self.create_primitive_call(
                     model.formula_key + self.BACKWARD_FN_SUFFIX, fn_inputs
                 )

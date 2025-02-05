@@ -359,7 +359,6 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
 
             model, g_input_keys, l_input_keys = self.get_primitive_details(output_key)
             formula_key = model.formula_key
-            assert formula_key is not None, "Formula key is not defined!"
             primitive_function = (
                 self.pm.backend.primitive_function_dict[formula_key]
                 if formula_key in self.pm.backend.primitive_function_dict

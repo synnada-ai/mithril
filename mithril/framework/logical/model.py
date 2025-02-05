@@ -507,7 +507,13 @@ ConnectionInstanceType = (
 
 
 class Model(BaseModel):
-    def _post_init(self) -> None:
+    def __init__(
+        self,
+        name: str | None = None,
+        formula_key: str | None = None,
+        enforce_jit: bool = True,
+    ) -> None:
+        super().__init__(name, formula_key, enforce_jit)
         self.connection_map: dict[ConnectionData, Connection] = {}
 
     def __call__(self, **kwargs: ConnectionType) -> ExtendInfo:
@@ -840,7 +846,7 @@ class Model(BaseModel):
         depth: int = 0,
     ) -> None:
         self_name = self.class_name
-        if self.is_primitive:
+        if isinstance(self, PrimitiveModel):
             if uni_cache is None:
                 uni_cache = {}
             if var_cache is None:
@@ -935,7 +941,7 @@ class Model(BaseModel):
                     "var_cache": var_cache,
                     "types": types,
                 }
-                if model.is_primitive:
+                if isinstance(model, PrimitiveModel):
                     kwargs.pop("depth")
                 model.summary(**kwargs)  # type: ignore
 

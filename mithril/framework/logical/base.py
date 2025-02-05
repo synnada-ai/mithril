@@ -53,9 +53,7 @@ from ..common import (
 )
 from ..constraints import post_process_map, type_constraints
 
-__all__ = ["BaseModel", "PRIMITIVE_OUTPUT_KEY"]
-
-PRIMITIVE_OUTPUT_KEY = "output"
+__all__ = ["BaseModel"]
 
 
 class BaseModel:
@@ -74,7 +72,7 @@ class BaseModel:
         enforce_jit: bool = True,
     ) -> None:
         self.dag: dict[BaseModel, dict[str, ConnectionData]] = {}
-        self.formula_key: str | None = formula_key
+        self._formula_key: str | None = formula_key
 
         # TODO: maybe set it only to PrimitiveModel / Model.
         self.parent: BaseModel | None = None
@@ -94,10 +92,10 @@ class BaseModel:
         self.safe_shapes: dict[str, ShapeTemplateType] = {}
         self.is_frozen = False
         self.inter_key_count = 0
-        self._post_init()
 
-    def _post_init(self) -> None:
-        pass
+    @property
+    def formula_key(self) -> str | None:
+        return self._formula_key
 
     def create_key_name(self) -> str:
         self.inter_key_count += 1
@@ -629,8 +627,7 @@ class BaseModel:
         include_internals: bool = True,
         include_outputs: bool = False,
     ) -> dict[str, str]:
-        # TODO: convert all is_primitive checks to isinstance(model, PrimitiveModel)
-        if self.is_primitive:
+        if self.dag == {}:
             return {}
         key_mappings: dict[str, str] = {}
         raw_keys: dict[str, list[str]] = {}
@@ -837,13 +834,14 @@ class BaseModel:
                 BaseModel._reverse_dfs(model, graph, top_order, visited)
         return top_order
 
+    # TODO: Summary should be isolated from the model.
     def extract_connection_info(
         self,
         name_mappings: dict[BaseModel, str],
         data_to_key_map: dict[IOHyperEdge, list[str]] | None = None,
         data_memo: Mapping[int, IOHyperEdge] | None = None,
     ) -> dict[str, tuple[dict[str, list[str]], dict[str, list[str]]]]:
-        if self.is_primitive:
+        if self.dag == {} and self.formula_key is not None:
             if data_to_key_map is None:
                 data_to_key_map = {}
             if data_memo is None:
@@ -1017,19 +1015,9 @@ class BaseModel:
             raise AttributeError("Model has no formula key!")
         return self.formula_key + "_grad"
 
-    # TODO: this property will be deleted!
-    @property
-    def is_primitive(self) -> bool:
-        return len(self.dag) == 0 and self.formula_key is not None
-
     @property
     def class_name(self) -> str:
-        # NOTE: This property is temporarily added to
-        # make AddOp like models named as Add.
-        c_name = self.__class__.__name__
-        if c_name.endswith("Op"):
-            c_name = c_name[:-2]
-        return c_name
+        return self.__class__.__name__
 
     @property
     def enforce_jit(self) -> bool:

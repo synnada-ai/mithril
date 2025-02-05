@@ -1797,9 +1797,6 @@ def test_immediate_values_with_extend_template_and_regular_case():
     )
 
 
-a = 2
-
-
 def test_item():
     model1 = Model(enforce_jit=False)
 

@@ -175,9 +175,8 @@ class UserPrimitiveModel(Model):
         if not ((formula_key is None) ^ (model is None)):
             raise ValueError("Either formula_key or model must be provided")
         elif model is None:
-            model = PrimitiveModel(
-                formula_key=formula_key, name=self.__class__.__name__, **kwargs
-            )
+            assert formula_key is not None
+            model = PrimitiveModel(formula_key, self.class_name, **kwargs)
             _kwargs = {key: IOKey(key, expose=True) for key in kwargs}
         else:
             if kwargs != {}:

@@ -28,6 +28,7 @@ from .base import BaseModel
 
 
 class PrimitiveModel(BaseModel):
+    _model_name: str = ""
     """This class contains the simplest / primitive
     building blocks of composite models.
     """
@@ -37,8 +38,8 @@ class PrimitiveModel(BaseModel):
 
     def __init__(
         self,
+        formula_key: str,
         name: str | None = None,
-        formula_key: str | None = None,
         **keys: BaseKey | IOHyperEdge,
     ) -> None:
         super().__init__(name, formula_key)
@@ -88,7 +89,7 @@ class PrimitiveModel(BaseModel):
 
             conn_data = self._create_connection(edge, key)
 
-            if key == "output":
+            if key == PrimitiveModel.output_key:
                 self.conns.set_connection_type(conn_data, KeyType.OUTPUT)
                 output_data = edge
             else:
@@ -135,3 +136,12 @@ class PrimitiveModel(BaseModel):
         if canonical_output_conn is not None:
             self._set_cout(canonical_output_conn, safe=False)
         self._freeze()
+
+    @property
+    def formula_key(self) -> str:
+        assert self._formula_key is not None
+        return self._formula_key
+
+    @property
+    def class_name(self) -> str:
+        return self._model_name

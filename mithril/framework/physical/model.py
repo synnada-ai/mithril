@@ -79,7 +79,6 @@ PhysicalShapeType = (
 )
 
 StringOrConnectionSetType = set[str | Connection] | set[str] | set[Connection]
-CACHE_NAME = "cache"
 
 
 class PhysicalModel(GenericDataType[DataType]):
@@ -229,7 +228,7 @@ class PhysicalModel(GenericDataType[DataType]):
 
             # NOTE: maybe move adding cache to generate_code methods.
             if self.backend.backend_type == "numpy":
-                cache_name = "_".join([mappings[output], CACHE_NAME])
+                cache_name = "_".join([mappings[output], PrimitiveModel.cache_name])
                 mappings["cache"] = cache_name
                 # TODO: Why do we have to provide cache_value here? It is
                 # NONE | dict().
@@ -850,7 +849,7 @@ class PhysicalModel(GenericDataType[DataType]):
         # Extract all summary information
         dag: list[BaseModel] | dict[BaseModel, dict[str, ConnectionData]]
         if model is not None:
-            dag = list(model.dag) if not model.is_primitive else [model]
+            dag = list(model.dag) if not isinstance(model, PrimitiveModel) else [model]
             name_mappings = define_unique_names(dag)
             conn_info = model.extract_connection_info(
                 name_mappings, data_to_key_map, self.data_store.data_memo
@@ -909,7 +908,7 @@ class PhysicalModel(GenericDataType[DataType]):
             table.display()
             if depth > 0:
                 for model, model_name in name_mappings.items():
-                    if not model.is_primitive:
+                    if not isinstance(model, PrimitiveModel):
                         self.summary(
                             model=model,
                             depth=depth - 1,

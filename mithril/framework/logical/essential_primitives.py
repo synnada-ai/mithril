@@ -116,6 +116,8 @@ ConstantType = float | int | core.Constant
 
 
 class BufferOp(PrimitiveModel):
+    _model_name: str = "Buffer"
+
     def __init__(
         self,
         input: Tensor[Any] | ScalarValueType | ToBeDetermined = TBD,
@@ -132,6 +134,8 @@ class BufferOp(PrimitiveModel):
 
 
 class ToTupleOp(PrimitiveModel):
+    _model_name: str = "ToTuple"
+
     def __init__(
         self,
         n: int,
@@ -161,6 +165,8 @@ class ToTupleOp(PrimitiveModel):
 
 
 class ArithmeticOp(PrimitiveModel):
+    _model_name: str = "Arithmetic"
+
     def __init__(
         self,
         formula_key: str,
@@ -185,6 +191,8 @@ class ArithmeticOp(PrimitiveModel):
 
 
 class PowerOp(PrimitiveModel):
+    _model_name: str = "Power"
+
     def __init__(
         self,
         robust: bool = False,
@@ -228,6 +236,8 @@ class PowerOp(PrimitiveModel):
 
 
 class AddOp(ArithmeticOp):
+    _model_name: str = "Add"
+
     def __init__(
         self,
         left: Tensor[Any] | ScalarValueType | ToBeDetermined = TBD,
@@ -239,6 +249,8 @@ class AddOp(ArithmeticOp):
 
 
 class SubtractOp(ArithmeticOp):
+    _model_name: str = "Subtract"
+
     def __init__(
         self,
         left: Tensor[Any] | ScalarValueType | ToBeDetermined = TBD,
@@ -250,6 +262,8 @@ class SubtractOp(ArithmeticOp):
 
 
 class MultiplyOp(ArithmeticOp):
+    _model_name: str = "Multiply"
+
     def __init__(
         self,
         left: Tensor[Any] | ScalarValueType | ToBeDetermined = TBD,
@@ -263,6 +277,8 @@ class MultiplyOp(ArithmeticOp):
 
 
 class MinimumOp(ArithmeticOp):
+    _model_name: str = "Minimum"
+
     def __init__(
         self,
         left: TensorValueType | ToBeDetermined = TBD,
@@ -272,6 +288,8 @@ class MinimumOp(ArithmeticOp):
 
 
 class MaximumOp(ArithmeticOp):
+    _model_name: str = "Maximum"
+
     def __init__(
         self,
         left: TensorValueType | ToBeDetermined = TBD,
@@ -281,6 +299,8 @@ class MaximumOp(ArithmeticOp):
 
 
 class DivideOp(PrimitiveModel):
+    _model_name: str = "Divide"
+
     def __init__(
         self,
         numerator: Tensor[Any] | ScalarValueType | ToBeDetermined = TBD,
@@ -303,6 +323,8 @@ class DivideOp(PrimitiveModel):
 
 
 class FloorDivideOp(PrimitiveModel):
+    _model_name: str = "FloorDivide"
+
     # TODO: Torch does not accept bool type inputs while JAX and other accepts!
     def __init__(
         self,
@@ -329,6 +351,8 @@ class FloorDivideOp(PrimitiveModel):
 
 
 class MatrixMultiplyOp(PrimitiveModel):
+    _model_name: str = "MatrixMultiply"
+
     def __init__(
         self,
         left: Tensor[Any] | ToBeDetermined = TBD,
@@ -353,6 +377,8 @@ class MatrixMultiplyOp(PrimitiveModel):
 
 
 class ShapeOp(PrimitiveModel):
+    _model_name: str = "Shape"
+
     def __init__(
         self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
     ) -> None:
@@ -366,6 +392,8 @@ class ShapeOp(PrimitiveModel):
 
 
 class ReshapeOp(PrimitiveModel):
+    _model_name: str = "Reshape"
+
     def __init__(
         self,
         shape: tuple[int | None, ...] | list[int] | ToBeDetermined = TBD,
@@ -390,6 +418,8 @@ class ReshapeOp(PrimitiveModel):
 
 
 class LengthOp(PrimitiveModel):
+    _model_name: str = "Length"
+
     def __init__(
         self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
     ) -> None:
@@ -402,6 +432,8 @@ class LengthOp(PrimitiveModel):
 
 
 class CastOp(PrimitiveModel):
+    _model_name: str = "Cast"
+
     def __init__(
         self, dtype: core.Dtype | ToBeDetermined = TBD, *, name: str | None = None
     ) -> None:
@@ -415,6 +447,8 @@ class CastOp(PrimitiveModel):
 
 
 class DtypeOp(PrimitiveModel):
+    _model_name: str = "Dtype"
+
     def __init__(
         self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
     ) -> None:
@@ -427,6 +461,8 @@ class DtypeOp(PrimitiveModel):
 
 
 class SizeOp(PrimitiveModel):
+    _model_name: str = "Size"
+
     def __init__(
         self,
         dim: int | tuple[int, ...] | None | ToBeDetermined = None,
@@ -446,6 +482,8 @@ class SizeOp(PrimitiveModel):
 
 
 class ItemOp(PrimitiveModel):
+    _model_name: str = "Item"
+
     def __init__(
         self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
     ) -> None:
@@ -463,6 +501,8 @@ class ItemOp(PrimitiveModel):
 
 
 class ToTensorOp(PrimitiveModel):
+    _model_name: str = "ToTensor"
+
     def __init__(
         self,
         input: TensorValueType | ToBeDetermined = TBD,
@@ -484,6 +524,8 @@ class ToTensorOp(PrimitiveModel):
 
 
 class ToListOp(PrimitiveModel):
+    _model_name: str = "ToList"
+
     def __init__(
         self,
         n: int,
@@ -513,6 +555,8 @@ class ToListOp(PrimitiveModel):
 
 
 class TensorToListOp(PrimitiveModel):
+    _model_name: str = "TensorToList"
+
     def __init__(
         self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
     ) -> None:
@@ -533,6 +577,8 @@ class TensorToListOp(PrimitiveModel):
 
 
 class ReduceOp(PrimitiveModel):
+    _model_name: str = "Reduce"
+
     def __init__(
         self,
         formula_key: str,
@@ -570,6 +616,8 @@ class ReduceOp(PrimitiveModel):
 
 
 class MeanOp(ReduceOp):
+    _model_name: str = "Mean"
+
     # TODO: Torch expects float input for mean reduction, JAX accepts all types.
     def __init__(
         self,
@@ -590,6 +638,8 @@ class MeanOp(ReduceOp):
 
 
 class SumOp(ReduceOp):
+    _model_name: str = "Sum"
+
     def __init__(
         self,
         axis: int | tuple[int, ...] | None | ToBeDetermined = None,
@@ -607,6 +657,8 @@ class SumOp(ReduceOp):
 
 
 class MaxOp(ReduceOp):
+    _model_name: str = "Max"
+
     def __init__(
         self,
         axis: int | tuple[int, ...] | None | ToBeDetermined = None,
@@ -624,6 +676,8 @@ class MaxOp(ReduceOp):
 
 
 class ArgMaxOp(ReduceOp):
+    _model_name: str = "ArgMax"
+
     def __init__(
         self,
         axis: int | tuple[int, ...] | None | ToBeDetermined = None,
@@ -638,12 +692,14 @@ class ArgMaxOp(ReduceOp):
             axis=axis,
             keepdim=keepdim,
             input=input,
-            # axis = Scalar(axis_type, axis), # TODO: Change axis type to int
+            # axis = Scalar(axis_type, axis), # TODO: Change axis type to int
             output=BaseKey(shape=[("Var_out", ...)], type=Tensor[int]),
         )
 
 
 class MinOp(ReduceOp):
+    _model_name: str = "Min"
+
     def __init__(
         self,
         axis: int | tuple[int, ...] | None | ToBeDetermined = None,
@@ -661,6 +717,8 @@ class MinOp(ReduceOp):
 
 
 class ArgMinOp(ReduceOp):
+    _model_name: str = "ArgMin"
+
     def __init__(
         self,
         axis: int | tuple[int, ...] | None | ToBeDetermined = None,
@@ -675,12 +733,14 @@ class ArgMinOp(ReduceOp):
             axis=axis,
             keepdim=keepdim,
             input=input,
-            # axis = Scalar(axis_type, axis), # TODO: Change axis type to int
+            # axis = Scalar(axis_type, axis), # TODO: Change axis type to int
             output=BaseKey(shape=[("Var_out", ...)], type=Tensor[int]),
         )
 
 
 class ProdOp(ReduceOp):
+    _model_name: str = "Prod"
+
     def __init__(
         self,
         axis: int | tuple[int, ...] | None | ToBeDetermined = None,
@@ -702,6 +762,8 @@ class ProdOp(ReduceOp):
 
 
 class VarianceOp(ReduceOp):
+    _model_name: str = "Variance"
+
     def __init__(
         self,
         axis: int | tuple[int, ...] | None | ToBeDetermined = None,
@@ -725,6 +787,8 @@ class VarianceOp(ReduceOp):
 
 
 class SingleInputOperationOp(PrimitiveModel):
+    _model_name: str = "SingleInputOperation"
+
     def __init__(
         self,
         formula_key: str,
@@ -750,6 +814,8 @@ class SingleInputOperationOp(PrimitiveModel):
 
 
 class AbsoluteOp(SingleInputOperationOp):
+    _model_name: str = "Absolute"
+
     def __init__(
         self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
     ) -> None:
@@ -757,6 +823,8 @@ class AbsoluteOp(SingleInputOperationOp):
 
 
 class MinusOp(SingleInputOperationOp):
+    _model_name: str = "Minus"
+
     def __init__(
         self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
     ) -> None:
@@ -764,6 +832,8 @@ class MinusOp(SingleInputOperationOp):
 
 
 class ExponentialOp(SingleInputOperationOp):
+    _model_name: str = "Exponential"
+
     def __init__(
         self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
     ) -> None:
@@ -777,6 +847,8 @@ class ExponentialOp(SingleInputOperationOp):
 
 
 class SqrtOp(PrimitiveModel):
+    _model_name: str = "Sqrt"
+
     def __init__(
         self,
         robust: bool = False,
@@ -806,6 +878,8 @@ class SqrtOp(PrimitiveModel):
 
 
 class RelationalOperatorsOp(PrimitiveModel):
+    _model_name: str = "RelationalOperators"
+
     def __init__(
         self,
         formula_key: str,
@@ -830,6 +904,8 @@ class RelationalOperatorsOp(PrimitiveModel):
 
 
 class GreaterOp(RelationalOperatorsOp):
+    _model_name: str = "Greater"
+
     def __init__(
         self,
         left: Tensor[Any] | ToBeDetermined = TBD,
@@ -841,6 +917,8 @@ class GreaterOp(RelationalOperatorsOp):
 
 
 class LessOp(RelationalOperatorsOp):
+    _model_name: str = "Less"
+
     def __init__(
         self,
         left: Tensor[Any] | ToBeDetermined = TBD,
@@ -852,6 +930,8 @@ class LessOp(RelationalOperatorsOp):
 
 
 class EqualOp(RelationalOperatorsOp):
+    _model_name: str = "Equal"
+
     def __init__(
         self,
         left: Tensor[Any] | ToBeDetermined = TBD,
@@ -863,6 +943,8 @@ class EqualOp(RelationalOperatorsOp):
 
 
 class NotEqualOp(RelationalOperatorsOp):
+    _model_name: str = "NotEqual"
+
     def __init__(
         self,
         left: Tensor[Any] | ToBeDetermined = TBD,
@@ -874,6 +956,8 @@ class NotEqualOp(RelationalOperatorsOp):
 
 
 class LessEqualOp(RelationalOperatorsOp):
+    _model_name: str = "LessEqual"
+
     def __init__(
         self,
         left: Tensor[Any] | ToBeDetermined = TBD,
@@ -885,6 +969,8 @@ class LessEqualOp(RelationalOperatorsOp):
 
 
 class GreaterEqualOp(RelationalOperatorsOp):
+    _model_name: str = "GreaterEqual"
+
     def __init__(
         self,
         left: Tensor[Any] | ToBeDetermined = TBD,
@@ -896,6 +982,8 @@ class GreaterEqualOp(RelationalOperatorsOp):
 
 
 class LogicalNotOp(PrimitiveModel):
+    _model_name: str = "LogicalNot"
+
     def __init__(
         self, input: Tensor[Any] | ToBeDetermined = TBD, *, name: str | None = None
     ) -> None:
@@ -908,6 +996,8 @@ class LogicalNotOp(PrimitiveModel):
 
 
 class BitwiseOperatorsOp(PrimitiveModel):
+    _model_name: str = "BitwiseOperators"
+
     def __init__(
         self,
         formula_key: str,
@@ -927,6 +1017,8 @@ class BitwiseOperatorsOp(PrimitiveModel):
 
 
 class LogicalAndOp(BitwiseOperatorsOp):
+    _model_name: str = "LogicalAnd"
+
     def __init__(
         self,
         left: Tensor[Any] | ToBeDetermined = TBD,
@@ -938,6 +1030,8 @@ class LogicalAndOp(BitwiseOperatorsOp):
 
 
 class LogicalOrOp(BitwiseOperatorsOp):
+    _model_name: str = "LogicalOr"
+
     def __init__(
         self,
         left: Tensor[Any] | ToBeDetermined = TBD,
@@ -949,6 +1043,8 @@ class LogicalOrOp(BitwiseOperatorsOp):
 
 
 class LogicalXOrOp(BitwiseOperatorsOp):
+    _model_name: str = "LogicalXOr"
+
     def __init__(
         self,
         left: Tensor[Any] | ToBeDetermined = TBD,
@@ -961,6 +1057,8 @@ class LogicalXOrOp(BitwiseOperatorsOp):
 
 
 class ShiftLeftOp(PrimitiveModel):
+    _model_name: str = "ShiftLeft"
+
     def __init__(
         self,
         input: Tensor[Any] | ToBeDetermined = TBD,
@@ -979,6 +1077,8 @@ class ShiftLeftOp(PrimitiveModel):
 
 
 class ShiftRightOp(PrimitiveModel):
+    _model_name: str = "ShiftRight"
+
     def __init__(
         self,
         input: Tensor[Any] | ToBeDetermined = TBD,
@@ -997,6 +1097,8 @@ class ShiftRightOp(PrimitiveModel):
 
 
 class TransposeOp(PrimitiveModel):
+    _model_name: str = "Transpose"
+
     def __init__(
         self,
         axes: int | list[int] | tuple[int, ...] | None | ToBeDetermined = None,
@@ -1048,6 +1150,8 @@ class TransposeOp(PrimitiveModel):
 
 
 class SplitOp(PrimitiveModel):
+    _model_name: str = "Split"
+
     def __init__(
         self,
         split_size: int,  # TODO: should we add default for split_size?
@@ -1070,6 +1174,8 @@ class SplitOp(PrimitiveModel):
 
 
 class SliceOp(PrimitiveModel):
+    _model_name: str = "Slice"
+
     def __init__(
         self,
         start: int | None | ToBeDetermined = TBD,
@@ -1092,6 +1198,8 @@ class SliceOp(PrimitiveModel):
 
 
 class IndexerOp(PrimitiveModel):
+    _model_name: str = "Indexer"
+
     def __init__(
         self,
         index: int | ToBeDetermined = TBD,
@@ -1124,6 +1232,8 @@ class IndexerOp(PrimitiveModel):
 
 
 class SineOp(SingleInputOperationOp):
+    _model_name: str = "Sine"
+
     def __init__(
         self,
         input: Tensor[Any] | ToBeDetermined = TBD,
@@ -1140,6 +1250,8 @@ class SineOp(SingleInputOperationOp):
 
 
 class CosineOp(SingleInputOperationOp):
+    _model_name: str = "Cosine"
+
     def __init__(
         self,
         input: Tensor[Any] | ToBeDetermined = TBD,

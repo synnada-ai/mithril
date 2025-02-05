@@ -379,7 +379,6 @@ class StaticDataStore(Generic[DataType]):
                 )
 
                 static_value: DataType | MainValueType
-                assert model.formula_key is not None
                 fn = fn_dict[model.formula_key]
 
                 # Orginize args and kwargs
