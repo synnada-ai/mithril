@@ -1164,7 +1164,6 @@ class BaseKey:
         interval: list[float | int] | None = None,
         connections: set[ConnectionData | str] | None = None,
     ) -> None:
-        super().__init__()
         # If shape is provided, type should be Tensor.
         if shape is not None:
             if type is Tensor:
@@ -1368,6 +1367,14 @@ class Connections:
 
     def get_data(self, key: str) -> IOHyperEdge:
         return self.get_metadata(key)
+
+    def get_type(self, key: ConnectionData) -> KeyType:
+        con_data = self.get_extracted_connection(key)
+        for _key_type in KeyType:
+            key_dict = self._connection_dict[_key_type]
+            if key_dict.get(con_data.key) is not None:
+                return _key_type
+        raise ValueError("No matching key type found!")
 
     def get_non_diff_keys(self) -> set[str]:
         return {key for key, conn in self.all.items() if conn.metadata.is_non_diff}

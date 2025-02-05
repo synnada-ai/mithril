@@ -854,7 +854,7 @@ class PhysicalModel(GenericDataType[DataType]):
         # Extract all summary information
         dag: list[BaseModel] | dict[BaseModel, dict[str, ConnectionData]]
         if model is not None:
-            dag = list(model.dag) if not isinstance(model, PrimitiveModel) else [model]
+            dag = list(model.dag) if isinstance(model, Model) else [model]
             name_mappings = define_unique_names(dag)
             conn_info = model.extract_connection_info(
                 name_mappings, data_to_key_map, self.data_store.data_memo
@@ -929,8 +929,7 @@ class PhysicalModel(GenericDataType[DataType]):
         self, name_mappings: dict[PrimitiveModel, str] | None = None
     ) -> dict[str, tuple[dict[str, list[str]], dict[str, list[str]]]]:
         if name_mappings is None:
-            _models: list[BaseModel] = list(self.flat_graph.get_models())
-            name_mappings = define_unique_names(_models)  # type: ignore
+            name_mappings = define_unique_names(self.flat_graph.get_models())  # type: ignore
         conn_info: dict[str, tuple[dict[str, list[str]], dict[str, list[str]]]] = {}
         assert name_mappings is not None
         for model, model_name in name_mappings.items():

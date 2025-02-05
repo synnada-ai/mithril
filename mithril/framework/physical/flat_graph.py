@@ -14,7 +14,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, KeysView, Mapping
 from dataclasses import dataclass
 
 from ...core import DataType, GenericDataType
@@ -504,5 +504,5 @@ class FlatGraph(GenericDataType[DataType]):
                         keys.add(value)
                         queue.add(value)
 
-    def get_models(self) -> Iterable[PrimitiveModel]:
+    def get_models(self) -> KeysView[PrimitiveModel]:
         return self.nodes.keys()

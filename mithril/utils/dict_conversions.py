@@ -185,11 +185,6 @@ def dict_to_model(
         raise Exception("No model type is specified!")
     elif model_name.lower() in model_dict:
         model_class = model_dict[model_name.lower()]
-        from ..framework.logical.user_essential_primitives import Mean
-
-        if model_class == Mean:
-            ...
-
         args |= handle_dict_to_model_args(model_name, params.get("args", {}))
         tuples: list[str] = params.get("tuples", [])
         enums: dict[str, str] = params.get("enums", {})

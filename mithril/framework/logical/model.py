@@ -14,7 +14,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import KeysView, Mapping, Sequence
 from dataclasses import dataclass
 from types import EllipsisType, UnionType
 from typing import Any, Self
@@ -26,8 +26,8 @@ from ..common import (
     TBD,
     BaseKey,
     ConnectionData,
+    ConnectionDataType,
     IOHyperEdge,
-    KeyType,
     MainValueInstance,
     MainValueType,
     NullConnection,
@@ -536,10 +536,13 @@ class Model(BaseModel):
             setattr(self, key, con)
         return con_data
 
-    # TODO: Refactor _convert_to_base_key / _unroll_template relation.
-    def _convert_to_base_key(
-        self, model: BaseModel, key: str, connection: ConnectionType
-    ) -> BaseKey | ConnectionData | MainValueInstance | NullConnection | str:
+    # TODO: Refactor _prepare_keys / _unroll_template relation.
+    def _prepare_keys(
+        self,
+        model: BaseModel,
+        key: str,
+        connection: ConnectionDataType | ConnectionType,
+    ) -> BaseKey:
         local_connection = model.conns.get_connection(key)
         assert local_connection is not None, "Connection is not found!"
         _connection: BaseKey | ConnectionData | MainValueInstance | NullConnection | str
@@ -556,23 +559,16 @@ class Model(BaseModel):
                 # find_dominant_type returns the dominant type in a container.
                 # If a container has a value of type Connection or ExtendTemplate
                 # we add necessary models.
-                if isinstance(connection, tuple | list) and find_dominant_type(
-                    connection, raise_error=False
-                ) in [ConnectionData, ExtendTemplate, Connection, IOKey]:
-                    connection_model = (
-                        ToTupleOp if isinstance(connection, tuple) else ToListOp
-                    )
-                    kwargs = {  # TODO: Refactor this part. We do not send model, key!
-                        f"input{idx + 1}": self._convert_to_base_key(model, key, item)
-                        for idx, item in enumerate(connection)
-                    }
+                types = [ConnectionData, ExtendTemplate, Connection, IOKey]
+                if (
+                    isinstance(connection, tuple | list)
+                    and find_dominant_type(connection, False) in types
+                ):
+                    _model = ToTupleOp if isinstance(connection, tuple) else ToListOp
+                    et = ExtendTemplate(connection, _model, {"n": len(connection)})
+                    con_data = self._unroll_template(et)
+                    _connection = BaseKey(connections={con_data}, expose=False)
 
-                    conv_model = connection_model(n=len(connection))
-                    self.extend(conv_model, **kwargs)
-
-                    result = conv_model.conns.get_connection("output")
-                    assert result is not None
-                    _connection = BaseKey(connections={result}, expose=None)
                 else:
                     assert isinstance(connection, MainValueInstance | Tensor)
                     _connection = BaseKey(value=connection)
@@ -598,36 +594,21 @@ class Model(BaseModel):
                 )
             case _:
                 _connection = connection  # type: ignore
-        if (
-            isinstance(_connection, BaseKey)
-            and _connection.name is not None
-            and len(_connection.connections) > 0
-        ):
-            initial_conn = next(iter(_connection.connections))
-            if isinstance(initial_conn, str):
-                _initial_conn = self.conns.get_connection(initial_conn)
-            else:
-                _initial_conn = self.conns.get_con_by_metadata(initial_conn.metadata)
-            assert isinstance(_initial_conn, ConnectionData)
-            self.update_key_name(_initial_conn, _connection.name)
-            _connection.connections.remove(initial_conn)
-            _connection.connections.add(_initial_conn)
+        return super()._prepare_keys(model, key, _connection)
 
-        return _connection
+    def _get_conn_data(self, conn: str | ConnectionData) -> ConnectionData:
+        if isinstance(conn, str):
+            _conn = self.conns.get_connection(conn)
+        else:
+            _conn = self.conns.get_con_by_metadata(conn.metadata)
+        assert isinstance(_conn, ConnectionData)
+        return _conn
 
     def update_key_name(self, connection: ConnectionData, key: str) -> None:
+        super().update_key_name(connection, key)
         con_data = self.conns.get_extracted_connection(connection)
-        for key_type in KeyType:
-            key_dict = self.conns._connection_dict[key_type]
-            if key_dict.get(con_data.key) is not None:
-                conn = self.connection_map[con_data]
-                key_dict[key] = key_dict.pop(con_data.key)
-                # Update con_data key
-                con_data.key = key
-                con_data.is_key_autogenerated = False
-                con_data.metadata.key_origin = key
-                setattr(self, key, conn)
-                break
+        conn = self.connection_map[con_data]
+        setattr(self, key, conn)
 
     def _unroll_template(self, template: ExtendTemplate) -> ConnectionData:
         if template.output_connection is None:
@@ -637,29 +618,23 @@ class Model(BaseModel):
             # If we don't do that, it will throw error because of
             # re-setting a Tensor or Scalar value again in extend.
             # TODO: Remove all TBD if default init arguments will be moved to call!!!
-            init_fun = template.model.__init__
+            code = template.model.__init__.__code__
 
             # "self" argument is common for all models, Exclude it by
             # starting co_varnames from 1st index.
-            default_args = init_fun.__code__.co_varnames[
-                1 : init_fun.__code__.co_argcount
-            ]
-            default_args_dict = {key: TBD for key in default_args}
-            default_args_dict |= template.defaults
+            default_args = code.co_varnames[1 : code.co_argcount]
+            default_args_dict = {key: TBD for key in default_args} | template.defaults
             default_args_dict.pop("name", None)
 
             # TODO: Reconsider type ignore!
             model: PrimitiveModel = template.model(**default_args_dict)  # type: ignore
-
-            self.extend(
-                model,
-                **{
-                    local_key: self._convert_to_base_key(model, local_key, outer_con)  # type: ignore
-                    for local_key, outer_con in zip(
-                        model.input_keys, template.connections, strict=False
-                    )
-                },
-            )
+            keys = {
+                local_key: self._prepare_keys(model, local_key, outer_con)  # type: ignore
+                for local_key, outer_con in zip(
+                    model.input_keys, template.connections, strict=False
+                )
+            }
+            self.extend(model, **keys)
 
             template.output_connection = model.conns.get_connection("output")
             assert template.output_connection is not None
@@ -689,15 +664,6 @@ class Model(BaseModel):
                 else:
                     kwargs[key] = _value
 
-        # Add canonical output if it is not in external_keys
-        external_keys = list(model.external_keys)
-        external_keys += [
-            item.key for item in model.conns.couts if item.key not in external_keys
-        ]
-        kwargs = {
-            key: self._convert_to_base_key(model, key, kwargs.get(key, NOT_GIVEN))  # type: ignore
-            for key in external_keys
-        }
         self.extend(model, **kwargs)  # type: ignore
         return self
 
@@ -857,47 +823,6 @@ class Model(BaseModel):
         depth: int = 0,
     ) -> None:
         self_name = self.class_name
-        if isinstance(self, PrimitiveModel):
-            if uni_cache is None:
-                uni_cache = {}
-            if var_cache is None:
-                var_cache = {}
-
-            _type_info = None
-            shape_info = None
-            name_mappings: dict[BaseModel, str] = {self: name if name else self_name}
-            # extract model topology
-            conn_info = self.extract_connection_info(name_mappings)
-
-            model_shapes = {
-                sub_model_name: sub_model.get_shapes(
-                    uni_cache, var_cache, symbolic, alternative_shapes
-                )
-                for sub_model, sub_model_name in name_mappings.items()
-            }
-            if shapes:
-                # extract model shapes
-                shape_info = get_summary_shapes(model_shapes, conn_info)
-
-            if types:
-                # extract model types
-                _type_info = get_summary_types(name_mappings)
-
-            if not name:
-                name = self_name
-
-            # construct the table based on relevant information
-            table = get_summary(
-                conns=conn_info,
-                name=name,
-                shape=shape_info,  # type: ignore
-                types=_type_info,
-            )
-
-            table.compile()
-            table.display()
-            return
-
         if uni_cache is None:
             uni_cache = {}
         if var_cache is None:
@@ -958,7 +883,7 @@ class Model(BaseModel):
 
 
 def define_unique_names(
-    models: list[BaseModel] | dict[BaseModel, Any],
+    models: list[BaseModel] | KeysView[BaseModel],
 ) -> dict[BaseModel, str]:
     # TODO: Move this to Physical model (currently it is only used there)
     # TODO: Also add short-naming logic to this function
