@@ -592,9 +592,9 @@ class Model(BaseModel):
                     name=name,
                     expose=expose,
                     connections=connection.connections,
-                    type=connection.data.type,
-                    shape=connection.data.shape,
-                    value=connection.data.value,
+                    type=connection.type,
+                    shape=connection.value_shape,
+                    value=connection.value,
                 )
             case _:
                 _connection = connection  # type: ignore

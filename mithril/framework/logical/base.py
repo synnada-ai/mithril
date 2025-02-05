@@ -243,9 +243,9 @@ class BaseModel:
                     name=name,
                     expose=expose,
                     connections=connection.connections,
-                    type=connection.data.type,
-                    shape=connection.data.shape,
-                    value=connection.data.value,
+                    type=connection.type,
+                    shape=connection.value_shape,
+                    value=connection.value,
                 )
 
         return _connection
@@ -273,8 +273,8 @@ class BaseModel:
             | Tensor[int | float | bool]
             | NullConnection
         ) = NOT_GIVEN
-        if given_connection.data.value is not TBD:
-            set_value = given_connection.data.value
+        if given_connection.value is not TBD:
+            set_value = given_connection.value
 
         if given_connection.connections == set():
             if outer_key is not None:
@@ -411,7 +411,7 @@ class BaseModel:
         # If any type provided, set using models set_types method
         # in order to execute constraint solver to propagate type
         # updates along the model keys.
-        if (set_type := given_connection.data.type) is not None:
+        if (set_type := given_connection.type) is not None:
             model._set_types({local_connection: set_type})
 
         return con_obj, updates
@@ -556,11 +556,11 @@ class BaseModel:
         }
 
         for local_key, value in io_keys.items():
-            if value.data.shape is not None:
-                shape_info |= {local_key: value.data.shape}
+            if value.value_shape is not None:
+                shape_info |= {local_key: value.value_shape}
 
-            if value.data.type is not None:
-                type_info[local_key] = value.data.type
+            if value.type is not None:
+                type_info[local_key] = value.type
 
             con_obj, _updates = self._add_connection(model, local_key, value, updates)
             updates |= _updates

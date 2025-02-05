@@ -47,9 +47,9 @@ class PrimitiveModel(BaseModel):
         self.random_keys: set[str] = set()
         # Get shape_templates of TensorTypes and create corresponding shapes.
         shape_templates = {
-            key: value.data.shape
+            key: value.value_shape
             for key, value in keys.items()
-            if isinstance(value, BaseKey) and value.data.shape is not None
+            if isinstance(value, BaseKey) and value.value_shape is not None
         }
         shapes = create_shape_map(shape_templates, self.constraint_solver)
         data_set: set[IOHyperEdge] = set()
@@ -57,23 +57,21 @@ class PrimitiveModel(BaseModel):
         output_data: IOHyperEdge | None = None
         for key, value in keys.items():
             if isinstance(value, BaseKey):
-                if get_origin(value.data.type) is Tensor:
-                    if not isinstance(tensor := value.data.value, Tensor):
-                        assert isinstance(value.data.value, ToBeDetermined)
+                if get_origin(value.type) is Tensor:
+                    if not isinstance(tensor := value.value, Tensor):
+                        assert isinstance(value.value, ToBeDetermined)
                         tensor = Tensor(
-                            type=get_args(value.data.type)[0],
+                            type=get_args(value.type)[0],
                             shape=shapes[key].node,
                         )
-                    edge = IOHyperEdge(value=tensor, interval=value.data.interval)
+                    edge = IOHyperEdge(value=tensor, interval=value.interval)
                     data_set.add(edge)
                 else:
-                    edge_type = (
-                        ToBeDetermined if value.data.type is None else value.data.type
-                    )
+                    edge_type = ToBeDetermined if value.type is None else value.type
                     edge = IOHyperEdge(
                         type=edge_type,
-                        value=value.data.value,
-                        interval=value.data.interval,
+                        value=value.value,
+                        interval=value.interval,
                     )
             else:
                 raise TypeError(

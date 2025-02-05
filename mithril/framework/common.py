@@ -1146,20 +1146,6 @@ class IOHyperEdge:
             self.constraints[type].discard(constraint)
 
 
-@dataclass
-class DataKey:
-    value: (
-        Tensor[int | float | bool]
-        | ScalarValueType
-        | TensorValueType
-        | ToBeDetermined
-        | str
-    ) = TBD
-    shape: ShapeTemplateType | None = None
-    type: UnionType | type | type[Tensor[int | float | bool]] | ScalarType | None = None
-    interval: list[float | int] | None = None
-
-
 class BaseKey:
     def __init__(
         self,
@@ -1196,26 +1182,29 @@ class BaseKey:
         if connections is None:
             connections = set()
         self.connections: set[ConnectionData | str] = connections
-        self.data = DataKey(value, shape, type, interval)
         # TODO: Shape should not be [] also!
         if (
-            self.data.value is not TBD
-            and not isinstance(self.data.value, Tensor)
-            and self.data.shape is not None
-            and self.data.shape != []
+            value is not TBD
+            and not isinstance(value, Tensor)
+            and shape is not None
+            and shape != []
         ):
             raise ValueError(
                 f"Scalar values are shapeless, shape should be None or []. "
-                f"Got {self.data.shape}."
+                f"Got {shape}."
             )
 
-        if self.data.value is not TBD and self.data.type is not None:
-            value_type = find_type(self.data.value)
-            if find_intersection_type(value_type, self.data.type) is None:
+        if value is not TBD and type is not None:
+            value_type = find_type(value)
+            if find_intersection_type(value_type, type) is None:
                 raise TypeError(
                     "type of the given value and given type does not match. Given "
-                    f"type is {self.data.type} while type of value is {value_type}"
+                    f"type is {type} while type of value is {value_type}"
                 )
+        self.value = value
+        self.value_shape = shape
+        self.type = type
+        self.interval = interval
 
 
 @dataclass
