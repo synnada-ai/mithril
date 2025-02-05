@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from collections.abc import Mapping, Sequence
+from functools import partial
 from types import EllipsisType, NoneType, UnionType
 from typing import Any
 
@@ -40,6 +41,7 @@ from ..constraints import (
     divide_type_constraint,
     edge_type_constraint,
     floor_divide_type_constraint,
+    general_forward_constraint,
     general_tensor_type_constraint,
     indexer_constraints,
     indexer_initial_type_constraint,
@@ -224,6 +226,7 @@ class ArithmeticOperation(PrimitiveModel):
             keys=[PrimitiveModel.output_key, "left", "right"],
             dependencies={bcast_constraint},
         )
+        self.edge_constraint = edge_constraint
 
     def __call__(  # type: ignore[override]
         self,
@@ -303,6 +306,14 @@ class Power(PrimitiveModel):
             dependencies={bcast_constraint},
         )
 
+        self._add_constraint(
+            partial(general_forward_constraint, callable=lambda x, y: x**y),
+            keys=[PrimitiveModel.output_key, "base", "exponent"],
+            dependencies=constrs,
+        )
+
+        constrs = constrs
+
     def __call__(  # type: ignore[override]
         self,
         base: ConnectionType = NOT_GIVEN,
@@ -339,6 +350,12 @@ class Add(ArithmeticOperation):
     ) -> None:
         super().__init__(formula_key="add", name=name, left=left, right=right)
 
+        self._add_constraint(
+            partial(general_forward_constraint, callable=lambda x, y: x + y),
+            keys=[PrimitiveModel.output_key, "left", "right"],
+            dependencies={self.edge_constraint},
+        )
+
 
 class Subtract(ArithmeticOperation):
     def __init__(
@@ -349,6 +366,12 @@ class Subtract(ArithmeticOperation):
         name: str | None = None,
     ) -> None:
         super().__init__(formula_key="subtract", name=name, left=left, right=right)
+
+        self._add_constraint(
+            partial(general_forward_constraint, callable=lambda x, y: x - y),
+            keys=[PrimitiveModel.output_key, "left", "right"],
+            dependencies={self.edge_constraint},
+        )
 
 
 class Multiply(ArithmeticOperation):
@@ -361,6 +384,12 @@ class Multiply(ArithmeticOperation):
     ) -> None:
         super().__init__(
             formula_key="multiplication", name=name, left=left, right=right
+        )
+
+        self._add_constraint(
+            partial(general_forward_constraint, callable=lambda x, y: x * y),
+            keys=[PrimitiveModel.output_key, "left", "right"],
+            dependencies={self.edge_constraint},
         )
 
 
@@ -416,10 +445,22 @@ class Divide(PrimitiveModel):
             dependencies={edge_constraint},
         )
 
-        self._add_constraint(
+        bcast_constraint = self._add_constraint(
             fn=bcast,
             keys=[PrimitiveModel.output_key, "numerator", "denominator"],
             dependencies={edge_constraint},
+        )
+
+        self._add_constraint(
+            partial(general_forward_constraint, callable=lambda x, y: x / y),
+            keys=[PrimitiveModel.output_key, "numerator", "denominator"],
+            dependencies={edge_constraint},
+        )
+
+        self._add_constraint(
+            fn=bcast_error_check,
+            keys=[PrimitiveModel.output_key, "numerator", "denominator"],
+            dependencies={bcast_constraint},
         )
 
     def __call__(  # type: ignore[override]
@@ -438,35 +479,49 @@ class FloorDivide(PrimitiveModel):
     denominator: Connection
     output: Connection
 
-    # TODO: Torch does not accept bool type inputs while JAX and other accepts!
     def __init__(
         self,
-        numerator: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        denominator: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        numerator: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
+        denominator: Tensor[int | float | bool]
+        | ScalarValueType
+        | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="floor_divide",
             name=name,
-            output=BaseKey(shape=[("Var_out", ...)], type=Tensor[int | float]),
-            numerator=BaseKey(shape=[("Var_1", ...)], type=Tensor, value=numerator),
-            denominator=BaseKey(shape=[("Var_2", ...)], type=Tensor, value=denominator),
+            output=BaseKey(type=Tensor[int | float] | int | float),
+            numerator=BaseKey(value=numerator),
+            denominator=BaseKey(value=denominator),
+        )
+        edge_constraint = self._add_constraint(
+            fn=edge_type_constraint,
+            keys=[PrimitiveModel.output_key, "numerator", "denominator"],
+        )
+
+        self._add_constraint(
+            fn=floor_divide_type_constraint,
+            keys=[PrimitiveModel.output_key, "numerator", "denominator"],
+            dependencies={edge_constraint},
         )
 
         bcast_constraint = self._add_constraint(
-            fn=bcast, keys=[PrimitiveModel.output_key, "numerator", "denominator"]
+            fn=bcast,
+            keys=[PrimitiveModel.output_key, "numerator", "denominator"],
+            dependencies={edge_constraint},
+        )
+
+        self._add_constraint(
+            partial(general_forward_constraint, callable=lambda x, y: x // y),
+            keys=[PrimitiveModel.output_key, "numerator", "denominator"],
+            dependencies={edge_constraint},
         )
 
         self._add_constraint(
             fn=bcast_error_check,
             keys=[PrimitiveModel.output_key, "numerator", "denominator"],
             dependencies={bcast_constraint},
-        )
-
-        self._add_constraint(
-            fn=floor_divide_type_constraint,
-            keys=[PrimitiveModel.output_key, "numerator", "denominator"],
         )
 
     def __call__(  # type: ignore[override]
@@ -1190,11 +1245,18 @@ class RelationalOperators(PrimitiveModel):
             dependencies={edge_constraint},
         )
 
-        self._add_constraint(
+        bcast_constraint = self._add_constraint(
             bcast,
             ["output", "left", "right"],
             dependencies={edge_constraint},
         )
+
+        self._add_constraint(
+            fn=bcast_error_check,
+            keys=[PrimitiveModel.output_key, "left", "right"],
+            dependencies={bcast_constraint},
+        )
+        self.edge_constraint = edge_constraint
 
     def __call__(  # type: ignore[override]
         self,
@@ -1215,6 +1277,12 @@ class Greater(RelationalOperators):
     ) -> None:
         super().__init__(formula_key="greater", name=name, left=left, right=right)
 
+        self._add_constraint(
+            partial(general_forward_constraint, callable=lambda x, y: x > y),
+            keys=[PrimitiveModel.output_key, "left", "right"],
+            dependencies={self.edge_constraint},
+        )
+
 
 class Less(RelationalOperators):
     def __init__(
@@ -1225,6 +1293,12 @@ class Less(RelationalOperators):
         name: str | None = None,
     ) -> None:
         super().__init__(formula_key="less", name=name, left=left, right=right)
+
+        self._add_constraint(
+            partial(general_forward_constraint, callable=lambda x, y: x < y),
+            keys=[PrimitiveModel.output_key, "left", "right"],
+            dependencies={self.edge_constraint},
+        )
 
 
 class Equal(RelationalOperators):
@@ -1237,6 +1311,12 @@ class Equal(RelationalOperators):
     ) -> None:
         super().__init__(formula_key="equal", name=name, left=left, right=right)
 
+        self._add_constraint(
+            partial(general_forward_constraint, callable=lambda x, y: x == y),
+            keys=[PrimitiveModel.output_key, "left", "right"],
+            dependencies={self.edge_constraint},
+        )
+
 
 class NotEqual(RelationalOperators):
     def __init__(
@@ -1247,6 +1327,12 @@ class NotEqual(RelationalOperators):
         name: str | None = None,
     ) -> None:
         super().__init__(formula_key="not_equal", name=name, left=left, right=right)
+
+        self._add_constraint(
+            partial(general_forward_constraint, callable=lambda x, y: x != y),
+            keys=[PrimitiveModel.output_key, "left", "right"],
+            dependencies={self.edge_constraint},
+        )
 
 
 class LessEqual(RelationalOperators):
@@ -1259,6 +1345,12 @@ class LessEqual(RelationalOperators):
     ) -> None:
         super().__init__(formula_key="less_equal", name=name, left=left, right=right)
 
+        self._add_constraint(
+            partial(general_forward_constraint, callable=lambda x, y: x <= y),
+            keys=[PrimitiveModel.output_key, "left", "right"],
+            dependencies={self.edge_constraint},
+        )
+
 
 class GreaterEqual(RelationalOperators):
     def __init__(
@@ -1269,6 +1361,12 @@ class GreaterEqual(RelationalOperators):
         name: str | None = None,
     ) -> None:
         super().__init__(formula_key="greater_equal", name=name, left=left, right=right)
+
+        self._add_constraint(
+            partial(general_forward_constraint, callable=lambda x, y: x >= y),
+            keys=[PrimitiveModel.output_key, "left", "right"],
+            dependencies={self.edge_constraint},
+        )
 
 
 class LogicalNot(PrimitiveModel):

@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import math
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from functools import reduce
 from itertools import product, zip_longest
 from types import EllipsisType, GenericAlias, NoneType, UnionType
@@ -102,6 +102,7 @@ __all__ = [
     "relational_operator_type_constraint",
     "divide_type_constraint",
     "polynomial_kernel_constraint",
+    "general_forward_constraint",
 ]
 
 
@@ -185,44 +186,46 @@ def edge_type_constraint(
     output: IOHyperEdge, *inputs: IOHyperEdge
 ) -> ConstrainResultType:
     updates = Updates()
-    status = False
-    tensor_exists: bool = False
-    tensor_output: bool = output.is_tensor
-    for input in inputs:
-        if input.is_tensor:
-            tensor_exists = True
-            break
-    # First set output edge_type to Tensor if any Tensor type inputs
-    # exists.
-    if tensor_exists:
-        if not tensor_output:
-            updates |= output.set_type(Tensor[int | float | bool])
-    elif tensor_output:
-        # Reverse edge_type inference.
+
+    ### Forward Inference ###
+    if any(input.is_tensor for input in inputs):
+        # if any Tensor input exists, set output type to Tensor.
+        updates |= output.set_type(Tensor[int | float | bool])
+
+    elif all(input.is_scalar for input in inputs):
+        # if all types of input is scalar, set output type to scalar.
+        updates |= output.set_type(ScalarValueType)
+
+    ### Reverse Inference ###
+    elif output.is_tensor:
         # If there is only one untyped input, set it as Tensor.
-        untyped_inputs = [
-            input for input in inputs if input.edge_type is ToBeDetermined
-        ]
+        untyped_inputs = {input for input in inputs if input.is_polymorphic}
         if len(untyped_inputs) == 1:
             updates |= untyped_inputs.pop().set_type(Tensor[int | float | bool])
-            status = True
-    elif output.edge_type is not ToBeDetermined and (
-        find_intersection_type(Tensor[int | float | bool], output.edge_type) is None
-    ):
+
+    elif output.is_scalar:
         # Scalar output means all inputs are scalar.
         for input in inputs:
             updates |= input.set_type(ScalarValueType)
-        status = True
 
     # If no polymorphic edge_type exists, return True.
-    if all({not input.is_polymorphic for input in inputs}):
-        status = True
+    return not any(input.is_polymorphic for input in inputs), updates
+
+
+def general_forward_constraint(
+    *keys: IOHyperEdge, callable: Callable[..., Any]
+) -> ConstrainResultType:
+    updates = Updates()
+    status = True
+    if all(io.is_scalar for io in keys):
+        output, *inputs = keys
+        input_values = [input.value for input in inputs]
+        if TBD not in input_values:
+            output_value = callable(*input_values)
+            updates |= output.set_value(output_value)
+        else:
+            status = False
     return status, updates
-
-
-def general_forward_constraint() -> None:
-    # TODO: Implement this function.
-    pass
 
 
 def general_tensor_type_constraint(*args: IOHyperEdge) -> ConstrainResultType:
@@ -248,8 +251,8 @@ def general_tensor_type_constraint(*args: IOHyperEdge) -> ConstrainResultType:
             all_possible_types.add(typ)
 
     # Check existance of any possible unsupported types
-    if unsupported := (all_possible_types - {int, float, bool}):
-        raise TypeError(f"Possible Unsupported type(s) ({unsupported}) detected!")
+    if all_possible_types - {int, float, bool}:
+        return status, updates
 
     # assert isinstance(output._value, Tensor)
     # Try reverse type inference first.
@@ -3928,19 +3931,34 @@ def cross_entropy_constraint(
 def buffer_constraint(output: IOHyperEdge, input: IOHyperEdge) -> ConstrainResultType:
     updates = Updates()
     status = False
-    typed_edge: IOHyperEdge | None = None
+    is_input_polymorphic: bool = input.is_polymorphic
+    is_output_polymorphic: bool = output.is_polymorphic
 
-    if input.edge_type is not ToBeDetermined:
-        typed_edge, other_edge = input, output
-    elif output.edge_type is not ToBeDetermined:
-        typed_edge, other_edge = output, input
+    if not (is_input_polymorphic and is_output_polymorphic):
+        # at least one of them is not polymorphic
 
-    if typed_edge is not None:
-        if typed_edge._value is not TBD:
-            updates |= other_edge.set_value(typed_edge._value)
+        if is_input_polymorphic ^ is_output_polymorphic:
+            # one of them is polymorphic while other is not
+            typed, non_typed = (
+                (input, output) if is_output_polymorphic else (output, input)
+            )
+            updates |= non_typed.set_type(typed.edge_type)
+            updates |= non_typed.set_value(typed._value)
+            if typed.is_tensor or typed.value is not TBD:
+                status = True
         else:
-            updates |= other_edge.set_type(typed_edge.edge_type)
-        status = True
+            # both are not polymorphic
+            updates |= output.set_type(input.edge_type)
+            updates |= input.set_type(output.edge_type)
+            is_input_valued = input._value is not TBD
+            is_output_valued = output._value is not TBD
+            if is_input_valued ^ is_output_valued:
+                valued, non_valued = (
+                    (input, output) if is_input_valued else (output, input)
+                )
+                updates |= non_valued.set_value(valued._value)
+                status = True
+
     return status, updates
 
 
@@ -3968,7 +3986,7 @@ def divide_type_constraint(
     if numerator.is_tensor or denominator.is_tensor:
         updates |= output.set_type(Tensor[float])
         status = True
-    elif ToBeDetermined not in (numerator.edge_type, denominator.edge_type):
+    else:
         updates |= output.set_type(float)
         status = True
     return status, updates

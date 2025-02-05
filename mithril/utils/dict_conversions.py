@@ -17,6 +17,7 @@ import abc
 import re
 from collections.abc import Callable, Sequence
 from copy import deepcopy
+from functools import reduce
 from types import EllipsisType, UnionType
 from typing import Any, TypedDict, get_origin
 
@@ -525,15 +526,9 @@ def handle_dict_to_model_args(
     for key, value in source.items():
         if isinstance(value, dict):
             shape_template: list[str | int | tuple[str, EllipsisType]] = []
-            possible_types = None
-            # Type is common for TensorType and Scalar.
-            for item in value.get("type", []):
-                # TODO: this is dangerous!!
-                item_type: type = eval(item)
-                if possible_types is None:
-                    possible_types = item_type
-                else:
-                    possible_types |= item_type
+            possible_types = reduce(
+                lambda x, y: x | y, (eval(item) for item in value.get("type", []))
+            )
 
             # TensorType.
             if "shape_template" in value:

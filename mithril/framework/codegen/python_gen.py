@@ -410,7 +410,7 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
             else:
                 continue
 
-            """If cached value is not a tensor, do not append it to code"""
+            # If cached value is not a tensor, do not append it to code
             if not self.is_static_scalar(key):
                 self.append_inputs(input_body, key, dict_type)
 

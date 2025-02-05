@@ -955,13 +955,19 @@ class IOHyperEdge:
         if self._type is ToBeDetermined:
             return True
         # Look for possible tensor and scalar types.
-        tensor_possible = find_intersection_type(Tensor[int | float | bool], self._type)
-        scalar_possible = find_intersection_type(ScalarValueType, self._type)
-        return None not in (tensor_possible, scalar_possible)
+        return not (self.is_tensor or self.is_scalar)
 
     @property
     def is_tensor(self) -> bool:
         return get_origin(self._type) is Tensor
+
+    @property
+    def is_scalar(self) -> bool:
+        has_tensor = bool(
+            find_intersection_type(Tensor[int | float | bool], self._type)
+        )
+        is_tbd = self._type is ToBeDetermined
+        return not (is_tbd or has_tensor)
 
     @property
     def is_non_diff(self) -> bool:
