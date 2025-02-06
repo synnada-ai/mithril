@@ -702,7 +702,6 @@ def test_add_loss_compile_shape_1():
         "axis": None,
         "keepdim": None,
         "output_2": [],
-        "final_cost": [],
     }
 
     assert pm2.shapes == {
@@ -713,5 +712,4 @@ def test_add_loss_compile_shape_1():
         "axis": None,
         "keepdim": None,
         "output_2": [],
-        "final_cost": [],
     }

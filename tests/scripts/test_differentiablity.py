@@ -28,7 +28,7 @@ def test_data_linear_compile():
     model += Linear()(input="input")
     backend = JaxBackend()
     pm = mithril.compile(model, backend)
-    assert "input" in pm.data_store.runtime_static_keys
+    assert "input" in pm.flat_graph.runtime_static_keys
 
 
 def test_convert_input_data_to_trainable():
@@ -47,7 +47,7 @@ def test_convert_input_data_to_trainable_compile():
     pm = mithril.compile(model, backend)
     assert (
         "input"
-        not in pm.data_store.runtime_static_keys | pm.data_store.cached_data.keys()
+        not in pm.flat_graph.runtime_static_keys | pm.flat_graph.cached_data.keys()
     )
 
 
@@ -116,7 +116,7 @@ def test_non_trainability_flow_in_compile():
 
     backend = JaxBackend()
     pm = mithril.compile(model, backend)
-    assert not pm.data_store.all_data["output"].differentiable
+    assert not pm.flat_graph.all_data["output"].differentiable
 
 
 def test_non_trainability_flow_in_compile_with_data_keys_1():
@@ -130,7 +130,7 @@ def test_non_trainability_flow_in_compile_with_data_keys_1():
     pm = mithril.compile(
         model, backend, data_keys={"input"}, constant_keys={"left": backend.array(1.0)}
     )
-    assert not pm.data_store.all_data["output"].differentiable
+    assert not pm.flat_graph.all_data["output"].differentiable
 
 
 def test_non_trainability_flow_in_compile_with_data_keys_2():
@@ -142,7 +142,7 @@ def test_non_trainability_flow_in_compile_with_data_keys_2():
 
     backend = JaxBackend()
     pm = mithril.compile(model, backend, data_keys={"input"})
-    assert pm.data_store.all_data["output"].differentiable
+    assert pm.flat_graph.all_data["output"].differentiable
 
 
 def test_non_trainability_flow_in_compile_with_data_keys_3():
@@ -163,8 +163,8 @@ def test_non_trainability_flow_in_compile_with_data_keys_3():
 
     backend = JaxBackend()
     pm = mithril.compile(model, backend, data_keys={"input"})
-    assert pm.data_store.all_data["mult_out"].differentiable
-    assert pm.data_store.all_data["add_out"].differentiable
+    assert pm.flat_graph.all_data["mult_out"].differentiable
+    assert pm.flat_graph.all_data["add_out"].differentiable
 
 
 def test_trainability_flow_in_compile_with_trainable_keys():
@@ -184,5 +184,5 @@ def test_trainability_flow_in_compile_with_trainable_keys():
 
     backend = JaxBackend()
     pm = mithril.compile(model, backend, trainable_keys={"input"})
-    assert pm.data_store.all_data["mult_out"].differentiable
-    assert pm.data_store.all_data["add_out"].differentiable
+    assert pm.flat_graph.all_data["mult_out"].differentiable
+    assert pm.flat_graph.all_data["add_out"].differentiable
