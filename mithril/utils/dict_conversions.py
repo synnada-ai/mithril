@@ -34,7 +34,7 @@ from ..framework.common import (
     ToBeDetermined,
 )
 from ..framework.constraints import constrain_fn_dict
-from ..framework.logical import user_essential_primitives
+from ..framework.logical import primitive
 from ..framework.logical.model import IOKey
 from ..models import (
     BaseModel,
@@ -110,7 +110,7 @@ model_dict |= {
 }
 model_dict |= {
     item[0].lower(): item[1]
-    for item in user_essential_primitives.__dict__.items()
+    for item in primitive.__dict__.items()
     if isinstance(item[1], type) and issubclass(item[1], BaseModel)
 }
 

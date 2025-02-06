@@ -88,10 +88,10 @@ from mithril.models import (
     Multiply,
     NanToNum,
     NormModifier,
+    Operator,
     Pad,
     PermuteTensor,
     PositionalEncoding,
-    PrimitiveModel,
     PrimitiveUnion,
     Relu,
     Reshape,
@@ -121,9 +121,8 @@ from mithril.models import (
     ZerosLike,
     primitives,
 )
-from mithril.models.primitives import UserPrimitiveModel
+from mithril.models.primitives import PrimitiveModel
 
-from ..utils import get_primitive
 from .test_utils import (
     check_shapes_semantically,
     check_single_shape_semantically,
@@ -664,7 +663,7 @@ def test_linear_1_set_shapes():
     ctx = TrainModel(model)
     loss_model = SquaredError()
     loss_model.set_shapes(loss_model.safe_shapes)
-    loss_model.set_shapes(get_primitive(loss_model).safe_shapes)
+    loss_model.set_shapes(loss_model.submodel.safe_shapes)
     ctx.add_loss(
         loss_model=loss_model, reduce_steps=[Mean()], input="output", target="target"
     )
@@ -702,7 +701,7 @@ def test_linear_1_static_shapes():
     shapes = {"input": [100, 4], "target": [100, 1]}
     ctx = TrainModel(model)
     loss_model = SquaredError()
-    loss_model.set_shapes(get_primitive(loss_model).safe_shapes)
+    loss_model.set_shapes(loss_model.submodel.safe_shapes)
     ctx.add_loss(
         loss_model=loss_model, reduce_steps=[Mean()], input="output", target="target"
     )
@@ -753,7 +752,7 @@ def test_linear_1_static_inputs():
     }
     ctx = TrainModel(model)
     loss_model = SquaredError()
-    loss_model.set_shapes(get_primitive(loss_model).safe_shapes)
+    loss_model.set_shapes(loss_model.submodel.safe_shapes)
     ctx.add_loss(
         loss_model=loss_model, reduce_steps=[Mean()], input="output", target="target"
     )
@@ -2584,7 +2583,7 @@ def test_mlp_1_static_shapes():
     model = MLP(activations=[Softplus(), Buffer(), Buffer()], dimensions=[5, 10, 1])
     ctx = TrainModel(model)
     loss_model = SquaredError()
-    loss_model.set_shapes(get_primitive(loss_model).safe_shapes)
+    loss_model.set_shapes(loss_model.submodel.safe_shapes)
     ctx.add_loss(loss_model, input=model.output, target="target", reduce_steps=[Mean()])
     static_input_shapes = {"input": [100, 4], "target": [100, 1]}
     logical_ref: dict[str, list | None] = {
@@ -2697,7 +2696,7 @@ def test_mlp_1_static_inputs():
     model = MLP(activations=[Softplus(), Buffer(), Buffer()], dimensions=[5, 10, 1])
     ctx = TrainModel(model)
     loss_model = SquaredError()
-    loss_model.set_shapes(get_primitive(loss_model).safe_shapes)
+    loss_model.set_shapes(loss_model.submodel.safe_shapes)
 
     ctx.add_loss(loss_model, input=model.output, target="target", reduce_steps=[Mean()])
     static_inputs = {
@@ -2968,7 +2967,7 @@ def test_shape_1():
     assert_shapes(model, logical_ref, physical_ref)
 
 
-class Model1(UserPrimitiveModel):
+class Model1(PrimitiveModel):
     input: Connection
     output: Connection
 
@@ -2985,7 +2984,7 @@ class Model1(UserPrimitiveModel):
         return ExtendInfo(self, {"input": input, "output": output})
 
 
-class Model2(UserPrimitiveModel):
+class Model2(PrimitiveModel):
     input: Connection
     output: Connection
 
@@ -3002,7 +3001,7 @@ class Model2(UserPrimitiveModel):
         return ExtendInfo(self, {"input": input, "output": output})
 
 
-class Model3(UserPrimitiveModel):
+class Model3(PrimitiveModel):
     input1: Connection
     input2: Connection
     output: Connection
@@ -3026,7 +3025,7 @@ class Model3(UserPrimitiveModel):
         return ExtendInfo(self, {"input1": input1, "output": output, "input2": input2})
 
 
-class Model4(UserPrimitiveModel):
+class Model4(PrimitiveModel):
     input: Connection
     output: Connection
 
@@ -3043,7 +3042,7 @@ class Model4(UserPrimitiveModel):
         return ExtendInfo(self, {"input": input, "output": output})
 
 
-class Model5(UserPrimitiveModel):
+class Model5(PrimitiveModel):
     input: Connection
     output: Connection
     axis: Connection
@@ -3065,7 +3064,7 @@ class Model5(UserPrimitiveModel):
         return ExtendInfo(self, {"input": input, "output": output, "axis": axis})
 
 
-class Model6(UserPrimitiveModel):
+class Model6(PrimitiveModel):
     input: Connection
     output: Connection
 
@@ -3082,7 +3081,7 @@ class Model6(UserPrimitiveModel):
         return ExtendInfo(self, {"input": input, "output": output})
 
 
-class Model7(UserPrimitiveModel):
+class Model7(PrimitiveModel):
     input: Connection
     output: Connection
 
@@ -3099,7 +3098,7 @@ class Model7(UserPrimitiveModel):
         return ExtendInfo(self, {"input": input, "output": output})
 
 
-class Model8(UserPrimitiveModel):
+class Model8(PrimitiveModel):
     input: Connection
     output: Connection
 
@@ -3116,7 +3115,7 @@ class Model8(UserPrimitiveModel):
         return ExtendInfo(self, {"input": input, "output": output})
 
 
-class Model9(UserPrimitiveModel):
+class Model9(PrimitiveModel):
     input: Connection
     output: Connection
 
@@ -3999,7 +3998,7 @@ def test_variadic_naming_1():
 
 
 # Test models for Variadic naming tests.
-class MyVariadic1(UserPrimitiveModel):
+class MyVariadic1(PrimitiveModel):
     input: Connection
     output: Connection
 
@@ -4016,7 +4015,7 @@ class MyVariadic1(UserPrimitiveModel):
         return ExtendInfo(self, {"input": input, "output": output})
 
 
-class MyVariadic2(UserPrimitiveModel):
+class MyVariadic2(PrimitiveModel):
     input: Connection
     output: Connection
 
@@ -4033,7 +4032,7 @@ class MyVariadic2(UserPrimitiveModel):
         return ExtendInfo(self, {"input": input, "output": output})
 
 
-class MyVariadic3(UserPrimitiveModel):
+class MyVariadic3(PrimitiveModel):
     input: Connection
     output: Connection
 
@@ -4050,7 +4049,7 @@ class MyVariadic3(UserPrimitiveModel):
         return ExtendInfo(self, {"input": input, "output": output})
 
 
-class MyVariadic4(UserPrimitiveModel):
+class MyVariadic4(PrimitiveModel):
     input: Connection
     output: Connection
 
@@ -4067,7 +4066,7 @@ class MyVariadic4(UserPrimitiveModel):
         return ExtendInfo(self, {"input": input, "output": output})
 
 
-class MyVariadic5(UserPrimitiveModel):
+class MyVariadic5(PrimitiveModel):
     input: Connection
     output: Connection
 
@@ -4084,7 +4083,7 @@ class MyVariadic5(UserPrimitiveModel):
         return ExtendInfo(self, {"input": input, "output": output})
 
 
-class MyVariadic6(UserPrimitiveModel):
+class MyVariadic6(PrimitiveModel):
     input: Connection
     output: Connection
 
@@ -4101,7 +4100,7 @@ class MyVariadic6(UserPrimitiveModel):
         return ExtendInfo(self, {"input": input, "output": output})
 
 
-class MyVariadic7(UserPrimitiveModel):
+class MyVariadic7(PrimitiveModel):
     input: Connection
     output: Connection
 
@@ -4118,7 +4117,7 @@ class MyVariadic7(UserPrimitiveModel):
         return ExtendInfo(self, {"input": input, "output": output})
 
 
-class MyVariadic8(UserPrimitiveModel):
+class MyVariadic8(PrimitiveModel):
     input1: Connection
     input2: Connection
     input3: Connection
@@ -4175,7 +4174,7 @@ class MyVariadic8(UserPrimitiveModel):
         )
 
 
-class MyVariadic9(UserPrimitiveModel):
+class MyVariadic9(PrimitiveModel):
     input1: Connection
     input2: Connection
     input3: Connection
@@ -4203,7 +4202,7 @@ class MyVariadic9(UserPrimitiveModel):
         )
 
 
-class MyVariadic10(UserPrimitiveModel):
+class MyVariadic10(PrimitiveModel):
     input1: Connection
     input2: Connection
     input3: Connection
@@ -4250,7 +4249,7 @@ class MyVariadic10(UserPrimitiveModel):
         )
 
 
-class MyVariadic11(UserPrimitiveModel):
+class MyVariadic11(PrimitiveModel):
     input: Connection
     output: Connection
 
@@ -4267,7 +4266,7 @@ class MyVariadic11(UserPrimitiveModel):
         return ExtendInfo(self, {"input": input, "output": output})
 
 
-class MyVariadic12(UserPrimitiveModel):
+class MyVariadic12(PrimitiveModel):
     input: Connection
     output: Connection
 
@@ -5168,7 +5167,7 @@ def test_variadic_naming_13():
 
 
 def test_variadic_naming_14() -> None:
-    class MyModel(UserPrimitiveModel):
+    class MyModel(PrimitiveModel):
         input1: Connection
         input2: Connection
         output: Connection
@@ -5200,7 +5199,7 @@ def test_variadic_naming_14() -> None:
 
 
 def test_variadic_naming_15() -> None:
-    class MyModel(UserPrimitiveModel):
+    class MyModel(PrimitiveModel):
         input1: Connection
         input2: Connection
         output: Connection
@@ -5229,7 +5228,7 @@ def test_variadic_naming_15() -> None:
 
 
 def test_variadic_naming_16() -> None:
-    class MyModel(UserPrimitiveModel):
+    class MyModel(PrimitiveModel):
         input: Connection
         output: Connection
 
@@ -5270,7 +5269,7 @@ def test_variadic_naming_16() -> None:
 
 
 def test_variadic_naming_17() -> None:
-    class MyModel(UserPrimitiveModel):
+    class MyModel(PrimitiveModel):
         input: Connection
         output: Connection
 
@@ -5554,7 +5553,7 @@ def test_variadic_naming_24():
 
 
 def test_variadic_naming_25() -> None:
-    class MyModel(UserPrimitiveModel):
+    class MyModel(PrimitiveModel):
         input: Connection
         output: Connection
 
@@ -5601,7 +5600,7 @@ def test_variadic_naming_25() -> None:
 
 
 def test_variadic_naming_26() -> None:
-    class MyModel(UserPrimitiveModel):
+    class MyModel(PrimitiveModel):
         input1: Connection
         input2: Connection
         input3: Connection
@@ -5653,7 +5652,7 @@ def test_variadic_naming_26() -> None:
 
 
 def test_variadic_naming_27() -> None:
-    class MyModel(UserPrimitiveModel):
+    class MyModel(PrimitiveModel):
         input: Connection
         output: Connection
 
@@ -5696,7 +5695,7 @@ def test_variadic_naming_27() -> None:
 
 
 def test_same_uniadic_1() -> None:
-    class MyModel(UserPrimitiveModel):
+    class MyModel(PrimitiveModel):
         input: Connection
         output: Connection
 
@@ -5739,7 +5738,7 @@ def test_same_uniadic_1() -> None:
 
 
 def test_same_uniadic_2() -> None:
-    class MyModel(UserPrimitiveModel):
+    class MyModel(PrimitiveModel):
         input: Connection
         output: Connection
 
@@ -6649,10 +6648,10 @@ def test_total_repr_count_1():
         CrossEntropy,
         CustomPrimitiveModel,
         ToTuple,
-        PrimitiveModel,
+        Operator,
         ToList,
         ScaledDotProduct,
-        UserPrimitiveModel,
+        PrimitiveModel,
     }
     ref_counts = {
         Exponential: 1,
@@ -6695,7 +6694,7 @@ def test_total_repr_count_1():
     }
     # find all primitives that are defined in primitives.py
 
-    u_primitives = mithril.framework.logical.user_essential_primitives
+    u_primitives = mithril.framework.logical.primitive
     _all_primitives_dict = primitives.__dict__ | u_primitives.__dict__
     all_primitives = primitives.__all__ + u_primitives.__all__  # type: ignore
     all_primitives_dict = {
@@ -6926,7 +6925,7 @@ def test_node_count_3():
 
 
 def test_repr_count_1():
-    class MyModel(UserPrimitiveModel):
+    class MyModel(PrimitiveModel):
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
@@ -6945,7 +6944,7 @@ def test_repr_count_1():
 
 
 def test_equalize_lengths_of_unmatchable_reprs_of_different_sizes_with_extend_1():
-    class MyModel(UserPrimitiveModel):
+    class MyModel(PrimitiveModel):
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
@@ -6971,7 +6970,7 @@ def test_equalize_lengths_of_unmatchable_reprs_of_different_sizes_with_extend_1(
 
 
 def test_equalize_lengths_of_unmatchable_reprs_of_different_sizes_with_extend_2():
-    class MyModel(UserPrimitiveModel):
+    class MyModel(PrimitiveModel):
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
@@ -7432,7 +7431,7 @@ def test_numeric_compatibility_inference_10():
 
 
 def test_node_count_4():
-    class MyModel(UserPrimitiveModel):
+    class MyModel(PrimitiveModel):
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
@@ -7465,7 +7464,7 @@ def test_node_count_4():
 
 
 def test_node_count_5():
-    class MyModel(UserPrimitiveModel):
+    class MyModel(PrimitiveModel):
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
@@ -7697,7 +7696,7 @@ def test_node_count_15():
 
 
 def test_node_count_16() -> None:
-    class MyModel(UserPrimitiveModel):
+    class MyModel(PrimitiveModel):
         input: Connection
         output: Connection
 
@@ -7727,7 +7726,7 @@ def test_node_count_16() -> None:
 
 
 def test_node_count_18() -> None:
-    class MyModel(UserPrimitiveModel):
+    class MyModel(PrimitiveModel):
         input: Connection
         output: Connection
 
@@ -7756,7 +7755,7 @@ def test_node_count_18() -> None:
 
 
 def test_node_count_19() -> None:
-    class MyModel(UserPrimitiveModel):
+    class MyModel(PrimitiveModel):
         input: Connection
         output: Connection
 
@@ -7792,7 +7791,7 @@ def test_node_count_19() -> None:
 
 
 def test_node_count_20() -> None:
-    class MyModel(UserPrimitiveModel):
+    class MyModel(PrimitiveModel):
         input: Connection
         output: Connection
 
@@ -7828,7 +7827,7 @@ def test_node_count_20() -> None:
 
 
 def test_node_count_21() -> None:
-    class MyModel(UserPrimitiveModel):
+    class MyModel(PrimitiveModel):
         input: Connection
         output: Connection
 

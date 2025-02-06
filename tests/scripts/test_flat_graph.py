@@ -19,20 +19,14 @@ import mithril as ml
 from mithril.framework.physical.flat_graph import FlatGraph
 from mithril.models import Add, Buffer, ConstraintSolver, Model, Relu, Sigmoid, Tanh
 
-from ..utils import get_primitive
-
 
 def test_flatgraph_1():
     graph = FlatGraph(
         {"input1", "input2"}, {"output"}, ml.JaxBackend(), ConstraintSolver()
     )
-    graph.add_value(get_primitive(Relu()), {"input": "input1", "output": "relu_out"})
-    graph.add_value(
-        get_primitive(Buffer()), {"input": "relu_out", "output": "buffer_output"}
-    )
-    graph.add_value(
-        get_primitive(Buffer()), {"input": "buffer_output", "output": "output"}
-    )
+    graph.add_value(Relu().submodel, {"input": "input1", "output": "relu_out"})
+    graph.add_value(Buffer().submodel, {"input": "relu_out", "output": "buffer_output"})
+    graph.add_value(Buffer().submodel, {"input": "buffer_output", "output": "output"})
     graph.prune_duplicate_nodes({}, {})
 
     expected_connections = ["input1", "relu_out"]
@@ -48,11 +42,11 @@ def test_flatgraph_2():
         ml.JaxBackend(),
         ConstraintSolver(),
     )
-    graph.add_value(get_primitive(Relu()), {"input": "input1", "output": "relu_out"})
-    graph.add_value(get_primitive(Buffer()), {"input": "relu_out", "output": "output1"})
-    graph.add_value(get_primitive(Buffer()), {"input": "output1", "output": "output2"})
-    graph.add_value(get_primitive(Buffer()), {"input": "output2", "output": "output3"})
-    graph.add_value(get_primitive(Buffer()), {"input": "output3", "output": "output4"})
+    graph.add_value(Relu().submodel, {"input": "input1", "output": "relu_out"})
+    graph.add_value(Buffer().submodel, {"input": "relu_out", "output": "output1"})
+    graph.add_value(Buffer().submodel, {"input": "output1", "output": "output2"})
+    graph.add_value(Buffer().submodel, {"input": "output2", "output": "output3"})
+    graph.add_value(Buffer().submodel, {"input": "output3", "output": "output4"})
     graph.prune_duplicate_nodes({}, {})
 
     expected_connections = ["input1", "relu_out"]
@@ -71,9 +65,9 @@ def test_flatgraph_3():
         ml.JaxBackend(),
         ConstraintSolver(),
     )
-    graph.add_value(get_primitive(Relu()), {"input": "input1", "output": "relu_out"})
-    graph.add_value(get_primitive(Relu()), {"input": "relu_out", "output": "output1"})
-    graph.add_value(get_primitive(Relu()), {"input": "output1", "output": "output2"})
+    graph.add_value(Relu().submodel, {"input": "input1", "output": "relu_out"})
+    graph.add_value(Relu().submodel, {"input": "relu_out", "output": "output1"})
+    graph.add_value(Relu().submodel, {"input": "output1", "output": "output2"})
     graph.prune_duplicate_nodes({}, {})
 
     expected_connections = ["input1", "output1", "output2", "relu_out"]
@@ -141,7 +135,7 @@ def test_infer_static_2():
         inference=True,
     )
 
-    assert len(pm.flat_graph.nodes) == 1 and get_primitive(add) in pm.flat_graph.nodes
+    assert len(pm.flat_graph.nodes) == 1 and add.submodel in pm.flat_graph.nodes
     assert pm.flat_graph.all_source_keys == {"relu_out", "input2"}
     assert pm.flat_graph.all_target_keys == {"output"}
     assert pm.flat_graph.topological_order == ["output"]
@@ -162,7 +156,7 @@ def test_infer_static_3():
         inference=True,
     )
 
-    assert len(pm.flat_graph.nodes) == 1 and get_primitive(add) in pm.flat_graph.nodes
+    assert len(pm.flat_graph.nodes) == 1 and add.submodel in pm.flat_graph.nodes
     assert pm.flat_graph.all_source_keys == {"relu_out", "input2"}
     assert pm.flat_graph.all_target_keys == {"output"}
     assert pm.flat_graph.topological_order == ["output"]
@@ -204,7 +198,7 @@ def test_discard_primitive():
         inference=True,
     )
 
-    assert len(pm.flat_graph.nodes) == 1 and get_primitive(relu) in pm.flat_graph.nodes
+    assert len(pm.flat_graph.nodes) == 1 and relu.submodel in pm.flat_graph.nodes
     assert pm.flat_graph.all_source_keys == {"input2"}
     assert pm.flat_graph.all_target_keys == {"output2"}
     assert pm.flat_graph.topological_order == ["output2"]
@@ -227,8 +221,8 @@ def test_discard_partial_of_sequence():
 
     assert (
         len(pm.flat_graph.nodes) == 2
-        and get_primitive(relu2) in pm.flat_graph.nodes
-        and get_primitive(sig) in pm.flat_graph.nodes
+        and relu2.submodel in pm.flat_graph.nodes
+        and sig.submodel in pm.flat_graph.nodes
     )
     assert pm.flat_graph.all_source_keys == {"input1", "input2"}
     assert pm.flat_graph.all_target_keys == {"output1", "output2"}
@@ -250,7 +244,7 @@ def test_discard_whole_sequence():
         inference=True,
     )
 
-    assert len(pm.flat_graph.nodes) == 1 and get_primitive(relu) in pm.flat_graph.nodes
+    assert len(pm.flat_graph.nodes) == 1 and relu.submodel in pm.flat_graph.nodes
     assert pm.flat_graph.all_source_keys == {"input2"}
     assert pm.flat_graph.all_target_keys == {"output2"}
     assert pm.flat_graph.topological_order == ["output2"]

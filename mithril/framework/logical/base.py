@@ -74,7 +74,7 @@ class BaseModel:
         self.dag: dict[BaseModel, dict[str, ConnectionData]] = {}
         self._formula_key: str | None = formula_key
 
-        # TODO: maybe set it only to PrimitiveModel / Model.
+        # TODO: maybe set it only to Operator / Model.
         self.parent: BaseModel | None = None
         self.assigned_shapes: list[ShapesType] = []
         self.assigned_types: dict[

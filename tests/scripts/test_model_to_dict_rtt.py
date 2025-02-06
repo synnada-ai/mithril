@@ -32,13 +32,13 @@ from mithril.models import (
     Linear,
     Mean,
     Model,
-    PrimitiveModel,
+    Operator,
     Relu,
     Sigmoid,
     SquaredError,
     TrainModel,
 )
-from mithril.models.primitives import UserPrimitiveModel
+from mithril.models.primitives import PrimitiveModel
 from mithril.utils import dict_conversions
 
 from .helper import assert_evaluations_equal, assert_models_equal
@@ -941,7 +941,7 @@ def test_make_shape_constraint():
 
     TorchBackend.register_primitive(my_adder)  # After serialization is this available?
 
-    class MyAdder(UserPrimitiveModel):
+    class MyAdder(PrimitiveModel):
         def __init__(self, threshold=3) -> None:
             threshold *= 2
             super().__init__(
@@ -951,7 +951,7 @@ def test_make_shape_constraint():
                 rhs=BaseKey(type=int, value=threshold),
             )
             self.add_constraint(
-                fn=squeeze_constraints, keys=[PrimitiveModel.output_key, "input"]
+                fn=squeeze_constraints, keys=[Operator.output_key, "input"]
             )
 
     model += MyAdder()(input="input")

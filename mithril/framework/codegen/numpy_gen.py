@@ -35,7 +35,7 @@ from ..common import (
     find_intersection_type,
     is_type_adjustment_required,
 )
-from ..logical import PrimitiveModel
+from ..logical import Operator
 from .python_gen import PythonCodeGen, RawGradientType
 from .utils import check_repr_inequality
 
@@ -212,7 +212,7 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
 
     def get_primitive_details(
         self, output_key: str
-    ) -> tuple[PrimitiveModel, list[str], list[str]]:
+    ) -> tuple[Operator, list[str], list[str]]:
         model = self.pm.flat_graph.get_model(output_key)
 
         global_input_keys = self.pm.flat_graph.get_source_keys(output_key)
@@ -229,7 +229,7 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
 
     def call_primitive(
         self,
-        model: PrimitiveModel,
+        model: Operator,
         fn: Callable[..., Any],
         l_input_keys: list[str],
         g_input_keys: list[str],
@@ -259,7 +259,7 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
         return ast.Assign(targets, generated_fn), used_keys | _used_keys
 
     def create_primitive_call_targets(
-        self, output_key: str, model: PrimitiveModel, inference: bool
+        self, output_key: str, model: Operator, inference: bool
     ) -> tuple[list[ast.expr | ast.Name], set[str]]:
         targets: list[ast.expr | ast.Name] = []
 
@@ -271,27 +271,27 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
 
         if not self.pm.inference:
             # TODO: Change this with cache refactor
-            cache_name = output_key + f"_{PrimitiveModel.cache_name}"
+            cache_name = output_key + f"_{Operator.cache_name}"
             used_keys.add(cache_name)
             targets.append(
                 ast.Subscript(
                     value=ast.Name(id=cache_name, ctx=ast.Load()),
-                    slice=ast.Constant(value=PrimitiveModel.output_key),
+                    slice=ast.Constant(value=Operator.output_key),
                     ctx=ast.Store(),
                 )
             )
 
         return targets, used_keys
 
-    def get_cache_name(self, output_key: str, model: PrimitiveModel) -> str:
-        cache_name = "_".join([output_key, PrimitiveModel.cache_name])
+    def get_cache_name(self, output_key: str, model: Operator) -> str:
+        cache_name = "_".join([output_key, Operator.cache_name])
         if cache_name not in self.pm.flat_graph.all_data:
             self.add_cache(output_key)
 
         return cache_name
 
     def add_cache(self, output_key: str) -> None:
-        cache_name = "_".join([output_key, PrimitiveModel.cache_name])
+        cache_name = "_".join([output_key, Operator.cache_name])
         cache_value: dict[str, Any] | None = None if self.pm.inference else {}
         # Create a scalar for caches in manualgrad backend.
         self.pm.flat_graph.update_data(

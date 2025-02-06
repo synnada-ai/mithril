@@ -30,14 +30,12 @@ from mithril.models import (
     Tanh,
 )
 
-from ..utils import get_primitive
-
 
 def test_with_all_defined():
     model = Model()
     model += (add := Add())(left="a", right="b", output="c")
     f_model = FlatModel(model, short_namings=True)
-    _add = get_primitive(add)
+    _add = add.submodel
     assert f_model.mappings == {_add: {"left": "a", "right": "b", "output": "c"}}
     f_model = FlatModel(model, short_namings=False)
     assert f_model.mappings == {_add: {"left": "a", "right": "b", "output": "c"}}
@@ -46,7 +44,7 @@ def test_with_all_defined():
 def test_with_some_undefined():
     model = Model()
     model += (add := Add())(right="b", output="c")
-    _add = get_primitive(add)
+    _add = add.submodel
 
     f_model = FlatModel(model, short_namings=True)
     assert f_model.mappings == {_add: {"left": "left", "right": "b", "output": "c"}}
@@ -60,14 +58,14 @@ def test_with_all_undefined():
 
     f_model = FlatModel(model)
     assert f_model.mappings == {
-        get_primitive(add): {"left": "left", "right": "right", "output": "output"}
+        add.submodel: {"left": "left", "right": "right", "output": "output"}
     }
 
 
 def test_multi_level_name_with_lowest_definition():
     model2 = Model("adder")
     model2 += (add := Add())(left="a", right="b", output="c")
-    _add = get_primitive(add)
+    _add = add.submodel
 
     model1 = Model(name="model")
     model1 += model2
@@ -89,7 +87,7 @@ def test_multi_level_name_with_lowest_definition():
 def test_multi_level_name_with_lowest_definition_higher_redefinition_1():
     model2 = Model(name="adder")
     model2 += (add_model := Add())(left="a", right="b", output="c")
-    _add = get_primitive(add_model)
+    _add = add_model.submodel
 
     model1 = Model(name="namer")
     model1 += model2(a="d", b="e")
@@ -107,7 +105,7 @@ def test_multi_level_name_with_lowest_definition_higher_redefinition_1():
 def test_multi_level_name_with_lowest_definition_higher_redefinition_2():
     model2 = Model()
     model2 += (add_model := Add())(left="a", right="b", output="c")
-    _add = get_primitive(add_model)
+    _add = add_model.submodel
 
     model1 = Model(name="middle")
     model1 += model2(a="d", b="e")
@@ -125,7 +123,7 @@ def test_multi_level_name_with_lowest_definition_higher_redefinition_2():
 def test_collision_from_different_levels():
     model2 = Model()
     model2 += (add_model := Add())(left="a", right="b", output="e")
-    _add = get_primitive(add_model)
+    _add = add_model.submodel
 
     model1 = Model(name="middle")
     model1 += model2(a="d", b="e")
@@ -143,7 +141,7 @@ def test_collision_from_different_levels():
 def test_collision_from_different_levels_2():
     model2 = Model(name="lower")
     model2 += (add_model := Add())(left="a", right="b", output="e")
-    _add = get_primitive(add_model)
+    _add = add_model.submodel
 
     model1 = Model(name="middle2")
     model1 += model2(a="d", b="e")
@@ -168,7 +166,7 @@ def test_collision_from_different_levels_2():
 def test_collision_from_different_levels_3():
     model2 = Model()
     model2 += (add_model := Add())(left="a", right="b", output="e")
-    _add = get_primitive(add_model)
+    _add = add_model.submodel
 
     model1 = Model()
     model1 += model2(a="d", b="e")
@@ -186,11 +184,11 @@ def test_collision_from_different_levels_3():
 def test_collision_from_different_models():
     model1 = Model()
     model1 += (add := Add())(left="l", right="r", output="o")
-    add1 = get_primitive(add)
+    add1 = add.submodel
 
     model2 = Model()
     model2 += (add := Add())(left="l", right="r", output="o")
-    add2 = get_primitive(add)
+    add2 = add.submodel
 
     model = Model()
     model += model1
@@ -209,8 +207,8 @@ def test_output_first_1():
     model = Model()
     model += (relu := Relu())(input="in1", output="out1")
     model += (sig := Sigmoid())(input="in2", output="in1")
-    _sig = get_primitive(sig)
-    _relu = get_primitive(relu)
+    _sig = sig.submodel
+    _relu = relu.submodel
 
     f_model = FlatModel(model)
     assert f_model.mappings == {
@@ -235,8 +233,8 @@ def test_output_first_2():
     model = Model()
     model += (relu := Relu())(output="out1")
     model += (sig := Sigmoid())(input="in2", output=relu.input)
-    _sig = get_primitive(sig)
-    _relu = get_primitive(relu)
+    _sig = sig.submodel
+    _relu = relu.submodel
 
     f_model = FlatModel(model)
     assert f_model.mappings == {
@@ -296,19 +294,19 @@ def test_output_first_4():
 
     f_model = FlatModel(model)
     expected_mapping = {
-        get_primitive(relu): {"input": "input", "output": "output1_0"},
-        get_primitive(softp): {"input": "output1_0", "output": "output1_1"},
-        get_primitive(sig): {"input": "output1_1", "output": "output2"},
-        get_primitive(tanh): {"input": "output2", "output": "output"},
+        relu.submodel: {"input": "input", "output": "output1_0"},
+        softp.submodel: {"input": "output1_0", "output": "output1_1"},
+        sig.submodel: {"input": "output1_1", "output": "output2"},
+        tanh.submodel: {"input": "output2", "output": "output"},
     }
     assert f_model.mappings == expected_mapping
 
     f_model = FlatModel(model, short_namings=False)
     expected_mapping = {
-        get_primitive(relu): {"input": "input", "output": "model_0_output1"},
-        get_primitive(softp): {"input": "model_0_output1", "output": "model_1_output1"},
-        get_primitive(sig): {"input": "model_1_output1", "output": "model_0_output2"},
-        get_primitive(tanh): {"input": "model_0_output2", "output": "output"},
+        relu.submodel: {"input": "input", "output": "model_0_output1"},
+        softp.submodel: {"input": "model_0_output1", "output": "model_1_output1"},
+        sig.submodel: {"input": "model_1_output1", "output": "model_0_output2"},
+        tanh.submodel: {"input": "model_0_output2", "output": "output"},
     }
     assert f_model.mappings == expected_mapping
 

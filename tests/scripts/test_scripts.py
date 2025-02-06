@@ -102,11 +102,11 @@ from mithril.models import (
     TrainModel,
     Where,
 )
-from mithril.models.primitives import UserPrimitiveModel
+from mithril.models.primitives import PrimitiveModel
 from mithril.utils.type_utils import is_list_int
 from mithril.utils.utils import OrderedSet
 
-from ..utils import MyAdder, get_primitive
+from ..utils import MyAdder
 from .helper import assert_models_equal
 from .test_shapes import check_shapes_semantically
 from .test_utils import (
@@ -2066,8 +2066,8 @@ def test_static_anlaysis_4():
     comp_model = mithril.compile(model=model, backend=NumpyBackend())
 
     models = {add1, add2, sum1, sub1, mul1, mat1}
-    _models = {get_primitive(model) for model in models}
-    assert (_models - comp_model.flat_graph.nodes.keys()) == {get_primitive(mat1)}
+    _models = {model.submodel for model in models}
+    assert (_models - comp_model.flat_graph.nodes.keys()) == {mat1.submodel}
 
 
 def test_prune_1():
@@ -3653,7 +3653,7 @@ def test_mlp_last_dimension_prop():
     mlp_model = MLP(activations=[Relu(), Relu(), Relu()], dimensions=[12, 24, None])
     ctx = TrainModel(mlp_model)
     loss_model = SquaredError()
-    loss_model.set_shapes(get_primitive(loss_model).safe_shapes)
+    loss_model.set_shapes(loss_model.submodel.safe_shapes)
     ctx.add_loss(
         loss_model,
         input=mlp_model.cout,
@@ -6782,7 +6782,7 @@ def test_string_iokey_value_1():
         return torch.einsum(equation, input)
 
     # Define einsum primitive Model
-    class ReduceEinsum(UserPrimitiveModel):
+    class ReduceEinsum(PrimitiveModel):
         # Small Einsum Model that is written for test purposes.
         # Now it only supports single input and single output
 
@@ -6865,7 +6865,7 @@ def test_string_iokey_value_2():
         return torch.einsum(equation, input)
 
     # Define einsum primitive Model
-    class ReduceEinsum(UserPrimitiveModel):
+    class ReduceEinsum(PrimitiveModel):
         # Small Einsum Model that is written for test purposes.
         # Now it only supports single input and single output
 

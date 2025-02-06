@@ -14,14 +14,19 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from types import NoneType
+from typing import Any
 
-from ..core import Constant, Dtype
+from .. import core
+from ..core import Constant
 from ..framework.common import (
     NOT_GIVEN,
     TBD,
     BaseKey,
+    ScalarValueType,
     Tensor,
+    TensorValueType,
     ToBeDetermined,
 )
 from ..framework.constraints import (
@@ -50,9 +55,62 @@ from ..framework.constraints import (
     where_constrains,
 )
 from ..framework.logical import Model
+from ..framework.logical.essential_primitives import (
+    AbsoluteOp,
+    AddOp,
+    ArgMaxOp,
+    ArgMinOp,
+    BufferOp,
+    CastOp,
+    CosineOp,
+    DivideOp,
+    DtypeOp,
+    EqualOp,
+    ExponentialOp,
+    FloorDivideOp,
+    GreaterEqualOp,
+    GreaterOp,
+    IndexerOp,
+    ItemOp,
+    LengthOp,
+    LessEqualOp,
+    LessOp,
+    LogicalAndOp,
+    LogicalNotOp,
+    LogicalOrOp,
+    LogicalXOrOp,
+    MatrixMultiplyOp,
+    MaximumOp,
+    MaxOp,
+    MeanOp,
+    MinimumOp,
+    MinOp,
+    MinusOp,
+    MultiplyOp,
+    NotEqualOp,
+    PowerOp,
+    ProdOp,
+    ReshapeOp,
+    ShapeOp,
+    ShiftLeftOp,
+    ShiftRightOp,
+    SineOp,
+    SizeOp,
+    SliceOp,
+    SplitOp,
+    SqrtOp,
+    SubtractOp,
+    SumOp,
+    TensorToListOp,
+    ToListOp,
+    ToTensorOp,
+    ToTupleOp,
+    TransposeOp,
+    VarianceOp,
+)
 from ..framework.logical.model import Connection, ConnectionType, ExtendInfo
+from ..framework.logical.operator import Operator
 from ..framework.logical.primitive import PrimitiveModel
-from ..framework.logical.user_essential_primitives import UserPrimitiveModel
 from ..utils.utils import PaddingType
 
 __all__ = [
@@ -117,14 +175,64 @@ __all__ = [
     "Trapezoid",
     "Pad",
     "Randn",
-    "UserPrimitiveModel",
+    "PrimitiveModel",
+    "Buffer",
+    "ToTuple",
+    "Power",
+    "Add",
+    "Subtract",
+    "Multiply",
+    "Divide",
+    "FloorDivide",
+    "Minus",
+    "MatrixMultiply",
+    "Shape",
+    "Reshape",
+    "Length",
+    "Size",
+    "Exponential",
+    "Item",
+    "Indexer",
+    "ToTensor",
+    "ToList",
+    "TensorToList",
+    "Mean",
+    "Sum",
+    "Max",
+    "Min",
+    "Prod",
+    "Variance",
+    "Absolute",
+    "Equal",
+    "NotEqual",
+    "Greater",
+    "GreaterEqual",
+    "Less",
+    "LessEqual",
+    "LogicalNot",
+    "LogicalOr",
+    "LogicalAnd",
+    "LogicalXOr",
+    "ShiftLeft",
+    "ShiftRight",
+    "ArgMax",
+    "ArgMin",
+    "Cast",
+    "Transpose",
+    "Sqrt",
+    "Split",
+    "Slice",
+    "Dtype",
+    "Sine",
+    "Cosine",
+    "Minimum",
+    "Maximum",
 ]
-
 # Define types used to define keys:
 ConstantType = float | int | Constant
 
 
-class CustomPrimitiveModel(UserPrimitiveModel):
+class CustomPrimitiveModel(PrimitiveModel):
     def __init__(
         self, formula_key: str, name: str | None = None, **kwargs: BaseKey
     ) -> None:
@@ -133,13 +241,13 @@ class CustomPrimitiveModel(UserPrimitiveModel):
 
 
 ########################## Supervised Loss Types ##########################
-class SupervisedLoss(UserPrimitiveModel):
+class SupervisedLoss(PrimitiveModel):
     """Base class for supervised losses with one input and a target.
     Takes N-dimensional input and target and produces N-dimensional output.
 
     Parameters
     ----------
-    PrimitiveModel : _type_
+    Operator : _type_
         _description_
     """
 
@@ -167,22 +275,22 @@ class SupervisedLoss(UserPrimitiveModel):
 
         # Set constraints.
         bcast_constraint = self._add_constraint(
-            fn=bcast, keys=[PrimitiveModel.output_key, "input", "target"]
+            fn=bcast, keys=[Operator.output_key, "input", "target"]
         )
 
         self._add_constraint(
             fn=bcast_error_check,
-            keys=[PrimitiveModel.output_key, "input", "target"],
+            keys=[Operator.output_key, "input", "target"],
             dependencies={bcast_constraint},
         )
 
         if polymorphic_constraint:
             self._add_constraint(
                 fn=general_tensor_type_constraint,
-                keys=[PrimitiveModel.output_key, "input", "target"],
+                keys=[Operator.output_key, "input", "target"],
             )
 
-        next(iter(self.dag)).safe_shapes = {
+        self.submodel.safe_shapes = {
             "output": ["N", ("Var", ...)],
             "input": ["N", ("Var", ...)],
             "target": ["N", ("Var", ...)],
@@ -259,7 +367,7 @@ class QuadHingeLoss(SupervisedLoss):
         )
 
 
-class QuantileLoss(UserPrimitiveModel):
+class QuantileLoss(PrimitiveModel):
     """
     Takes N-dimensional input and target and produces N-dimensional output.
     """
@@ -287,21 +395,21 @@ class QuantileLoss(UserPrimitiveModel):
         )
 
         bcast_constraint = self._add_constraint(
-            fn=bcast, keys=[PrimitiveModel.output_key, "input", "target"]
+            fn=bcast, keys=[Operator.output_key, "input", "target"]
         )
 
         self._add_constraint(
             fn=bcast_error_check,
-            keys=[PrimitiveModel.output_key, "input", "target"],
+            keys=[Operator.output_key, "input", "target"],
             dependencies={bcast_constraint},
         )
 
         self._add_constraint(
             fn=general_tensor_type_constraint,
-            keys=[PrimitiveModel.output_key, "input", "target", "quantile"],
+            keys=[Operator.output_key, "input", "target", "quantile"],
         )
 
-        next(iter(self.dag)).safe_shapes = {
+        self.submodel.safe_shapes = {
             "output": ["N", ("Var", ...)],
             "input": ["N", ("Var", ...)],
             "target": ["N", ("Var", ...)],
@@ -319,7 +427,7 @@ class QuantileLoss(UserPrimitiveModel):
         )
 
 
-class CrossEntropy(UserPrimitiveModel):
+class CrossEntropy(PrimitiveModel):
     """
     If categorical = True:
         Takes N-dimensional input and (N-1)-dimensional target and
@@ -409,7 +517,7 @@ class CrossEntropy(UserPrimitiveModel):
             "output": output,
         }
         # Check if the given argument set is valid.
-        if next(iter(self.dag)).formula_key == "cross_entropy_with_log_probs":
+        if self.submodel.formula_key == "cross_entropy_with_log_probs":
             args: list[str] = []
             if robust is not False:
                 args.append("robust")
@@ -429,7 +537,7 @@ class CrossEntropy(UserPrimitiveModel):
         return super().__call__(**kwargs)
 
 
-class KLDivergence(UserPrimitiveModel):
+class KLDivergence(PrimitiveModel):
     """
     Takes N-dimensional input and target and produces N-dimensional output.
     """
@@ -455,18 +563,18 @@ class KLDivergence(UserPrimitiveModel):
             cutoff=BaseKey(shape=[], type=Tensor, value=cutoff),
         )
 
-        next(iter(self.dag)).safe_shapes = {
+        self.submodel.safe_shapes = {
             "output": ["N", ("Var", ...)],
             "input": ["N", ("Var", ...)],
             "target": ["N", ("Var", ...)],
         }
         bcast_constraint = self._add_constraint(
-            fn=bcast, keys=[PrimitiveModel.output_key, "input", "target"]
+            fn=bcast, keys=[Operator.output_key, "input", "target"]
         )
 
         self._add_constraint(
             fn=bcast_error_check,
-            keys=[PrimitiveModel.output_key, "input", "target"],
+            keys=[Operator.output_key, "input", "target"],
             dependencies={bcast_constraint},
         )
 
@@ -486,7 +594,7 @@ class KLDivergence(UserPrimitiveModel):
         )
 
 
-class BinaryCrossEntropy(UserPrimitiveModel):
+class BinaryCrossEntropy(PrimitiveModel):
     """
     Takes N-dimensional input and target and produces N-dimensional output.
     """
@@ -547,12 +655,12 @@ class BinaryCrossEntropy(UserPrimitiveModel):
         super().__init__(formula_key=formula_key, name=name, **kwargs)
 
         bcast_constraint = self._add_constraint(
-            fn=bcast, keys=[PrimitiveModel.output_key, "input", "target"]
+            fn=bcast, keys=[Operator.output_key, "input", "target"]
         )
 
         self._add_constraint(
             fn=bcast_error_check,
-            keys=[PrimitiveModel.output_key, "input", "target"],
+            keys=[Operator.output_key, "input", "target"],
             dependencies={bcast_constraint},
         )
 
@@ -575,7 +683,7 @@ class BinaryCrossEntropy(UserPrimitiveModel):
         )
 
 
-class Log(UserPrimitiveModel):
+class Log(PrimitiveModel):
     input: Connection
     output: Connection
 
@@ -630,7 +738,7 @@ class Log(UserPrimitiveModel):
         return super().__call__(**kwargs)
 
 
-class StableReciprocal(UserPrimitiveModel):
+class StableReciprocal(PrimitiveModel):
     input: Connection
     cutoff: Connection
     output: Connection
@@ -666,7 +774,7 @@ class StableReciprocal(UserPrimitiveModel):
         return super().__call__(input=input, cutoff=cutoff, output=output)
 
 
-class Sign(UserPrimitiveModel):
+class Sign(PrimitiveModel):
     input: Connection
     output: Connection
 
@@ -689,7 +797,7 @@ class Sign(UserPrimitiveModel):
         return super().__call__(input=input, output=output)
 
 
-class Square(UserPrimitiveModel):
+class Square(PrimitiveModel):
     input: Connection
     output: Connection
 
@@ -713,7 +821,7 @@ class Square(UserPrimitiveModel):
 
 
 ############################# Activation Types ##############################
-class Activation(UserPrimitiveModel):
+class Activation(PrimitiveModel):
     input: Connection
     output: Connection
 
@@ -741,7 +849,7 @@ class Activation(UserPrimitiveModel):
         if polymorphic_constraint:
             self._add_constraint(
                 fn=general_tensor_type_constraint,
-                keys=[PrimitiveModel.output_key, "input"],
+                keys=[Operator.output_key, "input"],
             )
 
     def __call__(  # type: ignore[override]
@@ -868,7 +976,7 @@ class LeakyRelu(Activation):
         return Model.__call__(self, input=input, slope=slope, output=output)
 
 
-class StopGradient(UserPrimitiveModel):
+class StopGradient(PrimitiveModel):
     input: Connection
     output: Connection
 
@@ -892,7 +1000,7 @@ class StopGradient(UserPrimitiveModel):
         return super().__call__(input=input, output=output)
 
 
-class CartesianDifference(UserPrimitiveModel):
+class CartesianDifference(PrimitiveModel):
     left: Connection
     right: Connection
     output: Connection
@@ -914,7 +1022,7 @@ class CartesianDifference(UserPrimitiveModel):
         )
         self._add_constraint(
             fn=general_tensor_type_constraint,
-            keys=[PrimitiveModel.output_key, "left", "right"],
+            keys=[Operator.output_key, "left", "right"],
         )
 
     def __call__(  # type: ignore[override]
@@ -926,7 +1034,7 @@ class CartesianDifference(UserPrimitiveModel):
         return super().__call__(left=left, right=right, output=output)
 
 
-class Concat(UserPrimitiveModel):
+class Concat(PrimitiveModel):
     output: Connection
     axis: Connection
 
@@ -959,11 +1067,11 @@ class Concat(UserPrimitiveModel):
         )
         self._add_constraint(
             fn=general_tensor_type_constraint,
-            keys=[PrimitiveModel.output_key] + input_keys,
+            keys=[Operator.output_key] + input_keys,
         )
 
 
-class PrimitiveUnion(UserPrimitiveModel):
+class PrimitiveUnion(PrimitiveModel):
     output: Connection
 
     def __init__(
@@ -990,7 +1098,7 @@ class PrimitiveUnion(UserPrimitiveModel):
         )
 
 
-class PermuteTensor(UserPrimitiveModel):
+class PermuteTensor(PrimitiveModel):
     input: Connection
     indices: Connection
     output: Connection
@@ -1011,7 +1119,7 @@ class PermuteTensor(UserPrimitiveModel):
         )
 
         self._add_constraint(
-            fn=general_tensor_type_constraint, keys=[PrimitiveModel.output_key, "input"]
+            fn=general_tensor_type_constraint, keys=[Operator.output_key, "input"]
         )
         self.indices.set_differentiable(False)
 
@@ -1024,7 +1132,7 @@ class PermuteTensor(UserPrimitiveModel):
         return super().__call__(input=input, indices=indices, output=output)
 
 
-class PrimitiveConvolution1D(UserPrimitiveModel):
+class PrimitiveConvolution1D(PrimitiveModel):
     input: Connection
     weight: Connection
     stride: Connection
@@ -1078,7 +1186,7 @@ class PrimitiveConvolution1D(UserPrimitiveModel):
 
         self._add_constraint(
             fn=general_tensor_type_constraint,
-            keys=[PrimitiveModel.output_key] + constraint_keys,
+            keys=[Operator.output_key] + constraint_keys,
         )
 
     def __call__(  # type: ignore[override]
@@ -1102,7 +1210,7 @@ class PrimitiveConvolution1D(UserPrimitiveModel):
         }
 
         if "bias" not in self.input_keys and bias != NOT_GIVEN:
-            raise ValueError(f"PrimitiveModel does not have 'bias' input. \
+            raise ValueError(f"Operator does not have 'bias' input. \
                              Got {bias} as bias argument!")
         elif "bias" in self.input_keys:
             kwargs |= {"bias": bias}
@@ -1110,7 +1218,7 @@ class PrimitiveConvolution1D(UserPrimitiveModel):
         return super().__call__(**kwargs)
 
 
-class PrimitiveConvolution2D(UserPrimitiveModel):
+class PrimitiveConvolution2D(PrimitiveModel):
     input: Connection
     weight: Connection
     stride: Connection
@@ -1171,7 +1279,7 @@ class PrimitiveConvolution2D(UserPrimitiveModel):
             constraint_keys.append("bias")
         self._add_constraint(
             fn=general_tensor_type_constraint,
-            keys=[PrimitiveModel.output_key] + constraint_keys,
+            keys=[Operator.output_key] + constraint_keys,
         )
 
     def __call__(  # type: ignore[override]
@@ -1196,15 +1304,14 @@ class PrimitiveConvolution2D(UserPrimitiveModel):
 
         if "bias" not in self.input_keys and bias != NOT_GIVEN:
             raise ValueError(
-                "PrimitiveModel does not have 'bias' input."
-                " Got {bias} as bias argument!"
+                "Operator does not have 'bias' input." " Got {bias} as bias argument!"
             )
         elif "bias" in self.input_keys:
             kwargs |= {"bias": bias}
         return super().__call__(**kwargs)
 
 
-class Flatten(UserPrimitiveModel):
+class Flatten(PrimitiveModel):
     input: Connection
     start_dim: Connection
     end_dim: Connection
@@ -1230,10 +1337,10 @@ class Flatten(UserPrimitiveModel):
 
         self._add_constraint(
             fn=flatten_constrains,
-            keys=[PrimitiveModel.output_key, "input", "start_dim", "end_dim"],
+            keys=[Operator.output_key, "input", "start_dim", "end_dim"],
         )
         self._add_constraint(
-            fn=general_tensor_type_constraint, keys=[PrimitiveModel.output_key, "input"]
+            fn=general_tensor_type_constraint, keys=[Operator.output_key, "input"]
         )
 
     def __call__(  # type: ignore[override]
@@ -1248,7 +1355,7 @@ class Flatten(UserPrimitiveModel):
         )
 
 
-class PrimitiveMaxPool1D(UserPrimitiveModel):
+class PrimitiveMaxPool1D(PrimitiveModel):
     input: Connection
     kernel_size: Connection
     stride: Connection
@@ -1282,7 +1389,7 @@ class PrimitiveMaxPool1D(UserPrimitiveModel):
         )
         # TODO: Torch does not accept any int type inputs but JAX implementation does.
         self._add_constraint(
-            fn=general_tensor_type_constraint, keys=[PrimitiveModel.output_key, "input"]
+            fn=general_tensor_type_constraint, keys=[Operator.output_key, "input"]
         )
 
     def __call__(  # type: ignore[override]
@@ -1304,7 +1411,7 @@ class PrimitiveMaxPool1D(UserPrimitiveModel):
         )
 
 
-class PaddingConverter1D(UserPrimitiveModel):
+class PaddingConverter1D(PrimitiveModel):
     input: Connection
     kernel_size: Connection
     output: Connection
@@ -1326,7 +1433,7 @@ class PaddingConverter1D(UserPrimitiveModel):
 
         self._add_constraint(
             fn=padding_1d_constraint,
-            keys=[PrimitiveModel.output_key, "input", "kernel_size"],
+            keys=[Operator.output_key, "input", "kernel_size"],
         )
 
     def __call__(  # type: ignore[override]
@@ -1338,7 +1445,7 @@ class PaddingConverter1D(UserPrimitiveModel):
         return super().__call__(input=input, kernel_size=kernel_size, output=output)
 
 
-class PaddingConverter2D(UserPrimitiveModel):
+class PaddingConverter2D(PrimitiveModel):
     input: Connection
     kernel_size: Connection
     output: Connection
@@ -1372,7 +1479,7 @@ class PaddingConverter2D(UserPrimitiveModel):
 
         self._add_constraint(
             fn=padding_2d_constraint,
-            keys=[PrimitiveModel.output_key, "input", "kernel_size"],
+            keys=[Operator.output_key, "input", "kernel_size"],
         )
 
     def __call__(  # type: ignore[override]
@@ -1384,7 +1491,7 @@ class PaddingConverter2D(UserPrimitiveModel):
         return super().__call__(input=input, kernel_size=kernel_size, output=output)
 
 
-class StrideConverter(UserPrimitiveModel):
+class StrideConverter(PrimitiveModel):
     input: Connection
     kernel_size: Connection
     output: Connection
@@ -1405,7 +1512,7 @@ class StrideConverter(UserPrimitiveModel):
         )
         self._add_constraint(
             fn=stride_constraint,
-            keys=[PrimitiveModel.output_key, "input", "kernel_size"],
+            keys=[Operator.output_key, "input", "kernel_size"],
         )
 
     def __call__(  # type: ignore[override]
@@ -1417,7 +1524,7 @@ class StrideConverter(UserPrimitiveModel):
         return super().__call__(input=input, kernel_size=kernel_size, output=output)
 
 
-class TupleConverter(UserPrimitiveModel):
+class TupleConverter(PrimitiveModel):
     input: Connection
     output: Connection
 
@@ -1447,7 +1554,7 @@ class TupleConverter(UserPrimitiveModel):
             ),
         )
         self._add_constraint(
-            fn=tuple_converter_constraint, keys=[PrimitiveModel.output_key, "input"]
+            fn=tuple_converter_constraint, keys=[Operator.output_key, "input"]
         )
 
     def __call__(  # type: ignore[override]
@@ -1456,7 +1563,7 @@ class TupleConverter(UserPrimitiveModel):
         return super().__call__(input=input, output=output)
 
 
-class PrimitiveMaxPool2D(UserPrimitiveModel):
+class PrimitiveMaxPool2D(PrimitiveModel):
     input: Connection
     kernel_size: Connection
     stride: Connection
@@ -1500,7 +1607,7 @@ class PrimitiveMaxPool2D(UserPrimitiveModel):
             keys=["output", "input", "stride", "padding", "dilation", "kernel_size"],
         )
         self._add_constraint(
-            fn=general_tensor_type_constraint, keys=[PrimitiveModel.output_key, "input"]
+            fn=general_tensor_type_constraint, keys=[Operator.output_key, "input"]
         )
 
     def __call__(  # type: ignore[override]
@@ -1522,7 +1629,7 @@ class PrimitiveMaxPool2D(UserPrimitiveModel):
         )
 
 
-class NormModifier(UserPrimitiveModel):
+class NormModifier(PrimitiveModel):
     """A helper model that modifies norm input. It is used for mapping
     norm values from (`-inf`, `inf`) to the interval (`1.0`, `5.0`) using a
     periodic triangular function with period 8 as shown on the figure below.
@@ -1558,7 +1665,7 @@ class NormModifier(UserPrimitiveModel):
         )
 
         self._add_constraint(
-            fn=general_tensor_type_constraint, keys=[PrimitiveModel.output_key, "input"]
+            fn=general_tensor_type_constraint, keys=[Operator.output_key, "input"]
         )
 
     def __call__(  # type: ignore[override]
@@ -1567,7 +1674,7 @@ class NormModifier(UserPrimitiveModel):
         return super().__call__(input=input, output=output)
 
 
-class DistanceMatrix(UserPrimitiveModel):
+class DistanceMatrix(PrimitiveModel):
     left: Connection
     right: Connection
     norm: Connection
@@ -1592,7 +1699,7 @@ class DistanceMatrix(UserPrimitiveModel):
 
         self._add_constraint(
             fn=general_tensor_type_constraint,
-            keys=[PrimitiveModel.output_key, "left", "right", "norm"],
+            keys=[Operator.output_key, "left", "right", "norm"],
         )
 
     def __call__(  # type: ignore[override]
@@ -1605,7 +1712,7 @@ class DistanceMatrix(UserPrimitiveModel):
         return super().__call__(left=left, right=right, norm=norm, output=output)
 
 
-class PolynomialFeatures(UserPrimitiveModel):
+class PolynomialFeatures(PrimitiveModel):
     input: Connection
     degree: Connection
     output: Connection
@@ -1629,7 +1736,7 @@ class PolynomialFeatures(UserPrimitiveModel):
             fn=polynomial_features_constraints, keys=["output", "input", "degree"]
         )
         self._add_constraint(
-            fn=general_tensor_type_constraint, keys=[PrimitiveModel.output_key, "input"]
+            fn=general_tensor_type_constraint, keys=[Operator.output_key, "input"]
         )
 
     def __call__(  # type: ignore[override]
@@ -1641,7 +1748,7 @@ class PolynomialFeatures(UserPrimitiveModel):
         return super().__call__(input=input, degree=degree, output=output)
 
 
-class TsnePJoint(UserPrimitiveModel):
+class TsnePJoint(PrimitiveModel):
     squared_distances: Connection
     target_perplexity: Connection
     threshold: Connection
@@ -1685,7 +1792,7 @@ class TsnePJoint(UserPrimitiveModel):
         )
 
 
-class EyeComplement(UserPrimitiveModel):
+class EyeComplement(PrimitiveModel):
     N: Connection
     M: Connection
     dtype: Connection
@@ -1695,7 +1802,7 @@ class EyeComplement(UserPrimitiveModel):
         self,
         N: int | ToBeDetermined = TBD,
         M: int | ToBeDetermined | None = None,
-        dtype: Dtype | None = None,
+        dtype: core.Dtype | None = None,
         *,
         name: str | None = None,
     ) -> None:
@@ -1705,7 +1812,7 @@ class EyeComplement(UserPrimitiveModel):
             output=BaseKey(shape=["N", "M"], type=Tensor[float]),
             N=BaseKey(type=int, value=N),
             M=BaseKey(type=int | None, value=M),
-            dtype=BaseKey(type=Dtype | None, value=dtype),
+            dtype=BaseKey(type=core.Dtype | None, value=dtype),
         )
         self._add_constraint(fn=eye_constraints, keys=["output", "N", "M"])
 
@@ -1719,7 +1826,7 @@ class EyeComplement(UserPrimitiveModel):
         return super().__call__(N=N, M=M, dtype=dtype, output=output)
 
 
-class Eye(UserPrimitiveModel):
+class Eye(PrimitiveModel):
     N: Connection
     M: Connection
     dtype: Connection
@@ -1729,7 +1836,7 @@ class Eye(UserPrimitiveModel):
         self,
         N: int | ToBeDetermined = TBD,
         M: int | ToBeDetermined | None = None,
-        dtype: Dtype | None = None,
+        dtype: core.Dtype | None = None,
         *,
         name: str | None = None,
     ) -> None:
@@ -1739,7 +1846,7 @@ class Eye(UserPrimitiveModel):
             output=BaseKey(shape=["N", "M"], type=Tensor[float]),
             N=BaseKey(type=int, value=N),
             M=BaseKey(type=int | None, value=M),
-            dtype=BaseKey(type=Dtype | None, value=dtype),
+            dtype=BaseKey(type=core.Dtype | None, value=dtype),
         )
         self._add_constraint(fn=eye_constraints, keys=["output", "N", "M"])
 
@@ -1753,7 +1860,7 @@ class Eye(UserPrimitiveModel):
         return super().__call__(N=N, M=M, dtype=dtype, output=output)
 
 
-class Cholesky(UserPrimitiveModel):
+class Cholesky(PrimitiveModel):
     input: Connection
     output: Connection
 
@@ -1776,7 +1883,7 @@ class Cholesky(UserPrimitiveModel):
         return super().__call__(input=input, output=output)
 
 
-class GPRAlpha(UserPrimitiveModel):
+class GPRAlpha(PrimitiveModel):
     label_mu_diff: Connection
     L: Connection
     K_term: Connection
@@ -1811,7 +1918,7 @@ class GPRAlpha(UserPrimitiveModel):
         )
 
 
-class GPRVOuter(UserPrimitiveModel):
+class GPRVOuter(PrimitiveModel):
     K: Connection
     K_term: Connection
     L: Connection
@@ -1844,7 +1951,7 @@ class GPRVOuter(UserPrimitiveModel):
         return super().__call__(K=K, K_term=K_term, L=L, output=output)
 
 
-class TransposedDiagonal(UserPrimitiveModel):
+class TransposedDiagonal(PrimitiveModel):
     input: Connection
     output: Connection
 
@@ -1862,7 +1969,7 @@ class TransposedDiagonal(UserPrimitiveModel):
         )
 
         self._add_constraint(
-            fn=general_tensor_type_constraint, keys=[PrimitiveModel.output_key, "input"]
+            fn=general_tensor_type_constraint, keys=[Operator.output_key, "input"]
         )
 
     def __call__(  # type: ignore[override]
@@ -1871,7 +1978,7 @@ class TransposedDiagonal(UserPrimitiveModel):
         return super().__call__(input=input, output=output)
 
 
-class Arange(UserPrimitiveModel):
+class Arange(PrimitiveModel):
     start: Connection
     stop: Connection
     step: Connection
@@ -1883,7 +1990,7 @@ class Arange(UserPrimitiveModel):
         start: int | float | ToBeDetermined = 0,
         stop: int | float | ToBeDetermined = TBD,
         step: int | float | ToBeDetermined = 1,
-        dtype: Dtype | None = None,
+        dtype: core.Dtype | None = None,
         *,
         name: str | None = None,
     ) -> None:
@@ -1911,7 +2018,7 @@ class Arange(UserPrimitiveModel):
             start=BaseKey(type=int | float, value=start),
             stop=BaseKey(type=int | float, value=stop),
             step=BaseKey(type=int | float, value=step),
-            dtype=BaseKey(type=Dtype | None, value=dtype),
+            dtype=BaseKey(type=core.Dtype | None, value=dtype),
         )
         # self.set_canonical_input("stop")
         self.set_cin("stop", safe=False)
@@ -1922,7 +2029,7 @@ class Arange(UserPrimitiveModel):
             )
         self._add_constraint(
             fn=general_tensor_type_constraint,
-            keys=[PrimitiveModel.output_key, "start", "stop", "step"],
+            keys=[Operator.output_key, "start", "stop", "step"],
         )
 
     def __call__(  # type: ignore[override]
@@ -1938,7 +2045,7 @@ class Arange(UserPrimitiveModel):
         )
 
 
-class Randn(UserPrimitiveModel):
+class Randn(PrimitiveModel):
     shape: Connection
     key: Connection
     dtype: Connection
@@ -1948,7 +2055,7 @@ class Randn(UserPrimitiveModel):
         self,
         shape: tuple[int, ...] | ToBeDetermined = TBD,
         key: int | ToBeDetermined = TBD,
-        dtype: Dtype | None = None,
+        dtype: core.Dtype | None = None,
         *,
         name: str | None = None,
     ) -> None:
@@ -1958,12 +2065,12 @@ class Randn(UserPrimitiveModel):
             output=BaseKey(shape=[("output", ...)], type=Tensor),
             shape=BaseKey(type=tuple[int, ...], value=shape),
             key=BaseKey(type=int, value=key),
-            dtype=BaseKey(type=Dtype | None, value=dtype),
+            dtype=BaseKey(type=core.Dtype | None, value=dtype),
         )
 
-        op_model = next(iter(self.dag))
-        assert isinstance(op_model, PrimitiveModel)
-        op_model.random_keys.add("key")  # since random_keys must be in primitive models
+        self.submodel.random_keys.add(
+            "key"
+        )  # since random_keys must be in primitive models
         self.add_constraint(randn_constraints, keys=["output", "shape"])
 
     def __call__(  # type: ignore[override]
@@ -1976,7 +2083,7 @@ class Randn(UserPrimitiveModel):
         return super().__call__(shape=shape, key=key, dtype=dtype, output=output)
 
 
-class BroadcastTo(UserPrimitiveModel):
+class BroadcastTo(PrimitiveModel):
     input: Connection
     shape: Connection
     output: Connection
@@ -2000,7 +2107,7 @@ class BroadcastTo(UserPrimitiveModel):
             fn=broadcast_to_constraints, keys=["output", "shape", "input"]
         )
         self._add_constraint(
-            fn=general_tensor_type_constraint, keys=[PrimitiveModel.output_key, "input"]
+            fn=general_tensor_type_constraint, keys=[Operator.output_key, "input"]
         )
 
     def __call__(  # type: ignore[override]
@@ -2012,7 +2119,7 @@ class BroadcastTo(UserPrimitiveModel):
         return super().__call__(input=input, shape=shape, output=output)
 
 
-class Eigvalsh(UserPrimitiveModel):
+class Eigvalsh(PrimitiveModel):
     K_term: Connection
     L: Connection
     threshold: Connection
@@ -2045,7 +2152,7 @@ class Eigvalsh(UserPrimitiveModel):
         return super().__call__(K_term=K_term, L=L, threshold=threshold, output=output)
 
 
-class Squeeze(UserPrimitiveModel):
+class Squeeze(PrimitiveModel):
     input: Connection
     output: Connection
 
@@ -2064,7 +2171,7 @@ class Squeeze(UserPrimitiveModel):
 
         self._add_constraint(fn=squeeze_constraints, keys=["output", "input"])
         self._add_constraint(
-            fn=general_tensor_type_constraint, keys=[PrimitiveModel.output_key, "input"]
+            fn=general_tensor_type_constraint, keys=[Operator.output_key, "input"]
         )
 
     def __call__(  # type: ignore[override]
@@ -2073,7 +2180,7 @@ class Squeeze(UserPrimitiveModel):
         return super().__call__(input=input, output=output)
 
 
-class AUCCore(UserPrimitiveModel):
+class AUCCore(PrimitiveModel):
     input: Connection
     label: Connection
     output: Connection
@@ -2102,7 +2209,7 @@ class AUCCore(UserPrimitiveModel):
         return super().__call__(input=input, label=label, output=output)
 
 
-class Embedding(UserPrimitiveModel):
+class Embedding(PrimitiveModel):
     input: Connection
     weight: Connection
     output: Connection
@@ -2128,7 +2235,7 @@ class Embedding(UserPrimitiveModel):
 
         self._add_constraint(
             fn=general_tensor_type_constraint,
-            keys=[PrimitiveModel.output_key, "weight"],
+            keys=[Operator.output_key, "weight"],
         )
 
     def __call__(  # type: ignore[override]
@@ -2140,7 +2247,7 @@ class Embedding(UserPrimitiveModel):
         return super().__call__(input=input, weight=weight, output=output)
 
 
-class ScaledDotProduct(UserPrimitiveModel):
+class ScaledDotProduct(PrimitiveModel):
     query: Connection
     key: Connection
     value: Connection
@@ -2209,8 +2316,7 @@ class ScaledDotProduct(UserPrimitiveModel):
             and attn_mask.value is not None  # TODO: Here will be updated!
         ):
             raise KeyError(
-                "PrimitiveModel does not have 'attn_mask' input."
-                " Got attn_mask argument!"
+                "Operator does not have 'attn_mask' input." " Got attn_mask argument!"
             )
 
         return super().__call__(
@@ -2225,7 +2331,7 @@ class ScaledDotProduct(UserPrimitiveModel):
         )
 
 
-class PositionalEncoding(UserPrimitiveModel):
+class PositionalEncoding(PrimitiveModel):
     input: Connection
     hidden_dim: Connection
     max_len: Connection
@@ -2263,7 +2369,7 @@ class PositionalEncoding(UserPrimitiveModel):
         )
 
 
-class SwapAxes(UserPrimitiveModel):
+class SwapAxes(PrimitiveModel):
     input: Connection
     axis1: Connection
     axis2: Connection
@@ -2292,7 +2398,7 @@ class SwapAxes(UserPrimitiveModel):
             fn=swap_axes_constraints, keys=["output", "input", "axis1", "axis2"]
         )
         self._add_constraint(
-            fn=general_tensor_type_constraint, keys=[PrimitiveModel.output_key, "input"]
+            fn=general_tensor_type_constraint, keys=[Operator.output_key, "input"]
         )
 
     def __call__(  # type: ignore[override]
@@ -2305,7 +2411,7 @@ class SwapAxes(UserPrimitiveModel):
         return super().__call__(input=input, axis1=axis1, axis2=axis2, output=output)
 
 
-class Where(UserPrimitiveModel):
+class Where(PrimitiveModel):
     cond: Connection
     input1: Connection
     input2: Connection
@@ -2333,7 +2439,7 @@ class Where(UserPrimitiveModel):
         )
         self._add_constraint(
             fn=general_tensor_type_constraint,
-            keys=[PrimitiveModel.output_key, "input1", "input2"],
+            keys=[Operator.output_key, "input1", "input2"],
         )
 
     def __call__(  # type: ignore[override]
@@ -2346,7 +2452,7 @@ class Where(UserPrimitiveModel):
         return super().__call__(cond=cond, input1=input1, input2=input2, output=output)
 
 
-class IsNan(UserPrimitiveModel):
+class IsNan(PrimitiveModel):
     input: Connection
     output: Connection
 
@@ -2369,7 +2475,7 @@ class IsNan(UserPrimitiveModel):
         return super().__call__(input=input, output=output)
 
 
-class Unique(UserPrimitiveModel):
+class Unique(PrimitiveModel):
     input: Connection
     output: Connection
 
@@ -2392,7 +2498,7 @@ class Unique(UserPrimitiveModel):
         return super().__call__(input=input, output=output)
 
 
-class Trapezoid(UserPrimitiveModel):
+class Trapezoid(PrimitiveModel):
     y: Connection
     x: Connection
     output: Connection
@@ -2421,7 +2527,7 @@ class Trapezoid(UserPrimitiveModel):
         return super().__call__(y=y, x=x, output=output)
 
 
-class NanToNum(UserPrimitiveModel):
+class NanToNum(PrimitiveModel):
     input: Connection
     nan: Connection
     posinf: Connection
@@ -2460,7 +2566,7 @@ class NanToNum(UserPrimitiveModel):
         )
 
 
-class Pad(UserPrimitiveModel):
+class Pad(PrimitiveModel):
     input: Connection
     pad_width: Connection
     output: Connection
@@ -2481,7 +2587,7 @@ class Pad(UserPrimitiveModel):
         )
 
         self._add_constraint(
-            fn=pad_constraints, keys=[PrimitiveModel.output_key, "input", "pad_width"]
+            fn=pad_constraints, keys=[Operator.output_key, "input", "pad_width"]
         )
 
     def __call__(  # type: ignore[override]
@@ -2493,7 +2599,7 @@ class Pad(UserPrimitiveModel):
         return super().__call__(input=input, pad_width=pad_width, output=output)
 
 
-class ZerosLike(UserPrimitiveModel):
+class ZerosLike(PrimitiveModel):
     input: Connection
     output: Connection
 
@@ -2514,3 +2620,967 @@ class ZerosLike(UserPrimitiveModel):
         self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
     ) -> ExtendInfo:
         return super().__call__(input=input, output=output)
+
+
+class Buffer(PrimitiveModel):
+    input: Connection
+    output: Connection
+
+    def __init__(
+        self,
+        input: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name, model=BufferOp(input=input))
+
+    def __call__(  # type: ignore[override]
+        self,
+        input: ConnectionType = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
+    ) -> ExtendInfo:
+        return super().__call__(input=input, output=output)
+
+
+class ToTuple(PrimitiveModel):
+    input: Connection
+    output: Connection
+
+    def __init__(
+        self,
+        n: int,
+        *,
+        name: str | None = None,
+        **kwargs: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined,
+    ) -> None:
+        super().__init__(name=name, model=ToTupleOp(n, **kwargs))
+
+
+class ArithmeticOperation(PrimitiveModel):
+    left: Connection
+    right: Connection
+    output: Connection
+
+    def __init__(
+        self,
+        model: Operator,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name, model=model)
+
+    def __call__(  # type: ignore[override]
+        self,
+        left: ConnectionType = NOT_GIVEN,
+        right: ConnectionType = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
+    ) -> ExtendInfo:
+        return super().__call__(left=left, right=right, output=output)
+
+
+class Power(PrimitiveModel):
+    base: Connection
+    exponent: Connection
+    output: Connection
+
+    def __init__(
+        self,
+        robust: bool = False,
+        base: Tensor[int | float | bool] | int | float | ToBeDetermined = TBD,
+        exponent: Tensor[int | float | bool] | int | float | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        self.robust = robust
+        m = PowerOp(robust=robust, base=base, exponent=exponent)
+        super().__init__(name=name, model=m)
+
+    def __call__(  # type: ignore[override]
+        self,
+        base: ConnectionType = NOT_GIVEN,
+        exponent: ConnectionType = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
+        *,
+        threshold: ConnectionType = core.Constant.MIN_POSITIVE_NORMAL,
+    ) -> ExtendInfo:
+        kwargs = {"base": base, "exponent": exponent, "output": output}
+        default = (
+            isinstance(threshold, core.Constant)
+            and threshold == core.Constant.MIN_POSITIVE_NORMAL
+        )
+        if self.robust:
+            # NOTE: Since we can not provide Tensor objects as default
+            # arguments, we need to convert default value.
+            if default:
+                threshold = Tensor(threshold)  # type: ignore
+            kwargs["threshold"] = threshold
+        elif not default:
+            raise ValueError("Threshold cannot be specified when robust mode is off")
+
+        return super().__call__(**kwargs)
+
+
+class Add(ArithmeticOperation):
+    def __init__(
+        self,
+        left: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(AddOp(left=left, right=right), name=name)
+
+
+class Subtract(ArithmeticOperation):
+    def __init__(
+        self,
+        left: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(SubtractOp(left=left, right=right), name=name)
+
+
+class Multiply(ArithmeticOperation):
+    def __init__(
+        self,
+        left: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(MultiplyOp(left=left, right=right), name=name)
+
+
+class Minimum(ArithmeticOperation):
+    def __init__(
+        self,
+        left: TensorValueType | ToBeDetermined = TBD,
+        right: TensorValueType | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(MinimumOp(left=left, right=right), name=name)
+
+
+class Maximum(ArithmeticOperation):
+    def __init__(
+        self,
+        left: TensorValueType | ToBeDetermined = TBD,
+        right: TensorValueType | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(MaximumOp(left=left, right=right), name=name)
+
+
+class Divide(PrimitiveModel):
+    numerator: Connection
+    denominator: Connection
+    output: Connection
+
+    def __init__(
+        self,
+        numerator: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
+        denominator: Tensor[int | float | bool]
+        | ScalarValueType
+        | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        m = DivideOp(numerator=numerator, denominator=denominator)
+        super().__init__(name=name, model=m)
+
+    def __call__(  # type: ignore[override]
+        self,
+        numerator: ConnectionType = NOT_GIVEN,
+        denominator: ConnectionType = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
+    ) -> ExtendInfo:
+        return super().__call__(
+            numerator=numerator, denominator=denominator, output=output
+        )
+
+
+class FloorDivide(PrimitiveModel):
+    numerator: Connection
+    denominator: Connection
+    output: Connection
+
+    def __init__(
+        self,
+        numerator: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        denominator: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        m = FloorDivideOp(numerator=numerator, denominator=denominator)
+        super().__init__(name=name, model=m)
+
+    def __call__(  # type: ignore[override]
+        self,
+        numerator: ConnectionType = NOT_GIVEN,
+        denominator: ConnectionType = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
+    ) -> ExtendInfo:
+        return super().__call__(
+            numerator=numerator, denominator=denominator, output=output
+        )
+
+
+class MatrixMultiply(PrimitiveModel):
+    left: Connection
+    right: Connection
+    output: Connection
+
+    def __init__(
+        self,
+        left: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name, model=MatrixMultiplyOp(left=left, right=right))
+
+    def __call__(  # type: ignore[override]
+        self,
+        left: ConnectionType = NOT_GIVEN,
+        right: ConnectionType = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
+    ) -> ExtendInfo:
+        return super().__call__(left=left, right=right, output=output)
+
+
+class Shape(PrimitiveModel):
+    input: Connection
+    output: Connection
+
+    def __init__(
+        self,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name, model=ShapeOp(input=input))
+
+    def __call__(  # type: ignore[override]
+        self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
+    ) -> ExtendInfo:
+        return super().__call__(input=input, output=output)
+
+
+class Reshape(PrimitiveModel):
+    input: Connection
+    shape: Connection
+    output: Connection
+
+    def __init__(
+        self,
+        shape: tuple[int | None, ...] | list[int] | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name, model=ReshapeOp(shape=shape, input=input))
+
+    def __call__(  # type: ignore[override]
+        self,
+        input: ConnectionType = NOT_GIVEN,
+        shape: ConnectionType = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
+    ) -> ExtendInfo:
+        return super().__call__(input=input, shape=shape, output=output)
+
+
+class Length(PrimitiveModel):
+    input: Connection
+    output: Connection
+
+    def __init__(
+        self,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name, model=LengthOp(input=input))
+
+    def __call__(  # type: ignore[override]
+        self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
+    ) -> ExtendInfo:
+        return super().__call__(input=input, output=output)
+
+
+class Cast(PrimitiveModel):
+    input: Connection
+    dtype: Connection
+    output: Connection
+
+    def __init__(
+        self, dtype: core.Dtype | ToBeDetermined = TBD, *, name: str | None = None
+    ) -> None:
+        super().__init__(name=name, model=CastOp(dtype=dtype))
+
+    def __call__(  # type: ignore[override]
+        self,
+        input: ConnectionType = NOT_GIVEN,
+        dtype: ConnectionType = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
+    ) -> ExtendInfo:
+        return super().__call__(input=input, dtype=dtype, output=output)
+
+
+class Dtype(PrimitiveModel):
+    input: Connection
+    output: Connection
+
+    def __init__(
+        self,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name, model=DtypeOp(input=input))
+
+    def __call__(  # type: ignore[override]
+        self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
+    ) -> ExtendInfo:
+        return super().__call__(input=input, output=output)
+
+
+class Size(PrimitiveModel):
+    input: Connection
+    dim: Connection
+    output: Connection
+
+    def __init__(
+        self,
+        dim: int | tuple[int, ...] | None | ToBeDetermined = None,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name, model=SizeOp(input=input, dim=dim))
+
+    def __call__(  # type: ignore[override]
+        self,
+        input: ConnectionType = NOT_GIVEN,
+        dim: ConnectionType = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
+    ) -> ExtendInfo:
+        return super().__call__(input=input, dim=dim, output=output)
+
+
+class Item(PrimitiveModel):
+    input: Connection
+    output: Connection
+
+    def __init__(
+        self,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name, model=ItemOp(input=input))
+
+    def __call__(  # type: ignore[override]
+        self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
+    ) -> ExtendInfo:
+        return super().__call__(input=input, output=output)
+
+
+class ToTensor(PrimitiveModel):
+    input: Connection
+    dtype: Connection
+    output: Connection
+
+    def __init__(
+        self,
+        input: TensorValueType | ToBeDetermined = TBD,
+        dtype: core.Dtype | None = None,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name, model=ToTensorOp(input=input, dtype=dtype))
+
+    def __call__(  # type: ignore[override]
+        self,
+        input: ConnectionType = NOT_GIVEN,
+        dtype: ConnectionType = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
+    ) -> ExtendInfo:
+        return super().__call__(input=input, dtype=dtype, output=output)
+
+
+class ToList(PrimitiveModel):
+    output: Connection
+
+    def __init__(
+        self,
+        n: int,
+        *,
+        name: str | None = None,
+        **kwargs: ScalarValueType | ToBeDetermined,
+    ) -> None:
+        super().__init__(name=name, model=ToListOp(n, name=name, **kwargs))
+
+
+class TensorToList(PrimitiveModel):
+    input: Connection
+    output: Connection
+
+    def __init__(
+        self,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        self._enforce_jit = False
+        m = TensorToListOp(input=input)
+        m._enforce_jit = False
+        super().__init__(name=name, model=m)
+
+    def __call__(  # type: ignore[override]
+        self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
+    ) -> ExtendInfo:
+        return super().__call__(input=input, output=output)
+
+
+class Reduce(PrimitiveModel):
+    input: Connection
+    axis: Connection
+    keepdim: Connection
+    output: Connection
+
+    def __init__(self, model: Operator, *, name: str | None = None) -> None:
+        super().__init__(name=name, model=model)
+
+    def __call__(  # type: ignore[override]
+        self,
+        input: ConnectionType = NOT_GIVEN,
+        axis: ConnectionType = NOT_GIVEN,
+        keepdim: ConnectionType = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
+    ) -> ExtendInfo:
+        return super().__call__(input=input, axis=axis, keepdim=keepdim, output=output)
+
+
+class Mean(Reduce):
+    def __init__(
+        self,
+        axis: int | tuple[int, ...] | None | ToBeDetermined = None,
+        keepdim: bool | ToBeDetermined = False,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        self.factory_args = {"axis": axis, "keepdim": keepdim}
+        super().__init__(MeanOp(axis=axis, keepdim=keepdim, input=input), name=name)
+
+
+class Sum(Reduce):
+    def __init__(
+        self,
+        axis: int | tuple[int, ...] | None | ToBeDetermined = None,
+        keepdim: bool | ToBeDetermined = False,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        self.factory_args = {"axis": axis, "keepdim": keepdim}
+        super().__init__(SumOp(axis=axis, keepdim=keepdim, input=input), name=name)
+
+
+class Max(Reduce):
+    def __init__(
+        self,
+        axis: int | tuple[int, ...] | None | ToBeDetermined = None,
+        keepdim: bool | ToBeDetermined = False,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        self.factory_args = {"axis": axis, "keepdim": keepdim}
+        super().__init__(MaxOp(axis=axis, keepdim=keepdim, input=input), name=name)
+
+
+class ArgMax(Reduce):
+    def __init__(
+        self,
+        axis: int | None | ToBeDetermined = None,
+        keepdim: bool | ToBeDetermined = False,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        self.factory_args = {"axis": axis, "keepdim": keepdim}
+        super().__init__(ArgMaxOp(axis=axis, keepdim=keepdim, input=input), name=name)
+
+
+class Min(Reduce):
+    def __init__(
+        self,
+        axis: int | tuple[int, ...] | None | ToBeDetermined = None,
+        keepdim: bool | ToBeDetermined = False,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        self.factory_args = {"axis": axis, "keepdim": keepdim}
+        super().__init__(MinOp(axis=axis, keepdim=keepdim, input=input), name=name)
+
+
+class ArgMin(Reduce):
+    def __init__(
+        self,
+        axis: int | tuple[int, ...] | None | ToBeDetermined = None,
+        keepdim: bool | ToBeDetermined = False,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        self.factory_args = {"axis": axis, "keepdim": keepdim}
+        super().__init__(ArgMinOp(axis=axis, keepdim=keepdim, input=input), name=name)
+
+
+class Prod(Reduce):
+    def __init__(
+        self,
+        axis: int | tuple[int, ...] | None | ToBeDetermined = None,
+        keepdim: bool | ToBeDetermined = False,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        self.factory_args = {"axis": axis, "keepdim": keepdim}
+        super().__init__(ProdOp(axis=axis, keepdim=keepdim, input=input), name=name)
+
+
+class Variance(Reduce):
+    correction: Connection
+
+    def __init__(
+        self,
+        axis: int | tuple[int, ...] | None | ToBeDetermined = None,
+        keepdim: bool | ToBeDetermined = False,
+        correction: int | float | None = 0.0,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        self.factory_args = {"axis": axis, "keepdim": keepdim, "correction": correction}
+        super().__init__(
+            VarianceOp(axis=axis, keepdim=keepdim, input=input, correction=correction),
+            name=name,
+        )
+
+    def __call__(  # type: ignore[override]
+        self,
+        input: ConnectionType = NOT_GIVEN,
+        axis: ConnectionType = NOT_GIVEN,
+        keepdim: ConnectionType = NOT_GIVEN,
+        correction: ConnectionType = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
+    ) -> ExtendInfo:
+        return super(Reduce, self).__call__(
+            input=input,
+            axis=axis,
+            keepdim=keepdim,
+            correction=correction,
+            output=output,
+        )
+
+
+class SingleInputModel(PrimitiveModel):
+    input: Connection
+    output: Connection
+
+    def __call__(  # type: ignore[override]
+        self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
+    ) -> ExtendInfo:
+        return super().__call__(input=input, output=output)
+
+
+class Absolute(SingleInputModel):
+    def __init__(
+        self,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name, model=AbsoluteOp(input=input))
+
+
+class Minus(SingleInputModel):
+    def __init__(
+        self,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name, model=MinusOp(input=input))
+
+
+class Exponential(SingleInputModel):
+    def __init__(
+        self,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name, model=ExponentialOp(input=input))
+
+
+class Sqrt(PrimitiveModel):
+    input: Connection
+    output: Connection
+
+    def __init__(
+        self,
+        robust: bool = False,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        cutoff: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        name: str | None = None,
+    ) -> None:
+        self.robust = robust
+        m = SqrtOp(robust=robust, input=input, cutoff=cutoff)
+        super().__init__(name=name, model=m)
+
+    def __call__(  # type: ignore[override]
+        self,
+        input: ConnectionType = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
+        *,
+        cutoff: ConnectionType = core.Constant.MIN_POSITIVE_NORMAL,
+    ) -> ExtendInfo:
+        kwargs = {"input": input, "output": output}
+
+        default = (
+            isinstance(cutoff, core.Constant)
+            and cutoff == core.Constant.MIN_POSITIVE_NORMAL
+        )
+        if self.robust:
+            if default:
+                # NOTE: Since we can not provide Tensor objects as default
+                # arguments, we need to convert default value.
+                cutoff = Tensor(cutoff)  # type: ignore
+            kwargs["cutoff"] = cutoff
+        elif not default:
+            raise ValueError("Cutoff cannot be specified when robust mode is off")
+
+        return super().__call__(**kwargs)
+
+
+class RelationalModel(PrimitiveModel):
+    left: Connection
+    right: Connection
+    output: Connection
+
+    def __call__(  # type: ignore[override]
+        self,
+        left: ConnectionType = NOT_GIVEN,
+        right: ConnectionType = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
+    ) -> ExtendInfo:
+        return super().__call__(left=left, right=right, output=output)
+
+
+class Greater(RelationalModel):
+    def __init__(
+        self,
+        left: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name, model=GreaterOp(left=left, right=right))
+
+
+class Less(RelationalModel):
+    def __init__(
+        self,
+        left: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name, model=LessOp(left=left, right=right))
+
+
+class Equal(RelationalModel):
+    def __init__(
+        self,
+        left: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name, model=EqualOp(left=left, right=right))
+
+
+class NotEqual(RelationalModel):
+    def __init__(
+        self,
+        left: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name, model=NotEqualOp(left=left, right=right))
+
+
+class LessEqual(RelationalModel):
+    def __init__(
+        self,
+        left: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name, model=LessEqualOp(left=left, right=right))
+
+
+class GreaterEqual(RelationalModel):
+    def __init__(
+        self,
+        left: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name, model=GreaterEqualOp(left=left, right=right))
+
+
+class LogicalNot(PrimitiveModel):
+    input: Connection
+    output: Connection
+
+    def __init__(
+        self,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name, model=LogicalNotOp(input=input))
+
+    def __call__(  # type: ignore[override]
+        self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
+    ) -> ExtendInfo:
+        return super().__call__(input=input, output=output)
+
+
+class BitwiseOperators(PrimitiveModel):
+    left: Connection
+    right: Connection
+    output: Connection
+
+    def __call__(  # type: ignore[override]
+        self,
+        left: ConnectionType = NOT_GIVEN,
+        right: ConnectionType = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
+    ) -> ExtendInfo:
+        return super().__call__(left=left, right=right, output=output)
+
+
+class LogicalAnd(BitwiseOperators):
+    def __init__(
+        self,
+        left: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name, model=LogicalAndOp(left=left, right=right))
+
+
+class LogicalOr(BitwiseOperators):
+    def __init__(
+        self,
+        left: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name, model=LogicalOrOp(left=left, right=right))
+
+
+class LogicalXOr(BitwiseOperators):
+    def __init__(
+        self,
+        left: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name, model=LogicalXOrOp(left=left, right=right))
+
+
+class ShiftLeft(PrimitiveModel):
+    input: Connection
+    shift: Connection
+    output: Connection
+
+    def __init__(
+        self,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        shift: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name, model=ShiftLeftOp(input=input, shift=shift))
+
+    def __call__(  # type: ignore[override]
+        self,
+        input: ConnectionType = NOT_GIVEN,
+        shift: ConnectionType = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
+    ) -> ExtendInfo:
+        return super().__call__(input=input, shift=shift, output=output)
+
+
+class ShiftRight(PrimitiveModel):
+    input: Connection
+    shift: Connection
+    output: Connection
+
+    def __init__(
+        self,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        shift: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name, model=ShiftRightOp(input=input, shift=shift))
+
+    def __call__(  # type: ignore[override]
+        self,
+        input: ConnectionType = NOT_GIVEN,
+        shift: ConnectionType = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
+    ) -> ExtendInfo:
+        return super().__call__(input=input, shift=shift, output=output)
+
+
+class Transpose(PrimitiveModel):
+    # NOTE: Consider if axes type list[int] is conventionally True since it is generally
+    # used tuple[int] in these type of cases
+    input: Connection
+    axes: Connection
+    output: Connection
+
+    def __init__(
+        self,
+        axes: int | list[int] | tuple[int, ...] | None | ToBeDetermined = None,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name, model=TransposeOp(input=input, axes=axes))
+
+    def __call__(  # type: ignore[override]
+        self,
+        input: ConnectionType = NOT_GIVEN,
+        axes: ConnectionType = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
+    ) -> ExtendInfo:
+        return super().__call__(input=input, axes=axes, output=output)
+
+
+class Split(PrimitiveModel):
+    split_size: Connection
+    axis: Connection
+    input: Connection
+    output: Connection
+
+    def __init__(
+        self,
+        split_size: int,  # TODO: should we add default for split_size?
+        axis: int = 0,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ):
+        m = SplitOp(split_size=split_size, axis=axis, input=input)
+        super().__init__(name=name, model=m)
+
+    def __call__(  # type: ignore[override]
+        self,
+        input: ConnectionType = NOT_GIVEN,
+        split_size: ConnectionType = NOT_GIVEN,
+        axis: ConnectionType = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
+    ) -> ExtendInfo:
+        return super().__call__(
+            input=input, split_size=split_size, axis=axis, output=output
+        )
+
+
+class Slice(PrimitiveModel):
+    start: Connection
+    stop: Connection
+    step: Connection
+    output: Connection
+
+    def __init__(
+        self,
+        start: int | None | ToBeDetermined = TBD,
+        stop: int | None | ToBeDetermined = TBD,
+        step: int | None | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ):
+        super().__init__(name=name, model=SliceOp(start=start, stop=stop, step=step))
+
+    def __call__(  # type: ignore[override]
+        self,
+        start: ConnectionType = NOT_GIVEN,
+        stop: ConnectionType = NOT_GIVEN,
+        step: ConnectionType = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
+    ) -> ExtendInfo:
+        return super().__call__(start=start, stop=stop, step=step, output=output)
+
+
+class Indexer(PrimitiveModel):
+    input: Connection
+    index: Connection
+    output: Connection
+
+    def __init__(
+        self,
+        index: int | ToBeDetermined = TBD,
+        input: Tensor[int | float | bool] | Sequence[Any] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name, model=IndexerOp(input=input, index=index))
+
+    def __call__(  # type: ignore[override]
+        self,
+        input: ConnectionType = NOT_GIVEN,
+        index: ConnectionType = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
+    ) -> ExtendInfo:
+        return super().__call__(input=input, index=index, output=output)
+
+
+class Sine(SingleInputModel):
+    def __init__(
+        self,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name, model=SineOp(input=input))
+
+
+class Cosine(SingleInputModel):
+    def __init__(
+        self,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name, model=CosineOp(input=input))

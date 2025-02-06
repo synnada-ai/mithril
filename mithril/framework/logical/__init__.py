@@ -15,5 +15,5 @@
 from .base import *  # noqa F403
 from .essential_primitives import *  # noqa F403
 from .model import *  # noqa F403
+from .operator import *  # noqa F403
 from .primitive import *  # noqa F403
-from .user_essential_primitives import *  # noqa F403

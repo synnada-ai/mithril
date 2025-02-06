@@ -40,7 +40,7 @@ from mithril.models import (
     Sigmoid,
     Sum,
 )
-from mithril.models.primitives import UserPrimitiveModel
+from mithril.models.primitives import PrimitiveModel
 
 from .test_utils import (
     get_all_data,
@@ -74,7 +74,7 @@ def assert_objects_deleted(
 
 
 def test_deleted_variadic_ref_count_1() -> None:
-    class TestModel(UserPrimitiveModel):
+    class TestModel(PrimitiveModel):
         input: Connection
         output: Connection
 
@@ -107,7 +107,7 @@ def test_deleted_variadic_ref_count_1() -> None:
 def test_deleted_variadic_ref_count_2() -> None:
     model = Model()
 
-    class MyModel(UserPrimitiveModel):
+    class MyModel(PrimitiveModel):
         input: Connection
         output: Connection
 
@@ -372,7 +372,7 @@ def test_deleted_uniadic_ref_count_4():
 
 
 def test_deleted_uniadic_ref_count_5():
-    class MyModel(UserPrimitiveModel):
+    class MyModel(PrimitiveModel):
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
@@ -411,7 +411,7 @@ def test_deleted_uniadic_ref_count_6():
 
 
 def test_deleted_uniadic_ref_count_7():
-    class MyModel(UserPrimitiveModel):
+    class MyModel(PrimitiveModel):
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
@@ -436,7 +436,7 @@ def test_deleted_uniadic_ref_count_7():
 
 
 def test_deleted_uniadic_ref_count_8():
-    class MyModel(UserPrimitiveModel):
+    class MyModel(PrimitiveModel):
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
@@ -467,7 +467,7 @@ def test_deleted_uniadic_ref_count_8():
 
 
 def test_deleted_uniadic_ref_count_9():
-    class MyModel(UserPrimitiveModel):
+    class MyModel(PrimitiveModel):
         def __init__(self) -> None:
             super().__init__(
                 formula_key="buffer",
@@ -623,7 +623,7 @@ def test_deleted_repr_ref_count_4():
 
 
 def test_deleted_repr_ref_count_5() -> None:
-    class MyModel(UserPrimitiveModel):
+    class MyModel(PrimitiveModel):
         input: Connection
         output: Connection
 
@@ -677,7 +677,7 @@ def test_deleted_repr_ref_count_5() -> None:
 
 # @pytest.mark.skip("investigate later")
 def test_deleted_repr_ref_count_6() -> None:
-    class MyModel(UserPrimitiveModel):
+    class MyModel(PrimitiveModel):
         input: Connection
         output: Connection
 
@@ -730,7 +730,7 @@ def test_deleted_repr_ref_count_6() -> None:
 
 
 def test_deleted_repr_ref_count_7() -> None:
-    class MyModel(UserPrimitiveModel):
+    class MyModel(PrimitiveModel):
         input: Connection
         output: Connection
 
@@ -766,7 +766,7 @@ def test_deleted_repr_ref_count_7() -> None:
 
 
 def test_deleted_repr_ref_count_8() -> None:
-    class MyModel(UserPrimitiveModel):
+    class MyModel(PrimitiveModel):
         input: Connection
         output: Connection
 
@@ -1364,7 +1364,7 @@ def test_deleted_uni_record_ref_count_5():
 def test_deleted_uniadic_ref_count_2() -> None:
     model = Model()
 
-    class MyModel(UserPrimitiveModel):
+    class MyModel(PrimitiveModel):
         input: Connection
         output: Connection
 
@@ -1404,7 +1404,7 @@ def test_deleted_uniadic_ref_count_2() -> None:
 
 
 def test_deleted_uniadic_ref_count() -> None:
-    class MyModel(UserPrimitiveModel):
+    class MyModel(PrimitiveModel):
         input: Connection
         output: Connection
 
@@ -1436,7 +1436,7 @@ def test_deleted_uniadic_ref_count() -> None:
 
 
 def test_deleted_repr_ref_count() -> None:
-    class MyModel(UserPrimitiveModel):
+    class MyModel(PrimitiveModel):
         input: Connection
         output: Connection
 
@@ -1468,7 +1468,7 @@ def test_deleted_repr_ref_count() -> None:
 
 
 def test_deleted_node_ref_count() -> None:
-    class MyModel(UserPrimitiveModel):
+    class MyModel(PrimitiveModel):
         input: Connection
         output: Connection
 
@@ -1498,7 +1498,7 @@ def test_deleted_node_ref_count() -> None:
 
 
 def test_deleted_tensor_ref_count() -> None:
-    class MyModel(UserPrimitiveModel):
+    class MyModel(PrimitiveModel):
         input: Connection
         output: Connection
 
@@ -1526,7 +1526,7 @@ def test_deleted_tensor_ref_count() -> None:
 
 
 def test_deleted_edge_ref_count() -> None:
-    class MyModel(UserPrimitiveModel):
+    class MyModel(PrimitiveModel):
         input: Connection
         output: Connection
 

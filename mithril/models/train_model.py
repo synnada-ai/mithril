@@ -35,8 +35,16 @@ from ..framework.common import (
     get_shapes,
     get_summary_shapes,
 )
-from ..framework.logical import (
+from ..framework.logical.model import (
+    Connection,
+    ExtendInfo,
+    IOKey,
+    Model,
+)
+from ..framework.physical.model import FinalCost, LossKey
+from .primitives import (
     Buffer,
+    Concat,
     Divide,
     Max,
     Mean,
@@ -48,14 +56,6 @@ from ..framework.logical import (
     Sum,
     ToTensor,
 )
-from ..framework.logical.model import (
-    Connection,
-    ExtendInfo,
-    IOKey,
-    Model,
-)
-from ..framework.physical.model import FinalCost, LossKey
-from .primitives import Concat
 
 __all__ = ["TrainModel"]
 
@@ -418,7 +418,6 @@ class TrainModel(Model):
     ) -> None:
         # TODO: Somehow we need to imply metric is attached and self model
         # could not be extended or be used as another model's child model.
-        # self.extend(model, **model(**kwargs).connections)
         self.extend(
             model,
             **{

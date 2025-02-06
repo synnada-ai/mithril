@@ -59,10 +59,10 @@ from ..constraints import (
     to_tensor_constraints,
     to_tuple_constraints,
 )
-from .primitive import PrimitiveModel
+from .operator import Operator
 
 __all__ = [
-    "PrimitiveModel",
+    "Operator",
     "BufferOp",
     "ToTupleOp",
     "PowerOp",
@@ -119,7 +119,7 @@ __all__ = [
 ConstantType = float | int | core.Constant
 
 
-class BufferOp(PrimitiveModel):
+class BufferOp(Operator):
     _model_name: str = "Buffer"
 
     def __init__(
@@ -132,12 +132,10 @@ class BufferOp(PrimitiveModel):
             input=BaseKey(value=input),
         )
 
-        self._add_constraint(
-            fn=buffer_constraint, keys=[PrimitiveModel.output_key, "input"]
-        )
+        self._add_constraint(fn=buffer_constraint, keys=[Operator.output_key, "input"])
 
 
-class ToTupleOp(PrimitiveModel):
+class ToTupleOp(Operator):
     _model_name: str = "ToTuple"
 
     def __init__(
@@ -164,11 +162,11 @@ class ToTupleOp(PrimitiveModel):
         super().__init__(formula_key="to_tuple", name=None, **key_definitions)
         self._add_constraint(
             fn=to_tuple_constraints,
-            keys=[PrimitiveModel.output_key] + [key for key in self.input_keys],
+            keys=[Operator.output_key] + [key for key in self.input_keys],
         )
 
 
-class ArithmeticOp(PrimitiveModel):
+class ArithmeticOp(Operator):
     _model_name: str = "Arithmetic"
 
     def __init__(
@@ -189,30 +187,30 @@ class ArithmeticOp(PrimitiveModel):
 
         edge_constraint = self._add_constraint(
             fn=edge_type_constraint,
-            keys=[PrimitiveModel.output_key, "left", "right"],
+            keys=[Operator.output_key, "left", "right"],
         )
 
         self._add_constraint(
             fn=general_tensor_type_constraint,
-            keys=[PrimitiveModel.output_key, "left", "right"],
+            keys=[Operator.output_key, "left", "right"],
             dependencies={edge_constraint},
         )
 
         bcast_constraint = self._add_constraint(
             fn=bcast,
-            keys=[PrimitiveModel.output_key, "left", "right"],
+            keys=[Operator.output_key, "left", "right"],
             dependencies={edge_constraint},
         )
 
         self._add_constraint(
             fn=bcast_error_check,
-            keys=[PrimitiveModel.output_key, "left", "right"],
+            keys=[Operator.output_key, "left", "right"],
             dependencies={bcast_constraint},
         )
         self.edge_constraint = edge_constraint
 
 
-class PowerOp(PrimitiveModel):
+class PowerOp(Operator):
     _model_name: str = "Power"
 
     def __init__(
@@ -257,31 +255,31 @@ class PowerOp(PrimitiveModel):
             )
             edge_constraint = self._add_constraint(
                 fn=edge_type_constraint,
-                keys=[PrimitiveModel.output_key, "base", "exponent"],
+                keys=[Operator.output_key, "base", "exponent"],
             )
             constrs = {edge_constraint}
 
         self._add_constraint(
             fn=general_tensor_type_constraint,
-            keys=[PrimitiveModel.output_key, "base", "exponent"],
+            keys=[Operator.output_key, "base", "exponent"],
             dependencies=constrs,
         )
 
         bcast_constraint = self._add_constraint(
             fn=bcast,
-            keys=[PrimitiveModel.output_key, "base", "exponent"],
+            keys=[Operator.output_key, "base", "exponent"],
             dependencies=constrs,
         )
 
         self._add_constraint(
             fn=bcast_error_check,
-            keys=[PrimitiveModel.output_key, "base", "exponent"],
+            keys=[Operator.output_key, "base", "exponent"],
             dependencies={bcast_constraint},
         )
 
         self._add_constraint(
             partial(general_forward_constraint, callable=lambda x, y: x**y),
-            keys=[PrimitiveModel.output_key, "base", "exponent"],
+            keys=[Operator.output_key, "base", "exponent"],
             dependencies=constrs,
         )
 
@@ -302,7 +300,7 @@ class AddOp(ArithmeticOp):
 
         self._add_constraint(
             partial(general_forward_constraint, callable=lambda x, y: x + y),
-            keys=[PrimitiveModel.output_key, "left", "right"],
+            keys=[Operator.output_key, "left", "right"],
             dependencies={self.edge_constraint},
         )
 
@@ -321,7 +319,7 @@ class SubtractOp(ArithmeticOp):
 
         self._add_constraint(
             partial(general_forward_constraint, callable=lambda x, y: x - y),
-            keys=[PrimitiveModel.output_key, "left", "right"],
+            keys=[Operator.output_key, "left", "right"],
             dependencies={self.edge_constraint},
         )
 
@@ -342,7 +340,7 @@ class MultiplyOp(ArithmeticOp):
 
         self._add_constraint(
             partial(general_forward_constraint, callable=lambda x, y: x * y),
-            keys=[PrimitiveModel.output_key, "left", "right"],
+            keys=[Operator.output_key, "left", "right"],
             dependencies={self.edge_constraint},
         )
 
@@ -369,7 +367,7 @@ class MaximumOp(ArithmeticOp):
         super().__init__(formula_key="maximum", left=left, right=right)
 
 
-class DivideOp(PrimitiveModel):
+class DivideOp(Operator):
     _model_name: str = "Divide"
 
     def __init__(
@@ -390,35 +388,35 @@ class DivideOp(PrimitiveModel):
         )
         edge_constraint = self._add_constraint(
             fn=edge_type_constraint,
-            keys=[PrimitiveModel.output_key, "numerator", "denominator"],
+            keys=[Operator.output_key, "numerator", "denominator"],
         )
 
         self._add_constraint(
             fn=divide_type_constraint,
-            keys=[PrimitiveModel.output_key, "numerator", "denominator"],
+            keys=[Operator.output_key, "numerator", "denominator"],
             dependencies={edge_constraint},
         )
 
         bcast_constraint = self._add_constraint(
             fn=bcast,
-            keys=[PrimitiveModel.output_key, "numerator", "denominator"],
+            keys=[Operator.output_key, "numerator", "denominator"],
             dependencies={edge_constraint},
         )
 
         self._add_constraint(
             partial(general_forward_constraint, callable=lambda x, y: x / y),
-            keys=[PrimitiveModel.output_key, "numerator", "denominator"],
+            keys=[Operator.output_key, "numerator", "denominator"],
             dependencies={edge_constraint},
         )
 
         self._add_constraint(
             fn=bcast_error_check,
-            keys=[PrimitiveModel.output_key, "numerator", "denominator"],
+            keys=[Operator.output_key, "numerator", "denominator"],
             dependencies={bcast_constraint},
         )
 
 
-class FloorDivideOp(PrimitiveModel):
+class FloorDivideOp(Operator):
     _model_name: str = "FloorDivide"
 
     def __init__(
@@ -439,35 +437,35 @@ class FloorDivideOp(PrimitiveModel):
         )
         edge_constraint = self._add_constraint(
             fn=edge_type_constraint,
-            keys=[PrimitiveModel.output_key, "numerator", "denominator"],
+            keys=[Operator.output_key, "numerator", "denominator"],
         )
 
         self._add_constraint(
             fn=floor_divide_type_constraint,
-            keys=[PrimitiveModel.output_key, "numerator", "denominator"],
+            keys=[Operator.output_key, "numerator", "denominator"],
             dependencies={edge_constraint},
         )
 
         bcast_constraint = self._add_constraint(
             fn=bcast,
-            keys=[PrimitiveModel.output_key, "numerator", "denominator"],
+            keys=[Operator.output_key, "numerator", "denominator"],
             dependencies={edge_constraint},
         )
 
         self._add_constraint(
             partial(general_forward_constraint, callable=lambda x, y: x // y),
-            keys=[PrimitiveModel.output_key, "numerator", "denominator"],
+            keys=[Operator.output_key, "numerator", "denominator"],
             dependencies={edge_constraint},
         )
 
         self._add_constraint(
             fn=bcast_error_check,
-            keys=[PrimitiveModel.output_key, "numerator", "denominator"],
+            keys=[Operator.output_key, "numerator", "denominator"],
             dependencies={bcast_constraint},
         )
 
 
-class MatrixMultiplyOp(PrimitiveModel):
+class MatrixMultiplyOp(Operator):
     _model_name: str = "MatrixMultiply"
 
     def __init__(
@@ -485,22 +483,22 @@ class MatrixMultiplyOp(PrimitiveModel):
             right=BaseKey(shape=[("Var2", ...), "y", "z"], type=Tensor, value=right),
         )
         bcast_constraint = self._add_constraint(
-            fn=bcast_matrix_mult, keys=[PrimitiveModel.output_key, "left", "right"]
+            fn=bcast_matrix_mult, keys=[Operator.output_key, "left", "right"]
         )
 
         self._add_constraint(
             fn=bcast_mat_mul_check,
-            keys=[PrimitiveModel.output_key, "left", "right"],
+            keys=[Operator.output_key, "left", "right"],
             dependencies={bcast_constraint},
         )
 
         self._add_constraint(
             fn=general_tensor_type_constraint,
-            keys=[PrimitiveModel.output_key, "left", "right"],
+            keys=[Operator.output_key, "left", "right"],
         )
 
 
-class ShapeOp(PrimitiveModel):
+class ShapeOp(Operator):
     _model_name: str = "Shape"
 
     def __init__(
@@ -518,7 +516,7 @@ class ShapeOp(PrimitiveModel):
         self._add_constraint(fn=shape_constraints, keys=["output", "input"])
 
 
-class ReshapeOp(PrimitiveModel):
+class ReshapeOp(Operator):
     _model_name: str = "Reshape"
 
     def __init__(
@@ -544,7 +542,7 @@ class ReshapeOp(PrimitiveModel):
         self._add_constraint(fn=reshape_constraints, keys=["output", "input", "shape"])
 
 
-class LengthOp(PrimitiveModel):
+class LengthOp(Operator):
     _model_name: str = "Length"
 
     def __init__(
@@ -561,7 +559,7 @@ class LengthOp(PrimitiveModel):
         )
 
 
-class CastOp(PrimitiveModel):
+class CastOp(Operator):
     _model_name: str = "Cast"
 
     def __init__(
@@ -576,7 +574,7 @@ class CastOp(PrimitiveModel):
         )
 
 
-class DtypeOp(PrimitiveModel):
+class DtypeOp(Operator):
     _model_name: str = "Dtype"
 
     def __init__(
@@ -593,7 +591,7 @@ class DtypeOp(PrimitiveModel):
         )
 
 
-class SizeOp(PrimitiveModel):
+class SizeOp(Operator):
     _model_name: str = "Size"
 
     def __init__(
@@ -614,7 +612,7 @@ class SizeOp(PrimitiveModel):
         self._add_constraint(fn=size_constraints, keys=["output", "input", "dim"])
 
 
-class ItemOp(PrimitiveModel):
+class ItemOp(Operator):
     _model_name: str = "Item"
 
     def __init__(
@@ -629,14 +627,12 @@ class ItemOp(PrimitiveModel):
             output=BaseKey(type=int | float),
             input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
         )
-        self._add_constraint(
-            fn=item_constraints, keys=[PrimitiveModel.output_key, "input"]
-        )
+        self._add_constraint(fn=item_constraints, keys=[Operator.output_key, "input"])
 
         self._jittable = False
 
 
-class ToTensorOp(PrimitiveModel):
+class ToTensorOp(Operator):
     _model_name: str = "ToTensor"
 
     def __init__(
@@ -655,11 +651,11 @@ class ToTensorOp(PrimitiveModel):
         )
 
         self._add_constraint(
-            fn=to_tensor_constraints, keys=[PrimitiveModel.output_key, "input"]
+            fn=to_tensor_constraints, keys=[Operator.output_key, "input"]
         )
 
 
-class ToListOp(PrimitiveModel):
+class ToListOp(Operator):
     _model_name: str = "ToList"
 
     def __init__(
@@ -686,11 +682,11 @@ class ToListOp(PrimitiveModel):
 
         self._add_constraint(
             fn=to_list_constraints,
-            keys=[PrimitiveModel.output_key] + [key for key in self.input_keys],
+            keys=[Operator.output_key] + [key for key in self.input_keys],
         )
 
 
-class TensorToListOp(PrimitiveModel):
+class TensorToListOp(Operator):
     _model_name: str = "TensorToList"
 
     def __init__(
@@ -706,16 +702,16 @@ class TensorToListOp(PrimitiveModel):
             input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
         )
         self._add_constraint(
-            fn=tensor_to_list_constraints, keys=[PrimitiveModel.output_key, "input"]
+            fn=tensor_to_list_constraints, keys=[Operator.output_key, "input"]
         )
         self._add_constraint(
-            fn=tensor_to_list_type_constraint, keys=[PrimitiveModel.output_key, "input"]
+            fn=tensor_to_list_type_constraint, keys=[Operator.output_key, "input"]
         )
 
         self._jittable = False
 
 
-class ReduceOp(PrimitiveModel):
+class ReduceOp(Operator):
     _model_name: str = "Reduce"
 
     def __init__(
@@ -750,7 +746,7 @@ class ReduceOp(PrimitiveModel):
 
         self._add_constraint(
             fn=reduce_constraints,
-            keys=[PrimitiveModel.output_key, "input", "axis", "keepdim"],
+            keys=[Operator.output_key, "input", "axis", "keepdim"],
         )
 
 
@@ -791,7 +787,7 @@ class SumOp(ReduceOp):
             formula_key="reduce_sum", name=name, axis=axis, keepdim=keepdim, input=input
         )
         self._add_constraint(
-            fn=reduce_type_constraint, keys=[PrimitiveModel.output_key, "input"]
+            fn=reduce_type_constraint, keys=[Operator.output_key, "input"]
         )
 
 
@@ -810,7 +806,7 @@ class MaxOp(ReduceOp):
             formula_key="reduce_max", name=name, axis=axis, keepdim=keepdim, input=input
         )
         self._add_constraint(
-            fn=general_tensor_type_constraint, keys=[PrimitiveModel.output_key, "input"]
+            fn=general_tensor_type_constraint, keys=[Operator.output_key, "input"]
         )
 
 
@@ -851,7 +847,7 @@ class MinOp(ReduceOp):
             formula_key="reduce_min", name=name, axis=axis, keepdim=keepdim, input=input
         )
         self._add_constraint(
-            fn=general_tensor_type_constraint, keys=[PrimitiveModel.output_key, "input"]
+            fn=general_tensor_type_constraint, keys=[Operator.output_key, "input"]
         )
 
 
@@ -896,7 +892,7 @@ class ProdOp(ReduceOp):
             input=input,
         )
         self._add_constraint(
-            fn=reduce_type_constraint, keys=[PrimitiveModel.output_key, "input"]
+            fn=reduce_type_constraint, keys=[Operator.output_key, "input"]
         )
 
 
@@ -925,7 +921,7 @@ class VarianceOp(ReduceOp):
         # TODO: Should we remove axis, correction and keepdim from factory_args?
 
 
-class SingleInputOperationOp(PrimitiveModel):
+class SingleInputOperationOp(Operator):
     _model_name: str = "SingleInputOperation"
 
     def __init__(
@@ -948,7 +944,7 @@ class SingleInputOperationOp(PrimitiveModel):
         if polymorphic_constraint:
             self._add_constraint(
                 fn=general_tensor_type_constraint,
-                keys=[PrimitiveModel.output_key, "input"],
+                keys=[Operator.output_key, "input"],
             )
 
 
@@ -994,7 +990,7 @@ class ExponentialOp(SingleInputOperationOp):
         )
 
 
-class SqrtOp(PrimitiveModel):
+class SqrtOp(Operator):
     _model_name: str = "Sqrt"
 
     def __init__(
@@ -1025,7 +1021,7 @@ class SqrtOp(PrimitiveModel):
             )
 
 
-class RelationalOperatorsOp(PrimitiveModel):
+class RelationalOperatorsOp(Operator):
     _model_name: str = "RelationalOperators"
 
     def __init__(
@@ -1063,7 +1059,7 @@ class RelationalOperatorsOp(PrimitiveModel):
 
         self._add_constraint(
             fn=bcast_error_check,
-            keys=[PrimitiveModel.output_key, "left", "right"],
+            keys=[Operator.output_key, "left", "right"],
             dependencies={bcast_constraint},
         )
         self.edge_constraint = edge_constraint
@@ -1083,7 +1079,7 @@ class GreaterOp(RelationalOperatorsOp):
 
         self._add_constraint(
             partial(general_forward_constraint, callable=lambda x, y: x > y),
-            keys=[PrimitiveModel.output_key, "left", "right"],
+            keys=[Operator.output_key, "left", "right"],
             dependencies={self.edge_constraint},
         )
 
@@ -1102,7 +1098,7 @@ class LessOp(RelationalOperatorsOp):
 
         self._add_constraint(
             partial(general_forward_constraint, callable=lambda x, y: x < y),
-            keys=[PrimitiveModel.output_key, "left", "right"],
+            keys=[Operator.output_key, "left", "right"],
             dependencies={self.edge_constraint},
         )
 
@@ -1121,7 +1117,7 @@ class EqualOp(RelationalOperatorsOp):
 
         self._add_constraint(
             partial(general_forward_constraint, callable=lambda x, y: x == y),
-            keys=[PrimitiveModel.output_key, "left", "right"],
+            keys=[Operator.output_key, "left", "right"],
             dependencies={self.edge_constraint},
         )
 
@@ -1140,7 +1136,7 @@ class NotEqualOp(RelationalOperatorsOp):
 
         self._add_constraint(
             partial(general_forward_constraint, callable=lambda x, y: x != y),
-            keys=[PrimitiveModel.output_key, "left", "right"],
+            keys=[Operator.output_key, "left", "right"],
             dependencies={self.edge_constraint},
         )
 
@@ -1159,7 +1155,7 @@ class LessEqualOp(RelationalOperatorsOp):
 
         self._add_constraint(
             partial(general_forward_constraint, callable=lambda x, y: x <= y),
-            keys=[PrimitiveModel.output_key, "left", "right"],
+            keys=[Operator.output_key, "left", "right"],
             dependencies={self.edge_constraint},
         )
 
@@ -1178,12 +1174,12 @@ class GreaterEqualOp(RelationalOperatorsOp):
 
         self._add_constraint(
             partial(general_forward_constraint, callable=lambda x, y: x >= y),
-            keys=[PrimitiveModel.output_key, "left", "right"],
+            keys=[Operator.output_key, "left", "right"],
             dependencies={self.edge_constraint},
         )
 
 
-class LogicalNotOp(PrimitiveModel):
+class LogicalNotOp(Operator):
     _model_name: str = "LogicalNot"
 
     def __init__(
@@ -1200,7 +1196,7 @@ class LogicalNotOp(PrimitiveModel):
         )
 
 
-class BitwiseOperatorsOp(PrimitiveModel):
+class BitwiseOperatorsOp(Operator):
     _model_name: str = "BitwiseOperators"
 
     def __init__(
@@ -1261,7 +1257,7 @@ class LogicalXOrOp(BitwiseOperatorsOp):
         self.factory_args = {"left": left, "right": right}
 
 
-class ShiftLeftOp(PrimitiveModel):
+class ShiftLeftOp(Operator):
     _model_name: str = "ShiftLeft"
 
     def __init__(
@@ -1282,7 +1278,7 @@ class ShiftLeftOp(PrimitiveModel):
         self._add_constraint(bcast, ["output", "input", "shift"])
 
 
-class ShiftRightOp(PrimitiveModel):
+class ShiftRightOp(Operator):
     _model_name: str = "ShiftRight"
 
     def __init__(
@@ -1303,7 +1299,7 @@ class ShiftRightOp(PrimitiveModel):
         self._add_constraint(bcast, ["output", "input", "shift"])
 
 
-class TransposeOp(PrimitiveModel):
+class TransposeOp(Operator):
     _model_name: str = "Transpose"
 
     def __init__(
@@ -1356,7 +1352,7 @@ class TransposeOp(PrimitiveModel):
         )
 
 
-class SplitOp(PrimitiveModel):
+class SplitOp(Operator):
     _model_name: str = "Split"
 
     def __init__(
@@ -1381,7 +1377,7 @@ class SplitOp(PrimitiveModel):
         )
 
 
-class SliceOp(PrimitiveModel):
+class SliceOp(Operator):
     _model_name: str = "Slice"
 
     def __init__(
@@ -1405,7 +1401,7 @@ class SliceOp(PrimitiveModel):
         )
 
 
-class IndexerOp(PrimitiveModel):
+class IndexerOp(Operator):
     _model_name: str = "Indexer"
 
     def __init__(
@@ -1431,24 +1427,24 @@ class IndexerOp(PrimitiveModel):
         )
 
         edge_constraints = self._add_constraint(
-            fn=edge_type_constraint, keys=[PrimitiveModel.output_key, "input"]
+            fn=edge_type_constraint, keys=[Operator.output_key, "input"]
         )
 
         indexer_initial_constraints = self._add_constraint(
             fn=indexer_initial_type_constraint,
-            keys=[PrimitiveModel.output_key, "input", "index"],
+            keys=[Operator.output_key, "input", "index"],
             dependencies={edge_constraints},
         )
 
         self._add_constraint(
             fn=indexer_constraints,
-            keys=[PrimitiveModel.output_key, "input", "index"],
+            keys=[Operator.output_key, "input", "index"],
             dependencies={indexer_initial_constraints},
         )
 
         self._add_constraint(
             fn=indexer_type_constraint,
-            keys=[PrimitiveModel.output_key, "input", "index"],
+            keys=[Operator.output_key, "input", "index"],
             dependencies={indexer_initial_constraints},
         )
 

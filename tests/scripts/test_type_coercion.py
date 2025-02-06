@@ -44,7 +44,7 @@ from mithril.models import (
     MatrixMultiply,
     Mean,
     Model,
-    PrimitiveModel,
+    Operator,
     PrimitiveUnion,
     Relu,
     Shape,
@@ -55,7 +55,7 @@ from mithril.models import (
     ToTensor,
     ToTuple,
 )
-from mithril.models.primitives import UserPrimitiveModel
+from mithril.models.primitives import PrimitiveModel
 
 from ..utils import compare_models
 from .test_utils import assert_results_equal
@@ -689,7 +689,7 @@ def test_type_propagation_7():
     assert model.output.metadata.value_type is float  # type: ignore
 
 
-class ArtificialPrimitive(UserPrimitiveModel):
+class ArtificialPrimitive(PrimitiveModel):
     input: Connection
     output: Connection
 
@@ -700,7 +700,7 @@ class ArtificialPrimitive(UserPrimitiveModel):
             input=BaseKey(shape=[("Var2", ...)], type=type),
         )
         self._add_constraint(
-            fn=self.artificial_constraint, keys=[PrimitiveModel.output_key, "input"]
+            fn=self.artificial_constraint, keys=[Operator.output_key, "input"]
         )
 
     def __call__(  # type: ignore[override]
@@ -856,7 +856,7 @@ def test_type_propagation_floor_divide_4():
         )
 
 
-class Model1(UserPrimitiveModel):
+class Model1(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="buffer",

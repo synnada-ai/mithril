@@ -23,11 +23,11 @@ from mithril.framework.constraints import bcast
 from mithril.models import (
     ExtendInfo,
     Model,
+    Operator,
     PhysicalModel,
-    PrimitiveModel,
     Tensor,
 )
-from mithril.models.primitives import UserPrimitiveModel
+from mithril.models.primitives import PrimitiveModel
 
 
 def check_logical_models(model_1: Model, model_2: Model):
@@ -175,13 +175,7 @@ def with_temp_file(suffix: str):
     return decorator
 
 
-def get_primitive(model: Model) -> PrimitiveModel:
-    m = next(iter(model.dag.keys()))
-    assert isinstance(m, PrimitiveModel)
-    return m
-
-
-class MyAdder(UserPrimitiveModel):
+class MyAdder(PrimitiveModel):
     def __init__(self) -> None:
         super().__init__(
             formula_key="my_adder",
@@ -189,7 +183,7 @@ class MyAdder(UserPrimitiveModel):
             left=BaseKey(shape=[("Var_1", ...)], type=Tensor),
             right=BaseKey(shape=[("Var_2", ...)], type=Tensor),
         )
-        self.add_constraint(fn=bcast, keys=[PrimitiveModel.output_key, "left", "right"])
+        self.add_constraint(fn=bcast, keys=[Operator.output_key, "left", "right"])
 
     def __call__(self, left, right, output):  # type: ignore[override]
         kwargs = {"left": left, "right": right, "output": output}

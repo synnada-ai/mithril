@@ -19,7 +19,7 @@ from typing import Any
 import torch
 
 from ...backends.with_autograd.torch_backend import TorchBackend
-from ..logical import PrimitiveModel
+from ..logical import Operator
 from ..physical.model import PhysicalModel
 from .python_gen import PythonCodeGen
 
@@ -34,7 +34,7 @@ class TorchCodeGen(PythonCodeGen[torch.Tensor]):
 
     def call_primitive(
         self,
-        model: PrimitiveModel,
+        model: Operator,
         fn: Callable[..., Any],
         l_input_keys: list[str],
         g_input_keys: list[str],

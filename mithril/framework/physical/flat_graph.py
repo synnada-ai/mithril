@@ -40,7 +40,7 @@ from ..common import (
 )
 from ..logical.essential_primitives import BufferOp
 from ..logical.model import Connection
-from ..logical.primitive import PrimitiveModel
+from ..logical.operator import Operator
 from .data_store import StaticDataStore
 
 
@@ -74,7 +74,7 @@ class Node:
     """A node representing a primitive model and its connections in the graph.
 
     Attributes:
-        model (PrimitiveModel): The primitive model associated with this node.
+        model (Operator): The primitive model associated with this node.
         connections (dict[str, Connection]): A dictionary mapping connection names
             to Connection objects.
 
@@ -83,7 +83,7 @@ class Node:
         connection of the node.
     """
 
-    model: PrimitiveModel
+    model: Operator
     connections: dict[str, GConnection]
 
     def __hash__(self) -> int:
@@ -111,7 +111,7 @@ class FlatGraph(GenericDataType[DataType]):
             memo = {}
 
         self.backend: ml.Backend[DataType] = backend
-        self.nodes: dict[PrimitiveModel, Node] = {}
+        self.nodes: dict[Operator, Node] = {}
         self.connections: dict[
             str, GConnection
         ] = {}  # Assumed connections added in topological order.
@@ -197,8 +197,8 @@ class FlatGraph(GenericDataType[DataType]):
     def update_cached_data(self, updates: Updates) -> set[str]:
         return self.data_store.update_cached_data(updates)
 
-    def add_value(self, model: PrimitiveModel, keys: dict[str, str]) -> None:
-        output_key = keys[PrimitiveModel.output_key]
+    def add_value(self, model: Operator, keys: dict[str, str]) -> None:
+        output_key = keys[Operator.output_key]
 
         if model.random_keys:
             self.random_keys |= {keys[key] for key in model.random_keys}
@@ -209,11 +209,11 @@ class FlatGraph(GenericDataType[DataType]):
         out_conn = GConnection(node, output_key, [], [], set())
 
         self.connections[output_key] = out_conn
-        node.connections[PrimitiveModel.output_key] = out_conn
+        node.connections[Operator.output_key] = out_conn
 
         # Create input connections
         for inner_key, outer_key in keys.items():
-            if inner_key == PrimitiveModel.output_key:
+            if inner_key == Operator.output_key:
                 continue
 
             conn = self.connections.get(outer_key, None)
@@ -229,7 +229,7 @@ class FlatGraph(GenericDataType[DataType]):
         self.nodes[model] = node
 
         self._all_target_keys.add(output_key)
-        self._topological_order.append(node.connections[PrimitiveModel.output_key].key)
+        self._topological_order.append(node.connections[Operator.output_key].key)
 
         for conn in node.connections.values():
             self._update_connection_keys(conn)
@@ -269,8 +269,7 @@ class FlatGraph(GenericDataType[DataType]):
 
     def _update_topological_order(self) -> None:
         self._topological_order = [
-            node.connections[PrimitiveModel.output_key].key
-            for node in self.nodes.values()
+            node.connections[Operator.output_key].key for node in self.nodes.values()
         ]
 
     def _update_all_source_keys(self) -> None:
@@ -295,7 +294,7 @@ class FlatGraph(GenericDataType[DataType]):
 
         if connection.node is not None:
             for inner_key, conn in connection.node.connections.items():
-                if inner_key == PrimitiveModel.output_key:
+                if inner_key == Operator.output_key:
                     continue
                 key = conn.key
                 source_keys.append(key)
@@ -310,14 +309,10 @@ class FlatGraph(GenericDataType[DataType]):
         target_keys += get_target_keys(connection)
         if (
             connection.node is not None
-            and connection.key
-            != connection.node.connections[PrimitiveModel.output_key].key
-            and connection.node.connections[PrimitiveModel.output_key].key
-            in self.connections
+            and connection.key != connection.node.connections[Operator.output_key].key
+            and connection.node.connections[Operator.output_key].key in self.connections
         ):
-            target_keys.append(
-                connection.node.connections[PrimitiveModel.output_key].key
-            )
+            target_keys.append(connection.node.connections[Operator.output_key].key)
 
         # Make sure connection key registered all_source and all_target keys
         if len(target_keys) > 0:
@@ -328,23 +323,23 @@ class FlatGraph(GenericDataType[DataType]):
         connection.target_keys = list(target_keys)
         connection.source_keys = list(source_keys)
 
-    def get_model(self, key: str) -> PrimitiveModel:
+    def get_model(self, key: str) -> Operator:
         conn = self.connections.get(key, None)
         if conn is None or conn.node is None:
             raise ValueError(f"Model not found for key: {key}")
 
         return conn.node.model
 
-    def get_model_out_key(self, model: PrimitiveModel) -> str | None:
+    def get_model_out_key(self, model: Operator) -> str | None:
         node = self.nodes.get(model, None)
         if node is None:
             return None
-        return node.connections[PrimitiveModel.output_key].key
+        return node.connections[Operator.output_key].key
 
-    def get_model_outer_key(self, model: PrimitiveModel, inner_key: str) -> str:
+    def get_model_outer_key(self, model: Operator, inner_key: str) -> str:
         return self.nodes[model].connections[inner_key].key
 
-    def get_model_connections(self, model: PrimitiveModel):  # type: ignore
+    def get_model_connections(self, model: Operator):  # type: ignore
         return self.nodes[model].connections.values()
 
     def get_connection(self, key: str) -> GConnection | None:
@@ -523,7 +518,7 @@ class FlatGraph(GenericDataType[DataType]):
             self._update_connection_keys(conn_)
 
         if (
-            key := node.connections[PrimitiveModel.output_key].key
+            key := node.connections[Operator.output_key].key
         ) not in self.output_keys and key in self._all_target_keys:
             self._all_target_keys.remove(key)
 
@@ -536,7 +531,7 @@ class FlatGraph(GenericDataType[DataType]):
 
     def _remove_node(self, node: Node) -> None:
         connections = set(node.connections.values())
-        output_conn = node.connections[PrimitiveModel.output_key]
+        output_conn = node.connections[Operator.output_key]
 
         # To remove node, node should not be used any other nodes or
         # Output of this node is already cached, so we can remove this node.
@@ -622,7 +617,7 @@ class FlatGraph(GenericDataType[DataType]):
                         keys.add(value)
                         queue.add(value)
 
-    def get_models(self) -> KeysView[PrimitiveModel]:
+    def get_models(self) -> KeysView[Operator]:
         return self.nodes.keys()
 
     def infer_static_keys(self) -> Updates:

@@ -50,7 +50,7 @@ from mithril.models import (
 from mithril.utils.utils import BiMultiMap
 from tests.scripts.test_utils import compare_callables
 
-from ..utils import MyAdder, get_primitive, with_temp_file
+from ..utils import MyAdder, with_temp_file
 
 # ruff: noqa: F821
 
@@ -206,7 +206,7 @@ def test_flatten_dag_1():
     ]
 
     assert flatted_primitive_model_list == [
-        get_primitive(model).__class__ for model in ordered_model_list
+        model.submodel.__class__ for model in ordered_model_list
     ]
 
 
@@ -268,7 +268,7 @@ def test_flatten_dag_2():
     ]
 
     assert flatted_primitive_model_list == [
-        get_primitive(model).__class__ for model in ordered_model_list
+        model.submodel.__class__ for model in ordered_model_list
     ]
 
 
@@ -313,7 +313,7 @@ def test_flatten_dag_3():
     ]
 
     assert flatted_primitive_model_list == [
-        get_primitive(model).__class__ for model in ordered_model_list
+        model.submodel.__class__ for model in ordered_model_list
     ]
 
 

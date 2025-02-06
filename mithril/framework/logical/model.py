@@ -92,7 +92,7 @@ from .essential_primitives import (
     TransposeOp,
     VarianceOp,
 )
-from .primitive import PrimitiveModel
+from .operator import Operator
 
 __all__ = [
     "Connection",
@@ -627,7 +627,7 @@ class Model(BaseModel):
             default_args_dict.pop("name", None)
 
             # TODO: Reconsider type ignore!
-            model: PrimitiveModel = template.model(**default_args_dict)  # type: ignore
+            model: Operator = template.model(**default_args_dict)  # type: ignore
             keys = {
                 local_key: self._prepare_keys(model, local_key, outer_con)  # type: ignore
                 for local_key, outer_con in zip(
@@ -810,7 +810,7 @@ class Model(BaseModel):
         self._set_outputs(*_args, **_kwargs)
 
     # TODO: Update summary, this should work same with both
-    # Logical Model and PrimitiveModel
+    # Logical Model and Operator
     def summary(
         self,
         shapes: bool = True,
@@ -822,7 +822,6 @@ class Model(BaseModel):
         var_cache: dict[Variadic, str] | None = None,
         depth: int = 0,
     ) -> None:
-        self_name = self.class_name
         if uni_cache is None:
             uni_cache = {}
         if var_cache is None:
@@ -852,7 +851,7 @@ class Model(BaseModel):
 
         # TODO: Remove name argument from summary method
         if not name and (name := self.name) is None:
-            name = self_name
+            name = self.class_name
 
         # construct the table based on relevant information
         table = get_summary(
@@ -877,7 +876,7 @@ class Model(BaseModel):
                     "var_cache": var_cache,
                     "types": types,
                 }
-                if isinstance(model, PrimitiveModel):
+                if isinstance(model, Operator):
                     kwargs.pop("depth")
                 model.summary(**kwargs)  # type: ignore
 

@@ -92,11 +92,11 @@ class ThreeConstraintsTest(ThreeConstraints):
 
     subclass should have two fields defined:
        1. result_map: dict[tuple[bool, ...], list[str]]
-       2. model: Callable[[], PrimitiveModel]
+       2. model: Callable[[], Operator]
 
     result_map defines result for each possible condition of constraints
 
-    model should return a PrimitiveModel object with constraints defined
+    model should return a Operator object with constraints defined
 
     in each constraints, if its conditions true, appends its name to trace_list
     (namely, c1, c2, c3). However, if a constraint has dependencies, it cannot be

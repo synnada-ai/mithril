@@ -35,12 +35,12 @@ from mithril.models import (
     Indexer,
     IOKey,
     Model,
-    PrimitiveModel,
+    Operator,
     Relu,
     Slice,
     Transpose,
 )
-from mithril.models.primitives import UserPrimitiveModel
+from mithril.models.primitives import PrimitiveModel
 
 
 def dummy_constraint(output: IOHyperEdge, input: IOHyperEdge):
@@ -94,7 +94,7 @@ def dummy_constraint(output: IOHyperEdge, input: IOHyperEdge):
     return status, updates
 
 
-class Model1(UserPrimitiveModel):
+class Model1(PrimitiveModel):
     input: Connection
     output: Connection
 
@@ -110,7 +110,7 @@ class Model1(UserPrimitiveModel):
         self._add_constraint(fn=dummy_constraint, keys=["output", "input"])
 
 
-class Model2(UserPrimitiveModel):
+class Model2(PrimitiveModel):
     input: Connection
     output: Connection
 
@@ -126,7 +126,7 @@ class Model2(UserPrimitiveModel):
         )
 
 
-class Model3(UserPrimitiveModel):
+class Model3(PrimitiveModel):
     input: Connection
     output: Connection
 
@@ -139,7 +139,7 @@ class Model3(UserPrimitiveModel):
         self._add_constraint(fn=dummy_constraint, keys=["output", "input"])
 
 
-class MyAdd2(UserPrimitiveModel):
+class MyAdd2(PrimitiveModel):
     left: Connection
     right: Connection
     output: Connection
@@ -151,9 +151,7 @@ class MyAdd2(UserPrimitiveModel):
             left=BaseKey(shape=left, type=Tensor),
             right=BaseKey(shape=right, type=Tensor),
         )
-        self._add_constraint(
-            fn=bcast, keys=[PrimitiveModel.output_key, "left", "right"]
-        )
+        self._add_constraint(fn=bcast, keys=[Operator.output_key, "left", "right"])
 
     def __call__(  # type: ignore
         self,
