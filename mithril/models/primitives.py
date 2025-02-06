@@ -110,7 +110,7 @@ from ..framework.logical.essential_primitives import (
 )
 from ..framework.logical.model import Connection, ConnectionType, ExtendInfo
 from ..framework.logical.operator import Operator
-from ..framework.logical.primitive import PrimitiveModel
+from ..framework.logical.primitive import OperatorModel, PrimitiveModel
 from ..utils.utils import PaddingType
 
 __all__ = [
@@ -2622,7 +2622,7 @@ class ZerosLike(PrimitiveModel):
         return super().__call__(input=input, output=output)
 
 
-class Buffer(PrimitiveModel):
+class Buffer(OperatorModel):
     input: Connection
     output: Connection
 
@@ -2642,7 +2642,7 @@ class Buffer(PrimitiveModel):
         return super().__call__(input=input, output=output)
 
 
-class ToTuple(PrimitiveModel):
+class ToTuple(OperatorModel):
     input: Connection
     output: Connection
 
@@ -2656,7 +2656,7 @@ class ToTuple(PrimitiveModel):
         super().__init__(name=name, model=ToTupleOp(n, **kwargs))
 
 
-class ArithmeticOperation(PrimitiveModel):
+class ArithmeticOperation(OperatorModel):
     left: Connection
     right: Connection
     output: Connection
@@ -2678,7 +2678,7 @@ class ArithmeticOperation(PrimitiveModel):
         return super().__call__(left=left, right=right, output=output)
 
 
-class Power(PrimitiveModel):
+class Power(OperatorModel):
     base: Connection
     exponent: Connection
     output: Connection
@@ -2775,7 +2775,7 @@ class Maximum(ArithmeticOperation):
         super().__init__(MaximumOp(left=left, right=right), name=name)
 
 
-class Divide(PrimitiveModel):
+class Divide(OperatorModel):
     numerator: Connection
     denominator: Connection
     output: Connection
@@ -2803,7 +2803,7 @@ class Divide(PrimitiveModel):
         )
 
 
-class FloorDivide(PrimitiveModel):
+class FloorDivide(OperatorModel):
     numerator: Connection
     denominator: Connection
     output: Connection
@@ -2829,7 +2829,7 @@ class FloorDivide(PrimitiveModel):
         )
 
 
-class MatrixMultiply(PrimitiveModel):
+class MatrixMultiply(OperatorModel):
     left: Connection
     right: Connection
     output: Connection
@@ -2852,7 +2852,7 @@ class MatrixMultiply(PrimitiveModel):
         return super().__call__(left=left, right=right, output=output)
 
 
-class Shape(PrimitiveModel):
+class Shape(OperatorModel):
     input: Connection
     output: Connection
 
@@ -2870,7 +2870,7 @@ class Shape(PrimitiveModel):
         return super().__call__(input=input, output=output)
 
 
-class Reshape(PrimitiveModel):
+class Reshape(OperatorModel):
     input: Connection
     shape: Connection
     output: Connection
@@ -2893,7 +2893,7 @@ class Reshape(PrimitiveModel):
         return super().__call__(input=input, shape=shape, output=output)
 
 
-class Length(PrimitiveModel):
+class Length(OperatorModel):
     input: Connection
     output: Connection
 
@@ -2911,7 +2911,7 @@ class Length(PrimitiveModel):
         return super().__call__(input=input, output=output)
 
 
-class Cast(PrimitiveModel):
+class Cast(OperatorModel):
     input: Connection
     dtype: Connection
     output: Connection
@@ -2930,7 +2930,7 @@ class Cast(PrimitiveModel):
         return super().__call__(input=input, dtype=dtype, output=output)
 
 
-class Dtype(PrimitiveModel):
+class Dtype(OperatorModel):
     input: Connection
     output: Connection
 
@@ -2948,7 +2948,7 @@ class Dtype(PrimitiveModel):
         return super().__call__(input=input, output=output)
 
 
-class Size(PrimitiveModel):
+class Size(OperatorModel):
     input: Connection
     dim: Connection
     output: Connection
@@ -2971,7 +2971,7 @@ class Size(PrimitiveModel):
         return super().__call__(input=input, dim=dim, output=output)
 
 
-class Item(PrimitiveModel):
+class Item(OperatorModel):
     input: Connection
     output: Connection
 
@@ -2989,7 +2989,7 @@ class Item(PrimitiveModel):
         return super().__call__(input=input, output=output)
 
 
-class ToTensor(PrimitiveModel):
+class ToTensor(OperatorModel):
     input: Connection
     dtype: Connection
     output: Connection
@@ -3012,7 +3012,7 @@ class ToTensor(PrimitiveModel):
         return super().__call__(input=input, dtype=dtype, output=output)
 
 
-class ToList(PrimitiveModel):
+class ToList(OperatorModel):
     output: Connection
 
     def __init__(
@@ -3025,7 +3025,7 @@ class ToList(PrimitiveModel):
         super().__init__(name=name, model=ToListOp(n, name=name, **kwargs))
 
 
-class TensorToList(PrimitiveModel):
+class TensorToList(OperatorModel):
     input: Connection
     output: Connection
 
@@ -3046,7 +3046,7 @@ class TensorToList(PrimitiveModel):
         return super().__call__(input=input, output=output)
 
 
-class Reduce(PrimitiveModel):
+class Reduce(OperatorModel):
     input: Connection
     axis: Connection
     keepdim: Connection
@@ -3191,7 +3191,7 @@ class Variance(Reduce):
         )
 
 
-class SingleInputModel(PrimitiveModel):
+class SingleInputModel(OperatorModel):
     input: Connection
     output: Connection
 
@@ -3231,7 +3231,7 @@ class Exponential(SingleInputModel):
         super().__init__(name=name, model=ExponentialOp(input=input))
 
 
-class Sqrt(PrimitiveModel):
+class Sqrt(OperatorModel):
     input: Connection
     output: Connection
 
@@ -3272,7 +3272,7 @@ class Sqrt(PrimitiveModel):
         return super().__call__(**kwargs)
 
 
-class RelationalModel(PrimitiveModel):
+class RelationalModel(OperatorModel):
     left: Connection
     right: Connection
     output: Connection
@@ -3352,7 +3352,7 @@ class GreaterEqual(RelationalModel):
         super().__init__(name=name, model=GreaterEqualOp(left=left, right=right))
 
 
-class LogicalNot(PrimitiveModel):
+class LogicalNot(OperatorModel):
     input: Connection
     output: Connection
 
@@ -3370,7 +3370,7 @@ class LogicalNot(PrimitiveModel):
         return super().__call__(input=input, output=output)
 
 
-class BitwiseOperators(PrimitiveModel):
+class BitwiseOperators(OperatorModel):
     left: Connection
     right: Connection
     output: Connection
@@ -3417,7 +3417,7 @@ class LogicalXOr(BitwiseOperators):
         super().__init__(name=name, model=LogicalXOrOp(left=left, right=right))
 
 
-class ShiftLeft(PrimitiveModel):
+class ShiftLeft(OperatorModel):
     input: Connection
     shift: Connection
     output: Connection
@@ -3440,7 +3440,7 @@ class ShiftLeft(PrimitiveModel):
         return super().__call__(input=input, shift=shift, output=output)
 
 
-class ShiftRight(PrimitiveModel):
+class ShiftRight(OperatorModel):
     input: Connection
     shift: Connection
     output: Connection
@@ -3463,7 +3463,7 @@ class ShiftRight(PrimitiveModel):
         return super().__call__(input=input, shift=shift, output=output)
 
 
-class Transpose(PrimitiveModel):
+class Transpose(OperatorModel):
     # NOTE: Consider if axes type list[int] is conventionally True since it is generally
     # used tuple[int] in these type of cases
     input: Connection
@@ -3488,7 +3488,7 @@ class Transpose(PrimitiveModel):
         return super().__call__(input=input, axes=axes, output=output)
 
 
-class Split(PrimitiveModel):
+class Split(OperatorModel):
     split_size: Connection
     axis: Connection
     input: Connection
@@ -3517,7 +3517,7 @@ class Split(PrimitiveModel):
         )
 
 
-class Slice(PrimitiveModel):
+class Slice(OperatorModel):
     start: Connection
     stop: Connection
     step: Connection
@@ -3543,7 +3543,7 @@ class Slice(PrimitiveModel):
         return super().__call__(start=start, stop=stop, step=step, output=output)
 
 
-class Indexer(PrimitiveModel):
+class Indexer(OperatorModel):
     input: Connection
     index: Connection
     output: Connection

@@ -40,6 +40,7 @@ from mithril.framework.common import (
     Variadic,
 )
 from mithril.framework.constraints import reverse_constraints
+from mithril.framework.logical.primitive import OperatorModel, PrimitiveModel
 from mithril.models import (
     AUC,
     MLP,
@@ -121,7 +122,6 @@ from mithril.models import (
     ZerosLike,
     primitives,
 )
-from mithril.models.primitives import PrimitiveModel
 
 from .test_utils import (
     check_shapes_semantically,
@@ -6652,6 +6652,7 @@ def test_total_repr_count_1():
         ToList,
         ScaledDotProduct,
         PrimitiveModel,
+        OperatorModel,
     }
     ref_counts = {
         Exponential: 1,

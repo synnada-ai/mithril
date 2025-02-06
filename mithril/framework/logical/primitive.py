@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections.abc import KeysView
 
 from ... import core
 from ..common import (
@@ -20,55 +21,40 @@ from ..common import (
 from .model import ConnectionType, IOKey, Model
 from .operator import Operator
 
-__all__ = ["Operator"]
-
-from typing import overload
+__all__ = ["PrimitiveModel", "OperatorModel"]
 
 ConstantType = float | int | core.Constant
 
 
 class PrimitiveModel(Model):
-    @overload
     def __init__(
         self,
+        formula_key: str,
         *,
         name: str | None = None,
-        formula_key: str | None = None,
-        **kwargs: BaseKey,
-    ) -> None: ...
-
-    @overload
-    def __init__(
-        self,
-        *,
-        name: str | None = None,
-        model: Operator | None = None,
-    ) -> None: ...
-
-    def __init__(  # type: ignore
-        self,
-        *,
-        name: str | None = None,
-        model: Operator | None = None,
-        formula_key: str | None = None,
         **kwargs: BaseKey,
     ) -> None:
-        _kwargs: dict[str, ConnectionType]
-        if not ((formula_key is None) ^ (model is None)):
-            raise ValueError("Either formula_key or model must be provided")
-        elif model is None:
-            assert formula_key is not None
-            model = Operator(formula_key, self.class_name, **kwargs)
-            _kwargs = {key: IOKey(key, expose=True) for key in kwargs}
-        else:
-            if kwargs != {}:
-                raise ValueError("kwargs must be empty when model is provided")
-            _kwargs = {key: IOKey(key, expose=True) for key in model.external_keys}
+        model = Operator(formula_key, self.class_name, **kwargs)
         super().__init__(name=name, enforce_jit=model._jittable)
-        self._extend(model, _kwargs)
+        self._extend(model, self.wrap_keys(kwargs.keys()))
+
+    @staticmethod
+    def wrap_keys(kwargs: KeysView[str]) -> dict[str, ConnectionType]:
+        return {key: IOKey(key, expose=True) for key in kwargs}
 
     @property
     def submodel(self) -> Operator:
         m = next(iter(self.dag.keys()))
         assert isinstance(m, Operator)
         return m
+
+
+class OperatorModel(PrimitiveModel):
+    def __init__(
+        self,
+        model: Operator,
+        *,
+        name: str | None = None,
+    ) -> None:
+        Model.__init__(self, name=name, enforce_jit=model._jittable)
+        self._extend(model, self.wrap_keys(model.external_keys))
