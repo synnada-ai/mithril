@@ -26,6 +26,7 @@ from ..common import (
 )
 from .base import BaseModel
 
+
 class Operator(BaseModel):
     """This class contains the simplest / primitive
     building blocks of composite models.
