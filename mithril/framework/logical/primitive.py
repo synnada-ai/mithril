@@ -12,13 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import KeysView
 
 from ... import core
 from ..common import (
     BaseKey,
 )
-from .model import ConnectionType, IOKey, Model
+from .model import IOKey, Model
 from .operator import Operator
 
 __all__ = ["PrimitiveModel", "OperatorModel"]
@@ -26,21 +25,15 @@ __all__ = ["PrimitiveModel", "OperatorModel"]
 ConstantType = float | int | core.Constant
 
 
-class PrimitiveModel(Model):
+class OperatorModel(Model):
     def __init__(
         self,
-        formula_key: str,
+        model: Operator,
         *,
         name: str | None = None,
-        **kwargs: BaseKey,
     ) -> None:
-        model = Operator(formula_key, self.class_name, **kwargs)
         super().__init__(name=name, enforce_jit=model._jittable)
-        self._extend(model, self.wrap_keys(kwargs.keys()))
-
-    @staticmethod
-    def wrap_keys(kwargs: KeysView[str]) -> dict[str, ConnectionType]:
-        return {key: IOKey(key, expose=True) for key in kwargs}
+        self._extend(model, {k: IOKey(k, expose=True) for k in model.external_keys})
 
     @property
     def submodel(self) -> Operator:
@@ -49,12 +42,13 @@ class PrimitiveModel(Model):
         return m
 
 
-class OperatorModel(PrimitiveModel):
+class PrimitiveModel(OperatorModel):
     def __init__(
         self,
-        model: Operator,
+        formula_key: str,
         *,
         name: str | None = None,
+        **kwargs: BaseKey,
     ) -> None:
-        Model.__init__(self, name=name, enforce_jit=model._jittable)
-        self._extend(model, self.wrap_keys(model.external_keys))
+        model = Operator(formula_key, self.class_name, **kwargs)
+        super().__init__(model=model, name=name)
