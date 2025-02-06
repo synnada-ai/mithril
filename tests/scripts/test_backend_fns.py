@@ -2103,6 +2103,8 @@ class TestConcat:
         fn_args: list = [[backend.ones((3, 4)), backend.zeros((3, 4))], 0]
         output = fn(*fn_args)
         assert output.shape == (6, 4)
+
+
 class TestMultinomial:
     def test_multinomial_with_replacement(self, backendcls, device, dtype):
         backend = backendcls(device=device, dtype=dtype)
