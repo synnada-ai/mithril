@@ -23,7 +23,7 @@ from typing import Any
 
 from ...utils.utils import OrderedSet
 from ..common import (
-    NOT_AVAILABLE,
+    TBD,
     AssignedConstraintType,
     Connection,
     ConnectionData,
@@ -34,7 +34,6 @@ from ..common import (
     ConstraintSolver,
     IOHyperEdge,
     MainValueType,
-    NotAvailable,
     ScalarType,
     ShapeNode,
     ShapesType,
@@ -49,7 +48,7 @@ from ..common import (
     create_shape_repr,
     get_shapes,
 )
-from ..constraints import post_process_map, type_constraints
+from ..constraints import constraint_type_map
 
 __all__ = ["BaseModel", "ExtendInfo"]
 
@@ -60,11 +59,11 @@ class ExtendInfo:
     _connections: dict[str, ConnectionType]
 
     def __post_init__(self) -> None:
-        external_keys = set(self._model.external_keys)
-        if self._model.canonical_input is not NOT_AVAILABLE:
-            external_keys.add(self._model.canonical_input.key)
-        if self._model.canonical_output is not NOT_AVAILABLE:
-            external_keys.add(self._model.canonical_output.key)
+        external_keys = (
+            set(self._model.external_keys)
+            | {item.key for item in self._model.conns.couts}
+            | {item.key for item in self._model.conns.cins}
+        )
 
         for key in self._connections:
             if key not in external_keys:
@@ -98,14 +97,12 @@ class BaseModel(abc.ABC):
         self.assigned_shapes: list[ShapesType] = []
         self.assigned_types: dict[
             str,
-            type | UnionType | ScalarType | Tensor[Any],
+            type | UnionType | ScalarType | Tensor[int | float | bool],
         ] = {}
         self.assigned_constraints: list[AssignedConstraintType] = []
         self.conns = Connections()
         self.frozen_attributes: list[str] = []
         self.dependency_map = DependencyMap(self.conns)
-        self._canonical_input: ConnectionData | NotAvailable = NOT_AVAILABLE
-        self._canonical_output: ConnectionData | NotAvailable = NOT_AVAILABLE
         self.name = name
         self._enforce_jit = enforce_jit
         self._jittable = True
@@ -159,11 +156,6 @@ class BaseModel(abc.ABC):
     @property
     def output_keys(self) -> list[str]:
         output_keys = list(self.conns.output_keys)
-        if (
-            self.canonical_output is not NOT_AVAILABLE
-            and self.canonical_output.key not in output_keys
-        ):
-            output_keys.append("#canonical_output")
         return output_keys
 
     def check_extendability(self) -> None:
@@ -265,12 +257,10 @@ class BaseModel(abc.ABC):
         # Apply updates to the shape nodes.
         for key in chain(shapes, kwargs):
             node, _inner_key = shape_nodes[key]
-            if (
-                metadata := self.conns.get_data(_inner_key)
-            ).edge_type is ToBeDetermined:
+            if (metadata := self.conns.get_data(_inner_key)).is_polymorphic:
                 # If edge_type is not defined yet, set it to Tensor since
                 # shape is provided.
-                updates |= metadata.set_type(Tensor)
+                updates |= metadata.set_type(Tensor[int | float | bool])
             shape_node = self.conns.get_shape_node(_inner_key)
             assert shape_node is not None
             updates |= shape_node.merge(node)
@@ -281,7 +271,9 @@ class BaseModel(abc.ABC):
         model.constraint_solver(updates)
 
     def _set_value(
-        self, key: ConnectionData, value: MainValueType | Tensor[Any] | str
+        self,
+        key: ConnectionData,
+        value: MainValueType | Tensor[int | float | bool] | str,
     ) -> Updates:
         """
         Set value for the given connection.
@@ -296,6 +288,8 @@ class BaseModel(abc.ABC):
 
         if key.key not in self.conns.input_keys:
             raise ValueError("Values of internal and output keys cannot be set.")
+        if value != TBD:
+            self.conns.cins.discard(key)
         # Data is scalar, set the value directly.
         return key.metadata.set_value(value)
 
@@ -308,11 +302,13 @@ class BaseModel(abc.ABC):
 
     def set_values(
         self,
-        config: Mapping[str | Connection, Tensor[Any] | MainValueType | str]
-        | Mapping[Connection, Tensor[Any] | MainValueType | str]
-        | Mapping[str, Tensor[Any] | MainValueType | str]
+        config: Mapping[
+            str | Connection, Tensor[int | float | bool] | MainValueType | str
+        ]
+        | Mapping[Connection, Tensor[int | float | bool] | MainValueType | str]
+        | Mapping[str, Tensor[int | float | bool] | MainValueType | str]
         | None = None,
-        **kwargs: Tensor[Any] | MainValueType | str,
+        **kwargs: Tensor[int | float | bool] | MainValueType | str,
     ) -> None:
         """
         Set multiple values in the model.
@@ -352,18 +348,18 @@ class BaseModel(abc.ABC):
         self,
         config: Mapping[
             str | Connection,
-            type | UnionType | ScalarType | type[Tensor[Any]],
+            type | UnionType | ScalarType | type[Tensor[int | float | bool]],
         ]
         | Mapping[
             Connection,
-            type | UnionType | ScalarType | type[Tensor[Any]],
+            type | UnionType | ScalarType | type[Tensor[int | float | bool]],
         ]
         | Mapping[
             str,
-            type | UnionType | ScalarType | type[Tensor[Any]],
+            type | UnionType | ScalarType | type[Tensor[int | float | bool]],
         ]
         | None = None,
-        **kwargs: type | UnionType | ScalarType | type[Tensor[Any]],
+        **kwargs: type | UnionType | ScalarType | type[Tensor[int | float | bool]],
     ) -> None:
         """
         Set types of any connection in the Model
@@ -385,7 +381,7 @@ class BaseModel(abc.ABC):
         # Initialize assigned shapes dictionary to store assigned shapes.
         assigned_types: dict[
             str,
-            type | UnionType | ScalarType | Tensor[Any],
+            type | UnionType | ScalarType | Tensor[int | float | bool],
         ] = {}
 
         # Get the outermost parent as all the updates will happen here.
@@ -396,6 +392,8 @@ class BaseModel(abc.ABC):
             conn = self.conns.get_con_by_metadata(metadata)
             assert conn is not None
             inner_key = conn.key
+            if key_type is Tensor:
+                key_type = Tensor[int | float | bool]
             assigned_types[inner_key] = key_type
             updates |= metadata.set_type(key_type)
         # Store assigned types in the model.
@@ -419,97 +417,95 @@ class BaseModel(abc.ABC):
             key_mappings=self.generate_keys(include_outputs=True),
         )
 
-    def _set_constraint(
+    def _add_constraint(
         self,
         fn: ConstraintFunctionType,
         keys: list[str],
-        post_processes: set[ConstraintFunctionType] | None = None,
-        type: UpdateType | None = None,
-    ) -> None:
+        types: list[UpdateType] | None = None,
+        dependencies: set[Constraint] | None = None,
+    ) -> Constraint:
         all_conns = self.conns.all
         hyper_edges = [all_conns[key].metadata for key in keys]
-        if type is None:
-            # TODO: separate type_constraints and shape constraints into two files under
-            # constraints folder. Then, check if fn is not in any of those types set
-            # _type to None. If _type and type are both None or one is UpdateType.SHAPE
-            # while other one is UpdateType.Type, raise Exception!
-            type = UpdateType.TYPE if fn in type_constraints else UpdateType.SHAPE
-        constr = Constraint(fn=fn, type=type)
+
+        if dependencies is None:
+            dependencies = set()
+        unresolved_dependencies = (
+            dependencies & self.constraint_solver.constraint_map.keys()
+        )
+        if types is None:
+            types = constraint_type_map.get(fn, [UpdateType.SHAPE, UpdateType.VALUE])
+        constr = Constraint(fn=fn, types=types)
+        constr.add_dependencies(*unresolved_dependencies)
+
         self.constraint_solver.constraint_map[constr] = hyper_edges
         for hyper_edge in hyper_edges:
             hyper_edge.add_constraint(constr)
 
-        # Get union of all given and default post processes for the given
-        # constraint and update post_processes field.
-        if post_processes is None:
-            post_processes = set()
-        all_post_processes = post_processes | post_process_map.get(fn, set())
-        for post_fn in all_post_processes:
-            type = UpdateType.TYPE if post_fn in type_constraints else UpdateType.SHAPE
-            constr.add_post_process((post_fn, type))
+        self.constraint_solver.solver_loop({constr})
+        return constr
 
-        _, updates = constr(hyper_edges)
-        self.constraint_solver(updates)
-
-    def set_constraint(
+    def add_constraint(
         self,
         fn: ConstraintFunctionType,
         keys: list[str],
-        post_processes: set[ConstraintFunctionType] | None = None,
-        type: UpdateType = UpdateType.SHAPE,
-    ) -> None:
+        type: list[UpdateType] | None = None,
+        dependencies: set[Constraint] | None = None,
+    ) -> Constraint:
         self.assigned_constraints.append({"fn": fn.__name__, "keys": keys})
-        self._set_constraint(fn, keys, post_processes, type=type)
+        return self._add_constraint(fn, keys, type, dependencies)
 
     @property
-    def canonical_input(self) -> Connection | NotAvailable:
-        if isinstance(self._canonical_input, ConnectionData):
-            return self._canonical_input.conn
-        else:
-            return NOT_AVAILABLE
+    def cin(self) -> Connection:
+        if (cin_len := len(self.conns.cins)) != 1:
+            raise KeyError(
+                f"Currently, there exists {cin_len} canonical inputs, model "
+                "should have exactly one canonical input!"
+            )
+        return next(iter(self.conns.cins)).conn
 
     @property
-    def canonical_output(self) -> Connection | NotAvailable:
-        if isinstance(self._canonical_output, NotAvailable):
-            return self._canonical_output
-        else:
-            return self._canonical_output.conn
-
-    def set_canonical_input(self, given_conn: str | Connection) -> None:
-        if isinstance(given_conn, str):
-            conn = self.conns.all.get(given_conn)
-            if conn is None:
-                raise ValueError("Provided 'key' is not belong to the model!")
-        else:
-            conn = given_conn.data
-
-        conn = self.conns.get_con_by_metadata(conn.metadata)
-
-        if conn not in self.dependency_map.local_input_dependency_map:
-            raise ValueError(
-                "To set a connection as canonical input, connection must be an "
-                "input connection!"
+    def cout(self) -> Connection:
+        if (cout_len := len(self.conns.couts)) != 1:
+            raise KeyError(
+                f"Currently, there exists {cout_len} canonical outputs, model "
+                "should have exactly one canonical output!"
             )
 
-        self._canonical_input = conn
+        return next(iter(self.conns.couts)).conn
 
-    def set_canonical_output(self, given_conn: str | Connection) -> None:
-        if isinstance(given_conn, str):
-            conn = self.conns.all.get(given_conn)
-            if conn is None:
-                raise ValueError("Provided 'key' is not belong to the model!")
-        else:
-            conn = given_conn.data
+    def set_cin(self, *connections: str | Connection, safe: bool = True) -> None:
+        self.conns.cins = set()
+        for given_conn in connections:
+            conn = self.conns.get_extracted_connection(given_conn)
 
-        conn = self.conns.get_con_by_metadata(conn.metadata)
+            is_valued = conn.metadata.value is not TBD
+            if conn not in self.dependency_map.local_input_dependency_map:
+                raise ValueError(
+                    "To set a connection as canonical input, connection must be an "
+                    "input connection!"
+                )
+            elif is_valued:
+                if safe:
+                    raise ValueError(
+                        "To set a connection as canonical input, "
+                        "connection must be unvalued!"
+                    )
+            else:
+                self.conns.cins.add(conn)
 
-        if conn not in self.dependency_map.local_output_dependency_map:
-            raise ValueError(
-                "To set a connection as canonical output, connection must be an "
-                "output connection!"
-            )
-
-        self._canonical_output = conn
+    def set_cout(self, *connections: str | Connection, safe: bool = True) -> None:
+        self.conns.couts = set()
+        for given_conn in connections:
+            conn = self.conns.get_extracted_connection(given_conn)
+            is_valued = conn.metadata.value is not TBD
+            if conn not in self.dependency_map.local_output_dependency_map or is_valued:
+                if safe:
+                    raise ValueError(
+                        "To set a connection as canonical output, "
+                        "connection must be an output connection!"
+                    )
+            else:
+                self.conns.couts.add(conn)
 
     def _match_hyper_edges(self, left: IOHyperEdge, right: IOHyperEdge) -> Updates:
         # if type(left.data) is not type(right.data):

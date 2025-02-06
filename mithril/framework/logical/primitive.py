@@ -17,13 +17,11 @@ from typing import get_args, get_origin
 
 from ...utils.utils import OrderedSet
 from ..common import (
-    NOT_AVAILABLE,
     TBD,
     BaseKey,
     Connection,
     IOHyperEdge,
     KeyType,
-    NotAvailable,
     Tensor,
     ToBeDetermined,
     UniadicRecord,
@@ -71,20 +69,18 @@ class PrimitiveModel(BaseModel):
         output_data: IOHyperEdge | None = None
         for key, value in kwargs.items():
             if isinstance(value, BaseKey):
-                if (
-                    is_generic_tensor := (get_origin(value.type) is Tensor)
-                ) or value.type is Tensor:
-                    tensor_types = (
-                        get_args(value.type)[0]
-                        if is_generic_tensor
-                        else int | float | bool
+                if get_origin(value.type) is Tensor or value.type is Tensor:
+                    val_type = (
+                        Tensor[int | float | bool]
+                        if value.type is Tensor
+                        else value.type
                     )
-                    assert isinstance(value.value, ToBeDetermined | int | float | bool)
-                    tensor = Tensor(
-                        value=value.value,
-                        type=tensor_types,
-                        shape=shapes[key].node,
-                    )
+                    if not isinstance(tensor := value.value, Tensor):
+                        assert isinstance(value.value, ToBeDetermined)
+                        tensor = Tensor(
+                            type=get_args(val_type)[0],
+                            shape=shapes[key].node,
+                        )
                     edge = IOHyperEdge(value=tensor, interval=value.interval)
                     data_set.add(edge)
                 else:
@@ -130,31 +126,21 @@ class PrimitiveModel(BaseModel):
         self.dependency_map.update_all_keys()
 
         # Link canonicals
-        if isinstance(self.canonical_input, NotAvailable) and len(self.input_keys) > 0:
-            canonical_input_key = (
-                "input" if "input" in self.input_keys else next(iter(self.input_keys))
-            )
-            canonical_input_conn = self.conns.get_connection(canonical_input_key)
-            if canonical_input_conn is None:
-                self._canonical_input = NOT_AVAILABLE
-            else:
-                self._canonical_input = canonical_input_conn
+        canonical_input_key = (
+            "input" if "input" in self.input_keys else next(iter(self.input_keys))
+        )
+        canonical_input_conn = self.conns.get_connection(canonical_input_key)
+        if canonical_input_conn is not None:
+            self.set_cin(canonical_input_conn.conn, safe=False)
 
-        if (
-            isinstance(self.canonical_output, NotAvailable)
-            and len(self.conns.output_keys) > 0
-        ):
-            canonical_output_key = (
-                "output"
-                if "output" in self.conns.output_keys
-                else next(iter(self.conns.output_keys))
-            )
-            canonical_output_conn = self.conns.get_connection(canonical_output_key)
-            if canonical_output_conn is None:
-                self._canonical_output = NOT_AVAILABLE
-            else:
-                self._canonical_output = canonical_output_conn
-
+        canonical_output_key = (
+            "output"
+            if "output" in self.conns.output_keys
+            else next(iter(self.conns.output_keys))
+        )
+        canonical_output_conn = self.conns.get_connection(canonical_output_key)
+        if canonical_output_conn is not None:
+            self.set_cout(canonical_output_conn.conn, safe=False)
         self._freeze()
 
     def __iadd__(self, other: BaseModel) -> BaseModel:
@@ -198,7 +184,7 @@ class PrimitiveModel(BaseModel):
             # try to find outer key's real name in data_to_key_map
             outer_key = data_to_key_map.get(key_data, [key])
             outer_key = ["'" + key + "'" for key in outer_key]
-            if key_data.edge_type is not Tensor and key_data.value is not TBD:
+            if not key_data.is_tensor and key_data.value is not TBD:
                 # If value of the scalar is determined, write that value directly.
                 outer_key = [str(key_data.value)]
             conn.extend(outer_key)

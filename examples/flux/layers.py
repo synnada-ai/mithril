@@ -369,5 +369,5 @@ def rope(dim: int, theta: int) -> Model:
     )
     rope_shape = (B, N, D, 2, 2)
     block += Reshape()(shape=rope_shape, output=IOKey("output"))
-    block.set_canonical_input("input")
+    block.set_cin("input")
     return block

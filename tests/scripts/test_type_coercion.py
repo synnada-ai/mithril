@@ -75,6 +75,7 @@ def test_scalar_to_tensor_1():
     tensor = ToTensor()
     model += tensor(input=2.0)
     model += Add()(left=tensor.output, right=add_3, output="output")
+    model.set_cout("output")
     model_1 = model
 
     # Auto conversion.
@@ -87,7 +88,7 @@ def test_scalar_to_tensor_1():
     add_5 = lin_4.input + lin_4.bias
     add_6 = add_4 + add_5
     model += Add()(left=IOKey(value=2.0).tensor(), right=add_6, output="output")
-
+    model.set_cout("output")
     model_2 = model
 
     # Provide backend and data.
@@ -119,6 +120,7 @@ def test_scalar_to_tensor_2():
     to_tensor = ToTensor()
     model += to_tensor(input=shp_1)
     model += Add()(left=to_tensor.output, right=reshaped_1, output="output")
+    model.set_cout("output")
     model_1 = model
 
     # Auto conversion
@@ -130,6 +132,7 @@ def test_scalar_to_tensor_2():
     shp_2 = lin_3.input.shape
     reshaped_2 = lin_4.output.reshape(shp_2)
     model += Add()(left=shp_2.tensor(), right=reshaped_2, output="output")
+    model.set_cout("output")
     model_2 = model
 
     # Provide backend and data.
@@ -161,7 +164,9 @@ def test_scalar_to_tensor_3():
     model += shp_1(input=add_1.output)
     model += tensor_2(input=shp_1.output)
     model += Add()(
-        left=IOKey("left", type=Tensor), right=tensor_2.output, output="output"
+        left=IOKey("left", type=Tensor),
+        right=tensor_2.output,
+        output="output",
     )
 
     model_1 = model
@@ -171,11 +176,14 @@ def test_scalar_to_tensor_3():
     add_2 = Add()
     shp_2 = Shape()
     model += add_2(
-        left=IOKey(value=[[[1]]]).tensor(), right=IOKey("right", type=Tensor)
+        left=IOKey(value=[[[1]]]).tensor(),
+        right=IOKey("right", type=Tensor),
     )
     model += shp_2(input=add_2.output)
     model += Add()(
-        left=IOKey("left", type=Tensor), right=shp_2.output.tensor(), output="output"
+        left=IOKey("left", type=Tensor),
+        right=shp_2.output.tensor(),
+        output="output",
     )
     model_2 = model
 
@@ -295,6 +303,7 @@ def test_slice_item_conversions():
     model += (sc_item := Indexer())(input=shp1.output, index=slc.output)
     model += tensor_2(input=sc_item.output)  # type: ignore
     model += Add()(left=tensor_1.output, right=tensor_2.output, output="output")
+    model.set_cout("output")
     model_1 = model
 
     # Auto conversion
@@ -309,6 +318,7 @@ def test_slice_item_conversions():
     assert shp2_ellipsis is not None
     _slc = shp2_ellipsis.tensor()
     model += Add()(left=shp_item, right=_slc, output="output")  # type: ignore
+    model.set_cout("output")
     model_2 = model
 
     # Provide backend and data.
@@ -690,7 +700,7 @@ class ArtificialPrimitive(PrimitiveModel):
             output=BaseKey(shape=[("Var1", ...)], type=Tensor),
             input=BaseKey(shape=[("Var2", ...)], type=type),
         )
-        self._set_constraint(
+        self._add_constraint(
             fn=self.artificial_constraint, keys=[PrimitiveModel.output_key, "input"]
         )
 
@@ -841,18 +851,9 @@ def test_type_propagation_floor_divide_4():
                 input=floor_div.output, output=IOKey(name="output")
             )
 
-        assert (
-            str(error_info.value)
-            == (
-                "Acceptable types are int | float, but <class 'bool'> type value is "
-                "provided!"
-            )
-        ) or (
-            str(error_info.value)
-            == (
-                "Acceptable types are float | int, but <class 'bool'> type value is "
-                "provided!"
-            )
+        assert str(error_info.value) == (
+            "Acceptable types are mithril.framework.common.Tensor[int | float], "
+            "but mithril.framework.common.Tensor[bool] type is provided!"
         )
 
 
@@ -1504,7 +1505,8 @@ def test_coercion_3():
     reduce_model = Sum(axis=TBD)
     add_model = Add()
     model += add_model(
-        left=IOKey("left", type=Tensor), right=IOKey(value=[0, 1]).tensor()
+        left=IOKey("left", type=Tensor),
+        right=IOKey(value=[0, 1]).tensor(),
     )
     model += (to_list := TensorToList())(input=add_model.output)
     model += reduce_model(input="input", axis=to_list.output, output="output")
@@ -1529,7 +1531,8 @@ def test_coercion_4():
     reduce_model = Sum(axis=TBD)
     add_model = Add()
     model += add_model(
-        left=IOKey("left", type=Tensor), right=IOKey(value=[0, 1]).tensor()
+        left=IOKey("left", type=Tensor),
+        right=IOKey(value=[0, 1]).tensor(),
     )
     model += (to_list := TensorToList())(input=add_model.output)
     model += reduce_model(input="input", axis=to_list.output, output="output")
@@ -1635,9 +1638,3 @@ def test_tensor_to_scalar_template_2():
 
     assert_results_equal(outputs, ref_outputs)
     assert_results_equal(grads, ref_grads)
-
-
-# def test_find_intersection_type_nested_list_type():
-#     type1 = int | float | list | tuple
-#     type2 = NestedListType(int | float)
-#     assert find_intersection_type(type1, type2) == type2

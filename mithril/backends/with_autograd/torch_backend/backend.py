@@ -448,6 +448,11 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
     def softmax(self, input: torch.Tensor, dim: int = -1) -> torch.Tensor:
         return ops.softmax(input, axis=dim)
 
+    def argmax(
+        self, input: torch.Tensor, axis: int | None = None, keepdim: bool = False
+    ) -> torch.Tensor:
+        return torch.argmax(input, dim=axis, keepdim=keepdim)
+
     def log(self, input: torch.Tensor) -> torch.Tensor:
         return torch.log(input)
 

@@ -14,6 +14,7 @@
 
 from collections.abc import Callable, Mapping
 from copy import deepcopy
+from functools import partial
 from types import EllipsisType, NoneType, UnionType
 from typing import Any, TypeGuard
 
@@ -23,6 +24,7 @@ import pytest
 from mithril.core import GenericDataType
 from mithril.framework.common import (
     TBD,
+    ConstraintFunctionType,
     ConstraintSolver,
     IOHyperEdge,
     PossibleValues,
@@ -45,8 +47,10 @@ from mithril.framework.constraints import (
     bcast_matrix_mult,
     broadcast_to_constraints,
     concat_constraints,
+    constraint_type_map,
     eye_constraints,
     flatten_constrains,
+    general_forward_constraint,
     general_tensor_type_constraint,
     generate_nested_list_type,
     indexer_constraints,
@@ -72,7 +76,6 @@ from mithril.framework.constraints import (
     to_list_constraints,
     to_tensor_constraints,
     to_tuple_constraints,
-    type_constraints,
     where_constrains,
 )
 
@@ -81,16 +84,24 @@ from .test_utils import check_shapes_semantically
 
 def is_type_checker(
     ref_results: dict[str, type] | ShapeResultType,
-    constraint_fn: Callable,
+    constraint_fn: ConstraintFunctionType,
 ) -> TypeGuard[dict[str, type]]:
-    return constraint_fn in type_constraints
+    types = constraint_type_map.get(constraint_fn)
+    if types:
+        return UpdateType.TYPE in types
+    else:
+        return False
 
 
 def is_shape_checker(
     ref_results: dict[str, type] | ShapeResultType,
-    constraint_fn: Callable,
+    constraint_fn: ConstraintFunctionType,
 ) -> TypeGuard[ShapeResultType]:
-    return constraint_fn not in type_constraints
+    types = constraint_type_map.get(constraint_fn)
+    if types:
+        return bool({UpdateType.SHAPE, UpdateType.VALUE} & set(types))
+    else:
+        return True
 
 
 ######################### Helper Functions #########################
@@ -118,7 +129,9 @@ def shape_map_to_tensor(
     # Simply converts ShapeRepr objects to Tensor types.
     tensor_dict = {}
     for key, value in shape_map.items():
-        tensor = Tensor(type=float | int | bool, shape=value.node)
+        tensor: Tensor[int | float | bool] = Tensor(
+            type=float | int | bool, shape=value.node
+        )
         edge = IOHyperEdge(value=tensor, key_origin=key)
         # set temp_shape. Since temp_shape of a Tensor initialized as None in its
         # constructor.
@@ -216,7 +229,7 @@ def assert_shape_results(
     shapes = {}
     assignments: AssignmentType = {}
     for key, value in data.items():
-        if value.edge_type is Tensor:
+        if value.is_tensor:
             assert value.shape is not None
             shapes[key] = value.shape.get_shapes(uni_cache, var_cache, verbose=True)
             shape_repr = value._temp_shape
@@ -241,11 +254,11 @@ def assert_type_results(
     # First check type updates with the expected updates.
     updated_constraints = set()
     for key in expected_updates:
-        updated_constraints |= data[key].type_constraints
+        updated_constraints |= data[key].constraints[UpdateType.TYPE]
     assert updated_constraints == {
         constr
         for constr in updated_symbols.constraints
-        if constr.type is UpdateType.TYPE
+        if UpdateType.TYPE in constr.types
     }
     # Then check final types with the expected ref_results.
     for key, value in data.items():
@@ -262,7 +275,7 @@ def assert_value_results(
             assert data[key].value == value
         else:
             # If value is a tensor of any supported backend.
-            assert data[key].edge_type is Tensor
+            assert data[key].is_tensor
             d_val = data[key].value
             assert GenericDataType.is_tensor_type(d_val)
             assert (d_val == value).all()
@@ -278,13 +291,13 @@ def make_assertions(
     final_values: dict[str, Any],
 ) -> None:
     # Check final shapes with the expected ref_shapes. Also check updated symbols.
-    if is_type_checker(ref_results, constraint_fn):
-        assert_type_results(data, ref_results, updated_symbols, expected_updates)
-    else:
-        assert is_shape_checker(ref_results, constraint_fn)
+    if is_shape_checker(ref_results, constraint_fn):
         assert_shape_results(
             data, ref_results, ref_assignments, updated_symbols, expected_updates
         )
+    else:
+        assert is_type_checker(ref_results, constraint_fn)
+        assert_type_results(data, ref_results, updated_symbols, expected_updates)
     # NOTE: There is no other possibilities. Only for type cheking!
 
     # Check final values with the expected final_values.
@@ -2022,6 +2035,28 @@ def test_reduce_axis_valued_keep_dim_tbd_input_variadic():
     }
     assert_constraint_results(
         shapes, {}, final_shapes, {}, reduce_constraints, False, {"input"}, scalar_info
+    )
+
+
+# @pytest.mark.skip("Fix reduce constraints")
+def test_reduce_with_given_axis():
+    """Test multiple none axis and keepdim"""
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [("Var1", ...)],
+        "input": [("Var2", ...)],
+    }
+    final_shapes = {
+        "output": ["(Var1, ...)"],
+        "input": ["(Var1, ...)", "u1", "u2"],
+        "axis": [],
+        "keepdim": [],
+    }
+    scalar_info = {
+        "axis": IOHyperEdge(value=(-1, -2)),
+        "keepdim": IOHyperEdge(type=bool, value=False),
+    }
+    assert_constraint_results(
+        shapes, {}, final_shapes, {}, reduce_constraints, True, {"input"}, scalar_info
     )
 
 
@@ -5580,10 +5615,7 @@ def test_tensor_to_list_backward_2():
         assert_constraint_results(
             shapes, {}, {}, {}, tensor_to_list_constraints, False, set(), scalar_info
         )
-    assert (
-        str(err_info.value)
-        == "Shape mismatch: expected [3], but got [2]. The list should not be ragged."
-    )
+    assert str(err_info.value) == "Inconsistent dimensions found in the list."
 
 
 def test_item_constraints_1():
@@ -8151,4 +8183,176 @@ def test_slice_given_output_missing_all_inputs():
         {"start", "stop", "step"},
         scalar_info,
         final_values,
+    )
+
+
+def test_general_forward_add_scalar():
+    add_constraint = partial(general_forward_constraint, callable=lambda x, y: x + y)
+    shapes: dict[str, list[int | str | tuple]] = {}
+    final_shapes: dict[str, list[int | str | tuple]] = {
+        "output": [],
+        "left": [],
+        "right": [],
+    }
+    scalar_info = {
+        "output": IOHyperEdge(type=int | float | bool, value=TBD),
+        "left": IOHyperEdge(value=2.0),
+        "right": IOHyperEdge(value=3.0),
+    }
+    final_values = {
+        "output": 5.0,
+        "left": 2.0,
+        "right": 3.0,
+    }
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        add_constraint,
+        True,
+        {"output"},
+        scalar_info,
+        final_values,
+        variadic_fn=True,
+    )
+
+
+def test_general_forward_add_tensor():
+    add_constraint = partial(general_forward_constraint, callable=lambda x, y: x + y)
+    shapes = {"output": ["z"], "left": ["y"], "right": ["x"]}
+    final_shapes: dict[str, list[int | str | tuple]] = {
+        "output": ["z"],
+        "left": ["y"],
+        "right": ["x"],
+    }
+    assert_constraint_results(
+        shapes, {}, final_shapes, {}, add_constraint, True, set(), variadic_fn=True
+    )
+
+
+def test_general_forward_add_mixed():
+    add_constraint = partial(general_forward_constraint, callable=lambda x, y: x + y)
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [],
+        "left": ["c"],
+        "right": [],
+    }
+    final_shapes = {"output": [], "left": ["c"], "right": []}
+    scalar_info = {
+        "right": IOHyperEdge(value=(1.0)),
+    }
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        add_constraint,
+        True,
+        set(),
+        scalar_info,
+        variadic_fn=True,
+    )
+
+
+def test_general_forward_add_siso():
+    siso_constraint = partial(general_forward_constraint, callable=lambda x: 3 * x)
+    shapes: dict[str, list[int | str | tuple]] = {}
+    final_shapes: dict[str, list[int | str | tuple]] = {
+        "output": [],
+        "input": [],
+    }
+    scalar_info = {
+        "output": IOHyperEdge(type=int | float | bool, value=TBD),
+        "input": IOHyperEdge(value=2.0),
+    }
+    final_values = {
+        "output": 6.0,
+        "input": 2.0,
+    }
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        siso_constraint,
+        True,
+        {"output"},
+        scalar_info,
+        final_values,
+        variadic_fn=True,
+    )
+
+
+def test_general_forward_add_3_inputs_status_true():
+    three_input_constraint = partial(
+        general_forward_constraint, callable=lambda x, y, z: 2 * x + 3 * y + z
+    )
+    shapes: dict[str, list[int | str | tuple]] = {}
+    final_shapes: dict[str, list[int | str | tuple]] = {
+        "output": [],
+        "input1": [],
+        "input2": [],
+        "input3": [],
+    }
+    scalar_info = {
+        "output": IOHyperEdge(type=int | float | bool, value=TBD),
+        "input1": IOHyperEdge(value=3.0),
+        "input2": IOHyperEdge(value=4.0),
+        "input3": IOHyperEdge(value=5.0),
+    }
+    final_values = {
+        "output": 23.0,
+        "input1": 3.0,
+        "input2": 4.0,
+        "input3": 5.0,
+    }
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        three_input_constraint,
+        True,
+        {"output"},
+        scalar_info,
+        final_values,
+        variadic_fn=True,
+    )
+
+
+def test_general_forward_add_3_inputs_status_false():
+    three_input_constraint = partial(
+        general_forward_constraint, callable=lambda x, y, z: 2 * x + 3 * y + z
+    )
+    shapes: dict[str, list[int | str | tuple]] = {}
+    final_shapes: dict[str, list[int | str | tuple]] = {
+        "output": [],
+        "input1": [],
+        "input2": [],
+        "input3": [],
+    }
+    scalar_info = {
+        "output": IOHyperEdge(type=int | float | bool, value=TBD),
+        "input1": IOHyperEdge(value=3.0),
+        "input2": IOHyperEdge(type=int | float | bool, value=TBD),
+        "input3": IOHyperEdge(value=5.0),
+    }
+    final_values = {
+        "output": TBD,
+        "input1": 3.0,
+        "input2": TBD,
+        "input3": 5.0,
+    }
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        three_input_constraint,
+        False,
+        set(),
+        scalar_info,
+        final_values,
+        variadic_fn=True,
     )

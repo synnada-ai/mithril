@@ -18,6 +18,7 @@ from collections.abc import Callable, Sequence
 from typing import Any, overload
 
 import jax
+import jax.numpy as jnp
 
 from ....core import Dtype
 from ...backend import PadWidthType, ParallelBackend
@@ -29,6 +30,8 @@ from .utils import CODEGEN_CONFIG
 __all__ = ["JaxBackend"]
 
 jax.config.update("jax_enable_x64", True)  # type: ignore
+
+AxisType = None | int | Sequence[int]
 
 
 class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
@@ -421,6 +424,11 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         # for all backends.
         return ops.softmax(input, axis=dim)
 
+    def argmax(
+        self, input: jax.Array, axis: int | None = None, keepdim: bool = False
+    ) -> jax.Array:
+        return jnp.argmax(input, axis=axis, keepdims=keepdim)
+
     def log(self, input: jax.Array) -> jax.Array:
         return jax.numpy.log(input)
 
@@ -510,17 +518,15 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
             replacement: whether to sample with replacement
         """
         prng_key = self._get_prng_key(key)
-        input = jax.numpy.asarray(probs)
-        input = input / jax.numpy.sum(input, axis=-1, keepdims=True)
-        batch_size = input.shape[:-1]
-        logits = jax.numpy.log(jax.numpy.maximum(input, 1e-37))
+        probs = probs / jnp.sum(probs, axis=-1, keepdims=True)
+        logits = jnp.log(probs)
 
         if replacement:
             # Use categorical directly - much faster than choice
             samples = jax.random.categorical(
                 prng_key,
-                logits,  # avoid log(0)
-                shape=batch_size + (num_samples,),
+                logits,
+                shape=probs.shape[:-1] + (num_samples,),
             )
         else:
             # TODO: This algorithm is not efficient for small num_samples
@@ -528,11 +534,11 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
 
             # For without replacement, use Gumbel-max trick
             # This is much faster than using choice
-            z = jax.random.gumbel(prng_key, shape=input.shape + (num_samples,))
+            z = jax.random.gumbel(prng_key, shape=probs.shape + (num_samples,))
             # Add log probabilities for Gumbel-max trick,
             z = z + logits[..., None]
             # Get top k indices
-            samples = jax.numpy.argsort(-z, axis=input.ndim - 1)[..., :num_samples, 0]
+            samples = jax.numpy.argsort(-z, axis=probs.ndim - 1)[..., :num_samples, 0]
 
         return samples
 

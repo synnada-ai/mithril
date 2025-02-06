@@ -26,10 +26,11 @@ from mithril.framework.common import (
     ShapeTemplateType,
     Tensor,
     Uniadic,
+    find_intersection_type,
 )
 from mithril.framework.logical import BaseModel, Model, PrimitiveModel
 from mithril.framework.physical import PhysicalModel
-from mithril.framework.utils import find_intersection_type, find_type
+from mithril.framework.utils import find_type
 from mithril.models.train_model import TrainModel
 from mithril.utils.dict_conversions import dict_to_model, model_dict
 from mithril.utils.type_utils import is_list_int
@@ -294,10 +295,7 @@ def get_all_nodes(model: BaseModel):
     # recursively gets the all shape in the model (ShapeNode)
     all_data = get_all_data(model)
     node_set = {
-        data.shape
-        for data in all_data
-        if data.edge_type is Tensor
-        if data.shape is not None
+        data.shape for data in all_data if data.is_tensor if data.shape is not None
     }
     return node_set
 
@@ -376,7 +374,7 @@ def check_shapes_semantically(
     )  # Reverse mapping from items in shape_2 to shape_1.
 
     # Ensure both shapes have the same keys.
-    assert shape_1.keys() == shape_2.keys(), "Shape keys do not match."
+    assert set(shape_1.keys()) == set(shape_2.keys()), "Shape keys do not match."
     for key, list_1 in shape_1.items():
         list_2 = shape_2[key]
         if list_1 is not None and list_2 is not None:

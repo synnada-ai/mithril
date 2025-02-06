@@ -408,10 +408,10 @@ def test_composite_5():
         input="input", weight="weight", output=IOKey(name="output")
     )
     model += Linear(dimension=71)(
-        input=model.canonical_output, weight="weight1", output=IOKey(name="output2")
+        input=model.cout, weight="weight1", output=IOKey(name="output2")
     )
     model += Linear(dimension=71)(
-        input=model.canonical_output, weight="weight2", output=IOKey(name="output3")
+        input=model.cout, weight="weight2", output=IOKey(name="output3")
     )
 
     model_dict_created = dict_conversions.model_to_dict(model)
@@ -435,7 +435,7 @@ def test_composite_6():
         input="input", weight="weight", output=IOKey(name="output")
     )
     model += Linear(dimension=71)(
-        input=model.canonical_output, weight="weight1", output=IOKey(name="output2")
+        input=model.cout, weight="weight1", output=IOKey(name="output2")
     )
     model += Layer(dimension=71, activation=Sigmoid())(
         input="output2", weight="weight2", output=IOKey(name="output3")
@@ -577,7 +577,7 @@ def test_composite_11():
     model = TrainModel(mlp_model)
     model.add_loss(
         SquaredError(),
-        input=mlp_model.canonical_output,
+        input=mlp_model.cout,
         target=Tensor([[2.2, 4.2], [2.2, 4.2]]),
         reduce_steps=[Mean()],
     )
@@ -603,6 +603,7 @@ def test_composite_12():
         weight="weight2",
         output=IOKey(name="my_input", connections={"input1", "input2"}),
     )
+    model.set_cout("output2")
 
     model_dict_created = dict_conversions.model_to_dict(model)
     model_recreated = dict_conversions.dict_to_model(model_dict_created)
@@ -637,6 +638,7 @@ def test_composite_13():
         weight="weight2",
         output=IOKey(name="my_input", connections={"input1", "input2"}),
     )
+    model.set_cout("output2")
 
     model_dict_created = dict_conversions.model_to_dict(model)
     model_recreated = dict_conversions.dict_to_model(model_dict_created)
@@ -764,9 +766,7 @@ def test_train_context_1():
     )
 
     context = TrainModel(model)
-    context.add_loss(
-        CrossEntropy(), [Mean()], target="target", input=model.canonical_output
-    )
+    context.add_loss(CrossEntropy(), [Mean()], target="target", input=model.cout)
     context_dict = dict_conversions.model_to_dict(context)
     context_recreated = dict_conversions.dict_to_model(context_dict)
     context_dict_recreated = dict_conversions.model_to_dict(context_recreated)
@@ -797,9 +797,7 @@ def test_train_context_2():
     )
 
     context = TrainModel(model)
-    context.add_loss(
-        CrossEntropy(), [Mean()], target="target", input=model.canonical_output
-    )
+    context.add_loss(CrossEntropy(), [Mean()], target="target", input=model.cout)
     context.add_regularization(
         model=L2(), coef=Tensor(1e-1), input=re.compile("weight\\d")
     )
@@ -947,7 +945,7 @@ def test_make_shape_constraint():
                 input=BaseKey(shape=[("Var_1", ...)], type=Tensor),
                 rhs=BaseKey(type=int, value=threshold),
             )
-            self.set_constraint(
+            self.add_constraint(
                 fn=squeeze_constraints, keys=[CustomPrimitiveModel.output_key, "input"]
             )
 

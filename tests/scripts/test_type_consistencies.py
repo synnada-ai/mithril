@@ -12,16 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections.abc import Sequence
 from types import EllipsisType, NoneType, UnionType
+from typing import Any
 
 import numpy as np
 import pytest
 import torch
 
 import mithril
-from mithril.framework.common import NOT_GIVEN, BaseKey, ConnectionType
-from mithril.framework.utils import (
+from mithril.framework.common import (
+    NOT_GIVEN,
+    BaseKey,
+    ConnectionType,
+    ToBeDetermined,
     find_intersection_type,
+)
+from mithril.framework.utils import (
     find_type,
     infer_all_possible_types,
     sort_type,
@@ -142,7 +149,7 @@ def test_default_given_extend_4_numpy_error():
 
     assert str(err_info.value) == (
         "Acceptable types are <class 'NoneType'>, "
-        "but <class 'int'> type value is provided!"
+        "but <class 'int'> type is provided!"
     )
 
 
@@ -170,7 +177,7 @@ def test_constant_backendvar_numpy():
         model += other_model(input=model.mult_out, axis=model.axis)  # type: ignore
     assert str(err_info.value) == (
         "Acceptable types are <class 'int'>, "
-        "but <class 'NoneType'> type value is provided!"
+        "but <class 'NoneType'> type is provided!"
     )
 
 
@@ -239,7 +246,7 @@ def test_type_6():
         model += test_model_2(input1=test_model_1.output)  # type: ignore
     assert str(err_info.value) == (
         "Acceptable types are tuple[tuple[int, ...]], but tuple[int, ...] type "
-        "value is provided!"
+        "is provided!"
     )
 
 
@@ -257,7 +264,7 @@ def test_type_7():
         model += test_model_3(input1="", input3="input1")
     assert (
         str(err_info.value)
-        == "Acceptable types are <class 'int'>, but float | str type value is provided!"
+        == "Acceptable types are <class 'int'>, but float | str type is provided!"
     )
 
 
@@ -275,7 +282,7 @@ def test_type_8():
         model += model2(input1="input1")
     assert str(err_info.value) == (
         "Acceptable types are tuple[int, int, int, int], but float | int type "
-        "value is provided!"
+        "is provided!"
     )
 
 
@@ -396,8 +403,7 @@ def test_type_16():
             output=IOKey(name="output2"),
         )
     assert str(err_info.value) == (
-        "Acceptable types are <class 'float'>, but <class 'bool'> type value "
-        "is provided!"
+        "Acceptable types are <class 'float'>, but <class 'bool'> type " "is provided!"
     )
 
 
@@ -419,8 +425,7 @@ def test_type_17():
             output=IOKey(name="output2"),
         )
     assert str(err_info.value) == (
-        "Acceptable types are <class 'float'>, "
-        "but <class 'bool'> type value is provided!"
+        "Acceptable types are <class 'float'>, " "but <class 'bool'> type is provided!"
     )
 
 
@@ -755,6 +760,102 @@ def test_find_intersection_types_25():
     type_1: type = tuple[int | float]
     type_2: type = tuple[int, float]
     assert find_intersection_type(type_1, type_2) is None
+
+
+def test_find_intersection_types_26():
+    type_1: type = range
+    type_2: type = Sequence[int | float]
+    assert find_intersection_type(type_1, type_2) is range
+
+
+def test_find_intersection_types_27():
+    type_1: type = tuple[range, list[int | float]]
+    type_2: type = Sequence[Sequence[int | float]]
+    assert find_intersection_type(type_1, type_2) == tuple[range, list[int | float]]
+
+
+def test_find_intersection_types_28():
+    type_1: type = tuple[range, list[int | float]]
+    type_2: type = Sequence[list[int | float]]
+    assert find_intersection_type(type_1, type_2) is None
+
+
+def test_find_intersection_types_29():
+    type_1: type = tuple[range, list[int | float]]
+    type_2: type = Sequence[Any]
+    assert find_intersection_type(type_1, type_2) == tuple[range, list[int | float]]
+
+
+def test_find_intersection_types_30():
+    type_1: type = tuple[range, list[int | float]]
+    type_2: type = Sequence[range]
+    assert find_intersection_type(type_1, type_2) is None
+
+
+def test_find_intersection_types_31():
+    type_1: type = tuple[range, list[int | float]]
+    type_2: type = Sequence[list[int | float]]
+    assert find_intersection_type(type_1, type_2) is None
+
+
+def test_find_intersection_types_32():
+    type_1: type = tuple[range, list[int | float]]
+    type_2: type = tuple[list[int | float], range]
+    assert find_intersection_type(type_1, type_2) is None
+
+
+def test_find_intersection_types_33():
+    type_1: type = tuple[range, list[int | float]]
+    type_2: type = tuple[range, list[int]]
+    assert find_intersection_type(type_1, type_2) == tuple[range, list[int]]
+
+
+def test_find_intersection_types_34():
+    type_1: type = range
+    type_2: type = Sequence[bool | float]
+    assert find_intersection_type(type_1, type_2) is None
+
+
+def test_find_intersection_types_35():
+    type_1 = Tensor[int] | int
+    type_2 = Tensor[int]
+    assert find_intersection_type(type_1, type_2) is Tensor[int]
+
+
+def test_find_intersection_types_36():
+    type_1 = Tensor[int] | int
+    type_2 = Tensor[int] | int | float
+    assert find_intersection_type(type_1, type_2) == Tensor[int] | int
+
+
+def test_find_intersection_types_37():
+    type_1 = Tensor[int] | int
+    type_2 = ToBeDetermined
+    assert find_intersection_type(type_1, type_2) == Tensor[int] | int
+
+
+def test_find_intersection_types_38():
+    type_1 = Tensor[int] | int | Tensor[float]
+    type_2 = ToBeDetermined
+    assert find_intersection_type(type_1, type_2) == Tensor[int] | int | Tensor[float]
+
+
+def test_find_intersection_types_39():
+    type_1 = Tensor[int] | int | Tensor[int | float]
+    type_2 = Tensor[int] | int | float
+    assert find_intersection_type(type_1, type_2) == Tensor[int] | int
+
+
+def test_find_intersection_types_40():
+    type_1 = Tensor[int] | int | Tensor[int | float]
+    type_2 = Tensor[int | float] | int | float
+    assert find_intersection_type(type_1, type_2) == Tensor[int | float] | int
+
+
+def test_find_intersection_types_41():
+    type_1 = Tensor[int] | Tensor[int | float]
+    type_2 = Tensor[int | float]
+    assert find_intersection_type(type_1, type_2) == Tensor[int | float]
 
 
 def test_find_type_1():

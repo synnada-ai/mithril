@@ -440,7 +440,7 @@ def test_code_generator_4(file_path: str):
                 input=BaseKey(shape=[("Var_1", ...)], type=Tensor),
                 rhs=BaseKey(shape=[("Var_2", ...)], type=Tensor),
             )
-            self.set_constraint(
+            self.add_constraint(
                 fn=bcast, keys=[PrimitiveModel.output_key, "input", "rhs"]
             )
 
@@ -553,7 +553,7 @@ def test_code_generator_5(file_path: str):
                 input=BaseKey(shape=[("Var_1", ...)], type=Tensor),
                 rhs=BaseKey(shape=[("Var_2", ...)], type=Tensor),
             )
-            self.set_constraint(
+            self.add_constraint(
                 fn=bcast, keys=[PrimitiveModel.output_key, "input", "rhs"]
             )
 

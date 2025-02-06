@@ -45,6 +45,7 @@ def assert_conns_values_equal(ref_conn_dict: dict):
         assert conn.metadata.value == value
 
 
+# TODO: we should add logical_latent_inputs_ref, logical_latent_outputs_ref!
 def assert_model_keys(
     model: Model,
     logical_inputs_ref: set[str],
@@ -96,7 +97,7 @@ def test_1():
     model = Model()
     model += Linear(10)(weight=IOKey(name="weight_2"))
     model += Linear(10)(
-        input=model.canonical_output,
+        input=model.cout,
         bias=IOKey(name="bias_3"),
         output=IOKey(name="output1"),
     )
@@ -123,9 +124,7 @@ def test_2():
     """
     model = Model()
     model += Linear(10)(weight="weight_2")
-    model += Linear(10)(
-        input=model.canonical_output, bias="bias_3", output=IOKey(name="output1")
-    )
+    model += Linear(10)(input=model.cout, bias="bias_3", output=IOKey(name="output1"))
 
     expected_input_keys = {"$2", "weight_2", "$3", "$5", "bias_3"}
     expected_output_keys = {"output1"}
@@ -149,10 +148,11 @@ def test_3():
     """
     model = Model()
     model += Linear(10)(weight="weight_2")
-    model += Linear(10)(input=model.canonical_output, bias="bias_3", output="output1")
+    model += Linear(10)(input=model.cout, bias="bias_3", output="output1")
 
     expected_input_keys = {"$2", "weight_2", "$3", "$5", "bias_3"}
-    expected_internal_keys = {"$4", "output1"}
+    expected_internal_keys = {"$4"}
+    # expected_latent_input_keys = {"output1"}
     expected_pm_input_keys = {"input", "weight_2", "bias", "weight", "bias_3"}
     expected_pm_output_keys = {"output1"}
 
@@ -172,10 +172,10 @@ def test_4():
     model += Linear(1)(
         bias=IOKey(name="bias_2", value=Tensor([1.0])), weight="weight_2"
     )
-    model += Linear(1)(input=model.canonical_output, bias="bias_3", output="output1")
+    model += Linear(1)(input=model.cout, bias="bias_3", output="output1")
 
     expected_input_keys = {"$4", "bias_3", "bias_2", "weight_2", "$2"}
-    expected_internal_keys = {"output1", "$3"}
+    expected_internal_keys = {"$3"}
     expected_pm_input_keys = {"weight_2", "weight", "bias_3", "bias_2", "input"}
     expected_pm_output_keys = {"output1"}
 
@@ -193,10 +193,10 @@ def test_5():
     """Tests the case where the IOKey is defined with name and shape."""
     model = Model()
     model += Linear()(bias=IOKey(name="bias_2", shape=[2]), weight="weight_2")
-    model += Linear()(input=model.canonical_output, bias="bias_3", output="output1")
+    model += Linear()(input=model.cout, bias="bias_3", output="output1")
 
     expected_input_keys = {"weight_2", "bias_2", "bias_3", "$2", "$4"}
-    expected_internal_keys = {"$3", "output1"}
+    expected_internal_keys = {"$3"}
     expected_pm_input_keys = {"bias_3", "weight", "bias_2", "input", "weight_2"}
     expected_pm_output_keys = {"output1"}
 
@@ -234,7 +234,7 @@ def test_6():
         input="input", bias="bias_1", weight=IOKey(name="weight_1", shape=[10, 2])
     )
     model += Linear()(
-        input=model.canonical_output,
+        input=model.cout,
         bias=IOKey(name="bias_2", shape=[5]),
         output=IOKey(name="output1"),
     )
@@ -414,6 +414,8 @@ def test_iokey_shapes_2():
 
     model += buff1(input="input1")
     model += buff2(input="input2")
+    model.set_cin("input2")
+    model.set_cout(buff2.output)
 
     main_model = Model()
     main_model += model(
@@ -442,6 +444,8 @@ def test_iokey_shapes_3():
     model += buff1(input="input1")
     model += buff2(input="input2")
     model += buff3(input="input3")
+    model.set_cin("input3")
+    model.set_cout(buff3.output)
 
     main_model = Model()
     main_model += model(
@@ -658,7 +662,7 @@ def test_iokey_values_12():
     model += sig_model_2(
         input=IOKey(shape=[1, 2, 3, 4], name="input"), output=IOKey(name="output2")
     )
-    assert sig_model_1.input.data.metadata.edge_type is Tensor
+    assert sig_model_1.input.metadata.is_tensor
     assert sig_model_1.input.data.metadata.shape is not None
     assert sig_model_1.input.data.metadata.shape.get_shapes() == [1, 2, 3, 4]
 
@@ -815,8 +819,6 @@ def test_iokey_scalar_output_all_args():
             continue
 
         try:
-            if name is None and expose:
-                ...
             # try to extend the model
             model += sub_model(input="input", output=output)
         except Exception as e:
@@ -837,7 +839,11 @@ def test_iokey_scalar_output_all_args():
                 # Since providing shape within IOKey means it is Tensor type,
                 # it is an expected type error.
                 assert isinstance(e, TypeError)
-                assert e.args[0] == "Can not set Tensor type to a Scalar edge."
+                assert (
+                    e.args[0] == "Acceptable types are tuple[int, ...], but "
+                    "mithril.framework.common.Tensor[int | float | bool] type "
+                    "is provided!"
+                )
 
             else:
                 # it is an unexpected error. Raise given exception in that case
@@ -930,7 +936,12 @@ def test_iokey_scalar_input_all_args():
                 # Since providing shape within IOKey means it is Tensor type,
                 # it is an expected type error.
                 assert isinstance(e, TypeError)
-                assert e.args[0] == "Can not set Tensor type to a Scalar edge."
+                assert (
+                    e.args[0]
+                    == "Acceptable types are None | int | list[int] | tuple[int, ...], "
+                    "but mithril.framework.common.Tensor[int | float | bool] type "
+                    "is provided!"
+                )
 
             else:
                 # it is an unexpected error. Raise given exception in that case
@@ -1177,7 +1188,12 @@ def test_iokey_shape_error_1():
 
     with pytest.raises(TypeError) as err_info:
         model += mean_model(axis=IOKey(name="axis", shape=[2, 3]))
-    assert str(err_info.value) == "Can not set Tensor type to a Scalar edge."
+    assert (
+        str(err_info.value)
+        == "Acceptable types are None | int | list[int] | tuple[int, ...], but "
+        "mithril.framework.common.Tensor[int | float | bool] type "
+        "is provided!"
+    )
 
 
 def test_error_1():

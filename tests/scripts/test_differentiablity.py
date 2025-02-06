@@ -112,7 +112,7 @@ def test_non_trainability_flow_in_compile():
     mult = Multiply()
     mult.set_types(left=Tensor, right=Tensor)
     mult.left.set_differentiable(False)
-    model += mult(left="left", right=model.canonical_output, output="output")
+    model += mult(left="left", right=model.cout, output="output")
 
     backend = JaxBackend()
     pm = mithril.compile(model, backend)
@@ -124,9 +124,7 @@ def test_non_trainability_flow_in_compile_with_data_keys_1():
     buff_model = Buffer()
     model += buff_model(input="input")
     mult = Multiply()
-    model += mult(
-        left=IOKey("left", type=Tensor), right=model.canonical_output, output="output"
-    )
+    model += mult(left=IOKey("left", type=Tensor), right=model.cout, output="output")
 
     backend = JaxBackend()
     pm = mithril.compile(
@@ -140,9 +138,7 @@ def test_non_trainability_flow_in_compile_with_data_keys_2():
     buff_model = Buffer()
     model += buff_model(input="input")
     mult = Multiply()
-    model += mult(
-        left=IOKey("left", type=Tensor), right=model.canonical_output, output="output"
-    )
+    model += mult(left=IOKey("left", type=Tensor), right=model.cout, output="output")
 
     backend = JaxBackend()
     pm = mithril.compile(model, backend, data_keys={"input"})
@@ -156,7 +152,7 @@ def test_non_trainability_flow_in_compile_with_data_keys_3():
     mult = Multiply()
     model += mult(
         left=IOKey("left", type=Tensor),
-        right=model.canonical_output,
+        right=model.cout,
         output=IOKey("mult_out"),
     )
     model += Add()(
@@ -180,7 +176,7 @@ def test_trainability_flow_in_compile_with_trainable_keys():
     mult = Multiply()
     model += mult(
         left=IOKey("left", type=Tensor),
-        right=model.canonical_output,
+        right=model.cout,
         output=IOKey("mult_out"),
     )
     model += Add()(left="left", right=buff_model.output, output=IOKey("add_out"))
