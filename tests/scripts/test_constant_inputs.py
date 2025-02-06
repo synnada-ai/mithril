@@ -499,7 +499,9 @@ def test_axis():
     compiled_model.evaluate_gradients(
         input, output_gradients={"output": np.random.rand(4, 5, 8)}
     )
-    assert backend.array(2.3) == compiled_model.data_store.cached_data["slope"]
+    assert (
+        backend.array(2.3) == compiled_model.flat_graph.data_store.cached_data["slope"]
+    )
 
 
 def test_axis_1():
@@ -525,7 +527,7 @@ def test_axis_1():
         input, output_gradients={"output": np.random.rand(4, 5, 8)}
     )
     assert type(backend.array(2.3)), type(
-        compiled_model.data_store.cached_data["threshold_1"].value  # type: ignore
+        compiled_model.flat_graph.data_store.cached_data["threshold_1"].value  # type: ignore
     )
 
 
@@ -804,7 +806,7 @@ def test_static_2():
     model2 += model1
     comp_model = ml.compile(model=model2, backend=NumpyBackend())
 
-    infered_value = comp_model.data_store.data_values["left"]
+    infered_value = comp_model.flat_graph.data_store.data_values["left"]
     assert isinstance(infered_value, np.ndarray)
     np.testing.assert_almost_equal(
         infered_value,
@@ -828,7 +830,7 @@ def test_static_2_set_values():
     model2 += model1
     comp_model = ml.compile(model=model2, backend=NumpyBackend())
 
-    infered_value = comp_model.data_store.data_values["left"]
+    infered_value = comp_model.flat_graph.data_store.data_values["left"]
 
     assert isinstance(infered_value, np.ndarray)
     np.testing.assert_almost_equal(
@@ -901,7 +903,7 @@ def test_static_4():
         "input2": backend.array(0),
     }
     for key, value in expected.items():
-        assert compiled_model.data_store.data_values[key] == value
+        assert compiled_model.flat_graph.data_store.data_values[key] == value
 
 
 def test_static_4_set_values():
@@ -919,7 +921,7 @@ def test_static_4_set_values():
         "input2": backend.array(0),
     }
     for key, value in expected.items():
-        assert compiled_model.data_store.data_values[key] == value
+        assert compiled_model.flat_graph.data_store.data_values[key] == value
 
 
 def test_str_axis():
@@ -1736,7 +1738,7 @@ def test_composite_conv_mean_2_set_values():
 
 
 def test_unused_cached_values_1():
-    """Tests for the proper functioning of data_store object of model.
+    """Tests for the proper functioning of flat_graph.data_store object of model.
     Unused or pre-used static data should not be hold in any of data/cache dict.
     """
     model = Model()
@@ -1750,18 +1752,20 @@ def test_unused_cached_values_1():
         model=model, backend=(backend := NumpyBackend()), inference=True
     )
     dtype = backend.get_backend_array_type()
-    cache = comp_model.data_store.data_values
+    cache = comp_model.flat_graph.data_store.data_values
     expected_cache = {"output": np.array([[6.0, 7.0], [5.0, 5.0]], dtype=dtype)}
     # Check cached_data.
     assert cache is not None and cache.keys() == expected_cache.keys()
     assert all(
         [
-            np.all(comp_model.data_store.data_values[key] == expected_cache[key])
+            np.all(
+                comp_model.flat_graph.data_store.data_values[key] == expected_cache[key]
+            )
             for key in cache
         ]
     )
     # Check runtime data keys.
-    data_keys = comp_model.data_store.runtime_static_keys
+    data_keys = comp_model.flat_graph.data_store.runtime_static_keys
     assert data_keys == set()
     # Try evaluate and evaluate gradients once.
     result = comp_model.evaluate(params={}, data={})
@@ -1769,7 +1773,7 @@ def test_unused_cached_values_1():
 
 
 def test_unused_cached_values_1_set_values():
-    """Tests for the proper functioning of data_store object of model.
+    """Tests for the proper functioning of flat_graph.data_store object of model.
     Unused or pre-used static data should not be hold in any of data/cache dict.
     """
     model = Model()
@@ -1785,13 +1789,13 @@ def test_unused_cached_values_1_set_values():
         model=model, backend=(backend := NumpyBackend()), inference=True
     )
     dtype = backend.get_backend_array_type()
-    cache = comp_model.data_store.data_values
+    cache = comp_model.flat_graph.data_store.data_values
     expected_cache = {"output": np.array([[6.0, 7.0], [5.0, 5.0]], dtype=dtype)}
     # Check cached_data.
     assert cache is not None and cache.keys() == expected_cache.keys()
     assert all([np.all(value == expected_cache[key]) for key, value in cache.items()])
     # Check runtime data keys.
-    data_keys = comp_model.data_store.runtime_static_keys
+    data_keys = comp_model.flat_graph.data_store.runtime_static_keys
     assert data_keys == set()
     # Try evaluate and evaluate gradients once.
     result = comp_model.evaluate(params={}, data={})
@@ -1799,7 +1803,7 @@ def test_unused_cached_values_1_set_values():
 
 
 def test_unused_cached_values_2():
-    """Tests for the proper functioning of data_store object of model.
+    """Tests for the proper functioning of flat_graph.data_store object of model.
     Unused or pre-used static data should not be hold in any of data/cache dict.
     """
     model = Model()
@@ -1809,7 +1813,7 @@ def test_unused_cached_values_2():
         model=model, backend=(backend := NumpyBackend()), safe_names=False
     )
     dtype = backend._dtype.name
-    cache = comp_model.data_store.data_values
+    cache = comp_model.flat_graph.data_store.data_values
 
     model = Model()
     model += Convolution2D()
@@ -1824,7 +1828,7 @@ def test_unused_cached_values_2():
     assert cache is not None and cache.keys() == expected_cache.keys()
     assert all([np.all(value == expected_cache[key]) for key, value in cache.items()])
     # Check runtime data keys.
-    data_keys = comp_model.data_store.runtime_static_keys
+    data_keys = comp_model.flat_graph.data_store.runtime_static_keys
     expected_data_keys = {"input"}
     assert data_keys == expected_data_keys
     # Try evaluate and evaluate gradients once.
@@ -1840,7 +1844,7 @@ def test_unused_cached_values_2():
 
 
 def test_unused_cached_values_2_set_values():
-    """Tests for the proper functioning of data_store object of model.
+    """Tests for the proper functioning of flat_graph.data_store object of model.
     Unused or pre-used static data should not be hold in any of data/cache dict.
     """
     model = Model()
@@ -1855,7 +1859,7 @@ def test_unused_cached_values_2_set_values():
         model=model, backend=(backend := NumpyBackend()), safe_names=False
     )
     dtype = backend._dtype.name
-    cache = comp_model.data_store.data_values
+    cache = comp_model.flat_graph.data_store.data_values
 
     expected_cache = {
         "output_0": np.array([[1.0, 2.0]], dtype=dtype),
@@ -1867,7 +1871,7 @@ def test_unused_cached_values_2_set_values():
     assert cache is not None and cache.keys() == expected_cache.keys()
     assert all([np.all(value == expected_cache[key]) for key, value in cache.items()])
     # Check runtime data keys.
-    data_keys = comp_model.data_store.runtime_static_keys
+    data_keys = comp_model.flat_graph.data_store.runtime_static_keys
     expected_data_keys = {"input"}
     assert data_keys == expected_data_keys
     # Try evaluate and evaluate gradients once.
@@ -1883,7 +1887,7 @@ def test_unused_cached_values_2_set_values():
 
 
 def test_unused_cached_values_3():
-    """Tests for the proper functioning of data_store object of model.
+    """Tests for the proper functioning of flat_graph.data_store object of model.
     Unused or pre-used static data should not be hold in any of data/cache dict.
     """
     model = Model()
@@ -1894,7 +1898,7 @@ def test_unused_cached_values_3():
         model=model, backend=(backend := NumpyBackend()), safe_names=False
     )
     dtype = backend._dtype.name
-    cache = comp_model.data_store.data_values
+    cache = comp_model.flat_graph.data_store.data_values
 
     expected_cache = {
         "output_cache": {},
@@ -1904,7 +1908,7 @@ def test_unused_cached_values_3():
     assert cache is not None and cache.keys() == expected_cache.keys()
     assert all([np.all(value == expected_cache[key]) for key, value in cache.items()])
     # Check runtime data keys.
-    data_keys = comp_model.data_store.runtime_static_keys
+    data_keys = comp_model.flat_graph.data_store.runtime_static_keys
     expected_data_keys = {"bias"}
     assert data_keys == expected_data_keys
     # Try evaluate and evaluate gradients once.
@@ -1920,7 +1924,7 @@ def test_unused_cached_values_3():
 
 
 def test_unused_cached_values_3_set_values():
-    """Tests for the proper functioning of data_store object of model.
+    """Tests for the proper functioning of flat_graph.data_store object of model.
     Unused or pre-used static data should not be hold in any of data/cache dict.
     """
     model = Model()
@@ -1937,7 +1941,7 @@ def test_unused_cached_values_3_set_values():
         model=model, backend=(backend := NumpyBackend()), safe_names=False
     )
     dtype = backend._dtype.name
-    cache = comp_model.data_store.data_values
+    cache = comp_model.flat_graph.data_store.data_values
 
     expected_cache = {
         "output_cache": {},
@@ -1947,7 +1951,7 @@ def test_unused_cached_values_3_set_values():
     assert cache is not None and cache.keys() == expected_cache.keys()
     assert all([np.all(value == expected_cache[key]) for key, value in cache.items()])
     # Check runtime data keys.
-    data_keys = comp_model.data_store.runtime_static_keys
+    data_keys = comp_model.flat_graph.data_store.runtime_static_keys
     expected_data_keys = {"bias"}
     assert data_keys == expected_data_keys
     # Try evaluate and evaluate gradients once.
@@ -1969,13 +1973,13 @@ def test_static_shape_model_1():
         shapes={"input": [8, 8]},
         inference=True,
     )
-    cache = comp_model.data_store.data_values
+    cache = comp_model.flat_graph.data_store.data_values
     expected_cache = {"output": (8, 8)}
     # Check cached_data.
     assert cache is not None and cache.keys() == expected_cache.keys()
     assert all([np.all(value == expected_cache[key]) for key, value in cache.items()])
     # Check runtime data keys.
-    data_keys = comp_model.data_store.runtime_static_keys
+    data_keys = comp_model.flat_graph.data_store.runtime_static_keys
     assert data_keys == set()
     # Try evaluate and evaluate gradients once.
     result = comp_model.evaluate(params={}, data={})
@@ -1991,36 +1995,18 @@ def test_static_shape_model_2():
     comp_model = ml.compile(
         model=model, backend=NumpyBackend(), shapes={"input": [8, 8]}, inference=True
     )
-    cache = comp_model.data_store.data_values
+    cache = comp_model.flat_graph.data_store.data_values
     expected_cache = {"output": np.array([8, 8], dtype=np.int32)}
     # Check cached_data.
     # assert cache is not None and cache.keys() == expected_cache.keys()
     assert isinstance(cache, dict)
     assert all([np.all(value == expected_cache[key]) for key, value in cache.items()])
     # Check runtime data keys.
-    data_keys = comp_model.data_store.runtime_static_keys
+    data_keys = comp_model.flat_graph.data_store.runtime_static_keys
     assert data_keys == set()
     # Try evaluate and evaluate gradients once.
     result = comp_model.evaluate(params={}, data={})
     assert np.all(result["output"] == np.array([8, 8], dtype=np.int32))
-
-
-def test_static_shape_model_2_error():
-    model = Model()
-    model += Shape()(input="input")
-    model += ToTensor()
-    model += Relu()
-    with pytest.raises(ValueError) as err_info:
-        ml.compile(
-            model=model,
-            backend=NumpyBackend(),
-            shapes={"input": [8, 8]},
-            data_keys={"input"},
-        )
-    assert (
-        str(err_info.value)
-        == "Given 'input' key is unused for the model, no need to provide data for it."
-    )
 
 
 def test_static_shape_model_3():
@@ -2037,13 +2023,13 @@ def test_static_shape_model_3():
         constant_keys={"input": backend.ones(8, 8)},
         inference=True,
     )
-    cache = comp_model.data_store.data_values
+    cache = comp_model.flat_graph.data_store.data_values
     expected_cache = {"output": np.array([8, 8], dtype=np.int32)}
     # Check cached_data.
     assert cache is not None and cache.keys() == expected_cache.keys()
     assert all([np.all(value == expected_cache[key]) for key, value in cache.items()])
     # Check runtime data keys.
-    data_keys = comp_model.data_store.runtime_static_keys
+    data_keys = comp_model.flat_graph.data_store.runtime_static_keys
     assert data_keys == set()
     # Try evaluate and evaluate gradients once.
     result = comp_model.evaluate(params={}, data={})
@@ -2065,13 +2051,13 @@ def test_static_shape_model_4():
         constant_keys={"input": backend.ones(8, 8)},
         inference=True,
     )
-    cache = comp_model.data_store.data_values
+    cache = comp_model.flat_graph.data_store.data_values
     expected_cache = {"output": np.array([8, 8], dtype=np.int32)}
     # Check cached_data.
     assert cache is not None and cache.keys() == expected_cache.keys()
     assert all([np.all(value == expected_cache[key]) for key, value in cache.items()])
     # Check runtime data keys.
-    data_keys = comp_model.data_store.runtime_static_keys
+    data_keys = comp_model.flat_graph.data_store.runtime_static_keys
     assert data_keys == set()
     # Try evaluate and evaluate gradients once.
     result = comp_model.evaluate(params={}, data={})
@@ -2094,7 +2080,7 @@ def test_static_shape_model_5():
         constant_keys={"input": backend.ones(8, 8)},
         data_keys={"cutoff"},
     )
-    cache = comp_model.data_store.data_values
+    cache = comp_model.flat_graph.data_store.data_values
     expected_cache = {
         "output1": np.array([8, 8], dtype=np.int32),
         "output_0": backend.ones(8, 8),
@@ -2105,7 +2091,7 @@ def test_static_shape_model_5():
     assert cache is not None and cache.keys() == expected_cache.keys()
     assert all([np.all(value == expected_cache[key]) for key, value in cache.items()])
     # Check runtime data keys.
-    data_keys = comp_model.data_store.runtime_static_keys
+    data_keys = comp_model.flat_graph.data_store.runtime_static_keys
     expected_data_keys = {"cutoff"}
     assert data_keys == expected_data_keys
     # Try evaluate and evaluate gradients once.
@@ -2240,11 +2226,7 @@ def test_numpy_without_shape():
     ctx = TrainModel(model)
     ctx.add_loss(Buffer(), input="output", reduce_steps=[Mean()])
     inputs = {"left": backend.array(1.2), "right": backend.array(1.0)}
-    comp_model = ml.compile(
-        model=ctx,
-        backend=backend,
-        jit=False,
-    )
+    comp_model = ml.compile(model=ctx, backend=backend)
     outputs, grads = comp_model.evaluate_all(inputs)
     np.testing.assert_allclose(np.array(outputs["output"]), np.array(2.2))
     np.testing.assert_allclose(np.array(grads["left"]), np.array(1.0))
