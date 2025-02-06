@@ -410,7 +410,7 @@ def test_9_error():
         model.set_outputs(output=lin.output)
 
     error_text = str(err_info.value).strip('"')
-    assert error_text == "'Connection with name output already exists!'"
+    assert error_text == "Key 'output' is already used!"
 
 
 def test_10_error():

@@ -132,27 +132,12 @@ class BaseModel:
                     " a name is provided for the connection as keyworded argument."
                 )
 
-            if new_name is None:  # Non-named connections.
-                # Set connection as output and update dependency map.
-                self.conns.set_connection_type(conn_data, KeyType.OUTPUT)
-                self.dependency_map.update_globals(OrderedSet({conn_data}))
-
-            else:  # Named connections.
-                # Create new output connection with given key name.
-                # TODO: Update here to use directly set_name method of Connections class
-                # after it is implemented.
-                edge = IOHyperEdge(metadata.edge_type)
-
-                new_conn = self._create_connection(edge, new_name)
-
-                # Set connection as output and update dependency map.
-                self.conns.set_connection_type(new_conn, KeyType.OUTPUT)
-
-                # Merge new_conn with given connection.
-                self.merge_connections(new_conn, conn_data)
-
-    # def _set_formula_key(self, formula_key: str) -> None:
-    #     self.formula_key = formula_key
+            if new_name is not None:  # Non-named connections.
+                if new_name in self.conns.all:
+                    raise KeyError(f"Key '{new_name}' is already used!")
+                self.update_key_name(conn_data, new_name)
+            self.conns.set_connection_type(conn_data, KeyType.OUTPUT)
+            self.dependency_map.update_globals(OrderedSet({conn_data}))
 
     def _check_multi_write(
         self,
