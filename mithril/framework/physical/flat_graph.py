@@ -121,7 +121,6 @@ class FlatGraph(GenericDataType[DataType]):
         self._topological_order: list[str] = []
         self._input_keys = input_keys
         self.random_keys: set[str] = set()
-        self._pruned_keys: dict[str, str] = {}
 
         self.output_dict: dict[str, str] = {key: key for key in output_keys}
         self._temp_connection_info: dict[GConnection, GConnection] = {}
@@ -267,10 +266,6 @@ class FlatGraph(GenericDataType[DataType]):
     @property
     def all_source_keys(self) -> set[str]:
         return self._all_source_keys
-
-    @property
-    def pruned_keys(self) -> dict[str, str]:
-        return self._pruned_keys
 
     def _update_topological_order(self) -> None:
         self._topological_order = [
@@ -443,7 +438,6 @@ class FlatGraph(GenericDataType[DataType]):
 
                 # Finally prune the node
                 self._prune_node(node, conn)
-                self._pruned_keys[pruned_key] = source_key
 
         self.data_store.update_cached_data(updates)
         self.constraint_solver(updates)
