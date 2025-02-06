@@ -35,7 +35,7 @@ from .core import (
     short,
 )
 from .framework.codegen import code_gen_map
-from .framework.common import TBD, Connection, IOKey
+from .framework.common import TBD, Connection, IOKey, Tensor
 from .framework.physical.model import PhysicalConstantType, PhysicalShapeType
 from .models import BaseModel, PhysicalModel
 from .models.train_model import TrainModel
@@ -65,6 +65,7 @@ __all__ = [
     "TBD",
     "Constant",
     "epsilon_table",
+    "Tensor",
 ]
 
 # Load backends

@@ -3097,9 +3097,10 @@ def test_dtype_int16():
             backend,
             constant_keys={"input": converted_input},
             inference=True,
+            jit=False,
         )
         res = pm.evaluate()
-        assert res["output"] == mithril.int16
+        assert res["output"] == backend.int16  # type: ignore[attr-defined]
 
 
 def test_dtype_int32():
@@ -3125,9 +3126,10 @@ def test_dtype_int32():
             backend,
             constant_keys={"input": converted_input},
             inference=True,
+            jit=False,
         )
         res = pm.evaluate()
-        assert res["output"] == mithril.int32
+        assert res["output"] == backend.int32  # type: ignore[attr-defined]
 
 
 def test_dtype_int64():
@@ -3153,9 +3155,10 @@ def test_dtype_int64():
             backend,
             constant_keys={"input": converted_input},
             inference=True,
+            jit=False,
         )
         res = pm.evaluate()
-        assert res["output"] == mithril.int64
+        assert res["output"] == backend.int64  # type: ignore[attr-defined]
 
 
 def test_dtype_float16():
@@ -3181,9 +3184,10 @@ def test_dtype_float16():
             backend,
             constant_keys={"input": converted_input},
             inference=True,
+            jit=False,
         )
         res = pm.evaluate()
-        assert res["output"] == mithril.float16
+        assert res["output"] == backend.float16  # type: ignore[attr-defined]
 
 
 def test_dtype_float32():
@@ -3209,9 +3213,10 @@ def test_dtype_float32():
             backend,
             constant_keys={"input": converted_input},
             inference=True,
+            jit=False,
         )
         res = pm.evaluate()
-        assert res["output"] == mithril.float32
+        assert res["output"] == backend.float32  # type: ignore[attr-defined]
 
 
 def test_dtype_float64():
@@ -3234,9 +3239,10 @@ def test_dtype_float64():
             backend,
             constant_keys={"input": converted_input},
             inference=True,
+            jit=False,
         )
         res = pm.evaluate()
-        assert res["output"] == mithril.float64
+        assert res["output"] == backend.float64  # type: ignore[attr-defined]
 
 
 def test_unique_1():
