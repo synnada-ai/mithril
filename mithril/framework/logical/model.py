@@ -45,7 +45,8 @@ from ..common import (
 
 # from .base import BaseModel, ConnectionDataType
 from .base import BaseModel
-from .essential_primitives import (
+from .operator import Operator
+from .operators import (
     AbsoluteOp,
     AddOp,
     CastOp,
@@ -92,7 +93,6 @@ from .essential_primitives import (
     TransposeOp,
     VarianceOp,
 )
-from .operator import Operator
 
 __all__ = [
     "Connection",

@@ -17,6 +17,7 @@ from typing import get_args, get_origin
 from ...utils.utils import OrderedSet
 from ..common import (
     BaseKey,
+    ConnectionDataType,
     IOHyperEdge,
     KeyType,
     Tensor,
@@ -94,7 +95,7 @@ class Operator(BaseModel):
         # Initially run all given tensors' constraints
         self.constraint_solver.update_shapes(Updates(data_set))
 
-        input_conns = OrderedSet({conn for conn in self.conns.input_connections})
+        input_conns = OrderedSet(conn for conn in self.conns.input_connections)
         out_conn = self.conns.get_connection("output")
         assert out_conn is not None
         output_conns = OrderedSet({out_conn})
@@ -136,3 +137,10 @@ class Operator(BaseModel):
     @property
     def class_name(self) -> str:
         return self._model_name
+
+    def extend(
+        self,
+        model: BaseModel | BaseModel,
+        **kwargs: ConnectionDataType,
+    ) -> None:
+        raise NotImplementedError("Operators cannot be extended!")

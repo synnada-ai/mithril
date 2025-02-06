@@ -42,6 +42,7 @@ from mithril.framework.common import (
     Variadic,
     create_shape_map,
 )
+from mithril.framework.logical.operators import BufferOp
 from mithril.models import (
     L1,
     L2,
@@ -6934,3 +6935,19 @@ def test_empty_call_vs_direct_model_extending():
     model2 += LeakyRelu()()
 
     assert_models_equal(model1, model2)
+
+
+def test_extending_operator():
+    model1 = BufferOp()
+    with pytest.raises(NotImplementedError) as err:
+        model1.extend(BufferOp())
+
+    assert str(err.value) == "Operators cannot be extended!"
+
+
+def test_extending_operator_model():
+    model1 = Buffer()
+    with pytest.raises(RuntimeError) as err:
+        model1 += Buffer()
+
+    assert str(err.value) == "Primitive models cannot have submodels."

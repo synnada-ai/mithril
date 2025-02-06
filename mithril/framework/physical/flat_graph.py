@@ -38,9 +38,9 @@ from ..common import (
     ValueType,
     is_type_adjustment_required,
 )
-from ..logical.essential_primitives import BufferOp
 from ..logical.model import Connection
 from ..logical.operator import Operator
+from ..logical.operators import BufferOp
 from .data_store import StaticDataStore
 
 

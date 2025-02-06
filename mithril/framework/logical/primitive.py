@@ -12,11 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 from ... import core
-from ..common import (
-    BaseKey,
-)
+from ..common import BaseKey, ConnectionDataType
+from .base import BaseModel
 from .model import IOKey, Model
 from .operator import Operator
 
@@ -40,6 +38,15 @@ class OperatorModel(Model):
         m = next(iter(self.dag.keys()))
         assert isinstance(m, Operator)
         return m
+
+    def extend(
+        self,
+        model: BaseModel | BaseModel,
+        **kwargs: ConnectionDataType,
+    ) -> None:
+        if len(self.dag) > 0:
+            raise RuntimeError("Primitive models cannot have submodels.")
+        super().extend(model, **kwargs)
 
 
 class PrimitiveModel(OperatorModel):

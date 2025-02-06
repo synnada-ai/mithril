@@ -216,7 +216,7 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
         model = self.pm.flat_graph.get_model(output_key)
 
         global_input_keys = self.pm.flat_graph.get_source_keys(output_key)
-        global_input_keys += [self.get_cache_name(output_key, model)]
+        global_input_keys += [self.get_cache_name(output_key)]
         local_input_keys = list(model.input_keys) + ["cache"]
 
         return model, global_input_keys, local_input_keys
@@ -283,15 +283,14 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
 
         return targets, used_keys
 
-    def get_cache_name(self, output_key: str, model: Operator) -> str:
+    def get_cache_name(self, output_key: str) -> str:
         cache_name = "_".join([output_key, Operator.cache_name])
         if cache_name not in self.pm.flat_graph.all_data:
-            self.add_cache(output_key)
+            self.add_cache(output_key, cache_name)
 
         return cache_name
 
-    def add_cache(self, output_key: str) -> None:
-        cache_name = "_".join([output_key, Operator.cache_name])
+    def add_cache(self, output_key: str, cache_name: str) -> None:
         cache_value: dict[str, Any] | None = None if self.pm.inference else {}
         # Create a scalar for caches in manualgrad backend.
         self.pm.flat_graph.update_data(

@@ -55,7 +55,9 @@ from ..framework.constraints import (
     where_constrains,
 )
 from ..framework.logical import Model
-from ..framework.logical.essential_primitives import (
+from ..framework.logical.model import Connection, ConnectionType, ExtendInfo
+from ..framework.logical.operator import Operator
+from ..framework.logical.operators import (
     AbsoluteOp,
     AddOp,
     ArgMaxOp,
@@ -108,8 +110,6 @@ from ..framework.logical.essential_primitives import (
     TransposeOp,
     VarianceOp,
 )
-from ..framework.logical.model import Connection, ConnectionType, ExtendInfo
-from ..framework.logical.operator import Operator
 from ..framework.logical.primitive import OperatorModel, PrimitiveModel
 from ..utils.utils import PaddingType
 
