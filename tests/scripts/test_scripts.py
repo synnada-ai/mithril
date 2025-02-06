@@ -42,7 +42,6 @@ from mithril.framework.common import (
     Variadic,
     create_shape_map,
 )
-from mithril.framework.physical.flat_graph import FlatGraph
 from mithril.models import (
     L1,
     L2,
@@ -1998,14 +1997,7 @@ def test_static_anlaysis():
 
     comp_model = mithril.compile(model=model, backend=NumpyBackend())
 
-    ignored_model_keys = (
-        comp_model.data_store.cached_data.keys() | comp_model.discarded_keys
-    )
-    ignored_output_keys = ignored_model_keys & comp_model.flat_graph.all_target_keys
-    ignored_model_list = [
-        comp_model.flat_graph.get_model(key) for key in ignored_output_keys
-    ]
-    assert ignored_model_list == [get_primitive(add1)]
+    assert add1 not in comp_model.flat_graph.nodes
 
 
 def test_static_anlaysis_1():
@@ -2025,14 +2017,8 @@ def test_static_anlaysis_1():
         model=model,
         backend=NumpyBackend(),
     )
-    discarded_model_keys = (
-        comp_model.data_store.cached_data.keys() | comp_model.discarded_keys
-    )
-    discarded_output_keys = discarded_model_keys & comp_model.flat_graph.all_target_keys
-    discarded_model_list = [
-        comp_model.flat_graph.get_model(key) for key in discarded_output_keys
-    ]
-    assert discarded_model_list == [get_primitive(add1)]
+
+    assert add1 not in comp_model.flat_graph.nodes
 
 
 def test_static_anlaysis_2():
@@ -2054,16 +2040,11 @@ def test_static_anlaysis_2():
         model=model,
         backend=NumpyBackend(),
     )
-    discarded_model_keys = (
-        comp_model.data_store.cached_data.keys()
-        | comp_model.data_store.unused_keys
-        | comp_model.discarded_keys
+
+    assert (
+        sum1 not in comp_model.flat_graph.nodes
+        and add1 not in comp_model.flat_graph.nodes
     )
-    discarded_output_keys = discarded_model_keys & comp_model.flat_graph.all_target_keys
-    discarded_model_list = {
-        comp_model.flat_graph.get_model(key) for key in discarded_output_keys
-    }
-    assert len(discarded_model_list) == 2
 
 
 def test_static_anlaysis_4():
@@ -2765,7 +2746,11 @@ def test_prune_tensor_match():
         jit=False,
     )
 
-    assert pm.data["output1"] == pm.data["output2"] == pm.data["output3"]
+    assert pm.flat_graph.output_dict == {
+        "output1": "output1",
+        "output2": "output1",
+        "output3": "output1",
+    }
 
 
 def test_arange_1():
@@ -2911,7 +2896,7 @@ def test_replace_with_primitive_2():
     assert ScaledDotProduct not in [item.__class__ for item in dag]
     assert expected_key_mapping == list(dag.values())[0]
     # assert {} == comp_model.non_differentiables
-    assert set() == comp_model.data_store.all_static_keys
+    assert set() == comp_model.flat_graph.all_static_keys
     assert set(["query", "key", "mask", "value"]) == set(comp_model.input_keys)
     assert set(["output"]) == set(comp_model.output_keys)
 
@@ -2943,9 +2928,9 @@ def test_replace_with_primitive_3():
     assert ScaledDotProduct not in [item.__class__ for item in dag]
     assert expected_key_mapping == list(dag.values())[0]
     # assert {} == comp_model.non_differentiables
-    # assert {"q", "k", "v", "m", "output"} == comp_model.data_store.all_static_keys
-    assert {"output"} == comp_model.data_store.all_static_keys
-    assert {"q", "k", "v", "m"} == comp_model.data_store.unused_keys
+    # assert {"q", "k", "v", "m", "output"} == comp_model.flat_graph.all_static_keys
+    assert {"output"} == comp_model.flat_graph.all_static_keys
+    assert {"q", "k", "v", "m"} == comp_model.flat_graph.unused_keys
     assert set(["q", "k", "m", "v"]) == set(comp_model.input_keys)
     assert set(["output"]) == set(comp_model.output_keys)
 
@@ -2976,7 +2961,7 @@ def test_replace_with_primitive_4():
     assert ScaledDotProduct not in [item.__class__ for item in dag]
     assert expected_key_mapping == list(dag.values())[0]
     # assert {} == comp_model.non_differentiables
-    assert {"q", "k", "m"} == comp_model.data_store.all_static_keys
+    assert {"q", "k", "m"} == comp_model.flat_graph.all_static_keys
     assert set(["q", "k", "m", "v"]) == set(comp_model.input_keys)
     assert set(["output"]) == set(comp_model.output_keys)
 
@@ -3137,85 +3122,6 @@ def test_demo_model():
         "bias_2",
         "input",
     }
-
-
-def test_flatgraph_1():
-    graph = FlatGraph({"input1", "input2"}, {"output"})
-    graph.add_value(get_primitive(Relu()), {"input": "input1", "output": "relu_out"})
-    graph.add_value(
-        get_primitive(Buffer()), {"input": "relu_out", "output": "buffer_output"}
-    )
-    graph.add_value(
-        get_primitive(Buffer()), {"input": "buffer_output", "output": "output"}
-    )
-    graph.prune_duplicate_nodes({}, {})
-
-    expected_connections = ["input1", "relu_out"]
-    graph._update_connection_keys(graph.connections["relu_out"])
-
-    assert sorted(graph.connections.keys()) == sorted(expected_connections)
-    assert sorted(graph.get_target_keys("relu_out", True)) == (["output"])
-
-
-def test_flatgraph_2():
-    graph = FlatGraph(
-        {"input1", "input2"}, {"output1", "output2", "output3", "output4"}
-    )
-    graph.add_value(get_primitive(Relu()), {"input": "input1", "output": "relu_out"})
-    graph.add_value(get_primitive(Buffer()), {"input": "relu_out", "output": "output1"})
-    graph.add_value(get_primitive(Buffer()), {"input": "output1", "output": "output2"})
-    graph.add_value(get_primitive(Buffer()), {"input": "output2", "output": "output3"})
-    graph.add_value(get_primitive(Buffer()), {"input": "output3", "output": "output4"})
-    graph.prune_duplicate_nodes({}, {})
-
-    expected_connections = ["input1", "relu_out"]
-
-    assert sorted(graph.connections.keys()) == sorted(expected_connections)
-    assert graph.output_dict["output4"] == "relu_out"
-    assert sorted(graph.get_target_keys("relu_out", True)) == (
-        ["output1", "output2", "output3", "output4"]
-    )
-
-
-def test_flatgraph_3():
-    graph = FlatGraph(
-        {"input1", "input2"}, {"output1", "output2", "output3", "output4"}
-    )
-    graph.add_value(get_primitive(Relu()), {"input": "input1", "output": "relu_out"})
-    graph.add_value(get_primitive(Relu()), {"input": "relu_out", "output": "output1"})
-    graph.add_value(get_primitive(Relu()), {"input": "output1", "output": "output2"})
-    graph.prune_duplicate_nodes({}, {})
-
-    expected_connections = ["input1", "output1", "output2", "relu_out"]
-
-    assert sorted(graph.connections.keys()) == sorted(expected_connections)
-    assert sorted(graph.connections["output2"].source_keys) == (["output1"])
-    assert sorted(graph.connections["relu_out"].target_keys) == (["output1"])
-
-
-def test_flatgraph_4():
-    backend = TorchBackend(dtype=mithril.float64)
-    model_1 = Model()
-    model_1 += Relu()(input="relu_1", output=IOKey(name="output_1"))
-    model_1 += Relu()(input="relu_2", output=IOKey(name="output_2"))
-
-    model_2 = Model()
-    model_2 += Relu()(input="relu_1", output=IOKey(name="output_1"))
-    model_2 += Relu()(input="relu_2", output=IOKey(name="output_2"))
-
-    model = Model()
-    model += model_1()
-    model += model_2(
-        relu_2="",
-        output_2=model_1.relu_2,  # type: ignore
-        relu_1=model_1.output_2,  # type: ignore
-        output_1=IOKey(name="output"),
-    )
-
-    pm = mithril.compile(model=model, backend=backend)
-    assert pm.input_keys == {"relu_2"}
-    assert len(pm.flat_graph.all_source_keys) == 3
-    assert len(pm.flat_graph.all_target_keys) == 3
 
 
 def test_empy_out_grad():
@@ -5783,11 +5689,11 @@ def test_deepcopy_1():
     compiled_model = mithril.compile(model=model, backend=NumpyBackend())
     unused_data = {
         compiled_model.data[key]
-        for key in compiled_model.data_store.unused_keys
-        | compiled_model.data_store.cached_data.keys()
+        for key in compiled_model.flat_graph.unused_keys
+        | compiled_model.flat_graph.cached_data.keys()
     }
     for data in all_data:
-        copied_data = compiled_model.data_store.data_memo.get(id(data))
+        copied_data = compiled_model.flat_graph.data_memo.get(id(data))
         if copied_data not in unused_data:
             assert isinstance(copied_data, IOHyperEdge)
             assert data.value == copied_data.value
@@ -5809,14 +5715,12 @@ def test_deepcopy_2():
 
     all_data = get_all_data(model)
     compiled_model = mithril.compile(model=model, backend=NumpyBackend())
-    unused_data = {
-        compiled_model.data[key]
-        for key in compiled_model.data_store.unused_keys
-        | compiled_model.data_store.cached_data.keys()
+    cached_data = {
+        compiled_model.data[key] for key in compiled_model.flat_graph.cached_data
     }
     for data in all_data:
-        copied_data = compiled_model.data_store.data_memo.get(id(data))
-        if copied_data not in unused_data:
+        copied_data = compiled_model.flat_graph.data_memo.get(id(data))
+        if copied_data not in cached_data:
             assert isinstance(copied_data, IOHyperEdge)
             assert data.value == copied_data.value
             if data.is_tensor:
@@ -5839,11 +5743,11 @@ def test_deepcopy_3():
     )
     unused_data = {
         compiled_model.data.get(key)
-        for key in compiled_model.data_store.unused_keys
-        | compiled_model.data_store.cached_data.keys()
+        for key in compiled_model.flat_graph.unused_keys
+        | compiled_model.flat_graph.cached_data.keys()
     }
     for data in all_data:
-        copied_data = compiled_model.data_store.data_memo.get(id(data))
+        copied_data = compiled_model.flat_graph.data_memo.get(id(data))
         if copied_data not in unused_data:
             assert isinstance(copied_data, IOHyperEdge)
             assert data.value == copied_data.value
@@ -5864,11 +5768,11 @@ def test_deepcopy_4():
     compiled_model = mithril.compile(model=model, backend=NumpyBackend())
     unused_data = {
         compiled_model.data.get(key)
-        for key in compiled_model.data_store.unused_keys
-        | compiled_model.data_store.cached_data.keys()
+        for key in compiled_model.flat_graph.unused_keys
+        | compiled_model.flat_graph.cached_data.keys()
     }
     for data in all_data:
-        copied_data = compiled_model.data_store.data_memo.get(id(data))
+        copied_data = compiled_model.flat_graph.data_memo.get(id(data))
         if copied_data not in unused_data:
             assert isinstance(copied_data, IOHyperEdge)
             assert data.value == copied_data.value
@@ -5899,11 +5803,11 @@ def test_deepcopy_5():
     )
     unused_data = {
         compiled_model.data.get(key)
-        for key in compiled_model.data_store.unused_keys
-        | compiled_model.data_store.cached_data.keys()
+        for key in compiled_model.flat_graph.unused_keys
+        | compiled_model.flat_graph.cached_data.keys()
     }
     for data in all_data:
-        copied_data = compiled_model.data_store.data_memo.get(id(data))
+        copied_data = compiled_model.flat_graph.data_memo.get(id(data))
         assert copied_data is not None
         if copied_data not in unused_data:
             assert isinstance(copied_data, IOHyperEdge)

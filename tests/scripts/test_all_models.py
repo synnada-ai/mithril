@@ -866,6 +866,7 @@ def test_arange_w_dtype():
             assert_shapes=False,
             tolerances=1e-6,
             backends=backends,
+            ignore_transform={"stop"},
         )
 
 
@@ -1499,6 +1500,7 @@ def test_eye_with_dtype():
             tolerances=1e-6,
             assert_shapes=False,
             backends=backends,
+            ignore_transform={"M"},
         )
 
 
@@ -1630,6 +1632,7 @@ def test_eye_complement_w_dtype():
             tolerances=1e-6,
             assert_shapes=False,
             backends=backends,
+            ignore_transform={"M"},
         )
 
 
