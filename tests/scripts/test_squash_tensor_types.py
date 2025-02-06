@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from mithril.framework.common import squash_tensor_types, Tensor
+from mithril.framework.common import Tensor, squash_tensor_types
 
 
 def test_1():
@@ -21,7 +21,9 @@ def test_1():
 
 
 def test_2():
-    res = squash_tensor_types(list[list[Tensor[int] | Tensor[int | bool]] | Tensor[float]])
+    res = squash_tensor_types(
+        list[list[Tensor[int] | Tensor[int | bool]] | Tensor[float]]
+    )
     assert res == list[list[Tensor[int | bool]] | Tensor[float]]
 
 
@@ -29,3 +31,32 @@ def test_3():
     res = squash_tensor_types(int | list[int])
     assert res == int | list[int]
 
+
+def test_4():
+    res = squash_tensor_types(int | tuple[int, ...])
+    assert res == int | tuple[int, ...]
+
+
+def test_5():
+    res = squash_tensor_types(tuple[int, ...])
+    assert res == tuple[int, ...]
+
+
+def test_6():
+    res = squash_tensor_types(tuple[int, int])
+    assert res == tuple[int, int]
+
+
+def test_7():
+    res = squash_tensor_types(tuple[tuple[int, ...], ...])
+    assert res == tuple[tuple[int, ...], ...]
+
+
+def test_8():
+    res = squash_tensor_types(tuple[Tensor, ...])
+    assert res == tuple[Tensor[int | float | bool], ...]
+
+
+def test_9():
+    res = squash_tensor_types(list[Tensor | int | float])
+    assert res == list[Tensor[int | float | bool] | int | float]

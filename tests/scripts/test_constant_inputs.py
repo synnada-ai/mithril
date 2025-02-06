@@ -614,10 +614,12 @@ def test_mean_1_set_values_2():
 def test_scalar_mean_2_1():
     mean_model = Model()
     mean_1 = Mean()
-    with pytest.raises(ValueError) as err_info:
+    with pytest.raises(TypeError) as err_info:
         mean_model += mean_1(axis=1, input="input")
     assert (
-        str(err_info.value) == "Value is set before as None. A value can not be reset."
+        str(err_info.value)
+        == "Acceptable types are <class 'NoneType'>, but <class 'int'> "
+        "type is provided!"
     )
 
 
@@ -639,12 +641,13 @@ def test_scalar_mean_2_set_values():
     mean_model = Model()
     mean_1 = Mean(axis=TBD)
 
-    with pytest.raises(ValueError) as err_info_1:
+    with pytest.raises(TypeError) as err_info_1:
         mean_model += mean_1(input="input", axis=None)
         mean_1.set_values({"axis": 1})
     assert (
         str(err_info_1.value)
-        == "Value is set before as None. A value can not be reset."
+        == "Acceptable types are <class 'NoneType'>, but <class 'int'> "
+        "type is provided!"
     )
 
     # TODO: Complete this test after CONSTANT handling is implemented.

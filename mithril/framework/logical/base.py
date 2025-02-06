@@ -392,9 +392,6 @@ class BaseModel(abc.ABC):
             conn = self.conns.get_con_by_metadata(metadata)
             assert conn is not None
             inner_key = conn.key
-            if key_type is Tensor:
-                # TODO: What if key_type == Tensor | int | float???
-                key_type = Tensor[int | float | bool]
             assigned_types[inner_key] = key_type
             updates |= metadata.set_type(key_type)
         # Store assigned types in the model.

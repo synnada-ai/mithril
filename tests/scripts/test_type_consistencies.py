@@ -25,6 +25,7 @@ from mithril.framework.common import (
     NOT_GIVEN,
     BaseKey,
     ConnectionType,
+    Tensor,
     ToBeDetermined,
     find_intersection_type,
     find_type,
@@ -46,7 +47,6 @@ from mithril.models import (
     PrimitiveUnion,
     Shape,
     Sigmoid,
-    Tensor,
 )
 from mithril.utils.utils import find_dominant_type
 
@@ -403,29 +403,9 @@ def test_type_16():
             output=IOKey(name="output2"),
         )
     assert str(err_info.value) == (
-        "Acceptable types are <class 'float'>, but <class 'bool'> type " "is provided!"
-    )
-
-
-def test_type_17():
-    model = Model()
-    sig_model_1 = Sigmoid()
-    sig_model_2 = Sigmoid()
-    sig_model_1.input.data.metadata.set_type(Tensor[float])
-    model.extend(sig_model_1, input="input", output="output")
-    with pytest.raises(TypeError) as err_info:
-        model.extend(
-            sig_model_2,
-            input=IOKey(
-                connections={sig_model_1.input},
-                value=Tensor([False, True]),
-                name="a",
-                expose=True,
-            ),
-            output=IOKey(name="output2"),
-        )
-    assert str(err_info.value) == (
-        "Acceptable types are <class 'float'>, " "but <class 'bool'> type is provided!"
+        "Acceptable types are mithril.framework.common.Tensor[float], "
+        "but mithril.framework.common.Tensor[bool] type "
+        "is provided!"
     )
 
 
@@ -819,7 +799,7 @@ def test_find_intersection_types_34():
 def test_find_intersection_types_35():
     type_1 = Tensor[int] | int
     type_2 = Tensor[int]
-    assert find_intersection_type(type_1, type_2) is Tensor[int]
+    assert find_intersection_type(type_1, type_2) == Tensor[int]
 
 
 def test_find_intersection_types_36():
@@ -837,7 +817,7 @@ def test_find_intersection_types_37():
 def test_find_intersection_types_38():
     type_1 = Tensor[int] | int | Tensor[float]
     type_2 = ToBeDetermined
-    assert find_intersection_type(type_1, type_2) == Tensor[int] | int | Tensor[float]
+    assert find_intersection_type(type_1, type_2) == Tensor[int | float] | int
 
 
 def test_find_intersection_types_39():
@@ -862,6 +842,15 @@ def test_find_intersection_types_42():
     type_1 = list[int]
     type_2 = list[int | float]
     assert find_intersection_type(type_1, type_2) == list[int]
+
+
+def test_find_intersection_types_43():
+    type_1: type = tuple[Tensor, Tensor[int]]
+    type_2 = tuple[Tensor, ...]
+    assert (
+        find_intersection_type(type_1, type_2)
+        == tuple[Tensor[int | float | bool], Tensor[int]]
+    )
 
 
 def test_find_type_1():
