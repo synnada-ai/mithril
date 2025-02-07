@@ -272,7 +272,7 @@ def dict_to_model(
             model.add_constraint(constrain_fn, keys=constr_info["keys"])  # type: ignore
 
     if len(assigned_shapes) > 0:
-        model.set_shapes(dict_to_shape(assigned_shapes))  # type: ignore
+        model.set_shapes(dict_to_shape(assigned_shapes))
     assert isinstance(model, Model)
     return model
 
