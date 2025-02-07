@@ -60,3 +60,13 @@ def test_8():
 def test_9():
     res = squash_tensor_types(list[Tensor | int | float])
     assert res == list[Tensor[int | float | bool] | int | float]
+
+
+def test_10():
+    res = squash_tensor_types(Tensor[int] | Tensor[float])
+    assert res == Tensor[int | float]
+
+
+def test_11():
+    res = squash_tensor_types(Tensor[int] | int | Tensor[float])
+    assert res == Tensor[int | float] | int

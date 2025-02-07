@@ -221,7 +221,8 @@ def assert_shape_results(
 ) -> None:
     # First check shape updates with the expected updates.
     assert {
-        data[key] for key in expected_updates
+        data[key]._value if data[key].is_tensor else data[key]
+        for key in expected_updates
     } == updated_symbols.shape_updates | updated_symbols.value_updates
     # Then check final shapes with the expected ref_results.
     uni_cache: dict[UniadicRecord, str] = {}

@@ -598,7 +598,8 @@ def test_list_of_tensor_value_edge_match_with_list_of_tensor_value_edge_1():
 
 
 def test_list_of_tensor_value_edge_match_with_list_of_tensor_value_edge_2():
-    value1: list[Tensor[int | float]] = [Tensor(1.0), Tensor(2), Tensor()]
+    t: Tensor[int | float | bool] = Tensor()
+    value1: list[Tensor[int | float]] = [Tensor(1.0), Tensor(2), t]
     edge1 = IOHyperEdge(value=value1)
     assert edge1._value == value1
     assert isinstance(edge1._value, list) and all(
@@ -632,7 +633,7 @@ def test_list_of_tensor_value_edge_match_with_list_of_tensor_value_edge_2():
     assert not edge1.is_polymorphic
     assert edge1.all_constraints == {constr} and edge2.all_constraints == set()
     assert updates.constraints == {constr}
-    assert updates.shape_updates == {edge1}
+    assert updates.shape_updates == {t}
 
 
 def test_list_of_tensor_value_edge_match_with_list_of_tensor_value_edge_reverse():
@@ -650,7 +651,10 @@ def test_list_of_tensor_value_edge_match_with_list_of_tensor_value_edge_reverse(
     assert value1[2].referees == {edge1}
 
     constr = Constraint(fn=reduce_type_constraint, types=[UpdateType.TYPE])
-    value2: list[Tensor[int | float]] = [Tensor(), Tensor(), Tensor()]
+    t1: Tensor[int | float | bool] = Tensor()
+    t2: Tensor[int | float | bool] = Tensor()
+    t3: Tensor[int | float | bool] = Tensor()
+    value2: list[Tensor[int | float]] = [t1, t2, t3]
     edge2 = IOHyperEdge(value=value2)
     assert edge2._value == value2
     assert isinstance(edge2._value, list) and all(
@@ -670,7 +674,7 @@ def test_list_of_tensor_value_edge_match_with_list_of_tensor_value_edge_reverse(
     assert not edge1.is_polymorphic
     assert edge1.all_constraints == set() and edge2.all_constraints == {constr}
     assert updates.constraints == {constr}
-    assert updates.shape_updates == {edge2}
+    assert updates.shape_updates == {t1, t2, t3}
 
 
 def test_tuple_of_tensor_value_edge_match_with_tuple_of_tensor_value_edge():

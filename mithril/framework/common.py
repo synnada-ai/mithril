@@ -476,9 +476,7 @@ class ConstraintSolver:
         self._reduce_uniadic_referees(updates)
 
         all_reprs = {
-            repr
-            for update in updates.shape_updates
-            for repr in update.shape.reprs  # type: ignore
+            repr for tensor in updates.shape_updates for repr in tensor.shape.reprs
         }
 
         # Visit all updated tensors' nodes' reprs.
@@ -521,7 +519,9 @@ class ConstraintSolver:
 
 @dataclass
 class Updates:
-    shape_updates: set[IOHyperEdge] = field(default_factory=lambda: set())
+    shape_updates: set[Tensor[int | float | bool]] = field(
+        default_factory=lambda: set()
+    )
     value_updates: set[IOHyperEdge] = field(default_factory=lambda: set())
     uniadic_updates: set[Uniadic] = field(default_factory=lambda: set())
     node_updates: set[ShapeNode] = field(default_factory=lambda: set())
@@ -544,16 +544,16 @@ class Updates:
         self.uniadic_updates.add(symbol)
         for repr in symbol.metadata.reprs_dict:
             for tensor in repr.node.referees:
+                self.shape_updates.add(tensor)
                 for edge in tensor.referees:
-                    self.shape_updates.add(edge)
                     self.constraints |= edge.constraints[UpdateType.SHAPE]
 
     def _add_variadic(self, symbol: Variadic) -> None:
         for repr in symbol.reprs:
             self.node_updates.add(repr.node)
             for tensor in repr.node.referees:
+                self.shape_updates.add(tensor)
                 for edge in tensor.referees:
-                    self.shape_updates.add(edge)
                     self.constraints |= edge.constraints[UpdateType.SHAPE]
 
     def __ior__(self, other: Updates) -> Updates:
@@ -993,6 +993,7 @@ class Tensor(Generic[TypeVarTensorType]):
                 assert not isinstance(valued.value, ToBeDetermined)
                 updates |= non_valued.set_value(valued.value)
             updates |= self.match_shapes(other.shape)
+            updates.shape_updates.discard(other)
             # Transfer all referees of other to self and update all
             # Tensors in all edges of other with self.
             self.referees |= other.referees
@@ -1284,10 +1285,10 @@ class IOHyperEdge:
                 # updates |= self.set_value(other._value)
                 # if non_valued is other:
                 updates.value_updates.discard(other)
-                updates.shape_updates.discard(other)
+                # updates.shape_updates.discard(other)
                 IOHyperEdge._discard_edge_from_tensors(other, self._value)
-        # After modifications done, propagate other constraints into self.
 
+        # After modifications done, propagate other constraints into self.
         for type in UpdateType:
             self.constraints[type] |= other.constraints[type]
             other.constraints[type] = set()

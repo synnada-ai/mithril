@@ -64,7 +64,7 @@ class PrimitiveModel(BaseModel):
             if isinstance(value, BaseKey) and value.shape is not None
         }
         shapes = create_shape_map(shape_templates, self.constraint_solver)
-        data_set: set[IOHyperEdge] = set()
+        tensor_set: set[Tensor[int | float | bool]] = set()
         is_diff = False
         output_data: IOHyperEdge | None = None
         for key, value in kwargs.items():
@@ -82,7 +82,8 @@ class PrimitiveModel(BaseModel):
                             shape=shapes[key].node,
                         )
                     edge = IOHyperEdge(value=tensor, interval=value.interval)
-                    data_set.add(edge)
+                    assert isinstance(edge._value, Tensor)
+                    tensor_set.add(edge._value)
                 else:
                     edge_type = ToBeDetermined if value.type is None else value.type
                     edge = IOHyperEdge(
@@ -107,7 +108,7 @@ class PrimitiveModel(BaseModel):
             output_data.differentiable = is_diff
 
         # Initially run all given tensors' constraints
-        self.constraint_solver.update_shapes(Updates(data_set))
+        self.constraint_solver.update_shapes(Updates(tensor_set))
 
         input_conns = OrderedSet({conn for conn in self.conns.input_connections})
         out_conn = self.conns.get_connection("output")

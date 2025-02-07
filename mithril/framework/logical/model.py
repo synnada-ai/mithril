@@ -719,7 +719,8 @@ class Model(BaseModel):
             updates |= _updates
             submodel_dag[local_key] = con_obj
             if con_obj.metadata.is_tensor:
-                updates.shape_updates.add(con_obj.metadata)
+                assert isinstance(con_obj.metadata._value, Tensor)
+                updates.shape_updates.add(con_obj.metadata._value)
 
         # Replace shape info keys, which are local keys, with global equivalents.
         shape_info = {
