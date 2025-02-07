@@ -226,6 +226,7 @@ def dict_to_model(
         "canonical_keys", {}
     )
 
+    assert isinstance(model, Model)
     submodels_dict = {}
     for m_key, v in submodels.items():
         m = dict_to_model(v)
@@ -246,15 +247,13 @@ def dict_to_model(
                 elif "tensor" in conn:
                     mappings[k] = Tensor(conn["tensor"])
 
-        assert isinstance(model, Model)
-        # model += m(**mappings)
         model |= m(**mappings)
 
     if "model" in canonical_keys:
         if canonical_keys["model"][0] is not None:
-            model.set_cin(*canonical_keys["model"][0])  # type: ignore
+            model.set_cin(*canonical_keys["model"][0])
         if canonical_keys["model"][1] is not None:
-            model.set_cout(*canonical_keys["model"][1])  # type: ignore
+            model.set_cout(*canonical_keys["model"][1])
 
     for key, value in differentiability_info.items():
         con = model.conns.get_connection(key)
