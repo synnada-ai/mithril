@@ -557,6 +557,7 @@ def test_list_of_tensor_type_edge_match_with_list_of_tensor_value_edge():
     assert edge1.all_constraints == {constr} and edge2.all_constraints == set()
     assert updates.constraints == set()
     assert updates.shape_updates == set()
+    assert updates.value_updates == set()
 
 
 def test_list_of_tensor_value_edge_match_with_list_of_tensor_value_edge_1():
@@ -595,6 +596,7 @@ def test_list_of_tensor_value_edge_match_with_list_of_tensor_value_edge_1():
     assert edge1.all_constraints == {constr} and edge2.all_constraints == set()
     assert updates.constraints == {constr}
     assert updates.shape_updates == set()
+    assert updates.value_updates == set()
 
 
 def test_list_of_tensor_value_edge_match_with_list_of_tensor_value_edge_2():
@@ -634,6 +636,7 @@ def test_list_of_tensor_value_edge_match_with_list_of_tensor_value_edge_2():
     assert edge1.all_constraints == {constr} and edge2.all_constraints == set()
     assert updates.constraints == {constr}
     assert updates.shape_updates == {t}
+    assert updates.value_updates == {edge1}
 
 
 def test_list_of_tensor_value_edge_match_with_list_of_tensor_value_edge_reverse():
@@ -675,6 +678,7 @@ def test_list_of_tensor_value_edge_match_with_list_of_tensor_value_edge_reverse(
     assert edge1.all_constraints == set() and edge2.all_constraints == {constr}
     assert updates.constraints == {constr}
     assert updates.shape_updates == {t1, t2, t3}
+    assert updates.value_updates == {edge2}
 
 
 def test_tuple_of_tensor_value_edge_match_with_tuple_of_tensor_value_edge():
@@ -716,3 +720,4 @@ def test_tuple_of_tensor_value_edge_match_with_tuple_of_tensor_value_edge():
     assert edge1.all_constraints == {constr} and edge2.all_constraints == set()
     assert updates.constraints == {constr}
     assert updates.shape_updates == set()
+    assert updates.value_updates == set()

@@ -978,6 +978,7 @@ class Tensor(Generic[TypeVarTensorType]):
             for edge in self.referees:
                 updates.add(edge, update_type=UpdateType.VALUE)
                 updates.add(edge, update_type=UpdateType.SHAPE)
+                updates.value_updates.add(edge)
             self.value = val
         return updates
 
@@ -1266,7 +1267,7 @@ class IOHyperEdge:
                 self.update_tensor_values(value, updates)
                 # Add self to updates as value update.
                 updates.add(self, UpdateType.VALUE)
-            updates.value_updates.add(self)
+                updates.value_updates.add(self)
             # Update new type without automatic tensor value creation.
             updates |= self.set_type(_find_type(self._value), create_tensor=False)
             self.differentiable = self.value is TBD
