@@ -423,9 +423,6 @@ def test_default_kwarg_reduction_2(file_path: str):
         compare_callables(evaluate, eval_func)
 
 
-a = 1
-
-
 @with_temp_file(".py")
 def test_array_creation_primitive(file_path: str):
     model = Model()
