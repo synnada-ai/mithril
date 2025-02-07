@@ -12,40 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Callable, Iterable
+from collections.abc import Callable
 from functools import reduce
 from itertools import product
 from types import FunctionType, GenericAlias, UnionType
-from typing import TYPE_CHECKING, Any, TypeVar
-
-if TYPE_CHECKING:
-    from .logical.base import BaseModel
-
-
-T = TypeVar("T", bound="BaseModel")
-
-
-def define_unique_names(models: Iterable[T]) -> dict[T, str]:
-    # TODO: Move this to Physical model (currently it is only used there)
-    # TODO: Also add short-naming logic to this function
-    model_name_dict: dict[T, str] = {}
-    single_model_dict: dict[str, T] = {}
-    model_count_dict: dict[str, int] = {}
-
-    for model in models:
-        class_name = model.__class__.__name__
-        if model_count_dict.setdefault(class_name, 0) == 0:
-            single_model_dict[class_name] = model
-        else:
-            single_model_dict.pop(class_name, None)
-        model_name_dict[model] = (
-            str(class_name) + "_" + str(model_count_dict[class_name])
-        )
-        model_count_dict[class_name] += 1
-
-    for m in single_model_dict.values():
-        model_name_dict[m] = str(m.__class__.__name__)
-    return model_name_dict
+from typing import Any
 
 
 def align_shapes(all_dicts: list[dict[Any, Any]]) -> None:

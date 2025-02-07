@@ -23,8 +23,6 @@ import mithril
 from mithril import JaxBackend, NumpyBackend, TorchBackend
 from mithril.framework.common import (
     NOT_GIVEN,
-    Connection,
-    IOKey,
     ShapeTemplateType,
     Table,
     Tensor,
@@ -32,7 +30,6 @@ from mithril.framework.common import (
     Variadic,
     get_summary_shapes,
 )
-from mithril.framework.utils import define_unique_names
 from mithril.models import (
     L1,
     L2,
@@ -40,11 +37,13 @@ from mithril.models import (
     Add,
     Buffer,
     Concat,
+    Connection,
     Convolution1D,
     Convolution2D,
     CrossEntropy,
     Divide,
     Flatten,
+    IOKey,
     KernelizedSVM,
     LeakyRelu,
     Linear,
@@ -65,6 +64,7 @@ from mithril.models import (
     Tanh,
     ToTensor,
     TrainModel,
+    define_unique_names,
 )
 
 # TODO: Remove dependency to examples folder (Create a model zoo and include ResNets)!
@@ -96,7 +96,7 @@ def test_extract_logical_connections_1():
     )
     model1 += lin2(input=lin1.output, weight=lin1.output, output=IOKey(name="output2"))
     model1 += lin3(input=lin1.weight, weight=lin1.weight, output=IOKey(name="output3"))
-    name_mappings = define_unique_names(model1.dag)
+    name_mappings = define_unique_names(model1.dag.keys())
     conns = model1.extract_connection_info(name_mappings)
     assert conns == {
         "Linear_0": (
@@ -142,7 +142,7 @@ def test_extract_logical_connections_2():
     model2 += model()
     model2 += buff3(input=model.output1, output=model.input2)  # type: ignore
     model2.set_cin(model.input1)  # type: ignore
-    name_mappings = define_unique_names(model2.dag)
+    name_mappings = define_unique_names(model2.dag.keys())
     conns = model2.extract_connection_info(name_mappings)
     ref_conns = {
         "Model": (
@@ -162,7 +162,7 @@ def test_extract_logical_connections_3():
 
     model += buff2(output=IOKey(name="output"))
     model += buff1(output=buff2.input, input="input")
-    name_mappings = define_unique_names(model.dag)
+    name_mappings = define_unique_names(model.dag.keys())
     conns = model.extract_connection_info(name_mappings)
     ref_conns = {
         "Buffer_0": ({"input": ["Buffer_1.output"]}, {"output": ["'output'"]}),
@@ -194,7 +194,7 @@ def test_extract_logical_connections_4():
         input2="in2",
     )
 
-    name_mappings = define_unique_names(model.dag)
+    name_mappings = define_unique_names(model.dag.keys())
     conns = model.extract_connection_info(name_mappings)
 
     ref_conns = {
@@ -222,7 +222,7 @@ def test_extract_logical_connections_5():
     model += Linear(1000)
     model += Linear(1)
 
-    name_mappings = define_unique_names(model.dag)
+    name_mappings = define_unique_names(model.dag.keys())
     conns = model.extract_connection_info(name_mappings)
 
     ref_conns = {
@@ -274,7 +274,7 @@ def test_extract_logical_connections_6():
     model += Linear(dimension=3)(input="input", output=IOKey(name="output"))
     model += Flatten()
     model += Mean(keepdim=True)
-    name_mappings = define_unique_names(model.dag)
+    name_mappings = define_unique_names(model.dag.keys())
     conns = model.extract_connection_info(name_mappings)
     ref_conns = {
         "Linear": (
@@ -308,7 +308,7 @@ def test_extract_logical_connections_7():
     model += model_2
     model += Flatten()
     model += Buffer()
-    name_mappings = define_unique_names(model.dag)
+    name_mappings = define_unique_names(model.dag.keys())
     conns = model.extract_connection_info(name_mappings)
 
     ref_conns = {
@@ -359,7 +359,7 @@ def test_extract_logical_connections_8():
     model_2 = Model()
     model_2 += model_1
     model_2 += buff_1
-    name_mappings = define_unique_names(model_2.dag)
+    name_mappings = define_unique_names(model_2.dag.keys())
     conns = model_2.extract_connection_info(name_mappings)
     ref_conns = {
         "Model": (
@@ -384,7 +384,7 @@ def test_extract_logical_connections_9():
     for model in (deepcopy(model_n) for m in range(3)):
         model_nm += model
 
-    name_mappings = define_unique_names(model_nm.dag)
+    name_mappings = define_unique_names(model_nm.dag.keys())
     conns = model_nm.extract_connection_info(name_mappings)
     ref_conns = {
         "Model_0": ({"$input": ["'$input'"]}, {"$output2": ["Model_1.$input"]}),
@@ -414,7 +414,7 @@ def test_extract_logical_connections_10():
     model += model_2
     model += model_3
 
-    name_mappings = define_unique_names(model.dag)
+    name_mappings = define_unique_names(model.dag.keys())
     conns = model.extract_connection_info(name_mappings)
 
     ref_conns = {
@@ -463,7 +463,7 @@ def test_extract_logical_connections_11():
     model += model_0
     model += model_1
     model += model_2
-    name_mappings = define_unique_names(model.dag)
+    name_mappings = define_unique_names(model.dag.keys())
     conns = model.extract_connection_info(name_mappings)
     ref_conns = {
         "Model_0": ({"$input": ["'$input'"]}, {"$output": ["Model_1.$input"]}),
@@ -480,7 +480,7 @@ def test_extract_logical_connections_12():
     model += model_1
     model += model_2
     model += model_3
-    name_mappings = define_unique_names(model.dag)
+    name_mappings = define_unique_names(model.dag.keys())
     conns = model.extract_connection_info(name_mappings)
     ref_conns = {
         "Sigmoid": ({"input": ["'$input'"]}, {"output": ["Model_0.$input"]}),
@@ -500,7 +500,7 @@ def test_extract_logical_connections_13():
     model += Linear(1000)
     model += Linear(1)
 
-    name_mappings = define_unique_names(model.dag)
+    name_mappings = define_unique_names(model.dag.keys())
     conns = model.extract_connection_info(name_mappings)
     ref_conns = {
         "Model_0": (
@@ -552,7 +552,7 @@ def test_extract_shapes_logical_1():
     buff2 = Buffer()
     model += buff1(input="input")
     model += buff2(input=buff1.output)
-    name_mappings = define_unique_names(model.dag)
+    name_mappings = define_unique_names(model.dag.keys())
     uni_cache: dict[UniadicRecord, str] = {}
     var_cache: dict[Variadic, str] = {}
     conn_info = model.extract_connection_info(name_mappings)
@@ -574,7 +574,7 @@ def test_extract_shapes_logical_2():
     model += buff1(input="input")
     model += buff2(input=buff1.output)
     model.set_shapes({"input": [45, 96, 2]})
-    name_mappings = define_unique_names(model.dag)
+    name_mappings = define_unique_names(model.dag.keys())
     uni_cache: dict[UniadicRecord, str] = {}
     var_cache: dict[Variadic, str] = {}
     conn_info = model.extract_connection_info(name_mappings)
@@ -605,7 +605,7 @@ def test_extract_shapes_logical_3():
     model += linear_3
     model += relu_3
     relu_2.set_shapes({"input": [4, 2]})
-    name_mappings = define_unique_names(model.dag)
+    name_mappings = define_unique_names(model.dag.keys())
     uni_cache: dict[UniadicRecord, str] = {}
     var_cache: dict[Variadic, str] = {}
     conn_info = model.extract_connection_info(name_mappings)
@@ -648,7 +648,7 @@ def test_extract_shapes_logical_4():
     model += relu_2
     model += conv_3
     model += relu_3
-    name_mappings = define_unique_names(model.dag)
+    name_mappings = define_unique_names(model.dag.keys())
     uni_cache: dict[UniadicRecord, str] = {}
     var_cache: dict[Variadic, str] = {}
     conn_info = model.extract_connection_info(name_mappings)
@@ -722,7 +722,7 @@ def test_extract_shapes_logical_5():
     model += linear_3
     model += relu_3
     relu_2.set_shapes({"input": [None, None]})
-    name_mappings = define_unique_names(model.dag)
+    name_mappings = define_unique_names(model.dag.keys())
     uni_cache: dict[UniadicRecord, str] = {}
     var_cache: dict[Variadic, str] = {}
     conn_info = model.extract_connection_info(name_mappings)
@@ -774,7 +774,7 @@ def test_define_unique_names_1():
     model |= KernelizedSVM_1(input1=model.cout)
 
     lin_0.input.set_differentiable(True)
-    name_dict = define_unique_names(model.dag)
+    name_dict = define_unique_names(model.dag.keys())
     assert name_dict == {
         lin_0: "Linear_0",
         lin_1: "Linear_1",
@@ -795,7 +795,7 @@ def test_define_unique_names_2():
     model += (rel_1 := Relu())
     model += (lin2 := Linear())
     model += (rel_2 := Relu())
-    name_dict = define_unique_names(model.dag)
+    name_dict = define_unique_names(model.dag.keys())
     assert name_dict == {
         lin1: "Linear_0",
         lin2: "Linear_1",

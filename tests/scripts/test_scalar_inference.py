@@ -18,7 +18,8 @@ from typing import Protocol, runtime_checkable
 import pytest
 
 import mithril as ml
-from mithril.framework.common import TBD, Connection, IOKey
+from mithril.framework.common import TBD
+from mithril.framework.logical.model import Connection, IOKey
 from mithril.models import (
     Add,
     Divide,
@@ -27,7 +28,6 @@ from mithril.models import (
     Model,
     Multiply,
     Power,
-    PrimitiveModel,
     Shape,
     Subtract,
 )
@@ -46,7 +46,7 @@ class SupportsOutput(Protocol):
 
 class TestScalarInference:
     lambda_map: dict[
-        type[PrimitiveModel],
+        type[Model],
         Callable[[int | float | bool, int | float | bool], int | float | bool],
     ] = {
         Add: lambda left, right: left + right,
@@ -65,7 +65,7 @@ class TestScalarInference:
     )
     def test_one_model(
         self,
-        model: PrimitiveModel,
+        model: Model,
         inputs: tuple[int | float | bool, int | float | bool],
     ):
         model = deepcopy(model)

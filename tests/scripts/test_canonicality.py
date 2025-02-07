@@ -17,12 +17,13 @@ from copy import deepcopy
 import pytest
 
 import mithril as ml
-from mithril.framework.common import IOKey, Tensor
+from mithril.framework.common import Tensor
 from mithril.models import (
     Add,
     Buffer,
     Convolution2D,
     Gelu,
+    IOKey,
     Linear,
     LogisticRegression,
     Model,

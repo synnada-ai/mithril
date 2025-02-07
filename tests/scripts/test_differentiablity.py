@@ -14,8 +14,8 @@
 
 import mithril
 from mithril import JaxBackend
-from mithril.framework.common import IOKey, Tensor
-from mithril.models import Add, Buffer, Linear, Model, Multiply
+from mithril.framework.common import Tensor
+from mithril.models import Add, Buffer, IOKey, Linear, Model, Multiply
 
 
 def test_data_linear():

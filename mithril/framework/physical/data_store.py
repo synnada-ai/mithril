@@ -23,6 +23,7 @@ from ..common import (
     DataEvalType,
     IOHyperEdge,
     MainValueType,
+    Tensor,
     ToBeDetermined,
     Updates,
 )
@@ -126,6 +127,25 @@ class StaticDataStore(Generic[DataType]):
         elif isinstance(value, Dtype):
             value = getattr(self.backend, value.name)
         self.data_values[key] = value  # type: ignore
+
+    # Add constant values of given models __call__ to constant_keys if any.
+    # TODO: merge convert_data_to_physical with _set_data_value
+    @staticmethod
+    def convert_data_to_physical(
+        value: AllValueType, backend: Backend[DataType]
+    ) -> DataType | AllValueType:
+        match value:
+            case Constant():
+                value = epsilon_table[backend.precision][value]
+            case Dtype():
+                value = getattr(backend, value.name)
+            case Tensor():
+                value = backend.array(
+                    StaticDataStore.convert_data_to_physical(value.value, backend)
+                )
+            case _:
+                value = value
+        return value
 
     def _infer_tensor_value_type(
         self, value: DataType

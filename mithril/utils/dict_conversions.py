@@ -13,7 +13,6 @@
 # limitations under the License.
 from __future__ import annotations
 
-import abc
 import re
 from collections.abc import Callable, Sequence
 from copy import deepcopy
@@ -27,7 +26,6 @@ from ..framework.common import (
     AssignedConstraintType,
     ConnectionData,
     IOHyperEdge,
-    IOKey,
     MainValueType,
     ShapesType,
     ShapeTemplateType,
@@ -36,11 +34,11 @@ from ..framework.common import (
     ToBeDetermined,
 )
 from ..framework.constraints import constrain_fn_dict
-from ..framework.logical import essential_primitives
+from ..framework.logical import primitive
+from ..framework.logical.model import IOKey
 from ..models import (
     BaseModel,
     Connection,
-    CustomPrimitiveModel,
     Model,
     models,
     primitives,
@@ -103,17 +101,17 @@ class TrainModelDict(TypedDict):
 model_dict = {
     item[0].lower(): item[1]
     for item in models.__dict__.items()
-    if isinstance(item[1], abc.ABCMeta) and issubclass(item[1], BaseModel)
+    if isinstance(item[1], type) and issubclass(item[1], BaseModel)
 }
 model_dict |= {
     item[0].lower(): item[1]
     for item in primitives.__dict__.items()
-    if isinstance(item[1], abc.ABCMeta) and issubclass(item[1], BaseModel)
+    if isinstance(item[1], type) and issubclass(item[1], BaseModel)
 }
 model_dict |= {
     item[0].lower(): item[1]
-    for item in essential_primitives.__dict__.items()
-    if isinstance(item[1], abc.ABCMeta) and issubclass(item[1], BaseModel)
+    for item in primitive.__dict__.items()
+    if isinstance(item[1], type) and issubclass(item[1], BaseModel)
 }
 
 model_dict |= {"trainmodel": TrainModel}
@@ -151,7 +149,7 @@ def create_iokey_kwargs(
 
 def dict_to_model(
     modelparams: ModelDict | TrainModelDict | str,
-) -> BaseModel:
+) -> Model:
     """Convert given dictionary to a model object.
 
     Parameter
@@ -198,13 +196,14 @@ def dict_to_model(
                 args[k] = enum_dict[enum_key][v]
 
         model = model_class(**args)
-
     else:  # Custom model
         args |= handle_dict_to_model_args(model_name, params.get("args", {}))
         attrs: dict[str, Callable[..., Any]] = {
-            "__init__": lambda self: super(self.__class__, self).__init__(**args)  # pyright: ignore
+            "__init__": lambda self: super(self.__class__, self).__init__(
+                formula_key=args.pop("formula_key")
+            )  # pyright: ignore
         }
-        model = type(model_name, (CustomPrimitiveModel,), attrs)()
+        model = type(model_name, (Model,), attrs)(**args)
 
     types: dict[str, str] = params.get("types", {})
     # TODO: Set all types in a bulk.
@@ -217,7 +216,7 @@ def dict_to_model(
             # way to convert strings into types and generic types.
             set_types[key] = eval(typ)
     if set_types:
-        model.set_types(set_types)
+        model.set_types(set_types)  # type: ignore
 
     unnamed_keys: list[str] = params.get("unnamed_keys", [])
     differentiability_info: dict[str, bool] = params.get("differentiability_info", {})
@@ -227,6 +226,7 @@ def dict_to_model(
         "canonical_keys", {}
     )
 
+    assert isinstance(model, Model)
     submodels_dict = {}
     for m_key, v in submodels.items():
         m = dict_to_model(v)
@@ -242,13 +242,11 @@ def dict_to_model(
             elif isinstance(conn, dict):
                 if (io_key := conn.get("key")) is not None:
                     # TODO: Update this part according to new IOKey structure.
-                    key_kwargs = create_iokey_kwargs(io_key, submodels_dict)
+                    key_kwargs = create_iokey_kwargs(io_key, submodels_dict)  # type: ignore
                     mappings[k] = IOKey(**key_kwargs)
                 elif "tensor" in conn:
                     mappings[k] = Tensor(conn["tensor"])
 
-        assert isinstance(model, Model)
-        # model += m(**mappings)
         model |= m(**mappings)
 
     if "model" in canonical_keys:
@@ -275,6 +273,7 @@ def dict_to_model(
 
     if len(assigned_shapes) > 0:
         model.set_shapes(dict_to_shape(assigned_shapes))
+    assert isinstance(model, Model)
     return model
 
 
@@ -651,21 +650,21 @@ def item_to_json(item: IOKey) -> dict[str, Any]:
     # TODO: Currently type is not supported for Tensors.
     # Handle This whit conversion test updates.
     result: dict[str, Any] = {}
-    if not isinstance(item.data.value, ToBeDetermined):
-        result["value"] = item.data.value
-    if item.data.shape is not None:
+    if not isinstance(item.value, ToBeDetermined):
+        result["value"] = item.value
+    if item.value_shape is not None:
         shape_template: list[str] = []
-        for symbol in item.data.shape:
+        for symbol in item.value_shape:
             if isinstance(symbol, tuple):  # variadic
                 shape_template.append(f"{symbol[0]},...")
             else:
                 shape_template.append(str(symbol))
         result["shape_template"] = shape_template
 
-    elif isinstance(item.data.type, UnionType):
-        result["type"] = [type_to_str(item) for item in item.data.type.__args__]
+    elif isinstance(item.type, UnionType):
+        result["type"] = [type_to_str(item) for item in item.type.__args__]
     else:
         result["type"] = [
-            type_to_str(item.data.type),  # type: ignore
+            type_to_str(item.type),  # type: ignore
         ]
     return result
