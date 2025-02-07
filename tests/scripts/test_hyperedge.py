@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import get_origin
 
 import pytest
 
@@ -35,7 +34,7 @@ from mithril.framework.constraints import reduce_constraints, reduce_type_constr
 def test_init_with_tensor_default_type():
     edge = IOHyperEdge(Tensor[int | float | bool])
     assert (
-        get_origin(edge.edge_type) is Tensor
+        edge.is_tensor
         and isinstance(edge._value, Tensor)
         and edge.value_type == int | float | bool
         and edge.value is TBD
@@ -48,7 +47,7 @@ def test_init_with_tensor_default_type():
 def test_init_with_tensor_int_or_float_type():
     edge = IOHyperEdge(Tensor[int | float])
     assert (
-        get_origin(edge.edge_type) is Tensor
+        edge.is_tensor
         and isinstance(edge._value, Tensor)
         and edge.value_type == int | float
         and edge.value is TBD
@@ -61,7 +60,7 @@ def test_init_with_tensor_int_or_float_type():
 def test_init_with_tensor_type_tensor_value():
     edge = IOHyperEdge(Tensor[int | float], value=Tensor([[2.0]]))
     assert (
-        get_origin(edge.edge_type) is Tensor
+        edge.is_tensor
         and isinstance(edge._value, Tensor)
         and edge.value_type is float
         and edge.value == [[2.0]]
@@ -126,11 +125,7 @@ def test_set_tensor_type():
     assert edge.edge_type is ToBeDetermined and edge._value is TBD and edge.value is TBD
     assert edge.shape is None
     edge.set_type(Tensor[int | float | bool])
-    assert (
-        get_origin(edge.edge_type) is Tensor
-        and isinstance(edge._value, Tensor)
-        and edge.value is TBD
-    )
+    assert edge.is_tensor and isinstance(edge._value, Tensor) and edge.value is TBD
     assert edge.value_type == int | float | bool
     assert isinstance(edge.shape, ShapeNode)
     assert edge in edge._value.referees
@@ -142,11 +137,7 @@ def test_set_generic_tensor_type():
     assert edge.edge_type is ToBeDetermined and edge._value is TBD and edge.value is TBD
     assert edge.shape is None
     edge.set_type(Tensor[int | float])
-    assert (
-        get_origin(edge.edge_type) is Tensor
-        and isinstance(edge._value, Tensor)
-        and edge.value is TBD
-    )
+    assert edge.is_tensor and isinstance(edge._value, Tensor) and edge.value is TBD
     assert edge.value_type == int | float
     assert isinstance(edge.shape, ShapeNode)
     assert edge in edge._value.referees
@@ -191,7 +182,7 @@ def test_init_with_tensor_value():
     tensor: Tensor[float] = Tensor([[2.0]], shape=shape_node)
     edge = IOHyperEdge(value=tensor)
     assert (
-        get_origin(edge.edge_type) is Tensor
+        edge.is_tensor
         and isinstance(edge._value, Tensor)
         and edge.value_type is float
         and edge.value == [[2.0]]
@@ -210,7 +201,7 @@ def test_set_non_typed_edge_with_tensor_value():
     edge = IOHyperEdge()
     edge.set_value(tensor)
     assert (
-        get_origin(edge.edge_type) is Tensor
+        edge.is_tensor
         and isinstance(edge._value, Tensor)
         and edge.value_type is float
         and edge.value == [[2.0]]
@@ -229,19 +220,18 @@ def test_set_tensor_edge_with_tensor_value():
     shape_node = ShapeRepr(root=Variadic()).node
     tensor: Tensor[float] = Tensor([[2.0]], shape=shape_node)
     edge = IOHyperEdge(type=Tensor[int | float | bool])
-    inner_tensor = edge._value
     assert isinstance(edge._value, Tensor)
     edge_tensor = edge._value
     edge.set_value(tensor)
     assert (
-        get_origin(edge.edge_type) is Tensor
+        edge.is_tensor
         and isinstance(edge._value, Tensor)
         and edge.value_type is float
         and edge.value == [[2.0]]
     )
     assert (
         isinstance(edge.shape, ShapeNode)
-        and edge.shape.referees == {inner_tensor}
+        and edge.shape.referees == {edge_tensor}
         and tensor.referees == set()
         and edge_tensor.referees == {edge}
     )
@@ -320,11 +310,11 @@ def test_set_scalar_edge_with_different_type_scalar_value():
 
 
 def test_match_tensor_edge_with_tensor_edge_having_common_types():
-    constr1 = Constraint(fn=reduce_constraints, type=UpdateType.SHAPE)
+    constr1 = Constraint(fn=reduce_constraints, types=[UpdateType.SHAPE])
     edge1 = IOHyperEdge(type=Tensor[int | float])
     edge1.add_constraint(constr1)
 
-    constr2 = Constraint(fn=reduce_type_constraint, type=UpdateType.TYPE)
+    constr2 = Constraint(fn=reduce_type_constraint, types=[UpdateType.TYPE])
     edge2 = IOHyperEdge(type=Tensor[float | bool])
     edge2.add_constraint(constr2)
     node2 = edge2.shape
@@ -391,7 +381,7 @@ def test_match_scalar_edge_with_tensor_edge():
 def test_match_untyped_edge_with_tensor_edge():
     edge1 = IOHyperEdge()  # Untyped edge
 
-    constr = Constraint(fn=reduce_type_constraint, type=UpdateType.TYPE)
+    constr = Constraint(fn=reduce_type_constraint, types=[UpdateType.TYPE])
     edge2 = IOHyperEdge(type=Tensor[float | bool])
     edge2.add_constraint(constr)
     node2 = edge2.shape
@@ -417,7 +407,7 @@ def test_match_untyped_edge_with_tensor_edge():
 def test_match_untyped_edge_with_scalar_edge():
     edge1 = IOHyperEdge()  # Untyped edge
 
-    constr = Constraint(fn=reduce_type_constraint, type=UpdateType.TYPE)
+    constr = Constraint(fn=reduce_type_constraint, types=[UpdateType.TYPE])
     edge2 = IOHyperEdge(type=float | bool)
     edge2.add_constraint(constr)
 
@@ -431,7 +421,7 @@ def test_match_untyped_edge_with_scalar_edge():
 def test_match_scalar_edge_with_untyped_edge():
     edge1 = IOHyperEdge()  # Untyped edge
 
-    constr = Constraint(fn=reduce_type_constraint, type=UpdateType.TYPE)
+    constr = Constraint(fn=reduce_type_constraint, types=[UpdateType.TYPE])
     edge2 = IOHyperEdge(type=float | bool)
     edge2.add_constraint(constr)
 
@@ -445,7 +435,7 @@ def test_match_scalar_edge_with_untyped_edge():
 def test_match_mixed_type_edge_with_tensor_edge():
     edge1 = IOHyperEdge(type=Tensor[int | float] | int | float)  # Mixed type edge.
 
-    constr = Constraint(fn=reduce_type_constraint, type=UpdateType.TYPE)
+    constr = Constraint(fn=reduce_type_constraint, types=[UpdateType.TYPE])
     edge2 = IOHyperEdge(type=Tensor[float | bool])
     edge2.add_constraint(constr)
     node2 = edge2.shape
@@ -473,7 +463,7 @@ def test_match_mixed_type_edge_with_tensor_edge():
 def test_match_mixed_type_edge_with_scalar_edge():
     edge1 = IOHyperEdge(type=Tensor[int | float] | int | float)  # Mixed type edge.
 
-    constr = Constraint(fn=reduce_type_constraint, type=UpdateType.TYPE)
+    constr = Constraint(fn=reduce_type_constraint, types=[UpdateType.TYPE])
     edge2 = IOHyperEdge(type=float | bool)
     edge2.add_constraint(constr)
 
@@ -488,7 +478,7 @@ def test_match_mixed_type_edge_with_scalar_edge():
 def test_match_mixed_type_edge_with_mixed_type_edge_1():
     edge1 = IOHyperEdge(type=Tensor[int | float] | int | float)  # Mixed type edge.
 
-    constr = Constraint(fn=reduce_type_constraint, type=UpdateType.TYPE)
+    constr = Constraint(fn=reduce_type_constraint, types=[UpdateType.TYPE])
     edge2 = IOHyperEdge(type=float | bool | Tensor[float | bool])
     edge2.add_constraint(constr)
 
@@ -503,7 +493,7 @@ def test_match_mixed_type_edge_with_mixed_type_edge_1():
 def test_match_mixed_type_edge_with_mixed_type_edge_2():
     edge1 = IOHyperEdge(type=Tensor[int | float] | int | float)  # Mixed type edge.
 
-    constr = Constraint(fn=reduce_type_constraint, type=UpdateType.TYPE)
+    constr = Constraint(fn=reduce_type_constraint, types=[UpdateType.TYPE])
     edge2 = IOHyperEdge(type=float | bool | Tensor[bool])
     edge2.add_constraint(constr)
 
@@ -518,7 +508,7 @@ def test_match_mixed_type_edge_with_mixed_type_edge_2():
 def test_match_mixed_type_edge_with_mixed_type_edge_3():
     edge1 = IOHyperEdge(type=Tensor[int | float] | int | float)  # Mixed type edge.
 
-    constr = Constraint(fn=reduce_type_constraint, type=UpdateType.TYPE)
+    constr = Constraint(fn=reduce_type_constraint, types=[UpdateType.TYPE])
     edge2 = IOHyperEdge(type=float | bool | Tensor[int | float | bool])
     edge2.add_constraint(constr)
 
@@ -533,7 +523,7 @@ def test_match_mixed_type_edge_with_mixed_type_edge_3():
 def test_list_of_tensor_type_edge_match():
     edge1 = IOHyperEdge(type=list[Tensor[int | float | bool]])
 
-    constr = Constraint(fn=reduce_type_constraint, type=UpdateType.TYPE)
+    constr = Constraint(fn=reduce_type_constraint, types=[UpdateType.TYPE])
     edge2 = IOHyperEdge(type=list[Tensor[int | float]])
     edge2.add_constraint(constr)
 
@@ -556,7 +546,7 @@ def test_list_of_tensor_type_edge_match_with_list_of_tensor_value_edge():
     value: list[Tensor[int | float]] = [Tensor(1.0), Tensor(2), Tensor(3.0)]
     edge1 = IOHyperEdge(value=value)
 
-    constr = Constraint(fn=reduce_type_constraint, type=UpdateType.TYPE)
+    constr = Constraint(fn=reduce_type_constraint, types=[UpdateType.TYPE])
     edge2 = IOHyperEdge(type=list[Tensor[int | float]])
     edge2.add_constraint(constr)
 
@@ -583,7 +573,7 @@ def test_list_of_tensor_value_edge_match_with_list_of_tensor_value_edge_1():
     assert value1[1].referees == {edge1}
     assert value1[2].referees == {edge1}
 
-    constr = Constraint(fn=reduce_type_constraint, type=UpdateType.TYPE)
+    constr = Constraint(fn=reduce_type_constraint, types=[UpdateType.TYPE])
     value2: list[Tensor[int | float]] = [Tensor(), Tensor(), Tensor()]
     edge2 = IOHyperEdge(value=value2)
     assert edge2._value == value2
@@ -621,7 +611,7 @@ def test_list_of_tensor_value_edge_match_with_list_of_tensor_value_edge_2():
     assert value1[1].referees == {edge1}
     assert value1[2].referees == {edge1}
 
-    constr = Constraint(fn=reduce_type_constraint, type=UpdateType.TYPE)
+    constr = Constraint(fn=reduce_type_constraint, types=[UpdateType.TYPE])
     value2: list[Tensor[int | float]] = [Tensor(), Tensor(), Tensor(4)]
     edge2 = IOHyperEdge(value=value2)
     assert edge2._value == value2
@@ -659,7 +649,7 @@ def test_list_of_tensor_value_edge_match_with_list_of_tensor_value_edge_reverse(
     assert value1[1].referees == {edge1}
     assert value1[2].referees == {edge1}
 
-    constr = Constraint(fn=reduce_type_constraint, type=UpdateType.TYPE)
+    constr = Constraint(fn=reduce_type_constraint, types=[UpdateType.TYPE])
     value2: list[Tensor[int | float]] = [Tensor(), Tensor(), Tensor()]
     edge2 = IOHyperEdge(value=value2)
     assert edge2._value == value2
@@ -701,7 +691,7 @@ def test_tuple_of_tensor_value_edge_match_with_tuple_of_tensor_value_edge():
     assert value1[1].referees == {edge1}
     assert value1[2].referees == {edge1}
 
-    constr = Constraint(fn=reduce_type_constraint, type=UpdateType.TYPE)
+    constr = Constraint(fn=reduce_type_constraint, types=[UpdateType.TYPE])
     value2: tuple[Tensor[int | float | bool], ...] = (Tensor(), Tensor(), Tensor())
     edge2 = IOHyperEdge(value=value2)
     assert edge2._value == value2

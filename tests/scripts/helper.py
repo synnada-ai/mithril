@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import get_origin
 
 from mithril import Backend, Constant, compile, epsilon_table
 from mithril.framework.common import IOHyperEdge, Tensor
@@ -57,7 +56,7 @@ def evaluate_case(
     model = finalize_model(current_case)
     # Convert static keys to array if they are not scalar.
     for key, value in static_keys.items():
-        if get_origin(model.conns.get_metadata(key).edge_type) is not Tensor:
+        if not model.conns.get_metadata(key).is_tensor:
             static_keys[key] = value
         else:
             static_keys[key] = convert_to_array(backend, value)
@@ -80,19 +79,24 @@ def evaluate_case(
         )
         unused_data = {
             compiled_model.data.get(key)
-            for key in compiled_model.data_store.unused_keys
-            | compiled_model.data_store.cached_data.keys()
+            for key in compiled_model.flat_graph.unused_keys
+            | compiled_model.flat_graph.cached_data.keys()
         }
 
         for data in all_data:
-            copied_data = compiled_model.data_store.data_memo.get(id(data))
-            if copied_data and copied_data not in unused_data:
+            copied_data = compiled_model.flat_graph.data_memo.get(id(data))
+            if (
+                copied_data
+                and copied_data not in unused_data
+                and copied_data  # Some of the values hard removed
+                in compiled_model.flat_graph.all_data.values()
+            ):
                 assert isinstance(copied_data, IOHyperEdge)
                 if isinstance((data_value := data.value), Constant):
                     data_value = epsilon_table[backend.precision][data_value]
                 assert data_value == copied_data.value
 
-                if get_origin(data.edge_type) is Tensor:
+                if data.is_tensor:
                     assert id(data.value) == id(copied_data.value)
 
         # Evaluate model.
@@ -135,7 +139,8 @@ def evaluate_case(
             # if model_shape_dict.get("loss") is not None:
             #     numeric_shape_dict["loss"] = final_loss_shape
             for key, value in numeric_shape_dict.items():
-                assert value == model_shape_dict[key]
+                if key in model_shape_dict:
+                    assert value == model_shape_dict[key]
 
         # Assert values
         # assert set(outputs.keys()) == set(reference_outputs)

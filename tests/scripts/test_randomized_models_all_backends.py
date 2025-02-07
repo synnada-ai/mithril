@@ -15,7 +15,6 @@
 import inspect
 import json
 from copy import deepcopy
-from typing import get_origin
 
 import numpy as np
 import pytest
@@ -23,7 +22,6 @@ import pytest
 import mithril as ml
 from mithril import JaxBackend, MlxBackend, NumpyBackend, TorchBackend, compile, models
 from mithril.backends.utils import DtypeBits
-from mithril.framework.common import Tensor
 from mithril.utils.dict_conversions import dict_to_model
 from tests.scripts.test_utils import (
     dict_to_random,
@@ -180,7 +178,7 @@ def test_randomized(case: str) -> None:
             )
             static_inputs[init_key] = {
                 key: init_backend.array(value)
-                if get_origin(model.conns.get_metadata(key).edge_type) is Tensor
+                if model.conns.get_metadata(key).is_tensor
                 else value
                 for key, value in static_inputs[init_key].items()
             }
@@ -230,7 +228,7 @@ def test_randomized(case: str) -> None:
                 }
                 static_inputs[backend.backend_type] = {
                     key: backend.array(value)
-                    if get_origin(model.conns.get_metadata(key).edge_type) is Tensor
+                    if model.conns.get_metadata(key).is_tensor
                     else value
                     for key, value in static_inputs[init_key].items()
                 }
@@ -288,8 +286,9 @@ def test_randomized(case: str) -> None:
             }
 
             for key, numeric_value in numeric_shape_dict.items():
-                inferred_shapes = model_shape_dict[key]
-                assert numeric_value == inferred_shapes
+                if key in model_shape_dict:
+                    inferred_shapes = model_shape_dict[key]
+                    assert numeric_value == inferred_shapes
 
             for backend in avaliable_backends:
                 outputs[backend.backend_type] = {

@@ -15,7 +15,7 @@
 import inspect
 import re
 from collections.abc import Callable, Mapping, Sequence
-from typing import Any, get_origin
+from typing import Any
 
 import numpy as np
 
@@ -295,10 +295,7 @@ def get_all_nodes(model: BaseModel):
     # recursively gets the all shape in the model (ShapeNode)
     all_data = get_all_data(model)
     node_set = {
-        data.shape
-        for data in all_data
-        if get_origin(data.edge_type) is Tensor
-        if data.shape is not None
+        data.shape for data in all_data if data.is_tensor if data.shape is not None
     }
     return node_set
 

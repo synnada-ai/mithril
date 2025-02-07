@@ -20,7 +20,6 @@ import warnings
 from collections.abc import Mapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import get_origin
 
 from ...backends.backend import Backend, ParallelBackend
 from ...core import DataType, GenericDataType
@@ -57,7 +56,6 @@ from ..logical.base import BaseModel
 from ..logical.model import Model
 from ..logical.primitive import PrimitiveModel
 from ..utils import define_unique_names
-from .data_store import StaticDataStore
 from .flat_graph import FlatGraph
 
 __all__ = ["PhysicalModel"]
@@ -175,13 +173,16 @@ class PhysicalModel(GenericDataType[DataType]):
         self.inference = inference
 
         # Initialize flat graph and data store.
-        self.flat_graph: FlatGraph[DataType] = FlatGraph(
-            self._input_keys, self._output_keys
-        )
         memo: dict[int, IOHyperEdge] = {}
-        self.data_store: StaticDataStore[DataType] = StaticDataStore(
-            self.flat_graph, backend, inference, model.constraint_solver, memo
+
+        self.flat_graph: FlatGraph[DataType] = FlatGraph(
+            self._input_keys,
+            self._output_keys,
+            self.backend,
+            model.constraint_solver,
+            memo,
         )
+
         # Initialize an Updates object to store updates and pass it to the
         # _pre_compile.
         updates = Updates()
@@ -189,7 +190,7 @@ class PhysicalModel(GenericDataType[DataType]):
             model_shapes = {}
             if safe_shapes and p_model.safe_shapes:
                 model_shapes = create_shape_map(
-                    p_model.safe_shapes, self.data_store.constraint_solver
+                    p_model.safe_shapes, self.flat_graph.constraint_solver
                 )
 
             model_data: dict[str, IOHyperEdge] = {}
@@ -204,7 +205,7 @@ class PhysicalModel(GenericDataType[DataType]):
                 elif global_key in self._trainable_tensor_inputs:
                     # if physical_data.edge_type not in (Tensor, ToBeDetermined):
                     if not (
-                        get_origin(physical_data.edge_type) is Tensor
+                        physical_data.is_tensor
                         or physical_data.edge_type is ToBeDetermined
                     ):
                         raise ValueError(
@@ -220,11 +221,11 @@ class PhysicalModel(GenericDataType[DataType]):
                     physical_data.differentiable = True
 
                 model_data[key] = physical_data
-                self.data_store.data_memo[id(logical_data)] = physical_data
+                self.flat_graph.data_memo[id(logical_data)] = physical_data
 
                 if key_shape := model_shapes.get(key):
                     data = model_data[key]
-                    assert get_origin(data.edge_type) is Tensor
+                    assert data.is_tensor
                     shp = data.shape
                     assert shp is not None
                     # assert shp is not None
@@ -232,7 +233,7 @@ class PhysicalModel(GenericDataType[DataType]):
 
             # Since we may update type and shape, we need to call constraint
             # solver to propagate updates.
-            self.data_store.constraint_solver(updates)
+            self.flat_graph.constraint_solver(updates)
 
             output = PrimitiveModel.output_key
             _data_dict: dict[str, IOHyperEdge] = {}
@@ -242,7 +243,7 @@ class PhysicalModel(GenericDataType[DataType]):
                 outer_key = mappings[inner_key]
                 if outer_key not in self.data:
                     _data_dict[outer_key] = model_data[inner_key]
-            self.data_store.update_data(_data_dict)
+            self.flat_graph.update_data(_data_dict)
 
             # NOTE: maybe move adding cache to generate_code methods.
             if self.backend.backend_type == "numpy":
@@ -256,14 +257,11 @@ class PhysicalModel(GenericDataType[DataType]):
                 # Create A object for caches in manualgrad backend.
                 cache_scalar = IOHyperEdge(type=dict | type(None), value=cache_value)
 
-                self.data_store.update_data({cache_name: cache_scalar})
+                self.flat_graph.update_data({cache_name: cache_scalar})
 
             self.flat_graph.add_value(p_model, mappings)
 
-        self.data_store.set_random_seed_keys(self.flat_graph.random_keys)
-
-        for cached_key in list(self.data_store.cached_data.keys()):
-            self.data_store.infer_unused_keys(cached_key)
+        self.flat_graph.set_random_seed_keys(self.flat_graph.random_keys)
 
         # First part of the pm with all the inferences.
         self._pre_compile(
@@ -275,7 +273,7 @@ class PhysicalModel(GenericDataType[DataType]):
         # If shape_names is True, all data (not params) provided in
         # runtime must be manually named in logical model.
         if safe_names:
-            runtime_data_keys = self.data_store.runtime_static_keys
+            runtime_data_keys = self.flat_graph.runtime_static_keys
             unnamed_inputs = model.input_keys - self._input_keys - self.discarded_keys
             unnamed_data_keys = sorted(
                 [
@@ -302,7 +300,7 @@ class PhysicalModel(GenericDataType[DataType]):
 
     @property
     def _random_seeds(self) -> dict[str, int]:
-        return self.data_store._random_seeds
+        return self.flat_graph.random_seeds
 
     def _convert_key(self, model: BaseModel, key: str | Connection) -> str:
         if isinstance(key, Connection):
@@ -397,7 +395,7 @@ class PhysicalModel(GenericDataType[DataType]):
         if model is not None:
             # Find corresponding data from self.data_store_data_memo.
             data_dict = {
-                key: self.data_store.data_memo[id(value.metadata)]
+                key: self.flat_graph.data_memo[id(value.metadata)]
                 for key, value in model.conns.all.items()
             }
             key_mappings = model.generate_keys(include_outputs=True)
@@ -416,7 +414,7 @@ class PhysicalModel(GenericDataType[DataType]):
 
     @property
     def data(self) -> dict[str, IOHyperEdge]:
-        return self.data_store.all_data
+        return self.flat_graph.all_data
 
     @property
     def shapes(self) -> ShapeResultType:
@@ -435,7 +433,7 @@ class PhysicalModel(GenericDataType[DataType]):
         # that have a Tensor type output.
         output_key = PrimitiveModel.output_key
         output_edge = model_data[output_key]
-        if get_origin(output_edge.edge_type) is Tensor:
+        if output_edge.is_tensor:
             # If any of the inputs are differentiable, then
             # the output is also differentiable.
             for key, value in model_data.items():
@@ -475,7 +473,7 @@ class PhysicalModel(GenericDataType[DataType]):
         shapes: dict[str, DataType] = {}
         # Initialize default non-randomized keys.
         non_randomized_keys = (
-            self.data_store.all_static_keys | self.data_store.unused_keys
+            self.flat_graph.all_static_keys | self.flat_graph.unused_keys
         )
         if excluded_keys is not None:
             # If any additional keys to be excluded for randomization, add them.
@@ -527,79 +525,35 @@ class PhysicalModel(GenericDataType[DataType]):
         self.ignore_grad_keys: set[str] = set()
 
         # Set given shapes.
-        self.data_store.set_shapes(shapes)
-
-        self.flat_graph.prune_duplicate_nodes(self.data, constant_keys)
-
-        updates = Updates()
-        reverse_data_memo = {
-            value: key for key, value in self.data_store.data_memo.items()
-        }
-
-        for key, conn_key in self.flat_graph.unnecessary_keys.items():
-            pruned_data = self.data[key]
-            remained_data = self.data[conn_key]
-
-            # find the occurrence of pruned data in data memo and replace it with
-            # remained data
-            logical_id = reverse_data_memo[pruned_data]
-            self.data_store.data_memo[logical_id] = remained_data
-
-            if key in self.flat_graph.pruned_keys:
-                updates |= remained_data.match(pruned_data)
-            self.data[key] = remained_data
-
-        for value in self.data_store.intermediate_non_differentiables.inverse:
-            # there can exist some inferred intermediate scalar keys in logical model.
-            # find those keys and add to cached datas
-            if (get_origin(value.edge_type) is not Tensor) and (value.value is not TBD):
-                updates.add(value)
-
-        self.data_store.update_cached_data(updates)
-
-        self.data_store.constraint_solver(updates)
+        self.flat_graph.set_shapes(shapes)
 
         # Set given static keys
-        self.data_store.set_static_keys(constant_keys)
-
-        # Extract idle keys which are not an output
-        # of the model nor an input to a PrimitiveModel.
-        self.discarded_keys |= {
-            key for key in self.flat_graph.hanging_keys if key not in self.output_keys
-        }
-
-        self.discarded_keys, self._output_keys = self.infer_ignore(
-            self.discarded_keys, self._output_keys
-        )
-
-        # TODO: Should we store ignored_grad_keys and discarded_keys
-        # as attributes?
-        self.ignore_grad_keys |= self.discarded_keys
-
-        self.data_store.remove_keys_from_store(
-            self.discarded_keys | self.flat_graph.unnecessary_keys.keys()
-        )
+        self.flat_graph.set_static_keys(constant_keys)
 
         # Infer and store all static keys using user provided constant keys and
         # the non-tensor constants defined in logical model.
-        self.data_store.infer_static_keys()
+        self.flat_graph.infer_static_keys()
 
         # Check if there exists any unused keys in the provided data_keys.
         # TODO: Consider to remove this check. Same check is done in
         # data_store's add_static_data.
         for key in data_keys:
-            if key in self.data_store._unused_keys:
+            if key in self.flat_graph.unused_keys:
                 raise ValueError(
                     f"Given '{key}' key is unused for the model, "
                     "no need to provide data for it."
                 )
 
-        # Add non-tensor, valued and valued dropped data to ignored_grad_keys.
-        self.ignore_grad_keys |= {
-            key
-            for key, value in self.flat_graph.dropped_keys.items()
-            if value in self.data_store.data_values
+        self.flat_graph.prune_duplicate_nodes(self.data, constant_keys)
+
+        self.discarded_keys |= {
+            key for key in self.flat_graph.hanging_keys if key not in self.output_keys
         }
+
+        self.discarded_keys, self._output_keys = self.flat_graph.infer_ignore(
+            self.discarded_keys, self._output_keys
+        )
+
         for node in self.flat_graph.nodes.values():
             _key = node.connections["output"].key
             conn_edge = self.data.get(_key, None)
@@ -607,12 +561,12 @@ class PhysicalModel(GenericDataType[DataType]):
             # but not unnecessary in flat_graph. This case should be handled when
             # flat_graph - data_store integration is updated.
             if conn_edge is not None and (
-                (get_origin(conn_edge.edge_type) is not Tensor)
+                (not conn_edge.is_tensor)
                 or (
                     (not find_intersection_type(float, conn_edge.value_type))
                     or _key
                     in (
-                        self.data_store.data_values.keys() | self.data_store.unused_keys
+                        self.flat_graph.cached_data.keys() | self.flat_graph.unused_keys
                     )
                 )
             ):
@@ -635,72 +589,6 @@ class PhysicalModel(GenericDataType[DataType]):
         )
         self._generated_evaluate_all_fn: EvaluateAllType[DataType] | None = eval_all_fn
 
-    def infer_ignore(
-        self,
-        weak_keys: set[str],
-        output_keys: set[str],
-        strict_keys: set[str] | None = None,
-        update_graph: bool = True,
-    ) -> tuple[set[str], set[str]]:
-        """
-        Infers the keys which will be ignored
-
-
-        Parameters
-        ----------
-        keys : set[str]
-            output keys that will be ignored,
-            it must be given from user during compilation
-
-        output_keys: tuple[str, ...]
-            output keys of the model
-
-        Returns
-        -------
-        tuple[Callable, Callable]
-            _description_
-
-
-        Returns
-        -------
-        tuple[set[str], tuple[str, ...]]
-            Returns keys that will be ignored during ignore keys inference algorithm
-            also returns updated output_keys in a tuple
-        """
-        if strict_keys is None:
-            strict_keys = set()
-
-        # Remove non_leaf ignored keys from output keys and ignored keys
-        # e.g. Logistic Regression output (logits) is also an input to probs_out
-        # in this case logits_out will become an internal key.
-        keys = weak_keys | strict_keys
-        non_leaf_keys = {
-            key
-            for key in weak_keys
-            if key in self.flat_graph.all_source_keys and key in output_keys
-        }
-        # Internal keys will be removed from output_keys but also they will
-        # be removed from current ignored keys.
-        keys -= non_leaf_keys
-        output_keys -= non_leaf_keys
-
-        queue = keys.copy()
-        while queue:
-            key = queue.pop()
-            # try forward inference (check if any inference is possible
-            # from inputs to outputs)
-            self.flat_graph.infer_ignore_step(key, keys, queue, from_source=True)
-            # try bacward inference (check if any inference possible
-            # from outputs to inputs)
-            self.flat_graph.infer_ignore_step(key, keys, queue, from_source=False)
-
-            if update_graph:
-                self.flat_graph.remove_key(key)
-                output_keys.discard(key)
-                self._input_keys.discard(key)
-
-        return keys, output_keys
-
     def _calculate_parameters(
         self,
         name_mappings: dict[BaseModel, str],
@@ -715,9 +603,9 @@ class PhysicalModel(GenericDataType[DataType]):
 
         pm_trainables = (
             self._input_keys
-            - self.data_store.data_values.keys()
-            - self.data_store.unused_keys
-            - self.data_store.runtime_static_keys
+            - self.flat_graph.cached_data.keys()
+            - self.flat_graph.unused_keys
+            - self.flat_graph.runtime_static_keys
         )
         for model, model_name in name_mappings.items():
             key_mappings = model.generate_keys(include_outputs=True)
@@ -730,7 +618,7 @@ class PhysicalModel(GenericDataType[DataType]):
                     continue
 
                 data = model.conns.get_data(key)
-                pm_data = self.data_store.data_memo[id(data)]
+                pm_data = self.flat_graph.data_memo[id(data)]
                 pm_key_list = data_to_key_map.get(pm_data, [None])
                 pm_key = pm_key_list[0]
                 if pm_key not in pm_trainables:
@@ -780,14 +668,14 @@ class PhysicalModel(GenericDataType[DataType]):
     ) -> None:
         # Find constant inputs of the model.
         pm_constant_input_keys = (
-            self._input_keys - self.data_store.unused_keys
-        ) & self.data_store.cached_data.keys()
+            self._input_keys - self.flat_graph.unused_keys
+        ) & self.flat_graph.cached_data.keys()
         # Find Runtime static keys of the model (values appeared in data dict)
-        pm_runtime_static_keys = self.data_store.runtime_static_keys
+        pm_runtime_static_keys = self.flat_graph.runtime_static_keys
         # Find Trainable keys of the model (values appeared in params dict)
         pm_trainable_keys = (
             self._input_keys
-            - self.data_store.unused_keys
+            - self.flat_graph.unused_keys
             - pm_constant_input_keys
             - pm_runtime_static_keys
         )
@@ -800,7 +688,7 @@ class PhysicalModel(GenericDataType[DataType]):
             projected_keys: set[str] = set()
             for conn in model.conns.all.values():
                 if (
-                    data := self.data_store.data_memo.get(id(conn.metadata))
+                    data := self.flat_graph.data_memo.get(id(conn.metadata))
                 ) is not None and (pm_keys := data_to_key_map.get(data)):
                     projected_keys.update(pm_keys)
 
@@ -852,7 +740,7 @@ class PhysicalModel(GenericDataType[DataType]):
             raise ValueError("Depth cannot be specified when model is not given")
         if model is not None:
             sample_data = next(iter(model.conns.metadata_dict))
-            if self.data_store.data_memo.get(id(sample_data)) is None:
+            if self.flat_graph.data_memo.get(id(sample_data)) is None:
                 raise ValueError("Given model is not a part of compiled model")
 
         # If model is not None, create data to key map. this dict will point
@@ -870,12 +758,12 @@ class PhysicalModel(GenericDataType[DataType]):
             dag = model.dag if isinstance(model, Model) else [model]
             name_mappings = define_unique_names(dag)
             conn_info = model.extract_connection_info(
-                name_mappings, data_to_key_map, self.data_store.data_memo
+                name_mappings, data_to_key_map, self.flat_graph.data_memo
             )
         else:
             # Remove unused models and cached models
             all_models = list(self.flat_graph.get_models())
-            for key in self.data_store.unused_keys | self.data_store.cached_data.keys():
+            for key in self.flat_graph.unused_keys | self.flat_graph.cached_data.keys():
                 if (
                     unused_model := self.flat_graph.connections.get(key)
                 ) is not None and unused_model.node is not None:
@@ -908,7 +796,7 @@ class PhysicalModel(GenericDataType[DataType]):
 
             if types:
                 # extract the type info if necessary
-                type_info = get_summary_types(name_mappings, self.data_store.data_memo)
+                type_info = get_summary_types(name_mappings, self.flat_graph.data_memo)
 
             # if verbose, find the name of the model and create the table object and
             # display it based on extracted infos
@@ -960,9 +848,9 @@ class PhysicalModel(GenericDataType[DataType]):
                     # model. Indicate it accordingly
                     input_name = "'" + connection.key + "'"
                     input_data = model.conns.all[input_key].metadata
-                    if get_origin(input_data.edge_type) is not Tensor:
+                    if not input_data.is_tensor:
                         # If value of the scalar is determined, write that value
-                        pm_input_data = self.data_store.data_memo[id(input_data)]
+                        pm_input_data = self.flat_graph.data_memo[id(input_data)]
                         if (val := pm_input_data.value) is not TBD:
                             input_name = str(val)
                     conn_info[model_name][0][input_key] = [input_name]
@@ -1001,13 +889,13 @@ class PhysicalModel(GenericDataType[DataType]):
         return conn_info
 
     def set_random_seed_values(self, **seed_mapping: int) -> None:
-        self.data_store.set_random_seed_values(**seed_mapping)
+        self.flat_graph.set_random_seed_values(**seed_mapping)
 
     def _step_random_seed_values(self) -> None:
-        for key, value in self.data_store._random_seeds.items():
+        for key, value in self.flat_graph.random_seeds.items():
             random.seed(value)
             new_seed = random.randint(0, 2**14)
-            self.data_store._random_seeds[key] = new_seed
+            self.flat_graph.random_seeds[key] = new_seed
 
     def _replace_with_primitive(
         self, model: Model, key_mappings: dict[str, str]
@@ -1029,7 +917,7 @@ class PhysicalModel(GenericDataType[DataType]):
         for key, val in unnecessary_keys.items():
             # self.static_keys.pop(val)
             # self.non_differentiables.pop(val)
-            self.data_store.remove_key_from_store(val, label_as_unused=False)
+            self.flat_graph.remove_key_from_store(val, label_as_unused=False)
             self.data.pop(val)
             self._input_keys.discard(val)
             input_keys.remove(key)

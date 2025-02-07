@@ -63,7 +63,7 @@
         },
 
         "results": {
-            "static_keys": ["input1", "output2", "output_0", "output_1", "output_2"]
+            "static_keys": ["output2"]
         }
     },
 
@@ -175,7 +175,7 @@
         },
 
         "results": {
-            "static_keys": ["input1", "output1", "output2", "output_0", "output_1", "output_3"]
+            "static_keys": ["output1", "output2", "output4"]
         }
     },
     "test_composite_3": {
@@ -287,7 +287,7 @@
         },
 
         "results": {
-            "static_keys": ["input2", "output3", "output_4"]
+            "static_keys": ["output3"]
         }
     },
     "test_composite_4": {
@@ -397,7 +397,7 @@
         },
         "inference": true,
         "results": {
-            "static_keys": ["input1", "input2", "output1", "output2", "output3", "output4", "output_0", "output_1", "output_3", "output_4"]
+            "static_keys": ["output1", "output2", "output3", "output4"]
         }
     },
     "test_composite_5": {
@@ -577,7 +577,7 @@
         },
 
         "results": {
-            "static_keys": ["input1", "output1", "output_2"]
+            "static_keys": ["output1"]
         }
     },
     "test_composite_7": {
@@ -662,7 +662,7 @@
         },
 
         "results": {
-            "static_keys": ["input1", "input2", "output1", "output3", "output_0", "output_1"]
+            "static_keys": ["input2", "output1", "output3"]
         }
     },
     "test_composite_8": {
@@ -743,7 +743,7 @@
         },
 
         "results": {
-            "static_keys": ["input2", "input3", "output2", "output_3"]
+            "static_keys": ["output2"]
         }
     }
 }

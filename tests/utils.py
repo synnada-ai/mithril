@@ -91,15 +91,15 @@ def check_physical_models(
         # Check data stores.
         for key, value in pm_1.data.items():
             assert backend.all(value.value == pm_2.data[key].value)  # type: ignore
-        assert pm_1.data_store.cached_data.keys() == pm_2.data_store.cached_data.keys()
+        assert pm_1.flat_graph.cached_data.keys() == pm_2.flat_graph.cached_data.keys()
         assert (
-            pm_1.data_store.intermediate_non_differentiables._table.keys()
-            == pm_2.data_store.intermediate_non_differentiables._table.keys()
+            pm_1.flat_graph.intermediate_non_differentiables._table.keys()
+            == pm_2.flat_graph.intermediate_non_differentiables._table.keys()
         )
         assert (
-            pm_1.data_store.runtime_static_keys == pm_2.data_store.runtime_static_keys
+            pm_1.flat_graph.runtime_static_keys == pm_2.flat_graph.runtime_static_keys
         )
-        assert pm_1.data_store.unused_keys == pm_2.data_store.unused_keys
+        assert pm_1.flat_graph.unused_keys == pm_2.flat_graph.unused_keys
 
     # Initialize parameters.
     params_1, params_2 = init_params(backend, pm_1, pm_2)
