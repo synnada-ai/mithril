@@ -28,9 +28,6 @@ from mithril.backends.utils import DtypeBits
 from mithril.framework.common import (
     NOT_GIVEN,
     TBD,
-    Connection,
-    ConnectionType,
-    IOKey,
     Tensor,
     ToBeDetermined,
 )
@@ -42,6 +39,8 @@ from mithril.models import (
     BinaryCrossEntropy,
     Buffer,
     Concat,
+    Connection,
+    ConnectionType,
     Convolution1D,
     Convolution2D,
     CrossEntropy,
@@ -49,6 +48,7 @@ from mithril.models import (
     Flatten,
     Greater,
     Indexer,
+    IOKey,
     LeakyRelu,
     Linear,
     Log,

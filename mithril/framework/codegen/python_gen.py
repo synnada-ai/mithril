@@ -31,7 +31,7 @@ from ..common import (
     EvaluateType,
     ParamsEvalType,
 )
-from ..logical import PrimitiveModel
+from ..logical import Operator
 from ..physical.model import PhysicalModel
 from ..utils import GeneratedFunction
 from .code_gen import CodeGen
@@ -307,7 +307,7 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
 
     def get_primitive_details(
         self, output_key: str
-    ) -> tuple[PrimitiveModel, list[str], list[str]]:
+    ) -> tuple[Operator, list[str], list[str]]:
         model = self.pm.flat_graph.get_model(output_key)
 
         global_input_keys = self.pm.flat_graph.get_source_keys(output_key)
@@ -317,7 +317,7 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
 
     def call_primitive(
         self,
-        model: PrimitiveModel,
+        model: Operator,
         fn: Callable[..., Any],
         l_input_keys: list[str],
         g_input_keys: list[str],
@@ -354,7 +354,6 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
         for output_key in self.pm.flat_graph.topological_order:
             model, g_input_keys, l_input_keys = self.get_primitive_details(output_key)
             formula_key = model.formula_key
-
             primitive_function = (
                 self.pm.backend.primitive_function_dict[formula_key]
                 if formula_key in self.pm.backend.primitive_function_dict
@@ -568,7 +567,7 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
         return generated_fn, used_keys
 
     def create_primitive_call_targets(
-        self, output_key: str, model: PrimitiveModel, inference: bool
+        self, output_key: str, model: Operator, inference: bool
     ) -> tuple[list[ast.expr], set[str]]:
         if (
             keyword.iskeyword(output_key)

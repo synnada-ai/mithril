@@ -62,7 +62,7 @@ ignored_models = {
     "Recall",
     "LogicalNot",
     "ToTensor",
-    "PrimitiveModel",
+    "Operator",
     "LessEqual",
     "Greater",
     "LogicalAnd",

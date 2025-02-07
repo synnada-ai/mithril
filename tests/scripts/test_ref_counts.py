@@ -19,8 +19,6 @@ from copy import deepcopy
 from mithril.framework.common import (
     NOT_GIVEN,
     BaseKey,
-    Connection,
-    ConnectionType,
     ShapeTemplateType,
     Tensor,
 )
@@ -28,6 +26,8 @@ from mithril.models import (
     Add,
     BaseModel,
     Buffer,
+    Connection,
+    ConnectionType,
     Convolution1D,
     ExtendInfo,
     IOKey,
@@ -35,12 +35,12 @@ from mithril.models import (
     MatrixMultiply,
     MaxPool1D,
     Model,
-    PrimitiveModel,
     PrimitiveUnion,
     Relu,
     Sigmoid,
     Sum,
 )
+from mithril.models.primitives import PrimitiveModel
 
 from .test_utils import (
     get_all_data,

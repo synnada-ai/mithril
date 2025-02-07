@@ -15,7 +15,7 @@
 
 from mithril import Backend, Constant, compile, epsilon_table
 from mithril.framework.common import IOHyperEdge, Tensor
-from mithril.models import BaseModel, Model, PrimitiveModel, TrainModel
+from mithril.models import BaseModel, Model, Operator, TrainModel
 from mithril.utils.dict_conversions import dict_to_model, model_to_dict
 from tests.scripts.test_utils import (
     assert_all_conn_key_are_same,
@@ -230,12 +230,12 @@ def assert_models_equal(model1: BaseModel, model2: BaseModel):
         model1.factory_args.items(), model2.factory_args.items(), strict=False
     ):
         assert key1 == key2
-        if isinstance(arg1, Model | PrimitiveModel):
+        if isinstance(arg1, Model | Operator):
             assert_models_equal(arg1, arg2)
         else:
             assert arg1 == arg2
 
-    if isinstance(model1, Model) and isinstance(model2, Model):
+    if isinstance(model1, Operator) and isinstance(model2, Operator):
         assert len(model1.dag) == len(model2.dag)
         for submodel1, submodel2 in zip(
             model1.get_models_in_topological_order(),

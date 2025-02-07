@@ -51,11 +51,10 @@ __all__ = [
     "get_shapes",
     "NOT_GIVEN",
     "TBD",
-    "IOKey",
     "KeyType",
-    "ConnectionType",
+    "ConnectionDataType",
+    "ConnectionDataInstanceType",
     "IOHyperEdge",
-    "Connection",
     "ConnectionData",
     "Connections",
     "Tensor",
@@ -103,15 +102,6 @@ class NullConnection(SingletonObject):
     pass
 
 
-class Auto(SingletonObject):
-    """
-    A singleton class representing a configuration
-    setting of automatically handled arguments.
-    """
-
-    pass
-
-
 class ToBeDetermined(SingletonObject):
     """
     A singleton class representing a null data indicating
@@ -123,7 +113,6 @@ class ToBeDetermined(SingletonObject):
 
 NOT_GIVEN = NullConnection()
 TBD = ToBeDetermined()
-AUTO = Auto()
 
 
 class UpdateType(Enum):
@@ -1310,316 +1299,7 @@ class IOHyperEdge:
             self.constraints[type].discard(constraint)
 
 
-class TemplateBase:
-    def __getitem__(
-        self,
-        key: slice
-        | int
-        | EllipsisType
-        | tuple[slice | int | None | EllipsisType | TemplateBase, ...]
-        | IOKey
-        | TemplateBase
-        | None,
-    ) -> ExtendTemplate:
-        match key:
-            case slice():
-                slice_output = ExtendTemplate(
-                    connections=[key.start, key.stop, key.step], model="slice"
-                )
-                output = ExtendTemplate(
-                    connections=[self, slice_output], model="indexer"
-                )
-
-            case int() | EllipsisType() | None:
-                output = ExtendTemplate(connections=[self, key], model="indexer")
-
-            case tuple():
-                connections: list[TemplateBase | int | None | EllipsisType] = []
-                for item in key:
-                    if isinstance(item, slice):
-                        slice_output = ExtendTemplate(
-                            connections=[item.start, item.stop, item.step],
-                            model="slice",
-                        )
-                        connections.append(slice_output)
-                    else:
-                        connections.append(item)
-                tuple_template = ExtendTemplate(
-                    connections=connections,  # type: ignore
-                    model="to_tuple",
-                    defaults={"n": len(key)},
-                )
-                output = ExtendTemplate(
-                    connections=[self, tuple_template], model="indexer"
-                )
-        return output
-
-    def __add__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self, other], model="add")
-
-    def __radd__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[other, self], model="add")
-
-    def __sub__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self, other], model="sub")
-
-    def __rsub__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[other, self], model="sub")
-
-    def __mul__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self, other], model="mul")
-
-    def __rmul__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[other, self], model="mul")
-
-    def __truediv__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self, other], model="div")
-
-    def __rtruediv__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[other, self], model="div")
-
-    def __floordiv__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self, other], model="fdiv")
-
-    def __rfloordiv__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[other, self], model="fdiv")
-
-    def __pow__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(
-            connections=[self, other], model="pow", defaults={"robust": False}
-        )
-
-    def __rpow__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(
-            connections=[other, self], model="pow", defaults={"robust": False}
-        )
-
-    def __matmul__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self, other], model="matmul")
-
-    def __gt__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self, other], model="gt")
-
-    def __rgt__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[other, self], model="gt")
-
-    def __ge__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self, other], model="ge")
-
-    def __rge__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[other, self], model="ge")
-
-    def __lt__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self, other], model="lt")
-
-    def __rlt__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[other, self], model="lt")
-
-    def __le__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self, other], model="le")
-
-    def __rle__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[other, self], model="le")
-
-    def __eq__(self, other: object) -> ExtendTemplate:  # type: ignore[override]
-        if isinstance(
-            other, int | float | bool | list | Connection | IOKey | tuple | Tensor
-        ):
-            return ExtendTemplate(connections=[self, other], model="eq")
-        else:
-            raise ValueError("Unsupported type for equality operation.")
-
-    def __req__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[other, self], model="eq")
-
-    def __ne__(self, other: object) -> ExtendTemplate:  # type: ignore[override]
-        if isinstance(
-            other, int | float | bool | list | Connection | IOKey | tuple | Tensor
-        ):
-            return ExtendTemplate(connections=[self, other], model="ne")
-        else:
-            raise ValueError("Unsupported type for equality operation.")
-
-    def __rne__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[other, self], model="ne")
-
-    def __and__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self, other], model="and")
-
-    def __rand__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[other, self], model="and")
-
-    def __or__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self, other], model="or")
-
-    def __ror__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[other, self], model="or")
-
-    def __xor__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self, other], model="xor")
-
-    def __rxor__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[other, self], model="xor")
-
-    def __lshift__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self, other], model="lshift")
-
-    def __rlshift__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[other, self], model="lshift")
-
-    def __rshift__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self, other], model="rshift")
-
-    def __rrshift__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[other, self], model="rshift")
-
-    def __invert__(self) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self], model="not")
-
-    def __neg__(self) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self], model="minus")
-
-    def abs(self) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self], model="abs")
-
-    def len(self) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self], model="len")
-
-    @property
-    def shape(self) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self], model="shape")
-
-    def reshape(
-        self, shape: tuple[int | TemplateBase, ...] | TemplateBase
-    ) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self, shape], model="reshape")
-
-    def size(
-        self, dim: int | tuple[int, ...] | TemplateBase | None = None
-    ) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self, dim], model="size")
-
-    def tensor(self) -> ExtendTemplate:
-        return ExtendTemplate(
-            connections=[self], model="tensor", defaults={"dtype": None}
-        )
-
-    def mean(
-        self,
-        axis: int | tuple[int, ...] | TemplateBase | None = None,
-        keepdim: bool = False,
-    ) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self, axis, keepdim], model="mean")
-
-    def sum(
-        self,
-        axis: int | tuple[int, ...] | TemplateBase | None = None,
-        keepdim: bool = False,
-    ) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self, axis, keepdim], model="sum")
-
-    def max(
-        self,
-        axis: int | tuple[int, ...] | TemplateBase | None = None,
-        keepdim: bool = False,
-    ) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self, axis, keepdim], model="max")
-
-    def min(
-        self,
-        axis: int | tuple[int, ...] | TemplateBase | None = None,
-        keepdim: bool = False,
-    ) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self, axis, keepdim], model="min")
-
-    def prod(
-        self,
-        axis: int | tuple[int, ...] | TemplateBase | None = None,
-        keepdim: bool = False,
-    ) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self, axis, keepdim], model="prod")
-
-    def var(
-        self,
-        axis: int | tuple[int, ...] | TemplateBase | None = None,
-        keepdim: bool = False,
-        correction: float | None = 0.0,
-    ) -> ExtendTemplate:
-        return ExtendTemplate(
-            connections=[self, axis, keepdim, correction], model="var"
-        )
-
-    def sqrt(self) -> ExtendTemplate:
-        return ExtendTemplate(
-            connections=[self], model="sqrt", defaults={"robust": False}
-        )
-
-    def exp(self) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self], model="exp")
-
-    def transpose(
-        self, axes: tuple[int, ...] | TemplateBase | None = None
-    ) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self, axes], model="transpose")
-
-    def split(self, split_size: int, axis: int) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self, split_size, axis], model="split")
-
-    def item(self) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self], model="item")
-
-    def cast(self, dtype: Dtype | None = None) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self, dtype], model="cast")
-
-    def dtype(self) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self], model="dtype")
-
-    def sin(self) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self], model="sin")
-
-    def cos(self) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self], model="cos")
-
-
-class ExtendTemplate(TemplateBase):
-    output_connection: ConnectionData | None
-
-    def __init__(
-        self,
-        connections: list[TemplateConnectionType],
-        model: str,
-        defaults: dict[str, Any] | None = None,
-    ) -> None:
-        for connection in connections:
-            if isinstance(connection, str):
-                raise ValueError(
-                    "In extend template operations, 'str' is not a valid type."
-                )
-
-        self.connections = connections
-        self.model = model
-
-        if defaults is None:
-            defaults = {}
-        self.defaults = defaults
-        self.output_connection = None
-
-
-@dataclass
 class BaseKey:
-    value: (
-        Tensor[int | float | bool]
-        | ScalarValueType
-        | TensorValueType
-        | ToBeDetermined
-        | str
-    ) = TBD
-    shape: ShapeTemplateType | None = None
-    type: UnionType | type | type[Tensor[int | float | bool]] | ScalarType | None = None
-    interval: list[float | int] | None = None
-
-
-class IOKey(TemplateBase):
     def __init__(
         self,
         name: str | None = None,
@@ -1635,11 +1315,12 @@ class IOKey(TemplateBase):
         | None = None,
         expose: bool | None = None,
         interval: list[float | int] | None = None,
-        connections: set[Connection | str] | None = None,
+        connections: set[ConnectionData | str] | None = None,
     ) -> None:
-        super().__init__()
         # If shape is provided, type should be Tensor.
         if shape is not None:
+            if type is Tensor:
+                type = Tensor[int | float | bool]
             if type is None:
                 type = Tensor[int | float | bool]
             elif get_origin(type) is not Tensor:
@@ -1652,53 +1333,30 @@ class IOKey(TemplateBase):
         self.expose = expose
         if connections is None:
             connections = set()
-        self.connections: set[Connection | str] = connections
-        self.data = BaseKey(value, shape, type, interval)
+        self.connections: set[ConnectionData | str] = connections
         # TODO: Shape should not be [] also!
         if (
-            self.data.value is not TBD
-            and self.data.shape is not None
-            and self.data.shape != []
+            value is not TBD
+            and not isinstance(value, Tensor)
+            and shape is not None
+            and shape != []
         ):
             raise ValueError(
                 f"Scalar values are shapeless, shape should be None or []. "
-                f"Got {self.data.shape}."
+                f"Got {shape}."
             )
 
-        if self.data.value is not TBD and self.data.type is not None:
-            value_type = find_type(self.data.value)
-            if find_intersection_type(value_type, self.data.type) is None:
+        if value is not TBD and type is not None:
+            value_type = find_type(value)
+            if find_intersection_type(value_type, type) is None:
                 raise TypeError(
-                    f"type of the given value and given type does not match. Given "
-                    f"type is {self.data.type} while type of value is {value_type}"
+                    "type of the given value and given type does not match. Given "
+                    f"type is {type} while type of value is {value_type}"
                 )
-
-
-class Connection(TemplateBase):
-    def __init__(self, key: str, metadata: IOHyperEdge, is_key_autogenerated: bool):
-        self.data = ConnectionData(key, metadata, is_key_autogenerated, self)
-
-    @property
-    def key(self) -> str:
-        return self.data.key
-
-    @property
-    def metadata(self) -> IOHyperEdge:
-        return self.data.metadata
-
-    def set_differentiable(self, differentiable: bool = True) -> None:
-        self.data.set_differentiable(differentiable)
-
-    def __hash__(self) -> int:
-        return hash(id(self))
-
-
-ShapesType = (
-    Mapping[str | Connection, ShapeTemplateType]
-    | Mapping[str, ShapeTemplateType]
-    | Mapping[Connection, ShapeTemplateType]
-)
-ShapeResultType = Mapping[str, ShapeTemplateType | list[ShapeTemplateType] | None]
+        self.value = value
+        self.value_shape = shape
+        self.type = type
+        self.interval = interval
 
 
 @dataclass
@@ -1714,7 +1372,6 @@ class ConnectionData:
     metadata: IOHyperEdge
     # TODO: remove is_key_autogenerated field
     is_key_autogenerated: bool
-    conn: Connection
 
     def __hash__(self) -> int:
         return hash(id(self))
@@ -1732,36 +1389,25 @@ class ConnectionData:
             self.metadata.differentiable = differentiable
 
 
-TemplateConnectionType = (
-    TemplateBase
-    | int
-    | float
-    | list[int | float]
-    | EllipsisType
-    | tuple[slice | int | None | EllipsisType | TemplateBase, ...]
-    | None
-    | Tensor[int | float | bool]
+ShapesType = (
+    Mapping[str | ConnectionData, ShapeTemplateType]
+    | Mapping[str, ShapeTemplateType]
+    | Mapping[ConnectionData, ShapeTemplateType]
 )
+ShapeResultType = Mapping[str, ShapeTemplateType | list[ShapeTemplateType] | None]
 
 
-ConnectionType = (
+ConnectionDataType = (
     str
     | MainValueType
-    | ExtendTemplate
     | NullConnection
-    | IOKey
-    | Connection
+    | BaseKey
+    | ConnectionData
     | Tensor[int | float | bool]
 )
 
-ConnectionInstanceType = (
-    str
-    | MainValueInstance
-    | ExtendTemplate
-    | NullConnection
-    | IOKey
-    | Connection
-    | Tensor  # type: ignore
+ConnectionDataInstanceType = (
+    str | MainValueInstance | NullConnection | BaseKey | ConnectionData | Tensor  # type: ignore
 )
 
 
@@ -1875,6 +1521,14 @@ class Connections:
     def get_data(self, key: str) -> IOHyperEdge:
         return self.get_metadata(key)
 
+    def get_type(self, key: ConnectionData) -> KeyType:
+        con_data = self.get_extracted_connection(key)
+        for _key_type in KeyType:
+            key_dict = self._connection_dict[_key_type]
+            if key_dict.get(con_data.key) is not None:
+                return _key_type
+        raise ValueError("No matching key type found!")
+
     def get_non_diff_keys(self) -> set[str]:
         return {key for key, conn in self.all.items() if conn.metadata.is_non_diff}
 
@@ -1921,15 +1575,15 @@ class Connections:
     def set_value(self, con: ConnectionData, value: MainValueType) -> None:
         self.get_data(con.key).set_value(value)
 
-    def extract_metadata(self, key: str | Connection) -> IOHyperEdge:
-        if isinstance(key, Connection):
+    def extract_metadata(self, key: str | ConnectionData) -> IOHyperEdge:
+        if isinstance(key, ConnectionData):
             # Extract the key from the Connection object.
             metadata = key.metadata
         else:
             metadata = self.get_metadata(key)
         return metadata
 
-    def get_extracted_connection(self, key: str | Connection) -> ConnectionData:
+    def get_extracted_connection(self, key: str | ConnectionData) -> ConnectionData:
         if (result := self.get_con_by_metadata(self.extract_metadata(key))) is None:
             raise KeyError("Connection is not found!")
         return result

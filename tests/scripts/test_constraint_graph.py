@@ -21,7 +21,7 @@ from mithril.framework.common import (
     Updates,
     UpdateType,
 )
-from mithril.models import PrimitiveModel, Sigmoid
+from mithril.models import Model, Sigmoid
 
 
 class ConstrGraphTestBase:
@@ -29,7 +29,7 @@ class ConstrGraphTestBase:
     trace_list: list[str]
     result_map: dict[tuple[bool, ...], list[str]]
 
-    def model(self) -> PrimitiveModel:
+    def model(self) -> Model:
         # model with constraint graph
         raise NotImplementedError()
 
@@ -92,11 +92,11 @@ class ThreeConstraintsTest(ThreeConstraints):
 
     subclass should have two fields defined:
        1. result_map: dict[tuple[bool, ...], list[str]]
-       2. model: Callable[[], PrimitiveModel]
+       2. model: Callable[[], Operator]
 
     result_map defines result for each possible condition of constraints
 
-    model should return a PrimitiveModel object with constraints defined
+    model should return a Operator object with constraints defined
 
     in each constraints, if its conditions true, appends its name to trace_list
     (namely, c1, c2, c3). However, if a constraint has dependencies, it cannot be
@@ -148,7 +148,7 @@ class TestThreeSequential(ThreeConstraintsTest):
         (False, False, False): [],
     }
 
-    def model(self) -> PrimitiveModel:
+    def model(self) -> Model:
         # constr_1 ----> constr_2 ----> constr_3
 
         model = Sigmoid()
@@ -174,7 +174,7 @@ class TestThreeOneToMany(ThreeConstraintsTest):
         (False, False, False): [],
     }
 
-    def model(self) -> PrimitiveModel:
+    def model(self) -> Model:
         #              + ---> constr_2
         #              |
         # constr_1 --- +
@@ -204,7 +204,7 @@ class TestThreeManyToOne(ThreeConstraintsTest):
         (False, False, False): [],
     }
 
-    def model(self) -> PrimitiveModel:
+    def model(self) -> Model:
         #  constr_1 --- +
         #               |
         #               + ---> constr_3
@@ -240,7 +240,7 @@ class TestFourDiamond(FourConstraintsTest):
         (False, False, False, False): [],
     }
 
-    def model(self) -> PrimitiveModel:
+    def model(self) -> Model:
         #              + ---> constr_2 --- +
         #              |                   |
         # constr_1 --- +                   + ---> constr_4
@@ -284,7 +284,7 @@ class TestTwoPhaseDiamond(TestFourDiamond):
         (False, False, False, False): ["c1", "c2"],
     }
 
-    def model(self) -> PrimitiveModel:
+    def model(self) -> Model:
         model = super().model()
         self.conditions = (True, True, False, False)
         model.set_shapes(input=[("V1", ...), "a"])
@@ -311,7 +311,7 @@ class TestTwoPhaseDiamondAtInit(TestFourDiamond):
         (False, False, False, False): ["c1", "c2"],
     }
 
-    def model(self) -> PrimitiveModel:
+    def model(self) -> Model:
         self.conditions = (True, True, False, False)
         model = super().model()
         return model
@@ -337,7 +337,7 @@ class TestFourManyToMany(FourConstraintsTest):
         (False, False, False, False): [],
     }
 
-    def model(self) -> PrimitiveModel:
+    def model(self) -> Model:
         #  constr_1 --- +     + ---> constr_3
         #               |     |
         #               + --- +
@@ -379,7 +379,7 @@ class TestFourTwoSequential(FourConstraintsTest):
         (False, False, False, False): [],
     }
 
-    def model(self) -> PrimitiveModel:
+    def model(self) -> Model:
         # constr_1 ----> constr_2
         #
         # constr_3 ----> constr_4

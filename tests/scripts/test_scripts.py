@@ -35,16 +35,14 @@ from mithril.framework.common import (
     TBD,
     BaseKey,
     ConnectionData,
-    ConnectionType,
     IOHyperEdge,
-    IOKey,
     Tensor,
     ToBeDetermined,
     UniadicRecord,
     Variadic,
     create_shape_map,
 )
-from mithril.framework.constraints import bcast
+from mithril.framework.logical.operators import BufferOp
 from mithril.models import (
     L1,
     L2,
@@ -58,6 +56,7 @@ from mithril.models import (
     Buffer,
     Concat,
     Connection,
+    ConnectionType,
     ConstraintSolver,
     Convolution1D,
     Convolution2D,
@@ -69,6 +68,7 @@ from mithril.models import (
     FloorDivide,
     Gelu,
     Greater,
+    IOKey,
     Layer,
     LeakyRelu,
     Less,
@@ -83,7 +83,6 @@ from mithril.models import (
     Multiply,
     PolynomialFeatures,
     Power,
-    PrimitiveModel,
     Prod,
     Relu,
     Reshape,
@@ -104,9 +103,11 @@ from mithril.models import (
     TrainModel,
     Where,
 )
+from mithril.models.primitives import PrimitiveModel
 from mithril.utils.type_utils import is_list_int
 from mithril.utils.utils import OrderedSet
 
+from ..utils import MyAdder
 from .helper import assert_models_equal
 from .test_shapes import check_shapes_semantically
 from .test_utils import (
@@ -674,22 +675,6 @@ def test_reuse_pickled_registered_backend():
     u_jax_backend = pickle.loads(pickled_jax)
     u_numpy_backend = pickle.loads(pickled_numpy)
     u_torch_backend = pickle.loads(pickled_torch)
-
-    class MyAdder(PrimitiveModel):
-        def __init__(self) -> None:
-            super().__init__(
-                formula_key="my_adder",
-                output=BaseKey(shape=[("Var_out", ...)], type=Tensor),
-                left=BaseKey(shape=[("Var_1", ...)], type=Tensor),
-                right=BaseKey(shape=[("Var_2", ...)], type=Tensor),
-            )
-            self.add_constraint(
-                fn=bcast, keys=[PrimitiveModel.output_key, "left", "right"]
-            )
-
-        def __call__(self, left, right, output):  # type: ignore[override]
-            kwargs = {"left": left, "right": right, "output": output}
-            return ExtendInfo(self, kwargs)
 
     model = Model()
     model += MyAdder()(left="left", right="right", output="output")
@@ -1268,18 +1253,22 @@ def test_relational_operators_ignored_1():
 
 def test_relational_operators_ignored_2():
     model = Model()
-    model.extend(
+    model._extend(
         Less(),
-        left=IOKey("left", type=Tensor),
-        right=IOKey("right", type=Tensor),
-        output=IOKey("relational_out"),
+        {
+            "left": IOKey("left", type=Tensor),
+            "right": IOKey("right", type=Tensor),
+            "output": IOKey("relational_out"),
+        },
     )
-    model.extend(
+    model._extend(
         Where(),
-        cond=model.cout,
-        input1="inp1",
-        input2="inp2",
-        output=IOKey("where_out"),
+        {
+            "cond": model.cout,
+            "input1": "inp1",
+            "input2": "inp2",
+            "output": IOKey("where_out"),
+        },
     )
     pm = compile(model, NumpyBackend())
     assert (
@@ -1661,15 +1650,23 @@ def test_geomean_evaluate():
     model1 = Model()
     lin1 = Linear(dimension=10)
     lin12 = Linear(dimension=10)
-    model1.extend(
-        lin1, input="input", weight="weight", bias="bias", output=IOKey("output1")
+    model1._extend(
+        lin1,
+        {
+            "input": "input",
+            "weight": "weight",
+            "bias": "bias",
+            "output": IOKey("output1"),
+        },
     )
-    model1.extend(
+    model1._extend(
         lin12,
-        input=lin1.output,
-        weight="weight1",
-        bias="bias1",
-        output=IOKey("output2"),
+        {
+            "input": lin1.output,
+            "weight": "weight1",
+            "bias": "bias1",
+            "output": IOKey("output2"),
+        },
     )
     model1.set_shapes({"input": [10, 10, 10]})
     lin1.input.set_differentiable(True)
@@ -1687,15 +1684,23 @@ def test_geomean_evaluate():
     model2 = Model()
     lin2 = Linear()
     lin22 = Linear(dimension=10)
-    model2.extend(
-        lin2, input="input", weight="weight", bias="bias", output=IOKey("output1")
+    model2._extend(
+        lin2,
+        {
+            "input": "input",
+            "weight": "weight",
+            "bias": "bias",
+            "output": IOKey("output1"),
+        },
     )
-    model2.extend(
+    model2._extend(
         lin22,
-        input=lin2.output,
-        weight="weight1",
-        bias="bias1",
-        output=IOKey("output2"),
+        {
+            "input": lin2.output,
+            "weight": "weight1",
+            "bias": "bias1",
+            "output": IOKey("output2"),
+        },
     )
     lin2.input.set_differentiable(True)
     ctx2 = TrainModel(model2)
@@ -2062,7 +2067,8 @@ def test_static_anlaysis_4():
     comp_model = mithril.compile(model=model, backend=NumpyBackend())
 
     models = {add1, add2, sum1, sub1, mul1, mat1}
-    assert (models - comp_model.flat_graph.nodes.keys()) == {mat1}
+    _models = {model.submodel for model in models}
+    assert (_models - comp_model.flat_graph.nodes.keys()) == {mat1.submodel}
 
 
 def test_prune_1():
@@ -3163,23 +3169,23 @@ def test_empy_out_grad():
 def geomean_multigpu_test():
     model = Model()
     model.extend(l1 := Linear(16), input="input1")
-    model.extend(l2 := Linear(32), w="w", input=l1.output)
-    model.extend(l3 := Linear(32), w="w", input=l1.output)
+    model.extend(l2 := Linear(32), w="w", input=l1.output.data)
+    model.extend(l3 := Linear(32), w="w", input=l1.output.data)
 
     # Classification
-    model.extend(add := Add(), left=l3.output, right=l2.output)
-    model.extend(pow := Power(), base=add.output, exponent=2)
-    model.extend(mul := Multiply(), left=pow.output)
-    model.extend(abs := Absolute(), input=mul.output)
-    model.extend(sqrt := Sqrt(), input=abs.output)
-    model.extend(mul2 := Multiply(), left=sqrt.output, right="input2")
-    model.extend(div := Divide(), numerator=mul2.output, denominator=1.0)
-    model.extend(Softmax(), input=div.output, output="out1")
+    model.extend(add := Add(), left=l3.output.data, right=l2.output.data)
+    model.extend(pow := Power(), base=add.output.data, exponent=2)
+    model.extend(mul := Multiply(), left=pow.output.data)
+    model.extend(abs := Absolute(), input=mul.output.data)
+    model.extend(sqrt := Sqrt(), input=abs.output.data)
+    model.extend(mul2 := Multiply(), left=sqrt.output.data, right="input2")
+    model.extend(div := Divide(), numerator=mul2.output.data, denominator=1.0)
+    model.extend(Softmax(), input=div.output.data, output="out1")
 
     # Regression
-    model.extend(mul := Multiply(), left=l2.output, right=l3.output)
-    model.extend(add2 := Add(), left=mul.output, right="input3")
-    model.extend(Divide(), numerator=add2.output, denominator=40.0, output="out2")
+    model.extend(mul := Multiply(), left=l2.output.data, right=l3.output.data)
+    model.extend(add2 := Add(), left=mul.output.data, right="input3")
+    model.extend(Divide(), numerator=add2.output.data, denominator=40.0, output="out2")
 
     context = TrainModel(model)
     context.add_loss(
@@ -3648,7 +3654,7 @@ def test_mlp_last_dimension_prop():
     mlp_model = MLP(activations=[Relu(), Relu(), Relu()], dimensions=[12, 24, None])
     ctx = TrainModel(mlp_model)
     loss_model = SquaredError()
-    loss_model.set_shapes(loss_model.safe_shapes)
+    loss_model.set_shapes(loss_model.submodel.safe_shapes)
     ctx.add_loss(
         loss_model,
         input=mlp_model.cout,
@@ -3889,22 +3895,6 @@ def test_infer_static_register_fn():
 
     def my_adder(left, right):
         return left + right
-
-    class MyAdder(PrimitiveModel):
-        def __init__(self) -> None:
-            super().__init__(
-                formula_key="my_adder",
-                output=BaseKey(shape=[("Var_out", ...)], type=Tensor),
-                left=BaseKey(shape=[("Var_1", ...)], type=Tensor),
-                right=BaseKey(shape=[("Var_2", ...)], type=Tensor),
-            )
-            self.add_constraint(
-                fn=bcast, keys=[PrimitiveModel.output_key, "left", "right"]
-            )
-
-        def __call__(self, left, right, output):  # type: ignore[override]
-            kwargs = {"left": left, "right": right, "output": output}
-            return ExtendInfo(self, kwargs)
 
     JaxBackend.register_primitive(my_adder)
 
@@ -6825,7 +6815,6 @@ def test_string_iokey_value_1():
             }
 
             super().__init__(formula_key="einsum", name=name, **kwargs)
-            self._freeze()
 
         def __call__(  # type: ignore[override]
             self,
@@ -6909,7 +6898,6 @@ def test_string_iokey_value_2():
             }
 
             super().__init__(formula_key="einsum", name=name, **kwargs)
-            self._freeze()
 
         def __call__(  # type: ignore[override]
             self,
@@ -6947,3 +6935,19 @@ def test_empty_call_vs_direct_model_extending():
     model2 += LeakyRelu()()
 
     assert_models_equal(model1, model2)
+
+
+def test_extending_operator():
+    model1 = BufferOp()
+    with pytest.raises(NotImplementedError) as err:
+        model1.extend(BufferOp())
+
+    assert str(err.value) == "Operators cannot be extended!"
+
+
+def test_extending_operator_model():
+    model1 = Buffer()
+    with pytest.raises(RuntimeError) as err:
+        model1 += Buffer()
+
+    assert str(err.value) == "Primitive models cannot have submodels."

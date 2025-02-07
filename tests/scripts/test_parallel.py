@@ -29,11 +29,12 @@ import mithril
 from mithril import compile
 from mithril.backends.with_autograd.torch_backend.parallel import TorchParallel
 from mithril.backends.with_autograd.torch_backend.utils import SharedCyclicQueue
-from mithril.framework.common import IOKey, Tensor
+from mithril.framework.common import Tensor
 from mithril.models import (
     TBD,
     Add,
     Eye,
+    IOKey,
     Linear,
     Model,
     Multiply,

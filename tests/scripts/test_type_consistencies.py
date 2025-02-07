@@ -24,12 +24,12 @@ import mithril
 from mithril.framework.common import (
     NOT_GIVEN,
     BaseKey,
-    ConnectionType,
     Tensor,
     ToBeDetermined,
     find_intersection_type,
     find_type,
 )
+from mithril.framework.logical.model import ConnectionType
 from mithril.framework.utils import (
     infer_all_possible_types,
     sort_type,
@@ -43,11 +43,11 @@ from mithril.models import (
     Mean,
     Model,
     Multiply,
-    PrimitiveModel,
     PrimitiveUnion,
     Shape,
     Sigmoid,
 )
+from mithril.models.primitives import PrimitiveModel
 from mithril.utils.utils import find_dominant_type
 
 from .test_constant_inputs import ReduceMult

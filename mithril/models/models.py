@@ -19,83 +19,82 @@ from abc import abstractmethod
 from collections.abc import Sequence
 from copy import deepcopy
 
-from ..framework import Model
 from ..framework.common import (
     NOT_GIVEN,
     TBD,
-    Connection,
-    ConnectionType,
-    IOKey,
     MainValueType,
     ShapeTemplateType,
     Tensor,
     ToBeDetermined,
 )
 from ..framework.constraints import polynomial_kernel_constraint
-from ..framework.logical.base import BaseModel, ExtendInfo
-from ..framework.logical.essential_primitives import (
+from ..framework.logical.model import (
+    Connection,
+    ConnectionType,
+    ExtendInfo,
+    IOKey,
+    Model,
+)
+from ..utils.utils import PaddingType, convert_to_list, convert_to_tuple
+from .primitives import (
     Absolute,
     Add,
     ArgMax,
-    Buffer,
-    Cast,
-    Divide,
-    Dtype,
-    Exponential,
-    Greater,
-    Indexer,
-    Length,
-    MatrixMultiply,
-    Mean,
-    Minus,
-    Multiply,
-    Power,
-    Reshape,
-    Shape,
-    Size,
-    Slice,
-    Sqrt,
-    Subtract,
-    Sum,
-    Transpose,
-    Variance,
-)
-from ..framework.logical.primitive import PrimitiveModel
-from ..utils.utils import PaddingType, convert_to_list, convert_to_tuple
-from .primitives import (
     AUCCore,
+    Buffer,
     CartesianDifference,
+    Cast,
     Cholesky,
     Concat,
     DistanceMatrix,
+    Divide,
+    Dtype,
     Eigvalsh,
+    Exponential,
     Eye,
     EyeComplement,
     GPRAlpha,
     GPRVOuter,
+    Greater,
+    Indexer,
     KLDivergence,
+    Length,
     Log,
+    MatrixMultiply,
+    Mean,
+    Minus,
+    Multiply,
     NormModifier,
     PaddingConverter1D,
     PaddingConverter2D,
     PermuteTensor,
     PolynomialFeatures,
+    Power,
     PrimitiveConvolution1D,
     PrimitiveConvolution2D,
     PrimitiveMaxPool1D,
     PrimitiveMaxPool2D,
+    Reshape,
+    Shape,
     Sigmoid,
     Sign,
+    Size,
+    Slice,
+    Sqrt,
     Square,
     Squeeze,
     StableReciprocal,
     StrideConverter,
+    Subtract,
+    Sum,
     Tanh,
+    Transpose,
     TransposedDiagonal,
     Trapezoid,
     TsnePJoint,
     TupleConverter,
     Unique,
+    Variance,
     Where,
 )
 
@@ -155,7 +154,7 @@ class Pool1D(Model):
     output: Connection
 
     @property
-    def pool_model(self) -> type[BaseModel]:
+    def pool_model(self) -> type[Model]:
         raise NotImplementedError("Pool Model should be indicated!")
 
     def __init__(
@@ -222,7 +221,7 @@ class Pool1D(Model):
 
 class MaxPool1D(Pool1D):
     @property
-    def pool_model(self) -> type[PrimitiveModel]:
+    def pool_model(self) -> type[Model]:
         return PrimitiveMaxPool1D
 
 
@@ -247,7 +246,7 @@ class Pool2D(Model):
     output: Connection
 
     @property
-    def pool_model(self) -> type[BaseModel]:
+    def pool_model(self) -> type[Model]:
         raise NotImplementedError("Pool Model should be indicated!")
 
     def __init__(
@@ -324,7 +323,7 @@ class Pool2D(Model):
 
 class MaxPool2D(Pool2D):
     @property
-    def pool_model(self) -> type[PrimitiveModel]:
+    def pool_model(self) -> type[Model]:
         return PrimitiveMaxPool2D
 
 
@@ -628,7 +627,7 @@ class Layer(Model):
 
     def __init__(
         self,
-        activation: BaseModel,
+        activation: Model,
         dimension: int | None = None,
         input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         weight: Tensor[int | float | bool] | ToBeDetermined = TBD,
@@ -1076,7 +1075,7 @@ class KernelizedSVM(Model):
 
     def __init__(
         self,
-        kernel: BaseModel,
+        kernel: Model,
         weight: Tensor[int | float | bool] | ToBeDetermined = TBD,
         bias: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
@@ -1247,7 +1246,7 @@ class MLP(Model):
 
     def __init__(
         self,
-        activations: list[BaseModel],
+        activations: list[Model],
         dimensions: Sequence[int | None],
         input_name_templates: dict[str, str] | None = None,
         input: Tensor[int | float | bool] | ToBeDetermined = TBD,

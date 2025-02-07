@@ -28,10 +28,7 @@ from mithril.framework.common import (
     DNF,
     NOT_GIVEN,
     BaseKey,
-    Connection,
-    ConnectionType,
     Equivalences,
-    IOKey,
     PossibleValues,
     ShapeNode,
     ShapeRepr,
@@ -43,6 +40,7 @@ from mithril.framework.common import (
     Variadic,
 )
 from mithril.framework.constraints import reverse_constraints
+from mithril.framework.logical.primitive import OperatorModel, PrimitiveModel
 from mithril.models import (
     AUC,
     MLP,
@@ -59,6 +57,8 @@ from mithril.models import (
     Cast,
     Cholesky,
     Concat,
+    Connection,
+    ConnectionType,
     ConstraintSolver,
     Convolution1D,
     Convolution2D,
@@ -73,6 +73,7 @@ from mithril.models import (
     Gelu,
     GPRAlpha,
     GPRVOuter,
+    IOKey,
     IsNan,
     Layer,
     LeakyRelu,
@@ -88,10 +89,10 @@ from mithril.models import (
     Multiply,
     NanToNum,
     NormModifier,
+    Operator,
     Pad,
     PermuteTensor,
     PositionalEncoding,
-    PrimitiveModel,
     PrimitiveUnion,
     Relu,
     Reshape,
@@ -132,7 +133,7 @@ from .test_utils import (
 
 
 def assert_shapes(
-    model: BaseModel,
+    model: Model,
     logical_ref: Mapping[str, Sequence[Sequence[int | str] | int | str] | None],
     physical_ref: Mapping[str, Sequence[Sequence[int | str] | int | str] | None]
     | None = None,
@@ -662,6 +663,7 @@ def test_linear_1_set_shapes():
     ctx = TrainModel(model)
     loss_model = SquaredError()
     loss_model.set_shapes(loss_model.safe_shapes)
+    loss_model.set_shapes(loss_model.submodel.safe_shapes)
     ctx.add_loss(
         loss_model=loss_model, reduce_steps=[Mean()], input="output", target="target"
     )
@@ -699,7 +701,7 @@ def test_linear_1_static_shapes():
     shapes = {"input": [100, 4], "target": [100, 1]}
     ctx = TrainModel(model)
     loss_model = SquaredError()
-    loss_model.set_shapes(loss_model.safe_shapes)
+    loss_model.set_shapes(loss_model.submodel.safe_shapes)
     ctx.add_loss(
         loss_model=loss_model, reduce_steps=[Mean()], input="output", target="target"
     )
@@ -750,7 +752,7 @@ def test_linear_1_static_inputs():
     }
     ctx = TrainModel(model)
     loss_model = SquaredError()
-    loss_model.set_shapes(loss_model.safe_shapes)
+    loss_model.set_shapes(loss_model.submodel.safe_shapes)
     ctx.add_loss(
         loss_model=loss_model, reduce_steps=[Mean()], input="output", target="target"
     )
@@ -2581,7 +2583,7 @@ def test_mlp_1_static_shapes():
     model = MLP(activations=[Softplus(), Buffer(), Buffer()], dimensions=[5, 10, 1])
     ctx = TrainModel(model)
     loss_model = SquaredError()
-    loss_model.set_shapes(loss_model.safe_shapes)
+    loss_model.set_shapes(loss_model.submodel.safe_shapes)
     ctx.add_loss(loss_model, input=model.output, target="target", reduce_steps=[Mean()])
     static_input_shapes = {"input": [100, 4], "target": [100, 1]}
     logical_ref: dict[str, list | None] = {
@@ -2694,7 +2696,7 @@ def test_mlp_1_static_inputs():
     model = MLP(activations=[Softplus(), Buffer(), Buffer()], dimensions=[5, 10, 1])
     ctx = TrainModel(model)
     loss_model = SquaredError()
-    loss_model.set_shapes(loss_model.safe_shapes)
+    loss_model.set_shapes(loss_model.submodel.safe_shapes)
 
     ctx.add_loss(loss_model, input=model.output, target="target", reduce_steps=[Mean()])
     static_inputs = {
@@ -3119,7 +3121,7 @@ class Model9(PrimitiveModel):
 
     def __init__(self) -> None:
         super().__init__(
-            formula_key="buffer",
+            formula_key="relu",
             input=BaseKey(shape=["u1", ("Var1", ...)], type=Tensor),
             output=BaseKey(shape=["u2", "u1", ("Var1", ...)], type=Tensor),
         )
@@ -6646,9 +6648,11 @@ def test_total_repr_count_1():
         CrossEntropy,
         CustomPrimitiveModel,
         ToTuple,
-        PrimitiveModel,
+        Operator,
         ToList,
         ScaledDotProduct,
+        PrimitiveModel,
+        OperatorModel,
     }
     ref_counts = {
         Exponential: 1,
@@ -6690,10 +6694,10 @@ def test_total_repr_count_1():
         ZerosLike: 1,
     }
     # find all primitives that are defined in primitives.py
-    _all_primitives_dict = (
-        primitives.__dict__ | mithril.framework.essential_primitives.__dict__  # type: ignore
-    )
-    all_primitives = primitives.__all__ + mithril.framework.essential_primitives.__all__  # type: ignore
+
+    u_primitives = mithril.framework.logical.primitive
+    _all_primitives_dict = primitives.__dict__ | u_primitives.__dict__
+    all_primitives = primitives.__all__ + u_primitives.__all__  # type: ignore
     all_primitives_dict = {
         value for key, value in _all_primitives_dict.items() if key in all_primitives
     }
@@ -6709,11 +6713,11 @@ def test_total_repr_count_1():
                 param: default_args.get(param, TBD) for param in model_init_params
             }
             # kwargs = {param: ... for param in model_init_params}
-            model: PrimitiveModel = primitive_model(**kwargs)
+            model: Model = primitive_model(**kwargs)
             # Set all untyped connections to Tensor type.
             model.set_types(
                 {
-                    conn.conn: Tensor
+                    model.connection_map[conn]: Tensor
                     for conn in model.conns.input_connections
                     if conn.metadata.edge_type is ToBeDetermined
                 }

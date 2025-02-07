@@ -19,9 +19,7 @@ from mithril.framework.common import (
     NOT_GIVEN,
     TBD,
     BaseKey,
-    ConnectionType,
     IOHyperEdge,
-    IOKey,
     ShapeRepr,
     Tensor,
     Uniadic,
@@ -32,14 +30,17 @@ from mithril.models import (
     Add,
     Buffer,
     Connection,
+    ConnectionType,
     ExtendInfo,
     Indexer,
+    IOKey,
     Model,
-    PrimitiveModel,
+    Operator,
     Relu,
     Slice,
     Transpose,
 )
+from mithril.models.primitives import PrimitiveModel
 
 
 def dummy_constraint(output: IOHyperEdge, input: IOHyperEdge):
@@ -150,9 +151,7 @@ class MyAdd2(PrimitiveModel):
             left=BaseKey(shape=left, type=Tensor),
             right=BaseKey(shape=right, type=Tensor),
         )
-        self._add_constraint(
-            fn=bcast, keys=[PrimitiveModel.output_key, "left", "right"]
-        )
+        self._add_constraint(fn=bcast, keys=[Operator.output_key, "left", "right"])
 
     def __call__(  # type: ignore
         self,

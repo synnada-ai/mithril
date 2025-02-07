@@ -15,8 +15,8 @@
 import pytest
 
 from mithril import JaxBackend, TorchBackend, compile
-from mithril.framework.common import IOKey, Tensor
-from mithril.models import Add, MatrixMultiply, Model, ToTensor
+from mithril.framework.common import Tensor
+from mithril.models import Add, IOKey, MatrixMultiply, Model, ToTensor
 
 from .test_utils import assert_results_equal
 

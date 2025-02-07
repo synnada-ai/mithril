@@ -155,7 +155,7 @@ def test_data_store_4():
 
 def test_data_store_5():
     """Tests infer_static and prune runs together"""
-    # TODO: This test is expects cached_data to be "input" and "output" but
+    # TODO: This test expects cached_data to be "input" and "output" but
     # after we fix corresponding flat_graph handlings, it will be changed
     # to expect only "output" as cached_data and "input" as unused_keys.
     backend = TorchBackend()
