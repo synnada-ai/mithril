@@ -3453,12 +3453,15 @@ def test_shape_11():
 
 def test_shape_12():
     model = Model()
-    model += (add1 := Add())
+    add1 = Add()
+    add1.set_cin("left")
+    model += add1
     add2 = Add()
+    add2.set_cin("left")
     shapes: dict[str, list] = {"left": ["a", "b", "c"], "right": [1, 1, 1]}
     add2.set_shapes(shapes)
     add1.set_shapes({"left": [1, 2, 9], "right": [1, 2, 1]})
-    model += add2(left=add1.left)
+    model |= add2(left=add1.left)
 
     logical_ref = {
         "$input": [1, 2, 9],
@@ -5319,14 +5322,24 @@ def test_variadic_naming_17() -> None:
 def test_variadic_naming_18():
     add_model_1 = Add()
     add_model_1.set_types(left=Tensor, right=Tensor)
+    add_model_1.set_cin("left")
+
     add_model_2 = Add()
     add_model_2.set_types(right=Tensor)
+    add_model_2.set_cin("left")
+
     add_model_3 = Add()
     add_model_3.set_types(right=Tensor)
+    add_model_3.set_cin("left")
+
     add_model_4 = Add()
     add_model_4.set_types(right=Tensor)
+    add_model_4.set_cin("left")
+
     add_model_5 = Add()
     add_model_5.set_types(left=Tensor, right=Tensor)
+    add_model_5.set_cin("left")
+
     model = Model()
     model += add_model_1(left="left", right="right")
     model += add_model_2
@@ -5377,14 +5390,24 @@ def test_variadic_naming_19():
     for _ in range(100):
         add_model_1 = Add()
         add_model_1.set_types(left=Tensor, right=Tensor)
+        add_model_1.set_cin("left")
+
         add_model_2 = Add()
         add_model_2.set_types(right=Tensor)
+        add_model_2.set_cin("left")
+
         add_model_3 = Add()
         add_model_3.set_types(right=Tensor)
+        add_model_3.set_cin("left")
+
         add_model_4 = Add()
         add_model_4.set_types(right=Tensor)
+        add_model_4.set_cin("left")
+
         add_model_5 = Add()
         add_model_5.set_types(left=Tensor, right=Tensor)
+        add_model_5.set_cin("left")
+
         model = Model()
         model += add_model_1(left="left", right="right")
         model += add_model_2
@@ -5435,14 +5458,24 @@ def test_variadic_naming_19():
 def test_variadic_naming_20():
     add_model_1 = Add()
     add_model_1.set_types(left=Tensor, right=Tensor)
+    add_model_1.set_cin("left")
+
     add_model_2 = Add()
     add_model_2.set_types(right=Tensor)
+    add_model_2.set_cin("left")
+
     add_model_3 = Add()
     add_model_3.set_types(right=Tensor)
+    add_model_3.set_cin("left")
+
     add_model_4 = Add()
     add_model_4.set_types(right=Tensor)
+    add_model_4.set_cin("left")
+
     add_model_5 = Add()
     add_model_5.set_types(left=Tensor, right=Tensor)
+    add_model_5.set_cin("left")
+
     model = Model()
     model += add_model_1(left="left", right="right")
     model += add_model_2
@@ -9794,7 +9827,8 @@ def test_bcast_4():
     add2 = Add()
     add1.set_types(left=Tensor, right=Tensor)
     add2.set_types(left=Tensor, right=Tensor)
-
+    add1.set_cin("left")
+    add2.set_cin("left")
     add1.set_shapes({"left": [1, 1]})
 
     add2.set_shapes({"output": ["a", "b"]})
@@ -9826,6 +9860,8 @@ def test_bcast_4_len1():
     add2 = Add()
     add1.set_types(left=Tensor, right=Tensor)
     add2.set_types(left=Tensor, right=Tensor)
+    add1.set_cin("left")
+    add2.set_cin("left")
 
     add1.set_shapes({"left": [1]})
 
@@ -9848,6 +9884,8 @@ def test_bcast_pos_val_1():
     add2 = Add()
     add1.set_types(left=Tensor, right=Tensor)
     add2.set_types(left=Tensor, right=Tensor)
+    add1.set_cin("left")
+    add2.set_cin("left")
 
     add1.set_shapes({"left": [1, 1]})
     shape_1: dict[str, list] = {"right": [1, 1], "output": ["a", "b"]}

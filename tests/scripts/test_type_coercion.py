@@ -284,7 +284,7 @@ def test_slice_item_conversions():
     """
 
     slice_model = Model()
-    slice_model += (slc := Slice())(start=None, stop=None, step=None)
+    slice_model |= (slc := Slice())(start=None, stop=None, step=None)
     slice_model += Indexer()(input="input", index=slc.output, output=IOKey("output"))
 
     # Manuel conversion
@@ -298,7 +298,7 @@ def test_slice_item_conversions():
     model += shp1(input=lin_1.input)
     model += item(input=shp1.output, index=1)
     model += tensor_1(input=item.output)
-    model += (slc := Slice())(start=None, stop=None, step=None)
+    model |= (slc := Slice())(start=None, stop=None, step=None)
     model += (sc_item := Indexer())(input=shp1.output, index=slc.output)
     model += tensor_2(input=sc_item.output)  # type: ignore
     model += Add()(left=tensor_1.output, right=tensor_2.output, output="output")
@@ -347,7 +347,7 @@ def test_tuple_conversion_1():
     tupl = ToTuple(n=2)
     model += lin_2(input="input", weight="w", bias="b")
     shp2 = lin_2.output.shape
-    model += tupl(input1=shp2[0], input2=shp2[1])
+    model |= tupl(input1=shp2[0], input2=shp2[1])
     model += ToTensor()(input=tupl.output, output="output")  # type: ignore
     model_2 = model
 

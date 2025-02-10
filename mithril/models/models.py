@@ -1057,6 +1057,7 @@ class PolynomialKernel(Model):
         self._add_constraint(
             fn=polynomial_kernel_constraint, keys=["poly_coef", "degree"]
         )
+        self.set_cin("input1", "input2", safe=False)
         self._freeze()
 
     def __call__(  # type: ignore[override]
@@ -1127,8 +1128,7 @@ class KernelizedSVM(Model):
             "kernel": ["N", "M"],
         }
         self._set_shapes(shapes)
-        # self.set_cin("input1", "input2", safe=False)
-        self.set_cin("input1", safe=False)
+        self.set_cin("input1", "input2", safe=False)
         self._freeze()
 
     def __call__(  # type: ignore[override]
@@ -2181,7 +2181,7 @@ class EncoderDistanceMatrix(Model):
                 norm=modifier_model.output,
                 output=IOKey(name="output"),
             )
-
+        self.set_cin("input1", "input2", safe=False)
         self._freeze()
 
     def __call__(  # type: ignore[override]

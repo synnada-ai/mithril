@@ -1606,11 +1606,11 @@ def test_composite_5_set_values():
     add_model_1 = Add()
     add_model_2 = Add()
     add_model_3 = Add()
-    model += add_model_1(left=IOKey(name="left1"))
+    model |= add_model_1(left=IOKey(name="left1"))
     model.set_values({add_model_1.left: list1, add_model_1.right: list1})
-    model += add_model_2(left=add_model_1.output)
+    model |= add_model_2(left=add_model_1.output)
     model.set_values({add_model_2.right: list2})
-    model += add_model_3(left=add_model_2.output)
+    model |= add_model_3(left=add_model_2.output)
     model.set_values({add_model_3.right: list3})
 
     assert_all_backends_device_dtype(model, inference=True)
@@ -1638,11 +1638,11 @@ def test_composite_6_set_values():
     add_model_1 = Add()
     add_model_2 = Add()
     add_model_3 = Add()
-    model += add_model_1(left=IOKey(name="left1"))
+    model |= add_model_1(left=IOKey(name="left1"))
     model.set_values({add_model_1.left: Tensor(1), add_model_1.right: list1})
-    model += add_model_2(left=add_model_1.output)
+    model |= add_model_2(left=add_model_1.output)
     model.set_values({add_model_2.right: list2})
-    model += add_model_3(left=add_model_2.output)
+    model |= add_model_3(left=add_model_2.output)
     model.set_values({add_model_3.right: list3})
 
     assert_all_backends_device_dtype(model, inference=True)
@@ -1671,11 +1671,11 @@ def test_composite_7_set_values():
     add_model_1 = Add()
     add_model_2 = Add()
     add_model_3 = Add()
-    model += add_model_1(left=IOKey(name="left1"))
+    model |= add_model_1(left=IOKey(name="left1"))
     model.set_values({add_model_1.left: Tensor([[1]]), add_model_1.right: list1})
-    model += add_model_2(left=add_model_1.output)
+    model |= add_model_2(left=add_model_1.output)
     model.set_values({add_model_2.right: list2})
-    model += add_model_3(left=add_model_2.output)
+    model |= add_model_3(left=add_model_2.output)
     model.set_values({add_model_3.right: list3})
 
     assert_all_backends_device_dtype(model, inference=True)
@@ -2246,19 +2246,20 @@ def test_multiple_to_tensor():
     model_2 = Model()
     model += shp_1("input")
     model += tt_1
-    model += add_model(
+    model |= add_model(
         left=model.cout,
         right=IOKey("right", type=Tensor),
         output=IOKey(name="output"),
     )
     model_1 += shp_2
     model_1 += tt_2
-    model_1 += add_model_2(
+    model_1 |= add_model_2(
         left=model_1.cout,
         right=IOKey("right", type=Tensor),
         output=IOKey(name="output"),
     )
     model_2 += model(input="input")
+    model_1.set_cin(shp_2.input)
     model_2 += model_1
     comp_model = ml.compile(
         model=model_2,

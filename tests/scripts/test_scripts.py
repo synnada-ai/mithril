@@ -215,7 +215,7 @@ def test_primitive_model_with_context():
 def test_context_with_misconnection_error():
     model = Model()
     model += Add()
-    model += (add := Add())
+    model |= (add := Add())(left=model.cout)
     context = TrainModel(model)
     context.add_loss(abs_1 := AbsoluteError(), input=add.output, target="target")
     assert_metadata_equal(abs_1.input, add.output)
@@ -224,7 +224,7 @@ def test_context_with_misconnection_error():
 def test_model_with_connection():
     model = Model()
     model += Add()
-    model += (add := Add())
+    model += (add := Add())(left=model.cout)
     model_canonical_output = model.cout
     final_model = Model()
     final_model += model
@@ -239,7 +239,7 @@ def test_model_with_connection():
 def test_model_with_misconnection_error():
     model = Model()
     model += (add := Add())
-    model += Add()
+    model += Add()(left=model.cout)
     final_model = Model()
     final_model += model
     with pytest.raises(KeyError) as error_info:
@@ -2053,12 +2053,12 @@ def test_static_anlaysis_4():
     model += (add1 := Add())
     add1.set_types(left=Tensor, right=Tensor)
     model += Convolution2D(kernel_size=1)
-    model += (add2 := Add())
+    model += (add2 := Add())(left=model.cout)
     add2.set_types(right=Tensor)
     model += (sum1 := Sum())
-    model += (sub1 := Subtract())
+    model |= (sub1 := Subtract())(left=sum1.output)
     sub1.set_types(right=Tensor)
-    model += (mul1 := Multiply())
+    model |= (mul1 := Multiply())(left=sub1.output)
     mul1.set_types(right=Tensor)
     model += (mat1 := MatrixMultiply())()
 
@@ -3752,10 +3752,9 @@ def test_connect_12():
     add1 = Add()
     add2 = Add()
     add3 = Add()
-    model += add1(left="l1", right="l2", output=IOKey(name="out1"))
-    model += add2(left="l3", right="l4", output=IOKey(name="out2"))
-
-    model += add3(
+    model |= add1(left="l1", right="l2", output=IOKey(name="out1"))
+    model |= add2(left="l3", right="l4", output=IOKey(name="out2"))
+    model |= add3(
         left=IOKey(name="left", connections={add1.left, add2.left}),
         right="right",
         output=IOKey(name="out3"),
@@ -5706,6 +5705,7 @@ def test_deepcopy_2():
     model = Model()
     add_model = Add()
     add_model.set_types(left=Tensor, right=Tensor)
+    add_model.set_cin("left")
     model += add_model(left="left", right="right", output=IOKey(name="output"))
 
     copy_model1 = deepcopy(model)
@@ -5759,7 +5759,7 @@ def test_deepcopy_3():
 def test_deepcopy_4():
     _model = Model()
     _model += Add()
-    _model += Add()
+    _model += Add()(left=_model.cout)
     _model.set_types({key: Tensor for key in _model.conns.input_keys})
     for _ in range(4):
         model = Model()

@@ -182,6 +182,7 @@ def test_deleted_variadic_ref_count_5():
     all_variadics |= get_all_variadics(matmul1 := MatrixMultiply())
     add1 = Add()
     add1.set_types({"left": Tensor, "right": Tensor})
+    add1.set_cin("left")
     all_variadics |= get_all_variadics(add1)
 
     model = Model()
@@ -245,11 +246,11 @@ def test_deleted_variadic_ref_count_7():
     all_variadics |= get_all_variadics(add_6)
 
     model = Model()
-    model += add_1()
-    model += add_2(left="")
-    model += add_3(left="")
-    model += add_4(left="")
-    model += add_5(left="")
+    model |= add_1
+    model |= add_2
+    model |= add_3
+    model |= add_4
+    model |= add_5
 
     conn = IOKey(
         connections={
@@ -272,8 +273,10 @@ def test_deleted_variadic_ref_count_8():
     all_variadics = set()
     add1 = Add()
     add1.set_types({"left": Tensor, "right": Tensor})
+    add1.set_cin("left")
     add2 = Add()
     add2.set_types({"left": Tensor, "right": Tensor})
+    add2.set_cin("left")
     all_variadics |= get_all_variadics(add1)
     all_variadics |= get_all_variadics(add2)
     model1 = Model()
@@ -291,6 +294,7 @@ def test_deleted_variadic_ref_count_9():
     all_variadics = set()
     add1 = Add()
     add1.set_types({"left": Tensor, "right": Tensor})
+    add1.set_cin("left")
     all_variadics |= get_all_variadics(add1)
 
     model = Model()
@@ -911,10 +915,13 @@ def test_deleted_node_ref_count_3():
     all_reprs = set()
     add1 = Add()
     add1.set_types(left=Tensor, right=Tensor)
+    add1.set_cin("left")
     add2 = Add()
     add2.set_types(left=Tensor, right=Tensor)
+    add2.set_cin("left")
     add3 = Add()
     add3.set_types(left=Tensor, right=Tensor)
+    add3.set_cin("left")
     all_reprs |= get_all_nodes(add1)
     all_reprs |= get_all_nodes(add2)
     all_reprs |= get_all_nodes(add3)
@@ -1071,6 +1078,9 @@ def test_deleted_edge_ref_count_2():
     all_metadata |= get_all_metadata(add3 := Add())
 
     model = Model()
+    add1.set_cin("left")
+    add2.set_cin("left")
+    add3.set_cin("left")
 
     model += add1
     model += add2
@@ -1104,6 +1114,11 @@ def test_deleted_edge_ref_count_4():
     all_metadata |= get_all_metadata(add3 := Add())
     all_metadata |= get_all_metadata(add4 := Add())
 
+    add1.set_cin("left")
+    add2.set_cin("left")
+    add3.set_cin("left")
+    add4.set_cin("left")
+
     model4 = Model()
     model3 = Model()
     model2 = Model()
@@ -1131,6 +1146,11 @@ def test_deleted_edge_ref_count_5():
     all_metadata |= get_all_metadata(add2 := Add())
     all_metadata |= get_all_metadata(add3 := Add())
     all_metadata |= get_all_metadata(add4 := Add())
+
+    add1.set_cin("left")
+    add2.set_cin("left")
+    add3.set_cin("left")
+    add4.set_cin("left")
 
     model4 = Model()
     model3 = Model()
