@@ -17,12 +17,13 @@ from collections.abc import Callable, Sequence
 from functools import reduce
 from itertools import product, zip_longest
 from types import EllipsisType, GenericAlias, NoneType, UnionType
-from typing import Any, get_origin
+from typing import Any, Union, get_args, get_origin
 
 from ..core import Constant
 from ..utils.type_utils import (
     is_axis_reduce_type,
     is_axis_reverse_type,
+    is_generic_alias_type,
     is_index_type,
     is_list_int,
     is_list_int_or_none,
@@ -30,6 +31,7 @@ from ..utils.type_utils import (
     is_tuple_int,
     is_tuple_int_or_none,
     is_tuple_of_two_ints,
+    is_union_type,
 )
 from ..utils.utils import PaddingType
 from .common import (
@@ -50,6 +52,7 @@ from .common import (
     Variadic,
     _TensorTypes,
     find_intersection_type,
+    is_tensor_type,
     process_value,
 )
 from .utils import find_list_base_type, is_union
@@ -355,6 +358,164 @@ def general_tensor_type_constraint(*args: IOHyperEdge) -> ConstrainResultType:
             status = True
 
     return status, updates
+
+
+def general_type_constraint(
+    output: IOHyperEdge, left: IOHyperEdge, right: IOHyperEdge, fn: Callable[..., Any]
+) -> ConstrainResultType:
+    def squash_tensor_types(typ: Any) -> Any:
+        # Reduces multiple Tensor types declerations in a single
+        # Tensor[...] type with all subtypes of all declared ones. Also expands
+        # "Tensor" type to "Tensor[int | float | bool]".
+        # Example: Tensor[int] | Tensor[float] -> Tensor[int | float]
+        # Example: Tensor[int | float] | bool -> Tensor[int | float] | bool
+        # Example: Tensor -> Tensor[int | float | bool]
+        if typ is Tensor:
+            typ = Tensor[int | float | bool]
+        if (origin := get_origin(typ)) in (Union, UnionType):
+            updated_args = set()
+            regular_args = set()
+            for arg in get_args(typ):
+                if is_tensor_type(arg):
+                    if arg is Tensor:
+                        arg = Tensor[int | float | bool]
+                    updated_args |= set(get_args(arg))
+                else:
+                    regular_args.add(arg)
+            if updated_args:
+                tensor_type = Tensor[reduce(lambda x, y: x | y, updated_args)]  # type: ignore
+                squashed_regulars = [squash_tensor_types(arg) for arg in regular_args]
+                if squashed_regulars:
+                    regular_types = reduce(lambda x, y: x | y, squashed_regulars)
+                    return tensor_type | regular_types
+                return tensor_type
+        elif origin is not None:
+            # NOTE: Tuple type can contain ellipsis in its args.
+            squashed_args = [
+                squash_tensor_types(arg) for arg in get_args(typ) if arg != ...
+            ]
+            return (
+                origin[squashed_args, ...]
+                if ... in get_args(typ)
+                else origin[squashed_args]
+            )
+        return typ
+
+    def unsquash_tensor_types(
+        value_type: type | UnionType | GenericAlias,
+    ) -> type | UnionType | GenericAlias:
+        # TODO: use match case when Python unifies all UnionType and GenericAlias types.
+        new_type: type | UnionType | GenericAlias = value_type
+        if is_generic_alias_type(value_type) and value_type.__origin__ is Tensor:
+            # Example: Tensor[int | float] -> Tensor[int] | Tensor[float]
+            sub_type = value_type.__args__[0]
+            sub_types = (
+                sub_type.__args__ if isinstance(sub_type, UnionType) else (sub_type,)
+            )
+            new_type = reduce(lambda x, y: x | y, (Tensor[typ] for typ in sub_types))  # type: ignore
+
+        elif is_union_type(value_type):
+            # Example: Tensor[int | float] | bool -> Tensor[int] | Tensor[float] | bool
+            new_type = reduce(
+                lambda x, y: x | y,
+                (unsquash_tensor_types(typ) for typ in value_type.__args__),
+            )
+
+        elif value_type is Tensor:
+            # Example: Tensor -> Tensor[int] | Tensor[float] | Tensor[bool]
+            new_type = Tensor[int] | Tensor[float] | Tensor[bool]
+        return new_type
+
+    def find_all_op_types(operation: Callable[..., Any]) -> set[tuple[Any, ...]]:
+        # TODO: uncomment type ignores when all TypeGuards switched to TypeIs.
+        type_map: dict[type[int] | type[float] | type[bool], int | float | bool] = {
+            int: 2,
+            float: 2.0,
+            bool: True,
+        }
+
+        all_possible_types: set[type | GenericAlias] = {
+            int,
+            float,
+            bool,
+            Tensor[int],
+            Tensor[float],
+            Tensor[bool],
+        }
+
+        possible_type_set: set[tuple[type | GenericAlias, ...]] = set()
+        for left_type, right_type in product(all_possible_types, repeat=2):
+            has_tensor = False
+            if is_generic_alias_type(left_type):
+                left_value_type: type = left_type.__args__[0]
+                has_tensor = True
+            else:
+                left_value_type = left_type  # type: ignore
+
+            if is_generic_alias_type(right_type):
+                right_value_type: type = right_type.__args__[0]
+                has_tensor = True
+            else:
+                right_value_type = right_type  # type: ignore
+
+            if has_tensor and (left_value_type is bool) and (right_value_type is bool):
+                out_type: type = Tensor[bool]
+            else:
+                left_value = type_map[left_value_type]
+                right_value = type_map[right_value_type]
+
+                out_type = type(operation(left_value, right_value))
+                out_type = Tensor[out_type] if has_tensor else out_type  # type: ignore
+            possible_type_set.add((left_type, right_type, out_type))
+        return possible_type_set
+
+    def tensor_operation_fn(
+        output_type: type | UnionType | GenericAlias,
+        type1: type | UnionType | GenericAlias,
+        type2: type | UnionType | GenericAlias,
+        operation: Callable[..., Any],
+    ) -> tuple[Any, ...]:
+        possible_type_set = find_all_op_types(operation)
+
+        type1 = unsquash_tensor_types(type1)
+        type2 = unsquash_tensor_types(type2)
+        output_type = unsquash_tensor_types(output_type)
+
+        left_args = type1.__args__ if is_union_type(type1) else (type1,)
+        right_args = type2.__args__ if is_union_type(type2) else (type2,)
+        output_args = (
+            output_type.__args__ if is_union_type(output_type) else (output_type,)
+        )
+
+        possible_arg_types = set(product(left_args, right_args, output_args))
+        result_types = possible_arg_types & possible_type_set
+        result_left_types, result_right_types, result_output_types = zip(
+            *result_types, strict=False
+        )
+
+        result_left_type = reduce(lambda x, y: x | y, set(result_left_types))
+        result_right_type = reduce(lambda x, y: x | y, set(result_right_types))
+        result_output_type = reduce(lambda x, y: x | y, set(result_output_types))
+
+        result_left_type = squash_tensor_types(result_left_type)
+        result_right_type = squash_tensor_types(result_right_type)
+        result_output_type = squash_tensor_types(result_output_type)
+
+        return result_output_type, result_left_type, result_right_type
+
+    updates = Updates()
+    left_type = left._type
+    right_type = right._type
+    output_type = output._type
+
+    updated_left_type, updated_right_type, updated_output_type = tensor_operation_fn(
+        output_type, left_type, right_type, fn
+    )
+    updates |= left.set_type(updated_left_type)
+    updates |= right.set_type(updated_right_type)
+    updates |= output.set_type(updated_output_type)
+
+    return True, Updates()
 
 
 def floor_divide_type_constraint(

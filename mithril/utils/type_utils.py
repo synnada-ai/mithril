@@ -13,8 +13,25 @@
 # limitations under the License.
 from __future__ import annotations
 
-from types import EllipsisType
-from typing import Any, TypeGuard
+from types import EllipsisType, GenericAlias, UnionType
+from typing import (  # type: ignore
+    Any,
+    Protocol,
+    TypeGuard,
+    Union,
+    _GenericAlias,
+    get_origin,
+    runtime_checkable,
+)
+
+
+@runtime_checkable
+class SupportsArgsOrigin(Protocol):
+    @property
+    def __args__(self) -> tuple[type, ...]: ...
+
+    @property
+    def __origin__(self) -> type: ...
 
 
 def is_int_tuple_tuple(
@@ -88,3 +105,15 @@ def is_index_type(
     return isinstance(index, tuple) and all(
         isinstance(i, int | slice | EllipsisType | None) for i in index
     )
+
+
+def is_generic_alias_type(
+    typ: Any,
+) -> TypeGuard[GenericAlias]:
+    return type(typ) in (GenericAlias, _GenericAlias)
+
+
+def is_union_type(
+    type: Any,
+) -> TypeGuard[UnionType]:
+    return (get_origin(type)) in (Union, UnionType)
