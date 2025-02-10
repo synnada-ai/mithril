@@ -528,6 +528,7 @@ def test_code_generator_5(file_path: str):
     context = TrainModel(model)
     add = Add()
     add.set_types(right=Tensor)
+    add.set_cin("left")
     context.add_loss(
         BinaryCrossEntropy(), reduce_steps=[add], input="output", target="target"
     )

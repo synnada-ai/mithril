@@ -183,21 +183,21 @@ def test_collision_from_different_levels_3():
 
 def test_collision_from_different_models():
     model1 = Model()
-    model1 += (add := Add())(left="l", right="r", output="o")
-    add1 = add.submodel
+    model1 += (add1 := Add())(left="l", right="r", output="o")
+    _add1 = add1.submodel
 
     model2 = Model()
-    model2 += (add := Add())(left="l", right="r", output="o")
-    add2 = add.submodel
+    model2 += (add2 := Add())(left="l", right="r", output="o")
+    _add2 = add2.submodel
 
     model = Model()
-    model += model1
-    model += model2
+    model |= model1
+    model |= model2(l=add1.output)
 
     f_model = FlatModel(model)
     expected_mapping = {
-        add1: {"left": "l", "right": "r_0", "output": "o_0"},
-        add2: {"left": "o_0", "right": "r_1", "output": "o_1"},
+        _add1: {"left": "l", "right": "r_0", "output": "o_0"},
+        _add2: {"left": "o_0", "right": "r_1", "output": "o_1"},
     }
 
     assert f_model.mappings == expected_mapping

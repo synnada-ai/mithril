@@ -164,6 +164,7 @@ class ToTupleOp(Operator):
             fn=to_tuple_constraints,
             keys=[Operator.output_key] + [key for key in self.input_keys],
         )
+        self._set_cin()
 
 
 class ArithmeticOp(Operator):
@@ -208,6 +209,7 @@ class ArithmeticOp(Operator):
             dependencies={bcast_constraint},
         )
         self.edge_constraint = edge_constraint
+        self._set_cin("left", "right", safe=False)
 
 
 class PowerOp(Operator):
@@ -684,6 +686,7 @@ class ToListOp(Operator):
             fn=to_list_constraints,
             keys=[Operator.output_key] + [key for key in self.input_keys],
         )
+        self._set_cin()
 
 
 class TensorToListOp(Operator):
@@ -1399,6 +1402,7 @@ class SliceOp(Operator):
         self._add_constraint(
             fn=slice_constraints, keys=["output", "start", "stop", "step"]
         )
+        self._set_cin()
 
 
 class IndexerOp(Operator):

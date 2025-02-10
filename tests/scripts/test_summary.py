@@ -963,6 +963,7 @@ def test_physical_summary_3_logical_with_depth():
     model_1 = KernelizedSVM(kernel=RBFKernel())
     model_1.input1.set_differentiable(True)
     model_1.input2.set_differentiable(True)
+    model_1.set_cin("input1")
     model_2 = MLP(
         activations=[Sigmoid(), Tanh(), Relu(), LeakyRelu()], dimensions=[3, 4, 5, 6]
     )
@@ -1101,10 +1102,14 @@ def test_physical_model_summary_8():
     )
     input1_shape: ShapeTemplateType = ["a", ("Var1", ...), "b"]
     another_random_model.set_shapes({"input1": input1_shape})
+    another_random_model.set_cin("input1")
+
     random_kernel_model += (add1 := Add())(left="input1", right="input2")
     random_kernel_model += (relu1 := Relu())(input=add1.output)
     random_kernel_model += Sigmoid()(input=relu1.output)
     random_kernel_model.set_shapes({"input1": ["N", "M"], "input2": ["N", "M"]})
+    another_random_model.set_cin("input1")
+
     model += random_kernel_model
     model += another_random_model
 
@@ -1412,6 +1417,7 @@ def test_logical_model_summary_3():
 def test_logical_model_summary_4():
     model_n = Model()
     add = Add()
+    add.set_cin("left")
     model_n += add
     add.set_types(left=Tensor, right=Tensor)
     for _ in range(5):
@@ -1507,6 +1513,8 @@ def test_logical_model_summary_9():
     add_1, add_2 = Add(), Add()
     add_1.set_types(left=Tensor, right=Tensor)
     add_2.set_types(left=Tensor, right=Tensor)
+    add_1.set_cin("left")
+    add_2.set_cin("left")
     model += add_1(left="left")
     model += add_2(output=IOKey(connections={add_1.left, add_1.right}), left="left_1")
     with redirect_stdout(StringIO()) as summary:
@@ -1524,6 +1532,8 @@ def test_logical_model_summary_10():
     add_1, add_2 = Add(), Add()
     add_1.set_types(left=Tensor, right=Tensor)
     add_2.set_types(left=Tensor, right=Tensor)
+    add_1.set_cin("left")
+    add_2.set_cin("left")
     model += add_1(left="left", right="right", output=IOKey(name="output"))
     model += add_2(left=add_1.left, output=IOKey(name="output1"))
 
@@ -1867,6 +1877,8 @@ def test_traincontext_summary_3():
     add_2 = Add()
     add_1.set_types(left=Tensor, right=Tensor)
     add_2.set_types(left=Tensor, right=Tensor)
+    add_1.set_cin("left")
+    add_2.set_cin("left")
     matmul_1 = MatrixMultiply()
     model += add_1(left="in1", right="in2", output=IOKey(name="output1"))
     model += add_2(left="", output=IOKey(name="output2"))
@@ -1906,6 +1918,8 @@ def test_traincontext_summary_4():
     add_2 = Add()
     add_1.set_types(left=Tensor, right=Tensor)
     add_2.set_types(left=Tensor, right=Tensor)
+    add_1.set_cin("left")
+    add_2.set_cin("left")
     matmul_1 = MatrixMultiply()
     model += add_1(left="in1", right="in2", output=IOKey(name="output1"))
     model += add_2(left="", output=IOKey(name="output2"))
@@ -1947,6 +1961,8 @@ def test_traincontext_summary_5():
     add_2 = Add()
     add_1.set_types(left=Tensor, right=Tensor)
     add_2.set_types(left=Tensor, right=Tensor)
+    add_1.set_cin("left")
+    add_2.set_cin("left")
     matmul_1 = MatrixMultiply()
     model += add_1(left="in1", right="in2", output=IOKey(name="output1"))
     model += add_2(output=IOKey(name="output2"))

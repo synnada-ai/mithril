@@ -517,8 +517,9 @@ def test_generate_key_naming_1():
 
 def test_generate_key_naming_2():
     model = Model()
-    model += Add()(IOKey(type=Tensor), IOKey(type=Tensor))
+    model += (add := Add())(IOKey(type=Tensor), IOKey(type=Tensor))
     model += Add()(right=IOKey(type=Tensor))
+    model.set_cin(add.left)
     logical_ref = {"$1": "$input", "$2": "$right_0", "$4": "$right_1"}
     physical_ref = {"right_1", "left", "right_0"}
     assert_keys(model, logical_ref=logical_ref, physical_ref=physical_ref)
@@ -526,9 +527,10 @@ def test_generate_key_naming_2():
 
 def test_generate_key_naming_3():
     model = Model()
-    model += Add()(IOKey(type=Tensor), IOKey(type=Tensor))
+    model += (add := Add())(IOKey(type=Tensor), IOKey(type=Tensor))
     model += Subtract()(right=IOKey(type=Tensor))
     model += Add()(right=IOKey(type=Tensor))
+    model.set_cin(add.left)
     logical_ref = {"$1": "$input", "$2": "$right_0", "$4": "$right_1", "$6": "$right_2"}
     physical_ref = {"left", "right_0", "right_1", "right_2"}
     assert_keys(model, logical_ref=logical_ref, physical_ref=physical_ref)
@@ -536,11 +538,15 @@ def test_generate_key_naming_3():
 
 def test_generate_key_naming_4():
     model = Model()
+    add = Add()
+    add.set_cin("left")
+
     add_model = Model()
-    add_model += Add()(IOKey(type=Tensor), IOKey(type=Tensor))
+    add_model += add(IOKey(type=Tensor), IOKey(type=Tensor))
     add_model_1 = deepcopy(add_model)
     add_model_2 = deepcopy(add_model)
     add_model_3 = deepcopy(add_model)
+
     model += add_model
     model += add_model_1
     model += add_model_2

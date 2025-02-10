@@ -20,6 +20,7 @@ import mithril as ml
 from mithril.framework.common import Tensor
 from mithril.models import (
     Add,
+    Divide,
     Buffer,
     Convolution2D,
     Gelu,
@@ -424,7 +425,7 @@ def test_canonical_input_9():
 def test_canonical_input_10():
     # Valued cannection cannot be canonical input
     model = Model()
-    model += Add()(left=3, right="input2", output="output")
+    model += Divide()(numerator=3, denominator="input2", output="output")
 
     assert model.conns.cins == set()
 
@@ -433,7 +434,7 @@ def test_canonical_input_11():
     # Valued cannection cannot be canonical input
     model = Model()
     model += (buff := Buffer())
-    model += Add()(left=3, right="input2", output="output")
+    model += Divide()(numerator=3, denominator="input2", output="output")
 
     canonical_input = model.cin
     assert canonical_input.metadata == buff.input.metadata
@@ -512,7 +513,6 @@ def test_set_cout():
 
 def test_set_values():
     model1 = Model() + Add()(left="left", right="right")
-    model1.set_cin("left", "right")
 
     assert model1.conns.cins == {model1.left.data, model1.right.data}  # type: ignore
     model1.set_values(left=Tensor([[3]]))
@@ -521,15 +521,12 @@ def test_set_values():
     assert model1.conns.cins == set()
 
     model2 = Add(left=Tensor([[3]]))
-    model2.set_cin("left", "right", safe=False)
     assert model2.conns.cins == {model2.right.data}
 
     model3 = Add(right=Tensor([[3]]))
-    model3.set_cin("left", "right", safe=False)
     assert model3.conns.cins == {model3.left.data}
 
     model4 = Add(left=Tensor([[3]]), right=Tensor([[3]]))
-    model4.set_cin("left", "right", safe=False)
     assert model4.conns.cins == set()
 
 
@@ -538,13 +535,10 @@ def test_child_single_available_canonical_input_with_name():
     model = Model()
     model |= Linear(input=Tensor([[3]]))
 
-    add_model = Add()
-    add_model.set_cin("left", "right")
-
-    model += add_model(right="right")
+    model += (add := Add())(right="right")
 
     assert model.conns.cins == {
-        model.conns.get_con_by_metadata(add_model.right.data.metadata),
+        model.conns.get_con_by_metadata(add.right.data.metadata),
     }
 
 
@@ -552,23 +546,16 @@ def test_child_single_available_canonical_input_with_values():
     model = Model()
     model |= Linear(input=Tensor([[3]]))
 
-    add_model = Add()
-    add_model.set_cin("left", "right")
-
-    model += add_model(right=Tensor([[3]]))
+    model += Add()(right=Tensor([[3]]))
     assert model.conns.cins == set()
 
 
 def test_child_single_available_canonical_input_with_io_key():
     model = Model()
     model |= Linear(input=Tensor([[3]]))
-
-    add_model = Add()
-    add_model.set_cin("left", "right")
-
-    model += add_model(right=IOKey("right"))
+    model += (add := Add())(right=IOKey("right"))
     assert model.conns.cins == {
-        model.conns.get_con_by_metadata(add_model.right.data.metadata),
+        model.conns.get_con_by_metadata(add.right.data.metadata),
     }
 
 
@@ -576,10 +563,7 @@ def test_child_single_available_canonical_input_with_valued_io_key():
     model = Model()
     model |= Linear(input=Tensor([[3]]))
 
-    add_model = Add()
-    add_model.set_cin("left", "right")
-
-    model += add_model(right=IOKey("right", Tensor([[3]])))
+    model += Add()(right=IOKey("right", Tensor([[3]])))
     assert model.conns.cins == set()
 
 
@@ -588,11 +572,7 @@ def test_child_single_available_canonical_input_with_connection():
     model |= Linear()(input=Tensor([[3]]), output="lin_out1")
     model |= Linear()(input=Tensor([[3]]), output="lin_out2")
     model.set_cout("lin_out1")
-
-    add_model = Add()
-    add_model.set_cin("left", "right")
-
-    model += add_model(right="lin_out2")
+    model += Add()(right="lin_out2")
     assert model.conns.cins == set()
 
 
@@ -602,10 +582,7 @@ def test_child_zero_available_canonical_input():
     model |= Linear()(input=Tensor([[3]]), output="lin_out2")
     model.set_cout("lin_out1")
 
-    add_model = Add()
-    add_model.set_cin("left", "right")
-
-    model += add_model(left=model.cout, right="lin_out2")
+    model += Add()(left=model.cout, right="lin_out2")
     assert model.conns.cins == set()
 
 
@@ -693,8 +670,8 @@ def test_child_no_canonical_input_error():
 
 def test_parent_no_canonical_output_error():
     parent = Model()
-    parent |= Add()
-    parent += Add()
+    parent |= Divide()
+    parent += Divide()
     parent.set_cout()
 
     with pytest.raises(KeyError) as err_info:
