@@ -1024,7 +1024,6 @@ class CartesianDifference(PrimitiveModel):
             fn=general_tensor_type_constraint,
             keys=[Operator.output_key, "left", "right"],
         )
-        self.set_cin("left", "right", safe=False)
 
     def __call__(  # type: ignore[override]
         self,

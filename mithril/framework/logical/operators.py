@@ -209,7 +209,6 @@ class ArithmeticOp(Operator):
             dependencies={bcast_constraint},
         )
         self.edge_constraint = edge_constraint
-        self._set_cin("left", "right", safe=False)
 
 
 class PowerOp(Operator):
@@ -305,6 +304,7 @@ class AddOp(ArithmeticOp):
             keys=[Operator.output_key, "left", "right"],
             dependencies={self.edge_constraint},
         )
+        self._set_cin("left", "right", safe=False)
 
 
 class SubtractOp(ArithmeticOp):
@@ -345,6 +345,7 @@ class MultiplyOp(ArithmeticOp):
             keys=[Operator.output_key, "left", "right"],
             dependencies={self.edge_constraint},
         )
+        self._set_cin("left", "right", safe=False)
 
 
 class MinimumOp(ArithmeticOp):
@@ -356,6 +357,7 @@ class MinimumOp(ArithmeticOp):
         right: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(formula_key="minimum", left=left, right=right)
+        self._set_cin("left", "right", safe=False)
 
 
 class MaximumOp(ArithmeticOp):
@@ -367,6 +369,7 @@ class MaximumOp(ArithmeticOp):
         right: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(formula_key="maximum", left=left, right=right)
+        self._set_cin("left", "right", safe=False)
 
 
 class DivideOp(Operator):
@@ -1123,6 +1126,7 @@ class EqualOp(RelationalOperatorsOp):
             keys=[Operator.output_key, "left", "right"],
             dependencies={self.edge_constraint},
         )
+        self._set_cin("left", "right", safe=False)
 
 
 class NotEqualOp(RelationalOperatorsOp):
@@ -1142,6 +1146,7 @@ class NotEqualOp(RelationalOperatorsOp):
             keys=[Operator.output_key, "left", "right"],
             dependencies={self.edge_constraint},
         )
+        self._set_cin("left", "right", safe=False)
 
 
 class LessEqualOp(RelationalOperatorsOp):
@@ -1231,6 +1236,7 @@ class LogicalAndOp(BitwiseOperatorsOp):
         name: str | None = None,
     ) -> None:
         super().__init__(formula_key="logical_and", name=name, left=left, right=right)
+        self._set_cin("left", "right", safe=False)
 
 
 class LogicalOrOp(BitwiseOperatorsOp):
@@ -1244,6 +1250,7 @@ class LogicalOrOp(BitwiseOperatorsOp):
         name: str | None = None,
     ) -> None:
         super().__init__(formula_key="logical_or", name=name, left=left, right=right)
+        self._set_cin("left", "right", safe=False)
 
 
 class LogicalXOrOp(BitwiseOperatorsOp):
@@ -1258,6 +1265,7 @@ class LogicalXOrOp(BitwiseOperatorsOp):
     ) -> None:
         super().__init__(formula_key="logical_xor", name=name, left=left, right=right)
         self.factory_args = {"left": left, "right": right}
+        self._set_cin("left", "right", safe=False)
 
 
 class ShiftLeftOp(Operator):
