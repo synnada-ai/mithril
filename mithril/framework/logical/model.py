@@ -412,6 +412,7 @@ class IOKey(BaseKey, TemplateBase):
         | ScalarType
         | None = None,
         expose: bool | None = None,
+        differantiable: bool = False,
         interval: list[float | int] | None = None,
         connections: set[Connection | str] | None = None,
     ) -> None:
@@ -428,6 +429,7 @@ class IOKey(BaseKey, TemplateBase):
             expose=expose,
             interval=interval,
             connections=_connections,
+            differentiable=differantiable,
         )
 
 
@@ -591,6 +593,7 @@ class Model(BaseModel):
                     type=connection.type,
                     shape=connection.value_shape,
                     value=connection.value,
+                    differentiable=connection.differentiable,
                 )
             case _:
                 _connection = connection  # type: ignore

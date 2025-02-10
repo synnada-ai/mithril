@@ -144,3 +144,6 @@ class Operator(BaseModel):
         **kwargs: ConnectionDataType,
     ) -> None:
         raise NotImplementedError("Operators cannot be extended!")
+
+    def infer_differentiability(self, output: bool, *inputs: bool) -> bool:
+        return any(inputs)

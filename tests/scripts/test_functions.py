@@ -373,7 +373,7 @@ def test_code_generator_2(file_path: str):
     eval_func = import_module("tmp." + file_name).evaluate
 
     def evaluate(params, data, cache):
-        input = params["input"]
+        input = data["input"]
         return {"output1": input, "output2": input}
 
     compare_callables(evaluate, eval_func)
@@ -431,6 +431,8 @@ def test_code_generator_4(file_path: str):
     NumpyBackend.register_primitive(my_adder, add_grad)
 
     model += MyAdder()(left="left", right="right", output=IOKey(name="output"))
+    model.left.set_differentiable(True)  # type: ignore
+    model.right.set_differentiable(True)  # type: ignore
     context = TrainModel(model)
     context.add_loss(
         BinaryCrossEntropy(), reduce_steps=[Mean()], input="output", target="target"
@@ -525,9 +527,12 @@ def test_code_generator_5(file_path: str):
     JaxBackend.register_primitive(my_adder)
 
     model += MyAdder()(left="left", right="right", output=IOKey(name="output"))
+    model.left.set_differentiable(True)  # type: ignore
+    model.right.set_differentiable(True)  # type: ignore
     context = TrainModel(model)
     add = Add()
     add.set_types(right=Tensor)
+    add.right.set_differentiable(True)  # type: ignore
     context.add_loss(
         BinaryCrossEntropy(), reduce_steps=[add], input="output", target="target"
     )
@@ -681,6 +686,8 @@ def test_code_generator_8(file_path: str):
     model = Model()
     add = Add()
     add.set_types(left=Tensor, right=Tensor)
+    add.left.set_differentiable(True)  # type: ignore
+    add.right.set_differentiable(True)  # type: ignore
     model += add(left="left", right="right")
     model += Multiply()(left=add.output, right="right2", output="output")
 

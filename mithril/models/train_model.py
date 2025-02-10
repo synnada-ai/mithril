@@ -174,11 +174,16 @@ class TrainModel(Model):
         **kwargs: Any,
     ) -> None:
         # If provided key namings does not match with Loss model
+
         if {
             key
             for key, value in loss_model(**kwargs).connections.items()
             if value is NOT_GIVEN and key in loss_model.input_keys
-        } - loss_model.conns.get_non_diff_keys():
+        } - {
+            conn.key
+            for conn in loss_model.conns.input_connections
+            if conn.metadata.is_scalar
+        }:
             # if set(kwargs.keys()) != keys:
             raise KeyError("The provided keys do not match the model's loss.")
 
@@ -284,6 +289,7 @@ class TrainModel(Model):
 
         if (loss_con := self.conns.get_con_by_metadata(prev_out_key.metadata)) is None:
             raise KeyError("Given key does not belong to the Model!")
+
         self.loss_keys[loss_key] = loss_con.key
 
         # TODO: maybe only add reduce_inputs if it is not empty
@@ -298,7 +304,7 @@ class TrainModel(Model):
         key_name: str | None = None,
         **kwargs: Any,
     ) -> None:
-        keys = set(model.input_keys) - model.conns.get_non_diff_keys()
+        keys = set(model.input_keys) - model.conns.valued_input_keys
         if set(kwargs.keys()) != keys:
             raise KeyError(
                 "The provided keys do not match the regularization model keys!"
@@ -342,6 +348,7 @@ class TrainModel(Model):
                 reg_str = reg_key.data.key
             case None:
                 reg_str = model.cin.key
+
         if any([isinstance(value, re.Pattern) for value in kwargs.values()]):
             if len(kwargs) > 1:
                 raise Exception(
@@ -398,6 +405,7 @@ class TrainModel(Model):
                     keywords[key] = value.data
                 else:
                     keywords[key] = value
+
             self.extend(model, **keywords)
             if isinstance(outer_key := kwargs[reg_str], ConnectionData):
                 outer_key = outer_key.key
@@ -463,10 +471,9 @@ class TrainModel(Model):
             concat_model = Concat(n=num_of_loss_keys, axis=None)
             concat_kwargs: dict[Any, Any] = {}
             idx = 0
-            for key in concat_model.input_keys:
-                # if not concat_model.connections[key].metadata.value.is_non_diff:
-                if not concat_model.conns.is_key_non_diff(key):
-                    concat_kwargs[key] = self.conns.all[
+            for conn in concat_model.conns.input_connections:
+                if conn.metadata.is_tensor:
+                    concat_kwargs[conn.key] = self.conns.all[
                         list(self.loss_keys.values())[idx]
                     ]
                     idx += 1
@@ -721,9 +728,9 @@ class TrainModel(Model):
                     concat_model = Concat(n=n_final_outputs, axis=None)
                     concat_kwargs: dict[str, Tensor[int] | ConnectionData] = {}
                     idx = 0
-                    for key in concat_model.input_keys:
-                        if not concat_model.conns.is_key_non_diff(key):
-                            concat_kwargs[key] = final_outputs[idx]
+                    for conn in concat_model.conns.input_connections:
+                        if conn.metadata.is_tensor:
+                            concat_kwargs[conn.key] = final_outputs[idx]
                             idx += 1
 
                     self.extend(concat_model, **concat_kwargs)
@@ -765,9 +772,9 @@ class TrainModel(Model):
             concat_model = Concat(n=num_of_sizes, axis=None)
             concat_kwargs: dict[str, int | ConnectionData] = {}
             idx = 0
-            for key in concat_model.input_keys:
-                if not concat_model.conns.is_key_non_diff(key):
-                    concat_kwargs[key] = sizes[idx]
+            for conn in concat_model.conns.input_connections:
+                if conn.metadata.is_tensor:
+                    concat_kwargs[conn.key] = sizes[idx]
                     idx += 1
             self.extend(concat_model, **concat_kwargs)
             self.extend(prod := Prod(), input=concat_model.output.data)
