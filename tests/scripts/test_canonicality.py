@@ -20,9 +20,9 @@ import mithril as ml
 from mithril.framework.common import Tensor
 from mithril.models import (
     Add,
-    Divide,
     Buffer,
     Convolution2D,
+    Divide,
     Gelu,
     IOKey,
     Linear,

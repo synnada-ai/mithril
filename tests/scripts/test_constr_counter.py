@@ -324,7 +324,6 @@ def test_shape_constraint_counter_4():
     model |= (add3 := Add())(left=add2.output)
     model |= (add4 := Add())(left=add3.output)
 
-
     model = Model()
     model |= Buffer()([IOKey("in2"), IOKey("in2")])
 
