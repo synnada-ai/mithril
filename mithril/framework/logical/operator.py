@@ -64,6 +64,7 @@ class Operator(BaseModel):
                         tensor = Tensor(
                             type=get_args(value.type)[0],
                             shape=shapes[key].node,
+                            differentiable=value.differentiable,
                         )
                     edge = IOHyperEdge(value=tensor, interval=value.interval)
                     data_set.add(edge)

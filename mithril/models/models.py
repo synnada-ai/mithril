@@ -706,7 +706,6 @@ class LayerNorm(Model):
         self += Divide()(numerator=numerator.output, denominator=denominator.output)
 
         self._set_shapes({"input": ["B", "C", "d"]})
-        self.input.set_differentiable(False)
 
         shapes: dict[str, ShapeTemplateType] = {
             "left": ["B", "C", "d"],
@@ -1415,18 +1414,24 @@ class RNNCell(Cell):
         self |= slice_2(stop=scalar_item.output)
         self += tensor_item_2(input="prev_hidden", index=slice_2.output)
         self += mult_model_1(
-            input=tensor_item_2.output, weight=IOKey("w_hh", value=w_hh)
+            input=tensor_item_2.output,
+            weight=IOKey("w_hh", value=w_hh, differantiable=True),
         )
-        self += mult_model_2(input="input", weight=IOKey("w_ih", value=w_ih))
+        self += mult_model_2(
+            input="input", weight=IOKey("w_ih", value=w_ih, differantiable=True)
+        )
         self += sum_model_1(left=mult_model_1.output, right=mult_model_2.output)
         self += sum_model_2(
-            left=sum_model_1.output, right=IOKey("bias_h", value=bias_h)
+            left=sum_model_1.output,
+            right=IOKey("bias_h", value=bias_h, differantiable=True),
         )
         self += Tanh()(input=sum_model_2.output, output=IOKey(name="hidden"))
-        self += mult_model_3(input="hidden", weight=IOKey("w_ho", value=w_ho))
+        self += mult_model_3(
+            input="hidden", weight=IOKey("w_ho", value=w_ho, differantiable=True)
+        )
         self += Add()(
             left=mult_model_3.output,
-            right=IOKey("bias_o", value=bias_o),
+            right=IOKey("bias_o", value=bias_o, differantiable=True),
             output=IOKey(name="output"),
         )
         shapes: dict[str, ShapeTemplateType] = {
