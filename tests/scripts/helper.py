@@ -74,6 +74,7 @@ def evaluate_case(
             backend=backend,
             constant_keys=static_keys,
             discard_keys=discard_keys,
+            trainable_keys=reference_gradients,
             jit=False,
             safe_shapes=True,
         )

@@ -27,7 +27,9 @@ def test_tuple_argument_1():
     model = Model()
     add = Add()
     model += add(
-        left=IOKey("left", type=Tensor), right=Tensor([3.0, 4, 5]), output="output"
+        left=IOKey("left", type=Tensor, differantiable=True),
+        right=Tensor([3.0, 4, 5]),
+        output="output",
     )
 
     pm = compile(model=model, backend=backend)
@@ -240,7 +242,9 @@ def test_list_argument_1():
     model = Model()
     add = Add()
     model += add(
-        left=IOKey("left", type=Tensor), right=Tensor([3.0, 4, 5]), output="output"
+        left=IOKey("left", differantiable=True),
+        right=Tensor([3.0, 4, 5]),
+        output="output",
     )
 
     pm = compile(model=model, backend=backend)

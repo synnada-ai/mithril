@@ -2230,7 +2230,12 @@ class Embedding(PrimitiveModel):
             name=name,
             output=BaseKey(shape=[("N1", ...), "d1", out_dim], type=Tensor),
             input=BaseKey(shape=[("N1", ...), "d1"], type=Tensor[int], value=input),
-            weight=BaseKey(shape=[num_embeddings, out_dim], type=Tensor, value=weight),
+            weight=BaseKey(
+                shape=[num_embeddings, out_dim],
+                type=Tensor,
+                value=weight,
+                differentiable=True,
+            ),
         )
 
         self._add_constraint(

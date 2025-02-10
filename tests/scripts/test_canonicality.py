@@ -918,9 +918,9 @@ def test_existing_connection_parent_output_updated_to_internal():
 
 def test_compile_multi_canonical_output_no_exposed_output():
     model = Model()
-    model |= Relu()
-    model |= Relu()
-    model |= Relu()
+    model |= Relu()("input1")
+    model |= Relu()("input2")
+    model |= Relu()("input3")
 
     backend = ml.JaxBackend()
     pm = ml.compile(model, backend)

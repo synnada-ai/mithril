@@ -194,7 +194,7 @@ def test_constant_key():
 def test_constant_key_2():
     model = Model()
     model += (add := Add())(
-        left=IOKey("input", type=Tensor),
+        left=IOKey("input", type=Tensor, differantiable=True),
         right=IOKey(value=Tensor(3)),
         output=IOKey(name="output"),
     )
@@ -834,7 +834,7 @@ def test_set_values_constant_1():
     )
     model += Linear(1)(
         weight="weight1",
-        bias=IOKey(value=Tensor([123]), name="bias1"),
+        bias=IOKey(value=Tensor([123.0]), name="bias1"),
         input="input2",
         output=IOKey(name="output2"),
     )
@@ -872,7 +872,7 @@ def test_set_values_constant_2():
         input="input2",
         output=IOKey(name="output2"),
     )
-    model.set_values({"bias1": Tensor([123])})
+    model.set_values({"bias1": Tensor([123.0])})
 
     model_dict_created = dict_conversions.model_to_dict(model)
     model_recreated = dict_conversions.dict_to_model(model_dict_created)

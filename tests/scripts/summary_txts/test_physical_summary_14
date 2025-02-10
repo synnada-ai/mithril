@@ -10,11 +10,11 @@ Output keys        : output1
 --------------------------------
 Constant inputs    : None       
 --------------------------------
-Static keys        : None       
+Static keys        : left, right
 --------------------------------
-Trainable keys     : left, right
+Trainable keys     : None       
 --------------------------------
-Total Parameters   : >60        
+Total Parameters   : 0          
 --------------------------------
 
 
@@ -24,8 +24,8 @@ Model Name   |                                  Model Keys
              |             ----------------------------------------------------
              |             Keys   : Shapes           : Connections : Parameters
 ===============================================================================
-Add          |   Inputs  : left   :      [3, 4,   5] : 'left'      :         60
-             |             right  :            [...] : 'right'     :    Unknown
+Add          |   Inputs  : left   :      [3, 4,   5] : 'left'      :          0
+             |             right  :            [...] : 'right'     :          0
              |   --------------------------------------------------------------
              |   Outputs : output : [..., 3, 4,   5] : 'output1'   :          0
 -------------------------------------------------------------------------------

@@ -140,7 +140,10 @@ def compile_and_compare(
         }
 
         pm = mithril.compile(
-            model, backend=backend, **compile_kwargs | {"constant_keys": statics}
+            model,
+            backend=backend,
+            **compile_kwargs
+            | {"constant_keys": statics, "trainable_keys": params.keys()},
         )
         outputs = pm.evaluate(params=backend_params, data=backend_data)
 

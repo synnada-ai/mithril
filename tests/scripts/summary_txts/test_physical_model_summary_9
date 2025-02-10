@@ -1,4 +1,3 @@
-
            Model Info          
 ===============================
 Backend type       : jax       
@@ -11,11 +10,11 @@ Output keys        : output
 -------------------------------
 Constant inputs    : None      
 -------------------------------
-Static keys        : None      
+Static keys        : input1    
 -------------------------------
-Trainable keys     : input1    
+Trainable keys     : None      
 -------------------------------
-Total Parameters   : >0        
+Total Parameters   : 0         
 -------------------------------
 
 
@@ -25,7 +24,7 @@ Model Name   |                                Model Keys
              |             -----------------------------------------------
              |             Keys   : Shapes   : Connections    : Parameters
 ==========================================================================
-Relu_0       |   Inputs  : input  : [u1, u2] : 'input1'       :    Unknown
+Relu_0       |   Inputs  : input  : [u1, u2] : 'input1'       :          0
              |   ---------------------------------------------------------
              |   Outputs : output : [u1, u2] : Relu_1.input   :          0
 --------------------------------------------------------------------------

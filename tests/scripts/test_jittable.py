@@ -110,7 +110,6 @@ class MyModel(Model):
             "b": [dimension],
         }
         self.set_shapes(shapes)
-        ...
 
 
 class MyModel2(Model):
@@ -243,7 +242,9 @@ def test_mymodel_jax():
             return ExtendInfo(self, kwargs)
 
     model = MyModel(dimension=1)
-    model += Adder()(left="output", right="r1", output=IOKey(name="o1"))
+    model += Adder()(
+        left="output", right=IOKey("r1", differantiable=True), output=IOKey(name="o1")
+    )
     compiled_model = compile(
         model=model, backend=JaxBackend(), constant_keys=static_inputs, jit=True
     )
@@ -304,22 +305,29 @@ def test_physical_model_jit_1():
     """
     model = Model(enforce_jit=False)
     add1 = Add()
-    add1.set_types(left=Tensor, right=Tensor)
     add2 = Add()
-    add2.set_types(left=Tensor, right=Tensor)
-    model += add1(left="l1", right="l2", output=IOKey(name="out1"))
-    model += add2(left="l3", right="l4")
+    model += add1(
+        left=IOKey("l1", differantiable=True),
+        right=IOKey("l2", differantiable=True),
+        output=IOKey(name="out1"),
+    )
+    model += add2(
+        left=IOKey("l3", differantiable=True), right=IOKey("l4", differantiable=True)
+    )
     model.enforce_jit = False
-    input = IOKey(name="input", connections={add1.left, add2.left}, expose=True)
+    input = IOKey(
+        name="input",
+        connections={add1.left, add2.left},
+        expose=True,
+        differantiable=True,
+    )
     model += Item()(input=input)
 
     backend = JaxBackend()
     compiled_model = compile(model=model, backend=backend, jit=False)
     inputs = compiled_model.randomize_params()
     output_gradients = {"out1": backend.ones_like(inputs["input"])}
-    outputs, grads = compiled_model.evaluate_all(
-        inputs, output_gradients=output_gradients
-    )
+    compiled_model.evaluate_all(inputs, output_gradients=output_gradients)
 
 
 def test_physical_model_jit_2():
@@ -376,14 +384,19 @@ def test_jit_2():
     backend = JaxBackend()
     model = Model(enforce_jit=False)
     model += (add_model := Add())(
-        left=IOKey("left", type=Tensor), right=IOKey("right", type=Tensor)
+        left=IOKey("left", differantiable=True),
+        right=IOKey("right", differantiable=True),
     )
     in1 = add_model.output
     out1 = in1.shape
     out2 = out1.tensor().sum()
     mean_model = Mean(axis=TBD)
     model += (to_list := Item())(input=out2)
-    model += mean_model(input="input", axis=to_list.output, output=IOKey(name="output"))
+    model += mean_model(
+        input=IOKey("input", differantiable=True),
+        axis=to_list.output,
+        output=IOKey(name="output"),
+    )
     pm = compile(model=model, backend=backend, jit=False)
     params = {
         "left": backend.randn(1, 1),
@@ -392,7 +405,6 @@ def test_jit_2():
     }
     pm.evaluate(params=params)
     # TODO: Make required assertions!!!
-    ...
 
 
 def test_jit_3():
@@ -401,10 +413,9 @@ def test_jit_3():
     model += Mean(axis=TBD)(input="input", output=IOKey(name="output"), axis="axis")
     pm = compile(model=model, backend=backend, jit=False)
 
-    inputs = {"input": backend.randn(1, 2, 3, 2, 3, 2, 3, 2)}
-    data = {"axis": 3}
+    inputs = {"input": backend.randn(1, 2, 3, 2, 3, 2, 3, 2), "axis": 3}
 
-    pm.evaluate(params=inputs, data=data)
+    pm.evaluate(data=inputs)  # type: ignore
 
 
 def test_jit_4():
@@ -414,9 +425,8 @@ def test_jit_4():
     pm = compile(model=model, backend=backend, jit=True, constant_keys={"axis": 3})
 
     inputs = {"input": backend.randn(1, 2, 3, 2, 3, 2, 3, 2)}
-    data = {"axis": 3}
 
-    pm.evaluate(params=inputs, data=data)
+    pm.evaluate(data=inputs)
 
 
 def test_jit_5():

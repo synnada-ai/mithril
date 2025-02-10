@@ -1,4 +1,3 @@
-
                    Model Info                  
 ===============================================
 Backend type       : jax                       
@@ -11,11 +10,11 @@ Output keys        : output
 -----------------------------------------------
 Constant inputs    : None                      
 -----------------------------------------------
-Static keys        : None                      
+Static keys        : input1, input2_0, input2_1
 -----------------------------------------------
-Trainable keys     : input1, input2_0, input2_1
+Trainable keys     : None                      
 -----------------------------------------------
-Total Parameters   : >0                        
+Total Parameters   : 0                         
 -----------------------------------------------
 
 
@@ -25,8 +24,8 @@ Model Name   |                          Model Keys
              |             ------------------------------------
              |             Keys   : Connections    : Parameters
 ===============================================================
-Add_0        |   Inputs  : left   : 'input1'       :    Unknown
-             |             right  : 'input2_0'     :    Unknown
+Add_0        |   Inputs  : left   : 'input1'       :          0
+             |             right  : 'input2_0'     :          0
              |   ----------------------------------------------
              |   Outputs : output : Relu.input     :          0
 ---------------------------------------------------------------
@@ -39,7 +38,7 @@ Sigmoid      |   Inputs  : input  : Relu.output    :          0
              |   Outputs : output : Add_1.left     :          0
 ---------------------------------------------------------------
 Add_1        |   Inputs  : left   : Sigmoid.output :          0
-             |             right  : 'input2_1'     :    Unknown
+             |             right  : 'input2_1'     :          0
              |   ----------------------------------------------
              |   Outputs : output : 'output'       :          0
 ---------------------------------------------------------------

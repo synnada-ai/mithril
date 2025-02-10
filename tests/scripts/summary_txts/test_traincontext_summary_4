@@ -1,14 +1,13 @@
-
                                  Model                                  
 ------------------------------------------------------------------------
 Model Name       |                             Model Keys               
                  |             -----------------------------------------
                  |             Keys   : Types              : Connections
 ========================================================================
-Add_0            |   Inputs  : left   : bool | float | int : 'in1'      
-                 |             right  : bool | float | int : 'in2'      
+Add_0            |   Inputs  : left   : float              : 'in1'      
+                 |             right  : float              : 'in2'      
                  |   ---------------------------------------------------
-                 |   Outputs : output : bool | float | int : 'output1'  
+                 |   Outputs : output : float              : 'output1'  
 ------------------------------------------------------------------------
 Add_1            |   Inputs  : left   : bool | float | int : '$left'    
                  |             right  : bool | float | int : '$right_0' 

@@ -1,4 +1,3 @@
-
            Model Info           
 ================================
 Backend type       : jax        
@@ -11,11 +10,11 @@ Output keys        : None
 --------------------------------
 Constant inputs    : None       
 --------------------------------
-Static keys        : None       
+Static keys        : left, right
 --------------------------------
-Trainable keys     : left, right
+Trainable keys     : None       
 --------------------------------
-Total Parameters   : >0         
+Total Parameters   : 0          
 --------------------------------
 
 
@@ -25,8 +24,8 @@ Model Name       |                                    Model Keys
                  |             -------------------------------------------------------
                  |             Keys   : Shapes              : Connections : Parameters
 ======================================================================================
-MatrixMultiply   |   Inputs  : left   : [(V1, ...), u1, u2] : 'left'      :    Unknown
-                 |             right  : [(V2, ...), u2, u3] : 'right'     :    Unknown
+MatrixMultiply   |   Inputs  : left   : [(V1, ...), u1, u2] : 'left'      :          0
+                 |             right  : [(V2, ...), u2, u3] : 'right'     :          0
                  |   -----------------------------------------------------------------
                  |   Outputs : output : [(V3, ...), u1, u3] : 'output_0'  :          0
 --------------------------------------------------------------------------------------

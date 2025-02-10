@@ -1106,6 +1106,9 @@
         "model": {
             "name": "LeakyRelu"
         },
+        "static_input_info": {
+            "slope": 0.01
+        },
         "input_info": {
             "input" : {
                 "shapes": [[1,10], [1, 10], [1, 10], [1, 10], [1, 10]]

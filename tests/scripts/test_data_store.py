@@ -150,6 +150,7 @@ def test_data_store_4():
         "bias",
         "linear_transpose_axes",
     }
+    print(pm.flat_graph.data_store.unused_keys)
     assert pm.flat_graph.data_store.unused_keys == ref_unused_keys
 
 
@@ -283,8 +284,10 @@ def test_data_store_11():
     )
 
     assert pm.flat_graph.data_store.data_values.keys() == {"out"}
-    assert pm.flat_graph.data_store.runtime_static_keys == set()
-    assert pm.flat_graph.data_store.intermediate_non_differentiables._table == dict()
+    assert pm.flat_graph.data_store.runtime_static_keys == {"something"}
+    assert pm.flat_graph.data_store.intermediate_non_differentiables._table == {
+        "out2": pm.flat_graph.data_store.all_data["out2"]
+    }
     assert pm.flat_graph.data_store.unused_keys == {"left", "right"}
 
     infered_value = pm.flat_graph.data_store.data_values["out"]
@@ -464,10 +467,11 @@ def test_data_store_15():
         "output_0_cache",
         "output_cache",
     }
-    assert pm.flat_graph.data_store.runtime_static_keys == {"right"}
-    assert (
-        pm.flat_graph.data_store.intermediate_non_differentiables._table.keys() == set()
-    )
+    assert pm.flat_graph.data_store.runtime_static_keys == {"left", "right"}
+    assert pm.flat_graph.data_store.intermediate_non_differentiables._table.keys() == {
+        "output_0",
+        "output",
+    }
     assert pm.flat_graph.data_store.unused_keys == set()
 
 
@@ -498,14 +502,14 @@ def test_data_store_16():
     )
 
     assert pm.flat_graph.data_store.data_values.keys() == set()
-    assert pm.flat_graph.data_store.runtime_static_keys == set()
-    assert (
-        pm.flat_graph.data_store.intermediate_non_differentiables._table.keys() == set()
-    )
+    assert pm.flat_graph.data_store.runtime_static_keys == {"in"}
+    assert pm.flat_graph.data_store.intermediate_non_differentiables._table.keys() == {
+        "out"
+    }
     assert pm.flat_graph.data_store.unused_keys == {
         "right",
-        "left",
         "output_0",
+        "left",
         "output",
     }
 
@@ -535,15 +539,15 @@ def test_data_store_17():
     )
 
     assert pm.flat_graph.data_store.data_values.keys() == set()
-    assert pm.flat_graph.data_store.runtime_static_keys == set()
-    assert (
-        pm.flat_graph.data_store.intermediate_non_differentiables._table.keys() == set()
-    )
+    assert pm.flat_graph.data_store.runtime_static_keys == {"in"}
+    assert pm.flat_graph.data_store.intermediate_non_differentiables._table.keys() == {
+        "out"
+    }
     assert pm.flat_graph.data_store.unused_keys == {
-        "output",
+        "right",
         "output_0",
         "left",
-        "right",
+        "output",
     }
 
 

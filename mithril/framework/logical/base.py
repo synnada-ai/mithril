@@ -204,9 +204,18 @@ class BaseModel:
             case NullConnection():
                 _connection = BaseKey()
             case str():
-                _connection = BaseKey(name=connection)
+                given_conn = self.conns.get_connection(connection)
+                diff = (
+                    given_conn.metadata.differentiable
+                    if given_conn is not None
+                    else local_connection.metadata.differentiable
+                )
+                _connection = BaseKey(name=connection, differentiable=diff)
             case ConnectionData():
-                _connection = BaseKey(connections={connection})
+                _connection = BaseKey(
+                    connections={connection},
+                    differentiable=connection.metadata.differentiable,
+                )
             case _ if isinstance(connection, MainValueInstance | Tensor):
                 # find_dominant_type returns the dominant type in a container.
                 # If a container has a value of type Connection or ExtendTemplate
@@ -231,6 +240,7 @@ class BaseModel:
                     type=connection.type,
                     shape=connection.value_shape,
                     value=connection.value,
+                    differentiable=connection.differentiable,
                 )
 
         return _connection
@@ -250,6 +260,9 @@ class BaseModel:
         d_map = self.dependency_map.local_output_dependency_map
         expose = given_connection.expose
         outer_key = given_connection.name
+        differentiable = (
+            given_connection.differentiable | local_connection.metadata.differentiable
+        ) and given_connection.value is TBD
         con_obj = None
         set_value: (
             ToBeDetermined
@@ -346,6 +359,8 @@ class BaseModel:
         assert con_obj is not None
         if not isinstance(set_value, NullConnection):
             updates |= con_obj.metadata.set_value(set_value)
+
+        updates |= con_obj.set_differentiable(differentiable)
 
         # Check multi-write error for con_obj.
         self._check_multi_write(is_input, local_connection, con_obj)

@@ -946,7 +946,9 @@ def test_physical_summary_3():
     )
     model += model_1
     model += model_2
-    comp_model = mithril.compile(model=model, backend=JaxBackend(), jit=False)
+    comp_model = mithril.compile(
+        model=model, backend=JaxBackend(), jit=False, safe_names=False
+    )
 
     with redirect_stdout(StringIO()) as summary:
         comp_model.summary(verbose=True, shapes=True, symbolic=True, types=False)
@@ -994,7 +996,7 @@ def test_physical_summary_4():
     )
     model += model_1
     model += model_2
-    comp_model = mithril.compile(model=model, backend=JaxBackend())
+    comp_model = mithril.compile(model=model, backend=JaxBackend(), safe_names=False)
 
     with redirect_stdout(StringIO()) as summary:
         comp_model.summary(model=model_2, shapes=True, verbose=True, depth=1)
@@ -1035,14 +1037,14 @@ def test_physical_model_summary_5():
     model += add
     model += divide
     model += exp
-    comp_model = mithril.compile(model=model, backend=JaxBackend())
+    comp_model = mithril.compile(model=model, backend=JaxBackend(), safe_names=False)
 
     with redirect_stdout(StringIO()) as summary:
         comp_model.summary(verbose=True, shapes=True, symbolic=True)
     ref_table = ""
     with open("tests/scripts/summary_txts/test_physical_model_summary_5") as f:
         ref_table = f.read()
-    assert "\n" + summary.getvalue() == ref_table
+    assert summary.getvalue() == ref_table
 
 
 def test_physical_model_summary_6():
@@ -1060,7 +1062,7 @@ def test_physical_model_summary_6():
     )
     random_kernel_model.set_shapes({"input1": ["N", "M"], "input2": ["N", "M"]})
 
-    comp_model = mithril.compile(model=model, backend=JaxBackend())
+    comp_model = mithril.compile(model=model, backend=JaxBackend(), safe_names=False)
 
     with redirect_stdout(StringIO()) as summary:
         comp_model.summary(verbose=True, shapes=True, symbolic=True)
@@ -1080,7 +1082,9 @@ def test_physical_model_summary_7():
     )
     random_kernel_model.set_shapes({"input1": ["N", "M"], "input2": ["N", "M"]})
 
-    comp_model = mithril.compile(model=random_kernel_model, backend=JaxBackend())
+    comp_model = mithril.compile(
+        model=random_kernel_model, backend=JaxBackend(), safe_names=False
+    )
 
     with redirect_stdout(StringIO()) as summary:
         comp_model.summary(verbose=True, shapes=True, symbolic=True)
@@ -1108,13 +1112,13 @@ def test_physical_model_summary_8():
     model += random_kernel_model
     model += another_random_model
 
-    comp_model = mithril.compile(model=model, backend=JaxBackend())
+    comp_model = mithril.compile(model=model, backend=JaxBackend(), safe_names=False)
     with redirect_stdout(StringIO()) as summary:
         comp_model.summary(verbose=True, shapes=False)
     ref_table = ""
     with open("tests/scripts/summary_txts/test_physical_model_summary_8") as f:
         ref_table = f.read()
-    assert "\n" + summary.getvalue() == ref_table
+    assert summary.getvalue() == ref_table
 
 
 def test_physical_model_summary_9():
@@ -1127,7 +1131,7 @@ def test_physical_model_summary_9():
     model += random_kernel_model
     model += Relu()
 
-    comp_model = mithril.compile(model=model, backend=JaxBackend())
+    comp_model = mithril.compile(model=model, backend=JaxBackend(), safe_names=False)
     with redirect_stdout(StringIO()) as summary:
         comp_model.summary(verbose=True, shapes=True, symbolic=True)
 
@@ -1135,7 +1139,7 @@ def test_physical_model_summary_9():
     with open("tests/scripts/summary_txts/test_physical_model_summary_9") as f:
         ref_table = f.read()
 
-    assert "\n" + summary.getvalue() == ref_table
+    assert summary.getvalue() == ref_table
 
 
 def test_physical_summary_10():
@@ -1144,7 +1148,9 @@ def test_physical_summary_10():
     sig_model2 = Sigmoid()
     model += sig_model1(input="input", output=IOKey("output1"))
     model += sig_model2(input="input", output=IOKey("output2"))
-    comp_model = mithril.compile(model=model, backend=JaxBackend(), jit=False)
+    comp_model = mithril.compile(
+        model=model, backend=JaxBackend(), jit=False, safe_names=False
+    )
     with redirect_stdout(StringIO()) as summary:
         comp_model.summary(
             verbose=True, shapes=True, symbolic=True, model=sig_model1, types=True
@@ -1163,7 +1169,7 @@ def test_physical_summary_11():
     sig_model2 = Sigmoid()
     model += sig_model1(input="input", output=IOKey(name="output1"))
     model += sig_model2(input="input", output=IOKey(name="output2"))
-    comp_model = mithril.compile(model=model, backend=JaxBackend())
+    comp_model = mithril.compile(model=model, backend=JaxBackend(), safe_names=False)
     with redirect_stdout(StringIO()) as summary:
         comp_model.summary(verbose=True, shapes=True, symbolic=True, model=sig_model2)
     ref_table = ""
@@ -1178,13 +1184,13 @@ def test_physical_summary_12():
     sig_model2 = Sigmoid()
     model += sig_model1(input="input", output=IOKey(name="output1"))
     model += sig_model2(input="input", output=IOKey(name="output2"))
-    comp_model = mithril.compile(model=model, backend=JaxBackend())
+    comp_model = mithril.compile(model=model, backend=JaxBackend(), safe_names=False)
     with redirect_stdout(StringIO()) as summary:
         comp_model.summary(verbose=True, shapes=True, symbolic=True)
     ref_table = ""
     with open("tests/scripts/summary_txts/test_physical_summary_12") as f:
         ref_table = f.read()
-    assert "\n" + summary.getvalue() == ref_table
+    assert summary.getvalue() == ref_table
 
 
 def test_physical_summary_13():
@@ -1209,7 +1215,7 @@ def test_physical_summary_14():
     model += sig_model1(left="left", right="right", output=IOKey("output1"))
     model += sig_model2(left="left", right="right", output=IOKey("output2"))
     comp_model = mithril.compile(
-        model=model, backend=JaxBackend(), shapes={"left": [3, 4, 5]}
+        model=model, backend=JaxBackend(), shapes={"left": [3, 4, 5]}, safe_names=False
     )
     with redirect_stdout(StringIO()) as summary:
         comp_model.summary(model=sig_model2, verbose=True)
@@ -1270,7 +1276,7 @@ def test_physical_summary_16():
         input="input", weight="weight", bias="b", output=IOKey(name="output3")
     )
 
-    comp_model = mithril.compile(model=model, backend=JaxBackend())
+    comp_model = mithril.compile(model=model, backend=JaxBackend(), safe_names=False)
 
     with redirect_stdout(StringIO()) as summary:
         comp_model.summary(model=add_model_1, verbose=True, types=True)
@@ -1294,7 +1300,7 @@ def test_physical_summary_17():
     model.set_cout("output3")
     lin_model_1.input.set_differentiable(True)
 
-    comp_model = mithril.compile(model=model, backend=JaxBackend())
+    comp_model = mithril.compile(model=model, backend=JaxBackend(), safe_names=False)
 
     with redirect_stdout(StringIO()) as summary:
         comp_model.summary(model=matmul_model_1, verbose=True, types=True)
@@ -1717,7 +1723,7 @@ def test_primitive_model_summary_4():
     with open("tests/scripts/summary_txts/test_primitive_model_summary_4") as f:
         ref_table = f.read()
 
-    assert "\n" + summary.getvalue() == ref_table
+    assert summary.getvalue() == ref_table
 
 
 def test_primitive_model_summary_5():
@@ -1729,7 +1735,7 @@ def test_primitive_model_summary_5():
     with open("tests/scripts/summary_txts/test_primitive_model_summary_5") as f:
         ref_table = f.read()
 
-    assert "\n" + summary.getvalue() == ref_table
+    assert summary.getvalue() == ref_table
 
 
 def test_primitive_model_summary_6():
@@ -1765,7 +1771,7 @@ def test_primitive_model_summary_8():
     with open("tests/scripts/summary_txts/test_primitive_model_summary_8") as f:
         ref_table = f.read()
 
-    assert "\n" + summary.getvalue() == ref_table
+    assert summary.getvalue() == ref_table
 
 
 def test_primitive_model_summary_9():
@@ -1868,7 +1874,11 @@ def test_traincontext_summary_3():
     add_1.set_types(left=Tensor, right=Tensor)
     add_2.set_types(left=Tensor, right=Tensor)
     matmul_1 = MatrixMultiply()
-    model += add_1(left="in1", right="in2", output=IOKey(name="output1"))
+    model += add_1(
+        left=IOKey("in1", differantiable=True),
+        right="in2",
+        output=IOKey(name="output1"),
+    )
     model += add_2(left="", output=IOKey(name="output2"))
     model += matmul_1(left="", output=IOKey(name="output3"))
     model.set_cin(matmul_1.left)
@@ -1897,7 +1907,7 @@ def test_traincontext_summary_3():
     with open("tests/scripts/summary_txts/test_traincontext_summary_3") as f:
         ref_table = f.read()
 
-    assert "\n" + summary.getvalue() == ref_table
+    assert summary.getvalue() == ref_table
 
 
 def test_traincontext_summary_4():
@@ -1907,7 +1917,11 @@ def test_traincontext_summary_4():
     add_1.set_types(left=Tensor, right=Tensor)
     add_2.set_types(left=Tensor, right=Tensor)
     matmul_1 = MatrixMultiply()
-    model += add_1(left="in1", right="in2", output=IOKey(name="output1"))
+    model += add_1(
+        left=IOKey("in1", differantiable=True),
+        right=IOKey("in2", differantiable=True),
+        output=IOKey(name="output1"),
+    )
     model += add_2(left="", output=IOKey(name="output2"))
     model += matmul_1(left="", output=IOKey(name="output3"))
     model.set_cin(matmul_1.left)
@@ -1938,7 +1952,7 @@ def test_traincontext_summary_4():
     with open("tests/scripts/summary_txts/test_traincontext_summary_4") as f:
         ref_table = f.read()
 
-    assert "\n" + summary.getvalue() == ref_table
+    assert summary.getvalue() == ref_table
 
 
 def test_traincontext_summary_5():
@@ -1948,7 +1962,11 @@ def test_traincontext_summary_5():
     add_1.set_types(left=Tensor, right=Tensor)
     add_2.set_types(left=Tensor, right=Tensor)
     matmul_1 = MatrixMultiply()
-    model += add_1(left="in1", right="in2", output=IOKey(name="output1"))
+    model += add_1(
+        left=IOKey("in1", differantiable=True),
+        right=IOKey("in2", differantiable=True),
+        output=IOKey(name="output1"),
+    )
     model += add_2(output=IOKey(name="output2"))
     model += matmul_1(output=IOKey(name="output3"))
     ctx = TrainModel(model)

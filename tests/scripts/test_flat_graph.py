@@ -90,14 +90,14 @@ def test_flatgraph_4():
     model = Model()
     model += model_1()
     model += model_2(
-        relu_2="",
+        relu_2="input",
         output_2=model_1.relu_2,  # type: ignore
         relu_1=model_1.output_2,  # type: ignore
         output_1=ml.IOKey(name="output"),
     )
 
     pm = ml.compile(model=model, backend=backend)
-    assert pm.input_keys == {"relu_2"}
+    assert pm.input_keys == {"input"}
     assert len(pm.flat_graph.all_source_keys) == 3
     assert len(pm.flat_graph.all_target_keys) == 3
 
