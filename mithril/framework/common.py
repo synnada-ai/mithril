@@ -862,6 +862,7 @@ class Tensor(Generic[TypeVarTensorType]):
             raise ValueError(
                 f"Value is set before as {self.value}. A value can not be reset."
             )
+
         updates = Updates()
         # Set value.
         if self.value is TBD:
@@ -876,6 +877,8 @@ class Tensor(Generic[TypeVarTensorType]):
                 updates.add(edge, update_type=UpdateType.VALUE)
                 updates.add(edge, update_type=UpdateType.SHAPE)
             self.value = val
+
+        self.differentiable = False
         return updates
 
     def match(self, other: Tensor[int | float | bool]) -> Updates:
@@ -890,10 +893,16 @@ class Tensor(Generic[TypeVarTensorType]):
                 )
                 assert not isinstance(valued.value, ToBeDetermined)
                 updates |= non_valued.set_value(valued.value)
+
+                self.differentiable = False
+                other.differentiable = False
+            else:
+                self.differentiable |= other.differentiable
+
             # Transfer all referees of other to self and update all
             # Tensors in all edges of other with self.
             self.referees |= other.referees
-            self.differentiable |= other.differentiable
+
             for edge in other.referees:
                 # TODO: Update here when we have list of tensors in an edge.
                 edge._value = self
@@ -1189,7 +1198,7 @@ class BaseKey:
             # Convert to generic Tensor type if Tensor type is provided.
             type = Tensor[int | float | bool]
 
-        if differentiable is True:
+        if differentiable:
             type = Tensor[float]
 
         self.name = name
@@ -1250,11 +1259,9 @@ class ConnectionData:
         updates = Updates()
         # TODO: Move this method to Model class as set_shapes, set_types etc.
         if self.metadata.is_tensor:
-            assert isinstance(self.metadata._value, Tensor)
             self.metadata.set_differentiability(differentiable)
         elif differentiable:
             updates |= self.metadata.set_type(Tensor[float])
-            assert isinstance(self.metadata._value, Tensor)
             self.metadata.set_differentiability(differentiable)
 
         return updates

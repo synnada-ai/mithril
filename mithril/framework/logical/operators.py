@@ -466,7 +466,7 @@ class FloorDivideOp(Operator):
             dependencies={bcast_constraint},
         )
 
-    def infer_differentiability(self, output: bool, *inputs: bool) -> bool:
+    def infer_differentiability(self, *inputs: bool) -> bool:
         return False
 
 

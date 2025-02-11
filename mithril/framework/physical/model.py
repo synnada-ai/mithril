@@ -428,9 +428,7 @@ class PhysicalModel(GenericDataType[DataType]):
         ]
 
         if output_edge.is_tensor:
-            diff = p_model.infer_differentiability(
-                output_edge.differentiable, *input_diffs
-            )
+            diff = p_model.infer_differentiability(*input_diffs)
             output_edge.set_differentiability(diff)
 
     def randomize_params(

@@ -260,9 +260,7 @@ class BaseModel:
         d_map = self.dependency_map.local_output_dependency_map
         expose = given_connection.expose
         outer_key = given_connection.name
-        differentiable = (
-            given_connection.differentiable | local_connection.metadata.differentiable
-        ) and given_connection.value is TBD
+
         con_obj = None
         set_value: (
             ToBeDetermined
@@ -360,7 +358,8 @@ class BaseModel:
         if not isinstance(set_value, NullConnection):
             updates |= con_obj.metadata.set_value(set_value)
 
-        updates |= con_obj.set_differentiable(differentiable)
+        if given_connection.differentiable:
+            updates |= con_obj.set_differentiable(True)
 
         # Check multi-write error for con_obj.
         self._check_multi_write(is_input, local_connection, con_obj)
