@@ -609,7 +609,7 @@ def test_shapes_4():
     model = Model()
     model |= (l1 := Linear(dimension=10))(weight="weight", output=IOKey(name="output"))
     model |= (l2 := Linear(dimension=10))(
-        input="", weight="weight1", output=IOKey(name="output2")
+        weight="weight1", output=IOKey(name="output2")
     )
     model |= Linear(dimension=71)(
         input="input", weight="weight2", output=IOKey(connections={l1.input, l2.input})
@@ -5412,7 +5412,7 @@ def test_variadic_naming_19():
         model += add_model_2
         model += add_model_3
         model += add_model_4
-        model |= add_model_5(left="", output=IOKey(name="output"))
+        model |= add_model_5(output=IOKey(name="output"))
 
         shape_1: dict[str, list] = {"output": ["u1", "u2", "u3", ("Var1", ...)]}
         shape_2: dict[str, list] = {"output": ["u1", "u2", ("Var1", ...), "u3"]}
@@ -9732,8 +9732,8 @@ def test_connect_shapes():
     relu3.set_shapes({"input": [5, 7]})
 
     model = Model()
-    model |= relu1(input="")
-    model |= relu2(input="")
+    model |= relu1
+    model |= relu2
     model |= relu3(input="input", output=IOKey(connections={relu1.input, relu2.input}))
 
     assert model.shapes["input"] == [5, 7]

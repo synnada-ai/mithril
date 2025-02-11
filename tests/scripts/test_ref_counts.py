@@ -1016,8 +1016,8 @@ def test_deleted_tensors_ref_count_3():
     model = Model()
 
     model |= buffer1(output=IOKey(name="output1"))
-    model |= buffer2(input="", output=IOKey(name="output2"))
-    model |= buffer3(input="", output=IOKey(name="output3"))
+    model |= buffer2(output=IOKey(name="output2"))
+    model |= buffer3(output=IOKey(name="output3"))
     model |= buffer4(input="input4", output=IOKey(name="output4"))
     model |= buffer5(input="input5", output=IOKey(name="output5"))
     model |= buffer6(input="input6", output=IOKey(name="output6"))
@@ -1100,7 +1100,7 @@ def test_deleted_edge_ref_count_3():
     model = Model()
 
     model |= add1(output="output", right="right3")
-    model |= add2(left="", output=add1.left, right="right2")
+    model |= add2(output=add1.left, right="right2")
     model |= add3(output=add2.left, right="right1", left="left")
 
     current_metadata = get_all_metadata(model)

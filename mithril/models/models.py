@@ -592,10 +592,10 @@ class ElementWiseAffine(Model):
         mult_model = Multiply()
         sum_model = Add()
 
-        self += mult_model(
+        self |= mult_model(
             left=IOKey("input", value=input), right=IOKey("weight", value=weight)
         )
-        self += sum_model(
+        self |= sum_model(
             left=mult_model.output,
             right=IOKey(name="bias", value=bias),
             output=IOKey(name="output"),
@@ -1170,7 +1170,7 @@ class LinearSVM(Model):
             bias=IOKey("bias", value=bias),
             output=IOKey(name="output"),
         )
-        self |= decision_model(output=IOKey(name="decision_output"))
+        self += decision_model(output=IOKey(name="decision_output"))
         self.input.set_differentiable(False)
 
         self.set_cout(linear_model.output)
@@ -1927,7 +1927,7 @@ class OneToManyInference(RNN):
             input_kwargs = {"input": prev_cell.output}
             output_kwargs = {cell_type.out_key: IOKey(name=f"output{idx}")}
 
-            self += current_cell(
+            self |= current_cell(
                 **(
                     input_kwargs
                     | shared_keys_kwargs

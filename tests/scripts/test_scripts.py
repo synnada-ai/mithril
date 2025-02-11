@@ -371,9 +371,9 @@ def test_shape():
     sigmoid2.set_shapes({"input": [5, 6, 8, 9, 10]})
     model3 |= sigmoid2(input="input2", output=IOKey(name="output2"))
 
-    model |= model1(input2="", output2=IOKey(name="output"))
+    model |= model1(output2=IOKey(name="output"))
     model |= model2(input1=model1.output1, input2=model1.output2)  # type: ignore
-    model |= model3(input2="", output1=model1.input1, output2=model1.input2)  # type: ignore
+    model |= model3(output1=model1.input1, output2=model1.input2)  # type: ignore
 
     comp_model = mithril.compile(model, backend=NumpyBackend(dtype=mithril.float64))
     assert comp_model.shapes["output"] == [5, 6, 8, 9, 10]
@@ -1414,10 +1414,10 @@ def test_flatten_dag0():
     l5.input.set_differentiable(True)
 
     model |= l1(weight="weight_2")
-    model |= (lin1 := Linear(10))(input="")
-    model |= (lin2 := Linear(10))(input="")
-    model |= (lin3 := Linear(10))(input="")
-    model |= l5(input="", output=IOKey(name="output1"))
+    model |= (lin1 := Linear(10))
+    model |= (lin2 := Linear(10))
+    model |= (lin3 := Linear(10))
+    model |= l5(output=IOKey(name="output1"))
     lin1.input.set_differentiable(True)
     lin2.input.set_differentiable(True)
     lin3.input.set_differentiable(True)
@@ -3401,8 +3401,8 @@ def test_connect_1():
     relu2 = Relu()
     relu3 = Relu()
     model |= relu1(output="relu_output_1")
-    model |= relu2(input="", output="relu_output_2")
-    model |= relu3(input="", output=IOKey(connections={relu1.input, relu2.input}))
+    model |= relu2(output="relu_output_2")
+    model |= relu3(output=IOKey(connections={relu1.input, relu2.input}))
 
     assert (
         model.dag[relu1]["input"].metadata
@@ -3419,7 +3419,7 @@ def test_connect_2():
     model |= relu1(input="in1", output="relu_output_1")
     model |= relu2(input="in2", output="relu_output_2")
     model |= relu3(
-        input="", output=IOKey(name="my_input", connections={relu1.input, relu2.input})
+        output=IOKey(name="my_input", connections={relu1.input, relu2.input})
     )
 
     assert (
@@ -3435,7 +3435,7 @@ def test_connect_3():
     relu2 = Relu()
     relu3 = Relu()
     model |= relu1(output="relu_output_1")
-    model |= relu2(input="", output="relu_output_2")
+    model |= relu2(output="relu_output_2")
     model |= relu3(input=IOKey(connections={relu1.input, relu2.input}))
 
     assert (
@@ -3468,7 +3468,7 @@ def test_connect_5():
     relu2 = Relu()
     relu3 = Relu()
     model |= relu1(input="in1", output="relu_output_1")
-    model |= relu2(input="", output="relu_output_2")
+    model |= relu2(output="relu_output_2")
     model |= relu3(input=IOKey(connections={relu1.input, relu2.input}))
 
     assert (
@@ -3693,7 +3693,7 @@ def test_connect_8():
     r2 = Relu()
     model |= t(output="output1")
     model |= r1(input="input2", output="output2")
-    model |= r2(input="", output=IOKey(connections={t.input, r1.input}))
+    model |= r2(output=IOKey(connections={t.input, r1.input}))
 
     assert r1.input.data.metadata == r2.output.data.metadata == t.input.data.metadata
 
@@ -3704,8 +3704,8 @@ def test_connect_9():
     r1 = Relu()
     r2 = Relu()
     model |= t(input="input1", output="output1")
-    model |= r1(input="", output="output2")
-    model |= r2(input="", output=IOKey(connections={"input1", r1.input}))
+    model |= r1(output="output2")
+    model |= r2(output=IOKey(connections={"input1", r1.input}))
 
     assert (
         r1.input.data.metadata
@@ -3723,7 +3723,6 @@ def test_connect_10():
     model |= t(input="input1", output=IOKey(name="output1"))
     model |= r1(input="input2", output=IOKey(name="output2"))
     model |= r2(
-        input="",
         output=IOKey(connections={"input1", "input2"}, expose=True, name="internal"),
     )
 
@@ -3849,7 +3848,7 @@ def test_connect_error_6():
     l4 = Linear(71)
     model |= l1(input="input2", weight="w", output=IOKey(name="output"))
     model |= l2(input="input1", weight="w1", output=IOKey(name="output2"))
-    model |= l3(input="", output=IOKey(name="output3"))
+    model |= l3(output=IOKey(name="output3"))
     model |= l4(
         input=IOKey(name="my_output", connections={"input1", "input2", "output3"})
     )
@@ -4095,7 +4094,7 @@ def test_cycle_handling_2():
 
     model |= (gelu5 := Gelu())()
 
-    model |= model_1(input1="input", input2="", output1=gelu5.input)
+    model |= model_1(input1="input", output1=gelu5.input)
     model |= model_2(
         input2=gelu5.output,
         output2=model_1.input2,  # type: ignore
@@ -4222,13 +4221,13 @@ def test_cycle_handling_3():
     model_2_sub |= Cosine()(input="input1", output=IOKey(name="output1"))
     model_2_sub |= Softplus()(input="input2", output=IOKey(name="output2"))
 
-    model_1 |= gelu5(input="")
+    model_1 |= gelu5
     model_1 |= LeakyRelu()(
         input="input2",
         slope=IOKey("slope", value=Tensor(0.01)),
         output=IOKey(name="output2"),
     )
-    model_1 |= model_1_sub(input1="input1", input2="", output1=gelu5.input)
+    model_1 |= model_1_sub(input1="input1", output1=gelu5.input)
     model_1 |= model_2_sub(
         input2=gelu5.output,
         output2=model_1_sub.input2,  # type: ignore
@@ -4241,10 +4240,8 @@ def test_cycle_handling_3():
     model_2 = Model()
     model_2 |= Tanh()(input="input1", output=IOKey(name="output1"))
     model_2 |= Sine()(input="input2", output=IOKey(name="output2"))
-    model |= gelu5(input="")
-    model |= model_1(
-        input1="input", slope=IOKey("slope"), input2="", output1=gelu5.input
-    )
+    model |= gelu5
+    model |= model_1(input1="input", slope=IOKey("slope"), output1=gelu5.input)
     model |= model_2(
         input2=gelu5.output,
         output2=model_1.input2,  # type: ignore
@@ -4372,11 +4369,11 @@ def test_cycle_handling_3_error_if_slope_not_exposed():
     model_2_sub += Cosine()(input="input1", output=IOKey(name="output1"))
     model_2_sub += Softplus()(input="input2", output=IOKey(name="output2"))
 
-    model_1 += gelu5(input="")
+    model_1 += gelu5
     model_1 += LeakyRelu()(
         input="input2", slope=IOKey("slope", value=0.01), output=IOKey(name="output2")
     )
-    model_1 += model_1_sub(input1="input1", input2="", output1=gelu5.input)
+    model_1 += model_1_sub(input1="input1", output1=gelu5.input)
     model_1 += model_2_sub(
         input2=gelu5.output,
         output2=model_1_sub.input2,  # type: ignore
@@ -4389,8 +4386,8 @@ def test_cycle_handling_3_error_if_slope_not_exposed():
     model_2 = Model()
     model_2 += Tanh()(input="input1", output=IOKey(name="output1"))
     model_2 += Sine()(input="input2", output=IOKey(name="output2"))
-    model += gelu5(input="")
-    model += model_1(input1="input", input2="", output1=gelu5.input)
+    model += gelu5
+    model += model_1(input1="input", output1=gelu5.input)
     model += model_2(
         input2=gelu5.output,
         output2=model_1.input2,  # type: ignore
@@ -6583,7 +6580,7 @@ def test_iadd_3():
     model = Model()
     model += MatrixMultiply()(right="w1")
     model += Relu()
-    model |= (sigmoid := Sigmoid())(input="")
+    model |= (sigmoid := Sigmoid())
     model |= (mult := MatrixMultiply())(left=sigmoid.output, right="w4")
     model.set_cout(mult.output)
 
@@ -6671,7 +6668,7 @@ def test_iadd_7():
     model = Model()
     model |= MatrixMultiply()(right="w1")
     model += Relu()
-    model |= (sigmoid := Sigmoid())(input="")
+    model |= (sigmoid := Sigmoid())
     model |= (mult := MatrixMultiply())(left=sigmoid.output, right="w4")
     model.set_cout(mult.output)
 

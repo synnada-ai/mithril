@@ -1027,7 +1027,7 @@ def test_connect_4():
     model |= concat_model(
         input1="input1", input2="input2", input3="input3", output=IOKey(name="output")
     )
-    model |= union_model(input1="")
+    model |= union_model
     conns = {
         concat_model.input1,  # type: ignore
         concat_model.input2,  # type: ignore
@@ -1282,8 +1282,8 @@ def test_connect_11():
     model = Model()
     concat_model = Concat(n=2)
     union_model = PrimitiveUnion(n=2)
-    model |= concat_model(input1="", output=IOKey(name="output1"))
-    model |= union_model(input1="", output=IOKey(name="output2"))
+    model |= concat_model(output=IOKey(name="output1"))
+    model |= union_model(output=IOKey(name="output2"))
     conns = {
         concat_model.input1,  # type: ignore
         concat_model.input2,  # type: ignore
@@ -1318,8 +1318,8 @@ def test_connect_12():
     model = Model()
     concat_model = Concat(n=2)
     union_model = PrimitiveUnion(n=2)
-    model |= concat_model(input1="", output=IOKey(name="output1"))
-    model |= union_model(input1="", output=IOKey(name="output2"))
+    model |= concat_model(output=IOKey(name="output1"))
+    model |= union_model(output=IOKey(name="output2"))
     conn = IOKey(
         connections={
             concat_model.input1,  # type: ignore

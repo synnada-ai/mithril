@@ -1561,19 +1561,16 @@ def test_logical_model_summary_11():
     model_n = Model()
 
     model_n |= model_3(
-        input1="",
         output1=IOKey(name="output1"),
         output2=IOKey(name="output2"),
         output3=IOKey(name="output3"),
     )
     model_n |= model_2(
-        input1="",
         output1=IOKey(connections={model_3.input1, model_3.input2, model_3.input3}),  # type: ignore
         output2=IOKey(name="output4"),
         output3=IOKey(name="output5"),
     )
     model_n |= model_1(
-        input1="",
         output1=IOKey(connections={model_2.input1, model_2.input2, model_2.input3}),  # type: ignore
     )
 
@@ -1881,8 +1878,8 @@ def test_traincontext_summary_3():
     add_2.set_cin("left")
     matmul_1 = MatrixMultiply()
     model |= add_1(left="in1", right="in2", output=IOKey(name="output1"))
-    model |= add_2(left="", output=IOKey(name="output2"))
-    model |= matmul_1(left="", output=IOKey(name="output3"))
+    model |= add_2(output=IOKey(name="output2"))
+    model |= matmul_1(output=IOKey(name="output3"))
     model.set_cin(matmul_1.left)
     ctx = TrainModel(model)
     ctx.add_loss(
@@ -1922,8 +1919,8 @@ def test_traincontext_summary_4():
     add_2.set_cin("left")
     matmul_1 = MatrixMultiply()
     model |= add_1(left="in1", right="in2", output=IOKey(name="output1"))
-    model |= add_2(left="", output=IOKey(name="output2"))
-    model |= matmul_1(left="", output=IOKey(name="output3"))
+    model |= add_2(output=IOKey(name="output2"))
+    model |= matmul_1(output=IOKey(name="output3"))
     model.set_cin(matmul_1.left)
 
     ctx = TrainModel(model)

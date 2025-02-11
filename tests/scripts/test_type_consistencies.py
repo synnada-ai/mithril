@@ -233,7 +233,7 @@ def test_type_5():
         axis=shape1.output,
         input=Tensor([[[[1.0, 2.0, 3.0], [1.0, 2.0, 3.0], [1.0, 2.0, 3.0]]]]),
     )
-    model |= conv1(input="", stride=shape1.output)
+    model |= conv1(stride=shape1.output)
     assert shape1.output.data.metadata.value_type == tuple[int, int]
 
 
@@ -258,10 +258,10 @@ def test_type_7():
     model |= test_model_1(input1="input1", input2="input2", input3="input3")
     input1 = model.input1  # type: ignore
     assert input1.data.metadata.value_type == int | float
-    model |= test_model_2(input1="", input2="input1")
+    model |= test_model_2(input2="input1")
     assert input1.data.metadata.value_type is int
     with pytest.raises(TypeError) as err_info:
-        model |= test_model_3(input1="", input3="input1")
+        model |= test_model_3(input3="input1")
     assert (
         str(err_info.value)
         == "Acceptable types are <class 'int'>, but float | str type is provided!"

@@ -838,7 +838,7 @@ def test_shape_constraint_counter_13():
     model_3 = Add()
     model_4 = Add()
     model |= slice_model
-    model |= model_1(input="", index=slice_model.output)
+    model |= model_1(index=slice_model.output)
     model |= model_2(left=model_1.output)
     model |= model_3(left=model_2.output)
     model |= model_4(left=model_3.output)

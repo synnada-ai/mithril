@@ -274,9 +274,8 @@ def test_7():
     model = Model()
     model |= (relu1 := Relu())(input="in1", output="relu1_output")
     model |= (relu2 := Relu())(input="in2", output="relu2_output")
-    model |= (relu3 := Relu())(
-        input="", output=IOKey(name="my_input", connections={relu1.input, relu2.input})
-    )
+    iokey = IOKey(name="my_input", connections={relu1.input, relu2.input})
+    model |= (relu3 := Relu())(output=iokey)
     assert (
         model.dag[relu1]["input"].metadata
         == model.dag[relu2]["input"].metadata
@@ -573,7 +572,7 @@ def test_iokey_values_7():
     mean_model = Mean(axis=TBD)
     input = IOKey(value=2, name="input")
     model |= buffer(input=input.tensor())
-    model |= mean_model(input="", axis=input)
+    model |= mean_model(axis=input)
 
     ref_values = {model.input: 2, mean_model.axis: 2}  # type: ignore
 

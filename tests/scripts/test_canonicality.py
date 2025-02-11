@@ -372,7 +372,7 @@ def test_canonical_input_7():
     model_1.set_cin("input2")
     model_1.set_cout("output2")
     model |= gelu5()
-    model |= model_1(input2="", input1="input", output1=gelu5.input)
+    model |= model_1(input1="input", output1=gelu5.input)
     model |= model_2(
         input2=gelu5.output,
         output2=model_1.input2,  # type: ignore

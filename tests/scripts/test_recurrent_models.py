@@ -216,7 +216,7 @@ class MySimpleRNNCellWithLinear(Cell):
             input="prev_hidden", index=slice_1.output, output=IOKey("hidden_compl")
         )
 
-        self |= slice_2(start="", stop=indexer.output)
+        self |= slice_2(stop=indexer.output)
         self |= tensor_item_2(input="prev_hidden", index=slice_2.output)
         self |= mult_model_1(left="input", right="w_ih")
         self |= mult_model_2(left=tensor_item_2.output, right="w_hh")
@@ -343,7 +343,7 @@ class MyRNNCell(Cell):
         self |= tensor_item_1(
             input="prev_hidden", index=slice_1.output, output=IOKey("hidden_compl")
         )
-        self |= slice_2(start="", stop=indexer.output)
+        self |= slice_2(stop=indexer.output)
         self |= tensor_item_2(input="prev_hidden", index=slice_2.output)
         self |= mult_model_1(left="input", right="w_ih")
         self |= mult_model_2(left=tensor_item_2.output, right="w_hh")

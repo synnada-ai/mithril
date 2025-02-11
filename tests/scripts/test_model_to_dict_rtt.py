@@ -503,7 +503,7 @@ def test_composite_9():
     model = Model()
     model |= (l1 := Linear(dimension=10))(weight="weight", output=IOKey(name="output"))
     model |= (l2 := Linear(dimension=10))(
-        input="", weight="weight1", output=IOKey(name="output2")
+        weight="weight1", output=IOKey(name="output2")
     )
     model |= Linear(dimension=71)(
         input="input", weight="weight2", output=IOKey(connections={l1.input, l2.input})
@@ -699,7 +699,7 @@ def test_auto_iadd_1():
 def test_auto_iadd_2():
     model = Model()
     model |= Sigmoid()(input="input", output=IOKey(name="output"))
-    model |= Sigmoid()(input="", output="output2")
+    model |= Sigmoid()(output="output2")
     model_dict_created = dict_conversions.model_to_dict(model)
     model_recreated = dict_conversions.dict_to_model(model_dict_created)
     model_dict_recreated = dict_conversions.model_to_dict(model_recreated)
