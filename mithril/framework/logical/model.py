@@ -701,12 +701,12 @@ class Model(BaseModel):
                     "No existing canonical input is found "
                     "to extension model! Use |= operator."
                 )
-            if len(available_cin) > 1:
+            if len(available_cin) != 1:
                 raise KeyError(
-                    "Multiple canonical inputs are not allowed! Use |= operator."
+                    "Submodel must have single available canonical input! "
+                    "Set canonical input or use |= operator."
                 )
-            if len(available_cin) == 1:
-                kwargs[next(iter(available_cin))] = self.cout
+            kwargs[next(iter(available_cin))] = self.cout
         return self._extend(model, kwargs)
 
     __iadd__ = __add__
@@ -904,3 +904,67 @@ def define_unique_names(
     for m in single_model_dict.values():
         model_name_dict[m] = m.name or str(m.class_name)
     return model_name_dict
+
+
+#                       Flowchart for Canonical Logic
+# +-----------------------------------------------------------------------------------+
+# +------------+           +------------+
+# |     |=     |           |     +=     |
+# +------------+           +------------+
+#        |                       |
+#        |                       v
+#        |             +---------------------------------+
+#        |             |  Check Parent has single cout  |
+#        |             +---------------------------------+
+#        |                       |  (Valid)
+#        |                       v
+#        |             +---------------------------------+
+#        |             |  Check Child has single        |
+#        |             |  available cin                 |
+#        |             +---------------------------------+
+#        |                       |  (Valid)
+#        |                       v
+#        |       +--------------------------------------------+
+#        |       |   Add connection info:                     |
+#        |       |     Parent (cout) -> Child (cin)           |
+#        |       +--------------------------------------------+
+#        |                       |
+#        v                       v
+#    +---------------------------------------+
+#    |  Extend Model with given connections  |
+#    +---------------------------------------+
+#                                |
+#                                |
+#                                v
+#                  (Iterate over all connections)
+# +------------------------------------------------------------------------------+
+#                                |
+#                                v
+#      +----------------------------------------------------+
+#      |  Update Canonical state of the Connection         |
+#      +----------------------------------------------------+
+#                                |
+#                                v
+# +-----------------------------------------------------------------------------+
+# | Update Canonical state of the Connection                                    |
+# |                                                                             |
+# |       +-------------------------+                                           |
+# |       | child cin stays as input? |                                         |
+# |       +-------------------------+                                           |
+# |          | Yes                | No                                          |
+# |          v                    v                                             |
+# |  +-------------------------+  +-----------------------------+               |
+# |  | Add con to parent cin set |  | Discard con from parent cin  |            |
+# |  +-------------------------+  +-----------------------------+               |
+# |                                    |                                        |
+# |                                    v                                        |
+# |                        +-----------------------------+                      |
+# |                        | child cout stays as output? |                      |
+# |                        +-----------------------------+                      |
+# |                           | Yes                | No                         |
+# |                           v                    v                            |
+# |       +-------------------------+  +---------------------------------+      |
+# |       | Add con to parent cout set |  | Discard con from parent cout |      |
+# |       +-------------------------+  +---------------------------------+      |
+# +------------------------------------------------------------------------------+
+# +-----------------------------------------------------------------------------------+

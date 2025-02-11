@@ -80,17 +80,16 @@ def test_flatgraph_3():
 def test_flatgraph_4():
     backend = ml.TorchBackend(dtype=ml.float64)
     model_1 = Model()
-    model_1 += Relu()(input="relu_1", output=ml.IOKey(name="output_1"))
-    model_1 += Relu()(input="relu_2", output=ml.IOKey(name="output_2"))
+    model_1 |= Relu()(input="relu_1", output=ml.IOKey(name="output_1"))
+    model_1 |= Relu()(input="relu_2", output=ml.IOKey(name="output_2"))
 
     model_2 = Model()
-    model_2 += Relu()(input="relu_1", output=ml.IOKey(name="output_1"))
-    model_2 += Relu()(input="relu_2", output=ml.IOKey(name="output_2"))
+    model_2 |= Relu()(input="relu_1", output=ml.IOKey(name="output_1"))
+    model_2 |= Relu()(input="relu_2", output=ml.IOKey(name="output_2"))
 
     model = Model()
-    model += model_1()
-    model += model_2(
-        relu_2="",
+    model |= model_1()
+    model |= model_2(
         output_2=model_1.relu_2,  # type: ignore
         relu_1=model_1.output_2,  # type: ignore
         output_1=ml.IOKey(name="output"),
@@ -106,7 +105,7 @@ def test_infer_static():
     # Infer the only primitive of the model
     backend = ml.TorchBackend(dtype=ml.float32)
     model = Model()
-    model += Relu()(input="input", output=ml.IOKey(name="output"))
+    model |= Relu()(input="input", output=ml.IOKey(name="output"))
 
     pm = ml.compile(
         model=model,
@@ -125,8 +124,8 @@ def test_infer_static_2():
     # Infer only one step, output of infered primitives needed
     backend = ml.TorchBackend(dtype=ml.float32)
     model = Model()
-    model += Relu()(input="input1", output="relu_out")
-    model += (add := Add())("relu_out", "input2", ml.IOKey(name="output"))
+    model |= Relu()(input="input1", output="relu_out")
+    model |= (add := Add())("relu_out", "input2", ml.IOKey(name="output"))
 
     pm = ml.compile(
         model=model,
@@ -146,8 +145,8 @@ def test_infer_static_3():
     # also infered output needed
     backend = ml.TorchBackend(dtype=ml.float32)
     model = Model()
-    model += Relu()(input="input1", output=ml.IOKey("relu_out"))
-    model += (add := Add())("relu_out", "input2", ml.IOKey(name="output"))
+    model |= Relu()(input="input1", output=ml.IOKey("relu_out"))
+    model |= (add := Add())("relu_out", "input2", ml.IOKey(name="output"))
 
     pm = ml.compile(
         model=model,
@@ -167,8 +166,8 @@ def test_infer_static_4():
     # Infer all primitives
     backend = ml.TorchBackend(dtype=ml.float32)
     model = Model()
-    model += Relu()(input="input1", output=ml.IOKey("relu_out"))
-    model += Add()("relu_out", "input2", ml.IOKey(name="output"))
+    model |= Relu()(input="input1", output=ml.IOKey("relu_out"))
+    model |= Add()("relu_out", "input2", ml.IOKey(name="output"))
 
     pm = ml.compile(
         model=model,
@@ -188,8 +187,8 @@ def test_discard_primitive():
     # Discard one of the primitives
     backend = ml.TorchBackend(dtype=ml.float32)
     model = Model()
-    model += Sigmoid()(input="input1", output=ml.IOKey(name="output1"))
-    model += (relu := Relu())(input="input2", output=ml.IOKey(name="output2"))
+    model |= Sigmoid()(input="input1", output=ml.IOKey(name="output1"))
+    model |= (relu := Relu())(input="input2", output=ml.IOKey(name="output2"))
 
     pm = ml.compile(
         model=model,
@@ -208,9 +207,9 @@ def test_discard_partial_of_sequence():
     # Discard partial of a sequence
     backend = ml.TorchBackend(dtype=ml.float32)
     model = Model()
-    model += (sig := Sigmoid())(input="input1", output=ml.IOKey(name="output1"))
-    model += Tanh()(input="output1", output=ml.IOKey(name="output3"))
-    model += (relu2 := Relu())(input="input2", output=ml.IOKey(name="output2"))
+    model |= (sig := Sigmoid())(input="input1", output=ml.IOKey(name="output1"))
+    model |= Tanh()(input="output1", output=ml.IOKey(name="output3"))
+    model |= (relu2 := Relu())(input="input2", output=ml.IOKey(name="output2"))
 
     pm = ml.compile(
         model=model,
@@ -233,9 +232,9 @@ def test_discard_whole_sequence():
     # Discard whole sequence
     backend = ml.TorchBackend(dtype=ml.float32)
     model = Model()
-    model += Sigmoid()(input="input1", output="output1")
-    model += Tanh()(input="output1", output=ml.IOKey(name="output3"))
-    model += (relu := Relu())(input="input2", output=ml.IOKey(name="output2"))
+    model |= Sigmoid()(input="input1", output="output1")
+    model |= Tanh()(input="output1", output=ml.IOKey(name="output3"))
+    model |= (relu := Relu())(input="input2", output=ml.IOKey(name="output2"))
 
     pm = ml.compile(
         model=model,
@@ -254,9 +253,9 @@ def test_discard_everthing():
     # Discard everything
     backend = ml.TorchBackend(dtype=ml.float32)
     model = Model()
-    model += Sigmoid()(input="input1", output="output1")
-    model += Tanh()(input="output1", output=ml.IOKey(name="output3"))
-    model += Relu()(input="input2", output=ml.IOKey(name="output2"))
+    model |= Sigmoid()(input="input1", output="output1")
+    model |= Tanh()(input="output1", output=ml.IOKey(name="output3"))
+    model |= Relu()(input="input2", output=ml.IOKey(name="output2"))
 
     pm = ml.compile(
         model=model,
@@ -275,9 +274,9 @@ def test_discard_from_middle():
     # Discard everything
     backend = ml.TorchBackend(dtype=ml.float32)
     model = Model()
-    model += Sigmoid()(input="input1", output="output1")
-    model += Tanh()(input="output1", output=ml.IOKey(name="output3"))
-    model += Relu()(input="input2", output=ml.IOKey(name="output2"))
+    model |= Sigmoid()(input="input1", output="output1")
+    model |= Tanh()(input="output1", output=ml.IOKey(name="output3"))
+    model |= Relu()(input="input2", output=ml.IOKey(name="output2"))
 
     with pytest.raises(KeyError) as e:
         ml.compile(

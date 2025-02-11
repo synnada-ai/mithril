@@ -205,8 +205,8 @@ def test_collision_from_different_models():
 
 def test_output_first_1():
     model = Model()
-    model += (relu := Relu())(input="in1", output="out1")
-    model += (sig := Sigmoid())(input="in2", output="in1")
+    model |= (relu := Relu())(input="in1", output="out1")
+    model |= (sig := Sigmoid())(input="in2", output="in1")
     _sig = sig.submodel
     _relu = relu.submodel
 
@@ -231,8 +231,8 @@ def test_output_first_1():
 
 def test_output_first_2():
     model = Model()
-    model += (relu := Relu())(output="out1")
-    model += (sig := Sigmoid())(input="in2", output=relu.input)
+    model |= (relu := Relu())(output="out1")
+    model |= (sig := Sigmoid())(input="in2", output=relu.input)
     _sig = sig.submodel
     _relu = relu.submodel
 
@@ -257,8 +257,8 @@ def test_output_first_2():
 
 def test_output_first_3():
     model = Model()
-    model += (relu := Relu())(output="out1")
-    model += (sig := Sigmoid())(input="in2", output=relu.input)
+    model |= (relu := Relu())(output="out1")
+    model |= (sig := Sigmoid())(input="in2", output=relu.input)
     _sig = next(iter(sig.dag))
     _relu = next(iter(relu.dag))
 
@@ -276,16 +276,16 @@ def test_output_first_3():
 
 def test_output_first_4():
     model1 = Model()
-    model1 += (relu := Relu())(input="input1", output=IOKey("output1"))
-    model1 += (sig := Sigmoid())(input="input2", output=IOKey("output2"))
+    model1 |= (relu := Relu())(input="input1", output=IOKey("output1"))
+    model1 |= (sig := Sigmoid())(input="input2", output=IOKey("output2"))
 
     model2 = Model()
-    model2 += (softp := Softplus())(input="input1", output=IOKey("output1"))
-    model2 += (tanh := Tanh())(input="input2", output=IOKey("output2"))
+    model2 |= (softp := Softplus())(input="input1", output=IOKey("output1"))
+    model2 |= (tanh := Tanh())(input="input2", output=IOKey("output2"))
 
     model = Model()
-    model += model1(input1="input")
-    model += model2(
+    model |= model1(input1="input")
+    model |= model2(
         input1=relu.output,
         input2=sig.output,
         output1=sig.input,
@@ -313,7 +313,7 @@ def test_output_first_4():
 
 def test_linear_flat():
     model = Model()
-    model += (lin := Linear(21))(output="qwe")
+    model |= (lin := Linear(21))(output="qwe")
     f_model = FlatModel(model)
     next(iter(lin.dag.keys()))
     expected_mapping = {

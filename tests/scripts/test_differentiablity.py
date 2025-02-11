@@ -53,8 +53,8 @@ def test_convert_input_data_to_trainable_compile():
 
 def test_convert_internal_data_to_trainable():
     model = Model()
-    model += Linear()(input="internal_key")
-    model += Linear()(input="input", output=model.internal_key)  # type: ignore
+    model |= Linear()(input="internal_key")
+    model |= Linear()(input="input", output=model.internal_key)  # type: ignore
     assert model.internal_key.metadata.differentiable  # type: ignore
 
 
@@ -108,11 +108,11 @@ def test_non_trainability_flow_in_compile():
     buff_model = Buffer()
     buff_model.set_types(input=Tensor)
     buff_model.input.set_differentiable(False)
-    model += buff_model(input="input")
+    model |= buff_model(input="input")
     mult = Multiply()
     mult.set_types(left=Tensor, right=Tensor)
     mult.left.set_differentiable(False)
-    model += mult(left="left", right=model.cout, output="output")
+    model |= mult(left="left", right=model.cout, output="output")
 
     backend = JaxBackend()
     pm = mithril.compile(model, backend)
@@ -122,9 +122,9 @@ def test_non_trainability_flow_in_compile():
 def test_non_trainability_flow_in_compile_with_data_keys_1():
     model = Model()
     buff_model = Buffer()
-    model += buff_model(input="input")
+    model |= buff_model(input="input")
     mult = Multiply()
-    model += mult(left=IOKey("left", type=Tensor), right=model.cout, output="output")
+    model |= mult(left=IOKey("left", type=Tensor), right=model.cout, output="output")
 
     backend = JaxBackend()
     pm = mithril.compile(
@@ -136,9 +136,9 @@ def test_non_trainability_flow_in_compile_with_data_keys_1():
 def test_non_trainability_flow_in_compile_with_data_keys_2():
     model = Model()
     buff_model = Buffer()
-    model += buff_model(input="input")
+    model |= buff_model(input="input")
     mult = Multiply()
-    model += mult(left=IOKey("left", type=Tensor), right=model.cout, output="output")
+    model |= mult(left=IOKey("left", type=Tensor), right=model.cout, output="output")
 
     backend = JaxBackend()
     pm = mithril.compile(model, backend, data_keys={"input"})
@@ -148,14 +148,14 @@ def test_non_trainability_flow_in_compile_with_data_keys_2():
 def test_non_trainability_flow_in_compile_with_data_keys_3():
     model = Model()
     buff_model = Buffer()
-    model += buff_model(input="input", output="buff_out")
+    model |= buff_model(input="input", output="buff_out")
     mult = Multiply()
-    model += mult(
+    model |= mult(
         left=IOKey("left", type=Tensor),
         right=model.cout,
         output=IOKey("mult_out"),
     )
-    model += Add()(
+    model |= Add()(
         left=IOKey("left", type=Tensor),
         right=buff_model.output,
         output=IOKey("add_out"),
@@ -172,14 +172,14 @@ def test_trainability_flow_in_compile_with_trainable_keys():
     buff_model = Buffer()
     buff_model.set_types(input=Tensor)
     buff_model.input.set_differentiable(False)
-    model += buff_model(input="input", output="buff_out")
+    model |= buff_model(input="input", output="buff_out")
     mult = Multiply()
-    model += mult(
+    model |= mult(
         left=IOKey("left", type=Tensor),
         right=model.cout,
         output=IOKey("mult_out"),
     )
-    model += Add()(left="left", right=buff_model.output, output=IOKey("add_out"))
+    model |= Add()(left="left", right=buff_model.output, output=IOKey("add_out"))
     model.left.set_differentiable(False)  # type: ignore
 
     backend = JaxBackend()

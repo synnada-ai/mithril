@@ -209,28 +209,28 @@ class MySimpleRNNCellWithLinear(Cell):
         mult_model_3 = MatrixMultiply()
         sum_model_4 = Add()
 
-        self += shp_model(input="input")
-        self += indexer(input=shp_model.output, index=0)
+        self |= shp_model(input="input")
+        self |= indexer(input=shp_model.output, index=0)
         self |= slice_1(start=indexer.output)
-        self += tensor_item_1(
+        self |= tensor_item_1(
             input="prev_hidden", index=slice_1.output, output=IOKey("hidden_compl")
         )
 
         self |= slice_2(start="", stop=indexer.output)
-        self += tensor_item_2(input="prev_hidden", index=slice_2.output)
-        self += mult_model_1(left="input", right="w_ih")
-        self += mult_model_2(left=tensor_item_2.output, right="w_hh")
-        self += sum_model_1(left=mult_model_1.output, right=mult_model_2.output)
-        self += sum_model_2(
+        self |= tensor_item_2(input="prev_hidden", index=slice_2.output)
+        self |= mult_model_1(left="input", right="w_ih")
+        self |= mult_model_2(left=tensor_item_2.output, right="w_hh")
+        self |= sum_model_1(left=mult_model_1.output, right=mult_model_2.output)
+        self |= sum_model_2(
             left=sum_model_1.output, right=IOKey("bias_hh", type=Tensor)
         )
-        self += sum_model_3(
+        self |= sum_model_3(
             left=sum_model_2.output,
             right=IOKey("bias_ih", type=Tensor),
         )
-        self += tanh(input=sum_model_3.output, output=IOKey("hidden"))
-        self += mult_model_3(left="hidden", right="w_ho")
-        self += sum_model_4(
+        self |= tanh(input=sum_model_3.output, output=IOKey("hidden"))
+        self |= mult_model_3(left="hidden", right="w_ho")
+        self |= sum_model_4(
             left=mult_model_3.output,
             right=IOKey("bias_o", type=Tensor),
             output=IOKey("output"),
@@ -337,25 +337,25 @@ class MyRNNCell(Cell):
         sum_model_3 = Add()
         tanh = Tanh()
 
-        self += shp_model(input="input")
-        self += indexer(input=shp_model.output, index=0)
+        self |= shp_model(input="input")
+        self |= indexer(input=shp_model.output, index=0)
         self |= slice_1(start=indexer.output)
-        self += tensor_item_1(
+        self |= tensor_item_1(
             input="prev_hidden", index=slice_1.output, output=IOKey("hidden_compl")
         )
         self |= slice_2(start="", stop=indexer.output)
-        self += tensor_item_2(input="prev_hidden", index=slice_2.output)
-        self += mult_model_1(left="input", right="w_ih")
-        self += mult_model_2(left=tensor_item_2.output, right="w_hh")
-        self += sum_model_1(left=mult_model_1.output, right=mult_model_2.output)
-        self += sum_model_2(
+        self |= tensor_item_2(input="prev_hidden", index=slice_2.output)
+        self |= mult_model_1(left="input", right="w_ih")
+        self |= mult_model_2(left=tensor_item_2.output, right="w_hh")
+        self |= sum_model_1(left=mult_model_1.output, right=mult_model_2.output)
+        self |= sum_model_2(
             left=sum_model_1.output, right=IOKey("bias_hh", type=Tensor)
         )
-        self += sum_model_3(
+        self |= sum_model_3(
             left=sum_model_2.output,
             right=IOKey("bias_ih", type=Tensor),
         )
-        self += tanh(input=sum_model_3.output, output=IOKey("hidden"))
+        self |= tanh(input=sum_model_3.output, output=IOKey("hidden"))
 
         shapes: dict[str, list[str | int]] = {
             "input": ["N", 1, "d_in"],

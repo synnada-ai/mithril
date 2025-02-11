@@ -83,8 +83,8 @@ def test_cbackend_2(file_path: str):
     model = Model()
     add = Add()
 
-    model += add(left="left", right="right", output=IOKey(name="output"))
-    model += Add()(left="left2", right="output", output=IOKey(name="output2"))
+    model |= add(left="left", right="right", output=IOKey(name="output"))
+    model |= Add()(left="left2", right="output", output=IOKey(name="output2"))
     model.set_types(left=Tensor, left2=Tensor, right=Tensor)
 
     c_backend = CBackend()
@@ -148,9 +148,9 @@ def test_cbackend_3():
     model = Model()
     add = Add()
 
-    model += add(left="left", right="right")
-    model += Multiply()(left=add.output, right="mul", output=IOKey(name="output"))
-    model += Multiply()(left=add.output, right="output", output=IOKey(name="output2"))
+    model |= add(left="left", right="right")
+    model |= Multiply()(left=add.output, right="mul", output=IOKey(name="output"))
+    model |= Multiply()(left=add.output, right="output", output=IOKey(name="output2"))
     model.set_types(left=Tensor, mul=Tensor, right=Tensor)
 
     c_backend = CBackend()
@@ -211,8 +211,8 @@ def test_broadcast_1():
     model = Model()
     add = Add()
 
-    model += add(left="left", right="right")
-    model += Multiply()(left=add.output, right="mul", output="output")
+    model |= add(left="left", right="right")
+    model |= Multiply()(left=add.output, right="mul", output="output")
     model.set_types(left=Tensor, mul=Tensor, right=Tensor)
 
     c_backend = CBackend()
@@ -244,8 +244,8 @@ def test_broadcast_2():
     model = Model()
     add = Add()
 
-    model += add(left="left", right="right")
-    model += Multiply()(left=add.output, right="mul", output="output")
+    model |= add(left="left", right="right")
+    model |= Multiply()(left=add.output, right="mul", output="output")
     model.set_types(left=Tensor, mul=Tensor, right=Tensor)
 
     c_backend = CBackend()
