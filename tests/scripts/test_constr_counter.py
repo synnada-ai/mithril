@@ -180,7 +180,7 @@ def make_reference_dict(
     connection. "assert_constr_counts" function also sorts those numbers of calls
     and assert with the expected values.
 
-    For example if a connection.metadata.data has 2 constraints in it (i.e. for type
+    For example if a connection.metadata has 2 constraints in it (i.e. for type
     and shape) we have a list with 2 elements in ref_dict. But note that it is not
     obvious which number is for which constraint. If we all know that type constraint
     is called once and shape for 2, we expecte result to be [1, 2]. If the opposite

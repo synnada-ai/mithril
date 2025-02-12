@@ -1499,11 +1499,7 @@ def test_multiple_output_connections_2():
         output=IOKey(name="my_internal_key", connections={add_2.left, "in3"}),
     )
 
-    assert (
-        add_2.right.data.metadata
-        == add_2.left.data.metadata
-        == add_1.output.data.metadata
-    )
+    assert add_2.right.metadata == add_2.left.metadata == add_1.output.metadata
 
 
 def test_static_concat():
@@ -3169,23 +3165,23 @@ def test_empy_out_grad():
 def geomean_multigpu_test():
     model = Model()
     model.extend(l1 := Linear(16), input="input1")
-    model.extend(l2 := Linear(32), w="w", input=l1.output.data)
-    model.extend(l3 := Linear(32), w="w", input=l1.output.data)
+    model.extend(l2 := Linear(32), w="w", input=l1.output)
+    model.extend(l3 := Linear(32), w="w", input=l1.output)
 
     # Classification
-    model.extend(add := Add(), left=l3.output.data, right=l2.output.data)
-    model.extend(pow := Power(), base=add.output.data, exponent=2)
-    model.extend(mul := Multiply(), left=pow.output.data)
-    model.extend(abs := Absolute(), input=mul.output.data)
-    model.extend(sqrt := Sqrt(), input=abs.output.data)
-    model.extend(mul2 := Multiply(), left=sqrt.output.data, right="input2")
-    model.extend(div := Divide(), numerator=mul2.output.data, denominator=1.0)
-    model.extend(Softmax(), input=div.output.data, output="out1")
+    model.extend(add := Add(), left=l3.output, right=l2.output)
+    model.extend(pow := Power(), base=add.output, exponent=2)
+    model.extend(mul := Multiply(), left=pow.output)
+    model.extend(abs := Absolute(), input=mul.output)
+    model.extend(sqrt := Sqrt(), input=abs.output)
+    model.extend(mul2 := Multiply(), left=sqrt.output, right="input2")
+    model.extend(div := Divide(), numerator=mul2.output, denominator=1.0)
+    model.extend(Softmax(), input=div.output, output="out1")
 
     # Regression
-    model.extend(mul := Multiply(), left=l2.output.data, right=l3.output.data)
-    model.extend(add2 := Add(), left=mul.output.data, right="input3")
-    model.extend(Divide(), numerator=add2.output.data, denominator=40.0, output="out2")
+    model.extend(mul := Multiply(), left=l2.output, right=l3.output)
+    model.extend(add2 := Add(), left=mul.output, right="input3")
+    model.extend(Divide(), numerator=add2.output, denominator=40.0, output="out2")
 
     context = TrainModel(model)
     context.add_loss(
@@ -3586,8 +3582,8 @@ def test_connect_composite_2_extend_from_inputs():
 
     mithril.compile(model, backend=TorchBackend())
 
-    assert m2.left.data.metadata == m1.output.data.metadata  # type: ignore
-    assert m2.output.data.metadata == subcopy.left.data.metadata  # type: ignore
+    assert m2.left.metadata == m1.output.metadata  # type: ignore
+    assert m2.output.metadata == subcopy.left.metadata  # type: ignore
 
 
 def test_composite_6_extend_from_inputs_connect():
@@ -3603,12 +3599,8 @@ def test_composite_6_extend_from_inputs_connect():
     model += relu4(input=IOKey(connections={relu3.input}))
     model.set_cout(relu4.output)
 
-    assert (
-        relu2.input.data.metadata
-        == relu3.output.data.metadata
-        == relu1.input.data.metadata
-    )
-    assert relu4.input.data.metadata == relu3.input.data.metadata
+    assert relu2.input.metadata == relu3.output.metadata == relu1.input.metadata
+    assert relu4.input.metadata == relu3.input.metadata
 
     backend = TorchBackend()
     cm = mithril.compile(model, backend=backend)
@@ -3630,11 +3622,7 @@ def test_composite_4_extend_from_inputs_connect():
     backend = TorchBackend()
     cm = mithril.compile(model, backend=backend)
     cm.evaluate(params={"input1": backend.array([[[[1.0, 2.0, 3.0]]]])})
-    assert (
-        relu1.input.data.metadata
-        == relu2.input.data.metadata
-        == relu3.input.data.metadata
-    )
+    assert relu1.input.metadata == relu2.input.metadata == relu3.input.metadata
 
 
 def test_integration_composite_1_extend_from_inputs_1_with_connect():
@@ -3647,7 +3635,7 @@ def test_integration_composite_1_extend_from_inputs_1_with_connect():
         input="input", weight="w0", bias="b0", output=IOKey(connections={m2.input})
     )
 
-    assert m1.output.data.metadata == m2.input.data.metadata
+    assert m1.output.metadata == m2.input.metadata
 
 
 def test_mlp_last_dimension_prop():
@@ -3695,7 +3683,7 @@ def test_connect_8():
     model += r1(input="input2", output="output2")
     model += r2(input="", output=IOKey(connections={t.input, r1.input}))
 
-    assert r1.input.data.metadata == r2.output.data.metadata == t.input.data.metadata
+    assert r1.input.metadata == r2.output.metadata == t.input.metadata
 
 
 def test_connect_9():
@@ -3708,10 +3696,10 @@ def test_connect_9():
     model += r2(input="", output=IOKey(connections={"input1", r1.input}))
 
     assert (
-        r1.input.data.metadata
-        == model.input1.data.metadata  # type: ignore
-        == t.input.data.metadata
-        == r2.output.data.metadata
+        r1.input.metadata
+        == model.input1.metadata  # type: ignore
+        == t.input.metadata
+        == r2.output.metadata
     )
 
 
@@ -3728,11 +3716,11 @@ def test_connect_10():
     )
 
     assert (
-        r1.input.data.metadata
-        == model.input1.data.metadata  # type: ignore
-        == model.input2.data.metadata  # type: ignore
-        == t.input.data.metadata
-        == r2.output.data.metadata
+        r1.input.metadata
+        == model.input1.metadata  # type: ignore
+        == model.input2.metadata  # type: ignore
+        == t.input.metadata
+        == r2.output.metadata
     )
 
 
@@ -3856,11 +3844,11 @@ def test_connect_error_6():
     )
 
     assert (
-        model.my_output.data.metadata  # type: ignore
-        == l1.input.data.metadata
-        == l2.input.data.metadata
-        == l3.output.data.metadata
-        == l4.input.data.metadata
+        model.my_output.metadata  # type: ignore
+        == l1.input.metadata
+        == l2.input.metadata
+        == l3.output.metadata
+        == l4.input.metadata
     )
     # assert str(error_info.value) == "A global input directly connected to an
     # output connection. Multi-write error!"
@@ -3870,20 +3858,20 @@ def test_metadata_dict_update():
     # This case checks if one metadata is totally updated and metadata_dict in
     # Connections obj is updated.
     r1 = Relu()
-    r1_prev_metadata = r1.output.data.metadata
+    r1_prev_metadata = r1.output.metadata
     r2 = Relu()
-    r2_prev_metadata = r2.input.data.metadata
+    r2_prev_metadata = r2.input.metadata
     assert r1_prev_metadata in r1.conns.metadata_dict
     assert r2_prev_metadata in r2.conns.metadata_dict
     model = Model()
     model += r1
     model += r2
-    assert r2.input.data.metadata == r1.output.data.metadata
+    assert r2.input.metadata == r1.output.metadata
     # NOTE: Since one metadata will be removed and one metadata will remain, we need to
     # check only one of them will be updated (which one to update is not important,
     # thus we check with xor).
-    assert (r1_prev_metadata != r1.output.data.metadata) ^ (
-        r2_prev_metadata != r2.output.data.metadata
+    assert (r1_prev_metadata != r1.output.metadata) ^ (
+        r2_prev_metadata != r2.output.metadata
     )
     assert (r1_prev_metadata not in r1.conns.metadata_dict) ^ (
         r2_prev_metadata not in r2.conns.metadata_dict
@@ -4510,10 +4498,10 @@ def test_dependency_map_latent_to_input():
     model += (mean := Mean(axis=1))(
         input="input", axis="axis", keepdim="keepdim", output="mean_out"
     )
-    input: ConnectionData = model.input.data  # type: ignore
-    axis: ConnectionData = model.axis.data  # type: ignore
-    keepdim: ConnectionData = model.keepdim.data  # type: ignore
-    mean_out: ConnectionData = model.mean_out.data  # type: ignore
+    input: ConnectionData = model.input  # type: ignore
+    axis: ConnectionData = model.axis  # type: ignore
+    keepdim: ConnectionData = model.keepdim  # type: ignore
+    mean_out: ConnectionData = model.mean_out  # type: ignore
 
     # Assert dependency map and connection keys status in model.
     expected_global_input_map: dict[ConnectionData, OrderedSet[ConnectionData]] = {
@@ -4548,7 +4536,7 @@ def test_dependency_map_latent_to_input():
     # Add second model with global output.
     model += (buff := Buffer())(output=IOKey("buff_out"))
     # Assert dependency map and connection keys status in model.
-    buff_out: ConnectionData = model.buff_out.data  # type: ignore
+    buff_out: ConnectionData = model.buff_out  # type: ignore
     expected_global_input_map = {input: OrderedSet([buff_out])}
     expected_global_output_map = {buff_out: OrderedSet([input])}
 
@@ -4578,9 +4566,9 @@ def test_dependency_map_latent_to_input():
     conn = IOKey(name="mean_axis", connections={mean.axis}, expose=True)
     model += (to_tensor := ToTensor())(conn, dtype="dtype", output="output")
     # Assert dependency map and connection keys status in model.
-    output: ConnectionData = model.output.data  # type: ignore
-    mean_axis: ConnectionData = model.mean_axis.data  # type: ignore
-    dtype: ConnectionData = model.dtype.data  # type: ignore
+    output: ConnectionData = model.output  # type: ignore
+    mean_axis: ConnectionData = model.mean_axis  # type: ignore
+    dtype: ConnectionData = model.dtype  # type: ignore
     expected_global_input_map = {
         input: OrderedSet([buff_out]),
         mean_axis: OrderedSet([]),
@@ -4617,8 +4605,8 @@ def test_dependency_map_1():
     tanh = Tanh()
     model += tanh(input="input1", output=IOKey(name="output1"))
 
-    input1_data = model.input1.data  # type: ignore
-    output1_data = model.output1.data  # type: ignore
+    input1_data = model.input1  # type: ignore
+    output1_data = model.output1  # type: ignore
     expected_global_input_map = {input1_data: {output1_data}}
     expected_global_output_map = {output1_data: {input1_data}}
 
@@ -4655,8 +4643,8 @@ def test_dependency_map_1_set_outputs():
     model += tanh(input="input1", output="output1")
     model.set_outputs("output1")
 
-    input1_data = model.input1.data  # type: ignore
-    output1_data = model.output1.data  # type: ignore
+    input1_data = model.input1  # type: ignore
+    output1_data = model.output1  # type: ignore
 
     expected_global_input_map = {input1_data: {output1_data}}
     expected_global_output_map = {output1_data: {input1_data}}
@@ -4695,10 +4683,10 @@ def test_dependency_map_2():
     model += tanh(input="input1", output=IOKey(name="output1"))
     model += sigmoid(input="input2", output=IOKey(name="output2"))
 
-    input1_data = model.input1.data  # type: ignore
-    input2_data = model.input2.data  # type: ignore
-    output1_data = model.output1.data  # type: ignore
-    output2_data = model.output2.data  # type: ignore
+    input1_data = model.input1  # type: ignore
+    input2_data = model.input2  # type: ignore
+    output1_data = model.output1  # type: ignore
+    output2_data = model.output2  # type: ignore
 
     expected_global_input_map = {
         input1_data: {output1_data},
@@ -4758,10 +4746,10 @@ def test_dependency_map_2_set_outputs():
 
     model.set_outputs("output1", "output2")
 
-    input1_data = model.input1.data  # type: ignore
-    input2_data = model.input2.data  # type: ignore
-    output1_data = model.output1.data  # type: ignore
-    output2_data = model.output2.data  # type: ignore
+    input1_data = model.input1  # type: ignore
+    input2_data = model.input2  # type: ignore
+    output1_data = model.output1  # type: ignore
+    output2_data = model.output2  # type: ignore
 
     expected_global_input_map = {
         input1_data: {output1_data},
@@ -4819,9 +4807,9 @@ def test_dependency_map_3():
     model += tanh(input="input1", output=IOKey(name="output1"))
     model += sigmoid(input="output1", output=IOKey(name="output2"))
 
-    input1_data = model.input1.data  # type: ignore
-    output1_data = model.output1.data  # type: ignore
-    output2_data = model.output2.data  # type: ignore
+    input1_data = model.input1  # type: ignore
+    output1_data = model.output1  # type: ignore
+    output2_data = model.output2  # type: ignore
 
     expected_global_input_map = {input1_data: {output1_data, output2_data}}
     expected_global_output_map = {
@@ -4873,9 +4861,9 @@ def test_dependency_map_3_set_outputs():
     model += sigmoid(input="output1", output="output2")
     model.set_outputs("output1", "output2")
 
-    input1_data = model.input1.data  # type: ignore
-    output1_data = model.output1.data  # type: ignore
-    output2_data = model.output2.data  # type: ignore
+    input1_data = model.input1  # type: ignore
+    output1_data = model.output1  # type: ignore
+    output2_data = model.output2  # type: ignore
 
     expected_global_input_map = {input1_data: {output1_data, output2_data}}
     expected_global_output_map = {
@@ -4926,9 +4914,9 @@ def test_dependency_map_4():
     model += tanh(input="input1", output=IOKey(name="output1"))
     model += sigmoid(input="input2", output="input1")
 
-    input1_data = model.input1.data  # type: ignore
-    input2_data = model.input2.data  # type: ignore
-    output1_data = model.output1.data  # type: ignore
+    input1_data = model.input1  # type: ignore
+    input2_data = model.input2  # type: ignore
+    output1_data = model.output1  # type: ignore
 
     expected_global_input_map = {input2_data: {output1_data}}
     expected_global_output_map = {output1_data: {input2_data}}
@@ -4980,9 +4968,9 @@ def test_dependency_map_4_set_outputs_1():
     model.set_outputs("output1")
     model += sigmoid(input="input2", output="input1")
 
-    input1_data = model.input1.data  # type: ignore
-    input2_data = model.input2.data  # type: ignore
-    output1_data = model.output1.data  # type: ignore
+    input1_data = model.input1  # type: ignore
+    input2_data = model.input2  # type: ignore
+    output1_data = model.output1  # type: ignore
 
     expected_global_input_map = {input2_data: {output1_data}}
     expected_global_output_map = {output1_data: {input2_data}}
@@ -5035,9 +5023,9 @@ def test_dependency_map_4_set_outputs_2():
 
     model.set_outputs("output1")
 
-    input1_data = model.input1.data  # type: ignore
-    input2_data = model.input2.data  # type: ignore
-    output1_data = model.output1.data  # type: ignore
+    input1_data = model.input1  # type: ignore
+    input2_data = model.input2  # type: ignore
+    output1_data = model.output1  # type: ignore
 
     expected_global_input_map = {input2_data: {output1_data}}
     expected_global_output_map = {output1_data: {input2_data}}
@@ -5090,10 +5078,10 @@ def test_dependency_map_5():
     model += sigmoid(input="input2", output=IOKey(name="output2"))
     model += relu(input="output1", output="input2")
 
-    input1_data = model.input1.data  # type: ignore
-    input2_data = model.input2.data  # type: ignore
-    output1_data = model.output1.data  # type: ignore
-    output2_data = model.output2.data  # type: ignore
+    input1_data = model.input1  # type: ignore
+    input2_data = model.input2  # type: ignore
+    output1_data = model.output1  # type: ignore
+    output2_data = model.output2  # type: ignore
 
     expected_global_input_map = {input1_data: {output1_data, output2_data}}
     expected_global_output_map = {
@@ -5156,10 +5144,10 @@ def test_dependency_map_5_set_outputs_1():
     model.set_outputs("output1", "output2")
     model += relu(input="output1", output="input2")
 
-    input1_data = model.input1.data  # type: ignore
-    input2_data = model.input2.data  # type: ignore
-    output1_data = model.output1.data  # type: ignore
-    output2_data = model.output2.data  # type: ignore
+    input1_data = model.input1  # type: ignore
+    input2_data = model.input2  # type: ignore
+    output1_data = model.output1  # type: ignore
+    output2_data = model.output2  # type: ignore
 
     expected_global_input_map = {input1_data: {output1_data, output2_data}}
     expected_global_output_map = {
@@ -5222,10 +5210,10 @@ def test_dependency_map_5_set_outputs_2():
     model += relu(input="output1", output="input2")
     model.set_outputs("output1", "output2")
 
-    input1_data = model.input1.data  # type: ignore
-    input2_data = model.input2.data  # type: ignore
-    output1_data = model.output1.data  # type: ignore
-    output2_data = model.output2.data  # type: ignore
+    input1_data = model.input1  # type: ignore
+    input2_data = model.input2  # type: ignore
+    output1_data = model.output1  # type: ignore
+    output2_data = model.output2  # type: ignore
 
     expected_global_input_map = {input1_data: {output1_data, output2_data}}
     expected_global_output_map = {
@@ -5287,10 +5275,10 @@ def test_dependency_map_6():
     model += sigmoid(input="input2", output=IOKey(name="output2"))
     model += relu(input="output1", output="input2")
 
-    input1_data = model.input1.data  # type: ignore
-    input2_data = model.input2.data  # type: ignore
-    output1_data = model.output1.data  # type: ignore
-    output2_data = model.output2.data  # type: ignore
+    input1_data = model.input1  # type: ignore
+    input2_data = model.input2  # type: ignore
+    output1_data = model.output1  # type: ignore
+    output2_data = model.output2  # type: ignore
 
     expected_global_input_map = {input1_data: {output1_data, output2_data}}
     expected_global_output_map = {
@@ -5355,10 +5343,10 @@ def test_dependency_map_6_set_outputs_1():
     model.set_outputs("output1", "output2")
     model += relu(input="output1", output="input2")
 
-    input1_data = model.input1.data  # type: ignore
-    input2_data = model.input2.data  # type: ignore
-    output1_data = model.output1.data  # type: ignore
-    output2_data = model.output2.data  # type: ignore
+    input1_data = model.input1  # type: ignore
+    input2_data = model.input2  # type: ignore
+    output1_data = model.output1  # type: ignore
+    output2_data = model.output2  # type: ignore
 
     expected_global_input_map = {input1_data: {output1_data, output2_data}}
     expected_global_output_map = {
@@ -5421,10 +5409,10 @@ def test_dependency_map_6_set_outputs_2():
     model += relu(input="output1", output="input2")
     model.set_outputs("output1", "output2")
 
-    input1_data = model.input1.data  # type: ignore
-    input2_data = model.input2.data  # type: ignore
-    output1_data = model.output1.data  # type: ignore
-    output2_data = model.output2.data  # type: ignore
+    input1_data = model.input1  # type: ignore
+    input2_data = model.input2  # type: ignore
+    output1_data = model.output1  # type: ignore
+    output2_data = model.output2  # type: ignore
 
     expected_global_input_map = {input1_data: {output1_data, output2_data}}
     expected_global_output_map = {
@@ -5484,9 +5472,9 @@ def test_dependency_map_7():
     model += tanh(input="input1", output=IOKey(name="output1"))
     model += relu(input="input2")
 
-    input1_data = model.input1.data  # type: ignore
-    input2_data = model.input2.data  # type: ignore
-    output1_data = model.output1.data  # type: ignore
+    input1_data = model.input1  # type: ignore
+    input2_data = model.input2  # type: ignore
+    output1_data = model.output1  # type: ignore
 
     expected_global_input_map = {
         input1_data: {output1_data},
@@ -5552,9 +5540,9 @@ def test_dependency_map_7_set_outputs_1():
     model.set_outputs("output1")
     model += relu(input="input2")
 
-    input1_data = model.input1.data  # type: ignore
-    input2_data = model.input2.data  # type: ignore
-    output1_data = model.output1.data  # type: ignore
+    input1_data = model.input1  # type: ignore
+    input2_data = model.input2  # type: ignore
+    output1_data = model.output1  # type: ignore
 
     expected_global_input_map = {
         input1_data: {output1_data},
@@ -5620,9 +5608,9 @@ def test_dependency_map_7_set_outputs_2():
     model += relu(input="input2")
     model.set_outputs("output1")
 
-    input1_data = model.input1.data  # type: ignore
-    input2_data = model.input2.data  # type: ignore
-    output1_data = model.output1.data  # type: ignore
+    input1_data = model.input1  # type: ignore
+    input2_data = model.input2  # type: ignore
+    output1_data = model.output1  # type: ignore
 
     expected_global_input_map = {
         input1_data: {output1_data},

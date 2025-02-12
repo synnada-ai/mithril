@@ -436,7 +436,7 @@ def train_model_to_dict(context: TrainModel) -> TrainModelDict:
             if isinstance(value, Connection):
                 # local_key = get_local_key(context._model, value)
                 # loss["args"][key] = local_key
-                loss["args"][key] = value.data.key
+                loss["args"][key] = value.key
 
         if len(loss["args"]) > 0:
             loss_dict["args"] = loss["args"]

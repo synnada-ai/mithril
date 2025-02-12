@@ -664,8 +664,8 @@ def test_iokey_values_12():
         input=IOKey(shape=[1, 2, 3, 4], name="input"), output=IOKey(name="output2")
     )
     assert sig_model_1.input.metadata.is_tensor
-    assert sig_model_1.input.data.metadata.shape is not None
-    assert sig_model_1.input.data.metadata.shape.get_shapes() == [1, 2, 3, 4]
+    assert sig_model_1.input.metadata.shape is not None
+    assert sig_model_1.input.metadata.shape.get_shapes() == [1, 2, 3, 4]
 
 
 def test_iokey_name_not_given_output_error():

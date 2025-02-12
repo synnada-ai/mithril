@@ -2981,7 +2981,7 @@ class Accuracy(Model):
             "label_formatted",
         )
 
-        true_predictions = self.metric_out == 0
+        true_predictions = self.metric_out.eq(0)
         n_prediction = self.label_formatted.shape[0]
 
         self += Sum()(input=true_predictions, output="n_true_predictions")
@@ -3055,8 +3055,8 @@ class Precision(Model):
         )
 
         if average == "micro":
-            true_positive = self.metric_out == Tensor(0)
-            false_positive = self.metric_out != Tensor(0)
+            true_positive = self.metric_out.eq(Tensor(0))
+            false_positive = self.metric_out.ne(Tensor(0))
             self += Sum()(input=true_positive, output="n_true_positive")
             self += Sum()(input=false_positive, output="n_false_positive")
 
@@ -3072,9 +3072,9 @@ class Precision(Model):
                 n_classes is not None
             ), "n_classes must be provided if average is or 'macro'"
             for idx in range(n_classes):
-                class_idxs = self.label_formatted == Tensor(idx)
-                true_positive = (self.metric_out == Tensor(0)) & class_idxs
-                false_positive = (self.pred_formatted == Tensor(idx)) & ~class_idxs
+                class_idxs = self.label_formatted.eq(Tensor(idx))
+                true_positive = (self.metric_out.eq(Tensor(0))) & class_idxs
+                false_positive = (self.pred_formatted.eq(Tensor(idx))) & ~class_idxs
 
                 self += Sum()(input=true_positive, output=f"true_positive_{idx}")
                 self += Sum()(input=false_positive, output=f"false_positive_{idx}")
@@ -3082,7 +3082,7 @@ class Precision(Model):
                     self, f"false_positive_{idx}"
                 )
                 self += Where()(
-                    denominator == Tensor(0),
+                    denominator.eq(Tensor(0)),
                     Tensor(1),
                     denominator,
                     f"denominator_{idx}",
@@ -3114,9 +3114,9 @@ class Precision(Model):
                 n_classes is not None
             ), "n_classes must be provided if average is or 'weighted'"
             for idx in range(n_classes):
-                class_idxs = self.label_formatted == Tensor(idx)
-                true_positive = (self.metric_out == Tensor(0)) & class_idxs
-                false_positive = (self.pred_formatted == Tensor(idx)) & ~class_idxs
+                class_idxs = self.label_formatted.eq(Tensor(idx))
+                true_positive = (self.metric_out.eq(Tensor(0))) & class_idxs
+                false_positive = (self.pred_formatted.eq(Tensor(idx))) & ~class_idxs
                 self += Sum()(input=class_idxs, output=f"n_class_{idx}")
 
                 self += Sum()(input=true_positive, output=f"true_positive_{idx}")
@@ -3125,7 +3125,7 @@ class Precision(Model):
                     self, f"false_positive_{idx}"
                 )
                 self += Where()(
-                    denominator == Tensor(0),
+                    denominator.eq(Tensor(0)),
                     Tensor(1),
                     denominator,
                     f"denominator_{idx}",
@@ -3216,8 +3216,8 @@ class Recall(Model):
         )
 
         if average == "micro":
-            true_positive = self.metric_out == Tensor(0)
-            false_negative = self.metric_out != Tensor(0)
+            true_positive = self.metric_out.eq(Tensor(0))
+            false_negative = self.metric_out.ne(Tensor(0))
             self += Sum()(input=true_positive, output="n_true_positive")
             self += Sum()(input=false_negative, output="n_false_negative")
 
@@ -3233,9 +3233,9 @@ class Recall(Model):
                 n_classes is not None
             ), "n_classes must be provided if average is or 'macro'"
             for idx in range(n_classes):
-                class_idxs = self.label_formatted == Tensor(idx)
-                true_positive = (self.metric_out == Tensor(0)) & class_idxs
-                false_negative = (self.pred_formatted != Tensor(idx)) & class_idxs
+                class_idxs = self.label_formatted.eq(Tensor(idx))
+                true_positive = (self.metric_out.eq(Tensor(0))) & class_idxs
+                false_negative = (self.pred_formatted.ne(Tensor(idx))) & class_idxs
 
                 self += Sum()(input=true_positive, output=f"true_positive_{idx}")
                 self += Sum()(input=false_negative, output=f"false_negative_{idx}")
@@ -3243,7 +3243,7 @@ class Recall(Model):
                     self, f"false_negative_{idx}"
                 )
                 self += Where()(
-                    denominator == Tensor(0),
+                    denominator.eq(Tensor(0)),
                     Tensor(1),
                     denominator,
                     f"denominator_{idx}",
@@ -3274,9 +3274,9 @@ class Recall(Model):
             ), "n_classes must be provided if average is or 'weighted'"
             n_element = self.label_formatted.shape[0]
             for idx in range(n_classes):
-                class_idxs = self.label_formatted == Tensor(idx)
-                true_positive = (self.metric_out == Tensor(0)) & class_idxs
-                false_negative = (self.pred_formatted != Tensor(idx)) & class_idxs
+                class_idxs = self.label_formatted.eq(Tensor(idx))
+                true_positive = (self.metric_out.eq(Tensor(0))) & class_idxs
+                false_negative = (self.pred_formatted.ne(Tensor(idx))) & class_idxs
                 self += Sum()(input=class_idxs, output=f"n_class_{idx}")
 
                 self += Sum()(input=true_positive, output=f"true_positive_{idx}")
@@ -3285,7 +3285,7 @@ class Recall(Model):
                     self, f"false_negative_{idx}"
                 )
                 self += Where()(
-                    denominator == Tensor(0),
+                    denominator.eq(Tensor(0)),
                     Tensor(1),
                     denominator,
                     f"denominator_{idx}",
@@ -3376,8 +3376,8 @@ class F1(Model):
         )
 
         if average == "micro":
-            true_positive = self.metric_out == Tensor(0)
-            false_positive = self.metric_out != Tensor(0)
+            true_positive = self.metric_out.eq(Tensor(0))
+            false_positive = self.metric_out.ne(Tensor(0))
             self += Sum()(input=true_positive, output="n_true_positive")
             self += Sum()(input=false_positive, output="n_false_positive")
 
@@ -3393,10 +3393,10 @@ class F1(Model):
                 n_classes is not None
             ), "n_classes must be provided if average is or 'macro'"
             for idx in range(n_classes):
-                class_idxs = self.label_formatted == Tensor(idx)
-                true_positive = (self.metric_out == Tensor(0)) & class_idxs
-                false_negative = (self.pred_formatted != Tensor(idx)) & class_idxs
-                false_positive = (self.pred_formatted == Tensor(idx)) & ~class_idxs
+                class_idxs = self.label_formatted.eq(Tensor(idx))
+                true_positive = (self.metric_out.eq(Tensor(0))) & class_idxs
+                false_negative = (self.pred_formatted.ne(Tensor(idx))) & class_idxs
+                false_positive = (self.pred_formatted.eq(Tensor(idx))) & ~class_idxs
 
                 self += Sum()(input=true_positive, output=f"true_positive_{idx}")
                 self += Sum()(input=false_positive, output=f"false_positive_{idx}")
@@ -3406,7 +3406,7 @@ class F1(Model):
                     + getattr(self, f"false_negative_{idx}")
                 )
                 self += Where()(
-                    denominator == Tensor(0),
+                    denominator.eq(Tensor(0)),
                     Tensor(1),
                     denominator,
                     f"denominator_{idx}",
@@ -3436,10 +3436,10 @@ class F1(Model):
             ), "n_classes must be provided if average is or 'weighted'"
             n_element = self.label_formatted.shape[0].tensor()
             for idx in range(n_classes):
-                class_idxs = self.label_formatted == Tensor(idx)
-                true_positive = (self.metric_out == Tensor(0)) & class_idxs
-                false_negative = (self.pred_formatted != Tensor(idx)) & class_idxs
-                false_positive = (self.pred_formatted == Tensor(idx)) & ~class_idxs
+                class_idxs = self.label_formatted.eq(Tensor(idx))
+                true_positive = (self.metric_out.eq(Tensor(0))) & class_idxs
+                false_negative = (self.pred_formatted.ne(Tensor(idx))) & class_idxs
+                false_positive = (self.pred_formatted.eq(Tensor(idx))) & ~class_idxs
                 self += Sum()(input=class_idxs, output=f"n_class_{idx}")
 
                 self += Sum()(input=true_positive, output=f"true_positive_{idx}")
@@ -3450,7 +3450,7 @@ class F1(Model):
                     + getattr(self, f"false_negative_{idx}")
                 )
                 self += Where()(
-                    denominator == Tensor(0),
+                    denominator.eq(Tensor(0)),
                     Tensor(1),
                     denominator,
                     f"denominator_{idx}",
@@ -3520,7 +3520,7 @@ class AUC(Model):
 
         auc_score = None
         for class_idx in range(n_classes):
-            class_label = label_key == Tensor(class_idx)
+            class_label = label_key.eq(Tensor(class_idx))
             pred_class = pred_key[:, class_idx] if n_classes != 1 else pred_key
 
             self += AUCCore()(pred_class, class_label, f"auc_core_{class_idx}")

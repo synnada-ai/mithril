@@ -207,7 +207,7 @@ def get_deterministic_shape(node: ShapeNode):
 
 
 # def get_all_nodes(model: BaseModel):
-#     return {con.metadata.data.shape for con in model.conns.all.values()}
+#     return {con.metadata.shape for con in model.conns.all.values()}
 
 
 def assert_all_nodes_unique(model: BaseModel):
@@ -4436,7 +4436,7 @@ def test_total_repr_count():
     model += (var1 := MyVariadic1())(output=IOKey(name="output"))
     model += var2(input=var1.output)
 
-    edge = var2.input.data.metadata
+    edge = var2.input.metadata
 
     assert edge.is_tensor
     assert edge.shape is not None
@@ -6717,7 +6717,7 @@ def test_total_repr_count_1():
             # Set all untyped connections to Tensor type.
             model.set_types(
                 {
-                    model.connection_map[conn]: Tensor
+                    conn: Tensor
                     for conn in model.conns.input_connections
                     if conn.metadata.edge_type is ToBeDetermined
                 }

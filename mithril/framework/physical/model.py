@@ -291,7 +291,7 @@ class PhysicalModel(GenericDataType[DataType]):
     def _convert_key(self, model: BaseModel, key: str | Connection) -> str:
         if isinstance(key, Connection):
             # Get outermost model equivalent of the connection.
-            if (conn := model.conns.get_con_by_metadata(key.data.metadata)) is None:
+            if (conn := model.conns.get_con_by_metadata(key.metadata)) is None:
                 raise KeyError(f"Given connection not found: {key}")
             key = conn.key
         elif key.startswith("$"):

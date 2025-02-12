@@ -101,7 +101,7 @@ class BaseModel:
         self.inter_key_count += 1
         return "$" + str(self.inter_key_count)
 
-    def _set_outputs(
+    def set_outputs(
         self, *args: str | ConnectionData, **kwargs: str | ConnectionData
     ) -> None:
         if self.parent is not None:
@@ -396,7 +396,7 @@ class BaseModel:
         # in order to execute constraint solver to propagate type
         # updates along the model keys.
         if (set_type := given_connection.type) is not None:
-            model._set_types({local_connection: set_type})
+            model.set_types({local_connection: set_type})
 
         return con_obj, updates
 
@@ -653,7 +653,7 @@ class BaseModel:
             # if len(self.conns.cins) == 1, or we could name all canonical inputs.
             if (
                 len(self.conns.cins) == 1
-                and key == self._cin.key
+                and key == self.cin.key
                 and "input" not in self.input_keys
             ):
                 # Handle canonical input
@@ -853,7 +853,7 @@ class BaseModel:
             # TODO: We may expose all canonical outputs for summary instead of
             # checking only len(self.conns.couts) == 1.
             output_keys = (
-                ([self._cout.key] if len(self.conns.couts) == 1 else [])
+                ([self.cout.key] if len(self.conns.couts) == 1 else [])
                 if not self.conns.output_keys
                 else self.conns.output_keys
             )
@@ -1115,7 +1115,7 @@ class BaseModel:
 
         model.constraint_solver(updates)
 
-    def _set_types(
+    def set_types(
         self,
         config: Mapping[
             str | ConnectionData,
@@ -1178,7 +1178,7 @@ class BaseModel:
         # Data is scalar, set the value directly.
         return key.metadata.set_value(value)
 
-    def _set_values(
+    def set_values(
         self,
         config: Mapping[
             str | ConnectionData, Tensor[int | float | bool] | MainValueType | str
@@ -1276,7 +1276,7 @@ class BaseModel:
         return self._add_constraint(fn, keys, type, dependencies)
 
     @property
-    def _cin(self) -> ConnectionData:
+    def cin(self) -> ConnectionData:
         if (cin_len := len(self.conns.cins)) != 1:
             raise KeyError(
                 f"Currently, there exists {cin_len} canonical inputs, model "
@@ -1285,7 +1285,7 @@ class BaseModel:
         return next(iter(self.conns.cins))
 
     @property
-    def _cout(self) -> ConnectionData:
+    def cout(self) -> ConnectionData:
         if (cout_len := len(self.conns.couts)) != 1:
             raise KeyError(
                 f"Currently, there exists {cout_len} canonical outputs, model "
@@ -1294,7 +1294,7 @@ class BaseModel:
 
         return next(iter(self.conns.couts))
 
-    def _set_cin(self, *connections: str | ConnectionData, safe: bool = True) -> None:
+    def set_cin(self, *connections: str | ConnectionData, safe: bool = True) -> None:
         self.conns.cins = set()
         for given_conn in connections:
             conn = self.conns.get_extracted_connection(given_conn)
@@ -1314,7 +1314,7 @@ class BaseModel:
             else:
                 self.conns.cins.add(conn)
 
-    def _set_cout(self, *connections: str | ConnectionData, safe: bool = True) -> None:
+    def set_cout(self, *connections: str | ConnectionData, safe: bool = True) -> None:
         self.conns.couts = set()
         for given_conn in connections:
             conn = self.conns.get_extracted_connection(given_conn)

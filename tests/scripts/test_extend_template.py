@@ -980,7 +980,7 @@ def test_equal():
     model1 = Model()
     model1 += Buffer()(input="input1")
     model1 += Buffer()(input="input2")
-    output = model1.input1 == model1.input2  # type: ignore
+    output = model1.input1.eq(model1.input2)  # type: ignore
     model1 += Buffer()(input=output, output=IOKey(name="output"))
 
     model2 = Model()
@@ -1012,7 +1012,7 @@ def test_not_equal():
     model1 = Model()
     model1 += Buffer()(input="input1")
     model1 += Buffer()(input="input2")
-    output = model1.input1 != model1.input2  # type: ignore
+    output = model1.input1.ne(model1.input2)  # type: ignore
     model1 += Buffer()(input=output, output=IOKey(name="output"))
 
     model2 = Model()
@@ -1044,7 +1044,7 @@ def test_not():
     model1 = Model()
     model1 += Buffer()(input="input1")
     model1 += Buffer()(input="input2")
-    output = ~(model1.input1 != model1.input2)  # type: ignore
+    output = ~(model1.input1.ne(model1.input2))  # type: ignore
     model1 += Buffer()(input=output, output=IOKey(name="output"))
 
     model2 = Model()
