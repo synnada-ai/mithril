@@ -85,23 +85,25 @@ def test_internal_data_to_trainable():
 def test_set_diff_data_and_param():
     model = Multiply()
     model.set_types(left=Tensor, right=Tensor)
-    model.left.set_differentiable(False)
+    model.set_differentiability(left=False)
     assert not model.left.metadata.differentiable
-    model.left.set_differentiable(True)
+    model.set_differentiability(left=True)
     assert model.left.metadata.differentiable
-    model.left.set_differentiable(False)
+    model.set_differentiability(left=False)
     assert not model.left.metadata.differentiable
 
 
 def test_match_tensor_with_value_data_and_param():
     model1 = Multiply()
     model1.set_types(left=Tensor)
-    model1.left.set_differentiable(False)
+    model1.set_differentiability(left=False)
+
     assert not model1.left.metadata.differentiable
 
     model2 = Multiply()
     model2.set_types(left=Tensor)
-    model2.left.set_differentiable(True)
+    model2.set_differentiability(left=True)
+
     assert model2.left.metadata.differentiable
 
     model = Model()
@@ -113,12 +115,14 @@ def test_match_tensor_with_value_data_and_param():
 def test_match_tensor_with_value_data_and_param_rev():
     model2 = Multiply()
     model2.set_types(left=Tensor)
-    model2.left.set_differentiable(True)
+    model2.set_differentiability(left=True)
+
     assert model2.left.metadata.differentiable
 
     model1 = Multiply()
     model1.set_types(left=Tensor)
-    model1.left.set_differentiable(False)
+    model1.set_differentiability(left=False)
+
     assert not model1.left.metadata.differentiable
 
     model = Model()
@@ -131,11 +135,11 @@ def test_diff_inference():
     model = Model()
     buff_model = Buffer()
     buff_model.set_types(input=Tensor)
-    buff_model.input.set_differentiable(False)
+    buff_model.set_differentiability(input=False)
     model += buff_model(input="input")
     mult = Multiply()
     mult.set_types(left=Tensor, right=Tensor)
-    mult.left.set_differentiable(False)
+    mult.set_differentiability(left=False)
     model += mult(left="left", right=model.cout, output="output")
 
     backend = JaxBackend()
@@ -143,28 +147,7 @@ def test_diff_inference():
     assert not pm.flat_graph.all_data["output"].differentiable
 
 
-def test_diff_inference_with_data_keys_1():
-    model = Model()
-    buff_model = Buffer()
-    model += buff_model(input="input")
-    mult = Multiply()
-    model += mult(left=IOKey("left", type=Tensor), right=model.cout, output="output")
-
-    backend = JaxBackend()
-    pm = mithril.compile(
-        model, backend, data_keys={"input"}, constant_keys={"left": backend.array(1.0)}
-    )
-    assert not pm.flat_graph.all_data["output"].differentiable
-
-
-def test_asda():
-    model = Model()
-    input = IOKey("input", differantiable=True)
-    model += Multiply()(input, "denom", "output")
-    ...
-
-
-def test_diff_inference_with_data_keys_2():
+def test_diff_inference_constant_key_to_differentiable_input():
     model = Model()
     buff_model = Buffer()
     model += buff_model(input="input")
@@ -176,8 +159,26 @@ def test_diff_inference_with_data_keys_2():
     )
 
     backend = JaxBackend()
-    pm = mithril.compile(model, backend, data_keys={"input"})
-    assert pm.flat_graph.all_data["output"].differentiable
+    pm = mithril.compile(
+        model, backend, data_keys={"input"}, constant_keys={"left": backend.array(1.0)}
+    )
+    assert not pm.flat_graph.all_data["output"].differentiable
+
+
+def test_diff_inference_data_key_to_differentiable_input():
+    model = Model()
+    buff_model = Buffer()
+    model += buff_model(input="input")
+    mult = Multiply()
+    model += mult(
+        left=IOKey("left", type=Tensor, differantiable=True),
+        right=model.cout,
+        output="output",
+    )
+
+    backend = JaxBackend()
+    pm = mithril.compile(model, backend, data_keys={"input", "left"})
+    assert not pm.flat_graph.all_data["output"].differentiable
 
 
 def test_diff_inference_with_data_keys_3():
@@ -206,7 +207,8 @@ def test_diff_inference_with_trainable_keys():
     model = Model()
     buff_model = Buffer()
     buff_model.set_types(input=Tensor)
-    buff_model.input.set_differentiable(False)
+    buff_model.set_differentiability(input=False)
+
     model += buff_model(input="input", output="buff_out")
     mult = Multiply()
     model += mult(
@@ -215,7 +217,7 @@ def test_diff_inference_with_trainable_keys():
         output=IOKey("mult_out"),
     )
     model += Add()(left="left", right=buff_model.output, output=IOKey("add_out"))
-    model.left.set_differentiable(False)  # type: ignore
+    model.set_differentiability(left=False)
 
     backend = JaxBackend()
     pm = mithril.compile(model, backend, trainable_keys={"input"})
@@ -279,7 +281,7 @@ def test_diff_inference_add():
     assert not model.right.metadata.differentiable  # type: ignore
     assert not model.output.metadata.differentiable  # type: ignore
 
-    model.left.set_differentiable(False)  # type: ignore
+    model.set_differentiability(left=False)
 
     assert not model.left.metadata.differentiable  # type: ignore
 

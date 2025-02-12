@@ -204,18 +204,9 @@ class BaseModel:
             case NullConnection():
                 _connection = BaseKey()
             case str():
-                given_conn = self.conns.get_connection(connection)
-                diff = (
-                    given_conn.metadata.differentiable
-                    if given_conn is not None
-                    else local_connection.metadata.differentiable
-                )
-                _connection = BaseKey(name=connection, differentiable=diff)
+                _connection = BaseKey(name=connection)
             case ConnectionData():
-                _connection = BaseKey(
-                    connections={connection},
-                    differentiable=connection.metadata.differentiable,
-                )
+                _connection = BaseKey(connections={connection})
             case _ if isinstance(connection, MainValueInstance | Tensor):
                 # find_dominant_type returns the dominant type in a container.
                 # If a container has a value of type Connection or ExtendTemplate
@@ -359,7 +350,7 @@ class BaseModel:
             updates |= con_obj.metadata.set_value(set_value)
 
         if given_connection.differentiable:
-            updates |= con_obj.set_differentiable(True)
+            updates |= con_obj.set_differentiability(True)
 
         # Check multi-write error for con_obj.
         self._check_multi_write(is_input, local_connection, con_obj)
@@ -1085,6 +1076,27 @@ class BaseModel:
 
         self.conns.add(con)
         return con
+
+    def _set_differentiability(
+        self, config: dict[str | ConnectionData, bool], **kwargs: bool
+    ) -> None:
+        updates = Updates()
+
+        for key, value in chain(config.items(), kwargs.items()):
+            if isinstance(key, str):
+                if key not in self.conns.all:
+                    raise KeyError(f"Connection {key} is not found in the model.")
+
+                conn_data = self.conns.all[key]
+                updates |= conn_data.set_differentiability(value)
+            elif isinstance(key, ConnectionData):
+                if key not in self.conns.all.values():
+                    raise KeyError(f"Connection {key} is not found in the model.")
+
+                updates |= key.set_differentiability(value)
+
+        model = self._get_outermost_parent()
+        model.constraint_solver(updates)
 
     def _set_shapes(
         self,

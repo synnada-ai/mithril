@@ -1187,8 +1187,7 @@ def test_static_input_1():
     model = Model()
     add_1 = Add()
     add_1.set_types(left=Tensor, right=Tensor)
-    add_1.left.set_differentiable(False)
-    add_1.right.set_differentiable(False)
+
     ref = np.array(5.0)
     model += add_1
     comp_model = ml.compile(
@@ -1210,8 +1209,7 @@ def test_static_input_1_safe_names():
     model = Model()
     add_1 = Add()
     add_1.set_types(left=Tensor, right=Tensor)
-    add_1.left.set_differentiable(False)
-    add_1.right.set_differentiable(False)
+
     model += add_1
     with pytest.raises(KeyError) as err:
         ml.compile(model=model, backend=NumpyBackend(), jit=False)
@@ -1226,8 +1224,7 @@ def test_static_input_2():
     add_1 = Add()
     add_1.set_types(left=Tensor, right=Tensor)
     ref = np.array(5.0)
-    add_1.left.set_differentiable(False)
-    add_1.right.set_differentiable(False)
+
     model += add_1()
     comp_model = ml.compile(
         model=model,
@@ -1251,8 +1248,7 @@ def test_static_input_2_safe_names():
     model = Model()
     add_1 = Add()
     add_1.set_types(left=Tensor, right=Tensor)
-    add_1.left.set_differentiable(False)
-    add_1.right.set_differentiable(False)
+
     model += add_1()
     with pytest.raises(KeyError) as err:
         ml.compile(
@@ -1271,8 +1267,7 @@ def test_static_input_3():
     add_1 = Add()
     add_1.set_types(left=Tensor, right=Tensor)
     ref = np.array(5.0)
-    add_1.left.set_differentiable(False)
-    add_1.right.set_differentiable(False)
+
     model += add_1()
     comp_model = ml.compile(
         model=model,
@@ -1315,8 +1310,7 @@ def test_static_input_5():
     add_1 = Add()
     add_1.set_types(left=Tensor, right=Tensor)
     ref = np.array(5.0)
-    add_1.left.set_differentiable(False)
-    add_1.right.set_differentiable(False)
+
     model += add_1(left="input", right="right")
     comp_model = ml.compile(
         model=model,
@@ -1434,7 +1428,7 @@ def test_static_input_7():
 def test_linear_1():
     model = Model()
     lin1 = Linear()
-    lin1.input.set_differentiable(True)
+    lin1.set_differentiability(input=True)
     lin1.set_shapes({"weight": [2, 2], "input": [2, 2]})
     model += lin1(input="input", output=IOKey(name="output"))
     assert_all_backends_device_dtype(model)
@@ -1444,7 +1438,7 @@ def test_mlp():
     mlp_model = MLP(
         activations=[Buffer(), LeakyRelu(), Sigmoid()], dimensions=[2, 1, 1]
     )
-    mlp_model.input.set_differentiable(True)
+    mlp_model.set_differentiability(input=True)
     mlp_model.set_shapes({"input": [1, 1]})
     assert_all_backends_device_dtype(mlp_model)
 
@@ -1507,7 +1501,8 @@ def test_composite_2():
     conv1 = Convolution2D(kernel_size=2, out_channels=4)
     leaky_relu = LeakyRelu()
     model += conv1(input=IOKey("input", differantiable=True))
-    conv1.input.set_differentiable(True)
+
+    conv1.set_differentiability(input=True)
     model += leaky_relu(
         input=conv1.output, output=IOKey(name="output"), slope=Tensor(0.3)
     )
@@ -1520,7 +1515,7 @@ def test_composite_2_set_values():
     conv1 = Convolution2D(kernel_size=2, out_channels=4)
     leaky_relu = LeakyRelu()
     model += conv1(input="input")
-    conv1.input.set_differentiable(True)
+    conv1.set_differentiability(input=True)
     model += leaky_relu(
         input=conv1.output, output=IOKey(name="output"), slope=NOT_GIVEN
     )
@@ -1535,7 +1530,7 @@ def test_composite_3():
     leaky_relu = LeakyRelu()
     mean_model = Mean(axis=TBD)
     model += conv1(input="input", stride=(2, 3))
-    conv1.input.set_differentiable(True)
+    conv1.set_differentiability(input=True)
     model += leaky_relu(input=conv1.output, slope=Tensor(0.3))
     model += mean_model(axis=conv1.stride)
     # assert not isinstance(conv1.cout, NotAvailable)
@@ -1550,7 +1545,7 @@ def test_composite_3_set_values():
     leaky_relu = LeakyRelu()
     mean_model = Mean(axis=TBD)
     model += conv1(input="input")
-    conv1.input.set_differentiable(True)
+    conv1.set_differentiability(input=True)
     model.set_values({conv1.stride: (2, 3)})
     model += leaky_relu(input=conv1.output, slope=NOT_GIVEN)
     model.set_values({leaky_relu.slope: Tensor(0.3)})
@@ -1568,7 +1563,7 @@ def test_composite_4():
     leaky_relu = LeakyRelu()
     mean_model = Mean(axis=TBD)
     model += conv1(input="input", stride=(2, 3))
-    conv1.input.set_differentiable(True)
+    conv1.set_differentiability(input=True)
     model += leaky_relu(input=conv1.output, slope=Tensor(0.3))
     model += mean_model(axis=conv1.stride)
     model.set_shapes({"input": [1, 1, 8, 8]})
@@ -1582,7 +1577,7 @@ def test_composite_4_set_values():
     leaky_relu = LeakyRelu()
     mean_model = Mean(axis=TBD)
     model += conv1(input="input")
-    conv1.input.set_differentiable(True)
+    conv1.set_differentiability(input=True)
     model.set_values({conv1.stride: (2, 3)})
     model += leaky_relu(input=conv1.output, slope=NOT_GIVEN)
     model.set_values({leaky_relu.slope: Tensor(0.3)})
@@ -1902,7 +1897,7 @@ def test_unused_cached_values_3():
     model = Model()
     linear_model = Linear(dimension=2)
     model += linear_model(input=Tensor([[3.0], [2.0]]), weight=Tensor([[1.0], [2.0]]))
-    linear_model.bias.set_differentiable(False)
+    linear_model.set_differentiability(bias=False)
     comp_model = ml.compile(
         model=model, backend=(backend := NumpyBackend()), safe_names=False
     )
@@ -1945,7 +1940,7 @@ def test_unused_cached_values_3_set_values():
             linear_model.weight: Tensor([[1.0], [2.0]]),
         }
     )
-    linear_model.bias.set_differentiable(False)
+    linear_model.set_differentiability(bias=False)
     comp_model = ml.compile(
         model=model, backend=(backend := NumpyBackend()), safe_names=False
     )

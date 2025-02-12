@@ -113,7 +113,7 @@ def test_linear_set_diff():
     model = Model()
     linear = Linear(dimension=42)
     model += linear(input="input", weight="weight", output=IOKey(name="output"))
-    linear.weight.set_differentiable(False)
+    linear.set_differentiability(weight=False)
 
     model_dict_created = dict_conversions.model_to_dict(model)
     model_recreated = dict_conversions.dict_to_model(model_dict_created)
@@ -922,7 +922,7 @@ def test_set_values_ellipsis_2():
     )
     lin2 = Linear(1)
     model.extend(lin2, weight="weight1", bias="bias1", input="input2")
-    lin2.bias.set_differentiable(False)
+    lin2.set_differentiability(bias=False)
 
     model_dict_created = dict_conversions.model_to_dict(model)
     model_recreated = dict_conversions.dict_to_model(model_dict_created)

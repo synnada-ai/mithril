@@ -1121,7 +1121,6 @@ class PermuteTensor(PrimitiveModel):
         self._add_constraint(
             fn=general_tensor_type_constraint, keys=[Operator.output_key, "input"]
         )
-        self.indices.set_differentiable(False)
 
     def __call__(  # type: ignore[override]
         self,

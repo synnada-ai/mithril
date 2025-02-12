@@ -1255,7 +1255,7 @@ class ConnectionData:
     def __eq__(self, other: object) -> bool:
         return id(self) == id(other)
 
-    def set_differentiable(self, differentiable: bool = True) -> Updates:
+    def set_differentiability(self, differentiable: bool = True) -> Updates:
         updates = Updates()
         # TODO: Move this method to Model class as set_shapes, set_types etc.
         if self.metadata.is_tensor:
@@ -1363,14 +1363,6 @@ class Connections:
             self._connection_dict[KeyType.INPUT] | self._connection_dict[KeyType.OUTPUT]
         ).keys()
 
-    @property
-    def valued_input_keys(self) -> set[str]:
-        return {
-            key
-            for key, conn in self._connection_dict[KeyType.INPUT].items()
-            if conn.metadata.is_valued
-        }
-
     def add(
         self,
         connection: ConnectionData,
@@ -1419,9 +1411,6 @@ class Connections:
         return {
             key for key, conn in self.all.items() if not conn.metadata.differentiable
         }
-
-    def is_key_non_diff(self, key: str) -> bool:
-        return not self.get_data(key).differentiable
 
     def get_connection(self, key: str) -> ConnectionData | None:
         internals = self._connection_dict[KeyType.INTERNAL]

@@ -304,7 +304,15 @@ class TrainModel(Model):
         key_name: str | None = None,
         **kwargs: Any,
     ) -> None:
-        keys = set(model.input_keys) - model.conns.valued_input_keys
+        valued_input_keys = {
+            key
+            for key, conn in zip(
+                model.conns.input_keys, model.conns.input_connections, strict=False
+            )
+            if conn.metadata.is_valued
+        }
+
+        keys = set(model.input_keys) - valued_input_keys
         if set(kwargs.keys()) != keys:
             raise KeyError(
                 "The provided keys do not match the regularization model keys!"

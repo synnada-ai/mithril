@@ -773,7 +773,7 @@ def test_define_unique_names_1():
     model |= KernelizedSVM_0(input1=model.cout)
     model |= KernelizedSVM_1(input1=model.cout)
 
-    lin_0.input.set_differentiable(True)
+    lin_0.set_differentiability(input=True)
     name_dict = define_unique_names(model.dag.keys())
     assert name_dict == {
         lin_0: "Linear_0",
@@ -919,7 +919,7 @@ def test_physical_summary_2():
     model += Linear(dimension=3)
     model += model1
     assert isinstance(model.cin, Connection)
-    model.cin.set_differentiable(True)
+    model.set_differentiability({model.cin: True})
 
     comp_model = mithril.compile(
         model=model, backend=NumpyBackend(), shapes={"input": [5, 5]}
@@ -938,8 +938,7 @@ def test_physical_summary_2():
 def test_physical_summary_3():
     model = Model()
     model_1 = KernelizedSVM(kernel=RBFKernel())
-    model_1.input1.set_differentiable(True)
-    model_1.input2.set_differentiable(True)
+    model_1.set_differentiability(input1=True, input2=True)
 
     model_2 = MLP(
         activations=[Sigmoid(), Tanh(), Relu(), LeakyRelu()], dimensions=[3, 4, 5, 6]
@@ -963,8 +962,8 @@ def test_physical_summary_3():
 def test_physical_summary_3_logical_with_depth():
     model = Model()
     model_1 = KernelizedSVM(kernel=RBFKernel())
-    model_1.input1.set_differentiable(True)
-    model_1.input2.set_differentiable(True)
+    model_1.set_differentiability(input1=True, input2=True)
+
     model_2 = MLP(
         activations=[Sigmoid(), Tanh(), Relu(), LeakyRelu()], dimensions=[3, 4, 5, 6]
     )
@@ -988,8 +987,7 @@ def test_physical_summary_3_logical_with_depth():
 def test_physical_summary_4():
     model = Model()
     model_1 = KernelizedSVM(kernel=RBFKernel())
-    model_1.input1.set_differentiable(True)
-    model_1.input2.set_differentiable(True)
+    model_1.set_differentiability(input1=True, input2=True)
     model_1.set_cin("input1")
     model_2 = MLP(
         activations=[Sigmoid(), Tanh(), Relu(), LeakyRelu()], dimensions=[3, 4, 5, 6]
@@ -1245,7 +1243,7 @@ def test_physical_summary_15():
     model += lin_model_4(
         input="input", weight="weight", bias="b", output=IOKey(name="output4")
     )
-    lin_model_1.input.set_differentiable(True)
+    lin_model_1.set_differentiability(input=True)
 
     comp_model = mithril.compile(model=model, backend=JaxBackend(), jit=False)
 
@@ -1298,7 +1296,7 @@ def test_physical_summary_17():
     model += lin_model_2(input="input", weight="weight", bias="b", output="output2")
     model += lin_model_3(input="input", weight="weight", bias="b", output="output3")
     model.set_cout("output3")
-    lin_model_1.input.set_differentiable(True)
+    lin_model_1.set_differentiability(input=True)
 
     comp_model = mithril.compile(model=model, backend=JaxBackend(), safe_names=False)
 
@@ -1315,7 +1313,8 @@ def test_physical_summary_17():
 def test_resnet_18_physical_summary():
     model = resnet18(1)
     assert isinstance(model.cin, Connection)
-    model.cin.set_differentiable(True)
+    model.set_differentiability({model.cin: True})
+
     comp_model = mithril.compile(model=model, backend=TorchBackend(), jit=False)
 
     with redirect_stdout(StringIO()) as summary:

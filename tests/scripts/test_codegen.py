@@ -107,7 +107,7 @@ def test_multi_input_primitive(file_path: str):
     model += Linear()(
         input=IOKey("input", differantiable=True), weight="w", bias="b", output="output"
     )
-    model.input.set_differentiable(True)  # type: ignore
+    model.set_differentiability(input=True)
     model.set_shapes({"input": [1, 2, 3]})
     backend = NumpyBackend()
 

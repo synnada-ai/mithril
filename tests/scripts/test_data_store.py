@@ -447,7 +447,7 @@ def test_data_store_15():
     add = Add()
     add.set_types(left=Tensor, right=Tensor)
     model += add(left="left")
-    add.right.set_differentiable(False)
+
     model += Sigmoid()(input=add.output, output="output")
     pm = PhysicalModel(
         model=model,
@@ -482,7 +482,7 @@ def test_data_store_16():
     add = Add()
     add.set_types(left=Tensor, right=Tensor)
     model += add(left="left")
-    add.right.set_differentiable(False)
+
     model += Sigmoid()(input=add.output, output=IOKey("output"))
 
     model += Relu()(input="in", output=IOKey(name="out"))

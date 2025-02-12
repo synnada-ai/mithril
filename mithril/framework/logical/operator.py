@@ -147,4 +147,8 @@ class Operator(BaseModel):
         raise NotImplementedError("Operators cannot be extended!")
 
     def infer_differentiability(self, *inputs: bool) -> bool:
+        # Function to infer differentiability of the operator
+        # based on the differentiability of its inputs
+
+        # If any of the inputs are differentiable, the output is differentiable
         return any(inputs)

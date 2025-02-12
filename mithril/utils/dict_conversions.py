@@ -259,7 +259,7 @@ def dict_to_model(
     for key, value in differentiability_info.items():
         con = model.conns.get_connection(key)
         assert con is not None
-        con.set_differentiable(value)
+        con.set_differentiability(value)
 
     if len(assigned_constraints) > 0:
         for constr_info in assigned_constraints:

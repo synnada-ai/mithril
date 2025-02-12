@@ -196,7 +196,7 @@ class Pool1D(Model):
             dilation=IOKey(name="dilation", value=dilation),
             output=IOKey(name="output"),
         )
-        self.input.set_differentiable(False)
+
         self.set_cin("input", safe=False)
         self._freeze()
 
@@ -298,7 +298,6 @@ class Pool2D(Model):
             dilation=dt_converter.output,
             output=IOKey(name="output"),
         )
-        self.input.set_differentiable(False)
         self.set_cin("input", safe=False)
         self._freeze()
 
@@ -394,7 +393,6 @@ class Convolution1D(Model):
             conv_connections["bias"] = IOKey("bias", differantiable=True)
 
         self |= PrimitiveConvolution1D(use_bias=use_bias)(**conv_connections)
-        self.input.set_differentiable(False)
         self.set_cin("input", safe=False)
         self._freeze()
 
@@ -489,7 +487,6 @@ class Convolution2D(Model):
             conv_connections["bias"] = IOKey("bias", differantiable=True)
 
         self |= PrimitiveConvolution2D(use_bias=use_bias)(**conv_connections)
-        self.input.set_differentiable(False)
         self.set_cin("input", safe=False)
         self._freeze()
 
@@ -605,7 +602,6 @@ class ElementWiseAffine(Model):
             right=IOKey(name="bias", value=bias),
             output=IOKey(name="output"),
         )
-        self.input.set_differentiable(False)
         self.set_cin("input", safe=False)
         self._freeze()
 
@@ -791,7 +787,6 @@ class GroupNorm(Model):
         self |= Reshape()(input=_input_key, shape=input_shape)
 
         self._set_shapes({"input": ["B", "C", "H", "W"]})
-        self.input.set_differentiable(False)
 
         shapes: dict[str, ShapeTemplateType] = {
             "left": ["B", "C", "H", "W"],
@@ -1190,7 +1185,6 @@ class LinearSVM(Model):
         self += decision_model(
             input=linear_model.output, output=IOKey(name="decision_output")
         )
-        self.input.set_differentiable(False)
 
         self.set_cout(linear_model.output)
         self._freeze()
@@ -1242,7 +1236,6 @@ class LogisticRegression(Model):
             input=linear_model.output, output=IOKey(name="probs_output")
         )
 
-        self.input.set_differentiable(False)
         self.set_cout(linear_model.output)
         self._freeze()
 
@@ -1443,8 +1436,7 @@ class RNNCell(Cell):
             "bias_h": ["d_hid"],
             "bias_o": ["d_out"],
         }
-        self.input.set_differentiable(False)
-        self.prev_hidden.set_differentiable(False)
+
         self._set_shapes(shapes)
         self.set_cin("input", safe=False)
         self.set_cout("output")
@@ -1619,9 +1611,7 @@ class LSTMCell(Cell):
             "hidden": ["N", 1, "d_hid"],
             "cell": ["N", 1, "d_hid"],
         }
-        self.input.set_differentiable(False)
-        self.prev_hidden.set_differentiable(False)
-        self.prev_cell.set_differentiable(False)
+
         self._set_shapes(shapes)
         self.set_cin("input", safe=False)
         self.set_cout("output")
@@ -1776,7 +1766,6 @@ class LSTMCellBody(Model):
             "bias_o": ["d_hid"],
         }
 
-        self.input.set_differentiable(False)
         self._set_shapes(shapes)
         self._freeze()
 
@@ -2242,7 +2231,7 @@ class PolynomialRegression(Model):
             bias=IOKey("bias", value=bias),
             output=IOKey(name="output"),
         )
-        self.input.set_differentiable(False)
+
         self._freeze()
 
     def __call__(  # type: ignore[override]
@@ -2335,7 +2324,6 @@ class MDSCore(Model):
                 output=IOKey(name="output"),
             )
 
-        self.distances.set_differentiable(False)
         self._set_shapes({"distances": ["N", "N"], "pred_distances": ["N", "N"]})
         self._freeze()
 
@@ -2424,7 +2412,6 @@ class TSNECore(Model):
             input=kl_divergence_model.output, output=IOKey(name="output")
         )
 
-        self.distances.set_differentiable(False)
         self._set_shapes({"distances": ["N", "N"], "pred_distances": ["N", "N"]})
         self.set_cin("distances", safe=False)
         self.set_cout("output")
@@ -2532,7 +2519,6 @@ class DistanceEncoder(Model):
                 input=self.coords, output=IOKey(name="predicted_coords")
             )
 
-        self.input.set_differentiable(False)
         self._freeze()
         # self._set_shapes(trace=False,
         #     input = ["N", "M"], # NOTE: Here "M" denotes input dim or
@@ -2776,7 +2762,7 @@ class GaussProcessRegressionCore(Model):
             "prediction": ["N", 1],
             "confidence": ["N", 1],
         }
-        self.label.set_differentiable(False)
+
         self._set_shapes(shapes)
         self._freeze()
 
@@ -2866,7 +2852,7 @@ class GPRLoss(Model):
             "alpha": ["N", 1],
             "output": [1],
         }
-        self.labels.set_differentiable(False)
+
         self._set_shapes(shapes)
         self._freeze()
 
@@ -2946,7 +2932,6 @@ class Metric(Model):
         self += Buffer()(input=label_key, output=IOKey("label_formatted"))
         self += Buffer()(input=result, output=IOKey("output"))
 
-        self.label.set_differentiable(False)
         self.set_cin(self.pred)
         self._freeze()
 
@@ -3168,7 +3153,6 @@ class Precision(Model):
 
             self += Buffer()(input=precision, output=IOKey(name="output"))
 
-        self.label.set_differentiable(False)
         self.set_cin(self.pred)
         self._freeze()
 
@@ -3328,7 +3312,6 @@ class Recall(Model):
 
             self += Buffer()(input=recall, output=IOKey(name="output"))
 
-        self.label.set_differentiable(False)
         self.set_cin(self.pred)
         self._freeze()
 
@@ -3493,7 +3476,6 @@ class F1(Model):
 
             self += Buffer()(input=precision, output=IOKey(name="output"))
 
-        self.label.set_differentiable(False)
         self.set_cin(self.pred)
         self._freeze()
 
@@ -3555,7 +3537,6 @@ class AUC(Model):
 
         self += Buffer()(auc_score, IOKey("output"))
 
-        self.label.set_differentiable(False)
         self.set_cin(self.pred)
         self._freeze()
 
@@ -3592,7 +3573,6 @@ class SiLU(Model):
         )
         self._set_shapes({"input": [("Var", ...)], "output": [("Var", ...)]})
 
-        self.input.set_differentiable(False)
         self._freeze()
 
     def __call__(  # type: ignore[override]

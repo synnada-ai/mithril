@@ -1090,7 +1090,8 @@ def test_compare_models_2():
 
     model1 = Model()
     linear1 = Linear(dimension=3)
-    linear1.input.set_differentiable(True)
+    linear1.set_differentiability(input=True)
+
     linear2 = Linear(dimension=3)
 
     model1 += linear1(input="input", output="sub_out")
@@ -1099,7 +1100,7 @@ def test_compare_models_2():
 
     model2 = Model()
     linear1 = Linear(dimension=3)
-    linear1.input.set_differentiable(True)
+    linear1.set_differentiability(input=True)
     linear2 = Linear(dimension=3)
 
     model2 += linear1(input="input")

@@ -584,7 +584,7 @@ def test_pickle_empty_backend():
     )
 
     model = Linear(dimension=5)
-    model.input.set_differentiable(True)
+    model.set_differentiability(input=True)
     model.set_shapes({"input": [5, 5]})
     ctx = TrainModel(model)
     ctx.add_loss(Buffer(), input=model.cout)
@@ -1150,7 +1150,7 @@ def test_train_context_example():
     model = Model()
     model += Linear(1)(input="input", output=IOKey(name="output"))
     model += Linear(1)(input=model.cout, output=IOKey(name="output2"))
-    model.input.set_differentiable(True)  # type: ignore
+    model.set_differentiability(input=True)
 
     context = TrainModel(model)
     context.add_loss(Buffer(), [Sum()], input="output2")
@@ -1408,17 +1408,17 @@ def test_flatten_dag0():
     model = Model()
     l1 = Linear(10)
     l5 = Linear(1)
-    l1.input.set_differentiable(True)
-    l5.input.set_differentiable(True)
+    l1.set_differentiability(input=True)
+    l5.set_differentiability(input=True)
 
     model += l1(weight="weight_2")
     model += (lin1 := Linear(10))(input="")
     model += (lin2 := Linear(10))(input="")
     model += (lin3 := Linear(10))(input="")
     model += l5(input="", output=IOKey(name="output1"))
-    lin1.input.set_differentiable(True)
-    lin2.input.set_differentiable(True)
-    lin3.input.set_differentiable(True)
+    lin1.set_differentiability(input=True)
+    lin2.set_differentiability(input=True)
+    lin3.set_differentiability(input=True)
 
     l5.set_shapes({"input": [1, 1]})
     model.set_cout(l1.output)
@@ -1445,7 +1445,7 @@ def test_geo_mean_1():
     backend = TorchBackend()
     model = Model()
     model += (lin := Linear(1))(weight="weight2")
-    lin.input.set_differentiable(True)
+    lin.set_differentiability(input=True)
 
     context = TrainModel(model)
     context.add_loss(Buffer(), input=model.cout)
@@ -1667,7 +1667,8 @@ def test_geomean_evaluate():
         },
     )
     model1.set_shapes({"input": [10, 10, 10]})
-    lin1.input.set_differentiable(True)
+    lin1.set_differentiability(input=True)
+
     ctx1 = TrainModel(model1)
     ctx1.add_loss(
         Buffer(),
@@ -1700,7 +1701,8 @@ def test_geomean_evaluate():
             "output": IOKey("output2"),
         },
     )
-    lin2.input.set_differentiable(True)
+    lin2.set_differentiability(input=True)
+
     ctx2 = TrainModel(model2)
     ctx2.add_loss(
         Buffer(),
@@ -6127,8 +6129,7 @@ def test_leaky_relu_trainable_slope():
     model = Model()
     model += LeakyRelu()(input="input", output="output", slope="slope")
     model.set_types(slope=Tensor)
-    model.input.set_differentiable(True)  # type: ignore
-    model.slope.set_differentiable(True)  # type: ignore
+    model.set_differentiability(input=True, slope=True)
 
     pm = mithril.compile(model=model, backend=backend)
     params = {"input": backend.array([-2.0, 2.0]), "slope": backend.array(0.2)}
