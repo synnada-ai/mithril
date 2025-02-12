@@ -431,7 +431,9 @@ class FloorDivideOp(Operator):
         super().__init__(
             formula_key="floor_divide",
             name=name,
-            output=BaseKey(type=Tensor[int | float] | int | float),
+            output=BaseKey(
+                type=Tensor[int | float] | int | float, differentiable=False
+            ),
             numerator=BaseKey(value=numerator),
             denominator=BaseKey(value=denominator),
         )
@@ -463,6 +465,9 @@ class FloorDivideOp(Operator):
             keys=[Operator.output_key, "numerator", "denominator"],
             dependencies={bcast_constraint},
         )
+
+    def infer_differentiability(self, *inputs: bool) -> bool:
+        return False
 
 
 class MatrixMultiplyOp(Operator):

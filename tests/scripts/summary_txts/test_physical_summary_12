@@ -1,4 +1,3 @@
-
               Model Info             
 =====================================
 Backend type       : jax             
@@ -11,11 +10,11 @@ Output keys        : output1, output2
 -------------------------------------
 Constant inputs    : None            
 -------------------------------------
-Static keys        : None            
+Static keys        : input           
 -------------------------------------
-Trainable keys     : input           
+Trainable keys     : None            
 -------------------------------------
-Total Parameters   : >0              
+Total Parameters   : 0               
 -------------------------------------
 
 
@@ -25,7 +24,7 @@ Model Name   |                                Model Keys
              |             -----------------------------------------------
              |             Keys   : Shapes      : Connections : Parameters
 ==========================================================================
-Sigmoid      |   Inputs  : input  : [(V1, ...)] : 'input'     :    Unknown
+Sigmoid      |   Inputs  : input  : [(V1, ...)] : 'input'     :          0
              |   ---------------------------------------------------------
              |   Outputs : output : [(V1, ...)] : 'output1'   :          0
              |                                    'output2'               

@@ -88,7 +88,9 @@ def test_set_values_scalar_1():
     backend = JaxBackend()
     model = Model()
     mean_model = Mean(axis=TBD)
-    model += mean_model(input="input", output=IOKey("output", shape=[2, 2]))
+    model += mean_model(
+        input=IOKey("input", differantiable=True), output=IOKey("output", shape=[2, 2])
+    )
     model.set_values({mean_model.axis: 1})
 
     pm = mithril.compile(model=model, backend=JaxBackend())
@@ -110,7 +112,9 @@ def test_set_values_scalar_1_kwargs_arg():
     backend = JaxBackend()
     model = Model()
     mean_model = Mean(axis=TBD)
-    model += mean_model(input="input", output=IOKey("output", shape=[2, 2]))
+    model += mean_model(
+        input=IOKey("input", differantiable=True), output=IOKey("output", shape=[2, 2])
+    )
     mean_model.set_values(axis=1)
 
     pm = mithril.compile(model=model, backend=JaxBackend())
@@ -133,7 +137,9 @@ def test_set_values_scalar_2():
     model = Model()
     mean_model = Mean(axis=TBD)
     model += mean_model(
-        input="input", output=IOKey("output", shape=[2, 2]), axis="axis1"
+        input=IOKey("input", differantiable=True),
+        output=IOKey("output", shape=[2, 2]),
+        axis="axis1",
     )
     model.set_values({model.axis1: 1})  # type: ignore
 
@@ -157,7 +163,9 @@ def test_set_values_scalar_3():
     model = Model()
     mean_model = Mean(axis=TBD)
     model += mean_model(
-        input="input", output=IOKey("output", shape=[2, 2]), axis="axis1"
+        input=IOKey("input", differantiable=True),
+        output=IOKey("output", shape=[2, 2]),
+        axis="axis1",
     )
     model.set_values({"axis1": 1})
 

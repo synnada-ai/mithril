@@ -140,7 +140,10 @@ def compile_and_compare(
         }
 
         pm = mithril.compile(
-            model, backend=backend, **compile_kwargs | {"constant_keys": statics}
+            model,
+            backend=backend,
+            **compile_kwargs
+            | {"constant_keys": statics, "trainable_keys": params.keys()},
         )
         outputs = pm.evaluate(params=backend_params, data=backend_data)
 
@@ -412,7 +415,7 @@ def test_nan_to_num_1():
 
 def test_linear_1():
     model = Linear()
-    model.input.set_differentiable(True)
+    model.set_differentiability(input=True)
     params = {"input": [[1.0], [2.0], [3.0], [4.0]], "weight": [[0.2]], "bias": [0.5]}
     output_gradients = {"output": [[1.0], [1.0], [1.0], [1.0]]}
     reference_outputs = {"output": [[0.7], [0.9], [1.1], [1.3]]}
