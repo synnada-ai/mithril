@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import copy
 import logging
 import math
@@ -24,11 +25,8 @@ import numpy as np
 import scipy.linalg as slin
 from scipy.special import erf
 
-from .... import core
-from ....utils.type_utils import is_tuple_int
-from ....utils.utils import find_dominant_type
-from ...utils import NestedFloatOrIntOrBoolList
-from ..common_primitives import (
+from ... import core
+from ..manualgrad_common_primitives import (
     add,
     buffer,
     cartesian_diff,
@@ -70,18 +68,19 @@ from ..common_primitives import (
     tuple_converter,
     union,
 )
-from . import utils
+from ..utils import NestedFloatOrIntOrBoolList, find_dominant_type, is_tuple_int
 from .utils import (
     CacheType,
     calc_prob_matrix,
     calculate_binary_class_weight,
     calculate_cross_entropy_class_weights,
+    determine_dtype,
+    dtype_map,
     find_optimal_sigmas,
     get_submatrices1d,
     get_submatrices2d,
     log_sigmoid,
     log_softmax,
-    make_array,
     write_into_cache,
 )
 
@@ -945,7 +944,7 @@ def to_tensor(
     default_dtype: str,
     cache: CacheType | None = None,
 ) -> np.ndarray[Any, Any]:
-    dtype_str = default_dtype if dtype is None else utils.dtype_map.inverse[dtype]
+    dtype_str = default_dtype if dtype is None else dtype_map.inverse[dtype]
 
     dominant_type = find_dominant_type(input)
     _dtype = dominant_type.__name__
@@ -956,6 +955,25 @@ def to_tensor(
     return np.array(input[0], dtype=_dtype)
 
 
+def make_array(
+    input: int | float | np.ndarray[Any, Any],
+    *,
+    dtype: str | None = None,
+    default_dtype: str,
+) -> np.ndarray[Any, Any]:
+    if dtype is None:
+        dtype = default_dtype
+
+    dtype = determine_dtype(
+        input,
+        None,
+        default_dtype,
+        precision=int(re.findall(r"\d+", dtype)[-1]),
+    )
+
+    return np.array(input, dtype=dtype_map[dtype])
+
+
 def eye(
     N: int,
     M: int | None,
@@ -964,7 +982,7 @@ def eye(
     default_dtype: str,
     cache: CacheType | None = None,
 ) -> np.ndarray[Any, Any]:
-    dtype = utils.dtype_map[default_dtype] if dtype is None else dtype
+    dtype = dtype_map[default_dtype] if dtype is None else dtype
 
     return np.eye(N, M, dtype=dtype)
 
@@ -977,7 +995,7 @@ def ones_with_zero_diag(
     default_dtype: str,
     cache: CacheType | None = None,
 ) -> np.ndarray[Any, Any]:
-    dtype = utils.dtype_map[default_dtype] if dtype is None else dtype
+    dtype = dtype_map[default_dtype] if dtype is None else dtype
 
     output = (
         np.ones((N, M), dtype=dtype) - np.eye(N, M, dtype=dtype)
@@ -997,7 +1015,7 @@ def arange(
     default_dtype: str,
     cache: CacheType | None = None,
 ) -> np.ndarray[Any, Any]:
-    _dtype = default_dtype if dtype is None else utils.dtype_map.inverse[dtype]
+    _dtype = default_dtype if dtype is None else dtype_map.inverse[dtype]
 
     if len([item for item in [start, stop, step] if isinstance(item, float)]) == 0:
         _dtype = _dtype.replace("float", "int").replace("bfloat", "int")

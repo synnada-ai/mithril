@@ -14,7 +14,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Iterator, MutableMapping
+from collections.abc import Iterable, Iterator, MutableMapping
 from enum import Enum, IntEnum
 from itertools import compress
 from typing import Any, Generic, TypeVar
@@ -29,7 +29,7 @@ __all__ = [
     "pack_data_into_time_slots",
     "unpack_time_slot_data",
     "pack_encoder_target_data_into_time_slots",
-    "binary_search",
+    "find_dominant_type",
 ]
 
 IOType = dict[str, Any]
@@ -388,106 +388,6 @@ def pack_encoder_target_data_into_time_slots(
     return time_slots
 
 
-def find_boundary_point(
-    eval_func: Callable[[float], float],
-    guess_func: Callable[[float, float], float],
-    start: float,
-    boundary: float,
-    it: int,
-    max_it: int,
-) -> tuple[float, int]:
-    """Finds the farthest point from "start", towards "boundary", that satisfies
-    that attains the same function value with that of "start".
-
-    Parameters
-    ----------
-    eval_func : Callable[[float], float]
-        The function in question.
-    guess_func : Callable[[float], float]
-        The function to generate a guess point at every iteration.
-    start : float
-        Starting point whose function value acts as a reference.
-    boundary : float
-        Outer boundary point. Search is performed between start and boundary.
-    it : int
-        Iteration count up to now.
-    max_it : int
-        Maximum allowed iteration number.
-
-    Returns
-    -------
-    Tuple
-        Returns found change point and the iteration count.
-    """
-    target = eval_func(start)
-    if eval_func(boundary) == target:
-        return boundary, it
-    guess = guess_func(start, boundary)
-    while (start != guess != boundary) and (it <= max_it):
-        val = eval_func(guess)
-        if val == target:
-            start = guess
-        else:
-            boundary = guess
-        guess = guess_func(start, boundary)
-        it += 1
-    return start, it
-
-
-def binary_search(
-    eval_fn: Callable[[Any], Any],
-    target: DataType,
-    *,
-    max_it: int = 1000,
-    lower: float = -1000,
-    upper: float = 1001,
-) -> tuple[float, float]:
-    """Performs binary search between lower and upper limits to find the interval
-    of points whose images according to "eval_fn" are equal to "target". Since
-    floating-point arithmetic has round-off errors, such points often form a
-    non-singleton interval. This function finds the largest contigous interval of
-    such solution points.
-
-    Parameters
-    ----------
-    eval_fn : Callable[[float], float]
-        The function whose solution interval is sought.
-    target : float
-        Target function value to solve for.
-    max_it : int, optional
-        Maximum allowed iteration count, by default 1000.
-    lower : float, optional
-        Lower boundary of the search interval, by default -1000.
-    upper : float, optional
-        Upper boundary of the search interval, by default 1001.
-
-    Returns
-    -------
-    tuple[float, float]
-        Largest interval that is mapped to same function value (i.e. target).
-    """
-    it = 0
-
-    def midpoint(a: Any, b: Any) -> Any:
-        return (a + b) / 2
-
-    while (
-        (it <= max_it)
-        and (lower != upper)
-        and ((val := eval_fn(guess := midpoint(lower, upper))) != target)
-    ):
-        it += 1
-        # if backend.isnan(val):
-        if val > target:
-            upper = guess
-        elif val < target:
-            lower = guess
-    if (it <= max_it) and (lower != upper):
-        upper, it = find_boundary_point(eval_fn, midpoint, guess, upper, it, max_it)
-        lower, it = find_boundary_point(eval_fn, midpoint, guess, lower, it, max_it)
-    return lower, upper
-
-
 def convert_to_tuple[T: Any](
     nested_list: list[T] | tuple[T, ...] | T,
 ) -> tuple[T, ...] | T:
@@ -506,6 +406,7 @@ def convert_to_list(
         return value
 
 
+# Other utils
 def find_dominant_type(
     lst: Any, raise_error: bool = True
 ) -> type[int] | type[float] | type[bool]:

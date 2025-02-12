@@ -22,11 +22,8 @@ import mlx.core as mx
 import mlx.nn as nn
 import numpy as np
 
-from .... import core
-from ....utils.type_utils import is_int_tuple_tuple, is_tuple_int
-from ....utils.utils import find_dominant_type
-from ...utils import NestedFloatOrIntOrBoolList
-from ..common_primitives import (
+from ... import core
+from ..autograd_common_primitives import (
     add,
     buffer,
     cartesian_diff,
@@ -69,6 +66,14 @@ from ..common_primitives import (
     tuple_converter,
     union,
 )
+from ..utils import (
+    NestedFloatOrIntOrBoolList,
+    find_dominant_type,
+    is_int_tuple_tuple,
+    is_tuple_int,
+)
+
+# from ...backends.with_autograd.mlx_backend import utils
 from . import utils
 
 AxisType = None | int | Sequence[int]

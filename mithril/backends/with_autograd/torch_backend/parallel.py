@@ -34,6 +34,7 @@ from torch.distributed._tensor import (
 )
 from torch.distributed.device_mesh import init_device_mesh
 
+from ....cores.torch.utils import dtype_map
 from ...parallel import Parallel
 from . import utils
 from .stensor import STensor
@@ -42,7 +43,6 @@ from .utils import (
     SharedCyclicQueue,
     TensorRef,
     apply_to_all_elems,
-    dtype_map,
     init_dist_group,
 )
 

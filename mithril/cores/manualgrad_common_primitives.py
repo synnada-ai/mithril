@@ -15,8 +15,8 @@
 from collections.abc import Sequence
 from typing import Any
 
-from ...core import DataType
-from ...utils.utils import PaddingType
+from ..utils.utils import PaddingType
+from .core import DataType
 
 CacheType = dict[str, Any] | None
 
