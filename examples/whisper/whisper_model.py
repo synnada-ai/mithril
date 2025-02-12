@@ -73,7 +73,7 @@ def encoder_block(num_layers: int, input_dim: int, num_heads: int, ffn_dim: int)
             "layer_in", output="layer_norm_out"
         )
         block += whisper_attention("self_attn", input_dim, num_heads)
-        block |= Add()("layer_in", block.cout, output="attn_res")
+        block += Add()("layer_in", output="attn_res")
         block.set_cout("attn_res")
         block += LayerNorm(name="final_layer_norm")
         block += Linear(ffn_dim, name="fc1")

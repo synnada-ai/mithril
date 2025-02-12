@@ -100,5 +100,5 @@ def create_gpt(bias, block_size, dims, num_heads, num_layers, vocab_size):
     gpt = Model()
     gpt += transformer(input="input")
     gpt += Linear(vocab_size, use_bias=False, name="lm_head")(output=IOKey("output"))
-    gpt.input.set_differentiable(False)  # type: ignore
+    gpt.set_differentiability({gpt.input: False})  # type: ignore
     return gpt

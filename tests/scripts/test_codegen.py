@@ -18,6 +18,7 @@ from importlib import import_module
 
 import mithril
 from mithril import JaxBackend, MlxBackend, NumpyBackend, TorchBackend
+from mithril.framework.logical.model import IOKey
 from mithril.models import (
     Arange,
     Concat,
@@ -47,7 +48,7 @@ def list_full(fill_value, *shapes):
 @with_temp_file(".py")
 def test_single_input_primitive(file_path):
     model = Model()
-    model += Relu()(input="input", output="output")
+    model += Relu()(input=IOKey("input", differantiable=True), output="output")
     model.set_shapes({"input": [1, 2, 3]})
     backend = NumpyBackend()
 
@@ -103,8 +104,10 @@ def test_single_input_primitive(file_path):
 @with_temp_file(".py")
 def test_multi_input_primitive(file_path: str):
     model = Model()
-    model += Linear()(input="input", weight="w", bias="b", output="output")
-    model.input.set_differentiable(True)  # type: ignore
+    model += Linear()(
+        input=IOKey("input", differantiable=True), weight="w", bias="b", output="output"
+    )
+    model.set_differentiability(input=True)
     model.set_shapes({"input": [1, 2, 3]})
     backend = NumpyBackend()
 
@@ -123,11 +126,11 @@ def test_multi_input_primitive(file_path: str):
         output_cache = cache["output_cache"]
         w = params["w"]
         output_0 = output_0_cache["output"] = transpose(w, None, cache=output_0_cache)
-        output_1 = output_1_cache["output"] = make_array(
-            matrix_multiplication(input, output_0, output_1_cache)
+        output_1 = output_1_cache["output"] = matrix_multiplication(
+            input, output_0, output_1_cache
         )
         del output_0
-        output = output_cache["output"] = make_array(add(output_1, b, output_cache))
+        output = output_cache["output"] = add(output_1, b, output_cache)
         del output_1
         return {"output": output}
 
@@ -141,9 +144,9 @@ def test_multi_input_primitive(file_path: str):
         input = params["input"]
         w = params["w"]
         output_0 = transpose(w, None)
-        output_1 = make_array(matrix_multiplication(input, output_0))
+        output_1 = matrix_multiplication(input, output_0)
         del output_0
-        output = make_array(add(output_1, b))
+        output = add(output_1, b)
         del output_1
         return {"output": output}
 
@@ -187,7 +190,12 @@ def test_multi_input_primitive(file_path: str):
 @with_temp_file(".py")
 def test_variadic_input_primitive_1(file_path: str):
     model = Model()
-    model += Concat(n=3)(input1="input1", input2="input2", output="output")
+    model += Concat(n=3)(
+        input1=IOKey("input1", differantiable=True),
+        input2=IOKey("input2", differantiable=True),
+        input3=IOKey("input3", differantiable=True),
+        output="output",
+    )
     model.set_shapes({"input1": [1, 2, 3]})
     backend = NumpyBackend()
 
@@ -202,8 +210,8 @@ def test_variadic_input_primitive_1(file_path: str):
         input2 = params["input2"]
         input3 = params["input3"]
         output_cache = cache["output_cache"]
-        output = output_cache["output"] = make_array(
-            concat(input1, input2, input3, cache=output_cache)
+        output = output_cache["output"] = concat(
+            input1, input2, input3, cache=output_cache
         )
         return {"output": output}
 
@@ -216,7 +224,7 @@ def test_variadic_input_primitive_1(file_path: str):
         input1 = params["input1"]
         input2 = params["input2"]
         input3 = params["input3"]
-        output = make_array(concat(input1, input2, input3))
+        output = concat(input1, input2, input3)
         return {"output": output}
 
     compare_callables(evaluate, eval_func)
@@ -313,7 +321,7 @@ def test_variadic_input_primitive_2(file_path: str):
 @with_temp_file(".py")
 def test_default_kwarg_reduction_1(file_path: str):
     model = Model()
-    model += Mean()
+    model += Mean()(input=IOKey("input", differantiable=True))
 
     backend = NumpyBackend()
     mithril.compile(model, backend, inference=False, jit=False, file_path=file_path)
@@ -374,7 +382,7 @@ def test_default_kwarg_reduction_1(file_path: str):
 @with_temp_file(".py")
 def test_default_kwarg_reduction_2(file_path: str):
     model = Model()
-    model += Mean(axis=3)()
+    model += Mean(axis=3)(input=IOKey("input", differantiable=True))
 
     backend = NumpyBackend()
 

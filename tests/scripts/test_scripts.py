@@ -371,9 +371,9 @@ def test_shape():
     sigmoid2.set_shapes({"input": [5, 6, 8, 9, 10]})
     model3 |= sigmoid2(input="input2", output=IOKey(name="output2"))
 
-    model |= model1(output2=IOKey(name="output"))
+    model |= model1(input2="in2", output2=IOKey(name="output"))
     model |= model2(input1=model1.output1, input2=model1.output2)  # type: ignore
-    model |= model3(output1=model1.input1, output2=model1.input2)  # type: ignore
+    model |= model3(input2="in3", output1=model1.input1, output2=model1.input2)  # type: ignore
 
     comp_model = mithril.compile(model, backend=NumpyBackend(dtype=mithril.float64))
     assert comp_model.shapes["output"] == [5, 6, 8, 9, 10]
@@ -584,7 +584,7 @@ def test_pickle_empty_backend():
     )
 
     model = Linear(dimension=5)
-    model.input.set_differentiable(True)
+    model.set_differentiability(input=True)
     model.set_shapes({"input": [5, 5]})
     ctx = TrainModel(model)
     ctx.add_loss(Buffer(), input=model.cout)
@@ -792,7 +792,7 @@ def test_canonical_output_compile():
 
 def test_static_key_names_consistency():
     model = Model()
-    model += Add()(left=Tensor(3), right=IOKey(type=Tensor))
+    model += Add()(left=Tensor(3), right=IOKey(name="right", type=Tensor))
 
     pm = mithril.compile(model, TorchBackend())
     assert {"left", "right"} == pm.input_keys
@@ -848,20 +848,18 @@ def test_check_static_1():
     model = Model()
     lin1 = Linear(dimension=1)
     model += lin1(
-        input=Tensor([[2, 3], [1, 4]]),
-        weight=Tensor([[4, 5]]),
-        bias=Tensor([3]),
+        input=Tensor([[2.0, 3.0], [1.0, 4.0]]),
+        weight=Tensor([[4.0, 5.0]]),
+        bias=Tensor([3.0]),
         output="output",
     )
 
     comp_model = compile(
         model=model,
         backend=NumpyBackend(),
-        jit=False,
         inference=True,
     )
-    # inputs = {"w": np.array([[4.0], [5.0]]),
-    #           "b": np.array([3.0])}
+
     outputs = comp_model.evaluate()
     ref_out = outputs["output"]
     assert isinstance(ref_out, np.ndarray)
@@ -887,8 +885,8 @@ def test_check_static_3():
     model = Model()
     lin1 = Linear(dimension=1)
     model += lin1(
-        input=Tensor([[2, 3], [1, 4]]),
-        weight=Tensor([[4, 5]]),
+        input=Tensor([[2.0, 3.0], [1.0, 4.0]]),
+        weight=Tensor([[4.0, 5.0]]),
         bias="bias",
         output="output",
     )
@@ -989,22 +987,22 @@ def test_cyclic_extension():
         output1=model1.cin,
         output2=IOKey("output"),
     )
-    comp_model = mithril.compile(model=model1, backend=NumpyBackend())
+    comp_model = mithril.compile(model=model1, backend=NumpyBackend(), jit=False)
     inputs = {"input": np.array([[2.0]])}
-    outputs = comp_model.evaluate(inputs)
+    outputs = comp_model.evaluate(data=inputs)
     assert_results_equal(outputs, {"output": np.array([[2.0]])})
 
 
 def test_canonic_example():
     model = Model()
-    model += LeakyRelu()
+    model += LeakyRelu()("input")
     model += LeakyRelu()
     comp_model = compile(model=model, backend=NumpyBackend())
     assert set(comp_model.input_keys) == {"slope_0", "slope_1", "input"}
     assert set(comp_model.output_keys) == {"output"}
     inputs = {"input": np.array([[2.0, -1.0]])}
     assert_results_equal(
-        comp_model.evaluate(inputs), {"output": np.array([[2.0, -0.0001]])}
+        comp_model.evaluate(data=inputs), {"output": np.array([[2.0, -0.0001]])}
     )
 
 
@@ -1152,7 +1150,7 @@ def test_train_context_example():
     model = Model()
     model |= Linear(1)(input="input", output=IOKey(name="output"))
     model |= Linear(1)(input=model.cout, output=IOKey(name="output2"))
-    model.input.set_differentiable(True)  # type: ignore
+    model.set_differentiability(input=True)
 
     context = TrainModel(model)
     context.add_loss(Buffer(), [Sum()], input="output2")
@@ -1410,17 +1408,17 @@ def test_flatten_dag0():
     model = Model()
     l1 = Linear(10)
     l5 = Linear(1)
-    l1.input.set_differentiable(True)
-    l5.input.set_differentiable(True)
+    l1.set_differentiability(input=True)
+    l5.set_differentiability(input=True)
 
     model |= l1(weight="weight_2")
-    model |= (lin1 := Linear(10))
-    model |= (lin2 := Linear(10))
-    model |= (lin3 := Linear(10))
-    model |= l5(output=IOKey(name="output1"))
-    lin1.input.set_differentiable(True)
-    lin2.input.set_differentiable(True)
-    lin3.input.set_differentiable(True)
+    model |= (lin1 := Linear(10))(input="")
+    model |= (lin2 := Linear(10))(input="")
+    model |= (lin3 := Linear(10))(input="")
+    model |= l5(input="", output=IOKey(name="output1"))
+    lin1.set_differentiability(input=True)
+    lin2.set_differentiability(input=True)
+    lin3.set_differentiability(input=True)
 
     l5.set_shapes({"input": [1, 1]})
     model.set_cout(l1.output)
@@ -1447,7 +1445,7 @@ def test_geo_mean_1():
     backend = TorchBackend()
     model = Model()
     model += (lin := Linear(1))(weight="weight2")
-    lin.input.set_differentiable(True)
+    lin.set_differentiability(input=True)
 
     context = TrainModel(model)
     context.add_loss(Buffer(), input=model.cout)
@@ -1669,7 +1667,8 @@ def test_geomean_evaluate():
         },
     )
     model1.set_shapes({"input": [10, 10, 10]})
-    lin1.input.set_differentiable(True)
+    lin1.set_differentiability(input=True)
+
     ctx1 = TrainModel(model1)
     ctx1.add_loss(
         Buffer(),
@@ -1702,7 +1701,8 @@ def test_geomean_evaluate():
             "output": IOKey("output2"),
         },
     )
-    lin2.input.set_differentiable(True)
+    lin2.set_differentiability(input=True)
+
     ctx2 = TrainModel(model2)
     ctx2.add_loss(
         Buffer(),
@@ -1801,8 +1801,8 @@ def test_regularization_1():
     # Test with single regularization and single reduce (mean) operation
     model = Model()
     model += Multiply()(
-        left=IOKey("left", type=Tensor),
-        right=IOKey("w", type=Tensor),
+        left=IOKey("left", type=Tensor, differantiable=True),
+        right=IOKey("w", type=Tensor, differantiable=True),
         output="output",
     )
 
@@ -1825,8 +1825,8 @@ def test_regularization_1_sanity_test():
     model = Model()
     model.extend(
         Multiply(),
-        left=IOKey("left", type=Tensor),
-        right=IOKey("w", type=Tensor),
+        left=IOKey("left", type=Tensor, differantiable=True),
+        right=IOKey("w", type=Tensor, differantiable=True),
         output="output",
     )
 
@@ -1850,8 +1850,8 @@ def test_regularization_2():
     # Test with single regularization and single reduce (sum) operation
     model = Model()
     model += Multiply()(
-        left=IOKey("left", type=Tensor),
-        right=IOKey("w", type=Tensor),
+        left=IOKey("left", type=Tensor, differantiable=True),
+        right=IOKey("w", type=Tensor, differantiable=True),
         output="output",
     )
 
@@ -1875,8 +1875,8 @@ def test_regularization_3():
     # operations
     model = Model()
     model += Multiply()(
-        left=IOKey("left", type=Tensor),
-        right=IOKey("w", type=Tensor),
+        left=IOKey("left", type=Tensor, differantiable=True),
+        right=IOKey("w", type=Tensor, differantiable=True),
         output="output",
     )
 
@@ -1904,8 +1904,8 @@ def test_regularization_4():
     # Test with single regularization and multiple model with multiple reduce operations
     model = Model()
     model |= Multiply()(
-        left=IOKey("left", type=Tensor),
-        right=IOKey("w", type=Tensor),
+        left=IOKey("left", type=Tensor, differantiable=True),
+        right=IOKey("w", type=Tensor, differantiable=True),
         output=IOKey(name="output"),
     )
     model |= Multiply()(left="left", right="w", output=IOKey(name="output2"))
@@ -1941,8 +1941,8 @@ def test_regularization_5():
     # Test with single regularization and multiple model with multiple reduce operations
     model = Model()
     model |= Multiply()(
-        left=IOKey("left", type=Tensor),
-        right=IOKey("w", type=Tensor),
+        left=IOKey("left", type=Tensor, differantiable=True),
+        right=IOKey("w", type=Tensor, differantiable=True),
         output=IOKey(name="output"),
     )
     model |= Multiply()(
@@ -2010,7 +2010,7 @@ def test_static_anlaysis_1():
     )
     model |= Add()(
         left=add1.output,
-        right=IOKey(type=Tensor),
+        right=IOKey(name="right2", type=Tensor),
         output=IOKey(name="output1"),
     )
 
@@ -2033,7 +2033,7 @@ def test_static_anlaysis_2():
     model |= sum1(input=add1.output)
     model |= Add()(
         left=sum1.output,
-        right=IOKey(type=Tensor),
+        right=IOKey(name="right2", type=Tensor),
         output=IOKey(name="output1"),
     )
 
@@ -2048,7 +2048,7 @@ def test_static_anlaysis_2():
     )
 
 
-def test_static_anlaysis_4():
+def test_static_anlaysis_3():
     model = Model()
     model |= (add1 := Add())
     add1.set_types(left=Tensor, right=Tensor)
@@ -2064,7 +2064,7 @@ def test_static_anlaysis_4():
 
     model.set_cin(add1.left)
     model.set_cout(mul1.output)
-    comp_model = mithril.compile(model=model, backend=NumpyBackend())
+    comp_model = mithril.compile(model=model, backend=NumpyBackend(), safe_names=False)
 
     models = {add1, add2, sum1, sub1, mul1, mat1}
     _models = {model.submodel for model in models}
@@ -2676,8 +2676,8 @@ def test_prune_duplicate_grad():
     div2 = Divide()
     mm2 = MatrixMultiply()
     mm3 = MatrixMultiply()
-    model |= sig1(input="input1")
-    model |= sig2(input="input2")
+    model |= sig1(input=IOKey("input1", differantiable=True))
+    model |= sig2(input=IOKey("input2", differantiable=True))
     model |= log1(input=sig1.output)
     model |= log2(input=sig1.output)
     model |= mm1(left=log1.output, right=log2.output)
@@ -3271,7 +3271,7 @@ def geomean_multigpu_test():
 def test_add_loss_unknown_key():
     model = Model()
     l1 = Linear()
-    model |= l1(input="input", weight="w0")
+    model |= l1(input=IOKey("input", differantiable=True), weight="w0")
     model |= Linear()(input=l1.output, weight="w1", output=IOKey(name="output"))
 
     context = TrainModel(model)
@@ -3349,7 +3349,7 @@ def test_add_regularization_unknown_key():
 def test_add_regularization():
     model = Model()
     l1 = Linear(1)
-    model |= l1(input="input", weight=Tensor([[2]]))
+    model |= l1(input="input", weight=Tensor([[2.0]]))
     model |= Linear()(input=l1.output, weight="w1", output=IOKey(name="output"))
 
     context = TrainModel(model)
@@ -3612,7 +3612,7 @@ def test_composite_6_extend_from_inputs_connect():
 
     backend = TorchBackend()
     cm = mithril.compile(model, backend=backend)
-    cm.evaluate(params={"my_input": backend.array([[[[1.0, 2.0, 3.0]]]])})
+    cm.evaluate(data={"my_input": backend.array([[[[1.0, 2.0, 3.0]]]])})
 
 
 def test_composite_4_extend_from_inputs_connect():
@@ -3629,7 +3629,7 @@ def test_composite_4_extend_from_inputs_connect():
 
     backend = TorchBackend()
     cm = mithril.compile(model, backend=backend)
-    cm.evaluate(params={"input1": backend.array([[[[1.0, 2.0, 3.0]]]])})
+    cm.evaluate(data={"input1": backend.array([[[[1.0, 2.0, 3.0]]]])})
     assert (
         relu1.input.data.metadata
         == relu2.input.data.metadata
@@ -3677,7 +3677,7 @@ def test_mlp_last_dimension_prop_2():
     ctx.add_loss(AbsoluteError(), input="output", target=Tensor([2.0]))
     comp_model = mithril.compile(model=ctx, backend=NumpyBackend())
     inputs = {"in1": np.array([3.0]), "in2": np.array([2.0])}
-    outputs = comp_model.evaluate(inputs)
+    outputs = comp_model.evaluate(data=inputs)
     output_final_cost = outputs["final_cost"]
     out = outputs["output"]
     assert isinstance(output_final_cost, np.ndarray)
@@ -3918,8 +3918,8 @@ def test_add_loss_coef():
     backend = TorchBackend(dtype=mithril.float64)
     model = Model()
     model += Multiply()(
-        left=IOKey("left", type=Tensor),
-        right=IOKey("w", type=Tensor),
+        left=IOKey("left", type=Tensor, differantiable=True),
+        right=IOKey("w", type=Tensor, differantiable=True),
         output=IOKey(name="output"),
     )
 
@@ -3979,7 +3979,7 @@ def test_cycle_handling_1():
     model_2 |= Tanh()(input="input1", output=IOKey(name="output1"))
     model_2 |= Sine()(input="input2", output=IOKey(name="output2"))
     model |= model_2(
-        input2="input",
+        input2=IOKey("input", differantiable=True),
         output2=IOKey("output2"),
         input1="input1",
         output1=IOKey(name="output"),
@@ -4094,7 +4094,9 @@ def test_cycle_handling_2():
 
     model |= (gelu5 := Gelu())()
 
-    model |= model_1(input1="input", output1=gelu5.input)
+    model |= model_1(
+        input1=IOKey("input", differantiable=True), input2="", output1=gelu5.input
+    )
     model |= model_2(
         input2=gelu5.output,
         output2=model_1.input2,  # type: ignore
@@ -4240,8 +4242,13 @@ def test_cycle_handling_3():
     model_2 = Model()
     model_2 |= Tanh()(input="input1", output=IOKey(name="output1"))
     model_2 |= Sine()(input="input2", output=IOKey(name="output2"))
-    model |= gelu5
-    model |= model_1(input1="input", slope=IOKey("slope"), output1=gelu5.input)
+    model |= gelu5(input="")
+    model |= model_1(
+        input1=IOKey("input", differantiable=True),
+        slope=IOKey("slope"),
+        input2="",
+        output1=gelu5.input,
+    )
     model |= model_2(
         input2=gelu5.output,
         output2=model_1.input2,  # type: ignore
@@ -5763,7 +5770,9 @@ def test_deepcopy_4():
         model += deepcopy(_model)
 
     all_data = get_all_data(model)
-    compiled_model = mithril.compile(model=model, backend=NumpyBackend())
+    compiled_model = mithril.compile(
+        model=model, backend=NumpyBackend(), safe_names=False
+    )
     unused_data = {
         compiled_model.data.get(key)
         for key in compiled_model.flat_graph.unused_keys
@@ -6119,6 +6128,7 @@ def test_leaky_relu_trainable_slope():
     model = Model()
     model += LeakyRelu()(input="input", output="output", slope="slope")
     model.set_types(slope=Tensor)
+    model.set_differentiability(input=True, slope=True)
 
     pm = mithril.compile(model=model, backend=backend)
     params = {"input": backend.array([-2.0, 2.0]), "slope": backend.array(0.2)}
@@ -6535,7 +6545,7 @@ def test_constant_6():
 
 def test_iadd_1():
     model = Model()
-    model |= MatrixMultiply()(right="w1")
+    model |= MatrixMultiply()(left="left", right="w1")
     model += MatrixMultiply()(right="w2")
     model += MatrixMultiply()(right="w3")
     model += MatrixMultiply()(right="w4")
@@ -6565,7 +6575,7 @@ def test_iadd_2():
     model += Sigmoid()
     model |= MatrixMultiply()(left=model.cout, right="w4")
 
-    compiled_model = compile(model, JaxBackend())
+    compiled_model = compile(model, JaxBackend(), safe_names=False)
 
     expected_connections: dict[str, list[str | set[str]]] = {
         "output_0": ["matrix_multiplication", {"left", "w1"}],
@@ -6584,7 +6594,7 @@ def test_iadd_3():
     model |= (mult := MatrixMultiply())(left=sigmoid.output, right="w4")
     model.set_cout(mult.output)
 
-    compiled_model = compile(model, JaxBackend())
+    compiled_model = compile(model, JaxBackend(), safe_names=False)
 
     expected_connections: dict[str, list[str | set[str]]] = {
         "output_2": ["sigmoid", {"input"}],
@@ -6606,7 +6616,7 @@ def test_iadd_4():
     model |= model_sub()
     model += model_sub2()
 
-    compiled_model = compile(model, JaxBackend())
+    compiled_model = compile(model, JaxBackend(), safe_names=False)
 
     expected_connections: dict[str, list[str | set[str]]] = {
         "out2_0": ["sigmoid", {"in2"}],
@@ -6626,7 +6636,7 @@ def test_iadd_5():
     model += model_sub
     model += model_sub2
 
-    compiled_model = compile(model, JaxBackend())
+    compiled_model = compile(model, JaxBackend(), safe_names=False)
 
     expected_connections: dict[str, list[str | set[str]]] = {
         "out1_0": ["sigmoid", {"in1"}],
@@ -6672,7 +6682,7 @@ def test_iadd_7():
     model |= (mult := MatrixMultiply())(left=sigmoid.output, right="w4")
     model.set_cout(mult.output)
 
-    compiled_model = compile(model, JaxBackend())
+    compiled_model = compile(model, JaxBackend(), safe_names=False)
 
     expected_connections: dict[str, list[str | set[str]]] = {
         "output_2": ["sigmoid", {"input"}],
@@ -6835,8 +6845,8 @@ def test_string_iokey_value_1():
     # Compile the model and assert the results
     pm = mithril.compile(model=model, backend=backend)
     input = backend.ones((7, 6))
-    trainable_keys = {"input": input}
-    outputs = pm.evaluate(trainable_keys)
+    data = {"input": input}
+    outputs = pm.evaluate(data=data)
     ref_outputs = {"output": backend.ones(7) * 6}
     assert_results_equal(outputs, ref_outputs)
 
@@ -6918,8 +6928,8 @@ def test_string_iokey_value_2():
     # Compile the model and assert the results
     pm = mithril.compile(model=model, backend=backend, safe_names=False, jit=False)
     input = backend.ones((7, 6))
-    trainable_keys = {"input": input}
-    outputs = pm.evaluate(trainable_keys)
+    data = {"input": input}
+    outputs = pm.evaluate(data=data)
     ref_outputs = {"output": backend.ones(7) * 6}
     assert_results_equal(outputs, ref_outputs)
 

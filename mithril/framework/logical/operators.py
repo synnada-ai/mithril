@@ -436,7 +436,9 @@ class FloorDivideOp(Operator):
         super().__init__(
             formula_key="floor_divide",
             name=name,
-            output=BaseKey(type=Tensor[int | float] | int | float),
+            output=BaseKey(
+                type=Tensor[int | float] | int | float, differentiable=False
+            ),
             numerator=BaseKey(value=numerator),
             denominator=BaseKey(value=denominator),
         )
@@ -468,6 +470,9 @@ class FloorDivideOp(Operator):
             keys=[Operator.output_key, "numerator", "denominator"],
             dependencies={bcast_constraint},
         )
+
+    def infer_differentiability(self, *inputs: bool) -> bool:
+        return False
 
 
 class MatrixMultiplyOp(Operator):
@@ -1223,6 +1228,7 @@ class BitwiseOperatorsOp(Operator):
             right=BaseKey(shape=[("Var3", ...)], type=Tensor[bool], value=right),
         )
         self._add_constraint(bcast, ["output", "left", "right"])
+        self._set_cin("left", "right", safe=False)
 
 
 class LogicalAndOp(BitwiseOperatorsOp):
@@ -1236,7 +1242,6 @@ class LogicalAndOp(BitwiseOperatorsOp):
         name: str | None = None,
     ) -> None:
         super().__init__(formula_key="logical_and", name=name, left=left, right=right)
-        self._set_cin("left", "right", safe=False)
 
 
 class LogicalOrOp(BitwiseOperatorsOp):
@@ -1250,7 +1255,6 @@ class LogicalOrOp(BitwiseOperatorsOp):
         name: str | None = None,
     ) -> None:
         super().__init__(formula_key="logical_or", name=name, left=left, right=right)
-        self._set_cin("left", "right", safe=False)
 
 
 class LogicalXOrOp(BitwiseOperatorsOp):
@@ -1265,7 +1269,6 @@ class LogicalXOrOp(BitwiseOperatorsOp):
     ) -> None:
         super().__init__(formula_key="logical_xor", name=name, left=left, right=right)
         self.factory_args = {"left": left, "right": right}
-        self._set_cin("left", "right", safe=False)
 
 
 class ShiftLeftOp(Operator):

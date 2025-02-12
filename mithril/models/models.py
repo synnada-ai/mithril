@@ -196,7 +196,7 @@ class Pool1D(Model):
             dilation=IOKey(name="dilation", value=dilation),
             output=IOKey(name="output"),
         )
-        self.input.set_differentiable(False)
+
         self.set_cin("input", safe=False)
         self._freeze()
 
@@ -298,7 +298,6 @@ class Pool2D(Model):
             dilation=dt_converter.output,
             output=IOKey(name="output"),
         )
-        self.input.set_differentiable(False)
         self.set_cin("input", safe=False)
         self._freeze()
 
@@ -385,16 +384,15 @@ class Convolution1D(Model):
         conv_connections: dict[str, ConnectionType] = {
             "output": IOKey(name="output"),
             "input": IOKey("input", value=input),
-            "weight": IOKey("weight", value=weight),
+            "weight": IOKey("weight", value=weight, differantiable=True),
             "stride": IOKey(name="stride", value=stride),
             "padding": p_converter.output,
             "dilation": IOKey(name="dilation", value=dilation),
         }
         if use_bias:
-            conv_connections["bias"] = "bias"
+            conv_connections["bias"] = IOKey("bias", differantiable=True)
 
         self |= PrimitiveConvolution1D(use_bias=use_bias)(**conv_connections)
-        self.input.set_differentiable(False)
         self.set_cin("input", safe=False)
         self._freeze()
 
@@ -480,16 +478,15 @@ class Convolution2D(Model):
         conv_connections: dict[str, ConnectionType] = {
             "output": IOKey(name="output"),
             "input": IOKey("input", value=input),
-            "weight": IOKey("weight", value=weight),
+            "weight": IOKey("weight", value=weight, differantiable=True),
             "stride": st_converter.output,
             "padding": pt_converter.output,
             "dilation": dt_converter.output,
         }
         if use_bias:
-            conv_connections["bias"] = "bias"
+            conv_connections["bias"] = IOKey("bias", differantiable=True)
 
         self |= PrimitiveConvolution2D(use_bias=use_bias)(**conv_connections)
-        self.input.set_differentiable(False)
         self.set_cin("input", safe=False)
         self._freeze()
 
@@ -541,9 +538,15 @@ class Linear(Model):
 
         output = IOKey(name="output")
         input_key = IOKey(name="input", value=input)
-        weight_key = IOKey(name="weight", value=weight).transpose()
+        weight_key = IOKey(name="weight", value=weight, differantiable=True).transpose()
+
         if use_bias:
-            bias_key = IOKey(name="bias", value=bias, type=Tensor[int | float | bool])
+            bias_key = IOKey(
+                name="bias",
+                value=bias,
+                type=Tensor[int | float | bool],
+                differantiable=True,
+            )
             self |= mult(left=input_key, right=weight_key)
             self |= Add()(left=mult.output, right=bias_key, output=output)
             shapes["bias"] = [dim]
@@ -551,7 +554,6 @@ class Linear(Model):
             self |= mult(left=input_key, right=weight_key, output=output)
 
         self._set_shapes(shapes)
-        self.input.set_differentiable(False)
         self.set_cin("input", safe=False)
         self._freeze()
 
@@ -595,12 +597,10 @@ class ElementWiseAffine(Model):
         self |= mult_model(
             left=IOKey("input", value=input), right=IOKey("weight", value=weight)
         )
-        self |= sum_model(
-            left=mult_model.output,
+        self += sum_model(
             right=IOKey(name="bias", value=bias),
             output=IOKey(name="output"),
         )
-        self.input.set_differentiable(False)
         self.set_cin("input", safe=False)
         self._freeze()
 
@@ -701,7 +701,6 @@ class LayerNorm(Model):
         self |= Divide()(numerator=numerator.output, denominator=denominator.output)
 
         self._set_shapes({"input": ["B", "C", "d"]})
-        self.input.set_differentiable(False)
 
         shapes: dict[str, ShapeTemplateType] = {
             "left": ["B", "C", "d"],
@@ -713,7 +712,7 @@ class LayerNorm(Model):
             mult.set_types(
                 left=Tensor[int | float | bool], right=Tensor[int | float | bool]
             )
-            self |= mult(left=self.cout, right=IOKey("weight", value=weight))
+            self += mult(right=IOKey("weight", value=weight, differantiable=True))
             mult._set_shapes(shapes)
 
         if use_bias:
@@ -721,7 +720,7 @@ class LayerNorm(Model):
             add.set_types(
                 left=Tensor[int | float | bool], right=Tensor[int | float | bool]
             )
-            self |= add(left=self.cout, right=IOKey("bias", value=bias))
+            self += add(right=IOKey("bias", value=bias, differantiable=True))
             add._set_shapes(shapes)
         # TODO: Remove below Buffer after required naming-related changes are done.
         self |= Buffer()(input=self.cout, output=IOKey(name="output"))
@@ -783,7 +782,6 @@ class GroupNorm(Model):
         self |= Reshape()(input=_input_key, shape=input_shape)
 
         self._set_shapes({"input": ["B", "C", "H", "W"]})
-        self.input.set_differentiable(False)
 
         shapes: dict[str, ShapeTemplateType] = {
             "left": ["B", "C", "H", "W"],
@@ -791,13 +789,17 @@ class GroupNorm(Model):
         }
 
         if use_scale:
-            weight_key = IOKey(name="weight", type=Tensor[float], value=weight)
+            weight_key = IOKey(
+                name="weight", type=Tensor[float], value=weight, differantiable=True
+            )
             mult = Multiply()
             self |= mult(left=self.cout, right=weight_key)
             mult._set_shapes(shapes)
 
         if use_bias:
-            bias_key = IOKey(name="bias", type=Tensor[float], value=bias)
+            bias_key = IOKey(
+                name="bias", type=Tensor[float], value=bias, differantiable=True
+            )
             add = Add()
             self |= add(left=self.cout, right=bias_key)
             add._set_shapes(shapes)
@@ -1099,11 +1101,12 @@ class KernelizedSVM(Model):
 
         linear_model = Linear()
         # Get kernel inputs from given model.
-        kernel_input_args = {
-            key: IOKey(key, value=kwargs.get(key, TBD))
-            for key in kernel.input_keys
-            if not kernel.conns.is_key_non_diff(key)
-        }
+        kernel_input_args = {}
+        for key in kernel.input_keys:
+            conn = kernel.conns.get_connection(key)
+            if conn and conn.metadata.is_tensor and not key.startswith("$"):
+                kernel_input_args[key] = IOKey(key, value=kwargs.get(key, TBD))
+
         (kernel_output_name,) = kernel.conns.output_keys  # NOTE: Assumes single output!
         kernel_output_args = {kernel_output_name: IOKey(name="kernel")}
 
@@ -1171,7 +1174,6 @@ class LinearSVM(Model):
             output=IOKey(name="output"),
         )
         self += decision_model(output=IOKey(name="decision_output"))
-        self.input.set_differentiable(False)
 
         self.set_cout(linear_model.output)
         self._freeze()
@@ -1223,7 +1225,6 @@ class LogisticRegression(Model):
             input=linear_model.output, output=IOKey(name="probs_output")
         )
 
-        self.input.set_differentiable(False)
         self.set_cout(linear_model.output)
         self._freeze()
 
@@ -1293,7 +1294,6 @@ class MLP(Model):
 
             # Prepare the kwargs for the current layer.
             kwargs: dict[str, ConnectionType] = {
-                "input": prev_layer.output,
                 "weight": f"{weight}{idx + 1}",
                 "bias": f"{bias}{idx + 1}",
             }
@@ -1305,7 +1305,7 @@ class MLP(Model):
                 kwargs |= {"output": IOKey(name="output")}
 
             # Add current layer to the model.
-            self |= current_layer(**kwargs)
+            self += current_layer(**kwargs)
             prev_layer = current_layer
         self.set_cin("input", safe=False)
         self._freeze()
@@ -1395,18 +1395,24 @@ class RNNCell(Cell):
         self |= slice_2(stop=scalar_item.output)
         self |= tensor_item_2(input="prev_hidden", index=slice_2.output)
         self |= mult_model_1(
-            input=tensor_item_2.output, weight=IOKey("w_hh", value=w_hh)
+            input=tensor_item_2.output,
+            weight=IOKey("w_hh", value=w_hh, differantiable=True),
         )
-        self |= mult_model_2(input="input", weight=IOKey("w_ih", value=w_ih))
+        self |= mult_model_2(
+            input="input", weight=IOKey("w_ih", value=w_ih, differantiable=True)
+        )
         self |= sum_model_1(left=mult_model_1.output, right=mult_model_2.output)
         self |= sum_model_2(
-            left=sum_model_1.output, right=IOKey("bias_h", value=bias_h)
+            left=sum_model_1.output,
+            right=IOKey("bias_h", value=bias_h, differantiable=True),
         )
         self |= Tanh()(input=sum_model_2.output, output=IOKey(name="hidden"))
-        self |= mult_model_3(input="hidden", weight=IOKey("w_ho", value=w_ho))
+        self |= mult_model_3(
+            input="hidden", weight=IOKey("w_ho", value=w_ho, differantiable=True)
+        )
         self |= Add()(
             left=mult_model_3.output,
-            right=IOKey("bias_o", value=bias_o),
+            right=IOKey("bias_o", value=bias_o, differantiable=True),
             output=IOKey(name="output"),
         )
         shapes: dict[str, ShapeTemplateType] = {
@@ -1418,8 +1424,7 @@ class RNNCell(Cell):
             "bias_h": ["d_hid"],
             "bias_o": ["d_out"],
         }
-        self.input.set_differentiable(False)
-        self.prev_hidden.set_differentiable(False)
+
         self._set_shapes(shapes)
         self.set_cin("input", safe=False)
         self.set_cout("output")
@@ -1594,9 +1599,7 @@ class LSTMCell(Cell):
             "hidden": ["N", 1, "d_hid"],
             "cell": ["N", 1, "d_hid"],
         }
-        self.input.set_differentiable(False)
-        self.prev_hidden.set_differentiable(False)
-        self.prev_cell.set_differentiable(False)
+
         self._set_shapes(shapes)
         self.set_cin("input", safe=False)
         self.set_cout("output")
@@ -1751,7 +1754,6 @@ class LSTMCellBody(Model):
             "bias_o": ["d_hid"],
         }
 
-        self.input.set_differentiable(False)
         self._set_shapes(shapes)
         self._freeze()
 
@@ -1924,16 +1926,10 @@ class OneToManyInference(RNN):
             state_keys_kwargs = {
                 f"prev_{key}": getattr(prev_cell, key) for key in cell_type.state_keys
             }
-            input_kwargs = {"input": prev_cell.output}
             output_kwargs = {cell_type.out_key: IOKey(name=f"output{idx}")}
 
             self |= current_cell(
-                **(
-                    input_kwargs
-                    | shared_keys_kwargs
-                    | state_keys_kwargs
-                    | output_kwargs
-                )
+                **(shared_keys_kwargs | state_keys_kwargs | output_kwargs)
             )
 
             prev_cell = current_cell
@@ -2217,7 +2213,7 @@ class PolynomialRegression(Model):
             bias=IOKey("bias", value=bias),
             output=IOKey(name="output"),
         )
-        self.input.set_differentiable(False)
+
         self._freeze()
 
     def __call__(  # type: ignore[override]
@@ -2310,7 +2306,6 @@ class MDSCore(Model):
                 output=IOKey(name="output"),
             )
 
-        self.distances.set_differentiable(False)
         self._set_shapes({"distances": ["N", "N"], "pred_distances": ["N", "N"]})
         self._freeze()
 
@@ -2399,7 +2394,6 @@ class TSNECore(Model):
             input=kl_divergence_model.output, output=IOKey(name="output")
         )
 
-        self.distances.set_differentiable(False)
         self._set_shapes({"distances": ["N", "N"], "pred_distances": ["N", "N"]})
         self.set_cin("distances", safe=False)
         self.set_cout("output")
@@ -2507,7 +2501,6 @@ class DistanceEncoder(Model):
                 input=self.coords, output=IOKey(name="predicted_coords")
             )
 
-        self.input.set_differentiable(False)
         self._freeze()
         # self._set_shapes(trace=False,
         #     input = ["N", "M"], # NOTE: Here "M" denotes input dim or
@@ -2751,7 +2744,7 @@ class GaussProcessRegressionCore(Model):
             "prediction": ["N", 1],
             "confidence": ["N", 1],
         }
-        self.label.set_differentiable(False)
+
         self._set_shapes(shapes)
         self._freeze()
 
@@ -2841,7 +2834,7 @@ class GPRLoss(Model):
             "alpha": ["N", 1],
             "output": [1],
         }
-        self.labels.set_differentiable(False)
+
         self._set_shapes(shapes)
         self._freeze()
 
@@ -2921,7 +2914,6 @@ class Metric(Model):
         self |= Buffer()(input=label_key, output=IOKey("label_formatted"))
         self |= Buffer()(input=result, output=IOKey("output"))
 
-        self.label.set_differentiable(False)
         self.set_cin(self.pred)
         self._freeze()
 
@@ -3143,7 +3135,6 @@ class Precision(Model):
 
             self |= Buffer()(input=precision, output=IOKey(name="output"))
 
-        self.label.set_differentiable(False)
         self.set_cin(self.pred)
         self._freeze()
 
@@ -3303,7 +3294,6 @@ class Recall(Model):
 
             self |= Buffer()(input=recall, output=IOKey(name="output"))
 
-        self.label.set_differentiable(False)
         self.set_cin(self.pred)
         self._freeze()
 
@@ -3468,7 +3458,6 @@ class F1(Model):
 
             self |= Buffer()(input=precision, output=IOKey(name="output"))
 
-        self.label.set_differentiable(False)
         self.set_cin(self.pred)
         self._freeze()
 
@@ -3530,7 +3519,6 @@ class AUC(Model):
 
         self |= Buffer()(auc_score, IOKey("output"))
 
-        self.label.set_differentiable(False)
         self.set_cin(self.pred)
         self._freeze()
 
@@ -3567,7 +3555,6 @@ class SiLU(Model):
         )
         self._set_shapes({"input": [("Var", ...)], "output": [("Var", ...)]})
 
-        self.input.set_differentiable(False)
         self._freeze()
 
     def __call__(  # type: ignore[override]
