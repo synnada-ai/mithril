@@ -69,8 +69,8 @@ def test_linear_expose_set_shapes():
     model = Model()
     lin_1 = Linear()
     lin_2 = Linear()
-    model += lin_1(input="input", weight="weight")
-    model += lin_2(input=lin_1.output, weight="weight1", output=IOKey(name="output2"))
+    model |= lin_1(input="input", weight="weight")
+    model |= lin_2(input=lin_1.output, weight="weight1", output=IOKey(name="output2"))
     model.set_shapes({lin_1.bias: [42]})
     model.set_shapes({lin_2.bias: [21]})
     model_dict_created = dict_conversions.model_to_dict(model)
@@ -91,8 +91,8 @@ def test_linear_expose_set_shapes_extend_from_inputs():
     model = Model()
     lin_1 = Linear()
     lin_2 = Linear()
-    model += lin_2(weight="weight1", output=IOKey(name="output2"))
-    model += lin_1(input="input", weight="weight", output=lin_2.input)
+    model |= lin_2(weight="weight1", output=IOKey(name="output2"))
+    model |= lin_1(input="input", weight="weight", output=lin_2.input)
     model.set_shapes({lin_1.bias: [42]})
     model.set_shapes({lin_2.bias: [21]})
     model_dict_created = dict_conversions.model_to_dict(model)
@@ -136,7 +136,7 @@ def test_linear_set_diff():
 
 def test_linear_expose_2():
     model = Model()
-    model += Linear(dimension=42)(
+    model |= Linear(dimension=42)(
         input="input", weight="weight", output=IOKey(name="output")
     )
     model_dict_created = dict_conversions.model_to_dict(model)
@@ -154,7 +154,7 @@ def test_linear_expose_2():
 
 def test_linear_not_expose():
     model = Model()
-    model += Linear(dimension=42)(input="input")
+    model |= Linear(dimension=42)(input="input")
     model_dict_created = dict_conversions.model_to_dict(model)
     model_recreated = dict_conversions.dict_to_model(model_dict_created)
     model_dict_recreated = dict_conversions.model_to_dict(model_recreated)
@@ -170,9 +170,9 @@ def test_linear_not_expose():
 
 def test_constant_key():
     model = Model()
-    model += Add()(left="input", right=Tensor(3), output=IOKey(name="output"))
+    model | Add()(left="input", right=Tensor(3), output=IOKey(name="output"))
     model2 = Model()
-    model2 += model(input="input")
+    model2 | model(input="input")
 
     model_dict_created = dict_conversions.model_to_dict(model2)
     model_recreated = dict_conversions.dict_to_model(model_dict_created)
@@ -193,18 +193,18 @@ def test_constant_key():
 
 def test_constant_key_2():
     model = Model()
-    model += (add := Add())(
+    model |= (add := Add())(
         left=IOKey("input", type=Tensor, differantiable=True),
         right=IOKey(value=Tensor(3)),
         output=IOKey(name="output"),
     )
-    model += Add()(
+    model |= Add()(
         left=IOKey("input2", type=Tensor),
         right=add.right,
         output=IOKey(name="output2"),
     )
     model2 = Model()
-    model2 += model(
+    model2 |= model(
         input2="input", output=IOKey(name="output"), output2=IOKey(name="output2")
     )
 
@@ -254,10 +254,10 @@ def test_mlp_directly():
 
 def test_composite_1():
     model = Model()
-    model += Linear(dimension=10)(
+    model |= Linear(dimension=10)(
         input="input", weight="weight", output=IOKey(name="output")
     )
-    model += Linear(dimension=71)(
+    model |= Linear(dimension=71)(
         input="output", weight="weight1", output=IOKey(name="output2")
     )
 
@@ -275,10 +275,10 @@ def test_composite_1():
 
 def test_composite_2():
     model = Model()
-    model += Linear(dimension=10)(
+    model |= Linear(dimension=10)(
         input="input", weight="weight", output=IOKey(name="output")
     )
-    model += Linear(dimension=71)(
+    model |= Linear(dimension=71)(
         input=model.output,  # type: ignore
         weight="weight1",
         output=IOKey(name="output2"),
@@ -298,10 +298,10 @@ def test_composite_2():
 
 def test_composite_2_1():
     model = Model()
-    model += (l1 := Linear(dimension=10))(
+    model |= (l1 := Linear(dimension=10))(
         input="input", weight="weight", output=IOKey(name="output")
     )
-    model += Linear(dimension=71)(
+    model |= Linear(dimension=71)(
         input=l1.output, weight="weight1", output=IOKey(name="output2")
     )
 
@@ -319,8 +319,8 @@ def test_composite_2_1():
 
 def test_composite_2_2():
     model = Model()
-    model += (l1 := Linear(dimension=10))(input="input", weight="weight")
-    model += Linear(dimension=71)(
+    model |= (l1 := Linear(dimension=10))(input="input", weight="weight")
+    model |= Linear(dimension=71)(
         input=l1.output, weight="weight1", output=IOKey(name="output2")
     )
 
@@ -338,8 +338,8 @@ def test_composite_2_2():
 
 def test_composite_2_3():
     model = Model()
-    model += (l1 := Linear())(input="input", weight="weight")
-    model += Linear()(
+    model |= (l1 := Linear())(input="input", weight="weight")
+    model |= Linear()(
         input=l1.output, weight=l1.weight, bias=l1.bias, output=IOKey(name="output2")
     )
 
@@ -357,13 +357,13 @@ def test_composite_2_3():
 
 def test_composite_3():
     model = Model()
-    model += (l1 := Linear(dimension=10))(
+    model |= (l1 := Linear(dimension=10))(
         input="input", weight="weight", output=IOKey(name="output")
     )
-    model += Linear(dimension=71)(
+    model |= Linear(dimension=71)(
         input=l1.output, weight="weight1", output=IOKey(name="output2")
     )
-    model += Linear(dimension=71)(
+    model |= Linear(dimension=71)(
         input="input2", weight="weight1", output=IOKey(name="output3")
     )
 
@@ -384,13 +384,13 @@ def test_composite_3():
 
 def test_composite_4():
     model = Model()
-    model += (l1 := Linear(dimension=10))(
+    model |= (l1 := Linear(dimension=10))(
         input="input", weight="weight", output=IOKey(name="output")
     )
-    model += Linear(dimension=71)(
+    model |= Linear(dimension=71)(
         input=l1.output, weight="weight1", output=IOKey(name="output2")
     )
-    model += Linear(dimension=71)(
+    model |= Linear(dimension=71)(
         input=l1.output, weight="weight1", output=IOKey(name="output3")
     )
 
@@ -408,13 +408,13 @@ def test_composite_4():
 
 def test_composite_5():
     model = Model()
-    model += Linear(dimension=10)(
+    model |= Linear(dimension=10)(
         input="input", weight="weight", output=IOKey(name="output")
     )
-    model += Linear(dimension=71)(
+    model |= Linear(dimension=71)(
         input=model.cout, weight="weight1", output=IOKey(name="output2")
     )
-    model += Linear(dimension=71)(
+    model |= Linear(dimension=71)(
         input=model.cout, weight="weight2", output=IOKey(name="output3")
     )
 
@@ -435,13 +435,13 @@ def test_composite_5():
 
 def test_composite_6():
     model = Model()
-    model += Linear(dimension=10)(
+    model |= Linear(dimension=10)(
         input="input", weight="weight", output=IOKey(name="output")
     )
-    model += Linear(dimension=71)(
+    model |= Linear(dimension=71)(
         input=model.cout, weight="weight1", output=IOKey(name="output2")
     )
-    model += Layer(dimension=71, activation=Sigmoid())(
+    model |= Layer(dimension=71, activation=Sigmoid())(
         input="output2", weight="weight2", output=IOKey(name="output3")
     )
 
@@ -462,10 +462,10 @@ def test_composite_6():
 
 def test_composite_7():
     model = Model()
-    model += (l1 := Linear(dimension=10))(
+    model |= (l1 := Linear(dimension=10))(
         input="my_input", weight="weight", output=IOKey(name="output")
     )
-    model += Linear(dimension=71)(input="input2", weight="weight1", output=l1.input)
+    model |= Linear(dimension=71)(input="input2", weight="weight1", output=l1.input)
 
     model_dict_created = dict_conversions.model_to_dict(model)
     model_recreated = dict_conversions.dict_to_model(model_dict_created)
@@ -481,8 +481,8 @@ def test_composite_7():
 
 def test_composite_8():
     model = Model()
-    model += (l1 := Linear(dimension=10))(weight="weight", output=IOKey(name="output"))
-    model += Linear(dimension=71)(input="input2", weight="weight1", output=l1.input)
+    model |= (l1 := Linear(dimension=10))(weight="weight", output=IOKey(name="output"))
+    model |= Linear(dimension=71)(input="input2", weight="weight1", output=l1.input)
 
     model_dict_created = dict_conversions.model_to_dict(model)
     model_recreated = dict_conversions.dict_to_model(model_dict_created)
@@ -501,11 +501,11 @@ def test_composite_8():
 
 def test_composite_9():
     model = Model()
-    model += (l1 := Linear(dimension=10))(weight="weight", output=IOKey(name="output"))
-    model += (l2 := Linear(dimension=10))(
-        input="", weight="weight1", output=IOKey(name="output2")
+    model |= (l1 := Linear(dimension=10))(weight="weight", output=IOKey(name="output"))
+    model |= (l2 := Linear(dimension=10))(
+        weight="weight1", output=IOKey(name="output2")
     )
-    model += Linear(dimension=71)(
+    model |= Linear(dimension=71)(
         input="input", weight="weight2", output=IOKey(connections={l1.input, l2.input})
     )
 
@@ -524,13 +524,13 @@ def test_composite_9():
 
 def test_composite_10():
     model = Model()
-    model += Linear(dimension=10)(
+    model |= Linear(dimension=10)(
         input="input2", weight="weight", output=IOKey(name="output")
     )
-    model += Linear(dimension=10)(
+    model |= Linear(dimension=10)(
         input="input1", weight="weight1", output=IOKey(name="output2")
     )
-    model += Linear(dimension=71)(
+    model |= Linear(dimension=71)(
         input="input",
         weight="weight2",
         output=IOKey(name="my_input", connections={"input1", "input2"}),
@@ -551,13 +551,13 @@ def test_composite_10():
 
 def test_composite_10_expose_false():
     model = Model()
-    model += Linear(dimension=10)(
+    model |= Linear(dimension=10)(
         input="input2", weight="weight", output=IOKey(name="output")
     )
-    model += Linear(dimension=10)(
+    model |= Linear(dimension=10)(
         input="input1", weight="weight1", output=IOKey(name="output2")
     )
-    model += Linear(dimension=71)(
+    model |= Linear(dimension=71)(
         input="input",
         weight="weight2",
         output=IOKey(name="my_input", connections={"input1", "input2"}, expose=False),
@@ -658,10 +658,10 @@ def test_composite_13():
 
 def test_basic_extend_from_input():
     model = Model()
-    model += Linear(dimension=10)(
+    model |= Linear(dimension=10)(
         input="lin", weight="weight", output=IOKey(name="output")
     )
-    model += Linear(dimension=71)(input="input", weight="weight1", output="lin")
+    model |= Linear(dimension=71)(input="input", weight="weight1", output="lin")
 
     model_dict_created = dict_conversions.model_to_dict(model)
     model_recreated = dict_conversions.dict_to_model(model_dict_created)
@@ -677,8 +677,8 @@ def test_basic_extend_from_input():
 
 def test_auto_iadd_1():
     model = Model()
-    model += Sigmoid()(input="input", output=IOKey(name="output"))
-    model += Sigmoid()(output="output2")
+    model |= Sigmoid()(input="input", output=IOKey(name="output"))
+    model |= Sigmoid()(output="output2")
     model_dict_created = dict_conversions.model_to_dict(model)
     model_recreated = dict_conversions.dict_to_model(model_dict_created)
     model_dict_recreated = dict_conversions.model_to_dict(model_recreated)
@@ -698,8 +698,8 @@ def test_auto_iadd_1():
 
 def test_auto_iadd_2():
     model = Model()
-    model += Sigmoid()(input="input", output=IOKey(name="output"))
-    model += Sigmoid()(input="", output="output2")
+    model |= Sigmoid()(input="input", output=IOKey(name="output"))
+    model |= Sigmoid()(output="output2")
     model_dict_created = dict_conversions.model_to_dict(model)
     model_recreated = dict_conversions.dict_to_model(model_dict_created)
     model_dict_recreated = dict_conversions.model_to_dict(model_recreated)
@@ -719,7 +719,7 @@ def test_auto_iadd_2():
 
 def test_convolution():
     model = Model()
-    model += Convolution2D(kernel_size=3, out_channels=20)(
+    model |= Convolution2D(kernel_size=3, out_channels=20)(
         input="input", output=IOKey(name="output")
     )
 
@@ -764,8 +764,8 @@ def test_train_context_1():
     layer1 = Linear(dimension=16)
     layer2 = Linear(dimension=10)
 
-    model += layer1(input="input", weight="weight0", bias="bias0")
-    model += layer2(
+    model |= layer1(input="input", weight="weight0", bias="bias0")
+    model |= layer2(
         input=layer1.output, weight="weight1", bias="bias1", output=IOKey(name="output")
     )
 
@@ -795,8 +795,8 @@ def test_train_context_2():
     layer1 = Linear(dimension=16)
     layer2 = Linear(dimension=10)
 
-    model += layer1(weight="weight0", bias="bias0", input="input")
-    model += layer2(
+    model |= layer1(weight="weight0", bias="bias0", input="input")
+    model |= layer2(
         input=layer1.output, weight="weight1", bias="bias1", output=IOKey(name="output")
     )
 
@@ -826,13 +826,13 @@ def test_train_context_2():
 def test_set_values_constant_1():
     # Set value using IOKey
     model = Model()
-    model += Linear(10)(
+    model |= Linear(10)(
         weight="weight0",
         bias="bias0",
         input="input",
         output=IOKey(name="output", expose=False),
     )
-    model += Linear(1)(
+    model |= Linear(1)(
         weight="weight1",
         bias=IOKey(value=Tensor([123.0]), name="bias1"),
         input="input2",
@@ -971,10 +971,10 @@ def test_make_shape_constraint():
 
 def test_valued_scalar_in_init():
     model = Model()
-    model += Buffer()(input="buff_input", output=IOKey(name="buff_out"))
-    model += Mean()(input="mean_input", output=IOKey(name="mean_out"))
+    model |= Buffer()(input="buff_input", output=IOKey(name="buff_out"))
+    model |= Mean()(input="mean_input", output=IOKey(name="mean_out"))
     outer_model = Model()
-    outer_model += model()
+    outer_model |= model()
 
     model_dict_created = dict_conversions.model_to_dict(model)
     model_recreated = dict_conversions.dict_to_model(model_dict_created)
@@ -986,10 +986,10 @@ def test_valued_scalar_in_init():
 
 def test_valued_scalar_in_extend():
     model = Model()
-    model += Buffer()(input="buff_input", output=IOKey(name="buff_out"))
-    model += Mean(axis=TBD)(input="mean_input", axis=1, output=IOKey(name="mean_out"))
+    model |= Buffer()(input="buff_input", output=IOKey(name="buff_out"))
+    model |= Mean(axis=TBD)(input="mean_input", axis=1, output=IOKey(name="mean_out"))
     outer_model = Model()
-    outer_model += model()
+    outer_model |= model()
 
     model_dict_created = dict_conversions.model_to_dict(model)
     model_recreated = dict_conversions.dict_to_model(model_dict_created)
@@ -1001,12 +1001,12 @@ def test_valued_scalar_in_extend():
 
 def test_valued_scalar_iokey():
     model = Model()
-    model += Buffer()(input="buff_input", output=IOKey(name="buff_out"))
-    model += Mean(axis=TBD)(
+    model |= Buffer()(input="buff_input", output=IOKey(name="buff_out"))
+    model |= Mean(axis=TBD)(
         input="mean_input", axis="axis", output=IOKey(name="mean_out")
     )
     outer_model = Model()
-    outer_model += model(axis=IOKey(name="axis", value=1))
+    outer_model |= model(axis=IOKey(name="axis", value=1))
 
     model_dict_created = dict_conversions.model_to_dict(model)
     model_recreated = dict_conversions.dict_to_model(model_dict_created)
@@ -1018,10 +1018,10 @@ def test_valued_scalar_iokey():
 
 def test_non_valued_scalar():
     model = Model()
-    model += Buffer()(input="buff_input", output=IOKey(name="buff_out"))
-    model += Mean(axis=TBD)(input="mean_input", output=IOKey(name="mean_out"))
+    model |= Buffer()(input="buff_input", output=IOKey(name="buff_out"))
+    model |= Mean(axis=TBD)(input="mean_input", output=IOKey(name="mean_out"))
     outer_model = Model()
-    outer_model += model()
+    outer_model |= model()
 
     model_dict_created = dict_conversions.model_to_dict(model)
     model_recreated = dict_conversions.dict_to_model(model_dict_created)

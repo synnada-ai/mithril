@@ -53,15 +53,15 @@ gender_head = MLP(
 SVM_Model = LinearSVM()
 
 logical_model = Model()
-logical_model += backbone
-logical_model += age_head(input=backbone.cout, output=ml.IOKey("age"))
-logical_model += gender_head(input=backbone.cout)
-logical_model += SVM_Model(
+logical_model |= backbone
+logical_model |= age_head(input=backbone.cout, output=ml.IOKey("age"))
+logical_model |= gender_head(input=backbone.cout)
+logical_model |= SVM_Model(
     input=gender_head.output,
     output=ml.IOKey("gender"),
     decision_output=ml.IOKey("pred_gender"),
 )
-
+logical_model.set_cin(backbone.cin)
 # Wrap the model in a TrainModel for training purposes
 train_model = TrainModel(logical_model)
 

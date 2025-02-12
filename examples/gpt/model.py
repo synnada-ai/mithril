@@ -38,21 +38,20 @@ def causal_attention(input_dim, num_heads, bias=True):
         raise ValueError("Requires input dims to be divisible by num_heads")
 
     model = Model(name="attn")
-    model += Linear(input_dim * 3, name="c_attn")("input", output="c_attn_out")
+    model |= Linear(input_dim * 3, name="c_attn")("input", output="c_attn_out")
 
     t_axes = (0, 2, 1, 3)
     shp_con = model.input.shape  # type: ignore
     reshape_con = (shp_con[0], shp_con[1], num_heads, -1)
 
-    model += Split(3, axis=-1)(model.c_attn_out, output="split_out")  # type: ignore
+    model |= Split(3, axis=-1)(model.c_attn_out, output="split_out")  # type: ignore
     tq = model.split_out[0].reshape(reshape_con).transpose(t_axes)  # type: ignore
     tk = model.split_out[1].reshape(reshape_con).transpose(t_axes)  # type: ignore
     tv = model.split_out[2].reshape(reshape_con).transpose(t_axes)  # type: ignore
 
-    model += ScaledDotProduct()(query=tq, key=tk, value=tv, output="sdp_out")
+    model |= ScaledDotProduct()(query=tq, key=tk, value=tv, output="sdp_out")
     t_sdp = model.sdp_out.transpose(t_axes).reshape(shp_con[:3])  # type: ignore
-    model += Linear(input_dim, name="c_proj")(t_sdp)
-
+    model |= Linear(input_dim, name="c_proj")(t_sdp)
     return model
 
 
@@ -70,11 +69,11 @@ def create_block(name, dims, num_heads, bias=True, eps=1e-5):
     block = Model(name=name)
     block += LayerNorm(use_bias=bias, eps=eps, name="ln_1")("input")
     block += causal_attention(dims, num_heads, bias)
-    block += Add()("input", block.cout, "add_out")
+    block |= Add()("input", block.cout, "add_out")
     block += LayerNorm(use_bias=bias, eps=eps, name="ln_2")
     block += mlp(dims)
 
-    block += Add()("add_out", right=block.cout)
+    block |= Add()("add_out", right=block.cout)
     return block
 
 
@@ -86,10 +85,10 @@ def create_gpt(bias, block_size, dims, num_heads, num_layers, vocab_size):
     transformer += Embedding(name="wpe", num_embeddings=block_size, dim=dims)(
         output="pos_out"
     )
-    transformer += Embedding(name="wte", num_embeddings=vocab_size, dim=dims)(
+    transformer |= Embedding(name="wte", num_embeddings=vocab_size, dim=dims)(
         "input", output="token_out"
     )
-    transformer += Add()("pos_out", "token_out")
+    transformer |= Add()("pos_out", "token_out")
 
     blocks = Model(name="h")
     for idx in range(num_layers):

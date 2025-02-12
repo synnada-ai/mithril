@@ -383,9 +383,9 @@ def test_torch_parallel_2():
     # This test checks parallel execution with a model that includes array creation
     # primitive eye.
     model = Model()
-    model += (linear := Linear(256))(input="input", weight="w", bias="b")
-    model += (e := Eye(N=TBD))(N=linear.output.shape[0])
-    model += Add()(left=linear.output, right=e.output, output="output")
+    model |= (linear := Linear(256))(input="input", weight="w", bias="b")
+    model |= (e := Eye(N=TBD))(N=linear.output.shape[0])
+    model |= Add()(left=linear.output, right=e.output, output="output")
     backend = create_parallel_backend(device_mesh=(4, 1))
     backend.ones([256])
     pm = compile(model, backend, jit=False, data_keys={"input"})
@@ -507,9 +507,9 @@ def test_torch_parallel_5():
     # This test checks parallel execution with a model that includes cache of
     # primitive eye.
     model = Model()
-    model += (linear := Linear(256))(input="input", weight="w", bias="b")
-    model += (e := Eye(N=TBD))(N=linear.output.shape[0])
-    model += Add()(left=linear.output, right=e.output, output="output")
+    model |= (linear := Linear(256))(input="input", weight="w", bias="b")
+    model |= (e := Eye(N=TBD))(N=linear.output.shape[0])
+    model |= Add()(left=linear.output, right=e.output, output="output")
 
     backend = mithril.TorchBackend()
     backend_parallel = create_parallel_backend(device_mesh=(2, 2))
@@ -565,8 +565,8 @@ def test_torch_parallel_5():
 def test_torch_static_parallel_1():
     # This test checks parallel execution with partial static inference.
     model = Model()
-    model += (linear := Linear(256))(input="input", weight="w", bias="b")
-    model += Sigmoid()(input=linear.output, output="output")
+    model |= (linear := Linear(256))(input="input", weight="w", bias="b")
+    model |= Sigmoid()(input=linear.output, output="output")
     backend = create_parallel_backend(device_mesh=(4, 1))
 
     static_inputs = {
@@ -591,8 +591,8 @@ def test_torch_static_parallel_1():
 def test_torch_static_parallel_2():
     # This test checks parallel execution with full static inference.
     model = Model()
-    model += (linear := Linear(256))(input="input", weight="w", bias="b")
-    model += Sigmoid()(input=linear.output, output="output")
+    model |= (linear := Linear(256))(input="input", weight="w", bias="b")
+    model |= Sigmoid()(input=linear.output, output="output")
     backend = create_parallel_backend(device_mesh=(4, 1))
 
     static_inputs = {
@@ -615,9 +615,9 @@ def test_torch_static_parallel_2():
 def test_torch_static_parallel_3():
     # This test checks parallel execution with full static inference.
     model = Model()
-    model += (linear := Linear(256))(input="input", weight="w", bias="b")
-    model += Relu()(input=linear.output, output=IOKey("output"))
-    model += Tanh()(input="input2", output=IOKey("output2"))
+    model |= (linear := Linear(256))(input="input", weight="w", bias="b")
+    model |= Relu()(input=linear.output, output=IOKey("output"))
+    model |= Tanh()(input="input2", output=IOKey("output2"))
     backend = create_parallel_backend(device_mesh=(4, 1))
 
     static_inputs = {

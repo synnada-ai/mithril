@@ -21,8 +21,8 @@ from mithril.models import Model, Randn
 
 def testrandom_keys_not_provided():
     example_model = Model()
-    example_model += Randn()(shape=(3, 4, 5, 6), output=ml.IOKey("out1"))
-    example_model += Randn()(shape=(3, 4, 5, 1), output=ml.IOKey("out2"))
+    example_model |= Randn()(shape=(3, 4, 5, 6), output=ml.IOKey("out1"))
+    example_model |= Randn()(shape=(3, 4, 5, 1), output=ml.IOKey("out2"))
 
     backend = ml.JaxBackend()
     pm = ml.compile(example_model, backend, use_short_namings=False)
@@ -41,8 +41,8 @@ def testrandom_keys_not_provided():
 def testrandom_keys_some_of_provided():
     example_model = Model()
     # Static inference will infer this function
-    example_model += Randn(key=42)(shape=(3, 4, 5, 6), output=ml.IOKey("out1"))
-    example_model += Randn()(shape=(3, 4, 5, 1), output=ml.IOKey("out2"))
+    example_model |= Randn(key=42)(shape=(3, 4, 5, 6), output=ml.IOKey("out1"))
+    example_model |= Randn()(shape=(3, 4, 5, 1), output=ml.IOKey("out2"))
 
     backend = ml.JaxBackend()
     pm = ml.compile(example_model, backend, use_short_namings=False)
@@ -61,8 +61,8 @@ def testrandom_keys_some_of_provided():
 def test_setrandom_keys():
     example_model = Model()
     # Static inference will infer this function
-    example_model += Randn(key=42)(shape=(3, 4, 5, 6), output=ml.IOKey("out1"))
-    example_model += Randn()(shape=(3, 4, 5, 1), output=ml.IOKey("out2"))
+    example_model |= Randn(key=42)(shape=(3, 4, 5, 6), output=ml.IOKey("out1"))
+    example_model |= Randn()(shape=(3, 4, 5, 1), output=ml.IOKey("out2"))
 
     backend = ml.JaxBackend()
     pm = PhysicalModel(

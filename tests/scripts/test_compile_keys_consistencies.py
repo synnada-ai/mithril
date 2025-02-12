@@ -205,7 +205,7 @@ def test_static_keys_inputs_only():
     """
     model = Model()
     model += (lin_model := Linear(1, True))(input="input", output="lin_out")
-    model += Multiply()(output=IOKey(name="output"))
+    model |= Multiply()(left="lin_out", output=IOKey(name="output"))
 
     backend = TorchBackend()
     with pytest.raises(KeyError) as err_info:
@@ -223,7 +223,7 @@ def test_trainable_keys_inputs_only():
     """
     model = Model()
     model += (lin_model := Linear(1, True))(input="input", output="lin_out")
-    model += Multiply()(output=IOKey(name="output"))
+    model |= Multiply()(left="lin_out", output=IOKey(name="output"))
 
     backend = TorchBackend()
     with pytest.raises(KeyError) as err_info:
@@ -241,7 +241,7 @@ def test_discard_keys_input_and_outputs_only():
     """
     model = Model()
     model += (lin_model := Linear(1, True))(input="input", output="lin_out")
-    model += Multiply()(output=IOKey(name="output"))
+    model |= Multiply()(left="lin_out", output=IOKey(name="output"))
 
     backend = TorchBackend()
     with pytest.raises(KeyError) as err_info:

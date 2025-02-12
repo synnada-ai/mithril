@@ -96,8 +96,8 @@ def compare_evaluate(
 def test_1():
     """Tests the case where all named keys are defined with IOKey."""
     model = Model()
-    model += Linear(10)(weight=IOKey(name="weight_2"))
-    model += Linear(10)(
+    model |= Linear(10)(weight=IOKey(name="weight_2"))
+    model |= Linear(10)(
         input=model.cout,
         bias=IOKey(name="bias_3"),
         output=IOKey(name="output1"),
@@ -124,8 +124,8 @@ def test_2():
     Output1 must be an output key.
     """
     model = Model()
-    model += Linear(10)(weight="weight_2")
-    model += Linear(10)(input=model.cout, bias="bias_3", output=IOKey(name="output1"))
+    model |= Linear(10)(weight="weight_2")
+    model |= Linear(10)(input=model.cout, bias="bias_3", output=IOKey(name="output1"))
 
     expected_input_keys = {"$2", "weight_2", "$3", "$5", "bias_3"}
     expected_output_keys = {"output1"}
@@ -148,8 +148,8 @@ def test_3():
     Output1 must be an internal key.
     """
     model = Model()
-    model += Linear(10)(weight="weight_2")
-    model += Linear(10)(input=model.cout, bias="bias_3", output="output1")
+    model |= Linear(10)(weight="weight_2")
+    model |= Linear(10)(input=model.cout, bias="bias_3", output="output1")
 
     expected_input_keys = {"$2", "weight_2", "$3", "$5", "bias_3"}
     expected_internal_keys = {"$4"}
@@ -170,10 +170,10 @@ def test_3():
 def test_4():
     """Tests the case where the IOKey is defined with name and value."""
     model = Model()
-    model += Linear(1)(
+    model |= Linear(1)(
         bias=IOKey(name="bias_2", value=Tensor([1.0])), weight="weight_2"
     )
-    model += Linear(1)(input=model.cout, bias="bias_3", output="output1")
+    model |= Linear(1)(input=model.cout, bias="bias_3", output="output1")
 
     expected_input_keys = {"$4", "bias_3", "bias_2", "weight_2", "$2"}
     expected_internal_keys = {"$3"}
@@ -193,8 +193,8 @@ def test_4():
 def test_5():
     """Tests the case where the IOKey is defined with name and shape."""
     model = Model()
-    model += Linear()(bias=IOKey(name="bias_2", shape=[2]), weight="weight_2")
-    model += Linear()(input=model.cout, bias="bias_3", output="output1")
+    model |= Linear()(bias=IOKey(name="bias_2", shape=[2]), weight="weight_2")
+    model |= Linear()(input=model.cout, bias="bias_3", output="output1")
 
     expected_input_keys = {"weight_2", "bias_2", "bias_3", "$2", "$4"}
     expected_internal_keys = {"$3"}
@@ -231,10 +231,10 @@ def test_6():
     Also some keys have shape and some don't.
     """
     model = Model()
-    model += Linear()(
+    model |= Linear()(
         input="input", bias="bias_1", weight=IOKey(name="weight_1", shape=[10, 2])
     )
-    model += Linear()(
+    model |= Linear()(
         input=model.cout,
         bias=IOKey(name="bias_2", shape=[5]),
         output=IOKey(name="output1"),
@@ -272,11 +272,10 @@ def test_6():
 def test_7():
     """Tests the case where all named keys are defined with IOKey and shape."""
     model = Model()
-    model += (relu1 := Relu())(input="in1", output="relu1_output")
-    model += (relu2 := Relu())(input="in2", output="relu2_output")
-    model += (relu3 := Relu())(
-        input="", output=IOKey(name="my_input", connections={relu1.input, relu2.input})
-    )
+    model |= (relu1 := Relu())(input="in1", output="relu1_output")
+    model |= (relu2 := Relu())(input="in2", output="relu2_output")
+    iokey = IOKey(name="my_input", connections={relu1.input, relu2.input})
+    model |= (relu3 := Relu())(output=iokey)
     assert (
         model.dag[relu1]["input"].metadata
         == model.dag[relu2]["input"].metadata
@@ -287,8 +286,8 @@ def test_7():
 def test_8():
     """Tests the case where two same named IOKey used"""
     model = Model()
-    model += (relu1 := Relu())(input=IOKey("in1"), output="relu1_output")
-    model += (relu2 := Relu())(input=IOKey("in1"), output="relu2_output")
+    model |= (relu1 := Relu())(input=IOKey("in1"), output="relu1_output")
+    model |= (relu2 := Relu())(input=IOKey("in1"), output="relu2_output")
 
     assert model.dag[relu1]["input"].metadata == model.dag[relu2]["input"].metadata
 
@@ -297,8 +296,8 @@ def test_9():
     """Tests the case where IOKey used as first output and then input"""
     model = Model()
     out = IOKey(name="out", expose=False)
-    model += Relu()(input="input", output=out)
-    model += Sigmoid()(input=out, output=IOKey("output"))
+    model |= Relu()(input="input", output=out)
+    model |= Sigmoid()(input=out, output=IOKey("output"))
 
     backend = TorchBackend()
     pm = mithril.compile(model=model, backend=backend, jit=False)
@@ -315,8 +314,8 @@ def test_10():
     """Tests the case where IOKey used as first input and then output"""
     model = Model()
     middle = IOKey(name="middle", expose=True)
-    model += Sigmoid()(input=middle, output=IOKey("output"))
-    model += Relu()(input="input", output=middle)
+    model |= Sigmoid()(input=middle, output=IOKey("output"))
+    model |= Relu()(input="input", output=middle)
 
     backend = TorchBackend()
     pm = mithril.compile(model=model, backend=backend, jit=False)
@@ -333,8 +332,8 @@ def test_10():
 def test_11():
     """Tests the case where IOKey used as first output and then input"""
     model = Model()
-    model += Relu()(input="input", output=IOKey(name="out", expose=False))
-    model += Sigmoid()(input=IOKey(name="out", expose=True), output=IOKey("output"))
+    model |= Relu()(input="input", output=IOKey(name="out", expose=False))
+    model |= Sigmoid()(input=IOKey(name="out", expose=True), output=IOKey("output"))
 
     backend = TorchBackend()
     pm = mithril.compile(model=model, backend=backend, jit=False)
@@ -350,8 +349,8 @@ def test_11():
 def test_12():
     """Tests the case where IOKey used as first input and then output"""
     model = Model()
-    model += Sigmoid()(input=IOKey(name="middle", expose=True), output=IOKey("output"))
-    model += Relu()(input="input", output=IOKey(name="middle", expose=False))
+    model |= Sigmoid()(input=IOKey(name="middle", expose=True), output=IOKey("output"))
+    model |= Relu()(input="input", output=IOKey(name="middle", expose=False))
 
     backend = TorchBackend()
     pm = mithril.compile(model=model, backend=backend, jit=False)
@@ -368,8 +367,8 @@ def test_12():
 def test_13():
     """Tests the case where IOKey used as input but created twice"""
     model = Model()
-    model += Sigmoid()(input=IOKey(name="input", expose=True), output=IOKey("output1"))
-    model += Relu()(
+    model |= Sigmoid()(input=IOKey(name="input", expose=True), output=IOKey("output1"))
+    model |= Relu()(
         input=IOKey(name="input", expose=True), output=IOKey(name="output2")
     )
 
@@ -395,8 +394,8 @@ def test_iokey_shapes_1():
     buff1 = Buffer()
     buff2 = Buffer()
 
-    model += buff1(input="input")
-    model += buff2(input=buff1.output, output=IOKey("output", shape=[10]))
+    model |= buff1(input="input")
+    model |= buff2(input=buff1.output, output=IOKey("output", shape=[10]))
 
     expected_shapes = {"$_Buffer_0_output": [10], "input": [10], "output": [10]}
 
@@ -413,13 +412,13 @@ def test_iokey_shapes_2():
 
     model = Model()
 
-    model += buff1(input="input1")
-    model += buff2(input="input2")
+    model |= buff1(input="input1")
+    model |= buff2(input="input2")
     model.set_cin("input2")
     model.set_cout(buff2.output)
 
     main_model = Model()
-    main_model += model(
+    main_model |= model(
         input1=IOKey(name="input1", shape=["a", "b"]),
         input2=IOKey(name="input2", shape=["b", "a"]),
     )
@@ -442,14 +441,14 @@ def test_iokey_shapes_3():
     buff3 = Buffer()
     model = Model()
 
-    model += buff1(input="input1")
-    model += buff2(input="input2")
-    model += buff3(input="input3")
+    model |= buff1(input="input1")
+    model |= buff2(input="input2")
+    model |= buff3(input="input3")
     model.set_cin("input3")
     model.set_cout(buff3.output)
 
     main_model = Model()
-    main_model += model(
+    main_model |= model(
         input1=IOKey(name="input1", shape=["a", "b"]),
         input2=IOKey(name="input2", shape=["b", "a"]),
         input3=IOKey(name="input3", shape=[3, "a"]),
@@ -457,7 +456,7 @@ def test_iokey_shapes_3():
 
     conns = {main_model.input1, main_model.input2, main_model.input3}  # type: ignore
     key = IOKey(name="input", connections=conns)
-    main_model += Buffer()(input=key, output="output1")
+    main_model |= Buffer()(input=key, output="output1")
 
     expected_shapes = {"$_Model_0_output": [3, 3], "output1": [3, 3], "input": [3, 3]}
 
@@ -468,7 +467,7 @@ def test_iokey_shapes_3():
 def test_iokey_values_1():
     """Tests value functionality of IOKeys in a simple model."""
     model = Model()
-    model += PrimitiveUnion(n=3)(
+    model |= PrimitiveUnion(n=3)(
         input1=IOKey(value=(2.0, 3.0), name="input1"),
         input2="input2",
         input3=IOKey(value=(4.0, 5.0), name="input3"),
@@ -572,8 +571,8 @@ def test_iokey_values_7():
     buffer = Buffer()
     mean_model = Mean(axis=TBD)
     input = IOKey(value=2, name="input")
-    model += buffer(input=input.tensor())
-    model += mean_model(input="", axis=input)
+    model |= buffer(input=input.tensor())
+    model |= mean_model(axis=input)
 
     ref_values = {model.input: 2, mean_model.axis: 2}  # type: ignore
 
@@ -589,10 +588,10 @@ def test_iokey_values_8():
     input1 = IOKey(value=2, name="input1")
     input2 = IOKey(value=3, name="input2")
 
-    model += buffer1(input=input1.tensor())
-    model += buffer2(input=input2.tensor())
+    model |= buffer1(input=input1.tensor())
+    model |= buffer2(input=input2.tensor())
 
-    model += mean_model(input="", axis=(input1, input2))
+    model |= mean_model(axis=(input1, input2))
 
     ref_values = {model.input1: 2, model.input2: 3, mean_model.axis: (2, 3)}  # type: ignore
 
@@ -605,7 +604,7 @@ def test_iokey_values_9_error():
     buffer1 = Buffer()
 
     with pytest.raises(KeyError) as err_info:
-        model += buffer1(
+        model |= buffer1(
             input=IOKey(name="input1"), output=IOKey(name="output1", value=[2.0])
         )
     assert str(err_info.value) == (
@@ -620,9 +619,9 @@ def test_iokey_values_10():
     sig_model_1 = Sigmoid()
     sig_model_2 = Sigmoid()
     sig_model_1.input.metadata.set_type(Tensor[float])
-    model += sig_model_1(input="input", output=IOKey(name="output"))
+    model |= sig_model_1(input="input", output=IOKey(name="output"))
 
-    model += sig_model_2(
+    model |= sig_model_2(
         input=IOKey(value=Tensor([1.0, 2.0]), name="input"),
         output=IOKey(name="output2"),
     )
@@ -644,9 +643,9 @@ def test_iokey_values_11():
     model = Model()
     sig_model_1 = Sigmoid()
     sig_model_2 = Sigmoid()
-    model += sig_model_1(input="input", output=IOKey(name="output"))
+    model |= sig_model_1(input="input", output=IOKey(name="output"))
 
-    model += sig_model_2(
+    model |= sig_model_2(
         input=IOKey(type=Tensor[float], name="input"), output=IOKey(name="output2")
     )
 
@@ -658,9 +657,9 @@ def test_iokey_values_12():
     model = Model()
     sig_model_1 = Sigmoid()
     sig_model_2 = Sigmoid()
-    model += sig_model_1(input="input", output=IOKey(name="output"))
+    model |= sig_model_1(input="input", output=IOKey(name="output"))
 
-    model += sig_model_2(
+    model |= sig_model_2(
         input=IOKey(shape=[1, 2, 3, 4], name="input"), output=IOKey(name="output2")
     )
     assert sig_model_1.input.metadata.is_tensor
@@ -672,7 +671,7 @@ def test_iokey_name_not_given_output_error():
     buff_model = Sigmoid()
     model = Model()
     with pytest.raises(KeyError) as err_info:
-        model += buff_model(input="input", output=IOKey(shape=[2, 3], expose=True))
+        model |= buff_model(input="input", output=IOKey(shape=[2, 3], expose=True))
     assert str(err_info.value) == "'Connection without a name cannot be set as output'"
 
 
@@ -736,7 +735,7 @@ def test_iokey_tensor_input_all_args():
         try:
             # if input._
             # try to extend the model
-            model += sub_model(left=input, right="right", output="output")
+            model |= sub_model(left=input, right="right", output="output")
         except Exception as e:
             if not expose and value is TBD:
                 # if both expose and value is not given, It is an expected error
@@ -821,7 +820,7 @@ def test_iokey_scalar_output_all_args():
 
         try:
             # try to extend the model
-            model += sub_model(input="input", output=output)
+            model |= sub_model(input="input", output=output)
         except Exception as e:
             if value is not TBD:
                 # it is an expected error
@@ -922,7 +921,7 @@ def test_iokey_scalar_input_all_args():
 
         try:
             # try to extend the model
-            model += sub_model(input="input", output="output", axis=axis)
+            model |= sub_model(input="input", output="output", axis=axis)
 
         except Exception as e:
             if not expose and value is TBD:
@@ -1024,7 +1023,7 @@ def test_iokey_tensor_output_all_args():
 
         try:
             # try to extend the model
-            model += sub_model(left="left", right="right", output=output)
+            model |= sub_model(left="left", right="right", output=output)
         except Exception as e:
             if value is not TBD:
                 # it is an expected error
@@ -1065,8 +1064,8 @@ def test_compare_models_1():
     multiply = Multiply()
     multiply.set_types(left=Tensor, right=Tensor)
 
-    model1 += add(left="input1", right="input2", output="sub_out")
-    model1 += multiply(left="sub_out", right="input3", output=IOKey("output"))
+    model1 |= add(left="input1", right="input2", output="sub_out")
+    model1 |= multiply(left="sub_out", right="input3", output=IOKey("output"))
 
     model2 = Model()
     add = Add()
@@ -1074,8 +1073,8 @@ def test_compare_models_1():
     multiply = Multiply()
     multiply.set_types(left=Tensor, right=Tensor)
 
-    model2 += add(left="input1", right="input2")
-    model2 += multiply(left=add.output, right="input3", output=IOKey("output"))
+    model2 |= add(left="input1", right="input2")
+    model2 |= multiply(left=add.output, right="input3", output=IOKey("output"))
     data = {
         "input1": backend.ones(5, 5),
         "input2": backend.ones(5, 5),
@@ -1094,8 +1093,8 @@ def test_compare_models_2():
 
     linear2 = Linear(dimension=3)
 
-    model1 += linear1(input="input", output="sub_out")
-    model1 += linear2(input="sub_out", output=IOKey("output"))
+    model1 |= linear1(input="input", output="sub_out")
+    model1 |= linear2(input="sub_out", output=IOKey("output"))
     model1.set_shapes({"input": [5, 5]})
 
     model2 = Model()
@@ -1103,8 +1102,8 @@ def test_compare_models_2():
     linear1.set_differentiability(input=True)
     linear2 = Linear(dimension=3)
 
-    model2 += linear1(input="input")
-    model2 += linear2(input=linear1.output, output=IOKey("output"))
+    model2 |= linear1(input="input")
+    model2 |= linear2(input=linear1.output, output=IOKey("output"))
     model2.set_shapes({"input": [5, 5]})
 
     compare_evaluate(model1=model1, model2=model2, backend=backend, data={})
@@ -1119,9 +1118,9 @@ def test_compare_models_3():
     sig_model2 = Sigmoid()
     sig_model3 = Sigmoid()
 
-    model1 += sig_model1(input="input", output="sub_out_1")
-    model1 += sig_model2(input="sub_out_1", output="sub_out_2")
-    model1 += sig_model3(input="sub_out_2", output=IOKey(name="output"))
+    model1 |= sig_model1(input="input", output="sub_out_1")
+    model1 |= sig_model2(input="sub_out_1", output="sub_out_2")
+    model1 |= sig_model3(input="sub_out_2", output=IOKey(name="output"))
     model1.set_shapes({"input": [2, 2]})
 
     model2 = Model()
@@ -1129,7 +1128,7 @@ def test_compare_models_3():
     sig_model2 = Sigmoid()
     sig_model3 = Sigmoid()
 
-    model2 += sig_model1(input="input")
+    model2 |= sig_model1(input="input")
     model2 += sig_model2
     model2 += sig_model3
     model2.set_shapes({"input": [2, 2]})
@@ -1147,9 +1146,9 @@ def test_compare_models_4():
     sig_model2 = Sigmoid()
     sig_model3 = Sigmoid()
 
-    model1 += sig_model3(input="sub_out_2", output=IOKey(name="output"))
-    model1 += sig_model2(input="sub_out_1", output="sub_out_2")
-    model1 += sig_model1(input="input", output="sub_out_1")
+    model1 |= sig_model3(input="sub_out_2", output=IOKey(name="output"))
+    model1 |= sig_model2(input="sub_out_1", output="sub_out_2")
+    model1 |= sig_model1(input="input", output="sub_out_1")
     model1.set_shapes({"input": [2, 2]})
 
     model2 = Model()
@@ -1157,7 +1156,7 @@ def test_compare_models_4():
     sig_model2 = Sigmoid()
     sig_model3 = Sigmoid()
 
-    model2 += sig_model1(input="input")
+    model2 |= sig_model1(input="input")
     model2 += sig_model2
     model2 += sig_model3
     model2.set_shapes({"input": [2, 2]})
@@ -1173,16 +1172,16 @@ def test_compare_models_5():
     model1 = Model()
     sigmoid = Sigmoid()
     add = Add()
-    model1 += add(left="sub", right="sub", output=IOKey(name="output"))
-    model1 += sigmoid(input="input", output="sub")
+    model1 |= add(left="sub", right="sub", output=IOKey(name="output"))
+    model1 |= sigmoid(input="input", output="sub")
     model1.set_shapes({"input": [2, 2]})
 
     model2 = Model()
     sigmoid = Sigmoid()
     add = Add()
-    model2 += add(output=IOKey(name="output"))
+    model2 |= add(output=IOKey(name="output"))
     conn = IOKey(connections={add.left, add.right})
-    model2 += sigmoid(input="input", output=conn)
+    model2 |= sigmoid(input="input", output=conn)
     model2.set_shapes({"input": [2, 2]})
 
     data = {"input": backend.ones(2, 2)}
@@ -1195,7 +1194,7 @@ def test_iokey_shape_error_1():
     mean_model = Mean(axis=TBD)
 
     with pytest.raises(TypeError) as err_info:
-        model += mean_model(axis=IOKey(name="axis", shape=[2, 3]))
+        model |= mean_model(axis=IOKey(name="axis", shape=[2, 3]))
     assert (
         str(err_info.value)
         == "Acceptable types are None | int | list[int] | tuple[int, ...], but "
@@ -1207,7 +1206,7 @@ def test_iokey_shape_error_1():
 def test_error_1():
     model = Model()
     with pytest.raises(Exception) as err_info:
-        model += Linear()(bias=IOKey(name="b_2", value=[1.0], shape=[1]), weight="w_2")
+        model |= Linear()(bias=IOKey(name="b_2", value=[1.0], shape=[1]), weight="w_2")
 
     assert (
         str(err_info.value)
@@ -1222,7 +1221,7 @@ def test_iokey_template_1():
     res = left**right
 
     model = Model()
-    model += Buffer()(res, IOKey("output"))
+    model |= Buffer()(res, IOKey("output"))
 
     backend = TorchBackend()
 
@@ -1244,7 +1243,7 @@ def test_iokey_template_2():
     model += Buffer()(IOKey("right", type=Tensor))
     res = left + model.right  # type: ignore
 
-    model += Buffer()(res, IOKey("output"))
+    model |= Buffer()(res, IOKey("output"))
 
     backend = TorchBackend()
 
@@ -1356,8 +1355,8 @@ def test_iokey_template_8():
 
     input = IOKey("input")
 
-    model += Buffer()(input, IOKey("output1"))
-    model += Shape()(input[0], IOKey("output2"))
+    model |= Buffer()(input, IOKey("output1"))
+    model |= Shape()(input[0], IOKey("output2"))
     backend = TorchBackend()
     pm = mithril.compile(model=model, backend=backend, inference=True, jit=False)
 
@@ -1374,8 +1373,8 @@ def test_iokey_template_9():
 
     input = IOKey("input")
 
-    model += Shape()(input[0], IOKey("output2"))
-    model += Buffer()(input, IOKey("output1"))
+    model |= Shape()(input[0], IOKey("output2"))
+    model |= Buffer()(input, IOKey("output1"))
     backend = TorchBackend()
     pm = mithril.compile(model=model, backend=backend, inference=True, jit=False)
 
@@ -1392,8 +1391,8 @@ def test_iokey_template_10():
 
     input = IOKey("input")
 
-    model += Buffer()(input, IOKey("output1", type=Tensor))
-    model += Buffer()(input, IOKey("output2"))
+    model |= Buffer()(input, IOKey("output1", type=Tensor))
+    model |= Buffer()(input, IOKey("output2"))
     backend = TorchBackend()
     pm = mithril.compile(model=model, backend=backend, inference=True, jit=False)
 
@@ -1411,8 +1410,8 @@ def test_iokey_template_11():
 
     input = IOKey("input")
 
-    model += Buffer()(input, IOKey("output1", type=Tensor))
-    model += Buffer()(input, output=IOKey("output2"))
+    model |= Buffer()(input, IOKey("output1", type=Tensor))
+    model |= Buffer()(input, output=IOKey("output2"))
     backend = TorchBackend()
     pm = mithril.compile(model=model, backend=backend, inference=True, jit=False)
 
@@ -1431,8 +1430,8 @@ def test_iokey_template_12():
 
     input = IOKey("input")
 
-    sub_model += Buffer()(input, IOKey("output", type=Tensor))
-    model += sub_model(input=input, output=IOKey("output"))
+    sub_model |= Buffer()(input, IOKey("output", type=Tensor))
+    model |= sub_model(input=input, output=IOKey("output"))
 
     backend = TorchBackend()
     pm = mithril.compile(model=model, backend=backend, inference=True, jit=False)
@@ -1450,7 +1449,7 @@ def test_iokey_template_13():
 
     input = IOKey("input")
     index = IOKey("index")
-    model += Buffer()(input[index], IOKey("output"))
+    model |= Buffer()(input[index], IOKey("output"))
     backend = TorchBackend()
     pm = mithril.compile(model=model, backend=backend, inference=True, jit=False)
 

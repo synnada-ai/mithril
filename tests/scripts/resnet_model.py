@@ -22,7 +22,7 @@ def basic_block(
     out_channels: int, stride: int = 1, downsample: Model | None = None
 ) -> Model:
     block = Model()
-    block += Convolution2D(
+    block |= Convolution2D(
         kernel_size=3, out_channels=out_channels, padding=1, stride=stride
     )
     model_input = block.cin
@@ -31,10 +31,10 @@ def basic_block(
     skip_in = block.cout
 
     if downsample is not None:
-        block += downsample(input=model_input)
-        block += Add()(left=downsample.cout, right=skip_in)
+        block |= downsample(input=model_input)
+        block |= Add()(left=downsample.cout, right=skip_in)
     else:
-        block += Add()(left=model_input, right=skip_in)
+        block |= Add()(left=model_input, right=skip_in)
 
     block += Relu()
     return block
@@ -83,7 +83,7 @@ def resnet(n_classes: int, block: Callable, layers: list[int]) -> Model:
     resnet += make_layer(512, block, n_blocks=layers[3], stride=2)
     resnet += Flatten(start_dim=1)
 
-    resnet += Linear(dimension=n_classes)(
+    resnet |= Linear(dimension=n_classes)(
         input=resnet.cout, output=IOKey(name="output")
     )
     return resnet

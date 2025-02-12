@@ -44,7 +44,7 @@ def test_freeze_set_values_extend_defined_logical():
     # assert str(error_info.value) == "Model is frozen, can not set the key: input!"
 
     with pytest.raises(AttributeError) as attr_error_info:
-        model += Add()
+        model |= Add()
     assert str(attr_error_info.value) == "Model is frozen and can not be extended!"
 
 
@@ -64,7 +64,7 @@ def test_freeze_set_values_extend_logical():
     # assert str(error_info.value) == "Model is frozen, can not set the key: right!"
 
     with pytest.raises(AttributeError) as attr_error_info:
-        model += Add()
+        model |= Add()
     assert str(attr_error_info.value) == "Model is frozen and can not be extended!"
 
 

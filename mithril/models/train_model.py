@@ -78,8 +78,8 @@ def _create_size() -> Model:
     # This is a temporary function to create size model with tensor output.
     # Convert _create_size() to directly Size() model after type constraints added.
     size_model = Model()
-    size_model += (size := Size(dim=TBD))(input="input", dim="dim")
-    size_model += ToTensor()(input=size.output, output="output")
+    size_model |= Size(dim=TBD)(input="input", dim="dim")
+    size_model += ToTensor()(output="output")
     return size_model
 
 
