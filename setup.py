@@ -56,6 +56,6 @@ setuptools.setup(
     python_requires=">=3.12",
     install_requires=[],
     cmdclass={"build_ext": CustomBuildExt},
-    package_data={"mithril.backends.with_manualgrad.c_backend.src": ["libmithrilc.so"]},
+    package_data={"mithril.cores.c": ["libmithrilc.so"]},
     include_package_data=True,
 )

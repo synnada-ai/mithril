@@ -17,7 +17,7 @@ import json
 import numpy as np
 import pytest
 
-from mithril.backends.with_manualgrad.numpy_backend.utils import accumulate_grads
+from mithril.cores.numpy.utils import accumulate_grads
 
 
 def convert_to_tuple(current_case, key_list):

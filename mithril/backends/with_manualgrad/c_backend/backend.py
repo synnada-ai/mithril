@@ -12,22 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 from typing import Any
 
 import numpy as np
 
 from .... import core
+from ....cores.c import array
+from ....cores.c.array import PyArray
 from ...backend import Backend
 from ...utils import process_shape
-from .src import array, utils
-from .src.array import PyArray
+from . import utils
 
 __all__ = ["CBackend"]
 
 
 class CBackend(Backend[PyArray]):
     backend_type = "c"
-    SRC_PATH = "mithril/backends/with_manualgrad/c_backend/src"
+    SRC_PATH = os.path.join(os.path.dirname(__file__), *([".."] * 3), "cores", "c")
 
     def __init__(self) -> None:
         self._device = "cpu"

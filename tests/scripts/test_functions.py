@@ -18,7 +18,7 @@ from importlib import import_module
 
 import mithril
 from mithril import CBackend, JaxBackend, NumpyBackend, TorchBackend
-from mithril.backends.with_manualgrad.numpy_backend.ops_grad import add_grad
+from mithril.cores.numpy.ops_grad import add_grad
 from mithril.framework.common import Tensor
 from mithril.models import (
     Absolute,

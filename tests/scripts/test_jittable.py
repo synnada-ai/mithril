@@ -21,7 +21,7 @@ import numpy as np
 import pytest
 
 from mithril import JaxBackend, NumpyBackend, compile
-from mithril.backends.with_autograd.jax_backend.ops import (
+from mithril.cores.jax.ops import (
     add,
     partial,
     reduce_mean,
