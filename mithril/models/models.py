@@ -1928,7 +1928,7 @@ class OneToManyInference(RNN):
             }
             output_kwargs = {cell_type.out_key: IOKey(name=f"output{idx}")}
 
-            self |= current_cell(
+            self += current_cell(
                 **(shared_keys_kwargs | state_keys_kwargs | output_kwargs)
             )
 
