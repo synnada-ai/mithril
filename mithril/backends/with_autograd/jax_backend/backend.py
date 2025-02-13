@@ -25,7 +25,7 @@ from ...backend import PadWidthType, ParallelBackend
 from ...utils import DtypeSubTypes, StaticScalar, process_shape
 from . import ops, utils
 from .parallel import JaxParallel
-from .utils import CODEGEN_CONFIG
+from .utils import CODEGEN_CONFIG, dtype_map
 
 __all__ = ["JaxBackend"]
 
@@ -72,6 +72,7 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
 
         self.array_creation_funcs = ops.array_creation_funcs
         self.primitive_function_dict = ops.primitive_func_dict
+        self.dtype_map = dtype_map
         self.prng_key = jax.random.PRNGKey(self.seed)
 
         for key, value in utils.dtype_map.items():

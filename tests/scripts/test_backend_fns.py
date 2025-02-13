@@ -2105,6 +2105,9 @@ class TestConcat:
         assert output.shape == (6, 4)
 
 
+@pytest.mark.parametrize(
+    "backendcls, device, dtype", backends_with_device_dtype, ids=names
+)
 class TestMultinomial:
     def test_multinomial_with_replacement(self, backendcls, device, dtype):
         backend = backendcls(device=device, dtype=dtype)

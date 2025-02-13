@@ -1051,7 +1051,7 @@ def cast(input: jax.Array, dtype: jnp.dtype[Any]) -> jax.Array:
 
 
 def dtype(input: jax.Array) -> jnp.dtype[Any]:
-    return getattr(jnp, input.dtype.name)
+    return input.dtype.type  # type: ignore
 
 
 def logical_xor(left: jax.Array, right: jax.Array) -> jax.Array:

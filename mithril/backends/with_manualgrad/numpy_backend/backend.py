@@ -22,7 +22,7 @@ from ...backend import Backend, PadWidthType
 from ...utils import StaticScalar, process_shape
 from ..common_primitives import CacheType
 from . import ops, ops_grad, utils
-from .utils import CODEGEN_CONFIG
+from .utils import CODEGEN_CONFIG, dtype_map
 
 
 class NumpyBackend(Backend[np.ndarray[Any, Any]]):
@@ -57,6 +57,7 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
 
         super().__init__(dtype=dtype)
 
+        self.dtype_map = dtype_map
         self.array_creation_funcs = ops.array_creation_funcs
         self.primitive_function_dict = ops.primitive_func_dict
         self.primitive_grad_function_dict = ops_grad.primitive_grad_func_dict

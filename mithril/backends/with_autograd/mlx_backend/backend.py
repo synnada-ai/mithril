@@ -24,7 +24,7 @@ from ....core import Dtype
 from ...backend import Backend, PadWidthType
 from ...utils import DtypeSubTypes, StaticScalar, process_shape
 from . import ops, utils
-from .utils import CODEGEN_CONFIG
+from .utils import CODEGEN_CONFIG, dtype_map
 
 __all__ = ["MlxBackend"]
 
@@ -50,6 +50,7 @@ class MlxBackend(Backend[mx.array]):
         self._device = device
         super().__init__(dtype=dtype)
 
+        self.dtype_map = dtype_map
         self.array_creation_funcs = ops.array_creation_funcs
         self.primitive_function_dict = ops.primitive_func_dict
         self.prng_key = mx.random.key(self.seed)

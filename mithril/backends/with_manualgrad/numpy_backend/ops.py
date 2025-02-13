@@ -1254,7 +1254,7 @@ def cast(input: np.ndarray[Any, Any], dtype: np.dtype[Any]) -> np.ndarray[Any, A
 
 
 def dtype(input: np.ndarray[Any, Any]) -> np.dtype[Any]:
-    return input.dtype
+    return input.dtype.type
 
 
 def logical_xor(

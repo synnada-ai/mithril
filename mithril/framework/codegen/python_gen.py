@@ -414,6 +414,7 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
         for output_key in self.pm.output_keys:
             # TODO: give an api to get outputdict
             if self.is_static_scalar(output_key):
+                self.is_static_scalar(output_key)
                 return_values.append(
                     ast.Constant(self.pm.flat_graph.cached_data[output_key])
                 )

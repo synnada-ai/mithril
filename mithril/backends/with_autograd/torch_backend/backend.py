@@ -29,7 +29,7 @@ from ...backend import PadWidthType, ParallelBackend
 from ...utils import DtypeSubTypes, StaticScalar, process_shape
 from . import ops, utils
 from .parallel import TorchParallel
-from .utils import CODEGEN_CONFIG
+from .utils import CODEGEN_CONFIG, dtype_map
 
 __all__ = ["TorchBackend"]
 
@@ -69,6 +69,7 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
 
         self.array_creation_funcs = ops.array_creation_funcs
         self.primitive_function_dict = ops.primitive_func_dict
+        self.dtype_map = dtype_map
 
         self._generator = torch.Generator(device=self.device).manual_seed(0)
 
