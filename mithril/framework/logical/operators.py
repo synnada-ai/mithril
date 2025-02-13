@@ -19,11 +19,8 @@ from typing import Any
 
 from ... import core
 from ..common import (
-    NOT_GIVEN,
     TBD,
     BaseKey,
-    Connection,
-    ConnectionType,
     Constraint,
     ScalarValueType,
     ShapeTemplateType,
@@ -62,102 +59,88 @@ from ..constraints import (
     to_tensor_constraints,
     to_tuple_constraints,
 )
-from .base import ExtendInfo
-from .primitive import PrimitiveModel
+from .operator import Operator
 
 __all__ = [
-    "PrimitiveModel",
-    "Buffer",
-    "ToTuple",
-    "Power",
-    "Add",
-    "Subtract",
-    "Multiply",
-    "Divide",
-    "FloorDivide",
-    "Minus",
-    "MatrixMultiply",
-    "Shape",
-    "Reshape",
-    "Length",
-    "Size",
-    "Exponential",
-    "Item",
-    "Indexer",
-    "ToTensor",
-    "ToList",
-    "TensorToList",
-    "Mean",
-    "Sum",
-    "Max",
-    "Min",
-    "Prod",
-    "Variance",
-    "Absolute",
-    "Equal",
-    "NotEqual",
-    "Greater",
-    "GreaterEqual",
-    "Less",
-    "LessEqual",
-    "LogicalNot",
-    "LogicalOr",
-    "LogicalAnd",
-    "LogicalXOr",
-    "ShiftLeft",
-    "ShiftRight",
-    "ArgMax",
-    "ArgMin",
-    "Cast",
-    "Transpose",
-    "Sqrt",
-    "Split",
-    "Slice",
-    "Dtype",
-    "Sine",
-    "Cosine",
-    "Minimum",
-    "Maximum",
+    "Operator",
+    "BufferOp",
+    "ToTupleOp",
+    "PowerOp",
+    "AddOp",
+    "SubtractOp",
+    "MultiplyOp",
+    "DivideOp",
+    "FloorDivideOp",
+    "MinusOp",
+    "MatrixMultiplyOp",
+    "ShapeOp",
+    "ReshapeOp",
+    "LengthOp",
+    "SizeOp",
+    "ExponentialOp",
+    "ItemOp",
+    "IndexerOp",
+    "ToTensorOp",
+    "ToListOp",
+    "TensorToListOp",
+    "MeanOp",
+    "SumOp",
+    "MaxOp",
+    "MinOp",
+    "ProdOp",
+    "VarianceOp",
+    "AbsoluteOp",
+    "EqualOp",
+    "NotEqualOp",
+    "GreaterOp",
+    "GreaterEqualOp",
+    "LessOp",
+    "LessEqualOp",
+    "LogicalNotOp",
+    "LogicalOrOp",
+    "LogicalAndOp",
+    "LogicalXOrOp",
+    "ShiftLeftOp",
+    "ShiftRightOp",
+    "ArgMaxOp",
+    "ArgMinOp",
+    "CastOp",
+    "TransposeOp",
+    "SqrtOp",
+    "SplitOp",
+    "SliceOp",
+    "DtypeOp",
+    "SineOp",
+    "CosineOp",
+    "MinimumOp",
+    "MaximumOp",
 ]
 
 ConstantType = float | int | core.Constant
 
 
-class Buffer(PrimitiveModel):
-    input: Connection
-    output: Connection
+class BufferOp(Operator):
+    _model_name: str = "Buffer"
 
     def __init__(
         self,
         input: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
-        *,
-        name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="buffer",
-            name=name,
             output=BaseKey(),
             input=BaseKey(value=input),
         )
 
-        self._add_constraint(
-            fn=buffer_constraint, keys=[PrimitiveModel.output_key, "input"]
-        )
-
-    def __call__(  # type: ignore[override]
-        self,
-        input: ConnectionType = NOT_GIVEN,
-        output: ConnectionType = NOT_GIVEN,
-    ) -> ExtendInfo:
-        return super().__call__(input=input, output=output)
+        self._add_constraint(fn=buffer_constraint, keys=[Operator.output_key, "input"])
 
 
-class ToTuple(PrimitiveModel):
+class ToTupleOp(Operator):
+    _model_name: str = "ToTuple"
+
     def __init__(
         self,
         n: int,
-        *,
-        name: str | None = None,
         **kwargs: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined,
     ) -> None:
         self.factory_args = {"n": n}
@@ -176,17 +159,16 @@ class ToTuple(PrimitiveModel):
             for idx in range(n)
         }
 
-        super().__init__(formula_key="to_tuple", name=name, **key_definitions)
+        super().__init__(formula_key="to_tuple", name=None, **key_definitions)
         self._add_constraint(
             fn=to_tuple_constraints,
-            keys=[PrimitiveModel.output_key] + [key for key in self.input_keys],
+            keys=[Operator.output_key] + [key for key in self.input_keys],
         )
+        self._set_cin()
 
 
-class ArithmeticOperation(PrimitiveModel):
-    left: Connection
-    right: Connection
-    output: Connection
+class ArithmeticOp(Operator):
+    _model_name: str = "Arithmetic"
 
     def __init__(
         self,
@@ -206,41 +188,31 @@ class ArithmeticOperation(PrimitiveModel):
 
         edge_constraint = self._add_constraint(
             fn=edge_type_constraint,
-            keys=[PrimitiveModel.output_key, "left", "right"],
+            keys=[Operator.output_key, "left", "right"],
         )
 
         self._add_constraint(
             fn=general_tensor_type_constraint,
-            keys=[PrimitiveModel.output_key, "left", "right"],
+            keys=[Operator.output_key, "left", "right"],
             dependencies={edge_constraint},
         )
 
         bcast_constraint = self._add_constraint(
             fn=bcast,
-            keys=[PrimitiveModel.output_key, "left", "right"],
+            keys=[Operator.output_key, "left", "right"],
             dependencies={edge_constraint},
         )
 
         self._add_constraint(
             fn=bcast_error_check,
-            keys=[PrimitiveModel.output_key, "left", "right"],
+            keys=[Operator.output_key, "left", "right"],
             dependencies={bcast_constraint},
         )
         self.edge_constraint = edge_constraint
 
-    def __call__(  # type: ignore[override]
-        self,
-        left: ConnectionType = NOT_GIVEN,
-        right: ConnectionType = NOT_GIVEN,
-        output: ConnectionType = NOT_GIVEN,
-    ) -> ExtendInfo:
-        return super().__call__(left=left, right=right, output=output)
 
-
-class Power(PrimitiveModel):
-    base: Connection
-    exponent: Connection
-    output: Connection
+class PowerOp(Operator):
+    _model_name: str = "Power"
 
     def __init__(
         self,
@@ -284,63 +256,40 @@ class Power(PrimitiveModel):
             )
             edge_constraint = self._add_constraint(
                 fn=edge_type_constraint,
-                keys=[PrimitiveModel.output_key, "base", "exponent"],
+                keys=[Operator.output_key, "base", "exponent"],
             )
             constrs = {edge_constraint}
 
         self._add_constraint(
             fn=general_tensor_type_constraint,
-            keys=[PrimitiveModel.output_key, "base", "exponent"],
+            keys=[Operator.output_key, "base", "exponent"],
             dependencies=constrs,
         )
 
         bcast_constraint = self._add_constraint(
             fn=bcast,
-            keys=[PrimitiveModel.output_key, "base", "exponent"],
+            keys=[Operator.output_key, "base", "exponent"],
             dependencies=constrs,
         )
 
         self._add_constraint(
             fn=bcast_error_check,
-            keys=[PrimitiveModel.output_key, "base", "exponent"],
+            keys=[Operator.output_key, "base", "exponent"],
             dependencies={bcast_constraint},
         )
 
         self._add_constraint(
             partial(general_forward_constraint, callable=lambda x, y: x**y),
-            keys=[PrimitiveModel.output_key, "base", "exponent"],
+            keys=[Operator.output_key, "base", "exponent"],
             dependencies=constrs,
         )
 
         constrs = constrs
 
-    def __call__(  # type: ignore[override]
-        self,
-        base: ConnectionType = NOT_GIVEN,
-        exponent: ConnectionType = NOT_GIVEN,
-        output: ConnectionType = NOT_GIVEN,
-        *,
-        name: str | None = None,
-        threshold: ConnectionType = core.Constant.MIN_POSITIVE_NORMAL,
-    ) -> ExtendInfo:
-        kwargs = {"base": base, "exponent": exponent, "output": output}
-        default = (
-            isinstance(threshold, core.Constant)
-            and threshold == core.Constant.MIN_POSITIVE_NORMAL
-        )
-        if self.robust:
-            # NOTE: Since we can not provide Tensor objects as default
-            # arguments, we need to convert default value.
-            if default:
-                threshold = Tensor(threshold)  # type: ignore
-            kwargs["threshold"] = threshold
-        elif not default:
-            raise ValueError("Threshold cannot be specified when robust mode is off")
 
-        return super().__call__(**kwargs)
+class AddOp(ArithmeticOp):
+    _model_name: str = "Add"
 
-
-class Add(ArithmeticOperation):
     def __init__(
         self,
         left: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
@@ -352,12 +301,15 @@ class Add(ArithmeticOperation):
 
         self._add_constraint(
             partial(general_forward_constraint, callable=lambda x, y: x + y),
-            keys=[PrimitiveModel.output_key, "left", "right"],
+            keys=[Operator.output_key, "left", "right"],
             dependencies={self.edge_constraint},
         )
+        self._set_cin("left", "right", safe=False)
 
 
-class Subtract(ArithmeticOperation):
+class SubtractOp(ArithmeticOp):
+    _model_name: str = "Subtract"
+
     def __init__(
         self,
         left: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
@@ -369,12 +321,14 @@ class Subtract(ArithmeticOperation):
 
         self._add_constraint(
             partial(general_forward_constraint, callable=lambda x, y: x - y),
-            keys=[PrimitiveModel.output_key, "left", "right"],
+            keys=[Operator.output_key, "left", "right"],
             dependencies={self.edge_constraint},
         )
 
 
-class Multiply(ArithmeticOperation):
+class MultiplyOp(ArithmeticOp):
+    _model_name: str = "Multiply"
+
     def __init__(
         self,
         left: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
@@ -388,35 +342,38 @@ class Multiply(ArithmeticOperation):
 
         self._add_constraint(
             partial(general_forward_constraint, callable=lambda x, y: x * y),
-            keys=[PrimitiveModel.output_key, "left", "right"],
+            keys=[Operator.output_key, "left", "right"],
             dependencies={self.edge_constraint},
         )
+        self._set_cin("left", "right", safe=False)
 
 
-class Minimum(ArithmeticOperation):
+class MinimumOp(ArithmeticOp):
+    _model_name: str = "Minimum"
+
     def __init__(
         self,
-        name: str | None = None,
         left: TensorValueType | ToBeDetermined = TBD,
         right: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
-        super().__init__(formula_key="minimum", name=name, left=left, right=right)
+        super().__init__(formula_key="minimum", left=left, right=right)
+        self._set_cin("left", "right", safe=False)
 
 
-class Maximum(ArithmeticOperation):
+class MaximumOp(ArithmeticOp):
+    _model_name: str = "Maximum"
+
     def __init__(
         self,
-        name: str | None = None,
         left: TensorValueType | ToBeDetermined = TBD,
         right: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
-        super().__init__(formula_key="maximum", name=name, left=left, right=right)
+        super().__init__(formula_key="maximum", left=left, right=right)
+        self._set_cin("left", "right", safe=False)
 
 
-class Divide(PrimitiveModel):
-    numerator: Connection
-    denominator: Connection
-    output: Connection
+class DivideOp(Operator):
+    _model_name: str = "Divide"
 
     def __init__(
         self,
@@ -436,48 +393,36 @@ class Divide(PrimitiveModel):
         )
         edge_constraint = self._add_constraint(
             fn=edge_type_constraint,
-            keys=[PrimitiveModel.output_key, "numerator", "denominator"],
+            keys=[Operator.output_key, "numerator", "denominator"],
         )
 
         self._add_constraint(
             fn=divide_type_constraint,
-            keys=[PrimitiveModel.output_key, "numerator", "denominator"],
+            keys=[Operator.output_key, "numerator", "denominator"],
             dependencies={edge_constraint},
         )
 
         bcast_constraint = self._add_constraint(
             fn=bcast,
-            keys=[PrimitiveModel.output_key, "numerator", "denominator"],
+            keys=[Operator.output_key, "numerator", "denominator"],
             dependencies={edge_constraint},
         )
 
         self._add_constraint(
             partial(general_forward_constraint, callable=lambda x, y: x / y),
-            keys=[PrimitiveModel.output_key, "numerator", "denominator"],
+            keys=[Operator.output_key, "numerator", "denominator"],
             dependencies={edge_constraint},
         )
 
         self._add_constraint(
             fn=bcast_error_check,
-            keys=[PrimitiveModel.output_key, "numerator", "denominator"],
+            keys=[Operator.output_key, "numerator", "denominator"],
             dependencies={bcast_constraint},
         )
 
-    def __call__(  # type: ignore[override]
-        self,
-        numerator: ConnectionType = NOT_GIVEN,
-        denominator: ConnectionType = NOT_GIVEN,
-        output: ConnectionType = NOT_GIVEN,
-    ) -> ExtendInfo:
-        return super().__call__(
-            numerator=numerator, denominator=denominator, output=output
-        )
 
-
-class FloorDivide(PrimitiveModel):
-    numerator: Connection
-    denominator: Connection
-    output: Connection
+class FloorDivideOp(Operator):
+    _model_name: str = "FloorDivide"
 
     def __init__(
         self,
@@ -491,54 +436,47 @@ class FloorDivide(PrimitiveModel):
         super().__init__(
             formula_key="floor_divide",
             name=name,
-            output=BaseKey(type=Tensor[int | float] | int | float),
+            output=BaseKey(
+                type=Tensor[int | float] | int | float, differentiable=False
+            ),
             numerator=BaseKey(value=numerator),
             denominator=BaseKey(value=denominator),
         )
         edge_constraint = self._add_constraint(
             fn=edge_type_constraint,
-            keys=[PrimitiveModel.output_key, "numerator", "denominator"],
+            keys=[Operator.output_key, "numerator", "denominator"],
         )
 
         self._add_constraint(
             fn=floor_divide_type_constraint,
-            keys=[PrimitiveModel.output_key, "numerator", "denominator"],
+            keys=[Operator.output_key, "numerator", "denominator"],
             dependencies={edge_constraint},
         )
 
         bcast_constraint = self._add_constraint(
             fn=bcast,
-            keys=[PrimitiveModel.output_key, "numerator", "denominator"],
+            keys=[Operator.output_key, "numerator", "denominator"],
             dependencies={edge_constraint},
         )
 
         self._add_constraint(
             partial(general_forward_constraint, callable=lambda x, y: x // y),
-            keys=[PrimitiveModel.output_key, "numerator", "denominator"],
+            keys=[Operator.output_key, "numerator", "denominator"],
             dependencies={edge_constraint},
         )
 
         self._add_constraint(
             fn=bcast_error_check,
-            keys=[PrimitiveModel.output_key, "numerator", "denominator"],
+            keys=[Operator.output_key, "numerator", "denominator"],
             dependencies={bcast_constraint},
         )
 
-    def __call__(  # type: ignore[override]
-        self,
-        numerator: ConnectionType = NOT_GIVEN,
-        denominator: ConnectionType = NOT_GIVEN,
-        output: ConnectionType = NOT_GIVEN,
-    ) -> ExtendInfo:
-        return super().__call__(
-            numerator=numerator, denominator=denominator, output=output
-        )
+    def infer_differentiability(self, *inputs: bool) -> bool:
+        return False
 
 
-class MatrixMultiply(PrimitiveModel):
-    left: Connection
-    right: Connection
-    output: Connection
+class MatrixMultiplyOp(Operator):
+    _model_name: str = "MatrixMultiply"
 
     def __init__(
         self,
@@ -555,32 +493,23 @@ class MatrixMultiply(PrimitiveModel):
             right=BaseKey(shape=[("Var2", ...), "y", "z"], type=Tensor, value=right),
         )
         bcast_constraint = self._add_constraint(
-            fn=bcast_matrix_mult, keys=[PrimitiveModel.output_key, "left", "right"]
+            fn=bcast_matrix_mult, keys=[Operator.output_key, "left", "right"]
         )
 
         self._add_constraint(
             fn=bcast_mat_mul_check,
-            keys=[PrimitiveModel.output_key, "left", "right"],
+            keys=[Operator.output_key, "left", "right"],
             dependencies={bcast_constraint},
         )
 
         self._add_constraint(
             fn=general_tensor_type_constraint,
-            keys=[PrimitiveModel.output_key, "left", "right"],
+            keys=[Operator.output_key, "left", "right"],
         )
 
-    def __call__(  # type: ignore[override]
-        self,
-        left: ConnectionType = NOT_GIVEN,
-        right: ConnectionType = NOT_GIVEN,
-        output: ConnectionType = NOT_GIVEN,
-    ) -> ExtendInfo:
-        return super().__call__(left=left, right=right, output=output)
 
-
-class Shape(PrimitiveModel):
-    input: Connection
-    output: Connection
+class ShapeOp(Operator):
+    _model_name: str = "Shape"
 
     def __init__(
         self,
@@ -596,16 +525,9 @@ class Shape(PrimitiveModel):
         )
         self._add_constraint(fn=shape_constraints, keys=["output", "input"])
 
-    def __call__(  # type: ignore[override]
-        self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
-    ) -> ExtendInfo:
-        return super().__call__(input=input, output=output)
 
-
-class Reshape(PrimitiveModel):
-    input: Connection
-    shape: Connection
-    output: Connection
+class ReshapeOp(Operator):
+    _model_name: str = "Reshape"
 
     def __init__(
         self,
@@ -629,18 +551,9 @@ class Reshape(PrimitiveModel):
         )
         self._add_constraint(fn=reshape_constraints, keys=["output", "input", "shape"])
 
-    def __call__(  # type: ignore[override]
-        self,
-        input: ConnectionType = NOT_GIVEN,
-        shape: ConnectionType = NOT_GIVEN,
-        output: ConnectionType = NOT_GIVEN,
-    ) -> ExtendInfo:
-        return super().__call__(input=input, shape=shape, output=output)
 
-
-class Length(PrimitiveModel):
-    input: Connection
-    output: Connection
+class LengthOp(Operator):
+    _model_name: str = "Length"
 
     def __init__(
         self,
@@ -655,16 +568,9 @@ class Length(PrimitiveModel):
             input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
         )
 
-    def __call__(  # type: ignore[override]
-        self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
-    ) -> ExtendInfo:
-        return super().__call__(input=input, output=output)
 
-
-class Cast(PrimitiveModel):
-    input: Connection
-    dtype: Connection
-    output: Connection
+class CastOp(Operator):
+    _model_name: str = "Cast"
 
     def __init__(
         self, dtype: core.Dtype | ToBeDetermined = TBD, *, name: str | None = None
@@ -677,18 +583,9 @@ class Cast(PrimitiveModel):
             dtype=BaseKey(type=core.Dtype, value=dtype),
         )
 
-    def __call__(  # type: ignore[override]
-        self,
-        input: ConnectionType = NOT_GIVEN,
-        dtype: ConnectionType = NOT_GIVEN,
-        output: ConnectionType = NOT_GIVEN,
-    ) -> ExtendInfo:
-        return super().__call__(input=input, dtype=dtype, output=output)
 
-
-class Dtype(PrimitiveModel):
-    input: Connection
-    output: Connection
+class DtypeOp(Operator):
+    _model_name: str = "Dtype"
 
     def __init__(
         self,
@@ -703,16 +600,9 @@ class Dtype(PrimitiveModel):
             input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
         )
 
-    def __call__(  # type: ignore[override]
-        self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
-    ) -> ExtendInfo:
-        return super().__call__(input=input, output=output)
 
-
-class Size(PrimitiveModel):
-    input: Connection
-    dim: Connection
-    output: Connection
+class SizeOp(Operator):
+    _model_name: str = "Size"
 
     def __init__(
         self,
@@ -731,18 +621,9 @@ class Size(PrimitiveModel):
         )
         self._add_constraint(fn=size_constraints, keys=["output", "input", "dim"])
 
-    def __call__(  # type: ignore[override]
-        self,
-        input: ConnectionType = NOT_GIVEN,
-        dim: ConnectionType = NOT_GIVEN,
-        output: ConnectionType = NOT_GIVEN,
-    ) -> ExtendInfo:
-        return super().__call__(input=input, dim=dim, output=output)
 
-
-class Item(PrimitiveModel):
-    input: Connection
-    output: Connection
+class ItemOp(Operator):
+    _model_name: str = "Item"
 
     def __init__(
         self,
@@ -756,22 +637,13 @@ class Item(PrimitiveModel):
             output=BaseKey(type=int | float),
             input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
         )
-        self._add_constraint(
-            fn=item_constraints, keys=[PrimitiveModel.output_key, "input"]
-        )
+        self._add_constraint(fn=item_constraints, keys=[Operator.output_key, "input"])
 
         self._jittable = False
 
-    def __call__(  # type: ignore[override]
-        self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
-    ) -> ExtendInfo:
-        return super().__call__(input=input, output=output)
 
-
-class ToTensor(PrimitiveModel):
-    input: Connection
-    dtype: Connection
-    output: Connection
+class ToTensorOp(Operator):
+    _model_name: str = "ToTensor"
 
     def __init__(
         self,
@@ -789,20 +661,12 @@ class ToTensor(PrimitiveModel):
         )
 
         self._add_constraint(
-            fn=to_tensor_constraints, keys=[PrimitiveModel.output_key, "input"]
+            fn=to_tensor_constraints, keys=[Operator.output_key, "input"]
         )
 
-    def __call__(  # type: ignore[override]
-        self,
-        input: ConnectionType = NOT_GIVEN,
-        dtype: ConnectionType = NOT_GIVEN,
-        output: ConnectionType = NOT_GIVEN,
-    ) -> ExtendInfo:
-        return super().__call__(input=input, dtype=dtype, output=output)
 
-
-class ToList(PrimitiveModel):
-    output: Connection
+class ToListOp(Operator):
+    _model_name: str = "ToList"
 
     def __init__(
         self,
@@ -828,13 +692,13 @@ class ToList(PrimitiveModel):
 
         self._add_constraint(
             fn=to_list_constraints,
-            keys=[PrimitiveModel.output_key] + [key for key in self.input_keys],
+            keys=[Operator.output_key] + [key for key in self.input_keys],
         )
+        self._set_cin()
 
 
-class TensorToList(PrimitiveModel):
-    input: Connection
-    output: Connection
+class TensorToListOp(Operator):
+    _model_name: str = "TensorToList"
 
     def __init__(
         self,
@@ -849,25 +713,17 @@ class TensorToList(PrimitiveModel):
             input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
         )
         self._add_constraint(
-            fn=tensor_to_list_constraints, keys=[PrimitiveModel.output_key, "input"]
+            fn=tensor_to_list_constraints, keys=[Operator.output_key, "input"]
         )
         self._add_constraint(
-            fn=tensor_to_list_type_constraint, keys=[PrimitiveModel.output_key, "input"]
+            fn=tensor_to_list_type_constraint, keys=[Operator.output_key, "input"]
         )
 
         self._jittable = False
 
-    def __call__(  # type: ignore[override]
-        self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
-    ) -> ExtendInfo:
-        return super().__call__(input=input, output=output)
 
-
-class Reduce(PrimitiveModel):
-    input: Connection
-    axis: Connection
-    keepdim: Connection
-    output: Connection
+class ReduceOp(Operator):
+    _model_name: str = "Reduce"
 
     def __init__(
         self,
@@ -879,7 +735,6 @@ class Reduce(PrimitiveModel):
         name: str | None = None,
         **kwargs: BaseKey,
     ) -> None:
-        # TODO: Handle axis type for conditional cases below.
         self.factory_args = {"axis": axis, "keepdim": keepdim}
         axis_type: UnionType | type
         if isinstance(axis, tuple):
@@ -902,20 +757,13 @@ class Reduce(PrimitiveModel):
 
         self._add_constraint(
             fn=reduce_constraints,
-            keys=[PrimitiveModel.output_key, "input", "axis", "keepdim"],
+            keys=[Operator.output_key, "input", "axis", "keepdim"],
         )
 
-    def __call__(  # type: ignore[override]
-        self,
-        input: ConnectionType = NOT_GIVEN,
-        axis: ConnectionType = NOT_GIVEN,
-        keepdim: ConnectionType = NOT_GIVEN,
-        output: ConnectionType = NOT_GIVEN,
-    ) -> ExtendInfo:
-        return super().__call__(input=input, axis=axis, keepdim=keepdim, output=output)
 
+class MeanOp(ReduceOp):
+    _model_name: str = "Mean"
 
-class Mean(Reduce):
     # TODO: Torch expects float input for mean reduction, JAX accepts all types.
     def __init__(
         self,
@@ -935,11 +783,13 @@ class Mean(Reduce):
         )
 
 
-class Sum(Reduce):
+class SumOp(ReduceOp):
+    _model_name: str = "Sum"
+
     def __init__(
         self,
         axis: int | tuple[int, ...] | None | ToBeDetermined = None,
-        keepdim: bool = False,
+        keepdim: bool | ToBeDetermined = False,
         input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
@@ -948,15 +798,17 @@ class Sum(Reduce):
             formula_key="reduce_sum", name=name, axis=axis, keepdim=keepdim, input=input
         )
         self._add_constraint(
-            fn=reduce_type_constraint, keys=[PrimitiveModel.output_key, "input"]
+            fn=reduce_type_constraint, keys=[Operator.output_key, "input"]
         )
 
 
-class Max(Reduce):
+class MaxOp(ReduceOp):
+    _model_name: str = "Max"
+
     def __init__(
         self,
         axis: int | tuple[int, ...] | None | ToBeDetermined = None,
-        keepdim: bool = False,
+        keepdim: bool | ToBeDetermined = False,
         input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
@@ -965,15 +817,17 @@ class Max(Reduce):
             formula_key="reduce_max", name=name, axis=axis, keepdim=keepdim, input=input
         )
         self._add_constraint(
-            fn=general_tensor_type_constraint, keys=[PrimitiveModel.output_key, "input"]
+            fn=general_tensor_type_constraint, keys=[Operator.output_key, "input"]
         )
 
 
-class ArgMax(Reduce):
+class ArgMaxOp(ReduceOp):
+    _model_name: str = "ArgMax"
+
     def __init__(
         self,
         axis: int | None | ToBeDetermined = None,
-        keepdim: bool = False,
+        keepdim: bool | ToBeDetermined = False,
         input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
@@ -984,16 +838,18 @@ class ArgMax(Reduce):
             axis=axis,
             keepdim=keepdim,
             input=input,
-            # axis = Scalar(axis_type, axis), # TODO: Change axis type to int
+            # axis = Scalar(axis_type, axis), # TODO: Change axis type to int
             output=BaseKey(shape=[("Var_out", ...)], type=Tensor[int]),
         )
 
 
-class Min(Reduce):
+class MinOp(ReduceOp):
+    _model_name: str = "Min"
+
     def __init__(
         self,
         axis: int | tuple[int, ...] | None | ToBeDetermined = None,
-        keepdim: bool = False,
+        keepdim: bool | ToBeDetermined = False,
         input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
@@ -1002,15 +858,17 @@ class Min(Reduce):
             formula_key="reduce_min", name=name, axis=axis, keepdim=keepdim, input=input
         )
         self._add_constraint(
-            fn=general_tensor_type_constraint, keys=[PrimitiveModel.output_key, "input"]
+            fn=general_tensor_type_constraint, keys=[Operator.output_key, "input"]
         )
 
 
-class ArgMin(Reduce):
+class ArgMinOp(ReduceOp):
+    _model_name: str = "ArgMin"
+
     def __init__(
         self,
         axis: int | tuple[int, ...] | None | ToBeDetermined = None,
-        keepdim: bool = False,
+        keepdim: bool | ToBeDetermined = False,
         input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
@@ -1021,16 +879,18 @@ class ArgMin(Reduce):
             axis=axis,
             keepdim=keepdim,
             input=input,
-            # axis = Scalar(axis_type, axis), # TODO: Change axis type to int
+            # axis = Scalar(axis_type, axis), # TODO: Change axis type to int
             output=BaseKey(shape=[("Var_out", ...)], type=Tensor[int]),
         )
 
 
-class Prod(Reduce):
+class ProdOp(ReduceOp):
+    _model_name: str = "Prod"
+
     def __init__(
         self,
         axis: int | tuple[int, ...] | None | ToBeDetermined = None,
-        keepdim: bool = False,
+        keepdim: bool | ToBeDetermined = False,
         input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
@@ -1043,17 +903,17 @@ class Prod(Reduce):
             input=input,
         )
         self._add_constraint(
-            fn=reduce_type_constraint, keys=[PrimitiveModel.output_key, "input"]
+            fn=reduce_type_constraint, keys=[Operator.output_key, "input"]
         )
 
 
-class Variance(Reduce):
-    correction: Connection
+class VarianceOp(ReduceOp):
+    _model_name: str = "Variance"
 
     def __init__(
         self,
         axis: int | tuple[int, ...] | None | ToBeDetermined = None,
-        keepdim: bool = False,
+        keepdim: bool | ToBeDetermined = False,
         correction: int | float | None = 0.0,
         input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
@@ -1071,26 +931,9 @@ class Variance(Reduce):
         self.factory_args = {"axis": axis, "correction": correction, "keepdim": keepdim}
         # TODO: Should we remove axis, correction and keepdim from factory_args?
 
-    def __call__(  # type: ignore[override]
-        self,
-        input: ConnectionType = NOT_GIVEN,
-        axis: ConnectionType = NOT_GIVEN,
-        keepdim: ConnectionType = NOT_GIVEN,
-        correction: ConnectionType = NOT_GIVEN,
-        output: ConnectionType = NOT_GIVEN,
-    ) -> ExtendInfo:
-        return super(Reduce, self).__call__(
-            input=input,
-            axis=axis,
-            keepdim=keepdim,
-            correction=correction,
-            output=output,
-        )
 
-
-class SingleInputOperation(PrimitiveModel):
-    input: Connection
-    output: Connection
+class SingleInputOperationOp(Operator):
+    _model_name: str = "SingleInputOperation"
 
     def __init__(
         self,
@@ -1107,21 +950,18 @@ class SingleInputOperation(PrimitiveModel):
         )
         # Finalize kwargs.
         new_kwargs: Mapping[str, BaseKey] = default_kwargs | kwargs
-        super().__init__(formula_key, name=name, **new_kwargs)
+        super().__init__(formula_key=formula_key, name=name, **new_kwargs)
 
         if polymorphic_constraint:
             self._add_constraint(
                 fn=general_tensor_type_constraint,
-                keys=[PrimitiveModel.output_key, "input"],
+                keys=[Operator.output_key, "input"],
             )
 
-    def __call__(  # type: ignore[override]
-        self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
-    ) -> ExtendInfo:
-        return super().__call__(input=input, output=output)
 
+class AbsoluteOp(SingleInputOperationOp):
+    _model_name: str = "Absolute"
 
-class Absolute(SingleInputOperation):
     def __init__(
         self,
         input: Tensor[int | float | bool] | ToBeDetermined = TBD,
@@ -1131,7 +971,9 @@ class Absolute(SingleInputOperation):
         super().__init__(formula_key="abs", name=name, input=input)
 
 
-class Minus(SingleInputOperation):
+class MinusOp(SingleInputOperationOp):
+    _model_name: str = "Minus"
+
     def __init__(
         self,
         input: Tensor[int | float | bool] | ToBeDetermined = TBD,
@@ -1141,7 +983,9 @@ class Minus(SingleInputOperation):
         super().__init__(formula_key="minus", name=name, input=input)
 
 
-class Exponential(SingleInputOperation):
+class ExponentialOp(SingleInputOperationOp):
+    _model_name: str = "Exponential"
+
     def __init__(
         self,
         input: Tensor[int | float | bool] | ToBeDetermined = TBD,
@@ -1157,9 +1001,8 @@ class Exponential(SingleInputOperation):
         )
 
 
-class Sqrt(PrimitiveModel):
-    input: Connection
-    output: Connection
+class SqrtOp(Operator):
+    _model_name: str = "Sqrt"
 
     def __init__(
         self,
@@ -1188,35 +1031,9 @@ class Sqrt(PrimitiveModel):
                 input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
             )
 
-    def __call__(  # type: ignore[override]
-        self,
-        input: ConnectionType = NOT_GIVEN,
-        output: ConnectionType = NOT_GIVEN,
-        *,
-        cutoff: ConnectionType = core.Constant.MIN_POSITIVE_NORMAL,
-    ) -> ExtendInfo:
-        kwargs = {"input": input, "output": output}
 
-        default = (
-            isinstance(cutoff, core.Constant)
-            and cutoff == core.Constant.MIN_POSITIVE_NORMAL
-        )
-        if self.robust:
-            if default:
-                # NOTE: Since we can not provide Tensor objects as default
-                # arguments, we need to convert default value.
-                cutoff = Tensor(cutoff)  # type: ignore
-            kwargs["cutoff"] = cutoff
-        elif not default:
-            raise ValueError("Cutoff cannot be specified when robust mode is off")
-
-        return super().__call__(**kwargs)
-
-
-class RelationalOperators(PrimitiveModel):
-    left: Connection
-    right: Connection
-    output: Connection
+class RelationalOperatorsOp(Operator):
+    _model_name: str = "RelationalOperators"
 
     def __init__(
         self,
@@ -1253,21 +1070,15 @@ class RelationalOperators(PrimitiveModel):
 
         self._add_constraint(
             fn=bcast_error_check,
-            keys=[PrimitiveModel.output_key, "left", "right"],
+            keys=[Operator.output_key, "left", "right"],
             dependencies={bcast_constraint},
         )
         self.edge_constraint = edge_constraint
 
-    def __call__(  # type: ignore[override]
-        self,
-        left: ConnectionType = NOT_GIVEN,
-        right: ConnectionType = NOT_GIVEN,
-        output: ConnectionType = NOT_GIVEN,
-    ) -> ExtendInfo:
-        return super().__call__(left=left, right=right, output=output)
 
+class GreaterOp(RelationalOperatorsOp):
+    _model_name: str = "Greater"
 
-class Greater(RelationalOperators):
     def __init__(
         self,
         left: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
@@ -1279,12 +1090,14 @@ class Greater(RelationalOperators):
 
         self._add_constraint(
             partial(general_forward_constraint, callable=lambda x, y: x > y),
-            keys=[PrimitiveModel.output_key, "left", "right"],
+            keys=[Operator.output_key, "left", "right"],
             dependencies={self.edge_constraint},
         )
 
 
-class Less(RelationalOperators):
+class LessOp(RelationalOperatorsOp):
+    _model_name: str = "Less"
+
     def __init__(
         self,
         left: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
@@ -1296,12 +1109,14 @@ class Less(RelationalOperators):
 
         self._add_constraint(
             partial(general_forward_constraint, callable=lambda x, y: x < y),
-            keys=[PrimitiveModel.output_key, "left", "right"],
+            keys=[Operator.output_key, "left", "right"],
             dependencies={self.edge_constraint},
         )
 
 
-class Equal(RelationalOperators):
+class EqualOp(RelationalOperatorsOp):
+    _model_name: str = "Equal"
+
     def __init__(
         self,
         left: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
@@ -1313,12 +1128,15 @@ class Equal(RelationalOperators):
 
         self._add_constraint(
             partial(general_forward_constraint, callable=lambda x, y: x == y),
-            keys=[PrimitiveModel.output_key, "left", "right"],
+            keys=[Operator.output_key, "left", "right"],
             dependencies={self.edge_constraint},
         )
+        self._set_cin("left", "right", safe=False)
 
 
-class NotEqual(RelationalOperators):
+class NotEqualOp(RelationalOperatorsOp):
+    _model_name: str = "NotEqual"
+
     def __init__(
         self,
         left: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
@@ -1330,12 +1148,15 @@ class NotEqual(RelationalOperators):
 
         self._add_constraint(
             partial(general_forward_constraint, callable=lambda x, y: x != y),
-            keys=[PrimitiveModel.output_key, "left", "right"],
+            keys=[Operator.output_key, "left", "right"],
             dependencies={self.edge_constraint},
         )
+        self._set_cin("left", "right", safe=False)
 
 
-class LessEqual(RelationalOperators):
+class LessEqualOp(RelationalOperatorsOp):
+    _model_name: str = "LessEqual"
+
     def __init__(
         self,
         left: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
@@ -1347,12 +1168,14 @@ class LessEqual(RelationalOperators):
 
         self._add_constraint(
             partial(general_forward_constraint, callable=lambda x, y: x <= y),
-            keys=[PrimitiveModel.output_key, "left", "right"],
+            keys=[Operator.output_key, "left", "right"],
             dependencies={self.edge_constraint},
         )
 
 
-class GreaterEqual(RelationalOperators):
+class GreaterEqualOp(RelationalOperatorsOp):
+    _model_name: str = "GreaterEqual"
+
     def __init__(
         self,
         left: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
@@ -1364,14 +1187,13 @@ class GreaterEqual(RelationalOperators):
 
         self._add_constraint(
             partial(general_forward_constraint, callable=lambda x, y: x >= y),
-            keys=[PrimitiveModel.output_key, "left", "right"],
+            keys=[Operator.output_key, "left", "right"],
             dependencies={self.edge_constraint},
         )
 
 
-class LogicalNot(PrimitiveModel):
-    input: Connection
-    output: Connection
+class LogicalNotOp(Operator):
+    _model_name: str = "LogicalNot"
 
     def __init__(
         self,
@@ -1386,16 +1208,9 @@ class LogicalNot(PrimitiveModel):
             input=BaseKey(shape=[("Var", ...)], type=Tensor[bool], value=input),
         )
 
-    def __call__(  # type: ignore[override]
-        self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
-    ) -> ExtendInfo:
-        return super().__call__(input=input, output=output)
 
-
-class BitwiseOperators(PrimitiveModel):
-    left: Connection
-    right: Connection
-    output: Connection
+class BitwiseOperatorsOp(Operator):
+    _model_name: str = "BitwiseOperators"
 
     def __init__(
         self,
@@ -1413,17 +1228,12 @@ class BitwiseOperators(PrimitiveModel):
             right=BaseKey(shape=[("Var3", ...)], type=Tensor[bool], value=right),
         )
         self._add_constraint(bcast, ["output", "left", "right"])
-
-    def __call__(  # type: ignore[override]
-        self,
-        left: ConnectionType = NOT_GIVEN,
-        right: ConnectionType = NOT_GIVEN,
-        output: ConnectionType = NOT_GIVEN,
-    ) -> ExtendInfo:
-        return super().__call__(left=left, right=right, output=output)
+        self._set_cin("left", "right", safe=False)
 
 
-class LogicalAnd(BitwiseOperators):
+class LogicalAndOp(BitwiseOperatorsOp):
+    _model_name: str = "LogicalAnd"
+
     def __init__(
         self,
         left: Tensor[int | float | bool] | ToBeDetermined = TBD,
@@ -1434,7 +1244,9 @@ class LogicalAnd(BitwiseOperators):
         super().__init__(formula_key="logical_and", name=name, left=left, right=right)
 
 
-class LogicalOr(BitwiseOperators):
+class LogicalOrOp(BitwiseOperatorsOp):
+    _model_name: str = "LogicalOr"
+
     def __init__(
         self,
         left: Tensor[int | float | bool] | ToBeDetermined = TBD,
@@ -1445,7 +1257,9 @@ class LogicalOr(BitwiseOperators):
         super().__init__(formula_key="logical_or", name=name, left=left, right=right)
 
 
-class LogicalXOr(BitwiseOperators):
+class LogicalXOrOp(BitwiseOperatorsOp):
+    _model_name: str = "LogicalXOr"
+
     def __init__(
         self,
         left: Tensor[int | float | bool] | ToBeDetermined = TBD,
@@ -1457,10 +1271,8 @@ class LogicalXOr(BitwiseOperators):
         self.factory_args = {"left": left, "right": right}
 
 
-class ShiftLeft(PrimitiveModel):
-    input: Connection
-    shift: Connection
-    output: Connection
+class ShiftLeftOp(Operator):
+    _model_name: str = "ShiftLeft"
 
     def __init__(
         self,
@@ -1479,19 +1291,9 @@ class ShiftLeft(PrimitiveModel):
 
         self._add_constraint(bcast, ["output", "input", "shift"])
 
-    def __call__(  # type: ignore[override]
-        self,
-        input: ConnectionType = NOT_GIVEN,
-        shift: ConnectionType = NOT_GIVEN,
-        output: ConnectionType = NOT_GIVEN,
-    ) -> ExtendInfo:
-        return super().__call__(input=input, shift=shift, output=output)
 
-
-class ShiftRight(PrimitiveModel):
-    input: Connection
-    shift: Connection
-    output: Connection
+class ShiftRightOp(Operator):
+    _model_name: str = "ShiftRight"
 
     def __init__(
         self,
@@ -1510,21 +1312,9 @@ class ShiftRight(PrimitiveModel):
 
         self._add_constraint(bcast, ["output", "input", "shift"])
 
-    def __call__(  # type: ignore[override]
-        self,
-        input: ConnectionType = NOT_GIVEN,
-        shift: ConnectionType = NOT_GIVEN,
-        output: ConnectionType = NOT_GIVEN,
-    ) -> ExtendInfo:
-        return super().__call__(input=input, shift=shift, output=output)
 
-
-class Transpose(PrimitiveModel):
-    # NOTE: Consider if axes type list[int] is conventionally True since it is generally
-    # used tuple[int] in these type of cases
-    input: Connection
-    axes: Connection
-    output: Connection
+class TransposeOp(Operator):
+    _model_name: str = "Transpose"
 
     def __init__(
         self,
@@ -1575,20 +1365,9 @@ class Transpose(PrimitiveModel):
             fn=general_tensor_type_constraint, keys=["output", "input"]
         )
 
-    def __call__(  # type: ignore[override]
-        self,
-        input: ConnectionType = NOT_GIVEN,
-        axes: ConnectionType = NOT_GIVEN,
-        output: ConnectionType = NOT_GIVEN,
-    ) -> ExtendInfo:
-        return super().__call__(input=input, axes=axes, output=output)
 
-
-class Split(PrimitiveModel):
-    split_size: Connection
-    axis: Connection
-    input: Connection
-    output: Connection
+class SplitOp(Operator):
+    _model_name: str = "Split"
 
     def __init__(
         self,
@@ -1611,23 +1390,9 @@ class Split(PrimitiveModel):
             fn=split_constraints, keys=["output", "input", "split_size", "axis"]
         )
 
-    def __call__(  # type: ignore[override]
-        self,
-        input: ConnectionType = NOT_GIVEN,
-        split_size: ConnectionType = NOT_GIVEN,
-        axis: ConnectionType = NOT_GIVEN,
-        output: ConnectionType = NOT_GIVEN,
-    ) -> ExtendInfo:
-        return super().__call__(
-            input=input, split_size=split_size, axis=axis, output=output
-        )
 
-
-class Slice(PrimitiveModel):
-    start: Connection
-    stop: Connection
-    step: Connection
-    output: Connection
+class SliceOp(Operator):
+    _model_name: str = "Slice"
 
     def __init__(
         self,
@@ -1648,21 +1413,11 @@ class Slice(PrimitiveModel):
         self._add_constraint(
             fn=slice_constraints, keys=["output", "start", "stop", "step"]
         )
-
-    def __call__(  # type: ignore[override]
-        self,
-        start: ConnectionType = NOT_GIVEN,
-        stop: ConnectionType = NOT_GIVEN,
-        step: ConnectionType = NOT_GIVEN,
-        output: ConnectionType = NOT_GIVEN,
-    ) -> ExtendInfo:
-        return super().__call__(start=start, stop=stop, step=step, output=output)
+        self._set_cin()
 
 
-class Indexer(PrimitiveModel):
-    input: Connection
-    index: Connection
-    output: Connection
+class IndexerOp(Operator):
+    _model_name: str = "Indexer"
 
     def __init__(
         self,
@@ -1687,37 +1442,31 @@ class Indexer(PrimitiveModel):
         )
 
         edge_constraints = self._add_constraint(
-            fn=edge_type_constraint, keys=[PrimitiveModel.output_key, "input"]
+            fn=edge_type_constraint, keys=[Operator.output_key, "input"]
         )
 
         indexer_initial_constraints = self._add_constraint(
             fn=indexer_initial_type_constraint,
-            keys=[PrimitiveModel.output_key, "input", "index"],
+            keys=[Operator.output_key, "input", "index"],
             dependencies={edge_constraints},
         )
 
         self._add_constraint(
             fn=indexer_constraints,
-            keys=[PrimitiveModel.output_key, "input", "index"],
+            keys=[Operator.output_key, "input", "index"],
             dependencies={indexer_initial_constraints},
         )
 
         self._add_constraint(
             fn=indexer_type_constraint,
-            keys=[PrimitiveModel.output_key, "input", "index"],
+            keys=[Operator.output_key, "input", "index"],
             dependencies={indexer_initial_constraints},
         )
 
-    def __call__(  # type: ignore[override]
-        self,
-        input: ConnectionType = NOT_GIVEN,
-        index: ConnectionType = NOT_GIVEN,
-        output: ConnectionType = NOT_GIVEN,
-    ) -> ExtendInfo:
-        return super().__call__(input=input, index=index, output=output)
 
+class SineOp(SingleInputOperationOp):
+    _model_name: str = "Sine"
 
-class Sine(SingleInputOperation):
     def __init__(
         self,
         input: Tensor[int | float | bool] | ToBeDetermined = TBD,
@@ -1733,7 +1482,9 @@ class Sine(SingleInputOperation):
         )
 
 
-class Cosine(SingleInputOperation):
+class CosineOp(SingleInputOperationOp):
+    _model_name: str = "Cosine"
+
     def __init__(
         self,
         input: Tensor[int | float | bool] | ToBeDetermined = TBD,

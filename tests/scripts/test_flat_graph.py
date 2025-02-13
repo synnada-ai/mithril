@@ -24,9 +24,9 @@ def test_flatgraph_1():
     graph = FlatGraph(
         {"input1", "input2"}, {"output"}, ml.JaxBackend(), ConstraintSolver()
     )
-    graph.add_value(Relu(), {"input": "input1", "output": "relu_out"})
-    graph.add_value(Buffer(), {"input": "relu_out", "output": "buffer_output"})
-    graph.add_value(Buffer(), {"input": "buffer_output", "output": "output"})
+    graph.add_value(Relu().submodel, {"input": "input1", "output": "relu_out"})
+    graph.add_value(Buffer().submodel, {"input": "relu_out", "output": "buffer_output"})
+    graph.add_value(Buffer().submodel, {"input": "buffer_output", "output": "output"})
     graph.prune_duplicate_nodes({}, {})
 
     expected_connections = ["input1", "relu_out"]
@@ -42,11 +42,11 @@ def test_flatgraph_2():
         ml.JaxBackend(),
         ConstraintSolver(),
     )
-    graph.add_value(Relu(), {"input": "input1", "output": "relu_out"})
-    graph.add_value(Buffer(), {"input": "relu_out", "output": "output1"})
-    graph.add_value(Buffer(), {"input": "output1", "output": "output2"})
-    graph.add_value(Buffer(), {"input": "output2", "output": "output3"})
-    graph.add_value(Buffer(), {"input": "output3", "output": "output4"})
+    graph.add_value(Relu().submodel, {"input": "input1", "output": "relu_out"})
+    graph.add_value(Buffer().submodel, {"input": "relu_out", "output": "output1"})
+    graph.add_value(Buffer().submodel, {"input": "output1", "output": "output2"})
+    graph.add_value(Buffer().submodel, {"input": "output2", "output": "output3"})
+    graph.add_value(Buffer().submodel, {"input": "output3", "output": "output4"})
     graph.prune_duplicate_nodes({}, {})
 
     expected_connections = ["input1", "relu_out"]
@@ -65,9 +65,9 @@ def test_flatgraph_3():
         ml.JaxBackend(),
         ConstraintSolver(),
     )
-    graph.add_value(Relu(), {"input": "input1", "output": "relu_out"})
-    graph.add_value(Relu(), {"input": "relu_out", "output": "output1"})
-    graph.add_value(Relu(), {"input": "output1", "output": "output2"})
+    graph.add_value(Relu().submodel, {"input": "input1", "output": "relu_out"})
+    graph.add_value(Relu().submodel, {"input": "relu_out", "output": "output1"})
+    graph.add_value(Relu().submodel, {"input": "output1", "output": "output2"})
     graph.prune_duplicate_nodes({}, {})
 
     expected_connections = ["input1", "output1", "output2", "relu_out"]
@@ -80,24 +80,24 @@ def test_flatgraph_3():
 def test_flatgraph_4():
     backend = ml.TorchBackend(dtype=ml.float64)
     model_1 = Model()
-    model_1 += Relu()(input="relu_1", output=ml.IOKey(name="output_1"))
-    model_1 += Relu()(input="relu_2", output=ml.IOKey(name="output_2"))
+    model_1 |= Relu()(input="relu_1", output=ml.IOKey(name="output_1"))
+    model_1 |= Relu()(input="relu_2", output=ml.IOKey(name="output_2"))
 
     model_2 = Model()
-    model_2 += Relu()(input="relu_1", output=ml.IOKey(name="output_1"))
-    model_2 += Relu()(input="relu_2", output=ml.IOKey(name="output_2"))
+    model_2 |= Relu()(input="relu_1", output=ml.IOKey(name="output_1"))
+    model_2 |= Relu()(input="relu_2", output=ml.IOKey(name="output_2"))
 
     model = Model()
-    model += model_1()
-    model += model_2(
-        relu_2="",
+    model |= model_1()
+    model |= model_2(
+        relu_2="input",
         output_2=model_1.relu_2,  # type: ignore
         relu_1=model_1.output_2,  # type: ignore
         output_1=ml.IOKey(name="output"),
     )
 
     pm = ml.compile(model=model, backend=backend)
-    assert pm.input_keys == {"relu_2"}
+    assert pm.input_keys == {"input"}
     assert len(pm.flat_graph.all_source_keys) == 3
     assert len(pm.flat_graph.all_target_keys) == 3
 
@@ -106,7 +106,7 @@ def test_infer_static():
     # Infer the only primitive of the model
     backend = ml.TorchBackend(dtype=ml.float32)
     model = Model()
-    model += Relu()(input="input", output=ml.IOKey(name="output"))
+    model |= Relu()(input="input", output=ml.IOKey(name="output"))
 
     pm = ml.compile(
         model=model,
@@ -125,8 +125,8 @@ def test_infer_static_2():
     # Infer only one step, output of infered primitives needed
     backend = ml.TorchBackend(dtype=ml.float32)
     model = Model()
-    model += Relu()(input="input1", output="relu_out")
-    model += (add := Add())("relu_out", "input2", ml.IOKey(name="output"))
+    model |= Relu()(input="input1", output="relu_out")
+    model |= (add := Add())("relu_out", "input2", ml.IOKey(name="output"))
 
     pm = ml.compile(
         model=model,
@@ -135,7 +135,7 @@ def test_infer_static_2():
         inference=True,
     )
 
-    assert len(pm.flat_graph.nodes) == 1 and add in pm.flat_graph.nodes
+    assert len(pm.flat_graph.nodes) == 1 and add.submodel in pm.flat_graph.nodes
     assert pm.flat_graph.all_source_keys == {"relu_out", "input2"}
     assert pm.flat_graph.all_target_keys == {"output"}
     assert pm.flat_graph.topological_order == ["output"]
@@ -146,8 +146,8 @@ def test_infer_static_3():
     # also infered output needed
     backend = ml.TorchBackend(dtype=ml.float32)
     model = Model()
-    model += Relu()(input="input1", output=ml.IOKey("relu_out"))
-    model += (add := Add())("relu_out", "input2", ml.IOKey(name="output"))
+    model |= Relu()(input="input1", output=ml.IOKey("relu_out"))
+    model |= (add := Add())("relu_out", "input2", ml.IOKey(name="output"))
 
     pm = ml.compile(
         model=model,
@@ -156,7 +156,7 @@ def test_infer_static_3():
         inference=True,
     )
 
-    assert len(pm.flat_graph.nodes) == 1 and add in pm.flat_graph.nodes
+    assert len(pm.flat_graph.nodes) == 1 and add.submodel in pm.flat_graph.nodes
     assert pm.flat_graph.all_source_keys == {"relu_out", "input2"}
     assert pm.flat_graph.all_target_keys == {"output"}
     assert pm.flat_graph.topological_order == ["output"]
@@ -167,8 +167,8 @@ def test_infer_static_4():
     # Infer all primitives
     backend = ml.TorchBackend(dtype=ml.float32)
     model = Model()
-    model += Relu()(input="input1", output=ml.IOKey("relu_out"))
-    model += Add()("relu_out", "input2", ml.IOKey(name="output"))
+    model |= Relu()(input="input1", output=ml.IOKey("relu_out"))
+    model |= Add()("relu_out", "input2", ml.IOKey(name="output"))
 
     pm = ml.compile(
         model=model,
@@ -188,8 +188,8 @@ def test_discard_primitive():
     # Discard one of the primitives
     backend = ml.TorchBackend(dtype=ml.float32)
     model = Model()
-    model += Sigmoid()(input="input1", output=ml.IOKey(name="output1"))
-    model += (relu := Relu())(input="input2", output=ml.IOKey(name="output2"))
+    model |= Sigmoid()(input="input1", output=ml.IOKey(name="output1"))
+    model |= (relu := Relu())(input="input2", output=ml.IOKey(name="output2"))
 
     pm = ml.compile(
         model=model,
@@ -198,7 +198,7 @@ def test_discard_primitive():
         inference=True,
     )
 
-    assert len(pm.flat_graph.nodes) == 1 and relu in pm.flat_graph.nodes
+    assert len(pm.flat_graph.nodes) == 1 and relu.submodel in pm.flat_graph.nodes
     assert pm.flat_graph.all_source_keys == {"input2"}
     assert pm.flat_graph.all_target_keys == {"output2"}
     assert pm.flat_graph.topological_order == ["output2"]
@@ -208,9 +208,9 @@ def test_discard_partial_of_sequence():
     # Discard partial of a sequence
     backend = ml.TorchBackend(dtype=ml.float32)
     model = Model()
-    model += (sig := Sigmoid())(input="input1", output=ml.IOKey(name="output1"))
-    model += Tanh()(input="output1", output=ml.IOKey(name="output3"))
-    model += (relu2 := Relu())(input="input2", output=ml.IOKey(name="output2"))
+    model |= (sig := Sigmoid())(input="input1", output=ml.IOKey(name="output1"))
+    model |= Tanh()(input="output1", output=ml.IOKey(name="output3"))
+    model |= (relu2 := Relu())(input="input2", output=ml.IOKey(name="output2"))
 
     pm = ml.compile(
         model=model,
@@ -221,8 +221,8 @@ def test_discard_partial_of_sequence():
 
     assert (
         len(pm.flat_graph.nodes) == 2
-        and relu2 in pm.flat_graph.nodes
-        and sig in pm.flat_graph.nodes
+        and relu2.submodel in pm.flat_graph.nodes
+        and sig.submodel in pm.flat_graph.nodes
     )
     assert pm.flat_graph.all_source_keys == {"input1", "input2"}
     assert pm.flat_graph.all_target_keys == {"output1", "output2"}
@@ -233,9 +233,9 @@ def test_discard_whole_sequence():
     # Discard whole sequence
     backend = ml.TorchBackend(dtype=ml.float32)
     model = Model()
-    model += Sigmoid()(input="input1", output="output1")
-    model += Tanh()(input="output1", output=ml.IOKey(name="output3"))
-    model += (relu := Relu())(input="input2", output=ml.IOKey(name="output2"))
+    model |= Sigmoid()(input="input1", output="output1")
+    model |= Tanh()(input="output1", output=ml.IOKey(name="output3"))
+    model |= (relu := Relu())(input="input2", output=ml.IOKey(name="output2"))
 
     pm = ml.compile(
         model=model,
@@ -244,7 +244,7 @@ def test_discard_whole_sequence():
         inference=True,
     )
 
-    assert len(pm.flat_graph.nodes) == 1 and relu in pm.flat_graph.nodes
+    assert len(pm.flat_graph.nodes) == 1 and relu.submodel in pm.flat_graph.nodes
     assert pm.flat_graph.all_source_keys == {"input2"}
     assert pm.flat_graph.all_target_keys == {"output2"}
     assert pm.flat_graph.topological_order == ["output2"]
@@ -254,9 +254,9 @@ def test_discard_everthing():
     # Discard everything
     backend = ml.TorchBackend(dtype=ml.float32)
     model = Model()
-    model += Sigmoid()(input="input1", output="output1")
-    model += Tanh()(input="output1", output=ml.IOKey(name="output3"))
-    model += Relu()(input="input2", output=ml.IOKey(name="output2"))
+    model |= Sigmoid()(input="input1", output="output1")
+    model |= Tanh()(input="output1", output=ml.IOKey(name="output3"))
+    model |= Relu()(input="input2", output=ml.IOKey(name="output2"))
 
     pm = ml.compile(
         model=model,
@@ -275,9 +275,9 @@ def test_discard_from_middle():
     # Discard everything
     backend = ml.TorchBackend(dtype=ml.float32)
     model = Model()
-    model += Sigmoid()(input="input1", output="output1")
-    model += Tanh()(input="output1", output=ml.IOKey(name="output3"))
-    model += Relu()(input="input2", output=ml.IOKey(name="output2"))
+    model |= Sigmoid()(input="input1", output="output1")
+    model |= Tanh()(input="output1", output=ml.IOKey(name="output3"))
+    model |= Relu()(input="input2", output=ml.IOKey(name="output2"))
 
     with pytest.raises(KeyError) as e:
         ml.compile(

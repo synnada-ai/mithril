@@ -19,8 +19,8 @@ import numpy as np
 
 from mithril import CBackend, NumpyBackend, compile
 from mithril.backends.with_manualgrad.c_backend.src.array import PyArray
-from mithril.framework.common import IOKey, Tensor
-from mithril.models import Add, Model, Multiply
+from mithril.framework.common import Tensor
+from mithril.models import Add, IOKey, Model, Multiply
 
 from ..utils import with_temp_file
 
@@ -38,12 +38,14 @@ def test_cbackend_1():
         model,
         c_backend,
         shapes={"left": [5, 5], "right": [5, 5]},
+        trainable_keys={"left", "right"},
         jit=False,
     )
     np_pm = compile(
         model,
         np_backend,
         shapes={"left": [5, 5], "right": [5, 5]},
+        trainable_keys={"left", "right"},
         jit=False,
     )
 
@@ -83,8 +85,8 @@ def test_cbackend_2(file_path: str):
     model = Model()
     add = Add()
 
-    model += add(left="left", right="right", output=IOKey(name="output"))
-    model += Add()(left="left2", right="output", output=IOKey(name="output2"))
+    model |= add(left="left", right="right", output=IOKey(name="output"))
+    model |= Add()(left="left2", right="output", output=IOKey(name="output2"))
     model.set_types(left=Tensor, left2=Tensor, right=Tensor)
 
     c_backend = CBackend()
@@ -95,12 +97,14 @@ def test_cbackend_2(file_path: str):
         c_backend,
         file_path=file_path,
         shapes={"left": [5, 5], "left2": [5, 5], "right": [5, 5]},
+        trainable_keys={"left", "left2", "right"},
         jit=False,
     )
     np_pm = compile(
         model,
         np_backend,
         shapes={"left": [5, 5], "right": [5, 5]},
+        trainable_keys={"left", "left2", "right"},
         jit=False,
     )
 
@@ -148,9 +152,9 @@ def test_cbackend_3():
     model = Model()
     add = Add()
 
-    model += add(left="left", right="right")
-    model += Multiply()(left=add.output, right="mul", output=IOKey(name="output"))
-    model += Multiply()(left=add.output, right="output", output=IOKey(name="output2"))
+    model |= add(left="left", right="right")
+    model |= Multiply()(left=add.output, right="mul", output=IOKey(name="output"))
+    model |= Multiply()(left=add.output, right="output", output=IOKey(name="output2"))
     model.set_types(left=Tensor, mul=Tensor, right=Tensor)
 
     c_backend = CBackend()
@@ -160,12 +164,14 @@ def test_cbackend_3():
         model,
         c_backend,
         shapes={"left": [5, 5], "mul": [5, 5], "right": [5, 5]},
+        trainable_keys={"left", "mul", "right"},
         jit=False,
     )
     np_pm = compile(
         model,
         np_backend,
         shapes={"left": [5, 5], "right": [5, 5]},
+        trainable_keys={"left", "mul", "right"},
         jit=False,
     )
 
@@ -211,8 +217,8 @@ def test_broadcast_1():
     model = Model()
     add = Add()
 
-    model += add(left="left", right="right")
-    model += Multiply()(left=add.output, right="mul", output="output")
+    model |= add(left="left", right="right")
+    model |= Multiply()(left=add.output, right="mul", output="output")
     model.set_types(left=Tensor, mul=Tensor, right=Tensor)
 
     c_backend = CBackend()
@@ -244,8 +250,8 @@ def test_broadcast_2():
     model = Model()
     add = Add()
 
-    model += add(left="left", right="right")
-    model += Multiply()(left=add.output, right="mul", output="output")
+    model |= add(left="left", right="right")
+    model |= Multiply()(left=add.output, right="mul", output="output")
     model.set_types(left=Tensor, mul=Tensor, right=Tensor)
 
     c_backend = CBackend()

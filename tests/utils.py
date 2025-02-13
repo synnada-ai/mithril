@@ -18,7 +18,16 @@ import tempfile
 
 import mithril
 from mithril import Backend, DataType
-from mithril.models import Model, PhysicalModel
+from mithril.framework.common import BaseKey
+from mithril.framework.constraints import bcast
+from mithril.models import (
+    ExtendInfo,
+    Model,
+    Operator,
+    PhysicalModel,
+    Tensor,
+)
+from mithril.models.primitives import PrimitiveModel
 
 
 def check_logical_models(model_1: Model, model_2: Model):
@@ -29,7 +38,11 @@ def check_logical_models(model_1: Model, model_2: Model):
         dag_1.items(), dag_2.items(), strict=False
     ):
         # Check dag keys of each model.
-        assert key_1.__class__.__name__ == key_2.__class__.__name__
+        assert (
+            key_1.__class__.__name__ == key_2.__class__.__name__
+            or key_1.__class__.__name__ + "Op" == key_2.__class__.__name__
+            or key_1.__class__.__name__ == key_2.__class__.__name__ + "Op"
+        )
         for (in_1, conn_1), (in_2, conn_2) in zip(
             value_1.items(), value_2.items(), strict=False
         ):
@@ -160,3 +173,18 @@ def with_temp_file(suffix: str):
         return wrapper
 
     return decorator
+
+
+class MyAdder(PrimitiveModel):
+    def __init__(self) -> None:
+        super().__init__(
+            formula_key="my_adder",
+            output=BaseKey(shape=[("Var_out", ...)], type=Tensor),
+            left=BaseKey(shape=[("Var_1", ...)], type=Tensor),
+            right=BaseKey(shape=[("Var_2", ...)], type=Tensor),
+        )
+        self.add_constraint(fn=bcast, keys=[Operator.output_key, "left", "right"])
+
+    def __call__(self, left, right, output):  # type: ignore[override]
+        kwargs = {"left": left, "right": right, "output": output}
+        return ExtendInfo(self, kwargs)

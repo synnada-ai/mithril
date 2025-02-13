@@ -19,8 +19,6 @@ from copy import deepcopy
 from mithril.framework.common import (
     NOT_GIVEN,
     BaseKey,
-    Connection,
-    ConnectionType,
     ShapeTemplateType,
     Tensor,
 )
@@ -28,6 +26,8 @@ from mithril.models import (
     Add,
     BaseModel,
     Buffer,
+    Connection,
+    ConnectionType,
     Convolution1D,
     ExtendInfo,
     IOKey,
@@ -35,12 +35,12 @@ from mithril.models import (
     MatrixMultiply,
     MaxPool1D,
     Model,
-    PrimitiveModel,
     PrimitiveUnion,
     Relu,
     Sigmoid,
     Sum,
 )
+from mithril.models.primitives import PrimitiveModel
 
 from .test_utils import (
     get_all_data,
@@ -182,6 +182,7 @@ def test_deleted_variadic_ref_count_5():
     all_variadics |= get_all_variadics(matmul1 := MatrixMultiply())
     add1 = Add()
     add1.set_types({"left": Tensor, "right": Tensor})
+    add1.set_cin("left")
     all_variadics |= get_all_variadics(add1)
 
     model = Model()
@@ -245,11 +246,11 @@ def test_deleted_variadic_ref_count_7():
     all_variadics |= get_all_variadics(add_6)
 
     model = Model()
-    model += add_1()
-    model += add_2(left="")
-    model += add_3(left="")
-    model += add_4(left="")
-    model += add_5(left="")
+    model |= add_1
+    model |= add_2
+    model |= add_3
+    model |= add_4
+    model |= add_5
 
     conn = IOKey(
         connections={
@@ -262,7 +263,7 @@ def test_deleted_variadic_ref_count_7():
         }
     )
 
-    model += add_6(left=conn, right="right", output="output")
+    model |= add_6(left=conn, right="right", output="output")
 
     current_variadics = get_all_variadics(model)
     assert_objects_deleted(all_variadics, current_variadics, 9)
@@ -272,8 +273,10 @@ def test_deleted_variadic_ref_count_8():
     all_variadics = set()
     add1 = Add()
     add1.set_types({"left": Tensor, "right": Tensor})
+    add1.set_cin("left")
     add2 = Add()
     add2.set_types({"left": Tensor, "right": Tensor})
+    add2.set_cin("left")
     all_variadics |= get_all_variadics(add1)
     all_variadics |= get_all_variadics(add2)
     model1 = Model()
@@ -291,6 +294,7 @@ def test_deleted_variadic_ref_count_9():
     all_variadics = set()
     add1 = Add()
     add1.set_types({"left": Tensor, "right": Tensor})
+    add1.set_cin("left")
     all_variadics |= get_all_variadics(add1)
 
     model = Model()
@@ -651,17 +655,17 @@ def test_deleted_repr_ref_count_5() -> None:
     all_reprs |= get_all_reprs(tm9 := MyModel())
 
     model = Model()
-    model += tm1(input="input1")
-    model += tm2(input=tm1.output)
-    model += tm3(input=tm2.output, output="output1")
+    model |= tm1(input="input1")
+    model |= tm2(input=tm1.output)
+    model |= tm3(input=tm2.output, output="output1")
 
-    model += tm4(input="input2")
-    model += tm5(input=tm1.output)
-    model += tm6(input=tm2.output, output="output2")
+    model |= tm4(input="input2")
+    model |= tm5(input=tm1.output)
+    model |= tm6(input=tm2.output, output="output2")
 
-    model += tm7(input="input3")
-    model += tm8(input=tm1.output)
-    model += tm9(input=tm2.output, output="output3")
+    model |= tm7(input="input3")
+    model |= tm8(input=tm1.output)
+    model |= tm9(input=tm2.output, output="output3")
 
     model.set_shapes(
         {
@@ -705,17 +709,17 @@ def test_deleted_repr_ref_count_6() -> None:
     all_reprs |= get_all_reprs(tm9 := MyModel())
 
     model = Model()
-    model += tm1(input="input1")
-    model += tm2(input=tm1.output)
-    model += tm3(input=tm2.output, output="output1")
+    model |= tm1(input="input1")
+    model |= tm2(input=tm1.output)
+    model |= tm3(input=tm2.output, output="output1")
 
-    model += tm4(input="input2")
-    model += tm5(input=tm1.output)
-    model += tm6(input=tm2.output, output="output2")
+    model |= tm4(input="input2")
+    model |= tm5(input=tm1.output)
+    model |= tm6(input=tm2.output, output="output2")
 
-    model += tm7(input="input3")
-    model += tm8(input=tm1.output)
-    model += tm9(input=tm2.output, output="output3")
+    model |= tm7(input="input3")
+    model |= tm8(input=tm1.output)
+    model |= tm9(input=tm2.output, output="output3")
 
     model.set_shapes(
         {
@@ -753,11 +757,11 @@ def test_deleted_repr_ref_count_7() -> None:
     all_reprs |= get_all_reprs(tm4 := MyModel())
 
     model = Model()
-    model += tm1(input="input1")
-    model += tm2(input=tm1.output, output="output")
+    model |= tm1(input="input1")
+    model |= tm2(input=tm1.output, output="output")
 
-    model += tm3(input="input2")
-    model += tm4(input=tm1.output, output="output2")
+    model |= tm3(input="input2")
+    model |= tm4(input=tm1.output, output="output2")
 
     model.set_shapes({"input1": ["a", "b"], "input2": ["b", "a"]})
 
@@ -789,11 +793,11 @@ def test_deleted_repr_ref_count_8() -> None:
     all_reprs |= get_all_reprs(tm4 := MyModel())
 
     model = Model()
-    model += tm1(input="input1")
-    model += tm2(input=tm1.output, output="output")
+    model |= tm1(input="input1")
+    model |= tm2(input=tm1.output, output="output")
 
-    model += tm3(input="input2")
-    model += tm4(input=tm1.output, output="output2")
+    model |= tm3(input="input2")
+    model |= tm4(input=tm1.output, output="output2")
 
     model.set_shapes({"input1": ["a", "b"], "input2": ["b", "a"]})
 
@@ -811,8 +815,8 @@ def test_deleted_repr_ref_count_9():
     all_reprs |= get_all_reprs(buffer2)
 
     model = Model()
-    model += buffer1(input="input1", output="output1")
-    model += buffer2(input="input2", output="output2")
+    model |= buffer1(input="input1", output="output1")
+    model |= buffer2(input="input2", output="output2")
 
     model.set_shapes({"input1": ["a", "b"], "input2": ["a", "b"]})
 
@@ -831,8 +835,8 @@ def test_deleted_repr_ref_count_10():
 
     model = Model()
 
-    model += buffer1(input="input1", output="output1")
-    model += buffer2(input="output1", output="output2")
+    model |= buffer1(input="input1", output="output1")
+    model |= buffer2(input="output1", output="output2")
 
     current_reprs = get_all_reprs(model)
     assert_objects_deleted(all_reprs, current_reprs, 1)
@@ -849,8 +853,8 @@ def test_deleted_repr_ref_count_10_1():
 
     model = Model()
 
-    model += buffer1(input="input1", output="output1")
-    model += buffer2(input="input2", output="output2")
+    model |= buffer1(input="input1", output="output1")
+    model |= buffer2(input="input2", output="output2")
 
     model.set_shapes({"input1": [1, 2], "input2": [1, 2]})
 
@@ -911,10 +915,13 @@ def test_deleted_node_ref_count_3():
     all_reprs = set()
     add1 = Add()
     add1.set_types(left=Tensor, right=Tensor)
+    add1.set_cin("left")
     add2 = Add()
     add2.set_types(left=Tensor, right=Tensor)
+    add2.set_cin("left")
     add3 = Add()
     add3.set_types(left=Tensor, right=Tensor)
+    add3.set_cin("left")
     all_reprs |= get_all_nodes(add1)
     all_reprs |= get_all_nodes(add2)
     all_reprs |= get_all_nodes(add3)
@@ -946,11 +953,11 @@ def test_deleted_node_ref_count_4():
 
     model = Model()
 
-    model += buffer1(input="input1")
-    model += buffer2(input=buffer1.output, output="output1")
+    model |= buffer1(input="input1")
+    model |= buffer2(input=buffer1.output, output="output1")
 
-    model += buffer3(input="input2")
-    model += buffer4(input=buffer1.output, output="output2")
+    model |= buffer3(input="input2")
+    model |= buffer4(input=buffer1.output, output="output2")
 
     input_shape: ShapeTemplateType = ["a", ("Var1", ...)]
     model.set_shapes({"input1": input_shape, "input2": input_shape})
@@ -986,11 +993,11 @@ def test_deleted_tensors_ref_count_2():
 
     model = Model()
 
-    model += buffer1(input="input1")
-    model += buffer2(input=buffer1.output, output="output1")
+    model |= buffer1(input="input1")
+    model |= buffer2(input=buffer1.output, output="output1")
 
-    model += buffer3(input="input2")
-    model += buffer4(input=buffer3.output, output="output2")
+    model |= buffer3(input="input2")
+    model |= buffer4(input=buffer3.output, output="output2")
 
     current_reprs = get_all_data(model)
     assert_objects_deleted(all_reprs, current_reprs, 2)
@@ -1008,16 +1015,16 @@ def test_deleted_tensors_ref_count_3():
 
     model = Model()
 
-    model += buffer1(output=IOKey(name="output1"))
-    model += buffer2(input="", output=IOKey(name="output2"))
-    model += buffer3(input="", output=IOKey(name="output3"))
-    model += buffer4(input="input4", output=IOKey(name="output4"))
-    model += buffer5(input="input5", output=IOKey(name="output5"))
-    model += buffer6(input="input6", output=IOKey(name="output6"))
+    model |= buffer1(output=IOKey(name="output1"))
+    model |= buffer2(output=IOKey(name="output2"))
+    model |= buffer3(output=IOKey(name="output3"))
+    model |= buffer4(input="input4", output=IOKey(name="output4"))
+    model |= buffer5(input="input5", output=IOKey(name="output5"))
+    model |= buffer6(input="input6", output=IOKey(name="output6"))
     connections = {buffer1.input, buffer2.input, buffer3.input, model.output4}  # type: ignore
     conn = IOKey(connections=connections)
 
-    model += buffer7(input=conn, output=IOKey(name="output"))
+    model |= buffer7(input=conn, output=IOKey(name="output"))
 
     current_reprs = get_all_data(model)
     # NOTE: 7 output tensors are exposed so created and they replaced the previous ones.
@@ -1071,6 +1078,9 @@ def test_deleted_edge_ref_count_2():
     all_metadata |= get_all_metadata(add3 := Add())
 
     model = Model()
+    add1.set_cin("left")
+    add2.set_cin("left")
+    add3.set_cin("left")
 
     model += add1
     model += add2
@@ -1089,9 +1099,9 @@ def test_deleted_edge_ref_count_3():
 
     model = Model()
 
-    model += add1(output="output", right="right3")
-    model += add2(left="", output=add1.left, right="right2")
-    model += add3(output=add2.left, right="right1", left="left")
+    model |= add1(output="output", right="right3")
+    model |= add2(output=add1.left, right="right2")
+    model |= add3(output=add2.left, right="right1", left="left")
 
     current_metadata = get_all_metadata(model)
     assert_objects_deleted(all_metadata, current_metadata, 2)
@@ -1103,6 +1113,11 @@ def test_deleted_edge_ref_count_4():
     all_metadata |= get_all_metadata(add2 := Add())
     all_metadata |= get_all_metadata(add3 := Add())
     all_metadata |= get_all_metadata(add4 := Add())
+
+    add1.set_cin("left")
+    add2.set_cin("left")
+    add3.set_cin("left")
+    add4.set_cin("left")
 
     model4 = Model()
     model3 = Model()
@@ -1131,6 +1146,11 @@ def test_deleted_edge_ref_count_5():
     all_metadata |= get_all_metadata(add2 := Add())
     all_metadata |= get_all_metadata(add3 := Add())
     all_metadata |= get_all_metadata(add4 := Add())
+
+    add1.set_cin("left")
+    add2.set_cin("left")
+    add3.set_cin("left")
+    add4.set_cin("left")
 
     model4 = Model()
     model3 = Model()
@@ -1226,13 +1246,13 @@ def test_deleted_edge_ref_count_6():
 
     three_sigmoid_model = Model()
 
-    three_sigmoid_model += sigmoid1(input="input1", output=IOKey(name="output1"))
-    three_sigmoid_model += sigmoid2(input="input2", output=IOKey(name="output2"))
-    three_sigmoid_model += sigmoid3(input="input3", output=IOKey(name="output3"))
+    three_sigmoid_model |= sigmoid1(input="input1", output=IOKey(name="output1"))
+    three_sigmoid_model |= sigmoid2(input="input2", output=IOKey(name="output2"))
+    three_sigmoid_model |= sigmoid3(input="input3", output=IOKey(name="output3"))
 
     main_model = Model()
 
-    main_model += three_sigmoid_model(
+    main_model |= three_sigmoid_model(
         input1="input1",
         input2="input2",
         input3="input3",
@@ -1243,7 +1263,7 @@ def test_deleted_edge_ref_count_6():
     connections = {main_model.output1, main_model.input2}  # type: ignore
     conn = IOKey(name="abcd", expose=True, connections=connections)
 
-    main_model += sigmoid4(input=conn, output=IOKey(name="output5"))
+    main_model |= sigmoid4(input=conn, output=IOKey(name="output5"))
 
     current_metadata = get_all_metadata(main_model)  # 2input + 4output = 6
     # NOTE: 4 new output metadata is created, in order to take these into account

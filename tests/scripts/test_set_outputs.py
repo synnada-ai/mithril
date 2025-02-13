@@ -46,14 +46,14 @@ def test_1():
     while it is set by using IOKey in the second model.
     """
     model = Model()
-    model += Linear(2)(input="input", weight="w_1", bias="b_1", output="output1")
-    model += Linear(4)(input=model.output1, weight="w", bias="b", output="output")  # type: ignore
+    model |= Linear(2)(input="input", weight="w_1", bias="b_1", output="output1")
+    model |= Linear(4)(input=model.output1, weight="w", bias="b", output="output")  # type: ignore
     model.set_outputs("output1")
     model_1 = model
 
     model = Model()
-    model += Linear(2)(input="input", weight="w_1", bias="b_1", output=IOKey("output1"))
-    model += Linear(4)(input=model.output1, weight="w", bias="b", output="output")  # type: ignore
+    model |= Linear(2)(input="input", weight="w_1", bias="b_1", output=IOKey("output1"))
+    model |= Linear(4)(input=model.output1, weight="w", bias="b", output="output")  # type: ignore
     model_2 = model
 
     # Provide backend and data.
@@ -81,14 +81,14 @@ def test_2():
     """
     model = Model()
     lin = Linear(2)
-    model += lin(input="input", weight="w_1", bias="b_1", output="lin1_out")
-    model += Linear(4)(input=lin.output, weight="w", bias="b", output="output")
+    model |= lin(input="input", weight="w_1", bias="b_1", output="lin1_out")
+    model |= Linear(4)(input=lin.output, weight="w", bias="b", output="output")
     model.set_outputs(output1=lin.output)
     model_1 = model
 
     model = Model()
-    model += Linear(2)(input="input", weight="w_1", bias="b_1", output=IOKey("output1"))
-    model += Linear(4)(input=model.output1, weight="w", bias="b", output="output")  # type: ignore
+    model |= Linear(2)(input="input", weight="w_1", bias="b_1", output=IOKey("output1"))
+    model |= Linear(4)(input=model.output1, weight="w", bias="b", output="output")  # type: ignore
     model_2 = model
 
     # Provide backend and data.
@@ -117,14 +117,14 @@ def test_3():
     """
     model = Model()
     lin = Linear(2)
-    model += lin(input="input", weight="w_1", bias="b_1", output="lin1_out")
-    model += Linear(4)(input=lin.output, weight="w", bias="b", output="output")
+    model |= lin(input="input", weight="w_1", bias="b_1", output="lin1_out")
+    model |= Linear(4)(input=lin.output, weight="w", bias="b", output="output")
     model.set_outputs("output", output1=lin.output)
     model_1 = model
 
     model = Model()
-    model += Linear(2)(input="input", weight="w_1", bias="b_1", output=IOKey("output1"))
-    model += Linear(4)(input=model.output1, weight="w", bias="b", output="output")  # type: ignore
+    model |= Linear(2)(input="input", weight="w_1", bias="b_1", output=IOKey("output1"))
+    model |= Linear(4)(input=model.output1, weight="w", bias="b", output="output")  # type: ignore
     model.set_outputs("output")
     model_2 = model
 
@@ -153,14 +153,14 @@ def test_4():
     """
     model = Model()
     lin = Linear(2)
-    model += lin(input="input", weight="w_1", bias="b_1", output="lin1_out")
-    model += Linear(4)(input=lin.output, weight="w", bias="b", output="output")
+    model |= lin(input="input", weight="w_1", bias="b_1", output="lin1_out")
+    model |= Linear(4)(input=lin.output, weight="w", bias="b", output="output")
     model.set_outputs(out="output", output1=lin.output)
     model_1 = model
 
     model = Model()
-    model += Linear(2)(input="input", weight="w_1", bias="b_1", output=IOKey("output1"))
-    model += Linear(4)(input=model.output1, weight="w", bias="b", output=IOKey("out"))  # type: ignore
+    model |= Linear(2)(input="input", weight="w_1", bias="b_1", output=IOKey("output1"))
+    model |= Linear(4)(input=model.output1, weight="w", bias="b", output=IOKey("out"))  # type: ignore
     model_2 = model
 
     # Provide backend and data.
@@ -191,9 +191,9 @@ def test_5():
     sig1 = Sigmoid()
     sig2 = Sigmoid()
     sig3 = Sigmoid()
-    model += sig1(input="input", output="sub_out1")
-    model += sig2(input="sub_out1", output="sub_out2")
-    model += sig3(input="sub_out2", output=IOKey("output"))
+    model |= sig1(input="input", output="sub_out1")
+    model |= sig2(input="sub_out1", output="sub_out2")
+    model |= sig3(input="sub_out2", output=IOKey("output"))
     model.set_outputs(output1="sub_out1", output2="sub_out2")
 
     ref_logical_outputs = {"output", "output1", "output2"}
@@ -216,9 +216,9 @@ def test_6():
     sig2 = Sigmoid()
     sig3 = Sigmoid()
 
-    model += sig1(input="input", output="sub_out1")
-    model += sig2(input="sub_out1", output="sub_out2")
-    model += sig3(input="sub_out2", output=IOKey("output"))
+    model |= sig1(input="input", output="sub_out1")
+    model |= sig2(input="sub_out1", output="sub_out2")
+    model |= sig3(input="sub_out2", output=IOKey("output"))
 
     model.set_outputs(output1="sub_out1")
 
@@ -244,9 +244,9 @@ def test_7():
     sig2 = Sigmoid()
     sig3 = Sigmoid()
 
-    model += sig1(input="input", output="sub_out1")
-    model += sig2(input="sub_out1", output="sub_out2")
-    model += sig3(input="sub_out2", output=IOKey("output"))
+    model |= sig1(input="input", output="sub_out1")
+    model |= sig2(input="sub_out1", output="sub_out2")
+    model |= sig3(input="sub_out2", output=IOKey("output"))
 
     model.set_outputs("sub_out1", "sub_out2")
 
@@ -269,9 +269,9 @@ def test_8():
     sig2 = Sigmoid()
     sig3 = Sigmoid()
 
-    model += sig1(input="input", output="sub_out1")
-    model += sig2(input="sub_out1", output="sub_out2")
-    model += sig3(input="sub_out2", output=IOKey("output"))
+    model |= sig1(input="input", output="sub_out1")
+    model |= sig2(input="sub_out1", output="sub_out2")
+    model |= sig3(input="sub_out2", output=IOKey("output"))
 
     model.set_outputs(sig1.output, sig2.output)
 
@@ -286,10 +286,10 @@ def test_8():
 def test_9():
     model = Model()
     two_sig_model = Model()
-    two_sig_model += (sig1 := Sigmoid())("input1", IOKey("output1"))
-    two_sig_model += Sigmoid()("input2", IOKey("output2"))
+    two_sig_model |= (sig1 := Sigmoid())("input1", IOKey("output1"))
+    two_sig_model |= Sigmoid()("input2", IOKey("output2"))
 
-    model += two_sig_model(input1="input1", input2="input2")
+    model |= two_sig_model(input1="input1", input2="input2")
     model.set_outputs(output3=sig1.output)
 
     ref_logical_outputs = {"output3"}
@@ -316,8 +316,8 @@ def test_5_error():
     model = Model()
     lin_1 = Linear(2)
     lin_2 = Linear(4)
-    model += lin_1(input="input", weight="w_1", bias="b_1")
-    model += lin_2(input=lin_1.output, weight="w", bias="b")
+    model |= lin_1(input="input", weight="w_1", bias="b_1")
+    model |= lin_2(input=lin_1.output, weight="w", bias="b")
 
     with pytest.raises(KeyError) as err_info:
         model.set_outputs(lin_2.output, output1=lin_1.output)
@@ -343,8 +343,8 @@ def test_6_error():
     """
     model = Model()
     lin = Linear(2)
-    model += lin(input="input", weight="w_1", bias="b_1")
-    model += Linear(4)(input=lin.output, weight="w", bias="b", output="output")
+    model |= lin(input="input", weight="w_1", bias="b_1")
+    model |= Linear(4)(input=lin.output, weight="w", bias="b", output="output")
 
     with pytest.raises(KeyError) as err_info:
         model.set_outputs(out="output", output1="out")
@@ -363,8 +363,8 @@ def test_7_error():
     """
     model = Model()
     lin = Linear(2)
-    model += lin(input="input", weight="w_1", bias="b_1")
-    model += Linear(4)(input=lin.output, weight="w", bias="b", output=IOKey("output"))
+    model |= lin(input="input", weight="w_1", bias="b_1")
+    model |= Linear(4)(input=lin.output, weight="w", bias="b", output=IOKey("output"))
 
     with pytest.raises(KeyError) as err_info:
         model.set_outputs(out="output")
@@ -383,8 +383,8 @@ def test_8_error():
     """
     model = Model()
     lin = Linear(2)
-    model += lin(input="input", weight="w_1", bias="b_1")
-    model += Linear(4)(input=lin.output, weight="w", bias="b", output=IOKey("output"))
+    model |= lin(input="input", weight="w_1", bias="b_1")
+    model |= Linear(4)(input=lin.output, weight="w", bias="b", output=IOKey("output"))
 
     with pytest.raises(KeyError) as err_info:
         model.set_outputs("output")
@@ -403,14 +403,14 @@ def test_9_error():
     """
     model = Model()
     lin = Linear(2)
-    model += lin(input="input", weight="w_1", bias="b_1")
-    model += Linear(4)(input=lin.output, weight="w", bias="b", output=IOKey("output"))
+    model |= lin(input="input", weight="w_1", bias="b_1")
+    model |= Linear(4)(input=lin.output, weight="w", bias="b", output=IOKey("output"))
 
     with pytest.raises(KeyError) as err_info:
         model.set_outputs(output=lin.output)
 
     error_text = str(err_info.value).strip('"')
-    assert error_text == "'Connection with name output already exists!'"
+    assert error_text == "Key 'output' is already used!"
 
 
 def test_10_error():
@@ -418,10 +418,10 @@ def test_10_error():
 
     two_sig_model = Model()
 
-    two_sig_model += Sigmoid()(input="input1", output="output1")
-    two_sig_model += Sigmoid()(input="input2", output="output2")
+    two_sig_model |= Sigmoid()(input="input1", output="output1")
+    two_sig_model |= Sigmoid()(input="input2", output="output2")
 
-    model += two_sig_model(input1="input1", input2="input2")
+    model |= two_sig_model(input1="input1", input2="input2")
     with pytest.raises(Exception) as err_info:
         two_sig_model.set_outputs(output5="output1")
     assert str(err_info.value) == "Child model's outputs cannot be set."
@@ -434,9 +434,9 @@ def test_11_error():
     sig2 = Sigmoid()
     sig3 = Sigmoid()
 
-    model += sig1(input="input", output="sub_out1")
-    model += sig2(input="sub_out1", output="sub_out2")
-    model += sig3(input="sub_out2", output=IOKey("output"))
+    model |= sig1(input="input", output="sub_out1")
+    model |= sig2(input="sub_out1", output="sub_out2")
+    model |= sig3(input="sub_out2", output=IOKey("output"))
 
     with pytest.raises(KeyError) as err_info:
         model.set_outputs(sig1.input)

@@ -27,15 +27,12 @@ from ...utils.type_utils import is_list_int
 from ..common import (
     NOT_GIVEN,
     TBD,
-    Connection,
     ConnectionData,
-    ConnectionType,
     DataEvalType,
     EvaluateAllType,
     EvaluateGradientsType,
     EvaluateType,
     IOHyperEdge,
-    IOKey,
     MainValueType,
     ParamsEvalType,
     ShapeResultType,
@@ -53,9 +50,13 @@ from ..common import (
     get_summary_types,
 )
 from ..logical.base import BaseModel
-from ..logical.model import Model
-from ..logical.primitive import PrimitiveModel
-from ..utils import define_unique_names
+from ..logical.model import (
+    Connection,
+    Model,
+    define_unique_names,
+)
+from ..logical.operator import Operator
+from .data_store import StaticDataStore
 from .flat_graph import FlatGraph
 
 __all__ = ["PhysicalModel"]
@@ -81,7 +82,7 @@ StringOrConnectionSetType = set[str | Connection] | set[str] | set[Connection]
 class PhysicalModel(GenericDataType[DataType]):
     def __init__(
         self,
-        model: BaseModel,
+        model: Model,
         backend: Backend[DataType],
         *,
         discard_keys: StringOrConnectionSetType,
@@ -94,27 +95,15 @@ class PhysicalModel(GenericDataType[DataType]):
         safe_names: bool,
         use_short_namings: bool,
     ) -> None:
-        if isinstance(model, PrimitiveModel):
-            # TODO: Remove wrapping with Model in the future.
-            _model = deepcopy(model)
-            extend_info = _model()
-            model_keys: dict[str, ConnectionType] = {}
-            for key in _model.external_keys:
-                value = extend_info.connections.get(key, NOT_GIVEN)
-                # NOTE: Do not set default value if it is given in constant_keys.
-                value = (value, NOT_GIVEN)[key in constant_keys]
-                default_val = _model.conns.get_data(key).value
-                if (value is NOT_GIVEN and default_val is TBD) or (
-                    key in _model.output_keys
-                ):
-                    # Non-valued connections are only named with their key names.
-                    model_keys[key] = key
-                else:
-                    val = default_val if default_val is not TBD else value
-                    model_keys[key] = IOKey(key, val)  # type: ignore
+        if len(model.conns.output_keys) == 0 and len(model.conns.couts) == 0:
+            raise KeyError("Models with no output keys can not be compiled.")
 
-            model = Model()
-            model |= _model(**model_keys)
+        # TODO: Update StaticDataStore.convert_data_to_physical function.
+        constant_keys = {  # type: ignore
+            key: StaticDataStore.convert_data_to_physical(value, backend)  # type: ignore
+            for key, value in model().connections.items()
+            if value is not NOT_GIVEN
+        } | constant_keys
 
         self.backend: Backend[DataType] = backend
         self._output_keys: set[str] = set(model.conns.output_keys)
@@ -134,9 +123,6 @@ class PhysicalModel(GenericDataType[DataType]):
         # TODO: This is a temporary solution, a better way will be implemented
         # in another PR.
         if len(model.conns.output_keys) == 0:
-            if len(model.conns.couts) == 0:
-                raise KeyError("Models with no output keys can not be compiled.")
-
             for cout in model.conns.couts:
                 current_name = flat_model.assigned_edges[cout.metadata].name
                 key_origin = cout.metadata.key_origin
@@ -201,7 +187,7 @@ class PhysicalModel(GenericDataType[DataType]):
 
                 if global_key in self._non_differentiable_keys:
                     # TODO: Create an API for setting differentiability of a tensor.
-                    physical_data.differentiable = False
+                    physical_data.set_differentiability(False)
                 elif global_key in self._trainable_tensor_inputs:
                     # if physical_data.edge_type not in (Tensor, ToBeDetermined):
                     if not (
@@ -218,7 +204,7 @@ class PhysicalModel(GenericDataType[DataType]):
                         raise ValueError(
                             f"Valued data can not be trainable: {global_key}"
                         )
-                    physical_data.differentiable = True
+                    physical_data.set_differentiability(True)
 
                 model_data[key] = physical_data
                 self.flat_graph.data_memo[id(logical_data)] = physical_data
@@ -235,10 +221,10 @@ class PhysicalModel(GenericDataType[DataType]):
             # solver to propagate updates.
             self.flat_graph.constraint_solver(updates)
 
-            output = PrimitiveModel.output_key
+            output = Operator.output_key
             _data_dict: dict[str, IOHyperEdge] = {}
 
-            self._infer_differentiability(model_data)
+            self._infer_differentiability(p_model, model_data)
             for inner_key in p_model.external_keys:
                 outer_key = mappings[inner_key]
                 if outer_key not in self.data:
@@ -247,7 +233,7 @@ class PhysicalModel(GenericDataType[DataType]):
 
             # NOTE: maybe move adding cache to generate_code methods.
             if self.backend.backend_type == "numpy":
-                cache_name = "_".join([mappings[output], p_model.cache_name])
+                cache_name = "_".join([mappings[output], Operator.cache_name])
                 mappings["cache"] = cache_name
                 # TODO: Why do we have to provide cache_value here? It is
                 # NONE | dict().
@@ -428,21 +414,22 @@ class PhysicalModel(GenericDataType[DataType]):
     def input_keys(self) -> set[str]:
         return self._input_keys
 
-    def _infer_differentiability(self, model_data: dict[str, IOHyperEdge]) -> None:
+    def _infer_differentiability(
+        self, p_model: Operator, model_data: dict[str, IOHyperEdge]
+    ) -> None:
         # Infer output differentiability only for the models
         # that have a Tensor type output.
-        output_key = PrimitiveModel.output_key
+        output_key = Operator.output_key
         output_edge = model_data[output_key]
+        input_diffs = [
+            value.differentiable
+            for key, value in model_data.items()
+            if key != output_key
+        ]
+
         if output_edge.is_tensor:
-            # If any of the inputs are differentiable, then
-            # the output is also differentiable.
-            for key, value in model_data.items():
-                if key != output_key and not value.is_non_diff:
-                    output_edge.differentiable = True
-                    return
-            # If all inputs are non-differentiable, then the output is also
-            # non-differentiable.
-            output_edge.differentiable = False
+            diff = p_model.infer_differentiability(*input_diffs)
+            output_edge.set_differentiability(diff)
 
     def randomize_params(
         self,
@@ -570,9 +557,7 @@ class PhysicalModel(GenericDataType[DataType]):
                     )
                 )
             ):
-                self.ignore_grad_keys.add(
-                    node.connections[PrimitiveModel.output_key].key
-                )
+                self.ignore_grad_keys.add(node.connections[Operator.output_key].key)
 
         if len(self._output_keys - self.ignore_grad_keys) == 0 and not self.inference:
             raise ValueError("All outputs gradient are ignored.")
@@ -755,14 +740,14 @@ class PhysicalModel(GenericDataType[DataType]):
         # Extract all summary information
         dag: list[BaseModel] | dict[BaseModel, dict[str, ConnectionData]]
         if model is not None:
-            dag = model.dag if isinstance(model, Model) else [model]
+            dag = list(model.dag) if isinstance(model, Model) else [model]
             name_mappings = define_unique_names(dag)
             conn_info = model.extract_connection_info(
                 name_mappings, data_to_key_map, self.flat_graph.data_memo
             )
         else:
             # Remove unused models and cached models
-            all_models = list(self.flat_graph.get_models())
+            all_models: list[BaseModel] = list(self.flat_graph.get_models())
             for key in self.flat_graph.unused_keys | self.flat_graph.cached_data.keys():
                 if (
                     unused_model := self.flat_graph.connections.get(key)
@@ -801,7 +786,7 @@ class PhysicalModel(GenericDataType[DataType]):
             # if verbose, find the name of the model and create the table object and
             # display it based on extracted infos
             if name is None:
-                name = model.__class__.__name__ if model else self.__class__.__name__
+                name = model.class_name if model else self.__class__.__name__
             table = get_summary(
                 conns=conn_info,
                 name=name,
@@ -814,7 +799,7 @@ class PhysicalModel(GenericDataType[DataType]):
             table.display()
             if depth > 0:
                 for model, model_name in name_mappings.items():
-                    if not isinstance(model, PrimitiveModel):
+                    if not isinstance(model, Operator):
                         self.summary(
                             model=model,
                             depth=depth - 1,
@@ -827,12 +812,12 @@ class PhysicalModel(GenericDataType[DataType]):
                         )
 
     def extract_connection_info(
-        self, name_mappings: dict[PrimitiveModel, str] | None = None
+        self, name_mappings: dict[Operator, str] | None = None
     ) -> dict[str, tuple[dict[str, list[str]], dict[str, list[str]]]]:
         if name_mappings is None:
-            name_mappings = define_unique_names(self.flat_graph.get_models())
+            name_mappings = define_unique_names(self.flat_graph.get_models())  # type: ignore
         conn_info: dict[str, tuple[dict[str, list[str]], dict[str, list[str]]]] = {}
-
+        assert name_mappings is not None
         for model, model_name in name_mappings.items():
             conn_info.setdefault(model_name, ({}, {}))
             model_node = self.flat_graph.nodes[model]
@@ -899,7 +884,7 @@ class PhysicalModel(GenericDataType[DataType]):
 
     def _replace_with_primitive(
         self, model: Model, key_mappings: dict[str, str]
-    ) -> tuple[PrimitiveModel, dict[str, str]]:
+    ) -> tuple[Operator, dict[str, str]]:
         assert model.formula_key is not None
         formula = self.backend.primitive_function_dict[model.formula_key]
         primitive_input_keys = formula.__code__.co_varnames[
@@ -929,9 +914,7 @@ class PhysicalModel(GenericDataType[DataType]):
 
         kwargs = {key: model.conns.all[key].metadata for key in external_keys}
 
-        primitive = PrimitiveModel(
-            formula_key=model.formula_key, name=model.name, **kwargs
-        )
+        primitive = Operator(formula_key=model.formula_key, name=model.name, **kwargs)
         primitive.parent = model.parent
 
         p_key_mappings: dict[str, str] = {}
@@ -1040,7 +1023,7 @@ class FlatModel:
             short_namings (bool): Flag to determine if short namings should be used.
         """
 
-        self.mappings: dict[PrimitiveModel, dict[str, Name]] = {}
+        self.mappings: dict[Operator, dict[str, Name]] = {}
         self.assigned_edges: dict[IOHyperEdge, Name] = {}
         self.assigned_names: dict[str, Name] = {}
         self.external_edges: dict[IOHyperEdge, str] = {}
@@ -1048,7 +1031,7 @@ class FlatModel:
         self.key_origins: dict[str, int] = {}
         self.reserved_keys: set[str] = reserved_keys if reserved_keys else set()
         self.queued_models: dict[
-            IOHyperEdge, list[tuple[PrimitiveModel, dict[str, str], str]]
+            IOHyperEdge, list[tuple[Operator, dict[str, str], str]]
         ] = {}
         self._external_mapping: dict[str, Name] = {}
         self.model = model
@@ -1202,7 +1185,7 @@ class FlatModel:
         if mappings is None:
             mappings = {}
 
-        if isinstance(model, PrimitiveModel):
+        if isinstance(model, Operator):
             if not self._is_primitive_ready(model):
                 self._add_primitive_to_queue(model, mappings, parent_name)
                 return
@@ -1212,16 +1195,16 @@ class FlatModel:
         elif isinstance(model, Model):
             self._process_model(model, mappings, parent_name)
         else:
-            raise ValueError("Model must be either PrimitiveModel or Model")
+            raise ValueError("Model must be either Operator or Model")
 
     def _process_primitive_model(
-        self, model: PrimitiveModel, mappings: dict[str, str], parent_name: str
+        self, model: Operator, mappings: dict[str, str], parent_name: str
     ) -> None:
         """
         Process a primitive model.
 
         Args:
-            model (PrimitiveModel): The primitive model.
+            model (Operator): The primitive model.
             mappings (dict[str, str]): The mappings of keys.
         """
 
@@ -1246,9 +1229,11 @@ class FlatModel:
             self.assigned_edges[conn.metadata] = name
             self.mappings[model][key] = name
 
-        output_edge = model.output.metadata
-        self.used_edges.add(output_edge)
-        self._check_for_queue(output_edge)
+        # output_edge = model.output.metadata
+        output_con = model.conns.get_connection("output")
+        assert output_con is not None
+        self.used_edges.add(output_con.metadata)
+        self._check_for_queue(output_con.metadata)
 
     def _process_model(
         self, model: Model, mappings: dict[str, str], parent_name: str
@@ -1292,12 +1277,12 @@ class FlatModel:
                         m, mappings=mappings, parent_name=parent_name
                     )
 
-    def _is_primitive_ready(self, model: PrimitiveModel) -> bool:
+    def _is_primitive_ready(self, model: Operator) -> bool:
         """
         Check if a primitive model is ready to be processed.
 
         Args:
-            model (PrimitiveModel): The primitive model.
+            model (Operator): The primitive model.
 
         Returns:
             bool: True if the model is ready, False otherwise.
@@ -1309,13 +1294,13 @@ class FlatModel:
         return True
 
     def _add_primitive_to_queue(
-        self, model: PrimitiveModel, mappings: dict[str, str], parent_name: str
+        self, model: Operator, mappings: dict[str, str], parent_name: str
     ) -> None:
         """
         Add a primitive model to the queue.
 
         Args:
-            model (PrimitiveModel): The primitive model.
+            model (Operator): The primitive model.
             input_edges (set[IOHyperEdge]): The input edges.
             mappings (dict[str, str]): The mappings of keys.
         """
@@ -1377,6 +1362,6 @@ class FlatModel:
         self._iter = iter(self.mappings.items())
         return self
 
-    def __next__(self) -> tuple[PrimitiveModel, dict[str, str]]:
+    def __next__(self) -> tuple[Operator, dict[str, str]]:
         model, mapping = next(self._iter)
         return model, {key: name.name for key, name in mapping.items()}
