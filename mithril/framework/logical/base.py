@@ -231,6 +231,7 @@ class BaseModel:
                     type=connection.type,
                     shape=connection.value_shape,
                     value=connection.value,
+                    differentiable=connection.differentiable,
                 )
 
         return _connection
@@ -250,6 +251,7 @@ class BaseModel:
         d_map = self.dependency_map.local_output_dependency_map
         expose = given_connection.expose
         outer_key = given_connection.name
+
         con_obj = None
         set_value: (
             ToBeDetermined
@@ -346,6 +348,9 @@ class BaseModel:
         assert con_obj is not None
         if not isinstance(set_value, NullConnection):
             updates |= con_obj.metadata.set_value(set_value)
+
+        if given_connection.differentiable:
+            updates |= con_obj.set_differentiability(True)
 
         # Check multi-write error for con_obj.
         self._check_multi_write(is_input, local_connection, con_obj)
@@ -1071,6 +1076,29 @@ class BaseModel:
 
         self.conns.add(con)
         return con
+
+    def set_differentiability(
+        self, config: dict[str | ConnectionData, bool] | None = None, **kwargs: bool
+    ) -> None:
+        updates = Updates()
+        if config is None:
+            config = {}
+
+        for key, value in chain(config.items(), kwargs.items()):
+            if isinstance(key, str):
+                if key not in self.conns.all:
+                    raise KeyError(f"Connection {key} is not found in the model.")
+
+                conn_data = self.conns.all[key]
+                updates |= conn_data.set_differentiability(value)
+            elif isinstance(key, ConnectionData):
+                if key not in self.conns.all.values():
+                    raise KeyError(f"Connection {key} is not found in the model.")
+
+                updates |= key.set_differentiability(value)
+
+        model = self._get_outermost_parent()
+        model.constraint_solver(updates)
 
     def _set_shapes(
         self,

@@ -31,7 +31,17 @@ class OperatorModel(Model):
         name: str | None = None,
     ) -> None:
         super().__init__(name=name, enforce_jit=model._jittable)
-        self._extend(model, {k: IOKey(k, expose=True) for k in model.external_keys})
+        self._extend(
+            model,
+            {
+                k: IOKey(
+                    k,
+                    expose=True,
+                    differantiable=model.conns.all[k].metadata.differentiable,
+                )
+                for k in model.external_keys
+            },
+        )
 
     @property
     def submodel(self) -> Operator:

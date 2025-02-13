@@ -64,6 +64,7 @@ class Operator(BaseModel):
                         tensor = Tensor(
                             type=get_args(value.type)[0],
                             shape=shapes[key].node,
+                            differentiable=value.differentiable,
                         )
                     edge = IOHyperEdge(value=tensor, interval=value.interval)
                     data_set.add(edge)
@@ -144,3 +145,10 @@ class Operator(BaseModel):
         **kwargs: ConnectionDataType,
     ) -> None:
         raise NotImplementedError("Operators cannot be extended!")
+
+    def infer_differentiability(self, *inputs: bool) -> bool:
+        # Function to infer differentiability of the operator
+        # based on the differentiability of its inputs
+
+        # If any of the inputs are differentiable, the output is differentiable
+        return any(inputs)
