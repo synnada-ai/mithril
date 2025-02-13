@@ -80,7 +80,7 @@ class Operator(BaseModel):
                     "Operator's can only be instantiated with BaseKey type keys!"
                 )
 
-            conn_data = self._create_connection(edge, key)
+            conn_data = self.create_connection(edge, key)
 
             if key == Operator.output_key:
                 self.conns.set_connection_type(conn_data, KeyType.OUTPUT)

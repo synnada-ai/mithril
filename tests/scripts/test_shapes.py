@@ -28,6 +28,7 @@ from mithril.framework.common import (
     DNF,
     NOT_GIVEN,
     BaseKey,
+    ConnectionData,
     Equivalences,
     PossibleValues,
     ShapeNode,
@@ -182,7 +183,10 @@ def assert_shapes(
         model.set_shapes(shapes)
 
     if static_inputs is not None:
-        model.set_shapes({key: value.shape for key, value in static_inputs.items()})
+        input_shapes: dict[ConnectionData | str, list] = {
+            key: value.shape for key, value in static_inputs.items()
+        }
+        model.set_shapes(input_shapes)
 
     comp_shapes = {
         key: value

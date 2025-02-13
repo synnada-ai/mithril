@@ -13,6 +13,7 @@
 # limitations under the License.
 
 
+from mithril.framework.common import ConnectionData
 from mithril.models import Add, IOKey, Model, Sigmoid
 
 from .test_utils import check_shapes_semantically
@@ -133,8 +134,11 @@ def test_set_shapes_4():
 
     model += (sig1 := Sigmoid())("input1", IOKey("output1"))
     model += (sig2 := Sigmoid())("input2", IOKey("output2"))
-
-    model.set_shapes({sig1.input: ["a", "b"], sig2.input: ["b", "a"]})
+    shapes: dict[ConnectionData | str, list] = {
+        sig1.input: ["a", "b"],
+        sig2.input: ["b", "a"],
+    }
+    model.set_shapes(shapes)
 
     ref_shapes = {
         "input1": ["a", "b"],

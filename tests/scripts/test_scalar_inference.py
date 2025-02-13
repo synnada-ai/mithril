@@ -18,7 +18,7 @@ from typing import Protocol, runtime_checkable
 import pytest
 
 import mithril as ml
-from mithril.framework.common import TBD
+from mithril.framework.common import TBD, ConnectionData
 from mithril.framework.logical.model import Connection, IOKey
 from mithril.models import (
     Add,
@@ -93,7 +93,8 @@ class TestScalarInference:
         ) // shape_output[3]
 
         model |= add_model(model_output, 3, IOKey("output"))
-        model.set_shapes({model.cin: [8, 2, 14, 10]})
+        shapes: dict[ConnectionData | str, list] = {model.cin: [8, 2, 14, 10]}
+        model.set_shapes(shapes)
 
         return model
 
@@ -110,7 +111,8 @@ class TestScalarInference:
         mean_shape = model.cout.shape  # [8, 14, 10]
         output2 = (mean_shape[0] ** (mean_shape[1] / 7)) + mean_shape[2]  # 74
         model += Add()(output2, output1, IOKey("output"))  # 75
-        model.set_shapes({model.cin: [8, 2, 14, 10]})
+        shapes: dict[ConnectionData | str, list] = {model.cin: [8, 2, 14, 10]}
+        model.set_shapes(shapes)
         return model
 
     def test_shape_model_output_basic(self, shape_model: Model):

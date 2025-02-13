@@ -18,7 +18,7 @@ import pytest
 
 import mithril
 from mithril import JaxBackend, TorchBackend
-from mithril.framework.common import TBD, BaseKey, Tensor
+from mithril.framework.common import TBD, BaseKey, ConnectionData, Tensor
 from mithril.framework.constraints import squeeze_constraints
 from mithril.models import (
     L2,
@@ -71,8 +71,10 @@ def test_linear_expose_set_shapes():
     lin_2 = Linear()
     model += lin_1(input="input", weight="weight")
     model += lin_2(input=lin_1.output, weight="weight1", output=IOKey(name="output2"))
-    model.set_shapes({lin_1.bias: [42]})
-    model.set_shapes({lin_2.bias: [21]})
+    shape1: dict[ConnectionData | str, list] = {lin_1.bias: [42]}
+    shape2: dict[ConnectionData | str, list] = {lin_2.bias: [21]}
+    model.set_shapes(shape1)
+    model.set_shapes(shape2)
     model_dict_created = dict_conversions.model_to_dict(model)
     model_recreated = dict_conversions.dict_to_model(model_dict_created)
     model_dict_recreated = dict_conversions.model_to_dict(model_recreated)
@@ -93,8 +95,10 @@ def test_linear_expose_set_shapes_extend_from_inputs():
     lin_2 = Linear()
     model += lin_2(weight="weight1", output=IOKey(name="output2"))
     model += lin_1(input="input", weight="weight", output=lin_2.input)
-    model.set_shapes({lin_1.bias: [42]})
-    model.set_shapes({lin_2.bias: [21]})
+    shape1: dict[ConnectionData | str, list] = {lin_1.bias: [42]}
+    shape2: dict[ConnectionData | str, list] = {lin_2.bias: [21]}
+    model.set_shapes(shape1)
+    model.set_shapes(shape2)
     model_dict_created = dict_conversions.model_to_dict(model)
     model_recreated = dict_conversions.dict_to_model(model_dict_created)
     model_dict_recreated = dict_conversions.model_to_dict(model_recreated)
