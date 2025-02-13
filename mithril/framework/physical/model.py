@@ -187,7 +187,8 @@ class PhysicalModel(GenericDataType[DataType]):
 
                 if global_key in self._non_differentiable_keys:
                     # TODO: Create an API for setting differentiability of a tensor.
-                    physical_data.differentiable = False
+                    # physical_data.differentiable = False
+                    physical_data.set_differentiablity(False)
                 elif global_key in self._trainable_tensor_inputs:
                     # if physical_data.edge_type not in (Tensor, ToBeDetermined):
                     if not (
@@ -204,7 +205,8 @@ class PhysicalModel(GenericDataType[DataType]):
                         raise ValueError(
                             f"Valued data can not be trainable: {global_key}"
                         )
-                    physical_data.differentiable = True
+                    # physical_data.differentiable = True
+                    physical_data.set_differentiablity(True)
 
                 model_data[key] = physical_data
                 self.flat_graph.data_memo[id(logical_data)] = physical_data
@@ -424,11 +426,13 @@ class PhysicalModel(GenericDataType[DataType]):
             # the output is also differentiable.
             for key, value in model_data.items():
                 if key != output_key and not value.is_non_diff:
-                    output_edge.differentiable = True
+                    # output_edge.differentiable = True
+                    output_edge.set_differentiablity(True)
                     return
             # If all inputs are non-differentiable, then the output is also
             # non-differentiable.
-            output_edge.differentiable = False
+            # output_edge.differentiable = False
+            output_edge.set_differentiablity(False)
 
     def randomize_params(
         self,
@@ -540,23 +544,18 @@ class PhysicalModel(GenericDataType[DataType]):
             self.discarded_keys, self._output_keys
         )
 
+        _reversed_out_dict = {v: k for k, v in self.flat_graph.output_dict.items()}
         for node in self.flat_graph.nodes.values():
             _key = node.connections["output"].key
             conn_edge = self.data.get(_key, None)
             # TODO: If conn_edge is None, it means that the key is unused in data_store
             # but not unnecessary in flat_graph. This case should be handled when
             # flat_graph - data_store integration is updated.
-            if conn_edge is not None and (
-                (not conn_edge.is_tensor)
-                or (
-                    (not find_intersection_type(float, conn_edge.value_type))
-                    or _key
-                    in (
-                        self.flat_graph.cached_data.keys() | self.flat_graph.unused_keys
-                    )
-                )
-            ):
-                self.ignore_grad_keys.add(node.connections[Operator.output_key].key)
+            if not (conn_edge is None or conn_edge.differentiable):
+                ignored = {_key}
+                if (ignored_alias := _reversed_out_dict.get(_key)) is not None:
+                    ignored.add(ignored_alias)
+                self.ignore_grad_keys.update(ignored)
 
         if len(self._output_keys - self.ignore_grad_keys) == 0 and not self.inference:
             raise ValueError("All outputs gradient are ignored.")

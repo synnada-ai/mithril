@@ -1034,41 +1034,71 @@ class CartesianDifference(PrimitiveModel):
         return super().__call__(left=left, right=right, output=output)
 
 
+# class Concat(PrimitiveModel):
+#     output: Connection
+#     axis: Connection
+
+#     def __init__(
+#         self,
+#         n: int,
+#         axis: int | None | ToBeDetermined = 0,
+#         *,
+#         name: str | None = None,
+#         **kwargs: Tensor[int | float | bool] | ToBeDetermined,
+#     ) -> None:
+#         self.factory_args = {"n": n, "axis": axis}
+
+#         key_definitions: dict[str, BaseKey] = {}
+#         key_definitions["output"] = BaseKey(shape=[("Var_out", ...)], type=Tensor)
+#         key_definitions |= {
+#             f"input{idx+1}": BaseKey(
+#                 shape=[(f"Var_{idx + 1}", ...)],
+#                 type=Tensor,
+#                 value=kwargs.get(f"input{idx + 1}", TBD),
+#             )
+#             for idx in range(n)
+#         }
+#         key_definitions["axis"] = BaseKey(type=int | None, value=axis)
+#         super().__init__(formula_key="concat", name=name, **key_definitions)
+
+#         input_keys = [key for key in self.input_keys if key != "axis"]
+#         self._add_constraint(
+#             fn=concat_constraints, keys=["output"] + ["axis"] + input_keys
+#         )
+#         self._add_constraint(
+#             fn=general_tensor_type_constraint,
+#             keys=[Operator.output_key] + input_keys,
+#         )
+
+
 class Concat(PrimitiveModel):
     output: Connection
     axis: Connection
 
     def __init__(
         self,
-        n: int,
+        input: Sequence[Tensor[int | float | bool]] | ToBeDetermined = TBD,
         axis: int | None | ToBeDetermined = 0,
         *,
         name: str | None = None,
-        **kwargs: Tensor[int | float | bool] | ToBeDetermined,
     ) -> None:
-        self.factory_args = {"n": n, "axis": axis}
+        self.factory_args = {"axis": axis}
 
-        key_definitions: dict[str, BaseKey] = {}
-        key_definitions["output"] = BaseKey(shape=[("Var_out", ...)], type=Tensor)
-        key_definitions |= {
-            f"input{idx+1}": BaseKey(
-                shape=[(f"Var_{idx + 1}", ...)],
-                type=Tensor,
-                value=kwargs.get(f"input{idx + 1}", TBD),
-            )
-            for idx in range(n)
-        }
-        key_definitions["axis"] = BaseKey(type=int | None, value=axis)
-        super().__init__(formula_key="concat", name=name, **key_definitions)
+        super().__init__(
+            formula_key="concat", 
+            name=name, 
+            output=BaseKey(shape=[("Var_out", ...)], type=Tensor),
+            input=BaseKey(type=Sequence[Tensor[int | float | bool]], value=input), 
+            axis=BaseKey(type=int | None, value=axis),
+        )
 
-        input_keys = [key for key in self.input_keys if key != "axis"]
         self._add_constraint(
-            fn=concat_constraints, keys=["output"] + ["axis"] + input_keys
+            fn=concat_constraints, keys=[Operator.output_key, "input", "axis"]
         )
-        self._add_constraint(
-            fn=general_tensor_type_constraint,
-            keys=[Operator.output_key] + input_keys,
-        )
+        # self._add_constraint(
+        #     fn=general_tensor_type_constraint,
+        #     keys=[Operator.output_key, "input"],
+        # )
 
 
 class PrimitiveUnion(PrimitiveModel):
@@ -3023,6 +3053,10 @@ class ToList(OperatorModel):
         **kwargs: ScalarValueType | ToBeDetermined,
     ) -> None:
         super().__init__(name=name, model=ToListOp(n, name=name, **kwargs))
+
+    def __call__(self, *args: ConnectionType) -> ExtendInfo:  # type: ignore[override]
+        kwargs = {f"input{i+1}": val for i, val in enumerate(args) if val is not TBD}
+        return super().__call__(**kwargs)
 
 
 class TensorToList(OperatorModel):

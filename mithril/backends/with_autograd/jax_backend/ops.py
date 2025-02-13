@@ -828,8 +828,8 @@ def flatten(input: jax.Array, *, start_dim: int = 0, end_dim: int = -1) -> jax.A
     return jnp.reshape(input, shape)
 
 
-def concat(*inputs: jax.Array, axis: int | None = 0) -> jax.Array:
-    return jnp.concatenate([jnp.atleast_1d(v) for v in inputs], axis=axis)
+def concat(input: Sequence[jax.Array], axis: int | None = 0) -> jax.Array:
+    return jnp.concatenate(input, axis=axis)
 
 
 def broadcast_to(input: jax.Array, shape: tuple[int, ...]) -> jax.Array:

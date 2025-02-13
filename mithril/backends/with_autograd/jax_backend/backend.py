@@ -453,7 +453,7 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
     def cat(
         self, inputs: tuple[jax.Array, ...] | list[jax.Array], axis: int = 0
     ) -> jax.Array:
-        return ops.concat(*inputs, axis=axis)
+        return ops.concat(inputs, axis=axis)
 
     def pad(self, input: jax.Array, pad_width: PadWidthType) -> jax.Array:
         return jax.numpy.pad(input, pad_width)

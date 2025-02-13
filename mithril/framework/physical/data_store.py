@@ -23,6 +23,7 @@ from ..common import (
     DataEvalType,
     IOHyperEdge,
     MainValueType,
+    ScalarValueType,
     Tensor,
     ToBeDetermined,
     Updates,
@@ -113,20 +114,46 @@ class StaticDataStore(Generic[DataType]):
         for key in transferred_keys:
             self.intermediate_non_differentiables.pop(key)
         return transferred_keys
+    
+    def _convert_to_physical_value(self, data: AllValueType) -> DataType | ScalarValueType | str:
+        if isinstance(data, Tensor) and data.value is not TBD:
+            data = self.backend.array(data.value)
+        elif isinstance(data, Tensor):
+            raise ValueError("Tensor value is not set!")
+        elif isinstance(data, list | tuple):
+            result: list[Any] | tuple[Any, ...] = [self._convert_to_physical_value(d) for d in data]
+            if isinstance(data, tuple):
+                result = tuple(result)
+            data = result
+        elif isinstance(data, dict):
+            data = {k: self._convert_to_physical_value(v) for k, v in data.items()}
+        elif isinstance(data, Constant):
+            data = epsilon_table[self.backend.precision][data]
+        elif isinstance(data, Dtype):
+            data = getattr(self.backend, data.name)
+        return data
 
     def _set_data_value(self, key: str, data: IOHyperEdge) -> None:
-        value: DataType | AllValueType = data.value
+        value: AllValueType = data._value
         assert not isinstance(value, ToBeDetermined)
-        # If value is a constant, get its corresponding value for
-        # the backend.
-        if isinstance(value, Constant):
-            value = epsilon_table[self.backend.precision][value]
+        try:
+            phys_value = self._convert_to_physical_value(value)
+            self.data_values[key] = phys_value
+        except Exception as e:
+            if str(e) == "Tensor value is not set!":
+                return
+            raise
+        # # If value is a constant, get its corresponding value for
+        # # the backend.
+        # if isinstance(value, Constant):
+        #     value = epsilon_table[self.backend.precision][value]
 
-        if data.is_tensor:
-            value = self.backend.array(value)
-        elif isinstance(value, Dtype):
-            value = getattr(self.backend, value.name)
-        self.data_values[key] = value  # type: ignore
+        # if data.is_tensor:
+        #     value = self.backend.array(value)
+        # elif isinstance(value, Dtype):
+        #     value = getattr(self.backend, value.name)
+
+        # self.data_values[key] = value  # type: ignore
 
     # Add constant values of given models __call__ to constant_keys if any.
     # TODO: merge convert_data_to_physical with _set_data_value

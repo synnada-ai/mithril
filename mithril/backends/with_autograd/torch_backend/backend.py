@@ -477,7 +477,7 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
     def cat(
         self, inputs: tuple[torch.Tensor, ...] | list[torch.Tensor], axis: int = 0
     ) -> torch.Tensor:
-        return ops.concat(*inputs, axis=axis)
+        return ops.concat(inputs, axis=axis)
 
     def pad(self, input: torch.Tensor, pad_width: PadWidthType) -> torch.Tensor:
         _pad: list[int] = []

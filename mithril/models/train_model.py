@@ -460,17 +460,18 @@ class TrainModel(Model):
             raise ValueError("Requires at least 1 attached loss!")
         loss_output_key = LossKey if self.reg_coef_map else FinalCost
         if (num_of_loss_keys := len(self.loss_keys)) > 1:
-            concat_model = Concat(n=num_of_loss_keys, axis=None)
-            concat_kwargs: dict[Any, Any] = {}
-            idx = 0
-            for key in concat_model.input_keys:
-                # if not concat_model.connections[key].metadata.value.is_non_diff:
-                if not concat_model.conns.is_key_non_diff(key):
-                    concat_kwargs[key] = self.conns.all[
-                        list(self.loss_keys.values())[idx]
-                    ]
-                    idx += 1
-            self.extend(concat_model, **concat_kwargs)
+            concat_model = Concat(axis=None)
+            # concat_kwargs: dict[Any, Any] = {}
+            # idx = 0
+            # for key in concat_model.input_keys:
+            #     # if not concat_model.connections[key].metadata.value.is_non_diff:
+            #     if not concat_model.conns.is_key_non_diff(key):
+            #         concat_kwargs[key] = self.conns.all[
+            #             list(self.loss_keys.values())[idx]
+            #         ]
+            #         idx += 1
+            losses = [self.conns.get_connection(key) for key in self.loss_keys.values()]
+            self.extend(concat_model, input = losses)
             self.extend(
                 self.loss_combiner,
                 input=concat_model.output.data,
@@ -497,32 +498,32 @@ class TrainModel(Model):
             self._add_geo_mean()
             self._add_loss_combiner()
             if self.reg_coef_map:
-                reg_concat_args: list[str | ConnectionData] = [LossKey]
+                loss_conn = self.conns.get_connection(LossKey)
+                assert loss_conn is not None
+                reg_concat_args: list[str | ConnectionData] = [loss_conn]
                 for coef, o_set in self.reg_coef_map.items():
-                    concat_inputs = {
-                        f"input{idx + 1}": o for idx, o in enumerate(o_set)
-                    }
+                    # concat_inputs = {
+                    #     f"input{idx + 1}": o for idx, o in enumerate(o_set)
+                    # }
+                    concat_input = list(o_set)
                     self.extend(
-                        concat := Concat(n=len(o_set), axis=None), **concat_inputs
+                        concat := Concat(axis=None), input=concat_input
                     )
                     self.extend(add := Sum(), input=concat.output.data)
                     self.extend(mult := Multiply(), left=add.output.data, right=coef)
                     reg_concat_args.append(mult.output.data)
                 # TODO: add concat and sum if len(reg_concat_args) > 1
                 self.extend(
-                    reg_concat := Concat(n=len(reg_concat_args), axis=None),
-                    **{
-                        f"input{idx + 1}": key
-                        for idx, key in enumerate(reg_concat_args)
-                    },
+                    reg_concat := Concat(axis=None),
+                    input=reg_concat_args,
                 )
                 self.extend(
                     Sum(), input=reg_concat.output.data, output=IOKey(name=FinalCost)
                 )
                 self.set_cout(FinalCost)
-                loss_con = self.conns.get_connection(LossKey)
-                assert loss_con is not None
-                self.conns.set_connection_type(loss_con, KeyType.INTERNAL)
+                # loss_con = self.conns.get_connection(LossKey)
+                # assert loss_con is not None
+                self.conns.set_connection_type(loss_conn, KeyType.INTERNAL)
             self._freeze()
 
         self.dependency_map.update_all_keys()
@@ -718,15 +719,15 @@ class TrainModel(Model):
                 # Apply geo-mean logic here
                 final_output = final_outputs[0]
                 if (n_final_outputs := len(final_outputs)) > 0:
-                    concat_model = Concat(n=n_final_outputs, axis=None)
-                    concat_kwargs: dict[str, Tensor[int] | ConnectionData] = {}
-                    idx = 0
-                    for key in concat_model.input_keys:
-                        if not concat_model.conns.is_key_non_diff(key):
-                            concat_kwargs[key] = final_outputs[idx]
-                            idx += 1
-
-                    self.extend(concat_model, **concat_kwargs)
+                    concat_model = Concat(axis=None)
+                    # concat_kwargs: dict[str, Tensor[int] | ConnectionData] = {}
+                    # idx = 0
+                    # for key in concat_model.input_keys:
+                    #     if not concat_model.conns.is_key_non_diff(key):
+                    #         concat_kwargs[key] = final_outputs[idx]
+                    #         idx += 1
+                
+                    self.extend(concat_model, input=final_outputs)
                     self.extend(prod := Prod(), input=concat_model.output.data)
                     final_output = prod.output.data
 
@@ -762,14 +763,14 @@ class TrainModel(Model):
             final_output = out_con
 
         if (num_of_sizes := len(sizes)) > 0:
-            concat_model = Concat(n=num_of_sizes, axis=None)
-            concat_kwargs: dict[str, int | ConnectionData] = {}
-            idx = 0
-            for key in concat_model.input_keys:
-                if not concat_model.conns.is_key_non_diff(key):
-                    concat_kwargs[key] = sizes[idx]
-                    idx += 1
-            self.extend(concat_model, **concat_kwargs)
+            concat_model = Concat(axis=None)
+            # concat_kwargs: dict[str, int | ConnectionData] = {}
+            # idx = 0
+            # for key in concat_model.input_keys:
+            #     if not concat_model.conns.is_key_non_diff(key):
+            #         concat_kwargs[key] = sizes[idx]
+            #         idx += 1
+            self.extend(concat_model, input=sizes)
             self.extend(prod := Prod(), input=concat_model.output.data)
             final_output = prod.output.data
         return final_output

@@ -174,11 +174,15 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
                     else:
                         out_data = _key_cache["output"]
 
-                assert isinstance(out_data, np.ndarray)
+                # assert isinstance(out_data, np.ndarray)
 
-                gradients[key] = self.backend.zeros_like(
-                    out_data, dtype=self.backend._dtype
-                )
+                # gradients[key] = self.backend.zeros_like(
+                #     out_data, dtype=self.backend._dtype
+                # )
+
+                # Create same data structure filled with zeros.
+                gradients[key] = self.fill_zeros(out_data)
+                    
 
             if output_gradients is None:
                 if FinalCost not in self.pm._output_keys:
@@ -209,6 +213,19 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
             grad_fn = partial(evaluate_gradients_wrapper_manualgrad, grad_fn=grad_fn)
 
         return self.post_process_fns(eval_fn, grad_fn, jit)  # type: ignore
+    
+    def fill_zeros(self, data: Any) -> Any:
+        if isinstance(data, np.ndarray):
+            return self.backend.zeros_like(data, dtype=self.backend._dtype)
+        elif isinstance(data, dict):
+            return {key: self.fill_zeros(value) for key, value in data.items()}
+        elif isinstance(data, list | tuple):
+            result: list[Any] | tuple[Any] = [self.fill_zeros(value) for value in data]
+            if isinstance(data, tuple):
+                result = tuple(result)
+            return result
+        # Return 0.0 for scalar values.
+        return 0.0
 
     def get_primitive_details(
         self, output_key: str
@@ -216,7 +233,7 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
         model = self.pm.flat_graph.get_model(output_key)
 
         global_input_keys = self.pm.flat_graph.get_source_keys(output_key)
-        global_input_keys += [self.get_cache_name(output_key)]
+        # global_input_keys += [self.get_cache_name(output_key)]
         local_input_keys = list(model.input_keys) + ["cache"]
 
         return model, global_input_keys, local_input_keys
@@ -248,7 +265,7 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
 
         if is_make_array_required(
             self.pm.data[output_key]
-        ) or is_type_adjustment_required(self.pm.data, g_input_keys):
+        ) or (self.pm.data[output_key].is_tensor and is_type_adjustment_required(self.pm.data, g_input_keys)):
             generated_fn = ast.Call(
                 func=ast.Name(id="make_array", ctx=ast.Load()),
                 args=[generated_fn],
@@ -303,6 +320,7 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
         input_body: list[ast.stmt] = []
         function_body: list[ast.stmt] = []
         used_keys: set[str] = set()
+        is_recursive_fn_imported: bool = False
 
         all_ignored_keys = ignore_grad_keys | self.pm.flat_graph.all_static_keys
 
@@ -515,9 +533,30 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
                     ctx=ast.Load(),
                 )
 
-                function_body.append(
-                    ast.AugAssign(target=target, op=ast.Add(), value=generated_fn)
-                )
+                if self.pm.data[global_input_key].is_tensor:
+                    function_body.append(ast.AugAssign(target=target, op=ast.Add(), value=generated_fn))
+                else:
+                    function_body.append(
+                        ast.Assign(
+                            targets=[target], 
+                            value=ast.Call(
+                                func=ast.Name(id="recursive_sum", ctx=ast.Load()),
+                                args=[
+                                    target,
+                                    generated_fn
+                                ],
+                                keywords=[],
+                            )
+                        )
+                    )
+                    if not is_recursive_fn_imported:
+                        self.imports.append(
+                            ast.ImportFrom(
+                                module="mithril.framework.utils",
+                                names=[ast.alias(name="recursive_sum", asname=None)],
+                                level=0,
+                            )
+                    )
 
                 used_keys |= _used_keys - {"output_gradient", "idx"}
 

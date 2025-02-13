@@ -1848,17 +1848,148 @@ def reduce_constraints(
     return input_shape.root == output_shape.root, updates
 
 
+# def concat_constraints(
+#     output: IOHyperEdge, input: IOHyperEdge, axis: IOHyperEdge
+# ) -> ConstrainResultType:
+#     status = False
+#     updates = Updates()
+#     keys: list[ShapeRepr] = []
+#     assert isinstance(output._value, Tensor)
+#     if isinstance(input._value, list):
+#         for arg in input._value:
+#             assert isinstance(arg, Tensor)
+#             assert arg._temp_shape is not None, "Input shape of concat is not set!"
+#             keys.append(arg._temp_shape)
+#         assert output._value._temp_shape is not None, "Output shape of concat is not set!"
+#         output_shape: ShapeRepr = output._value._temp_shape
+
+#         reprs = keys + [output_shape]
+#         axis_val = axis.value
+#         assert (
+#             isinstance(axis_val, int)
+#             or axis_val is None
+#             or isinstance(axis_val, ToBeDetermined)
+#         ), "Invalid axis value!"
+#         # look if all reprs have different variadics
+#         if (
+#             not isinstance(axis_val, ToBeDetermined)
+#             and len(set(repr.root for repr in reprs)) == len(reprs)
+#             and output_shape.root is not None
+#         ):
+#             if axis_val is not None:
+#                 # if axis is determined and is positive, we can know that tensors have
+#                 # shape at least value of dimensions. Also we know that All shapes of
+#                 # all reprs must be same except shape at axis same applies for when axis
+#                 # is negative
+#                 var = Variadic()
+#                 if axis_val >= 0:
+#                     uniadics: list[Uniadic] = [Uniadic() for _ in range(axis_val)]
+#                     for repr in reprs:
+#                         updates |= repr.inner_match(prefix=uniadics + [Uniadic()], root=var)
+#                 elif axis_val < 0:
+#                     uniadics = [Uniadic() for _ in range(-axis_val - 1)]
+#                     for repr in reprs:
+#                         updates |= repr.inner_match(root=var, suffix=[Uniadic()] + uniadics)
+#             else:
+#                 updates |= output_shape.inner_match(prefix=[Uniadic()])
+
+#         if not isinstance(axis_val, ToBeDetermined):
+#             if axis_val is not None:
+#                 # If axis is determined and not None, at first take all the uniadic
+#                 # values at axis. shape formula of output of axis must be out =
+#                 # sum(all ins). Therefore, if there is only one unknown, we can
+#                 # infer unknown uniadic's shape by algebra.
+#                 uniadics = []
+#                 uniadic_values: list[int | None] = []
+#                 pruned_uni_values: list[int] = []
+#                 for repr in reprs:
+#                     if (
+#                         repr.root is None
+#                         or (axis_val >= 0 and len(repr.prefix) >= axis_val + 1)
+#                         or (axis_val < 0 and len(repr.suffix) >= abs(axis_val))
+#                     ):
+#                         uniadics.append(uni := repr[axis_val])
+#                         uniadic_values.append(uni_value := uni.value)
+#                         if uni_value is not None:
+#                             pruned_uni_values.append(uni_value)
+#                 if len(pruned_uni_values) + 1 == len(reprs):
+#                     status = True
+#                     if uniadic_values[-1] is None:
+#                         if uniadics[-1].set_value(sum(pruned_uni_values)):
+#                             updates.add(uniadics[-1])
+#                     else:
+#                         idx = uniadic_values.index(None)
+#                         if uniadics[idx].set_value(
+#                             pruned_uni_values[-1] - sum(pruned_uni_values[:-1])
+#                         ):
+#                             updates.add(uniadics[idx])
+#                 elif len(pruned_uni_values) == len(reprs):
+#                     status = True
+#             else:
+#                 if output_shape.prefix[0].value is None:
+#                     output_size = 0
+#                     for key in keys:
+#                         if key.root is None:
+#                             values = [item.value for item in key.prefix]
+#                             if is_list_int(values):
+#                                 output_size += math.prod(values)
+#                             else:
+#                                 break
+#                         else:
+#                             break
+#                     else:
+#                         status = True
+#                         if output_shape.prefix[0].set_value(output_size):
+#                             updates.add(output_shape.prefix[0])
+#                 else:
+#                     dividing_factor = 1
+#                     substract_factor = 0
+#                     none_values: list[Uniadic] = []
+#                     for key in keys:
+#                         if key.root is None:
+#                             unis_without_value = [
+#                                 uni for uni in key.prefix if uni.value is None
+#                             ]
+#                             unis_with_value = [
+#                                 uni.value for uni in key.prefix if uni.value is not None
+#                             ]
+#                             none_values += unis_without_value
+#                             if len(none_values) > 1:
+#                                 break
+#                             if unis_without_value:
+#                                 dividing_factor *= math.prod(unis_with_value)
+#                             else:
+#                                 substract_factor += math.prod(unis_with_value)
+#                         else:
+#                             break
+#                     else:
+#                         if len(none_values) == 1:
+#                             status = True
+#                             if none_values[0].set_value(
+#                                 (output_shape.prefix[0].value - substract_factor)
+#                                 // dividing_factor
+#                             ):
+#                                 updates.add(none_values[0])
+#                         elif len(none_values) == 0:
+#                             status = True
+#     return status, updates
+
+
 def concat_constraints(
-    output: IOHyperEdge, axis: IOHyperEdge, *inputs: IOHyperEdge
+    output: IOHyperEdge, input: IOHyperEdge, axis: IOHyperEdge
 ) -> ConstrainResultType:
     status = False
     updates = Updates()
     keys: list[ShapeRepr] = []
-    for input in inputs:
-        assert input._temp_shape is not None, "Input shape of concat is not set!"
-        keys.append(input._temp_shape)
-    assert output._temp_shape is not None, "Output shape of concat is not set!"
-    output_shape: ShapeRepr = output._temp_shape
+    assert isinstance(output._value, Tensor)
+    input_val = [] if input._value is TBD else input._value
+    assert isinstance(input_val, list)
+    for arg in input_val:
+        assert isinstance(arg, Tensor)
+        assert arg._temp_shape is not None, "Input shape of concat is not set!"
+        keys.append(arg._temp_shape)
+    assert output._value._temp_shape is not None, "Output shape of concat is not set!"
+    output_shape: ShapeRepr = output._value._temp_shape
 
     reprs = keys + [output_shape]
     axis_val = axis.value
@@ -1895,7 +2026,15 @@ def concat_constraints(
             # If axis is determined and not None, at first take all the uniadic
             # values at axis. shape formula of output of axis must be out =
             # sum(all ins). Therefore, if there is only one unknown, we can
-            # infer unknown uniadic's shape by algebra.
+            # infer unknown uniadic's shape by algebra. 
+            if (non_var_repr := next((repr for repr in reprs if repr.root is None), None)) is not None:
+                # Match all uniadics in all reprs with same Uniadics in non_var_repr
+                # except the axis_val.
+                pos_axis_val = axis_val if axis_val >= 0 else len(non_var_repr.prefix) + axis_val
+                for repr in reprs:
+                    if repr is not non_var_repr:
+                        updates |= repr.inner_match(prefix=[uni if idx != pos_axis_val else Uniadic() for idx, uni in enumerate(non_var_repr.prefix)])
+
             uniadics = []
             uniadic_values: list[int | None] = []
             pruned_uni_values: list[int] = []
@@ -1922,6 +2061,7 @@ def concat_constraints(
                         updates.add(uniadics[idx])
             elif len(pruned_uni_values) == len(reprs):
                 status = True
+                
         else:
             if output_shape.prefix[0].value is None:
                 output_size = 0
@@ -3555,7 +3695,7 @@ def to_list_constraints(output: IOHyperEdge, *args: IOHyperEdge) -> ConstrainRes
         # Forward value propagation.
         values = []
         for arg in args:
-            if (arg_val := arg.value) is TBD:
+            if (arg_val := arg._value) is TBD:
                 break
             values.append(arg_val)
         else:

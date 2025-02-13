@@ -343,6 +343,7 @@ def test_default_given_extend_numpy_3():
         model=final_model,
         backend=NumpyBackend(),
         data_keys={"input"},
+        inference=True,
     )
     inputs = compiled_model.randomize_params()
     data = {"input": np_input}
@@ -350,10 +351,6 @@ def test_default_given_extend_numpy_3():
     result = compiled_model.evaluate(inputs, data)
     out = result["output"]
     assert isinstance(out, np.ndarray)
-    output_gradients = {"output": np.ones_like(out)}
-    compiled_model.evaluate_gradients(
-        params=inputs, data=data, output_gradients=output_gradients
-    )
     np.testing.assert_array_equal(expected_result, out)
 
 
@@ -374,6 +371,7 @@ def test_default_given_extend_numpy_3_set_values():
         model=final_model,
         backend=NumpyBackend(),
         data_keys={"input"},
+        inference=True,
     )
     inputs = compiled_model.randomize_params()
     data = {"input": np_input}
@@ -381,10 +379,6 @@ def test_default_given_extend_numpy_3_set_values():
     result = compiled_model.evaluate(inputs, data)
     out = result["output"]
     assert isinstance(out, np.ndarray)
-    output_gradients = {"output": np.ones_like(out)}
-    compiled_model.evaluate_gradients(
-        params=inputs, data=data, output_gradients=output_gradients
-    )
     np.testing.assert_array_equal(expected_result, out)
 
 
@@ -402,7 +396,7 @@ def test_constant_given_data_numpy():
     }
     expected_result = (np_input.mean(0) * 2).mean(0)
     compiled_model = ml.compile(
-        model=model, backend=NumpyBackend(), constant_keys=static_inputs
+        model=model, backend=NumpyBackend(), constant_keys=static_inputs, inference=True
     )
 
     inputs = compiled_model.randomize_params()
@@ -411,10 +405,6 @@ def test_constant_given_data_numpy():
     result = compiled_model.evaluate(inputs, data)
     out = result["output"]
     assert isinstance(out, np.ndarray)
-    output_gradients = {"output": np.ones_like(out)}
-    compiled_model.evaluate_gradients(
-        params=inputs, data=data, output_gradients=output_gradients
-    )
     np.testing.assert_array_equal(expected_result, out)
 
 
@@ -1188,7 +1178,7 @@ def test_static_input_1():
     ref = np.array(5.0)
     model += add_1
     comp_model = ml.compile(
-        model=model, backend=NumpyBackend(), jit=False, safe_names=False
+        model=model, backend=NumpyBackend(), jit=False, safe_names=False, inference=True
     )
 
     output = comp_model.evaluate(
@@ -1210,7 +1200,7 @@ def test_static_input_1_safe_names():
     add_1.right.set_differentiable(False)
     model += add_1
     with pytest.raises(KeyError) as err:
-        ml.compile(model=model, backend=NumpyBackend(), jit=False)
+        ml.compile(model=model, backend=NumpyBackend(), jit=False, inference=True)
     assert str(err.value) == (
         "'Runtime data keys must be named in logical model when "
         "safe_names set to True. The following keys are unnamed: $1, $2'"
@@ -1292,7 +1282,7 @@ def test_static_input_4():
     ref = np.array(5.0)
     model += add_1(left="in1", right="in2")
     comp_model = ml.compile(
-        model=model, backend=backend, jit=False, data_keys={"in1", "in2"}
+        model=model, backend=backend, jit=False, data_keys={"in1", "in2"}, inference=True
     )
 
     output = comp_model.evaluate(
@@ -1800,7 +1790,7 @@ def test_unused_cached_values_1_set_values():
     # Check runtime data keys.
     data_keys = comp_model.flat_graph.data_store.runtime_static_keys
     assert data_keys == set()
-    # Try evaluate and evaluate gradients once.
+    # Try evaluate once.
     result = comp_model.evaluate(params={}, data={})
     assert np.all(result["output"] == np.array([[6.0, 7.0], [5.0, 5.0]], dtype=dtype))
 
@@ -1813,19 +1803,16 @@ def test_unused_cached_values_2():
     linear_model = Linear(dimension=2)
     model += linear_model(weight=Tensor([[1.0], [2.0]]), bias=Tensor([3.0, 1.0]))
     comp_model = ml.compile(
-        model=model, backend=(backend := NumpyBackend()), safe_names=False
+        model=model, backend=(backend := NumpyBackend()), safe_names=False, inference=True
     )
     dtype = backend._dtype.name
     cache = comp_model.flat_graph.data_store.data_values
 
-    model = Model()
-    model += Convolution2D()
-
     expected_cache = {
         "output_0": np.array([[1.0, 2.0]], dtype=dtype),
         "bias": np.array([3.0, 1.0], dtype=dtype),
-        "output_cache": {},
-        "output_1_cache": {},
+        "output_cache": None,
+        "output_1_cache": None,
     }
     # Check cached_data.
     assert cache is not None and cache.keys() == expected_cache.keys()
@@ -1834,16 +1821,10 @@ def test_unused_cached_values_2():
     data_keys = comp_model.flat_graph.data_store.runtime_static_keys
     expected_data_keys = {"input"}
     assert data_keys == expected_data_keys
-    # Try evaluate and evaluate gradients once.
+    # Try evaluate once.
     data = {"input": np.array([[3.0], [2.0]], dtype=dtype)}
     result = comp_model.evaluate(params={}, data=data)
-    gradients = comp_model.evaluate_gradients(
-        params={},
-        data=data,
-        output_gradients={"output": np.ones_like(result["output"])},
-    )
     assert np.all(result["output"] == np.array([[6.0, 7.0], [5.0, 5.0]], dtype=dtype))
-    assert gradients == {}
 
 
 def test_unused_cached_values_2_set_values():
@@ -1859,7 +1840,7 @@ def test_unused_cached_values_2_set_values():
     }
     model.set_values(config)
     comp_model = ml.compile(
-        model=model, backend=(backend := NumpyBackend()), safe_names=False
+        model=model, backend=(backend := NumpyBackend()), safe_names=False, inference=True
     )
     dtype = backend._dtype.name
     cache = comp_model.flat_graph.data_store.data_values
@@ -1867,8 +1848,8 @@ def test_unused_cached_values_2_set_values():
     expected_cache = {
         "output_0": np.array([[1.0, 2.0]], dtype=dtype),
         "bias": np.array([3.0, 1.0], dtype=dtype),
-        "output_cache": {},
-        "output_1_cache": {},
+        "output_cache": None,
+        "output_1_cache": None,
     }
     # Check cached_data.
     assert cache is not None and cache.keys() == expected_cache.keys()
@@ -1877,16 +1858,10 @@ def test_unused_cached_values_2_set_values():
     data_keys = comp_model.flat_graph.data_store.runtime_static_keys
     expected_data_keys = {"input"}
     assert data_keys == expected_data_keys
-    # Try evaluate and evaluate gradients once.
+    # Try evaluate once.
     data = {"input": np.array([[3.0], [2.0]], dtype=dtype)}
     result = comp_model.evaluate(params={}, data=data)
-    gradients = comp_model.evaluate_gradients(
-        params={},
-        data=data,
-        output_gradients={"output": np.ones_like(result["output"])},
-    )
     assert np.all(result["output"] == np.array([[6.0, 7.0], [5.0, 5.0]], dtype=dtype))
-    assert gradients == {}
 
 
 def test_unused_cached_values_3():
@@ -1898,13 +1873,13 @@ def test_unused_cached_values_3():
     model += linear_model(input=Tensor([[3.0], [2.0]]), weight=Tensor([[1.0], [2.0]]))
     linear_model.bias.set_differentiable(False)
     comp_model = ml.compile(
-        model=model, backend=(backend := NumpyBackend()), safe_names=False
+        model=model, backend=(backend := NumpyBackend()), safe_names=False, inference=True
     )
     dtype = backend._dtype.name
     cache = comp_model.flat_graph.data_store.data_values
 
     expected_cache = {
-        "output_cache": {},
+        "output_cache": None,
         "output_1": np.array([[3.0, 6], [2, 4]], dtype=dtype),
     }
     # Check cached_data.
@@ -1914,16 +1889,10 @@ def test_unused_cached_values_3():
     data_keys = comp_model.flat_graph.data_store.runtime_static_keys
     expected_data_keys = {"bias"}
     assert data_keys == expected_data_keys
-    # Try evaluate and evaluate gradients once.
+    # Try evaluate once.
     data = {"bias": np.array([3.0, 1.0], dtype=dtype)}
     result = comp_model.evaluate(params={}, data=data)
-    gradients = comp_model.evaluate_gradients(
-        params={},
-        data=data,
-        output_gradients={"output": np.ones_like(result["output"])},
-    )
     assert np.all(result["output"] == np.array([[6.0, 7.0], [5.0, 5.0]], dtype=dtype))
-    assert gradients == {}
 
 
 def test_unused_cached_values_3_set_values():
@@ -1941,13 +1910,13 @@ def test_unused_cached_values_3_set_values():
     )
     linear_model.bias.set_differentiable(False)
     comp_model = ml.compile(
-        model=model, backend=(backend := NumpyBackend()), safe_names=False
+        model=model, backend=(backend := NumpyBackend()), safe_names=False, inference=True
     )
     dtype = backend._dtype.name
     cache = comp_model.flat_graph.data_store.data_values
 
     expected_cache = {
-        "output_cache": {},
+        "output_cache": None,
         "output_1": np.array([[3.0, 6], [2, 4]], dtype=dtype),
     }
     # Check cached_data.
@@ -1957,16 +1926,10 @@ def test_unused_cached_values_3_set_values():
     data_keys = comp_model.flat_graph.data_store.runtime_static_keys
     expected_data_keys = {"bias"}
     assert data_keys == expected_data_keys
-    # Try evaluate and evaluate gradients once.
+    # Try evaluate once.
     data = {"bias": np.array([3.0, 1.0], dtype=dtype)}
     result = comp_model.evaluate(params={}, data=data)
-    gradients = comp_model.evaluate_gradients(
-        params={},
-        data=data,
-        output_gradients={"output": np.ones_like(result["output"])},
-    )
     assert np.all(result["output"] == np.array([[6.0, 7.0], [5.0, 5.0]], dtype=dtype))
-    assert gradients == {}
 
 
 def test_static_shape_model_1():
@@ -2082,13 +2045,14 @@ def test_static_shape_model_5():
         backend=backend,
         constant_keys={"input": backend.ones(8, 8)},
         data_keys={"cutoff"},
+        inference=True,
     )
     cache = comp_model.flat_graph.data_store.data_values
     expected_cache = {
         "output1": np.array([8, 8], dtype=np.int32),
         "output_0": backend.ones(8, 8),
-        "output_1_cache": {},
-        "output2_cache": {},
+        "output_1_cache": None,
+        "output2_cache": None,
     }
     # Check cached_data.
     assert cache is not None and cache.keys() == expected_cache.keys()
@@ -2100,17 +2064,8 @@ def test_static_shape_model_5():
     # Try evaluate and evaluate gradients once.
     data = {"cutoff": 0.00005}
     result = comp_model.evaluate(params={}, data=data)
-    gradients = comp_model.evaluate_gradients(
-        params={},
-        data=data,
-        output_gradients={
-            "output1": np.ones_like(result["output1"]),
-            "output2": np.ones_like(result["output2"]),
-        },
-    )
     assert np.all(result["output1"] == np.array([8, 8], dtype=np.int32))
     assert np.all(result["output2"] == backend.zeros(8, 8))
-    assert gradients == {}
 
 
 def test_nontensor_gradient():
@@ -2206,14 +2161,13 @@ def test_nontensor_gradient_3():
         model=ctx,
         backend=backend,
         jit=False,
+        inference=True
     )
     comp_model.evaluate({"input": input})
-    outputs, grads = comp_model.evaluate_all({"input": input})
+    outputs = comp_model.evaluate({"input": input})
     ref_outputs = {"output": backend.array([3, 4, 5, 6, 5]), "final_cost": np.array(23)}
-    ref_grads = {"input": backend.zeros(3, 4, 5, 6, 5, dtype=ml.float32)}
 
     assert_results_equal(outputs, ref_outputs)
-    assert_results_equal(grads, ref_grads)
 
 
 def test_numpy_without_shape():
@@ -2277,8 +2231,10 @@ def test_multiple_to_tensor():
 def test_concat_axis_ellipsis_1():
     backend = NumpyBackend()
     model = Model()
-    concat_model = Concat(n=2, axis=TBD)
-    model += concat_model(input1="input1", input2="input2")
+    concat_model = Concat(axis=TBD)
+    input1 = IOKey("input1", type=Tensor)
+    input2 = IOKey("input2", type=Tensor)
+    model += concat_model(input=[input1, input2])
     comp_model = ml.compile(model=model, backend=backend, safe_names=False)
 
     in1 = backend.array([[2.0]])
@@ -2296,8 +2252,10 @@ def test_concat_axis_ellipsis_1():
 def test_concat_axis_ellipsis_2():
     backend = NumpyBackend()
     model = Model()
-    concat_model = Concat(n=2, axis=TBD)
-    model += concat_model(input1="input1", input2="input2", axis="axis")
+    input1 = IOKey("input1", type=Tensor)
+    input2 = IOKey("input2", type=Tensor)
+    concat_model = Concat(axis=TBD)
+    model += concat_model(input=[input1, input2], axis="axis")
     comp_model = ml.compile(model=model, backend=backend)
 
     in1 = backend.array([[2.0]])
@@ -2344,7 +2302,7 @@ def test_eye_ellipsis_1():
     model = Model()
     eye_model = Eye(N=TBD)
     model += eye_model(N="N", output=IOKey(name="output"))
-    comp_model = ml.compile(model=model, backend=backend)
+    comp_model = ml.compile(model=model, backend=backend, inference=True)
 
     data = {"N": 5}
 
@@ -2368,7 +2326,7 @@ def test_eye_ellipsis_2():
     eye_model = Eye(N=TBD, M=TBD)
     model += eye_model(N="N", output=IOKey(name="output"), M="M")
 
-    comp_model = ml.compile(model=model, backend=backend)
+    comp_model = ml.compile(model=model, backend=backend, inference=True)
 
     data = {"N": 5, "M": 5}
 
@@ -2399,6 +2357,7 @@ def test_cross_entropy_robust_ellipsis():
         backend=backend,
         data_keys={"input", "target"},
         jit=False,
+        inference=True,
     )
 
     data: dict[str, torch.Tensor | bool] = {
@@ -2434,6 +2393,7 @@ def test_bce_ellipsis():
             "pos_weight",
             "cutoff",
         },
+        inference=True,
     )
 
     model_2 = Model()
@@ -2441,7 +2401,7 @@ def test_bce_ellipsis():
     model_2 += ce_model_2(input="input", target="target")
 
     comp_model_2 = ml.compile(
-        model=model_2, backend=backend, data_keys={"input", "target"}
+        model=model_2, backend=backend, data_keys={"input", "target"}, inference=True
     )
 
     data_1: dict[str, np.ndarray | bool | float] = {
@@ -2470,7 +2430,7 @@ def test_arange_ellipsis():
     model += arange_model(
         output=IOKey(name="output"), start="start", stop="stop", step="step"
     )
-    pm = ml.compile(model=model, backend=backend)
+    pm = ml.compile(model=model, backend=backend, inference=True)
     ref_outputs = {"output": backend.array([3, 4, 5, 6, 7, 8, 9])}
     outputs = pm.evaluate(data={"start": 3, "stop": 10, "step": 1})
     assert_results_equal(outputs, ref_outputs)
@@ -2512,7 +2472,7 @@ def test_maxpool_1d_padding_type_input():
     maxpool = MaxPool1D(kernel_size=2, padding=TBD)
     model_1 += maxpool(padding=PaddingType.VALID, input="input")
 
-    pm = ml.compile(model=model_1, backend=backend, data_keys={"input"})
+    pm = ml.compile(model=model_1, backend=backend, data_keys={"input"}, inference=True)
     out_1 = pm.evaluate(
         data={"input": backend.array([[[10.0, 11.0, 12.0, 13.0, 14.0]]])}
     )
@@ -2529,6 +2489,7 @@ def test_maxpool_1d_padding_input_in_evaluate():
         model=maxpool,
         backend=backend,
         data_keys={"input"},
+        inference=True,
     )
     out_1 = pm.evaluate(
         data={

@@ -399,29 +399,34 @@ def check_single_shape_semantically(
         mapping = {}
     if reverse_mapping is None:
         reverse_mapping = {}
-    assert len(list_1) == len(list_2), "Sub-shape lengths do not match."
-    if list_1 != [] and find_intersection_type(
-        find_type(list_1), list[list[str | int]]
-    ):
-        # Lists are not ordered so we need to find equivalent lists.
-        sub_list_1_lengths = {
-            _find_affix_lengths(sub_list_1): sub_list_1 for sub_list_1 in list_1
-        }
-        sub_list_2_lengths = {
-            _find_affix_lengths(sub_list_2): sub_list_2 for sub_list_2 in list_2
-        }
-        assert (
-            sub_list_1_lengths.keys() == sub_list_2_lengths.keys()
-        ), "Alternative shape keys do not match."
-        for sub_key in sub_list_1_lengths:
-            check_single_repr(
-                sub_list_1_lengths[sub_key],
-                sub_list_2_lengths[sub_key],
-                mapping,
-                reverse_mapping,
-            )
-    else:
-        check_single_repr(list_1, list_2, mapping, reverse_mapping)
+    if not isinstance(list_1, tuple):
+        list_1 = (list_1,)
+    if not isinstance(list_2, tuple):
+        list_2 = (list_2,)
+    for item_1, item_2 in zip(list_1, list_2):
+        assert len(item_1) == len(item_2), "Sub-shape lengths do not match."
+        if item_1 != [] and find_intersection_type(
+            find_type(item_1), list[list[str | int]]
+        ):
+            # Lists are not ordered so we need to find equivalent lists.
+            sub_list_1_lengths = {
+                _find_affix_lengths(sub_list_1): sub_list_1 for sub_list_1 in item_1
+            }
+            sub_list_2_lengths = {
+                _find_affix_lengths(sub_list_2): sub_list_2 for sub_list_2 in item_2
+            }
+            assert (
+                sub_list_1_lengths.keys() == sub_list_2_lengths.keys()
+            ), "Alternative shape keys do not match."
+            for sub_key in sub_list_1_lengths:
+                check_single_repr(
+                    sub_list_1_lengths[sub_key],
+                    sub_list_2_lengths[sub_key],
+                    mapping,
+                    reverse_mapping,
+                )
+        else:
+            check_single_repr(item_1, item_2, mapping, reverse_mapping)
 
 
 def _is_variadic_pattern(s):

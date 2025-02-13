@@ -91,7 +91,8 @@ class Operator(BaseModel):
         if isinstance(output_data, IOHyperEdge) and isinstance(
             output_data.edge_type, Tensor
         ):
-            output_data.differentiable = is_diff
+            # output_data.differentiable = is_diff
+            output_data.set_differentiablity(is_diff)
 
         # Initially run all given tensors' constraints
         self.constraint_solver.update_shapes(Updates(tensor_set))

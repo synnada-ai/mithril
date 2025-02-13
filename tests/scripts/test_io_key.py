@@ -1281,7 +1281,7 @@ def test_iokey_template_4():
 
     backend = TorchBackend()
 
-    pm = mithril.compile(model=model, backend=backend, jit=False)
+    pm = mithril.compile(model=model, backend=backend, jit=False, inference=True)
     out = pm.evaluate(params={"left": backend.ones((9, 8, 7))})
     expected_result = 9
 
@@ -1300,7 +1300,7 @@ def test_iokey_template_5():
 
     backend = TorchBackend()
 
-    pm = mithril.compile(model=model, backend=backend, jit=False)
+    pm = mithril.compile(model=model, backend=backend, jit=False, inference=True)
     out = pm.evaluate(data={"left": [1, 2, 3]})
     expected_result = np.array([1, 2, 3])
 

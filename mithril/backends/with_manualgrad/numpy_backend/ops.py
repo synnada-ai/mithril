@@ -1047,9 +1047,9 @@ def where(
 
 
 def concat(
-    *inputs: np.ndarray[Any, Any], axis: int | None = 0, cache: CacheType | None = None
+    input: Sequence[np.ndarray[Any, Any]], axis: int | None = 0, cache: CacheType | None = None
 ) -> np.ndarray[Any, Any]:
-    return np.concatenate([np.array(v) for v in inputs], axis=axis)
+    return np.concatenate(input, axis=axis)
 
 
 def flatten(

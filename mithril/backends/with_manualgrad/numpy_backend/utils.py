@@ -295,7 +295,7 @@ def find_label_indices(
 
 
 def calc_input_slices(
-    output_gradient: np.ndarray[Any, Any], axis: int | None, *args: np.ndarray[Any, Any]
+    output_gradient: np.ndarray[Any, Any], axis: int | None, args: Sequence[np.ndarray[Any, Any]]
 ) -> dict[str, tuple[slice, ...]]:
     # Calculates the slices of output_gradient corresponding to
     # inputs.
@@ -307,7 +307,7 @@ def calc_input_slices(
         finish = start + (arg.shape[axis] if axis is not None else arg.size)
         current_slice = base_slices.copy()
         current_slice[axis if axis is not None else 0] = slice(start, finish, None)
-        slices[f"input{idx + 1}"] = tuple(current_slice)
+        slices[idx] = tuple(current_slice)
     return slices
 
 

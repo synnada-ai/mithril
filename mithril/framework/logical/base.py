@@ -553,22 +553,16 @@ class BaseModel:
             if value.value_shape is not None:
                 shape_info |= {local_key: value.value_shape}
 
-            if value.type is not None:
-                type_info[local_key] = value.type
-
             con_obj, _updates = self._add_connection(model, local_key, value, updates)
             updates |= _updates
             submodel_dag[local_key] = con_obj
-            if con_obj.metadata.is_tensor:
-                assert isinstance(con_obj.metadata.value, Tensor)
-                updates.shape_updates.add(con_obj.metadata._value)
+            if tensors := con_obj.metadata.tensors:
+                # assert isinstance(con_obj.metadata._value, Tensor)
+                updates.shape_updates |= tensors
 
         # Replace shape info keys, which are local keys, with global equivalents.
         shape_info = {
             submodel_dag[key].key: template for key, template in shape_info.items()
-        }
-        type_info = {
-            submodel_dag[key].key: template for key, template in type_info.items()
         }
 
         # Set given shapes.
