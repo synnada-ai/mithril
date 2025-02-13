@@ -28,6 +28,7 @@ from mithril.backends.utils import DtypeBits
 from mithril.framework.common import (
     NOT_GIVEN,
     TBD,
+    ConnectionData,
     Tensor,
     ToBeDetermined,
 )
@@ -1779,7 +1780,7 @@ def test_unused_cached_values_1_set_values():
     model = Model()
     linear_model = Linear(dimension=2)
     model += linear_model()
-    config: dict[Connection, Tensor] = {
+    config: dict[ConnectionData | str, Tensor] = {
         linear_model.weight: Tensor([[1.0], [2.0]]),
         linear_model.bias: Tensor([3.0, 1.0]),
         linear_model.input: Tensor([[3.0], [2.0]]),
@@ -1850,7 +1851,7 @@ def test_unused_cached_values_2_set_values():
     model = Model()
     linear_model = Linear(dimension=2)
     model += linear_model()
-    config: dict[Connection, Tensor] = {
+    config: dict[ConnectionData | str, Tensor] = {
         linear_model.weight: Tensor([[1.0], [2.0]]),
         linear_model.bias: Tensor([3.0, 1.0]),
     }

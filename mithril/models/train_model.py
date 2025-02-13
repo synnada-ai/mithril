@@ -197,11 +197,11 @@ class TrainModel(Model):
 
         is_loss_connected = False
         for value in kwargs.values():
-            if isinstance(value, (Connection)) or (
+            if isinstance(value, (ConnectionData)) or (
                 isinstance(value, str) and (value in self.conns.output_keys)
             ):
                 is_loss_connected = True
-                if isinstance(value, Connection):
+                if isinstance(value, ConnectionData):
                     conn = value
                 else:
                     if value not in self.conns.all:

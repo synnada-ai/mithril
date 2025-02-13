@@ -1121,14 +1121,6 @@ class BaseModel:
             str | ConnectionData,
             type | UnionType | ScalarType | type[Tensor[int | float | bool]],
         ]
-        | Mapping[
-            ConnectionData,
-            type | UnionType | ScalarType | type[Tensor[int | float | bool]],
-        ]
-        | Mapping[
-            str,
-            type | UnionType | ScalarType | type[Tensor[int | float | bool]],
-        ]
         | None = None,
         **kwargs: type | UnionType | ScalarType | type[Tensor[int | float | bool]],
     ) -> None:  # Initialize assigned shapes dictionary to store assigned shapes.
@@ -1183,8 +1175,6 @@ class BaseModel:
         config: Mapping[
             str | ConnectionData, Tensor[int | float | bool] | MainValueType | str
         ]
-        | Mapping[ConnectionData, Tensor[int | float | bool] | MainValueType | str]
-        | Mapping[str, Tensor[int | float | bool] | MainValueType | str]
         | None = None,
         **kwargs: Tensor[int | float | bool] | MainValueType | str,
     ) -> None:

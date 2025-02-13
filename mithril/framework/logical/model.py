@@ -218,7 +218,7 @@ class TemplateBase:
     def __rle__(self, other: TemplateConnectionType) -> ExtendTemplate:
         return ExtendTemplate(connections=[other, self], model=LessEqualOp)
 
-    def eq(self, other: object) -> ExtendTemplate:  # type: ignore[override]
+    def eq(self, other: object) -> ExtendTemplate:
         if isinstance(
             other, int | float | bool | list | Connection | IOKey | tuple | Tensor
         ):
@@ -226,7 +226,7 @@ class TemplateBase:
         else:
             raise ValueError("Unsupported type for equality operation.")
 
-    def ne(self, other: object) -> ExtendTemplate:  # type: ignore[override]
+    def ne(self, other: object) -> ExtendTemplate:
         if isinstance(
             other, int | float | bool | list | Connection | IOKey | tuple | Tensor
         ):
@@ -372,7 +372,8 @@ class TemplateBase:
         return ExtendTemplate(connections=[self], model=CosineOp)
 
 
-class Connection(ConnectionData, TemplateBase): pass
+class Connection(ConnectionData, TemplateBase):
+    pass
 
 
 class IOKey(BaseKey, TemplateBase):
@@ -472,7 +473,7 @@ ConnectionType = (
     | ExtendTemplate
     | NullConnection
     | IOKey
-    | Connection
+    | ConnectionData
     | Tensor[int | float | bool]
 )
 
@@ -615,6 +616,18 @@ class Model(BaseModel):
             assert template.output_connection is not None
         return template.output_connection
 
+    @property
+    def cout(self) -> Connection:
+        cout = super().cout
+        assert isinstance(cout, Connection)
+        return cout
+
+    @property
+    def cin(self) -> Connection:
+        cin = super().cin
+        assert isinstance(cin, Connection)
+        return cin
+
     def _extend(
         self, model: BaseModel, kwargs: dict[str, ConnectionType] | None = None
     ) -> Self:
@@ -685,7 +698,7 @@ class Model(BaseModel):
     ) -> None:
         if config is None:
             config = {}
-        self._set_shapes(config, trace=True, updates=None, **kwargs)
+        self._set_shapes(config, trace=True, updates=None, **kwargs)  # type: ignore
 
     # TODO: Update summary, this should work same with both
     # Logical Model and Operator

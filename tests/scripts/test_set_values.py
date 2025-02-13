@@ -16,10 +16,10 @@ import pytest
 
 import mithril
 from mithril import JaxBackend
+from mithril.framework.common import ConnectionData
 from mithril.models import (
     TBD,
     Add,
-    Connection,
     IOKey,
     Linear,
     Mean,
@@ -203,11 +203,11 @@ def test_set_values_scalar_6():
     mean_model = Mean(axis=TBD)
     model += mean_model(input="input", axis="axis", output="output")
     with pytest.raises(ValueError) as err_info:
-        config: dict[str | Connection, tuple[int, int]] = {
+        config: dict[str | ConnectionData, tuple[int, int]] = {
             "axis": (0, 1),
             mean_model.axis: (0, 2),
         }
-        model.set_values(config)
+        model.set_values(config)  # type: ignore
     assert (
         str(err_info.value)
         == "Value is set before as (0, 1). A value can not be reset."
@@ -219,7 +219,7 @@ def test_set_values_scalar_6_kwargs_arg():
     mean_model = Mean(axis=TBD)
     model += mean_model(input="input", axis="axis", output="output")
     with pytest.raises(ValueError) as err_info:
-        config = {mean_model.axis: (0, 2)}
+        config: dict[ConnectionData | str, tuple[int, int]] = {mean_model.axis: (0, 2)}
         model.set_values(config, axis=(0, 1))
     assert (
         str(err_info.value)
@@ -232,7 +232,7 @@ def test_set_values_scalar_6_same_conn_in_config():
     mean_model = Mean(axis=TBD)
     model += mean_model(input="input", axis="axis", output="output")
     with pytest.raises(ValueError) as err_info:
-        config: dict[Connection | str, tuple[int, int]] = {
+        config: dict[ConnectionData | str, tuple[int, int]] = {
             mean_model.axis: (0, 2),
             "axis": (0, 1),
         }
