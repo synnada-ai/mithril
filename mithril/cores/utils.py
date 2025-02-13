@@ -16,14 +16,12 @@
 from collections.abc import Callable
 from typing import Any, TypeGuard
 
-from ..utils.utils import find_dominant_type
 from .core import DataType
 
 __all__ = [
     "NestedFloatOrIntOrBoolList",
     "is_tuple_int",
     "is_int_tuple_tuple",
-    "find_dominant_type",
 ]
 
 # Type utils

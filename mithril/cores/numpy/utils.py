@@ -19,8 +19,8 @@ from typing import Any
 
 import numpy as np
 
-from ...utils.utils import BiMap
-from ..utils import binary_search, find_dominant_type, is_int_tuple_tuple
+from ...common import BiMap, find_dominant_type
+from ..utils import binary_search, is_int_tuple_tuple
 
 CacheType = dict[str, Any]
 

@@ -24,9 +24,9 @@ from torch._functorch.eager_transforms import jacfwd as torch_jacfwd
 from torch._functorch.eager_transforms import jacrev as torch_jacrev
 from torch._functorch.eager_transforms import vjp as torch_vjp
 
-from ....core import Dtype
 from ....cores.torch import ops
 from ....cores.torch import utils as core_utils
+from ....types import Dtype
 from ...backend import PadWidthType, ParallelBackend
 from ...utils import DtypeSubTypes, StaticScalar, process_shape
 from . import utils

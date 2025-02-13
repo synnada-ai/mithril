@@ -29,9 +29,9 @@ import torch
 import torch.distributed as dist
 from torch.distributed._tensor import DeviceMesh
 
-from .... import core
+from .... import types
+from ....common import find_dominant_type
 from ....cores.torch.utils import dtype_map
-from ....utils.utils import find_dominant_type
 from ...utils import DtypeSubTypes
 
 CODEGEN_CONFIG: dict[str, bool] = {
@@ -84,8 +84,8 @@ def handle_data_precision(data: torch.Tensor, precision: int) -> torch.Tensor:
     return data
 
 
-def handle_data_dtype(data: torch.Tensor, dtype: core.Dtype | int) -> torch.Tensor:
-    dtype = core.Dtype(dtype)
+def handle_data_dtype(data: torch.Tensor, dtype: types.Dtype | int) -> torch.Tensor:
+    dtype = types.Dtype(dtype)
 
     if data.dtype != dtype_map[dtype.name]:
         as_type = dtype_map[dtype.name]
@@ -472,9 +472,9 @@ def check_device_mesh(base_mesh: DeviceMesh, device_mesh: tuple[int, ...]) -> No
 
 
 def determine_dtype(
-    input: Any, dtype: core.Dtype | None, default_dtype: core.Dtype, precision: int
+    input: Any, dtype: types.Dtype | None, default_dtype: types.Dtype, precision: int
 ) -> str:
-    if isinstance(dtype, core.Dtype):
+    if isinstance(dtype, types.Dtype):
         return dtype.name
 
     if isinstance(input, torch.Tensor):

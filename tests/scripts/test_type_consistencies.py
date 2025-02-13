@@ -21,6 +21,7 @@ import pytest
 import torch
 
 import mithril
+from mithril.common import find_dominant_type
 from mithril.framework.common import (
     NOT_GIVEN,
     BaseKey,
@@ -48,7 +49,6 @@ from mithril.models import (
     Tensor,
 )
 from mithril.models.primitives import PrimitiveModel
-from mithril.utils.utils import find_dominant_type
 
 from .test_constant_inputs import ReduceMult
 

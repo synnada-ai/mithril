@@ -23,7 +23,8 @@ import torch
 import torch.nn.functional as F  # noqa: N812
 from torch.distributed._tensor import DeviceMesh, Replicate, distribute_tensor
 
-from ... import core
+from ... import types
+from ...common import find_dominant_type
 from ..autograd_common_primitives import (
     add,
     buffer,
@@ -66,7 +67,7 @@ from ..autograd_common_primitives import (
     tuple_converter,
     union,
 )
-from ..utils import NestedFloatOrIntOrBoolList, find_dominant_type, is_int_tuple_tuple
+from ..utils import NestedFloatOrIntOrBoolList, is_int_tuple_tuple
 from .utils import (
     calc_prob_matrix,
     calculate_binary_class_weight,
@@ -1151,8 +1152,8 @@ def cast(input: torch.Tensor, dtype: torch.dtype) -> torch.Tensor:
     return input.type(dtype)
 
 
-def dtype(input: torch.Tensor) -> core.Dtype:
-    return getattr(core, str(input.dtype).split(".")[-1])
+def dtype(input: torch.Tensor) -> types.Dtype:
+    return getattr(types, str(input.dtype).split(".")[-1])
 
 
 def logical_xor(left: torch.Tensor, right: torch.Tensor) -> torch.Tensor:

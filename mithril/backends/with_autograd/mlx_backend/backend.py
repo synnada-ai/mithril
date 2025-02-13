@@ -20,9 +20,9 @@ from typing import Any, overload
 import mlx.core as mx
 import mlx.nn as nn
 
-from ....core import Dtype
 from ....cores.mlx import ops
 from ....cores.mlx import utils as core_utils
+from ....types import Dtype
 from ...backend import Backend, PadWidthType
 from ...utils import DtypeSubTypes, StaticScalar, process_shape
 from . import utils

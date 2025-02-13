@@ -29,7 +29,6 @@ from jax import numpy as jnp
 
 import mithril
 from mithril import Backend, JaxBackend, MlxBackend, NumpyBackend, TorchBackend, compile
-from mithril.core import Constant, epsilon_table
 from mithril.framework.common import (
     NOT_GIVEN,
     TBD,
@@ -104,6 +103,7 @@ from mithril.models import (
     Where,
 )
 from mithril.models.primitives import PrimitiveModel
+from mithril.types import Constant, epsilon_table
 from mithril.utils.type_utils import is_list_int
 from mithril.utils.utils import OrderedSet
 

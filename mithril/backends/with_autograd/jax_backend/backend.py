@@ -20,9 +20,9 @@ from typing import Any, overload
 import jax
 import jax.numpy as jnp
 
-from ....core import Dtype
 from ....cores.jax import ops
 from ....cores.jax import utils as core_utils
+from ....types import Dtype
 from ...backend import PadWidthType, ParallelBackend
 from ...utils import DtypeSubTypes, StaticScalar, process_shape
 from . import utils

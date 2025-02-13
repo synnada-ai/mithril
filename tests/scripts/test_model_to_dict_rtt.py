@@ -818,7 +818,7 @@ def test_train_context_2():
         backend,
         static_keys={
             "input": backend.ones([4, 32]),
-            "target": backend.ones([4], dtype=mithril.core.Dtype.int64),
+            "target": backend.ones([4], dtype=mithril.types.Dtype.int64),
         },
     )
 

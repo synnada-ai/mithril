@@ -25,7 +25,8 @@ import numpy as np
 import scipy.linalg as slin
 from scipy.special import erf
 
-from ... import core
+from ... import types
+from ...common import find_dominant_type
 from ..manualgrad_common_primitives import (
     add,
     buffer,
@@ -68,7 +69,7 @@ from ..manualgrad_common_primitives import (
     tuple_converter,
     union,
 )
-from ..utils import NestedFloatOrIntOrBoolList, find_dominant_type, is_tuple_int
+from ..utils import NestedFloatOrIntOrBoolList, is_tuple_int
 from .utils import (
     CacheType,
     calc_prob_matrix,
@@ -1268,8 +1269,8 @@ def cast(input: np.ndarray[Any, Any], dtype: np.dtype[Any]) -> np.ndarray[Any, A
     return input.astype(dtype)
 
 
-def dtype(input: np.ndarray[Any, Any]) -> core.Dtype:
-    return getattr(core, str(input.dtype))
+def dtype(input: np.ndarray[Any, Any]) -> types.Dtype:
+    return getattr(types, str(input.dtype))
 
 
 def logical_xor(

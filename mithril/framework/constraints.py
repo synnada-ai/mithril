@@ -19,7 +19,7 @@ from itertools import product, zip_longest
 from types import EllipsisType, GenericAlias, NoneType, UnionType
 from typing import Any, get_origin
 
-from ..core import Constant
+from ..types import Constant
 from ..utils.type_utils import (
     is_axis_reduce_type,
     is_axis_reverse_type,

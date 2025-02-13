@@ -18,9 +18,9 @@ from typing import Any
 import jax
 import numpy as np
 
-from .... import core
+from .... import types
+from ....common import find_dominant_type
 from ....cores.jax.utils import dtype_map
-from ....utils.utils import find_dominant_type
 from ...utils import DtypeSubTypes
 
 CODEGEN_CONFIG: dict[str, bool] = {
@@ -45,8 +45,8 @@ def handle_data_precision(data: ArrayType, precision: int) -> ArrayType:
     return data
 
 
-def handle_data_dtype(data: jax.Array, dtype: core.Dtype | int) -> jax.Array:
-    dtype = core.Dtype(dtype)
+def handle_data_dtype(data: jax.Array, dtype: types.Dtype | int) -> jax.Array:
+    dtype = types.Dtype(dtype)
 
     if data.dtype != dtype_map[dtype.name]:
         return data.astype(dtype_map[dtype.name])
@@ -64,9 +64,9 @@ def get_type(
 
 
 def determine_dtype(
-    input: Any, dtype: core.Dtype | None, default_dtype: core.Dtype, precision: int
+    input: Any, dtype: types.Dtype | None, default_dtype: types.Dtype, precision: int
 ) -> str:
-    if isinstance(dtype, core.Dtype):
+    if isinstance(dtype, types.Dtype):
         return dtype.name
 
     if isinstance(input, jax.Array):

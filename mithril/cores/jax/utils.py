@@ -19,7 +19,7 @@ from typing import Any
 import jax
 import jax.numpy as jnp
 
-from ...utils.utils import BiMap
+from ...common import BiMap
 from ..utils import binary_search
 
 

@@ -18,8 +18,7 @@ from collections.abc import Sequence
 from types import NoneType
 from typing import Any
 
-from .. import core
-from ..core import Constant
+from .. import types
 from ..framework.common import (
     NOT_GIVEN,
     TBD,
@@ -111,6 +110,7 @@ from ..framework.logical.operators import (
     VarianceOp,
 )
 from ..framework.logical.primitive import OperatorModel, PrimitiveModel
+from ..types import Constant
 from ..utils.utils import PaddingType
 
 __all__ = [
@@ -1802,7 +1802,7 @@ class EyeComplement(PrimitiveModel):
         self,
         N: int | ToBeDetermined = TBD,
         M: int | ToBeDetermined | None = None,
-        dtype: core.Dtype | None = None,
+        dtype: types.Dtype | None = None,
         *,
         name: str | None = None,
     ) -> None:
@@ -1812,7 +1812,7 @@ class EyeComplement(PrimitiveModel):
             output=BaseKey(shape=["N", "M"], type=Tensor[float]),
             N=BaseKey(type=int, value=N),
             M=BaseKey(type=int | None, value=M),
-            dtype=BaseKey(type=core.Dtype | None, value=dtype),
+            dtype=BaseKey(type=types.Dtype | None, value=dtype),
         )
         self._add_constraint(fn=eye_constraints, keys=["output", "N", "M"])
 
@@ -1836,7 +1836,7 @@ class Eye(PrimitiveModel):
         self,
         N: int | ToBeDetermined = TBD,
         M: int | ToBeDetermined | None = None,
-        dtype: core.Dtype | None = None,
+        dtype: types.Dtype | None = None,
         *,
         name: str | None = None,
     ) -> None:
@@ -1846,7 +1846,7 @@ class Eye(PrimitiveModel):
             output=BaseKey(shape=["N", "M"], type=Tensor[float]),
             N=BaseKey(type=int, value=N),
             M=BaseKey(type=int | None, value=M),
-            dtype=BaseKey(type=core.Dtype | None, value=dtype),
+            dtype=BaseKey(type=types.Dtype | None, value=dtype),
         )
         self._add_constraint(fn=eye_constraints, keys=["output", "N", "M"])
 
@@ -1990,7 +1990,7 @@ class Arange(PrimitiveModel):
         start: int | float | ToBeDetermined = 0,
         stop: int | float | ToBeDetermined = TBD,
         step: int | float | ToBeDetermined = 1,
-        dtype: core.Dtype | None = None,
+        dtype: types.Dtype | None = None,
         *,
         name: str | None = None,
     ) -> None:
@@ -2018,7 +2018,7 @@ class Arange(PrimitiveModel):
             start=BaseKey(type=int | float, value=start),
             stop=BaseKey(type=int | float, value=stop),
             step=BaseKey(type=int | float, value=step),
-            dtype=BaseKey(type=core.Dtype | None, value=dtype),
+            dtype=BaseKey(type=types.Dtype | None, value=dtype),
         )
         # self.set_canonical_input("stop")
         self.set_cin("stop", safe=False)
@@ -2055,7 +2055,7 @@ class Randn(PrimitiveModel):
         self,
         shape: tuple[int, ...] | ToBeDetermined = TBD,
         key: int | ToBeDetermined = TBD,
-        dtype: core.Dtype | None = None,
+        dtype: types.Dtype | None = None,
         *,
         name: str | None = None,
     ) -> None:
@@ -2065,7 +2065,7 @@ class Randn(PrimitiveModel):
             output=BaseKey(shape=[("output", ...)], type=Tensor),
             shape=BaseKey(type=tuple[int, ...], value=shape),
             key=BaseKey(type=int, value=key),
-            dtype=BaseKey(type=core.Dtype | None, value=dtype),
+            dtype=BaseKey(type=types.Dtype | None, value=dtype),
         )
 
         self.submodel.random_keys.add(
@@ -2701,12 +2701,12 @@ class Power(OperatorModel):
         exponent: ConnectionType = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
         *,
-        threshold: ConnectionType = core.Constant.MIN_POSITIVE_NORMAL,
+        threshold: ConnectionType = types.Constant.MIN_POSITIVE_NORMAL,
     ) -> ExtendInfo:
         kwargs = {"base": base, "exponent": exponent, "output": output}
         default = (
-            isinstance(threshold, core.Constant)
-            and threshold == core.Constant.MIN_POSITIVE_NORMAL
+            isinstance(threshold, types.Constant)
+            and threshold == types.Constant.MIN_POSITIVE_NORMAL
         )
         if self.robust:
             # NOTE: Since we can not provide Tensor objects as default
@@ -2917,7 +2917,7 @@ class Cast(OperatorModel):
     output: Connection
 
     def __init__(
-        self, dtype: core.Dtype | ToBeDetermined = TBD, *, name: str | None = None
+        self, dtype: types.Dtype | ToBeDetermined = TBD, *, name: str | None = None
     ) -> None:
         super().__init__(name=name, model=CastOp(dtype=dtype))
 
@@ -2997,7 +2997,7 @@ class ToTensor(OperatorModel):
     def __init__(
         self,
         input: TensorValueType | ToBeDetermined = TBD,
-        dtype: core.Dtype | None = None,
+        dtype: types.Dtype | None = None,
         *,
         name: str | None = None,
     ) -> None:
@@ -3252,13 +3252,13 @@ class Sqrt(OperatorModel):
         input: ConnectionType = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
         *,
-        cutoff: ConnectionType = core.Constant.MIN_POSITIVE_NORMAL,
+        cutoff: ConnectionType = types.Constant.MIN_POSITIVE_NORMAL,
     ) -> ExtendInfo:
         kwargs = {"input": input, "output": output}
 
         default = (
-            isinstance(cutoff, core.Constant)
-            and cutoff == core.Constant.MIN_POSITIVE_NORMAL
+            isinstance(cutoff, types.Constant)
+            and cutoff == types.Constant.MIN_POSITIVE_NORMAL
         )
         if self.robust:
             if default:

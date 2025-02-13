@@ -17,10 +17,10 @@ from typing import Any
 
 import numpy as np
 
-from ....core import Dtype
 from ....cores.manualgrad_common_primitives import CacheType
 from ....cores.numpy import ops, ops_grad
 from ....cores.numpy import utils as core_utils
+from ....types import Dtype
 from ...backend import Backend, PadWidthType
 from ...utils import StaticScalar, process_shape
 from . import utils

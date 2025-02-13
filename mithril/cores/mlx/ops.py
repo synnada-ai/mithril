@@ -22,7 +22,8 @@ import mlx.core as mx
 import mlx.nn as nn
 import numpy as np
 
-from ... import core
+from ... import types
+from ...common import find_dominant_type
 from ..autograd_common_primitives import (
     add,
     buffer,
@@ -68,7 +69,6 @@ from ..autograd_common_primitives import (
 )
 from ..utils import (
     NestedFloatOrIntOrBoolList,
-    find_dominant_type,
     is_int_tuple_tuple,
     is_tuple_int,
 )
@@ -941,8 +941,8 @@ def cast(input: mx.array, dtype: mx.Dtype) -> mx.array:
     return input.astype(dtype)
 
 
-def dtype(input: mx.array) -> core.Dtype:
-    return getattr(core, str(input.dtype).split(".")[-1])
+def dtype(input: mx.array) -> types.Dtype:
+    return getattr(types, str(input.dtype).split(".")[-1])
 
 
 def logical_xor(left: mx.array, right: mx.array) -> mx.array:

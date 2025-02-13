@@ -24,7 +24,7 @@ from benchmarks.speed_benchmarks.speed_helper import (
     create_compl_mlp,
     measure_time_and_grads_mithril,
 )
-from mithril import TorchBackend, core
+from mithril import TorchBackend, types
 from mithril.backends.utils import DtypeBits
 from mithril.models import (
     AbsoluteError,
@@ -139,7 +139,7 @@ def mlp_v_torch(
     activations: list,
     dimensions: list[int],
     input_shape: tuple[int, int],
-    dtype: core.Dtype,
+    dtype: types.Dtype,
     iterations: int,
 ):
     lr = 0.001
@@ -208,7 +208,7 @@ def conv_v_torch(
     activations: list,
     dimensions: list[int],
     input_shape: tuple[int, int, int, int],
-    dtype: core.Dtype,
+    dtype: types.Dtype,
     iterations: int,
     stride: tuple[int, int] | int,
     padding: int,

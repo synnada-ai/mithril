@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ... import core
+from ... import types
 from ..common import BaseKey, ConnectionDataType
 from .base import BaseModel
 from .model import IOKey, Model
@@ -20,7 +20,7 @@ from .operator import Operator
 
 __all__ = ["PrimitiveModel", "OperatorModel"]
 
-ConstantType = float | int | core.Constant
+ConstantType = float | int | types.Constant
 
 
 class OperatorModel(Model):

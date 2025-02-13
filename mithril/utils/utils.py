@@ -20,16 +20,14 @@ from itertools import compress
 from typing import Any, Generic, TypeVar
 
 from ..backends.backend import Backend
-from ..core import Constant, DataType, constant_type_table
+from ..types import Constant, DataType, constant_type_table
 
 __all__ = [
     "convert_specs_to_dict",
-    "BiMap",
     "BiMultiMap",
     "pack_data_into_time_slots",
     "unpack_time_slot_data",
     "pack_encoder_target_data_into_time_slots",
-    "find_dominant_type",
 ]
 
 IOType = dict[str, Any]
@@ -187,47 +185,6 @@ class OrderedSet(Generic[T]):
 
 K = TypeVar("K")
 V = TypeVar("V")
-
-
-class BiMap(MutableMapping[K, V]):
-    # Implements a bi-directional map for storing unique keys/values using two
-    # dictionaries.
-    # TODO: override __reversed__ for BiMap
-    inverse: dict[V, K]
-    _table: dict[K, V]
-
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        self.inverse = inverse = {}
-        self._table = table = dict(*args, **kwargs)
-        for key, value in table.items():
-            if value in inverse:
-                raise ValueError(f"Value {value} maps to multiple keys")
-            inverse[value] = key
-
-    def __getitem__(self, key: K) -> V:
-        return self._table[key]
-
-    def __setitem__(self, key: K, value: V) -> None:
-        if value in (inverse := self.inverse):
-            existing_key = inverse[value]
-            if key != existing_key:
-                msg = f"Value {value} already exists with key {existing_key}"
-                raise ValueError(msg)
-        else:
-            if key in (table := self._table):
-                del inverse[table[key]]
-            inverse[value] = key
-            table[key] = value
-
-    def __delitem__(self, key: K) -> None:
-        del self.inverse[(table := self._table)[key]]
-        del table[key]
-
-    def __iter__(self) -> Iterator[K]:
-        return iter(self._table)
-
-    def __len__(self) -> int:
-        return len(self._table)
 
 
 class BiMultiMap(MutableMapping[K, V]):
@@ -406,41 +363,7 @@ def convert_to_list(
         return value
 
 
-# Other utils
-def find_dominant_type(
-    lst: Any, raise_error: bool = True
-) -> type[int] | type[float] | type[bool]:
-    # return dominant type of parameters in the list.
-    # dominant type is referenced from numpy and in folloing order: bool -> int -> float
-    # if any of the parameters are different from these three types, returns ValueError
-    # if raise_error set to True. Otherwise returns this type.
-
-    # Examples:
-    # list contains both floats and ints -> return float
-    # list contains both ints and bools -> return int
-    # list contains only bools -> return bool
-    # list contains all three of types -> return float
-
-    if isinstance(lst, list | tuple):
-        curr_val: type[bool] | type[int] | type[float] = bool
-        for elem in lst:
-            val = find_dominant_type(elem, raise_error)
-            if val is float:
-                curr_val = float
-            elif val is int:
-                if curr_val is bool:
-                    curr_val = int
-            elif val is not bool:
-                curr_val = val
-                break
-        return curr_val
-    elif isinstance(lst, bool | float | int):
-        return type(lst)
-    elif isinstance(lst, Constant):
+def constant_fn(lst: Any) -> type[bool] | type[int] | type[float] | None:
+    if isinstance(lst, Constant):
         return constant_type_table[lst]
-    elif raise_error:
-        raise ValueError(
-            f"given input contains {type(lst)} type. Allowed types are: list, tuple, "
-            "float, int, bool"
-        )
-    return type(lst)
+    return None

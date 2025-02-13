@@ -20,9 +20,9 @@ from typing import Any
 import mlx.core as mx
 import numpy as np
 
-from .... import core
+from .... import types
+from ....common import find_dominant_type
 from ....cores.mlx.utils import dtype_map
-from ....utils.utils import find_dominant_type
 from ...utils import DtypeSubTypes
 
 CODEGEN_CONFIG: dict[str, bool] = {
@@ -54,8 +54,8 @@ def handle_data_precision(data: mx.array, precision: int) -> mx.array:
     return data
 
 
-def handle_data_dtype(data: mx.array, dtype: core.Dtype | int) -> mx.array:
-    dtype = core.Dtype(dtype)
+def handle_data_dtype(data: mx.array, dtype: types.Dtype | int) -> mx.array:
+    dtype = types.Dtype(dtype)
 
     if data.dtype != dtype_map[dtype.name]:
         return data.astype(dtype_map[dtype.name])
@@ -63,9 +63,9 @@ def handle_data_dtype(data: mx.array, dtype: core.Dtype | int) -> mx.array:
 
 
 def determine_dtype(
-    input: Any, dtype: core.Dtype | None, default_type: core.Dtype, precision: int
+    input: Any, dtype: types.Dtype | None, default_type: types.Dtype, precision: int
 ) -> str:
-    if isinstance(dtype, core.Dtype):
+    if isinstance(dtype, types.Dtype):
         return dtype.name
 
     if isinstance(input, mx.array):

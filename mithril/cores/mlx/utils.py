@@ -20,7 +20,7 @@ import mlx.core as mx
 import mlx.nn as nn
 import numpy as np
 
-from ...utils.utils import BiMap
+from ...common import BiMap
 from ..utils import binary_search
 
 dtype_map: BiMap[str, mx.Dtype] = BiMap(

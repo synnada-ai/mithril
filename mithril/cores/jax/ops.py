@@ -24,7 +24,8 @@ import jax.scipy.linalg as slin
 from jax import lax, vmap
 from jax import nn as functionals
 
-from ... import core
+from ... import types
+from ...common import find_dominant_type
 from ..autograd_common_primitives import (
     add,
     buffer,
@@ -68,7 +69,7 @@ from ..autograd_common_primitives import (
     tuple_converter,
     union,
 )
-from ..utils import NestedFloatOrIntOrBoolList, find_dominant_type, is_tuple_int
+from ..utils import NestedFloatOrIntOrBoolList, is_tuple_int
 from .utils import (
     broadcast_to_highest,
     calc_prob_matrix,
@@ -1045,8 +1046,8 @@ def cast(input: jax.Array, dtype: jnp.dtype[Any]) -> jax.Array:
     return input.astype(dtype)
 
 
-def dtype(input: jax.Array) -> core.Dtype:
-    return getattr(core.Dtype, str(input.dtype))
+def dtype(input: jax.Array) -> types.Dtype:
+    return getattr(types.Dtype, str(input.dtype))
 
 
 def logical_xor(left: jax.Array, right: jax.Array) -> jax.Array:

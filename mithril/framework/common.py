@@ -35,7 +35,7 @@ from typing import (
     overload,
 )
 
-from ..core import (
+from ..types import (
     Constant,
     DataType,
     Dtype,

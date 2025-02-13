@@ -17,9 +17,9 @@ from typing import Any
 
 import numpy as np
 
-from .... import core
+from .... import types
+from ....common import find_dominant_type
 from ....cores.numpy.utils import dtype_map
-from ....utils.utils import find_dominant_type
 from ...utils import DtypeSubTypes
 
 CODEGEN_CONFIG: dict[str, bool] = {
@@ -54,9 +54,9 @@ def handle_data_precision(
 
 
 def handle_data_dtype(
-    data: np.ndarray[Any, Any], dtype: core.Dtype | int
+    data: np.ndarray[Any, Any], dtype: types.Dtype | int
 ) -> np.ndarray[Any, Any]:
-    dtype = core.Dtype(dtype)
+    dtype = types.Dtype(dtype)
 
     if data.dtype != dtype_map[dtype.name]:
         return data.astype(dtype_map[dtype.name])
@@ -86,9 +86,9 @@ def verify_shapes(
 
 
 def determine_dtype(
-    input: Any, dtype: core.Dtype | None, default_dtype: core.Dtype, precision: int
+    input: Any, dtype: types.Dtype | None, default_dtype: types.Dtype, precision: int
 ) -> str:
-    if isinstance(dtype, core.Dtype):
+    if isinstance(dtype, types.Dtype):
         return dtype.name
 
     if isinstance(input, (np.ndarray | np.generic)):

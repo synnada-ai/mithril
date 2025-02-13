@@ -15,8 +15,8 @@
 from typing import Any, Generic, TypeGuard
 
 from ...backends.backend import Backend
-from ...core import Constant, DataType, Dtype, data_types, epsilon_table
-from ...utils.utils import BiMap
+from ...common import BiMap
+from ...types import Constant, DataType, Dtype, data_types, epsilon_table
 from ..common import (
     TBD,
     AllValueType,
