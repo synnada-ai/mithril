@@ -365,7 +365,7 @@ class TemplateBase:
     def item(self) -> ExtendTemplate:
         return ExtendTemplate(connections=[self], model=ItemOp)
 
-    def cast(self, dtype: CoreDtype | None = None) -> ExtendTemplate:
+    def cast(self, dtype: ExtendTemplate | CoreDtype | None = None) -> ExtendTemplate:
         return ExtendTemplate(connections=[self, dtype], model=CastOp)
 
     def dtype(self) -> ExtendTemplate:

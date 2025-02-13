@@ -35,7 +35,7 @@ from .core import (
     short,
 )
 from .framework.codegen import code_gen_map
-from .framework.common import TBD
+from .framework.common import TBD, Tensor
 from .framework.logical import Connection, IOKey
 from .framework.physical.model import PhysicalConstantType, PhysicalShapeType
 from .models import Model, PhysicalModel
