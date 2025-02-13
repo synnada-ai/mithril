@@ -20,13 +20,13 @@ from mithril.models import Add, LeakyRelu, Linear, Model, Relu
 # made implicitly through "standard" inputs/outputs.
 # Note the use of the "+=" operator for adding new models.
 model1 = Model()
-model1 += Linear(dimension=32)
+model1 |= Linear(dimension=32)
 model1 += Relu()
 model1 += Linear(dimension=16)(output="output")
 
 # Let's make another network just like the one above.
 model2 = Model()
-model2 += Linear(dimension=32)
+model2 |= Linear(dimension=32)
 model2 += LeakyRelu()
 model2 += Linear(dimension=16)(output="output")
 
@@ -34,9 +34,9 @@ model2 += Linear(dimension=16)(output="output")
 # information as below. I/O terminals of models can be named
 # arbitrarily.
 model = Model()
-model += model1(output="output1")
+model |= model1(output="output1")
 model += model2(output="output2")
-model += Add()(left="output1", right="output2", output="output")
+model |= Add()(left="output1", right="output2", output="output")
 ```
 
 ### 🖨️ Language and Framework Agnostic Compilation
@@ -77,7 +77,7 @@ numpy_model = ml.compile(
 
 # Compile different logical models with the same backend
 other_model = Model()
-other_model += Linear(dimension=32)(input = "input")
+other_model |= Linear(dimension=32)(input = "input")
 jax_model1 = ml.compile(
     model=other_model,
     backend=backend_jax,

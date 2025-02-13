@@ -594,11 +594,10 @@ class ElementWiseAffine(Model):
         mult_model = Multiply()
         sum_model = Add()
 
-        self += mult_model(
+        self |= mult_model(
             left=IOKey("input", value=input), right=IOKey("weight", value=weight)
         )
         self += sum_model(
-            left=mult_model.output,
             right=IOKey(name="bias", value=bias),
             output=IOKey(name="output"),
         )
@@ -639,12 +638,12 @@ class Layer(Model):
         super().__init__(name=name)
         self.factory_args = {"activation": activation, "dimension": dimension}
         linear_model = Linear(dimension=dimension)
-        self += linear_model(
+        self |= linear_model(
             input=IOKey("input", value=input),
             weight=IOKey("weight", value=weight),
             bias=IOKey("bias", value=bias),
         )
-        self += activation(input=linear_model.output, output=IOKey(name="output"))
+        self += activation(output=IOKey(name="output"))
         self.set_cin("input", safe=False)
         self._freeze()
 
@@ -694,12 +693,12 @@ class LayerNorm(Model):
         add.set_types(left=Tensor[int | float | bool])
         denominator = Sqrt()
         in_key = IOKey("input", value=input)
-        self += mean(input=in_key)
-        self += numerator(left=in_key, right=mean.output)
-        self += var(input=in_key)
-        self += add(left=var.output, right=eps)
-        self += denominator(input=add.output)
-        self += Divide()(numerator=numerator.output, denominator=denominator.output)
+        self |= mean(input=in_key)
+        self |= numerator(left=in_key, right=mean.output)
+        self |= var(input=in_key)
+        self |= add(left=var.output, right=eps)
+        self |= denominator(input=add.output)
+        self |= Divide()(numerator=numerator.output, denominator=denominator.output)
 
         self._set_shapes({"input": ["B", "C", "d"]})
 
@@ -713,9 +712,7 @@ class LayerNorm(Model):
             mult.set_types(
                 left=Tensor[int | float | bool], right=Tensor[int | float | bool]
             )
-            self += mult(
-                left=self.cout, right=IOKey("weight", value=weight, differantiable=True)
-            )
+            self += mult(right=IOKey("weight", value=weight, differantiable=True))
             mult._set_shapes(shapes)
 
         if use_bias:
@@ -723,12 +720,10 @@ class LayerNorm(Model):
             add.set_types(
                 left=Tensor[int | float | bool], right=Tensor[int | float | bool]
             )
-            self += add(
-                left=self.cout, right=IOKey("bias", value=bias, differantiable=True)
-            )
+            self += add(right=IOKey("bias", value=bias, differantiable=True))
             add._set_shapes(shapes)
         # TODO: Remove below Buffer after required naming-related changes are done.
-        self += Buffer()(input=self.cout, output=IOKey(name="output"))
+        self |= Buffer()(input=self.cout, output=IOKey(name="output"))
         self.set_cin("input", safe=False)
         self._freeze()
 
@@ -850,8 +845,8 @@ class L1(Model):
 
         abs_model = Absolute()
 
-        self += abs_model(input=IOKey("input", value=input))
-        self += Sum()(input=abs_model.output, output=IOKey(name="output"))
+        self |= abs_model(input=IOKey("input", value=input))
+        self += Sum()(output=IOKey(name="output"))
 
         self.set_cin("input", safe=False)
         self.set_cout("output", safe=False)
@@ -877,14 +872,10 @@ class L2(Model):
         name: str | None = None,
     ) -> None:
         super().__init__(name=name)
-        square = Square()
-        sum = Sum()
 
-        self += square(input=IOKey("input", value=input))
-        self += sum(input=square.output)
-        self += Multiply()(
-            left=sum.output, right=Tensor(0.5), output=IOKey(name="output")
-        )
+        self += Square()(input=IOKey("input", value=input))
+        self += Sum()
+        self += Multiply()(right=Tensor(0.5), output=IOKey(name="output"))
         self.set_cin("input", safe=False)
         self.set_cout("output", safe=False)
         self._freeze()
@@ -915,12 +906,12 @@ class QuadraticFormRegularizer(Model):
         dot_model1 = MatrixMultiply()
         dot_model2 = MatrixMultiply()
 
-        self += transpose_model(input=IOKey("input", value=input))
-        self += dot_model1(
+        self |= transpose_model(input=IOKey("input", value=input))
+        self |= dot_model1(
             left=transpose_model.input, right=IOKey("kernel", value=kernel)
         )
-        self += dot_model2(left=dot_model1.output, right=transpose_model.output)
-        self += Multiply()(
+        self |= dot_model2(left=dot_model1.output, right=transpose_model.output)
+        self |= Multiply()(
             left=dot_model2.output, right=Tensor(0.5), output=IOKey(name="output")
         )
         shapes: dict[str, ShapeTemplateType] = {"input": [1, "N"], "kernel": ["N", "N"]}
@@ -970,19 +961,19 @@ class RBFKernel(Model):
         l_square = Multiply()
         l_key = IOKey("l_scale", value=l_scale)
 
-        self += euclidean_model(
+        self |= euclidean_model(
             left=IOKey("input1", value=input1), right=IOKey("input2", value=input2)
         )
-        self += square_model1(input=euclidean_model.output)
-        self += sum_model(input=square_model1.output)
-        self += mult_model1(left=sum_model.output, right=-0.5)
-        self += square_model2(input=IOKey("sigma", value=sigma))
-        self += div_model(
+        self |= square_model1(input=euclidean_model.output)
+        self |= sum_model(input=square_model1.output)
+        self |= mult_model1(left=sum_model.output, right=-0.5)
+        self |= square_model2(input=IOKey("sigma", value=sigma))
+        self |= div_model(
             numerator=mult_model1.output, denominator=square_model2.output
         )
-        self += exp_model(input=div_model.output)
-        self += l_square(left=l_key, right=l_key)
-        self += mult_model2(
+        self |= exp_model(input=div_model.output)
+        self |= l_square(left=l_key, right=l_key)
+        self |= mult_model2(
             left=l_square.output,
             right=exp_model.output,
             output=IOKey(name="output"),
@@ -1042,14 +1033,14 @@ class PolynomialKernel(Model):
         sum_model = Add()
         power_model = Power(robust=robust)  # TODO: Should it be usual Power or not???
 
-        self += transpose_model(input=IOKey("input2", value=input2))
-        self += mult_model(
+        self |= transpose_model(input=IOKey("input2", value=input2))
+        self |= mult_model(
             left=IOKey("input1", value=input1), right=transpose_model.output
         )
-        self += sum_model(
+        self |= sum_model(
             left=mult_model.output, right=IOKey("poly_coef", value=poly_coef)
         )
-        self += power_model(
+        self |= power_model(
             base=sum_model.output,
             exponent=IOKey("degree", value=degree),
             output=IOKey(name="output"),
@@ -1064,6 +1055,7 @@ class PolynomialKernel(Model):
         self._add_constraint(
             fn=polynomial_kernel_constraint, keys=["poly_coef", "degree"]
         )
+        self.set_cin("input1", "input2", safe=False)
         self._freeze()
 
     def __call__(  # type: ignore[override]
@@ -1118,8 +1110,8 @@ class KernelizedSVM(Model):
         (kernel_output_name,) = kernel.conns.output_keys  # NOTE: Assumes single output!
         kernel_output_args = {kernel_output_name: IOKey(name="kernel")}
 
-        self += kernel(**kernel_input_args, **kernel_output_args)
-        self += linear_model(
+        self |= kernel(**kernel_input_args, **kernel_output_args)
+        self |= linear_model(
             input=kernel.cout,
             weight=IOKey("weight", value=weight),
             bias=IOKey("bias", value=bias),
@@ -1135,8 +1127,7 @@ class KernelizedSVM(Model):
             "kernel": ["N", "M"],
         }
         self._set_shapes(shapes)
-        # self.set_cin("input1", "input2", safe=False)
-        self.set_cin("input1", safe=False)
+        self.set_cin("input1", "input2", safe=False)
         self._freeze()
 
     def __call__(  # type: ignore[override]
@@ -1176,15 +1167,13 @@ class LinearSVM(Model):
         linear_model = Linear(dimension=1)
         decision_model = Sign()
 
-        self += linear_model(
+        self |= linear_model(
             input=IOKey("input", value=input),
             weight=IOKey("weight", value=weight),
             bias=IOKey("bias", value=bias),
             output=IOKey(name="output"),
         )
-        self += decision_model(
-            input=linear_model.output, output=IOKey(name="decision_output")
-        )
+        self += decision_model(output=IOKey(name="decision_output"))
 
         self.set_cout(linear_model.output)
         self._freeze()
@@ -1295,7 +1284,7 @@ class MLP(Model):
         }
         if len(activations) == 1:
             extend_kwargs["output"] = IOKey(name="output")
-        self += prev_layer(**extend_kwargs)
+        self |= prev_layer(**extend_kwargs)
 
         # Add layers sequentially starting from second elements.
         for idx, (activation, dim) in enumerate(
@@ -1305,7 +1294,6 @@ class MLP(Model):
 
             # Prepare the kwargs for the current layer.
             kwargs: dict[str, ConnectionType] = {
-                "input": prev_layer.output,
                 "weight": f"{weight}{idx + 1}",
                 "bias": f"{bias}{idx + 1}",
             }
@@ -1396,33 +1384,33 @@ class RNNCell(Cell):
         sum_model_1 = Add()
         sum_model_2 = Add()
 
-        self += shape(input=IOKey("input", value=input))
-        self += scalar_item(input=shape.output, index=0)
+        self |= shape(input=IOKey("input", value=input))
+        self |= scalar_item(input=shape.output, index=0)
         self |= slice_1(start=scalar_item.output)
-        self += tensor_item_1(
+        self |= tensor_item_1(
             input="prev_hidden",
             index=slice_1.output,
             output=IOKey(name="hidden_compl"),
         )
         self |= slice_2(stop=scalar_item.output)
-        self += tensor_item_2(input="prev_hidden", index=slice_2.output)
-        self += mult_model_1(
+        self |= tensor_item_2(input="prev_hidden", index=slice_2.output)
+        self |= mult_model_1(
             input=tensor_item_2.output,
             weight=IOKey("w_hh", value=w_hh, differantiable=True),
         )
-        self += mult_model_2(
+        self |= mult_model_2(
             input="input", weight=IOKey("w_ih", value=w_ih, differantiable=True)
         )
-        self += sum_model_1(left=mult_model_1.output, right=mult_model_2.output)
-        self += sum_model_2(
+        self |= sum_model_1(left=mult_model_1.output, right=mult_model_2.output)
+        self |= sum_model_2(
             left=sum_model_1.output,
             right=IOKey("bias_h", value=bias_h, differantiable=True),
         )
-        self += Tanh()(input=sum_model_2.output, output=IOKey(name="hidden"))
-        self += mult_model_3(
+        self |= Tanh()(input=sum_model_2.output, output=IOKey(name="hidden"))
+        self |= mult_model_3(
             input="hidden", weight=IOKey("w_ho", value=w_ho, differantiable=True)
         )
-        self += Add()(
+        self |= Add()(
             left=mult_model_3.output,
             right=IOKey("bias_o", value=bias_o, differantiable=True),
             output=IOKey(name="output"),
@@ -1550,15 +1538,15 @@ class LSTMCell(Cell):
         tensor_item_4 = Indexer()
         tensor_item_5 = Indexer()
 
-        self += shape_model(input=IOKey("input", value=input))
-        self += scalar_item(input=shape_model.output, index=0)
+        self |= shape_model(input=IOKey("input", value=input))
+        self |= scalar_item(input=shape_model.output, index=0)
 
         # Forget gate processes.
         self |= slice_1(stop=scalar_item.output)
-        self += tensor_item_1(input="prev_cell", index=slice_1.output)
+        self |= tensor_item_1(input="prev_cell", index=slice_1.output)
 
         self |= slice_2(stop=scalar_item.output)
-        self += tensor_item_2(input="prev_hidden", index=slice_2.output)
+        self |= tensor_item_2(input="prev_hidden", index=slice_2.output)
 
         body_kwargs: dict[str, ConnectionType] = {
             key: IOKey(key, value=factory_inputs.get(key, TBD))
@@ -1568,27 +1556,27 @@ class LSTMCell(Cell):
         body_kwargs["prev_cell"] = tensor_item_1.output
         body_kwargs["prev_hidden"] = tensor_item_2.output
 
-        self += cell_body(**body_kwargs)
+        self |= cell_body(**body_kwargs)
 
         self |= slice_3(start=scalar_item.output)
-        self += tensor_item_3(
+        self |= tensor_item_3(
             input=cell_body.output, index=slice_3.output, output=IOKey(name="hidden")
         )
 
         self |= slice_4(stop=scalar_item.output)
-        self += tensor_item_4(
+        self |= tensor_item_4(
             input=cell_body.output, index=slice_4.output, output=IOKey(name="cell")
         )
 
         # Slice complement process.
         self |= slice_5(start=scalar_item.output)
-        self += tensor_item_5(
+        self |= tensor_item_5(
             input="prev_hidden",
             index=slice_5.output,
             output=IOKey(name="hidden_compl"),
         )
         # Final output.
-        self += Linear()(
+        self |= Linear()(
             input="hidden",
             weight=IOKey("w_out", value=w_out),
             bias=IOKey("bias_out", value=bias_out),
@@ -1705,49 +1693,49 @@ class LSTMCellBody(Model):
         sigmoid_model_3 = Sigmoid()
         mult_model_3 = Multiply()
 
-        self += matrix_concat_model(
+        self |= matrix_concat_model(
             input1=IOKey("input", value=input),
             input2=IOKey("prev_hidden", value=prev_hidden),
         )
-        self += forward_lin(
+        self |= forward_lin(
             input=matrix_concat_model.output,
             weight=IOKey("w_f", value=w_f),
             bias=IOKey("bias_f", value=bias_f),
         )
-        self += sigmoid_model_1(input=forward_lin.output)
-        self += mult_model_1(
+        self |= sigmoid_model_1(input=forward_lin.output)
+        self |= mult_model_1(
             left=IOKey("prev_cell", value=prev_cell), right=sigmoid_model_1.output
         )
         # Input gate processes.
-        self += input_lin(
+        self |= input_lin(
             input=matrix_concat_model.output,
             weight=IOKey("w_i", value=w_i),
             bias=IOKey("bias_i", value=bias_i),
         )
-        self += sigmoid_model_2(input=input_lin.output)
+        self |= sigmoid_model_2(input=input_lin.output)
         # Cell state gate processes.
-        self += cell_lin(
+        self |= cell_lin(
             input=matrix_concat_model.output,
             weight=IOKey("w_c", value=w_c),
             bias=IOKey("bias_c", value=bias_c),
         )
-        self += tanh_model_1(input=cell_lin.output)
+        self |= tanh_model_1(input=cell_lin.output)
         # Input-cell gate multiplication.
-        self += mult_model_2(left=sigmoid_model_2.output, right=tanh_model_1.output)
+        self |= mult_model_2(left=sigmoid_model_2.output, right=tanh_model_1.output)
         # Addition to cell state.
-        self += sum_model_4(left=mult_model_1.output, right=mult_model_2.output)
+        self |= sum_model_4(left=mult_model_1.output, right=mult_model_2.output)
         # Cell state to hidden state info.
-        self += tanh_model_2(input=sum_model_4.output)
+        self |= tanh_model_2(input=sum_model_4.output)
         # Output gate process.
-        self += out_gate_lin(
+        self |= out_gate_lin(
             input=matrix_concat_model.output,
             weight=IOKey("w_o", value=w_o),
             bias=IOKey("bias_o", value=bias_o),
         )
-        self += sigmoid_model_3(input=out_gate_lin.output)
+        self |= sigmoid_model_3(input=out_gate_lin.output)
         # Final hidden state.
-        self += mult_model_3(left=tanh_model_2.output, right=sigmoid_model_3.output)
-        self += Concat(n=2, axis=0)(
+        self |= mult_model_3(left=tanh_model_2.output, right=sigmoid_model_3.output)
+        self |= Concat(n=2, axis=0)(
             input1=sum_model_4.output,
             input2=mult_model_3.output,
             output=IOKey(name="output"),
@@ -1862,8 +1850,8 @@ class OneToMany(RNN):
             slice_model = Slice(start=None, step=None)
             tensor_item = Indexer()
 
-            self += shape_model(input=f"target{idx}")
-            self += item_model(input=shape_model.output, index=0)
+            self |= shape_model(input=f"target{idx}")
+            self |= item_model(input=shape_model.output, index=0)
 
             # # Create slicing model which filters unnecessary data for
             # # current time step.
@@ -1877,12 +1865,12 @@ class OneToMany(RNN):
                 slice_input_1 = getattr(prev_cell, prev_cell.out_key)
 
             self |= slice_model(stop=item_model.output)
-            self += tensor_item(input=slice_input_1, index=slice_model.output)
+            self |= tensor_item(input=slice_input_1, index=slice_model.output)
 
             input_kwargs = {"input": tensor_item.output}
             output_kwargs = {cell_type.out_key: IOKey(name=f"output{idx}")}
 
-            self += current_cell(
+            self |= current_cell(
                 **(
                     input_kwargs
                     | shared_keys_kwargs
@@ -1938,16 +1926,10 @@ class OneToManyInference(RNN):
             state_keys_kwargs = {
                 f"prev_{key}": getattr(prev_cell, key) for key in cell_type.state_keys
             }
-            input_kwargs = {"input": prev_cell.output}
             output_kwargs = {cell_type.out_key: IOKey(name=f"output{idx}")}
 
             self += current_cell(
-                **(
-                    input_kwargs
-                    | shared_keys_kwargs
-                    | state_keys_kwargs
-                    | output_kwargs
-                )
+                **(shared_keys_kwargs | state_keys_kwargs | output_kwargs)
             )
 
             prev_cell = current_cell
@@ -1987,7 +1969,7 @@ class ManyToOne(RNN):
             for key in cell_type.state_keys
         }
 
-        self += prev_cell(
+        self |= prev_cell(
             **(input_kwargs | shared_keys_kwargs | output_kwargs | initial_state_kwargs)
         )
 
@@ -2002,7 +1984,7 @@ class ManyToOne(RNN):
             output_kwargs = {cell_type.out_key: IOKey(name=f"output{idx}")}
 
             # For the last cell, include hidden
-            self += cur_cell(
+            self |= cur_cell(
                 **(
                     input_kwargs
                     | shared_keys_kwargs
@@ -2026,7 +2008,7 @@ class ManyToOne(RNN):
             prev_cell = cur_cell
 
         # Add concat model with accumulated hidden states.
-        self += concat_model(
+        self |= concat_model(
             **concat_input_kwargs,
             output=IOKey(name="hidden_concat", value=hidden_concat),
         )
@@ -2168,28 +2150,28 @@ class EncoderDistanceMatrix(Model):
             reciprocal_model = Divide()
             power_model = Power(robust=robust)
 
-            self += modifier_model(input="norm")
-            self += dist_model(
+            self |= modifier_model(input="norm")
+            self |= dist_model(
                 left=input1_key, right=input2_key, norm=modifier_model.output
             )
-            self += reciprocal_model(
+            self |= reciprocal_model(
                 numerator=Tensor(1.0), denominator=modifier_model.output
             )
-            self += power_model(
+            self |= power_model(
                 base=dist_model.output,
                 exponent=reciprocal_model.output,
                 output=IOKey(name="output"),
             )
 
         else:
-            self += modifier_model(input="norm")
-            self += dist_model(
+            self |= modifier_model(input="norm")
+            self |= dist_model(
                 left="input1",
                 right="input2",
                 norm=modifier_model.output,
                 output=IOKey(name="output"),
             )
-
+        self.set_cin("input1", "input2", safe=False)
         self._freeze()
 
     def __call__(  # type: ignore[override]
@@ -2224,8 +2206,8 @@ class PolynomialRegression(Model):
         linear_model = Linear(dimension=dimension)
         feature_model = PolynomialFeatures(degree=degree)
 
-        self += feature_model(input=IOKey("input", value=input))
-        self += linear_model(
+        self |= feature_model(input=IOKey("input", value=input))
+        self |= linear_model(
             input=feature_model.output,
             weight=IOKey("weight", value=weight),
             bias=IOKey("bias", value=bias),
@@ -2280,45 +2262,45 @@ class MDSCore(Model):
         mult_model = Multiply()
 
         if exact_distances:
-            self += norm_model(input=IOKey("norm", value=norm))
-            self += reciprocal_model_1(input=norm_model.output)
-            self += power_model_4(
+            self |= norm_model(input=IOKey("norm", value=norm))
+            self |= reciprocal_model_1(input=norm_model.output)
+            self |= power_model_4(
                 base=IOKey("pred_distances", value=pred_distances),
                 exponent=reciprocal_model_1.output,
             )
-            self += subtract_model(
+            self |= subtract_model(
                 left=IOKey("distances", value=distances), right=power_model_4.output
             )
-            self += abs_model(input=subtract_model.output)
-            self += power_model_1(base=abs_model.output, exponent=norm_model.output)
-            self += sum_model_1(input=power_model_1.output)
-            self += power_model_2(base=self.distances, exponent=norm_model.output)
-            self += sum_model_2(input=power_model_2.output)
-            self += reciprocal_model_2(input=sum_model_2.output)
-            self += mult_model(left=sum_model_1.output, right=reciprocal_model_2.output)
-            self += power_model_3(
+            self |= abs_model(input=subtract_model.output)
+            self |= power_model_1(base=abs_model.output, exponent=norm_model.output)
+            self |= sum_model_1(input=power_model_1.output)
+            self |= power_model_2(base=self.distances, exponent=norm_model.output)
+            self |= sum_model_2(input=power_model_2.output)
+            self |= reciprocal_model_2(input=sum_model_2.output)
+            self |= mult_model(left=sum_model_1.output, right=reciprocal_model_2.output)
+            self |= power_model_3(
                 base=mult_model.output,
                 exponent=reciprocal_model_1.output,
                 output=IOKey(name="output"),
             )
 
         else:
-            self += norm_model(input="norm")
-            self += reciprocal_model_1(input=norm_model.output)
-            self += power_model_1(base="distances", exponent=reciprocal_model_1.output)
-            self += power_model_4(
+            self |= norm_model(input="norm")
+            self |= reciprocal_model_1(input=norm_model.output)
+            self |= power_model_1(base="distances", exponent=reciprocal_model_1.output)
+            self |= power_model_4(
                 base="pred_distances", exponent=reciprocal_model_1.output
             )
-            self += subtract_model(
+            self |= subtract_model(
                 left=power_model_1.output, right=power_model_4.output
             )
-            self += abs_model(input=subtract_model.output)
-            self += power_model_2(base=abs_model.output, exponent=norm_model.output)
-            self += sum_model_1(input=power_model_2.output)
-            self += sum_model_2(input=self.distances)
-            self += reciprocal_model_2(input=sum_model_2.output)
-            self += mult_model(left=sum_model_1.output, right=reciprocal_model_2.output)
-            self += power_model_3(
+            self |= abs_model(input=subtract_model.output)
+            self |= power_model_2(base=abs_model.output, exponent=norm_model.output)
+            self |= sum_model_1(input=power_model_2.output)
+            self |= sum_model_2(input=self.distances)
+            self |= reciprocal_model_2(input=sum_model_2.output)
+            self |= mult_model(left=sum_model_1.output, right=reciprocal_model_2.output)
+            self |= power_model_3(
                 base=mult_model.output,
                 exponent=reciprocal_model_1.output,
                 output=IOKey(name="output"),
@@ -2383,32 +2365,32 @@ class TSNECore(Model):
         # Always process with squared distances in TSNE calculations.
         if exact_distances:
             square_model = Square()
-            self += square_model(input=dist_key)
+            self |= square_model(input=dist_key)
             if calculate_p_joint:
-                self += p_joint_model(
+                self |= p_joint_model(
                     squared_distances=square_model.output, target_perplexity=perplexity
                 )
         else:
             if calculate_p_joint:
-                self += p_joint_model(
+                self |= p_joint_model(
                     squared_distances=dist_key, target_perplexity=perplexity
                 )
-        self += sum_model_1(left=1.0, right=pred_dist_key)
-        self += divide_model_1(numerator=1.0, denominator=sum_model_1.output)
-        self += size_model(input=dist_key)
-        self += zero_diagonal_model(N=size_model.output)
-        self += mult_model(left=divide_model_1.output, right=zero_diagonal_model.output)
-        self += sum_model_2(input=mult_model.output)
-        self += divide_model_2(
+        self |= sum_model_1(left=1.0, right=pred_dist_key)
+        self |= divide_model_1(numerator=1.0, denominator=sum_model_1.output)
+        self |= size_model(input=dist_key)
+        self |= zero_diagonal_model(N=size_model.output)
+        self |= mult_model(left=divide_model_1.output, right=zero_diagonal_model.output)
+        self |= sum_model_2(input=mult_model.output)
+        self |= divide_model_2(
             numerator=mult_model.output, denominator=sum_model_2.output
         )
-        self += kl_divergence_model(
+        self |= kl_divergence_model(
             input=divide_model_2.output,
             target=p_joint_model.output
             if calculate_p_joint
             else IOKey("p_joint", value=p_joint),
         )
-        self += sum_model_3(
+        self |= sum_model_3(
             input=kl_divergence_model.output, output=IOKey(name="output")
         )
 
@@ -2470,12 +2452,12 @@ class DistanceEncoder(Model):
         #  the base model (i.e. "distances", "pred_distances")
         if input_type == "points":
             input_distance_matrix = EncoderDistanceMatrix(get_final_distance=False)
-            self += input_distance_matrix(
+            self |= input_distance_matrix(
                 input1=IOKey("input", value=input),
                 input2="input",
                 norm=IOKey("norm", value=norm),
             )
-            self += coords_distance_matrix(
+            self |= coords_distance_matrix(
                 input1=IOKey("coords", value=coords), input2="coords", norm="norm"
             )
 
@@ -2494,14 +2476,14 @@ class DistanceEncoder(Model):
                 if key not in base_kwargs and not con.is_key_autogenerated:
                     base_kwargs[key] = key
 
-            self += base_model(**base_kwargs)
-            self += buffer_model(
+            self |= base_model(**base_kwargs)
+            self |= buffer_model(
                 input=self.coords,
                 output=IOKey(name="predicted_coords", value=predicted_coords),
             )
 
         else:
-            self += coords_distance_matrix(
+            self |= coords_distance_matrix(
                 input1="coords", input2="coords", norm="norm"
             )
 
@@ -2514,8 +2496,8 @@ class DistanceEncoder(Model):
             if base_model.requires_norm:
                 base_kwargs["norm"] = "norm"
 
-            self += base_model(**base_kwargs)
-            self += buffer_model(
+            self |= base_model(**base_kwargs)
+            self |= buffer_model(
                 input=self.coords, output=IOKey(name="predicted_coords")
             )
 
@@ -2704,7 +2686,7 @@ class GaussProcessRegressionCore(Model):
         conf_diag_model = TransposedDiagonal()
         conf_model = Add()
 
-        self += size_model(input=IOKey("k", value=k))
+        self |= size_model(input=IOKey("k", value=k))
         self += K_term_eye_model(N=size_model.output)
         self += K_term_mult_model(
             left=IOKey("s", value=s), right=K_term_eye_model.output
@@ -2912,11 +2894,11 @@ class Metric(Model):
             label_key = self.label_argmax
 
         if is_binary and is_pred_one_hot:
-            self += ArgMax(axis=-1)(pred_key, output="pred_argmax")
+            self |= ArgMax(axis=-1)(pred_key, output="pred_argmax")
             pred_key = self.pred_argmax
         elif is_binary and not is_pred_one_hot:
-            self += Greater()(left=pred_key, right=threshold, output="greater_out")
-            self += Where()(
+            self |= Greater()(left=pred_key, right=threshold, output="greater_out")
+            self |= Where()(
                 cond="greater_out",
                 input1=Tensor(1),
                 input2=Tensor(0),
@@ -2924,13 +2906,13 @@ class Metric(Model):
             )
             pred_key = self.pred_comp
         elif is_pred_one_hot:
-            self += ArgMax(axis=-1)(pred_key, output="pred_argmax")
+            self |= ArgMax(axis=-1)(pred_key, output="pred_argmax")
             pred_key = self.pred_argmax
 
         result = pred_key - label_key
-        self += Buffer()(input=pred_key, output=IOKey("pred_formatted"))
-        self += Buffer()(input=label_key, output=IOKey("label_formatted"))
-        self += Buffer()(input=result, output=IOKey("output"))
+        self |= Buffer()(input=pred_key, output=IOKey("pred_formatted"))
+        self |= Buffer()(input=label_key, output=IOKey("label_formatted"))
+        self |= Buffer()(input=result, output=IOKey("output"))
 
         self.set_cin(self.pred)
         self._freeze()
@@ -2972,7 +2954,7 @@ class Accuracy(Model):
         name: str | None = None,
     ) -> None:
         super().__init__(name=name)
-        self += Metric(
+        self |= Metric(
             threshold=threshold,
             is_binary=is_binary,
             is_pred_one_hot=is_pred_one_hot,
@@ -2988,8 +2970,8 @@ class Accuracy(Model):
         true_predictions = self.metric_out == 0
         n_prediction = self.label_formatted.shape[0]
 
-        self += Sum()(input=true_predictions, output="n_true_predictions")
-        self += Divide()(
+        self |= Sum()(input=true_predictions, output="n_true_predictions")
+        self |= Divide()(
             numerator="n_true_predictions",
             denominator=n_prediction.tensor(),
             output=IOKey(name="output"),
@@ -3045,7 +3027,7 @@ class Precision(Model):
         #     average not in ["weighted", "macro"] or n_classes is not None
         # ), "n_classes must be provided if average is 'weighted' or 'macro'"
 
-        self += Metric(
+        self |= Metric(
             threshold=threshold,
             is_binary=is_binary,
             is_pred_one_hot=is_pred_one_hot,
@@ -3061,10 +3043,10 @@ class Precision(Model):
         if average == "micro":
             true_positive = self.metric_out == Tensor(0)
             false_positive = self.metric_out != Tensor(0)
-            self += Sum()(input=true_positive, output="n_true_positive")
-            self += Sum()(input=false_positive, output="n_false_positive")
+            self |= Sum()(input=true_positive, output="n_true_positive")
+            self |= Sum()(input=false_positive, output="n_false_positive")
 
-            self += Buffer()(
+            self |= Buffer()(
                 input=self.n_true_positive
                 / (self.n_true_positive + self.n_false_positive),
                 output=IOKey(name="output"),
@@ -3080,18 +3062,18 @@ class Precision(Model):
                 true_positive = (self.metric_out == Tensor(0)) & class_idxs
                 false_positive = (self.pred_formatted == Tensor(idx)) & ~class_idxs
 
-                self += Sum()(input=true_positive, output=f"true_positive_{idx}")
-                self += Sum()(input=false_positive, output=f"false_positive_{idx}")
+                self |= Sum()(input=true_positive, output=f"true_positive_{idx}")
+                self |= Sum()(input=false_positive, output=f"false_positive_{idx}")
                 denominator = getattr(self, f"true_positive_{idx}") + getattr(
                     self, f"false_positive_{idx}"
                 )
-                self += Where()(
+                self |= Where()(
                     denominator == Tensor(0),
                     Tensor(1),
                     denominator,
                     f"denominator_{idx}",
                 )
-                self += Divide()(
+                self |= Divide()(
                     # numerator=getattr(self, f"true_positive_{idx}"),
                     numerator=f"true_positive_{idx}",
                     denominator=getattr(self, f"denominator_{idx}"),
@@ -3103,9 +3085,9 @@ class Precision(Model):
                 else:
                     sum_precision += getattr(self, f"precision_{idx}")
 
-            self += Unique()(input=self.label_formatted, output="n_classes")
+            self |= Unique()(input=self.label_formatted, output="n_classes")
 
-            self += Divide()(
+            self |= Divide()(
                 numerator=sum_precision,
                 denominator=self.n_classes.shape[0].tensor(),
                 output=IOKey(name="output"),
@@ -3121,25 +3103,25 @@ class Precision(Model):
                 class_idxs = self.label_formatted == Tensor(idx)
                 true_positive = (self.metric_out == Tensor(0)) & class_idxs
                 false_positive = (self.pred_formatted == Tensor(idx)) & ~class_idxs
-                self += Sum()(input=class_idxs, output=f"n_class_{idx}")
+                self |= Sum()(input=class_idxs, output=f"n_class_{idx}")
 
-                self += Sum()(input=true_positive, output=f"true_positive_{idx}")
-                self += Sum()(input=false_positive, output=f"false_positive_{idx}")
+                self |= Sum()(input=true_positive, output=f"true_positive_{idx}")
+                self |= Sum()(input=false_positive, output=f"false_positive_{idx}")
                 denominator = getattr(self, f"true_positive_{idx}") + getattr(
                     self, f"false_positive_{idx}"
                 )
-                self += Where()(
+                self |= Where()(
                     denominator == Tensor(0),
                     Tensor(1),
                     denominator,
                     f"denominator_{idx}",
                 )
-                self += Divide()(
+                self |= Divide()(
                     numerator=f"true_positive_{idx}",
                     denominator=(getattr(self, f"denominator_{idx}")),
                     output=f"precision_{idx}",
                 )
-                self += Divide()(
+                self |= Divide()(
                     numerator=getattr(self, f"precision_{idx}")
                     * getattr(self, f"n_class_{idx}"),
                     denominator=n_element.tensor(),
@@ -3151,7 +3133,7 @@ class Precision(Model):
                 else:
                     precision += getattr(self, f"weighted_precision_{idx}")
 
-            self += Buffer()(input=precision, output=IOKey(name="output"))
+            self |= Buffer()(input=precision, output=IOKey(name="output"))
 
         self.set_cin(self.pred)
         self._freeze()
@@ -3205,7 +3187,7 @@ class Recall(Model):
         #     average not in ["weighted", "macro"] or n_classes is not None
         # ), "n_classes must be provided if average is 'weighted' or 'macro'"
 
-        self += Metric(
+        self |= Metric(
             threshold=threshold,
             is_binary=is_binary,
             is_pred_one_hot=is_pred_one_hot,
@@ -3221,10 +3203,10 @@ class Recall(Model):
         if average == "micro":
             true_positive = self.metric_out == Tensor(0)
             false_negative = self.metric_out != Tensor(0)
-            self += Sum()(input=true_positive, output="n_true_positive")
-            self += Sum()(input=false_negative, output="n_false_negative")
+            self |= Sum()(input=true_positive, output="n_true_positive")
+            self |= Sum()(input=false_negative, output="n_false_negative")
 
-            self += Buffer()(
+            self |= Buffer()(
                 input=self.n_true_positive
                 / (self.n_true_positive + self.n_false_negative),
                 output=IOKey(name="output"),
@@ -3240,18 +3222,18 @@ class Recall(Model):
                 true_positive = (self.metric_out == Tensor(0)) & class_idxs
                 false_negative = (self.pred_formatted != Tensor(idx)) & class_idxs
 
-                self += Sum()(input=true_positive, output=f"true_positive_{idx}")
-                self += Sum()(input=false_negative, output=f"false_negative_{idx}")
+                self |= Sum()(input=true_positive, output=f"true_positive_{idx}")
+                self |= Sum()(input=false_negative, output=f"false_negative_{idx}")
                 denominator = getattr(self, f"true_positive_{idx}") + getattr(
                     self, f"false_negative_{idx}"
                 )
-                self += Where()(
+                self |= Where()(
                     denominator == Tensor(0),
                     Tensor(1),
                     denominator,
                     f"denominator_{idx}",
                 )
-                self += Divide()(
+                self |= Divide()(
                     numerator=f"true_positive_{idx}",
                     denominator=getattr(self, f"denominator_{idx}"),
                     output=f"recall_{idx}",
@@ -3262,9 +3244,9 @@ class Recall(Model):
                 else:
                     sum_recall += getattr(self, f"recall_{idx}")
 
-            self += Unique()(input=self.label_formatted, output="n_classes")
+            self |= Unique()(input=self.label_formatted, output="n_classes")
 
-            self += Divide()(
+            self |= Divide()(
                 numerator=sum_recall,
                 denominator=self.n_classes.shape[0].tensor(),
                 output=IOKey(name="output"),
@@ -3280,25 +3262,25 @@ class Recall(Model):
                 class_idxs = self.label_formatted == Tensor(idx)
                 true_positive = (self.metric_out == Tensor(0)) & class_idxs
                 false_negative = (self.pred_formatted != Tensor(idx)) & class_idxs
-                self += Sum()(input=class_idxs, output=f"n_class_{idx}")
+                self |= Sum()(input=class_idxs, output=f"n_class_{idx}")
 
-                self += Sum()(input=true_positive, output=f"true_positive_{idx}")
-                self += Sum()(input=false_negative, output=f"false_negative_{idx}")
+                self |= Sum()(input=true_positive, output=f"true_positive_{idx}")
+                self |= Sum()(input=false_negative, output=f"false_negative_{idx}")
                 denominator = getattr(self, f"true_positive_{idx}") + getattr(
                     self, f"false_negative_{idx}"
                 )
-                self += Where()(
+                self |= Where()(
                     denominator == Tensor(0),
                     Tensor(1),
                     denominator,
                     f"denominator_{idx}",
                 )
-                self += Divide()(
+                self |= Divide()(
                     numerator=f"true_positive_{idx}",
                     denominator=getattr(self, f"denominator_{idx}"),
                     output=f"recall_{idx}",
                 )
-                self += Divide()(
+                self |= Divide()(
                     numerator=getattr(self, f"recall_{idx}")
                     * getattr(self, f"n_class_{idx}"),
                     denominator=n_element.tensor(),
@@ -3310,7 +3292,7 @@ class Recall(Model):
                 else:
                     recall += getattr(self, f"weighted_recall_{idx}")
 
-            self += Buffer()(input=recall, output=IOKey(name="output"))
+            self |= Buffer()(input=recall, output=IOKey(name="output"))
 
         self.set_cin(self.pred)
         self._freeze()
@@ -3364,7 +3346,7 @@ class F1(Model):
             average not in ["weighted", "macro"] or n_classes is not None
         ), "n_classes must be provided if average is 'weighted' or 'macro'"
 
-        self += Metric(
+        self |= Metric(
             threshold=threshold,
             is_binary=is_binary,
             is_pred_one_hot=is_pred_one_hot,
@@ -3380,10 +3362,10 @@ class F1(Model):
         if average == "micro":
             true_positive = self.metric_out == Tensor(0)
             false_positive = self.metric_out != Tensor(0)
-            self += Sum()(input=true_positive, output="n_true_positive")
-            self += Sum()(input=false_positive, output="n_false_positive")
+            self |= Sum()(input=true_positive, output="n_true_positive")
+            self |= Sum()(input=false_positive, output="n_false_positive")
 
-            self += Buffer()(
+            self |= Buffer()(
                 input=self.n_true_positive
                 / (self.n_true_positive + self.n_false_positive),
                 output=IOKey(name="output"),
@@ -3400,20 +3382,20 @@ class F1(Model):
                 false_negative = (self.pred_formatted != Tensor(idx)) & class_idxs
                 false_positive = (self.pred_formatted == Tensor(idx)) & ~class_idxs
 
-                self += Sum()(input=true_positive, output=f"true_positive_{idx}")
-                self += Sum()(input=false_positive, output=f"false_positive_{idx}")
-                self += Sum()(input=false_negative, output=f"false_negative_{idx}")
+                self |= Sum()(input=true_positive, output=f"true_positive_{idx}")
+                self |= Sum()(input=false_positive, output=f"false_positive_{idx}")
+                self |= Sum()(input=false_negative, output=f"false_negative_{idx}")
                 denominator = getattr(self, f"true_positive_{idx}") + Tensor(0.5) * (
                     getattr(self, f"false_positive_{idx}")
                     + getattr(self, f"false_negative_{idx}")
                 )
-                self += Where()(
+                self |= Where()(
                     denominator == Tensor(0),
                     Tensor(1),
                     denominator,
                     f"denominator_{idx}",
                 )
-                self += Divide()(
+                self |= Divide()(
                     numerator=f"true_positive_{idx}",
                     denominator=getattr(self, f"denominator_{idx}"),
                     output=f"precision_{idx}",
@@ -3424,8 +3406,8 @@ class F1(Model):
                 else:
                     sum_precision += getattr(self, f"precision_{idx}")
 
-            self += Unique()(input=self.label_formatted, output="n_classes")
-            self += Divide()(
+            self |= Unique()(input=self.label_formatted, output="n_classes")
+            self |= Divide()(
                 numerator=sum_precision,
                 denominator=self.n_classes.shape[0].tensor(),
                 output=IOKey(name="output"),
@@ -3442,27 +3424,27 @@ class F1(Model):
                 true_positive = (self.metric_out == Tensor(0)) & class_idxs
                 false_negative = (self.pred_formatted != Tensor(idx)) & class_idxs
                 false_positive = (self.pred_formatted == Tensor(idx)) & ~class_idxs
-                self += Sum()(input=class_idxs, output=f"n_class_{idx}")
+                self |= Sum()(input=class_idxs, output=f"n_class_{idx}")
 
-                self += Sum()(input=true_positive, output=f"true_positive_{idx}")
-                self += Sum()(input=false_positive, output=f"false_positive_{idx}")
-                self += Sum()(input=false_negative, output=f"false_negative_{idx}")
+                self |= Sum()(input=true_positive, output=f"true_positive_{idx}")
+                self |= Sum()(input=false_positive, output=f"false_positive_{idx}")
+                self |= Sum()(input=false_negative, output=f"false_negative_{idx}")
                 denominator = getattr(self, f"true_positive_{idx}") + Tensor(0.5) * (
                     getattr(self, f"false_positive_{idx}")
                     + getattr(self, f"false_negative_{idx}")
                 )
-                self += Where()(
+                self |= Where()(
                     denominator == Tensor(0),
                     Tensor(1),
                     denominator,
                     f"denominator_{idx}",
                 )
-                self += Divide()(
+                self |= Divide()(
                     numerator=f"true_positive_{idx}",
                     denominator=getattr(self, f"denominator_{idx}"),
                     output=f"precision_{idx}",
                 )
-                self += Divide()(
+                self |= Divide()(
                     numerator=getattr(self, f"precision_{idx}")
                     * getattr(self, f"n_class_{idx}"),
                     denominator=n_element,
@@ -3474,7 +3456,7 @@ class F1(Model):
                 else:
                     precision += getattr(self, f"weighted_precision_{idx}")
 
-            self += Buffer()(input=precision, output=IOKey(name="output"))
+            self |= Buffer()(input=precision, output=IOKey(name="output"))
 
         self.set_cin(self.pred)
         self._freeze()
@@ -3516,7 +3498,7 @@ class AUC(Model):
         pred_key: IOKey | Connection = IOKey(name="pred", type=Tensor, value=pred)
 
         if is_label_one_hot:
-            self += ArgMax(axis=-1)(label_key, output="label_argmax")
+            self |= ArgMax(axis=-1)(label_key, output="label_argmax")
             label_key = self.label_argmax
 
         auc_score = None
@@ -3524,8 +3506,8 @@ class AUC(Model):
             class_label = label_key == Tensor(class_idx)
             pred_class = pred_key[:, class_idx] if n_classes != 1 else pred_key
 
-            self += AUCCore()(pred_class, class_label, f"auc_core_{class_idx}")
-            self += Trapezoid()(
+            self |= AUCCore()(pred_class, class_label, f"auc_core_{class_idx}")
+            self |= Trapezoid()(
                 y=getattr(self, f"auc_core_{class_idx}")[0],
                 x=getattr(self, f"auc_core_{class_idx}")[1],
                 output=IOKey(f"auc_class_{class_idx}"),
@@ -3535,7 +3517,7 @@ class AUC(Model):
             else:
                 auc_score += getattr(self, f"auc_class_{class_idx}") / Tensor(n_classes)
 
-        self += Buffer()(auc_score, IOKey("output"))
+        self |= Buffer()(auc_score, IOKey("output"))
 
         self.set_cin(self.pred)
         self._freeze()
