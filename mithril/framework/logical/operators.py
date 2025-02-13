@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Mapping, Sequence
+import operator
+from collections.abc import Callable, Mapping, Sequence
 from functools import partial
 from types import EllipsisType, NoneType, UnionType
 from typing import Any
@@ -28,6 +29,7 @@ from ..common import (
     TensorToListType,
     TensorValueType,
     ToBeDetermined,
+    UpdateType,
 )
 from ..constraints import (
     bcast,
@@ -35,18 +37,15 @@ from ..constraints import (
     bcast_mat_mul_check,
     bcast_matrix_mult,
     buffer_constraint,
-    divide_type_constraint,
     edge_type_constraint,
-    floor_divide_type_constraint,
     general_forward_constraint,
-    general_tensor_type_constraint,
+    general_type_constraint,
     indexer_constraints,
     indexer_initial_type_constraint,
     indexer_type_constraint,
     item_constraints,
     reduce_constraints,
     reduce_type_constraint,
-    relational_operator_type_constraint,
     reshape_constraints,
     reverse_constraints,
     shape_constraints,
@@ -119,6 +118,10 @@ __all__ = [
 ConstantType = float | int | core.Constant
 
 
+def buffer_fn[T](x: T) -> T:
+    return x
+
+
 class BufferOp(Operator):
     _model_name: str = "Buffer"
 
@@ -166,50 +169,6 @@ class ToTupleOp(Operator):
         )
 
 
-class ArithmeticOp(Operator):
-    _model_name: str = "Arithmetic"
-
-    def __init__(
-        self,
-        formula_key: str,
-        left: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
-        right: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
-        *,
-        name: str | None = None,
-    ) -> None:
-        super().__init__(
-            formula_key=formula_key,
-            name=name,
-            output=BaseKey(),
-            left=BaseKey(value=left),
-            right=BaseKey(value=right),
-        )
-
-        edge_constraint = self._add_constraint(
-            fn=edge_type_constraint,
-            keys=[Operator.output_key, "left", "right"],
-        )
-
-        self._add_constraint(
-            fn=general_tensor_type_constraint,
-            keys=[Operator.output_key, "left", "right"],
-            dependencies={edge_constraint},
-        )
-
-        bcast_constraint = self._add_constraint(
-            fn=bcast,
-            keys=[Operator.output_key, "left", "right"],
-            dependencies={edge_constraint},
-        )
-
-        self._add_constraint(
-            fn=bcast_error_check,
-            keys=[Operator.output_key, "left", "right"],
-            dependencies={bcast_constraint},
-        )
-        self.edge_constraint = edge_constraint
-
-
 class PowerOp(Operator):
     _model_name: str = "Power"
 
@@ -254,15 +213,17 @@ class PowerOp(Operator):
                 ),
             )
             edge_constraint = self._add_constraint(
-                fn=edge_type_constraint,
+                fn=partial(general_type_constraint, fn=operator.pow, is_edge=True),
                 keys=[Operator.output_key, "base", "exponent"],
+                types=[UpdateType.TYPE],
             )
             constrs = {edge_constraint}
 
         self._add_constraint(
-            fn=general_tensor_type_constraint,
+            fn=partial(general_type_constraint, fn=operator.pow),
             keys=[Operator.output_key, "base", "exponent"],
             dependencies=constrs,
+            types=[UpdateType.TYPE],
         )
 
         bcast_constraint = self._add_constraint(
@@ -278,7 +239,7 @@ class PowerOp(Operator):
         )
 
         self._add_constraint(
-            partial(general_forward_constraint, callable=lambda x, y: x**y),
+            partial(general_forward_constraint, callable=operator.pow),
             keys=[Operator.output_key, "base", "exponent"],
             dependencies=constrs,
         )
@@ -286,85 +247,246 @@ class PowerOp(Operator):
         constrs = constrs
 
 
-class AddOp(ArithmeticOp):
+class AddOp(Operator):
     _model_name: str = "Add"
 
     def __init__(
         self,
-        left: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
-        right: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
-        *,
-        name: str | None = None,
-    ) -> None:
-        super().__init__(formula_key="add", name=name, left=left, right=right)
-
-        self._add_constraint(
-            partial(general_forward_constraint, callable=lambda x, y: x + y),
-            keys=[Operator.output_key, "left", "right"],
-            dependencies={self.edge_constraint},
-        )
-
-
-class SubtractOp(ArithmeticOp):
-    _model_name: str = "Subtract"
-
-    def __init__(
-        self,
-        left: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
-        right: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
-        *,
-        name: str | None = None,
-    ) -> None:
-        super().__init__(formula_key="subtract", name=name, left=left, right=right)
-
-        self._add_constraint(
-            partial(general_forward_constraint, callable=lambda x, y: x - y),
-            keys=[Operator.output_key, "left", "right"],
-            dependencies={self.edge_constraint},
-        )
-
-
-class MultiplyOp(ArithmeticOp):
-    _model_name: str = "Multiply"
-
-    def __init__(
-        self,
-        left: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
-        right: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
+        left: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
         super().__init__(
-            formula_key="multiplication", name=name, left=left, right=right
+            formula_key="add",
+            name=name,
+            output=BaseKey(type=Tensor[int | float | bool] | int | float),
+            left=BaseKey(
+                value=left, type=Tensor[int | float | bool] | int | float | bool
+            ),
+            right=BaseKey(
+                value=right, type=Tensor[int | float | bool] | int | float | bool
+            ),
+        )
+
+        edge_constraint = self._add_constraint(
+            fn=partial(general_type_constraint, fn=operator.add, is_edge=True),
+            keys=[Operator.output_key, "left", "right"],
+            types=[UpdateType.TYPE],
+        )
+
+        bcast_constraint = self._add_constraint(
+            fn=bcast,
+            keys=[Operator.output_key, "left", "right"],
+            dependencies={edge_constraint},
         )
 
         self._add_constraint(
-            partial(general_forward_constraint, callable=lambda x, y: x * y),
+            fn=bcast_error_check,
             keys=[Operator.output_key, "left", "right"],
-            dependencies={self.edge_constraint},
+            dependencies={bcast_constraint},
+        )
+
+        self._add_constraint(
+            partial(general_forward_constraint, callable=operator.add),
+            keys=[Operator.output_key, "left", "right"],
+            dependencies={edge_constraint},
+        )
+
+        self._add_constraint(
+            partial(general_type_constraint, fn=operator.add),
+            keys=[Operator.output_key, "left", "right"],
+            types=[UpdateType.TYPE],
+            dependencies={edge_constraint},
         )
 
 
-class MinimumOp(ArithmeticOp):
+class SubtractOp(Operator):
+    _model_name: str = "Subtract"
+
+    def __init__(
+        self,
+        left: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(
+            formula_key="subtract",
+            name=name,
+            output=BaseKey(type=Tensor[int | float | bool] | int | float),
+            left=BaseKey(
+                value=left, type=Tensor[int | float | bool] | int | float | bool
+            ),
+            right=BaseKey(
+                value=right, type=Tensor[int | float | bool] | int | float | bool
+            ),
+        )
+
+        edge_constraint = self._add_constraint(
+            fn=partial(general_type_constraint, fn=operator.sub, is_edge=True),
+            keys=[Operator.output_key, "left", "right"],
+            types=[UpdateType.TYPE],
+        )
+
+        bcast_constraint = self._add_constraint(
+            fn=bcast,
+            keys=[Operator.output_key, "left", "right"],
+            dependencies={edge_constraint},
+        )
+
+        self._add_constraint(
+            fn=bcast_error_check,
+            keys=[Operator.output_key, "left", "right"],
+            dependencies={bcast_constraint},
+        )
+
+        self._add_constraint(
+            partial(general_forward_constraint, callable=operator.sub),
+            keys=[Operator.output_key, "left", "right"],
+            dependencies={edge_constraint},
+        )
+
+        self._add_constraint(
+            partial(general_type_constraint, fn=operator.sub),
+            keys=[Operator.output_key, "left", "right"],
+            types=[UpdateType.TYPE],
+            dependencies={edge_constraint},
+        )
+
+
+class MultiplyOp(Operator):
+    _model_name: str = "Multiply"
+
+    def __init__(
+        self,
+        left: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(
+            formula_key="multiplication",
+            name=name,
+            output=BaseKey(type=Tensor[int | float | bool] | int | float),
+            left=BaseKey(
+                value=left, type=Tensor[int | float | bool] | int | float | bool
+            ),
+            right=BaseKey(
+                value=right, type=Tensor[int | float | bool] | int | float | bool
+            ),
+        )
+
+        edge_constraint = self._add_constraint(
+            fn=partial(general_type_constraint, fn=operator.mul, is_edge=True),
+            keys=[Operator.output_key, "left", "right"],
+            types=[UpdateType.TYPE],
+        )
+
+        bcast_constraint = self._add_constraint(
+            fn=bcast,
+            keys=[Operator.output_key, "left", "right"],
+            dependencies={edge_constraint},
+        )
+
+        self._add_constraint(
+            fn=bcast_error_check,
+            keys=[Operator.output_key, "left", "right"],
+            dependencies={bcast_constraint},
+        )
+
+        self._add_constraint(
+            partial(general_forward_constraint, callable=operator.mul),
+            keys=[Operator.output_key, "left", "right"],
+            dependencies={edge_constraint},
+        )
+
+        self._add_constraint(
+            partial(general_type_constraint, fn=operator.mul),
+            keys=[Operator.output_key, "left", "right"],
+            types=[UpdateType.TYPE],
+            dependencies={edge_constraint},
+        )
+
+
+class MinimumOp(Operator):
     _model_name: str = "Minimum"
 
     def __init__(
         self,
         left: TensorValueType | ToBeDetermined = TBD,
         right: TensorValueType | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
-        super().__init__(formula_key="minimum", left=left, right=right)
+        super().__init__(
+            formula_key="minimum",
+            name=name,
+            output=BaseKey(type=Tensor[int | float | bool], shape=[("Var1", ...)]),
+            left=BaseKey(
+                value=left, type=Tensor[int | float | bool], shape=[("Var2", ...)]
+            ),
+            right=BaseKey(
+                value=right, type=Tensor[int | float | bool], shape=[("Var3", ...)]
+            ),
+        )
+
+        bcast_constraint = self._add_constraint(
+            fn=bcast,
+            keys=[Operator.output_key, "left", "right"],
+        )
+
+        self._add_constraint(
+            fn=bcast_error_check,
+            keys=[Operator.output_key, "left", "right"],
+            dependencies={bcast_constraint},
+        )
+
+        self._add_constraint(
+            partial(general_type_constraint, fn=min, is_bitwise=True),
+            keys=[Operator.output_key, "left", "right"],
+            types=[UpdateType.TYPE],
+        )
 
 
-class MaximumOp(ArithmeticOp):
+class MaximumOp(Operator):
     _model_name: str = "Maximum"
 
     def __init__(
         self,
         left: TensorValueType | ToBeDetermined = TBD,
         right: TensorValueType | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
     ) -> None:
-        super().__init__(formula_key="maximum", left=left, right=right)
+        super().__init__(
+            formula_key="maximum",
+            name=name,
+            output=BaseKey(type=Tensor[int | float | bool], shape=[("Var1", ...)]),
+            left=BaseKey(
+                value=left, type=Tensor[int | float | bool], shape=[("Var2", ...)]
+            ),
+            right=BaseKey(
+                value=right, type=Tensor[int | float | bool], shape=[("Var3", ...)]
+            ),
+        )
+
+        bcast_constraint = self._add_constraint(
+            fn=bcast,
+            keys=[Operator.output_key, "left", "right"],
+        )
+
+        self._add_constraint(
+            fn=bcast_error_check,
+            keys=[Operator.output_key, "left", "right"],
+            dependencies={bcast_constraint},
+        )
+
+        self._add_constraint(
+            partial(general_type_constraint, fn=max, is_bitwise=True),
+            keys=[Operator.output_key, "left", "right"],
+            types=[UpdateType.TYPE],
+        )
 
 
 class DivideOp(Operator):
@@ -372,9 +494,15 @@ class DivideOp(Operator):
 
     def __init__(
         self,
-        numerator: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
+        numerator: Tensor[int | float | bool]
+        | int
+        | float
+        | bool
+        | ToBeDetermined = TBD,
         denominator: Tensor[int | float | bool]
-        | ScalarValueType
+        | int
+        | float
+        | bool
         | ToBeDetermined = TBD,
         *,
         name: str | None = None,
@@ -382,18 +510,24 @@ class DivideOp(Operator):
         super().__init__(
             formula_key="divide",
             name=name,
-            output=BaseKey(),
-            numerator=BaseKey(value=numerator),
-            denominator=BaseKey(value=denominator),
+            output=BaseKey(type=Tensor[int | float] | int | float),
+            numerator=BaseKey(
+                value=numerator, type=Tensor[int | float | bool] | int | float | bool
+            ),
+            denominator=BaseKey(
+                value=denominator, type=Tensor[int | float | bool] | int | float | bool
+            ),
         )
         edge_constraint = self._add_constraint(
-            fn=edge_type_constraint,
+            partial(general_type_constraint, fn=operator.truediv, is_edge=True),
             keys=[Operator.output_key, "numerator", "denominator"],
+            types=[UpdateType.TYPE],
         )
 
         self._add_constraint(
-            fn=divide_type_constraint,
+            partial(general_type_constraint, fn=operator.truediv),
             keys=[Operator.output_key, "numerator", "denominator"],
+            types=[UpdateType.TYPE],
             dependencies={edge_constraint},
         )
 
@@ -404,7 +538,7 @@ class DivideOp(Operator):
         )
 
         self._add_constraint(
-            partial(general_forward_constraint, callable=lambda x, y: x / y),
+            partial(general_forward_constraint, callable=operator.truediv),
             keys=[Operator.output_key, "numerator", "denominator"],
             dependencies={edge_constraint},
         )
@@ -421,9 +555,15 @@ class FloorDivideOp(Operator):
 
     def __init__(
         self,
-        numerator: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
+        numerator: Tensor[int | float | bool]
+        | int
+        | float
+        | bool
+        | ToBeDetermined = TBD,
         denominator: Tensor[int | float | bool]
-        | ScalarValueType
+        | int
+        | float
+        | bool
         | ToBeDetermined = TBD,
         *,
         name: str | None = None,
@@ -431,20 +571,25 @@ class FloorDivideOp(Operator):
         super().__init__(
             formula_key="floor_divide",
             name=name,
-            output=BaseKey(
-                type=Tensor[int | float] | int | float, differentiable=False
+            output=BaseKey(type=Tensor[int | float] | int | float),
+            numerator=BaseKey(
+                value=numerator, type=Tensor[int | float | bool] | int | float | bool
             ),
-            numerator=BaseKey(value=numerator),
-            denominator=BaseKey(value=denominator),
+            denominator=BaseKey(
+                value=denominator, type=Tensor[int | float | bool] | int | float | bool
+            ),
         )
+
         edge_constraint = self._add_constraint(
-            fn=edge_type_constraint,
+            partial(general_type_constraint, fn=operator.floordiv, is_edge=True),
             keys=[Operator.output_key, "numerator", "denominator"],
+            types=[UpdateType.TYPE],
         )
 
         self._add_constraint(
-            fn=floor_divide_type_constraint,
+            partial(general_type_constraint, fn=operator.floordiv),
             keys=[Operator.output_key, "numerator", "denominator"],
+            types=[UpdateType.TYPE],
             dependencies={edge_constraint},
         )
 
@@ -455,7 +600,7 @@ class FloorDivideOp(Operator):
         )
 
         self._add_constraint(
-            partial(general_forward_constraint, callable=lambda x, y: x // y),
+            partial(general_forward_constraint, callable=operator.floordiv),
             keys=[Operator.output_key, "numerator", "denominator"],
             dependencies={edge_constraint},
         )
@@ -498,8 +643,9 @@ class MatrixMultiplyOp(Operator):
         )
 
         self._add_constraint(
-            fn=general_tensor_type_constraint,
+            partial(general_type_constraint, fn=operator.mul),
             keys=[Operator.output_key, "left", "right"],
+            types=[UpdateType.TYPE],
         )
 
 
@@ -811,7 +957,9 @@ class MaxOp(ReduceOp):
             formula_key="reduce_max", name=name, axis=axis, keepdim=keepdim, input=input
         )
         self._add_constraint(
-            fn=general_tensor_type_constraint, keys=[Operator.output_key, "input"]
+            partial(general_type_constraint, fn=buffer_fn),
+            keys=[Operator.output_key, "input"],
+            types=[UpdateType.TYPE],
         )
 
 
@@ -852,7 +1000,9 @@ class MinOp(ReduceOp):
             formula_key="reduce_min", name=name, axis=axis, keepdim=keepdim, input=input
         )
         self._add_constraint(
-            fn=general_tensor_type_constraint, keys=[Operator.output_key, "input"]
+            partial(general_type_constraint, fn=buffer_fn),
+            keys=[Operator.output_key, "input"],
+            types=[UpdateType.TYPE],
         )
 
 
@@ -948,8 +1098,9 @@ class SingleInputOperationOp(Operator):
 
         if polymorphic_constraint:
             self._add_constraint(
-                fn=general_tensor_type_constraint,
+                partial(general_type_constraint, fn=buffer_fn),
                 keys=[Operator.output_key, "input"],
+                types=[UpdateType.TYPE],
             )
 
 
@@ -1032,28 +1183,28 @@ class RelationalOperatorsOp(Operator):
     def __init__(
         self,
         formula_key: str,
-        left: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
-        right: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
+        operator: Callable[..., Any],
+        left: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key=formula_key,
             name=name,
-            output=BaseKey(),
-            left=BaseKey(value=left),
-            right=BaseKey(value=right),
+            output=BaseKey(type=bool | Tensor[bool]),
+            left=BaseKey(
+                value=left, type=Tensor[int | float | bool] | int | float | bool
+            ),
+            right=BaseKey(
+                value=right, type=Tensor[int | float | bool] | int | float | bool
+            ),
         )
 
         edge_constraint = self._add_constraint(
-            edge_type_constraint,
+            partial(general_type_constraint, fn=operator, is_edge=True),
             ["output", "left", "right"],
-        )
-
-        self._add_constraint(
-            relational_operator_type_constraint,
-            ["output", "left", "right"],
-            dependencies={edge_constraint},
+            types=[UpdateType.TYPE],
         )
 
         bcast_constraint = self._add_constraint(
@@ -1067,7 +1218,12 @@ class RelationalOperatorsOp(Operator):
             keys=[Operator.output_key, "left", "right"],
             dependencies={bcast_constraint},
         )
-        self.edge_constraint = edge_constraint
+
+        self._add_constraint(
+            partial(general_forward_constraint, callable=operator),
+            keys=[Operator.output_key, "left", "right"],
+            dependencies={edge_constraint},
+        )
 
 
 class GreaterOp(RelationalOperatorsOp):
@@ -1075,17 +1231,17 @@ class GreaterOp(RelationalOperatorsOp):
 
     def __init__(
         self,
-        left: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
-        right: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
+        left: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
-        super().__init__(formula_key="greater", name=name, left=left, right=right)
-
-        self._add_constraint(
-            partial(general_forward_constraint, callable=lambda x, y: x > y),
-            keys=[Operator.output_key, "left", "right"],
-            dependencies={self.edge_constraint},
+        super().__init__(
+            formula_key="greater",
+            name=name,
+            operator=operator.gt,
+            left=left,
+            right=right,
         )
 
 
@@ -1094,17 +1250,13 @@ class LessOp(RelationalOperatorsOp):
 
     def __init__(
         self,
-        left: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
-        right: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
+        left: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
-        super().__init__(formula_key="less", name=name, left=left, right=right)
-
-        self._add_constraint(
-            partial(general_forward_constraint, callable=lambda x, y: x < y),
-            keys=[Operator.output_key, "left", "right"],
-            dependencies={self.edge_constraint},
+        super().__init__(
+            formula_key="less", name=name, operator=operator.lt, left=left, right=right
         )
 
 
@@ -1113,17 +1265,13 @@ class EqualOp(RelationalOperatorsOp):
 
     def __init__(
         self,
-        left: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
-        right: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
+        left: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
-        super().__init__(formula_key="equal", name=name, left=left, right=right)
-
-        self._add_constraint(
-            partial(general_forward_constraint, callable=lambda x, y: x == y),
-            keys=[Operator.output_key, "left", "right"],
-            dependencies={self.edge_constraint},
+        super().__init__(
+            formula_key="equal", name=name, operator=operator.eq, left=left, right=right
         )
 
 
@@ -1132,17 +1280,17 @@ class NotEqualOp(RelationalOperatorsOp):
 
     def __init__(
         self,
-        left: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
-        right: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
+        left: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
-        super().__init__(formula_key="not_equal", name=name, left=left, right=right)
-
-        self._add_constraint(
-            partial(general_forward_constraint, callable=lambda x, y: x != y),
-            keys=[Operator.output_key, "left", "right"],
-            dependencies={self.edge_constraint},
+        super().__init__(
+            formula_key="not_equal",
+            name=name,
+            operator=operator.ne,
+            left=left,
+            right=right,
         )
 
 
@@ -1151,17 +1299,17 @@ class LessEqualOp(RelationalOperatorsOp):
 
     def __init__(
         self,
-        left: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
-        right: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
+        left: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
-        super().__init__(formula_key="less_equal", name=name, left=left, right=right)
-
-        self._add_constraint(
-            partial(general_forward_constraint, callable=lambda x, y: x <= y),
-            keys=[Operator.output_key, "left", "right"],
-            dependencies={self.edge_constraint},
+        super().__init__(
+            formula_key="less_equal",
+            name=name,
+            operator=operator.le,
+            left=left,
+            right=right,
         )
 
 
@@ -1170,17 +1318,17 @@ class GreaterEqualOp(RelationalOperatorsOp):
 
     def __init__(
         self,
-        left: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
-        right: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
+        left: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
-        super().__init__(formula_key="greater_equal", name=name, left=left, right=right)
-
-        self._add_constraint(
-            partial(general_forward_constraint, callable=lambda x, y: x >= y),
-            keys=[Operator.output_key, "left", "right"],
-            dependencies={self.edge_constraint},
+        super().__init__(
+            formula_key="greater_equal",
+            name=name,
+            operator=operator.ge,
+            left=left,
+            right=right,
         )
 
 
@@ -1207,19 +1355,55 @@ class BitwiseOperatorsOp(Operator):
     def __init__(
         self,
         formula_key: str,
-        left: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        right: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        operator: Callable[..., Any],
+        left: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key=formula_key,
             name=name,
-            output=BaseKey(shape=[("Var1", ...)], type=Tensor[bool]),
-            left=BaseKey(shape=[("Var2", ...)], type=Tensor[bool], value=left),
-            right=BaseKey(shape=[("Var3", ...)], type=Tensor[bool], value=right),
+            output=BaseKey(type=Tensor[int | float | bool] | int | float | bool),
+            left=BaseKey(
+                value=left, type=Tensor[int | float | bool] | int | float | bool
+            ),
+            right=BaseKey(
+                value=right, type=Tensor[int | float | bool] | int | float | bool
+            ),
         )
-        self._add_constraint(bcast, ["output", "left", "right"])
+        edge_constraint = self._add_constraint(
+            partial(
+                general_type_constraint, fn=operator, is_edge=True, is_bitwise=True
+            ),
+            ["output", "left", "right"],
+            types=[UpdateType.TYPE],
+        )
+
+        self._add_constraint(
+            partial(general_type_constraint, fn=operator, is_bitwise=True),
+            ["output", "left", "right"],
+            types=[UpdateType.TYPE],
+            dependencies={edge_constraint},
+        )
+
+        bcast_constraint = self._add_constraint(
+            bcast,
+            ["output", "left", "right"],
+            dependencies={edge_constraint},
+        )
+
+        self._add_constraint(
+            fn=bcast_error_check,
+            keys=[Operator.output_key, "left", "right"],
+            dependencies={bcast_constraint},
+        )
+
+        self._add_constraint(
+            partial(general_forward_constraint, callable=operator),
+            keys=[Operator.output_key, "left", "right"],
+            dependencies={edge_constraint},
+        )
 
 
 class LogicalAndOp(BitwiseOperatorsOp):
@@ -1227,12 +1411,18 @@ class LogicalAndOp(BitwiseOperatorsOp):
 
     def __init__(
         self,
-        left: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        right: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        left: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
-        super().__init__(formula_key="logical_and", name=name, left=left, right=right)
+        super().__init__(
+            formula_key="logical_and",
+            name=name,
+            operator=operator.and_,
+            left=left,
+            right=right,
+        )
 
 
 class LogicalOrOp(BitwiseOperatorsOp):
@@ -1245,7 +1435,13 @@ class LogicalOrOp(BitwiseOperatorsOp):
         *,
         name: str | None = None,
     ) -> None:
-        super().__init__(formula_key="logical_or", name=name, left=left, right=right)
+        super().__init__(
+            formula_key="logical_or",
+            name=name,
+            operator=operator.or_,
+            left=left,
+            right=right,
+        )
 
 
 class LogicalXOrOp(BitwiseOperatorsOp):
@@ -1258,7 +1454,13 @@ class LogicalXOrOp(BitwiseOperatorsOp):
         *,
         name: str | None = None,
     ) -> None:
-        super().__init__(formula_key="logical_xor", name=name, left=left, right=right)
+        super().__init__(
+            formula_key="logical_xor",
+            name=name,
+            operator=operator.xor,
+            left=left,
+            right=right,
+        )
         self.factory_args = {"left": left, "right": right}
 
 
@@ -1353,7 +1555,9 @@ class TransposeOp(Operator):
             )
 
         self._add_constraint(
-            fn=general_tensor_type_constraint, keys=["output", "input"]
+            partial(general_type_constraint, fn=buffer_fn),
+            keys=[Operator.output_key, "input"],
+            types=[UpdateType.TYPE],
         )
 
 

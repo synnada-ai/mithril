@@ -15,9 +15,9 @@
 import math
 from collections.abc import Callable, Sequence
 from functools import reduce
-from itertools import product, zip_longest
+from itertools import combinations_with_replacement, permutations, product, zip_longest
 from types import EllipsisType, GenericAlias, NoneType, UnionType
-from typing import Any, Union, get_args, get_origin
+from typing import Any, TypeGuard, Union, get_args, get_origin
 
 from ..core import Constant
 from ..utils.type_utils import (
@@ -60,7 +60,6 @@ from .utils import find_list_base_type, is_union
 __all__ = [
     "edge_type_constraint",
     "general_tensor_type_constraint",
-    "floor_divide_type_constraint",
     "scalar_slice_type_constraint",
     "indexer_initial_type_constraint",
     "indexer_type_constraint",
@@ -103,9 +102,9 @@ __all__ = [
     "randn_constraints",
     "buffer_constraint",
     "relational_operator_type_constraint",
-    "divide_type_constraint",
     "polynomial_kernel_constraint",
     "general_forward_constraint",
+    "general_type_constraint",
 ]
 
 
@@ -361,9 +360,27 @@ def general_tensor_type_constraint(*args: IOHyperEdge) -> ConstrainResultType:
 
 
 def general_type_constraint(
-    output: IOHyperEdge, left: IOHyperEdge, right: IOHyperEdge, fn: Callable[..., Any]
+    *keys: IOHyperEdge,
+    fn: Callable[..., Any],
+    is_bitwise: bool = False,
+    is_edge: bool = False,
 ) -> ConstrainResultType:
+    def is_tensor_value_type(value: Any) -> TypeGuard[type | GenericAlias]:
+        return (
+            get_origin(value) is Tensor
+            or value is int
+            or value is float
+            or value is bool
+        )
+
+    def is_list_or_int(value: Any) -> bool:
+        return value is list or value is int or get_origin(value) is list
+
+    def is_tuple_or_int(value: Any) -> bool:
+        return value is tuple or value is int or get_origin(value) is tuple
+
     def squash_tensor_types(typ: Any) -> Any:
+        # TODO: Remove this function when Lists of Tensors feature is added.
         # Reduces multiple Tensor types declerations in a single
         # Tensor[...] type with all subtypes of all declared ones. Also expands
         # "Tensor" type to "Tensor[int | float | bool]".
@@ -395,9 +412,9 @@ def general_type_constraint(
                 squash_tensor_types(arg) for arg in get_args(typ) if arg != ...
             ]
             return (
-                origin[squashed_args, ...]
+                origin[*squashed_args, ...]
                 if ... in get_args(typ)
-                else origin[squashed_args]
+                else origin[*squashed_args]
             )
         return typ
 
@@ -426,7 +443,12 @@ def general_type_constraint(
             new_type = Tensor[int] | Tensor[float] | Tensor[bool]
         return new_type
 
-    def find_all_op_types(operation: Callable[..., Any]) -> set[tuple[Any, ...]]:
+    def process_tensor_op_types(
+        operation: Callable[..., Any],
+        is_bitwise: bool,
+        output_args: set[type | GenericAlias],
+        *input_args: set[type | GenericAlias],
+    ) -> set[tuple[type | GenericAlias, ...]]:
         # TODO: uncomment type ignores when all TypeGuards switched to TypeIs.
         type_map: dict[type[int] | type[float] | type[bool], int | float | bool] = {
             int: 2,
@@ -443,109 +465,92 @@ def general_type_constraint(
             Tensor[bool],
         }
 
+        possible_arg_types: set[tuple[type | GenericAlias, ...]] = set(
+            product(output_args, *input_args)
+        )
+
+        available_possible_types = all_possible_types & reduce(
+            lambda x, y: x | y, input_args
+        )
         possible_type_set: set[tuple[type | GenericAlias, ...]] = set()
-        for left_type, right_type in product(all_possible_types, repeat=2):
+        for sample_types in combinations_with_replacement(
+            available_possible_types, len(input_args)
+        ):
             has_tensor = False
-            if is_generic_alias_type(left_type):
-                left_value_type: type = left_type.__args__[0]
-                has_tensor = True
-            else:
-                left_value_type = left_type  # type: ignore
+            all_value_types: list[type[int] | type[float] | type[bool]] = []
 
-            if is_generic_alias_type(right_type):
-                right_value_type: type = right_type.__args__[0]
-                has_tensor = True
-            else:
-                right_value_type = right_type  # type: ignore
+            for sample_type in sample_types:
+                if is_generic_alias_type(sample_type):
+                    # extract built-in type from Tensor type
+                    all_value_types.append(sample_type.__args__[0])
+                    has_tensor = True
+                else:
+                    all_value_types.append(sample_type)  # type: ignore
 
-            if has_tensor and (left_value_type is bool) and (right_value_type is bool):
+            if (
+                has_tensor
+                and all(typ is bool for typ in all_value_types)
+                and not is_bitwise
+            ):
+                # handle edge case occured in some operations.
+
+                # bool + bool -> int (Python)
+                # Tensor[bool] + Tensor[bool] = Tensor[bool] (backends, (e.g. NumPy))
+
                 out_type: type = Tensor[bool]
             else:
-                left_value = type_map[left_value_type]
-                right_value = type_map[right_value_type]
-
-                out_type = type(operation(left_value, right_value))
+                values = [type_map[typ] for typ in all_value_types]
+                try:
+                    out_type = type(operation(*values))
+                except TypeError:
+                    continue
                 out_type = Tensor[out_type] if has_tensor else out_type  # type: ignore
-            possible_type_set.add((left_type, right_type, out_type))
-        return possible_type_set
 
-    def tensor_operation_fn(
-        output_type: type | UnionType | GenericAlias,
-        type1: type | UnionType | GenericAlias,
-        type2: type | UnionType | GenericAlias,
-        operation: Callable[..., Any],
-    ) -> tuple[Any, ...]:
-        possible_type_set = find_all_op_types(operation)
+            possible_type_set.update(
+                (out_type,) + p for p in permutations(sample_types)
+            )
 
-        type1 = unsquash_tensor_types(type1)
-        type2 = unsquash_tensor_types(type2)
-        output_type = unsquash_tensor_types(output_type)
+        return possible_arg_types & possible_type_set
 
-        left_args = type1.__args__ if is_union_type(type1) else (type1,)
-        right_args = type2.__args__ if is_union_type(type2) else (type2,)
-        output_args = (
-            output_type.__args__ if is_union_type(output_type) else (output_type,)
-        )
+    def process_list_types(
+        left_args: set[type | GenericAlias],
+        right_args: set[type | GenericAlias],
+        output_args: set[type | GenericAlias],
+    ) -> set[tuple[type | GenericAlias, ...]]:
+        # TODO: Implement this function
+        return set(product(left_args, right_args, output_args))
 
-        possible_arg_types = set(product(left_args, right_args, output_args))
-        result_types = possible_arg_types & possible_type_set
-        result_left_types, result_right_types, result_output_types = zip(
-            *result_types, strict=False
-        )
-
-        result_left_type = reduce(lambda x, y: x | y, set(result_left_types))
-        result_right_type = reduce(lambda x, y: x | y, set(result_right_types))
-        result_output_type = reduce(lambda x, y: x | y, set(result_output_types))
-
-        result_left_type = squash_tensor_types(result_left_type)
-        result_right_type = squash_tensor_types(result_right_type)
-        result_output_type = squash_tensor_types(result_output_type)
-
-        return result_output_type, result_left_type, result_right_type
+    def process_tuple_types(
+        left_args: set[type | GenericAlias],
+        right_args: set[type | GenericAlias],
+        output_args: set[type | GenericAlias],
+    ) -> set[tuple[type | GenericAlias, ...]]:
+        # TODO: Implement this function
+        return set(product(left_args, right_args, output_args))
 
     updates = Updates()
-    left_type = left._type
-    right_type = right._type
-    output_type = output._type
+    all_output_types: set[tuple[type | GenericAlias, ...]] = set()
 
-    updated_left_type, updated_right_type, updated_output_type = tensor_operation_fn(
-        output_type, left_type, right_type, fn
-    )
-    updates |= left.set_type(updated_left_type)
-    updates |= right.set_type(updated_right_type)
-    updates |= output.set_type(updated_output_type)
+    args: list[Any] = []
 
-    return True, Updates()
+    for key in keys:
+        key_type = unsquash_tensor_types(key._type)
+        key_args = key_type.__args__ if is_union_type(key_type) else (key_type,)
+        key_types = {arg for arg in key_args if is_tensor_value_type(arg)}
+        args.append(key_types)
 
+    all_output_types |= process_tensor_op_types(fn, is_bitwise, *args)
 
-def floor_divide_type_constraint(
-    output: IOHyperEdge, numerator: IOHyperEdge, denominator: IOHyperEdge
-) -> ConstrainResultType:
-    status = False
-    updates = Updates()
-    # First be sure that output can only be of type float | int. So
-    # constrain its type to float | int.
-    updates |= set_edge_type(output, int | float)
-    # Try reverse type inference first.
-    if output.value_type is int:
-        # Only possible when numerator and denominator are integers or booleans.
-        updates |= set_edge_type(numerator, int | bool)
-        updates |= set_edge_type(denominator, int | bool)
-        status = True
-    elif output.value_type is float:
-        # At least one of inputs is float.
-        if (
-            isinstance(numerator.value_type, UnionType)
-            and float not in numerator.value_type.__args__
-        ):
-            updates |= set_edge_type(denominator, float)
-            status = True
-        elif (
-            isinstance(denominator.value_type, UnionType)
-            and float not in denominator.value_type.__args__
-        ):
-            updates |= set_edge_type(numerator, float)
-            status = True
+    for result, key in zip(zip(*all_output_types, strict=False), keys, strict=False):
+        res_type = reduce(lambda x, y: x | y, result)
+        res_type = squash_tensor_types(res_type)
+        updates |= key.set_type(res_type)
+
+    if is_edge:
+        status = not any(io.is_polymorphic for io in keys)
+    else:
+        status = len(all_output_types) == 1
+
     return status, updates
 
 
@@ -796,9 +801,9 @@ def indexer_initial_type_constraint(
 ) -> ConstrainResultType:
     status = False
     updates = Updates()
-    edge_types = {input.edge_type, output.edge_type}
-    if edge_types != {ToBeDetermined}:
-        if Tensor not in {get_origin(typ) for typ in edge_types}:
+    edges = {input, output}
+    if not all(edge.is_polymorphic for edge in edges):
+        if all(edge.is_scalar for edge in edges):
             # Meaning that indexing scalar type data. Set general
             # scalar type constraints on all arguments.
             # TODO: Types should be more specific.
@@ -820,7 +825,7 @@ def indexer_type_constraint(
 ) -> ConstrainResultType:
     status = False
     updates = Updates()
-    if not (input.is_tensor or input.edge_type is ToBeDetermined):
+    if input.is_scalar:
         # Input is a non-tensor type.
         input_type = input.value_type
         output_type = output.value_type
@@ -1576,33 +1581,23 @@ def bcast_helper(
 def _bcast(
     output: IOHyperEdge, left: IOHyperEdge, right: IOHyperEdge, index: int
 ) -> ConstrainResultType:
-    l_type = Tensor if left.is_tensor else left.edge_type
-    r_type = Tensor if right.is_tensor else right.edge_type
-    o_type = Tensor if output.is_tensor else output.edge_type
-    if l_type is Tensor and r_type is Tensor:
+    if left.is_tensor and right.is_tensor:
         assert output._temp_shape is not None, "Output shape of broadcast is not set!"
         assert left._temp_shape is not None, "Left shape of broadcast is not set!"
         assert right._temp_shape is not None, "Right shape of broadcast is not set!"
         return bcast_helper(
             output._temp_shape, left._temp_shape, right._temp_shape, index
         )
-    elif not ({Tensor, ToBeDetermined} & {l_type, r_type, o_type}):
+    elif left.is_scalar and right.is_scalar:
         # Means all edges are scalar types. Simply return True
         # without any updates.
         return True, Updates()
 
-    merge_edge: IOHyperEdge | None = None
-    if l_type is Tensor:
-        merge_edge = left
-    elif r_type is Tensor:
-        merge_edge = right
-
-    if merge_edge is not None:
+    else:
+        merge_edge = left if left.is_tensor else right
         assert isinstance(merge_edge._value, Tensor)
         assert output.shape is not None
         return True, merge_edge._value.match_shapes(output.shape)
-
-    return False, Updates()
 
 
 def bcast(
@@ -3843,7 +3838,7 @@ def indexer_constraints(
 ) -> ConstrainResultType:
     if input.is_tensor:
         return tensor_item_constraints(output, input, index)
-    elif input.edge_type is not ToBeDetermined:
+    elif input.is_scalar:
         return scalar_item_constraints(output, input, index)
     return False, Updates()
 
@@ -4132,23 +4127,8 @@ def relational_operator_type_constraint(
     if input1.is_tensor or input2.is_tensor:
         updates |= output.set_type(Tensor[bool])
         status = True
-    elif ToBeDetermined not in (input1.edge_type, input2.edge_type):
+    elif input1.is_scalar and input2.is_scalar:
         updates |= output.set_type(bool)
-        status = True
-    return status, updates
-
-
-def divide_type_constraint(
-    output: IOHyperEdge, numerator: IOHyperEdge, denominator: IOHyperEdge
-) -> ConstrainResultType:
-    updates = Updates()
-    status = False
-    # Forward inference.
-    if numerator.is_tensor or denominator.is_tensor:
-        updates |= output.set_type(Tensor[float])
-        status = True
-    else:
-        updates |= output.set_type(float)
         status = True
     return status, updates
 
@@ -4160,13 +4140,13 @@ def polynomial_kernel_constraint(
     coef_status = False
     degree_status = False
     # poly_coef update.
-    if poly_coef.edge_type is not ToBeDetermined:
+    if not poly_coef.is_polymorphic:
         coef_status = True
         if poly_coef.is_tensor:
             assert poly_coef.shape is not None
             updates |= poly_coef.shape.set_values([])
     # degree update.
-    if degree.edge_type is not ToBeDetermined:
+    if not degree.is_polymorphic:
         degree_status = True
         if degree.is_tensor:
             assert degree.shape is not None
@@ -4179,7 +4159,6 @@ constrain_fn_dict = {key: fn for key, fn in globals().items() if callable(fn)}
 constraint_type_map: dict[ConstraintFunctionType, list[UpdateType]] = {
     edge_type_constraint: [UpdateType.TYPE],
     general_tensor_type_constraint: [UpdateType.TYPE],
-    floor_divide_type_constraint: [UpdateType.TYPE],
     scalar_slice_type_constraint: [UpdateType.TYPE],
     indexer_initial_type_constraint: [UpdateType.TYPE],
     indexer_type_constraint: [UpdateType.TYPE],
@@ -4200,5 +4179,5 @@ constraint_type_map: dict[ConstraintFunctionType, list[UpdateType]] = {
     tuple_converter_constraint: [UpdateType.VALUE],
     buffer_constraint: [UpdateType.TYPE, UpdateType.VALUE],
     relational_operator_type_constraint: [UpdateType.TYPE],
-    divide_type_constraint: [UpdateType.TYPE],
+    general_type_constraint: [UpdateType.TYPE],
 }

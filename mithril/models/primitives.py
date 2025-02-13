@@ -2727,8 +2727,8 @@ class Power(OperatorModel):
 class Add(ArithmeticOperation):
     def __init__(
         self,
-        left: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
-        right: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
+        left: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -2738,8 +2738,8 @@ class Add(ArithmeticOperation):
 class Subtract(ArithmeticOperation):
     def __init__(
         self,
-        left: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
-        right: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
+        left: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -2749,8 +2749,8 @@ class Subtract(ArithmeticOperation):
 class Multiply(ArithmeticOperation):
     def __init__(
         self,
-        left: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
-        right: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
+        left: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -2786,9 +2786,15 @@ class Divide(OperatorModel):
 
     def __init__(
         self,
-        numerator: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
+        numerator: Tensor[int | float | bool]
+        | int
+        | float
+        | bool
+        | ToBeDetermined = TBD,
         denominator: Tensor[int | float | bool]
-        | ScalarValueType
+        | int
+        | float
+        | bool
         | ToBeDetermined = TBD,
         *,
         name: str | None = None,

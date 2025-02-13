@@ -16,22 +16,11 @@ from __future__ import annotations
 from types import EllipsisType, GenericAlias, UnionType
 from typing import (  # type: ignore
     Any,
-    Protocol,
     TypeGuard,
     Union,
     _GenericAlias,
     get_origin,
-    runtime_checkable,
 )
-
-
-@runtime_checkable
-class SupportsArgsOrigin(Protocol):
-    @property
-    def __args__(self) -> tuple[type, ...]: ...
-
-    @property
-    def __origin__(self) -> type: ...
 
 
 def is_int_tuple_tuple(

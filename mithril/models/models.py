@@ -1062,7 +1062,8 @@ class PolynomialKernel(Model):
             }
         )
         self._add_constraint(
-            fn=polynomial_kernel_constraint, keys=["poly_coef", "degree"]
+            fn=polynomial_kernel_constraint,
+            keys=["poly_coef", "degree"],
         )
         self._freeze()
 

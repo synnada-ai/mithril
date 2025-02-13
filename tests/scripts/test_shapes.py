@@ -1083,6 +1083,7 @@ def test_composite_1_set_shapes_1_2():
     composite += (m2 := Multiply())(left="input2", right=m1.output)
     composite += Add()(left=m2.output, right=m2.output, output=IOKey(name="output"))
     m1.set_shapes({"left": [1, 1, 1, 1, 1, 1, 1, 37, 43], "right": [134, 47, 1, 1, 1]})
+
     logical_ref = {
         "input1": [1, 1, 1, 1, 1, 1, 1, 37, 43],
         "input2": [134, 47, 1, 1, 1],

@@ -6959,3 +6959,10 @@ def test_extending_operator_model():
         model1 += Buffer()
 
     assert str(err.value) == "Primitive models cannot have submodels."
+
+
+def test_general_tensor_constraint_1():
+    model = Model()
+    model += Add()(left="left", right="right", output=IOKey("output"))
+    model.set_types(left=Tensor[int] | int, right=Tensor[float] | float)
+    ...
