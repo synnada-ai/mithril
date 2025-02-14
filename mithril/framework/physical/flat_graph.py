@@ -20,7 +20,7 @@ from dataclasses import dataclass
 
 import mithril as ml
 
-from ...core import DataType, Dtype, GenericDataType
+from ...core import DataType, GenericDataType
 from ...utils.func_utils import is_make_array_required, prepare_function_args
 from ...utils.utils import BiMap
 from ..common import (
@@ -752,9 +752,8 @@ class FlatGraph(GenericDataType[DataType]):
                     value.__hash__ is not None
                     and value in self.backend.dtype_map.inverse
                 ):
-                    dtype_str = self.backend.dtype_map.inverse[value]
-                    dtype_type = type(Dtype[dtype_str])
-                    updates |= data.set_type(dtype_type)
+                    dtype_logical = self.backend.convert_to_logical(value)
+                    updates |= data.set_type(type(dtype_logical))
                 else:
                     updates |= data.set_value(value)
             else:

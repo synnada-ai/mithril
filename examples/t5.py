@@ -135,8 +135,6 @@ def rms_norm(dim: int, name: str | None = None):
         "weight", shape=[dim], differantiable=True
     )  # TODO: weight must be initialized with ones.
     rrms = input / ((input**2).mean(axis=-1, keepdim=True) + 1e-5).sqrt()
-    # NOTE: Temporarily, we have to use Buffer to attach the functional connections
-    # to the model. This is a workaround for the current limitation of the API.
     block += Multiply()(left=rrms, right=weight, output=IOKey("output"))
 
     return block
@@ -384,7 +382,7 @@ def output_head(config: dict[str, Any], name: str | None = None):
     return block
 
 
-def T5_encode(config: dict[str, Any], name: str | None = None):  # noqa: N802
+def t5_encode(config: dict[str, Any], name: str | None = None):
     block = Model(name=name)
     input = IOKey("input")
     block |= Embedding(
@@ -397,7 +395,7 @@ def T5_encode(config: dict[str, Any], name: str | None = None):  # noqa: N802
     return block
 
 
-def T5_decode(config: dict[str, Any], name: str | None = None):  # noqa: N802
+def t5_decode(config: dict[str, Any], name: str | None = None):
     tie_word_embeddings = config.get("tie_word_embeddings", True)
 
     block = Model(name=name)
@@ -519,8 +517,8 @@ def run(prompt: str, backend: ml.Backend):
 
     tokenizer = Tokenizer(config, "t5-small", backend)
 
-    encoder_lm = T5_encode(config)
-    decoder_lm = T5_decode(config)
+    encoder_lm = t5_encode(config)
+    decoder_lm = t5_decode(config)
     encoder_pm = ml.compile(
         encoder_lm,
         backend,

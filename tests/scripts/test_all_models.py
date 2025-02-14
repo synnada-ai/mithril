@@ -2874,6 +2874,10 @@ def test_cast_float16():
     }
 
     statics = {"inp_int": inp_int, "inp_float": inp_float}
+    params = {"inp_float": inp_float}
+
+    output_gradients = [1.0, 2.0, 3.0]
+    reference_gradient = [1.0, 2.0, 3.0]
 
     reference_outputs = {"output": np.array([1, -2, 3], dtype=np.float16)}
 
@@ -2890,6 +2894,21 @@ def test_cast_float16():
             assert isinstance(res, backend.DataType)
             assert res.dtype == expected_dtypes[backend.backend_type]  # type: ignore
             np.testing.assert_allclose(res, reference_outputs["output"])  # type: ignore
+
+        for param in params.values():
+            _param = backend.array(param)
+            out_grad = backend.array(output_gradients, dtype=mithril.float16)
+            ref_grad = backend.array(reference_gradient)
+            pm = mithril.compile(
+                model,
+                backend,  # type: ignore
+                trainable_keys={"input"},
+                inference=False,
+            )
+            grads = pm.evaluate_gradients(
+                {"input": _param}, output_gradients={"output": out_grad}
+            )["input"]
+            assert grads.dtype == ref_grad.dtype
 
 
 # def test_cast_bfloat16():
@@ -2965,8 +2984,12 @@ def test_cast_float32():
     }
 
     statics = {"inp_int": inp_int, "inp_float": inp_float}
+    params = {"inp_float": inp_float}
 
-    reference_outputs = {"output": np.array([1, -2, 3], dtype=np.float32)}
+    output_gradients = [1.0, 2.0, 3.0]
+    reference_gradient = [1.0, 2.0, 3.0]
+
+    reference_outputs = {"output": np.array([1, -2, 3], dtype=np.float16)}
 
     for backend in backends:
         for static in statics.values():
@@ -2982,6 +3005,21 @@ def test_cast_float32():
             assert isinstance(res_out, backend.DataType)  # type: ignore
             assert res_out.dtype == expected_dtypes[backend.backend_type]
             np.testing.assert_allclose(res_out, reference_outputs["output"])
+
+        for param in params.values():
+            _param = backend.array(param)
+            out_grad = backend.array(output_gradients, dtype=mithril.float32)
+            ref_grad = backend.array(reference_gradient)
+            pm = mithril.compile(
+                model,
+                backend,  # type: ignore
+                trainable_keys={"input"},
+                inference=False,
+            )
+            grads = pm.evaluate_gradients(
+                {"input": _param}, output_gradients={"output": out_grad}
+            )["input"]
+            assert grads.dtype == ref_grad.dtype
 
 
 def test_cast_float64():
@@ -3009,8 +3047,12 @@ def test_cast_float64():
     }
 
     statics = {"inp_int": inp_int, "inp_float": inp_float}
+    params = {"inp_float": inp_float}
 
-    reference_outputs = {"output": np.array([1, -2, 3], dtype=np.float32)}
+    output_gradients = [1.0, 2.0, 3.0]
+    reference_gradient = [1.0, 2.0, 3.0]
+
+    reference_outputs = {"output": np.array([1, -2, 3], dtype=np.float16)}
 
     for backend in backends:
         for static in statics.values():
@@ -3026,6 +3068,21 @@ def test_cast_float64():
             assert isinstance(res_out, backend.DataType)  # type: ignore
             assert res_out.dtype == expected_dtypes[backend.backend_type]
             np.testing.assert_allclose(res_out, reference_outputs["output"])
+
+        for param in params.values():
+            _param = backend.array(param)
+            out_grad = backend.array(output_gradients, dtype=mithril.float64)
+            ref_grad = backend.array(reference_gradient)
+            pm = mithril.compile(
+                model,
+                backend,  # type: ignore
+                trainable_keys={"input"},
+                inference=False,
+            )
+            grads = pm.evaluate_gradients(
+                {"input": _param}, output_gradients={"output": out_grad}
+            )["input"]
+            assert grads.dtype == ref_grad.dtype
 
 
 def test_cast_bool():
