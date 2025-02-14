@@ -20,9 +20,9 @@ from dataclasses import dataclass
 
 import mithril as ml
 
-from ...core import DataType, GenericDataType
+from ...common import BiMap
+from ...types import DataType, GenericDataType
 from ...utils.func_utils import is_make_array_required, prepare_function_args
-from ...utils.utils import BiMap
 from ..common import (
     TBD,
     AllValueType,

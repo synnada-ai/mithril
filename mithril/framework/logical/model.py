@@ -19,8 +19,9 @@ from dataclasses import dataclass
 from types import EllipsisType, UnionType
 from typing import Any, Self
 
-from ...core import Dtype as CoreDtype
-from ...utils.utils import find_dominant_type
+from ...common import find_dominant_type
+from ...types import Dtype as CoreDtype
+from ...utils.utils import constant_fn
 from ..common import (
     NOT_GIVEN,
     TBD,
@@ -558,10 +559,12 @@ class Model(BaseModel):
                 # find_dominant_type returns the dominant type in a container.
                 # If a container has a value of type Connection or ExtendTemplate
                 # we add necessary models.
+
                 types = [ConnectionData, ExtendTemplate, Connection, IOKey]
+
                 if (
                     isinstance(connection, tuple | list)
-                    and find_dominant_type(connection, False) in types
+                    and find_dominant_type(connection, False, constant_fn) in types
                 ):
                     _model = ToTupleOp if isinstance(connection, tuple) else ToListOp
                     et = ExtendTemplate(connection, _model, {"n": len(connection)})

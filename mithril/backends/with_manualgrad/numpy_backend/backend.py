@@ -17,12 +17,14 @@ from typing import Any
 
 import numpy as np
 
-from ....core import Dtype
+from ....cores.python.numpy import ops, ops_grad
+from ....cores.python.numpy import utils as core_utils
+from ....types import Dtype
 from ...backend import Backend, PadWidthType
 from ...utils import StaticScalar, process_shape
-from ..common_primitives import CacheType
-from . import ops, ops_grad, utils
-from .utils import CODEGEN_CONFIG, dtype_map
+from . import utils
+
+CacheType = dict[str, Any]
 
 
 class NumpyBackend(Backend[np.ndarray[Any, Any]]):
@@ -41,8 +43,8 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
 
     registered_primitives = {}
     supported_dtypes = [Dtype.float16, Dtype.float32, Dtype.float64]
-    primitive_fn_path = "mithril.backends.with_manualgrad.numpy_backend.ops"
-    primitive_grad_fn_path = "mithril.backends.with_manualgrad.numpy_backend.ops_grad"
+    primitive_fn_path = "mithril.cores.python.numpy.ops"
+    primitive_grad_fn_path = "mithril.cores.python.numpy.ops_grad"
     registered_primitives_grad_fn: dict[str, Callable[..., np.ndarray[Any, Any]]] = {}
 
     def __init__(self, device: str = "cpu", dtype: Dtype = Dtype.float32) -> None:
@@ -57,13 +59,13 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
 
         super().__init__(dtype=dtype)
 
-        self.dtype_map = dtype_map
+        self.dtype_map = core_utils.dtype_map
         self.array_creation_funcs = ops.array_creation_funcs
         self.primitive_function_dict = ops.primitive_func_dict
         self.primitive_grad_function_dict = ops_grad.primitive_grad_func_dict
         self._seed_generator = np.random.default_rng(self.seed)
 
-        for key, value in utils.dtype_map.items():
+        for key, value in core_utils.dtype_map.items():
             setattr(self, key, value)
 
     @property
@@ -84,7 +86,7 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
 
     @property
     def codegen_config(self) -> dict[str, bool]:
-        return CODEGEN_CONFIG
+        return utils.CODEGEN_CONFIG
 
     def get_backend_array_type(self) -> type[np.ndarray[Any, Any]]:
         return np.ndarray
@@ -123,12 +125,12 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
         cache: CacheType | None,
         idx: int,
     ) -> np.ndarray[Any, Any]:
-        return utils.accumulate_grads(gradient, input, cache, idx)
+        return core_utils.accumulate_grads(gradient, input, cache, idx)
 
     def array(self, data: Any, *, dtype: Dtype | None = None) -> np.ndarray[Any, Any]:
         _dtype = utils.determine_dtype(data, dtype, self._dtype, self.precision)
 
-        return np.array(data, dtype=utils.dtype_map[_dtype])
+        return np.array(data, dtype=core_utils.dtype_map[_dtype])
 
     def zeros(
         self, *shape: int | tuple[int, ...] | list[int], dtype: Dtype | None = None
@@ -461,9 +463,9 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
         default_type: type[float] | type[int] | type[bool] = float,
     ) -> np.dtype[Any]:
         if isinstance(dtype, Dtype):
-            return utils.dtype_map[dtype.name]
+            return core_utils.dtype_map[dtype.name]
         elif dtype is None:
-            return utils.dtype_map[default_type.__name__ + str(self.precision)]
+            return core_utils.dtype_map[default_type.__name__ + str(self.precision)]
         else:
             raise ValueError(f"Invalid dtype {dtype}")
 

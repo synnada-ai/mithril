@@ -16,7 +16,13 @@ from typing import Any
 
 import numpy as np
 
-from .array import Array, PyArray, lib, to_c_float_array, to_c_int_array
+from ....cores.c.array import (
+    Array,
+    PyArray,
+    lib,
+    to_c_float_array,
+    to_c_int_array,
+)
 
 
 def to_numpy(array: PyArray) -> np.ndarray[Any, Any]:

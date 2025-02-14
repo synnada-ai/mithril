@@ -24,9 +24,9 @@ import jax.scipy.linalg as slin
 from jax import lax, vmap
 from jax import nn as functionals
 
-from ....utils.type_utils import is_tuple_int
-from ....utils.utils import find_dominant_type
-from ...utils import NestedFloatOrIntOrBoolList
+from .... import types
+from ....common import find_dominant_type
+from ...utils import NestedFloatOrIntOrBoolList, is_tuple_int
 from ..common_primitives import (
     add,
     buffer,

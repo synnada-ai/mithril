@@ -18,8 +18,8 @@ from collections.abc import Callable, Sequence
 from functools import partial
 from typing import Any, Generic, overload
 
-from .. import core
-from ..core import DataType
+from .. import types
+from ..types import DataType
 from .parallel import Parallel
 from .utils import DtypeBits, StaticScalar
 
@@ -37,12 +37,12 @@ class Backend(ABC, Generic[DataType]):
     device_type = None
     is_installed = True
     _device: Any
-    _dtype: core.Dtype
+    _dtype: types.Dtype
     supported_dtypes = [
-        core.Dtype.float16,
-        core.Dtype.bfloat16,
-        core.Dtype.float32,
-        core.Dtype.float64,
+        types.Dtype.float16,
+        types.Dtype.bfloat16,
+        types.Dtype.float32,
+        types.Dtype.float64,
     ]
     dtype_map: Any  # TODO: Type should be BiMAP
     primitive_function_dict: dict[str, Callable[..., DataType | Any]]
@@ -50,7 +50,7 @@ class Backend(ABC, Generic[DataType]):
     array_creation_funcs: list[str]
     primitive_fn_path: str
 
-    def __init__(self, dtype: core.Dtype = core.float32, device: str = "cpu") -> None:
+    def __init__(self, dtype: types.Dtype = types.float32, device: str = "cpu") -> None:
         # Check if given dtype is a valid one.
         if dtype not in self.supported_dtypes:
             raise ValueError(
@@ -63,7 +63,7 @@ class Backend(ABC, Generic[DataType]):
         return DtypeBits[self._dtype.name].value
 
     @property
-    def default_dtype(self) -> core.Dtype:
+    def default_dtype(self) -> types.Dtype:
         return self._dtype
 
     #!!
@@ -122,7 +122,7 @@ class Backend(ABC, Generic[DataType]):
     # TODO: Fix types in cast function when python
     # adds Higher-Kinded TypeVar support.
     # https://github.com/python/typing/issues/548#issuecomment-1193345123
-    def cast(self, value: DataType, dtype: core.Dtype | None = None) -> DataType:
+    def cast(self, value: DataType, dtype: types.Dtype | None = None) -> DataType:
         # Simply casts given array to the backend's precision.
 
         return self.array(value, dtype=dtype)
@@ -132,12 +132,12 @@ class Backend(ABC, Generic[DataType]):
 
     @overload
     def arange(
-        self, stop: int | float, *, dtype: core.Dtype | None = None
+        self, stop: int | float, *, dtype: types.Dtype | None = None
     ) -> DataType: ...
 
     @overload
     def arange(
-        self, start: int | float, stop: int | float, *, dtype: core.Dtype | None = None
+        self, start: int | float, stop: int | float, *, dtype: types.Dtype | None = None
     ) -> DataType: ...
 
     @overload
@@ -147,7 +147,7 @@ class Backend(ABC, Generic[DataType]):
         stop: int | float,
         step: int | float,
         *,
-        dtype: core.Dtype | None = None,
+        dtype: types.Dtype | None = None,
     ) -> DataType: ...
 
     def arange(self, *args: int | float, **kwargs: Any) -> DataType:
@@ -311,7 +311,7 @@ class Backend(ABC, Generic[DataType]):
         """
         raise NotImplementedError("isnan is not implemented!")
 
-    def array(self, input: Any, *, dtype: core.Dtype | None = None) -> DataType:
+    def array(self, input: Any, *, dtype: types.Dtype | None = None) -> DataType:
         """Returns a backend array on speficied device by copying `data`.
 
         Parameters
@@ -334,7 +334,9 @@ class Backend(ABC, Generic[DataType]):
         raise NotImplementedError("array is not implemented!")
 
     def zeros(
-        self, *shape: int | tuple[int, ...] | list[int], dtype: core.Dtype | None = None
+        self,
+        *shape: int | tuple[int, ...] | list[int],
+        dtype: types.Dtype | None = None,
     ) -> DataType:
         """Returns a new backend array on speficied device filled with zeros.
 
@@ -353,7 +355,9 @@ class Backend(ABC, Generic[DataType]):
         raise NotImplementedError("zeros is not implemented!")
 
     def ones(
-        self, *shape: int | tuple[int, ...] | list[int], dtype: core.Dtype | None = None
+        self,
+        *shape: int | tuple[int, ...] | list[int],
+        dtype: types.Dtype | None = None,
     ) -> DataType:
         """Returns a new backend array on speficied device filled with ones.
 
@@ -372,7 +376,7 @@ class Backend(ABC, Generic[DataType]):
         raise NotImplementedError("ones is not implemented!")
 
     def ones_like(
-        self, input: DataType, *, dtype: core.Dtype | None = None
+        self, input: DataType, *, dtype: types.Dtype | None = None
     ) -> DataType:
         """Returns a new backend array filled with ones, with the same size,
         same dtype and same device with the given array.
@@ -393,7 +397,7 @@ class Backend(ABC, Generic[DataType]):
         raise NotImplementedError("ones_like is not implemented!")
 
     def zeros_like(
-        self, input: DataType, *, dtype: core.Dtype | None = None
+        self, input: DataType, *, dtype: types.Dtype | None = None
     ) -> DataType:
         """Returns a new backend array filled with zeros, with the same size,
         same dtype and same device with the given array.
@@ -416,7 +420,7 @@ class Backend(ABC, Generic[DataType]):
     def randn(
         self,
         *shape: int | tuple[int, ...] | list[int],
-        dtype: core.Dtype | None = None,
+        dtype: types.Dtype | None = None,
         key: int | None = None,
     ) -> DataType:
         """Returns a new backend array filled with random samples between [0, 1).
@@ -438,7 +442,7 @@ class Backend(ABC, Generic[DataType]):
     def rand(
         self,
         *shape: int | tuple[int, ...] | list[int],
-        dtype: core.Dtype | None = None,
+        dtype: types.Dtype | None = None,
         key: int | None = None,
     ) -> DataType:
         """Returns a new backend array filled with random samples between [0, 1).
@@ -462,7 +466,7 @@ class Backend(ABC, Generic[DataType]):
         low: int | float | bool | DataType,
         high: int | float | bool | DataType,
         *shape: int | tuple[int, ...] | list[int],
-        dtype: core.Dtype | None = None,
+        dtype: types.Dtype | None = None,
         key: int | None = None,
     ) -> DataType:
         """Returns a new backend array filled with random samples between [0, 1).
@@ -486,7 +490,7 @@ class Backend(ABC, Generic[DataType]):
         low: int,
         high: int,
         *shape: int | tuple[int, ...] | list[int],
-        dtype: core.Dtype | None = None,
+        dtype: types.Dtype | None = None,
         key: int | None = None,
     ) -> DataType:
         """
@@ -511,7 +515,7 @@ class Backend(ABC, Generic[DataType]):
         start: int | float | bool | DataType,
         stop: int | float | bool | DataType,
         steps: int,
-        dtype: core.Dtype | None = None,
+        dtype: types.Dtype | None = None,
     ) -> DataType:
         """
         Generate an steps sized array whose values are evenly spaced
@@ -1137,7 +1141,7 @@ class Backend(ABC, Generic[DataType]):
 
 
 class ParallelBackend(Backend[DataType]):
-    def __init__(self, dtype: core.Dtype, device_mesh: tuple[int, ...] | None) -> None:
+    def __init__(self, dtype: types.Dtype, device_mesh: tuple[int, ...] | None) -> None:
         assert (
             isinstance(device_mesh, tuple) or device_mesh is None
         ), "device_mesh must be a tuple or None."
@@ -1156,7 +1160,7 @@ class ParallelBackend(Backend[DataType]):
     def zeros(
         self,
         *shape: int | tuple[int, ...] | list[int],
-        dtype: core.Dtype | None = None,
+        dtype: types.Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
     ) -> DataType:
         """Returns a new backend array on speficied device filled with zeros.
@@ -1182,7 +1186,7 @@ class ParallelBackend(Backend[DataType]):
         self,
         input: DataType,
         *,
-        dtype: core.Dtype | None = None,
+        dtype: types.Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
     ) -> DataType:
         """Returns a new backend array filled with zeros, with the same size,
@@ -1209,7 +1213,7 @@ class ParallelBackend(Backend[DataType]):
     def ones(
         self,
         *shape: int | tuple[int, ...] | list[int],
-        dtype: core.Dtype | None = None,
+        dtype: types.Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
     ) -> DataType:
         """Returns a new backend array on speficied device filled with ones.
@@ -1237,7 +1241,7 @@ class ParallelBackend(Backend[DataType]):
         self,
         input: DataType,
         *,
-        dtype: core.Dtype | None = None,
+        dtype: types.Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
     ) -> DataType:
         """Returns a new backend array filled with ones, with the same size,
@@ -1266,7 +1270,7 @@ class ParallelBackend(Backend[DataType]):
         self,
         input: Any,
         *,
-        dtype: core.Dtype | None = None,
+        dtype: types.Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
     ) -> DataType:
         """Returns a backend array on speficied device by copying `data`.
@@ -1295,7 +1299,7 @@ class ParallelBackend(Backend[DataType]):
         self,
         stop: int | float,
         *,
-        dtype: core.Dtype | None = None,
+        dtype: types.Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
     ) -> DataType: ...
 
@@ -1305,7 +1309,7 @@ class ParallelBackend(Backend[DataType]):
         start: int | float,
         stop: int | float,
         *,
-        dtype: core.Dtype | None = None,
+        dtype: types.Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
     ) -> DataType: ...
 
@@ -1316,7 +1320,7 @@ class ParallelBackend(Backend[DataType]):
         stop: int | float,
         step: int | float,
         *,
-        dtype: core.Dtype | None = None,
+        dtype: types.Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
     ) -> DataType: ...
 
@@ -1353,7 +1357,7 @@ class ParallelBackend(Backend[DataType]):
     def randn(
         self,
         *shape: int | tuple[int, ...] | list[int],
-        dtype: core.Dtype | None = None,
+        dtype: types.Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
         key: int | None = None,
     ) -> DataType:
@@ -1376,7 +1380,7 @@ class ParallelBackend(Backend[DataType]):
     def rand(
         self,
         *shape: int | tuple[int, ...] | list[int],
-        dtype: core.Dtype | None = None,
+        dtype: types.Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
         key: int | None = None,
     ) -> DataType:
@@ -1401,7 +1405,7 @@ class ParallelBackend(Backend[DataType]):
         low: int | float | bool | DataType,
         high: int | float | bool | DataType,
         *shape: int | tuple[int, ...] | list[int],
-        dtype: core.Dtype | None = None,
+        dtype: types.Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
         key: int | None = None,
     ) -> DataType:
@@ -1426,7 +1430,7 @@ class ParallelBackend(Backend[DataType]):
         low: int,
         high: int,
         *shape: int | tuple[int, ...] | list[int],
-        dtype: core.Dtype | None = None,
+        dtype: types.Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
         key: int | None = None,
     ) -> DataType:
@@ -1451,7 +1455,7 @@ class ParallelBackend(Backend[DataType]):
         start: int | float | bool | DataType,
         stop: int | float | bool | DataType,
         steps: int,
-        dtype: core.Dtype | None = None,
+        dtype: types.Dtype | None = None,
         device_mesh: tuple[int, ...] | None = None,
     ) -> DataType:
         """

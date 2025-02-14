@@ -20,7 +20,7 @@ import numpy as np
 import scipy.linalg as slin
 from scipy.special import erf
 
-from ....utils.type_utils import is_tuple_int
+from ...utils import is_tuple_int
 from .ops import hinge_loss, sigmoid, softmax
 from .utils import (
     CacheType,

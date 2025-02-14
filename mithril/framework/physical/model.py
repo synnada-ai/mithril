@@ -22,7 +22,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 
 from ...backends.backend import Backend, ParallelBackend
-from ...core import DataType, GenericDataType
+from ...types import DataType, GenericDataType
 from ...utils.type_utils import is_list_int
 from ..common import (
     NOT_GIVEN,

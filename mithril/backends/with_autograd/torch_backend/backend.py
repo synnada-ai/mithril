@@ -24,12 +24,13 @@ from torch._functorch.eager_transforms import jacfwd as torch_jacfwd
 from torch._functorch.eager_transforms import jacrev as torch_jacrev
 from torch._functorch.eager_transforms import vjp as torch_vjp
 
-from ....core import Dtype
+from ....cores.python.torch import ops
+from ....cores.python.torch import utils as core_utils
+from ....types import Dtype
 from ...backend import PadWidthType, ParallelBackend
 from ...utils import DtypeSubTypes, StaticScalar, process_shape
-from . import ops, utils
+from . import utils
 from .parallel import TorchParallel
-from .utils import CODEGEN_CONFIG, dtype_map
 
 __all__ = ["TorchBackend"]
 
@@ -49,7 +50,7 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
 
     backend_type = "torch"
     registered_primitives = {}
-    primitive_fn_path = "mithril.backends.with_autograd.torch_backend.ops"
+    primitive_fn_path = "mithril.cores.python.torch.ops"
 
     def __init__(
         self,
@@ -69,11 +70,11 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
 
         self.array_creation_funcs = ops.array_creation_funcs
         self.primitive_function_dict = ops.primitive_func_dict
-        self.dtype_map = dtype_map
+        self.dtype_map = core_utils.dtype_map
 
         self._generator = torch.Generator(device=self.device).manual_seed(0)
 
-        for key, value in utils.dtype_map.items():
+        for key, value in core_utils.dtype_map.items():
             setattr(self, key, value)
 
     @property
@@ -94,7 +95,7 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
 
     @property
     def codegen_config(self) -> dict[str, bool]:
-        return CODEGEN_CONFIG
+        return utils.CODEGEN_CONFIG
 
     @property
     def device(self) -> torch.device:
@@ -217,7 +218,9 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
     ) -> torch.Tensor:
         _dtype = utils.determine_dtype(input, dtype, self._dtype, self.precision)
 
-        array = torch.tensor(input, dtype=utils.dtype_map[_dtype], device=self._device)
+        array = torch.tensor(
+            input, dtype=core_utils.dtype_map[_dtype], device=self._device
+        )
         if self._parallel_manager is not None:
             array = self._parallel_manager.parallelize(
                 array, self.base_device_mesh, device_mesh
@@ -722,11 +725,11 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
         default_type: str | None = None,
     ) -> torch.dtype:
         if isinstance(dtype, Dtype):
-            return utils.dtype_map[dtype.name]
+            return core_utils.dtype_map[dtype.name]
         elif dtype is None:
             if default_type is None:
                 default_type = self._get_default_subtype()
-            return utils.dtype_map[default_type + str(self.precision)]
+            return core_utils.dtype_map[default_type + str(self.precision)]
         else:
             raise ValueError(f"Invalid dtype {dtype}")
 
