@@ -875,8 +875,8 @@ def test_existing_connection_parent_internal_updated_to_output():
     assert model.conns.couts == {model.output2.data}  # type: ignore
 
     # Make internal output1 exposed
-    in_key = IOKey(connections={model.output1}, expose=True)  # type: ignore
-    model |= Relu()(input=in_key, output="output3")
+    model |= Relu()(input=model.output1, output="output3") # type: ignore
+    model.set_outputs(model.output1) # type: ignore
     assert model.conns.couts == {model.output2.data, model.output3.data}  # type: ignore
 
 
@@ -886,8 +886,8 @@ def test_existing_connection_parent_internal_updated_to_output2():
     assert model.conns.couts == {model.output1.data}  # type: ignore
 
     # Make internal output1 exposed
-    in_key = IOKey(connections={model.output1}, expose=True)  # type: ignore
-    model |= Relu()(input=in_key, output="output3")
+    model |= Relu()(input=model.output1, output="output3") # type: ignore
+    model.set_outputs(model.output1) # type: ignore
     assert model.conns.couts == {model.output3.data}  # type: ignore
 
 

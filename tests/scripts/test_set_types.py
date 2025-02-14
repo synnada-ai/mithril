@@ -203,12 +203,11 @@ def test_types_iokey_3():
         input=IOKey(name="input2", type=Tensor[int | float]),
         output=IOKey(name="output2", type=Tensor[float | int]),
     )
-
-    conn = IOKey("sub", connections={buffer_model1.input, buffer_model2.input})
+    model.merge_connections(buffer_model1.input, buffer_model2.input, name="sub")
 
     buffer_model3 = Buffer()
 
-    model += buffer_model3(input="input", output=conn)
+    model += buffer_model3(input="input", output="sub")
 
     buffer1_input = buffer_model1.input.metadata
     buffer1_output = buffer_model1.output.metadata

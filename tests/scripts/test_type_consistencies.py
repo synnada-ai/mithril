@@ -393,15 +393,11 @@ def test_type_15():
 def test_type_16():
     model = Model()
     sig_model_1 = Sigmoid()
-    sig_model_2 = Sigmoid()
     sig_model_1.input.data.metadata.set_type(Tensor[float])
     model += sig_model_1(input="input", output=IOKey(name="output"))
 
     with pytest.raises(TypeError) as err_info:
-        model += sig_model_2(
-            input=IOKey(connections={sig_model_1.input}, value=Tensor([False, True])),
-            output=IOKey(name="output2"),
-        )
+        model.set_values({sig_model_1.input: Tensor([False, True])})
     assert str(err_info.value) == (
         "Acceptable types are <class 'float'>, but <class 'bool'> type " "is provided!"
     )
@@ -410,20 +406,10 @@ def test_type_16():
 def test_type_17():
     model = Model()
     sig_model_1 = Sigmoid()
-    sig_model_2 = Sigmoid()
     sig_model_1.input.data.metadata.set_type(Tensor[float])
     model.extend(sig_model_1, input="input", output="output")
     with pytest.raises(TypeError) as err_info:
-        model.extend(
-            sig_model_2,
-            input=IOKey(
-                connections={sig_model_1.input},
-                value=Tensor([False, True]),
-                name="a",
-                expose=True,
-            ),
-            output=IOKey(name="output2"),
-        )
+        model.set_values({sig_model_1.input: Tensor([False, True])})
     assert str(err_info.value) == (
         "Acceptable types are <class 'float'>, " "but <class 'bool'> type is provided!"
     )

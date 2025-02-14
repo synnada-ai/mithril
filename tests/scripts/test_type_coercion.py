@@ -881,15 +881,11 @@ def test_connect_type_conv_handling_1():
     model = Model()
     model.extend((a1 := Buffer()), input="input1")
     model.extend((a2 := Buffer()), input="input2")
-    con_object = IOKey(
-        name="abcd",
-        connections={a1.input, a2.input},
-        value=Tensor([[2.0]]),
-        expose=True,
-    )
+    model.merge_connections(a1.input, a2.input, name="abcd")
+    model.set_values(abcd = Tensor([[2.0]]))
     model._extend(
         mat_mul := MatrixMultiply(),
-        {"left": con_object, "output": IOKey(name="output")},
+        {"left": "abcd", "output": IOKey(name="output")},
     )
     mat_mul.set_shapes({"output": output_shape})
     model_1 = model
@@ -898,15 +894,11 @@ def test_connect_type_conv_handling_1():
     model = Model()
     model.extend((a1 := Buffer()), input="input1")
     model.extend((a2 := Buffer()), input="input2")
-    con_object = IOKey(
-        connections={"input1", "input2"},
-        value=Tensor([[2.0]]),
-        name="abcd",
-        expose=True,
-    )
+    model.merge_connections("input1", "input2", name="abcd")
+    model.set_values(abcd = Tensor([[2.0]]))
     model._extend(
         (mat_mul := MatrixMultiply()),
-        {"left": con_object, "output": IOKey(name="output")},
+        {"left": "abcd", "output": IOKey(name="output")},
     )
     mat_mul.set_shapes({"output": output_shape})
     model_2 = model
@@ -915,15 +907,11 @@ def test_connect_type_conv_handling_1():
     model = Model()
     model.extend((a1 := Buffer()), input="input1")
     model.extend((a2 := Buffer()), input="input2")
-    con_object = IOKey(
-        connections={"input1", a2.input},
-        value=Tensor([[2.0]]),
-        name="abcd",
-        expose=True,
-    )
+    model.merge_connections("input1", a2.input, name="abcd")
+    model.set_values(abcd = Tensor([[2.0]]))
     model._extend(
         (mat_mul := MatrixMultiply()),
-        {"left": con_object, "output": IOKey(name="output")},
+        {"left": "abcd", "output": IOKey(name="output")},
     )
     mat_mul.set_shapes({"output": output_shape})
     model_3 = model
@@ -952,8 +940,8 @@ def test_connect_1():
         input1="input1", input2="input2", input3="input3", output=IOKey(name="output")
     )
     conns = {concat_model.input1, concat_model.input2, concat_model.input3}  # type: ignore
-    conn = IOKey(connections=conns, name="abcd", expose=True)
-    model += Sigmoid()(input=conn, output=IOKey(name="output1"))
+    model.merge_connections(*conns, name="abcd")
+    model += Sigmoid()(input="abcd", output=IOKey(name="output1"))
 
     assert (
         concat_model.input1.metadata  # type: ignore
@@ -974,9 +962,8 @@ def test_connect_2():
         input1="input1", input2="input2", input3="input3", output=IOKey(name="output")
     )
     conns = {concat_model.input1, concat_model.input2, concat_model.input3}  # type: ignore
-    conn = IOKey(connections=conns, name="abcd", expose=True)
-
-    model += ToTensor()(conn)
+    model.merge_connections(*conns, name="abcd")
+    model += ToTensor()("abcd")
 
     assert (
         concat_model.input1.metadata  # type: ignore
@@ -996,9 +983,10 @@ def test_connect_3():
         input1="input1", input2="input2", input3="input3", output=IOKey(name="output")
     )
     conns = {concat_model.input1, concat_model.input2, concat_model.input3}  # type: ignore
-    conn = IOKey(connections=conns, name="abcd", expose=True, value=3.0)
+    model.merge_connections(*conns, name="abcd")
+    model.set_values(abcd = 3.0)
 
-    model += (to_tensor := ToTensor())(conn)
+    model += (to_tensor := ToTensor())("abcd")
 
     assert (
         concat_model.input1.metadata  # type: ignore
@@ -1034,9 +1022,9 @@ def test_connect_4():
         concat_model.input3,  # type: ignore
         union_model.input1.tensor(),  # type: ignore
     }
-    conn = IOKey(connections=conns, name="abcd", expose=True, value=Tensor((3, 2)))
+    model.merge_connections(*conns, name="abcd")
 
-    model += Buffer()(input=conn, output=IOKey(name="output1"))
+    model += Buffer()(input="abcd", output=IOKey(name="output1"))
     pm = compile(model=model, backend=backend, jit=False, inference=True)
 
     output = pm.evaluate()
@@ -1059,9 +1047,8 @@ def test_connect_6():
     concat_model = Concat(n=3)
     model += concat_model(input1=Tensor([[3.0]]), output=IOKey(name="output"))
     conn_list = {concat_model.input1, concat_model.input2, concat_model.input3}  # type: ignore
-    conn = IOKey(connections=conn_list, name="abcd", expose=True)
-
-    model += Buffer()(input=conn, output=IOKey(name="output1"))
+    model.merge_connections(*conn_list, name="abcd")
+    model += Buffer()(input="abcd", output=IOKey(name="output1"))
 
     pm = compile(model=model, backend=backend, jit=False, inference=True)
     output = pm.evaluate()
@@ -1089,13 +1076,8 @@ def test_connect_7():
     add_model_2.set_types(left=Tensor, right=Tensor)
     model += add_model_1(left="left", right="right", output=IOKey(name="output2"))
     model += add_model_2(left="left1", right="right1")
-
-    conn = IOKey(
-        connections={add_model_2.output, model.right},  # type: ignore
-        name="abcd",
-        expose=False,
-    )
-    model += Buffer()(input=conn, output=IOKey(name="output"))
+    model.merge_connections(add_model_2.output, model.right, name="abcd") # type: ignore
+    model += Buffer()(input="abcd", output=IOKey(name="output"))
 
     assert (
         add_model_2.output.metadata  # type: ignore
@@ -1144,8 +1126,9 @@ def test_connect_7_expose_output():
     model += add_model_1(left="left", right="right", output=IOKey(name="output2"))
     model += add_model_2(left="left1", right="right1")
     conns = {add_model_2.output, model.right}  # type: ignore
-    conn = IOKey(name="abcd", expose=True, connections=conns)  # type: ignore
-    model += (buf := Buffer())(input=conn, output=IOKey(name="output"))
+    model.merge_connections(*conns, name="abcd")
+    model.set_outputs("abcd")
+    model += (buf := Buffer())(input="abcd", output=IOKey(name="output"))
 
     assert (
         add_model_2.output.metadata
@@ -1201,13 +1184,9 @@ def test_connect_8():
     model += add_model_2(
         left=add_model_1.output, right="right1", output=IOKey(name="output1")
     )
-    conn = IOKey(
-        connections={add_model_1.output, model.right1},  # type: ignore
-        name="abcd",
-        expose=False,
-    )
+    model.merge_connections(add_model_1.output, model.right1, name="abcd") # type: ignore
 
-    model += Buffer()(input=conn, output=IOKey(name="output"))
+    model += Buffer()(input="abcd", output=IOKey(name="output"))
 
     pm = compile(model=model, backend=backend, jit=False)
 
@@ -1237,14 +1216,12 @@ def test_connect_9():
     It is a Multi-write error case
     """
     model = Model()
-    concat_model = Concat(n=3)
-    model += concat_model(
+    concat = Concat(n=3)
+    model += concat(
         input1=Tensor([[3.0]]), input2=Tensor([[2.0]]), input3="input3"
     )
-    con_list = {concat_model.input1, concat_model.input2, concat_model.input3}  # type: ignore
-    conn = IOKey(connections=con_list)
     with pytest.raises(ValueError) as err_info:
-        model += Buffer()(input=conn, output=IOKey(name="output"))
+        model.merge_connections(concat.input1, concat.input2, concat.input3) # type: ignore
 
     error_msg = "Value is set before as [[3.0]]. A value can not be reset."
     assert str(err_info.value) == error_msg
@@ -1256,13 +1233,11 @@ def test_connect_10():
     raise Multi-write error
     """
     model = Model()
-    concat_model = Concat(n=3)
-    model += concat_model(input1=Tensor([[3.0]]), input3="input3")
-    conn_list = {concat_model.input1, concat_model.input2, concat_model.input3}  # type: ignore
-    conn = IOKey(connections=conn_list, value=Tensor(2.0), expose=True)
-
+    concat = Concat(n=3)
+    model += concat(input1=Tensor([[3.0]]), input3="input3")
+    model.merge_connections(concat.input1, concat.input2, concat.input3) # type: ignore
     with pytest.raises(ValueError) as err_info:
-        model += Buffer()(input=conn, output=IOKey(name="output"))
+        model.set_values({concat.input1: Tensor([[2.0]])}) # type: ignore
 
     assert str(err_info.value) == (
         "Value is set before as [[3.0]]. A value can not be reset."
@@ -1290,9 +1265,10 @@ def test_connect_11():
         union_model.input1,  # type: ignore
         union_model.input2,  # type: ignore
     }
-    conn = IOKey(connections=conns, value=(2.0,), expose=True)
+    model.merge_connections(*conns)
+    model.set_values({union_model.input1: (2.0,)})  # type: ignore
 
-    model += Buffer()(input=conn, output=IOKey(name="output3"))
+    model += Buffer()(input=union_model.input1, output=IOKey(name="output3")) # type: ignore
     pm = compile(model=model, backend=backend, jit=False)
     output = pm()
 
@@ -1320,16 +1296,15 @@ def test_connect_12():
     union_model = PrimitiveUnion(n=2)
     model += concat_model(input1="", output=IOKey(name="output1"))
     model += union_model(input1="", output=IOKey(name="output2"))
-    conn = IOKey(
-        connections={
-            concat_model.input1,  # type: ignore
-            concat_model.input2,  # type: ignore
-            union_model.input1,  # type: ignore
-            union_model.input2,  # type: ignore
-        },
-        value=(2.0,),
-    )
-    model += Buffer()(input=conn, output=IOKey(name="output3"))
+
+    model.merge_connections(
+        concat_model.input1,  # type: ignore
+        concat_model.input2,  # type: ignore
+        union_model.input1,  # type: ignore
+        union_model.input2,  # type: ignore
+     )
+    model.set_values({union_model.input1: (2.0,)}) # type: ignore
+    model += Buffer()(input=union_model.input1, output=IOKey(name="output3")) # type: ignore
 
     pm = compile(model=model, backend=backend, jit=False)
     output = pm()
@@ -1379,8 +1354,9 @@ def test_tensor_to_scalar_connect_1():
     axis2 = mean_model_2.axis
     axis3 = mean_model_3.axis
 
-    con = IOKey(connections={axis1, axis2, axis3}, name="axis4", value=(2, 3))
-    model += Mean(axis=TBD)(axis=con)
+    model.merge_connections(axis1, axis2, axis3, name="axis4")
+    model.set_values(axis4=(2, 3))
+    model += Mean(axis=TBD)(axis="axis4")
 
     assert axis1.data.metadata == axis2.data.metadata == axis3.data.metadata
     assert axis1.data.metadata.value == (2, 3)
@@ -1400,9 +1376,9 @@ def test_tensor_to_scalar_connect_3_error_existing_key():
     model += mean_model_2(axis="axis2")
     model += mean_model_3(axis="axis3")
 
-    con = IOKey(connections={axis1, axis2, axis3}, name="axis2", value=(2, 3))
-
-    model += Mean(axis=TBD)(axis=con)
+    model.merge_connections(axis1, axis2, axis3, name="axis2")
+    model.set_values(axis2=(2, 3))
+    model += Mean(axis=TBD)(axis="axis2")
 
     assert axis1.data.metadata == axis2.data.metadata == axis3.data.metadata
     assert axis3.data.metadata.key_origin == "axis2"

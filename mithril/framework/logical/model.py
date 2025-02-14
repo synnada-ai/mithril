@@ -604,11 +604,19 @@ class Model(BaseModel):
         assert isinstance(_conn, ConnectionData)
         return _conn
 
-    def update_key_name(self, connection: ConnectionData, key: str) -> None:
-        super().update_key_name(connection, key)
+    def rename_key(self, connection: ConnectionData | Connection, key: str) -> None:
+        if isinstance(connection, Connection):
+            connection = connection.data
+        super().rename_key(connection, key)
         con_data = self.conns.get_extracted_connection(connection)
         conn = self.connection_map[con_data]
         setattr(self, key, conn)
+
+    def merge_connections(
+        self, *connections: str | ConnectionData | Connection, name: str | None = None
+    ) -> None:
+        conns = (c.data if isinstance(c, Connection) else c for c in connections)
+        return super().merge_connections(*conns, name=name)
 
     def _unroll_template(self, template: ExtendTemplate) -> ConnectionData:
         if template.output_connection is None:

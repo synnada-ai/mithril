@@ -611,9 +611,8 @@ def test_shapes_4():
     model += (l2 := Linear(dimension=10))(
         input="", weight="weight1", output=IOKey(name="output2")
     )
-    model += Linear(dimension=71)(
-        input="input", weight="weight2", output=IOKey(connections={l1.input, l2.input})
-    )
+    model.merge_connections(l1.input, l2.input)
+    model += Linear(dimension=71)(input="input", weight="weight2", output=l1.input)
     shapes = {"input": [4, 256]}
     logical_ref: Mapping[str, list | None] = {
         "$_Linear_0_output": [["(V1, ...)", "u1", 71], ["u2", "(V2, ...)", 71]],
@@ -2315,10 +2314,11 @@ def test_composite_3_extend_shapes_1():
     m3 = Model()
     m3 += m2(right=IOKey(name="right"))
     m3 += Add()(
-        left=IOKey(name="left", connections={m1.left}, expose=True),  # type: ignore
+        left="left",
         right=m2.output,  # type: ignore
         output=IOKey(name="output"),
     )  # type: ignore
+    m3.merge_connections(m1.left, m3.left) # type: ignore
     m4 = Model()
     m4 += m3(left=IOKey(name="left"), right=IOKey(name="right"))
     m4 += (add4 := Add())(left=m1.left, right=m3.output, output=IOKey(name="output"))  # type: ignore
@@ -7491,8 +7491,8 @@ def test_node_count_5():
     shapes: dict[str, list] = {"input": ["a", ("Var1", ...)]}
     buff_model.set_shapes(shapes)
     model += test_model
-    con = IOKey(connections={test_model.input2, buff_model.input})  # type: ignore
-    model += Buffer()(input=con, output=IOKey(name="output"))
+    model.merge_connections(test_model.input2, buff_model.input)  # type: ignore
+    model += Buffer()(input=buff_model.input, output=IOKey(name="output"))
     all_nodes = get_all_nodes(model)
 
     data = buff_model.input.metadata
@@ -9702,7 +9702,8 @@ def test_connect_shapes():
     model = Model()
     model += relu1(input="")
     model += relu2(input="")
-    model += relu3(input="input", output=IOKey(connections={relu1.input, relu2.input}))
+    model.merge_connections(relu1.input, relu2.input)
+    model += relu3(input="input", output=relu1.input)
 
     assert model.shapes["input"] == [5, 7]
 

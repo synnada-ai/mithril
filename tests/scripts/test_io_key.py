@@ -274,9 +274,8 @@ def test_7():
     model = Model()
     model += (relu1 := Relu())(input="in1", output="relu1_output")
     model += (relu2 := Relu())(input="in2", output="relu2_output")
-    model += (relu3 := Relu())(
-        input="", output=IOKey(name="my_input", connections={relu1.input, relu2.input})
-    )
+    model.merge_connections(relu1.input, relu2.input, name="my_input")
+    model += (relu3 := Relu())(input="", output=relu1.input)
     assert (
         model.dag[relu1]["input"].metadata
         == model.dag[relu2]["input"].metadata
@@ -440,28 +439,27 @@ def test_iokey_shapes_3():
     buff1 = Buffer()
     buff2 = Buffer()
     buff3 = Buffer()
+    _model = Model()
+
+    _model += buff1(input="input1")
+    _model += buff2(input="input2")
+    _model += buff3(input="input3")
+    _model.set_cin("input3")
+    _model.set_cout(buff3.output)
+
     model = Model()
-
-    model += buff1(input="input1")
-    model += buff2(input="input2")
-    model += buff3(input="input3")
-    model.set_cin("input3")
-    model.set_cout(buff3.output)
-
-    main_model = Model()
-    main_model += model(
+    model += _model(
         input1=IOKey(name="input1", shape=["a", "b"]),
         input2=IOKey(name="input2", shape=["b", "a"]),
         input3=IOKey(name="input3", shape=[3, "a"]),
     )
 
-    conns = {main_model.input1, main_model.input2, main_model.input3}  # type: ignore
-    key = IOKey(name="input", connections=conns)
-    main_model += Buffer()(input=key, output="output1")
+    model.merge_connections(model.input1, model.input2, model.input3, name="input")  # type: ignore
+    model += Buffer()(input=model.input, output="output1")  # type: ignore
 
     expected_shapes = {"$_Model_0_output": [3, 3], "output1": [3, 3], "input": [3, 3]}
 
-    check_shapes_semantically(main_model.shapes, expected_shapes)
+    check_shapes_semantically(model.shapes, expected_shapes)
 
 
 # @pytest.mark.skip("Error in primitiveUnion function")
@@ -1175,8 +1173,8 @@ def test_compare_models_5():
     sigmoid = Sigmoid()
     add = Add()
     model2 += add(output=IOKey(name="output"))
-    conn = IOKey(connections={add.left, add.right})
-    model2 += sigmoid(input="input", output=conn)
+    model2.merge_connections(add.left, add.right)
+    model2 += sigmoid(input="input", output=add.left)
     model2.set_shapes({"input": [2, 2]})
 
     compare_evaluate(model1=model1, model2=model2, backend=backend, data={})
