@@ -80,13 +80,18 @@ class Tokenizer:
 def multihead_attention(
     config: dict[str, Any],
     use_mask: bool = False,
+    *,
     name: str | None = None,
 ):
-    inner_dim = config["d_kv"] * config["num_heads"]
+    d_kv = config["d_kv"]
+    d_model = config["d_model"]
+    num_heads = config["num_heads"]
+
+    inner_dim = d_kv * num_heads
     block = Model(name=name)
-    queries = IOKey("queries", shape=(None, None, config["d_model"]))
-    keys = IOKey("keys", shape=(None, None, config["d_model"]))
-    values = IOKey("values", shape=(None, None, config["d_model"]))
+    queries = IOKey("queries", shape=(None, None, d_model))
+    keys = IOKey("keys", shape=(None, None, d_model))
+    values = IOKey("values", shape=(None, None, d_model))
 
     block |= Linear(inner_dim, name="query_proj", use_bias=False)(
         queries, output="queries_proj"
@@ -102,7 +107,6 @@ def multihead_attention(
     keys: ml.Connection = block.keys_proj  # type: ignore
     values: ml.Connection = block.values_proj  # type: ignore
 
-    num_heads = config["num_heads"]
     B, L = queries.shape[0], queries.shape[1]
     S = keys.shape[1]
     queries = queries.reshape((B, L, num_heads, -1)).transpose((0, 2, 1, 3))  # type: ignore
@@ -118,7 +122,7 @@ def multihead_attention(
 
     scores = block.attention_weights.cast(scores.dtype())  # type: ignore
     values_hat = (scores @ values).transpose((0, 2, 1, 3)).reshape((B, L, -1))
-    block |= Linear(config["d_model"], name="out_proj", use_bias=False)(
+    block |= Linear(d_model, name="out_proj", use_bias=False)(
         values_hat, output=IOKey("output")
     )
     block |= Buffer()(keys, output=IOKey("keys_out"))
@@ -127,7 +131,7 @@ def multihead_attention(
     return block
 
 
-def rms_norm(dim: int, name: str | None = None):
+def rms_norm(dim: int, *, name: str | None = None):
     # TODO: check original implementation they use astype and cast to float32
     block = Model(name=name)
     input = IOKey("input")
@@ -140,7 +144,7 @@ def rms_norm(dim: int, name: str | None = None):
     return block
 
 
-def dense_activation(config: dict[str, Any], name: str | None = None):
+def dense_activation(config: dict[str, Any], *, name: str | None = None):
     mlp_dims = config["d_ff"] or config["d_model"] * 4
 
     is_gated = hasattr(config, "feed_forward_proj")
@@ -169,14 +173,14 @@ def dense_activation(config: dict[str, Any], name: str | None = None):
         block += Linear(mlp_dims, name="wi", use_bias=False)(input)
         block += activation(output="hidden_out")
 
-    block |= Linear(config["d_model"], name="wo", use_bias=False)(
-        input="hidden_out", output=IOKey("output")
+    block += Linear(config["d_model"], name="wo", use_bias=False)(
+        output=IOKey("output")
     )
     return block
 
 
 def relative_position_bucket(
-    bidirectional=True, num_buckets=32, max_distance=128, name: str | None = None
+    bidirectional=True, num_buckets=32, max_distance=128, *, name: str | None = None
 ):
     block = Model(name=name)
     relative_position = IOKey("relative_position")
@@ -220,7 +224,7 @@ def relative_position_bucket(
     return block
 
 
-def transformer_encoder_layer(config: dict[str, Any], name: str | None = None):
+def transformer_encoder_layer(config: dict[str, Any], *, name: str | None = None):
     block = Model(name=name)
 
     input = IOKey("input")
@@ -246,7 +250,7 @@ def transformer_encoder_layer(config: dict[str, Any], name: str | None = None):
 
 
 def relative_position_bias(
-    config: dict[str, Any], bidirectional: bool, name: str | None = None
+    config: dict[str, Any], bidirectional: bool, *, name: str | None = None
 ):
     num_buckets = config["relative_attention_num_buckets"]
     max_distance = config.get("relative_attention_max_distance", 128)
@@ -278,7 +282,7 @@ def relative_position_bias(
     return block
 
 
-def transformer_encoder(config: dict[str, Any], name: str | None = None):
+def transformer_encoder(config: dict[str, Any], *, name: str | None = None):
     input = IOKey("input")
     block = Model(name=name)
 
@@ -305,7 +309,7 @@ def transformer_encoder(config: dict[str, Any], name: str | None = None):
 
 
 def transformer_decoder_layer(
-    config: dict[str, Any], use_mask: bool = False, name: str | None = None
+    config: dict[str, Any], use_mask: bool = False, *, name: str | None = None
 ):
     block = Model(name=name)
     input = IOKey("input")
@@ -343,7 +347,7 @@ def transformer_decoder_layer(
     return block
 
 
-def transformer_decoder(config: dict[str, Any], name: str | None = None):
+def transformer_decoder(config: dict[str, Any], *, name: str | None = None):
     n_layers = config.get("num_decoder_layers", config["num_layers"])
     offset = 0
 
@@ -374,7 +378,7 @@ def transformer_decoder(config: dict[str, Any], name: str | None = None):
     return block
 
 
-def output_head(config: dict[str, Any], name: str | None = None):
+def output_head(config: dict[str, Any], *, name: str | None = None):
     block = Model(name=name)
     block += Linear(config["vocab_size"], use_bias=False, name="linear")(
         IOKey("input"), output=IOKey("output")
@@ -395,23 +399,22 @@ def t5_encode(config: dict[str, Any], name: str | None = None):
     return block
 
 
-def t5_decode(config: dict[str, Any], name: str | None = None):
+def t5_decode(config: dict[str, Any], *, name: str | None = None):
     tie_word_embeddings = config.get("tie_word_embeddings", True)
 
     block = Model(name=name)
     input = IOKey("input")
     memory = IOKey("memory")
-    block |= (
-        wte := Embedding(
-            name="wte", num_embeddings=config["vocab_size"], dim=config["d_model"]
-        )
-    )(input, output="wte_out")
+    wte = Embedding(
+        name="wte", num_embeddings=config["vocab_size"], dim=config["d_model"]
+    )
+    block |= wte(input, output="wte_out")
     block |= transformer_decoder(config, name="decoder")(
         input="wte_out", memory=memory, output="decoder_out"
     )
 
     if not tie_word_embeddings:
-        block |= output_head(config, "lm_head")(
+        block |= output_head(config, name="lm_head")(
             input="decoder_out", output=IOKey("output")
         )
     else:
