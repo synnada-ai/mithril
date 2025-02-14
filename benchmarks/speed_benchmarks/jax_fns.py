@@ -25,7 +25,7 @@ from benchmarks.speed_benchmarks.speed_helper import (
     create_compl_mlp,
     measure_time_and_grads_mithril,
 )
-from mithril import JaxBackend, core
+from mithril import JaxBackend, types
 from mithril.backends.utils import DtypeBits
 from mithril.models import (
     AbsoluteError,
@@ -201,7 +201,7 @@ def mlp_v_jax(
     activations: list,
     dimensions: list[int],
     input_shape: tuple[int, int],
-    dtype: core.Dtype,
+    dtype: types.Dtype,
     iterations: int,
 ):
     lr = 0.001

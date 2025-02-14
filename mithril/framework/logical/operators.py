@@ -17,7 +17,7 @@ from functools import partial
 from types import EllipsisType, NoneType, UnionType
 from typing import Any
 
-from ... import core
+from ... import types
 from ..common import (
     TBD,
     BaseKey,
@@ -116,7 +116,7 @@ __all__ = [
     "MaximumOp",
 ]
 
-ConstantType = float | int | core.Constant
+ConstantType = float | int | types.Constant
 
 
 class BufferOp(Operator):
@@ -573,14 +573,14 @@ class CastOp(Operator):
     _model_name: str = "Cast"
 
     def __init__(
-        self, dtype: core.Dtype | ToBeDetermined = TBD, *, name: str | None = None
+        self, dtype: types.Dtype | ToBeDetermined = TBD, *, name: str | None = None
     ) -> None:
         super().__init__(
             formula_key="cast",
             name=name,
             output=BaseKey(shape=[("Var", ...)], type=Tensor),
             input=BaseKey(shape=[("Var", ...)], type=Tensor),
-            dtype=BaseKey(type=core.Dtype, value=dtype),
+            dtype=BaseKey(type=types.Dtype, value=dtype),
         )
 
 
@@ -596,7 +596,7 @@ class DtypeOp(Operator):
         super().__init__(
             formula_key="dtype",
             name=name,
-            output=BaseKey(type=core.Dtype),
+            output=BaseKey(type=types.Dtype),
             input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
         )
 
@@ -648,7 +648,7 @@ class ToTensorOp(Operator):
     def __init__(
         self,
         input: TensorValueType | ToBeDetermined = TBD,
-        dtype: core.Dtype | None = None,
+        dtype: types.Dtype | None = None,
         *,
         name: str | None = None,
     ) -> None:
@@ -657,7 +657,7 @@ class ToTensorOp(Operator):
             name=name,
             output=BaseKey(shape=[("Var", ...)], type=Tensor),
             input=BaseKey(type=TensorValueType, value=input),
-            dtype=BaseKey(type=core.Dtype | None, value=dtype),
+            dtype=BaseKey(type=types.Dtype | None, value=dtype),
         )
 
         self._add_constraint(

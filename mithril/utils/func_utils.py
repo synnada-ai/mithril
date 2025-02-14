@@ -16,12 +16,12 @@ from collections.abc import Callable
 from copy import deepcopy
 from typing import Any
 
-from ..core import DataType
 from ..framework.common import (  # , Scalar, Tensor
     TBD,
     DataEvalType,
     IOHyperEdge,
 )
+from ..types import DataType
 
 KeyMapType = dict[str, str]
 

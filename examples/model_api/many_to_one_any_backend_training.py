@@ -15,8 +15,8 @@
 from utils.optimizers import Adam
 
 import mithril as ml
-from mithril.core import DataType
 from mithril.models import ManyToOne, Mean, RNNCell, SquaredError, TrainModel
+from mithril.types import DataType
 
 # Define backend. It would also work with any available backend you prefer.
 backend = ml.TorchBackend(dtype=ml.float64)

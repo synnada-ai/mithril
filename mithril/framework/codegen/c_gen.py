@@ -19,8 +19,8 @@ import tempfile
 from functools import partial
 
 from ...backends.with_manualgrad.c_backend import CBackend, backend
-from ...backends.with_manualgrad.c_backend.src import array
-from ...backends.with_manualgrad.c_backend.src.array import Array, PyArray
+from ...cores.c import array
+from ...cores.c.array import Array, PyArray
 from ...framework.common import (
     EvaluateAllType,
     EvaluateGradientsType,
@@ -51,7 +51,7 @@ class CGen(CodeGen[PyArray]):
         self.func_arg_keys: dict[str, list[str]] = {}
 
     def generate_imports(self) -> list[c_ast.Include]:
-        header_path = os.path.join(self._get_backend_path(), "src", "cbackend.h")
+        header_path = os.path.join(self.backend.SRC_PATH, "cbackend.h")
         return [c_ast.Include(header_path, system=False)]
 
     def generate_code(self, file_path: str | None = None) -> None:
@@ -99,9 +99,9 @@ class CGen(CodeGen[PyArray]):
         subprocess.check_output(
             [
                 *default_compile_flags,
-                f"-L{self._get_backend_path()}/src",
+                f"-L{self.backend.SRC_PATH}",
                 "-lmithrilc",
-                f"-Wl,-rpath,{self._get_backend_path()}/src",
+                f"-Wl,-rpath,{self.backend.SRC_PATH}",
                 "-o",
                 so_file_path,
             ]

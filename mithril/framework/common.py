@@ -35,13 +35,13 @@ from typing import (
     overload,
 )
 
-from ..core import (
+from ..common import PaddingType
+from ..types import (
     Constant,
     DataType,
     Dtype,
     constant_type_table,
 )
-from ..utils.utils import PaddingType
 from .utils import (
     align_shapes,
     find_type,
@@ -63,7 +63,6 @@ __all__ = [
     "ShapeRepr",
     "Constraint",
     "create_shape_map",
-    "ShapesType",
     "ShapeResultType",
     "get_summary_shapes",
     "get_summary_types",
@@ -1265,7 +1264,6 @@ class ConnectionData:
         return updates
 
 
-ShapesType = Mapping[ConnectionData, ShapeTemplateType]
 ShapeResultType = Mapping[str, ShapeTemplateType | list[ShapeTemplateType] | None]
 
 

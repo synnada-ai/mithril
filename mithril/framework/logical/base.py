@@ -39,7 +39,6 @@ from ..common import (
     ScalarType,
     ScalarValueType,
     ShapeNode,
-    ShapesType,
     ShapeTemplateType,
     ShapeType,
     Tensor,
@@ -1106,7 +1105,7 @@ class BaseModel:
 
     def _set_shapes(
         self,
-        shapes: ShapesType | None = None,
+        shapes: Mapping[ConnectionData, ShapeTemplateType] | None = None,
         trace: bool = False,
         /,
         **kwargs: ShapeTemplateType,
@@ -1151,7 +1150,7 @@ class BaseModel:
 
     def set_shapes(
         self,
-        shapes: ShapesType | None = None,
+        shapes: Mapping[ConnectionData, ShapeTemplateType] | None = None,
         /,
         **kwargs: ShapeTemplateType,
     ) -> None:

@@ -24,7 +24,7 @@ import pytest
 import mithril as ml
 from mithril import JaxBackend, MlxBackend, NumpyBackend, TorchBackend
 from mithril.backends.utils import DtypeBits
-from mithril.core import Dtype
+from mithril.types import Dtype
 
 from .test_utils import get_array_device, get_array_precision
 
@@ -1959,7 +1959,7 @@ class TestCast:
         fn = backend.cast
         input = array_fn(list(range(-10, 10, 1)), device, dtype.name)
 
-        for dtype in ml.core.Dtype:
+        for dtype in ml.types.Dtype:
             if (
                 dtype.name in ["float64", "uint8"]
                 or dtype not in backend.supported_dtypes

@@ -19,6 +19,7 @@ from abc import abstractmethod
 from collections.abc import Sequence
 from copy import deepcopy
 
+from ..common import PaddingType
 from ..framework.common import (
     NOT_GIVEN,
     TBD,
@@ -35,7 +36,7 @@ from ..framework.logical.model import (
     IOKey,
     Model,
 )
-from ..utils.utils import PaddingType, convert_to_list, convert_to_tuple
+from ..utils.utils import convert_to_list, convert_to_tuple
 from .primitives import (
     Absolute,
     Add,
