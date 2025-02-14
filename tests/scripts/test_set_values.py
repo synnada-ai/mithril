@@ -251,12 +251,12 @@ def test_set_values_tensor_1():
     model1 = Model()
     add_model_1 = Add()
 
-    model1 += add_model_1(left="input1", right="input2", output=IOKey("output"))
+    model1 |= add_model_1(left="input1", right="input2", output=IOKey("output"))
 
     model2 = Model()
     add_model_2 = Add()
-    model2 += model1(input1="input1", input2="sub_input", output=IOKey("output"))
-    model2 += add_model_2(left="input1", right="input2", output="sub_input")
+    model2 |= model1(input1="input1", input2="sub_input", output=IOKey("output"))
+    model2 |= add_model_2(left="input1", right="input2", output="sub_input")
     add_model_2.set_values(right=Tensor([2.0]))
     model2.set_values(input1=Tensor([3.0]))
     pm = mithril.compile(model=model2, backend=JaxBackend(), inference=True)
@@ -274,12 +274,13 @@ def test_set_values_tensor_1_kwargs_arg():
     model1 = Model()
     add_model_1 = Add()
 
-    model1 += add_model_1(left="input1", right="input2", output=IOKey("output"))
+    model1 |= add_model_1(left="input1", right="input2", output=IOKey("output"))
 
     model2 = Model()
     add_model_2 = Add()
-    model2 += model1(input1="input1", input2="sub_input", output=IOKey("output"))
-    model2 += add_model_2(left="input1", right="input2", output="sub_input")
+    model2 |= model1(input1="input1", input2="sub_input", output=IOKey("output"))
+    model2 |= add_model_2(left="input1", right="input2", output="sub_input")
+    # add_model_2.set_values({"right": [2.0]})
     model2.set_values(input1=Tensor([3.0]), input2=Tensor([2.0]))
     pm = mithril.compile(model=model2, backend=JaxBackend(), inference=True)
 
@@ -296,12 +297,12 @@ def test_set_values_tensor_2():
     model1 = Model()
     add_model_1 = Add()
 
-    model1 += add_model_1(left="input1", right="input2", output=IOKey("output"))
+    model1 |= add_model_1(left="input1", right="input2", output=IOKey("output"))
 
     model2 = Model()
     add_model_2 = Add()
-    model2 += model1(input1="input1", input2="sub_input", output=IOKey("output"))
-    model2 += add_model_2(left="input1", right="input2", output="sub_input")
+    model2 |= model1(input1="input1", input2="sub_input", output=IOKey("output"))
+    model2 |= add_model_2(left="input1", right="input2", output="sub_input")
     add_model_2.set_values(right=Tensor([2.0]))
     model2.set_values(input1=Tensor([3.0]))
     pm = mithril.compile(model=model2, backend=JaxBackend(), inference=True)
@@ -319,12 +320,12 @@ def test_set_values_tensor_3():
     model1 = Model()
     add_model_1 = Add()
 
-    model1 += add_model_1(left="input1", right="input2", output=IOKey("output"))
+    model1 |= add_model_1(left="input1", right="input2", output=IOKey("output"))
 
     model2 = Model()
     add_model_2 = Add()
-    model2 += model1(input1="input1", input2="sub_input", output=IOKey("output"))
-    model2 += add_model_2(left="input1", right="input2", output="sub_input")
+    model2 |= model1(input1="input1", input2="sub_input", output=IOKey("output"))
+    model2 |= add_model_2(left="input1", right="input2", output="sub_input")
     add_model_2.set_values({model2.input2: Tensor([2.0])})  # type: ignore
     model2.set_values({add_model_2.left: Tensor([3.0])})
     pm = mithril.compile(model=model2, backend=JaxBackend(), inference=True)
@@ -341,9 +342,9 @@ def test_set_values_tensor_4():
     relu1 = Relu()
     relu2 = Relu()
     relu3 = Relu()
-    model += relu1(input="input", output="sub_out_1")
-    model += relu2(input="sub_out_1", output="sub_out_2")
-    model += relu3(input="sub_out_2", output=IOKey("output"))
+    model |= relu1(input="input", output="sub_out_1")
+    model |= relu2(input="sub_out_1", output="sub_out_2")
+    model |= relu3(input="sub_out_2", output=IOKey("output"))
 
     with pytest.raises(Exception) as err_info:
         model.set_values(sub_out_2=Tensor([2, 3, 4]))
@@ -355,9 +356,9 @@ def test_set_values_tensor_5():
     relu1 = Relu()
     relu2 = Relu()
     relu3 = Relu()
-    model += relu1(input="input", output="sub_out_1")
-    model += relu2(input="sub_out_1", output="sub_out_2")
-    model += relu3(input="sub_out_2", output=IOKey("output"))
+    model |= relu1(input="input", output="sub_out_1")
+    model |= relu2(input="sub_out_1", output="sub_out_2")
+    model |= relu3(input="sub_out_2", output=IOKey("output"))
 
     with pytest.raises(Exception) as err_info:
         model.set_values(output=Tensor([2, 3, 4]))
@@ -369,9 +370,9 @@ def test_set_values_tensor_6():
     relu1 = Relu()
     relu2 = Relu()
     relu3 = Relu()
-    model += relu1(input=IOKey("input"), output="sub_out_1")
-    model += relu2(input="sub_out_1", output="sub_out_2")
-    model += relu3(input="sub_out_2", output=IOKey("output"))
+    model |= relu1(input=IOKey("input"), output="sub_out_1")
+    model |= relu2(input="sub_out_1", output="sub_out_2")
+    model |= relu3(input="sub_out_2", output=IOKey("output"))
 
     with pytest.raises(Exception) as err_info:
         model.set_values(output=Tensor([2, 3, 4]))

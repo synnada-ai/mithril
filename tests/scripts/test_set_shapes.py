@@ -21,8 +21,8 @@ from .test_utils import check_shapes_semantically
 def test_set_shapes_1():
     model = Model()
 
-    model += Sigmoid()("input1", IOKey("output1"))
-    model += Sigmoid()("input2", IOKey("output2"))
+    model |= Sigmoid()("input1", IOKey("output1"))
+    model |= Sigmoid()("input2", IOKey("output2"))
 
     model.set_shapes(input1=["a", "b"], input2=["b", "a"])
 
@@ -39,8 +39,8 @@ def test_set_shapes_1():
 def test_set_shapes_1_kwargs_arg():
     model = Model()
 
-    model += Sigmoid()("input1", IOKey("output1"))
-    model += Sigmoid()("input2", IOKey("output2"))
+    model |= Sigmoid()("input1", IOKey("output1"))
+    model |= Sigmoid()("input2", IOKey("output2"))
 
     model.set_shapes(input1=["a", "b"], input2=["b", "a"])
 
@@ -57,8 +57,8 @@ def test_set_shapes_1_kwargs_arg():
 def test_set_shapes_1_hybrid_arg():
     model = Model()
 
-    model += Sigmoid()("input1", IOKey("output1"))
-    model += Sigmoid()("input2", IOKey("output2"))
+    model |= Sigmoid()("input1", IOKey("output1"))
+    model |= Sigmoid()("input2", IOKey("output2"))
 
     model.set_shapes({model.input1: ["a", "b"]}, input2=["b", "a"])  # type: ignore
 
@@ -75,8 +75,8 @@ def test_set_shapes_1_hybrid_arg():
 def test_set_shapes_1_hybrid_arg_same_metadata_1():
     model = Model()
 
-    model += Sigmoid()("input1", IOKey("output1"))
-    model += Sigmoid()("input2", IOKey("output2"))
+    model |= Sigmoid()("input1", IOKey("output1"))
+    model |= Sigmoid()("input2", IOKey("output2"))
 
     model.set_shapes({model.input2: ["a", "b"]}, input2=[2, 3])  # type: ignore
     assert model.shapes[model.input2.key] == [2, 3]  # type: ignore
@@ -85,8 +85,8 @@ def test_set_shapes_1_hybrid_arg_same_metadata_1():
 def test_set_shapes_1_hybrid_arg_same_metadata_2():
     model = Model()
 
-    model += Sigmoid()("input1", IOKey("output1"))
-    model += Sigmoid()("input2", IOKey("output2"))
+    model |= Sigmoid()("input1", IOKey("output1"))
+    model |= Sigmoid()("input2", IOKey("output2"))
 
     model.set_shapes({model.input2: [2, 3]}, input2=["a", "b"])  # type: ignore
     assert model.shapes[model.input2.key] == [2, 3]  # type: ignore
@@ -95,8 +95,8 @@ def test_set_shapes_1_hybrid_arg_same_metadata_2():
 def test_set_shapes_2():
     model = Model()
 
-    model += Sigmoid()("input1", IOKey("output1"))
-    model += Sigmoid()("input2", IOKey("output2"))
+    model |= Sigmoid()("input1", IOKey("output1"))
+    model |= Sigmoid()("input2", IOKey("output2"))
 
     model.set_shapes({model.input1: ["a", "b"], "input2": ["b", "a"]})  # type: ignore
 
@@ -113,8 +113,8 @@ def test_set_shapes_2():
 def test_set_shapes_3():
     model = Model()
 
-    model += Sigmoid()("input1", IOKey("output1"))
-    model += Sigmoid()("input2", IOKey("output2"))
+    model |= Sigmoid()("input1", IOKey("output1"))
+    model |= Sigmoid()("input2", IOKey("output2"))
 
     model.set_shapes({model.input1: ["a", "b"], model.output2: ["b", "a"]})  # type: ignore
 
@@ -131,8 +131,9 @@ def test_set_shapes_3():
 def test_set_shapes_4():
     model = Model()
 
-    model += (sig1 := Sigmoid())("input1", IOKey("output1"))
-    model += (sig2 := Sigmoid())("input2", IOKey("output2"))
+    model |= (sig1 := Sigmoid())("input1", IOKey("output1"))
+    model |= (sig2 := Sigmoid())("input2", IOKey("output2"))
+
     model.set_shapes({sig1.input: ["a", "b"], sig2.input: ["b", "a"]})
 
     ref_shapes = {
@@ -148,10 +149,10 @@ def test_set_shapes_4():
 def test_set_shapes_5():
     model = Model()
     sub_model = Model()
-    sub_model += Sigmoid()("input1", IOKey("output1"))
-    sub_model += Sigmoid()("input1", "sub_out")
+    sub_model |= Sigmoid()("input1", IOKey("output1"))
+    sub_model |= Sigmoid()("input1", "sub_out")
 
-    model += sub_model(input1="input1", output1=IOKey("output"))
+    model |= sub_model(input1="input1", output1=IOKey("output"))
     model.set_shapes({sub_model.input1: [3, 4]})  # type: ignore
 
 
@@ -161,7 +162,7 @@ def test_set_shapes_6():
     model3 = Model()
     model4 = Model()
 
-    model1 += (add1 := Add())(left="left", right="right", output=IOKey("output"))
+    model1 |= (add1 := Add())(left="left", right="right", output=IOKey("output"))
     model2 += model1(left="left", right="right", output=IOKey("output"))
     model3 += model2(left="left", right="right", output=IOKey("output"))
     model4 += model3(left="left", right="right", output=IOKey("output"))

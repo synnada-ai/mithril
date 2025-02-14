@@ -94,8 +94,8 @@ def test_set_types_5():
     model = Model()
     buffer_model_1 = Buffer()
     buffer_model_2 = Buffer()
-    model += buffer_model_1(input="input1", output=IOKey(name="output1"))
-    model += buffer_model_2(input="input2", output=IOKey(name="output2"))
+    model |= buffer_model_1(input="input1", output=IOKey(name="output1"))
+    model |= buffer_model_2(input="input2", output=IOKey(name="output2"))
     model.set_types({model.input1: Tensor[int | bool], "input2": Tensor[float]})  # type: ignore
     input_data_1 = buffer_model_1.input.metadata
     input_data_2 = buffer_model_2.input.metadata
@@ -107,8 +107,8 @@ def test_set_types_5_key_error():
     model = Model()
     buffer_model_1 = Buffer()
     buffer_model_2 = Buffer()
-    model += buffer_model_1(input="input1", output=IOKey(name="output1"))
-    model += buffer_model_2(input="input2", output=IOKey(name="output2"))
+    model |= buffer_model_1(input="input1", output=IOKey(name="output1"))
+    model |= buffer_model_2(input="input2", output=IOKey(name="output2"))
     with pytest.raises(KeyError) as err_info:
         model.set_types({model.input1: Tensor[int | bool], "input": Tensor[float]})  # type: ignore
     assert str(err_info.value) == "\"Key 'input' is not found in connections.\""
@@ -118,8 +118,8 @@ def test_set_types_6():
     model = Model()
     buffer_model_1 = Buffer()
     buffer_model_2 = Buffer()
-    model += buffer_model_1(input="input1", output=IOKey(name="output1"))
-    model += buffer_model_2(input="input2", output=IOKey(name="output2"))
+    model |= buffer_model_1(input="input1", output=IOKey(name="output1"))
+    model |= buffer_model_2(input="input2", output=IOKey(name="output2"))
     model.set_types({model.input1: Tensor[int | bool], "input2": Tensor[float]})  # type: ignore
     with pytest.raises(TypeError):
         model.set_types(input1=float)
@@ -179,10 +179,10 @@ def test_types_iokey_2():
     model = Model()
     buffer_model1 = Buffer()
     buffer_model2 = Buffer()
-    model += buffer_model1(
+    model |= buffer_model1(
         input="input", output=IOKey(name="output", type=Tensor[int | float])
     )
-    model += buffer_model2(
+    model |= buffer_model2(
         input="output", output=IOKey(name="output2", type=Tensor[int])
     )
 
@@ -198,8 +198,8 @@ def test_types_iokey_3():
     model = Model()
     buffer_model1 = Buffer()
     buffer_model2 = Buffer()
-    model += buffer_model1(input=IOKey(name="input1", type=Tensor[bool | float]))
-    model += buffer_model2(
+    model |= buffer_model1(input=IOKey(name="input1", type=Tensor[bool | float]))
+    model |= buffer_model2(
         input=IOKey(name="input2", type=Tensor[int | float]),
         output=IOKey(name="output2", type=Tensor[float | int]),
     )
@@ -208,7 +208,7 @@ def test_types_iokey_3():
 
     buffer_model3 = Buffer()
 
-    model += buffer_model3(input="input", output=conn)
+    model |= buffer_model3(input="input", output=conn)
 
     buffer1_input = buffer_model1.input.metadata
     buffer1_output = buffer_model1.output.metadata
