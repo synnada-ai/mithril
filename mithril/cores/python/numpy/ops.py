@@ -25,7 +25,6 @@ import numpy as np
 import scipy.linalg as slin
 from scipy.special import erf
 
-from .... import types
 from ....common import PaddingType, find_dominant_type
 from ...utils import NestedFloatOrIntOrBoolList, is_tuple_int
 from .utils import (

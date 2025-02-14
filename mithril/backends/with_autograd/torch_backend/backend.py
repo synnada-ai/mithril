@@ -706,7 +706,7 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
     def convert_to_logical(self, input: Any, force: bool = False) -> Any:
         # Try dtype:
         if isinstance(input, torch.dtype):
-            return Dtype[utils.dtype_map.inverse[input]]
+            return Dtype[core_utils.dtype_map.inverse[input]]
 
         if force:
             raise ValueError(f"Invalid value '{input}'!")

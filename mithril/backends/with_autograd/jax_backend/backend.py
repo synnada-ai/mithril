@@ -27,7 +27,7 @@ from ...backend import PadWidthType, ParallelBackend
 from ...utils import DtypeSubTypes, StaticScalar, process_shape
 from . import utils
 from .parallel import JaxParallel
-from .utils import CODEGEN_CONFIG, dtype_map
+from .utils import CODEGEN_CONFIG
 
 __all__ = ["JaxBackend"]
 
@@ -74,7 +74,7 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
 
         self.array_creation_funcs = ops.array_creation_funcs
         self.primitive_function_dict = ops.primitive_func_dict
-        self.dtype_map = dtype_map
+        self.dtype_map = core_utils.dtype_map
         self.prng_key = jax.random.PRNGKey(self.seed)
 
         for key, value in core_utils.dtype_map.items():
@@ -677,8 +677,8 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
 
     def convert_to_logical(self, input: Any, force: bool = False) -> Any:
         # Try dtype:
-        if input.__hash__ and input in utils.dtype_map.inverse:
-            return Dtype[utils.dtype_map.inverse[input]]
+        if input.__hash__ and input in core_utils.dtype_map.inverse:
+            return Dtype[core_utils.dtype_map.inverse[input]]
         elif isinstance(input, jax.numpy.dtype):
             return Dtype[input.name]
 

@@ -447,8 +447,8 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
 
     def convert_to_logical(self, input: Any, force: bool = False) -> Any:
         # Try dtype:
-        if input.__hash__ and input in utils.dtype_map.inverse:
-            return Dtype[utils.dtype_map.inverse[input]]
+        if input.__hash__ and input in core_utils.dtype_map.inverse:
+            return Dtype[core_utils.dtype_map.inverse[input]]
         if isinstance(input, np.dtype):
             return Dtype[input.name]
 

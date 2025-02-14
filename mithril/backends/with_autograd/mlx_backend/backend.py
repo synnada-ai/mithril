@@ -626,7 +626,7 @@ class MlxBackend(Backend[mx.array]):
     def convert_to_logical(self, input: Any, force: bool = False) -> Any:
         # Try dtype:
         if isinstance(input, mx.Dtype):
-            return Dtype[utils.dtype_map.inverse[input]]
+            return Dtype[core_utils.dtype_map.inverse[input]]
 
         if force:
             raise ValueError(f"Invalid value '{input}'!")
