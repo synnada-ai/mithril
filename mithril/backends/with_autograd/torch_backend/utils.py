@@ -31,7 +31,7 @@ from torch.distributed._tensor import DeviceMesh
 
 from .... import types
 from ....common import find_dominant_type
-from ....cores.torch.utils import dtype_map
+from ....cores.python.torch.utils import dtype_map
 from ...utils import DtypeSubTypes
 
 CODEGEN_CONFIG: dict[str, bool] = {

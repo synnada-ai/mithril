@@ -17,8 +17,8 @@ from functools import partial
 
 import torch
 
-from ...common import BiMap
-from ..utils import binary_search
+from ....common import BiMap
+from ...utils import binary_search
 
 dtype_map: BiMap[str, torch.dtype] = BiMap(
     {

@@ -25,6 +25,7 @@ import torch
 import mithril as ml
 from mithril import JaxBackend, MlxBackend, NumpyBackend, TorchBackend
 from mithril.backends.utils import DtypeBits
+from mithril.common import PaddingType
 from mithril.framework.common import (
     NOT_GIVEN,
     TBD,
@@ -74,7 +75,6 @@ from mithril.models import (
     Transpose,
     Where,
 )
-from mithril.utils.utils import PaddingType
 
 from .helper import assert_models_equal
 from .test_utils import (

@@ -34,7 +34,7 @@ from torch.distributed._tensor import (
 )
 from torch.distributed.device_mesh import init_device_mesh
 
-from ....cores.torch.utils import dtype_map
+from ....cores.python.torch.utils import dtype_map
 from ...parallel import Parallel
 from . import utils
 from .stensor import STensor

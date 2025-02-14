@@ -19,6 +19,7 @@ from types import NoneType
 from typing import Any
 
 from .. import types
+from ..common import PaddingType
 from ..framework.common import (
     NOT_GIVEN,
     TBD,
@@ -111,7 +112,6 @@ from ..framework.logical.operators import (
 )
 from ..framework.logical.primitive import OperatorModel, PrimitiveModel
 from ..types import Constant
-from ..utils.utils import PaddingType
 
 __all__ = [
     "CustomPrimitiveModel",

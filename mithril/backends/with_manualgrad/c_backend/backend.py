@@ -29,7 +29,7 @@ __all__ = ["CBackend"]
 
 class CBackend(Backend[PyArray]):
     backend_type = "c"
-    SRC_PATH = os.path.join(os.path.dirname(__file__), *([".."] * 3), "cores", "c")
+    SRC_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "..", "cores", "c")
 
     def __init__(self) -> None:
         self._device = "cpu"

@@ -25,51 +25,9 @@ import numpy as np
 import scipy.linalg as slin
 from scipy.special import erf
 
-from ... import types
-from ...common import find_dominant_type
-from ..manualgrad_common_primitives import (
-    add,
-    buffer,
-    cartesian_diff,
-    common_primitive_func_dict,
-    divide,
-    equal,
-    floor_divide,
-    greater,
-    greater_equal,
-    indexer,
-    item,
-    length,
-    less,
-    less_equal,
-    logical_and,
-    logical_not,
-    logical_or,
-    matrix_multiplication,
-    minus,
-    multiplication,
-    not_equal,
-    padding_converter_1d,
-    padding_converter_2d,
-    permute_tensor,
-    power,
-    primitive_slice,
-    reshape,
-    sequence_slice,
-    shift_left,
-    shift_right,
-    square,
-    squared_error,
-    stride_converter,
-    subtract,
-    swapaxes,
-    to_list,
-    to_tuple,
-    transpose,
-    tuple_converter,
-    union,
-)
-from ..utils import NestedFloatOrIntOrBoolList, is_tuple_int
+from .... import types
+from ....common import PaddingType, find_dominant_type
+from ...utils import NestedFloatOrIntOrBoolList, is_tuple_int
 from .utils import (
     CacheType,
     calc_prob_matrix,
@@ -199,7 +157,6 @@ __all__ = [
     "stride_converter",
     "tuple_converter",
     "make_array",
-    "common_primitive_func_dict",
     "reduce_argmin",
     "reduce_argmax",
     "unique",
@@ -1318,6 +1275,376 @@ def zeros_like(
     return np.zeros_like(input)
 
 
+def greater(
+    left: np.ndarray[Any, Any],
+    right: np.ndarray[Any, Any],
+    cache: CacheType | None = None,
+) -> np.ndarray[Any, Any]:
+    return left > right
+
+
+def greater_equal(
+    left: np.ndarray[Any, Any],
+    right: np.ndarray[Any, Any],
+    cache: CacheType | None = None,
+) -> np.ndarray[Any, Any]:
+    return left >= right
+
+
+def less(
+    left: np.ndarray[Any, Any],
+    right: np.ndarray[Any, Any],
+    cache: CacheType | None = None,
+) -> np.ndarray[Any, Any]:
+    return left < right
+
+
+def less_equal(
+    left: np.ndarray[Any, Any],
+    right: np.ndarray[Any, Any],
+    cache: CacheType | None = None,
+) -> np.ndarray[Any, Any]:
+    return left <= right
+
+
+def equal(
+    left: np.ndarray[Any, Any],
+    right: np.ndarray[Any, Any],
+    cache: CacheType | None = None,
+) -> np.ndarray[Any, Any]:
+    return left == right
+
+
+def not_equal(
+    left: np.ndarray[Any, Any],
+    right: np.ndarray[Any, Any],
+    cache: CacheType | None = None,
+) -> np.ndarray[Any, Any]:
+    return left != right
+
+
+def logical_not(
+    input: np.ndarray[Any, Any], cache: CacheType | None = None
+) -> np.ndarray[Any, Any]:
+    return ~input
+
+
+def logical_or(
+    left: np.ndarray[Any, Any],
+    right: np.ndarray[Any, Any],
+    cache: CacheType | None = None,
+) -> np.ndarray[Any, Any]:
+    return left | right
+
+
+def logical_and(
+    left: np.ndarray[Any, Any],
+    right: np.ndarray[Any, Any],
+    cache: CacheType | None = None,
+) -> np.ndarray[Any, Any]:
+    return left & right
+
+
+def matrix_multiplication(
+    left: np.ndarray[Any, Any],
+    right: np.ndarray[Any, Any],
+    cache: CacheType | None = None,
+) -> np.ndarray[Any, Any]:
+    return left @ right
+
+
+def multiplication(
+    left: np.ndarray[Any, Any],
+    right: np.ndarray[Any, Any],
+    cache: CacheType | None = None,
+) -> np.ndarray[Any, Any]:
+    return left * right
+
+
+def divide(
+    numerator: np.ndarray[Any, Any],
+    denominator: np.ndarray[Any, Any],
+    cache: CacheType | None = None,
+) -> np.ndarray[Any, Any]:
+    return numerator / denominator
+
+
+def floor_divide(
+    numerator: np.ndarray[Any, Any],
+    denominator: np.ndarray[Any, Any],
+    cache: CacheType | None = None,
+) -> np.ndarray[Any, Any]:
+    return numerator // denominator
+
+
+def shift_left(
+    input: np.ndarray[Any, Any],
+    shift: np.ndarray[Any, Any],
+    cache: CacheType | None = None,
+) -> np.ndarray[Any, Any]:
+    return input << shift
+
+
+def shift_right(
+    input: np.ndarray[Any, Any],
+    shift: np.ndarray[Any, Any],
+    cache: CacheType | None = None,
+) -> np.ndarray[Any, Any]:
+    return input >> shift
+
+
+def minus(input: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+    return -input
+
+
+def add(
+    left: np.ndarray[Any, Any],
+    right: np.ndarray[Any, Any],
+    cache: CacheType | None = None,
+) -> np.ndarray[Any, Any]:
+    return left + right
+
+
+def subtract(
+    left: np.ndarray[Any, Any],
+    right: np.ndarray[Any, Any],
+    cache: CacheType | None = None,
+) -> np.ndarray[Any, Any]:
+    return left - right
+
+
+def power(
+    base: np.ndarray[Any, Any],
+    exponent: np.ndarray[Any, Any],
+    cache: CacheType | None = None,
+) -> np.ndarray[Any, Any]:
+    return base**exponent
+
+
+def squared_error(
+    input: np.ndarray[Any, Any],
+    target: np.ndarray[Any, Any],
+    cache: CacheType | None = None,
+) -> np.ndarray[Any, Any]:
+    return (input - target) ** 2
+
+
+# def transpose(input: np.ndarray[Any, Any], cache: CacheType|None = None) :
+#     return input.T
+
+
+def transpose(
+    input: np.ndarray[Any, Any],
+    axes: list[int] | tuple[int, ...] | None = None,
+    *,
+    cache: CacheType | None = None,
+) -> np.ndarray[Any, Any]:
+    if not axes:
+        return input.T
+    return input.transpose(*axes)
+
+
+def square(
+    input: np.ndarray[Any, Any], cache: CacheType | None = None
+) -> np.ndarray[Any, Any]:
+    return input * input
+
+
+def buffer(
+    input: np.ndarray[Any, Any], cache: CacheType | None = None
+) -> np.ndarray[Any, Any]:
+    return input
+
+
+def permute_tensor(
+    input: np.ndarray[Any, Any],
+    indices: np.ndarray[Any, Any],
+    cache: CacheType | None = None,
+) -> np.ndarray[Any, Any]:
+    return input[indices]
+
+
+def reshape(
+    input: np.ndarray[Any, Any], shape: tuple[int, ...], cache: CacheType | None = None
+) -> np.ndarray[Any, Any]:
+    return input.reshape(shape)
+
+
+def item(input: np.ndarray[Any, Any]) -> int | float | bool:
+    return input.item()
+
+
+def sequence_slice(
+    input: list[int | float] | tuple[int | float, ...],
+    start: int | None,
+    stop: int | None,
+    step: int | None,
+    cache: CacheType | None = None,
+) -> list[int | float] | tuple[int | float, ...]:
+    return input[start:stop:step]
+
+
+def union(
+    *args: int | float | tuple[int | float, ...], cache: CacheType | None = None
+) -> tuple[int | float, ...]:
+    result: tuple[int | float, ...] = tuple()
+    for arg in args:
+        result += arg if isinstance(arg, tuple) else (arg,)
+
+    return result
+
+
+def to_tuple(
+    *args: tuple[int | float | bool, ...], cache: CacheType | None = None
+) -> tuple[Any, ...]:
+    return tuple(args)
+
+
+def to_list(
+    *args: tuple[int | float | bool, ...], cache: CacheType | None = None
+) -> list[Any]:
+    return list(args)
+
+
+def padding_converter_1d(
+    input: PaddingType | int | tuple[int, int],
+    kernel_size: int | tuple[int, int],
+    cache: CacheType | None = None,
+) -> tuple[int, int]:
+    if isinstance(input, PaddingType):
+        if input == PaddingType.VALID:
+            output = (0, 0)
+        elif isinstance(kernel_size, int):
+            if kernel_size % 2 == 0:
+                raise RuntimeError(
+                    "'same' padding is not supported when the kernel size is even!"
+                )
+            half = kernel_size // 2
+            output = (half, half)
+        else:
+            raise RuntimeError("Kernel size must be 'tuple[int, int]' or 'int'!")
+
+    elif isinstance(input, int):
+        output = (input, input)
+
+    else:
+        if isinstance(input[0], Sequence) or isinstance(input[1], Sequence):
+            raise RuntimeError(f"Given input '{input}' is not valid!")
+        output = input
+
+    return output
+
+
+def padding_converter_2d(
+    input: PaddingType
+    | int
+    | tuple[int, int]
+    | tuple[tuple[int, int] | tuple[int, int]],
+    kernel_size: int | tuple[int, int],
+    cache: CacheType | None = None,
+) -> tuple[tuple[int, int], tuple[int, int]]:
+    if isinstance(input, PaddingType):
+        if input == PaddingType.VALID:
+            output = ((0, 0), (0, 0))
+        elif isinstance(kernel_size, tuple):
+            if kernel_size[0] % 2 == 0 or kernel_size[1] % 2 == 0:
+                raise RuntimeError(
+                    "'same' padding is not supported when the kernel size is even!"
+                )
+            output = (
+                (kernel_size[0] // 2, kernel_size[1] // 2),
+                (kernel_size[0] // 2, kernel_size[1] // 2),
+            )
+        else:
+            if kernel_size % 2 == 0:
+                raise RuntimeError(
+                    "'same' padding is not supported when the kernel size is even!"
+                )
+            half = kernel_size // 2
+            output = ((half, half), (half, half))
+    elif isinstance(input, int):
+        output = ((input, input), (input, input))
+    else:
+        _output: list[tuple[int, int]] = []
+        for p in input:
+            if isinstance(p, int):
+                _output.append((p, p))
+            elif len(p) == 2:
+                _output.append(p)
+
+        output = ((_output[0][0], _output[0][1]), (_output[1][0], _output[1][1]))
+    return output
+
+
+# TODO: Overload this function.
+def indexer(
+    input: np.ndarray[Any, Any]
+    | list[int | float | bool]
+    | tuple[int | float | bool, ...],
+    index: int | slice | tuple[int | slice, ...],
+    cache: CacheType | None = None,
+) -> (
+    np.ndarray[Any, Any]
+    | list[int | float | bool]
+    | tuple[int | float | bool, ...]
+    | int
+    | float
+    | bool
+):
+    return input[index]  # type: ignore
+
+
+def primitive_slice(
+    start: int | None,
+    stop: int | None,
+    step: int | None,
+    cache: CacheType | None = None,
+) -> slice:
+    return slice(start, stop, step)
+
+
+def swapaxes(
+    input: np.ndarray[Any, Any],
+    axis1: int,
+    axis2: int,
+    *,
+    cache: CacheType | None = None,
+) -> np.ndarray[Any, Any]:
+    return input.swapaxes(axis1, axis2)
+
+
+def stride_converter(
+    input: int | tuple[int, int] | None,
+    kernel_size: int | tuple[int, int],
+    cache: CacheType | None = None,
+) -> int | tuple[int, int]:
+    if input is None:
+        return kernel_size
+    else:
+        return input
+
+
+def tuple_converter(
+    input: int | tuple[int, int], cache: CacheType | None = None
+) -> tuple[int, int]:
+    if isinstance(input, int):
+        return (input, input)
+    else:
+        return input
+
+
+def length(input: np.ndarray[Any, Any]) -> int:
+    return len(input)
+
+
+def cartesian_diff(
+    left: np.ndarray[Any, Any],
+    right: np.ndarray[Any, Any],
+    cache: CacheType | None = None,
+) -> np.ndarray[Any, Any]:
+    return left[:, None, :] - right[None, :, :]
+
+
 array_creation_funcs = [
     "arange",
     "randn",
@@ -1326,6 +1653,4 @@ array_creation_funcs = [
     "eye",
     "ones_with_zero_diag",
 ]
-primitive_func_dict = {
-    key: fn for key, fn in globals().items() if callable(fn)
-} | common_primitive_func_dict
+primitive_func_dict = {key: fn for key, fn in globals().items() if callable(fn)}

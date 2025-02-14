@@ -14,8 +14,8 @@
 
 from collections.abc import Sequence
 
-from ..utils.utils import PaddingType
-from .core import DataType
+from ...common import PaddingType
+from ..core import DataType
 
 __all__ = [
     "greater",

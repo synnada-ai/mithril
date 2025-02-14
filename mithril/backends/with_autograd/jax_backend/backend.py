@@ -20,8 +20,8 @@ from typing import Any, overload
 import jax
 import jax.numpy as jnp
 
-from ....cores.jax import ops
-from ....cores.jax import utils as core_utils
+from ....cores.python.jax import ops
+from ....cores.python.jax import utils as core_utils
 from ....types import Dtype
 from ...backend import PadWidthType, ParallelBackend
 from ...utils import DtypeSubTypes, StaticScalar, process_shape
@@ -51,7 +51,7 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
 
     backend_type = "jax"
     registered_primitives: dict[str, Callable[..., jax.numpy.ndarray]] = {}
-    primitive_fn_path = "mithril.cores.jax.ops"
+    primitive_fn_path = "mithril.cores.python.jax.ops"
 
     def __init__(
         self,

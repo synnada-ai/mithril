@@ -23,9 +23,10 @@ import torch
 import torch.nn.functional as F  # noqa: N812
 from torch.distributed._tensor import DeviceMesh, Replicate, distribute_tensor
 
-from ... import types
-from ...common import find_dominant_type
-from ..autograd_common_primitives import (
+from .... import types
+from ....common import find_dominant_type
+from ...utils import NestedFloatOrIntOrBoolList, is_int_tuple_tuple
+from ..common_primitives import (
     add,
     buffer,
     cartesian_diff,
@@ -67,7 +68,6 @@ from ..autograd_common_primitives import (
     tuple_converter,
     union,
 )
-from ..utils import NestedFloatOrIntOrBoolList, is_int_tuple_tuple
 from .utils import (
     calc_prob_matrix,
     calculate_binary_class_weight,

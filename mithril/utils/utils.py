@@ -15,7 +15,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Iterator, MutableMapping
-from enum import Enum, IntEnum
+from enum import Enum
 from itertools import compress
 from typing import Any, Generic, TypeVar
 
@@ -31,11 +31,6 @@ __all__ = [
 ]
 
 IOType = dict[str, Any]
-
-
-class PaddingType(IntEnum):
-    VALID = 0
-    SAME = 1
 
 
 def convert_specs_to_dict(specs: Any) -> str | dict[str, Any] | list[Any]:

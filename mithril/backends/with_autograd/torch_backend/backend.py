@@ -24,8 +24,8 @@ from torch._functorch.eager_transforms import jacfwd as torch_jacfwd
 from torch._functorch.eager_transforms import jacrev as torch_jacrev
 from torch._functorch.eager_transforms import vjp as torch_vjp
 
-from ....cores.torch import ops
-from ....cores.torch import utils as core_utils
+from ....cores.python.torch import ops
+from ....cores.python.torch import utils as core_utils
 from ....types import Dtype
 from ...backend import PadWidthType, ParallelBackend
 from ...utils import DtypeSubTypes, StaticScalar, process_shape
@@ -50,7 +50,7 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
 
     backend_type = "torch"
     registered_primitives = {}
-    primitive_fn_path = "mithril.cores.torch.ops"
+    primitive_fn_path = "mithril.cores.python.torch.ops"
 
     def __init__(
         self,

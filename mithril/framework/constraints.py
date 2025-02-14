@@ -19,6 +19,7 @@ from itertools import product, zip_longest
 from types import EllipsisType, GenericAlias, NoneType, UnionType
 from typing import Any, get_origin
 
+from ..common import PaddingType
 from ..types import Constant
 from ..utils.type_utils import (
     is_axis_reduce_type,
@@ -31,7 +32,6 @@ from ..utils.type_utils import (
     is_tuple_int_or_none,
     is_tuple_of_two_ints,
 )
-from ..utils.utils import PaddingType
 from .common import (
     DNF,
     TBD,

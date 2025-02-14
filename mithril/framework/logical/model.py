@@ -561,8 +561,6 @@ class Model(BaseModel):
                 # If a container has a value of type Connection or ExtendTemplate
                 # we add necessary models.
 
-                # elif isinstance(lst, Constant):
-                #     return constant_type_table[lst]
                 types = [ConnectionData, ExtendTemplate, Connection, IOKey]
 
                 if (

@@ -69,11 +69,10 @@ __all__ = [
 ]
 
 # Load backends
-# try:
-from .backends.with_autograd.jax_backend.backend import JaxBackend
-
-# except ImportError:
-#     JaxBackend = UnavailableBackend  # type: ignore
+try:
+    from .backends.with_autograd.jax_backend.backend import JaxBackend
+except ImportError:
+    JaxBackend = UnavailableBackend  # type: ignore
 
 try:
     if platform.system() != "Darwin":

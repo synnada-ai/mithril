@@ -20,8 +20,8 @@ from typing import Any, overload
 import mlx.core as mx
 import mlx.nn as nn
 
-from ....cores.mlx import ops
-from ....cores.mlx import utils as core_utils
+from ....cores.python.mlx import ops
+from ....cores.python.mlx import utils as core_utils
 from ....types import Dtype
 from ...backend import Backend, PadWidthType
 from ...utils import DtypeSubTypes, StaticScalar, process_shape
@@ -36,7 +36,7 @@ class MlxBackend(Backend[mx.array]):
     backend_type = "mlx"
     supported_dtypes = [Dtype.float16, Dtype.bfloat16, Dtype.float32]
     registered_primitives: dict[str, Callable[..., mx.array]] = {}
-    primitive_fn_path = "mithril.cores.mlx.ops"
+    primitive_fn_path = "mithril.cores.python.mlx.ops"
 
     def __init__(
         self,

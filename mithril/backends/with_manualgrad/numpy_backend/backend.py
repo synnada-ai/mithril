@@ -17,13 +17,14 @@ from typing import Any
 
 import numpy as np
 
-from ....cores.manualgrad_common_primitives import CacheType
-from ....cores.numpy import ops, ops_grad
-from ....cores.numpy import utils as core_utils
+from ....cores.python.numpy import ops, ops_grad
+from ....cores.python.numpy import utils as core_utils
 from ....types import Dtype
 from ...backend import Backend, PadWidthType
 from ...utils import StaticScalar, process_shape
 from . import utils
+
+CacheType = dict[str, Any]
 
 
 class NumpyBackend(Backend[np.ndarray[Any, Any]]):
@@ -42,8 +43,8 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
 
     registered_primitives = {}
     supported_dtypes = [Dtype.float16, Dtype.float32, Dtype.float64]
-    primitive_fn_path = "mithril.cores.numpy.ops"
-    primitive_grad_fn_path = "mithril.cores.numpy.ops_grad"
+    primitive_fn_path = "mithril.cores.python.numpy.ops"
+    primitive_grad_fn_path = "mithril.cores.python.numpy.ops_grad"
     registered_primitives_grad_fn: dict[str, Callable[..., np.ndarray[Any, Any]]] = {}
 
     def __init__(self, device: str = "cpu", dtype: Dtype = Dtype.float32) -> None:

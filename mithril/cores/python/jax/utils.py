@@ -19,8 +19,8 @@ from typing import Any
 import jax
 import jax.numpy as jnp
 
-from ...common import BiMap
-from ..utils import binary_search
+from ....common import BiMap
+from ...utils import binary_search
 
 
 def broadcast_to_highest(

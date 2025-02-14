@@ -19,7 +19,7 @@ import numpy as np
 
 from .... import types
 from ....common import find_dominant_type
-from ....cores.numpy.utils import dtype_map
+from ....cores.python.numpy.utils import dtype_map
 from ...utils import DtypeSubTypes
 
 CODEGEN_CONFIG: dict[str, bool] = {

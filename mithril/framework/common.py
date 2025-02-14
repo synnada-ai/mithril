@@ -35,13 +35,13 @@ from typing import (
     overload,
 )
 
+from ..common import PaddingType
 from ..types import (
     Constant,
     DataType,
     Dtype,
     constant_type_table,
 )
-from ..utils.utils import PaddingType
 from .utils import (
     align_shapes,
     find_type,

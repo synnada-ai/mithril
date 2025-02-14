@@ -13,7 +13,14 @@
 # limitations under the License.
 
 from collections.abc import Callable, Iterator, MutableMapping
+from enum import IntEnum
 from typing import Any, TypeVar
+
+
+class PaddingType(IntEnum):
+    VALID = 0
+    SAME = 1
+
 
 K = TypeVar("K")
 V = TypeVar("V")
@@ -58,9 +65,6 @@ class BiMap(MutableMapping[K, V]):
 
     def __len__(self) -> int:
         return len(self._table)
-
-    # elif isinstance(lst, Constant):
-    #     return constant_type_table[lst]
 
 
 # Other utils
