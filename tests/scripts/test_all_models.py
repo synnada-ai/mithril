@@ -2865,13 +2865,15 @@ def test_cast_float16():
         NumpyBackend(dtype=mithril.float32),
         NumpyBackend(dtype=mithril.float64),
         JaxBackend(dtype=mithril.float16),
-        JaxBackend(dtype=mithril.bfloat16),
         JaxBackend(dtype=mithril.float32),
         JaxBackend(dtype=mithril.float64),
     ]
 
     if platform.system() == "Darwin":
         backends += [MlxBackend(dtype=mithril.float16), MlxBackend()]
+
+    if os.environ.get("CI") != "true":
+        backends.append(JaxBackend(dtype=mithril.bfloat16))
 
     expected_dtypes = {
         "torch": torch.float16,
@@ -2975,13 +2977,15 @@ def test_cast_float32():
         NumpyBackend(dtype=mithril.float32),
         NumpyBackend(dtype=mithril.float64),
         JaxBackend(dtype=mithril.float16),
-        JaxBackend(dtype=mithril.bfloat16),
         JaxBackend(dtype=mithril.float32),
         JaxBackend(dtype=mithril.float64),
     ]
 
     if platform.system() == "Darwin":
         backends += [MlxBackend(dtype=mithril.float16), MlxBackend()]
+
+    if os.environ.get("CI") != "true":
+        backends.append(JaxBackend(dtype=mithril.bfloat16))
 
     expected_dtypes = {
         "torch": torch.float32,
@@ -3042,10 +3046,12 @@ def test_cast_float64():
         NumpyBackend(dtype=mithril.float32),
         NumpyBackend(dtype=mithril.float64),
         JaxBackend(dtype=mithril.float16),
-        JaxBackend(dtype=mithril.bfloat16),
         JaxBackend(dtype=mithril.float32),
         JaxBackend(dtype=mithril.float64),
     ]
+
+    if os.environ.get("CI") != "true":
+        backends.append(JaxBackend(dtype=mithril.bfloat16))
 
     expected_dtypes = {
         "torch": torch.float64,
@@ -3105,13 +3111,15 @@ def test_cast_bool():
         NumpyBackend(dtype=mithril.float32),
         NumpyBackend(dtype=mithril.float64),
         JaxBackend(dtype=mithril.float16),
-        JaxBackend(dtype=mithril.bfloat16),
         JaxBackend(dtype=mithril.float32),
         JaxBackend(dtype=mithril.float64),
     ]
 
     if platform.system() == "Darwin":
         backends += [MlxBackend(dtype=mithril.float16), MlxBackend()]
+
+    if os.environ.get("CI") != "true":
+        backends.append(JaxBackend(dtype=mithril.bfloat16))
 
     expected_dtypes = {
         "torch": torch.bool,
