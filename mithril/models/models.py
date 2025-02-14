@@ -553,7 +553,7 @@ class Linear(Model):
         else:
             self |= mult(left=input_key, right=weight_key, output=output)
 
-        self._set_shapes(shapes)
+        self._set_shapes(**shapes)
         self.set_cin("input", safe=False)
         self._freeze()
 
@@ -701,7 +701,7 @@ class LayerNorm(Model):
         self += denominator(input=add.output)
         self += Divide()(numerator=numerator.output, denominator=denominator.output)
 
-        self._set_shapes({"input": ["B", "C", "d"]})
+        self._set_shapes(input=["B", "C", "d"])
 
         shapes: dict[str, ShapeTemplateType] = {
             "left": ["B", "C", "d"],
@@ -716,7 +716,7 @@ class LayerNorm(Model):
             self += mult(
                 left=self.cout, right=IOKey("weight", value=weight, differantiable=True)
             )
-            mult._set_shapes(shapes)
+            mult._set_shapes(**shapes)
 
         if use_bias:
             add = Add()
@@ -726,7 +726,7 @@ class LayerNorm(Model):
             self += add(
                 left=self.cout, right=IOKey("bias", value=bias, differantiable=True)
             )
-            add._set_shapes(shapes)
+            add._set_shapes(**shapes)
         # TODO: Remove below Buffer after required naming-related changes are done.
         self += Buffer()(input=self.cout, output=IOKey(name="output"))
         self.set_cin("input", safe=False)
@@ -786,7 +786,7 @@ class GroupNorm(Model):
         _input_key = (_input_key - mean) / (var + eps).sqrt()
         self |= Reshape()(input=_input_key, shape=input_shape)
 
-        self._set_shapes({"input": ["B", "C", "H", "W"]})
+        self._set_shapes(input=["B", "C", "H", "W"])
 
         shapes: dict[str, ShapeTemplateType] = {
             "left": ["B", "C", "H", "W"],
@@ -799,7 +799,7 @@ class GroupNorm(Model):
             )
             mult = Multiply()
             self |= mult(left=self.cout, right=weight_key)
-            mult._set_shapes(shapes)
+            mult._set_shapes(**shapes)
 
         if use_bias:
             bias_key = IOKey(
@@ -807,7 +807,7 @@ class GroupNorm(Model):
             )
             add = Add()
             self |= add(left=self.cout, right=bias_key)
-            add._set_shapes(shapes)
+            add._set_shapes(**shapes)
 
         self |= Buffer()(input=self.cout, output=IOKey(name="output"))
         self.set_cin("input", safe=False)
@@ -924,7 +924,7 @@ class QuadraticFormRegularizer(Model):
             left=dot_model2.output, right=Tensor(0.5), output=IOKey(name="output")
         )
         shapes: dict[str, ShapeTemplateType] = {"input": [1, "N"], "kernel": ["N", "N"]}
-        self._set_shapes(shapes)
+        self._set_shapes(**shapes)
         self.set_cin("input", safe=False)
         self._freeze()
 
@@ -997,7 +997,7 @@ class RBFKernel(Model):
             "output": ["N", "M"],
         }
 
-        self._set_shapes(shapes)
+        self._set_shapes(**shapes)
         self.set_cin("input1", "input2", safe=False)
         self._freeze()
 
@@ -1054,13 +1054,7 @@ class PolynomialKernel(Model):
             exponent=IOKey("degree", value=degree),
             output=IOKey(name="output"),
         )
-        self._set_shapes(
-            {
-                "input1": ["N", "d"],
-                "input2": ["M", "d"],
-                "output": ["N", "M"],
-            }
-        )
+        self._set_shapes(input1=["N", "d"], input2=["M", "d"], output=["N", "M"])
         self._add_constraint(
             fn=polynomial_kernel_constraint, keys=["poly_coef", "degree"]
         )
@@ -1134,7 +1128,7 @@ class KernelizedSVM(Model):
             "output": ["N", 1],
             "kernel": ["N", "M"],
         }
-        self._set_shapes(shapes)
+        self._set_shapes(**shapes)
         # self.set_cin("input1", "input2", safe=False)
         self.set_cin("input1", safe=False)
         self._freeze()
@@ -1437,7 +1431,7 @@ class RNNCell(Cell):
             "bias_o": ["d_out"],
         }
 
-        self._set_shapes(shapes)
+        self._set_shapes(**shapes)
         self.set_cin("input", safe=False)
         self.set_cout("output")
         self._freeze()
@@ -1612,7 +1606,7 @@ class LSTMCell(Cell):
             "cell": ["N", 1, "d_hid"],
         }
 
-        self._set_shapes(shapes)
+        self._set_shapes(**shapes)
         self.set_cin("input", safe=False)
         self.set_cout("output")
         self._freeze()
@@ -1766,7 +1760,7 @@ class LSTMCellBody(Model):
             "bias_o": ["d_hid"],
         }
 
-        self._set_shapes(shapes)
+        self._set_shapes(**shapes)
         self._freeze()
 
     def __call__(  # type: ignore[override]
@@ -2324,7 +2318,7 @@ class MDSCore(Model):
                 output=IOKey(name="output"),
             )
 
-        self._set_shapes({"distances": ["N", "N"], "pred_distances": ["N", "N"]})
+        self._set_shapes(distances=["N", "N"], pred_distances=["N", "N"])
         self._freeze()
 
     def __call__(  # type: ignore[override]
@@ -2412,7 +2406,7 @@ class TSNECore(Model):
             input=kl_divergence_model.output, output=IOKey(name="output")
         )
 
-        self._set_shapes({"distances": ["N", "N"], "pred_distances": ["N", "N"]})
+        self._set_shapes(distances=["N", "N"], pred_distances=["N", "N"])
         self.set_cin("distances", safe=False)
         self.set_cout("output")
         self._freeze()
@@ -2578,7 +2572,7 @@ class MDS(DistanceEncoder):
             predicted_coords=predicted_coords,
         )
         self.factory_args = {"prediction_dim": prediction_dim, "input_type": input_type}
-        self._set_shapes({"coords": [None, prediction_dim]})
+        self._set_shapes(coords=[None, prediction_dim])
         self._freeze()
 
     def __call__(  # type: ignore[override]
@@ -2643,7 +2637,7 @@ class TSNE(DistanceEncoder):
             "preplexity": preplexity,
         }
 
-        self._set_shapes({"coords": [None, prediction_dim]})
+        self._set_shapes(coords=[None, prediction_dim])
         self._freeze()
 
     def __call__(  # type: ignore[override]
@@ -2763,7 +2757,7 @@ class GaussProcessRegressionCore(Model):
             "confidence": ["N", 1],
         }
 
-        self._set_shapes(shapes)
+        self._set_shapes(**shapes)
         self._freeze()
 
     def __call__(  # type: ignore[override]
@@ -2853,7 +2847,7 @@ class GPRLoss(Model):
             "output": [1],
         }
 
-        self._set_shapes(shapes)
+        self._set_shapes(**shapes)
         self._freeze()
 
     def __call__(  # type: ignore[override]
@@ -3571,7 +3565,7 @@ class SiLU(Model):
         self |= Divide()(
             numerator="input", denominator="add", output=IOKey(name="output")
         )
-        self._set_shapes({"input": [("Var", ...)], "output": [("Var", ...)]})
+        self._set_shapes(input=[("Var", ...)], output=[("Var", ...)])
 
         self._freeze()
 

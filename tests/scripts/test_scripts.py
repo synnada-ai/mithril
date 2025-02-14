@@ -314,7 +314,7 @@ def test_recursive_model_error():
     model3 = Model()
 
     sum1 = Add()
-    sum1.set_shapes({"left": [2, 3, 4, 5, 6, 1], "right": [1, 1, 1, 1, 1, 7]})
+    sum1.set_shapes(left=[2, 3, 4, 5, 6, 1], right=[1, 1, 1, 1, 1, 7])
     sum2 = Add()
     sum3 = Add()
 
@@ -336,7 +336,7 @@ def test_recursive_model():
     model3 = Model()
 
     sum1 = Add()
-    sum1.set_shapes({"left": [2, 3, 4, 5, 6, 1], "right": [1, 1, 1, 1, 1, 7]})
+    sum1.set_shapes(left=[2, 3, 4, 5, 6, 1], right=[1, 1, 1, 1, 1, 7])
     sum2 = Add()
     sum3 = Add()
 
@@ -361,14 +361,14 @@ def test_shape():
 
     model2 = Model()
     sigmoid1 = Sigmoid()
-    sigmoid1.set_shapes({"input": [1, 1, 3, 4, 5]})
+    sigmoid1.set_shapes(input=[1, 1, 3, 4, 5])
     model2 += sigmoid1(input="input1", output=IOKey(name="output1"))
     model2 += Sigmoid()(input="input2", output=IOKey(name="output2"))
 
     model3 = Model()
     model3 += Sigmoid()(input="input1", output=IOKey(name="output1"))
     sigmoid2 = Sigmoid()
-    sigmoid2.set_shapes({"input": [5, 6, 8, 9, 10]})
+    sigmoid2.set_shapes(input=[5, 6, 8, 9, 10])
     model3 += sigmoid2(input="input2", output=IOKey(name="output2"))
 
     model += model1(input2="in2", output2=IOKey(name="output"))
@@ -411,11 +411,9 @@ def test_2_set_shapes_bug():
     linear2 = Linear()
     model += linear1(input="input")
     model += linear2(input=linear1.output, output="output")
-    shape_1: dict[str, list] = {"input": [120, 120], "weight": [32, None]}
-    shape_2: dict[str, list] = {"weight": [32, 32], "bias": [None]}
 
-    linear1.set_shapes(shape_1)
-    linear2.set_shapes(shape_2)
+    linear1.set_shapes(input=[120, 120], weight=[32, None])
+    linear2.set_shapes(weight=[32, 32], bias=[None])
 
     comp_model = mithril.compile(model, NumpyBackend(dtype=mithril.float64))
 
@@ -430,11 +428,7 @@ def test_2_set_shapes_bug():
 def test_1_solve_constraint_extend():
     model = Model()
     c1 = Convolution2D(3)
-    shape_1: dict[str, list] = {
-        "input": [8, 3, 224, 224],
-        "weight": [16, 3, None, None],
-    }
-    c1.set_shapes(shape_1)
+    c1.set_shapes(input=[8, 3, 224, 224], weight=[16, 3, None, None])
     model += c1
     model += Convolution2D(3, 32)
     model += Convolution2D(3, 64)
@@ -446,7 +440,7 @@ def test_1_solve_constraint_extend():
 def test_2_solve_constraint_extend():
     model = Model()
     m = Multiply()
-    m.set_shapes({"left": [3, 3], "right": [3, 3, 3]})
+    m.set_shapes(left=[3, 3], right=[3, 3, 3])
     model += m
     assert m.shapes == {"left": [3, 3], "right": [3, 3, 3], "output": [3, 3, 3]}
 
@@ -455,7 +449,7 @@ def test_3_solve_constraint_extend():
     model = Model()
     m = Multiply()
     model += m
-    m.set_shapes({"left": [3, 3], "right": [3, 3, 3]})
+    m.set_shapes(left=[3, 3], right=[3, 3, 3])
     assert m.shapes == {"left": [3, 3], "right": [3, 3, 3], "output": [3, 3, 3]}
 
 
@@ -585,7 +579,7 @@ def test_pickle_empty_backend():
 
     model = Linear(dimension=5)
     model.set_differentiability(input=True)
-    model.set_shapes({"input": [5, 5]})
+    model.set_shapes(input=[5, 5])
     ctx = TrainModel(model)
     ctx.add_loss(Buffer(), input=model.cout)
 
@@ -1385,7 +1379,7 @@ def test_shapes_1():
     model += (l1 := Linear(10))
     model += Linear(10)
     model += Linear(10)
-    l1.set_shapes({"input": [50, 2]})
+    l1.set_shapes(input=[50, 2])
     assert model.shapes == {
         "$_Linear_0_output": [50, 10],
         "$_Linear_1_output": [50, 10],
@@ -1420,7 +1414,7 @@ def test_flatten_dag0():
     lin2.set_differentiability(input=True)
     lin3.set_differentiability(input=True)
 
-    l5.set_shapes({"input": [1, 1]})
+    l5.set_shapes(input=[1, 1])
     model.set_cout(l1.output)
     model.set_cin(l1.input)
     pm = mithril.compile(model, backend)
@@ -1527,7 +1521,7 @@ def test_reduce_overlap_shapes():
     model += layer_2(weight="weight2", input="output1", output=IOKey(name="output2"))
     model += layer_3(weight="weight3", input="output2", output=IOKey(name="output3"))
 
-    model.set_shapes({"input": [5, 4, 3]})
+    model.set_shapes(input=[5, 4, 3])
     ctx = TrainModel(model)
     ctx.add_regularization(L1(), input="weight1", coef=Tensor(1e-1))
     ctx.add_regularization(L1(), input="weight2", coef=Tensor(1e-1))
@@ -1587,13 +1581,11 @@ def test_reduce_overlap_shapes_1():
     relu_model_2 = Relu()
     reduce_model_1 = Mean(axis=0)
     reduce_model_2 = Mean(axis=0)
-    shape_1: dict[str, list] = {"input": ["u1", "u2", ("Var1", ...)]}
-    shape_2: dict[str, list] = {"input": [("Var1", ...), "u1", "u2"]}
-    relu_model_1.set_shapes(shape_1)
-    relu_model_2.set_shapes(shape_2)
+    relu_model_1.set_shapes(input=["u1", "u2", ("Var1", ...)])
+    relu_model_2.set_shapes(input=[("Var1", ...), "u1", "u2"])
     model += relu_model_1(input="input")
 
-    model.set_shapes({"input": [3, 2]})
+    model.set_shapes(input=[3, 2])
     model += relu_model_2(input=relu_model_1.output)
     model += reduce_model_1(input=relu_model_2.output)
     model += reduce_model_2(input=reduce_model_1.output)
@@ -1603,10 +1595,10 @@ def test_reduce_overlap_shapes_1():
     relu_model_2_1 = Relu()
     reduce_model_1_1 = Mean(axis=0)
     reduce_model_2_1 = Mean(axis=0)
-    shape_1_1: dict[str, list] = {"input": ["u1", "u2", ("Var1", ...)]}
-    shape_2_1: dict[str, list] = {"input": [("Var1", ...), "u1", "u2"]}
-    relu_model_1_1.set_shapes(shape_1_1)
-    relu_model_2_1.set_shapes(shape_2_1)
+    relu_model_1_1.set_shapes(
+        input=["u1", "u2", ("Var1", ...)],
+    )
+    relu_model_2_1.set_shapes(input=[("Var1", ...), "u1", "u2"])
     model_1 += relu_model_1_1(input="input")
     model_1 += relu_model_2_1(input=relu_model_1_1.output)
     model_1 += reduce_model_1_1(input=relu_model_2_1.output)
@@ -1623,12 +1615,11 @@ def test_reduce_overlap_shapes_1():
 def test_reduce_overlap_shapes_2():
     model1 = Model()
     buff1 = Buffer()
-    shape: dict[str, list] = {"input": ["u1", ("Var1", ...)]}
-    buff1.set_shapes(shape)
+    buff1.set_shapes(input=["u1", ("Var1", ...)])
     mean1 = Mean(axis=0)
     model1 += buff1(input="input")
     model1 += mean1(input=buff1.output)
-    model1.set_shapes({"input": [10]})
+    model1.set_shapes(input=[10])
 
     assert model1.shapes == {
         "input": [10],
@@ -1662,7 +1653,7 @@ def test_geomean_evaluate():
             "output": IOKey("output2"),
         },
     )
-    model1.set_shapes({"input": [10, 10, 10]})
+    model1.set_shapes(input=[10, 10, 10])
     lin1.set_differentiability(input=True)
 
     ctx1 = TrainModel(model1)
@@ -3642,7 +3633,7 @@ def test_mlp_last_dimension_prop():
     mlp_model = MLP(activations=[Relu(), Relu(), Relu()], dimensions=[12, 24, None])
     ctx = TrainModel(mlp_model)
     loss_model = SquaredError()
-    loss_model.set_shapes(loss_model.submodel.safe_shapes)
+    loss_model.set_shapes(**loss_model.submodel.safe_shapes)
     ctx.add_loss(
         loss_model,
         input=mlp_model.cout,
@@ -5753,7 +5744,7 @@ def test_deepcopy_4():
     _model = Model()
     _model += Add()
     _model += Add()
-    _model.set_types({key: Tensor for key in _model.conns.input_keys})
+    _model.set_types(**{key: Tensor for key in _model.conns.input_keys})  # type: ignore
     for _ in range(4):
         model = Model()
         model += deepcopy(_model)

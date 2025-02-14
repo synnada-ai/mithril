@@ -1265,11 +1265,7 @@ class ConnectionData:
         return updates
 
 
-ShapesType = (
-    Mapping[str | ConnectionData, ShapeTemplateType]
-    | Mapping[str, ShapeTemplateType]
-    | Mapping[ConnectionData, ShapeTemplateType]
-)
+ShapesType = Mapping[ConnectionData, ShapeTemplateType]
 ShapeResultType = Mapping[str, ShapeTemplateType | list[ShapeTemplateType] | None]
 
 

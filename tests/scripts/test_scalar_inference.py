@@ -18,7 +18,7 @@ from typing import Protocol, runtime_checkable
 import pytest
 
 import mithril as ml
-from mithril.framework.common import TBD, ConnectionData
+from mithril.framework.common import TBD
 from mithril.framework.logical.model import Connection, IOKey
 from mithril.models import (
     Add,
@@ -93,8 +93,7 @@ class TestScalarInference:
         ) // shape_output[3]
 
         model |= add_model(model_output, 3, IOKey("output"))
-        shapes: dict[ConnectionData | str, list] = {model.cin: [8, 2, 14, 10]}
-        model.set_shapes(shapes)
+        model.set_shapes({model.cin: [8, 2, 14, 10]})
 
         return model
 
@@ -111,8 +110,7 @@ class TestScalarInference:
         mean_shape = model.cout.shape  # [8, 14, 10]
         output2 = (mean_shape[0] ** (mean_shape[1] / 7)) + mean_shape[2]  # 74
         model += Add()(output2, output1, IOKey("output"))  # 75
-        shapes: dict[ConnectionData | str, list] = {model.cin: [8, 2, 14, 10]}
-        model.set_shapes(shapes)
+        model.set_shapes({model.cin: [8, 2, 14, 10]})
         return model
 
     def test_shape_model_output_basic(self, shape_model: Model):
@@ -149,6 +147,6 @@ class TestScalarInference:
             model += Add()(mul.output, 1, IOKey("output"))
             assert isinstance(model, SupportsOutput)
             assert model.output.metadata.value == TBD
-            model.set_values({"in1": 2, "in2": 6, "in3": 7, "in4": 1})
-            model.set_values({"in5": 3})
+            model.set_values(in1=2, in2=6, in3=7, in4=1)
+            model.set_values(in5=3)
             assert model.output.metadata.value == 25.0

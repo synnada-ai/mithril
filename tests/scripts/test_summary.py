@@ -548,7 +548,7 @@ def test_extract_logical_connections_13():
 def test_extract_shapes_logical_1():
     model = Model()
     buff1 = Buffer()
-    buff1.set_shapes({"input": [37, 23]})
+    buff1.set_shapes(input=[37, 23])
     buff2 = Buffer()
     model += buff1(input="input")
     model += buff2(input=buff1.output)
@@ -573,7 +573,7 @@ def test_extract_shapes_logical_2():
     buff2 = Buffer()
     model += buff1(input="input")
     model += buff2(input=buff1.output)
-    model.set_shapes({"input": [45, 96, 2]})
+    model.set_shapes(input=[45, 96, 2])
     name_mappings = define_unique_names(model.dag.keys())
     uni_cache: dict[UniadicRecord, str] = {}
     var_cache: dict[Variadic, str] = {}
@@ -604,7 +604,7 @@ def test_extract_shapes_logical_3():
     model += relu_2
     model += linear_3
     model += relu_3
-    relu_2.set_shapes({"input": [4, 2]})
+    relu_2.set_shapes(input=[4, 2])
     name_mappings = define_unique_names(model.dag.keys())
     uni_cache: dict[UniadicRecord, str] = {}
     var_cache: dict[Variadic, str] = {}
@@ -641,7 +641,7 @@ def test_extract_shapes_logical_4():
     relu_1 = Relu()
     relu_2 = Relu()
     relu_3 = Relu()
-    conv_1.set_shapes({"input": [5, 4, 60, 60]})
+    conv_1.set_shapes(input=[5, 4, 60, 60])
     model += conv_1(input="input", weight="weight")
     model += relu_1
     model += conv_2
@@ -721,7 +721,7 @@ def test_extract_shapes_logical_5():
     model += relu_2
     model += linear_3
     model += relu_3
-    relu_2.set_shapes({"input": [None, None]})
+    relu_2.set_shapes(input=[None, None])
     name_mappings = define_unique_names(model.dag.keys())
     uni_cache: dict[UniadicRecord, str] = {}
     var_cache: dict[Variadic, str] = {}
@@ -893,9 +893,9 @@ def test_physical_summary_1():
     model += LeakyRelu()
     model += (lin1 := Linear(dimension=3))
     model += (l_relu := LeakyRelu())(slope=NOT_GIVEN)
-    l_relu.set_values({"slope": Tensor(1e-1)})
+    l_relu.set_values(slope=Tensor(1e-1))
     model += Relu()
-    lin1.set_shapes({"input": [3, 5]})
+    lin1.set_shapes(input=[3, 5])
     comp_model = mithril.compile(
         model=model, backend=NumpyBackend(), data_keys={"input"}
     )
@@ -1028,10 +1028,10 @@ def test_physical_model_summary_5():
     divide = Divide()
     exp = Power()
     add_shape: ShapeTemplateType = ["u1", "u2"]
-    add.set_shapes({"left": add_shape, "right": [1]})
+    add.set_shapes(left=add_shape, right=[1])
     div_shape: ShapeTemplateType = ["u3", "u4"]
-    divide.set_shapes({"numerator": div_shape, "denominator": [1]})
-    exp.set_shapes({"base": div_shape, "exponent": [1]})
+    divide.set_shapes(numerator=div_shape, denominator=[1])
+    exp.set_shapes(base=div_shape, exponent=[1])
     model += add
     model += divide
     model += exp
@@ -1058,7 +1058,7 @@ def test_physical_model_summary_6():
         bias="b",
         output="output",
     )
-    random_kernel_model.set_shapes({"input1": ["N", "M"], "input2": ["N", "M"]})
+    random_kernel_model.set_shapes(input1=["N", "M"], input2=["N", "M"])
 
     comp_model = mithril.compile(model=model, backend=JaxBackend(), safe_names=False)
 
@@ -1078,7 +1078,7 @@ def test_physical_model_summary_7():
     random_kernel_model += Linear()(
         input=sig1.output, weight="weight", bias="b", output="output"
     )
-    random_kernel_model.set_shapes({"input1": ["N", "M"], "input2": ["N", "M"]})
+    random_kernel_model.set_shapes(input1=["N", "M"], input2=["N", "M"])
 
     comp_model = mithril.compile(
         model=random_kernel_model, backend=JaxBackend(), safe_names=False
@@ -1102,11 +1102,11 @@ def test_physical_model_summary_8():
         output="output",
     )
     input1_shape: ShapeTemplateType = ["a", ("Var1", ...), "b"]
-    another_random_model.set_shapes({"input1": input1_shape})
+    another_random_model.set_shapes(input1=input1_shape)
     random_kernel_model += (add1 := Add())(left="input1", right="input2")
     random_kernel_model += (relu1 := Relu())(input=add1.output)
     random_kernel_model += Sigmoid()(input=relu1.output)
-    random_kernel_model.set_shapes({"input1": ["N", "M"], "input2": ["N", "M"]})
+    random_kernel_model.set_shapes(input1=["N", "M"], input2=["N", "M"])
     model += random_kernel_model
     model += another_random_model
 
@@ -1125,7 +1125,7 @@ def test_physical_model_summary_9():
     random_kernel_model += (add1 := Relu())(input="input1")
     random_kernel_model += (relu1 := Relu())(input=add1.output)
     random_kernel_model += Sigmoid()(input=relu1.output)
-    random_kernel_model.set_shapes({"input1": ["N", "M"]})
+    random_kernel_model.set_shapes(input1=["N", "M"])
     model += random_kernel_model
     model += Relu()
 

@@ -22,7 +22,7 @@ def test_set_types_1():
     model = Model()
     sig_model = Sigmoid()
     model += sig_model(input="input", output=IOKey("output"))
-    model.set_types({"input": Tensor[int]})
+    model.set_types(input=Tensor[int])
     input_data = sig_model.input.metadata
     assert input_data.value_type is int
 
@@ -40,7 +40,7 @@ def test_set_types_2():
     model = Model()
     buffer_model = Buffer()
     model += buffer_model(input="input", output=IOKey(name="output"))
-    model.set_types({"input": Tensor[int | bool]})
+    model.set_types(input=Tensor[int | bool])
     input_data = buffer_model.input.metadata
     assert input_data.value_type == int | bool
 
@@ -122,14 +122,14 @@ def test_set_types_6():
     model += buffer_model_2(input="input2", output=IOKey(name="output2"))
     model.set_types({model.input1: Tensor[int | bool], "input2": Tensor[float]})  # type: ignore
     with pytest.raises(TypeError):
-        model.set_types({"input1": float})
+        model.set_types(input1=float)
 
 
 def test_set_types_7():
     model = Model()
     item_model = Indexer(index=1)
     model += item_model(input="input", output=IOKey("output"))
-    model.set_types({"input": tuple[int, float, int]})
+    model.set_types(input=tuple[int, float, int])
     input_data = model.input.metadata  # type: ignore
     output_data = model.output.metadata  # type: ignore
     assert input_data.value_type == tuple[int, float, int]
@@ -140,7 +140,7 @@ def test_set_types_8():
     model = Model()
     item_model = Indexer(index=1)
     model += item_model(input="input", output=IOKey("output"))
-    item_model.set_types({"input": tuple[int, float, int]})
+    item_model.set_types(input=tuple[int, float, int])
     input_data = model.input.metadata  # type: ignore
     output_data = model.output.metadata  # type: ignore
     assert input_data.value_type == tuple[int, float, int]
@@ -158,7 +158,7 @@ def test_set_types_9():
     model3 += model2(input="input", output=IOKey("output"))
     model4 += model3(input="input", output=IOKey("output"))
 
-    model2.set_types({"input": tuple[int, float, int]})
+    model2.set_types(input=tuple[int, float, int])
     input_data = model1.input.metadata  # type: ignore
     output_data = model3.output.metadata  # type: ignore
     assert input_data.value_type == tuple[int, float, int]

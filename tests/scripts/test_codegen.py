@@ -49,7 +49,7 @@ def list_full(fill_value, *shapes):
 def test_single_input_primitive(file_path):
     model = Model()
     model += Relu()(input=IOKey("input", differantiable=True), output="output")
-    model.set_shapes({"input": [1, 2, 3]})
+    model.set_shapes(input=[1, 2, 3])
     backend = NumpyBackend()
 
     mithril.compile(model, backend, inference=False, jit=False, file_path=file_path)
@@ -108,7 +108,7 @@ def test_multi_input_primitive(file_path: str):
         input=IOKey("input", differantiable=True), weight="w", bias="b", output="output"
     )
     model.set_differentiability(input=True)
-    model.set_shapes({"input": [1, 2, 3]})
+    model.set_shapes(input=[1, 2, 3])
     backend = NumpyBackend()
 
     mithril.compile(model, backend, inference=False, jit=False, file_path=file_path)
@@ -196,7 +196,7 @@ def test_variadic_input_primitive_1(file_path: str):
         input3=IOKey("input3", differantiable=True),
         output="output",
     )
-    model.set_shapes({"input1": [1, 2, 3]})
+    model.set_shapes(input1=[1, 2, 3])
     backend = NumpyBackend()
 
     mithril.compile(model, backend, inference=False, jit=False, file_path=file_path)

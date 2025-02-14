@@ -27,7 +27,6 @@ from ..framework.common import (
     ConnectionData,
     IOHyperEdge,
     MainValueType,
-    ShapesType,
     ShapeTemplateType,
     Tensor,
     TensorValueType,
@@ -207,7 +206,7 @@ def dict_to_model(
 
     types: dict[str, str] = params.get("types", {})
     # TODO: Set all types in a bulk.
-    set_types: dict[str | ConnectionData, type | type[Tensor[Any]]] = {}
+    set_types = {}
     for key, typ in types.items():
         if typ == "tensor":
             set_types[key] = Tensor[int | float | bool]
@@ -248,7 +247,7 @@ def dict_to_model(
         model |= m(**mappings)
 
     if set_types:
-        model.set_types(set_types)
+        model.set_types(**set_types)
 
     if "model" in canonical_keys:
         if canonical_keys["model"][0] is not None:
@@ -273,7 +272,7 @@ def dict_to_model(
             model.add_constraint(constrain_fn, keys=constr_info["keys"])  # type: ignore
 
     if len(assigned_shapes) > 0:
-        model.set_shapes(dict_to_shape(assigned_shapes))
+        model.set_shapes(**dict_to_shape(assigned_shapes))
     assert isinstance(model, Model)
     return model
 
@@ -615,7 +614,9 @@ def dict_to_regularizations(
     return reg_specs
 
 
-def shape_to_dict(shapes: ShapesType) -> dict[str, list[int | str | None]]:
+def shape_to_dict(
+    shapes: dict[str, ShapeTemplateType],
+) -> dict[str, list[int | str | None]]:
     shape_dict: dict[str, list[int | str | None]] = {}
     for key, shape in shapes.items():
         shape_list: list[str | int | None] = []
@@ -624,7 +625,7 @@ def shape_to_dict(shapes: ShapesType) -> dict[str, list[int | str | None]]:
                 shape_list.append(f"{item[0]},...")
             else:
                 shape_list.append(item)
-        shape_dict[key] = shape_list  # type: ignore
+        shape_dict[key] = shape_list
     return shape_dict
 
 
