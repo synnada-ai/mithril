@@ -22,7 +22,7 @@ from posixpath import basename, splitext
 from typing import Any, Generic, Literal, Protocol, overload
 
 from ...backends.backend import ParallelBackend
-from ...core import DataType, Dtype
+from ...types import DataType, Dtype
 from ...utils.func_utils import prepare_function_args
 from ..common import (
     DataEvalType,

@@ -25,6 +25,7 @@ import torch
 import mithril as ml
 from mithril import JaxBackend, MlxBackend, NumpyBackend, TorchBackend
 from mithril.backends.utils import DtypeBits
+from mithril.common import PaddingType
 from mithril.framework.common import (
     NOT_GIVEN,
     TBD,
@@ -74,7 +75,6 @@ from mithril.models import (
     Transpose,
     Where,
 )
-from mithril.utils.utils import PaddingType
 
 from .helper import assert_models_equal
 from .test_utils import (
@@ -109,7 +109,7 @@ def assert_all_backends_device_dtype(model: Model, inference: bool = False):
             [backends], backends.get_available_devices(), backends.supported_dtypes
         )
     )
-    unsupported_device_dtypes: list[tuple[type[ml.Backend], str, ml.core.Dtype]] = [
+    unsupported_device_dtypes: list[tuple[type[ml.Backend], str, ml.types.Dtype]] = [
         (TorchBackend, "mps:0", ml.float64),
         (NumpyBackend, "cpu", ml.bfloat16),
         (MlxBackend, "cpu", ml.float16),
@@ -120,7 +120,7 @@ def assert_all_backends_device_dtype(model: Model, inference: bool = False):
     if platform.system() == "Darwin" and os.environ.get("CI") == "true":
         # Jax has issues with bfloat16 on MacOS in CI
         # See issue: https://github.com/jax-ml/jax/issues/25730
-        unsupported_device_dtypes.append((JaxBackend, "cpu:0", ml.core.Dtype.bfloat16))
+        unsupported_device_dtypes.append((JaxBackend, "cpu:0", ml.types.Dtype.bfloat16))
 
     for backend_class, device, dtype in backends_with_device_dtype:
         # remove unsupported backend, device and dtype trios

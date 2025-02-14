@@ -71,7 +71,7 @@ def test_error_robust_power_call_threshold_re_set_value():
     primitive_pow = Power(robust=True)
     rob_pow += primitive_pow(threshold="threshold")
     primitive_pow.set_values({"threshold": 1.3})
-    from mithril.core import Constant
+    from mithril.types import Constant
 
     mean_model = Model()
     with pytest.raises(ValueError):

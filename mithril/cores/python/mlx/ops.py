@@ -22,10 +22,13 @@ import mlx.core as mx
 import mlx.nn as nn
 import numpy as np
 
-from .... import core
-from ....utils.type_utils import is_int_tuple_tuple, is_tuple_int
-from ....utils.utils import find_dominant_type
-from ...utils import NestedFloatOrIntOrBoolList
+from .... import types
+from ....common import find_dominant_type
+from ...utils import (
+    NestedFloatOrIntOrBoolList,
+    is_int_tuple_tuple,
+    is_tuple_int,
+)
 from ..common_primitives import (
     add,
     buffer,
@@ -69,6 +72,8 @@ from ..common_primitives import (
     tuple_converter,
     union,
 )
+
+# from ...backends.with_autograd.mlx_backend import utils
 from . import utils
 
 AxisType = None | int | Sequence[int]
@@ -936,8 +941,8 @@ def cast(input: mx.array, dtype: mx.Dtype) -> mx.array:
     return input.astype(dtype)
 
 
-def dtype(input: mx.array) -> core.Dtype:
-    return getattr(core, str(input.dtype).split(".")[-1])
+def dtype(input: mx.array) -> types.Dtype:
+    return getattr(types, str(input.dtype).split(".")[-1])
 
 
 def logical_xor(left: mx.array, right: mx.array) -> mx.array:

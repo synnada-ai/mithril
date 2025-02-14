@@ -20,6 +20,7 @@ from functools import reduce
 from types import EllipsisType, UnionType
 from typing import Any, TypedDict, get_origin
 
+from ..common import PaddingType
 from ..framework.common import (
     TBD,
     AllValueType,
@@ -45,7 +46,7 @@ from ..models import (
 )
 from ..models.train_model import TrainModel
 from ..utils import model_conversion_lut
-from ..utils.utils import PaddingType, convert_to_tuple
+from ..utils.utils import convert_to_tuple
 
 
 class KeyDict(TypedDict, total=False):
