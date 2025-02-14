@@ -32,6 +32,7 @@ from mithril.models import (
     Gelu,
     Linear,
     Log,
+    MatrixMultiply,
     Minimum,
     Model,
     Multiply,
@@ -140,7 +141,7 @@ def rms_norm(dim: int, *, name: str | None = None):
     )  # TODO: weight must be initialized with ones.
     rrms = input / ((input**2).mean(axis=-1, keepdim=True) + 1e-5).sqrt()
     block += Multiply()(left=rrms, right=weight, output=IOKey("output"))
-
+    block.set_cin("input")
     return block
 
 
@@ -171,7 +172,7 @@ def dense_activation(config: dict[str, Any], *, name: str | None = None):
         block += Multiply()(left="hidden_act", right="lin_out", output="hidden_out")
     else:
         block += Linear(mlp_dims, name="wi", use_bias=False)(input)
-        block += activation(output="hidden_out")
+        block += Relu()(output="hidden_out")
 
     block += Linear(config["d_model"], name="wo", use_bias=False)(
         output=IOKey("output")
@@ -245,7 +246,7 @@ def transformer_encoder_layer(config: dict[str, Any], *, name: str | None = None
         input="norm2", output="ff_out"
     )
     block |= Add()(left="attn_out2", right="ff_out", output=IOKey("output"))
-
+    block.set_cout("output")
     return block
 
 
@@ -343,6 +344,7 @@ def transformer_decoder_layer(
         input="norm3", output="ff_out"
     )
     block |= Add()(left="cross_attn_out2", right="ff_out", output=IOKey("output"))
+    block.set_cout("output")
 
     return block
 
@@ -371,9 +373,7 @@ def transformer_decoder(config: dict[str, Any], *, name: str | None = None):
         )
         input_key = f"output_{idx}"
 
-    block |= rms_norm(config["d_model"], name="ln")(
-        input=input_key, output=IOKey("output")
-    )
+    block += rms_norm(config["d_model"], name="ln")(output=IOKey("output"))
 
     return block
 
@@ -420,8 +420,9 @@ def t5_decode(config: dict[str, Any], *, name: str | None = None):
     else:
         decoder_out = block.decoder_out  # type: ignore
         decoder_out *= config["d_model"] ** -0.5
-        decoder_out = decoder_out @ wte.weight.transpose()
-        block |= Buffer()(decoder_out, IOKey("output"))
+        block |= MatrixMultiply()(
+            decoder_out, wte.weight.transpose(), output=IOKey("output")
+        )
 
     return block
 

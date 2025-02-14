@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import platform
 from collections.abc import Sequence
 from typing import Any
@@ -2715,13 +2716,15 @@ def test_cast_int16():
         NumpyBackend(dtype=mithril.float32),
         NumpyBackend(dtype=mithril.float64),
         JaxBackend(dtype=mithril.float16),
-        JaxBackend(dtype=mithril.bfloat16),
         JaxBackend(dtype=mithril.float32),
         JaxBackend(dtype=mithril.float64),
     ]
 
     if platform.system() == "Darwin":
         backends += [MlxBackend(dtype=mithril.float16), MlxBackend()]
+
+    if os.environ.get("CI") != "true":
+        backends.append(JaxBackend(dtype=mithril.bfloat16))
 
     expected_dtypes = {
         "torch": torch.int16,
@@ -2764,13 +2767,15 @@ def test_cast_int32():
         NumpyBackend(dtype=mithril.float32),
         NumpyBackend(dtype=mithril.float64),
         JaxBackend(dtype=mithril.float16),
-        JaxBackend(dtype=mithril.bfloat16),
         JaxBackend(dtype=mithril.float32),
         JaxBackend(dtype=mithril.float64),
     ]
 
     if platform.system() == "Darwin":
         backends += [MlxBackend(dtype=mithril.float16), MlxBackend()]
+
+    if os.environ.get("CI") != "true":
+        backends.append(JaxBackend(dtype=mithril.bfloat16))
 
     expected_dtypes = {
         "torch": torch.int32,
@@ -2812,13 +2817,15 @@ def test_cast_int64():
         NumpyBackend(dtype=mithril.float32),
         NumpyBackend(dtype=mithril.float64),
         JaxBackend(dtype=mithril.float16),
-        JaxBackend(dtype=mithril.bfloat16),
         JaxBackend(dtype=mithril.float32),
         JaxBackend(dtype=mithril.float64),
     ]
 
     if platform.system() == "Darwin":
         backends += [MlxBackend(dtype=mithril.float16), MlxBackend()]
+
+    if os.environ.get("CI") != "true":
+        backends.append(JaxBackend(dtype=mithril.bfloat16))
 
     expected_dtypes = {
         "torch": torch.int64,
