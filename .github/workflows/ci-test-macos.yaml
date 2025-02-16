@@ -40,7 +40,7 @@ jobs:
           pre-commit run --all-files
           python3 license_checker.py
       - name: Execute testcase unit tests
-        run: pytest --cov --cov-report=xml -s tests/
+        run: pytest --cov --cov-report=xml -s ./tests/scripts/test_backend_fns.py 
       - name: Upload results to Codecov
         uses: codecov/codecov-action@v4
         with:

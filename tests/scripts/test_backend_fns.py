@@ -92,8 +92,9 @@ except ImportError:
 try:
     import mlx.core as mx
 
-    if platform.system() != "Darwin" or os.environ.get("CI") == "true":
+    if platform.system() != "Darwin":
         raise ImportError
+
     testing_fns[MlxBackend] = mx.allclose
     installed_backends.append(MlxBackend)
 
