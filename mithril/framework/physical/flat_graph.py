@@ -20,9 +20,9 @@ from dataclasses import dataclass
 
 import mithril as ml
 
-from ...core import DataType, GenericDataType
+from ...common import BiMap
+from ...types import DataType, GenericDataType
 from ...utils.func_utils import is_make_array_required, prepare_function_args
-from ...utils.utils import BiMap
 from ..common import (
     TBD,
     AllValueType,
@@ -747,7 +747,15 @@ class FlatGraph(GenericDataType[DataType]):
             if self.data_store.is_scalar_type(
                 value
             ):  # TODO: Is this check really required?
-                updates |= data.set_value(value)
+                # If value is a dtype, convert into correseponding logical dtype.
+                if (
+                    value.__hash__ is not None
+                    and value in self.backend.dtype_map.inverse
+                ):
+                    dtype_logical = self.backend.convert_to_logical(value)
+                    updates |= data.set_type(type(dtype_logical))
+                else:
+                    updates |= data.set_value(value)
             else:
                 assert not isinstance(value, MainValueInstance | ToBeDetermined)
                 # Find type of tensor and set.

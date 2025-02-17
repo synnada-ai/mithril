@@ -14,9 +14,8 @@
 
 import os
 import platform
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Iterable
 from itertools import product
-from types import EllipsisType
 
 import numpy as np
 import pytest
@@ -25,9 +24,11 @@ import torch
 import mithril as ml
 from mithril import JaxBackend, MlxBackend, NumpyBackend, TorchBackend
 from mithril.backends.utils import DtypeBits
+from mithril.common import PaddingType
 from mithril.framework.common import (
     NOT_GIVEN,
     TBD,
+    ConnectionData,
     Tensor,
     ToBeDetermined,
 )
@@ -74,7 +75,6 @@ from mithril.models import (
     Transpose,
     Where,
 )
-from mithril.utils.utils import PaddingType
 
 from .helper import assert_models_equal
 from .test_utils import (
@@ -109,7 +109,7 @@ def assert_all_backends_device_dtype(model: Model, inference: bool = False):
             [backends], backends.get_available_devices(), backends.supported_dtypes
         )
     )
-    unsupported_device_dtypes: list[tuple[type[ml.Backend], str, ml.core.Dtype]] = [
+    unsupported_device_dtypes: list[tuple[type[ml.Backend], str, ml.types.Dtype]] = [
         (TorchBackend, "mps:0", ml.float64),
         (NumpyBackend, "cpu", ml.bfloat16),
         (MlxBackend, "cpu", ml.float16),
@@ -120,7 +120,7 @@ def assert_all_backends_device_dtype(model: Model, inference: bool = False):
     if platform.system() == "Darwin" and os.environ.get("CI") == "true":
         # Jax has issues with bfloat16 on MacOS in CI
         # See issue: https://github.com/jax-ml/jax/issues/25730
-        unsupported_device_dtypes.append((JaxBackend, "cpu:0", ml.core.Dtype.bfloat16))
+        unsupported_device_dtypes.append((JaxBackend, "cpu:0", ml.types.Dtype.bfloat16))
 
     for backend_class, device, dtype in backends_with_device_dtype:
         # remove unsupported backend, device and dtype trios
@@ -214,14 +214,11 @@ class ReduceMult(Model):
     ) -> None:
         super().__init__()
         rdc = Mean(axis=axis)
-        self += rdc(input="input", axis="axis")
-        self += Multiply()(
+        self |= rdc(input="input", axis="axis")
+        self |= Multiply()(
             left=rdc.output, right=Tensor(2.0), output=IOKey(name="output")
         )
-        shapes: Mapping[str, Sequence[str | tuple[str, EllipsisType]]] = {
-            "input": ["N", ("Var_inter", ...), "d_in"]
-        }
-        self.set_shapes(shapes)
+        self.set_shapes(input=["N", ("Var_inter", ...), "d_in"])
 
     def __call__(  # type: ignore[override]
         self,
@@ -244,8 +241,8 @@ def test_default_in_numpy_error():
     model1 = ReduceMult()
     model2 = Mean(axis=TBD)
 
-    model += model1(input="input", axis=IOKey("axis", value=0))
-    model += model2(input=model1.output, axis=model1.axis, output=IOKey(name="output"))
+    model |= model1(input="input", axis=IOKey("axis", value=0))
+    model |= model2(input=model1.output, axis=model1.axis, output=IOKey(name="output"))
     constant_keys = {"input": np_input}
     data_keys = {"axis"}
     with pytest.raises(ValueError) as err_info:
@@ -271,9 +268,9 @@ def test_make_static_numpy_error():
     mult_out = IOKey(name="mult_out")
 
     rdc = Mean(axis=0)
-    model += rdc(input="input", axis="axis")
-    model += Multiply()(left=rdc.output, right=Tensor(0), output=mult_out)
-    model += mean_model(input=mult_out, axis="axis", output=IOKey(name="output"))
+    model |= rdc(input="input", axis="axis")
+    model |= Multiply()(left=rdc.output, right=Tensor(0), output=mult_out)
+    model |= mean_model(input=mult_out, axis="axis", output=IOKey(name="output"))
     constant_keys = {"input": np_input}
     data_keys = {"axis"}
     with pytest.raises(ValueError) as err_info:
@@ -297,9 +294,9 @@ def test_default_given_extend_3_numpy_error():
     model = Model()
     model1 = ReduceMult()
     model2 = Mean(axis=0)
-    model += model1(input="input", axis=IOKey("axis", value=None))
+    model |= model1(input="input", axis=IOKey("axis", value=None))
     with pytest.raises(ValueError) as err_info:
-        model += model2(input=model1.output, output=IOKey(name="output"))
+        model |= model2(input=model1.output, output=IOKey(name="output"))
     assert str(err_info.value) == "Requires minimum of 1 dimensionality, got 0."
 
 
@@ -310,8 +307,8 @@ def test_default_given_compile_numpy():
     model = Model()
     model1 = ReduceMult()
     model2 = Mean(axis=TBD)
-    model += model1(input="input", axis="axis")
-    model += model2(input=model1.output, axis=model1.axis, output=IOKey(name="output"))
+    model |= model1(input="input", axis="axis")
+    model |= model2(input=model1.output, axis=model1.axis, output=IOKey(name="output"))
     static_inputs: dict[str, np.ndarray | int] = {"input": np_input, "axis": 0}
     expected_result = (np_input.mean(0) * 2).mean(0)
     compiled_model = ml.compile(
@@ -334,10 +331,10 @@ def test_default_given_extend_numpy_3():
     model = Model()
     model1 = ReduceMult()
     model2 = Mean(axis=TBD)
-    model += model1(input=IOKey(name="input", shape=[*np_input.shape]), axis="axis")
-    model += model2(input=model1.output, axis=model1.axis, output=IOKey(name="output"))
+    model |= model1(input=IOKey(name="input", shape=[*np_input.shape]), axis="axis")
+    model |= model2(input=model1.output, axis=model1.axis, output=IOKey(name="output"))
     final_model = Model()
-    final_model += model(axis=0, input="input", output=IOKey(name="output"))
+    final_model |= model(axis=0, input="input", output=IOKey(name="output"))
     expected_result = (np_input.mean(0) * 2).mean(0)
     compiled_model = ml.compile(
         model=final_model,
@@ -364,11 +361,11 @@ def test_default_given_extend_numpy_3_set_values():
     model = Model()
     model1 = ReduceMult()
     model2 = Mean(axis=TBD)
-    model += model1(input=IOKey(name="input", shape=[*np_input.shape]), axis="axis")
-    model += model2(input=model1.output, axis=model1.axis, output=IOKey(name="output"))
+    model |= model1(input=IOKey(name="input", shape=[*np_input.shape]), axis="axis")
+    model |= model2(input=model1.output, axis=model1.axis, output=IOKey(name="output"))
     final_model = Model()
-    final_model += model(axis="axis", input="input", output=IOKey(name="output"))
-    final_model.set_values({"axis": 0})
+    final_model |= model(axis="axis", input="input", output=IOKey(name="output"))
+    final_model.set_values(axis=0)
     expected_result = (np_input.mean(0) * 2).mean(0)
     compiled_model = ml.compile(
         model=final_model,
@@ -395,8 +392,8 @@ def test_constant_given_data_numpy():
     model = Model()
     model1 = ReduceMult()
     model2 = Mean(axis=TBD)
-    model += model1(input="input", axis="axis")
-    model += model2(input=model1.output, axis=model1.axis, output=IOKey(name="output"))
+    model |= model1(input="input", axis="axis")
+    model |= model2(input=model1.output, axis=model1.axis, output=IOKey(name="output"))
     static_inputs = {
         "input": np_input,
     }
@@ -432,15 +429,15 @@ def test_constant_numpy():
     mult_out = IOKey(name="mult_out")
 
     rdc = Mean(axis=0)
-    model += rdc(input="input", axis="axis")
-    model += Multiply()(
+    model |= rdc(input="input", axis="axis")
+    model |= Multiply()(
         left=rdc.output, right=IOKey(value=Tensor(2.0), name="rhs"), output=mult_out
     )
-    model += mean_model(input=mult_out, axis="axis", output=IOKey(name="output"))
+    model |= mean_model(input=mult_out, axis="axis", output=IOKey(name="output"))
     other_model = Model()
-    other_model += Mean(axis=TBD)(input="input", axis="axis")
+    other_model |= Mean(axis=TBD)(input="input", axis="axis")
     with pytest.raises(ValueError) as err_info:
-        model += other_model(input=model.rhs, axis=model.axis)  # type: ignore
+        model |= other_model(input=model.rhs, axis=model.axis)  # type: ignore
     assert (
         str(err_info.value)
         == "Input rank is 0. Minimum rank 1 input is required for axis = (0,)."
@@ -456,14 +453,14 @@ def test_constant_numpy_set_values():
     rdc = Mean(axis=0)
 
     mult_out = IOKey(name="mult_out")
-    model += rdc(input="input", axis="axis")
-    model += Multiply()(left=rdc.output, right=IOKey(name="rhs"), output=mult_out)
-    model.set_values({"rhs": Tensor(2.0)})
-    model += mean_model(input=mult_out, axis="axis", output=IOKey(name="output"))
+    model |= rdc(input="input", axis="axis")
+    model |= Multiply()(left=rdc.output, right=IOKey(name="rhs"), output=mult_out)
+    model.set_values(rhs=Tensor(2.0))
+    model |= mean_model(input=mult_out, axis="axis", output=IOKey(name="output"))
     other_model = Model()
-    other_model += Mean(axis=TBD)(input="input", axis="axis")
+    other_model |= Mean(axis=TBD)(input="input", axis="axis")
     with pytest.raises(ValueError) as err_info:
-        model += other_model(input=model.rhs, axis=model.axis)  # type: ignore
+        model |= other_model(input=model.rhs, axis=model.axis)  # type: ignore
     assert (
         str(err_info.value)
         == "Input rank is 0. Minimum rank 1 input is required for axis = (0,)."
@@ -474,10 +471,10 @@ def test_axis():
     model = Model()
     relu = LeakyRelu()
     rob_pow = Power(robust=True)
-    model += relu(input="input", slope=Tensor(2.3))
-    model += rob_pow(
+    model |= relu(input=IOKey("input", differantiable=True), slope=Tensor(2.3))
+    model |= rob_pow(
         base=relu.output,
-        exponent=IOKey("exponent", type=Tensor),
+        exponent=IOKey("exponent", type=Tensor, differantiable=True),
         threshold=relu.slope,
     )
 
@@ -509,8 +506,12 @@ def test_axis_1():
     relu = LeakyRelu()
     rob_pow = Power(robust=True)
     rob_pow.set_types(base=Tensor, exponent=Tensor)
-    model += rob_pow(base="base", threshold=Tensor(2.3), exponent="exponent")
-    model += relu(input=rob_pow.output, slope=rob_pow.threshold)  # type: ignore
+    model |= rob_pow(
+        base=IOKey("base", differantiable=True),
+        threshold=Tensor(2.3),
+        exponent=IOKey("exponent", differantiable=True),
+    )
+    model |= relu(input=rob_pow.output, slope=rob_pow.threshold)  # type: ignore
     # Check required value transfer occured in logical model
     # assert relu.conns.get_data("slope").value == 2.3
 
@@ -543,20 +544,20 @@ def test_mean_1():
     mean_1 = Mean(axis=TBD)
     mean_2 = Mean(axis=TBD)
     mean_3 = Mean(axis=TBD)
-    mean_model += mean_1(axis=1, input="input")
-    mean_model += mean_2(input=mean_1.output, axis=mean_1.axis)
-    mean_model += mean_3(
+    mean_model |= mean_1(axis=1, input="input")
+    mean_model |= mean_2(input=mean_1.output, axis=mean_1.axis)
+    mean_model |= mean_3(
         input=mean_2.output, axis=mean_2.axis, output=IOKey(name="output")
     )
 
     model = Model()
     buff1 = Buffer()
-    model += buff1(
+    model |= buff1(
         input=IOKey(value=Tensor([[2.0, 3.0], [1.0, 7.0]]), name="input"),
         output=IOKey(name="output"),
     )
     with pytest.raises(ValueError) as err_info:
-        model += mean_model(input=buff1.output, output=IOKey(name="output1"))
+        model |= mean_model(input=buff1.output, output=IOKey(name="output1"))
     assert str(err_info.value) == "Requires minimum of 4 dimensionality, got 2."
 
 
@@ -568,22 +569,22 @@ def test_mean_1_set_values_1():
     mean_1 = Mean(axis=TBD)
     mean_2 = Mean(axis=TBD)
     mean_3 = Mean(axis=TBD)
-    mean_model += mean_1(input="input")
-    mean_model += mean_2(input=mean_1.output, axis=mean_1.axis)
-    mean_model += mean_3(
+    mean_model |= mean_1(input="input")
+    mean_model |= mean_2(input=mean_1.output, axis=mean_1.axis)
+    mean_model |= mean_3(
         input=mean_2.output, axis=mean_2.axis, output=IOKey(name="output")
     )
     mean_model.set_values({mean_1.axis: 1})
 
     model = Model()
     buff1 = Buffer()
-    model += buff1(
+    model |= buff1(
         input=IOKey(value=Tensor([[2.0, 3.0], [1.0, 7.0]]), name="input"),
         output=IOKey(name="output"),
     )
     # model.make_static("input", [[2.0, 3.0], [1.0, 7.0]])
     with pytest.raises(ValueError) as err_info:
-        model += mean_model(input=buff1.output, output=IOKey(name="output1"))
+        model |= mean_model(input=buff1.output, output=IOKey(name="output1"))
     assert str(err_info.value) == "Requires minimum of 4 dimensionality, got 2."
 
 
@@ -595,21 +596,21 @@ def test_mean_1_set_values_2():
     mean_1 = Mean(axis=TBD)
     mean_2 = Mean(axis=TBD)
     mean_3 = Mean(axis=TBD)
-    mean_model += mean_1(input="input")
-    mean_model += mean_2(input=mean_1.output, axis=mean_1.axis)
-    mean_model += mean_3(
+    mean_model |= mean_1(input="input")
+    mean_model |= mean_2(input=mean_1.output, axis=mean_1.axis)
+    mean_model |= mean_3(
         input=mean_2.output, axis=mean_2.axis, output=IOKey(name="output")
     )
-    mean_1.set_values({"axis": 1})
+    mean_1.set_values(axis=1)
 
     model = Model()
     buff1 = Buffer()
-    model += buff1(
+    model |= buff1(
         input=IOKey(value=Tensor([[2.0, 3.0], [1.0, 7.0]]), name="input"),
         output=IOKey(name="output"),
     )
     with pytest.raises(ValueError) as err_info:
-        model += mean_model(input=buff1.output, output=IOKey(name="output1"))
+        model |= mean_model(input=buff1.output, output=IOKey(name="output1"))
     assert str(err_info.value) == "Requires minimum of 4 dimensionality, got 2."
 
 
@@ -617,7 +618,7 @@ def test_scalar_mean_2_1():
     mean_model = Model()
     mean_1 = Mean()
     with pytest.raises(ValueError) as err_info:
-        mean_model += mean_1(axis=1, input="input")
+        mean_model |= mean_1(axis=1, input="input")
     assert (
         str(err_info.value) == "Value is set before as None. A value can not be reset."
     )
@@ -626,12 +627,12 @@ def test_scalar_mean_2_1():
 def test_scalar_mean_2_2():
     mean_model = Model()
     rob_pow = Model()
-    rob_pow += Power(robust=True)(
+    rob_pow |= Power(robust=True)(
         threshold=IOKey(name="threshold", value=Tensor(1.3)), base="base"
     )
 
     with pytest.raises(ValueError) as err_info:
-        mean_model += rob_pow(threshold=Tensor(1.5), base="input")
+        mean_model |= rob_pow(threshold=Tensor(1.5), base="input")
     assert (
         str(err_info.value) == "Value is set before as 1.3. A value can not be reset."
     )
@@ -642,8 +643,8 @@ def test_scalar_mean_2_set_values():
     mean_1 = Mean(axis=TBD)
 
     with pytest.raises(ValueError) as err_info_1:
-        mean_model += mean_1(input="input", axis=None)
-        mean_1.set_values({"axis": 1})
+        mean_model |= mean_1(input="input", axis=None)
+        mean_1.set_values(axis=1)
     assert (
         str(err_info_1.value)
         == "Value is set before as None. A value can not be reset."
@@ -665,8 +666,8 @@ def test_scalar_1():
     model2 = Model()
     add_1 = Add()
     add_2 = Add()
-    model1 += add_1(left=Tensor([4.0, 5.0]), right=Tensor([8.0, 9.0]))
-    model2 += add_2(
+    model1 |= add_1(left=Tensor([4.0, 5.0]), right=Tensor([8.0, 9.0]))
+    model2 |= add_2(
         left=IOKey(name="left_2", value=Tensor([7.0, 11.0])),
         output=IOKey(name="output"),
     )
@@ -684,9 +685,9 @@ def test_scalar_1_set_values():
     model2 = Model()
     add_1 = Add()
     add_2 = Add()
-    model1 += add_1
+    model1 |= add_1
     model1.set_values({add_1.left: Tensor([4.0, 5.0]), add_1.right: Tensor([8.0, 9.0])})
-    model2 += add_2(
+    model2 |= add_2(
         left=IOKey(name="left_2", value=Tensor([7.0, 11.0])),
         output=IOKey(name="output"),
     )
@@ -703,7 +704,7 @@ def test_scalar_2():
     model = Model()
     add = Add()
     with pytest.raises(KeyError) as err_info:
-        model += add(
+        model |= add(
             left=Tensor([4.0, 5.0]),
             right=Tensor([8.0, 9.0]),
             output=Tensor([7.0, 8.0]),
@@ -717,14 +718,10 @@ def test_scalar_2():
 def test_scalar_2_set_values():
     model = Model()
     add = Add()
-    model += add(left="left", right="right", output="output")
+    model |= add(left="left", right="right", output="output")
     with pytest.raises(ValueError) as err_info:
         model.set_values(
-            {
-                "left": Tensor([4.0, 5.0]),
-                "right": Tensor([8.0, 9.0]),
-                "output": Tensor([7.0, 8.0]),
-            }
+            left=Tensor([4.0, 5.0]), right=Tensor([8.0, 9.0]), output=Tensor([7.0, 8.0])
         )
 
     assert str(err_info.value) == "Values of internal and output keys cannot be set."
@@ -734,9 +731,9 @@ def test_scalar_3():
     model1 = Model()
     add_2 = Add()
     add_1 = Add()
-    model1 += add_2
+    model1 |= add_2
     with pytest.raises(KeyError) as err_info:
-        model1 += add_1(left="left", right="right", output=[4.0])
+        model1 |= add_1(left="left", right="right", output=[4.0])
     assert str(err_info.value) == (
         "'output key is an output of the model, output values could not be "
         "set in extend.'"
@@ -747,10 +744,10 @@ def test_scalar_3_set_values():
     model1 = Model(enforce_jit=False)
     add_2 = Add()
     add_1 = Add()
-    model1 += add_2
+    model1 |= add_2
     with pytest.raises(ValueError) as err_info:
-        model1 += add_1(left="left", right="right", output="output")
-        model1.set_values({"output": [add_2.left, 4.0]})
+        model1 |= add_1(left="left", right="right", output="output")
+        model1.set_values(output=[add_2.left, 4.0])
 
     assert str(err_info.value) == "Values of internal and output keys cannot be set."
 
@@ -759,7 +756,7 @@ def test_scalar_4():
     model1 = Model()
     add_1 = Add()
     with pytest.raises(Exception) as err_info:
-        model1 += add_1(left="left", right="right", output=3.0)
+        model1 |= add_1(left="left", right="right", output=3.0)
     assert str(err_info.value) == (
         "'output key is an output of the model, output values could not be "
         "set in extend.'"
@@ -770,8 +767,8 @@ def test_scalar_4_set_values():
     model1 = Model(enforce_jit=False)
     add_1 = Add()
     with pytest.raises(ValueError) as err_info:
-        model1 += add_1(left="left", right="right", output="output")
-        model1.set_values({"output": 3.0})
+        model1 |= add_1(left="left", right="right", output="output")
+        model1.set_values(output=3.0)
 
     assert str(err_info.value) == "Values of internal and output keys cannot be set."
 
@@ -785,7 +782,7 @@ def test_static_1():
     """
     model1 = Model()
     add_1 = Add()
-    model1 += add_1(left=Tensor([2.0, 3.0]), right="right", output=IOKey(name="output"))
+    model1 |= add_1(left=Tensor([2.0, 3.0]), right="right", output=IOKey(name="output"))
     with pytest.raises(Exception) as err_info:
         model1.set_values({add_1.left: Tensor([3.0, 4.0])})
     assert (
@@ -798,12 +795,12 @@ def test_static_2():
     model1 = Model()
     model2 = Model()
     add_1 = Add()
-    model1 += add_1(
+    model1 |= add_1(
         left=Tensor([2.0, 3.0]),
-        right=IOKey("right", type=Tensor),
+        right=IOKey("right", type=Tensor, differantiable=True),
         output=IOKey(name="output"),
     )
-    model2 += model1
+    model2 |= model1
     comp_model = ml.compile(model=model2, backend=NumpyBackend())
 
     infered_value = comp_model.flat_graph.data_store.data_values["left"]
@@ -825,9 +822,12 @@ def test_static_2_set_values():
     model1 = Model()
     model2 = Model()
     add_1 = Add()
-    model1 += add_1(right=IOKey("right", type=Tensor), output=IOKey(name="output"))
+    model1 |= add_1(
+        right=IOKey("right", type=Tensor, differantiable=True),
+        output=IOKey(name="output"),
+    )
     model1.set_values({add_1.left: Tensor([2.0, 3.0])})
-    model2 += model1
+    model2 |= model1
     comp_model = ml.compile(model=model2, backend=NumpyBackend())
 
     infered_value = comp_model.flat_graph.data_store.data_values["left"]
@@ -891,8 +891,8 @@ def test_static_3_set_values_and_remove_canonical_input():
 
 def test_static_4():
     model = Model()
-    model += Greater()(left="input", right=Tensor(0.6))
-    model += Where()(cond=model.cout, input1=Tensor(1), input2=Tensor(0))
+    model |= Greater()(left="input", right=Tensor(0.6))
+    model |= Where()(cond=model.cout, input1=Tensor(1), input2=Tensor(0))
 
     backend = TorchBackend()
     compiled_model = ml.compile(model, backend, data_keys={"input"}, inference=True)
@@ -908,9 +908,9 @@ def test_static_4():
 
 def test_static_4_set_values():
     model = Model()
-    model += (gr := Greater())(left="input")
+    model |= (gr := Greater())(left="input")
     model.set_values({gr.right: Tensor(0.6)})
-    model += Where()(cond=model.cout, input1=Tensor(1), input2=Tensor(0))
+    model |= Where()(cond=model.cout, input1=Tensor(1), input2=Tensor(0))
 
     backend = TorchBackend()
     compiled_model = ml.compile(model, backend, data_keys={"input"}, inference=True)
@@ -946,7 +946,7 @@ def test_float_axis_2():
     model1 = Model()
     mean1 = Mean(axis=TBD)
     with pytest.raises(TypeError) as err_info:
-        model1 += mean1(axis=3.0)
+        model1 |= mean1(axis=3.0)
     assert str(err_info.value) == (
         "Acceptable types are None | int | list[int] | tuple[int, ...], but "
         "<class 'float'> type is provided!"
@@ -956,7 +956,7 @@ def test_float_axis_2():
 def test_float_axis_2_set_values():
     mean1 = Mean(axis=TBD)
     with pytest.raises(TypeError) as err_info:
-        mean1.set_values({"axis": 3.0})
+        mean1.set_values(axis=3.0)
     assert str(err_info.value) == (
         "Acceptable types are None | int | list[int] | tuple[int, ...], but "
         "<class 'float'> type is provided!"
@@ -973,9 +973,9 @@ def test_static_type():
     model1 = Model()
     poly_feat_1 = PolynomialFeatures(degree=TBD)
     conv2d = Convolution2D(stride=TBD, kernel_size=3)
-    model1 += conv2d(input="", stride=(2, 3))
+    model1 |= conv2d(stride=(2, 3))
     with pytest.raises(Exception) as err:
-        model1 += poly_feat_1(input="", degree=conv2d.stride)
+        model1 |= poly_feat_1(degree=conv2d.stride)
 
     assert str(err.value) == (
         "Acceptable types are tuple[int, int], but <class 'int'> " "type is provided!"
@@ -986,10 +986,10 @@ def test_static_type_set_value():
     model1 = Model()
     poly_feat_1 = PolynomialFeatures(degree=TBD)
     conv2d = Convolution2D(stride=TBD, kernel_size=3)
-    model1 += conv2d(input="")
+    model1 |= conv2d
     model1.set_values({conv2d.stride: (2, 3)})
     with pytest.raises(Exception) as err:
-        model1 += poly_feat_1(input="", degree=conv2d.stride)
+        model1 |= poly_feat_1(degree=conv2d.stride)
 
     assert str(err.value) == (
         "Acceptable types are tuple[int, int], but <class 'int'> " "type is provided!"
@@ -1010,10 +1010,10 @@ def test_nontensor_extend_from_input_multiple_connection():
     model.merge_connections(mean1.axis, mean2.axis, mean3.axis)
     model += mean4(axis=mean1.axis)
     assert (
-        mean1.axis.data.metadata
-        == mean2.axis.data.metadata
-        == mean3.axis.data.metadata
-        == mean4.axis.data.metadata
+        mean1.axis.metadata
+        == mean2.axis.metadata
+        == mean3.axis.metadata
+        == mean4.axis.metadata
     )
 
 
@@ -1031,8 +1031,8 @@ def test_bool_tensor_numpy_32():
     not_1 = LogicalNot()
     add_1 = Add()
     ref = np.array([8.0, 9.0])
-    model += not_1(input=IOKey(value=Tensor([False, False]), name="input"))
-    model += add_1(
+    model |= not_1(input=IOKey(value=Tensor([False, False]), name="input"))
+    model |= add_1(
         left=Tensor([7.0, 8.0]), right=not_1.output, output=IOKey(name="output")
     )
     comp_model = ml.compile(model=model, backend=NumpyBackend(), inference=True)
@@ -1047,8 +1047,8 @@ def test_bool_tensor_numpy_32_set_values():
     not_1 = LogicalNot()
     add_1 = Add()
     ref = np.array([8.0, 9.0])
-    model += not_1(input=IOKey(name="input", value=TBD))
-    model += add_1(
+    model |= not_1(input=IOKey(name="input", value=TBD))
+    model |= add_1(
         left=Tensor([7.0, 8.0]), right=not_1.output, output=IOKey(name="output")
     )
     model.set_values({model.input: Tensor([False, False])})  # type: ignore
@@ -1064,8 +1064,8 @@ def test_bool_tensor_numpy_64():
     not_1 = LogicalNot()
     add_1 = Add()
     ref = np.array([8.0, 9.0])
-    model += not_1(input=IOKey(value=Tensor([False, False]), name="input"))
-    model += add_1(
+    model |= not_1(input=IOKey(value=Tensor([False, False]), name="input"))
+    model |= add_1(
         left=Tensor([7.0, 8.0]), right=not_1.output, output=IOKey(name="output")
     )
     comp_model = ml.compile(
@@ -1082,8 +1082,8 @@ def test_bool_tensor_torch_32():
     not_1 = LogicalNot()
     add_1 = Add()
     ref = np.array([8.0, 9.0])
-    model += not_1(input=IOKey(value=Tensor([False, False]), name="input"))
-    model += add_1(
+    model |= not_1(input=IOKey(value=Tensor([False, False]), name="input"))
+    model |= add_1(
         left=Tensor([7.0, 8.0]), right=not_1.output, output=IOKey(name="output")
     )
     comp_model = ml.compile(model=model, backend=TorchBackend(), inference=True)
@@ -1099,8 +1099,8 @@ def test_bool_tensor_torch_64():
     not_1 = LogicalNot()
     add_1 = Add()
     ref = np.array([8.0, 9.0])
-    model += not_1(input=IOKey(value=Tensor([False, False]), name="input"))
-    model += add_1(
+    model |= not_1(input=IOKey(value=Tensor([False, False]), name="input"))
+    model |= add_1(
         left=Tensor([7.0, 8.0]), right=not_1.output, output=IOKey(name="output")
     )
     comp_model = ml.compile(
@@ -1118,8 +1118,8 @@ def test_bool_tensor_jax_32():
     not_1 = LogicalNot()
     add_1 = Add()
     ref = np.array([8.0, 9.0])
-    model += not_1(input=IOKey(value=Tensor([False, False]), name="input"))
-    model += add_1(
+    model |= not_1(input=IOKey(value=Tensor([False, False]), name="input"))
+    model |= add_1(
         left=Tensor([7.0, 8.0]), right=not_1.output, output=IOKey(name="output")
     )
     comp_model = ml.compile(model=model, backend=JaxBackend(), inference=True)
@@ -1133,8 +1133,8 @@ def test_bool_tensor_jax_64():
     not_1 = LogicalNot()
     add_1 = Add()
     ref = np.array([8.0, 9.0])
-    model += not_1(input=IOKey(value=Tensor([False, False]), name="input"))
-    model += add_1(
+    model |= not_1(input=IOKey(value=Tensor([False, False]), name="input"))
+    model |= add_1(
         left=Tensor([7.0, 8.0]), right=not_1.output, output=IOKey(name="output")
     )
     comp_model = ml.compile(
@@ -1150,8 +1150,8 @@ def test_bool_tensor_mlx_32():
     not_1 = LogicalNot()
     add_1 = Add()
     ref = np.array([8.0, 9.0])
-    model += not_1(input=IOKey(value=Tensor([False, False]), name="input"))
-    model += add_1(
+    model |= not_1(input=IOKey(value=Tensor([False, False]), name="input"))
+    model |= add_1(
         left=Tensor([7.0, 8.0]), right=not_1.output, output=IOKey(name="output")
     )
     comp_model = ml.compile(model=model, backend=JaxBackend(), inference=True)
@@ -1165,8 +1165,8 @@ def test_bool_tensor_mlx_64():
     not_1 = LogicalNot()
     add_1 = Add()
     ref = np.array([8.0, 9.0])
-    model += not_1(input=IOKey(value=Tensor([False, False]), name="input"))
-    model += add_1(
+    model |= not_1(input=IOKey(value=Tensor([False, False]), name="input"))
+    model |= add_1(
         left=Tensor([7.0, 8.0]), right=not_1.output, output=IOKey(name="output")
     )
     comp_model = ml.compile(
@@ -1181,8 +1181,7 @@ def test_static_input_1():
     model = Model()
     add_1 = Add()
     add_1.set_types(left=Tensor, right=Tensor)
-    add_1.left.set_differentiable(False)
-    add_1.right.set_differentiable(False)
+
     ref = np.array(5.0)
     model += add_1
     comp_model = ml.compile(
@@ -1204,8 +1203,7 @@ def test_static_input_1_safe_names():
     model = Model()
     add_1 = Add()
     add_1.set_types(left=Tensor, right=Tensor)
-    add_1.left.set_differentiable(False)
-    add_1.right.set_differentiable(False)
+
     model += add_1
     with pytest.raises(KeyError) as err:
         ml.compile(model=model, backend=NumpyBackend(), jit=False)
@@ -1220,8 +1218,7 @@ def test_static_input_2():
     add_1 = Add()
     add_1.set_types(left=Tensor, right=Tensor)
     ref = np.array(5.0)
-    add_1.left.set_differentiable(False)
-    add_1.right.set_differentiable(False)
+
     model += add_1()
     comp_model = ml.compile(
         model=model,
@@ -1245,8 +1242,7 @@ def test_static_input_2_safe_names():
     model = Model()
     add_1 = Add()
     add_1.set_types(left=Tensor, right=Tensor)
-    add_1.left.set_differentiable(False)
-    add_1.right.set_differentiable(False)
+
     model += add_1()
     with pytest.raises(KeyError) as err:
         ml.compile(
@@ -1265,8 +1261,7 @@ def test_static_input_3():
     add_1 = Add()
     add_1.set_types(left=Tensor, right=Tensor)
     ref = np.array(5.0)
-    add_1.left.set_differentiable(False)
-    add_1.right.set_differentiable(False)
+
     model += add_1()
     comp_model = ml.compile(
         model=model,
@@ -1309,8 +1304,7 @@ def test_static_input_5():
     add_1 = Add()
     add_1.set_types(left=Tensor, right=Tensor)
     ref = np.array(5.0)
-    add_1.left.set_differentiable(False)
-    add_1.right.set_differentiable(False)
+
     model += add_1(left="input", right="right")
     comp_model = ml.compile(
         model=model,
@@ -1336,21 +1330,21 @@ def test_static_input_6():
     add_2 = Add()
     add_3 = Add()
 
-    model_1 += add_1(
+    model_1 |= add_1(
         left=IOKey(value=TBD, name="left"),
         right=IOKey(value=TBD, name="right"),
         output=IOKey(name="out1"),
     )
-    model_1 += add_2(
+    model_1 |= add_2(
         left=add_1.left + 1.0, right=add_1.right, output=IOKey(name="out2")
     )
 
-    model_2 += add_3(
+    model_2 |= add_3(
         left=IOKey(value=Tensor(3.0), name="left"),
         right=IOKey(value=Tensor(4.0), name="right"),
         output=IOKey(name="output"),
     )
-    model_2 += model_1(left=add_3.left, right=add_3.right, out2=IOKey(name="output_1"))
+    model_2 |= model_1(left=add_3.left, right=add_3.right, out2=IOKey(name="output_1"))
 
     backend = JaxBackend()
     comp_model = ml.compile(model=model_2, backend=backend, jit=False, inference=True)
@@ -1380,14 +1374,14 @@ def test_static_input_6_error():
     add_2 = Add()
     add_3 = Add()
 
-    model_1 += add_1(
+    model_1 |= add_1(
         left=IOKey(value=Tensor(1.0), name="left"),
         right=IOKey(value=TBD, name="right"),
         output=IOKey(name="out1"),
     )
-    model_1 += add_2(left=add_1.left, right=add_1.right, output=IOKey(name="out2"))
+    model_1 |= add_2(left=add_1.left, right=add_1.right, output=IOKey(name="out2"))
 
-    model_2 += add_3(
+    model_2 |= add_3(
         left=IOKey(value=Tensor(3.0), name="left"),
         right=IOKey(value=Tensor(4.0), name="right"),
         output=IOKey(name="output"),
@@ -1410,15 +1404,15 @@ def test_static_input_7():
     add_2 = Add()
     add_3 = Add()
 
-    model_1 += add_1(
+    model_1 |= add_1(
         left=IOKey(value=Tensor(3.0), name="left"),
         right=IOKey(value=Tensor(4.0), name="right"),
         output=IOKey(name="out1"),
     )
-    model_1 += add_2(left=add_1.left, right=add_1.right, output="out2")
+    model_1 |= add_2(left=add_1.left, right=add_1.right, output="out2")
 
-    model_2 += model_1(left="left", right="right")
-    model_2 += add_3(
+    model_2 |= model_1(left="left", right="right")
+    model_2 |= add_3(
         left=model_1.left,  # type: ignore
         right=model_1.right,  # type: ignore
         output=IOKey(name="output"),
@@ -1428,8 +1422,8 @@ def test_static_input_7():
 def test_linear_1():
     model = Model()
     lin1 = Linear()
-    lin1.input.set_differentiable(True)
-    lin1.set_shapes({"weight": [2, 2], "input": [2, 2]})
+    lin1.set_differentiability(input=True)
+    lin1.set_shapes(weight=[2, 2], input=[2, 2])
     model += lin1(input="input", output=IOKey(name="output"))
     assert_all_backends_device_dtype(model)
 
@@ -1438,8 +1432,8 @@ def test_mlp():
     mlp_model = MLP(
         activations=[Buffer(), LeakyRelu(), Sigmoid()], dimensions=[2, 1, 1]
     )
-    mlp_model.input.set_differentiable(True)
-    mlp_model.set_shapes({"input": [1, 1]})
+    mlp_model.set_differentiability(input=True)
+    mlp_model.set_shapes(input=[1, 1])
     assert_all_backends_device_dtype(mlp_model)
 
 
@@ -1448,10 +1442,10 @@ def test_add_1():
     add_model = Add()
     model += add_model(
         left=Tensor(1),
-        right=IOKey("right", type=Tensor),
+        right=IOKey("right", type=Tensor, differantiable=True),
         output=IOKey(name="output"),
     )
-    model.set_shapes({"right": [1, 1, 1]})
+    model.set_shapes(right=[1, 1, 1])
     assert_all_backends_device_dtype(model)
 
 
@@ -1461,13 +1455,15 @@ def test_composite_1():
     shape_model = Shape()
     index_model = Indexer()
     red_model = Mean(axis=TBD)
-    model += add_model(left=Tensor([[[1]]]), right=IOKey("right", type=Tensor))
-    model += shape_model(input=add_model.output)
-    model += index_model(input=shape_model.output, index=1)
-    model += red_model(
+    model |= add_model(
+        left=Tensor([[[1]]]), right=IOKey("right", type=Tensor, differantiable=True)
+    )
+    model |= shape_model(input=add_model.output)
+    model |= index_model(input=shape_model.output, index=1)
+    model |= red_model(
         input=add_model.output, axis=index_model.output, output=IOKey(name="output")
     )
-    model.set_shapes({"right": [1, 1, 1, 1, 1]})
+    model.set_shapes(right=[1, 1, 1, 1, 1])
     ml.compile(model=model, backend=NumpyBackend(), jit=False)
     assert_all_backends_device_dtype(model)
 
@@ -1478,14 +1474,14 @@ def test_composite_1_set_values():
     shape_model = Shape()
     index_model = Indexer()
     red_model = Mean(axis=TBD)
-    model += add_model(right=IOKey("right", type=Tensor))
+    model |= add_model(right=IOKey("right", type=Tensor, differantiable=True))
     model.set_values({add_model.left: Tensor([[[1]]])})
-    model += shape_model(input=add_model.output)
-    model += index_model(input=shape_model.output, index=1)
-    model += red_model(
+    model |= shape_model(input=add_model.output)
+    model |= index_model(input=shape_model.output, index=1)
+    model |= red_model(
         input=add_model.output, axis=index_model.output, output=IOKey(name="output")
     )
-    model.set_shapes({"right": [1, 1, 1, 1, 1]})
+    model.set_shapes(right=[1, 1, 1, 1, 1])
     ml.compile(
         model=model,
         backend=NumpyBackend(),
@@ -1498,12 +1494,13 @@ def test_composite_2():
     model = Model()
     conv1 = Convolution2D(kernel_size=2, out_channels=4)
     leaky_relu = LeakyRelu()
-    model += conv1(input="input")
-    conv1.input.set_differentiable(True)
-    model += leaky_relu(
+    model |= conv1(input=IOKey("input", differantiable=True))
+
+    conv1.set_differentiability(input=True)
+    model |= leaky_relu(
         input=conv1.output, output=IOKey(name="output"), slope=Tensor(0.3)
     )
-    model.set_shapes({"input": [1, 1, 4, 4]})
+    model.set_shapes(input=[1, 1, 4, 4])
     assert_all_backends_device_dtype(model)
 
 
@@ -1511,13 +1508,13 @@ def test_composite_2_set_values():
     model = Model()
     conv1 = Convolution2D(kernel_size=2, out_channels=4)
     leaky_relu = LeakyRelu()
-    model += conv1(input="input")
-    conv1.input.set_differentiable(True)
-    model += leaky_relu(
+    model |= conv1(input="input")
+    conv1.set_differentiability(input=True)
+    model |= leaky_relu(
         input=conv1.output, output=IOKey(name="output"), slope=NOT_GIVEN
     )
     model.set_values({leaky_relu.slope: Tensor(0.3)})
-    model.set_shapes({"input": [1, 1, 4, 4]})
+    model.set_shapes(input=[1, 1, 4, 4])
     assert_all_backends_device_dtype(model)
 
 
@@ -1526,13 +1523,13 @@ def test_composite_3():
     conv1 = Convolution2D(kernel_size=2, out_channels=1, stride=TBD)
     leaky_relu = LeakyRelu()
     mean_model = Mean(axis=TBD)
-    model += conv1(input="input", stride=(2, 3))
-    conv1.input.set_differentiable(True)
-    model += leaky_relu(input=conv1.output, slope=Tensor(0.3))
-    model += mean_model(axis=conv1.stride)
+    model |= conv1(input="input", stride=(2, 3))
+    conv1.set_differentiability(input=True)
+    model |= leaky_relu(input=conv1.output, slope=Tensor(0.3))
+    model |= mean_model(axis=conv1.stride)
     # assert not isinstance(conv1.cout, NotAvailable)
     model.set_cout(conv1.cout)
-    model.set_shapes({"input": [1, 1, 8, 8]})
+    model.set_shapes(input=[1, 1, 8, 8])
     assert_all_backends_device_dtype(model)
 
 
@@ -1541,16 +1538,16 @@ def test_composite_3_set_values():
     conv1 = Convolution2D(kernel_size=2, out_channels=1, stride=TBD)
     leaky_relu = LeakyRelu()
     mean_model = Mean(axis=TBD)
-    model += conv1(input="input")
-    conv1.input.set_differentiable(True)
+    model |= conv1(input="input")
+    conv1.set_differentiability(input=True)
     model.set_values({conv1.stride: (2, 3)})
-    model += leaky_relu(input=conv1.output, slope=NOT_GIVEN)
+    model |= leaky_relu(input=conv1.output, slope=NOT_GIVEN)
     model.set_values({leaky_relu.slope: Tensor(0.3)})
-    model += mean_model(axis=conv1.stride)
+    model |= mean_model(axis=conv1.stride)
     # assert not isinstance(conv1.cout, NotAvailable)
     model.set_cout(conv1.cout)
 
-    model.set_shapes({"input": [1, 1, 8, 8]})
+    model.set_shapes(input=[1, 1, 8, 8])
     assert_all_backends_device_dtype(model)
 
 
@@ -1559,11 +1556,11 @@ def test_composite_4():
     conv1 = Convolution2D(kernel_size=2, out_channels=1, stride=TBD)
     leaky_relu = LeakyRelu()
     mean_model = Mean(axis=TBD)
-    model += conv1(input="input", stride=(2, 3))
-    conv1.input.set_differentiable(True)
-    model += leaky_relu(input=conv1.output, slope=Tensor(0.3))
-    model += mean_model(axis=conv1.stride)
-    model.set_shapes({"input": [1, 1, 8, 8]})
+    model |= conv1(input="input", stride=(2, 3))
+    conv1.set_differentiability(input=True)
+    model |= leaky_relu(input=conv1.output, slope=Tensor(0.3))
+    model |= mean_model(axis=conv1.stride)
+    model.set_shapes(input=[1, 1, 8, 8])
     model.set_cout(conv1.cout)
     assert_all_backends_device_dtype(model)
 
@@ -1573,13 +1570,13 @@ def test_composite_4_set_values():
     conv1 = Convolution2D(kernel_size=2, out_channels=1, stride=TBD)
     leaky_relu = LeakyRelu()
     mean_model = Mean(axis=TBD)
-    model += conv1(input="input")
-    conv1.input.set_differentiable(True)
+    model |= conv1(input="input")
+    conv1.set_differentiability(input=True)
     model.set_values({conv1.stride: (2, 3)})
-    model += leaky_relu(input=conv1.output, slope=NOT_GIVEN)
+    model |= leaky_relu(input=conv1.output, slope=NOT_GIVEN)
     model.set_values({leaky_relu.slope: Tensor(0.3)})
-    model += mean_model(axis=conv1.stride)
-    model.set_shapes({"input": [1, 1, 8, 8]})
+    model |= mean_model(axis=conv1.stride)
+    model.set_shapes(input=[1, 1, 8, 8])
     model.set_cout(conv1.cout)
     assert_all_backends_device_dtype(model)
 
@@ -1592,9 +1589,9 @@ def test_composite_5():
     add_model_1 = Add()
     add_model_2 = Add()
     add_model_3 = Add()
-    model += add_model_1(left=IOKey(value=list1, name="left1"), right=list1)
-    model += add_model_2(left=add_model_1.output, right=list2)
-    model += add_model_3(left=add_model_2.output, right=list3)
+    model |= add_model_1(left=IOKey(value=list1, name="left1"), right=list1)
+    model |= add_model_2(left=add_model_1.output, right=list2)
+    model |= add_model_3(left=add_model_2.output, right=list3)
 
     assert_all_backends_device_dtype(model, inference=True)
 
@@ -1607,11 +1604,11 @@ def test_composite_5_set_values():
     add_model_1 = Add()
     add_model_2 = Add()
     add_model_3 = Add()
-    model += add_model_1(left=IOKey(name="left1"))
+    model |= add_model_1(left=IOKey(name="left1"))
     model.set_values({add_model_1.left: list1, add_model_1.right: list1})
-    model += add_model_2(left=add_model_1.output)
+    model |= add_model_2(left=add_model_1.output)
     model.set_values({add_model_2.right: list2})
-    model += add_model_3(left=add_model_2.output)
+    model |= add_model_3(left=add_model_2.output)
     model.set_values({add_model_3.right: list3})
 
     assert_all_backends_device_dtype(model, inference=True)
@@ -1625,9 +1622,9 @@ def test_composite_6():
     add_model_1 = Add()
     add_model_2 = Add()
     add_model_3 = Add()
-    model += add_model_1(left=IOKey(value=Tensor(1), name="left1"), right=list1)
-    model += add_model_2(left=add_model_1.output, right=list2)
-    model += add_model_3(left=add_model_2.output, right=list3)
+    model |= add_model_1(left=IOKey(value=Tensor(1), name="left1"), right=list1)
+    model |= add_model_2(left=add_model_1.output, right=list2)
+    model |= add_model_3(left=add_model_2.output, right=list3)
     assert_all_backends_device_dtype(model, inference=True)
 
 
@@ -1639,11 +1636,11 @@ def test_composite_6_set_values():
     add_model_1 = Add()
     add_model_2 = Add()
     add_model_3 = Add()
-    model += add_model_1(left=IOKey(name="left1"))
+    model |= add_model_1(left=IOKey(name="left1"))
     model.set_values({add_model_1.left: Tensor(1), add_model_1.right: list1})
-    model += add_model_2(left=add_model_1.output)
+    model |= add_model_2(left=add_model_1.output)
     model.set_values({add_model_2.right: list2})
-    model += add_model_3(left=add_model_2.output)
+    model |= add_model_3(left=add_model_2.output)
     model.set_values({add_model_3.right: list3})
 
     assert_all_backends_device_dtype(model, inference=True)
@@ -1657,9 +1654,9 @@ def test_composite_7():
     add_model_1 = Add()
     add_model_2 = Add()
     add_model_3 = Add()
-    model += add_model_1(left=IOKey(name="left1", value=Tensor([[1]])), right=list1)
-    model += add_model_2(left=add_model_1.output, right=list2)
-    model += add_model_3(left=add_model_2.output, right=list3)
+    model |= add_model_1(left=IOKey(name="left1", value=Tensor([[1]])), right=list1)
+    model |= add_model_2(left=add_model_1.output, right=list2)
+    model |= add_model_3(left=add_model_2.output, right=list3)
 
     assert_all_backends_device_dtype(model, inference=True)
 
@@ -1672,11 +1669,11 @@ def test_composite_7_set_values():
     add_model_1 = Add()
     add_model_2 = Add()
     add_model_3 = Add()
-    model += add_model_1(left=IOKey(name="left1"))
+    model |= add_model_1(left=IOKey(name="left1"))
     model.set_values({add_model_1.left: Tensor([[1]]), add_model_1.right: list1})
-    model += add_model_2(left=add_model_1.output)
+    model |= add_model_2(left=add_model_1.output)
     model.set_values({add_model_2.right: list2})
-    model += add_model_3(left=add_model_2.output)
+    model |= add_model_3(left=add_model_2.output)
     model.set_values({add_model_3.right: list3})
 
     assert_all_backends_device_dtype(model, inference=True)
@@ -1699,7 +1696,7 @@ def test_composite_conv_mean_set_values():
     conv_model = Convolution2D(kernel_size=2, out_channels=1, stride=(2, 3))
     reduce_model = Mean(axis=TBD)
     model += conv_model(input=IOKey(name="input"))
-    model.set_values({"input": list1})
+    model.set_values(input=list1)
     model += reduce_model(axis=conv_model.stride)
     model.set_cout(conv_model.cout)
     assert_all_backends_device_dtype(model)
@@ -1710,8 +1707,8 @@ def test_composite_conv_mean_2():
     model = Model()
     conv_model = Convolution2D(kernel_size=2, out_channels=1, stride=TBD)
     reduce_model = Sum(axis=TBD)
-    model += conv_model(input=IOKey(value=list1, name="input"))
-    model += reduce_model(axis=conv_model.stride, input=conv_model.output)
+    model |= conv_model(input=IOKey(value=list1, name="input"))
+    model |= reduce_model(axis=conv_model.stride, input=conv_model.output)
     comp_model = ml.compile(
         model=model, backend=NumpyBackend(), jit=False, safe_names=False
     )
@@ -1726,9 +1723,9 @@ def test_composite_conv_mean_2_set_values():
     model = Model()
     conv_model = Convolution2D(kernel_size=2, out_channels=1, stride=TBD)
     reduce_model = Sum(axis=TBD)
-    model += conv_model(input=IOKey(name="input"))
-    model.set_values({"input": list1})
-    model += reduce_model(axis=conv_model.stride, input=conv_model.output)
+    model |= conv_model(input=IOKey(name="input"))
+    model.set_values(input=list1)
+    model |= reduce_model(axis=conv_model.stride, input=conv_model.output)
     comp_model = ml.compile(
         model=model, backend=NumpyBackend(), jit=False, safe_names=False
     )
@@ -1780,14 +1777,14 @@ def test_unused_cached_values_1_set_values():
     model = Model()
     linear_model = Linear(dimension=2)
     model += linear_model()
-    config: dict[Connection, Tensor] = {
+    config: dict[ConnectionData, Tensor[float]] = {
         linear_model.weight: Tensor([[1.0], [2.0]]),
         linear_model.bias: Tensor([3.0, 1.0]),
         linear_model.input: Tensor([[3.0], [2.0]]),
     }
     model.set_values(config)
     comp_model = ml.compile(
-        model=model, backend=(backend := NumpyBackend()), inference=True
+        model=model, backend=(backend := NumpyBackend()), inference=True, jit=False
     )
     dtype = backend.get_backend_array_type()
     cache = comp_model.flat_graph.data_store.data_values
@@ -1851,7 +1848,7 @@ def test_unused_cached_values_2_set_values():
     model = Model()
     linear_model = Linear(dimension=2)
     model += linear_model()
-    config: dict[Connection, Tensor] = {
+    config: dict[ConnectionData, Tensor[float]] = {
         linear_model.weight: Tensor([[1.0], [2.0]]),
         linear_model.bias: Tensor([3.0, 1.0]),
     }
@@ -1894,7 +1891,7 @@ def test_unused_cached_values_3():
     model = Model()
     linear_model = Linear(dimension=2)
     model += linear_model(input=Tensor([[3.0], [2.0]]), weight=Tensor([[1.0], [2.0]]))
-    linear_model.bias.set_differentiable(False)
+    linear_model.set_differentiability(bias=False)
     comp_model = ml.compile(
         model=model, backend=(backend := NumpyBackend()), safe_names=False
     )
@@ -1937,7 +1934,7 @@ def test_unused_cached_values_3_set_values():
             linear_model.weight: Tensor([[1.0], [2.0]]),
         }
     )
-    linear_model.bias.set_differentiable(False)
+    linear_model.set_differentiability(bias=False)
     comp_model = ml.compile(
         model=model, backend=(backend := NumpyBackend()), safe_names=False
     )
@@ -2067,12 +2064,12 @@ def test_static_shape_model_4():
 
 def test_static_shape_model_5():
     model = Model()
-    model += Relu()(input="input")
+    model |= Relu()(input="input")
     model += (log := Log(robust=True))(cutoff="cutoff")
     model += Shape()
     model += ToTensor()
-    model += Relu()(input=model.cout, output=IOKey(name="output1"))
-    model += Relu()(input=log.output, output=IOKey(name="output2"))
+    model |= Relu()(input=model.cout, output=IOKey(name="output1"))
+    model |= Relu()(input=log.output, output=IOKey(name="output2"))
 
     backend = NumpyBackend()
     comp_model = ml.compile(
@@ -2119,11 +2116,13 @@ def test_nontensor_gradient():
     relu = Relu()
     add_model = Add()
 
-    model += shape_model(input="input")
-    model += relu(input="input")
-    model += to_tensor_model(input=shape_model.output, output=IOKey(name="out1"))
-    model += add_model(
-        left=IOKey("in1", type=Tensor), right=relu.output, output=IOKey(name="out2")
+    model |= shape_model(input=IOKey("input", differantiable=True))
+    model |= relu(input="input")
+    model |= to_tensor_model(input=shape_model.output, output=IOKey(name="out1"))
+    model |= add_model(
+        left=IOKey("in1", type=Tensor, differantiable=True),
+        right=relu.output,
+        output=IOKey(name="out2"),
     )
 
     ctx = TrainModel(model)
@@ -2158,16 +2157,18 @@ def test_nontensor_gradient_2():
     relu_model = Relu()
 
     model = Model()
-    model += mlp_model(input="input")
-    model += shape_model(input=mlp_model.output)
-    model += to_tensor_model(input=shape_model.output)
-    model += add_model(
+    model |= mlp_model(input="input")
+    model |= shape_model(input=mlp_model.output)
+    model |= to_tensor_model(input=shape_model.output)
+    model |= add_model(
         left="", right=to_tensor_model.output, output=IOKey(name="output")
     )
-    model += mult_model(
-        left="", right=IOKey("right1", type=Tensor), output=add_model.left
+    model |= mult_model(
+        left="",
+        right=IOKey("right1", type=Tensor, differantiable=True),
+        output=add_model.left,
     )
-    model += relu_model(input="in1", output=mult_model.left)
+    model |= relu_model(input=IOKey("in1", differantiable=True), output=mult_model.left)
     constant_keys = {
         "input": backend.array([[10.0, 2.0], [1.0, 1.0]]),
     }
@@ -2195,8 +2196,8 @@ def test_nontensor_gradient_3():
     model = Model()
     shape_model = Shape()
     to_tensor_model = ToTensor()
-    model += shape_model(input="input")
-    model += to_tensor_model(input=shape_model.output, output=IOKey(name="output"))
+    model |= shape_model(input=IOKey("input", differantiable=True))
+    model |= to_tensor_model(input=shape_model.output, output=IOKey(name="output"))
     ctx = TrainModel(model)
     ctx.add_loss(Buffer(), input="output", reduce_steps=[Sum()])
     input = backend.randn(3, 4, 5, 6, 5)
@@ -2218,12 +2219,12 @@ def test_numpy_without_shape():
     backend = NumpyBackend()
     model = Model()
     add_model = Add()
-    model += add_model(
-        left=IOKey("left", type=Tensor),
-        right=IOKey("right", type=Tensor),
+    model |= add_model(
+        left=IOKey("left", type=Tensor, differantiable=True),
+        right=IOKey("right", type=Tensor, differantiable=True),
         output=IOKey(name="output"),
     )
-    model.set_shapes({"left": [], "right": []})
+    model.set_shapes(left=[], right=[])
     ctx = TrainModel(model)
     ctx.add_loss(Buffer(), input="output", reduce_steps=[Mean()])
     inputs = {"left": backend.array(1.2), "right": backend.array(1.0)}
@@ -2245,21 +2246,22 @@ def test_multiple_to_tensor():
     model = Model()
     model_1 = Model()
     model_2 = Model()
-    model += shp_1("input")
+    model |= shp_1("input")
     model += tt_1
-    model += add_model(
+    model |= add_model(
         left=model.cout,
-        right=IOKey("right", type=Tensor),
+        right=IOKey("right", type=Tensor, differantiable=True),
         output=IOKey(name="output"),
     )
     model_1 += shp_2
     model_1 += tt_2
-    model_1 += add_model_2(
+    model_1 |= add_model_2(
         left=model_1.cout,
-        right=IOKey("right", type=Tensor),
+        right=IOKey("right", type=Tensor, differantiable=True),
         output=IOKey(name="output"),
     )
     model_2 += model(input="input")
+    model_1.set_cin(shp_2.input)
     model_2 += model_1
     comp_model = ml.compile(
         model=model_2,
@@ -2276,7 +2278,10 @@ def test_concat_axis_ellipsis_1():
     backend = NumpyBackend()
     model = Model()
     concat_model = Concat(n=2, axis=TBD)
-    model += concat_model(input1="input1", input2="input2")
+    model += concat_model(
+        input1=IOKey("input1", differantiable=True),
+        input2=IOKey("input2", differantiable=True),
+    )
     comp_model = ml.compile(model=model, backend=backend, safe_names=False)
 
     in1 = backend.array([[2.0]])
@@ -2295,7 +2300,11 @@ def test_concat_axis_ellipsis_2():
     backend = NumpyBackend()
     model = Model()
     concat_model = Concat(n=2, axis=TBD)
-    model += concat_model(input1="input1", input2="input2", axis="axis")
+    model += concat_model(
+        input1=IOKey("input1", differantiable=True),
+        input2=IOKey("input2", differantiable=True),
+        axis="axis",
+    )
     comp_model = ml.compile(model=model, backend=backend)
 
     in1 = backend.array([[2.0]])
@@ -2316,7 +2325,9 @@ def test_polyfeatures_degree_ellipsis():
     model = Model()
     poly_feat_model = PolynomialFeatures(degree=TBD)
     model += poly_feat_model(
-        input="input", output=IOKey(name="output"), degree="degree"
+        input=IOKey("input", differantiable=True),
+        output=IOKey(name="output"),
+        degree="degree",
     )
 
     comp_model = ml.compile(model=model, backend=backend)
@@ -2638,7 +2649,7 @@ def test_multi_write_to_local_output_key():
     model = Model(enforce_jit=False)
     model += Mean(axis=(1, 2))(input="input", axis="axis")
     with pytest.raises(ValueError) as err_info:
-        model += Buffer()(input="buff_input", output="axis")
+        model |= Buffer()(input="buff_input", output="axis")
     assert str(err_info.value) == (
         "A valued connection of the extended model "
         "tries to write to an output connection of the "
@@ -2664,7 +2675,7 @@ def test_reshape_call_arg_vs_init_arg():
 
     model3 = Model()
     model3 += (reshape := Reshape())
-    reshape.set_values({"shape": (2, 3, None, None)})
+    reshape.set_values(shape=(2, 3, None, None))
 
     assert_models_equal(model1, model2)
     assert_models_equal(model2, model3)
@@ -2673,7 +2684,7 @@ def test_reshape_call_arg_vs_init_arg():
 def test_add_constant():
     model = Model()
     model += Add()(left="input", right="w")
-    model.set_values({"input": Tensor([1.0])})
+    model.set_values(input=Tensor([1.0]))
     backend = JaxBackend()
     pm = ml.compile(model=model, backend=backend, inference=True)
     assert pm.evaluate(data={"w": 2.0})["output"] == backend.array([3.0])

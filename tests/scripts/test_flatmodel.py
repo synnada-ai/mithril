@@ -183,21 +183,21 @@ def test_collision_from_different_levels_3():
 
 def test_collision_from_different_models():
     model1 = Model()
-    model1 += (add := Add())(left="l", right="r", output="o")
-    add1 = add.submodel
+    model1 += (add1 := Add())(left="l", right="r", output="o")
+    _add1 = add1.submodel
 
     model2 = Model()
-    model2 += (add := Add())(left="l", right="r", output="o")
-    add2 = add.submodel
+    model2 += (add2 := Add())(left="l", right="r", output="o")
+    _add2 = add2.submodel
 
     model = Model()
-    model += model1
-    model += model2
+    model |= model1
+    model |= model2(l=add1.output)
 
     f_model = FlatModel(model)
     expected_mapping = {
-        add1: {"left": "l", "right": "r_0", "output": "o_0"},
-        add2: {"left": "o_0", "right": "r_1", "output": "o_1"},
+        _add1: {"left": "l", "right": "r_0", "output": "o_0"},
+        _add2: {"left": "o_0", "right": "r_1", "output": "o_1"},
     }
 
     assert f_model.mappings == expected_mapping
@@ -205,8 +205,8 @@ def test_collision_from_different_models():
 
 def test_output_first_1():
     model = Model()
-    model += (relu := Relu())(input="in1", output="out1")
-    model += (sig := Sigmoid())(input="in2", output="in1")
+    model |= (relu := Relu())(input="in1", output="out1")
+    model |= (sig := Sigmoid())(input="in2", output="in1")
     _sig = sig.submodel
     _relu = relu.submodel
 
@@ -231,8 +231,8 @@ def test_output_first_1():
 
 def test_output_first_2():
     model = Model()
-    model += (relu := Relu())(output="out1")
-    model += (sig := Sigmoid())(input="in2", output=relu.input)
+    model |= (relu := Relu())(output="out1")
+    model |= (sig := Sigmoid())(input="in2", output=relu.input)
     _sig = sig.submodel
     _relu = relu.submodel
 
@@ -257,8 +257,8 @@ def test_output_first_2():
 
 def test_output_first_3():
     model = Model()
-    model += (relu := Relu())(output="out1")
-    model += (sig := Sigmoid())(input="in2", output=relu.input)
+    model |= (relu := Relu())(output="out1")
+    model |= (sig := Sigmoid())(input="in2", output=relu.input)
     _sig = next(iter(sig.dag))
     _relu = next(iter(relu.dag))
 
@@ -276,16 +276,16 @@ def test_output_first_3():
 
 def test_output_first_4():
     model1 = Model()
-    model1 += (relu := Relu())(input="input1", output=IOKey("output1"))
-    model1 += (sig := Sigmoid())(input="input2", output=IOKey("output2"))
+    model1 |= (relu := Relu())(input="input1", output=IOKey("output1"))
+    model1 |= (sig := Sigmoid())(input="input2", output=IOKey("output2"))
 
     model2 = Model()
-    model2 += (softp := Softplus())(input="input1", output=IOKey("output1"))
-    model2 += (tanh := Tanh())(input="input2", output=IOKey("output2"))
+    model2 |= (softp := Softplus())(input="input1", output=IOKey("output1"))
+    model2 |= (tanh := Tanh())(input="input2", output=IOKey("output2"))
 
     model = Model()
-    model += model1(input1="input")
-    model += model2(
+    model |= model1(input1="input")
+    model |= model2(
         input1=relu.output,
         input2=sig.output,
         output1=sig.input,
@@ -313,7 +313,7 @@ def test_output_first_4():
 
 def test_linear_flat():
     model = Model()
-    model += (lin := Linear(21))(output="qwe")
+    model |= (lin := Linear(21))(output="qwe")
     f_model = FlatModel(model)
     next(iter(lin.dag.keys()))
     expected_mapping = {
@@ -347,8 +347,8 @@ def test_integration_with_all_defined():
     pm_long = ml.compile(model, backend, use_short_namings=False)
 
     inputs = {"a": backend.array([1, 2, 3]), "b": backend.array([4, 5, 6])}
-    res_short = pm_short.evaluate(inputs)
-    res_long = pm_long.evaluate(inputs)
+    res_short = pm_short.evaluate(data=inputs)
+    res_long = pm_long.evaluate(data=inputs)
 
     expected_res = {"c": backend.array([5, 7, 9], dtype=ml.int64)}
 
@@ -364,14 +364,14 @@ def test_integration_with_some_undefined():
     add.set_types(left=Tensor, right=Tensor)
     model += add(right="b", output="c")
 
-    pm_short = ml.compile(model, backend)
-    pm_long = ml.compile(model, backend, use_short_namings=False)
+    pm_short = ml.compile(model, backend, safe_names=False)
+    pm_long = ml.compile(model, backend, use_short_namings=False, safe_names=False)
 
     inputs_short = {"left": backend.array((1, 2, 3)), "b": backend.array([4, 5, 6])}
     inputs_long = {"add_left": backend.array((1, 2, 3)), "b": backend.array([4, 5, 6])}
 
-    res_short = pm_short.evaluate(inputs_short)
-    res_long = pm_long.evaluate(inputs_long)
+    res_short = pm_short.evaluate(data=inputs_short)
+    res_long = pm_long.evaluate(data=inputs_long)
 
     expected_res = {"c": backend.array([5, 7, 9], dtype=ml.int64)}
 
@@ -383,7 +383,11 @@ def test_integration_multi_level_name_with_lowest_definition():
     model2 = Model("adder")
     add = Add()
     add.set_types(left=Tensor, right=Tensor)
-    model2 += add(left="a", right="b", output="c")
+    model2 += add(
+        left=IOKey("a", differantiable=True),
+        right=IOKey("b", differantiable=True),
+        output=IOKey("c", differantiable=True),
+    )
 
     model1 = Model(name="model")
     model1 += model2
@@ -424,8 +428,8 @@ def test_integration_collision_from_different_levels():
 
     backend = JaxBackend(dtype=ml.float64)
 
-    pm_short = ml.compile(model, backend)
-    pm_long = ml.compile(model, backend, use_short_namings=False)
+    pm_short = ml.compile(model, backend, safe_names=False)
+    pm_long = ml.compile(model, backend, use_short_namings=False, safe_names=False)
 
     input_short = {"d": backend.array([1, 2, 3]), "e": backend.array([4, 5, 6])}
     input_long = {
@@ -433,8 +437,8 @@ def test_integration_collision_from_different_levels():
         "middle_e": backend.array([4, 5, 6]),
     }
 
-    res_short = pm_short.evaluate(input_short)
-    res_long = pm_long.evaluate(input_long)
+    res_short = pm_short.evaluate(data=input_short)
+    res_long = pm_long.evaluate(data=input_long)
 
     expected_res = {"_e": backend.array([5, 7, 9], dtype=ml.int64)}
 

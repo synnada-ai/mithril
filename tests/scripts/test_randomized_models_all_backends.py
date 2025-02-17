@@ -183,6 +183,18 @@ def test_randomized(case: str) -> None:
                 for key, value in static_inputs[init_key].items()
             }
 
+            trainble_keys: set[str] = set()
+            for input_key in model.input_keys:
+                if input_key in ["threshold", "cutoff"]:
+                    continue
+
+                if (
+                    input_key not in static_input_info
+                    and not input_key.startswith("$")
+                    and not model.conns.all[input_key].metadata.is_scalar
+                ):
+                    trainble_keys.add(input_key)
+
             shapes: dict[str, list[int]] = {}
             for key, value in input_info.items():
                 shape = value["shapes"]
@@ -194,12 +206,13 @@ def test_randomized(case: str) -> None:
                     shapes[key] = random_shapes[shape]
 
             if model.safe_shapes:
-                model.set_shapes(model.safe_shapes)
+                model.set_shapes(**model.safe_shapes)
 
             compiled_model = compile(
                 model=model,
                 constant_keys=static_inputs[init_key],
                 backend=init_backend,  # type: ignore
+                trainable_keys=trainble_keys,
                 shapes=shapes,
                 jit=True,
                 inference=inference,
@@ -246,6 +259,7 @@ def test_randomized(case: str) -> None:
                     model=model,
                     constant_keys=static_inputs[backend.backend_type],
                     backend=backend,  # type: ignore[reportArgumentType]
+                    trainable_keys=trainble_keys,
                     shapes=shapes,
                     jit=True,
                     inference=inference,

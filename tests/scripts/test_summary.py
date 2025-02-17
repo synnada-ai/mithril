@@ -91,11 +91,11 @@ def test_extract_logical_connections_1():
     lin1 = Linear()
     lin2 = Linear()
     lin3 = Linear()
-    model1 += lin1(
+    model1 |= lin1(
         input="input", weight="weight", bias="bias", output=IOKey(name="output")
     )
-    model1 += lin2(input=lin1.output, weight=lin1.output, output=IOKey(name="output2"))
-    model1 += lin3(input=lin1.weight, weight=lin1.weight, output=IOKey(name="output3"))
+    model1 |= lin2(input=lin1.output, weight=lin1.output, output=IOKey(name="output2"))
+    model1 |= lin3(input=lin1.weight, weight=lin1.weight, output=IOKey(name="output3"))
     name_mappings = define_unique_names(model1.dag.keys())
     conns = model1.extract_connection_info(name_mappings)
     assert conns == {
@@ -133,14 +133,14 @@ def test_extract_logical_connections_2():
     model = Model()
     sig1 = Sigmoid()
     sig2 = Sigmoid()
-    model += sig1(input="input1", output=IOKey(name="output1"))
-    model += sig2(input="input2", output=IOKey(name="output2"))
+    model |= sig1(input="input1", output=IOKey(name="output1"))
+    model |= sig2(input="input2", output=IOKey(name="output2"))
     model.set_cin("input1")
     model.set_cout("output1")
     buff3 = Relu()
     model2 = Model()
-    model2 += model()
-    model2 += buff3(input=model.output1, output=model.input2)  # type: ignore
+    model2 |= model()
+    model2 |= buff3(input=model.output1, output=model.input2)  # type: ignore
     model2.set_cin(model.input1)  # type: ignore
     name_mappings = define_unique_names(model2.dag.keys())
     conns = model2.extract_connection_info(name_mappings)
@@ -160,8 +160,8 @@ def test_extract_logical_connections_3():
     buff1 = Buffer()
     buff2 = Buffer()
 
-    model += buff2(output=IOKey(name="output"))
-    model += buff1(output=buff2.input, input="input")
+    model |= buff2(output=IOKey(name="output"))
+    model |= buff1(output=buff2.input, input="input")
     name_mappings = define_unique_names(model.dag.keys())
     conns = model.extract_connection_info(name_mappings)
     ref_conns = {
@@ -173,21 +173,21 @@ def test_extract_logical_connections_3():
 
 def test_extract_logical_connections_4():
     three_out_model = Model()
-    three_out_model += Buffer()(input="input1", output=IOKey(name="output1"))
-    three_out_model += Buffer()(input="output1", output=IOKey(name="output2"))
-    three_out_model += Buffer()(input="input2", output=IOKey(name="output3"))
+    three_out_model |= Buffer()(input="input1", output=IOKey(name="output1"))
+    three_out_model |= Buffer()(input="output1", output=IOKey(name="output2"))
+    three_out_model |= Buffer()(input="input2", output=IOKey(name="output3"))
 
     model = Model()
 
     model_1, model_2 = deepcopy(three_out_model), deepcopy(three_out_model)
 
-    model += model_1(
+    model |= model_1(
         output1=IOKey(name="out_1"),
         output2=IOKey(name="out_2"),
         output3=IOKey(name="out_3"),
     )
     model.merge_connections(model_1.input1, model_1.input2)  # type: ignore
-    model += model_2(
+    model |= model_2(
         output1=model_1.input1,  # type: ignore
         output2=IOKey(name="out_4"),
         output3=IOKey(name="out_5"),
@@ -355,10 +355,10 @@ def test_extract_logical_connections_7():
 def test_extract_logical_connections_8():
     model_1 = Model()
     buff_1 = Buffer()
-    model_1 += Buffer()(input="input", output=IOKey(name="output1"))
-    model_1 += Sigmoid()(input="output1", output=IOKey(name="output2"))
+    model_1 |= Buffer()(input="input", output=IOKey(name="output1"))
+    model_1 |= Sigmoid()(input="output1", output=IOKey(name="output2"))
     model_2 = Model()
-    model_2 += model_1
+    model_2 |= model_1
     model_2 += buff_1
     name_mappings = define_unique_names(model_2.dag.keys())
     conns = model_2.extract_connection_info(name_mappings)
@@ -376,8 +376,8 @@ def test_extract_logical_connections_9():
     model_1 = Model()
     buff_1 = Buffer()
     buff_2 = Buffer()
-    model_1 += buff_1(input="input", output=IOKey(name="output1"))
-    model_1 += buff_2(input="output1", output=IOKey(name="output2"))
+    model_1 |= buff_1(input="input", output=IOKey(name="output1"))
+    model_1 |= buff_2(input="output1", output=IOKey(name="output2"))
     model_n = Model()
     for model in (deepcopy(model_1) for n in range(3)):
         model_n += model
@@ -400,9 +400,9 @@ def test_extract_logical_connections_10():
     buff_1 = Buffer()
     buff_2 = Buffer()
     buff_3 = Buffer()
-    model_0 += buff_1(input="input1")
-    model_0 += buff_2(input="input2")
-    model_0 += buff_3(input="input3")
+    model_0 |= buff_1(input="input1")
+    model_0 |= buff_2(input="input2")
+    model_0 |= buff_3(input="input3")
     model_0.set_cin("input1")
     model_0.set_cout(buff_1.output)
 
@@ -410,7 +410,7 @@ def test_extract_logical_connections_10():
     model_2 = deepcopy(model_0)
     model_3 = deepcopy(model_0)
     model = Model()
-    model += model_0
+    model |= model_0
     model += model_1
     model += model_2
     model += model_3
@@ -549,10 +549,10 @@ def test_extract_logical_connections_13():
 def test_extract_shapes_logical_1():
     model = Model()
     buff1 = Buffer()
-    buff1.set_shapes({"input": [37, 23]})
+    buff1.set_shapes(input=[37, 23])
     buff2 = Buffer()
-    model += buff1(input="input")
-    model += buff2(input=buff1.output)
+    model |= buff1(input="input")
+    model |= buff2(input=buff1.output)
     name_mappings = define_unique_names(model.dag.keys())
     uni_cache: dict[UniadicRecord, str] = {}
     var_cache: dict[Variadic, str] = {}
@@ -572,9 +572,9 @@ def test_extract_shapes_logical_2():
     model = Model()
     buff1 = Buffer()
     buff2 = Buffer()
-    model += buff1(input="input")
-    model += buff2(input=buff1.output)
-    model.set_shapes({"input": [45, 96, 2]})
+    model |= buff1(input="input")
+    model |= buff2(input=buff1.output)
+    model.set_shapes(input=[45, 96, 2])
     name_mappings = define_unique_names(model.dag.keys())
     uni_cache: dict[UniadicRecord, str] = {}
     var_cache: dict[Variadic, str] = {}
@@ -605,7 +605,7 @@ def test_extract_shapes_logical_3():
     model += relu_2
     model += linear_3
     model += relu_3
-    relu_2.set_shapes({"input": [4, 2]})
+    relu_2.set_shapes(input=[4, 2])
     name_mappings = define_unique_names(model.dag.keys())
     uni_cache: dict[UniadicRecord, str] = {}
     var_cache: dict[Variadic, str] = {}
@@ -642,7 +642,7 @@ def test_extract_shapes_logical_4():
     relu_1 = Relu()
     relu_2 = Relu()
     relu_3 = Relu()
-    conv_1.set_shapes({"input": [5, 4, 60, 60]})
+    conv_1.set_shapes(input=[5, 4, 60, 60])
     model += conv_1(input="input", weight="weight")
     model += relu_1
     model += conv_2
@@ -722,7 +722,7 @@ def test_extract_shapes_logical_5():
     model += relu_2
     model += linear_3
     model += relu_3
-    relu_2.set_shapes({"input": [None, None]})
+    relu_2.set_shapes(input=[None, None])
     name_mappings = define_unique_names(model.dag.keys())
     uni_cache: dict[UniadicRecord, str] = {}
     var_cache: dict[Variadic, str] = {}
@@ -774,7 +774,7 @@ def test_define_unique_names_1():
     model |= KernelizedSVM_0(input1=model.cout)
     model |= KernelizedSVM_1(input1=model.cout)
 
-    lin_0.input.set_differentiable(True)
+    lin_0.set_differentiability(input=True)
     name_dict = define_unique_names(model.dag.keys())
     assert name_dict == {
         lin_0: "Linear_0",
@@ -894,9 +894,9 @@ def test_physical_summary_1():
     model += LeakyRelu()
     model += (lin1 := Linear(dimension=3))
     model += (l_relu := LeakyRelu())(slope=NOT_GIVEN)
-    l_relu.set_values({"slope": Tensor(1e-1)})
+    l_relu.set_values(slope=Tensor(1e-1))
     model += Relu()
-    lin1.set_shapes({"input": [3, 5]})
+    lin1.set_shapes(input=[3, 5])
     comp_model = mithril.compile(
         model=model, backend=NumpyBackend(), data_keys={"input"}
     )
@@ -920,7 +920,7 @@ def test_physical_summary_2():
     model += Linear(dimension=3)
     model += model1
     assert isinstance(model.cin, Connection)
-    model.cin.set_differentiable(True)
+    model.set_differentiability({model.cin: True})
 
     comp_model = mithril.compile(
         model=model, backend=NumpyBackend(), shapes={"input": [5, 5]}
@@ -939,15 +939,16 @@ def test_physical_summary_2():
 def test_physical_summary_3():
     model = Model()
     model_1 = KernelizedSVM(kernel=RBFKernel())
-    model_1.input1.set_differentiable(True)
-    model_1.input2.set_differentiable(True)
+    model_1.set_differentiability(input1=True, input2=True)
 
     model_2 = MLP(
         activations=[Sigmoid(), Tanh(), Relu(), LeakyRelu()], dimensions=[3, 4, 5, 6]
     )
     model += model_1
     model += model_2
-    comp_model = mithril.compile(model=model, backend=JaxBackend(), jit=False)
+    comp_model = mithril.compile(
+        model=model, backend=JaxBackend(), jit=False, safe_names=False
+    )
 
     with redirect_stdout(StringIO()) as summary:
         comp_model.summary(verbose=True, shapes=True, symbolic=True, types=False)
@@ -962,8 +963,9 @@ def test_physical_summary_3():
 def test_physical_summary_3_logical_with_depth():
     model = Model()
     model_1 = KernelizedSVM(kernel=RBFKernel())
-    model_1.input1.set_differentiable(True)
-    model_1.input2.set_differentiable(True)
+    model_1.set_differentiability(input1=True, input2=True)
+    model_1.set_cin("input1")
+
     model_2 = MLP(
         activations=[Sigmoid(), Tanh(), Relu(), LeakyRelu()], dimensions=[3, 4, 5, 6]
     )
@@ -987,15 +989,14 @@ def test_physical_summary_3_logical_with_depth():
 def test_physical_summary_4():
     model = Model()
     model_1 = KernelizedSVM(kernel=RBFKernel())
-    model_1.input1.set_differentiable(True)
-    model_1.input2.set_differentiable(True)
+    model_1.set_differentiability(input1=True, input2=True)
     model_1.set_cin("input1")
     model_2 = MLP(
         activations=[Sigmoid(), Tanh(), Relu(), LeakyRelu()], dimensions=[3, 4, 5, 6]
     )
     model += model_1
     model += model_2
-    comp_model = mithril.compile(model=model, backend=JaxBackend())
+    comp_model = mithril.compile(model=model, backend=JaxBackend(), safe_names=False)
 
     with redirect_stdout(StringIO()) as summary:
         comp_model.summary(model=model_2, shapes=True, verbose=True, depth=1)
@@ -1029,39 +1030,39 @@ def test_physical_model_summary_5():
     divide = Divide()
     exp = Power()
     add_shape: ShapeTemplateType = ["u1", "u2"]
-    add.set_shapes({"left": add_shape, "right": [1]})
+    add.set_shapes(left=add_shape, right=[1])
     div_shape: ShapeTemplateType = ["u3", "u4"]
-    divide.set_shapes({"numerator": div_shape, "denominator": [1]})
-    exp.set_shapes({"base": div_shape, "exponent": [1]})
+    divide.set_shapes(numerator=div_shape, denominator=[1])
+    exp.set_shapes(base=div_shape, exponent=[1])
     model += add
     model += divide
     model += exp
-    comp_model = mithril.compile(model=model, backend=JaxBackend())
+    comp_model = mithril.compile(model=model, backend=JaxBackend(), safe_names=False)
 
     with redirect_stdout(StringIO()) as summary:
         comp_model.summary(verbose=True, shapes=True, symbolic=True)
     ref_table = ""
     with open("tests/scripts/summary_txts/test_physical_model_summary_5") as f:
         ref_table = f.read()
-    assert "\n" + summary.getvalue() == ref_table
+    assert summary.getvalue() == ref_table
 
 
 def test_physical_model_summary_6():
     model = Model()
     random_kernel_model = Model()
-    random_kernel_model += (add1 := Add())(left="input1", right="input2")
-    random_kernel_model += (relu1 := Relu())(input=add1.output)
-    random_kernel_model += Sigmoid()(input=relu1.output, output="output")
-    model += random_kernel_model(input1="input1", input2="input2")
-    model += Linear()(
+    random_kernel_model |= (add1 := Add())(left="input1", right="input2")
+    random_kernel_model |= (relu1 := Relu())(input=add1.output)
+    random_kernel_model |= Sigmoid()(input=relu1.output, output="output")
+    model |= random_kernel_model(input1="input1", input2="input2")
+    model |= Linear()(
         input=random_kernel_model.output,  # type: ignore
         weight="weight",
         bias="b",
         output="output",
     )
-    random_kernel_model.set_shapes({"input1": ["N", "M"], "input2": ["N", "M"]})
+    random_kernel_model.set_shapes(input1=["N", "M"], input2=["N", "M"])
 
-    comp_model = mithril.compile(model=model, backend=JaxBackend())
+    comp_model = mithril.compile(model=model, backend=JaxBackend(), safe_names=False)
 
     with redirect_stdout(StringIO()) as summary:
         comp_model.summary(verbose=True, shapes=True, symbolic=True)
@@ -1073,15 +1074,17 @@ def test_physical_model_summary_6():
 
 def test_physical_model_summary_7():
     random_kernel_model = Model()
-    random_kernel_model += (add1 := Add())(left="input1", right="input2")
-    random_kernel_model += (relu1 := Relu())(input=add1.output)
-    random_kernel_model += (sig1 := Sigmoid())(input=relu1.output)
-    random_kernel_model += Linear()(
+    random_kernel_model |= (add1 := Add())(left="input1", right="input2")
+    random_kernel_model |= (relu1 := Relu())(input=add1.output)
+    random_kernel_model |= (sig1 := Sigmoid())(input=relu1.output)
+    random_kernel_model |= Linear()(
         input=sig1.output, weight="weight", bias="b", output="output"
     )
-    random_kernel_model.set_shapes({"input1": ["N", "M"], "input2": ["N", "M"]})
+    random_kernel_model.set_shapes(input1=["N", "M"], input2=["N", "M"])
 
-    comp_model = mithril.compile(model=random_kernel_model, backend=JaxBackend())
+    comp_model = mithril.compile(
+        model=random_kernel_model, backend=JaxBackend(), safe_names=False
+    )
 
     with redirect_stdout(StringIO()) as summary:
         comp_model.summary(verbose=True, shapes=True, symbolic=True)
@@ -1095,40 +1098,44 @@ def test_physical_model_summary_8():
     model = Model()
     random_kernel_model = Model()
     another_random_model = Model()
-    another_random_model += Add()(
+    another_random_model |= Add()(
         left=IOKey("input1", type=Tensor),
         right=IOKey("input2", type=Tensor),
         output="output",
     )
     input1_shape: ShapeTemplateType = ["a", ("Var1", ...), "b"]
-    another_random_model.set_shapes({"input1": input1_shape})
-    random_kernel_model += (add1 := Add())(left="input1", right="input2")
-    random_kernel_model += (relu1 := Relu())(input=add1.output)
-    random_kernel_model += Sigmoid()(input=relu1.output)
-    random_kernel_model.set_shapes({"input1": ["N", "M"], "input2": ["N", "M"]})
+    another_random_model.set_shapes(input1=input1_shape)
+    another_random_model.set_cin("input1")
+
+    random_kernel_model |= (add1 := Add())(left="input1", right="input2")
+    random_kernel_model |= (relu1 := Relu())(input=add1.output)
+    random_kernel_model |= Sigmoid()(input=relu1.output)
+    random_kernel_model.set_shapes(input1=["N", "M"], input2=["N", "M"])
+    another_random_model.set_cin("input1")
+
     model += random_kernel_model
     model += another_random_model
 
-    comp_model = mithril.compile(model=model, backend=JaxBackend())
+    comp_model = mithril.compile(model=model, backend=JaxBackend(), safe_names=False)
     with redirect_stdout(StringIO()) as summary:
         comp_model.summary(verbose=True, shapes=False)
     ref_table = ""
     with open("tests/scripts/summary_txts/test_physical_model_summary_8") as f:
         ref_table = f.read()
-    assert "\n" + summary.getvalue() == ref_table
+    assert summary.getvalue() == ref_table
 
 
 def test_physical_model_summary_9():
     model = Model()
     random_kernel_model = Model()
-    random_kernel_model += (add1 := Relu())(input="input1")
-    random_kernel_model += (relu1 := Relu())(input=add1.output)
-    random_kernel_model += Sigmoid()(input=relu1.output)
-    random_kernel_model.set_shapes({"input1": ["N", "M"]})
+    random_kernel_model |= (add1 := Relu())(input="input1")
+    random_kernel_model |= (relu1 := Relu())(input=add1.output)
+    random_kernel_model |= Sigmoid()(input=relu1.output)
+    random_kernel_model.set_shapes(input1=["N", "M"])
     model += random_kernel_model
     model += Relu()
 
-    comp_model = mithril.compile(model=model, backend=JaxBackend())
+    comp_model = mithril.compile(model=model, backend=JaxBackend(), safe_names=False)
     with redirect_stdout(StringIO()) as summary:
         comp_model.summary(verbose=True, shapes=True, symbolic=True)
 
@@ -1136,16 +1143,18 @@ def test_physical_model_summary_9():
     with open("tests/scripts/summary_txts/test_physical_model_summary_9") as f:
         ref_table = f.read()
 
-    assert "\n" + summary.getvalue() == ref_table
+    assert summary.getvalue() == ref_table
 
 
 def test_physical_summary_10():
     model = Model()
     sig_model1 = Sigmoid()
     sig_model2 = Sigmoid()
-    model += sig_model1(input="input", output=IOKey("output1"))
-    model += sig_model2(input="input", output=IOKey("output2"))
-    comp_model = mithril.compile(model=model, backend=JaxBackend(), jit=False)
+    model |= sig_model1(input="input", output=IOKey("output1"))
+    model |= sig_model2(input="input", output=IOKey("output2"))
+    comp_model = mithril.compile(
+        model=model, backend=JaxBackend(), jit=False, safe_names=False
+    )
     with redirect_stdout(StringIO()) as summary:
         comp_model.summary(
             verbose=True, shapes=True, symbolic=True, model=sig_model1, types=True
@@ -1162,9 +1171,9 @@ def test_physical_summary_11():
     model = Model()
     sig_model1 = Sigmoid()
     sig_model2 = Sigmoid()
-    model += sig_model1(input="input", output=IOKey(name="output1"))
-    model += sig_model2(input="input", output=IOKey(name="output2"))
-    comp_model = mithril.compile(model=model, backend=JaxBackend())
+    model |= sig_model1(input="input", output=IOKey(name="output1"))
+    model |= sig_model2(input="input", output=IOKey(name="output2"))
+    comp_model = mithril.compile(model=model, backend=JaxBackend(), safe_names=False)
     with redirect_stdout(StringIO()) as summary:
         comp_model.summary(verbose=True, shapes=True, symbolic=True, model=sig_model2)
     ref_table = ""
@@ -1177,15 +1186,15 @@ def test_physical_summary_12():
     model = Model()
     sig_model1 = Sigmoid()
     sig_model2 = Sigmoid()
-    model += sig_model1(input="input", output=IOKey(name="output1"))
-    model += sig_model2(input="input", output=IOKey(name="output2"))
-    comp_model = mithril.compile(model=model, backend=JaxBackend())
+    model |= sig_model1(input="input", output=IOKey(name="output1"))
+    model |= sig_model2(input="input", output=IOKey(name="output2"))
+    comp_model = mithril.compile(model=model, backend=JaxBackend(), safe_names=False)
     with redirect_stdout(StringIO()) as summary:
         comp_model.summary(verbose=True, shapes=True, symbolic=True)
     ref_table = ""
     with open("tests/scripts/summary_txts/test_physical_summary_12") as f:
         ref_table = f.read()
-    assert "\n" + summary.getvalue() == ref_table
+    assert summary.getvalue() == ref_table
 
 
 def test_physical_summary_13():
@@ -1193,8 +1202,8 @@ def test_physical_summary_13():
     sig_model1 = Sigmoid()
     sig_model2 = Sigmoid()
     sig_model3 = Sigmoid()
-    model += sig_model1(input="input", output="output1")
-    model += sig_model2(input="input", output="output2")
+    model |= sig_model1(input="input", output="output1")
+    model |= sig_model2(input="input", output="output2")
     model.set_cout("output2")
     comp_model = mithril.compile(model=model, backend=JaxBackend())
     with pytest.raises(ValueError) as err_info:
@@ -1207,10 +1216,10 @@ def test_physical_summary_14():
     sig_model1 = Add()
     sig_model1.set_types(left=Tensor, right=Tensor)
     sig_model2 = Add()
-    model += sig_model1(left="left", right="right", output=IOKey("output1"))
-    model += sig_model2(left="left", right="right", output=IOKey("output2"))
+    model |= sig_model1(left="left", right="right", output=IOKey("output1"))
+    model |= sig_model2(left="left", right="right", output=IOKey("output2"))
     comp_model = mithril.compile(
-        model=model, backend=JaxBackend(), shapes={"left": [3, 4, 5]}
+        model=model, backend=JaxBackend(), shapes={"left": [3, 4, 5]}, safe_names=False
     )
     with redirect_stdout(StringIO()) as summary:
         comp_model.summary(model=sig_model2, verbose=True)
@@ -1228,19 +1237,19 @@ def test_physical_summary_15():
     lin_model_2 = Linear(dimension=3)
     lin_model_3 = Linear(dimension=3)
     lin_model_4 = Linear(dimension=3)
-    model += lin_model_1(
+    model |= lin_model_1(
         input="input", weight="weight", bias="b", output=IOKey(name="output1")
     )
-    model += lin_model_2(
+    model |= lin_model_2(
         input="input", weight="weight", bias="b", output=IOKey(name="output2")
     )
-    model += lin_model_3(
+    model |= lin_model_3(
         input="input", weight="weight", bias="b", output=IOKey(name="output3")
     )
-    model += lin_model_4(
+    model |= lin_model_4(
         input="input", weight="weight", bias="b", output=IOKey(name="output4")
     )
-    lin_model_1.input.set_differentiable(True)
+    lin_model_1.set_differentiability(input=True)
 
     comp_model = mithril.compile(model=model, backend=JaxBackend(), jit=False)
 
@@ -1261,17 +1270,17 @@ def test_physical_summary_16():
     lin_model_2 = Linear(dimension=3)
     lin_model_3 = Linear(dimension=3)
 
-    model += lin_model_1(
+    model |= lin_model_1(
         input="input", weight="weight", bias="b", output=IOKey(name="output1")
     )
-    model += lin_model_2(
+    model |= lin_model_2(
         input="input", weight="weight", bias="b", output=IOKey(name="output2")
     )
-    model += lin_model_3(
+    model |= lin_model_3(
         input="input", weight="weight", bias="b", output=IOKey(name="output3")
     )
 
-    comp_model = mithril.compile(model=model, backend=JaxBackend())
+    comp_model = mithril.compile(model=model, backend=JaxBackend(), safe_names=False)
 
     with redirect_stdout(StringIO()) as summary:
         comp_model.summary(model=add_model_1, verbose=True, types=True)
@@ -1289,13 +1298,13 @@ def test_physical_summary_17():
     _, matmul_model_1, _ = tuple(lin_model_1.dag.keys())
     lin_model_2 = Linear(dimension=3)
     lin_model_3 = Linear(dimension=3)
-    model += lin_model_1(input="input", weight="weight", bias="b", output="output1")
-    model += lin_model_2(input="input", weight="weight", bias="b", output="output2")
-    model += lin_model_3(input="input", weight="weight", bias="b", output="output3")
+    model |= lin_model_1(input="input", weight="weight", bias="b", output="output1")
+    model |= lin_model_2(input="input", weight="weight", bias="b", output="output2")
+    model |= lin_model_3(input="input", weight="weight", bias="b", output="output3")
     model.set_cout("output3")
-    lin_model_1.input.set_differentiable(True)
+    lin_model_1.set_differentiability(input=True)
 
-    comp_model = mithril.compile(model=model, backend=JaxBackend())
+    comp_model = mithril.compile(model=model, backend=JaxBackend(), safe_names=False)
 
     with redirect_stdout(StringIO()) as summary:
         comp_model.summary(model=matmul_model_1, verbose=True, types=True)
@@ -1310,7 +1319,8 @@ def test_physical_summary_17():
 def test_resnet_18_physical_summary():
     model = resnet18(1)
     assert isinstance(model.cin, Connection)
-    model.cin.set_differentiable(True)
+    model.set_differentiability({model.cin: True})
+
     comp_model = mithril.compile(model=model, backend=TorchBackend(), jit=False)
 
     with redirect_stdout(StringIO()) as summary:
@@ -1350,7 +1360,7 @@ def test_logical_model_summary_1():
 
 def test_logical_model_summary_2():
     model = Model()
-    model += Convolution2D(kernel_size=4, out_channels=4)
+    model |= Convolution2D(kernel_size=4, out_channels=4)
     model += Relu()
     model += Convolution2D(kernel_size=4, out_channels=4)
     model += LeakyRelu()
@@ -1370,28 +1380,28 @@ def test_logical_model_summary_2():
 
 def test_logical_model_summary_3():
     model = Model()
-    model += Add()(
+    model |= Add()(
         left=IOKey("input1", type=Tensor),
         right=IOKey("input2", type=Tensor),
         output=IOKey(name="output1"),
     )
-    model += Add()(
+    model |= Add()(
         left="input1",
         right=IOKey("input3", type=Tensor),
         output=IOKey(name="output2"),
     )
-    model += Add()(left="input2", right="input3", output=IOKey(name="output3"))
+    model |= Add()(left="input2", right="input3", output=IOKey(name="output3"))
     model.set_cin("input1")
     model.set_cout("output1")
 
     model_1 = Model()
-    model_1 += (m1 := deepcopy(model))()
-    model_1 += (m2 := deepcopy(model))(
+    model_1 |= (m1 := deepcopy(model))()
+    model_1 |= (m2 := deepcopy(model))(
         input1=m1.output1,  # type: ignore
         input2=m1.output2,  # type: ignore
         input3=m1.output3,  # type: ignore
     )
-    model_1 += deepcopy(model)(
+    model_1 |= deepcopy(model)(
         input1=m2.output1,  # type: ignore
         input2=m2.output2,  # type: ignore
         input3=m2.output3,  # type: ignore
@@ -1413,7 +1423,8 @@ def test_logical_model_summary_3():
 def test_logical_model_summary_4():
     model_n = Model()
     add = Add()
-    model_n += add
+    add.set_cin("left")
+    model_n |= add
     add.set_types(left=Tensor, right=Tensor)
     for _ in range(5):
         model_n += deepcopy(model_n)
@@ -1462,8 +1473,8 @@ def test_logical_model_summary_7():
     model_1 = Model()
     buff_1 = Sigmoid()
     buff_2 = Sigmoid()
-    model_1 += buff_1(input="input", output=IOKey(name="output1"))
-    model_1 += buff_2(input="output1", output=IOKey(name="output2"))
+    model_1 |= buff_1(input="input", output=IOKey(name="output1"))
+    model_1 |= buff_2(input="output1", output=IOKey(name="output2"))
     model_n = Model()
     for model in (deepcopy(model_1) for n in range(3)):
         model_n += model
@@ -1484,10 +1495,10 @@ def test_logical_model_summary_7():
 def test_logical_model_summary_8():
     model = Model()
     sig1, sig2, sig3, sig4 = Sigmoid(), Sigmoid(), Sigmoid(), Sigmoid()
-    model += sig1(input="input")
-    model += sig2(input=sig1.output, output=IOKey(name="out_1"))
-    model += sig3(input=sig1.output, output=IOKey(name="out_2"))
-    model += sig4(
+    model |= sig1(input="input")
+    model |= sig2(input=sig1.output, output=IOKey(name="out_1"))
+    model |= sig3(input=sig1.output, output=IOKey(name="out_2"))
+    model |= sig4(
         input=sig1.output,
         output=IOKey(
             name="outputoutputoutputoutputoutputoutputoutputoutputoutputoutput3"
@@ -1508,9 +1519,11 @@ def test_logical_model_summary_9():
     add_1, add_2 = Add(), Add()
     add_1.set_types(left=Tensor, right=Tensor)
     add_2.set_types(left=Tensor, right=Tensor)
-    model += add_1(left="left")
-    model.merge_connections(add_1.left, add_1.right)
-    model += add_2(output=add_1.left, left="left_1")
+    add_1.set_cin("left")
+    add_2.set_cin("left")
+    model |= add_1(left="left")
+    model.merge_connections(add_1.left, add_1.right)    
+    model |= add_2(output=add_1.left, left="left_1")
     with redirect_stdout(StringIO()) as summary:
         model.summary(shapes=True, symbolic=True)
 
@@ -1526,8 +1539,10 @@ def test_logical_model_summary_10():
     add_1, add_2 = Add(), Add()
     add_1.set_types(left=Tensor, right=Tensor)
     add_2.set_types(left=Tensor, right=Tensor)
-    model += add_1(left="left", right="right", output=IOKey(name="output"))
-    model += add_2(left=add_1.left, output=IOKey(name="output1"))
+    add_1.set_cin("left")
+    add_2.set_cin("left")
+    model |= add_1(left="left", right="right", output=IOKey(name="output"))
+    model |= add_2(left=add_1.left, output=IOKey(name="output1"))
 
     with redirect_stdout(StringIO()) as summary:
         model.summary(shapes=True, symbolic=False)
@@ -1542,9 +1557,9 @@ def test_logical_model_summary_10():
 def test_logical_model_summary_11():
     model = Model()
     sig_1, sig_2, sig_3 = Sigmoid(), Sigmoid(), Sigmoid()
-    model += sig_1(input="input1", output=IOKey(name="output1"))
-    model += sig_2(input="input2", output=IOKey(name="output2"))
-    model += sig_3(input="input3", output=IOKey(name="output3"))
+    model |= sig_1(input="input1", output=IOKey(name="output1"))
+    model |= sig_2(input="input2", output=IOKey(name="output2"))
+    model |= sig_3(input="input3", output=IOKey(name="output3"))
     model.set_cin("input1")
     model.set_cout("output1")
 
@@ -1552,21 +1567,19 @@ def test_logical_model_summary_11():
 
     model_n = Model()
 
-    model_n += model_3(
-        input1="",
+    model_n |= model_3(
         output1=IOKey(name="output1"),
         output2=IOKey(name="output2"),
         output3=IOKey(name="output3"),
     )
     model_n.merge_connections(model_3.input1, model_3.input2, model_3.input3)  # type: ignore
-    model_n += model_2(
-        input1="",
+    model_n |= model_2(
         output1=model_3.input1,  # type: ignore
         output2=IOKey(name="output4"),
         output3=IOKey(name="output5"),
     )
     model_n.merge_connections(model_2.input1, model_2.input2, model_2.input3)  # type: ignore
-    model_n += model_1(input1="", output1=model_2.input1)  # type: ignore
+    model_n |= model_1(output1=model_2.input1)  # type: ignore
 
     with redirect_stdout(StringIO()) as summary:
         model_n.summary(shapes=True, symbolic=True)
@@ -1587,22 +1600,22 @@ def test_logical_model_summary_12():
     # function and also handle model namings in for loop?) discuss later.
     model = Model()
     sig_1, sig_2, sig_3 = Sigmoid(), Sigmoid(), Sigmoid()
-    model += sig_1(input="input1", output=IOKey(name="output1"))
-    model += sig_2(input="input2", output=IOKey(name="output2"))
-    model += sig_3(input="input3", output=IOKey(name="output3"))
+    model |= sig_1(input="input1", output=IOKey(name="output1"))
+    model |= sig_2(input="input2", output=IOKey(name="output2"))
+    model |= sig_3(input="input3", output=IOKey(name="output3"))
 
     model_1, model_2, model_3 = deepcopy(model), deepcopy(model), deepcopy(model)
 
     model_n = Model()
 
-    model_n += model_3(
+    model_n |= model_3(
         output1=IOKey(name="output1"),
         output2=IOKey(name="output2"),
         output3=IOKey(name="output3"),
     )
-    model_n += model_1(input1="input1", input2="input2", input3="input3")  # type: ignore
+    model_n |= model_1(input1="input1", input2="input2", input3="input3")  # type: ignore
     model_n.merge_connections(model_3.input1, model_3.input2, model_3.input3)  # type: ignore
-    model_n += model_2(
+    model_n |= model_2(
         input1=model_1.output1,  # type: ignore
         input2=model_1.output2,  # type: ignore
         input3=model_1.output3,  # type: ignore
@@ -1627,10 +1640,10 @@ def test_logical_model_summary_13():
     linear1 = Linear()
     linear2 = Linear()
     linear3 = Linear()
-    model += linear1(output=IOKey("output1"))
-    model += linear2(input=model.output1)  # type: ignore
+    model |= linear1(output=IOKey("output1"))
+    model |= linear2(input=model.output1)  # type: ignore
     model1 += model
-    model1 += linear3(input=model.output1)  # type: ignore
+    model1 |= linear3(input=model.output1)  # type: ignore
     model1.set_cout(linear3.output)
 
     with redirect_stdout(StringIO()) as summary:
@@ -1645,8 +1658,8 @@ def test_logical_model_summary_13():
 
 def test_simple_extend_from_input_summary():
     model = Model()
-    model += Linear(dimension=5)(input="lin", output="output")
-    model += Linear(dimension=3)(input="input", output="lin")
+    model |= Linear(dimension=5)(input="lin", output="output")
+    model |= Linear(dimension=3)(input="input", output="lin")
 
     model._freeze()
 
@@ -1702,10 +1715,10 @@ def generate_comp_model():
     sig = Sigmoid()
     l_relu = LeakyRelu()
     test_model = Model()
-    test_model += matmul(left="left", right="right")
-    test_model += add(left=IOKey("in1", type=Tensor), right=matmul.output)
-    test_model += sig(input=add.output)
-    test_model += l_relu(input=sig.output, output="output")
+    test_model |= matmul(left="left", right="right")
+    test_model |= add(left=IOKey("in1", type=Tensor), right=matmul.output)
+    test_model |= sig(input=add.output)
+    test_model |= l_relu(input=sig.output, output="output")
     comp_model = mithril.compile(model=test_model, backend=JaxBackend())
     return comp_model, matmul, add, sig, l_relu, test_model
 
@@ -1719,7 +1732,7 @@ def test_primitive_model_summary_4():
     with open("tests/scripts/summary_txts/test_primitive_model_summary_4") as f:
         ref_table = f.read()
 
-    assert "\n" + summary.getvalue() == ref_table
+    assert summary.getvalue() == ref_table
 
 
 def test_primitive_model_summary_5():
@@ -1731,7 +1744,7 @@ def test_primitive_model_summary_5():
     with open("tests/scripts/summary_txts/test_primitive_model_summary_5") as f:
         ref_table = f.read()
 
-    assert "\n" + summary.getvalue() == ref_table
+    assert summary.getvalue() == ref_table
 
 
 def test_primitive_model_summary_6():
@@ -1767,7 +1780,7 @@ def test_primitive_model_summary_8():
     with open("tests/scripts/summary_txts/test_primitive_model_summary_8") as f:
         ref_table = f.read()
 
-    assert "\n" + summary.getvalue() == ref_table
+    assert summary.getvalue() == ref_table
 
 
 def test_primitive_model_summary_9():
@@ -1790,11 +1803,11 @@ def test_summary_nontensor_models():
     lin_model = Linear()
     to_tensor_model = ToTensor()
 
-    model += lin_model(input="input", weight="weight", bias="b")
-    model += shape_model(input=lin_model.output, output=IOKey("output1"))
-    model += mean_model(input=lin_model.output, output=IOKey("output2"))
-    model += size_model(input=lin_model.output, output=IOKey("output3"))
-    model += to_tensor_model(input=size_model.output, output=IOKey("output4"))
+    model |= lin_model(input="input", weight="weight", bias="b")
+    model |= shape_model(input=lin_model.output, output=IOKey("output1"))
+    model |= mean_model(input=lin_model.output, output=IOKey("output2"))
+    model |= size_model(input=lin_model.output, output=IOKey("output3"))
+    model |= to_tensor_model(input=size_model.output, output=IOKey("output4"))
     with redirect_stdout(StringIO()) as summary:
         model.summary(shapes=True, symbolic=True)
 
@@ -1835,9 +1848,9 @@ def test_traincontext_summary_2():
     add_1.set_types(left=Tensor, right=Tensor)
     add_2.set_types(left=Tensor, right=Tensor)
     matmul_1 = MatrixMultiply()
-    model += add_1(left="input1", right="input2", output=IOKey(name="output1"))
-    model += add_2(left="input3", right="input4", output=IOKey(name="output2"))
-    model += matmul_1(left="input5", right="input6", output=IOKey(name="output3"))
+    model |= add_1(left="input1", right="input2", output=IOKey(name="output1"))
+    model |= add_2(left="input3", right="input4", output=IOKey(name="output2"))
+    model |= matmul_1(left="input5", right="input6", output=IOKey(name="output3"))
     ctx = TrainModel(model)
     ctx.add_loss(
         SquaredError(),
@@ -1869,10 +1882,16 @@ def test_traincontext_summary_3():
     add_2 = Add()
     add_1.set_types(left=Tensor, right=Tensor)
     add_2.set_types(left=Tensor, right=Tensor)
+    add_1.set_cin("left")
+    add_2.set_cin("left")
     matmul_1 = MatrixMultiply()
-    model += add_1(left="in1", right="in2", output=IOKey(name="output1"))
-    model += add_2(left="", output=IOKey(name="output2"))
-    model += matmul_1(left="", output=IOKey(name="output3"))
+    model |= add_1(
+        left=IOKey("in1", differantiable=True),
+        right="in2",
+        output=IOKey(name="output1"),
+    )
+    model |= add_2(left="", output=IOKey(name="output2"))
+    model |= matmul_1(left="", output=IOKey(name="output3"))
     model.set_cin(matmul_1.left)
     ctx = TrainModel(model)
     ctx.add_loss(
@@ -1899,7 +1918,7 @@ def test_traincontext_summary_3():
     with open("tests/scripts/summary_txts/test_traincontext_summary_3") as f:
         ref_table = f.read()
 
-    assert "\n" + summary.getvalue() == ref_table
+    assert summary.getvalue() == ref_table
 
 
 def test_traincontext_summary_4():
@@ -1908,10 +1927,16 @@ def test_traincontext_summary_4():
     add_2 = Add()
     add_1.set_types(left=Tensor, right=Tensor)
     add_2.set_types(left=Tensor, right=Tensor)
+    add_1.set_cin("left")
+    add_2.set_cin("left")
     matmul_1 = MatrixMultiply()
-    model += add_1(left="in1", right="in2", output=IOKey(name="output1"))
-    model += add_2(left="", output=IOKey(name="output2"))
-    model += matmul_1(left="", output=IOKey(name="output3"))
+    model |= add_1(
+        left=IOKey("in1", differantiable=True),
+        right=IOKey("in2", differantiable=True),
+        output=IOKey(name="output1"),
+    )
+    model |= add_2(left="", output=IOKey(name="output2"))
+    model |= matmul_1(left="", output=IOKey(name="output3"))
     model.set_cin(matmul_1.left)
 
     ctx = TrainModel(model)
@@ -1940,7 +1965,7 @@ def test_traincontext_summary_4():
     with open("tests/scripts/summary_txts/test_traincontext_summary_4") as f:
         ref_table = f.read()
 
-    assert "\n" + summary.getvalue() == ref_table
+    assert summary.getvalue() == ref_table
 
 
 def test_traincontext_summary_5():
@@ -1949,8 +1974,14 @@ def test_traincontext_summary_5():
     add_2 = Add()
     add_1.set_types(left=Tensor, right=Tensor)
     add_2.set_types(left=Tensor, right=Tensor)
+    add_1.set_cin("left")
+    add_2.set_cin("left")
     matmul_1 = MatrixMultiply()
-    model += add_1(left="in1", right="in2", output=IOKey(name="output1"))
+    model |= add_1(
+        left=IOKey("in1", differantiable=True),
+        right=IOKey("in2", differantiable=True),
+        output=IOKey(name="output1"),
+    )
     model += add_2(output=IOKey(name="output2"))
     model += matmul_1(output=IOKey(name="output3"))
     ctx = TrainModel(model)

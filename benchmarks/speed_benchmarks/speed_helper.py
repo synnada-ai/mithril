@@ -69,7 +69,7 @@ def create_compl_conv(
         )
         if idx == 0:
             conv1.set_shapes(
-                {"input": [batch_size, in_channel, tensor_shape[0], tensor_shape[1]]}
+                input=[batch_size, in_channel, tensor_shape[0], tensor_shape[1]]
             )
             model += conv1(input="input")
         else:
@@ -98,7 +98,7 @@ def create_compl_mlp(
     mlp_compl = MLP(
         dimensions=dimensions, activations=[activation() for activation in activations]
     )
-    mlp_compl.set_shapes({"input": [None, input_size]})
+    mlp_compl.set_shapes(input=[None, input_size])
     return mlp_compl
 
 

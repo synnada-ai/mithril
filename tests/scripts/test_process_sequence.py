@@ -128,10 +128,11 @@ def test_range_input_to_tensor_model():
     ]
     model = Model()
     model += (tt := ToTensor())(input=sequence)
-    assert tt.input == [[[0, 1.0], [2, 3]], [range(4, 6), [True, False]]]
+    assert tt.input.metadata.value == [[[0, 1.0], [2, 3]], [range(4, 6), [True, False]]]
     assert (
         tt.input.metadata.value_type
         == list[list[list[int | float] | list[int]] | list[range | list[bool]]]
     )
-    assert tt.output == [[[0, 1.0], [2, 3]], [[4, 5], [True, False]]]
+    assert tt.output.metadata.shape is not None
+    assert tt.output.metadata.shape.get_shapes() == [2, 2, 2]
     assert tt.output.metadata.value_type is float

@@ -17,7 +17,7 @@ from functools import partial
 from types import EllipsisType, NoneType, UnionType
 from typing import Any
 
-from ... import core
+from ... import types
 from ..common import (
     TBD,
     BaseKey,
@@ -116,7 +116,7 @@ __all__ = [
     "MaximumOp",
 ]
 
-ConstantType = float | int | core.Constant
+ConstantType = float | int | types.Constant
 
 
 class BufferOp(Operator):
@@ -164,6 +164,7 @@ class ToTupleOp(Operator):
             fn=to_tuple_constraints,
             keys=[Operator.output_key] + [key for key in self.input_keys],
         )
+        self.set_cin()
 
 
 class ArithmeticOp(Operator):
@@ -303,6 +304,7 @@ class AddOp(ArithmeticOp):
             keys=[Operator.output_key, "left", "right"],
             dependencies={self.edge_constraint},
         )
+        self.set_cin("left", "right", safe=False)
 
 
 class SubtractOp(ArithmeticOp):
@@ -343,6 +345,7 @@ class MultiplyOp(ArithmeticOp):
             keys=[Operator.output_key, "left", "right"],
             dependencies={self.edge_constraint},
         )
+        self.set_cin("left", "right", safe=False)
 
 
 class MinimumOp(ArithmeticOp):
@@ -354,6 +357,7 @@ class MinimumOp(ArithmeticOp):
         right: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(formula_key="minimum", left=left, right=right)
+        self.set_cin("left", "right", safe=False)
 
 
 class MaximumOp(ArithmeticOp):
@@ -365,6 +369,7 @@ class MaximumOp(ArithmeticOp):
         right: TensorValueType | ToBeDetermined = TBD,
     ) -> None:
         super().__init__(formula_key="maximum", left=left, right=right)
+        self.set_cin("left", "right", safe=False)
 
 
 class DivideOp(Operator):
@@ -431,7 +436,9 @@ class FloorDivideOp(Operator):
         super().__init__(
             formula_key="floor_divide",
             name=name,
-            output=BaseKey(type=Tensor[int | float] | int | float),
+            output=BaseKey(
+                type=Tensor[int | float] | int | float, differentiable=False
+            ),
             numerator=BaseKey(value=numerator),
             denominator=BaseKey(value=denominator),
         )
@@ -463,6 +470,9 @@ class FloorDivideOp(Operator):
             keys=[Operator.output_key, "numerator", "denominator"],
             dependencies={bcast_constraint},
         )
+
+    def infer_differentiability(self, *inputs: bool) -> bool:
+        return False
 
 
 class MatrixMultiplyOp(Operator):
@@ -563,14 +573,14 @@ class CastOp(Operator):
     _model_name: str = "Cast"
 
     def __init__(
-        self, dtype: core.Dtype | ToBeDetermined = TBD, *, name: str | None = None
+        self, dtype: types.Dtype | ToBeDetermined = TBD, *, name: str | None = None
     ) -> None:
         super().__init__(
             formula_key="cast",
             name=name,
             output=BaseKey(shape=[("Var", ...)], type=Tensor),
             input=BaseKey(shape=[("Var", ...)], type=Tensor),
-            dtype=BaseKey(type=core.Dtype, value=dtype),
+            dtype=BaseKey(type=types.Dtype, value=dtype),
         )
 
 
@@ -586,7 +596,7 @@ class DtypeOp(Operator):
         super().__init__(
             formula_key="dtype",
             name=name,
-            output=BaseKey(type=core.Dtype),
+            output=BaseKey(type=types.Dtype),
             input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
         )
 
@@ -638,7 +648,7 @@ class ToTensorOp(Operator):
     def __init__(
         self,
         input: TensorValueType | ToBeDetermined = TBD,
-        dtype: core.Dtype | None = None,
+        dtype: types.Dtype | None = None,
         *,
         name: str | None = None,
     ) -> None:
@@ -647,7 +657,7 @@ class ToTensorOp(Operator):
             name=name,
             output=BaseKey(shape=[("Var", ...)], type=Tensor),
             input=BaseKey(type=TensorValueType, value=input),
-            dtype=BaseKey(type=core.Dtype | None, value=dtype),
+            dtype=BaseKey(type=types.Dtype | None, value=dtype),
         )
 
         self._add_constraint(
@@ -684,6 +694,7 @@ class ToListOp(Operator):
             fn=to_list_constraints,
             keys=[Operator.output_key] + [key for key in self.input_keys],
         )
+        self.set_cin()
 
 
 class TensorToListOp(Operator):
@@ -1120,6 +1131,7 @@ class EqualOp(RelationalOperatorsOp):
             keys=[Operator.output_key, "left", "right"],
             dependencies={self.edge_constraint},
         )
+        self.set_cin("left", "right", safe=False)
 
 
 class NotEqualOp(RelationalOperatorsOp):
@@ -1139,6 +1151,7 @@ class NotEqualOp(RelationalOperatorsOp):
             keys=[Operator.output_key, "left", "right"],
             dependencies={self.edge_constraint},
         )
+        self.set_cin("left", "right", safe=False)
 
 
 class LessEqualOp(RelationalOperatorsOp):
@@ -1215,6 +1228,7 @@ class BitwiseOperatorsOp(Operator):
             right=BaseKey(shape=[("Var3", ...)], type=Tensor[bool], value=right),
         )
         self._add_constraint(bcast, ["output", "left", "right"])
+        self.set_cin("left", "right", safe=False)
 
 
 class LogicalAndOp(BitwiseOperatorsOp):
@@ -1399,6 +1413,7 @@ class SliceOp(Operator):
         self._add_constraint(
             fn=slice_constraints, keys=["output", "start", "stop", "step"]
         )
+        self.set_cin()
 
 
 class IndexerOp(Operator):

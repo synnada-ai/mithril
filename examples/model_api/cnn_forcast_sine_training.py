@@ -66,7 +66,7 @@ dataloader = DataLoader(dataset, batch_size=batch_size)
 
 # Create a simple CNN model.
 cnn_model = Model()
-cnn_model += Convolution1D(out_channels=16, kernel_size=5, stride=1, padding=2)
+cnn_model |= Convolution1D(out_channels=16, kernel_size=5, stride=1, padding=2)
 cnn_model += Relu()
 cnn_model += MaxPool1D(kernel_size=2, stride=2)
 cnn_model += Flatten(start_dim=1)
@@ -86,7 +86,7 @@ train_model.add_loss(
     reduce_steps=[Mean()],
 )
 
-train_model.set_shapes({"input": [None, 1, seq_len]})
+train_model.set_shapes(input=[None, 1, seq_len])
 
 # Finally, compile the model.
 pm = ml.compile(train_model, backend, data_keys={"input", "target"})

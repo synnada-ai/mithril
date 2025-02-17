@@ -26,7 +26,7 @@ def test_freeze_set_values_primitive():
     assert model.is_frozen is True
 
     with pytest.raises(ValueError) as error_info:
-        model.set_values({"left": 1.0})
+        model.set_values(left=1.0)
     assert str(error_info.value) == "Model is frozen, can not set the key: left!"
 
 
@@ -44,7 +44,7 @@ def test_freeze_set_values_extend_defined_logical():
     # assert str(error_info.value) == "Model is frozen, can not set the key: input!"
 
     with pytest.raises(AttributeError) as attr_error_info:
-        model += Add()
+        model |= Add()
     assert str(attr_error_info.value) == "Model is frozen and can not be extended!"
 
 
@@ -53,7 +53,7 @@ def test_freeze_set_values_extend_logical():
     model += Add()(left="left", right="right")
     assert model.is_frozen is False
 
-    model.set_values({"left": Tensor(1.0)})
+    model.set_values(left=Tensor(1.0))
     model._freeze()
     assert model.is_frozen is True
 
@@ -64,7 +64,7 @@ def test_freeze_set_values_extend_logical():
     # assert str(error_info.value) == "Model is frozen, can not set the key: right!"
 
     with pytest.raises(AttributeError) as attr_error_info:
-        model += Add()
+        model |= Add()
     assert str(attr_error_info.value) == "Model is frozen and can not be extended!"
 
 
@@ -74,7 +74,7 @@ def test_freeze_set_values_scalar():
     assert model.is_frozen is False
 
     model._freeze()
-    model.set_values({"input": [1.0]})
+    model.set_values(input=[1.0])
     assert model.is_frozen is True
 
     assert model.input.metadata.value == [1.0]  # type: ignore

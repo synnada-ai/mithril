@@ -35,38 +35,38 @@ TOLERANCE = 1e-6
 
 def test_metrics_1():
     model = Model()
-    model += AUC(3, False)("pred", "label", IOKey("AUC_OvR"))
-    model += Accuracy(is_pred_one_hot=True, is_label_one_hot=False)(
+    model |= AUC(3, False)("pred", "label", IOKey("AUC_OvR"))
+    model |= Accuracy(is_pred_one_hot=True, is_label_one_hot=False)(
         pred="pred", label="label", output=IOKey("Accuracy")
     )
 
-    model += F1("micro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
+    model |= F1("micro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
         pred="pred", label="label", output=IOKey("Micro_F1")
     )
-    model += F1("macro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
+    model |= F1("macro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
         pred="pred", label="label", output=IOKey("Macro_F1")
     )
-    model += F1("weighted", 3, is_label_one_hot=False, is_pred_one_hot=True)(
+    model |= F1("weighted", 3, is_label_one_hot=False, is_pred_one_hot=True)(
         pred="pred", label="label", output=IOKey("Weighted_F1")
     )
 
-    model += Precision("micro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
+    model |= Precision("micro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
         pred="pred", label="label", output=IOKey("Micro_Precision")
     )
-    model += Precision("macro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
+    model |= Precision("macro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
         pred="pred", label="label", output=IOKey("Macro_Precision")
     )
-    model += Precision("weighted", 3, is_label_one_hot=False, is_pred_one_hot=True)(
+    model |= Precision("weighted", 3, is_label_one_hot=False, is_pred_one_hot=True)(
         pred="pred", label="label", output=IOKey("Weighted_Precision")
     )
 
-    model += Recall("micro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
+    model |= Recall("micro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
         pred="pred", label="label", output=IOKey("Micro_Recall")
     )
-    model += Recall("macro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
+    model |= Recall("macro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
         pred="pred", label="label", output=IOKey("Macro_Recall")
     )
-    model += Recall("weighted", 3, is_label_one_hot=False, is_pred_one_hot=True)(
+    model |= Recall("weighted", 3, is_label_one_hot=False, is_pred_one_hot=True)(
         pred="pred", label="label", output=IOKey("Weighted_Recall")
     )
 
@@ -122,37 +122,37 @@ def test_metrics_1():
 
 def test_metrics_2():
     model = Model()
-    model += Accuracy(is_pred_one_hot=True, is_label_one_hot=False)(
+    model |= Accuracy(is_pred_one_hot=True, is_label_one_hot=False)(
         pred="pred", label="label", output=IOKey("Accuracy")
     )
 
-    model += F1("micro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
+    model |= F1("micro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
         pred="pred", label="label", output=IOKey("Micro_F1")
     )
-    model += F1("macro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
+    model |= F1("macro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
         pred="pred", label="label", output=IOKey("Macro_F1")
     )
-    model += F1("weighted", 3, is_label_one_hot=False, is_pred_one_hot=True)(
+    model |= F1("weighted", 3, is_label_one_hot=False, is_pred_one_hot=True)(
         pred="pred", label="label", output=IOKey("Weighted_F1")
     )
 
-    model += Precision("micro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
+    model |= Precision("micro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
         pred="pred", label="label", output=IOKey("Micro_Precision")
     )
-    model += Precision("macro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
+    model |= Precision("macro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
         pred="pred", label="label", output=IOKey("Macro_Precision")
     )
-    model += Precision("weighted", 3, is_label_one_hot=False, is_pred_one_hot=True)(
+    model |= Precision("weighted", 3, is_label_one_hot=False, is_pred_one_hot=True)(
         pred="pred", label="label", output=IOKey("Weighted_Precision")
     )
 
-    model += Recall("micro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
+    model |= Recall("micro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
         pred="pred", label="label", output=IOKey("Micro_Recall")
     )
-    model += Recall("macro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
+    model |= Recall("macro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
         pred="pred", label="label", output=IOKey("Macro_Recall")
     )
-    model += Recall("weighted", 3, is_label_one_hot=False, is_pred_one_hot=True)(
+    model |= Recall("weighted", 3, is_label_one_hot=False, is_pred_one_hot=True)(
         pred="pred", label="label", output=IOKey("Weighted_Recall")
     )
 
@@ -203,37 +203,37 @@ def test_metrics_2():
 
 def test_metrics_3():
     model = Model()
-    model += Accuracy(is_pred_one_hot=True, is_label_one_hot=False)(
+    model |= Accuracy(is_pred_one_hot=True, is_label_one_hot=False)(
         pred="pred", label="label", output=IOKey("Accuracy")
     )
 
-    model += F1("micro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
+    model |= F1("micro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
         pred="pred", label="label", output=IOKey("Micro_F1")
     )
-    model += F1("macro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
+    model |= F1("macro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
         pred="pred", label="label", output=IOKey("Macro_F1")
     )
-    model += F1("weighted", 3, is_label_one_hot=False, is_pred_one_hot=True)(
+    model |= F1("weighted", 3, is_label_one_hot=False, is_pred_one_hot=True)(
         pred="pred", label="label", output=IOKey("Weighted_F1")
     )
 
-    model += Precision("micro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
+    model |= Precision("micro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
         pred="pred", label="label", output=IOKey("Micro_Precision")
     )
-    model += Precision("macro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
+    model |= Precision("macro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
         pred="pred", label="label", output=IOKey("Macro_Precision")
     )
-    model += Precision("weighted", 3, is_label_one_hot=False, is_pred_one_hot=True)(
+    model |= Precision("weighted", 3, is_label_one_hot=False, is_pred_one_hot=True)(
         pred="pred", label="label", output=IOKey("Weighted_Precision")
     )
 
-    model += Recall("micro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
+    model |= Recall("micro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
         pred="pred", label="label", output=IOKey("Micro_Recall")
     )
-    model += Recall("macro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
+    model |= Recall("macro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
         pred="pred", label="label", output=IOKey("Macro_Recall")
     )
-    model += Recall("weighted", 3, is_label_one_hot=False, is_pred_one_hot=True)(
+    model |= Recall("weighted", 3, is_label_one_hot=False, is_pred_one_hot=True)(
         pred="pred", label="label", output=IOKey("Weighted_Recall")
     )
 
@@ -285,37 +285,37 @@ def test_metrics_3():
 
 def test_metrics_4():
     model = Model()
-    model += Accuracy(is_pred_one_hot=True, is_label_one_hot=False)(
+    model |= Accuracy(is_pred_one_hot=True, is_label_one_hot=False)(
         pred="pred", label="label", output=IOKey("Accuracy")
     )
 
-    model += F1("micro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
+    model |= F1("micro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
         pred="pred", label="label", output=IOKey("Micro_F1")
     )
-    model += F1("macro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
+    model |= F1("macro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
         pred="pred", label="label", output=IOKey("Macro_F1")
     )
-    model += F1("weighted", 3, is_label_one_hot=False, is_pred_one_hot=True)(
+    model |= F1("weighted", 3, is_label_one_hot=False, is_pred_one_hot=True)(
         pred="pred", label="label", output=IOKey("Weighted_F1")
     )
 
-    model += Precision("micro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
+    model |= Precision("micro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
         pred="pred", label="label", output=IOKey("Micro_Precision")
     )
-    model += Precision("macro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
+    model |= Precision("macro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
         pred="pred", label="label", output=IOKey("Macro_Precision")
     )
-    model += Precision("weighted", 3, is_label_one_hot=False, is_pred_one_hot=True)(
+    model |= Precision("weighted", 3, is_label_one_hot=False, is_pred_one_hot=True)(
         pred="pred", label="label", output=IOKey("Weighted_Precision")
     )
 
-    model += Recall("micro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
+    model |= Recall("micro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
         pred="pred", label="label", output=IOKey("Micro_Recall")
     )
-    model += Recall("macro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
+    model |= Recall("macro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
         pred="pred", label="label", output=IOKey("Macro_Recall")
     )
-    model += Recall("weighted", 3, is_label_one_hot=False, is_pred_one_hot=True)(
+    model |= Recall("weighted", 3, is_label_one_hot=False, is_pred_one_hot=True)(
         pred="pred", label="label", output=IOKey("Weighted_Recall")
     )
 
@@ -367,37 +367,37 @@ def test_metrics_4():
 
 def test_metrics_5():
     model = Model()
-    model += Accuracy(is_pred_one_hot=True, is_label_one_hot=False)(
+    model |= Accuracy(is_pred_one_hot=True, is_label_one_hot=False)(
         pred="pred", label="label", output=IOKey("Accuracy")
     )
 
-    model += F1("micro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
+    model |= F1("micro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
         pred="pred", label="label", output=IOKey("Micro_F1")
     )
-    model += F1("macro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
+    model |= F1("macro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
         pred="pred", label="label", output=IOKey("Macro_F1")
     )
-    model += F1("weighted", 3, is_label_one_hot=False, is_pred_one_hot=True)(
+    model |= F1("weighted", 3, is_label_one_hot=False, is_pred_one_hot=True)(
         pred="pred", label="label", output=IOKey("Weighted_F1")
     )
 
-    model += Precision("micro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
+    model |= Precision("micro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
         pred="pred", label="label", output=IOKey("Micro_Precision")
     )
-    model += Precision("macro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
+    model |= Precision("macro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
         pred="pred", label="label", output=IOKey("Macro_Precision")
     )
-    model += Precision("weighted", 3, is_label_one_hot=False, is_pred_one_hot=True)(
+    model |= Precision("weighted", 3, is_label_one_hot=False, is_pred_one_hot=True)(
         pred="pred", label="label", output=IOKey("Weighted_Precision")
     )
 
-    model += Recall("micro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
+    model |= Recall("micro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
         pred="pred", label="label", output=IOKey("Micro_Recall")
     )
-    model += Recall("macro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
+    model |= Recall("macro", 3, is_label_one_hot=False, is_pred_one_hot=True)(
         pred="pred", label="label", output=IOKey("Macro_Recall")
     )
-    model += Recall("weighted", 3, is_label_one_hot=False, is_pred_one_hot=True)(
+    model |= Recall("weighted", 3, is_label_one_hot=False, is_pred_one_hot=True)(
         pred="pred", label="label", output=IOKey("Weighted_Recall")
     )
 
@@ -449,7 +449,7 @@ def test_metrics_5():
 
 def test_metrics_6():
     model = Model()
-    model += Metric()(pred="pred", label="label", output=IOKey("output"))
+    model |= Metric()(pred="pred", label="label", output=IOKey("output"))
 
     pred = [[0, 1, 0], [1, 0, 0], [0, 0, 1]]
     label = [[0, 1, 0], [1, 0, 0], [0, 1, 0]]
@@ -472,7 +472,7 @@ def test_metrics_6():
 
 def test_metrics_7():
     model = Model()
-    model += Metric()(pred="pred", label="label", output=IOKey("output"))
+    model |= Metric()(pred="pred", label="label", output=IOKey("output"))
     pred = [[0, 1, 0], [0, 1, 0], [1, 0, 0]]
     label = [[0, 1, 0], [1, 0, 0], [0, 1, 0]]
 
@@ -494,7 +494,7 @@ def test_metrics_7():
 
 def test_metrics_8():
     model = Model()
-    model += Metric(is_label_one_hot=False)(
+    model |= Metric(is_label_one_hot=False)(
         pred="pred", label="label", output=IOKey("output")
     )
     pred = [[0, 1, 0], [0, 1, 0], [1, 0, 0]]
@@ -518,7 +518,7 @@ def test_metrics_8():
 
 def test_metrics_9():
     model = Model()
-    model += Metric(is_label_one_hot=False, is_pred_one_hot=False)(
+    model |= Metric(is_label_one_hot=False, is_pred_one_hot=False)(
         pred="pred", label="label", output=IOKey("output")
     )
     pred = [1, 1, 0]
@@ -543,7 +543,7 @@ def test_metrics_9():
 
 def test_metrics_10():
     model = Model()
-    model += Metric(
+    model |= Metric(
         threshold=0.3, is_binary=True, is_label_one_hot=False, is_pred_one_hot=False
     )(pred="pred", label="label", output=IOKey("output"))
     pred = [0.5, 0.2, 0.1]
@@ -572,7 +572,7 @@ def test_metrics_10():
 
 def test_metrics_11():
     model = Model()
-    model += Metric(
+    model |= Metric(
         threshold=0.3, is_binary=True, is_label_one_hot=True, is_pred_one_hot=False
     )(pred="pred", label="label", output=IOKey("output"))
     pred = [0.5, 0.2, 0.1]
@@ -600,37 +600,37 @@ def test_metrics_11():
 
 def test_metrics_12():
     model = Model()
-    model += Accuracy(is_pred_one_hot=False, is_label_one_hot=False)(
+    model |= Accuracy(is_pred_one_hot=False, is_label_one_hot=False)(
         pred="pred", label="label", output=IOKey("Accuracy")
     )
 
-    model += F1("micro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
+    model |= F1("micro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
         pred="pred", label="label", output=IOKey("Micro_F1")
     )
-    model += F1("macro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
+    model |= F1("macro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
         pred="pred", label="label", output=IOKey("Macro_F1")
     )
-    model += F1("weighted", 3, is_label_one_hot=False, is_pred_one_hot=False)(
+    model |= F1("weighted", 3, is_label_one_hot=False, is_pred_one_hot=False)(
         pred="pred", label="label", output=IOKey("Weighted_F1")
     )
 
-    model += Precision("micro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
+    model |= Precision("micro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
         pred="pred", label="label", output=IOKey("Micro_Precision")
     )
-    model += Precision("macro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
+    model |= Precision("macro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
         pred="pred", label="label", output=IOKey("Macro_Precision")
     )
-    model += Precision("weighted", 3, is_label_one_hot=False, is_pred_one_hot=False)(
+    model |= Precision("weighted", 3, is_label_one_hot=False, is_pred_one_hot=False)(
         pred="pred", label="label", output=IOKey("Weighted_Precision")
     )
 
-    model += Recall("micro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
+    model |= Recall("micro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
         pred="pred", label="label", output=IOKey("Micro_Recall")
     )
-    model += Recall("macro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
+    model |= Recall("macro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
         pred="pred", label="label", output=IOKey("Macro_Recall")
     )
-    model += Recall("weighted", 3, is_label_one_hot=False, is_pred_one_hot=False)(
+    model |= Recall("weighted", 3, is_label_one_hot=False, is_pred_one_hot=False)(
         pred="pred", label="label", output=IOKey("Weighted_Recall")
     )
 
@@ -673,37 +673,37 @@ def test_metrics_12():
 
 def test_metrics_13():
     model = Model()
-    model += Accuracy(is_pred_one_hot=False, is_label_one_hot=False)(
+    model |= Accuracy(is_pred_one_hot=False, is_label_one_hot=False)(
         pred="pred", label="label", output=IOKey("Accuracy")
     )
 
-    model += F1("micro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
+    model |= F1("micro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
         pred="pred", label="label", output=IOKey("Micro_F1")
     )
-    model += F1("macro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
+    model |= F1("macro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
         pred="pred", label="label", output=IOKey("Macro_F1")
     )
-    model += F1("weighted", 3, is_label_one_hot=False, is_pred_one_hot=False)(
+    model |= F1("weighted", 3, is_label_one_hot=False, is_pred_one_hot=False)(
         pred="pred", label="label", output=IOKey("Weighted_F1")
     )
 
-    model += Precision("micro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
+    model |= Precision("micro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
         pred="pred", label="label", output=IOKey("Micro_Precision")
     )
-    model += Precision("macro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
+    model |= Precision("macro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
         pred="pred", label="label", output=IOKey("Macro_Precision")
     )
-    model += Precision("weighted", 3, is_label_one_hot=False, is_pred_one_hot=False)(
+    model |= Precision("weighted", 3, is_label_one_hot=False, is_pred_one_hot=False)(
         pred="pred", label="label", output=IOKey("Weighted_Precision")
     )
 
-    model += Recall("micro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
+    model |= Recall("micro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
         pred="pred", label="label", output=IOKey("Micro_Recall")
     )
-    model += Recall("macro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
+    model |= Recall("macro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
         pred="pred", label="label", output=IOKey("Macro_Recall")
     )
-    model += Recall("weighted", 3, is_label_one_hot=False, is_pred_one_hot=False)(
+    model |= Recall("weighted", 3, is_label_one_hot=False, is_pred_one_hot=False)(
         pred="pred", label="label", output=IOKey("Weighted_Recall")
     )
 
@@ -747,37 +747,37 @@ def test_metrics_13():
 
 def test_metrics_14():
     model = Model()
-    model += Accuracy(is_pred_one_hot=False, is_label_one_hot=False)(
+    model |= Accuracy(is_pred_one_hot=False, is_label_one_hot=False)(
         pred="pred", label="label", output=IOKey("Accuracy")
     )
 
-    model += F1("micro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
+    model |= F1("micro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
         pred="pred", label="label", output=IOKey("Micro_F1")
     )
-    model += F1("macro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
+    model |= F1("macro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
         pred="pred", label="label", output=IOKey("Macro_F1")
     )
-    model += F1("weighted", 3, is_label_one_hot=False, is_pred_one_hot=False)(
+    model |= F1("weighted", 3, is_label_one_hot=False, is_pred_one_hot=False)(
         pred="pred", label="label", output=IOKey("Weighted_F1")
     )
 
-    model += Precision("micro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
+    model |= Precision("micro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
         pred="pred", label="label", output=IOKey("Micro_Precision")
     )
-    model += Precision("macro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
+    model |= Precision("macro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
         pred="pred", label="label", output=IOKey("Macro_Precision")
     )
-    model += Precision("weighted", 3, is_label_one_hot=False, is_pred_one_hot=False)(
+    model |= Precision("weighted", 3, is_label_one_hot=False, is_pred_one_hot=False)(
         pred="pred", label="label", output=IOKey("Weighted_Precision")
     )
 
-    model += Recall("micro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
+    model |= Recall("micro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
         pred="pred", label="label", output=IOKey("Micro_Recall")
     )
-    model += Recall("macro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
+    model |= Recall("macro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
         pred="pred", label="label", output=IOKey("Macro_Recall")
     )
-    model += Recall("weighted", 3, is_label_one_hot=False, is_pred_one_hot=False)(
+    model |= Recall("weighted", 3, is_label_one_hot=False, is_pred_one_hot=False)(
         pred="pred", label="label", output=IOKey("Weighted_Recall")
     )
 
@@ -820,37 +820,37 @@ def test_metrics_14():
 
 def test_metrics_15():
     model = Model()
-    model += Accuracy(is_pred_one_hot=False, is_label_one_hot=False)(
+    model |= Accuracy(is_pred_one_hot=False, is_label_one_hot=False)(
         pred="pred", label="label", output=IOKey("Accuracy")
     )
 
-    model += F1("micro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
+    model |= F1("micro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
         pred="pred", label="label", output=IOKey("Micro_F1")
     )
-    model += F1("macro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
+    model |= F1("macro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
         pred="pred", label="label", output=IOKey("Macro_F1")
     )
-    model += F1("weighted", 3, is_label_one_hot=False, is_pred_one_hot=False)(
+    model |= F1("weighted", 3, is_label_one_hot=False, is_pred_one_hot=False)(
         pred="pred", label="label", output=IOKey("Weighted_F1")
     )
 
-    model += Precision("micro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
+    model |= Precision("micro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
         pred="pred", label="label", output=IOKey("Micro_Precision")
     )
-    model += Precision("macro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
+    model |= Precision("macro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
         pred="pred", label="label", output=IOKey("Macro_Precision")
     )
-    model += Precision("weighted", 3, is_label_one_hot=False, is_pred_one_hot=False)(
+    model |= Precision("weighted", 3, is_label_one_hot=False, is_pred_one_hot=False)(
         pred="pred", label="label", output=IOKey("Weighted_Precision")
     )
 
-    model += Recall("micro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
+    model |= Recall("micro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
         pred="pred", label="label", output=IOKey("Micro_Recall")
     )
-    model += Recall("macro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
+    model |= Recall("macro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
         pred="pred", label="label", output=IOKey("Macro_Recall")
     )
-    model += Recall("weighted", 3, is_label_one_hot=False, is_pred_one_hot=False)(
+    model |= Recall("weighted", 3, is_label_one_hot=False, is_pred_one_hot=False)(
         pred="pred", label="label", output=IOKey("Weighted_Recall")
     )
 
@@ -893,37 +893,37 @@ def test_metrics_15():
 
 def test_metrics_16():
     model = Model()
-    model += Accuracy(is_pred_one_hot=False, is_label_one_hot=False)(
+    model |= Accuracy(is_pred_one_hot=False, is_label_one_hot=False)(
         pred="pred", label="label", output=IOKey("Accuracy")
     )
 
-    model += F1("micro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
+    model |= F1("micro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
         pred="pred", label="label", output=IOKey("Micro_F1")
     )
-    model += F1("macro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
+    model |= F1("macro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
         pred="pred", label="label", output=IOKey("Macro_F1")
     )
-    model += F1("weighted", 3, is_label_one_hot=False, is_pred_one_hot=False)(
+    model |= F1("weighted", 3, is_label_one_hot=False, is_pred_one_hot=False)(
         pred="pred", label="label", output=IOKey("Weighted_F1")
     )
 
-    model += Precision("micro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
+    model |= Precision("micro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
         pred="pred", label="label", output=IOKey("Micro_Precision")
     )
-    model += Precision("macro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
+    model |= Precision("macro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
         pred="pred", label="label", output=IOKey("Macro_Precision")
     )
-    model += Precision("weighted", 3, is_label_one_hot=False, is_pred_one_hot=False)(
+    model |= Precision("weighted", 3, is_label_one_hot=False, is_pred_one_hot=False)(
         pred="pred", label="label", output=IOKey("Weighted_Precision")
     )
 
-    model += Recall("micro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
+    model |= Recall("micro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
         pred="pred", label="label", output=IOKey("Micro_Recall")
     )
-    model += Recall("macro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
+    model |= Recall("macro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
         pred="pred", label="label", output=IOKey("Macro_Recall")
     )
-    model += Recall("weighted", 3, is_label_one_hot=False, is_pred_one_hot=False)(
+    model |= Recall("weighted", 3, is_label_one_hot=False, is_pred_one_hot=False)(
         pred="pred", label="label", output=IOKey("Weighted_Recall")
     )
 
@@ -966,37 +966,37 @@ def test_metrics_16():
 
 def test_metrics_17():
     model = Model()
-    model += Accuracy(is_pred_one_hot=False, is_label_one_hot=False)(
+    model |= Accuracy(is_pred_one_hot=False, is_label_one_hot=False)(
         pred="pred", label="label", output=IOKey("Accuracy")
     )
 
-    model += F1("micro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
+    model |= F1("micro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
         pred="pred", label="label", output=IOKey("Micro_F1")
     )
-    model += F1("macro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
+    model |= F1("macro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
         pred="pred", label="label", output=IOKey("Macro_F1")
     )
-    model += F1("weighted", 3, is_label_one_hot=False, is_pred_one_hot=False)(
+    model |= F1("weighted", 3, is_label_one_hot=False, is_pred_one_hot=False)(
         pred="pred", label="label", output=IOKey("Weighted_F1")
     )
 
-    model += Precision("micro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
+    model |= Precision("micro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
         pred="pred", label="label", output=IOKey("Micro_Precision")
     )
-    model += Precision("macro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
+    model |= Precision("macro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
         pred="pred", label="label", output=IOKey("Macro_Precision")
     )
-    model += Precision("weighted", 3, is_label_one_hot=False, is_pred_one_hot=False)(
+    model |= Precision("weighted", 3, is_label_one_hot=False, is_pred_one_hot=False)(
         pred="pred", label="label", output=IOKey("Weighted_Precision")
     )
 
-    model += Recall("micro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
+    model |= Recall("micro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
         pred="pred", label="label", output=IOKey("Micro_Recall")
     )
-    model += Recall("macro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
+    model |= Recall("macro", 3, is_label_one_hot=False, is_pred_one_hot=False)(
         pred="pred", label="label", output=IOKey("Macro_Recall")
     )
-    model += Recall("weighted", 3, is_label_one_hot=False, is_pred_one_hot=False)(
+    model |= Recall("weighted", 3, is_label_one_hot=False, is_pred_one_hot=False)(
         pred="pred", label="label", output=IOKey("Weighted_Recall")
     )
 

@@ -17,7 +17,13 @@ import platform
 from collections.abc import Iterable
 
 from .backends.backend import Backend, UnavailableBackend
-from .core import (
+from .framework.codegen import code_gen_map
+from .framework.common import TBD, Tensor
+from .framework.logical import Connection, IOKey
+from .framework.physical.model import PhysicalConstantType, PhysicalShapeType
+from .models import Model, PhysicalModel
+from .models.train_model import TrainModel
+from .types import (
     Constant,
     DataType,
     bfloat16,
@@ -34,12 +40,6 @@ from .core import (
     int64,
     short,
 )
-from .framework.codegen import code_gen_map
-from .framework.common import TBD
-from .framework.logical import Connection, IOKey
-from .framework.physical.model import PhysicalConstantType, PhysicalShapeType
-from .models import Model, PhysicalModel
-from .models.train_model import TrainModel
 
 __all__ = [
     "JaxBackend",
@@ -66,6 +66,7 @@ __all__ = [
     "TBD",
     "Constant",
     "epsilon_table",
+    "Tensor",
 ]
 
 # Load backends

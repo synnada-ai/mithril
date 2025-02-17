@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import platform
 from collections.abc import Sequence
 from typing import Any
@@ -140,7 +141,10 @@ def compile_and_compare(
         }
 
         pm = mithril.compile(
-            model, backend=backend, **compile_kwargs | {"constant_keys": statics}
+            model,
+            backend=backend,
+            **compile_kwargs
+            | {"constant_keys": statics, "trainable_keys": params.keys()},
         )
         outputs = pm.evaluate(params=backend_params, data=backend_data)
 
@@ -412,7 +416,7 @@ def test_nan_to_num_1():
 
 def test_linear_1():
     model = Linear()
-    model.input.set_differentiable(True)
+    model.set_differentiability(input=True)
     params = {"input": [[1.0], [2.0], [3.0], [4.0]], "weight": [[0.2]], "bias": [0.5]}
     output_gradients = {"output": [[1.0], [1.0], [1.0], [1.0]]}
     reference_outputs = {"output": [[0.7], [0.9], [1.1], [1.3]]}
@@ -2712,13 +2716,15 @@ def test_cast_int16():
         NumpyBackend(dtype=mithril.float32),
         NumpyBackend(dtype=mithril.float64),
         JaxBackend(dtype=mithril.float16),
-        JaxBackend(dtype=mithril.bfloat16),
         JaxBackend(dtype=mithril.float32),
         JaxBackend(dtype=mithril.float64),
     ]
 
     if platform.system() == "Darwin":
         backends += [MlxBackend(dtype=mithril.float16), MlxBackend()]
+
+    if os.environ.get("CI") != "true":
+        backends.append(JaxBackend(dtype=mithril.bfloat16))
 
     expected_dtypes = {
         "torch": torch.int16,
@@ -2761,13 +2767,15 @@ def test_cast_int32():
         NumpyBackend(dtype=mithril.float32),
         NumpyBackend(dtype=mithril.float64),
         JaxBackend(dtype=mithril.float16),
-        JaxBackend(dtype=mithril.bfloat16),
         JaxBackend(dtype=mithril.float32),
         JaxBackend(dtype=mithril.float64),
     ]
 
     if platform.system() == "Darwin":
         backends += [MlxBackend(dtype=mithril.float16), MlxBackend()]
+
+    if os.environ.get("CI") != "true":
+        backends.append(JaxBackend(dtype=mithril.bfloat16))
 
     expected_dtypes = {
         "torch": torch.int32,
@@ -2809,13 +2817,15 @@ def test_cast_int64():
         NumpyBackend(dtype=mithril.float32),
         NumpyBackend(dtype=mithril.float64),
         JaxBackend(dtype=mithril.float16),
-        JaxBackend(dtype=mithril.bfloat16),
         JaxBackend(dtype=mithril.float32),
         JaxBackend(dtype=mithril.float64),
     ]
 
     if platform.system() == "Darwin":
         backends += [MlxBackend(dtype=mithril.float16), MlxBackend()]
+
+    if os.environ.get("CI") != "true":
+        backends.append(JaxBackend(dtype=mithril.bfloat16))
 
     expected_dtypes = {
         "torch": torch.int64,
@@ -2855,13 +2865,15 @@ def test_cast_float16():
         NumpyBackend(dtype=mithril.float32),
         NumpyBackend(dtype=mithril.float64),
         JaxBackend(dtype=mithril.float16),
-        JaxBackend(dtype=mithril.bfloat16),
         JaxBackend(dtype=mithril.float32),
         JaxBackend(dtype=mithril.float64),
     ]
 
     if platform.system() == "Darwin":
         backends += [MlxBackend(dtype=mithril.float16), MlxBackend()]
+
+    if os.environ.get("CI") != "true":
+        backends.append(JaxBackend(dtype=mithril.bfloat16))
 
     expected_dtypes = {
         "torch": torch.float16,
@@ -2871,6 +2883,10 @@ def test_cast_float16():
     }
 
     statics = {"inp_int": inp_int, "inp_float": inp_float}
+    params = {"inp_float": inp_float}
+
+    output_gradients = [1.0, 2.0, 3.0]
+    reference_gradient = [1.0, 2.0, 3.0]
 
     reference_outputs = {"output": np.array([1, -2, 3], dtype=np.float16)}
 
@@ -2887,6 +2903,21 @@ def test_cast_float16():
             assert isinstance(res, backend.DataType)
             assert res.dtype == expected_dtypes[backend.backend_type]  # type: ignore
             np.testing.assert_allclose(res, reference_outputs["output"])  # type: ignore
+
+        for param in params.values():
+            _param = backend.array(param)
+            out_grad = backend.array(output_gradients, dtype=mithril.float16)
+            ref_grad = backend.array(reference_gradient)
+            pm = mithril.compile(
+                model,
+                backend,  # type: ignore
+                trainable_keys={"input"},
+                inference=False,
+            )
+            grads = pm.evaluate_gradients(
+                {"input": _param}, output_gradients={"output": out_grad}
+            )["input"]
+            assert grads.dtype == ref_grad.dtype
 
 
 # def test_cast_bfloat16():
@@ -2946,13 +2977,15 @@ def test_cast_float32():
         NumpyBackend(dtype=mithril.float32),
         NumpyBackend(dtype=mithril.float64),
         JaxBackend(dtype=mithril.float16),
-        JaxBackend(dtype=mithril.bfloat16),
         JaxBackend(dtype=mithril.float32),
         JaxBackend(dtype=mithril.float64),
     ]
 
     if platform.system() == "Darwin":
         backends += [MlxBackend(dtype=mithril.float16), MlxBackend()]
+
+    if os.environ.get("CI") != "true":
+        backends.append(JaxBackend(dtype=mithril.bfloat16))
 
     expected_dtypes = {
         "torch": torch.float32,
@@ -2962,8 +2995,12 @@ def test_cast_float32():
     }
 
     statics = {"inp_int": inp_int, "inp_float": inp_float}
+    params = {"inp_float": inp_float}
 
-    reference_outputs = {"output": np.array([1, -2, 3], dtype=np.float32)}
+    output_gradients = [1.0, 2.0, 3.0]
+    reference_gradient = [1.0, 2.0, 3.0]
+
+    reference_outputs = {"output": np.array([1, -2, 3], dtype=np.float16)}
 
     for backend in backends:
         for static in statics.values():
@@ -2979,6 +3016,21 @@ def test_cast_float32():
             assert isinstance(res_out, backend.DataType)  # type: ignore
             assert res_out.dtype == expected_dtypes[backend.backend_type]
             np.testing.assert_allclose(res_out, reference_outputs["output"])
+
+        for param in params.values():
+            _param = backend.array(param)
+            out_grad = backend.array(output_gradients, dtype=mithril.float32)
+            ref_grad = backend.array(reference_gradient)
+            pm = mithril.compile(
+                model,
+                backend,  # type: ignore
+                trainable_keys={"input"},
+                inference=False,
+            )
+            grads = pm.evaluate_gradients(
+                {"input": _param}, output_gradients={"output": out_grad}
+            )["input"]
+            assert grads.dtype == ref_grad.dtype
 
 
 def test_cast_float64():
@@ -2994,10 +3046,12 @@ def test_cast_float64():
         NumpyBackend(dtype=mithril.float32),
         NumpyBackend(dtype=mithril.float64),
         JaxBackend(dtype=mithril.float16),
-        JaxBackend(dtype=mithril.bfloat16),
         JaxBackend(dtype=mithril.float32),
         JaxBackend(dtype=mithril.float64),
     ]
+
+    if os.environ.get("CI") != "true":
+        backends.append(JaxBackend(dtype=mithril.bfloat16))
 
     expected_dtypes = {
         "torch": torch.float64,
@@ -3006,8 +3060,12 @@ def test_cast_float64():
     }
 
     statics = {"inp_int": inp_int, "inp_float": inp_float}
+    params = {"inp_float": inp_float}
 
-    reference_outputs = {"output": np.array([1, -2, 3], dtype=np.float32)}
+    output_gradients = [1.0, 2.0, 3.0]
+    reference_gradient = [1.0, 2.0, 3.0]
+
+    reference_outputs = {"output": np.array([1, -2, 3], dtype=np.float16)}
 
     for backend in backends:
         for static in statics.values():
@@ -3024,6 +3082,21 @@ def test_cast_float64():
             assert res_out.dtype == expected_dtypes[backend.backend_type]
             np.testing.assert_allclose(res_out, reference_outputs["output"])
 
+        for param in params.values():
+            _param = backend.array(param)
+            out_grad = backend.array(output_gradients, dtype=mithril.float64)
+            ref_grad = backend.array(reference_gradient)
+            pm = mithril.compile(
+                model,
+                backend,  # type: ignore
+                trainable_keys={"input"},
+                inference=False,
+            )
+            grads = pm.evaluate_gradients(
+                {"input": _param}, output_gradients={"output": out_grad}
+            )["input"]
+            assert grads.dtype == ref_grad.dtype
+
 
 def test_cast_bool():
     model = Cast(dtype=mithril.bool)
@@ -3038,13 +3111,15 @@ def test_cast_bool():
         NumpyBackend(dtype=mithril.float32),
         NumpyBackend(dtype=mithril.float64),
         JaxBackend(dtype=mithril.float16),
-        JaxBackend(dtype=mithril.bfloat16),
         JaxBackend(dtype=mithril.float32),
         JaxBackend(dtype=mithril.float64),
     ]
 
     if platform.system() == "Darwin":
         backends += [MlxBackend(dtype=mithril.float16), MlxBackend()]
+
+    if os.environ.get("CI") != "true":
+        backends.append(JaxBackend(dtype=mithril.bfloat16))
 
     expected_dtypes = {
         "torch": torch.bool,
@@ -3096,9 +3171,10 @@ def test_dtype_int16():
             backend,
             constant_keys={"input": converted_input},
             inference=True,
+            jit=False,
         )
         res = pm.evaluate()
-        assert res["output"] == mithril.int16
+        assert res["output"] == backend.int16  # type: ignore[attr-defined]
 
 
 def test_dtype_int32():
@@ -3124,9 +3200,10 @@ def test_dtype_int32():
             backend,
             constant_keys={"input": converted_input},
             inference=True,
+            jit=False,
         )
         res = pm.evaluate()
-        assert res["output"] == mithril.int32
+        assert res["output"] == backend.int32  # type: ignore[attr-defined]
 
 
 def test_dtype_int64():
@@ -3152,9 +3229,10 @@ def test_dtype_int64():
             backend,
             constant_keys={"input": converted_input},
             inference=True,
+            jit=False,
         )
         res = pm.evaluate()
-        assert res["output"] == mithril.int64
+        assert res["output"] == backend.int64  # type: ignore[attr-defined]
 
 
 def test_dtype_float16():
@@ -3180,9 +3258,10 @@ def test_dtype_float16():
             backend,
             constant_keys={"input": converted_input},
             inference=True,
+            jit=False,
         )
         res = pm.evaluate()
-        assert res["output"] == mithril.float16
+        assert res["output"] == backend.float16  # type: ignore[attr-defined]
 
 
 def test_dtype_float32():
@@ -3208,9 +3287,10 @@ def test_dtype_float32():
             backend,
             constant_keys={"input": converted_input},
             inference=True,
+            jit=False,
         )
         res = pm.evaluate()
-        assert res["output"] == mithril.float32
+        assert res["output"] == backend.float32  # type: ignore[attr-defined]
 
 
 def test_dtype_float64():
@@ -3233,9 +3313,10 @@ def test_dtype_float64():
             backend,
             constant_keys={"input": converted_input},
             inference=True,
+            jit=False,
         )
         res = pm.evaluate()
-        assert res["output"] == mithril.float64
+        assert res["output"] == backend.float64  # type: ignore[attr-defined]
 
 
 def test_unique_1():

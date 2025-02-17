@@ -131,7 +131,7 @@ def test_data_store_4():
     """
     backend = TorchBackend()
     model = Model()
-    model += Linear()(input="input", weight="weight", bias="bias")
+    model |= Linear()(input="input", weight="weight", bias="bias")
     model += Shape()
     model += ToTensor()
     shapes = {"input": [3, 2], "weight": [2, 2], "bias": [2]}
@@ -150,6 +150,7 @@ def test_data_store_4():
         "bias",
         "linear_transpose_axes",
     }
+    print(pm.flat_graph.data_store.unused_keys)
     assert pm.flat_graph.data_store.unused_keys == ref_unused_keys
 
 
@@ -177,8 +178,8 @@ def test_data_store_5():
 def test_data_store_6():
     backend = TorchBackend()
     model = Model()
-    model += Sigmoid()(input="input", output=IOKey(name="output1"))
-    model += Sigmoid()(input="input", output=IOKey(name="output2"))
+    model |= Sigmoid()(input="input", output=IOKey(name="output1"))
+    model |= Sigmoid()(input="input", output=IOKey(name="output2"))
 
     value = backend.array([[1.0, 2, 3]])
     pm = mithril.compile(model, backend=backend, constant_keys={"input": value})
@@ -196,8 +197,8 @@ def test_data_store_7():
     """Infer static keys from pruned buffer"""
     backend = TorchBackend()
     model = Model()
-    model += Buffer()(input="input")
-    model += Sigmoid()(input="input", output=IOKey(name="output1"))
+    model |= Buffer()(input="input")
+    model |= Sigmoid()(input="input", output=IOKey(name="output1"))
 
     value = backend.array([[1.0, 2, 3]])
     pm = mithril.compile(
@@ -217,8 +218,8 @@ def test_data_store_8():
     """Infer static keys from pruned buffer 2"""
     backend = TorchBackend()
     model = Model()
-    model += Buffer()(input="input", output=IOKey(name="output1", expose=True))
-    model += Sigmoid()(input="input", output=IOKey(name="output2", expose=True))
+    model |= Buffer()(input="input", output=IOKey(name="output1", expose=True))
+    model |= Sigmoid()(input="input", output=IOKey(name="output2", expose=True))
 
     value = backend.array([[1.0, 2, 3]])
     pm = mithril.compile(
@@ -237,9 +238,9 @@ def test_data_store_8():
 def test_data_store_9():
     backend = TorchBackend()
     model = Model()
-    model += Sigmoid()(input="input", output=IOKey(name="output1", expose=True))
-    model += Sigmoid()(input="input", output=IOKey(name="output2", expose=True))
-    model += Add()(left="output2", right=2, output=IOKey(name="output3", expose=True))
+    model |= Sigmoid()(input="input", output=IOKey(name="output1", expose=True))
+    model |= Sigmoid()(input="input", output=IOKey(name="output2", expose=True))
+    model |= Add()(left="output2", right=2, output=IOKey(name="output3", expose=True))
     value = backend.array([[1.0, 2, 3]])
     pm = mithril.compile(model, backend=backend, constant_keys={"input": value})
 
@@ -270,8 +271,8 @@ def test_data_store_11():
     add.set_types(left=Tensor, right=Tensor)
     subtract = Subtract()
     subtract.set_types(left=Tensor, right=Tensor)
-    model += add(left="left", right="right", output=IOKey(name="out"))
-    model += subtract(
+    model |= add(left="left", right="right", output=IOKey(name="out"))
+    model |= subtract(
         left="out", right="something", output=IOKey(name="out2", expose=True)
     )
 
@@ -283,8 +284,10 @@ def test_data_store_11():
     )
 
     assert pm.flat_graph.data_store.data_values.keys() == {"out"}
-    assert pm.flat_graph.data_store.runtime_static_keys == set()
-    assert pm.flat_graph.data_store.intermediate_non_differentiables._table == dict()
+    assert pm.flat_graph.data_store.runtime_static_keys == {"something"}
+    assert pm.flat_graph.data_store.intermediate_non_differentiables._table == {
+        "out2": pm.flat_graph.data_store.all_data["out2"]
+    }
     assert pm.flat_graph.data_store.unused_keys == {"left", "right"}
 
     infered_value = pm.flat_graph.data_store.data_values["out"]
@@ -296,11 +299,11 @@ def test_data_store_12():
     """Infer statics with shapes"""
     backend = TorchBackend()
     model = Model()
-    model += Buffer()(input="input1", output=IOKey(name="out1", expose=True))
-    model += (s := Shape())(input="out1")
-    model += (i := Indexer(index=1))(input=s.output)
-    model += (u := PrimitiveUnion(2))(input1=i.output, input2=i.output)
-    model += Convolution2D(kernel_size=3, out_channels=10, stride=TBD, use_bias=False)(
+    model |= Buffer()(input="input1", output=IOKey(name="out1", expose=True))
+    model |= (s := Shape())(input="out1")
+    model |= (i := Indexer(index=1))(input=s.output)
+    model |= (u := PrimitiveUnion(2))(input1=i.output, input2=i.output)
+    model |= Convolution2D(kernel_size=3, out_channels=10, stride=TBD, use_bias=False)(
         input="input2",
         weight="weight",
         stride=u.output,
@@ -353,11 +356,11 @@ def test_data_store_13():
     """Infer statics with shapes"""
     backend = TorchBackend()
     model = Model()
-    model += Buffer()(input="input1", output=IOKey(name="out1", expose=True))
-    model += (s := Shape())(input="out1")
-    model += (i := Indexer(index=1))(input=s.output)
-    model += (u := PrimitiveUnion(2))(input1=i.output, input2=i.output)
-    model += Convolution2D(kernel_size=3, out_channels=10, stride=TBD, use_bias=False)(
+    model |= Buffer()(input="input1", output=IOKey(name="out1", expose=True))
+    model |= (s := Shape())(input="out1")
+    model |= (i := Indexer(index=1))(input=s.output)
+    model |= (u := PrimitiveUnion(2))(input1=i.output, input2=i.output)
+    model |= Convolution2D(kernel_size=3, out_channels=10, stride=TBD, use_bias=False)(
         input="input2",
         weight="weight",
         stride=u.output,
@@ -443,9 +446,9 @@ def test_data_store_15():
     model = Model()
     add = Add()
     add.set_types(left=Tensor, right=Tensor)
-    model += add(left="left")
-    add.right.set_differentiable(False)
-    model += Sigmoid()(input=add.output, output="output")
+    model |= add(left="left")
+
+    model |= Sigmoid()(input=add.output, output="output")
     pm = PhysicalModel(
         model=model,
         backend=backend,
@@ -464,10 +467,11 @@ def test_data_store_15():
         "output_0_cache",
         "output_cache",
     }
-    assert pm.flat_graph.data_store.runtime_static_keys == {"right"}
-    assert (
-        pm.flat_graph.data_store.intermediate_non_differentiables._table.keys() == set()
-    )
+    assert pm.flat_graph.data_store.runtime_static_keys == {"left", "right"}
+    assert pm.flat_graph.data_store.intermediate_non_differentiables._table.keys() == {
+        "output_0",
+        "output",
+    }
     assert pm.flat_graph.data_store.unused_keys == set()
 
 
@@ -477,11 +481,11 @@ def test_data_store_16():
     model = Model()
     add = Add()
     add.set_types(left=Tensor, right=Tensor)
-    model += add(left="left")
-    add.right.set_differentiable(False)
-    model += Sigmoid()(input=add.output, output=IOKey("output"))
+    model |= add(left="left")
 
-    model += Relu()(input="in", output=IOKey(name="out"))
+    model |= Sigmoid()(input=add.output, output=IOKey("output"))
+
+    model |= Relu()(input="in", output=IOKey(name="out"))
 
     pm = PhysicalModel(
         model=model,
@@ -498,14 +502,14 @@ def test_data_store_16():
     )
 
     assert pm.flat_graph.data_store.data_values.keys() == set()
-    assert pm.flat_graph.data_store.runtime_static_keys == set()
-    assert (
-        pm.flat_graph.data_store.intermediate_non_differentiables._table.keys() == set()
-    )
+    assert pm.flat_graph.data_store.runtime_static_keys == {"in"}
+    assert pm.flat_graph.data_store.intermediate_non_differentiables._table.keys() == {
+        "out"
+    }
     assert pm.flat_graph.data_store.unused_keys == {
         "right",
-        "left",
         "output_0",
+        "left",
         "output",
     }
 
@@ -514,9 +518,9 @@ def test_data_store_17():
     """Test infer ignore should remove infered data from Data store"""
     backend = TorchBackend()
     model = Model()
-    model += (add := Add())(left="left", right="right")
-    model += Sigmoid()(input=add.output, output=IOKey("output"))
-    model += Relu()(input="in", output=IOKey(name="out"))
+    model |= (add := Add())(left="left", right="right")
+    model |= Sigmoid()(input=add.output, output=IOKey("output"))
+    model |= Relu()(input="in", output=IOKey(name="out"))
 
     left = backend.ones(5, 5)
     right = backend.ones(5, 5)
@@ -535,15 +539,15 @@ def test_data_store_17():
     )
 
     assert pm.flat_graph.data_store.data_values.keys() == set()
-    assert pm.flat_graph.data_store.runtime_static_keys == set()
-    assert (
-        pm.flat_graph.data_store.intermediate_non_differentiables._table.keys() == set()
-    )
+    assert pm.flat_graph.data_store.runtime_static_keys == {"in"}
+    assert pm.flat_graph.data_store.intermediate_non_differentiables._table.keys() == {
+        "out"
+    }
     assert pm.flat_graph.data_store.unused_keys == {
-        "output",
+        "right",
         "output_0",
         "left",
-        "right",
+        "output",
     }
 
 
@@ -551,9 +555,9 @@ def test_data_store_18():
     """Test data store holds intermediate non-differentiables correctly."""
     backend = TorchBackend()
     model = Model()
-    model += (add := Add())(left="left", right="right")
-    model += (shp := Shape())(input=add.left)
-    model += ToTensor()(input=shp.output, output=IOKey(name="tensor_out", expose=True))
+    model |= (add := Add())(left="left", right="right")
+    model |= (shp := Shape())(input=add.left)
+    model |= ToTensor()(input=shp.output, output=IOKey(name="tensor_out", expose=True))
 
     left = backend.ones(5, 5)
     right = backend.ones(5, 5)

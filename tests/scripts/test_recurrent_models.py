@@ -209,30 +209,33 @@ class MySimpleRNNCellWithLinear(Cell):
         mult_model_3 = MatrixMultiply()
         sum_model_4 = Add()
 
-        self += shp_model(input="input")
-        self += indexer(input=shp_model.output, index=0)
+        self |= shp_model(input="input")
+        self |= indexer(input=shp_model.output, index=0)
         self |= slice_1(start=indexer.output)
-        self += tensor_item_1(
+        self |= tensor_item_1(
             input="prev_hidden", index=slice_1.output, output=IOKey("hidden_compl")
         )
 
         self |= slice_2(start="", stop=indexer.output)
-        self += tensor_item_2(input="prev_hidden", index=slice_2.output)
-        self += mult_model_1(left="input", right="w_ih")
-        self += mult_model_2(left=tensor_item_2.output, right="w_hh")
-        self += sum_model_1(left=mult_model_1.output, right=mult_model_2.output)
-        self += sum_model_2(
-            left=sum_model_1.output, right=IOKey("bias_hh", type=Tensor)
+        self |= tensor_item_2(input="prev_hidden", index=slice_2.output)
+        self |= mult_model_1(left="input", right=IOKey("w_ih", differantiable=True))
+        self |= mult_model_2(
+            left=tensor_item_2.output, right=IOKey("w_hh", differantiable=True)
         )
-        self += sum_model_3(
+        self |= sum_model_1(left=mult_model_1.output, right=mult_model_2.output)
+        self |= sum_model_2(
+            left=sum_model_1.output,
+            right=IOKey("bias_hh", type=Tensor, differantiable=True),
+        )
+        self |= sum_model_3(
             left=sum_model_2.output,
-            right=IOKey("bias_ih", type=Tensor),
+            right=IOKey("bias_ih", type=Tensor, differantiable=True),
         )
-        self += tanh(input=sum_model_3.output, output=IOKey("hidden"))
-        self += mult_model_3(left="hidden", right="w_ho")
-        self += sum_model_4(
+        self |= tanh(input=sum_model_3.output, output=IOKey("hidden"))
+        self |= mult_model_3(left="hidden", right=IOKey("w_ho", differantiable=True))
+        self |= sum_model_4(
             left=mult_model_3.output,
-            right=IOKey("bias_o", type=Tensor),
+            right=IOKey("bias_o", type=Tensor, differantiable=True),
             output=IOKey("output"),
         )
 
@@ -274,7 +277,7 @@ class MySimpleRNNCellWithLinear(Cell):
         self.set_cin("input", safe=False)
         self.set_cout("output")
 
-        self._set_shapes(shapes)
+        self._set_shapes(**shapes)
         self._freeze()
 
     def __call__(  # type: ignore[override]
@@ -337,25 +340,28 @@ class MyRNNCell(Cell):
         sum_model_3 = Add()
         tanh = Tanh()
 
-        self += shp_model(input="input")
-        self += indexer(input=shp_model.output, index=0)
+        self |= shp_model(input="input")
+        self |= indexer(input=shp_model.output, index=0)
         self |= slice_1(start=indexer.output)
-        self += tensor_item_1(
+        self |= tensor_item_1(
             input="prev_hidden", index=slice_1.output, output=IOKey("hidden_compl")
         )
         self |= slice_2(start="", stop=indexer.output)
-        self += tensor_item_2(input="prev_hidden", index=slice_2.output)
-        self += mult_model_1(left="input", right="w_ih")
-        self += mult_model_2(left=tensor_item_2.output, right="w_hh")
-        self += sum_model_1(left=mult_model_1.output, right=mult_model_2.output)
-        self += sum_model_2(
-            left=sum_model_1.output, right=IOKey("bias_hh", type=Tensor)
+        self |= tensor_item_2(input="prev_hidden", index=slice_2.output)
+        self |= mult_model_1(left="input", right=IOKey("w_ih", differantiable=True))
+        self |= mult_model_2(
+            left=tensor_item_2.output, right=IOKey("w_hh", differantiable=True)
         )
-        self += sum_model_3(
+        self |= sum_model_1(left=mult_model_1.output, right=mult_model_2.output)
+        self |= sum_model_2(
+            left=sum_model_1.output,
+            right=IOKey("bias_hh", type=Tensor, differantiable=True),
+        )
+        self |= sum_model_3(
             left=sum_model_2.output,
-            right=IOKey("bias_ih", type=Tensor),
+            right=IOKey("bias_ih", type=Tensor, differantiable=True),
         )
-        self += tanh(input=sum_model_3.output, output=IOKey("hidden"))
+        self |= tanh(input=sum_model_3.output, output=IOKey("hidden"))
 
         shapes: dict[str, list[str | int]] = {
             "input": ["N", 1, "d_in"],
@@ -365,7 +371,7 @@ class MyRNNCell(Cell):
             "bias_hh": ["d_hid"],
             "bias_ih": ["d_hid"],
         }
-        self._set_shapes(shapes)
+        self._set_shapes(**shapes)
         self.set_cin("input", safe=False)
         self.set_cout("hidden")
         self._freeze()
@@ -851,9 +857,9 @@ def test_lstm_many_to_one():
 
         # set shapes of the Mithril model woth given fetures
         for idx in range(max_seq_length):
-            ctx.set_shapes({f"input{idx}": [batch_size, 1, input_features]})
-        ctx.set_shapes({"initial_hidden": [batch_size, 1, hidden_features]})
-        ctx.set_shapes({"output1": [batch_size, 1, output_features]})
+            ctx.set_shapes(**{f"input{idx}": [batch_size, 1, input_features]})
+        ctx.set_shapes(initial_hidden=[batch_size, 1, hidden_features])
+        ctx.set_shapes(output1=[batch_size, 1, output_features])
 
         # initialize static torch inputs
         inputs = torch.randn(batch_size, max_seq_length, input_features)
