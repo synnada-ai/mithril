@@ -24,7 +24,7 @@ def test_set_shapes_1():
     model |= Sigmoid()("input1", IOKey("output1"))
     model |= Sigmoid()("input2", IOKey("output2"))
 
-    model.set_shapes({"input1": ["a", "b"], "input2": ["b", "a"]})
+    model.set_shapes(input1=["a", "b"], input2=["b", "a"])
 
     ref_shapes = {
         "input1": ["a", "b"],
@@ -60,7 +60,7 @@ def test_set_shapes_1_hybrid_arg():
     model |= Sigmoid()("input1", IOKey("output1"))
     model |= Sigmoid()("input2", IOKey("output2"))
 
-    model.set_shapes({"input1": ["a", "b"]}, input2=["b", "a"])
+    model.set_shapes({model.input1: ["a", "b"]}, input2=["b", "a"])  # type: ignore
 
     ref_shapes = {
         "input1": ["a", "b"],
@@ -195,9 +195,7 @@ def test_set_shapes_7():
 def test_set_shapes_8():
     model = Model()
     model += Add()(left="left", right="right", output=IOKey("output"))
-    model.set_shapes(
-        {"left": [("V1", ...)], "right": [("V1", ...)], "output": [("V1", ...)]}
-    )
+    model.set_shapes(left=[("V1", ...)], right=[("V1", ...)], output=[("V1", ...)])
 
     ref_shapes = {
         "left": ["(V1, ...)"],

@@ -277,7 +277,7 @@ class MySimpleRNNCellWithLinear(Cell):
         self.set_cin("input", safe=False)
         self.set_cout("output")
 
-        self._set_shapes(shapes)
+        self._set_shapes(**shapes)
         self._freeze()
 
     def __call__(  # type: ignore[override]
@@ -371,7 +371,7 @@ class MyRNNCell(Cell):
             "bias_hh": ["d_hid"],
             "bias_ih": ["d_hid"],
         }
-        self._set_shapes(shapes)
+        self._set_shapes(**shapes)
         self.set_cin("input", safe=False)
         self.set_cout("hidden")
         self._freeze()
@@ -857,9 +857,9 @@ def test_lstm_many_to_one():
 
         # set shapes of the Mithril model woth given fetures
         for idx in range(max_seq_length):
-            ctx.set_shapes({f"input{idx}": [batch_size, 1, input_features]})
-        ctx.set_shapes({"initial_hidden": [batch_size, 1, hidden_features]})
-        ctx.set_shapes({"output1": [batch_size, 1, output_features]})
+            ctx.set_shapes(**{f"input{idx}": [batch_size, 1, input_features]})
+        ctx.set_shapes(initial_hidden=[batch_size, 1, hidden_features])
+        ctx.set_shapes(output1=[batch_size, 1, output_features])
 
         # initialize static torch inputs
         inputs = torch.randn(batch_size, max_seq_length, input_features)

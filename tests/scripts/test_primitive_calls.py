@@ -70,7 +70,7 @@ def test_error_robust_power_call_threshold_re_set_value():
     rob_pow = Model()
     primitive_pow = Power(robust=True)
     rob_pow += primitive_pow(threshold="threshold")
-    primitive_pow.set_values({"threshold": 1.3})
+    primitive_pow.set_values(threshold=1.3)
     from mithril.types import Constant
 
     mean_model = Model()
@@ -90,6 +90,6 @@ def test_error_robust_power_call_threshold_input_keys():
     model2 = Model()
     pow2 = Power(robust=True)
     model2 += pow2(threshold="thres")
-    model2.set_values({"thres": 0.1})
+    model2.set_values(thres=0.1)
 
     assert model1.input_keys == model2.input_keys

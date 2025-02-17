@@ -663,8 +663,8 @@ def test_iokey_values_12():
         input=IOKey(shape=[1, 2, 3, 4], name="input"), output=IOKey(name="output2")
     )
     assert sig_model_1.input.metadata.is_tensor
-    assert sig_model_1.input.data.metadata.shape is not None
-    assert sig_model_1.input.data.metadata.shape.get_shapes() == [1, 2, 3, 4]
+    assert sig_model_1.input.metadata.shape is not None
+    assert sig_model_1.input.metadata.shape.get_shapes() == [1, 2, 3, 4]
 
 
 def test_iokey_name_not_given_output_error():
@@ -1095,7 +1095,7 @@ def test_compare_models_2():
 
     model1 |= linear1(input="input", output="sub_out")
     model1 |= linear2(input="sub_out", output=IOKey("output"))
-    model1.set_shapes({"input": [5, 5]})
+    model1.set_shapes(input=[5, 5])
 
     model2 = Model()
     linear1 = Linear(dimension=3)
@@ -1104,7 +1104,7 @@ def test_compare_models_2():
 
     model2 |= linear1(input="input")
     model2 |= linear2(input=linear1.output, output=IOKey("output"))
-    model2.set_shapes({"input": [5, 5]})
+    model2.set_shapes(input=[5, 5])
 
     compare_evaluate(model1=model1, model2=model2, backend=backend, data={})
 
@@ -1121,7 +1121,7 @@ def test_compare_models_3():
     model1 |= sig_model1(input="input", output="sub_out_1")
     model1 |= sig_model2(input="sub_out_1", output="sub_out_2")
     model1 |= sig_model3(input="sub_out_2", output=IOKey(name="output"))
-    model1.set_shapes({"input": [2, 2]})
+    model1.set_shapes(input=[2, 2])
 
     model2 = Model()
     sig_model1 = Sigmoid()
@@ -1131,7 +1131,7 @@ def test_compare_models_3():
     model2 |= sig_model1(input="input")
     model2 += sig_model2
     model2 += sig_model3
-    model2.set_shapes({"input": [2, 2]})
+    model2.set_shapes(input=[2, 2])
 
     data = {"input": backend.ones(2, 2)}
     compare_evaluate(model1=model1, model2=model2, backend=backend, data=data)
@@ -1149,7 +1149,7 @@ def test_compare_models_4():
     model1 |= sig_model3(input="sub_out_2", output=IOKey(name="output"))
     model1 |= sig_model2(input="sub_out_1", output="sub_out_2")
     model1 |= sig_model1(input="input", output="sub_out_1")
-    model1.set_shapes({"input": [2, 2]})
+    model1.set_shapes(input=[2, 2])
 
     model2 = Model()
     sig_model1 = Sigmoid()
@@ -1159,7 +1159,7 @@ def test_compare_models_4():
     model2 |= sig_model1(input="input")
     model2 += sig_model2
     model2 += sig_model3
-    model2.set_shapes({"input": [2, 2]})
+    model2.set_shapes(input=[2, 2])
 
     data = {"input": backend.ones(2, 2)}
     compare_evaluate(model1=model1, model2=model2, backend=backend, data=data)
@@ -1174,7 +1174,7 @@ def test_compare_models_5():
     add = Add()
     model1 |= add(left="sub", right="sub", output=IOKey(name="output"))
     model1 |= sigmoid(input="input", output="sub")
-    model1.set_shapes({"input": [2, 2]})
+    model1.set_shapes(input=[2, 2])
 
     model2 = Model()
     sigmoid = Sigmoid()
@@ -1182,7 +1182,7 @@ def test_compare_models_5():
     model2 |= add(output=IOKey(name="output"))
     conn = IOKey(connections={add.left, add.right})
     model2 |= sigmoid(input="input", output=conn)
-    model2.set_shapes({"input": [2, 2]})
+    model2.set_shapes(input=[2, 2])
 
     data = {"input": backend.ones(2, 2)}
     compare_evaluate(model1=model1, model2=model2, backend=backend, data=data)

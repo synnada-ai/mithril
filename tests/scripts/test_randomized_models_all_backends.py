@@ -206,7 +206,7 @@ def test_randomized(case: str) -> None:
                     shapes[key] = random_shapes[shape]
 
             if model.safe_shapes:
-                model.set_shapes(model.safe_shapes)
+                model.set_shapes(**model.safe_shapes)
 
             compiled_model = compile(
                 model=model,

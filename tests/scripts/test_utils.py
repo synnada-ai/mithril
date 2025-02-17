@@ -266,7 +266,7 @@ def assert_results_equal(*args):
 def assert_metadata_equal(*args):
     first_conn, other_conns = args[0], args[1:]
     for other_conn in other_conns:
-        assert first_conn.data.metadata == other_conn.data.metadata
+        assert first_conn.metadata == other_conn.metadata
 
 
 def get_all_data(model: BaseModel) -> set[IOHyperEdge]:

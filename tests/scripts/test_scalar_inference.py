@@ -147,6 +147,6 @@ class TestScalarInference:
             model |= Add()(mul.output, 1, IOKey("output"))
             assert isinstance(model, SupportsOutput)
             assert model.output.metadata.value == TBD
-            model.set_values({"in1": 2, "in2": 6, "in3": 7, "in4": 1})
-            model.set_values({"in5": 3})
+            model.set_values(in1=2, in2=6, in3=7, in4=1)
+            model.set_values(in5=3)
             assert model.output.metadata.value == 25.0

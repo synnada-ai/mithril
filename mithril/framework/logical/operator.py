@@ -80,7 +80,7 @@ class Operator(BaseModel):
                     "Operator's can only be instantiated with BaseKey type keys!"
                 )
 
-            conn_data = self._create_connection(edge, key)
+            conn_data = self.create_connection(edge, key)
 
             if key == Operator.output_key:
                 self.conns.set_connection_type(conn_data, KeyType.OUTPUT)
@@ -118,7 +118,7 @@ class Operator(BaseModel):
         )
         canonical_input_conn = self.conns.get_connection(canonical_input_key)
         if canonical_input_conn is not None:
-            self._set_cin(canonical_input_conn, safe=False)
+            self.set_cin(canonical_input_conn, safe=False)
 
         canonical_output_key = (
             "output"
@@ -127,7 +127,7 @@ class Operator(BaseModel):
         )
         canonical_output_conn = self.conns.get_connection(canonical_output_key)
         if canonical_output_conn is not None:
-            self._set_cout(canonical_output_conn, safe=False)
+            self.set_cout(canonical_output_conn, safe=False)
         self._freeze()
 
     @property
