@@ -252,14 +252,8 @@ def test_deleted_variadic_ref_count_7():
     model += add_5(left="")
 
     model.merge_connections(
-        add_1.left,
-        add_1.right,
-        add_2.left,
-        add_2.right,
-        add_3.left,
-        add_3.right
+        add_1.left, add_1.right, add_2.left, add_2.right, add_3.left, add_3.right
     )
-
 
     model += add_6(left=add_1.left, right="right", output="output")
 
@@ -1013,13 +1007,8 @@ def test_deleted_tensors_ref_count_3():
     model += buffer4(input="input4", output=IOKey(name="output4"))
     model += buffer5(input="input5", output=IOKey(name="output5"))
     model += buffer6(input="input6", output=IOKey(name="output6"))
-    model.merge_connections(buffer1.input, buffer2.input, buffer3.input, model.output4) # type: ignore
+    model.merge_connections(buffer1.input, buffer2.input, buffer3.input, model.output4)  # type: ignore
     model += buffer7(input=buffer1.input, output=IOKey(name="output"))
-
-    # connections = {buffer1.input, buffer2.input, buffer3.input, model.output4}  # type: ignore
-    # conn = IOKey(connections=connections)
-
-    # model += buffer7(input=conn, output=IOKey(name="output"))
 
     current_reprs = get_all_data(model)
     # NOTE: 7 output tensors are exposed so created and they replaced the previous ones.
@@ -1242,8 +1231,8 @@ def test_deleted_edge_ref_count_6():
         output2=IOKey(name="output2"),
         output3=IOKey(name="output3"),
     )
-    main_model.merge_connections(main_model.output1, main_model.input2, name="abcd") # type: ignore
-    main_model += sigmoid4(input=main_model.abcd, output=IOKey(name="output5")) # type: ignore
+    main_model.merge_connections(main_model.output1, main_model.input2, name="abcd")  # type: ignore
+    main_model += sigmoid4(input=main_model.abcd, output=IOKey(name="output5"))  # type: ignore
 
     current_metadata = get_all_metadata(main_model)  # 2input + 4output = 6
     # NOTE: 4 new output metadata is created, in order to take these into account

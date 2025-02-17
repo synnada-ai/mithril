@@ -882,7 +882,7 @@ def test_connect_type_conv_handling_1():
     model.extend((a1 := Buffer()), input="input1")
     model.extend((a2 := Buffer()), input="input2")
     model.merge_connections(a1.input, a2.input, name="abcd")
-    model.set_values(abcd = Tensor([[2.0]]))
+    model.set_values(abcd=Tensor([[2.0]]))
     model._extend(
         mat_mul := MatrixMultiply(),
         {"left": "abcd", "output": IOKey(name="output")},
@@ -895,7 +895,7 @@ def test_connect_type_conv_handling_1():
     model.extend((a1 := Buffer()), input="input1")
     model.extend((a2 := Buffer()), input="input2")
     model.merge_connections("input1", "input2", name="abcd")
-    model.set_values(abcd = Tensor([[2.0]]))
+    model.set_values(abcd=Tensor([[2.0]]))
     model._extend(
         (mat_mul := MatrixMultiply()),
         {"left": "abcd", "output": IOKey(name="output")},
@@ -908,7 +908,7 @@ def test_connect_type_conv_handling_1():
     model.extend((a1 := Buffer()), input="input1")
     model.extend((a2 := Buffer()), input="input2")
     model.merge_connections("input1", a2.input, name="abcd")
-    model.set_values(abcd = Tensor([[2.0]]))
+    model.set_values(abcd=Tensor([[2.0]]))
     model._extend(
         (mat_mul := MatrixMultiply()),
         {"left": "abcd", "output": IOKey(name="output")},
@@ -984,7 +984,7 @@ def test_connect_3():
     )
     conns = {concat_model.input1, concat_model.input2, concat_model.input3}  # type: ignore
     model.merge_connections(*conns, name="abcd")
-    model.set_values(abcd = 3.0)
+    model.set_values(abcd=3.0)
 
     model += (to_tensor := ToTensor())("abcd")
 
@@ -1064,7 +1064,7 @@ def test_connect_7():
     """This test tests if Connect object can merge exposed output connection
     with other input connections, In this test, it is expected that Connect will
     be able to connect an input with an output and merge these connections as
-    internal key, since it has also name of "abcd", It is expected that the internall
+    internal key, since it has also name of "abcd", It is expected that the internal
     connection also an exposed output key with a name of abcd.
     """
 
@@ -1076,7 +1076,7 @@ def test_connect_7():
     add_model_2.set_types(left=Tensor, right=Tensor)
     model += add_model_1(left="left", right="right", output=IOKey(name="output2"))
     model += add_model_2(left="left1", right="right1")
-    model.merge_connections(add_model_2.output, model.right, name="abcd") # type: ignore
+    model.merge_connections(add_model_2.output, model.right, name="abcd")  # type: ignore
     model += Buffer()(input="abcd", output=IOKey(name="output"))
 
     assert (
@@ -1184,7 +1184,7 @@ def test_connect_8():
     model += add_model_2(
         left=add_model_1.output, right="right1", output=IOKey(name="output1")
     )
-    model.merge_connections(add_model_1.output, model.right1, name="abcd") # type: ignore
+    model.merge_connections(add_model_1.output, model.right1, name="abcd")  # type: ignore
 
     model += Buffer()(input="abcd", output=IOKey(name="output"))
 
@@ -1217,11 +1217,9 @@ def test_connect_9():
     """
     model = Model()
     concat = Concat(n=3)
-    model += concat(
-        input1=Tensor([[3.0]]), input2=Tensor([[2.0]]), input3="input3"
-    )
+    model += concat(input1=Tensor([[3.0]]), input2=Tensor([[2.0]]), input3="input3")
     with pytest.raises(ValueError) as err_info:
-        model.merge_connections(concat.input1, concat.input2, concat.input3) # type: ignore
+        model.merge_connections(concat.input1, concat.input2, concat.input3)  # type: ignore
 
     error_msg = "Value is set before as [[3.0]]. A value can not be reset."
     assert str(err_info.value) == error_msg
@@ -1235,9 +1233,9 @@ def test_connect_10():
     model = Model()
     concat = Concat(n=3)
     model += concat(input1=Tensor([[3.0]]), input3="input3")
-    model.merge_connections(concat.input1, concat.input2, concat.input3) # type: ignore
+    model.merge_connections(concat.input1, concat.input2, concat.input3)  # type: ignore
     with pytest.raises(ValueError) as err_info:
-        model.set_values({concat.input1: Tensor([[2.0]])}) # type: ignore
+        model.set_values({concat.input1: Tensor([[2.0]])})  # type: ignore
 
     assert str(err_info.value) == (
         "Value is set before as [[3.0]]. A value can not be reset."
@@ -1268,7 +1266,7 @@ def test_connect_11():
     model.merge_connections(*conns)
     model.set_values({union_model.input1: (2.0,)})  # type: ignore
 
-    model += Buffer()(input=union_model.input1, output=IOKey(name="output3")) # type: ignore
+    model += Buffer()(input=union_model.input1, output=IOKey(name="output3"))  # type: ignore
     pm = compile(model=model, backend=backend, jit=False)
     output = pm()
 
@@ -1302,9 +1300,9 @@ def test_connect_12():
         concat_model.input2,  # type: ignore
         union_model.input1,  # type: ignore
         union_model.input2,  # type: ignore
-     )
-    model.set_values({union_model.input1: (2.0,)}) # type: ignore
-    model += Buffer()(input=union_model.input1, output=IOKey(name="output3")) # type: ignore
+    )
+    model.set_values({union_model.input1: (2.0,)})  # type: ignore
+    model += Buffer()(input=union_model.input1, output=IOKey(name="output3"))  # type: ignore
 
     pm = compile(model=model, backend=backend, jit=False)
     output = pm()

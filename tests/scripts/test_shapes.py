@@ -2312,13 +2312,13 @@ def test_composite_3_extend_shapes_1():
     m2 += m1(left=IOKey(name="left"), right=IOKey(name="right"))
     m2 += Add()(left=m1.left, right=m1.output, output=IOKey(name="output"))  # type: ignore
     m3 = Model()
-    m3 += m2(right=IOKey(name="right"))
-    m3 += Add()(
-        left="left",
+    m3 |= m2(right=IOKey(name="right"))
+    m3 |= Add()(
+        left=IOKey(name="left", expose=True),  # type: ignore
         right=m2.output,  # type: ignore
         output=IOKey(name="output"),
     )  # type: ignore
-    m3.merge_connections(m1.left, m3.left) # type: ignore
+    m3.merge_connections(m3.left, m1.left)  # type: ignore
     m4 = Model()
     m4 += m3(left=IOKey(name="left"), right=IOKey(name="right"))
     m4 += (add4 := Add())(left=m1.left, right=m3.output, output=IOKey(name="output"))  # type: ignore

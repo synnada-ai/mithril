@@ -188,7 +188,7 @@ def test_extract_logical_connections_4():
     )
     model.merge_connections(model_1.input1, model_1.input2)  # type: ignore
     model += model_2(
-        output1=model_1.input1, # type: ignore
+        output1=model_1.input1,  # type: ignore
         output2=IOKey(name="out_4"),
         output3=IOKey(name="out_5"),
         input1="in1",
@@ -1600,13 +1600,13 @@ def test_logical_model_summary_12():
         output2=IOKey(name="output2"),
         output3=IOKey(name="output3"),
     )
-    model_n += model_1(input1="input1", input2="input2", input3="input3") # type: ignore
-    model_n.merge_connections(model_3.input1, model_3.input2, model_3.input3) # type: ignore
+    model_n += model_1(input1="input1", input2="input2", input3="input3")  # type: ignore
+    model_n.merge_connections(model_3.input1, model_3.input2, model_3.input3)  # type: ignore
     model_n += model_2(
         input1=model_1.output1,  # type: ignore
         input2=model_1.output2,  # type: ignore
         input3=model_1.output3,  # type: ignore
-        output1=model_3.input1, # type: ignore
+        output1=model_3.input1,  # type: ignore
         output2=IOKey(name="output4"),
         output3=IOKey(name="output5"),
     )

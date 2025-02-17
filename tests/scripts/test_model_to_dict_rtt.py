@@ -530,7 +530,7 @@ def test_composite_10():
         input="input1", weight="weight1", output=IOKey(name="output2")
     )
     model.merge_connections("input1", "input2", name="my_input")
-    model += Linear(dimension=71)(input="input", weight="weight2",output="my_input")
+    model += Linear(dimension=71)(input="input", weight="weight2", output="my_input")
 
     model_dict_created = dict_conversions.model_to_dict(model)
     model_recreated = dict_conversions.dict_to_model(model_dict_created)
@@ -554,7 +554,7 @@ def test_composite_10_expose_false():
         input="input1", weight="weight1", output=IOKey(name="output2")
     )
     model.merge_connections("input1", "input2", name="my_input")
-    model += Linear(dimension=71)(input="input", weight="weight2",output="my_input")
+    model += Linear(dimension=71)(input="input", weight="weight2", output="my_input")
 
     model_dict_created = dict_conversions.model_to_dict(model)
     model_recreated = dict_conversions.dict_to_model(model_dict_created)
@@ -595,7 +595,9 @@ def test_composite_12():
         Linear(dimension=10), input="input1", weight="weight1", output="output2"
     )
     model.merge_connections("input1", "input2", name="my_input")
-    model.extend(Linear(dimension=71),input="input", weight="weight2",output="my_input")
+    model.extend(
+        Linear(dimension=71), input="input", weight="weight2", output="my_input"
+    )
     model.set_cout("output2")
 
     model_dict_created = dict_conversions.model_to_dict(model)
