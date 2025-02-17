@@ -109,6 +109,7 @@ __all__ = [
     "max_pool1d_grad",
     "flatten_grad",
     "minus_grad",
+    "cast_grad",
 ]
 
 
@@ -1642,6 +1643,16 @@ def minus_grad(
     verify_shapes(inputs, idx)
 
     return -output_gradient
+
+
+def cast_grad(
+    output_gradient: np.ndarray[Any, Any],
+    cache: CacheType,
+    idx: int,
+    *inputs: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
+    input_dtype = inputs[0].dtype
+    return output_gradient.astype(input_dtype)
 
 
 def zeros_like_grad(

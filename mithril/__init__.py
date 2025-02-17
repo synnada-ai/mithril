@@ -18,7 +18,7 @@ from collections.abc import Iterable
 
 from .backends.backend import Backend, UnavailableBackend
 from .framework.codegen import code_gen_map
-from .framework.common import TBD
+from .framework.common import TBD, Tensor
 from .framework.logical import Connection, IOKey
 from .framework.physical.model import PhysicalConstantType, PhysicalShapeType
 from .models import Model, PhysicalModel
@@ -66,6 +66,7 @@ __all__ = [
     "TBD",
     "Constant",
     "epsilon_table",
+    "Tensor",
 ]
 
 # Load backends

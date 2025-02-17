@@ -92,8 +92,9 @@ except ImportError:
 try:
     import mlx.core as mx
 
-    if platform.system() != "Darwin" or os.environ.get("CI") == "true":
+    if platform.system() != "Darwin":
         raise ImportError
+
     testing_fns[MlxBackend] = mx.allclose
     installed_backends.append(MlxBackend)
 
@@ -2061,6 +2062,48 @@ class TestRandUniform:
         assert not backend.any(output < 0)
         assert not backend.any(output > 10)
         assert list(output.shape) == fn_args[2:]
+
+
+@pytest.mark.parametrize(
+    "backendcls, device, dtype", backends_with_device_dtype, ids=names
+)
+class TestConvertToLogical:
+    def test_convert_to_logical(self, backendcls, device, dtype):
+        backend = backendcls(device=device, dtype=dtype)
+        fn = backend.convert_to_logical
+        fn_args: list = [backend.int32]
+        output = fn(*fn_args)
+        assert output == ml.int32
+
+    def test_convert_to_logical_arr_dtype(self, backendcls, device, dtype):
+        backend = backendcls(device=device, dtype=dtype)
+        fn = backend.convert_to_logical
+
+        fn_args: list = [backend.ones((3, 3)).dtype]
+        output = fn(*fn_args)
+        assert output == backend._dtype
+
+    def test_convert_to_logical_force(self, backendcls, device, dtype):
+        backend = backendcls(device=device, dtype=dtype)
+        fn = backend.convert_to_logical
+
+        fn_args: list = [(3, 4, 5), True]
+        with pytest.raises(ValueError) as e:
+            fn(*fn_args)
+
+        assert "Invalid value '(3, 4, 5)'!" in str(e.value)
+
+
+@pytest.mark.parametrize(
+    "backendcls, device, dtype", backends_with_device_dtype, ids=names
+)
+class TestConcat:
+    def test_concat(self, backendcls, device, dtype):
+        backend = backendcls(device=device, dtype=dtype)
+        fn = backend.concat
+        fn_args: list = [[backend.ones((3, 4)), backend.zeros((3, 4))], 0]
+        output = fn(*fn_args)
+        assert output.shape == (6, 4)
 
 
 @pytest.mark.parametrize(

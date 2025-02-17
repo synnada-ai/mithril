@@ -51,6 +51,7 @@ class MlxBackend(Backend[mx.array]):
         self._device = device
         super().__init__(dtype=dtype)
 
+        self.dtype_map = core_utils.dtype_map
         self.array_creation_funcs = ops.array_creation_funcs
         self.primitive_function_dict = ops.primitive_func_dict
         self.prng_key = mx.random.key(self.seed)
@@ -297,6 +298,11 @@ class MlxBackend(Backend[mx.array]):
         self, input: mx.array, start_dim: int = 0, end_dim: int = -1
     ) -> mx.array:
         return mx.flatten(input, start_axis=start_dim, end_axis=end_dim)
+
+    def concat(
+        self, inputs: tuple[mx.array, ...] | list[mx.array], axis: int = 0
+    ) -> mx.array:
+        return mx.concatenate(inputs, axis=axis)  # type: ignore
 
     def abs(self, input: mx.array) -> mx.array:
         return mx.abs(input)
@@ -616,6 +622,16 @@ class MlxBackend(Backend[mx.array]):
         self, fn: Callable[[mx.array], mx.array]
     ) -> Callable[[mx.array], mx.array]:
         return mx.vmap(fn)
+
+    def convert_to_logical(self, input: Any, force: bool = False) -> Any:
+        # Try dtype:
+        if isinstance(input, mx.Dtype):
+            return Dtype[core_utils.dtype_map.inverse[input]]
+
+        if force:
+            raise ValueError(f"Invalid value '{input}'!")
+
+        return input
 
     def _process_dtype(
         self,

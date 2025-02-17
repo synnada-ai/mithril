@@ -74,6 +74,7 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
 
         self.array_creation_funcs = ops.array_creation_funcs
         self.primitive_function_dict = ops.primitive_func_dict
+        self.dtype_map = core_utils.dtype_map
         self.prng_key = jax.random.PRNGKey(self.seed)
 
         for key, value in core_utils.dtype_map.items():
@@ -389,6 +390,11 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
     ) -> jax.Array:
         return ops.flatten(input, start_dim=start_dim, end_dim=end_dim)
 
+    def concat(
+        self, inputs: tuple[jax.Array, ...] | list[jax.Array], axis: int = 0
+    ) -> jax.Array:
+        return jax.numpy.concat(inputs, axis=axis)
+
     def abs(self, input: jax.Array) -> jax.Array:
         return jax.numpy.abs(input)
 
@@ -668,6 +674,18 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
 
     def jacfwd(self, fn: Callable[..., Any]) -> Callable[..., Any]:
         return jax.jacfwd(fn)
+
+    def convert_to_logical(self, input: Any, force: bool = False) -> Any:
+        # Try dtype:
+        if input.__hash__ and input in core_utils.dtype_map.inverse:
+            return Dtype[core_utils.dtype_map.inverse[input]]
+        elif isinstance(input, jax.numpy.dtype):
+            return Dtype[input.name]
+
+        if force:
+            raise ValueError(f"Invalid value '{input}'!")
+
+        return input
 
     def _process_dtype(
         self,
