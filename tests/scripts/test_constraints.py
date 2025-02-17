@@ -4872,14 +4872,14 @@ def test_reverse_4():
 def test_concat_1():
     """Should work with no problem"""
     shapes: dict[str, list[int | str | tuple]] = {
-        "output": ["u4", "u5", "u6", "u7"],
+        "output": ["u1", "u2", "u3", "u4"],
         "axis": [],
         "input1": ["u1", "u2", "u3", 3],
         "input2": ["u1", "u2", "u3", 4],
         "input3": ["u1", "u2", "u3", 5],
     }
     final_shapes = {
-        "output": ["u4", "u5", "u6", 12],
+        "output": ["u1", "u2", "u3", 12],
         "axis": [],
         "input1": ["u1", "u2", "u3", 3],
         "input2": ["u1", "u2", "u3", 4],
