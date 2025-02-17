@@ -3435,8 +3435,8 @@ class ShiftLeft(OperatorModel):
 
     def __init__(
         self,
-        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        shift: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        input: Tensor[int | bool] | int | bool | ToBeDetermined = TBD,
+        shift: Tensor[int | bool] | int | bool | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -3458,8 +3458,8 @@ class ShiftRight(OperatorModel):
 
     def __init__(
         self,
-        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        shift: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        input: Tensor[int | bool] | int | bool | ToBeDetermined = TBD,
+        shift: Tensor[int | bool] | int | bool | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:

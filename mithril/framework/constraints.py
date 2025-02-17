@@ -797,25 +797,27 @@ def scalar_item_reduce_input_type(  # type: ignore
 
 
 def indexer_initial_type_constraint(
-    output: IOHyperEdge, input: IOHyperEdge, index: IOHyperEdge
+    output: IOHyperEdge, input: IOHyperEdge
 ) -> ConstrainResultType:
     status = False
     updates = Updates()
-    edges = {input, output}
-    if not all(edge.is_polymorphic for edge in edges):
-        if all(edge.is_scalar for edge in edges):
-            # Meaning that indexing scalar type data. Set general
-            # scalar type constraints on all arguments.
-            # TODO: Types should be more specific.
-            updates |= output.set_type(int | float | list[Any] | tuple[Any, ...])
-            updates |= input.set_type(list[Any] | tuple[Any, ...])
+    if input.is_scalar or output.is_scalar:
+        updates |= output.set_type(int | float | list[Any] | tuple[Any, ...])
+        updates |= input.set_type(list[Any] | tuple[Any, ...])
+        status = True
+    elif input.is_tensor or output.is_tensor:
+        if input.is_tensor and output.is_tensor:
+            intersection_type = find_intersection_type(
+                output.value_type, input.value_type
+            )
+            updates |= input.set_type(Tensor[intersection_type])  # type: ignore
+            updates |= output.set_type(Tensor[intersection_type])  # type: ignore
             status = True
         else:
-            tensor_edge = input if input.is_tensor else output
-            assert isinstance(tensor_edge._value, Tensor)
-            typ: type[Tensor[int | float | bool]] = Tensor[tensor_edge.value_type]  # type: ignore
-            other_edge = (input, output)[tensor_edge is input]
-            updates |= other_edge.set_type(typ)
+            (tensor_edge, other_edge) = (
+                (input, output) if input.is_tensor else (output, input)
+            )
+            updates |= other_edge.set_type(Tensor[tensor_edge.value_type])  # type: ignore
             status = True
     return status, updates
 
@@ -4100,7 +4102,7 @@ def buffer_constraint(output: IOHyperEdge, input: IOHyperEdge) -> ConstrainResul
             )
             updates |= non_typed.set_type(typed.edge_type)
             updates |= non_typed.set_value(typed._value)
-            if typed.is_tensor or typed.value is not TBD:
+            if typed.value is not TBD:
                 status = True
         else:
             # both are not polymorphic

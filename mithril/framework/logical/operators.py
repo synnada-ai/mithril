@@ -37,7 +37,6 @@ from ..constraints import (
     bcast_mat_mul_check,
     bcast_matrix_mult,
     buffer_constraint,
-    edge_type_constraint,
     general_forward_constraint,
     general_type_constraint,
     indexer_constraints,
@@ -214,14 +213,19 @@ class PowerOp(Operator):
                 ),
             )
             edge_constraint = self._add_constraint(
-                fn=partial(general_type_constraint, fn=operator.pow, is_edge=True),
+                fn=partial(
+                    general_type_constraint,
+                    fn=operator.pow,
+                    is_edge=True,
+                    is_bitwise=True,
+                ),
                 keys=[Operator.output_key, "base", "exponent"],
                 types=[UpdateType.TYPE],
             )
             constrs = {edge_constraint}
 
         self._add_constraint(
-            fn=partial(general_type_constraint, fn=operator.pow),
+            fn=partial(general_type_constraint, fn=operator.pow, is_bitwise=True),
             keys=[Operator.output_key, "base", "exponent"],
             dependencies=constrs,
             types=[UpdateType.TYPE],
@@ -524,13 +528,18 @@ class DivideOp(Operator):
             ),
         )
         edge_constraint = self._add_constraint(
-            partial(general_type_constraint, fn=operator.truediv, is_edge=True),
+            partial(
+                general_type_constraint,
+                fn=operator.truediv,
+                is_edge=True,
+                is_bitwise=True,
+            ),
             keys=[Operator.output_key, "numerator", "denominator"],
             types=[UpdateType.TYPE],
         )
 
         self._add_constraint(
-            partial(general_type_constraint, fn=operator.truediv),
+            partial(general_type_constraint, fn=operator.truediv, is_bitwise=True),
             keys=[Operator.output_key, "numerator", "denominator"],
             types=[UpdateType.TYPE],
             dependencies={edge_constraint},
@@ -586,13 +595,18 @@ class FloorDivideOp(Operator):
         )
 
         edge_constraint = self._add_constraint(
-            partial(general_type_constraint, fn=operator.floordiv, is_edge=True),
+            partial(
+                general_type_constraint,
+                fn=operator.floordiv,
+                is_edge=True,
+                is_bitwise=True,
+            ),
             keys=[Operator.output_key, "numerator", "denominator"],
             types=[UpdateType.TYPE],
         )
 
         self._add_constraint(
-            partial(general_type_constraint, fn=operator.floordiv),
+            partial(general_type_constraint, fn=operator.floordiv, is_bitwise=True),
             keys=[Operator.output_key, "numerator", "denominator"],
             types=[UpdateType.TYPE],
             dependencies={edge_constraint},
@@ -780,7 +794,7 @@ class ItemOp(Operator):
         super().__init__(
             formula_key="item",
             name=name,
-            output=BaseKey(type=int | float),
+            output=BaseKey(type=int | float | bool),
             input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
         )
         self._add_constraint(fn=item_constraints, keys=[Operator.output_key, "input"])
@@ -1123,6 +1137,7 @@ class AbsoluteOp(SingleInputOperationOp):
 
 
 class MinusOp(SingleInputOperationOp):
+    # TODO: make this operation polymorphic.
     _model_name: str = "Minus"
 
     def __init__(
@@ -1208,9 +1223,18 @@ class RelationalOperatorsOp(Operator):
         )
 
         edge_constraint = self._add_constraint(
-            partial(general_type_constraint, fn=operator, is_edge=True),
+            partial(
+                general_type_constraint, fn=operator, is_edge=True, is_bitwise=True
+            ),
             ["output", "left", "right"],
             types=[UpdateType.TYPE],
+        )
+
+        self._add_constraint(
+            partial(general_type_constraint, fn=operator, is_bitwise=True),
+            ["output", "left", "right"],
+            types=[UpdateType.TYPE],
+            dependencies={edge_constraint},
         )
 
         bcast_constraint = self._add_constraint(
@@ -1341,6 +1365,7 @@ class GreaterEqualOp(RelationalOperatorsOp):
 
 
 class LogicalNotOp(Operator):
+    # TODO: Make this Operator polymorphic
     _model_name: str = "LogicalNot"
 
     def __init__(
@@ -1439,8 +1464,8 @@ class LogicalOrOp(BitwiseOperatorsOp):
 
     def __init__(
         self,
-        left: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        right: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        left: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -1458,8 +1483,8 @@ class LogicalXOrOp(BitwiseOperatorsOp):
 
     def __init__(
         self,
-        left: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        right: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        left: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -1473,46 +1498,101 @@ class LogicalXOrOp(BitwiseOperatorsOp):
         self.factory_args = {"left": left, "right": right}
 
 
-class ShiftLeftOp(Operator):
+class ShiftOperators(Operator):
+    _model_name: str = "BitwiseOperators"
+
+    def __init__(
+        self,
+        formula_key: str,
+        operator: Callable[..., Any],
+        input: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
+        shift: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(
+            formula_key=formula_key,
+            name=name,
+            output=BaseKey(type=Tensor[int | float | bool] | int | float | bool),
+            input=BaseKey(
+                value=input, type=Tensor[int | float | bool] | int | float | bool
+            ),
+            shift=BaseKey(
+                value=shift, type=Tensor[int | float | bool] | int | float | bool
+            ),
+        )
+        edge_constraint = self._add_constraint(
+            partial(
+                general_type_constraint, fn=operator, is_edge=True, is_bitwise=True
+            ),
+            [Operator.output_key, "input", "shift"],
+            types=[UpdateType.TYPE],
+        )
+
+        self._add_constraint(
+            partial(general_type_constraint, fn=operator, is_bitwise=True),
+            [Operator.output_key, "input", "shift"],
+            types=[UpdateType.TYPE],
+            dependencies={edge_constraint},
+        )
+
+        bcast_constraint = self._add_constraint(
+            bcast,
+            [Operator.output_key, "input", "shift"],
+            dependencies={edge_constraint},
+        )
+
+        self._add_constraint(
+            fn=bcast_error_check,
+            keys=[Operator.output_key, "input", "shift"],
+            dependencies={bcast_constraint},
+        )
+
+        self._add_constraint(
+            partial(general_forward_constraint, callable=operator),
+            keys=[Operator.output_key, "input", "shift"],
+            dependencies={edge_constraint},
+        )
+
+
+class ShiftLeftOp(ShiftOperators):
     _model_name: str = "ShiftLeft"
 
     def __init__(
         self,
-        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        shift: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        input: Tensor[int | bool] | int | bool | ToBeDetermined = TBD,
+        shift: Tensor[int | bool] | int | bool | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="shift_left",
             name=name,
-            output=BaseKey(shape=[("Var3", ...)], type=Tensor[int]),
-            input=BaseKey(shape=[("Var1", ...)], type=Tensor[int], value=input),
-            shift=BaseKey(shape=[("Var2", ...)], type=Tensor[int], value=shift),
+            operator=operator.lshift,
+            input=input,
+            shift=shift,
         )
+        self.factory_args = {"input": input, "shift": shift}
 
-        self._add_constraint(bcast, ["output", "input", "shift"])
 
-
-class ShiftRightOp(Operator):
+class ShiftRightOp(ShiftOperators):
     _model_name: str = "ShiftRight"
 
     def __init__(
         self,
-        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        shift: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        input: Tensor[int | bool] | int | bool | ToBeDetermined = TBD,
+        shift: Tensor[int | bool] | int | bool | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="shift_right",
             name=name,
-            output=BaseKey(shape=[("Var3", ...)], type=Tensor),
-            input=BaseKey(shape=[("Var1", ...)], type=Tensor, value=input),
-            shift=BaseKey(shape=[("Var2", ...)], type=Tensor, value=shift),
+            operator=operator.rshift,
+            input=input,
+            shift=shift,
         )
-
-        self._add_constraint(bcast, ["output", "input", "shift"])
+        self.factory_args = {"input": input, "shift": shift}
 
 
 class TransposeOp(Operator):
@@ -1634,7 +1714,7 @@ class IndexerOp(Operator):
             formula_key="indexer",
             name=name,
             output=BaseKey(),
-            input=BaseKey(value=input),
+            input=BaseKey(value=input, type=Tensor[int | float | bool] | list | tuple),
             index=BaseKey(
                 type=int
                 | slice
@@ -1645,14 +1725,9 @@ class IndexerOp(Operator):
             ),
         )
 
-        edge_constraints = self._add_constraint(
-            fn=edge_type_constraint, keys=[Operator.output_key, "input"]
-        )
-
         indexer_initial_constraints = self._add_constraint(
             fn=indexer_initial_type_constraint,
-            keys=[Operator.output_key, "input", "index"],
-            dependencies={edge_constraints},
+            keys=[Operator.output_key, "input"],
         )
 
         self._add_constraint(
