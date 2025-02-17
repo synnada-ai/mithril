@@ -402,7 +402,7 @@ def test_shape_constraint_counter_5():
     )
     assert_constr_counts(ref_dict)
 
-    add1.set_shapes(left = [1, 2, 9], right = [1, 2, 1])
+    add1.set_shapes(left=[1, 2, 9], right=[1, 2, 1])
     ref_dict = make_reference_dict(
         {
             add1.left: [1],
@@ -422,7 +422,7 @@ def test_shape_constraint_counter_5():
     )
     assert_constr_counts(ref_dict)
 
-    add2.set_shapes(left = ["a", "b", "c"], right = ["a", "b", "c"])
+    add2.set_shapes(left=["a", "b", "c"], right=["a", "b", "c"])
     ref_dict = make_reference_dict(
         {
             add1.left: [1],

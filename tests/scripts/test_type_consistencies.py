@@ -406,6 +406,7 @@ def test_type_16():
         "Acceptable types are <class 'float'>, but <class 'bool'> type " "is provided!"
     )
 
+
 def test_check_all_possible_types_1():
     types: type = tuple[int, int]
     all_types = infer_all_possible_types(types)

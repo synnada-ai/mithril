@@ -1396,12 +1396,8 @@ class BitwiseOperatorsOp(Operator):
             formula_key=formula_key,
             name=name,
             output=BaseKey(type=Tensor[int | bool] | int | bool),
-            left=BaseKey(
-                value=left, type=Tensor[int | bool] | int | bool
-            ),
-            right=BaseKey(
-                value=right, type=Tensor[int | bool] | int | bool
-            ),
+            left=BaseKey(value=left, type=Tensor[int | bool] | int | bool),
+            right=BaseKey(value=right, type=Tensor[int | bool] | int | bool),
         )
         edge_constraint = self._add_constraint(
             partial(
@@ -1512,12 +1508,8 @@ class ShiftOperators(Operator):
             formula_key=formula_key,
             name=name,
             output=BaseKey(type=Tensor[int | bool] | int | bool),
-            input=BaseKey(
-                value=input, type=Tensor[int | bool] | int | bool
-            ),
-            shift=BaseKey(
-                value=shift, type=Tensor[int | bool] | int | bool
-            ),
+            input=BaseKey(value=input, type=Tensor[int | bool] | int | bool),
+            shift=BaseKey(value=shift, type=Tensor[int | bool] | int | bool),
         )
         edge_constraint = self._add_constraint(
             partial(

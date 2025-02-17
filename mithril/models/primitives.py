@@ -3398,8 +3398,8 @@ class BitwiseOperators(OperatorModel):
 class LogicalAnd(BitwiseOperators):
     def __init__(
         self,
-        left: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        right: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        left: Tensor[int | bool] | int | bool | ToBeDetermined = TBD,
+        right: Tensor[int | bool] | int | bool | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -3409,8 +3409,8 @@ class LogicalAnd(BitwiseOperators):
 class LogicalOr(BitwiseOperators):
     def __init__(
         self,
-        left: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        right: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        left: Tensor[int | bool] | int | bool | ToBeDetermined = TBD,
+        right: Tensor[int | bool] | int | bool | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -3420,8 +3420,8 @@ class LogicalOr(BitwiseOperators):
 class LogicalXOr(BitwiseOperators):
     def __init__(
         self,
-        left: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        right: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        left: Tensor[int | bool] | int | bool | ToBeDetermined = TBD,
+        right: Tensor[int | bool] | int | bool | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
