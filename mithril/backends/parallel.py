@@ -16,7 +16,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from typing import Any, Generic
 
-from ..core import DataType
+from ..types import DataType
 
 
 class Parallel(ABC, Generic[DataType]):

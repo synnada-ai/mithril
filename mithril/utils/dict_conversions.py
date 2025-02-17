@@ -20,6 +20,7 @@ from functools import reduce
 from types import EllipsisType, UnionType
 from typing import Any, TypedDict, get_origin
 
+from ..common import PaddingType
 from ..framework.common import (
     TBD,
     AllValueType,
@@ -27,7 +28,6 @@ from ..framework.common import (
     ConnectionData,
     IOHyperEdge,
     MainValueType,
-    ShapesType,
     ShapeTemplateType,
     Tensor,
     TensorValueType,
@@ -45,7 +45,7 @@ from ..models import (
 )
 from ..models.train_model import TrainModel
 from ..utils import model_conversion_lut
-from ..utils.utils import PaddingType, convert_to_tuple
+from ..utils.utils import convert_to_tuple
 
 
 class KeyDict(TypedDict, total=False):
@@ -248,7 +248,7 @@ def dict_to_model(
         model |= m(**mappings)
 
     if set_types:
-        model.set_types(set_types)
+        model.set_types(**set_types)
 
     if "model" in canonical_keys:
         if canonical_keys["model"][0] is not None:
@@ -273,7 +273,7 @@ def dict_to_model(
             model.add_constraint(constrain_fn, keys=constr_info["keys"])  # type: ignore
 
     if len(assigned_shapes) > 0:
-        model.set_shapes(dict_to_shape(assigned_shapes))
+        model.set_shapes(**dict_to_shape(assigned_shapes))
     assert isinstance(model, Model)
     return model
 
@@ -439,7 +439,7 @@ def train_model_to_dict(context: TrainModel) -> TrainModelDict:
             if isinstance(value, Connection):
                 # local_key = get_local_key(context._model, value)
                 # loss["args"][key] = local_key
-                loss["args"][key] = value.data.key
+                loss["args"][key] = value.key
 
         if len(loss["args"]) > 0:
             loss_dict["args"] = loss["args"]
@@ -615,7 +615,9 @@ def dict_to_regularizations(
     return reg_specs
 
 
-def shape_to_dict(shapes: ShapesType) -> dict[str, list[int | str | None]]:
+def shape_to_dict(
+    shapes: dict[str, ShapeTemplateType],
+) -> dict[str, list[int | str | None]]:
     shape_dict: dict[str, list[int | str | None]] = {}
     for key, shape in shapes.items():
         shape_list: list[str | int | None] = []
@@ -624,7 +626,7 @@ def shape_to_dict(shapes: ShapesType) -> dict[str, list[int | str | None]]:
                 shape_list.append(f"{item[0]},...")
             else:
                 shape_list.append(item)
-        shape_dict[key] = shape_list  # type: ignore
+        shape_dict[key] = shape_list
     return shape_dict
 
 

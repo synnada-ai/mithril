@@ -818,7 +818,7 @@ def test_train_context_2():
         backend,
         static_keys={
             "input": backend.ones([4, 32]),
-            "target": backend.ones([4], dtype=mithril.core.Dtype.int64),
+            "target": backend.ones([4], dtype=mithril.types.Dtype.int64),
         },
     )
 
@@ -872,7 +872,7 @@ def test_set_values_constant_2():
         input="input2",
         output=IOKey(name="output2"),
     )
-    model.set_values({"bias1": Tensor([123.0])})
+    model.set_values(bias1=Tensor([123.0]))
 
     model_dict_created = dict_conversions.model_to_dict(model)
     model_recreated = dict_conversions.dict_to_model(model_dict_created)
@@ -956,7 +956,7 @@ def test_make_shape_constraint():
 
     model += MyAdder()(input="input")
     # model.extend(MyAdder(), input = "input")
-    model.set_shapes({"input": [1, 128, 1, 8, 16]})
+    model.set_shapes(input=[1, 128, 1, 8, 16])
 
     model_dict_created = dict_conversions.model_to_dict(model)
     model_recreated = dict_conversions.dict_to_model(model_dict_created)

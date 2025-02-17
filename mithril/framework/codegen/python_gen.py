@@ -22,7 +22,7 @@ from posixpath import basename, splitext
 from typing import Any, Generic, Literal, Protocol, overload
 
 from ...backends.backend import ParallelBackend
-from ...core import DataType, Dtype
+from ...types import DataType, Dtype
 from ...utils.func_utils import prepare_function_args
 from ..common import (
     DataEvalType,
@@ -413,6 +413,7 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
         for output_key in self.pm.output_keys:
             # TODO: give an api to get outputdict
             if self.is_static_scalar(output_key):
+                self.is_static_scalar(output_key)
                 return_values.append(
                     ast.Constant(self.pm.flat_graph.cached_data[output_key])
                 )

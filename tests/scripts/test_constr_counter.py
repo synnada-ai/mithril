@@ -180,7 +180,7 @@ def make_reference_dict(
     connection. "assert_constr_counts" function also sorts those numbers of calls
     and assert with the expected values.
 
-    For example if a connection.metadata.data has 2 constraints in it (i.e. for type
+    For example if a connection.metadata has 2 constraints in it (i.e. for type
     and shape) we have a list with 2 elements in ref_dict. But note that it is not
     obvious which number is for which constraint. If we all know that type constraint
     is called once and shape for 2, we expecte result to be [1, 2]. If the opposite
@@ -211,7 +211,7 @@ def test_shape_constraint_counter_1():
         }
     )
     assert_constr_counts(ref_dict)
-    add.set_shapes({"left": [1, 2], "right": [1, 2]})
+    add.set_shapes(left=[1, 2], right=[1, 2])
     # edge_type_constr solved, bcast solved, only general_type_constr
     ref_dict = make_reference_dict({add.left: [1], add.right: [1], add.output: [1]})
 
@@ -234,7 +234,7 @@ def test_shape_constraint_counter_2():
     )
     assert_constr_counts(ref_dict)
 
-    add1.set_shapes({"left": [1, 2, 9], "right": [1, 2, 1]})
+    add1.set_shapes(left=[1, 2, 9], right=[1, 2, 1])
 
     ref_dict = make_reference_dict(
         {
@@ -248,7 +248,7 @@ def test_shape_constraint_counter_2():
     )
     assert_constr_counts(ref_dict)
 
-    add2.set_shapes({"left": ["a", "b", "c"], "right": ["a", "b", "c"]})
+    add2.set_shapes(left=["a", "b", "c"], right=["a", "b", "c"])
 
     ref_dict = make_reference_dict(
         {
@@ -284,7 +284,7 @@ def test_shape_constraint_counter_3():
     )
     assert_constr_counts(ref_dict)
 
-    add1.set_shapes({"left": [1, 2, 9], "right": [1, 2, 1]})
+    add1.set_shapes(left=[1, 2, 9], right=[1, 2, 1])
     ref_dict = make_reference_dict(
         {
             add1.left: [1],
@@ -300,7 +300,7 @@ def test_shape_constraint_counter_3():
     )
     assert_constr_counts(ref_dict)
 
-    add2.set_shapes({"left": ["a", "b", "c"], "right": ["a", "b", "c"]})
+    add2.set_shapes(left=["a", "b", "c"], right=["a", "b", "c"])
     ref_dict = make_reference_dict(
         {
             add1.left: [1],
@@ -342,7 +342,7 @@ def test_shape_constraint_counter_4():
     )
     assert_constr_counts(ref_dict)
 
-    add1.set_shapes({"left": [1, 2, 9], "right": [1, 2, 1]})
+    add1.set_shapes(left=[1, 2, 9], right=[1, 2, 1])
     ref_dict = make_reference_dict(
         {
             add1.left: [1],
@@ -358,7 +358,7 @@ def test_shape_constraint_counter_4():
     )
     assert_constr_counts(ref_dict)
 
-    add2.set_shapes({"left": ["a", "b", "c"], "right": ["a", "b", "c"]})
+    add2.set_shapes(left=["a", "b", "c"], right=["a", "b", "c"])
     ref_dict = make_reference_dict(
         {
             add1.left: [1],
@@ -402,7 +402,7 @@ def test_shape_constraint_counter_5():
     )
     assert_constr_counts(ref_dict)
 
-    add1.set_shapes({"left": [1, 2, 9], "right": [1, 2, 1]})
+    add1.set_shapes(left = [1, 2, 9], right = [1, 2, 1])
     ref_dict = make_reference_dict(
         {
             add1.left: [1],
@@ -422,7 +422,7 @@ def test_shape_constraint_counter_5():
     )
     assert_constr_counts(ref_dict)
 
-    add2.set_shapes({"left": ["a", "b", "c"], "right": ["a", "b", "c"]})
+    add2.set_shapes(left = ["a", "b", "c"], right = ["a", "b", "c"])
     ref_dict = make_reference_dict(
         {
             add1.left: [1],
@@ -467,7 +467,7 @@ def test_shape_constraint_counter_6():
     )
     assert_constr_counts(ref_dict)
 
-    model_1.set_shapes({"input": [2, 3, 4]})
+    model_1.set_shapes(input=[2, 3, 4])
     ref_dict = make_reference_dict(
         {
             model_1.input: [1],
@@ -510,7 +510,7 @@ def test_shape_constraint_counter_7():
     )
     assert_constr_counts(ref_dict)
 
-    model_1.set_shapes({"input": ["u1", "u2", "u3", "u4"]})
+    model_1.set_shapes(input=["u1", "u2", "u3", "u4"])
     ref_dict = make_reference_dict(
         {
             model_1.input: [1],
@@ -527,8 +527,7 @@ def test_shape_constraint_counter_7():
         }
     )
     assert_constr_counts(ref_dict)
-    shape: dict[str, list[str | int]] = {"input": [1, "u2", "u3", "u4"]}
-    model_3.set_shapes(shape)
+    model_3.set_shapes(input=[1, "u2", "u3", "u4"])
     ref_dict = make_reference_dict(
         {
             model_1.input: [1],
@@ -546,7 +545,7 @@ def test_shape_constraint_counter_7():
     )
     assert_constr_counts(ref_dict)
 
-    model_3.set_shapes({"output": [4, 3, 2, 1]})
+    model_3.set_shapes(output=[4, 3, 2, 1])
     ref_dict = make_reference_dict(
         {
             model_1.input: [1],
@@ -584,7 +583,7 @@ def test_shape_constraint_counter_8():
     )
     assert_constr_counts(ref_dict)
 
-    model_1.set_shapes({"input": ["u1", "u2", "u3", "u4"]})
+    model_1.set_shapes(input=["u1", "u2", "u3", "u4"])
     ref_dict = make_reference_dict(
         {
             model_1.input: [2],
@@ -596,8 +595,7 @@ def test_shape_constraint_counter_8():
         }
     )
     assert_constr_counts(ref_dict)
-    shape: dict[str, list[str | int]] = {"input": [7, "u2", "u3", "u4"]}
-    model_3.set_shapes(shape)
+    model_3.set_shapes(input=[7, "u2", "u3", "u4"])
     ref_dict = make_reference_dict(
         {
             model_1.input: [3],
@@ -610,7 +608,7 @@ def test_shape_constraint_counter_8():
     )
     assert_constr_counts(ref_dict)
 
-    model_2.set_shapes({"input": [6, 5, 7, 8]})
+    model_2.set_shapes(input=[6, 5, 7, 8])
     ref_dict = make_reference_dict(
         {
             model_1.input: [],
@@ -643,7 +641,7 @@ def test_shape_constraint_counter_9():
     )
     assert_constr_counts(ref_dict)
 
-    model_1.set_shapes({"input": ["u1"]})
+    model_1.set_shapes(input=["u1"])
     ref_dict = make_reference_dict(
         {
             model_1.input: [2],
@@ -656,7 +654,7 @@ def test_shape_constraint_counter_9():
     )
     assert_constr_counts(ref_dict)
 
-    model_2.set_shapes({"input": [1]})
+    model_2.set_shapes(input=[1])
     ref_dict = make_reference_dict(
         {
             model_1.input: [],
@@ -689,7 +687,7 @@ def test_shape_constraint_counter_10():
     )
     assert_constr_counts(ref_dict)
 
-    model_1.set_shapes({"input": ["u1"]})
+    model_1.set_shapes(input=["u1"])
     ref_dict = make_reference_dict(
         {
             model_1.input: [2],
@@ -702,7 +700,7 @@ def test_shape_constraint_counter_10():
     )
     assert_constr_counts(ref_dict)
 
-    model_3.set_shapes({"output": [3]})
+    model_3.set_shapes(output=[3])
     ref_dict = make_reference_dict(
         {
             model_1.input: [],
@@ -735,7 +733,7 @@ def test_shape_constraint_counter_11():
     )
     assert_constr_counts(ref_dict)
 
-    model_1.set_shapes({"input": ["u1", "u2"]})
+    model_1.set_shapes(input=["u1", "u2"])
     ref_dict = make_reference_dict(
         {
             model_1.input: [2],
@@ -747,8 +745,7 @@ def test_shape_constraint_counter_11():
         }
     )
     assert_constr_counts(ref_dict)
-    shape: dict[str, list[str | int]] = {"input": [1, "u2"]}
-    model_5.set_shapes(shape)
+    model_5.set_shapes(input=[1, "u2"])
     ref_dict = make_reference_dict(
         {
             model_1.input: [3],
@@ -815,7 +812,7 @@ def test_shape_constraint_counter_12():
     )
     assert_constr_counts(ref_dict)
 
-    model_1.set_shapes({"left": [4, 5], "right": [4, 5]})
+    model_1.set_shapes(left=[4, 5], right=[4, 5])
     ref_dict = make_reference_dict(
         {
             model_1.left: [1, 1],
@@ -860,7 +857,7 @@ def test_shape_constraint_counter_13():
     )
     assert_constr_counts(ref_dict)
 
-    model_2.set_shapes({"right": [1]})
+    model_2.set_shapes(right=[1])
     ref_dict = make_reference_dict(
         {
             slice_model.start: [],
@@ -907,7 +904,7 @@ def test_shape_constraint_counter_14():
     )
     assert_constr_counts(ref_dict)
 
-    model_1.set_shapes({"right": [4, 4]})
+    model_1.set_shapes(right=[4, 4])
     ref_dict = make_reference_dict(
         {
             model_1.left: [0, 0, 0, 0, 2],
@@ -923,7 +920,7 @@ def test_shape_constraint_counter_14():
     )
     assert_constr_counts(ref_dict)
 
-    model_1.set_shapes({"left": [4, 4]})
+    model_1.set_shapes(left=[4, 4])
     ref_dict = make_reference_dict(
         {
             model_1.left: [1],
@@ -939,7 +936,7 @@ def test_shape_constraint_counter_14():
     )
     assert_constr_counts(ref_dict)
 
-    model_2.set_shapes({"right": [4, 4, 1, 1]})
+    model_2.set_shapes(right=[4, 4, 1, 1])
     ref_dict = make_reference_dict(
         {
             model_1.left: [1],
@@ -1013,7 +1010,7 @@ def test_shape_constraint_counter_15():
     )
     assert_constr_counts(ref_dict)
 
-    model_1.set_shapes({"input": [9]})
+    model_1.set_shapes(input=[9])
     ref_dict = make_reference_dict(
         {
             model_1.input: [],  # type: ignore
@@ -1037,13 +1034,13 @@ def test_shape_constraint_counter_15():
     )
     assert_constr_counts(ref_dict)
 
-    model_2.set_shapes({"input": [8]})
+    model_2.set_shapes(input=[8])
     assert_constr_counts(ref_dict)
 
-    model_3.set_shapes({"input": [7]})
+    model_3.set_shapes(input=[7])
     assert_constr_counts(ref_dict)
 
-    model_4.set_shapes({"input": [6]})
+    model_4.set_shapes(input=[6])
     assert_constr_counts(ref_dict)
 
 
@@ -1068,7 +1065,7 @@ def test_shape_constraint_counter_16():
     )
     assert_constr_counts(ref_dict)
 
-    model_1.set_shapes({"right": [1] * 100})
+    model_1.set_shapes(right=[1] * 100)
     ref_dict = make_reference_dict(
         {
             model_1.left: [0, 1, 2],
@@ -1080,7 +1077,7 @@ def test_shape_constraint_counter_16():
     )
     assert_constr_counts(ref_dict)
 
-    model_1.set_shapes({"left": [4] * 100})
+    model_1.set_shapes(left=[4] * 100)
     ref_dict = make_reference_dict(
         {
             model_1.left: [1],
@@ -1105,12 +1102,12 @@ def test_shape_constraint_counter_17():
     )
     assert_constr_counts(ref_dict)
 
-    model_1.set_shapes({"output": [f"u{i}" for i in range(3)]})
+    model_1.set_shapes(output=[f"u{i}" for i in range(3)])
     ref_dict = make_reference_dict(
         {model_1.input: [2], model_2.input: [2, 3], model_2.output: [3]}
     )
 
-    model_1.set_shapes({"input": [5] * 2 + ["u1"]})
+    model_1.set_shapes(input=[5] * 2 + ["u1"])
     ref_dict = make_reference_dict(
         {model_1.input: [3], model_2.input: [3, 4], model_2.output: [4]}
     )
@@ -1181,12 +1178,12 @@ def test_type_constraint_counter_1():
     )
     assert_constr_counts(ref_dict)
 
-    model_1.set_shapes({"output": [f"u{i}" for i in range(3)]})
+    model_1.set_shapes(output=[f"u{i}" for i in range(3)])
     ref_dict = make_reference_dict(
         {model_1.input: [2], model_2.input: [2, 2, 3], model_2.output: [2, 3]}
     )
 
-    model_1.set_shapes({"input": [5] * 2 + ["u1"]})
+    model_1.set_shapes(input=[5] * 2 + ["u1"])
     ref_dict = make_reference_dict(
         {model_1.input: [3], model_2.input: [2, 3, 4], model_2.output: [2, 4]}
     )
@@ -1218,8 +1215,7 @@ def test_error_check_counter_1():
         }
     )
     assert_constr_counts(ref_dict)
-    shape: dict[str, list[str | int]] = {"left": [1, 2, 9], "right": [1, 2, "u1"]}
-    add1.set_shapes(shape)
+    add1.set_shapes(left=[1, 2, 9], right=[1, 2, "u1"])
     # Note that actually bcast eliminated from add1 constraints but
     # bcast_error_check comes to the play after bcast eliminated.
     # So [1, 1] is still the correct counts.
@@ -1235,7 +1231,7 @@ def test_error_check_counter_1():
     assert_constr_counts(ref_dict)
 
     # Note add2 bcast and error_check solved but add1 still has error_check.
-    add2.set_shapes({"left": ["a", "b", "c"], "right": ["a", "b", "c"]})
+    add2.set_shapes(left=["a", "b", "c"], right=["a", "b", "c"])
 
     ref_dict = make_reference_dict(
         {
@@ -1270,8 +1266,7 @@ def test_error_check_counter_2():
         }
     )
     assert_constr_counts(ref_dict)
-    shape: dict[str, list[str | int]] = {"left": [1, 2, 9], "right": [1, 2, "u1"]}
-    add1.set_shapes(shape)
+    add1.set_shapes(left=[1, 2, 9], right=[1, 2, "u1"])
     # Note that actually bcast eliminated from add1 constraints but
     # bcast_error_check comes to the play after bcast eliminated.
     # So [1, 1] is still the correct counts.
@@ -1287,7 +1282,7 @@ def test_error_check_counter_2():
     assert_constr_counts(ref_dict)
 
     with pytest.raises(ValueError) as err_info:
-        add1.set_shapes({"right": [1, 2, 5]})
+        add1.set_shapes(right=[1, 2, 5])
 
     assert str(err_info.value) == "Possible values mismatch!"
 
@@ -1312,11 +1307,7 @@ def test_error_check_counter_3():
         }
     )
     assert_constr_counts(ref_dict)
-    shape: dict[str, list[str | int | tuple]] = {
-        "left": [1, 2, 9],
-        "right": [1, 2, "u1"],
-    }
-    add1.set_shapes(shape)
+    add1.set_shapes(left=[1, 2, 9], right=[1, 2, "u1"])
     # Note that bcast can not be eliminated.
     # TODO: After broadcast updated, results will be updated.
     # ref_dict = make_reference_dict({
@@ -1338,7 +1329,7 @@ def test_error_check_counter_3():
     assert_constr_counts(ref_dict)
 
     with pytest.raises(ValueError) as err_info:
-        add1.set_shapes({"right": [1, 2, 5]})
+        add1.set_shapes(right=[1, 2, 5])
 
     assert str(err_info.value) == (
         "Shape mismatch for broadcast. Dimensionalities for the corresponding "

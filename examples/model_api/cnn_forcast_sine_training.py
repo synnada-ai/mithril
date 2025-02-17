@@ -86,7 +86,7 @@ train_model.add_loss(
     reduce_steps=[Mean()],
 )
 
-train_model.set_shapes({"input": [None, 1, seq_len]})
+train_model.set_shapes(input=[None, 1, seq_len])
 
 # Finally, compile the model.
 pm = ml.compile(train_model, backend, data_keys={"input", "target"})

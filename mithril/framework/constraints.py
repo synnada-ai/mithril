@@ -19,7 +19,8 @@ from itertools import combinations_with_replacement, permutations, product, zip_
 from types import EllipsisType, GenericAlias, NoneType, UnionType
 from typing import Any, TypeGuard, Union, get_args, get_origin
 
-from ..core import Constant
+from ..common import PaddingType
+from ..types import Constant
 from ..utils.type_utils import (
     is_axis_reduce_type,
     is_axis_reverse_type,
@@ -33,7 +34,6 @@ from ..utils.type_utils import (
     is_tuple_of_two_ints,
     is_union_type,
 )
-from ..utils.utils import PaddingType
 from .common import (
     DNF,
     TBD,

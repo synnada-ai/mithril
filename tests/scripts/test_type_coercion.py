@@ -895,7 +895,7 @@ def test_connect_type_conv_handling_1():
             "output": IOKey(name="output"),
         },
     )
-    mat_mul.set_shapes({"output": output_shape})
+    mat_mul.set_shapes(output=output_shape)
     model_1 = model
 
     # Second model
@@ -916,7 +916,7 @@ def test_connect_type_conv_handling_1():
             "output": IOKey(name="output"),
         },
     )
-    mat_mul.set_shapes({"output": output_shape})
+    mat_mul.set_shapes(output=output_shape)
     model_2 = model
 
     # Third model
@@ -937,7 +937,7 @@ def test_connect_type_conv_handling_1():
             "output": IOKey(name="output"),
         },
     )
-    mat_mul.set_shapes({"output": output_shape})
+    mat_mul.set_shapes(output=output_shape)
     model_3 = model
 
     # Provide backend and data.
@@ -1407,8 +1407,8 @@ def test_tensor_to_scalar_connect_1():
     con = IOKey(connections={axis1, axis2, axis3}, name="axis4", value=(2, 3))
     model += Mean(axis=TBD)(axis=con)
 
-    assert axis1.data.metadata == axis2.data.metadata == axis3.data.metadata
-    assert axis1.data.metadata.value == (2, 3)
+    assert axis1.metadata == axis2.metadata == axis3.metadata
+    assert axis1.metadata.value == (2, 3)
 
 
 def test_tensor_to_scalar_connect_3_error_existing_key():
@@ -1429,8 +1429,8 @@ def test_tensor_to_scalar_connect_3_error_existing_key():
 
     model += Mean(axis=TBD)(axis=con)
 
-    assert axis1.data.metadata == axis2.data.metadata == axis3.data.metadata
-    assert axis3.data.metadata.key_origin == "axis2"
+    assert axis1.metadata == axis2.metadata == axis3.metadata
+    assert axis3.metadata.key_origin == "axis2"
 
 
 def test_coercion_1():
@@ -1621,7 +1621,7 @@ def test_tensor_to_scalar_template_1():
     out1 = in1.shape.tensor() ** 2
     model |= Buffer()(input=out1, output="output")
 
-    model.set_shapes({"input1": [3, 4, 5, 6]})
+    model.set_shapes(input1=[3, 4, 5, 6])
     pm = compile(model=model, backend=backend, inference=True)
 
     ref_outputs = {"output": backend.array([9, 16, 25, 36])}

@@ -15,8 +15,7 @@
 from abc import ABC, abstractmethod
 from typing import Generic
 
-from mithril import DataType
-
+from ...cores.core import DataType
 from ..common import EvaluateAllType, EvaluateGradientsType, EvaluateType
 from ..physical.model import PhysicalModel
 

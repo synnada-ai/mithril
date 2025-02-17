@@ -202,12 +202,12 @@ class TrainModel(Model):
 
         is_loss_connected = False
         for value in kwargs.values():
-            if isinstance(value, (Connection)) or (
+            if isinstance(value, (ConnectionData)) or (
                 isinstance(value, str) and (value in self.conns.output_keys)
             ):
                 is_loss_connected = True
-                if isinstance(value, Connection):
-                    conn = value.data
+                if isinstance(value, ConnectionData):
+                    conn = value
                 else:
                     if value not in self.conns.all:
                         raise KeyError("Key does not belong to the Model!")
@@ -251,7 +251,7 @@ class TrainModel(Model):
         # self._extend(loss_model(**kwargs))
         # self._extend(loss_model, kwargs)
         self._extend(loss_model, loss_model(**kwargs).connections)
-        prev_out_key = self.get_single_output(loss_model).data
+        prev_out_key = self.get_single_output(loss_model)
         if (prev_con := self.conns.get_con_by_metadata(prev_out_key.metadata)) is None:
             raise KeyError("Given key does not belong to the Model!")
         loss_key = prev_con.key
@@ -272,7 +272,7 @@ class TrainModel(Model):
                 if (axis := m.conns.get_connection("axis")) is None:
                     raise KeyError("Reduce model should have axis key.")
                 reduce_inputs.append((prev_out_key, axis))
-            prev_out_key = self.get_single_output(m).data
+            prev_out_key = self.get_single_output(m)
 
         # Apply coef
         if coef is not None:
@@ -285,7 +285,7 @@ class TrainModel(Model):
             if key_name is None:
                 kwargs.pop("output")
             self.extend(m := Multiply(), **kwargs)
-            prev_out_key = self.get_single_output(m).data
+            prev_out_key = self.get_single_output(m)
 
         if (loss_con := self.conns.get_con_by_metadata(prev_out_key.metadata)) is None:
             raise KeyError("Given key does not belong to the Model!")
@@ -319,7 +319,7 @@ class TrainModel(Model):
             )
 
         kwargs = {
-            key: value.data if isinstance(value, Connection) else value
+            key: value if isinstance(value, Connection) else value
             for key, value in kwargs.items()
         }
 
@@ -333,8 +333,8 @@ class TrainModel(Model):
                 "args": kwargs,
             }
         )
-        canonical_inputs = {self.connection_map[data] for data in self.conns.cins}
-        canonical_outputs = {self.connection_map[data] for data in self.conns.couts}
+        canonical_inputs = {data for data in self.conns.cins}
+        canonical_outputs = {data for data in self.conns.couts}
         self._add_regularization(model, coef, reg_key, key_name, **kwargs)
         self.set_cin(*canonical_inputs)
         self.set_cout(*canonical_outputs)
@@ -353,7 +353,7 @@ class TrainModel(Model):
             case str():
                 reg_str = reg_key
             case Connection():
-                reg_str = reg_key.data.key
+                reg_str = reg_key.key
             case None:
                 reg_str = model.cin.key
 
@@ -403,14 +403,14 @@ class TrainModel(Model):
                 )
 
             if key_name is not None:
-                out = self.get_single_output(model).data
+                out = self.get_single_output(model)
                 # kwargs[out.key] = key_name
                 kwargs[out.key] = IOKey(name=key_name)
 
             keywords = {}
             for key, value in model(**kwargs).connections.items():
                 if isinstance(value, Connection):
-                    keywords[key] = value.data
+                    keywords[key] = value
                 else:
                     keywords[key] = value
 
@@ -437,7 +437,7 @@ class TrainModel(Model):
         self.extend(
             model,
             **{
-                key: value.data if isinstance(value, Connection) else value
+                key: value if isinstance(value, Connection) else value
                 for key, value in model(**kwargs).connections.items()
             },  # type: ignore
         )
@@ -449,15 +449,15 @@ class TrainModel(Model):
         for i, m in enumerate(reduce_steps):
             in_key = m.cin.key
             if i == len(reduce_steps) - 1 and key_name is not None:
-                out = self.get_single_output(m).data
+                out = self.get_single_output(m)
                 # self.extend(m, **{in_key: prev_out_key, out.key: key_name})
                 info: dict[str, ConnectionDataType] = {
-                    in_key: prev_out_key.data,
+                    in_key: prev_out_key,
                     out.key: BaseKey(name=key_name),
                 }
                 self.extend(m, **info)
             else:
-                self.extend(m, **{in_key: prev_out_key.data})
+                self.extend(m, **{in_key: prev_out_key})
             prev_out_con = self.get_single_output(m)
             assert prev_out_con is not None
             prev_out_key = prev_out_con
@@ -488,7 +488,7 @@ class TrainModel(Model):
             self.extend(concat_model, **concat_kwargs)
             self.extend(
                 self.loss_combiner,
-                input=concat_model.output.data,
+                input=concat_model.output,
                 output=IOKey(name=loss_output_key),
             )
         elif num_of_loss_keys == 1:
@@ -520,9 +520,9 @@ class TrainModel(Model):
                     self.extend(
                         concat := Concat(n=len(o_set), axis=None), **concat_inputs
                     )
-                    self.extend(add := Sum(), input=concat.output.data)
-                    self.extend(mult := Multiply(), left=add.output.data, right=coef)
-                    reg_concat_args.append(mult.output.data)
+                    self.extend(add := Sum(), input=concat.output)
+                    self.extend(mult := Multiply(), left=add.output, right=coef)
+                    reg_concat_args.append(mult.output)
                 # TODO: add concat and sum if len(reg_concat_args) > 1
                 self.extend(
                     reg_concat := Concat(n=len(reg_concat_args), axis=None),
@@ -532,7 +532,7 @@ class TrainModel(Model):
                     },
                 )
                 self.extend(
-                    Sum(), input=reg_concat.output.data, output=IOKey(name=FinalCost)
+                    Sum(), input=reg_concat.output, output=IOKey(name=FinalCost)
                 )
                 self.set_cout(FinalCost)
                 loss_con = self.conns.get_connection(LossKey)
@@ -665,7 +665,7 @@ class TrainModel(Model):
                     m_name = name_mappings[model]
                     conns = conn_info[m_name][0]
                     shape = shape_info[m_name][0]
-                    reg_key = model._cin.key
+                    reg_key = model.cin.key
                     updated_reg_key = model.generate_keys(include_outputs=True).get(
                         reg_key, reg_key
                     )
@@ -742,8 +742,8 @@ class TrainModel(Model):
                             idx += 1
 
                     self.extend(concat_model, **concat_kwargs)
-                    self.extend(prod := Prod(), input=concat_model.output.data)
-                    final_output = prod.output.data
+                    self.extend(prod := Prod(), input=concat_model.output)
+                    final_output = prod.output
 
                 # Add geo-mean result as final_output
                 if n_final_outputs > 1:
@@ -752,7 +752,7 @@ class TrainModel(Model):
                         base=final_output,
                         exponent=Tensor([1 / n_final_outputs]),
                     )
-                    final_output = power.output.data
+                    final_output = power.output
                 # Add Divide Model to divide final_output to geo_mean.
                 reg_con, coef = reg_info
                 self.extend(
@@ -785,6 +785,6 @@ class TrainModel(Model):
                     concat_kwargs[conn.key] = sizes[idx]
                     idx += 1
             self.extend(concat_model, **concat_kwargs)
-            self.extend(prod := Prod(), input=concat_model.output.data)
-            final_output = prod.output.data
+            self.extend(prod := Prod(), input=concat_model.output)
+            final_output = prod.output
         return final_output

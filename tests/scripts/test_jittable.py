@@ -21,7 +21,7 @@ import numpy as np
 import pytest
 
 from mithril import JaxBackend, NumpyBackend, compile
-from mithril.backends.with_autograd.jax_backend.ops import (
+from mithril.cores.python.jax.ops import (
     add,
     partial,
     reduce_mean,
@@ -109,7 +109,7 @@ class MyModel(Model):
             "w": ["d_in", dimension],
             "b": [dimension],
         }
-        self.set_shapes(shapes)
+        self.set_shapes(**shapes)
 
 
 class MyModel2(Model):
@@ -148,7 +148,7 @@ class MyModel2(Model):
             "w": ["d_in", dimension],
             "b": [dimension],
         }
-        self.set_shapes(shapes)
+        self.set_shapes(**shapes)
 
 
 np_input = np.random.randn(10, 3).astype(np.float32)

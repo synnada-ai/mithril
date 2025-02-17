@@ -18,7 +18,33 @@ from __future__ import annotations
 import builtins as py_builtins
 import enum
 from enum import Enum
-from typing import Any, Generic, TypeGuard, TypeVar
+
+from .cores.core import DataType, GenericDataType, data_types
+
+__all__ = [
+    "DataType",
+    "GenericDataType",
+    "Constant",
+    "Dtype",
+    "uint8",
+    "int8",
+    "int16",
+    "short",
+    "int32",
+    "int",
+    "int64",
+    "long",
+    "float16",
+    "bfloat16",
+    "float32",
+    "float",
+    "float64",
+    "double",
+    "bool",
+    "constant_type_table",
+    "epsilon_table",
+    "data_types",
+]
 
 
 class Constant(Enum):
@@ -78,6 +104,8 @@ class Dtype(enum.IntEnum):  # noqa N801
     bool = 9
 
 
+uint8: Dtype = Dtype.uint8
+int8: Dtype = Dtype.int8
 int16: Dtype = Dtype.int16
 short = int16
 int32: Dtype = Dtype.int32
@@ -92,51 +120,3 @@ float = float32
 float64: Dtype = Dtype.float64
 double = float64
 bool: Dtype = Dtype.bool
-
-data_types: list[type] = []
-
-try:
-    from numpy import ndarray
-
-    data_types.append(ndarray)
-except ImportError:
-    pass
-
-try:
-    from jax import Array
-
-    data_types.append(Array)
-except ImportError:
-    pass
-
-try:
-    from torch import Tensor
-
-    data_types.append(Tensor)
-except ImportError:
-    pass
-
-try:
-    from mlx.core import array
-
-    data_types.append(array)
-except ImportError:
-    pass
-
-try:
-    from mithril.backends.with_manualgrad.c_backend.src.array import PyArray
-
-    data_types.append(PyArray)
-except ImportError:
-    pass
-
-
-DataType = TypeVar(
-    "DataType", "ndarray[Any, Any]", "Array", "Tensor", "PyArray", "array"
-)
-
-
-class GenericDataType(Generic[DataType]):
-    @staticmethod
-    def is_tensor_type(t: Any) -> TypeGuard[DataType]:
-        return isinstance(t, tuple(data_types))

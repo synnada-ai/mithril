@@ -19,6 +19,7 @@ from abc import abstractmethod
 from collections.abc import Sequence
 from copy import deepcopy
 
+from ..common import PaddingType
 from ..framework.common import (
     NOT_GIVEN,
     TBD,
@@ -35,7 +36,7 @@ from ..framework.logical.model import (
     IOKey,
     Model,
 )
-from ..utils.utils import PaddingType, convert_to_list, convert_to_tuple
+from ..utils.utils import convert_to_list, convert_to_tuple
 from .primitives import (
     Absolute,
     Add,
@@ -553,7 +554,7 @@ class Linear(Model):
         else:
             self |= mult(left=input_key, right=weight_key, output=output)
 
-        self._set_shapes(shapes)
+        self._set_shapes(**shapes)
         self.set_cin("input", safe=False)
         self._freeze()
 
@@ -700,7 +701,7 @@ class LayerNorm(Model):
         self |= denominator(input=add.output)
         self |= Divide()(numerator=numerator.output, denominator=denominator.output)
 
-        self._set_shapes({"input": ["B", "C", "d"]})
+        self._set_shapes(input=["B", "C", "d"])
 
         shapes: dict[str, ShapeTemplateType] = {
             "left": ["B", "C", "d"],
@@ -713,7 +714,7 @@ class LayerNorm(Model):
                 left=Tensor[int | float | bool], right=Tensor[int | float | bool]
             )
             self += mult(right=IOKey("weight", value=weight, differantiable=True))
-            mult._set_shapes(shapes)
+            mult._set_shapes(**shapes)
 
         if use_bias:
             add = Add()
@@ -721,7 +722,7 @@ class LayerNorm(Model):
                 left=Tensor[int | float | bool], right=Tensor[int | float | bool]
             )
             self += add(right=IOKey("bias", value=bias, differantiable=True))
-            add._set_shapes(shapes)
+            add._set_shapes(**shapes)
         # TODO: Remove below Buffer after required naming-related changes are done.
         self |= Buffer()(input=self.cout, output=IOKey(name="output"))
         self.set_cin("input", safe=False)
@@ -781,7 +782,7 @@ class GroupNorm(Model):
         _input_key = (_input_key - mean) / (var + eps).sqrt()
         self |= Reshape()(input=_input_key, shape=input_shape)
 
-        self._set_shapes({"input": ["B", "C", "H", "W"]})
+        self._set_shapes(input=["B", "C", "H", "W"])
 
         shapes: dict[str, ShapeTemplateType] = {
             "left": ["B", "C", "H", "W"],
@@ -794,7 +795,7 @@ class GroupNorm(Model):
             )
             mult = Multiply()
             self |= mult(left=self.cout, right=weight_key)
-            mult._set_shapes(shapes)
+            mult._set_shapes(**shapes)
 
         if use_bias:
             bias_key = IOKey(
@@ -802,7 +803,7 @@ class GroupNorm(Model):
             )
             add = Add()
             self |= add(left=self.cout, right=bias_key)
-            add._set_shapes(shapes)
+            add._set_shapes(**shapes)
 
         self |= Buffer()(input=self.cout, output=IOKey(name="output"))
         self.set_cin("input", safe=False)
@@ -915,7 +916,7 @@ class QuadraticFormRegularizer(Model):
             left=dot_model2.output, right=Tensor(0.5), output=IOKey(name="output")
         )
         shapes: dict[str, ShapeTemplateType] = {"input": [1, "N"], "kernel": ["N", "N"]}
-        self._set_shapes(shapes)
+        self._set_shapes(**shapes)
         self.set_cin("input", safe=False)
         self._freeze()
 
@@ -988,7 +989,7 @@ class RBFKernel(Model):
             "output": ["N", "M"],
         }
 
-        self._set_shapes(shapes)
+        self._set_shapes(**shapes)
         self.set_cin("input1", "input2", safe=False)
         self._freeze()
 
@@ -1045,13 +1046,7 @@ class PolynomialKernel(Model):
             exponent=IOKey("degree", value=degree),
             output=IOKey(name="output"),
         )
-        self._set_shapes(
-            {
-                "input1": ["N", "d"],
-                "input2": ["M", "d"],
-                "output": ["N", "M"],
-            }
-        )
+        self._set_shapes(input1=["N", "d"], input2=["M", "d"], output=["N", "M"])
         self._add_constraint(
             fn=polynomial_kernel_constraint,
             keys=["poly_coef", "degree"],
@@ -1127,7 +1122,7 @@ class KernelizedSVM(Model):
             "output": ["N", 1],
             "kernel": ["N", "M"],
         }
-        self._set_shapes(shapes)
+        self._set_shapes(**shapes)
         self.set_cin("input1", "input2", safe=False)
         self._freeze()
 
@@ -1426,7 +1421,7 @@ class RNNCell(Cell):
             "bias_o": ["d_out"],
         }
 
-        self._set_shapes(shapes)
+        self._set_shapes(**shapes)
         self.set_cin("input", safe=False)
         self.set_cout("output")
         self._freeze()
@@ -1601,7 +1596,7 @@ class LSTMCell(Cell):
             "cell": ["N", 1, "d_hid"],
         }
 
-        self._set_shapes(shapes)
+        self._set_shapes(**shapes)
         self.set_cin("input", safe=False)
         self.set_cout("output")
         self._freeze()
@@ -1755,7 +1750,7 @@ class LSTMCellBody(Model):
             "bias_o": ["d_hid"],
         }
 
-        self._set_shapes(shapes)
+        self._set_shapes(**shapes)
         self._freeze()
 
     def __call__(  # type: ignore[override]
@@ -2307,7 +2302,7 @@ class MDSCore(Model):
                 output=IOKey(name="output"),
             )
 
-        self._set_shapes({"distances": ["N", "N"], "pred_distances": ["N", "N"]})
+        self._set_shapes(distances=["N", "N"], pred_distances=["N", "N"])
         self._freeze()
 
     def __call__(  # type: ignore[override]
@@ -2395,7 +2390,7 @@ class TSNECore(Model):
             input=kl_divergence_model.output, output=IOKey(name="output")
         )
 
-        self._set_shapes({"distances": ["N", "N"], "pred_distances": ["N", "N"]})
+        self._set_shapes(distances=["N", "N"], pred_distances=["N", "N"])
         self.set_cin("distances", safe=False)
         self.set_cout("output")
         self._freeze()
@@ -2561,7 +2556,7 @@ class MDS(DistanceEncoder):
             predicted_coords=predicted_coords,
         )
         self.factory_args = {"prediction_dim": prediction_dim, "input_type": input_type}
-        self._set_shapes({"coords": [None, prediction_dim]})
+        self._set_shapes(coords=[None, prediction_dim])
         self._freeze()
 
     def __call__(  # type: ignore[override]
@@ -2626,7 +2621,7 @@ class TSNE(DistanceEncoder):
             "preplexity": preplexity,
         }
 
-        self._set_shapes({"coords": [None, prediction_dim]})
+        self._set_shapes(coords=[None, prediction_dim])
         self._freeze()
 
     def __call__(  # type: ignore[override]
@@ -2746,7 +2741,7 @@ class GaussProcessRegressionCore(Model):
             "confidence": ["N", 1],
         }
 
-        self._set_shapes(shapes)
+        self._set_shapes(**shapes)
         self._freeze()
 
     def __call__(  # type: ignore[override]
@@ -2836,7 +2831,7 @@ class GPRLoss(Model):
             "output": [1],
         }
 
-        self._set_shapes(shapes)
+        self._set_shapes(**shapes)
         self._freeze()
 
     def __call__(  # type: ignore[override]
@@ -2968,7 +2963,7 @@ class Accuracy(Model):
             "label_formatted",
         )
 
-        true_predictions = self.metric_out == 0
+        true_predictions = self.metric_out.eq(0)
         n_prediction = self.label_formatted.shape[0]
 
         self |= Sum()(input=true_predictions, output="n_true_predictions")
@@ -3042,8 +3037,8 @@ class Precision(Model):
         )
 
         if average == "micro":
-            true_positive = self.metric_out == Tensor(0)
-            false_positive = self.metric_out != Tensor(0)
+            true_positive = self.metric_out.eq(Tensor(0))
+            false_positive = self.metric_out.ne(Tensor(0))
             self |= Sum()(input=true_positive, output="n_true_positive")
             self |= Sum()(input=false_positive, output="n_false_positive")
 
@@ -3059,9 +3054,9 @@ class Precision(Model):
                 n_classes is not None
             ), "n_classes must be provided if average is or 'macro'"
             for idx in range(n_classes):
-                class_idxs = self.label_formatted == Tensor(idx)
-                true_positive = (self.metric_out == Tensor(0)) & class_idxs
-                false_positive = (self.pred_formatted == Tensor(idx)) & ~class_idxs
+                class_idxs = self.label_formatted.eq(Tensor(idx))
+                true_positive = (self.metric_out.eq(Tensor(0))) & class_idxs
+                false_positive = (self.pred_formatted.eq(Tensor(idx))) & ~class_idxs
 
                 self |= Sum()(input=true_positive, output=f"true_positive_{idx}")
                 self |= Sum()(input=false_positive, output=f"false_positive_{idx}")
@@ -3069,7 +3064,7 @@ class Precision(Model):
                     self, f"false_positive_{idx}"
                 )
                 self |= Where()(
-                    denominator == Tensor(0),
+                    denominator.eq(Tensor(0)),
                     Tensor(1),
                     denominator,
                     f"denominator_{idx}",
@@ -3101,9 +3096,9 @@ class Precision(Model):
                 n_classes is not None
             ), "n_classes must be provided if average is or 'weighted'"
             for idx in range(n_classes):
-                class_idxs = self.label_formatted == Tensor(idx)
-                true_positive = (self.metric_out == Tensor(0)) & class_idxs
-                false_positive = (self.pred_formatted == Tensor(idx)) & ~class_idxs
+                class_idxs = self.label_formatted.eq(Tensor(idx))
+                true_positive = (self.metric_out.eq(Tensor(0))) & class_idxs
+                false_positive = (self.pred_formatted.eq(Tensor(idx))) & ~class_idxs
                 self |= Sum()(input=class_idxs, output=f"n_class_{idx}")
 
                 self |= Sum()(input=true_positive, output=f"true_positive_{idx}")
@@ -3112,7 +3107,7 @@ class Precision(Model):
                     self, f"false_positive_{idx}"
                 )
                 self |= Where()(
-                    denominator == Tensor(0),
+                    denominator.eq(Tensor(0)),
                     Tensor(1),
                     denominator,
                     f"denominator_{idx}",
@@ -3202,8 +3197,8 @@ class Recall(Model):
         )
 
         if average == "micro":
-            true_positive = self.metric_out == Tensor(0)
-            false_negative = self.metric_out != Tensor(0)
+            true_positive = self.metric_out.eq(Tensor(0))
+            false_negative = self.metric_out.ne(Tensor(0))
             self |= Sum()(input=true_positive, output="n_true_positive")
             self |= Sum()(input=false_negative, output="n_false_negative")
 
@@ -3219,9 +3214,9 @@ class Recall(Model):
                 n_classes is not None
             ), "n_classes must be provided if average is or 'macro'"
             for idx in range(n_classes):
-                class_idxs = self.label_formatted == Tensor(idx)
-                true_positive = (self.metric_out == Tensor(0)) & class_idxs
-                false_negative = (self.pred_formatted != Tensor(idx)) & class_idxs
+                class_idxs = self.label_formatted.eq(Tensor(idx))
+                true_positive = (self.metric_out.eq(Tensor(0))) & class_idxs
+                false_negative = (self.pred_formatted.ne(Tensor(idx))) & class_idxs
 
                 self |= Sum()(input=true_positive, output=f"true_positive_{idx}")
                 self |= Sum()(input=false_negative, output=f"false_negative_{idx}")
@@ -3229,7 +3224,7 @@ class Recall(Model):
                     self, f"false_negative_{idx}"
                 )
                 self |= Where()(
-                    denominator == Tensor(0),
+                    denominator.eq(Tensor(0)),
                     Tensor(1),
                     denominator,
                     f"denominator_{idx}",
@@ -3260,9 +3255,9 @@ class Recall(Model):
             ), "n_classes must be provided if average is or 'weighted'"
             n_element = self.label_formatted.shape[0]
             for idx in range(n_classes):
-                class_idxs = self.label_formatted == Tensor(idx)
-                true_positive = (self.metric_out == Tensor(0)) & class_idxs
-                false_negative = (self.pred_formatted != Tensor(idx)) & class_idxs
+                class_idxs = self.label_formatted.eq(Tensor(idx))
+                true_positive = (self.metric_out.eq(Tensor(0))) & class_idxs
+                false_negative = (self.pred_formatted.ne(Tensor(idx))) & class_idxs
                 self |= Sum()(input=class_idxs, output=f"n_class_{idx}")
 
                 self |= Sum()(input=true_positive, output=f"true_positive_{idx}")
@@ -3271,7 +3266,7 @@ class Recall(Model):
                     self, f"false_negative_{idx}"
                 )
                 self |= Where()(
-                    denominator == Tensor(0),
+                    denominator.eq(Tensor(0)),
                     Tensor(1),
                     denominator,
                     f"denominator_{idx}",
@@ -3361,8 +3356,8 @@ class F1(Model):
         )
 
         if average == "micro":
-            true_positive = self.metric_out == Tensor(0)
-            false_positive = self.metric_out != Tensor(0)
+            true_positive = self.metric_out.eq(Tensor(0))
+            false_positive = self.metric_out.ne(Tensor(0))
             self |= Sum()(input=true_positive, output="n_true_positive")
             self |= Sum()(input=false_positive, output="n_false_positive")
 
@@ -3378,10 +3373,10 @@ class F1(Model):
                 n_classes is not None
             ), "n_classes must be provided if average is or 'macro'"
             for idx in range(n_classes):
-                class_idxs = self.label_formatted == Tensor(idx)
-                true_positive = (self.metric_out == Tensor(0)) & class_idxs
-                false_negative = (self.pred_formatted != Tensor(idx)) & class_idxs
-                false_positive = (self.pred_formatted == Tensor(idx)) & ~class_idxs
+                class_idxs = self.label_formatted.eq(Tensor(idx))
+                true_positive = (self.metric_out.eq(Tensor(0))) & class_idxs
+                false_negative = (self.pred_formatted.ne(Tensor(idx))) & class_idxs
+                false_positive = (self.pred_formatted.eq(Tensor(idx))) & ~class_idxs
 
                 self |= Sum()(input=true_positive, output=f"true_positive_{idx}")
                 self |= Sum()(input=false_positive, output=f"false_positive_{idx}")
@@ -3391,7 +3386,7 @@ class F1(Model):
                     + getattr(self, f"false_negative_{idx}")
                 )
                 self |= Where()(
-                    denominator == Tensor(0),
+                    denominator.eq(Tensor(0)),
                     Tensor(1),
                     denominator,
                     f"denominator_{idx}",
@@ -3421,10 +3416,10 @@ class F1(Model):
             ), "n_classes must be provided if average is or 'weighted'"
             n_element = self.label_formatted.shape[0].tensor()
             for idx in range(n_classes):
-                class_idxs = self.label_formatted == Tensor(idx)
-                true_positive = (self.metric_out == Tensor(0)) & class_idxs
-                false_negative = (self.pred_formatted != Tensor(idx)) & class_idxs
-                false_positive = (self.pred_formatted == Tensor(idx)) & ~class_idxs
+                class_idxs = self.label_formatted.eq(Tensor(idx))
+                true_positive = (self.metric_out.eq(Tensor(0))) & class_idxs
+                false_negative = (self.pred_formatted.ne(Tensor(idx))) & class_idxs
+                false_positive = (self.pred_formatted.eq(Tensor(idx))) & ~class_idxs
                 self |= Sum()(input=class_idxs, output=f"n_class_{idx}")
 
                 self |= Sum()(input=true_positive, output=f"true_positive_{idx}")
@@ -3435,7 +3430,7 @@ class F1(Model):
                     + getattr(self, f"false_negative_{idx}")
                 )
                 self |= Where()(
-                    denominator == Tensor(0),
+                    denominator.eq(Tensor(0)),
                     Tensor(1),
                     denominator,
                     f"denominator_{idx}",
@@ -3504,7 +3499,7 @@ class AUC(Model):
 
         auc_score = None
         for class_idx in range(n_classes):
-            class_label = label_key == Tensor(class_idx)
+            class_label = label_key.eq(Tensor(class_idx))
             pred_class = pred_key[:, class_idx] if n_classes != 1 else pred_key
 
             self |= AUCCore()(pred_class, class_label, f"auc_core_{class_idx}")
@@ -3554,7 +3549,7 @@ class SiLU(Model):
         self |= Divide()(
             numerator="input", denominator="add", output=IOKey(name="output")
         )
-        self._set_shapes({"input": [("Var", ...)], "output": [("Var", ...)]})
+        self._set_shapes(input=[("Var", ...)], output=[("Var", ...)])
 
         self._freeze()
 

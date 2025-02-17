@@ -21,7 +21,6 @@ from typing import Any, TypeGuard
 import numpy as np
 import pytest
 
-from mithril.core import GenericDataType
 from mithril.framework.common import (
     TBD,
     ConstraintFunctionType,
@@ -78,6 +77,7 @@ from mithril.framework.constraints import (
     to_tuple_constraints,
     where_constrains,
 )
+from mithril.types import GenericDataType
 
 from .test_utils import check_shapes_semantically
 
