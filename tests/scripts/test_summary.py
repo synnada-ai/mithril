@@ -1522,7 +1522,7 @@ def test_logical_model_summary_9():
     add_1.set_cin("left")
     add_2.set_cin("left")
     model |= add_1(left="left")
-    model.merge_connections(add_1.left, add_1.right)    
+    model.merge_connections(add_1.left, add_1.right)
     model |= add_2(output=add_1.left, left="left_1")
     with redirect_stdout(StringIO()) as summary:
         model.summary(shapes=True, symbolic=True)

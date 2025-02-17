@@ -1181,7 +1181,7 @@ def test_compare_models_5():
     model2 |= add(output=IOKey(name="output"))
     model2.merge_connections(add.left, add.right)
     model2 |= sigmoid(input="input", output=add.left)
-    model2.set_shapes({"input": [2, 2]})
+    model2.set_shapes(input=[2, 2])
 
     data = {"input": backend.ones(2, 2)}
     compare_evaluate(model1=model1, model2=model2, backend=backend, data=data)

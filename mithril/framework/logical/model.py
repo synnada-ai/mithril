@@ -574,7 +574,6 @@ class Model(BaseModel):
         conn = self.conns.get_extracted_connection(connection)
         setattr(self, key, conn)
 
-
     def _unroll_template(self, template: ExtendTemplate) -> ConnectionData:
         if template.output_connection is None:
             # Initialize all default init arguments of model as TBD other
