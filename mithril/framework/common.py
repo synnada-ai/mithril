@@ -1263,6 +1263,10 @@ class ConnectionData:
 
         return updates
 
+    @property
+    def differentiable(self) -> bool:
+        return self.metadata.differentiable
+
 
 ShapeResultType = Mapping[str, ShapeTemplateType | list[ShapeTemplateType] | None]
 

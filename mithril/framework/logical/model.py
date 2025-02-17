@@ -506,15 +506,14 @@ class Model(BaseModel):
         model: BaseModel,
         key: str,
         connection: ConnectionDataType | ConnectionType,
-    ) -> BaseKey:
+    ) -> BaseKey | ConnectionData:
         local_connection = model.conns.get_connection(key)
         assert local_connection is not None, "Connection is not found!"
         _connection: BaseKey | ConnectionData | MainValueInstance | NullConnection | str
         match connection:
             case ExtendTemplate():
                 # Unroll ExtendTemplate
-                con_data = self._unroll_template(connection)
-                _connection = BaseKey(connections={con_data}, expose=False)
+                _connection = self._unroll_template(connection)
             case _ if isinstance(
                 connection, MainValueInstance | Tensor
             ) and not isinstance(connection, str):
@@ -530,8 +529,7 @@ class Model(BaseModel):
                 ):
                     _model = ToTupleOp if isinstance(connection, tuple) else ToListOp
                     et = ExtendTemplate(connection, _model, {"n": len(connection)})
-                    con_data = self._unroll_template(et)
-                    _connection = BaseKey(connections={con_data}, expose=False)
+                    _connection = self._unroll_template(et)
 
                 else:
                     assert isinstance(connection, MainValueInstance | Tensor)

@@ -828,12 +828,6 @@ def test_iokey_scalar_output_all_args():
                     "output key is an output of the model"
                     ", output values could not be set in extend."
                 )
-
-            elif name is None and expose:
-                # it is an expected error
-                assert isinstance(e, KeyError)
-                assert e.args[0] == "Connection without a name cannot be set as output"
-
             elif shape:
                 # Since providing shape within IOKey means it is Tensor type,
                 # it is an expected type error.
@@ -843,6 +837,10 @@ def test_iokey_scalar_output_all_args():
                     "mithril.framework.common.Tensor[int | float | bool] type "
                     "is provided!"
                 )
+            elif name is None and expose:
+                # it is an expected error
+                assert isinstance(e, KeyError)
+                assert e.args[0] == "Connection without a name cannot be set as output"
 
             else:
                 # it is an unexpected error. Raise given exception in that case
