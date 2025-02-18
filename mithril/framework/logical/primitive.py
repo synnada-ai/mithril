@@ -37,7 +37,7 @@ class OperatorModel(Model):
                 k: IOKey(
                     k,
                     expose=True,
-                    differantiable=model.conns.all[k].metadata.differentiable,
+                    differentiable=model.conns.all[k].metadata.differentiable,
                 )
                 for k in model.external_keys
             },

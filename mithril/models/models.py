@@ -385,13 +385,13 @@ class Convolution1D(Model):
         conv_connections: dict[str, ConnectionType] = {
             "output": IOKey(name="output"),
             "input": IOKey("input", value=input),
-            "weight": IOKey("weight", value=weight, differantiable=True),
+            "weight": IOKey("weight", value=weight, differentiable=True),
             "stride": IOKey(name="stride", value=stride),
             "padding": p_converter.output,
             "dilation": IOKey(name="dilation", value=dilation),
         }
         if use_bias:
-            conv_connections["bias"] = IOKey("bias", differantiable=True)
+            conv_connections["bias"] = IOKey("bias", differentiable=True)
 
         self |= PrimitiveConvolution1D(use_bias=use_bias)(**conv_connections)
         self.set_cin("input", safe=False)
@@ -479,13 +479,13 @@ class Convolution2D(Model):
         conv_connections: dict[str, ConnectionType] = {
             "output": IOKey(name="output"),
             "input": IOKey("input", value=input),
-            "weight": IOKey("weight", value=weight, differantiable=True),
+            "weight": IOKey("weight", value=weight, differentiable=True),
             "stride": st_converter.output,
             "padding": pt_converter.output,
             "dilation": dt_converter.output,
         }
         if use_bias:
-            conv_connections["bias"] = IOKey("bias", differantiable=True)
+            conv_connections["bias"] = IOKey("bias", differentiable=True)
 
         self |= PrimitiveConvolution2D(use_bias=use_bias)(**conv_connections)
         self.set_cin("input", safe=False)
@@ -539,14 +539,14 @@ class Linear(Model):
 
         output = IOKey(name="output")
         input_key = IOKey(name="input", value=input)
-        weight_key = IOKey(name="weight", value=weight, differantiable=True).transpose()
+        weight_key = IOKey(name="weight", value=weight, differentiable=True).transpose()
 
         if use_bias:
             bias_key = IOKey(
                 name="bias",
                 value=bias,
                 type=Tensor[int | float | bool],
-                differantiable=True,
+                differentiable=True,
             )
             self |= mult(left=input_key, right=weight_key)
             self |= Add()(left=mult.output, right=bias_key, output=output)
@@ -713,7 +713,7 @@ class LayerNorm(Model):
             mult.set_types(
                 left=Tensor[int | float | bool], right=Tensor[int | float | bool]
             )
-            self += mult(right=IOKey("weight", value=weight, differantiable=True))
+            self += mult(right=IOKey("weight", value=weight, differentiable=True))
             mult._set_shapes(**shapes)
 
         if use_bias:
@@ -721,7 +721,7 @@ class LayerNorm(Model):
             add.set_types(
                 left=Tensor[int | float | bool], right=Tensor[int | float | bool]
             )
-            self += add(right=IOKey("bias", value=bias, differantiable=True))
+            self += add(right=IOKey("bias", value=bias, differentiable=True))
             add._set_shapes(**shapes)
         # TODO: Remove below Buffer after required naming-related changes are done.
         self |= Buffer()(input=self.cout, output=IOKey(name="output"))
@@ -791,7 +791,7 @@ class GroupNorm(Model):
 
         if use_scale:
             weight_key = IOKey(
-                name="weight", type=Tensor[float], value=weight, differantiable=True
+                name="weight", type=Tensor[float], value=weight, differentiable=True
             )
             mult = Multiply()
             self |= mult(left=self.cout, right=weight_key)
@@ -799,7 +799,7 @@ class GroupNorm(Model):
 
         if use_bias:
             bias_key = IOKey(
-                name="bias", type=Tensor[float], value=bias, differantiable=True
+                name="bias", type=Tensor[float], value=bias, differentiable=True
             )
             add = Add()
             self |= add(left=self.cout, right=bias_key)
@@ -1392,23 +1392,23 @@ class RNNCell(Cell):
         self |= tensor_item_2(input="prev_hidden", index=slice_2.output)
         self |= mult_model_1(
             input=tensor_item_2.output,
-            weight=IOKey("w_hh", value=w_hh, differantiable=True),
+            weight=IOKey("w_hh", value=w_hh, differentiable=True),
         )
         self |= mult_model_2(
-            input="input", weight=IOKey("w_ih", value=w_ih, differantiable=True)
+            input="input", weight=IOKey("w_ih", value=w_ih, differentiable=True)
         )
         self |= sum_model_1(left=mult_model_1.output, right=mult_model_2.output)
         self |= sum_model_2(
             left=sum_model_1.output,
-            right=IOKey("bias_h", value=bias_h, differantiable=True),
+            right=IOKey("bias_h", value=bias_h, differentiable=True),
         )
         self |= Tanh()(input=sum_model_2.output, output=IOKey(name="hidden"))
         self |= mult_model_3(
-            input="hidden", weight=IOKey("w_ho", value=w_ho, differantiable=True)
+            input="hidden", weight=IOKey("w_ho", value=w_ho, differentiable=True)
         )
         self |= Add()(
             left=mult_model_3.output,
-            right=IOKey("bias_o", value=bias_o, differantiable=True),
+            right=IOKey("bias_o", value=bias_o, differentiable=True),
             output=IOKey(name="output"),
         )
         shapes: dict[str, ShapeTemplateType] = {
@@ -2469,7 +2469,7 @@ class DistanceEncoder(Model):
             for key in base_model.input_keys:
                 con = base_model.conns.get_connection(key)
                 assert con is not None
-                if key not in base_kwargs and not con.is_key_autogenerated:
+                if key not in base_kwargs and not con.is_autogenerated:
                     base_kwargs[key] = key
 
             self |= base_model(**base_kwargs)

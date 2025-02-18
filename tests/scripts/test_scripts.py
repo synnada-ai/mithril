@@ -259,13 +259,8 @@ def test_cyclic_extension_5():
 
     model |= sum1(left="input1", right="input2", output=IOKey(name="output1"))
     model |= sum2(left="input3", right="input4", output=IOKey(name="output2"))
-    model |= sum3(
-        left="input5",
-        right="input6",
-        output=IOKey(
-            name="my_input", expose=False, connections={sum1.left, sum2.right}
-        ),
-    )
+    model.merge_connections(sum1.left, sum2.right, name="my_input")
+    model |= sum3(left="input5", right="input6", output="my_input")
 
     assert set(model.input_keys) == {"input2", "input3", "input5", "input6"}
     assert model.conns.latent_output_keys == {"my_input"}
@@ -1409,7 +1404,7 @@ def test_flatten_dag0():
     model |= (lin1 := Linear(10))(input="")
     model |= (lin2 := Linear(10))(input="")
     model |= (lin3 := Linear(10))(input="")
-    model |= l5(input="", output=IOKey(name="output1"))
+    model |= l5(output=IOKey(name="output1"))
     lin1.set_differentiability(input=True)
     lin2.set_differentiability(input=True)
     lin3.set_differentiability(input=True)
@@ -1470,9 +1465,8 @@ def test_multiple_output_connections():
     model |= add_2(output="out2")
 
     with pytest.raises(Exception) as err_info:
-        model |= add_1(
-            left="left", right="right", output=IOKey(connections={add_2.left, "out2"})
-        )
+        model.merge_connections(add_2.left, "out2")
+        model |= add_1(left="left", right="right", output=add_2.left)
 
     assert (
         str(err_info.value)
@@ -1485,11 +1479,8 @@ def test_multiple_output_connections_2():
     add_1 = Add()
     add_2 = Add()
     model |= add_2(left="in2", right="in3")
-    model |= add_1(
-        left="left",
-        right="right",
-        output=IOKey(name="my_internal_key", connections={add_2.left, "in3"}),
-    )
+    model.merge_connections(add_2.left, "in3", name="my_internal_key")
+    model |= add_1(left="left", right="right", output="my_internal_key")
 
     assert add_2.right.metadata == add_2.left.metadata == add_1.output.metadata
 
@@ -1786,8 +1777,8 @@ def test_regularization_1():
     # Test with single regularization and single reduce (mean) operation
     model = Model()
     model += Multiply()(
-        left=IOKey("left", type=Tensor, differantiable=True),
-        right=IOKey("w", type=Tensor, differantiable=True),
+        left=IOKey("left", type=Tensor, differentiable=True),
+        right=IOKey("w", type=Tensor, differentiable=True),
         output="output",
     )
 
@@ -1810,8 +1801,8 @@ def test_regularization_1_sanity_test():
     model = Model()
     model.extend(
         Multiply(),
-        left=IOKey("left", type=Tensor, differantiable=True),
-        right=IOKey("w", type=Tensor, differantiable=True),
+        left=IOKey("left", type=Tensor, differentiable=True),
+        right=IOKey("w", type=Tensor, differentiable=True),
         output="output",
     )
 
@@ -1835,8 +1826,8 @@ def test_regularization_2():
     # Test with single regularization and single reduce (sum) operation
     model = Model()
     model += Multiply()(
-        left=IOKey("left", type=Tensor, differantiable=True),
-        right=IOKey("w", type=Tensor, differantiable=True),
+        left=IOKey("left", type=Tensor, differentiable=True),
+        right=IOKey("w", type=Tensor, differentiable=True),
         output="output",
     )
 
@@ -1860,8 +1851,8 @@ def test_regularization_3():
     # operations
     model = Model()
     model += Multiply()(
-        left=IOKey("left", type=Tensor, differantiable=True),
-        right=IOKey("w", type=Tensor, differantiable=True),
+        left=IOKey("left", type=Tensor, differentiable=True),
+        right=IOKey("w", type=Tensor, differentiable=True),
         output="output",
     )
 
@@ -1889,8 +1880,8 @@ def test_regularization_4():
     # Test with single regularization and multiple model with multiple reduce operations
     model = Model()
     model |= Multiply()(
-        left=IOKey("left", type=Tensor, differantiable=True),
-        right=IOKey("w", type=Tensor, differantiable=True),
+        left=IOKey("left", type=Tensor, differentiable=True),
+        right=IOKey("w", type=Tensor, differentiable=True),
         output=IOKey(name="output"),
     )
     model |= Multiply()(left="left", right="w", output=IOKey(name="output2"))
@@ -1926,8 +1917,8 @@ def test_regularization_5():
     # Test with single regularization and multiple model with multiple reduce operations
     model = Model()
     model |= Multiply()(
-        left=IOKey("left", type=Tensor, differantiable=True),
-        right=IOKey("w", type=Tensor, differantiable=True),
+        left=IOKey("left", type=Tensor, differentiable=True),
+        right=IOKey("w", type=Tensor, differentiable=True),
         output=IOKey(name="output"),
     )
     model |= Multiply()(
@@ -2661,8 +2652,8 @@ def test_prune_duplicate_grad():
     div2 = Divide()
     mm2 = MatrixMultiply()
     mm3 = MatrixMultiply()
-    model |= sig1(input=IOKey("input1", differantiable=True))
-    model |= sig2(input=IOKey("input2", differantiable=True))
+    model |= sig1(input=IOKey("input1", differentiable=True))
+    model |= sig2(input=IOKey("input2", differentiable=True))
     model |= log1(input=sig1.output)
     model |= log2(input=sig1.output)
     model |= mm1(left=log1.output, right=log2.output)
@@ -3256,7 +3247,7 @@ def geomean_multigpu_test():
 def test_add_loss_unknown_key():
     model = Model()
     l1 = Linear()
-    model |= l1(input=IOKey("input", differantiable=True), weight="w0")
+    model |= l1(input=IOKey("input", differentiable=True), weight="w0")
     model |= Linear()(input=l1.output, weight="w1", output=IOKey(name="output"))
 
     context = TrainModel(model)
@@ -3387,13 +3378,24 @@ def test_connect_1():
     relu3 = Relu()
     model |= relu1(output="relu_output_1")
     model |= relu2(output="relu_output_2")
-    model |= relu3(output=IOKey(connections={relu1.input, relu2.input}))
+    model.merge_connections(relu1.input, relu2.input)
+    model |= relu3(output=relu1.input)
 
     assert (
         model.dag[relu1]["input"].metadata
         == model.dag[relu2]["input"].metadata
         == model.dag[relu3]["output"].metadata
     )
+
+
+def test_connect_named_connection():
+    model = Model()
+    relu1 = Relu()
+    relu2 = Relu()
+    model |= relu1(output="relu_output_1")
+    model |= relu2(input="my_input", output="relu_output_2")
+    model.merge_connections(relu1.input, relu2.input)
+    assert model.input_keys == {"my_input"}
 
 
 def test_connect_2():
@@ -3403,9 +3405,8 @@ def test_connect_2():
     relu3 = Relu()
     model |= relu1(input="in1", output="relu_output_1")
     model |= relu2(input="in2", output="relu_output_2")
-    model |= relu3(
-        output=IOKey(name="my_input", connections={relu1.input, relu2.input})
-    )
+    model.merge_connections(relu1.input, relu2.input, name="my_input")
+    model |= relu3(output="my_input")
 
     assert (
         model.dag[relu1]["input"].metadata
@@ -3421,7 +3422,8 @@ def test_connect_3():
     relu3 = Relu()
     model |= relu1(output="relu_output_1")
     model |= relu2(output="relu_output_2")
-    model |= relu3(input=IOKey(connections={relu1.input, relu2.input}))
+    model.merge_connections(relu1.input, relu2.input)
+    model |= relu3(input=relu1.input)
 
     assert (
         model.dag[relu1]["input"].metadata
@@ -3437,7 +3439,8 @@ def test_connect_4():
     relu3 = Relu()
     model |= relu1(input="in1", output="relu_output_1")
     model |= relu2(input="in2", output="relu_output_2")
-    model |= relu3(input=IOKey(name="my_input", connections={relu1.input, relu2.input}))
+    model.merge_connections(relu1.input, relu2.input, name="my_input")
+    model |= relu3(input="my_input")
 
     assert (
         model.dag[relu1]["input"].metadata
@@ -3454,7 +3457,8 @@ def test_connect_5():
     relu3 = Relu()
     model |= relu1(input="in1", output="relu_output_1")
     model |= relu2(output="relu_output_2")
-    model |= relu3(input=IOKey(connections={relu1.input, relu2.input}))
+    model.merge_connections(relu1.input, relu2.input)
+    model |= relu3(input=relu1.input)
 
     assert (
         model.dag[relu1]["input"].key
@@ -3477,7 +3481,7 @@ def test_connect_6():
     model |= relu2(input="in2", output="relu_output_2")
 
     with pytest.raises(KeyError) as error_info:
-        model |= Relu()(input=IOKey(connections={relu1.input, relu2.input}))
+        model.merge_connections(relu1.input, relu2.input)
 
     assert str(error_info.value) == (
         "'Requires a connection to have only one unique key name but "
@@ -3562,10 +3566,10 @@ def test_connect_composite_2_extend_from_inputs():
     m2 = deepcopy(submodel)
     subcopy = deepcopy(submodel)
     model |= m1(left="left", right="right")
-    model |= m2(left=IOKey(connections={m1.output}), right="right")  # type: ignore
+    model |= m2(left=m1.output, right="right")  # type: ignore
     model |= subcopy(
-        left=IOKey(connections={m2.output}),  # type: ignore
-        right=IOKey(connections={m2.output}),  # type: ignore
+        left=m2.output,  # type: ignore
+        right=m2.output,  # type: ignore
         output="output",
     )
 
@@ -3583,9 +3587,9 @@ def test_composite_6_extend_from_inputs_connect():
     relu3 = Relu()
     relu4 = Relu()
     model |= relu1(output="output")
-    model |= relu2(input=IOKey(connections={relu1.input}))
-    model |= relu3(input="my_input", output=IOKey(connections={relu2.input}))
-    model |= relu4(input=IOKey(connections={relu3.input}))
+    model |= relu2(input=relu1.input)
+    model |= relu3(input="my_input", output=relu2.input)
+    model |= relu4(input=relu3.input)
     model.set_cout(relu4.output)
 
     assert relu2.input.metadata == relu3.output.metadata == relu1.input.metadata
@@ -3604,8 +3608,8 @@ def test_composite_4_extend_from_inputs_connect():
     relu3 = Relu()
     relu4 = Relu()
     model |= relu1(input="my_input", output=IOKey(name="output"))
-    model |= relu2(input=IOKey(connections={relu1.input}))
-    model |= relu3(input=IOKey(connections={relu2.input}))
+    model |= relu2(input=relu1.input)
+    model |= relu3(input=relu2.input)
     model |= relu4(input="input1", output="my_input")
 
     backend = TorchBackend()
@@ -3620,9 +3624,7 @@ def test_integration_composite_1_extend_from_inputs_1_with_connect():
     m2 = Layer(dimension=2, activation=Softmax())
     m1 = Layer(dimension=2, activation=Sigmoid())
     model |= m2(weight="w1", bias="b1", output="output")
-    model |= m1(
-        input="input", weight="w0", bias="b0", output=IOKey(connections={m2.input})
-    )
+    model |= m1(input="input", weight="w0", bias="b0", output=m2.input)
 
     assert m1.output.metadata == m2.input.metadata
 
@@ -3670,7 +3672,8 @@ def test_connect_8():
     r2 = Relu()
     model |= t(output="output1")
     model |= r1(input="input2", output="output2")
-    model |= r2(output=IOKey(connections={t.input, r1.input}))
+    model.merge_connections(t.input, r1.input)
+    model |= r2(output=r1.input)
 
     assert r1.input.metadata == r2.output.metadata == t.input.metadata
 
@@ -3682,7 +3685,8 @@ def test_connect_9():
     r2 = Relu()
     model |= t(input="input1", output="output1")
     model |= r1(output="output2")
-    model |= r2(output=IOKey(connections={"input1", r1.input}))
+    model.merge_connections("input1", r1.input)
+    model |= r2(output=r1.input)
 
     assert (
         r1.input.metadata
@@ -3699,9 +3703,8 @@ def test_connect_10():
     r2 = Relu()
     model |= t(input="input1", output=IOKey(name="output1"))
     model |= r1(input="input2", output=IOKey(name="output2"))
-    model |= r2(
-        output=IOKey(connections={"input1", "input2"}, expose=True, name="internal"),
-    )
+    model.merge_connections("input1", "input2", name="internal")
+    model |= r2(output="internal")
 
     assert (
         r1.input.metadata
@@ -3730,8 +3733,9 @@ def test_connect_12():
     add3 = Add()
     model |= add1(left="l1", right="l2", output=IOKey(name="out1"))
     model |= add2(left="l3", right="l4", output=IOKey(name="out2"))
+    model.merge_connections(add1.left, add2.left, name="left")
     model |= add3(
-        left=IOKey(name="left", connections={add1.left, add2.left}),
+        left="left",
         right="right",
         output=IOKey(name="out3"),
     )
@@ -3749,7 +3753,8 @@ def test_connect_13():
     buf = Buffer()
     model |= add1(left="l1", right="l2", output=IOKey(name="out1"))
     model |= add2(left="l3", right="l4")
-    model |= buf(input=IOKey(name="input", connections={add1.left, add2.left}))
+    model.merge_connections(add1.left, add2.left, name="input")
+    model |= buf(input=add1.left)
     model |= Add()(left=add2.output, right=buf.output, output=IOKey(name="out2"))
 
     assert model.input_keys == {"input", "l2", "l4"}
@@ -3771,10 +3776,8 @@ def test_connect_error_1():
     model |= Relu()(output=IOKey(name="output3"))
 
     with pytest.raises(Exception) as error_info:
-        model |= Relu()(
-            input="input",
-            output=IOKey(name="my_input", connections={"input1", "input2", "output3"}),
-        )
+        model.merge_connections("input1", "input2", "output3", name="my_input")
+        model |= Relu()(input="input", output="my_input")
 
     assert (
         str(error_info.value)
@@ -3790,10 +3793,8 @@ def test_connect_error_2():
     model |= Relu()(output=IOKey(name="output4"))
 
     with pytest.raises(KeyError) as error_info:
-        model |= Relu()(
-            input=IOKey(
-                name="my_input", connections={"input1", "input2", "output3", "output4"}
-            )
+        model.merge_connections(
+            "input1", "input2", "output3", "output4", name="my_input"
         )
 
     assert str(error_info.value) == (
@@ -3804,16 +3805,17 @@ def test_connect_error_2():
 
 def test_connect_error_5():
     model_2 = Model()
-    model_2 += (tanh := Tanh())(output=IOKey(name="output1"))
+    model_2 |= (tanh := Tanh())(output=IOKey(name="output1"))
     model_2 |= (relu := Relu())(output=IOKey(name="output2"))
 
     with pytest.raises(KeyError) as error_info:
-        model_2 |= Relu()(
-            output=IOKey(expose=True, connections={tanh.input, relu.input})
-        )
+        model_2.merge_connections(tanh.input, relu.input)
+        model_2 |= Relu()(output=tanh.input)
+        model_2.set_outputs(tanh.input)
 
     assert (
-        str(error_info.value) == "'Connection without a name cannot be set as output'"
+        str(error_info.value) == "'Autogenerated keys can only be set as output "
+        "if a name is provided for the connection as keyworded argument.'"
     )
 
 
@@ -3826,9 +3828,8 @@ def test_connect_error_6():
     model |= l1(input="input2", weight="w", output=IOKey(name="output"))
     model |= l2(input="input1", weight="w1", output=IOKey(name="output2"))
     model |= l3(output=IOKey(name="output3"))
-    model |= l4(
-        input=IOKey(name="my_output", connections={"input1", "input2", "output3"})
-    )
+    model.merge_connections("input1", "input2", "output3", name="my_output")
+    model |= l4(input="my_output")
 
     assert (
         model.my_output.metadata  # type: ignore
@@ -3895,8 +3896,8 @@ def test_add_loss_coef():
     backend = TorchBackend(dtype=mithril.float64)
     model = Model()
     model += Multiply()(
-        left=IOKey("left", type=Tensor, differantiable=True),
-        right=IOKey("w", type=Tensor, differantiable=True),
+        left=IOKey("left", type=Tensor, differentiable=True),
+        right=IOKey("w", type=Tensor, differentiable=True),
         output=IOKey(name="output"),
     )
 
@@ -3956,7 +3957,7 @@ def test_cycle_handling_1():
     model_2 |= Tanh()(input="input1", output=IOKey(name="output1"))
     model_2 |= Sine()(input="input2", output=IOKey(name="output2"))
     model |= model_2(
-        input2=IOKey("input", differantiable=True),
+        input2=IOKey("input", differentiable=True),
         output2=IOKey("output2"),
         input1="input1",
         output1=IOKey(name="output"),
@@ -4072,7 +4073,7 @@ def test_cycle_handling_2():
     model |= (gelu5 := Gelu())()
 
     model |= model_1(
-        input1=IOKey("input", differantiable=True), input2="", output1=gelu5.input
+        input1=IOKey("input", differentiable=True), input2="", output1=gelu5.input
     )
     model |= model_2(
         input2=gelu5.output,
@@ -4221,7 +4222,7 @@ def test_cycle_handling_3():
     model_2 |= Sine()(input="input2", output=IOKey(name="output2"))
     model |= gelu5(input="")
     model |= model_1(
-        input1=IOKey("input", differantiable=True),
+        input1=IOKey("input", differentiable=True),
         slope=IOKey("slope"),
         input2="",
         output1=gelu5.input,
@@ -4555,7 +4556,8 @@ def test_dependency_map_latent_to_input():
 
     # Add third model which changes name of a latent input and
     # makes it a real input of the model.
-    conn = IOKey(name="mean_axis", connections={mean.axis}, expose=True)
+    model.rename_key(mean.axis, "mean_axis")
+    conn = IOKey(name="mean_axis", expose=True)
     model |= (to_tensor := ToTensor())(conn, dtype="dtype", output="output")
     # Assert dependency map and connection keys status in model.
     output: ConnectionData = model.output  # type: ignore
@@ -6078,9 +6080,8 @@ def test_multi_write_7():
     model |= add1(left="left1", right="right1", output="output1")
     model |= add2(left="left2", right="right2", output="output2")
 
-    out = IOKey(connections={model.output1, model.output2})  # type: ignore
     with pytest.raises(KeyError) as err_info:
-        model |= Buffer()(input=out, output="output3")
+        model.merge_connections(model.output1, model.output2)  # type: ignore
 
     assert str(err_info.value) == (
         "'IOKey object can not have more than one output connection. "

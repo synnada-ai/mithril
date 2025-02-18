@@ -194,7 +194,7 @@ def test_constant_key():
 def test_constant_key_2():
     model = Model()
     model |= (add := Add())(
-        left=IOKey("input", type=Tensor, differantiable=True),
+        left=IOKey("input", type=Tensor, differentiable=True),
         right=IOKey(value=Tensor(3)),
         output=IOKey(name="output"),
     )
@@ -505,9 +505,8 @@ def test_composite_9():
     model |= (l2 := Linear(dimension=10))(
         weight="weight1", output=IOKey(name="output2")
     )
-    model |= Linear(dimension=71)(
-        input="input", weight="weight2", output=IOKey(connections={l1.input, l2.input})
-    )
+    model.merge_connections(l1.input, l2.input)
+    model |= Linear(dimension=71)(input="input", weight="weight2", output=l2.input)
 
     model_dict_created = dict_conversions.model_to_dict(model)
     model_recreated = dict_conversions.dict_to_model(model_dict_created)
@@ -530,11 +529,8 @@ def test_composite_10():
     model |= Linear(dimension=10)(
         input="input1", weight="weight1", output=IOKey(name="output2")
     )
-    model |= Linear(dimension=71)(
-        input="input",
-        weight="weight2",
-        output=IOKey(name="my_input", connections={"input1", "input2"}),
-    )
+    model.merge_connections("input1", "input2", name="my_input")
+    model |= Linear(dimension=71)(input="input", weight="weight2", output="my_input")
 
     model_dict_created = dict_conversions.model_to_dict(model)
     model_recreated = dict_conversions.dict_to_model(model_dict_created)
@@ -557,11 +553,8 @@ def test_composite_10_expose_false():
     model |= Linear(dimension=10)(
         input="input1", weight="weight1", output=IOKey(name="output2")
     )
-    model |= Linear(dimension=71)(
-        input="input",
-        weight="weight2",
-        output=IOKey(name="my_input", connections={"input1", "input2"}, expose=False),
-    )
+    model.merge_connections("input1", "input2", name="my_input")
+    model |= Linear(dimension=71)(input="input", weight="weight2", output="my_input")
 
     model_dict_created = dict_conversions.model_to_dict(model)
     model_recreated = dict_conversions.dict_to_model(model_dict_created)
@@ -601,11 +594,9 @@ def test_composite_12():
     model.extend(
         Linear(dimension=10), input="input1", weight="weight1", output="output2"
     )
+    model.merge_connections("input1", "input2", name="my_input")
     model.extend(
-        Linear(dimension=71),
-        input="input",
-        weight="weight2",
-        output=IOKey(name="my_input", connections={"input1", "input2"}),
+        Linear(dimension=71), input="input", weight="weight2", output="my_input"
     )
     model.set_cout("output2")
 
@@ -636,11 +627,12 @@ def test_composite_13():
         weight="weight1",
         output=IOKey("output2", expose=False),
     )
+    model.merge_connections("input1", "input2", name="my_input")
     model.extend(
         Linear(dimension=71),
         input="input",
         weight="weight2",
-        output=IOKey(name="my_input", connections={"input1", "input2"}),
+        output="my_input",
     )
     model.set_cout("output2")
 
