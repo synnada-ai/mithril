@@ -213,7 +213,6 @@ class BaseModel:
             case BaseKey():
                 expose = connection.expose
                 name = connection.name
-                # TODO: This check should be removed: conn.connections==set()
                 # We should not operate different if _connections is given. Fix this and
                 # also fix corresponding tests and dict conversions with "connect".
                 if expose is None and (
@@ -405,23 +404,22 @@ class BaseModel:
         # TODO: raise if frozen model's merge_connections is called?
         # TODO: raise error if two named keys are merged without naming.
         # TODO: Delete named attributes after merge.
-        updates = Updates()
-        if len(connections) < 2:
-            return
-        conn1 = self.conns.get_extracted_connection(connections[0])
+        if len(connections) >= 2:
+            updates = Updates()
+            conn1 = self.conns.get_extracted_connection(connections[0])
 
-        for conn in connections[1:]:
-            conn2 = self.conns.get_extracted_connection(conn)
-            d_map = self.dependency_map.local_output_dependency_map
-            if conn2 in d_map:
-                if conn1 in d_map:
-                    raise KeyError(
-                        "IOKey object can not have more than one output "
-                        "connection. Multi-write error!"
-                    )
-                conn1, conn2 = conn2, conn1
-            updates |= self._merge_connections(conn1, conn2, name=name)
-        self.constraint_solver(updates)
+            for conn in connections[1:]:
+                conn2 = self.conns.get_extracted_connection(conn)
+                d_map = self.dependency_map.local_output_dependency_map
+                if conn2 in d_map:
+                    if conn1 in d_map:
+                        raise KeyError(
+                            "IOKey object can not have more than one output "
+                            "connection. Multi-write error!"
+                        )
+                    conn1, conn2 = conn2, conn1
+                updates |= self._merge_connections(conn1, conn2, name=name)
+            self.constraint_solver(updates)
 
     def _merge_connections(
         self,

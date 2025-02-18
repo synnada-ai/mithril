@@ -503,7 +503,6 @@ class Model(BaseModel):
             case IOKey():
                 expose = connection.expose
                 name = connection.name
-                # TODO: This check should be removed: conn.connections==set()
                 # We should not operate different if _connections is given. Fix this and
                 # also fix corresponding tests and dict conversions with "connect".
                 if expose is None and (
