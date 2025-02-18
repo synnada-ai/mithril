@@ -218,24 +218,24 @@ class MySimpleRNNCellWithLinear(Cell):
 
         self |= slice_2(start="", stop=indexer.output)
         self |= tensor_item_2(input="prev_hidden", index=slice_2.output)
-        self |= mult_model_1(left="input", right=IOKey("w_ih", differantiable=True))
+        self |= mult_model_1(left="input", right=IOKey("w_ih", differentiable=True))
         self |= mult_model_2(
-            left=tensor_item_2.output, right=IOKey("w_hh", differantiable=True)
+            left=tensor_item_2.output, right=IOKey("w_hh", differentiable=True)
         )
         self |= sum_model_1(left=mult_model_1.output, right=mult_model_2.output)
         self |= sum_model_2(
             left=sum_model_1.output,
-            right=IOKey("bias_hh", type=Tensor, differantiable=True),
+            right=IOKey("bias_hh", type=Tensor, differentiable=True),
         )
         self |= sum_model_3(
             left=sum_model_2.output,
-            right=IOKey("bias_ih", type=Tensor, differantiable=True),
+            right=IOKey("bias_ih", type=Tensor, differentiable=True),
         )
         self |= tanh(input=sum_model_3.output, output=IOKey("hidden"))
-        self |= mult_model_3(left="hidden", right=IOKey("w_ho", differantiable=True))
+        self |= mult_model_3(left="hidden", right=IOKey("w_ho", differentiable=True))
         self |= sum_model_4(
             left=mult_model_3.output,
-            right=IOKey("bias_o", type=Tensor, differantiable=True),
+            right=IOKey("bias_o", type=Tensor, differentiable=True),
             output=IOKey("output"),
         )
 
@@ -348,18 +348,18 @@ class MyRNNCell(Cell):
         )
         self |= slice_2(start="", stop=indexer.output)
         self |= tensor_item_2(input="prev_hidden", index=slice_2.output)
-        self |= mult_model_1(left="input", right=IOKey("w_ih", differantiable=True))
+        self |= mult_model_1(left="input", right=IOKey("w_ih", differentiable=True))
         self |= mult_model_2(
-            left=tensor_item_2.output, right=IOKey("w_hh", differantiable=True)
+            left=tensor_item_2.output, right=IOKey("w_hh", differentiable=True)
         )
         self |= sum_model_1(left=mult_model_1.output, right=mult_model_2.output)
         self |= sum_model_2(
             left=sum_model_1.output,
-            right=IOKey("bias_hh", type=Tensor, differantiable=True),
+            right=IOKey("bias_hh", type=Tensor, differentiable=True),
         )
         self |= sum_model_3(
             left=sum_model_2.output,
-            right=IOKey("bias_ih", type=Tensor, differantiable=True),
+            right=IOKey("bias_ih", type=Tensor, differentiable=True),
         )
         self |= tanh(input=sum_model_3.output, output=IOKey("hidden"))
 

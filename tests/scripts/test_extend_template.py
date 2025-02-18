@@ -1631,7 +1631,7 @@ def test_index_multiple_slice_3():
 
 
 def test_tensor_item_with_ellipsis_at_beginning():
-    input = IOKey("input", shape=(3, 4, 5), differantiable=True)
+    input = IOKey("input", shape=(3, 4, 5), differentiable=True)
     model = Model()
     buff_model = Buffer()
     buff_model.set_types(input=Tensor)
@@ -1649,7 +1649,7 @@ def test_tensor_item_with_ellipsis_at_beginning():
 
 
 def test_tensor_item_with_ellipsis_in_middle():
-    input = IOKey("input", shape=(2, 3, 4, 5, 6), differantiable=True)
+    input = IOKey("input", shape=(2, 3, 4, 5, 6), differentiable=True)
     model = Model()
     buff_model = Buffer()
     buff_model.set_types(input=Tensor)
@@ -1670,7 +1670,7 @@ def test_tranpose_1():
     backend = JaxBackend()
     model = Model()
 
-    input = IOKey("input", differantiable=True)
+    input = IOKey("input", differentiable=True)
     result = input.transpose()
     model |= Buffer()(input=result, output="output")
 
@@ -1684,7 +1684,7 @@ def test_tranpose_2():
     backend = JaxBackend()
     model = Model()
 
-    input = IOKey("input", differantiable=True)
+    input = IOKey("input", differentiable=True)
     result = input.transpose()
     model |= Buffer()(input=result, output="output")
 
@@ -1703,7 +1703,7 @@ def test_tranpose_3():
     input_arr = backend.ones(4, 3, 2)
     axis = random.shuffle(list(range(input_arr.ndim)))
 
-    input = IOKey("input", differantiable=True)
+    input = IOKey("input", differentiable=True)
     result = input.transpose(axis)
     model |= Buffer()(input=result, output="output")
 
@@ -1722,7 +1722,7 @@ def test_tranpose_4():
     input_arr = jnp.ones(8)
     axis = random.shuffle(list(range(input_arr.ndim)))
 
-    input = IOKey("input", differantiable=True)
+    input = IOKey("input", differentiable=True)
     result = input.transpose(axis)
     model |= Buffer()(input=result, output="output")
 
@@ -1740,7 +1740,7 @@ def test_split_direct():
 
     input_arr = jnp.ones((8, 16))
 
-    input = IOKey("input", differantiable=True)
+    input = IOKey("input", differentiable=True)
     result = input.split(2, axis=1)
     model |= Buffer()(input=result, output="output")
 

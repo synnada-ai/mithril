@@ -35,7 +35,7 @@ from mithril.models import (
 def test_buffer():
     model = Model()
     buffer = Buffer()
-    model += buffer(input=IOKey("input", differantiable=True))
+    model += buffer(input=IOKey("input", differentiable=True))
     assert model.input.metadata.differentiable  # type: ignore
 
 
@@ -153,7 +153,7 @@ def test_diff_inference_constant_key_to_differentiable_input():
     model |= buff_model(input="input")
     mult = Multiply()
     model |= mult(
-        left=IOKey("left", type=Tensor, differantiable=True),
+        left=IOKey("left", type=Tensor, differentiable=True),
         right=model.cout,
         output="output",
     )
@@ -171,7 +171,7 @@ def test_diff_inference_data_key_to_differentiable_input():
     model |= buff_model(input="input")
     mult = Multiply()
     model |= mult(
-        left=IOKey("left", type=Tensor, differantiable=True),
+        left=IOKey("left", type=Tensor, differentiable=True),
         right=model.cout,
         output="output",
     )
@@ -187,12 +187,12 @@ def test_diff_inference_with_data_keys_3():
     model |= buff_model(input="input", output="buff_out")
     mult = Multiply()
     model |= mult(
-        left=IOKey("left", type=Tensor, differantiable=True),
+        left=IOKey("left", type=Tensor, differentiable=True),
         right=model.cout,
         output=IOKey("mult_out"),
     )
     model |= Add()(
-        left=IOKey("left", type=Tensor, differantiable=True),
+        left=IOKey("left", type=Tensor, differentiable=True),
         right=buff_model.output,
         output=IOKey("add_out"),
     )
@@ -248,7 +248,7 @@ def test_diff_inference_relational_ops():
 
 def test_diff_inference_constant_keys_1():
     model = Model()
-    model += Multiply()(IOKey("input", differantiable=True), "denom", "output")
+    model += Multiply()(IOKey("input", differentiable=True), "denom", "output")
 
     pm = mithril.compile(model, JaxBackend(), constant_keys={"denom": 1.0})
 
@@ -258,7 +258,7 @@ def test_diff_inference_constant_keys_1():
 
 def test_diff_inference_constant_keys_2():
     model = Model()
-    model += Multiply()(IOKey("input", differantiable=True), "denom", "output")
+    model += Multiply()(IOKey("input", differentiable=True), "denom", "output")
 
     backend = JaxBackend()
 

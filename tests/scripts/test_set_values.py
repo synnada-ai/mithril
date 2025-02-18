@@ -88,7 +88,7 @@ def test_set_values_scalar_1():
     model = Model()
     mean_model = Mean(axis=TBD)
     model += mean_model(
-        input=IOKey("input", differantiable=True), output=IOKey("output", shape=[2, 2])
+        input=IOKey("input", differentiable=True), output=IOKey("output", shape=[2, 2])
     )
     model.set_values({mean_model.axis: 1})
 
@@ -112,7 +112,7 @@ def test_set_values_scalar_1_kwargs_arg():
     model = Model()
     mean_model = Mean(axis=TBD)
     model += mean_model(
-        input=IOKey("input", differantiable=True), output=IOKey("output", shape=[2, 2])
+        input=IOKey("input", differentiable=True), output=IOKey("output", shape=[2, 2])
     )
     mean_model.set_values(axis=1)
 
@@ -136,7 +136,7 @@ def test_set_values_scalar_2():
     model = Model()
     mean_model = Mean(axis=TBD)
     model += mean_model(
-        input=IOKey("input", differantiable=True),
+        input=IOKey("input", differentiable=True),
         output=IOKey("output", shape=[2, 2]),
         axis="axis1",
     )
@@ -162,7 +162,7 @@ def test_set_values_scalar_3():
     model = Model()
     mean_model = Mean(axis=TBD)
     model += mean_model(
-        input=IOKey("input", differantiable=True),
+        input=IOKey("input", differentiable=True),
         output=IOKey("output", shape=[2, 2]),
         axis="axis1",
     )

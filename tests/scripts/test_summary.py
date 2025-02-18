@@ -186,8 +186,9 @@ def test_extract_logical_connections_4():
         output2=IOKey(name="out_2"),
         output3=IOKey(name="out_3"),
     )
+    model.merge_connections(model_1.input1, model_1.input2)  # type: ignore
     model |= model_2(
-        output1=IOKey(connections={model_1.input1, model_1.input2}),  # type: ignore
+        output1=model_1.input1,  # type: ignore
         output2=IOKey(name="out_4"),
         output3=IOKey(name="out_5"),
         input1="in1",
@@ -1521,7 +1522,8 @@ def test_logical_model_summary_9():
     add_1.set_cin("left")
     add_2.set_cin("left")
     model |= add_1(left="left")
-    model |= add_2(output=IOKey(connections={add_1.left, add_1.right}), left="left_1")
+    model.merge_connections(add_1.left, add_1.right)
+    model |= add_2(output=add_1.left, left="left_1")
     with redirect_stdout(StringIO()) as summary:
         model.summary(shapes=True, symbolic=True)
 
@@ -1570,14 +1572,14 @@ def test_logical_model_summary_11():
         output2=IOKey(name="output2"),
         output3=IOKey(name="output3"),
     )
+    model_n.merge_connections(model_3.input1, model_3.input2, model_3.input3)  # type: ignore
     model_n |= model_2(
-        output1=IOKey(connections={model_3.input1, model_3.input2, model_3.input3}),  # type: ignore
+        output1=model_3.input1,  # type: ignore
         output2=IOKey(name="output4"),
         output3=IOKey(name="output5"),
     )
-    model_n |= model_1(
-        output1=IOKey(connections={model_2.input1, model_2.input2, model_2.input3}),  # type: ignore
-    )
+    model_n.merge_connections(model_2.input1, model_2.input2, model_2.input3)  # type: ignore
+    model_n |= model_1(output1=model_2.input1)  # type: ignore
 
     with redirect_stdout(StringIO()) as summary:
         model_n.summary(shapes=True, symbolic=True)
@@ -1611,12 +1613,13 @@ def test_logical_model_summary_12():
         output2=IOKey(name="output2"),
         output3=IOKey(name="output3"),
     )
-    model_n |= model_1(input1="input1", input2="input2", input3="input3")
+    model_n |= model_1(input1="input1", input2="input2", input3="input3")  # type: ignore
+    model_n.merge_connections(model_3.input1, model_3.input2, model_3.input3)  # type: ignore
     model_n |= model_2(
         input1=model_1.output1,  # type: ignore
         input2=model_1.output2,  # type: ignore
         input3=model_1.output3,  # type: ignore
-        output1=IOKey(connections={model_3.input1, model_3.input2, model_3.input3}),  # type: ignore
+        output1=model_3.input1,  # type: ignore
         output2=IOKey(name="output4"),
         output3=IOKey(name="output5"),
     )
@@ -1883,7 +1886,7 @@ def test_traincontext_summary_3():
     add_2.set_cin("left")
     matmul_1 = MatrixMultiply()
     model |= add_1(
-        left=IOKey("in1", differantiable=True),
+        left=IOKey("in1", differentiable=True),
         right="in2",
         output=IOKey(name="output1"),
     )
@@ -1928,8 +1931,8 @@ def test_traincontext_summary_4():
     add_2.set_cin("left")
     matmul_1 = MatrixMultiply()
     model |= add_1(
-        left=IOKey("in1", differantiable=True),
-        right=IOKey("in2", differantiable=True),
+        left=IOKey("in1", differentiable=True),
+        right=IOKey("in2", differentiable=True),
         output=IOKey(name="output1"),
     )
     model |= add_2(left="", output=IOKey(name="output2"))
@@ -1975,8 +1978,8 @@ def test_traincontext_summary_5():
     add_2.set_cin("left")
     matmul_1 = MatrixMultiply()
     model |= add_1(
-        left=IOKey("in1", differantiable=True),
-        right=IOKey("in2", differantiable=True),
+        left=IOKey("in1", differentiable=True),
+        right=IOKey("in2", differentiable=True),
         output=IOKey(name="output1"),
     )
     model += add_2(output=IOKey(name="output2"))
