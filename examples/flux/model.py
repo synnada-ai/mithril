@@ -106,7 +106,7 @@ def flux(params: FluxParams):
 
     img = getattr(flux, img_name)
     # TODO: [:, txt.shape[1] :, ...]
-    img = img[:, 256:, ...]
+    img = img[:, 256:, ...]  # type: ignore
 
     flux |= last_layer(params.hidden_size, 1, params.in_channels, name="final_layer")(
         input=img, vec="vec", output=IOKey("output")

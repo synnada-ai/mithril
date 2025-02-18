@@ -22,7 +22,6 @@ from mithril.models import (
     Buffer,
     Cast,
     Concat,
-    Cosine,
     Gelu,
     LayerNorm,
     Linear,
@@ -32,7 +31,6 @@ from mithril.models import (
     ScaledDotProduct,
     Sigmoid,
     SiLU,
-    Sine,
     Split,
     Transpose,
     ZerosLike,
@@ -96,8 +94,7 @@ def timestep_embedding(dim: int, max_period: int = 10_000, time_factor: float = 
 
     input = IOKey("input")
 
-    input = (input * time_factor)[:, None]
-
+    input = (input * time_factor)[:, None]  # type: ignore
     block |= Cast(dtype=ml.float32)(input, output="input_casted")
 
     half = dim // 2
@@ -108,9 +105,9 @@ def timestep_embedding(dim: int, max_period: int = 10_000, time_factor: float = 
 
     args = block.input_casted * freqs[None]  # type: ignore[attr-defined]
 
-    block |= Cosine()(input=args, output="cos")
-    block |= Sine()(input=args, output="sin")
-    block |= Concat(2, axis=-1)(input1="cos", input2="sin", output="embedding")
+    block |= Concat(2, axis=-1)(
+        input1=args.cos(), input2=args.sin(), output="embedding"
+    )
 
     if dim % 2:
         block |= ZerosLike()(block.embedding[:, :1], output="zeros_like_out")  # type: ignore[attr-defined]
@@ -409,7 +406,7 @@ def rope(dim: int, theta: int) -> Model:
     input = IOKey("input", type=Tensor)
     block |= Arange(start=0, stop=dim, step=2)(output="arange")
 
-    omega = 1.0 / (theta ** (block.arange.cast(ml.float64) / dim))  # type: ignore
+    omega = 1.0 / (theta ** (block.arange.cast(ml.float32) / dim))  # type: ignore
     out = input[..., None] * omega
 
     out_shape = out.shape

@@ -119,10 +119,10 @@ def upsample(n_channels: int, name: str | None = None):
     input_shape = input.shape
 
     B, C, H, W = input_shape[0], input_shape[1], input_shape[2], input_shape[3]
-    input = input[:, :, :, None, :, None]
+    input = input[:, :, :, None, :, None]  # type: ignore
 
     block |= BroadcastTo()(input, shape=(B, C, H, 2, W, 2))
-    block += Reshape()(shape=(B, C, (H.tensor() * 2).item(), (W.tensor() * 2).item()))
+    block += Reshape()(shape=(B, C, H * 2, W * 2))
     block += Convolution2D(3, n_channels, padding=1, name="conv")(
         output=IOKey("output")
     )
@@ -230,7 +230,7 @@ def diagonal_gaussian(sample: bool = True, chunk_dim: int = 1):
     block = Model()
 
     input = IOKey("input")
-    input = input.split(2, axis=1)
+    input = input.split(2, axis=1)  # type: ignore
 
     if sample:
         std = (input[1] * 0.5).exp()
@@ -274,7 +274,7 @@ def auto_encoder(
 def decode(ae_params: AutoEncoderParams):
     model = Model(enforce_jit=False)
     input = IOKey("input")
-    input = input / ae_params.scale_factor - ae_params.shift_factor
+    input = input / ae_params.scale_factor - ae_params.shift_factor  # type: ignore
     model += decoder(
         ae_params.ch,
         ae_params.out_ch,

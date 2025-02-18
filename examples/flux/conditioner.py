@@ -34,10 +34,10 @@ class HFEmbedder(nn.Module):
         else:
             from transformers import T5EncoderModel, T5Tokenizer
 
-            self.tokenizer: T5Tokenizer = T5Tokenizer.from_pretrained(
+            self.tokenizer: T5Tokenizer = T5Tokenizer.from_pretrained(  # type: ignore
                 version, max_length=max_length
             )
-            self.hf_module: T5EncoderModel = T5EncoderModel.from_pretrained(
+            self.hf_module: T5EncoderModel = T5EncoderModel.from_pretrained(  # type: ignore
                 version, **hf_kwargs
             )
 
