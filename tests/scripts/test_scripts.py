@@ -3388,6 +3388,16 @@ def test_connect_1():
     )
 
 
+def test_connect_named_connection():
+    model = Model()
+    relu1 = Relu()
+    relu2 = Relu()
+    model |= relu1(output="relu_output_1")
+    model |= relu2(input="my_input", output="relu_output_2")
+    model.merge_connections(relu1.input, relu2.input)
+    assert model.input_keys == {"my_input"}
+
+
 def test_connect_2():
     model = Model()
     relu1 = Relu()
