@@ -117,10 +117,6 @@ __all__ = [
 ConstantType = float | int | types.Constant
 
 
-def buffer_fn[T](x: T) -> T:
-    return x
-
-
 class BufferOp(Operator):
     _model_name: str = "Buffer"
 
@@ -977,7 +973,7 @@ class MaxOp(ReduceOp):
             formula_key="reduce_max", name=name, axis=axis, keepdim=keepdim, input=input
         )
         self._add_constraint(
-            partial(general_type_constraint, fn=buffer_fn),
+            general_type_constraint,
             keys=[Operator.output_key, "input"],
             types=[UpdateType.TYPE],
         )
@@ -1019,7 +1015,7 @@ class MinOp(ReduceOp):
             formula_key="reduce_min", name=name, axis=axis, keepdim=keepdim, input=input
         )
         self._add_constraint(
-            partial(general_type_constraint, fn=buffer_fn),
+            general_type_constraint,
             keys=[Operator.output_key, "input"],
             types=[UpdateType.TYPE],
         )
@@ -1116,7 +1112,7 @@ class SingleInputOperationOp(Operator):
 
         if polymorphic_constraint:
             self._add_constraint(
-                partial(general_type_constraint, fn=buffer_fn),
+                general_type_constraint,
                 keys=[Operator.output_key, "input"],
                 types=[UpdateType.TYPE],
             )
@@ -1634,7 +1630,7 @@ class TransposeOp(Operator):
             )
 
         self._add_constraint(
-            partial(general_type_constraint, fn=buffer_fn),
+            general_type_constraint,
             keys=[Operator.output_key, "input"],
             types=[UpdateType.TYPE],
         )

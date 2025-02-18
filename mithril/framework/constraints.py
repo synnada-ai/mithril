@@ -329,7 +329,7 @@ def general_tensor_type_constraint(*args: IOHyperEdge) -> ConstrainResultType:
 
 def general_type_constraint(
     *keys: IOHyperEdge,
-    fn: Callable[..., Any],
+    fn: Callable[..., Any] | None = None,
     is_bitwise: bool = False,
     is_edge: bool = False,
 ) -> ConstrainResultType:
@@ -406,9 +406,6 @@ def general_type_constraint(
                 (unsquash_tensor_types(typ) for typ in value_type.__args__),
             )
 
-        elif value_type is Tensor:
-            # Example: Tensor -> Tensor[int] | Tensor[float] | Tensor[bool]
-            new_type = Tensor[int] | Tensor[float] | Tensor[bool]
         return new_type
 
     def process_tensor_op_types(
@@ -468,10 +465,7 @@ def general_type_constraint(
                 out_type: type = Tensor[bool]
             else:
                 values = [type_map[typ] for typ in all_value_types]
-                try:
-                    out_type = type(operation(*values))
-                except TypeError:
-                    continue
+                out_type = type(operation(*values))
                 out_type = Tensor[out_type] if has_tensor else out_type  # type: ignore
 
             possible_type_set.update(
@@ -500,6 +494,11 @@ def general_type_constraint(
     all_output_types: set[tuple[type | GenericAlias, ...]] = set()
 
     args: list[Any] = []
+
+    if fn is None:
+
+        def fn[T](x: T) -> T:
+            return x
 
     for key in keys:
         key_type = unsquash_tensor_types(key._type)
