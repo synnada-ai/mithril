@@ -471,10 +471,10 @@ def test_axis():
     model = Model()
     relu = LeakyRelu()
     rob_pow = Power(robust=True)
-    model |= relu(input=IOKey("input", differantiable=True), slope=Tensor(2.3))
+    model |= relu(input=IOKey("input", differentiable=True), slope=Tensor(2.3))
     model |= rob_pow(
         base=relu.output,
-        exponent=IOKey("exponent", type=Tensor, differantiable=True),
+        exponent=IOKey("exponent", type=Tensor, differentiable=True),
         threshold=relu.slope,
     )
 
@@ -507,9 +507,9 @@ def test_axis_1():
     rob_pow = Power(robust=True)
     rob_pow.set_types(base=Tensor, exponent=Tensor)
     model |= rob_pow(
-        base=IOKey("base", differantiable=True),
+        base=IOKey("base", differentiable=True),
         threshold=Tensor(2.3),
-        exponent=IOKey("exponent", differantiable=True),
+        exponent=IOKey("exponent", differentiable=True),
     )
     model |= relu(input=rob_pow.output, slope=rob_pow.threshold)  # type: ignore
     # Check required value transfer occured in logical model
@@ -797,7 +797,7 @@ def test_static_2():
     add_1 = Add()
     model1 |= add_1(
         left=Tensor([2.0, 3.0]),
-        right=IOKey("right", type=Tensor, differantiable=True),
+        right=IOKey("right", type=Tensor, differentiable=True),
         output=IOKey(name="output"),
     )
     model2 |= model1
@@ -823,7 +823,7 @@ def test_static_2_set_values():
     model2 = Model()
     add_1 = Add()
     model1 |= add_1(
-        right=IOKey("right", type=Tensor, differantiable=True),
+        right=IOKey("right", type=Tensor, differentiable=True),
         output=IOKey(name="output"),
     )
     model1.set_values({add_1.left: Tensor([2.0, 3.0])})
@@ -1442,7 +1442,7 @@ def test_add_1():
     add_model = Add()
     model += add_model(
         left=Tensor(1),
-        right=IOKey("right", type=Tensor, differantiable=True),
+        right=IOKey("right", type=Tensor, differentiable=True),
         output=IOKey(name="output"),
     )
     model.set_shapes(right=[1, 1, 1])
@@ -1456,7 +1456,7 @@ def test_composite_1():
     index_model = Indexer()
     red_model = Mean(axis=TBD)
     model |= add_model(
-        left=Tensor([[[1]]]), right=IOKey("right", type=Tensor, differantiable=True)
+        left=Tensor([[[1]]]), right=IOKey("right", type=Tensor, differentiable=True)
     )
     model |= shape_model(input=add_model.output)
     model |= index_model(input=shape_model.output, index=1)
@@ -1474,7 +1474,7 @@ def test_composite_1_set_values():
     shape_model = Shape()
     index_model = Indexer()
     red_model = Mean(axis=TBD)
-    model |= add_model(right=IOKey("right", type=Tensor, differantiable=True))
+    model |= add_model(right=IOKey("right", type=Tensor, differentiable=True))
     model.set_values({add_model.left: Tensor([[[1]]])})
     model |= shape_model(input=add_model.output)
     model |= index_model(input=shape_model.output, index=1)
@@ -1494,7 +1494,7 @@ def test_composite_2():
     model = Model()
     conv1 = Convolution2D(kernel_size=2, out_channels=4)
     leaky_relu = LeakyRelu()
-    model |= conv1(input=IOKey("input", differantiable=True))
+    model |= conv1(input=IOKey("input", differentiable=True))
 
     conv1.set_differentiability(input=True)
     model |= leaky_relu(
@@ -2116,11 +2116,11 @@ def test_nontensor_gradient():
     relu = Relu()
     add_model = Add()
 
-    model |= shape_model(input=IOKey("input", differantiable=True))
+    model |= shape_model(input=IOKey("input", differentiable=True))
     model |= relu(input="input")
     model |= to_tensor_model(input=shape_model.output, output=IOKey(name="out1"))
     model |= add_model(
-        left=IOKey("in1", type=Tensor, differantiable=True),
+        left=IOKey("in1", type=Tensor, differentiable=True),
         right=relu.output,
         output=IOKey(name="out2"),
     )
@@ -2165,10 +2165,10 @@ def test_nontensor_gradient_2():
     )
     model |= mult_model(
         left="",
-        right=IOKey("right1", type=Tensor, differantiable=True),
+        right=IOKey("right1", type=Tensor, differentiable=True),
         output=add_model.left,
     )
-    model |= relu_model(input=IOKey("in1", differantiable=True), output=mult_model.left)
+    model |= relu_model(input=IOKey("in1", differentiable=True), output=mult_model.left)
     constant_keys = {
         "input": backend.array([[10.0, 2.0], [1.0, 1.0]]),
     }
@@ -2196,7 +2196,7 @@ def test_nontensor_gradient_3():
     model = Model()
     shape_model = Shape()
     to_tensor_model = ToTensor()
-    model |= shape_model(input=IOKey("input", differantiable=True))
+    model |= shape_model(input=IOKey("input", differentiable=True))
     model |= to_tensor_model(input=shape_model.output, output=IOKey(name="output"))
     ctx = TrainModel(model)
     ctx.add_loss(Buffer(), input="output", reduce_steps=[Sum()])
@@ -2220,8 +2220,8 @@ def test_numpy_without_shape():
     model = Model()
     add_model = Add()
     model |= add_model(
-        left=IOKey("left", type=Tensor, differantiable=True),
-        right=IOKey("right", type=Tensor, differantiable=True),
+        left=IOKey("left", type=Tensor, differentiable=True),
+        right=IOKey("right", type=Tensor, differentiable=True),
         output=IOKey(name="output"),
     )
     model.set_shapes(left=[], right=[])
@@ -2250,14 +2250,14 @@ def test_multiple_to_tensor():
     model += tt_1
     model |= add_model(
         left=model.cout,
-        right=IOKey("right", type=Tensor, differantiable=True),
+        right=IOKey("right", type=Tensor, differentiable=True),
         output=IOKey(name="output"),
     )
     model_1 += shp_2
     model_1 += tt_2
     model_1 |= add_model_2(
         left=model_1.cout,
-        right=IOKey("right", type=Tensor, differantiable=True),
+        right=IOKey("right", type=Tensor, differentiable=True),
         output=IOKey(name="output"),
     )
     model_2 += model(input="input")
@@ -2279,8 +2279,8 @@ def test_concat_axis_ellipsis_1():
     model = Model()
     concat_model = Concat(n=2, axis=TBD)
     model += concat_model(
-        input1=IOKey("input1", differantiable=True),
-        input2=IOKey("input2", differantiable=True),
+        input1=IOKey("input1", differentiable=True),
+        input2=IOKey("input2", differentiable=True),
     )
     comp_model = ml.compile(model=model, backend=backend, safe_names=False)
 
@@ -2301,8 +2301,8 @@ def test_concat_axis_ellipsis_2():
     model = Model()
     concat_model = Concat(n=2, axis=TBD)
     model += concat_model(
-        input1=IOKey("input1", differantiable=True),
-        input2=IOKey("input2", differantiable=True),
+        input1=IOKey("input1", differentiable=True),
+        input2=IOKey("input2", differentiable=True),
         axis="axis",
     )
     comp_model = ml.compile(model=model, backend=backend)
@@ -2325,7 +2325,7 @@ def test_polyfeatures_degree_ellipsis():
     model = Model()
     poly_feat_model = PolynomialFeatures(degree=TBD)
     model += poly_feat_model(
-        input=IOKey("input", differantiable=True),
+        input=IOKey("input", differentiable=True),
         output=IOKey(name="output"),
         degree="degree",
     )

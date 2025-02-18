@@ -1777,8 +1777,8 @@ def test_regularization_1():
     # Test with single regularization and single reduce (mean) operation
     model = Model()
     model += Multiply()(
-        left=IOKey("left", type=Tensor, differantiable=True),
-        right=IOKey("w", type=Tensor, differantiable=True),
+        left=IOKey("left", type=Tensor, differentiable=True),
+        right=IOKey("w", type=Tensor, differentiable=True),
         output="output",
     )
 
@@ -1801,8 +1801,8 @@ def test_regularization_1_sanity_test():
     model = Model()
     model.extend(
         Multiply(),
-        left=IOKey("left", type=Tensor, differantiable=True),
-        right=IOKey("w", type=Tensor, differantiable=True),
+        left=IOKey("left", type=Tensor, differentiable=True),
+        right=IOKey("w", type=Tensor, differentiable=True),
         output="output",
     )
 
@@ -1826,8 +1826,8 @@ def test_regularization_2():
     # Test with single regularization and single reduce (sum) operation
     model = Model()
     model += Multiply()(
-        left=IOKey("left", type=Tensor, differantiable=True),
-        right=IOKey("w", type=Tensor, differantiable=True),
+        left=IOKey("left", type=Tensor, differentiable=True),
+        right=IOKey("w", type=Tensor, differentiable=True),
         output="output",
     )
 
@@ -1851,8 +1851,8 @@ def test_regularization_3():
     # operations
     model = Model()
     model += Multiply()(
-        left=IOKey("left", type=Tensor, differantiable=True),
-        right=IOKey("w", type=Tensor, differantiable=True),
+        left=IOKey("left", type=Tensor, differentiable=True),
+        right=IOKey("w", type=Tensor, differentiable=True),
         output="output",
     )
 
@@ -1880,8 +1880,8 @@ def test_regularization_4():
     # Test with single regularization and multiple model with multiple reduce operations
     model = Model()
     model |= Multiply()(
-        left=IOKey("left", type=Tensor, differantiable=True),
-        right=IOKey("w", type=Tensor, differantiable=True),
+        left=IOKey("left", type=Tensor, differentiable=True),
+        right=IOKey("w", type=Tensor, differentiable=True),
         output=IOKey(name="output"),
     )
     model |= Multiply()(left="left", right="w", output=IOKey(name="output2"))
@@ -1917,8 +1917,8 @@ def test_regularization_5():
     # Test with single regularization and multiple model with multiple reduce operations
     model = Model()
     model |= Multiply()(
-        left=IOKey("left", type=Tensor, differantiable=True),
-        right=IOKey("w", type=Tensor, differantiable=True),
+        left=IOKey("left", type=Tensor, differentiable=True),
+        right=IOKey("w", type=Tensor, differentiable=True),
         output=IOKey(name="output"),
     )
     model |= Multiply()(
@@ -2652,8 +2652,8 @@ def test_prune_duplicate_grad():
     div2 = Divide()
     mm2 = MatrixMultiply()
     mm3 = MatrixMultiply()
-    model |= sig1(input=IOKey("input1", differantiable=True))
-    model |= sig2(input=IOKey("input2", differantiable=True))
+    model |= sig1(input=IOKey("input1", differentiable=True))
+    model |= sig2(input=IOKey("input2", differentiable=True))
     model |= log1(input=sig1.output)
     model |= log2(input=sig1.output)
     model |= mm1(left=log1.output, right=log2.output)
@@ -3247,7 +3247,7 @@ def geomean_multigpu_test():
 def test_add_loss_unknown_key():
     model = Model()
     l1 = Linear()
-    model |= l1(input=IOKey("input", differantiable=True), weight="w0")
+    model |= l1(input=IOKey("input", differentiable=True), weight="w0")
     model |= Linear()(input=l1.output, weight="w1", output=IOKey(name="output"))
 
     context = TrainModel(model)
@@ -3886,8 +3886,8 @@ def test_add_loss_coef():
     backend = TorchBackend(dtype=mithril.float64)
     model = Model()
     model += Multiply()(
-        left=IOKey("left", type=Tensor, differantiable=True),
-        right=IOKey("w", type=Tensor, differantiable=True),
+        left=IOKey("left", type=Tensor, differentiable=True),
+        right=IOKey("w", type=Tensor, differentiable=True),
         output=IOKey(name="output"),
     )
 
@@ -3947,7 +3947,7 @@ def test_cycle_handling_1():
     model_2 |= Tanh()(input="input1", output=IOKey(name="output1"))
     model_2 |= Sine()(input="input2", output=IOKey(name="output2"))
     model |= model_2(
-        input2=IOKey("input", differantiable=True),
+        input2=IOKey("input", differentiable=True),
         output2=IOKey("output2"),
         input1="input1",
         output1=IOKey(name="output"),
@@ -4063,7 +4063,7 @@ def test_cycle_handling_2():
     model |= (gelu5 := Gelu())()
 
     model |= model_1(
-        input1=IOKey("input", differantiable=True), input2="", output1=gelu5.input
+        input1=IOKey("input", differentiable=True), input2="", output1=gelu5.input
     )
     model |= model_2(
         input2=gelu5.output,
@@ -4212,7 +4212,7 @@ def test_cycle_handling_3():
     model_2 |= Sine()(input="input2", output=IOKey(name="output2"))
     model |= gelu5(input="")
     model |= model_1(
-        input1=IOKey("input", differantiable=True),
+        input1=IOKey("input", differentiable=True),
         slope=IOKey("slope"),
         input2="",
         output1=gelu5.input,

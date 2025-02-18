@@ -243,7 +243,7 @@ def test_mymodel_jax():
 
     model = MyModel(dimension=1)
     model |= Adder()(
-        left="output", right=IOKey("r1", differantiable=True), output=IOKey(name="o1")
+        left="output", right=IOKey("r1", differentiable=True), output=IOKey(name="o1")
     )
     compiled_model = compile(
         model=model, backend=JaxBackend(), constant_keys=static_inputs, jit=True
@@ -308,12 +308,12 @@ def test_physical_model_jit_1():
     add1 = Add()
     add2 = Add()
     model |= add1(
-        left=IOKey("l1", differantiable=True),
-        right=IOKey("l2", differantiable=True),
+        left=IOKey("l1", differentiable=True),
+        right=IOKey("l2", differentiable=True),
         output=IOKey(name="out1"),
     )
     model |= add2(
-        left=IOKey("l3", differantiable=True), right=IOKey("l4", differantiable=True)
+        left=IOKey("l3", differentiable=True), right=IOKey("l4", differentiable=True)
     )
     model.enforce_jit = False
     model.merge_connections(add1.left, add2.left, name="input")
@@ -380,8 +380,8 @@ def test_jit_2():
     backend = JaxBackend()
     model = Model(enforce_jit=False)
     model |= (add_model := Add())(
-        left=IOKey("left", differantiable=True),
-        right=IOKey("right", differantiable=True),
+        left=IOKey("left", differentiable=True),
+        right=IOKey("right", differentiable=True),
     )
     in1 = add_model.output
     out1 = in1.shape
@@ -389,7 +389,7 @@ def test_jit_2():
     mean_model = Mean(axis=TBD)
     model |= (to_list := Item())(input=out2)
     model |= mean_model(
-        input=IOKey("input", differantiable=True),
+        input=IOKey("input", differentiable=True),
         axis=to_list.output,
         output=IOKey(name="output"),
     )

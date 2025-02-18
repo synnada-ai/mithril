@@ -48,7 +48,7 @@ def list_full(fill_value, *shapes):
 @with_temp_file(".py")
 def test_single_input_primitive(file_path):
     model = Model()
-    model += Relu()(input=IOKey("input", differantiable=True), output="output")
+    model += Relu()(input=IOKey("input", differentiable=True), output="output")
     model.set_shapes(input=[1, 2, 3])
     backend = NumpyBackend()
 
@@ -105,7 +105,7 @@ def test_single_input_primitive(file_path):
 def test_multi_input_primitive(file_path: str):
     model = Model()
     model += Linear()(
-        input=IOKey("input", differantiable=True), weight="w", bias="b", output="output"
+        input=IOKey("input", differentiable=True), weight="w", bias="b", output="output"
     )
     model.set_differentiability(input=True)
     model.set_shapes(input=[1, 2, 3])
@@ -191,9 +191,9 @@ def test_multi_input_primitive(file_path: str):
 def test_variadic_input_primitive_1(file_path: str):
     model = Model()
     model += Concat(n=3)(
-        input1=IOKey("input1", differantiable=True),
-        input2=IOKey("input2", differantiable=True),
-        input3=IOKey("input3", differantiable=True),
+        input1=IOKey("input1", differentiable=True),
+        input2=IOKey("input2", differentiable=True),
+        input3=IOKey("input3", differentiable=True),
         output="output",
     )
     model.set_shapes(input1=[1, 2, 3])
@@ -321,7 +321,7 @@ def test_variadic_input_primitive_2(file_path: str):
 @with_temp_file(".py")
 def test_default_kwarg_reduction_1(file_path: str):
     model = Model()
-    model += Mean()(input=IOKey("input", differantiable=True))
+    model += Mean()(input=IOKey("input", differentiable=True))
 
     backend = NumpyBackend()
     mithril.compile(model, backend, inference=False, jit=False, file_path=file_path)
@@ -382,7 +382,7 @@ def test_default_kwarg_reduction_1(file_path: str):
 @with_temp_file(".py")
 def test_default_kwarg_reduction_2(file_path: str):
     model = Model()
-    model += Mean(axis=3)(input=IOKey("input", differantiable=True))
+    model += Mean(axis=3)(input=IOKey("input", differentiable=True))
 
     backend = NumpyBackend()
 

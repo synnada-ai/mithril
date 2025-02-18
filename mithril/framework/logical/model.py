@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from collections.abc import KeysView, Mapping, Sequence
 from dataclasses import dataclass
-from types import EllipsisType, UnionType
+from types import EllipsisType
 from typing import Any, Self
 
 from ...common import find_dominant_type
@@ -32,11 +32,8 @@ from ..common import (
     MainValueInstance,
     MainValueType,
     NullConnection,
-    ScalarType,
-    ScalarValueType,
     ShapeTemplateType,
     Tensor,
-    ToBeDetermined,
     UniadicRecord,
     Variadic,
     get_summary,
@@ -378,36 +375,7 @@ class Connection(ConnectionData, TemplateBase):
 
 
 class IOKey(BaseKey, TemplateBase):
-    def __init__(
-        self,
-        name: str | None = None,
-        value: Tensor[int | float | bool]
-        | ScalarValueType
-        | ToBeDetermined
-        | str = TBD,
-        shape: ShapeTemplateType | None = None,
-        type: UnionType
-        | type
-        | type[Tensor[int | float | bool]]
-        | ScalarType
-        | None = None,
-        expose: bool | None = None,
-        differantiable: bool = False,
-        interval: list[float | int] | None = None,
-        connections: set[ConnectionData | str] | None = None,
-    ) -> None:
-        _connections: set[ConnectionData | str] = connections or set()
-
-        super().__init__(
-            name=name,
-            value=value,
-            shape=shape,
-            type=type,
-            expose=expose,
-            interval=interval,
-            connections=_connections,
-            differentiable=differantiable,
-        )
+    pass
 
 
 class ExtendTemplate(TemplateBase):
@@ -540,16 +508,13 @@ class Model(BaseModel):
                 # TODO: This check should be removed: conn.connections==set()
                 # We should not operate different if _connections is given. Fix this and
                 # also fix corresponding tests and dict conversions with "connect".
-                if (
-                    expose is None
-                    and (name is None or self.conns.get_connection(name) is None)
-                    and connection.connections == set()
+                if expose is None and (
+                    name is None or self.conns.get_connection(name) is None
                 ):
                     expose = True
                 _connection = BaseKey(
                     name=name,
                     expose=expose,
-                    connections=connection.connections,
                     type=connection.type,
                     shape=connection.value_shape,
                     value=connection.value,

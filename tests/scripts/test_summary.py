@@ -1886,7 +1886,7 @@ def test_traincontext_summary_3():
     add_2.set_cin("left")
     matmul_1 = MatrixMultiply()
     model |= add_1(
-        left=IOKey("in1", differantiable=True),
+        left=IOKey("in1", differentiable=True),
         right="in2",
         output=IOKey(name="output1"),
     )
@@ -1931,8 +1931,8 @@ def test_traincontext_summary_4():
     add_2.set_cin("left")
     matmul_1 = MatrixMultiply()
     model |= add_1(
-        left=IOKey("in1", differantiable=True),
-        right=IOKey("in2", differantiable=True),
+        left=IOKey("in1", differentiable=True),
+        right=IOKey("in2", differentiable=True),
         output=IOKey(name="output1"),
     )
     model |= add_2(left="", output=IOKey(name="output2"))
@@ -1978,8 +1978,8 @@ def test_traincontext_summary_5():
     add_2.set_cin("left")
     matmul_1 = MatrixMultiply()
     model |= add_1(
-        left=IOKey("in1", differantiable=True),
-        right=IOKey("in2", differantiable=True),
+        left=IOKey("in1", differentiable=True),
+        right=IOKey("in2", differentiable=True),
         output=IOKey(name="output1"),
     )
     model += add_2(output=IOKey(name="output2"))

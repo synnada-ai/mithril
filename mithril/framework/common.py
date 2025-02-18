@@ -1183,7 +1183,6 @@ class BaseKey:
         expose: bool | None = None,
         differentiable: bool = False,
         interval: list[float | int] | None = None,
-        connections: set[ConnectionData | str] | None = None,
     ) -> None:
         # If shape is provided, type should be Tensor.
         if shape is not None:
@@ -1202,9 +1201,6 @@ class BaseKey:
 
         self.name = name
         self.expose = expose
-        if connections is None:
-            connections = set()
-        self.connections: set[ConnectionData | str] = connections
         # TODO: Shape should not be [] also!
         if (
             value is not TBD

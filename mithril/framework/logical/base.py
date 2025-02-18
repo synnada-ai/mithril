@@ -227,16 +227,13 @@ class BaseModel:
                 # TODO: This check should be removed: conn.connections==set()
                 # We should not operate different if _connections is given. Fix this and
                 # also fix corresponding tests and dict conversions with "connect".
-                if (
-                    expose is None
-                    and (name is None or self.conns.get_connection(name) is None)
-                    and connection.connections == set()
+                if expose is None and (
+                    name is None or self.conns.get_connection(name) is None
                 ):
                     expose = True
                 _connection = BaseKey(
                     name=name,
                     expose=expose,
-                    connections=connection.connections,
                     type=connection.type,
                     shape=connection.value_shape,
                     value=connection.value,

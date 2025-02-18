@@ -384,9 +384,9 @@ def test_integration_multi_level_name_with_lowest_definition():
     add = Add()
     add.set_types(left=Tensor, right=Tensor)
     model2 += add(
-        left=IOKey("a", differantiable=True),
-        right=IOKey("b", differantiable=True),
-        output=IOKey("c", differantiable=True),
+        left=IOKey("a", differentiable=True),
+        right=IOKey("b", differentiable=True),
+        output=IOKey("c", differentiable=True),
     )
 
     model1 = Model(name="model")

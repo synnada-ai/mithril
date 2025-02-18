@@ -137,7 +137,7 @@ def rms_norm(dim: int, *, name: str | None = None):
     block = Model(name=name)
     input = IOKey("input")
     weight = IOKey(
-        "weight", shape=[dim], differantiable=True
+        "weight", shape=[dim], differentiable=True
     )  # TODO: weight must be initialized with ones.
     rrms = input / ((input**2).mean(axis=-1, keepdim=True) + 1e-5).sqrt()
     block += Multiply()(left=rrms, right=weight, output=IOKey("output"))

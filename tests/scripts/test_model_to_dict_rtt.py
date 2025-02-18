@@ -194,7 +194,7 @@ def test_constant_key():
 def test_constant_key_2():
     model = Model()
     model |= (add := Add())(
-        left=IOKey("input", type=Tensor, differantiable=True),
+        left=IOKey("input", type=Tensor, differentiable=True),
         right=IOKey(value=Tensor(3)),
         output=IOKey(name="output"),
     )

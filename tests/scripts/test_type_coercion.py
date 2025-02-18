@@ -159,11 +159,11 @@ def test_scalar_to_tensor_3():
     tensor_1 = ToTensor()
     tensor_2 = ToTensor()
     model |= tensor_1(input=[[[1]]])
-    model |= add_1(left=tensor_1.output, right=IOKey("right", differantiable=True))
+    model |= add_1(left=tensor_1.output, right=IOKey("right", differentiable=True))
     model |= shp_1(input=add_1.output)
     model |= tensor_2(input=shp_1.output)
     model |= Add()(
-        left=IOKey("left", differantiable=True),
+        left=IOKey("left", differentiable=True),
         right=tensor_2.output,
         output="output",
     )
@@ -176,11 +176,11 @@ def test_scalar_to_tensor_3():
     shp_2 = Shape()
     model |= add_2(
         left=IOKey(value=[[[1]]]).tensor(),
-        right=IOKey("right", differantiable=True),
+        right=IOKey("right", differentiable=True),
     )
     model |= shp_2(input=add_2.output)
     model |= Add()(
-        left=IOKey("left", differantiable=True),
+        left=IOKey("left", differentiable=True),
         right=shp_2.output.tensor(),
         output="output",
     )
@@ -887,7 +887,7 @@ def test_connect_type_conv_handling_1():
         mat_mul := MatrixMultiply(),
         {
             "left": "abcd",
-            "right": IOKey(differantiable=True),
+            "right": IOKey(differentiable=True),
             "output": IOKey(name="output"),
         },
     )
@@ -904,7 +904,7 @@ def test_connect_type_conv_handling_1():
         (mat_mul := MatrixMultiply()),
         {
             "left": "abcd",
-            "right": IOKey(differantiable=True),
+            "right": IOKey(differentiable=True),
             "output": IOKey(name="output"),
         },
     )
@@ -921,7 +921,7 @@ def test_connect_type_conv_handling_1():
         (mat_mul := MatrixMultiply()),
         {
             "left": "abcd",
-            "right": IOKey(differantiable=True),
+            "right": IOKey(differentiable=True),
             "output": IOKey(name="output"),
         },
     )
@@ -1085,13 +1085,13 @@ def test_connect_7():
     add_model_1 = Add()
     add_model_2 = Add()
     model |= add_model_1(
-        left=IOKey("left", differantiable=True),
-        right=IOKey("right", differantiable=True),
+        left=IOKey("left", differentiable=True),
+        right=IOKey("right", differentiable=True),
         output=IOKey(name="output2"),
     )
     model |= add_model_2(
-        left=IOKey("left1", differantiable=True),
-        right=IOKey("right1", differantiable=True),
+        left=IOKey("left1", differentiable=True),
+        right=IOKey("right1", differentiable=True),
     )
     model.merge_connections(add_model_2.output, model.right, name="abcd")  # type: ignore
     model |= Buffer()(input="abcd", output=IOKey(name="output"))
@@ -1139,13 +1139,13 @@ def test_connect_7_expose_output():
     add_model_1 = Add()
     add_model_2 = Add()
     model |= add_model_1(
-        left=IOKey("left", differantiable=True),
-        right=IOKey("right", differantiable=True),
+        left=IOKey("left", differentiable=True),
+        right=IOKey("right", differentiable=True),
         output=IOKey(name="output2"),
     )
     model |= add_model_2(
-        left=IOKey("left1", differantiable=True),
-        right=IOKey("right1", differantiable=True),
+        left=IOKey("left1", differentiable=True),
+        right=IOKey("right1", differentiable=True),
     )
     conns = {add_model_2.output, model.right}  # type: ignore
     model.merge_connections(*conns, name="abcd")
@@ -1201,12 +1201,12 @@ def test_connect_8():
     add_model_1 = Add()
     add_model_2 = Add()
     model |= add_model_1(
-        left=IOKey("left", differantiable=True),
-        right=IOKey("right", differantiable=True),
+        left=IOKey("left", differentiable=True),
+        right=IOKey("right", differentiable=True),
     )
     model |= add_model_2(
         left=add_model_1.output,
-        right=IOKey("right1", differantiable=True),
+        right=IOKey("right1", differentiable=True),
         output=IOKey(name="output1"),
     )
     model.merge_connections(add_model_1.output, model.right1, name="abcd")  # type: ignore
@@ -1347,7 +1347,7 @@ def test_tensor_to_scalar_4():
     # Auto conversion
     auto_model |= Relu()(input="input")
     auto_model += (shp := Shape())
-    auto_model |= Add()(left=shp.output.tensor(), right=IOKey(differantiable=True))
+    auto_model |= Add()(left=shp.output.tensor(), right=IOKey(differentiable=True))
 
     # Manuel conversion
     manual_model = Model()
@@ -1355,7 +1355,7 @@ def test_tensor_to_scalar_4():
     manual_model |= Relu()(input="input")
     manual_model += Shape()
     manual_model += ToTensor()
-    manual_model += Add()(right=IOKey(differantiable=True))
+    manual_model += Add()(right=IOKey(differentiable=True))
 
     backend = TorchBackend()
 
@@ -1417,8 +1417,8 @@ def test_coercion_1():
     add_model_1 = Add()
     add_model_2 = Add()
 
-    model |= reduce_model_1(input=IOKey("input1", differantiable=True), axis="axis1")
-    model |= reduce_model_2(input=IOKey("input2", differantiable=True), axis="axis2")
+    model |= reduce_model_1(input=IOKey("input1", differentiable=True), axis="axis1")
+    model |= reduce_model_2(input=IOKey("input2", differentiable=True), axis="axis2")
     model |= add_model_1(
         left=reduce_model_1.axis.tensor(), right=reduce_model_2.axis.tensor()
     )
@@ -1458,8 +1458,8 @@ def test_coercion_2():
     reduce_model_1 = Sum(axis=TBD)
     reduce_model_2 = Sum(axis=TBD)
     l_relu = LeakyRelu()
-    model |= reduce_model_1(input=IOKey("input1", differantiable=True), axis="axis1")
-    model |= reduce_model_2(input=IOKey("input2", differantiable=True), axis="axis2")
+    model |= reduce_model_1(input=IOKey("input1", differentiable=True), axis="axis1")
+    model |= reduce_model_2(input=IOKey("input2", differentiable=True), axis="axis2")
     axis1 = reduce_model_1.axis.tensor().sum()
     axis2 = reduce_model_2.axis.tensor().sum()
 
@@ -1511,7 +1511,7 @@ def test_coercion_3():
     )
     model |= (to_list := TensorToList())(input=add_model.output)
     model |= reduce_model(
-        input=IOKey("input", differantiable=True), axis=to_list.output, output="output"
+        input=IOKey("input", differentiable=True), axis=to_list.output, output="output"
     )
 
     pm = compile(model=model, backend=backend, jit=False)
@@ -1539,7 +1539,7 @@ def test_coercion_4():
     )
     model |= (to_list := TensorToList())(input=add_model.output)
     model |= reduce_model(
-        input=IOKey("input", differantiable=True), axis=to_list.output, output="output"
+        input=IOKey("input", differentiable=True), axis=to_list.output, output="output"
     )
 
     pm = compile(model=model, backend=backend, jit=False)
@@ -1559,7 +1559,7 @@ def test_coercion_5():
     model = Model(enforce_jit=False)
     add = Add()
     to_list = TensorToList()
-    model |= add(left=IOKey("left", differantiable=True), right=Tensor([2.0]))
+    model |= add(left=IOKey("left", differentiable=True), right=Tensor([2.0]))
     model |= to_list(input=add.output)
     model |= Buffer()(input=to_list.output.tensor(), output="output")
 
@@ -1608,9 +1608,9 @@ def test_tensor_to_scalar_template_2():
     buff_model_1 = Buffer()
     buff_model_2 = Buffer()
     buff_model_3 = Buffer()
-    model |= buff_model_1(input=IOKey("input1", differantiable=True))
-    model |= buff_model_2(input=IOKey("input2", differantiable=True))
-    model |= buff_model_3(input=IOKey("input3", differantiable=True))
+    model |= buff_model_1(input=IOKey("input1", differentiable=True))
+    model |= buff_model_2(input=IOKey("input2", differentiable=True))
+    model |= buff_model_3(input=IOKey("input3", differentiable=True))
 
     in1 = buff_model_1.output
     in2 = buff_model_2.output
