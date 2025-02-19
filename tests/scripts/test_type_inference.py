@@ -532,10 +532,10 @@ class TestComposite:
         model.set_types(output=Tensor[int])
         model.set_types(input1=bool)
 
-        in1_conn: Connection = model.input1
-        in2_conn: Connection = model.input2
-        in3_conn: Connection = model.input3
-        in4_conn: Connection = model.input4
+        in1_conn = model.input1
+        in2_conn = model.input2
+        in3_conn = model.input3
+        in4_conn = model.input4
 
         assert in1_conn.metadata._type is bool
         assert sort_type(in2_conn.metadata._type) == sort_type(int | bool)

@@ -853,7 +853,7 @@ class Tensor(Generic[TypeVarTensorType]):
             self.type = new_type
             # Add all referee edges into the updates.
             for edge in self.referees:
-                updates.add(edge, UpdateType.TYPE)
+                updates |= edge.set_type(Tensor[new_type])  # type: ignore
         return updates
 
     def set_value(self, value: TensorValueType) -> Updates:

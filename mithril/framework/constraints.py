@@ -16,8 +16,9 @@ import math
 from collections.abc import Callable, Sequence
 from functools import reduce
 from itertools import combinations_with_replacement, permutations, product, zip_longest
+from operator import or_
 from types import EllipsisType, GenericAlias, NoneType, UnionType
-from typing import Any, TypeGuard, Union, get_args, get_origin
+from typing import Any, Union, get_args, get_origin
 
 from ..common import PaddingType
 from ..types import Constant
@@ -115,7 +116,7 @@ def generate_nested_list_type(
         if depth >= min_depth:
             types.add(typ)
         typ = list[typ]  # type: ignore
-    return reduce(lambda x, y: x | y, types)
+    return reduce(or_, types)
 
 
 # Below functions are used in various constraints.
@@ -327,189 +328,180 @@ def general_tensor_type_constraint(*args: IOHyperEdge) -> ConstrainResultType:
     return status, updates
 
 
+### General type utils ###
+
+type_map: dict[type[int] | type[float] | type[bool], int | float | bool] = {
+    int: 2,
+    float: 2.0,
+    bool: True,
+}
+
+all_possible_types: set[type | GenericAlias] = {
+    int,
+    float,
+    bool,
+    Tensor[int],
+    Tensor[float],
+    Tensor[bool],
+}
+
+
+def squash_tensor_types(typ: Any) -> Any:
+    # TODO: Remove this function when Lists of Tensors feature is added.
+    # Reduces multiple Tensor types declerations in a single
+    # Tensor[...] type with all subtypes of all declared ones. Also expands
+    # "Tensor" type to "Tensor[int | float | bool]".
+    # Example: Tensor[int] | Tensor[float] -> Tensor[int | float]
+    # Example: Tensor[int | float] | bool -> Tensor[int | float] | bool
+    # Example: Tensor -> Tensor[int | float | bool]
+    if typ is Tensor:
+        typ = Tensor[int | float | bool]
+    if (origin := get_origin(typ)) in (Union, UnionType):
+        updated_args = set()
+        regular_args = set()
+        for arg in get_args(typ):
+            if is_tensor_type(arg):
+                if arg is Tensor:
+                    arg = Tensor[int | float | bool]
+                updated_args |= set(get_args(arg))
+            else:
+                regular_args.add(arg)
+        if updated_args:
+            tensor_type = Tensor[reduce(or_, updated_args)]  # type: ignore
+            squashed_regulars = [squash_tensor_types(arg) for arg in regular_args]
+            if squashed_regulars:
+                regular_types = reduce(or_, squashed_regulars)
+                return tensor_type | regular_types
+            return tensor_type
+    elif origin is not None:
+        # NOTE: Tuple type can contain ellipsis in its args.
+        squashed_args = [
+            squash_tensor_types(arg) for arg in get_args(typ) if arg != ...
+        ]
+        return (
+            origin[*squashed_args, ...]
+            if ... in get_args(typ)
+            else origin[*squashed_args]
+        )
+    return typ
+
+
+def unsquash_tensor_types(
+    value_type: type | UnionType | GenericAlias,
+) -> type | UnionType | GenericAlias:
+    # TODO: use match case when Python unifies all UnionType and GenericAlias types.
+    new_type: type | UnionType | GenericAlias = value_type
+    if is_generic_alias_type(value_type) and get_origin(value_type) is Tensor:
+        # Example: Tensor[int | float] -> Tensor[int] | Tensor[float]
+        sub_type = get_args(value_type)[0]
+        sub_types = (
+            sub_type.__args__ if isinstance(sub_type, UnionType) else (sub_type,)
+        )
+        new_type = reduce(or_, (Tensor[typ] for typ in sub_types))  # type: ignore
+
+    elif is_union_type(value_type):
+        # Example: Tensor[int | float] | bool -> Tensor[int] | Tensor[float] | bool
+        new_type = reduce(
+            or_,
+            (unsquash_tensor_types(typ) for typ in get_args(value_type)),
+        )
+
+    return new_type
+
+
+def process_list_types(
+    left_args: set[type | GenericAlias],
+    right_args: set[type | GenericAlias],
+    output_args: set[type | GenericAlias],
+) -> set[tuple[type | GenericAlias, ...]]:
+    # TODO: Implement this function
+    return set(product(left_args, right_args, output_args))
+
+
+def process_tuple_types(
+    left_args: set[type | GenericAlias],
+    right_args: set[type | GenericAlias],
+    output_args: set[type | GenericAlias],
+) -> set[tuple[type | GenericAlias, ...]]:
+    # TODO: Implement this function
+    return set(product(left_args, right_args, output_args))
+
+
+def process_tensor_op_types(
+    operation: Callable[..., Any] | None,
+    is_bitwise: bool,
+    output_args: set[type | GenericAlias],
+    *input_args: set[type | GenericAlias],
+) -> set[tuple[type | GenericAlias, ...]]:
+    # TODO: uncomment type ignores when all TypeGuards switched to TypeIs.
+
+    # extract all possible input output type combinations
+    possible_arg_types: set[tuple[type | GenericAlias, ...]] = set(
+        product(output_args, *input_args)
+    )
+
+    # diminish all possible types based on available input types
+    available_possible_types = all_possible_types & reduce(or_, input_args)
+
+    possible_type_set: set[tuple[type | GenericAlias, ...]] = set()
+
+    for sample_types in combinations_with_replacement(
+        available_possible_types, len(input_args)
+    ):
+        has_tensor = False
+        input_types: list[type[int] | type[float] | type[bool]] = []
+
+        for sample_type in sample_types:
+            if is_generic_alias_type(sample_type):
+                # extract built-in type from Tensor type
+                input_types.append(get_args(sample_type)[0])
+                has_tensor = True
+            else:
+                input_types.append(sample_type)  # type: ignore
+
+        if has_tensor and all(typ is bool for typ in input_types) and not is_bitwise:
+            # handle edge case occured in some operations.
+
+            # bool + bool -> int (Python)
+            # Tensor[bool] + Tensor[bool] = Tensor[bool] (backends, (e.g. NumPy))
+
+            out_type: type = Tensor[bool]
+        else:
+            values = [type_map[typ] for typ in input_types]
+            if operation is None:
+                out_type = type(values[0])
+            else:
+                out_type = type(operation(*values))
+            out_type = Tensor[out_type] if has_tensor else out_type  # type: ignore
+
+        possible_type_set.update((out_type,) + p for p in permutations(sample_types))
+
+    return possible_arg_types & possible_type_set
+
+
 def general_type_constraint(
     *keys: IOHyperEdge,
     fn: Callable[..., Any] | None = None,
     is_bitwise: bool = False,
     is_edge: bool = False,
 ) -> ConstrainResultType:
-    def is_tensor_value_type(value: Any) -> TypeGuard[type | GenericAlias]:
-        return (
-            get_origin(value) is Tensor
-            or value is int
-            or value is float
-            or value is bool
-        )
-
-    def is_list_or_int(value: Any) -> bool:
-        return value is list or value is int or get_origin(value) is list
-
-    def is_tuple_or_int(value: Any) -> bool:
-        return value is tuple or value is int or get_origin(value) is tuple
-
-    def squash_tensor_types(typ: Any) -> Any:
-        # TODO: Remove this function when Lists of Tensors feature is added.
-        # Reduces multiple Tensor types declerations in a single
-        # Tensor[...] type with all subtypes of all declared ones. Also expands
-        # "Tensor" type to "Tensor[int | float | bool]".
-        # Example: Tensor[int] | Tensor[float] -> Tensor[int | float]
-        # Example: Tensor[int | float] | bool -> Tensor[int | float] | bool
-        # Example: Tensor -> Tensor[int | float | bool]
-        if typ is Tensor:
-            typ = Tensor[int | float | bool]
-        if (origin := get_origin(typ)) in (Union, UnionType):
-            updated_args = set()
-            regular_args = set()
-            for arg in get_args(typ):
-                if is_tensor_type(arg):
-                    if arg is Tensor:
-                        arg = Tensor[int | float | bool]
-                    updated_args |= set(get_args(arg))
-                else:
-                    regular_args.add(arg)
-            if updated_args:
-                tensor_type = Tensor[reduce(lambda x, y: x | y, updated_args)]  # type: ignore
-                squashed_regulars = [squash_tensor_types(arg) for arg in regular_args]
-                if squashed_regulars:
-                    regular_types = reduce(lambda x, y: x | y, squashed_regulars)
-                    return tensor_type | regular_types
-                return tensor_type
-        elif origin is not None:
-            # NOTE: Tuple type can contain ellipsis in its args.
-            squashed_args = [
-                squash_tensor_types(arg) for arg in get_args(typ) if arg != ...
-            ]
-            return (
-                origin[*squashed_args, ...]
-                if ... in get_args(typ)
-                else origin[*squashed_args]
-            )
-        return typ
-
-    def unsquash_tensor_types(
-        value_type: type | UnionType | GenericAlias,
-    ) -> type | UnionType | GenericAlias:
-        # TODO: use match case when Python unifies all UnionType and GenericAlias types.
-        new_type: type | UnionType | GenericAlias = value_type
-        if is_generic_alias_type(value_type) and value_type.__origin__ is Tensor:
-            # Example: Tensor[int | float] -> Tensor[int] | Tensor[float]
-            sub_type = value_type.__args__[0]
-            sub_types = (
-                sub_type.__args__ if isinstance(sub_type, UnionType) else (sub_type,)
-            )
-            new_type = reduce(lambda x, y: x | y, (Tensor[typ] for typ in sub_types))  # type: ignore
-
-        elif is_union_type(value_type):
-            # Example: Tensor[int | float] | bool -> Tensor[int] | Tensor[float] | bool
-            new_type = reduce(
-                lambda x, y: x | y,
-                (unsquash_tensor_types(typ) for typ in value_type.__args__),
-            )
-
-        return new_type
-
-    def process_tensor_op_types(
-        operation: Callable[..., Any],
-        is_bitwise: bool,
-        output_args: set[type | GenericAlias],
-        *input_args: set[type | GenericAlias],
-    ) -> set[tuple[type | GenericAlias, ...]]:
-        # TODO: uncomment type ignores when all TypeGuards switched to TypeIs.
-        type_map: dict[type[int] | type[float] | type[bool], int | float | bool] = {
-            int: 2,
-            float: 2.0,
-            bool: True,
-        }
-
-        all_possible_types: set[type | GenericAlias] = {
-            int,
-            float,
-            bool,
-            Tensor[int],
-            Tensor[float],
-            Tensor[bool],
-        }
-
-        possible_arg_types: set[tuple[type | GenericAlias, ...]] = set(
-            product(output_args, *input_args)
-        )
-
-        available_possible_types = all_possible_types & reduce(
-            lambda x, y: x | y, input_args
-        )
-        possible_type_set: set[tuple[type | GenericAlias, ...]] = set()
-        for sample_types in combinations_with_replacement(
-            available_possible_types, len(input_args)
-        ):
-            has_tensor = False
-            all_value_types: list[type[int] | type[float] | type[bool]] = []
-
-            for sample_type in sample_types:
-                if is_generic_alias_type(sample_type):
-                    # extract built-in type from Tensor type
-                    all_value_types.append(sample_type.__args__[0])
-                    has_tensor = True
-                else:
-                    all_value_types.append(sample_type)  # type: ignore
-
-            if (
-                has_tensor
-                and all(typ is bool for typ in all_value_types)
-                and not is_bitwise
-            ):
-                # handle edge case occured in some operations.
-
-                # bool + bool -> int (Python)
-                # Tensor[bool] + Tensor[bool] = Tensor[bool] (backends, (e.g. NumPy))
-
-                out_type: type = Tensor[bool]
-            else:
-                values = [type_map[typ] for typ in all_value_types]
-                out_type = type(operation(*values))
-                out_type = Tensor[out_type] if has_tensor else out_type  # type: ignore
-
-            possible_type_set.update(
-                (out_type,) + p for p in permutations(sample_types)
-            )
-
-        return possible_arg_types & possible_type_set
-
-    def process_list_types(
-        left_args: set[type | GenericAlias],
-        right_args: set[type | GenericAlias],
-        output_args: set[type | GenericAlias],
-    ) -> set[tuple[type | GenericAlias, ...]]:
-        # TODO: Implement this function
-        return set(product(left_args, right_args, output_args))
-
-    def process_tuple_types(
-        left_args: set[type | GenericAlias],
-        right_args: set[type | GenericAlias],
-        output_args: set[type | GenericAlias],
-    ) -> set[tuple[type | GenericAlias, ...]]:
-        # TODO: Implement this function
-        return set(product(left_args, right_args, output_args))
-
     updates = Updates()
     all_output_types: set[tuple[type | GenericAlias, ...]] = set()
 
     args: list[Any] = []
 
-    if fn is None:
-
-        def fn[T](x: T) -> T:
-            return x
-
     for key in keys:
         key_type = unsquash_tensor_types(key._type)
         key_args = key_type.__args__ if is_union_type(key_type) else (key_type,)
-        key_types = {arg for arg in key_args if is_tensor_value_type(arg)}
+        key_types = {
+            arg for arg in key_args if is_tensor_type(arg) or arg in (int, float, bool)
+        }
         args.append(key_types)
 
     all_output_types |= process_tensor_op_types(fn, is_bitwise, *args)
 
     for result, key in zip(zip(*all_output_types, strict=False), keys, strict=False):
-        res_type = reduce(lambda x, y: x | y, result)
+        res_type = reduce(or_, result)
         res_type = squash_tensor_types(res_type)
         updates |= key.set_type(res_type)
 
@@ -4069,7 +4061,7 @@ def buffer_constraint(output: IOHyperEdge, input: IOHyperEdge) -> ConstrainResul
             )
             updates |= non_typed.set_type(typed.edge_type)
             updates |= non_typed.set_value(typed._value)
-            if typed.value is not TBD:
+            if typed.is_tensor or typed.value is not TBD:
                 status = True
         else:
             # both are not polymorphic

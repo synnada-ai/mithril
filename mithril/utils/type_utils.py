@@ -14,11 +14,10 @@
 from __future__ import annotations
 
 from types import EllipsisType, GenericAlias, UnionType
-from typing import (  # type: ignore
+from typing import (
     Any,
     TypeGuard,
     Union,
-    _GenericAlias,
     get_origin,
 )
 
@@ -96,13 +95,16 @@ def is_index_type(
     )
 
 
-def is_generic_alias_type(
-    typ: Any,
-) -> TypeGuard[GenericAlias]:
-    return type(typ) in (GenericAlias, _GenericAlias)
-
-
 def is_union_type(
     type: Any,
 ) -> TypeGuard[UnionType]:
     return (get_origin(type)) in (Union, UnionType)
+
+
+def is_generic_alias_type(
+    typ: Any,
+) -> TypeGuard[GenericAlias]:
+    true_generic_alias = type(typ) is GenericAlias
+    not_union = not is_union_type(typ)
+    is_origin_single_type = type(get_origin(typ)) is type
+    return true_generic_alias or (not_union and is_origin_single_type)

@@ -1145,8 +1145,8 @@ def test_init_shape_constraints_2():
             add_model_1.left: [],
             add_model_1.right: [],
             add_model_1.output: [],
-            buff.input: [2],
-            relu.input: [1, 2],
+            buff.input: [],
+            relu.input: [1],
             relu.output: [1],
         }
     )
@@ -1157,9 +1157,8 @@ def test_init_shape_constraints_2():
         {
             add_model_1.left: [],
             add_model_1.right: [],
-            # add_model_1.output: [1],
-            buff.input: [2],
-            relu.input: [1, 2],
+            buff.input: [],
+            relu.input: [1],
             relu.output: [1],
         }
     )
