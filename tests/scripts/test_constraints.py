@@ -16,7 +16,7 @@ from collections.abc import Callable, Mapping
 from copy import deepcopy
 from functools import partial
 from types import EllipsisType, NoneType, UnionType
-from typing import Any, TypeGuard, Sequence
+from typing import Any, TypeGuard
 
 import numpy as np
 import pytest
@@ -35,12 +35,10 @@ from mithril.framework.common import (
     TensorToListType,
     ToBeDetermined,
     Uniadic,
-    UniadicRecord,
     Updates,
     UpdateType,
     Variadic,
     create_shape_repr,
-    get_tensors,
 )
 from mithril.framework.constraints import (
     arange_constraints,
@@ -80,7 +78,14 @@ from mithril.framework.constraints import (
     where_constrains,
 )
 
-from .test_utils import check_shapes_semantically
+# from mithril.utils.utils import get_specific_types_from_value
+# from .test_utils import check_shapes_semantically
+from .test_utils import (
+    AssignmentType,
+    VariadicPossiblesType,
+    VariadicTemplateType,
+    assert_shape_results,
+)
 
 
 def is_type_checker(
@@ -107,21 +112,21 @@ def is_shape_checker(
 
 ######################### Helper Functions #########################
 
-VariadicPossiblesType = (
-    list[tuple[int, ...]] | list[tuple[str, ...]] | list[tuple[int | str, ...]]
-)
-VariadicTemplateType = tuple[str, EllipsisType]
+# VariadicPossiblesType = (
+#     list[tuple[int, ...]] | list[tuple[str, ...]] | list[tuple[int | str, ...]]
+# )
+# VariadicTemplateType = tuple[str, EllipsisType]
 
-AssignmentType = (
-    Mapping[str, set[int]]
-    # | dict[tuple[str, EllipsisType], list[tuple[int | str, ...]]]
-    # | dict[tuple[str, EllipsisType], list[tuple[int, ...]]]
-    # | dict[tuple[str, EllipsisType], list[tuple[str, ...]]]
-    | Mapping[VariadicTemplateType, VariadicPossiblesType]
-    | Mapping[VariadicTemplateType, set[int]]
-    | Mapping[str, VariadicPossiblesType]
-    | Mapping[str | VariadicTemplateType, set[int] | VariadicPossiblesType]
-)
+# AssignmentType = (
+#     Mapping[str, set[int]]
+#     # | dict[tuple[str, EllipsisType], list[tuple[int | str, ...]]]
+#     # | dict[tuple[str, EllipsisType], list[tuple[int, ...]]]
+#     # | dict[tuple[str, EllipsisType], list[tuple[str, ...]]]
+#     | Mapping[VariadicTemplateType, VariadicPossiblesType]
+#     | Mapping[VariadicTemplateType, set[int]]
+#     | Mapping[str, VariadicPossiblesType]
+#     | Mapping[str | VariadicTemplateType, set[int] | VariadicPossiblesType]
+# )
 
 
 def shape_map_to_edge(
@@ -177,94 +182,17 @@ def variadic_update_values(
     var_symbol.update_possible_values(*all_assignments)
 
 
-def extract_uniadic_possibles(
-    uni: Uniadic,
-    assignments: AssignmentType,
-    uni_cache: dict[UniadicRecord, str],
-) -> None:
-    # Takes an uniadic object and fills the assignments dictionary
-    # based on possible values of the uniadic object.
-    if (uni_str := uni_cache.get(uni.metadata)) is None:
-        uni_str = uni_cache[uni.metadata] = f"u{len(uni_cache) + 1}"
-    if uni.possible_values is not None and len(uni.possible_values) > 1:
-        assignments[uni_str] = uni.possible_values  # type: ignore
-
-
-def extract_variadic_possibles(
-    var: Variadic,
-    assignments: AssignmentType,
-    uni_cache: dict[UniadicRecord, str],
-    var_cache: dict[Variadic, str],
-) -> None:
-    assert var.possibles is not None
-    all_possible_values: dict[int, PossibleValues] = var.possibles
-    possibles_list: list[tuple] = []
-    for possible_values in all_possible_values.values():
-        single_possible_list: list[int] | list[str] | list[int | str] = []
-        for uni in possible_values.uniadics:
-            if isinstance(uni.value, int):
-                single_possible_list.append(uni.value)  # type: ignore
-            else:
-                if (uni_str := uni_cache.get(uni.metadata)) is None:
-                    uni_str = uni_cache[uni.metadata] = f"u{len(uni_cache) + 1}"
-                single_possible_list.append(uni_str)  # type: ignore
-                if uni.possible_values is not None and len(uni.possible_values) > 1:
-                    assignments[uni_str] = uni.possible_values  # type: ignore
-        possibles_list.append(tuple(single_possible_list))
-    assignments[(var_cache[var], ...)] = possibles_list  # type: ignore
-
-
-def assert_shape_results(
-    data: dict[str, IOHyperEdge],
-    ref_results: ShapeResultType,
-    ref_assignments: AssignmentType,
-    updated_symbols: Updates,
-    expected_updates: set[str | Tensor],
-) -> None:
-    # First check shape updates with the expected updates.
-
-    updated_items = set()
-    for key in expected_updates:
-        if isinstance(key, str):
-            updated_items.add(data[key]._value if data[key].is_tensor else data[key])
-        elif isinstance(key, Tensor):
-            updated_items.add(key)
-        else:
-            raise ValueError(f"Unexpected update type: {type(key)}")
-    assert updated_items == updated_symbols.shape_updates | updated_symbols.value_updates
-    # Then check final shapes with the expected ref_results.
-    uni_cache: dict[UniadicRecord, str] = {}
-    var_cache: dict[Variadic, str] = {}
-    shapes: dict[str, Sequence[Any]] = {}
-    assignments: AssignmentType = {}
-    for key, value in data.items():
-        if not (value.is_tensor or value.differentiable):
-            shapes[key] = []
-        else:
-            tensors = get_tensors(value._value)
-            shapes[key] = tuple(tensor.shape.get_shapes(uni_cache, var_cache, verbose=True) for tensor in tensors)
-            for tensor in tensors:
-                shape_repr = tensor._temp_shape
-                assert shape_repr is not None
-                all_repr_unis: set[Uniadic] = {*shape_repr.prefix, *shape_repr.suffix}
-                for uni in all_repr_unis:
-                    extract_uniadic_possibles(uni, assignments, uni_cache)
-                if (root := shape_repr.root) is not None and root.possibles is not None:
-                    extract_variadic_possibles(root, assignments, uni_cache, var_cache)
-
-    check_shapes_semantically(shapes, ref_results, assignments, ref_assignments)
-
-
 def assert_type_results(
     data: dict[str, IOHyperEdge],
     ref_results: dict[str, type],
     updated_symbols: Updates,
-    expected_updates: set[str | Tensor],
+    expected_updates: set[str | Tensor] | set[str] | set[Tensor],
 ) -> None:
     # First check type updates with the expected updates.
     updated_constraints = set()
     for key in expected_updates:
-        updated_constraints |= data[key].constraints[UpdateType.TYPE]
+        if isinstance(key, str):
+            updated_constraints |= data[key].constraints[UpdateType.TYPE]
     assert updated_constraints == {
         constr
         for constr in updated_symbols.constraints
@@ -297,7 +225,7 @@ def make_assertions(
     ref_results: dict[str, type] | ShapeResultType,
     ref_assignments: AssignmentType,
     updated_symbols: Updates,
-    expected_updates: set[str | Tensor],
+    expected_updates: set[str | Tensor] | set[str] | set[Tensor],
     final_values: dict[str, Any],
 ) -> None:
     # Check final shapes with the expected ref_shapes. Also check updated symbols.
@@ -322,7 +250,7 @@ def assert_constraint_results(
     ref_assignments: AssignmentType,
     constraint_fn: Callable,
     expected_status: bool,
-    expected_updates: set[str | Tensor],
+    expected_updates: set[str | Tensor] | set[str] | set[Tensor],
     given_data: Mapping[str, IOHyperEdge] | None = None,
     final_values: dict[str, Any] | None = None,
     initial_values: dict[str, Any] | None = None,
@@ -354,7 +282,7 @@ def _assert_constraint_results(
     ref_assignments: AssignmentType,
     constraint_fn: Callable,
     expected_status: bool,
-    expected_updates: set[str | Tensor],
+    expected_updates: set[str | Tensor] | set[str] | set[Tensor],
     given_data: Mapping[str, IOHyperEdge] | None = None,
     final_values: dict[str, Any] | None = None,
     initial_values: dict[str, Any] | None = None,
@@ -4718,8 +4646,40 @@ def test_reverse_4():
 
 ############# CONCAT #############
 
+
 def test_concat_1():
-    """Should work with no problem"""
+    """
+    Test the concatenation of tensors with varying shapes and dimensions.
+
+    This test verifies the behavior of the concatenation operation when applied to
+    tensors with different shapes and dimensions. It ensures that the final shapes
+    of the tensors match the expected output after concatenation.
+
+    Axis: 1
+
+    Initial shapes:
+    - output: ["u1", "u2", "u3", "u4"]
+    - axis: []
+    - input: [
+        ["u1", "u2", "u3", 3],
+        ["u1", "u2", "u3", 4],
+        ["u1", "u2", "u3", 5]
+    ]
+
+    Final shapes:
+    - output: ["u1", "u2", "u3", 12]
+    - axis: []
+    - input: [
+        ["u1", "u2", "u3", 3],
+        ["u1", "u2", "u3", 4],
+        ["u1", "u2", "u3", 5]
+    ]
+
+    The test creates input tensors with specified shapes and concatenates them
+    along a given axis. It then asserts that the resulting shapes match the
+    expected final shapes.
+
+    """
     shapes: dict[str, list[int | str | tuple]] = {
         "output": ["u1", "u2", "u3", "u4"],
     }
@@ -4730,25 +4690,25 @@ def test_concat_1():
             ["u1", "u2", "u3", 3],
             ["u1", "u2", "u3", 4],
             ["u1", "u2", "u3", 5],
-        )
+        ),
     }
-    # Create input tensors.
+    # Create input tensors.
     u1 = Uniadic()
     u2 = Uniadic()
     u3 = Uniadic()
     node1 = (repr1 := ShapeRepr([u1, u2, u3, Uniadic(3)])).node
-    tensor1: Tensor[int | float | bool] = Tensor(shape=node1)
+    tensor1: Tensor[int | float | bool] = Tensor(shape=node1, differentiable=True)
     tensor1._temp_shape = repr1
     node2 = (repr2 := ShapeRepr([u1, u2, u3, Uniadic(4)])).node
-    tensor2: Tensor[int | float | bool] = Tensor(shape=node2)
+    tensor2: Tensor[int | float | bool] = Tensor(shape=node2, differentiable=True)
     tensor2._temp_shape = repr2
     node3 = (repr3 := ShapeRepr([u1, u2, u3, Uniadic(5)])).node
-    tensor3: Tensor[int | float | bool] = Tensor(shape=node3)
+    tensor3: Tensor[int | float | bool] = Tensor(shape=node3, differentiable=True)
     tensor3._temp_shape = repr3
     given_data = {
         "input": IOHyperEdge(value=[tensor1, tensor2, tensor3]),
-        "axis": IOHyperEdge(value=-1)
-        }
+        "axis": IOHyperEdge(value=-1),
+    }
     assert_constraint_results(
         shapes,
         {},
@@ -4763,6 +4723,30 @@ def test_concat_1():
 
 
 def test_concat_3():
+    """
+    Test the concatenation of tensors with varying shapes and dimensions.
+
+    This test verifies the behavior of the concatenation operation when applied to
+    tensors with different shapes and dimensions. It ensures that the final shapes
+    of the tensors match the expected output after concatenation.
+
+    Axis: -1
+
+    Initial shapes:
+    - output: ["u3"]
+    - axis: []
+    - input: [[3], [3], [1]]
+
+    Final shapes:
+    - output: [7]
+    - axis: []
+    - input: [[3], [3], [1]]
+
+    The test creates input tensors with specified shapes and concatenates them
+    along a given axis. It then asserts that the resulting shapes match the
+    expected final shapes.
+
+    """
     shapes: dict[str, list[int | str | tuple]] = {
         "output": ["u3"],
     }
@@ -4771,21 +4755,21 @@ def test_concat_3():
         "axis": [],
         "input": ([3], [3], [1]),
     }
-    # Create input tensors.
+    # Create input tensors.
     u1 = Uniadic(3)
     u2 = Uniadic(1)
     node1 = (repr1 := ShapeRepr([u1])).node
-    tensor1: Tensor[int | float | bool] = Tensor(shape=node1)
+    tensor1: Tensor[int | float | bool] = Tensor(shape=node1, differentiable=True)
     tensor1._temp_shape = repr1
     node2 = (repr2 := ShapeRepr([u1])).node
-    tensor2: Tensor[int | float | bool] = Tensor(shape=node2)
+    tensor2: Tensor[int | float | bool] = Tensor(shape=node2, differentiable=True)
     tensor2._temp_shape = repr2
     node3 = (repr3 := ShapeRepr([u2])).node
-    tensor3: Tensor[int | float | bool] = Tensor(shape=node3)
+    tensor3: Tensor[int | float | bool] = Tensor(shape=node3, differentiable=True)
     tensor3._temp_shape = repr3
     given_data = {
         "input": IOHyperEdge(value=[tensor1, tensor2, tensor3]),
-        "axis": IOHyperEdge(value=-1)
+        "axis": IOHyperEdge(value=-1),
     }
     assert_constraint_results(
         shapes,
@@ -4804,16 +4788,18 @@ def test_concat_4():
     """
     Test the concatenation of tensors with varying shapes and dimensions.
 
-    This test verifies the behavior of the concatenation operation when applied to tensors
-    with different shapes and dimensions. It ensures that the final shapes of the tensors
-    match the expected output after concatenation.
+    This test verifies the behavior of the concatenation operation when applied to
+    tensors with different shapes and dimensions. It ensures that the final shapes
+    of the tensors match the expected output after concatenation.
+
+    Axis: -2
 
     Initial shapes:
     - output: [("Var1", ...), 12, "u2"]
     - axis: []
     - input: [
-        [("Var1", ...), 9, "u2"], 
-        [("Var1", ...), 2, "u2"], 
+        [("Var1", ...), 9, "u2"],
+        [("Var1", ...), 2, "u2"],
         [("Var1", ...), "u1", "u2"]
     ]
 
@@ -4821,26 +4807,27 @@ def test_concat_4():
     - output: ["(Var1, ...)", 12, "u1"]
     - axis: []
     - input: [
-        [("Var1", ...), 9, "u2"], 
-        [("Var1", ...), 2, "u2"], 
+        [("Var1", ...), 9, "u2"],
+        [("Var1", ...), 2, "u2"],
         [("Var1", ...), 1, "u2"]
     ]
 
-    The test creates input tensors with specified shapes and concatenates them along a given axis.
-    It then asserts that the resulting shapes match the expected final shapes.
+    The test creates input tensors with specified shapes and concatenates them
+    along a given axis. It then asserts that the resulting shapes match the
+    expected final shapes.
 
     """
     final_shapes = {
         "output": ["(Var1, ...)", 12, "u1"],
         "axis": [],
         "input": (
-            ["(Var1, ...)", 9, "u1"], 
-            ["(Var1, ...)", 2, "u1"], 
-            ["(Var1, ...)", 1, "u1"]
-        )
+            ["(Var1, ...)", 9, "u1"],
+            ["(Var1, ...)", 2, "u1"],
+            ["(Var1, ...)", 1, "u1"],
+        ),
     }
 
-    # Create input tensors.
+    # Create input tensors.
     u1 = Uniadic(9)
     u2 = Uniadic(2)
     u3 = Uniadic(12)
@@ -4848,13 +4835,13 @@ def test_concat_4():
     u5 = Uniadic()
     var = Variadic()
     node1 = (repr1 := ShapeRepr(root=var, suffix=[u1, u4])).node
-    tensor1: Tensor[int | float | bool] = Tensor(shape=node1)
+    tensor1: Tensor[int | float | bool] = Tensor(shape=node1, differentiable=True)
     tensor1._temp_shape = repr1
     node2 = (repr2 := ShapeRepr(root=var, suffix=[u2, u4])).node
-    tensor2: Tensor[int | float | bool] = Tensor(shape=node2)
+    tensor2: Tensor[int | float | bool] = Tensor(shape=node2, differentiable=True)
     tensor2._temp_shape = repr2
     node3 = (repr3 := ShapeRepr(root=var, suffix=[u5, u4])).node
-    tensor3: Tensor[int | float | bool] = Tensor(shape=node3)
+    tensor3: Tensor[int | float | bool] = Tensor(shape=node3, differentiable=True)
     tensor3._temp_shape = repr3
     out_node = (repr4 := ShapeRepr(root=var, suffix=[u3, u4])).node
     out_tensor: Tensor[int | float | bool] = Tensor(shape=out_node)
@@ -4862,7 +4849,7 @@ def test_concat_4():
     given_data = {
         "output": IOHyperEdge(value=out_tensor),
         "input": IOHyperEdge(value=[tensor1, tensor2, tensor3]),
-        "axis": IOHyperEdge(value=-2)
+        "axis": IOHyperEdge(value=-2),
     }
     assert_constraint_results(
         {},
@@ -4881,62 +4868,58 @@ def test_concat_5():
     """
     Test the concatenation of tensors with varying shapes and dimensions.
 
-    This test verifies the behavior of the concatenation operation when applied to tensors
-    with different shapes and dimensions. It ensures that the final shapes of the tensors
-    match the expected output after concatenation.
+    This test verifies the behavior of the concatenation operation when applied to
+    tensors with different shapes and dimensions. It ensures that the final shapes
+    of the tensors match the expected output after concatenation.
+
+    Axis: -4
 
     Initial shapes:
-    - output: [("Var4", ...)]
+    - output: [("Var1", ...)]
     - axis: []
     - input: [
-        [("Var1", ...)], 
-        [("Var2", ...)], 
-        [("Var3", ...)]
+        [("Var2", ...)],
+        [("Var3", ...)],
+        [("Var4", ...)]
     ]
 
-    The test creates input tensors with specified shapes and concatenates them along a given axis.
-    It then asserts that the resulting shapes match the expected final shapes.
+    Final shapes:
+    - output: ["(V1, ...)", "x", "b", "c", "d"]
+    - axis: []
+    - input: [
+        ["(V1, ...)", "y", "b", "c", "d"],
+        ["(V1, ...)", "z", "b", "c", "d"],
+        ["(V1, ...)", "t", "b", "c", "d"]
+    ]
+
+    The test creates input tensors with specified shapes and concatenates them
+    along a given axis. It then asserts that the resulting shapes match the
+    expected final shapes.
 
     """
-    
-    # shapes: dict[str, list[int | str | tuple]] = {
-    #     "output": [("Var1", ...)],
-    #     "axis": [],
-    #     "input1": [("Var2", ...)],
-    #     "input2": [("Var3", ...)],
-    #     "input3": [("Var4", ...)],
-    # }
-    # final_shapes = {
-    #     "output": ["(V1, ...)", "x", "b", "c", "d"],
-    #     "axis": [],
-    #     "input1": ["(V1, ...)", "y", "b", "c", "d"],
-    #     "input2": ["(V1, ...)", "z", "b", "c", "d"],
-    #     "input3": ["(V1, ...)", "t", "b", "c", "d"],
-    # }
-
     final_shapes = {
         "output": ["(V1, ...)", "x", "b", "c", "d"],
         "axis": [],
         "input": (
-            ["(V1, ...)", "y", "b", "c", "d"], 
-            ["(V1, ...)", "z", "b", "c", "d"], 
-            ["(V1, ...)", "t", "b", "c", "d"]
+            ["(V1, ...)", "y", "b", "c", "d"],
+            ["(V1, ...)", "z", "b", "c", "d"],
+            ["(V1, ...)", "t", "b", "c", "d"],
         ),
     }
 
-    # Create input tensors.
+    # Create input tensors.
     var1 = Variadic()
     var2 = Variadic()
     var3 = Variadic()
     var4 = Variadic()
     node1 = (repr1 := ShapeRepr(root=var1)).node
-    tensor1: Tensor[int | float | bool] = Tensor(shape=node1)
+    tensor1: Tensor[int | float | bool] = Tensor(shape=node1, differentiable=True)
     tensor1._temp_shape = repr1
     node2 = (repr2 := ShapeRepr(root=var2)).node
-    tensor2: Tensor[int | float | bool] = Tensor(shape=node2)
+    tensor2: Tensor[int | float | bool] = Tensor(shape=node2, differentiable=True)
     tensor2._temp_shape = repr2
     node3 = (repr3 := ShapeRepr(root=var3)).node
-    tensor3: Tensor[int | float | bool] = Tensor(shape=node3)
+    tensor3: Tensor[int | float | bool] = Tensor(shape=node3, differentiable=True)
     tensor3._temp_shape = repr3
     out_node = (repr4 := ShapeRepr(root=var4)).node
     out_tensor: Tensor[int | float | bool] = Tensor(shape=out_node)
@@ -4944,7 +4927,13 @@ def test_concat_5():
     given_data = {
         "output": IOHyperEdge(value=out_tensor),
         "input": IOHyperEdge(value=[tensor1, tensor2, tensor3]),
-        "axis": IOHyperEdge(value=-4)
+        "axis": IOHyperEdge(value=-4),
+    }
+    expected_updates: set[str | Tensor[int | float | bool]] = {
+        "output",
+        tensor1,
+        tensor2,
+        tensor3,
     }
     assert_constraint_results(
         {},
@@ -4953,42 +4942,63 @@ def test_concat_5():
         {},
         concat_constraints,
         False,
-        {"output", tensor1, tensor2, tensor3},
+        expected_updates,
         given_data,
         variadic_fn=True,
     )
 
 
 def test_concat_6():
-    shapes: dict[str, list[int | str | tuple]] = {
-        "output": [("Var1", ...)],
-        "axis": [],
-        "input1": [("Var2", ...)],
-        "input2": [("Var3", ...)],
-        "input3": [("Var4", ...)],
-    }
+    """
+    Test the concatenation of tensors with varying shapes and dimensions.
+
+    This test verifies the behavior of the concatenation operation when applied to
+    tensors with different shapes and dimensions. It ensures that the final shapes
+    of the tensors match the expected output after concatenation.
+
+    Axis: None
+
+    Initial shapes:
+    - output: [("Var1", ...)]
+    - axis: []
+    - input: [
+        [("Var2", ...)],
+        [("Var3", ...)],
+        [("Var4", ...)]
+    ]
+
+    Final shapes:
+    - output: ["a"]
+    - axis: []
+    - input: [
+        ["(Var2, ...)"],
+        ["(Var3, ...)"],
+        ["(Var4, ...)"]
+    ]
+
+    The test creates input tensors with specified shapes and concatenates them
+    along a given axis. It then asserts that the resulting shapes match the
+    expected final shapes.
+
+    """
     final_shapes = {
         "output": ["a"],
         "axis": [],
-        "input": (
-            ["(Var2, ...)"], 
-            ["(Var3, ...)"], 
-            ["(Var4, ...)"]
-        ),
+        "input": (["(Var2, ...)"], ["(Var3, ...)"], ["(Var4, ...)"]),
     }
-    # Create input tensors.
+    # Create input tensors.
     var1 = Variadic()
     var2 = Variadic()
     var3 = Variadic()
     var4 = Variadic()
     node1 = (repr1 := ShapeRepr(root=var1)).node
-    tensor1: Tensor[int | float | bool] = Tensor(shape=node1)
+    tensor1: Tensor[int | float | bool] = Tensor(shape=node1, differentiable=True)
     tensor1._temp_shape = repr1
     node2 = (repr2 := ShapeRepr(root=var2)).node
-    tensor2: Tensor[int | float | bool] = Tensor(shape=node2)
+    tensor2: Tensor[int | float | bool] = Tensor(shape=node2, differentiable=True)
     tensor2._temp_shape = repr2
     node3 = (repr3 := ShapeRepr(root=var3)).node
-    tensor3: Tensor[int | float | bool] = Tensor(shape=node3)
+    tensor3: Tensor[int | float | bool] = Tensor(shape=node3, differentiable=True)
     tensor3._temp_shape = repr3
     out_node = (repr4 := ShapeRepr(root=var4)).node
     out_tensor: Tensor[int | float | bool] = Tensor(shape=out_node)
@@ -4996,7 +5006,7 @@ def test_concat_6():
     given_data = {
         "output": IOHyperEdge(value=out_tensor),
         "input": IOHyperEdge(value=[tensor1, tensor2, tensor3]),
-        "axis": IOHyperEdge(value=None)
+        "axis": IOHyperEdge(value=None),
     }
     assert_constraint_results(
         {},
@@ -5012,23 +5022,44 @@ def test_concat_6():
 
 
 def test_concat_7():
-    shapes: dict[str, list[int | str | tuple]] = {
-        "output": ["u1"],
-        "axis": [],
-        "input1": [2, 3, 4],
-        "input2": [6, 7, 8, 9],
-        "input3": [2, 1, 1, 2, 3, 4],
-    }
+    """
+    Test the concatenation of tensors with varying shapes and dimensions.
+
+    This test verifies the behavior of the concatenation operation when applied to
+    tensors with different shapes and dimensions. It ensures that the final shapes
+    of the tensors match the expected output after concatenation.
+
+    Axis: None
+
+    Initial shapes:
+    - output: ["u1"]
+    - axis: []
+    - input: [
+        [2, 3, 4],
+        [6, 7, 8, 9],
+        [2, 1, 1, 2, 3, 4]
+    ]
+
+    Final shapes:
+    - output: [3096]
+    - axis: []
+    - input: [
+        [2, 3, 4],
+        [6, 7, 8, 9],
+        [2, 1, 1, 2, 3, 4]
+    ]
+
+    The test creates input tensors with specified shapes and concatenates them
+    along a given axis. It then asserts that the resulting shapes match the
+    expected final shapes.
+
+    """
     final_shapes = {
         "output": [3096],
         "axis": [],
-        "input": (
-            [2, 3, 4], 
-            [6, 7, 8, 9], 
-            [2, 1, 1, 2, 3, 4]
-        ),
+        "input": ([2, 3, 4], [6, 7, 8, 9], [2, 1, 1, 2, 3, 4]),
     }
-    # Create input tensors.
+    # Create input tensors.
     uni1 = Uniadic(1)
     uni2 = Uniadic(2)
     uni3 = Uniadic(3)
@@ -5039,13 +5070,13 @@ def test_concat_7():
     uni9 = Uniadic(9)
     uni = Uniadic()
     node1 = (repr1 := ShapeRepr([uni2, uni3, uni4])).node
-    tensor1: Tensor[int | float | bool] = Tensor(shape=node1)
+    tensor1: Tensor[int | float | bool] = Tensor(shape=node1, differentiable=True)
     tensor1._temp_shape = repr1
     node2 = (repr2 := ShapeRepr([uni6, uni7, uni8, uni9])).node
-    tensor2: Tensor[int | float | bool] = Tensor(shape=node2)
+    tensor2: Tensor[int | float | bool] = Tensor(shape=node2, differentiable=True)
     tensor2._temp_shape = repr2
     node3 = (repr3 := ShapeRepr([uni2, uni1, uni1, uni2, uni3, uni4])).node
-    tensor3: Tensor[int | float | bool] = Tensor(shape=node3)
+    tensor3: Tensor[int | float | bool] = Tensor(shape=node3, differentiable=True)
     tensor3._temp_shape = repr3
     out_node = (repr4 := ShapeRepr([uni])).node
     out_tensor: Tensor[int | float | bool] = Tensor(shape=out_node)
@@ -5053,7 +5084,7 @@ def test_concat_7():
     given_data = {
         "output": IOHyperEdge(value=out_tensor),
         "input": IOHyperEdge(value=[tensor1, tensor2, tensor3]),
-        "axis": IOHyperEdge(value=None)
+        "axis": IOHyperEdge(value=None),
     }
     assert_constraint_results(
         {},
@@ -5069,23 +5100,44 @@ def test_concat_7():
 
 
 def test_concat_8():
-    shapes: dict[str, list[int | str | tuple]] = {
-        "output": [3096],
-        "axis": [],
-        "input1": [2, 3, 4],
-        "input2": [6, 7, 8, "u1"],
-        "input3": [2, 1, 1, 2, 3, 4],
-    }
+    """
+    Test the concatenation of tensors with varying shapes and dimensions.
+
+    This test verifies the behavior of the concatenation operation when applied to
+    tensors with different shapes and dimensions. It ensures that the final shapes
+    of the tensors match the expected output after concatenation.
+
+    Axis: None
+
+    Initial shapes:
+    - output: [3096]
+    - axis: []
+    - input: [
+        [2, 3, 4],
+        [6, 7, 8, "u1"],
+        [2, 1, 1, 2, 3, 4]
+    ]
+
+    Final shapes:
+    - output: [3096]
+    - axis: []
+    - input: [
+        [2, 3, 4],
+        [6, 7, 8, 9],
+        [2, 1, 1, 2, 3, 4]
+    ]
+
+    The test creates input tensors with specified shapes and concatenates them
+    along a given axis. It then asserts that the resulting shapes match the
+    expected final shapes.
+
+    """
     final_shapes = {
         "output": [3096],
         "axis": [],
-        "input": (
-            [2, 3, 4],
-            [6, 7, 8, 9],
-            [2, 1, 1, 2, 3, 4]
-        ),
+        "input": ([2, 3, 4], [6, 7, 8, 9], [2, 1, 1, 2, 3, 4]),
     }
-    # Create input tensors.
+    # Create input tensors.
     uni1 = Uniadic(1)
     uni2 = Uniadic(2)
     uni3 = Uniadic(3)
@@ -5096,13 +5148,13 @@ def test_concat_8():
     uni3096 = Uniadic(3096)
     uni = Uniadic()
     node1 = (repr1 := ShapeRepr([uni2, uni3, uni4])).node
-    tensor1: Tensor[int | float | bool] = Tensor(shape=node1)
+    tensor1: Tensor[int | float | bool] = Tensor(shape=node1, differentiable=True)
     tensor1._temp_shape = repr1
     node2 = (repr2 := ShapeRepr([uni6, uni7, uni8, uni])).node
-    tensor2: Tensor[int | float | bool] = Tensor(shape=node2)
+    tensor2: Tensor[int | float | bool] = Tensor(shape=node2, differentiable=True)
     tensor2._temp_shape = repr2
     node3 = (repr3 := ShapeRepr([uni2, uni1, uni1, uni2, uni3, uni4])).node
-    tensor3: Tensor[int | float | bool] = Tensor(shape=node3)
+    tensor3: Tensor[int | float | bool] = Tensor(shape=node3, differentiable=True)
     tensor3._temp_shape = repr3
     out_node = (repr4 := ShapeRepr([uni3096])).node
     out_tensor: Tensor[int | float | bool] = Tensor(shape=out_node)
@@ -5110,7 +5162,7 @@ def test_concat_8():
     given_data = {
         "output": IOHyperEdge(value=out_tensor),
         "input": IOHyperEdge(value=[tensor1, tensor2, tensor3]),
-        "axis": IOHyperEdge(value=None)
+        "axis": IOHyperEdge(value=None),
     }
     assert_constraint_results(
         {},
@@ -5126,23 +5178,44 @@ def test_concat_8():
 
 
 def test_concat_9():
-    shapes: dict[str, list[int | str | tuple]] = {
-        "output": [3096],
-        "axis": [],
-        "input1": [2, 3, 4],
-        "input2": [6, 7, 8, 9],
-        "input3": [2, 1, "u1", 2, 3, 4],
-    }
+    """
+    Test the concatenation of tensors with varying shapes and dimensions.
+
+    This test verifies the behavior of the concatenation operation when applied to
+    tensors with different shapes and dimensions. It ensures that the final shapes
+    of the tensors match the expected output after concatenation.
+
+    Axis: None
+
+    Initial shapes:
+    - output: [3096]
+    - axis: []
+    - input: [
+        [2, 3, 4],
+        [6, 7, 8, 9],
+        [2, 1, "u1", 2, 3, 4]
+    ]
+
+    Final shapes:
+    - output: [3096]
+    - axis: []
+    - input: [
+        [2, 3, 4],
+        [6, 7, 8, 9],
+        [2, 1, 1, 2, 3, 4]
+    ]
+
+    The test creates input tensors with specified shapes and concatenates them
+    along a given axis. It then asserts that the resulting shapes match the
+    expected final shapes.
+
+    """
     final_shapes = {
         "output": [3096],
         "axis": [],
-        "input": (
-            [2, 3, 4],
-            [6, 7, 8, 9],
-            [2, 1, 1, 2, 3, 4]
-        ),
+        "input": ([2, 3, 4], [6, 7, 8, 9], [2, 1, 1, 2, 3, 4]),
     }
-    # Create input tensors.
+    # Create input tensors.
     uni1 = Uniadic(1)
     uni2 = Uniadic(2)
     uni3 = Uniadic(3)
@@ -5154,13 +5227,13 @@ def test_concat_9():
     uni3096 = Uniadic(3096)
     uni = Uniadic()
     node1 = (repr1 := ShapeRepr([uni2, uni3, uni4])).node
-    tensor1: Tensor[int | float | bool] = Tensor(shape=node1)
+    tensor1: Tensor[int | float | bool] = Tensor(shape=node1, differentiable=True)
     tensor1._temp_shape = repr1
     node2 = (repr2 := ShapeRepr([uni6, uni7, uni8, uni9])).node
-    tensor2: Tensor[int | float | bool] = Tensor(shape=node2)
+    tensor2: Tensor[int | float | bool] = Tensor(shape=node2, differentiable=True)
     tensor2._temp_shape = repr2
     node3 = (repr3 := ShapeRepr([uni2, uni1, uni, uni2, uni3, uni4])).node
-    tensor3: Tensor[int | float | bool] = Tensor(shape=node3)
+    tensor3: Tensor[int | float | bool] = Tensor(shape=node3, differentiable=True)
     tensor3._temp_shape = repr3
     out_node = (repr4 := ShapeRepr([uni3096])).node
     out_tensor: Tensor[int | float | bool] = Tensor(shape=out_node)
@@ -5168,7 +5241,7 @@ def test_concat_9():
     given_data = {
         "output": IOHyperEdge(value=out_tensor),
         "input": IOHyperEdge(value=[tensor1, tensor2, tensor3]),
-        "axis": IOHyperEdge(value=None)
+        "axis": IOHyperEdge(value=None),
     }
     assert_constraint_results(
         {},

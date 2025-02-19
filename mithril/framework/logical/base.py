@@ -79,7 +79,7 @@ class BaseModel:
         self.assigned_shapes: list[ShapesType] = []
         self.assigned_types: dict[
             str,
-            type | UnionType | ScalarType | Tensor[int | float | bool],
+            type | UnionType | ScalarType | type[Tensor[int | float | bool]],
         ] = {}
         self.assigned_constraints: list[AssignedConstraintType] = []
         self.conns = Connections()
@@ -168,8 +168,12 @@ class BaseModel:
                     "Given connections are both output connections. Multi-write error!"
                 )
 
-        local_val = local_connection.metadata.value
-        global_val = connection.metadata.value
+        local_val = (
+            local_connection.metadata.value
+            if local_connection.metadata.is_valued
+            else TBD
+        )
+        global_val = connection.metadata.value if connection.metadata.is_valued else TBD
 
         if conn_is_output and not local_input:
             # Check if 2 connections are both output of any models.
@@ -231,6 +235,7 @@ class BaseModel:
                     type=connection.type,
                     shape=connection.value_shape,
                     value=connection.value,
+                    differentiable=connection.differentiable,
                 )
 
         return _connection
@@ -250,6 +255,7 @@ class BaseModel:
         d_map = self.dependency_map.local_output_dependency_map
         expose = given_connection.expose
         outer_key = given_connection.name
+
         con_obj = None
         set_value: (
             ToBeDetermined
@@ -346,6 +352,9 @@ class BaseModel:
         assert con_obj is not None
         if not isinstance(set_value, NullConnection):
             updates |= con_obj.metadata.set_value(set_value)
+
+        if given_connection.differentiable:
+            updates |= con_obj.set_differentiability(True)
 
         # Check multi-write error for con_obj.
         self._check_multi_write(is_input, local_connection, con_obj)
@@ -530,11 +539,6 @@ class BaseModel:
         updates = Updates()
 
         shape_info: dict[str, ShapeTemplateType] = {}
-        type_info: dict[
-            str,
-            type | UnionType | ScalarType | type[Tensor[int | float | bool]],
-        ] = {}
-
         submodel_dag: dict[str, ConnectionData] = {}
         updates = self.constraint_solver.match(model.constraint_solver)
 
@@ -1067,6 +1071,27 @@ class BaseModel:
         self.conns.add(con)
         return con
 
+    def _set_differentiability(
+        self, config: dict[str | ConnectionData, bool], **kwargs: bool
+    ) -> None:
+        updates = Updates()
+
+        for key, value in chain(config.items(), kwargs.items()):
+            if isinstance(key, str):
+                if key not in self.conns.all:
+                    raise KeyError(f"Connection {key} is not found in the model.")
+
+                conn_data = self.conns.all[key]
+                updates |= conn_data.set_differentiability(value)
+            elif isinstance(key, ConnectionData):
+                if key not in self.conns.all.values():
+                    raise KeyError(f"Connection {key} is not found in the model.")
+
+                updates |= key.set_differentiability(value)
+
+        model = self._get_outermost_parent()
+        model.constraint_solver(updates)
+
     def _set_shapes(
         self,
         shapes: ShapesType,
@@ -1132,7 +1157,7 @@ class BaseModel:
 
         assigned_types: dict[
             str,
-            type | UnionType | ScalarType | Tensor[int | float | bool],
+            type | UnionType | ScalarType | type[Tensor[int | float | bool]],
         ] = {}
 
         # Get the outermost parent as all the updates will happen here.
@@ -1294,7 +1319,7 @@ class BaseModel:
         for given_conn in connections:
             conn = self.conns.get_extracted_connection(given_conn)
 
-            is_valued = conn.metadata.value is not TBD
+            is_valued = conn.metadata.is_valued
             if conn not in self.dependency_map.local_input_dependency_map:
                 raise ValueError(
                     "To set a connection as canonical input, connection must be an "

@@ -14,12 +14,19 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterator, KeysView, Mapping, Sequence, ValuesView, Iterable
+from collections.abc import (
+    Callable,
+    Iterator,
+    KeysView,
+    Mapping,
+    Sequence,
+    ValuesView,
+)
 from copy import copy, deepcopy
 from dataclasses import dataclass, field
 from enum import Enum
 from functools import partial, reduce
-from itertools import combinations, cycle, product, zip_longest, chain
+from itertools import chain, combinations, cycle, product, zip_longest
 from types import EllipsisType, GenericAlias, UnionType
 from typing import (
     Any,
@@ -41,7 +48,7 @@ from ..core import (
     Dtype,
     constant_type_table,
 )
-from ..utils.utils import PaddingType
+from ..utils.utils import PaddingType, get_specific_types_from_value
 from .utils import (
     align_shapes,
     sort_type,
@@ -927,17 +934,6 @@ def any_differentiable(value: Any) -> bool:
                 return True
     return False
 
-def get_tensors(value: Any) -> list[Tensor[int | float | bool]]:
-    tensors = []
-    if isinstance(value, Tensor):
-        tensors.append(value)
-    elif isinstance(value, list | tuple):
-        for item in value:
-            tensors += get_tensors(item)
-    elif isinstance(value, dict):
-        for val in value.values():
-            tensors += get_tensors(val)
-    return tensors
 
 class Tensor(Generic[TypeVarTensorType]):
     def __init__(
@@ -945,7 +941,7 @@ class Tensor(Generic[TypeVarTensorType]):
         value: TensorValueType | ToBeDetermined = TBD,
         type: _TensorTypes = int | float | bool,
         shape: ShapeNode | None = None,
-        differentiable: bool = True,
+        differentiable: bool = False,
     ):
         if shape is None:
             # If shape is not provided, create a new shape with a Variadic root.
@@ -955,7 +951,9 @@ class Tensor(Generic[TypeVarTensorType]):
         self._temp_shape: ShapeRepr | None = None  # set random repr
         self.type: _TensorTypes = type
         self.referees: set[IOHyperEdge] = set()
-        self.differentiable = differentiable if self.type is float or float in get_args(self.type) else False
+        self.differentiable = differentiable
+        if differentiable:
+            self.set_type(float)
         # Initialize value as TBD and then set if any value is provided.
         self.value: TensorValueType | ToBeDetermined = TBD
         if not isinstance(value, ToBeDetermined):
@@ -982,6 +980,7 @@ class Tensor(Generic[TypeVarTensorType]):
             raise ValueError(
                 f"Value is set before as {self.value}. A value can not be reset."
             )
+
         updates = Updates()
         # Set value.
         if self.value is TBD:
@@ -997,8 +996,8 @@ class Tensor(Generic[TypeVarTensorType]):
                 updates.add(edge, update_type=UpdateType.SHAPE)
                 updates.value_updates.add(edge)
             self.value = val
-            if self.value is not TBD:
-                self.differentiable = False
+
+        self.differentiable = False
         return updates
 
     def match(self, other: Tensor[int | float | bool]) -> Updates:
@@ -1012,6 +1011,11 @@ class Tensor(Generic[TypeVarTensorType]):
                 )
                 assert not isinstance(valued.value, ToBeDetermined)
                 updates |= non_valued.set_value(valued.value)
+                self.differentiable = False
+                other.differentiable = False
+            else:
+                self.differentiable |= other.differentiable
+            # Match shapes.
             updates |= self.match_shapes(other.shape)
             updates.shape_updates.discard(other)
             # Transfer all referees of other to self and update all
@@ -1020,6 +1024,7 @@ class Tensor(Generic[TypeVarTensorType]):
             self.differentiable |= other.differentiable
             # Remove other from referees of shape node.
             self.shape.referees.discard(other)
+
             for edge in other.referees:
                 edge.replace_tensor(other, self)
             other.referees = set()
@@ -1054,7 +1059,7 @@ class IOHyperEdge:
         self.constraints: dict[UpdateType, set[Constraint]] = {
             type: set() for type in UpdateType
         }
-        # self._differentiable: bool = False
+        # self._temp_shape: ShapeRepr | None = None  # set random repr
         self.interval: list[float | int] | None = interval
         # Initially set type and value as not determined yet.
         self._type = ToBeDetermined
@@ -1074,10 +1079,10 @@ class IOHyperEdge:
     @property
     def differentiable(self) -> bool:
         return any_differentiable(self._value)
-    
+
     @property
     def tensors(self) -> set[Tensor[int | float | bool]]:
-        return set(get_tensors(self._value))
+        return set(get_specific_types_from_value(self._value, Tensor))
 
     @property
     def is_polymorphic(self) -> bool:
@@ -1105,7 +1110,12 @@ class IOHyperEdge:
 
     @property
     def is_valued(self) -> bool:
-        return self._value is not TBD
+        tensors = self.tensors
+        return (
+            all(tensor.value is not TBD for tensor in tensors)
+            if tensors
+            else self._value is not TBD
+        )
 
     @property
     def all_constraints(self) -> set[Constraint]:
@@ -1220,9 +1230,6 @@ class IOHyperEdge:
             # Add self as type update, set new type and update differentiability.
             updates.add(self, UpdateType.TYPE)
             self._type = new_type
-            # self.differentiable = (self.value is TBD) and bool(
-            #     find_intersection_type(Tensor[float], self._type)
-            # )
         return updates
 
     def _set_value_recursively(
@@ -1305,9 +1312,8 @@ class IOHyperEdge:
                 updates.value_updates.add(self)
             # Update new type without automatic tensor value creation.
             updates |= self.set_type(_find_type(self._value), create_tensor=False)
-            # self.differentiable = self.value is TBD
             if self.value != TBD:
-                self.set_differentiablity(False)
+                self.set_differentiability(False)
         return updates
 
     def match(self, other: IOHyperEdge) -> Updates:
@@ -1317,13 +1323,12 @@ class IOHyperEdge:
             # TODO: If any valued edge, set_value only since it sets types as well.
             updates |= self.set_type(other._type)
             updates |= other.set_type(self._type)
-            if self.is_valued or other.is_valued:
-                valued, non_valued = (other, self) if other.is_valued else (self, other)
+            if self._value is not TBD or other._value is not TBD:
+                valued, non_valued = (
+                    (other, self) if other._value is not TBD else (self, other)
+                )
                 updates |= non_valued.set_value(valued._value)
-                # updates |= self.set_value(other._value)
-                # if non_valued is other:
                 updates.value_updates.discard(other)
-                # updates.shape_updates.discard(other)
                 IOHyperEdge._discard_edge_from_tensors(other, self._value)
 
         # After modifications done, propagate other constraints into self.
@@ -1331,14 +1336,9 @@ class IOHyperEdge:
             self.constraints[type] |= other.constraints[type]
             other.constraints[type] = set()
 
-        # # Update differentiability.
-        # if isinstance(self._value, Tensor) and self._value.value is TBD:
-        #     is_diff = self.differentiable | other.differentiable
-        #     # TODO: Is it required to set other as well?
-        #     self.differentiable = other.differentiable = is_diff
         return updates
-    
-    def set_differentiablity(self, differentiable: bool) -> None:
+
+    def set_differentiability(self, differentiable: bool) -> None:
         if self.is_tensor:
             assert isinstance(self._value, Tensor)
             self._value.differentiable = differentiable
@@ -1369,6 +1369,7 @@ class BaseKey:
         | ScalarType
         | None = None,
         expose: bool | None = None,
+        differentiable: bool = False,
         interval: list[float | int] | None = None,
         connections: set[ConnectionData | str] | None = None,
     ) -> None:
@@ -1383,6 +1384,9 @@ class BaseKey:
         elif type is Tensor:
             # Convert to generic Tensor type if Tensor type is provided.
             type = Tensor[int | float | bool]
+
+        if differentiable:
+            type = Tensor[float]
 
         self.name = name
         self.expose = expose
@@ -1401,6 +1405,9 @@ class BaseKey:
                 f"Got {shape}."
             )
 
+        if differentiable and value is not TBD:
+            raise ValueError("Scalar values can not be set as differentiable.")
+
         if value is not TBD and type is not None:
             value_type = find_type(value)
             if find_intersection_type(value_type, type) is None:
@@ -1412,6 +1419,7 @@ class BaseKey:
         self.value_shape = shape
         self.type = type
         self.interval = interval
+        self.differentiable = differentiable
 
 
 @dataclass
@@ -1434,15 +1442,16 @@ class ConnectionData:
     def __eq__(self, other: object) -> bool:
         return id(self) == id(other)
 
-    def set_differentiable(self, differentiable: bool = True) -> None:
-        self.metadata.set_differentiablity(differentiable)
-        # # TODO: Move this method to Model class as set_shapes, set_types etc.
-        # if self.metadata.is_tensor:
-        #     self.metadata.differentiable = differentiable
-        # elif differentiable:
-        #     if self.metadata.edge_type is not ToBeDetermined:
-        #         raise ValueError("Scalar data can not be set as differentiable.")
-        #     self.metadata.differentiable = differentiable
+    def set_differentiability(self, differentiable: bool = True) -> Updates:
+        updates = Updates()
+        # TODO: Move this method to Model class as set_shapes, set_types etc.
+        if self.metadata.is_tensor:
+            self.metadata.set_differentiability(differentiable)
+        elif differentiable:
+            updates |= self.metadata.set_type(Tensor[float])
+            self.metadata.set_differentiability(differentiable)
+
+        return updates
 
 
 ShapesType = (
@@ -1586,10 +1595,9 @@ class Connections:
         raise ValueError("No matching key type found!")
 
     def get_non_diff_keys(self) -> set[str]:
-        return {key for key, conn in self.all.items() if conn.metadata.is_non_diff}
-
-    def is_key_non_diff(self, key: str) -> bool:
-        return self.get_data(key).is_non_diff
+        return {
+            key for key, conn in self.all.items() if not conn.metadata.differentiable
+        }
 
     def get_connection(self, key: str) -> ConnectionData | None:
         internals = self._connection_dict[KeyType.INTERNAL]
@@ -2970,7 +2978,9 @@ class Constraint:
         updates = Updates()
         if UpdateType.SHAPE in self.types:
             # tensor_keys = [key for key in keys if key.is_tensor]
-            tensor_keys: list[Tensor[int | float | bool]] = list(chain(*[key.tensors for key in keys]))
+            tensor_keys: list[Tensor[int | float | bool]] = list(
+                chain(*[key.tensors for key in keys])
+            )
             for reprs in product(*[key.shape.reprs for key in tensor_keys]):
                 for idx, repr in enumerate(reprs):
                     tensor_keys[idx]._temp_shape = repr
@@ -3740,4 +3750,3 @@ def is_type_adjustment_required(
     rule2 = issubclass(float, right._value.type) and issubclass(int, left._value.type)
 
     return rule1 | rule2
-

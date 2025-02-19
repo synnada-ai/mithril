@@ -29,9 +29,7 @@ from ..common import (
     ConstraintSolver,
     DataEvalType,
     IOHyperEdge,
-    MainValueInstance,
     MainValueType,
-    Tensor,
     ToBeDetermined,
     Updates,
     UpdateType,
@@ -749,14 +747,10 @@ class FlatGraph(GenericDataType[DataType]):
             ):  # TODO: Is this check really required?
                 updates |= data.set_value(value)
             else:
-                assert not isinstance(value, MainValueInstance | ToBeDetermined)
-                # Find type of tensor and set.
-                val_type = self.data_store._infer_tensor_value_type(value)
-                updates |= data.set_type(Tensor[val_type])  # type: ignore
-                assert data.shape is not None
-                # Find shape of tensor and set.
-                shape = list(value.shape)
-                updates |= data.shape.set_values(shape)
+                # Convert value to logical representaiton and set accordingly.
+                x = self.data_store.convert_phys_value_to_logical(value)
+                updates |= data.set_value(x)
+
             self.cached_data[key] = value  # type: ignore
             self.intermediate_non_differentiables.pop(key, None)
             if (

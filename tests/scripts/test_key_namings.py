@@ -20,20 +20,20 @@ from mithril.framework.common import Tensor
 from mithril.models import (
     Add,
     Buffer,
-    Concat,
     IOKey,
     Linear,
     Model,
     Sigmoid,
     Subtract,
-    TBD,
     ToList,
 )
 
 
 def assert_keys(model, logical_ref, physical_ref, include_internals=False):
     assert logical_ref == model.generate_keys(include_internals=include_internals)
-    pm = mithril.compile(model=model, backend=TorchBackend(), safe_names=False)
+    pm = mithril.compile(
+        model=model, backend=TorchBackend(), safe_names=False, inference=True
+    )
     assert set(pm.input_keys) == set(physical_ref)
 
 
@@ -427,7 +427,7 @@ def test_generate_input_keys_9():
     model_1 = Model()
     con_1 = ToList(n=2)
     con_2 = ToList(n=2)
-    model_1 += con_1(TBD, "input2_0")
+    model_1 += con_1(input2="input2_0")
     model_1 += con_2
     model_2 = deepcopy(model_1)
     model_1 += model_2
@@ -448,7 +448,7 @@ def test_generate_input_keys_10():
     con3 = ToList(n=3)
     model1 += con1
     model1 += con2
-    model1 += con3(model1.cout, "input2_1")
+    model1 += con3(input1=model1.cout, input2="input2_1")
     model2 = deepcopy(model1)
     model3 = deepcopy(model2)
     model4 = deepcopy(model3)

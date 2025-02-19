@@ -49,6 +49,7 @@ from .operator import Operator
 from .operators import (
     AbsoluteOp,
     AddOp,
+    AtLeast1DOp,
     CastOp,
     CosineOp,
     DivideOp,
@@ -377,6 +378,9 @@ class TemplateBase:
     def cos(self) -> ExtendTemplate:
         return ExtendTemplate(connections=[self], model=CosineOp)
 
+    def atleast_1d(self) -> ExtendTemplate:
+        return ExtendTemplate(connections=[self], model=AtLeast1DOp)
+
 
 class Connection(TemplateBase):
     def __init__(self, data: ConnectionData) -> None:
@@ -389,9 +393,6 @@ class Connection(TemplateBase):
     @property
     def metadata(self) -> IOHyperEdge:
         return self.data.metadata
-
-    def set_differentiable(self, differentiable: bool = True) -> None:
-        self.data.set_differentiable(differentiable)
 
     def __hash__(self) -> int:
         return hash(id(self))
@@ -412,6 +413,7 @@ class IOKey(BaseKey, TemplateBase):
         | ScalarType
         | None = None,
         expose: bool | None = None,
+        differantiable: bool = False,
         interval: list[float | int] | None = None,
         connections: set[Connection | str] | None = None,
     ) -> None:
@@ -428,6 +430,7 @@ class IOKey(BaseKey, TemplateBase):
             expose=expose,
             interval=interval,
             connections=_connections,
+            differentiable=differantiable,
         )
 
 
@@ -562,7 +565,8 @@ class Model(BaseModel):
                 types = [ConnectionData, ExtendTemplate, Connection, IOKey]
                 if (
                     isinstance(connection, tuple | list)
-                    and find_dominant_type(connection, False) in types
+                    and find_dominant_type(connection, False, omit_types={Tensor})
+                    in types
                 ):
                     _model = ToTupleOp if isinstance(connection, tuple) else ToListOp
                     et = ExtendTemplate(connection, _model, {"n": len(connection)})
@@ -591,6 +595,7 @@ class Model(BaseModel):
                     type=connection.type,
                     shape=connection.value_shape,
                     value=connection.value,
+                    differentiable=connection.differentiable,
                 )
             case _:
                 _connection = connection  # type: ignore
@@ -724,6 +729,18 @@ class Model(BaseModel):
         | Mapping[str, ShapeTemplateType]
         | Mapping[Connection, ShapeTemplateType]
     )
+
+    def set_differentiability(
+        self, config: dict[str | Connection, bool] | None = None, **kwargs: bool
+    ) -> None:
+        if config is None:
+            config = {}
+
+        _config: dict[str | ConnectionData, bool] = {
+            key.data if isinstance(key, Connection) else key: value
+            for key, value in config.items()
+        }
+        self._set_differentiability(_config, **kwargs)
 
     def set_shapes(
         self, config: ShapeType | None = None, **kwargs: ShapeTemplateType

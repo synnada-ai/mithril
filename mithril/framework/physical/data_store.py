@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections.abc import Sequence
+from functools import reduce
+from types import GenericAlias
 from typing import Any, Generic, TypeGuard
 
 from ...backends.backend import Backend
@@ -71,7 +74,17 @@ class StaticDataStore(Generic[DataType]):
 
     @staticmethod
     def is_scalar_type(t: Any) -> TypeGuard[MainValueType]:
-        return not isinstance(t, tuple(data_types))
+        if isinstance(t, tuple(data_types)):
+            return False
+        elif isinstance(t, list | tuple):
+            return all(StaticDataStore.is_scalar_type(value) for value in t)
+        elif isinstance(t, dict):
+            return all(StaticDataStore.is_scalar_type(value) for value in t.values())
+        return True
+
+    @staticmethod
+    def is_tensor_type(t: Any) -> TypeGuard[DataType]:
+        return isinstance(t, tuple(data_types))
 
     def remove_key_from_store(
         self, key: str, label_as_unused: bool = True, hard_remove: bool = False
@@ -114,14 +127,60 @@ class StaticDataStore(Generic[DataType]):
         for key in transferred_keys:
             self.intermediate_non_differentiables.pop(key)
         return transferred_keys
-    
-    def _convert_to_physical_value(self, data: AllValueType) -> DataType | ScalarValueType | str:
+
+    def find_value_type(
+        self, value: DataType | int | float | bool | Sequence[Any] | dict[str, Any]
+    ) -> type | GenericAlias | type[Tensor[int | float | bool]]:
+        if self.is_tensor_type(value):
+            # Find tensor value type.
+            tensor_type = self._infer_tensor_value_type(value)
+            return Tensor[tensor_type]  # type: ignore
+        elif isinstance(value, list | tuple):
+            result = [self.find_value_type(v) for v in value]
+            if isinstance(value, tuple):
+                return tuple[*result]  # type: ignore
+            else:
+                return list[reduce(lambda x, y: x | y, result)]  # type: ignore
+        elif isinstance(value, dict):
+            value_types = [self.find_value_type(v) for v in value.values()]
+            return dict[str, reduce(lambda x, y: x | y, value_types)]  # type: ignore
+        else:
+            return type(value)
+
+    def convert_phys_value_to_logical(
+        self, value: DataType | int | float | bool | Sequence[Any] | dict[str, Any]
+    ) -> AllValueType | Tensor[int | float | bool]:
+        if self.is_tensor_type(value):
+            # Find tensor value type.
+            tensor_type = self._infer_tensor_value_type(value)
+            tensor_shape = value.shape
+            tensor: Tensor[int | float | bool] = Tensor(type=tensor_type)
+            tensor.shape.set_values(tensor_shape)
+            return tensor
+        elif isinstance(value, list | tuple):
+            result = [self.convert_phys_value_to_logical(v) for v in value]
+            if isinstance(value, tuple):
+                return tuple(result)
+            return result
+        elif isinstance(value, dict):
+            return {k: self.convert_phys_value_to_logical(v) for k, v in value.items()}
+        return value
+
+    def _convert_to_physical_value(
+        self, data: AllValueType
+    ) -> DataType | ScalarValueType | str:
         if isinstance(data, Tensor) and data.value is not TBD:
-            data = self.backend.array(data.value)
+            data = self.backend.array(
+                self._convert_to_physical_value(data.value)
+                if isinstance(data.value, Constant)
+                else data.value
+            )
         elif isinstance(data, Tensor):
             raise ValueError("Tensor value is not set!")
         elif isinstance(data, list | tuple):
-            result: list[Any] | tuple[Any, ...] = [self._convert_to_physical_value(d) for d in data]
+            result: list[Any] | tuple[Any, ...] = [
+                self._convert_to_physical_value(d) for d in data
+            ]
             if isinstance(data, tuple):
                 result = tuple(result)
             data = result

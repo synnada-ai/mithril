@@ -13,8 +13,9 @@
 # limitations under the License.
 
 import itertools
+from collections.abc import Sequence
 from itertools import zip_longest
-from typing import Any, Sequence, TypeVar
+from typing import Any, TypeVar
 
 import numpy as np
 import scipy.linalg as slin
@@ -110,6 +111,7 @@ __all__ = [
     "flatten_grad",
     "minus_grad",
     "to_list_grad",
+    "atleast_1d_grad",
 ]
 
 
@@ -550,7 +552,7 @@ def concat_grad(
     idx: int,
     *inputs: Sequence[np.ndarray[Any, Any]],
     axis: int | None = 0,
-) -> Sequence[np.ndarray[Any, Any]]:
+) -> list[np.ndarray[Any, Any]]:
     input = inputs[0]
     # verify_shapes(input, idx, non_differentiables=[-1])
     # Since last element of args is axis, exclude it from
@@ -562,14 +564,12 @@ def concat_grad(
         constant=True,
         func=calc_input_slices,
     )
-    # key_slice = slices[f"input{idx + 1}"]  # type: ignore
-    # if axis is not None:
-    #     return output_gradient[key_slice]
-    # else:
-    #     return output_gradient[key_slice].reshape(inputs[idx].shape)
-    grad: Sequence[np.ndarray[Any, Any]] = [output_gradient[slices[i]].reshape(input[i].shape) if axis is None else output_gradient[slices[i]] for i in range(len(input))]
-    if isinstance(input, tuple):
-        grad = tuple(grad)
+    grad: list[np.ndarray[Any, Any]] = [
+        output_gradient[slices[i]].reshape(input[i].shape)
+        if axis is None
+        else output_gradient[slices[i]]
+        for i in range(len(input))
+    ]
     return grad
 
 
@@ -1661,6 +1661,7 @@ def zeros_like_grad(
 
 T = TypeVar("T")
 
+
 def to_list_grad(
     output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
@@ -1668,6 +1669,16 @@ def to_list_grad(
     *inputs: T,
 ) -> list[T]:
     return output_gradient[idx]
+
+
+def atleast_1d_grad(
+    output_gradient: np.ndarray[Any, Any],
+    cache: CacheType,
+    idx: int,
+    *inputs: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
+    (input,) = inputs
+    return output_gradient.reshape(input.shape)
 
 
 primitive_grad_func_dict = {key: fn for key, fn in globals().items() if callable(fn)}

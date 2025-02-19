@@ -114,6 +114,7 @@ __all__ = [
     "CosineOp",
     "MinimumOp",
     "MaximumOp",
+    "AtLeast1DOp",
 ]
 
 ConstantType = float | int | core.Constant
@@ -431,7 +432,9 @@ class FloorDivideOp(Operator):
         super().__init__(
             formula_key="floor_divide",
             name=name,
-            output=BaseKey(type=Tensor[int | float] | int | float),
+            output=BaseKey(
+                type=Tensor[int | float] | int | float, differentiable=False
+            ),
             numerator=BaseKey(value=numerator),
             denominator=BaseKey(value=denominator),
         )
@@ -463,6 +466,9 @@ class FloorDivideOp(Operator):
             keys=[Operator.output_key, "numerator", "denominator"],
             dependencies={bcast_constraint},
         )
+
+    def infer_differentiability(self, *inputs: bool) -> bool:
+        return False
 
 
 class MatrixMultiplyOp(Operator):
@@ -1482,4 +1488,21 @@ class CosineOp(SingleInputOperationOp):
             polymorphic_constraint=False,
             input=input,
             output=BaseKey(shape=[("Var", ...)], type=Tensor[float]),
+        )
+
+
+class AtLeast1DOp(SingleInputOperationOp):
+    _model_name: str = "AtLeast1D"
+
+    def __init__(
+        self,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(
+            formula_key="atleast_1d",
+            name=name,
+            input=input,
+            output=BaseKey(shape=[("Var", ...), "d"], type=Tensor[int | float | bool]),
         )

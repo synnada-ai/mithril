@@ -182,7 +182,6 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
 
                 # Create same data structure filled with zeros.
                 gradients[key] = self.fill_zeros(out_data)
-                    
 
             if output_gradients is None:
                 if FinalCost not in self.pm._output_keys:
@@ -213,7 +212,7 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
             grad_fn = partial(evaluate_gradients_wrapper_manualgrad, grad_fn=grad_fn)
 
         return self.post_process_fns(eval_fn, grad_fn, jit)  # type: ignore
-    
+
     def fill_zeros(self, data: Any) -> Any:
         if isinstance(data, np.ndarray):
             return self.backend.zeros_like(data, dtype=self.backend._dtype)
@@ -224,7 +223,7 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
             if isinstance(data, tuple):
                 result = tuple(result)
             return result
-        # Return 0.0 for scalar values.
+        # Return 0.0 for scalar values.
         return 0.0
 
     def get_primitive_details(
@@ -263,9 +262,10 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
         if formula_key in self.backend.array_creation_funcs:
             self.add_partial_function(formula_key)
 
-        if is_make_array_required(
-            self.pm.data[output_key]
-        ) or (self.pm.data[output_key].is_tensor and is_type_adjustment_required(self.pm.data, g_input_keys)):
+        if is_make_array_required(self.pm.data[output_key]) or (
+            self.pm.data[output_key].is_tensor
+            and is_type_adjustment_required(self.pm.data, g_input_keys)
+        ):
             generated_fn = ast.Call(
                 func=ast.Name(id="make_array", ctx=ast.Load()),
                 args=[generated_fn],
@@ -534,19 +534,18 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
                 )
 
                 if self.pm.data[global_input_key].is_tensor:
-                    function_body.append(ast.AugAssign(target=target, op=ast.Add(), value=generated_fn))
+                    function_body.append(
+                        ast.AugAssign(target=target, op=ast.Add(), value=generated_fn)
+                    )
                 else:
                     function_body.append(
                         ast.Assign(
-                            targets=[target], 
+                            targets=[target],
                             value=ast.Call(
                                 func=ast.Name(id="recursive_sum", ctx=ast.Load()),
-                                args=[
-                                    target,
-                                    generated_fn
-                                ],
+                                args=[target, generated_fn],
                                 keywords=[],
-                            )
+                            ),
                         )
                     )
                     if not is_recursive_fn_imported:
@@ -556,7 +555,7 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
                                 names=[ast.alias(name="recursive_sum", asname=None)],
                                 level=0,
                             )
-                    )
+                        )
 
                 used_keys |= _used_keys - {"output_gradient", "idx"}
 

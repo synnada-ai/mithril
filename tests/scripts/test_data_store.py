@@ -150,6 +150,7 @@ def test_data_store_4():
         "bias",
         "linear_transpose_axes",
     }
+    print(pm.flat_graph.data_store.unused_keys)
     assert pm.flat_graph.data_store.unused_keys == ref_unused_keys
 
 
@@ -181,7 +182,9 @@ def test_data_store_6():
     model += Sigmoid()(input="input", output=IOKey(name="output2"))
 
     value = backend.array([[1.0, 2, 3]])
-    pm = mithril.compile(model, backend=backend, constant_keys={"input": value})
+    pm = mithril.compile(
+        model, backend=backend, constant_keys={"input": value}, inference=True
+    )
 
     assert pm.flat_graph.data_store.data_values.keys() == {"output1", "output2"}
     assert (
@@ -241,7 +244,9 @@ def test_data_store_9():
     model += Sigmoid()(input="input", output=IOKey(name="output2", expose=True))
     model += Add()(left="output2", right=2, output=IOKey(name="output3", expose=True))
     value = backend.array([[1.0, 2, 3]])
-    pm = mithril.compile(model, backend=backend, constant_keys={"input": value})
+    pm = mithril.compile(
+        model, backend=backend, constant_keys={"input": value}, inference=True
+    )
 
     assert pm.flat_graph.data_store.data_values.keys() == {
         "output1",
@@ -279,12 +284,17 @@ def test_data_store_11():
     right = backend.array([4, 5, 6])
 
     pm = mithril.compile(
-        model, backend=backend, constant_keys={"left": left, "right": right}
+        model,
+        backend=backend,
+        constant_keys={"left": left, "right": right},
+        inference=True,
     )
 
     assert pm.flat_graph.data_store.data_values.keys() == {"out"}
-    assert pm.flat_graph.data_store.runtime_static_keys == set()
-    assert pm.flat_graph.data_store.intermediate_non_differentiables._table == dict()
+    assert pm.flat_graph.data_store.runtime_static_keys == {"something"}
+    assert pm.flat_graph.data_store.intermediate_non_differentiables._table == {
+        "out2": pm.flat_graph.data_store.all_data["out2"]
+    }
     assert pm.flat_graph.data_store.unused_keys == {"left", "right"}
 
     infered_value = pm.flat_graph.data_store.data_values["out"]
@@ -444,7 +454,7 @@ def test_data_store_15():
     add = Add()
     add.set_types(left=Tensor, right=Tensor)
     model += add(left="left")
-    add.right.set_differentiable(False)
+
     model += Sigmoid()(input=add.output, output="output")
     pm = PhysicalModel(
         model=model,
@@ -454,7 +464,7 @@ def test_data_store_15():
         constant_keys=dict(),
         trainable_keys=set(),
         shapes=dict(),
-        inference=False,
+        inference=True,
         safe_shapes=True,
         safe_names=False,
         use_short_namings=True,
@@ -464,10 +474,11 @@ def test_data_store_15():
         "output_0_cache",
         "output_cache",
     }
-    assert pm.flat_graph.data_store.runtime_static_keys == {"right"}
-    assert (
-        pm.flat_graph.data_store.intermediate_non_differentiables._table.keys() == set()
-    )
+    assert pm.flat_graph.data_store.runtime_static_keys == {"left", "right"}
+    assert pm.flat_graph.data_store.intermediate_non_differentiables._table.keys() == {
+        "output_0",
+        "output",
+    }
     assert pm.flat_graph.data_store.unused_keys == set()
 
 
@@ -478,7 +489,7 @@ def test_data_store_16():
     add = Add()
     add.set_types(left=Tensor, right=Tensor)
     model += add(left="left")
-    add.right.set_differentiable(False)
+
     model += Sigmoid()(input=add.output, output=IOKey("output"))
 
     model += Relu()(input="in", output=IOKey(name="out"))
@@ -491,21 +502,21 @@ def test_data_store_16():
         constant_keys=dict(),
         trainable_keys=set(),
         shapes=dict(),
-        inference=False,
+        inference=True,
         safe_shapes=True,
         safe_names=True,
         use_short_namings=True,
     )
 
     assert pm.flat_graph.data_store.data_values.keys() == set()
-    assert pm.flat_graph.data_store.runtime_static_keys == set()
-    assert (
-        pm.flat_graph.data_store.intermediate_non_differentiables._table.keys() == set()
-    )
+    assert pm.flat_graph.data_store.runtime_static_keys == {"in"}
+    assert pm.flat_graph.data_store.intermediate_non_differentiables._table.keys() == {
+        "out"
+    }
     assert pm.flat_graph.data_store.unused_keys == {
         "right",
-        "left",
         "output_0",
+        "left",
         "output",
     }
 
@@ -528,22 +539,22 @@ def test_data_store_17():
         constant_keys={"left": left, "right": right},
         trainable_keys=set(),
         shapes=dict(),
-        inference=False,
+        inference=True,
         safe_shapes=True,
         safe_names=True,
         use_short_namings=True,
     )
 
     assert pm.flat_graph.data_store.data_values.keys() == set()
-    assert pm.flat_graph.data_store.runtime_static_keys == set()
-    assert (
-        pm.flat_graph.data_store.intermediate_non_differentiables._table.keys() == set()
-    )
+    assert pm.flat_graph.data_store.runtime_static_keys == {"in"}
+    assert pm.flat_graph.data_store.intermediate_non_differentiables._table.keys() == {
+        "out"
+    }
     assert pm.flat_graph.data_store.unused_keys == {
-        "output",
+        "right",
         "output_0",
         "left",
-        "right",
+        "output",
     }
 
 

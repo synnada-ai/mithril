@@ -71,6 +71,7 @@ def test_11():
     res = squash_tensor_types(Tensor[int] | int | Tensor[float])
     assert res == Tensor[int | float] | int
 
+
 def test_12():
     res = squash_tensor_types(Tensor[float])
     assert res == Tensor[float]

@@ -38,12 +38,14 @@ def test_cbackend_1():
         model,
         c_backend,
         shapes={"left": [5, 5], "right": [5, 5]},
+        trainable_keys={"left", "right"},
         jit=False,
     )
     np_pm = compile(
         model,
         np_backend,
         shapes={"left": [5, 5], "right": [5, 5]},
+        trainable_keys={"left", "right"},
         jit=False,
     )
 
@@ -95,12 +97,14 @@ def test_cbackend_2(file_path: str):
         c_backend,
         file_path=file_path,
         shapes={"left": [5, 5], "left2": [5, 5], "right": [5, 5]},
+        trainable_keys={"left", "left2", "right"},
         jit=False,
     )
     np_pm = compile(
         model,
         np_backend,
         shapes={"left": [5, 5], "right": [5, 5]},
+        trainable_keys={"left", "left2", "right"},
         jit=False,
     )
 
@@ -160,12 +164,14 @@ def test_cbackend_3():
         model,
         c_backend,
         shapes={"left": [5, 5], "mul": [5, 5], "right": [5, 5]},
+        trainable_keys={"left", "mul", "right"},
         jit=False,
     )
     np_pm = compile(
         model,
         np_backend,
         shapes={"left": [5, 5], "right": [5, 5]},
+        trainable_keys={"left", "mul", "right"},
         jit=False,
     )
 
@@ -222,6 +228,7 @@ def test_broadcast_1():
         c_backend,
         shapes={"left": [5, 1], "mul": [5, 5], "right": [1, 5]},
         jit=False,
+        inference=True,
     )
 
     left = np.random.rand(5, 1).astype(np.float32)
@@ -255,6 +262,7 @@ def test_broadcast_2():
         c_backend,
         shapes={"left": [5, 1], "mul": [1], "right": [1, 5]},
         jit=False,
+        inference=True,
     )
 
     left = np.random.rand(5, 1).astype(np.float32)

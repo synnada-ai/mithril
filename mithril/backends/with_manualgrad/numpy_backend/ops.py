@@ -207,6 +207,7 @@ __all__ = [
     "pad",
     "split",
     "randn",
+    "atleast_1d",
 ]
 
 
@@ -1047,7 +1048,9 @@ def where(
 
 
 def concat(
-    input: Sequence[np.ndarray[Any, Any]], axis: int | None = 0, cache: CacheType | None = None
+    input: list[np.ndarray[Any, Any]],
+    axis: int | None = 0,
+    cache: CacheType | None = None,
 ) -> np.ndarray[Any, Any]:
     return np.concatenate(input, axis=axis)
 
@@ -1297,6 +1300,12 @@ def zeros_like(
     input: np.ndarray[Any, Any], cache: CacheType | None = None
 ) -> np.ndarray[Any, Any]:
     return np.zeros_like(input)
+
+
+def atleast_1d(
+    input: np.ndarray[Any, Any], cache: CacheType | None = None
+) -> np.ndarray[Any, Any]:
+    return np.atleast_1d(input)
 
 
 array_creation_funcs = [

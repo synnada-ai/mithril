@@ -216,6 +216,7 @@ __all__ = [
     "pad",
     "split",
     "randn",
+    "atleast_1d",
 ]
 
 
@@ -828,7 +829,7 @@ def flatten(input: jax.Array, *, start_dim: int = 0, end_dim: int = -1) -> jax.A
     return jnp.reshape(input, shape)
 
 
-def concat(input: Sequence[jax.Array], axis: int | None = 0) -> jax.Array:
+def concat(input: list[jax.Array], axis: int | None = 0) -> jax.Array:
     return jnp.concatenate(input, axis=axis)
 
 
@@ -1081,6 +1082,10 @@ def randn(
 
 def zeros_like(input: jax.Array) -> jax.Array:
     return jnp.zeros_like(input)
+
+
+def atleast_1d(input: jax.Array) -> jax.Array:
+    return jnp.atleast_1d(input)
 
 
 array_creation_funcs = ["arange", "randn", "to_tensor", "eye", "ones_with_zero_diag"]

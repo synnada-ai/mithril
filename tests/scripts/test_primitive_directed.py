@@ -29,6 +29,14 @@ backends: list[Backend] = [
 ]
 
 
+def convert_to_backend_array(backend: Backend, value: Any):
+    if isinstance(value, np.ndarray):
+        return backend.array(value)
+    elif isinstance(value, list):
+        return list(convert_to_backend_array(backend, v) for v in value)
+    return value
+
+
 def assert_forward(
     formula_key: str,
     expected_result: np.ndarray | int | float | tuple | list | slice,
@@ -37,9 +45,7 @@ def assert_forward(
     backends: list[Backend] = backends,
 ):
     for backend in backends:
-        _args = [
-            backend.array(arg) if isinstance(arg, np.ndarray) else arg for arg in args
-        ]
+        _args = [convert_to_backend_array(backend, arg) for arg in args]
         _kwargs = {
             key: backend.array(value) if isinstance(value, np.ndarray) else value
             for key, value in kwargs.items()
@@ -73,7 +79,8 @@ def manul_vjp(
     cache["output"] = fn(*args, **kwargs, cache=cache)
     for idx in idxs:
         grad = grad_fn(out_grad, cache, idx, *args, **kwargs)
-        grad = backend.accumulate_grads(grad, args[idx], {}, idx)  # type: ignore
+        if isinstance(grad, backend.DataType):
+            grad = backend.accumulate_grads(grad, args[idx], {}, idx)  # type: ignore
         input_grads.append(grad)
 
     return input_grads
@@ -81,7 +88,7 @@ def manul_vjp(
 
 def assert_backward(
     formula_key: str,
-    expected_grads: tuple[np.ndarray, ...],
+    expected_grads: tuple[np.ndarray | list[np.ndarray], ...],
     out_grad: np.ndarray | tuple[np.ndarray, ...],
     idxs: list[int],
     args: dict[str, Any],
@@ -89,10 +96,7 @@ def assert_backward(
     backends: list[Backend] = backends,
 ):
     for backend in backends:
-        _args = [
-            backend.array(arg) if isinstance(arg, np.ndarray) else arg
-            for arg in args.values()
-        ]
+        _args = [convert_to_backend_array(backend, arg) for arg in args.values()]
         _kwargs = {
             key: backend.array(value) if isinstance(value, np.ndarray) else value
             for key, value in kwargs.items()
@@ -120,13 +124,16 @@ def assert_backward(
             )  # type: ignore
 
         for grad, expected_grad in zip(grads, expected_grads, strict=False):
-            np.testing.assert_allclose(
-                grad,
-                expected_grad,
-                rtol=1e-14,
-                atol=1e-14,
-                err_msg=f"Primitive: {formula_key} failed ",
-            )
+            if not isinstance(grad, list):
+                grad, expected_grad = [grad], [expected_grad]
+            for g, eg in zip(grad, expected_grad, strict=False):
+                np.testing.assert_allclose(
+                    g,
+                    eg,
+                    rtol=1e-14,
+                    atol=1e-14,
+                    err_msg=f"Primitive: {formula_key} failed ",
+                )
 
 
 def test_buffer_1():
@@ -1178,17 +1185,19 @@ def test_concat_1():
     output_grad = np.array(
         [-1.0, -2.0, -3.0, -4.0, -5.0, -6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0]
     )
-    input1_grad = np.array([-1.0, -2.0, -3.0, -4.0])
-    input2_grad = np.array([-5.0, -6.0, 7.0, 8.0])
-    input3_grad = np.array([9.0, 10.0, 11.0, 12.0])
+    input_grad = [
+        np.array([-1.0, -2.0, -3.0, -4.0]),
+        np.array([-5.0, -6.0, 7.0, 8.0]),
+        np.array([9.0, 10.0, 11.0, 12.0]),
+    ]
 
-    assert_forward("concat", result, (input1, input2, input3), {"axis": axis})
+    assert_forward("concat", result, ([input1, input2, input3],), {"axis": axis})
     assert_backward(
         "concat",
-        (input1_grad, input2_grad, input3_grad),
+        (input_grad,),
         output_grad,
-        [0, 1, 2],
-        {"input1": input1, "input2": input2, "input3": input3},
+        [0],
+        {"input": [input1, input2, input3]},
         {"axis": axis},
     )
 
@@ -1200,16 +1209,18 @@ def test_concat_2():
     result = np.array([[1.0, 2.0, 1.0], [3.0, 4.0, 2.0], [5.0, 6.0, 3.0]])
 
     output_grad = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]])
-    input1_grad = np.array([[1.0, 2.0], [4.0, 5.0], [7.0, 8.0]])
-    input2_grad = np.array([[3.0], [6.0], [9.0]])
+    input_grad = [
+        np.array([[1.0, 2.0], [4.0, 5.0], [7.0, 8.0]]),
+        np.array([[3.0], [6.0], [9.0]]),
+    ]
 
-    assert_forward("concat", result, (input1, input2), {"axis": axis})
+    assert_forward("concat", result, ([input1, input2],), {"axis": axis})
     assert_backward(
         "concat",
-        (input1_grad, input2_grad),
+        (input_grad,),
         output_grad,
-        [0, 1],
-        {"input1": input1, "input2": input2},
+        [0],
+        {"input": [input1, input2]},
         {"axis": axis},
     )
 
@@ -1236,21 +1247,23 @@ def test_concat_3():
             [[2.0, 3.0, 2.0, 3.0, 2.0, 3.0], [3.0, 2.0, 3.0, 2.0, 3.0, 2.0]],
         ]
     )
-    input1_grad = np.array([[[1.0, 2.0], [1.0, 2.0]], [[2.0, 3.0], [3.0, 2.0]]])
-    input2_grad = np.array(
-        [
-            [[1.0, 2.0, 1.0, 2.0], [1.0, 2.0, 1.0, 2.0]],
-            [[2.0, 3.0, 2.0, 3.0], [3.0, 2.0, 3.0, 2.0]],
-        ]
-    )
+    input_grad = [
+        np.array([[[1.0, 2.0], [1.0, 2.0]], [[2.0, 3.0], [3.0, 2.0]]]),
+        np.array(
+            [
+                [[1.0, 2.0, 1.0, 2.0], [1.0, 2.0, 1.0, 2.0]],
+                [[2.0, 3.0, 2.0, 3.0], [3.0, 2.0, 3.0, 2.0]],
+            ]
+        ),
+    ]
 
-    assert_forward("concat", result, (input1, input2), {"axis": axis})
+    assert_forward("concat", result, ([input1, input2],), {"axis": axis})
     assert_backward(
         "concat",
-        (input1_grad, input2_grad),
+        (input_grad,),
         output_grad,
-        [0, 1],
-        {"input1": input1, "input2": input2},
+        [0],
+        {"input": [input1, input2]},
         {"axis": axis},
     )
 

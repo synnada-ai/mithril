@@ -43,7 +43,6 @@ from ..common import (
     Updates,
     Variadic,
     create_shape_map,
-    find_intersection_type,
     get_shapes,
     get_summary,
     get_summary_shapes,
@@ -187,26 +186,16 @@ class PhysicalModel(GenericDataType[DataType]):
 
                 if global_key in self._non_differentiable_keys:
                     # TODO: Create an API for setting differentiability of a tensor.
-                    # physical_data.differentiable = False
-                    physical_data.set_differentiablity(False)
+                    physical_data.set_differentiability(False)
                 elif global_key in self._trainable_tensor_inputs:
-                    # if physical_data.edge_type not in (Tensor, ToBeDetermined):
-                    if not (
-                        physical_data.is_tensor
-                        or physical_data.edge_type is ToBeDetermined
-                    ):
-                        raise ValueError(
-                            f"Non-tensor type data can not be trainable: {global_key}"
-                        )
-                    elif physical_data.edge_type is ToBeDetermined:
+                    if physical_data.edge_type is ToBeDetermined:
                         # Set physical data type to Tensor.
                         updates |= physical_data.set_type(Tensor[float])
                     elif physical_data.value is not TBD:
                         raise ValueError(
                             f"Valued data can not be trainable: {global_key}"
                         )
-                    # physical_data.differentiable = True
-                    physical_data.set_differentiablity(True)
+                    physical_data.set_differentiability(True)
 
                 model_data[key] = physical_data
                 self.flat_graph.data_memo[id(logical_data)] = physical_data
@@ -226,7 +215,7 @@ class PhysicalModel(GenericDataType[DataType]):
             output = Operator.output_key
             _data_dict: dict[str, IOHyperEdge] = {}
 
-            self._infer_differentiability(model_data)
+            self._infer_differentiability(p_model, model_data)
             for inner_key in p_model.external_keys:
                 outer_key = mappings[inner_key]
                 if outer_key not in self.data:
@@ -416,23 +405,22 @@ class PhysicalModel(GenericDataType[DataType]):
     def input_keys(self) -> set[str]:
         return self._input_keys
 
-    def _infer_differentiability(self, model_data: dict[str, IOHyperEdge]) -> None:
+    def _infer_differentiability(
+        self, p_model: Operator, model_data: dict[str, IOHyperEdge]
+    ) -> None:
         # Infer output differentiability only for the models
         # that have a Tensor type output.
         output_key = Operator.output_key
         output_edge = model_data[output_key]
+        input_diffs = [
+            value.differentiable
+            for key, value in model_data.items()
+            if key != output_key
+        ]
+
         if output_edge.is_tensor:
-            # If any of the inputs are differentiable, then
-            # the output is also differentiable.
-            for key, value in model_data.items():
-                if key != output_key and not value.is_non_diff:
-                    # output_edge.differentiable = True
-                    output_edge.set_differentiablity(True)
-                    return
-            # If all inputs are non-differentiable, then the output is also
-            # non-differentiable.
-            # output_edge.differentiable = False
-            output_edge.set_differentiablity(False)
+            diff = p_model.infer_differentiability(*input_diffs)
+            output_edge.set_differentiability(diff)
 
     def randomize_params(
         self,
@@ -557,7 +545,14 @@ class PhysicalModel(GenericDataType[DataType]):
                     ignored.add(ignored_alias)
                 self.ignore_grad_keys.update(ignored)
 
-        if len(self._output_keys - self.ignore_grad_keys) == 0 and not self.inference:
+        if (
+            len(
+                self._output_keys
+                - (self.ignore_grad_keys | self.flat_graph.all_static_keys)
+            )
+            == 0
+            and not self.inference
+        ):
             raise ValueError("All outputs gradient are ignored.")
 
     def generate_functions(

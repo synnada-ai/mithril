@@ -25,7 +25,7 @@ def testrandom_keys_not_provided():
     example_model += Randn()(shape=(3, 4, 5, 1), output=ml.IOKey("out2"))
 
     backend = ml.JaxBackend()
-    pm = ml.compile(example_model, backend, use_short_namings=False)
+    pm = ml.compile(example_model, backend, use_short_namings=False, inference=True)
 
     assert pm._random_seeds == {"randn_0_key": 0, "randn_1_key": 0}
     res1 = pm.evaluate()["out1"]
@@ -45,7 +45,7 @@ def testrandom_keys_some_of_provided():
     example_model += Randn()(shape=(3, 4, 5, 1), output=ml.IOKey("out2"))
 
     backend = ml.JaxBackend()
-    pm = ml.compile(example_model, backend, use_short_namings=False)
+    pm = ml.compile(example_model, backend, use_short_namings=False, inference=True)
 
     assert pm._random_seeds == {"randn_1_key": 0}
     res1 = pm.evaluate()["out1"]
@@ -73,7 +73,7 @@ def test_setrandom_keys():
         data_keys=set(),
         constant_keys={},
         trainable_keys=set(),
-        inference=False,
+        inference=True,
         safe_shapes=False,
         safe_names=False,
         shapes={},

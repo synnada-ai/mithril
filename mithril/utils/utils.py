@@ -507,7 +507,7 @@ def convert_to_list(
 
 
 def find_dominant_type(
-    lst: Any, raise_error: bool = True
+    lst: Any, raise_error: bool = True, omit_types: set[type] | None = None
 ) -> type[int] | type[float] | type[bool]:
     # return dominant type of parameters in the list.
     # dominant type is referenced from numpy and in folloing order: bool -> int -> float
@@ -519,11 +519,16 @@ def find_dominant_type(
     # list contains both ints and bools -> return int
     # list contains only bools -> return bool
     # list contains all three of types -> return float
+    if omit_types is None:
+        omit_types = set()
 
     if isinstance(lst, list | tuple):
         curr_val: type[bool] | type[int] | type[float] = bool
         for elem in lst:
             val = find_dominant_type(elem, raise_error)
+            if val in omit_types:
+                continue
+
             if val is float:
                 curr_val = float
             elif val is int:
@@ -543,3 +548,19 @@ def find_dominant_type(
             "float, int, bool"
         )
     return type(lst)
+
+
+Typ = TypeVar("Typ")
+
+
+def get_specific_types_from_value(value: Any, typ: type[Typ]) -> list[Typ]:
+    tensors = []
+    if isinstance(value, typ):
+        tensors.append(value)
+    elif isinstance(value, list | tuple):
+        for item in value:
+            tensors += get_specific_types_from_value(item, typ)
+    elif isinstance(value, dict):
+        for val in value.values():
+            tensors += get_specific_types_from_value(val, typ)
+    return tensors

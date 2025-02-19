@@ -62,6 +62,7 @@ from ..framework.logical.operators import (
     AddOp,
     ArgMaxOp,
     ArgMinOp,
+    AtLeast1DOp,
     BufferOp,
     CastOp,
     CosineOp,
@@ -227,6 +228,7 @@ __all__ = [
     "Cosine",
     "Minimum",
     "Maximum",
+    "AtLeast1D",
 ]
 # Define types used to define keys:
 ConstantType = float | int | Constant
@@ -1034,50 +1036,13 @@ class CartesianDifference(PrimitiveModel):
         return super().__call__(left=left, right=right, output=output)
 
 
-# class Concat(PrimitiveModel):
-#     output: Connection
-#     axis: Connection
-
-#     def __init__(
-#         self,
-#         n: int,
-#         axis: int | None | ToBeDetermined = 0,
-#         *,
-#         name: str | None = None,
-#         **kwargs: Tensor[int | float | bool] | ToBeDetermined,
-#     ) -> None:
-#         self.factory_args = {"n": n, "axis": axis}
-
-#         key_definitions: dict[str, BaseKey] = {}
-#         key_definitions["output"] = BaseKey(shape=[("Var_out", ...)], type=Tensor)
-#         key_definitions |= {
-#             f"input{idx+1}": BaseKey(
-#                 shape=[(f"Var_{idx + 1}", ...)],
-#                 type=Tensor,
-#                 value=kwargs.get(f"input{idx + 1}", TBD),
-#             )
-#             for idx in range(n)
-#         }
-#         key_definitions["axis"] = BaseKey(type=int | None, value=axis)
-#         super().__init__(formula_key="concat", name=name, **key_definitions)
-
-#         input_keys = [key for key in self.input_keys if key != "axis"]
-#         self._add_constraint(
-#             fn=concat_constraints, keys=["output"] + ["axis"] + input_keys
-#         )
-#         self._add_constraint(
-#             fn=general_tensor_type_constraint,
-#             keys=[Operator.output_key] + input_keys,
-#         )
-
-
 class Concat(PrimitiveModel):
     output: Connection
     axis: Connection
 
     def __init__(
         self,
-        input: Sequence[Tensor[int | float | bool]] | ToBeDetermined = TBD,
+        input: list[Tensor[int | float | bool]] | ToBeDetermined = TBD,
         axis: int | None | ToBeDetermined = 0,
         *,
         name: str | None = None,
@@ -1085,16 +1050,17 @@ class Concat(PrimitiveModel):
         self.factory_args = {"axis": axis}
 
         super().__init__(
-            formula_key="concat", 
-            name=name, 
+            formula_key="concat",
+            name=name,
             output=BaseKey(shape=[("Var_out", ...)], type=Tensor),
-            input=BaseKey(type=Sequence[Tensor[int | float | bool]], value=input), 
+            input=BaseKey(type=list[Tensor[int | float | bool]], value=input),
             axis=BaseKey(type=int | None, value=axis),
         )
 
         self._add_constraint(
             fn=concat_constraints, keys=[Operator.output_key, "input", "axis"]
         )
+        # TODO: Do we need to add general_tensor_type_constraint for Concat?
         # self._add_constraint(
         #     fn=general_tensor_type_constraint,
         #     keys=[Operator.output_key, "input"],
@@ -1151,7 +1117,6 @@ class PermuteTensor(PrimitiveModel):
         self._add_constraint(
             fn=general_tensor_type_constraint, keys=[Operator.output_key, "input"]
         )
-        self.indices.set_differentiable(False)
 
     def __call__(  # type: ignore[override]
         self,
@@ -2260,7 +2225,12 @@ class Embedding(PrimitiveModel):
             name=name,
             output=BaseKey(shape=[("N1", ...), "d1", out_dim], type=Tensor),
             input=BaseKey(shape=[("N1", ...), "d1"], type=Tensor[int], value=input),
-            weight=BaseKey(shape=[num_embeddings, out_dim], type=Tensor, value=weight),
+            weight=BaseKey(
+                shape=[num_embeddings, out_dim],
+                type=Tensor,
+                value=weight,
+                differentiable=True,
+            ),
         )
 
         self._add_constraint(
@@ -3054,8 +3024,7 @@ class ToList(OperatorModel):
     ) -> None:
         super().__init__(name=name, model=ToListOp(n, name=name, **kwargs))
 
-    def __call__(self, *args: ConnectionType) -> ExtendInfo:  # type: ignore[override]
-        kwargs = {f"input{i+1}": val for i, val in enumerate(args) if val is not TBD}
+    def __call__(self, **kwargs: ConnectionType) -> ExtendInfo:  # type: ignore[override]
         return super().__call__(**kwargs)
 
 
@@ -3618,3 +3587,13 @@ class Cosine(SingleInputModel):
         name: str | None = None,
     ) -> None:
         super().__init__(name=name, model=CosineOp(input=input))
+
+
+class AtLeast1D(SingleInputModel):
+    def __init__(
+        self,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name, model=AtLeast1DOp(input=input))

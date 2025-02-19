@@ -70,7 +70,7 @@ def test_add_loss_case_2():
 
     inputs = {"input": np.array([[[1.0, 2.0], [3.0, 4.0]], [[5.0, 6.0], [7.0, 8.0]]])}
 
-    model += relu1(input="input")
+    model += relu1(input=IOKey("input", differantiable=True))
     model += relu2(input=relu1.output)
     model += relu3(input=relu2.output, output=IOKey(name="output"))
 
@@ -147,7 +147,7 @@ def test_add_loss_case_3():
         "input": backend.array([[[1.0, 2.0], [3.0, 4.0]], [[5.0, 6.0], [7.0, 8.0]]])
     }
 
-    model += relu1(input="input")
+    model += relu1(input=IOKey("input", differantiable=True))
     model += relu2(input=relu1.output)
     model += relu3(input=relu2.output, output=IOKey(name="output"))
 
@@ -269,7 +269,7 @@ def test_add_loss_case_8():
     relu2 = Relu()
     relu3 = Relu()
 
-    model += relu1(input="input")
+    model += relu1(input=IOKey("input", differantiable=True))
     model += relu2(input=relu1.output, output=IOKey(name="output1"))
     model += relu3(input=relu1.output, output=IOKey(name="output2"))
 
@@ -302,7 +302,7 @@ def test_add_loss_case_9():
     sigmoid2 = Relu()
     sigmoid3 = Relu()
 
-    model += sigmoid1(input="input")
+    model += sigmoid1(input=IOKey("input", differantiable=True))
     model += sigmoid2(input=sigmoid1.output, output=IOKey(name="output1"))
     model += sigmoid3(input=sigmoid1.output, output=IOKey(name="output2"))
 
@@ -336,7 +336,7 @@ def test_add_metric_1():
 
     backend = NumpyBackend()
     input = backend.randn(5, 5)
-    c_model = mithril.compile(ctx2, backend, data_keys={"input"})
+    c_model = mithril.compile(ctx2, backend, data_keys={"input"}, inference=True)
     result = c_model.evaluate({}, {"input": input})
     res_metric = result["metric"]
     assert isinstance(res_metric, np.ndarray)
@@ -686,12 +686,14 @@ def test_add_loss_compile_shape_1():
         safe_shapes=True,
         data_keys={"input", "target"},
         backend=JaxBackend(),
+        inference=True,
     )
     pm2 = mithril.compile(
         ctx2,
         safe_shapes=False,
         data_keys={"input", "target"},
         backend=JaxBackend(),
+        inference=True,
     )
 
     assert pm1.shapes == {
