@@ -24,12 +24,13 @@ from torch._functorch.eager_transforms import jacfwd as torch_jacfwd
 from torch._functorch.eager_transforms import jacrev as torch_jacrev
 from torch._functorch.eager_transforms import vjp as torch_vjp
 
-from ....core import Dtype
+from ....cores.python.torch import ops
+from ....cores.python.torch import utils as core_utils
+from ....types import Dtype
 from ...backend import PadWidthType, ParallelBackend
 from ...utils import DtypeSubTypes, StaticScalar, process_shape
-from . import ops, utils
+from . import utils
 from .parallel import TorchParallel
-from .utils import CODEGEN_CONFIG
 
 __all__ = ["TorchBackend"]
 
@@ -49,7 +50,7 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
 
     backend_type = "torch"
     registered_primitives = {}
-    primitive_fn_path = "mithril.backends.with_autograd.torch_backend.ops"
+    primitive_fn_path = "mithril.cores.python.torch.ops"
 
     def __init__(
         self,
@@ -69,10 +70,11 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
 
         self.array_creation_funcs = ops.array_creation_funcs
         self.primitive_function_dict = ops.primitive_func_dict
+        self.dtype_map = core_utils.dtype_map
 
         self._generator = torch.Generator(device=self.device).manual_seed(0)
 
-        for key, value in utils.dtype_map.items():
+        for key, value in core_utils.dtype_map.items():
             setattr(self, key, value)
 
     @property
@@ -93,7 +95,7 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
 
     @property
     def codegen_config(self) -> dict[str, bool]:
-        return CODEGEN_CONFIG
+        return utils.CODEGEN_CONFIG
 
     @property
     def device(self) -> torch.device:
@@ -216,7 +218,9 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
     ) -> torch.Tensor:
         _dtype = utils.determine_dtype(input, dtype, self._dtype, self.precision)
 
-        array = torch.tensor(input, dtype=utils.dtype_map[_dtype], device=self._device)
+        array = torch.tensor(
+            input, dtype=core_utils.dtype_map[_dtype], device=self._device
+        )
         if self._parallel_manager is not None:
             array = self._parallel_manager.parallelize(
                 array, self.base_device_mesh, device_mesh
@@ -411,6 +415,9 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
     ) -> torch.Tensor:
         return torch.flatten(input, start_dim=start_dim, end_dim=end_dim)
 
+    def concat(self, inputs: list[torch.Tensor], axis: int = 0) -> torch.Tensor:
+        return torch.cat(inputs, dim=axis)
+
     def abs(self, input: torch.Tensor) -> torch.Tensor:
         return torch.abs(input)
 
@@ -474,9 +481,7 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
     def stack(self, inputs: list[torch.Tensor], axis: int = 0) -> torch.Tensor:
         return torch.stack(inputs, dim=axis)
 
-    def cat(
-        self, inputs: tuple[torch.Tensor, ...] | list[torch.Tensor], axis: int = 0
-    ) -> torch.Tensor:
+    def cat(self, inputs: list[torch.Tensor], axis: int = 0) -> torch.Tensor:
         return ops.concat(inputs, axis=axis)
 
     def pad(self, input: torch.Tensor, pad_width: PadWidthType) -> torch.Tensor:
@@ -694,6 +699,16 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
     def jacfwd(self, fn: Callable[..., torch.Tensor]) -> Callable[..., torch.Tensor]:
         return torch_jacfwd(fn)
 
+    def convert_to_logical(self, input: Any, force: bool = False) -> Any:
+        # Try dtype:
+        if isinstance(input, torch.dtype):
+            return Dtype[core_utils.dtype_map.inverse[input]]
+
+        if force:
+            raise ValueError(f"Invalid value '{input}'!")
+
+        return input
+
     def _get_generator(self, key: int | None) -> torch.Generator:
         if key is None:
             return self._generator
@@ -706,11 +721,11 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
         default_type: str | None = None,
     ) -> torch.dtype:
         if isinstance(dtype, Dtype):
-            return utils.dtype_map[dtype.name]
+            return core_utils.dtype_map[dtype.name]
         elif dtype is None:
             if default_type is None:
                 default_type = self._get_default_subtype()
-            return utils.dtype_map[default_type + str(self.precision)]
+            return core_utils.dtype_map[default_type + str(self.precision)]
         else:
             raise ValueError(f"Invalid dtype {dtype}")
 

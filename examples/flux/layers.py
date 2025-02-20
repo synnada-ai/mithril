@@ -204,9 +204,9 @@ def double_stream_block(
     )
     txt_q, txt_k = block.txt_q_out, block.txt_k_out  # type: ignore[attr-defined]
 
-    block += Concat(axis=2, n=2)(input1=txt_q, input2=img_q, output="q_concat")
-    block += Concat(axis=2, n=2)(input1=txt_k, input2=img_k, output="k_concat")
-    block += Concat(axis=2, n=2)(input1=txt_v, input2=img_v, output="v_concat")
+    block += Concat(axis=2)(input=[txt_q, img_q], output="q_concat")
+    block += Concat(axis=2)(input=[txt_k, img_k], output="k_concat")
+    block += Concat(axis=2)(input=[txt_v, img_v], output="v_concat")
 
     block += attention()(q="q_concat", k="k_concat", v="v_concat", pe=pe, output="attn")
     # TODO: use'[:, txt.shape[1] :]' when fixed.
@@ -297,7 +297,7 @@ def single_stream_block(hidden_size: int, num_heads: int, mlp_ratio: float = 4.0
     )
     block += attention()(q="q_out", k="k_out", v=v, pe=pe, output="attn")
     block += Gelu(approximate=True)(input=mlp, output="mlp_act")
-    block += Concat(n=2, axis=2)(input1="attn", input2="mlp_act", output="concat_out")
+    block += Concat(axis=2)(input=[block.attn, block.mlp_act], output="concat_out")  # type: ignore[attr-defined]
     block += Linear(hidden_size, name="linear2")(input="concat_out", output="lin2_out")
     block += Buffer()(input + block.mod[2] * block.lin2_out, output=IOKey("output"))  # type: ignore[attr-defined]
 
@@ -337,8 +337,9 @@ def embed_nd(theta: int, axes_dim: list[int]) -> Model:
         rope_B = rope(axes_dim[i], theta)
         block += rope_B(input=input[..., i], output=f"out{i}")
 
-    block += Concat(n=len(axes_dim), axis=-3)(
-        **{f"input{i+1}": f"out{i}" for i in range(len(axes_dim))}, output="concat_out"
+    block += Concat(axis=-3)(
+        input=[getattr(block, f"out{i}") for i in range(len(axes_dim))],
+        output="concat_out",
     )
 
     block += Buffer()(block.concat_out[:, None], output=IOKey("output"))  # type: ignore [attr-defined]
@@ -361,11 +362,13 @@ def rope(dim: int, theta: int) -> Model:
     block += Cosine()(out, output="cos")
     block += Sine()(out, output="sin")
 
-    block += Concat(n=4, axis=-1)(
-        input1=block.cos[..., None],  # type: ignore
-        input2=-block.sin[..., None],  # type: ignore
-        input3=block.sin[..., None],  # type: ignore
-        input4=block.cos[..., None],  # type: ignore
+    block += Concat(axis=-1)(
+        input=[
+            block.cos[..., None],  # type: ignore
+            -block.sin[..., None],  # type: ignore
+            block.sin[..., None],  # type: ignore
+            block.cos[..., None],  # type: ignore
+        ],
     )
     rope_shape = (B, N, D, 2, 2)
     block += Reshape()(shape=rope_shape, output=IOKey("output"))

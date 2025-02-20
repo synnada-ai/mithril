@@ -18,8 +18,8 @@ from types import GenericAlias
 from typing import Any, Generic, TypeGuard
 
 from ...backends.backend import Backend
-from ...core import Constant, DataType, Dtype, data_types, epsilon_table
-from ...utils.utils import BiMap
+from ...common import BiMap
+from ...types import Constant, DataType, Dtype, data_types, epsilon_table
 from ..common import (
     TBD,
     AllValueType,
@@ -49,7 +49,7 @@ class StaticDataStore(Generic[DataType]):
         # Final tensor values of data store.
         # TODO: Constant types are not allowed in data_values but DataEvalType
         # includes it.
-        self.data_values: DataEvalType[DataType] = dict()
+        self.data_values: dict[str, DataType | ScalarValueType | str] = dict()
         self.random_seeds: dict[str, int] = dict()
 
     @property
@@ -90,7 +90,7 @@ class StaticDataStore(Generic[DataType]):
         self, key: str, label_as_unused: bool = True, hard_remove: bool = False
     ) -> None:
         if key in self.data_values:
-            self.data_values.pop(key)  # type: ignore
+            self.data_values.pop(key)
 
         self._runtime_static_keys.discard(key)
         if key in self.intermediate_non_differentiables:
@@ -164,13 +164,14 @@ class StaticDataStore(Generic[DataType]):
             return result
         elif isinstance(value, dict):
             return {k: self.convert_phys_value_to_logical(v) for k, v in value.items()}
-        return value
+        return value  # type: ignore
 
     def _convert_to_physical_value(
-        self, data: AllValueType
+        self, data: AllValueType | Tensor[int | float | bool]
     ) -> DataType | ScalarValueType | str:
+        _data: DataType | AllValueType | Tensor[int | float | bool] = data
         if isinstance(data, Tensor) and data.value is not TBD:
-            data = self.backend.array(
+            _data = self.backend.array(
                 self._convert_to_physical_value(data.value)
                 if isinstance(data.value, Constant)
                 else data.value
@@ -183,17 +184,19 @@ class StaticDataStore(Generic[DataType]):
             ]
             if isinstance(data, tuple):
                 result = tuple(result)
-            data = result
+            _data = result
         elif isinstance(data, dict):
-            data = {k: self._convert_to_physical_value(v) for k, v in data.items()}
+            _data = {k: self._convert_to_physical_value(v) for k, v in data.items()}
         elif isinstance(data, Constant):
-            data = epsilon_table[self.backend.precision][data]
+            _data = epsilon_table[self.backend.precision][data]
         elif isinstance(data, Dtype):
-            data = getattr(self.backend, data.name)
-        return data
+            _data = getattr(self.backend, data.name)
+
+        assert not isinstance(_data, Tensor)
+        return _data
 
     def _set_data_value(self, key: str, data: IOHyperEdge) -> None:
-        value: AllValueType = data._value
+        value: AllValueType | Tensor[int | float | bool] = data._value
         assert not isinstance(value, ToBeDetermined)
         try:
             phys_value = self._convert_to_physical_value(value)
@@ -202,17 +205,6 @@ class StaticDataStore(Generic[DataType]):
             if str(e) == "Tensor value is not set!":
                 return
             raise
-        # # If value is a constant, get its corresponding value for
-        # # the backend.
-        # if isinstance(value, Constant):
-        #     value = epsilon_table[self.backend.precision][value]
-
-        # if data.is_tensor:
-        #     value = self.backend.array(value)
-        # elif isinstance(value, Dtype):
-        #     value = getattr(self.backend, value.name)
-
-        # self.data_values[key] = value  # type: ignore
 
     # Add constant values of given models __call__ to constant_keys if any.
     # TODO: merge convert_data_to_physical with _set_data_value

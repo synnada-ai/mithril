@@ -76,7 +76,7 @@ class TestScalarInference:
         }
 
         main_model = Model()
-        main_model += model(**kwargs, output=IOKey("output"))
+        main_model |= model(**kwargs, output=IOKey("output"))
 
         assert isinstance(main_model, SupportsOutput)
         assert main_model.output.metadata.value == ref_output
@@ -100,16 +100,16 @@ class TestScalarInference:
     @pytest.fixture(scope="class")
     def complicated_shape_model(self) -> Model:
         model = Model()
-        model += Shape()
+        model |= Shape()
         shape_output = model.cout
         input = model.cin
         output1 = (
             (shape_output[0] * shape_output[1] + shape_output[2]) // shape_output[3]
         ) - 2  # 1
-        model += Mean(axis=TBD)(input=input, axis=output1)
+        model |= Mean(axis=TBD)(input=input, axis=output1)
         mean_shape = model.cout.shape  # [8, 14, 10]
         output2 = (mean_shape[0] ** (mean_shape[1] / 7)) + mean_shape[2]  # 74
-        model += Add()(output2, output1, IOKey("output"))  # 75
+        model |= Add()(output2, output1, IOKey("output"))  # 75
         model.set_shapes({model.cin: [8, 2, 14, 10]})
         return model
 
@@ -143,10 +143,10 @@ class TestScalarInference:
 
             out = (in1**in2) / (in3 + in4)
             model = Model()
-            model += (mul := Multiply())(out, in5)
-            model += Add()(mul.output, 1, IOKey("output"))
+            model |= (mul := Multiply())(out, in5)
+            model |= Add()(mul.output, 1, IOKey("output"))
             assert isinstance(model, SupportsOutput)
             assert model.output.metadata.value == TBD
-            model.set_values({"in1": 2, "in2": 6, "in3": 7, "in4": 1})
-            model.set_values({"in5": 3})
+            model.set_values(in1=2, in2=6, in3=7, in4=1)
+            model.set_values(in5=3)
             assert model.output.metadata.value == 25.0

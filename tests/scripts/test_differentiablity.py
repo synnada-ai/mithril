@@ -35,7 +35,7 @@ from mithril.models import (
 def test_buffer():
     model = Model()
     buffer = Buffer()
-    model += buffer(input=IOKey("input", differantiable=True))
+    model += buffer(input=IOKey("input", differentiable=True))
     assert model.input.metadata.differentiable  # type: ignore
 
 
@@ -74,8 +74,8 @@ def test_input_data_to_trainable_compile():
 
 def test_internal_data_to_trainable():
     model = Model()
-    model += Linear()(input="internal_key")
-    model += Linear()(input="input", output=model.internal_key)  # type: ignore
+    model |= Linear()(input="internal_key")
+    model |= Linear()(input="input", output=model.internal_key)  # type: ignore
 
     pm = mithril.compile(model, JaxBackend(), jit=False, use_short_namings=False)
     assert pm.data["linear_0_matrixmultiply_output"].differentiable  # type: ignore
@@ -136,11 +136,11 @@ def test_diff_inference():
     buff_model = Buffer()
     buff_model.set_types(input=Tensor)
     buff_model.set_differentiability(input=False)
-    model += buff_model(input="input")
+    model |= buff_model(input="input")
     mult = Multiply()
     mult.set_types(left=Tensor, right=Tensor)
     mult.set_differentiability(left=False)
-    model += mult(left="left", right=model.cout, output="output")
+    model |= mult(left="left", right=model.cout, output="output")
 
     backend = JaxBackend()
     pm = mithril.compile(model, backend, inference=True)
@@ -150,10 +150,10 @@ def test_diff_inference():
 def test_diff_inference_constant_key_to_differentiable_input():
     model = Model()
     buff_model = Buffer()
-    model += buff_model(input="input")
+    model |= buff_model(input="input")
     mult = Multiply()
-    model += mult(
-        left=IOKey("left", type=Tensor, differantiable=True),
+    model |= mult(
+        left=IOKey("left", type=Tensor, differentiable=True),
         right=model.cout,
         output="output",
     )
@@ -172,10 +172,10 @@ def test_diff_inference_constant_key_to_differentiable_input():
 def test_diff_inference_data_key_to_differentiable_input():
     model = Model()
     buff_model = Buffer()
-    model += buff_model(input="input")
+    model |= buff_model(input="input")
     mult = Multiply()
-    model += mult(
-        left=IOKey("left", type=Tensor, differantiable=True),
+    model |= mult(
+        left=IOKey("left", type=Tensor, differentiable=True),
         right=model.cout,
         output="output",
     )
@@ -188,15 +188,15 @@ def test_diff_inference_data_key_to_differentiable_input():
 def test_diff_inference_with_data_keys_3():
     model = Model()
     buff_model = Buffer()
-    model += buff_model(input="input", output="buff_out")
+    model |= buff_model(input="input", output="buff_out")
     mult = Multiply()
-    model += mult(
-        left=IOKey("left", type=Tensor, differantiable=True),
+    model |= mult(
+        left=IOKey("left", type=Tensor, differentiable=True),
         right=model.cout,
         output=IOKey("mult_out"),
     )
-    model += Add()(
-        left=IOKey("left", type=Tensor, differantiable=True),
+    model |= Add()(
+        left=IOKey("left", type=Tensor, differentiable=True),
         right=buff_model.output,
         output=IOKey("add_out"),
     )
@@ -213,14 +213,14 @@ def test_diff_inference_with_trainable_keys():
     buff_model.set_types(input=Tensor)
     buff_model.set_differentiability(input=False)
 
-    model += buff_model(input="input", output="buff_out")
+    model |= buff_model(input="input", output="buff_out")
     mult = Multiply()
-    model += mult(
+    model |= mult(
         left=IOKey("left", type=Tensor),
         right=model.cout,
         output=IOKey("mult_out"),
     )
-    model += Add()(left="left", right=buff_model.output, output=IOKey("add_out"))
+    model |= Add()(left="left", right=buff_model.output, output=IOKey("add_out"))
     model.set_differentiability(left=False)
 
     backend = JaxBackend()
@@ -252,7 +252,7 @@ def test_diff_inference_relational_ops():
 
 def test_diff_inference_constant_keys_1():
     model = Model()
-    model += Multiply()(IOKey("input", differantiable=True), "denom", "output")
+    model += Multiply()(IOKey("input", differentiable=True), "denom", "output")
 
     pm = mithril.compile(model, JaxBackend(), constant_keys={"denom": 1.0})
 
@@ -262,7 +262,7 @@ def test_diff_inference_constant_keys_1():
 
 def test_diff_inference_constant_keys_2():
     model = Model()
-    model += Multiply()(IOKey("input", differantiable=True), "denom", "output")
+    model += Multiply()(IOKey("input", differentiable=True), "denom", "output")
 
     backend = JaxBackend()
 

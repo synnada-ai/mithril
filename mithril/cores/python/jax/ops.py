@@ -24,10 +24,8 @@ import jax.scipy.linalg as slin
 from jax import lax, vmap
 from jax import nn as functionals
 
-from .... import core
-from ....utils.type_utils import is_tuple_int
-from ....utils.utils import find_dominant_type
-from ...utils import NestedFloatOrIntOrBoolList
+from ....common import find_dominant_type
+from ...utils import NestedFloatOrIntOrBoolList, is_tuple_int
 from ..common_primitives import (
     add,
     buffer,
@@ -217,6 +215,10 @@ __all__ = [
     "split",
     "randn",
     "atleast_1d",
+    "minimum",
+    "maximum",
+    "dtype",
+    "zeros_like",
 ]
 
 
@@ -906,7 +908,7 @@ def arange(
     _dtype = default_dtype if dtype is None else dtype_map.inverse[dtype]
 
     if len([item for item in [start, stop, step] if isinstance(item, float)]) == 0:
-        _dtype = _dtype.replace("float", "int").replace("bfloat", "int")
+        _dtype = _dtype.replace("bfloat", "int").replace("float", "int")
 
     with jax.default_device(get_device(device)):
         return jnp.arange(start, stop, step, dtype=dtype_map[_dtype])
@@ -1048,8 +1050,8 @@ def cast(input: jax.Array, dtype: jnp.dtype[Any]) -> jax.Array:
     return input.astype(dtype)
 
 
-def dtype(input: jax.Array) -> core.Dtype:
-    return getattr(core.Dtype, str(input.dtype))
+def dtype(input: jax.Array) -> jnp.dtype[Any]:
+    return input.dtype.type  # type: ignore
 
 
 def logical_xor(left: jax.Array, right: jax.Array) -> jax.Array:

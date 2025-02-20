@@ -21,6 +21,7 @@ from typing import Any
 import numpy as np
 
 from mithril import Backend
+from mithril.common import get_specific_types_from_value
 from mithril.framework.common import (
     IOHyperEdge,
     PossibleValues,
@@ -40,7 +41,6 @@ from mithril.framework.physical import PhysicalModel
 from mithril.models.train_model import TrainModel
 from mithril.utils.dict_conversions import dict_to_model, model_dict
 from mithril.utils.type_utils import is_list_int
-from mithril.utils.utils import get_specific_types_from_value
 
 SemanticShapeType = Mapping[str, ShapeTemplateType | Sequence[ShapeTemplateType] | None]
 
@@ -292,7 +292,7 @@ def assert_results_equal(*args):
 def assert_metadata_equal(*args):
     first_conn, other_conns = args[0], args[1:]
     for other_conn in other_conns:
-        assert first_conn.data.metadata == other_conn.data.metadata
+        assert first_conn.metadata == other_conn.metadata
 
 
 def get_all_data(model: BaseModel) -> set[IOHyperEdge]:
@@ -676,7 +676,7 @@ def extract_variadic_possibles(
 
 def assert_shape_results(
     data: dict[str, IOHyperEdge],
-    ref_results: ShapeResultType,
+    ref_results: ShapeResultType | Mapping[str, Sequence[Sequence[str | int | None]]],
     ref_assignments: AssignmentType,
     updated_symbols: Updates,
     expected_updates: set[str | Tensor] | set[str] | set[Tensor],
@@ -704,7 +704,6 @@ def assert_shape_results(
         if not (tensors := get_specific_types_from_value(value._value, Tensor)):
             shapes[key] = []
         else:
-            # tensors = get_specific_types_from_value(value._value, Tensor)
             shapes[key] = tuple(
                 tensor.shape.get_shapes(uni_cache, var_cache, verbose=True)
                 for tensor in tensors

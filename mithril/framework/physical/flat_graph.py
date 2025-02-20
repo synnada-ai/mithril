@@ -17,12 +17,13 @@ from __future__ import annotations
 from collections.abc import Callable, KeysView, Mapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass
+from typing import Any
 
 import mithril as ml
 
-from ...core import DataType, GenericDataType
+from ...common import BiMap
+from ...types import DataType, GenericDataType
 from ...utils.func_utils import is_make_array_required, prepare_function_args
-from ...utils.utils import BiMap
 from ..common import (
     TBD,
     AllValueType,
@@ -705,7 +706,9 @@ class FlatGraph(GenericDataType[DataType]):
 
     def set_static_keys(
         self,
-        static_keys: dict[str, DataType | MainValueType],
+        static_keys: dict[
+            str, DataType | int | float | bool | Sequence[Any] | dict[str, Any]
+        ],
     ) -> Updates:
         updates = Updates()
         for key, value in static_keys.items():
@@ -724,7 +727,9 @@ class FlatGraph(GenericDataType[DataType]):
         return updates
 
     def add_static_data(
-        self, key: str, value: DataType | MainValueType
+        self,
+        key: str,
+        value: DataType | int | float | bool | Sequence[Any] | dict[str, Any],
     ) -> tuple[set[str], Updates]:
         updates = Updates()
         updated_keys = {key}
@@ -745,7 +750,15 @@ class FlatGraph(GenericDataType[DataType]):
             if self.data_store.is_scalar_type(
                 value
             ):  # TODO: Is this check really required?
-                updates |= data.set_value(value)
+                # If value is a dtype, convert into correseponding logical dtype.
+                if (
+                    value.__hash__ is not None
+                    and value in self.backend.dtype_map.inverse
+                ):
+                    dtype_logical = self.backend.convert_to_logical(value)
+                    updates |= data.set_type(type(dtype_logical))
+                else:
+                    updates |= data.set_value(value)
             else:
                 # Convert value to logical representaiton and set accordingly.
                 x = self.data_store.convert_phys_value_to_logical(value)

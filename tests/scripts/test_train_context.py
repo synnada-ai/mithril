@@ -51,9 +51,9 @@ def test_add_loss_case_1():
     buff1 = Buffer()
     relu1 = Relu()
     relu2 = Relu()
-    model += buff1(input="input")
-    model += relu1(input=buff1.output)
-    model += relu2(input=relu1.output)
+    model |= buff1(input="input")
+    model |= relu1(input=buff1.output)
+    model |= relu2(input=relu1.output)
 
     ctx2 = TrainModel(model)
     ctx2.add_loss(
@@ -70,9 +70,9 @@ def test_add_loss_case_2():
 
     inputs = {"input": np.array([[[1.0, 2.0], [3.0, 4.0]], [[5.0, 6.0], [7.0, 8.0]]])}
 
-    model += relu1(input=IOKey("input", differantiable=True))
-    model += relu2(input=relu1.output)
-    model += relu3(input=relu2.output, output=IOKey(name="output"))
+    model |= relu1(input=IOKey("input", differentiable=True))
+    model |= relu2(input=relu1.output)
+    model |= relu3(input=relu2.output, output=IOKey(name="output"))
 
     ctx1 = TrainModel(model)
     ctx1.add_loss(
@@ -106,10 +106,10 @@ def test_add_loss_case_2_exception_2():
     relu3 = Relu()
     relu4 = Relu()
 
-    model += relu1(input="input")
-    model += relu2(input=relu1.output)
-    model += relu3(input=relu2.output, output=IOKey(name="output1"))
-    model += relu4(input=relu3.output, output=IOKey(name="output2"))
+    model |= relu1(input="input")
+    model |= relu2(input=relu1.output)
+    model |= relu3(input=relu2.output, output=IOKey(name="output1"))
+    model |= relu4(input=relu3.output, output=IOKey(name="output2"))
 
     ctx1 = TrainModel(model)
     ctx1.add_loss(
@@ -147,9 +147,9 @@ def test_add_loss_case_3():
         "input": backend.array([[[1.0, 2.0], [3.0, 4.0]], [[5.0, 6.0], [7.0, 8.0]]])
     }
 
-    model += relu1(input=IOKey("input", differantiable=True))
-    model += relu2(input=relu1.output)
-    model += relu3(input=relu2.output, output=IOKey(name="output"))
+    model |= relu1(input=IOKey("input", differentiable=True))
+    model |= relu2(input=relu1.output)
+    model |= relu3(input=relu2.output, output=IOKey(name="output"))
 
     ctx1 = TrainModel(model)
     ctx1.add_loss(Relu(), [Min(axis=-1), Sum()], input="output")
@@ -175,9 +175,9 @@ def test_add_loss_case_4():
     sigmoid2 = Sigmoid()
     sigmoid3 = Sigmoid()
 
-    model += sigmoid1(input="input")
-    model += sigmoid2(input=sigmoid1.output)
-    model += sigmoid3(input=sigmoid2.output, output=IOKey(name="final_cost"))
+    model |= sigmoid1(input="input")
+    model |= sigmoid2(input=sigmoid1.output)
+    model |= sigmoid3(input=sigmoid2.output, output=IOKey(name="final_cost"))
 
     with pytest.raises(Exception) as err_info:
         TrainModel(model)
@@ -194,9 +194,9 @@ def test_add_loss_case_5():
     lrelu2 = LeakyRelu()
     lrelu3 = LeakyRelu()
 
-    model += lrelu1(input="input")
-    model += lrelu2(input=lrelu1.output)
-    model += lrelu3(input=lrelu2.output, output=IOKey(name="output"))
+    model |= lrelu1(input="input")
+    model |= lrelu2(input=lrelu1.output)
+    model |= lrelu3(input=lrelu2.output, output=IOKey(name="output"))
 
     ctx1 = TrainModel(model)
 
@@ -217,9 +217,9 @@ def test_add_loss_case_6():
     relu2 = Relu()
     relu3 = Relu()
 
-    model += relu1(input="input")
-    model += relu2(input=relu1.output)
-    model += relu3(input=relu2.output, output=IOKey(name="output"))
+    model |= relu1(input="input")
+    model |= relu2(input=relu1.output)
+    model |= relu3(input=relu2.output, output=IOKey(name="output"))
 
     ctx1 = TrainModel(model)
 
@@ -237,18 +237,18 @@ def test_add_loss_case_7():
     relu2 = Relu()
     relu3 = Relu()
 
-    LossModel += relu1(input="input")
-    LossModel += relu2(input=relu1.output, output=IOKey(name="output1"))
-    LossModel += relu3(input=relu1.output, output=IOKey(name="output2"))
+    LossModel |= relu1(input="input")
+    LossModel |= relu2(input=relu1.output, output=IOKey(name="output1"))
+    LossModel |= relu3(input=relu1.output, output=IOKey(name="output2"))
 
     model = Model()
     relu4 = Relu()
     relu5 = Relu()
     relu6 = Relu()
 
-    model += relu4(input="input")
-    model += relu5(input=relu4.output)
-    model += relu6(input=relu5.output, output=IOKey(name="output"))
+    model |= relu4(input="input")
+    model |= relu5(input=relu4.output)
+    model |= relu6(input=relu5.output, output=IOKey(name="output"))
 
     ctx1 = TrainModel(model)
     with pytest.raises(Exception) as err_info:
@@ -269,9 +269,9 @@ def test_add_loss_case_8():
     relu2 = Relu()
     relu3 = Relu()
 
-    model += relu1(input=IOKey("input", differantiable=True))
-    model += relu2(input=relu1.output, output=IOKey(name="output1"))
-    model += relu3(input=relu1.output, output=IOKey(name="output2"))
+    model |= relu1(input=IOKey("input", differentiable=True))
+    model |= relu2(input=relu1.output, output=IOKey(name="output1"))
+    model |= relu3(input=relu1.output, output=IOKey(name="output2"))
 
     ctx1 = TrainModel(model)
     ctx1.add_loss(Relu(), [Sum(), Sum()], input="output1")
@@ -302,9 +302,9 @@ def test_add_loss_case_9():
     sigmoid2 = Relu()
     sigmoid3 = Relu()
 
-    model += sigmoid1(input=IOKey("input", differantiable=True))
-    model += sigmoid2(input=sigmoid1.output, output=IOKey(name="output1"))
-    model += sigmoid3(input=sigmoid1.output, output=IOKey(name="output2"))
+    model |= sigmoid1(input=IOKey("input", differentiable=True))
+    model |= sigmoid2(input=sigmoid1.output, output=IOKey(name="output1"))
+    model |= sigmoid3(input=sigmoid1.output, output=IOKey(name="output2"))
 
     ctx1 = TrainModel(model)
     ctx1.add_loss(Relu(), [Sum(axis=(1,))], input="output1")

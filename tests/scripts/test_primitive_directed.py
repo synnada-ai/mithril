@@ -125,6 +125,7 @@ def assert_backward(
 
         for grad, expected_grad in zip(grads, expected_grads, strict=False):
             if not isinstance(grad, list):
+                assert isinstance(expected_grad, np.ndarray)
                 grad, expected_grad = [grad], [expected_grad]
             for g, eg in zip(grad, expected_grad, strict=False):
                 np.testing.assert_allclose(

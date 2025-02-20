@@ -21,6 +21,7 @@ import pytest
 import torch
 
 import mithril
+from mithril.common import find_dominant_type
 from mithril.framework.common import (
     NOT_GIVEN,
     BaseKey,
@@ -48,7 +49,6 @@ from mithril.models import (
     Sigmoid,
 )
 from mithril.models.primitives import PrimitiveModel
-from mithril.utils.utils import find_dominant_type
 
 from .test_constant_inputs import ReduceMult
 
@@ -143,9 +143,9 @@ def test_default_given_extend_4_numpy_error():
     model = Model()
     model1 = ReduceMult(axis=TBD)
     model2 = Mean(axis=1)
-    model += model1(axis=IOKey("axis", value=None))
+    model |= model1(axis=IOKey("axis", value=None))
     with pytest.raises(TypeError) as err_info:
-        model += model2(input="input2", axis=model1.axis, output="output")
+        model |= model2(input="input2", axis=model1.axis, output="output")
 
     assert str(err_info.value) == (
         "Acceptable types are <class 'NoneType'>, "
@@ -160,21 +160,21 @@ def test_constant_backendvar_numpy():
     model = Model()
     mean_model = Mean(axis=TBD)
     rdc = Mean(axis=TBD)
-    model += rdc(input="input", axis=IOKey("axis", value=0))
-    model += Multiply()(
+    model |= rdc(input="input", axis=IOKey("axis", value=0))
+    model |= Multiply()(
         left=rdc.output,
         right=IOKey(value=Tensor(2.0), name="rhs"),
         output=IOKey(name="mult_out"),
     )
-    model += mean_model(
+    model |= mean_model(
         input=model.mult_out,  # type: ignore
         axis=model.axis,  # type: ignore
         output=IOKey(name="output"),
     )
     other_model = Model()
-    other_model += Mean(axis=TBD)(input="input", axis=IOKey("axis", value=None))
+    other_model |= Mean(axis=TBD)(input="input", axis=IOKey("axis", value=None))
     with pytest.raises(TypeError) as err_info:
-        model += other_model(input=model.mult_out, axis=model.axis)  # type: ignore
+        model |= other_model(input=model.mult_out, axis=model.axis)  # type: ignore
     assert str(err_info.value) == (
         "Acceptable types are <class 'int'>, "
         "but <class 'NoneType'> type is provided!"
@@ -185,13 +185,13 @@ def test_type_1():
     model = Model()
     shape1 = Shape()
     reduce1 = Mean(axis=TBD)
-    model += shape1(input=Tensor([[1, 2, 4], [3, 5, 7]]))
-    model += reduce1(
+    model |= shape1(input=Tensor([[1, 2, 4], [3, 5, 7]]))
+    model |= reduce1(
         axis=shape1.output,
         input=Tensor([[[[1.0, 2.0, 3.0], [1.0, 2.0, 3.0], [1.0, 2.0, 3.0]]]]),
     )
 
-    assert shape1.output.data.metadata.value_type == tuple[int, int]
+    assert shape1.output.metadata.value_type == tuple[int, int]
 
 
 def test_type_2():
@@ -200,12 +200,12 @@ def test_type_2():
     shape1 = Shape()
     shape2 = Shape()
     shape3 = Shape()
-    model += shape1(input=Tensor([[1, 2, 4], [3, 5, 7]]))
-    model += shape2(input=Tensor([[1, 2, 4], [3, 5, 7]]))
-    model += shape3(input=Tensor([[1, 2, 4], [3, 5, 7]]))
-    model += union1(input1=shape1.output, input2=shape2.output, input3=shape3.output)
+    model |= shape1(input=Tensor([[1, 2, 4], [3, 5, 7]]))
+    model |= shape2(input=Tensor([[1, 2, 4], [3, 5, 7]]))
+    model |= shape3(input=Tensor([[1, 2, 4], [3, 5, 7]]))
+    model |= union1(input1=shape1.output, input2=shape2.output, input3=shape3.output)
 
-    assert shape1.output.data.metadata.value_type == tuple[int, int]
+    assert shape1.output.metadata.value_type == tuple[int, int]
 
 
 def test_type_3():
@@ -214,13 +214,13 @@ def test_type_3():
     shape1 = Shape()
     shape2 = Shape()
     shape3 = Shape()
-    model += union1()
+    model |= union1()
     input1 = union1.input1  # type: ignore
-    assert input1.data.metadata.value_type == int | float | tuple[int | float, ...]
-    model += shape1(input=Tensor([[1, 2, 4], [3, 5, 7]]), output=input1)
-    model += shape2(input=Tensor([[1, 2, 4], [3, 5, 7]]), output=union1.input2)  # type: ignore
-    model += shape3(input=Tensor([[1, 2, 4], [3, 5, 7]]), output=union1.input3)  # type: ignore
-    assert input1.data.metadata.value_type == tuple[int, int]
+    assert input1.metadata.value_type == int | float | tuple[int | float, ...]
+    model |= shape1(input=Tensor([[1, 2, 4], [3, 5, 7]]), output=input1)
+    model |= shape2(input=Tensor([[1, 2, 4], [3, 5, 7]]), output=union1.input2)  # type: ignore
+    model |= shape3(input=Tensor([[1, 2, 4], [3, 5, 7]]), output=union1.input3)  # type: ignore
+    assert input1.metadata.value_type == tuple[int, int]
 
 
 def test_type_5():
@@ -228,22 +228,22 @@ def test_type_5():
     conv1 = Convolution2D(kernel_size=5, stride=TBD)
     shape1 = Shape()
     reduce1 = Mean(axis=TBD)
-    model += shape1(input=Tensor([[1, 2, 4], [3, 5, 7]]))
-    model += reduce1(
+    model |= shape1(input=Tensor([[1, 2, 4], [3, 5, 7]]))
+    model |= reduce1(
         axis=shape1.output,
         input=Tensor([[[[1.0, 2.0, 3.0], [1.0, 2.0, 3.0], [1.0, 2.0, 3.0]]]]),
     )
-    model += conv1(input="", stride=shape1.output)
-    assert shape1.output.data.metadata.value_type == tuple[int, int]
+    model |= conv1(stride=shape1.output)
+    assert shape1.output.metadata.value_type == tuple[int, int]
 
 
 def test_type_6():
     model = Model()
     test_model_1 = Model1()
     test_model_2 = Model1()
-    model += test_model_1(input1="input1", input2="input2")
+    model |= test_model_1(input1="input1", input2="input2")
     with pytest.raises(TypeError) as err_info:
-        model += test_model_2(input1=test_model_1.output)  # type: ignore
+        model |= test_model_2(input1=test_model_1.output)  # type: ignore
     assert str(err_info.value) == (
         "Acceptable types are tuple[tuple[int, ...]], but tuple[int, ...] type "
         "is provided!"
@@ -255,13 +255,13 @@ def test_type_7():
     test_model_1 = Model2()
     test_model_2 = Model2()
     test_model_3 = Model2()
-    model += test_model_1(input1="input1", input2="input2", input3="input3")
+    model |= test_model_1(input1="input1", input2="input2", input3="input3")
     input1 = model.input1  # type: ignore
-    assert input1.data.metadata.value_type == int | float
-    model += test_model_2(input1="", input2="input1")
-    assert input1.data.metadata.value_type is int
+    assert input1.metadata.value_type == int | float
+    model |= test_model_2(input2="input1")
+    assert input1.metadata.value_type is int
     with pytest.raises(TypeError) as err_info:
-        model += test_model_3(input1="", input3="input1")
+        model |= test_model_3(input3="input1")
     assert (
         str(err_info.value)
         == "Acceptable types are <class 'int'>, but float | str type is provided!"
@@ -273,13 +273,13 @@ def test_type_8():
     model1 = Model1()
     model2 = Model2()
     model3 = Model3()
-    model += model3(input1="input1", input2="input1", input3="input1", output="output")
+    model |= model3(input1="input1", input2="input1", input3="input1", output="output")
     input1 = model.input1  # type: ignore
-    assert input1.data.metadata.value_type == tuple[int, int, int, int]
-    model += model1(input1="input1")
-    assert input1.data.metadata.value_type == tuple[int, int, int, int]
+    assert input1.metadata.value_type == tuple[int, int, int, int]
+    model |= model1(input1="input1")
+    assert input1.metadata.value_type == tuple[int, int, int, int]
     with pytest.raises(TypeError) as err_info:
-        model += model2(input1="input1")
+        model |= model2(input1="input1")
     assert str(err_info.value) == (
         "Acceptable types are tuple[int, int, int, int], but float | int type "
         "is provided!"
@@ -289,59 +289,59 @@ def test_type_8():
 def test_type_9():
     model = Model()
     lin_model = Linear()
-    assert lin_model.input.data.metadata.value_type == int | float | bool
+    assert lin_model.input.metadata.value_type == int | float | bool
     model += lin_model(
         input=IOKey(value=Tensor([[1.0, 2.0], [3.0, 4.0]]), name="input"),
         weight="w",
         bias="b",
         output=IOKey(name="output"),
     )
-    assert lin_model.input.data.metadata.value_type is float
+    assert lin_model.input.metadata.value_type is float
 
 
 def test_type_10():
     model = Model()
     lin_model = Linear()
-    assert lin_model.input.data.metadata.value_type == int | float | bool
+    assert lin_model.input.metadata.value_type == int | float | bool
     model += lin_model(
         input=IOKey(value=Tensor([[False, 1], [True, False]]), name="input"),  # type: ignore
         weight="w",
         bias="b",
         output=IOKey(name="output"),
     )
-    assert lin_model.input.data.metadata.value_type is int
+    assert lin_model.input.metadata.value_type is int
 
 
 def test_type_11():
     model = Model()
     lin_model = Linear()
-    assert lin_model.input.data.metadata.value_type == int | float | bool
+    assert lin_model.input.metadata.value_type == int | float | bool
     model += lin_model(
         input=IOKey(value=Tensor([[False, 1], [2.2, False]]), name="input"),  # type: ignore
         weight="w",
         bias="b",
         output=IOKey(name="output"),
     )
-    assert lin_model.input.data.metadata.value_type is float
+    assert lin_model.input.metadata.value_type is float
 
 
 def test_type_12():
     model = Model()
     lin_model = Linear()
-    assert lin_model.input.data.metadata.value_type == int | float | bool
+    assert lin_model.input.metadata.value_type == int | float | bool
     model += lin_model(
         input=IOKey(value=Tensor([[False, 1], [2.2, False]]), name="input"),  # type: ignore
         weight="w",
         bias="b",
         output=IOKey(name="output"),
     )
-    assert lin_model.input.data.metadata.value_type is float
+    assert lin_model.input.metadata.value_type is float
 
 
 def test_type_13():
     model = Model()
     lin_model = Linear()
-    assert lin_model.input.data.metadata.value_type == int | float | bool
+    assert lin_model.input.metadata.value_type == int | float | bool
     model += lin_model(
         input=IOKey(value=Tensor([[False, True], [False, False]]), name="input"),
         weight="w",
@@ -349,30 +349,30 @@ def test_type_13():
         output=IOKey(name="output"),
     )
     # model.make_static("input", Tensor([[False, True], [False, False]]))
-    assert lin_model.input.data.metadata.value_type is bool
+    assert lin_model.input.metadata.value_type is bool
 
 
 def test_type_14():
     model = Model()
     lin_model = Linear()
-    assert lin_model.input.data.metadata.value_type == int | float | bool
+    assert lin_model.input.metadata.value_type == int | float | bool
     model += lin_model(
         input=IOKey(value=Tensor([[False, 1.0], [2, 3]]), name="input"),  # type: ignore
         weight="w",
         bias="b",
         output=IOKey(name="output"),
     )
-    assert lin_model.input.data.metadata.value_type is float
+    assert lin_model.input.metadata.value_type is float
 
 
 def test_type_15():
     model = Model()
     sig_model = Sigmoid()
     sig_model_2 = Sigmoid()
-    sig_model_2.input.data.metadata.set_type(Tensor[float])
-    model += sig_model(input="input", output=IOKey(name="output"))
+    sig_model_2.input.metadata.set_type(Tensor[float])
+    model |= sig_model(input="input", output=IOKey(name="output"))
 
-    model += sig_model_2(
+    model |= sig_model_2(
         input=IOKey(value=Tensor([1.0, 2.0]), name="input"),
         output=IOKey(name="output2"),
     )
@@ -393,15 +393,11 @@ def test_type_15():
 def test_type_16():
     model = Model()
     sig_model_1 = Sigmoid()
-    sig_model_2 = Sigmoid()
-    sig_model_1.input.data.metadata.set_type(Tensor[float])
-    model += sig_model_1(input="input", output=IOKey(name="output"))
+    sig_model_1.input.metadata.set_type(Tensor[float])
+    model |= sig_model_1(input="input", output=IOKey(name="output"))
 
     with pytest.raises(TypeError) as err_info:
-        model += sig_model_2(
-            input=IOKey(connections={sig_model_1.input}, value=Tensor([False, True])),
-            output=IOKey(name="output2"),
-        )
+        model.set_values({sig_model_1.input: Tensor([False, True])})
     assert str(err_info.value) == (
         "Acceptable types are mithril.framework.common.Tensor[float], "
         "but mithril.framework.common.Tensor[bool] type "

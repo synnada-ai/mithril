@@ -12,22 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 from typing import Any
 
 import numpy as np
 
-from .... import core
+from .... import types
+from ....cores.c import array
+from ....cores.c.array import PyArray
 from ...backend import Backend
 from ...utils import process_shape
-from .src import array, utils
-from .src.array import PyArray
+from . import utils
 
 __all__ = ["CBackend"]
 
 
 class CBackend(Backend[PyArray]):
     backend_type = "c"
-    SRC_PATH = "mithril/backends/with_manualgrad/c_backend/src"
+    SRC_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "..", "cores", "c")
 
     def __init__(self) -> None:
         self._device = "cpu"
@@ -48,26 +50,34 @@ class CBackend(Backend[PyArray]):
         return PyArray
 
     def empty(
-        self, *shape: int | tuple[int, ...] | list[int], dtype: core.Dtype | None = None
+        self,
+        *shape: int | tuple[int, ...] | list[int],
+        dtype: types.Dtype | None = None,
     ) -> PyArray:
         assert dtype is None, "dtype is not supported in CBackend"
         _shape = process_shape(shape)
         return array.empty(_shape)
 
     def ones(
-        self, *shape: int | tuple[int, ...] | list[int], dtype: core.Dtype | None = None
+        self,
+        *shape: int | tuple[int, ...] | list[int],
+        dtype: types.Dtype | None = None,
     ) -> PyArray:
         assert dtype is None, "dtype is not supported in CBackend"
         _shape = process_shape(shape)
         return array.ones(_shape)
 
     def zeros(
-        self, *shape: int | tuple[int, ...] | list[int], dtype: core.Dtype | None = None
+        self,
+        *shape: int | tuple[int, ...] | list[int],
+        dtype: types.Dtype | None = None,
     ) -> PyArray:
         _shape = process_shape(shape)
         return array.zeros(_shape)
 
-    def zeros_like(self, input: PyArray, *, dtype: core.Dtype | None = None) -> PyArray:
+    def zeros_like(
+        self, input: PyArray, *, dtype: types.Dtype | None = None
+    ) -> PyArray:
         assert dtype is None, "dtype is not supported in CBackend"
         return self.array(np.zeros(input.shape, dtype=np.float32))
 
@@ -75,7 +85,7 @@ class CBackend(Backend[PyArray]):
         return utils.to_numpy(array)
 
     def array(
-        self, input: np.ndarray[Any, Any], *, dtype: core.Dtype | None = None
+        self, input: np.ndarray[Any, Any], *, dtype: types.Dtype | None = None
     ) -> PyArray:
         assert dtype is None, "dtype is not supported in CBackend"
         input = input.astype(np.float32)

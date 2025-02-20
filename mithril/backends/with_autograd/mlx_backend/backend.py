@@ -20,11 +20,12 @@ from typing import Any, overload
 import mlx.core as mx
 import mlx.nn as nn
 
-from ....core import Dtype
+from ....cores.python.mlx import ops
+from ....cores.python.mlx import utils as core_utils
+from ....types import Dtype
 from ...backend import Backend, PadWidthType
 from ...utils import DtypeSubTypes, StaticScalar, process_shape
-from . import ops, utils
-from .utils import CODEGEN_CONFIG
+from . import utils
 
 __all__ = ["MlxBackend"]
 
@@ -35,7 +36,7 @@ class MlxBackend(Backend[mx.array]):
     backend_type = "mlx"
     supported_dtypes = [Dtype.float16, Dtype.bfloat16, Dtype.float32]
     registered_primitives: dict[str, Callable[..., mx.array]] = {}
-    primitive_fn_path = "mithril.backends.with_autograd.mlx_backend.ops"
+    primitive_fn_path = "mithril.cores.python.mlx.ops"
 
     def __init__(
         self,
@@ -50,11 +51,12 @@ class MlxBackend(Backend[mx.array]):
         self._device = device
         super().__init__(dtype=dtype)
 
+        self.dtype_map = core_utils.dtype_map
         self.array_creation_funcs = ops.array_creation_funcs
         self.primitive_function_dict = ops.primitive_func_dict
         self.prng_key = mx.random.key(self.seed)
 
-        for key, value in utils.dtype_map.items():
+        for key, value in core_utils.dtype_map.items():
             setattr(self, key, value)
 
     @property
@@ -75,7 +77,7 @@ class MlxBackend(Backend[mx.array]):
 
     @property
     def codegen_config(self) -> dict[str, bool]:
-        return CODEGEN_CONFIG
+        return utils.CODEGEN_CONFIG
 
     def get_device(self) -> Any:
         return self._device
@@ -192,7 +194,7 @@ class MlxBackend(Backend[mx.array]):
 
     def array(self, input: Any, *, dtype: Dtype | None = None) -> mx.array:
         _dtype = utils.determine_dtype(input, dtype, self._dtype, self.precision)
-        return mx.array(input, dtype=utils.dtype_map[_dtype])
+        return mx.array(input, dtype=core_utils.dtype_map[_dtype])
 
     def zeros(
         self, *shape: int | tuple[int, ...] | list[int], dtype: Dtype | None = None
@@ -296,6 +298,9 @@ class MlxBackend(Backend[mx.array]):
         self, input: mx.array, start_dim: int = 0, end_dim: int = -1
     ) -> mx.array:
         return mx.flatten(input, start_axis=start_dim, end_axis=end_dim)
+
+    def concat(self, inputs: list[mx.array], axis: int = 0) -> mx.array:
+        return mx.concatenate(inputs, axis=axis)
 
     def abs(self, input: mx.array) -> mx.array:
         return mx.abs(input)
@@ -617,17 +622,27 @@ class MlxBackend(Backend[mx.array]):
     ) -> Callable[[mx.array], mx.array]:
         return mx.vmap(fn)
 
+    def convert_to_logical(self, input: Any, force: bool = False) -> Any:
+        # Try dtype:
+        if isinstance(input, mx.Dtype):
+            return Dtype[core_utils.dtype_map.inverse[input]]
+
+        if force:
+            raise ValueError(f"Invalid value '{input}'!")
+
+        return input
+
     def _process_dtype(
         self,
         dtype: Dtype | None = None,
         default_type: str | None = None,
     ) -> mx.Dtype:
         if isinstance(dtype, Dtype):
-            return utils.dtype_map[dtype.name]
+            return core_utils.dtype_map[dtype.name]
         elif dtype is None:
             if default_type is None:
                 default_type = self._get_default_subtype()
-            return utils.dtype_map[default_type + str(self.precision)]
+            return core_utils.dtype_map[default_type + str(self.precision)]
         else:
             raise ValueError(f"Invalid dtype {dtype}")
 

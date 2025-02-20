@@ -16,11 +16,12 @@ from __future__ import annotations
 
 from collections.abc import KeysView, Mapping, Sequence
 from dataclasses import dataclass
-from types import EllipsisType, UnionType
+from types import EllipsisType
 from typing import Any, Self
 
-from ...core import Dtype as CoreDtype
-from ...utils.utils import find_dominant_type
+from ...common import find_dominant_type
+from ...types import Dtype as CoreDtype
+from ...utils.utils import constant_fn
 from ..common import (
     NOT_GIVEN,
     TBD,
@@ -31,11 +32,8 @@ from ..common import (
     MainValueInstance,
     MainValueType,
     NullConnection,
-    ScalarType,
-    ScalarValueType,
     ShapeTemplateType,
     Tensor,
-    ToBeDetermined,
     UniadicRecord,
     Variadic,
     get_summary,
@@ -219,7 +217,7 @@ class TemplateBase:
     def __rle__(self, other: TemplateConnectionType) -> ExtendTemplate:
         return ExtendTemplate(connections=[other, self], model=LessEqualOp)
 
-    def __eq__(self, other: object) -> ExtendTemplate:  # type: ignore[override]
+    def eq(self, other: object) -> ExtendTemplate:
         if isinstance(
             other, int | float | bool | list | Connection | IOKey | tuple | Tensor
         ):
@@ -227,19 +225,13 @@ class TemplateBase:
         else:
             raise ValueError("Unsupported type for equality operation.")
 
-    def __req__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[other, self], model=EqualOp)
-
-    def __ne__(self, other: object) -> ExtendTemplate:  # type: ignore[override]
+    def ne(self, other: object) -> ExtendTemplate:
         if isinstance(
             other, int | float | bool | list | Connection | IOKey | tuple | Tensor
         ):
             return ExtendTemplate(connections=[self, other], model=NotEqualOp)
         else:
             raise ValueError("Unsupported type for equality operation.")
-
-    def __rne__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[other, self], model=NotEqualOp)
 
     def __and__(self, other: TemplateConnectionType) -> ExtendTemplate:
         return ExtendTemplate(connections=[self, other], model=LogicalAndOp)
@@ -366,7 +358,7 @@ class TemplateBase:
     def item(self) -> ExtendTemplate:
         return ExtendTemplate(connections=[self], model=ItemOp)
 
-    def cast(self, dtype: CoreDtype | None = None) -> ExtendTemplate:
+    def cast(self, dtype: ExtendTemplate | CoreDtype | None = None) -> ExtendTemplate:
         return ExtendTemplate(connections=[self, dtype], model=CastOp)
 
     def dtype(self) -> ExtendTemplate:
@@ -382,56 +374,12 @@ class TemplateBase:
         return ExtendTemplate(connections=[self], model=AtLeast1DOp)
 
 
-class Connection(TemplateBase):
-    def __init__(self, data: ConnectionData) -> None:
-        self.data = data
-
-    @property
-    def key(self) -> str:
-        return self.data.key
-
-    @property
-    def metadata(self) -> IOHyperEdge:
-        return self.data.metadata
-
-    def __hash__(self) -> int:
-        return hash(id(self))
+class Connection(ConnectionData, TemplateBase):
+    pass
 
 
 class IOKey(BaseKey, TemplateBase):
-    def __init__(
-        self,
-        name: str | None = None,
-        value: Tensor[int | float | bool]
-        | ScalarValueType
-        | ToBeDetermined
-        | str = TBD,
-        shape: ShapeTemplateType | None = None,
-        type: UnionType
-        | type
-        | type[Tensor[int | float | bool]]
-        | ScalarType
-        | None = None,
-        expose: bool | None = None,
-        differantiable: bool = False,
-        interval: list[float | int] | None = None,
-        connections: set[Connection | str] | None = None,
-    ) -> None:
-        _connections: set[ConnectionData | str] = {
-            con.data if isinstance(con, Connection) else con
-            for con in connections or set()
-        }
-
-        super().__init__(
-            name=name,
-            value=value,
-            shape=shape,
-            type=type,
-            expose=expose,
-            interval=interval,
-            connections=_connections,
-            differentiable=differantiable,
-        )
+    pass
 
 
 class ExtendTemplate(TemplateBase):
@@ -500,7 +448,7 @@ ConnectionType = (
     | ExtendTemplate
     | NullConnection
     | IOKey
-    | Connection
+    | ConnectionData
     | Tensor[int | float | bool]
 )
 
@@ -516,28 +464,11 @@ ConnectionInstanceType = (
 
 
 class Model(BaseModel):
-    def __init__(
-        self,
-        name: str | None = None,
-        formula_key: str | None = None,
-        enforce_jit: bool = True,
-    ) -> None:
-        super().__init__(name, formula_key, enforce_jit)
-        self.connection_map: dict[ConnectionData, Connection] = {}
-
     def __call__(self, **kwargs: ConnectionType) -> ExtendInfo:
         return ExtendInfo(self, kwargs)
 
-    def _create_connection(
-        self, metadata: IOHyperEdge, key: str | None = None
-    ) -> ConnectionData:
-        con_data = super()._create_connection(metadata, key)
-        con = Connection(con_data)
-        self.connection_map[con_data] = con
-        if not con_data.is_key_autogenerated:
-            assert key is not None
-            setattr(self, key, con)
-        return con_data
+    def _create_connection(self, metadata: IOHyperEdge, key: str) -> Connection:
+        return Connection(key, metadata)
 
     # TODO: Refactor _prepare_keys / _unroll_template relation.
     def _prepare_keys(
@@ -545,33 +476,33 @@ class Model(BaseModel):
         model: BaseModel,
         key: str,
         connection: ConnectionDataType | ConnectionType,
-    ) -> BaseKey:
+    ) -> BaseKey | ConnectionData:
         local_connection = model.conns.get_connection(key)
         assert local_connection is not None, "Connection is not found!"
         _connection: BaseKey | ConnectionData | MainValueInstance | NullConnection | str
         match connection:
-            case Connection():
-                _connection = connection.data
             case ExtendTemplate():
                 # Unroll ExtendTemplate
-                con_data = self._unroll_template(connection)
-                _connection = BaseKey(connections={con_data}, expose=False)
+                _connection = self._unroll_template(connection)
             case _ if isinstance(
                 connection, MainValueInstance | Tensor
             ) and not isinstance(connection, str):
                 # find_dominant_type returns the dominant type in a container.
                 # If a container has a value of type Connection or ExtendTemplate
                 # we add necessary models.
+
                 types = [ConnectionData, ExtendTemplate, Connection, IOKey]
+
                 if (
                     isinstance(connection, tuple | list)
-                    and find_dominant_type(connection, False, omit_types={Tensor})
+                    and find_dominant_type(
+                        connection, False, constant_fn, omit_types={Tensor}
+                    )
                     in types
                 ):
                     _model = ToTupleOp if isinstance(connection, tuple) else ToListOp
                     et = ExtendTemplate(connection, _model, {"n": len(connection)})
-                    con_data = self._unroll_template(et)
-                    _connection = BaseKey(connections={con_data}, expose=False)
+                    _connection = self._unroll_template(et)
 
                 else:
                     assert isinstance(connection, MainValueInstance | Tensor)
@@ -579,19 +510,15 @@ class Model(BaseModel):
             case IOKey():
                 expose = connection.expose
                 name = connection.name
-                # TODO: This check should be removed: conn.connections==set()
                 # We should not operate different if _connections is given. Fix this and
                 # also fix corresponding tests and dict conversions with "connect".
-                if (
-                    expose is None
-                    and (name is None or self.conns.get_connection(name) is None)
-                    and connection.connections == set()
+                if expose is None and (
+                    name is None or self.conns.get_connection(name) is None
                 ):
                     expose = True
                 _connection = BaseKey(
                     name=name,
                     expose=expose,
-                    connections=connection.connections,
                     type=connection.type,
                     shape=connection.value_shape,
                     value=connection.value,
@@ -609,10 +536,9 @@ class Model(BaseModel):
         assert isinstance(_conn, ConnectionData)
         return _conn
 
-    def update_key_name(self, connection: ConnectionData, key: str) -> None:
-        super().update_key_name(connection, key)
-        con_data = self.conns.get_extracted_connection(connection)
-        conn = self.connection_map[con_data]
+    def rename_key(self, connection: ConnectionData, key: str) -> None:
+        super().rename_key(connection, key)
+        conn = self.conns.get_extracted_connection(connection)
         setattr(self, key, conn)
 
     def _unroll_template(self, template: ExtendTemplate) -> ConnectionData:
@@ -645,6 +571,18 @@ class Model(BaseModel):
             assert template.output_connection is not None
         return template.output_connection
 
+    @property
+    def cout(self) -> Connection:
+        cout = super().cout
+        assert isinstance(cout, Connection)
+        return cout
+
+    @property
+    def cin(self) -> Connection:
+        cin = super().cin
+        assert isinstance(cin, Connection)
+        return cin
+
     def _extend(
         self, model: BaseModel, kwargs: dict[str, ConnectionType] | None = None
     ) -> Self:
@@ -672,26 +610,6 @@ class Model(BaseModel):
         self.extend(model, **kwargs)  # type: ignore
         return self
 
-    @property
-    def cout(self) -> Connection:
-        return self.connection_map[self._cout]
-
-    @property
-    def cin(self) -> Connection:
-        return self.connection_map[self._cin]
-
-    def set_cin(self, *connections: str | Connection, safe: bool = True) -> None:
-        data: list[str | ConnectionData] = [
-            item if isinstance(item, str) else item.data for item in connections
-        ]
-        self._set_cin(*data, safe=safe)
-
-    def set_cout(self, *connections: str | Connection, safe: bool = True) -> None:
-        data: list[str | ConnectionData] = [
-            item if isinstance(item, str) else item.data for item in connections
-        ]
-        self._set_cout(*data, safe=safe)
-
     def __add__(self, info: ExtendInfo | Model) -> Self:
         # TODO: Check if info is a valid info for canonical connections.
         # TODO: Add canonical connection information to info.
@@ -706,12 +624,12 @@ class Model(BaseModel):
                     "No existing canonical input is found "
                     "to extension model! Use |= operator."
                 )
-            if len(available_cin) > 1:
+            if len(available_cin) != 1:
                 raise KeyError(
-                    "Multiple canonical inputs are not allowed! Use |= operator."
+                    "Submodel must have single available canonical input! "
+                    "Set canonical input or use |= operator."
                 )
-            if len(available_cin) == 1:
-                kwargs[next(iter(available_cin))] = self.cout
+            kwargs[next(iter(available_cin))] = self.cout
         return self._extend(model, kwargs)
 
     __iadd__ = __add__
@@ -729,102 +647,6 @@ class Model(BaseModel):
         | Mapping[str, ShapeTemplateType]
         | Mapping[Connection, ShapeTemplateType]
     )
-
-    def set_differentiability(
-        self, config: dict[str | Connection, bool] | None = None, **kwargs: bool
-    ) -> None:
-        if config is None:
-            config = {}
-
-        _config: dict[str | ConnectionData, bool] = {
-            key.data if isinstance(key, Connection) else key: value
-            for key, value in config.items()
-        }
-        self._set_differentiability(_config, **kwargs)
-
-    def set_shapes(
-        self, config: ShapeType | None = None, **kwargs: ShapeTemplateType
-    ) -> None:
-        if config is None:
-            config = {}
-        _config: dict[str | ConnectionData, ShapeTemplateType] = {
-            key.data if isinstance(key, Connection) else key: value
-            for key, value in config.items()
-        }
-        self._set_shapes(_config, trace=True, updates=None, **kwargs)
-
-    def set_values(
-        self,
-        config: Mapping[
-            str | Connection, Tensor[int | float | bool] | MainValueType | str
-        ]
-        | Mapping[Connection, Tensor[int | float | bool] | MainValueType | str]
-        | Mapping[str, Tensor[int | float | bool] | MainValueType | str]
-        | None = None,
-        **kwargs: Tensor[int | float | bool] | MainValueType | str,
-    ) -> None:
-        if config is None:
-            config = {}
-        _config: dict[
-            str | ConnectionData, Tensor[int | float | bool] | MainValueType | str
-        ] = {
-            key if isinstance(key, str) else key.data: value
-            for key, value in config.items()
-        }
-        self._set_values(_config, **kwargs)
-
-    def set_types(
-        self,
-        config: Mapping[
-            str | Connection,
-            type | UnionType | ScalarType | type[Tensor[int | float | bool]],
-        ]
-        | Mapping[
-            Connection,
-            type | UnionType | ScalarType | type[Tensor[int | float | bool]],
-        ]
-        | Mapping[
-            str,
-            type | UnionType | ScalarType | type[Tensor[int | float | bool]],
-        ]
-        | None = None,
-        **kwargs: type | UnionType | ScalarType | type[Tensor[int | float | bool]],
-    ) -> None:
-        """
-        Set types of any connection in the Model
-
-        This method updates types in given connections.
-        connections can be given either as Connection or their string
-        equivalent. Giving a valid type for given connections, this method
-        will update the connections's types and thereafter runs the
-        constraints to update affected connections' types.
-
-        Args:
-            values (dict[str | Connection, MainValueType]): A dictionary where
-            keys are either strings or Connection objects, and values are
-            of type of type or UnionType objects.
-
-        """
-        if config is None:
-            config = {}
-        _config: dict[
-            str | ConnectionData,
-            type | UnionType | ScalarType | type[Tensor[int | float | bool]],
-        ] = {
-            key if isinstance(key, str) else key.data: value
-            for key, value in config.items()
-        }
-        self._set_types(_config, **kwargs)
-
-    def set_outputs(self, *args: str | Connection, **kwargs: str | Connection) -> None:
-        _args: list[str | ConnectionData] = [
-            key if isinstance(key, str) else key.data for key in args
-        ]
-        _kwargs: dict[str, str | ConnectionData] = {
-            key: value if isinstance(value, str) else value.data
-            for key, value in kwargs.items()
-        }
-        self._set_outputs(*_args, **_kwargs)
 
     # TODO: Update summary, this should work same with both
     # Logical Model and Operator
@@ -921,3 +743,69 @@ def define_unique_names(
     for m in single_model_dict.values():
         model_name_dict[m] = m.name or str(m.class_name)
     return model_name_dict
+
+
+#                       Flowchart for Canonical Logic
+# +-----------------------------------------------------------------------------------+
+# +------------+           +------------+
+# |     |=     |           |     +=     |
+# +------------+           +------------+
+#        |                       |
+#        |                       v
+#        |             +-------------------------------------+
+#        |             |  Check Parent Model has single cout |
+#        |             +-------------------------------------+
+#        |                       |  (Valid)
+#        |                       v
+#        |             +---------------------------------+
+#        |             |  Check Child Model has single   |
+#        |             |  available cin                  |
+#        |             +---------------------------------+
+#        |                       |  (Valid)
+#        |                       v
+#        |       +--------------------------------------------+
+#        |       |   Add connection info:                     |
+#        |       |    Parent Model (cout) -> Child Model (cin)|
+#        |       +--------------------------------------------+
+#        |                       |
+#        v                       v
+#    +---------------------------------------+
+#    |  Extend Model with given connections  |
+#    +---------------------------------------+
+#                                |
+#                                |
+#                                v
+#                  (Iterate over all connections)
+# +------------------------------------------------------------------------------+
+#                                |
+#                                v
+#      +----------------------------------------------------+
+#      |  Update Canonical state of the Connection         |
+#      +----------------------------------------------------+
+#                                |
+#                                v
+# +-----------------------------------------------------------------------------+
+# | Update Canonical state of the Connection                                    |
+# |                                                                             |
+# |       +------------------------------------------+                          |
+# |       | Child / parent model cin stays as input? |                          |
+# |       +------------------------------------------+                          |
+# |          | Yes                | No                                          |
+# |          v                    v                                             |
+# |  +--------------------------+  +------------------------------------+       |
+# |  | Add connection to Parent |  | Discard connection from Parent     |       |
+# |  | Model's cin set          |  | Model's cin set                    |       |
+# |  +--------------------------+  +------------------------------------+       |
+# |                                           |                                 |
+# |                                           v                                 |
+# |                        +--------------------------------------------+       |
+# |                        | Child / Parent Model cout stays as output? |       |
+# |                        +--------------------------------------------+       |
+# |                           | Yes                | No                         |
+# |                           v                    v                            |
+# |  +----------------------- --+  +------------------------------------+       |
+# |  | Add connection to Parent |  | Discard connection from Parent     |       |
+# |  |  Model's cout set        |  | Model's cout set                   |       |
+# |  +--------------------------+  +------------------------------------+       |
+# +------------------------------------------------------------------------------+
+# +-----------------------------------------------------------------------------------+

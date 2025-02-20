@@ -21,7 +21,7 @@ import numpy as np
 import pytest
 
 from mithril import JaxBackend, NumpyBackend, compile
-from mithril.backends.with_autograd.jax_backend.ops import (
+from mithril.cores.python.jax.ops import (
     add,
     partial,
     reduce_mean,
@@ -75,32 +75,32 @@ class MyModel(Model):
         IOKey(name = "output"))
         """
         sum_slc = Model()
-        sum_slc += (slc := Slice(start=None, stop=None, step=None))
-        sum_slc += Indexer()(input="input", index=slc.output, output=IOKey("output"))
+        sum_slc |= (slc := Slice(start=None, stop=None, step=None))
+        sum_slc |= Indexer()(input="input", index=slc.output, output=IOKey("output"))
         super().__init__()
         mult_model = MatrixMultiply()
         sum_model = Add()
         sum_model.set_types(left=Tensor, right=Tensor)
-        self += mult_model(left="input", right="w")  # (10, 1)
-        self += sum_model(left=mult_model.output, right="b")  # (10, 1)
-        self += (sum_shp := Shape())(input=sum_model.output)  # (10, 1)
-        self += sum_slc(input=sum_shp.output)  # (10, 1)
-        self += (uni := PrimitiveUnion(n=3))(
+        self |= mult_model(left="input", right="w")  # (10, 1)
+        self |= sum_model(left=mult_model.output, right="b")  # (10, 1)
+        self |= (sum_shp := Shape())(input=sum_model.output)  # (10, 1)
+        self |= sum_slc(input=sum_shp.output)  # (10, 1)
+        self |= (uni := PrimitiveUnion(n=3))(
             input1=sum_slc.output,  # type: ignore
             input2=1,
             input3=1,
         )  # (10, 1, 1, 1)
-        self += (reshp_1 := Reshape())(
+        self |= (reshp_1 := Reshape())(
             input=sum_model.output, shape=uni.output
         )  # (10, 1, 1, 1)
-        self += (reshp_shp := Shape())(input=reshp_1.output)  # (10, 1, 1, 1)
-        self += (idx_1 := Indexer())(index=-1, input=reshp_shp.output)  # 1
-        self += (mult_shp := Shape())(input=mult_model.output)  # (10, 1)
-        self += (idx_2 := Indexer())(index=idx_1.output, input=mult_shp.output)  # 1
-        self += (idx_3 := Indexer())(index=idx_2.output, input=sum_shp.output)  # 1
-        self += (tens := ToTensor())(input=idx_3.output)  # array(1)
-        self += (sum := Add())(left=tens.output, right=Tensor(3.0))  # array(4)
-        self += Multiply()(
+        self |= (reshp_shp := Shape())(input=reshp_1.output)  # (10, 1, 1, 1)
+        self |= (idx_1 := Indexer())(index=-1, input=reshp_shp.output)  # 1
+        self |= (mult_shp := Shape())(input=mult_model.output)  # (10, 1)
+        self |= (idx_2 := Indexer())(index=idx_1.output, input=mult_shp.output)  # 1
+        self |= (idx_3 := Indexer())(index=idx_2.output, input=sum_shp.output)  # 1
+        self |= (tens := ToTensor())(input=idx_3.output)  # array(1)
+        self |= (sum := Add())(left=tens.output, right=Tensor(3.0))  # array(4)
+        self |= Multiply()(
             left=sum.output, right=Tensor(2.0), output=IOKey(name="output")
         )  # array(8)
 
@@ -109,7 +109,7 @@ class MyModel(Model):
             "w": ["d_in", dimension],
             "b": [dimension],
         }
-        self.set_shapes(shapes)
+        self.set_shapes(**shapes)
 
 
 class MyModel2(Model):
@@ -148,7 +148,7 @@ class MyModel2(Model):
             "w": ["d_in", dimension],
             "b": [dimension],
         }
-        self.set_shapes(shapes)
+        self.set_shapes(**shapes)
 
 
 np_input = np.random.randn(10, 3).astype(np.float32)
@@ -242,8 +242,8 @@ def test_mymodel_jax():
             return ExtendInfo(self, kwargs)
 
     model = MyModel(dimension=1)
-    model += Adder()(
-        left="output", right=IOKey("r1", differantiable=True), output=IOKey(name="o1")
+    model |= Adder()(
+        left="output", right=IOKey("r1", differentiable=True), output=IOKey(name="o1")
     )
     compiled_model = compile(
         model=model, backend=JaxBackend(), constant_keys=static_inputs, jit=True
@@ -261,10 +261,11 @@ def test_logical_model_jittable_1():
     jit.
     """
     model = Model()
-    model += (add1 := Add())(left="l1", right="l2", output=IOKey(name="out1"))
-    model += (add2 := Add())(left="l3", right="l4")
+    model |= (add1 := Add())(left="l1", right="l2", output=IOKey(name="out1"))
+    model |= (add2 := Add())(left="l3", right="l4")
     with pytest.raises(Exception) as error_info:
-        model += Item()(input=IOKey(name="input", connections={add1.left, add2.left}))
+        model.merge_connections(add1.left, add2.left, name="input")
+        model |= Item()(add1.left)
     modified_msg = re.sub("\\s*", "", str(error_info.value))
     expected_msg = (
         "Model with enforced Jit can not be extended by a non-jittable model! \
@@ -278,11 +279,11 @@ def test_logical_model_jittable_2():
     sets enforce_jit to False, no error will be thrown.
     """
     model = Model()
-    model += (add1 := Add())(left="l1", right="l2", output=IOKey(name="out1"))
-    model += (add2 := Add())(left="l3", right="l4")
+    model |= (add1 := Add())(left="l1", right="l2", output=IOKey(name="out1"))
+    model |= (add2 := Add())(left="l3", right="l4")
     model.enforce_jit = False
-    input = IOKey(name="input", connections={add1.left, add2.left}, expose=True)
-    model += Item()(input=input)
+    model.merge_connections(add1.left, add2.left, name="input")
+    model |= Item()(input=add1.left)
     assert not model.enforce_jit
 
 
@@ -291,11 +292,11 @@ def test_logical_model_jittable_3():
     does not enforce Jit in its init, no error will be thrown.
     """
     model = Model(enforce_jit=False)
-    model += (add1 := Add())(left="l1", right="l2", output=IOKey(name="out1"))
-    model += (add2 := Add())(left="l3", right="l4")
+    model |= (add1 := Add())(left="l1", right="l2", output=IOKey(name="out1"))
+    model |= (add2 := Add())(left="l3", right="l4")
     model.enforce_jit = False
-    input = IOKey(name="input", connections={add1.left, add2.left}, expose=True)
-    model += Item()(input=input)
+    model.merge_connections(add1.left, add2.left, name="input")
+    model |= Item()(input="input")
     assert not model.enforce_jit
 
 
@@ -306,22 +307,17 @@ def test_physical_model_jit_1():
     model = Model(enforce_jit=False)
     add1 = Add()
     add2 = Add()
-    model += add1(
-        left=IOKey("l1", differantiable=True),
-        right=IOKey("l2", differantiable=True),
+    model |= add1(
+        left=IOKey("l1", differentiable=True),
+        right=IOKey("l2", differentiable=True),
         output=IOKey(name="out1"),
     )
-    model += add2(
-        left=IOKey("l3", differantiable=True), right=IOKey("l4", differantiable=True)
+    model |= add2(
+        left=IOKey("l3", differentiable=True), right=IOKey("l4", differentiable=True)
     )
     model.enforce_jit = False
-    input = IOKey(
-        name="input",
-        connections={add1.left, add2.left},
-        expose=True,
-        differantiable=True,
-    )
-    model += Item()(input=input)
+    model.merge_connections(add1.left, add2.left, name="input")
+    model |= Item()(input="input")
 
     backend = JaxBackend()
     compiled_model = compile(model=model, backend=backend, jit=False)
@@ -335,11 +331,11 @@ def test_physical_model_jit_2():
     with jit = True, exception will be raised because model is not jittable.
     """
     model = Model(enforce_jit=False)
-    model += (add1 := Add())(left="l1", right="l2", output=IOKey(name="out1"))
-    model += (add2 := Add())(left="l3", right="l4")
+    model |= (add1 := Add())(left="l1", right="l2", output=IOKey(name="out1"))
+    model |= (add2 := Add())(left="l3", right="l4")
     model.enforce_jit = False
-    input = IOKey(name="input", connections={add1.left, add2.left}, expose=True)
-    model += Item()(input=input)
+    model.merge_connections(add1.left, add2.left, name="input")
+    model |= Item()(input="input")
 
     backend = JaxBackend()
 
@@ -371,9 +367,9 @@ def test_jit_1():
 
     add_model = Add()
     model = Model()
-    model += add_model(left="left", right="right")
+    model |= add_model(left="left", right="right")
     with pytest.raises(Exception) as err_info:
-        model += TensorToList()(add_model.output)
+        model |= TensorToList()(add_model.output)
     assert str(err_info.value) == (
         "Model with enforced Jit can not be extended by a non-jittable model!     "
         "                        Jit can be unforced by setting enforce_jit = False"
@@ -383,17 +379,17 @@ def test_jit_1():
 def test_jit_2():
     backend = JaxBackend()
     model = Model(enforce_jit=False)
-    model += (add_model := Add())(
-        left=IOKey("left", differantiable=True),
-        right=IOKey("right", differantiable=True),
+    model |= (add_model := Add())(
+        left=IOKey("left", differentiable=True),
+        right=IOKey("right", differentiable=True),
     )
     in1 = add_model.output
     out1 = in1.shape
     out2 = out1.tensor().sum()
     mean_model = Mean(axis=TBD)
-    model += (to_list := Item())(input=out2)
-    model += mean_model(
-        input=IOKey("input", differantiable=True),
+    model |= (to_list := Item())(input=out2)
+    model |= mean_model(
+        input=IOKey("input", differentiable=True),
         axis=to_list.output,
         output=IOKey(name="output"),
     )
@@ -410,7 +406,7 @@ def test_jit_2():
 def test_jit_3():
     backend = JaxBackend()
     model = Model()
-    model += Mean(axis=TBD)(input="input", output=IOKey(name="output"), axis="axis")
+    model |= Mean(axis=TBD)(input="input", output=IOKey(name="output"), axis="axis")
     pm = compile(model=model, backend=backend, jit=False, inference=True)
 
     inputs = {"input": backend.randn(1, 2, 3, 2, 3, 2, 3, 2), "axis": 3}
@@ -421,7 +417,7 @@ def test_jit_3():
 def test_jit_4():
     backend = JaxBackend()
     model = Model()
-    model += Mean(axis=TBD)(input="input", output=IOKey(name="output"), axis="axis")
+    model |= Mean(axis=TBD)(input="input", output=IOKey(name="output"), axis="axis")
     pm = compile(
         model=model,
         backend=backend,

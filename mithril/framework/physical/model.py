@@ -20,9 +20,10 @@ import warnings
 from collections.abc import Mapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass
+from typing import Any
 
 from ...backends.backend import Backend, ParallelBackend
-from ...core import DataType, GenericDataType
+from ...types import DataType, GenericDataType
 from ...utils.type_utils import is_list_int
 from ..common import (
     NOT_GIVEN,
@@ -65,9 +66,13 @@ FinalCost = "final_cost"
 
 PhysicalShapeValueType = Sequence[int | None]
 PhysicalConstantType = (
-    Mapping[str | Connection, DataType | MainValueType]
-    | Mapping[str, DataType | MainValueType]
-    | Mapping[Connection, DataType | MainValueType]
+    Mapping[
+        str | Connection, DataType | int | float | bool | Sequence[Any] | dict[str, Any]
+    ]
+    | Mapping[str, DataType | int | float | bool | Sequence[Any] | dict[str, Any]]
+    | Mapping[
+        Connection, DataType | int | float | bool | Sequence[Any] | dict[str, Any]
+    ]
 )
 PhysicalShapeType = (
     Mapping[str | Connection, PhysicalShapeValueType]
@@ -282,7 +287,7 @@ class PhysicalModel(GenericDataType[DataType]):
     def _convert_key(self, model: BaseModel, key: str | Connection) -> str:
         if isinstance(key, Connection):
             # Get outermost model equivalent of the connection.
-            if (conn := model.conns.get_con_by_metadata(key.data.metadata)) is None:
+            if (conn := model.conns.get_con_by_metadata(key.metadata)) is None:
                 raise KeyError(f"Given connection not found: {key}")
             key = conn.key
         elif key.startswith("$"):
@@ -317,7 +322,7 @@ class PhysicalModel(GenericDataType[DataType]):
 
     def _validate_keys(
         self,
-        constant_keys: dict[str, DataType | MainValueType],
+        constant_keys: PhysicalConstantType[DataType],
         data_keys: set[str],
         trainable_keys: set[str],
         discard_keys: set[str],
@@ -496,7 +501,9 @@ class PhysicalModel(GenericDataType[DataType]):
 
     def _pre_compile(
         self,
-        constant_keys: dict[str, DataType | MainValueType],
+        constant_keys: dict[
+            str, DataType | int | float | bool | Sequence[Any] | dict[str, Any]
+        ],
         data_keys: set[str],
         shapes: PhysicalShapeType,
     ) -> None:

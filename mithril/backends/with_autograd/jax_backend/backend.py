@@ -20,10 +20,12 @@ from typing import Any, overload
 import jax
 import jax.numpy as jnp
 
-from ....core import Dtype
+from ....cores.python.jax import ops
+from ....cores.python.jax import utils as core_utils
+from ....types import Dtype
 from ...backend import PadWidthType, ParallelBackend
 from ...utils import DtypeSubTypes, StaticScalar, process_shape
-from . import ops, utils
+from . import utils
 from .parallel import JaxParallel
 from .utils import CODEGEN_CONFIG
 
@@ -49,7 +51,7 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
 
     backend_type = "jax"
     registered_primitives: dict[str, Callable[..., jax.numpy.ndarray]] = {}
-    primitive_fn_path = "mithril.backends.with_autograd.jax_backend.ops"
+    primitive_fn_path = "mithril.cores.python.jax.ops"
 
     def __init__(
         self,
@@ -59,7 +61,7 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         device_mesh: tuple[int, ...] | None = None,
     ) -> None:
         self._device = device
-        utils.get_device(device)  # Check device is available
+        core_utils.get_device(device)  # Check device is available
         self._dtype = dtype
         self._parallel_manager: JaxParallel | None = None
 
@@ -72,9 +74,10 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
 
         self.array_creation_funcs = ops.array_creation_funcs
         self.primitive_function_dict = ops.primitive_func_dict
+        self.dtype_map = core_utils.dtype_map
         self.prng_key = jax.random.PRNGKey(self.seed)
 
-        for key, value in utils.dtype_map.items():
+        for key, value in core_utils.dtype_map.items():
             setattr(self, key, value)
 
     @property
@@ -94,7 +97,7 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
 
     @property
     def device(self) -> jax.Device:
-        return utils.get_device(self._device)
+        return core_utils.get_device(self._device)
 
     def get_device(self) -> Any:
         return self._device
@@ -117,7 +120,7 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         list[str]
             List of available devices.
         """
-        return utils.get_available_devices()
+        return core_utils.get_available_devices()
 
     @staticmethod
     def register_primitive(fn: Callable[..., Any]) -> None:
@@ -139,7 +142,7 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         device: str
             The target device for the data.
         """
-        _device = utils.get_device(device)
+        _device = core_utils.get_device(device)
         if not asynchronous:
             return jax.device_put(data, device=_device).block_until_ready()
         return jax.device_put(data, device=_device)
@@ -185,7 +188,7 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
         _dtype = utils.determine_dtype(input, dtype, self._dtype, self.precision)
 
         with jax.default_device(self.device):
-            array = jax.numpy.array(input, dtype=utils.dtype_map[_dtype])
+            array = jax.numpy.array(input, dtype=core_utils.dtype_map[_dtype])
 
         if self._parallel_manager is not None:
             array = self._parallel_manager.parallelize(array, device_mesh)
@@ -387,6 +390,9 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
     ) -> jax.Array:
         return ops.flatten(input, start_dim=start_dim, end_dim=end_dim)
 
+    def concat(self, inputs: list[jax.Array], axis: int = 0) -> jax.Array:
+        return jax.numpy.concat(inputs, axis=axis)
+
     def abs(self, input: jax.Array) -> jax.Array:
         return jax.numpy.abs(input)
 
@@ -450,9 +456,7 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
     def stack(self, inputs: list[jax.Array], axis: int = 0) -> jax.Array:
         return jax.numpy.stack(inputs, axis=axis)
 
-    def cat(
-        self, inputs: tuple[jax.Array, ...] | list[jax.Array], axis: int = 0
-    ) -> jax.Array:
+    def cat(self, inputs: list[jax.Array], axis: int = 0) -> jax.Array:
         return ops.concat(inputs, axis=axis)
 
     def pad(self, input: jax.Array, pad_width: PadWidthType) -> jax.Array:
@@ -667,17 +671,29 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
     def jacfwd(self, fn: Callable[..., Any]) -> Callable[..., Any]:
         return jax.jacfwd(fn)
 
+    def convert_to_logical(self, input: Any, force: bool = False) -> Any:
+        # Try dtype:
+        if input.__hash__ and input in core_utils.dtype_map.inverse:
+            return Dtype[core_utils.dtype_map.inverse[input]]
+        elif isinstance(input, jax.numpy.dtype):
+            return Dtype[input.name]
+
+        if force:
+            raise ValueError(f"Invalid value '{input}'!")
+
+        return input
+
     def _process_dtype(
         self,
         dtype: Dtype | None = None,
         default_type: str | None = None,
     ) -> jax.numpy.dtype[Any]:
         if isinstance(dtype, Dtype):
-            return utils.dtype_map[dtype.name]
+            return core_utils.dtype_map[dtype.name]
         elif dtype is None:
             if default_type is None:
                 default_type = self._get_default_subtype()
-            return utils.dtype_map[default_type + str(self.precision)]
+            return core_utils.dtype_map[default_type + str(self.precision)]
         else:
             raise ValueError(f"Invalid dtype {dtype}")
 

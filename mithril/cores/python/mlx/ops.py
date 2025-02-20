@@ -22,10 +22,12 @@ import mlx.core as mx
 import mlx.nn as nn
 import numpy as np
 
-from .... import core
-from ....utils.type_utils import is_int_tuple_tuple, is_tuple_int
-from ....utils.utils import find_dominant_type
-from ...utils import NestedFloatOrIntOrBoolList
+from ....common import find_dominant_type
+from ...utils import (
+    NestedFloatOrIntOrBoolList,
+    is_int_tuple_tuple,
+    is_tuple_int,
+)
 from ..common_primitives import (
     add,
     buffer,
@@ -69,6 +71,8 @@ from ..common_primitives import (
     tuple_converter,
     union,
 )
+
+# from ...backends.with_autograd.mlx_backend import utils
 from . import utils
 
 AxisType = None | int | Sequence[int]
@@ -189,6 +193,10 @@ __all__ = [
     "split",
     "randn",
     "atleast_1d",
+    "minimum",
+    "maximum",
+    "dtype",
+    "zeros_like",
 ]
 
 
@@ -813,7 +821,7 @@ def arange(
     _dtype = default_dtype if dtype is None else utils.dtype_map.inverse[dtype]
 
     if len([item for item in [start, stop, step] if isinstance(item, float)]) == 0:
-        _dtype = _dtype.replace("float", "int").replace("bfloat", "int")
+        _dtype = _dtype.replace("bfloat", "int").replace("float", "int")
 
     return mx.arange(start, stop, step, dtype=utils.dtype_map[_dtype])
 
@@ -937,8 +945,8 @@ def cast(input: mx.array, dtype: mx.Dtype) -> mx.array:
     return input.astype(dtype)
 
 
-def dtype(input: mx.array) -> core.Dtype:
-    return getattr(core, str(input.dtype).split(".")[-1])
+def dtype(input: mx.array) -> mx.Dtype:
+    return input.dtype
 
 
 def logical_xor(left: mx.array, right: mx.array) -> mx.array:

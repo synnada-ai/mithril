@@ -62,12 +62,14 @@ def evaluate_case(
     # Set logical tensor values for trainable keys if and only if
     # model has any output keys.
     if model.output_keys:
-        values: dict[str, Tensor] | dict[str, list[Tensor]] = {}
+        values: dict[str, Tensor[float] | list[Tensor[float]]] = {}
         for key, value in reference_gradients.items():
             if is_inputs_list:
-                values[key] = [Tensor(differentiable=True) for _ in range(len(value))]
+                values[key] = [
+                    Tensor[float](differentiable=True) for _ in range(len(value))
+                ]
             else:
-                values[key] = Tensor(differentiable=True)
+                values[key] = Tensor[float](differentiable=True)
         model.set_values(**values)
 
     models.append(model)
