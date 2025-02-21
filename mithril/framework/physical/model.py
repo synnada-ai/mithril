@@ -39,7 +39,6 @@ from ..common import (
     ShapeResultType,
     Table,
     Tensor,
-    ToBeDetermined,
     UniadicRecord,
     Updates,
     Variadic,
@@ -193,7 +192,7 @@ class PhysicalModel(GenericDataType[DataType]):
                     # TODO: Create an API for setting differentiability of a tensor.
                     physical_data.set_differentiability(False)
                 elif global_key in self._trainable_tensor_inputs:
-                    if physical_data.edge_type is ToBeDetermined:
+                    if physical_data.is_polymorphic:
                         # Set physical data type to Tensor.
                         updates |= physical_data.set_type(Tensor[float])
                     elif physical_data.value is not TBD:

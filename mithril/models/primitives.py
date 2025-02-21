@@ -2724,8 +2724,8 @@ class Power(OperatorModel):
 class Add(ArithmeticOperation):
     def __init__(
         self,
-        left: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
-        right: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
+        left: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -2735,8 +2735,8 @@ class Add(ArithmeticOperation):
 class Subtract(ArithmeticOperation):
     def __init__(
         self,
-        left: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
-        right: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
+        left: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -2746,8 +2746,8 @@ class Subtract(ArithmeticOperation):
 class Multiply(ArithmeticOperation):
     def __init__(
         self,
-        left: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
-        right: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
+        left: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -2783,9 +2783,15 @@ class Divide(OperatorModel):
 
     def __init__(
         self,
-        numerator: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined = TBD,
+        numerator: Tensor[int | float | bool]
+        | int
+        | float
+        | bool
+        | ToBeDetermined = TBD,
         denominator: Tensor[int | float | bool]
-        | ScalarValueType
+        | int
+        | float
+        | bool
         | ToBeDetermined = TBD,
         *,
         name: str | None = None,
@@ -3391,8 +3397,8 @@ class BitwiseOperators(OperatorModel):
 class LogicalAnd(BitwiseOperators):
     def __init__(
         self,
-        left: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        right: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        left: Tensor[int | bool] | int | bool | ToBeDetermined = TBD,
+        right: Tensor[int | bool] | int | bool | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -3402,8 +3408,8 @@ class LogicalAnd(BitwiseOperators):
 class LogicalOr(BitwiseOperators):
     def __init__(
         self,
-        left: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        right: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        left: Tensor[int | bool] | int | bool | ToBeDetermined = TBD,
+        right: Tensor[int | bool] | int | bool | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -3413,8 +3419,8 @@ class LogicalOr(BitwiseOperators):
 class LogicalXOr(BitwiseOperators):
     def __init__(
         self,
-        left: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        right: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        left: Tensor[int | bool] | int | bool | ToBeDetermined = TBD,
+        right: Tensor[int | bool] | int | bool | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -3428,8 +3434,8 @@ class ShiftLeft(OperatorModel):
 
     def __init__(
         self,
-        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        shift: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        input: Tensor[int | bool] | int | bool | ToBeDetermined = TBD,
+        shift: Tensor[int | bool] | int | bool | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -3451,8 +3457,8 @@ class ShiftRight(OperatorModel):
 
     def __init__(
         self,
-        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        shift: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        input: Tensor[int | bool] | int | bool | ToBeDetermined = TBD,
+        shift: Tensor[int | bool] | int | bool | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:

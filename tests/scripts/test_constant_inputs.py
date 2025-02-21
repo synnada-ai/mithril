@@ -2660,7 +2660,8 @@ def test_add_constant():
 
 def test_add_constant_iokey():
     model = Model()
-    model += Add()(left=IOKey("input", value=Tensor([1.0])), right="w")
+    add_model = Add()
+    model += add_model(left=IOKey("input", value=Tensor([1.0])), right="w")
     backend = JaxBackend()
     pm = ml.compile(model=model, backend=backend, inference=True)
     assert pm.evaluate(data={"w": 2.0})["output"] == backend.array([3.0])
