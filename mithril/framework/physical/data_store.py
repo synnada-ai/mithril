@@ -13,8 +13,6 @@
 # limitations under the License.
 
 from collections.abc import Sequence
-from functools import reduce
-from types import GenericAlias
 from typing import Any, Generic, TypeGuard
 
 from ...backends.backend import Backend
@@ -127,25 +125,6 @@ class StaticDataStore(Generic[DataType]):
         for key in transferred_keys:
             self.intermediate_non_differentiables.pop(key)
         return transferred_keys
-
-    def find_value_type(
-        self, value: DataType | int | float | bool | Sequence[Any] | dict[str, Any]
-    ) -> type | GenericAlias | type[Tensor[int | float | bool]]:
-        if self.is_tensor_type(value):
-            # Find tensor value type.
-            tensor_type = self._infer_tensor_value_type(value)
-            return Tensor[tensor_type]  # type: ignore
-        elif isinstance(value, list | tuple):
-            result = [self.find_value_type(v) for v in value]
-            if isinstance(value, tuple):
-                return tuple[*result]  # type: ignore
-            else:
-                return list[reduce(lambda x, y: x | y, result)]  # type: ignore
-        elif isinstance(value, dict):
-            value_types = [self.find_value_type(v) for v in value.values()]
-            return dict[str, reduce(lambda x, y: x | y, value_types)]  # type: ignore
-        else:
-            return type(value)
 
     def convert_phys_value_to_logical(
         self, value: DataType | int | float | bool | Sequence[Any] | dict[str, Any]

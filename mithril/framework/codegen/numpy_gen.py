@@ -174,12 +174,6 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
                     else:
                         out_data = _key_cache["output"]
 
-                # assert isinstance(out_data, np.ndarray)
-
-                # gradients[key] = self.backend.zeros_like(
-                #     out_data, dtype=self.backend._dtype
-                # )
-
                 # Create same data structure filled with zeros.
                 gradients[key] = self.fill_zeros(out_data)
 
