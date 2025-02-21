@@ -853,7 +853,8 @@ class Tensor(Generic[TypeVarTensorType]):
             self.type = new_type
             # Add all referee edges into the updates.
             for edge in self.referees:
-                updates.add(edge, UpdateType.TYPE)
+                updates |= edge.update_type()
+                updates |= edge.set_type(Tensor[new_type])  # type: ignore
         return updates
 
     def set_value(self, value: TensorValueType) -> Updates:
@@ -1164,6 +1165,11 @@ class IOHyperEdge:
     def remove_constraint(self, constraint: Constraint) -> None:
         for type in constraint.types:
             self.constraints[type].discard(constraint)
+
+    def update_type(self) -> Updates:
+        if self.value is not TBD:
+            return self.set_type(find_type(self.value))
+        return Updates()
 
 
 class BaseKey:

@@ -1048,7 +1048,8 @@ class PolynomialKernel(Model):
         )
         self._set_shapes(input1=["N", "d"], input2=["M", "d"], output=["N", "M"])
         self._add_constraint(
-            fn=polynomial_kernel_constraint, keys=["poly_coef", "degree"]
+            fn=polynomial_kernel_constraint,
+            keys=["poly_coef", "degree"],
         )
         self.set_cin("input1", "input2", safe=False)
         self._freeze()
