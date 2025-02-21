@@ -10,7 +10,6 @@ from collections import OrderedDict
 from typing import Tuple, Union
 
 
-
 def QuickGelu(name: str | None = None):
     block = Model(name=name)
     input = IOKey("input")
@@ -67,11 +66,8 @@ def MultiheadAttention(d_model: int, n_head: int, use_attn_mask: bool = False, n
         values_hat, output=IOKey("output")
     )
     return block
-    
-    
-    
 
-    
+
 def mlp_resblock(d_model: int, name: str | None = None):
     block = Model(name=name)
     input = IOKey("input")
@@ -79,6 +75,7 @@ def mlp_resblock(d_model: int, name: str | None = None):
     block |= QuickGelu(name ="gelu")(input = block.c_fc_output, output = "gelu_output")
     block |= Linear(d_model,name ="c_proj" )(input = block.gelu_output,output= IOKey("output"))
     return block
+
 
 def ResidualAttentionBlock(d_model: int, n_head: int, use_attn_mask : bool=False,name: str | None = None):
     block = Model(name=name)
@@ -99,7 +96,6 @@ def ResidualAttentionBlock(d_model: int, n_head: int, use_attn_mask : bool=False
     return block
     
     
-    
 def Transformer(width: int, layers: int, heads: int, use_attn_mask: bool = False,name: str | None = None):
     block = Model(name=name)
     input = IOKey("input")
@@ -115,6 +111,7 @@ def Transformer(width: int, layers: int, heads: int, use_attn_mask: bool = False
     block+= Buffer()(output= IOKey("output"))
     
     return block
+
 
 def VisionTransformer(input_resolution: int, patch_size: int, width: int, layers: int, heads: int, output_dim: int,use_proj: bool = False,name: str | None = None):
     block = Model(name=name)
@@ -151,52 +148,7 @@ def VisionTransformer(input_resolution: int, patch_size: int, width: int, layers
     block|= Buffer()(input = block.ln_post,output = IOKey("output"))
     return block
     
-    
-    
-    
-def MultiHeadAttentionForward(embed_dim_to_check: int, num_heads: int, dropout_p: float):
-    block = Model()
-    query = IOKey("query",shape = (1,1,2048))
-    key = IOKey("key")
-    value = IOKey("value")
-    q_proj_weight = IOKey("q_proj_weight",shape = (2048, 2048))
-    k_proj_weight = IOKey("k_proj_weight",shape = (2048, 2048))
-    v_proj_weight = IOKey("v_proj_weight",shape = (2048, 2048))
-    in_proj_bias = IOKey("in_proj_bias",type=ml.Tensor,shape = (2048,1))
-    out_proj_weight = IOKey("out_proj_weight",shape = (1024, 2048))
-    out_proj_bias = IOKey("out_proj_bias",type=ml.Tensor,shape=(1024,1))
-    
-    tgt_len, bsz, embed_dim = query.shape[0],query.shape[1],query.shape[2]
 
-    #assert embed_dim == embed_dim_to_check, "Embedding dimension mismatch."
-    
-    head_dim = embed_dim // num_heads
-    #assert (head_dim * num_heads) == embed_dim, "embed_dim must be divisible by num_heads"
-    scaling = head_dim ** -0.5
-
-                              
-    q = (query @ q_proj_weight.transpose() + in_proj_bias[0:embed_dim])* scaling  
-    k = key @ k_proj_weight.transpose() + in_proj_bias[embed_dim_to_check:2*embed_dim_to_check]
-    v = value @ v_proj_weight.transpose() + in_proj_bias[2*embed_dim_to_check:3*embed_dim_to_check]
-
-    q_r = q.reshape((tgt_len, bsz*num_heads, head_dim)).transpose((0,1))
-    k_r = k.reshape((-1, bsz*num_heads, head_dim)).transpose((0,1))
-    v_r = v.reshape((-1, bsz*num_heads, head_dim)).transpose((0,1))
-    
-    
-    block|= ScaledDotProduct(is_causal = False)(query = q_r, key=k_r, value=v_r,output = "attention")
-    
-    attn_output = block.attention.transpose((0, 1)).reshape((tgt_len, bsz, embed_dim))
-    attn_output = attn_output @ out_proj_weight.transpose() + out_proj_bias
-    
-    block|= Buffer()(input=attn_output,output = IOKey("output"))
-    
-    return  block
-
-    
-    
-    
-    
 def MultiHeadAttentionForward(embed_dim_to_check: int, num_heads: int, dropout_p: float):
     block = Model()
     query = IOKey("query",shape = (1,1,2048))
@@ -246,13 +198,7 @@ def MultiHeadAttentionForward(embed_dim_to_check: int, num_heads: int, dropout_p
     
     return  block
 
-    
-    
-    
-    
-    
-
-
+     
 def AttentionPool2d(spacial_dim: int, embed_dim: int, num_heads: int, output_dim: int = None,name: str | None = None):
     block = Model(name=name)
     input = IOKey("input",shape = (1, 2048, 7, 74))
