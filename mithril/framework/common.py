@@ -649,9 +649,8 @@ def process_value(
             value,
             type(value) if not isinstance(value, Constant) else _find_type(value),
         )  # type: ignore
-
-    # Convert range types into list.
     elif isinstance(value, range):
+        # Convert range types into list.
         value = list(value)
     else:
         # Check for incompatible dimensions.
@@ -661,6 +660,7 @@ def process_value(
     result: list[Any] | tuple[Any, ...] = list() if isinstance(value, list) else tuple()
 
     dominant_type: type[bool] | type[int] | type[float] = bool
+
     for item in value:
         # Recursively determine the shape, value and type of sub items.
         sub_shape, sub_val, sub_type = process_value(item)
@@ -866,12 +866,29 @@ def is_tensor_type(
 
 
 def squash_tensor_types(typ: Any) -> Any:
-    # Reduces multiple Tensor types declerations in a single
-    # Tensor[...] type with all subtypes of all declared ones. Also expands
-    # "Tensor" type to "Tensor[int | float | bool]".
-    # Example: Tensor[int] | Tensor[float] -> Tensor[int | float]
-    # Example: Tensor[int | float] | bool -> Tensor[int | float] | bool
-    # Example: Tensor -> Tensor[int | float | bool]
+    """
+    Reduces multiple Tensor types declarations into a single Tensor type with
+    all subtypes.
+
+    This function takes a type that may include multiple Tensor type declarations and
+    reduces them into a single Tensor type with all subtypes. It also expands the
+    generic "Tensor" type to "Tensor[int | float | bool]".
+
+    Args:
+        typ (Any): The type to be squashed. It can be a single type, a union of types,
+                or a generic alias.
+
+    Returns:
+        Any: The squashed type with reduced Tensor type declarations.
+
+    Example:
+        >>> squash_tensor_types(Tensor[int] | Tensor[float])
+        Tensor[int | float]
+        >>> squash_tensor_types(Tensor[int | float] | bool)
+        Tensor[int | float] | bool
+        >>> squash_tensor_types(Tensor)
+        Tensor[int | float | bool]
+    """
     if typ is Tensor:
         typ = Tensor[int | float | bool]
     if (origin := get_origin(typ)) in (Union, UnionType):
@@ -883,15 +900,19 @@ def squash_tensor_types(typ: Any) -> Any:
                     arg = Tensor[int | float | bool]
                 updated_args |= set(get_args(arg))
             else:
+                # Non-tensor types are added to regular_args.
                 regular_args.add(arg)
         if updated_args:
+            # If any updated_args are found, create a new Tensor type with all subtypes.
             tensor_type = Tensor[reduce(lambda x, y: x | y, updated_args)]  # type: ignore
+            # Also squash regular_args in which there can exist Tensor types.
             squashed_regulars = [squash_tensor_types(arg) for arg in regular_args]
             if squashed_regulars:
                 regular_types = reduce(lambda x, y: x | y, squashed_regulars)
                 return tensor_type | regular_types
             return tensor_type
     elif origin is not None:
+        # Simple generic types are squashed by recursively squashing their args.
         # NOTE: Tuple type can contain ellipsis in its args.
         squashed_args = [
             squash_tensor_types(arg) for arg in get_args(typ) if arg != ...
@@ -909,6 +930,25 @@ def replace_tensor(
     new_tensor: Tensor[int | float | bool],
     value: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined | None = None,
 ) -> Tensor[int | float | bool] | ScalarValueType:
+    """
+    Replace occurrences of `current_tensor` with `new_tensor` in the given `value`.
+
+    This function recursively traverses the `value` and replaces any instance of
+    `current_tensor` with `new_tensor`. The `value` can be a tensor, a scalar,
+    a list, a tuple, or a dictionary containing these types.
+
+    Args:
+        current_tensor (Tensor[int | float | bool]): The tensor to be replaced.
+        new_tensor (Tensor[int | float | bool]): The tensor to replace with.
+        value (Tensor[int | float | bool] | ScalarValueType | ToBeDetermined | None):
+            The value in which to replace the tensor. It can be a tensor, a scalar,
+            a list, a tuple, a dictionary, or None. Defaults to None.
+
+    Returns:
+        Tensor[int | float | bool] | ScalarValueType: The modified value with
+        `current_tensor` replaced by `new_tensor`. The return type matches the
+        type of the input `value`.
+    """
     if value is current_tensor:
         value = new_tensor
     elif isinstance(value, list | tuple):
@@ -923,16 +963,44 @@ def replace_tensor(
 
 
 def any_differentiable(value: Any) -> bool:
-    if isinstance(value, Tensor):
-        return value.differentiable
-    elif isinstance(value, list | tuple):
-        for item in value:
-            if any_differentiable(item):
+    """
+    Check if any element within the given value is a differentiable Tensor.
+
+    This function traverses the input value, which can be a Tensor, list,
+    tuple, or dictionary, and checks if any Tensor within the structure
+    is differentiable.
+
+    Args:
+        value (Any): The input value to check. It can be a Tensor, list,
+        tuple, or dictionary.
+
+    Returns:
+        bool: True if any Tensor within the input value is differentiable,
+        False otherwise.
+
+    Example:
+        >>> any_differentiable(
+            [
+                Tensor(differentiable=False),
+                Tensor(differentiable=False),
+                (Tensor(differentiable=True), 3.0)
+            ]
+        )
+        True
+        >>> any_differentiable((Tensor(differentiable=False), True))
+        False
+    """
+    stack = [value]
+    while stack:
+        current = stack.pop()
+        if isinstance(current, Tensor):
+            # Check if the current Tensor is differentiable.
+            if current.differentiable:
                 return True
-    elif isinstance(value, dict):
-        for val in value.values():
-            if any_differentiable(val):
-                return True
+        elif isinstance(current, list | tuple):
+            stack.extend(current)
+        elif isinstance(current, dict):
+            stack.extend(current.values())
     return False
 
 

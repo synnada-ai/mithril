@@ -121,13 +121,28 @@ Typ = TypeVar("Typ")
 
 
 def get_specific_types_from_value(value: Any, typ: type[Typ]) -> list[Typ]:
-    tensors = []
+    """
+    Recursively extracts all instances of a specified type from a nested structure.
+
+    This function traverses through a nested structure (which can be a list,
+    tuple, or dictionary) and collects all instances of the specified type.
+
+    Args:
+        value (Any): The input value which can be of any type, including nested lists,
+        tuples, or dictionaries.
+        typ (type[Typ]): The type to be extracted from the nested structure.
+
+    Returns:
+        list[Typ]: A list of all instances of the specified type found within the
+        nested structure.
+    """
+    items = []
     if isinstance(value, typ):
-        tensors.append(value)
+        items.append(value)
     elif isinstance(value, list | tuple):
         for item in value:
-            tensors += get_specific_types_from_value(item, typ)
+            items += get_specific_types_from_value(item, typ)
     elif isinstance(value, dict):
         for val in value.values():
-            tensors += get_specific_types_from_value(val, typ)
-    return tensors
+            items += get_specific_types_from_value(val, typ)
+    return items
