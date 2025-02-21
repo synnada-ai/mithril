@@ -1482,7 +1482,7 @@ def reshape(
     return input.reshape(shape)
 
 
-def item(input: np.ndarray[Any, Any]) -> int | float | bool:
+def item(input: np.ndarray[Any, Any]) -> int | float | bool | str:
     return input.item()
 
 
