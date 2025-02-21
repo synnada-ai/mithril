@@ -27,7 +27,7 @@ def assert_outputs(model: Model, ref_outputs: set[str], ref_pm_outputs: set[str]
     model_outputs = set(model.conns.output_keys)
     assert ref_outputs == model_outputs, "logical model outputs does not match."
 
-    pm = compile(model=model, backend=JaxBackend())
+    pm = compile(model=model, backend=JaxBackend(), inference=True)
 
     pm_outputs = set(pm.output_keys)
     assert ref_pm_outputs == pm_outputs, "physical model outputs does not match."

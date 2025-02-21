@@ -198,7 +198,7 @@ def test_flatten_dag_1():
     model4 |= model3(in1=model2.output, in2=model2.output, output=IOKey(name="output"))  # type: ignore
 
     comp_model = mithril.compile(
-        model=model4, backend=JaxBackend(dtype=mithril.float64)
+        model=model4, backend=JaxBackend(dtype=mithril.float64), inference=True
     )
 
     flatted_primitive_model_list = [
@@ -260,7 +260,7 @@ def test_flatten_dag_2():
     )
 
     comp_model = mithril.compile(
-        model=model4, backend=JaxBackend(dtype=mithril.float64)
+        model=model4, backend=JaxBackend(dtype=mithril.float64), inference=True
     )
 
     flatted_primitive_model_list = [
@@ -305,7 +305,7 @@ def test_flatten_dag_3():
     ]
 
     comp_model = mithril.compile(
-        model=model1, backend=JaxBackend(dtype=mithril.float64)
+        model=model1, backend=JaxBackend(dtype=mithril.float64), inference=True
     )
 
     flatted_primitive_model_list = [

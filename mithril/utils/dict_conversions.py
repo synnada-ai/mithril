@@ -144,6 +144,7 @@ def create_iokey_kwargs(
         }
     kwargs["name"] = info_cpy.get("name")
     kwargs["expose"] = info_cpy.get("expose")
+    kwargs["differentiable"] = info_cpy.get("differentiable")
     return kwargs
 
 

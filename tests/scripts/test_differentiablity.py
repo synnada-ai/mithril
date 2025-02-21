@@ -143,7 +143,7 @@ def test_diff_inference():
     model |= mult(left="left", right=model.cout, output="output")
 
     backend = JaxBackend()
-    pm = mithril.compile(model, backend)
+    pm = mithril.compile(model, backend, inference=True)
     assert not pm.flat_graph.all_data["output"].differentiable
 
 
@@ -160,7 +160,11 @@ def test_diff_inference_constant_key_to_differentiable_input():
 
     backend = JaxBackend()
     pm = mithril.compile(
-        model, backend, data_keys={"input"}, constant_keys={"left": backend.array(1.0)}
+        model,
+        backend,
+        data_keys={"input"},
+        constant_keys={"left": backend.array(1.0)},
+        inference=True,
     )
     assert not pm.flat_graph.all_data["output"].differentiable
 
@@ -177,7 +181,7 @@ def test_diff_inference_data_key_to_differentiable_input():
     )
 
     backend = JaxBackend()
-    pm = mithril.compile(model, backend, data_keys={"input", "left"})
+    pm = mithril.compile(model, backend, data_keys={"input", "left"}, inference=True)
     assert not pm.flat_graph.all_data["output"].differentiable
 
 

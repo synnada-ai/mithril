@@ -897,7 +897,7 @@ def test_compile_multi_canonical_output_no_exposed_output():
     model |= Relu()("input3")
 
     backend = ml.JaxBackend()
-    pm = ml.compile(model, backend)
+    pm = ml.compile(model, backend, inference=True)
     assert pm.output_keys == ["__output", "_output", "output"]
 
 

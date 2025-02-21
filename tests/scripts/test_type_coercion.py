@@ -947,18 +947,19 @@ def test_connect_1():
     """simple test that tests Connect's ability of merging three input connections of
     Concat model"""
     model = Model()
-    concat_model = Concat(n=3)
+    concat_model = Concat()
     model |= concat_model(
-        input1="input1", input2="input2", input3="input3", output=IOKey(name="output")
+        input=[IOKey("input1"), IOKey("input2"), IOKey("input3")],
+        output=IOKey(name="output"),
     )
-    conns = {concat_model.input1, concat_model.input2, concat_model.input3}  # type: ignore
+    conns = {"input1", "input2", "input3"}  # type: ignore
     model.merge_connections(*conns, name="abcd")
     model |= Sigmoid()(input="abcd", output=IOKey(name="output1"))
 
     assert (
-        concat_model.input1.metadata  # type: ignore
-        == concat_model.input2.metadata  # type: ignore
-        == concat_model.input3.metadata  # type: ignore
+        model.input1.metadata  # type: ignore
+        == model.input2.metadata  # type: ignore
+        == model.input3.metadata  # type: ignore
         == model.abcd.metadata  # type: ignore
     )
 
@@ -1022,10 +1023,10 @@ def test_connect_4():
     """
     backend = JaxBackend()
     model = Model()
-    concat_model = Concat(n=3)
+    concat_model = Concat()
     union_model = PrimitiveUnion(n=1)
     model |= concat_model(
-        input1="input1", input2="input2", input3="input3", output=IOKey(name="output")
+        input1=["input1", "input2", "input3"], output=IOKey(name="output")
     )
     model |= union_model
     conns = {
@@ -1056,10 +1057,18 @@ def test_connect_6():
     """
     backend = JaxBackend()
     model = Model()
-    concat_model = Concat(n=3)
-    model |= concat_model(input1=Tensor([[3.0]]), output=IOKey(name="output"))
-    conn_list = {concat_model.input1, concat_model.input2, concat_model.input3}  # type: ignore
-    model.merge_connections(*conn_list, name="abcd")
+    concat_model = Concat()
+    model |= concat_model(
+        input=[
+            IOKey("input1", value=Tensor([[3.0]])),
+            IOKey("input2"),
+            IOKey("input3"),
+        ],
+        output=IOKey(name="output"),
+    )
+    conns = {model.input1, model.input2, model.input3}  # type: ignore
+    model.merge_connections(*conns, name="abcd")
+
     model |= Buffer()(input="abcd", output=IOKey(name="output1"))
 
     pm = compile(model=model, backend=backend, jit=False, inference=True)
@@ -1241,10 +1250,17 @@ def test_connect_9():
     It is a Multi-write error case
     """
     model = Model()
-    concat = Concat(n=3)
-    model |= concat(input1=Tensor([[3.0]]), input2=Tensor([[2.0]]), input3="input3")
+    concat = Concat()
+    model |= concat(
+        input=[
+            IOKey("input1", value=Tensor([[3.0]])),
+            IOKey("input2", value=Tensor([[2.0]])),
+            IOKey("input3"),
+        ]
+    )
+
     with pytest.raises(ValueError) as err_info:
-        model.merge_connections(concat.input1, concat.input2, concat.input3)  # type: ignore
+        model.merge_connections("input1", "input2", "input3")
 
     error_msg = "Value is set before as [[3.0]]. A value can not be reset."
     assert str(err_info.value) == error_msg
@@ -1256,11 +1272,14 @@ def test_connect_10():
     raise Multi-write error
     """
     model = Model()
-    concat = Concat(n=3)
-    model |= concat(input1=Tensor([[3.0]]), input3="input3")
-    model.merge_connections(concat.input1, concat.input2, concat.input3)  # type: ignore
+    concat = Concat()
+    model |= concat(
+        input=[IOKey("input1", Tensor([[3.0]])), IOKey("input2"), IOKey("input3")]
+    )
+    model.merge_connections("input1", "input2", "input3", name="abcd")
+
     with pytest.raises(ValueError) as err_info:
-        model.set_values({concat.input1: Tensor([[2.0]])})  # type: ignore
+        model.set_values({"abcd": Tensor([[2.0]])})  # type: ignore
 
     assert str(err_info.value) == (
         "Value is set before as [[3.0]]. A value can not be reset."
@@ -1278,9 +1297,9 @@ def test_connect_11():
     """
     backend = NumpyBackend()
     model = Model()
-    concat_model = Concat(n=2)
+    concat_model = Concat()
     union_model = PrimitiveUnion(n=2)
-    model |= concat_model(output=IOKey(name="output1"))
+    model |= concat_model(input=[IOKey(), IOKey()], output=IOKey(name="output1"))
     model |= union_model(output=IOKey(name="output2"))
     conns = {
         concat_model.input1,  # type: ignore
@@ -1315,9 +1334,9 @@ def test_connect_12():
     """
     backend = NumpyBackend()
     model = Model()
-    concat_model = Concat(n=2)
+    concat_model = Concat()
     union_model = PrimitiveUnion(n=2)
-    model |= concat_model(output=IOKey(name="output1"))
+    model |= concat_model(input=[IOKey(), IOKey()], output=IOKey(name="output1"))
     model |= union_model(output=IOKey(name="output2"))
 
     model.merge_connections(
@@ -1484,7 +1503,7 @@ def test_coercion_2():
 
     data = {"axis1": (1, 2), "axis2": (1, 3)}
 
-    output_gradients = {"output1": backend.array(1.0), "output2": backend.array(1.0)}
+    output_gradients = {"output1": backend.array(1.0)}
 
     outputs, grads = pm.evaluate_all(
         params=params, data=data, output_gradients=output_gradients
@@ -1563,7 +1582,7 @@ def test_coercion_5():
     model |= to_list(input=add.output)
     model |= Buffer()(input=to_list.output.tensor(), output="output")
 
-    pm = compile(model=model, backend=backend, jit=False)
+    pm = compile(model=model, backend=backend, jit=False, inference=True)
     params = {"left": backend.array([2.0])}
     outputs = pm.evaluate(params=params)
     ref_outputs = {"output": backend.array([4.0])}
@@ -1582,7 +1601,13 @@ def test_coersion_6():
     model |= buff_model(input=to_list.output.tensor(), output="output")
     constant_keys = {"input": backend.array([[1.0]])}
 
-    compile(model=model, backend=backend, constant_keys=constant_keys, jit=False)
+    compile(
+        model=model,
+        backend=backend,
+        constant_keys=constant_keys,
+        jit=False,
+        inference=True,
+    )
 
 
 def test_tensor_to_scalar_template_1():

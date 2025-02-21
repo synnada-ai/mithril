@@ -124,6 +124,7 @@ from mithril.models import (
 )
 
 from .test_utils import (
+    assert_shape_results,
     check_shapes_semantically,
     check_single_shape_semantically,
     get_all_nodes,
@@ -140,7 +141,7 @@ def assert_shapes(
     *,
     shapes: Mapping[str, Sequence[int | None]] | None = None,
     static_inputs: dict[str, np.ndarray] | None = None,
-    inference: bool = False,
+    inference: bool = True,
     check_all_shapes=True,
 ):
     # All different nodes should have different shapes
@@ -832,7 +833,7 @@ def test_simple_composite_1_extend_inputs():
         "output": [2, 2],
     }
 
-    assert_shapes(model, logical_ref, physical_ref, inference=True)
+    assert_shapes(model, logical_ref, physical_ref)
 
 
 def test_simple_composite_1_set_shapes_2():
@@ -893,9 +894,7 @@ def test_simple_composite_1_static_inputs():
     }
     physical_ref = {"output": [2, 2]}
 
-    assert_shapes(
-        model, logical_ref, physical_ref, static_inputs=static_inputs, inference=True
-    )
+    assert_shapes(model, logical_ref, physical_ref, static_inputs=static_inputs)
 
 
 def test_simple_composite_2_set_shapes():
@@ -982,7 +981,7 @@ def test_simple_composite_2_extend_inputs():
         "output": [2, 2],
     }
 
-    assert_shapes(model, logical_ref, physical_ref, inference=True)
+    assert_shapes(model, logical_ref, physical_ref)
 
 
 def test_simple_composite_2_static_shapes():
@@ -1040,9 +1039,7 @@ def test_simple_composite_2_static_inputs():
     }
     physical_ref = {"output": [2, 2]}
 
-    assert_shapes(
-        model, logical_ref, physical_ref, static_inputs=static_inputs, inference=True
-    )
+    assert_shapes(model, logical_ref, physical_ref, static_inputs=static_inputs)
 
 
 def test_composite_1_set_shapes_1():
@@ -1433,7 +1430,7 @@ def test_composite_1_extend_inputs_1():
     physical_ref = {
         "output": [1, 1, 1, 1, 134, 47, 1, 37, 43],
     }
-    assert_shapes(composite, logical_ref, physical_ref, inference=True)
+    assert_shapes(composite, logical_ref, physical_ref)
 
 
 @pytest.mark.skip(reason="Known Bugs")
@@ -1501,9 +1498,7 @@ def test_composite_1_static_inputs_1():
         "output": [1, 1, 1, 1, 134, 47, 1, 37, 43],
     }
 
-    assert_shapes(
-        model, logical_ref, physical_ref, static_inputs=static_inputs, inference=True
-    )
+    assert_shapes(model, logical_ref, physical_ref, static_inputs=static_inputs)
 
 
 @pytest.mark.skip(reason="Known Bugs")
@@ -2183,9 +2178,7 @@ def test_composite_2_static_inputs_1():
         "input1": np.random.randn(4, 5, 7, 1, 1),
         "input2": np.random.randn(1, 1, 7, 3, 4),
     }
-    assert_shapes(
-        model, logical_ref, physical_ref, static_inputs=inputs, inference=True
-    )
+    assert_shapes(model, logical_ref, physical_ref, static_inputs=inputs)
 
 
 @pytest.mark.skip(reason="Known Bugs")
@@ -2333,7 +2326,7 @@ def test_composite_3_extend_shapes_1():
         "output": [3, 4, 5, 6, 7],
     }
 
-    assert_shapes(composite_3, logical_ref, physical_ref, inference=True)
+    assert_shapes(composite_3, logical_ref, physical_ref)
 
 
 def test_composite_3_set_shapes_1_2():
@@ -2547,9 +2540,7 @@ def test_composite_3_static_inputs_2():
         "input1": np.random.randn(3, 4, 5, 6, 1),
         "input2": np.random.randn(1, 1, 1, 1, 7),
     }
-    assert_shapes(
-        model, logical_ref, physical_ref, static_inputs=inputs, inference=True
-    )
+    assert_shapes(model, logical_ref, physical_ref, static_inputs=inputs)
 
 
 def test_mlp_1_static_shapes():
@@ -2975,27 +2966,40 @@ class Model2(PrimitiveModel):
 
 
 class Model3(PrimitiveModel):
-    input1: Connection
-    input2: Connection
+    input: Connection
     output: Connection
     axis: Connection
 
     def __init__(self) -> None:
+        uni1 = Uniadic()
+        uni2 = Uniadic()
+        uni3 = Uniadic()
+        var = Variadic()
+        input_shapes = [
+            ShapeRepr([uni1, uni2, uni3]).node,
+            ShapeRepr([uni3, uni2, uni1]).node,
+        ]
+        output_shape = ShapeRepr(prefix=[uni1], root=var, suffix=[uni3]).node
         super().__init__(
             formula_key="concat",
-            input1=BaseKey(shape=["u1", "u2", "u3"], type=Tensor),
-            input2=BaseKey(shape=["u3", "u2", "u1"], type=Tensor),
-            output=BaseKey(shape=["u1", ("Var1", ...), "u3"], type=Tensor),
+            input=BaseKey(value=[Tensor(shape=shp) for shp in input_shapes]),
+            output=BaseKey(value=Tensor(shape=output_shape)),
             axis=BaseKey(type=int),
         )
+        # super().__init__(
+        #     formula_key="concat",
+        #     input1=BaseKey(shape=["u1", "u2", "u3"], type=Tensor),
+        #     input2=BaseKey(shape=["u3", "u2", "u1"], type=Tensor),
+        #     output=BaseKey(shape=["u1", ("Var1", ...), "u3"], type=Tensor),
+        #     axis=BaseKey(type=int),
+        # )
 
     def __call__(  # type: ignore[override]
         self,
-        input1: ConnectionType = NOT_GIVEN,
-        input2: ConnectionType = NOT_GIVEN,
+        input: ConnectionType = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ):
-        return ExtendInfo(self, {"input1": input1, "output": output, "input2": input2})
+        return ExtendInfo(self, {"input": input, "output": output})
 
 
 class Model4(PrimitiveModel):
@@ -3314,29 +3318,35 @@ def test_shape_9():
     model_1 = Model3()
     model_2 = Model3()
     model_3 = Model3()
-    model |= model_1(input1="input")
-    model |= model_2(input1=model_1.output)
-    model |= model_3(input1=model_2.output, output=IOKey(name="output"))
+    model |= model_1(input=[IOKey("input"), IOKey()])
+    model |= model_2(input=[model_1.output, IOKey()])
+    model |= model_3(input=[model_2.output, IOKey()], output=IOKey(name="output"))
     logical_ref = {
         "input": ["u1", "u2", "u3"],
         "$input2_0": ["u3", "u2", "u1"],
-        "$_Model3_0_output": ["u1", "u4", "u3"],
+        "$_Model3_1_output": ["u1", "u4", "u3"],
+        "$_ToList_0_output": None,
+        "$_ToList_2_output": None,
+        "$_ToList_4_output": None,
         "$axis_0": None,
         "$axis_1": None,
         "$axis_2": None,
         "$input2_1": ["u3", "u4", "u1"],
-        "$_Model3_1_output": ["u1", "u5", "u3"],
+        "$_Model3_3_output": ["u1", "u5", "u3"],
         "$input2_2": ["u3", "u5", "u1"],
         "output": ["u1", "(V1, ...)", "u3"],
     }
     physical_ref: dict[str, list | None] = {
         "input": [None, None, None],
         "input2_0": [None, None, None],
+        "output_0": None,
+        "output_2": None,
+        "output_4": None,
         "axis_0": None,
-        "output_0": [None, None, None],
+        "output_1": [None, None, None],
         "input2_1": [None, None, None],
         "axis_1": None,
-        "output_1": [None, None, None],
+        "output_3": [None, None, None],
         "input2_2": [None, None, None],
         "axis_2": None,
         "output": [None, "...", None],
@@ -3458,7 +3468,7 @@ def test_broadcast_to_2():
     model.set_shapes(input=[3, 4, 5])
     logical_ref = {"input": [3, 4, 5], "$shape": None, "output": [3, 4, 5]}
     physical_ref = {"input": [3, 4, 5], "shape": None, "output": [3, 4, 5]}
-    comp_model = mithril.compile(model=model, backend=TorchBackend())
+    comp_model = mithril.compile(model=model, backend=TorchBackend(), inference=True)
     check_shapes_semantically(model.get_shapes(verbose=True), logical_ref)
     check_shapes_semantically(comp_model.get_shapes(verbose=True), physical_ref)
 
@@ -3831,76 +3841,125 @@ def test_flatten_init_6():
 
 
 def test_concat_init_1():
-    flat_model = Concat(n=2)
-    assert_shapes(
-        flat_model,
-        logical_ref={
-            "output": ["u1", "(V1, ...)"],
-            "input1": ["u2", "(V1, ...)"],
-            "input2": ["u3", "(V1, ...)"],
-            "axis": None,
-        },
-    )
+    flat_model = Concat()
+    tensor1: Tensor[float] = Tensor()
+    tensor2: Tensor[float] = Tensor()
+    flat_model.set_values(input=[tensor1, tensor2])
+    data = {k: v.metadata for k, v in flat_model.conns.all.items()}
+    ref = {
+        "output": ["u1", "(V1, ...)"],
+        "input": (["u2", "(V1, ...)"], ["u3", "(V1, ...)"]),
+        "axis": [],
+    }
+    assert_shape_results(data, ref, {}, Updates(), set())
 
 
 def test_concat_init_2():
-    flat_model = Concat(n=2, axis=3)
-    assert_shapes(
-        flat_model,
-        logical_ref={
-            "output": ["u1", "u2", "u3", "u4", "(V1, ...)"],
-            "input1": ["u1", "u2", "u3", "u5", "(V1, ...)"],
-            "input2": ["u1", "u2", "u3", "u6", "(V1, ...)"],
-            "axis": None,
-        },
-    )
+    flat_model = Concat(axis=3)
+    tensor1: Tensor[float] = Tensor()
+    tensor2: Tensor[float] = Tensor()
+    flat_model.set_values(input=[tensor1, tensor2])
+    data = {k: v.metadata for k, v in flat_model.conns.all.items()}
+    ref = {
+        "output": ["u1", "u2", "u3", "u4", "(V1, ...)"],
+        "input": (
+            ["u1", "u2", "u3", "u5", "(V1, ...)"],
+            ["u1", "u2", "u3", "u6", "(V1, ...)"],
+        ),
+        "axis": [],
+    }
+    assert_shape_results(data, ref, {}, Updates(), set())
 
 
 def test_concat_init_3():
-    flat_model = Concat(n=6, axis=3)
-    assert_shapes(
-        flat_model,
-        logical_ref={
-            "output": ["u1", "u2", "u3", "u4", "(V1, ...)"],
-            "input1": ["u1", "u2", "u3", "u5", "(V1, ...)"],
-            "input2": ["u1", "u2", "u3", "u6", "(V1, ...)"],
-            "input3": ["u1", "u2", "u3", "u7", "(V1, ...)"],
-            "input4": ["u1", "u2", "u3", "u8", "(V1, ...)"],
-            "input5": ["u1", "u2", "u3", "u9", "(V1, ...)"],
-            "input6": ["u1", "u2", "u3", "u10", "(V1, ...)"],
-            "axis": None,
-        },
-    )
+    flat_model = Concat(axis=3)
+    tensor1: Tensor[float] = Tensor()
+    tensor2: Tensor[float] = Tensor()
+    tensor3: Tensor[float] = Tensor()
+    tensor4: Tensor[float] = Tensor()
+    tensor5: Tensor[float] = Tensor()
+    tensor6: Tensor[float] = Tensor()
+    flat_model.set_values(input=[tensor1, tensor2, tensor3, tensor4, tensor5, tensor6])
+    data = {k: v.metadata for k, v in flat_model.conns.all.items()}
+    ref = {
+        "output": ["u1", "u2", "u3", "u4", "(V1, ...)"],
+        "input": (
+            ["u1", "u2", "u3", "u5", "(V1, ...)"],
+            ["u1", "u2", "u3", "u6", "(V1, ...)"],
+            ["u1", "u2", "u3", "u7", "(V1, ...)"],
+            ["u1", "u2", "u3", "u8", "(V1, ...)"],
+            ["u1", "u2", "u3", "u9", "(V1, ...)"],
+            ["u1", "u2", "u3", "u10", "(V1, ...)"],
+        ),
+        "axis": [],
+    }
+    assert_shape_results(data, ref, {}, Updates(), set())
+    # assert_shapes(
+    #     flat_model,
+    #     logical_ref={
+    #         "output": ["u1", "u2", "u3", "u4", "(V1, ...)"],
+    #         "input1": ["u1", "u2", "u3", "u5", "(V1, ...)"],
+    #         "input2": ["u1", "u2", "u3", "u6", "(V1, ...)"],
+    #         "input3": ["u1", "u2", "u3", "u7", "(V1, ...)"],
+    #         "input4": ["u1", "u2", "u3", "u8", "(V1, ...)"],
+    #         "input5": ["u1", "u2", "u3", "u9", "(V1, ...)"],
+    #         "input6": ["u1", "u2", "u3", "u10", "(V1, ...)"],
+    #         "axis": None,
+    #     },
+    # )
 
 
 def test_concat_init_4():
-    flat_model = Concat(n=4, axis=-2)
-    assert_shapes(
-        flat_model,
-        logical_ref={
-            "output": ["(V1, ...)", "u1", "u2"],
-            "input1": ["(V1, ...)", "u3", "u2"],
-            "input2": ["(V1, ...)", "u4", "u2"],
-            "input3": ["(V1, ...)", "u5", "u2"],
-            "input4": ["(V1, ...)", "u6", "u2"],
-            "axis": None,
-        },
-    )
+    flat_model = Concat(axis=-2)
+    tensor1: Tensor[float] = Tensor()
+    tensor2: Tensor[float] = Tensor()
+    tensor3: Tensor[float] = Tensor()
+    tensor4: Tensor[float] = Tensor()
+    flat_model.set_values(input=[tensor1, tensor2, tensor3, tensor4])
+    data = {k: v.metadata for k, v in flat_model.conns.all.items()}
+    ref = {
+        "output": ["(V1, ...)", "u1", "u2"],
+        "input": (
+            ["(V1, ...)", "u3", "u2"],
+            ["(V1, ...)", "u4", "u2"],
+            ["(V1, ...)", "u5", "u2"],
+            ["(V1, ...)", "u6", "u2"],
+        ),
+        "axis": [],
+    }
+    assert_shape_results(data, ref, {}, Updates(), set())
+    # assert_shapes(
+    #     flat_model,
+    #     logical_ref={
+    #         "output": ["(V1, ...)", "u1", "u2"],
+    #         "input1": ["(V1, ...)", "u3", "u2"],
+    #         "input2": ["(V1, ...)", "u4", "u2"],
+    #         "input3": ["(V1, ...)", "u5", "u2"],
+    #         "input4": ["(V1, ...)", "u6", "u2"],
+    #         "axis": None,
+    #     },
+    # )
 
 
 def test_concat_init_5():
-    flat_model = Concat(n=4, axis=None)
-    assert_shapes(
-        flat_model,
-        logical_ref={
-            "output": ["u1"],
-            "input1": ["(V1, ...)"],
-            "input2": ["(V2, ...)"],
-            "input3": ["(V3, ...)"],
-            "input4": ["(V4, ...)"],
-            "axis": None,
-        },
-    )
+    flat_model = Concat(axis=None)
+    tensor1: Tensor[float] = Tensor()
+    tensor2: Tensor[float] = Tensor()
+    tensor3: Tensor[float] = Tensor()
+    tensor4: Tensor[float] = Tensor()
+    flat_model.set_values(input=[tensor1, tensor2, tensor3, tensor4])
+    data = {k: v.metadata for k, v in flat_model.conns.all.items()}
+    ref = {
+        "output": ["u1"],
+        "input": (
+            ["(V1, ...)"],
+            ["(V2, ...)"],
+            ["(V3, ...)"],
+            ["(V4, ...)"],
+        ),
+        "axis": [],
+    }
+    assert_shape_results(data, ref, {}, Updates(), set())
 
 
 def test_swapaxes_init_1():

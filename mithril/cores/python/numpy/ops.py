@@ -163,6 +163,7 @@ __all__ = [
     "pad",
     "split",
     "randn",
+    "atleast_1d",
     "minimum",
     "maximum",
     "dtype",
@@ -1026,9 +1027,11 @@ def where(
 
 
 def concat(
-    *inputs: np.ndarray[Any, Any], axis: int | None = 0, cache: CacheType | None = None
+    input: list[np.ndarray[Any, Any]],
+    axis: int | None = 0,
+    cache: CacheType | None = None,
 ) -> np.ndarray[Any, Any]:
-    return np.concatenate([np.array(v) for v in inputs], axis=axis)
+    return np.concatenate(input, axis=axis)
 
 
 def flatten(
@@ -1278,6 +1281,12 @@ def zeros_like(
     return np.zeros_like(input)
 
 
+def atleast_1d(
+    input: np.ndarray[Any, Any], cache: CacheType | None = None
+) -> np.ndarray[Any, Any]:
+    return np.atleast_1d(input)
+
+
 def greater(
     left: np.ndarray[Any, Any],
     right: np.ndarray[Any, Any],
@@ -1473,8 +1482,8 @@ def reshape(
     return input.reshape(shape)
 
 
-def item(input: np.ndarray[Any, Any]) -> int | float | bool:
-    return input.item()  # type: ignore
+def item(input: np.ndarray[Any, Any]) -> int | float | bool | str:
+    return input.item()
 
 
 def sequence_slice(

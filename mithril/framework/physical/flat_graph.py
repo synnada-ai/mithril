@@ -17,6 +17,7 @@ from __future__ import annotations
 from collections.abc import Callable, KeysView, Mapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass
+from typing import Any
 
 import mithril as ml
 
@@ -29,9 +30,7 @@ from ..common import (
     ConstraintSolver,
     DataEvalType,
     IOHyperEdge,
-    MainValueInstance,
     MainValueType,
-    Tensor,
     ToBeDetermined,
     Updates,
     UpdateType,
@@ -707,7 +706,9 @@ class FlatGraph(GenericDataType[DataType]):
 
     def set_static_keys(
         self,
-        static_keys: dict[str, DataType | MainValueType],
+        static_keys: dict[
+            str, DataType | int | float | bool | Sequence[Any] | dict[str, Any]
+        ],
     ) -> Updates:
         updates = Updates()
         for key, value in static_keys.items():
@@ -726,7 +727,9 @@ class FlatGraph(GenericDataType[DataType]):
         return updates
 
     def add_static_data(
-        self, key: str, value: DataType | MainValueType
+        self,
+        key: str,
+        value: DataType | int | float | bool | Sequence[Any] | dict[str, Any],
     ) -> tuple[set[str], Updates]:
         updates = Updates()
         updated_keys = {key}
@@ -757,14 +760,10 @@ class FlatGraph(GenericDataType[DataType]):
                 else:
                     updates |= data.set_value(value)
             else:
-                assert not isinstance(value, MainValueInstance | ToBeDetermined)
-                # Find type of tensor and set.
-                val_type = self.data_store._infer_tensor_value_type(value)
-                updates |= data.set_type(Tensor[val_type])  # type: ignore
-                assert data.shape is not None
-                # Find shape of tensor and set.
-                shape = list(value.shape)
-                updates |= data.shape.set_values(shape)
+                # Convert value to logical representaiton and set accordingly.
+                x = self.data_store.convert_phys_value_to_logical(value)
+                updates |= data.set_value(x)
+
             self.cached_data[key] = value  # type: ignore
             self.intermediate_non_differentiables.pop(key, None)
             if (

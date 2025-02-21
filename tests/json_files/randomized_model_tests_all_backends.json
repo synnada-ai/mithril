@@ -532,10 +532,33 @@
     },
     "test_concat_axis_none_5_inputs": {
         "model": {
-            "name": "Concat",
-            "regular_args" : {
-                "n": 5,
-                "axis": null
+            "name": "Model",
+            "submodels": {
+                "m1": {
+                    "name": "ToList",
+                    "args" : {
+                        "n": 5
+                    }
+                },
+                "m2": {
+                    "name": "Concat",
+                    "args" : {
+                        "axis": null
+                    }
+                }
+            },
+            "connections": {
+                "m1": {
+                    "input1": {"key": {"name": "input1", "type": "tensor"}},
+                    "input2": {"key": {"name": "input2", "type": "tensor"}},
+                    "input3": {"key": {"name": "input3", "type": "tensor"}},
+                    "input4": {"key": {"name": "input4", "type": "tensor"}},
+                    "input5": {"key": {"name": "input5", "type": "tensor"}}
+                },
+                "m2": {
+                    "input": {"key": {"connect": [["m1", "output"]]}},
+                    "output": {"key": {"name": "output"}}
+                }
             }
         },
         "input_info": {
@@ -559,10 +582,33 @@
     },
     "test_concat_axis": {
         "model": {
-            "name": "Concat",
-            "regular_args" : {
-                "n": 5,
-                "axis": 3
+            "name": "Model",
+            "submodels": {
+                "m1": {
+                    "name": "ToList",
+                    "args" : {
+                        "n": 5
+                    }
+                },
+                "m2": {
+                    "name": "Concat",
+                    "args" : {
+                        "axis": 3
+                    }
+                }
+            },
+            "connections": {
+                "m1": {
+                    "input1": {"key": {"name": "input1", "type": "tensor"}},
+                    "input2": {"key": {"name": "input2", "type": "tensor"}},
+                    "input3": {"key": {"name": "input3", "type": "tensor"}},
+                    "input4": {"key": {"name": "input4", "type": "tensor"}},
+                    "input5": {"key": {"name": "input5", "type": "tensor"}}
+                },
+                "m2": {
+                    "input": {"key": {"connect": [["m1", "output"]]}},
+                    "output": {"key": {"name": "output"}}
+                }
             }
         },
         "input_info": {

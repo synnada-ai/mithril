@@ -325,10 +325,10 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
 
     def cat(
         self,
-        inputs: tuple[np.ndarray[Any, Any], ...] | list[np.ndarray[Any, Any]],
+        inputs: list[np.ndarray[Any, Any]],
         axis: int = 0,
     ) -> np.ndarray[Any, Any]:
-        return ops.concat(*inputs, axis=axis)
+        return ops.concat(inputs, axis=axis)
 
     def pad(
         self, input: np.ndarray[Any, Any], pad_width: PadWidthType

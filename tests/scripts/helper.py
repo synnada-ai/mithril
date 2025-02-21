@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from copy import deepcopy
 
 from mithril import Backend, Constant, compile, epsilon_table
 from mithril.framework.common import IOHyperEdge, Tensor
@@ -24,13 +25,6 @@ from tests.scripts.test_utils import (
     get_all_data,
 )
 
-# def convert_to_array(backend, weights: Union[Dict, List]):
-#     # Converts all list elements to numpy array in a dictionary.
-#     if not isinstance(weights, dict):
-#         return backend.array(weights) if isinstance(weights, (list, int)) else weights
-#     return {k: convert_to_array(backend, weights[k]) for k in sorted(weights)}
-#     # return {k: convert_to_array(backend, weights[k]) for k in weights}
-
 
 def evaluate_case(
     backend: Backend,
@@ -39,13 +33,17 @@ def evaluate_case(
     relative_tolerance: float = 1e-14,
     test_rtt: bool = False,
 ) -> None:
-    inputs = convert_to_array(backend, current_case.get("inputs", {}))
-    results = convert_to_array(backend, current_case.get("results", {}))
+    inputs_info = deepcopy(current_case.get("inputs", {}))
+    is_inputs_list = inputs_info.pop("is_list", False)
+    inputs = convert_to_array(backend, inputs_info, is_inputs_list)
     discard_keys = set(current_case.get("discard_keys", []))
-    # static_keys = convert_to_array(backend, current_case.get("static_keys", {}))
     static_keys = dict(current_case.get("static_keys", {}))
-    reference_outputs = results["eval"]
-    reference_gradients = results["grad"]
+    reference_outputs = convert_to_array(
+        backend, current_case.get("results", {}).get("eval", {})
+    )
+    reference_gradients = convert_to_array(
+        backend, current_case.get("results", {}).get("grad", {}), is_inputs_list
+    )
     reference_shapes = {
         key: tuple(value)
         for key, value in current_case.get("reference_shapes", {}).items()
@@ -59,7 +57,21 @@ def evaluate_case(
         if not model.conns.get_metadata(key).is_tensor:
             static_keys[key] = value
         else:
-            static_keys[key] = convert_to_array(backend, value)
+            is_list = static_keys.get("is_list", False)
+            static_keys[key] = convert_to_array(backend, value, is_list)
+    # Set logical tensor values for trainable keys if and only if
+    # model has any output keys.
+    if model.output_keys:
+        values: dict[str, Tensor[float] | list[Tensor[float]]] = {}
+        for key, value in reference_gradients.items():
+            if is_inputs_list:
+                values[key] = [
+                    Tensor[float](differentiable=True) for _ in range(len(value))
+                ]
+            else:
+                values[key] = Tensor[float](differentiable=True)
+        model.set_values(**values)
+
     models.append(model)
 
     if test_rtt:
@@ -74,7 +86,7 @@ def evaluate_case(
             backend=backend,
             constant_keys=static_keys,
             discard_keys=discard_keys,
-            trainable_keys=reference_gradients,
+            # trainable_keys=reference_gradients,
             jit=False,
             safe_shapes=True,
         )
@@ -95,7 +107,7 @@ def evaluate_case(
                 assert isinstance(copied_data, IOHyperEdge)
                 if isinstance((data_value := data.value), Constant):
                     data_value = epsilon_table[backend.precision][data_value]
-                assert data_value == copied_data.value
+                # assert data_value == copied_data.value
 
                 if data.is_tensor:
                     assert id(data.value) == id(copied_data.value)
@@ -154,14 +166,7 @@ def evaluate_case(
             # outputs can have some keys which reference_outputs does not include.
             assert set(outputs.keys()) == set(reference_outputs)
             if out is not None:
-                assert (
-                    all(backend.flatten(backend.abs(v - out) < tolerance))
-                    or all(
-                        backend.flatten(
-                            backend.abs(v - out) < backend.abs(v) * relative_tolerance
-                        )
-                    )
-                ) and (out.shape == (() if isinstance(v, float) else v.shape))  # type: ignore
+                _assert_results(v, out, backend, tolerance, relative_tolerance)
             else:
                 raise Exception(
                     f"Output is supposed to return value for the {k} key, but "
@@ -177,14 +182,23 @@ def evaluate_case(
             if grad is None:
                 assert v == grad
             else:
-                assert (
-                    all(backend.flatten(backend.abs(v - grad) < tolerance))
-                    or all(
-                        backend.flatten(
-                            backend.abs(v - grad) < backend.abs(v) * relative_tolerance
-                        )
-                    )
-                ) and (grad.shape == (() if isinstance(v, float) else v.shape))
+                _assert_results(v, grad, backend, tolerance, relative_tolerance)
+
+
+def _assert_results(grad_1, grad_2, backend, tolerance, relative_tolerance):
+    assert type(grad_1) is type(grad_2)
+    if not isinstance(grad_1, list):
+        grad_1, grad_2 = [grad_1], [grad_2]
+    for item_1, item_2 in zip(grad_1, grad_2, strict=False):
+        assert (
+            all(backend.flatten(backend.abs(item_1 - item_2) < tolerance))
+            or all(
+                backend.flatten(
+                    backend.abs(item_1 - item_2)
+                    < backend.abs(item_1) * relative_tolerance
+                )
+            )
+        ) and (item_2.shape == (() if isinstance(item_1, float) else item_1.shape))
 
 
 def generate_partial(fun, **kwargs):

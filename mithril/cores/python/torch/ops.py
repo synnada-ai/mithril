@@ -203,6 +203,7 @@ __all__ = [
     "pad",
     "split",
     "randn",
+    "atleast_1d",
     "minimum",
     "maximum",
     "dtype",
@@ -945,11 +946,11 @@ def to_parallel(tensor: torch.Tensor, device_mesh: DeviceMesh) -> torch.Tensor:
     )
 
 
-def concat(*inputs: torch.Tensor, axis: int | None = 0) -> torch.Tensor:
+def concat(input: list[torch.Tensor], axis: int | None = 0) -> torch.Tensor:
     if axis is None:
-        return torch.concatenate([torch.flatten(v) for v in inputs])
+        return torch.concatenate([torch.flatten(v) for v in input])
     else:
-        return torch.concatenate([torch.atleast_1d(v) for v in inputs], dim=axis)  # type: ignore
+        return torch.concatenate(input, dim=axis)
 
 
 def matrix_concat(input1: torch.Tensor, input2: torch.Tensor) -> torch.Tensor:
@@ -1191,6 +1192,10 @@ def randn(
 
 def zeros_like(input: torch.Tensor) -> torch.Tensor:
     return torch.zeros_like(input)
+
+
+def atleast_1d(input: torch.Tensor) -> torch.Tensor:
+    return torch.atleast_1d(input)  # type: ignore
 
 
 def primitive_embedding(input: torch.Tensor, weight: torch.Tensor) -> torch.Tensor:

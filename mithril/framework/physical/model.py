@@ -20,6 +20,7 @@ import warnings
 from collections.abc import Mapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass
+from typing import Any
 
 from ...backends.backend import Backend, ParallelBackend
 from ...types import DataType, GenericDataType
@@ -42,7 +43,6 @@ from ..common import (
     Updates,
     Variadic,
     create_shape_map,
-    find_intersection_type,
     get_shapes,
     get_summary,
     get_summary_shapes,
@@ -65,9 +65,13 @@ FinalCost = "final_cost"
 
 PhysicalShapeValueType = Sequence[int | None]
 PhysicalConstantType = (
-    Mapping[str | Connection, DataType | MainValueType]
-    | Mapping[str, DataType | MainValueType]
-    | Mapping[Connection, DataType | MainValueType]
+    Mapping[
+        str | Connection, DataType | int | float | bool | Sequence[Any] | dict[str, Any]
+    ]
+    | Mapping[str, DataType | int | float | bool | Sequence[Any] | dict[str, Any]]
+    | Mapping[
+        Connection, DataType | int | float | bool | Sequence[Any] | dict[str, Any]
+    ]
 )
 PhysicalShapeType = (
     Mapping[str | Connection, PhysicalShapeValueType]
@@ -188,12 +192,7 @@ class PhysicalModel(GenericDataType[DataType]):
                     # TODO: Create an API for setting differentiability of a tensor.
                     physical_data.set_differentiability(False)
                 elif global_key in self._trainable_tensor_inputs:
-                    # if physical_data.edge_type not in (Tensor, ToBeDetermined):
-                    if physical_data.is_scalar:
-                        raise ValueError(
-                            f"Non-tensor type data can not be trainable: {global_key}"
-                        )
-                    elif physical_data.is_polymorphic:
+                    if physical_data.is_polymorphic:
                         # Set physical data type to Tensor.
                         updates |= physical_data.set_type(Tensor[float])
                     elif physical_data.value is not TBD:
@@ -322,7 +321,7 @@ class PhysicalModel(GenericDataType[DataType]):
 
     def _validate_keys(
         self,
-        constant_keys: dict[str, DataType | MainValueType],
+        constant_keys: PhysicalConstantType[DataType],
         data_keys: set[str],
         trainable_keys: set[str],
         discard_keys: set[str],
@@ -501,7 +500,9 @@ class PhysicalModel(GenericDataType[DataType]):
 
     def _pre_compile(
         self,
-        constant_keys: dict[str, DataType | MainValueType],
+        constant_keys: dict[
+            str, DataType | int | float | bool | Sequence[Any] | dict[str, Any]
+        ],
         data_keys: set[str],
         shapes: PhysicalShapeType,
     ) -> None:
@@ -537,25 +538,27 @@ class PhysicalModel(GenericDataType[DataType]):
             self.discarded_keys, self._output_keys
         )
 
+        _reversed_out_dict = {v: k for k, v in self.flat_graph.output_dict.items()}
         for node in self.flat_graph.nodes.values():
             _key = node.connections["output"].key
             conn_edge = self.data.get(_key, None)
             # TODO: If conn_edge is None, it means that the key is unused in data_store
             # but not unnecessary in flat_graph. This case should be handled when
             # flat_graph - data_store integration is updated.
-            if conn_edge is not None and (
-                (not conn_edge.is_tensor)
-                or (
-                    (not find_intersection_type(float, conn_edge.value_type))
-                    or _key
-                    in (
-                        self.flat_graph.cached_data.keys() | self.flat_graph.unused_keys
-                    )
-                )
-            ):
-                self.ignore_grad_keys.add(node.connections[Operator.output_key].key)
+            if not (conn_edge is None or conn_edge.differentiable):
+                ignored = {_key}
+                if (ignored_alias := _reversed_out_dict.get(_key)) is not None:
+                    ignored.add(ignored_alias)
+                self.ignore_grad_keys.update(ignored)
 
-        if len(self._output_keys - self.ignore_grad_keys) == 0 and not self.inference:
+        if (
+            len(
+                self._output_keys
+                - (self.ignore_grad_keys | self.flat_graph.all_static_keys)
+            )
+            == 0
+            and not self.inference
+        ):
             raise ValueError("All outputs gradient are ignored.")
 
     def generate_functions(

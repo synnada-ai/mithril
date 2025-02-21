@@ -96,7 +96,7 @@ def test_flatgraph_4():
         output_1=ml.IOKey(name="output"),
     )
 
-    pm = ml.compile(model=model, backend=backend)
+    pm = ml.compile(model=model, backend=backend, inference=True)
     assert pm.input_keys == {"input"}
     assert len(pm.flat_graph.all_source_keys) == 3
     assert len(pm.flat_graph.all_target_keys) == 3
