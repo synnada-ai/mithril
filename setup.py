@@ -25,10 +25,9 @@ class CustomBuildExt(build_ext):
         script_path = os.path.join(
             os.path.dirname(__file__),
             "mithril",
-            "backends",
-            "with_manualgrad",
-            "c_backend",
-            "src",
+            "cores",
+            "c",
+            "raw_c",
             "compile.sh",
         )
         subprocess.check_call([shell, script_path])

@@ -31,6 +31,7 @@ from ..common import (
     EvaluateType,
     ParamsEvalType,
 )
+from ...common import PythonGenConfig
 from ..logical import Operator
 from ..physical.model import PhysicalModel
 from ..utils import GeneratedFunction
@@ -105,6 +106,7 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
         self.globals: list[ast.stmt] = []
         self.functions: list[ast.stmt] = []
         self.backend = self.pm.backend
+        self.configs: PythonGenConfig = self.backend.CODEGEN_CONFIG
 
     def generate_code(self, file_path: str | None = None) -> None:
         self.file_path = file_path

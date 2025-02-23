@@ -51,6 +51,7 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
     backend_type = "torch"
     registered_primitives = {}
     primitive_fn_path = "mithril.cores.python.torch.ops"
+    CODEGEN_CONFIG = utils.CODEGEN_CONFIG
 
     def __init__(
         self,
@@ -93,9 +94,6 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
     def DataType(self) -> type[torch.Tensor]:  # noqa: N802
         return utils.ArrayType
 
-    @property
-    def codegen_config(self) -> dict[str, bool]:
-        return utils.CODEGEN_CONFIG
 
     @property
     def device(self) -> torch.device:

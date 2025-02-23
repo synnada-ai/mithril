@@ -47,6 +47,14 @@ try:
     code_gen_map[CBackend] = CGen
 except Exception:
     pass
+
+try:
+    from ...backends.with_manualgrad.ggml_backend import GGMLBackend
+    from .ggml_gen import GGMLCodeGen
+
+    code_gen_map[GGMLBackend] = GGMLCodeGen
+except Exception:
+    pass
 try:
     from ...backends.with_manualgrad.numpy_backend import NumpyBackend
     from .numpy_gen import NumpyCodeGen
@@ -63,4 +71,5 @@ __all__ = [
     "PythonCodeGen",
     "NumpyCodeGen",
     "TorchCodeGen",
+    "GGMLCodeGen"
 ]

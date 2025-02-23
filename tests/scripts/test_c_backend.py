@@ -18,7 +18,7 @@ from copy import deepcopy
 import numpy as np
 
 from mithril import CBackend, NumpyBackend, compile
-from mithril.cores.c.array import PyArray
+from mithril.cores.c.raw_c.array import PyArray
 from mithril.framework.common import Tensor
 from mithril.models import Add, IOKey, Model, Multiply
 

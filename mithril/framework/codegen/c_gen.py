@@ -19,13 +19,15 @@ import tempfile
 from functools import partial
 
 from ...backends.with_manualgrad.c_backend import CBackend, backend
-from ...cores.c import array
-from ...cores.c.array import Array, PyArray
+from ...backends.with_manualgrad.ggml_backend import GGMLBackend
+from ...cores.c.raw_c import array
+from ...cores.c.raw_c.array import Array, PyArray
 from ...framework.common import (
     EvaluateAllType,
     EvaluateGradientsType,
     EvaluateType,
 )
+from ...common import CGenConfig
 from ...utils.type_utils import is_list_int
 from ..physical.model import PhysicalModel
 from . import c_ast
@@ -40,7 +42,7 @@ class CGen(CodeGen[PyArray]):
     def __init__(self, pm: PhysicalModel[PyArray]) -> None:
         super().__init__(pm)
 
-        assert isinstance(self.pm.backend, CBackend)
+        assert isinstance(self.pm.backend, CBackend | GGMLBackend), f"Invalid backend '{self.pm.backend.backend_type}'! Must be CBackend or GGMLBackend"
         self.backend: CBackend = self.pm.backend
 
         self.imports: list[c_ast.AST] = []
@@ -49,17 +51,19 @@ class CGen(CodeGen[PyArray]):
 
         # This will be used to store the keys of the argument of the functions
         self.func_arg_keys: dict[str, list[str]] = {}
+        self.configs: CGenConfig = self.backend.CODEGEN_CONFIG
 
     def generate_imports(self) -> list[c_ast.Include]:
-        header_path = os.path.join(self.backend.SRC_PATH, "cbackend.h")
+        header_path = os.path.join(self.backend.SRC_PATH, self.configs.HEADER_NAME)
         return [c_ast.Include(header_path, system=False)]
 
     def generate_code(self, file_path: str | None = None) -> None:
         self.file_path = file_path
 
-        self.imports = self.generate_imports()  # type: ignore
+        self.imports  += self.generate_imports()  # type: ignore
         eval_fn, eval_used_keys = self.generate_evaluate()
         self.functions.append(eval_fn)
+        
         self.func_arg_keys["evaluate"] = sorted(eval_used_keys)
         if not self.pm.inference:
             eval_grad_fn, eval_grad_used_keys = self.generate_evaluate_gradients()
@@ -100,7 +104,9 @@ class CGen(CodeGen[PyArray]):
             [
                 *default_compile_flags,
                 f"-L{self.backend.SRC_PATH}",
-                "-lmithrilc",
+                "-lggml-cpu",
+                "-lggml-base",
+                "-lmithrilggml",
                 f"-Wl,-rpath,{self.backend.SRC_PATH}",
                 "-o",
                 so_file_path,
@@ -112,7 +118,15 @@ class CGen(CodeGen[PyArray]):
 
         # We need backend subtype
         lib = ctypes.CDLL(so_file_path)
-        lib.evaluate.argtypes = [ctypes.POINTER(Array)] * len(eval_arg_keys)
+
+        class Inputs(ctypes.Structure):
+            _fields_ = [
+                (key, ctypes.c_void_p) for key in sorted(list(self.pm.input_keys) + self.pm.output_keys)
+            ]
+
+        self.struct = Inputs
+
+        lib.evaluate.argtypes = [ctypes.POINTER(Inputs)]
         if not self.pm.inference:
             eval_grad_arg_keys = self.func_arg_keys["evaluate_gradients"]
             lib.evaluate_gradients.argtypes = [ctypes.POINTER(Array)] * len(
@@ -135,16 +149,33 @@ class CGen(CodeGen[PyArray]):
             if isinstance(cache, dict):
                 inputs |= cache
 
-            # Allocate output arrays
-            for arg_key in eval_arg_keys:
-                if arg_key in inputs:
-                    continue
+            import numpy as np
+            size = 100 * np.dtype(np.float32).itemsize  # Allocate space for 10 float32 values
+            buf = ctypes.create_string_buffer(size)
 
-                arr_shape = self._get_array_shape(arg_key)
-                inputs[arg_key] = self.backend.empty(*arr_shape)
+            # Convert to a void pointer
+            void_ptr = ctypes.cast(buf, ctypes.c_void_p)
 
-            inputs_ordered = [inputs[arg].arr for arg in eval_arg_keys]
-            lib.evaluate(*inputs_ordered)
+            print(eval_arg_keys)
+            
+            inputs_struct = self.struct(**{
+                key:  ctypes.cast(inputs[key].ctypes.data_as(ctypes.c_void_p),  ctypes.c_void_p)
+                for key in eval_arg_keys
+            })
+            
+            inputs_struct_ptr = ctypes.pointer(inputs_struct)
+
+
+            # # Allocate output arrays
+            # for arg_key in eval_arg_keys:
+            #     if arg_key in inputs:
+            #         continue
+
+            #     arr_shape = self._get_array_shape(arg_key)
+            #     inputs[arg_key] = self.backend.empty(*arr_shape)
+
+            # inputs_ordered = [inputs[arg].arr for arg in eval_arg_keys]
+            lib.evaluate(inputs_struct_ptr)
 
             if not include_internals:
                 return {key: inputs[key] for key in self.pm.output_keys}
@@ -201,6 +232,13 @@ class CGen(CodeGen[PyArray]):
 
     def create_primitive_call(self, formula_name: str, args: list[str]) -> c_ast.Expr:
         return c_ast.Call(formula_name, args)
+    
+    def assign_array(self, target: c_ast.Variable, source:c_ast.Expr) -> c_ast.Assign:
+        return c_ast.Assign(target, source)
+    
+    def define_function(self, return_type: str, name: str, params: list[c_ast.Parameter], body: list[c_ast.Stmt] | list[c_ast.Expr]|list[c_ast.Stmt| c_ast.Expr]) -> c_ast.FunctionDef:
+        return c_ast.FunctionDef(return_type, name, params, body)
+
 
     def generate_evaluate(self) -> tuple[c_ast.FunctionDef, set[str]]:
         fn_body: list[c_ast.Expr] = []
@@ -209,22 +247,31 @@ class CGen(CodeGen[PyArray]):
         for output_key in self.pm.flat_graph.topological_order:
             model = self.pm.flat_graph.get_model(output_key)
             inputs = self.pm.flat_graph.get_source_keys(output_key)
+            
 
-            # In C backend we need to pass output array as first argument
-            inputs = [output_key] + inputs
+            if self.configs.USE_OUTPUT_AS_INPUT:
+                # In raw_c backend we need to pass output array as first argument
+                used_keys.add(output_key)
+                inputs = [output_key] + inputs
 
             # Create primitive call
             p_call = self.create_primitive_call(model.formula_key, inputs)
-            fn_body.append(p_call)
 
-            used_keys.add(output_key)
+            if self.configs.RETURN_OUTPUT:
+                # Is functions returns output
+                if output_key in self.pm.output_keys:
+                    p_call = self.assign_array(c_ast.Variable(f"{output_key}"), p_call)
+                else:
+                    p_call = self.assign_array(c_ast.Variable(f"{self.configs.ARRAY_NAME} * {output_key}"), p_call)
+
+            fn_body.append(p_call)
             used_keys |= set(inputs)
 
         arguments: list[c_ast.Parameter] = []
         for used_key in sorted(used_keys):
-            arguments.append(c_ast.Parameter("Array *", used_key))
+            arguments.append(c_ast.Parameter(f"{self.configs.ARRAY_NAME} *", used_key))
 
-        evaluate_fn = c_ast.FunctionDef("void", "evaluate", arguments, fn_body)
+        evaluate_fn = self.define_function("void", "evaluate", arguments, fn_body)
 
         return evaluate_fn, used_keys
 
@@ -272,7 +319,7 @@ class CGen(CodeGen[PyArray]):
         arguments: list[c_ast.Parameter] = []
 
         for used_key in sorted(used_keys):
-            arguments.append(c_ast.Parameter("Array *", used_key))
+            arguments.append(c_ast.Parameter(f"{self.configs.ARRAY_NAME} *", used_key))
 
         evaluate_grad_fn = c_ast.FunctionDef(
             "void", "evaluate_gradients", arguments, fn_body

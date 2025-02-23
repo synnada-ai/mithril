@@ -28,7 +28,9 @@ from mithril.models import (
     Model,
     Relu,
     Shape,
+    Multiply,
     ToTensor,
+    Add
 )
 from tests.scripts.test_utils import compare_callables
 
@@ -498,3 +500,36 @@ def test_inline_caching_2(file_path: str):
         return {"output": (2, 3, 4, 5, 1, 2)}
 
     compare_callables(evaluate, eval_func)
+
+
+# C codegen
+
+@with_temp_file(".c")
+def test_basic_add_Pure_C(file_path: str):
+    model = Model()
+    model |= Multiply()(IOKey("left", shape=(3, 3)), IOKey("right", shape=(3, 3)),"output")
+    #model |= Add()("out", IOKey("right2", shape=(5, 5)))
+    #model += Add()(IOKey("left", shape=(8,16,32)), IOKey("right2", shape=(8,16,32)))
+    #model += Multiply()(IOKey("left", shape=(8,16,32)), IOKey("right", shape=(8,16,32)))
+    backend = mithril.GGMLBackend()
+    pm = mithril.compile(
+        model,
+        backend,
+        inference=True,
+        jit=False,
+        file_path=file_path,
+    )
+    import numpy as np
+
+    left = np.arange((9), dtype=np.float32)
+    right = np.arange((9), dtype=np.float32)
+    #right2 = np.arange((9), dtype=np.float32)
+    output = np.arange((9), dtype=np.float32)
+
+
+
+    output = pm.evaluate({}, {"left": left, "right": right, "output": output})
+
+    code = []
+    with open(file_path) as f:
+        code = f.readlines()

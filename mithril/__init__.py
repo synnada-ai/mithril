@@ -92,6 +92,8 @@ try:
 except Exception:
     CBackend = UnavailableBackend  # type: ignore
 
+from .backends.with_manualgrad.ggml_backend.backend import GGMLBackend
+
 try:
     from .backends.with_manualgrad.numpy_backend.backend import NumpyBackend
 except ImportError:

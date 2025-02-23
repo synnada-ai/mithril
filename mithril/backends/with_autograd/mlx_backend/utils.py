@@ -21,13 +21,12 @@ import mlx.core as mx
 import numpy as np
 
 from .... import types
-from ....common import find_dominant_type
+from ....common import find_dominant_type, PythonGenConfig
 from ....cores.python.mlx.utils import dtype_map
 from ...utils import DtypeSubTypes
 
-CODEGEN_CONFIG: dict[str, bool] = {
-    "specify_device": True,
-}
+CODEGEN_CONFIG = PythonGenConfig(SPECIFY_DEVICE=True)
+
 
 ArrayType = mx.array
 

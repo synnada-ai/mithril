@@ -16,13 +16,26 @@ from typing import Any
 
 import numpy as np
 
-from ....cores.c.array import (
+from ....common import CGenConfig
+from ....cores.c.raw_c.array import (
     Array,
     PyArray,
     lib,
     to_c_float_array,
     to_c_int_array,
 )
+
+CODEGEN_CONFIG = CGenConfig()
+
+# File configs
+CODEGEN_CONFIG.HEADER_NAME = "cbackend.h"
+
+# Array configs
+CODEGEN_CONFIG.ARRAY_NAME = "Array"
+
+# Function configs
+CODEGEN_CONFIG.RETURN_OUTPUT = False
+CODEGEN_CONFIG.USE_OUTPUT_AS_INPUT = True
 
 
 def to_numpy(array: PyArray) -> np.ndarray[Any, Any]:

@@ -15,6 +15,7 @@
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import Sequence
 
 
 @dataclass
@@ -35,9 +36,17 @@ class Stmt(AST):
 
 
 @dataclass
+class MakeStmt(AST):
+    expr: Expr
+
+    def to_str(self) -> str:
+        return self.expr.to_str() + ";"
+
+
+@dataclass
 class Call(Expr):
     name: str
-    args: list[str] | list[Expr]
+    args: Sequence[str | Expr]
 
     def to_str(self) -> str:
         args_str = ", ".join(
@@ -49,13 +58,31 @@ class Call(Expr):
 
 @dataclass
 class Constant(Expr):
-    value: int | float
+    value: int | float | str
 
     def to_str(self) -> str:
         return str(self.value)
 
     def __str__(self) -> str:
         return self.to_str()
+    
+@dataclass
+class Variable(Expr):
+    name: str
+
+    def to_str(self) -> str:
+        return self.name
+    
+@dataclass
+class Assign(Stmt):
+    target: Variable
+    source: Expr | Stmt
+
+    def to_str(self) -> str:
+        result_str = f"{self.target.to_str()} = {self.source.to_str()}"
+        if not isinstance(self.source, Stmt):
+            result_str += ";"
+        return result_str
 
 
 @dataclass
@@ -77,8 +104,8 @@ class FunctionDef(Stmt):
     def to_str(self) -> str:
         params_str = (
             "\n\t" + ",\n\t".join([param.to_str() for param in self.params]) + "\n"
-        )
-        body_str = "\n    ".join([stmt.to_str() + ";" for stmt in self.body])
+        ) if len(self.params) > 0 else ""
+        body_str = "\n    ".join([stmt.to_str() for stmt in self.body])
         return f"{self.return_type} {self.name}({params_str})\n{{\n    {body_str}\n}}"
 
 
@@ -103,6 +130,42 @@ class Include(AST):
 
 
 @dataclass
+class Comment(Stmt):
+    text: str
+    multiline: bool = False  # True for /* */ comments, False for // comments
+
+    def to_str(self) -> str:
+        if self.multiline:
+            # Format multiline comments with proper line breaks
+            lines = self.text.split('\n')
+            if len(lines) == 1:
+                return f"/* {self.text} */"
+            formatted_lines = [f" * {line}" for line in lines]
+            return "/*\n" + "\n".join(formatted_lines) + "\n */"
+        else:
+            return f"// {self.text}"
+
+
+@dataclass
+class StructField:
+    type: str
+    name: str
+
+    def to_str(self) -> str:
+        return f"    {self.type} {self.name};"
+
+
+@dataclass
+class StructDef(Stmt):
+    name: str
+    fields: list[StructField]
+
+    def to_str(self) -> str:
+        fields_str = "\n".join(field.to_str() for field in self.fields)
+        return f"struct {self.name} {{\n{fields_str}\n}};"
+
+
+@dataclass
 class FILE(AST):
     includes: list[Include]
     globals: list[Stmt]
@@ -115,3 +178,45 @@ class FILE(AST):
         globals_str = "\n".join(stmt.to_str() for stmt in self.globals)
         declarations_str = "\n\n".join(decl.to_str() for decl in self.declarations)
         return f"{includes_str}\n\n{globals_str}\n\n{declarations_str}"
+
+
+
+@dataclass
+class StructInit(Stmt):
+    struct_name: str
+    field_values: dict[str, Expr | str]
+
+    def to_str(self) -> str:
+        field_inits = [
+            f".{field} = {value.to_str() if isinstance(value, Expr) else value}"
+            for field, value in self.field_values.items()
+        ]
+        fields_str = ", ".join(field_inits)
+        return f"struct {self.struct_name} = {{ {fields_str} }};"
+
+
+@dataclass
+class StaticVariable(Stmt):
+    type: str
+    name: str
+    initial_value: Expr | None = None
+
+    def to_str(self) -> str:
+        if self.initial_value is None:
+            return f"static {self.type} {self.name};"
+        return f"static {self.type} {self.name} = {self.initial_value.to_str()};"
+
+
+@dataclass
+class If(Stmt):
+    condition: Expr
+    body: list[Stmt]
+    else_body: list[Stmt] | None = None
+
+    def to_str(self) -> str:
+        body_str = "\n    ".join([stmt.to_str() for stmt in self.body])
+        if self.else_body is None:
+            return f"if ({self.condition.to_str()}) {{\n    {body_str}\n}}"
+        else:
+            else_str = "\n    ".join([stmt.to_str() for stmt in self.else_body])
+            return f"if ({self.condition.to_str()}) {{\n    {body_str}\n}} else {{\n    {else_str}\n}}"

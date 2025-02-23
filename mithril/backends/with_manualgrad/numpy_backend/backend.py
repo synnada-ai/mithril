@@ -46,6 +46,7 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
     primitive_fn_path = "mithril.cores.python.numpy.ops"
     primitive_grad_fn_path = "mithril.cores.python.numpy.ops_grad"
     registered_primitives_grad_fn: dict[str, Callable[..., np.ndarray[Any, Any]]] = {}
+    CODEGEN_CONFIG = utils.CODEGEN_CONFIG
 
     def __init__(self, device: str = "cpu", dtype: Dtype = Dtype.float32) -> None:
         self._dtype = dtype
@@ -84,9 +85,6 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
     def DataType(self) -> type[np.ndarray[Any, Any]]:  # noqa: N802
         return utils.ArrayType
 
-    @property
-    def codegen_config(self) -> dict[str, bool]:
-        return utils.CODEGEN_CONFIG
 
     def get_backend_array_type(self) -> type[np.ndarray[Any, Any]]:
         return np.ndarray
