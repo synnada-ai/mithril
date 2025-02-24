@@ -1249,18 +1249,6 @@ class IOHyperEdge:
         self._value = tensor
         return updates
 
-    def _value_compatible(
-        self, other_value: Tensor[int | float | bool] | ScalarValueType | ToBeDetermined
-    ) -> bool:
-        if self._value is not TBD:
-            if type(self._value) is not type(other_value):
-                return False
-            _other_value = (
-                other_value.value if isinstance(other_value, Tensor) else other_value
-            )
-            return self.value is TBD or self.value == _other_value
-        return True
-
     def replace_tensor(
         self,
         current_tensor: Tensor[int | float | bool],

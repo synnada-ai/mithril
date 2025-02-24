@@ -1701,7 +1701,10 @@ class IndexerOp(Operator):
             formula_key="indexer",
             name=name,
             output=BaseKey(),
-            input=BaseKey(value=input, type=Tensor[int | float | bool] | list | tuple),
+            input=BaseKey(
+                value=input,
+                type=Tensor[int | float | bool] | Sequence[Any] | ToBeDetermined,
+            ),
             index=BaseKey(
                 type=int
                 | slice

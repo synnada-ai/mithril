@@ -43,6 +43,7 @@ from .common import (
     IOHyperEdge,
     MaxNestedListDepth,
     PossibleValues,
+    ScalarValueType,
     ShapeRepr,
     Tensor,
     ToBeDetermined,
@@ -761,8 +762,14 @@ def indexer_initial_type_constraint(
     status = False
     updates = Updates()
     if input.is_scalar or output.is_scalar:
-        updates |= output.set_type(int | float | list[Any] | tuple[Any, ...])
-        updates |= input.set_type(list[Any] | tuple[Any, ...])
+        if input.edge_type is not ToBeDetermined:
+            # For this constraint, the content of sequence is not important. So
+            # we set output type to the most general case which includes Tensor
+            # also since it is possible to have Tensor types in input sequence.
+            updates |= output.set_type(ScalarValueType | Tensor[int | float | bool])
+        elif output.edge_type is not ToBeDetermined:
+            # Set input to the most general Sequence type.
+            updates |= input.set_type(Sequence[Any])
         status = True
     elif input.is_tensor or output.is_tensor:
         if input.is_tensor and output.is_tensor:
@@ -789,7 +796,8 @@ def indexer_type_constraint(
     if input.is_scalar:
         # Input is a non-tensor type.
         input_type = input.value_type
-        output_type = output.value_type
+        # output_type = output.value_type
+        output_type = output.edge_type
         index_value = index.value
         assert (
             isinstance(index_value, ToBeDetermined)

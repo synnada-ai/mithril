@@ -20,7 +20,6 @@ from typing import Any
 import jax
 import mlx.core as mx
 import numpy as np
-import pytest
 import torch
 
 import mithril
@@ -4089,37 +4088,35 @@ def test_concat_2():
     )
 
 
-@pytest.mark.skip("Open it after indexer is updated for support list of tensors.")
 def test_concat_3_with_indexer():
     model = Model()
 
     to_list = ToList(n=3)
     concat_1 = Concat()
     concat_2 = Concat()
-    indexer = Indexer()
 
     input1 = IOKey("input1", type=Tensor)
     input2 = IOKey("input2", type=Tensor)
     input3 = IOKey("input3", type=Tensor)
 
     model |= to_list(input1=input1, input2=input2, input3=input3)
-    model += concat_1(output="output_1")
-    model |= indexer(input=to_list.output, index=1, output="index_1")
-    model |= concat_2(input=to_list.output, output="output_2")
+    model += concat_1(output=IOKey("output_1"))
+    indexed_data = to_list.output[-2:]
+    model |= concat_2(input=indexed_data, output=IOKey("output_2"))
 
     params = {"input1": [[1.0, 2.0]], "input2": [[3.0, 4.0]], "input3": [[5.0, 6.0]]}
 
     out_grad = {
         "output_1": [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]],
-        "output_2": [[5.0, 6.0], [3.0, 4.0], [1.0, 2.0]],
+        "output_2": [[3.0, 4.0], [1.0, 2.0]],
     }
 
     ref_out = {
         "output_1": [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]],
-        "output_2": [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]],
+        "output_2": [[3.0, 4.0], [5.0, 6.0]],
     }
 
-    ref_grad = {"input1": [[6.0, 8.0]], "input2": [[6.0, 8.0]], "input3": [[6.0, 8.0]]}
+    ref_grad = {"input1": [[1.0, 2.0]], "input2": [[6.0, 8.0]], "input3": [[6.0, 8.0]]}
 
     compile_and_compare(
         model=model,
