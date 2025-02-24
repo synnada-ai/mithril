@@ -101,16 +101,22 @@ def Transformer(width: int, layers: int, heads: int, use_attn_mask: bool = False
     input = IOKey("input")
     block+= Buffer()(input)
     resblocks = Model(name="resblocks")
-    if use_attn_mask:   
+    input_key = "attn_output_0"
+    if use_attn_mask:
+        mask =IOKey("mask", shape = (77,77))
+        resblocks|=Buffer()(mask,output = "attn_mask")   
         for idx in range(layers):
-            resblocks+= ResidualAttentionBlock(width,heads,use_attn_mask,name = f"{idx}")(mask=IOKey("mask"))
+            resblocks|= ResidualAttentionBlock(width,heads,use_attn_mask,name = f"{idx}")(input = input_key,mask=resblocks.attn_mask,output=f"attn_output_{idx+1}")
+            input_key = f"attn_output_{idx+1}"
     else:
         for idx in range(layers):
-            resblocks+= ResidualAttentionBlock(width,heads,name = f"{idx}")
-    block+= resblocks
-    block+= Buffer()(output= IOKey("output"))
+            resblocks|= ResidualAttentionBlock(width,heads,name = f"{idx}")(input = input_key, output=f"attn_output_{idx+1}")
+            input_key = f"attn_output_{idx+1}"
+    block|= resblocks
+    block|= Buffer()(input = input_key ,output= IOKey("output"))
     
     return block
+    
 
 
 def VisionTransformer(input_resolution: int, patch_size: int, width: int, layers: int, heads: int, output_dim: int,use_proj: bool = False,name: str | None = None):
@@ -159,7 +165,7 @@ def MultiHeadAttentionForward(embed_dim_to_check: int, num_heads: int, dropout_p
     v_proj_weight = IOKey("v_proj_weight",shape = (2048, 2048))
     in_proj_bias = IOKey("in_proj_bias",type=ml.Tensor,shape = (6144,))
     out_proj_weight = IOKey("out_proj_weight",shape = (1024, 2048))
-    out_proj_bias = IOKey("out_proj_bias",type=ml.Tensor,shape=(1024,1))
+    out_proj_bias = IOKey("out_proj_bias",type=ml.Tensor,shape=(1024,))
     
     tgt_len, bsz, embed_dim = query.shape[0],query.shape[1],query.shape[2]
 
@@ -201,7 +207,7 @@ def MultiHeadAttentionForward(embed_dim_to_check: int, num_heads: int, dropout_p
      
 def AttentionPool2d(spacial_dim: int, embed_dim: int, num_heads: int, output_dim: int = None,name: str | None = None):
     block = Model(name=name)
-    input = IOKey("input",shape = (1, 2048, 7, 74))
+    input = IOKey("input",shape = (1, 2048, 7, 7))
     '''
     self.positional_embedding = nn.Parameter(torch.randn(spacial_dim ** 2 + 1, embed_dim) / embed_dim ** 0.5)
     self.k_proj = nn.Linear(embed_dim, embed_dim)
@@ -210,32 +216,33 @@ def AttentionPool2d(spacial_dim: int, embed_dim: int, num_heads: int, output_dim
     self.c_proj = nn.Linear(embed_dim, output_dim or embed_dim)
     '''
     #q_proj_weight=self.q_proj.weight
-    q_proj_weight = IOKey("q_proj_weight")
+    q_proj_weight = IOKey("q_proj_weight",shape = (2048, 2048))
     #q_proj_weight=self.q_proj.weight
-    k_proj_weight = IOKey("k_proj_weight")
+    k_proj_weight = IOKey("k_proj_weight",shape = (2048, 2048))
     #q_proj_weight=self.q_proj.weight
-    v_proj_weight = IOKey("v_proj_weight")
+    v_proj_weight = IOKey("v_proj_weight",shape = (2048, 2048))
     #q_proj_weight=self.q_proj.weight
-    in_proj_bias = IOKey("in_proj_bias")
+    in_proj_bias = IOKey("in_proj_bias",type=ml.Tensor,shape = (6144,))
     #q_proj_weight=self.q_proj.weight
-    out_proj_weight = IOKey("out_proj_weight")
+    out_proj_weight = IOKey("out_proj_weight",shape = (1024, 2048))
     #q_proj_weight=self.q_proj.weight
-    out_proj_bias = IOKey("out_proj_bias")
+    out_proj_bias = IOKey("out_proj_bias",type=ml.Tensor,shape=(1024,))
     #q_proj_weight=self.q_proj.weight
-    positional_embedding = IOKey("positional_embedding",type = ml.Tensor)
-    block |= Flatten(start_dim=2)(input = input)
-    block += Transpose(axes = (2,0,1))(output = "flatten")
-    block |= Mean(axis=0, keepdim=True)(block.flatten, output = "mean")  
-    block |= Concat(n = 2, axis = 0)(input1 = block.flatten, input2 = block.mean, output = "cn1")
-    block |= Buffer()((block.cn1 + positional_embedding),output = "x")
+    positional_embedding = IOKey("positional_embedding",type=ml.Tensor,shape = (50,2048))
+    block |= (flatten:=Flatten(start_dim=2))(input = input)
+    block += (trans:=Transpose(axes = (2,0,1)))(output = "flatten")
+    block |=(mean:=Mean(axis=0, keepdim=True))(block.flatten, output = "mean")  
+    block |=(concat:=Concat(n = 2, axis = 0)) (input1 = block.flatten, input2 = block.mean, output = "cn1")
+    block |= (buf2:=Buffer())(block.cn1 + positional_embedding[:,None,:],output = "x")
     # I need to place block.x.shape[-1] instead of embed_dim but when I put it in the code it gives
     # Requires accessible connection to be processe error
     multi_head_attention_forward = MultiHeadAttentionForward(embed_dim,num_heads,0.0)
+
     block |= multi_head_attention_forward(
         query = block.x[:1],key = block.x,value = block.x,q_proj_weight=q_proj_weight,k_proj_weight= k_proj_weight, v_proj_weight = v_proj_weight,
-        in_proj_bias = in_proj_bias, out_proj_weight = out_proj_weight, out_proj_bias = out_proj_bias
+        in_proj_bias = in_proj_bias, out_proj_weight = out_proj_weight, out_proj_bias = out_proj_bias, output = "attention"
     )
-    block += Squeeze()(output = IOKey("output"))
+    block |= Squeeze()(input = block.attention, output = IOKey("output"))
     return block
     
     
@@ -296,33 +303,31 @@ def make_layer(inplanes, planes, blocks, stride=1,name: str | None = None):
     block|= Buffer()(input =f"bottle_neck{i}",output = IOKey("output"))
     return block
     
-def ModifiedResNet(layers, output_dim, heads, input_resolution=224, width=64):
-    block = Model()
-    input = IOKey("input",shape = (1,3, 224, 224))
-    
-    
+def ModifiedResNet(layers, output_dim, heads, input_resolution=224, width=64,name: str | None = None):
+    block = Model(name = name)
+    input = IOKey("input",shape=(1,3, 224, 224))
     #for attn_pool
     #q_proj_weight=self.q_proj.weight
-    q_proj_weight = IOKey("q_proj_weight",shape =(2048, 2048))
+    q_proj_weight = IOKey("q_proj_weight",shape=(2048, 2048))
     #q_proj_weight=self.q_proj.weight
-    k_proj_weight = IOKey("k_proj_weight",shape =(2048, 2048))
+    k_proj_weight = IOKey("k_proj_weight",shape = (2048, 2048))
     #q_proj_weight=self.q_proj.weight
-    v_proj_weight = IOKey("v_proj_weight",shape =(2048, 2048))
+    v_proj_weight = IOKey("v_proj_weight",shape = (2048, 2048))
     #q_proj_weight=self.q_proj.weight
-    in_proj_bias = IOKey("in_proj_bias",shape = (2048,1))
+    in_proj_bias = IOKey("in_proj_bias",shape = (6144,))
     #q_proj_weight=self.q_proj.weight
-    out_proj_weight = IOKey("out_proj_weight",shape =(1024, 2048))
+    out_proj_weight = IOKey("out_proj_weight",shape = (1024, 2048))
     #q_proj_weight=self.q_proj.weight
-    out_proj_bias = IOKey("out_proj_bias",shape=(1024,1))
+    out_proj_bias = IOKey("out_proj_bias",shape=(1024,))
     #q_proj_weight=self.q_proj.weight
-    positional_embedding = IOKey("positional_embedding",shape=(50, 2048))
+    positional_embedding = IOKey("positional_embedding", shape = (50,2048))
     
     
     # x = x.type(self.conv1.weight.dtype)
-    block |= Convolution2D(kernel_size=3, out_channels=width // 2, stride=2, padding=1, use_bias=False,
-                          name = "conv1")(input = input,output = "conv_out_1")
+    block |= (conv1:=Convolution2D(kernel_size=3, out_channels=width // 2, stride=2, padding=1, use_bias=False,
+                          name = "conv1"))(input = input,output = "conv_out_1")
     # nn.BatchNorm2d(width // 2)
-    block |= GroupNorm(num_groups=1,name = "bn1")(input = "conv_out_1", output = "norm_out_1")
+    block |= (norm1:=GroupNorm(num_groups=1,name = "bn1"))(input = "conv_out_1", output = "norm_out_1")
     block |= Relu(name = "relu1")(input = "norm_out_1",output = "rl_out_1")
     block |= Convolution2D(kernel_size=3, out_channels=width // 2,  padding=1, use_bias=False,
                           name = "conv2")(input = "rl_out_1",output = "conv_out_2")
@@ -338,18 +343,20 @@ def ModifiedResNet(layers, output_dim, heads, input_resolution=224, width=64):
     block |= Relu(name="relu3")(input = "norm_out_3",output = "rl_out_3")
     # nn.AvgPool2d(2)
     
-    block |= MaxPool2D(kernel_size=2,name="avgpool")(input = "rl_out_3",output = "avgpool_out")
+    block |=(pool1:=MaxPool2D(kernel_size=2,name="avgpool"))(input = "rl_out_3",output = "avgpool_out")
     make_layer_block = make_layer(width,width,layers[0],name ="layer1")
-    block |= make_layer_block(input = block.avgpool_out) 
+    input_key = "make_layer_0"
+    block |= (layer1:=make_layer_block)(input = block.avgpool_out,output = input_key)
+
     
     for idx in range(1,4):
-        make_layer_block = make_layer(width ,width*(2**idx),layers[idx],name=f"layer{idx+1}")
-        block += make_layer_block
-        
-        
+        make_layer_block = make_layer(width ,width*(2**idx),layers[idx],stride=2, name=f"layer{idx+1}")
+        block |= (layer_temp:=make_layer_block)(input =input_key, output = f"make_layer_{idx}" )
+        input_key = f"make_layer_{idx}"
     attnpool = AttentionPool2d(input_resolution//32,width * 32,heads,output_dim,name="attnpool")
-    block += attnpool(q_proj_weight=q_proj_weight,k_proj_weight= k_proj_weight, v_proj_weight = v_proj_weight,
-        in_proj_bias = in_proj_bias, out_proj_weight = out_proj_weight, out_proj_bias = out_proj_bias,positional_embedding= positional_embedding,output=IOKey("output"))
+    block |= (attn_pool:=attnpool)(input =input_key,q_proj_weight=q_proj_weight,k_proj_weight= k_proj_weight, v_proj_weight = v_proj_weight,
+        in_proj_bias = in_proj_bias, out_proj_weight = out_proj_weight, out_proj_bias = out_proj_bias,positional_embedding= positional_embedding,output="attn_output")
+    block |= (reshape1:=Reshape(shape =(1,1024)))(input = block.attn_output,output = IOKey("output"))
     return block
     
     
@@ -386,7 +393,7 @@ def Clip(embed_dim: int,
                  vocab_size: int,
                  transformer_width: int,
                  transformer_heads: int,
-                 transformer_layers: int(),
+                 transformer_layers: int,
                  name: str | None = None):
     block = Model(name=name)
     image = IOKey("image")
@@ -402,15 +409,15 @@ def Clip(embed_dim: int,
                                    layers=vision_layers, heads=vision_heads, output_dim=embed_dim,name = "visual")
     block += visual(input= "image",output = "image_features")
     
-    block += Embedding(vocab_size, transformer_width,name="token_embedding")(input = "text",output = "token_embedding")
+    block |= Embedding(vocab_size, transformer_width,name="token_embedding")(input = "text",output = "token_embedding")
     
     # self.positional_embedding = nn.Parameter(torch.empty(self.context_length, transformer_width))
     positional_embedding = IOKey("positional_embedding")
     embedding = block.token_embedding + positional_embedding
-    
+    mask = IOKey("mask")
     transformer = Transformer(width=transformer_width, layers=transformer_layers, 
                               heads=transformer_heads, use_attn_mask=True,name="transformer")
-    block += transformer(input = embedding.transpose((1,0,2)), mask = IOKey("mask"), output="transformer")
+    block += transformer(input = embedding.transpose((1,0,2)), mask = mask, output="transformer")
     
     block += LayerNorm(name="ln_final")(block.transformer.transpose((1, 0, 2)),output = "ln_final")
     block += Arange(stop = block.ln_final.shape[0])(output = "arange")
