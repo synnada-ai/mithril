@@ -389,8 +389,7 @@ def test_add_regularization_case_2():
     model = Model()
     linear_1 = Linear()
 
-    model.extend(
-        linear_1,
+    model |= linear_1(
         output="output",
         **{key: key for key in linear_1.input_keys if not key.startswith("$")},
     )

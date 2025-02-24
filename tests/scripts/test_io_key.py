@@ -21,6 +21,7 @@ import torch
 import mithril
 from mithril import TorchBackend
 from mithril.framework.common import TBD, Tensor, ToBeDetermined
+from mithril.framework.logical.model import Connection
 from mithril.models import (
     Add,
     Buffer,
@@ -316,6 +317,7 @@ def test_10():
     middle = IOKey(name="middle", expose=True)
     model |= Sigmoid()(input=middle, output=IOKey("output"))
     model |= Relu()(input="input", output=middle)
+    model.set_outputs(middle)
 
     backend = TorchBackend()
     pm = mithril.compile(model=model, backend=backend, jit=False)
@@ -602,13 +604,17 @@ def test_iokey_values_9_error():
     model = Model(enforce_jit=False)
     buffer1 = Buffer()
 
-    with pytest.raises(KeyError) as err_info:
+    with pytest.raises(ValueError) as err_info:
         model |= buffer1(
             input=IOKey(name="input1"), output=IOKey(name="output1", value=[2.0])
         )
+    # assert str(err_info.value) == (
+    #     "'output key is an output of the model"
+    #     ", output values could not be set in extend.'"
+    # )
     assert str(err_info.value) == (
-        "'output key is an output of the model"
-        ", output values could not be set in extend.'"
+        "A valued connection of the extended model tries to write"
+        " to an output connection of the extending model. Multi-write error!"
     )
 
 
@@ -823,10 +829,15 @@ def test_iokey_scalar_output_all_args():
         except Exception as e:
             if value is not TBD:
                 # it is an expected error
-                assert isinstance(e, KeyError)
+                # assert isinstance(e, KeyError)
+                # assert e.args[0] == (
+                #     "output key is an output of the model"
+                #     ", output values could not be set in extend."
+                # )
+                assert isinstance(e, ValueError)
                 assert e.args[0] == (
-                    "output key is an output of the model"
-                    ", output values could not be set in extend."
+                    "A valued connection of the extended model tries to write to "
+                    "an output connection of the extending model. Multi-write error!"
                 )
             elif shape:
                 # Since providing shape within IOKey means it is Tensor type,
@@ -1024,10 +1035,15 @@ def test_iokey_tensor_output_all_args():
         except Exception as e:
             if value is not TBD:
                 # it is an expected error
-                assert isinstance(e, KeyError)
+                # assert isinstance(e, KeyError)
+                # assert e.args[0] == (
+                #     "output key is an output of the model"
+                #     ", output values could not be set in extend."
+                # )
+                assert isinstance(e, ValueError)
                 assert e.args[0] == (
-                    "output key is an output of the model"
-                    ", output values could not be set in extend."
+                    "A valued connection of the extended model tries to write to "
+                    "an output connection of the extending model. Multi-write error!"
                 )
 
             elif name is None and expose:
@@ -1428,7 +1444,7 @@ def test_iokey_template_12():
     input = IOKey("input")
 
     sub_model |= Buffer()(input, IOKey("output", type=Tensor))
-    model |= sub_model(input=input, output=IOKey("output"))
+    model |= sub_model(input="input", output=IOKey("output"))
 
     backend = TorchBackend()
     pm = mithril.compile(model=model, backend=backend, inference=True, jit=False)
@@ -1455,3 +1471,38 @@ def test_iokey_template_13():
 
     res = pm.evaluate(data={"input": backend.ones((3, 4, 5))})
     assert res["output"] == (4, 5)
+
+
+def test_iokey_as_an_object():
+    input = Connection()
+
+    submodel = Model()
+    submodel |= Buffer()(input)
+
+    model = Model()
+    model |= submodel
+    model |= Buffer()(input)
+
+    assert len(model.conns.input_connections) == 1
+
+
+def test_iokey_as_an_object2():
+    input1 = Connection("input1")
+    input2 = Connection("input2")
+    input3 = Connection("input3")
+
+    submodel = Model()
+    submodel |= Buffer()(input1)
+    submodel |= Buffer()(input2)
+    submodel |= Buffer()(input3)
+    submodel |= Buffer()(input1)
+    submodel.merge_connections(input1, input2, name="my_input")
+    submodel.merge_connections("my_input", input3, name="my_real_input")
+
+    model1 = Model()
+    model1 |= submodel
+    model1 |= Buffer()(input1)
+    model1 |= Buffer()(input2)
+    model1 |= Buffer()(input3)
+
+    assert len(model1.conns.input_connections) == 1

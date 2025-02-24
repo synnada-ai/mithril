@@ -24,10 +24,10 @@ import mithril
 from mithril.common import find_dominant_type
 from mithril.framework.common import (
     NOT_GIVEN,
-    BaseKey,
     ToBeDetermined,
     find_intersection_type,
 )
+from mithril.framework.logical.base import BaseKey
 from mithril.framework.logical.model import ConnectionType
 from mithril.framework.utils import (
     find_type,

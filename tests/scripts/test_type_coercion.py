@@ -22,13 +22,13 @@ import mithril
 from mithril import JaxBackend, NumpyBackend, TorchBackend, compile
 from mithril.framework.common import (
     NOT_GIVEN,
-    BaseKey,
     IOHyperEdge,
     ShapeTemplateType,
     Tensor,
     Updates,
 )
 from mithril.framework.constraints import set_edge_type
+from mithril.framework.logical.base import BaseKey
 from mithril.framework.logical.model import Connection, ConnectionType, IOKey
 from mithril.models import (
     MLP,

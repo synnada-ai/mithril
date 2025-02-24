@@ -27,7 +27,6 @@ from mithril.framework.common import (
     AND,
     DNF,
     NOT_GIVEN,
-    BaseKey,
     Equivalences,
     PossibleValues,
     ShapeNode,
@@ -40,6 +39,7 @@ from mithril.framework.common import (
     Variadic,
 )
 from mithril.framework.constraints import reverse_constraints
+from mithril.framework.logical.base import BaseKey
 from mithril.framework.logical.primitive import OperatorModel, PrimitiveModel
 from mithril.models import (
     AUC,

@@ -18,8 +18,9 @@ import pytest
 
 import mithril
 from mithril import JaxBackend, TorchBackend
-from mithril.framework.common import TBD, BaseKey, Tensor
+from mithril.framework.common import TBD, Tensor
 from mithril.framework.constraints import squeeze_constraints
+from mithril.framework.logical.base import BaseKey
 from mithril.models import (
     L2,
     MLP,
@@ -590,14 +591,10 @@ def test_composite_11():
 def test_composite_12():
     # Case where submodel output keys only named
     model = Model()
-    model.extend(Linear(dimension=10), input="input2", weight="weight", output="output")
-    model.extend(
-        Linear(dimension=10), input="input1", weight="weight1", output="output2"
-    )
+    model |= Linear(dimension=10)(input="input2", weight="weight", output="output")
+    model |= Linear(dimension=10)(input="input1", weight="weight1", output="output2")
     model.merge_connections("input1", "input2", name="my_input")
-    model.extend(
-        Linear(dimension=71), input="input", weight="weight2", output="my_input"
-    )
+    model |= Linear(dimension=71)(input="input", weight="weight2", output="my_input")
     model.set_cout("output2")
 
     model_dict_created = dict_conversions.model_to_dict(model)
@@ -615,21 +612,18 @@ def test_composite_12():
 def test_composite_13():
     # Case where submodel output keys IOKey but not exposed
     model = Model()
-    model.extend(
-        Linear(dimension=10),
+    model |= Linear(dimension=10)(
         input="input2",
         weight="weight",
         output=IOKey("output", expose=False),
     )
-    model.extend(
-        Linear(dimension=10),
+    model |= Linear(dimension=10)(
         input="input1",
         weight="weight1",
         output=IOKey("output2", expose=False),
     )
     model.merge_connections("input1", "input2", name="my_input")
-    model.extend(
-        Linear(dimension=71),
+    model |= Linear(dimension=71)(
         input="input",
         weight="weight2",
         output="my_input",
@@ -850,15 +844,13 @@ def test_set_values_constant_1():
 def test_set_values_constant_2():
     # Set value using set_values api
     model = Model()
-    model.extend(
-        Linear(10),
+    model |= Linear(10)(
         weight="weight0",
         bias="bias0",
         input="input",
         output=IOKey(name="output", expose=False),
     )
-    model.extend(
-        Linear(1),
+    model |= Linear(1)(
         weight="weight1",
         bias="bias1",
         input="input2",
@@ -884,15 +876,14 @@ def test_set_values_constant_2():
 
 def test_set_values_tbd_1():
     model = Model()
-    model.extend(
-        Linear(10),
+    model |= Linear(10)(
         weight="weight0",
         bias="bias0",
         input="input",
         output=IOKey(name="output"),
     )
-    model.extend(
-        Linear(1), weight="weight1", bias=IOKey(value=TBD, name="bias1"), input="input2"
+    model |= Linear(1)(
+        weight="weight1", bias=IOKey(value=TBD, name="bias1"), input="input2"
     )
 
     model_dict_created = dict_conversions.model_to_dict(model)
@@ -905,15 +896,14 @@ def test_set_values_tbd_1():
 
 def test_set_values_ellipsis_2():
     model = Model()
-    model.extend(
-        Linear(10),
+    model |= Linear(10)(
         weight="weight0",
         bias="bias0",
         input="input",
         output=IOKey(name="output"),
     )
     lin2 = Linear(1)
-    model.extend(lin2, weight="weight1", bias="bias1", input="input2")
+    model |= lin2(weight="weight1", bias="bias1", input="input2")
     lin2.set_differentiability(bias=False)
 
     model_dict_created = dict_conversions.model_to_dict(model)
