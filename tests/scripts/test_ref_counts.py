@@ -18,10 +18,10 @@ from copy import deepcopy
 
 from mithril.framework.common import (
     NOT_GIVEN,
-    BaseKey,
     ShapeTemplateType,
     Tensor,
 )
+from mithril.framework.logical.base import BaseKey
 from mithril.models import (
     Add,
     BaseModel,
@@ -30,7 +30,6 @@ from mithril.models import (
     ConnectionType,
     Convolution1D,
     ExtendInfo,
-    IOKey,
     Linear,
     MatrixMultiply,
     MaxPool1D,
@@ -1003,16 +1002,23 @@ def test_deleted_tensors_ref_count_3():
     all_reprs |= get_all_data(buffer7 := Buffer())
 
     model = Model()
-
-    model |= buffer1(output=IOKey(name="output1"))
-    model |= buffer2(output=IOKey(name="output2"))
-    model |= buffer3(output=IOKey(name="output3"))
-    model |= buffer4(input="input4", output=IOKey(name="output4"))
-    model |= buffer5(input="input5", output=IOKey(name="output5"))
-    model |= buffer6(input="input6", output=IOKey(name="output6"))
-    model.merge_connections(buffer1.input, buffer2.input, buffer3.input, model.output4)  # type: ignore
-    model |= buffer7(input=buffer1.input, output=IOKey(name="output"))
-
+    model |= buffer1
+    model |= buffer2
+    model |= buffer3
+    model |= buffer4(input="input4")
+    model |= buffer5(input="input5")
+    model |= buffer6(input="input6")
+    model.merge_connections(buffer1.input, buffer2.input, buffer3.input, buffer4.output)
+    model |= buffer7(input=buffer1.input)
+    model.set_outputs(
+        output1=buffer1.output,
+        output2=buffer2.output,
+        output3=buffer3.output,
+        output4=buffer4.output,
+        output5=buffer5.output,
+        output6=buffer6.output,
+        output7=buffer7.output,
+    )
     current_reprs = get_all_data(model)
     # NOTE: 7 output tensors are exposed so created and they replaced the previous ones.
     # We have to take this account while checking the deleted objects. We expect 4
@@ -1201,22 +1207,23 @@ def test_deleted_edge_ref_count_6():
 
     three_sigmoid_model = Model()
 
-    three_sigmoid_model |= sigmoid1(input="input1", output=IOKey(name="output1"))
-    three_sigmoid_model |= sigmoid2(input="input2", output=IOKey(name="output2"))
-    three_sigmoid_model |= sigmoid3(input="input3", output=IOKey(name="output3"))
+    three_sigmoid_model |= sigmoid1(input="input1")
+    three_sigmoid_model |= sigmoid2(input="input2")
+    three_sigmoid_model |= sigmoid3(input="input3")
+    three_sigmoid_model.set_outputs(
+        output1=sigmoid1.output, output2=sigmoid2.output, output3=sigmoid3.output
+    )
 
     main_model = Model()
-
-    main_model |= three_sigmoid_model(
-        input1="input1",
-        input2="input2",
-        input3="input3",
-        output1=IOKey(name="output1"),
-        output2=IOKey(name="output2"),
-        output3=IOKey(name="output3"),
+    main_model |= three_sigmoid_model(input1="input1", input2="input2", input3="input3")
+    main_model.merge_connections(sigmoid1.output, sigmoid2.input, name="abcd")
+    main_model |= sigmoid4(input=main_model.abcd)  # type: ignore
+    main_model.set_outputs(
+        output1=sigmoid1.output,
+        output2=sigmoid2.output,
+        output3=sigmoid3.output,
+        output5=sigmoid4.output,
     )
-    main_model.merge_connections(main_model.output1, main_model.input2, name="abcd")  # type: ignore
-    main_model |= sigmoid4(input=main_model.abcd, output=IOKey(name="output5"))  # type: ignore
 
     current_metadata = get_all_metadata(main_model)  # 2input + 4output = 6
     # NOTE: 4 new output metadata is created, in order to take these into account

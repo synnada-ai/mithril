@@ -13,8 +13,7 @@
 # limitations under the License.
 
 from ... import types
-from ..common import BaseKey, ConnectionDataType
-from .base import BaseModel
+from .base import BaseKey, BaseModel, ConnectionDataType
 from .model import IOKey, Model
 from .operator import Operator
 
@@ -31,17 +30,19 @@ class OperatorModel(Model):
         name: str | None = None,
     ) -> None:
         super().__init__(name=name, enforce_jit=model._jittable)
-        self._extend(
-            model,
-            {
-                k: IOKey(
-                    k,
-                    expose=True,
-                    differentiable=model.conns.all[k].metadata.differentiable,
-                )
-                for k in model.external_keys
-            },
-        )
+        keys = {}
+        for k in model.external_keys:
+            edge = model.conns.all[k].metadata
+            con = IOKey(k, expose=True, differentiable=edge.differentiable)
+            con.metadata = edge
+            keys[k] = con
+        self._extend(model, keys)
+        # self._extend(model, {k: k for k in model.input_keys})
+        # for k in model.conns.input_keys:
+        #     conn_data = self.conns.get_con_by_metadata(model.conns.get_metadata(k))
+        #     self.conns.set_connection_type(conn_data, KeyType.INPUT)
+        # conn_data = self.conns.get_con_by_metadata(model.conns.get_metadata("output"))
+        # self.set_outputs(output=conn_data)
 
     @property
     def submodel(self) -> Operator:

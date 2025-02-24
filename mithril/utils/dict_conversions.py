@@ -20,12 +20,13 @@ from functools import reduce
 from types import EllipsisType, UnionType
 from typing import Any, TypedDict, get_origin
 
+from mithril.framework.logical.base import ConnectionData
+
 from ..common import PaddingType
 from ..framework.common import (
     TBD,
     AllValueType,
     AssignedConstraintType,
-    ConnectionData,
     IOHyperEdge,
     MainValueType,
     ShapeTemplateType,
@@ -211,10 +212,10 @@ def dict_to_model(
     for key, typ in types.items():
         if typ == "tensor":
             set_types[key] = Tensor[int | float | bool]
-        else:
-            # TODO: Get rid of using eval method. Find more secure
-            # way to convert strings into types and generic types.
-            set_types[key] = eval(typ)
+        # else:
+        #     # TODO: Get rid of using eval method. Find more secure
+        #     # way to convert strings into types and generic types.
+        #     set_types[key] = eval(typ)
 
     unnamed_keys: list[str] = params.get("unnamed_keys", [])
     differentiability_info: dict[str, bool] = params.get("differentiability_info", {})
@@ -312,8 +313,8 @@ def model_to_dict(model: BaseModel) -> TrainModelDict | ModelDict:
     for key, typ in model.assigned_types.items():
         if get_origin(typ) is Tensor:
             types[key] = "tensor"
-        else:
-            types[key] = str(typ)
+        # elif typ is not ToBeDetermined:
+        #     types[key] = str(typ)
 
     if (
         model_name != "Model"
@@ -664,8 +665,8 @@ def item_to_json(item: IOKey) -> dict[str, Any]:
     # TODO: Currently type is not supported for Tensors.
     # Handle This whit conversion test updates.
     result: dict[str, Any] = {}
-    if not isinstance(item.value, ToBeDetermined):
-        result["value"] = item.value
+    if not isinstance(item.metadata.value, ToBeDetermined):
+        result["value"] = item.metadata.value
     if item.value_shape is not None:
         shape_template: list[str] = []
         for symbol in item.value_shape:
@@ -675,8 +676,8 @@ def item_to_json(item: IOKey) -> dict[str, Any]:
                 shape_template.append(str(symbol))
         result["shape_template"] = shape_template
 
-    elif isinstance(item.type, UnionType):
-        result["type"] = [type_to_str(item) for item in item.type.__args__]
+    elif isinstance(item.metadata._type, UnionType):
+        result["type"] = [type_to_str(item) for item in item.metadata._type.__args__]
     else:
         result["type"] = [
             type_to_str(item.type),  # type: ignore

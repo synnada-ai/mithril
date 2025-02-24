@@ -27,7 +27,6 @@ from ...utils.type_utils import is_list_int
 from ..common import (
     NOT_GIVEN,
     TBD,
-    ConnectionData,
     DataEvalType,
     EvaluateAllType,
     EvaluateGradientsType,
@@ -49,7 +48,7 @@ from ..common import (
     get_summary_shapes,
     get_summary_types,
 )
-from ..logical.base import BaseModel
+from ..logical.base import BaseModel, ConnectionData
 from ..logical.model import (
     Connection,
     Model,

@@ -32,8 +32,6 @@ from mithril import Backend, JaxBackend, MlxBackend, NumpyBackend, TorchBackend,
 from mithril.framework.common import (
     NOT_GIVEN,
     TBD,
-    BaseKey,
-    ConnectionData,
     IOHyperEdge,
     Tensor,
     ToBeDetermined,
@@ -41,6 +39,7 @@ from mithril.framework.common import (
     Variadic,
     create_shape_map,
 )
+from mithril.framework.logical.base import BaseKey, ConnectionData
 from mithril.framework.logical.operators import BufferOp
 from mithril.models import (
     L1,
