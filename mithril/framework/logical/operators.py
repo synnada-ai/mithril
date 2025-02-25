@@ -417,8 +417,8 @@ class MinimumOp(Operator):
 
     def __init__(
         self,
-        left: TensorValueType | ToBeDetermined = TBD,
-        right: TensorValueType | ToBeDetermined = TBD,
+        left: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -458,8 +458,8 @@ class MaximumOp(Operator):
 
     def __init__(
         self,
-        left: TensorValueType | ToBeDetermined = TBD,
-        right: TensorValueType | ToBeDetermined = TBD,
+        left: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -1180,15 +1180,19 @@ class SqrtOp(Operator):
                 formula_key="robust_sqrt",
                 name=name,
                 output=BaseKey(shape=[("Var", ...)], type=Tensor[float]),
-                input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
-                cutoff=BaseKey(shape=[], type=Tensor, value=cutoff),
+                input=BaseKey(
+                    shape=[("Var", ...)], type=Tensor[int | float | bool], value=input
+                ),
+                cutoff=BaseKey(shape=[], type=Tensor[bool | int | float], value=cutoff),
             )
         else:
             super().__init__(
                 formula_key="sqrt",
                 name=name,
-                output=BaseKey(shape=[("Var", ...)], type=Tensor),
-                input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
+                output=BaseKey(shape=[("Var", ...)], type=Tensor[float]),
+                input=BaseKey(
+                    shape=[("Var", ...)], type=Tensor[int | float | bool], value=input
+                ),
             )
 
 
@@ -1691,7 +1695,12 @@ class IndexerOp(Operator):
 
     def __init__(
         self,
-        index: int | ToBeDetermined = TBD,
+        index: int
+        | slice
+        | EllipsisType
+        | None
+        | tuple[int | slice | EllipsisType | None]
+        | ToBeDetermined = TBD,
         input: Tensor[int | float | bool] | Sequence[Any] | ToBeDetermined = TBD,
         *,
         name: str | None = None,

@@ -14,8 +14,10 @@
 
 from __future__ import annotations
 
+import operator
 from collections.abc import Sequence
-from types import NoneType
+from functools import partial
+from types import EllipsisType, NoneType
 from typing import Any
 
 from .. import types
@@ -38,9 +40,10 @@ from ..framework.constraints import (
     conv_1d_constraints,
     conv_2d_constraints,
     cross_entropy_constraint,
+    distance_matrix_const,
     eye_constraints,
     flatten_constrains,
-    general_tensor_type_constraint,
+    general_type_constraint,
     pad_constraints,
     padding_1d_constraint,
     padding_2d_constraint,
@@ -52,6 +55,7 @@ from ..framework.constraints import (
     stride_constraint,
     swap_axes_constraints,
     tuple_converter_constraint,
+    two_add,
     where_constrains,
 )
 from ..framework.logical import Model
@@ -286,7 +290,7 @@ class SupervisedLoss(PrimitiveModel):
 
         if polymorphic_constraint:
             self._add_constraint(
-                fn=general_tensor_type_constraint,
+                fn=partial(general_type_constraint, fn=operator.add, is_bitwise=True),
                 keys=[Operator.output_key, "input", "target"],
             )
 
@@ -405,7 +409,7 @@ class QuantileLoss(PrimitiveModel):
         )
 
         self._add_constraint(
-            fn=general_tensor_type_constraint,
+            fn=partial(general_type_constraint, fn=two_add, is_bitwise=True),
             keys=[Operator.output_key, "input", "target", "quantile"],
         )
 
@@ -692,7 +696,7 @@ class Log(PrimitiveModel):
         robust: bool = False,
         input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
-        cutoff: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        cutoff: Tensor[float] | ToBeDetermined = TBD,
         name: str | None = None,
     ) -> None:
         self.robust = robust
@@ -839,8 +843,8 @@ class Activation(PrimitiveModel):
         # Torch assumes only float inputs for these activations. Since JAX handles
         # more general case, default types are written taking this into account.
         default_kwargs: dict[str, BaseKey] = dict(
-            input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
-            output=BaseKey(shape=[("Var", ...)], type=Tensor[float]),
+            input=BaseKey(shape=[("Var", ...)], type=Tensor[int | float], value=input),
+            output=BaseKey(shape=[("Var", ...)], type=Tensor[int | float]),
         )
         # Finalize kwargs.
         kwargs = default_kwargs | kwargs
@@ -848,7 +852,7 @@ class Activation(PrimitiveModel):
 
         if polymorphic_constraint:
             self._add_constraint(
-                fn=general_tensor_type_constraint,
+                fn=general_type_constraint,
                 keys=[Operator.output_key, "input"],
             )
 
@@ -905,7 +909,12 @@ class Sigmoid(Activation):
         *,
         name: str | None = None,
     ) -> None:
-        super().__init__(formula_key="sigmoid", name=name, input=input)
+        super().__init__(
+            formula_key="sigmoid",
+            name=name,
+            input=input,
+            output=BaseKey(shape=[("Var", ...)], type=Tensor[float]),
+        )
 
 
 class Softmax(Activation):
@@ -965,6 +974,7 @@ class LeakyRelu(Activation):
             name=name,
             input=input,
             slope=BaseKey(value=slope),
+            output=BaseKey(shape=[("Var", ...)], type=Tensor[float]),
         )
 
     def __call__(  # type: ignore[override]
@@ -994,6 +1004,11 @@ class StopGradient(PrimitiveModel):
             input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
         )
 
+        self.add_constraint(
+            fn=general_type_constraint,
+            keys=[Operator.output_key, "input"],
+        )
+
     def __call__(  # type: ignore[override]
         self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
     ) -> ExtendInfo:
@@ -1021,7 +1036,7 @@ class CartesianDifference(PrimitiveModel):
             right=BaseKey(shape=["M", "dim"], type=Tensor, value=right),
         )
         self._add_constraint(
-            fn=general_tensor_type_constraint,
+            fn=partial(general_type_constraint, fn=operator.sub),
             keys=[Operator.output_key, "left", "right"],
         )
 
@@ -1064,10 +1079,6 @@ class Concat(PrimitiveModel):
         input_keys = [key for key in self.input_keys if key != "axis"]
         self._add_constraint(
             fn=concat_constraints, keys=["output"] + ["axis"] + input_keys
-        )
-        self._add_constraint(
-            fn=general_tensor_type_constraint,
-            keys=[Operator.output_key] + input_keys,
         )
 
 
@@ -1119,7 +1130,7 @@ class PermuteTensor(PrimitiveModel):
         )
 
         self._add_constraint(
-            fn=general_tensor_type_constraint, keys=[Operator.output_key, "input"]
+            fn=general_type_constraint, keys=[Operator.output_key, "input"]
         )
 
     def __call__(  # type: ignore[override]
@@ -1183,10 +1194,15 @@ class PrimitiveConvolution1D(PrimitiveModel):
         if use_bias:
             constraint_keys.append("bias")
 
-        self._add_constraint(
-            fn=general_tensor_type_constraint,
-            keys=[Operator.output_key] + constraint_keys,
-        )
+            self._add_constraint(
+                fn=partial(general_type_constraint, fn=two_add),
+                keys=[Operator.output_key] + constraint_keys,
+            )
+        else:
+            self._add_constraint(
+                fn=partial(general_type_constraint, fn=operator.add),
+                keys=[Operator.output_key] + constraint_keys,
+            )
 
     def __call__(  # type: ignore[override]
         self,
@@ -1276,10 +1292,16 @@ class PrimitiveConvolution2D(PrimitiveModel):
         constraint_keys = ["input", "weight"]
         if use_bias:
             constraint_keys.append("bias")
-        self._add_constraint(
-            fn=general_tensor_type_constraint,
-            keys=[Operator.output_key] + constraint_keys,
-        )
+
+            self._add_constraint(
+                fn=partial(general_type_constraint, fn=two_add),
+                keys=[Operator.output_key] + constraint_keys,
+            )
+        else:
+            self._add_constraint(
+                fn=partial(general_type_constraint, fn=operator.add),
+                keys=[Operator.output_key] + constraint_keys,
+            )
 
     def __call__(  # type: ignore[override]
         self,
@@ -1339,7 +1361,7 @@ class Flatten(PrimitiveModel):
             keys=[Operator.output_key, "input", "start_dim", "end_dim"],
         )
         self._add_constraint(
-            fn=general_tensor_type_constraint, keys=[Operator.output_key, "input"]
+            fn=general_type_constraint, keys=[Operator.output_key, "input"]
         )
 
     def __call__(  # type: ignore[override]
@@ -1388,7 +1410,7 @@ class PrimitiveMaxPool1D(PrimitiveModel):
         )
         # TODO: Torch does not accept any int type inputs but JAX implementation does.
         self._add_constraint(
-            fn=general_tensor_type_constraint, keys=[Operator.output_key, "input"]
+            fn=general_type_constraint, keys=[Operator.output_key, "input"]
         )
 
     def __call__(  # type: ignore[override]
@@ -1590,7 +1612,6 @@ class PrimitiveMaxPool2D(PrimitiveModel):
             input=BaseKey(
                 shape=["N", ("C_in", ...), "H", "W"],
                 type=Tensor,
-                value=input,
             ),
             kernel_size=BaseKey(type=tuple[int, int], value=kernel_size),
             stride=BaseKey(type=tuple[int, int], value=stride),
@@ -1604,9 +1625,6 @@ class PrimitiveMaxPool2D(PrimitiveModel):
         self._add_constraint(
             fn=sliding_window_2d_constraints,
             keys=["output", "input", "stride", "padding", "dilation", "kernel_size"],
-        )
-        self._add_constraint(
-            fn=general_tensor_type_constraint, keys=[Operator.output_key, "input"]
         )
 
     def __call__(  # type: ignore[override]
@@ -1629,6 +1647,7 @@ class PrimitiveMaxPool2D(PrimitiveModel):
 
 
 class NormModifier(PrimitiveModel):
+    # TODO: Make this primitive logical.
     """A helper model that modifies norm input. It is used for mapping
     norm values from (`-inf`, `inf`) to the interval (`1.0`, `5.0`) using a
     periodic triangular function with period 8 as shown on the figure below.
@@ -1664,7 +1683,7 @@ class NormModifier(PrimitiveModel):
         )
 
         self._add_constraint(
-            fn=general_tensor_type_constraint, keys=[Operator.output_key, "input"]
+            fn=general_type_constraint, keys=[Operator.output_key, "input"]
         )
 
     def __call__(  # type: ignore[override]
@@ -1674,6 +1693,7 @@ class NormModifier(PrimitiveModel):
 
 
 class DistanceMatrix(PrimitiveModel):
+    # TODO: Make this primitive logical.
     left: Connection
     right: Connection
     norm: Connection
@@ -1697,7 +1717,7 @@ class DistanceMatrix(PrimitiveModel):
         )
 
         self._add_constraint(
-            fn=general_tensor_type_constraint,
+            fn=partial(general_type_constraint, fn=distance_matrix_const),
             keys=[Operator.output_key, "left", "right", "norm"],
         )
         self.set_cin("left", "right", safe=False)
@@ -1736,7 +1756,7 @@ class PolynomialFeatures(PrimitiveModel):
             fn=polynomial_features_constraints, keys=["output", "input", "degree"]
         )
         self._add_constraint(
-            fn=general_tensor_type_constraint, keys=[Operator.output_key, "input"]
+            fn=general_type_constraint, keys=[Operator.output_key, "input"]
         )
 
     def __call__(  # type: ignore[override]
@@ -1793,6 +1813,7 @@ class TsnePJoint(PrimitiveModel):
 
 
 class EyeComplement(PrimitiveModel):
+    # TODO: Add Dtype constraints to this model
     N: Connection
     M: Connection
     dtype: Connection
@@ -1969,7 +1990,7 @@ class TransposedDiagonal(PrimitiveModel):
         )
 
         self._add_constraint(
-            fn=general_tensor_type_constraint, keys=[Operator.output_key, "input"]
+            fn=general_type_constraint, keys=[Operator.output_key, "input"]
         )
 
     def __call__(  # type: ignore[override]
@@ -1994,6 +2015,8 @@ class Arange(PrimitiveModel):
         *,
         name: str | None = None,
     ) -> None:
+        # TODO: add Arange type constraint that handles all
+        # start stop step dtype combinations
         all_defined = False
         if (
             not isinstance(start, ToBeDetermined)
@@ -2026,10 +2049,6 @@ class Arange(PrimitiveModel):
             self._add_constraint(
                 fn=arange_constraints, keys=["output", "start", "stop", "step"]
             )
-        self._add_constraint(
-            fn=general_tensor_type_constraint,
-            keys=[Operator.output_key, "start", "stop", "step"],
-        )
 
     def __call__(  # type: ignore[override]
         self,
@@ -2106,7 +2125,7 @@ class BroadcastTo(PrimitiveModel):
             fn=broadcast_to_constraints, keys=["output", "shape", "input"]
         )
         self._add_constraint(
-            fn=general_tensor_type_constraint, keys=[Operator.output_key, "input"]
+            fn=general_type_constraint, keys=[Operator.output_key, "input"]
         )
 
     def __call__(  # type: ignore[override]
@@ -2170,7 +2189,7 @@ class Squeeze(PrimitiveModel):
 
         self._add_constraint(fn=squeeze_constraints, keys=["output", "input"])
         self._add_constraint(
-            fn=general_tensor_type_constraint, keys=[Operator.output_key, "input"]
+            fn=general_type_constraint, keys=[Operator.output_key, "input"]
         )
 
     def __call__(  # type: ignore[override]
@@ -2238,7 +2257,7 @@ class Embedding(PrimitiveModel):
         )
 
         self._add_constraint(
-            fn=general_tensor_type_constraint,
+            fn=general_type_constraint,
             keys=[Operator.output_key, "weight"],
         )
 
@@ -2402,7 +2421,7 @@ class SwapAxes(PrimitiveModel):
             fn=swap_axes_constraints, keys=["output", "input", "axis1", "axis2"]
         )
         self._add_constraint(
-            fn=general_tensor_type_constraint, keys=[Operator.output_key, "input"]
+            fn=general_type_constraint, keys=[Operator.output_key, "input"]
         )
 
     def __call__(  # type: ignore[override]
@@ -2442,7 +2461,7 @@ class Where(PrimitiveModel):
             fn=where_constrains, keys=["output", "cond", "input1", "input2"]
         )
         self._add_constraint(
-            fn=general_tensor_type_constraint,
+            fn=partial(general_type_constraint, fn=operator.add, is_bitwise=True),
             keys=[Operator.output_key, "input1", "input2"],
         )
         self.set_cin("input1", safe=False)
@@ -2618,7 +2637,7 @@ class ZerosLike(PrimitiveModel):
             formula_key="zeros_like",
             name=name,
             output=BaseKey(shape=[("Var", ...)], type=Tensor),
-            input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
+            input=BaseKey(shape=[("Var", ...)], type=Tensor),
         )
 
     def __call__(  # type: ignore[override]
@@ -2761,8 +2780,8 @@ class Multiply(ArithmeticOperation):
 class Minimum(ArithmeticOperation):
     def __init__(
         self,
-        left: TensorValueType | ToBeDetermined = TBD,
-        right: TensorValueType | ToBeDetermined = TBD,
+        left: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -2772,8 +2791,8 @@ class Minimum(ArithmeticOperation):
 class Maximum(ArithmeticOperation):
     def __init__(
         self,
-        left: TensorValueType | ToBeDetermined = TBD,
-        right: TensorValueType | ToBeDetermined = TBD,
+        left: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -2787,16 +2806,8 @@ class Divide(OperatorModel):
 
     def __init__(
         self,
-        numerator: Tensor[int | float | bool]
-        | int
-        | float
-        | bool
-        | ToBeDetermined = TBD,
-        denominator: Tensor[int | float | bool]
-        | int
-        | float
-        | bool
-        | ToBeDetermined = TBD,
+        numerator: Tensor[int | float] | int | float | ToBeDetermined = TBD,
+        denominator: Tensor[int | float] | int | float | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -2821,8 +2832,16 @@ class FloorDivide(OperatorModel):
 
     def __init__(
         self,
-        numerator: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        denominator: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        numerator: Tensor[int | float | bool]
+        | int
+        | float
+        | bool
+        | ToBeDetermined = TBD,
+        denominator: Tensor[int | float | bool]
+        | int
+        | float
+        | bool
+        | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -3094,7 +3113,7 @@ class Sum(Reduce):
         self,
         axis: int | tuple[int, ...] | None | ToBeDetermined = None,
         keepdim: bool | ToBeDetermined = False,
-        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        input: Tensor[float] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -3300,8 +3319,8 @@ class RelationalModel(OperatorModel):
 class Greater(RelationalModel):
     def __init__(
         self,
-        left: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        right: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        left: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -3311,8 +3330,8 @@ class Greater(RelationalModel):
 class Less(RelationalModel):
     def __init__(
         self,
-        left: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        right: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        left: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -3322,8 +3341,8 @@ class Less(RelationalModel):
 class Equal(RelationalModel):
     def __init__(
         self,
-        left: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        right: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        left: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -3333,8 +3352,8 @@ class Equal(RelationalModel):
 class NotEqual(RelationalModel):
     def __init__(
         self,
-        left: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        right: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        left: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -3344,8 +3363,8 @@ class NotEqual(RelationalModel):
 class LessEqual(RelationalModel):
     def __init__(
         self,
-        left: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        right: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        left: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -3355,8 +3374,8 @@ class LessEqual(RelationalModel):
 class GreaterEqual(RelationalModel):
     def __init__(
         self,
-        left: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        right: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        left: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -3561,7 +3580,12 @@ class Indexer(OperatorModel):
 
     def __init__(
         self,
-        index: int | ToBeDetermined = TBD,
+        index: int
+        | slice
+        | EllipsisType
+        | None
+        | tuple[int | slice | EllipsisType | None]
+        | ToBeDetermined = TBD,
         input: Tensor[int | float | bool] | Sequence[Any] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
