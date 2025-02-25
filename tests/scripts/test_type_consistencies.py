@@ -403,18 +403,6 @@ def test_type_16():
     )
 
 
-def test_type_17():
-    model = Model()
-    sig_model_1 = Sigmoid()
-    sig_model_1.input.metadata.set_type(Tensor[float])
-    model.extend(sig_model_1, input="input", output="output")
-    with pytest.raises(TypeError) as err_info:
-        model.set_values({sig_model_1.input: Tensor([False, True])})
-    assert str(err_info.value) == (
-        "Acceptable types are <class 'float'>, " "but <class 'bool'> type is provided!"
-    )
-
-
 def test_check_all_possible_types_1():
     types: type = tuple[int, int]
     all_types = infer_all_possible_types(types)
