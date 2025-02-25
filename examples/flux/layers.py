@@ -135,7 +135,7 @@ def rms_norm(dim: int, name: str | None = None):
     block = Model(name=name)
     input = IOKey("input")
     scale = IOKey(
-        "scale", shape=[dim], differantiable=True
+        "scale", shape=[dim], differentiable=True
     )  # TODO: scale must be initialized with ones.
     block |= Cast(dtype=ml.float)(input=input, output="input_casted")
     rrms = 1 / ((block.input_casted**2).mean(axis=-1, keepdim=True) + 1e-6).sqrt()  # type: ignore[attr-defined]
