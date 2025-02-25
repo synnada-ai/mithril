@@ -3864,7 +3864,7 @@ def split_constraints(
                     )
                     status = True
 
-            elif len(input_shape.prefix) >= abs(axis_val):
+            elif len(input_shape.suffix) >= abs(axis_val):
                 axis_val = len(input_shape.suffix) + axis_val
                 uni_val = input_shape.suffix[axis_val].value
                 if uni_val is not None:
