@@ -47,14 +47,14 @@ class AutoEncoderParams:
 
 
 def resnet_block(
-    in_channels: int, out_channels: int | None = None, name: str | None = None
+    in_channels: int, out_channels: int | None = None, *, name: str | None = None
 ):
     out_channels = in_channels if out_channels is None else out_channels
 
     input = IOKey("input", shape=[None, in_channels, None, None])
 
     block = Model(name=name)
-    block += GroupNorm(num_groups=32, eps=1e-6, name="norm1")(input)
+    block |= GroupNorm(num_groups=32, eps=1e-6, name="norm1")(input)
     block += SiLU()
     block += Convolution2D(3, out_channels, padding=1, name="conv1")
 
@@ -76,14 +76,14 @@ def resnet_block(
     return block
 
 
-def attn_block(n_channels: int, name: str | None = None):
+def attn_block(n_channels: int, *, name: str | None = None):
     block = Model(name=name)
-    block += GroupNorm(num_groups=32, eps=1e-6, name="norm")(
-        IOKey("input", shape=[None, 512, None, None]), "normilized"
+    block |= GroupNorm(num_groups=32, eps=1e-6, name="norm")(
+        IOKey("input", shape=[None, 512, None, None]), "normalized"
     )
-    block |= Convolution2D(1, n_channels, name="q")("normilized", output="query")
-    block |= Convolution2D(1, n_channels, name="k")("normilized", output="key")
-    block |= Convolution2D(1, n_channels, name="v")("normilized", output="value")
+    block |= Convolution2D(1, n_channels, name="q")("normalized", output="query")
+    block |= Convolution2D(1, n_channels, name="k")("normalized", output="key")
+    block |= Convolution2D(1, n_channels, name="v")("normalized", output="value")
 
     query = block.query  # type: ignore[attr-defined]
     key = block.key  # type: ignore[attr-defined]
@@ -105,16 +105,16 @@ def attn_block(n_channels: int, name: str | None = None):
     return block
 
 
-def downsample(n_channels: int):
-    block = Model(name="downsample")
+def downsample(n_channels: int, *, name: str = "downsample"):
+    block = Model(name=name)
     block |= Pad(pad_width=((0, 0), (0, 0), (0, 1), (0, 1)))("input")
     block += Convolution2D(3, n_channels, stride=2, name="conv")(output=IOKey("output"))
 
     return block
 
 
-def upsample(n_channels: int, name: str | None = None):
-    block = Model(enforce_jit=False, name=name)  # TODO: Remove enfor jit false
+def upsample(n_channels: int, *, name: str | None = None):
+    block = Model(name=name)
     input = IOKey("input")
     input_shape = input.shape
 
@@ -139,7 +139,7 @@ def encoder(
     **kwargs,
 ):
     encoder = Model(name=name)
-    encoder += Convolution2D(3, ch, stride=1, padding=1, name="conv_in")("input")
+    encoder |= Convolution2D(3, ch, stride=1, padding=1, name="conv_in")("input")
 
     in_ch_mult = (1,) + tuple(ch_mult)
 
@@ -184,16 +184,17 @@ def decoder(
     out_ch: int,
     ch_mult: list[int],
     num_res_blocks: int,
+    *,
     name: str | None = None,
     **kwargs,
 ):
     decoder = Model(enforce_jit=False, name=name)
     block_in = ch * ch_mult[-1]
-    decoder += Convolution2D(3, block_in, padding=1, name="conv_in")("input")
+    decoder |= Convolution2D(3, block_in, padding=1, name="conv_in")("input")
 
     # Middle
-    decoder += resnet_block(block_in, block_in, "mid_block_1")
-    decoder += attn_block(block_in, "mid_attn_1")
+    decoder += resnet_block(block_in, block_in, name="mid_block_1")
+    decoder += attn_block(block_in, name="mid_attn_1")
     decoder += resnet_block(block_in, block_in, name="mid_block_2")
 
     # Upsample
@@ -211,7 +212,7 @@ def decoder(
         model += block
 
         if name_idx_i != 0:
-            model += upsample(block_out, "upsample")
+            model += upsample(block_out, name="upsample")
 
         up += model
 
@@ -235,12 +236,12 @@ def diagonal_gaussian(sample: bool = True, chunk_dim: int = 1):
     if sample:
         std = (input[1] * 0.5).exp()
         mean = input[0]
-        block += Randn()(shape=mean.shape, output="randn")
+        block |= Randn()(shape=mean.shape, output="randn")
         output = mean + std * block.randn  # type: ignore[attr-defined]
     else:
         output = input[0]
 
-    block += Buffer()(input=output, output=IOKey("output"))
+    block |= Buffer()(input=output, output=IOKey("output"))
     return block
 
 
@@ -248,7 +249,7 @@ def auto_encoder(
     ae_params: AutoEncoderParams,
 ):
     model = Model(enforce_jit=False)
-    model += encoder(
+    model |= encoder(
         ae_params.ch,
         ae_params.ch_mult,
         ae_params.num_res_blocks,
@@ -275,7 +276,7 @@ def decode(ae_params: AutoEncoderParams):
     model = Model(enforce_jit=False)
     input = IOKey("input")
     input = input / ae_params.scale_factor - ae_params.shift_factor  # type: ignore
-    model += decoder(
+    model |= decoder(
         ae_params.ch,
         ae_params.out_ch,
         ae_params.ch_mult,

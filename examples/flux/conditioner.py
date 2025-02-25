@@ -41,7 +41,6 @@ class HFEmbedder(nn.Module):
                 version, **hf_kwargs
             )
 
-        # if not backend_type == "jax":
         self.hf_module = self.hf_module.eval().requires_grad_(False)
 
     def __call__(self, text: list[str]):

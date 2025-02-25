@@ -37,8 +37,8 @@ from mithril.models import (
 )
 
 
-def apply_rope() -> Model:
-    block = Model()
+def apply_rope(*, name: str | None = None) -> Model:
+    block = Model(name=name)
     # We define the input connections
     xq = IOKey("xq", type=Tensor)
     xk = IOKey("xk", type=Tensor)
@@ -47,15 +47,15 @@ def apply_rope() -> Model:
     xq_shape = xq.shape
     xk_shape = xk.shape
     B, L, H = xq_shape[0], xq_shape[1], xq_shape[2]
-    block |= Reshape()(xq, shape=(B, L, H, -1, 1, 2), output="xq_")
+    xq_ = xq.reshape(shape=(B, L, H, -1, 1, 2))
     B, L, H = xk_shape[0], xk_shape[1], xk_shape[2]
-    block |= Reshape()(xk, shape=(B, L, H, -1, 1, 2), output="xk_")
+    xk_ = xk.reshape(shape=(B, L, H, -1, 1, 2))
     # Do the math
     xq_out = (
-        freqs_cis[..., 0] * block.xq_[..., 0] + freqs_cis[..., 1] * block.xq_[..., 1]  # type: ignore[attr-defined]
+        freqs_cis[..., 0] * xq_[..., 0] + freqs_cis[..., 1] * xq_[..., 1]  # type: ignore[attr-defined]
     )
     xk_out = (
-        freqs_cis[..., 0] * block.xk_[..., 0] + freqs_cis[..., 1] * block.xk_[..., 1]  # type: ignore[attr-defined]
+        freqs_cis[..., 0] * xk_[..., 0] + freqs_cis[..., 1] * xk_[..., 1]  # type: ignore[attr-defined]
     )
 
     block |= Reshape()(xq_out, shape=xq_shape, output="xq_out_raw")
@@ -65,10 +65,9 @@ def apply_rope() -> Model:
     return block
 
 
-def attention() -> Model:
-    block = Model()
-    apply_rope_block = apply_rope()
-    block |= apply_rope_block(
+def attention(*, name: str | None = None) -> Model:
+    block = Model(name=name)
+    block |= apply_rope()(
         xq="q", xk="k", freqs_cis="pe", xq_out="q_out", xk_out="k_out"
     )
     block |= ScaledDotProduct(is_causal=False)(
@@ -77,33 +76,41 @@ def attention() -> Model:
 
     # We can get named connection as model.'connection_name'
     context_shape = block.context.shape  # type: ignore[attr-defined]
-    block |= Transpose(axes=(0, 2, 1, 3))(block.context, output="t_out")  # type: ignore[attr-defined]
-    block.set_cout("t_out")
+
     # NOTE: Reshape input is automatically connected to Transpose output
-    block += Reshape()(
-        shape=(context_shape[0], context_shape[2], -1), output=IOKey("output")
+    block |= Reshape()(
+        block.context.transpose(axes=(0, 2, 1, 3)),  # type: ignore[attr-defined]
+        shape=(context_shape[0], context_shape[2], -1),
+        output=IOKey("output"),
     )
+    block.set_cout("output")
     return block
 
 
-def timestep_embedding(dim: int, max_period: int = 10_000, time_factor: float = 1000.0):
+def timestep_embedding(
+    dim: int,
+    max_period: int = 10_000,
+    time_factor: float = 1000.0,
+    *,
+    name: str | None = None,
+):
     """
     Create sinusoidal timestep embeddings.
     """
-    block = Model()
+    block = Model(name=name)
 
     input = IOKey("input")
 
     input = (input * time_factor)[:, None]  # type: ignore
-    block |= Cast(dtype=ml.float32)(input, output="input_casted")
 
     half = dim // 2
 
     block |= Arange(start=0.0, stop=half)(output="arange_out")
-    block |= Cast(dtype=ml.float32)("arange_out", output="arange_casted")
-    freqs = (-math.log(max_period) * block.arange_casted / half).exp()  # type: ignore[attr-defined]
+    freqs = (
+        -math.log(max_period) * block.arange_out.cast(dtype=ml.float32) / half  # type: ignore[attr-defined]
+    ).exp()
 
-    args = block.input_casted * freqs[None]  # type: ignore[attr-defined]
+    args = input.cast(dtype=ml.float32) * freqs[None]  # type: ignore[attr-defined]
 
     block |= Concat(2, axis=-1)(
         input1=args.cos(), input2=args.sin(), output="embedding"
@@ -121,16 +128,16 @@ def timestep_embedding(dim: int, max_period: int = 10_000, time_factor: float = 
     return block
 
 
-def mlp_embedder(hidden_dim: int, name: str | None = None):
+def mlp_embedder(hidden_dim: int, *, name: str | None = None):
     block = Model(name=name)
-    block += Linear(hidden_dim, name="in_layer")(input="input")
+    block |= Linear(hidden_dim, name="in_layer")(input="input")
     block += SiLU()
     block += Linear(hidden_dim, name="out_layer")(output=IOKey("output"))
 
     return block
 
 
-def rms_norm(dim: int, name: str | None = None):
+def rms_norm(dim: int, *, name: str | None = None):
     # TODO: check original implementation they use astype and cast to float32
     block = Model(name=name)
     input = IOKey("input")
@@ -150,7 +157,7 @@ def rms_norm(dim: int, name: str | None = None):
     return block
 
 
-def qk_norm(dim: int, name: str | None = None):
+def qk_norm(dim: int, *, name: str | None = None):
     block = Model(name=name)
     query_norm = rms_norm(dim, name="query_norm")
     key_norm = rms_norm(dim, name="key_norm")
@@ -160,7 +167,7 @@ def qk_norm(dim: int, name: str | None = None):
     return block
 
 
-def modulation(dim: int, double: bool, name: str | None = None):
+def modulation(dim: int, double: bool, *, name: str | None = None):
     multiplier = 6 if double else 3
 
     block = Model(name=name)
@@ -178,12 +185,12 @@ def modulation(dim: int, double: bool, name: str | None = None):
     return block
 
 
-def rearrange(num_heads: int):
-    block = Model()
+def rearrange(num_heads: int, *, name: str | None = None):
+    block = Model(name=name)
     input = IOKey("input")
     input_shaepe = input.shape
     B, L = input_shaepe[0], input_shaepe[1]
-    block += Reshape()(input, shape=(B, L, 3, num_heads, -1))
+    block |= Reshape()(input, shape=(B, L, 3, num_heads, -1))
     block += Transpose(axes=(2, 0, 3, 1, 4))(output=IOKey("output"))
     return block
 
@@ -193,6 +200,7 @@ def double_stream_block(
     num_heads: int,
     mlp_ratio: float,
     qkv_bias: bool = False,
+    *,
     name: str | None = None,
 ):
     img = IOKey("img")
@@ -305,7 +313,7 @@ def double_stream_block(
 
 
 def single_stream_block(
-    hidden_size: int, num_heads: int, mlp_ratio: float = 4.0, name: str | None = None
+    hidden_size: int, num_heads: int, mlp_ratio: float = 4.0, *, name: str | None = None
 ):
     """
     A DiT block with parallel linear layers as described in
@@ -355,7 +363,7 @@ def single_stream_block(
 
 
 def last_layer(
-    hidden_size: int, patch_size: int, out_channels: int, name: str | None = None
+    hidden_size: int, patch_size: int, out_channels: int, *, name: str | None = None
 ):
     adaLN_modulation = Model(name="adaLN_modulation")
     adaLN_modulation |= Sigmoid()(input="input")
@@ -381,8 +389,8 @@ def last_layer(
     return block
 
 
-def embed_nd(theta: int, axes_dim: list[int]) -> Model:
-    block = Model()
+def embed_nd(theta: int, axes_dim: list[int], *, name: str | None = None) -> Model:
+    block = Model(name=name)
     input = IOKey("input")
 
     for i in range(len(axes_dim)):
@@ -400,9 +408,9 @@ def embed_nd(theta: int, axes_dim: list[int]) -> Model:
     return block
 
 
-def rope(dim: int, theta: int) -> Model:
+def rope(dim: int, theta: int, *, name: str | None = None) -> Model:
     assert dim % 2 == 0
-    block = Model()
+    block = Model(name=name)
     input = IOKey("input", type=Tensor)
     block |= Arange(start=0, stop=dim, step=2)(output="arange")
 
