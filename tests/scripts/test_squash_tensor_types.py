@@ -12,66 +12,71 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from mithril.framework.common import Tensor, squash_tensor_types
+from mithril.framework.common import Tensor, squash_tensor_types_recursively
 
 
 def test_1():
-    res = squash_tensor_types(list[Tensor[int] | Tensor[float]])
+    res = squash_tensor_types_recursively(list[Tensor[int] | Tensor[float]])
     assert res == list[Tensor[int | float]]
 
 
 def test_2():
-    res = squash_tensor_types(
+    res = squash_tensor_types_recursively(
         list[list[Tensor[int] | Tensor[int | bool]] | Tensor[float]]
     )
     assert res == list[list[Tensor[int | bool]] | Tensor[float]]
 
 
+def test_n():
+    res = squash_tensor_types_recursively(float | list[Tensor[int] | Tensor[float]])
+    assert res == float | list[Tensor[int | float]]
+
+
 def test_3():
-    res = squash_tensor_types(int | list[int])
+    res = squash_tensor_types_recursively(int | list[int])
     assert res == int | list[int]
 
 
 def test_4():
-    res = squash_tensor_types(int | tuple[int, ...])
+    res = squash_tensor_types_recursively(int | tuple[int, ...])
     assert res == int | tuple[int, ...]
 
 
 def test_5():
-    res = squash_tensor_types(tuple[int, ...])
+    res = squash_tensor_types_recursively(tuple[int, ...])
     assert res == tuple[int, ...]
 
 
 def test_6():
-    res = squash_tensor_types(tuple[int, int])
+    res = squash_tensor_types_recursively(tuple[int, int])
     assert res == tuple[int, int]
 
 
 def test_7():
-    res = squash_tensor_types(tuple[tuple[int, ...], ...])
+    res = squash_tensor_types_recursively(tuple[tuple[int, ...], ...])
     assert res == tuple[tuple[int, ...], ...]
 
 
 def test_8():
-    res = squash_tensor_types(tuple[Tensor, ...])
+    res = squash_tensor_types_recursively(tuple[Tensor, ...])
     assert res == tuple[Tensor[int | float | bool], ...]
 
 
 def test_9():
-    res = squash_tensor_types(list[Tensor | int | float])
+    res = squash_tensor_types_recursively(list[Tensor | int | float])
     assert res == list[Tensor[int | float | bool] | int | float]
 
 
 def test_10():
-    res = squash_tensor_types(Tensor[int] | Tensor[float])
+    res = squash_tensor_types_recursively(Tensor[int] | Tensor[float])
     assert res == Tensor[int | float]
 
 
 def test_11():
-    res = squash_tensor_types(Tensor[int] | int | Tensor[float])
+    res = squash_tensor_types_recursively(Tensor[int] | int | Tensor[float])
     assert res == Tensor[int | float] | int
 
 
 def test_12():
-    res = squash_tensor_types(Tensor[float])
+    res = squash_tensor_types_recursively(Tensor[float])
     assert res == Tensor[float]

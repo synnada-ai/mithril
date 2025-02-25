@@ -226,7 +226,6 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
         model = self.pm.flat_graph.get_model(output_key)
 
         global_input_keys = self.pm.flat_graph.get_source_keys(output_key)
-        # global_input_keys += [self.get_cache_name(output_key)]
         local_input_keys = list(model.input_keys) + ["cache"]
 
         return model, global_input_keys, local_input_keys

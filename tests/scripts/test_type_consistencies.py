@@ -849,6 +849,30 @@ def test_find_intersection_types_43():
     )
 
 
+def test_find_intersection_types_44():
+    type_1 = list[Tensor[int] | Tensor[float]]
+    type_2 = ToBeDetermined
+    assert find_intersection_type(type_1, type_2) == list[Tensor[int | float]]
+
+
+def test_find_intersection_types_45():
+    type_1 = list[list[Tensor[int] | Tensor[int | bool]] | Tensor[float]]
+    type_2 = ToBeDetermined
+    assert (
+        find_intersection_type(type_1, type_2)
+        == list[list[Tensor[int | bool]] | Tensor[float]]
+    )
+
+
+def test_find_intersection_types_46():
+    type_1 = list[list[Tensor[int] | Tensor[int | bool]] | Tensor[float]]
+    type_2 = list[list[Tensor[int] | Tensor[int | bool]] | Tensor[float]]
+    assert (
+        find_intersection_type(type_1, type_2)
+        == list[list[Tensor[int | bool]] | Tensor[float]]
+    )
+
+
 def test_find_type_1():
     input = (3, 4)
     typ = find_type(input)

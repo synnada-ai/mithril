@@ -415,8 +415,8 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
     ) -> torch.Tensor:
         return torch.flatten(input, start_dim=start_dim, end_dim=end_dim)
 
-    def concat(self, inputs: list[torch.Tensor], axis: int = 0) -> torch.Tensor:
-        return torch.cat(inputs, dim=axis)
+    def concat(self, input: list[torch.Tensor], axis: int = 0) -> torch.Tensor:
+        return torch.cat(input, dim=axis)
 
     def abs(self, input: torch.Tensor) -> torch.Tensor:
         return torch.abs(input)
@@ -481,8 +481,8 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
     def stack(self, inputs: list[torch.Tensor], axis: int = 0) -> torch.Tensor:
         return torch.stack(inputs, dim=axis)
 
-    def cat(self, inputs: list[torch.Tensor], axis: int = 0) -> torch.Tensor:
-        return ops.concat(inputs, axis=axis)
+    def cat(self, input: list[torch.Tensor], axis: int = 0) -> torch.Tensor:
+        return ops.concat(input, axis=axis)
 
     def pad(self, input: torch.Tensor, pad_width: PadWidthType) -> torch.Tensor:
         _pad: list[int] = []

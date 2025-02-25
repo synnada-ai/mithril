@@ -18,7 +18,7 @@ from functools import reduce
 from itertools import combinations_with_replacement, permutations, product, zip_longest
 from operator import or_
 from types import EllipsisType, GenericAlias, NoneType, UnionType
-from typing import Any, Union, get_args, get_origin
+from typing import Any, get_args, get_origin
 
 from ..common import PaddingType
 from ..types import Constant
@@ -55,6 +55,7 @@ from .common import (
     find_intersection_type,
     is_tensor_type,
     process_value,
+    squash_tensor_types,
 )
 from .utils import find_list_base_type, is_union
 
@@ -345,46 +346,6 @@ all_possible_types: set[type | GenericAlias] = {
     Tensor[float],
     Tensor[bool],
 }
-
-
-def squash_tensor_types(typ: Any) -> Any:
-    # TODO: Remove this function when Lists of Tensors feature is added.
-    # Reduces multiple Tensor types declerations in a single
-    # Tensor[...] type with all subtypes of all declared ones. Also expands
-    # "Tensor" type to "Tensor[int | float | bool]".
-    # Example: Tensor[int] | Tensor[float] -> Tensor[int | float]
-    # Example: Tensor[int | float] | bool -> Tensor[int | float] | bool
-    # Example: Tensor -> Tensor[int | float | bool]
-    if typ is Tensor:
-        typ = Tensor[int | float | bool]
-    if (origin := get_origin(typ)) in (Union, UnionType):
-        updated_args = set()
-        regular_args = set()
-        for arg in get_args(typ):
-            if is_tensor_type(arg):
-                if arg is Tensor:
-                    arg = Tensor[int | float | bool]
-                updated_args |= set(get_args(arg))
-            else:
-                regular_args.add(arg)
-        if updated_args:
-            tensor_type = Tensor[reduce(or_, updated_args)]  # type: ignore
-            squashed_regulars = [squash_tensor_types(arg) for arg in regular_args]
-            if squashed_regulars:
-                regular_types = reduce(or_, squashed_regulars)
-                return tensor_type | regular_types
-            return tensor_type
-    elif origin is not None:
-        # NOTE: Tuple type can contain ellipsis in its args.
-        squashed_args = [
-            squash_tensor_types(arg) for arg in get_args(typ) if arg != ...
-        ]
-        return (
-            origin[*squashed_args, ...]
-            if ... in get_args(typ)
-            else origin[*squashed_args]
-        )
-    return typ
 
 
 def unsquash_tensor_types(

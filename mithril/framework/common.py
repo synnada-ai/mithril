@@ -453,9 +453,6 @@ class ConstraintSolver:
         updates = remaining.merge(deleted)
         # Iterate over deleted nodes referees to remove deleted node.
         for tensor in deleted.referees:
-            # if get_origin(ref.edge_type) is not Tensor:
-            #     raise ValueError("Non-tensor edges cannot have any shape.")
-            # assert isinstance(ref._value, Tensor)
             tensor.shape = remaining
             remaining.referees.add(tensor)
 
@@ -592,33 +589,17 @@ def get_shapes(
 AllValueType = TensorValueType | ScalarValueType | ToBeDetermined
 
 
-def find_type[T](connection: T) -> type[T] | type[Tensor[int | float | bool]]:
-    if isinstance(connection, tuple | list):
-        element_types: list[Any] = [find_type(elem) for elem in connection]
-        if isinstance(connection, tuple):
-            return tuple[*element_types]  # type: ignore
-        else:
-            result: UnionType | type = reduce(lambda x, y: x | y, element_types)
-            return list[result]  # type: ignore
-    elif isinstance(connection, Tensor):
-        return Tensor[connection.type]  # type: ignore
-    else:
-        return type(connection)
-
-
 @overload
-def _find_type(value: Constant) -> type[int] | type[float] | type[bool]: ...
+def find_type(value: Constant) -> type[int] | type[float] | type[bool]: ...
 @overload
-def _find_type(
+def find_type(
     value: Tensor[int | float | bool],
 ) -> type[Tensor[int | float | bool]]: ...
 @overload
-def _find_type(value: range) -> list[int]: ...
-@overload
-def _find_type(value: ScalarValueType) -> ScalarType: ...
+def find_type(value: ScalarValueType) -> ScalarType: ...
 
 
-def _find_type(
+def find_type(
     value: Tensor[int | float | bool] | ScalarValueType | range,
 ) -> type[Tensor[int | float | bool]] | ScalarType | list[int]:
     typ: type
@@ -626,8 +607,15 @@ def _find_type(
         typ = Tensor[value.type]  # type: ignore
     elif isinstance(value, Constant):
         typ = constant_type_table[value]
+    elif isinstance(value, tuple | list):
+        element_types: list[Any] = [find_type(elem) for elem in value]
+        if isinstance(value, tuple):
+            typ = tuple[*element_types]  # type: ignore
+        else:
+            result: UnionType | type = reduce(lambda x, y: x | y, element_types)
+            typ = list[squash_tensor_types(result)]  # type: ignore
     else:
-        typ = find_type(value)
+        typ = type(value)
     return typ
 
 
@@ -647,7 +635,7 @@ def process_value(
         return (
             [],
             value,
-            type(value) if not isinstance(value, Constant) else _find_type(value),
+            type(value) if not isinstance(value, Constant) else find_type(value),
         )  # type: ignore
     elif isinstance(value, range):
         # Convert range types into list.
@@ -680,31 +668,39 @@ def process_value(
 
 
 def find_intersection_type(
-    type_1: type | UnionType | GenericAlias | type[Tensor[int | float | bool]],
-    type_2: type | UnionType | GenericAlias | type[Tensor[int | float | bool]],
-    squash: bool = True,
+    type_1: type
+    | UnionType
+    | GenericAlias
+    | type[Tensor[int | float | bool]]
+    | type[Any],
+    type_2: type
+    | UnionType
+    | GenericAlias
+    | type[Tensor[int | float | bool]]
+    | type[Any],
 ) -> type | UnionType | GenericAlias | type[Tensor[int | float | bool]] | None:
-    intersect = set()
-    if squash:
-        # TODO: Optimize squashing. Since find_intersection_type is recursive,
-        # and also squash_tensor_types is, there exists inefficiency here. Maybe
-        # squashing can be done at the same time at each level of recursion.
-        type_1 = squash_tensor_types(type_1)
-        type_2 = squash_tensor_types(type_2)
-    # ToBeDetermined type can be coerced to all types.
+    # If both types are same, return the recursively squashed result.
+    if type_1 == type_2:
+        return squash_tensor_types_recursively(type_1)
+    # ToBeDetermined and Any type can be coerced to all types. Since no recursion
+    # will be performed here, squashing should be done recursively.
     if type_1 in (ToBeDetermined, Any):
-        return type_2
+        return squash_tensor_types_recursively(type_2)
     if type_2 in (ToBeDetermined, Any):
-        return type_1
+        return squash_tensor_types_recursively(type_1)
 
-    # First find direct intersections.
+    # First squash tensor types in a single tensor type if required.
+    type_1 = squash_tensor_types(type_1)
+    type_2 = squash_tensor_types(type_2)
+
+    # Find direct intersections.
     subtypes_1 = (
         set(get_args(type_1)) if get_origin(type_1) in (UnionType, Union) else {type_1}
     )
     subtypes_2 = (
         set(get_args(type_2)) if get_origin(type_2) in (UnionType, Union) else {type_2}
     )
-    intersect |= subtypes_1 & subtypes_2
+    intersect = subtypes_1 & subtypes_2
 
     # Handle coercion of Any (typing.Any) type to all other types.
     if Any in subtypes_1:
@@ -729,9 +725,7 @@ def find_intersection_type(
                             intersect.add(typ)
                         elif typ.__origin__ == Sequence:
                             if orig_type is range:
-                                if find_intersection_type(
-                                    int, typ.__args__[0], squash=False
-                                ):
+                                if find_intersection_type(int, typ.__args__[0]):
                                     intersect.add(range)
                             else:
                                 intersect.add(
@@ -761,34 +755,26 @@ def find_intersection_type(
                             ellipsis_2 = ... in args_2
                             common = False
                             if ellipsis_1 and ellipsis_2:
-                                common = find_intersection_type(
-                                    args_1[0], args_2[0], squash=False
-                                )
+                                common = find_intersection_type(args_1[0], args_2[0])
                                 if common:
                                     common = [common, ...]
                             elif ellipsis_1:
                                 # Remove ellipsis and replace it with base type
                                 # as many times as length of args_2
                                 common = [
-                                    find_intersection_type(
-                                        args_1[0], args_2[i], squash=False
-                                    )
+                                    find_intersection_type(args_1[0], args_2[i])
                                     for i in range(len(args_2))
                                 ]
                             elif ellipsis_2:
                                 # Remove ellipsis and replace it with base type
                                 # as many times as length of args_1
                                 common = [
-                                    find_intersection_type(
-                                        args_1[i], args_2[0], squash=False
-                                    )
+                                    find_intersection_type(args_1[i], args_2[0])
                                     for i in range(len(args_1))
                                 ]
                             elif len(args_1) == len(args_2):
                                 common = [
-                                    find_intersection_type(
-                                        args_1[i], args_2[i], squash=False
-                                    )
+                                    find_intersection_type(args_1[i], args_2[i])
                                     for i in range(len(args_1))
                                 ]
                             if common and None not in common:
@@ -801,9 +787,7 @@ def find_intersection_type(
                                     "more than 1 element"
                                 )
                             else:
-                                common = find_intersection_type(
-                                    args_1[0], args_2[0], squash=False
-                                )
+                                common = find_intersection_type(args_1[0], args_2[0])
                             if common:
                                 intersect.add(
                                     list[common]
@@ -818,9 +802,7 @@ def find_intersection_type(
                                     "more than 1 element"
                                 )
                             else:
-                                common = find_intersection_type(
-                                    args_1[0], args_2[0], squash=False
-                                )
+                                common = find_intersection_type(args_1[0], args_2[0])
                             if common:
                                 intersect.add(Sequence[common])
 
@@ -847,9 +829,7 @@ def find_intersection_type(
                                 if other_type.__origin__ is list
                                 else other_origin[inner_args, ...]
                             )
-                            common = find_intersection_type(
-                                updated_type, other_type, squash=False
-                            )
+                            common = find_intersection_type(updated_type, other_type)
                             if common:
                                 intersect.add(common)
 
@@ -876,7 +856,7 @@ def squash_tensor_types(typ: Any) -> Any:
 
     Args:
         typ (Any): The type to be squashed. It can be a single type, a union of types,
-                or a generic alias.
+        or a generic alias.
 
     Returns:
         Any: The squashed type with reduced Tensor type declarations.
@@ -891,33 +871,75 @@ def squash_tensor_types(typ: Any) -> Any:
     """
     if typ is Tensor:
         typ = Tensor[int | float | bool]
-    if (origin := get_origin(typ)) in (Union, UnionType):
+    if get_origin(typ) in (Union, UnionType):
         updated_args = set()
         regular_args = set()
         for arg in get_args(typ):
             if is_tensor_type(arg):
                 if arg is Tensor:
+                    # Expand generic "Tensor" type to "Tensor[int | float | bool]".
                     arg = Tensor[int | float | bool]
-                updated_args |= set(get_args(arg))
+                updated_args.add(arg)
             else:
                 # Non-tensor types are added to regular_args.
                 regular_args.add(arg)
-        if updated_args:
+
+        if len(updated_args) == 1:
+            typ = next(iter(updated_args))
+        elif len(updated_args) > 1:
             # If any updated_args are found, create a new Tensor type with all subtypes.
-            tensor_type = Tensor[reduce(lambda x, y: x | y, updated_args)]  # type: ignore
-            # Also squash regular_args in which there can exist Tensor types.
-            squashed_regulars = [squash_tensor_types(arg) for arg in regular_args]
-            if squashed_regulars:
-                regular_types = reduce(lambda x, y: x | y, squashed_regulars)
-                return tensor_type | regular_types
-            return tensor_type
-    elif origin is not None:
+            # Note that if one updated_args exists, there is no need to create it again.
+            inner_types = {inner for arg in updated_args for inner in get_args(arg)}
+            typ = Tensor[reduce(lambda x, y: x | y, inner_types)]  # type: ignore
+        # If there are regular types, add them to the final type.
+        if regular_args:
+            regular_type = reduce(lambda x, y: x | y, regular_args)
+            typ = typ | regular_type if updated_args else regular_type
+
+    return typ
+
+
+def squash_tensor_types_recursively(typ: Any) -> Any:
+    """
+    Recursively squashes tensor types within a given type annotation.
+
+    This function takes a type annotation and recursively processes it to squash
+    tensor types. It handles Union and generic types by recursively squashing
+    their arguments.
+
+    Args:
+        typ (Any): The type annotation to process.
+
+    Returns:
+        Any: The processed type annotation with tensor types squashed.
+
+    Notes:
+        - If the type is a Union, it will extract tensor types and squash the
+          remaining types.
+        - If the type is a generic type (excluding Tensor), it will recursively
+          squash its arguments.
+        - Tuple types with ellipsis are handled specifically to maintain the ellipsis
+          in the resulting type.
+    """
+    # First squash current level tensor types.
+    typ = squash_tensor_types(typ)
+    if (origin := get_origin(typ)) in (Union, UnionType):
+        args = list(get_args(typ))
+        # Exclude Tensor type arg since it is processed at the beginning.
+        tensor_arg = next((arg for arg in args if get_origin(arg) is Tensor), None)
+        if tensor_arg:
+            args.remove(tensor_arg)
+        squashed_regulars = [squash_tensor_types_recursively(arg) for arg in args]
+        if squashed_regulars:
+            regular_types = reduce(lambda x, y: x | y, squashed_regulars)
+            typ = regular_types | tensor_arg if tensor_arg else regular_types
+    elif origin not in (None, Tensor):
         # Simple generic types are squashed by recursively squashing their args.
         # NOTE: Tuple type can contain ellipsis in its args.
         squashed_args = [
-            squash_tensor_types(arg) for arg in get_args(typ) if arg != ...
+            squash_tensor_types_recursively(arg) for arg in get_args(typ) if arg != ...
         ]
-        return (
+        typ = (
             origin[*squashed_args, ...]
             if ... in get_args(typ)
             else origin[*squashed_args]
@@ -1360,7 +1382,7 @@ class IOHyperEdge:
             # If they are incompatible, raises an error and value setting is
             # not performed. Else, type is updated, value is set and then
             # type is re-updated based on the final value.
-            updates |= self.set_type(_find_type(value), create_tensor=False)
+            updates |= self.set_type(find_type(value), create_tensor=False)
             if self._value is not TBD:
                 self._set_value_recursively(value, self._value, updates)
             else:
@@ -1370,7 +1392,7 @@ class IOHyperEdge:
                 updates.add(self, UpdateType.VALUE)
                 updates.value_updates.add(self)
             # Update new type without automatic tensor value creation.
-            updates |= self.set_type(_find_type(self._value), create_tensor=False)
+            updates |= self.set_type(find_type(self._value), create_tensor=False)
             if self.value != TBD:
                 self.set_differentiability(False)
         return updates
@@ -1414,7 +1436,7 @@ class IOHyperEdge:
 
     def update_type(self) -> Updates:
         if self._value is not TBD:
-            return self.set_type(_find_type(self._value))
+            return self.set_type(find_type(self._value))
         return Updates()
 
 

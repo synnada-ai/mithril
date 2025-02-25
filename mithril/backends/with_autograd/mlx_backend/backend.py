@@ -299,8 +299,8 @@ class MlxBackend(Backend[mx.array]):
     ) -> mx.array:
         return mx.flatten(input, start_axis=start_dim, end_axis=end_dim)
 
-    def concat(self, inputs: list[mx.array], axis: int = 0) -> mx.array:
-        return mx.concatenate(inputs, axis=axis)
+    def concat(self, input: list[mx.array], axis: int = 0) -> mx.array:
+        return mx.concatenate(input, axis=axis)
 
     def abs(self, input: mx.array) -> mx.array:
         return mx.abs(input)
@@ -363,12 +363,8 @@ class MlxBackend(Backend[mx.array]):
     def stack(self, inputs: list[mx.array], axis: int = 0) -> mx.array:
         return mx.stack(inputs, axis=axis)
 
-    def cat(
-        self, inputs: tuple[mx.array, ...] | list[mx.array], axis: int = 0
-    ) -> mx.array:
-        if isinstance(inputs, tuple):
-            inputs = list(inputs)
-        return mx.concatenate(inputs, axis=axis)
+    def cat(self, input: list[mx.array], axis: int = 0) -> mx.array:
+        return mx.concatenate(input, axis=axis)
 
     def pad(self, input: mx.array, pad_width: PadWidthType) -> mx.array:
         return mx.pad(input, pad_width)
