@@ -27,12 +27,12 @@ def QuickGelu(name: str | None = None):
     return block'''
 
 
-def MultiheadAttention(d_model: int, n_head: int, use_attn_mask: bool = False, name: str | None = None):
-    block = Model(name=name)
+def MultiheadAttention(d_model: int, n_head: int,use_attn_mask: bool = False,name: str | None = None):
+    block = Model(name = name)
     assert d_model % n_head == 0, "d_model is not divisible by h"
-    queries = IOKey("queries", shape=(None, None, d_model))
-    keys = IOKey("keys", shape=(None, None, d_model))
-    values = IOKey("values", shape=(None, None, d_model))
+    queries = IOKey("queries", shape=(1,77,512))
+    keys = IOKey("keys", shape=(1,77,512))
+    values = IOKey("values", shape=(1,77,512))
     block |= Linear(d_model, name="query_proj")(
         queries, output="queries_proj"
     )
@@ -52,10 +52,12 @@ def MultiheadAttention(d_model: int, n_head: int, use_attn_mask: bool = False, n
     queries = queries.reshape((B, L, n_head, -1)).transpose((0, 2, 1, 3))
     keys = keys.reshape((B, L, n_head, -1)).transpose((0, 2, 1, 3))
     values = values.reshape((B, L, n_head, -1)).transpose((0, 2, 1, 3))
-    
+    block|= (buffer_q:=Buffer())(input = queries, output ="query_buffer")
+    block|= (buffer_k:=Buffer())(input = keys, output ="key_buffer")
+
     if use_attn_mask:
         block|= ScaledDotProduct(is_causal = False,use_attn_mask=True)(
-            queries,keys,values,attn_mask = IOKey("mask"),output = "attention"
+            queries,keys,values,attn_mask = IOKey("mask", shape = (77,77)),output = "attention"
         )
     else:
         block|= ScaledDotProduct(is_causal = False)(
@@ -66,26 +68,28 @@ def MultiheadAttention(d_model: int, n_head: int, use_attn_mask: bool = False, n
         values_hat, output=IOKey("output")
     )
     return block
+    
+    
+    
 
+    
 
-def mlp_resblock(d_model: int, name: str | None = None):
+def mlp_resblock(d_model:int, name: str | None = None):
     block = Model(name=name)
     input = IOKey("input")
-    block |= Linear(d_model*4,name = "c_fc")(input = "input", output = "c_fc_output")
+    block |= Linear(d_model*4,name = "c_fc")(input = "input",output = "c_fc_output")
     block |= QuickGelu(name ="gelu")(input = block.c_fc_output, output = "gelu_output")
     block |= Linear(d_model,name ="c_proj" )(input = block.gelu_output,output= IOKey("output"))
     return block
-
-
 def ResidualAttentionBlock(d_model: int, n_head: int, use_attn_mask : bool=False,name: str | None = None):
     block = Model(name=name)
     assert d_model % n_head == 0, "d_model is not divisible by h"
-    input = IOKey("input")
+    input = IOKey("input",shape = (1,77,512))
     block += LayerNorm(name="ln_1")(input= "input",output= "ln_1")
     attn = MultiheadAttention(d_model, n_head, use_attn_mask,name ="attn")
     if use_attn_mask:
         mask = IOKey("mask")
-        block |= attn(block.ln_1, block.ln_1, block.ln_1,mask, output = "attention")
+        block |= (attn1:=attn)(queries = block.ln_1,keys = block.ln_1,values =  block.ln_1,mask= mask, output = "attention")
     else:
         block |= attn(queries = block.ln_1, keys = block.ln_1,values = block.ln_1,output = "attention" )
     
@@ -93,27 +97,38 @@ def ResidualAttentionBlock(d_model: int, n_head: int, use_attn_mask : bool=False
     mlp = mlp_resblock(d_model, name = "mlp")
     block |= mlp(input = block.ln_2,output ="mlp_output")
     block |= Buffer()(input+block.mlp_output, output = IOKey("output"))
+    return block)
     return block
     
     
-def Transformer(width: int, layers: int, heads: int, use_attn_mask: bool = False,name: str | None = None):
+def seq_resblocks(width: int, layers: int, heads: int, use_attn_mask: bool = False,name: str | None = None):
     block = Model(name=name)
     input = IOKey("input")
-    block+= Buffer()(input)
-    resblocks = Model(name="resblocks")
-    input_key = "attn_output_0"
+    input_key = "input"
     if use_attn_mask:
-        mask =IOKey("mask", shape = (77,77))
-        resblocks|=Buffer()(mask,output = "attn_mask")   
+        mask =IOKey("mask")
         for idx in range(layers):
-            resblocks|= ResidualAttentionBlock(width,heads,use_attn_mask,name = f"{idx}")(input = input_key,mask=resblocks.attn_mask,output=f"attn_output_{idx+1}")
-            input_key = f"attn_output_{idx+1}"
+            block|= ResidualAttentionBlock(width,heads,use_attn_mask,name = f"{idx}")(input = input_key,mask=mask,output=f"attn_output_{idx}")
+            input_key = f"attn_output_{idx}"
     else:
         for idx in range(layers):
-            resblocks|= ResidualAttentionBlock(width,heads,name = f"{idx}")(input = input_key, output=f"attn_output_{idx+1}")
-            input_key = f"attn_output_{idx+1}"
-    block|= resblocks
-    block|= Buffer()(input = input_key ,output= IOKey("output"))
+            block|= ResidualAttentionBlock(width,heads,name = f"{idx}")(input = input_key, output=f"attn_output_{idx+1}")
+            input_key = f"attn_output_{idx}"
+    block |= Buffer()(input =f"attn_output_{idx}",output=IOKey("output") )
+    return block
+
+def Transformer(width: int, layers: int, heads: int, use_attn_mask: bool = False,name: str | None = None):
+    block = Model(name=name)
+    input = IOKey("input", shape = (1,77,512))
+     
+    resblocks = seq_resblocks(width=width,layers=layers,heads=heads,use_attn_mask=use_attn_mask, name = "resblocks")
+    if use_attn_mask:
+        mask = IOKey("mask", shape = (77,77))
+        block |= resblocks(input = input,mask = mask,output = "resblocks_output" )
+    else:
+        block |= resblocks(input = input,output = "resblocks_output" )
+
+    block|= Buffer()(input =block.resblocks_output,output= IOKey("output"))
     
     return block
     
@@ -396,8 +411,8 @@ def Clip(embed_dim: int,
                  transformer_layers: int,
                  name: str | None = None):
     block = Model(name=name)
-    image = IOKey("image")
-    text = IOKey("text")
+    image = IOKey("image",shape = (1,3,224,224))
+    text = IOKey("text", shape = (1,77))
     
     if isinstance(vision_layers, (tuple, list)):
         vision_heads = vision_width * 32 // 64
@@ -409,17 +424,18 @@ def Clip(embed_dim: int,
                                    layers=vision_layers, heads=vision_heads, output_dim=embed_dim,name = "visual")
     block += visual(input= "image",output = "image_features")
     
-    block |= Embedding(vocab_size, transformer_width,name="token_embedding")(input = "text",output = "token_embedding")
-    
+    block |=(embed_1:=Embedding(vocab_size, transformer_width,name="token_embedding"))(input = "text",output = "token_embedding")
+    block |= Reshape(shape = (1,77,512))(input = block.token_embedding, output = "token_embedding_reshaped")
     # self.positional_embedding = nn.Parameter(torch.empty(self.context_length, transformer_width))
-    positional_embedding = IOKey("positional_embedding")
-    embedding = block.token_embedding + positional_embedding
-    mask = IOKey("mask")
+    positional_embedding = IOKey("positional_embedding", shape =(1,77,512))
+    embedding = block.token_embedding_reshaped + positional_embedding
+    mask = IOKey("mask",shape = (77, 77))
+    block |= (buffer:=Buffer())(input =embedding, output = "embedding_output" )
     transformer = Transformer(width=transformer_width, layers=transformer_layers, 
                               heads=transformer_heads, use_attn_mask=True,name="transformer")
-    block += transformer(input = embedding.transpose((1,0,2)), mask = mask, output="transformer")
+    block |= transformer(input = embedding.transpose((1,0,2)), mask = mask, output="transformer")
     
-    block += LayerNorm(name="ln_final")(block.transformer.transpose((1, 0, 2)),output = "ln_final")
+    block |= LayerNorm(name="ln_final")(block.transformer.transpose((1, 0, 2)),output = "ln_final")
     block += Arange(stop = block.ln_final.shape[0])(output = "arange")
     block += ArgMax(axis = -1)(input = "text", output="argmax")
     eot_tokens = block.ln_final[block.arange:block.argmax]
