@@ -1482,8 +1482,8 @@ def reshape(
     return input.reshape(shape)
 
 
-def item(input: np.ndarray[Any, Any]) -> int | float | bool | str:
-    return input.item()
+def item(input: np.ndarray[Any, Any]) -> int | float | bool:
+    return input.item()  # type: ignore
 
 
 def sequence_slice(

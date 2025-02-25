@@ -700,7 +700,6 @@ def assert_shape_results(
     shapes: dict[str, Sequence[Any]] = {}
     assignments: AssignmentType = {}
     for key, value in data.items():
-        # if not (value.is_tensor or value.differentiable):
         if not (tensors := get_specific_types_from_value(value._value, Tensor)):
             shapes[key] = []
         else:

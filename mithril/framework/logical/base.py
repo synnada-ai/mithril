@@ -893,7 +893,8 @@ class BaseModel:
                     if inner_key not in input_keys:
                         continue
 
-                    if (val := key_data.value) is not TBD:
+                    if key_data.is_valued:
+                        val = key_data.value
                         conn.append(str(val))
 
                     elif outer_key in self.input_keys:
@@ -1352,7 +1353,7 @@ class BaseModel:
         self.conns.couts = set()
         for given_conn in connections:
             conn = self.conns.get_extracted_connection(given_conn)
-            is_valued = conn.metadata.value is not TBD
+            is_valued = conn.metadata.is_valued
             if conn not in self.dependency_map.local_output_dependency_map or is_valued:
                 if safe:
                     raise ValueError(

@@ -73,7 +73,7 @@ def find_dominant_type(
     raise_error: bool = True,
     special_fn: Callable[[Any], type[bool] | type[int] | type[float] | None]
     | None = None,
-    omit_types: set[type] | None = None,
+    ignore_types: set[type] | None = None,
 ) -> type[int] | type[float] | type[bool]:
     # return dominant type of parameters in the list.
     # dominant type is referenced from numpy and in folloing order: bool -> int -> float
@@ -86,14 +86,14 @@ def find_dominant_type(
     # list contains only bools -> return bool
     # list contains all three of types -> return float
 
-    if omit_types is None:
-        omit_types = set()
+    if ignore_types is None:
+        ignore_types = set()
 
     if isinstance(lst, list | tuple):
         curr_val: type[bool] | type[int] | type[float] = bool
         for elem in lst:
             val = find_dominant_type(elem, raise_error, special_fn)
-            if val in omit_types:
+            if val in ignore_types:
                 continue
 
             if val is float:
@@ -117,10 +117,7 @@ def find_dominant_type(
     return type(lst)
 
 
-Typ = TypeVar("Typ")
-
-
-def get_specific_types_from_value(value: Any, typ: type[Typ]) -> list[Typ]:
+def get_specific_types_from_value[T](value: Any, typ: type[T]) -> list[T]:
     """
     Recursively extracts all instances of a specified type from a nested structure.
 

@@ -80,3 +80,15 @@ def test_11():
 def test_12():
     res = squash_tensor_types_recursively(Tensor[float])
     assert res == Tensor[float]
+
+
+def test_13():
+    res = squash_tensor_types_recursively(
+        tuple[Tensor, ...] | Tensor[int | float] | Tensor[float]
+    )
+    assert res == tuple[Tensor[int | float | bool], ...] | Tensor[int | float]
+
+
+def test_14():
+    res = squash_tensor_types_recursively(float | list[Tensor[int] | Tensor[float]])
+    assert res == float | list[Tensor[int | float]]

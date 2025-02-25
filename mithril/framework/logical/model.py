@@ -496,7 +496,7 @@ class Model(BaseModel):
                 if (
                     isinstance(connection, tuple | list)
                     and find_dominant_type(
-                        connection, False, constant_fn, omit_types={Tensor}
+                        connection, False, constant_fn, ignore_types={Tensor}
                     )
                     in types
                 ):

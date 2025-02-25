@@ -196,7 +196,7 @@ class PhysicalModel(GenericDataType[DataType]):
                     if physical_data.is_polymorphic:
                         # Set physical data type to Tensor.
                         updates |= physical_data.set_type(Tensor[float])
-                    elif physical_data.value is not TBD:
+                    elif physical_data.is_valued:
                         raise ValueError(
                             f"Valued data can not be trainable: {global_key}"
                         )
@@ -309,12 +309,12 @@ class PhysicalModel(GenericDataType[DataType]):
     ) -> None:
         for key in constant_keys.keys() | data_keys:
             if isinstance(key, Connection):
-                value = key.metadata.value
+                metadata = key.metadata
                 key_type = "connection"
             else:
-                value = model.conns.get_data(key).value
+                metadata = model.conns.get_data(key)
                 key_type = "key"
-            if value is not TBD:
+            if metadata.is_valued:
                 raise ValueError(
                     f"Statically given {key_type}: {key} has been already "
                     "set as static with a value!"
@@ -836,7 +836,8 @@ class PhysicalModel(GenericDataType[DataType]):
                     if not input_data.is_tensor:
                         # If value of the scalar is determined, write that value
                         pm_input_data = self.flat_graph.data_memo[id(input_data)]
-                        if (val := pm_input_data.value) is not TBD:
+                        if pm_input_data.is_valued:
+                            val = pm_input_data.value
                             input_name = str(val)
                     conn_info[model_name][0][input_key] = [input_name]
                 else:

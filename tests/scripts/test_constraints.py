@@ -78,8 +78,6 @@ from mithril.framework.constraints import (
 )
 from mithril.types import GenericDataType
 
-# from mithril.utils.utils import get_specific_types_from_value
-# from .test_utils import check_shapes_semantically
 from .test_utils import (
     AssignmentType,
     VariadicPossiblesType,

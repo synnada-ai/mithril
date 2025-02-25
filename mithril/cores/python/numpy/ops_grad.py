@@ -15,7 +15,7 @@
 import itertools
 from collections.abc import Sequence
 from itertools import zip_longest
-from typing import Any, TypeVar
+from typing import Any
 
 import numpy as np
 import scipy.linalg as slin
@@ -1670,10 +1670,7 @@ def zeros_like_grad(
     return np.zeros_like(output_gradient)
 
 
-T = TypeVar("T")
-
-
-def to_list_grad(
+def to_list_grad[T](
     output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,

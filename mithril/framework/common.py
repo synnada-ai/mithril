@@ -49,6 +49,7 @@ from ..types import (
     Dtype,
     constant_type_table,
 )
+from ..utils.type_utils import is_union_type
 from .utils import (
     align_shapes,
     sort_type,
@@ -694,12 +695,8 @@ def find_intersection_type(
     type_2 = squash_tensor_types(type_2)
 
     # Find direct intersections.
-    subtypes_1 = (
-        set(get_args(type_1)) if get_origin(type_1) in (UnionType, Union) else {type_1}
-    )
-    subtypes_2 = (
-        set(get_args(type_2)) if get_origin(type_2) in (UnionType, Union) else {type_2}
-    )
+    subtypes_1 = set(get_args(type_1)) if is_union_type(type_1) else {type_1}
+    subtypes_2 = set(get_args(type_2)) if is_union_type(type_2) else {type_2}
     intersect = subtypes_1 & subtypes_2
 
     # Handle coercion of Any (typing.Any) type to all other types.
@@ -871,7 +868,7 @@ def squash_tensor_types(typ: Any) -> Any:
     """
     if typ is Tensor:
         typ = Tensor[int | float | bool]
-    if get_origin(typ) in (Union, UnionType):
+    if is_union_type(typ):
         updated_args = set()
         regular_args = set()
         for arg in get_args(typ):
@@ -912,6 +909,16 @@ def squash_tensor_types_recursively(typ: Any) -> Any:
 
     Returns:
         Any: The processed type annotation with tensor types squashed.
+
+    Example:
+        >>> squash_tensor_types_recursively(list[Tensor[int] | Tensor[float]])
+        list[Tensor[int | float]]
+        >>> squash_tensor_types_recursively(Tensor[int | float] | bool)
+        Tensor[int | float] | bool
+        >>> squash_tensor_types_recursively(
+            tuple[Tensor, ...] | Tensor[int | float] | Tensor[float]
+        )
+        tuple[Tensor[int | float | bool], ...] | Tensor[int | float]
 
     Notes:
         - If the type is a Union, it will extract tensor types and squash the
@@ -1059,6 +1066,8 @@ class Tensor(Generic[TypeVarTensorType]):
         self.referees: set[IOHyperEdge] = set()
         self.differentiable = differentiable
         if differentiable:
+            if find_intersection_type(type, float) is None:
+                raise TypeError(f"{type} type tensors can be differentiable.")
             self.set_type(float)
         # Initialize value as TBD and then set if any value is provided.
         self.value: TensorValueType | ToBeDetermined = TBD
@@ -1129,7 +1138,6 @@ class Tensor(Generic[TypeVarTensorType]):
             # Transfer all referees of other to self and update all
             # Tensors in all edges of other with self.
             self.referees |= other.referees
-            self.differentiable |= other.differentiable
             # Remove other from referees of shape node.
             self.shape.referees.discard(other)
 
@@ -1145,7 +1153,6 @@ class Tensor(Generic[TypeVarTensorType]):
             self.shape.referees |= node.referees
             prev_node = node
             for ref in node.referees:
-                # assert isinstance(ref._value, Tensor)
                 ref.shape = self.shape
             prev_node.reprs = []
             prev_node.referees = set()
@@ -1167,7 +1174,6 @@ class IOHyperEdge:
         self.constraints: dict[UpdateType, set[Constraint]] = {
             type: set() for type in UpdateType
         }
-        # self._temp_shape: ShapeRepr | None = None  # set random repr
         self.interval: list[float | int] | None = interval
         # Initially set type and value as not determined yet.
         self._type = ToBeDetermined
