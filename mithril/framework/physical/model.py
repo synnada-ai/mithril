@@ -38,7 +38,6 @@ from ..common import (
     ShapeResultType,
     Table,
     Tensor,
-    ToBeDetermined,
     UniadicRecord,
     Updates,
     Variadic,
@@ -190,14 +189,11 @@ class PhysicalModel(GenericDataType[DataType]):
                     physical_data.set_differentiability(False)
                 elif global_key in self._trainable_tensor_inputs:
                     # if physical_data.edge_type not in (Tensor, ToBeDetermined):
-                    if not (
-                        physical_data.is_tensor
-                        or physical_data.edge_type is ToBeDetermined
-                    ):
+                    if physical_data.is_scalar:
                         raise ValueError(
                             f"Non-tensor type data can not be trainable: {global_key}"
                         )
-                    elif physical_data.edge_type is ToBeDetermined:
+                    elif physical_data.is_polymorphic:
                         # Set physical data type to Tensor.
                         updates |= physical_data.set_type(Tensor[float])
                     elif physical_data.value is not TBD:

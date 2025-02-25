@@ -134,7 +134,7 @@ class BaseModel:
             if new_name is not None:  # Non-named connections.
                 if new_name in self.conns.all:
                     raise KeyError(f"Key '{new_name}' is already used!")
-                self.update_key_name(conn_data, new_name)
+                self.rename_key(conn_data, new_name)
             self.conns.set_connection_type(conn_data, KeyType.OUTPUT)
             self.dependency_map.update_globals(OrderedSet({conn_data}))
 
@@ -196,16 +196,15 @@ class BaseModel:
 
     def _prepare_keys(
         self, model: BaseModel, key: str, connection: ConnectionDataType
-    ) -> BaseKey:
+    ) -> BaseKey | ConnectionData:
         local_connection = model.conns.get_connection(key)
         assert local_connection is not None, "Connection is not found!"
+        _connection: BaseKey | ConnectionData
         match connection:
             case NullConnection():
                 _connection = BaseKey()
             case str():
                 _connection = BaseKey(name=connection)
-            case ConnectionData():
-                _connection = BaseKey(connections={connection})
             case _ if isinstance(connection, MainValueInstance | Tensor):
                 # find_dominant_type returns the dominant type in a container.
                 # If a container has a value of type Connection or ExtendTemplate
@@ -214,24 +213,22 @@ class BaseModel:
             case BaseKey():
                 expose = connection.expose
                 name = connection.name
-                # TODO: This check should be removed: conn.connections==set()
                 # We should not operate different if _connections is given. Fix this and
                 # also fix corresponding tests and dict conversions with "connect".
-                if (
-                    expose is None
-                    and (name is None or self.conns.get_connection(name) is None)
-                    and connection.connections == set()
+                if expose is None and (
+                    name is None or self.conns.get_connection(name) is None
                 ):
                     expose = True
                 _connection = BaseKey(
                     name=name,
                     expose=expose,
-                    connections=connection.connections,
                     type=connection.type,
                     shape=connection.value_shape,
                     value=connection.value,
                     differentiable=connection.differentiable,
                 )
+            case ConnectionData():
+                _connection = connection
 
         return _connection
 
@@ -239,7 +236,7 @@ class BaseModel:
         self,
         model: BaseModel,
         local_key: str,
-        given_connection: BaseKey,
+        given_connection: BaseKey | ConnectionData,
         updates: Updates,
     ) -> tuple[ConnectionData, Updates]:
         is_input = local_key in model.input_keys
@@ -248,8 +245,6 @@ class BaseModel:
         is_not_valued = local_connection.metadata.value is TBD
 
         d_map = self.dependency_map.local_output_dependency_map
-        expose = given_connection.expose
-        outer_key = given_connection.name
 
         con_obj = None
         set_value: (
@@ -259,10 +254,12 @@ class BaseModel:
             | Tensor[int | float | bool]
             | NullConnection
         ) = NOT_GIVEN
-        if given_connection.value is not TBD:
-            set_value = given_connection.value
 
-        if given_connection.connections == set():
+        if isinstance(given_connection, BaseKey):
+            expose = given_connection.expose
+            outer_key = given_connection.name
+            if given_connection.value is not TBD:
+                set_value = given_connection.value
             if outer_key is not None:
                 con_obj = self.conns.get_connection(outer_key)
             if outer_key is None or con_obj is None:
@@ -280,48 +277,23 @@ class BaseModel:
                     "Expose flag cannot be false when "
                     "no value is provided for input keys!"
                 )
-        else:
-            initial_conn: ConnectionData
-            for idx, conn in enumerate(given_connection.connections):
-                if isinstance(conn, str):
-                    _conn = self.conns.get_connection(conn)
-                else:
-                    _conn = self.conns.get_con_by_metadata(conn.metadata)
-                    if conn in model.conns.all.values():
-                        raise ValueError(
-                            f"Given connection '{conn.key}' should not "
-                            "belong to the extending model!"
-                        )
+            if (set_type := given_connection.type) is not None:
+                model.set_types({local_connection: set_type})
+        else:  # ConnectionData
+            # Connection is given as a Connection object.
+            if (
+                con_obj := self.conns.get_con_by_metadata(given_connection.metadata)
+            ) is None:
+                raise KeyError("Requires accessible connection to be processed!")
 
-                if not isinstance(_conn, ConnectionData):
-                    raise KeyError("Requires accessible connection to be processed!")
-                if idx == 0:
-                    initial_conn = _conn
-                    if outer_key is not None:
-                        self.update_key_name(initial_conn, outer_key)
-                else:
-                    if _conn in d_map:
-                        if initial_conn in d_map:
-                            raise KeyError(
-                                "IOKey object can not have more than one output "
-                                "connection. Multi-write error!"
-                            )
-                        initial_conn, _conn = _conn, initial_conn
-                    if (
-                        not outer_key
-                        and not initial_conn.is_key_autogenerated
-                        and not _conn.is_key_autogenerated
-                    ):
-                        raise KeyError(
-                            "Requires a connection to have only one unique key "
-                            "name but encountered more!"
-                        )
-                    updates |= self.merge_connections(initial_conn, _conn)
-            if outer_key is None and not initial_conn.is_key_autogenerated:
-                outer_key = initial_conn.key
-            if not outer_key and initial_conn in d_map and expose is True:
-                raise KeyError("Connection without a name cannot be set as output")
-            con_obj = initial_conn
+            if given_connection in model.conns.all.values():
+                raise ValueError(
+                    f"Given connection '{given_connection.key}' should not belong "
+                    "to the extending model!"
+                )
+
+            outer_key = con_obj.key
+            expose = outer_key in self.conns.output_keys and not is_input
 
         # Name "input" can only be used for input connections.
         is_key_name_input = con_obj is not None and (con_key := con_obj.key) == "input"
@@ -399,23 +371,61 @@ class BaseModel:
         # If any type provided, set using models set_types method
         # in order to execute constraint solver to propagate type
         # updates along the model keys.
-        if (set_type := given_connection.type) is not None:
-            model.set_types({local_connection: set_type})
 
         return con_obj, updates
 
-    def update_key_name(self, connection: ConnectionData, key: str) -> None:
+    def rename_key(self, connection: ConnectionData, key: str) -> None:
         con_data = self.conns.get_extracted_connection(connection)
         key_type = self.conns.get_type(con_data)
         key_dict = self.conns._connection_dict[key_type]
         key_dict[key] = key_dict.pop(con_data.key)
         # Update con_data key
         con_data.key = key
-        con_data.is_key_autogenerated = False
         con_data.metadata.key_origin = key
 
     def merge_connections(
-        self, connection1: ConnectionData, connection2: ConnectionData
+        self, *connections: str | ConnectionData, name: str | None = None
+    ) -> None:
+        """
+        Merge multiple ConnectionData objects into one.
+
+        This method takes multiple ConnectionData objects and merges them into a single
+        ConnectionData object. The first ConnectionData object in the list is used as
+        the base, and subsequent ConnectionData objects are merged into it. The method
+        ensures that the merged ConnectionData object maintains consistency and updates
+        the dependency maps accordingly.
+
+        Args:
+            *connections (ConnectionData): Multiple ConnectionData objects to be merged.
+
+        Returns:
+            Updates: An Updates object containing the changes made during the merge.
+        """
+        # TODO: raise if frozen model's merge_connections is called?
+        # TODO: raise error if two named keys are merged without naming.
+        # TODO: Delete named attributes after merge.
+        if len(connections) >= 2:
+            updates = Updates()
+            conn1 = self.conns.get_extracted_connection(connections[0])
+
+            for conn in connections[1:]:
+                conn2 = self.conns.get_extracted_connection(conn)
+                d_map = self.dependency_map.local_output_dependency_map
+                if conn2 in d_map:
+                    if conn1 in d_map:
+                        raise KeyError(
+                            "IOKey object can not have more than one output "
+                            "connection. Multi-write error!"
+                        )
+                    conn1, conn2 = conn2, conn1
+                updates |= self._merge_connections(conn1, conn2, name=name)
+            self.constraint_solver(updates)
+
+    def _merge_connections(
+        self,
+        connection1: ConnectionData,
+        connection2: ConnectionData,
+        name: str | None = None,
     ) -> Updates:
         # This method is used if there is 2 Connection objects to represent same Edge.
         # In this case, connection2 is updated with connection1's data and it is removed
@@ -423,86 +433,71 @@ class BaseModel:
 
         # TODO: Check multi-write error for Connect type.
 
-        main_connection1 = self.conns.get_con_by_metadata(connection1.metadata)
-        main_connection2 = self.conns.get_con_by_metadata(connection2.metadata)
+        conn1 = self.conns.get_con_by_metadata(connection1.metadata)
+        conn2 = self.conns.get_con_by_metadata(connection2.metadata)
 
-        if (
-            main_connection1 is None
-            or main_connection2 is None
-            or main_connection1 == main_connection2
-        ):
+        if conn1 is None or conn2 is None or conn1 == conn2:
             return Updates()
 
-        # Remove main_connection2 from connections dict
-        con1_key = main_connection1.key
+        # Remove conn2 from connections dict
+        con1_key = conn1.key
 
         if connection2 in self.conns.output_connections:
             if con1_key not in self.conns.output_keys:
                 self.conns.set_connection_type(connection1, KeyType.OUTPUT)
             if con1_key in self.input_keys:
-                self.conns.set_connection_type(main_connection1, KeyType.INTERNAL)
-        elif (
-            main_connection2 in self.conns.internal_connections
-            and con1_key in self.input_keys
-        ):
-            self.conns.set_connection_type(main_connection1, KeyType.INTERNAL)
+                self.conns.set_connection_type(conn1, KeyType.INTERNAL)
+        elif conn2 in self.conns.internal_connections and con1_key in self.input_keys:
+            self.conns.set_connection_type(conn1, KeyType.INTERNAL)
 
         # Switch all connection2 objects with connection1 object in current dag.
         for m, m_info in self.dag.items():
-            local_conns = m.conns.get_cons_by_metadata(main_connection2.metadata)
+            local_conns = m.conns.get_cons_by_metadata(conn2.metadata)
             if local_conns is None:
                 continue
 
             for local_conn in local_conns:
                 if m_info.get(local_conn.key) is not None:
-                    self.dag[m][local_conn.key] = main_connection1
+                    self.dag[m][local_conn.key] = conn1
 
+        d_out = self.dependency_map.local_output_dependency_map
+        d_in = self.dependency_map.local_input_dependency_map
         # Update dependecy map, we need to update only local maps
-        for (
-            o_conn,
-            key_info,
-        ) in self.dependency_map.local_output_dependency_map.items():
-            if main_connection2 in key_info[1]:
-                self.dependency_map.local_output_dependency_map[o_conn][1].remove(
-                    main_connection2
-                )
-                self.dependency_map.local_output_dependency_map[o_conn][1].add(
-                    main_connection1
-                )
+        for o_conn, key_info in d_out.items():
+            if conn2 in key_info[1]:
+                d_out[o_conn][1].remove(conn2)
+                d_out[o_conn][1].add(conn1)
 
-        if main_connection2 in self.dependency_map.local_output_dependency_map:
-            self.dependency_map.local_output_dependency_map[main_connection1] = (
-                self.dependency_map.local_output_dependency_map.pop(main_connection2)
-            )
+        if conn2 in d_out:
+            d_out[conn1] = d_out.pop(conn2)
 
-        if main_connection2 in self.dependency_map.local_input_dependency_map:
-            old_dependencies = self.dependency_map.local_input_dependency_map.pop(
-                main_connection2
-            )
-            self.dependency_map.local_input_dependency_map.setdefault(
-                main_connection1, old_dependencies
-            )
+        if conn2 in d_in:
+            old_dependencies = d_in.pop(conn2)
+            d_in.setdefault(conn1, old_dependencies)
             for dependecy in old_dependencies:
-                if (
-                    dependecy
-                    not in self.dependency_map.local_input_dependency_map[
-                        main_connection1
-                    ]
-                ):
-                    self.dependency_map.local_input_dependency_map[
-                        main_connection1
-                    ].append(dependecy)
+                if dependecy not in d_in[conn1]:
+                    d_in[conn1].append(dependecy)
 
-        self.dependency_map.merge_global_connections(main_connection1, main_connection2)
-        self.dependency_map.merge_global_caches(main_connection1, main_connection2)
-        updates = self._match_hyper_edges(
-            main_connection1.metadata, main_connection2.metadata
-        )
+        self.dependency_map.merge_global_connections(conn1, conn2)
+        self.dependency_map.merge_global_caches(conn1, conn2)
+        updates = self._match_hyper_edges(conn1.metadata, conn2.metadata)
 
-        self.conns.remove_connection(main_connection2)
+        self.conns.remove_connection(conn2)
+        if name is None:
+            if not conn1.is_autogenerated and not conn2.is_autogenerated:
+                raise KeyError(
+                    "Requires a connection to have only one unique key "
+                    "name but encountered more!"
+                )
+            elif conn2.is_autogenerated and not conn1.is_autogenerated:
+                name = conn1.key
+            elif conn1.is_autogenerated and not conn2.is_autogenerated:
+                name = conn2.key
+        if name is not None:
+            self.rename_key(conn1, name)
+            # TODO: Deleted connection's 'key' attribute is not updated.
+            # Consider updating it.
 
-        main_connection2.key = main_connection1.key
-        main_connection2.is_key_autogenerated = main_connection1.is_key_autogenerated
         return updates
 
     def extend(
@@ -548,17 +543,18 @@ class BaseModel:
             item.key for item in model.conns.couts if item.key not in external_keys
         ]
 
-        io_keys: dict[str, BaseKey] = {
+        io_keys: dict[str, BaseKey | ConnectionData] = {
             key: self._prepare_keys(model, key, kwargs.get(key, NOT_GIVEN))
             for key in external_keys
         }
 
         for local_key, value in io_keys.items():
-            if value.value_shape is not None:
-                shape_info |= {local_key: value.value_shape}
+            if isinstance(value, BaseKey):
+                if value.value_shape is not None:
+                    shape_info |= {local_key: value.value_shape}
 
-            if value.type is not None:
-                type_info[local_key] = value.type
+                if value.type is not None:
+                    type_info[local_key] = value.type
 
             con_obj, _updates = self._add_connection(model, local_key, value, updates)
             updates |= _updates
@@ -1060,25 +1056,23 @@ class BaseModel:
         # label it as auto-generated.
         if key is not None and self.conns.get_connection(key) is not None:
             raise KeyError("Connection with name " + key + " already exists!")
-        if is_key_autogenerated := key is None:
+        if is_autogenerated := key is None:
             key = self._create_key_name()
 
-        con = self._create_connection(metadata, key, is_key_autogenerated)
-        if not is_key_autogenerated:
+        con = self._create_connection(metadata, key)
+        if not is_autogenerated:
             # Set key_origin into metadata
             metadata.key_origin = key
 
         self.conns.add(con)
-        if not con.is_key_autogenerated:
+        if not con.is_autogenerated:
             assert key is not None
             setattr(self, key, con)
 
         return con
 
-    def _create_connection(
-        self, metadata: IOHyperEdge, key: str, is_key_autogenerated: bool
-    ) -> ConnectionData:
-        return ConnectionData(key, metadata, is_key_autogenerated)
+    def _create_connection(self, metadata: IOHyperEdge, key: str) -> ConnectionData:
+        return ConnectionData(key, metadata)
 
     def set_differentiability(
         self, config: dict[ConnectionData, bool] | None = None, /, **kwargs: bool

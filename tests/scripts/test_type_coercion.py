@@ -159,11 +159,11 @@ def test_scalar_to_tensor_3():
     tensor_1 = ToTensor()
     tensor_2 = ToTensor()
     model |= tensor_1(input=[[[1]]])
-    model |= add_1(left=tensor_1.output, right=IOKey("right", differantiable=True))
+    model |= add_1(left=tensor_1.output, right=IOKey("right", differentiable=True))
     model |= shp_1(input=add_1.output)
     model |= tensor_2(input=shp_1.output)
     model |= Add()(
-        left=IOKey("left", differantiable=True),
+        left=IOKey("left", differentiable=True),
         right=tensor_2.output,
         output="output",
     )
@@ -176,11 +176,11 @@ def test_scalar_to_tensor_3():
     shp_2 = Shape()
     model |= add_2(
         left=IOKey(value=[[[1]]]).tensor(),
-        right=IOKey("right", differantiable=True),
+        right=IOKey("right", differentiable=True),
     )
     model |= shp_2(input=add_2.output)
     model |= Add()(
-        left=IOKey("left", differantiable=True),
+        left=IOKey("left", differentiable=True),
         right=shp_2.output.tensor(),
         output="output",
     )
@@ -881,17 +881,13 @@ def test_connect_type_conv_handling_1():
     model = Model()
     model.extend((a1 := Buffer()), input="input1")
     model.extend((a2 := Buffer()), input="input2")
-    con_object = IOKey(
-        name="abcd",
-        connections={a1.input, a2.input},
-        value=Tensor([[2.0]]),
-        expose=True,
-    )
+    model.merge_connections(a1.input, a2.input, name="abcd")
+    model.set_values(abcd=Tensor([[2.0]]))
     model._extend(
         mat_mul := MatrixMultiply(),
         {
-            "left": con_object,
-            "right": IOKey(differantiable=True),
+            "left": "abcd",
+            "right": IOKey(differentiable=True),
             "output": IOKey(name="output"),
         },
     )
@@ -902,17 +898,13 @@ def test_connect_type_conv_handling_1():
     model = Model()
     model.extend((a1 := Buffer()), input="input1")
     model.extend((a2 := Buffer()), input="input2")
-    con_object = IOKey(
-        connections={"input1", "input2"},
-        value=Tensor([[2.0]]),
-        name="abcd",
-        expose=True,
-    )
+    model.merge_connections("input1", "input2", name="abcd")
+    model.set_values(abcd=Tensor([[2.0]]))
     model._extend(
         (mat_mul := MatrixMultiply()),
         {
-            "left": con_object,
-            "right": IOKey(differantiable=True),
+            "left": "abcd",
+            "right": IOKey(differentiable=True),
             "output": IOKey(name="output"),
         },
     )
@@ -923,17 +915,13 @@ def test_connect_type_conv_handling_1():
     model = Model()
     model.extend((a1 := Buffer()), input="input1")
     model.extend((a2 := Buffer()), input="input2")
-    con_object = IOKey(
-        connections={"input1", a2.input},
-        value=Tensor([[2.0]]),
-        name="abcd",
-        expose=True,
-    )
+    model.merge_connections("input1", a2.input, name="abcd")
+    model.set_values(abcd=Tensor([[2.0]]))
     model._extend(
         (mat_mul := MatrixMultiply()),
         {
-            "left": con_object,
-            "right": IOKey(differantiable=True),
+            "left": "abcd",
+            "right": IOKey(differentiable=True),
             "output": IOKey(name="output"),
         },
     )
@@ -964,8 +952,8 @@ def test_connect_1():
         input1="input1", input2="input2", input3="input3", output=IOKey(name="output")
     )
     conns = {concat_model.input1, concat_model.input2, concat_model.input3}  # type: ignore
-    conn = IOKey(connections=conns, name="abcd", expose=True)
-    model |= Sigmoid()(input=conn, output=IOKey(name="output1"))
+    model.merge_connections(*conns, name="abcd")
+    model |= Sigmoid()(input="abcd", output=IOKey(name="output1"))
 
     assert (
         concat_model.input1.metadata  # type: ignore
@@ -986,9 +974,8 @@ def test_connect_2():
         input1="input1", input2="input2", input3="input3", output=IOKey(name="output")
     )
     conns = {concat_model.input1, concat_model.input2, concat_model.input3}  # type: ignore
-    conn = IOKey(connections=conns, name="abcd", expose=True)
-
-    model |= ToTensor()(conn)
+    model.merge_connections(*conns, name="abcd")
+    model |= ToTensor()("abcd")
 
     assert (
         concat_model.input1.metadata  # type: ignore
@@ -1008,9 +995,10 @@ def test_connect_3():
         input1="input1", input2="input2", input3="input3", output=IOKey(name="output")
     )
     conns = {concat_model.input1, concat_model.input2, concat_model.input3}  # type: ignore
-    conn = IOKey(connections=conns, name="abcd", expose=True, value=3.0)
+    model.merge_connections(*conns, name="abcd")
+    model.set_values(abcd=3.0)
 
-    model |= (to_tensor := ToTensor())(conn)
+    model |= (to_tensor := ToTensor())("abcd")
 
     assert (
         concat_model.input1.metadata  # type: ignore
@@ -1046,9 +1034,9 @@ def test_connect_4():
         concat_model.input3,  # type: ignore
         union_model.input1.tensor(),  # type: ignore
     }
-    conn = IOKey(connections=conns, name="abcd", expose=True, value=Tensor((3, 2)))
+    model.merge_connections(*conns, name="abcd")
 
-    model |= Buffer()(input=conn, output=IOKey(name="output1"))
+    model |= Buffer()(input="abcd", output=IOKey(name="output1"))
     pm = compile(model=model, backend=backend, jit=False, inference=True)
 
     output = pm.evaluate()
@@ -1071,9 +1059,8 @@ def test_connect_6():
     concat_model = Concat(n=3)
     model |= concat_model(input1=Tensor([[3.0]]), output=IOKey(name="output"))
     conn_list = {concat_model.input1, concat_model.input2, concat_model.input3}  # type: ignore
-    conn = IOKey(connections=conn_list, name="abcd", expose=True)
-
-    model |= Buffer()(input=conn, output=IOKey(name="output1"))
+    model.merge_connections(*conn_list, name="abcd")
+    model |= Buffer()(input="abcd", output=IOKey(name="output1"))
 
     pm = compile(model=model, backend=backend, jit=False, inference=True)
     output = pm.evaluate()
@@ -1089,7 +1076,7 @@ def test_connect_7():
     """This test tests if Connect object can merge exposed output connection
     with other input connections, In this test, it is expected that Connect will
     be able to connect an input with an output and merge these connections as
-    internal key, since it has also name of "abcd", It is expected that the internall
+    internal key, since it has also name of "abcd", It is expected that the internal
     connection also an exposed output key with a name of abcd.
     """
 
@@ -1098,21 +1085,16 @@ def test_connect_7():
     add_model_1 = Add()
     add_model_2 = Add()
     model |= add_model_1(
-        left=IOKey("left", differantiable=True),
-        right=IOKey("right", differantiable=True),
+        left=IOKey("left", differentiable=True),
+        right=IOKey("right", differentiable=True),
         output=IOKey(name="output2"),
     )
     model |= add_model_2(
-        left=IOKey("left1", differantiable=True),
-        right=IOKey("right1", differantiable=True),
+        left=IOKey("left1", differentiable=True),
+        right=IOKey("right1", differentiable=True),
     )
-
-    conn = IOKey(
-        connections={add_model_2.output, model.right},  # type: ignore
-        name="abcd",
-        expose=False,
-    )
-    model |= Buffer()(input=conn, output=IOKey(name="output"))
+    model.merge_connections(add_model_2.output, model.right, name="abcd")  # type: ignore
+    model |= Buffer()(input="abcd", output=IOKey(name="output"))
 
     assert (
         add_model_2.output.metadata  # type: ignore
@@ -1157,17 +1139,18 @@ def test_connect_7_expose_output():
     add_model_1 = Add()
     add_model_2 = Add()
     model |= add_model_1(
-        left=IOKey("left", differantiable=True),
-        right=IOKey("right", differantiable=True),
+        left=IOKey("left", differentiable=True),
+        right=IOKey("right", differentiable=True),
         output=IOKey(name="output2"),
     )
     model |= add_model_2(
-        left=IOKey("left1", differantiable=True),
-        right=IOKey("right1", differantiable=True),
+        left=IOKey("left1", differentiable=True),
+        right=IOKey("right1", differentiable=True),
     )
     conns = {add_model_2.output, model.right}  # type: ignore
-    conn = IOKey(name="abcd", expose=True, connections=conns)  # type: ignore
-    model |= (buf := Buffer())(input=conn, output=IOKey(name="output"))
+    model.merge_connections(*conns, name="abcd")
+    model.set_outputs("abcd")
+    model |= (buf := Buffer())(input="abcd", output=IOKey(name="output"))
 
     assert (
         add_model_2.output.metadata
@@ -1218,21 +1201,17 @@ def test_connect_8():
     add_model_1 = Add()
     add_model_2 = Add()
     model |= add_model_1(
-        left=IOKey("left", differantiable=True),
-        right=IOKey("right", differantiable=True),
+        left=IOKey("left", differentiable=True),
+        right=IOKey("right", differentiable=True),
     )
     model |= add_model_2(
         left=add_model_1.output,
-        right=IOKey("right1", differantiable=True),
+        right=IOKey("right1", differentiable=True),
         output=IOKey(name="output1"),
     )
-    conn = IOKey(
-        connections={add_model_1.output, model.right1},  # type: ignore
-        name="abcd",
-        expose=False,
-    )
+    model.merge_connections(add_model_1.output, model.right1, name="abcd")  # type: ignore
 
-    model |= Buffer()(input=conn, output=IOKey(name="output"))
+    model |= Buffer()(input="abcd", output=IOKey(name="output"))
 
     pm = compile(model=model, backend=backend, jit=False)
 
@@ -1262,14 +1241,10 @@ def test_connect_9():
     It is a Multi-write error case
     """
     model = Model()
-    concat_model = Concat(n=3)
-    model |= concat_model(
-        input1=Tensor([[3.0]]), input2=Tensor([[2.0]]), input3="input3"
-    )
-    con_list = {concat_model.input1, concat_model.input2, concat_model.input3}  # type: ignore
-    conn = IOKey(connections=con_list)
+    concat = Concat(n=3)
+    model |= concat(input1=Tensor([[3.0]]), input2=Tensor([[2.0]]), input3="input3")
     with pytest.raises(ValueError) as err_info:
-        model |= Buffer()(input=conn, output=IOKey(name="output"))
+        model.merge_connections(concat.input1, concat.input2, concat.input3)  # type: ignore
 
     error_msg = "Value is set before as [[3.0]]. A value can not be reset."
     assert str(err_info.value) == error_msg
@@ -1281,13 +1256,11 @@ def test_connect_10():
     raise Multi-write error
     """
     model = Model()
-    concat_model = Concat(n=3)
-    model |= concat_model(input1=Tensor([[3.0]]), input3="input3")
-    conn_list = {concat_model.input1, concat_model.input2, concat_model.input3}  # type: ignore
-    conn = IOKey(connections=conn_list, value=Tensor(2.0), expose=True)
-
+    concat = Concat(n=3)
+    model |= concat(input1=Tensor([[3.0]]), input3="input3")
+    model.merge_connections(concat.input1, concat.input2, concat.input3)  # type: ignore
     with pytest.raises(ValueError) as err_info:
-        model |= Buffer()(input=conn, output=IOKey(name="output"))
+        model.set_values({concat.input1: Tensor([[2.0]])})  # type: ignore
 
     assert str(err_info.value) == (
         "Value is set before as [[3.0]]. A value can not be reset."
@@ -1315,9 +1288,10 @@ def test_connect_11():
         union_model.input1,  # type: ignore
         union_model.input2,  # type: ignore
     }
-    conn = IOKey(connections=conns, value=(2.0,), expose=True)
+    model.merge_connections(*conns)
+    model.set_values({union_model.input1: (2.0,)})  # type: ignore
 
-    model |= Buffer()(input=conn, output=IOKey(name="output3"))
+    model |= Buffer()(input=union_model.input1, output=IOKey(name="output3"))  # type: ignore
     pm = compile(model=model, backend=backend, jit=False)
     output = pm()
 
@@ -1345,16 +1319,15 @@ def test_connect_12():
     union_model = PrimitiveUnion(n=2)
     model |= concat_model(output=IOKey(name="output1"))
     model |= union_model(output=IOKey(name="output2"))
-    conn = IOKey(
-        connections={
-            concat_model.input1,  # type: ignore
-            concat_model.input2,  # type: ignore
-            union_model.input1,  # type: ignore
-            union_model.input2,  # type: ignore
-        },
-        value=(2.0,),
+
+    model.merge_connections(
+        concat_model.input1,  # type: ignore
+        concat_model.input2,  # type: ignore
+        union_model.input1,  # type: ignore
+        union_model.input2,  # type: ignore
     )
-    model |= Buffer()(input=conn, output=IOKey(name="output3"))
+    model.set_values({union_model.input1: (2.0,)})  # type: ignore
+    model |= Buffer()(input=union_model.input1, output=IOKey(name="output3"))  # type: ignore
 
     pm = compile(model=model, backend=backend, jit=False)
     output = pm()
@@ -1374,7 +1347,7 @@ def test_tensor_to_scalar_4():
     # Auto conversion
     auto_model |= Relu()(input="input")
     auto_model += (shp := Shape())
-    auto_model |= Add()(left=shp.output.tensor(), right=IOKey(differantiable=True))
+    auto_model |= Add()(left=shp.output.tensor(), right=IOKey(differentiable=True))
 
     # Manuel conversion
     manual_model = Model()
@@ -1382,7 +1355,7 @@ def test_tensor_to_scalar_4():
     manual_model |= Relu()(input="input")
     manual_model += Shape()
     manual_model += ToTensor()
-    manual_model += Add()(right=IOKey(differantiable=True))
+    manual_model += Add()(right=IOKey(differentiable=True))
 
     backend = TorchBackend()
 
@@ -1404,8 +1377,9 @@ def test_tensor_to_scalar_connect_1():
     axis2 = mean_model_2.axis
     axis3 = mean_model_3.axis
 
-    con = IOKey(connections={axis1, axis2, axis3}, name="axis4", value=(2, 3))
-    model += Mean(axis=TBD)(axis=con)
+    model.merge_connections(axis1, axis2, axis3, name="axis4")
+    model.set_values(axis4=(2, 3))
+    model += Mean(axis=TBD)(axis="axis4")
 
     assert axis1.metadata == axis2.metadata == axis3.metadata
     assert axis1.metadata.value == (2, 3)
@@ -1425,9 +1399,9 @@ def test_tensor_to_scalar_connect_3_error_existing_key():
     model += mean_model_2(axis="axis2")
     model += mean_model_3(axis="axis3")
 
-    con = IOKey(connections={axis1, axis2, axis3}, name="axis2", value=(2, 3))
-
-    model += Mean(axis=TBD)(axis=con)
+    model.merge_connections(axis1, axis2, axis3, name="axis2")
+    model.set_values(axis2=(2, 3))
+    model += Mean(axis=TBD)(axis="axis2")
 
     assert axis1.metadata == axis2.metadata == axis3.metadata
     assert axis3.metadata.key_origin == "axis2"
@@ -1443,8 +1417,8 @@ def test_coercion_1():
     add_model_1 = Add()
     add_model_2 = Add()
 
-    model |= reduce_model_1(input=IOKey("input1", differantiable=True), axis="axis1")
-    model |= reduce_model_2(input=IOKey("input2", differantiable=True), axis="axis2")
+    model |= reduce_model_1(input=IOKey("input1", differentiable=True), axis="axis1")
+    model |= reduce_model_2(input=IOKey("input2", differentiable=True), axis="axis2")
     model |= add_model_1(
         left=reduce_model_1.axis.tensor(), right=reduce_model_2.axis.tensor()
     )
@@ -1484,8 +1458,8 @@ def test_coercion_2():
     reduce_model_1 = Sum(axis=TBD)
     reduce_model_2 = Sum(axis=TBD)
     l_relu = LeakyRelu()
-    model |= reduce_model_1(input=IOKey("input1", differantiable=True), axis="axis1")
-    model |= reduce_model_2(input=IOKey("input2", differantiable=True), axis="axis2")
+    model |= reduce_model_1(input=IOKey("input1", differentiable=True), axis="axis1")
+    model |= reduce_model_2(input=IOKey("input2", differentiable=True), axis="axis2")
     axis1 = reduce_model_1.axis.tensor().sum()
     axis2 = reduce_model_2.axis.tensor().sum()
 
@@ -1537,7 +1511,7 @@ def test_coercion_3():
     )
     model |= (to_list := TensorToList())(input=add_model.output)
     model |= reduce_model(
-        input=IOKey("input", differantiable=True), axis=to_list.output, output="output"
+        input=IOKey("input", differentiable=True), axis=to_list.output, output="output"
     )
 
     pm = compile(model=model, backend=backend, jit=False)
@@ -1565,7 +1539,7 @@ def test_coercion_4():
     )
     model |= (to_list := TensorToList())(input=add_model.output)
     model |= reduce_model(
-        input=IOKey("input", differantiable=True), axis=to_list.output, output="output"
+        input=IOKey("input", differentiable=True), axis=to_list.output, output="output"
     )
 
     pm = compile(model=model, backend=backend, jit=False)
@@ -1585,7 +1559,7 @@ def test_coercion_5():
     model = Model(enforce_jit=False)
     add = Add()
     to_list = TensorToList()
-    model |= add(left=IOKey("left", differantiable=True), right=Tensor([2.0]))
+    model |= add(left=IOKey("left", differentiable=True), right=Tensor([2.0]))
     model |= to_list(input=add.output)
     model |= Buffer()(input=to_list.output.tensor(), output="output")
 
@@ -1634,9 +1608,9 @@ def test_tensor_to_scalar_template_2():
     buff_model_1 = Buffer()
     buff_model_2 = Buffer()
     buff_model_3 = Buffer()
-    model |= buff_model_1(input=IOKey("input1", differantiable=True))
-    model |= buff_model_2(input=IOKey("input2", differantiable=True))
-    model |= buff_model_3(input=IOKey("input3", differantiable=True))
+    model |= buff_model_1(input=IOKey("input1", differentiable=True))
+    model |= buff_model_2(input=IOKey("input2", differentiable=True))
+    model |= buff_model_3(input=IOKey("input3", differentiable=True))
 
     in1 = buff_model_1.output
     in2 = buff_model_2.output
