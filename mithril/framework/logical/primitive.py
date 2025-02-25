@@ -14,7 +14,7 @@
 
 from ... import types
 from .base import BaseKey, BaseModel, ConnectionDataType
-from .model import IOKey, Model
+from .model import Model
 from .operator import Operator
 
 __all__ = ["PrimitiveModel", "OperatorModel"]
@@ -30,19 +30,8 @@ class OperatorModel(Model):
         name: str | None = None,
     ) -> None:
         super().__init__(name=name, enforce_jit=model._jittable)
-        keys = {}
-        for k in model.external_keys:
-            edge = model.conns.all[k].metadata
-            con = IOKey(k, expose=True, differentiable=edge.differentiable)
-            con.metadata = edge
-            keys[k] = con
-        self._extend(model, keys)
-        # self._extend(model, {k: k for k in model.input_keys})
-        # for k in model.conns.input_keys:
-        #     conn_data = self.conns.get_con_by_metadata(model.conns.get_metadata(k))
-        #     self.conns.set_connection_type(conn_data, KeyType.INPUT)
-        # conn_data = self.conns.get_con_by_metadata(model.conns.get_metadata("output"))
-        # self.set_outputs(output=conn_data)
+        self._extend(model, {k: k for k in model.external_keys})
+        self.expose_keys(*model.external_keys)
 
     @property
     def submodel(self) -> Operator:
@@ -52,7 +41,7 @@ class OperatorModel(Model):
 
     def extend(
         self,
-        model: BaseModel | BaseModel,
+        model: BaseModel,
         **kwargs: ConnectionDataType,
     ) -> None:
         if len(self.dag) > 0:

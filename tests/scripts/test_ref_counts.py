@@ -1010,7 +1010,7 @@ def test_deleted_tensors_ref_count_3():
     model |= buffer6(input="input6")
     model.merge_connections(buffer1.input, buffer2.input, buffer3.input, buffer4.output)
     model |= buffer7(input=buffer1.input)
-    model.set_outputs(
+    model.expose_keys(
         output1=buffer1.output,
         output2=buffer2.output,
         output3=buffer3.output,
@@ -1210,7 +1210,7 @@ def test_deleted_edge_ref_count_6():
     three_sigmoid_model |= sigmoid1(input="input1")
     three_sigmoid_model |= sigmoid2(input="input2")
     three_sigmoid_model |= sigmoid3(input="input3")
-    three_sigmoid_model.set_outputs(
+    three_sigmoid_model.expose_keys(
         output1=sigmoid1.output, output2=sigmoid2.output, output3=sigmoid3.output
     )
 
@@ -1218,7 +1218,7 @@ def test_deleted_edge_ref_count_6():
     main_model |= three_sigmoid_model(input1="input1", input2="input2", input3="input3")
     main_model.merge_connections(sigmoid1.output, sigmoid2.input, name="abcd")
     main_model |= sigmoid4(input=main_model.abcd)  # type: ignore
-    main_model.set_outputs(
+    main_model.expose_keys(
         output1=sigmoid1.output,
         output2=sigmoid2.output,
         output3=sigmoid3.output,

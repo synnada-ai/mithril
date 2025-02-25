@@ -317,7 +317,7 @@ def test_10():
     middle = IOKey(name="middle", expose=True)
     model |= Sigmoid()(input=middle, output=IOKey("output"))
     model |= Relu()(input="input", output=middle)
-    model.set_outputs(middle)
+    model.expose_keys(middle)
 
     backend = TorchBackend()
     pm = mithril.compile(model=model, backend=backend, jit=False)

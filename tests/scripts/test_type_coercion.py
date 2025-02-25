@@ -1149,7 +1149,7 @@ def test_connect_7_expose_output():
     )
     conns = {add_model_2.output, model.right}  # type: ignore
     model.merge_connections(*conns, name="abcd")
-    model.set_outputs("abcd")
+    model.expose_keys("abcd")
     model |= (buf := Buffer())(input="abcd", output=IOKey(name="output"))
 
     assert (
