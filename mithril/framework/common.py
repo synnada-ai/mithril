@@ -1026,6 +1026,21 @@ def any_differentiable(value: Any) -> bool:
     return False
 
 
+def convert_to_numeric_value(
+    value: Tensor[int | float | bool] | ScalarValueType,
+) -> ScalarValueType:
+    if isinstance(value, Tensor):
+        return value.value
+    elif isinstance(value, list | tuple):
+        result = [convert_to_numeric_value(item) for item in value]
+        if isinstance(value, tuple):
+            return tuple(result)
+        return result
+    elif isinstance(value, dict):
+        return {key: convert_to_numeric_value(val) for key, val in value.items()}
+    return value
+
+
 class Tensor(Generic[TypeVarTensorType]):
     def __init__(
         self,
@@ -1171,7 +1186,7 @@ class IOHyperEdge:
 
     @property
     def differentiable(self) -> bool:
-        return any_differentiable(self._value)
+        return isinstance(self._value, Tensor) and self._value.differentiable
 
     @property
     def tensors(self) -> set[Tensor[int | float | bool]]:
@@ -1203,6 +1218,8 @@ class IOHyperEdge:
 
     @property
     def is_valued(self) -> bool:
+        # TODO: Update as it can handle mixed type values which contains
+        # both tensors and scalars.
         tensors = self.tensors
         return (
             all(tensor.value is not TBD for tensor in tensors)
@@ -1217,7 +1234,7 @@ class IOHyperEdge:
 
     @property
     def value(self) -> _TensorValueType | ScalarValueType | ToBeDetermined:
-        return self._value.value if isinstance(self._value, Tensor) else self._value
+        return convert_to_numeric_value(self._value)
 
     @property
     def shape(self) -> ShapeNode | None:
@@ -1393,7 +1410,7 @@ class IOHyperEdge:
                 updates.value_updates.add(self)
             # Update new type without automatic tensor value creation.
             updates |= self.set_type(find_type(self._value), create_tensor=False)
-            if self.value != TBD:
+            if self.is_valued:
                 self.set_differentiability(False)
         return updates
 

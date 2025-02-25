@@ -3605,41 +3605,41 @@ def scalar_item_constraints(
     output: IOHyperEdge, input: IOHyperEdge, index: IOHyperEdge
 ) -> ConstrainResultType:
     assert (
-        isinstance(output.value, ToBeDetermined)
-        or type(output.value) is int
-        or type(output.value) is float
-        or type(output.value) is tuple
-        or type(output.value) is list
+        isinstance(output._value, ToBeDetermined)
+        or type(output._value) is int
+        or type(output._value) is float
+        or type(output._value) is tuple
+        or type(output._value) is list
     )
 
     assert (
-        isinstance(input.value, ToBeDetermined)
-        or type(input.value) is tuple
-        or type(input.value) is list
+        isinstance(input._value, ToBeDetermined)
+        or type(input._value) is tuple
+        or type(input._value) is list
     )
 
     assert (
-        isinstance(index.value, ToBeDetermined)
-        or type(index.value) is int
-        or type(index.value) is slice
+        isinstance(index._value, ToBeDetermined)
+        or type(index._value) is int
+        or type(index._value) is slice
     )
 
     updates = Updates()
     status = False
     # Forward value propagation.
-    if not isinstance(input.value, ToBeDetermined) and not isinstance(
-        index.value, ToBeDetermined
+    if not isinstance(input._value, ToBeDetermined) and not isinstance(
+        index._value, ToBeDetermined
     ):
-        updates |= output.set_value(input.value[index.value])
+        updates |= output.set_value(input._value[index._value])
         status = True
-    elif not isinstance(input.value, ToBeDetermined) and isinstance(
-        output.value, int | float | bool
+    elif not isinstance(input._value, ToBeDetermined) and isinstance(
+        output._value, int | float | bool
     ):
         # Try to infer index value from input-output values. If
         # output value appears only once in input sequence, write its
         # index as the value of index argument.
-        if input.value.count(output.value) == 1:
-            updates |= index.set_value(input.value.index(output.value))
+        if input._value.count(output._value) == 1:
+            updates |= index.set_value(input._value.index(output._value))
             status = True
     return status, updates
 
@@ -3649,15 +3649,15 @@ def to_tuple_constraints(
 ) -> ConstrainResultType:
     updates = Updates()
     status = False
-    assert isinstance(output.value, ToBeDetermined) or type(output.value) is tuple
+    assert isinstance(output._value, ToBeDetermined) or type(output._value) is tuple
     # Forward value propagation.
-    values = [arg.value for arg in args]
+    values = [arg._value for arg in args]
     if all([val is not TBD for val in values]):
         updates |= output.set_value(tuple(values))
         status = True
     # Backward value propagation.
-    elif not isinstance(output.value, ToBeDetermined):
-        for val, arg in zip(output.value, args, strict=False):
+    elif not isinstance(output._value, ToBeDetermined):
+        for val, arg in zip(output._value, args, strict=False):
             updates |= arg.set_value(val)
         status = True
     return status, updates
@@ -3666,10 +3666,10 @@ def to_tuple_constraints(
 def to_list_constraints(output: IOHyperEdge, *args: IOHyperEdge) -> ConstrainResultType:
     updates = Updates()
     status = False
-    assert isinstance(output.value, ToBeDetermined) or type(output.value) is list
+    assert isinstance(output._value, ToBeDetermined) or type(output._value) is list
     # Backward value propagation.
-    if not isinstance(output.value, ToBeDetermined):
-        for val, arg in zip(output.value, args, strict=False):
+    if not isinstance(output._value, ToBeDetermined):
+        for val, arg in zip(output._value, args, strict=False):
             updates |= arg.set_value(val)
         status = True
     else:
@@ -4007,7 +4007,7 @@ def tuple_converter_constraint(
 ) -> ConstrainResultType:
     status = False
     updates = Updates()
-    input_value = input.value
+    input_value = input._value
     if input_value is not TBD:
         if isinstance(input_value, int):
             updates |= output.set_value((input_value, input_value))
@@ -4015,7 +4015,7 @@ def tuple_converter_constraint(
         if isinstance(input_value, tuple):
             updates |= output.set_value(input_value)
             status = True
-    if output.value is not TBD:
+    if output.is_valued:
         status = True
     return status, updates
 
@@ -4065,7 +4065,7 @@ def buffer_constraint(output: IOHyperEdge, input: IOHyperEdge) -> ConstrainResul
             )
             updates |= non_typed.set_type(typed.edge_type)
             updates |= non_typed.set_value(typed._value)
-            if typed.is_tensor or typed.value is not TBD:
+            if typed.is_tensor or typed.is_valued:
                 status = True
         else:
             # both are not polymorphic

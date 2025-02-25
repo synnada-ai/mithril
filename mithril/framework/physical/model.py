@@ -42,6 +42,7 @@ from ..common import (
     UniadicRecord,
     Updates,
     Variadic,
+    any_differentiable,
     create_shape_map,
     get_shapes,
     get_summary,
@@ -417,7 +418,7 @@ class PhysicalModel(GenericDataType[DataType]):
         output_key = Operator.output_key
         output_edge = model_data[output_key]
         input_diffs = [
-            value.differentiable
+            any_differentiable(value._value)
             for key, value in model_data.items()
             if key != output_key
         ]
@@ -545,7 +546,7 @@ class PhysicalModel(GenericDataType[DataType]):
             # TODO: If conn_edge is None, it means that the key is unused in data_store
             # but not unnecessary in flat_graph. This case should be handled when
             # flat_graph - data_store integration is updated.
-            if not (conn_edge is None or conn_edge.differentiable):
+            if not (conn_edge is None or any_differentiable(conn_edge._value)):
                 ignored = {_key}
                 if (ignored_alias := _reversed_out_dict.get(_key)) is not None:
                     ignored.add(ignored_alias)

@@ -113,7 +113,7 @@ class StaticDataStore(Generic[DataType]):
         )
         for data in updated_inter_data:
             key = self.intermediate_non_differentiables.inverse[data]
-            if key in self.data_values or data.value is not TBD:
+            if key in self.data_values or data.is_valued:
                 if key in self.data_values:
                     raise KeyError(
                         f"'{key}' key can not be an intermediate and cached key "

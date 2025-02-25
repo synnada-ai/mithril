@@ -167,12 +167,8 @@ class BaseModel:
                     "Given connections are both output connections. Multi-write error!"
                 )
 
-        local_val = (
-            local_connection.metadata.value
-            if local_connection.metadata.is_valued
-            else TBD
-        )
-        global_val = connection.metadata.value if connection.metadata.is_valued else TBD
+        local_val = local_connection.metadata.value
+        global_val = connection.metadata.value
 
         if conn_is_output and not local_input:
             # Check if 2 connections are both output of any models.
@@ -181,8 +177,7 @@ class BaseModel:
             )
         elif (
             local_input
-            and local_val is not TBD
-            # and global_val is not TBD
+            and local_connection.metadata.is_valued
             and conn_is_output
             and global_val != local_val
         ):
@@ -191,7 +186,11 @@ class BaseModel:
                 "to an output connection in the extended model. "
                 "Multi-write error!"
             )
-        elif not local_input and global_val is not TBD and local_val != global_val:
+        elif (
+            not local_input
+            and connection.metadata.is_valued
+            and local_val != global_val
+        ):
             raise ValueError(
                 "A valued connection of the extended model tries to write "
                 "to an output connection of the extending model. "
@@ -246,7 +245,7 @@ class BaseModel:
         is_input = local_key in model.input_keys
         local_connection = model.conns.get_connection(local_key)
         assert local_connection is not None, "Connection is not found!"
-        is_not_valued = local_connection.metadata.value is TBD
+        is_not_valued = not local_connection.metadata.is_valued
 
         d_map = self.dependency_map.local_output_dependency_map
 
@@ -362,7 +361,7 @@ class BaseModel:
         if (
             local_connection in model.conns.cins
             and con_obj in self.conns.input_connections
-            and con_obj.metadata.value is TBD
+            and not con_obj.metadata.is_valued
         ):
             self.conns.cins.add(con_obj)
 

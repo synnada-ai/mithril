@@ -35,6 +35,7 @@ from ..common import (
     Updates,
     UpdateType,
     ValueType,
+    any_differentiable,
     is_type_adjustment_required,
 )
 from ..logical.model import Connection
@@ -451,7 +452,7 @@ class FlatGraph(GenericDataType[DataType]):
 
             # Extract value from data or static_keys
             value: DataType | AllValueType
-            if conn.key in data and data[conn.key].value is not TBD:
+            if conn.key in data and data[conn.key].is_valued:
                 value = data[conn.key].value
             else:
                 value = constant_keys.get(conn.key, TBD)
@@ -894,7 +895,7 @@ class FlatGraph(GenericDataType[DataType]):
             raise Exception("Some keys are already in data store!")
         self.data_store._all_data |= data
         for key, value in data.items():
-            if not value.is_non_diff:
+            if any_differentiable(value._value):
                 continue
 
             # Distribute non-differentiable keys into 3 attributes using
@@ -907,12 +908,12 @@ class FlatGraph(GenericDataType[DataType]):
                 self.backend.is_manualgrad
                 and key.endswith("_cache")
                 and key not in self.input_keys
-            ) or (key in self.input_keys and value.value is not TBD):
+            ) or (key in self.input_keys and value.is_valued):
                 self.data_store._set_data_value(key, value)
             elif key in self.input_keys:
                 self.data_store._runtime_static_keys.add(key)
             else:
-                if value.value is not TBD:
+                if value.is_valued:
                     self.data_store._set_data_value(key, value)
                 else:
                     self.data_store.intermediate_non_differentiables[key] = value
