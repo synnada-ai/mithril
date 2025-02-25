@@ -540,7 +540,7 @@ class Model(BaseModel):
             raise AttributeError("Model is frozen and can not be extended!")
 
         for key, value in kwargs.items():
-            _value = value._name if isinstance(value, ConnectionData) else value
+            _value = value.get_key() if isinstance(value, ConnectionData) else value
 
             if isinstance(_value, str) and _value == "":
                 if key in model.input_keys:
@@ -551,7 +551,7 @@ class Model(BaseModel):
                     )
 
                 if isinstance(value, IOKey):
-                    value._name = None
+                    value.set_key(None)
                 else:
                     kwargs[key] = _value  # type: ignore
             kwargs[key] = self._unroll_template(kwargs[key])  # type: ignore
