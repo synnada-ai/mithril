@@ -1256,7 +1256,7 @@ class IOHyperEdge:
         if isinstance(value, Tensor):
             # Add self to referees of value and shape.
             value.referees.discard(edge)
-        elif isinstance(value, Sequence) and not isinstance(value, str):
+        elif isinstance(value, tuple | list):
             # If value is a Sequence, update all its values.
             for val in value:
                 IOHyperEdge._discard_edge_from_tensors(edge, val)
