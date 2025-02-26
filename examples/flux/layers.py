@@ -112,13 +112,11 @@ def timestep_embedding(
 
     args = input.cast(dtype=ml.float32) * freqs[None]  # type: ignore[attr-defined]
 
-    block |= Concat(2, axis=-1)(
-        input1=args.cos(), input2=args.sin(), output="embedding"
-    )
+    block |= Concat(axis=-1)(input=[args.cos(), args.sin()], output="embedding")
 
     if dim % 2:
         block |= ZerosLike()(block.embedding[:, :1], output="zeros_like_out")  # type: ignore[attr-defined]
-        block |= Concat(2, axis=-1)(input1="embedding", input2="zeros_like_out")
+        block |= Concat(axis=-1)(input=[block.embedding, block.zeros_like_out])  # type: ignore[attr-defined]
         block |= Cast()(
             input="zeros_like_out", dtype=input.dtype(), output=IOKey("output")
         )
@@ -260,9 +258,9 @@ def double_stream_block(
     )
     txt_q, txt_k = block.txt_q_out, block.txt_k_out  # type: ignore[attr-defined]
 
-    block |= Concat(axis=2, n=2)(input1=txt_q, input2=img_q, output=IOKey("q_concat"))
-    block |= Concat(axis=2, n=2)(input1=txt_k, input2=img_k, output=IOKey("k_concat"))
-    block |= Concat(axis=2, n=2)(input1=txt_v, input2=img_v, output=IOKey("v_concat"))
+    block |= Concat(axis=2)(input=[txt_q, img_q], output="q_concat")
+    block |= Concat(axis=2)(input=[txt_k, img_k], output="k_concat")
+    block |= Concat(axis=2)(input=[txt_v, img_v], output="v_concat")
 
     block |= attention()(q="q_concat", k="k_concat", v="v_concat", pe=pe, output="attn")
     # TODO: use'[:, txt.shape[1] :]' when fixed.
@@ -355,7 +353,7 @@ def single_stream_block(
     )
     block |= attention()(q="q_out", k="k_out", v=v, pe=pe, output="attn")
     block |= Gelu(approximate=True)(input=mlp, output="mlp_act")
-    block |= Concat(n=2, axis=2)(input1="attn", input2="mlp_act", output="concat_out")
+    block |= Concat(axis=2)(input=[block.attn, block.mlp_act], output="concat_out")  # type: ignore[attr-defined]
     block |= Linear(hidden_size, name="linear2")(input="concat_out", output="lin2_out")
     block |= Buffer()(input + block.mod[2] * block.lin2_out, output=IOKey("output"))  # type: ignore[attr-defined]
 
@@ -397,8 +395,9 @@ def embed_nd(theta: int, axes_dim: list[int], *, name: str | None = None) -> Mod
         rope_B = rope(axes_dim[i], theta)
         block |= rope_B(input=input[..., i], output=f"out{i}")
 
-    block |= Concat(n=len(axes_dim), axis=-3)(
-        **{f"input{i+1}": f"out{i}" for i in range(len(axes_dim))}, output="concat_out"
+    block |= Concat(axis=-3)(
+        input=[getattr(block, f"out{i}") for i in range(len(axes_dim))],
+        output="concat_out",
     )
 
     block |= Buffer()(block.concat_out[:, None], output=IOKey("output"))  # type: ignore [attr-defined]
@@ -420,11 +419,13 @@ def rope(dim: int, theta: int, *, name: str | None = None) -> Model:
     out_shape = out.shape
     B, N, D = out_shape[0], out_shape[1], out_shape[2]
 
-    block |= Concat(n=4, axis=-1)(
-        input1=out.cos()[..., None],  # type: ignore
-        input2=-out.sin()[..., None],  # type: ignore
-        input3=out.sin()[..., None],  # type: ignore
-        input4=out.cos()[..., None],  # type: ignore
+    block |= Concat(axis=-1)(
+        input=[
+            out.cos()[..., None],  # type: ignore
+            -out.sin()[..., None],  # type: ignore
+            out.sin()[..., None],  # type: ignore
+            out.cos()[..., None],  # type: ignore
+        ],
         output="concat_out",
     )
     rope_shape = (B, N, D, 2, 2)

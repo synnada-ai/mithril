@@ -49,6 +49,7 @@ class Operator(BaseModel):
             if isinstance(value, ConnectionData) and value.value_shape is not None
         }
         shapes = create_shape_map(shape_templates, self.constraint_solver)
+        tensor_set: set[Tensor[int | float | bool]] = set()
         data_set: set[IOHyperEdge] = set()
         is_diff = False
         output_data: IOHyperEdge | None = None
@@ -77,10 +78,11 @@ class Operator(BaseModel):
         if isinstance(output_data, IOHyperEdge) and isinstance(
             output_data.edge_type, Tensor
         ):
-            output_data.differentiable = is_diff
+            # output_data.differentiable = is_diff
+            output_data.set_differentiablity(is_diff)
 
         # Initially run all given tensors' constraints
-        self.constraint_solver.update_shapes(Updates(data_set))
+        self.constraint_solver.update_shapes(Updates(tensor_set))
 
         input_conns = OrderedSet(conn for conn in self.conns.input_connections)
         out_conn = self.conns.get_connection("output")

@@ -31,15 +31,11 @@ from ..framework.common import (
     get_shapes,
     get_summary_shapes,
 )
-from ..framework.logical.base import (
-    BaseKey,
-    BaseModel,
-    ConnectionData,
-    ConnectionDataType,
-)
+from ..framework.logical.base import BaseModel, ConnectionDataType
 from ..framework.logical.model import (
     Connection,
     ExtendInfo,
+    ExtendTemplate,
     IOKey,
     Model,
 )
@@ -118,10 +114,10 @@ class TrainModel(Model):
         self.metric_keys: list[str] = []
         self.loss_combiner: BaseModel = Sum()
         self.reg_coef_map: dict[
-            float | Tensor[int | float | bool], set[ConnectionData]
+            float | Tensor[int | float | bool], set[Connection]
         ] = {}
-        self.geomean_map: dict[str, list[tuple[ConnectionData, float]]] = {}
-        self.reduce_inputs: dict[str, list[tuple[ConnectionData, ConnectionData]]] = {}
+        self.geomean_map: dict[str, list[tuple[Connection, float]]] = {}
+        self.reduce_inputs: dict[str, list[tuple[Connection, Connection]]] = {}
 
     def __add__(self, model: ExtendInfo | BaseModel) -> Self:
         """This function allows models to be added sequentially via "+=" operator.
@@ -204,20 +200,19 @@ class TrainModel(Model):
 
         is_loss_connected = False
         for value in kwargs.values():
-            if (isinstance(value, ConnectionData) and value.model is not None) or (
+            if (isinstance(value, Connection) and value.model is not None) or (
                 isinstance(value, str) and (value in self.conns.output_keys)
             ):
                 is_loss_connected = True
-                if isinstance(value, ConnectionData) and value.model is not None:
+                if isinstance(value, Connection):
                     conn = value
                 else:
                     if value not in self.conns.all:
                         raise KeyError("Key does not belong to the Model!")
                     else:
-                        assert isinstance(value, str)
                         _conn = self.conns.get_connection(value)
                         assert _conn is not None
-                        conn = _conn
+                        conn = _conn  # type: ignore
                 if conn.metadata not in outputs_conns_metadata:
                     raise KeyError(
                         "Given key to the add_loss model should be one of the"
@@ -247,7 +242,7 @@ class TrainModel(Model):
         # TODO: Currently kwargs contains only input keys of
         # first (loss) model.
         # We may want to add output key for the final model's output key.
-        reduce_inputs: list[tuple[ConnectionData, ConnectionData]] = []
+        reduce_inputs: list[tuple[Connection, Connection]] = []
         for key in kwargs:
             if key in loss_model.conns.output_keys:
                 raise KeyError("Output of the loss model cannot be defined!")
@@ -265,7 +260,7 @@ class TrainModel(Model):
                 # self.extend(m, **{in_key: prev_out_key.conn, out_key: key_name})
                 info: dict[str, ConnectionDataType] = {
                     in_key: prev_out_key,
-                    out_key: BaseKey(key_name),
+                    out_key: IOKey(key_name),
                 }
                 self._extend(m, info)
             else:
@@ -274,7 +269,7 @@ class TrainModel(Model):
             if isinstance(m, Min | Max | Mean):
                 if (axis := m.conns.get_connection("axis")) is None:
                     raise KeyError("Reduce model should have axis key.")
-                reduce_inputs.append((prev_out_key, axis))
+                reduce_inputs.append((prev_out_key, axis))  # type: ignore
             prev_out_key = self.get_single_output(m)
 
         # Apply coef
@@ -283,7 +278,7 @@ class TrainModel(Model):
             kwargs = {
                 "left": prev_out_key,
                 "right": coef,
-                "output": BaseKey(name=key_name),
+                "output": IOKey(name=key_name),
             }
             if key_name is None:
                 kwargs.pop("output")
@@ -392,7 +387,7 @@ class TrainModel(Model):
 
             provided_outputs: set[IOHyperEdge] = set()
             for value in kwargs.values():
-                if isinstance(value, ConnectionData):
+                if isinstance(value, Connection):
                     provided_outputs.add(value.metadata)
                 elif value in self.conns.all:
                     _con = self.conns.get_connection(value)
@@ -418,14 +413,14 @@ class TrainModel(Model):
                     keywords[key] = value
 
             self._extend(model, keywords)
-            if isinstance(outer_key := kwargs[reg_str], ConnectionData):
+            if isinstance(outer_key := kwargs[reg_str], Connection):
                 outer_key = outer_key.key
 
             if (out_con := model.conns.get_connection("output")) is None:
                 raise KeyError("Given key does not belong to the Model!")
 
-            self.geomean_map.setdefault(outer_key, []).append((out_con, coef))
-            self.reg_coef_map.setdefault(coef, set()).add(out_con)
+            self.geomean_map.setdefault(outer_key, []).append((out_con, coef))  # type: ignore
+            self.reg_coef_map.setdefault(coef, set()).add(out_con)  # type: ignore
 
     @check_finalized
     def add_metric(
@@ -456,7 +451,7 @@ class TrainModel(Model):
                 # self.extend(m, **{in_key: prev_out_key, out.key: key_name})
                 info: dict[str, ConnectionDataType] = {
                     in_key: prev_out_key,
-                    out.key: BaseKey(name=key_name),
+                    out.key: IOKey(name=key_name),
                 }
                 self._extend(m, info)
             else:
@@ -479,16 +474,12 @@ class TrainModel(Model):
             raise ValueError("Requires at least 1 attached loss!")
         loss_output_key = LossKey if self.reg_coef_map else FinalCost
         if (num_of_loss_keys := len(self.loss_keys)) > 1:
-            concat_model = Concat(n=num_of_loss_keys, axis=None)
-            concat_kwargs: dict[Any, Any] = {}
-            idx = 0
-            for conn in concat_model.conns.input_connections:
-                if conn.metadata.is_tensor:
-                    concat_kwargs[conn.key] = self.conns.all[
-                        list(self.loss_keys.values())[idx]
-                    ]
-                    idx += 1
-            self._extend(concat_model, concat_kwargs)
+            concat_model = Concat(axis=None)
+            losses = [
+                self.conns.get_connection(key).atleast_1d()  # type: ignore
+                for key in self.loss_keys.values()
+            ]
+            self._extend(concat_model, {"input": losses})
             self._extend(
                 self.loss_combiner,
                 {"input": concat_model.output, "output": IOKey(name=loss_output_key)},
@@ -515,14 +506,14 @@ class TrainModel(Model):
             self._add_geo_mean()
             self._add_loss_combiner()
             if self.reg_coef_map:
-                reg_concat_args: list[str | ConnectionData] = [LossKey]
+                loss_conn = self.conns.get_connection(LossKey)
+                assert loss_conn is not None
+                reg_concat_args: list[ExtendTemplate | Connection] = [
+                    loss_conn.atleast_1d()  # type: ignore
+                ]
                 for coef, o_set in self.reg_coef_map.items():
-                    concat_inputs = {
-                        f"input{idx + 1}": o for idx, o in enumerate(o_set)
-                    }
-                    self._extend(
-                        concat := Concat(n=len(o_set), axis=None), concat_inputs
-                    )
+                    concat_input = [o.atleast_1d() for o in o_set]
+                    self._extend(concat := Concat(axis=None), {"input": concat_input})
                     self._extend(add := Sum(), {"input": concat.output})
                     self._extend(
                         mult := Multiply(), {"left": add.output, "right": coef}
@@ -530,16 +521,15 @@ class TrainModel(Model):
                     reg_concat_args.append(mult.output)
                 # TODO: add concat and sum if len(reg_concat_args) > 1
                 self._extend(
-                    reg_concat := Concat(n=len(reg_concat_args), axis=None),
-                    {f"input{idx + 1}": key for idx, key in enumerate(reg_concat_args)},
+                    reg_concat := Concat(axis=None), {"input": reg_concat_args}
                 )
                 self._extend(
                     Sum(), {"input": reg_concat.output, "output": IOKey(name=FinalCost)}
                 )
                 self.set_cout(FinalCost)
-                loss_con = self.conns.get_connection(LossKey)
-                assert loss_con is not None
-                self.conns.set_connection_type(loss_con, KeyType.INTERNAL)
+                # loss_con = self.conns.get_connection(LossKey)
+                # assert loss_con is not None
+                self.conns.set_connection_type(loss_conn, KeyType.INTERNAL)
             self._freeze()
 
         self.dependency_map.update_all_keys()
@@ -710,8 +700,8 @@ class TrainModel(Model):
         # Find all loss / reg_key dependencies.
         # geo_mappings: dict[Connection, list[tuple[Connection, Connection]]] = {}
         geo_mappings: dict[
-            tuple[ConnectionData, float],
-            list[list[tuple[ConnectionData, ConnectionData]]],
+            tuple[Connection, float],
+            list[list[tuple[Connection, Connection]]],
         ] = {}
         # Find all loss dependencies with corresponding regularization keys.
         for key, value in self.loss_keys.items():
@@ -728,22 +718,23 @@ class TrainModel(Model):
                     geo_mappings[reg_info].append(self.reduce_inputs[key])
 
         for reg_info, loss_connections in geo_mappings.items():
-            final_outputs: list[ConnectionData | Tensor[int]] = []
+            final_outputs: list[Connection | Tensor[int]] = []
             for reduce in loss_connections:
                 final_outputs.append(self._add_reduce_sizes(reduce))
             if final_outputs:
                 # Apply geo-mean logic here
                 final_output = final_outputs[0]
                 if (n_final_outputs := len(final_outputs)) > 0:
-                    concat_model = Concat(n=n_final_outputs, axis=None)
-                    concat_kwargs: dict[str, Tensor[int] | ConnectionData] = {}
-                    idx = 0
-                    for conn in concat_model.conns.input_connections:
-                        if conn.metadata.is_tensor:
-                            concat_kwargs[conn.key] = final_outputs[idx]
-                            idx += 1
-
-                    self._extend(concat_model, concat_kwargs)
+                    concat_model = Concat(axis=None)
+                    self._extend(
+                        concat_model,
+                        {
+                            "input": [
+                                out.atleast_1d() if isinstance(out, Connection) else out
+                                for out in final_outputs
+                            ]
+                        },
+                    )
                     self._extend(prod := Prod(), {"input": concat_model.output})
                     final_output = prod.output
 
@@ -766,32 +757,24 @@ class TrainModel(Model):
                 self.reg_coef_map[coef].remove(reg_con)
                 out_con = divide.conns.get_connection("output")
                 assert out_con is not None
-                self.reg_coef_map[coef].add(out_con)
+                self.reg_coef_map[coef].add(out_con)  # type: ignore
 
     def _add_reduce_sizes(
-        self, reduce_list: list[tuple[ConnectionData, ConnectionData]]
-    ) -> ConnectionData | Tensor[int]:
-        final_output: ConnectionData | Tensor[int] = Tensor(1)
-        sizes: list[ConnectionData] = []
+        self, reduce_list: list[tuple[Connection, Connection]]
+    ) -> Connection | Tensor[int]:
+        final_output: Connection | Tensor[int] = Tensor(1)
+        sizes: list[Connection] = []
         for input, dim in reduce_list:
             m = _create_size()
             self._extend(m, {"input": input, "dim": dim})
             out_con = m.conns.get_connection("output")
             assert out_con is not None
-            sizes.append(out_con)
-            final_output = out_con
+            sizes.append(out_con.atleast_1d())  # type: ignore
+            final_output = out_con  # type: ignore
 
-        if (num_of_sizes := len(sizes)) > 0:
-            concat_model = Concat(n=num_of_sizes, axis=None)
-            concat_kwargs: dict[str, int | ConnectionData] = {}
-            idx = 0
-            for conn in concat_model.conns.input_connections:
-                if conn.metadata.is_tensor:
-                    concat_kwargs[conn.key] = sizes[idx]
-                    idx += 1
-            # self._extend(concat_model, concat_kwargs)
-            # self._extend(prod := Prod(), {"input": concat_model.output})
-            self |= concat_model(**concat_kwargs)
-            self |= (prod := Prod())(input=concat_model.output)
+        if len(sizes) > 0:
+            concat_model = Concat(axis=None)
+            self._extend(concat_model, {"input": sizes})
+            self._extend(prod := Prod(), {"input": concat_model.output})
             final_output = prod.output
         return final_output

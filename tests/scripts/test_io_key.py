@@ -77,16 +77,20 @@ def assert_model_keys(
 
 
 def compare_evaluate(
-    model1: Model, model2: Model, backend: TorchBackend, data: dict | None = None
+    model1: Model,
+    model2: Model,
+    backend: TorchBackend,
+    data: dict | None = None,
+    inference=False,
 ):
     if data is None:
         data = {}
 
-    pm1 = mithril.compile(model=model1, backend=backend)
+    pm1 = mithril.compile(model=model1, backend=backend, inference=inference)
 
     params: dict = pm1.randomize_params()
 
-    pm2 = mithril.compile(model=model2, backend=backend)
+    pm2 = mithril.compile(model=model2, backend=backend, inference=inference)
 
     outputs1 = pm1.evaluate(params, data)
     outputs2 = pm2.evaluate(params, data)
@@ -301,7 +305,7 @@ def test_9():
     model |= Sigmoid()(input=out, output=IOKey("output"))
 
     backend = TorchBackend()
-    pm = mithril.compile(model=model, backend=backend, jit=False)
+    pm = mithril.compile(model=model, backend=backend, jit=False, inference=True)
 
     res = pm.evaluate(data={"input": backend.ones(5, 5)})
     out1 = res["output"]
@@ -320,7 +324,7 @@ def test_10():
     model.expose_keys(middle)
 
     backend = TorchBackend()
-    pm = mithril.compile(model=model, backend=backend, jit=False)
+    pm = mithril.compile(model=model, backend=backend, jit=False, inference=True)
     res = pm.evaluate(data={"input": backend.ones(5, 5)})
     out = res["output"]
     assert isinstance(out, torch.Tensor)
@@ -338,7 +342,7 @@ def test_11():
     model |= Sigmoid()(input=IOKey(name="out", expose=True), output=IOKey("output"))
 
     backend = TorchBackend()
-    pm = mithril.compile(model=model, backend=backend, jit=False)
+    pm = mithril.compile(model=model, backend=backend, jit=False, inference=True)
 
     res = pm.evaluate(data={"input": backend.ones(5, 5)})
     out = res["output"]
@@ -355,7 +359,7 @@ def test_12():
     model |= Relu()(input="input", output=IOKey(name="middle", expose=False))
 
     backend = TorchBackend()
-    pm = mithril.compile(model=model, backend=backend, jit=False)
+    pm = mithril.compile(model=model, backend=backend, jit=False, inference=True)
     res = pm.evaluate(data={"input": backend.ones(5, 5)})
     out = res["output"]
     assert isinstance(out, torch.Tensor)
@@ -375,7 +379,7 @@ def test_13():
     )
 
     backend = TorchBackend()
-    pm = mithril.compile(model=model, backend=backend, jit=False)
+    pm = mithril.compile(model=model, backend=backend, jit=False, inference=True)
     res = pm.evaluate(data={"input": backend.ones(5, 5)})
     out1 = res["output1"]
     assert isinstance(out1, torch.Tensor)
@@ -757,7 +761,7 @@ def test_iokey_tensor_input_all_args():
 
         # if code reaches this far. It is expected model to be compiled and evaluated
         # successfully.
-        pm = mithril.compile(model=model, backend=backend)
+        pm = mithril.compile(model=model, backend=backend, inference=True)
         if value is TBD:
             data = {"left": backend.array([[2.0]]), "right": backend.array([[3.0]])}
         else:
@@ -958,7 +962,9 @@ def test_iokey_scalar_input_all_args():
 
         # if code reaches this far. It is expected model to be compiled and evaluated
         # successfully.
-        pm = mithril.compile(model=model, backend=backend, safe_names=False)
+        pm = mithril.compile(
+            model=model, backend=backend, safe_names=False, inference=True
+        )
         data: dict = {
             "input": backend.ones(2, 2),
         }
@@ -1058,7 +1064,7 @@ def test_iokey_tensor_output_all_args():
 
         # if code reaches this far. It is expected model to be compiled and
         # evaluated successfully.
-        pm = mithril.compile(model=model, backend=backend)
+        pm = mithril.compile(model=model, backend=backend, inference=True)
         data = {"left": backend.array([[2.0]]), "right": backend.array([[3.0]])}
         if name is not None:  # and expose:
             ref_outputs = {"output1": backend.array([[5.0]])}
@@ -1093,7 +1099,9 @@ def test_compare_models_1():
         "input2": backend.ones(5, 5),
         "input3": backend.ones(5, 5),
     }
-    compare_evaluate(model1=model1, model2=model2, backend=backend, data=data)
+    compare_evaluate(
+        model1=model1, model2=model2, backend=backend, data=data, inference=True
+    )
 
 
 def test_compare_models_2():
@@ -1147,7 +1155,9 @@ def test_compare_models_3():
     model2.set_shapes(input=[2, 2])
 
     data = {"input": backend.ones(2, 2)}
-    compare_evaluate(model1=model1, model2=model2, backend=backend, data=data)
+    compare_evaluate(
+        model1=model1, model2=model2, backend=backend, data=data, inference=True
+    )
 
 
 def test_compare_models_4():
@@ -1175,7 +1185,9 @@ def test_compare_models_4():
     model2.set_shapes(input=[2, 2])
 
     data = {"input": backend.ones(2, 2)}
-    compare_evaluate(model1=model1, model2=model2, backend=backend, data=data)
+    compare_evaluate(
+        model1=model1, model2=model2, backend=backend, data=data, inference=True
+    )
 
 
 def test_compare_models_5():
@@ -1198,7 +1210,9 @@ def test_compare_models_5():
     model2.set_shapes(input=[2, 2])
 
     data = {"input": backend.ones(2, 2)}
-    compare_evaluate(model1=model1, model2=model2, backend=backend, data=data)
+    compare_evaluate(
+        model1=model1, model2=model2, backend=backend, data=data, inference=True
+    )
 
 
 def test_iokey_shape_error_1():
@@ -1238,7 +1252,7 @@ def test_iokey_template_1():
 
     backend = TorchBackend()
 
-    pm = mithril.compile(model=model, backend=backend, jit=False)
+    pm = mithril.compile(model=model, backend=backend, jit=False, inference=True)
     out = pm.evaluate(
         data={"left": backend.array([2.0]), "right": backend.array([3.0])}
     )
@@ -1260,7 +1274,7 @@ def test_iokey_template_2():
 
     backend = TorchBackend()
 
-    pm = mithril.compile(model=model, backend=backend, jit=False)
+    pm = mithril.compile(model=model, backend=backend, jit=False, inference=True)
     res = pm.evaluate(
         data={"left": backend.array([2.0]), "right": backend.array([3.0])}
     )
@@ -1281,7 +1295,7 @@ def test_iokey_template_3():
 
     backend = TorchBackend()
 
-    pm = mithril.compile(model=model, backend=backend, jit=False)
+    pm = mithril.compile(model=model, backend=backend, jit=False, inference=True)
     out = pm.evaluate(data={"left": backend.array([2.0])})
     expected_result = np.array([5.0])
 
@@ -1300,7 +1314,7 @@ def test_iokey_template_4():
 
     backend = TorchBackend()
 
-    pm = mithril.compile(model=model, backend=backend, jit=False)
+    pm = mithril.compile(model=model, backend=backend, jit=False, inference=True)
     out = pm.evaluate(data={"left": backend.ones((9, 8, 7))})
     expected_result = 9
 
@@ -1319,7 +1333,7 @@ def test_iokey_template_5():
 
     backend = TorchBackend()
 
-    pm = mithril.compile(model=model, backend=backend, jit=False)
+    pm = mithril.compile(model=model, backend=backend, jit=False, inference=True)
     out = pm.evaluate(data={"left": [1, 2, 3]})
     expected_result = np.array([1, 2, 3])
 
@@ -1336,7 +1350,7 @@ def test_iokey_template_6():
     buff.set_types(input=Tensor)
     model += buff(input[0], IOKey("output"))
     backend = TorchBackend()
-    pm = mithril.compile(model=model, backend=backend, jit=False)
+    pm = mithril.compile(model=model, backend=backend, jit=False, inference=True)
 
     pm._input_keys = {"input"}
     pm._output_keys = {"output"}

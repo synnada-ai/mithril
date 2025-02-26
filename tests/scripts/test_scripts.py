@@ -341,7 +341,7 @@ def test_recursive_model():
     model3 |= sum3(left="input", right=model2.output, output="output")  # type: ignore
 
     comp_model = mithril.compile(
-        model=model3, backend=NumpyBackend(dtype=mithril.float64)
+        model=model3, backend=NumpyBackend(dtype=mithril.float64), inference=True
     )
     assert comp_model.shapes["output"] == [2, 3, 4, 5, 6, 7]
 
@@ -369,7 +369,9 @@ def test_shape():
     model |= model2(input1=model1.output1, input2=model1.output2)  # type: ignore
     model |= model3(input2="in3", output1=model1.input1, output2=model1.input2)  # type: ignore
 
-    comp_model = mithril.compile(model, backend=NumpyBackend(dtype=mithril.float64))
+    comp_model = mithril.compile(
+        model, backend=NumpyBackend(dtype=mithril.float64), inference=True
+    )
     assert comp_model.shapes["output"] == [5, 6, 8, 9, 10]
 
 
@@ -456,7 +458,10 @@ def test_flatten1():
 
     shapes = {"input": [2, 3, 4, 5, 3, 4, 5]}
     c_model = mithril.compile(
-        model=model, backend=NumpyBackend(dtype=mithril.float64), shapes=shapes
+        model=model,
+        backend=NumpyBackend(dtype=mithril.float64),
+        shapes=shapes,
+        inference=True,
     )
     assert c_model.shapes["output"] == [2, 3, 60, 4, 5]
 
@@ -545,6 +550,7 @@ def test_convolution_shape():
         backend=NumpyBackend(),
         shapes={pol1.input: [5, 5]},
         safe_names=False,
+        inference=True,
     )
     assert comp_model.shapes["output"] == [8, 64, 64, 64]
     assert comp_model2.shapes["output"] == [5, 26795]
@@ -672,6 +678,7 @@ def test_reuse_pickled_registered_backend():
         u_jax_backend,
         jit=False,
         data_keys={"left", "right"},
+        inference=True,
     )
     left = u_jax_backend.ones(5, 5)
     right = u_jax_backend.ones(5, 5)
@@ -685,6 +692,7 @@ def test_reuse_pickled_registered_backend():
         u_numpy_backend,
         jit=False,
         data_keys={"left", "right"},
+        inference=True,
     )
     left = u_numpy_backend.ones(5, 5)
     right = u_numpy_backend.ones(5, 5)
@@ -698,6 +706,7 @@ def test_reuse_pickled_registered_backend():
         u_torch_backend,
         jit=False,
         data_keys={"left", "right"},
+        inference=True,
     )
     left = u_torch_backend.ones(5, 5)
     right = u_torch_backend.ones(5, 5)
@@ -782,7 +791,7 @@ def test_static_key_names_consistency():
     model = Model()
     model += Add()(left=Tensor(3), right=IOKey(name="right", type=Tensor))
 
-    pm = mithril.compile(model, TorchBackend())
+    pm = mithril.compile(model, TorchBackend(), inference=True)
     assert {"left", "right"} == pm.input_keys
 
 
@@ -918,6 +927,7 @@ def test_check_static_5():
         backend=NumpyBackend(),
         jit=False,
         data_keys={"input", "weight", "bias"},
+        inference=True,
     )
     data = {
         "input": np.array([[2.0, 3.0], [1.0, 4.0]]),
@@ -949,6 +959,7 @@ def test_check_static_6():
         jit=False,
         data_keys={"weight"},
         constant_keys={"bias": np.array([3.0])},
+        inference=True,
     )
     data = {"weight": np.array([[4.0, 5.0]])}
 
@@ -975,7 +986,9 @@ def test_cyclic_extension():
         output1=model1.cin,
         output2=IOKey("output"),
     )
-    comp_model = mithril.compile(model=model1, backend=NumpyBackend(), jit=False)
+    comp_model = mithril.compile(
+        model=model1, backend=NumpyBackend(), jit=False, inference=True
+    )
     inputs = {"input": np.array([[2.0]])}
     outputs = comp_model.evaluate(data=inputs)
     assert_results_equal(outputs, {"output": np.array([[2.0]])})
@@ -985,7 +998,7 @@ def test_canonic_example():
     model = Model()
     model += LeakyRelu()("input")
     model += LeakyRelu()
-    comp_model = compile(model=model, backend=NumpyBackend())
+    comp_model = compile(model=model, backend=NumpyBackend(), inference=True)
     assert set(comp_model.input_keys) == {"slope_0", "slope_1", "input"}
     assert set(comp_model.output_keys) == {"output"}
     inputs = {"input": np.array([[2.0, -1.0]])}
@@ -1256,10 +1269,9 @@ def test_relational_operators_ignored_2():
             "output": IOKey("where_out"),
         },
     )
-    pm = compile(model, NumpyBackend())
+    pm = compile(model, NumpyBackend(), inference=True)
     assert (
-        "relational_out" in pm.ignore_grad_keys
-        and "where_out" not in pm.ignore_grad_keys
+        "relational_out" in pm.ignore_grad_keys and "where_out" in pm.ignore_grad_keys
     )
 
 
@@ -1486,13 +1498,13 @@ def test_multiple_output_connections_2():
 
 def test_static_concat():
     model = Model()
-    model += Concat(n=2)(input1="input", input2="input", output="output")
+    model += Concat()(input="input", output="output")
 
     backend = NumpyBackend()
     pm = mithril.compile(
         model=model,
         backend=backend,
-        constant_keys={"input": backend.zeros(1)},
+        constant_keys={"input": [backend.zeros(1)]},
         inference=True,
     )
     out = pm.evaluate()["output"]
@@ -1592,9 +1604,9 @@ def test_reduce_overlap_shapes_1():
     model_1 |= reduce_model_1_1(input=relu_model_2_1.output)
     model_1 |= reduce_model_2_1(input=reduce_model_1_1.output)
 
-    comp_model_1 = mithril.compile(model=model, backend=backend)
+    comp_model_1 = mithril.compile(model=model, backend=backend, inference=True)
     comp_model_2 = mithril.compile(
-        model=model_1, backend=backend, shapes={"input": [3, 2]}
+        model=model_1, backend=backend, shapes={"input": [3, 2]}, inference=True
     )
 
     assert comp_model_1.shapes == comp_model_2.shapes
@@ -1992,6 +2004,7 @@ def test_static_anlaysis_1():
     comp_model = mithril.compile(
         model=model,
         backend=NumpyBackend(),
+        inference=True,
     )
 
     assert add1 not in comp_model.flat_graph.nodes
@@ -2015,6 +2028,7 @@ def test_static_anlaysis_2():
     comp_model = mithril.compile(
         model=model,
         backend=NumpyBackend(),
+        inference=True,
     )
 
     assert (
@@ -2162,7 +2176,7 @@ def test_prune_4():
     m |= add3(left=add1.output, right=add1.output)  # Duplicate
     m |= Add()(left=add2.output, right=add3.output)
 
-    compiled_model = compile(m, NumpyBackend())
+    compiled_model = compile(m, NumpyBackend(), inference=True)
 
     expected_connections: dict[str, list[str | set[str]]] = {
         "output_0": ["add", {"input", "input2", "output_0_cache"}],
@@ -2199,7 +2213,7 @@ def test_prune_5():
     m |= add4(left=add2.output, right=add3.output)
     m.set_cout(add4.output)
 
-    compiled_model = compile(m, NumpyBackend())
+    compiled_model = compile(m, NumpyBackend(), inference=True)
     expected_connections: dict[str, list[str | set[str]]] = {
         "output_0": ["add", {"input", "input2", "output_0_cache"}],
         "output_2": [
@@ -2242,7 +2256,7 @@ def test_prune_6():
     )
     m |= m2(input="input", input2="input2", output=IOKey(name="acc"))
 
-    compiled_model = compile(m, NumpyBackend())
+    compiled_model = compile(m, NumpyBackend(), inference=True)
     expected_connections: dict[str, list[str | set[str]]] = {
         "output_0": [
             "add",
@@ -2273,7 +2287,7 @@ def test_prune_7():
     )  # Duplicate
     m |= Buffer()(input=add3.output, output=IOKey(name="out_3"))
 
-    compiled_model = compile(m, NumpyBackend())
+    compiled_model = compile(m, NumpyBackend(), inference=True)
     expected_connections: dict[str, list[str | set[str]]] = {
         "out_1": ["add", {"input", "input2", "out_1_cache"}],
         "out_2": ["add", {"out_1", "input3", "out_2_cache"}],
@@ -2303,7 +2317,7 @@ def test_prune_8():
     )  # Duplicate
     m |= Buffer()(input=add3.output, output=IOKey(name="out_2"))
 
-    compiled_model = compile(m, NumpyBackend())
+    compiled_model = compile(m, NumpyBackend(), inference=True)
     expected_connections: dict[str, list[str | set[str]]] = {
         "out_1": ["add", {"input", "input2", "out_1_cache"}],
         "output_0": ["add", {"out_1", "input3", "output_0_cache"}],
@@ -2336,7 +2350,7 @@ def test_prune_9():
         left=add0.output, right="input3", output=IOKey(name="dont_forget_me")
     )  # Duplicate
 
-    compiled_model = compile(m, NumpyBackend())
+    compiled_model = compile(m, NumpyBackend(), inference=True)
     expected_connections: dict[str, list[str | set[str]]] = {
         "out_1": ["add", {"input", "input2", "out_1_cache"}],
         "output_0": ["add", {"out_1", "input3", "output_0_cache"}],
@@ -2449,7 +2463,7 @@ def test_prune_13():
     m |= Buffer()(input=add1.output, output="out_2")
     m |= Buffer()(input="out_2", output=IOKey(name="out_3"))  # Duplicate
 
-    compiled_model = compile(m, NumpyBackend())
+    compiled_model = compile(m, NumpyBackend(), inference=True)
     expected_connections: dict[str, list[str | set[str]]] = {
         "out_1": ["add", {"input", "input2", "out_1_cache"}]
     }
@@ -2483,7 +2497,7 @@ def test_prune_15():
     m |= Buffer()(input=add1.output, output="out_2")
     m |= Relu()(input="out_2", output=IOKey(name="out_3"))  # Duplicate
 
-    compiled_model = compile(m, NumpyBackend())
+    compiled_model = compile(m, NumpyBackend(), inference=True)
     expected_connections: dict[str, list[str | set[str]]] = {
         "out_1": ["add", {"input", "input2", "out_1_cache"}],
         "out_3": ["relu", {"out_1", "out_3_cache"}],
@@ -2507,7 +2521,7 @@ def test_prune_valued_tensor_1():
     backend = JaxBackend(dtype=mithril.float64)
 
     compiled_model = compile(
-        model, backend=backend, shapes={"input2": [4, 4]}, jit=False
+        model, backend=backend, shapes={"input2": [4, 4]}, jit=False, inference=True
     )
 
     expected_connections: dict[str, list[str | set[str]]] = {
@@ -2530,7 +2544,7 @@ def test_prune_valued_tensor_2():
     backend = JaxBackend(dtype=mithril.float64)
 
     compiled_model = compile(
-        model, backend=backend, shapes={"input2": [4, 4]}, jit=False
+        model, backend=backend, shapes={"input2": [4, 4]}, jit=False, inference=True
     )
 
     expected_connections: dict[str, list[str | set[str]]] = {
@@ -2563,6 +2577,7 @@ def test_prune_valued_tensor_3():
         shapes={"input2": [4, 4]},
         constant_keys={"left": backend.ones(4, 4), "left2": backend.ones(4, 4)},
         jit=False,
+        inference=True,
     )
 
     expected_connections: dict[str, list[str | set[str]]] = {
@@ -2596,6 +2611,7 @@ def test_prune_valued_tensor_4():
         shapes={"input2": [4, 4]},
         constant_keys={"left": backend.ones(4, 4), "left2": backend.ones(4, 4)},
         jit=False,
+        inference=True,
     )
 
     expected_connections: dict[str, list[str | set[str]]] = {
@@ -2624,7 +2640,7 @@ def test_prune_valued_tensor_5():
     model |= modelsub2(input1="input1", output=IOKey("out2"))
     model |= modelsub(input1="input1", output=IOKey("out1"))
 
-    compiled_model = compile(model, TorchBackend(), jit=False)
+    compiled_model = compile(model, TorchBackend(), jit=False, inference=True)
 
     expected_connections: dict[str, list[str | set[str]]] = {
         "asd": ["relu", {"input1"}],
@@ -3572,7 +3588,7 @@ def test_connect_composite_2_extend_from_inputs():
         output="output",
     )
 
-    mithril.compile(model, backend=TorchBackend())
+    mithril.compile(model, backend=TorchBackend(), inference=True)
 
     assert m2.left.metadata == m1.output.metadata  # type: ignore
     assert m2.output.metadata == subcopy.left.metadata  # type: ignore
@@ -3595,7 +3611,7 @@ def test_composite_6_extend_from_inputs_connect():
     assert relu4.input.metadata == relu3.input.metadata
 
     backend = TorchBackend()
-    cm = mithril.compile(model, backend=backend)
+    cm = mithril.compile(model, backend=backend, inference=True)
     cm.evaluate(data={"my_input": backend.array([[[[1.0, 2.0, 3.0]]]])})
 
 
@@ -3612,7 +3628,7 @@ def test_composite_4_extend_from_inputs_connect():
     model |= relu4(input="input1", output="my_input")
 
     backend = TorchBackend()
-    cm = mithril.compile(model, backend=backend)
+    cm = mithril.compile(model, backend=backend, inference=True)
     cm.evaluate(data={"input1": backend.array([[[[1.0, 2.0, 3.0]]]])})
     assert relu1.input.metadata == relu2.input.metadata == relu3.input.metadata
 
@@ -3653,7 +3669,7 @@ def test_mlp_last_dimension_prop_2():
 
     ctx = TrainModel(model)
     ctx.add_loss(AbsoluteError(), input="output", target=Tensor([2.0]))
-    comp_model = mithril.compile(model=ctx, backend=NumpyBackend())
+    comp_model = mithril.compile(model=ctx, backend=NumpyBackend(), inference=True)
     inputs = {"in1": np.array([3.0]), "in2": np.array([2.0])}
     outputs = comp_model.evaluate(data=inputs)
     output_final_cost = outputs["final_cost"]
@@ -5679,7 +5695,9 @@ def test_deepcopy_1():
     model |= sig_model(input=add_model.output, output="output")
 
     all_data = get_all_data(model)
-    compiled_model = mithril.compile(model=model, backend=NumpyBackend())
+    compiled_model = mithril.compile(
+        model=model, backend=NumpyBackend(), inference=True
+    )
     unused_data = {
         compiled_model.data[key]
         for key in compiled_model.flat_graph.unused_keys
@@ -5708,7 +5726,9 @@ def test_deepcopy_2():
     model += copy_model2
 
     all_data = get_all_data(model)
-    compiled_model = mithril.compile(model=model, backend=NumpyBackend())
+    compiled_model = mithril.compile(
+        model=model, backend=NumpyBackend(), inference=True
+    )
     cached_data = {
         compiled_model.data[key] for key in compiled_model.flat_graph.cached_data
     }
@@ -5760,7 +5780,7 @@ def test_deepcopy_4():
 
     all_data = get_all_data(model)
     compiled_model = mithril.compile(
-        model=model, backend=NumpyBackend(), safe_names=False
+        model=model, backend=NumpyBackend(), safe_names=False, inference=True
     )
     unused_data = {
         compiled_model.data.get(key)
@@ -5880,7 +5900,7 @@ def test_to_tensor():
     input2 = [False, True, False]  # bool
 
     # Test for torch
-    pm_torch = compile(model, TorchBackend(dtype=mithril.float64))
+    pm_torch = compile(model, TorchBackend(dtype=mithril.float64), inference=True)
     result_torch = pm_torch.evaluate({}, {"input": input1})["output"]
     assert isinstance(result_torch, torch.Tensor)
     expected_torch = torch.tensor(input1, dtype=torch.float64)
@@ -5892,7 +5912,9 @@ def test_to_tensor():
     assert (result_torch == expected_torch).all()
 
     # Test for Jax
-    pm_jax = compile(model, JaxBackend(dtype=mithril.float64), jit=False)
+    pm_jax = compile(
+        model, JaxBackend(dtype=mithril.float64), jit=False, inference=True
+    )
     result = pm_jax.evaluate({}, {"input": input1})["output"]
     assert isinstance(result, jax.numpy.ndarray)
     expected = jax.numpy.array(input1, jax.numpy.float64)
@@ -5905,7 +5927,7 @@ def test_to_tensor():
 
     # Test for MLX
     if platform.system() == "Darwin":
-        pm_mlx = compile(model, MlxBackend())
+        pm_mlx = compile(model, MlxBackend(), inference=True)
         result_mlx = pm_mlx.evaluate({}, {"input": input1})["output"]
         assert isinstance(result_mlx, mx.array)
         expected_mlx = mx.array(input1, mx.float32)
@@ -5917,7 +5939,9 @@ def test_to_tensor():
         assert (result_mlx == expected).all()  # type: ignore
 
     # Test for Numpy
-    pm_numpy = compile(model, NumpyBackend(dtype=mithril.float64), jit=False)
+    pm_numpy = compile(
+        model, NumpyBackend(dtype=mithril.float64), jit=False, inference=True
+    )
     result_numpy = pm_numpy.evaluate({}, {"input": input1})["output"]
     assert isinstance(result_numpy, np.ndarray)
     expected_numpy = np.array(input1, np.float64)
@@ -5941,6 +5965,7 @@ def test_discard_trainables_1():
         backend,
         discard_keys=set(["sideout"]),
         shapes={"input": [1, 2], "sidein": [2, 3]},
+        inference=True,
     )
 
     assert {"input"} == pm.input_keys
@@ -5960,7 +5985,7 @@ def test_discard_trainables_2():
     model |= Relu()(input="input", output=IOKey(name="output"))
     model |= Sigmoid()(input="sidein")
 
-    pm = compile(model, backend, shapes={"sidein": [1, 2]})
+    pm = compile(model, backend, shapes={"sidein": [1, 2]}, inference=True)
 
     assert {"input"} == pm.input_keys
     assert {"sidein", "output_0"} == pm.discarded_keys
@@ -5980,7 +6005,7 @@ def test_discard_trainables_3():
     model |= (sigmoid := Sigmoid())(input="sidein")
     model |= Buffer()(input=sigmoid.output)
 
-    pm = compile(model, backend, shapes={"sidein": [1, 2]})
+    pm = compile(model, backend, shapes={"sidein": [1, 2]}, inference=True)
 
     assert {"input"} == pm.input_keys
     assert {"sidein", "output_0"} == pm.discarded_keys
@@ -6009,6 +6034,7 @@ def test_discard_trainables_4():
         backend,
         discard_keys=set(["sideout"]),
         shapes={"sideout": [1, 2, 3]},
+        inference=True,
     )
 
     assert {"input"} == pm.input_keys
@@ -6154,6 +6180,7 @@ def test_numpy_type_promotion_1():
         jit=False,
         data_keys={"left", "right"},
         shapes={"left": [3, 3], "right": [3, 3]},
+        inference=True,
     )
     outputs = pm.evaluate(
         {},
@@ -6190,6 +6217,7 @@ def test_numpy_type_promotion_2():
         jit=False,
         data_keys={"left", "right"},
         shapes={"left": [3, 3], "right": [3, 3]},
+        inference=True,
     )
     outputs = pm.evaluate(
         {},
@@ -6300,6 +6328,7 @@ def test_numpy_type_promotion_5():
         data_keys={"left"},
         constant_keys={"right": np.ones((3, 3), dtype=np.float16)},
         shapes={"left": [3, 3], "right": [3, 3]},
+        inference=True,
     )
     outputs = pm.evaluate({}, {"left": np.ones((3, 3), dtype=np.int16)})
 
@@ -6538,7 +6567,7 @@ def test_iadd_1():
     model += MatrixMultiply()(right="w3")
     model += MatrixMultiply()(right="w4")
 
-    compiled_model = compile(model, JaxBackend())
+    compiled_model = compile(model, JaxBackend(), inference=True)
 
     expected_connections: dict[str, list[str | set[str]]] = {
         "output_0": ["matrix_multiplication", {"left", "w1"}],
@@ -6563,7 +6592,7 @@ def test_iadd_2():
     model += Sigmoid()
     model |= MatrixMultiply()(left=model.cout, right="w4")
 
-    compiled_model = compile(model, JaxBackend(), safe_names=False)
+    compiled_model = compile(model, JaxBackend(), safe_names=False, inference=True)
 
     expected_connections: dict[str, list[str | set[str]]] = {
         "output_0": ["matrix_multiplication", {"left", "w1"}],
@@ -6582,7 +6611,7 @@ def test_iadd_3():
     model |= (mult := MatrixMultiply())(left=sigmoid.output, right="w4")
     model.set_cout(mult.output)
 
-    compiled_model = compile(model, JaxBackend(), safe_names=False)
+    compiled_model = compile(model, JaxBackend(), safe_names=False, inference=True)
 
     expected_connections: dict[str, list[str | set[str]]] = {
         "output_2": ["sigmoid", {"input"}],
@@ -6604,7 +6633,7 @@ def test_iadd_4():
     model |= model_sub()
     model += model_sub2()
 
-    compiled_model = compile(model, JaxBackend(), safe_names=False)
+    compiled_model = compile(model, JaxBackend(), safe_names=False, inference=True)
 
     expected_connections: dict[str, list[str | set[str]]] = {
         "out2_0": ["sigmoid", {"in2"}],
@@ -6624,7 +6653,7 @@ def test_iadd_5():
     model += model_sub
     model += model_sub2
 
-    compiled_model = compile(model, JaxBackend(), safe_names=False)
+    compiled_model = compile(model, JaxBackend(), safe_names=False, inference=True)
 
     expected_connections: dict[str, list[str | set[str]]] = {
         "out1_0": ["sigmoid", {"in1"}],
@@ -6670,7 +6699,7 @@ def test_iadd_7():
     model |= (mult := MatrixMultiply())(left=sigmoid.output, right="w4")
     model.set_cout(mult.output)
 
-    compiled_model = compile(model, JaxBackend(), safe_names=False)
+    compiled_model = compile(model, JaxBackend(), safe_names=False, inference=True)
 
     expected_connections: dict[str, list[str | set[str]]] = {
         "output_2": ["sigmoid", {"input"}],
@@ -6688,7 +6717,7 @@ def test_iadd_8():
     model |= (mult := MatrixMultiply())(left=sigmoid.output, right="w4")
     model.set_cout(mult.output)
 
-    compiled_model = compile(model, JaxBackend())
+    compiled_model = compile(model, JaxBackend(), inference=True)
 
     expected_connections: dict[str, list[str | set[str]]] = {
         "output_2": ["sigmoid", {"asd"}],
@@ -6831,7 +6860,7 @@ def test_string_iokey_value_1():
     model += a
 
     # Compile the model and assert the results
-    pm = mithril.compile(model=model, backend=backend)
+    pm = mithril.compile(model=model, backend=backend, inference=True)
     input = backend.ones((7, 6))
     data = {"input": input}
     outputs = pm.evaluate(data=data)
@@ -6914,7 +6943,9 @@ def test_string_iokey_value_2():
     model += a
 
     # Compile the model and assert the results
-    pm = mithril.compile(model=model, backend=backend, safe_names=False, jit=False)
+    pm = mithril.compile(
+        model=model, backend=backend, safe_names=False, jit=False, inference=True
+    )
     input = backend.ones((7, 6))
     data = {"input": input}
     outputs = pm.evaluate(data=data)

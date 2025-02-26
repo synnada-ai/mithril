@@ -336,7 +336,7 @@ def test_add_metric_1():
 
     backend = NumpyBackend()
     input = backend.randn(5, 5)
-    c_model = mithril.compile(ctx2, backend, data_keys={"input"})
+    c_model = mithril.compile(ctx2, backend, data_keys={"input"}, inference=True)
     result = c_model.evaluate({}, {"input": input})
     res_metric = result["metric"]
     assert isinstance(res_metric, np.ndarray)
@@ -685,12 +685,14 @@ def test_add_loss_compile_shape_1():
         safe_shapes=True,
         data_keys={"input", "target"},
         backend=JaxBackend(),
+        inference=True,
     )
     pm2 = mithril.compile(
         ctx2,
         safe_shapes=False,
         data_keys={"input", "target"},
         backend=JaxBackend(),
+        inference=True,
     )
 
     assert pm1.shapes == {

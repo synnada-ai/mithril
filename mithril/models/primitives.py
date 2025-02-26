@@ -62,6 +62,7 @@ from ..framework.logical.operators import (
     AddOp,
     ArgMaxOp,
     ArgMinOp,
+    AtLeast1DOp,
     BufferOp,
     CastOp,
     CosineOp,
@@ -227,6 +228,7 @@ __all__ = [
     "Cosine",
     "Minimum",
     "Maximum",
+    "AtLeast1D",
 ]
 # Define types used to define keys:
 ConstantType = float | int | Constant
@@ -1040,35 +1042,29 @@ class Concat(PrimitiveModel):
 
     def __init__(
         self,
-        n: int,
+        input: list[Tensor[int | float | bool]] | ToBeDetermined = TBD,
         axis: int | None | ToBeDetermined = 0,
         *,
         name: str | None = None,
-        **kwargs: Tensor[int | float | bool] | ToBeDetermined,
     ) -> None:
-        self.factory_args = {"n": n, "axis": axis}
+        self.factory_args = {"axis": axis}
 
-        key_definitions: dict[str, BaseKey] = {}
-        key_definitions["output"] = BaseKey(shape=[("Var_out", ...)], type=Tensor)
-        key_definitions |= {
-            f"input{idx+1}": BaseKey(
-                shape=[(f"Var_{idx + 1}", ...)],
-                type=Tensor,
-                value=kwargs.get(f"input{idx + 1}", TBD),
-            )
-            for idx in range(n)
-        }
-        key_definitions["axis"] = BaseKey(type=int | None, value=axis)
-        super().__init__(formula_key="concat", name=name, **key_definitions)
+        super().__init__(
+            formula_key="concat",
+            name=name,
+            output=BaseKey(shape=[("Var_out", ...)], type=Tensor),
+            input=BaseKey(type=list[Tensor[int | float | bool]], value=input),
+            axis=BaseKey(type=int | None, value=axis),
+        )
 
-        input_keys = [key for key in self.input_keys if key != "axis"]
         self._add_constraint(
-            fn=concat_constraints, keys=["output"] + ["axis"] + input_keys
+            fn=concat_constraints, keys=[Operator.output_key, "input", "axis"]
         )
-        self._add_constraint(
-            fn=general_tensor_type_constraint,
-            keys=[Operator.output_key] + input_keys,
-        )
+        # TODO: Do we need to add general_tensor_type_constraint for Concat?
+        # self._add_constraint(
+        #     fn=general_tensor_type_constraint,
+        #     keys=[Operator.output_key, "input"],
+        # )
 
 
 class PrimitiveUnion(PrimitiveModel):
@@ -3035,6 +3031,9 @@ class ToList(OperatorModel):
     ) -> None:
         super().__init__(name=name, model=ToListOp(n, name=name, **kwargs))
 
+    def __call__(self, **kwargs: ConnectionType) -> ExtendInfo:
+        return super().__call__(**kwargs)
+
 
 class TensorToList(OperatorModel):
     input: Connection
@@ -3595,3 +3594,13 @@ class Cosine(SingleInputModel):
         name: str | None = None,
     ) -> None:
         super().__init__(name=name, model=CosineOp(input=input))
+
+
+class AtLeast1D(SingleInputModel):
+    def __init__(
+        self,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name, model=AtLeast1DOp(input=input))

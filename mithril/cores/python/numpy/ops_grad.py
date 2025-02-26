@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import itertools
+from collections.abc import Sequence
 from itertools import zip_longest
 from typing import Any
 
@@ -109,6 +110,8 @@ __all__ = [
     "max_pool1d_grad",
     "flatten_grad",
     "minus_grad",
+    "to_list_grad",
+    "atleast_1d_grad",
     "cast_grad",
 ]
 
@@ -548,24 +551,27 @@ def concat_grad(
     output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: np.ndarray[Any, Any],
+    *inputs: Sequence[np.ndarray[Any, Any]],
     axis: int | None = 0,
-) -> np.ndarray[Any, Any]:
-    verify_shapes(inputs, idx, non_differentiables=[-1])
+) -> list[np.ndarray[Any, Any]]:
+    input = inputs[0]
+    # verify_shapes(input, idx, non_differentiables=[-1])
     # Since last element of args is axis, exclude it from
     # gradient calculation.
     slices = write_into_cache(
         cache,
         "slices",
-        (output_gradient, axis, *inputs),
+        (output_gradient, axis, input),
         constant=True,
         func=calc_input_slices,
     )
-    key_slice = slices[f"input{idx + 1}"]  # type: ignore
-    if axis is not None:
-        return output_gradient[key_slice]
-    else:
-        return output_gradient[key_slice].reshape(inputs[idx].shape)
+    grad: list[np.ndarray[Any, Any]] = [
+        output_gradient[slices[i]].reshape(input[i].shape)
+        if axis is None
+        else output_gradient[slices[i]]
+        for i in range(len(input))
+    ]
+    return grad
 
 
 def reduce_mean_grad(
@@ -1662,6 +1668,25 @@ def zeros_like_grad(
     *inputs: np.ndarray[Any, Any],
 ) -> np.ndarray[Any, Any]:
     return np.zeros_like(output_gradient)
+
+
+def to_list_grad[T](
+    output_gradient: np.ndarray[Any, Any],
+    cache: CacheType,
+    idx: int,
+    *inputs: T,
+) -> list[T]:
+    return output_gradient[idx]
+
+
+def atleast_1d_grad(
+    output_gradient: np.ndarray[Any, Any],
+    cache: CacheType,
+    idx: int,
+    *inputs: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
+    (input,) = inputs
+    return output_gradient.reshape(input.shape)
 
 
 primitive_grad_func_dict = {key: fn for key, fn in globals().items() if callable(fn)}
