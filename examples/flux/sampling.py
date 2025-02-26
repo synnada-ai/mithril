@@ -39,6 +39,8 @@ def get_noise(
 
 def prepare(
     t5: HFEmbedder,
+    t5_weights: dict,
+    t5_tokenizer,
     clip: HFEmbedder,
     img: torch.Tensor,
     prompt: str | list[str],
@@ -61,7 +63,8 @@ def prepare(
     if isinstance(prompt, str):
         prompt = [prompt]
 
-    txt = t5(prompt)
+    t5_prompt = t5_tokenizer.encode(prompt)
+    txt = t5(t5_weights, {"input": t5_prompt})["output"]
     if txt.shape[0] == 1 and bs > 1:
         txt = repeat(txt, "1 ... -> bs ...", bs=bs)
     txt_ids = backend.zeros(bs, txt.shape[1], 3)
