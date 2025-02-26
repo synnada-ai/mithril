@@ -1486,7 +1486,7 @@ def test_iokey_as_an_object():
     assert len(model.conns.input_connections) == 1
 
 
-def test_iokey_as_an_object2():
+def test_iokey_as_an_object_nested():
     input1 = Connection("input1")
     input2 = Connection("input2")
     input3 = Connection("input3")
@@ -1506,3 +1506,11 @@ def test_iokey_as_an_object2():
     model1 |= Buffer()(input3)
 
     assert len(model1.conns.input_connections) == 1
+
+
+def test_iokey_type_diff_inconsistency():
+    with pytest.raises(TypeError) as err_info:
+        Connection(type=int, differentiable=True)
+    assert (
+        str(err_info.value) == "Differentiable connection should be Tensor[float] type!"
+    )
