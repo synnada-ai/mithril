@@ -23,7 +23,6 @@ from ..common import PaddingType
 from ..framework.common import (
     NOT_GIVEN,
     TBD,
-    BaseKey,
     ScalarValueType,
     Tensor,
     TensorValueType,
@@ -55,6 +54,7 @@ from ..framework.constraints import (
     where_constrains,
 )
 from ..framework.logical import Model
+from ..framework.logical.base import BaseKey
 from ..framework.logical.model import Connection, ConnectionType, ExtendInfo
 from ..framework.logical.operator import Operator
 from ..framework.logical.operators import (
@@ -2313,7 +2313,7 @@ class ScaledDotProduct(PrimitiveModel):
             and attn_mask is not NOT_GIVEN
             and not isinstance(attn_mask, str)
             and isinstance(attn_mask, BaseKey)
-            and attn_mask.value is not None  # TODO: Here will be updated!
+            and attn_mask.metadata.value is not None  # TODO: Here will be updated!
         ):
             raise KeyError(
                 "Operator does not have 'attn_mask' input." " Got attn_mask argument!"

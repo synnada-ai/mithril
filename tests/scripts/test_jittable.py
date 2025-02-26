@@ -29,8 +29,9 @@ from mithril.cores.python.jax.ops import (
     to_tensor,
 )
 from mithril.framework import NOT_GIVEN, ConnectionType, ExtendInfo
-from mithril.framework.common import BaseKey, Tensor
+from mithril.framework.common import Tensor
 from mithril.framework.constraints import bcast
+from mithril.framework.logical.base import BaseKey
 from mithril.models import (
     TBD,
     Add,

@@ -21,7 +21,6 @@ from typing import Any
 from ... import types
 from ..common import (
     TBD,
-    BaseKey,
     Constraint,
     ScalarValueType,
     ShapeTemplateType,
@@ -57,6 +56,7 @@ from ..constraints import (
     to_tensor_constraints,
     to_tuple_constraints,
 )
+from .base import BaseKey
 from .operator import Operator
 
 __all__ = [

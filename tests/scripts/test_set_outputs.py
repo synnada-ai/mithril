@@ -18,7 +18,7 @@ import pytest
 
 from mithril import JaxBackend, compile
 from mithril.framework import IOKey
-from mithril.models import Linear, Model, Sigmoid
+from mithril.models import Linear, Mean, Model, Sigmoid
 
 from ..utils import compare_models
 
@@ -33,6 +33,16 @@ def assert_outputs(model: Model, ref_outputs: set[str], ref_pm_outputs: set[str]
     assert ref_pm_outputs == pm_outputs, "physical model outputs does not match."
 
 
+def assert_inputs(model: Model, ref_inputs: set[str], ref_pm_inputs: set[str]):
+    model_inputs = set(model.conns.input_keys)
+    assert ref_inputs == model_inputs, "logical model inputs does not match."
+
+    pm = compile(model=model, backend=JaxBackend(), inference=True)
+
+    pm_inputs = set(pm.input_keys)
+    assert ref_pm_inputs == pm_inputs, "physical model inputs does not match."
+
+
 def test_1():
     """
     Test the functionality of setting outputs in a model.
@@ -42,13 +52,13 @@ def test_1():
     keys, output keys, and internal connection keys. Finally, it compares the two
     models using a backend and data to ensure they produce the same results.
 
-    For the first model "output1" is set as an output key using the "set_outputs" method
+    For the first model "output1" is set as an output key using the "expose_keys" method
     while it is set by using IOKey in the second model.
     """
     model = Model()
     model |= Linear(2)(input="input", weight="w_1", bias="b_1", output="output1")
     model |= Linear(4)(input=model.output1, weight="w", bias="b", output="output")  # type: ignore
-    model.set_outputs("output1")
+    model.expose_keys("output1")
     model_1 = model
 
     model = Model()
@@ -76,14 +86,14 @@ def test_2():
     keys, output keys, and internal connection keys. Finally, it compares the two
     models using a backend and data to ensure they produce the same results.
 
-    For the first model "output1" is set as an output key using the "set_outputs" method
+    For the first model "output1" is set as an output key using the "expose_keys" method
     with keyworded argument while it is set by using IOKey in the second model.
     """
     model = Model()
     lin = Linear(2)
     model |= lin(input="input", weight="w_1", bias="b_1", output="lin1_out")
     model |= Linear(4)(input=lin.output, weight="w", bias="b", output="output")
-    model.set_outputs(output1=lin.output)
+    model.expose_keys(output1=lin.output)
     model_1 = model
 
     model = Model()
@@ -111,7 +121,7 @@ def test_3():
     keys, output keys, and internal connection keys. Finally, it compares the two
     models using a backend and data to ensure they produce the same results.
 
-    For the first model 2 outputs are set as output using the "set_outputs" method.
+    For the first model 2 outputs are set as output using the "expose_keys" method.
     "lin.output" is set as keyworded argument since we have to name it (""output1").
     In the second model, "lin.output" is set and named using directly IOKey.
     """
@@ -119,13 +129,13 @@ def test_3():
     lin = Linear(2)
     model |= lin(input="input", weight="w_1", bias="b_1", output="lin1_out")
     model |= Linear(4)(input=lin.output, weight="w", bias="b", output="output")
-    model.set_outputs("output", output1=lin.output)
+    model.expose_keys("output", output1=lin.output)
     model_1 = model
 
     model = Model()
     model |= Linear(2)(input="input", weight="w_1", bias="b_1", output=IOKey("output1"))
     model |= Linear(4)(input=model.output1, weight="w", bias="b", output="output")  # type: ignore
-    model.set_outputs("output")
+    model.expose_keys("output")
     model_2 = model
 
     # Provide backend and data.
@@ -148,14 +158,14 @@ def test_4():
     keys, output keys, and internal connection keys. Finally, it compares the two
     models using a backend and data to ensure they produce the same results.
 
-    For the first model 2 outputs are set as output using the "set_outputs" method.
+    For the first model 2 outputs are set as output using the "expose_keys" method.
     Note that already named "output" key is set as output with a new name as "out".
     """
     model = Model()
     lin = Linear(2)
     model |= lin(input="input", weight="w_1", bias="b_1", output="lin1_out")
     model |= Linear(4)(input=lin.output, weight="w", bias="b", output="output")
-    model.set_outputs(out="output", output1=lin.output)
+    model.expose_keys(out="output", output1=lin.output)
     model_1 = model
 
     model = Model()
@@ -176,12 +186,12 @@ def test_4():
 
 def test_5():
     """
-    Tests the functionality of set_outputs in setting output of named internal keys
+    Tests the functionality of expose_keys in setting output of named internal keys
 
     Creates three serially connected sigmoid model, each sigmoid model's name is
     sub_out1, sub_out2, output respectively (sub_out1 and sub_out2 are internal keys)
 
-    with set_outputs api, it is expected that sub_out_1 and sub_out_2 will be output
+    with expose_keys api, it is expected that sub_out_1 and sub_out_2 will be output
     keys with names of output1 and output2
 
     """
@@ -194,7 +204,7 @@ def test_5():
     model |= sig1(input="input", output="sub_out1")
     model |= sig2(input="sub_out1", output="sub_out2")
     model |= sig3(input="sub_out2", output=IOKey("output"))
-    model.set_outputs(output1="sub_out1", output2="sub_out2")
+    model.expose_keys(output1="sub_out1", output2="sub_out2")
 
     ref_logical_outputs = {"output", "output1", "output2"}
     ref_pm_outputs = {"output", "output1", "output2"}
@@ -220,7 +230,7 @@ def test_6():
     model |= sig2(input="sub_out1", output="sub_out2")
     model |= sig3(input="sub_out2", output=IOKey("output"))
 
-    model.set_outputs(output1="sub_out1")
+    model.expose_keys(output1="sub_out1")
 
     ref_logical_outputs = {"output", "output1"}
     ref_pm_outputs = {"output", "output1"}
@@ -248,7 +258,7 @@ def test_7():
     model |= sig2(input="sub_out1", output="sub_out2")
     model |= sig3(input="sub_out2", output=IOKey("output"))
 
-    model.set_outputs("sub_out1", "sub_out2")
+    model.expose_keys("sub_out1", "sub_out2")
 
     ref_logical_outputs = {"output", "sub_out1", "sub_out2"}
     ref_pm_outputs = {"output", "sub_out1", "sub_out2"}
@@ -273,7 +283,7 @@ def test_8():
     model |= sig2(input="sub_out1", output="sub_out2")
     model |= sig3(input="sub_out2", output=IOKey("output"))
 
-    model.set_outputs(sig1.output, sig2.output)
+    model.expose_keys(sig1.output, sig2.output)
 
     ref_logical_outputs = {"output", "sub_out1", "sub_out2"}
     ref_pm_outputs = {"output", "sub_out1", "sub_out2"}
@@ -290,7 +300,7 @@ def test_9():
     two_sig_model |= Sigmoid()("input2", IOKey("output2"))
 
     model |= two_sig_model(input1="input1", input2="input2")
-    model.set_outputs(output3=sig1.output)
+    model.expose_keys(output3=sig1.output)
 
     ref_logical_outputs = {"output3"}
     ref_pm_outputs = {"output3"}
@@ -320,97 +330,13 @@ def test_5_error():
     model |= lin_2(input=lin_1.output, weight="w", bias="b")
 
     with pytest.raises(KeyError) as err_info:
-        model.set_outputs(lin_2.output, output1=lin_1.output)
+        model.expose_keys(lin_2.output, output1=lin_1.output)
     # Replace the pattern with a single space
     error_text = re.sub(r"\s+", " ", str(err_info.value))
     assert error_text == (
-        "'Autogenerated keys can only be set as output if a name is provided for "
+        "'Autogenerated keys can only be exposed if a name is provided for "
         "the connection as keyworded argument.'"
     )
-
-
-def test_6_error():
-    """
-    Test case for verifying that setting an already existing output key in the model
-    raises a KeyError.
-
-    This test initializes a model with two linear layers and attempts to set a key as
-    output and then again tries to set the same connection as output with a different
-    name.
-
-    Raises:
-        KeyError: If the output key is already set in the model.
-    """
-    model = Model()
-    lin = Linear(2)
-    model |= lin(input="input", weight="w_1", bias="b_1")
-    model |= Linear(4)(input=lin.output, weight="w", bias="b", output="output")
-
-    with pytest.raises(KeyError) as err_info:
-        model.set_outputs(out="output", output1="out")
-
-    error_text = str(err_info.value).strip('"')
-    assert error_text == "'out' key is already set as output!"
-
-
-def test_7_error():
-    """
-    Test case verifies that attempting to set an output key
-    that is already set as an output in the model raises a `KeyError`.
-
-    Raises:
-        KeyError: If the output key is already set in the model.
-    """
-    model = Model()
-    lin = Linear(2)
-    model |= lin(input="input", weight="w_1", bias="b_1")
-    model |= Linear(4)(input=lin.output, weight="w", bias="b", output=IOKey("output"))
-
-    with pytest.raises(KeyError) as err_info:
-        model.set_outputs(out="output")
-
-    error_text = str(err_info.value).strip('"')
-    assert error_text == "'output' key is already set as output!"
-
-
-def test_8_error():
-    """
-    Test case verifies that attempting to set an output key
-    that is already set as an output in the model raises a `KeyError`.
-
-    Raises:
-        KeyError: If the output key is already set in the model.
-    """
-    model = Model()
-    lin = Linear(2)
-    model |= lin(input="input", weight="w_1", bias="b_1")
-    model |= Linear(4)(input=lin.output, weight="w", bias="b", output=IOKey("output"))
-
-    with pytest.raises(KeyError) as err_info:
-        model.set_outputs("output")
-
-    error_text = str(err_info.value).strip('"')
-    assert error_text == "'output' key is already set as output!"
-
-
-def test_9_error():
-    """
-    Test case verifies that attempting to set an output key
-    that is already set as an output in the model raises a `KeyError`.
-
-    Raises:
-        KeyError: If the output key is already set in the model.
-    """
-    model = Model()
-    lin = Linear(2)
-    model |= lin(input="input", weight="w_1", bias="b_1")
-    model |= Linear(4)(input=lin.output, weight="w", bias="b", output=IOKey("output"))
-
-    with pytest.raises(KeyError) as err_info:
-        model.set_outputs(output=lin.output)
-
-    error_text = str(err_info.value).strip('"')
-    assert error_text == "Key 'output' is already used!"
 
 
 def test_10_error():
@@ -423,24 +349,15 @@ def test_10_error():
 
     model |= two_sig_model(input1="input1", input2="input2")
     with pytest.raises(Exception) as err_info:
-        two_sig_model.set_outputs(output5="output1")
+        two_sig_model.expose_keys(output5="output1")
     assert str(err_info.value) == "Child model's outputs cannot be set."
 
 
-def test_11_error():
+def test_expose_latent_inputs():
     model = Model()
+    model |= Mean(axis=1, keepdim=True)(axis="axis", keepdim="keepdim", input="input")
 
-    sig1 = Sigmoid()
-    sig2 = Sigmoid()
-    sig3 = Sigmoid()
-
-    model |= sig1(input="input", output="sub_out1")
-    model |= sig2(input="sub_out1", output="sub_out2")
-    model |= sig3(input="sub_out2", output=IOKey("output"))
-
-    with pytest.raises(KeyError) as err_info:
-        model.set_outputs(sig1.input)
-
-    assert (
-        str(err_info.value) == "'Input of the overall model cannot be set as output.'"
-    )
+    assert_inputs(model, ref_inputs={"input"}, ref_pm_inputs={"input"})
+    model.expose_keys("axis", "keepdim")
+    ref_inputs = {"input", "axis", "keepdim"}
+    assert_inputs(model, ref_inputs=ref_inputs, ref_pm_inputs=ref_inputs)

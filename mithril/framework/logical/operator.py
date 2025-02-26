@@ -12,20 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import get_args, get_origin
 
 from ...utils.utils import OrderedSet
 from ..common import (
-    BaseKey,
-    ConnectionDataType,
     IOHyperEdge,
     KeyType,
     Tensor,
-    ToBeDetermined,
     Updates,
     create_shape_map,
 )
-from .base import BaseModel
+from .base import BaseModel, ConnectionData, ConnectionDataType
 
 
 class Operator(BaseModel):
@@ -41,7 +37,7 @@ class Operator(BaseModel):
         self,
         formula_key: str,
         name: str | None = None,
-        **keys: BaseKey | IOHyperEdge,
+        **keys: ConnectionData | IOHyperEdge,
     ) -> None:
         super().__init__(name, formula_key)
 
@@ -50,38 +46,28 @@ class Operator(BaseModel):
         shape_templates = {
             key: value.value_shape
             for key, value in keys.items()
-            if isinstance(value, BaseKey) and value.value_shape is not None
+            if isinstance(value, ConnectionData) and value.value_shape is not None
         }
         shapes = create_shape_map(shape_templates, self.constraint_solver)
         tensor_set: set[Tensor[int | float | bool]] = set()
+        data_set: set[IOHyperEdge] = set()
         is_diff = False
         output_data: IOHyperEdge | None = None
-        for key, value in keys.items():
-            if isinstance(value, BaseKey):
-                if get_origin(value.type) is Tensor:
-                    if not isinstance(tensor := value.value, Tensor):
-                        assert isinstance(value.value, ToBeDetermined)
-                        tensor = Tensor(
-                            type=get_args(value.type)[0],
-                            shape=shapes[key].node,
-                            differentiable=value.differentiable,
-                        )
-                    edge = IOHyperEdge(value=tensor, interval=value.interval)
-                    assert isinstance(edge._value, Tensor)
-                    tensor_set.add(edge._value)
-                else:
-                    edge_type = ToBeDetermined if value.type is None else value.type
-                    edge = IOHyperEdge(
-                        type=edge_type,
-                        value=value.value,
-                        interval=value.interval,
-                    )
+        for key, conn_data in keys.items():
+            if isinstance(conn_data, ConnectionData):
+                edge = conn_data.metadata
             else:
-                raise TypeError(
-                    "Operator's can only be instantiated with BaseKey type keys!"
-                )
-
-            conn_data = self.create_connection(edge, key)
+                edge = conn_data
+            if edge.is_tensor:
+                assert isinstance(edge._value, Tensor)
+                if key in shapes:
+                    edge._value.shape.merge(shapes[key].node)
+                data_set.add(edge)
+            # TODO: We can immediately set the key while it is created before here.
+            # conn_data.set_key(key)
+            # self.attach_connection(conn_data)
+            conn_data = self._create_connection(edge, key)
+            self.attach_connection(conn_data)
 
             if key == Operator.output_key:
                 self.conns.set_connection_type(conn_data, KeyType.OUTPUT)

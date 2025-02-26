@@ -76,7 +76,7 @@ cnn_model += Linear(1)
 
 # Wrap it with TrainModel for training.
 train_model = TrainModel(cnn_model)
-train_model.set_outputs(predictions=cnn_model.cout)  # type: ignore
+train_model.expose_keys(predictions=cnn_model.cout)  # type: ignore
 
 # Add loss to the output of the model.
 train_model.add_loss(

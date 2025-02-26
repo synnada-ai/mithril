@@ -31,10 +31,10 @@ SquaredError  |  input       | ['(V3, ...)']             | Model.output1        
 -----------------------------------------------------------------------------------------------------------------
 CrossEntropy  |  input       | ['u1', 'u2', '(V6, ...)'] | Model.output2                 |  Sum()         |  None
               |  target      | ['u1', '(V6, ...)']       | 'target2'                     |                |      
-              |  weights     | --                        | False                         |                |      
               |  categorical | --                        | True                          |                |      
               |  cutoff      | []                        | Constant.MIN_POSITIVE_NORMAL  |                |      
               |  robust      | --                        | False                         |                |      
+              |  weights     | --                        | False                         |                |      
 -----------------------------------------------------------------------------------------------------------------
 Add           |  left        | ['(V9, ...)', 'u3', 'u5'] | Model.output3                 |  Min()         |  None
               |  right       | ['(V12, ...)']            | 'right'                       |                |      

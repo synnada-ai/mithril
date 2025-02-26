@@ -25,9 +25,6 @@ from ...utils.utils import constant_fn
 from ..common import (
     NOT_GIVEN,
     TBD,
-    BaseKey,
-    ConnectionData,
-    ConnectionDataType,
     IOHyperEdge,
     MainValueInstance,
     MainValueType,
@@ -42,7 +39,7 @@ from ..common import (
 )
 
 # from .base import BaseModel, ConnectionDataType
-from .base import BaseModel
+from .base import BaseModel, ConnectionData
 from .operator import Operator
 from .operators import (
     AbsoluteOp,
@@ -378,8 +375,7 @@ class Connection(ConnectionData, TemplateBase):
     pass
 
 
-class IOKey(BaseKey, TemplateBase):
-    pass
+IOKey = Connection
 
 
 class ExtendTemplate(TemplateBase):
@@ -467,66 +463,12 @@ class Model(BaseModel):
     def __call__(self, **kwargs: ConnectionType) -> ExtendInfo:
         return ExtendInfo(self, kwargs)
 
-    def _create_connection(self, metadata: IOHyperEdge, key: str) -> Connection:
-        return Connection(key, metadata)
-
-    # TODO: Refactor _prepare_keys / _unroll_template relation.
-    def _prepare_keys(
-        self,
-        model: BaseModel,
-        key: str,
-        connection: ConnectionDataType | ConnectionType,
-    ) -> BaseKey | ConnectionData:
-        local_connection = model.conns.get_connection(key)
-        assert local_connection is not None, "Connection is not found!"
-        _connection: BaseKey | ConnectionData | MainValueInstance | NullConnection | str
-        match connection:
-            case ExtendTemplate():
-                # Unroll ExtendTemplate
-                _connection = self._unroll_template(connection)
-            case _ if isinstance(
-                connection, MainValueInstance | Tensor
-            ) and not isinstance(connection, str):
-                # find_dominant_type returns the dominant type in a container.
-                # If a container has a value of type Connection or ExtendTemplate
-                # we add necessary models.
-
-                types = [ConnectionData, ExtendTemplate, Connection, IOKey]
-
-                if (
-                    isinstance(connection, tuple | list)
-                    and find_dominant_type(
-                        connection, False, constant_fn, ignore_types={Tensor}
-                    )
-                    in types
-                ):
-                    _model = ToTupleOp if isinstance(connection, tuple) else ToListOp
-                    et = ExtendTemplate(connection, _model, {"n": len(connection)})
-                    _connection = self._unroll_template(et)
-
-                else:
-                    assert isinstance(connection, MainValueInstance | Tensor)
-                    _connection = BaseKey(value=connection)
-            case IOKey():
-                expose = connection.expose
-                name = connection.name
-                # We should not operate different if _connections is given. Fix this and
-                # also fix corresponding tests and dict conversions with "connect".
-                if expose is None and (
-                    name is None or self.conns.get_connection(name) is None
-                ):
-                    expose = True
-                _connection = BaseKey(
-                    name=name,
-                    expose=expose,
-                    type=connection.type,
-                    shape=connection.value_shape,
-                    value=connection.value,
-                    differentiable=connection.differentiable,
-                )
-            case _:
-                _connection = connection  # type: ignore
-        return super()._prepare_keys(model, key, _connection)
+    def _create_connection(
+        self, metadata: IOHyperEdge, key: str | None = None
+    ) -> Connection:
+        connection = Connection(key)
+        connection.metadata = metadata
+        return connection
 
     def _get_conn_data(self, conn: str | ConnectionData) -> ConnectionData:
         if isinstance(conn, str):
@@ -541,7 +483,17 @@ class Model(BaseModel):
         conn = self.conns.get_extracted_connection(connection)
         setattr(self, key, conn)
 
-    def _unroll_template(self, template: ExtendTemplate) -> ConnectionData:
+    def _unroll_template(self, template: ConnectionType) -> ConnectionType:
+        types = [ConnectionData, ExtendTemplate, Connection, IOKey, Tensor]
+        if (
+            isinstance(template, tuple | list)
+            and find_dominant_type(template, False, constant_fn) in types
+        ):
+            _model = ToTupleOp if isinstance(template, tuple) else ToListOp
+            template = ExtendTemplate(template, _model, {"n": len(template)})
+        elif not isinstance(template, ExtendTemplate):
+            return template
+
         if template.output_connection is None:
             # Initialize all default init arguments of model as TBD other
             # than the keys in template.defaults, in order to provide
@@ -560,12 +512,12 @@ class Model(BaseModel):
             # TODO: Reconsider type ignore!
             model: Operator = template.model(**default_args_dict)  # type: ignore
             keys = {
-                local_key: self._prepare_keys(model, local_key, outer_con)  # type: ignore
+                local_key: self._unroll_template(outer_con)  # type: ignore
                 for local_key, outer_con in zip(
                     model.input_keys, template.connections, strict=False
                 )
             }
-            self.extend(model, **keys)
+            self._extend(model, keys)
 
             template.output_connection = model.conns.get_connection("output")
             assert template.output_connection is not None
@@ -584,7 +536,7 @@ class Model(BaseModel):
         return cin
 
     def _extend(
-        self, model: BaseModel, kwargs: dict[str, ConnectionType] | None = None
+        self, model: BaseModel, kwargs: Mapping[str, ConnectionType] | None = None
     ) -> Self:
         if kwargs is None:
             kwargs = {}
@@ -592,7 +544,7 @@ class Model(BaseModel):
             raise AttributeError("Model is frozen and can not be extended!")
 
         for key, value in kwargs.items():
-            _value = value.name if isinstance(value, IOKey) else value
+            _value = value.get_key() if isinstance(value, ConnectionData) else value
 
             if isinstance(_value, str) and _value == "":
                 if key in model.input_keys:
@@ -603,9 +555,10 @@ class Model(BaseModel):
                     )
 
                 if isinstance(value, IOKey):
-                    value.name = None
+                    value.set_key(None)
                 else:
-                    kwargs[key] = _value
+                    kwargs[key] = _value  # type: ignore
+            kwargs[key] = self._unroll_template(kwargs[key])  # type: ignore
 
         self.extend(model, **kwargs)  # type: ignore
         return self

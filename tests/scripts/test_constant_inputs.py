@@ -28,11 +28,11 @@ from mithril.common import PaddingType
 from mithril.framework.common import (
     NOT_GIVEN,
     TBD,
-    ConnectionData,
     Tensor,
     ToBeDetermined,
 )
 from mithril.framework.logical import ExtendInfo
+from mithril.framework.logical.base import ConnectionData
 from mithril.models import (
     MLP,
     Add,

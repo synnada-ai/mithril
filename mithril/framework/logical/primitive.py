@@ -13,9 +13,8 @@
 # limitations under the License.
 
 from ... import types
-from ..common import BaseKey, ConnectionDataType
-from .base import BaseModel
-from .model import IOKey, Model
+from .base import BaseKey, BaseModel, ConnectionDataType
+from .model import Model
 from .operator import Operator
 
 __all__ = ["PrimitiveModel", "OperatorModel"]
@@ -31,17 +30,8 @@ class OperatorModel(Model):
         name: str | None = None,
     ) -> None:
         super().__init__(name=name, enforce_jit=model._jittable)
-        self._extend(
-            model,
-            {
-                k: IOKey(
-                    k,
-                    expose=True,
-                    differentiable=model.conns.all[k].metadata.differentiable,
-                )
-                for k in model.external_keys
-            },
-        )
+        self._extend(model, {k: k for k in model.external_keys})
+        self.expose_keys(*model.external_keys)
 
     @property
     def submodel(self) -> Operator:
@@ -51,7 +41,7 @@ class OperatorModel(Model):
 
     def extend(
         self,
-        model: BaseModel | BaseModel,
+        model: BaseModel,
         **kwargs: ConnectionDataType,
     ) -> None:
         if len(self.dag) > 0:
