@@ -15,38 +15,64 @@
 import inspect
 import re
 from collections.abc import Callable, Mapping, Sequence
+from types import EllipsisType
 from typing import Any
 
 import numpy as np
 
 from mithril import Backend
+from mithril.common import get_specific_types_from_value
 from mithril.framework.common import (
     IOHyperEdge,
+    PossibleValues,
     ShapeRepr,
+    ShapeResultType,
     ShapeTemplateType,
     Tensor,
     Uniadic,
+    UniadicRecord,
+    Updates,
+    Variadic,
     find_intersection_type,
+    find_type,
 )
 from mithril.framework.logical import BaseModel, Model, Operator
 from mithril.framework.physical import PhysicalModel
-from mithril.framework.utils import find_type
 from mithril.models.train_model import TrainModel
 from mithril.utils.dict_conversions import dict_to_model, model_dict
 from mithril.utils.type_utils import is_list_int
 
 SemanticShapeType = Mapping[str, ShapeTemplateType | Sequence[ShapeTemplateType] | None]
 
+VariadicPossiblesType = (
+    list[tuple[int, ...]] | list[tuple[str, ...]] | list[tuple[int | str, ...]]
+)
+VariadicTemplateType = tuple[str, EllipsisType]
 
-def convert_to_array(backend: Backend, weights: dict | list):
+AssignmentType = (
+    Mapping[str, set[int]]
+    # | dict[tuple[str, EllipsisType], list[tuple[int | str, ...]]]
+    # | dict[tuple[str, EllipsisType], list[tuple[int, ...]]]
+    # | dict[tuple[str, EllipsisType], list[tuple[str, ...]]]
+    | Mapping[VariadicTemplateType, VariadicPossiblesType]
+    | Mapping[VariadicTemplateType, set[int]]
+    | Mapping[str, VariadicPossiblesType]
+    | Mapping[str | VariadicTemplateType, set[int] | VariadicPossiblesType]
+)
+
+
+def convert_to_array(backend: Backend, weights: dict | list, is_list: bool = False):
     # Converts all list elements to numpy array in a dictionary.
     if not isinstance(weights, dict):
-        return (
-            backend.array(weights)
-            if isinstance(weights, Sequence | int | float)
-            else weights
-        )
-    return {k: convert_to_array(backend, weights[k]) for k in sorted(weights)}
+        if is_list:
+            return [convert_to_array(backend, w) for w in weights]
+        else:
+            return (
+                backend.array(weights)
+                if isinstance(weights, Sequence | int | float)
+                else weights
+            )
+    return {k: convert_to_array(backend, weights[k], is_list) for k in sorted(weights)}
     # return {k: convert_to_array(backend, weights[k]) for k in weights}
 
 
@@ -399,29 +425,34 @@ def check_single_shape_semantically(
         mapping = {}
     if reverse_mapping is None:
         reverse_mapping = {}
-    assert len(list_1) == len(list_2), "Sub-shape lengths do not match."
-    if list_1 != [] and find_intersection_type(
-        find_type(list_1), list[list[str | int]]
-    ):
-        # Lists are not ordered so we need to find equivalent lists.
-        sub_list_1_lengths = {
-            _find_affix_lengths(sub_list_1): sub_list_1 for sub_list_1 in list_1
-        }
-        sub_list_2_lengths = {
-            _find_affix_lengths(sub_list_2): sub_list_2 for sub_list_2 in list_2
-        }
-        assert (
-            sub_list_1_lengths.keys() == sub_list_2_lengths.keys()
-        ), "Alternative shape keys do not match."
-        for sub_key in sub_list_1_lengths:
-            check_single_repr(
-                sub_list_1_lengths[sub_key],
-                sub_list_2_lengths[sub_key],
-                mapping,
-                reverse_mapping,
-            )
-    else:
-        check_single_repr(list_1, list_2, mapping, reverse_mapping)
+    if not isinstance(list_1, tuple):
+        list_1 = (list_1,)
+    if not isinstance(list_2, tuple):
+        list_2 = (list_2,)
+    for item_1, item_2 in zip(list_1, list_2, strict=False):
+        assert len(item_1) == len(item_2), "Sub-shape lengths do not match."
+        if item_1 != [] and find_intersection_type(
+            find_type(item_1), list[list[str | int]]
+        ):
+            # Lists are not ordered so we need to find equivalent lists.
+            sub_list_1_lengths = {
+                _find_affix_lengths(sub_list_1): sub_list_1 for sub_list_1 in item_1
+            }
+            sub_list_2_lengths = {
+                _find_affix_lengths(sub_list_2): sub_list_2 for sub_list_2 in item_2
+            }
+            assert (
+                sub_list_1_lengths.keys() == sub_list_2_lengths.keys()
+            ), "Alternative shape keys do not match."
+            for sub_key in sub_list_1_lengths:
+                check_single_repr(
+                    sub_list_1_lengths[sub_key],
+                    sub_list_2_lengths[sub_key],
+                    mapping,
+                    reverse_mapping,
+                )
+        else:
+            check_single_repr(item_1, item_2, mapping, reverse_mapping)
 
 
 def _is_variadic_pattern(s):
@@ -604,3 +635,89 @@ def check_if_installed(backend):
         return True
     except RuntimeError:
         return False
+
+
+def extract_uniadic_possibles(
+    uni: Uniadic,
+    assignments: AssignmentType,
+    uni_cache: dict[UniadicRecord, str],
+) -> None:
+    # Takes an uniadic object and fills the assignments dictionary
+    # based on possible values of the uniadic object.
+    if (uni_str := uni_cache.get(uni.metadata)) is None:
+        uni_str = uni_cache[uni.metadata] = f"u{len(uni_cache) + 1}"
+    if uni.possible_values is not None and len(uni.possible_values) > 1:
+        assignments[uni_str] = uni.possible_values  # type: ignore
+
+
+def extract_variadic_possibles(
+    var: Variadic,
+    assignments: AssignmentType,
+    uni_cache: dict[UniadicRecord, str],
+    var_cache: dict[Variadic, str],
+) -> None:
+    assert var.possibles is not None
+    all_possible_values: dict[int, PossibleValues] = var.possibles
+    possibles_list: list[tuple] = []
+    for possible_values in all_possible_values.values():
+        single_possible_list: list[int] | list[str] | list[int | str] = []
+        for uni in possible_values.uniadics:
+            if isinstance(uni.value, int):
+                single_possible_list.append(uni.value)  # type: ignore
+            else:
+                if (uni_str := uni_cache.get(uni.metadata)) is None:
+                    uni_str = uni_cache[uni.metadata] = f"u{len(uni_cache) + 1}"
+                single_possible_list.append(uni_str)  # type: ignore
+                if uni.possible_values is not None and len(uni.possible_values) > 1:
+                    assignments[uni_str] = uni.possible_values  # type: ignore
+        possibles_list.append(tuple(single_possible_list))
+    assignments[(var_cache[var], ...)] = possibles_list  # type: ignore
+
+
+def assert_shape_results(
+    data: dict[str, IOHyperEdge],
+    ref_results: ShapeResultType | Mapping[str, Sequence[Sequence[str | int | None]]],
+    ref_assignments: AssignmentType,
+    updated_symbols: Updates,
+    expected_updates: set[str | Tensor] | set[str] | set[Tensor],
+) -> None:
+    # First check shape updates with the expected updates.
+
+    updated_items = set()
+    for key in expected_updates:
+        if isinstance(key, str):
+            updated_items.add(data[key]._value if data[key].is_tensor else data[key])
+        elif isinstance(key, Tensor):
+            updated_items.add(key)
+        else:
+            raise ValueError(f"Unexpected update type: {type(key)}")
+    assert (
+        updated_items == updated_symbols.shape_updates | updated_symbols.value_updates
+    )
+    # Then check final shapes with the expected ref_results.
+    uni_cache: dict[UniadicRecord, str] = {}
+    var_cache: dict[Variadic, str] = {}
+    shapes: dict[str, Sequence[Any]] = {}
+    assignments: AssignmentType = {}
+    for key, value in data.items():
+        if not (tensors := get_specific_types_from_value(value._value, Tensor)):
+            shapes[key] = []
+        else:
+            shapes[key] = tuple(
+                tensor.shape.get_shapes(uni_cache, var_cache, verbose=True)
+                for tensor in tensors
+            )
+            for tensor in tensors:
+                shape_repr = (
+                    tensor._temp_shape
+                    if tensor._temp_shape is not None
+                    else tensor.shape.reprs[0]
+                )
+                assert shape_repr is not None
+                all_repr_unis: set[Uniadic] = {*shape_repr.prefix, *shape_repr.suffix}
+                for uni in all_repr_unis:
+                    extract_uniadic_possibles(uni, assignments, uni_cache)
+                if (root := shape_repr.root) is not None and root.possibles is not None:
+                    extract_variadic_possibles(root, assignments, uni_cache, var_cache)
+
+    check_shapes_semantically(shapes, ref_results, assignments, ref_assignments)

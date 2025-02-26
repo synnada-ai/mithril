@@ -47,6 +47,7 @@ from .operator import Operator
 from .operators import (
     AbsoluteOp,
     AddOp,
+    AtLeast1DOp,
     CastOp,
     CosineOp,
     DivideOp,
@@ -369,6 +370,9 @@ class TemplateBase:
     def cos(self) -> ExtendTemplate:
         return ExtendTemplate(connections=[self], model=CosineOp)
 
+    def atleast_1d(self) -> ExtendTemplate:
+        return ExtendTemplate(connections=[self], model=AtLeast1DOp)
+
 
 class Connection(ConnectionData, TemplateBase):
     pass
@@ -491,7 +495,10 @@ class Model(BaseModel):
 
                 if (
                     isinstance(connection, tuple | list)
-                    and find_dominant_type(connection, False, constant_fn) in types
+                    and find_dominant_type(
+                        connection, False, constant_fn, ignore_types={Tensor}
+                    )
+                    in types
                 ):
                     _model = ToTupleOp if isinstance(connection, tuple) else ToListOp
                     et = ExtendTemplate(connection, _model, {"n": len(connection)})

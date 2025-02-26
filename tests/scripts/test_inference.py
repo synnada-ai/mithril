@@ -103,7 +103,7 @@ def test_static_keys_inference(case: str) -> None:
         backend=backend,
         discard_keys=discard_keys,
         constant_keys=static_inputs,
-        inference=current_case.get("inference", False),
+        inference=True,
     )
     model_static_keys = sorted(compiled_model.flat_graph.all_static_keys)
     assert model_static_keys == sorted(results)

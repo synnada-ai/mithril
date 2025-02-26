@@ -413,6 +413,7 @@ class TestLayers:
             },
             data_keys={"xq", "xk", "freqs_cis"},
             use_short_namings=False,
+            inference=True,
         )
 
         expected_res = apply_rope(q_ref, k_ref, pe_ref)
@@ -438,6 +439,7 @@ class TestLayers:
             shapes={"input": [1]},
             data_keys={"input"},
             use_short_namings=False,
+            inference=True,
         )
 
         input = backend.array(input_ref.numpy())
@@ -514,6 +516,7 @@ class TestLayers:
             data_keys={"input"},
             use_short_namings=False,
             jit=False,
+            inference=True,
         )
 
         expected_result = torch_rope(pos_ref, dim, theta)
@@ -539,6 +542,7 @@ class TestLayers:
             shapes={"input": [1, 4336, 3]},
             data_keys={"input"},
             use_short_namings=False,
+            inference=True,
         )
 
         expected_result = o_model(input_ref)
@@ -569,6 +573,7 @@ class TestLayers:
             },
             data_keys={"q", "k", "v", "pe"},
             use_short_namings=False,
+            inference=True,
         )
 
         expected_res = attention(q_ref, k_ref, v_ref, pe_ref)

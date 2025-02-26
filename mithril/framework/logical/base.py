@@ -78,7 +78,7 @@ class BaseModel:
         self.assigned_shapes: list[dict[str, ShapeTemplateType]] = []
         self.assigned_types: dict[
             str,
-            type | UnionType | ScalarType | Tensor[int | float | bool],
+            type | UnionType | ScalarType | type[Tensor[int | float | bool]],
         ] = {}
         self.assigned_constraints: list[AssignedConstraintType] = []
         self.conns = Connections()
@@ -177,8 +177,7 @@ class BaseModel:
             )
         elif (
             local_input
-            and local_val is not TBD
-            # and global_val is not TBD
+            and local_connection.metadata.is_valued
             and conn_is_output
             and global_val != local_val
         ):
@@ -187,7 +186,11 @@ class BaseModel:
                 "to an output connection in the extended model. "
                 "Multi-write error!"
             )
-        elif not local_input and global_val is not TBD and local_val != global_val:
+        elif (
+            not local_input
+            and connection.metadata.is_valued
+            and local_val != global_val
+        ):
             raise ValueError(
                 "A valued connection of the extended model tries to write "
                 "to an output connection of the extending model. "
@@ -242,7 +245,7 @@ class BaseModel:
         is_input = local_key in model.input_keys
         local_connection = model.conns.get_connection(local_key)
         assert local_connection is not None, "Connection is not found!"
-        is_not_valued = local_connection.metadata.value is TBD
+        is_not_valued = not local_connection.metadata.is_valued
 
         d_map = self.dependency_map.local_output_dependency_map
 
@@ -279,6 +282,9 @@ class BaseModel:
                 )
             if (set_type := given_connection.type) is not None:
                 model.set_types({local_connection: set_type})
+
+            if given_connection.differentiable:
+                updates |= con_obj.set_differentiability(True)
         else:  # ConnectionData
             # Connection is given as a Connection object.
             if (
@@ -320,9 +326,6 @@ class BaseModel:
         if not isinstance(set_value, NullConnection):
             updates |= con_obj.metadata.set_value(set_value)
 
-        if given_connection.differentiable:
-            updates |= con_obj.set_differentiability(True)
-
         # Check multi-write error for con_obj.
         self._check_multi_write(is_input, local_connection, con_obj)
 
@@ -358,7 +361,7 @@ class BaseModel:
         if (
             local_connection in model.conns.cins
             and con_obj in self.conns.input_connections
-            and con_obj.metadata.value is TBD
+            and not con_obj.metadata.is_valued
         ):
             self.conns.cins.add(con_obj)
 
@@ -529,11 +532,6 @@ class BaseModel:
         updates = Updates()
 
         shape_info: dict[str, ShapeTemplateType] = {}
-        type_info: dict[
-            str,
-            type | UnionType | ScalarType | type[Tensor[int | float | bool]],
-        ] = {}
-
         submodel_dag: dict[str, ConnectionData] = {}
         updates = self.constraint_solver.match(model.constraint_solver)
 
@@ -549,25 +547,19 @@ class BaseModel:
         }
 
         for local_key, value in io_keys.items():
-            if isinstance(value, BaseKey):
-                if value.value_shape is not None:
-                    shape_info |= {local_key: value.value_shape}
-
-                if value.type is not None:
-                    type_info[local_key] = value.type
+            if isinstance(value, BaseKey) and value.value_shape is not None:
+                shape_info |= {local_key: value.value_shape}
 
             con_obj, _updates = self._add_connection(model, local_key, value, updates)
             updates |= _updates
             submodel_dag[local_key] = con_obj
-            if con_obj.metadata.is_tensor:
-                updates.shape_updates.add(con_obj.metadata)
+            if tensors := con_obj.metadata.tensors:
+                # assert isinstance(con_obj.metadata._value, Tensor)
+                updates.shape_updates |= tensors
 
         # Replace shape info keys, which are local keys, with global equivalents.
         shape_info = {
             submodel_dag[key].key: template for key, template in shape_info.items()
-        }
-        type_info = {
-            submodel_dag[key].key: template for key, template in type_info.items()
         }
 
         # Set given shapes.
@@ -901,7 +893,8 @@ class BaseModel:
                     if inner_key not in input_keys:
                         continue
 
-                    if (val := key_data.value) is not TBD:
+                    if key_data.is_valued:
+                        val = key_data.value
                         conn.append(str(val))
 
                     elif outer_key in self.input_keys:
@@ -1165,7 +1158,7 @@ class BaseModel:
 
         assigned_types: dict[
             str,
-            type | UnionType | ScalarType | Tensor[int | float | bool],
+            type | UnionType | ScalarType | type[Tensor[int | float | bool]],
         ] = {}
 
         # Get the outermost parent as all the updates will happen here.
@@ -1341,7 +1334,7 @@ class BaseModel:
         for given_conn in connections:
             conn = self.conns.get_extracted_connection(given_conn)
 
-            is_valued = conn.metadata.value is not TBD
+            is_valued = conn.metadata.is_valued
             if conn not in self.dependency_map.local_input_dependency_map:
                 raise ValueError(
                     "To set a connection as canonical input, connection must be an "
@@ -1360,7 +1353,7 @@ class BaseModel:
         self.conns.couts = set()
         for given_conn in connections:
             conn = self.conns.get_extracted_connection(given_conn)
-            is_valued = conn.metadata.value is not TBD
+            is_valued = conn.metadata.is_valued
             if conn not in self.dependency_map.local_output_dependency_map or is_valued:
                 if safe:
                     raise ValueError(

@@ -63,7 +63,7 @@ def flux(params: FluxParams):
 
     flux |= Linear(params.hidden_size, name="img_in")(input=img, output="img_vec")
     flux |= Linear(params.hidden_size, name="txt_in")(input=txt, output="txt_vec")
-    flux |= Concat(n=2, axis=1)(input1=txt_ids, input2=img_ids, output="ids")
+    flux |= Concat(axis=1)(input=[txt_ids, img_ids], output="ids")
 
     flux |= embed_nd(params.theta, params.axes_dim)(input="ids", output="pe")
 
@@ -87,7 +87,9 @@ def flux(params: FluxParams):
         img_name = f"img{i}"
         txt_name = f"txt{i}"
 
-    flux |= Concat(n=2, axis=1)(input1=txt_name, input2=img_name, output="img_concat")
+    flux |= Concat(axis=1)(
+        input=[IOKey(txt_name), IOKey(img_name)], output="img_concat"
+    )
 
     img_name = "img_concat"
     for i in range(params.depth_single_blocks):
