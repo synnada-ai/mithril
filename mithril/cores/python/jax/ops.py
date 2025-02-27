@@ -554,10 +554,6 @@ def max_pool2d(
     return y
 
 
-def mean_lax(x: jax.Array, y: jax.Array) -> jax.Array:
-    return jax.lax.div(jax.lax.add(x, y), jnp.array(2.0, dtype=x.dtype))
-
-
 def avg_pool2d(
     input: jax.Array,
     kernel_size: tuple[int, int],
@@ -566,7 +562,7 @@ def avg_pool2d(
     padding: tuple[int, int] | tuple[tuple[int, int], tuple[int, int]] = (0, 0),
     dilation: tuple[int, int] = (1, 1),
 ) -> jax.Array:
-    """Implements torch.nn.functional.max_pool2d in JAX"""
+    """Implements torch.nn.functional.avg_pool2d in JAX"""
 
     _padding: tuple[tuple[int, int], tuple[int, int]]
     if is_tuple_int(padding):

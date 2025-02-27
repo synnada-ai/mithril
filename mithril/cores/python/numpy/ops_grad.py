@@ -1204,7 +1204,7 @@ def avg_pool2d_grad(
         ]
 
     else:
-        raise ValueError("Invalid index for max_pool2d gradient.")
+        raise ValueError("Invalid index for avg_pool2d gradient.")
 
 
 def softmax_grad(

@@ -622,12 +622,12 @@ def avg_pool2d(
     dilation: tuple[int, int] = (1, 1),
     cache: CacheType | None = None,
 ) -> np.ndarray[Any, Any]:
-    """Implements torch.nn.functional.max_pool2d in Numpy"""
+    """Implements torch.nn.functional.avg_pool2d in Numpy"""
 
     if dilation != (1, 1):
         raise NotImplementedError(
             f"Dilation of {dilation} is not supported. "
-            "Numpy backend for Maxpool2d only supports a dilation of (1, 1)."
+            "Numpy backend for AvgPooll2d only supports a dilation of (1, 1)."
         )
 
     normalized_padding: tuple[tuple[int, int], tuple[int, int]]

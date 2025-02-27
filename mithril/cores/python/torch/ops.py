@@ -580,6 +580,8 @@ def avg_pool2d(
     padding: tuple[int, int] | tuple[tuple[int, int], tuple[int, int]] = (0, 0),
     dilation: int | tuple[int, int] = (1, 1),
 ) -> torch.Tensor:
+    if dilation != (1, 1):
+        raise ValueError("Dilation is not supported in torch.avg_pool2d.")
     _padding: tuple[int, int]
     if is_int_tuple_tuple(padding):
         input = F.pad(input, [*padding[1], *padding[0]], "constant", 0)
