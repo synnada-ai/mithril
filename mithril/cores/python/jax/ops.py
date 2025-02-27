@@ -17,6 +17,7 @@ from collections.abc import Callable, Iterator, Sequence
 from functools import partial
 from itertools import combinations_with_replacement
 from typing import Any
+import math
 
 import jax
 import jax.numpy as jnp
@@ -219,6 +220,7 @@ __all__ = [
     "maximum",
     "dtype",
     "zeros_like",
+    "avg_pool2d",
 ]
 
 
@@ -550,6 +552,60 @@ def max_pool2d(
     if is_single_input:
         y = jnp.squeeze(y, axis=0)
     return y
+
+
+def mean_lax(x: jax.Array, y: jax.Array) -> jax.Array:
+    return jax.lax.div(jax.lax.add(x, y), jnp.array(2.0, dtype=x.dtype))
+    
+def avg_pool2d(
+    input: jax.Array,
+    kernel_size: tuple[int, int],
+    stride: int | tuple[int, int],
+    *,
+    padding: tuple[int, int] | tuple[tuple[int, int], tuple[int, int]] = (0, 0),
+    dilation: tuple[int, int] = (1, 1),
+) -> jax.Array:
+    """Implements torch.nn.functional.max_pool2d in JAX"""
+
+    _padding: tuple[tuple[int, int], tuple[int, int]]
+    if is_tuple_int(padding):
+        _padding = ((padding[0], padding[0]), (padding[1], padding[1]))
+    else:
+        _padding = padding  # type: ignore
+
+    if isinstance(stride, int):
+        stride = (stride, stride)
+
+    num_batch_dims = input.ndim - len(kernel_size)
+
+    _stride = (1,) * num_batch_dims + stride
+    dims = (1,) * num_batch_dims + kernel_size
+    _dilation = (1,) * num_batch_dims + dilation
+
+    is_single_input = False
+    if num_batch_dims == 0:
+        # add singleton batch dimension because lax.reduce_window always
+        # needs a batch dimension.
+        input = input[None]
+        _stride = (1,) + _stride
+        dims = (1,) + dims
+        is_single_input = True
+
+    assert input.ndim == len(dims), f"len({input.shape}) != len({dims})"
+    assert len(padding) == len(kernel_size), (
+        f"padding {padding} must specify pads for same number of dims as "
+        f"kernel_size {kernel_size}"
+    )
+    assert all(
+        [len(_padding) == 2 for x in padding]
+    ), f"each entry in padding {padding} must be length 2"
+    __padding = ((0, 0),) * num_batch_dims + _padding
+
+    y = lax.reduce_window(input, 0.0, lax.add, dims, _stride, __padding, _dilation) / math.prod(kernel_size)
+    if is_single_input:
+        y = jnp.squeeze(y, axis=0)
+    return y
+
 
 
 def scaled_dot_product_attention(

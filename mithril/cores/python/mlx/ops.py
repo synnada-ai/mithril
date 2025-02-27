@@ -197,6 +197,7 @@ __all__ = [
     "maximum",
     "dtype",
     "zeros_like",
+    "avg_pool2d",
 ]
 
 
@@ -531,6 +532,45 @@ def max_pool2d(
         stride[0],
     )
     return mx.max(submatrices, axis=(4, 5))
+
+def avg_pool2d(
+    input: mx.array,
+    *,
+    kernel_size: tuple[int, int] = (2, 2),
+    stride: int | tuple[int, int] = (2, 2),
+    padding: tuple[int, int] | tuple[tuple[int, int], tuple[int, int]] = (0, 0),
+    dilation: tuple[int, int] = (1, 1),
+) -> mx.array:
+    if dilation != (1, 1):
+        raise NotImplementedError(
+            f"Dilation of {dilation} is not supported. "
+            f"Currently, the MLX backend for Maxpool2d only supports a dilation of 1."
+        )
+
+    # Create a new variable for the normalized padding
+    normalized_padding: tuple[tuple[int, int], tuple[int, int]]
+
+    if is_tuple_int(padding):
+        normalized_padding = ((padding[0], padding[0]), (padding[1], padding[1]))
+    else:
+        # TODO: This is now guaranteed to be the correct type
+        normalized_padding = padding  # type: ignore
+
+    if isinstance(stride, int):
+        stride = (stride, stride)
+
+    n, c, h, w = input.shape
+    out_h = (h - kernel_size[0] + sum(normalized_padding[0])) // stride[0] + 1
+    out_w = (w - kernel_size[1] + sum(normalized_padding[1])) // stride[1] + 1
+    submatrices = utils.get_submatrices2d(
+        input,
+        (n, c, out_h, out_w),
+        kernel_size[0],
+        kernel_size[1],
+        normalized_padding,
+        stride[0],
+    )
+    return mx.mean(submatrices, axis=(4, 5))
 
 
 def scaled_dot_product_attention(

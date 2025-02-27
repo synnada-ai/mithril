@@ -113,6 +113,7 @@ __all__ = [
     "to_list_grad",
     "atleast_1d_grad",
     "cast_grad",
+    "avg_pool2d_grad",
 ]
 
 
@@ -1136,6 +1137,62 @@ def max_pool2d_grad(
             mask = val[:, :, None, None] == selected_window
             dx[:, :, start_h:end_h, start_w:end_w] += (
                 mask * (output_gradient[:, :, i, j])[:, :, None, None]
+            )
+        return dx[
+            ...,
+            normalized_padding[0][0] : padded_shape[-2] - normalized_padding[0][1],
+            normalized_padding[1][0] : padded_shape[-1] - normalized_padding[1][1],
+        ]
+
+    else:
+        raise ValueError("Invalid index for max_pool2d gradient.")
+    
+def avg_pool2d_grad(
+    output_gradient: np.ndarray[Any, Any],
+    cache: CacheType,
+    idx: int,
+    *inputs: np.ndarray[Any, Any],
+    kernel_size: tuple[int, int],
+    stride: tuple[int, int],
+    padding: tuple[int, int] | tuple[tuple[int, int], tuple[int, int]] = (0, 0),
+    dilation: tuple[int, int] = (1, 1),
+) -> np.ndarray[Any, Any]:
+    if idx == 0:
+        (input,) = inputs
+
+        normalized_padding: tuple[tuple[int, int], tuple[int, int]]
+        if is_tuple_int(padding):
+            normalized_padding = ((padding[0], padding[0]), (padding[1], padding[1]))
+        else:
+            normalized_padding = padding  # type: ignore
+
+        if isinstance(stride, int):
+            stride = (stride, stride)
+
+        *_, h, w = input.shape
+        h_k, w_k = kernel_size
+        out_h = (h - kernel_size[0] + sum(normalized_padding[0])) // stride[0] + 1
+        out_w = (w - kernel_size[1] + sum(normalized_padding[1])) // stride[1] + 1
+        padded_input = np.pad(
+            input,
+            pad_width=(
+                (0, 0),
+                (0, 0),
+                (normalized_padding[0][0], normalized_padding[0][1]),
+                (normalized_padding[1][0], normalized_padding[1][1]),
+            ),
+            mode="constant",
+            constant_values=(0.0,),
+        )
+        padded_shape = padded_input.shape
+        dx = np.zeros_like(padded_input).astype(float)
+        for i, j in itertools.product(range(out_h), range(out_w)):
+            start_h, end_h = i * stride[0], i * stride[0] + h_k
+            start_w, end_w = j * stride[1], j * stride[1] + w_k
+            selected_window = padded_input[:, :, start_h:end_h, start_w:end_w]
+            val = np.ones_like(selected_window) / ((end_h - start_h) * (end_w - start_w))
+            dx[:, :, start_h:end_h, start_w:end_w] += (
+                val * (output_gradient[:, :, i, j])[:, :, None, None]
             )
         return dx[
             ...,

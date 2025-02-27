@@ -208,6 +208,7 @@ __all__ = [
     "maximum",
     "dtype",
     "zeros_like",
+    "avg_pool2d",
 ]
 
 
@@ -559,6 +560,8 @@ def max_pool2d(
         _padding = (0, 0)
     else:
         _padding = padding  # type: ignore
+        
+    
 
     return F.max_pool2d(
         input,
@@ -568,6 +571,29 @@ def max_pool2d(
         dilation=dilation,
         ceil_mode=False,
         return_indices=False,
+    )
+    
+def avg_pool2d(
+    input: torch.Tensor,
+    kernel_size: int | tuple[int, int],
+    stride: int | tuple[int, int],
+    *,
+    padding: tuple[int, int] | tuple[tuple[int, int], tuple[int, int]] = (0, 0),
+    dilation: int | tuple[int, int] = (1, 1),
+) -> torch.Tensor:
+    _padding: tuple[int, int]
+    if is_int_tuple_tuple(padding):
+        input = F.pad(input, [*padding[1], *padding[0]], "constant", 0)
+        _padding = (0, 0)
+    else:
+        _padding = padding  # type: ignore
+
+    return F.avg_pool2d(
+        input,
+        kernel_size,
+        stride=stride,
+        padding=_padding,
+        ceil_mode=False,
     )
 
 

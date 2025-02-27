@@ -75,6 +75,7 @@ from .primitives import (
     PrimitiveConvolution2D,
     PrimitiveMaxPool1D,
     PrimitiveMaxPool2D,
+    PrimitiveAvgPool2D,
     Reshape,
     Shape,
     Sigmoid,
@@ -143,6 +144,7 @@ __all__ = [
     "Accuracy",
     "AUC",
     "SiLU",
+    "AvgPool2D",
 ]
 
 
@@ -327,16 +329,16 @@ class MaxPool2D(Pool2D):
         return PrimitiveMaxPool2D
 
 
-# TODO: Implement MinPool2D and AvgPool2D
+# TODO: Implement MinPool2D
 # class MinPool2D(Pool2D):
 #     @property
 #     def pool_model(self):
 #         return PrimitiveMinPool2D
 
-# class AvgPool2D(Pool2D):
-#     @property
-#     def pool_model(self):
-#         return PrimitiveAvgPool2D
+class AvgPool2D(Pool2D):
+    @property
+    def pool_model(self) -> type[Model]:
+        return PrimitiveAvgPool2D
 
 
 class Convolution1D(Model):
