@@ -533,6 +533,7 @@ def max_pool2d(
     )
     return mx.max(submatrices, axis=(4, 5))
 
+
 def avg_pool2d(
     input: mx.array,
     *,

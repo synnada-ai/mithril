@@ -1146,7 +1146,8 @@ def max_pool2d_grad(
 
     else:
         raise ValueError("Invalid index for max_pool2d gradient.")
-    
+
+
 def avg_pool2d_grad(
     output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
@@ -1190,7 +1191,9 @@ def avg_pool2d_grad(
             start_h, end_h = i * stride[0], i * stride[0] + h_k
             start_w, end_w = j * stride[1], j * stride[1] + w_k
             selected_window = padded_input[:, :, start_h:end_h, start_w:end_w]
-            val = np.ones_like(selected_window) / ((end_h - start_h) * (end_w - start_w))
+            val = np.ones_like(selected_window) / (
+                (end_h - start_h) * (end_w - start_w)
+            )
             dx[:, :, start_h:end_h, start_w:end_w] += (
                 val * (output_gradient[:, :, i, j])[:, :, None, None]
             )

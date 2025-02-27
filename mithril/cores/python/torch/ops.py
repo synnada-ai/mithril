@@ -560,8 +560,6 @@ def max_pool2d(
         _padding = (0, 0)
     else:
         _padding = padding  # type: ignore
-        
-    
 
     return F.max_pool2d(
         input,
@@ -572,7 +570,8 @@ def max_pool2d(
         ceil_mode=False,
         return_indices=False,
     )
-    
+
+
 def avg_pool2d(
     input: torch.Tensor,
     kernel_size: int | tuple[int, int],

@@ -12,12 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import math
 import re
 from collections.abc import Callable, Iterator, Sequence
 from functools import partial
 from itertools import combinations_with_replacement
 from typing import Any
-import math
 
 import jax
 import jax.numpy as jnp
@@ -556,7 +556,8 @@ def max_pool2d(
 
 def mean_lax(x: jax.Array, y: jax.Array) -> jax.Array:
     return jax.lax.div(jax.lax.add(x, y), jnp.array(2.0, dtype=x.dtype))
-    
+
+
 def avg_pool2d(
     input: jax.Array,
     kernel_size: tuple[int, int],
@@ -601,11 +602,12 @@ def avg_pool2d(
     ), f"each entry in padding {padding} must be length 2"
     __padding = ((0, 0),) * num_batch_dims + _padding
 
-    y = lax.reduce_window(input, 0.0, lax.add, dims, _stride, __padding, _dilation) / math.prod(kernel_size)
+    y = lax.reduce_window(
+        input, 0.0, lax.add, dims, _stride, __padding, _dilation
+    ) / math.prod(kernel_size)
     if is_single_input:
         y = jnp.squeeze(y, axis=0)
     return y
-
 
 
 def scaled_dot_product_attention(

@@ -612,6 +612,7 @@ def max_pool2d(
     )
     return np.nanmax(submatrices, axis=(4, 5))
 
+
 def avg_pool2d(
     input: np.ndarray[Any, Any],
     kernel_size: tuple[int, int],

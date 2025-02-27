@@ -1582,7 +1582,7 @@ class PrimitivePool2D(PrimitiveModel):
         name: str | None = None,
     ) -> None:
         super().__init__(
-            formula_key= formula_key,
+            formula_key=formula_key,
             name=name,
             output=BaseKey(shape=["N", ("C_in", ...), "H_out", "W_out"], type=Tensor),
             input=BaseKey(
@@ -1624,7 +1624,8 @@ class PrimitivePool2D(PrimitiveModel):
             dilation=dilation,
             output=output,
         )
-    
+
+
 class PrimitiveMaxPool2D(PrimitivePool2D):
     def __init__(
         self,
@@ -1649,8 +1650,8 @@ class PrimitiveMaxPool2D(PrimitivePool2D):
             dilation=dilation,
         )
 
-class PrimitiveAvgPool2D(PrimitivePool2D):
 
+class PrimitiveAvgPool2D(PrimitivePool2D):
     def __init__(
         self,
         input: Tensor[int | float | bool] | ToBeDetermined = TBD,
@@ -1673,6 +1674,7 @@ class PrimitiveAvgPool2D(PrimitivePool2D):
             padding=padding,
             dilation=dilation,
         )
+
 
 class NormModifier(PrimitiveModel):
     """A helper model that modifies norm input. It is used for mapping

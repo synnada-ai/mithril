@@ -71,11 +71,11 @@ from .primitives import (
     PermuteTensor,
     PolynomialFeatures,
     Power,
+    PrimitiveAvgPool2D,
     PrimitiveConvolution1D,
     PrimitiveConvolution2D,
     PrimitiveMaxPool1D,
     PrimitiveMaxPool2D,
-    PrimitiveAvgPool2D,
     Reshape,
     Shape,
     Sigmoid,
@@ -334,6 +334,7 @@ class MaxPool2D(Pool2D):
 #     @property
 #     def pool_model(self):
 #         return PrimitiveMinPool2D
+
 
 class AvgPool2D(Pool2D):
     @property
