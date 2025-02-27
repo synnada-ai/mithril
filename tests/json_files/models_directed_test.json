@@ -5042,14 +5042,15 @@
         "model": {
             "name": "CrossEntropy",
             "args": {
-                "input_type": "probs"
+                "input_type": "probs",
+                "robust": true
+                
             }
         },
         "inputs": {
             "input":[[0.0, 1.0], [0.1, 0.9]]
         },
         "static_keys": {
-            "robust": true,
             "target": [1, 0]
         },
         "output_grads": {
@@ -5069,14 +5070,14 @@
         "model": {
             "name": "CrossEntropy",
             "args": {
-                "input_type": "probs"
+                "input_type": "probs",
+                "robust": true
             }
         },
         "inputs": {
             "input":[[0.0, 1.0], [0.1, 0.9]]
         },
         "static_keys": {
-        "robust": true,
             "target": [0, 0]
         },
         "output_grads": {
@@ -5100,14 +5101,14 @@
         "model": {
             "name": "CrossEntropy",
             "args": {
-                "input_type": "probs"
+                "input_type": "probs",
+                "robust": true
             }
         },
         "inputs": {
             "input":[[2.220446049250313e-16, 1.0], [0.1, 0.9]]
         },
         "static_keys": {
-            "robust": true,
             "target": [0, 0]
         },
         "output_grads": {
@@ -5127,14 +5128,14 @@
         "model": {
             "name": "CrossEntropy",
             "args": {
-                "input_type": "probs"
+                "input_type": "probs",
+                "robust": true
             }
         },
         "inputs": {
             "input":[[0.0, 1.0]]
         },
         "static_keys": {
-            "robust": true,
             "target": [0]
         },
         "output_grads": {
@@ -5158,14 +5159,15 @@
         "model": {
             "name": "CrossEntropy",
             "args": {
-                "input_type": "probs"
+                "input_type": "probs",
+                "robust": true
             }
         },
         "inputs": {
             "input":[[0.2, 1.1102230246251565e-16, 0.7999999999999998], [0.1, 0.6, 0.3]]
         },
         "static_keys": {
-            "robust": true,
+
             "target": [1, 2]
         },
         "output_grads": {
@@ -5184,14 +5186,14 @@
         "model": {
             "name": "CrossEntropy",
             "args": {
-                "input_type": "probs"
+                "input_type": "probs",
+                "robust": true
             }
         },
         "inputs": {
             "input":[[0.5, 0.5], [0.1, 0.9]]
         },
         "static_keys": {
-            "robust": true,
             "target": [0, 1]
         },
         "output_grads": {
@@ -5211,14 +5213,14 @@
         "model": {
             "name": "CrossEntropy",
             "args": {
-                "input_type": "probs"
+                "input_type": "probs",
+                "robust": true
             }
         },
         "inputs": {
             "input":[[0.5, 0.5], [0.1, 0.9]]
         },
         "static_keys": {
-            "robust": true,
             "target": [0, 1]
         },
         "output_grads": {
@@ -5238,14 +5240,14 @@
         "model": {
             "name": "CrossEntropy",
             "args": {
-                "input_type": "probs"
+                "input_type": "probs",
+                "robust": true
             }
         },
         "inputs": {
             "input":[[0.0, 1.0], [0.1, 0.9]]
         },
         "static_keys": {
-            "robust": true,
             "target": [1, 0]
         },
         "output_grads": {

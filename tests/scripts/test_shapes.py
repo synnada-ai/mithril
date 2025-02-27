@@ -1881,8 +1881,8 @@ def test_cross_entropy_shapes_1():
         "input": [8, 10],
         "target": [8],
         "$categorical": None,
-        "$cutoff": [],
-        "$robust": None,
+        "$_CrossEntropy_0_cutoff": [],
+        "$_CrossEntropy_0_robust": None,
         "output": [8],
         "$_CrossEntropy_0_weights": None,
     }
@@ -1901,7 +1901,7 @@ def test_cross_entropy_shapes_1():
 
 def test_cross_entropy_shapes_2():
     model = Model()
-    ce = CrossEntropy()
+    ce = CrossEntropy(categorical = TBD)
     ce.set_shapes(input=[8, 10])
     model |= ce(
         input="input", target="target", categorical=False, output=IOKey(name="output")
@@ -1911,8 +1911,8 @@ def test_cross_entropy_shapes_2():
         "input": [8, 10],
         "target": [8, 10],
         "$categorical": None,
-        "$cutoff": [],
-        "$robust": None,
+        "$_CrossEntropy_0_cutoff": [],
+        "$_CrossEntropy_0_robust": None,
         "output": [8],
         "$_CrossEntropy_0_weights": None,
     }
@@ -1931,7 +1931,7 @@ def test_cross_entropy_shapes_2():
 
 def test_cross_entropy_shapes_3():
     model = Model()
-    ce = CrossEntropy()
+    ce = CrossEntropy(categorical = TBD)
     ce.set_shapes(input=[8, 16, 32, 64], target=[8, 32, 64])
     model += ce(
         input="input", target="target", categorical=True, output=IOKey(name="output")
@@ -1940,8 +1940,8 @@ def test_cross_entropy_shapes_3():
         "input": [8, 16, 32, 64],
         "target": [8, 32, 64],
         "$categorical": None,
-        "$cutoff": [],
-        "$robust": None,
+        "$_CrossEntropy_0_cutoff": [],
+        "$_CrossEntropy_0_robust": None,
         "output": [8, 32, 64],
         "$_CrossEntropy_0_weights": None,
     }
@@ -1960,7 +1960,7 @@ def test_cross_entropy_shapes_3():
 
 def test_cross_entropy_shapes_5():
     model = Model()
-    ce = CrossEntropy()
+    ce = CrossEntropy(categorical=TBD)
     ce.set_shapes(input=[8, 16, ("V1", ...), 64], target=[8, 32, 64])
     model += ce(
         input="input", target="target", categorical=True, output=IOKey(name="output")
@@ -1969,8 +1969,8 @@ def test_cross_entropy_shapes_5():
         "input": [8, 16, 32, 64],
         "target": [8, 32, 64],
         "$categorical": None,
-        "$cutoff": [],
-        "$robust": None,
+        "$_CrossEntropy_0_cutoff": [],
+        "$_CrossEntropy_0_robust": None,
         "output": [8, 32, 64],
         "$_CrossEntropy_0_weights": None,
     }
@@ -1989,7 +1989,7 @@ def test_cross_entropy_shapes_5():
 
 def test_cross_entropy_shapes_6():
     model = Model()
-    ce = CrossEntropy()
+    ce = CrossEntropy(categorical=TBD)
     ce.set_shapes(input=[8, 16, ("V1", ...), 64], output=[8, 32, 64])
     model += ce(
         input="input", target="target", categorical=True, output=IOKey(name="output")
@@ -1998,8 +1998,8 @@ def test_cross_entropy_shapes_6():
         "input": [8, 16, 32, 64],
         "target": [8, 32, 64],
         "$categorical": None,
-        "$cutoff": [],
-        "$robust": None,
+        "$_CrossEntropy_0_cutoff": [],
+        "$_CrossEntropy_0_robust": None,
         "output": [8, 32, 64],
         "$_CrossEntropy_0_weights": None,
     }
@@ -2018,7 +2018,7 @@ def test_cross_entropy_shapes_6():
 
 def test_cross_entropy_shapes_7():
     model = Model()
-    ce = CrossEntropy()
+    ce = CrossEntropy(categorical=TBD)
     ce.set_shapes(input=[("V1", ...), 64], target=[8, 16, 32, 64])
     model += ce(
         input="input", target="target", categorical=True, output=IOKey(name="output")
@@ -2028,8 +2028,8 @@ def test_cross_entropy_shapes_7():
         "input": [8, "u1", 16, 32, 64],
         "target": [8, 16, 32, 64],
         "$categorical": None,
-        "$cutoff": [],
-        "$robust": None,
+        "$_CrossEntropy_0_cutoff": [],
+        "$_CrossEntropy_0_robust": None,
         "output": [8, 16, 32, 64],
         "$_CrossEntropy_0_weights": None,
     }
@@ -2048,7 +2048,7 @@ def test_cross_entropy_shapes_7():
 
 def test_cross_entropy_shapes_8():
     model = Model()
-    ce = CrossEntropy()
+    ce = CrossEntropy(categorical=TBD)
     ce.set_shapes(input=[("V1", ...), 64], target=[8, 16, 32, 64])
     model += ce(
         input="input", target="target", categorical=False, output=IOKey(name="output")
@@ -2058,8 +2058,8 @@ def test_cross_entropy_shapes_8():
         "input": [8, 16, 32, 64],
         "target": [8, 16, 32, 64],
         "$categorical": None,
-        "$cutoff": [],
-        "$robust": None,
+        "$_CrossEntropy_0_cutoff": [],
+        "$_CrossEntropy_0_robust": None,
         "output": [8, 32, 64],
         "$_CrossEntropy_0_weights": None,
     }
@@ -2078,7 +2078,7 @@ def test_cross_entropy_shapes_8():
 
 def test_cross_entropy_shapes_9():
     model = Model()
-    ce = CrossEntropy()
+    ce = CrossEntropy(categorical=TBD)
     ce.set_shapes(input=[8, 16, ("V1", ...), 64])
     model += ce(
         input="input", target="target", categorical=True, output=IOKey(name="output")
@@ -2087,8 +2087,8 @@ def test_cross_entropy_shapes_9():
         "input": [8, 16, "(V1, ...)", 64],
         "target": [8, "(V1, ...)", 64],
         "$categorical": None,
-        "$cutoff": [],
-        "$robust": None,
+        "$_CrossEntropy_0_cutoff": [],
+        "$_CrossEntropy_0_robust": None,
         "output": [8, "(V1, ...)", 64],
         "$_CrossEntropy_0_weights": None,
     }
@@ -2114,9 +2114,9 @@ def test_cross_entropy_shapes_10():
     logical_ref: Mapping = {
         "input": [8, 16, "(V1, ...)", 64, 128],
         "target": [8, "(V1, ...)", 64, 128],
-        "$categorical": None,
-        "$cutoff": [],
-        "$robust": None,
+        "$_CrossEntropy_0_categorical": None,
+        "$_CrossEntropy_0_cutoff": [],
+        "$_CrossEntropy_0_robust": None,
         "output": [8, "(V1, ...)", 64, 128],
         "$_CrossEntropy_0_weights": None,
     }
@@ -2142,9 +2142,9 @@ def test_cross_entropy_shapes_11():
     logical_ref: Mapping = {
         "input": [8, 4, "(V1, ...)", 64, 128],
         "target": [8, "(V1, ...)", 64, 128],
-        "$categorical": None,
-        "$cutoff": [],
-        "$robust": None,
+        "$_CrossEntropy_0_categorical": None,
+        "$_CrossEntropy_0_cutoff": [],
+        "$_CrossEntropy_0_robust": None,
         "output": [8, "(V1, ...)", 64, 128],
         "$_CrossEntropy_0_weights": None,
     }

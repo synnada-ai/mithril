@@ -180,7 +180,7 @@ class TrainModel(Model):
         } - {
             conn.key
             for conn in loss_model.conns.input_connections
-            if conn.metadata.is_scalar
+            if (conn.metadata.is_scalar or conn.metadata.is_valued)
         }:
             # if set(kwargs.keys()) != keys:
             raise KeyError("The provided keys do not match the model's loss.")

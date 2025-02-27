@@ -385,7 +385,7 @@ class QuantileLoss(PrimitiveModel):
 
     def __init__(
         self,
-        quantile: int | float | ToBeDetermined = TBD,
+        quantile: int | float | ToBeDetermined = 0.5,
         input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         target: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
@@ -397,7 +397,7 @@ class QuantileLoss(PrimitiveModel):
             output=BaseKey(shape=[("Var_1", ...)], type=Tensor),
             input=BaseKey(shape=[("Var_2", ...)], type=Tensor, value=input),
             target=BaseKey(shape=[("Var_3", ...)], type=Tensor, value=target),
-            quantile=BaseKey(shape=[], type=Tensor[int | float], value=quantile),
+            quantile=BaseKey(shape=[], type=Tensor[int | float], value=Tensor(quantile)),
         )
 
         bcast_constraint = self._add_constraint(
@@ -425,7 +425,7 @@ class QuantileLoss(PrimitiveModel):
         self,
         input: ConnectionType = NOT_GIVEN,
         target: ConnectionType = NOT_GIVEN,
-        quantile: int | float | ConnectionType = 0.5,
+        quantile: ConnectionType = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(
@@ -455,13 +455,15 @@ class CrossEntropy(PrimitiveModel):
         weights: list[float] | str = "",
         input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         target: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        robust: bool | ToBeDetermined = TBD,
-        cutoff: ConstantType | ToBeDetermined = TBD,
+        robust: bool | ToBeDetermined = False,
+        cutoff: ConstantType | ToBeDetermined = Constant.MIN_POSITIVE_NORMAL,
+        categorical: bool | ToBeDetermined = True,
         *,
         name: str | None = None,
     ) -> None:
         self.factory_args = {"input_type": input_type, "weights": weights}
-
+        self.input_type = input_type
+        _cutoff = Tensor(cutoff)
         weights_type: type = list[float]
         if isinstance(weights, str):
             if weights not in ("", "auto"):
@@ -480,8 +482,8 @@ class CrossEntropy(PrimitiveModel):
                 shape=["N", ("VarTarget", ...)], type=Tensor, value=target
             ),
             "weights": BaseKey(type=weights_type, value=final_weights),
-            "categorical": BaseKey(type=bool),
-            "cutoff": BaseKey(shape=[], type=Tensor, value=cutoff),
+            "categorical": BaseKey(type=bool, value = categorical),
+            "cutoff": BaseKey(shape=[], type=Tensor, value=_cutoff),
             "robust": BaseKey(type=bool, value=robust),
         }
 
@@ -510,9 +512,9 @@ class CrossEntropy(PrimitiveModel):
         input: ConnectionType = NOT_GIVEN,
         target: ConnectionType = NOT_GIVEN,
         weights: ConnectionType = NOT_GIVEN,
-        categorical: bool | ConnectionType = True,
-        cutoff: ConstantType | ConnectionType = Constant.MIN_POSITIVE_NORMAL,
-        robust: bool | ConnectionType = False,
+        categorical: ConnectionType = NOT_GIVEN,
+        cutoff: ConnectionType = NOT_GIVEN,
+        robust: ConnectionType = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         kwargs = {
@@ -522,22 +524,16 @@ class CrossEntropy(PrimitiveModel):
             "categorical": categorical,
             "output": output,
         }
-        # Check if the given argument set is valid.
-        if self.submodel.formula_key == "cross_entropy_with_log_probs":
-            args: list[str] = []
-            if robust is not False:
-                args.append("robust")
-            if cutoff != Constant.MIN_POSITIVE_NORMAL:
-                args.append("cutoff")
-            if args:
+        if self.input_type == "log_probs":
+            if cutoff is not NOT_GIVEN:
                 raise ValueError(
-                    f"Cross entropy with log probs does not accept {args} arguments."
+                    "Cross entropy with log probs does not accept cutoff argument."
+                )
+            if robust is not NOT_GIVEN:
+                raise ValueError(
+                    "Cross entropy with log probs does not accept robust argument."
                 )
         else:
-            if isinstance(cutoff, Constant) and cutoff == Constant.MIN_POSITIVE_NORMAL:
-                # NOTE: Since we can not provide Tensor objects as default
-                # arguments, we need to convert default value.
-                cutoff = Tensor(cutoff)
             kwargs |= {"cutoff": cutoff, "robust": robust}
 
         return super().__call__(**kwargs)
@@ -557,7 +553,7 @@ class KLDivergence(PrimitiveModel):
         self,
         input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         target: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        cutoff: ConstantType | ToBeDetermined = TBD,
+        cutoff: ConstantType | ToBeDetermined = Constant.MIN_POSITIVE_NORMAL,
         name: str | None = None,
     ) -> None:
         super().__init__(
@@ -566,7 +562,7 @@ class KLDivergence(PrimitiveModel):
             output=BaseKey(shape=[("Var_1", ...)], type=Tensor[float]),
             input=BaseKey(shape=[("Var_2", ...)], type=Tensor, value=input),
             target=BaseKey(shape=[("Var_3", ...)], type=Tensor, value=target),
-            cutoff=BaseKey(shape=[], type=Tensor, value=cutoff),
+            cutoff=BaseKey(shape=[], type=Tensor, value=Tensor(cutoff)),
         )
 
         self.submodel.safe_shapes = {
@@ -588,13 +584,9 @@ class KLDivergence(PrimitiveModel):
         self,
         input: ConnectionType = NOT_GIVEN,
         target: ConnectionType = NOT_GIVEN,
-        cutoff: ConnectionType = Constant.MIN_POSITIVE_NORMAL,
+        cutoff: ConnectionType = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
-        if isinstance(cutoff, Constant) and cutoff == Constant.MIN_POSITIVE_NORMAL:
-            # NOTE: Since we can not provide Tensor objects as default
-            # arguments, we need to convert default value.
-            cutoff = Tensor(cutoff)
         return super().__call__(
             input=input, target=target, cutoff=cutoff, output=output
         )

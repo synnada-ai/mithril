@@ -1451,7 +1451,6 @@ class IOHyperEdge:
             return self.set_type(find_type(self._value))
         return Updates()
 
-
 class Uniadic:
     def __init__(self, value: int | set[int] | None = None) -> None:
         # TODO: we could accept *value as input to initialize Uniadic.
