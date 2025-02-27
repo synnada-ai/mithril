@@ -21,6 +21,7 @@ import torch
 import mithril
 from mithril import TorchBackend
 from mithril.framework.common import TBD, Tensor, ToBeDetermined
+from mithril.framework.logical.model import Connection
 from mithril.models import (
     Add,
     Buffer,
@@ -76,16 +77,20 @@ def assert_model_keys(
 
 
 def compare_evaluate(
-    model1: Model, model2: Model, backend: TorchBackend, data: dict | None = None
+    model1: Model,
+    model2: Model,
+    backend: TorchBackend,
+    data: dict | None = None,
+    inference=False,
 ):
     if data is None:
         data = {}
 
-    pm1 = mithril.compile(model=model1, backend=backend)
+    pm1 = mithril.compile(model=model1, backend=backend, inference=inference)
 
     params: dict = pm1.randomize_params()
 
-    pm2 = mithril.compile(model=model2, backend=backend)
+    pm2 = mithril.compile(model=model2, backend=backend, inference=inference)
 
     outputs1 = pm1.evaluate(params, data)
     outputs2 = pm2.evaluate(params, data)
@@ -300,7 +305,7 @@ def test_9():
     model |= Sigmoid()(input=out, output=IOKey("output"))
 
     backend = TorchBackend()
-    pm = mithril.compile(model=model, backend=backend, jit=False)
+    pm = mithril.compile(model=model, backend=backend, jit=False, inference=True)
 
     res = pm.evaluate(data={"input": backend.ones(5, 5)})
     out1 = res["output"]
@@ -316,9 +321,10 @@ def test_10():
     middle = IOKey(name="middle", expose=True)
     model |= Sigmoid()(input=middle, output=IOKey("output"))
     model |= Relu()(input="input", output=middle)
+    model.expose_keys(middle)
 
     backend = TorchBackend()
-    pm = mithril.compile(model=model, backend=backend, jit=False)
+    pm = mithril.compile(model=model, backend=backend, jit=False, inference=True)
     res = pm.evaluate(data={"input": backend.ones(5, 5)})
     out = res["output"]
     assert isinstance(out, torch.Tensor)
@@ -336,7 +342,7 @@ def test_11():
     model |= Sigmoid()(input=IOKey(name="out", expose=True), output=IOKey("output"))
 
     backend = TorchBackend()
-    pm = mithril.compile(model=model, backend=backend, jit=False)
+    pm = mithril.compile(model=model, backend=backend, jit=False, inference=True)
 
     res = pm.evaluate(data={"input": backend.ones(5, 5)})
     out = res["output"]
@@ -353,7 +359,7 @@ def test_12():
     model |= Relu()(input="input", output=IOKey(name="middle", expose=False))
 
     backend = TorchBackend()
-    pm = mithril.compile(model=model, backend=backend, jit=False)
+    pm = mithril.compile(model=model, backend=backend, jit=False, inference=True)
     res = pm.evaluate(data={"input": backend.ones(5, 5)})
     out = res["output"]
     assert isinstance(out, torch.Tensor)
@@ -373,7 +379,7 @@ def test_13():
     )
 
     backend = TorchBackend()
-    pm = mithril.compile(model=model, backend=backend, jit=False)
+    pm = mithril.compile(model=model, backend=backend, jit=False, inference=True)
     res = pm.evaluate(data={"input": backend.ones(5, 5)})
     out1 = res["output1"]
     assert isinstance(out1, torch.Tensor)
@@ -602,13 +608,17 @@ def test_iokey_values_9_error():
     model = Model(enforce_jit=False)
     buffer1 = Buffer()
 
-    with pytest.raises(KeyError) as err_info:
+    with pytest.raises(ValueError) as err_info:
         model |= buffer1(
             input=IOKey(name="input1"), output=IOKey(name="output1", value=[2.0])
         )
+    # assert str(err_info.value) == (
+    #     "'output key is an output of the model"
+    #     ", output values could not be set in extend.'"
+    # )
     assert str(err_info.value) == (
-        "'output key is an output of the model"
-        ", output values could not be set in extend.'"
+        "A valued connection of the extended model tries to write"
+        " to an output connection of the extending model. Multi-write error!"
     )
 
 
@@ -751,7 +761,7 @@ def test_iokey_tensor_input_all_args():
 
         # if code reaches this far. It is expected model to be compiled and evaluated
         # successfully.
-        pm = mithril.compile(model=model, backend=backend)
+        pm = mithril.compile(model=model, backend=backend, inference=True)
         if value is TBD:
             data = {"left": backend.array([[2.0]]), "right": backend.array([[3.0]])}
         else:
@@ -823,10 +833,15 @@ def test_iokey_scalar_output_all_args():
         except Exception as e:
             if value is not TBD:
                 # it is an expected error
-                assert isinstance(e, KeyError)
+                # assert isinstance(e, KeyError)
+                # assert e.args[0] == (
+                #     "output key is an output of the model"
+                #     ", output values could not be set in extend."
+                # )
+                assert isinstance(e, ValueError)
                 assert e.args[0] == (
-                    "output key is an output of the model"
-                    ", output values could not be set in extend."
+                    "A valued connection of the extended model tries to write to "
+                    "an output connection of the extending model. Multi-write error!"
                 )
             elif shape:
                 # Since providing shape within IOKey means it is Tensor type,
@@ -947,7 +962,9 @@ def test_iokey_scalar_input_all_args():
 
         # if code reaches this far. It is expected model to be compiled and evaluated
         # successfully.
-        pm = mithril.compile(model=model, backend=backend, safe_names=False)
+        pm = mithril.compile(
+            model=model, backend=backend, safe_names=False, inference=True
+        )
         data: dict = {
             "input": backend.ones(2, 2),
         }
@@ -1024,10 +1041,15 @@ def test_iokey_tensor_output_all_args():
         except Exception as e:
             if value is not TBD:
                 # it is an expected error
-                assert isinstance(e, KeyError)
+                # assert isinstance(e, KeyError)
+                # assert e.args[0] == (
+                #     "output key is an output of the model"
+                #     ", output values could not be set in extend."
+                # )
+                assert isinstance(e, ValueError)
                 assert e.args[0] == (
-                    "output key is an output of the model"
-                    ", output values could not be set in extend."
+                    "A valued connection of the extended model tries to write to "
+                    "an output connection of the extending model. Multi-write error!"
                 )
 
             elif name is None and expose:
@@ -1042,7 +1064,7 @@ def test_iokey_tensor_output_all_args():
 
         # if code reaches this far. It is expected model to be compiled and
         # evaluated successfully.
-        pm = mithril.compile(model=model, backend=backend)
+        pm = mithril.compile(model=model, backend=backend, inference=True)
         data = {"left": backend.array([[2.0]]), "right": backend.array([[3.0]])}
         if name is not None:  # and expose:
             ref_outputs = {"output1": backend.array([[5.0]])}
@@ -1077,7 +1099,9 @@ def test_compare_models_1():
         "input2": backend.ones(5, 5),
         "input3": backend.ones(5, 5),
     }
-    compare_evaluate(model1=model1, model2=model2, backend=backend, data=data)
+    compare_evaluate(
+        model1=model1, model2=model2, backend=backend, data=data, inference=True
+    )
 
 
 def test_compare_models_2():
@@ -1131,7 +1155,9 @@ def test_compare_models_3():
     model2.set_shapes(input=[2, 2])
 
     data = {"input": backend.ones(2, 2)}
-    compare_evaluate(model1=model1, model2=model2, backend=backend, data=data)
+    compare_evaluate(
+        model1=model1, model2=model2, backend=backend, data=data, inference=True
+    )
 
 
 def test_compare_models_4():
@@ -1159,7 +1185,9 @@ def test_compare_models_4():
     model2.set_shapes(input=[2, 2])
 
     data = {"input": backend.ones(2, 2)}
-    compare_evaluate(model1=model1, model2=model2, backend=backend, data=data)
+    compare_evaluate(
+        model1=model1, model2=model2, backend=backend, data=data, inference=True
+    )
 
 
 def test_compare_models_5():
@@ -1182,7 +1210,9 @@ def test_compare_models_5():
     model2.set_shapes(input=[2, 2])
 
     data = {"input": backend.ones(2, 2)}
-    compare_evaluate(model1=model1, model2=model2, backend=backend, data=data)
+    compare_evaluate(
+        model1=model1, model2=model2, backend=backend, data=data, inference=True
+    )
 
 
 def test_iokey_shape_error_1():
@@ -1222,7 +1252,7 @@ def test_iokey_template_1():
 
     backend = TorchBackend()
 
-    pm = mithril.compile(model=model, backend=backend, jit=False)
+    pm = mithril.compile(model=model, backend=backend, jit=False, inference=True)
     out = pm.evaluate(
         data={"left": backend.array([2.0]), "right": backend.array([3.0])}
     )
@@ -1244,7 +1274,7 @@ def test_iokey_template_2():
 
     backend = TorchBackend()
 
-    pm = mithril.compile(model=model, backend=backend, jit=False)
+    pm = mithril.compile(model=model, backend=backend, jit=False, inference=True)
     res = pm.evaluate(
         data={"left": backend.array([2.0]), "right": backend.array([3.0])}
     )
@@ -1265,7 +1295,7 @@ def test_iokey_template_3():
 
     backend = TorchBackend()
 
-    pm = mithril.compile(model=model, backend=backend, jit=False)
+    pm = mithril.compile(model=model, backend=backend, jit=False, inference=True)
     out = pm.evaluate(data={"left": backend.array([2.0])})
     expected_result = np.array([5.0])
 
@@ -1284,7 +1314,7 @@ def test_iokey_template_4():
 
     backend = TorchBackend()
 
-    pm = mithril.compile(model=model, backend=backend, jit=False)
+    pm = mithril.compile(model=model, backend=backend, jit=False, inference=True)
     out = pm.evaluate(data={"left": backend.ones((9, 8, 7))})
     expected_result = 9
 
@@ -1303,7 +1333,7 @@ def test_iokey_template_5():
 
     backend = TorchBackend()
 
-    pm = mithril.compile(model=model, backend=backend, jit=False)
+    pm = mithril.compile(model=model, backend=backend, jit=False, inference=True)
     out = pm.evaluate(data={"left": [1, 2, 3]})
     expected_result = np.array([1, 2, 3])
 
@@ -1320,7 +1350,7 @@ def test_iokey_template_6():
     buff.set_types(input=Tensor)
     model += buff(input[0], IOKey("output"))
     backend = TorchBackend()
-    pm = mithril.compile(model=model, backend=backend, jit=False)
+    pm = mithril.compile(model=model, backend=backend, jit=False, inference=True)
 
     pm._input_keys = {"input"}
     pm._output_keys = {"output"}
@@ -1428,7 +1458,7 @@ def test_iokey_template_12():
     input = IOKey("input")
 
     sub_model |= Buffer()(input, IOKey("output", type=Tensor))
-    model |= sub_model(input=input, output=IOKey("output"))
+    model |= sub_model(input="input", output=IOKey("output"))
 
     backend = TorchBackend()
     pm = mithril.compile(model=model, backend=backend, inference=True, jit=False)
@@ -1455,3 +1485,46 @@ def test_iokey_template_13():
 
     res = pm.evaluate(data={"input": backend.ones((3, 4, 5))})
     assert res["output"] == (4, 5)
+
+
+def test_iokey_as_an_object():
+    input = Connection()
+
+    submodel = Model()
+    submodel |= Buffer()(input)
+
+    model = Model()
+    model |= submodel
+    model |= Buffer()(input)
+
+    assert len(model.conns.input_connections) == 1
+
+
+def test_iokey_as_an_object_nested():
+    input1 = Connection("input1")
+    input2 = Connection("input2")
+    input3 = Connection("input3")
+
+    submodel = Model()
+    submodel |= Buffer()(input1)
+    submodel |= Buffer()(input2)
+    submodel |= Buffer()(input3)
+    submodel |= Buffer()(input1)
+    submodel.merge_connections(input1, input2, name="my_input")
+    submodel.merge_connections("my_input", input3, name="my_real_input")
+
+    model1 = Model()
+    model1 |= submodel
+    model1 |= Buffer()(input1)
+    model1 |= Buffer()(input2)
+    model1 |= Buffer()(input3)
+
+    assert len(model1.conns.input_connections) == 1
+
+
+def test_iokey_type_diff_inconsistency():
+    with pytest.raises(TypeError) as err_info:
+        Connection(type=int, differentiable=True)
+    assert (
+        str(err_info.value) == "Differentiable connection should be Tensor[float] type!"
+    )

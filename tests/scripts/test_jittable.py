@@ -29,8 +29,9 @@ from mithril.cores.python.jax.ops import (
     to_tensor,
 )
 from mithril.framework import NOT_GIVEN, ConnectionType, ExtendInfo
-from mithril.framework.common import BaseKey, Tensor
+from mithril.framework.common import Tensor
 from mithril.framework.constraints import bcast
+from mithril.framework.logical.base import BaseKey
 from mithril.models import (
     TBD,
     Add,
@@ -407,7 +408,7 @@ def test_jit_3():
     backend = JaxBackend()
     model = Model()
     model |= Mean(axis=TBD)(input="input", output=IOKey(name="output"), axis="axis")
-    pm = compile(model=model, backend=backend, jit=False)
+    pm = compile(model=model, backend=backend, jit=False, inference=True)
 
     inputs = {"input": backend.randn(1, 2, 3, 2, 3, 2, 3, 2), "axis": 3}
 
@@ -418,7 +419,13 @@ def test_jit_4():
     backend = JaxBackend()
     model = Model()
     model |= Mean(axis=TBD)(input="input", output=IOKey(name="output"), axis="axis")
-    pm = compile(model=model, backend=backend, jit=True, constant_keys={"axis": 3})
+    pm = compile(
+        model=model,
+        backend=backend,
+        jit=True,
+        constant_keys={"axis": 3},
+        inference=True,
+    )
 
     inputs = {"input": backend.randn(1, 2, 3, 2, 3, 2, 3, 2)}
 

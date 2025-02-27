@@ -809,6 +809,7 @@ def test_torch_parallel_multi_parallel_1():
         jit=False,
         shapes={"left": [8, 128], "right": [8, 128]},
         data_keys={"left", "right"},
+        inference=True,
     )
 
     model = Model()
@@ -821,6 +822,7 @@ def test_torch_parallel_multi_parallel_1():
         jit=False,
         shapes={"left": [8, 128], "right": [8, 128]},
         data_keys={"left", "right"},
+        inference=True,
     )
 
     left = backend1.ones([8, 128]) * 5

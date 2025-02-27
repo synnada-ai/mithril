@@ -18,8 +18,8 @@ import tempfile
 
 import mithril
 from mithril import Backend, DataType
-from mithril.framework.common import BaseKey
 from mithril.framework.constraints import bcast
+from mithril.framework.logical.base import BaseKey
 from mithril.models import (
     ExtendInfo,
     Model,

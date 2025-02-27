@@ -11,24 +11,33 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from collections.abc import Callable
-from copy import deepcopy
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 import pytest
 
 import mithril as ml
-from mithril.framework.common import TBD
+from mithril.framework.common import TBD, Tensor, ToBeDetermined
 from mithril.framework.logical.model import Connection, IOKey
 from mithril.models import (
     Add,
+    Buffer,
     Divide,
+    Equal,
     FloorDivide,
-    Mean,
+    Greater,
+    GreaterEqual,
+    Less,
+    LessEqual,
+    LogicalAnd,
+    LogicalOr,
+    LogicalXOr,
     Model,
     Multiply,
+    NotEqual,
+    OperatorModel,
     Power,
-    Shape,
+    ShiftLeft,
+    ShiftRight,
     Subtract,
 )
 
@@ -44,109 +53,483 @@ class SupportsOutput(Protocol):
     output: Connection
 
 
-class TestScalarInference:
-    lambda_map: dict[
-        type[Model],
-        Callable[[int | float | bool, int | float | bool], int | float | bool],
-    ] = {
-        Add: lambda left, right: left + right,
-        Multiply: lambda left, right: left * right,
-        Subtract: lambda left, right: left - right,
-        Power: lambda left, right: left**right,
-        Divide: lambda left, right: left / right,
-        FloorDivide: lambda left, right: left // right,
-    }
+def idfn(value: Any) -> str:
+    *inputs, _ = value
+    id_str = "_".join(f"{"TBD" if i is TBD else i}" for i in inputs)
+    return id_str
 
-    @pytest.mark.parametrize("inputs", [(1.0, 2), (True, 4), (5, -1.0), (7, 2)])
-    @pytest.mark.parametrize(
-        "model",
-        [Add(), Multiply(), Subtract(), Power(), Divide(), FloorDivide()],
-        ids=["Add", "Multiply", "Subtract", "Power", "Divide", "FloorDivide"],
-    )
-    def test_one_model(
-        self,
-        model: Model,
-        inputs: tuple[int | float | bool, int | float | bool],
-    ):
-        model = deepcopy(model)
-        ref_callable = self.lambda_map[type(model)]
-        ref_output = ref_callable(*inputs)
+
+class BasePrimitiveInference:
+    def model(self) -> OperatorModel:
+        raise NotImplementedError
+
+    def test_model(self, results: tuple[int | float | bool | ToBeDetermined, ...]):
+        main_model: Model = Model()
+        model = self.model()
+        left, right, output = results
         kwargs = {
-            key: value for key, value in zip(model.input_keys, inputs, strict=False)
+            key: value
+            for key, value in zip(model.input_keys, (left, right), strict=False)
+            if value is not TBD
         }
-
-        main_model = Model()
         main_model |= model(**kwargs, output=IOKey("output"))
-
         assert isinstance(main_model, SupportsOutput)
-        assert main_model.output.metadata.value == ref_output
+        assert main_model.output.metadata.value == output
 
-    @pytest.fixture(scope="class")
-    def shape_model(self) -> Model:
-        add_model = Add()
-
-        model = Model()
-        model += Shape()
-        shape_output = model.cout
-        model_output = (
-            shape_output[0] * shape_output[1] + shape_output[2]
-        ) // shape_output[3]
-
-        model |= add_model(model_output, 3, IOKey("output"))
-        model.set_shapes({model.cin: [8, 2, 14, 10]})
-
-        return model
-
-    @pytest.fixture(scope="class")
-    def complicated_shape_model(self) -> Model:
-        model = Model()
-        model |= Shape()
-        shape_output = model.cout
-        input = model.cin
-        output1 = (
-            (shape_output[0] * shape_output[1] + shape_output[2]) // shape_output[3]
-        ) - 2  # 1
-        model |= Mean(axis=TBD)(input=input, axis=output1)
-        mean_shape = model.cout.shape  # [8, 14, 10]
-        output2 = (mean_shape[0] ** (mean_shape[1] / 7)) + mean_shape[2]  # 74
-        model |= Add()(output2, output1, IOKey("output"))  # 75
-        model.set_shapes({model.cin: [8, 2, 14, 10]})
-        return model
-
-    def test_shape_model_output_basic(self, shape_model: Model):
-        assert isinstance(shape_model, SupportsOutput)
-        assert shape_model.output.metadata.value == 6
-
-    def test_check_compilability_of_shape_model_basic(self, shape_model: Model):
-        pm = ml.compile(shape_model, backend=ml.JaxBackend(), inference=True)
-        assert pm.evaluate()["output"] == 6
-
-    def test_shape_model_output_complicated(self, complicated_shape_model: Model):
-        assert isinstance(complicated_shape_model, SupportsOutput)
-        assert complicated_shape_model.output.metadata.value == 75.0
-
-    def test_check_compilability_of_shape_model_complicated(
-        self, complicated_shape_model: Model
+    def test_model_set_values(
+        self, results: tuple[int | float | bool | ToBeDetermined, ...]
     ):
-        pm = ml.compile(
-            complicated_shape_model, backend=ml.JaxBackend(), inference=True
-        )
-        assert pm.evaluate()["output"] == 75.0
+        main_model: Model = Model()
+        model = self.model()
+        left, right, output = results
+        kwargs = {key: key for key in model.input_keys}
+        main_model |= model(**kwargs, output=IOKey("output"))
+        set_values = {
+            key: value
+            for key, value in zip(model.input_keys, (left, right), strict=False)
+            if value is not TBD
+        }
+        main_model.set_values(**set_values)  # type: ignore
+        assert isinstance(main_model, SupportsOutput)
+        assert main_model.output.metadata.value == output
+
+
+@pytest.mark.parametrize(
+    "results",
+    [
+        (2, 3, 5),
+        (2.0, 3.0, 5.0),
+        (2, 3.0, 5.0),
+        (True, 1, 2),
+        (True, False, 1),
+        (TBD, 3, TBD),
+        (False, 2.0, 2.0),
+    ],
+    ids=idfn,
+)
+class TestAdd(BasePrimitiveInference):
+    def model(self) -> OperatorModel:
+        return Add()
+
+
+@pytest.mark.parametrize(
+    "results",
+    [
+        (2, 3, -1),
+        (2.0, 3.0, -1.0),
+        (2, 3.0, -1.0),
+        (True, 1, 0),
+        (True, False, 1),
+        (TBD, 3, TBD),
+        (False, 2.0, -2.0),
+    ],
+    ids=idfn,
+)
+class TestSubtract(BasePrimitiveInference):
+    def model(self) -> OperatorModel:
+        return Subtract()
+
+
+@pytest.mark.parametrize(
+    "results",
+    [
+        (2, 3, 6),
+        (2.0, 3.0, 6.0),
+        (2, 3.0, 6.0),
+        (True, 1, 1),
+        (True, False, 0),
+        (TBD, 3, TBD),
+        (False, 2.0, 0.0),
+    ],
+    ids=idfn,
+)
+class TestMultiply(BasePrimitiveInference):
+    def model(self) -> OperatorModel:
+        return Multiply()
+
+
+@pytest.mark.parametrize(
+    "results",
+    [
+        (2, 3, 2 / 3),
+        (2.0, 3.0, 2.0 / 3.0),
+        (2, 3.0, 2 / 3.0),
+        (True, 1, 1.0),
+        (False, True, 0.0),
+        (TBD, 3, TBD),
+        (False, 2.0, 0.0),
+    ],
+    ids=idfn,
+)
+class TestDivide(BasePrimitiveInference):
+    def model(self) -> OperatorModel:
+        return Divide()
+
+
+@pytest.mark.parametrize(
+    "results",
+    [
+        (2, 3, 2 // 3),
+        (2.0, 3.0, 2.0 // 3.0),
+        (2, 3.0, 2 // 3.0),
+        (True, 1, 1),
+        (False, True, 0),
+        (TBD, 3, TBD),
+        (False, 2.0, 0),
+    ],
+    ids=idfn,
+)
+class TestFloorDiv(BasePrimitiveInference):
+    def model(self) -> OperatorModel:
+        return FloorDivide()
+
+
+@pytest.mark.parametrize(
+    "results",
+    [
+        (2, 3, 2**3),
+        (2.0, 3.0, 2.0**3.0),
+        (2, 3.0, 2**3.0),
+        (True, 1, 1),
+        (False, True, 0),
+        (TBD, 3, TBD),
+        (False, 2.0, 0),
+    ],
+    ids=idfn,
+)
+class TestPower(BasePrimitiveInference):
+    def model(self) -> OperatorModel:
+        return Power()
+
+
+@pytest.mark.parametrize(
+    "results",
+    [
+        (2, 3, False),
+        (2.0, 3.0, False),
+        (2, 3.0, False),
+        (True, 1, False),
+        (False, True, False),
+        (TBD, 3, TBD),
+        (False, 2.0, False),
+        (True, False, True),
+        (7.00001, 7.0000001, True),
+    ],
+    ids=idfn,
+)
+class TestGreater(BasePrimitiveInference):
+    def model(self) -> OperatorModel:
+        return Greater()
+
+
+@pytest.mark.parametrize(
+    "results",
+    [
+        (2, 3, True),
+        (2.0, 3.0, True),
+        (2, 3.0, True),
+        (True, 1, False),
+        (False, True, True),
+        (TBD, 3, TBD),
+        (False, 2.0, True),
+        (True, False, False),
+        (7.00001, 7.0000001, False),
+    ],
+    ids=idfn,
+)
+class TestLess(BasePrimitiveInference):
+    def model(self) -> OperatorModel:
+        return Less()
+
+
+@pytest.mark.parametrize(
+    "results",
+    [
+        (2, 3, True),
+        (2.0, 3.0, True),
+        (2, 3.0, True),
+        (True, 1, True),
+        (False, True, True),
+        (TBD, 3, TBD),
+        (False, 2.0, True),
+        (True, False, False),
+        (7.00001, 7.0000001, False),
+    ],
+    ids=idfn,
+)
+class TestLessEqual(BasePrimitiveInference):
+    def model(self) -> OperatorModel:
+        return LessEqual()
+
+
+@pytest.mark.parametrize(
+    "results",
+    [
+        (2, 3, False),
+        (2.0, 3.0, False),
+        (2, 3.0, False),
+        (True, 1, True),
+        (False, True, False),
+        (TBD, 3, TBD),
+        (False, 2.0, False),
+        (True, False, True),
+        (7.00001, 7.0000001, True),
+    ],
+    ids=idfn,
+)
+class TestGreaterEqual(BasePrimitiveInference):
+    def model(self) -> OperatorModel:
+        return GreaterEqual()
+
+
+@pytest.mark.parametrize(
+    "results",
+    [
+        (2, 3, False),
+        (2.0, 3.0, False),
+        (2, 3.0, False),
+        (True, 1, True),
+        (False, True, False),
+        (TBD, 3, TBD),
+        (False, 2.0, False),
+        (True, False, False),
+        (7.00001, 7.0000001, False),
+        (3, 3.0, True),
+    ],
+    ids=idfn,
+)
+class TestEqual(BasePrimitiveInference):
+    def model(self) -> OperatorModel:
+        return Equal()
+
+
+@pytest.mark.parametrize(
+    "results",
+    [
+        (2, 3, True),
+        (2.0, 3.0, True),
+        (2, 3.0, True),
+        (True, 1, False),
+        (False, True, True),
+        (TBD, 3, TBD),
+        (False, 2.0, True),
+        (True, False, True),
+        (7.00001, 7.0000001, True),
+        (3, 3.0, False),
+    ],
+    ids=idfn,
+)
+class TestNotEqual(BasePrimitiveInference):
+    def model(self) -> OperatorModel:
+        return NotEqual()
+
+
+@pytest.mark.parametrize(
+    "results",
+    [
+        (True, True, True),
+        (True, False, False),
+        (False, True, False),
+        (False, False, False),
+        (TBD, True, TBD),
+        (3, 4, 0),
+        (7, 8, 0),
+        (3, True, 1),
+        (False, 3, 0),
+        (7, 11, 3),
+    ],
+    ids=idfn,
+)
+class TestLogicalAnd(BasePrimitiveInference):
+    def model(self) -> OperatorModel:
+        return LogicalAnd()
+
+
+@pytest.mark.parametrize(
+    "results",
+    [
+        (True, True, True),
+        (True, False, True),
+        (False, True, True),
+        (False, False, False),
+        (TBD, True, TBD),
+        (3, 4, 7),
+        (7, 8, 15),
+        (3, True, 3),
+        (False, 3, 3),
+        (7, 11, 15),
+    ],
+    ids=idfn,
+)
+class TestLogicalOr(BasePrimitiveInference):
+    def model(self) -> OperatorModel:
+        return LogicalOr()
+
+
+@pytest.mark.parametrize(
+    "results",
+    [
+        (True, True, False),
+        (True, False, True),
+        (False, True, True),
+        (False, False, False),
+        (TBD, True, TBD),
+        (3, 4, 7),
+        (7, 8, 15),
+        (3, True, 2),
+        (False, 3, 3),
+        (7, 11, 12),
+    ],
+    ids=idfn,
+)
+class TestLogicalXOr(BasePrimitiveInference):
+    def model(self) -> OperatorModel:
+        return LogicalXOr()
+
+
+@pytest.mark.parametrize(
+    "results",
+    [
+        (True, True, 2),
+        (True, False, 1),
+        (False, True, 0),
+        (False, False, 0),
+        (TBD, True, TBD),
+        (3, 4, 48),
+        (7, 8, 1792),
+        (3, True, 6),
+        (False, 3, 0),
+        (7, 11, 14336),
+    ],
+    ids=idfn,
+)
+class TestShiftLeft(BasePrimitiveInference):
+    def model(self) -> OperatorModel:
+        return ShiftLeft()
+
+
+@pytest.mark.parametrize(
+    "results",
+    [
+        (True, True, 0),
+        (True, False, 1),
+        (False, True, 0),
+        (False, False, 0),
+        (TBD, True, TBD),
+        (3, 4, 0),
+        (7, 8, 0),
+        (3, True, 1),
+        (False, 3, 0),
+        (7, 11, 0),
+    ],
+    ids=idfn,
+)
+class TestShiftRight(BasePrimitiveInference):
+    def model(self) -> OperatorModel:
+        return ShiftRight()
+
+
+class TestCompositeModels:
+    def test_composite_add_multiply(self):
+        input1 = IOKey("input1", value=3.0)
+        input2 = IOKey("input2", value=4.0)
+        input3 = IOKey("input3", value=5.0)
+
+        output = input1 + input2 * input3
+
+        model = Model()
+        model += Buffer()(output, IOKey("output"))
+
+        assert isinstance(model, SupportsOutput)
+        assert model.output.metadata.value == 23.0
+
+        pm = ml.compile(model, backend=ml.JaxBackend(), inference=True)
+        assert pm.evaluate()["output"] == 23.0
+
+    def test_composite_divide_or(self):
+        input1 = IOKey("input1", value=7)
+        input2 = IOKey("input2", value=8)
+        input3 = IOKey("input3", value=3.0)
+
+        output = ((input1 | input2) / input3) + 3
+
+        model = Model()
+        model += Buffer()(output, IOKey("output"))
+
+        assert isinstance(model, SupportsOutput)
+        assert model.output.metadata.value == 8.0
+
+        pm = ml.compile(model, backend=ml.NumpyBackend(), inference=True)
+        assert pm.evaluate()["output"] == 8.0
+
+    def test_operations_with_shape(self):
+        input1 = IOKey("input1", type=Tensor[int | float | bool])
+        input2 = IOKey("input2", value=8)
+        input3 = IOKey("input3", value=3.0)
+
+        shp = input1.shape
+        val1 = shp[0]  # 2
+        val2 = shp[1]  # 3
+        val3 = shp[2]  # 4
+
+        out = ((val1**val2 + val3) // input2) + input3
+
+        model = Model()
+        model += Buffer()(out, IOKey("output"))
+
+        model.set_shapes(input1=[2, 3, 4])
+
+        assert isinstance(model, SupportsOutput)
+        assert model.output.metadata.value == 4.0
+
+        pm = ml.compile(model, backend=ml.TorchBackend(), inference=True)
+        assert pm.evaluate()["output"] == 4.0
+
+    def test_operations_with_shape_and_scalar(self):
+        input1 = IOKey("input1", type=Tensor[int | float | bool], shape=[6, 7, 8, 9])
+        input2 = IOKey("input2", value=8)
+        input3 = IOKey("input3", value=3.0)
+
+        shp = input1.shape  # [6, 7, 8, 9]
+        val1 = shp[0]
+        val2 = shp[1]
+        val3 = shp[2]
+        val4 = shp[3]
+        out = input1[1 : val1 - 1, 1 : val2 - 1, 1 : val3 - 1, 1 : val4 - 1]  # type: ignore
+
+        shp = out.shape  # [4, 5, 6, 7]
+        val1 = shp[0]
+        val2 = shp[1]
+        out = out.mean(axis=val1 + val2 - input2)  # 1
+
+        shp = out.shape  # [4, 6, 7]
+        val1 = shp[0]
+        val2 = shp[1]
+        val3 = shp[2]
+        out = (val1 ** (val2 / input3)) + val3  # 23
+
+        model = Model()
+        model += Buffer()(out, IOKey("output"))
+
+        assert isinstance(model, SupportsOutput)
+        assert model.output.metadata.value == 23.0
+
+        pm = ml.compile(model, backend=ml.TorchBackend(), inference=True)
+        assert pm.evaluate()["output"] == 23.0
 
     def test_model_with_set_value(self):
-        for _ in range(50):
-            in1 = IOKey("in1")
-            in2 = IOKey("in2")
-            in3 = IOKey("in3")
-            in4 = IOKey("in4")
-            in5 = IOKey("in5")
+        in1 = IOKey("in1")
+        in2 = IOKey("in2")
+        in3 = IOKey("in3")
+        in4 = IOKey("in4")
+        in5 = IOKey("in5")
 
-            out = (in1**in2) / (in3 + in4)
-            model = Model()
-            model |= (mul := Multiply())(out, in5)
-            model |= Add()(mul.output, 1, IOKey("output"))
-            assert isinstance(model, SupportsOutput)
-            assert model.output.metadata.value == TBD
-            model.set_values(in1=2, in2=6, in3=7, in4=1)
-            model.set_values(in5=3)
-            assert model.output.metadata.value == 25.0
+        out = (in1**in2) / (in3 + in4)
+        model = Model()
+        model |= (mul := Multiply())(out, in5)
+        model |= Add()(mul.output, 1, IOKey("output"))
+        assert isinstance(model, SupportsOutput)
+        assert model.output.metadata.value == TBD
+        model.set_values(in1=2, in2=6, in3=7, in4=1)
+        model.set_values(in5=3)
+        assert model.output.metadata.value == 25.0

@@ -192,6 +192,7 @@ __all__ = [
     "pad",
     "split",
     "randn",
+    "atleast_1d",
     "minimum",
     "maximum",
     "dtype",
@@ -830,8 +831,8 @@ def tensor_to_list(input: mx.array) -> NestedFloatOrIntOrBoolList:
     return input.tolist()  # type: ignore
 
 
-def concat(*inputs: mx.array, axis: AxisType = 0) -> mx.array:
-    return mx.concatenate([mx.atleast_1d(v) for v in inputs], axis=axis)
+def concat(input: list[mx.array], axis: AxisType = 0) -> mx.array:
+    return mx.concatenate(input, axis=axis)
 
 
 def matrix_concat(input1: mx.array, input2: mx.array) -> mx.array:
@@ -977,6 +978,10 @@ def randn(
 
 def zeros_like(input: mx.array) -> mx.array:
     return mx.zeros_like(input)
+
+
+def atleast_1d(input: mx.array) -> mx.array:
+    return mx.atleast_1d(input)
 
 
 array_creation_funcs = ["arange", "randn", "to_tensor", "eye", "ones_with_zero_diag"]

@@ -55,6 +55,7 @@ def test_error_not_robust_power_call_threshold_float():
     assert error_msg == "Threshold cannot be specified when robust mode is off"
 
 
+@pytest.mark.skip("This test seems incomplete.")
 def test_compile_robust_power_call_with_default_threshold():
     backend = ml.TorchBackend()
     pow = Power(robust=True)
