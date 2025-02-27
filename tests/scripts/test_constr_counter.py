@@ -18,7 +18,6 @@ import pytest
 from mithril.framework.common import (
     NOT_GIVEN,
     TBD,
-    BaseKey,
     IOHyperEdge,
     ShapeRepr,
     Tensor,
@@ -28,6 +27,7 @@ from mithril.framework.common import (
 from mithril.framework.constraints import bcast, general_type_constraint
 from mithril.models import (
     Add,
+    BaseKey,
     Buffer,
     Connection,
     ConnectionType,
@@ -967,7 +967,8 @@ def test_shape_constraint_counter_15():
 
     model_1 = Model()
     model_1 |= slice_1(start="start", stop="stop", step="step")
-    model_1 |= item_model_1(input="input", index=slice_1.output, output=IOKey("output"))
+    model_1 |= item_model_1(input="input", index=slice_1.output)
+    model_1.expose_keys(output=item_model_1.output)
 
     model_2 = Model()
     model_2 |= slice_2(start="start", stop="stop", step="step")

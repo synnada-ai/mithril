@@ -20,18 +20,20 @@ from mithril.framework.common import Tensor
 from mithril.models import (
     Add,
     Buffer,
-    Concat,
     IOKey,
     Linear,
     Model,
     Sigmoid,
     Subtract,
+    ToList,
 )
 
 
 def assert_keys(model, logical_ref, physical_ref, include_internals=False):
     assert logical_ref == model.generate_keys(include_internals=include_internals)
-    pm = mithril.compile(model=model, backend=TorchBackend(), safe_names=False)
+    pm = mithril.compile(
+        model=model, backend=TorchBackend(), safe_names=False, inference=True
+    )
     assert set(pm.input_keys) == set(physical_ref)
 
 
@@ -382,73 +384,52 @@ def test_generate_input_keys_6():
 
 def test_generate_input_keys_7():
     model = Model()
-    con_1 = Concat(n=3)
-    con_2 = Concat(n=4)
-    con_3 = Concat(n=5)
+    con_1 = ToList(n=3)
+    con_1.set_cin("input1")
+    con_2 = ToList(n=4)
+    con_3 = ToList(n=5)
     model += con_1
-    model += con_2
-    model += con_3
+    model |= con_2(input1=con_1.output)
+    model |= con_3(input1=con_2.output)
+
     key_mappings = model.generate_keys(include_internals=False)
     assert key_mappings == {
         "$1": "$input",
         "$2": "$input2_0",
         "$3": "$input3_0",
-        "$6": "$input2_1",
-        "$7": "$input3_1",
-        "$8": "$input4_0",
-        "$11": "$input2_2",
-        "$12": "$input3_2",
-        "$13": "$input4_1",
-        "$14": "$input5",
+        "$5": "$input2_1",
+        "$6": "$input3_1",
+        "$7": "$input4_0",
+        "$9": "$input2_2",
+        "$10": "$input3_2",
+        "$11": "$input4_1",
+        "$12": "$input5",
     }
 
-
-def test_generate_input_keys_8():
-    model = Model()
-    con_1 = Concat(n=3)
-    con_2 = Concat(n=4)
-    con_3 = Concat(n=5)
-    model += con_1
-    model += con_2
-    model += con_3
-    key_mappings = model.generate_keys(include_internals=False)
-    assert key_mappings == {
-        "$1": "$input",
-        "$2": "$input2_0",
-        "$3": "$input3_0",
-        "$6": "$input2_1",
-        "$7": "$input3_1",
-        "$8": "$input4_0",
-        "$11": "$input2_2",
-        "$12": "$input3_2",
-        "$13": "$input4_1",
-        "$14": "$input5",
-    }
     key_mappings = model.generate_keys(include_internals=True)
     assert key_mappings == {
         "$1": "$input",
         "$2": "$input2_0",
         "$3": "$input3_0",
-        "$4": "$_Concat_0_axis",
-        "$6": "$input2_1",
-        "$7": "$input3_1",
-        "$8": "$input4_0",
-        "$9": "$_Concat_1_axis",
-        "$11": "$input2_2",
-        "$12": "$input3_2",
-        "$13": "$input4_1",
-        "$14": "$input5",
-        "$15": "$_Concat_2_axis",
-        "$5": "$_Concat_0_output",
-        "$10": "$_Concat_1_output",
-        "$16": "$_Concat_2_output",
+        "$5": "$input2_1",
+        "$6": "$input3_1",
+        "$7": "$input4_0",
+        "$9": "$input2_2",
+        "$10": "$input3_2",
+        "$11": "$input4_1",
+        "$12": "$input5",
+        "$4": "$_ToList_0_output",
+        "$8": "$_ToList_1_output",
+        "$13": "$_ToList_2_output",
     }
 
 
 def test_generate_input_keys_9():
     model_1 = Model()
-    con_1 = Concat(n=2)
-    con_2 = Concat(n=2)
+    con_1 = ToList(n=2)
+    con_1.set_cin("input1")
+    con_2 = ToList(n=2)
+    con_2.set_cin("input1")
     model_1 += con_1(input2="input2_0")
     model_1 += con_2
     model_2 = deepcopy(model_1)
@@ -456,19 +437,22 @@ def test_generate_input_keys_9():
     key_mappings = model_1.generate_keys(include_internals=False)
     assert key_mappings == {
         "$1": "$input",
-        "$4": "$__input2_0",
-        "$7": "$_input2_0",
-        "$8": "$__input2_1",
+        "$3": "$__input2_0",
+        "$5": "$_input2_0",
+        "$6": "$__input2_1",
     }
 
 
 def test_generate_input_keys_10():
     model = Model()
     model1 = Model()
-    con1 = Concat(n=3)
-    con2 = Concat(n=3)
-    con3 = Concat(n=3)
-    model1 |= con1
+    con1 = ToList(n=3)
+    con1.set_cin("input1")
+    con2 = ToList(n=3)
+    con2.set_cin("input1")
+    con3 = ToList(n=3)
+    con3.set_cin("input1")
+    model1 += con1
     model1 += con2
     model1 |= con3(input1=model1.cout, input2="input2_1")
     model2 = deepcopy(model1)

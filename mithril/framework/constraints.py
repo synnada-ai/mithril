@@ -18,7 +18,7 @@ from functools import reduce
 from itertools import combinations_with_replacement, permutations, product, zip_longest
 from operator import or_
 from types import EllipsisType, GenericAlias, NoneType, UnionType
-from typing import Any, Union, get_args, get_origin
+from typing import Any, get_args, get_origin
 
 from ..common import PaddingType
 from ..types import Constant
@@ -43,6 +43,7 @@ from .common import (
     IOHyperEdge,
     MaxNestedListDepth,
     PossibleValues,
+    ScalarValueType,
     ShapeRepr,
     Tensor,
     ToBeDetermined,
@@ -54,6 +55,7 @@ from .common import (
     find_intersection_type,
     is_tensor_type,
     process_value,
+    squash_tensor_types,
 )
 from .utils import find_list_base_type, is_union
 
@@ -203,46 +205,6 @@ all_possible_types: set[type | GenericAlias] = {
     Tensor[float],
     Tensor[bool],
 }
-
-
-def squash_tensor_types(typ: Any) -> Any:
-    # TODO: Remove this function when Lists of Tensors feature is added.
-    # Reduces multiple Tensor types declerations in a single
-    # Tensor[...] type with all subtypes of all declared ones. Also expands
-    # "Tensor" type to "Tensor[int | float | bool]".
-    # Example: Tensor[int] | Tensor[float] -> Tensor[int | float]
-    # Example: Tensor[int | float] | bool -> Tensor[int | float] | bool
-    # Example: Tensor -> Tensor[int | float | bool]
-    if typ is Tensor:
-        typ = Tensor[int | float | bool]
-    if (origin := get_origin(typ)) in (Union, UnionType):
-        updated_args = set()
-        regular_args = set()
-        for arg in get_args(typ):
-            if is_tensor_type(arg):
-                if arg is Tensor:
-                    arg = Tensor[int | float | bool]
-                updated_args |= set(get_args(arg))
-            else:
-                regular_args.add(arg)
-        if updated_args:
-            tensor_type = Tensor[reduce(or_, updated_args)]  # type: ignore
-            squashed_regulars = [squash_tensor_types(arg) for arg in regular_args]
-            if squashed_regulars:
-                regular_types = reduce(or_, squashed_regulars)
-                return tensor_type | regular_types
-            return tensor_type
-    elif origin is not None:
-        # NOTE: Tuple type can contain ellipsis in its args.
-        squashed_args = [
-            squash_tensor_types(arg) for arg in get_args(typ) if arg != ...
-        ]
-        return (
-            origin[*squashed_args, ...]
-            if ... in get_args(typ)
-            else origin[*squashed_args]
-        )
-    return typ
 
 
 def unsquash_tensor_types(
@@ -622,8 +584,14 @@ def indexer_initial_type_constraint(
     status = False
     updates = Updates()
     if input.is_scalar or output.is_scalar:
-        updates |= output.set_type(int | float | list[Any] | tuple[Any, ...])
-        updates |= input.set_type(list[Any] | tuple[Any, ...])
+        if input.edge_type is not ToBeDetermined:
+            # For this constraint, the content of sequence is not important. So
+            # we set output type to the most general case which includes Tensor
+            # also since it is possible to have Tensor types in input sequence.
+            updates |= output.set_type(ScalarValueType | Tensor[int | float | bool])
+        elif output.edge_type is not ToBeDetermined:
+            # Set input to the most general Sequence type.
+            updates |= input.set_type(Sequence[Any])
         status = True
     elif input.is_tensor or output.is_tensor:
         if input.is_tensor and output.is_tensor:
@@ -650,7 +618,8 @@ def indexer_type_constraint(
     if input.is_scalar:
         # Input is a non-tensor type.
         input_type = input.value_type
-        output_type = output.value_type
+        # output_type = output.value_type
+        output_type = output.edge_type
         index_value = index.value
         assert (
             isinstance(index_value, ToBeDetermined)
@@ -1827,126 +1796,161 @@ def reduce_constraints(
 
 
 def concat_constraints(
-    output: IOHyperEdge, axis: IOHyperEdge, *inputs: IOHyperEdge
+    output: IOHyperEdge, input: IOHyperEdge, axis: IOHyperEdge
 ) -> ConstrainResultType:
     status = False
     updates = Updates()
     keys: list[ShapeRepr] = []
-    for input in inputs:
-        assert input._temp_shape is not None, "Input shape of concat is not set!"
-        keys.append(input._temp_shape)
-    assert output._temp_shape is not None, "Output shape of concat is not set!"
-    output_shape: ShapeRepr = output._temp_shape
+    assert isinstance(output._value, Tensor)
+    input_val = [] if input._value is TBD else input._value
+    assert isinstance(input_val, list)
+    for arg in input_val:
+        assert isinstance(arg, Tensor)
+        assert arg._temp_shape is not None, "Input shape of concat is not set!"
+        keys.append(arg._temp_shape)
+    if keys:
+        assert (
+            output._value._temp_shape is not None
+        ), "Output shape of concat is not set!"
+        output_shape: ShapeRepr = output._value._temp_shape
 
-    reprs = keys + [output_shape]
-    axis_val = axis.value
-    assert (
-        isinstance(axis_val, int)
-        or axis_val is None
-        or isinstance(axis_val, ToBeDetermined)
-    ), "Invalid axis value!"
-    # look if all reprs have different variadics
-    if (
-        not isinstance(axis_val, ToBeDetermined)
-        and len(set(repr.root for repr in reprs)) == len(reprs)
-        and output_shape.root is not None
-    ):
-        if axis_val is not None:
-            # if axis is determined and is positive, we can know that tensors have
-            # shape at least value of dimensions. Also we know that All shapes of
-            # all reprs must be same except shape at axis same applies for when axis
-            # is negative
-            var = Variadic()
-            if axis_val >= 0:
-                uniadics: list[Uniadic] = [Uniadic() for _ in range(axis_val)]
-                for repr in reprs:
-                    updates |= repr.inner_match(prefix=uniadics + [Uniadic()], root=var)
-            elif axis_val < 0:
-                uniadics = [Uniadic() for _ in range(-axis_val - 1)]
-                for repr in reprs:
-                    updates |= repr.inner_match(root=var, suffix=[Uniadic()] + uniadics)
-        else:
-            updates |= output_shape.inner_match(prefix=[Uniadic()])
-
-    if not isinstance(axis_val, ToBeDetermined):
-        if axis_val is not None:
-            # If axis is determined and not None, at first take all the uniadic
-            # values at axis. shape formula of output of axis must be out =
-            # sum(all ins). Therefore, if there is only one unknown, we can
-            # infer unknown uniadic's shape by algebra.
-            uniadics = []
-            uniadic_values: list[int | None] = []
-            pruned_uni_values: list[int] = []
-            for repr in reprs:
-                if (
-                    repr.root is None
-                    or (axis_val >= 0 and len(repr.prefix) >= axis_val + 1)
-                    or (axis_val < 0 and len(repr.suffix) >= abs(axis_val))
-                ):
-                    uniadics.append(uni := repr[axis_val])
-                    uniadic_values.append(uni_value := uni.value)
-                    if uni_value is not None:
-                        pruned_uni_values.append(uni_value)
-            if len(pruned_uni_values) + 1 == len(reprs):
-                status = True
-                if uniadic_values[-1] is None:
-                    if uniadics[-1].set_value(sum(pruned_uni_values)):
-                        updates.add(uniadics[-1])
-                else:
-                    idx = uniadic_values.index(None)
-                    if uniadics[idx].set_value(
-                        pruned_uni_values[-1] - sum(pruned_uni_values[:-1])
-                    ):
-                        updates.add(uniadics[idx])
-            elif len(pruned_uni_values) == len(reprs):
-                status = True
-        else:
-            if output_shape.prefix[0].value is None:
-                output_size = 0
-                for key in keys:
-                    if key.root is None:
-                        values = [item.value for item in key.prefix]
-                        if is_list_int(values):
-                            output_size += math.prod(values)
-                        else:
-                            break
-                    else:
-                        break
-                else:
-                    status = True
-                    if output_shape.prefix[0].set_value(output_size):
-                        updates.add(output_shape.prefix[0])
+        reprs = keys + [output_shape]
+        axis_val = axis.value
+        assert (
+            isinstance(axis_val, int)
+            or axis_val is None
+            or isinstance(axis_val, ToBeDetermined)
+        ), "Invalid axis value!"
+        # look if all reprs have different variadics
+        if not isinstance(axis_val, ToBeDetermined) and (
+            (
+                (len(repr_set := set(repr.root for repr in reprs)) == len(reprs))
+                or None in repr_set
+            )
+            or output_shape.root is not None
+        ):
+            if axis_val is not None:
+                # if axis is determined and is positive, we can know that tensors have
+                # shape at least value of dimensions. Also we know that All shapes of
+                # all reprs must be same except shape at axis same applies for when axis
+                # is negative
+                var = Variadic()
+                if axis_val >= 0:
+                    uniadics: list[Uniadic] = [Uniadic() for _ in range(axis_val)]
+                    for repr in reprs:
+                        updates |= repr.inner_match(
+                            prefix=uniadics + [Uniadic()], root=var
+                        )
+                elif axis_val < 0:
+                    uniadics = [Uniadic() for _ in range(-axis_val - 1)]
+                    for repr in reprs:
+                        updates |= repr.inner_match(
+                            root=var, suffix=[Uniadic()] + uniadics
+                        )
             else:
-                dividing_factor = 1
-                substract_factor = 0
-                none_values: list[Uniadic] = []
-                for key in keys:
-                    if key.root is None:
-                        unis_without_value = [
-                            uni for uni in key.prefix if uni.value is None
-                        ]
-                        unis_with_value = [
-                            uni.value for uni in key.prefix if uni.value is not None
-                        ]
-                        none_values += unis_without_value
-                        if len(none_values) > 1:
-                            break
-                        if unis_without_value:
-                            dividing_factor *= math.prod(unis_with_value)
-                        else:
-                            substract_factor += math.prod(unis_with_value)
+                updates |= output_shape.inner_match(prefix=[Uniadic()])
+
+        if not isinstance(axis_val, ToBeDetermined):
+            if axis_val is not None:
+                # If axis is determined and not None, at first take all the uniadic
+                # values at axis. shape formula of output of axis must be out =
+                # sum(all ins). Therefore, if there is only one unknown, we can
+                # infer unknown uniadic's shape by algebra.
+                if (
+                    non_var_repr := next(
+                        (repr for repr in reprs if repr.root is None), None
+                    )
+                ) is not None:
+                    # Match all uniadics in all reprs with same Uniadics in non_var_repr
+                    # except the axis_val.
+                    pos_axis_val = (
+                        axis_val
+                        if axis_val >= 0
+                        else len(non_var_repr.prefix) + axis_val
+                    )
+                    for repr in reprs:
+                        if repr is not non_var_repr:
+                            updates |= repr.inner_match(
+                                prefix=[
+                                    uni if idx != pos_axis_val else Uniadic()
+                                    for idx, uni in enumerate(non_var_repr.prefix)
+                                ]
+                            )
+
+                uniadics = []
+                uniadic_values: list[int | None] = []
+                pruned_uni_values: list[int] = []
+                for repr in reprs:
+                    if (
+                        repr.root is None
+                        or (axis_val >= 0 and len(repr.prefix) >= axis_val + 1)
+                        or (axis_val < 0 and len(repr.suffix) >= abs(axis_val))
+                    ):
+                        uniadics.append(uni := repr[axis_val])
+                        uniadic_values.append(uni_value := uni.value)
+                        if uni_value is not None:
+                            pruned_uni_values.append(uni_value)
+                if len(pruned_uni_values) + 1 == len(reprs):
+                    status = True
+                    if uniadic_values[-1] is None:
+                        if uniadics[-1].set_value(sum(pruned_uni_values)):
+                            updates.add(uniadics[-1])
                     else:
-                        break
-                else:
-                    if len(none_values) == 1:
-                        status = True
-                        if none_values[0].set_value(
-                            (output_shape.prefix[0].value - substract_factor)
-                            // dividing_factor
+                        idx = uniadic_values.index(None)
+                        if uniadics[idx].set_value(
+                            pruned_uni_values[-1] - sum(pruned_uni_values[:-1])
                         ):
-                            updates.add(none_values[0])
-                    elif len(none_values) == 0:
+                            updates.add(uniadics[idx])
+                elif len(pruned_uni_values) == len(reprs):
+                    status = True
+
+            else:
+                if output_shape.prefix[0].value is None:
+                    output_size = 0
+                    for key in keys:
+                        if key.root is None:
+                            values = [item.value for item in key.prefix]
+                            if is_list_int(values):
+                                output_size += math.prod(values)
+                            else:
+                                break
+                        else:
+                            break
+                    else:
                         status = True
+                        if output_shape.prefix[0].set_value(output_size):
+                            updates.add(output_shape.prefix[0])
+                else:
+                    dividing_factor = 1
+                    substract_factor = 0
+                    none_values: list[Uniadic] = []
+                    for key in keys:
+                        if key.root is None:
+                            unis_without_value = [
+                                uni for uni in key.prefix if uni.value is None
+                            ]
+                            unis_with_value = [
+                                uni.value for uni in key.prefix if uni.value is not None
+                            ]
+                            none_values += unis_without_value
+                            if len(none_values) > 1:
+                                break
+                            if unis_without_value:
+                                dividing_factor *= math.prod(unis_with_value)
+                            else:
+                                substract_factor += math.prod(unis_with_value)
+                        else:
+                            break
+                    else:
+                        if len(none_values) == 1:
+                            status = True
+                            if none_values[0].set_value(
+                                (output_shape.prefix[0].value - substract_factor)
+                                // dividing_factor
+                            ):
+                                updates.add(none_values[0])
+                        elif len(none_values) == 0:
+                            status = True
     return status, updates
 
 
@@ -3462,41 +3466,41 @@ def scalar_item_constraints(
     output: IOHyperEdge, input: IOHyperEdge, index: IOHyperEdge
 ) -> ConstrainResultType:
     assert (
-        isinstance(output.value, ToBeDetermined)
-        or type(output.value) is int
-        or type(output.value) is float
-        or type(output.value) is tuple
-        or type(output.value) is list
+        isinstance(output._value, ToBeDetermined)
+        or type(output._value) is int
+        or type(output._value) is float
+        or type(output._value) is tuple
+        or type(output._value) is list
     )
 
     assert (
-        isinstance(input.value, ToBeDetermined)
-        or type(input.value) is tuple
-        or type(input.value) is list
+        isinstance(input._value, ToBeDetermined)
+        or type(input._value) is tuple
+        or type(input._value) is list
     )
 
     assert (
-        isinstance(index.value, ToBeDetermined)
-        or type(index.value) is int
-        or type(index.value) is slice
+        isinstance(index._value, ToBeDetermined)
+        or type(index._value) is int
+        or type(index._value) is slice
     )
 
     updates = Updates()
     status = False
     # Forward value propagation.
-    if not isinstance(input.value, ToBeDetermined) and not isinstance(
-        index.value, ToBeDetermined
+    if not isinstance(input._value, ToBeDetermined) and not isinstance(
+        index._value, ToBeDetermined
     ):
-        updates |= output.set_value(input.value[index.value])
+        updates |= output.set_value(input._value[index._value])
         status = True
-    elif not isinstance(input.value, ToBeDetermined) and isinstance(
-        output.value, int | float | bool
+    elif not isinstance(input._value, ToBeDetermined) and isinstance(
+        output._value, int | float | bool
     ):
         # Try to infer index value from input-output values. If
         # output value appears only once in input sequence, write its
         # index as the value of index argument.
-        if input.value.count(output.value) == 1:
-            updates |= index.set_value(input.value.index(output.value))
+        if input._value.count(output._value) == 1:
+            updates |= index.set_value(input._value.index(output._value))
             status = True
     return status, updates
 
@@ -3506,15 +3510,15 @@ def to_tuple_constraints(
 ) -> ConstrainResultType:
     updates = Updates()
     status = False
-    assert isinstance(output.value, ToBeDetermined) or type(output.value) is tuple
+    assert isinstance(output._value, ToBeDetermined) or type(output._value) is tuple
     # Forward value propagation.
-    values = [arg.value for arg in args]
+    values = [arg._value for arg in args]
     if all([val is not TBD for val in values]):
         updates |= output.set_value(tuple(values))
         status = True
     # Backward value propagation.
-    elif not isinstance(output.value, ToBeDetermined):
-        for val, arg in zip(output.value, args, strict=False):
+    elif not isinstance(output._value, ToBeDetermined):
+        for val, arg in zip(output._value, args, strict=False):
             updates |= arg.set_value(val)
         status = True
     return status, updates
@@ -3523,17 +3527,17 @@ def to_tuple_constraints(
 def to_list_constraints(output: IOHyperEdge, *args: IOHyperEdge) -> ConstrainResultType:
     updates = Updates()
     status = False
-    assert isinstance(output.value, ToBeDetermined) or type(output.value) is list
+    assert isinstance(output._value, ToBeDetermined) or type(output._value) is list
     # Backward value propagation.
-    if not isinstance(output.value, ToBeDetermined):
-        for val, arg in zip(output.value, args, strict=False):
+    if not isinstance(output._value, ToBeDetermined):
+        for val, arg in zip(output._value, args, strict=False):
             updates |= arg.set_value(val)
         status = True
     else:
         # Forward value propagation.
         values = []
         for arg in args:
-            if (arg_val := arg.value) is TBD:
+            if (arg_val := arg._value) is TBD:
                 break
             values.append(arg_val)
         else:
@@ -3721,7 +3725,7 @@ def split_constraints(
                     )
                     status = True
 
-            elif len(input_shape.prefix) >= abs(axis_val):
+            elif len(input_shape.suffix) >= abs(axis_val):
                 axis_val = len(input_shape.suffix) + axis_val
                 uni_val = input_shape.suffix[axis_val].value
                 if uni_val is not None:
@@ -3864,7 +3868,7 @@ def tuple_converter_constraint(
 ) -> ConstrainResultType:
     status = False
     updates = Updates()
-    input_value = input.value
+    input_value = input._value
     if input_value is not TBD:
         if isinstance(input_value, int):
             updates |= output.set_value((input_value, input_value))
@@ -3872,7 +3876,7 @@ def tuple_converter_constraint(
         if isinstance(input_value, tuple):
             updates |= output.set_value(input_value)
             status = True
-    if output.value is not TBD:
+    if output.is_valued:
         status = True
     return status, updates
 
@@ -3922,7 +3926,7 @@ def buffer_constraint(output: IOHyperEdge, input: IOHyperEdge) -> ConstrainResul
             )
             updates |= non_typed.set_type(typed.edge_type)
             updates |= non_typed.set_value(typed._value)
-            if typed.is_tensor or typed.value is not TBD:
+            if typed.is_tensor or typed.is_valued:
                 status = True
         else:
             # both are not polymorphic

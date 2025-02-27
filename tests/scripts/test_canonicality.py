@@ -850,7 +850,7 @@ def test_existing_connection_parent_internal_updated_to_output():
 
     # Make internal output1 exposed
     model |= Relu()(input=model.output1, output="output3")  # type: ignore
-    model.set_outputs(model.output1)  # type: ignore
+    model.expose_keys(model.output1)  # type: ignore
     assert model.conns.couts == {model.output2, model.output3}  # type: ignore
 
 
@@ -861,7 +861,7 @@ def test_existing_connection_parent_internal_updated_to_output2():
 
     # Make internal output1 exposed
     model |= Relu()(input=model.output1, output="output3")  # type: ignore
-    model.set_outputs(model.output1)  # type: ignore
+    model.expose_keys(model.output1)  # type: ignore
     assert model.conns.couts == {model.output3}  # type: ignore
 
 
@@ -897,7 +897,7 @@ def test_compile_multi_canonical_output_no_exposed_output():
     model |= Relu()("input3")
 
     backend = ml.JaxBackend()
-    pm = ml.compile(model, backend)
+    pm = ml.compile(model, backend, inference=True)
     assert pm.output_keys == ["__output", "_output", "output"]
 
 

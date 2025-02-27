@@ -21,7 +21,6 @@ from typing import Any
 from ... import types
 from ..common import (
     TBD,
-    BaseKey,
     Constraint,
     ScalarValueType,
     ShapeTemplateType,
@@ -57,6 +56,7 @@ from ..constraints import (
     to_tensor_constraints,
     to_tuple_constraints,
 )
+from .base import BaseKey
 from .operator import Operator
 
 __all__ = [
@@ -112,6 +112,7 @@ __all__ = [
     "CosineOp",
     "MinimumOp",
     "MaximumOp",
+    "AtLeast1DOp",
 ]
 
 ConstantType = float | int | types.Constant
@@ -834,11 +835,11 @@ class ToListOp(Operator):
         self.factory_args = {"n": n}
         key_definitions = {}
         key_definitions["output"] = BaseKey(
-            type=list[int | float | bool | list | tuple]  # type: ignore
+            type=list[int | float | bool | list | tuple | Tensor[int | float | bool]]  # type: ignore
         )
         key_definitions |= {
             f"input{idx+1}": BaseKey(
-                type=int | float | bool | list | tuple,
+                type=int | float | bool | list | tuple | Tensor[int | float | bool],
                 value=kwargs.get(f"input{idx+1}", TBD),
             )
             for idx in range(n)
@@ -1771,4 +1772,21 @@ class CosineOp(SingleInputOperationOp):
             polymorphic_constraint=False,
             input=input,
             output=BaseKey(shape=[("Var", ...)], type=Tensor[float]),
+        )
+
+
+class AtLeast1DOp(SingleInputOperationOp):
+    _model_name: str = "AtLeast1D"
+
+    def __init__(
+        self,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(
+            formula_key="atleast_1d",
+            name=name,
+            input=input,
+            output=BaseKey(shape=[("Var", ...), "d"], type=Tensor[int | float | bool]),
         )

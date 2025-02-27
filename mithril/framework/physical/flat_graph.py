@@ -17,6 +17,7 @@ from __future__ import annotations
 from collections.abc import Callable, KeysView, Mapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass
+from typing import Any
 
 import mithril as ml
 
@@ -29,13 +30,12 @@ from ..common import (
     ConstraintSolver,
     DataEvalType,
     IOHyperEdge,
-    MainValueInstance,
     MainValueType,
-    Tensor,
     ToBeDetermined,
     Updates,
     UpdateType,
     ValueType,
+    any_differentiable,
     is_type_adjustment_required,
 )
 from ..logical.model import Connection
@@ -452,7 +452,7 @@ class FlatGraph(GenericDataType[DataType]):
 
             # Extract value from data or static_keys
             value: DataType | AllValueType
-            if conn.key in data and data[conn.key].value is not TBD:
+            if conn.key in data and data[conn.key].is_valued:
                 value = data[conn.key].value
             else:
                 value = constant_keys.get(conn.key, TBD)
@@ -707,7 +707,9 @@ class FlatGraph(GenericDataType[DataType]):
 
     def set_static_keys(
         self,
-        static_keys: dict[str, DataType | MainValueType],
+        static_keys: dict[
+            str, DataType | int | float | bool | Sequence[Any] | dict[str, Any]
+        ],
     ) -> Updates:
         updates = Updates()
         for key, value in static_keys.items():
@@ -726,7 +728,9 @@ class FlatGraph(GenericDataType[DataType]):
         return updates
 
     def add_static_data(
-        self, key: str, value: DataType | MainValueType
+        self,
+        key: str,
+        value: DataType | int | float | bool | Sequence[Any] | dict[str, Any],
     ) -> tuple[set[str], Updates]:
         updates = Updates()
         updated_keys = {key}
@@ -757,14 +761,10 @@ class FlatGraph(GenericDataType[DataType]):
                 else:
                     updates |= data.set_value(value)
             else:
-                assert not isinstance(value, MainValueInstance | ToBeDetermined)
-                # Find type of tensor and set.
-                val_type = self.data_store._infer_tensor_value_type(value)
-                updates |= data.set_type(Tensor[val_type])  # type: ignore
-                assert data.shape is not None
-                # Find shape of tensor and set.
-                shape = list(value.shape)
-                updates |= data.shape.set_values(shape)
+                # Convert value to logical representaiton and set accordingly.
+                x = self.data_store.convert_phys_value_to_logical(value)
+                updates |= data.set_value(x)
+
             self.cached_data[key] = value  # type: ignore
             self.intermediate_non_differentiables.pop(key, None)
             if (
@@ -895,7 +895,7 @@ class FlatGraph(GenericDataType[DataType]):
             raise Exception("Some keys are already in data store!")
         self.data_store._all_data |= data
         for key, value in data.items():
-            if not value.is_non_diff:
+            if any_differentiable(value._value):
                 continue
 
             # Distribute non-differentiable keys into 3 attributes using
@@ -908,12 +908,12 @@ class FlatGraph(GenericDataType[DataType]):
                 self.backend.is_manualgrad
                 and key.endswith("_cache")
                 and key not in self.input_keys
-            ) or (key in self.input_keys and value.value is not TBD):
+            ) or (key in self.input_keys and value.is_valued):
                 self.data_store._set_data_value(key, value)
             elif key in self.input_keys:
                 self.data_store._runtime_static_keys.add(key)
             else:
-                if value.value is not TBD:
+                if value.is_valued:
                     self.data_store._set_data_value(key, value)
                 else:
                     self.data_store.intermediate_non_differentiables[key] = value
