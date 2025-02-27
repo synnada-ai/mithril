@@ -10,6 +10,13 @@ from collections import OrderedDict
 from typing import Tuple, Union
 
 
+# def LayerNorm(name:str = None):
+#     block = Model(name=name)
+#     input = IOKey("input")
+#     block += Cast()(input= input,dtype=ml.float32,output = "input_fp32")
+#     block += LayerNorm()(input = block.input_fp32,output = "output_fp32")
+#     block += Cast()(dtype=input.dtype(),input = block.output_fp32, output =IOKey("output"))
+#     return block
 
 
 def QuickGelu(name: str | None = None):
@@ -34,29 +41,25 @@ def MultiheadAttention(d_model: int, n_head: int,use_attn_mask: bool = False,nam
     block = Model(name = name)
     assert d_model % n_head == 0, "d_model is not divisible by h"
     queries = IOKey("queries")
-    keys = IOKey("keys")
-    values = IOKey("values")
-    block |= Linear(d_model, name="query_proj")(
-        queries, output="queries_proj"
-    )
-    block |= Linear(d_model, name="key_proj")(
-        keys, output="keys_proj"
-    )
-    block |= Linear(d_model, name="value_proj")(
-        values, output="values_proj"
-    )
-
-    queries: ml.Connection = block.queries_proj # type: ignore
-    keys: ml.Connection = block.keys_proj # type: ignore
-    values: ml.Connection = block.values_proj # type: ignore
-    
     B, L = queries.shape[0], queries.shape[1]
+    block |= Linear(3*d_model, name="in_proj")(
+        queries, output="in_proj"
+    )
     
-    queries = queries.reshape((B, L, n_head, -1)).transpose((0, 2, 1, 3))
-    keys = keys.reshape((B, L, n_head, -1)).transpose((0, 2, 1, 3))
-    values = values.reshape((B, L, n_head, -1)).transpose((0, 2, 1, 3))
+    
+    in_proj: ml.Connection = block.in_proj
+    in_proj = in_proj.reshape((B,L,3,-1))
+    block|= (buffer_in:=Buffer())(input = in_proj, output ="in_proj_buffer")
+    
+    
+    queries = in_proj[:,:,0].reshape((B, L,-1)).reshape((B, L, n_head, -1)).transpose((0, 2, 1, 3))
+    # queries = in_proj[:,:,0].reshape((B, L,-1))
+
+    keys = in_proj[:,:,1].reshape((B, L,-1)).reshape((B, L, n_head, -1)).transpose((0, 2, 1, 3))
+    values = in_proj[:,:,2].reshape((B, L,-1)).reshape((B, L, n_head, -1)).transpose((0, 2, 1, 3))
     block|= (buffer_q:=Buffer())(input = queries, output ="query_buffer")
     block|= (buffer_k:=Buffer())(input = keys, output ="key_buffer")
+    block|= (buffer_v:=Buffer())(input = values, output ="quer_proj_buffer")
 
     if use_attn_mask:
         block|= ScaledDotProduct(is_causal = False,use_attn_mask=True)(
@@ -67,7 +70,7 @@ def MultiheadAttention(d_model: int, n_head: int,use_attn_mask: bool = False,nam
             queries,keys,values,output = "attention"
         )
     values_hat = block.attention.transpose((0, 2, 1, 3)).reshape((B, L, -1))
-    block |= Linear(d_model, name="out_proj", use_bias=False)(
+    block |= Linear(d_model, name="out_proj")(
         values_hat, output=IOKey("output")
     )
     return block
@@ -98,9 +101,9 @@ def ResidualAttentionBlock(d_model: int, n_head: int, use_attn_mask : bool=False
     attn = MultiheadAttention(d_model, n_head, use_attn_mask,name ="attn")
     if use_attn_mask:
         mask = IOKey("mask")
-        block |= (attn1:=attn)(queries = block.ln_1,keys = block.ln_1,values =  block.ln_1,mask= mask, output = "attention")
+        block |= (attn1:=attn)(queries = block.ln_1,mask= mask, output = "attention")
     else:
-        block |= attn(queries = block.ln_1, keys = block.ln_1,values = block.ln_1,output = "attention" )
+        block |= attn(queries = block.ln_1, output = "attention" )
     
     block |= LayerNorm(name="ln_2")(input+block.attention,output= "ln_2")
     mlp = mlp_resblock(d_model, name = "mlp")
@@ -150,12 +153,15 @@ def Transformer(width: int, layers: int, heads: int, use_attn_mask: bool = False
                
     
     
+               
+    
+    
     
 
 
 def VisionTransformer(input_resolution: int, patch_size: int, width: int, layers: int, heads: int, output_dim: int,use_proj: bool = False,name: str | None = None):
     block = Model(name=name)
-    input = IOKey("input")
+    input = IOKey("input",shape =(1,3,224,224))
 
     block|=(conv_1_r:=Convolution2D(kernel_size=patch_size, out_channels=width, stride=patch_size, use_bias=False,name="conv1")) (input=input,output="conv1")
     #shape_conv1 = block.conv1.shape
@@ -164,10 +170,10 @@ def VisionTransformer(input_resolution: int, patch_size: int, width: int, layers
     
     #block|= (buffer_conv:=Buffer())(input = conv1_r , output = "output_conv_r")
     # # self.class_embedding = nn.Parameter(scale * torch.randn(width))
-    class_embedding=IOKey("class_embedding",differentiable=True)
+    class_embedding=IOKey("class_embedding",differentiable=True,shape = (1,1,1024))
     block|= Concat(n=2,axis=1)(input1=class_embedding,input2 = conv1_r, output = "cat1")
     
-    positional_embedding=IOKey("positional_embedding",differentiable=True)
+    positional_embedding=IOKey("positional_embedding",differentiable=True,shape =(257, 1024))
     #block|= Concat(n=2,axis=1)(input1=positional_embedding,input2 = positional_embedding, output = "cat2")
     
     
@@ -185,7 +191,7 @@ def VisionTransformer(input_resolution: int, patch_size: int, width: int, layers
     
     if use_proj:
         # self.proj = nn.Parameter(scale * torch.randn(width, output_dim))
-        block|=Buffer()(block.ln_post[:,0,:]@IOKey("proj",differentiable=True),output = IOKey("output"))
+        block|=Buffer()(block.ln_post[:,0,:]@IOKey("proj",differentiable=True,shape = (1024,768)),output = IOKey("output"))
         return block
       
     block|= (buf_final:=Buffer())(input = block.ln_post[:,0,:],output = IOKey("output"))
@@ -199,7 +205,6 @@ def VisionTransformer(input_resolution: int, patch_size: int, width: int, layers
                                                                                                         
     
     
-
 def MultiHeadAttentionForward(embed_dim_to_check: int, num_heads: int, dropout_p: float):
     block = Model()
     query = IOKey("query",shape = (1,1,2048))
@@ -251,12 +256,6 @@ def MultiHeadAttentionForward(embed_dim_to_check: int, num_heads: int, dropout_p
 
     
     
-    
-    
-    
-
-
-     
 def AttentionPool2d(spacial_dim: int, embed_dim: int, num_heads: int, output_dim: int = None,name: str | None = None):
     block = Model(name=name)
     input = IOKey("input",shape = (1, 2048, 7, 7))
@@ -302,7 +301,6 @@ def AttentionPool2d(spacial_dim: int, embed_dim: int, num_heads: int, output_dim
 
     
     
-
 def Bottleneck(inplanes : int , planes: int, stride: int=1,name: str | None = None):
     block = Model(name=name)
     expansion = 4
@@ -346,20 +344,6 @@ def Bottleneck(inplanes : int , planes: int, stride: int=1,name: str | None = No
     
     
     
-    
-    
-                                                                                                    
-def make_layer(inplanes, planes, blocks, stride=1,name: str | None = None):
-    block = Model(name=name)
-    input = IOKey("input")
-    block |= Bottleneck(inplanes,planes,stride)(input = input,output="bottle_neck0")
-    _inplanes = 4 * inplanes
-    input_key = "bottle_neck0"
-    for i in range(1,blocks):
-        block |= Bottleneck(_inplanes,planes)(input = input_key,output =f"bottle_neck{i}")
-        input_key = f"bottle_neck{i}"
-    block|= Buffer()(input =f"bottle_neck{i}",output = IOKey("output"))
-    return block
     
 
 def make_layer(inplanes, planes, blocks, stride=1,name: str | None = None):
@@ -438,8 +422,6 @@ def ModifiedResNet(layers, output_dim, heads, input_resolution=224, width=64,nam
     
     
     
-    
-               
 # for torch.tensor.norm
 def Norm(p=2, axis:int=None, keepdim:bool=False,name: str | None = None):
     block = Model(name=name)
@@ -512,10 +494,10 @@ def Clip(embed_dim: int,
         vision_heads = vision_width // 64
         visual = VisionTransformer(input_resolution=image_resolution, patch_size=vision_patch_size, width=vision_width, 
                                    layers=vision_layers, heads=vision_heads, output_dim=embed_dim,use_proj=True,name = "visual")
-        class_embedding = IOKey("class_embedding",type = ml.Tensor,differentiable=True)
-        positional_embedding_2 = IOKey("positional_embedding_2",type = ml.Tensor,differentiable=True)
-        proj = IOKey("proj",type = ml.Tensor,differentiable=True)
-        block|=visual(input = "image",class_embedding = "class_embedding", positional_embedding ="positional_embedding_2",proj="proj",output = "image_features" )
+        class_embedding = IOKey("visual_class_embedding",type = ml.Tensor,differentiable=True)
+        visual_positional_embedding = IOKey("visual_positional_embedding",type = ml.Tensor,differentiable=True)
+        proj = IOKey("visual_proj",type = ml.Tensor,differentiable=True)
+        block|=visual(input = "image",class_embedding = "visual_class_embedding", positional_embedding ="visual_positional_embedding",proj="visual_proj",output = "image_features" )
         
     
     block |=(embed_1:=Embedding(vocab_size, transformer_width,name="token_embedding"))(input = "text",output = "token_embedding")
@@ -530,9 +512,7 @@ def Clip(embed_dim: int,
     block |= transformer(input = embedding, mask = mask, output="transformer")
     
     block |= LayerNorm(name="ln_final")(block.transformer.transpose((1, 0, 2)),output = "ln_final")
-    # block |= Arange()(stop = block.ln_final.shape[0],output = "arange")
-    # block |= ArgMax(axis = -1)(input = "text", output="argmax")
-    # eot_tokens = block.ln_final[block.arange:block.argmax]
+    
     block|=(eot:=eot_creator(0))(input = block.ln_final,text = "text",output = "eot_tokens")
     text_projection = IOKey("text_projection",type = ml.Tensor,differentiable=True)
     block|=(buffer_proj:=Buffer())(text_projection,output = "text_proj")
@@ -563,7 +543,7 @@ def Clip(embed_dim: int,
     
     
 '''
- clip_vit = Clip(
+cli_vit = Clip(
     embed_dim=768,                # Embedding dimension for ViT-L/14
     image_resolution=224,         # Input image resolution
     vision_layers=24,             # Number of transformer layers in the vision model
@@ -576,15 +556,14 @@ def Clip(embed_dim: int,
     transformer_layers=12,        # Number of transformer layers for the text model
     name="ViT-L/14_CLIP"          # Name of the model instance
 )
-clip_vit.summary()   
-    
-    
-    
-clip_vit_model= ml.compile(cli_vit, backend_torch, data_keys={"image", "text", "proj","class_embedding","positional_embedding","positional_embedding_2", "mask", "text_projection","logit_scale"},
-                           shapes = {"image":(1,3,224,224),"text":(1,77),"proj":(1024,768),"class_embedding":(1,1,1024), "positional_embedding":(1,77,768),"positional_embedding_2":(257, 1024),"mask":(77,77),"text_projection": (768, 768),
-                                     "logit_scale":(1,) },inference=True,use_short_namings=False)
 
-params = clip_vit_model.randomize_params()   
+    
+    
+    
+clip_vit_model= ml.compile(cli_vit, backend_torch, data_keys={"image", "text",  "mask"}, shapes = {"image":(1,3,224,224),"text":(1,77),"visual_proj":(1024,768), "positional_embedding":(77,768),"visual_positional_embedding":(257, 1024),"mask":(77,77),"text_projection": (768, 768)},inference=True,use_short_namings=False)
+ 
+
+params = clip_vit_model.randomize_params()
 ''' 
     
     
