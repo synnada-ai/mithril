@@ -2429,7 +2429,6 @@ def conv_1d_constraints(
     return status, updates
 
 
-# TODO: Change name (Conv also uses the constraint below)
 def sliding_window_2d_constraints(
     output: IOHyperEdge,
     input: IOHyperEdge,
