@@ -188,7 +188,9 @@ class ResidualAttentionBlock(nn.Module):
 
     def forward(self, x: torch.Tensor):
         x = x + self.attention(self.ln_1(x))
+        
         x = x + self.mlp(self.ln_2(x))
+        
         return x
 
 
@@ -230,6 +232,7 @@ class VisionTransformer(nn.Module):
 
         x = x.permute(1, 0, 2)  # NLD -> LND
         x = self.transformer(x)
+
         x = x.permute(1, 0, 2)  # LND -> NLD
 
         x = self.ln_post(x[:, 0, :])
@@ -344,21 +347,27 @@ class CLIP(nn.Module):
         x = self.token_embedding(text).type(self.dtype)  # [batch_size, n_ctx, d_model]
 
         x = x + self.positional_embedding.type(self.dtype)
+        
         x = x.permute(1, 0, 2)  # NLD -> LND
         x = self.transformer(x)
+        
         x = x.permute(1, 0, 2)  # LND -> NLD
+        
         x = self.ln_final(x).type(self.dtype)
 
         # x.shape = [batch_size, n_ctx, transformer.width]
         # take features from the eot embedding (eot_token is the highest number in each sequence)
-        x = x[torch.arange(x.shape[0]), text.argmax(dim=-1)] @ self.text_projection
+    
+        
+        x = x[torch.arange(x.shape[0]), 0] @ self.text_projection
 
         return x
 
     def forward(self, image, text):
         image_features = self.encode_image(image)
+        
         text_features = self.encode_text(text)
-
+        
         # normalized features
         image_features = image_features / image_features.norm(dim=1, keepdim=True)
         text_features = text_features / text_features.norm(dim=1, keepdim=True)

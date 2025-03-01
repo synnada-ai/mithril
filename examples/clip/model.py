@@ -25,49 +25,42 @@ def multi_head_attention(
 ):
     block = Model(name=name)
     assert d_model % n_head == 0, "d_model is not divisible by h"
-    queries = IOKey("queries",shape = (1,77,768))
+    queries = IOKey("queries")
     head_dim = d_model // n_head
     B, L = queries.shape[0], queries.shape[1]
     block |= Linear(3 * d_model, name="in_proj")(queries, output="in_proj")
 
-    in_proj: ml.Connection = block.in_proj
-    # block |= (buffer_pre:=Buffer())(input=in_proj.reshape((B, L, n_head,3*head_dim)).transpose((0, 2, 1, 3)), output="in_proj_buffer")
-    in_proj = in_proj.reshape((B, L, n_head,3*head_dim)).transpose((0, 2, 1, 3)).reshape((B, L, n_head,3,-1))
-    
-    # block |= Buffer()(input=in_proj, output="in_proj_buffer")
+    in_proj: ml.Connection = (
+        block.in_proj.reshape((B, L, 3, -1))
+        .reshape((1, B, L, 3, d_model))
+        .transpose((3, 1, 2, 0, 4))
+        .reshape((3, B, L, -1))
+    )
 
     queries = (
-        in_proj[:, :, :,0,:]
-        .reshape((B, L, n_head, -1))
-    ) 
-    # queries = in_proj[:,:,0].reshape((B, L,-1))
-
-    keys = (
-        in_proj[:, :, :,1,:]
-        .reshape((B, L, n_head, -1))
+        in_proj[0, :, :, :].reshape((B, L, n_head, head_dim)).transpose((1, 2, 0, 3))
     )
+    keys = in_proj[1, :, :, :].reshape((B, L, n_head, head_dim)).transpose((1, 2, 0, 3))
     values = (
-        in_proj[:, :, :,2,:]
-        .reshape((B, L, n_head, -1))
+        in_proj[2, :, :, :].reshape((B, L, n_head, head_dim)).transpose((1, 2, 0, 3))
     )
-    block |= (buf_q:=Buffer())(input=queries, output="query_buffer")
-    block |= (buf_k:=Buffer())(input=keys, output="key_buffer")
-    block |= (buf_v:=Buffer())(input=values, output="value_buffer")
 
     if use_attn_mask:
-        block |= ScaledDotProduct(is_causal=False,use_attn_mask=True)(
-            query = queries,
-            key = keys,
-            value = values,
+        block |= ScaledDotProduct(is_causal=False, use_attn_mask=True)(
+            query=queries,
+            key=keys,
+            value=values,
             attn_mask=IOKey("mask"),
             output="attention",
         )
     else:
-        block |= ScaledDotProduct(is_causal=False,use_attn_mask = False)(
-            query = queries, key = keys, value = values, output="attention"
+        block |= ScaledDotProduct(is_causal=False, use_attn_mask=False)(
+            query=queries, key=keys, value=values, output="attention"
         )
-    values_hat = block.attention.transpose((0, 2, 1, 3)).reshape((B, L, -1))
-    block |= Linear(d_model, name="out_proj")(values_hat, output=IOKey("output"))
+    block |= (buffer_attn := Buffer())(input=block.attention, output="buffer_output")
+    values_hat = block.attention.transpose((2, 0, 1, 3)).reshape((B * L, d_model))
+    block |= Linear(d_model, name="out_proj")(values_hat, output="out")
+    block |= Buffer()(input=block.out.reshape((B, L, d_model)), output=IOKey("output"))
     return block
 
 
@@ -89,6 +82,7 @@ def residual_attention_block(
     assert d_model % n_head == 0, "d_model is not divisible by h"
     input = IOKey("input")
     block += LayerNorm(name="ln_1")(input="input", output="ln_1")
+
     attn = multi_head_attention(d_model, n_head, use_attn_mask, name="attn")
     if use_attn_mask:
         mask = IOKey("mask")
@@ -96,10 +90,14 @@ def residual_attention_block(
     else:
         block |= attn(queries=block.ln_1, output="attention")
 
-    block |= LayerNorm(name="ln_2")(input + block.attention, output="ln_2")
+    block |= LayerNorm(name="ln_2")(input=input + block.attention, output="ln_2")
     mlp = mlp_resblock(d_model, name="mlp")
+
     block |= mlp(input=block.ln_2, output="mlp_output")
-    block |= Buffer()(input + block.mlp_output, output=IOKey("output"))
+
+    block |= Buffer()(
+        input + block.attention + block.mlp_output, output=IOKey("output")
+    )
     return block
 
 
@@ -178,34 +176,30 @@ def vision_transformer(
         use_bias=False,
         name="conv1",
     )(input=input, output="conv1")
-    # shape_conv1 = block.conv1.shape
-
-    conv1_r = block.conv1.reshape((1, 1024, 256)).transpose((0, 2, 1))
+    shape_conv1 = block.conv1.shape
+    block |= Reshape()(
+        shape=(shape_conv1[0], shape_conv1[1], -1), input=block.conv1, output="conv1_r"
+    )
+    conv1_rt = block.conv1_r.transpose((0, 2, 1))
 
     # # self.class_embedding = nn.Parameter(scale * torch.randn(width))
-    class_embedding = IOKey("class_embedding", differentiable=True, shape=(1, 1, 1024))
-    block |= Concat(axis=1)(input=[class_embedding, conv1_r], output="cat1")
+    class_embedding = IOKey("class_embedding", differentiable=True, shape=("x", 1, "z"))
 
-    positional_embedding = IOKey(
-        "positional_embedding", differentiable=True, shape=(257, 1024)
-    )
-    # block|= Concat(n=2,axis=1)(input1=positional_embedding,input2 = positional_embedding, output = "cat2")
+    block |= Concat(axis=1)(input=[class_embedding, conv1_rt], output="cat1")
+    # self.positional_embedding = nn.Parameter(scale * torch.randn((input_resolution // patch_size) ** 2 + 1, width))
+    positional_embedding = IOKey("positional_embedding", differentiable=True)
 
-    # # self.positional_embedding = nn.Parameter(scale * torch.randn((input_resolution // patch_size) ** 2 + 1, width))
     block |= LayerNorm(name="ln_pre")(
         input=block.cat1 + positional_embedding, output="ln_1"
     )
-
+    block.set_shapes(positional_embedding=["a", "b"], cat1=["n", "a", "b"])
     transformer_visual = transformer(width, layers, heads, name="transformer")
 
     block |= transformer_visual(
         input=block.ln_1.transpose((1, 0, 2)), output="transformer"
     )
-
     block |= Transpose(axes=(1, 0, 2))(input=block.transformer, output="transformer_p")
-
     block |= LayerNorm(name="ln_post")(input=block.transformer_p, output="ln_post")
-
     if use_proj:
         # self.proj = nn.Parameter(scale * torch.randn(width, output_dim))
         block |= Buffer()(
@@ -611,15 +605,18 @@ def clip(
     block |= Embedding(vocab_size, transformer_width, name="token_embedding")(
         input="text", output="token_embedding"
     )
-    block |= Reshape(shape=(1, 77, 768))(
+    block |= Reshape(shape=(1, context_length, transformer_width))(
         input=block.token_embedding, output="token_embedding_reshaped"
     )
     # self.positional_embedding = nn.Parameter(torch.empty(self.context_length, transformer_width))
     positional_embedding = IOKey(
-        "positional_embedding", type=ml.Tensor, differentiable=True
+        "positional_embedding",
+        type=ml.Tensor,
+        differentiable=True,
+        shape=(context_length, transformer_width),
     )
     embedding = block.token_embedding_reshaped + positional_embedding
-    mask = IOKey("mask", type=ml.Tensor)
+    mask = IOKey("mask", type=ml.Tensor, shape=(context_length, context_length))
     block |= Buffer()(input=embedding, output="embedding_output")
     transformer_main = transformer(
         width=transformer_width,
@@ -628,22 +625,27 @@ def clip(
         use_attn_mask=True,
         name="transformer",
     )
-    block |= transformer_main(input=embedding, mask=mask, output="transformer")
+    block |= transformer_main(
+        input=embedding.transpose((1, 0, 2)), mask=mask, output="transformer"
+    )
 
     block |= LayerNorm(name="ln_final")(
         block.transformer.transpose((1, 0, 2)), output="ln_final"
     )
 
     block |= eot_creator(0)(input=block.ln_final, text="text", output="eot_tokens")
-    text_projection = IOKey("text_projection", type=ml.Tensor, differentiable=True)
-    block |= Buffer()(text_projection, output="text_proj")
+
+    text_projection = IOKey(
+        "text_projection",
+        type=ml.Tensor,
+        differentiable=True,
+        shape=(transformer_width, embed_dim),
+    )
     # self.text_projection = nn.Parameter(torch.empty(transformer_width, embed_dim))
-    block |= Buffer()(block.eot_tokens @ text_projection, output="prod")
     block |= Buffer()(input=block.eot_tokens @ text_projection, output="text_features")
+
     norm1 = norm(p=2, axis=1, keepdim=True)
     norm2 = norm(p=2, axis=1, keepdim=True)
-
-    block |= Buffer()(block.image_features, output="img_feat")
 
     block |= norm1(input=block.image_features, output="image_features_norm")
     block |= norm2(input=block.text_features, output="text_features_norm")
@@ -652,11 +654,8 @@ def clip(
     text_features = block.text_features / block.text_features_norm
 
     # self.logit_scale = nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
-    logit_scale = IOKey("logit_scale", type=ml.Tensor, differentiable=True)
+    logit_scale = IOKey("logit_scale", type=ml.Tensor, differentiable=True, shape=(1,))
     logits_per_image = logit_scale.exp() * (image_features @ text_features.transpose())
-    block |= Buffer()(
-        input=(image_features @ text_features.transpose()), output="prdo_text_img"
-    )
     logits_per_text = logits_per_image.transpose()
     block |= Buffer()(input=logits_per_image, output=IOKey("logits_per_image"))
     block |= Buffer()(input=logits_per_text, output=IOKey("logits_per_text"))
