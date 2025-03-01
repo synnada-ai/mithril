@@ -1,22 +1,58 @@
-import torch
-from einops import rearrange
-from copy import deepcopy
+# Copyright 2022 Synnada, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
 import mithril as ml
 from mithril import IOKey
-from mithril.models import *
-from torch import nn
+from mithril.models import (
+    Arange,
+    ArgMax,
+    Buffer,
+    Concat,
+    Convolution2D,
+    Embedding,
+    Flatten,
+    GroupNorm,
+    LayerNorm,
+    Linear,
+    Max,
+    MaxPool2D,
+    Mean,
+    Model,
+    Power,
+    Randn,
+    Relu,
+    Reshape,
+    ScaledDotProduct,
+    Sigmoid,
+    Sqrt,
+    Squeeze,
+    Sum,
+    Tensor,
+    Transpose,
+    Where,
+    ZerosLike,
+)
 
-backend_torch = ml.TorchBackend(device="cuda")
-from collections import OrderedDict
-from typing import Tuple, Union
-import sys
+backend_torch = ml.TorchBackend()
 
 
 def quick_gelu(name: str | None = None):
     block = Model(name=name)
     input = IOKey("input")
     block |= Sigmoid()((1.702 * input), output="sigmoid")
-    block |= Buffer()(input * block.sigmoid, output=IOKey("output"))
+    block |= Buffer()(input * block.sigmoid, output=IOKey("output"))  # type: ignore
     return block
 
 
@@ -30,47 +66,48 @@ def multi_head_attention(
     B, L = queries.shape[0], queries.shape[1]
     block |= Linear(3 * d_model, name="in_proj")(queries, output="in_proj")
 
-    in_proj: ml.Connection = (
-        block.in_proj.reshape((B, L, 3, -1))
+    in_proj = (
+        block.in_proj.reshape((B, L, 3, -1))  # type: ignore
         .reshape((1, B, L, 3, d_model))
         .transpose((3, 1, 2, 0, 4))
         .reshape((3, B, L, -1))
     )
 
     queries = (
-        in_proj[0, :, :, :].reshape((B, L, n_head, head_dim)).transpose((1, 2, 0, 3))
+        in_proj[0, :, :, :].reshape((B, L, n_head, head_dim)).transpose((1, 2, 0, 3))  # type: ignore
     )
-    keys = in_proj[1, :, :, :].reshape((B, L, n_head, head_dim)).transpose((1, 2, 0, 3))
+    keys = in_proj[1, :, :, :].reshape((B, L, n_head, head_dim)).transpose((1, 2, 0, 3))  # type: ignore
     values = (
-        in_proj[2, :, :, :].reshape((B, L, n_head, head_dim)).transpose((1, 2, 0, 3))
+        in_proj[2, :, :, :].reshape((B, L, n_head, head_dim)).transpose((1, 2, 0, 3))  # type: ignore
     )
 
     if use_attn_mask:
+        block |= (mask_model := build_attention_mask())
         block |= ScaledDotProduct(is_causal=False, use_attn_mask=True)(
             query=queries,
             key=keys,
             value=values,
-            attn_mask=IOKey("mask"),
+            attn_mask=mask_model.cout,
             output="attention",
         )
     else:
         block |= ScaledDotProduct(is_causal=False, use_attn_mask=False)(
             query=queries, key=keys, value=values, output="attention"
         )
-    block |= (buffer_attn := Buffer())(input=block.attention, output="buffer_output")
-    values_hat = block.attention.transpose((2, 0, 1, 3)).reshape((B * L, d_model))
-    block |= Linear(d_model, name="out_proj")(values_hat, output="out")
-    block |= Buffer()(input=block.out.reshape((B, L, d_model)), output=IOKey("output"))
+    block |= Buffer()(input=block.attention, output="buffer_output")  # type: ignore
+    values_hat = block.attention.transpose((2, 0, 1, 3)).reshape((B * L, d_model))  # type: ignore
+    block |= Linear(d_model, name="out_proj")(values_hat, output="out")  # type: ignore
+    block |= Buffer()(input=block.out.reshape((B, L, d_model)), output=IOKey("output"))  # type: ignore
     return block
 
 
 def mlp_resblock(d_model: int, name: str | None = None):
     block = Model(name=name)
-    input = IOKey("input")
     block |= Linear(d_model * 4, name="c_fc")(input="input", output="c_fc_output")
-    block |= quick_gelu(name="gelu")(input=block.c_fc_output, output="gelu_output")
+    block |= quick_gelu(name="gelu")(input=block.c_fc_output, output="gelu_output")  # type: ignore
     block |= Linear(d_model, name="c_proj")(
-        input=block.gelu_output, output=IOKey("output")
+        input=block.gelu_output,  # type: ignore
+        output=IOKey("output"),
     )
     return block
 
@@ -84,19 +121,16 @@ def residual_attention_block(
     block += LayerNorm(name="ln_1")(input="input", output="ln_1")
 
     attn = multi_head_attention(d_model, n_head, use_attn_mask, name="attn")
-    if use_attn_mask:
-        mask = IOKey("mask")
-        block |= attn(queries=block.ln_1, mask=mask, output="attention")
-    else:
-        block |= attn(queries=block.ln_1, output="attention")
+    block |= attn(queries=block.ln_1, output="attention")  # type: ignore
 
-    block |= LayerNorm(name="ln_2")(input=input + block.attention, output="ln_2")
+    block |= LayerNorm(name="ln_2")(input=input + block.attention, output="ln_2")  # type: ignore
     mlp = mlp_resblock(d_model, name="mlp")
 
-    block |= mlp(input=block.ln_2, output="mlp_output")
+    block |= mlp(input=block.ln_2, output="mlp_output")  # type: ignore
 
     block |= Buffer()(
-        input + block.attention + block.mlp_output, output=IOKey("output")
+        input + block.attention + block.mlp_output,  # type: ignore
+        output=IOKey("output"),
     )
     return block
 
@@ -109,21 +143,12 @@ def seq_resblocks(
     name: str | None = None,
 ):
     block = Model(name=name)
-    input = IOKey("input")
     input_key = "input"
-    if use_attn_mask:
-        mask = IOKey("mask")
-        for idx in range(layers):
-            block |= residual_attention_block(
-                width, heads, use_attn_mask, name=f"{idx}"
-            )(input=input_key, mask=mask, output=f"attn_output_{idx}")
-            input_key = f"attn_output_{idx}"
-    else:
-        for idx in range(layers):
-            block |= residual_attention_block(width, heads, name=f"{idx}")(
-                input=input_key, output=f"attn_output_{idx}"
-            )
-            input_key = f"attn_output_{idx}"
+    for idx in range(layers):
+        block |= residual_attention_block(
+            width, heads, use_attn_mask=use_attn_mask, name=f"{idx}"
+        )(input=input_key, output=f"attn_output_{idx}")
+        input_key = f"attn_output_{idx}"
     block |= Buffer()(input=f"attn_output_{idx}", output=IOKey("output"))
     return block
 
@@ -145,13 +170,9 @@ def transformer(
         use_attn_mask=use_attn_mask,
         name="resblocks",
     )
-    if use_attn_mask:
-        mask = IOKey("mask")
-        block |= resblocks(input=input, mask=mask, output="resblocks_output")
-    else:
-        block |= resblocks(input=input, output="resblocks_output")
+    block |= resblocks(input=input, output="resblocks_output")
 
-    block |= Buffer()(input=block.resblocks_output, output=IOKey("output"))
+    block |= Buffer()(input=block.resblocks_output, output=IOKey("output"))  # type: ignore
 
     return block
 
@@ -167,7 +188,7 @@ def vision_transformer(
     name: str | None = None,
 ):
     block = Model(name=name)
-    input = IOKey("input", shape=(1, 3, 224, 224))
+    input = IOKey("input")
 
     block |= Convolution2D(
         kernel_size=patch_size,
@@ -176,40 +197,52 @@ def vision_transformer(
         use_bias=False,
         name="conv1",
     )(input=input, output="conv1")
-    shape_conv1 = block.conv1.shape
+    shape_conv1 = block.conv1.shape  # type: ignore
     block |= Reshape()(
-        shape=(shape_conv1[0], shape_conv1[1], -1), input=block.conv1, output="conv1_r"
+        shape=(shape_conv1[0], shape_conv1[1], -1),
+        input=block.conv1,  # type: ignore
+        output="conv1_r",
     )
-    conv1_rt = block.conv1_r.transpose((0, 2, 1))
+    conv1_rt = block.conv1_r.transpose((0, 2, 1))  # type: ignore
+    conv1_rt_shape = conv1_rt.shape  # type: ignore
 
-    # # self.class_embedding = nn.Parameter(scale * torch.randn(width))
-    class_embedding = IOKey("class_embedding", differentiable=True, shape=("x", 1, "z"))
+    # TODO: Implement zeros primitive and replace it with following two lines.
+    block |= Randn()(shape=(conv1_rt_shape[0], 1, conv1_rt_shape[-1]), output="rand_1")  # type: ignore
+    block |= ZerosLike()(input=block.rand_1, output="zeros_out")  # type: ignore
+    class_embedding = IOKey("class_embedding", differentiable=True, shape=[width])
 
-    block |= Concat(axis=1)(input=[class_embedding, conv1_rt], output="cat1")
-    # self.positional_embedding = nn.Parameter(scale * torch.randn((input_resolution // patch_size) ** 2 + 1, width))
-    positional_embedding = IOKey("positional_embedding", differentiable=True)
+    block |= Concat(axis=1)(
+        input=[class_embedding + block.zeros_out, conv1_rt],  # type: ignore
+        output="cat1",  # type: ignore
+    )
+    positional_embedding = IOKey(
+        "positional_embedding",
+        differentiable=True,
+        shape=[(input_resolution // patch_size) ** 2 + 1, width],
+    )
 
     block |= LayerNorm(name="ln_pre")(
-        input=block.cat1 + positional_embedding, output="ln_1"
+        input=block.cat1 + positional_embedding,  # type: ignore
+        output="ln_1",
     )
     block.set_shapes(positional_embedding=["a", "b"], cat1=["n", "a", "b"])
     transformer_visual = transformer(width, layers, heads, name="transformer")
 
     block |= transformer_visual(
-        input=block.ln_1.transpose((1, 0, 2)), output="transformer"
+        input=block.ln_1.transpose((1, 0, 2)),  # type: ignore
+        output="transformer",
     )
-    block |= Transpose(axes=(1, 0, 2))(input=block.transformer, output="transformer_p")
-    block |= LayerNorm(name="ln_post")(input=block.transformer_p, output="ln_post")
+    block |= Transpose(axes=(1, 0, 2))(input=block.transformer, output="transformer_p")  # type: ignore
+    block |= LayerNorm(name="ln_post")(input=block.transformer_p, output="ln_post")  # type: ignore
     if use_proj:
-        # self.proj = nn.Parameter(scale * torch.randn(width, output_dim))
         block |= Buffer()(
-            block.ln_post[:, 0, :]
-            @ IOKey("proj", differentiable=True, shape=(1024, 768)),
+            block.ln_post[:, 0, :]  # type: ignore
+            @ IOKey("proj", differentiable=True, shape=(width, output_dim)),
             output=IOKey("output"),
         )
         return block
 
-    block |= Buffer()(input=block.ln_post[:, 0, :], output=IOKey("output"))
+    block |= Buffer()(input=block.ln_post[:, 0, :], output=IOKey("output"))  # type: ignore
     return block
 
 
@@ -232,10 +265,11 @@ def multi_head_attention_forward(
     # assert embed_dim == embed_dim_to_check, "Embedding dimension mismatch."
 
     head_dim = embed_dim // num_heads
-    # assert (head_dim * num_heads) == embed_dim, "embed_dim must be divisible by num_heads"
+    # assert (head_dim * num_heads) == embed_dim,
+    # "embed_dim must be divisible by num_heads"
     scaling = head_dim**-0.5
 
-    q = (query @ q_proj_weight.transpose() + in_proj_bias[0:embed_dim]) * scaling
+    q = (query @ q_proj_weight.transpose() + in_proj_bias[0:embed_dim]) * scaling  # type: ignore
     block |= Buffer()(input=q)
     k = (
         key @ k_proj_weight.transpose()
@@ -262,7 +296,7 @@ def multi_head_attention_forward(
         query=q_r, key=k_r, value=v_r, output="attention"
     )
 
-    attn_output = block.attention.transpose((1, 0, 2)).reshape(
+    attn_output = block.attention.transpose((1, 0, 2)).reshape(  # type: ignore
         (tgt_len, bsz, embed_dim)
     )
     attn_output = attn_output @ out_proj_weight.transpose() + out_proj_bias
@@ -276,13 +310,14 @@ def attention_pool2d(
     spacial_dim: int,
     embed_dim: int,
     num_heads: int,
-    output_dim: int = None,
+    output_dim: int | None = None,
     name: str | None = None,
 ):
     block = Model(name=name)
     input = IOKey("input", shape=(1, 2048, 7, 7))
     """
-    self.positional_embedding = nn.Parameter(torch.randn(spacial_dim ** 2 + 1, embed_dim) / embed_dim ** 0.5)
+    self.positional_embedding = 
+      nn.Parameter(torch.randn(spacial_dim ** 2 + 1, embed_dim) / embed_dim ** 0.5) 
     self.k_proj = nn.Linear(embed_dim, embed_dim)
     self.q_proj = nn.Linear(embed_dim, embed_dim)
     self.v_proj = nn.Linear(embed_dim, embed_dim)
@@ -306,19 +341,18 @@ def attention_pool2d(
     )
     block |= Flatten(start_dim=2)(input=input)
     block += Transpose(axes=(2, 0, 1))(output="flatten")
-    block |= Mean(axis=0, keepdim=True)(block.flatten, output="mean")
-    block |= Concat(axis=0)([block.flatten, block.mean], output="cn1")
-    block |= Buffer()(block.cn1 + positional_embedding[:, None, :], output="x")
-    # I need to place block.x.shape[-1] instead of embed_dim but when I put it in the code it gives
-    # Requires accessible connection to be processe error
-    multi_head_attention_forward = multi_head_attention_forward(
+    block |= Mean(axis=0, keepdim=True)(block.flatten, output="mean")  # type: ignore
+    block |= Concat(axis=0)(input=[block.flatten, block.mean], output="cn1")  # type: ignore
+    block |= Buffer()(block.cn1 + positional_embedding[:, None, :], output="x")  # type: ignore
+
+    _multi_head_attention_forward = multi_head_attention_forward(
         embed_dim, num_heads, 0.0
     )
 
-    block |= multi_head_attention_forward(
-        query=block.x[:1],
-        key=block.x,
-        value=block.x,
+    block |= _multi_head_attention_forward(
+        query=block.x[:1],  # type: ignore
+        key=block.x,  # type: ignore
+        value=block.x,  # type: ignore
         q_proj_weight=q_proj_weight,
         k_proj_weight=k_proj_weight,
         v_proj_weight=v_proj_weight,
@@ -327,7 +361,7 @@ def attention_pool2d(
         out_proj_bias=out_proj_bias,
         output="attention",
     )
-    block |= Squeeze()(input=block.attention, output=IOKey("output"))
+    block |= Squeeze()(input=block.attention, output=IOKey("output"))  # type: ignore
     return block
 
 
@@ -369,15 +403,16 @@ def bottleneck(inplanes: int, planes: int, stride: int = 1, name: str | None = N
             out_channels=planes * expansion,
             use_bias=False,
             name=f"downsample_{0}",
-        )(block.downsample_pool, output="downsample_conv")
+        )(block.downsample_pool, output="downsample_conv")  # type: ignore
         # nn.BatchNorm2d(planes)
-        block |= GroupNorm(num_groups=1, name=f"downsample_{1}")(
-            block.downsample_conv, output="out2"
+        block |= GroupNorm(num_groups=1, name=f"downsample_{1}")(  # type: ignore
+            block.downsample_conv,  # type: ignore
+            output="out2",
         )
-        out = block.out1 + block.out2
+        out = block.out1 + block.out2  # type: ignore
 
     else:
-        out = block.out1 + input
+        out = block.out1 + input  # type: ignore
     block |= Relu(name="relu3")(out, output=IOKey("output"))
     block.set_cout("output")
 
@@ -459,7 +494,7 @@ def modified_resnet(
     )
     make_layer_block = make_layer(width, width, layers[0], name="layer1")
     input_key = "make_layer_0"
-    block |= make_layer_block(input=block.avgpool_out, output=input_key)
+    block |= make_layer_block(input=block.avgpool_out, output=input_key)  # type: ignore
 
     for idx in range(1, 4):
         make_layer_block = make_layer(
@@ -481,12 +516,17 @@ def modified_resnet(
         positional_embedding=positional_embedding,
         output="attn_output",
     )
-    block |= Reshape(shape=(1, 1024))(input=block.attn_output, output=IOKey("output"))
+    block |= Reshape(shape=(1, 1024))(input=block.attn_output, output=IOKey("output"))  # type: ignore
     return block
 
 
 # for torch.tensor.norm
-def norm(p=2, axis: int = None, keepdim: bool = False, name: str | None = None):
+def norm(
+    p: str | int = 2,
+    axis: int | None = None,
+    keepdim: bool = False,
+    name: str | None = None,
+):
     block = Model(name=name)
     input = IOKey("input")
     if p == "inf":
@@ -497,6 +537,7 @@ def norm(p=2, axis: int = None, keepdim: bool = False, name: str | None = None):
         block += Sum(axis=axis, keepdim=keepdim)(input=(input**2))
         block += Sqrt()
     else:
+        assert isinstance(p, int)
         block += Sum(axis=axis, keepdim=keepdim)(input=(input.abs() ** p))
         block += Power(exponent=(1 / p))
     block += Buffer()(output=IOKey("output"))
@@ -506,7 +547,6 @@ def norm(p=2, axis: int = None, keepdim: bool = False, name: str | None = None):
 def eot_creator(batch_number: int, name: str | None = None):
     block = Model(name=name)
     input = IOKey("input", type=ml.Tensor)
-    text = IOKey("text", type=ml.Tensor)
     block |= ArgMax(axis=-1)(input="text", output="argmax")
     block |= Buffer()(input=input[None, 0, 0], output=f"batch_max_{0}")
     input_key = f"batch_max_{0}"
@@ -523,7 +563,7 @@ def clip(
     embed_dim: int,
     # vision
     image_resolution: int,
-    vision_layers: Union[Tuple[int, int, int, int], int],
+    vision_layers: tuple[int, int, int, int] | int,
     vision_width: int,
     vision_patch_size: int,
     # text
@@ -535,10 +575,12 @@ def clip(
     name: str | None = None,
 ):
     block = Model(name=name)
-    image = IOKey("image", type=ml.Tensor)
-    text = IOKey("text", type=ml.Tensor)
+    image = IOKey(
+        "image", type=ml.Tensor, shape=["N", 3, image_resolution, image_resolution]
+    )
+    text = IOKey("text", type=ml.Tensor, shape=["M", context_length])
 
-    if isinstance(vision_layers, (tuple, list)):
+    if isinstance(vision_layers, tuple | list):
         vision_heads = vision_width * 32 // 64
         visual = modified_resnet(
             layers=vision_layers,
@@ -564,7 +606,7 @@ def clip(
             "positional_embeddin_visual", shape=(50, 2048)
         )
         block |= visual(
-            input="image",
+            input=image,
             q_proj_weight=q_proj_weight,
             k_proj_weight=k_proj_weight,
             v_proj_weight=v_proj_weight,
@@ -587,13 +629,6 @@ def clip(
             use_proj=True,
             name="visual",
         )
-        class_embedding = IOKey(
-            "visual_class_embedding", type=ml.Tensor, differentiable=True
-        )
-        visual_positional_embedding = IOKey(
-            "visual_positional_embedding", type=ml.Tensor, differentiable=True
-        )
-        proj = IOKey("visual_proj", type=ml.Tensor, differentiable=True)
         block |= visual(
             input="image",
             class_embedding="visual_class_embedding",
@@ -603,21 +638,16 @@ def clip(
         )
 
     block |= Embedding(vocab_size, transformer_width, name="token_embedding")(
-        input="text", output="token_embedding"
+        input=text, output="token_embedding"
     )
-    block |= Reshape(shape=(1, context_length, transformer_width))(
-        input=block.token_embedding, output="token_embedding_reshaped"
-    )
-    # self.positional_embedding = nn.Parameter(torch.empty(self.context_length, transformer_width))
+
     positional_embedding = IOKey(
         "positional_embedding",
         type=ml.Tensor,
         differentiable=True,
         shape=(context_length, transformer_width),
     )
-    embedding = block.token_embedding_reshaped + positional_embedding
-    mask = IOKey("mask", type=ml.Tensor, shape=(context_length, context_length))
-    block |= Buffer()(input=embedding, output="embedding_output")
+    embedding = block.token_embedding + positional_embedding  # type: ignore
     transformer_main = transformer(
         width=transformer_width,
         layers=transformer_layers,
@@ -626,14 +656,28 @@ def clip(
         name="transformer",
     )
     block |= transformer_main(
-        input=embedding.transpose((1, 0, 2)), mask=mask, output="transformer"
+        input=embedding.transpose((1, 0, 2)),  # type: ignore
+        output="transformer",  # type: ignore
     )
 
     block |= LayerNorm(name="ln_final")(
-        block.transformer.transpose((1, 0, 2)), output="ln_final"
+        block.transformer.transpose((1, 0, 2)),  # type: ignore
+        output="ln_final",  # type: ignore
+    )
+    block |= Arange()(stop=block.ln_final.shape[0], output="arange_out")  # type: ignore
+    block |= ArgMax(axis=-1)(input=text, output="argmax_out")
+    block |= Buffer()(
+        input=block.ln_final[block.arange_out, block.argmax_out],  # type: ignore
+        output="eot_tokens",  # type: ignore
     )
 
-    block |= eot_creator(0)(input=block.ln_final, text="text", output="eot_tokens")
+    # TODO: This set_shape call occurws because of a missing fetature
+    # in indexer_constarint. It should be removed once the feature is
+    # implemented.
+    block.set_shapes(
+        eot_tokens=["N", transformer_width],
+        ln_final=["N", context_length, transformer_width],
+    )
 
     text_projection = IOKey(
         "text_projection",
@@ -641,88 +685,37 @@ def clip(
         differentiable=True,
         shape=(transformer_width, embed_dim),
     )
-    # self.text_projection = nn.Parameter(torch.empty(transformer_width, embed_dim))
-    block |= Buffer()(input=block.eot_tokens @ text_projection, output="text_features")
+
+    block |= Buffer()(input=block.eot_tokens @ text_projection, output="text_features")  # type: ignore
 
     norm1 = norm(p=2, axis=1, keepdim=True)
     norm2 = norm(p=2, axis=1, keepdim=True)
 
-    block |= norm1(input=block.image_features, output="image_features_norm")
-    block |= norm2(input=block.text_features, output="text_features_norm")
+    block |= norm1(input=block.image_features, output="image_features_norm")  # type: ignore
+    block |= norm2(input=block.text_features, output="text_features_norm")  # type: ignore
 
-    image_features = block.image_features / block.image_features_norm
-    text_features = block.text_features / block.text_features_norm
+    image_features = block.image_features / block.image_features_norm  # type: ignore
+    text_features = block.text_features / block.text_features_norm  # type: ignore
 
     # self.logit_scale = nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
     logit_scale = IOKey("logit_scale", type=ml.Tensor, differentiable=True, shape=(1,))
-    logits_per_image = logit_scale.exp() * (image_features @ text_features.transpose())
-    logits_per_text = logits_per_image.transpose()
-    block |= Buffer()(input=logits_per_image, output=IOKey("logits_per_image"))
-    block |= Buffer()(input=logits_per_text, output=IOKey("logits_per_text"))
+    logits_per_image = logit_scale.exp() * (image_features @ text_features.transpose())  # type: ignore
+    logits_per_text = logits_per_image.transpose()  # type: ignore
+    block |= Buffer()(input=logits_per_image, output=IOKey("logits_per_image"))  # type: ignore
+    block |= Buffer()(input=logits_per_text, output=IOKey("logits_per_text"))  # type: ignore
 
     return block
 
 
-# clip_vit = clip(
-#     embed_dim=768,  # Embedding dimension for ViT-L/14
-#     image_resolution=224,  # Input image resolution
-#     vision_layers=24,  # Number of transformer layers in the vision model
-#     vision_width=1024,  # Width of the vision model
-#     vision_patch_size=14,  # Patch size for the ViT-L/14 model
-#     context_length=77,  # Maximum length of text input
-#     vocab_size=49408,  # Size of the text tokenizer's vocabulary
-#     transformer_width=768,  # Width of the text transformer
-#     transformer_heads=12,  # Number of attention heads in the transformer
-#     transformer_layers=12,  # Number of transformer layers for the text model
-#     name="ViT-L/14_CLIP",  # Name of the model instance
-# )
-
-
-# clip_vit_model = ml.compile(
-#     clip_vit,
-#     backend_torch,
-#     data_keys={"image", "text", "mask"},
-#     shapes={
-#         "image": (1, 3, 224, 224),
-#         "text": (1, 77),
-#         "visual_proj": (1024, 768),
-#         "positional_embedding": (77, 768),
-#         "visual_positional_embedding": (257, 1024),
-#         "mask": (77, 77),
-#         "text_projection": (768, 768),
-#     },
-#     inference=True,
-#     use_short_namings=False,
-# )
-
-
-# params = clip_vit_model.randomize_params()
-
-# for i in params.keys():
-#     print(i)
-
-# torch.manual_seed(42)
-# image = torch.randn((1, 3, 224, 224)).cuda()
-# text = torch.randn((1, 77)).cuda()
-# proj = torch.randn((1024, 768)).cuda()
-# class_embedding = torch.randn((1, 1, 1024)).cuda()
-# positional_embedding_2 = torch.randn((257, 1024)).cuda()
-# positional_embedding = torch.randn((1, 77, 768)).cuda()
-# mask = torch.randn((77, 77)).cuda()
-# text_projection = torch.randn((768, 768)).cuda()
-# logit_scale = torch.randn((1,)).cuda()
-# inputs = {
-#     "image": image,
-#     "text": text,
-#     "proj": proj,
-#     "class_embedding": class_embedding,
-#     "positional_embedding": positional_embedding,
-#     "positional_embedding_2": positional_embedding_2,
-#     "mask": mask,
-#     "text_projection": text_projection,
-#     "logit_scale": logit_scale,
-# }
-# output = clip_vit_model.evaluate(params, inputs)
-
-# print(output["logits_per_image"])
-# print(output["logits_per_text"])
+def build_attention_mask() -> Model:
+    block = Model()
+    block |= Arange(stop=77)(output="arange_out_1")
+    block |= Arange(stop=77)(output="arange_out_2")
+    upper_bool_triu = block.arange_out_1[..., None] >= block.arange_out_2[None, ...]  # type: ignore
+    block |= Where()(
+        cond=upper_bool_triu,
+        input1=Tensor(0.0),
+        input2=Tensor(float("-inf")),
+        output=IOKey("output"),
+    )
+    return block
