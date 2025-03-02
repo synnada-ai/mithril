@@ -210,6 +210,23 @@ class Connections:
         self.connections_dict: dict[IOHyperEdge, set[Connections]] = {}
         self.cins: set[ConnectionData] = set()
         self.couts: set[ConnectionData] = set()
+    #     self._state_connections: dict[ConnectionData, ConnectionData] = {}
+    #     self._state_default_values: dict[ConnectionData, MainValueInstance | NullConnection] = {}
+
+    # def set_state_keys(self, input: ConnectionData, output: ConnectionData, default_value: MainValueInstance | NullConnection = NOT_GIVEN) -> None:
+    #     self.set_connection_type(input, KeyType.LATENT_INPUT)
+    #     if self.get_type(output) == KeyType.OUTPUT:
+    #         self.set_connection_type(output, KeyType.LATENT_OUTPUT)
+    #     # self._state_connections[output] = input
+    #     # self._state_default_values[input] = default_value
+
+    # @property
+    # def state_inputs(self) -> ValuesView[ConnectionData]:
+    #     return self._state_connections.values()
+
+    # @property
+    # def state_outputs(self) -> KeysView[ConnectionData]:
+    #     return self._state_connections.keys()
 
     @property
     def input_keys(self) -> KeysView[str]:
@@ -399,6 +416,7 @@ class BaseModel:
         self.safe_shapes: dict[str, ShapeTemplateType] = {}
         self.is_frozen = False
         self.inter_key_count = 0
+        self.state_connections = {}
 
     @property
     def formula_key(self) -> str | None:
@@ -444,6 +462,20 @@ class BaseModel:
                 self.conns.set_connection_type(conn_data, new_type)
                 connections.append(conn_data)
         self.dependency_map.update_globals(OrderedSet(connections))
+    
+    
+    def bind_state_input(self, input: str, output: str, default_value: MainValueInstance | NullConnection = NOT_GIVEN) -> None:
+        # TODO: raise if frozen model's bind_state_input is called?
+        in_con = self.conns.get_connection(input)
+        out_con = self.conns.get_connection(output)
+        assert in_con is not None, f"Connection '{input}' is not found!"
+        assert out_con is not None, f"Connection '{output}' is not found!"
+        self.conns.set_connection_type(in_con, KeyType.LATENT_INPUT)
+        if self.conns.get_type(out_con) == KeyType.OUTPUT:
+            self.conns.set_connection_type(out_con, KeyType.LATENT_OUTPUT)
+        # TODO: remove self.state_connections.
+        self.state_connections[out_con] = (in_con, default_value)
+        self.set_differentiability({in_con: False})
 
     def _check_multi_write(
         self,
@@ -811,6 +843,8 @@ class BaseModel:
         model._freeze()
 
         updates = Updates()
+        # TODO: Check if there already matcching keys.
+        self.state_connections |= model.state_connections
 
         shape_info: dict[str, ShapeTemplateType] = {}
         submodel_dag: dict[str, ConnectionData] = {}
