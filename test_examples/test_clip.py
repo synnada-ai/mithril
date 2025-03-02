@@ -225,7 +225,7 @@ def build_attention_mask():
     return mask
 
 
-class TestClip:
+class TestClipEndToEnd:
     def test_clip(self):
         device = "cpu"
         model, preprocess = cliptorch.load("ViT-L/14", device=device)

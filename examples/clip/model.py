@@ -671,8 +671,8 @@ def clip(
         output="eot_tokens",  # type: ignore
     )
 
-    # TODO: This set_shape call occurws because of a missing fetature
-    # in indexer_constarint. It should be removed once the feature is
+    # TODO: This set_shape call occurs because of a missing feature
+    # in indexer_constraint. It should be removed once the feature is
     # implemented.
     block.set_shapes(
         eot_tokens=["N", transformer_width],
