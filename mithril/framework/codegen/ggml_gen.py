@@ -15,6 +15,8 @@
 
 from typing import override
 
+from ...cores.c.array import PyArray
+from ..physical.model import PhysicalModel
 from . import c_ast
 from .c_gen import CGen
 
@@ -22,7 +24,12 @@ FinalCost = "final_cost"
 
 
 class GGMLCodeGen(CGen):
-    dynamic_links = ["-lmithrilggml", "-lggml-cpu", "-lggml-base"]
+    dynamic_links = ["-lggml-base", "-lggml-cpu", "-lmithrilggml"]
+
+    def __init__(self, pm: PhysicalModel[PyArray]) -> None:
+        super().__init__(pm)
+
+        self.defined_tmp_vars: set[str] = set()
 
     def generate_code(self, file_path: str | None = None) -> None:
         # Add stdlib.h include for atexit
@@ -105,10 +112,6 @@ class GGMLCodeGen(CGen):
             return self.update_function(
                 name, return_type, params, pre_process, operations, post_process
             )
-        # elif name == "evaluate_gradients":
-        #     return self.define_evaluate_gradients_function(
-        #         name, return_type, params, pre_process, operations, post_process
-        #     )
 
         return super().define_function(
             return_type, name, params, pre_process, operations, post_process
@@ -116,13 +119,13 @@ class GGMLCodeGen(CGen):
 
     @override
     def create_primitive_call(
-        self, formula_name: str, args: list[str], context: str
+        self, formula_name: str, args: list[c_ast.Expr], context: str
     ) -> c_ast.Expr:
         # Add context as input for all primitive calls
         context_var = "eval_static_ctx" if context == "eval" else "eval_grad_static_ctx"
         return c_ast.Call(
             formula_name,
-            [context_var] + [self.create_key_ref(arg, context=context) for arg in args],
+            [context_var] + args,  # type: ignore
         )
 
     def update_function(
@@ -160,9 +163,9 @@ class GGMLCodeGen(CGen):
         ) = []
 
         # Initialize context if NULL
-        init_block.append(c_ast.Comment("One-time initialization"))
+        init_block.append(c_ast.Comment("One-time initialization"))  # type: ignore
         init_block.append(
-            c_ast.StructInit(
+            c_ast.StructInit(  # type: ignore
                 "ggml_init_params params",
                 {
                     "mem_size": c_ast.Constant(1024 * 1024 * 512),
@@ -172,14 +175,14 @@ class GGMLCodeGen(CGen):
             )
         )
         init_block.append(
-            c_ast.Assign(
+            c_ast.Assign(  # type: ignore
                 c_ast.Variable(f"{fn_ref_name}_static_ctx"),
                 c_ast.Call("ggml_init", ["params"]),
             )
         )
 
         # Create tensors
-        init_block.append(c_ast.Comment("Create tensors only once"))
+        init_block.append(c_ast.Comment("Create tensors only once"))  # type: ignore
         for key in self.determined_struct_keys[f"{fn_ref_name}_input_keys"]:
             shape = self.get_tensor_shape(key)
             if shape is not None:
@@ -187,13 +190,13 @@ class GGMLCodeGen(CGen):
                     f"ggml_new_tensor_{len(shape)}d",
                     [ctx_name, "GGML_TYPE_F32"] + [str(size) for size in shape],
                 )
-                init_block.append(c_ast.Assign(c_ast.Variable(key), tensor))
+                init_block.append(c_ast.Assign(c_ast.Variable(key), tensor))  # type: ignore
 
         # Create and build graph
         init_block.extend(
             [
-                c_ast.Comment("Create graph object only once"),
-                c_ast.Assign(
+                c_ast.Comment("Create graph object only once"),  # type: ignore
+                c_ast.Assign(  # type: ignore
                     c_ast.Variable("eval_static_gf"),
                     c_ast.Call("ggml_new_graph", [ctx_name]),
                 ),
@@ -201,12 +204,12 @@ class GGMLCodeGen(CGen):
         )
 
         # Add the original body operations
-        init_block += operations
+        init_block += operations  # type: ignore
 
         # Build graph
         for out_key in self.determined_struct_keys[f"{fn_ref_name}_output_keys"]:
             init_block.append(
-                c_ast.MakeStmt(
+                c_ast.MakeStmt(  # type: ignore
                     c_ast.Call(
                         "ggml_build_forward_expand",
                         [
@@ -217,17 +220,19 @@ class GGMLCodeGen(CGen):
                 )
             )
 
-        init_block.append(c_ast.MakeStmt(c_ast.Call("atexit", ["cleanup"])))
+        init_block.append(c_ast.MakeStmt(c_ast.Call("atexit", ["cleanup"])))  # type: ignore
 
         # Wrap initialization in if check
-        if_init = c_ast.If(c_ast.Variable(f"{ctx_name} == NULL"), init_block)
+        if_init = [c_ast.If(c_ast.Variable(f"{ctx_name} == NULL"), init_block)]  # type: ignore
 
         # Update input data
-        update_ptr_block: list = []
-        update_ptr_block.append(c_ast.Comment("Update tensor data for each call"))
+        update_ptr_block: (
+            list[c_ast.Stmt] | list[c_ast.Expr] | list[c_ast.Stmt | c_ast.Expr]
+        ) = []
+        update_ptr_block.append(c_ast.Comment("Update tensor data for each call"))  # type: ignore
         for key in self.determined_struct_keys[f"{fn_ref_name}_input_keys"]:
             update_ptr_block.append(
-                c_ast.Assign(
+                c_ast.Assign(  # type: ignore
                     c_ast.Variable(f"{key}->data"),
                     c_ast.Variable(f"inputs->{key}->data"),
                 )
@@ -239,7 +244,7 @@ class GGMLCodeGen(CGen):
             f"init_{fn_ref_name}",
             params,
             static_vars,
-            [if_init],
+            if_init,  # type: ignore
             update_ptr_block,
         )
 
@@ -253,7 +258,7 @@ class GGMLCodeGen(CGen):
             )
         )
 
-        pre_process = [call_init_fn]
+        pre_process = [call_init_fn]  # type: ignore
 
         # Compute graph
         compute_block = [
@@ -270,135 +275,6 @@ class GGMLCodeGen(CGen):
 
         return super().define_function(
             return_type, name, params, pre_process, [], post_process
-        )
-
-    def define_evaluate_gradients_function(
-        self,
-        name: str,
-        return_type: str,
-        params: list[c_ast.Parameter],
-        pre_process: list[c_ast.Stmt],
-        operations: list[c_ast.Stmt],
-        post_process: list[c_ast.Stmt],
-    ) -> None:
-        # Define static variables at function scope
-        static_vars: list[c_ast.Stmt] = []
-
-        # Add static tensors
-        for key in self.determined_struct_keys["eval_grad_input_keys"]:
-            static_vars.append(
-                c_ast.StaticVariable(
-                    "struct ggml_tensor *", key, c_ast.Constant("NULL")
-                )
-            )
-
-        pre_process = static_vars + pre_process
-
-        # Create initialization block
-        init_block: list[c_ast.Stmt] = []
-
-        # Initialize context if NULL
-        init_block.extend(
-            [
-                c_ast.Comment("One-time initialization"),
-                c_ast.StructInit(
-                    "ggml_init_params params",
-                    {
-                        "mem_size": c_ast.Constant(1024 * 1024 * 512),
-                        "mem_buffer": c_ast.Constant("NULL"),
-                        "no_alloc": c_ast.Constant("false"),
-                    },
-                ),
-                c_ast.Assign(
-                    c_ast.Variable("eval_grad_static_ctx"),
-                    c_ast.Call("ggml_init", ["params"]),
-                ),
-            ]
-        )
-
-        # Create tensors
-        init_block.append(c_ast.Comment("Create tensors only once"))
-        for key in self.pm.flat_graph.input_keys:
-            shape = self.pm.shapes[key]
-            if shape is not None:
-                tensor = c_ast.Call(
-                    f"ggml_new_tensor_{len(shape)}d",
-                    ["eval_grad_static_ctx", "GGML_TYPE_F32"]
-                    + [str(size) for size in shape],
-                )
-                init_block.append(c_ast.Assign(c_ast.Variable(key), tensor))
-
-        # Create and build graph
-        init_block.extend(
-            [
-                c_ast.Comment("Create graph object only once"),
-                c_ast.Assign(
-                    c_ast.Variable("eval_grad_static_gf"),
-                    c_ast.Call("ggml_new_graph", ["eval_grad_static_ctx"]),
-                ),
-            ]
-        )
-
-        # Add the original body operations
-        init_block += operations
-
-        # Build graph
-        for out_key in self.pm.output_keys:
-            init_block.extend(
-                [
-                    c_ast.MakeStmt(
-                        c_ast.Call(
-                            "ggml_build_forward_expand",
-                            [
-                                "eval_grad_static_gf",
-                                self.create_key_ref(out_key, context="eval_grad"),
-                            ],
-                        )
-                    ),
-                    c_ast.MakeStmt(c_ast.Call("atexit", ["cleanup"])),
-                ]
-            )
-
-        # Wrap initialization in if check
-        if_init = c_ast.If(c_ast.Variable("eval_grad_static_ctx == NULL"), init_block)
-
-        # Update tensor data and compute
-        compute_block: list[c_ast.Stmt] = []
-
-        # Update input data
-        compute_block.append(c_ast.Comment("Update tensor data for each call"))
-        for key in self.pm.flat_graph.input_keys:
-            compute_block.append(
-                c_ast.Assign(
-                    c_ast.Variable(f"{key}->data"),
-                    c_ast.Variable(f"inputs->{key}->data"),
-                )
-            )
-
-        # Compute graph
-        compute_block.extend(
-            [
-                c_ast.Comment("Compute graph"),
-                c_ast.MakeStmt(
-                    c_ast.Call(
-                        "ggml_graph_compute_with_ctx",
-                        [
-                            "eval_grad_static_ctx",
-                            "eval_grad_static_gf",
-                            c_ast.Constant(1),
-                        ],
-                    )
-                ),
-            ]
-        )
-
-        post_process = compute_block + post_process
-
-        # Combine all blocks
-        new_body = [if_init]
-
-        return super().define_function(
-            return_type, name, params, pre_process, new_body, post_process
         )
 
     @override

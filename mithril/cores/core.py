@@ -46,7 +46,7 @@ except ImportError:
     pass
 
 try:
-    from mithril.cores.c.raw_c.array import PyArray
+    from mithril.cores.c.array import PyArray
 
     data_types.append(PyArray)
 except ImportError:

@@ -17,9 +17,9 @@ from typing import Any
 import numpy as np
 
 from ....common import CGenConfig
+from ....cores.c.array import PyArray
 from ....cores.c.raw_c.array import (
     Array,
-    PyArray,
     lib,
     to_c_float_array,
     to_c_int_array,
@@ -42,7 +42,7 @@ CODEGEN_CONFIG.ALLOCATE_INTERNALS = True
 
 
 def to_numpy(array: PyArray) -> np.ndarray[Any, Any]:
-    return np.ctypeslib.as_array(array.arr.contents.data, shape=(array.shape))
+    return np.ctypeslib.as_array(array.arr.data, shape=(array.shape))
 
 
 def from_numpy(array: np.ndarray[Any, Any]) -> PyArray:
@@ -52,4 +52,4 @@ def from_numpy(array: np.ndarray[Any, Any]) -> PyArray:
     c_shape = to_c_int_array(shape)
     c_data = to_c_float_array(array)  # type: ignore
     arr: Array = lib.create_struct(c_data, ndim, c_shape)
-    return PyArray(arr, shape)
+    return PyArray(arr.contents, shape)

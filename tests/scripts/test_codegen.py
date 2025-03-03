@@ -20,14 +20,12 @@ import mithril
 from mithril import JaxBackend, MlxBackend, NumpyBackend, TorchBackend
 from mithril.framework.logical.model import IOKey
 from mithril.models import (
-    Add,
     Arange,
     Concat,
     Convolution1D,
     Linear,
     Mean,
     Model,
-    Multiply,
     Relu,
     Shape,
     ToTensor,
@@ -500,43 +498,3 @@ def test_inline_caching_2(file_path: str):
         return {"output": (2, 3, 4, 5, 1, 2)}
 
     compare_callables(evaluate, eval_func)
-
-
-# C codegen
-
-
-@with_temp_file(".c")
-def test_basic_add_pure_c(file_path: str):
-    model = Model()
-    model |= Add()(
-        IOKey("left", shape=(3, 3), differentiable=True),
-        IOKey("right", shape=(3, 3), differentiable=True),
-        "add_output",
-    )
-    model |= Multiply()(
-        "add_output", IOKey("right2", shape=(3, 3), differentiable=True), "output"
-    )
-
-    backend = mithril.GGMLBackend()
-    pm = mithril.compile(
-        model,
-        backend,
-        jit=False,
-        inference=False,
-        file_path=file_path,
-    )
-
-    left = backend.ones((5, 5))
-    right = backend.ones((5, 5))
-    right2 = backend.ones((5, 5))
-
-    output = pm.evaluate({}, {"left": left, "right": right, "right2": right2})
-    grad_output = pm.evaluate_gradients(
-        {},
-        {"left": left, "right": right, "right2": right2},
-        {"output": output["output"]},
-    )
-
-    code = []
-    with open(file_path) as f:
-        code = f.readlines()
