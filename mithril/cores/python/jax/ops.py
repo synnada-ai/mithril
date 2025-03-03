@@ -557,7 +557,7 @@ def max_pool2d(
 def avg_pool2d(
     input: jax.Array,
     kernel_size: tuple[int, int],
-    stride: int | tuple[int, int],
+    stride: tuple[int, int],
     *,
     padding: tuple[int, int] | tuple[tuple[int, int], tuple[int, int]] = (0, 0),
     dilation: tuple[int, int] = (1, 1),
@@ -569,9 +569,6 @@ def avg_pool2d(
         _padding = ((padding[0], padding[0]), (padding[1], padding[1]))
     else:
         _padding = padding  # type: ignore
-
-    if isinstance(stride, int):
-        stride = (stride, stride)
 
     num_batch_dims = input.ndim - len(kernel_size)
 

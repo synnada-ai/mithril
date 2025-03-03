@@ -538,7 +538,7 @@ def avg_pool2d(
     input: mx.array,
     *,
     kernel_size: tuple[int, int] = (2, 2),
-    stride: int | tuple[int, int] = (2, 2),
+    stride: tuple[int, int] = (2, 2),
     padding: tuple[int, int] | tuple[tuple[int, int], tuple[int, int]] = (0, 0),
     dilation: tuple[int, int] = (1, 1),
 ) -> mx.array:
@@ -556,9 +556,6 @@ def avg_pool2d(
     else:
         # TODO: This is now guaranteed to be the correct type
         normalized_padding = padding  # type: ignore
-
-    if isinstance(stride, int):
-        stride = (stride, stride)
 
     n, c, h, w = input.shape
     out_h = (h - kernel_size[0] + sum(normalized_padding[0])) // stride[0] + 1

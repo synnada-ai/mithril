@@ -1167,9 +1167,6 @@ def avg_pool2d_grad(
         else:
             normalized_padding = padding  # type: ignore
 
-        if isinstance(stride, int):
-            stride = (stride, stride)
-
         *_, h, w = input.shape
         h_k, w_k = kernel_size
         out_h = (h - kernel_size[0] + sum(normalized_padding[0])) // stride[0] + 1
