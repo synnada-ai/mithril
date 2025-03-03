@@ -19,6 +19,7 @@ from mithril.models import (
     Arange,
     ArgMax,
     Buffer,
+    Cast,
     Concat,
     Convolution2D,
     Embedding,
@@ -46,6 +47,16 @@ from mithril.models import (
 )
 
 backend_torch = ml.TorchBackend()
+
+
+def layer_norm(name: str | None = None):
+    block = Model(name=name)
+    input = IOKey("input")
+    block |= Cast()(input=input, dtype=ml.float32)
+    block |= LayerNorm()(input=block.cout, weight=IOKey("weight"), bias=IOKey("bias"))
+    block |= Cast()(dtype=input.dtype(), input=block.cout, output=IOKey("output"))
+    block.set_cin("input")
+    return block
 
 
 def quick_gelu(name: str | None = None):
@@ -118,12 +129,12 @@ def residual_attention_block(
     block = Model(name=name)
     assert d_model % n_head == 0, "d_model is not divisible by h"
     input = IOKey("input")
-    block += LayerNorm(name="ln_1")(input="input", output="ln_1")
+    block += layer_norm(name="ln_1")(input="input", output="ln_1")
 
     attn = multi_head_attention(d_model, n_head, use_attn_mask, name="attn")
     block |= attn(queries=block.ln_1, output="attention")  # type: ignore
 
-    block |= LayerNorm(name="ln_2")(input=input + block.attention, output="ln_2")  # type: ignore
+    block |= layer_norm(name="ln_2")(input=input + block.attention, output="ln_2")  # type: ignore
     mlp = mlp_resblock(d_model, name="mlp")
 
     block |= mlp(input=block.ln_2, output="mlp_output")  # type: ignore
@@ -221,7 +232,7 @@ def vision_transformer(
         shape=[(input_resolution // patch_size) ** 2 + 1, width],
     )
 
-    block |= LayerNorm(name="ln_pre")(
+    block |= layer_norm(name="ln_pre")(
         input=block.cat1 + positional_embedding,  # type: ignore
         output="ln_1",
     )
@@ -233,7 +244,7 @@ def vision_transformer(
         output="transformer",
     )
     block |= Transpose(axes=(1, 0, 2))(input=block.transformer, output="transformer_p")  # type: ignore
-    block |= LayerNorm(name="ln_post")(input=block.transformer_p, output="ln_post")  # type: ignore
+    block |= layer_norm(name="ln_post")(input=block.transformer_p, output="ln_post")  # type: ignore
     if use_proj:
         block |= Buffer()(
             block.ln_post[:, 0, :]  # type: ignore
@@ -645,8 +656,8 @@ def clip(
         output="transformer",  # type: ignore
     )
 
-    block |= LayerNorm(name="ln_final")(
-        block.transformer.transpose((1, 0, 2)),  # type: ignore
+    block |= layer_norm(name="ln_final")(
+        input=block.transformer.transpose((1, 0, 2)),  # type: ignore
         output="ln_final",  # type: ignore
     )
     block |= Arange()(stop=block.ln_final.shape[0], output="arange_out")  # type: ignore
