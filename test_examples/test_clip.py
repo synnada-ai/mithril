@@ -14,6 +14,7 @@
 
 import os
 import platform
+import sys
 from collections.abc import Mapping
 
 import clip as cliptorch
@@ -35,6 +36,7 @@ from examples.clip.model import (
 from .clip_torch import CLIP, ResidualAttentionBlock, Transformer, VisionTransformer
 
 installed_backends = [ml.TorchBackend, ml.JaxBackend]
+sys.setrecursionlimit(3500)
 
 if platform.system() == "Darwin":
     installed_backends.append(ml.MlxBackend)
