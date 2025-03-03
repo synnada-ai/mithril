@@ -94,7 +94,6 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
     def DataType(self) -> type[torch.Tensor]:  # noqa: N802
         return utils.ArrayType
 
-
     @property
     def device(self) -> torch.device:
         return utils.get_device(self._device)

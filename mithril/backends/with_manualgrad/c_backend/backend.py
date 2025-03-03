@@ -12,14 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import ctypes
 import os
 from typing import Any
 
 import numpy as np
 
 from .... import types
+from ....cores.c.array import PyArray
 from ....cores.c.raw_c import array
-from ....cores.c.raw_c.array import PyArray
 from ...backend import Backend
 from ...utils import process_shape
 from . import utils
@@ -29,7 +30,9 @@ __all__ = ["CBackend"]
 
 class CBackend(Backend[PyArray]):
     backend_type = "c"
-    SRC_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "..", "cores", "c", "raw_c")
+    SRC_PATH = os.path.join(
+        os.path.dirname(__file__), "..", "..", "..", "cores", "c", "raw_c"
+    )
     CODEGEN_CONFIG = utils.CODEGEN_CONFIG
 
     def __init__(self) -> None:
@@ -91,3 +94,6 @@ class CBackend(Backend[PyArray]):
         assert dtype is None, "dtype is not supported in CBackend"
         input = input.astype(np.float32)
         return utils.from_numpy(input)
+
+    def get_struct_cls(self) -> type[ctypes.Structure]:
+        return array.Array

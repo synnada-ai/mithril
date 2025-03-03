@@ -21,7 +21,7 @@ import mlx.core as mx
 import numpy as np
 
 from .... import types
-from ....common import find_dominant_type, PythonGenConfig
+from ....common import PythonGenConfig, find_dominant_type
 from ....cores.python.mlx.utils import dtype_map
 from ...utils import DtypeSubTypes
 

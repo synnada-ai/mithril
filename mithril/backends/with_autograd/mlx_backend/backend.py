@@ -76,7 +76,6 @@ class MlxBackend(Backend[mx.array]):
     def device(self) -> Any:
         utils.get_device(self._device)
 
-
     def get_device(self) -> Any:
         return self._device
 

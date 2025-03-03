@@ -37,6 +37,9 @@ CODEGEN_CONFIG.ARRAY_NAME = "Array"
 CODEGEN_CONFIG.RETURN_OUTPUT = False
 CODEGEN_CONFIG.USE_OUTPUT_AS_INPUT = True
 
+# Memory Management configs
+CODEGEN_CONFIG.ALLOCATE_INTERNALS = True
+
 
 def to_numpy(array: PyArray) -> np.ndarray[Any, Any]:
     return np.ctypeslib.as_array(array.arr.contents.data, shape=(array.shape))

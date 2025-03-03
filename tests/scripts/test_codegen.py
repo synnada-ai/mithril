@@ -20,17 +20,17 @@ import mithril
 from mithril import JaxBackend, MlxBackend, NumpyBackend, TorchBackend
 from mithril.framework.logical.model import IOKey
 from mithril.models import (
+    Add,
     Arange,
     Concat,
     Convolution1D,
     Linear,
     Mean,
     Model,
+    Multiply,
     Relu,
     Shape,
-    Multiply,
     ToTensor,
-    Add
 )
 from tests.scripts.test_utils import compare_callables
 
@@ -504,31 +504,38 @@ def test_inline_caching_2(file_path: str):
 
 # C codegen
 
+
 @with_temp_file(".c")
-def test_basic_add_Pure_C(file_path: str):
+def test_basic_add_pure_c(file_path: str):
     model = Model()
-    model |= Multiply()(IOKey("left", shape=(3, 3)), IOKey("right", shape=(3, 3)),"output")
-    #model |= Add()("out", IOKey("right2", shape=(5, 5)))
-    #model += Add()(IOKey("left", shape=(8,16,32)), IOKey("right2", shape=(8,16,32)))
-    #model += Multiply()(IOKey("left", shape=(8,16,32)), IOKey("right", shape=(8,16,32)))
+    model |= Add()(
+        IOKey("left", shape=(3, 3), differentiable=True),
+        IOKey("right", shape=(3, 3), differentiable=True),
+        "add_output",
+    )
+    model |= Multiply()(
+        "add_output", IOKey("right2", shape=(3, 3), differentiable=True), "output"
+    )
+
     backend = mithril.GGMLBackend()
     pm = mithril.compile(
         model,
         backend,
-        inference=True,
         jit=False,
+        inference=False,
         file_path=file_path,
     )
-    import numpy as np
 
-    left = np.arange((9), dtype=np.float32)
-    right = np.arange((9), dtype=np.float32)
-    #right2 = np.arange((9), dtype=np.float32)
-    output = np.arange((9), dtype=np.float32)
+    left = backend.ones((5, 5))
+    right = backend.ones((5, 5))
+    right2 = backend.ones((5, 5))
 
-
-
-    output = pm.evaluate({}, {"left": left, "right": right, "output": output})
+    output = pm.evaluate({}, {"left": left, "right": right, "right2": right2})
+    grad_output = pm.evaluate_gradients(
+        {},
+        {"left": left, "right": right, "right2": right2},
+        {"output": output["output"]},
+    )
 
     code = []
     with open(file_path) as f:

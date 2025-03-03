@@ -27,7 +27,6 @@ from ...backend import PadWidthType, ParallelBackend
 from ...utils import DtypeSubTypes, StaticScalar, process_shape
 from . import utils
 from .parallel import JaxParallel
-from .utils import CODEGEN_CONFIG
 
 __all__ = ["JaxBackend"]
 

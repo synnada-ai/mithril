@@ -13,9 +13,8 @@
 # limitations under the License.
 
 from abc import ABC, abstractmethod
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Sequence
 
 
 @dataclass
@@ -36,7 +35,7 @@ class Stmt(AST):
 
 
 @dataclass
-class MakeStmt(AST):
+class MakeStmt(Stmt):
     expr: Expr
 
     def to_str(self) -> str:
@@ -65,14 +64,16 @@ class Constant(Expr):
 
     def __str__(self) -> str:
         return self.to_str()
-    
+
+
 @dataclass
 class Variable(Expr):
     name: str
 
     def to_str(self) -> str:
         return self.name
-    
+
+
 @dataclass
 class Assign(Stmt):
     target: Variable
@@ -103,10 +104,12 @@ class FunctionDef(Stmt):
 
     def to_str(self) -> str:
         params_str = (
-            "\n\t" + ",\n\t".join([param.to_str() for param in self.params]) + "\n"
-        ) if len(self.params) > 0 else ""
+            ("\n\t" + ",\n\t".join([param.to_str() for param in self.params]) + "\n")
+            if len(self.params) > 0
+            else ""
+        )
         body_str = "\n    ".join([stmt.to_str() for stmt in self.body])
-        return f"{self.return_type} {self.name}({params_str})\n{{\n    {body_str}\n}}"
+        return f"\n{self.return_type} {self.name}({params_str})\n{{\n    {body_str}\n}}"
 
 
 @dataclass
@@ -137,7 +140,7 @@ class Comment(Stmt):
     def to_str(self) -> str:
         if self.multiline:
             # Format multiline comments with proper line breaks
-            lines = self.text.split('\n')
+            lines = self.text.split("\n")
             if len(lines) == 1:
                 return f"/* {self.text} */"
             formatted_lines = [f" * {line}" for line in lines]
@@ -162,7 +165,7 @@ class StructDef(Stmt):
 
     def to_str(self) -> str:
         fields_str = "\n".join(field.to_str() for field in self.fields)
-        return f"struct {self.name} {{\n{fields_str}\n}};"
+        return f"\nstruct {self.name} {{\n{fields_str}\n}};\n"
 
 
 @dataclass
@@ -180,11 +183,11 @@ class FILE(AST):
         return f"{includes_str}\n\n{globals_str}\n\n{declarations_str}"
 
 
-
 @dataclass
 class StructInit(Stmt):
     struct_name: str
-    field_values: dict[str, Expr | str]
+    field_values: Mapping[str, Expr | str]
+    static: bool = False
 
     def to_str(self) -> str:
         field_inits = [
@@ -192,7 +195,12 @@ class StructInit(Stmt):
             for field, value in self.field_values.items()
         ]
         fields_str = ", ".join(field_inits)
-        return f"struct {self.struct_name} = {{ {fields_str} }};"
+
+        stmt = f"struct {self.struct_name} = {{ {fields_str} }};"
+        if self.static:
+            stmt = f"static {stmt}"
+
+        return stmt
 
 
 @dataclass
@@ -219,4 +227,7 @@ class If(Stmt):
             return f"if ({self.condition.to_str()}) {{\n    {body_str}\n}}"
         else:
             else_str = "\n    ".join([stmt.to_str() for stmt in self.else_body])
-            return f"if ({self.condition.to_str()}) {{\n    {body_str}\n}} else {{\n    {else_str}\n}}"
+            return (
+                f"if ({self.condition.to_str()}) {{\n    {body_str}\n}} else "
+                f"{{\n    {else_str}\n}}"
+            )

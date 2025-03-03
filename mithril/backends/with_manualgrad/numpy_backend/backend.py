@@ -85,7 +85,6 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
     def DataType(self) -> type[np.ndarray[Any, Any]]:  # noqa: N802
         return utils.ArrayType
 
-
     def get_backend_array_type(self) -> type[np.ndarray[Any, Any]]:
         return np.ndarray
 

@@ -15,6 +15,7 @@
 import ast
 
 from ...backends.backend import Backend
+from ...common import PythonGenConfig
 from ...types import DataType
 from ..common import ShapeNode
 
@@ -23,6 +24,8 @@ from ..common import ShapeNode
 def partial_array_creation_func(
     backend: Backend[DataType], formula_key: str
 ) -> ast.stmt:
+    assert isinstance(backend.CODEGEN_CONFIG, PythonGenConfig)
+
     kwargs = [
         ast.keyword(arg="default_dtype", value=ast.Constant(value=backend._dtype.name))
     ]

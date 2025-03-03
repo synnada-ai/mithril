@@ -13,11 +13,9 @@
 # limitations under the License.
 
 from collections.abc import Callable, Iterator, MutableMapping
+from dataclasses import dataclass
 from enum import IntEnum
 from typing import Any, TypeVar
-
-from dataclasses import dataclass
-
 
 
 @dataclass
@@ -31,6 +29,9 @@ class CGenConfig:
     # Function call configs
     USE_OUTPUT_AS_INPUT: bool = False
     RETURN_OUTPUT: bool = False
+
+    # Memory Management
+    ALLOCATE_INTERNALS: bool = False
 
 
 @dataclass
@@ -130,6 +131,3 @@ def find_dominant_type(
             "float, int, bool"
         )
     return type(lst)
-
-
-

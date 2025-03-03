@@ -42,9 +42,9 @@ except ImportError:
     pass
 try:
     from ...backends.with_manualgrad.c_backend import CBackend
-    from .c_gen import CGen
+    from .raw_c_gen import RawCGen
 
-    code_gen_map[CBackend] = CGen
+    code_gen_map[CBackend] = RawCGen
 except Exception:
     pass
 
@@ -53,8 +53,8 @@ try:
     from .ggml_gen import GGMLCodeGen
 
     code_gen_map[GGMLBackend] = GGMLCodeGen
-except Exception:
-    pass
+except Exception as e:
+    raise e
 try:
     from ...backends.with_manualgrad.numpy_backend import NumpyBackend
     from .numpy_gen import NumpyCodeGen
@@ -71,5 +71,5 @@ __all__ = [
     "PythonCodeGen",
     "NumpyCodeGen",
     "TorchCodeGen",
-    "GGMLCodeGen"
+    "GGMLCodeGen",
 ]

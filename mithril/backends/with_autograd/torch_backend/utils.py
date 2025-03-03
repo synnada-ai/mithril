@@ -30,7 +30,7 @@ import torch.distributed as dist
 from torch.distributed._tensor import DeviceMesh
 
 from .... import types
-from ....common import find_dominant_type, PythonGenConfig
+from ....common import PythonGenConfig, find_dominant_type
 from ....cores.python.torch.utils import dtype_map
 from ...utils import DtypeSubTypes
 

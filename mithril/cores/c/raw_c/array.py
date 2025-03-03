@@ -18,6 +18,8 @@ from typing import Any
 
 import numpy as np
 
+from ..array import PyArray
+
 current_file_path = os.path.abspath(__file__)
 
 lib = ctypes.CDLL(os.path.join(os.path.dirname(current_file_path), "libmithrilc.so"))
@@ -63,59 +65,19 @@ def to_c_float_array(
     return arr.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
 
 
-class PyArray:
-    def __init__(self, arr: Array, shape: tuple[int, ...] | list[int]):
-        self.arr = arr
-        if isinstance(shape, list):
-            shape = tuple(shape)
-        self.shape = shape
-        self.ndim = len(shape)
-
-    def __del__(self):
-        lib.delete_struct(self.arr)
-
-    @property
-    def data(self):
-        total_elements = 1
-        for dim in self.shape:
-            total_elements *= dim
-
-        # Convert the array into a Python list
-        data_ptr = self.arr.contents.data
-        data_list = [data_ptr[i] for i in range(total_elements)]
-
-        # Reshape the flat list based on the shape
-        def reshape(data: PyArray, shape: tuple[int, ...]):
-            if len(shape) == 1:
-                return data
-            size = shape[0]
-            return [
-                reshape(data[i * size : (i + 1) * size], shape[1:])
-                for i in range(len(data) // size)
-            ]
-
-        return reshape(data_list, self.shape)
-
-    def __repr__(self):
-        return f"array({self.data})"
-
-    def __str__(self):
-        return f"PyArray(shape={self.shape})\n{self.data}"
-
-
 def empty(shape: tuple[int, ...] | list[int]):
     c_shape = to_c_int_array(shape)
-    arr = lib.create_empty_struct(len(shape), c_shape)
+    arr = lib.create_empty_struct(len(shape), c_shape).contents
     return PyArray(arr, shape)
 
 
 def ones(shape: tuple[int, ...] | list[int]):
     c_shape = to_c_int_array(shape)
-    arr = lib.create_full_struct(1.0, len(shape), c_shape)
+    arr = lib.create_full_struct(1.0, len(shape), c_shape).contents
     return PyArray(arr, shape)
 
 
 def zeros(shape: tuple[int, ...] | list[int]):
     c_shape = to_c_int_array(shape)
-    arr = lib.create_full_struct(0.0, len(shape), c_shape)
+    arr = lib.create_full_struct(0.0, len(shape), c_shape).contents
     return PyArray(arr, shape)

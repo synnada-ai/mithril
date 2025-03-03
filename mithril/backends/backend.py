@@ -17,9 +17,9 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable, Sequence
 from functools import partial
 from typing import Any, Generic, overload
-from ..common import PythonGenConfig, CGenConfig
 
 from .. import types
+from ..common import CGenConfig, PythonGenConfig
 from ..types import DataType
 from .parallel import Parallel
 from .utils import DtypeBits, StaticScalar
@@ -91,7 +91,6 @@ class Backend(ABC, Generic[DataType]):
     @property
     def is_manualgrad(self) -> bool:
         raise NotImplementedError("is_manualgrad is not implemented")
-
 
     def get_backend_array_type(self) -> type[DataType]:
         raise NotImplementedError("get_backend_array_type is not implemented")
