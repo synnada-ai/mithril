@@ -544,21 +544,6 @@ def norm(
     return block
 
 
-def eot_creator(batch_number: int, name: str | None = None):
-    block = Model(name=name)
-    input = IOKey("input", type=ml.Tensor)
-    block |= ArgMax(axis=-1)(input="text", output="argmax")
-    block |= Buffer()(input=input[None, 0, 0], output=f"batch_max_{0}")
-    input_key = f"batch_max_{0}"
-    for i in range(batch_number):
-        block |= Concat(axis=0)(
-            input=[input_key, input[None, i + 1, 0]], output=f"batch_max_{i+1}"
-        )
-        input_key = f"batch_max_{i+1}"
-    block |= Buffer()(input_key, output=IOKey("output"))
-    return block
-
-
 def clip(
     embed_dim: int,
     # vision
