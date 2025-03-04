@@ -20,9 +20,6 @@ from ..physical.model import PhysicalModel
 from . import c_ast
 from .c_gen import CGen
 
-FinalCost = "final_cost"
-
-
 ast_block_type = list[c_ast.Stmt] | list[c_ast.Expr] | list[c_ast.Stmt | c_ast.Expr]
 
 
