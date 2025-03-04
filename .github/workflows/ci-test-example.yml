@@ -20,10 +20,15 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Make compile script executable
-        run: chmod +x ./mithril/cores/c/compile.sh
+        run: |
+          chmod +x ./mithril/cores/c/raw_c/compile.sh
+          chmod +x ./mithril/cores/c/ggml/compile.sh
       - name: Compile C code
         run: |
-          pushd ./mithril/cores/c
+          pushd ./mithril/cores/c/raw_c
+          ./compile.sh
+          popd
+          pushd ./mithril/cores/c/ggml
           ./compile.sh
           popd
       - name: Install Python dependencies
