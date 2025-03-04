@@ -1,2 +1,4 @@
 include mithril/cores/c/raw_c/libmithrilc.so
 include mithril/cores/c/raw_c *
+recursive-include mithril/cores *
+

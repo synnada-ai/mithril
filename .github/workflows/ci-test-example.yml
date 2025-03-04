@@ -25,12 +25,14 @@ jobs:
         run: |
           chmod +x ./mithril/cores/c/raw_c/compile.sh
           chmod +x ./mithril/cores/c/ggml/compile.sh
+          chmod +x ./mithril/cores/c/ggml/build_ggml.sh
       - name: Compile C code
         run: |
           pushd ./mithril/cores/c/raw_c
           ./compile.sh
           popd
           pushd ./mithril/cores/c/ggml
+          ./build_ggml.sh
           ./compile.sh
           popd
       - name: Install Python dependencies
