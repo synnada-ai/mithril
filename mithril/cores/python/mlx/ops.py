@@ -484,12 +484,12 @@ def max_pool1d(
             f"Dilation of {dilation} is not supported. "
             f"Currently, the MLX backend for Maxpool1d only supports a dilation of 1."
         )
-    n, c, w = input.shape
+    *b, w = input.shape
     out_w = (
         w - kernel_size + sum(padding) if isinstance(padding, tuple) else 2 * padding
     ) // stride + 1
     submatrices = utils.get_submatrices1d(
-        input, (n, c, out_w), kernel_size, padding, stride
+        input, (*b, out_w), kernel_size, padding, stride
     )
     return mx.max(submatrices, axis=3)
 
@@ -520,12 +520,12 @@ def max_pool2d(
     if isinstance(stride, int):
         stride = (stride, stride)
 
-    n, c, h, w = input.shape
+    *b, h, w = input.shape
     out_h = (h - kernel_size[0] + sum(normalized_padding[0])) // stride[0] + 1
     out_w = (w - kernel_size[1] + sum(normalized_padding[1])) // stride[1] + 1
     submatrices = utils.get_submatrices2d(
         input,
-        (n, c, out_h, out_w),
+        (*b, out_h, out_w),
         kernel_size[0],
         kernel_size[1],
         normalized_padding,
@@ -557,12 +557,12 @@ def avg_pool2d(
         # TODO: This is now guaranteed to be the correct type
         normalized_padding = padding  # type: ignore
 
-    n, c, h, w = input.shape
+    *b, h, w = input.shape
     out_h = (h - kernel_size[0] + sum(normalized_padding[0])) // stride[0] + 1
     out_w = (w - kernel_size[1] + sum(normalized_padding[1])) // stride[1] + 1
     submatrices = utils.get_submatrices2d(
         input,
-        (n, c, out_h, out_w),
+        (*b, out_h, out_w),
         kernel_size[0],
         kernel_size[1],
         normalized_padding,

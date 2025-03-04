@@ -1067,11 +1067,11 @@ def max_pool1d_grad(
 ) -> np.ndarray[Any, Any]:
     if idx == 0:
         (input,) = inputs
-        *_, w = input.shape
+        *b, w = input.shape
         out_w = (w - kernel_size + sum(padding)) // stride + 1
         padded_input = np.pad(
             input,
-            pad_width=((0, 0), (0, 0), (padding[0], padding[1])),
+            pad_width=(*len(b) * ((0, 0),), (padding[0], padding[1])),
             mode="constant",
             constant_values=(0.0,),
         )
@@ -1079,10 +1079,10 @@ def max_pool1d_grad(
         dx = np.zeros_like(padded_input).astype(float)
         for j in range(out_w):
             start_w, end_w = j * stride, j * stride + kernel_size
-            selected_window = padded_input[:, :, start_w:end_w]
-            val = np.max(selected_window, axis=2)
-            mask = val[:, :, None] == selected_window
-            dx[:, :, start_w:end_w] += mask * (output_gradient[:, :, j])[:, :, None]
+            selected_window = padded_input[..., start_w:end_w]
+            val = np.max(selected_window, axis=-1)
+            mask = val[..., None] == selected_window
+            dx[..., start_w:end_w] += mask * (output_gradient[..., j])[..., None]
 
         return dx[..., padding[0] : padded_shape[-1] - padding[1]]
 
@@ -1112,15 +1112,14 @@ def max_pool2d_grad(
         if isinstance(stride, int):
             stride = (stride, stride)
 
-        *_, h, w = input.shape
+        *b, h, w = input.shape
         h_k, w_k = kernel_size
         out_h = (h - kernel_size[0] + sum(normalized_padding[0])) // stride[0] + 1
         out_w = (w - kernel_size[1] + sum(normalized_padding[1])) // stride[1] + 1
         padded_input = np.pad(
             input,
             pad_width=(
-                (0, 0),
-                (0, 0),
+                *len(b) * ((0, 0),),
                 (normalized_padding[0][0], normalized_padding[0][1]),
                 (normalized_padding[1][0], normalized_padding[1][1]),
             ),
@@ -1132,11 +1131,11 @@ def max_pool2d_grad(
         for i, j in itertools.product(range(out_h), range(out_w)):
             start_h, end_h = i * stride[0], i * stride[0] + h_k
             start_w, end_w = j * stride[1], j * stride[1] + w_k
-            selected_window = padded_input[:, :, start_h:end_h, start_w:end_w]
-            val = np.max(selected_window, axis=(2, 3))
-            mask = val[:, :, None, None] == selected_window
-            dx[:, :, start_h:end_h, start_w:end_w] += (
-                mask * (output_gradient[:, :, i, j])[:, :, None, None]
+            selected_window = padded_input[..., start_h:end_h, start_w:end_w]
+            val = np.max(selected_window, axis=(-2, -1))
+            mask = val[..., None, None] == selected_window
+            dx[..., start_h:end_h, start_w:end_w] += (
+                mask * (output_gradient[..., i, j])[..., None, None]
             )
         return dx[
             ...,
@@ -1167,15 +1166,14 @@ def avg_pool2d_grad(
         else:
             normalized_padding = padding  # type: ignore
 
-        *_, h, w = input.shape
+        *b, h, w = input.shape
         h_k, w_k = kernel_size
         out_h = (h - kernel_size[0] + sum(normalized_padding[0])) // stride[0] + 1
         out_w = (w - kernel_size[1] + sum(normalized_padding[1])) // stride[1] + 1
         padded_input = np.pad(
             input,
             pad_width=(
-                (0, 0),
-                (0, 0),
+                *len(b) * ((0, 0),),
                 (normalized_padding[0][0], normalized_padding[0][1]),
                 (normalized_padding[1][0], normalized_padding[1][1]),
             ),
@@ -1187,12 +1185,12 @@ def avg_pool2d_grad(
         for i, j in itertools.product(range(out_h), range(out_w)):
             start_h, end_h = i * stride[0], i * stride[0] + h_k
             start_w, end_w = j * stride[1], j * stride[1] + w_k
-            selected_window = padded_input[:, :, start_h:end_h, start_w:end_w]
+            selected_window = padded_input[..., start_h:end_h, start_w:end_w]
             val = np.ones_like(selected_window) / (
                 (end_h - start_h) * (end_w - start_w)
             )
-            dx[:, :, start_h:end_h, start_w:end_w] += (
-                val * (output_gradient[:, :, i, j])[:, :, None, None]
+            dx[..., start_h:end_h, start_w:end_w] += (
+                val * (output_gradient[..., i, j])[..., None, None]
             )
         return dx[
             ...,
