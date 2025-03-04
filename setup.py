@@ -24,7 +24,7 @@ class CustomBuildExt(build_ext):
     def run(self):
         # Use bash explicitly instead of relying on SHELL environment variable
         shell = "/bin/bash"
-        
+
         # Define script paths
         scripts = [
             os.path.join(
@@ -52,12 +52,12 @@ class CustomBuildExt(build_ext):
                 "compile.sh",
             ),
         ]
-        
+
         print("Running compilation scripts...")
-        
+
         # Save current working directory
         original_dir = os.getcwd()
-        
+
         try:
             # Run each script from its own directory
             for script_path in scripts:
@@ -70,7 +70,7 @@ class CustomBuildExt(build_ext):
         finally:
             # Make sure we return to the original directory even if an error occurs
             os.chdir(original_dir)
-            
+
         # Continue with the normal build
         super().run()
 
@@ -95,6 +95,6 @@ setuptools.setup(
     python_requires=">=3.12",
     install_requires=[],
     cmdclass={"build_ext": CustomBuildExt},
-    ext_modules=[Extension('mithril.dummy', sources=[])],
+    ext_modules=[Extension("mithril.dummy", sources=[])],
     include_package_data=True,
 )
