@@ -30,13 +30,11 @@ import torch.distributed as dist
 from torch.distributed._tensor import DeviceMesh
 
 from .... import types
-from ....common import find_dominant_type
+from ....common import PythonGenConfig, find_dominant_type
 from ....cores.python.torch.utils import dtype_map
 from ...utils import DtypeSubTypes
 
-CODEGEN_CONFIG: dict[str, bool] = {
-    "specify_device": True,
-}
+CODEGEN_CONFIG = PythonGenConfig(SPECIFY_DEVICE=True)
 
 AVAILABLE_BACKEND_TYPES = ["cpu", "cuda"]
 

@@ -1,0 +1,3 @@
+[submodule "mithril/cores/c/ggml/ggml"]
+	path = mithril/cores/c/ggml/ggml
+	url = https://github.com/ggml-org/ggml
