@@ -146,8 +146,9 @@ def get_submatrices1d(
     padding: int | tuple[int, int] = 0,
     stride: int = 1,
 ) -> mx.array:
+    *b, _ = input.shape
     if isinstance(padding, tuple):
-        input = mx.pad(input, ((0, 0), (0, 0), (padding[0], padding[1])))
+        input = mx.pad(input, (*len(b) * ((0, 0),), (padding[0], padding[1])))
 
     strides = [1]
     for idx, shape in enumerate(reversed(input.shape)):
@@ -155,13 +156,12 @@ def get_submatrices1d(
     strides = list(reversed(strides))[1:]
 
     out_w = output_size[-1]
-    out_b, out_c, *_ = input.shape
-    batch_str, channel_str, kern_w_str = strides
+    *batc_channel_str, kern_w_str = strides
 
     return mx.as_strided(
         input,
-        (out_b, out_c, out_w, kernel_width_size),
-        (batch_str, channel_str, stride * kern_w_str, kern_w_str),
+        (*b, out_w, kernel_width_size),
+        (*batc_channel_str, stride * kern_w_str, kern_w_str),
     )
 
 
@@ -173,12 +173,12 @@ def get_submatrices2d(
     padding: int | tuple[tuple[int, int], tuple[int, int]] = 0,
     stride: int = 1,
 ) -> mx.array:
+    *b, _, _ = input.shape
     if isinstance(padding, tuple):
         input = mx.pad(
             input,
             (
-                (0, 0),
-                (0, 0),
+                *len(b) * ((0, 0),),
                 (padding[0][0], padding[0][1]),
                 (padding[1][0], padding[1][1]),
             ),
@@ -190,15 +190,13 @@ def get_submatrices2d(
     strides = list(reversed(strides))[1:]
 
     *_, out_h, out_w = output_size
-    out_b, out_c, *_ = input.shape
-    batch_str, channel_str, kern_h_str, kern_w_str = strides
+    *batch_channel_str, kern_h_str, kern_w_str = strides
 
     return mx.as_strided(
         input,
-        (out_b, out_c, out_h, out_w, kernel_height_size, kernel_width_size),
+        (*b, out_h, out_w, kernel_height_size, kernel_width_size),
         (
-            batch_str,
-            channel_str,
+            *batch_channel_str,
             stride * kern_h_str,
             stride * kern_w_str,
             kern_h_str,

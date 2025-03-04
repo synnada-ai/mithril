@@ -30,6 +30,7 @@ from mithril.models import (
     Arange,
     ArgMax,
     ArgMin,
+    AvgPool2D,
     BroadcastTo,
     Buffer,
     Cast,
@@ -4123,6 +4124,155 @@ def test_concat_3_with_indexer():
         compile_kwargs={
             "constant_keys": {},
             "trainable_keys": {"input1", "input2", "input3"},
+            "inference": False,
+            "jit": False,
+        },
+        data={},
+        params=params,
+        output_gradients=out_grad,
+        reference_outputs=ref_out,
+        reference_gradients=ref_grad,
+        assert_shapes=False,
+        tolerances=1e-6,
+    )
+
+
+def test_avg_pool_2d_1():
+    model = Model() | AvgPool2D((2, 2), 2, 0, 1)(
+        input=IOKey("input"), output=IOKey("output")
+    )
+
+    params = {
+        "input": [
+            [
+                [
+                    [1.0, 2.0, 3.0, 4.0],
+                    [5.0, 4.0, 3.0, 2.0],
+                    [4.0, 3.0, 2.0, 1.0],
+                    [1.0, 2.0, 3.0, 4.0],
+                ]
+            ]
+        ]
+    }
+
+    ref_out = {"output": [[[[3.0, 3.0], [2.5, 2.5]]]]}
+    out_grad = {"output": [[[[1.0, 2.0], [3.0, 4.0]]]]}
+    ref_grad = {
+        "input": [
+            [
+                [
+                    [0.25, 0.25, 0.5, 0.5],
+                    [0.25, 0.25, 0.5, 0.5],
+                    [0.75, 0.75, 1.0, 1.0],
+                    [0.75, 0.75, 1.0, 1.0],
+                ]
+            ]
+        ]
+    }
+
+    compile_and_compare(
+        model=model,
+        compile_kwargs={
+            "constant_keys": {},
+            "trainable_keys": {"input"},
+            "inference": False,
+            "jit": False,
+        },
+        data={},
+        params=params,
+        output_gradients=out_grad,
+        reference_outputs=ref_out,
+        reference_gradients=ref_grad,
+        assert_shapes=False,
+        tolerances=1e-6,
+    )
+
+
+def test_avg_pool_2d_2():
+    model = Model() | AvgPool2D((2, 2), 1, 0, 1)(
+        input=IOKey("input"), output=IOKey("output")
+    )
+
+    params = {
+        "input": [
+            [
+                [
+                    [1.0, 2.0, 3.0, 4.0],
+                    [5.0, 4.0, 3.0, 2.0],
+                    [4.0, 3.0, 2.0, 1.0],
+                    [1.0, 2.0, 3.0, 4.0],
+                ]
+            ]
+        ]
+    }
+
+    ref_out = {"output": [[[[3.0, 3.0, 3.0], [4.0, 3.0, 2.0], [2.5, 2.5, 2.5]]]]}
+    out_grad = {"output": [[[[1.0, 1.0, 1.0], [1.0, 1.0, 1.0], [1.0, 1.0, 1.0]]]]}
+    ref_grad = {
+        "input": [
+            [
+                [
+                    [0.25, 0.5, 0.5, 0.25],
+                    [0.5, 1.0, 1.0, 0.5],
+                    [0.5, 1.0, 1.0, 0.5],
+                    [0.25, 0.5, 0.5, 0.25],
+                ]
+            ]
+        ]
+    }
+
+    compile_and_compare(
+        model=model,
+        compile_kwargs={
+            "constant_keys": {},
+            "trainable_keys": {"input"},
+            "inference": False,
+            "jit": False,
+        },
+        data={},
+        params=params,
+        output_gradients=out_grad,
+        reference_outputs=ref_out,
+        reference_gradients=ref_grad,
+        assert_shapes=False,
+        tolerances=1e-6,
+    )
+
+
+def test_avg_pool_2d_3():
+    model = Model() | AvgPool2D((2, 2), 1, 0, 1)(
+        input=IOKey("input"), output=IOKey("output")
+    )
+
+    params = {
+        "input": [
+            [
+                [1.0, 2.0, 3.0, 4.0],
+                [5.0, 4.0, 3.0, 2.0],
+                [4.0, 3.0, 2.0, 1.0],
+                [1.0, 2.0, 3.0, 4.0],
+            ]
+        ]
+    }
+
+    ref_out = {"output": [[[3.0, 3.0, 3.0], [4.0, 3.0, 2.0], [2.5, 2.5, 2.5]]]}
+    out_grad = {"output": [[[1.0, 1.0, 1.0], [1.0, 1.0, 1.0], [1.0, 1.0, 1.0]]]}
+    ref_grad = {
+        "input": [
+            [
+                [0.25, 0.5, 0.5, 0.25],
+                [0.5, 1.0, 1.0, 0.5],
+                [0.5, 1.0, 1.0, 0.5],
+                [0.25, 0.5, 0.5, 0.25],
+            ]
+        ]
+    }
+
+    compile_and_compare(
+        model=model,
+        compile_kwargs={
+            "constant_keys": {},
+            "trainable_keys": {"input"},
             "inference": False,
             "jit": False,
         },
