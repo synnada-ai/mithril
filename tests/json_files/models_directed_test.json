@@ -5378,14 +5378,14 @@
         "model": {
             "name": "BinaryCrossEntropy",
             "args":{
-                "input_type": "probs"
+                "input_type": "probs",
+                "robust": true
             }
         },
         "inputs": {
             "input": [[0.1, 0.2, 0.3], [0.5, 1.0, 0.2]]
         },
         "static_keys": {
-            "robust": true,
             "target": [[0, 1, 0], [1, 1, 1]]
         },
         "output_grads": {
@@ -5643,13 +5643,15 @@
     },
     "test_quantile_loss_1": {
         "model": {
-            "name": "QuantileLoss"
+            "name": "QuantileLoss",
+            "args": {
+                "quantile": 0.1
+            }
         },
         "inputs": {
             "input": [[1.0]]
         },
         "static_keys": {
-            "quantile": 0.1,
             "target": [[0.0]]
         },
         "output_grads": {
@@ -5666,10 +5668,12 @@
     },
     "test_quantile_loss_2": {
         "model": {
-            "name": "QuantileLoss"
+            "name": "QuantileLoss",
+            "args": {
+                "quantile": 0.1
+            }
         },
         "static_keys": {
-            "quantile": 0.1,
             "target": [[1.0], [1e-5]]
         },
         "inputs": {
@@ -5689,13 +5693,15 @@
     },
     "test_quantile_loss_3": {
         "model": {
-            "name": "QuantileLoss"
+            "name": "QuantileLoss",
+            "args": {
+                "quantile": 0.9
+            }
         },
         "inputs": {
             "input": [[1.0], [1e-5]]
         },
         "static_keys": {
-            "quantile": 0.9,
             "target": [[1.0], [1e-5]]
         },
         "output_grads": {
@@ -5712,13 +5718,15 @@
     },
     "test_quantile_loss_4": {
         "model": {
-            "name": "QuantileLoss"
+            "name": "QuantileLoss",
+            "args": {
+                "quantile": 0.4
+            }
         },
         "inputs": {
             "input":[[1.0, 2.0], [0.0, 1.0]]
         },
         "static_keys": {
-            "quantile": 0.4,
             "target": [[1.0, 0.0], [2.0, -1.0]]
         },
         "output_grads": {"output": [[1.0, 1.0], [1.0, 1.0]]},
@@ -5940,9 +5948,11 @@
     },
     "test_leaky_relu_1": {
         "model": {
-            "name": "LeakyRelu"
+            "name": "LeakyRelu",
+            "args": {
+                "slope": 0.2
+            }
         },
-        "static_keys": {"slope": 0.2},
         "inputs": {
             "input": [[1.0, -2.0], [2.0, 0.0]]
         },
@@ -5964,9 +5974,11 @@
     },
     "test_leaky_relu_2": {
         "model": {
-            "name": "LeakyRelu"
+            "name": "LeakyRelu",
+            "args": {
+                "slope": 0.2
+            }
         },
-        "static_keys": {"slope": 0.2},
         "inputs": {
             "input": [[0.0]]
         },
@@ -5988,9 +6000,11 @@
     },
     "test_leaky_relu_3": {
         "model": {
-            "name": "LeakyRelu"
+            "name": "LeakyRelu",
+            "args": {
+                "slope": 0.2
+            }
         },
-        "static_keys": {"slope": 0.2},
         "inputs": {
             "input": [[-1.0, -2.0], [2.0, 0.0], [-0.04, -100]]
         },

@@ -351,9 +351,9 @@
         "output_specs": {
             "output": {
                 "loss": {
-                    "fn": "QuantileLoss",
-                    "call_kwargs": {
-                        "quantile":{"tensor": 0.9}
+                    "fn": "QuantileLoss",                    
+                    "params": {
+                        "quantile": 0.9
                     }
                 }, 
                 "reduce_steps": ["Mean"], 

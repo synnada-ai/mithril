@@ -999,7 +999,7 @@ def test_canonic_example():
     model += LeakyRelu()("input")
     model += LeakyRelu()
     comp_model = compile(model=model, backend=NumpyBackend(), inference=True)
-    assert set(comp_model.input_keys) == {"slope_0", "slope_1", "input"}
+    assert set(comp_model.input_keys) == {"input"}
     assert set(comp_model.output_keys) == {"output"}
     inputs = {"input": np.array([[2.0, -1.0]])}
     assert_results_equal(
@@ -4217,7 +4217,7 @@ def test_cycle_handling_3():
     model_2_sub |= Softplus()(input="input2", output=IOKey(name="output2"))
 
     model_1 |= gelu5
-    model_1 |= LeakyRelu()(
+    model_1 |= LeakyRelu(slope=TBD)(
         input="input2",
         slope=IOKey("slope", value=Tensor(0.01)),
         output=IOKey(name="output2"),
@@ -6078,7 +6078,7 @@ def test_multi_write_2():
 def test_multi_write_3():
     model = Model()
     l_relu = Model()
-    l_relu |= LeakyRelu()(slope=IOKey("slope", Tensor(0.85)))
+    l_relu |= LeakyRelu(slope=TBD)(slope=IOKey("slope", Tensor(0.85)))
     with pytest.raises(ValueError) as err_info:
         model += l_relu(slope=Tensor(0.75))
 
@@ -6140,7 +6140,7 @@ def test_multi_write_8():
 def test_leaky_relu_trainable_slope():
     backend = JaxBackend()
     model = Model()
-    model += LeakyRelu()(input="input", output="output", slope="slope")
+    model += LeakyRelu(slope=TBD)(input="input", output="output", slope="slope")
     model.set_types(slope=Tensor)
     model.set_differentiability(input=True, slope=True)
 

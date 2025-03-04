@@ -938,7 +938,7 @@ def test_connect_type_conv_handling_1():
 
 def test_type_initialization_1():
     model = Model()
-    model |= LeakyRelu()(slope=IOKey("slope", Tensor(0.5)))
+    model |= LeakyRelu(slope=TBD)(slope=IOKey("slope", Tensor(0.5)))
 
     assert model.slope.metadata.value_type is float  # type: ignore
 
@@ -1476,7 +1476,7 @@ def test_coercion_2():
     model = Model()
     reduce_model_1 = Sum(axis=TBD)
     reduce_model_2 = Sum(axis=TBD)
-    l_relu = LeakyRelu()
+    l_relu = LeakyRelu(slope=TBD)
     model |= reduce_model_1(input=IOKey("input1", differentiable=True), axis="axis1")
     model |= reduce_model_2(input=IOKey("input2", differentiable=True), axis="axis2")
     axis1 = reduce_model_1.axis.tensor().sum()

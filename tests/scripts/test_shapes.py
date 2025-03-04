@@ -1880,7 +1880,7 @@ def test_cross_entropy_shapes_1():
     logical_ref = {
         "input": [8, 10],
         "target": [8],
-        "$categorical": None,
+        "$_CrossEntropy_0_categorical": None,
         "$_CrossEntropy_0_cutoff": [],
         "$_CrossEntropy_0_robust": None,
         "output": [8],
@@ -1901,7 +1901,7 @@ def test_cross_entropy_shapes_1():
 
 def test_cross_entropy_shapes_2():
     model = Model()
-    ce = CrossEntropy(categorical = TBD)
+    ce = CrossEntropy(categorical=TBD)
     ce.set_shapes(input=[8, 10])
     model |= ce(
         input="input", target="target", categorical=False, output=IOKey(name="output")
@@ -1931,7 +1931,7 @@ def test_cross_entropy_shapes_2():
 
 def test_cross_entropy_shapes_3():
     model = Model()
-    ce = CrossEntropy(categorical = TBD)
+    ce = CrossEntropy(categorical=TBD)
     ce.set_shapes(input=[8, 16, 32, 64], target=[8, 32, 64])
     model += ce(
         input="input", target="target", categorical=True, output=IOKey(name="output")

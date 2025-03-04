@@ -391,13 +391,16 @@ class QuantileLoss(PrimitiveModel):
         *,
         name: str | None = None,
     ) -> None:
+        self.factory_args = {"quantile": quantile}
         super().__init__(
             formula_key="quantile_loss",
             name=name,
             output=BaseKey(shape=[("Var_1", ...)], type=Tensor),
             input=BaseKey(shape=[("Var_2", ...)], type=Tensor, value=input),
             target=BaseKey(shape=[("Var_3", ...)], type=Tensor, value=target),
-            quantile=BaseKey(shape=[], type=Tensor[int | float], value=Tensor(quantile)),
+            quantile=BaseKey(
+                shape=[], type=Tensor[int | float], value=Tensor(quantile)
+            ),
         )
 
         bcast_constraint = self._add_constraint(
@@ -463,7 +466,7 @@ class CrossEntropy(PrimitiveModel):
     ) -> None:
         self.factory_args = {"input_type": input_type, "weights": weights}
         self.input_type = input_type
-        _cutoff = Tensor(cutoff)
+        _cutoff: Tensor[float] = Tensor(cutoff)
         weights_type: type = list[float]
         if isinstance(weights, str):
             if weights not in ("", "auto"):
@@ -482,7 +485,7 @@ class CrossEntropy(PrimitiveModel):
                 shape=["N", ("VarTarget", ...)], type=Tensor, value=target
             ),
             "weights": BaseKey(type=weights_type, value=final_weights),
-            "categorical": BaseKey(type=bool, value = categorical),
+            "categorical": BaseKey(type=bool, value=categorical),
             "cutoff": BaseKey(shape=[], type=Tensor, value=_cutoff),
             "robust": BaseKey(type=bool, value=robust),
         }
@@ -610,13 +613,17 @@ class BinaryCrossEntropy(PrimitiveModel):
         pos_weight: float | str | ToBeDetermined = 1.0,
         input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         target: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        cutoff: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        robust: bool | ToBeDetermined = TBD,
+        cutoff: ConstantType | ToBeDetermined = Constant.MIN_POSITIVE_NORMAL,
+        robust: bool | ToBeDetermined = False,
         *,
         name: str | None = None,
     ) -> None:
-        self.factory_args = {"input_type": input_type, "pos_weight": pos_weight}
-
+        self.factory_args = {
+            "input_type": input_type,
+            "pos_weight": pos_weight,
+            "cutoff": cutoff,
+            "robust": robust,
+        }
         if isinstance(pos_weight, str):
             if pos_weight != "auto":
                 raise ValueError(
@@ -667,8 +674,8 @@ class BinaryCrossEntropy(PrimitiveModel):
         input: ConnectionType = NOT_GIVEN,
         target: ConnectionType = NOT_GIVEN,
         pos_weight: ConnectionType = NOT_GIVEN,
-        cutoff: ConstantType | ConnectionType = Constant.MIN_POSITIVE_NORMAL,
-        robust: bool | ConnectionType = False,
+        cutoff: ConnectionType = NOT_GIVEN,
+        robust: ConnectionType = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(
@@ -690,11 +697,15 @@ class Log(PrimitiveModel):
         robust: bool = False,
         input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
-        cutoff: Tensor[float] | ToBeDetermined = TBD,
+        cutoff: ConstantType | ToBeDetermined = Constant.MIN_POSITIVE_NORMAL,
         name: str | None = None,
     ) -> None:
         self.robust = robust
-        self.factory_args = {"robust": robust}
+        self.factory_args = {"robust": robust, "cutoff": cutoff}
+        if cutoff is not Constant.MIN_POSITIVE_NORMAL and not robust:
+            raise ValueError(
+                "Log does not accept cutoff argument when robust is False."
+            )
 
         if robust:
             super().__init__(
@@ -702,7 +713,7 @@ class Log(PrimitiveModel):
                 name=name,
                 output=BaseKey(shape=[("Var", ...)], type=Tensor[float]),
                 input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
-                cutoff=BaseKey(shape=[], type=Tensor, value=cutoff),
+                cutoff=BaseKey(shape=[], type=Tensor, value=Tensor(cutoff)),
             )
         else:
             super().__init__(
@@ -717,21 +728,16 @@ class Log(PrimitiveModel):
         input: ConnectionType = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
         *,
-        cutoff: ConnectionType = Constant.MIN_POSITIVE_NORMAL,
+        cutoff: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         kwargs = {"input": input, "output": output}
 
-        default = (
-            isinstance(cutoff, Constant) and cutoff == Constant.MIN_POSITIVE_NORMAL
-        )
-        if self.robust:
-            if default:
-                # NOTE: Since we can not provide Tensor objects as default
-                # arguments, we need to convert default value.
-                cutoff = Tensor(cutoff)  # type: ignore
+        if not self.robust and cutoff is not NOT_GIVEN:
+            raise ValueError(
+                "Log does not accept cutoff argument when robust is False."
+            )
+        elif self.robust:
             kwargs["cutoff"] = cutoff
-        elif not default:
-            raise ValueError("Cutoff cannot be specified when robust mode is off")
 
         return super().__call__(**kwargs)
 
@@ -744,7 +750,7 @@ class StableReciprocal(PrimitiveModel):
     def __init__(
         self,
         input: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        cutoff: Tensor[int | float] | ToBeDetermined = TBD,
+        cutoff: ConstantType | ToBeDetermined = Constant.STABLE_RECIPROCAL_THRESHOLD,
         *,
         name: str | None = None,
     ) -> None:
@@ -753,22 +759,15 @@ class StableReciprocal(PrimitiveModel):
             name=name,
             output=BaseKey(shape=[("Var", ...)], type=Tensor[float]),
             input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
-            cutoff=BaseKey(shape=[], value=cutoff),
+            cutoff=BaseKey(shape=[], type=Tensor[float], value=Tensor(cutoff)),
         )
 
     def __call__(  # type: ignore[override]
         self,
         input: ConnectionType = NOT_GIVEN,
-        cutoff: ConnectionType = Constant.STABLE_RECIPROCAL_THRESHOLD,
+        cutoff: ConnectionType = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
-        if (
-            isinstance(cutoff, Constant)
-            and cutoff == Constant.STABLE_RECIPROCAL_THRESHOLD
-        ):
-            # NOTE: Since we can not provide Tensor objects as default
-            # arguments, we need to convert default value.
-            cutoff = Tensor(cutoff)
         return super().__call__(input=input, cutoff=cutoff, output=output)
 
 
@@ -958,11 +957,12 @@ class LeakyRelu(Activation):
 
     def __init__(
         self,
-        slope: Tensor[int | float | bool] | int | float | ToBeDetermined = TBD,
+        slope: Tensor[int | float | bool] | int | float | ToBeDetermined = 0.01,
         input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
+        self.factory_args = {"slope": slope}
         super().__init__(
             formula_key="leaky_relu",
             name=name,
@@ -974,7 +974,7 @@ class LeakyRelu(Activation):
     def __call__(  # type: ignore[override]
         self,
         input: ConnectionType = NOT_GIVEN,
-        slope: ConnectionType = 0.01,
+        slope: ConnectionType = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return Model.__call__(self, input=input, slope=slope, output=output)
@@ -1772,7 +1772,7 @@ class TsnePJoint(PrimitiveModel):
         self,
         squared_distances: Tensor[int | float | bool] | ToBeDetermined = TBD,
         target_perplexity: float | ToBeDetermined = TBD,
-        threshold: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        threshold: ConstantType | ToBeDetermined = Constant.EPSILON,
         *,
         name: str | None = None,
     ) -> None:
@@ -1786,14 +1786,14 @@ class TsnePJoint(PrimitiveModel):
             target_perplexity=BaseKey(
                 shape=[], type=Tensor[float], value=target_perplexity
             ),
-            threshold=BaseKey(shape=[], type=Tensor, value=threshold),
+            threshold=BaseKey(shape=[], type=Tensor, value=Tensor(threshold)),
         )
 
     def __call__(  # type: ignore[override]
         self,
         squared_distances: ConnectionType = NOT_GIVEN,
-        target_perplexity: float | ConnectionType = NOT_GIVEN,
-        threshold: ConstantType | ConnectionType = Constant.EPSILON,
+        target_perplexity: ConnectionType = NOT_GIVEN,
+        threshold: ConnectionType = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(

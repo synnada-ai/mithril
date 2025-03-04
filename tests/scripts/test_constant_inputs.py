@@ -459,7 +459,7 @@ def test_constant_numpy_set_values():
 
 def test_axis():
     model = Model()
-    relu = LeakyRelu()
+    relu = LeakyRelu(slope=TBD)
     rob_pow = Power(robust=True)
     model |= relu(input=IOKey("input", differentiable=True), slope=Tensor(2.3))
     model |= rob_pow(
@@ -493,7 +493,7 @@ def test_axis():
 
 def test_axis_1():
     model = Model()
-    relu = LeakyRelu()
+    relu = LeakyRelu(slope=TBD)
     rob_pow = Power(robust=True)
     rob_pow.set_types(base=Tensor, exponent=Tensor)
     model |= rob_pow(
@@ -1490,7 +1490,7 @@ def test_composite_1_set_values():
 def test_composite_2():
     model = Model()
     conv1 = Convolution2D(kernel_size=2, out_channels=4)
-    leaky_relu = LeakyRelu()
+    leaky_relu = LeakyRelu(slope=TBD)
     model |= conv1(input=IOKey("input", differentiable=True))
 
     conv1.set_differentiability(input=True)
@@ -1504,7 +1504,7 @@ def test_composite_2():
 def test_composite_2_set_values():
     model = Model()
     conv1 = Convolution2D(kernel_size=2, out_channels=4)
-    leaky_relu = LeakyRelu()
+    leaky_relu = LeakyRelu(slope=TBD)
     model |= conv1(input="input")
     conv1.set_differentiability(input=True)
     model |= leaky_relu(
@@ -1518,7 +1518,7 @@ def test_composite_2_set_values():
 def test_composite_3():
     model = Model()
     conv1 = Convolution2D(kernel_size=2, out_channels=1, stride=TBD)
-    leaky_relu = LeakyRelu()
+    leaky_relu = LeakyRelu(slope=TBD)
     mean_model = Mean(axis=TBD)
     model |= conv1(input="input", stride=(2, 3))
     conv1.set_differentiability(input=True)
@@ -1533,7 +1533,7 @@ def test_composite_3():
 def test_composite_3_set_values():
     model = Model()
     conv1 = Convolution2D(kernel_size=2, out_channels=1, stride=TBD)
-    leaky_relu = LeakyRelu()
+    leaky_relu = LeakyRelu(slope=TBD)
     mean_model = Mean(axis=TBD)
     model |= conv1(input="input")
     conv1.set_differentiability(input=True)
@@ -1551,7 +1551,7 @@ def test_composite_3_set_values():
 def test_composite_4():
     model = Model()
     conv1 = Convolution2D(kernel_size=2, out_channels=1, stride=TBD)
-    leaky_relu = LeakyRelu()
+    leaky_relu = LeakyRelu(slope=TBD)
     mean_model = Mean(axis=TBD)
     model |= conv1(input="input", stride=(2, 3))
     conv1.set_differentiability(input=True)
@@ -1565,7 +1565,7 @@ def test_composite_4():
 def test_composite_4_set_values():
     model = Model()
     conv1 = Convolution2D(kernel_size=2, out_channels=1, stride=TBD)
-    leaky_relu = LeakyRelu()
+    leaky_relu = LeakyRelu(slope=TBD)
     mean_model = Mean(axis=TBD)
     model |= conv1(input="input")
     conv1.set_differentiability(input=True)
@@ -2047,7 +2047,7 @@ def test_static_shape_model_4():
 def test_static_shape_model_5():
     model = Model()
     model |= Relu()(input="input")
-    model += (log := Log(robust=True))(cutoff="cutoff")
+    model += (log := Log(robust=True, cutoff=TBD))(cutoff=IOKey("cutoff"))
     model += Shape()
     model += ToTensor()
     model |= Relu()(input=model.cout, output=IOKey(name="output1"))
@@ -2389,7 +2389,9 @@ def test_cross_entropy_robust_ellipsis():
 def test_bce_ellipsis():
     backend = NumpyBackend()
     model_1 = Model()
-    ce_model_1 = BinaryCrossEntropy(pos_weight=TBD, input_type="probs")
+    ce_model_1 = BinaryCrossEntropy(
+        pos_weight=TBD, input_type="probs", robust=TBD, cutoff=TBD
+    )
     model_1 += ce_model_1(
         input="input",
         target="target",
