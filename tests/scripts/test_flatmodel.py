@@ -343,8 +343,8 @@ def test_integration_with_all_defined():
     model += add(left="a", right="b", output="c")
     backend = JaxBackend(dtype=ml.float64)
 
-    pm_short = ml.compile(model, backend)
-    pm_long = ml.compile(model, backend, use_short_namings=False)
+    pm_short = ml.compile(model, backend, inference=True)
+    pm_long = ml.compile(model, backend, inference=True, use_short_namings=False)
 
     inputs = {"a": backend.array([1, 2, 3]), "b": backend.array([4, 5, 6])}
     res_short = pm_short.evaluate(data=inputs)
@@ -364,8 +364,10 @@ def test_integration_with_some_undefined():
     add.set_types(left=Tensor, right=Tensor)
     model += add(right="b", output="c")
 
-    pm_short = ml.compile(model, backend, safe_names=False)
-    pm_long = ml.compile(model, backend, use_short_namings=False, safe_names=False)
+    pm_short = ml.compile(model, backend, safe_names=False, inference=True)
+    pm_long = ml.compile(
+        model, backend, use_short_namings=False, safe_names=False, inference=True
+    )
 
     inputs_short = {"left": backend.array((1, 2, 3)), "b": backend.array([4, 5, 6])}
     inputs_long = {"add_left": backend.array((1, 2, 3)), "b": backend.array([4, 5, 6])}
@@ -428,8 +430,10 @@ def test_integration_collision_from_different_levels():
 
     backend = JaxBackend(dtype=ml.float64)
 
-    pm_short = ml.compile(model, backend, safe_names=False)
-    pm_long = ml.compile(model, backend, use_short_namings=False, safe_names=False)
+    pm_short = ml.compile(model, backend, safe_names=False, inference=True)
+    pm_long = ml.compile(
+        model, backend, use_short_namings=False, safe_names=False, inference=True
+    )
 
     input_short = {"d": backend.array([1, 2, 3]), "e": backend.array([4, 5, 6])}
     input_long = {

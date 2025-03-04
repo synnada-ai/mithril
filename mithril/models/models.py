@@ -686,12 +686,8 @@ class LayerNorm(Model):
         # Expects its input shape as [B, ..., d] d refers to normalized dimension
         mean = Mean(axis=-1, keepdim=True)
         numerator = Subtract()
-        numerator.set_types(
-            left=Tensor[int | float | bool], right=Tensor[int | float | bool]
-        )
         var = Variance(axis=-1, correction=0, keepdim=True)
         add = Add()
-        add.set_types(left=Tensor[int | float | bool])
         denominator = Sqrt()
         in_key = IOKey("input", value=input)
         self |= mean(input=in_key)
@@ -710,17 +706,11 @@ class LayerNorm(Model):
 
         if use_scale:
             mult = Multiply()
-            mult.set_types(
-                left=Tensor[int | float | bool], right=Tensor[int | float | bool]
-            )
             self += mult(right=IOKey("weight", value=weight, differentiable=True))
             mult._set_shapes(**shapes)
 
         if use_bias:
             add = Add()
-            add.set_types(
-                left=Tensor[int | float | bool], right=Tensor[int | float | bool]
-            )
             self += add(right=IOKey("bias", value=bias, differentiable=True))
             add._set_shapes(**shapes)
         # TODO: Remove below Buffer after required naming-related changes are done.
@@ -1674,7 +1664,7 @@ class LSTMCellBody(Model):
     ) -> None:
         super().__init__(name=name)
 
-        matrix_concat_model = Concat(n=2, axis=-1)
+        matrix_concat_model = Concat(axis=-1)
         forward_lin = Linear()
         sigmoid_model_1 = Sigmoid()
         mult_model_1 = Multiply()
@@ -1689,9 +1679,11 @@ class LSTMCellBody(Model):
         sigmoid_model_3 = Sigmoid()
         mult_model_3 = Multiply()
 
-        self |= matrix_concat_model(
-            input1=IOKey("input", value=input),
-            input2=IOKey("prev_hidden", value=prev_hidden),
+        self += matrix_concat_model(
+            input=[
+                IOKey("input", value=input),
+                IOKey("prev_hidden", value=prev_hidden),
+            ],
         )
         self |= forward_lin(
             input=matrix_concat_model.output,
@@ -1731,9 +1723,8 @@ class LSTMCellBody(Model):
         self |= sigmoid_model_3(input=out_gate_lin.output)
         # Final hidden state.
         self |= mult_model_3(left=tanh_model_2.output, right=sigmoid_model_3.output)
-        self |= Concat(n=2, axis=0)(
-            input1=sum_model_4.output,
-            input2=mult_model_3.output,
+        self |= Concat(axis=0)(
+            input=[sum_model_4.output, mult_model_3.output],
             output=IOKey(name="output"),
         )
         shapes: dict[str, ShapeTemplateType] = {
@@ -1953,8 +1944,8 @@ class ManyToOne(RNN):
 
         prev_cell = deepcopy(cell_type)
 
-        concat_model = Concat(n=max_sequence_length)
-        concat_input_kwargs: dict[str, ConnectionType] = {}
+        concat_model = Concat()
+        concat_input_args: list[ConnectionType] = []
         shared_keys_kwargs = {key: key for key in cell_type.shared_keys}
         output_kwargs = {cell_type.out_key: IOKey(name="output0")}
         input_kwargs = {"input": IOKey("input0", value=kwargs.get("input0", TBD))}
@@ -1991,21 +1982,15 @@ class ManyToOne(RNN):
 
             # # For the last cell, include hidden
             if idx < max_sequence_length - 1:
-                concat_input_kwargs |= {
-                    f"input{max_sequence_length - idx + 1}": cur_cell.hidden_compl
-                }
-
+                concat_input_args.append(cur_cell.hidden_compl)
             else:
-                concat_input_kwargs |= {
-                    "input2": cur_cell.hidden_compl,
-                    "input1": cur_cell.hidden,
-                }
+                concat_input_args.extend([cur_cell.hidden, cur_cell.hidden_compl])
 
             prev_cell = cur_cell
 
         # Add concat model with accumulated hidden states.
         self |= concat_model(
-            **concat_input_kwargs,
+            input=concat_input_args,
             output=IOKey(name="hidden_concat", value=hidden_concat),
         )
         self.set_cin("input0")

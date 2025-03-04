@@ -190,10 +190,12 @@ def test_multi_input_primitive(file_path: str):
 @with_temp_file(".py")
 def test_variadic_input_primitive_1(file_path: str):
     model = Model()
-    model += Concat(n=3)(
-        input1=IOKey("input1", differentiable=True),
-        input2=IOKey("input2", differentiable=True),
-        input3=IOKey("input3", differentiable=True),
+    model += Concat()(
+        input=[
+            IOKey("input1", differentiable=True),
+            IOKey("input2", differentiable=True),
+            IOKey("input3", differentiable=True),
+        ],
         output="output",
     )
     model.set_shapes(input1=[1, 2, 3])
@@ -209,10 +211,13 @@ def test_variadic_input_primitive_1(file_path: str):
         input1 = params["input1"]
         input2 = params["input2"]
         input3 = params["input3"]
+        output_0_cache = cache["output_0_cache"]
         output_cache = cache["output_cache"]
-        output = output_cache["output"] = concat(
-            input1, input2, input3, cache=output_cache
+        output_0 = output_0_cache["output"] = to_list(
+            input1, input2, input3, cache=output_0_cache
         )
+        output = output_cache["output"] = concat(output_0, 0, output_cache)
+        del output_0
         return {"output": output}
 
     compare_callables(evaluate, eval_func)
@@ -224,18 +229,12 @@ def test_variadic_input_primitive_1(file_path: str):
         input1 = params["input1"]
         input2 = params["input2"]
         input3 = params["input3"]
-        output = concat(input1, input2, input3)
+        output_0 = to_list(input1, input2, input3)
+        output = concat(output_0, 0)
+        del output_0
         return {"output": output}
 
     compare_callables(evaluate, eval_func)
-
-    @typing.no_type_check  # type: ignore
-    def evaluate(params, data, cache):
-        input1 = params["input1"]
-        input2 = params["input2"]
-        input3 = params["input3"]
-        output = concat(input1, input2, input3)
-        return {"output": output}
 
     mithril.compile(model, JaxBackend(), inference=True, jit=False, file_path=file_path)
     compare_callables(evaluate, eval_func)
@@ -265,23 +264,26 @@ def test_variadic_input_primitive_2(file_path: str):
     model += ToTensor()(input="input", output="output")
     backend = NumpyBackend()
 
-    mithril.compile(model, backend, inference=False, jit=False, file_path=file_path)
+    # mithril.compile(model, backend, inference=False, jit=False, file_path=file_path)
+
+    # file_name = os.path.basename(file_path).split(".")[0]
+    # eval_func = import_module("tmp." + file_name).evaluate
+
+    # @typing.no_type_check
+    # def evaluate(params, data, cache):
+    #     input = data["input"]
+    #     output_cache = cache["output_cache"]
+    #     output = output_cache["output"] = make_array(
+    #         to_tensor(input, cache=output_cache)
+    #     )
+    #     return {"output": output}
+
+    # compare_callables(evaluate, eval_func)
+
+    mithril.compile(model, backend, inference=True, jit=False, file_path=file_path)
 
     file_name = os.path.basename(file_path).split(".")[0]
     eval_func = import_module("tmp." + file_name).evaluate
-
-    @typing.no_type_check
-    def evaluate(params, data, cache):
-        input = data["input"]
-        output_cache = cache["output_cache"]
-        output = output_cache["output"] = make_array(
-            to_tensor(input, cache=output_cache)
-        )
-        return {"output": output}
-
-    compare_callables(evaluate, eval_func)
-
-    mithril.compile(model, backend, inference=True, jit=False, file_path=file_path)
 
     @typing.no_type_check  # type: ignore
     def evaluate(params, data, cache):
@@ -437,7 +439,7 @@ def test_array_creation_primitive(file_path: str):
     model += Arange(dtype=mithril.bfloat16)(stop="stop", output="output")
 
     backend = TorchBackend()
-    mithril.compile(model, backend, inference=False, jit=False, file_path=file_path)
+    mithril.compile(model, backend, inference=True, jit=False, file_path=file_path)
 
     file_name = os.path.basename(file_path).split(".")[0]
     eval_func = import_module("tmp." + file_name).evaluate

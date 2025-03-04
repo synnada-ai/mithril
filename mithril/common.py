@@ -96,6 +96,7 @@ def find_dominant_type(
     raise_error: bool = True,
     special_fn: Callable[[Any], type[bool] | type[int] | type[float] | None]
     | None = None,
+    ignore_types: set[type] | None = None,
 ) -> type[int] | type[float] | type[bool]:
     # return dominant type of parameters in the list.
     # dominant type is referenced from numpy and in folloing order: bool -> int -> float
@@ -108,10 +109,16 @@ def find_dominant_type(
     # list contains only bools -> return bool
     # list contains all three of types -> return float
 
+    if ignore_types is None:
+        ignore_types = set()
+
     if isinstance(lst, list | tuple):
         curr_val: type[bool] | type[int] | type[float] = bool
         for elem in lst:
             val = find_dominant_type(elem, raise_error, special_fn)
+            if val in ignore_types:
+                continue
+
             if val is float:
                 curr_val = float
             elif val is int:
@@ -131,3 +138,31 @@ def find_dominant_type(
             "float, int, bool"
         )
     return type(lst)
+
+
+def get_specific_types_from_value[T](value: Any, typ: type[T]) -> list[T]:
+    """
+    Recursively extracts all instances of a specified type from a nested structure.
+
+    This function traverses through a nested structure (which can be a list,
+    tuple, or dictionary) and collects all instances of the specified type.
+
+    Args:
+        value (Any): The input value which can be of any type, including nested lists,
+        tuples, or dictionaries.
+        typ (type[Typ]): The type to be extracted from the nested structure.
+
+    Returns:
+        list[Typ]: A list of all instances of the specified type found within the
+        nested structure.
+    """
+    items = []
+    if isinstance(value, typ):
+        items.append(value)
+    elif isinstance(value, list | tuple):
+        for item in value:
+            items += get_specific_types_from_value(item, typ)
+    elif isinstance(value, dict):
+        for val in value.values():
+            items += get_specific_types_from_value(val, typ)
+    return items

@@ -1037,7 +1037,9 @@ def test_physical_model_summary_5():
     model += add
     model += divide
     model += exp
-    comp_model = mithril.compile(model=model, backend=JaxBackend(), safe_names=False)
+    comp_model = mithril.compile(
+        model=model, backend=JaxBackend(), safe_names=False, inference=True
+    )
 
     with redirect_stdout(StringIO()) as summary:
         comp_model.summary(verbose=True, shapes=True, symbolic=True)
@@ -1116,7 +1118,9 @@ def test_physical_model_summary_8():
     model += random_kernel_model
     model += another_random_model
 
-    comp_model = mithril.compile(model=model, backend=JaxBackend(), safe_names=False)
+    comp_model = mithril.compile(
+        model=model, backend=JaxBackend(), safe_names=False, inference=True
+    )
     with redirect_stdout(StringIO()) as summary:
         comp_model.summary(verbose=True, shapes=False)
     ref_table = ""
@@ -1135,7 +1139,9 @@ def test_physical_model_summary_9():
     model += random_kernel_model
     model += Relu()
 
-    comp_model = mithril.compile(model=model, backend=JaxBackend(), safe_names=False)
+    comp_model = mithril.compile(
+        model=model, backend=JaxBackend(), safe_names=False, inference=True
+    )
     with redirect_stdout(StringIO()) as summary:
         comp_model.summary(verbose=True, shapes=True, symbolic=True)
 
@@ -1153,7 +1159,7 @@ def test_physical_summary_10():
     model |= sig_model1(input="input", output=IOKey("output1"))
     model |= sig_model2(input="input", output=IOKey("output2"))
     comp_model = mithril.compile(
-        model=model, backend=JaxBackend(), jit=False, safe_names=False
+        model=model, backend=JaxBackend(), jit=False, safe_names=False, inference=True
     )
     with redirect_stdout(StringIO()) as summary:
         comp_model.summary(
@@ -1173,7 +1179,9 @@ def test_physical_summary_11():
     sig_model2 = Sigmoid()
     model |= sig_model1(input="input", output=IOKey(name="output1"))
     model |= sig_model2(input="input", output=IOKey(name="output2"))
-    comp_model = mithril.compile(model=model, backend=JaxBackend(), safe_names=False)
+    comp_model = mithril.compile(
+        model=model, backend=JaxBackend(), safe_names=False, inference=True
+    )
     with redirect_stdout(StringIO()) as summary:
         comp_model.summary(verbose=True, shapes=True, symbolic=True, model=sig_model2)
     ref_table = ""
@@ -1188,7 +1196,9 @@ def test_physical_summary_12():
     sig_model2 = Sigmoid()
     model |= sig_model1(input="input", output=IOKey(name="output1"))
     model |= sig_model2(input="input", output=IOKey(name="output2"))
-    comp_model = mithril.compile(model=model, backend=JaxBackend(), safe_names=False)
+    comp_model = mithril.compile(
+        model=model, backend=JaxBackend(), safe_names=False, inference=True
+    )
     with redirect_stdout(StringIO()) as summary:
         comp_model.summary(verbose=True, shapes=True, symbolic=True)
     ref_table = ""
@@ -1205,7 +1215,7 @@ def test_physical_summary_13():
     model |= sig_model1(input="input", output="output1")
     model |= sig_model2(input="input", output="output2")
     model.set_cout("output2")
-    comp_model = mithril.compile(model=model, backend=JaxBackend())
+    comp_model = mithril.compile(model=model, backend=JaxBackend(), inference=True)
     with pytest.raises(ValueError) as err_info:
         comp_model.summary(model=sig_model3)
     assert str(err_info.value) == "Given model is not a part of compiled model"
@@ -1219,7 +1229,11 @@ def test_physical_summary_14():
     model |= sig_model1(left="left", right="right", output=IOKey("output1"))
     model |= sig_model2(left="left", right="right", output=IOKey("output2"))
     comp_model = mithril.compile(
-        model=model, backend=JaxBackend(), shapes={"left": [3, 4, 5]}, safe_names=False
+        model=model,
+        backend=JaxBackend(),
+        shapes={"left": [3, 4, 5]},
+        safe_names=False,
+        inference=True,
     )
     with redirect_stdout(StringIO()) as summary:
         comp_model.summary(model=sig_model2, verbose=True)
@@ -1719,7 +1733,7 @@ def generate_comp_model():
     test_model |= add(left=IOKey("in1", type=Tensor), right=matmul.output)
     test_model |= sig(input=add.output)
     test_model |= l_relu(input=sig.output, output="output")
-    comp_model = mithril.compile(model=test_model, backend=JaxBackend())
+    comp_model = mithril.compile(model=test_model, backend=JaxBackend(), inference=True)
     return comp_model, matmul, add, sig, l_relu, test_model
 
 
@@ -1784,7 +1798,7 @@ def test_primitive_model_summary_8():
 
 
 def test_primitive_model_summary_9():
-    model = Concat(n=6, axis=4)
+    model = Concat(axis=4)
     with redirect_stdout(StringIO()) as summary:
         model.summary(shapes=True, symbolic=True)
 

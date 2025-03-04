@@ -13,7 +13,7 @@
 # limitations under the License.
 
 
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Sequence
 from functools import partial
 from typing import Any
 
@@ -386,11 +386,13 @@ def _accumulate_grads_helper(
 
 
 def calc_input_slices(
-    output_gradient: np.ndarray[Any, Any], axis: int | None, *args: np.ndarray[Any, Any]
-) -> dict[str, tuple[slice, ...]]:
+    output_gradient: np.ndarray[Any, Any],
+    axis: int | None,
+    args: Sequence[np.ndarray[Any, Any]],
+) -> dict[int, tuple[slice, ...]]:
     # Calculates the slices of output_gradient corresponding to
     # inputs.
-    slices: dict[str, tuple[slice, ...]] = {}
+    slices: dict[int, tuple[slice, ...]] = {}
     base_slices = [slice(None)] * output_gradient.ndim
     finish = 0
     for idx, arg in enumerate(args):
@@ -398,7 +400,7 @@ def calc_input_slices(
         finish = start + (arg.shape[axis] if axis is not None else arg.size)
         current_slice = base_slices.copy()
         current_slice[axis if axis is not None else 0] = slice(start, finish, None)
-        slices[f"input{idx + 1}"] = tuple(current_slice)
+        slices[idx] = tuple(current_slice)
     return slices
 
 

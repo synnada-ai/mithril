@@ -386,10 +386,8 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
     ) -> jax.Array:
         return ops.flatten(input, start_dim=start_dim, end_dim=end_dim)
 
-    def concat(
-        self, inputs: tuple[jax.Array, ...] | list[jax.Array], axis: int = 0
-    ) -> jax.Array:
-        return jax.numpy.concat(inputs, axis=axis)
+    def concat(self, input: list[jax.Array], axis: int = 0) -> jax.Array:
+        return jax.numpy.concat(input, axis=axis)
 
     def abs(self, input: jax.Array) -> jax.Array:
         return jax.numpy.abs(input)
@@ -454,10 +452,8 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
     def stack(self, inputs: list[jax.Array], axis: int = 0) -> jax.Array:
         return jax.numpy.stack(inputs, axis=axis)
 
-    def cat(
-        self, inputs: tuple[jax.Array, ...] | list[jax.Array], axis: int = 0
-    ) -> jax.Array:
-        return ops.concat(*inputs, axis=axis)
+    def cat(self, input: list[jax.Array], axis: int = 0) -> jax.Array:
+        return ops.concat(input, axis=axis)
 
     def pad(self, input: jax.Array, pad_width: PadWidthType) -> jax.Array:
         return jax.numpy.pad(input, pad_width)

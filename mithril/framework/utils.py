@@ -12,8 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Callable
-from functools import reduce
+from collections.abc import Callable, Mapping
 from itertools import product
 from types import FunctionType, GenericAlias, UnionType
 from typing import Any
@@ -201,18 +200,6 @@ def find_list_depth(arg_type: type | UnionType | GenericAlias) -> int:
     return max_depth
 
 
-def find_type[T](connection: T) -> type[T]:
-    if isinstance(connection, tuple | list):
-        element_types: list[Any] = [find_type(elem) for elem in connection]
-        if isinstance(connection, tuple):
-            return tuple[*element_types]  # type: ignore
-        else:
-            result: UnionType | type = reduce(lambda x, y: x | y, element_types)
-            return list[result]  # type: ignore
-    else:
-        return type(connection)
-
-
 def is_union(typ: type | UnionType | GenericAlias) -> bool:
     if isinstance(typ, GenericAlias):
         if ... in typ.__args__:
@@ -264,3 +251,22 @@ def sort_type(
 
     else:
         return type1
+
+
+def recursive_sum(data1: Any, data2: Any) -> Any:
+    # TODO: Move this to the codegen module.
+    # assert type(data1) == type(data2), "Both data types must match"
+    if isinstance(data1, Mapping) and isinstance(data2, Mapping):
+        # Both are dictionaries, sum values recursively
+        return {
+            key: recursive_sum(data1[key], data2[key])
+            for key in data1.keys() & data2.keys()
+        }
+    elif isinstance(data1, tuple | list) and isinstance(data2, tuple | list):
+        # Both are lists or tuples, sum elements recursively
+        return type(data1)(
+            recursive_sum(a, b) for a, b in zip(data1, data2, strict=False)
+        )
+    else:
+        # Both are numbers, sum them directly
+        return data1 + data2
