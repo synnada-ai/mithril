@@ -117,7 +117,7 @@ def run(
     x = x.clamp(-1, 1)  # TODO: add to backend
     x = rearrange(x[0], "c h w -> h w c")
     img = Image.fromarray(np.array(127.5 * (x.cpu() + 1.0)).astype(np.uint8))
-    img.save("qwe123.png")
+    img.save("img.png")
 
 
 if __name__ == "__main__":
