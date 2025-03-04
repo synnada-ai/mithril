@@ -33,7 +33,7 @@ from ..physical.model import PhysicalModel
 from . import c_ast
 from .code_gen import CodeGen
 
-FinalCost = "final_cost"
+ast_block_type = list[c_ast.Stmt] | list[c_ast.Expr] | list[c_ast.Stmt | c_ast.Expr]
 
 
 class CGen(CodeGen[PyArray]):
@@ -89,7 +89,7 @@ class CGen(CodeGen[PyArray]):
             self.functions.append(eval_grad_fn)
 
         # Structs
-        self.generate_structs()
+        self._generate_structs()
 
         # Init cache struct
         cache_struct = c_ast.StructInit(
@@ -99,16 +99,17 @@ class CGen(CodeGen[PyArray]):
         )
         self.globals.append(cache_struct)
 
-        # Init grad struct
-        grad_struct = c_ast.StructInit(
-            f"{self.EVALUATE_GRAD_OUTPUT_STRUCT_NAME} {self.GRAD_STRUCT_NAME}",
-            {
-                key: "NULL"
-                for key in self.determined_struct_keys["eval_grad_output_keys"]
-            },
-            static=True,
-        )
-        self.globals.append(grad_struct)
+        if not self.pm.inference:
+            # Init grad struct
+            grad_struct = c_ast.StructInit(
+                f"{self.EVALUATE_GRAD_OUTPUT_STRUCT_NAME} {self.GRAD_STRUCT_NAME}",
+                {
+                    key: "NULL"
+                    for key in self.determined_struct_keys["eval_grad_output_keys"]
+                },
+                static=True,
+            )
+            self.globals.append(grad_struct)
 
         generated_code = c_ast.FILE(self.imports, self.globals, self.functions).to_str()  # type: ignore
 
@@ -243,7 +244,7 @@ class CGen(CodeGen[PyArray]):
             for key in return_keys:
                 array_ptr = getattr(output_struct, key)
                 outputs[key] = PyArray(
-                    array_ptr.contents, shape=self.get_tensor_shape(key)
+                    array_ptr.contents, shape=self._get_tensor_shape(key)
                 )
 
             return outputs
@@ -257,12 +258,12 @@ class CGen(CodeGen[PyArray]):
             if data is None:
                 data = {}
 
-            if output_gradients is None and FinalCost not in self.pm._output_keys:
+            if output_gradients is None and self.FinalCost not in self.pm._output_keys:
                 raise ValueError(
                     "Requires output gradients if final loss is not attached!"
                 )
             elif output_gradients is None:
-                output_gradients = {FinalCost: array.ones((1,))}
+                output_gradients = {self.FinalCost: array.ones((1,))}
 
             gradients = {key: value for key, value in output_gradients.items()}
             forward_pass = evaluate_wrapper(
@@ -285,7 +286,9 @@ class CGen(CodeGen[PyArray]):
                         arr_shape = self._get_array_shape(key)
                         gradients[key] = self.backend.zeros(*arr_shape)
 
-            gradients = {key + "_grad": value for key, value in gradients.items()}
+            gradients = {
+                key + self.BACKWARD_FN_SUFFIX: value for key, value in gradients.items()
+            }
 
             inputs = params | data | gradients | forward_pass
 
@@ -300,10 +303,10 @@ class CGen(CodeGen[PyArray]):
             output_struct = lib.evaluate_gradients(inputs_struct_ptr)
             outputs = {}
             for grad_key in self.determined_struct_keys["eval_grad_output_keys"]:
-                key = grad_key.replace("_grad", "")
+                key = grad_key.replace(self.BACKWARD_FN_SUFFIX, "")
                 array_ptr = getattr(output_struct, grad_key)
                 outputs[key] = PyArray(
-                    array_ptr.contents, shape=self.get_tensor_shape(key)
+                    array_ptr.contents, shape=self._get_tensor_shape(key)
                 )
 
             return outputs
@@ -347,7 +350,8 @@ class CGen(CodeGen[PyArray]):
 
             if (
                 key in self.pm.flat_graph.all_keys
-                or key.replace("_grad", "") in self.pm.flat_graph.all_keys
+                or key.replace(self.BACKWARD_FN_SUFFIX, "")
+                in self.pm.flat_graph.all_keys
             ) and not load:
                 return c_ast.Variable(f"{self.configs.ARRAY_NAME} *{key}")
 
@@ -361,13 +365,9 @@ class CGen(CodeGen[PyArray]):
         return_type: str,
         name: str,
         params: list[c_ast.Parameter],
-        pre_process: list[c_ast.Stmt]
-        | list[c_ast.Expr]
-        | list[c_ast.Stmt | c_ast.Expr],
-        operations: list[c_ast.Stmt] | list[c_ast.Expr] | list[c_ast.Stmt | c_ast.Expr],
-        post_process: list[c_ast.Stmt]
-        | list[c_ast.Expr]
-        | list[c_ast.Stmt | c_ast.Expr],
+        pre_process: ast_block_type,
+        operations: ast_block_type,
+        post_process: ast_block_type,
     ) -> c_ast.FunctionDef:
         body = pre_process + operations + post_process
         return c_ast.FunctionDef(return_type, name, params, body)
@@ -394,15 +394,9 @@ class CGen(CodeGen[PyArray]):
 
     def generate_evaluate(self) -> c_ast.FunctionDef:
         # Function body
-        pre_process: (
-            list[c_ast.Stmt] | list[c_ast.Expr] | list[c_ast.Stmt | c_ast.Expr]
-        ) = []
-        operations: (
-            list[c_ast.Stmt] | list[c_ast.Expr] | list[c_ast.Stmt | c_ast.Expr]
-        ) = []
-        post_process: (
-            list[c_ast.Stmt] | list[c_ast.Expr] | list[c_ast.Stmt | c_ast.Expr]
-        ) = []
+        pre_process: ast_block_type = []
+        operations: ast_block_type = []
+        post_process: ast_block_type = []
 
         # Define function arguments
         arguments = [
@@ -451,15 +445,9 @@ class CGen(CodeGen[PyArray]):
 
     def generate_evaluate_gradients(self) -> c_ast.FunctionDef:
         # Function body
-        pre_process: (
-            list[c_ast.Stmt] | list[c_ast.Expr] | list[c_ast.Stmt | c_ast.Expr]
-        ) = []
-        operations: (
-            list[c_ast.Stmt] | list[c_ast.Expr] | list[c_ast.Stmt | c_ast.Expr]
-        ) = []
-        post_process: (
-            list[c_ast.Stmt] | list[c_ast.Expr] | list[c_ast.Stmt | c_ast.Expr]
-        ) = []
+        pre_process: ast_block_type = []
+        operations: ast_block_type = []
+        post_process: ast_block_type = []
 
         # Define function arguments
         arguments = [
@@ -482,7 +470,9 @@ class CGen(CodeGen[PyArray]):
                     continue
 
                 fn_inputs: list[c_ast.Expr] = [
-                    self.create_key_ref(output_key + "_grad", context="eval_grad"),
+                    self.create_key_ref(
+                        output_key + self.BACKWARD_FN_SUFFIX, context="eval_grad"
+                    ),
                     c_ast.Constant(idx),
                     self.create_key_ref(output_key, context="eval_grad"),
                 ] + [
@@ -492,7 +482,9 @@ class CGen(CodeGen[PyArray]):
 
                 if self.configs.USE_OUTPUT_AS_INPUT:
                     fn_inputs += [
-                        self.create_key_ref(input_key + "_grad", context="eval_grad")
+                        self.create_key_ref(
+                            input_key + self.BACKWARD_FN_SUFFIX, context="eval_grad"
+                        )
                         if input_key not in self.ignored_grad_keys
                         else c_ast.Variable("NULL")
                         for input_key in inputs
@@ -506,7 +498,7 @@ class CGen(CodeGen[PyArray]):
                 )
 
                 p_call_stmts: c_ast.Stmt = self.assign_primitive_output(
-                    inputs[idx] + "_grad", p_call, context="eval_grad"
+                    inputs[idx] + self.BACKWARD_FN_SUFFIX, p_call, context="eval_grad"
                 )
 
                 operations.append(p_call_stmts)  # type: ignore
@@ -540,7 +532,7 @@ class CGen(CodeGen[PyArray]):
         else:
             raise ValueError(f"Unexpected shape: {shape}")
 
-    def generate_structs(self) -> None:
+    def _generate_structs(self) -> None:
         # Generate structs
         eval_input_struct = self._generate_struct(
             self.EVALUATE_INPUT_STRUCT_NAME,
@@ -605,7 +597,7 @@ class CGen(CodeGen[PyArray]):
                 self.pm.input_keys
                 | set(self.pm.output_keys)
                 | {
-                    key + "_grad"
+                    key + self.BACKWARD_FN_SUFFIX
                     for key in set(self.pm.output_keys) - self.ignored_grad_keys
                 }
             )
@@ -613,7 +605,10 @@ class CGen(CodeGen[PyArray]):
         )
 
         eval_grad_output_keys = sorted(
-            [key + "_grad" for key in set(self.pm.input_keys) - self.ignored_grad_keys]
+            [
+                key + self.BACKWARD_FN_SUFFIX
+                for key in set(self.pm.input_keys) - self.ignored_grad_keys
+            ]
         )
 
         determined_struct_keys = {
@@ -626,10 +621,10 @@ class CGen(CodeGen[PyArray]):
 
         return determined_struct_keys
 
-    def get_tensor_shape(self, key: str) -> tuple[int, ...]:
+    def _get_tensor_shape(self, key: str) -> tuple[int, ...]:
         if key in self.pm.shapes:
             return self.pm.shapes[key]  # type: ignore
-        elif key.replace("_grad", "") in self.pm.shapes:
-            return self.pm.shapes[key.replace("_grad", "")]  # type: ignore
+        elif key.replace(self.BACKWARD_FN_SUFFIX, "") in self.pm.shapes:
+            return self.pm.shapes[key.replace(self.BACKWARD_FN_SUFFIX, "")]  # type: ignore
         else:
             raise ValueError(f"Shape for key {key} not found")

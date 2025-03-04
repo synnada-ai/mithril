@@ -23,6 +23,9 @@ from .c_gen import CGen
 FinalCost = "final_cost"
 
 
+ast_block_type = list[c_ast.Stmt] | list[c_ast.Expr] | list[c_ast.Stmt | c_ast.Expr]
+
+
 class GGMLCodeGen(CGen):
     dynamic_links = ["-lggml-base", "-lggml-cpu", "-lmithrilggml"]
 
@@ -100,13 +103,9 @@ class GGMLCodeGen(CGen):
         return_type: str,
         name: str,
         params: list[c_ast.Parameter],
-        pre_process: list[c_ast.Stmt]
-        | list[c_ast.Expr]
-        | list[c_ast.Stmt | c_ast.Expr],
-        operations: list[c_ast.Stmt] | list[c_ast.Expr] | list[c_ast.Stmt | c_ast.Expr],
-        post_process: list[c_ast.Stmt]
-        | list[c_ast.Expr]
-        | list[c_ast.Stmt | c_ast.Expr],
+        pre_process: ast_block_type,
+        operations: ast_block_type,
+        post_process: ast_block_type,
     ) -> c_ast.FunctionDef:
         if name in ["evaluate", "evaluate_gradients"]:
             return self.update_function(
@@ -133,13 +132,9 @@ class GGMLCodeGen(CGen):
         name: str,
         return_type: str,
         params: list[c_ast.Parameter],
-        pre_process: list[c_ast.Stmt]
-        | list[c_ast.Expr]
-        | list[c_ast.Stmt | c_ast.Expr],
-        operations: list[c_ast.Stmt] | list[c_ast.Expr] | list[c_ast.Stmt | c_ast.Expr],
-        post_process: list[c_ast.Stmt]
-        | list[c_ast.Expr]
-        | list[c_ast.Stmt | c_ast.Expr],
+        pre_process: ast_block_type,
+        operations: ast_block_type,
+        post_process: ast_block_type,
     ) -> c_ast.FunctionDef:
         # Define static variables at function scope
         static_vars: list[c_ast.Stmt] = []
@@ -158,9 +153,7 @@ class GGMLCodeGen(CGen):
         pre_process = static_vars + pre_process
 
         # Create initialization block
-        init_block: (
-            list[c_ast.Stmt] | list[c_ast.Expr] | list[c_ast.Stmt | c_ast.Expr]
-        ) = []
+        init_block: ast_block_type = []
 
         # Initialize context if NULL
         init_block.append(c_ast.Comment("One-time initialization"))  # type: ignore
@@ -184,7 +177,7 @@ class GGMLCodeGen(CGen):
         # Create tensors
         init_block.append(c_ast.Comment("Create tensors only once"))  # type: ignore
         for key in self.determined_struct_keys[f"{fn_ref_name}_input_keys"]:
-            shape = self.get_tensor_shape(key)
+            shape = self._get_tensor_shape(key)
             if shape is not None:
                 tensor = c_ast.Call(
                     f"ggml_new_tensor_{len(shape)}d",
@@ -226,9 +219,7 @@ class GGMLCodeGen(CGen):
         if_init = [c_ast.If(c_ast.Variable(f"{ctx_name} == NULL"), init_block)]  # type: ignore
 
         # Update input data
-        update_ptr_block: (
-            list[c_ast.Stmt] | list[c_ast.Expr] | list[c_ast.Stmt | c_ast.Expr]
-        ) = []
+        update_ptr_block: ast_block_type = []
         update_ptr_block.append(c_ast.Comment("Update tensor data for each call"))  # type: ignore
         for key in self.determined_struct_keys[f"{fn_ref_name}_input_keys"]:
             update_ptr_block.append(

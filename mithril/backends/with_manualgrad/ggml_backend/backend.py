@@ -20,7 +20,7 @@ import numpy as np
 
 from .... import types
 from ....cores.c.array import PyArray
-from ....cores.c.ggml import ggml
+from ....cores.c.ggml.ggml_core import ggml_struct
 from ....cores.c.raw_c import array
 from ...backend import Backend
 from ...utils import process_shape
@@ -56,7 +56,7 @@ class GGMLBackend(Backend[PyArray]):
         return PyArray
 
     def get_struct_cls(self) -> type[ctypes.Structure]:
-        return ggml.ggml_struct
+        return ggml_struct
 
     def to_numpy(self, array: PyArray) -> np.ndarray[Any, Any]:
         return np.ctypeslib.as_array(
@@ -70,7 +70,7 @@ class GGMLBackend(Backend[PyArray]):
         assert dtype is None, "dtype is not supported in CBackend"
         input = input.astype(np.float32)
         data_ptr = ctypes.cast(from_numpy(input).arr.data, ctypes.c_void_p)
-        return PyArray(ggml.ggml_struct(data=data_ptr), input.shape)
+        return PyArray(ggml_struct(data=data_ptr), input.shape)
 
     def ones(
         self,
@@ -80,7 +80,7 @@ class GGMLBackend(Backend[PyArray]):
         assert dtype is None, "dtype is not supported in GGML Backend"
         _shape = process_shape(shape)
         data_ptr = ctypes.cast(array.ones(_shape).arr.data, ctypes.c_void_p)
-        return PyArray(ggml.ggml_struct(data=data_ptr), _shape)
+        return PyArray(ggml_struct(data=data_ptr), _shape)
 
     def zeros(
         self,
@@ -90,7 +90,7 @@ class GGMLBackend(Backend[PyArray]):
         assert dtype is None, "dtype is not supported in GGML Backend"
         _shape = process_shape(shape)
         data_ptr = ctypes.cast(array.zeros(_shape).arr.data, ctypes.c_void_p)
-        return PyArray(ggml.ggml_struct(data=data_ptr), _shape)
+        return PyArray(ggml_struct(data=data_ptr), _shape)
 
     def empty(
         self,
@@ -100,4 +100,4 @@ class GGMLBackend(Backend[PyArray]):
         assert dtype is None, "dtype is not supported in GGML Backend"
         _shape = process_shape(shape)
         data_ptr = ctypes.cast(array.empty(_shape).arr.data, ctypes.c_void_p)
-        return PyArray(ggml.ggml_struct(data=data_ptr), _shape)
+        return PyArray(ggml_struct(data=data_ptr), _shape)

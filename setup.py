@@ -95,6 +95,6 @@ setuptools.setup(
     python_requires=">=3.12",
     install_requires=[],
     cmdclass={"build_ext": CustomBuildExt},
-    ext_modules=[Extension("mithril.dummy", sources=[])],
+    ext_modules=[Extension("mithril.c_sources", sources=[])],
     include_package_data=True,
 )
