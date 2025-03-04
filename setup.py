@@ -22,7 +22,7 @@ from setuptools.command.build_ext import build_ext
 class CustomBuildExt(build_ext):
     def run(self):
         shell = os.getenv("SHELL", "sh")
-        script_path = os.path.join(
+        path_1 = os.path.join(
             os.path.dirname(__file__),
             "mithril",
             "cores",
@@ -30,7 +30,17 @@ class CustomBuildExt(build_ext):
             "raw_c",
             "compile.sh",
         )
-        subprocess.check_call([shell, script_path])
+        path_2 = os.path.join(
+            os.path.dirname(__file__),
+            "mithril",
+            "cores",
+            "c",
+            "ggml",
+            "compile.sh",
+        )
+
+        subprocess.check_call([shell, path_1])
+        subprocess.check_call([shell, path_2])
         # Continue with the normal build
         super().run()
 
