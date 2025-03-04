@@ -77,6 +77,7 @@ for root, _, files in os.walk(current_directory):
 
                 license = license_py if filename.endswith(".py") else license_ch
 
-                assert (
-                    license == file_license
-                ), f"Please update the license in {file_path}"
+                assert license == file_license, (
+                    f"Please update the license in {file_path}, exc: {exclude}, "
+                    f"exc:in {exclude in file_path}"
+                )
