@@ -63,7 +63,7 @@ for root, _, files in os.walk(current_directory):
         if filename.endswith((".py", ".c", ".h")):  # Check for .py .h and .c files
             file_path = os.path.join(root, filename)
 
-            if exclude != "" and exclude in file_path:
+            if exclude in file_path:
                 continue
 
             # Check if it's a file

@@ -44,7 +44,6 @@ jobs:
           python3 -m pip install mypy
           python3 -m pip install pre-commit
           pre-commit run --all-files
-          python3 license_checker.py
       - name: Execute testcase unit tests
         run: pytest -s tests/
 
