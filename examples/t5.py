@@ -148,7 +148,7 @@ def rms_norm(dim: int, *, name: str | None = None):
 def dense_activation(config: dict[str, Any], *, name: str | None = None):
     mlp_dims = config["d_ff"] or config["d_model"] * 4
 
-    is_gated = hasattr(config, "feed_forward_proj")
+    is_gated = "feed_forward_proj" in config
     activation_name = (
         "relu" if not is_gated else config["feed_forward_proj"].removeprefix("gated-")
     )
@@ -166,12 +166,13 @@ def dense_activation(config: dict[str, Any], *, name: str | None = None):
     input = IOKey("input")
 
     if is_gated:
-        block += Linear(mlp_dims, use_bias=False, name="wi_0")(input)
+        block |= Linear(mlp_dims, use_bias=False, name="wi_0")(input)
         block += activation(output="hidden_act")
-        block += Linear(mlp_dims, use_bias=False, name="wi_1")(input, output="lin_out")
-        block += Multiply()(left="hidden_act", right="lin_out", output="hidden_out")
+        block |= Linear(mlp_dims, use_bias=False, name="wi_1")(input, output="lin_out")
+        block |= Multiply()(left="hidden_act", right="lin_out", output="hidden_out")
+        block.set_cout("hidden_out")
     else:
-        block += Linear(mlp_dims, name="wi", use_bias=False)(input)
+        block |= Linear(mlp_dims, name="wi", use_bias=False)(input)
         block += Relu()(output="hidden_out")
 
     block += Linear(config["d_model"], name="wo", use_bias=False)(
@@ -475,7 +476,7 @@ def sanitize(weights):
         (".layer.2.DenseReluDense.", ".dense."),
     ]
 
-    ignored_keys = ["decoder.layers.0.cross_attention.relative_attention_bias.weight"]
+    ignored_keys = ["decoder_layers_0_cross_attention_relative_attention_bias_weight"]
 
     def replace_key(key: str) -> str:
         for old, new in shared_replacement_patterns:
@@ -486,7 +487,7 @@ def sanitize(weights):
         elif key.startswith("decoder."):
             for old, new in decoder_replacement_patterns:
                 key = key.replace(old, new)
-        return key
+        return key.replace(".", "_")
 
     weights = {replace_key(k): v for k, v in weights.items()}
     for key in ignored_keys:
