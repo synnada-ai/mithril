@@ -144,8 +144,7 @@ def compile_and_compare(
         pm = mithril.compile(
             model,
             backend=backend,
-            **compile_kwargs
-            | {"constant_keys": statics, "trainable_keys": params.keys()},
+            **compile_kwargs | {"constant_keys": statics},
         )
         outputs = pm.evaluate(params=backend_params, data=backend_data)
 
@@ -267,7 +266,7 @@ def test_buffer_1():
 
 def test_buffer_2():
     model = Buffer()
-    model.set_types(input=Tensor)
+    model.set_differentiability(input=True)
     params = {"input": [[1.0, 2.0, 3.0], [1.0, 2.0, 3.0]]}
     output_gradients = {"output": [[12.0, 13.0, 14.0], [15.0, 16.0, 17.0]]}
     reference_outputs = {"output": [[1.0, 2.0, 3.0], [1.0, 2.0, 3.0]]}
@@ -395,7 +394,7 @@ def test_isnan_2():
 
 
 def test_nan_to_num_1():
-    model = NanToNum()
+    model = NanToNum(input=Tensor(differentiable=True))
     params = {"input": [[1.0, float("nan"), 3.0], [1.0, 2.0, float("nan")]]}
     output_gradients = {"output": [[10.0, 20.0, 30.0], [40.0, 50.0, 60.0]]}
     reference_outputs = {"output": [[1.0, 0.0, 3.0], [1.0, 2.0, 0.0]]}
@@ -668,7 +667,9 @@ def test_conv1d_6():
 
 
 def test_where_1():
-    model = Where()
+    model = Where(
+        input1=Tensor(differentiable=True), input2=Tensor(differentiable=True)
+    )
 
     data = {
         "cond": [True, True, False, False, True],
@@ -699,7 +700,9 @@ def test_where_1():
 
 
 def test_where_2():
-    model = Where()
+    model = Where(
+        input1=Tensor(differentiable=True), input2=Tensor(differentiable=True)
+    )
 
     data = {
         "cond": [True, True, False, False, True],
@@ -1242,7 +1245,7 @@ def test_to_tensor():
 
 
 def test_reduce_prod_1():
-    model = Prod(axis=None)
+    model = Prod(input=Tensor(differentiable=True), axis=None)
     params = {"input": [1.0, 2.0, 3.0, 4.0, 5.0]}
     output_gradients = {"output": 1.0}
     reference_outputs = {"output": 120.0}
@@ -1262,7 +1265,7 @@ def test_reduce_prod_1():
 
 
 def test_reduce_prod_2():
-    model = Prod(axis=None)
+    model = Prod(input=Tensor(differentiable=True), axis=None)
     params = {"input": [1.0, 0.0, 3.0, 4.0, 5.0]}
     output_gradients = {"output": 1.0}
     reference_outputs = {"output": 0.0}
@@ -1282,7 +1285,7 @@ def test_reduce_prod_2():
 
 
 def test_reduce_prod_3():
-    model = Prod(axis=None)
+    model = Prod(input=Tensor(differentiable=True), axis=None)
     params = {"input": [1.0, 0.0, 3.0, 0.0, 5.0]}
     output_gradients = {"output": 12.0}
     reference_outputs = {"output": 0.0}
@@ -1302,7 +1305,7 @@ def test_reduce_prod_3():
 
 
 def test_reduce_prod_4():
-    model = Prod(axis=1)
+    model = Prod(input=Tensor(differentiable=True), axis=1)
     params = {"input": [[1.0, 2.0], [3.0, 4.0]]}
     output_gradients = {"output": [2.0, 3.0]}
     reference_outputs = {"output": [2.0, 12.0]}
@@ -1322,7 +1325,7 @@ def test_reduce_prod_4():
 
 
 def test_reduce_prod_5():
-    model = Prod(axis=(1, 2))
+    model = Prod(input=Tensor(differentiable=True), axis=(1, 2))
     params = {
         "input": [
             [[1.0, 2.0], [3.0, 4.0]],
@@ -1358,7 +1361,7 @@ def test_reduce_prod_5():
 
 
 def test_reduce_prod_6():
-    model = Prod(axis=(1, 2), keepdim=True)
+    model = Prod(input=Tensor(differentiable=True), axis=(1, 2), keepdim=True)
     params = {
         "input": [
             [[1.0, 2.0], [3.0, 4.0]],
@@ -1642,7 +1645,7 @@ def test_eye_complement_w_dtype():
 
 
 def test_squeeze_1():
-    model = Squeeze()
+    model = Squeeze(input=Tensor(differentiable=True))
     params = {"input": list_full(1.0, 3, 1, 4, 2, 1)}
     output_gradients = {"output": list_full(1.0, 3, 4, 2)}
     reference_outputs = {"output": list_full(1.0, 3, 4, 2)}
@@ -1662,7 +1665,7 @@ def test_squeeze_1():
 
 
 def test_squeeze_2():
-    model = Squeeze()
+    model = Squeeze(input=Tensor(differentiable=True))
     params = {"input": list_full(1.0, 3, 1, 4, 2, 1, 1, 1, 5)}
     output_gradients = {"output": list_full(1.0, 3, 4, 2, 5)}
     reference_outputs = {"output": list_full(1.0, 3, 4, 2, 5)}
@@ -1682,7 +1685,7 @@ def test_squeeze_2():
 
 
 def test_broadcast_to_1():
-    model = BroadcastTo()
+    model = BroadcastTo(input=Tensor(differentiable=True))
     params = {"input": list_full(1.0, 1, 1)}
     output_gradients = {"output": list_full(1.0, 3, 3)}
     reference_outputs = {"output": list_full(1.0, 3, 3)}
@@ -1703,7 +1706,7 @@ def test_broadcast_to_1():
 
 
 def test_broadcast_to_2():
-    model = BroadcastTo()
+    model = BroadcastTo(input=Tensor(differentiable=True))
     params = {"input": [4.0]}
     output_gradients = {"output": [[3.0, 4.0], [5.0, 6.0]]}
     reference_outputs = {"output": [[4.0, 4.0], [4.0, 4.0]]}
@@ -1724,7 +1727,7 @@ def test_broadcast_to_2():
 
 
 def test_broadcast_to_3():
-    model = BroadcastTo()
+    model = BroadcastTo(input=Tensor(differentiable=True))
     params = {"input": [[1.0], [7.0]]}
     output_gradients = {"output": [[3.0, 4.0], [5.0, 6.0]]}
     reference_outputs = {"output": [[1.0, 1.0], [7.0, 7.0]]}
@@ -1745,7 +1748,7 @@ def test_broadcast_to_3():
 
 
 def test_broadcast_to_4():
-    model = BroadcastTo()
+    model = BroadcastTo(input=Tensor(differentiable=True))
     params = {"input": [1.0]}
     output_gradients = {"output": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]}
     reference_outputs = {"output": [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]}
@@ -1766,7 +1769,7 @@ def test_broadcast_to_4():
 
 
 def test_broadcast_to_5():
-    model = BroadcastTo()
+    model = BroadcastTo(input=Tensor(differentiable=True))
     params = {"input": [[1.0, 2.0], [3.0, 4.0]]}
     output_gradients = {
         "output": [
@@ -1803,7 +1806,7 @@ def test_broadcast_to_5():
 
 
 def test_norm_modifier_1():
-    model = NormModifier()
+    model = NormModifier(input=Tensor(differentiable=True))
     params = {"input": 3.0}
     output_gradients = {"output": 2.0}
     reference_outputs = {"output": 3.0}
@@ -1823,7 +1826,7 @@ def test_norm_modifier_1():
 
 
 def test_norm_modifier_2():
-    model = NormModifier()
+    model = NormModifier(input=Tensor(differentiable=True))
     params = {"input": 6.0}
     output_gradients = {"output": 2.0}
     reference_outputs = {"output": 4.0}
@@ -1843,7 +1846,7 @@ def test_norm_modifier_2():
 
 
 def test_norm_modifier_3():
-    model = NormModifier()
+    model = NormModifier(input=Tensor(differentiable=True))
     params = {"input": -1.0}
     output_gradients = {"output": 2.0}
     reference_outputs = {"output": 3.0}
@@ -1916,6 +1919,7 @@ def test_size_3():
 
 def test_scaled_dot_product_1():
     model = ScaledDotProduct()
+    model.set_differentiability(query=True, key=True, value=True)
     params = {"query": [[1.0]], "key": [[1.0]], "value": [[1.0]]}
     output_gradients = {"output": [[1.0]]}
     reference_outputs = {"output": [[1.0]]}
@@ -1936,6 +1940,7 @@ def test_scaled_dot_product_1():
 
 def test_scaled_dot_product_2():
     model = ScaledDotProduct()
+    model.set_differentiability(query=True, key=True, value=True)
     params = {
         "query": [[1.0, 1.0], [1.0, 1.0]],
         "key": [[1.0, 1.0], [1.0, 1.0]],
@@ -2084,7 +2089,7 @@ def test_slice_4():
 
 
 def test_log_1():
-    model = Log()
+    model = Log(input=Tensor(differentiable=True))
 
     params = {"input": [3.0]}
     output_gradients = {"output": [1.0]}
@@ -2107,7 +2112,7 @@ def test_log_1():
 
 
 def test_log_2():
-    model = Log()
+    model = Log(input=Tensor(differentiable=True))
 
     params = {"input": [3.0, 2.0]}
     output_gradients = {"output": [1.0, 1.0]}

@@ -1104,6 +1104,8 @@ class KernelizedSVM(Model):
             output=IOKey(name="output"),
         )
 
+        # TODO: It is not clear where these "input1" and "input2" names come from.
+        # It assumes kernel model has two inputs named "input1" and "input2".
         shapes: dict[str, ShapeTemplateType] = {
             "input1": ["N", "d_in"],
             "input2": ["M", "d_in"],

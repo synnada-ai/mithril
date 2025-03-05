@@ -75,7 +75,7 @@ class ConnectionData:
         | ScalarType
         | None = None,
         expose: bool | None = None,
-        differentiable: bool = False,
+        differentiable: bool | None = None,
         interval: list[float | int] | None = None,
     ) -> None:
         # If shape is provided, type should be Tensor.
@@ -166,15 +166,7 @@ class ConnectionData:
         return hash(id(self))
 
     def set_differentiability(self, differentiable: bool = True) -> Updates:
-        updates = Updates()
-        # TODO: Move this method to Model class as set_shapes, set_types etc.
-        if self.metadata.is_tensor:
-            self.metadata.set_differentiability(differentiable)
-        elif differentiable:
-            updates |= self.metadata.set_type(Tensor[float])
-            self.metadata.set_differentiability(differentiable)
-
-        return updates
+        return self.metadata.set_differentiability(differentiable)
 
 
 BaseKey = ConnectionData
@@ -380,14 +372,18 @@ class BaseModel:
     ) -> None:
         self.dag: dict[BaseModel, dict[str, ConnectionData]] = {}
         self._formula_key: str | None = formula_key
-
         # TODO: maybe set it only to Operator / Model.
         self.parent: BaseModel | None = None
-        self.assigned_shapes: list[dict[str, ShapeTemplateType]] = []
-        self.assigned_types: dict[
-            str,
-            type | UnionType | ScalarType | type[Tensor[int | float | bool]],
-        ] = {}
+        self.assigned_shapes: list[
+            list[tuple[tuple[BaseModel, int], ShapeTemplateType]]
+        ] = []
+        self.assigned_types: list[
+            tuple[
+                tuple[BaseModel, int],
+                type | UnionType | ScalarType | type[Tensor[int | float | bool]],
+            ]
+        ] = []
+        self.assigned_differentiabilities: list[tuple[tuple[BaseModel, int], bool]] = []
         self.assigned_constraints: list[AssignedConstraintType] = []
         self.conns = Connections()
         self.frozen_attributes: list[str] = []
@@ -510,12 +506,14 @@ class BaseModel:
         local_key: str,
         given_connection: ConnectionDataType,
         updates: Updates,
+        trace: bool,
     ) -> tuple[ConnectionData, Updates]:
         is_input = local_key in model.input_keys
         local_connection = model.conns.get_connection(local_key)
         assert local_connection is not None, "Connection is not found!"
         edge = local_connection.metadata
         is_not_valued = not edge.is_valued
+        set_diff = None
 
         d_map = self.dependency_map.local_output_dependency_map
 
@@ -527,6 +525,7 @@ class BaseModel:
             | Tensor[int | float | bool]
             | NullConnection
         ) = NOT_GIVEN
+        set_type: type[Tensor[int | float | bool]] | ScalarType = ToBeDetermined
         is_new_connection = False
 
         match given_connection:
@@ -545,6 +544,10 @@ class BaseModel:
                 set_value = given_connection
                 given_connection = self._create_connection(edge, None)
         assert isinstance(given_connection, ConnectionData)
+
+        if given_connection.metadata.differentiable != edge.differentiable:
+            set_diff = given_connection.metadata.differentiable
+
         # Connection is given as a Connection object.
         if (
             con_obj := self.conns.get_con_by_metadata(given_connection.metadata)
@@ -554,6 +557,8 @@ class BaseModel:
             is_new_connection = True
             expose = given_connection.is_exposed
             outer_key = given_connection.get_key()
+            if set_value is NOT_GIVEN:
+                set_type = given_connection.metadata.edge_type
             if set_value is NOT_GIVEN and given_connection.metadata.value is not TBD:
                 set_value = given_connection.metadata._value
             if outer_key is not None:
@@ -579,15 +584,22 @@ class BaseModel:
                     "Expose flag cannot be false when "
                     "no value is provided for input keys!"
                 )
+
+            # Set value or type if given.
             if not isinstance(set_value, NullConnection):
                 updates |= con_obj.metadata.set_value(set_value)
-            elif (
-                set_type := given_connection.metadata.edge_type
-            ) is not ToBeDetermined:
-                model.set_types({local_connection: set_type})
+            elif set_type is not ToBeDetermined:
+                # Skip tracing if the local connection's type is already
+                # set to the given type.
+                trace &= set_type != local_connection.metadata.edge_type
+                model._set_types({local_connection: set_type}, trace=trace)
 
-            if given_connection.metadata.differentiable:
-                updates |= con_obj.set_differentiability(True)
+            # Set differentiability if given.
+            if set_diff is not None:
+                # No need to trace differentiability for valued and
+                # existing connections.
+                trace &= is_new_connection and not given_connection.metadata.is_valued
+                model._set_differentiability({local_connection: set_diff}, trace)
 
         else:
             if given_connection in model.conns.all.values():
@@ -655,6 +667,7 @@ class BaseModel:
             or con_obj in self.conns.output_connections
         ):
             self.conns.couts.add(con_obj)
+
         return con_obj, updates
 
     def rename_key(self, connection: ConnectionData, key: str) -> None:
@@ -787,6 +800,8 @@ class BaseModel:
     def extend(
         self,
         model: BaseModel | BaseModel,
+        trace: bool = True,
+        /,
         **kwargs: ConnectionDataType,
     ) -> None:
         # Check possible errors before the extension.
@@ -836,7 +851,9 @@ class BaseModel:
                 ):
                     value._expose = True
 
-            con_obj, _updates = self._add_connection(model, local_key, value, updates)
+            con_obj, _updates = self._add_connection(
+                model, local_key, value, updates, trace
+            )
             updates |= _updates
             submodel_dag[local_key] = con_obj
             if tensors := con_obj.metadata.tensors:
@@ -848,18 +865,25 @@ class BaseModel:
             submodel_dag[key].key: template for key, template in shape_info.items()
         }
 
-        # Set given shapes.
-        self._set_shapes(**shape_info)  # TODO: Should "trace" be set to True?.
-        self.constraint_solver(updates)
+        # # Set given shapes.
+        # self._set_shapes(**shape_info)  # TODO: Should "trace" be set to True?.
+        # self.constraint_solver(updates)
 
-        model.constraint_solver.clear()
-        model.conns.connections_dict = {}
+        # model.constraint_solver.clear()
+        # model.conns.connections_dict = {}
 
         # Insert to self dag as a FrozenDict.""
         # Since we update dag in merge_connections, we could not use FrozenDict.
         self.dag[model] = model_dag = submodel_dag
 
         self.dependency_map.add_model_dag(model, model_dag)
+
+        # Set given shapes.
+        self._set_shapes(**shape_info)  # TODO: Should "trace" be set to True?.
+        self.constraint_solver(updates)
+
+        model.constraint_solver.clear()
+        model.conns.connections_dict = {}
 
         # Update jittablity by using model's jittablity.
         self._jittable &= model.jittable
@@ -1356,8 +1380,48 @@ class BaseModel:
         connection.metadata = metadata
         return connection
 
-    def set_differentiability(
-        self, config: dict[ConnectionData, bool] | None = None, /, **kwargs: bool
+    def extract_model_key_index(
+        self, connection: ConnectionData
+    ) -> tuple[BaseModel, int]:
+        if connection not in self.conns.all.values():
+            raise KeyError(f"Connection {connection.key} is not found in the model")
+
+        if self.is_frozen:
+            _model = self
+            name = connection._name
+            assert name is not None
+            key_index = list(self.external_keys).index(name)
+        else:
+            assert connection.model is not None
+            key = connection.key
+            if (
+                _model := connection.model
+            ) is self and connection.key not in self.external_keys:
+                # Always store info using freezed models.
+                model_info: (
+                    list[tuple[BaseModel, OrderedSet[ConnectionData]]]
+                    | tuple[BaseModel, OrderedSet[ConnectionData]]
+                ) = self.dependency_map.local_input_dependency_map.get(
+                    connection,
+                    self.dependency_map.local_output_dependency_map.get(connection),  # type: ignore
+                )
+                _model = (
+                    model_info[0][0] if isinstance(model_info, list) else model_info[0]
+                )
+                # Get corresponding connection of the _model.
+                _model_conn = _model.conns.get_con_by_metadata(connection.metadata)
+                assert _model_conn is not None
+                key = _model_conn.key
+            key_index = list(_model.external_keys).index(key)
+
+        return (_model, key_index)
+
+    def _set_differentiability(
+        self,
+        config: dict[ConnectionData, bool] | None = None,
+        trace: bool = False,
+        /,
+        **kwargs: bool,
     ) -> None:
         updates = Updates()
         if config is None:
@@ -1373,11 +1437,20 @@ class BaseModel:
             elif isinstance(key, ConnectionData):
                 if key not in self.conns.all.values():
                     raise KeyError(f"Connection {key} is not found in the model.")
+                conn_data = key
+                updates |= conn_data.set_differentiability(value)
 
-                updates |= key.set_differentiability(value)
+            if trace:
+                model_info = self.extract_model_key_index(conn_data)
+                self.assigned_differentiabilities.append((model_info, value))
 
         model = self._get_outermost_parent()
         model.constraint_solver(updates)
+
+    def set_differentiability(
+        self, config: dict[ConnectionData, bool] | None = None, /, **kwargs: bool
+    ) -> None:
+        self._set_differentiability(config, True, **kwargs)
 
     def _set_shapes(
         self,
@@ -1387,7 +1460,7 @@ class BaseModel:
         **kwargs: ShapeTemplateType,
     ) -> None:
         # Initialize assigned shapes dictionary to store assigned shapes.
-        assigned_shapes: dict[str, ShapeTemplateType] = {}
+        assigned_shapes: list[tuple[tuple[BaseModel, int], ShapeTemplateType]] = []
         updates = Updates()
         if shapes is None:
             shapes = {}
@@ -1406,7 +1479,11 @@ class BaseModel:
             assert conn is not None
             inner_key = conn.key
             shape_nodes[key] = (given_repr.node, inner_key)
-            assigned_shapes[inner_key] = shape
+            # In order to store assigned shapes, we need to store corresponding model
+            # and index of the connection for that model.
+            model_info = self.extract_model_key_index(conn)
+            assigned_shapes.append((model_info, shape))
+
         # Apply updates to the shape nodes.
         for key in chain(shapes, kwargs):
             assert isinstance(key, str | ConnectionData)
@@ -1444,12 +1521,6 @@ class BaseModel:
     ) -> None:  # Initialize assigned shapes dictionary to store assigned shapes.
         if config is None:
             config = {}
-
-        assigned_types: dict[
-            str,
-            type | UnionType | ScalarType | type[Tensor[int | float | bool]],
-        ] = {}
-
         # Get the outermost parent as all the updates will happen here.
         model = self._get_outermost_parent()
         updates = Updates()
@@ -1458,12 +1529,11 @@ class BaseModel:
             metadata = self.conns.extract_metadata(key)
             conn = self.conns.get_con_by_metadata(metadata)
             assert conn is not None
-            inner_key = conn.key
-            assigned_types[inner_key] = key_type
             updates |= metadata.set_type(key_type)
-        if trace:
-            # Store assigned types in the model.
-            self.assigned_types |= assigned_types
+            if trace:
+                # Store assigned types in the model.
+                model_info = self.extract_model_key_index(conn)
+                self.assigned_types.append((model_info, key_type))
         # Run the constraints for updating affected connections.
         model.constraint_solver(updates)
 

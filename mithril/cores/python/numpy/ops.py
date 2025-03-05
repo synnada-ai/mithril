@@ -629,7 +629,7 @@ def scaled_dot_product_attention(
         )
 
     L, S = query.shape[-2], key.shape[-2]
-    scale_factor = 1 / np.sqrt(query.shape[-1]) if scale is None else scale
+    scale_factor = 1 / math.sqrt(query.shape[-1]) if scale is None else scale
     write_into_cache(cache, "scale_factor", scale_factor)
     attn_bias = np.zeros((L, S), dtype=query.dtype)
     if is_causal:
