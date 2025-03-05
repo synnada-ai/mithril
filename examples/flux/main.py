@@ -19,7 +19,8 @@ from dataclasses import dataclass
 import numpy as np
 from PIL import Image
 from sampling import denoise, get_noise, get_schedule, prepare, rearrange, unpack
-from util import configs, load_clip, load_decoder, load_flow_model, load_t5
+from t5 import download_t5_encoder_weights, load_t5_encoder, load_t5_tokenizer
+from util import configs, load_clip, load_decoder, load_flow_model
 
 import mithril as ml
 
@@ -76,9 +77,11 @@ def run(
     backend = ml.TorchBackend(device="cuda", dtype=ml.bfloat16)
     backend.seed = seed
 
-    t5 = load_t5(
-        device=device, max_length=256 if model_name == "flux-schnell" else 512
-    ).to("cuda")
+    t5 = load_t5_encoder(backend)
+    t5_tokenizer = load_t5_tokenizer(backend, pad=False)
+    t5_np_weights = download_t5_encoder_weights(backend)
+    t5_weights = {key: backend.array(value) for key, value in t5_np_weights.items()}
+
     clip = load_clip(device=device).to("cuda")
 
     flow_model, flow_params = load_flow_model(model_name, backend=backend)
@@ -94,7 +97,9 @@ def run(
     )
 
     noise = get_noise(1, opts.height, opts.width, backend)
-    inp = prepare(t5, clip, noise, prompt=opts.prompt, backend=backend)
+    inp = prepare(
+        t5, t5_weights, t5_tokenizer, clip, noise, prompt=opts.prompt, backend=backend
+    )
 
     timesteps = get_schedule(
         opts.num_steps,
@@ -112,7 +117,7 @@ def run(
     x = x.clamp(-1, 1)  # TODO: add to backend
     x = rearrange(x[0], "c h w -> h w c")
     img = Image.fromarray(np.array(127.5 * (x.cpu() + 1.0)).astype(np.uint8))
-    img.save("qwe.png")
+    img.save("img.png")
 
 
 if __name__ == "__main__":
