@@ -15,15 +15,24 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v2
+        with:
+          submodules: 'recursive'
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v2
         with:
           python-version: ${{ matrix.python-version }}
       - name: Make compile script executable
-        run: chmod +x ./mithril/cores/c/compile.sh
+        run: |
+          chmod +x ./mithril/cores/c/raw_c/compile.sh
+          chmod +x ./mithril/cores/c/ggml/compile.sh
+          chmod +x ./mithril/cores/c/ggml/build_ggml.sh
       - name: Compile C code
         run: |
-          pushd ./mithril/cores/c
+          pushd ./mithril/cores/c/raw_c
+          ./compile.sh
+          popd
+          pushd ./mithril/cores/c/ggml
+          ./build_ggml.sh
           ./compile.sh
           popd
       - name: Install Python dependencies

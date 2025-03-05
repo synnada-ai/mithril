@@ -46,6 +46,7 @@ __all__ = [
     "MlxBackend",
     "TorchBackend",
     "CBackend",
+    "GGMLBackend",
     "NumpyBackend",
     "compile",
     "DataType",
@@ -91,6 +92,11 @@ try:
     from .backends.with_manualgrad.c_backend.backend import CBackend
 except Exception:
     CBackend = UnavailableBackend  # type: ignore
+
+try:
+    from .backends.with_manualgrad.ggml_backend.backend import GGMLBackend
+except ImportError:
+    GGMLBackend = UnavailableBackend  # type: ignore
 
 try:
     from .backends.with_manualgrad.numpy_backend.backend import NumpyBackend

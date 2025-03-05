@@ -1,3 +1,4 @@
+exclude: '^mithril/cores/c/ggml/ggml/'
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     # Ruff version.
@@ -15,12 +16,14 @@ repos:
         name: license checker
         entry: python3 license_checker.py
         language: python
+        args: ["--exclude=mithril/cores/c/ggml/ggml"]
       - id: mypy
         name: mypy
         entry: mypy .
         language: system
         always_run: true
         pass_filenames: false
+        args: ["--exclude=mithril/cores/c/ggml/ggml"]
 
   # - repo: https://github.com/pre-commit/mirrors-mypy
   #   rev: v1.12.0
