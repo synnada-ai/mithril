@@ -185,7 +185,7 @@ def test_randomized(case: str) -> None:
 
             trainble_keys: set[str] = set()
             for input_key in model.input_keys:
-                if input_key in ["threshold", "cutoff"]:
+                if input_key in ["threshold", "quantile"]:
                     continue
 
                 if (

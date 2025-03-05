@@ -24,10 +24,10 @@ from mithril.framework.common import (
     Uniadic,
     Updates,
 )
-from mithril.framework.constraints import bcast, general_tensor_type_constraint
-from mithril.framework.logical.base import BaseKey
+from mithril.framework.constraints import bcast, general_type_constraint
 from mithril.models import (
     Add,
+    BaseKey,
     Buffer,
     Connection,
     ConnectionType,
@@ -121,9 +121,7 @@ class Model2(PrimitiveModel):
             output=BaseKey(shape=[("Var2", ...)], type=Tensor),
         )
         self._add_constraint(fn=dummy_constraint, keys=["output", "input"])
-        self._add_constraint(
-            fn=general_tensor_type_constraint, keys=["output", "input"]
-        )
+        self._add_constraint(fn=general_type_constraint, keys=["output", "input"])
 
 
 class Model3(PrimitiveModel):

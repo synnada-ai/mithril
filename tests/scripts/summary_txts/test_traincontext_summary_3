@@ -14,10 +14,10 @@ Add_1            |   Inputs  : left   :                [(V4, ...)] : bool | floa
                  |   --------------------------------------------------------------------------------
                  |   Outputs : output : [       u1, u2, (V6, ...)] : bool | float | int : 'output2'  
 -----------------------------------------------------------------------------------------------------
-MatrixMultiply   |   Inputs  : left   : [(V7, ...), u3,        u4] : bool | float | int : '$input'   
-                 |             right  : [(V8, ...), u4,        u5] : bool | float | int : '$right_1' 
+MatrixMultiply   |   Inputs  : left   : [(V7, ...), u3,        u4] : float | int        : '$input'   
+                 |             right  : [(V8, ...), u4,        u5] : float | int        : '$right_1' 
                  |   --------------------------------------------------------------------------------
-                 |   Outputs : output : [(V9, ...), u3,        u5] : bool | float | int : 'output3'  
+                 |   Outputs : output : [(V9, ...), u3,        u5] : float | int        : 'output3'  
 -----------------------------------------------------------------------------------------------------
 
 
@@ -30,10 +30,10 @@ SquaredError  |  input       | ['(V3, ...)']             | Model.output1        
 -----------------------------------------------------------------------------------------------------------------
 CrossEntropy  |  input       | ['u1', 'u2', '(V6, ...)'] | Model.output2                 |  Sum()         |  None
               |  target      | ['u1', '(V6, ...)']       | 'target2'                     |                |      
-              |  categorical | --                        | True                          |                |      
-              |  cutoff      | []                        | Constant.MIN_POSITIVE_NORMAL  |                |      
-              |  robust      | --                        | False                         |                |      
               |  weights     | --                        | False                         |                |      
+              |  categorical | --                        | True                          |                |      
+              |  threshold   | []                        | Constant.MIN_POSITIVE_NORMAL  |                |      
+              |  robust      | --                        | False                         |                |      
 -----------------------------------------------------------------------------------------------------------------
 Add           |  left        | ['(V9, ...)', 'u3', 'u5'] | Model.output3                 |  Min()         |  None
               |  right       | ['(V12, ...)']            | 'target3'                     |                |      
