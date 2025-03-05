@@ -180,7 +180,7 @@ def _serialize_assigned_info(
         if get_origin(typ) is Tensor:
             types_info.append((key_info, "tensor"))
         elif typ is not ToBeDetermined:
-            types_info.append((key_info, str(typ)))
+            types_info.append((key_info, str(typ.__name__)))  # type: ignore
 
     # Differentiability info.
     for (m, key_index), status in model.assigned_differentiabilities.items():
