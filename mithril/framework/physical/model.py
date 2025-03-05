@@ -20,7 +20,7 @@ import warnings
 from collections.abc import Mapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, overload
 
 from ...backends.backend import Backend, ParallelBackend
 from ...types import DataType, GenericDataType
@@ -36,6 +36,7 @@ from ..common import (
     MainValueType,
     ParamsEvalType,
     ShapeResultType,
+    StateValue,
     Table,
     Tensor,
     UniadicRecord,
@@ -115,18 +116,12 @@ class PhysicalModel(GenericDataType[DataType]):
             set(backend.primitive_function_dict.keys()),
             short_namings=use_short_namings,
         )
-        self.external_key_mapping = flat_model.external_mapping
+        self.external_key_mapping: dict[str, str] = flat_model.external_mapping
 
         # NOTE: Reconsider updating logical dag in order.
         self._input_keys: set[str] = {
             flat_model.external_mapping[key] for key in model.input_keys
         }
-        self.state_keys = {}
-        for out_con, (in_con, val) in flat_model.state_keys.items():
-            in_key = flat_model.assigned_edges[in_con.metadata]
-            out_key = flat_model.assigned_edges[out_con.metadata]
-            self._input_keys.add(in_key)
-            self.state_keys[out_key] = (in_key, val)
 
         # Add canonical output mapping to key_mappings if necessary
         # TODO: This is a temporary solution, a better way will be implemented
@@ -142,6 +137,15 @@ class PhysicalModel(GenericDataType[DataType]):
                 assert key_origin is not None
                 self._output_keys.add(key_origin)
                 flat_model.rename_key(current_name, key_origin)
+
+        self.state_keys: dict[tuple[str, bool], tuple[str, Any]] = {}
+        for out_con, (in_con, val) in flat_model.state_keys.items():
+            in_key = flat_model.assigned_edges[in_con.metadata].name
+            out_key = flat_model.assigned_edges[out_con.metadata].name
+            self._input_keys.add(in_key)
+            is_exposed_output = out_key in self._output_keys
+            self._output_keys.add(out_key)
+            self.state_keys[(out_key, is_exposed_output)] = (in_key, val)
 
         # Map given logical model key namings into physical key naming space.
         _constant_keys = {
@@ -256,6 +260,17 @@ class PhysicalModel(GenericDataType[DataType]):
             data_keys=_data_keys,
             shapes=_shapes,
         )
+
+        for _state_key, (in_key, val) in self.state_keys.items():
+            if isinstance(val, StateValue):
+                _data = self.flat_graph.all_data[in_key]
+                assert _data.shape is not None
+                _shp = _data.shape.get_shapes()
+                assert isinstance(_shp, list)
+                if val is StateValue.ZEROS:
+                    self.state_keys[_state_key] = (in_key, self.backend.zeros(*_shp))
+                elif val is StateValue.ONES:
+                    self.state_keys[_state_key] = (in_key, self.backend.ones(*_shp))
 
         # If shape_names is True, all data (not params) provided in
         # runtime must be manually named in logical model.
@@ -930,23 +945,38 @@ class PhysicalModel(GenericDataType[DataType]):
                 p_key_mappings[key] = key_mappings.get(key, key)
 
         return primitive, p_key_mappings
-    
+
     @property
-    def initial_state_dict(self) -> dict[str, Any]:
+    def initial_state_dict(self) -> DataEvalType[DataType]:
         return {key: value for key, value in self.state_keys.values()}
+
+    @overload
+    def evaluate(
+        self,
+        params: ParamsEvalType[DataType] | None = None,
+        data: DataEvalType[DataType] | None = None,
+    ) -> DataEvalType[DataType]: ...
+
+    @overload
+    def evaluate(
+        self,
+        params: ParamsEvalType[DataType] | None = None,
+        data: DataEvalType[DataType] | None = None,
+        state: DataEvalType[DataType] | None = None,
+    ) -> tuple[DataEvalType[DataType], DataEvalType[DataType]]: ...
 
     def evaluate(
         self,
         params: ParamsEvalType[DataType] | None = None,
-        state: ParamsEvalType[DataType] | None = None,
         data: DataEvalType[DataType] | None = None,
-    ) -> DataEvalType[DataType]:
+        state: DataEvalType[DataType] | None = None,
+    ) -> DataEvalType[DataType] | tuple[DataEvalType[DataType], DataEvalType[DataType]]:
         # Inject seed values.
         if state is None:
             state = {}
         if data is None:
             data = {}
-        data = data | state | self._random_seeds
+        data = data | state | self._random_seeds  # type: ignore
         self._step_random_seed_values()
         if (
             isinstance(self.backend, ParallelBackend)
@@ -957,10 +987,11 @@ class PhysicalModel(GenericDataType[DataType]):
             outputs = self._generated_eval_fn(params, data)
 
         state_outputs = {}
-        for out_key, (in_key, val) in self.state_keys.items():
-            # TODO: we may need to pop according to output condition (exposed or not).
-            state_outputs[in_key] = outputs[out_key]
-            # state_outputs[in_key] = outputs.pop(out_key)
+        for (out_key, is_exposed), (in_key, _) in self.state_keys.items():
+            if is_exposed:
+                state_outputs[in_key] = outputs[out_key]
+            else:
+                state_outputs[in_key] = outputs.pop(out_key)
         if len(state_outputs) == 0:
             return outputs
         return outputs, state_outputs
@@ -1059,16 +1090,10 @@ class FlatModel:
         self.model = model
         self.short_namings = short_namings
         self.state_keys = model.state_connections
-        # self._state_keys = {}
-        # self.state_keys = {}
 
         self._name_externals()
         self.generate_keys(model)
         self._rebase_names()
-        # for out_edge, (in_edge, val) in self.state_keys.items():
-        #     out_key = self.assigned_edges[out_edge].name
-        #     in_key = self.assigned_edges[in_edge].name
-        #     self.state_keys[out_key] = (in_key, val)
 
     @property
     def external_mapping(self) -> dict[str, str]:
@@ -1125,7 +1150,8 @@ class FlatModel:
             }
 
     def _name_externals(self) -> None:
-        external_keys, autogenerated_conns = [], []
+        external_keys: list[ConnectionData] = []
+        autogenerated_conns: list[ConnectionData] = []
         conns = self.model.conns
         edges = set()
         for con in list(conns.input_connections) + list(conns.output_connections):
@@ -1147,7 +1173,7 @@ class FlatModel:
         for conn in external_keys:
             base_name_str = conn.key
             if conn.model is not self.model:
-                # TODO: we need to set base_name_str to state 
+                # TODO: we need to set base_name_str to state
                 # connections after they are copied.
                 key_count += 1
                 base_name_str = "$" + str(key_count)
@@ -1172,9 +1198,7 @@ class FlatModel:
                 self.used_edges.add(conn.metadata)
                 self.external_edges[conn.metadata] = base_name_str
 
-    def _count_key_origins(
-        self, external_keys: list[ConnectionData]
-    ) -> dict[str, int]:
+    def _count_key_origins(self, external_keys: list[ConnectionData]) -> dict[str, int]:
         """
         Count the origins of the keys.
 
@@ -1281,13 +1305,6 @@ class FlatModel:
         self, model: Model, mappings: dict[str, str], parent_name: str
     ) -> None:
         submodel_names = model.get_unique_submodel_names()
-        # for out_con, (in_con, val) in model.state_connections.items():
-        #     self.external_edges[out_con.metadata] = out_con.key
-        #     self.used_edges.add(out_con.metadata)
-
-        #     self.external_edges[in_con.metadata] = in_con.key
-        #     self.used_edges.add(in_con.metadata)
-        #     self._state_keys[out_con.metadata] = (in_con.metadata, val)
 
         for m, value in model.dag.items():
             submodel_name = submodel_names[m].lower()

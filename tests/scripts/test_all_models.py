@@ -30,6 +30,7 @@ from mithril.models import (
     Arange,
     ArgMax,
     ArgMin,
+    BatchNorm2D,
     BroadcastTo,
     Buffer,
     Cast,
@@ -3708,6 +3709,157 @@ def test_groupnorm_4():
     weight_t = torch.tensor(weight, dtype=torch.float64).squeeze()
     bias_t = torch.tensor(bias, dtype=torch.float64).squeeze()
     reference_out = torch.nn.functional.group_norm(input_t, 3, weight_t, bias_t)
+    reference_outputs = {"output": reference_out.numpy()}
+
+    compile_and_compare(
+        model=model,
+        compile_kwargs={
+            "constant_keys": {},
+            "trainable_keys": {"input"},
+        },
+        data={},
+        params=inputs,
+        output_gradients={},
+        reference_outputs=reference_outputs,
+        reference_gradients=None,
+        assert_shapes=False,
+        tolerances=1e-5,
+    )
+
+
+def test_batchnorm_1():
+    model = BatchNorm2D(None, False, False, inference=True)
+    input = np.random.randn(4, 8, 16, 32)
+    mean = np.abs(np.random.randn(8))
+    var = np.abs(np.random.randn(8))
+
+    inputs = {"input": input, "running_mean": mean, "running_var": var}
+    reference_out = torch.nn.functional.batch_norm(
+        torch.tensor(input, dtype=torch.float64),
+        torch.tensor(mean, dtype=torch.float64),
+        torch.tensor(var, dtype=torch.float64),
+    )
+    reference_outputs = {"output": reference_out.numpy()}
+
+    compile_and_compare(
+        model=model,
+        compile_kwargs={"constant_keys": {}, "trainable_keys": {"input"}},
+        data={},
+        params=inputs,
+        output_gradients={},
+        reference_outputs=reference_outputs,
+        reference_gradients=None,
+        assert_shapes=False,
+        tolerances=1e-5,
+    )
+
+
+def test_batchnorm_2():
+    model = BatchNorm2D(inference=True)
+
+    input = np.random.randn(1, 16, 10, 1)
+    weight = np.random.randn(1, 16, 1, 1)
+    bias = np.random.randn(1, 16, 1, 1)
+    running_mean = np.abs(np.random.randn(16))
+    running_var = np.abs(np.random.randn(16))
+
+    inputs = {
+        "input": input,
+        "weight": weight,
+        "bias": bias,
+        "running_mean": running_mean,
+        "running_var": running_var,
+    }
+    input_t = torch.tensor(input, dtype=torch.float64)
+    weight_t = torch.tensor(weight, dtype=torch.float64).squeeze()
+    bias_t = torch.tensor(bias, dtype=torch.float64).squeeze()
+    running_mean_t = torch.tensor(running_mean, dtype=torch.float64)
+    running_var_t = torch.tensor(running_var, dtype=torch.float64)
+    reference_out = torch.nn.functional.batch_norm(
+        input_t, running_mean_t, running_var_t, weight_t, bias_t
+    )
+    reference_outputs = {"output": reference_out.numpy()}
+
+    compile_and_compare(
+        model=model,
+        compile_kwargs={
+            "constant_keys": {},
+            "trainable_keys": {"input"},
+        },
+        data={},
+        params=inputs,
+        output_gradients={},
+        reference_outputs=reference_outputs,
+        reference_gradients=None,
+        assert_shapes=False,
+        tolerances=1e-5,
+    )
+
+
+def test_batchnorm_3():
+    model = BatchNorm2D()
+    input = np.random.randn(4, 8, 16, 4)
+    weight = np.random.randn(1, 8, 1, 1)
+    bias = np.random.randn(1, 8, 1, 1)
+    running_mean = np.abs(np.random.randn(8))
+    running_var = np.abs(np.random.randn(8))
+
+    inputs = {
+        "input": input,
+        "weight": weight,
+        "bias": bias,
+        "running_mean": running_mean,
+        "running_var": running_var,
+    }
+    input_t = torch.tensor(input, dtype=torch.float64)
+    weight_t = torch.tensor(weight, dtype=torch.float64).squeeze()
+    bias_t = torch.tensor(bias, dtype=torch.float64).squeeze()
+    running_mean_t = torch.tensor(running_mean, dtype=torch.float64)
+    running_var_t = torch.tensor(running_var, dtype=torch.float64)
+    reference_out = torch.nn.functional.batch_norm(
+        input_t, running_mean_t, running_var_t, weight_t, bias_t
+    )
+    reference_outputs = {"output": reference_out.numpy()}
+
+    compile_and_compare(
+        model=model,
+        compile_kwargs={
+            "constant_keys": {},
+            "trainable_keys": {"input"},
+        },
+        data={},
+        params=inputs,
+        output_gradients={},
+        reference_outputs=reference_outputs,
+        reference_gradients=None,
+        assert_shapes=False,
+        tolerances=1e-5,
+    )
+
+
+def test_batchnorm_4():
+    model = BatchNorm2D()
+    input = np.random.rand(3, 12, 16, 32)
+    weight = np.random.rand(1, 12, 1, 1)
+    bias = np.random.rand(1, 12, 1, 1)
+    running_mean = np.abs(np.random.randn(12))
+    running_var = np.abs(np.random.randn(12))
+
+    inputs = {
+        "input": input,
+        "weight": weight,
+        "bias": bias,
+        "running_mean": running_mean,
+        "running_var": running_var,
+    }
+    input_t = torch.tensor(input, dtype=torch.float64)
+    weight_t = torch.tensor(weight, dtype=torch.float64).squeeze()
+    bias_t = torch.tensor(bias, dtype=torch.float64).squeeze()
+    running_mean_t = torch.tensor(running_mean, dtype=torch.float64)
+    running_var_t = torch.tensor(running_var, dtype=torch.float64)
+    reference_out = torch.nn.functional.batch_norm(
+        input_t, running_mean_t, running_var_t, weight_t, bias_t
+    )
     reference_outputs = {"output": reference_out.numpy()}
 
     compile_and_compare(

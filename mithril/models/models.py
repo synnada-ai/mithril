@@ -25,6 +25,7 @@ from ..framework.common import (
     TBD,
     MainValueType,
     ShapeTemplateType,
+    StateValue,
     Tensor,
     ToBeDetermined,
 )
@@ -105,6 +106,7 @@ __all__ = [
     "Layer",
     "LayerNorm",
     "GroupNorm",
+    "BatchNorm2D",
     "L1",
     "L2",
     "QuadraticFormRegularizer",
@@ -820,6 +822,93 @@ class GroupNorm(Model):
             kwargs["bias"] = bias
 
         return super().__call__(**kwargs)
+
+
+class BatchNorm2D(Model):
+    input: Connection
+    output: Connection
+
+    def __init__(
+        self,
+        num_features: int | None = None,
+        use_scale: bool = True,
+        use_bias: bool = True,
+        eps: float = 1e-5,
+        momentum: float | ToBeDetermined = 0.1,
+        inference: bool = True,
+        *,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        weight: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        bias: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name)
+
+        # Assumed input shape is [N, C, H, W]
+        input_key = IOKey(
+            name="input", value=input, shape=["N", num_features, "H", "W"]
+        )
+        shp = input_key.shape
+        size = shp[0] * shp[2] * shp[3]
+
+        mean = input_key.mean(axis=(0, 2, 3), keepdim=True)  # Shape: [1, C, 1, 1]
+        var = input_key.var(axis=(0, 2, 3), keepdim=True)  # Shape: [1, C, 1, 1]
+
+        running_mean = IOKey(name="running_mean")
+        running_var = IOKey(name="running_var")
+
+        if inference:
+            norm = (input_key - running_mean.reshape((1, shp[1], 1, 1))) / (
+                running_var.reshape((1, shp[1], 1, 1)) + eps
+            ).sqrt()
+            # Compute mean and variance over the spatial dimensions
+        else:
+            m_key = IOKey(name="momentum", value=momentum)
+            running_mean_out = (1 - m_key) * running_mean + m_key * mean.reshape(
+                (mean.shape[1],)
+            )
+            running_var_out = (1 - m_key) * running_var + m_key * (
+                var * (size / (size - 1))
+            ).reshape((mean.shape[1],))
+            # NOTE: multiplication (size / (size - 1) is added to make the
+            # running_variance similar to the BatchNorm2d module in PyTorch
+
+            self |= Buffer()(running_mean_out, "running_mean_out")
+            self |= Buffer()(running_var_out, "running_var_out")
+            self.bind_state_input(running_mean, "running_mean_out", StateValue.ZEROS)
+            self.bind_state_input(running_var, "running_var_out", StateValue.ONES)
+
+            # Normalize the input
+            norm = (input_key - mean) / (var + eps).sqrt()
+
+        self |= Buffer()(input=norm)
+
+        if use_scale:
+            weight_key = IOKey(
+                name="weight", type=Tensor[float], value=weight, differentiable=True
+            )
+            mult = Multiply()
+            self |= mult(left=self.cout, right=weight_key)
+
+        if use_bias:
+            bias_key = IOKey(
+                name="bias", type=Tensor[float], value=bias, differentiable=True
+            )
+            add = Add()
+            self |= add(left=self.cout, right=bias_key)
+
+        self |= Buffer()(input=self.cout, output=IOKey(name="output"))
+
+        _num_features: str | int | None = num_features
+        if _num_features is None:
+            _num_features = "num_features"
+        self.set_shapes(
+            input=["N", _num_features, "H", "W"],
+            running_mean=[_num_features],
+            running_var=[_num_features],
+        )
+        self.set_cin("input", safe=False)
+        self._freeze()
 
 
 class L1(Model):

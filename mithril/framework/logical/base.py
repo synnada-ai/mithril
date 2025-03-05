@@ -37,6 +37,7 @@ from ..common import (
     ShapeNode,
     ShapeTemplateType,
     ShapeType,
+    StateValue,
     Tensor,
     ToBeDetermined,
     UniadicRecord,
@@ -51,6 +52,9 @@ from ..common import (
 from ..constraints import constraint_type_map
 
 __all__ = ["BaseModel", "BaseKey", "ConnectionData", "ConnectionDataType"]
+
+
+StateValueType = StateValue | MainValueInstance | NullConnection
 
 
 class ConnectionData:
@@ -210,23 +214,6 @@ class Connections:
         self.connections_dict: dict[IOHyperEdge, set[Connections]] = {}
         self.cins: set[ConnectionData] = set()
         self.couts: set[ConnectionData] = set()
-    #     self._state_connections: dict[ConnectionData, ConnectionData] = {}
-    #     self._state_default_values: dict[ConnectionData, MainValueInstance | NullConnection] = {}
-
-    # def set_state_keys(self, input: ConnectionData, output: ConnectionData, default_value: MainValueInstance | NullConnection = NOT_GIVEN) -> None:
-    #     self.set_connection_type(input, KeyType.LATENT_INPUT)
-    #     if self.get_type(output) == KeyType.OUTPUT:
-    #         self.set_connection_type(output, KeyType.LATENT_OUTPUT)
-    #     # self._state_connections[output] = input
-    #     # self._state_default_values[input] = default_value
-
-    # @property
-    # def state_inputs(self) -> ValuesView[ConnectionData]:
-    #     return self._state_connections.values()
-
-    # @property
-    # def state_outputs(self) -> KeysView[ConnectionData]:
-    #     return self._state_connections.keys()
 
     @property
     def input_keys(self) -> KeysView[str]:
@@ -416,7 +403,9 @@ class BaseModel:
         self.safe_shapes: dict[str, ShapeTemplateType] = {}
         self.is_frozen = False
         self.inter_key_count = 0
-        self.state_connections = {}
+        self.state_connections: dict[
+            ConnectionData, tuple[ConnectionData, StateValueType]
+        ] = {}
 
     @property
     def formula_key(self) -> str | None:
@@ -462,20 +451,40 @@ class BaseModel:
                 self.conns.set_connection_type(conn_data, new_type)
                 connections.append(conn_data)
         self.dependency_map.update_globals(OrderedSet(connections))
-    
-    
-    def bind_state_input(self, input: str, output: str, default_value: MainValueInstance | NullConnection = NOT_GIVEN) -> None:
+
+    def bind_state_input(
+        self,
+        input: ConnectionData | str,
+        output: ConnectionData | str,
+        default_value: StateValueType = NOT_GIVEN,
+    ) -> None:
         # TODO: raise if frozen model's bind_state_input is called?
-        in_con = self.conns.get_connection(input)
-        out_con = self.conns.get_connection(output)
-        assert in_con is not None, f"Connection '{input}' is not found!"
-        assert out_con is not None, f"Connection '{output}' is not found!"
+        # TODO: match shapes and types of input and output.
+        # Get connections.
+        in_con = self.conns.get_extracted_connection(input)
+        out_con = self.conns.get_extracted_connection(output)
+
+        # Set connection types to latent.
         self.conns.set_connection_type(in_con, KeyType.LATENT_INPUT)
+        self.conns.couts.discard(out_con)
         if self.conns.get_type(out_con) == KeyType.OUTPUT:
             self.conns.set_connection_type(out_con, KeyType.LATENT_OUTPUT)
-        # TODO: remove self.state_connections.
-        self.state_connections[out_con] = (in_con, default_value)
+
+        updates = Updates()
+        # Set differentiability of input connection to False.
         self.set_differentiability({in_con: False})
+        if in_con.metadata.is_tensor:
+            # Merge shapes if connections are Tensors.
+            assert in_con.metadata.shape is not None
+            assert out_con.metadata.shape is not None
+            updates |= in_con.metadata.shape.merge(out_con.metadata.shape)
+        # Merge types.
+        updates |= in_con.metadata.set_type(out_con.metadata._type)
+        updates |= out_con.metadata.set_type(in_con.metadata._type)
+        self.constraint_solver(updates)
+
+        # Save state connections.
+        self.state_connections[out_con] = (in_con, default_value)
 
     def _check_multi_write(
         self,
