@@ -37,6 +37,7 @@ from ..common import (
     ShapeNode,
     ShapeTemplateType,
     ShapeType,
+    StateValue,
     Tensor,
     ToBeDetermined,
     UniadicRecord,
@@ -51,6 +52,9 @@ from ..common import (
 from ..constraints import constraint_type_map
 
 __all__ = ["BaseModel", "BaseKey", "ConnectionData", "ConnectionDataType"]
+
+
+StateValueType = StateValue | MainValueInstance | NullConnection
 
 
 class ConnectionData:
@@ -399,6 +403,9 @@ class BaseModel:
         self.safe_shapes: dict[str, ShapeTemplateType] = {}
         self.is_frozen = False
         self.inter_key_count = 0
+        self.state_connections: dict[
+            ConnectionData, tuple[ConnectionData, StateValueType]
+        ] = {}
 
     @property
     def formula_key(self) -> str | None:
@@ -444,6 +451,45 @@ class BaseModel:
                 self.conns.set_connection_type(conn_data, new_type)
                 connections.append(conn_data)
         self.dependency_map.update_globals(OrderedSet(connections))
+
+    def bind_state_input(
+        self,
+        input: ConnectionData | str,
+        output: ConnectionData | str,
+        default_value: StateValueType = NOT_GIVEN,
+    ) -> None:
+        if self.is_frozen:
+            raise AttributeError("Frozen model's bind_state_input is not allowed!")
+        # Get connections.
+        in_con = self.conns.get_extracted_connection(input)
+        out_con = self.conns.get_extracted_connection(output)
+        for _out, (_in, _) in self.state_connections.items():
+            if _in.metadata is in_con.metadata or _out.metadata is out_con.metadata:
+                raise KeyError("Binded connections could not be binded again!")
+
+        # Set connection types to latent.
+        self.conns.set_connection_type(in_con, KeyType.LATENT_INPUT)
+        self.conns.couts.discard(out_con)
+        if self.conns.get_type(out_con) == KeyType.OUTPUT:
+            self.conns.set_connection_type(out_con, KeyType.LATENT_OUTPUT)
+
+        updates = Updates()
+        # Set differentiability of input connection to False.
+        self.set_differentiability({in_con: False})
+        if in_con.metadata.is_tensor:
+            # Merge shapes if connections are Tensors.
+            assert isinstance(in_con.metadata._value, Tensor)
+            assert isinstance(out_con.metadata._value, Tensor)
+            updates |= in_con.metadata._value.match_shapes(
+                out_con.metadata._value.shape
+            )
+        # Merge types.
+        updates |= in_con.metadata.set_type(out_con.metadata._type)
+        updates |= out_con.metadata.set_type(in_con.metadata._type)
+        self.constraint_solver(updates)
+
+        # Save state connections.
+        self.state_connections[out_con] = (in_con, default_value)
 
     def _check_multi_write(
         self,
@@ -811,6 +857,7 @@ class BaseModel:
         model._freeze()
 
         updates = Updates()
+        self.state_connections |= model.state_connections
 
         shape_info: dict[str, ShapeTemplateType] = {}
         submodel_dag: dict[str, ConnectionData] = {}

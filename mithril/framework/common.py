@@ -125,6 +125,12 @@ class KeyType(Enum):
     LATENT_OUTPUT = 5
 
 
+class StateValue(Enum):
+    ZEROS = 0
+    ONES = 1
+    # RANDOM = 0 # TODO: Implement random state value
+
+
 type FixedValueType = (
     None
     | int

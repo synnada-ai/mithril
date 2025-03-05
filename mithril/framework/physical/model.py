@@ -20,7 +20,7 @@ import warnings
 from collections.abc import Mapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, overload
 
 from ...backends.backend import Backend, ParallelBackend
 from ...types import DataType, GenericDataType
@@ -36,6 +36,7 @@ from ..common import (
     MainValueType,
     ParamsEvalType,
     ShapeResultType,
+    StateValue,
     Table,
     Tensor,
     UniadicRecord,
@@ -115,7 +116,7 @@ class PhysicalModel(GenericDataType[DataType]):
             set(backend.primitive_function_dict.keys()),
             short_namings=use_short_namings,
         )
-        self.external_key_mapping = flat_model.external_mapping
+        self.external_key_mapping: dict[str, str] = flat_model.external_mapping
 
         # NOTE: Reconsider updating logical dag in order.
         self._input_keys: set[str] = {
@@ -136,6 +137,15 @@ class PhysicalModel(GenericDataType[DataType]):
                 assert key_origin is not None
                 self._output_keys.add(key_origin)
                 flat_model.rename_key(current_name, key_origin)
+
+        self.state_keys: dict[tuple[str, bool], tuple[str, Any]] = {}
+        for out_con, (in_con, val) in flat_model.state_keys.items():
+            in_key = flat_model.assigned_edges[in_con.metadata].name
+            out_key = flat_model.assigned_edges[out_con.metadata].name
+            self._input_keys.add(in_key)
+            is_exposed_output = out_key in self._output_keys
+            self._output_keys.add(out_key)
+            self.state_keys[(out_key, is_exposed_output)] = (in_key, val)
 
         # Map given logical model key namings into physical key naming space.
         _constant_keys = {
@@ -250,6 +260,17 @@ class PhysicalModel(GenericDataType[DataType]):
             data_keys=_data_keys,
             shapes=_shapes,
         )
+
+        for _state_key, (in_key, val) in self.state_keys.items():
+            if isinstance(val, StateValue):
+                _data = self.flat_graph.all_data[in_key]
+                assert _data.shape is not None
+                _shp = _data.shape.get_shapes()
+                assert isinstance(_shp, list)
+                if val is StateValue.ZEROS:
+                    self.state_keys[_state_key] = (in_key, self.backend.zeros(*_shp))
+                elif val is StateValue.ONES:
+                    self.state_keys[_state_key] = (in_key, self.backend.ones(*_shp))
 
         # If shape_names is True, all data (not params) provided in
         # runtime must be manually named in logical model.
@@ -925,33 +946,88 @@ class PhysicalModel(GenericDataType[DataType]):
 
         return primitive, p_key_mappings
 
+    @property
+    def initial_state_dict(self) -> DataEvalType[DataType]:
+        return {key: value for key, value in self.state_keys.values()}
+
+    @overload
     def evaluate(
         self,
         params: ParamsEvalType[DataType] | None = None,
         data: DataEvalType[DataType] | None = None,
-    ) -> DataEvalType[DataType]:
+    ) -> DataEvalType[DataType]: ...
+
+    @overload
+    def evaluate(
+        self,
+        params: ParamsEvalType[DataType] | None = None,
+        data: DataEvalType[DataType] | None = None,
+        state: DataEvalType[DataType] | None = None,
+    ) -> tuple[DataEvalType[DataType], DataEvalType[DataType]]: ...
+
+    def evaluate(
+        self,
+        params: ParamsEvalType[DataType] | None = None,
+        data: DataEvalType[DataType] | None = None,
+        state: DataEvalType[DataType] | None = None,
+    ) -> DataEvalType[DataType] | tuple[DataEvalType[DataType], DataEvalType[DataType]]:
         # Inject seed values.
-        data = (
-            self._random_seeds if data is None else data | self._random_seeds  # type: ignore[operator]
-        )
+        if state is None:
+            state = {}
+        if data is None:
+            data = {}
+        data = data | state | self._random_seeds  # type: ignore
         self._step_random_seed_values()
         if (
             isinstance(self.backend, ParallelBackend)
             and self.backend.get_parallel_manager() is not None
         ):
-            return self.backend._run_callable(params, data, fn_name="eval_fn")
+            outputs = self.backend._run_callable(params, data, fn_name="eval_fn")
         else:
-            return self._generated_eval_fn(params, data)
+            outputs = self._generated_eval_fn(params, data)
+
+        state_outputs = {}
+        for (out_key, is_exposed), (in_key, _) in self.state_keys.items():
+            if is_exposed:
+                state_outputs[in_key] = outputs[out_key]
+            else:
+                state_outputs[in_key] = outputs.pop(out_key)
+        if len(state_outputs) == 0:
+            return outputs
+        return outputs, state_outputs
+
+    @overload
+    def evaluate_gradients(
+        self,
+        params: ParamsEvalType[DataType] | None = None,
+        data: DataEvalType[DataType] | None = None,
+        output_gradients: ParamsEvalType[DataType] | None = None,
+    ) -> ParamsEvalType[DataType]: ...
+
+    @overload
+    def evaluate_gradients(
+        self,
+        params: ParamsEvalType[DataType] | None = None,
+        data: DataEvalType[DataType] | None = None,
+        output_gradients: ParamsEvalType[DataType] | None = None,
+        state: DataEvalType[DataType] | None = None,
+    ) -> tuple[ParamsEvalType[DataType], DataEvalType[DataType]]: ...
 
     def evaluate_gradients(
         self,
         params: ParamsEvalType[DataType] | None = None,
         data: DataEvalType[DataType] | None = None,
         output_gradients: ParamsEvalType[DataType] | None = None,
-    ) -> ParamsEvalType[DataType]:
-        data = (
-            self._random_seeds if data is None else data | self._random_seeds  # type: ignore[operator]
-        )
+        state: DataEvalType[DataType] | None = None,
+    ) -> (
+        ParamsEvalType[DataType]
+        | tuple[ParamsEvalType[DataType], DataEvalType[DataType]]
+    ):
+        if state is None:
+            state = {}
+        if data is None:
+            data = {}
+        data = data | state | self._random_seeds  # type: ignore
         if self.inference:
             raise NotImplementedError(
                 "Inference mode does not support gradients calculation"
@@ -960,21 +1036,60 @@ class PhysicalModel(GenericDataType[DataType]):
             isinstance(self.backend, ParallelBackend)
             and self.backend.get_parallel_manager() is not None
         ):
-            return self.backend._run_callable(
-                params, data, output_gradients, fn_name="eval_grad_fn"
+            outputs, gradients = self.backend._run_callable(
+                params, data, output_gradients, fn_name="eval_all_fn"
             )
         else:
-            return self._generated_compute_gradients_fn(params, data, output_gradients)  # type: ignore
+            outputs, gradients = self._generated_evaluate_all_fn(
+                params, data, output_gradients
+            )  # type: ignore
+
+        state_outputs = {}
+        for (out_key, is_exposed), (in_key, _) in self.state_keys.items():
+            if is_exposed:
+                state_outputs[in_key] = outputs[out_key]
+            else:
+                state_outputs[in_key] = outputs.pop(out_key)
+        if len(state_outputs) == 0:
+            return gradients
+        return gradients, state_outputs
+
+    @overload
+    def evaluate_all(
+        self,
+        params: ParamsEvalType[DataType] | None = None,
+        data: DataEvalType[DataType] | None = None,
+        output_gradients: ParamsEvalType[DataType] | None = None,
+    ) -> tuple[DataEvalType[DataType], ParamsEvalType[DataType]]: ...
+
+    @overload
+    def evaluate_all(
+        self,
+        params: ParamsEvalType[DataType] | None = None,
+        data: DataEvalType[DataType] | None = None,
+        output_gradients: ParamsEvalType[DataType] | None = None,
+        state: DataEvalType[DataType] | None = None,
+    ) -> tuple[
+        ParamsEvalType[DataType], DataEvalType[DataType], DataEvalType[DataType]
+    ]: ...
 
     def evaluate_all(
         self,
         params: ParamsEvalType[DataType] | None = None,
         data: DataEvalType[DataType] | None = None,
         output_gradients: ParamsEvalType[DataType] | None = None,
-    ) -> tuple[DataEvalType[DataType], ParamsEvalType[DataType]]:
-        data = (
-            self._random_seeds if data is None else data | self._random_seeds  # type: ignore[operator]
-        )
+        state: DataEvalType[DataType] | None = None,
+    ) -> (
+        tuple[DataEvalType[DataType], ParamsEvalType[DataType]]
+        | tuple[
+            ParamsEvalType[DataType], DataEvalType[DataType], DataEvalType[DataType]
+        ]
+    ):
+        if state is None:
+            state = {}
+        if data is None:
+            data = {}
+        data = data | state | self._random_seeds  # type: ignore
         if self.inference:
             raise NotImplementedError(
                 "Inferece mode does not support gradients calculation"
@@ -983,11 +1098,22 @@ class PhysicalModel(GenericDataType[DataType]):
             isinstance(self.backend, ParallelBackend)
             and self.backend.get_parallel_manager() is not None
         ):
-            return self.backend._run_callable(
+            outputs, gradients = self.backend._run_callable(
                 params, data, output_gradients, fn_name="eval_all_fn"
             )
         else:
-            return self._generated_evaluate_all_fn(params, data, output_gradients)  # type: ignore
+            outputs, gradients = self._generated_evaluate_all_fn(
+                params, data, output_gradients
+            )  # type: ignore
+        state_outputs = {}
+        for (out_key, is_exposed), (in_key, _) in self.state_keys.items():
+            if is_exposed:
+                state_outputs[in_key] = outputs[out_key]
+            else:
+                state_outputs[in_key] = outputs.pop(out_key)
+        if len(state_outputs) == 0:
+            return outputs, gradients
+        return outputs, gradients, state_outputs
 
 
 @dataclass
@@ -1036,6 +1162,7 @@ class FlatModel:
         self._external_mapping: dict[str, Name] = {}
         self.model = model
         self.short_namings = short_namings
+        self.state_keys = model.state_connections
 
         self._name_externals()
         self.generate_keys(model)
@@ -1096,22 +1223,37 @@ class FlatModel:
             }
 
     def _name_externals(self) -> None:
-        external_keys = list(self.model.conns.input_keys) + list(
-            self.model.conns.output_keys
-        )
-        external_keys_no_named = [key for key in external_keys if key.startswith("$")]
-        external_keys_named = [key for key in external_keys if not key.startswith("$")]
+        external_keys: list[ConnectionData] = []
+        autogenerated_conns: list[ConnectionData] = []
+        conns = self.model.conns
+        edges = set()
+        for con in list(conns.input_connections) + list(conns.output_connections):
+            (external_keys, autogenerated_conns)[con.is_autogenerated].append(con)
+            edges.add(con.metadata)
+        external_keys += autogenerated_conns
 
-        key_origin_counts = self._count_key_origins(
-            external_keys_named, external_keys_no_named
-        )
+        state_inputs = []
+        for out_con, (in_con, _) in self.state_keys.items():
+            if in_con.metadata not in edges:
+                external_keys.append(in_con)
+            if out_con.metadata not in edges:
+                external_keys.append(out_con)
+            # external_keys += [in_con, out_con]
+            state_inputs.append(in_con)
 
-        for key in external_keys_named + external_keys_no_named:
-            conn = self.model.conns.all[key]
+        key_origin_counts = self._count_key_origins(external_keys)
+        key_count = self.model.inter_key_count
+        for conn in external_keys:
             base_name_str = conn.key
+            if conn.model is not self.model:
+                # TODO: we need to set base_name_str to state
+                # connections after they are copied.
+                key_count += 1
+                base_name_str = "$" + str(key_count)
 
             if self.short_namings:
-                if not key.startswith("$"):
+                is_autogen = (True, conn.is_autogenerated)[conn.model is self.model]
+                if not is_autogen:
                     name_str = self._get_unique_name_str(base_name_str)
                     name = self._create_name(name_str, base_name_str)
                 else:
@@ -1125,13 +1267,11 @@ class FlatModel:
                 self._external_mapping[base_name_str] = name
                 self.assigned_edges[conn.metadata] = name
 
-            if key in self.model.input_keys:
+            if conn in self.model.conns.input_connections or conn in state_inputs:
                 self.used_edges.add(conn.metadata)
                 self.external_edges[conn.metadata] = base_name_str
 
-    def _count_key_origins(
-        self, external_keys_named: list[str], external_keys_no_named: list[str]
-    ) -> dict[str, int]:
+    def _count_key_origins(self, external_keys: list[ConnectionData]) -> dict[str, int]:
         """
         Count the origins of the keys.
 
@@ -1143,8 +1283,7 @@ class FlatModel:
             dict[str, int]: The count of key origins.
         """
         key_origin_counts: dict[str, int] = {}
-        for key in external_keys_named + external_keys_no_named:
-            conn = self.model.conns.all[key]
+        for conn in external_keys:
             key_origin = conn.metadata.key_origin
             assert key_origin is not None
             key_origin_counts.setdefault(key_origin, 0)
