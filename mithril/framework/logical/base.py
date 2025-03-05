@@ -374,16 +374,12 @@ class BaseModel:
         self._formula_key: str | None = formula_key
         # TODO: maybe set it only to Operator / Model.
         self.parent: BaseModel | None = None
-        self.assigned_shapes: list[
-            list[tuple[tuple[BaseModel, int], ShapeTemplateType]]
-        ] = []
-        self.assigned_types: list[
-            tuple[
-                tuple[BaseModel, int],
-                type | UnionType | ScalarType | type[Tensor[int | float | bool]],
-            ]
-        ] = []
-        self.assigned_differentiabilities: list[tuple[tuple[BaseModel, int], bool]] = []
+        self.assigned_shapes: list[dict[tuple[BaseModel, int], ShapeTemplateType]] = []
+        self.assigned_types: dict[
+            tuple[BaseModel, int],
+            type | UnionType | ScalarType | type[Tensor[int | float | bool]],
+        ] = {}
+        self.assigned_differentiabilities: dict[tuple[BaseModel, int], bool] = {}
         self.assigned_constraints: list[AssignedConstraintType] = []
         self.conns = Connections()
         self.frozen_attributes: list[str] = []
@@ -1442,7 +1438,7 @@ class BaseModel:
 
             if trace:
                 model_info = self.extract_model_key_index(conn_data)
-                self.assigned_differentiabilities.append((model_info, value))
+                self.assigned_differentiabilities[model_info] = value
 
         model = self._get_outermost_parent()
         model.constraint_solver(updates)
@@ -1460,7 +1456,7 @@ class BaseModel:
         **kwargs: ShapeTemplateType,
     ) -> None:
         # Initialize assigned shapes dictionary to store assigned shapes.
-        assigned_shapes: list[tuple[tuple[BaseModel, int], ShapeTemplateType]] = []
+        assigned_shapes: dict[tuple[BaseModel, int], ShapeTemplateType] = {}
         updates = Updates()
         if shapes is None:
             shapes = {}
@@ -1482,7 +1478,7 @@ class BaseModel:
             # In order to store assigned shapes, we need to store corresponding model
             # and index of the connection for that model.
             model_info = self.extract_model_key_index(conn)
-            assigned_shapes.append((model_info, shape))
+            assigned_shapes[model_info] = shape
 
         # Apply updates to the shape nodes.
         for key in chain(shapes, kwargs):
@@ -1533,7 +1529,7 @@ class BaseModel:
             if trace:
                 # Store assigned types in the model.
                 model_info = self.extract_model_key_index(conn)
-                self.assigned_types.append((model_info, key_type))
+                self.assigned_types[model_info] = key_type
         # Run the constraints for updating affected connections.
         model.constraint_solver(updates)
 

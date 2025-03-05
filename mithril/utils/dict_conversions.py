@@ -155,11 +155,10 @@ def _serialize_assigned_info(
     differentiability_info: list[tuple[tuple[str, int] | str, bool]] = []
     constraints_info: list[AssignedConstraintType] = []
 
-    # Shapes conversion.
+    # Shapes info.
     for shp_info in model.assigned_shapes:
         info_list: list[tuple[tuple[str, int] | str, ShapeTemplateType]] = []
-        for sub_info in shp_info:
-            (m, key_index), shape_info = sub_info
+        for (m, key_index), shape_info in shp_info.items():
             # Key info.
             key_info = _extract_key_info(model, submodel_dict, (m, key_index))
             # Shape info.
@@ -173,9 +172,8 @@ def _serialize_assigned_info(
             info_list.append((key_info, shape_list))
         shapes_info.append(info_list)
 
-    # Types conversion.
-    for type_info in model.assigned_types:
-        (m, key_index), typ = type_info
+    # Types info.
+    for (m, key_index), typ in model.assigned_types.items():
         # Key info.
         key_info = _extract_key_info(model, submodel_dict, (m, key_index))
         # Combine key info with type info.
@@ -184,9 +182,8 @@ def _serialize_assigned_info(
         elif typ is not ToBeDetermined:
             types_info.append((key_info, str(typ)))
 
-    # Differentiability settings for models and keys.
-    for diff_info in model.assigned_differentiabilities:
-        (m, key_index), status = diff_info
+    # Differentiability info.
+    for (m, key_index), status in model.assigned_differentiabilities.items():
         # Key info.
         key_info = _extract_key_info(model, submodel_dict, (m, key_index))
         # Combine key info with differentiability status.
