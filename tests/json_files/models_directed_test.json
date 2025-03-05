@@ -2256,7 +2256,7 @@
     "test_maxpool1d_1_2d_input": {
         "model": {
             "name": "MaxPool1D",
-            "differentiability_info": {"input": true},
+            "assigned_differentiabilities": [["input", true]],
             "args": {
                 "kernel_size": 2
             }
@@ -2287,7 +2287,7 @@
     "test_maxpool1d_2_2d_input": {
         "model": {
             "name": "MaxPool1D",
-            "differentiability_info": {"input": true},
+            "assigned_differentiabilities": [["input", true]],
             "args": {
                 "kernel_size": 3
             }
@@ -2316,7 +2316,7 @@
     "test_maxpool1d_3_2d_input": {
         "model": {
             "name": "MaxPool1D",
-            "differentiability_info": {"input": true},
+            "assigned_differentiabilities": [["input", true]],
             "args": {
                 "kernel_size": 2,
                 "stride": 1
@@ -2348,7 +2348,7 @@
     "test_maxpool1d_4_2d_input": {
         "model": {
             "name": "MaxPool1D",
-            "differentiability_info": {"input": true},
+            "assigned_differentiabilities": [["input", true]],
             "args": {
                 "kernel_size": 2,
                 "padding": [0,1]
@@ -2681,7 +2681,7 @@
     "test_maxpool2d_1_3d_input": {
         "model": {
             "name": "MaxPool2D",
-            "differentiability_info": {"input": true},
+            "assigned_differentiabilities": [["input", true]],
             "args": {
                 "kernel_size": 2
             },
@@ -2724,7 +2724,7 @@
     "test_maxpool2d_2_3d_input": {
         "model": {
             "name": "MaxPool2D",
-            "differentiability_info": {"input": true},
+            "assigned_differentiabilities": [["input", true]],
             "args": {
                 "kernel_size": 3
             }
@@ -2761,7 +2761,7 @@
     "test_maxpool2d_3_3d_input": {
         "model": {
             "name": "MaxPool2D",
-            "differentiability_info": {"input": true},
+            "assigned_differentiabilities": [["input", true]],
             "args": {
                 "kernel_size": 2,
                 "stride": 1
@@ -2807,7 +2807,7 @@
     "test_maxpool2d_4_3d_input": {
         "model": {
             "name": "MaxPool2D",
-            "differentiability_info": {"input": true},
+            "assigned_differentiabilities": [["input", true]],
             "args": {
                 "kernel_size": 2,
                 "padding": [[1,0],[0,1]]
