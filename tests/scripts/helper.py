@@ -59,17 +59,15 @@ def evaluate_case(
         else:
             is_list = static_keys.get("is_list", False)
             static_keys[key] = convert_to_array(backend, value, is_list)
+
     # Set logical tensor values for trainable keys if and only if
-    # model has any output keys.
-    if model.output_keys:
+    # model has list type inputs and has any output keys.
+    if is_inputs_list and model.output_keys:
         values: dict[str, Tensor[float] | list[Tensor[float]]] = {}
         for key, value in reference_gradients.items():
-            if is_inputs_list:
-                values[key] = [
-                    Tensor[float](differentiable=True) for _ in range(len(value))
-                ]
-            else:
-                values[key] = Tensor[float](differentiable=True)
+            values[key] = [
+                Tensor[float](differentiable=True) for _ in range(len(value))
+            ]
         model.set_values(**values)
 
     models.append(model)

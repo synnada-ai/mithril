@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import pytest
+
 import mithril
 from mithril import JaxBackend
 from mithril.framework.common import Tensor
@@ -96,7 +98,6 @@ def test_set_diff_data_and_param():
 def test_match_tensor_with_value_data_and_param():
     model1 = Multiply()
     model1.set_types(left=Tensor)
-    model1.set_differentiability(left=False)
 
     assert not model1.left.metadata.differentiable
 
@@ -112,23 +113,44 @@ def test_match_tensor_with_value_data_and_param():
     assert model.my_input.metadata.differentiable  # type: ignore
 
 
-def test_match_tensor_with_value_data_and_param_rev():
-    model2 = Multiply()
-    model2.set_types(left=Tensor)
-    model2.set_differentiability(left=True)
-
-    assert model2.left.metadata.differentiable
-
+def test_match_tensor_with_value_data_and_param_error():
     model1 = Multiply()
     model1.set_types(left=Tensor)
     model1.set_differentiability(left=False)
 
     assert not model1.left.metadata.differentiable
 
+    model2 = Multiply()
+    model2.set_types(left=Tensor)
+    model2.set_differentiability(left=True)
+
+    assert model2.left.metadata.differentiable
+
     model = Model()
     model += model1(left="my_input")
-    model += model2(left="my_input")
-    assert model.my_input.metadata.differentiable  # type: ignore
+    with pytest.raises(ValueError) as err_info:
+        model += model2(left="my_input")
+    assert str(err_info.value) == "Differentiability mismatch!"
+
+
+def test_match_tensor_with_value_data_and_param_error_rev():
+    model1 = Multiply()
+    model1.set_types(left=Tensor)
+    model1.set_differentiability(left=True)
+
+    assert model1.left.metadata.differentiable
+
+    model2 = Multiply()
+    model2.set_types(left=Tensor)
+    model2.set_differentiability(left=False)
+
+    assert not model2.left.metadata.differentiable
+
+    model = Model()
+    model += model1(left="my_input")
+    with pytest.raises(ValueError) as err_info:
+        model += model2(left="my_input")
+    assert str(err_info.value) == "Differentiability mismatch!"
 
 
 def test_diff_inference():

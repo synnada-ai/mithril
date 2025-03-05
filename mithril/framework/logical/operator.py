@@ -130,6 +130,8 @@ class Operator(BaseModel):
     def extend(
         self,
         model: BaseModel | BaseModel,
+        trace: bool = True,
+        /,
         **kwargs: ConnectionDataType,
     ) -> None:
         raise NotImplementedError("Operators cannot be extended!")

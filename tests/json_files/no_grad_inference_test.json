@@ -19,6 +19,11 @@
                     "name": "Multiply"
                 }
             },
+            "assigned_differentiabilities": [
+                ["input1", true],
+                ["input2", true],
+                ["input3", true]
+            ],
             "connections": {
                 "m1": {
                     "left": {"key": {"name": "input1", "type": "tensor"}}, 
@@ -96,6 +101,11 @@
                     "name": "Multiply"
                 }
             },
+            "assigned_differentiabilities": [
+                ["input1", true],
+                ["input2", true],
+                ["input3", true]
+            ],
             "connections": {
                 "m1": {
                     "left": {"key": {"name": "input1", "type": "tensor"}}, 
@@ -172,6 +182,11 @@
                     "name": "Multiply"
                 }
             },
+            "assigned_differentiabilities": [
+                ["input1", true],
+                ["input2", true],
+                ["input3", true]
+            ],
             "connections": {
                 "m1": {
                     "left": {"key": {"name": "input1", "type": "tensor"}}, 
