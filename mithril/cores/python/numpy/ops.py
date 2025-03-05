@@ -168,6 +168,7 @@ __all__ = [
     "maximum",
     "dtype",
     "zeros_like",
+    "avg_pool2d",
 ]
 
 
@@ -521,12 +522,12 @@ def conv2d(
     else:
         _padding = padding  # type: ignore
 
-    n, c, h, w = input.shape
+    *b, h, w = input.shape
     _, _, h_k, w_k = weight.shape
     out_h = (h - h_k + sum(_padding[0])) // stride[0] + 1
     out_w = (w - w_k + sum(_padding[1])) // stride[1] + 1
     submatrices = get_submatrices2d(
-        input, (n, c, out_h, out_w), h_k, w_k, _padding, stride[0]
+        input, (*b, out_h, out_w), h_k, w_k, _padding, stride[0]
     )
     return np.einsum("nihwkl,oikl->nohw", submatrices, weight)
 
@@ -569,10 +570,10 @@ def max_pool1d(
             f"Currently, the Numpy backend for Maxpool1d only supports a dilation of 1."
         )
 
-    n, c, w = input.shape
+    *b, w = input.shape
     out_w = (w - kernel_size + sum(padding)) // stride + 1
-    submatrices = get_submatrices1d(input, (n, c, out_w), kernel_size, padding, stride)
-    return np.nanmax(submatrices, axis=3)
+    submatrices = get_submatrices1d(input, (*b, out_w), kernel_size, padding, stride)
+    return np.nanmax(submatrices, axis=-1)
 
 
 def max_pool2d(
@@ -598,18 +599,55 @@ def max_pool2d(
     else:
         normalized_padding = padding  # type: ignore
 
-    n, c, h, w = input.shape
+    *b, h, w = input.shape
     out_h = (h - kernel_size[0] + sum(normalized_padding[0])) // stride[0] + 1
     out_w = (w - kernel_size[1] + sum(normalized_padding[1])) // stride[1] + 1
     submatrices = get_submatrices2d(
         input,
-        (n, c, out_h, out_w),
+        (*b, out_h, out_w),
         kernel_size[0],
         kernel_size[1],
         normalized_padding,
         stride[0],
     )
-    return np.nanmax(submatrices, axis=(4, 5))
+    return np.nanmax(submatrices, axis=(-2, -1))
+
+
+def avg_pool2d(
+    input: np.ndarray[Any, Any],
+    kernel_size: tuple[int, int],
+    stride: tuple[int, int],
+    *,
+    padding: tuple[int, int] | tuple[tuple[int, int], tuple[int, int]] = (0, 0),
+    dilation: tuple[int, int] = (1, 1),
+    cache: CacheType | None = None,
+) -> np.ndarray[Any, Any]:
+    """Implements torch.nn.functional.avg_pool2d in Numpy"""
+
+    if dilation != (1, 1):
+        raise NotImplementedError(
+            f"Dilation of {dilation} is not supported. "
+            "Numpy backend for AvgPooll2d only supports a dilation of (1, 1)."
+        )
+
+    normalized_padding: tuple[tuple[int, int], tuple[int, int]]
+    if is_tuple_int(padding):
+        normalized_padding = ((padding[0], padding[0]), (padding[1], padding[1]))
+    else:
+        normalized_padding = padding  # type: ignore
+
+    *b, h, w = input.shape
+    out_h = (h - kernel_size[0] + sum(normalized_padding[0])) // stride[0] + 1
+    out_w = (w - kernel_size[1] + sum(normalized_padding[1])) // stride[1] + 1
+    submatrices = get_submatrices2d(
+        input,
+        (*b, out_h, out_w),
+        kernel_size[0],
+        kernel_size[1],
+        normalized_padding,
+        stride[0],
+    )
+    return np.nanmean(submatrices, axis=(-2, -1))
 
 
 def scaled_dot_product_attention(
