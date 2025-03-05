@@ -51,23 +51,23 @@ def get_submatrices1d(
     if dilate != 0:
         working_input = np.insert(working_input, range(1, input.shape[2]), 0, axis=2)
 
+    *b, _ = input.shape
     # pad the input if necessary
     if working_pad != (0, 0):
         working_input = np.pad(
             working_input,
-            pad_width=((0, 0), (0, 0), (working_pad[0], working_pad[1])),
+            pad_width=(*len(b) * ((0, 0),), (working_pad[0], working_pad[1])),
             mode="constant",
             constant_values=(0.0,),
         )
 
     *_, out_w = output_size
-    out_b, out_c, *_ = input.shape
-    batch_str, channel_str, kern_w_str = working_input.strides
+    *batch_channel_strides, kern_w_str = working_input.strides
 
     return np.lib.stride_tricks.as_strided(
         working_input,
-        (out_b, out_c, out_w, kernel_width_size),
-        (batch_str, channel_str, stride * kern_w_str, kern_w_str),
+        (*b, out_w, kernel_width_size),
+        (*batch_channel_strides, stride * kern_w_str, kern_w_str),
     )
 
 
@@ -88,13 +88,14 @@ def get_submatrices2d(
         working_input = np.insert(working_input, range(1, input.shape[2]), 0, axis=2)
         working_input = np.insert(working_input, range(1, input.shape[3]), 0, axis=3)
 
+    *b, _, _ = input.shape
+
     # pad the input if necessary
     if is_int_tuple_tuple(padding):
         working_input = np.pad(
             working_input,
             pad_width=(
-                (0, 0),
-                (0, 0),
+                *len(b) * ((0, 0),),
                 (working_pad[0][0], working_pad[0][1]),
                 (working_pad[1][0], working_pad[1][1]),
             ),
@@ -103,15 +104,13 @@ def get_submatrices2d(
         )
 
     *_, out_h, out_w = output_size
-    out_b, out_c, *_ = input.shape
-    batch_str, channel_str, kern_h_str, kern_w_str = working_input.strides
+    *input_strides, kern_h_str, kern_w_str = working_input.strides
 
     return np.lib.stride_tricks.as_strided(
         working_input,
-        (out_b, out_c, out_h, out_w, kernel_height_size, kernel_width_size),
+        (*b, out_h, out_w, kernel_height_size, kernel_width_size),
         (
-            batch_str,
-            channel_str,
+            *input_strides,
             stride * kern_h_str,
             stride * kern_w_str,
             kern_h_str,

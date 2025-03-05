@@ -2290,7 +2290,6 @@ def conv_1d_constraints(
     return status, updates
 
 
-# TODO: Change name (Conv also uses the constraint below)
 def sliding_window_2d_constraints(
     output: IOHyperEdge,
     input: IOHyperEdge,
@@ -2928,31 +2927,17 @@ def reshape_constraints(
                         updates.add(uni)
 
     # Try to infer shape value.
-    elif is_repr_known(output_shape):
+    elif is_repr_known(output_shape) and is_repr_known(input_shape):
         if is_repr_known(input_shape) and reduce(prod_fn, input_shape.prefix) != reduce(  # type: ignore
             prod_fn,  # type: ignore
             output_shape.prefix,
         ):
-            out_shape = tuple(uni.value for uni in output_shape.prefix)
-            in_shape = tuple(uni.value for uni in input_shape.prefix)
+            out_shape = output_shape.get_shapes()
+            in_shape = input_shape.get_shapes()
             raise ValueError(
                 f"Shape mismatch! output {out_shape} and input {in_shape} have "
                 "incompatible shapes"
             )
-        values: list[int | None] | tuple[int | None, ...] = [
-            uni.value for uni in output_shape.prefix
-        ]
-        assert isinstance(shape.value_type, GenericAlias)
-        if shape.value_type.__origin__ is tuple:
-            values = tuple(values)
-        # TODO: This update assumes no -1 is given in shapes. However,
-        # situations may occur where shape is given with -1.
-
-        # EX: if output shape is [1, 2, 3, 4, 5], this part of the code
-        # directly assumes shape scalar will be also [1, 2, 3, 4, 5].
-        # However, shape scalar may be given with [1, 2, 3, 4, -1], [1, 2, -1, 4, 5],
-        # etc, and still can be valid reshape
-        updates |= shape.set_value(values)
     status = is_repr_known(input_shape) and is_repr_known(output_shape)
     return status, updates
 
