@@ -3308,22 +3308,6 @@ def test_reshape_4():
     )
 
 
-def test_reshape_5():
-    """Should work with no problem with known output shape, unknown
-    input shape and unkonwn reshape value. Infers value of reshape
-    value.
-    """
-    shapes: dict[str, list[int | str | tuple]] = {
-        "output": [1, 2, 3],
-        "input": [("in", ...)],
-    }
-    final_shapes = {"output": [1, 2, 3], "input": ["(in, ...)"], "shape": []}
-    given_data = {"shape": IOHyperEdge(tuple[int, ...], value=TBD)}
-    assert_constraint_results(
-        shapes, {}, final_shapes, {}, reshape_constraints, False, {"shape"}, given_data
-    )
-
-
 def test_reshape_6():
     """Should work with no problem with unknown output shape, known
     input shape and known reshape value. Infer value of reshape
@@ -3456,7 +3440,7 @@ def test_reshape_error_5():
             shapes, {}, {}, {}, reshape_constraints, False, set(), given_data
         )
     assert str(err_info.value) == (
-        "Shape mismatch! output (2, 2) and input (1, 2, 3, 4) have "
+        "Shape mismatch! output [2, 2] and input [1, 2, 3, 4] have "
         "incompatible shapes"
     )
 

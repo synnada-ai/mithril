@@ -142,6 +142,7 @@ __all__ = [
     "PrimitiveConvolution2D",
     "Flatten",
     "PrimitiveMaxPool2D",
+    "PrimitiveAvgPool2D",
     "PrimitiveMaxPool1D",
     "NormModifier",
     "DistanceMatrix",
@@ -1558,7 +1559,7 @@ class TupleConverter(PrimitiveModel):
         return super().__call__(input=input, output=output)
 
 
-class PrimitiveMaxPool2D(PrimitiveModel):
+class PrimitivePool2D(PrimitiveModel):
     input: Connection
     kernel_size: Connection
     stride: Connection
@@ -1577,10 +1578,11 @@ class PrimitiveMaxPool2D(PrimitiveModel):
         | ToBeDetermined = TBD,
         dilation: int | tuple[int, int] | ToBeDetermined = TBD,
         *,
+        formula_key: str,
         name: str | None = None,
     ) -> None:
         super().__init__(
-            formula_key="max_pool2d",
+            formula_key=formula_key,
             name=name,
             output=BaseKey(shape=["N", ("C_in", ...), "H_out", "W_out"], type=Tensor),
             input=BaseKey(
@@ -1621,6 +1623,56 @@ class PrimitiveMaxPool2D(PrimitiveModel):
             padding=padding,
             dilation=dilation,
             output=output,
+        )
+
+
+class PrimitiveMaxPool2D(PrimitivePool2D):
+    def __init__(
+        self,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        kernel_size: int | tuple[int, int] | ToBeDetermined = TBD,
+        stride: int | tuple[int, int] | ToBeDetermined = TBD,
+        padding: int
+        | tuple[int, int]
+        | tuple[tuple[int, int], tuple[int, int]]
+        | ToBeDetermined = TBD,
+        dilation: int | tuple[int, int] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(
+            formula_key="max_pool2d",
+            name=name,
+            input=input,
+            kernel_size=kernel_size,
+            stride=stride,
+            padding=padding,
+            dilation=dilation,
+        )
+
+
+class PrimitiveAvgPool2D(PrimitivePool2D):
+    def __init__(
+        self,
+        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        kernel_size: int | tuple[int, int] | ToBeDetermined = TBD,
+        stride: int | tuple[int, int] | ToBeDetermined = TBD,
+        padding: int
+        | tuple[int, int]
+        | tuple[tuple[int, int], tuple[int, int]]
+        | ToBeDetermined = TBD,
+        dilation: int | tuple[int, int] | ToBeDetermined = TBD,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(
+            formula_key="avg_pool2d",
+            name=name,
+            input=input,
+            kernel_size=kernel_size,
+            stride=stride,
+            padding=padding,
+            dilation=dilation,
         )
 
 
