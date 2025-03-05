@@ -43,6 +43,7 @@ from ..common_primitives import (
     logical_and,
     logical_not,
     logical_or,
+    logical_xor,
     matrix_multiplication,
     minus,
     multiplication,
@@ -252,26 +253,26 @@ def robust_power(
     return output
 
 
-def robust_sqrt(input: torch.Tensor, cutoff: torch.Tensor) -> torch.Tensor:
+def robust_sqrt(input: torch.Tensor, threshold: torch.Tensor) -> torch.Tensor:
     input = torch.abs(input)
-    inds = input < cutoff
+    inds = input < threshold
     output = torch.where(
         inds,
         input
         * torch.reciprocal(
-            torch.sqrt(cutoff.to(dtype=input.dtype, device=input.device))
+            torch.sqrt(threshold.to(dtype=input.dtype, device=input.device))
         ),
         torch.sqrt(torch.where(inds, 1, input)),
     )
     return output
 
 
-def robust_log(input: torch.Tensor, cutoff: torch.Tensor) -> torch.Tensor:
+def robust_log(input: torch.Tensor, threshold: torch.Tensor) -> torch.Tensor:
     input = torch.abs(input)
-    inds = input < cutoff
+    inds = input < threshold
     output = torch.where(
         inds,
-        math.log(cutoff) + (input / cutoff) - 1.0,
+        math.log(threshold) + (input / threshold) - 1.0,
         torch.log(torch.where(inds, 1, input)),
     )
     return output
@@ -280,13 +281,13 @@ def robust_log(input: torch.Tensor, cutoff: torch.Tensor) -> torch.Tensor:
 # NOTE: We wrote stable reciprocal in order to handle
 # undefined points (f(0) = inf in this case),
 # futher testing should be done.
-def stable_reciprocal(input: torch.Tensor, cutoff: torch.Tensor) -> torch.Tensor:
-    inds = torch.abs(input) < cutoff
-    y_c = torch.reciprocal(cutoff)
+def stable_reciprocal(input: torch.Tensor, threshold: torch.Tensor) -> torch.Tensor:
+    inds = torch.abs(input) < threshold
+    y_c = torch.reciprocal(threshold)
     output = torch.where(
         inds,
         (torch.sign(input) + (1 - torch.sign(torch.abs(input)))) * 2 * y_c
-        + (-input / (cutoff**2)),
+        + (-input / (threshold**2)),
         torch.reciprocal(torch.where(inds, 1, input)),
     )
     return output
@@ -614,13 +615,13 @@ def cross_entropy(
     input: torch.Tensor,
     target: torch.Tensor,
     weights: list[float] | bool,
-    cutoff: torch.Tensor,
+    threshold: torch.Tensor,
     *,
     categorical: bool = True,
     robust: bool = False,
 ) -> torch.Tensor:
     log: partial[torch.Tensor] | Callable[..., torch.Tensor] = (
-        partial(robust_log, cutoff=cutoff) if robust else torch.log
+        partial(robust_log, threshold=threshold) if robust else torch.log
     )
     _weights = calculate_cross_entropy_class_weights(
         input, target, categorical, weights
@@ -643,7 +644,7 @@ def cross_entropy_with_logits(
     input: torch.Tensor,
     target: torch.Tensor,
     weights: list[float] | bool,
-    cutoff: torch.Tensor,
+    threshold: torch.Tensor,
     *,
     categorical: bool = True,
     robust: bool = False,
@@ -666,7 +667,7 @@ def cross_entropy_with_logits(
             input, target, weight=_weights.squeeze(), reduction="none"
         ).reshape(shape)
     else:
-        log = partial(robust_log, cutoff=cutoff) if robust else torch.log
+        log = partial(robust_log, threshold=threshold) if robust else torch.log
         if categorical:
             if torch.is_floating_point(target) or torch.is_complex(target):
                 raise ValueError(
@@ -711,13 +712,13 @@ def cross_entropy_with_log_probs(
 def binary_cross_entropy(
     input: torch.Tensor,
     target: torch.Tensor,
-    cutoff: torch.Tensor,
+    threshold: torch.Tensor,
     *,
     pos_weight: bool | float = 1.0,
     robust: bool = False,
 ) -> torch.Tensor:
     log: partial[torch.Tensor] | Callable[..., torch.Tensor] = (
-        partial(robust_log, cutoff=cutoff) if robust else torch.log
+        partial(robust_log, threshold=threshold) if robust else torch.log
     )
     _pos_weight: torch.Tensor | bool | float
     # TODO: Use F.binary_cross_entropy
@@ -732,13 +733,13 @@ def binary_cross_entropy(
 def binary_cross_entropy_with_logits(
     input: torch.Tensor,
     target: torch.Tensor,
-    cutoff: torch.Tensor,
+    threshold: torch.Tensor,
     *,
     pos_weight: bool | float = 1.0,
     robust: bool = False,
 ) -> torch.Tensor:
     log: partial[torch.Tensor] | Callable[..., torch.Tensor] = (
-        partial(robust_log, cutoff=cutoff) if robust else torch.log
+        partial(robust_log, threshold=threshold) if robust else torch.log
     )
     _pos_weight: torch.Tensor | None
     if isinstance(pos_weight, bool):
@@ -786,14 +787,14 @@ def quantile_loss(
 
 
 def kl_divergence(
-    input: torch.Tensor, target: torch.Tensor, cutoff: torch.Tensor
+    input: torch.Tensor, target: torch.Tensor, threshold: torch.Tensor
 ) -> torch.Tensor:
     # NOTE: Torch built-in kk-divergence expects log-probabilities for predictions.
     # So we provide stable log of input1 to the kl_div.
     # return F.kl_div(RobustLog.formula(input1), input2, reduction = "none")
     return F.kl_div(
-        robust_log(input, cutoff),
-        robust_log(target, cutoff),
+        robust_log(input, threshold),
+        robust_log(target, threshold),
         reduction="none",
         log_target=True,
     )
@@ -1157,10 +1158,6 @@ def cast(input: torch.Tensor, dtype: torch.dtype) -> torch.Tensor:
 
 def dtype(input: torch.Tensor) -> torch.dtype:
     return input.dtype
-
-
-def logical_xor(left: torch.Tensor, right: torch.Tensor) -> torch.Tensor:
-    return torch.logical_xor(left, right)
 
 
 def split(

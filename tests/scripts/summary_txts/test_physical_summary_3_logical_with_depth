@@ -79,7 +79,6 @@ Layer_2      |   Inputs  : weight : [ 5, 4] : float       : 'weight2'
 Layer_3      |   Inputs  : weight : [ 6, 5] : float       : 'weight3'     
              |             input  : [u1, 5] : float       : Layer_2.output
              |             bias   :     [6] : float       : 'bias3'       
-             |             $slope :      -- : float       : 0.01          
              |   ---------------------------------------------------------
              |   Outputs : output : [u1, 6] : float       : 'output'      
 --------------------------------------------------------------------------

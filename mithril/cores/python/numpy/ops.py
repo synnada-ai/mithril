@@ -263,29 +263,29 @@ def robust_power(
 # further testing should be done about performance
 def robust_sqrt(
     input: np.ndarray[Any, Any],
-    cutoff: np.ndarray[tuple[()], Any],
+    threshold: np.ndarray[tuple[()], Any],
     cache: CacheType | None = None,
 ) -> np.ndarray[Any, Any]:
     input = np.abs(input)
-    inds = input < cutoff
+    inds = input < threshold
     output = np.zeros_like(input)
     output[~inds] = np.sqrt(input[~inds])
-    output[inds] = input[inds] * np.reciprocal(np.sqrt(cutoff))
+    output[inds] = input[inds] * np.reciprocal(np.sqrt(threshold))
     return output
 
 
 def robust_log(
     input: np.ndarray[Any, Any],
-    cutoff: np.ndarray[tuple[()], Any],
+    threshold: np.ndarray[tuple[()], Any],
     cache: CacheType | None = None,
 ) -> np.ndarray[Any, Any]:
     input = np.abs(input)
-    inds = input < cutoff
-    y_c = np.log(cutoff)
+    inds = input < threshold
+    y_c = np.log(threshold)
     output = np.zeros_like(input)
     output[~inds] = np.log(input[~inds])
-    # Handle the values smaller than cutoff.
-    output[inds] = y_c + (input[inds] / cutoff) - 1.0
+    # Handle the values smaller than threshold.
+    output[inds] = y_c + (input[inds] / threshold) - 1.0
     return output
 
 
@@ -294,17 +294,17 @@ def robust_log(
 # futher testing should be done.
 def stable_reciprocal(
     input: np.ndarray[Any, Any],
-    cutoff: np.ndarray[tuple[()], Any],
+    threshold: np.ndarray[tuple[()], Any],
     cache: CacheType | None = None,
 ) -> np.ndarray[Any, Any]:
-    inds = np.abs(input) < cutoff
-    y_c = np.reciprocal(cutoff)
+    inds = np.abs(input) < threshold
+    y_c = np.reciprocal(threshold)
     output = np.zeros_like(input)
     output[~inds] = np.reciprocal(input[~inds])
-    # Handle the values smaller than cutoff.
+    # Handle the values smaller than threshold.
     output[inds] = (
         np.sign(input[inds]) + (1 - np.sign(np.abs(input[inds])))
-    ) * 2 * y_c + (-input[inds] / np.square(cutoff))
+    ) * 2 * y_c + (-input[inds] / np.square(threshold))
     return output
 
 
@@ -656,7 +656,7 @@ def cross_entropy(
     input: np.ndarray[Any, Any],
     target: np.ndarray[Any, Any],
     weights: list[float] | bool,
-    cutoff: np.ndarray[Any, Any],
+    threshold: np.ndarray[Any, Any],
     *,
     categorical: bool = True,
     robust: bool = False,
@@ -667,7 +667,7 @@ def cross_entropy(
     )
     write_into_cache(cache, "weights", _weights)
     log: partial[np.ndarray[Any, Any]] | Callable[..., np.ndarray[Any, Any]] = (
-        partial(robust_log, cutoff=cutoff, cache=None) if robust else np.log
+        partial(robust_log, threshold=threshold, cache=None) if robust else np.log
     )
     if categorical:
         if not np.issubdtype(target.dtype, np.integer):
@@ -686,14 +686,14 @@ def cross_entropy_with_logits(
     input: np.ndarray[Any, Any],
     target: np.ndarray[Any, Any],
     weights: list[float] | bool,
-    cutoff: np.ndarray[Any, Any],
+    threshold: np.ndarray[Any, Any],
     *,
     categorical: bool = True,
     robust: bool = False,
     cache: CacheType | None = None,
 ) -> np.ndarray[Any, Any]:
     log: partial[np.ndarray[Any, Any]] | Callable[..., np.ndarray[Any, Any]] = (
-        partial(robust_log, cutoff=cutoff, cache=None) if robust else np.log
+        partial(robust_log, threshold=threshold, cache=None) if robust else np.log
     )
     _weights = calculate_cross_entropy_class_weights(
         input, target, categorical, weights
@@ -741,14 +741,14 @@ def cross_entropy_with_log_probs(
 def binary_cross_entropy(
     input: np.ndarray[Any, Any],
     target: np.ndarray[Any, Any],
-    cutoff: np.ndarray[Any, Any],
+    threshold: np.ndarray[Any, Any],
     *,
     pos_weight: bool | float = 1.0,
     robust: bool = False,
     cache: CacheType | None = None,
 ) -> np.ndarray[Any, Any]:
     log: partial[np.ndarray[Any, Any]] | Callable[..., np.ndarray[Any, Any]] = (
-        partial(robust_log, cutoff=cutoff, cache=None) if robust else np.log
+        partial(robust_log, threshold=threshold, cache=None) if robust else np.log
     )
     if isinstance(pos_weight, bool) and pos_weight:
         pos_weight = float(calculate_binary_class_weight(target))
@@ -759,14 +759,14 @@ def binary_cross_entropy(
 def binary_cross_entropy_with_logits(
     input: np.ndarray[Any, Any],
     target: np.ndarray[Any, Any],
-    cutoff: np.ndarray[Any, Any],
+    threshold: np.ndarray[Any, Any],
     *,
     pos_weight: bool | float = 1.0,
     robust: bool = False,
     cache: CacheType | None = None,
 ) -> np.ndarray[Any, Any]:
     log: partial[np.ndarray[Any, Any]] | Callable[..., np.ndarray[Any, Any]] = (
-        partial(robust_log, cutoff=cutoff, cache=None) if robust else np.log
+        partial(robust_log, threshold=threshold, cache=None) if robust else np.log
     )
 
     if isinstance(pos_weight, bool):
@@ -817,11 +817,11 @@ def quad_hinge_loss(
 def kl_divergence(
     input: np.ndarray[Any, Any],
     target: np.ndarray[Any, Any],
-    cutoff: np.ndarray[Any, Any],
+    threshold: np.ndarray[Any, Any],
     cache: CacheType | None = None,
 ) -> np.ndarray[Any, Any]:
-    log_input1 = robust_log(input, cutoff)
-    log_input2 = robust_log(target, cutoff)
+    log_input1 = robust_log(input, threshold)
+    log_input2 = robust_log(target, threshold)
     partial_result = log_input2 - log_input1
     write_into_cache(cache, "partial_result", partial_result)
     return target * partial_result
@@ -1241,7 +1241,7 @@ def logical_xor(
     right: np.ndarray[Any, Any],
     cache: CacheType | None = None,
 ) -> np.ndarray[Any, Any]:
-    return np.logical_xor(left, right)
+    return left ^ right
 
 
 def split(

@@ -603,9 +603,9 @@ def test_code_generator_6(file_path: str):
     def evaluate(params, data, cache):
         arange_res = cache["arange_res"]
         b1 = params["b1"]
-        cutoff = cache["cutoff"]
         input = data["input"]
         target = cache["target"]
+        threshold = cache["threshold"]
         w1 = params["w1"]
         output_0 = transpose(w1, None)
         output_1 = matrix_multiplication(input, output_0)
@@ -616,7 +616,7 @@ def test_code_generator_6(file_path: str):
         del output_2
         output = add(arange_res, output_3)
         del output_3
-        output_4 = cross_entropy(output, target, False, cutoff)
+        output_4 = cross_entropy(output, target, False, threshold)
         output_5 = reduce_mean(output_4)
         del output_4
         return {"arange_res": arange_res, "final_cost": output_5, "output": output}
@@ -660,9 +660,9 @@ def test_code_generator_7(file_path: str):
     def evaluate(params, data, cache):
         arange_res = cache["arange_res"]
         b1 = params["b1"]
-        cutoff = cache["cutoff"]
         input = data["input"]
         target = cache["target"]
+        threshold = cache["threshold"]
         w1 = params["w1"]
         output_0 = transpose(w1, None)
         output_1 = matrix_multiplication(input, output_0)
@@ -673,7 +673,7 @@ def test_code_generator_7(file_path: str):
         del output_2
         output = add(arange_res, output_3)
         del output_3
-        output_5 = cross_entropy(output, target, False, cutoff)
+        output_5 = cross_entropy(output, target, False, threshold)
         output_6 = reduce_mean(output_5)
         del output_5
         return {"arange_res": arange_res, "final_cost": output_6, "output": output}

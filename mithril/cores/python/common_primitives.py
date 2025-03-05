@@ -27,6 +27,7 @@ __all__ = [
     "logical_not",
     "logical_or",
     "logical_and",
+    "logical_xor",
     "matrix_multiplication",
     "add",
     "subtract",
@@ -96,6 +97,10 @@ def logical_or(left: DataType, right: DataType) -> DataType:
 
 def logical_and(left: DataType, right: DataType) -> DataType:
     return left & right
+
+
+def logical_xor(left: DataType, right: DataType) -> DataType:
+    return left ^ right  # type: ignore
 
 
 def matrix_multiplication(left: DataType, right: DataType) -> DataType:

@@ -2019,7 +2019,7 @@ def test_static_shape_model_3():
 def test_static_shape_model_4():
     model = Model()
     model += Relu()(input="input")
-    model += Log(robust=True)(cutoff=NOT_GIVEN)
+    model += Log(robust=True)(threshold=NOT_GIVEN)
     model += Shape()
     model += ToTensor()
     model += Relu()
@@ -2047,7 +2047,7 @@ def test_static_shape_model_4():
 def test_static_shape_model_5():
     model = Model()
     model |= Relu()(input="input")
-    model += (log := Log(robust=True, cutoff=TBD))(cutoff=IOKey("cutoff"))
+    model += (log := Log(robust=True, threshold=TBD))(threshold=IOKey("threshold"))
     model += Shape()
     model += ToTensor()
     model |= Relu()(input=model.cout, output=IOKey(name="output1"))
@@ -2058,7 +2058,7 @@ def test_static_shape_model_5():
         model=model,
         backend=backend,
         constant_keys={"input": backend.ones(8, 8)},
-        data_keys={"cutoff"},
+        data_keys={"threshold"},
         inference=True,
     )
     cache = comp_model.flat_graph.data_store.data_values
@@ -2073,10 +2073,10 @@ def test_static_shape_model_5():
     assert all([np.all(value == expected_cache[key]) for key, value in cache.items()])
     # Check runtime data keys.
     data_keys = comp_model.flat_graph.data_store.runtime_static_keys
-    expected_data_keys = {"cutoff"}
+    expected_data_keys = {"threshold"}
     assert data_keys == expected_data_keys
     # Try evaluate and evaluate gradients once.
-    data = {"cutoff": 0.00005}
+    data = {"threshold": 0.00005}
     result = comp_model.evaluate(params={}, data=data)
     assert np.all(result["output1"] == np.array([8, 8], dtype=np.int32))
     assert np.all(result["output2"] == backend.zeros(8, 8))
@@ -2390,7 +2390,7 @@ def test_bce_ellipsis():
     backend = NumpyBackend()
     model_1 = Model()
     ce_model_1 = BinaryCrossEntropy(
-        pos_weight=TBD, input_type="probs", robust=TBD, cutoff=TBD
+        pos_weight=TBD, input_type="probs", robust=TBD, threshold=TBD
     )
     model_1 += ce_model_1(
         input="input",
@@ -2398,7 +2398,7 @@ def test_bce_ellipsis():
         output=IOKey(name="output"),
         robust="robust",
         pos_weight="pos_weight",
-        cutoff="cutoff",
+        threshold="threshold",
     )
 
     comp_model_1 = ml.compile(
@@ -2409,7 +2409,7 @@ def test_bce_ellipsis():
             "target",
             "robust",
             "pos_weight",
-            "cutoff",
+            "threshold",
         },
         inference=True,
     )
@@ -2427,7 +2427,7 @@ def test_bce_ellipsis():
         "target": backend.array([0.5, 0.5]),
         "robust": False,
         "pos_weight": 1.0,
-        "cutoff": 1e-300,
+        "threshold": 1e-300,
     }
 
     data_2: dict[str, np.ndarray] = {

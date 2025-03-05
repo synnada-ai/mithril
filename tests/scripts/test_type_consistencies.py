@@ -289,7 +289,7 @@ def test_type_8():
 def test_type_9():
     model = Model()
     lin_model = Linear()
-    assert lin_model.input.metadata.value_type == int | float | bool
+    assert lin_model.input.metadata.value_type == int | float
     model += lin_model(
         input=IOKey(value=Tensor([[1.0, 2.0], [3.0, 4.0]]), name="input"),
         weight="w",
@@ -302,7 +302,7 @@ def test_type_9():
 def test_type_10():
     model = Model()
     lin_model = Linear()
-    assert lin_model.input.metadata.value_type == int | float | bool
+    assert lin_model.input.metadata.value_type == int | float
     model += lin_model(
         input=IOKey(value=Tensor([[False, 1], [True, False]]), name="input"),  # type: ignore
         weight="w",
@@ -315,7 +315,7 @@ def test_type_10():
 def test_type_11():
     model = Model()
     lin_model = Linear()
-    assert lin_model.input.metadata.value_type == int | float | bool
+    assert lin_model.input.metadata.value_type == int | float
     model += lin_model(
         input=IOKey(value=Tensor([[False, 1], [2.2, False]]), name="input"),  # type: ignore
         weight="w",
@@ -328,7 +328,7 @@ def test_type_11():
 def test_type_12():
     model = Model()
     lin_model = Linear()
-    assert lin_model.input.metadata.value_type == int | float | bool
+    assert lin_model.input.metadata.value_type == int | float
     model += lin_model(
         input=IOKey(value=Tensor([[False, 1], [2.2, False]]), name="input"),  # type: ignore
         weight="w",
@@ -341,21 +341,7 @@ def test_type_12():
 def test_type_13():
     model = Model()
     lin_model = Linear()
-    assert lin_model.input.metadata.value_type == int | float | bool
-    model += lin_model(
-        input=IOKey(value=Tensor([[False, True], [False, False]]), name="input"),
-        weight="w",
-        bias="b",
-        output=IOKey(name="output"),
-    )
-    # model.make_static("input", Tensor([[False, True], [False, False]]))
-    assert lin_model.input.metadata.value_type is bool
-
-
-def test_type_14():
-    model = Model()
-    lin_model = Linear()
-    assert lin_model.input.metadata.value_type == int | float | bool
+    assert lin_model.input.metadata.value_type == int | float
     model += lin_model(
         input=IOKey(value=Tensor([[False, 1.0], [2, 3]]), name="input"),  # type: ignore
         weight="w",
@@ -365,7 +351,7 @@ def test_type_14():
     assert lin_model.input.metadata.value_type is float
 
 
-def test_type_15():
+def test_type_14():
     model = Model()
     sig_model = Sigmoid()
     sig_model_2 = Sigmoid()
@@ -390,7 +376,7 @@ def test_type_15():
     np.testing.assert_allclose(out2, expected_result, rtol=1e-6, atol=1e-6)
 
 
-def test_type_16():
+def test_type_15():
     model = Model()
     sig_model_1 = Sigmoid()
     sig_model_1.input.metadata.set_type(Tensor[float])

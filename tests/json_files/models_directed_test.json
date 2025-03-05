@@ -6235,9 +6235,11 @@
     },
     "test_softmax_8": {
         "model": {
-            "name": "Softmax"
+            "name": "Softmax",
+            "args": {
+                "axis": 0
+            }
         },
-        "static_keys": {"axis": 0},
         "inputs": {
             "input":  [[1.0, -2.0], [2.0, 0.0]]
         },
@@ -6480,10 +6482,11 @@
         "model": {
             "name": "Sqrt",
             "args": {
-                "robust": true
+                "robust": true,
+                "threshold": 1e-20
+                
             }
         },
-        "static_keys": {"cutoff": 1e-20},
         "inputs": {
             "input": [[0.9999999999999e-20, 1.0000000000001e-20, 0.0]]
         },

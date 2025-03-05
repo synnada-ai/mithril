@@ -19,6 +19,7 @@ import re
 import typing
 from copy import deepcopy
 from functools import partial
+from typing import Any
 
 import jax
 import mlx.core as mx
@@ -28,6 +29,7 @@ import torch
 from jax import numpy as jnp
 
 import mithril
+import mithril.framework
 from mithril import Backend, JaxBackend, MlxBackend, NumpyBackend, TorchBackend, compile
 from mithril.framework.common import (
     NOT_GIVEN,
@@ -6292,7 +6294,6 @@ def test_numpy_type_promotion_4():
         constant_keys={"left": left, "right": right},
         inference=True,
     )
-    from typing import Any
 
     outputs: dict[str, np.ndarray[Any, Any]] = pm.evaluate()  # type: ignore
 
