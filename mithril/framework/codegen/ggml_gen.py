@@ -38,19 +38,27 @@ class GGMLCodeGen(CGen):
 
         # Generate static context variable at file scope
         eval_static_ctx = c_ast.StaticVariable(
-            "struct ggml_context *", "eval_static_ctx", c_ast.Constant("NULL")
+            c_ast.Pointer("struct ggml_context"),
+            "eval_static_ctx",
+            c_ast.Constant("NULL"),
         )
 
         eval_static_gf = c_ast.StaticVariable(
-            "struct ggml_cgraph *", "eval_static_gf", c_ast.Constant("NULL")
+            c_ast.Pointer("struct ggml_cgraph"),
+            "eval_static_gf",
+            c_ast.Constant("NULL"),
         )
 
         eval_grad_static_ctx = c_ast.StaticVariable(
-            "struct ggml_context *", "eval_grad_static_ctx", c_ast.Constant("NULL")
+            c_ast.Pointer("struct ggml_context"),
+            "eval_grad_static_ctx",
+            c_ast.Constant("NULL"),
         )
 
         eval_grad_static_gf = c_ast.StaticVariable(
-            "struct ggml_cgraph *", "eval_grad_static_gf", c_ast.Constant("NULL")
+            c_ast.Pointer("struct ggml_cgraph"),
+            "eval_grad_static_gf",
+            c_ast.Constant("NULL"),
         )
 
         cleanup_fn = self.generate_cleanup_fn()
@@ -143,7 +151,7 @@ class GGMLCodeGen(CGen):
         for key in self.determined_struct_keys[f"{fn_ref_name}_input_keys"]:
             static_vars.append(
                 c_ast.StaticVariable(
-                    "struct ggml_tensor *", key, c_ast.Constant("NULL")
+                    c_ast.Pointer("struct ggml_tensor"), key, c_ast.Constant("NULL")
                 )
             )
 
@@ -221,8 +229,8 @@ class GGMLCodeGen(CGen):
         for key in self.determined_struct_keys[f"{fn_ref_name}_input_keys"]:
             update_ptr_block.append(
                 c_ast.Assign(  # type: ignore
-                    c_ast.Variable(f"{key}->data"),
-                    c_ast.Variable(f"inputs->{key}->data"),
+                    c_ast.Arrow(c_ast.Variable(f"{key}"), "data"),
+                    c_ast.Arrow(c_ast.Arrow(c_ast.Variable("inputs"), key), "data"),
                 )
             )
 
@@ -268,7 +276,7 @@ class GGMLCodeGen(CGen):
     @override
     def create_key_ref(
         self, key: str, context: str, load: bool = True
-    ) -> c_ast.Variable:
+    ) -> c_ast.Variable | c_ast.Expr:
         # TODO: Refactor this logic
         if (
             key not in self.determined_struct_keys["eval_cache_keys"]
@@ -281,7 +289,7 @@ class GGMLCodeGen(CGen):
             and context == "eval_grad"
         ):
             if key in self.determined_struct_keys["eval_grad_output_keys"]:
-                return c_ast.Variable(f"{self.GRAD_STRUCT_NAME}.{key}")
+                return c_ast.Dot(c_ast.Variable(f"{self.GRAD_STRUCT_NAME}"), key)
             elif not load:
                 return c_ast.Variable(f"{self.configs.ARRAY_NAME} * {key}")
             else:

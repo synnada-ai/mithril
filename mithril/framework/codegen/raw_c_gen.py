@@ -40,7 +40,7 @@ class RawCGen(CGen):
 
     def create_key_ref(
         self, key: str, context: str, load: bool = True
-    ) -> c_ast.Variable:
+    ) -> c_ast.Variable | c_ast.Expr:
         if key in self.determined_struct_keys["eval_input_keys"]:
             return c_ast.Variable(f"inputs->{key}")
 

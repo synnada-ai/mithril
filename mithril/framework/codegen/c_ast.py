@@ -75,7 +75,7 @@ class Variable(Expr):
 
 @dataclass
 class Assign(Stmt):
-    target: Variable
+    target: Expr
     source: Expr | Stmt
 
     def to_str(self) -> str:
@@ -87,11 +87,12 @@ class Assign(Stmt):
 
 @dataclass
 class Parameter:
-    type: str
+    type: str | Expr
     name: str
 
     def to_str(self) -> str:
-        return f"{self.type} {self.name}"
+        type_str = self.type.to_str() if isinstance(self.type, Expr) else self.type
+        return f"{type_str} {self.name}"
 
 
 @dataclass
@@ -150,11 +151,12 @@ class Comment(Stmt):
 
 @dataclass
 class StructField:
-    type: str
+    type: str | Expr
     name: str
 
     def to_str(self) -> str:
-        return f"    {self.type} {self.name};"
+        type_str = self.type.to_str() if isinstance(self.type, Expr) else self.type
+        return f"    {type_str} {self.name};"
 
 
 @dataclass
@@ -204,14 +206,15 @@ class StructInit(Stmt):
 
 @dataclass
 class StaticVariable(Stmt):
-    type: str
+    type: str | Expr
     name: str
     initial_value: Expr | None = None
 
     def to_str(self) -> str:
+        type_str = self.type.to_str() if isinstance(self.type, Expr) else self.type
         if self.initial_value is None:
-            return f"static {self.type} {self.name};"
-        return f"static {self.type} {self.name} = {self.initial_value.to_str()};"
+            return f"static {type_str} {self.name};"
+        return f"static {type_str} {self.name} = {self.initial_value.to_str()};"
 
 
 @dataclass
@@ -230,3 +233,32 @@ class If(Stmt):
                 f"if ({self.condition.to_str()}) {{\n    {body_str}\n}} else "
                 f"{{\n    {else_str}\n}}"
             )
+
+
+@dataclass
+class Arrow(Expr):
+    target: Expr
+    field: str
+
+    def to_str(self) -> str:
+        return f"{self.target.to_str()}->{self.field}"
+
+
+@dataclass
+class Dot(Expr):
+    target: Variable
+    field: str
+
+    def to_str(self) -> str:
+        return f"{self.target.to_str()}.{self.field}"
+
+
+@dataclass
+class Pointer(Expr):
+    target: str | Expr
+
+    def to_str(self) -> str:
+        target_str = (
+            self.target.to_str() if isinstance(self.target, Expr) else self.target
+        )
+        return f"{target_str} *"

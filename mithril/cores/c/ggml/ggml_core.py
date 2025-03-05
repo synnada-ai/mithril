@@ -27,7 +27,6 @@ class ggml_struct(ctypes.Structure):  # noqa: N801
 
     Attributes:
         type (int): ggml_type
-        backend (int): ggml_backend
         buffer (ctypes.pointer[ggml_backend_buffer]): pointer to backend buffer
         ne (ctypes.Array[ctypes.c_int64]): number of elements in each dimension
         nb (ctypes.Array[ctypes.c_size_t]): stride in bytes for each dimension

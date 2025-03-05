@@ -333,31 +333,31 @@ class CGen(CodeGen[PyArray]):
             self.create_key_ref(target, context=context, load=False), source
         )
 
-    def create_key_ref(
-        self, key: str, context: str, load: bool = True
-    ) -> c_ast.Variable:
+    def create_key_ref(self, key: str, context: str, load: bool = True) -> c_ast.Expr:
         if key in self.determined_struct_keys["eval_cache_keys"]:
             return c_ast.Variable(f"{self.CACHE_NAME}.{key}")
 
         elif (
             context == "eval" and key in self.determined_struct_keys["eval_input_keys"]
         ):
-            return c_ast.Variable(f"inputs->{key}")
+            return c_ast.Arrow(c_ast.Variable("inputs"), key)
 
         elif context == "eval_grad":
             if key in self.determined_struct_keys["eval_grad_input_keys"]:
-                return c_ast.Variable(f"inputs->{key}")
+                return c_ast.Arrow(c_ast.Variable("inputs"), key)
 
             if (
                 key in self.pm.flat_graph.all_keys
                 or key.replace(self.BACKWARD_FN_SUFFIX, "")
                 in self.pm.flat_graph.all_keys
             ) and not load:
-                return c_ast.Variable(f"{self.configs.ARRAY_NAME} *{key}")
+                return c_ast.Variable(f"{self.configs.ARRAY_NAME} * {key}")
 
         return c_ast.Variable(key)
 
-    def assign_array(self, target: c_ast.Variable, source: c_ast.Expr) -> c_ast.Assign:
+    def assign_array(
+        self, target: c_ast.Variable | c_ast.Expr, source: c_ast.Expr
+    ) -> c_ast.Assign:
         return c_ast.Assign(target, source)
 
     def define_function(
@@ -400,7 +400,9 @@ class CGen(CodeGen[PyArray]):
 
         # Define function arguments
         arguments = [
-            c_ast.Parameter(f"struct {self.EVALUATE_INPUT_STRUCT_NAME} *", "inputs")
+            c_ast.Parameter(
+                c_ast.Pointer(f"struct {self.EVALUATE_INPUT_STRUCT_NAME}"), "inputs"
+            )
         ]
 
         for output_key in self.pm.flat_graph.topological_order:
@@ -452,7 +454,8 @@ class CGen(CodeGen[PyArray]):
         # Define function arguments
         arguments = [
             c_ast.Parameter(
-                f"struct {self.EVALUATE_GRAD_INPUT_STRUCT_NAME} *", "inputs"
+                c_ast.Pointer(f"struct {self.EVALUATE_GRAD_INPUT_STRUCT_NAME}"),
+                "inputs",
             )
         ]
 
@@ -566,7 +569,9 @@ class CGen(CodeGen[PyArray]):
 
     def _generate_struct(self, name: str, field_keys: list[str]) -> c_ast.Stmt:
         fields = [
-            c_ast.StructField(f"{self.configs.ARRAY_NAME} *", key)
+            c_ast.StructField(
+                c_ast.Pointer(c_ast.Variable(self.configs.ARRAY_NAME)), key
+            )
             for key in sorted(field_keys)
         ]
         struct = c_ast.StructDef(name, fields)
