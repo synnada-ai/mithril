@@ -126,6 +126,66 @@ def test_batchnorm_vs_pytorch_training():
 
 
 # Loop-based comparison test
+def test_batchnorm_vs_pytorch_training_with_weights():
+    # Hyperparameters
+    momentum = 0.1
+    eps = 1e-5
+
+    num_features = 3
+    batch_size = 32
+    height = 8
+    width = 8
+
+    # Initialize BatchNorm layers
+    batchnorm_torch = torch.nn.BatchNorm2d(
+        num_features, momentum=momentum, eps=eps, affine=True
+    )
+    batchnorm_torch.train()
+    # Mithril BatchNorm2d
+    batch_norm_mithril = BatchNorm2D(
+        num_features=3, eps=1e-5, use_bias=True, use_scale=True, inference=False
+    )
+    pm = ml.compile(batch_norm_mithril, ml.TorchBackend(), jit=False)
+    state = pm.initial_state_dict
+    pm.randomize_params()
+
+    # Training loop
+    for _ in range(1000):
+        x_torch = generate_data(batch_size, num_features, height, width)
+        params = {
+            "weight": batchnorm_torch.weight.reshape(1, 3, 1, 1),
+            "bias": batchnorm_torch.bias.reshape(1, 3, 1, 1),
+        }
+        # Mithril BatchNorm
+        output_mithril, _, state = pm.evaluate_all(
+            params=params,
+            data={"input": x_torch},
+            state=state,
+            output_gradients={"output": torch.ones(32, 3, 8, 8)},
+        )
+
+        # PyTorch BatchNorm
+        output_torch = batchnorm_torch(x_torch)
+        assert isinstance(output_mithril["output"], torch.Tensor)
+        assert isinstance(state["running_mean"], torch.Tensor)
+        assert isinstance(state["running_var"], torch.Tensor)
+        assert isinstance(batchnorm_torch.running_mean, torch.Tensor)
+        assert isinstance(batchnorm_torch.running_var, torch.Tensor)
+        # Compare outputs
+        assert torch.allclose(
+            output_mithril["output"], output_torch, atol=1e-5
+        ), "Output mismatch"
+
+        # Compare running statistics
+        assert torch.allclose(
+            state["running_mean"], batchnorm_torch.running_mean, atol=1e-5
+        ), "Running mean mismatch"
+        assert torch.allclose(
+            state["running_var"], batchnorm_torch.running_var, atol=1e-5
+        ), "Running var mismatch"
+
+
+# Loop-based comparison test
 def test_batchnorm_vs_pytorch_inference():
     # Hyperparameters
     momentum = 0.1

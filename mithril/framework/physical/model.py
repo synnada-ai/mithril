@@ -996,15 +996,38 @@ class PhysicalModel(GenericDataType[DataType]):
             return outputs
         return outputs, state_outputs
 
+    @overload
     def evaluate_gradients(
         self,
         params: ParamsEvalType[DataType] | None = None,
         data: DataEvalType[DataType] | None = None,
         output_gradients: ParamsEvalType[DataType] | None = None,
-    ) -> ParamsEvalType[DataType]:
-        data = (
-            self._random_seeds if data is None else data | self._random_seeds  # type: ignore[operator]
-        )
+    ) -> ParamsEvalType[DataType]: ...
+
+    @overload
+    def evaluate_gradients(
+        self,
+        params: ParamsEvalType[DataType] | None = None,
+        data: DataEvalType[DataType] | None = None,
+        output_gradients: ParamsEvalType[DataType] | None = None,
+        state: DataEvalType[DataType] | None = None,
+    ) -> tuple[ParamsEvalType[DataType], DataEvalType[DataType]]: ...
+
+    def evaluate_gradients(
+        self,
+        params: ParamsEvalType[DataType] | None = None,
+        data: DataEvalType[DataType] | None = None,
+        output_gradients: ParamsEvalType[DataType] | None = None,
+        state: DataEvalType[DataType] | None = None,
+    ) -> (
+        ParamsEvalType[DataType]
+        | tuple[ParamsEvalType[DataType], DataEvalType[DataType]]
+    ):
+        if state is None:
+            state = {}
+        if data is None:
+            data = {}
+        data = data | state | self._random_seeds  # type: ignore
         if self.inference:
             raise NotImplementedError(
                 "Inference mode does not support gradients calculation"
@@ -1013,21 +1036,60 @@ class PhysicalModel(GenericDataType[DataType]):
             isinstance(self.backend, ParallelBackend)
             and self.backend.get_parallel_manager() is not None
         ):
-            return self.backend._run_callable(
-                params, data, output_gradients, fn_name="eval_grad_fn"
+            outputs, gradients = self.backend._run_callable(
+                params, data, output_gradients, fn_name="eval_all_fn"
             )
         else:
-            return self._generated_compute_gradients_fn(params, data, output_gradients)  # type: ignore
+            outputs, gradients = self._generated_evaluate_all_fn(
+                params, data, output_gradients
+            )  # type: ignore
+
+        state_outputs = {}
+        for (out_key, is_exposed), (in_key, _) in self.state_keys.items():
+            if is_exposed:
+                state_outputs[in_key] = outputs[out_key]
+            else:
+                state_outputs[in_key] = outputs.pop(out_key)
+        if len(state_outputs) == 0:
+            return gradients
+        return gradients, state_outputs
+
+    @overload
+    def evaluate_all(
+        self,
+        params: ParamsEvalType[DataType] | None = None,
+        data: DataEvalType[DataType] | None = None,
+        output_gradients: ParamsEvalType[DataType] | None = None,
+    ) -> tuple[DataEvalType[DataType], ParamsEvalType[DataType]]: ...
+
+    @overload
+    def evaluate_all(
+        self,
+        params: ParamsEvalType[DataType] | None = None,
+        data: DataEvalType[DataType] | None = None,
+        output_gradients: ParamsEvalType[DataType] | None = None,
+        state: DataEvalType[DataType] | None = None,
+    ) -> tuple[
+        ParamsEvalType[DataType], DataEvalType[DataType], DataEvalType[DataType]
+    ]: ...
 
     def evaluate_all(
         self,
         params: ParamsEvalType[DataType] | None = None,
         data: DataEvalType[DataType] | None = None,
         output_gradients: ParamsEvalType[DataType] | None = None,
-    ) -> tuple[DataEvalType[DataType], ParamsEvalType[DataType]]:
-        data = (
-            self._random_seeds if data is None else data | self._random_seeds  # type: ignore[operator]
-        )
+        state: DataEvalType[DataType] | None = None,
+    ) -> (
+        tuple[DataEvalType[DataType], ParamsEvalType[DataType]]
+        | tuple[
+            ParamsEvalType[DataType], DataEvalType[DataType], DataEvalType[DataType]
+        ]
+    ):
+        if state is None:
+            state = {}
+        if data is None:
+            data = {}
+        data = data | state | self._random_seeds  # type: ignore
         if self.inference:
             raise NotImplementedError(
                 "Inferece mode does not support gradients calculation"
@@ -1036,11 +1098,22 @@ class PhysicalModel(GenericDataType[DataType]):
             isinstance(self.backend, ParallelBackend)
             and self.backend.get_parallel_manager() is not None
         ):
-            return self.backend._run_callable(
+            outputs, gradients = self.backend._run_callable(
                 params, data, output_gradients, fn_name="eval_all_fn"
             )
         else:
-            return self._generated_evaluate_all_fn(params, data, output_gradients)  # type: ignore
+            outputs, gradients = self._generated_evaluate_all_fn(
+                params, data, output_gradients
+            )  # type: ignore
+        state_outputs = {}
+        for (out_key, is_exposed), (in_key, _) in self.state_keys.items():
+            if is_exposed:
+                state_outputs[in_key] = outputs[out_key]
+            else:
+                state_outputs[in_key] = outputs.pop(out_key)
+        if len(state_outputs) == 0:
+            return outputs, gradients
+        return outputs, gradients, state_outputs
 
 
 @dataclass

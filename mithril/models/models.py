@@ -882,12 +882,17 @@ class BatchNorm2D(Model):
             norm = (input_key - mean) / (var + eps).sqrt()
 
         self |= Buffer()(input=norm)
+        shapes: dict[str, ShapeTemplateType] = {
+            "left": ["B", "C", "H", "W"],
+            "right": [1, "C", 1, 1],
+        }
 
         if use_scale:
             weight_key = IOKey(
                 name="weight", type=Tensor[float], value=weight, differentiable=True
             )
             mult = Multiply()
+            mult._set_shapes(**shapes)
             self |= mult(left=self.cout, right=weight_key)
 
         if use_bias:
@@ -895,6 +900,7 @@ class BatchNorm2D(Model):
                 name="bias", type=Tensor[float], value=bias, differentiable=True
             )
             add = Add()
+            add._set_shapes(**shapes)
             self |= add(left=self.cout, right=bias_key)
 
         self |= Buffer()(input=self.cout, output=IOKey(name="output"))
