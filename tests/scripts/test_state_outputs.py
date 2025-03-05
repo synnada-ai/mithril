@@ -12,10 +12,86 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import pytest
 import torch
 
 import mithril as ml
 from mithril.models import Add, BatchNorm2D, Buffer, Model
+
+
+def test_frozen_model_error():
+    model = Model()
+    model |= Add()("input1", "input2", output="output")
+    model._freeze()
+    with pytest.raises(AttributeError) as err_info:
+        model.bind_state_input("input1", "output", 1)
+
+    assert str(err_info.value) == "Frozen model's bind_state_input is not allowed!"
+
+
+def test_same_connection_binded_twice_error():
+    model = Model()
+    model |= Add()("input1", "input2", output="output")
+    model.bind_state_input("input1", "output", 1)
+    model.expose_keys("input1", "input2", "output")
+
+    parent_model = Model()
+    parent_model |= model(input1="input1", input2="input2", output="output")
+    with pytest.raises(KeyError) as err_info:
+        parent_model.bind_state_input("input1", "output", 1)
+
+    assert str(err_info.value) == "'Binded connections could not be binded again!'"
+
+
+def test_state_output_converted_to_latent():
+    model = Model()
+    model |= Add()("input1", "input2", output="output")
+    model.expose_keys("input1", "input2", "output")
+    assert model.conns.input_keys == {"input1", "input2"}
+    assert model.conns.output_keys == {"output"}
+    assert model.conns.latent_output_keys == set()
+    assert model.conns.latent_input_keys == set()
+    model.bind_state_input("input1", "output", 1)
+    assert model.conns.input_keys == {"input2"}
+    assert model.conns.output_keys == set()
+    assert model.conns.latent_output_keys == {"output"}
+    assert model.conns.latent_input_keys == {"input1"}
+
+
+def test_merge_tensor_types():
+    model = Model()
+    model |= Add()(
+        ml.IOKey("input1", value=ml.Tensor(type=float | int)),
+        ml.IOKey("input2", value=ml.Tensor(type=float)),
+        output="output",
+    )
+    model.expose_keys("input1", "input2", "output")
+    assert model.input1.metadata._value.type == float | int  # type: ignore
+    assert model.input2.metadata._value.type is float  # type: ignore
+    model.bind_state_input("input1", "output", 1)
+    assert model.input1.metadata._value.type is float  # type: ignore
+    assert model.input2.metadata._value.type is float  # type: ignore
+
+
+def test_merge_tensor_shapes():
+    model = Model()
+    model |= Add()(
+        ml.IOKey("input1", value=ml.Tensor(type=float | int)),
+        ml.IOKey("input2", value=ml.Tensor(type=float)),
+        output="output",
+    )
+    model.expose_keys("input1", "input2", "output")
+    assert model.shapes == {
+        "input1": ["(V1, ...)"],
+        "input2": ["(V2, ...)"],
+        "output": ["(V3, ...)"],
+    }
+    model.bind_state_input("input1", "output", 1)
+    assert model.shapes == {
+        "input2": ["(V1, ...)"],
+        "input1": ["(V2, ...)"],
+        "output": ["(V2, ...)"],
+    }
 
 
 def test_running_mean():

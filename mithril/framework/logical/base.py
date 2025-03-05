@@ -458,11 +458,14 @@ class BaseModel:
         output: ConnectionData | str,
         default_value: StateValueType = NOT_GIVEN,
     ) -> None:
-        # TODO: raise if frozen model's bind_state_input is called?
-        # TODO: match shapes and types of input and output.
+        if self.is_frozen:
+            raise AttributeError("Frozen model's bind_state_input is not allowed!")
         # Get connections.
         in_con = self.conns.get_extracted_connection(input)
         out_con = self.conns.get_extracted_connection(output)
+        for _out, (_in, _) in self.state_connections.items():
+            if _in.metadata is in_con.metadata or _out.metadata is out_con.metadata:
+                raise KeyError("Binded connections could not be binded again!")
 
         # Set connection types to latent.
         self.conns.set_connection_type(in_con, KeyType.LATENT_INPUT)
@@ -475,9 +478,11 @@ class BaseModel:
         self.set_differentiability({in_con: False})
         if in_con.metadata.is_tensor:
             # Merge shapes if connections are Tensors.
-            assert in_con.metadata.shape is not None
-            assert out_con.metadata.shape is not None
-            updates |= in_con.metadata.shape.merge(out_con.metadata.shape)
+            assert isinstance(in_con.metadata._value, Tensor)
+            assert isinstance(out_con.metadata._value, Tensor)
+            updates |= in_con.metadata._value.match_shapes(
+                out_con.metadata._value.shape
+            )
         # Merge types.
         updates |= in_con.metadata.set_type(out_con.metadata._type)
         updates |= out_con.metadata.set_type(in_con.metadata._type)
@@ -852,7 +857,6 @@ class BaseModel:
         model._freeze()
 
         updates = Updates()
-        # TODO: Check if there already matcching keys.
         self.state_connections |= model.state_connections
 
         shape_info: dict[str, ShapeTemplateType] = {}
