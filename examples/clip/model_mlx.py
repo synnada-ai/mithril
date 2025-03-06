@@ -36,13 +36,15 @@ from mithril.models import (
     
 backend_torch = ml.TorchBackend()
 
+
 def quick_gelu(name: str | None = None):
     block = Model(name=name)
     input = IOKey("input")
     block |= Sigmoid()((1.702 * input), output="sigmoid")
     block |= Buffer()(input * block.sigmoid, output=IOKey("output"))  # type: ignore
     return block
-    
+
+
 def attention(
     dims: int,
     num_heads: int,
@@ -102,10 +104,11 @@ def attention(
         )
 
     values_hat = block.scores.transpose((0, 2, 1, 3)).reshape((B, L, -1))
-    block |= Linear(value_output_dims, name="out_proj")(values_hat, output="out")  # type: ignore
-    block |= Buffer()(input=block.out, output=IOKey("output"))  # type: ignore
+    block |= Linear(value_output_dims, name="out_proj")(values_hat, output=IOKey("output"))  # type: ignore
+    # block |= Buffer()(input=block.out, output=IOKey("output"))  # type: ignore
     return block
-    
+
+
 def mlp(config: dict[str, Any],
         name: str | None = None
 ):
@@ -117,8 +120,6 @@ def mlp(config: dict[str, Any],
         output=IOKey("output"),
     )
     return block
-
-
 
 
 def encode_layer(config: dict[str, Any],
@@ -143,6 +144,7 @@ def encode_layer(config: dict[str, Any],
     )
     return block
     
+
 def encoder(
     config: dict[str, Any],
     use_mask: bool = False,
@@ -157,6 +159,7 @@ def encoder(
         input_key = f"attn_output_{idx}"
     block |= Buffer()(input=f"attn_output_{idx}", output=IOKey("output"))
     return block
+
 
 def text_embeddings(
         config: dict[str, Any],
@@ -177,6 +180,7 @@ def text_embeddings(
     )
     return block
 
+
 def clip_text_model(
     config: dict[str, Any],
     name: str | None = None
@@ -194,7 +198,6 @@ def clip_text_model(
     )
     
     block|= LayerNorm(name="final_layer_norm")(input=block.t_encoder_output, output = "last_hidden_state")
-    block |= Buffer()(input = block.last_hidden_state, output = IOKey("embed_out"))
     block |= Arange()(stop=B, output="arange_output")  # type: ignore
     block |= ArgMax(axis=-1)(input=input, output="argmax_output")
     
@@ -204,6 +207,7 @@ def clip_text_model(
         output = IOKey("output")
     )
     return block
+
 
 def vision_embeddings(
     config: dict[str, Any],
@@ -216,7 +220,7 @@ def vision_embeddings(
     c_image_size = config["image_size"]
     c_patch_size = config["patch_size"]
     num_positions = ((c_image_size // c_patch_size) ** 2) + 1
-    block |= (conv:=Convolution2D(kernel_size=c_patch_size, out_channels=c_embed_dim, stride=c_patch_size, use_bias=False, name ="patch_embedding"))(
+    block |= Convolution2D(kernel_size=c_patch_size, out_channels=c_embed_dim, stride=c_patch_size, use_bias=False, name ="patch_embedding")(
         input = input, output = "patch_embeddings"
     )
     patch_embeddings:ml.Connection = block.patch_embeddings.reshape((batch_size,c_embed_dim,-1)).transpose((0, 2, 1))
@@ -225,16 +229,17 @@ def vision_embeddings(
     block |= ZerosLike()(input=block.rand_1, output="zeros_out")  # type: ignore
     class_embedding = IOKey("class_embedding", differentiable=True, shape=[c_embed_dim])
    
-    block |= (concat:=Concat(axis=1))(input=[class_embedding + block.zeros_out, patch_embeddings], # type: ignore
+    block |= Concat(axis=1)(input=[class_embedding + block.zeros_out, patch_embeddings], # type: ignore
                                       output = "embeddings" # type: ignore
                                       )
-    block |= (embed:=Embedding(num_positions, c_embed_dim, name="position_embedding"))(
+    block |= Embedding(num_positions, c_embed_dim, name="position_embedding")(
         input=input,
         weight="position_embedding_weight",
         output="position_embedding_output"
     )
-    block |= (buff_o:=Buffer())(input = (block.embeddings + block.position_embedding_weight), output = IOKey("output"))
+    block |= Buffer()(input = (block.embeddings + block.position_embedding_weight), output = IOKey("output"))
     return block
+
 
 def clip_vision_model(
     config: dict[str, Any],
@@ -245,8 +250,8 @@ def clip_vision_model(
     block |= vision_embeddings(config, name = "embeddings")(
         input = input, output = "v_embeddings_output"
     )
-    block |= (ln_p:=LayerNorm(name="pre_layrnorm"))(input = block.v_embeddings_output, output = "pre_layrnorm_output")
-    block |= (enc:=encoder(config,False, name="encoder"))(
+    block |= LayerNorm(name="pre_layrnorm")(input = block.v_embeddings_output, output = "pre_layrnorm_output")
+    block |= encoder(config,False, name="encoder")(
         input = block.pre_layrnorm_output,
         output = "v_encoder_output"
     )
@@ -254,6 +259,7 @@ def clip_vision_model(
     block |= Buffer()(input =block.post_layernorm_output[:, 0, :], output=IOKey("output")) # type: ignore
     
     return block
+
 
 # for torch.tensor.norm
 def norm(
@@ -278,6 +284,7 @@ def norm(
     block += Buffer()(output=IOKey("output"))
     return block
 
+
 def clip_model(
     config: dict[str, Any],
     name: str | None = None
@@ -286,7 +293,6 @@ def clip_model(
     input_ids = IOKey("input_ids")
     pixel_values = IOKey("pixel_values")
     text_embed_dim = config["text_config"]["hidden_size"]
-    vision_embed_dim = config["vision_config"]["hidden_size"]
     projection_dim = config["projection_dim"]
 
     text_model = clip_text_model(config["text_config"], name="text_model")
@@ -296,7 +302,6 @@ def clip_model(
     text_projection_weight = IOKey("text_projection_weight", differentiable =True, shape =[text_embed_dim, projection_dim])
     
     text_projection_output = block.text_pooler_output @ text_projection_weight.transpose()
-    block |= Buffer()(input=block.text_pooler_output, output=IOKey("t_p_output"))  # type: ignore
 
     block |= norm(p=2, axis=1, keepdim=True)(
         input = text_projection_output, output = "norm_text_output"
@@ -323,11 +328,6 @@ def clip_model(
     return block
    
 
-
-
-
-
-
 def build_attention_mask() -> Model:
     block = Model()
     block |= Arange(stop=77)(output="arange_out_1")
@@ -341,47 +341,4 @@ def build_attention_mask() -> Model:
     )
     return block
 
-
-def main():
-    backend = ml.TorchBackend("cuda")
-    config = {
-    "text_config": {
-        # Transformer for text is identical across CLIP variants:
-        "num_hidden_layers": 12,         # 12 layers in the text transformer.
-        "hidden_size": 768,              # Text encoder hidden size remains 512.
-        "intermediate_size": 3072,       # MLP expansion factor (4×512).
-        "num_attention_heads": 12,        # 8 attention heads (512 / 8 = 64 per head).
-        "max_position_embeddings": 77,   # Maximum token length (including special tokens).
-        "vocab_size": 49408,             # Vocabulary size used by the tokenizer.
-        "layer_norm_eps": 1e-5,          # Epsilon for numerical stability in LayerNorm.
-    },
-    "vision_config": {
-        # Vision encoder is scaled up for the large model:
-        "num_hidden_layers": 24,         # 24 transformer layers in the vision encoder.
-        "hidden_size": 1024,             # Vision transformer hidden size.
-        "intermediate_size": 4096,       # MLP expansion factor (4×1024).
-        "num_attention_heads": 16,       # 16 attention heads (1024 / 16 = 64 per head).
-        "num_channels": 3,               # RGB input images.
-        "image_size": 224,               # Input resolution.
-        "patch_size": 14,                # Patch size for ViT‑L/14.
-        "layer_norm_eps": 1e-5,          # LayerNorm epsilon.
-    },
-    # Projection dimension for the joint embedding space.
-    # For CLIP ViT‑L/14, the vision projection is typically 768.
-    "projection_dim": 768,
-    }
-    m_model = clip_model(config)
-    pm = ml.compile(
-            m_model,
-            backend=backend,
-            shapes={"pixel_values":(1, 3 ,224, 224), "input_ids":(1, 77)},
-            data_keys={"pixel_values","input_ids"},
-            use_short_namings=False,
-        )
-    params = pm.randomize_params()
-    for i in params.keys():
-        print(i)
-
-if __name__ == "__main__":
-    main()
 

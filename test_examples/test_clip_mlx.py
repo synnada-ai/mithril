@@ -102,8 +102,8 @@ class TestLayers:
         m_model = clip_vision_model(config["vision_config"], "vit-l/14")
       
         
-        o_model = load_hf_models(HF_PATH).vision_model
-        
+        _, _, o_model = load_hf_models(HF_PATH)
+        o_model = o_model.vision_model
         
         pm = ml.compile(
             m_model,
@@ -135,8 +135,8 @@ class TestLayers:
         m_model = clip_text_model(config["text_config"], "vit-l/14")
       
         
-        o_model = load_hf_models(HF_PATH).text_model
-        
+        _, _, o_model = load_hf_models(HF_PATH)
+        o_model = o_model.text_model
         
         pm = ml.compile(
             m_model,
@@ -168,7 +168,7 @@ class TestLayers:
         m_model = clip_model(config, "vit-l/14")
       
         
-        o_model = load_hf_models(HF_PATH)
+        _, _, o_model = load_hf_models(HF_PATH)
         
         
         pm = ml.compile(
@@ -185,19 +185,22 @@ class TestLayers:
         input_ids = backend.array(torch_input_ids.clone().numpy())
         pixel_values = backend.array(torch_pixel_values.clone().numpy())
 
-        expected_result = o_model(input_ids=torch_input_ids, pixel_values=torch_pixel_values).text_embeds
+        expected_result = o_model(input_ids=torch_input_ids, pixel_values=torch_pixel_values)
       
         
 
 
         outs = pm(params, {"input_ids": input_ids, "pixel_values": pixel_values})
 
-        res = outs["text_embeds"]
-        print(outs["t_p_output"])
+
 
         np.testing.assert_allclose(
-            np.array(res), expected_result.cpu().detach().numpy(), 1e-5, 1e-5
+            np.array(outs["text_embeds"]), expected_result.text_embeds.cpu().detach().numpy(), 1e-5, 1e-5
         )  # type: ignore
+        np.testing.assert_allclose(
+            np.array(outs["image_embeds"]), expected_result.image_embeds.cpu().detach().numpy(), 1e-5, 1e-5
+        )  # type: ignore
+
 
 @pytest.mark.parametrize("backend_type", installed_backends)
 class TestClipMLXEndToEnd:    
@@ -219,11 +222,7 @@ class TestClipMLXEndToEnd:
             images=[Image.open(img_path_cat), Image.open(img_path_dog)],
             return_tensors="np",
         )["pixel_values"]
-        print("image input")
-        print(image_input)
         tokens = cliptorch.tokenize(text)
-        print("text input")
-        print(tokens)
         pm = ml.compile(
             m_model,
             backend=backend,
