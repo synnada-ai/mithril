@@ -1030,7 +1030,7 @@ def test_assigned_shapes():
         model_dict_created.get("assigned_shapes")
         == model_dict_recreated.get("assigned_shapes")
         == [
-            [("buff_input", [1, 2, "V,..."]), ("mean_input", ["V,...", 3, 4])],
+            [(("m_0", 0), [1, 2, "V,..."]), (("m_1", 0), ["V,...", 3, 4])],
         ]
     )
 
@@ -1052,7 +1052,7 @@ def test_assigned_types_1():
         model_dict_created.get("assigned_types")
         == model_dict_recreated.get("assigned_types")
         == [
-            ("mean_input", "tensor"),
+            (("m_1", 0), "tensor"),
         ]
     )
 
@@ -1162,4 +1162,30 @@ def test_assigned_types_multiple_times_different_types():
         == [
             ("buff_input", "int"),
         ]
+    )
+
+
+def test_assigned_types_from_outermost_model():
+    model = Model()
+    buff_model = Buffer()
+    model |= buff_model(input="buff_input", output=IOKey(name="buff_out"))
+    model |= Mean(axis=TBD)(input="mean_input", output=IOKey(name="mean_out"))
+
+    outer_model = Model()
+    outer_model |= model
+    outer_model |= Buffer()(input="buff_input_2")
+    outer_model.set_types(buff_input_2=Tensor[int | float])
+    outer_model.merge_connections(buff_model.input, "buff_input_2")
+
+    model_dict_created = dict_conversions.model_to_dict(outer_model)
+    model_recreated = dict_conversions.dict_to_model(model_dict_created)
+    model_dict_recreated = dict_conversions.model_to_dict(model_recreated)
+
+    assert model_dict_created == model_dict_recreated
+    assert_models_equal(outer_model, model_recreated)
+
+    assert (
+        model_dict_created.get("assigned_types")
+        == model_dict_recreated.get("assigned_types")
+        == [(("m_0", 0), "tensor")]
     )

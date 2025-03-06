@@ -374,13 +374,17 @@ class BaseModel:
         self._formula_key: str | None = formula_key
         # TODO: maybe set it only to Operator / Model.
         self.parent: BaseModel | None = None
-        self.assigned_shapes: list[dict[tuple[BaseModel, int], ShapeTemplateType]] = []
+        self.assigned_shapes: list[dict[ConnectionData, ShapeTemplateType]] = []
         self.assigned_types: dict[
-            tuple[BaseModel, int],
+            ConnectionData,
             type | UnionType | ScalarType | type[Tensor[int | float | bool]],
         ] = {}
-        self.assigned_differentiabilities: dict[tuple[BaseModel, int], bool] = {}
+        self.assigned_differentiabilities: dict[ConnectionData, bool] = {}
         self.assigned_constraints: list[AssignedConstraintType] = []
+        self.assigned_canonicals: dict[str, set[ConnectionData]] = {
+            "cins": set(),
+            "couts": set(),
+        }
         self.conns = Connections()
         self.frozen_attributes: list[str] = []
         self.dependency_map = DependencyMap(self.conns)
@@ -541,7 +545,10 @@ class BaseModel:
                 given_connection = self._create_connection(edge, None)
         assert isinstance(given_connection, ConnectionData)
 
-        if given_connection.metadata.differentiable != edge.differentiable:
+        if (
+            given_connection.metadata.differentiable is not None
+            and given_connection.metadata.differentiable != edge.differentiable
+        ):
             set_diff = given_connection.metadata.differentiable
 
         # Connection is given as a Connection object.
@@ -790,6 +797,9 @@ class BaseModel:
             self.rename_key(conn1, name)
             # TODO: Deleted connection's 'key' attribute is not updated.
             # Consider updating it.
+
+        # Update assigned attributes with conn2 to conn1.
+        self._update_assigned_attributes(conn1, conn2)
 
         return updates
 
@@ -1379,6 +1389,23 @@ class BaseModel:
     def extract_model_key_index(
         self, connection: ConnectionData
     ) -> tuple[BaseModel, int]:
+        """
+        Extracts the model and key index for a given connection.
+
+        This method determines the model and the index of the key associated with
+        that model. It handles both frozen and non-frozen states of the model.
+
+        Args:
+            connection (ConnectionData): The connection data for which the model and
+            key index need to be extracted.
+
+        Returns:
+            tuple[BaseModel, int]: A tuple containing the model and the index
+            of the key for that model.
+
+        Raises:
+            KeyError: If the connection is not found in the model.
+        """
         if connection not in self.conns.all.values():
             raise KeyError(f"Connection {connection.key} is not found in the model")
 
@@ -1390,10 +1417,8 @@ class BaseModel:
         else:
             assert connection.model is not None
             key = connection.key
-            if (
-                _model := connection.model
-            ) is self and connection.key not in self.external_keys:
-                # Always store info using freezed models.
+            if (_model := connection.model) is self:
+                # Always return info using freezed models.
                 model_info: (
                     list[tuple[BaseModel, OrderedSet[ConnectionData]]]
                     | tuple[BaseModel, OrderedSet[ConnectionData]]
@@ -1437,8 +1462,7 @@ class BaseModel:
                 updates |= conn_data.set_differentiability(value)
 
             if trace:
-                model_info = self.extract_model_key_index(conn_data)
-                self.assigned_differentiabilities[model_info] = value
+                self.assigned_differentiabilities[conn_data] = value
 
         model = self._get_outermost_parent()
         model.constraint_solver(updates)
@@ -1456,7 +1480,7 @@ class BaseModel:
         **kwargs: ShapeTemplateType,
     ) -> None:
         # Initialize assigned shapes dictionary to store assigned shapes.
-        assigned_shapes: dict[tuple[BaseModel, int], ShapeTemplateType] = {}
+        assigned_shapes: dict[ConnectionData, ShapeTemplateType] = {}
         updates = Updates()
         if shapes is None:
             shapes = {}
@@ -1477,8 +1501,7 @@ class BaseModel:
             shape_nodes[key] = (given_repr.node, inner_key)
             # In order to store assigned shapes, we need to store corresponding model
             # and index of the connection for that model.
-            model_info = self.extract_model_key_index(conn)
-            assigned_shapes[model_info] = shape
+            assigned_shapes[conn] = shape
 
         # Apply updates to the shape nodes.
         for key in chain(shapes, kwargs):
@@ -1528,8 +1551,9 @@ class BaseModel:
             updates |= metadata.set_type(key_type)
             if trace:
                 # Store assigned types in the model.
-                model_info = self.extract_model_key_index(conn)
-                self.assigned_types[model_info] = key_type
+                if key_type is Tensor:
+                    key_type = Tensor[int | float | bool]
+                self.assigned_types[conn] = key_type
         # Run the constraints for updating affected connections.
         model.constraint_solver(updates)
 
@@ -1685,6 +1709,11 @@ class BaseModel:
         return next(iter(self.conns.couts))
 
     def set_cin(self, *connections: str | ConnectionData, safe: bool = True) -> None:
+        self._set_cin(*connections, safe=safe, trace=True)
+
+    def _set_cin(
+        self, *connections: str | ConnectionData, safe: bool = True, trace: bool = False
+    ) -> None:
         self.conns.cins = set()
         for given_conn in connections:
             conn = self.conns.get_extracted_connection(given_conn)
@@ -1703,8 +1732,15 @@ class BaseModel:
                     )
             else:
                 self.conns.cins.add(conn)
+            if trace:
+                self.assigned_canonicals["cins"].add(conn)
 
     def set_cout(self, *connections: str | ConnectionData, safe: bool = True) -> None:
+        self._set_cout(*connections, safe=safe, trace=True)
+
+    def _set_cout(
+        self, *connections: str | ConnectionData, safe: bool = True, trace: bool = False
+    ) -> None:
         self.conns.couts = set()
         for given_conn in connections:
             conn = self.conns.get_extracted_connection(given_conn)
@@ -1717,6 +1753,8 @@ class BaseModel:
                     )
             else:
                 self.conns.couts.add(conn)
+            if trace:
+                self.assigned_canonicals["couts"].add(conn)
 
     def _match_hyper_edges(self, left: IOHyperEdge, right: IOHyperEdge) -> Updates:
         l_type = left.edge_type
@@ -1752,6 +1790,45 @@ class BaseModel:
         self.constraint_solver.update_constraint_map(left, right)
         # Match data of each IOHyperEdge's.
         return left.match(right)
+
+    def _update_assigned_attributes(
+        self, new: ConnectionData, old: ConnectionData
+    ) -> None:
+        """
+        Update assigned attributes by replacing occurrences of the old ConnectionData
+        with the new ConnectionData.
+
+        This method updates the following attributes:
+        - assigned_shapes: Replaces old ConnectionData with new ConnectionData
+          in the assigned shapes.
+        - assigned_types: Replaces old ConnectionData with new ConnectionData
+          in the assigned types.
+        - assigned_differentiabilities: Replaces old ConnectionData with new
+          ConnectionData in the assigned differentiabilities.
+        - assigned_canonicals: Updates the 'cins' and 'couts' sets by removing the
+          old ConnectionData and adding the new ConnectionData.
+
+        Args:
+            new (ConnectionData): The new ConnectionData to replace the old one.
+            old (ConnectionData): The old ConnectionData to be replaced.
+        """
+        for shape_info in self.assigned_shapes:
+            if old in shape_info:
+                shape_info[new] = shape_info.pop(old)
+        if old in self.assigned_types:
+            self.assigned_types[new] = self.assigned_types.pop(old)
+
+        if old in self.assigned_differentiabilities:
+            self.assigned_differentiabilities[new] = (
+                self.assigned_differentiabilities.pop(old)
+            )
+
+        if old in self.assigned_canonicals["cins"]:
+            self.assigned_canonicals["cins"].remove(old)
+            self.assigned_canonicals["cins"].add(new)
+        elif old in self.assigned_canonicals["couts"]:
+            self.assigned_canonicals["couts"].remove(old)
+            self.assigned_canonicals["couts"].add(new)
 
 
 class DependencyMap:
