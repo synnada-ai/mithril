@@ -1,6 +1,0 @@
-[run]
-omit =
-    /private/var/*
-    tmp/*
-    tests/*
-
