@@ -14,7 +14,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, KeysView, Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any
@@ -59,41 +59,20 @@ class GConnection:
         Every connection is belong to a node, except the input connections.
     """
 
-    node: Node | None
-    key: str
-    source_keys: list[str]
-    target_keys: list[str]
-    connections: set[GConnection]
+    key: str  # Global key
+    op: Operator | None  # Only global input keys do not have an operator
+    source_keys: list[str]  # Global source keys
+    target_keys: list[str]  # Global target keys
+
+    @property
+    def local_source_keys(self) -> list[str]:
+        if self.op is None:
+            return []
+
+        return list(self.op.input_keys)
 
     def __hash__(self) -> int:
         return hash(id(self))
-
-
-@dataclass
-class Node:
-    """A node representing a primitive model and its connections in the graph.
-
-    Attributes:
-        model (Operator): The primitive model associated with this node.
-        connections (dict[str, Connection]): A dictionary mapping connection names
-            to Connection objects.
-
-    Note:
-        The key "output" in the connections dictionary is reserved for the output
-        connection of the node.
-    """
-
-    model: Operator
-    connections: dict[str, GConnection]
-
-    def __hash__(self) -> int:
-        return hash(id(self))
-
-    def __eq__(self, other: object) -> bool:
-        return id(self) == id(other)
-
-    def __repr__(self) -> str:
-        return f"{self.model}"
 
 
 class FlatGraph(GenericDataType[DataType]):
@@ -111,7 +90,7 @@ class FlatGraph(GenericDataType[DataType]):
             memo = {}
 
         self.backend: ml.Backend[DataType] = backend
-        self.nodes: dict[Operator, Node] = {}
+        self.model_table: dict[Operator, GConnection] = {}
         self.connections: dict[
             str, GConnection
         ] = {}  # Assumed connections added in topological order.
@@ -122,14 +101,13 @@ class FlatGraph(GenericDataType[DataType]):
         self._input_keys = input_keys
         self.random_keys: set[str] = set()
 
-        self.output_dict: dict[str, str] = {key: key for key in output_keys}
+        self.output_dict: dict[str, str] = {key: key for key in sorted(output_keys)}
         self._temp_connection_info: dict[GConnection, GConnection] = {}
 
         self.unique_model_table: dict[str, GConnection] = {}
         self.value_table: dict[str, DataType | ValueType] = {}
 
         self.data_store: StaticDataStore[DataType] = StaticDataStore(backend, inference)
-
         self.constraint_solver: ConstraintSolver = deepcopy(solver, memo=memo)
 
     @property
@@ -188,6 +166,29 @@ class FlatGraph(GenericDataType[DataType]):
     def random_seeds(self) -> dict[str, int]:
         return self.data_store.random_seeds
 
+    @property
+    def topological_order(self) -> list[str]:
+        return self._topological_order
+
+    @property
+    def all_target_keys(self) -> set[str]:
+        return self._all_target_keys
+
+    @property
+    def all_source_keys(self) -> set[str]:
+        return self._all_source_keys
+
+    @property
+    def all_models(self) -> list[Operator]:
+        return [self.get_model(key) for key in self.topological_order]
+
+    def get_model(self, key: str) -> Operator:
+        conn = self.connections.get(key, None)
+        if conn is None or conn.op is None:
+            raise ValueError(f"Model with key {key} not found")
+        else:
+            return conn.op
+
     def set_random_seed_keys(self, seed_keys: set[str]) -> None:
         self.data_store.set_random_seed_keys(seed_keys)
 
@@ -203,13 +204,11 @@ class FlatGraph(GenericDataType[DataType]):
         if model.random_keys:
             self.random_keys |= {keys[key] for key in model.random_keys}
 
-        node = Node(model, {})
-
         # Create output connection of the new Node.
-        out_conn = GConnection(node, output_key, [], [], set())
-
+        out_conn = GConnection(output_key, model, [], [])
+        self.model_table[model] = out_conn
+        self._all_target_keys.add(output_key)
         self.connections[output_key] = out_conn
-        node.connections[Operator.output_key] = out_conn
 
         # Create input connections
         for inner_key, outer_key in keys.items():
@@ -219,25 +218,16 @@ class FlatGraph(GenericDataType[DataType]):
             conn = self.connections.get(outer_key, None)
             # New input
             if conn is None:
-                conn = GConnection(None, outer_key, [], [], set())
+                conn = GConnection(outer_key, None, [], [])
                 self.connections[outer_key] = conn
 
+            out_conn.source_keys.append(conn.key)
+            conn.target_keys.append(out_conn.key)
             self._all_source_keys.add(conn.key)
-            conn.connections.add(out_conn)
-            node.connections[inner_key] = conn
 
-        self.nodes[model] = node
+        self._topological_order.append(out_conn.key)
 
-        self._all_target_keys.add(output_key)
-        self._topological_order.append(node.connections[Operator.output_key].key)
-
-        for conn in node.connections.values():
-            self._update_connection_keys(conn)
-
-        self._update_all_source_keys()
-        self._update_all_target_keys()
-
-    def collapse_model_keys(self, output_key: str, new_reference_key: str) -> None:
+    def _collapse_model_keys(self, output_key: str, new_reference_key: str) -> None:
         # If a model removed, the models that uses the output of the removed model
         # should be updated with the new reference key.
         for key, value in self._temp_connection_info.items():
@@ -248,99 +238,19 @@ class FlatGraph(GenericDataType[DataType]):
             if value_str == output_key:
                 self.output_dict[key_str] = new_reference_key
 
-    def update_output_keys(self, output_key: str, new_reference_key: str) -> bool:
+    def _update_output_keys(self, output_key: str, new_reference_key: str) -> bool:
         if output_key not in self.output_dict:
             return False
 
         self.output_dict[output_key] = new_reference_key
         return True
 
-    @property
-    def topological_order(self) -> list[str]:
-        return self._topological_order
-
-    @property
-    def all_target_keys(self) -> set[str]:
-        return self._all_target_keys
-
-    @property
-    def all_source_keys(self) -> set[str]:
-        return self._all_source_keys
-
     def _update_topological_order(self) -> None:
         self._topological_order = [
-            node.connections[Operator.output_key].key for node in self.nodes.values()
+            key
+            for key in self._topological_order
+            if key in self.connections and self.connections[key].op is not None
         ]
-
-    def _update_all_source_keys(self) -> None:
-        self._all_source_keys = {
-            conn.key
-            for item in self.nodes.values()
-            for key, conn in item.connections.items()
-            if key != "output"
-        }
-
-    def _update_all_target_keys(self) -> None:
-        self._all_target_keys = {
-            conn.key
-            for item in self.nodes.values()
-            for key, conn in item.connections.items()
-            if key == "output"
-        }
-
-    def _update_connection_keys(self, connection: GConnection) -> None:
-        source_keys: list[str] = []
-        target_keys: list[str] = []
-
-        if connection.node is not None:
-            for inner_key, conn in connection.node.connections.items():
-                if inner_key == Operator.output_key:
-                    continue
-                key = conn.key
-                source_keys.append(key)
-
-        def get_target_keys(connection: GConnection) -> list[str]:
-            target_keys: list[str] = []
-            for conn in connection.connections:
-                target_keys.append(conn.key)
-
-            return target_keys
-
-        target_keys += get_target_keys(connection)
-        if (
-            connection.node is not None
-            and connection.key != connection.node.connections[Operator.output_key].key
-            and connection.node.connections[Operator.output_key].key in self.connections
-        ):
-            target_keys.append(connection.node.connections[Operator.output_key].key)
-
-        # Make sure connection key registered all_source and all_target keys
-        if len(target_keys) > 0:
-            self._all_source_keys.add(connection.key)
-        if len(source_keys) > 0:
-            self._all_target_keys.add(connection.key)
-
-        connection.target_keys = list(target_keys)
-        connection.source_keys = list(source_keys)
-
-    def get_model(self, key: str) -> Operator:
-        conn = self.connections.get(key, None)
-        if conn is None or conn.node is None:
-            raise ValueError(f"Model not found for key: {key}")
-
-        return conn.node.model
-
-    def get_model_out_key(self, model: Operator) -> str | None:
-        node = self.nodes.get(model, None)
-        if node is None:
-            return None
-        return node.connections[Operator.output_key].key
-
-    def get_model_outer_key(self, model: Operator, inner_key: str) -> str:
-        return self.nodes[model].connections[inner_key].key
-
-    def get_model_connections(self, model: Operator):  # type: ignore
-        return self.nodes[model].connections.values()
 
     def get_connection(self, key: str) -> GConnection | None:
         return self.connections.get(key)
@@ -381,43 +291,60 @@ class FlatGraph(GenericDataType[DataType]):
 
         updates = Updates()
 
-        for node in list(self.nodes.values()):
-            if node.connections["output"].key in self.data_store.data_values:
-                self._remove_node(node)
+        # Traverse the graph connections
+        for key in list(self.topological_order):
+            op = self.get_model(key)
+            conn = self.connections[key]
+
+            # The connection is allready calculated
+            if key in self.data_store.data_values:
+                # Unlink source connections
+                for source_key in list(conn.source_keys):
+                    src_conn = self.connections[source_key]
+                    src_conn.target_keys.remove(key)
+
+                    self._update_conn_info(src_conn)
+
+                    while source_key in conn.source_keys:
+                        conn.source_keys.remove(source_key)
+
+                # Clear connection
+                conn.op = None
+                assert len(conn.source_keys) == 0
+
+                if key in self._all_target_keys:
+                    self._all_target_keys.remove(key)
+
                 continue
 
-            if isinstance(node.model, BufferOp):
-                input_conn = node.connections["input"]
+            # Nuke buffer
+            if isinstance(op, BufferOp):
+                input_key = conn.source_keys[0]
+                input_conn = self.connections[input_key]
                 input_conn = self._temp_connection_info.get(input_conn, input_conn)
-                output_conn = node.connections["output"]
-                self.update_output_keys(output_conn.key, input_conn.key)
+                output_conn = self.connections[key]
+
+                self._update_output_keys(key, input_key)
                 self._temp_connection_info[output_conn] = input_conn
 
-                input_conn.connections.discard(output_conn)
-                input_conn.connections |= output_conn.connections
+                # Update Output conn target conns source keys
+                for target_key in output_conn.target_keys:
+                    target_conn = self.connections[target_key]
+                    idx = target_conn.source_keys.index(key)
+                    target_conn.source_keys[idx] = input_key
 
-                # Update target conn source keys
-                for target_conn in list(output_conn.connections):
-                    if target_conn.node is None:
-                        continue
+                # Update input conn target keys
+                input_conn.target_keys += output_conn.target_keys
 
-                    for key, target_conn_source in target_conn.node.connections.items():
-                        if target_conn_source == output_conn:
-                            target_conn.node.connections[key] = input_conn
-                            self._update_connection_keys(target_conn)
+                self._remove_conn(output_conn)
+            else:
+                # Check duplicate
+                source_conn = self._is_duplicate(conn, data, constant_keys)
+                if source_conn is None:
+                    continue
 
-                    output_conn.connections.discard(target_conn)
-
-                self._update_connection_keys(input_conn)
-                self._update_connection_keys(output_conn)
-                self._remove_node(node)
-                continue
-
-            # Check duplicate
-            conn = self._is_duplicate(node, data, constant_keys)
-            if conn is not None:
-                pruned_key = node.connections["output"].key
-                source_key = conn.key
+                pruned_key = key
+                source_key = source_conn.key
 
                 ## Update Data Memo
                 pruned_data = self.all_data[pruned_key]
@@ -432,30 +359,32 @@ class FlatGraph(GenericDataType[DataType]):
                 updates |= remained_data.match(pruned_data)
 
                 # Finally prune the node
-                self._prune_node(node, conn)
+                self._prune_node(conn, source_conn)
+
+        self._update_topological_order()
 
         self.data_store.update_cached_data(updates)
         self.constraint_solver(updates)
 
     def _is_duplicate(
         self,
-        node: Node,
+        conn: GConnection,
         data: dict[str, IOHyperEdge],
         constant_keys: Mapping[str, DataType | MainValueType],
     ) -> GConnection | None:
         # Model id is a unique key for unique operation
         model_id: list[str] = []
-        for key, conn in node.connections.items():
+        for key in conn.source_keys:
             # We do not consider output and cache keys, when determining model id.
             if key == "output" or "cache" in key:
                 continue
 
             # Extract value from data or static_keys
             value: DataType | AllValueType
-            if conn.key in data and data[conn.key].is_valued:
-                value = data[conn.key].value
+            if key in data and data[key].is_valued:
+                value = data[key].value
             else:
-                value = constant_keys.get(conn.key, TBD)
+                value = constant_keys.get(key, TBD)
 
             # If connection is valued, then compare values.
             if not isinstance(value, ToBeDetermined):
@@ -481,90 +410,42 @@ class FlatGraph(GenericDataType[DataType]):
                     self.value_table[str(len(self.value_table))] = value  #  type: ignore
                     model_id.append(str(len(self.value_table) - 1))
             else:
-                model_id.append(conn.key)
+                model_id.append(key)
 
-        final_model_id = "-".join(model_id) + f"-{node.model.formula_key}"
+        assert conn.op is not None
+
+        final_model_id = "-".join(model_id) + f"-{conn.op.formula_key}"
 
         if final_model_id in self.unique_model_table:
             return self.unique_model_table[final_model_id]
 
-        self.unique_model_table[final_model_id] = node.connections["output"]
+        self.unique_model_table[final_model_id] = conn
         return None
 
-    def _prune_node(self, node: Node, conn: GConnection) -> None:
-        self.collapse_model_keys(node.connections["output"].key, conn.key)
+    def _prune_node(self, conn: GConnection, source_conn: GConnection) -> None:
+        self._collapse_model_keys(conn.key, source_conn.key)
 
-        # Update source and target keys of node connections
-        for item1 in node.connections["output"].connections:
-            if item1.node is None:
-                continue
+        # Update target keys of node connections
+        for target_key in conn.target_keys:
+            if target_key not in source_conn.target_keys:
+                source_conn.target_keys.append(target_key)
 
-            for key, item2 in item1.node.connections.items():
-                if item2 == node.connections["output"]:
-                    item1.node.connections[key] = conn
-                    self._update_connection_keys(item1)
+        # The source key of the conn's target conns should be updated to
+        # the source_conn's key
+        for target_key in conn.target_keys:
+            target_conn = self.connections[target_key]
+            for idx, source_key in enumerate(list(target_conn.source_keys)):
+                if source_key == conn.key:
+                    target_conn.source_keys[idx] = source_conn.key
 
-        conn.connections |= node.connections["output"].connections
+        self._remove_conn(conn)
 
-        # Remove node connections
-        for conn_ in node.connections.values():
-            if conn_.node == node:
-                self._remove_conn(conn_)
-            else:
-                for item in list(conn_.connections):
-                    if item.node == node:
-                        conn_.connections.discard(item)
-                    self._update_connection_keys(item)
-            self._update_connection_keys(conn_)
+    def _update_conn_info(self, conn: GConnection) -> None:
+        if len(conn.target_keys) == 0 and conn.key in self._all_source_keys:
+            self._all_source_keys.remove(conn.key)
 
-        if (
-            key := node.connections[Operator.output_key].key
-        ) not in self.output_keys and key in self._all_target_keys:
-            self._all_target_keys.remove(key)
-
-        self.nodes.pop(node.model)
-
-        self._update_connection_keys(conn)
-        self._update_all_source_keys()
-        self._update_all_target_keys()
-        self._update_topological_order()
-
-    def _remove_node(self, node: Node) -> None:
-        connections = set(node.connections.values())
-        output_conn = node.connections[Operator.output_key]
-
-        # To remove node, node should not be used any other nodes or
-        # Output of this node is already cached, so we can remove this node.
-        if len(output_conn.connections) == 0 or output_conn.key in self.all_data:
-            for conn in connections - {output_conn}:
-                conn.connections -= connections
-
-                self._update_connection_keys(conn)
-
-                if len(conn.target_keys) == 0 and len(conn.source_keys) == 0:
-                    # Connection is not used by any other connections
-                    self._remove_conn(conn)
-
-            if (
-                len(output_conn.connections) == 0
-                and output_conn.key not in self.output_dict.values()
-            ):
-                self._remove_conn(output_conn)
-
-            else:
-                output_conn.node = None
-
-            self.nodes.pop(node.model)
-            node.connections.clear()
-
-        else:
-            raise ValueError(
-                "Node can not be removed, because it is used by other nodes!"
-            )
-
-        self._update_all_source_keys()
-        self._update_all_target_keys()
-        self._update_topological_order()
+        if len(conn.source_keys) == 0 and conn.key in self._all_target_keys:
+            self._all_target_keys.remove(conn.key)
 
     def _remove_conn(self, conn: GConnection) -> None:
         if conn.key in self.connections and conn.key not in self.output_dict.values():
@@ -572,11 +453,20 @@ class FlatGraph(GenericDataType[DataType]):
 
         self.connections.pop(conn.key, None)
 
-        # Remove connection from other connections
-        if conn.node is not None:
-            for conn_ in conn.node.connections.values():
-                if conn.key in conn_.target_keys:
-                    conn_.target_keys.remove(conn.key)
+        # Remove connection from source connections
+        for source_key in conn.source_keys:
+            source_conn = self.connections[source_key]
+            if conn.key in source_conn.target_keys:
+                source_conn.target_keys.remove(conn.key)
+
+            self._update_conn_info(source_conn)
+
+        for target_key in conn.target_keys:
+            target_conn = self.connections[target_key]
+            if conn.key in target_conn.source_keys:
+                target_conn.source_keys.remove(conn.key)
+
+            self._update_conn_info(target_conn)
 
         if conn.key in self._all_source_keys:
             self._all_source_keys.remove(conn.key)
@@ -584,13 +474,17 @@ class FlatGraph(GenericDataType[DataType]):
         if conn.key in self._all_target_keys:
             self._all_target_keys.remove(conn.key)
 
+        if conn.key in self._topological_order:
+            self._topological_order.remove(conn.key)
+
+        if conn.op in self.model_table:
+            self.model_table.pop(conn.op)
+
     def remove_key(self, key: str) -> None:
         if key in self.output_dict:
             self.output_dict.pop(key)
-
-        if (conn := self.get_connection(key)) is not None and conn.node is not None:
-            self._remove_node(conn.node)
-        elif conn is not None:
+        conn = self.get_connection(key)
+        if conn is not None:
             self._remove_conn(conn)
 
     def infer_ignore_step(
@@ -616,9 +510,6 @@ class FlatGraph(GenericDataType[DataType]):
                     ):
                         keys.add(value)
                         queue.add(value)
-
-    def get_models(self) -> KeysView[Operator]:
-        return self.nodes.keys()
 
     def infer_static_keys(self) -> Updates:
         """Infers the static keys and calculates
