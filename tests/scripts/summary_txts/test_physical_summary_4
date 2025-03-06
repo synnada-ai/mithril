@@ -45,7 +45,6 @@ Layer_2      |   Inputs  : weight : [   5, 4] : 'weight2'      :         20
 Layer_3      |   Inputs  : weight : [   6, 5] : 'weight3'      :         30
              |             input  : [None, 5] : Layer_2.output :          0
              |             bias   :       [6] : 'bias3'        :          6
-             |             $slope :        -- : 0.01           :          0
              |   ----------------------------------------------------------
              |   Outputs : output : [None, 6] : 'output'       :          0
 ---------------------------------------------------------------------------

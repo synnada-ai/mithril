@@ -14,8 +14,10 @@
 
 from __future__ import annotations
 
+import operator
 from collections.abc import Sequence
-from types import NoneType
+from functools import partial
+from types import EllipsisType, NoneType
 from typing import Any
 
 from .. import types
@@ -37,9 +39,10 @@ from ..framework.constraints import (
     conv_1d_constraints,
     conv_2d_constraints,
     cross_entropy_constraint,
+    distance_matrix_const,
     eye_constraints,
     flatten_constrains,
-    general_tensor_type_constraint,
+    general_type_constraint,
     pad_constraints,
     padding_1d_constraint,
     padding_2d_constraint,
@@ -51,6 +54,7 @@ from ..framework.constraints import (
     stride_constraint,
     swap_axes_constraints,
     tuple_converter_constraint,
+    two_add,
     where_constrains,
 )
 from ..framework.logical import Model
@@ -289,7 +293,7 @@ class SupervisedLoss(PrimitiveModel):
 
         if polymorphic_constraint:
             self._add_constraint(
-                fn=general_tensor_type_constraint,
+                fn=partial(general_type_constraint, fn=operator.add, is_bitwise=True),
                 keys=[Operator.output_key, "input", "target"],
             )
 
@@ -382,19 +386,26 @@ class QuantileLoss(PrimitiveModel):
 
     def __init__(
         self,
-        quantile: int | float | ToBeDetermined = TBD,
+        quantile: int | float | ToBeDetermined = 0.5,
         input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         target: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
+        self.factory_args = {"quantile": quantile}
         super().__init__(
             formula_key="quantile_loss",
             name=name,
-            output=BaseKey(shape=[("Var_1", ...)], type=Tensor),
-            input=BaseKey(shape=[("Var_2", ...)], type=Tensor, value=input),
-            target=BaseKey(shape=[("Var_3", ...)], type=Tensor, value=target),
-            quantile=BaseKey(shape=[], type=Tensor[int | float], value=quantile),
+            output=BaseKey(shape=[("Var_1", ...)], type=Tensor[int | float]),
+            input=BaseKey(
+                shape=[("Var_2", ...)], type=Tensor[int | float], value=input
+            ),
+            target=BaseKey(
+                shape=[("Var_3", ...)], type=Tensor[int | float], value=target
+            ),
+            quantile=BaseKey(
+                shape=[], type=Tensor[int | float], value=Tensor(quantile)
+            ),
         )
 
         bcast_constraint = self._add_constraint(
@@ -408,7 +419,7 @@ class QuantileLoss(PrimitiveModel):
         )
 
         self._add_constraint(
-            fn=general_tensor_type_constraint,
+            fn=partial(general_type_constraint, fn=two_add, is_bitwise=True),
             keys=[Operator.output_key, "input", "target", "quantile"],
         )
 
@@ -422,7 +433,7 @@ class QuantileLoss(PrimitiveModel):
         self,
         input: ConnectionType = NOT_GIVEN,
         target: ConnectionType = NOT_GIVEN,
-        quantile: int | float | ConnectionType = 0.5,
+        quantile: ConnectionType = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(
@@ -442,7 +453,7 @@ class CrossEntropy(PrimitiveModel):
     input: Connection
     target: Connection
     weights: Connection
-    cutoff: Connection
+    threshold: Connection
     robust: Connection
     output: Connection
 
@@ -452,13 +463,15 @@ class CrossEntropy(PrimitiveModel):
         weights: list[float] | str = "",
         input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         target: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        robust: bool | ToBeDetermined = TBD,
-        cutoff: ConstantType | ToBeDetermined = TBD,
+        robust: bool | ToBeDetermined = False,
+        threshold: ConstantType | ToBeDetermined = Constant.MIN_POSITIVE_NORMAL,
+        categorical: bool | ToBeDetermined = True,
         *,
         name: str | None = None,
     ) -> None:
         self.factory_args = {"input_type": input_type, "weights": weights}
-
+        self.input_type = input_type
+        _threshold: Tensor[float] = Tensor(threshold)
         weights_type: type = list[float]
         if isinstance(weights, str):
             if weights not in ("", "auto"):
@@ -477,8 +490,8 @@ class CrossEntropy(PrimitiveModel):
                 shape=["N", ("VarTarget", ...)], type=Tensor, value=target
             ),
             "weights": BaseKey(type=weights_type, value=final_weights),
-            "categorical": BaseKey(type=bool),
-            "cutoff": BaseKey(shape=[], type=Tensor, value=cutoff),
+            "categorical": BaseKey(type=bool, value=categorical),
+            "threshold": BaseKey(shape=[], type=Tensor, value=_threshold),
             "robust": BaseKey(type=bool, value=robust),
         }
 
@@ -488,7 +501,7 @@ class CrossEntropy(PrimitiveModel):
             formula_key = "cross_entropy"
         elif input_type == "log_probs":
             formula_key = "cross_entropy_with_log_probs"
-            kwargs.pop("cutoff")
+            kwargs.pop("threshold")
             kwargs.pop("robust")
         else:
             raise ValueError(
@@ -507,9 +520,9 @@ class CrossEntropy(PrimitiveModel):
         input: ConnectionType = NOT_GIVEN,
         target: ConnectionType = NOT_GIVEN,
         weights: ConnectionType = NOT_GIVEN,
-        categorical: bool | ConnectionType = True,
-        cutoff: ConstantType | ConnectionType = Constant.MIN_POSITIVE_NORMAL,
-        robust: bool | ConnectionType = False,
+        categorical: ConnectionType = NOT_GIVEN,
+        threshold: ConnectionType = NOT_GIVEN,
+        robust: ConnectionType = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         kwargs = {
@@ -519,23 +532,17 @@ class CrossEntropy(PrimitiveModel):
             "categorical": categorical,
             "output": output,
         }
-        # Check if the given argument set is valid.
-        if self.submodel.formula_key == "cross_entropy_with_log_probs":
-            args: list[str] = []
-            if robust is not False:
-                args.append("robust")
-            if cutoff != Constant.MIN_POSITIVE_NORMAL:
-                args.append("cutoff")
-            if args:
+        if self.input_type == "log_probs":
+            if threshold is not NOT_GIVEN:
                 raise ValueError(
-                    f"Cross entropy with log probs does not accept {args} arguments."
+                    "Cross entropy with log probs does not accept threshold argument."
+                )
+            if robust is not NOT_GIVEN:
+                raise ValueError(
+                    "Cross entropy with log probs does not accept robust argument."
                 )
         else:
-            if isinstance(cutoff, Constant) and cutoff == Constant.MIN_POSITIVE_NORMAL:
-                # NOTE: Since we can not provide Tensor objects as default
-                # arguments, we need to convert default value.
-                cutoff = Tensor(cutoff)
-            kwargs |= {"cutoff": cutoff, "robust": robust}
+            kwargs |= {"threshold": threshold, "robust": robust}
 
         return super().__call__(**kwargs)
 
@@ -547,23 +554,27 @@ class KLDivergence(PrimitiveModel):
 
     input: Connection
     target: Connection
-    cutoff: Connection
+    threshold: Connection
     output: Connection
 
     def __init__(
         self,
         input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         target: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        cutoff: ConstantType | ToBeDetermined = TBD,
+        threshold: ConstantType | ToBeDetermined = Constant.MIN_POSITIVE_NORMAL,
         name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="kl_divergence",
             name=name,
             output=BaseKey(shape=[("Var_1", ...)], type=Tensor[float]),
-            input=BaseKey(shape=[("Var_2", ...)], type=Tensor, value=input),
-            target=BaseKey(shape=[("Var_3", ...)], type=Tensor, value=target),
-            cutoff=BaseKey(shape=[], type=Tensor, value=cutoff),
+            input=BaseKey(
+                shape=[("Var_2", ...)], type=Tensor[int | float], value=input
+            ),
+            target=BaseKey(
+                shape=[("Var_3", ...)], type=Tensor[int | float], value=target
+            ),
+            threshold=BaseKey(shape=[], type=Tensor, value=Tensor(threshold)),
         )
 
         self.submodel.safe_shapes = {
@@ -585,15 +596,11 @@ class KLDivergence(PrimitiveModel):
         self,
         input: ConnectionType = NOT_GIVEN,
         target: ConnectionType = NOT_GIVEN,
-        cutoff: ConnectionType = Constant.MIN_POSITIVE_NORMAL,
+        threshold: ConnectionType = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
-        if isinstance(cutoff, Constant) and cutoff == Constant.MIN_POSITIVE_NORMAL:
-            # NOTE: Since we can not provide Tensor objects as default
-            # arguments, we need to convert default value.
-            cutoff = Tensor(cutoff)
         return super().__call__(
-            input=input, target=target, cutoff=cutoff, output=output
+            input=input, target=target, threshold=threshold, output=output
         )
 
 
@@ -605,7 +612,7 @@ class BinaryCrossEntropy(PrimitiveModel):
     input: Connection
     target: Connection
     pos_weight: Connection
-    cutoff: Connection
+    threshold: Connection
     robust: Connection
     output: Connection
 
@@ -615,13 +622,17 @@ class BinaryCrossEntropy(PrimitiveModel):
         pos_weight: float | str | ToBeDetermined = 1.0,
         input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         target: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        cutoff: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        robust: bool | ToBeDetermined = TBD,
+        threshold: ConstantType | ToBeDetermined = Constant.MIN_POSITIVE_NORMAL,
+        robust: bool | ToBeDetermined = False,
         *,
         name: str | None = None,
     ) -> None:
-        self.factory_args = {"input_type": input_type, "pos_weight": pos_weight}
-
+        self.factory_args = {
+            "input_type": input_type,
+            "pos_weight": pos_weight,
+            "threshold": threshold,
+            "robust": robust,
+        }
         if isinstance(pos_weight, str):
             if pos_weight != "auto":
                 raise ValueError(
@@ -642,7 +653,7 @@ class BinaryCrossEntropy(PrimitiveModel):
                 value=target,
             ),
             "pos_weight": BaseKey(type=pos_weight_type, value=pos_weight),
-            "cutoff": BaseKey(value=cutoff),
+            "threshold": BaseKey(value=threshold),
             "robust": BaseKey(type=bool, value=robust),
         }
 
@@ -672,15 +683,15 @@ class BinaryCrossEntropy(PrimitiveModel):
         input: ConnectionType = NOT_GIVEN,
         target: ConnectionType = NOT_GIVEN,
         pos_weight: ConnectionType = NOT_GIVEN,
-        cutoff: ConstantType | ConnectionType = Constant.MIN_POSITIVE_NORMAL,
-        robust: bool | ConnectionType = False,
+        threshold: ConnectionType = NOT_GIVEN,
+        robust: ConnectionType = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(
             input=input,
             target=target,
             pos_weight=pos_weight,
-            cutoff=cutoff,
+            threshold=threshold,
             robust=robust,
             output=output,
         )
@@ -695,11 +706,15 @@ class Log(PrimitiveModel):
         robust: bool = False,
         input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
-        cutoff: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        threshold: ConstantType | ToBeDetermined = Constant.MIN_POSITIVE_NORMAL,
         name: str | None = None,
     ) -> None:
         self.robust = robust
-        self.factory_args = {"robust": robust}
+        self.factory_args = {"robust": robust, "threshold": threshold}
+        if threshold is not Constant.MIN_POSITIVE_NORMAL and not robust:
+            raise ValueError(
+                "Log does not accept threshold argument when robust is False."
+            )
 
         if robust:
             super().__init__(
@@ -707,7 +722,9 @@ class Log(PrimitiveModel):
                 name=name,
                 output=BaseKey(shape=[("Var", ...)], type=Tensor[float]),
                 input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
-                cutoff=BaseKey(shape=[], type=Tensor, value=cutoff),
+                threshold=BaseKey(
+                    shape=[], type=Tensor[float], value=Tensor(threshold)
+                ),
             )
         else:
             super().__init__(
@@ -722,34 +739,29 @@ class Log(PrimitiveModel):
         input: ConnectionType = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
         *,
-        cutoff: ConnectionType = Constant.MIN_POSITIVE_NORMAL,
+        threshold: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         kwargs = {"input": input, "output": output}
 
-        default = (
-            isinstance(cutoff, Constant) and cutoff == Constant.MIN_POSITIVE_NORMAL
-        )
-        if self.robust:
-            if default:
-                # NOTE: Since we can not provide Tensor objects as default
-                # arguments, we need to convert default value.
-                cutoff = Tensor(cutoff)  # type: ignore
-            kwargs["cutoff"] = cutoff
-        elif not default:
-            raise ValueError("Cutoff cannot be specified when robust mode is off")
+        if not self.robust and threshold is not NOT_GIVEN:
+            raise ValueError(
+                "Log does not accept threshold argument when robust is False."
+            )
+        elif self.robust:
+            kwargs["threshold"] = threshold
 
         return super().__call__(**kwargs)
 
 
 class StableReciprocal(PrimitiveModel):
     input: Connection
-    cutoff: Connection
+    threshold: Connection
     output: Connection
 
     def __init__(
         self,
         input: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        cutoff: Tensor[int | float] | ToBeDetermined = TBD,
+        threshold: ConstantType | ToBeDetermined = Constant.STABLE_RECIPROCAL_THRESHOLD,
         *,
         name: str | None = None,
     ) -> None:
@@ -757,24 +769,19 @@ class StableReciprocal(PrimitiveModel):
             formula_key="stable_reciprocal",
             name=name,
             output=BaseKey(shape=[("Var", ...)], type=Tensor[float]),
-            input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
-            cutoff=BaseKey(shape=[], value=cutoff),
+            input=BaseKey(shape=[("Var", ...)], type=Tensor[int | float], value=input),
+            threshold=BaseKey(
+                shape=[], type=Tensor[int | float | bool], value=Tensor(threshold)
+            ),
         )
 
     def __call__(  # type: ignore[override]
         self,
         input: ConnectionType = NOT_GIVEN,
-        cutoff: ConnectionType = Constant.STABLE_RECIPROCAL_THRESHOLD,
+        threshold: ConnectionType = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
-        if (
-            isinstance(cutoff, Constant)
-            and cutoff == Constant.STABLE_RECIPROCAL_THRESHOLD
-        ):
-            # NOTE: Since we can not provide Tensor objects as default
-            # arguments, we need to convert default value.
-            cutoff = Tensor(cutoff)
-        return super().__call__(input=input, cutoff=cutoff, output=output)
+        return super().__call__(input=input, threshold=threshold, output=output)
 
 
 class Sign(PrimitiveModel):
@@ -792,6 +799,10 @@ class Sign(PrimitiveModel):
             name=name,
             output=BaseKey(shape=[("Var", ...)], type=Tensor[float]),
             input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
+        )
+        self._add_constraint(
+            fn=general_type_constraint,
+            keys=[Operator.output_key, "input"],
         )
 
     def __call__(  # type: ignore[override]
@@ -842,8 +853,8 @@ class Activation(PrimitiveModel):
         # Torch assumes only float inputs for these activations. Since JAX handles
         # more general case, default types are written taking this into account.
         default_kwargs: dict[str, BaseKey] = dict(
-            input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
-            output=BaseKey(shape=[("Var", ...)], type=Tensor[float]),
+            input=BaseKey(shape=[("Var", ...)], type=Tensor[int | float], value=input),
+            output=BaseKey(shape=[("Var", ...)], type=Tensor[int | float]),
         )
         # Finalize kwargs.
         kwargs = default_kwargs | kwargs
@@ -851,7 +862,7 @@ class Activation(PrimitiveModel):
 
         if polymorphic_constraint:
             self._add_constraint(
-                fn=general_tensor_type_constraint,
+                fn=general_type_constraint,
                 keys=[Operator.output_key, "input"],
             )
 
@@ -873,7 +884,7 @@ class Relu(Activation):
             name=name,
             polymorphic_constraint=True,
             input=input,
-            output=BaseKey(shape=[("Var", ...)], type=Tensor),
+            output=BaseKey(shape=[("Var", ...)], type=Tensor[int | float]),
         )
 
 
@@ -890,6 +901,7 @@ class Gelu(Activation):
             approximate=BaseKey(value=approximate, type=bool),
             name=name,
             input=input,
+            output=BaseKey(shape=[("Var", ...)], type=Tensor[float]),
         )
 
     def __call__(  # type: ignore[override]
@@ -908,24 +920,35 @@ class Sigmoid(Activation):
         *,
         name: str | None = None,
     ) -> None:
-        super().__init__(formula_key="sigmoid", name=name, input=input)
+        super().__init__(
+            formula_key="sigmoid",
+            name=name,
+            input=input,
+            output=BaseKey(shape=[("Var", ...)], type=Tensor[float]),
+        )
 
 
 class Softmax(Activation):
     def __init__(
         self,
         input: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        axis: int | None | ToBeDetermined = TBD,
+        axis: int | None | ToBeDetermined = -1,
         *,
         name: str | None = None,
     ) -> None:
         axis_key = BaseKey(type=int | None, value=axis)
-        super().__init__(formula_key="softmax", name=name, axis=axis_key, input=input)
+        super().__init__(
+            formula_key="softmax",
+            name=name,
+            axis=axis_key,
+            input=input,
+            output=BaseKey(shape=[("Var", ...)], type=Tensor[float]),
+        )
 
     def __call__(  # type: ignore[override]
         self,
         input: ConnectionType = NOT_GIVEN,
-        axis: ConnectionType = -1,
+        axis: ConnectionType = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return Model.__call__(self, input=input, axis=axis, output=output)
@@ -958,22 +981,26 @@ class LeakyRelu(Activation):
 
     def __init__(
         self,
-        slope: Tensor[int | float | bool] | int | float | ToBeDetermined = TBD,
+        slope: Tensor[int | float | bool] | int | float | ToBeDetermined = 0.01,
         input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
+        self.factory_args = {"slope": slope}
         super().__init__(
             formula_key="leaky_relu",
             name=name,
             input=input,
-            slope=BaseKey(value=slope),
+            slope=BaseKey(
+                value=slope, type=int | float | bool | Tensor[int | float | bool]
+            ),
+            output=BaseKey(shape=[("Var", ...)], type=Tensor[float]),
         )
 
     def __call__(  # type: ignore[override]
         self,
         input: ConnectionType = NOT_GIVEN,
-        slope: ConnectionType = 0.01,
+        slope: ConnectionType = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return Model.__call__(self, input=input, slope=slope, output=output)
@@ -995,6 +1022,11 @@ class StopGradient(PrimitiveModel):
             formula_key="stop_gradient",
             output=BaseKey(shape=[("Var", ...)], type=Tensor),
             input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
+        )
+
+        self.add_constraint(
+            fn=general_type_constraint,
+            keys=[Operator.output_key, "input"],
         )
 
     def __call__(  # type: ignore[override]
@@ -1024,7 +1056,7 @@ class CartesianDifference(PrimitiveModel):
             right=BaseKey(shape=["M", "dim"], type=Tensor, value=right),
         )
         self._add_constraint(
-            fn=general_tensor_type_constraint,
+            fn=partial(general_type_constraint, fn=operator.sub),
             keys=[Operator.output_key, "left", "right"],
         )
 
@@ -1116,7 +1148,7 @@ class PermuteTensor(PrimitiveModel):
         )
 
         self._add_constraint(
-            fn=general_tensor_type_constraint, keys=[Operator.output_key, "input"]
+            fn=general_type_constraint, keys=[Operator.output_key, "input"]
         )
 
     def __call__(  # type: ignore[override]
@@ -1152,14 +1184,20 @@ class PrimitiveConvolution1D(PrimitiveModel):
         self.factory_args = {"use_bias": use_bias}
         formula_key = "conv1d_bias"
         kwargs: dict[str, BaseKey] = {
-            "output": BaseKey(shape=["N", "out_channels", "d_out"], type=Tensor),
-            "input": BaseKey(shape=["N", "C_in", "d_in"], type=Tensor, value=input),
+            "output": BaseKey(
+                shape=["N", "out_channels", "d_out"], type=Tensor[int | float]
+            ),
+            "input": BaseKey(
+                shape=["N", "C_in", "d_in"], type=Tensor[int | float], value=input
+            ),
             "weight": BaseKey(
                 shape=["out_channels", "C_in", "kernel_size"],
-                type=Tensor,
+                type=Tensor[int | float],
                 value=weight,
             ),
-            "bias": BaseKey(shape=[1, "out_channels", 1], type=Tensor, value=bias),
+            "bias": BaseKey(
+                shape=[1, "out_channels", 1], type=Tensor[int | float], value=bias
+            ),
             "stride": BaseKey(type=int, value=stride),
             "padding": BaseKey(type=int | tuple[int, int], value=padding),
             "dilation": BaseKey(type=int, value=dilation),
@@ -1180,10 +1218,15 @@ class PrimitiveConvolution1D(PrimitiveModel):
         if use_bias:
             constraint_keys.append("bias")
 
-        self._add_constraint(
-            fn=general_tensor_type_constraint,
-            keys=[Operator.output_key] + constraint_keys,
-        )
+            self._add_constraint(
+                fn=partial(general_type_constraint, fn=two_add),
+                keys=[Operator.output_key] + constraint_keys,
+            )
+        else:
+            self._add_constraint(
+                fn=partial(general_type_constraint, fn=operator.add),
+                keys=[Operator.output_key] + constraint_keys,
+            )
 
     def __call__(  # type: ignore[override]
         self,
@@ -1242,15 +1285,19 @@ class PrimitiveConvolution2D(PrimitiveModel):
         formula_key = "conv2d_bias"
         kwargs: dict[str, BaseKey] = {
             "output": BaseKey(
-                shape=["N", "out_channels", "H_out", "W_out"], type=Tensor
+                shape=["N", "out_channels", "H_out", "W_out"], type=Tensor[int | float]
             ),
-            "input": BaseKey(shape=["N", "C_in", "H", "W"], type=Tensor, value=input),
+            "input": BaseKey(
+                shape=["N", "C_in", "H", "W"], type=Tensor[int | float], value=input
+            ),
             "weight": BaseKey(
                 shape=["out_channels", "C_in", "kernel_size_0", "kernel_size_1"],
-                type=Tensor,
+                type=Tensor[int | float],
                 value=weight,
             ),
-            "bias": BaseKey(shape=[1, "out_channels", 1, 1], type=Tensor, value=bias),
+            "bias": BaseKey(
+                shape=[1, "out_channels", 1, 1], type=Tensor[int | float], value=bias
+            ),
             "stride": BaseKey(type=int | tuple[int, int], value=stride),
             "padding": BaseKey(
                 type=int | tuple[int, int] | tuple[tuple[int, int], tuple[int, int]],
@@ -1273,10 +1320,16 @@ class PrimitiveConvolution2D(PrimitiveModel):
         constraint_keys = ["input", "weight"]
         if use_bias:
             constraint_keys.append("bias")
-        self._add_constraint(
-            fn=general_tensor_type_constraint,
-            keys=[Operator.output_key] + constraint_keys,
-        )
+
+            self._add_constraint(
+                fn=partial(general_type_constraint, fn=two_add),
+                keys=[Operator.output_key] + constraint_keys,
+            )
+        else:
+            self._add_constraint(
+                fn=partial(general_type_constraint, fn=operator.add),
+                keys=[Operator.output_key] + constraint_keys,
+            )
 
     def __call__(  # type: ignore[override]
         self,
@@ -1336,7 +1389,7 @@ class Flatten(PrimitiveModel):
             keys=[Operator.output_key, "input", "start_dim", "end_dim"],
         )
         self._add_constraint(
-            fn=general_tensor_type_constraint, keys=[Operator.output_key, "input"]
+            fn=general_type_constraint, keys=[Operator.output_key, "input"]
         )
 
     def __call__(  # type: ignore[override]
@@ -1372,8 +1425,12 @@ class PrimitiveMaxPool1D(PrimitiveModel):
         super().__init__(
             formula_key="max_pool1d",
             name=name,
-            output=BaseKey(shape=["N", ("C_in", ...), "W_out"], type=Tensor),
-            input=BaseKey(shape=["N", ("C_in", ...), "W"], type=Tensor, value=input),
+            output=BaseKey(
+                shape=["N", ("C_in", ...), "W_out"], type=Tensor[int | float]
+            ),
+            input=BaseKey(
+                shape=["N", ("C_in", ...), "W"], type=Tensor[int | float], value=input
+            ),
             kernel_size=BaseKey(type=int, value=kernel_size),
             stride=BaseKey(type=int, value=stride),
             padding=BaseKey(type=tuple[int, int], value=padding),
@@ -1385,7 +1442,7 @@ class PrimitiveMaxPool1D(PrimitiveModel):
         )
         # TODO: Torch does not accept any int type inputs but JAX implementation does.
         self._add_constraint(
-            fn=general_tensor_type_constraint, keys=[Operator.output_key, "input"]
+            fn=general_type_constraint, keys=[Operator.output_key, "input"]
         )
 
     def __call__(  # type: ignore[override]
@@ -1603,9 +1660,6 @@ class PrimitivePool2D(PrimitiveModel):
             fn=sliding_window_2d_constraints,
             keys=["output", "input", "stride", "padding", "dilation", "kernel_size"],
         )
-        self._add_constraint(
-            fn=general_tensor_type_constraint, keys=[Operator.output_key, "input"]
-        )
 
     def __call__(  # type: ignore[override]
         self,
@@ -1677,6 +1731,7 @@ class PrimitiveAvgPool2D(PrimitivePool2D):
 
 
 class NormModifier(PrimitiveModel):
+    # TODO: Make this primitive logical.
     """A helper model that modifies norm input. It is used for mapping
     norm values from (`-inf`, `inf`) to the interval (`1.0`, `5.0`) using a
     periodic triangular function with period 8 as shown on the figure below.
@@ -1712,7 +1767,7 @@ class NormModifier(PrimitiveModel):
         )
 
         self._add_constraint(
-            fn=general_tensor_type_constraint, keys=[Operator.output_key, "input"]
+            fn=general_type_constraint, keys=[Operator.output_key, "input"]
         )
 
     def __call__(  # type: ignore[override]
@@ -1722,6 +1777,7 @@ class NormModifier(PrimitiveModel):
 
 
 class DistanceMatrix(PrimitiveModel):
+    # TODO: Make this primitive logical.
     left: Connection
     right: Connection
     norm: Connection
@@ -1745,7 +1801,7 @@ class DistanceMatrix(PrimitiveModel):
         )
 
         self._add_constraint(
-            fn=general_tensor_type_constraint,
+            fn=partial(general_type_constraint, fn=distance_matrix_const),
             keys=[Operator.output_key, "left", "right", "norm"],
         )
         self.set_cin("left", "right", safe=False)
@@ -1784,7 +1840,7 @@ class PolynomialFeatures(PrimitiveModel):
             fn=polynomial_features_constraints, keys=["output", "input", "degree"]
         )
         self._add_constraint(
-            fn=general_tensor_type_constraint, keys=[Operator.output_key, "input"]
+            fn=general_type_constraint, keys=[Operator.output_key, "input"]
         )
 
     def __call__(  # type: ignore[override]
@@ -1808,7 +1864,7 @@ class TsnePJoint(PrimitiveModel):
         self,
         squared_distances: Tensor[int | float | bool] | ToBeDetermined = TBD,
         target_perplexity: float | ToBeDetermined = TBD,
-        threshold: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        threshold: ConstantType | ToBeDetermined = Constant.EPSILON,
         *,
         name: str | None = None,
     ) -> None:
@@ -1822,14 +1878,14 @@ class TsnePJoint(PrimitiveModel):
             target_perplexity=BaseKey(
                 shape=[], type=Tensor[float], value=target_perplexity
             ),
-            threshold=BaseKey(shape=[], type=Tensor, value=threshold),
+            threshold=BaseKey(shape=[], type=Tensor, value=Tensor(threshold)),
         )
 
     def __call__(  # type: ignore[override]
         self,
         squared_distances: ConnectionType = NOT_GIVEN,
-        target_perplexity: float | ConnectionType = NOT_GIVEN,
-        threshold: ConstantType | ConnectionType = Constant.EPSILON,
+        target_perplexity: ConnectionType = NOT_GIVEN,
+        threshold: ConnectionType = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(
@@ -1841,6 +1897,7 @@ class TsnePJoint(PrimitiveModel):
 
 
 class EyeComplement(PrimitiveModel):
+    # TODO: Add Dtype constraints to this model
     N: Connection
     M: Connection
     dtype: Connection
@@ -2017,7 +2074,7 @@ class TransposedDiagonal(PrimitiveModel):
         )
 
         self._add_constraint(
-            fn=general_tensor_type_constraint, keys=[Operator.output_key, "input"]
+            fn=general_type_constraint, keys=[Operator.output_key, "input"]
         )
 
     def __call__(  # type: ignore[override]
@@ -2042,6 +2099,8 @@ class Arange(PrimitiveModel):
         *,
         name: str | None = None,
     ) -> None:
+        # TODO: add Arange type constraint that handles all
+        # start stop step dtype combinations
         all_defined = False
         if (
             not isinstance(start, ToBeDetermined)
@@ -2062,7 +2121,7 @@ class Arange(PrimitiveModel):
         super().__init__(
             formula_key="arange",
             name=name,
-            output=BaseKey(shape=output_shp, type=Tensor),
+            output=BaseKey(shape=output_shp, type=Tensor[int | float]),
             start=BaseKey(type=int | float, value=start),
             stop=BaseKey(type=int | float, value=stop),
             step=BaseKey(type=int | float, value=step),
@@ -2074,10 +2133,6 @@ class Arange(PrimitiveModel):
             self._add_constraint(
                 fn=arange_constraints, keys=["output", "start", "stop", "step"]
             )
-        self._add_constraint(
-            fn=general_tensor_type_constraint,
-            keys=[Operator.output_key, "start", "stop", "step"],
-        )
 
     def __call__(  # type: ignore[override]
         self,
@@ -2109,7 +2164,7 @@ class Randn(PrimitiveModel):
         super().__init__(
             formula_key="randn",
             name=name,
-            output=BaseKey(shape=[("output", ...)], type=Tensor),
+            output=BaseKey(shape=[("output", ...)], type=Tensor[float]),
             shape=BaseKey(type=tuple[int, ...], value=shape),
             key=BaseKey(type=int, value=key),
             dtype=BaseKey(type=types.Dtype | None, value=dtype),
@@ -2154,7 +2209,7 @@ class BroadcastTo(PrimitiveModel):
             fn=broadcast_to_constraints, keys=["output", "shape", "input"]
         )
         self._add_constraint(
-            fn=general_tensor_type_constraint, keys=[Operator.output_key, "input"]
+            fn=general_type_constraint, keys=[Operator.output_key, "input"]
         )
 
     def __call__(  # type: ignore[override]
@@ -2176,7 +2231,7 @@ class Eigvalsh(PrimitiveModel):
         self,
         K_term: Tensor[int | float | bool] | ToBeDetermined = TBD,
         L: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        threshold: ConstantType | ToBeDetermined = TBD,
+        threshold: ConstantType | ToBeDetermined = Constant.EPSILON,
         *,
         name: str | None = None,
     ) -> None:
@@ -2186,14 +2241,14 @@ class Eigvalsh(PrimitiveModel):
             output=BaseKey(shape=["N", 1], type=Tensor[float]),
             K_term=BaseKey(shape=["N", "N"], type=Tensor, value=K_term),
             L=BaseKey(shape=["N", "N"], type=Tensor, value=L),
-            threshold=BaseKey(shape=[], type=Tensor, value=threshold),
+            threshold=BaseKey(shape=[], type=Tensor, value=Tensor(threshold)),
         )
 
     def __call__(  # type: ignore[override]
         self,
         K_term: ConnectionType = NOT_GIVEN,
         L: ConnectionType = NOT_GIVEN,
-        threshold: ConstantType | ConnectionType = Constant.EPSILON,
+        threshold: ConnectionType = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(K_term=K_term, L=L, threshold=threshold, output=output)
@@ -2218,7 +2273,7 @@ class Squeeze(PrimitiveModel):
 
         self._add_constraint(fn=squeeze_constraints, keys=["output", "input"])
         self._add_constraint(
-            fn=general_tensor_type_constraint, keys=[Operator.output_key, "input"]
+            fn=general_type_constraint, keys=[Operator.output_key, "input"]
         )
 
     def __call__(  # type: ignore[override]
@@ -2286,7 +2341,7 @@ class Embedding(PrimitiveModel):
         )
 
         self._add_constraint(
-            fn=general_tensor_type_constraint,
+            fn=general_type_constraint,
             keys=[Operator.output_key, "weight"],
         )
 
@@ -2450,7 +2505,7 @@ class SwapAxes(PrimitiveModel):
             fn=swap_axes_constraints, keys=["output", "input", "axis1", "axis2"]
         )
         self._add_constraint(
-            fn=general_tensor_type_constraint, keys=[Operator.output_key, "input"]
+            fn=general_type_constraint, keys=[Operator.output_key, "input"]
         )
 
     def __call__(  # type: ignore[override]
@@ -2490,7 +2545,7 @@ class Where(PrimitiveModel):
             fn=where_constrains, keys=["output", "cond", "input1", "input2"]
         )
         self._add_constraint(
-            fn=general_tensor_type_constraint,
+            fn=partial(general_type_constraint, fn=operator.add, is_bitwise=True),
             keys=[Operator.output_key, "input1", "input2"],
         )
         self.set_cin("input1", safe=False)
@@ -2666,7 +2721,7 @@ class ZerosLike(PrimitiveModel):
             formula_key="zeros_like",
             name=name,
             output=BaseKey(shape=[("Var", ...)], type=Tensor),
-            input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
+            input=BaseKey(shape=[("Var", ...)], type=Tensor),
         )
 
     def __call__(  # type: ignore[override]
@@ -2809,8 +2864,8 @@ class Multiply(ArithmeticOperation):
 class Minimum(ArithmeticOperation):
     def __init__(
         self,
-        left: TensorValueType | ToBeDetermined = TBD,
-        right: TensorValueType | ToBeDetermined = TBD,
+        left: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -2820,8 +2875,8 @@ class Minimum(ArithmeticOperation):
 class Maximum(ArithmeticOperation):
     def __init__(
         self,
-        left: TensorValueType | ToBeDetermined = TBD,
-        right: TensorValueType | ToBeDetermined = TBD,
+        left: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -2869,8 +2924,16 @@ class FloorDivide(OperatorModel):
 
     def __init__(
         self,
-        numerator: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        denominator: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        numerator: Tensor[int | float | bool]
+        | int
+        | float
+        | bool
+        | ToBeDetermined = TBD,
+        denominator: Tensor[int | float | bool]
+        | int
+        | float
+        | bool
+        | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -2895,8 +2958,8 @@ class MatrixMultiply(OperatorModel):
 
     def __init__(
         self,
-        left: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        right: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        left: Tensor[int | float] | ToBeDetermined = TBD,
+        right: Tensor[int | float] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -3145,7 +3208,7 @@ class Sum(Reduce):
         self,
         axis: int | tuple[int, ...] | None | ToBeDetermined = None,
         keepdim: bool | ToBeDetermined = False,
-        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        input: Tensor[float] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -3302,11 +3365,15 @@ class Sqrt(OperatorModel):
         robust: bool = False,
         input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
-        cutoff: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        threshold: ConstantType | ToBeDetermined = types.Constant.MIN_POSITIVE_NORMAL,
         name: str | None = None,
     ) -> None:
         self.robust = robust
-        m = SqrtOp(robust=robust, input=input, cutoff=cutoff)
+
+        if threshold is not types.Constant.MIN_POSITIVE_NORMAL and not robust:
+            raise ValueError("threshold must be specified in robust mode")
+
+        m = SqrtOp(robust=robust, input=input, threshold=Tensor(threshold))
         super().__init__(name=name, model=m)
 
     def __call__(  # type: ignore[override]
@@ -3314,22 +3381,15 @@ class Sqrt(OperatorModel):
         input: ConnectionType = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
         *,
-        cutoff: ConnectionType = types.Constant.MIN_POSITIVE_NORMAL,
+        threshold: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         kwargs = {"input": input, "output": output}
 
-        default = (
-            isinstance(cutoff, types.Constant)
-            and cutoff == types.Constant.MIN_POSITIVE_NORMAL
-        )
-        if self.robust:
-            if default:
-                # NOTE: Since we can not provide Tensor objects as default
-                # arguments, we need to convert default value.
-                cutoff = Tensor(cutoff)  # type: ignore
-            kwargs["cutoff"] = cutoff
-        elif not default:
-            raise ValueError("Cutoff cannot be specified when robust mode is off")
+        if not self.robust:
+            if threshold is not NOT_GIVEN:
+                raise ValueError("threshold must be specified in robust mode")
+        else:
+            kwargs["threshold"] = threshold
 
         return super().__call__(**kwargs)
 
@@ -3351,8 +3411,8 @@ class RelationalModel(OperatorModel):
 class Greater(RelationalModel):
     def __init__(
         self,
-        left: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        right: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        left: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -3362,8 +3422,8 @@ class Greater(RelationalModel):
 class Less(RelationalModel):
     def __init__(
         self,
-        left: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        right: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        left: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -3373,8 +3433,8 @@ class Less(RelationalModel):
 class Equal(RelationalModel):
     def __init__(
         self,
-        left: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        right: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        left: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -3384,8 +3444,8 @@ class Equal(RelationalModel):
 class NotEqual(RelationalModel):
     def __init__(
         self,
-        left: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        right: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        left: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -3395,8 +3455,8 @@ class NotEqual(RelationalModel):
 class LessEqual(RelationalModel):
     def __init__(
         self,
-        left: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        right: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        left: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -3406,8 +3466,8 @@ class LessEqual(RelationalModel):
 class GreaterEqual(RelationalModel):
     def __init__(
         self,
-        left: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        right: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        left: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
+        right: Tensor[int | float | bool] | int | float | bool | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -3612,7 +3672,12 @@ class Indexer(OperatorModel):
 
     def __init__(
         self,
-        index: int | ToBeDetermined = TBD,
+        index: int
+        | slice
+        | EllipsisType
+        | None
+        | tuple[int | slice | EllipsisType | None]
+        | ToBeDetermined = TBD,
         input: Tensor[int | float | bool] | Sequence[Any] | ToBeDetermined = TBD,
         *,
         name: str | None = None,

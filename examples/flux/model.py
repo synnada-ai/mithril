@@ -87,9 +87,7 @@ def flux(params: FluxParams):
         img_name = f"img{i}"
         txt_name = f"txt{i}"
 
-    flux |= Concat(axis=1)(
-        input=[IOKey(txt_name), IOKey(img_name)], output="img_concat"
-    )
+    flux |= Concat(axis=1)(input=[txt_name, img_name], output="img_concat")
 
     img_name = "img_concat"
     for i in range(params.depth_single_blocks):
