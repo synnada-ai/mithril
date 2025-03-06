@@ -17,19 +17,60 @@ import subprocess
 
 import setuptools
 from setuptools.command.build_ext import build_ext
+from setuptools.extension import Extension
 
 
 class CustomBuildExt(build_ext):
     def run(self):
-        shell = os.getenv("SHELL", "sh")
-        script_path = os.path.join(
-            os.path.dirname(__file__),
-            "mithril",
-            "cores",
-            "c",
-            "compile.sh",
-        )
-        subprocess.check_call([shell, script_path])
+        # Use bash explicitly instead of relying on SHELL environment variable
+        shell = "/bin/bash"
+
+        # Define script paths
+        scripts = [
+            os.path.join(
+                os.path.dirname(__file__),
+                "mithril",
+                "cores",
+                "c",
+                "raw_c",
+                "compile.sh",
+            ),
+            os.path.join(
+                os.path.dirname(__file__),
+                "mithril",
+                "cores",
+                "c",
+                "ggml",
+                "build_ggml.sh",
+            ),
+            os.path.join(
+                os.path.dirname(__file__),
+                "mithril",
+                "cores",
+                "c",
+                "ggml",
+                "compile.sh",
+            ),
+        ]
+
+        print("Running compilation scripts...")
+
+        # Save current working directory
+        original_dir = os.getcwd()
+
+        try:
+            # Run each script from its own directory
+            for script_path in scripts:
+                script_dir = os.path.dirname(script_path)
+                script_name = os.path.basename(script_path)
+                print(f"Running {script_name} in {script_dir}")
+                os.chdir(script_dir)
+                subprocess.check_call([shell, f"./{script_name}"])
+                os.chdir(original_dir)  # Return to original directory
+        finally:
+            # Make sure we return to the original directory even if an error occurs
+            os.chdir(original_dir)
+
         # Continue with the normal build
         super().run()
 
@@ -54,6 +95,6 @@ setuptools.setup(
     python_requires=">=3.12",
     install_requires=[],
     cmdclass={"build_ext": CustomBuildExt},
-    package_data={"mithril.cores.c": ["libmithrilc.so"]},
+    ext_modules=[Extension("mithril.c_sources", sources=[])],
     include_package_data=True,
 )
