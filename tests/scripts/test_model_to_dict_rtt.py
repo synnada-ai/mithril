@@ -169,6 +169,57 @@ def test_linear_not_expose():
     )
 
 
+def test_set_cins_couts():
+    model = Model()
+    linear_1 = Linear(dimension=42)
+    model |= linear_1(input="input", weight="weight", output=IOKey(name="output"))
+    model.set_cin("weight", linear_1.bias)
+    outer_model = Model()
+    linear_2 = Linear(dimension=42)
+    outer_model |= model(input="input_1", output=IOKey(name="output_1"))
+    outer_model |= linear_2(input="input_2", output=IOKey(name="output_2"))
+    outer_model.set_cout("output_2")
+
+    model_dict_created = dict_conversions.model_to_dict(outer_model)
+    model_recreated = dict_conversions.dict_to_model(model_dict_created)
+    model_dict_recreated = dict_conversions.model_to_dict(model_recreated)
+
+    assert model_dict_created == model_dict_recreated
+    assert (
+        model_dict_created["assigned_cins"]  # type: ignore
+        == model_dict_recreated["assigned_cins"]  # type: ignore
+        == []
+    )
+    assert (
+        model_dict_created["assigned_couts"]  # type: ignore
+        == model_dict_recreated["assigned_couts"]  # type: ignore
+        == [("m_1", 4)]
+    )
+    assert (
+        model_dict_created["submodels"]["m_0"]["assigned_cins"]  # type: ignore
+        == model_dict_recreated["submodels"]["m_0"]["assigned_cins"]  # type: ignore
+        == [("self", 2), "weight"]
+    )
+    assert (
+        model_dict_created["submodels"]["m_0"]["assigned_couts"]  # type: ignore
+        == model_dict_recreated["submodels"]["m_0"]["assigned_couts"]  # type: ignore
+        == []
+    )
+
+    assert_models_equal(outer_model, model_recreated)
+
+    backend = JaxBackend(dtype=mithril.float64)
+    assert_evaluations_equal(
+        outer_model,
+        model_recreated,
+        backend,
+        static_keys={
+            "input_1": backend.ones([4, 256]),
+            "input_2": backend.ones([4, 256]),
+        },
+    )
+
+
 def test_constant_key():
     model = Model()
     model | Add()(left="input", right=Tensor(3), output=IOKey(name="output"))

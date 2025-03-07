@@ -381,10 +381,8 @@ class BaseModel:
         ] = {}
         self.assigned_differentiabilities: dict[ConnectionData, bool] = {}
         self.assigned_constraints: list[AssignedConstraintType] = []
-        self.assigned_canonicals: dict[str, set[ConnectionData]] = {
-            "cins": set(),
-            "couts": set(),
-        }
+        self.assigned_cins: set[ConnectionData] = set()
+        self.assigned_couts: set[ConnectionData] = set()
         self.conns = Connections()
         self.frozen_attributes: list[str] = []
         self.dependency_map = DependencyMap(self.conns)
@@ -870,13 +868,6 @@ class BaseModel:
         shape_info = {
             submodel_dag[key].key: template for key, template in shape_info.items()
         }
-
-        # # Set given shapes.
-        # self._set_shapes(**shape_info)  # TODO: Should "trace" be set to True?.
-        # self.constraint_solver(updates)
-
-        # model.constraint_solver.clear()
-        # model.conns.connections_dict = {}
 
         # Insert to self dag as a FrozenDict.""
         # Since we update dag in merge_connections, we could not use FrozenDict.
@@ -1386,57 +1377,6 @@ class BaseModel:
         connection.metadata = metadata
         return connection
 
-    def extract_model_key_index(
-        self, connection: ConnectionData
-    ) -> tuple[BaseModel, int]:
-        """
-        Extracts the model and key index for a given connection.
-
-        This method determines the model and the index of the key associated with
-        that model. It handles both frozen and non-frozen states of the model.
-
-        Args:
-            connection (ConnectionData): The connection data for which the model and
-            key index need to be extracted.
-
-        Returns:
-            tuple[BaseModel, int]: A tuple containing the model and the index
-            of the key for that model.
-
-        Raises:
-            KeyError: If the connection is not found in the model.
-        """
-        if connection not in self.conns.all.values():
-            raise KeyError(f"Connection {connection.key} is not found in the model")
-
-        if self.is_frozen:
-            _model = self
-            name = connection._name
-            assert name is not None
-            key_index = list(self.external_keys).index(name)
-        else:
-            assert connection.model is not None
-            key = connection.key
-            if (_model := connection.model) is self:
-                # Always return info using freezed models.
-                model_info: (
-                    list[tuple[BaseModel, OrderedSet[ConnectionData]]]
-                    | tuple[BaseModel, OrderedSet[ConnectionData]]
-                ) = self.dependency_map.local_input_dependency_map.get(
-                    connection,
-                    self.dependency_map.local_output_dependency_map.get(connection),  # type: ignore
-                )
-                _model = (
-                    model_info[0][0] if isinstance(model_info, list) else model_info[0]
-                )
-                # Get corresponding connection of the _model.
-                _model_conn = _model.conns.get_con_by_metadata(connection.metadata)
-                assert _model_conn is not None
-                key = _model_conn.key
-            key_index = list(_model.external_keys).index(key)
-
-        return (_model, key_index)
-
     def _set_differentiability(
         self,
         config: dict[ConnectionData, bool] | None = None,
@@ -1658,6 +1598,7 @@ class BaseModel:
         keys: list[str],
         types: list[UpdateType] | None = None,
         dependencies: set[Constraint] | None = None,
+        trace: bool = False,
     ) -> Constraint:
         all_conns = self.conns.all
         hyper_edges = [all_conns[key].metadata for key in keys]
@@ -1677,6 +1618,10 @@ class BaseModel:
             hyper_edge.add_constraint(constr)
 
         self.constraint_solver.solver_loop({constr})
+
+        if trace:
+            self.assigned_constraints.append({"fn": fn.__name__, "keys": keys})
+
         return constr
 
     def add_constraint(
@@ -1686,8 +1631,7 @@ class BaseModel:
         type: list[UpdateType] | None = None,
         dependencies: set[Constraint] | None = None,
     ) -> Constraint:
-        self.assigned_constraints.append({"fn": fn.__name__, "keys": keys})
-        return self._add_constraint(fn, keys, type, dependencies)
+        return self._add_constraint(fn, keys, type, dependencies, True)
 
     @property
     def cin(self) -> ConnectionData:
@@ -1733,7 +1677,7 @@ class BaseModel:
             else:
                 self.conns.cins.add(conn)
             if trace:
-                self.assigned_canonicals["cins"].add(conn)
+                self.assigned_cins.add(conn)
 
     def set_cout(self, *connections: str | ConnectionData, safe: bool = True) -> None:
         self._set_cout(*connections, safe=safe, trace=True)
@@ -1754,7 +1698,7 @@ class BaseModel:
             else:
                 self.conns.couts.add(conn)
             if trace:
-                self.assigned_canonicals["couts"].add(conn)
+                self.assigned_couts.add(conn)
 
     def _match_hyper_edges(self, left: IOHyperEdge, right: IOHyperEdge) -> Updates:
         l_type = left.edge_type
@@ -1822,13 +1766,13 @@ class BaseModel:
             self.assigned_differentiabilities[new] = (
                 self.assigned_differentiabilities.pop(old)
             )
-
-        if old in self.assigned_canonicals["cins"]:
-            self.assigned_canonicals["cins"].remove(old)
-            self.assigned_canonicals["cins"].add(new)
-        elif old in self.assigned_canonicals["couts"]:
-            self.assigned_canonicals["couts"].remove(old)
-            self.assigned_canonicals["couts"].add(new)
+        # Assigned canonicals
+        if old in self.assigned_cins:
+            self.assigned_cins.remove(old)
+            self.assigned_cins.add(new)
+        elif old in self.assigned_couts:
+            self.assigned_couts.remove(old)
+            self.assigned_couts.add(new)
 
 
 class DependencyMap:
