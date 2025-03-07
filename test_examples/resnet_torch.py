@@ -553,8 +553,8 @@ def build_model(state_dict: dict):
             k.split(".")[2] for k in state_dict if k.startswith("transformer.resblocks")
         )
     )
-
-    model = CLIP(
+    # noqa: N801
+    model = CLIP_RN(
         embed_dim,
         image_resolution,
         vision_layers,

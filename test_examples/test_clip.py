@@ -36,6 +36,7 @@ from examples.clip.model import (
     multi_head_attention_forward,
     modified_resnet
 )
+# noqa: N801
 import torch.nn.functional as F
 from .clip_torch import CLIP, ResidualAttentionBlock, Transformer, VisionTransformer
 from .resnet_torch import Bottleneck, ModifiedResNet , AttentionPool2d, CLIP_RN
