@@ -202,7 +202,7 @@ class Pool1D(Model):
             output=IOKey(name="output"),
         )
 
-        self.set_cin("input", safe=False)
+        self._set_cin("input", safe=False)
         self._freeze()
 
     def __call__(  # type: ignore[override]
@@ -303,7 +303,7 @@ class Pool2D(Model):
             dilation=dt_converter.output,
             output=IOKey(name="output"),
         )
-        self.set_cin("input", safe=False)
+        self._set_cin("input", safe=False)
         self._freeze()
 
     def __call__(  # type: ignore[override]
@@ -399,7 +399,7 @@ class Convolution1D(Model):
             conv_connections["bias"] = IOKey("bias", differentiable=True)
 
         self |= PrimitiveConvolution1D(use_bias=use_bias)(**conv_connections)
-        self.set_cin("input", safe=False)
+        self._set_cin("input", safe=False)
         self._freeze()
 
     def __call__(  # type: ignore[override]
@@ -493,7 +493,7 @@ class Convolution2D(Model):
             conv_connections["bias"] = IOKey("bias", differentiable=True)
 
         self |= PrimitiveConvolution2D(use_bias=use_bias)(**conv_connections)
-        self.set_cin("input", safe=False)
+        self._set_cin("input", safe=False)
         self._freeze()
 
     def __call__(  # type: ignore[override]
@@ -560,7 +560,7 @@ class Linear(Model):
             self |= mult(left=input_key, right=weight_key, output=output)
 
         self._set_shapes(**shapes)
-        self.set_cin("input", safe=False)
+        self._set_cin("input", safe=False)
         self._freeze()
 
     def __call__(  # type: ignore[override]
@@ -607,7 +607,7 @@ class ElementWiseAffine(Model):
             right=IOKey(name="bias", value=bias),
             output=IOKey(name="output"),
         )
-        self.set_cin("input", safe=False)
+        self._set_cin("input", safe=False)
         self._freeze()
 
     def __call__(  # type: ignore[override]
@@ -650,7 +650,7 @@ class Layer(Model):
             bias=IOKey("bias", value=bias),
         )
         self += activation(output=IOKey(name="output"))
-        self.set_cin("input", safe=False)
+        self._set_cin("input", safe=False)
         self._freeze()
 
     def __call__(  # type: ignore[override]
@@ -720,7 +720,7 @@ class LayerNorm(Model):
             add._set_shapes(**shapes)
         # TODO: Remove below Buffer after required naming-related changes are done.
         self |= Buffer()(input=self.cout, output=IOKey(name="output"))
-        self.set_cin("input", safe=False)
+        self._set_cin("input", safe=False)
         self._freeze()
 
     def __call__(  # type: ignore[override]
@@ -801,7 +801,7 @@ class GroupNorm(Model):
             add._set_shapes(**shapes)
 
         self |= Buffer()(input=self.cout, output=IOKey(name="output"))
-        self.set_cin("input", safe=False)
+        self._set_cin("input", safe=False)
         self._freeze()
 
     def __call__(  # type: ignore[override]
@@ -937,8 +937,8 @@ class L1(Model):
         self |= abs_model(input=IOKey("input", value=input))
         self += Sum()(output=IOKey(name="output"))
 
-        self.set_cin("input", safe=False)
-        self.set_cout("output", safe=False)
+        self._set_cin("input", safe=False)
+        self._set_cout("output", safe=False)
         self._freeze()
 
     def __call__(  # type: ignore[override]
@@ -965,8 +965,8 @@ class L2(Model):
         self += Square()(input=IOKey("input", value=input))
         self += Sum()
         self += Multiply()(right=Tensor(0.5), output=IOKey(name="output"))
-        self.set_cin("input", safe=False)
-        self.set_cout("output", safe=False)
+        self._set_cin("input", safe=False)
+        self._set_cout("output", safe=False)
         self._freeze()
 
     def __call__(  # type: ignore[override]
@@ -1005,7 +1005,7 @@ class QuadraticFormRegularizer(Model):
         )
         shapes: dict[str, ShapeTemplateType] = {"input": [1, "N"], "kernel": ["N", "N"]}
         self._set_shapes(**shapes)
-        self.set_cin("input", safe=False)
+        self._set_cin("input", safe=False)
         self._freeze()
 
     def __call__(  # type: ignore[override]
@@ -1078,7 +1078,7 @@ class RBFKernel(Model):
         }
 
         self._set_shapes(**shapes)
-        self.set_cin("input1", "input2", safe=False)
+        self._set_cin("input1", "input2", safe=False)
         self._freeze()
 
     def __call__(  # type: ignore[override]
@@ -1139,7 +1139,7 @@ class PolynomialKernel(Model):
             fn=polynomial_kernel_constraint,
             keys=["poly_coef", "degree"],
         )
-        self.set_cin("input1", "input2", safe=False)
+        self._set_cin("input1", "input2", safe=False)
         self._freeze()
 
     def __call__(  # type: ignore[override]
@@ -1202,6 +1202,8 @@ class KernelizedSVM(Model):
             output=IOKey(name="output"),
         )
 
+        # TODO: It is not clear where these "input1" and "input2" names come from.
+        # It assumes kernel model has two inputs named "input1" and "input2".
         shapes: dict[str, ShapeTemplateType] = {
             "input1": ["N", "d_in"],
             "input2": ["M", "d_in"],
@@ -1211,7 +1213,7 @@ class KernelizedSVM(Model):
             "kernel": ["N", "M"],
         }
         self._set_shapes(**shapes)
-        self.set_cin("input1", "input2", safe=False)
+        self._set_cin("input1", "input2", safe=False)
         self._freeze()
 
     def __call__(  # type: ignore[override]
@@ -1259,7 +1261,7 @@ class LinearSVM(Model):
         )
         self += decision_model(output=IOKey(name="decision_output"))
 
-        self.set_cout(linear_model.output)
+        self._set_cout(linear_model.output)
         self._freeze()
 
     def __call__(  # type: ignore[override]
@@ -1309,7 +1311,7 @@ class LogisticRegression(Model):
             input=linear_model.output, output=IOKey(name="probs_output")
         )
 
-        self.set_cout(linear_model.output)
+        self._set_cout(linear_model.output)
         self._freeze()
 
     def __call__(  # type: ignore[override]
@@ -1391,7 +1393,7 @@ class MLP(Model):
             # Add current layer to the model.
             self += current_layer(**kwargs)
             prev_layer = current_layer
-        self.set_cin("input", safe=False)
+        self._set_cin("input", safe=False)
         self._freeze()
 
     def __call__(
@@ -1510,8 +1512,8 @@ class RNNCell(Cell):
         }
 
         self._set_shapes(**shapes)
-        self.set_cin("input", safe=False)
-        self.set_cout("output")
+        self._set_cin("input", safe=False)
+        self._set_cout("output")
         self._freeze()
 
     def __call__(  # type: ignore[override]
@@ -1685,8 +1687,8 @@ class LSTMCell(Cell):
         }
 
         self._set_shapes(**shapes)
-        self.set_cin("input", safe=False)
-        self.set_cout("output")
+        self._set_cin("input", safe=False)
+        self._set_cout("output")
         self._freeze()
 
     def __call__(  # type: ignore[override]
@@ -1965,8 +1967,8 @@ class OneToMany(RNN):
             )
 
             prev_cell = current_cell
-        self.set_cin("input")
-        self.set_cout(current_cell.output)
+        self._set_cin("input")
+        self._set_cout(current_cell.output)
         self._freeze()
 
     def __call__(
@@ -2091,8 +2093,8 @@ class ManyToOne(RNN):
             input=concat_input_args,
             output=IOKey(name="hidden_concat", value=hidden_concat),
         )
-        self.set_cin("input0")
-        self.set_cout("hidden_concat")
+        self._set_cin("input0")
+        self._set_cout("hidden_concat")
         self._freeze()
 
     def __call__(
@@ -2148,7 +2150,7 @@ class EncoderDecoder(Model):
             initial_hidden=permutation_model.output,
             **(dec_input_mapping | dec_output_mapping),
         )
-        self.set_cout(decoder.cout)
+        self._set_cout(decoder.cout)
 
         self._freeze()
 
@@ -2196,7 +2198,7 @@ class EncoderDecoderInference(Model):
             initial_hidden=encoder.hidden_concat,
             **(dec_input_mapping | dec_output_mapping),
         )
-        self.set_cout(decoder.cout)
+        self._set_cout(decoder.cout)
         self._freeze()
 
     def __call__(self, **model_keys: ConnectionType) -> ExtendInfo:
@@ -2250,7 +2252,7 @@ class EncoderDistanceMatrix(Model):
                 norm=modifier_model.output,
                 output=IOKey(name="output"),
             )
-        self.set_cin("input1", "input2", safe=False)
+        self._set_cin("input1", "input2", safe=False)
         self._freeze()
 
     def __call__(  # type: ignore[override]
@@ -2474,8 +2476,8 @@ class TSNECore(Model):
         )
 
         self._set_shapes(distances=["N", "N"], pred_distances=["N", "N"])
-        self.set_cin("distances", safe=False)
-        self.set_cout("output")
+        self._set_cin("distances", safe=False)
+        self._set_cout("output")
         self._freeze()
 
     def __call__(  # type: ignore[override]
@@ -2812,7 +2814,7 @@ class GaussProcessRegressionCore(Model):
             output=IOKey(name="confidence", value=confidence),
         )
 
-        self.set_cout(pred_model.output)
+        self._set_cout(pred_model.output)
         shapes: dict[str, ShapeTemplateType] = {
             "label": ["N", 1],
             "s": [1],
@@ -2993,7 +2995,7 @@ class Metric(Model):
         self |= Buffer()(input=label_key, output=IOKey("label_formatted"))
         self |= Buffer()(input=result, output=IOKey("output"))
 
-        self.set_cin(self.pred)
+        self._set_cin(self.pred)
         self._freeze()
 
     def __call__(  # type: ignore[override]
@@ -3055,7 +3057,7 @@ class Accuracy(Model):
             denominator=n_prediction.tensor(),
             output=IOKey(name="output"),
         )
-        self.set_cin(self.pred)
+        self._set_cin(self.pred)
 
     def __call__(  # type: ignore[override]
         self,
@@ -3214,7 +3216,7 @@ class Precision(Model):
 
             self |= Buffer()(input=precision, output=IOKey(name="output"))
 
-        self.set_cin(self.pred)
+        self._set_cin(self.pred)
         self._freeze()
 
     def __call__(  # type: ignore[override]
@@ -3373,7 +3375,7 @@ class Recall(Model):
 
             self |= Buffer()(input=recall, output=IOKey(name="output"))
 
-        self.set_cin(self.pred)
+        self._set_cin(self.pred)
         self._freeze()
 
     def __call__(  # type: ignore[override]
@@ -3537,7 +3539,7 @@ class F1(Model):
 
             self |= Buffer()(input=precision, output=IOKey(name="output"))
 
-        self.set_cin(self.pred)
+        self._set_cin(self.pred)
         self._freeze()
 
     def __call__(  # type: ignore[override]
@@ -3598,7 +3600,7 @@ class AUC(Model):
 
         self |= Buffer()(auc_score, IOKey("output"))
 
-        self.set_cin(self.pred)
+        self._set_cin(self.pred)
         self._freeze()
 
     def __call__(  # type: ignore[override]

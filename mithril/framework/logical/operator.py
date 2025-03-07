@@ -106,7 +106,7 @@ class Operator(BaseModel):
         )
         canonical_input_conn = self.conns.get_connection(canonical_input_key)
         if canonical_input_conn is not None:
-            self.set_cin(canonical_input_conn, safe=False)
+            self._set_cin(canonical_input_conn, safe=False)
 
         canonical_output_key = (
             "output"
@@ -115,7 +115,7 @@ class Operator(BaseModel):
         )
         canonical_output_conn = self.conns.get_connection(canonical_output_key)
         if canonical_output_conn is not None:
-            self.set_cout(canonical_output_conn, safe=False)
+            self._set_cout(canonical_output_conn, safe=False)
         self._freeze()
 
     @property
@@ -130,6 +130,8 @@ class Operator(BaseModel):
     def extend(
         self,
         model: BaseModel | BaseModel,
+        trace: bool = True,
+        /,
         **kwargs: ConnectionDataType,
     ) -> None:
         raise NotImplementedError("Operators cannot be extended!")
