@@ -3739,7 +3739,8 @@ def test_batchnorm_1():
     mean = np.abs(np.random.randn(8))
     var = np.abs(np.random.randn(8))
 
-    inputs = {"input": input, "running_mean": mean, "running_var": var}
+    inputs = {"input": input}
+    data = {"running_mean": mean, "running_var": var}
     reference_out = torch.nn.functional.batch_norm(
         torch.tensor(input, dtype=torch.float64),
         torch.tensor(mean, dtype=torch.float64),
@@ -3750,7 +3751,7 @@ def test_batchnorm_1():
     compile_and_compare(
         model=model,
         compile_kwargs={"constant_keys": {}, "trainable_keys": {"input"}},
-        data={},
+        data=data,
         params=inputs,
         output_gradients={},
         reference_outputs=reference_outputs,
@@ -3773,6 +3774,8 @@ def test_batchnorm_2():
         "input": input,
         "weight": weight,
         "bias": bias,
+    }
+    data = {
         "running_mean": running_mean,
         "running_var": running_var,
     }
@@ -3792,7 +3795,7 @@ def test_batchnorm_2():
             "constant_keys": {},
             "trainable_keys": {"input"},
         },
-        data={},
+        data=data,
         params=inputs,
         output_gradients={},
         reference_outputs=reference_outputs,
@@ -3810,10 +3813,8 @@ def test_batchnorm_3():
     running_mean = np.abs(np.random.randn(8))
     running_var = np.abs(np.random.randn(8))
 
-    inputs = {
-        "input": input,
-        "weight": weight,
-        "bias": bias,
+    inputs = {"input": input, "weight": weight, "bias": bias}
+    data = {
         "running_mean": running_mean,
         "running_var": running_var,
     }
@@ -3833,7 +3834,7 @@ def test_batchnorm_3():
             "constant_keys": {},
             "trainable_keys": {"input"},
         },
-        data={},
+        data=data,
         params=inputs,
         output_gradients={},
         reference_outputs=reference_outputs,
@@ -3851,10 +3852,8 @@ def test_batchnorm_4():
     running_mean = np.abs(np.random.randn(12))
     running_var = np.abs(np.random.randn(12))
 
-    inputs = {
-        "input": input,
-        "weight": weight,
-        "bias": bias,
+    inputs = {"input": input, "weight": weight, "bias": bias}
+    data = {
         "running_mean": running_mean,
         "running_var": running_var,
     }
@@ -3874,7 +3873,7 @@ def test_batchnorm_4():
             "constant_keys": {},
             "trainable_keys": {"input"},
         },
-        data={},
+        data=data,
         params=inputs,
         output_gradients={},
         reference_outputs=reference_outputs,
