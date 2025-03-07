@@ -271,17 +271,6 @@ def _set_assigned_info(
     types_kwargs: dict[str, type] = {}
     for type_info in types_info:
         _construct_info(model, submodel_dict, types_config, types_kwargs, type_info)
-        # if isinstance(type_info[0], tuple):
-        #     model_name, index = type_info[0]
-        #     connection = _extract_connection_from_index(
-        #         model, model_name, index, submodel_dict
-        #     )
-        #     types_config[connection] = typ
-        # elif isinstance(type_info[0], str):
-        #     name = type_info[0]
-        #     types_kwargs[name] = typ
-        # else:
-        #     raise RuntimeError("Unknown type info format!")
     model.set_types(types_config, **types_kwargs)
 
     # Differentiability settings for models and keys.
@@ -289,18 +278,6 @@ def _set_assigned_info(
     diff_kwargs: dict[str, bool] = {}
     for diff_info in diffs_info:
         _construct_info(model, submodel_dict, diff_config, diff_kwargs, diff_info)
-        # status = diff_info[1]
-        # if isinstance(diff_info[0], tuple):
-        #     model_name, index = diff_info[0]
-        #     connection = _extract_connection_from_index(
-        #         model, model_name, index, submodel_dict
-        #     )
-        #     diff_config[connection] = status
-        # elif isinstance(diff_info[0], str):
-        #     name = diff_info[0]
-        #     diff_kwargs[name] = status
-        # else:
-        #     raise RuntimeError("Unknown differentiability info format!")
     model.set_differentiability(diff_config, **diff_kwargs)
 
     # Constraints.
