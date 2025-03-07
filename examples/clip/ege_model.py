@@ -62,8 +62,8 @@ def layer_norm(name: str | None = None):
 def quick_gelu(name: str | None = None):
     block = Model(name=name)
     input = IOKey("input")
-    block |= Sigmoid()((1.702 * input), output="sigmoid")
-    block |= Buffer()(input * block.sigmoid, output=IOKey("output"))  # type: ignore
+    block |= Sigmoid()(input = (1.702 * input), output="sigmoid_output")  # type: ignore
+    block |= Buffer()(input = (input * block.sigmoid_output), output=IOKey("output"))  # type: ignore
     return block
 
 
@@ -261,15 +261,15 @@ def multi_head_attention_forward(
     embed_dim_to_check: int, num_heads: int, dropout_p: float
 ):
     block = Model()
-    query = IOKey("query", type=ml.Tensor)
-    key = IOKey("key", type=ml.Tensor)
-    value = IOKey("value", type=ml.Tensor)
-    q_proj_weight = IOKey("q_proj_weight", type=ml.Tensor)
-    k_proj_weight = IOKey("k_proj_weight", type=ml.Tensor)
-    v_proj_weight = IOKey("v_proj_weight", type=ml.Tensor)
-    in_proj_bias = IOKey("in_proj_bias", type=ml.Tensor)
-    out_proj_weight = IOKey("out_proj_weight", type=ml.Tensor)
-    out_proj_bias = IOKey("out_proj_bias", type=ml.Tensor)
+    query = IOKey("query")
+    key = IOKey("key")
+    value = IOKey("value")
+    q_proj_weight = IOKey("q_proj_weight")
+    k_proj_weight = IOKey("k_proj_weight")
+    v_proj_weight = IOKey("v_proj_weight")
+    in_proj_bias = IOKey("in_proj_bias")
+    out_proj_weight = IOKey("out_proj_weight")
+    out_proj_bias = IOKey("out_proj_bias")
 
     tgt_len, bsz, embed_dim = query.shape[0], query.shape[1], query.shape[2]
 
