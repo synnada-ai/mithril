@@ -1,0 +1,704 @@
+# Copyright 2022 Synnada, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
+import mithril as ml
+from mithril import IOKey
+from mithril.models import (
+    Arange,
+    ArgMax,
+    Buffer,
+    Cast,
+    Concat,
+    Convolution2D,
+    Embedding,
+    Flatten,
+    GroupNorm,
+    LayerNorm,
+    Linear,
+    Max,
+    MaxPool2D,
+    Mean,
+    Model,
+    Power,
+    Randn,
+    Relu,
+    Reshape,
+    ScaledDotProduct,
+    Sigmoid,
+    Sqrt,
+    Squeeze,
+    Sum,
+    Tensor,
+    Transpose,
+    Where,
+    ZerosLike,
+)
+
+backend_torch = ml.TorchBackend()
+
+
+def layer_norm(name: str | None = None):
+    block = Model(name=name)
+    input = IOKey("input")
+    block |= Cast()(input=input, dtype=ml.float32)
+    block |= LayerNorm()(input=block.cout, weight=IOKey("weight"), bias=IOKey("bias"))
+    block |= Cast()(dtype=input.dtype(), input=block.cout, output=IOKey("output"))
+    block.set_cin("input")
+    return block
+
+
+def quick_gelu(name: str | None = None):
+    block = Model(name=name)
+    input = IOKey("input")
+    block |= Sigmoid()(input = (1.702 * input), output="sigmoid_output")  # type: ignore
+    block |= Buffer()(input = (input * block.sigmoid_output), output=IOKey("output"))  # type: ignore
+    return block
+
+
+def multi_head_attention(
+    d_model: int, n_head: int, use_attn_mask: bool = False, name: str | None = None
+):
+    block = Model(name=name)
+    assert d_model % n_head == 0, "d_model is not divisible by h"
+    queries = IOKey("queries")
+    head_dim = d_model // n_head
+    B, L = queries.shape[0], queries.shape[1]
+    block |= Linear(3 * d_model, name="in_proj")(queries, output="in_proj")
+
+    in_proj = (
+        block.in_proj.reshape((B, L, 3, -1))  # type: ignore
+        .reshape((1, B, L, 3, d_model))
+        .transpose((3, 1, 2, 0, 4))
+        .reshape((3, B, L, -1))
+    )
+
+    queries = (
+        in_proj[0, :, :, :].reshape((B, L, n_head, head_dim)).transpose((1, 2, 0, 3))  # type: ignore
+    )
+    keys = in_proj[1, :, :, :].reshape((B, L, n_head, head_dim)).transpose((1, 2, 0, 3))  # type: ignore
+    values = (
+        in_proj[2, :, :, :].reshape((B, L, n_head, head_dim)).transpose((1, 2, 0, 3))  # type: ignore
+    )
+
+    if use_attn_mask:
+        block |= (mask_model := build_attention_mask())
+        block |= ScaledDotProduct(is_causal=False, use_attn_mask=True)(
+            query=queries,
+            key=keys,
+            value=values,
+            attn_mask=mask_model.cout,
+            output="attention",
+        )
+    else:
+        block |= ScaledDotProduct(is_causal=False, use_attn_mask=False)(
+            query=queries, key=keys, value=values, output="attention"
+        )
+    block |= Buffer()(input=block.attention, output="buffer_output")  # type: ignore
+    values_hat = block.attention.transpose((2, 0, 1, 3)).reshape((B * L, d_model))  # type: ignore
+    block |= Linear(d_model, name="out_proj")(values_hat, output="out")  # type: ignore
+    block |= Buffer()(input=block.out.reshape((B, L, d_model)), output=IOKey("output"))  # type: ignore
+    return block
+
+
+def mlp_resblock(d_model: int, name: str | None = None):
+    block = Model(name=name)
+    block |= Linear(d_model * 4, name="c_fc")(input="input", output="c_fc_output")
+    block |= quick_gelu(name="gelu")(input=block.c_fc_output, output="gelu_output")  # type: ignore
+    block |= Linear(d_model, name="c_proj")(
+        input=block.gelu_output,  # type: ignore
+        output=IOKey("output"),
+    )
+    return block
+
+
+def residual_attention_block(
+    d_model: int, n_head: int, use_attn_mask: bool = False, name: str | None = None
+):
+    block = Model(name=name)
+    assert d_model % n_head == 0, "d_model is not divisible by h"
+    input = IOKey("input")
+    block += layer_norm(name="ln_1")(input="input", output="ln_1")
+
+    attn = multi_head_attention(d_model, n_head, use_attn_mask, name="attn")
+    block |= attn(queries=block.ln_1, output="attention")  # type: ignore
+
+    block |= layer_norm(name="ln_2")(input=input + block.attention, output="ln_2")  # type: ignore
+    mlp = mlp_resblock(d_model, name="mlp")
+
+    block |= mlp(input=block.ln_2, output="mlp_output")  # type: ignore
+
+    block |= Buffer()(
+        input + block.attention + block.mlp_output,  # type: ignore
+        output=IOKey("output"),
+    )
+    return block
+
+
+def seq_resblocks(
+    width: int,
+    layers: int,
+    heads: int,
+    use_attn_mask: bool = False,
+    name: str | None = None,
+):
+    block = Model(name=name)
+    input_key = "input"
+    for idx in range(layers):
+        block |= residual_attention_block(
+            width, heads, use_attn_mask=use_attn_mask, name=f"{idx}"
+        )(input=input_key, output=f"attn_output_{idx}")
+        input_key = f"attn_output_{idx}"
+    block |= Buffer()(input=f"attn_output_{idx}", output=IOKey("output"))
+    return block
+
+
+def transformer(
+    width: int,
+    layers: int,
+    heads: int,
+    use_attn_mask: bool = False,
+    name: str | None = None,
+):
+    block = Model(name=name)
+    input = IOKey("input")
+
+    resblocks = seq_resblocks(
+        width=width,
+        layers=layers,
+        heads=heads,
+        use_attn_mask=use_attn_mask,
+        name="resblocks",
+    )
+    block |= resblocks(input=input, output="resblocks_output")
+
+    block |= Buffer()(input=block.resblocks_output, output=IOKey("output"))  # type: ignore
+
+    return block
+
+
+def vision_transformer(
+    input_resolution: int,
+    patch_size: int,
+    width: int,
+    layers: int,
+    heads: int,
+    output_dim: int,
+    use_proj: bool = False,
+    name: str | None = None,
+):
+    block = Model(name=name)
+    input = IOKey("input")
+
+    block |= Convolution2D(
+        kernel_size=patch_size,
+        out_channels=width,
+        stride=patch_size,
+        use_bias=False,
+        name="conv1",
+    )(input=input, output="conv1")
+    shape_conv1 = block.conv1.shape  # type: ignore
+    block |= Reshape()(
+        shape=(shape_conv1[0], shape_conv1[1], -1),
+        input=block.conv1,  # type: ignore
+        output="conv1_r",
+    )
+    conv1_rt = block.conv1_r.transpose((0, 2, 1))  # type: ignore
+    conv1_rt_shape = conv1_rt.shape  # type: ignore
+
+    # TODO: Implement zeros primitive and replace it with following two lines.
+    block |= Randn()(shape=(conv1_rt_shape[0], 1, conv1_rt_shape[-1]), output="rand_1")  # type: ignore
+    block |= ZerosLike()(input=block.rand_1, output="zeros_out")  # type: ignore
+    class_embedding = IOKey("class_embedding", differentiable=True, shape=[width])
+
+    block |= Concat(axis=1)(
+        input=[class_embedding + block.zeros_out, conv1_rt],  # type: ignore
+        output="cat1",  # type: ignore
+    )
+    positional_embedding = IOKey(
+        "positional_embedding",
+        differentiable=True,
+        shape=[(input_resolution // patch_size) ** 2 + 1, width],
+    )
+
+    block |= layer_norm(name="ln_pre")(
+        input=block.cat1 + positional_embedding,  # type: ignore
+        output="ln_1",
+    )
+    block.set_shapes(positional_embedding=["a", "b"], cat1=["n", "a", "b"])
+    transformer_visual = transformer(width, layers, heads, name="transformer")
+
+    block |= transformer_visual(
+        input=block.ln_1.transpose((1, 0, 2)),  # type: ignore
+        output="transformer",
+    )
+    block |= Transpose(axes=(1, 0, 2))(input=block.transformer, output="transformer_p")  # type: ignore
+    block |= layer_norm(name="ln_post")(input=block.transformer_p, output="ln_post")  # type: ignore
+    if use_proj:
+        block |= Buffer()(
+            block.ln_post[:, 0, :]  # type: ignore
+            @ IOKey("proj", differentiable=True, shape=(width, output_dim)),
+            output=IOKey("output"),
+        )
+        return block
+
+    block |= Buffer()(input=block.ln_post[:, 0, :], output=IOKey("output"))  # type: ignore
+    return block
+
+
+def multi_head_attention_forward(
+    embed_dim_to_check: int, num_heads: int, dropout_p: float
+):
+    block = Model()
+    query = IOKey("query", shape=(1, 1, 2048))
+    key = IOKey("key", shape=(50, 1, 2048))
+    value = IOKey("value", shape=(50, 1, 2048))
+    q_proj_weight = IOKey("q_proj_weight", shape=(2048, 2048))
+    k_proj_weight = IOKey("k_proj_weight", shape=(2048, 2048))
+    v_proj_weight = IOKey("v_proj_weight", shape=(2048, 2048))
+    in_proj_bias = IOKey("in_proj_bias", type=ml.Tensor, shape=(6144,))
+    out_proj_weight = IOKey("out_proj_weight", shape=(512, 2048))
+    out_proj_bias = IOKey("out_proj_bias", type=ml.Tensor, shape=(512,))
+
+    tgt_len, bsz, embed_dim = query.shape[0], query.shape[1], query.shape[2]
+
+    # assert embed_dim == embed_dim_to_check, "Embedding dimension mismatch."
+
+    head_dim = embed_dim // num_heads
+    # assert (head_dim * num_heads) == embed_dim,
+    # "embed_dim must be divisible by num_heads"
+    
+
+    q = (query @ q_proj_weight.transpose() + in_proj_bias[0:embed_dim]) # type: ignore
+    block |= Buffer()(input=q)
+    k = (
+        key @ k_proj_weight.transpose()
+        + in_proj_bias[embed_dim_to_check : 2 * embed_dim_to_check]
+    )
+    block |= Buffer()(input=k)
+
+    v = (
+        value @ v_proj_weight.transpose()
+        + in_proj_bias[2 * embed_dim_to_check : 3 * embed_dim_to_check]
+    )
+    block |= Buffer()(input=v)
+
+    q_r = q.reshape((tgt_len, bsz * num_heads, head_dim)).transpose((1, 0, 2))
+    block |= Buffer()(input=q_r)
+
+    k_r = k.reshape((-1, bsz * num_heads, head_dim)).transpose((1, 0, 2))
+    block |= Buffer()(input=k_r)
+
+    v_r = v.reshape((-1, bsz * num_heads, head_dim)).transpose((1, 0, 2))
+    block |= Buffer()(input=v_r)
+
+    block |= ScaledDotProduct(is_causal=False)(
+        query=q_r, key=k_r, value=v_r, output="attention"
+    )
+
+    attn_output = block.attention.transpose((1, 0, 2)).reshape(  # type: ignore
+        (tgt_len, bsz, embed_dim)
+    )
+    attn_output = attn_output @ out_proj_weight.transpose() + out_proj_bias
+
+    block |= Buffer()(input=attn_output, output=IOKey("output"))
+
+    return block
+
+
+def attention_pool2d(
+    spacial_dim: int,
+    embed_dim: int,
+    num_heads: int,
+    output_dim: int | None = None,
+    name: str | None = None,
+):
+    block = Model(name=name)
+    input = IOKey("input", shape=(1, 2048, 7, 7))
+    """
+    self.positional_embedding = 
+      nn.Parameter(torch.randn(spacial_dim ** 2 + 1, embed_dim) / embed_dim ** 0.5) 
+    self.k_proj = nn.Linear(embed_dim, embed_dim)
+    self.q_proj = nn.Linear(embed_dim, embed_dim)
+    self.v_proj = nn.Linear(embed_dim, embed_dim)
+    self.c_proj = nn.Linear(embed_dim, output_dim or embed_dim)
+    """
+    # q_proj_weight=self.q_proj.weight
+    q_proj_weight = IOKey("q_proj_weight", differentiable =True ,shape=(2048, 2048))
+    # q_proj_weight=self.q_proj.weight
+    k_proj_weight = IOKey("k_proj_weight",differentiable =True , shape=(2048, 2048))
+    # q_proj_weight=self.q_proj.weight
+    v_proj_weight = IOKey("v_proj_weight", differentiable =True ,shape=(2048, 2048))
+    # q_proj_weight=self.q_proj.weight
+    q_proj_bias = IOKey("q_proj_bias", differentiable =True, shape=(2048,))
+    k_proj_bias = IOKey("k_proj_bias", differentiable =True,shape=(2048,))
+    v_proj_bias = IOKey("v_proj_bias", differentiable =True,shape=(2048,)) 
+    block|= Concat()(input = [q_proj_bias,k_proj_bias,v_proj_bias], output="in_proj_bias")
+    # q_proj_weight=self.q_proj.weight
+    out_proj_weight = IOKey("c_proj_weight", differentiable =True ,shape=(512, 2048))
+    # q_proj_weight=self.q_proj.weight
+    out_proj_bias = IOKey("c_proj_bias", differentiable =True ,type=ml.Tensor, shape=(512,))
+    # q_proj_weight=self.q_proj.weight
+    positional_embedding = IOKey(
+        "positional_embedding", differentiable =True , type=ml.Tensor, shape=(50, 2048)
+    )
+    block |= Flatten(start_dim=2)(input=input, output="flatten_output")  # type: ignore
+    block |= Transpose(axes=(2, 0, 1))(input=block.flatten_output, output="transpose_output")  # type: ignore
+    block |= Mean(axis=0, keepdim=True)(input=block.transpose_output, output = "mean_output")  # type: ignore
+    block |= Concat(axis=0)(input=[block.mean_output, block.transpose_output ], output="cn1")  # type: ignore
+    block |= Buffer()(block.cn1 + positional_embedding[:, None, :], output="x")  # type: ignore
+
+    _multi_head_attention_forward = multi_head_attention_forward(
+        embed_dim, num_heads, 0.0
+    )
+
+    block |= _multi_head_attention_forward(
+        query=block.x[:1],  # type: ignore
+        key=block.x,  # type: ignore
+        value=block.x,  # type: ignore
+        q_proj_weight=q_proj_weight,
+        k_proj_weight=k_proj_weight,
+        v_proj_weight=v_proj_weight,
+        in_proj_bias=block.in_proj_bias,
+        out_proj_weight=out_proj_weight,
+        out_proj_bias=out_proj_bias,
+        output="attention",
+    )
+    attn_shape = block.attention.shape
+    
+    block |= Reshape()(input=block.attention,shape=(attn_shape[-2],attn_shape[-1]), output=IOKey("output"))
+    # type: ignore
+    return block
+
+
+def bottleneck(inplanes: int, planes: int, stride: int = 1, name: str | None = None):
+    block = Model(name=name)
+    expansion = 4
+    input = IOKey("input")
+
+    block += Convolution2D(
+        kernel_size=1, out_channels=planes, use_bias=False, name="conv1"
+    )(input="input")
+    # nn.BatchNorm2d(planes)
+    block += GroupNorm(num_groups=1, name="bn1")
+    block += Relu(name="relu1")
+    block += Convolution2D(
+        kernel_size=3, out_channels=planes, padding=1, use_bias=False, name="conv2"
+    )
+    # nn.BatchNorm2d(planes)
+    block += GroupNorm(num_groups=1, name="bn2")
+    block += Relu(name="relu2")
+    if stride > 1:
+        # nn.AvgPool2d(stride)
+        # nn.AvgPool2d(stride) if stride > 1 else nn.Identity()
+        block += MaxPool2D(stride, name="avgpool")
+
+    block += Convolution2D(
+        kernel_size=1, out_channels=planes * expansion, use_bias=False, name="conv3"
+    )
+    # nn.BatchNorm2d(planes)
+    block += GroupNorm(num_groups=1, name="bn3")(output="out1")
+
+    if stride > 1 or inplanes != planes * expansion:
+        # nn.AvgPool2d(stride)
+        block |= MaxPool2D(stride, name=f"downsample_{-1}")(
+            input, output="downsample_pool"
+        )
+        block |= Convolution2D(
+            kernel_size=1,
+            out_channels=planes * expansion,
+            use_bias=False,
+            name=f"downsample_{0}",
+        )(block.downsample_pool, output="downsample_conv")  # type: ignore
+        # nn.BatchNorm2d(planes)
+        block |= GroupNorm(num_groups=1, name=f"downsample_{1}")(  # type: ignore
+            block.downsample_conv,  # type: ignore
+            output="out2",
+        )
+        out = block.out1 + block.out2  # type: ignore
+
+    else:
+        out = block.out1 + input  # type: ignore
+    block |= Relu(name="relu3")(out, output=IOKey("output"))
+    block.set_cout("output")
+
+    return block
+
+
+def make_layer(inplanes, planes, blocks, stride=1, name: str | None = None):
+    block = Model(name=name)
+    input = IOKey("input")
+    block |= bottleneck(inplanes, planes, stride, name=f"0")(input=input, output="bottle_neck0")
+    _inplanes = 4 * planes
+    input_key = "bottle_neck0"
+    for i in range(1, blocks):
+        block |= bottleneck(_inplanes, planes,name=f"{i}")(
+            input=input_key, output=f"bottle_neck{i}"
+        )
+        input_key = f"bottle_neck{i}"
+    block |= Buffer()(input=f"bottle_neck{i}", output=IOKey("output"))
+    return block
+
+
+def modified_resnet(
+    layers, output_dim, heads, input_resolution=224, width=64, name: str | None = None
+):
+    block = Model(name=name)
+    input = IOKey("input", shape=(1, 3, 224, 224))
+    # for attn_pool
+    # q_proj_weight=self.q_proj.weight
+
+
+    # x = x.type(self.conv1.weight.dtype)
+    block |= Convolution2D(
+        kernel_size=3,
+        out_channels=width // 2,
+        stride=2,
+        padding=1,
+        use_bias=False,
+        name="conv1",
+    )(input=input, output="conv_out_1")
+    # nn.BatchNorm2d(width // 2)
+    block |= GroupNorm(num_groups=1, name="bn1")(
+        input="conv_out_1", output="norm_out_1"
+    )
+    block |= Relu(name="relu1")(input="norm_out_1", output="rl_out_1")
+    block |= Convolution2D(
+        kernel_size=3, out_channels=width // 2, padding=1, use_bias=False, name="conv2"
+    )(input="rl_out_1", output="conv_out_2")
+
+    # nn.BatchNorm2d(width // 2)
+    block |= GroupNorm(num_groups=1, name="bn2")(
+        input="conv_out_2", output="norm_out_2"
+    )
+    block |= Relu(name="relu2")(input="norm_out_2", output="rl_out_2")
+    block |= Convolution2D(
+        kernel_size=3, out_channels=width, padding=1, use_bias=False, name="conv3"
+    )(input="rl_out_2", output="conv_out_3")
+
+    # nn.BatchNorm2d(width)
+    block |= GroupNorm(num_groups=1, name="bn3")(
+        input="conv_out_3", output="norm_out_3"
+    )
+    block |= Relu(name="relu3")(input="norm_out_3", output="rl_out_3")
+    # nn.AvgPool2d(2)
+
+    block |= MaxPool2D(kernel_size=2, name="avgpool")(
+        input="rl_out_3", output="avgpool_out"
+    )
+    make_layer_block = make_layer(width, width, layers[0], name="layer1")
+    input_key = "make_layer_0"
+    block |= make_layer_block(input=block.avgpool_out, output=input_key)  # type: ignore
+
+    for idx in range(1, 4):
+        make_layer_block = make_layer(
+            width, width * (2**idx), layers[idx], stride=2, name=f"layer{idx+1}"
+        )
+        block |= make_layer_block(input=input_key, output=f"make_layer_{idx}")
+        input_key = f"make_layer_{idx}"
+    attnpool = attention_pool2d(
+        input_resolution // 32, width * 32, heads, output_dim, name="attnpool"
+    )
+    block |= attnpool(
+        input=input_key,
+        output="attn_output",
+    )
+    block |= Buffer()(input=block.attn_output, output=IOKey("output"))  # type: ignore
+    return block
+
+
+# for torch.tensor.norm
+def norm(
+    p: str | int = 2,
+    axis: int | None = None,
+    keepdim: bool = False,
+    name: str | None = None,
+):
+    block = Model(name=name)
+    input = IOKey("input")
+    if p == "inf":
+        block += Max(axis=axis, keepdim=keepdim)(input=input.abs())
+    elif p == 1:
+        block += Sum(axis=axis, keepdim=keepdim)(input=input.abs())
+    elif p == 2:
+        block += Sum(axis=axis, keepdim=keepdim)(input=(input**2))
+        block += Sqrt()
+    else:
+        assert isinstance(p, int)
+        block += Sum(axis=axis, keepdim=keepdim)(input=(input.abs() ** p))
+        block += Power(exponent=(1 / p))
+    block += Buffer()(output=IOKey("output"))
+    return block
+
+
+def clip(
+    embed_dim: int,
+    # vision
+    image_resolution: int,
+    vision_layers: tuple[int, int, int, int] | int,
+    vision_width: int,
+    vision_patch_size: int,
+    # text
+    context_length: int,
+    vocab_size: int,
+    transformer_width: int,
+    transformer_heads: int,
+    transformer_layers: int,
+    name: str | None = None,
+):
+    block = Model(name=name)
+    image = IOKey(
+        "image", type=ml.Tensor, shape=["N", 3, image_resolution, image_resolution]
+    )
+    text = IOKey("text", type=ml.Tensor, shape=["M", context_length])
+
+    if isinstance(vision_layers, tuple | list):
+        vision_heads = vision_width * 32 // 64
+        visual = modified_resnet(
+            layers=vision_layers,
+            output_dim=embed_dim,
+            heads=vision_heads,
+            input_resolution=image_resolution,
+            width=vision_width,
+            name="visual",
+        )
+        q_proj_weight = IOKey("q_proj_weight", shape=(2048, 2048))
+        # q_proj_weight=self.q_proj.weight
+        k_proj_weight = IOKey("k_proj_weight", shape=(2048, 2048))
+        # q_proj_weight=self.q_proj.weight
+        v_proj_weight = IOKey("v_proj_weight", shape=(2048, 2048))
+        # q_proj_weight=self.q_proj.weight
+        in_proj_bias = IOKey("in_proj_bias", shape=(6144,))
+        # q_proj_weight=self.q_proj.weight
+        out_proj_weight = IOKey("out_proj_weight", shape=(1024, 2048))
+        # q_proj_weight=self.q_proj.weight
+        out_proj_bias = IOKey("out_proj_bias", shape=(1024,))
+        # q_proj_weight=self.q_proj.weight
+        positional_embedding_visual = IOKey(
+            "positional_embeddin_visual", shape=(50, 2048)
+        )
+        block |= visual(
+            input=image,
+            q_proj_weight=q_proj_weight,
+            k_proj_weight=k_proj_weight,
+            v_proj_weight=v_proj_weight,
+            in_proj_bias=in_proj_bias,
+            out_proj_weight=out_proj_weight,
+            out_proj_bias=out_proj_bias,
+            positional_embedding=positional_embedding_visual,
+            output="image_features",
+        )
+
+    else:
+        vision_heads = vision_width // 64
+        visual = vision_transformer(
+            input_resolution=image_resolution,
+            patch_size=vision_patch_size,
+            width=vision_width,
+            layers=vision_layers,
+            heads=vision_heads,
+            output_dim=embed_dim,
+            use_proj=True,
+            name="visual",
+        )
+        block |= visual(
+            input="image",
+            class_embedding="visual_class_embedding",
+            positional_embedding="visual_positional_embedding",
+            proj="visual_proj",
+            output="image_features",
+        )
+
+    block |= Embedding(vocab_size, transformer_width, name="token_embedding")(
+        input=text, output="token_embedding"
+    )
+
+    positional_embedding = IOKey(
+        "positional_embedding",
+        type=ml.Tensor,
+        differentiable=True,
+        shape=(context_length, transformer_width),
+    )
+    embedding = block.token_embedding + positional_embedding  # type: ignore
+    transformer_main = transformer(
+        width=transformer_width,
+        layers=transformer_layers,
+        heads=transformer_heads,
+        use_attn_mask=True,
+        name="transformer",
+    )
+    block |= transformer_main(
+        input=embedding.transpose((1, 0, 2)),  # type: ignore
+        output="transformer",  # type: ignore
+    )
+
+    block |= layer_norm(name="ln_final")(
+        input=block.transformer.transpose((1, 0, 2)),  # type: ignore
+        output="ln_final",  # type: ignore
+    )
+    block |= Arange()(stop=block.ln_final.shape[0], output="arange_out")  # type: ignore
+    block |= ArgMax(axis=-1)(input=text, output="argmax_out")
+    block |= Buffer()(
+        input=block.ln_final[block.arange_out, block.argmax_out],  # type: ignore
+        output="eot_tokens",  # type: ignore
+    )
+
+    # TODO: This set_shape call occurs because of a missing feature
+    # in indexer_constraint. It should be removed once the feature is
+    # implemented.
+    block.set_shapes(
+        eot_tokens=["N", transformer_width],
+        ln_final=["N", context_length, transformer_width],
+    )
+
+    text_projection = IOKey(
+        "text_projection",
+        type=ml.Tensor,
+        differentiable=True,
+        shape=(transformer_width, embed_dim),
+    )
+
+    block |= Buffer()(input=block.eot_tokens @ text_projection, output="text_features")  # type: ignore
+
+    norm1 = norm(p=2, axis=1, keepdim=True)
+    norm2 = norm(p=2, axis=1, keepdim=True)
+
+    block |= norm1(input=block.image_features, output="image_features_norm")  # type: ignore
+    block |= norm2(input=block.text_features, output="text_features_norm")  # type: ignore
+
+    image_features = block.image_features / block.image_features_norm  # type: ignore
+    text_features = block.text_features / block.text_features_norm  # type: ignore
+
+    # self.logit_scale = nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
+    logit_scale = IOKey("logit_scale", type=ml.Tensor, differentiable=True, shape=(1,))
+    logits_per_image = logit_scale.exp() * (image_features @ text_features.transpose())  # type: ignore
+    logits_per_text = logits_per_image.transpose()  # type: ignore
+    block |= Buffer()(input=logits_per_image, output=IOKey("logits_per_image"))  # type: ignore
+    block |= Buffer()(input=logits_per_text, output=IOKey("logits_per_text"))  # type: ignore
+
+    return block
+
+
+def build_attention_mask() -> Model:
+    block = Model()
+    block |= Arange(stop=77)(output="arange_out_1")
+    block |= Arange(stop=77)(output="arange_out_2")
+    upper_bool_triu = block.arange_out_1[..., None] >= block.arange_out_2[None, ...]  # type: ignore
+    block |= Where()(
+        cond=upper_bool_triu,
+        input1=Tensor(0.0),
+        input2=Tensor(float("-inf")),
+        output=IOKey("output"),
+    )
+    return block
