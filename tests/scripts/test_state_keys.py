@@ -36,12 +36,14 @@ def test_input_error():
         model.bind_state_keys("output", "output", 1)
     assert str(err_info.value) == "'Input connection should be an input key!'"
 
+
 def test_output_error():
     model = Model()
     model |= Add()("input1", "input2", output="output")
     with pytest.raises(KeyError) as err_info:
         model.bind_state_keys("input1", "input1", 1)
     assert str(err_info.value) == "'Output connection should be an output key!'"
+
 
 def test_same_connection_binded_twice_error():
     model = Model()
