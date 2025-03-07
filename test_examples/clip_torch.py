@@ -332,7 +332,7 @@ class VisionTransformer(nn.Module):
         return x
 
 
-class CLIP(nn.Module):
+class Clip(nn.Module):
     def __init__(
         self,
         embed_dim: int,
@@ -561,7 +561,7 @@ def build_model(state_dict: dict):
         )
     )
 
-    model = CLIP(
+    model = Clip(
         embed_dim,
         image_resolution,
         vision_layers,

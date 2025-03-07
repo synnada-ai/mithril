@@ -21,47 +21,39 @@ import clip as cliptorch
 import numpy as np
 import pytest
 import torch
-import torch.nn as nn
-from PIL import Image
-import numpy as np
-import torch
 import transformers
-
 from PIL import Image
-
-from transformers.image_processing_utils import ChannelDimension
 from transformers import AutoTokenizer
+
 import mithril as ml
 from examples.clip.model_mlx import clip_model, clip_text_model, clip_vision_model
 
+
 def get_config():
     config = {
-            "text_config": {
-                # Transformer for text is identical across CLIP variants:
-                "num_hidden_layers": 12,         # 12 layers in the text transformer.
-                "hidden_size": 768,              # Text encoder hidden size remains 512.
-                "intermediate_size": 3072,       # MLP expansion factor (4×512).
-                "num_attention_heads": 12,        # 8 attention heads (512 / 8 = 64 per head).
-                "max_position_embeddings": 77,   # Maximum token length (including special tokens).
-                "vocab_size": 49408,             # Vocabulary size used by the tokenizer.
-                "layer_norm_eps": 1e-5,          # Epsilon for numerical stability in LayerNorm.
-            },
-            "vision_config": {
-                # Vision encoder is scaled up for the large model:
-                "num_hidden_layers": 24,         # 24 transformer layers in the vision encoder.
-                "hidden_size": 1024,             # Vision transformer hidden size.
-                "intermediate_size": 4096,       # MLP expansion factor (4×1024).
-                "num_attention_heads": 16,       # 16 attention heads (1024 / 16 = 64 per head).
-                "num_channels": 3,               # RGB input images.
-                "image_size": 224,               # Input resolution.
-                "patch_size": 14,                # Patch size for ViT‑L/14.
-                "layer_norm_eps": 1e-5,          # LayerNorm epsilon.
-            },
-            # Projection dimension for the joint embedding space.
-            # For CLIP ViT‑L/14, the vision projection is typically 768.
-            "projection_dim": 768,
-            }
+        "text_config": {
+            "num_hidden_layers": 12,
+            "hidden_size": 768,
+            "intermediate_size": 3072,
+            "num_attention_heads": 12,
+            "max_position_embeddings": 77,
+            "vocab_size": 49408,
+            "layer_norm_eps": 1e-5,
+        },
+        "vision_config": {
+            "num_hidden_layers": 24,
+            "hidden_size": 1024,
+            "intermediate_size": 4096,
+            "num_attention_heads": 16,
+            "num_channels": 3,
+            "image_size": 224,
+            "patch_size": 14,
+            "layer_norm_eps": 1e-5,
+        },
+        "projection_dim": 768,
+    }
     return config
+
 
 HF_PATH = "openai/clip-vit-large-patch14"
 installed_backends = [ml.TorchBackend, ml.JaxBackend]
@@ -76,7 +68,7 @@ def load_weights(
 ):
     ml_params = {}
     torch_state_dict = torch_model.state_dict()
-    
+
     for torch_key in torch_state_dict:
         ml_key = torch_key.replace(".", "_").lower()
         if ml_key not in param_shapes:
@@ -98,13 +90,12 @@ class TestLayers:
     def test_clip_vision_model(self, backend_type):
         backend = backend_type()
         config = get_config()
-        
+
         m_model = clip_vision_model(config["vision_config"], "vit-l/14")
-      
-        
+
         _, _, o_model = load_hf_models(HF_PATH)
         o_model = o_model.vision_model
-        
+
         pm = ml.compile(
             m_model,
             backend=backend,
@@ -113,13 +104,10 @@ class TestLayers:
             use_short_namings=False,
         )
 
-        params = load_weights(pm.shapes, o_model, backend) 
+        params = load_weights(pm.shapes, o_model, backend)
         torch_input_ids = torch.rand((2, 3, 224, 224))
         input = backend.array(torch_input_ids.clone().numpy())
         expected_result = o_model(torch_input_ids).pooler_output
-      
-        
-
 
         outs = pm(params, {"input": input})
         res = outs["output"]
@@ -131,13 +119,12 @@ class TestLayers:
     def test_clip_text_model(self, backend_type):
         backend = backend_type()
         config = get_config()
-        
+
         m_model = clip_text_model(config["text_config"], "vit-l/14")
-      
-        
+
         _, _, o_model = load_hf_models(HF_PATH)
         o_model = o_model.text_model
-        
+
         pm = ml.compile(
             m_model,
             backend=backend,
@@ -146,13 +133,10 @@ class TestLayers:
             use_short_namings=False,
         )
 
-        params = load_weights(pm.shapes, o_model, backend) 
+        params = load_weights(pm.shapes, o_model, backend)
         torch_input_ids = torch.randint(0, 49408, size=(2, 77))
         input = backend.array(torch_input_ids.clone().numpy())
         expected_result = o_model(torch_input_ids).pooler_output
-      
-        
-
 
         outs = pm(params, {"input": input})
 
@@ -160,17 +144,15 @@ class TestLayers:
         np.testing.assert_allclose(
             np.array(res), expected_result.cpu().detach().numpy(), 1e-5, 1e-5
         )  # type: ignore
-    
+
     def test_clip_model(self, backend_type):
         backend = backend_type()
         config = get_config()
-        
+
         m_model = clip_model(config, "vit-l/14")
-      
-        
+
         _, _, o_model = load_hf_models(HF_PATH)
-        
-        
+
         pm = ml.compile(
             m_model,
             backend=backend,
@@ -179,39 +161,42 @@ class TestLayers:
             use_short_namings=False,
         )
 
-        params = load_weights(pm.shapes, o_model, backend) 
+        params = load_weights(pm.shapes, o_model, backend)
         torch_input_ids = torch.randint(0, 49408, size=(2, 77))
-        torch_pixel_values = torch.rand(2,3,224,224)
+        torch_pixel_values = torch.rand(2, 3, 224, 224)
         input_ids = backend.array(torch_input_ids.clone().numpy())
         pixel_values = backend.array(torch_pixel_values.clone().numpy())
 
-        expected_result = o_model(input_ids=torch_input_ids, pixel_values=torch_pixel_values)
-      
-        
-
+        expected_result = o_model(
+            input_ids=torch_input_ids, pixel_values=torch_pixel_values
+        )
 
         outs = pm(params, {"input_ids": input_ids, "pixel_values": pixel_values})
 
-
-
         np.testing.assert_allclose(
-            np.array(outs["text_embeds"]), expected_result.text_embeds.cpu().detach().numpy(), 1e-5, 1e-5
+            np.array(outs["text_embeds"]),
+            expected_result.text_embeds.cpu().detach().numpy(),
+            1e-5,
+            1e-5,
         )  # type: ignore
         np.testing.assert_allclose(
-            np.array(outs["image_embeds"]), expected_result.image_embeds.cpu().detach().numpy(), 1e-5, 1e-5
+            np.array(outs["image_embeds"]),
+            expected_result.image_embeds.cpu().detach().numpy(),
+            1e-5,
+            1e-5,
         )  # type: ignore
 
 
 @pytest.mark.parametrize("backend_type", installed_backends)
-class TestClipMLXEndToEnd:    
+class TestClipMLXEndToEnd:
     def test_clip_model(self, backend_type):
         backend = backend_type()
         config = get_config()
         img_path_cat = os.path.join(
-            os.path.dirname(__file__), "..", "examples", "clip", "assets","Cat.jpeg"
+            os.path.dirname(__file__), "..", "examples", "clip", "assets", "Cat.jpeg"
         )
         img_path_dog = os.path.join(
-            os.path.dirname(__file__), "..", "examples", "clip", "assets","Dog.jpeg"
+            os.path.dirname(__file__), "..", "examples", "clip", "assets", "Dog.jpeg"
         )
 
         m_model = clip_model(config, "vit-l/14")
@@ -231,22 +216,28 @@ class TestClipMLXEndToEnd:
             use_short_namings=False,
         )
 
-        params = load_weights(pm.shapes, o_model, backend) 
-        
+        params = load_weights(pm.shapes, o_model, backend)
+
         input_ids = backend.array(torch.tensor(tokens).clone().numpy())
         pixel_values = backend.array(torch.tensor(image_input).clone().numpy())
 
-        expected_result = o_model(input_ids=torch.tensor(tokens), pixel_values=torch.tensor(image_input))
+        expected_result = o_model(
+            input_ids=torch.tensor(tokens), pixel_values=torch.tensor(image_input)
+        )
         outs = pm(params, {"input_ids": input_ids, "pixel_values": pixel_values})
-        
-        np.testing.assert_allclose(
-            np.array(outs["text_embeds"]), expected_result.text_embeds.cpu().detach().numpy(), 1e-5, 1e-5
-        )  # type: ignore
-        np.testing.assert_allclose(
-            np.array(outs["image_embeds"]), expected_result.image_embeds.cpu().detach().numpy(), 1e-5, 1e-5
-        )  # type: ignore
 
-    
+        np.testing.assert_allclose(
+            np.array(outs["text_embeds"]),
+            expected_result.text_embeds.cpu().detach().numpy(),
+            1e-5,
+            1e-5,
+        )  # type: ignore
+        np.testing.assert_allclose(
+            np.array(outs["image_embeds"]),
+            expected_result.image_embeds.cpu().detach().numpy(),
+            1e-5,
+            1e-5,
+        )  # type: ignore
 
 
 def build_attention_mask():
@@ -256,8 +247,6 @@ def build_attention_mask():
     mask.fill_(float("-inf"))
     mask.triu_(1)  # zero out the lower diagonal
     return mask
-
-
 
 
 def load_hf_models(path):

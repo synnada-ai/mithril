@@ -22,24 +22,27 @@ import numpy as np
 import pytest
 import torch
 import torch.nn as nn
+
+# noqa: N801
+import torch.nn.functional as f
 from PIL import Image
 
 import mithril as ml
 from examples.clip.model import (
+    attention_pool2d,
+    bottleneck,
     clip,
+    modified_resnet,
     multi_head_attention,
+    multi_head_attention_forward,
     residual_attention_block,
     transformer,
     vision_transformer,
-    bottleneck,
-    attention_pool2d,
-    multi_head_attention_forward,
-    modified_resnet
 )
-# noqa: N801
-import torch.nn.functional as F
-from .clip_torch import CLIP, ResidualAttentionBlock, Transformer, VisionTransformer
-from .resnet_torch import Bottleneck, ModifiedResNet , AttentionPool2d, CLIP_RN
+
+from .clip_torch import Clip, ResidualAttentionBlock, Transformer, VisionTransformer
+from .resnet_torch import AttentionPool2d, Bottleneck, ClipRN, ModifiedResNet
+
 installed_backends = [ml.TorchBackend, ml.JaxBackend]
 sys.setrecursionlimit(3500)
 
@@ -187,18 +190,18 @@ class TestLayers:
         torch_image = torch.randn(2, 3, 224, 224)
         torch_text = torch.randint(0, 49408, size=(6, 77))
         m_model = clip(
-            embed_dim=768,  # Embedding dimension for ViT-L/14
-            image_resolution=224,  # Input image resolution
-            vision_layers=24,  # Number of transformer layers in the vision model
-            vision_width=1024,  # Width of the vision model
-            vision_patch_size=14,  # Patch size for the ViT-L/14 model
-            context_length=77,  # Maximum length of text input
-            vocab_size=49408,  # Size of the text tokenizer's vocabulary
-            transformer_width=768,  # Width of the text transformer
-            transformer_heads=12,  # Number of attention heads in the transformer
-            transformer_layers=12,  # Number of transformer layers for the text model
+            embed_dim=768,
+            image_resolution=224,
+            vision_layers=24,
+            vision_width=1024,
+            vision_patch_size=14,
+            context_length=77,
+            vocab_size=49408,
+            transformer_width=768,
+            transformer_heads=12,
+            transformer_layers=12,
         )
-        o_model = CLIP(768, 224, 24, 1024, 14, 77, 49408, 768, 12, 12)
+        o_model = Clip(768, 224, 24, 1024, 14, 77, 49408, 768, 12, 12)
 
         backend = backend_type()
 
@@ -221,81 +224,68 @@ class TestLayers:
         np.testing.assert_allclose(
             np.array(res), expected_result.cpu().detach().numpy(), 1e-5, 1e-5
         )  # type: ignore
-        
-    def test_bottleneck(self,backend_type):
-        m_model = bottleneck(64,64)
-        o_model = Bottleneck(64,64)
+
+    def test_bottleneck(self, backend_type):
+        m_model = bottleneck(64, 64)
+        o_model = Bottleneck(64, 64)
         backend = backend_type()
-        input_shape = (1,64,56,56)
+        input_shape = (1, 64, 56, 56)
         pm = ml.compile(
             m_model,
             backend=backend,
-            shapes={"input": input_shape}, # check shape
+            shapes={"input": input_shape},  # check shape
             data_keys={"input"},
             use_short_namings=False,
         )
-        
+
         params = load_weights(pm.shapes, o_model, backend)
         torch_input = torch.randn(input_shape)
         expected_result = o_model(torch_input)
         input_backend = backend.array(torch_input.numpy())
         outs = pm(params, {"input": input_backend})
-      
+
         res = outs["output"]
         np.testing.assert_allclose(
-            np.array(res),
-            expected_result.cpu().detach().numpy(),
-            atol=1e-4,
-            rtol=1e-4
+            np.array(res), expected_result.cpu().detach().numpy(), atol=1e-4, rtol=1e-4
         )
-    
-    def test_attentionpool2d(self,backend_type):
-        m_model = attention_pool2d(7,2048,32,512)
+
+    def test_attentionpool2d(self, backend_type):
+        m_model = attention_pool2d(7, 2048, 32, 512)
         o_model = AttentionPool2d(7, 2048, 32, 512)
-        
+
         backend = backend_type()
-        input_shape = (1, 2048, 7,7)
+        input_shape = (1, 2048, 7, 7)
 
+        shapes = {"input": input_shape}
 
-        shapes = {
-            "input": input_shape
-        }
-
-        data_keys = {
-            "input"
-        }
+        data_keys = {"input"}
         torch_input = torch.randn(input_shape)
-        
-        
+
         backend = backend_type()
         pm = ml.compile(
             m_model,
             backend=backend,
             shapes=shapes,
             data_keys=data_keys,
-            use_short_namings=False,inference=True
+            use_short_namings=False,
+            inference=True,
         )
-        
-       
+
         input_backend = backend.array(torch_input.numpy())
         params = load_weights(pm.shapes, o_model, backend)
         expected_result = o_model(torch_input)
         print(expected_result)
-        
+
         outs = pm.evaluate(params, {"input": input_backend})
-        
 
         res = outs["output"]
         np.testing.assert_allclose(
-            np.array(res),
-            expected_result.cpu().detach().numpy(),
-            atol=1e-4,
-            rtol=1e-4
+            np.array(res), expected_result.cpu().detach().numpy(), atol=1e-4, rtol=1e-4
         )
-    
+
     def test_multi_head_forward(self, backend_type):
         m_model = multi_head_attention_forward(2048, 32, 0.0)
-        
+
         backend = backend_type()
         shapes = {
             "query": (1, 1, 2048),
@@ -320,123 +310,110 @@ class TestLayers:
             "out_proj_bias",
         }
 
-        torch_inputs = {
-            key: torch.randn(*shape)
-            for key, shape in shapes.items()
-        }
+        torch_inputs = {key: torch.randn(*shape) for key, shape in shapes.items()}
         backend_inputs = {
-            key: backend.array(tensor.numpy())
-            for key, tensor in torch_inputs.items()
+            key: backend.array(tensor.numpy()) for key, tensor in torch_inputs.items()
         }
-        
+
         pm = ml.compile(
             m_model,
             backend=backend,
             shapes=shapes,
             data_keys=data_keys,
             use_short_namings=False,
-            inference=True
+            inference=True,
         )
         params = pm.randomize_params()
         outs = pm.evaluate(params, backend_inputs)
 
-        
-        expected_result, attn_weights = F.multi_head_attention_forward(
-            query=backend_inputs["query"],           
-            key=backend_inputs["key"],               
-            value=backend_inputs["value"],           
-            embed_dim_to_check=2048,                 
-            num_heads=32,                            
-            in_proj_weight=None,                     
-            in_proj_bias=backend_inputs["in_proj_bias"],  
-            bias_k=None,                             
-            bias_v=None,                             
-            add_zero_attn=False,                     
-            dropout_p=0.0,                           
-            out_proj_weight=backend_inputs["out_proj_weight"],  
-            out_proj_bias=backend_inputs["out_proj_bias"],      
-            training=True,                           
-            key_padding_mask=None,                   
-            need_weights=True,                       
-            attn_mask=None,                          
-            use_separate_proj_weight=True,           
-            q_proj_weight=backend_inputs["q_proj_weight"],  
-            k_proj_weight=backend_inputs["k_proj_weight"],  
-            v_proj_weight=backend_inputs["v_proj_weight"],  
-            static_k=None,                           
-            static_v=None,                           
-            average_attn_weights=True,               
-            is_causal=False                          
+        expected_result, attn_weights = f.multi_head_attention_forward(
+            query=backend_inputs["query"],
+            key=backend_inputs["key"],
+            value=backend_inputs["value"],
+            embed_dim_to_check=2048,
+            num_heads=32,
+            in_proj_weight=None,
+            in_proj_bias=backend_inputs["in_proj_bias"],
+            bias_k=None,
+            bias_v=None,
+            add_zero_attn=False,
+            dropout_p=0.0,
+            out_proj_weight=backend_inputs["out_proj_weight"],
+            out_proj_bias=backend_inputs["out_proj_bias"],
+            training=True,
+            key_padding_mask=None,
+            need_weights=True,
+            attn_mask=None,
+            use_separate_proj_weight=True,
+            q_proj_weight=backend_inputs["q_proj_weight"],
+            k_proj_weight=backend_inputs["k_proj_weight"],
+            v_proj_weight=backend_inputs["v_proj_weight"],
+            static_k=None,
+            static_v=None,
+            average_attn_weights=True,
+            is_causal=False,
         )
 
-        
         np.testing.assert_allclose(
             np.array(outs["output"]),
             expected_result.cpu().detach().numpy(),
             atol=1e-3,
-            rtol=1e-3
+            rtol=1e-3,
         )
-        
+
     def test_modified_resnet(self, backend_type):
-        m_model = modified_resnet((3, 4, 6, 3),512,32,224,64)
-        o_model = ModifiedResNet((3, 4, 6, 3),512,32,224,64)
-        
+        m_model = modified_resnet((3, 4, 6, 3), 512, 32, 224, 64)
+        o_model = ModifiedResNet((3, 4, 6, 3), 512, 32, 224, 64)
+
         backend = backend_type()
         input_shape = (1, 3, 224, 224)
 
+        shapes = {"input": input_shape}
 
-        shapes = {
-            "input": input_shape
-        }
-
-        data_keys = {
-            "input"
-        }
+        data_keys = {"input"}
 
         torch_input = torch.randn(input_shape)
-        
-        
+
         backend = backend_type()
         pm = ml.compile(
             m_model,
             backend=backend,
             shapes=shapes,
             data_keys=data_keys,
-            use_short_namings=False,inference=True
+            use_short_namings=False,
+            inference=True,
         )
-        
+
         params = load_weights(pm.shapes, o_model, backend)
         input_backend = backend.array(torch_input.numpy())
         inputs = {"input": input_backend}
         outs = pm.evaluate(params, inputs)
         expected_result = o_model(torch_input)
-        
-        
-        
+
         np.testing.assert_allclose(
             np.array(outs["output"]),
             expected_result.cpu().detach().numpy(),
             atol=1e-5,
-            rtol=1e-5
+            rtol=1e-5,
         )
-        
+
     def test_clip_resnet50(self, backend_type):
         torch_image = torch.randn(2, 3, 224, 224)
         torch_text = torch.randint(0, 49408, size=(2, 77))
         m_model = clip(
-            embed_dim=512,                # Embedding dimension
-            image_resolution=224,         # Input image resolution
-            vision_layers=(3, 4, 6, 3),   # ResNet-50 layers configuration
-            vision_width=64,              # Width of the vision model
-            vision_patch_size=0,          # Patch size (not used for ResNet)
-            context_length=77,            # Maximum length of text input
-            vocab_size=49408,             # Size of the text tokenizer's vocabulary
-            transformer_width=512,        # Width of the text transformer
-            transformer_heads=8,          # Number of attention heads in the transformer
-            transformer_layers=12,        # Number of transformer layers
-            name="RN50_CLIP"              # Name of the model instance
+            embed_dim=512,
+            image_resolution=224,
+            vision_layers=(3, 4, 6, 3),
+            vision_width=64,
+            vision_patch_size=0,
+            context_length=77,
+            vocab_size=49408,
+            transformer_width=512,
+            transformer_heads=8,
+            transformer_layers=12,
+            name="RN50_CLIP",
         )
-        o_model = CLIP_RN(512, 224, (3, 4, 6, 3), 64, 0, 77, 49408, 512, 8, 12)
+        o_model = ClipRN(512, 224, (3, 4, 6, 3), 64, 0, 77, 49408, 512, 8, 12)
 
         backend = backend_type()
 
@@ -482,16 +459,16 @@ class TestClipEndToEnd:
         logits_per_image, logits_per_text = model(image, text)
 
         clip_mithril = clip(
-            embed_dim=768,  # Embedding dimension for ViT-L/14
-            image_resolution=224,  # Input image resolution
-            vision_layers=24,  # Number of transformer layers in the vision model
-            vision_width=1024,  # Width of the vision model
-            vision_patch_size=14,  # Patch size for the ViT-L/14 model
-            context_length=77,  # Maximum length of text input
-            vocab_size=49408,  # Size of the text tokenizer's vocabulary
-            transformer_width=768,  # Width of the text transformer
-            transformer_heads=12,  # Number of attention heads in the transformer
-            transformer_layers=12,  # Number of transformer layers for the text model
+            embed_dim=768,
+            image_resolution=224,
+            vision_layers=24,
+            vision_width=1024,
+            vision_patch_size=14,
+            context_length=77,
+            vocab_size=49408,
+            transformer_width=768,
+            transformer_heads=12,
+            transformer_layers=12,
         )
 
         pm = ml.compile(

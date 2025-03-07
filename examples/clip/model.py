@@ -83,9 +83,13 @@ def multi_head_attention(
         .reshape((3, B, L, -1))
     )
 
-    queries = in_proj[0, :, :, :].reshape((B, L, n_head, head_dim)).transpose((1, 2, 0, 3))
+    queries = (
+        in_proj[0, :, :, :].reshape((B, L, n_head, head_dim)).transpose((1, 2, 0, 3))
+    )
     keys = in_proj[1, :, :, :].reshape((B, L, n_head, head_dim)).transpose((1, 2, 0, 3))
-    values = in_proj[2, :, :, :].reshape((B, L, n_head, head_dim)).transpose((1, 2, 0, 3))
+    values = (
+        in_proj[2, :, :, :].reshape((B, L, n_head, head_dim)).transpose((1, 2, 0, 3))
+    )
 
     if use_attn_mask:
         block |= (mask_model := build_attention_mask())
@@ -103,9 +107,7 @@ def multi_head_attention(
     block |= Buffer()(input=block.attention, output="buffer_output")
     values_hat = block.attention.transpose((2, 0, 1, 3)).reshape((B * L, d_model))
     block |= Linear(d_model, name="out_proj")(values_hat, output="out")
-    block |= Buffer()(
-        input=block.out.reshape((B, L, d_model)), output=IOKey("output")
-    )
+    block |= Buffer()(input=block.out.reshape((B, L, d_model)), output=IOKey("output"))
     return block
 
 
@@ -276,7 +278,7 @@ def multi_head_attention_forward(
     # assert (head_dim * num_heads) == embed_dim,
     # "embed_dim must be divisible by num_heads"
 
-    q = (query @ q_proj_weight.transpose() + in_proj_bias[0:embed_dim])
+    q = query @ q_proj_weight.transpose() + in_proj_bias[0:embed_dim]
     block |= Buffer()(input=q)
     k = (
         key @ k_proj_weight.transpose()
@@ -387,11 +389,11 @@ def attention_pool2d(
         output="attention",
     )
     attn_shape = block.attention.shape
-    
+
     block |= Reshape()(
         input=block.attention,
         shape=(attn_shape[-2], attn_shape[-1]),
-        output=IOKey("output")
+        output=IOKey("output"),
     )
     return block
 
@@ -453,7 +455,7 @@ def bottleneck(inplanes: int, planes: int, stride: int = 1, name: str | None = N
 def make_layer(inplanes, planes, blocks, stride=1, name: str | None = None):
     block = Model(name=name)
     input = IOKey("input")
-    block |= bottleneck(inplanes, planes, stride, name=f"0")(
+    block |= bottleneck(inplanes, planes, stride, name="0")(
         input=input, output="bottle_neck0"
     )
     _inplanes = 4 * planes

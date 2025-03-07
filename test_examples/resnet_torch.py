@@ -1,4 +1,16 @@
-
+# Copyright 2022 Synnada, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 from collections import OrderedDict
 
@@ -17,17 +29,17 @@ class Bottleneck(nn.Module):
         # all conv layers have stride 1. an avgpool is performed
         # after the second convolution when stride > 1
         self.conv1 = nn.Conv2d(inplanes, planes, 1, bias=False)
-        self.bn1 = nn.GroupNorm(1,planes)
+        self.bn1 = nn.GroupNorm(1, planes)
         self.relu1 = nn.ReLU(inplace=True)
 
         self.conv2 = nn.Conv2d(planes, planes, 3, padding=1, bias=False)
-        self.bn2 = nn.GroupNorm(1,planes)
+        self.bn2 = nn.GroupNorm(1, planes)
         self.relu2 = nn.ReLU(inplace=True)
 
         self.avgpool = nn.MaxPool2d(stride) if stride > 1 else nn.Identity()
 
         self.conv3 = nn.Conv2d(planes, planes * self.expansion, 1, bias=False)
-        self.bn3 = nn.GroupNorm(1,planes * self.expansion)
+        self.bn3 = nn.GroupNorm(1, planes * self.expansion)
         self.relu3 = nn.ReLU(inplace=True)
 
         self.downsample = None
@@ -50,7 +62,7 @@ class Bottleneck(nn.Module):
                                 bias=False,
                             ),
                         ),
-                        ("1", nn.GroupNorm(1,planes * self.expansion)),
+                        ("1", nn.GroupNorm(1, planes * self.expansion)),
                     ]
                 )
             )
@@ -90,12 +102,10 @@ class AttentionPool2d(nn.Module):
         self.num_heads = num_heads
 
     def forward(self, x):
-        
-        
         x = x.flatten(start_dim=2).permute(2, 0, 1)  # NCHW -> (HW)NC
         x = torch.cat([x.mean(dim=0, keepdim=True), x], dim=0)  # (HW+1)NC
         x = x + self.positional_embedding[:, None, :].to(x.dtype)  # (HW+1)NC
-        
+
         x, _ = F.multi_head_attention_forward(
             query=x[:1],
             key=x,
@@ -143,15 +153,15 @@ class ModifiedResNet(nn.Module):
         self.conv1 = nn.Conv2d(
             3, width // 2, kernel_size=3, stride=2, padding=1, bias=False
         )
-        self.bn1 = nn.GroupNorm(1,width // 2)
+        self.bn1 = nn.GroupNorm(1, width // 2)
         self.relu1 = nn.ReLU(inplace=True)
         self.conv2 = nn.Conv2d(
             width // 2, width // 2, kernel_size=3, padding=1, bias=False
         )
-        self.bn2 = nn.GroupNorm(1,width // 2)
+        self.bn2 = nn.GroupNorm(1, width // 2)
         self.relu2 = nn.ReLU(inplace=True)
         self.conv3 = nn.Conv2d(width // 2, width, kernel_size=3, padding=1, bias=False)
-        self.bn3 = nn.GroupNorm(1,width)
+        self.bn3 = nn.GroupNorm(1, width)
         self.relu3 = nn.ReLU(inplace=True)
         self.avgpool = nn.MaxPool2d(2)
 
@@ -193,8 +203,6 @@ class ModifiedResNet(nn.Module):
         x = self.attnpool(x)
 
         return x
-
-
 
 
 class LayerNorm(nn.LayerNorm):
@@ -325,7 +333,7 @@ class VisionTransformer(nn.Module):
         return x
 
 
-class CLIP_RN(nn.Module):
+class ClipRN(nn.Module):
     def __init__(
         self,
         embed_dim: int,
@@ -553,8 +561,8 @@ def build_model(state_dict: dict):
             k.split(".")[2] for k in state_dict if k.startswith("transformer.resblocks")
         )
     )
-    # noqa: N801
-    model = CLIP_RN(
+
+    model = ClipRN(
         embed_dim,
         image_resolution,
         vision_layers,
