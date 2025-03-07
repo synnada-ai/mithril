@@ -452,17 +452,21 @@ class BaseModel:
                 connections.append(conn_data)
         self.dependency_map.update_globals(OrderedSet(connections))
 
-    def bind_state_input(
+    def bind_state_keys(
         self,
         input: ConnectionData | str,
         output: ConnectionData | str,
-        default_value: StateValueType = NOT_GIVEN,
+        initial_value: StateValueType = NOT_GIVEN,
     ) -> None:
         if self.is_frozen:
-            raise AttributeError("Frozen model's bind_state_input is not allowed!")
+            raise AttributeError("Frozen model's bind_state_keys is not allowed!")
         # Get connections.
         in_con = self.conns.get_extracted_connection(input)
         out_con = self.conns.get_extracted_connection(output)
+        if self.conns.get_type(in_con) not in {KeyType.INPUT, KeyType.LATENT_INPUT}:
+            raise KeyError("Input connection should be an input key!")
+        if self.conns.get_type(out_con) in {KeyType.INPUT, KeyType.LATENT_INPUT}:
+            raise KeyError("Output connection should be an output key!")
         for _out, (_in, _) in self.state_connections.items():
             if _in.metadata is in_con.metadata or _out.metadata is out_con.metadata:
                 raise KeyError("Binded connections could not be binded again!")
@@ -476,6 +480,9 @@ class BaseModel:
         updates = Updates()
         # Set differentiability of input connection to False.
         self.set_differentiability({in_con: False})
+        # Merge types.
+        updates |= in_con.metadata.set_type(out_con.metadata._type)
+        updates |= out_con.metadata.set_type(in_con.metadata._type)
         if in_con.metadata.is_tensor:
             # Merge shapes if connections are Tensors.
             assert isinstance(in_con.metadata._value, Tensor)
@@ -483,13 +490,10 @@ class BaseModel:
             updates |= in_con.metadata._value.match_shapes(
                 out_con.metadata._value.shape
             )
-        # Merge types.
-        updates |= in_con.metadata.set_type(out_con.metadata._type)
-        updates |= out_con.metadata.set_type(in_con.metadata._type)
         self.constraint_solver(updates)
 
         # Save state connections.
-        self.state_connections[out_con] = (in_con, default_value)
+        self.state_connections[out_con] = (in_con, initial_value)
 
     def _check_multi_write(
         self,

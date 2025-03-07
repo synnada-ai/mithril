@@ -139,6 +139,10 @@ class PhysicalModel(GenericDataType[DataType]):
                 flat_model.rename_key(current_name, key_origin)
 
         self.state_keys: dict[tuple[str, bool], tuple[str, Any]] = {}
+
+        # Save state_outputs (containing its exposure info) with
+        # their corresponding input keys (containing its initial value).
+        # Also, update input_keys and output_keys.
         for out_con, (in_con, val) in flat_model.state_keys.items():
             in_key = flat_model.assigned_edges[in_con.metadata].name
             out_key = flat_model.assigned_edges[out_con.metadata].name
@@ -261,6 +265,7 @@ class PhysicalModel(GenericDataType[DataType]):
             shapes=_shapes,
         )
 
+        # Realize and save backend dependent state initial values using shape info.
         for _state_key, (in_key, val) in self.state_keys.items():
             if isinstance(val, StateValue):
                 _data = self.flat_graph.all_data[in_key]
@@ -950,6 +955,18 @@ class PhysicalModel(GenericDataType[DataType]):
     def initial_state_dict(self) -> DataEvalType[DataType]:
         return {key: value for key, value in self.state_keys.values()}
 
+    def _extract_state_outputs(
+        self, outputs: DataEvalType[DataType]
+    ) -> tuple[DataEvalType[DataType], DataEvalType[DataType]]:
+        # Extract state outputs from the outputs.
+        state_outputs = {}
+        for (out_key, is_exposed), (in_key, _) in self.state_keys.items():
+            if is_exposed:
+                state_outputs[in_key] = outputs[out_key]
+            else:
+                state_outputs[in_key] = outputs.pop(out_key)  # type: ignore
+        return outputs, state_outputs
+
     @overload
     def evaluate(
         self,
@@ -986,12 +1003,7 @@ class PhysicalModel(GenericDataType[DataType]):
         else:
             outputs = self._generated_eval_fn(params, data)
 
-        state_outputs = {}
-        for (out_key, is_exposed), (in_key, _) in self.state_keys.items():
-            if is_exposed:
-                state_outputs[in_key] = outputs[out_key]
-            else:
-                state_outputs[in_key] = outputs.pop(out_key)
+        outputs, state_outputs = self._extract_state_outputs(outputs)
         if len(state_outputs) == 0:
             return outputs
         return outputs, state_outputs
@@ -1044,12 +1056,8 @@ class PhysicalModel(GenericDataType[DataType]):
                 params, data, output_gradients
             )  # type: ignore
 
-        state_outputs = {}
-        for (out_key, is_exposed), (in_key, _) in self.state_keys.items():
-            if is_exposed:
-                state_outputs[in_key] = outputs[out_key]
-            else:
-                state_outputs[in_key] = outputs.pop(out_key)
+        # Extract state outputs from the outputs.
+        outputs, state_outputs = self._extract_state_outputs(outputs)
         if len(state_outputs) == 0:
             return gradients
         return gradients, state_outputs
@@ -1105,12 +1113,8 @@ class PhysicalModel(GenericDataType[DataType]):
             outputs, gradients = self._generated_evaluate_all_fn(
                 params, data, output_gradients
             )  # type: ignore
-        state_outputs = {}
-        for (out_key, is_exposed), (in_key, _) in self.state_keys.items():
-            if is_exposed:
-                state_outputs[in_key] = outputs[out_key]
-            else:
-                state_outputs[in_key] = outputs.pop(out_key)
+
+        outputs, state_outputs = self._extract_state_outputs(outputs)
         if len(state_outputs) == 0:
             return outputs, gradients
         return outputs, gradients, state_outputs
@@ -1238,7 +1242,6 @@ class FlatModel:
                 external_keys.append(in_con)
             if out_con.metadata not in edges:
                 external_keys.append(out_con)
-            # external_keys += [in_con, out_con]
             state_inputs.append(in_con)
 
         key_origin_counts = self._count_key_origins(external_keys)

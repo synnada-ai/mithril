@@ -24,21 +24,35 @@ def test_frozen_model_error():
     model |= Add()("input1", "input2", output="output")
     model._freeze()
     with pytest.raises(AttributeError) as err_info:
-        model.bind_state_input("input1", "output", 1)
+        model.bind_state_keys("input1", "output", 1)
 
-    assert str(err_info.value) == "Frozen model's bind_state_input is not allowed!"
+    assert str(err_info.value) == "Frozen model's bind_state_keys is not allowed!"
 
+
+def test_input_error():
+    model = Model()
+    model |= Add()("input1", "input2", output="output")
+    with pytest.raises(KeyError) as err_info:
+        model.bind_state_keys("output", "output", 1)
+    assert str(err_info.value) == "'Input connection should be an input key!'"
+
+def test_output_error():
+    model = Model()
+    model |= Add()("input1", "input2", output="output")
+    with pytest.raises(KeyError) as err_info:
+        model.bind_state_keys("input1", "input1", 1)
+    assert str(err_info.value) == "'Output connection should be an output key!'"
 
 def test_same_connection_binded_twice_error():
     model = Model()
     model |= Add()("input1", "input2", output="output")
-    model.bind_state_input("input1", "output", 1)
+    model.bind_state_keys("input1", "output", 1)
     model.expose_keys("input1", "input2", "output")
 
     parent_model = Model()
     parent_model |= model(input1="input1", input2="input2", output="output")
     with pytest.raises(KeyError) as err_info:
-        parent_model.bind_state_input("input1", "output", 1)
+        parent_model.bind_state_keys("input1", "output", 1)
 
     assert str(err_info.value) == "'Binded connections could not be binded again!'"
 
@@ -51,7 +65,7 @@ def test_state_output_converted_to_latent():
     assert model.conns.output_keys == {"output"}
     assert model.conns.latent_output_keys == set()
     assert model.conns.latent_input_keys == set()
-    model.bind_state_input("input1", "output", 1)
+    model.bind_state_keys("input1", "output", 1)
     assert model.conns.input_keys == {"input2"}
     assert model.conns.output_keys == set()
     assert model.conns.latent_output_keys == {"output"}
@@ -68,7 +82,7 @@ def test_merge_tensor_types():
     model.expose_keys("input1", "input2", "output")
     assert model.input1.metadata._value.type == float | int  # type: ignore
     assert model.input2.metadata._value.type is float  # type: ignore
-    model.bind_state_input("input1", "output", 1)
+    model.bind_state_keys("input1", "output", 1)
     assert model.input1.metadata._value.type is float  # type: ignore
     assert model.input2.metadata._value.type is float  # type: ignore
 
@@ -86,7 +100,7 @@ def test_merge_tensor_shapes():
         "input2": ["(V2, ...)"],
         "output": ["(V3, ...)"],
     }
-    model.bind_state_input("input1", "output", 1)
+    model.bind_state_keys("input1", "output", 1)
     assert model.shapes == {
         "input2": ["(V1, ...)"],
         "input1": ["(V2, ...)"],
@@ -123,7 +137,7 @@ def test_running_mean():
     model = Model()
     model |= Add()("local_input", "running_input", output="add_output")
     model |= Buffer()("add_output", output="local_output")
-    model.bind_state_input("running_input", "add_output", 1)
+    model.bind_state_keys("running_input", "add_output", 1)
     model.expose_keys("add_output")
 
     main_model = Model()

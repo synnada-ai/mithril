@@ -854,9 +854,6 @@ class BatchNorm2D(Model):
         shp = input_key.shape
         size = shp[0] * shp[2] * shp[3]
 
-        mean = input_key.mean(axis=(0, 2, 3), keepdim=True)  # Shape: [1, C, 1, 1]
-        var = input_key.var(axis=(0, 2, 3), keepdim=True)  # Shape: [1, C, 1, 1]
-
         running_mean = IOKey(name="running_mean")
         running_var = IOKey(name="running_var")
 
@@ -866,6 +863,9 @@ class BatchNorm2D(Model):
             ).sqrt()
             # Compute mean and variance over the spatial dimensions
         else:
+            mean = input_key.mean(axis=(0, 2, 3), keepdim=True)  # Shape: [1, C, 1, 1]
+            var = input_key.var(axis=(0, 2, 3), keepdim=True)  # Shape: [1, C, 1, 1]
+
             m_key = IOKey(name="momentum", value=momentum)
             running_mean_out = (1 - m_key) * running_mean + m_key * mean.reshape(
                 (mean.shape[1],)
@@ -873,13 +873,13 @@ class BatchNorm2D(Model):
             running_var_out = (1 - m_key) * running_var + m_key * (
                 var * (size / (size - 1))
             ).reshape((mean.shape[1],))
-            # NOTE: multiplication (size / (size - 1) is added to make the
+            # NOTE: multiplication (size / (size - 1)) is added to make the
             # running_variance similar to the BatchNorm2d module in PyTorch
 
             self |= Buffer()(running_mean_out, "running_mean_out")
             self |= Buffer()(running_var_out, "running_var_out")
-            self.bind_state_input(running_mean, "running_mean_out", StateValue.ZEROS)
-            self.bind_state_input(running_var, "running_var_out", StateValue.ONES)
+            self.bind_state_keys(running_mean, "running_mean_out", StateValue.ZEROS)
+            self.bind_state_keys(running_var, "running_var_out", StateValue.ONES)
 
             # Normalize the input
             norm = (input_key - mean) / (var + eps).sqrt()
