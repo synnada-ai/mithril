@@ -131,6 +131,14 @@ class StateValue(Enum):
     # RANDOM = 0 # TODO: Implement random state value
 
 
+@dataclass
+class StateKey:
+    in_key: str
+    out_key: str
+    is_exposed: bool
+    initial_value: MainValueInstance | StateValue | NullConnection = NOT_GIVEN
+
+
 type FixedValueType = (
     None
     | int

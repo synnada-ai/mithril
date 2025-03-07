@@ -16,6 +16,7 @@ import pytest
 import torch
 
 import mithril as ml
+from mithril.framework.common import StateValue
 from mithril.models import Add, BatchNorm2D, Buffer, Model
 
 
@@ -43,6 +44,44 @@ def test_output_error():
     with pytest.raises(KeyError) as err_info:
         model.bind_state_keys("input1", "input1", 1)
     assert str(err_info.value) == "'Output connection should be an output key!'"
+
+
+def test_state_keys_shp_error():
+    model = Model()
+    model |= Add()("input1", "input2", output="output")
+    model.bind_state_keys("input1", "output", StateValue.ZEROS)
+    model.expose_keys("output")
+    backend = ml.TorchBackend()
+    pm = ml.compile(model, backend, use_short_namings=False, inference=True)
+    with pytest.raises(ValueError) as err_info:
+        pm.initial_state_dict["input1"]
+    assert str(err_info.value) == "State key 'input1' shape must be fully determined."
+
+
+def test_state_keys_shp_tensor_error():
+    model = Model()
+    model |= Add()("input1", "input2", output="output")
+    model.set_types(input1=ml.Tensor[float], input2=ml.Tensor[float])
+    model.bind_state_keys("input1", "output", StateValue.ZEROS)
+    model.expose_keys("output")
+    backend = ml.TorchBackend()
+    pm = ml.compile(model, backend, use_short_namings=False, inference=True)
+
+    with pytest.raises(ValueError) as err_info:
+        pm.initial_state_dict["input1"]
+    assert str(err_info.value) == "State key 'input1' shape must be fully determined."
+
+
+def test_state_keys_init_value_error():
+    model = Model()
+    model |= Add()("input1", "input2", output="output")
+    model.bind_state_keys("input1", "output")
+    model.expose_keys("output")
+    backend = ml.TorchBackend()
+    pm = ml.compile(model, backend, use_short_namings=False, inference=True)
+    with pytest.raises(ValueError) as err_info:
+        pm.initial_state_dict["input1"]
+    assert str(err_info.value) == "State key 'input1' initial value must be indicated."
 
 
 def test_same_connection_binded_twice_error():

@@ -479,7 +479,7 @@ class BaseModel:
 
         updates = Updates()
         # Set differentiability of input connection to False.
-        self.set_differentiability({in_con: False})
+        updates |= in_con.set_differentiability(False)
         # Merge types.
         updates |= in_con.metadata.set_type(out_con.metadata._type)
         updates |= out_con.metadata.set_type(in_con.metadata._type)
