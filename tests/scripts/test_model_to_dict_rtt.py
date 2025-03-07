@@ -1052,7 +1052,7 @@ def test_assigned_types_1():
         model_dict_created.get("assigned_types")
         == model_dict_recreated.get("assigned_types")
         == [
-            (("m_1", 0), "tensor"),
+            (("m_1", 0), {"Tensor": ["int", "float"]}),
         ]
     )
 
@@ -1083,7 +1083,7 @@ def test_assigned_types_2():
         model_dict_created["submodels"]["m_0"].get("assigned_types")  # type: ignore
         == model_dict_recreated["submodels"]["m_0"].get("assigned_types")  # type: ignore
         == [
-            ("mean_input", "tensor"),
+            ("mean_input", {"Tensor": ["int", "float"]}),
         ]
     )
 
@@ -1120,7 +1120,7 @@ def test_assigned_types_multiple_times():
         model_dict_created["submodels"]["m_0"].get("assigned_types")  # type: ignore
         == model_dict_recreated["submodels"]["m_0"].get("assigned_types")  # type: ignore
         == [
-            ("mean_input", "tensor"),
+            ("mean_input", {"Tensor": ["int", "float"]}),
         ]
     )
 
@@ -1174,7 +1174,7 @@ def test_assigned_types_from_outermost_model():
     outer_model = Model()
     outer_model |= model
     outer_model |= Buffer()(input="buff_input_2")
-    outer_model.set_types(buff_input_2=Tensor[int | float])
+    outer_model.set_types(buff_input_2=Tensor)
     outer_model.merge_connections(buff_model.input, "buff_input_2")
 
     model_dict_created = dict_conversions.model_to_dict(outer_model)
@@ -1187,5 +1187,5 @@ def test_assigned_types_from_outermost_model():
     assert (
         model_dict_created.get("assigned_types")
         == model_dict_recreated.get("assigned_types")
-        == [(("m_0", 0), "tensor")]
+        == [(("m_0", 0), {"Tensor": ["int", "float", "bool"]})]
     )

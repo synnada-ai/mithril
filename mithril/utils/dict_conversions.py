@@ -11,14 +11,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 from __future__ import annotations
 
 import re
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from copy import deepcopy
 from functools import reduce
-from types import EllipsisType, UnionType
-from typing import Any, TypedDict, get_origin
+from types import EllipsisType, GenericAlias, UnionType
+from typing import Any, TypedDict, get_args, get_origin
 
 from mithril.framework.logical.base import ConnectionData
 
@@ -46,7 +47,30 @@ from ..models import (
 )
 from ..models.train_model import TrainModel
 from ..utils import model_conversion_lut
+from ..utils.type_utils import is_generic_alias_type, is_union_type
 from ..utils.utils import convert_to_tuple
+
+type_dict: dict[str, type | EllipsisType] = {
+    "Tensor": Tensor,
+    "float": float,
+    "int": int,
+    "bool": bool,
+    "str": str,
+    "list": list,
+    "tuple": tuple,
+    "dict": dict,
+    "...": ...,
+}
+
+SerializedType = (
+    str
+    | list[str]
+    | dict[str, Any]
+    | list["SerializedType"]
+    | dict[str, "SerializedType"]
+)
+
+GeneralType = type | UnionType | EllipsisType
 
 
 class KeyDict(TypedDict, total=False):
@@ -81,7 +105,7 @@ class ModelDict(TypedDict, total=False):
     name: str
     args: dict[str, Any]
     assigned_shapes: list[list[tuple[tuple[str, int] | str, ShapeTemplateType]]]
-    assigned_types: list[tuple[tuple[str, int] | str, str]]
+    assigned_types: list[tuple[tuple[str, int] | str, SerializedType]]
     assigned_differentiabilities: list[tuple[tuple[str, int] | str, bool]]
     assigned_constraints: list[AssignedConstraintType]
     assigned_canonicals: dict[str, list[tuple[str, int] | str]]
@@ -125,6 +149,56 @@ __all__ = [
 enum_dict = {"PaddingType": PaddingType}
 
 
+def create_union(type_list: Iterable[GeneralType]) -> UnionType | GeneralType:
+    return reduce(lambda x, y: x | y, type_list)  # type: ignore
+
+
+def _serialize_type_info(
+    typ: type | UnionType | GenericAlias | EllipsisType,
+) -> SerializedType:
+    result: SerializedType
+    if is_union_type(typ):
+        # Args of union types are stored as a list.
+        result = [_serialize_type_info(item) for item in typ.__args__]
+    elif is_generic_alias_type(typ):
+        origin = get_origin(typ)
+        inner_args = [_serialize_type_info(item) for item in get_args(typ)]
+        # Tensor and list types only have one inner type, no need to
+        # encapsulate them in a seperate list.
+        if origin in (list, Tensor) and isinstance(inner_args[0], list):
+            result = {origin.__name__: inner_args[0]}
+        else:
+            result = {origin.__name__: inner_args}
+    elif isinstance(typ, EllipsisType):
+        result = "..."
+    else:
+        assert not isinstance(typ, UnionType)
+        result = typ.__name__
+    return result
+
+
+def _deserialize_type_info(
+    typ: SerializedType,
+) -> type | UnionType | EllipsisType:
+    result: type | UnionType | EllipsisType
+    if isinstance(typ, list):
+        result = create_union(_deserialize_type_info(item) for item in typ)
+    elif isinstance(typ, dict):
+        # Get origin type.
+        origin = type_dict[list(typ.keys())[0]]
+        # Get inner types.
+        inner_types = [_deserialize_type_info(arg) for arg in list(typ.values())[0]]
+        if origin in (list, Tensor):
+            # For Tensor and list generic types, directly create a union
+            # of inner types since only one inner type is allowed.
+            result = origin[create_union(inner_types)]  # type: ignore
+        else:
+            result = origin[*inner_types]  # type: ignore
+    else:
+        result = type_dict[typ]
+    return result
+
+
 def _extract_key_info(
     model: BaseModel, submodel_dict: dict[BaseModel, str], conn: ConnectionData
 ) -> tuple[str, int] | str:
@@ -146,13 +220,13 @@ def _serialize_assigned_info(
     model: BaseModel, submodel_dict: dict[BaseModel, str]
 ) -> tuple[
     list[list[tuple[tuple[str, int] | str, ShapeTemplateType]]],
-    list[tuple[tuple[str, int] | str, str]],
+    list[tuple[tuple[str, int] | str, SerializedType]],
     list[tuple[tuple[str, int] | str, bool]],
     list[AssignedConstraintType],
     dict[str, list[tuple[str, int] | str]],
 ]:
     shapes_info: list[list[tuple[tuple[str, int] | str, ShapeTemplateType]]] = []
-    types_info: list[tuple[tuple[str, int] | str, str]] = []
+    types_info: list[tuple[tuple[str, int] | str, SerializedType]] = []
     differentiability_info: list[tuple[tuple[str, int] | str, bool]] = []
     constraints_info: list[AssignedConstraintType] = []
 
@@ -178,10 +252,7 @@ def _serialize_assigned_info(
         # Key info.
         key_info = _extract_key_info(model, submodel_dict, conn)
         # Combine key info with type info.
-        if get_origin(typ) is Tensor:
-            types_info.append((key_info, "tensor"))
-        elif typ is not ToBeDetermined:
-            types_info.append((key_info, str(typ.__name__)))  # type: ignore
+        types_info.append((key_info, _serialize_type_info(typ)))
 
     # Differentiability info.
     for conn, status in model.assigned_differentiabilities.items():
@@ -253,7 +324,7 @@ def _set_assigned_info(
     model: BaseModel,
     submodel_dict: dict[str, BaseModel],
     shapes_info: list[list[tuple[tuple[str, int] | str, ShapeTemplateType]]],
-    types_info: list[tuple[tuple[str, int] | str, type]],
+    types_info: list[tuple[tuple[str, int] | str, GeneralType]],
     diffs_info: list[tuple[tuple[str, int] | str, bool]],
     constraints_info: list[AssignedConstraintType],
     canonicals_info: dict[str, list[tuple[str, int] | str]],
@@ -267,40 +338,17 @@ def _set_assigned_info(
         model.set_shapes(shapes, **shape_kwargs)
 
     # Types conversion.
-    types_config: dict[ConnectionData, type] = {}
-    types_kwargs: dict[str, type] = {}
+    types_config: dict[ConnectionData, GeneralType] = {}
+    types_kwargs: dict[str, GeneralType] = {}
     for type_info in types_info:
         _construct_info(model, submodel_dict, types_config, types_kwargs, type_info)
-        # if isinstance(type_info[0], tuple):
-        #     model_name, index = type_info[0]
-        #     connection = _extract_connection_from_index(
-        #         model, model_name, index, submodel_dict
-        #     )
-        #     types_config[connection] = typ
-        # elif isinstance(type_info[0], str):
-        #     name = type_info[0]
-        #     types_kwargs[name] = typ
-        # else:
-        #     raise RuntimeError("Unknown type info format!")
-    model.set_types(types_config, **types_kwargs)
+    model.set_types(types_config, **types_kwargs)  # type: ignore
 
     # Differentiability settings for models and keys.
     diff_config: dict[ConnectionData, bool] = {}
     diff_kwargs: dict[str, bool] = {}
     for diff_info in diffs_info:
         _construct_info(model, submodel_dict, diff_config, diff_kwargs, diff_info)
-        # status = diff_info[1]
-        # if isinstance(diff_info[0], tuple):
-        #     model_name, index = diff_info[0]
-        #     connection = _extract_connection_from_index(
-        #         model, model_name, index, submodel_dict
-        #     )
-        #     diff_config[connection] = status
-        # elif isinstance(diff_info[0], str):
-        #     name = diff_info[0]
-        #     diff_kwargs[name] = status
-        # else:
-        #     raise RuntimeError("Unknown differentiability info format!")
     model.set_differentiability(diff_config, **diff_kwargs)
 
     # Constraints.
@@ -349,7 +397,7 @@ def create_iokey_kwargs(
         kwargs["value"] = Tensor(val["tensor"]) if isinstance(val, dict) else val
     if (typ := info_cpy.get("type")) is not None:
         # Convert type strings to type objects.
-        kwargs["type"] = Tensor[int | float | bool] if typ == "tensor" else eval(typ)
+        kwargs["type"] = _deserialize_type_info(typ)
     if (conns := info_cpy.get("connect")) is not None:
         kwargs["connections"] = {
             getattr(submodels_dict[value[0]], value[1])
@@ -457,7 +505,7 @@ def dict_to_model(
 
     # Set all assigned info.
     assigned_types = [
-        (info, Tensor if typ == "tensor" else eval(typ))
+        (info, _deserialize_type_info(typ))
         for info, typ in params.get("assigned_types", [])
     ]
     assigned_shapes = params.get("assigned_shapes", [])
@@ -703,9 +751,7 @@ def handle_dict_to_model_args(
     for key, value in source.items():
         if isinstance(value, dict):
             shape_template: list[str | int | tuple[str, EllipsisType]] = []
-            possible_types = reduce(
-                lambda x, y: x | y, (eval(item) for item in value.get("type", []))
-            )
+            possible_types = create_union(eval(item) for item in value.get("type", []))
 
             # TensorType.
             if "shape_template" in value:
@@ -720,7 +766,7 @@ def handle_dict_to_model_args(
                 # TODO: Do not send GenericTensorType,
                 # find a proper way to save and load tensor types.
             else:  # Scalar
-                source[key] = IOKey(type=possible_types, value=source[key]["value"])
+                source[key] = IOKey(type=possible_types, value=source[key]["value"])  # type: ignore
     return source
 
 
