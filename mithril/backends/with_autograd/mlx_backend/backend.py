@@ -37,6 +37,7 @@ class MlxBackend(Backend[mx.array]):
     supported_dtypes = [Dtype.float16, Dtype.bfloat16, Dtype.float32]
     registered_primitives: dict[str, Callable[..., mx.array]] = {}
     primitive_fn_path = "mithril.cores.python.mlx.ops"
+    CODEGEN_CONFIG = utils.CODEGEN_CONFIG
 
     def __init__(
         self,
@@ -74,10 +75,6 @@ class MlxBackend(Backend[mx.array]):
     @property
     def device(self) -> Any:
         utils.get_device(self._device)
-
-    @property
-    def codegen_config(self) -> dict[str, bool]:
-        return utils.CODEGEN_CONFIG
 
     def get_device(self) -> Any:
         return self._device

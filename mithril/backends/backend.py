@@ -19,6 +19,7 @@ from functools import partial
 from typing import Any, Generic, overload
 
 from .. import types
+from ..common import CGenConfig, PythonGenConfig
 from ..types import DataType
 from .parallel import Parallel
 from .utils import DtypeBits, StaticScalar
@@ -49,6 +50,7 @@ class Backend(ABC, Generic[DataType]):
     registered_primitives: dict[str, Callable[..., DataType]]
     array_creation_funcs: list[str]
     primitive_fn_path: str
+    CODEGEN_CONFIG: PythonGenConfig | CGenConfig
 
     def __init__(self, dtype: types.Dtype = types.float32, device: str = "cpu") -> None:
         # Check if given dtype is a valid one.
@@ -89,10 +91,6 @@ class Backend(ABC, Generic[DataType]):
     @property
     def is_manualgrad(self) -> bool:
         raise NotImplementedError("is_manualgrad is not implemented")
-
-    @property
-    def codegen_config(self) -> dict[str, bool]:
-        raise NotImplementedError("codegen_config is not implemented")
 
     def get_backend_array_type(self) -> type[DataType]:
         raise NotImplementedError("get_backend_array_type is not implemented")

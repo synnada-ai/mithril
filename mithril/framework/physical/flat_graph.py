@@ -21,7 +21,7 @@ from typing import Any
 
 import mithril as ml
 
-from ...common import BiMap
+from ...common import BiMap, PythonGenConfig
 from ...types import DataType, GenericDataType
 from ...utils.func_utils import is_make_array_required, prepare_function_args
 from ..common import (
@@ -684,7 +684,9 @@ class FlatGraph(GenericDataType[DataType]):
                 # If function needs backend specific args
                 if model.formula_key in self.backend.array_creation_funcs:
                     kwargs["default_dtype"] = self.backend._dtype.name
-                    if self.backend.codegen_config["specify_device"]:
+                    # TODO: Add support for C backends
+                    assert isinstance(self.backend.CODEGEN_CONFIG, PythonGenConfig)
+                    if self.backend.CODEGEN_CONFIG.SPECIFY_DEVICE:
                         kwargs["device"] = self.backend.get_device()
 
                 static_value = fn(*args, **kwargs)
