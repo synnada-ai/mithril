@@ -261,15 +261,15 @@ def multi_head_attention_forward(
     embed_dim_to_check: int, num_heads: int, dropout_p: float
 ):
     block = Model()
-    query = IOKey("query", shape=(1, 1, 2048))
-    key = IOKey("key", shape=(50, 1, 2048))
-    value = IOKey("value", shape=(50, 1, 2048))
-    q_proj_weight = IOKey("q_proj_weight", shape=(2048, 2048))
-    k_proj_weight = IOKey("k_proj_weight", shape=(2048, 2048))
-    v_proj_weight = IOKey("v_proj_weight", shape=(2048, 2048))
-    in_proj_bias = IOKey("in_proj_bias", type=ml.Tensor, shape=(6144,))
-    out_proj_weight = IOKey("out_proj_weight", shape=(512, 2048))
-    out_proj_bias = IOKey("out_proj_bias", type=ml.Tensor, shape=(512,))
+    query = IOKey("query")
+    key = IOKey("key")
+    value = IOKey("value")
+    q_proj_weight = IOKey("q_proj_weight")
+    k_proj_weight = IOKey("k_proj_weight")
+    v_proj_weight = IOKey("v_proj_weight")
+    in_proj_bias = IOKey("in_proj_bias")
+    out_proj_weight = IOKey("out_proj_weight")
+    out_proj_bias = IOKey("out_proj_bias")
 
     tgt_len, bsz, embed_dim = query.shape[0], query.shape[1], query.shape[2]
 
@@ -325,7 +325,8 @@ def attention_pool2d(
     name: str | None = None,
 ):
     block = Model(name=name)
-    input = IOKey("input", shape=(1, 2048, 7, 7))
+    input = IOKey("input")
+    output_dim = output_dim or embed_dim
     """
     self.positional_embedding = 
       nn.Parameter(torch.randn(spacial_dim ** 2 + 1, embed_dim) / embed_dim ** 0.5) 
@@ -335,23 +336,23 @@ def attention_pool2d(
     self.c_proj = nn.Linear(embed_dim, output_dim or embed_dim)
     """
     # q_proj_weight=self.q_proj.weight
-    q_proj_weight = IOKey("q_proj_weight", differentiable =True ,shape=(2048, 2048))
+    q_proj_weight = IOKey("q_proj_weight", differentiable =True ,shape=(embed_dim, embed_dim))
     # q_proj_weight=self.q_proj.weight
-    k_proj_weight = IOKey("k_proj_weight",differentiable =True , shape=(2048, 2048))
+    k_proj_weight = IOKey("k_proj_weight",differentiable =True , shape=(embed_dim, embed_dim))
     # q_proj_weight=self.q_proj.weight
-    v_proj_weight = IOKey("v_proj_weight", differentiable =True ,shape=(2048, 2048))
+    v_proj_weight = IOKey("v_proj_weight", differentiable =True ,shape=(embed_dim, embed_dim))
     # q_proj_weight=self.q_proj.weight
-    q_proj_bias = IOKey("q_proj_bias", differentiable =True, shape=(2048,))
-    k_proj_bias = IOKey("k_proj_bias", differentiable =True,shape=(2048,))
-    v_proj_bias = IOKey("v_proj_bias", differentiable =True,shape=(2048,)) 
+    q_proj_bias = IOKey("q_proj_bias", differentiable =True, shape=(embed_dim,))
+    k_proj_bias = IOKey("k_proj_bias", differentiable =True,shape=(embed_dim,))
+    v_proj_bias = IOKey("v_proj_bias", differentiable =True,shape=(embed_dim,)) 
     block|= Concat()(input = [q_proj_bias,k_proj_bias,v_proj_bias], output="in_proj_bias")
     # q_proj_weight=self.q_proj.weight
-    out_proj_weight = IOKey("c_proj_weight", differentiable =True ,shape=(512, 2048))
+    out_proj_weight = IOKey("c_proj_weight", differentiable =True ,shape=(output_dim, embed_dim))
     # q_proj_weight=self.q_proj.weight
-    out_proj_bias = IOKey("c_proj_bias", differentiable =True ,type=ml.Tensor, shape=(512,))
+    out_proj_bias = IOKey("c_proj_bias", differentiable =True ,type=ml.Tensor, shape=(output_dim,))
     # q_proj_weight=self.q_proj.weight
     positional_embedding = IOKey(
-        "positional_embedding", differentiable =True , type=ml.Tensor, shape=(50, 2048)
+        "positional_embedding", differentiable =True , type=ml.Tensor, shape=(spacial_dim**2+1, embed_dim)
     )
     block |= Flatten(start_dim=2)(input=input, output="flatten_output")  # type: ignore
     block |= Transpose(axes=(2, 0, 1))(input=block.flatten_output, output="transpose_output")  # type: ignore
@@ -455,7 +456,7 @@ def modified_resnet(
     layers, output_dim, heads, input_resolution=224, width=64, name: str | None = None
 ):
     block = Model(name=name)
-    input = IOKey("input", shape=(1, 3, 224, 224))
+    input = IOKey("input")
     # for attn_pool
     # q_proj_weight=self.q_proj.weight
 
@@ -573,31 +574,9 @@ def clip(
             width=vision_width,
             name="visual",
         )
-        q_proj_weight = IOKey("q_proj_weight", shape=(2048, 2048))
-        # q_proj_weight=self.q_proj.weight
-        k_proj_weight = IOKey("k_proj_weight", shape=(2048, 2048))
-        # q_proj_weight=self.q_proj.weight
-        v_proj_weight = IOKey("v_proj_weight", shape=(2048, 2048))
-        # q_proj_weight=self.q_proj.weight
-        in_proj_bias = IOKey("in_proj_bias", shape=(6144,))
-        # q_proj_weight=self.q_proj.weight
-        out_proj_weight = IOKey("out_proj_weight", shape=(1024, 2048))
-        # q_proj_weight=self.q_proj.weight
-        out_proj_bias = IOKey("out_proj_bias", shape=(1024,))
-        # q_proj_weight=self.q_proj.weight
-        positional_embedding_visual = IOKey(
-            "positional_embeddin_visual", shape=(50, 2048)
-        )
         block |= visual(
             input=image,
-            q_proj_weight=q_proj_weight,
-            k_proj_weight=k_proj_weight,
-            v_proj_weight=v_proj_weight,
-            in_proj_bias=in_proj_bias,
-            out_proj_weight=out_proj_weight,
-            out_proj_bias=out_proj_bias,
-            positional_embedding=positional_embedding_visual,
-            output="image_features",
+            output="image_features"
         )
 
     else:
