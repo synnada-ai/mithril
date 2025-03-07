@@ -6973,7 +6973,7 @@ def test_extending_operator():
 
 def test_extending_operator_model():
     model1 = Buffer()
-    with pytest.raises(RuntimeError) as err:
+    with pytest.raises(AttributeError) as err:
         model1 += Buffer()
 
-    assert str(err.value) == "Primitive models cannot have submodels."
+    assert str(err.value) == "Model is frozen and can not be extended!"

@@ -1748,7 +1748,7 @@ class DistanceMatrix(PrimitiveModel):
             fn=general_tensor_type_constraint,
             keys=[Operator.output_key, "left", "right", "norm"],
         )
-        self.set_cin("left", "right", safe=False)
+        self._set_cin("left", "right", safe=False)
 
     def __call__(  # type: ignore[override]
         self,
@@ -2068,7 +2068,7 @@ class Arange(PrimitiveModel):
             step=BaseKey(type=int | float, value=step),
             dtype=BaseKey(type=types.Dtype | None, value=dtype),
         )
-        self.set_cin("stop", safe=False)
+        self._set_cin("stop", safe=False)
 
         if not all_defined:
             self._add_constraint(
@@ -2493,7 +2493,7 @@ class Where(PrimitiveModel):
             fn=general_tensor_type_constraint,
             keys=[Operator.output_key, "input1", "input2"],
         )
-        self.set_cin("input1", safe=False)
+        self._set_cin("input1", safe=False)
 
     def __call__(  # type: ignore[override]
         self,

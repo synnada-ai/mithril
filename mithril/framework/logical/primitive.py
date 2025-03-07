@@ -30,8 +30,9 @@ class OperatorModel(Model):
         name: str | None = None,
     ) -> None:
         super().__init__(name=name, enforce_jit=model._jittable)
-        self._extend(model, {k: k for k in model.external_keys})
+        self._extend(model, {k: k for k in model.external_keys}, trace=False)
         self.expose_keys(*model.external_keys)
+        self._freeze()
 
     @property
     def submodel(self) -> Operator:
@@ -42,11 +43,13 @@ class OperatorModel(Model):
     def extend(
         self,
         model: BaseModel,
+        trace: bool = True,
+        /,
         **kwargs: ConnectionDataType,
     ) -> None:
         if len(self.dag) > 0:
             raise RuntimeError("Primitive models cannot have submodels.")
-        super().extend(model, **kwargs)
+        super().extend(model, trace, **kwargs)
 
 
 class PrimitiveModel(OperatorModel):
