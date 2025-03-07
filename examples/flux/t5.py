@@ -185,7 +185,7 @@ def load_t5_encoder(
     with open(config) as f:
         config = json.load(f)
 
-    t5 = t5_encode(config, name="encoder")
+    t5 = t5_encode(config, name="encoder")  # type: ignore
 
     # model = ml.models.Model()
     # model |= t5(input="input", output="output")
