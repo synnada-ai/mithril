@@ -146,13 +146,30 @@ class ToTupleOp(Operator):
         key_definitions = {
             "output": BaseKey(
                 type=tuple[
-                    int | float | bool | list | tuple | slice | EllipsisType | None, ...  # type: ignore
+                    int
+                    | float
+                    | bool
+                    | list  # type: ignore
+                    | tuple  # type: ignore
+                    | slice
+                    | EllipsisType
+                    | Tensor  # type: ignore
+                    | None,
+                    ...,
                 ]
             )
         }
         key_definitions |= {
             f"input{idx+1}": BaseKey(
-                type=int | float | bool | list | tuple | slice | EllipsisType | None,
+                type=int
+                | float
+                | bool
+                | list
+                | tuple
+                | slice
+                | Tensor
+                | EllipsisType
+                | None,
                 value=kwargs.get(f"input{idx+1}", TBD),
             )
             for idx in range(n)
@@ -1710,7 +1727,8 @@ class IndexerOp(Operator):
                 | slice
                 | EllipsisType
                 | None
-                | tuple[int | slice | EllipsisType | None, ...],
+                | tuple[int | slice | EllipsisType | None | Tensor[int], ...]
+                | Tensor[int],
                 value=index,
             ),
         )

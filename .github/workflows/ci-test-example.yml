@@ -45,5 +45,7 @@ jobs:
           pip install transformers
           pip install librosa
           pip install einops
+          pip install ftfy regex tqdm
+          pip install git+https://github.com/openai/CLIP.git
       - name: Execute testcase unit tests
         run: pytest -s test_examples/
