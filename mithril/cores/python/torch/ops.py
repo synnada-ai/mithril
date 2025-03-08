@@ -209,6 +209,7 @@ __all__ = [
     "dtype",
     "zeros_like",
     "avg_pool2d",
+    "ones",
 ]
 
 
@@ -1221,6 +1222,17 @@ def zeros_like(input: torch.Tensor) -> torch.Tensor:
     return torch.zeros_like(input)
 
 
+def ones(
+    shape: tuple[int, ...],
+    *,
+    dtype: torch.dtype | None = None,
+    device: str,
+    default_dtype: str,
+) -> torch.Tensor:
+    dtype = dtype_map[default_dtype] if dtype is None else dtype
+    return torch.ones(shape, device=device, dtype=dtype)
+
+
 def atleast_1d(input: torch.Tensor) -> torch.Tensor:
     return torch.atleast_1d(input)  # type: ignore
 
@@ -1229,7 +1241,14 @@ def primitive_embedding(input: torch.Tensor, weight: torch.Tensor) -> torch.Tens
     return weight[input.long()]
 
 
-array_creation_funcs = ["arange", "randn", "to_tensor", "eye", "ones_with_zero_diag"]
+array_creation_funcs = [
+    "arange",
+    "randn",
+    "ones",
+    "to_tensor",
+    "eye",
+    "ones_with_zero_diag",
+]
 primitive_func_dict = common_primitive_func_dict | {
     key: fn for key, fn in globals().items() if callable(fn)
 }

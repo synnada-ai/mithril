@@ -62,6 +62,7 @@ from mithril.models import (
     NanToNum,
     NormModifier,
     NotEqual,
+    Ones,
     PrimitiveUnion,
     Prod,
     Randn,
@@ -1530,6 +1531,98 @@ def test_zeros_like():
         tolerances=None,
         assert_shapes=False,
     )
+
+
+def test_ones_static_shape():
+    model = Ones(shape=(2, 3, 4))
+
+    reference_outputs = {"output": list_full(1.0, 2, 3, 4)}
+    compile_and_compare(
+        model=model,
+        compile_kwargs={"inference": True},
+        data={},
+        params={},
+        output_gradients={},
+        reference_outputs=reference_outputs,
+        reference_gradients=None,
+        tolerances=1e-6,
+        assert_shapes=False,
+    )
+
+
+def test_ones_dynamic_shape():
+    model = Ones(shape=TBD)
+
+    reference_outputs = {"output": list_full(1.0, 3, 5, 2)}
+    compile_and_compare(
+        model=model,
+        compile_kwargs={"jit": False, "inference": True},
+        data={"shape": (3, 5, 2)},
+        params={},
+        output_gradients={},
+        reference_outputs=reference_outputs,
+        reference_gradients=None,
+        tolerances=1e-6,
+        assert_shapes=False,
+        ignore_transform={"shape"},
+    )
+
+
+def test_ones_static_with_dtype():
+    dtypes = [mithril.float16, mithril.float32]
+    for dtype in dtypes:
+        backends: list[Backend[Any]] = [
+            TorchBackend(dtype=dtype),
+            NumpyBackend(dtype=dtype),
+            JaxBackend(dtype=dtype),
+        ]
+        if platform.system() == "Darwin":
+            backends.append(MlxBackend(dtype=dtype))
+
+        model = Ones(shape=(2, 4), dtype=dtype)
+
+        reference_outputs = {"output": list_full(1.0, 2, 4)}
+        compile_and_compare(
+            model=model,
+            compile_kwargs={"inference": True},
+            data={},
+            params={},
+            output_gradients={},
+            reference_outputs=reference_outputs,
+            reference_gradients=None,
+            tolerances=1e-6,
+            assert_shapes=False,
+            backends=backends,
+        )
+
+
+def test_ones_dynamic_with_dtype():
+    dtypes = [mithril.float16, mithril.float32]
+    for dtype in dtypes:
+        backends: list[Backend[Any]] = [
+            TorchBackend(dtype=dtype),
+            NumpyBackend(dtype=dtype),
+            JaxBackend(dtype=dtype),
+        ]
+        if platform.system() == "Darwin":
+            backends.append(MlxBackend(dtype=dtype))
+
+        model = Ones(shape=TBD, dtype=dtype)
+
+        reference_outputs = {"output": list_full(1.0, 3, 2)}
+        compile_and_compare(
+            model=model,
+            compile_kwargs={"jit": False, "inference": True},
+            data={"shape": (3, 2)},
+            params={},
+            output_gradients={},
+            reference_outputs=reference_outputs,
+            reference_gradients=None,
+            tolerances=1e-6,
+            assert_shapes=False,
+            backends=backends,
+            ignore_transform={"shape"},
+        )
 
 
 def test_eye_complement_1():
