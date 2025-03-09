@@ -26,9 +26,16 @@ from ...backend import Backend
 from ...utils import process_shape
 from ..c_backend.utils import from_numpy
 from . import utils
+from ....cores.c.ggml import ops
+from ....common import BiMap
 
 __all__ = ["GGMLBackend"]
 
+dtype_map: BiMap[str, Any] = BiMap(
+    {
+        "float32": np.float32,
+    }
+)
 
 class GGMLBackend(Backend[PyArray]):
     backend_type = "c"
@@ -39,7 +46,10 @@ class GGMLBackend(Backend[PyArray]):
 
     def __init__(self) -> None:
         self._device = "cpu"
-        self.primitive_function_dict = {}
+        self.primitive_function_dict = ops.primitive_func_dict
+        self.dtype_map = dtype_map
+        self.registered_primitives = {}
+        self.array_creation_funcs = {}
 
     @property
     def is_manualgrad(self) -> bool:

@@ -20,14 +20,19 @@ import numpy as np
 
 from .... import types
 from ....cores.c.array import PyArray
-from ....cores.c.raw_c import array
+from ....cores.c.raw_c import array, ops
 from ...backend import Backend
 from ...utils import process_shape
+from ....common import BiMap
 from . import utils
 
 __all__ = ["CBackend"]
 
-
+dtype_map: BiMap[str, Any] = BiMap(
+    {
+        "float32": np.float32,
+    }
+)
 class CBackend(Backend[PyArray]):
     backend_type = "c"
     SRC_PATH = os.path.join(
@@ -37,8 +42,10 @@ class CBackend(Backend[PyArray]):
 
     def __init__(self) -> None:
         self._device = "cpu"
-        self.primitive_function_dict = {}
-
+        self.primitive_function_dict = ops.primitive_func_dict
+        self.dtype_map = dtype_map
+        self.registered_primitives = {}
+        self.array_creation_funcs = {}
     @property
     def is_manualgrad(self) -> bool:
         return True

@@ -1024,7 +1024,7 @@ class PhysicalModel(GenericDataType[DataType]):
         ):
             outputs = self.backend._run_callable(params, data, fn_name="eval_fn")
         else:
-            outputs = self._generated_eval_fn(params, data)
+            outputs = self._generated_eval_fn(params, data, cache=self.flat_graph.cached_data)
 
         outputs, state_outputs = self._extract_state_outputs(outputs)
         if len(state_outputs) == 0:

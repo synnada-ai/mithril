@@ -182,6 +182,9 @@ class GGMLCodeGen(CGen):
         # Create tensors
         init_block.append(c_ast.Comment("Create tensors only once"))  # type: ignore
         for key in self.determined_struct_keys[f"{fn_ref_name}_input_keys"]:
+            # If key statically inferred, skip tensor creation
+            if key in self.determined_struct_keys[f"{fn_ref_name}_output_keys"]:
+                continue
             shape = self._get_tensor_shape(key)
             if shape is not None:
                 tensor = c_ast.Call(
@@ -206,6 +209,9 @@ class GGMLCodeGen(CGen):
 
         # Build graph
         for out_key in self.determined_struct_keys[f"{fn_ref_name}_output_keys"]:
+            # If key is statically inferred, skip marking
+            if out_key in self.determined_struct_keys[f"{fn_ref_name}_input_keys"]:
+                continue
             init_block.append(
                 c_ast.MakeStmt(  # type: ignore
                     c_ast.Call(
@@ -227,12 +233,21 @@ class GGMLCodeGen(CGen):
         update_ptr_block: ast_block_type = []
         update_ptr_block.append(c_ast.Comment("Update tensor data for each call"))  # type: ignore
         for key in self.determined_struct_keys[f"{fn_ref_name}_input_keys"]:
-            update_ptr_block.append(
-                c_ast.Assign(  # type: ignore
-                    c_ast.Arrow(c_ast.Variable(f"{key}"), "data"),
-                    c_ast.Arrow(c_ast.Arrow(c_ast.Variable("inputs"), key), "data"),
+            # If key is statically inferred, assign to output directly
+            if key in self.determined_struct_keys[f"{fn_ref_name}_output_keys"]:
+                update_ptr_block.append(
+                    c_ast.Assign(  # type: ignore
+                        self.create_key_ref(key, context=fn_ref_name),
+                        c_ast.Arrow(c_ast.Variable("inputs"), f"{key}")
+                    )
                 )
-            )
+            else:
+                update_ptr_block.append(
+                    c_ast.Assign(  # type: ignore
+                        c_ast.Arrow(c_ast.Variable(f"{key}"), "data"),
+                        c_ast.Arrow(c_ast.Arrow(c_ast.Variable("inputs"), key), "data"),
+                    )
+                )
 
         # Initialization function
         init_fn = super().define_function(
@@ -296,3 +311,12 @@ class GGMLCodeGen(CGen):
                 return c_ast.Variable(key)
 
         return super().create_key_ref(key, context, load)
+
+    @override
+    def _determine_struct_keys(self) -> dict[str, list[str]]:
+        determined_struct_keys = super()._determine_struct_keys()
+        static_cache_keys = sorted(self.pm.flat_graph.all_static_keys)
+        if static_cache_keys:
+            determined_struct_keys["eval_input_keys"] = static_cache_keys
+
+        return determined_struct_keys
