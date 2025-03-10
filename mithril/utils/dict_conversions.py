@@ -46,6 +46,7 @@ from ..models import (
     primitives,
 )
 from ..models.train_model import TrainModel
+from ..types import Constant, Dtype
 from ..utils import model_conversion_lut
 from ..utils.type_utils import is_generic_alias_type, is_union_type
 from ..utils.utils import convert_to_tuple
@@ -61,6 +62,9 @@ type_dict: dict[str, type | EllipsisType] = {
     "dict": dict,
     "...": ...,
 }
+
+value_dict: dict[str, Constant | Dtype] = {str(val): val for val in Constant}
+value_dict |= {str(val): val for val in Dtype}
 
 SerializedType = (
     str
@@ -113,7 +117,7 @@ class ModelDict(TypedDict, total=False):
     enums: dict[str, str]
     unnamed_keys: list[str]
     submodels: dict[str, ModelDict]
-    connections: dict[str, dict[str, str | ConnectionDict]]
+    connections: dict[str, dict[str, str | int | float | bool | ConnectionDict]]
 
 
 class TrainModelDict(TypedDict):
@@ -392,9 +396,25 @@ def create_iokey_kwargs(
 ) -> dict[str, Any]:
     info_cpy = info.copy()
     kwargs: dict[str, Any] = {}
+    is_tensor = False
+    val: (
+        TensorValueType
+        | MainValueType
+        | ToBeDetermined
+        | str
+        | Tensor[int | float | bool]
+    )
     if (val := info_cpy.get("value")) is not None:
-        # Convert tensor values to Tensor objects.
-        kwargs["value"] = Tensor(val["tensor"]) if isinstance(val, dict) else val
+        if isinstance(val, dict):
+            val = val["tensor"]
+            is_tensor = True
+        if isinstance(val, str):
+            val = value_dict.get(val, val)
+        if is_tensor:
+            assert isinstance(val, int | float | bool | list | Constant)
+            val = Tensor(val)
+        # Convert tensor values to Tensor objects id required.
+        kwargs["value"] = val
     if (typ := info_cpy.get("type")) is not None:
         # Convert type strings to type objects.
         kwargs["type"] = _deserialize_type_info(typ)
@@ -437,8 +457,8 @@ def dict_to_model(
         params = deepcopy(modelparams)
 
     args: dict[str, Any] = {}
-    connections: dict[str, dict[str, str | ConnectionDict]] = params.get(
-        "connections", {}
+    connections: dict[str, dict[str, str | int | float | bool | ConnectionDict]] = (
+        params.get("connections", {})
     )
     submodels: dict[str, ModelDict] = params.get("submodels", {})
 
@@ -476,14 +496,26 @@ def dict_to_model(
     for m_key, v in submodels.items():
         m = dict_to_model(v)
         submodels_dict[m_key] = m
-        mappings: dict[str, IOKey | Tensor | float | int | list | tuple | str] = {}  # type: ignore
+        mappings: dict[str, IOKey | Tensor[int | float | bool] | MainValueType] = {}
         mergings = {}
         for k, conn in connections[m_key].items():
             if conn in unnamed_keys and k in m.input_keys:
                 continue
 
-            if isinstance(conn, str | float | int | tuple | list):
-                mappings[k] = conn
+            if isinstance(conn, str | float | int | bool | tuple | list):
+                _conn: (
+                    str
+                    | float
+                    | int
+                    | bool
+                    | tuple[Any, ...]
+                    | list[Any]
+                    | Constant
+                    | Dtype
+                ) = conn
+                if isinstance(conn, str):
+                    _conn = value_dict.get(conn, conn)
+                mappings[k] = _conn
 
             elif isinstance(conn, dict):
                 if (io_key := conn.get("key")) is not None:
@@ -497,7 +529,11 @@ def dict_to_model(
                     else:
                         mappings[k] = IOKey(**key_kwargs)
                 elif "tensor" in conn:
-                    mappings[k] = Tensor(conn["tensor"])
+                    val = conn["tensor"]
+                    if isinstance(val, str):
+                        val = value_dict.get(val, val)
+                        assert not isinstance(val, Dtype)
+                    mappings[k] = Tensor(val)
         model |= m(**mappings)
         for key, conns in mergings.items():
             con = getattr(m, key)
@@ -541,7 +577,9 @@ def model_to_dict(model: BaseModel) -> TrainModelDict | ModelDict:
     submodel_obj_dict: dict[BaseModel, str] = {}
 
     if model_name == "Model" and model_name in dir(models):
-        connection_dict: dict[str, dict[str, str | ConnectionDict]] = {}
+        connection_dict: dict[
+            str, dict[str, str | int | float | bool | ConnectionDict]
+        ] = {}
         submodels: dict[str, ModelDict] = {}
 
         # IOHyperEdge -> [model_id, connection_name]
@@ -594,7 +632,7 @@ def connection_to_dict(
     submodel: BaseModel,
     submodel_connections: dict[IOHyperEdge, list[str]],
     model_id: str,
-) -> dict[str, str | ConnectionDict]:
+) -> dict[str, str | int | float | bool | ConnectionDict]:
     connection_dict: dict[str, MainValueType | str | ConnectionDict] = {}
     connections: dict[str, ConnectionData] = model.dag[submodel]
 
@@ -612,6 +650,8 @@ def connection_to_dict(
                 key_value["key"] |= {"name": connection.key, "expose": True}
         elif is_valued and connection in model.conns.input_connections:
             val = connection.metadata.value
+            if isinstance(val, Constant | Dtype):
+                val = str(val)
             assert not isinstance(val, ToBeDetermined)
             if connection.metadata.is_tensor:
                 val = {"tensor": val}
