@@ -17,7 +17,11 @@ from copy import deepcopy
 from mithril import Backend, Constant, compile, epsilon_table
 from mithril.framework.common import IOHyperEdge, Tensor
 from mithril.models import BaseModel, Model, Operator, TrainModel
-from mithril.utils.dict_conversions import dict_to_model, model_to_dict
+from mithril.utils.dict_conversions import (
+    dict_to_model,
+    extract_model_key_index,
+    model_to_dict,
+)
 from tests.scripts.test_utils import (
     assert_all_conn_key_are_same,
     convert_to_array,
@@ -220,13 +224,13 @@ def assert_models_equal(model1: BaseModel, model2: BaseModel):
     model1_cins = set()
     model2_cins = set()
     for conn in model1.conns.cins:
-        model, key_index = model1.extract_model_key_index(conn)
+        model, key_index = extract_model_key_index(model1, conn)
         model_index = (
             list(model1.dag.keys()).index(model) if model != model1 else "self"
         )
         model1_cins.add((model_index, key_index))
     for conn in model2.conns.cins:
-        model, key_index = model2.extract_model_key_index(conn)
+        model, key_index = extract_model_key_index(model2, conn)
         model_index = (
             list(model2.dag.keys()).index(model) if model != model2 else "self"
         )
@@ -236,13 +240,13 @@ def assert_models_equal(model1: BaseModel, model2: BaseModel):
     model1_couts = set()
     model2_couts = set()
     for conn in model1.conns.couts:
-        model, key_index = model1.extract_model_key_index(conn)
+        model, key_index = extract_model_key_index(model1, conn)
         model_index = (
             list(model1.dag.keys()).index(model) if model != model1 else "self"
         )
         model1_couts.add((model_index, key_index))
     for conn in model2.conns.couts:
-        model, key_index = model2.extract_model_key_index(conn)
+        model, key_index = extract_model_key_index(model2, conn)
         model_index = (
             list(model2.dag.keys()).index(model) if model != model2 else "self"
         )

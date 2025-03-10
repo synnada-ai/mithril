@@ -49,7 +49,7 @@ from ..models.train_model import TrainModel
 from ..types import Constant, Dtype
 from ..utils import model_conversion_lut
 from ..utils.type_utils import is_generic_alias_type, is_union_type
-from ..utils.utils import convert_to_tuple
+from ..utils.utils import OrderedSet, convert_to_tuple
 
 type_dict: dict[str, type | EllipsisType] = {
     "Tensor": Tensor,
@@ -112,7 +112,8 @@ class ModelDict(TypedDict, total=False):
     assigned_types: list[tuple[tuple[str, int] | str, SerializedType]]
     assigned_differentiabilities: list[tuple[tuple[str, int] | str, bool]]
     assigned_constraints: list[AssignedConstraintType]
-    assigned_canonicals: dict[str, list[tuple[str, int] | str]]
+    assigned_cins: list[tuple[str, int] | str]
+    assigned_couts: list[tuple[str, int] | str]
     tuples: list[str]
     enums: dict[str, str]
     unnamed_keys: list[str]
@@ -203,10 +204,60 @@ def _deserialize_type_info(
     return result
 
 
+def extract_model_key_index(
+    model: BaseModel, connection: ConnectionData
+) -> tuple[BaseModel, int]:
+    """
+    Extracts the model and key index for a given connection.
+
+    This function determines the model and the index of the key associated with
+    that model. It handles both frozen and non-frozen states of the model.
+
+    Args:
+        connection (ConnectionData): The connection data for which the model and
+        key index need to be extracted.
+
+    Returns:
+        tuple[BaseModel, int]: A tuple containing the model and the index
+        of the key for that model.
+
+    Raises:
+        KeyError: If the connection is not found in the model.
+    """
+    if connection not in model.conns.all.values():
+        raise KeyError(f"Connection {connection.key} is not found in the model")
+
+    if model.is_frozen:
+        _model = model
+        name = connection._name
+        assert name is not None
+        key_index = list(model.external_keys).index(name)
+    else:
+        assert connection.model is not None
+        key = connection.key
+        if (_model := connection.model) is model:
+            # Always return info using freezed models.
+            model_info: (
+                list[tuple[BaseModel, OrderedSet[ConnectionData]]]
+                | tuple[BaseModel, OrderedSet[ConnectionData]]
+            ) = model.dependency_map.local_input_dependency_map.get(
+                connection,
+                model.dependency_map.local_output_dependency_map.get(connection),  # type: ignore
+            )
+            _model = model_info[0][0] if isinstance(model_info, list) else model_info[0]
+            # Get corresponding connection of the _model.
+            _model_conn = _model.conns.get_con_by_metadata(connection.metadata)
+            assert _model_conn is not None
+            key = _model_conn.key
+        key_index = list(_model.external_keys).index(key)
+
+    return (_model, key_index)
+
+
 def _extract_key_info(
     model: BaseModel, submodel_dict: dict[BaseModel, str], conn: ConnectionData
 ) -> tuple[str, int] | str:
-    m, key_index = model.extract_model_key_index(conn)
+    m, key_index = extract_model_key_index(model, conn)
     m_name = submodel_dict[m] if m is not model else "self"
 
     key_name = list(model.external_keys)[key_index]
@@ -227,7 +278,8 @@ def _serialize_assigned_info(
     list[tuple[tuple[str, int] | str, SerializedType]],
     list[tuple[tuple[str, int] | str, bool]],
     list[AssignedConstraintType],
-    dict[str, list[tuple[str, int] | str]],
+    list[tuple[str, int] | str],
+    list[tuple[str, int] | str],
 ]:
     shapes_info: list[list[tuple[tuple[str, int] | str, ShapeTemplateType]]] = []
     types_info: list[tuple[tuple[str, int] | str, SerializedType]] = []
@@ -270,31 +322,54 @@ def _serialize_assigned_info(
         constraints_info.append(constraint)
 
     # Canonical keys.
-    assigned_canonicals: dict[str, list[tuple[str, int] | str]] = {
-        "cins": [],
-        "couts": [],
-    }
-    for conn in model.assigned_canonicals["cins"]:
+    assigned_cins: list[tuple[str, int] | str] = []
+    assigned_couts: list[tuple[str, int] | str] = []
+    for conn in model.assigned_cins:
         key_info = _extract_key_info(model, submodel_dict, conn)
-        assigned_canonicals["cins"].append(key_info)
-    for conn in model.assigned_canonicals["couts"]:
+        assigned_cins.append(key_info)
+    for conn in model.assigned_couts:
         key_info = _extract_key_info(model, submodel_dict, conn)
-        assigned_canonicals["couts"].append(key_info)
+        assigned_couts.append(key_info)
     # Sort cins and couts in order to get exactly the same json for
     # the same model.
-    assigned_canonicals["cins"].sort()
-    assigned_canonicals["couts"].sort()
+    assigned_cins.sort(key=lambda x: str(x[-1]))  # Simple sort criteria.
+    assigned_couts.sort(key=lambda x: str(x[-1]))
 
     return (
         shapes_info,
         types_info,
         differentiability_info,
         constraints_info,
-        assigned_canonicals,
+        assigned_cins,
+        assigned_couts,
     )
 
 
-def _construct_info[T](
+def _extract_connection_from_info_key(
+    model: BaseModel,
+    submodel_dict: dict[str, BaseModel],
+    info_key: tuple[str, int],
+) -> ConnectionData:
+    model_name, index = info_key
+    return _extract_connection_from_index(model, model_name, index, submodel_dict)
+
+
+def _construct_args_info(
+    model: BaseModel,
+    submodel_dict: dict[str, BaseModel],
+    args: set[ConnectionData | str],
+    info: tuple[str, int] | str,
+) -> None:
+    if isinstance(info, tuple):
+        connection = _extract_connection_from_info_key(model, submodel_dict, info)
+        args.add(connection)
+    elif isinstance(info, str):
+        args.add(info)
+    else:
+        raise RuntimeError("Unknown info format!")
+
+
+def _construct_config_kwargs_info[T](
     model: BaseModel,
     submodel_dict: dict[str, BaseModel],
     config: dict[ConnectionData, T],
@@ -303,10 +378,7 @@ def _construct_info[T](
 ) -> None:
     info_key, data = info
     if isinstance(info_key, tuple):
-        model_name, index = info_key
-        connection = _extract_connection_from_index(
-            model, model_name, index, submodel_dict
-        )
+        connection = _extract_connection_from_info_key(model, submodel_dict, info_key)
         config[connection] = data
     elif isinstance(info_key, str):
         kwargs[info_key] = data
@@ -331,28 +403,35 @@ def _set_assigned_info(
     types_info: list[tuple[tuple[str, int] | str, GeneralType]],
     diffs_info: list[tuple[tuple[str, int] | str, bool]],
     constraints_info: list[AssignedConstraintType],
-    canonicals_info: dict[str, list[tuple[str, int] | str]],
+    cins_info: list[tuple[str, int] | str],
+    couts_info: list[tuple[str, int] | str],
 ) -> None:
     # Shapes conversion.
     for shp_info in shapes_info:
         shapes: dict[ConnectionData, ShapeTemplateType] = {}
         shape_kwargs: dict[str, ShapeTemplateType] = {}
         for sub_info in shp_info:
-            _construct_info(model, submodel_dict, shapes, shape_kwargs, sub_info)
+            _construct_config_kwargs_info(
+                model, submodel_dict, shapes, shape_kwargs, sub_info
+            )
         model.set_shapes(shapes, **shape_kwargs)
 
     # Types conversion.
     types_config: dict[ConnectionData, GeneralType] = {}
     types_kwargs: dict[str, GeneralType] = {}
     for type_info in types_info:
-        _construct_info(model, submodel_dict, types_config, types_kwargs, type_info)
+        _construct_config_kwargs_info(
+            model, submodel_dict, types_config, types_kwargs, type_info
+        )
     model.set_types(types_config, **types_kwargs)  # type: ignore
 
     # Differentiability settings for models and keys.
     diff_config: dict[ConnectionData, bool] = {}
     diff_kwargs: dict[str, bool] = {}
     for diff_info in diffs_info:
-        _construct_info(model, submodel_dict, diff_config, diff_kwargs, diff_info)
+        _construct_config_kwargs_info(
+            model, submodel_dict, diff_config, diff_kwargs, diff_info
+        )
     model.set_differentiability(diff_config, **diff_kwargs)
 
     # Constraints.
@@ -369,22 +448,10 @@ def _set_assigned_info(
     # Canonical keys
     cins: set[ConnectionData | str] = set()
     couts: set[ConnectionData | str] = set()
-    for canonical_type, info in canonicals_info.items():
-        related_set = cins if canonical_type == "cins" else couts
-        for item in info:
-            if canonical_type not in ["cins", "couts"]:
-                raise RuntimeError("Unknown canonical key type!")
-
-            if isinstance(item, tuple):
-                model_name, index = item
-                connection = _extract_connection_from_index(
-                    model, model_name, index, submodel_dict
-                )
-                related_set.add(connection)
-            elif isinstance(item, str):
-                related_set.add(item)
-            else:
-                raise RuntimeError("Unknown canonical key info format!")
+    for item in cins_info:
+        _construct_args_info(model, submodel_dict, cins, item)
+    for item in couts_info:
+        _construct_args_info(model, submodel_dict, couts, item)
     if cins:
         model.set_cin(*cins)
     if couts:
@@ -547,7 +614,8 @@ def dict_to_model(
     assigned_shapes = params.get("assigned_shapes", [])
     assigned_differentiabilities = params.get("assigned_differentiabilities", [])
     assigned_constraints = params.get("assigned_constraints", [])
-    assigned_canonicals = params.get("assigned_canonicals", {})
+    assigned_cins = params.get("assigned_cins", [])
+    assigned_couts = params.get("assigned_couts", [])
     _set_assigned_info(
         model,
         submodels_dict,
@@ -555,7 +623,8 @@ def dict_to_model(
         assigned_types,
         assigned_differentiabilities,
         assigned_constraints,
-        assigned_canonicals,
+        assigned_cins,
+        assigned_couts,
     )
 
     assert isinstance(model, Model)
@@ -611,14 +680,16 @@ def model_to_dict(model: BaseModel) -> TrainModelDict | ModelDict:
         assigned_types,
         assigned_differentiabilities,
         assigned_constraints,
-        assigned_canonicals,
+        assigned_cins,
+        assigned_couts,
     ) = _serialize_assigned_info(model, submodel_obj_dict)
 
     model_dict |= {"assigned_shapes": assigned_shapes}
     model_dict |= {"assigned_types": assigned_types}
     model_dict |= {"assigned_differentiabilities": assigned_differentiabilities}
     model_dict |= {"assigned_constraints": assigned_constraints}
-    model_dict |= {"assigned_canonicals": assigned_canonicals}
+    model_dict |= {"assigned_cins": assigned_cins}
+    model_dict |= {"assigned_couts": assigned_couts}
 
     return model_dict
 

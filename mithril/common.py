@@ -13,8 +13,31 @@
 # limitations under the License.
 
 from collections.abc import Callable, Iterator, MutableMapping
+from dataclasses import dataclass
 from enum import IntEnum
 from typing import Any, TypeVar
+
+
+@dataclass
+class CGenConfig:
+    # Import configs
+    HEADER_NAME: str = ""
+
+    # Array configs
+    ARRAY_NAME: str = ""
+
+    # Function call configs
+    USE_OUTPUT_AS_INPUT: bool = False
+    RETURN_OUTPUT: bool = False
+
+    # Memory Management
+    ALLOCATE_INTERNALS: bool = False
+
+
+@dataclass
+class PythonGenConfig:
+    # Import configs
+    SPECIFY_DEVICE: bool = False
 
 
 class PaddingType(IntEnum):
