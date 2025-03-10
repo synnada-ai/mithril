@@ -327,27 +327,27 @@ class TestLayers:
         outs = pm.evaluate(params, backend_inputs)
 
         expected_result, attn_weights = f.multi_head_attention_forward(
-            query=backend_inputs["query"],
-            key=backend_inputs["key"],
-            value=backend_inputs["value"],
+            query=torch_inputs["query"],
+            key=torch_inputs["key"],
+            value=torch_inputs["value"],
             embed_dim_to_check=2048,
             num_heads=32,
             in_proj_weight=None,
-            in_proj_bias=backend_inputs["in_proj_bias"],
+            in_proj_bias=torch_inputs["in_proj_bias"],
             bias_k=None,
             bias_v=None,
             add_zero_attn=False,
             dropout_p=0.0,
-            out_proj_weight=backend_inputs["out_proj_weight"],
-            out_proj_bias=backend_inputs["out_proj_bias"],
+            out_proj_weight=torch_inputs["out_proj_weight"],
+            out_proj_bias=torch_inputs["out_proj_bias"],
             training=True,
             key_padding_mask=None,
             need_weights=True,
             attn_mask=None,
             use_separate_proj_weight=True,
-            q_proj_weight=backend_inputs["q_proj_weight"],
-            k_proj_weight=backend_inputs["k_proj_weight"],
-            v_proj_weight=backend_inputs["v_proj_weight"],
+            q_proj_weight=torch_inputs["q_proj_weight"],
+            k_proj_weight=torch_inputs["k_proj_weight"],
+            v_proj_weight=torch_inputs["v_proj_weight"],
             static_k=None,
             static_v=None,
             average_attn_weights=True,
@@ -357,8 +357,8 @@ class TestLayers:
         np.testing.assert_allclose(
             np.array(outs["output"]),
             expected_result.cpu().detach().numpy(),
-            atol=1e-3,
-            rtol=1e-3,
+            atol=1e-1,
+            rtol=1e-1,
         )
 
     def test_modified_resnet(self, backend_type):

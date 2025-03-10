@@ -136,7 +136,8 @@ class TestLayers:
         params = load_weights(pm.shapes, o_model, backend)
         text = ["a photo of a cat", "a photo of a dog"]
         tokens = cliptorch.tokenize(text)
-        input = backend.array(torch.tensor(tokens).clone().numpy())
+        torch_input = torch.tensor(tokens)
+        input = backend.array(torch_input.clone().numpy())
         expected_result = o_model(torch.tensor(input)).pooler_output
 
         outs = pm(params, {"input": input})
@@ -157,13 +158,15 @@ class TestLayers:
         pm = ml.compile(
             m_model,
             backend=backend,
-            shapes={"input_ids": (1, 77), "pixel_values": (1, 3, 224, 224)},
+            shapes={"input_ids": (2, 77), "pixel_values": (1, 3, 224, 224)},
             data_keys={"input_ids", "pixel_values"},
             use_short_namings=False,
         )
 
         params = load_weights(pm.shapes, o_model, backend)
-        torch_input_ids = torch.randint(0, 49408, size=(1, 77))
+        text = ["a photo of a lion", "a photo of a dog"]
+        tokens = cliptorch.tokenize(text)
+        torch_input_ids = torch.tensor(tokens)
         torch_pixel_values = torch.rand(1, 3, 224, 224)
         input_ids = backend.array(torch_input_ids.clone().numpy())
         pixel_values = backend.array(torch_pixel_values.clone().numpy())
