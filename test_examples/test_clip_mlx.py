@@ -128,15 +128,16 @@ class TestLayers:
         pm = ml.compile(
             m_model,
             backend=backend,
-            shapes={"input": (1, 77)},
+            shapes={"input": (2, 77)},
             data_keys={"input"},
             use_short_namings=False,
         )
 
         params = load_weights(pm.shapes, o_model, backend)
-        torch_input_ids = torch.randint(0, 49408, size=(1, 77))
-        input = backend.array(torch_input_ids.clone().numpy())
-        expected_result = o_model(torch_input_ids).pooler_output
+        text = ["a photo of a cat", "a photo of a dog"]
+        tokens = cliptorch.tokenize(text)
+        input = backend.array(torch.tensor(tokens).clone().numpy())
+        expected_result = o_model(torch.tensor(input)).pooler_output
 
         outs = pm(params, {"input": input})
 
