@@ -805,7 +805,7 @@ class ToTensorOp(Operator):
     def __init__(
         self,
         input: TensorValueType | ToBeDetermined = TBD,
-        dtype: types.Dtype | None = None,
+        dtype: types.Dtype | ToBeDetermined | None = None,
         *,
         name: str | None = None,
     ) -> None:
@@ -1174,7 +1174,6 @@ class SqrtOp(Operator):
         name: str | None = None,
     ) -> None:
         self.robust = robust
-        self.factory_args = {"robust": robust}
 
         if robust:
             super().__init__(

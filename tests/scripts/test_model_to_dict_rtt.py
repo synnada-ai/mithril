@@ -36,10 +36,13 @@ from mithril.models import (
     Operator,
     Relu,
     Sigmoid,
+    Sqrt,
     SquaredError,
+    ToTensor,
     TrainModel,
 )
 from mithril.models.primitives import PrimitiveModel
+from mithril.types import Constant, Dtype
 from mithril.utils import dict_conversions
 
 from .helper import assert_evaluations_equal, assert_models_equal
@@ -1103,7 +1106,7 @@ def test_assigned_types_1():
         model_dict_created.get("assigned_types")
         == model_dict_recreated.get("assigned_types")
         == [
-            (("m_1", 0), "tensor"),
+            (("m_1", 0), {"Tensor": ["int", "float"]}),
         ]
     )
 
@@ -1134,7 +1137,7 @@ def test_assigned_types_2():
         model_dict_created["submodels"]["m_0"].get("assigned_types")  # type: ignore
         == model_dict_recreated["submodels"]["m_0"].get("assigned_types")  # type: ignore
         == [
-            ("mean_input", "tensor"),
+            ("mean_input", {"Tensor": ["int", "float"]}),
         ]
     )
 
@@ -1171,7 +1174,7 @@ def test_assigned_types_multiple_times():
         model_dict_created["submodels"]["m_0"].get("assigned_types")  # type: ignore
         == model_dict_recreated["submodels"]["m_0"].get("assigned_types")  # type: ignore
         == [
-            ("mean_input", "tensor"),
+            ("mean_input", {"Tensor": ["int", "float"]}),
         ]
     )
 
@@ -1225,7 +1228,7 @@ def test_assigned_types_from_outermost_model():
     outer_model = Model()
     outer_model |= model
     outer_model |= Buffer()(input="buff_input_2")
-    outer_model.set_types(buff_input_2=Tensor[int | float])
+    outer_model.set_types(buff_input_2=Tensor)
     outer_model.merge_connections(buff_model.input, "buff_input_2")
 
     model_dict_created = dict_conversions.model_to_dict(outer_model)
@@ -1238,5 +1241,62 @@ def test_assigned_types_from_outermost_model():
     assert (
         model_dict_created.get("assigned_types")
         == model_dict_recreated.get("assigned_types")
-        == [(("m_0", 0), "tensor")]
+        == [(("m_0", 0), {"Tensor": ["int", "float", "bool"]})]
     )
+
+
+def test_assigned_constant_enum_value():
+    model = Model()
+    model |= Sqrt(robust=True)(cutoff=Tensor(Constant.MIN_POSITIVE_SUBNORMAL))
+
+    model_dict_created = dict_conversions.model_to_dict(model)
+    model_recreated = dict_conversions.dict_to_model(model_dict_created)
+    model_dict_recreated = dict_conversions.model_to_dict(model_recreated)
+
+    assert model_dict_created == model_dict_recreated
+
+    assert (
+        model_dict_created["connections"]["m_0"]["cutoff"]  # type: ignore
+        == model_dict_recreated["connections"]["m_0"]["cutoff"]  # type: ignore
+        == {"tensor": "Constant.MIN_POSITIVE_SUBNORMAL"}
+    )
+
+    assert_models_equal(model, model_recreated)
+
+
+def test_assigned_dtype_enum_value():
+    model = Model()
+    model |= ToTensor(dtype=TBD)(dtype=Dtype.float16)
+
+    model_dict_created = dict_conversions.model_to_dict(model)
+    model_recreated = dict_conversions.dict_to_model(model_dict_created)
+    model_dict_recreated = dict_conversions.model_to_dict(model_recreated)
+
+    assert model_dict_created == model_dict_recreated
+
+    assert (
+        model_dict_created["connections"]["m_0"]["dtype"]  # type: ignore
+        == model_dict_recreated["connections"]["m_0"]["dtype"]  # type: ignore
+        == "5"
+    )
+
+    assert_models_equal(model, model_recreated)
+
+
+def test_assigned_int_value():
+    model = Model()
+    model |= Mean(axis=TBD)(axis=3)
+
+    model_dict_created = dict_conversions.model_to_dict(model)
+    model_recreated = dict_conversions.dict_to_model(model_dict_created)
+    model_dict_recreated = dict_conversions.model_to_dict(model_recreated)
+
+    assert model_dict_created == model_dict_recreated
+
+    assert (
+        model_dict_created["connections"]["m_0"]["axis"]  # type: ignore
+        == model_dict_recreated["connections"]["m_0"]["axis"]  # type: ignore
+        == 3
+    )
+
+    assert_models_equal(model, model_recreated)
