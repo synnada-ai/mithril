@@ -18,13 +18,12 @@ from typing import Any
 import numpy as np
 
 from .... import types
-from ....common import find_dominant_type
+from ....common import PythonGenConfig, find_dominant_type
 from ....cores.python.numpy.utils import dtype_map
 from ...utils import DtypeSubTypes
 
-CODEGEN_CONFIG: dict[str, bool] = {
-    "specify_device": False,
-}
+CODEGEN_CONFIG = PythonGenConfig(SPECIFY_DEVICE=False)
+
 ArrayType = np.ndarray
 
 

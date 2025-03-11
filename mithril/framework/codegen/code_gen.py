@@ -21,6 +21,8 @@ from ..physical.model import PhysicalModel
 
 
 class CodeGen(ABC, Generic[DataType]):
+    FinalCost = "final_cost"
+
     def __init__(self, pm: PhysicalModel[DataType]) -> None:
         self.pm: PhysicalModel[DataType] = pm
         self.code: str | None = None

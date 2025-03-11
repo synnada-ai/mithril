@@ -13,81 +13,40 @@
 # limitations under the License.
 
 import ctypes
-import os
-from typing import Any
-
-import numpy as np
-
-current_file_path = os.path.abspath(__file__)
-
-lib = ctypes.CDLL(os.path.join(os.path.dirname(current_file_path), "libmithrilc.so"))
-
-
-class Array(ctypes.Structure):
-    _fields_ = [
-        ("data", ctypes.POINTER(ctypes.c_float)),
-        ("shape", ctypes.POINTER(ctypes.c_int)),
-        ("strides", ctypes.POINTER(ctypes.c_int)),
-        ("ndim", ctypes.c_int),
-        ("size", ctypes.c_int),
-    ]
-
-
-lib.create_struct.restype = ctypes.POINTER(Array)
-lib.create_struct.argtypes = [
-    ctypes.POINTER(ctypes.c_float),
-    ctypes.c_int,
-    ctypes.POINTER(ctypes.c_int),
-]
-
-lib.create_empty_struct.restype = ctypes.POINTER(Array)
-lib.create_empty_struct.argtypes = [ctypes.c_int, ctypes.POINTER(ctypes.c_int)]
-
-lib.create_full_struct.restype = ctypes.POINTER(Array)
-lib.create_full_struct.argtypes = [
-    ctypes.c_float,
-    ctypes.c_int,
-    ctypes.POINTER(ctypes.c_int),
-]
-
-lib.delete_struct.argtypes = [ctypes.POINTER(Array)]
-
-
-def to_c_int_array(lst: list[int] | tuple[int, ...]) -> ctypes.Array[ctypes.c_int]:
-    return (ctypes.c_int * len(lst))(*lst)
-
-
-def to_c_float_array(
-    arr: list[float] | tuple[float, ...] | np.ndarray[Any, Any],
-) -> ctypes.Array[ctypes.c_float]:
-    return arr.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
+from collections.abc import Sequence
 
 
 class PyArray:
-    def __init__(self, arr: Array, shape: tuple[int, ...] | list[int]):
+    def __init__(self, arr: ctypes.Structure, shape: tuple[int, ...] | list[int]):
+        # TODO: PyArray need to store strides
+
         self.arr = arr
         if isinstance(shape, list):
             shape = tuple(shape)
         self.shape = shape
         self.ndim = len(shape)
 
-    def __del__(self):
-        lib.delete_struct(self.arr)
+    # TODO: Implement __del__ method for deleting the struct
+    # def __del__(self):
+    #     lib.delete_struct(self.arr)
 
     @property
-    def data(self):
+    def data(self) -> Sequence[int | Sequence[int | Sequence[int]]]:
         total_elements = 1
         for dim in self.shape:
             total_elements *= dim
 
         # Convert the array into a Python list
-        data_ptr = self.arr.contents.data
+        data_ptr = ctypes.cast(self.arr.data, ctypes.POINTER(ctypes.c_float))
         data_list = [data_ptr[i] for i in range(total_elements)]
 
         # Reshape the flat list based on the shape
-        def reshape(data: PyArray, shape: tuple[int, ...]):
+        def reshape(
+            data: Sequence[int], shape: tuple[int, ...]
+        ) -> Sequence[int | Sequence[int | Sequence[int]]]:
             if len(shape) == 1:
                 return data
+
             size = shape[0]
             return [
                 reshape(data[i * size : (i + 1) * size], shape[1:])
@@ -101,21 +60,3 @@ class PyArray:
 
     def __str__(self):
         return f"PyArray(shape={self.shape})\n{self.data}"
-
-
-def empty(shape: tuple[int, ...] | list[int]):
-    c_shape = to_c_int_array(shape)
-    arr = lib.create_empty_struct(len(shape), c_shape)
-    return PyArray(arr, shape)
-
-
-def ones(shape: tuple[int, ...] | list[int]):
-    c_shape = to_c_int_array(shape)
-    arr = lib.create_full_struct(1.0, len(shape), c_shape)
-    return PyArray(arr, shape)
-
-
-def zeros(shape: tuple[int, ...] | list[int]):
-    c_shape = to_c_int_array(shape)
-    arr = lib.create_full_struct(0.0, len(shape), c_shape)
-    return PyArray(arr, shape)

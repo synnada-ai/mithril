@@ -2,7 +2,7 @@
     "test_linear_1": {
         "model": {
             "name": "Linear",
-            "differentiability_info": {"input": true}
+            "assigned_differentiabilities": [["input", true]]
 
         },
         "inputs": {
@@ -27,7 +27,7 @@
     "test_linear_2": {
         "model": {
             "name": "Linear",
-            "differentiability_info": {"input": true}
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[1.0], [2.0], [3.0], [4.0]],
@@ -51,7 +51,7 @@
     "test_linear_3": {
         "model": {
             "name": "Linear",
-            "differentiability_info": {"input": true}
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[0.1, 0.2], [0.2, 0.3], [0.4, 0.3]],
@@ -75,7 +75,7 @@
     "test_linear_4": {
         "model": {
             "name": "Linear",
-            "differentiability_info": {"input": true}
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[0.1, 0.2], [0.2, 0.5], [0.3, 0.1]],
@@ -99,7 +99,7 @@
     "test_layernorm_1": {
         "model": {
             "name": "LayerNorm",
-            "differentiability_info": {"input": true}
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[0.1, 0.2], [0.2, 0.5], [0.3, 0.1]],
@@ -127,7 +127,7 @@
     "test_layernorm_2": {
         "model": {
             "name": "LayerNorm",
-            "differentiability_info": {"input": true}
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[0.1, 0.2, 3.0], [-5, 0.2, 0.5], [0.3,12.0, 0.1]],
@@ -155,7 +155,12 @@
     "test_RBFKernel_1": {
         "model": {
             "name": "RBFKernel",
-            "differentiability_info": {"input1": true, "input2": true}
+            "assigned_differentiabilities": [
+                ["input1", true], 
+                ["input2", true],
+                ["l_scale", true],
+                ["sigma", true]
+            ]
         },
         "inputs": {
             "input1": [[1.0], [2.0], [3.0]],
@@ -186,7 +191,12 @@
         "description": "We use this setting as input to test_SVMLayerWithReg_2",
         "model": {
             "name": "RBFKernel",
-            "differentiability_info": {"input1": true, "input2": true}
+            "assigned_differentiabilities": [
+                ["input1", true], 
+                ["input2", true],
+                ["l_scale", true],
+                ["sigma", true]
+            ]
         },
         "inputs": {
             "input1": [[1.0], [2.0], [3.0]],
@@ -216,11 +226,12 @@
     "test_PolynomialKernel": {
         "model": {
             "name": "PolynomialKernel",
-            "differentiability_info": {"input1": true, "input2": true},
-            "types": {
-                "poly_coef": "tensor",
-                "degree": "tensor"
-            }
+            "assigned_differentiabilities": [
+                ["input1", true], 
+                ["input2", true],
+                ["poly_coef", true],
+                ["degree", true]
+            ]
         },
         "inputs": {
             "input1": [[1.0, 2], [2, 3], [3, 4]],
@@ -273,7 +284,7 @@
     "test_logistic_1_logits_ignored": {
         "model": {
             "name": "LogisticRegression",
-            "differentiability_info": {"input": true}
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[1.0], [2.0], [3.0], [4.0]],
@@ -298,7 +309,7 @@
     "test_logistic_2_no_ignore": {
         "model": {
             "name": "LogisticRegression",
-            "differentiability_info": {"input": true}
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[1.0], [2.0], [3.0], [4.0]],
@@ -324,10 +335,14 @@
     "test_distance_matrix_1": {
         "model": {
             "name": "EncoderDistanceMatrix",
-            "differentiability_info": {"input1": true, "input2": true},
             "args": {
                 "get_final_distance": false
-            }
+            },
+            "assigned_differentiabilities": [
+                ["input1", true], 
+                ["input2", true],
+                ["norm", true]
+            ]
         },
         "inputs": {
             "input1": [[1.0], [2], [3]],
@@ -355,7 +370,11 @@
     "test_distance_matrix_2": {
         "model": {
             "name": "EncoderDistanceMatrix",
-            "differentiability_info": {"input1": true, "input2": true}
+            "assigned_differentiabilities": [
+                ["input1", true], 
+                ["input2", true],
+                ["norm", true]
+            ]
         },
         "inputs": {
             "input1": [[1.0], [2], [3]],
@@ -383,7 +402,11 @@
     "test_distance_matrix_3": {
         "model": {
             "name": "EncoderDistanceMatrix",
-            "differentiability_info": {"input1": true, "input2": true}
+            "assigned_differentiabilities": [
+                ["input1", true], 
+                ["input2", true],
+                ["norm", true]
+            ]
         },
         "inputs": {
             "input1": [[1.0, 2.0], 
@@ -419,7 +442,11 @@
     "test_distance_matrix_4": {
         "model": {
             "name": "EncoderDistanceMatrix",
-            "differentiability_info": {"input1": true, "input2": true},
+            "assigned_differentiabilities": [
+                ["input1", true], 
+                ["input2", true],
+                ["norm", true]
+            ],
             "args": {
                 "get_final_distance": false
             }
@@ -451,7 +478,11 @@
     "test_distance_matrix_5": {
         "model": {
             "name": "EncoderDistanceMatrix",
-            "differentiability_info": {"input1": true, "input2": true}
+            "assigned_differentiabilities": [
+                ["input1", true], 
+                ["input2", true],
+                ["norm", true]
+            ]
         },
         "inputs": {
             "input1": [[1.0], [3], [4]],
@@ -480,7 +511,11 @@
     "test_distance_matrix_6": {
         "model": {
             "name": "EncoderDistanceMatrix",
-            "differentiability_info": {"input1": true, "input2": true}
+            "assigned_differentiabilities": [
+                ["input1", true], 
+                ["input2", true],
+                ["norm", true]
+            ]
         },
         "inputs": {
             "input1": [[3.0, 2], [4, 1], [4, 3]],
@@ -515,7 +550,8 @@
             "name": "PolynomialFeatures",
             "args": {
                 "degree": 2
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[2.0, 3.0]]
@@ -537,7 +573,8 @@
             "name": "PolynomialFeatures",
             "args": {
                 "degree": 2
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[1.0], [2], [3], [4]]
@@ -559,7 +596,8 @@
             "name": "PolynomialFeatures",
             "args": {
                 "degree": 2
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[1.0, 1], [2, 3], [3, -1], [0, 10]]
@@ -587,7 +625,8 @@
             "name": "PolynomialFeatures",
             "args": {
                 "degree": 3
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[1.0, -2], [2, 1]]
@@ -609,12 +648,13 @@
     "test_mds_core_1": {
         "model": {
             "name": "MDSCore",
-            "differentiability_info": {"distances": true},
+            "assigned_differentiabilities": [
+                ["distances", true],
+                ["pred_distances", true],
+                ["norm", true]
+            ],
             "args": {
                 "exact_distances": false
-            },
-            "types": {
-                "norm": "tensor"
             }
         },
         "inputs": {
@@ -651,12 +691,13 @@
     "test_mds_core_2": {
         "model": {
             "name": "MDSCore",
-            "differentiability_info": {"distances": true},
+            "assigned_differentiabilities": [
+                ["distances", true],
+                ["pred_distances", true],
+                ["norm", true]
+            ],
             "args": {
                 "exact_distances": false
-            },
-            "types": {
-                "norm": "tensor"
             }
         },
         "inputs": {
@@ -689,12 +730,13 @@
     "test_mds_core_3": {
         "model": {
             "name": "MDSCore",
-            "differentiability_info": {"distances": true},
+            "assigned_differentiabilities": [
+                ["distances", true],
+                ["pred_distances", true],
+                ["norm", true]
+            ],
             "args": {
                 "exact_distances": false
-            },
-            "types": {
-                "norm": "tensor"
             }
         },
         "inputs": {
@@ -727,12 +769,13 @@
     "test_mds_core_4": {
         "model": {
             "name": "MDSCore",
-            "differentiability_info": {"distances": true},
+            "assigned_differentiabilities": [
+                ["distances", true],
+                ["pred_distances", true],
+                ["norm", true]
+            ],
             "args": {
                 "exact_distances": false
-            },
-            "types": {
-                "norm": "tensor"
             }
         },
         "inputs": {
@@ -764,7 +807,11 @@
         "NOTE": "Prove the differences of diagonal entries of input gradient wrt composite-ml is because of linearized models like power, log etc.",
         "model": {
             "name": "MDS",
-            "differentiability_info": {"input": true},
+            "assigned_differentiabilities": [
+                ["input", true],
+                ["coords", true],
+                ["norm", true]
+            ],
             "args": {
                 "prediction_dim": 1,
                 "input_type": "powered_distances"
@@ -802,7 +849,9 @@
     "test_tsne_core_1": {
         "model": {
             "name": "TSNECore",
-            "differentiability_info": {"input": true},
+            "assigned_differentiabilities": [
+                ["pred_distances", true]
+            ],
             "args": {
                 "exact_distances": false
             }
@@ -844,7 +893,10 @@
             "name": "TSNECore", 
             "args": {
                 "exact_distances": false
-            }
+            },
+            "assigned_differentiabilities": [
+                ["pred_distances", true]
+            ]
         },
         "inputs": {
             "pred_distances": [[0.0, 16, 1], [16, 0, 9], [1, 9, 0]]
@@ -886,7 +938,10 @@
             "name": "TSNECore", 
             "args": {
                 "exact_distances": false
-            }
+            },
+            "assigned_differentiabilities": [
+                ["pred_distances", true]
+            ]
         },
         "inputs": {
             "pred_distances": [[0.0, 16], [16, 0]]
@@ -922,7 +977,10 @@
             "args": {
                 "prediction_dim": 1,
                 "input_type": "points"
-            }
+            },
+            "assigned_differentiabilities": [
+                ["coords", true]
+            ]
         },
         "discard_keys": ["predicted_coords"],
         "inputs": {
@@ -950,7 +1008,9 @@
     "test_polynomial_1D_Degree_1": {
         "model": {
             "name": "PolynomialRegression",
-            "differentiability_info": {"input": true},
+            "assigned_differentiabilities": [
+                ["input", true]
+            ],
             "args": {
                 "degree": 1,
                 "dimension": 1
@@ -978,7 +1038,7 @@
     "test_polynomial_2D_Degree_1": {
         "model": {
             "name": "PolynomialRegression",
-            "differentiability_info": {"input": true},
+            "assigned_differentiabilities": [["input", true]],
             "args": {
                 "degree": 1,
                 "dimension": 1
@@ -1006,7 +1066,7 @@
     "test_polynomial_1D_Degree_2": {
         "model": {
             "name": "PolynomialRegression",
-            "differentiability_info": {"input": true},
+            "assigned_differentiabilities": [["input", true]],
             "args": {
                 "degree": 2,
                 "dimension": 1
@@ -1034,7 +1094,7 @@
     "test_polynomial_1D_Degree_3": {
         "model": {
             "name": "PolynomialRegression",
-            "differentiability_info": {"input": true},
+            "assigned_differentiabilities": [["input", true]],
             "args": {
                 "degree": 3,
                 "dimension": 1
@@ -1062,7 +1122,7 @@
     "test_polynomial_2D_Degree_2": {
         "model": {
             "name": "PolynomialRegression",
-            "differentiability_info": {"input": true},
+            "assigned_differentiabilities": [["input", true]],
             "args": {
                 "degree": 2,
                 "dimension": 1
@@ -1090,7 +1150,7 @@
     "test_polynomial_2D_Degree_2_multilabel": {
         "model": {
             "name": "PolynomialRegression",
-            "differentiability_info": {"input": true},
+            "assigned_differentiabilities": [["input", true]],
             "args": {
                 "degree": 2,
                 "dimension": 1
@@ -2070,7 +2130,7 @@
     "test_maxpool1d_1": {
         "model": {
             "name": "MaxPool1D",
-            "differentiability_info": {"input": true},
+            "assigned_differentiabilities": [["input", true]],
             "args": {
                 "kernel_size": 2
             }
@@ -2101,7 +2161,7 @@
     "test_maxpool1d_2": {
         "model": {
             "name": "MaxPool1D",
-            "differentiability_info": {"input": true},
+            "assigned_differentiabilities": [["input", true]],
             "args": {
                 "kernel_size": 3
             }
@@ -2130,7 +2190,7 @@
     "test_maxpool1d_3": {
         "model": {
             "name": "MaxPool1D",
-            "differentiability_info": {"input": true},
+            "assigned_differentiabilities": [["input", true]],
             "args": {
                 "kernel_size": 2,
                 "stride": 1
@@ -2162,7 +2222,7 @@
     "test_maxpool1d_4": {
         "model": {
             "name": "MaxPool1D",
-            "differentiability_info": {"input": true},
+            "assigned_differentiabilities": [["input", true]],
             "args": {
                 "kernel_size": 2,
                 "padding": [0,1]
@@ -2196,7 +2256,7 @@
     "test_maxpool1d_1_2d_input": {
         "model": {
             "name": "MaxPool1D",
-            "differentiability_info": {"input": true},
+            "assigned_differentiabilities": [["input", true]],
             "args": {
                 "kernel_size": 2
             }
@@ -2227,7 +2287,7 @@
     "test_maxpool1d_2_2d_input": {
         "model": {
             "name": "MaxPool1D",
-            "differentiability_info": {"input": true},
+            "assigned_differentiabilities": [["input", true]],
             "args": {
                 "kernel_size": 3
             }
@@ -2256,7 +2316,7 @@
     "test_maxpool1d_3_2d_input": {
         "model": {
             "name": "MaxPool1D",
-            "differentiability_info": {"input": true},
+            "assigned_differentiabilities": [["input", true]],
             "args": {
                 "kernel_size": 2,
                 "stride": 1
@@ -2288,7 +2348,7 @@
     "test_maxpool1d_4_2d_input": {
         "model": {
             "name": "MaxPool1D",
-            "differentiability_info": {"input": true},
+            "assigned_differentiabilities": [["input", true]],
             "args": {
                 "kernel_size": 2,
                 "padding": [0,1]
@@ -2321,7 +2381,7 @@
     "test_maxpool2d_1": {
         "model": {
             "name": "MaxPool2D",
-            "differentiability_info": {"input": true},
+            "assigned_differentiabilities": [["input", true]],
             "args": {
                 "kernel_size": 2
             },
@@ -2363,7 +2423,7 @@
     "test_maxpool2d_2": {
         "model": {
             "name": "MaxPool2D",
-            "differentiability_info": {"input": true},
+            "assigned_differentiabilities": [["input", true]],
             "args": {
                 "kernel_size": 2
             }
@@ -2492,7 +2552,7 @@
     "test_maxpool2d_3": {
         "model": {
             "name": "MaxPool2D",
-            "differentiability_info": {"input": true},
+            "assigned_differentiabilities": [["input", true]],
             "args": {
                 "kernel_size": 3
             }
@@ -2529,7 +2589,7 @@
     "test_maxpool2d_4": {
         "model": {
             "name": "MaxPool2D",
-            "differentiability_info": {"input": true},
+            "assigned_differentiabilities": [["input", true]],
             "args": {
                 "kernel_size": 2,
                 "stride": 1
@@ -2575,7 +2635,7 @@
     "test_maxpool2d_5": {
         "model": {
             "name": "MaxPool2D",
-            "differentiability_info": {"input": true},
+            "assigned_differentiabilities": [["input", true]],
             "args": {
                 "kernel_size": 2,
                 "padding": [[1,0],[0,1]]
@@ -2621,7 +2681,7 @@
     "test_maxpool2d_1_3d_input": {
         "model": {
             "name": "MaxPool2D",
-            "differentiability_info": {"input": true},
+            "assigned_differentiabilities": [["input", true]],
             "args": {
                 "kernel_size": 2
             },
@@ -2664,7 +2724,7 @@
     "test_maxpool2d_2_3d_input": {
         "model": {
             "name": "MaxPool2D",
-            "differentiability_info": {"input": true},
+            "assigned_differentiabilities": [["input", true]],
             "args": {
                 "kernel_size": 3
             }
@@ -2701,7 +2761,7 @@
     "test_maxpool2d_3_3d_input": {
         "model": {
             "name": "MaxPool2D",
-            "differentiability_info": {"input": true},
+            "assigned_differentiabilities": [["input", true]],
             "args": {
                 "kernel_size": 2,
                 "stride": 1
@@ -2747,7 +2807,7 @@
     "test_maxpool2d_4_3d_input": {
         "model": {
             "name": "MaxPool2D",
-            "differentiability_info": {"input": true},
+            "assigned_differentiabilities": [["input", true]],
             "args": {
                 "kernel_size": 2,
                 "padding": [[1,0],[0,1]]
@@ -2791,7 +2851,8 @@
     },
     "test_where_1": {
         "model": {
-            "name": "Where"
+            "name": "Where",
+            "assigned_differentiabilities": [["input1", true], ["input2", true]]
         },
         "static_keys": {
             "cond": [[[
@@ -2840,7 +2901,8 @@
     },
     "test_where_2": {
         "model": {
-            "name": "Where"
+            "name": "Where",
+            "assigned_differentiabilities": [["input1", true], ["input2", true]]
         },
         "static_keys": {
             "cond": [[[
@@ -2889,7 +2951,8 @@
     },
     "test_where_3": {
         "model": {
-            "name": "Where"
+            "name": "Where",
+            "assigned_differentiabilities": [["input1", true], ["input2", true]]
         },
         "static_keys": {"cond": [true]},
         "inputs": {
@@ -2932,7 +2995,8 @@
     },
     "test_where_4": {
         "model": {
-            "name": "Where"
+            "name": "Where",
+            "assigned_differentiabilities": [["input1", true], ["input2", true]]
         },
         "static_keys": {"cond": [true]},
         "inputs": {
@@ -2971,7 +3035,8 @@
     },
     "test_where_5": {
         "model": {
-            "name": "Where"
+            "name": "Where",
+            "assigned_differentiabilities": [["input1", true], ["input2", true]]
         },
         "static_keys": {"cond": [false]},
         "inputs": {
@@ -3011,7 +3076,7 @@
     "test_nn_1": {
         "model": {
             "name": "MLP",
-            "differentiability_info": {"input": true},
+            "assigned_differentiabilities": [["input", true]],
             "args": {
                 "dimensions": [2, 2, 2],
                 "activations": ["relu", "relu", "buffer"]
@@ -3047,9 +3112,7 @@
     "test_buffer_1": {
         "model": {
             "name": "Buffer",
-            "types": {
-                "input": "tensor"
-            }
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[1.0], [2.0], [3.0], [4.0]]
@@ -3071,9 +3134,7 @@
 
         "model": {
             "name": "Buffer",
-            "types": {
-                "input": "tensor"
-            }
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[1.0, 2.0], [2.0, 0.0]]
@@ -3095,9 +3156,7 @@
 
         "model": {
             "name": "Buffer",
-            "types": {
-                "input": "tensor"
-            }
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[1.0, 2.0], [2.0, 0.0]]
@@ -3119,7 +3178,8 @@
     "test_matmul_1": {
 
         "model": {
-            "name": "MatrixMultiply"
+            "name": "MatrixMultiply",
+            "assigned_differentiabilities": [["left", true], ["right", true]]
         },
         "inputs": {
             "left": [[1.0, 2.0, 3.0, 5.0]],
@@ -3142,10 +3202,7 @@
     "test_mult_1": {
         "model": {
             "name": "Multiply",
-            "types": {
-                "left": "tensor",
-                "right": "tensor"
-            }
+            "assigned_differentiabilities": [["left", true], ["right", true]]
         },
         "inputs": {
             "left": [[1.0], [2.0], [3.0], [4.0]], 
@@ -3170,10 +3227,7 @@
 
         "model": {
             "name": "Multiply",
-            "types": {
-                "left": "tensor",
-                "right": "tensor"
-            }
+            "assigned_differentiabilities": [["left", true], ["right", true]]
         },
         "inputs": {
             "left": [2.0], 
@@ -3198,10 +3252,7 @@
 
         "model": {
             "name": "Multiply",
-            "types": {
-                "left": "tensor",
-                "right": "tensor"
-            }
+            "assigned_differentiabilities": [["left", true], ["right", true]]
         },
         "inputs": {
             "left": [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]], 
@@ -3226,10 +3277,7 @@
 
         "model": {
             "name": "Multiply",
-            "types": {
-                "left": "tensor",
-                "right": "tensor"
-            }
+            "assigned_differentiabilities": [["left", true], ["right", true]]
         },
         "inputs": {
             "left": [1.0, 2.0],
@@ -3254,10 +3302,7 @@
 
         "model": {
             "name": "Multiply",
-            "types": {
-                "left": "tensor",
-                "right": "tensor"
-            }
+            "assigned_differentiabilities": [["left", true], ["right", true]]
         },
         "inputs": {
             "left": [[1.0, 2.0], [3.0, 4.0]], 
@@ -3282,10 +3327,7 @@
 
         "model": {
             "name": "Multiply",
-            "types": {
-                "left": "tensor",
-                "right": "tensor"
-            }
+            "assigned_differentiabilities": [["left", true], ["right", true]]
         },
         "inputs": {
             "left": [1.0, 2.0], 
@@ -3308,10 +3350,7 @@
     "test_mult_7": {
         "model": {
             "name": "Multiply",
-            "types": {
-                "left": "tensor",
-                "right": "tensor"
-            }
+            "assigned_differentiabilities": [["left", true], ["right", true]]
         },
         "inputs": {
             "left": [[1.0],[2],[3]], 
@@ -3333,10 +3372,7 @@
     "test_div_1": {
         "model": {
             "name": "Divide",
-            "types": {
-                "numerator": "tensor",
-                "denominator": "tensor"
-            }
+            "assigned_differentiabilities": [["numerator", true], ["denominator", true]]
         },
         "inputs": {
             "numerator": [[1.0], [2.0], [3.0], [4.0]], 
@@ -3361,10 +3397,7 @@
 
         "model": {
             "name": "Divide",
-            "types": {
-                "numerator": "tensor",
-                "denominator": "tensor"
-            }
+            "assigned_differentiabilities": [["numerator", true], ["denominator", true]]
         },
         "inputs": {
             "numerator": [2.0], 
@@ -3389,10 +3422,7 @@
 
         "model": {
             "name": "Divide",
-            "types": {
-                "numerator": "tensor",
-                "denominator": "tensor"
-            }
+            "assigned_differentiabilities": [["numerator", true], ["denominator", true]]
         },
         "inputs": {
             "numerator": [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]], 
@@ -3417,10 +3447,7 @@
 
         "model": {
             "name": "Divide",
-            "types": {
-                "numerator": "tensor",
-                "denominator": "tensor"
-            }
+            "assigned_differentiabilities": [["numerator", true], ["denominator", true]]
         },
         "inputs": {
             "numerator": [1.0, 2.0],
@@ -3445,10 +3472,7 @@
 
         "model": {
             "name": "Divide",
-            "types": {
-                "numerator": "tensor",
-                "denominator": "tensor"
-            }
+            "assigned_differentiabilities": [["numerator", true], ["denominator", true]]
         },
         "inputs": {
             "numerator": [[1.0, 2.0], [3.0, 4.0]], 
@@ -3471,10 +3495,7 @@
     "test_div_6": {
         "model": {
             "name": "Divide",
-            "types": {
-                "numerator": "tensor",
-                "denominator": "tensor"
-            }
+            "assigned_differentiabilities": [["numerator", true], ["denominator", true]]
         },
         "inputs": {
             "numerator": [1.0, 2.0], 
@@ -3497,10 +3518,7 @@
     "test_sum_1": {
         "model": {
             "name": "Add",
-            "types": {
-                "left": "tensor",
-                "right": "tensor"
-            }
+            "assigned_differentiabilities": [["left", true], ["right", true]]
         },
         "inputs": {
             "left": [[1.0], [2.0], [3.0], [4.0]], 
@@ -3525,10 +3543,7 @@
 
         "model": {
             "name": "Add",
-            "types": {
-                "left": "tensor",
-                "right": "tensor"
-            }
+            "assigned_differentiabilities": [["left", true], ["right", true]]
         },
         "inputs": {
             "left": [2.0], 
@@ -3553,10 +3568,7 @@
 
         "model": {
             "name": "Add",
-            "types": {
-                "left": "tensor",
-                "right": "tensor"
-            }
+            "assigned_differentiabilities": [["left", true], ["right", true]]
         },
         "inputs": {
             "left": [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]], 
@@ -3581,10 +3593,7 @@
 
         "model": {
             "name": "Add",
-            "types": {
-                "left": "tensor",
-                "right": "tensor"
-            }
+            "assigned_differentiabilities": [["left", true], ["right", true]]
         },
         "inputs": {
             "left": [1.0, 2.0],
@@ -3609,10 +3618,7 @@
 
         "model": {
             "name": "Add",
-            "types": {
-                "left": "tensor",
-                "right": "tensor"
-            }
+            "assigned_differentiabilities": [["left", true], ["right", true]]
         },
         "inputs": {
             "left": [[1.0, 2.0], [3.0, 4.0]], 
@@ -3637,10 +3643,7 @@
 
         "model": {
             "name": "Add",
-            "types": {
-                "left": "tensor",
-                "right": "tensor"
-            }
+            "assigned_differentiabilities": [["left", true], ["right", true]]
         },
         "inputs": {
             "left": [1.0, 2.0], 
@@ -3664,10 +3667,7 @@
 
         "model": {
             "name": "Add",
-            "types": {
-                "left": "tensor",
-                "right": "tensor"
-            }
+            "assigned_differentiabilities": [["left", true], ["right", true]]
         },
         "inputs": {
             "left": [[[[[2.0,3,4]]]]], 
@@ -3692,10 +3692,7 @@
 
         "model": {
             "name": "Add",
-            "types": {
-                "left": "tensor",
-                "right": "tensor"
-            }
+            "assigned_differentiabilities": [["left", true], ["right", true]]
         },
         "inputs": {
             "left": [[[[[[[[[[[[1.0, 1.0],[1.0, 1.0]]]]]]]]]]]],
@@ -3720,10 +3717,7 @@
         
         "model": {
             "name": "Add",
-            "types": {
-                "left": "tensor",
-                "right": "tensor"
-            }
+            "assigned_differentiabilities": [["left", true], ["right", true]]
         },
         "inputs": {
             "left": [[[[[[1.0]]]],[[[[1.0]]]]], [[[[[1.0]]]], [[[[1.0]]]]]],
@@ -3747,10 +3741,7 @@
 
         "model": {
             "name": "Subtract",
-            "types": {
-                "left": "tensor",
-                "right": "tensor"
-            }
+            "assigned_differentiabilities": [["left", true], ["right", true]]
         },
         "inputs": {
             "left": [[1.0], [2.0], [3.0], [4.0]], 
@@ -3775,10 +3766,7 @@
 
         "model": {
             "name": "Subtract",
-            "types": {
-                "left": "tensor",
-                "right": "tensor"
-            }
+            "assigned_differentiabilities": [["left", true], ["right", true]]
         },
         "inputs": {
             "left": [2.0], 
@@ -3803,10 +3791,7 @@
 
         "model": {
             "name": "Subtract",
-            "types": {
-                "left": "tensor",
-                "right": "tensor"
-            }
+            "assigned_differentiabilities": [["left", true], ["right", true]]
         },
         "inputs": {
             "left": [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]], 
@@ -3831,10 +3816,7 @@
 
         "model": {
             "name": "Subtract",
-            "types": {
-                "left": "tensor",
-                "right": "tensor"
-            }
+            "assigned_differentiabilities": [["left", true], ["right", true]]
         },
         "inputs": {
             "left": [1.0, 2.0],
@@ -3859,10 +3841,7 @@
 
         "model": {
             "name": "Subtract",
-            "types": {
-                "left": "tensor",
-                "right": "tensor"
-            }
+            "assigned_differentiabilities": [["left", true], ["right", true]]
         },
         "inputs": {
             "left": [[1.0, 2.0], [3.0, 4.0]], 
@@ -3887,10 +3866,7 @@
 
         "model": {
             "name": "Subtract",
-            "types": {
-                "left": "tensor",
-                "right": "tensor"
-            }
+            "assigned_differentiabilities": [["left", true], ["right", true]]
         },
         "inputs": {
             "left": [1.0, 2.0], 
@@ -3915,10 +3891,7 @@
 
         "model": {
             "name": "Power",
-            "types": {
-                "base": "tensor",
-                "exponent": "tensor"
-            }
+            "assigned_differentiabilities": [["base", true], ["exponent", true]]
         },
         "inputs": {
             "base": [[1.0], [2.0], [3.0], [4.0]], 
@@ -3943,10 +3916,7 @@
 
         "model": {
             "name": "Power",
-            "types": {
-                "base": "tensor",
-                "exponent": "tensor"
-            }
+            "assigned_differentiabilities": [["base", true], ["exponent", true]]
         },
         "inputs": {
             "base": [2.0], 
@@ -3971,10 +3941,7 @@
 
         "model": {
             "name": "Power",
-            "types": {
-                "base": "tensor",
-                "exponent": "tensor"
-            }
+            "assigned_differentiabilities": [["base", true], ["exponent", true]]
         },
         "inputs": {
             "base": [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]], 
@@ -3999,10 +3966,7 @@
 
         "model": {
             "name": "Power",
-            "types": {
-                "base": "tensor",
-                "exponent": "tensor"
-            }
+            "assigned_differentiabilities": [["base", true], ["exponent", true]]
         },
         "inputs": {
             "base": [1.0, 2.0],
@@ -4027,10 +3991,7 @@
 
         "model": {
             "name": "Power",
-            "types": {
-                "base": "tensor",
-                "exponent": "tensor"
-            }
+            "assigned_differentiabilities": [["base", true], ["exponent", true]]
         },
         "inputs": {
             "base": [[1.0, 2.0], [3.0, 4.0]], 
@@ -4054,10 +4015,7 @@
     "test_power_6": {
         "model": {
             "name": "Power",
-            "types": {
-                "base": "tensor",
-                "exponent": "tensor"
-            }
+            "assigned_differentiabilities": [["base", true], ["exponent", true]]
         },
         "inputs": {
             "base": [1.0, 2.0], 
@@ -4080,7 +4038,8 @@
 
     "test_exp": {
         "model": {
-            "name": "Exponential"
+            "name": "Exponential",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[1.0, 2.0], [3.0, 4.0]]
@@ -4100,7 +4059,8 @@
     },
     "test_sqrt_1": {
         "model": {
-            "name": "Sqrt"
+            "name": "Sqrt",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[1.0, 2.0], [3.0, 4.0]]
@@ -4120,7 +4080,8 @@
     },
     "test_sqrt_2": {
         "model": {
-            "name": "Sqrt"
+            "name": "Sqrt",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[[[4.0, 16.0], [25.0, 100.0]]]]
@@ -4140,7 +4101,8 @@
     },
     "test_sqrt_3": {
         "model": {
-            "name": "Sqrt"
+            "name": "Sqrt",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [10000.0]
@@ -4162,7 +4124,8 @@
     "test_abs": {
 
         "model": {
-            "name": "Absolute"
+            "name": "Absolute",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[-1.0, 0.0], [1.0, -2.0]]
@@ -4187,7 +4150,8 @@
 
     "test_sin": {
         "model": {
-            "name": "Sine"
+            "name": "Sine",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[0.5235987755982988, 1.0471975511965976], [1.0, 45.0], [90.0, 145.0]]
@@ -4207,7 +4171,8 @@
 
     "test_cos": {
         "model": {
-            "name": "Cosine"
+            "name": "Cosine",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[0.5235987755982988, 1.0471975511965976], [1.0, 45.0], [90.0, 145.0]]
@@ -4249,7 +4214,8 @@
 
     "test_flatten": {
         "model": {
-            "name": "Flatten"
+            "name": "Flatten",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[1.0, 2.0, 3.0, 4.0],[5.0, 6.0, 7.0, 8.0]]
@@ -4269,7 +4235,8 @@
     
     "test_flatten2": {
         "model": {
-            "name": "Flatten"
+            "name": "Flatten",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[[1.0, 2.0], [3.0, 4.0]], [[5.0, 6.0], [7.0, 8.0]]]
@@ -4293,7 +4260,8 @@
             "args": {
                 "start_dim": 1,
                 "end_dim": -1
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[[1.0, 2.0], [3.0, 4.0]], [[5.0, 6.0], [7.0, 8.0]]]
@@ -4317,7 +4285,8 @@
             "args": {
                 "start_dim": -1,
                 "end_dim": -1
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[[1.0, 2.0], [3.0, 4.0]], [[5.0, 6.0], [7.0, 8.0]]]
@@ -4341,7 +4310,8 @@
             "args": {
                 "start_dim": 1,
                 "end_dim": 2
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[[1.0, 2.0], [3.0, 4.0]], [[5.0, 6.0], [7.0, 8.0]]]
@@ -4363,7 +4333,8 @@
     "test_transpose": {
 
         "model": {
-            "name": "Transpose"
+            "name": "Transpose",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[[1.0, 2.0], [3.0, 4.0]], [[5.0, 6.0], [7.0, 8.0]]]
@@ -4388,7 +4359,8 @@
             "args": {
                 "axes": [0,2,1]
             },
-            "tuples": ["axes"]
+            "tuples": ["axes"],
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[[1.0, 3.0], [2.0, 4.0]], [[1.0, 3.0], [2.0, 4.0]], [[1.0, 3.0], [2.0, 4.0]]]
@@ -4414,7 +4386,8 @@
             "args": {
                 "axes": [0]
             },
-            "tuples": ["axes"]
+            "tuples": ["axes"],
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [3.0]
@@ -4439,7 +4412,8 @@
             "args": {
                 "axes": [1,4,3,2,0]
             },
-            "tuples": ["axes"]
+            "tuples": ["axes"],
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[[[[2.0]]]], [[[[3.0]]]]]
@@ -4464,7 +4438,8 @@
             "args": {
                 "axes": [2,4,3,0,1]
             },
-        "tuples": ["axes"]
+            "tuples": ["axes"],
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[[[[2.0]]]], [[[[3.0]]]]]
@@ -4584,7 +4559,8 @@
     "test_tanh_1": {
 
         "model": {
-            "name": "Tanh"
+            "name": "Tanh",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[10.0]]
@@ -4606,7 +4582,8 @@
     "test_tanh_2": {
 
         "model": {
-            "name": "Tanh"
+            "name": "Tanh",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[30.0]]
@@ -4628,7 +4605,8 @@
     "test_tanh_3": {
 
         "model": {
-            "name": "Tanh"
+            "name": "Tanh",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[2.220446049250313e-16]]
@@ -4650,7 +4628,8 @@
     "test_tanh_4": {
 
         "model": {
-            "name": "Tanh"
+            "name": "Tanh",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[1.0, -2.0], [2.0, 0.0]]
@@ -4672,7 +4651,8 @@
     "test_tanh_5": {
 
         "model": {
-            "name": "Tanh"
+            "name": "Tanh",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[1.0, -2.0], [2.0, 0.0]]
@@ -4695,7 +4675,8 @@
     "test_sigmoid_1": {
 
         "model": {
-            "name": "Sigmoid"
+            "name": "Sigmoid",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[20.0]]
@@ -4717,7 +4698,8 @@
     "test_sigmoid_2": {
 
         "model": {
-            "name": "Sigmoid"
+            "name": "Sigmoid",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[1.0, -2.0], [2.0, 0.0]]
@@ -4739,7 +4721,8 @@
     "test_sigmoid_3": {
 
         "model": {
-            "name": "Sigmoid"
+            "name": "Sigmoid",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[-30.0]]
@@ -4761,7 +4744,8 @@
     "test_sigmoid_4": {
 
         "model": {
-            "name": "Sigmoid"
+            "name": "Sigmoid",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[919.78546867]]
@@ -4783,7 +4767,8 @@
     "test_sigmoid_5": {
 
         "model": {
-            "name": "Sigmoid"
+            "name": "Sigmoid",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[-919.78546867]]
@@ -4805,7 +4790,8 @@
     "test_sigmoid_6": {
 
         "model": {
-            "name": "Sigmoid"
+            "name": "Sigmoid",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[1.0, -2.0], [2.0, 0.0]]
@@ -4827,7 +4813,8 @@
     "test_softplus_1": {
 
         "model": {
-            "name": "Softplus"
+            "name": "Softplus",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[2.0]]
@@ -4849,7 +4836,8 @@
     "test_softplus_2": {
 
         "model": {
-            "name": "Softplus"
+            "name": "Softplus",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[0.0, 2.0, -30]]
@@ -4871,7 +4859,8 @@
     "test_softplus_3": {
 
         "model": {
-            "name": "Softplus"
+            "name": "Softplus",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[1.0, -2.0], [2.0, 0.0]]
@@ -4893,7 +4882,8 @@
     "test_softplus_4": {
 
         "model": {
-            "name": "Softplus"
+            "name": "Softplus",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[1.0, -2.0], [2.0, 0.0]]
@@ -4914,7 +4904,8 @@
 
     "test_permute_tensor_1": {
         "model": {
-            "name": "PermuteTensor"
+            "name": "PermuteTensor",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [
@@ -4952,7 +4943,8 @@
     },
     "test_permute_tensor_2": {
         "model": {
-            "name": "PermuteTensor"
+            "name": "PermuteTensor",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [
@@ -4990,7 +4982,11 @@
     },
     "test_squared_error_1": {
         "model": {
-            "name": "SquaredError"
+            "name": "SquaredError",
+            "assigned_differentiabilities": [
+                ["input", true],
+                ["target", true]
+            ]
         },
         "inputs": {
             "input": [[1.0], [2], [3], [4]],
@@ -5013,7 +5009,11 @@
     "test_squared_error_2": {
 
         "model": {
-            "name": "SquaredError"
+            "name": "SquaredError",
+            "assigned_differentiabilities": [
+                ["input", true],
+                ["target", true]
+            ]
         },
         "inputs": {
             "input": [[1.0], [-1000000.0], [0.000000000001], [-1.5]],
@@ -5035,7 +5035,11 @@
     },
     "test_squared_error_3": {
         "model": {
-            "name": "SquaredError"
+            "name": "SquaredError",
+            "assigned_differentiabilities": [
+                ["input", true],
+                ["target", true]
+            ]
         },
         "inputs": {
             "input": [[0.1, 0.2], [1000000000.0, 0.0000000001]],
@@ -5057,7 +5061,11 @@
     },
     "test_squared_error_4": {
         "model": {
-            "name": "SquaredError"
+            "name": "SquaredError",
+            "assigned_differentiabilities": [
+                ["input", true],
+                ["target", true]
+            ]
         },
         "inputs": {
             "input": [[1.0, 2], [3, 4], [5, 6]],
@@ -5079,7 +5087,8 @@
     },
     "test_hinge_loss_1": {
         "model": {
-            "name": "HingeLoss"
+            "name": "HingeLoss",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[2.0], [0.25]]
@@ -5104,7 +5113,8 @@
     "test_hinge_loss_2": {
 
         "model": {
-            "name": "HingeLoss"
+            "name": "HingeLoss",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[1.0], [-1.0]]
@@ -5129,7 +5139,8 @@
     },
     "test_hinge_loss_3": {
         "model": {
-            "name": "HingeLoss"
+            "name": "HingeLoss",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[0.0], [0.0]]
@@ -5151,7 +5162,11 @@
     },
     "test_absolute_error_1": {
         "model": {
-            "name": "AbsoluteError"
+            "name": "AbsoluteError",
+            "assigned_differentiabilities": [
+                ["input", true],
+                ["target", true]
+            ]
         },
         "inputs": {
             "input": [[1.0], [2.0], [3.0], [4.0]], 
@@ -5180,7 +5195,11 @@
     },
     "test_absolute_error_2": {
         "model": {
-            "name": "AbsoluteError"
+            "name": "AbsoluteError",
+            "assigned_differentiabilities": [
+                ["input", true],
+                ["target", true]
+            ]
         },
         "inputs": {
             "input": [[1.0], [-1000000.0], [0.000000000001], [-1.5]], 
@@ -5210,7 +5229,11 @@
 
     "test_absolute_error_3": {
         "model": {
-            "name": "AbsoluteError"
+            "name": "AbsoluteError",
+            "assigned_differentiabilities": [
+                ["input", true],
+                ["target", true]
+            ]
         },
         "inputs": {
             "input": [[0.1, 0.2], [1000000000.0, 0.0000000001]], 
@@ -5240,7 +5263,11 @@
 
     "test_absolute_error_4": {
         "model": {
-            "name": "AbsoluteError"
+            "name": "AbsoluteError",
+            "assigned_differentiabilities": [
+                ["input", true],
+                ["target", true]
+            ]
         },
         "inputs": {
             "input": [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]],
@@ -5270,7 +5297,8 @@
 
     "test_cross_entropy_1": {
         "model": {
-            "name": "CrossEntropy"
+            "name": "CrossEntropy",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[1.0, 1.0, 1.0, 1.0]]
@@ -5293,7 +5321,8 @@
 
     "test_cross_entropy_2": {
         "model": {
-            "name": "CrossEntropy"
+            "name": "CrossEntropy",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[1000.0, 0.0], [0.0, 1000.0]]
@@ -5316,7 +5345,8 @@
 
     "test_cross_entropy_3": {
         "model": {
-            "name": "CrossEntropy"
+            "name": "CrossEntropy",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[1.0, 1.0], [0.0, 1000.0]]
@@ -5342,8 +5372,8 @@
             "args": {
                 "input_type": "probs",
                 "robust": true
-                
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input":[[0.0, 1.0], [0.1, 0.9]]
@@ -5370,7 +5400,8 @@
             "args": {
                 "input_type": "probs",
                 "robust": true
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input":[[0.0, 1.0], [0.1, 0.9]]
@@ -5401,7 +5432,8 @@
             "args": {
                 "input_type": "probs",
                 "robust": true
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input":[[2.220446049250313e-16, 1.0], [0.1, 0.9]]
@@ -5428,7 +5460,8 @@
             "args": {
                 "input_type": "probs",
                 "robust": true
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input":[[0.0, 1.0]]
@@ -5459,7 +5492,8 @@
             "args": {
                 "input_type": "probs",
                 "robust": true
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input":[[0.2, 1.1102230246251565e-16, 0.7999999999999998], [0.1, 0.6, 0.3]]
@@ -5486,7 +5520,8 @@
             "args": {
                 "input_type": "probs",
                 "robust": true
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input":[[0.5, 0.5], [0.1, 0.9]]
@@ -5513,7 +5548,8 @@
             "args": {
                 "input_type": "probs",
                 "robust": true
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input":[[0.5, 0.5], [0.1, 0.9]]
@@ -5540,7 +5576,8 @@
             "args": {
                 "input_type": "probs",
                 "robust": true
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input":[[0.0, 1.0], [0.1, 0.9]]
@@ -5565,7 +5602,8 @@
             "name": "CrossEntropy",
             "args": {
                 "input_type": "log_probs"
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input":[[-0.6931471805599453, -0.6931471805599453], [-2.3025850929940455, -0.10536051565782628]]
@@ -5591,7 +5629,8 @@
             "name": "BinaryCrossEntropy",
             "args":{
                 "input_type": "probs"
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input":[[0.1], [0.5]]
@@ -5617,7 +5656,8 @@
             "name": "BinaryCrossEntropy",
             "args":{
                 "input_type": "probs"
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input":[[0.1, 0.2, 0.3], [0.5, 0.4, 0.2]]
@@ -5647,7 +5687,8 @@
             "name": "BinaryCrossEntropy",
             "args":{
                 "input_type": "probs"
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input":[[1e-20, 0.2, 0.3], [0.5, 0.4, 1e-20]]
@@ -5678,7 +5719,8 @@
             "args":{
                 "input_type": "probs",
                 "robust": true
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[0.1, 0.2, 0.3], [0.5, 1.0, 0.2]]
@@ -5708,7 +5750,8 @@
             "name": "BinaryCrossEntropy",
             "args":{
                 "input_type": "probs"
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input":[[0.1], [0.5]]
@@ -5734,7 +5777,8 @@
             "name": "BinaryCrossEntropy",
             "args":{
                 "input_type": "probs"
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input":[[1.1102230246251565e-16], [0.5]]
@@ -5760,7 +5804,8 @@
             "name": "BinaryCrossEntropy",
             "args":{
                 "input_type": "probs"
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[1.0102230246251565e-16], [0.5]]
@@ -5786,7 +5831,8 @@
             "name": "BinaryCrossEntropy",
             "args":{
                 "input_type": "logits"
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [
@@ -5827,7 +5873,8 @@
             "name": "BinaryCrossEntropy",
             "args":{
                 "input_type": "probs"
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input":[[1.1102230246251565e-16], [0.95]]
@@ -5853,7 +5900,8 @@
             "name": "BinaryCrossEntropy",
             "args":{
                 "input_type": "logits"
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[-36.83119036496738], [0.0]]
@@ -5883,7 +5931,8 @@
             "name": "BinaryCrossEntropy",
             "args":{
                 "input_type": "logits"
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input":[[1.0], [-2]]
@@ -5909,7 +5958,8 @@
             "name": "BinaryCrossEntropy",
             "args":{
                 "input_type": "logits"
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input":[[1.0, -2, 3, 0], [0, 1, 2, -1]]
@@ -5944,7 +5994,8 @@
             "name": "QuantileLoss",
             "args": {
                 "quantile": 0.1
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[1.0]]
@@ -5969,7 +6020,8 @@
             "name": "QuantileLoss",
             "args": {
                 "quantile": 0.1
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "static_keys": {
             "target": [[1.0], [1e-5]]
@@ -5994,7 +6046,8 @@
             "name": "QuantileLoss",
             "args": {
                 "quantile": 0.9
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[1.0], [1e-5]]
@@ -6019,7 +6072,8 @@
             "name": "QuantileLoss",
             "args": {
                 "quantile": 0.4
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input":[[1.0, 2.0], [0.0, 1.0]]
@@ -6037,7 +6091,8 @@
     },
     "test_quad_hinge_loss_1": {
         "model": {
-            "name": "QuadHingeLoss"
+            "name": "QuadHingeLoss",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input":[[2.0], [0.25]]
@@ -6059,7 +6114,8 @@
     },
     "test_quad_hinge_loss_2": {
         "model": {
-            "name": "QuadHingeLoss"
+            "name": "QuadHingeLoss",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input":[[1.0], [-1.0]]
@@ -6082,7 +6138,8 @@
 
     "test_quad_hinge_loss_3": {
         "model": {
-            "name": "QuadHingeLoss"
+            "name": "QuadHingeLoss",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input":[[0.0], [0.0]]
@@ -6104,7 +6161,8 @@
     },
     "test_kl_div_1": {
         "model": {
-            "name": "KLDivergence"
+            "name": "KLDivergence",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[0.1, 0.5], [0.5, 0.1]]
@@ -6126,7 +6184,8 @@
     },
     "test_kl_div_3": {
         "model": {
-            "name": "KLDivergence"
+            "name": "KLDivergence",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[0.1, 0.5], [0.5, 0.1]]
@@ -6148,7 +6207,8 @@
     },
     "test_kl_div_4": {
         "model": {
-            "name": "KLDivergence"
+            "name": "KLDivergence",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[1.1102230246251565e-16, 0.5], [0.5, 0.1]]
@@ -6170,7 +6230,8 @@
     },
     "test_relu_1": {
         "model": {
-            "name": "Relu"
+            "name": "Relu",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[1.0, -2.0], [2.0, 0.0]]
@@ -6189,7 +6250,8 @@
     },
     "test_relu_2": {
         "model": {
-            "name": "Relu"
+            "name": "Relu",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[0.0]]
@@ -6208,7 +6270,8 @@
     },
     "test_relu_3": {
         "model": {
-            "name": "Relu"
+            "name": "Relu",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[-1.0, -2.0], [2.0, 0.0], [-0.04, -100]]
@@ -6227,7 +6290,8 @@
     },
     "test_relu_4": {
         "model": {
-            "name": "Relu"
+            "name": "Relu",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[-1.0, -2.0], [2.0, 0.0], [-0.04, -100]]
@@ -6249,7 +6313,8 @@
             "name": "LeakyRelu",
             "args": {
                 "slope": 0.2
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[1.0, -2.0], [2.0, 0.0]]
@@ -6275,7 +6340,8 @@
             "name": "LeakyRelu",
             "args": {
                 "slope": 0.2
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[0.0]]
@@ -6301,7 +6367,8 @@
             "name": "LeakyRelu",
             "args": {
                 "slope": 0.2
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[-1.0, -2.0], [2.0, 0.0], [-0.04, -100]]
@@ -6324,7 +6391,8 @@
     },
     "test_gelu_1": {
         "model": {
-            "name": "Gelu"
+            "name": "Gelu",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[1.0, -2.0], [2.0, 0.0]]
@@ -6343,7 +6411,8 @@
     },
     "test_gelu_2": {
         "model": {
-            "name": "Gelu"
+            "name": "Gelu",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[-1.0, -2.0], [2.0, 0.0], [-0.04, -100]]
@@ -6362,7 +6431,8 @@
     },
     "test_stop_gradient_1": {
         "model": {
-            "name": "StopGradient"
+            "name": "StopGradient",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[1.0, -2.0], [2.0, 0.0]]
@@ -6381,7 +6451,8 @@
     },
     "test_stop_gradient_2": {
         "model": {
-            "name": "StopGradient"
+            "name": "StopGradient",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[-1.0, -2.0], [2.0, 0.0], [-0.04, -100]]
@@ -6400,7 +6471,8 @@
     },
     "test_softmax_1": {
         "model": {
-            "name": "Softmax"
+            "name": "Softmax",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[0.0, 2.0, -30]]
@@ -6419,7 +6491,8 @@
     },
     "test_softmax_2": {
         "model": {
-            "name": "Softmax"
+            "name": "Softmax",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[0.1, 0.0, 0.0]]
@@ -6438,7 +6511,8 @@
     },
     "test_softmax_3": {
         "model": {
-            "name": "Softmax"
+            "name": "Softmax",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[1.0, -2.0], [2.0, 0.0]]
@@ -6457,7 +6531,8 @@
     },
     "test_softmax_4": {
         "model": {
-            "name": "Softmax"
+            "name": "Softmax",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[0.0, 2.0, -30]]
@@ -6476,7 +6551,8 @@
     },
     "test_softmax_5": {
         "model": {
-            "name": "Softmax"
+            "name": "Softmax",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input":  [[0.1, 0.0, 0.0]]
@@ -6495,7 +6571,8 @@
     },
     "test_softmax_6": {
         "model": {
-            "name": "Softmax"
+            "name": "Softmax",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input":  [[1.0, -2.0], [2.0, 0.0]]
@@ -6514,7 +6591,8 @@
     },
     "test_softmax_7": {
         "model": {
-            "name": "Softmax"
+            "name": "Softmax",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input":  [[1.0, -2.0], [2.0, 0.0]]
@@ -6536,7 +6614,8 @@
             "name": "Softmax",
             "args": {
                 "axis": 0
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input":  [[1.0, -2.0], [2.0, 0.0]]
@@ -6558,7 +6637,8 @@
             "name": "Log",
             "args": {
                 "robust": true
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input":  [[2.0, 2.0], [3.0, 4.0], [4.0, 100.0]]
@@ -6580,7 +6660,8 @@
             "name": "Log",
             "args": {
                 "robust": true
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input":   [[[0.0]]]
@@ -6606,7 +6687,8 @@
             "name": "Log",
             "args": {
                 "robust": true
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[[1e-311, 1e-306]]]
@@ -6629,7 +6711,8 @@
     },
     "test_stable_reciprocal_1": {
         "model": {
-            "name": "StableReciprocal"
+            "name": "StableReciprocal",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input":  [[[[[2.0, 2.0], [3.0, 4.0], [4.0, 100.0]]]]]
@@ -6648,7 +6731,8 @@
     },
     "test_stable_reciprocal_2": {
         "model": {
-            "name": "StableReciprocal"
+            "name": "StableReciprocal",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input":  [[0.0]]
@@ -6667,7 +6751,8 @@
     },
     "test_stable_reciprocal_3": {
         "model": {
-            "name": "StableReciprocal"
+            "name": "StableReciprocal",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input":  [[1e-155, 1e-145]]
@@ -6689,7 +6774,8 @@
             "name": "Sqrt",
             "args": {
                 "robust": true
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[1.0, 2.0], [3.0, 4.0]]
@@ -6711,7 +6797,8 @@
             "name": "Sqrt",
             "args": {
                 "robust": true
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[[[4.0, 16.0], [25.0, 100.0]]]]
@@ -6733,7 +6820,8 @@
             "name": "Sqrt",
             "args": {
                 "robust": true
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [10000.0]
@@ -6755,7 +6843,8 @@
             "name": "Sqrt",
             "args": {
                 "robust": true
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[0.0, -4.0], [-1.0, -4.0]]
@@ -6782,8 +6871,8 @@
             "args": {
                 "robust": true,
                 "threshold": 1e-20
-                
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[0.9999999999999e-20, 1.0000000000001e-20, 0.0]]
@@ -6810,10 +6899,7 @@
             "args": {
                 "robust": true
             },
-            "types": {
-                "base": "tensor",
-                "exponent": "tensor"
-            }
+            "assigned_differentiabilities": [["base", true], ["exponent", true]]
         },
         "inputs": {
             "base":  [[0.0], [2.2250738585072014e-308]],
@@ -6838,10 +6924,7 @@
             "args": {
                 "robust": true
             },
-            "types": {
-                "base": "tensor",
-                "exponent": "tensor"
-            }
+            "assigned_differentiabilities": [["base", true], ["exponent", true]]
         },
         "inputs": {
             "base":  [[2.0], [3.0], [4.0]],
@@ -6870,10 +6953,7 @@
             "args": {
                 "robust": true
             },
-            "types": {
-                "base": "tensor",
-                "exponent": "tensor"
-            }
+            "assigned_differentiabilities": [["base", true], ["exponent", true]]
         },
         "inputs": {
             "base": [2.0], 
@@ -6904,10 +6984,7 @@
             "args": {
                 "robust": true
             },
-            "types": {
-                "base": "tensor",
-                "exponent": "tensor"
-            }
+            "assigned_differentiabilities": [["base", true], ["exponent", true]]
         },
         "inputs": {
             "base": [2.0], 
@@ -6932,10 +7009,7 @@
             "args": {
                 "robust": true
             },
-            "types": {
-                "base": "tensor",
-                "exponent": "tensor"
-            }
+            "assigned_differentiabilities": [["base", true], ["exponent", true]]
         },
         "inputs": {
             "base": [1.0, 2.0],
@@ -6961,10 +7035,7 @@
             "args": {
                 "robust": true
             },
-            "types": {
-                "base": "tensor",
-                "exponent": "tensor"
-            }
+            "assigned_differentiabilities": [["base", true], ["exponent", true]]
         },
         "inputs": {
             "base": [1.0, 2.0],
@@ -6990,10 +7061,7 @@
             "args": {
                 "robust": true
             },
-            "types": {
-                "base": "tensor",
-                "exponent": "tensor"
-            }
+            "assigned_differentiabilities": [["base", true], ["exponent", true]]
         },
         "inputs": {
             "base": [[1e-311, 1e-311]],
@@ -7227,7 +7295,8 @@
     },
     "test_var_1": {
         "model": {
-            "name": "Variance"
+            "name": "Variance",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[1.0], [2.0], [3.0], [4.0], [5.0]]
@@ -7250,7 +7319,8 @@
             "args": {
                 "correction": 0.0,
                 "axis": 0
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[1.0], [2.0], [3.0], [4.0], [5.0]]
@@ -7273,7 +7343,8 @@
             "args": {
                 "correction": 0.0,
                 "axis": 1
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[1.0], [2.0], [3.0], [4.0], [5.0]]
@@ -7295,7 +7366,8 @@
             "name": "Variance",
             "args": {
                 "correction": 1.0
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[1.0], [2.0], [3.0], [4.0], [5.0]]
@@ -7314,7 +7386,8 @@
     },
     "test_reduce_sum_1": {
         "model": {
-            "name": "Sum"
+            "name": "Sum",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[[[[[[[[[[[[[[1.0,2.0,3.0],[8.0,6.0,1.0]],[[7.0,6.0,1.0],[11.0,9.0,3.0]]]]]]]]]]]]]]]
@@ -7333,7 +7406,8 @@
     },
     "test_reduce_sum_2": {
         "model": {
-            "name": "Sum"
+            "name": "Sum",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[-7.0, -8.0], [6.0, 3.0], [4.0, 5.0]]
@@ -7355,7 +7429,8 @@
             "name": "Sum",
             "args": {
                 "axis": 1
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[-1.0, -2.0], [2.0, 0.0], [1.0, -1.0]]
@@ -7377,7 +7452,8 @@
             "name": "Sum",
             "args": {
                 "axis": 1
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[-1.0, -2.0], [2.0, 0.0], [1.0, -1.0]]
@@ -7399,7 +7475,8 @@
             "name": "Sum",
             "args": {
                 "axis": 0
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[-1.0, -2.0], [2.0, 0.0], [1.0, -1.0]]
@@ -7422,7 +7499,8 @@
             "args": {
                 "axis": [0,2]
             },
-            "tuples": ["axis"]
+            "tuples": ["axis"],
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[[1.0,2.0,3.0],[4.0,5.0,6.0]],[[3.0,2.0,1.0],[1.0,3.0,5.0]],[[6.0,2.0,5.0],[9.0,3.0,1.0]]]
@@ -7445,7 +7523,8 @@
             "args": {
                 "axis": [0,1,2,3,4]
             },
-            "tuples": ["axis"]
+            "tuples": ["axis"],
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[[[[[[[1.0,2.0,3.0],[4.0,5.0,6.0]],[[3.0,2.0,1.0],[1.0,3.0,5.0]],[[6.0,2.0,5.0],[9.0,3.0,1.0]]]]]]]]
@@ -7464,7 +7543,8 @@
     },
     "test_reduce_mean_1": {
         "model": {
-            "name": "Mean"
+            "name": "Mean",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[[[[[[[[[[[[[[1.0,2.0,3.0],[8.0,6.0,1.0]],[[7.0,6.0,1.0],[11.0,9.0,3.0]]]]]]]]]]]]]]]
@@ -7483,7 +7563,8 @@
     },
     "test_reduce_mean_2": {
         "model": {
-            "name": "Mean"
+            "name": "Mean",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[-7.0, -8.0], [6.0, 3.0], [4.0, 5.0]]
@@ -7505,7 +7586,8 @@
             "name": "Mean",
             "args": {
                 "axis": 1
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[-1.0, -2.0], [2.0, 0.0], [1.0, -1.0]]
@@ -7527,7 +7609,8 @@
             "name": "Mean",
             "args": {
                 "axis": 1
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[-1.0, -2.0], [2.0, 0.0], [1.0, -1.0]]
@@ -7549,7 +7632,8 @@
             "name": "Mean",
             "args": {
                 "axis": 0
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[-1.0, -2.0], [2.0, 0.0], [1.0, -1.0]]
@@ -7572,7 +7656,8 @@
             "args": {
                 "axis": [0,2]
             },
-            "tuples": ["axis"]
+            "tuples": ["axis"],
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[[1.0,2.0,3.0],[4.0,5.0,6.0]],[[3.0,2.0,1.0],[1.0,3.0,5.0]],[[6.0,2.0,5.0],[9.0,3.0,1.0]]]
@@ -7595,7 +7680,8 @@
             "args": {
                 "axis": [0,1,2,3,4]
             },
-            "tuples": ["axis"]
+            "tuples": ["axis"],
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[[[[[[[1.0,2.0,3.0],[4.0,5.0,6.0]],[[3.0,2.0,1.0],[1.0,3.0,5.0]],[[6.0,2.0,5.0],[9.0,3.0,1.0]]]]]]]]
@@ -7614,7 +7700,8 @@
     },
     "test_reduce_max_1": {
         "model": {
-            "name": "Max"
+            "name": "Max",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[[[[[[[[[[[[[[1.0,2.0,3.0],[8.0,6.0,1.0]],[[7.0,6.0,1.0],[11.0,9.0,3.0]]]]]]]]]]]]]]]
@@ -7633,7 +7720,8 @@
     },
     "test_reduce_max_2": {
         "model": {
-            "name": "Max"
+            "name": "Max",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[-7.0, -8.0], [6.0, 6.0], [6.0, 5.0]]
@@ -7655,7 +7743,8 @@
             "name": "Max",
             "args": {
                 "axis": 1
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[-1.0, -2.0], [2.0, 0.0], [1.0, -1.0]]
@@ -7677,7 +7766,8 @@
             "name": "Max",
             "args": {
                 "axis": 1
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[-1.0, -2.0], [2.0, 0.0], [1.0, -1.0]]
@@ -7699,7 +7789,8 @@
             "name": "Max",
             "args": {
                 "axis": 0
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[-1.0, -2.0], [2.0, 0.0], [1.0, -1.0]]
@@ -7722,7 +7813,8 @@
             "args": {
                 "axis": [0,2]
             },
-            "tuples": ["axis"]
+            "tuples": ["axis"],
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[[1.0,2.0,3.0],[4.0,5.0,6.0]],[[3.0,2.0,1.0],[1.0,3.0,5.0]],[[6.0,2.0,5.0],[9.0,3.0,1.0]]]
@@ -7745,7 +7837,8 @@
             "args": {
                 "axis": [0,1,2,3,4]
             },
-            "tuples": ["axis"]
+            "tuples": ["axis"],
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[[[[[[[1.0,2.0,3.0],[4.0,5.0,6.0]],[[3.0,2.0,1.0],[1.0,3.0,5.0]],[[6.0,2.0,5.0],[9.0,3.0,1.0]]]]]]]]
@@ -7764,7 +7857,8 @@
     },
     "test_reduce_min_1": {
         "model": {
-            "name": "Min"
+            "name": "Min",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[[[[[[[[[[[[[[1.0,2.0,3.0],[8.0,6.0,1.0]],[[7.0,6.0,1.0],[11.0,9.0,3.0]]]]]]]]]]]]]]]
@@ -7783,7 +7877,8 @@
     },
     "test_reduce_min_2": {
         "model": {
-            "name": "Min"
+            "name": "Min",
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[-7.0, -8.0], [6.0, 6.0], [6.0, 5.0]]
@@ -7805,7 +7900,8 @@
             "name": "Min",
             "args": {
                 "axis": 1
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[-1.0, -2.0], [2.0, 0.0], [1.0, -1.0]]
@@ -7827,7 +7923,8 @@
             "name": "Min",
             "args": {
                 "axis": 1
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[-1.0, -2.0], [2.0, 0.0], [1.0, -1.0]]
@@ -7849,7 +7946,8 @@
             "name": "Min",
             "args": {
                 "axis": 0
-            }
+            },
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[-1.0, -2.0], [2.0, 0.0], [1.0, -1.0]]
@@ -7872,7 +7970,8 @@
             "args": {
                 "axis": [0,2]
             },
-            "tuples": ["axis"]
+            "tuples": ["axis"],
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[[1.0,2.0,3.0],[4.0,5.0,6.0]],[[3.0,2.0,1.0],[1.0,3.0,5.0]],[[6.0,2.0,5.0],[9.0,3.0,1.0]]]
@@ -7895,7 +7994,8 @@
             "args": {
                 "axis": [0,1,3,5,6]
             },
-            "tuples": ["axis"]
+            "tuples": ["axis"],
+            "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[[[[[[[[[1.0,2.0,3.0],[4.0,5.0,6.0]],[[3.0,2.0,1.0],[1.0,3.0,5.0]],[[6.0,2.0,5.0],[9.0,3.0,1.0]]]]]]]]]]
@@ -7940,7 +8040,8 @@
                     "right": {"key": {"connect": [["m2","output"]]}},
                     "output": "output"
                 }
-            }
+            },
+            "assigned_differentiabilities": [["left", true], ["right", true]]
         },
         "inputs": {
             "left": [[[[1.0, 2.0, 3.0]]]],
@@ -8077,7 +8178,8 @@
                         "expose": true
                     }}
                 }
-            }
+            },
+            "assigned_differentiabilities": [["left", true], ["right", true]]
         },
         "inputs": {
             "left": [[[[1.0, 2.0, 3.0]]]],
@@ -8288,7 +8390,8 @@
                         "expose": true
                     }}
                 }
-            }
+            },
+            "assigned_differentiabilities": [["left", true], ["right", true]]
         },
         "inputs": {
             "left": [1.0, 2.0, 3.0],
@@ -8470,7 +8573,8 @@
                         "expose": true
                     }}
                 }
-            }
+            },
+            "assigned_differentiabilities": [["left", true], ["right", true]]
         },
         "inputs": {
             "left": [[[[1.0, 2.0, 3.0]]]],
@@ -8595,7 +8699,8 @@
                     "right": {"key": {"name": "right", "type": "tensor"}},
                     "output": {"key": {"connect": [["m2","right"]]}}
                 }
-            }
+            },
+            "assigned_differentiabilities": [["left", true], ["right", true]]
         },
         "inputs": {
             "left": [[[[1.0, 2.0, 3.0]]]],
@@ -8651,7 +8756,8 @@
                 }
 
 
-            }
+            },
+            "assigned_differentiabilities": [["input1", true]]
         },
         "inputs": {
             "input1": [[[[1.0, 2.0, 3.0]]]]
@@ -8702,7 +8808,8 @@
                 "m1": {
                     "input": {"key": {"connect": [["m2","input"]]}}
                 }
-            }
+            },
+            "assigned_differentiabilities": [["my_input", true]]
         },
         "inputs": {
             "my_input": [[[[1.0, 2.0, 3.0]]]]
@@ -8753,7 +8860,8 @@
                 "m1": {
                     "input": {"key": {"connect": [["m2","input"]]}}
                 }
-            }
+            },
+            "assigned_differentiabilities": [["my_input", true]]
         },
         "inputs": {
             "my_input": [[[[1.0, 2.0, 3.0]]]]
@@ -8896,7 +9004,10 @@
     "test_rnn_cell_1": {
         "model": {
             "name": "RNNCell",
-            "differentiability_info": {"input": true, "prev_hidden": true}
+            "assigned_differentiabilities": [
+                ["input", true], 
+                ["prev_hidden", true]
+            ]
         },
 
         "inputs": {
@@ -8935,7 +9046,10 @@
     "test_rnn_cell_2": {
         "model": {
             "name": "RNNCell",
-            "differentiability_info": {"input": true, "prev_hidden": true}
+            "assigned_differentiabilities": [
+                ["input", true], 
+                ["prev_hidden", true]
+            ]
         },
 
         "inputs": {
@@ -8974,7 +9088,11 @@
     "test_lstm_cell_1": {
         "model": {
             "name": "LSTMCell",
-            "differentiability_info": {"input": true, "prev_hidden": true, "prev_cell": true}
+            "assigned_differentiabilities": [
+                ["input", true], 
+                ["prev_hidden", true],
+                ["prev_cell", true]
+            ]
         },
 
         "inputs": {

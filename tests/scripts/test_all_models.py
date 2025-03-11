@@ -31,6 +31,7 @@ from mithril.models import (
     ArgMax,
     ArgMin,
     AvgPool2D,
+    BatchNorm2D,
     BroadcastTo,
     Buffer,
     Cast,
@@ -145,8 +146,7 @@ def compile_and_compare(
         pm = mithril.compile(
             model,
             backend=backend,
-            **compile_kwargs
-            | {"constant_keys": statics, "trainable_keys": params.keys()},
+            **compile_kwargs | {"constant_keys": statics},
         )
         outputs = pm.evaluate(params=backend_params, data=backend_data)
 
@@ -268,7 +268,7 @@ def test_buffer_1():
 
 def test_buffer_2():
     model = Buffer()
-    model.set_types(input=Tensor)
+    model.set_differentiability(input=True)
     params = {"input": [[1.0, 2.0, 3.0], [1.0, 2.0, 3.0]]}
     output_gradients = {"output": [[12.0, 13.0, 14.0], [15.0, 16.0, 17.0]]}
     reference_outputs = {"output": [[1.0, 2.0, 3.0], [1.0, 2.0, 3.0]]}
@@ -396,7 +396,7 @@ def test_isnan_2():
 
 
 def test_nan_to_num_1():
-    model = NanToNum()
+    model = NanToNum(input=Tensor(differentiable=True))
     params = {"input": [[1.0, float("nan"), 3.0], [1.0, 2.0, float("nan")]]}
     output_gradients = {"output": [[10.0, 20.0, 30.0], [40.0, 50.0, 60.0]]}
     reference_outputs = {"output": [[1.0, 0.0, 3.0], [1.0, 2.0, 0.0]]}
@@ -669,7 +669,9 @@ def test_conv1d_6():
 
 
 def test_where_1():
-    model = Where()
+    model = Where(
+        input1=Tensor(differentiable=True), input2=Tensor(differentiable=True)
+    )
 
     data = {
         "cond": [True, True, False, False, True],
@@ -700,7 +702,9 @@ def test_where_1():
 
 
 def test_where_2():
-    model = Where()
+    model = Where(
+        input1=Tensor(differentiable=True), input2=Tensor(differentiable=True)
+    )
 
     data = {
         "cond": [True, True, False, False, True],
@@ -1243,7 +1247,7 @@ def test_to_tensor():
 
 
 def test_reduce_prod_1():
-    model = Prod(axis=None)
+    model = Prod(input=Tensor(differentiable=True), axis=None)
     params = {"input": [1.0, 2.0, 3.0, 4.0, 5.0]}
     output_gradients = {"output": 1.0}
     reference_outputs = {"output": 120.0}
@@ -1263,7 +1267,7 @@ def test_reduce_prod_1():
 
 
 def test_reduce_prod_2():
-    model = Prod(axis=None)
+    model = Prod(input=Tensor(differentiable=True), axis=None)
     params = {"input": [1.0, 0.0, 3.0, 4.0, 5.0]}
     output_gradients = {"output": 1.0}
     reference_outputs = {"output": 0.0}
@@ -1283,7 +1287,7 @@ def test_reduce_prod_2():
 
 
 def test_reduce_prod_3():
-    model = Prod(axis=None)
+    model = Prod(input=Tensor(differentiable=True), axis=None)
     params = {"input": [1.0, 0.0, 3.0, 0.0, 5.0]}
     output_gradients = {"output": 12.0}
     reference_outputs = {"output": 0.0}
@@ -1303,7 +1307,7 @@ def test_reduce_prod_3():
 
 
 def test_reduce_prod_4():
-    model = Prod(axis=1)
+    model = Prod(input=Tensor(differentiable=True), axis=1)
     params = {"input": [[1.0, 2.0], [3.0, 4.0]]}
     output_gradients = {"output": [2.0, 3.0]}
     reference_outputs = {"output": [2.0, 12.0]}
@@ -1323,7 +1327,7 @@ def test_reduce_prod_4():
 
 
 def test_reduce_prod_5():
-    model = Prod(axis=(1, 2))
+    model = Prod(input=Tensor(differentiable=True), axis=(1, 2))
     params = {
         "input": [
             [[1.0, 2.0], [3.0, 4.0]],
@@ -1359,7 +1363,7 @@ def test_reduce_prod_5():
 
 
 def test_reduce_prod_6():
-    model = Prod(axis=(1, 2), keepdim=True)
+    model = Prod(input=Tensor(differentiable=True), axis=(1, 2), keepdim=True)
     params = {
         "input": [
             [[1.0, 2.0], [3.0, 4.0]],
@@ -1643,7 +1647,7 @@ def test_eye_complement_w_dtype():
 
 
 def test_squeeze_1():
-    model = Squeeze()
+    model = Squeeze(input=Tensor(differentiable=True))
     params = {"input": list_full(1.0, 3, 1, 4, 2, 1)}
     output_gradients = {"output": list_full(1.0, 3, 4, 2)}
     reference_outputs = {"output": list_full(1.0, 3, 4, 2)}
@@ -1663,7 +1667,7 @@ def test_squeeze_1():
 
 
 def test_squeeze_2():
-    model = Squeeze()
+    model = Squeeze(input=Tensor(differentiable=True))
     params = {"input": list_full(1.0, 3, 1, 4, 2, 1, 1, 1, 5)}
     output_gradients = {"output": list_full(1.0, 3, 4, 2, 5)}
     reference_outputs = {"output": list_full(1.0, 3, 4, 2, 5)}
@@ -1683,7 +1687,7 @@ def test_squeeze_2():
 
 
 def test_broadcast_to_1():
-    model = BroadcastTo()
+    model = BroadcastTo(input=Tensor(differentiable=True))
     params = {"input": list_full(1.0, 1, 1)}
     output_gradients = {"output": list_full(1.0, 3, 3)}
     reference_outputs = {"output": list_full(1.0, 3, 3)}
@@ -1704,7 +1708,7 @@ def test_broadcast_to_1():
 
 
 def test_broadcast_to_2():
-    model = BroadcastTo()
+    model = BroadcastTo(input=Tensor(differentiable=True))
     params = {"input": [4.0]}
     output_gradients = {"output": [[3.0, 4.0], [5.0, 6.0]]}
     reference_outputs = {"output": [[4.0, 4.0], [4.0, 4.0]]}
@@ -1725,7 +1729,7 @@ def test_broadcast_to_2():
 
 
 def test_broadcast_to_3():
-    model = BroadcastTo()
+    model = BroadcastTo(input=Tensor(differentiable=True))
     params = {"input": [[1.0], [7.0]]}
     output_gradients = {"output": [[3.0, 4.0], [5.0, 6.0]]}
     reference_outputs = {"output": [[1.0, 1.0], [7.0, 7.0]]}
@@ -1746,7 +1750,7 @@ def test_broadcast_to_3():
 
 
 def test_broadcast_to_4():
-    model = BroadcastTo()
+    model = BroadcastTo(input=Tensor(differentiable=True))
     params = {"input": [1.0]}
     output_gradients = {"output": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]}
     reference_outputs = {"output": [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]}
@@ -1767,7 +1771,7 @@ def test_broadcast_to_4():
 
 
 def test_broadcast_to_5():
-    model = BroadcastTo()
+    model = BroadcastTo(input=Tensor(differentiable=True))
     params = {"input": [[1.0, 2.0], [3.0, 4.0]]}
     output_gradients = {
         "output": [
@@ -1804,7 +1808,7 @@ def test_broadcast_to_5():
 
 
 def test_norm_modifier_1():
-    model = NormModifier()
+    model = NormModifier(input=Tensor(differentiable=True))
     params = {"input": 3.0}
     output_gradients = {"output": 2.0}
     reference_outputs = {"output": 3.0}
@@ -1824,7 +1828,7 @@ def test_norm_modifier_1():
 
 
 def test_norm_modifier_2():
-    model = NormModifier()
+    model = NormModifier(input=Tensor(differentiable=True))
     params = {"input": 6.0}
     output_gradients = {"output": 2.0}
     reference_outputs = {"output": 4.0}
@@ -1844,7 +1848,7 @@ def test_norm_modifier_2():
 
 
 def test_norm_modifier_3():
-    model = NormModifier()
+    model = NormModifier(input=Tensor(differentiable=True))
     params = {"input": -1.0}
     output_gradients = {"output": 2.0}
     reference_outputs = {"output": 3.0}
@@ -1917,6 +1921,7 @@ def test_size_3():
 
 def test_scaled_dot_product_1():
     model = ScaledDotProduct()
+    model.set_differentiability(query=True, key=True, value=True)
     params = {"query": [[1.0]], "key": [[1.0]], "value": [[1.0]]}
     output_gradients = {"output": [[1.0]]}
     reference_outputs = {"output": [[1.0]]}
@@ -1937,6 +1942,7 @@ def test_scaled_dot_product_1():
 
 def test_scaled_dot_product_2():
     model = ScaledDotProduct()
+    model.set_differentiability(query=True, key=True, value=True)
     params = {
         "query": [[1.0, 1.0], [1.0, 1.0]],
         "key": [[1.0, 1.0], [1.0, 1.0]],
@@ -2085,7 +2091,7 @@ def test_slice_4():
 
 
 def test_log_1():
-    model = Log()
+    model = Log(input=Tensor(differentiable=True))
 
     params = {"input": [3.0]}
     output_gradients = {"output": [1.0]}
@@ -2108,7 +2114,7 @@ def test_log_1():
 
 
 def test_log_2():
-    model = Log()
+    model = Log(input=Tensor(differentiable=True))
 
     params = {"input": [3.0, 2.0]}
     output_gradients = {"output": [1.0, 1.0]}
@@ -3718,6 +3724,156 @@ def test_groupnorm_4():
             "trainable_keys": {"input"},
         },
         data={},
+        params=inputs,
+        output_gradients={},
+        reference_outputs=reference_outputs,
+        reference_gradients=None,
+        assert_shapes=False,
+        tolerances=1e-5,
+    )
+
+
+def test_batchnorm_1():
+    model = BatchNorm2D(None, False, False, inference=True)
+    input = np.random.randn(4, 8, 16, 32)
+    mean = np.abs(np.random.randn(8))
+    var = np.abs(np.random.randn(8))
+
+    inputs = {"input": input}
+    data = {"running_mean": mean, "running_var": var}
+    reference_out = torch.nn.functional.batch_norm(
+        torch.tensor(input, dtype=torch.float64),
+        torch.tensor(mean, dtype=torch.float64),
+        torch.tensor(var, dtype=torch.float64),
+    )
+    reference_outputs = {"output": reference_out.numpy()}
+
+    compile_and_compare(
+        model=model,
+        compile_kwargs={"constant_keys": {}, "trainable_keys": {"input"}},
+        data=data,
+        params=inputs,
+        output_gradients={},
+        reference_outputs=reference_outputs,
+        reference_gradients=None,
+        assert_shapes=False,
+        tolerances=1e-5,
+    )
+
+
+def test_batchnorm_2():
+    model = BatchNorm2D(inference=True)
+
+    input = np.random.randn(1, 16, 10, 1)
+    weight = np.random.randn(1, 16, 1, 1)
+    bias = np.random.randn(1, 16, 1, 1)
+    running_mean = np.abs(np.random.randn(16))
+    running_var = np.abs(np.random.randn(16))
+
+    inputs = {
+        "input": input,
+        "weight": weight,
+        "bias": bias,
+    }
+    data = {
+        "running_mean": running_mean,
+        "running_var": running_var,
+    }
+    input_t = torch.tensor(input, dtype=torch.float64)
+    weight_t = torch.tensor(weight, dtype=torch.float64).squeeze()
+    bias_t = torch.tensor(bias, dtype=torch.float64).squeeze()
+    running_mean_t = torch.tensor(running_mean, dtype=torch.float64)
+    running_var_t = torch.tensor(running_var, dtype=torch.float64)
+    reference_out = torch.nn.functional.batch_norm(
+        input_t, running_mean_t, running_var_t, weight_t, bias_t
+    )
+    reference_outputs = {"output": reference_out.numpy()}
+
+    compile_and_compare(
+        model=model,
+        compile_kwargs={
+            "constant_keys": {},
+            "trainable_keys": {"input"},
+        },
+        data=data,
+        params=inputs,
+        output_gradients={},
+        reference_outputs=reference_outputs,
+        reference_gradients=None,
+        assert_shapes=False,
+        tolerances=1e-5,
+    )
+
+
+def test_batchnorm_3():
+    model = BatchNorm2D()
+    input = np.random.randn(4, 8, 16, 4)
+    weight = np.random.randn(1, 8, 1, 1)
+    bias = np.random.randn(1, 8, 1, 1)
+    running_mean = np.abs(np.random.randn(8))
+    running_var = np.abs(np.random.randn(8))
+
+    inputs = {"input": input, "weight": weight, "bias": bias}
+    data = {
+        "running_mean": running_mean,
+        "running_var": running_var,
+    }
+    input_t = torch.tensor(input, dtype=torch.float64)
+    weight_t = torch.tensor(weight, dtype=torch.float64).squeeze()
+    bias_t = torch.tensor(bias, dtype=torch.float64).squeeze()
+    running_mean_t = torch.tensor(running_mean, dtype=torch.float64)
+    running_var_t = torch.tensor(running_var, dtype=torch.float64)
+    reference_out = torch.nn.functional.batch_norm(
+        input_t, running_mean_t, running_var_t, weight_t, bias_t
+    )
+    reference_outputs = {"output": reference_out.numpy()}
+
+    compile_and_compare(
+        model=model,
+        compile_kwargs={
+            "constant_keys": {},
+            "trainable_keys": {"input"},
+        },
+        data=data,
+        params=inputs,
+        output_gradients={},
+        reference_outputs=reference_outputs,
+        reference_gradients=None,
+        assert_shapes=False,
+        tolerances=1e-5,
+    )
+
+
+def test_batchnorm_4():
+    model = BatchNorm2D()
+    input = np.random.rand(3, 12, 16, 32)
+    weight = np.random.rand(1, 12, 1, 1)
+    bias = np.random.rand(1, 12, 1, 1)
+    running_mean = np.abs(np.random.randn(12))
+    running_var = np.abs(np.random.randn(12))
+
+    inputs = {"input": input, "weight": weight, "bias": bias}
+    data = {
+        "running_mean": running_mean,
+        "running_var": running_var,
+    }
+    input_t = torch.tensor(input, dtype=torch.float64)
+    weight_t = torch.tensor(weight, dtype=torch.float64).squeeze()
+    bias_t = torch.tensor(bias, dtype=torch.float64).squeeze()
+    running_mean_t = torch.tensor(running_mean, dtype=torch.float64)
+    running_var_t = torch.tensor(running_var, dtype=torch.float64)
+    reference_out = torch.nn.functional.batch_norm(
+        input_t, running_mean_t, running_var_t, weight_t, bias_t
+    )
+    reference_outputs = {"output": reference_out.numpy()}
+
+    compile_and_compare(
+        model=model,
+        compile_kwargs={
+            "constant_keys": {},
+            "trainable_keys": {"input"},
+        },
+        data=data,
         params=inputs,
         output_gradients={},
         reference_outputs=reference_outputs,
