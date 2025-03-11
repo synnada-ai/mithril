@@ -1299,7 +1299,7 @@ def test_iokey_template_3():
     out = pm.evaluate(data={"left": backend.array([2.0])})
     expected_result = np.array([5.0])
 
-    assert pm.input_keys == {"left", "input"}
+    assert pm.input_keys == {"left"}
     assert pm.output_keys == ["output"]
     np.testing.assert_array_equal(out["output"], expected_result)  # type: ignore
 

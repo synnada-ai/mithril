@@ -546,7 +546,7 @@ class PhysicalModel(GenericDataType[DataType]):
                     "no need to provide data for it."
                 )
 
-        self.flat_graph.prune_duplicate_nodes(self.data, constant_keys)
+        self.flat_graph.prune_duplicate_connections(self.data, constant_keys)
 
         self.discarded_keys |= {
             key for key in self.flat_graph.hanging_keys if key not in self.output_keys
@@ -557,8 +557,7 @@ class PhysicalModel(GenericDataType[DataType]):
         )
 
         _reversed_out_dict = {v: k for k, v in self.flat_graph.output_dict.items()}
-        for node in self.flat_graph.nodes.values():
-            _key = node.connections["output"].key
+        for _key in self.flat_graph.topological_order:
             conn_edge = self.data.get(_key, None)
             # TODO: If conn_edge is None, it means that the key is unused in data_store
             # but not unnecessary in flat_graph. This case should be handled when
@@ -764,12 +763,13 @@ class PhysicalModel(GenericDataType[DataType]):
             )
         else:
             # Remove unused models and cached models
-            all_models: list[BaseModel] = list(self.flat_graph.get_models())
+            all_models: list[BaseModel] = self.flat_graph.all_models  # type: ignore
+
             for key in self.flat_graph.unused_keys | self.flat_graph.cached_data.keys():
                 if (
                     unused_model := self.flat_graph.connections.get(key)
-                ) is not None and unused_model.node is not None:
-                    all_models.remove(unused_model.node.model)
+                ) is not None and unused_model.op is not None:
+                    all_models.remove(unused_model.op)
 
             name_mappings = define_unique_names(all_models)
             conn_info = self.extract_connection_info(name_mappings)  # type: ignore
@@ -837,14 +837,14 @@ class PhysicalModel(GenericDataType[DataType]):
         assert name_mappings is not None
         for model, model_name in name_mappings.items():
             conn_info.setdefault(model_name, ({}, {}))
-            model_node = self.flat_graph.nodes[model]
+            conn = self.flat_graph.model_table[model]
             input_keys = tuple(model.input_keys)
 
-            for input_key in input_keys:
-                connection = model_node.connections[input_key]
-                if (connected_node := connection.node) is None or name_mappings.get(
-                    connected_node.model
-                ) is None:
+            for idx, input_key in enumerate(input_keys):
+                connection_key = conn.source_keys[idx]
+                connection = self.flat_graph.connections[connection_key]
+                connection_model = connection.op
+                if connection_model is None:
                     # If connection.node is None, it means there is no node connected
                     # that input key. Meaning that input key is an input to overall
                     # model. Indicate it accordingly
@@ -863,9 +863,10 @@ class PhysicalModel(GenericDataType[DataType]):
                     # model is connected to the input_key. Hence, two updates on
                     # conns_dict shall be done. Find connected models and keys and do
                     # the updates.
-                    con_model = connected_node.model
-                    connected_model_name = name_mappings[con_model]
-                    con_model_output_key = next(iter(con_model.conns.output_keys))
+                    connected_model_name = name_mappings[connection_model]
+                    con_model_output_key = next(
+                        iter(connection_model.conns.output_keys)
+                    )
                     conn_info.setdefault(connected_model_name, ({}, {}))
                     outer_input_conn = conn_info[model_name][0].setdefault(
                         input_key, []
@@ -882,8 +883,8 @@ class PhysicalModel(GenericDataType[DataType]):
             # Traverse output_keys of overall model and make indications accordingly
             outer_key = self.flat_graph.output_dict.get(output_key, output_key)
             output_connection = self.flat_graph.connections[outer_key]
-            assert output_connection.node is not None
-            model = output_connection.node.model
+            assert output_connection.op is not None
+            model = output_connection.op
             model_name = name_mappings[model]
             inner_out_key = next(iter(model.conns.output_keys))
             conn_info[model_name][1].setdefault(inner_out_key, []).append(
