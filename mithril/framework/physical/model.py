@@ -528,7 +528,7 @@ class PhysicalModel(GenericDataType[DataType]):
                     "no need to provide data for it."
                 )
 
-        self.flat_graph.prune_duplicate_nodes(self.data, constant_keys)
+        self.flat_graph.prune_duplicate_connections(self.data, constant_keys)
 
         self.discarded_keys |= {
             key for key in self.flat_graph.hanging_keys if key not in self.output_keys

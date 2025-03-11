@@ -16,7 +16,6 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
 from copy import deepcopy
-from dataclasses import dataclass
 from typing import Any
 
 import mithril as ml
@@ -44,11 +43,9 @@ from ..logical.operators import BufferOp
 from .data_store import StaticDataStore
 
 
-@dataclass
 class GConnection:
-    """Represents a connection between nodes in a flat graph.
+    """Represents a connection between models in a flat graph.
     Attributes:
-        node (Node | None): The node associated with this connection.
         key (str): A global identifier for this connection.
         source_keys (list[str]): List of source keys from which this connection
             originates
@@ -56,13 +53,20 @@ class GConnection:
         connections (set[Connection]): Set of connected connections.
 
     Note:
-        Every connection is belong to a node, except the input connections.
+        Every connection has an operator, except the input connections.
     """
 
-    key: str  # Global key
-    op: Operator | None  # Only global input keys do not have an operator
-    source_keys: list[str]  # Global source keys
-    target_keys: list[str]  # Global target keys
+    def __init__(
+        self,
+        key: str,
+        op: Operator | None,
+        source_keys: list[str],
+        target_keys: list[str],
+    ) -> None:
+        self.key = key  # Global key
+        self.op = op  # Only global input keys do not have an operator
+        self.source_keys = source_keys  # Global source keys
+        self.target_keys = target_keys  # Global target keys
 
     @property
     def local_source_keys(self) -> list[str]:
@@ -70,9 +74,6 @@ class GConnection:
             return []
 
         return list(self.op.input_keys)
-
-    def __hash__(self) -> int:
-        return hash(id(self))
 
 
 class FlatGraph(GenericDataType[DataType]):
@@ -204,7 +205,7 @@ class FlatGraph(GenericDataType[DataType]):
         if model.random_keys:
             self.random_keys |= {keys[key] for key in model.random_keys}
 
-        # Create output connection of the new Node.
+        # Create output connection of the new Connection.
         out_conn = GConnection(output_key, model, [], [])
         self.model_table[model] = out_conn
         self._all_target_keys.add(output_key)
@@ -282,7 +283,7 @@ class FlatGraph(GenericDataType[DataType]):
 
         return target_keys
 
-    def prune_duplicate_nodes(
+    def prune_duplicate_connections(
         self,
         data: dict[str, IOHyperEdge],
         constant_keys: Mapping[str, DataType | MainValueType],
@@ -358,8 +359,8 @@ class FlatGraph(GenericDataType[DataType]):
                 # Match shapes
                 updates |= remained_data.match(pruned_data)
 
-                # Finally prune the node
-                self._prune_node(conn, source_conn)
+                # Finally prune the connection
+                self._prune_connection(conn, source_conn)
 
         self._update_topological_order()
 
@@ -422,10 +423,10 @@ class FlatGraph(GenericDataType[DataType]):
         self.unique_model_table[final_model_id] = conn
         return None
 
-    def _prune_node(self, conn: GConnection, source_conn: GConnection) -> None:
+    def _prune_connection(self, conn: GConnection, source_conn: GConnection) -> None:
         self._collapse_model_keys(conn.key, source_conn.key)
 
-        # Update target keys of node connections
+        # Update target keys of connections
         for target_key in conn.target_keys:
             if target_key not in source_conn.target_keys:
                 source_conn.target_keys.append(target_key)
