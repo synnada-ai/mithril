@@ -23,6 +23,7 @@ import mithril as ml
 from ...common import BiMap, PythonGenConfig
 from ...types import DataType, GenericDataType
 from ...utils.func_utils import is_make_array_required, prepare_function_args
+from ...utils.utils import OrderedSet
 from ..common import (
     TBD,
     AllValueType,
@@ -98,7 +99,7 @@ class FlatGraph(GenericDataType[DataType]):
         self._all_source_keys: set[str] = set()
         self._all_target_keys: set[str] = set(output_keys)
 
-        self._topological_order: list[str] = []
+        self._topological_order: OrderedSet[str] = OrderedSet()
         self._input_keys = input_keys
         self.random_keys: set[str] = set()
 
@@ -168,7 +169,7 @@ class FlatGraph(GenericDataType[DataType]):
         return self.data_store.random_seeds
 
     @property
-    def topological_order(self) -> list[str]:
+    def topological_order(self) -> OrderedSet[str]:
         return self._topological_order
 
     @property
@@ -182,6 +183,9 @@ class FlatGraph(GenericDataType[DataType]):
     @property
     def all_models(self) -> list[Operator]:
         return [self.get_model(key) for key in self.topological_order]
+
+    def is_key_static(self, key: str) -> bool:
+        return key in self.runtime_static_keys or key in self.data_store.data_values
 
     def get_model(self, key: str) -> Operator:
         conn = self.connections.get(key, None)
@@ -226,7 +230,7 @@ class FlatGraph(GenericDataType[DataType]):
             conn.target_keys.append(out_conn.key)
             self._all_source_keys.add(conn.key)
 
-        self._topological_order.append(out_conn.key)
+        self._topological_order.add(out_conn.key)
 
     def _collapse_model_keys(self, output_key: str, new_reference_key: str) -> None:
         # If a model removed, the models that uses the output of the removed model
@@ -247,11 +251,9 @@ class FlatGraph(GenericDataType[DataType]):
         return True
 
     def _update_topological_order(self) -> None:
-        self._topological_order = [
-            key
-            for key in self._topological_order
-            if key in self.connections and self.connections[key].op is not None
-        ]
+        for key in list(self._topological_order):
+            if key not in self.connections or self.connections[key].op is None:
+                self._topological_order.remove(key)
 
     def get_connection(self, key: str) -> GConnection | None:
         return self.connections.get(key)
@@ -495,29 +497,30 @@ class FlatGraph(GenericDataType[DataType]):
         if from_source:
             forward_key_fn = self.get_target_keys
             backward_key_fn = self.get_source_keys
-            all_keys = self.all_source_keys
+            if key not in self.all_source_keys:
+                return
         else:
             forward_key_fn = self.get_source_keys
             backward_key_fn = self.get_target_keys
 
-            all_keys = self.all_target_keys | self.output_dict.keys()
+            if key not in self.all_target_keys and key not in self.output_dict:
+                return
 
-        if key in all_keys:
-            for value in forward_key_fn(key, include_outputs=True):
-                if value not in keys:
-                    value_mapping = backward_key_fn(value, include_outputs=True)
-                    if set(value_mapping).issubset(keys) and (
-                        value not in self.output_keys
-                    ):
-                        keys.add(value)
-                        queue.add(value)
+        for value in forward_key_fn(key, include_outputs=True):
+            if value not in keys:
+                value_mapping = backward_key_fn(value, include_outputs=True)
+                if set(value_mapping).issubset(keys) and (
+                    value not in self.output_keys
+                ):
+                    keys.add(value)
+                    queue.add(value)
 
     def infer_static_keys(self) -> Updates:
         """Infers the static keys and calculates
         the static values during the inference.
         """
-        statics = self.data_store.data_values
-        queue = set(statics.keys())
+        static_keys = set(self.data_store.data_values.keys())
+        queue = set(static_keys)
         updates = Updates()
         while queue:
             key = queue.pop()
@@ -526,13 +529,13 @@ class FlatGraph(GenericDataType[DataType]):
 
             for value in self.get_target_keys(key):
                 # Value is already in statics or unused keys, then skip.
-                if value in (statics.keys() | self.unused_keys):
+                if value in static_keys or value in self.unused_keys:
                     continue
 
                 value_mapping = self.get_source_keys(value)
 
                 # To infer a model, all of its input keys should be in statics.
-                if not set(value_mapping).issubset(statics.keys()):
+                if not set(value_mapping).issubset(static_keys):
                     continue
 
                 model = self.get_model(value)
@@ -595,6 +598,7 @@ class FlatGraph(GenericDataType[DataType]):
                         static_value = self.backend.array(static_value)
 
                 _queue, _updates = self.add_static_data(value, static_value)
+                static_keys = set(self.data_store.data_values.keys())
                 queue |= _queue
                 updates |= _updates
         return updates
@@ -802,9 +806,9 @@ class FlatGraph(GenericDataType[DataType]):
                 self.backend.is_manualgrad
                 and key.endswith("_cache")
                 and key not in self.input_keys
-            ) or (key in self.input_keys and value.is_valued):
+            ) or (key in self._input_keys and value.is_valued):
                 self.data_store._set_data_value(key, value)
-            elif key in self.input_keys:
+            elif key in self._input_keys:
                 self.data_store._runtime_static_keys.add(key)
             else:
                 if value.is_valued:
