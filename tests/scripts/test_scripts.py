@@ -1985,7 +1985,7 @@ def test_static_anlaysis():
 
     comp_model = mithril.compile(model=model, backend=NumpyBackend())
 
-    assert add1 not in comp_model.flat_graph.nodes
+    assert add1 not in comp_model.flat_graph.model_table
 
 
 def test_static_anlaysis_1():
@@ -2007,7 +2007,7 @@ def test_static_anlaysis_1():
         inference=True,
     )
 
-    assert add1 not in comp_model.flat_graph.nodes
+    assert add1 not in comp_model.flat_graph.model_table
 
 
 def test_static_anlaysis_2():
@@ -2032,8 +2032,8 @@ def test_static_anlaysis_2():
     )
 
     assert (
-        sum1 not in comp_model.flat_graph.nodes
-        and add1 not in comp_model.flat_graph.nodes
+        sum1 not in comp_model.flat_graph.model_table
+        and add1 not in comp_model.flat_graph.model_table
     )
 
 
@@ -2057,7 +2057,13 @@ def test_static_anlaysis_3():
 
     models = {add1, add2, sum1, sub1, mul1, mat1}
     _models = {model.submodel for model in models}
-    assert (_models - comp_model.flat_graph.nodes.keys()) == {mat1.submodel}
+    assert (
+        _models
+        - {
+            comp_model.flat_graph.connections[key].op
+            for key in comp_model.flat_graph.connections
+        }
+    ) == {mat1.submodel}
 
 
 def test_prune_1():
@@ -2074,7 +2080,7 @@ def test_prune_1():
     m |= Buffer()(input=add3.output, output=IOKey(name="out_3"))
     m |= Buffer()(input=add4.output, output=IOKey(name="out_4"))
 
-    compiled_model = compile(m, NumpyBackend())
+    compiled_model = compile(m, NumpyBackend(), inference=True)
     expected_connections: dict[str, list[str | set[str]]] = {
         "out_1": ["add", {"input", "input2", "out_1_cache"}],
         "output_0": ["add", {"out_1", "input3", "output_0_cache"}],
@@ -6973,7 +6979,7 @@ def test_extending_operator():
 
 def test_extending_operator_model():
     model1 = Buffer()
-    with pytest.raises(RuntimeError) as err:
+    with pytest.raises(AttributeError) as err:
         model1 += Buffer()
 
-    assert str(err.value) == "Primitive models cannot have submodels."
+    assert str(err.value) == "Model is frozen and can not be extended!"

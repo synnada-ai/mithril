@@ -1647,7 +1647,10 @@
     "test_one_to_many_rnn": {
         "model": {
             "name": "OneToMany",
-            "differentiability_info": {"input": true, "initial_hidden": true},
+            "assigned_differentiabilities": [
+                ["input", true], 
+                ["initial_hidden", true]
+            ],
             "regular_args": {
                 "max_sequence_length": 4,
                 "cell_type": "RNNCell"
@@ -2086,11 +2089,13 @@
     "test_polynomial_kernel": {
         "model": {
             "name": "PolynomialKernel",
-            "differentiability_info": {"input1": true, "input2": true},
-            "types": {
-                "poly_coef": "tensor",
-                "degree": "tensor"
-            }
+            "assigned_differentiabilities": [
+                ["input1", true], 
+                ["input2", true]
+            ],
+            "assigned_types": [
+                ["poly_coef", "tensor"]
+            ]
         },
         "static_input_info": {
             "poly_coef": {
@@ -2202,6 +2207,16 @@
             "randomized_args": {
                 "N": [2, 12],
                 "M": [3, 40]
+            }
+        },
+        "inference": true,
+        "iterations": 5
+    },
+    "test_ones": {
+        "model": {
+            "name": "Ones",
+            "randomized_args": {
+                "shape": [[2, 12], [3, 40]]
             }
         },
         "inference": true,

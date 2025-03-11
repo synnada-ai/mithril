@@ -169,6 +169,7 @@ __all__ = [
     "dtype",
     "zeros_like",
     "avg_pool2d",
+    "ones",
 ]
 
 
@@ -667,7 +668,7 @@ def scaled_dot_product_attention(
         )
 
     L, S = query.shape[-2], key.shape[-2]
-    scale_factor = 1 / np.sqrt(query.shape[-1]) if scale is None else scale
+    scale_factor = 1 / math.sqrt(query.shape[-1]) if scale is None else scale
     write_into_cache(cache, "scale_factor", scale_factor)
     attn_bias = np.zeros((L, S), dtype=query.dtype)
     if is_causal:
@@ -1319,6 +1320,17 @@ def zeros_like(
     return np.zeros_like(input)
 
 
+def ones(
+    shape: tuple[int, ...],
+    *,
+    dtype: np.dtype[Any] | None = None,
+    default_dtype: str,
+    cache: CacheType | None = None,
+) -> np.ndarray[Any, Any]:
+    dtype = dtype_map[default_dtype] if dtype is None else dtype
+    return np.ones(shape, dtype=dtype)
+
+
 def atleast_1d(
     input: np.ndarray[Any, Any], cache: CacheType | None = None
 ) -> np.ndarray[Any, Any]:
@@ -1698,6 +1710,7 @@ def cartesian_diff(
 array_creation_funcs = [
     "arange",
     "randn",
+    "ones",
     "to_tensor",
     "make_array",
     "eye",

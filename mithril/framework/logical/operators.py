@@ -180,7 +180,7 @@ class ToTupleOp(Operator):
             fn=to_tuple_constraints,
             keys=[Operator.output_key] + [key for key in self.input_keys],
         )
-        self.set_cin()
+        self._set_cin()
 
 
 class PowerOp(Operator):
@@ -318,7 +318,7 @@ class AddOp(Operator):
             types=[UpdateType.TYPE],
             dependencies={edge_constraint},
         )
-        self.set_cin("left", "right", safe=False)
+        self._set_cin("left", "right", safe=False)
 
 
 class SubtractOp(Operator):
@@ -427,7 +427,7 @@ class MultiplyOp(Operator):
             types=[UpdateType.TYPE],
             dependencies={edge_constraint},
         )
-        self.set_cin("left", "right", safe=False)
+        self._set_cin("left", "right", safe=False)
 
 
 class MinimumOp(Operator):
@@ -468,7 +468,7 @@ class MinimumOp(Operator):
             keys=[Operator.output_key, "left", "right"],
             types=[UpdateType.TYPE],
         )
-        self.set_cin("left", "right", safe=False)
+        self._set_cin("left", "right", safe=False)
 
 
 class MaximumOp(Operator):
@@ -509,7 +509,7 @@ class MaximumOp(Operator):
             keys=[Operator.output_key, "left", "right"],
             types=[UpdateType.TYPE],
         )
-        self.set_cin("left", "right", safe=False)
+        self._set_cin("left", "right", safe=False)
 
 
 class DivideOp(Operator):
@@ -868,7 +868,7 @@ class ToListOp(Operator):
             fn=to_list_constraints,
             keys=[Operator.output_key] + [key for key in self.input_keys],
         )
-        self.set_cin()
+        self._set_cin()
 
 
 class TensorToListOp(Operator):
@@ -1315,7 +1315,7 @@ class EqualOp(RelationalOperatorsOp):
         super().__init__(
             formula_key="equal", name=name, operator=operator.eq, left=left, right=right
         )
-        self.set_cin("left", "right", safe=False)
+        self._set_cin("left", "right", safe=False)
 
 
 class NotEqualOp(RelationalOperatorsOp):
@@ -1335,7 +1335,7 @@ class NotEqualOp(RelationalOperatorsOp):
             left=left,
             right=right,
         )
-        self.set_cin("left", "right", safe=False)
+        self._set_cin("left", "right", safe=False)
 
 
 class LessEqualOp(RelationalOperatorsOp):
@@ -1445,7 +1445,7 @@ class BitwiseOperatorsOp(Operator):
             keys=[Operator.output_key, "left", "right"],
             dependencies={edge_constraint},
         )
-        self.set_cin("left", "right", safe=False)
+        self._set_cin("left", "right", safe=False)
 
 
 class LogicalAndOp(BitwiseOperatorsOp):
@@ -1701,7 +1701,7 @@ class SliceOp(Operator):
         self._add_constraint(
             fn=slice_constraints, keys=["output", "start", "stop", "step"]
         )
-        self.set_cin()
+        self._set_cin()
 
 
 class IndexerOp(Operator):
