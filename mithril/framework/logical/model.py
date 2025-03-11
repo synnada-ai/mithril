@@ -112,6 +112,7 @@ class TemplateBase:
         | tuple[slice | int | None | EllipsisType | TemplateBase, ...]
         | IOKey
         | TemplateBase
+        | Tensor[Any]
         | None,
     ) -> ExtendTemplate:
         match key:
@@ -123,7 +124,7 @@ class TemplateBase:
                     connections=[self, slice_output], model=IndexerOp
                 )
 
-            case int() | EllipsisType() | None:
+            case int() | EllipsisType() | None | Tensor():
                 output = ExtendTemplate(connections=[self, key], model=IndexerOp)
 
             case tuple():

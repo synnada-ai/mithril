@@ -3552,3 +3552,16 @@ def is_type_adjustment_required(
     rule2 = issubclass(float, right._value.type) and issubclass(int, left._value.type)
 
     return rule1 | rule2
+
+
+def is_index_type(
+    index: Any,
+) -> TypeGuard[tuple[int | slice | EllipsisType | Tensor[int] | None, ...]]:
+    return isinstance(index, tuple) and all(
+        isinstance(val, int | slice | EllipsisType | None)
+        or (
+            isinstance(val, Tensor)
+            and find_intersection_type(val.type, int) is not None
+        )
+        for val in index
+    )

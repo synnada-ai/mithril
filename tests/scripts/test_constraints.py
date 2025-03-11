@@ -208,7 +208,7 @@ def assert_value_results(
         if isinstance(
             value, int | float | bool | tuple | list | str | ToBeDetermined | slice
         ):
-            assert data[key].value == value
+            assert data[key]._value == value
         else:
             # If value is a tensor of any supported backend.
             assert data[key].is_tensor
@@ -6543,6 +6543,208 @@ def test_indexer_constraints_25():
         True,
         {"output"},
         given_data,
+    )
+
+
+def test_indexer_constraints_26():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": ["u1", "u2", "u3"],
+        "input": [7, 8, 9],
+    }
+    final_shapes = {"output": [2, 2, 9], "index": ([2, 1], [1, 2]), "input": [7, 8, 9]}
+    # Create input tensors.
+    node1 = (repr1 := ShapeRepr([Uniadic(2), Uniadic(1)])).node
+    tensor1: Tensor[int | float | bool] = Tensor(
+        shape=node1, differentiable=False, type=int
+    )
+    tensor1._temp_shape = repr1
+
+    node2 = (repr2 := ShapeRepr([Uniadic(1), Uniadic(2)])).node
+    tensor2: Tensor[int | float | bool] = Tensor(
+        shape=node2, differentiable=False, type=int
+    )
+    tensor2._temp_shape = repr2
+    given_data = {
+        "index": IOHyperEdge(value=(tensor1, tensor2)),
+    }
+    final_values = {"index": (tensor1, tensor2)}
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        indexer_constraints,
+        True,
+        {"output"},
+        given_data,
+        final_values,
+        variadic_fn=True,
+    )
+
+
+def test_indexer_constraints_27():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [("Var1", ...)],
+        "input": [7, 8, 9],
+    }
+    final_shapes = {
+        "output": [2, 2, 1, 9],
+        "index": ([2, 1], [1, 2]),
+        "input": [7, 8, 9],
+    }
+    # Create input tensors.
+    node1 = (repr1 := ShapeRepr([Uniadic(2), Uniadic(1)])).node
+    tensor1: Tensor[int | float | bool] = Tensor(
+        shape=node1, differentiable=False, type=int
+    )
+    tensor1._temp_shape = repr1
+
+    node2 = (repr2 := ShapeRepr([Uniadic(1), Uniadic(2)])).node
+    tensor2: Tensor[int | float | bool] = Tensor(
+        shape=node2, differentiable=False, type=int
+    )
+    tensor2._temp_shape = repr2
+    given_data = {
+        "index": IOHyperEdge(value=(tensor1, None, tensor2)),
+    }
+    final_values = {"index": (tensor1, None, tensor2)}
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        indexer_constraints,
+        True,
+        {"output"},
+        given_data,
+        final_values,
+        variadic_fn=True,
+    )
+
+
+def test_indexer_constraints_28():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [("Var1", ...)],
+        "input": ["u1", "u2", "u3"],
+    }
+    final_shapes = {
+        "output": [2, 2, "u1", 1],
+        "index": ([2, 1], [1, 2]),
+        "input": ["u1", "u2", "u3"],
+    }
+    # Create input tensors.
+    node1 = (repr1 := ShapeRepr([Uniadic(2), Uniadic(1)])).node
+    tensor1: Tensor[int | float | bool] = Tensor(
+        shape=node1, differentiable=False, type=int
+    )
+    tensor1._temp_shape = repr1
+
+    node2 = (repr2 := ShapeRepr([Uniadic(1), Uniadic(2)])).node
+    tensor2: Tensor[int | float | bool] = Tensor(
+        shape=node2, differentiable=False, type=int
+    )
+    tensor2._temp_shape = repr2
+    given_data = {
+        "index": IOHyperEdge(value=(slice(None, None, None), tensor1, None, tensor2)),
+    }
+    final_values = {"index": (slice(None, None, None), tensor1, None, tensor2)}
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        indexer_constraints,
+        True,
+        {"output"},
+        given_data,
+        final_values,
+        variadic_fn=True,
+    )
+
+
+def test_indexer_constraints_29():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [("Var1", ...)],
+        "input": ["u1", "u2", "u3", ("Var2", ...), "u3", "u4"],
+    }
+    final_shapes = {
+        "output": [2, 2, "(V1, ...)", 1],
+        "index": ([2, 1], [1, 2]),
+        "input": ["u1", "u2", "u3", "(V1, ...)", "u3", "u4"],
+    }
+    # Create input tensors.
+    node1 = (repr1 := ShapeRepr([Uniadic(2), Uniadic(1)])).node
+    tensor1: Tensor[int | float | bool] = Tensor(
+        shape=node1, differentiable=False, type=int
+    )
+    tensor1._temp_shape = repr1
+
+    node2 = (repr2 := ShapeRepr([Uniadic(1), Uniadic(2)])).node
+    tensor2: Tensor[int | float | bool] = Tensor(
+        shape=node2, differentiable=False, type=int
+    )
+    tensor2._temp_shape = repr2
+    given_data = {
+        "index": IOHyperEdge(value=(3, 4, 5, ..., tensor1, None, tensor2)),
+    }
+    final_values = {"index": (3, 4, 5, ..., tensor1, None, tensor2)}
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        indexer_constraints,
+        True,
+        {"output"},
+        given_data,
+        final_values,
+        variadic_fn=True,
+    )
+
+
+def test_indexer_constraints_30():
+    shapes: dict[str, list[int | str | tuple]] = {
+        "output": [("Var1", ...)],
+        "input": ["u1", "u2", "u3", ("Var2", ...), "u3", "u4"],
+    }
+    final_shapes = {
+        "output": [3, 3, 3, "(V1, ...)", "u3", "u4", 1],
+        "index": ([3, 1, 1], [1, 3, 1], [1, 1, 3]),
+        "input": ["u1", "u2", "u3", "(V1, ...)", "u3", "u4"],
+    }
+    # Create input tensors.
+    node1 = (repr1 := ShapeRepr([Uniadic(3), Uniadic(1), Uniadic(1)])).node
+    tensor1: Tensor[int | float | bool] = Tensor(
+        shape=node1, differentiable=False, type=int
+    )
+    tensor1._temp_shape = repr1
+
+    node2 = (repr2 := ShapeRepr([Uniadic(1), Uniadic(3), Uniadic(1)])).node
+    tensor2: Tensor[int | float | bool] = Tensor(
+        shape=node2, differentiable=False, type=int
+    )
+    tensor2._temp_shape = repr2
+
+    node3 = (repr3 := ShapeRepr([Uniadic(1), Uniadic(1), Uniadic(3)])).node
+    tensor3: Tensor[int | float | bool] = Tensor(
+        shape=node3, differentiable=False, type=int
+    )
+    tensor3._temp_shape = repr3
+    given_data = {
+        "index": IOHyperEdge(value=(tensor1, tensor2, tensor3, ..., None)),
+    }
+    final_values = {"index": (tensor1, tensor2, tensor3, ..., None)}
+    assert_constraint_results(
+        shapes,
+        {},
+        final_shapes,
+        {},
+        indexer_constraints,
+        True,
+        {"output", tensor2},  # type: ignore
+        given_data,
+        final_values,
+        variadic_fn=True,
     )
 
 
