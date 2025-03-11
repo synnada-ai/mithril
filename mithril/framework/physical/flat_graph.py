@@ -382,8 +382,8 @@ class FlatGraph(GenericDataType[DataType]):
 
             # Extract value from data or static_keys
             value: DataType | AllValueType
-            if key in data and data[key].is_valued:
-                value = data[key].value
+            if (_data := data.get(key)) is not None and _data.is_valued:
+                value = _data.value
             else:
                 value = constant_keys.get(key, TBD)
 
