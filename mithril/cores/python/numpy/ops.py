@@ -169,6 +169,7 @@ __all__ = [
     "dtype",
     "zeros_like",
     "avg_pool2d",
+    "ones",
 ]
 
 
@@ -1319,6 +1320,17 @@ def zeros_like(
     return np.zeros_like(input)
 
 
+def ones(
+    shape: tuple[int, ...],
+    *,
+    dtype: np.dtype[Any] | None = None,
+    default_dtype: str,
+    cache: CacheType | None = None,
+) -> np.ndarray[Any, Any]:
+    dtype = dtype_map[default_dtype] if dtype is None else dtype
+    return np.ones(shape, dtype=dtype)
+
+
 def atleast_1d(
     input: np.ndarray[Any, Any], cache: CacheType | None = None
 ) -> np.ndarray[Any, Any]:
@@ -1698,6 +1710,7 @@ def cartesian_diff(
 array_creation_funcs = [
     "arange",
     "randn",
+    "ones",
     "to_tensor",
     "make_array",
     "eye",

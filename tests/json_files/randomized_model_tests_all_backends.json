@@ -2212,6 +2212,16 @@
         "inference": true,
         "iterations": 5
     },
+    "test_ones": {
+        "model": {
+            "name": "Ones",
+            "randomized_args": {
+                "shape": [[2, 12], [3, 40]]
+            }
+        },
+        "inference": true,
+        "iterations": 5
+    },
     "test_eye_complement": {
         "model": {
             "name": "EyeComplement",
