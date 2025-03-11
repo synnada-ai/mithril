@@ -3086,10 +3086,11 @@ class ToTensor(OperatorModel):
     def __init__(
         self,
         input: TensorValueType | ToBeDetermined = TBD,
-        dtype: types.Dtype | None = None,
+        dtype: types.Dtype | ToBeDetermined | None = None,
         *,
         name: str | None = None,
     ) -> None:
+        self.factory_args = {"dtype": dtype}
         super().__init__(name=name, model=ToTensorOp(input=input, dtype=dtype))
 
     def __call__(  # type: ignore[override]
@@ -3336,6 +3337,7 @@ class Sqrt(OperatorModel):
         name: str | None = None,
     ) -> None:
         self.robust = robust
+        self.factory_args = {"robust": robust}
         m = SqrtOp(robust=robust, input=input, cutoff=cutoff)
         super().__init__(name=name, model=m)
 

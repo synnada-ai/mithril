@@ -522,11 +522,11 @@
                     },
                     "connections": {
                         "m1": {
-                            "left": {"key": {"name": "input1", "type": "tensor"}},
+                            "left": {"key": {"name": "input1", "type": {"Tensor": ["int", "float", "bool"]}}},
                             "right": "input1"
                         },
                         "m2": {
-                            "left": {"key": {"name": "input2", "type": "tensor"}},
+                            "left": {"key": {"name": "input2", "type": {"Tensor": ["int", "float", "bool"]}}},
                             "right": {"key": {"connect": [["m1", "output"]]}},
                             "output": {"key": {
                                 "name": "output",
@@ -544,8 +544,8 @@
             },
             "connections" : {
                 "m1": {
-                    "left": {"key": {"name": "input1", "type": "tensor"}},
-                    "right": {"key": {"name": "input2", "type": "tensor"}}
+                    "left": {"key": {"name": "input1", "type": {"Tensor": ["int", "float", "bool"]}}},
+                    "right": {"key": {"name": "input2", "type": {"Tensor": ["int", "float", "bool"]}}}
                 },
                 "m2": {
                     "left": {"key": {"connect": [["m1", "output"]]}},
@@ -560,7 +560,7 @@
                 },
                 "m4": {
                     "left": "input2",
-                    "right": {"key": {"name": "input3", "type": "tensor"}}
+                    "right": {"key": {"name": "input3", "type": {"Tensor": ["int", "float", "bool"]}}}
                 },
                 "m5": {
                     "input": {"key": {"connect": [["m4", "output"]]}},
@@ -601,11 +601,11 @@
                     },
                     "connections": {
                         "m1": {
-                            "left": {"key": {"name": "input1", "type": "tensor"}},
+                            "left": {"key": {"name": "input1", "type": {"Tensor": ["int", "float", "bool"]}}},
                             "right": "input1"
                         },
                         "m2": {
-                            "left": {"key": {"name": "input2", "type": "tensor"}},
+                            "left": {"key": {"name": "input2", "type": {"Tensor": ["int", "float", "bool"]}}},
                             "right": {"key": {"connect": [["m1", "output"]]}},
                             "output": {"key": {
                                 "name": "output",
@@ -623,8 +623,8 @@
             },
             "connections" : {
                 "m1": {
-                    "left": {"key": {"name": "input1", "type": "tensor"}},
-                    "right": {"key": {"name": "input2", "type": "tensor"}}
+                    "left": {"key": {"name": "input1", "type": {"Tensor": ["int", "float", "bool"]}}},
+                    "right": {"key": {"name": "input2", "type": {"Tensor": ["int", "float", "bool"]}}}
                 },
                 "m2": {
                     "left": {"key": {"connect": [["m1", "output"]]}},
@@ -644,7 +644,7 @@
                 },
                 "m4": {
                     "left": "input2",
-                    "right": {"key": {"name": "input3", "type": "tensor"}}
+                    "right": {"key": {"name": "input3", "type": {"Tensor": ["int", "float", "bool"]}}}
                 },
                 "m5": {
                     "input": {"key": {"connect": [["m4", "output"]]}},
@@ -686,11 +686,11 @@
                     },
                     "connections": {
                         "m1": {
-                            "left": {"key": {"name": "input1", "type": "tensor"}},
+                            "left": {"key": {"name": "input1", "type": {"Tensor": ["int", "float", "bool"]}}},
                             "right": "input1"
                         },
                         "m2": {
-                            "left": {"key": {"name": "input2", "type": "tensor"}},
+                            "left": {"key": {"name": "input2", "type": {"Tensor": ["int", "float", "bool"]}}},
                             "right": {"key": {"connect": [["m1", "output"]]}},
                             "output": {"key": {
                                 "name": "output",
@@ -708,8 +708,8 @@
             },
             "connections" : {
                 "m1": {
-                    "left": {"key": {"name": "input1", "type": "tensor"}},
-                    "right": {"key": {"name": "input2", "type": "tensor"}}
+                    "left": {"key": {"name": "input1", "type": {"Tensor": ["int", "float", "bool"]}}},
+                    "right": {"key": {"name": "input2", "type": {"Tensor": ["int", "float", "bool"]}}}
                 },
                 "m2": {
                     "left": {"key": {"connect": [["m1", "output"]]}},
@@ -725,7 +725,7 @@
                 },
                 "m4": {
                     "left": "input2",
-                    "right": {"key": {"name": "input3", "type": "tensor"}}
+                    "right": {"key": {"name": "input3", "type": {"Tensor": ["int", "float", "bool"]}}}
                 },
                 "m5": {
                     "input": {"key": {"connect": [["m4", "output"]]}},
