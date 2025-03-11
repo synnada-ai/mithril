@@ -2691,7 +2691,7 @@ class Ones(PrimitiveModel):
         super().__init__(
             formula_key="ones",
             name=name,
-            output=BaseKey(shape=[("Var", ...)], type=Tensor),
+            output=BaseKey(type=Tensor),
             shape=BaseKey(type=tuple[int, ...] | list[int], value=shape),
             dtype=BaseKey(type=types.Dtype | None, value=dtype),
         )
