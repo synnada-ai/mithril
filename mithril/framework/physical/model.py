@@ -124,7 +124,7 @@ class PhysicalModel(GenericDataType[DataType]):
 
         # NOTE: Reconsider updating logical dag in order.
         self._input_keys: set[str] = {
-            flat_model.external_mapping[key] for key in model.input_keys
+            self.external_key_mapping[key] for key in model.input_keys
         }
 
         # Add canonical output mapping to key_mappings if necessary

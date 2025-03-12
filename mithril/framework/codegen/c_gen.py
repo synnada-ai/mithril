@@ -454,7 +454,7 @@ class CGen(CodeGen[PyArray]):
             )
         ]
 
-        for output_key in reversed(self.pm.flat_graph.topological_order):
+        for output_key in reversed(list(self.pm.flat_graph.topological_order)):
             # Staticly infered and unused model will not be added
             if not self._has_grad(output_key):
                 continue
