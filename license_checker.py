@@ -14,6 +14,14 @@
 
 
 import os
+import sys
+
+# Take the exclude argument with argparse
+exclude = ""
+for arg in sys.argv:
+    if arg.startswith("--exclude="):
+        exclude = arg.split("=")[1]
+        break
 
 license_py = """# Copyright 2022 Synnada, Inc.
 #
@@ -45,8 +53,9 @@ license_ch = """// Copyright 2022 Synnada, Inc.
 // limitations under the License.
 """
 current_directory = os.getcwd()
-# Walk through the directory recursively
 
+
+# Walk through the directory recursively
 for root, _, files in os.walk(current_directory):
     if os.path.basename(root) == "tmp":
         continue
@@ -54,10 +63,17 @@ for root, _, files in os.walk(current_directory):
         if filename.endswith((".py", ".c", ".h")):  # Check for .py .h and .c files
             file_path = os.path.join(root, filename)
 
+            if exclude in file_path:
+                continue
+
             # Check if it's a file
             if os.path.isfile(file_path):
                 with open(file_path, encoding="utf-8", errors="ignore") as file:
-                    file_license = "".join(next(file) for _ in range(13))
+                    lines = file.readlines()
+                    if len(lines) < 13:
+                        raise Exception(f"No license found in {file_path}")
+
+                    file_license = "".join(lines[:13])
 
                 license = license_py if filename.endswith(".py") else license_ch
 

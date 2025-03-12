@@ -17,7 +17,11 @@ from copy import deepcopy
 from mithril import Backend, Constant, compile, epsilon_table
 from mithril.framework.common import IOHyperEdge, Tensor
 from mithril.models import BaseModel, Model, Operator, TrainModel
-from mithril.utils.dict_conversions import dict_to_model, model_to_dict
+from mithril.utils.dict_conversions import (
+    dict_to_model,
+    extract_model_key_index,
+    model_to_dict,
+)
 from tests.scripts.test_utils import (
     assert_all_conn_key_are_same,
     convert_to_array,
@@ -59,17 +63,15 @@ def evaluate_case(
         else:
             is_list = static_keys.get("is_list", False)
             static_keys[key] = convert_to_array(backend, value, is_list)
+
     # Set logical tensor values for trainable keys if and only if
-    # model has any output keys.
-    if model.output_keys:
+    # model has list type inputs and has any output keys.
+    if is_inputs_list and model.output_keys:
         values: dict[str, Tensor[float] | list[Tensor[float]]] = {}
         for key, value in reference_gradients.items():
-            if is_inputs_list:
-                values[key] = [
-                    Tensor[float](differentiable=True) for _ in range(len(value))
-                ]
-            else:
-                values[key] = Tensor[float](differentiable=True)
+            values[key] = [
+                Tensor[float](differentiable=True) for _ in range(len(value))
+            ]
         model.set_values(**values)
 
     models.append(model)
@@ -212,19 +214,44 @@ def assert_models_equal(model1: BaseModel, model2: BaseModel):
     model1_keys = model1.generate_keys()
     model2_keys = model2.generate_keys()
 
-    # if model1.cin is not None and model2.cin is not None:
-    #     assert model1_keys.get(
-    #         key := model1.cin.key, key
-    #     ) == model2_keys.get(key := model2.cin.key, key)
-    #     assert model1_keys.get(
-    #         key := model1.cout.key, key
-    #     ) == model2_keys.get(key := model2.cout.key, key)
-    assert {model1_keys.get(con.key, con.key) for con in model2.conns.cins} == {
-        model2_keys.get(con.key, con.key) for con in model2.conns.cins
-    }
-    assert {model1_keys.get(con.key, con.key) for con in model2.conns.couts} == {
-        model2_keys.get(con.key, con.key) for con in model2.conns.couts
-    }
+    # For exact match, we need to compare the keys together with
+    # model and key_index of corresponding key for the corresponding model.
+    # Model info is converted also to index, which is the index of the model
+    # in the DAG, if extracted model is not the model itself. If the extracted
+    # model is the model itself, then the index is "self".
+
+    # Canonical input keys tests.
+    model1_cins = set()
+    model2_cins = set()
+    for conn in model1.conns.cins:
+        model, key_index = extract_model_key_index(model1, conn)
+        model_index = (
+            list(model1.dag.keys()).index(model) if model != model1 else "self"
+        )
+        model1_cins.add((model_index, key_index))
+    for conn in model2.conns.cins:
+        model, key_index = extract_model_key_index(model2, conn)
+        model_index = (
+            list(model2.dag.keys()).index(model) if model != model2 else "self"
+        )
+        model2_cins.add((model_index, key_index))
+    assert model1_cins == model2_cins
+    # Canonical output keys tests.
+    model1_couts = set()
+    model2_couts = set()
+    for conn in model1.conns.couts:
+        model, key_index = extract_model_key_index(model1, conn)
+        model_index = (
+            list(model1.dag.keys()).index(model) if model != model1 else "self"
+        )
+        model1_couts.add((model_index, key_index))
+    for conn in model2.conns.couts:
+        model, key_index = extract_model_key_index(model2, conn)
+        model_index = (
+            list(model2.dag.keys()).index(model) if model != model2 else "self"
+        )
+        model2_couts.add((model_index, key_index))
+    assert model1_couts == model2_couts
 
     # NOTE: Below assertions will be uncommented after converting
     # model's dag from topological order to insertion order.

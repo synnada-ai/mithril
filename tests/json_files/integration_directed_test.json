@@ -2402,10 +2402,9 @@
             "args": {
                 "kernel": {
                     "name": "PolynomialKernel", 
-                    "types": {
-                        "poly_coef": "tensor",
-                        "degree": "tensor"
-                    }
+                    "assigned_types": [
+                        ["poly_coef", {"Tensor": ["int", "float", "bool"]}]
+                    ]
                 }
             }
         },
@@ -2580,7 +2579,10 @@
     "test_distance_matrix_1": {
         "model": {
             "name": "EncoderDistanceMatrix",
-            "differentiability_info": {"input1": true, "input2": true},
+            "assigned_differentiabilities": [
+                ["input1", true],
+                ["input2", true]
+            ],
             "args": {
                 "get_final_distance": false
             }
@@ -2625,7 +2627,10 @@
     "test_distance_matrix_2": {
         "model": {
             "name": "EncoderDistanceMatrix",
-            "differentiability_info": {"input1": true, "input2": true},
+            "assigned_differentiabilities": [
+                ["input1", true],
+                ["input2", true]
+            ],
             "args": {
                 "get_final_distance": false
             }
@@ -2667,7 +2672,10 @@
     "test_distance_matrix_3": {
         "model": {
             "name": "EncoderDistanceMatrix",
-            "differentiability_info": {"input1": true, "input2": true},
+            "assigned_differentiabilities": [
+                ["input1", true],
+                ["input2", true]
+            ],
             "args": {
                 "get_final_distance": false
             }
@@ -2717,7 +2725,10 @@
             "name": "MDSCore",
             "args": {
                 "exact_distances": false
-            }
+            },
+            "assigned_differentiabilities": [
+                ["pred_distances", true]
+            ]
         },
         "static_keys": {
             "distances": [[0.0, 1.0, 4.0, 9.0],
@@ -2756,7 +2767,10 @@
             "name": "MDSCore",
             "args": {
                 "exact_distances": false
-            }
+            },
+            "assigned_differentiabilities": [
+                ["pred_distances", true]
+            ]
         },
         "static_keys": {
             "distances": [[0.0, 1.0, 4.0],
@@ -2792,7 +2806,10 @@
             "name": "MDSCore",
             "args": {
                 "exact_distances": false
-            }
+            },
+            "assigned_differentiabilities": [
+                ["pred_distances", true]
+            ]
         },
         "static_keys": {
             "distances": [[0.0, 3.0, 27.0, 48.0],
@@ -2831,7 +2848,10 @@
             "name": "MDSCore",
             "args": {
                 "exact_distances": false
-            }
+            },
+            "assigned_differentiabilities": [
+                ["pred_distances", true]
+            ]
         },
         "static_keys": {
             "distances": [[0.0, 4.0],
@@ -2864,7 +2884,10 @@
             "name": "MDSCore",
             "args": {
                 "exact_distances": false
-            }
+            },
+            "assigned_differentiabilities": [
+                ["pred_distances", true]
+            ]
         },
         "static_keys": {
             "distances": [[0.0, 4.0, 1.0],
@@ -2901,7 +2924,10 @@
             "name": "MDSCore",
             "args": {
                 "exact_distances": false
-            }
+            },
+            "assigned_differentiabilities": [
+                ["pred_distances", true]
+            ]
         },
         "static_keys": {
             "distances": [[0.0, 25.0],
@@ -2935,7 +2961,10 @@
             "name": "MDSCore",
             "args": {
                 "exact_distances": false
-            }
+            },
+            "assigned_differentiabilities": [
+                ["pred_distances", true]
+            ]
         },
         "static_keys": {
             "distances": [[0.0, 1e+32],
@@ -2969,7 +2998,10 @@
             "name": "MDSCore",
             "args": {
                 "exact_distances": false
-            }
+            },
+            "assigned_differentiabilities": [
+                ["pred_distances", true]
+            ]
         },
         "static_keys": {
             "distances": [[0.0, 1e-32],
@@ -3004,7 +3036,10 @@
             "args": {
                 "prediction_dim": 3,
                 "input_type": "points"
-            }
+            },
+            "assigned_differentiabilities": [
+                ["coords", true]
+            ]
         },
         "static_keys": {
             "input": [[1.0,1.0,0.0,2.0], [2.0,2.0,1.0,3.0]],
@@ -3037,7 +3072,10 @@
             "name": "TSNECore",
             "args": {
                 "exact_distances": false
-            }
+            },
+            "assigned_differentiabilities": [
+                ["pred_distances", true]
+            ]
         },
         "static_keys": {
             "distances": [[0.0, 1.0, 9.0], [1.0, 0.0, 4.0], [9.0, 4.0, 0.0]],
@@ -3071,7 +3109,10 @@
     },
     "test_tsne_core_2": {
         "model": {
-            "name": "TSNECore"
+            "name": "TSNECore",
+            "assigned_differentiabilities": [
+                ["pred_distances", true]
+            ]
         },
         "static_keys": {
             "distances": [[0.0, 16, 1], [16, 0, 9], [1, 9, 0]],
@@ -3105,7 +3146,10 @@
     },
     "test_tsne_core_3": {
         "model": {
-            "name": "TSNECore"
+            "name": "TSNECore",
+            "assigned_differentiabilities": [
+                ["pred_distances", true]
+            ]
         },
         "static_keys": {
             "distances": [[0.0, 16.0], [16.0, 0.0]],
@@ -3140,7 +3184,10 @@
             "args": {
                 "prediction_dim": 1,
                 "input_type": "points"
-            }
+            },
+            "assigned_differentiabilities": [
+                ["coords", true]
+            ]
         },
         "static_keys": {
             "input": [[5.0], [1.0]],
@@ -3175,7 +3222,10 @@
             "args": {
                 "prediction_dim": 1,
                 "input_type": "points"
-            }
+            },
+            "assigned_differentiabilities": [
+                ["coords", true]
+            ]
         },
         "static_keys": {
             "input": [[0.0], [1.0], [3.0]],
@@ -3209,11 +3259,11 @@
     "test_polynomial_kernel_1": {
         "model": {
             "name": "PolynomialKernel",
-            "differentiability_info": {"input2": true},
-            "types": {
-                "poly_coef": "tensor",
-                "degree": "tensor"
-            }
+            "assigned_differentiabilities": [
+                ["input2", true],
+                ["poly_coef", true],
+                ["degree", true]
+            ]
         },
         "inputs": {
             "input2": [[-1.0, 2.0], [1.0, 3.0]],
@@ -3250,11 +3300,11 @@
     "test_polynomial_kernel_2": {
         "model": {
             "name": "PolynomialKernel",
-            "differentiability_info": {"input1": true, "input2": true},
-            "types": {
-                "poly_coef": "tensor",
-                "degree": "tensor"
-            }
+            "assigned_differentiabilities": [
+                ["input1", true],
+                ["poly_coef", true],
+                ["degree", true]
+            ]
         },
         "inputs": {
             "input1": [[-1.0, 2.0, 1.0], [1.0, 3.0, 2.0], [-2, 1, -1]],

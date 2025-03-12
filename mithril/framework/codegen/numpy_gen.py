@@ -381,7 +381,7 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
                 assign = ast.AugAssign(target=target, op=ast.Add(), value=source)
                 function_body.append(assign)
 
-        for output_key in reversed(self.pm.flat_graph.topological_order):
+        for output_key in reversed(list(self.pm.flat_graph.topological_order)):
             if output_key in ignore_grad_keys:
                 continue
 

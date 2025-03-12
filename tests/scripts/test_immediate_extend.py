@@ -14,8 +14,8 @@
 
 import pytest
 
-from mithril import IOKey, JaxBackend
-from mithril.models import Model, Multiply, Add, Linear, Buffer, Transpose
+from mithril import IOKey
+from mithril.models import Add, Buffer, Linear, Model, Multiply, Transpose
 
 from .helper import assert_models_equal
 
@@ -36,15 +36,18 @@ def test_extend_error_shp_mismatch():
     input2 = IOKey("input2", shape=[3, 2])
     with pytest.raises(ValueError) as err:
         input1 * input2
-    
-    assert str(err.value) == 'Inputs shape mismatch at dimension 1. Shapes are inconsistent.'
+
+    assert (
+        str(err.value)
+        == "Inputs shape mismatch at dimension 1. Shapes are inconsistent."
+    )
 
 
 def test_extend_and_extraction():
     input1 = IOKey()
     input2 = IOKey()
     input3 = IOKey()
-    mult_output = (input1 * input2) 
+    mult_output = input1 * input2
     output = mult_output + input3
 
     model = Model()
@@ -53,11 +56,12 @@ def test_extend_and_extraction():
     assert output.model is not None
     assert_models_equal(output.model, model)
 
+
 def test_extend_and_extraction_named():
     input1 = IOKey("input1")
     input2 = IOKey("input2")
     input3 = IOKey("input3")
-    mult_output = (input1 * input2)
+    mult_output = input1 * input2
     output = mult_output + input3
 
     model = Model()
@@ -66,11 +70,12 @@ def test_extend_and_extraction_named():
     assert output.model is not None
     assert_models_equal(output.model, model)
 
+
 def test_extend_and_extraction_via_extend_api():
     input1 = IOKey("input1")
     input2 = IOKey("input2")
     input3 = IOKey("input3")
-    mult_output = (input1 * input2)
+    mult_output = input1 * input2
     model1 = Model()
     model1 |= Add()(left=mult_output, right=input3)
 
@@ -109,13 +114,28 @@ def test_extend_multiple_models():
 
 
 def test_extend_to_model_connection_nested():
-    model = Model() | Model() | Model() | (add := Add())
+    add = Add()
+    m1 = Model()
+    m1 |= add
+    m2 = Model()
+    m2 |= m1
+    m3 = Model()
+    m3 |= m2
+
     input1 = IOKey()
     output = add.output * input1
 
+    _add = Add()
+    _m1 = Model()
+    _m1 |= _add
+    _m2 = Model()
+    _m2 |= _m1
+    _m3 = Model()
+    _m3 |= _m2
+
     model = Model()
-    model |= Model() | Model() | Model() | (add2 := Add())
-    model |= Multiply()(add2.output)
+    model |= _m3
+    model |= Multiply()(_add.output)
     assert output.model is not None
     assert_models_equal(output.model, model)
 
@@ -123,8 +143,8 @@ def test_extend_to_model_connection_nested():
 def test_extend_and_extraction_same_inputs():
     input1 = IOKey()
     input2 = IOKey()
-    add_output = (input1 + input2)
-    mult_output = (input1 * input2)
+    add_output = input1 + input2
+    mult_output = input1 * input2
     assert add_output.model == mult_output.model == input1.model == input2.model
 
     _input1 = IOKey()
@@ -136,9 +156,9 @@ def test_extend_and_extraction_same_inputs():
     assert_models_equal(model, mult_output.model)  # type: ignore
 
 
-def test_extend_extraction_frozen_models():    
-    add_output = (Add().output * Add().output)
-    mult_output = (Add().output * Add().output)
+def test_extend_extraction_frozen_models():
+    add_output = Add().output * Add().output
+    mult_output = Add().output * Add().output
     output = add_output + mult_output
 
     model = Model()
@@ -165,6 +185,7 @@ def test_extend_extraction_immediate_values():
     assert output.model is not None
     assert_models_equal(model1, output.model)
 
+
 def test_extend_single_frozen_single_non_frozen_model():
     model1 = Model()
     model1 |= (add1 := Add())
@@ -178,7 +199,7 @@ def test_extend_single_frozen_single_non_frozen_model():
     model |= (_add1 := Add())
     model |= (_add2 := Add())
     model |= Multiply()(left=_add1.output, right=_add2.output)
-    
+
     assert output.model is not None
     assert_models_equal(model, output.model)
 
@@ -192,33 +213,33 @@ def test_extend_test_extend_multiple_non_frozen_models_error():
 
     with pytest.raises(ValueError) as err:
         add.output + add2.output
-    assert str(err.value) == 'Multiple non-frozen active models found in connections!'
+    assert str(err.value) == "Multiple non-frozen active models found in connections!"
 
 
 def test_extend_test_extend_multiple_non_frozen_models_with_connection_error():
     out1 = IOKey("out1")
     out2 = IOKey("out2")
-    
+
     model1 = Model()
     model1 |= Add()(output=out1)
     model2 = Model()
     model2 |= Add()(output=out2)
-    
+
     with pytest.raises(ValueError) as err:
         out1 + out2
-    assert str(err.value) == 'Multiple non-frozen active models found in connections!'
+    assert str(err.value) == "Multiple non-frozen active models found in connections!"
 
 
 def test_extend_non_frozen_model_and_frozen_model():
     out1 = IOKey("out1")
     out2 = IOKey("out2")
-    
+
     model1 = Model()
     model1 |= Add()(output=out1)
     model2 = Model()
     model2 |= Add()(output=out2)
     model2._freeze()
-    
+
     output = out1 + out2
 
     _out1 = IOKey("out1")
@@ -243,7 +264,6 @@ def test_extend_check_metadata():
     model = Model()
     model |= m(weight=IOKey("weight"))
     assert list(m.dag.keys())[0].input.metadata == m.weight.metadata  # type: ignore
-
 
     _weight_key = IOKey("weight")
     _m = Model()

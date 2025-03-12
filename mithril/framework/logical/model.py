@@ -14,7 +14,7 @@
 
 from __future__ import annotations
 
-from collections.abc import KeysView, Mapping, Sequence
+from collections.abc import KeysView, Mapping
 from dataclasses import dataclass
 from types import EllipsisType
 from typing import Any, Self
@@ -101,7 +101,11 @@ __all__ = [
 ]
 
 
-def create_extracted_model(connections: list[ConnectionType], model: type[Operator], defaults: dict[str, Any] | None = None) -> Connection:
+def create_extracted_model(
+    connections: list[ConnectionType],
+    model: type[Operator],
+    defaults: dict[str, Any] | None = None,
+) -> Connection:
     if defaults is None:
         defaults = {}
     code = model.__init__.__code__
@@ -112,15 +116,19 @@ def create_extracted_model(connections: list[ConnectionType], model: type[Operat
     default_args_dict = {key: TBD for key in default_args} | defaults
     default_args_dict.pop("name", None)
 
-    op: Operator = model(**default_args_dict)  # type: ignore
+    op: Operator = model(**default_args_dict)
 
-    # All connections' model field is [None] or [not None but a frozen model] -> # Create a new model with extract = True
-    # The must be maximum 1 connection's model field is not None and also not frozen (All connections with a model field contains extract=True is okey) -> Add new models (both coming from connections and the maion Operation) directly into an already existing model
-    # There exists more than 1 connection's model field is not None and also not frozen. -> Raise an error
+    # All connections' model field is [None] or [not None but a frozen model] ->
+    #    -> Create a new model with extract = True
+    # The must be maximum 1 connection's model field is not None and also not frozen
+    # (All connections with a model field contains extract=True is okey)
+    #    -> Add new models (both coming from connections and the maion Operation)
+    #       directly into an already existing model
+    # There exists more than 1 connection's model field is not None and also not frozen
+    #    -> Raise an error
 
     main_model = None
-    # new_models = set()
-    new_models = {}
+    new_models = set()
     for c in connections:
         if isinstance(c, str):
             raise ValueError("Connection key is not allowed in connections!")
@@ -129,11 +137,12 @@ def create_extracted_model(connections: list[ConnectionType], model: type[Operat
             m = c.model._get_outermost_parent()
             if not m.is_frozen and not m.extract:
                 if main_model is not None and main_model is not m:
-                    raise ValueError("Multiple non-frozen active models found in connections!")
+                    raise ValueError(
+                        "Multiple non-frozen active models found in connections!"
+                    )
                 main_model = m
             else:
-                # new_models.add(m)
-                new_models[m] = c
+                new_models.add(m)
 
     if main_model is None:
         for m in new_models:
@@ -141,30 +150,32 @@ def create_extracted_model(connections: list[ConnectionType], model: type[Operat
                 main_model = m
                 break
         if main_model is not None:
-            # new_models.remove(main_model)
-            new_models.pop(main_model)
-    
+            new_models.remove(main_model)
+
     if main_model is None:
         main_model = Model()
         main_model.extract = True
-    
+
     assert isinstance(main_model, Model)
-    for m, c in new_models.items():
+    for m in new_models:
         updates = main_model.constraint_solver.match(m.constraint_solver)
         main_model.constraint_solver(updates)
         if m.extract:
+            assert isinstance(m, Model)
             main_model.extend_extracted_model(m)
         else:
             main_model._extend(m)
     keys = {key: con for key, con in zip(op.input_keys, connections, strict=False)}
     main_model._extend(op, keys)
-    main_model.set_cout(op.cout, safe=False)
-    return main_model.cout
+    output = main_model.conns.get_extracted_connection(op.cout)
+    assert isinstance(output, Connection)
+    return output
 
 
 class Connection(ConnectionData):
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(id(self))
+
     def __getitem__(
         self,
         key: slice
@@ -192,13 +203,16 @@ class Connection(ConnectionData):
                 for item in key:
                     if isinstance(item, slice):
                         slice_output = create_extracted_model(
-                            connections=[item.start, item.stop, item.step], model=SliceOp
+                            connections=[item.start, item.stop, item.step],
+                            model=SliceOp,
                         )
                         connections.append(slice_output)
                     else:
                         connections.append(item)
                 tuple_template = create_extracted_model(
-                    connections=connections, model=ToTupleOp, defaults={"n": len(key)}
+                    connections=connections,  # type: ignore
+                    model=ToTupleOp,
+                    defaults={"n": len(key)},
                 )
                 output = create_extracted_model(
                     connections=[self, tuple_template], model=IndexerOp
@@ -272,7 +286,7 @@ class Connection(ConnectionData):
     def __rle__(self, other: ConnectionType) -> Connection:
         return create_extracted_model(connections=[other, self], model=LessEqualOp)
 
-    def eq(self, other: object) -> Connection:  # type: ignore[override]
+    def eq(self, other: object) -> Connection:
         if isinstance(
             other, int | float | bool | list | Connection | IOKey | tuple | Tensor
         ):
@@ -280,7 +294,7 @@ class Connection(ConnectionData):
         else:
             raise ValueError("Unsupported type for equality operation.")
 
-    def ne(self, other: object) -> Connection:  # type: ignore[override]
+    def ne(self, other: object) -> Connection:
         if isinstance(
             other, int | float | bool | list | Connection | IOKey | tuple | Tensor
         ):
@@ -334,14 +348,10 @@ class Connection(ConnectionData):
     def shape(self) -> Connection:
         return create_extracted_model(connections=[self], model=ShapeOp)
 
-    def reshape(
-        self, shape: tuple[int | Connection, ...] | Connection
-    ) -> Connection:
+    def reshape(self, shape: tuple[int | Connection, ...] | Connection) -> Connection:
         return create_extracted_model(connections=[self, shape], model=ReshapeOp)
 
-    def size(
-        self, dim: int | tuple[int, ...] | Connection | None = None
-    ) -> Connection:
+    def size(self, dim: int | tuple[int, ...] | Connection | None = None) -> Connection:
         return create_extracted_model(connections=[self, dim], model=SizeOp)
 
     def tensor(self) -> Connection:
@@ -354,45 +364,35 @@ class Connection(ConnectionData):
         axis: int | tuple[int, ...] | Connection | None = None,
         keepdim: bool = False,
     ) -> Connection:
-        return create_extracted_model(
-            connections=[self, axis, keepdim], model=MeanOp
-        )
+        return create_extracted_model(connections=[self, axis, keepdim], model=MeanOp)
 
     def sum(
         self,
         axis: int | tuple[int, ...] | Connection | None = None,
         keepdim: bool = False,
     ) -> Connection:
-        return create_extracted_model(
-            connections=[self, axis, keepdim], model=SumOp
-        )
+        return create_extracted_model(connections=[self, axis, keepdim], model=SumOp)
 
     def max(
         self,
         axis: int | tuple[int, ...] | Connection | None = None,
         keepdim: bool = False,
     ) -> Connection:
-        return create_extracted_model(
-            connections=[self, axis, keepdim], model=MaxOp
-        )
+        return create_extracted_model(connections=[self, axis, keepdim], model=MaxOp)
 
     def min(
         self,
         axis: int | tuple[int, ...] | Connection | None = None,
         keepdim: bool = False,
     ) -> Connection:
-        return create_extracted_model(
-            connections=[self, axis, keepdim], model=MinOp
-        )
+        return create_extracted_model(connections=[self, axis, keepdim], model=MinOp)
 
     def prod(
         self,
         axis: int | tuple[int, ...] | Connection | None = None,
         keepdim: bool = False,
     ) -> Connection:
-        return create_extracted_model(
-            connections=[self, axis, keepdim], model=ProdOp
-        )
+        return create_extracted_model(connections=[self, axis, keepdim], model=ProdOp)
 
     def var(
         self,
@@ -412,9 +412,7 @@ class Connection(ConnectionData):
     def exp(self) -> Connection:
         return create_extracted_model(connections=[self], model=ExponentialOp)
 
-    def transpose(
-        self, axes: tuple[int, ...] | Connection | None = None
-    ) -> Connection:
+    def transpose(self, axes: tuple[int, ...] | Connection | None = None) -> Connection:
         return create_extracted_model(connections=[self, axes], model=TransposeOp)
 
     def split(self, split_size: int, axis: int) -> Connection:
@@ -425,10 +423,8 @@ class Connection(ConnectionData):
     def item(self) -> Connection:
         return create_extracted_model(connections=[self], model=ItemOp)
 
-    def cast(self, dtype: CoreDtype | None = None) -> Connection:
-        return create_extracted_model(
-            connections=[self, dtype], model=CastOp
-        )
+    def cast(self, dtype: Connection | CoreDtype | None = None) -> Connection:
+        return create_extracted_model(connections=[self, dtype], model=CastOp)
 
     def dtype(self) -> Connection:
         return create_extracted_model(connections=[self], model=DtypeOp)
@@ -441,6 +437,7 @@ class Connection(ConnectionData):
 
     def atleast_1d(self) -> Connection:
         return create_extracted_model(connections=[self], model=AtLeast1DOp)
+
 
 IOKey = Connection
 
@@ -480,12 +477,7 @@ ConnectionType = (
 )
 
 ConnectionInstanceType = (
-    str
-    | MainValueInstance
-    | NullConnection
-    | IOKey
-    | Connection
-    | Tensor  # type: ignore
+    str | MainValueInstance | NullConnection | IOKey | Connection | Tensor  # type: ignore
 )
 
 
@@ -519,18 +511,26 @@ class Model(BaseModel):
             isinstance(template, tuple | list)
             and find_dominant_type(template, False, constant_fn) in types
         ):
+            _model: type[Operator]
             if isinstance(template, tuple):
                 template = tuple(self._unroll_template(item) for item in template)
                 _model = ToTupleOp
             else:
                 template = [self._unroll_template(item) for item in template]
                 _model = ToListOp
-            template = create_extracted_model(template, _model, defaults={"n": len(template)})
+            template = create_extracted_model(
+                template,  # type: ignore
+                _model,
+                defaults={"n": len(template)},
+            )
 
-        if isinstance(template, ConnectionData) and template.model is not None:
-            # template = create_extracted_model(template, self)
-            if (extract_m := template.model).extract:
-                self.extend_extracted_model(extract_m)
+        if (
+            isinstance(template, ConnectionData)
+            and template.model is not None
+            and (extract_m := template.model).extract
+        ):
+            assert isinstance(extract_m, Model)
+            self.extend_extracted_model(extract_m)
         return template
 
     def extend_extracted_model(self, extract_m: Model) -> None:
@@ -541,14 +541,25 @@ class Model(BaseModel):
                 sub_m.parent = None
                 conns = {}
                 for con in sub_m.conns.all.values():
-                    if not extract_m.conns.get_con_by_metadata(con.metadata).is_autogenerated:
-                        conns[con.key] = extract_m.conns.get_con_by_metadata(con.metadata)
-                        conns[con.key].model = None
+                    if (
+                        not extract_m.conns.get_con_by_metadata(
+                            con.metadata
+                        ).is_autogenerated  # type: ignore
+                        and self.conns.get_cons_by_metadata(con.metadata) is None
+                    ):
+                        conns[con.key] = extract_m.conns.get_con_by_metadata(
+                            con.metadata
+                        )
+                        conns[con.key].model = None  # type: ignore
                     sub_m.conns.connections_dict.setdefault(con.metadata, set())
-                    sub_m.conns.connections_dict[con.metadata] |= extract_m.conns.connections_dict[con.metadata]
+                    sub_m.conns.connections_dict[con.metadata] |= (
+                        extract_m.conns.connections_dict[con.metadata]
+                    )
 
                     sub_m.conns.metadata_dict.setdefault(con.metadata, set())
-                    sub_m.conns.metadata_dict[con.metadata] |= extract_m.conns.metadata_dict[con.metadata]
+                    sub_m.conns.metadata_dict[con.metadata] |= (
+                        extract_m.conns.metadata_dict[con.metadata]
+                    )
 
                 self.extend(sub_m, **conns)
 
@@ -565,7 +576,10 @@ class Model(BaseModel):
         return cin
 
     def _extend(
-        self, model: BaseModel, kwargs: Mapping[str, ConnectionType] | None = None
+        self,
+        model: BaseModel,
+        kwargs: Mapping[str, ConnectionType] | None = None,
+        trace: bool = True,
     ) -> Self:
         if kwargs is None:
             kwargs = {}
@@ -589,7 +603,7 @@ class Model(BaseModel):
                     kwargs[key] = _value  # type: ignore
             kwargs[key] = self._unroll_template(kwargs[key])  # type: ignore
 
-        self.extend(model, **kwargs)  # type: ignore
+        self.extend(model, trace, **kwargs)
         return self
 
     def __add__(self, info: ExtendInfo | Model) -> Self:

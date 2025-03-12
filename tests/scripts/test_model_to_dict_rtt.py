@@ -36,10 +36,13 @@ from mithril.models import (
     Operator,
     Relu,
     Sigmoid,
+    Sqrt,
     SquaredError,
+    ToTensor,
     TrainModel,
 )
 from mithril.models.primitives import PrimitiveModel
+from mithril.types import Constant, Dtype
 from mithril.utils import dict_conversions
 
 from .helper import assert_evaluations_equal, assert_models_equal
@@ -166,6 +169,57 @@ def test_linear_not_expose():
     backend = JaxBackend(dtype=mithril.float64)
     assert_evaluations_equal(
         model, model_recreated, backend, static_keys={"input": backend.ones([4, 256])}
+    )
+
+
+def test_set_cins_couts():
+    model = Model()
+    linear_1 = Linear(dimension=42)
+    model |= linear_1(input="input", weight="weight", output=IOKey(name="output"))
+    model.set_cin("weight", linear_1.bias)
+    outer_model = Model()
+    linear_2 = Linear(dimension=42)
+    outer_model |= model(input="input_1", output=IOKey(name="output_1"))
+    outer_model |= linear_2(input="input_2", output=IOKey(name="output_2"))
+    outer_model.set_cout("output_2")
+
+    model_dict_created = dict_conversions.model_to_dict(outer_model)
+    model_recreated = dict_conversions.dict_to_model(model_dict_created)
+    model_dict_recreated = dict_conversions.model_to_dict(model_recreated)
+
+    assert model_dict_created == model_dict_recreated
+    assert (
+        model_dict_created["assigned_cins"]  # type: ignore
+        == model_dict_recreated["assigned_cins"]  # type: ignore
+        == []
+    )
+    assert (
+        model_dict_created["assigned_couts"]  # type: ignore
+        == model_dict_recreated["assigned_couts"]  # type: ignore
+        == [("m_1", 3)]
+    )
+    assert (
+        model_dict_created["submodels"]["m_0"]["assigned_cins"]  # type: ignore
+        == model_dict_recreated["submodels"]["m_0"]["assigned_cins"]  # type: ignore
+        == [("self", 2), "weight"]
+    )
+    assert (
+        model_dict_created["submodels"]["m_0"]["assigned_couts"]  # type: ignore
+        == model_dict_recreated["submodels"]["m_0"]["assigned_couts"]  # type: ignore
+        == []
+    )
+
+    assert_models_equal(outer_model, model_recreated)
+
+    backend = JaxBackend(dtype=mithril.float64)
+    assert_evaluations_equal(
+        outer_model,
+        model_recreated,
+        backend,
+        static_keys={
+            "input_1": backend.ones([4, 256]),
+            "input_2": backend.ones([4, 256]),
+        },
     )
 
 
@@ -958,12 +1012,12 @@ def test_valued_scalar_in_init():
     outer_model = Model()
     outer_model |= model()
 
-    model_dict_created = dict_conversions.model_to_dict(model)
+    model_dict_created = dict_conversions.model_to_dict(outer_model)
     model_recreated = dict_conversions.dict_to_model(model_dict_created)
     model_dict_recreated = dict_conversions.model_to_dict(model_recreated)
 
     assert model_dict_created == model_dict_recreated
-    assert_models_equal(model, model_recreated)
+    assert_models_equal(outer_model, model_recreated)
 
 
 def test_valued_scalar_in_extend():
@@ -973,12 +1027,12 @@ def test_valued_scalar_in_extend():
     outer_model = Model()
     outer_model |= model()
 
-    model_dict_created = dict_conversions.model_to_dict(model)
+    model_dict_created = dict_conversions.model_to_dict(outer_model)
     model_recreated = dict_conversions.dict_to_model(model_dict_created)
     model_dict_recreated = dict_conversions.model_to_dict(model_recreated)
 
     assert model_dict_created == model_dict_recreated
-    assert_models_equal(model, model_recreated)
+    assert_models_equal(outer_model, model_recreated)
 
 
 def test_valued_scalar_iokey():
@@ -990,12 +1044,12 @@ def test_valued_scalar_iokey():
     outer_model = Model()
     outer_model |= model(axis=IOKey(name="axis", value=1))
 
-    model_dict_created = dict_conversions.model_to_dict(model)
+    model_dict_created = dict_conversions.model_to_dict(outer_model)
     model_recreated = dict_conversions.dict_to_model(model_dict_created)
     model_dict_recreated = dict_conversions.model_to_dict(model_recreated)
 
     assert model_dict_created == model_dict_recreated
-    assert_models_equal(model, model_recreated)
+    assert_models_equal(outer_model, model_recreated)
 
 
 def test_non_valued_scalar():
@@ -1005,9 +1059,244 @@ def test_non_valued_scalar():
     outer_model = Model()
     outer_model |= model()
 
+    model_dict_created = dict_conversions.model_to_dict(outer_model)
+    model_recreated = dict_conversions.dict_to_model(model_dict_created)
+    model_dict_recreated = dict_conversions.model_to_dict(model_recreated)
+
+    assert model_dict_created == model_dict_recreated
+    assert_models_equal(outer_model, model_recreated)
+
+
+def test_assigned_shapes():
+    model = Model()
+    model |= Buffer()(input="buff_input", output=IOKey(name="buff_out"))
+    model |= Mean(axis=TBD)(input="mean_input", output=IOKey(name="mean_out"))
+    model.set_shapes(buff_input=[1, 2, ("V", ...)], mean_input=[("V", ...), 3, 4])
+
     model_dict_created = dict_conversions.model_to_dict(model)
     model_recreated = dict_conversions.dict_to_model(model_dict_created)
     model_dict_recreated = dict_conversions.model_to_dict(model_recreated)
 
     assert model_dict_created == model_dict_recreated
+    assert_models_equal(model, model_recreated)
+
+    assert (
+        model_dict_created.get("assigned_shapes")
+        == model_dict_recreated.get("assigned_shapes")
+        == [
+            [(("m_0", 0), [1, 2, "V,..."]), (("m_1", 0), ["V,...", 3, 4])],
+        ]
+    )
+
+
+def test_assigned_types_1():
+    model = Model()
+    model |= Buffer()(input="buff_input", output=IOKey(name="buff_out"))
+    model |= Mean(axis=TBD)(input="mean_input", output=IOKey(name="mean_out"))
+    model.set_types(mean_input=Tensor[int | float])
+
+    model_dict_created = dict_conversions.model_to_dict(model)
+    model_recreated = dict_conversions.dict_to_model(model_dict_created)
+    model_dict_recreated = dict_conversions.model_to_dict(model_recreated)
+
+    assert model_dict_created == model_dict_recreated
+    assert_models_equal(model, model_recreated)
+
+    assert (
+        model_dict_created.get("assigned_types")
+        == model_dict_recreated.get("assigned_types")
+        == [
+            (("m_1", 0), {"Tensor": ["int", "float"]}),
+        ]
+    )
+
+
+def test_assigned_types_2():
+    model = Model()
+    model |= Buffer()(input="buff_input", output=IOKey(name="buff_out"))
+    model |= Mean(axis=TBD)(input="mean_input", output=IOKey(name="mean_out"))
+    model.set_types(mean_input=Tensor[int | float])
+
+    outer_model = Model()
+    outer_model |= model
+
+    model_dict_created = dict_conversions.model_to_dict(outer_model)
+    model_recreated = dict_conversions.dict_to_model(model_dict_created)
+    model_dict_recreated = dict_conversions.model_to_dict(model_recreated)
+
+    assert model_dict_created == model_dict_recreated
+    assert_models_equal(outer_model, model_recreated)
+
+    assert (
+        model_dict_created.get("assigned_types")
+        == model_dict_recreated.get("assigned_types")
+        == []
+    )
+
+    assert (
+        model_dict_created["submodels"]["m_0"].get("assigned_types")  # type: ignore
+        == model_dict_recreated["submodels"]["m_0"].get("assigned_types")  # type: ignore
+        == [
+            ("mean_input", {"Tensor": ["int", "float"]}),
+        ]
+    )
+
+
+def test_assigned_types_multiple_times():
+    model = Model()
+    model |= Buffer()(input="buff_input", output=IOKey(name="buff_out"))
+    mean_model = Mean(axis=TBD)
+    model |= mean_model(input="mean_input", output=IOKey(name="mean_out"))
+    model.set_types(mean_input=Tensor[int | float])
+    model.set_types({mean_model.input: Tensor[int | float]})
+
+    outer_model = Model()
+    outer_model |= model
+
+    # Assert only one assignment made even thought set multiple
+    # times.
+    assert len(model.assigned_types) == 1
+
+    model_dict_created = dict_conversions.model_to_dict(outer_model)
+    model_recreated = dict_conversions.dict_to_model(model_dict_created)
+    model_dict_recreated = dict_conversions.model_to_dict(model_recreated)
+
+    assert model_dict_created == model_dict_recreated
+    assert_models_equal(outer_model, model_recreated)
+
+    assert (
+        model_dict_created.get("assigned_types")
+        == model_dict_recreated.get("assigned_types")
+        == []
+    )
+
+    assert (
+        model_dict_created["submodels"]["m_0"].get("assigned_types")  # type: ignore
+        == model_dict_recreated["submodels"]["m_0"].get("assigned_types")  # type: ignore
+        == [
+            ("mean_input", {"Tensor": ["int", "float"]}),
+        ]
+    )
+
+
+def test_assigned_types_multiple_times_different_types():
+    model = Model()
+    buff_model = Buffer()
+    model |= buff_model(input="buff_input", output=IOKey(name="buff_out"))
+    mean_model = Mean(axis=TBD)
+    model |= mean_model(input="mean_input", output=IOKey(name="mean_out"))
+    # Set types for buff_model 2 times with different types.
+    # Note that the last assignment will be used.
+    model.set_types(buff_input=Tensor[int | float] | int | float)
+    model.set_types({buff_model.input: int})
+
+    outer_model = Model()
+    outer_model |= model
+
+    # Assert only one assignment made even thought set multiple
+    # times.
+    assert len(model.assigned_types) == 1
+
+    model_dict_created = dict_conversions.model_to_dict(outer_model)
+    model_recreated = dict_conversions.dict_to_model(model_dict_created)
+    model_dict_recreated = dict_conversions.model_to_dict(model_recreated)
+
+    assert model_dict_created == model_dict_recreated
+    assert_models_equal(outer_model, model_recreated)
+
+    assert (
+        model_dict_created.get("assigned_types")
+        == model_dict_recreated.get("assigned_types")
+        == []
+    )
+
+    assert (
+        model_dict_created["submodels"]["m_0"].get("assigned_types")  # type: ignore
+        == model_dict_recreated["submodels"]["m_0"].get("assigned_types")  # type: ignore
+        == [
+            ("buff_input", "int"),
+        ]
+    )
+
+
+def test_assigned_types_from_outermost_model():
+    model = Model()
+    buff_model = Buffer()
+    model |= buff_model(input="buff_input", output=IOKey(name="buff_out"))
+    model |= Mean(axis=TBD)(input="mean_input", output=IOKey(name="mean_out"))
+
+    outer_model = Model()
+    outer_model |= model
+    outer_model |= Buffer()(input="buff_input_2")
+    outer_model.set_types(buff_input_2=Tensor)
+    outer_model.merge_connections(buff_model.input, "buff_input_2")
+
+    model_dict_created = dict_conversions.model_to_dict(outer_model)
+    model_recreated = dict_conversions.dict_to_model(model_dict_created)
+    model_dict_recreated = dict_conversions.model_to_dict(model_recreated)
+
+    assert model_dict_created == model_dict_recreated
+    assert_models_equal(outer_model, model_recreated)
+
+    assert (
+        model_dict_created.get("assigned_types")
+        == model_dict_recreated.get("assigned_types")
+        == [(("m_0", 0), {"Tensor": ["int", "float", "bool"]})]
+    )
+
+
+def test_assigned_constant_enum_value():
+    model = Model()
+    model |= Sqrt(robust=True)(cutoff=Tensor(Constant.MIN_POSITIVE_SUBNORMAL))
+
+    model_dict_created = dict_conversions.model_to_dict(model)
+    model_recreated = dict_conversions.dict_to_model(model_dict_created)
+    model_dict_recreated = dict_conversions.model_to_dict(model_recreated)
+
+    assert model_dict_created == model_dict_recreated
+
+    assert (
+        model_dict_created["connections"]["m_0"]["cutoff"]  # type: ignore
+        == model_dict_recreated["connections"]["m_0"]["cutoff"]  # type: ignore
+        == {"tensor": "Constant.MIN_POSITIVE_SUBNORMAL"}
+    )
+
+    assert_models_equal(model, model_recreated)
+
+
+def test_assigned_dtype_enum_value():
+    model = Model()
+    model |= ToTensor(dtype=TBD)(dtype=Dtype.float16)
+
+    model_dict_created = dict_conversions.model_to_dict(model)
+    model_recreated = dict_conversions.dict_to_model(model_dict_created)
+    model_dict_recreated = dict_conversions.model_to_dict(model_recreated)
+
+    assert model_dict_created == model_dict_recreated
+
+    assert (
+        model_dict_created["connections"]["m_0"]["dtype"]  # type: ignore
+        == model_dict_recreated["connections"]["m_0"]["dtype"]  # type: ignore
+        == "5"
+    )
+
+    assert_models_equal(model, model_recreated)
+
+
+def test_assigned_int_value():
+    model = Model()
+    model |= Mean(axis=TBD)(axis=3)
+
+    model_dict_created = dict_conversions.model_to_dict(model)
+    model_recreated = dict_conversions.dict_to_model(model_dict_created)
+    model_dict_recreated = dict_conversions.model_to_dict(model_recreated)
+
+    assert model_dict_created == model_dict_recreated
+
+    assert (
+        model_dict_created["connections"]["m_0"]["axis"]  # type: ignore
+        == model_dict_recreated["connections"]["m_0"]["axis"]  # type: ignore
+        == 3
+    )
+
     assert_models_equal(model, model_recreated)

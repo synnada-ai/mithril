@@ -108,7 +108,7 @@ def test_1():
         output=IOKey(name="output1"),
     )
 
-    expected_input_keys = {'$4', '$1', 'weight_2', 'bias_3', '$2'}
+    expected_input_keys = {"$4", "$1", "weight_2", "bias_3", "$2"}
     expected_output_keys = {"output1"}
     expected_internal_keys = {"$3"}
     expected_pm_input_keys = {"input", "weight_2", "bias", "weight", "bias_3"}
@@ -132,7 +132,7 @@ def test_2():
     model |= Linear(10)(weight="weight_2")
     model |= Linear(10)(input=model.cout, bias="bias_3", output=IOKey(name="output1"))
 
-    expected_input_keys = {'$4', '$1', 'weight_2', 'bias_3', '$2'}
+    expected_input_keys = {"$4", "$1", "weight_2", "bias_3", "$2"}
     expected_output_keys = {"output1"}
     expected_internal_keys = {"$3"}
     expected_pm_input_keys = {"input", "weight_2", "bias", "weight", "bias_3"}
@@ -156,7 +156,7 @@ def test_3():
     model |= Linear(10)(weight="weight_2")
     model |= Linear(10)(input=model.cout, bias="bias_3", output="output1")
 
-    expected_input_keys = {'$4', '$1', 'weight_2', 'bias_3', '$2'}
+    expected_input_keys = {"$4", "$1", "weight_2", "bias_3", "$2"}
     expected_internal_keys = {"$3"}
     # expected_latent_input_keys = {"output1"}
     expected_pm_input_keys = {"input", "weight_2", "bias", "weight", "bias_3"}
@@ -180,7 +180,7 @@ def test_4():
     )
     model |= Linear(1)(input=model.cout, bias="bias_3", output="output1")
 
-    expected_input_keys = {'$3', 'bias_3', 'weight_2', 'bias_2', '$1'}
+    expected_input_keys = {"$3", "bias_3", "weight_2", "bias_2", "$1"}
     expected_internal_keys = {"$2"}
     expected_pm_input_keys = {"weight_2", "weight", "bias_3", "bias_2", "input"}
     expected_pm_output_keys = {"output1"}
@@ -213,7 +213,7 @@ def test_5():
         "$input": ["u1", "(V1, ...)", "u3"],
         "weight_2": [2, "u3"],
         "$weight": ["u2", 2],
-        "bias_3": ["u2"]
+        "bias_3": ["u2"],
     }
 
     assert_model_keys(

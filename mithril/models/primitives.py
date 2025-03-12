@@ -177,6 +177,7 @@ __all__ = [
     "Trapezoid",
     "Pad",
     "Randn",
+    "Ones",
     "PrimitiveModel",
     "Buffer",
     "ToTuple",
@@ -1748,7 +1749,7 @@ class DistanceMatrix(PrimitiveModel):
             fn=general_tensor_type_constraint,
             keys=[Operator.output_key, "left", "right", "norm"],
         )
-        self.set_cin("left", "right", safe=False)
+        self._set_cin("left", "right", safe=False)
 
     def __call__(  # type: ignore[override]
         self,
@@ -2068,7 +2069,7 @@ class Arange(PrimitiveModel):
             step=BaseKey(type=int | float, value=step),
             dtype=BaseKey(type=types.Dtype | None, value=dtype),
         )
-        self.set_cin("stop", safe=False)
+        self._set_cin("stop", safe=False)
 
         if not all_defined:
             self._add_constraint(
@@ -2493,7 +2494,7 @@ class Where(PrimitiveModel):
             fn=general_tensor_type_constraint,
             keys=[Operator.output_key, "input1", "input2"],
         )
-        self.set_cin("input1", safe=False)
+        self._set_cin("input1", safe=False)
 
     def __call__(  # type: ignore[override]
         self,
@@ -2673,6 +2674,35 @@ class ZerosLike(PrimitiveModel):
         self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
     ) -> ExtendInfo:
         return super().__call__(input=input, output=output)
+
+
+class Ones(PrimitiveModel):
+    shape: Connection
+    dtype: Connection
+    output: Connection
+
+    def __init__(
+        self,
+        shape: tuple[int, ...] | list[int] | ToBeDetermined = TBD,
+        dtype: types.Dtype | None = None,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(
+            formula_key="ones",
+            name=name,
+            output=BaseKey(type=Tensor),
+            shape=BaseKey(type=tuple[int, ...] | list[int], value=shape),
+            dtype=BaseKey(type=types.Dtype | None, value=dtype),
+        )
+
+    def __call__(  # type: ignore[override]
+        self,
+        shape: ConnectionType = NOT_GIVEN,
+        dtype: ConnectionType = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
+    ) -> ExtendInfo:
+        return super().__call__(shape=shape, dtype=dtype, output=output)
 
 
 class Buffer(OperatorModel):
@@ -3056,10 +3086,11 @@ class ToTensor(OperatorModel):
     def __init__(
         self,
         input: TensorValueType | ToBeDetermined = TBD,
-        dtype: types.Dtype | None = None,
+        dtype: types.Dtype | ToBeDetermined | None = None,
         *,
         name: str | None = None,
     ) -> None:
+        self.factory_args = {"dtype": dtype}
         super().__init__(name=name, model=ToTensorOp(input=input, dtype=dtype))
 
     def __call__(  # type: ignore[override]
@@ -3306,6 +3337,7 @@ class Sqrt(OperatorModel):
         name: str | None = None,
     ) -> None:
         self.robust = robust
+        self.factory_args = {"robust": robust}
         m = SqrtOp(robust=robust, input=input, cutoff=cutoff)
         super().__init__(name=name, model=m)
 

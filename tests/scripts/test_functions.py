@@ -202,7 +202,8 @@ def test_flatten_dag_1():
     )
 
     flatted_primitive_model_list = [
-        key.__class__ for key in comp_model.flat_graph.get_models()
+        comp_model.flat_graph.connections[key].op.__class__
+        for key in comp_model.flat_graph.topological_order
     ]
 
     assert flatted_primitive_model_list == [
@@ -264,7 +265,8 @@ def test_flatten_dag_2():
     )
 
     flatted_primitive_model_list = [
-        key.__class__ for key in comp_model.flat_graph.get_models()
+        comp_model.flat_graph.connections[key].op.__class__
+        for key in comp_model.flat_graph.topological_order
     ]
 
     assert flatted_primitive_model_list == [
@@ -309,7 +311,8 @@ def test_flatten_dag_3():
     )
 
     flatted_primitive_model_list = [
-        key.__class__ for key in comp_model.flat_graph.get_models()
+        comp_model.flat_graph.connections[key].op.__class__
+        for key in comp_model.flat_graph.topological_order
     ]
 
     assert flatted_primitive_model_list == [
@@ -732,22 +735,24 @@ def test_code_generator_8(file_path: str):
     evaluate_gradient_code = "".join(code[start_line:end_line])
 
     reference_eval_code = (
-        "void evaluate(\n\tArray * left,\n\tArray * output,\n\tArray * output_0"
-        ",\n\tArray * right,\n\tArray * right2\n)\n{\n    add(output_0, left, "
-        "right);\n    multiplication(output, output_0, right2);\n}\n"
+        "struct eval_outputs evaluate(\n\tstruct eval_inputs * inputs\n)\n{\n    "
+        "add(inputs->output_0, inputs->left, inputs->right);\n    multiplication(i"
+        "nputs->output, inputs->output_0, inputs->right2);\n    struct eval_outputs "
+        "output_struct = { .left = inputs->left, .output = inputs->output, .output_0 "
+        "= inputs->output_0, .right = inputs->right, .right2 = inputs->right2 };\n    "
+        "return output_struct;\n}\n"
     )
 
     reference_eval_grad_code = (
-        "void evaluate_gradients(\n\tArray * left,\n\tArray * "
-        "left_grad,\n\tArray * output,\n\tArray * output_0,\n\t"
-        "Array * output_0_grad,\n\tArray * output_grad,\n\tArray * right,\n\tArray "
-        "* right2,\n\tArray * right2_grad,\n\tArray * right_grad\n)\n{\n    "
-        "multiplication_grad(output_grad, 0, output, output_0, right2, "
-        "output_0_grad, right2_grad);\n    multiplication_grad(output_grad"
-        ", 1, output, output_0, right2, output_0_grad, right2_grad);\n"
-        "    add_grad(output_0_grad, 0, output_0, left, right, left_grad,"
-        " right_grad);\n    add_grad(output_0_grad, 1, output_0, left, "
-        "right, left_grad, right_grad);\n}"
+        "struct eval_grad_outputs evaluate_gradients(\n\tstruct eval_grad_inputs "
+        "* inputs\n)\n{\n    multiplication_grad(inputs->output_grad, 0, inputs->"
+        "output, inputs->output_0, inputs->right2, inputs->output_0_grad, NULL);\n"
+        "    add_grad(inputs->output_0_grad, 0, inputs->output_0, inputs->left, inputs"
+        "->right, inputs->left_grad, inputs->right_grad);\n    add_grad(inputs->"
+        "output_0_grad, 1, inputs->output_0, inputs->left, inputs->right, inputs->"
+        "left_grad, inputs->right_grad);\n    struct eval_grad_outputs output_struct"
+        " = { .left_grad = inputs->left_grad, .right_grad = inputs->right_grad };\n    "
+        "return output_struct;\n}"
     )
 
     assert eval_code == reference_eval_code

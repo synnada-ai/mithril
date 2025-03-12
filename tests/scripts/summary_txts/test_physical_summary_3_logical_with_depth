@@ -4,8 +4,8 @@ Model Name      |                                       Model Keys
                 |             --------------------------------------------------------------
                 |             Keys    : Shapes   : Types              : Connections         
 ============================================================================================
-KernelizedSVM   |   Inputs  : input1  : [u1, u2] : bool | float | int : '$input'            
-                |             input2  : [u3, u2] : bool | float | int : '$input2'           
+KernelizedSVM   |   Inputs  : input1  : [u1, u2] : float              : '$input'            
+                |             input2  : [u3, u2] : float              : '$input2'           
                 |             sigma   :     [ 1] : bool | float | int : '$sigma'            
                 |             l_scale :     [ 1] : bool | float | int : '$l_scale'          
                 |             weight  : [ 1, u3] : float              : '$weight'           
@@ -34,13 +34,13 @@ Model Name   |                                     Model Keys
              |             ----------------------------------------------------------
              |             Keys    : Shapes   : Types              : Connections     
 =====================================================================================
-RBFKernel    |   Inputs  : input1  : [u1, u2] : bool | float | int : 'input1'        
-             |             input2  : [u3, u2] : bool | float | int : 'input2'        
+RBFKernel    |   Inputs  : input1  : [u1, u2] : float              : 'input1'        
+             |             input2  : [u3, u2] : float              : 'input2'        
              |             $right  :       -- : float              : -0.5            
              |             sigma   :     [ 1] : bool | float | int : 'sigma'         
              |             l_scale :     [ 1] : bool | float | int : 'l_scale'       
              |   --------------------------------------------------------------------
-             |   Outputs : output  : [u1, u3] : bool | float | int : Linear.input    
+             |   Outputs : output  : [u1, u3] : float              : Linear.input    
              |                                                       'kernel'        
 -------------------------------------------------------------------------------------
 Linear       |   Inputs  : weight  : [ 1, u3] : float              : 'weight'        

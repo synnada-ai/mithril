@@ -599,7 +599,7 @@ def test_shapes_4():
         "input": [["(V1, ...)", "u1", "u3"], ["u2", "(V2, ...)", "u3"]],
         "$bias_0": [71],
         "output": [["(V1, ...)", "u1", 10], ["u2", "(V2, ...)", 10]],
-        "output2": [["(V1, ...)", "u1", 10], ["u2", "(V2, ...)", 10]]
+        "output2": [["(V1, ...)", "u1", 10], ["u2", "(V2, ...)", 10]],
     }
     physical_ref = {
         "weight": [10, 71],
@@ -3984,7 +3984,7 @@ def test_variadic_naming_1():
             ["(V1, ...)", "u3", "u2"],
             ["u4", "(V2, ...)", "u2"],
         ],
-        '$_Transpose_0_axes': None,
+        "$_Transpose_0_axes": None,
         "weight": ["u2", "u1"],
         "input": [["(V1, ...)", "u3", "u1"], ["u4", "(V2, ...)", "u1"]],
         "bias": ["u2"],
@@ -10090,7 +10090,26 @@ def test_shapes_tensor_item_numeric():
     model |= relu_model2(input=relu_model1.output[:, None, :, 2:4], output="output2")
     model.set_shapes(input=[3, 4, 5])
 
-    ref = {'$_Slice_1_output': None, '$_Slice_2_output': None, '$_Slice_3_output': None, 'output': [3, 4, 5], '$_ToTuple_4_output': None, '$_Indexer_5_output': [3, 1, 4, 2], 'input': [3, 4, 5], '$_Slice_1_start': None, '$_Slice_1_stop': None, '$_Slice_1_step': None, '$_Slice_2_start': None, '$_Slice_2_stop': None, '$_Slice_2_step': None, '$_Slice_3_start': None, '$_Slice_3_stop': None, '$_Slice_3_step': None, '$_ToTuple_4_input2': None, 'output2': [3, 1, 4, 2]}
+    ref = {
+        "$_Slice_1_output": None,
+        "$_Slice_2_output": None,
+        "$_Slice_3_output": None,
+        "output": [3, 4, 5],
+        "$_ToTuple_4_output": None,
+        "$_Indexer_5_output": [3, 1, 4, 2],
+        "input": [3, 4, 5],
+        "$_Slice_1_start": None,
+        "$_Slice_1_stop": None,
+        "$_Slice_1_step": None,
+        "$_Slice_2_start": None,
+        "$_Slice_2_stop": None,
+        "$_Slice_2_step": None,
+        "$_Slice_3_start": None,
+        "$_Slice_3_stop": None,
+        "$_Slice_3_step": None,
+        "$_ToTuple_4_input2": None,
+        "output2": [3, 1, 4, 2],
+    }
     check_shapes_semantically(model.get_shapes(), ref)
 
 
@@ -10102,5 +10121,24 @@ def test_shapes_tensor_item_symbolic():
     model |= relu_model1(input="input", output="output")
     model |= relu_model2(input=relu_model1.output[:, None, :, 2:4], output="output2")
 
-    ref: Mapping[str, list | None] = {'$_Slice_1_output': None, '$_Slice_2_output': None, '$_Slice_3_output': None, 'output': ['u1', '(V1, ...)', 'u2', 'u3'], '$_ToTuple_4_output': None, '$_Indexer_5_output': ['u4', 1, 'u5', 'u6', '(V2, ...)'], 'input': ['u1', '(V1, ...)', 'u2', 'u3'], '$_Slice_1_start': None, '$_Slice_1_stop': None, '$_Slice_1_step': None, '$_Slice_2_start': None, '$_Slice_2_stop': None, '$_Slice_2_step': None, '$_Slice_3_start': None, '$_Slice_3_stop': None, '$_Slice_3_step': None, '$_ToTuple_4_input2': None, 'output2': ['u4', 1, 'u5', 'u6', '(V2, ...)']}
+    ref: Mapping[str, list | None] = {
+        "$_Slice_1_output": None,
+        "$_Slice_2_output": None,
+        "$_Slice_3_output": None,
+        "output": ["u1", "(V1, ...)", "u2", "u3"],
+        "$_ToTuple_4_output": None,
+        "$_Indexer_5_output": ["u4", 1, "u5", "u6", "(V2, ...)"],
+        "input": ["u1", "(V1, ...)", "u2", "u3"],
+        "$_Slice_1_start": None,
+        "$_Slice_1_stop": None,
+        "$_Slice_1_step": None,
+        "$_Slice_2_start": None,
+        "$_Slice_2_stop": None,
+        "$_Slice_2_step": None,
+        "$_Slice_3_start": None,
+        "$_Slice_3_stop": None,
+        "$_Slice_3_step": None,
+        "$_ToTuple_4_input2": None,
+        "output2": ["u4", 1, "u5", "u6", "(V2, ...)"],
+    }
     check_shapes_semantically(model.get_shapes(), ref)
