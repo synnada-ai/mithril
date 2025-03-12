@@ -30,9 +30,7 @@ from ..common import (
     EvaluateType,
     FinalCost,
     IOHyperEdge,
-    LossKey,
     ParamsEvalType,
-    find_intersection_type,
     is_type_adjustment_required,
 )
 from ..logical import Operator
@@ -53,7 +51,7 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
         functions: list[ast.FunctionDef] = []
         functions.append(self.generate_evaluate())
         if not self.pm.inference:
-            functions.append(self.generate_evaluate_gradients(self.pm.ignore_grad_keys))
+            functions.append(self.generate_evaluate_gradients())
         return functions
 
     def generate_imports(self) -> list[ast.stmt]:
@@ -149,12 +147,9 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
             )
             # Initialize gradients as zero with corresponding shapes.
             gradients: dict[str, np.ndarray[Any, Any]] = {}
-            for key in (
-                self.pm.flat_graph.all_keys
-                - self.pm.flat_graph.all_static_keys
-                - self.pm.flat_graph.unused_keys
-                - self.pm.ignore_grad_keys
-            ):
+            for key in self.pm.flat_graph.all_keys - self.pm.flat_graph.unused_keys:
+                if not self._has_grad(key):
+                    continue
                 key_cache = cached_data.get(key + "_cache", {})
                 assert isinstance(key_cache, dict)
                 out_data: np.ndarray[Any, Any] | None = None
@@ -307,55 +302,17 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
             {cache_name: IOHyperEdge(dict | None, cache_value)}
         )
 
-    def generate_evaluate_gradients(
-        self, ignore_grad_keys: set[str]
-    ) -> ast.FunctionDef:
+    def generate_evaluate_gradients(self) -> ast.FunctionDef:
         input_body: list[ast.stmt] = []
         function_body: list[ast.stmt] = []
         used_keys: set[str] = set()
         is_recursive_fn_imported: bool = False
 
-        all_ignored_keys = ignore_grad_keys | self.pm.flat_graph.all_static_keys
-
-        # TODO: Is this should be here?
-        # Seperate ignored keys into two types of weak and strict ignored keys.
-        weak_ignored_keys = {
-            key
-            for key in all_ignored_keys
-            if key in self.pm.data
-            and self.pm.data[key].is_tensor
-            and find_intersection_type(self.pm.data[key].value_type, float)
-        }
-
-        strict_ignored_keys = all_ignored_keys - weak_ignored_keys
-
-        ignore_grad_keys, _ = self.pm.flat_graph.infer_ignore(
-            weak_ignored_keys,
-            self.pm._output_keys,
-            strict_ignored_keys,
-            update_graph=False,
-        )
-
-        possible_loss_keys = {FinalCost, LossKey}
-        if possible_loss_keys & self.pm._output_keys:
-            ignore_grad_keys.update(
-                self.pm._output_keys
-                - possible_loss_keys
-                - (
-                    self.pm.flat_graph.all_source_keys
-                    | {
-                        value
-                        for key, value in self.pm.flat_graph.output_dict.items()
-                        if key != value
-                    }
-                )
-            )
-
         # Move gradients back for keys in alias_map(pruned or optimized out keys)
         for target_key, source_key in self.pm.flat_graph.output_dict.items():
             if target_key == source_key:
                 continue
-            if target_key not in ignore_grad_keys:
+            if target_key in self.pm.cotangent_keys:
                 source = ast.Subscript(
                     value=ast.Name(id="gradients", ctx=ast.Load()),
                     slice=ast.Constant(
@@ -382,7 +339,7 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
                 function_body.append(assign)
 
         for output_key in reversed(self.pm.flat_graph.topological_order):
-            if output_key in ignore_grad_keys:
+            if not self._has_grad(output_key):
                 continue
 
             # Iterate over Primitive models in topological order to add their formula.
@@ -446,10 +403,7 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
 
             # TODO: Handle ignore gradient keys (models) and
             for idx, global_input_key in enumerate(global_input_keys[:-2]):
-                if (
-                    global_input_key
-                    in ignore_grad_keys | self.pm.flat_graph.runtime_static_keys
-                ):
+                if not self._has_grad(global_input_key):
                     continue
 
                 grad_fn = self.backend.primitive_grad_function_dict.get(

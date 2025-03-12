@@ -27,6 +27,7 @@ from ...framework.common import (
     EvaluateAllType,
     EvaluateGradientsType,
     EvaluateType,
+    FinalCost,
 )
 from ...utils.type_utils import is_list_int
 from ..physical.model import PhysicalModel
@@ -65,9 +66,6 @@ class CGen(CodeGen[PyArray]):
         # This will be used to store the keys of the argument of the functions
         self.func_arg_keys: dict[str, list[str]] = {}
         self.configs: CGenConfig = self.backend.CODEGEN_CONFIG
-
-        # Ignored grad keys
-        self.ignored_grad_keys: set[str] = self._infer_ignored_grad_keys()
 
         # Determine struct keys
         self.determined_struct_keys: dict[str, list[str]] = (
@@ -258,12 +256,12 @@ class CGen(CodeGen[PyArray]):
             if data is None:
                 data = {}
 
-            if output_gradients is None and self.FinalCost not in self.pm._output_keys:
+            if output_gradients is None and FinalCost not in self.pm._output_keys:
                 raise ValueError(
                     "Requires output gradients if final loss is not attached!"
                 )
             elif output_gradients is None:
-                output_gradients = {self.FinalCost: array.ones((1,))}
+                output_gradients = {FinalCost: array.ones((1,))}
 
             gradients = {key: value for key, value in output_gradients.items()}
             forward_pass = evaluate_wrapper(
@@ -276,13 +274,10 @@ class CGen(CodeGen[PyArray]):
             # Create gradients for all params
             if self.configs.ALLOCATE_INTERNALS:
                 for key in (
-                    self.pm.flat_graph.all_source_keys
-                    - self.pm.flat_graph.all_static_keys
-                    - self.pm.flat_graph.unused_keys
-                    - self.ignored_grad_keys
+                    self.pm.flat_graph.all_source_keys - self.pm.flat_graph.unused_keys
                 ):
                     # In CBackend we are creating all internal gradients with zeros.
-                    if key not in gradients:
+                    if self._has_grad(key) and key not in gradients:
                         arr_shape = self._get_array_shape(key)
                         gradients[key] = self.backend.zeros(*arr_shape)
 
@@ -461,7 +456,7 @@ class CGen(CodeGen[PyArray]):
 
         for output_key in reversed(self.pm.flat_graph.topological_order):
             # Staticly infered and unused model will not be added
-            if output_key in self.ignored_grad_keys:
+            if not self._has_grad(output_key):
                 continue
 
             model = self.pm.flat_graph.get_model(output_key)
@@ -469,7 +464,7 @@ class CGen(CodeGen[PyArray]):
 
             # Assume all inputs are Array
             for idx in range(len(inputs)):
-                if inputs[idx] in self.ignored_grad_keys:
+                if not self._has_grad(inputs[idx]):
                     continue
 
                 fn_inputs: list[c_ast.Expr] = [
@@ -488,7 +483,7 @@ class CGen(CodeGen[PyArray]):
                         self.create_key_ref(
                             input_key + self.BACKWARD_FN_SUFFIX, context="eval_grad"
                         )
-                        if input_key not in self.ignored_grad_keys
+                        if self._has_grad(input_key)
                         else c_ast.Variable("NULL")
                         for input_key in inputs
                     ]
@@ -577,18 +572,6 @@ class CGen(CodeGen[PyArray]):
         struct = c_ast.StructDef(name, fields)
         return struct
 
-    def _infer_ignored_grad_keys(self) -> set[str]:
-        all_ignored_keys = (
-            self.pm.ignore_grad_keys
-            | self.pm.flat_graph.all_static_keys
-            | self.pm.flat_graph.unused_keys
-        )
-        all_ignored_keys, _ = self.pm.flat_graph.infer_ignore(
-            set(), self.pm._output_keys, all_ignored_keys, update_graph=False
-        )
-
-        return all_ignored_keys
-
     def _determine_struct_keys(self) -> dict[str, list[str]]:
         eval_input_keys = sorted(self.pm.input_keys)
         if self.configs.USE_OUTPUT_AS_INPUT:
@@ -601,10 +584,7 @@ class CGen(CodeGen[PyArray]):
             (
                 self.pm.input_keys
                 | set(self.pm.output_keys)
-                | {
-                    key + self.BACKWARD_FN_SUFFIX
-                    for key in set(self.pm.output_keys) - self.ignored_grad_keys
-                }
+                | {key + self.BACKWARD_FN_SUFFIX for key in self.pm.cotangent_keys}
             )
             - set(eval_cache_keys)
         )
@@ -612,7 +592,8 @@ class CGen(CodeGen[PyArray]):
         eval_grad_output_keys = sorted(
             [
                 key + self.BACKWARD_FN_SUFFIX
-                for key in set(self.pm.input_keys) - self.ignored_grad_keys
+                for key in set(self.pm.input_keys)
+                if self._has_grad(key)
             ]
         )
 

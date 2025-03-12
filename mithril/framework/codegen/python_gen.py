@@ -703,13 +703,8 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
         }
 
         total_output_gradients = loss_grad | output_gradients
-        total_ignore_grad_keys = self.pm.ignore_grad_keys.union(
-            {
-                key
-                for key in self.pm.output_keys
-                if (key not in total_output_gradients) and key != FinalCost
-            }
-        )
+        total_ignore_grad_keys = self.pm._output_keys - total_output_gradients.keys()
+
         partial_fn: Callable[
             [ParamsEvalType[DataType]],
             tuple[DataEvalType[DataType], DataEvalType[DataType]],

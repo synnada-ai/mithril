@@ -30,6 +30,7 @@ from mithril.framework.common import (
     TBD,
     Tensor,
     ToBeDetermined,
+    any_differentiable,
 )
 from mithril.framework.logical import ExtendInfo
 from mithril.framework.logical.base import ConnectionData
@@ -1016,7 +1017,8 @@ def test_bool_tensor():
     and1 = LogicalAnd()
     model += and1(left="in1", right="in2", output=IOKey(name="output"))
     comp_model = ml.compile(model=model, backend=NumpyBackend(), inference=True)
-    assert comp_model.ignore_grad_keys == {"output"}
+    # assert comp_model.ignore_grad_keys == {"output"}
+    assert not any_differentiable(comp_model.data["output"])
 
 
 def test_bool_tensor_numpy_32():

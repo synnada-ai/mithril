@@ -367,6 +367,7 @@ def test_code_generator_2(file_path: str):
         backend=JaxBackend(dtype=mithril.float64),
         jit=False,
         file_path=file_path,
+        inference=True,
     )
 
     file_name = os.path.basename(file_path).split(".")[0]

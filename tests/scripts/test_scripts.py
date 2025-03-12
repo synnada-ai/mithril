@@ -204,7 +204,9 @@ def test_primitive_model_with_context():
     context.add_loss(AbsoluteError(), input=model.output, target="target")
     backend = JaxBackend()
 
-    pm = mithril.compile(context, backend=backend, data_keys={"input", "target"})
+    pm = mithril.compile(
+        context, backend=backend, data_keys={"input", "target"}, inference=True
+    )
     assert pm.evaluate(data={"input": 1.0, "target": 3.0}) == {
         "final_cost": jnp.array(2.0),
         "output": jnp.array(1.0),
@@ -1247,7 +1249,7 @@ def test_relational_operators_ignored_1():
     model += Less()(left="left", right="right", output=IOKey(name="yoyoyo"))
 
     pm = compile(model, NumpyBackend(), inference=True)
-    assert "yoyoyo" in pm.ignore_grad_keys
+    assert "yoyoyo" not in pm.cotangent_keys
 
 
 def test_relational_operators_ignored_2():
@@ -1271,7 +1273,8 @@ def test_relational_operators_ignored_2():
     )
     pm = compile(model, NumpyBackend(), inference=True)
     assert (
-        "relational_out" in pm.ignore_grad_keys and "where_out" in pm.ignore_grad_keys
+        "relational_out" not in pm.cotangent_keys
+        and "where_out" not in pm.cotangent_keys
     )
 
 
@@ -1286,7 +1289,8 @@ def test_relational_operators_ignored_3():
 
     pm = compile(model, NumpyBackend(), inference=True)
     assert (
-        "relational_out" in pm.ignore_grad_keys and "ignore_this" in pm.ignore_grad_keys
+        "relational_out" not in pm.cotangent_keys
+        and "ignore_this" not in pm.cotangent_keys
     )
 
 
@@ -2074,7 +2078,7 @@ def test_prune_1():
     m |= Buffer()(input=add3.output, output=IOKey(name="out_3"))
     m |= Buffer()(input=add4.output, output=IOKey(name="out_4"))
 
-    compiled_model = compile(m, NumpyBackend())
+    compiled_model = compile(m, NumpyBackend(), inference=True)
     expected_connections: dict[str, list[str | set[str]]] = {
         "out_1": ["add", {"input", "input2", "out_1_cache"}],
         "output_0": ["add", {"out_1", "input3", "output_0_cache"}],
@@ -2106,7 +2110,7 @@ def test_prune_2():
     m |= Buffer()(input=add3.output, output=IOKey(name="out_3"))
     m |= Buffer()(input=add4.output, output=IOKey(name="out_4"))
 
-    compiled_model = compile(m, NumpyBackend())
+    compiled_model = compile(m, NumpyBackend(), inference=True)
     expected_connections: dict[str, list[str | set[str]]] = {
         "out_1": ["add", {"input", "input2", "out_1_cache"}],
         "output_0": ["add", {"out_1", "input3", "output_0_cache"}],
@@ -2141,7 +2145,7 @@ def test_prune_3():
     m |= Buffer()(input=add4.output, output=IOKey(name="out_4"))
     m |= Buffer()(input=add5.output, output=IOKey(name="out_5"))
 
-    compiled_model = compile(m, NumpyBackend())
+    compiled_model = compile(m, NumpyBackend(), inference=True)
     expected_connections: dict[str, list[str | set[str]]] = {
         "out_1": ["add", {"input", "input2", "out_1_cache"}],
         "output_0": ["add", {"out_1", "input3", "output_0_cache"}],
@@ -2380,7 +2384,7 @@ def test_prune_10():
     m |= Buffer()(input=add1.output, output=IOKey(name="out_3"))
     m |= Buffer()(input=add2.output, output=IOKey(name="out_4"))
 
-    compiled_model = compile(m, NumpyBackend())
+    compiled_model = compile(m, NumpyBackend(), inference=True)
     expected_connections: dict[str, list[str | set[str]]] = {
         "out_1": ["add", {"input", "input2", "out_1_cache"}],
         "output_0": ["add", {"out_1", "input3", "output_0_cache"}],
@@ -2417,7 +2421,7 @@ def test_prune_11():
     m |= Buffer()(input=mul1.output, output=IOKey(name="out_5"))
     m |= Buffer()(input=mul2.output, output=IOKey(name="out_6"))
 
-    compiled_model = compile(m, NumpyBackend())
+    compiled_model = compile(m, NumpyBackend(), inference=True)
     expected_connections: dict[str, list[str | set[str]]] = {
         "out_1": ["add", {"input", "input2", "out_1_cache"}],
         "output_0": ["add", {"out_1", "input3", "output_0_cache"}],
@@ -2446,7 +2450,7 @@ def test_prune_12():
     m |= Buffer()(input=add1.output, output=IOKey(name="out_2"))
     m |= Buffer()(input=add1.output, output=IOKey(name="out_3"))  # Duplicate
 
-    compiled_model = compile(m, NumpyBackend())
+    compiled_model = compile(m, NumpyBackend(), inference=True)
     expected_connections: dict[str, list[str | set[str]]] = {
         "out_1": ["add", {"input", "input2", "out_1_cache"}]
     }
@@ -2480,7 +2484,7 @@ def test_prune_14():
     m |= Buffer()(input=add1.output, output=IOKey(name="out_2"))
     m |= Buffer()(input="out_2", output=IOKey(name="out_3"))  # Duplicate
 
-    compiled_model = compile(m, NumpyBackend())
+    compiled_model = compile(m, NumpyBackend(), inference=True)
     expected_connections: dict[str, list[str | set[str]]] = {
         "out_1": ["add", {"input", "input2", "out_1_cache"}]
     }
@@ -2736,6 +2740,7 @@ def test_prune_tensor_match():
         backend=backend,
         shapes={"input1": [4, 4], "input2": [4, 4]},
         jit=False,
+        inference=True,
     )
 
     assert pm.flat_graph.output_dict == {
