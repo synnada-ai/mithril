@@ -108,9 +108,9 @@ def test_1():
         output=IOKey(name="output1"),
     )
 
-    expected_input_keys = {"$2", "weight_2", "$3", "$5", "bias_3"}
+    expected_input_keys = {'$4', '$1', 'weight_2', 'bias_3', '$2'}
     expected_output_keys = {"output1"}
-    expected_internal_keys = {"$4"}
+    expected_internal_keys = {"$3"}
     expected_pm_input_keys = {"input", "weight_2", "bias", "weight", "bias_3"}
     expected_pm_output_keys = {"output1"}
 
@@ -132,9 +132,9 @@ def test_2():
     model |= Linear(10)(weight="weight_2")
     model |= Linear(10)(input=model.cout, bias="bias_3", output=IOKey(name="output1"))
 
-    expected_input_keys = {"$2", "weight_2", "$3", "$5", "bias_3"}
+    expected_input_keys = {'$4', '$1', 'weight_2', 'bias_3', '$2'}
     expected_output_keys = {"output1"}
-    expected_internal_keys = {"$4"}
+    expected_internal_keys = {"$3"}
     expected_pm_input_keys = {"input", "weight_2", "bias", "weight", "bias_3"}
     expected_pm_output_keys = {"output1"}
 
@@ -156,8 +156,8 @@ def test_3():
     model |= Linear(10)(weight="weight_2")
     model |= Linear(10)(input=model.cout, bias="bias_3", output="output1")
 
-    expected_input_keys = {"$2", "weight_2", "$3", "$5", "bias_3"}
-    expected_internal_keys = {"$4"}
+    expected_input_keys = {'$4', '$1', 'weight_2', 'bias_3', '$2'}
+    expected_internal_keys = {"$3"}
     # expected_latent_input_keys = {"output1"}
     expected_pm_input_keys = {"input", "weight_2", "bias", "weight", "bias_3"}
     expected_pm_output_keys = {"output1"}
@@ -180,8 +180,8 @@ def test_4():
     )
     model |= Linear(1)(input=model.cout, bias="bias_3", output="output1")
 
-    expected_input_keys = {"$4", "bias_3", "bias_2", "weight_2", "$2"}
-    expected_internal_keys = {"$3"}
+    expected_input_keys = {'$3', 'bias_3', 'weight_2', 'bias_2', '$1'}
+    expected_internal_keys = {"$2"}
     expected_pm_input_keys = {"weight_2", "weight", "bias_3", "bias_2", "input"}
     expected_pm_output_keys = {"output1"}
 
@@ -201,8 +201,8 @@ def test_5():
     model |= Linear()(bias=IOKey(name="bias_2", shape=[2]), weight="weight_2")
     model |= Linear()(input=model.cout, bias="bias_3", output="output1")
 
-    expected_input_keys = {"weight_2", "bias_2", "bias_3", "$2", "$4"}
-    expected_internal_keys = {"$3"}
+    expected_input_keys = {"weight_2", "bias_2", "bias_3", "$1", "$3"}
+    expected_internal_keys = {"$2"}
     expected_pm_input_keys = {"bias_3", "weight", "bias_2", "input", "weight_2"}
     expected_pm_output_keys = {"output1"}
 
@@ -213,9 +213,7 @@ def test_5():
         "$input": ["u1", "(V1, ...)", "u3"],
         "weight_2": [2, "u3"],
         "$weight": ["u2", 2],
-        "bias_3": ["u2"],
-        "$_Linear_0_axes": None,
-        "$_Linear_1_axes": None,
+        "bias_3": ["u2"]
     }
 
     assert_model_keys(
@@ -244,9 +242,9 @@ def test_6():
         bias=IOKey(name="bias_2", shape=[5]),
         output=IOKey(name="output1"),
     )
-    expected_input_keys = {"input", "weight_1", "bias_1", "$3", "bias_2"}
+    expected_input_keys = {"input", "weight_1", "bias_1", "$2", "bias_2"}
     expected_output_keys = {"output1"}
-    expected_internal_keys = {"$2"}
+    expected_internal_keys = {"$1"}
     expected_pm_input_keys = {"weight", "bias_1", "input", "weight_1", "bias_2"}
     expected_pm_output_keys = {"output1"}
 
@@ -258,8 +256,6 @@ def test_6():
         "$weight": [5, 10],
         "bias_2": [5],
         "output1": ["a", "(V1, ...)", 5],
-        "$_Linear_0_axes": None,
-        "$_Linear_1_axes": None,
     }
 
     assert_model_keys(
@@ -1299,7 +1295,7 @@ def test_iokey_template_3():
     out = pm.evaluate(data={"left": backend.array([2.0])})
     expected_result = np.array([5.0])
 
-    assert pm.input_keys == {"left", "input"}
+    assert pm.input_keys == {"left"}
     assert pm.output_keys == ["output"]
     np.testing.assert_array_equal(out["output"], expected_result)  # type: ignore
 
@@ -1318,7 +1314,7 @@ def test_iokey_template_4():
     out = pm.evaluate(data={"left": backend.ones((9, 8, 7))})
     expected_result = 9
 
-    assert pm.input_keys == {"left", "index"}
+    assert pm.input_keys == {"left"}
     assert pm.output_keys == ["output"]
     np.testing.assert_array_equal(out["output"], expected_result)  # type: ignore
 

@@ -93,313 +93,356 @@ from .operators import (
 __all__ = [
     "Connection",
     "IOKey",
-    "ExtendTemplate",
     "ExtendInfo",
     "Model",
     "ConnectionType",
     "ConnectionInstanceType",
-    "TemplateConnectionType",
     "define_unique_names",
 ]
 
 
-class TemplateBase:
+def create_extracted_model(connections: list[ConnectionType], model: type[Operator], defaults: dict[str, Any] | None = None) -> Connection:
+    if defaults is None:
+        defaults = {}
+    code = model.__init__.__code__
+
+    # "self" argument is common for all models, Exclude it by
+    # starting co_varnames from 1st index.
+    default_args = code.co_varnames[1 : code.co_argcount]
+    default_args_dict = {key: TBD for key in default_args} | defaults
+    default_args_dict.pop("name", None)
+
+    op: Operator = model(**default_args_dict)  # type: ignore
+
+    # All connections' model field is [None] or [not None but a frozen model] -> # Create a new model with extract = True
+    # The must be maximum 1 connection's model field is not None and also not frozen (All connections with a model field contains extract=True is okey) -> Add new models (both coming from connections and the maion Operation) directly into an already existing model
+    # There exists more than 1 connection's model field is not None and also not frozen. -> Raise an error
+
+    main_model = None
+    # new_models = set()
+    new_models = {}
+    for c in connections:
+        if isinstance(c, str):
+            raise ValueError("Connection key is not allowed in connections!")
+        # TODO: check if _get_outermost_parent contains c.metadata
+        if isinstance(c, ConnectionData) and c.model is not None:
+            m = c.model._get_outermost_parent()
+            if not m.is_frozen and not m.extract:
+                if main_model is not None and main_model is not m:
+                    raise ValueError("Multiple non-frozen active models found in connections!")
+                main_model = m
+            else:
+                # new_models.add(m)
+                new_models[m] = c
+
+    if main_model is None:
+        for m in new_models:
+            if not m.is_frozen:
+                main_model = m
+                break
+        if main_model is not None:
+            # new_models.remove(main_model)
+            new_models.pop(main_model)
+    
+    if main_model is None:
+        main_model = Model()
+        main_model.extract = True
+    
+    assert isinstance(main_model, Model)
+    for m, c in new_models.items():
+        updates = main_model.constraint_solver.match(m.constraint_solver)
+        main_model.constraint_solver(updates)
+        if m.extract:
+            main_model.extend_extracted_model(m)
+        else:
+            main_model._extend(m)
+    keys = {key: con for key, con in zip(op.input_keys, connections, strict=False)}
+    main_model._extend(op, keys)
+    main_model.set_cout(op.cout, safe=False)
+    return main_model.cout
+
+
+class Connection(ConnectionData):
+    def __hash__(self):
+        return hash(id(self))
     def __getitem__(
         self,
         key: slice
         | int
         | EllipsisType
-        | tuple[slice | int | None | EllipsisType | TemplateBase, ...]
+        | tuple[slice | int | None | EllipsisType | Connection, ...]
         | IOKey
-        | TemplateBase
+        | Connection
         | None,
-    ) -> ExtendTemplate:
+    ) -> Connection:
         match key:
             case slice():
-                slice_output = ExtendTemplate(
+                slice_output = create_extracted_model(
                     connections=[key.start, key.stop, key.step], model=SliceOp
                 )
-                output = ExtendTemplate(
+                output = create_extracted_model(
                     connections=[self, slice_output], model=IndexerOp
                 )
-
             case int() | EllipsisType() | None:
-                output = ExtendTemplate(connections=[self, key], model=IndexerOp)
-
+                output = create_extracted_model(
+                    connections=[self, key], model=IndexerOp
+                )
             case tuple():
-                connections: list[TemplateBase | int | None | EllipsisType] = []
+                connections: list[Connection | int | None | EllipsisType] = []
                 for item in key:
                     if isinstance(item, slice):
-                        slice_output = ExtendTemplate(
-                            connections=[item.start, item.stop, item.step],
-                            model=SliceOp,
+                        slice_output = create_extracted_model(
+                            connections=[item.start, item.stop, item.step], model=SliceOp
                         )
                         connections.append(slice_output)
                     else:
                         connections.append(item)
-                tuple_template = ExtendTemplate(
-                    connections=connections,
-                    model=ToTupleOp,
-                    defaults={"n": len(key)},
+                tuple_template = create_extracted_model(
+                    connections=connections, model=ToTupleOp, defaults={"n": len(key)}
                 )
-                output = ExtendTemplate(
+                output = create_extracted_model(
                     connections=[self, tuple_template], model=IndexerOp
                 )
         return output
 
-    def __add__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self, other], model=AddOp)
+    def __add__(self, other: ConnectionType) -> Connection:
+        return create_extracted_model(connections=[self, other], model=AddOp)
 
-    def __radd__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[other, self], model=AddOp)
+    def __radd__(self, other: ConnectionType) -> Connection:
+        return create_extracted_model(connections=[other, self], model=AddOp)
 
-    def __sub__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self, other], model=SubtractOp)
+    def __sub__(self, other: ConnectionType) -> Connection:
+        return create_extracted_model(connections=[self, other], model=SubtractOp)
 
-    def __rsub__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[other, self], model=SubtractOp)
+    def __rsub__(self, other: ConnectionType) -> Connection:
+        return create_extracted_model(connections=[other, self], model=SubtractOp)
 
-    def __mul__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self, other], model=MultiplyOp)
+    def __mul__(self, other: ConnectionType) -> Connection:
+        return create_extracted_model(connections=[self, other], model=MultiplyOp)
 
-    def __rmul__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[other, self], model=MultiplyOp)
+    def __rmul__(self, other: ConnectionType) -> Connection:
+        return create_extracted_model(connections=[other, self], model=MultiplyOp)
 
-    def __truediv__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self, other], model=DivideOp)
+    def __truediv__(self, other: ConnectionType) -> Connection:
+        return create_extracted_model(connections=[self, other], model=DivideOp)
 
-    def __rtruediv__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[other, self], model=DivideOp)
+    def __rtruediv__(self, other: ConnectionType) -> Connection:
+        return create_extracted_model(connections=[other, self], model=DivideOp)
 
-    def __floordiv__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self, other], model=FloorDivideOp)
+    def __floordiv__(self, other: ConnectionType) -> Connection:
+        return create_extracted_model(connections=[self, other], model=FloorDivideOp)
 
-    def __rfloordiv__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[other, self], model=FloorDivideOp)
+    def __rfloordiv__(self, other: ConnectionType) -> Connection:
+        return create_extracted_model(connections=[other, self], model=FloorDivideOp)
 
-    def __pow__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(
+    def __pow__(self, other: ConnectionType) -> Connection:
+        return create_extracted_model(
             connections=[self, other], model=PowerOp, defaults={"robust": False}
         )
 
-    def __rpow__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(
+    def __rpow__(self, other: ConnectionType) -> Connection:
+        return create_extracted_model(
             connections=[other, self], model=PowerOp, defaults={"robust": False}
         )
 
-    def __matmul__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self, other], model=MatrixMultiplyOp)
+    def __matmul__(self, other: ConnectionType) -> Connection:
+        return create_extracted_model(connections=[self, other], model=MatrixMultiplyOp)
 
-    def __gt__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self, other], model=GreaterOp)
+    def __gt__(self, other: ConnectionType) -> Connection:
+        return create_extracted_model(connections=[self, other], model=GreaterOp)
 
-    def __rgt__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[other, self], model=GreaterOp)
+    def __rgt__(self, other: ConnectionType) -> Connection:
+        return create_extracted_model(connections=[other, self], model=GreaterOp)
 
-    def __ge__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self, other], model=GreaterEqualOp)
+    def __ge__(self, other: ConnectionType) -> Connection:
+        return create_extracted_model(connections=[self, other], model=GreaterEqualOp)
 
-    def __rge__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[other, self], model=GreaterEqualOp)
+    def __rge__(self, other: ConnectionType) -> Connection:
+        return create_extracted_model(connections=[other, self], model=GreaterEqualOp)
 
-    def __lt__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self, other], model=LessOp)
+    def __lt__(self, other: ConnectionType) -> Connection:
+        return create_extracted_model(connections=[self, other], model=LessOp)
 
-    def __rlt__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[other, self], model=LessOp)
+    def __rlt__(self, other: ConnectionType) -> Connection:
+        return create_extracted_model(connections=[other, self], model=LessOp)
 
-    def __le__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self, other], model=LessEqualOp)
+    def __le__(self, other: ConnectionType) -> Connection:
+        return create_extracted_model(connections=[self, other], model=LessEqualOp)
 
-    def __rle__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[other, self], model=LessEqualOp)
+    def __rle__(self, other: ConnectionType) -> Connection:
+        return create_extracted_model(connections=[other, self], model=LessEqualOp)
 
-    def eq(self, other: object) -> ExtendTemplate:
+    def eq(self, other: object) -> Connection:  # type: ignore[override]
         if isinstance(
             other, int | float | bool | list | Connection | IOKey | tuple | Tensor
         ):
-            return ExtendTemplate(connections=[self, other], model=EqualOp)
+            return create_extracted_model(connections=[self, other], model=EqualOp)
         else:
             raise ValueError("Unsupported type for equality operation.")
 
-    def ne(self, other: object) -> ExtendTemplate:
+    def ne(self, other: object) -> Connection:  # type: ignore[override]
         if isinstance(
             other, int | float | bool | list | Connection | IOKey | tuple | Tensor
         ):
-            return ExtendTemplate(connections=[self, other], model=NotEqualOp)
+            return create_extracted_model(connections=[self, other], model=NotEqualOp)
         else:
             raise ValueError("Unsupported type for equality operation.")
 
-    def __and__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self, other], model=LogicalAndOp)
+    def __and__(self, other: ConnectionType) -> Connection:
+        return create_extracted_model(connections=[self, other], model=LogicalAndOp)
 
-    def __rand__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[other, self], model=LogicalAndOp)
+    def __rand__(self, other: ConnectionType) -> Connection:
+        return create_extracted_model(connections=[other, self], model=LogicalAndOp)
 
-    def __or__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self, other], model=LogicalOrOp)
+    def __or__(self, other: ConnectionType) -> Connection:
+        return create_extracted_model(connections=[self, other], model=LogicalOrOp)
 
-    def __ror__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[other, self], model=LogicalOrOp)
+    def __ror__(self, other: ConnectionType) -> Connection:
+        return create_extracted_model(connections=[other, self], model=LogicalOrOp)
 
-    def __xor__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self, other], model=LogicalXOrOp)
+    def __xor__(self, other: ConnectionType) -> Connection:
+        return create_extracted_model(connections=[self, other], model=LogicalXOrOp)
 
-    def __rxor__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[other, self], model=LogicalXOrOp)
+    def __rxor__(self, other: ConnectionType) -> Connection:
+        return create_extracted_model(connections=[other, self], model=LogicalXOrOp)
 
-    def __lshift__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self, other], model=ShiftLeftOp)
+    def __lshift__(self, other: ConnectionType) -> Connection:
+        return create_extracted_model(connections=[self, other], model=ShiftLeftOp)
 
-    def __rlshift__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[other, self], model=ShiftLeftOp)
+    def __rlshift__(self, other: ConnectionType) -> Connection:
+        return create_extracted_model(connections=[other, self], model=ShiftLeftOp)
 
-    def __rshift__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self, other], model=ShiftRightOp)
+    def __rshift__(self, other: ConnectionType) -> Connection:
+        return create_extracted_model(connections=[self, other], model=ShiftRightOp)
 
-    def __rrshift__(self, other: TemplateConnectionType) -> ExtendTemplate:
-        return ExtendTemplate(connections=[other, self], model=ShiftRightOp)
+    def __rrshift__(self, other: ConnectionType) -> Connection:
+        return create_extracted_model(connections=[other, self], model=ShiftRightOp)
 
-    def __invert__(self) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self], model=LogicalNotOp)
+    def __invert__(self) -> Connection:
+        return create_extracted_model(connections=[self], model=LogicalNotOp)
 
-    def __neg__(self) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self], model=MinusOp)
+    def __neg__(self) -> Connection:
+        return create_extracted_model(connections=[self], model=MinusOp)
 
-    def abs(self) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self], model=AbsoluteOp)
+    def abs(self) -> Connection:
+        return create_extracted_model(connections=[self], model=AbsoluteOp)
 
-    def len(self) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self], model=LengthOp)
+    def len(self) -> Connection:
+        return create_extracted_model(connections=[self], model=LengthOp)
 
     @property
-    def shape(self) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self], model=ShapeOp)
+    def shape(self) -> Connection:
+        return create_extracted_model(connections=[self], model=ShapeOp)
 
     def reshape(
-        self, shape: tuple[int | TemplateBase, ...] | TemplateBase
-    ) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self, shape], model=ReshapeOp)
+        self, shape: tuple[int | Connection, ...] | Connection
+    ) -> Connection:
+        return create_extracted_model(connections=[self, shape], model=ReshapeOp)
 
     def size(
-        self, dim: int | tuple[int, ...] | TemplateBase | None = None
-    ) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self, dim], model=SizeOp)
+        self, dim: int | tuple[int, ...] | Connection | None = None
+    ) -> Connection:
+        return create_extracted_model(connections=[self, dim], model=SizeOp)
 
-    def tensor(self) -> ExtendTemplate:
-        return ExtendTemplate(
+    def tensor(self) -> Connection:
+        return create_extracted_model(
             connections=[self], model=ToTensorOp, defaults={"dtype": None}
         )
 
     def mean(
         self,
-        axis: int | tuple[int, ...] | TemplateBase | None = None,
+        axis: int | tuple[int, ...] | Connection | None = None,
         keepdim: bool = False,
-    ) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self, axis, keepdim], model=MeanOp)
+    ) -> Connection:
+        return create_extracted_model(
+            connections=[self, axis, keepdim], model=MeanOp
+        )
 
     def sum(
         self,
-        axis: int | tuple[int, ...] | TemplateBase | None = None,
+        axis: int | tuple[int, ...] | Connection | None = None,
         keepdim: bool = False,
-    ) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self, axis, keepdim], model=SumOp)
+    ) -> Connection:
+        return create_extracted_model(
+            connections=[self, axis, keepdim], model=SumOp
+        )
 
     def max(
         self,
-        axis: int | tuple[int, ...] | TemplateBase | None = None,
+        axis: int | tuple[int, ...] | Connection | None = None,
         keepdim: bool = False,
-    ) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self, axis, keepdim], model=MaxOp)
+    ) -> Connection:
+        return create_extracted_model(
+            connections=[self, axis, keepdim], model=MaxOp
+        )
 
     def min(
         self,
-        axis: int | tuple[int, ...] | TemplateBase | None = None,
+        axis: int | tuple[int, ...] | Connection | None = None,
         keepdim: bool = False,
-    ) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self, axis, keepdim], model=MinOp)
+    ) -> Connection:
+        return create_extracted_model(
+            connections=[self, axis, keepdim], model=MinOp
+        )
 
     def prod(
         self,
-        axis: int | tuple[int, ...] | TemplateBase | None = None,
+        axis: int | tuple[int, ...] | Connection | None = None,
         keepdim: bool = False,
-    ) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self, axis, keepdim], model=ProdOp)
+    ) -> Connection:
+        return create_extracted_model(
+            connections=[self, axis, keepdim], model=ProdOp
+        )
 
     def var(
         self,
-        axis: int | tuple[int, ...] | TemplateBase | None = None,
+        axis: int | tuple[int, ...] | Connection | None = None,
         keepdim: bool = False,
         correction: float | None = 0.0,
-    ) -> ExtendTemplate:
-        return ExtendTemplate(
+    ) -> Connection:
+        return create_extracted_model(
             connections=[self, axis, keepdim, correction], model=VarianceOp
         )
 
-    def sqrt(self) -> ExtendTemplate:
-        return ExtendTemplate(
+    def sqrt(self) -> Connection:
+        return create_extracted_model(
             connections=[self], model=SqrtOp, defaults={"robust": False}
         )
 
-    def exp(self) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self], model=ExponentialOp)
+    def exp(self) -> Connection:
+        return create_extracted_model(connections=[self], model=ExponentialOp)
 
     def transpose(
-        self, axes: tuple[int, ...] | TemplateBase | None = None
-    ) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self, axes], model=TransposeOp)
+        self, axes: tuple[int, ...] | Connection | None = None
+    ) -> Connection:
+        return create_extracted_model(connections=[self, axes], model=TransposeOp)
 
-    def split(self, split_size: int, axis: int) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self, split_size, axis], model=SplitOp)
+    def split(self, split_size: int, axis: int) -> Connection:
+        return create_extracted_model(
+            connections=[self, split_size, axis], model=SplitOp
+        )
 
-    def item(self) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self], model=ItemOp)
+    def item(self) -> Connection:
+        return create_extracted_model(connections=[self], model=ItemOp)
 
-    def cast(self, dtype: ExtendTemplate | CoreDtype | None = None) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self, dtype], model=CastOp)
+    def cast(self, dtype: CoreDtype | None = None) -> Connection:
+        return create_extracted_model(
+            connections=[self, dtype], model=CastOp
+        )
 
-    def dtype(self) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self], model=DtypeOp)
+    def dtype(self) -> Connection:
+        return create_extracted_model(connections=[self], model=DtypeOp)
 
-    def sin(self) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self], model=SineOp)
+    def sin(self) -> Connection:
+        return create_extracted_model(connections=[self], model=SineOp)
 
-    def cos(self) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self], model=CosineOp)
+    def cos(self) -> Connection:
+        return create_extracted_model(connections=[self], model=CosineOp)
 
-    def atleast_1d(self) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self], model=AtLeast1DOp)
-
-
-class Connection(ConnectionData, TemplateBase):
-    pass
-
+    def atleast_1d(self) -> Connection:
+        return create_extracted_model(connections=[self], model=AtLeast1DOp)
 
 IOKey = Connection
-
-
-class ExtendTemplate(TemplateBase):
-    output_connection: ConnectionData | None
-
-    def __init__(
-        self,
-        connections: Sequence[TemplateConnectionType],
-        model: type[BaseModel],
-        defaults: dict[str, Any] | None = None,
-    ) -> None:
-        for connection in connections:
-            if isinstance(connection, str):
-                raise ValueError(
-                    "In extend template operations, 'str' is not a valid type."
-                )
-
-        self.connections = connections
-        self.model = model
-
-        if defaults is None:
-            defaults = {}
-        self.defaults = defaults
-        self.output_connection = None
 
 
 @dataclass
@@ -427,21 +470,9 @@ class ExtendInfo:
         return self._connections
 
 
-TemplateConnectionType = (
-    TemplateBase
-    | int
-    | float
-    | list[int | float]
-    | EllipsisType
-    | tuple[slice | int | None | EllipsisType | TemplateBase, ...]
-    | None
-    | Tensor[int | float | bool]
-)
-
 ConnectionType = (
     str
     | MainValueType
-    | ExtendTemplate
     | NullConnection
     | IOKey
     | ConnectionData
@@ -451,7 +482,6 @@ ConnectionType = (
 ConnectionInstanceType = (
     str
     | MainValueInstance
-    | ExtendTemplate
     | NullConnection
     | IOKey
     | Connection
@@ -484,44 +514,43 @@ class Model(BaseModel):
         setattr(self, key, conn)
 
     def _unroll_template(self, template: ConnectionType) -> ConnectionType:
-        types = [ConnectionData, ExtendTemplate, Connection, IOKey, Tensor]
+        types = [ConnectionData, Connection, Connection, IOKey, Tensor]
         if (
             isinstance(template, tuple | list)
             and find_dominant_type(template, False, constant_fn) in types
         ):
-            _model = ToTupleOp if isinstance(template, tuple) else ToListOp
-            template = ExtendTemplate(template, _model, {"n": len(template)})
-        elif not isinstance(template, ExtendTemplate):
-            return template
+            if isinstance(template, tuple):
+                template = tuple(self._unroll_template(item) for item in template)
+                _model = ToTupleOp
+            else:
+                template = [self._unroll_template(item) for item in template]
+                _model = ToListOp
+            template = create_extracted_model(template, _model, defaults={"n": len(template)})
 
-        if template.output_connection is None:
-            # Initialize all default init arguments of model as TBD other
-            # than the keys in template.defaults, in order to provide
-            # given connections to the model after it is created.
-            # If we don't do that, it will throw error because of
-            # re-setting a Tensor or Scalar value again in extend.
-            # TODO: Remove all TBD if default init arguments will be moved to call!!!
-            code = template.model.__init__.__code__
+        if isinstance(template, ConnectionData) and template.model is not None:
+            # template = create_extracted_model(template, self)
+            if (extract_m := template.model).extract:
+                self.extend_extracted_model(extract_m)
+        return template
 
-            # "self" argument is common for all models, Exclude it by
-            # starting co_varnames from 1st index.
-            default_args = code.co_varnames[1 : code.co_argcount]
-            default_args_dict = {key: TBD for key in default_args} | template.defaults
-            default_args_dict.pop("name", None)
+    def extend_extracted_model(self, extract_m: Model) -> None:
+        updates = self.constraint_solver.match(extract_m.constraint_solver)
+        self.constraint_solver(updates)
+        for sub_m in extract_m.get_models_in_topological_order():
+            if sub_m not in self.dag:
+                sub_m.parent = None
+                conns = {}
+                for con in sub_m.conns.all.values():
+                    if not extract_m.conns.get_con_by_metadata(con.metadata).is_autogenerated:
+                        conns[con.key] = extract_m.conns.get_con_by_metadata(con.metadata)
+                        conns[con.key].model = None
+                    sub_m.conns.connections_dict.setdefault(con.metadata, set())
+                    sub_m.conns.connections_dict[con.metadata] |= extract_m.conns.connections_dict[con.metadata]
 
-            # TODO: Reconsider type ignore!
-            model: Operator = template.model(**default_args_dict)  # type: ignore
-            keys = {
-                local_key: self._unroll_template(outer_con)  # type: ignore
-                for local_key, outer_con in zip(
-                    model.input_keys, template.connections, strict=False
-                )
-            }
-            self._extend(model, keys)
+                    sub_m.conns.metadata_dict.setdefault(con.metadata, set())
+                    sub_m.conns.metadata_dict[con.metadata] |= extract_m.conns.metadata_dict[con.metadata]
 
-            template.output_connection = model.conns.get_connection("output")
-            assert template.output_connection is not None
-        return template.output_connection
+                self.extend(sub_m, **conns)
 
     @property
     def cout(self) -> Connection:

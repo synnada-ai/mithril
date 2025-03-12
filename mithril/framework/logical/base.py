@@ -399,6 +399,7 @@ class BaseModel:
         self.safe_shapes: dict[str, ShapeTemplateType] = {}
         self.is_frozen = False
         self.inter_key_count = 0
+        self.extract = False
 
     @property
     def formula_key(self) -> str | None:
@@ -1649,8 +1650,7 @@ class BaseModel:
                         "To set a connection as canonical output, "
                         "connection must be an output connection!"
                     )
-            else:
-                self.conns.couts.add(conn)
+            self.conns.couts.add(conn)
 
     def _match_hyper_edges(self, left: IOHyperEdge, right: IOHyperEdge) -> Updates:
         l_type = left.edge_type

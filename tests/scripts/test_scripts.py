@@ -1396,10 +1396,7 @@ def test_shapes_1():
         "$weight_1": [10, 10],
         "$bias_1": [10],
         "$weight_2": [10, 10],
-        "$bias_2": [10],
-        "$_Linear_0_axes": None,
-        "$_Linear_1_axes": None,
-        "$_Linear_2_axes": None,
+        "$bias_2": [10]
     }
 
 
@@ -6973,7 +6970,7 @@ def test_extending_operator():
 
 def test_extending_operator_model():
     model1 = Buffer()
-    with pytest.raises(RuntimeError) as err:
+    with pytest.raises(AttributeError) as err:
         model1 += Buffer()
 
-    assert str(err.value) == "Primitive models cannot have submodels."
+    assert str(err.value) == "Model is frozen and can not be extended!"

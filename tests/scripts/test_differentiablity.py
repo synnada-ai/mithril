@@ -61,8 +61,8 @@ def test_input_data_to_trainable():
 
 def test_input_data_to_trainable_compile():
     model = Model()
-    model += Linear()(input="input")
-    model += Linear()(weight=model.input)  # type: ignore
+    model += (lin1 := Linear())(weight=IOKey("www"), input="input")
+    model += (lin2 := Linear())(weight=model.input)  # type: ignore
 
     backend = JaxBackend()
     pm = mithril.compile(model, backend)

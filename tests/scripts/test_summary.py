@@ -102,7 +102,6 @@ def test_extract_logical_connections_1():
         "Linear_0": (
             {
                 "weight": ["'weight'"],
-                "$axes": ["None"],
                 "input": ["'input'"],
                 "bias": ["'bias'"],
             },
@@ -111,7 +110,6 @@ def test_extract_logical_connections_1():
         "Linear_1": (
             {
                 "weight": ["Linear_0.output"],
-                "$axes": ["None"],
                 "input": ["Linear_0.output"],
                 "bias": ["'$_bias_0'"],
             },
@@ -120,7 +118,6 @@ def test_extract_logical_connections_1():
         "Linear_2": (
             {
                 "weight": ["'weight'"],
-                "$axes": ["None"],
                 "input": ["'weight'"],
                 "bias": ["'$_bias_1'"],
             },
@@ -250,7 +247,6 @@ def test_extract_logical_connections_5():
         "Linear_0": (
             {
                 "weight": ["'$weight_2'"],
-                "$axes": ["None"],
                 "input": ["Flatten.output"],
                 "bias": ["'$bias_2'"],
             },
@@ -259,7 +255,6 @@ def test_extract_logical_connections_5():
         "Linear_1": (
             {
                 "weight": ["'$weight_3'"],
-                "$axes": ["None"],
                 "input": ["Linear_0.output"],
                 "bias": ["'$bias_3'"],
             },
@@ -281,7 +276,6 @@ def test_extract_logical_connections_6():
         "Linear": (
             {
                 "weight": ["'$weight'"],
-                "$axes": ["None"],
                 "input": ["'input'"],
                 "bias": ["'$bias'"],
             },
@@ -316,7 +310,6 @@ def test_extract_logical_connections_7():
         "Linear": (
             {
                 "weight": ["'$weight_0'"],
-                "$axes": ["None"],
                 "input": ["'input'"],
                 "bias": ["'$bias_0'"],
             },
@@ -527,7 +520,6 @@ def test_extract_logical_connections_13():
         "Linear_0": (
             {
                 "weight": ["'$weight_2'"],
-                "$axes": ["None"],
                 "input": ["Flatten.output"],
                 "bias": ["'$bias_2'"],
             },
@@ -536,7 +528,6 @@ def test_extract_logical_connections_13():
         "Linear_1": (
             {
                 "weight": ["'$weight_3'"],
-                "$axes": ["None"],
                 "input": ["Linear_0.output"],
                 "bias": ["'$bias_3'"],
             },
@@ -617,17 +608,17 @@ def test_extract_shapes_logical_3():
     shape_info = get_summary_shapes(model_shapes, conn_info)
     assert shape_info == {
         "Linear_0": (
-            {"weight": [4, "u1"], "$axes": None, "input": [4, "u1"], "bias": [4]},
+            {"weight": [4, "u1"], "input": [4, "u1"], "bias": [4]},
             {"output": [4, 4]},
         ),
         "Relu_0": ({"input": [4, 4]}, {"output": [4, 4]}),
         "Linear_1": (
-            {"weight": [2, 4], "$axes": None, "input": [4, 4], "bias": [2]},
+            {"weight": [2, 4], "input": [4, 4], "bias": [2]},
             {"output": [4, 2]},
         ),
         "Relu_1": ({"input": [4, 2]}, {"output": [4, 2]}),
         "Linear_2": (
-            {"weight": [1, 2], "$axes": None, "input": [4, 2], "bias": [1]},
+            {"weight": [1, 2], "input": [4, 2], "bias": [1]},
             {"output": [4, 1]},
         ),
         "Relu_2": ({"input": [4, 1]}, {"output": [4, 1]}),
@@ -667,9 +658,6 @@ def test_extract_shapes_logical_4():
                 "padding": None,
                 "stride": None,
                 "dilation": None,
-                "$start": None,
-                "$stop": None,
-                "$step": None,
             },
             {"output": [5, 3, 58, 58]},
         ),
@@ -680,9 +668,6 @@ def test_extract_shapes_logical_4():
                 "padding": None,
                 "stride": None,
                 "dilation": None,
-                "$start": None,
-                "$stop": None,
-                "$step": None,
                 "input": [5, 3, 58, 58],
                 "bias": [1, 5, 1, 1],
             },
@@ -695,9 +680,6 @@ def test_extract_shapes_logical_4():
                 "padding": None,
                 "stride": None,
                 "dilation": None,
-                "$start": None,
-                "$stop": None,
-                "$step": None,
                 "input": [5, 5, 56, 56],
                 "bias": [1, 5, 1, 1],
             },
@@ -734,17 +716,17 @@ def test_extract_shapes_logical_5():
     shape_info = get_summary_shapes(model_shapes, conn_info)
     assert shape_info == {
         "Linear_0": (
-            {"weight": [4, "u1"], "$axes": None, "input": ["u2", "u1"], "bias": [4]},
+            {"weight": [4, "u1"], "input": ["u2", "u1"], "bias": [4]},
             {"output": ["u2", 4]},
         ),
         "Relu_0": ({"input": ["u2", 4]}, {"output": ["u2", 4]}),
         "Linear_1": (
-            {"weight": [2, 4], "$axes": None, "input": ["u2", 4], "bias": [2]},
+            {"weight": [2, 4], "input": ["u2", 4], "bias": [2]},
             {"output": ["u2", 2]},
         ),
         "Relu_1": ({"input": ["u2", 2]}, {"output": ["u2", 2]}),
         "Linear_2": (
-            {"weight": [1, 2], "$axes": None, "input": ["u2", 2], "bias": [1]},
+            {"weight": [1, 2], "input": ["u2", 2], "bias": [1]},
             {"output": ["u2", 1]},
         ),
         "Relu_2": ({"input": ["u2", 1]}, {"output": ["u2", 1]}),

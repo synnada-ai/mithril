@@ -340,33 +340,18 @@ def test_shapes_2():
         "$bias_4": [1, 64, 1, 1],
         "output": ["u1", 64, "u13", "u14"],
         "$_Convolution2D_0_padding": None,
-        "$_Convolution2D_0_start": None,
-        "$_Convolution2D_0_stop": None,
-        "$_Convolution2D_0_step": None,
         "$_Convolution2D_0_stride": None,
         "$_Convolution2D_0_dilation": None,
         "$_Convolution2D_1_padding": None,
-        "$_Convolution2D_1_start": None,
-        "$_Convolution2D_1_stop": None,
-        "$_Convolution2D_1_step": None,
         "$_Convolution2D_1_stride": None,
         "$_Convolution2D_1_dilation": None,
         "$_Convolution2D_2_padding": None,
-        "$_Convolution2D_2_start": None,
-        "$_Convolution2D_2_stop": None,
-        "$_Convolution2D_2_step": None,
         "$_Convolution2D_2_stride": None,
         "$_Convolution2D_2_dilation": None,
         "$_Convolution2D_3_padding": None,
-        "$_Convolution2D_3_start": None,
-        "$_Convolution2D_3_stop": None,
-        "$_Convolution2D_3_step": None,
         "$_Convolution2D_3_stride": None,
         "$_Convolution2D_3_dilation": None,
         "$_Convolution2D_4_padding": None,
-        "$_Convolution2D_4_start": None,
-        "$_Convolution2D_4_stop": None,
-        "$_Convolution2D_4_step": None,
         "$_Convolution2D_4_stride": None,
         "$_Convolution2D_4_dilation": None,
     }
@@ -478,15 +463,9 @@ def test_shapes_3():
         "$bias_16": [1, 64, 1, 1],
         "output": ["u1", 64, "u13", "u14"],
         "$_Convolution2D_0_padding": None,
-        "$_Convolution2D_0_start": None,
-        "$_Convolution2D_0_stop": None,
-        "$_Convolution2D_0_step": None,
         "$_Convolution2D_0_stride": None,
         "$_Convolution2D_0_dilation": None,
         "$_Convolution2D_4_padding": None,
-        "$_Convolution2D_4_start": None,
-        "$_Convolution2D_4_stop": None,
-        "$_Convolution2D_4_step": None,
         "$_Convolution2D_4_stride": None,
         "$_Convolution2D_4_dilation": None,
     }
@@ -620,10 +599,7 @@ def test_shapes_4():
         "input": [["(V1, ...)", "u1", "u3"], ["u2", "(V2, ...)", "u3"]],
         "$bias_0": [71],
         "output": [["(V1, ...)", "u1", 10], ["u2", "(V2, ...)", 10]],
-        "output2": [["(V1, ...)", "u1", 10], ["u2", "(V2, ...)", 10]],
-        "$_Linear_1_axes": None,
-        "$_Linear_2_axes": None,
-        "$_Linear_0_axes": None,
+        "output2": [["(V1, ...)", "u1", 10], ["u2", "(V2, ...)", 10]]
     }
     physical_ref = {
         "weight": [10, 71],
@@ -670,7 +646,6 @@ def test_linear_1_set_shapes():
         "bias": ["u1"],
         "target": [100, "u1"],
         "output": [100, "u1"],
-        "axes": None,
         "$_Mean_2_axis": None,
         "$_Mean_2_keepdim": None,
     }
@@ -711,7 +686,6 @@ def test_linear_1_static_shapes():
         "bias": ["u2"],
         "target": [["(V1, ...)", "u1", "u2"], ["u3", "(V2, ...)", "u2"]],
         "output": [["(V1, ...)", "u1", "u2"], ["u3", "(V2, ...)", "u2"]],
-        "axes": None,
         "$_Mean_2_axis": None,
         "$_Mean_2_keepdim": None,
     }
@@ -730,13 +704,6 @@ def test_linear_1_static_shapes():
         "output_3": [],
     }
     assert_shapes(ctx, logical_ref, physical_ref, shapes=shapes, check_all_shapes=True)
-
-
-# '$_MatrixMultiply_0_output': ['(V1, ...)', 'u1', 'u2'],
-# 'input': [['(V1, ...)', 'u1', 'u3'], ['u4', '(V2, ...)', 'u3']],
-# 'w': ['u3', 'u2'],
-# 'b': ['u2'],
-# 'output': [['(V1, ...)', 'u1', 'u2'], ['u4', '(V2, ...)', 'u2']]
 
 
 def test_linear_1_static_inputs():
@@ -763,7 +730,6 @@ def test_linear_1_static_inputs():
         "bias": ["u2"],
         "target": [["(V1, ...)", "u1", "u2"], ["u3", "(V2, ...)", "u2"]],
         "output": [["(V1, ...)", "u1", "u2"], ["u3", "(V2, ...)", "u2"]],
-        "axes": None,
         "$_Mean_2_axis": None,
         "$_Mean_2_keepdim": None,
     }
@@ -4018,8 +3984,8 @@ def test_variadic_naming_1():
             ["(V1, ...)", "u3", "u2"],
             ["u4", "(V2, ...)", "u2"],
         ],
+        '$_Transpose_0_axes': None,
         "weight": ["u2", "u1"],
-        "$axes": None,
         "input": [["(V1, ...)", "u3", "u1"], ["u4", "(V2, ...)", "u1"]],
         "bias": ["u2"],
         "output": [["(V1, ...)", "u3", "u2"], ["u4", "(V2, ...)", "u2"]],
@@ -10124,26 +10090,7 @@ def test_shapes_tensor_item_numeric():
     model |= relu_model2(input=relu_model1.output[:, None, :, 2:4], output="output2")
     model.set_shapes(input=[3, 4, 5])
 
-    ref = {
-        "output": [3, 4, 5],
-        "$_Slice_1_output": None,
-        "$_Slice_2_output": None,
-        "$_Slice_3_output": None,
-        "$_ToTuple_4_output": None,
-        "$_Indexer_5_output": [3, 1, 4, 2],
-        "output2": [3, 1, 4, 2],
-        "input": [3, 4, 5],
-        "$start_0": None,
-        "$stop_0": None,
-        "$step_0": None,
-        "$start_1": None,
-        "$stop_1": None,
-        "$step_1": None,
-        "$start_2": None,
-        "$stop_2": None,
-        "$step_2": None,
-        "$input2": None,
-    }
+    ref = {'$_Slice_1_output': None, '$_Slice_2_output': None, '$_Slice_3_output': None, 'output': [3, 4, 5], '$_ToTuple_4_output': None, '$_Indexer_5_output': [3, 1, 4, 2], 'input': [3, 4, 5], '$_Slice_1_start': None, '$_Slice_1_stop': None, '$_Slice_1_step': None, '$_Slice_2_start': None, '$_Slice_2_stop': None, '$_Slice_2_step': None, '$_Slice_3_start': None, '$_Slice_3_stop': None, '$_Slice_3_step': None, '$_ToTuple_4_input2': None, 'output2': [3, 1, 4, 2]}
     check_shapes_semantically(model.get_shapes(), ref)
 
 
@@ -10155,24 +10102,5 @@ def test_shapes_tensor_item_symbolic():
     model |= relu_model1(input="input", output="output")
     model |= relu_model2(input=relu_model1.output[:, None, :, 2:4], output="output2")
 
-    ref: Mapping[str, list | None] = {
-        "output": ["u1", "(V1, ...)", "u2", "u3"],
-        "$_Slice_1_output": None,
-        "$_Slice_2_output": None,
-        "$_Slice_3_output": None,
-        "$_ToTuple_4_output": None,
-        "$_Indexer_5_output": ["u4", 1, "u5", "u6", "(V2, ...)"],
-        "output2": ["u4", 1, "u5", "u6", "(V2, ...)"],
-        "input": ["u1", "(V1, ...)", "u2", "u3"],
-        "$start_0": None,
-        "$stop_0": None,
-        "$step_0": None,
-        "$start_1": None,
-        "$stop_1": None,
-        "$step_1": None,
-        "$start_2": None,
-        "$stop_2": None,
-        "$step_2": None,
-        "$input2": None,
-    }
+    ref: Mapping[str, list | None] = {'$_Slice_1_output': None, '$_Slice_2_output': None, '$_Slice_3_output': None, 'output': ['u1', '(V1, ...)', 'u2', 'u3'], '$_ToTuple_4_output': None, '$_Indexer_5_output': ['u4', 1, 'u5', 'u6', '(V2, ...)'], 'input': ['u1', '(V1, ...)', 'u2', 'u3'], '$_Slice_1_start': None, '$_Slice_1_stop': None, '$_Slice_1_step': None, '$_Slice_2_start': None, '$_Slice_2_stop': None, '$_Slice_2_step': None, '$_Slice_3_start': None, '$_Slice_3_stop': None, '$_Slice_3_step': None, '$_ToTuple_4_input2': None, 'output2': ['u4', 1, 'u5', 'u6', '(V2, ...)']}
     check_shapes_semantically(model.get_shapes(), ref)

@@ -32,6 +32,7 @@ class OperatorModel(Model):
         super().__init__(name=name, enforce_jit=model._jittable)
         self._extend(model, {k: k for k in model.external_keys})
         self.expose_keys(*model.external_keys)
+        self._freeze()
 
     @property
     def submodel(self) -> Operator:
