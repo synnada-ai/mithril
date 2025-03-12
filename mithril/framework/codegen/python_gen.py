@@ -354,6 +354,8 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
         deleted_vars: set[str] = set()
         assigned_output_keys: set[str] = set()
 
+        determined_keys = cached_data_keys | unused_keys | discarded_keys
+
         # Iterate over Primitive models in topological order to add their formula.
         for output_key in self.pm.flat_graph.topological_order:
             model, g_input_keys, l_input_keys = self.get_primitive_details(output_key)
@@ -385,14 +387,16 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
                     or used_key in deleted_vars
                     or (
                         used_key in self.pm.input_keys  # Inputs shouldn't deleted
-                        or used_key in self.pm.flat_graph.all_static_keys
+                        or self.pm.flat_graph.is_key_static(used_key)
                     )
                 ):
                     continue
 
-                keys = set(self.pm.flat_graph.get_target_keys(used_key, False)) - (
-                    cached_data_keys | unused_keys | discarded_keys
+                keys = (
+                    set(self.pm.flat_graph.get_target_keys(used_key, False))
+                    - determined_keys
                 )
+
                 if keys.issubset(assigned_output_keys):
                     function_body.append(
                         ast.Delete(targets=[ast.Name(id=used_key, ctx=ast.Del())])
