@@ -251,9 +251,13 @@ class FlatGraph(GenericDataType[DataType]):
         return True
 
     def _update_topological_order(self) -> None:
-        for key in list(self._topological_order):
+        unnecessary_keys = set()
+
+        for key in self._topological_order:
             if key not in self.connections or self.connections[key].op is None:
-                self._topological_order.remove(key)
+                unnecessary_keys.add(key)
+
+        self._topological_order.difference_update(unnecessary_keys)
 
     def get_connection(self, key: str) -> GConnection | None:
         return self.connections.get(key)
