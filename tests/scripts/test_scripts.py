@@ -1989,7 +1989,7 @@ def test_static_anlaysis():
 
     comp_model = mithril.compile(model=model, backend=NumpyBackend())
 
-    assert add1 not in comp_model.flat_graph.nodes
+    assert add1 not in comp_model.flat_graph.model_table
 
 
 def test_static_anlaysis_1():
@@ -2011,7 +2011,7 @@ def test_static_anlaysis_1():
         inference=True,
     )
 
-    assert add1 not in comp_model.flat_graph.nodes
+    assert add1 not in comp_model.flat_graph.model_table
 
 
 def test_static_anlaysis_2():
@@ -2036,8 +2036,8 @@ def test_static_anlaysis_2():
     )
 
     assert (
-        sum1 not in comp_model.flat_graph.nodes
-        and add1 not in comp_model.flat_graph.nodes
+        sum1 not in comp_model.flat_graph.model_table
+        and add1 not in comp_model.flat_graph.model_table
     )
 
 
@@ -2061,7 +2061,13 @@ def test_static_anlaysis_3():
 
     models = {add1, add2, sum1, sub1, mul1, mat1}
     _models = {model.submodel for model in models}
-    assert (_models - comp_model.flat_graph.nodes.keys()) == {mat1.submodel}
+    assert (
+        _models
+        - {
+            comp_model.flat_graph.connections[key].op
+            for key in comp_model.flat_graph.connections
+        }
+    ) == {mat1.submodel}
 
 
 def test_prune_1():

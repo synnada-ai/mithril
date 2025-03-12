@@ -177,6 +177,7 @@ __all__ = [
     "Trapezoid",
     "Pad",
     "Randn",
+    "Ones",
     "PrimitiveModel",
     "Buffer",
     "ToTuple",
@@ -2673,6 +2674,35 @@ class ZerosLike(PrimitiveModel):
         self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
     ) -> ExtendInfo:
         return super().__call__(input=input, output=output)
+
+
+class Ones(PrimitiveModel):
+    shape: Connection
+    dtype: Connection
+    output: Connection
+
+    def __init__(
+        self,
+        shape: tuple[int, ...] | list[int] | ToBeDetermined = TBD,
+        dtype: types.Dtype | None = None,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(
+            formula_key="ones",
+            name=name,
+            output=BaseKey(type=Tensor),
+            shape=BaseKey(type=tuple[int, ...] | list[int], value=shape),
+            dtype=BaseKey(type=types.Dtype | None, value=dtype),
+        )
+
+    def __call__(  # type: ignore[override]
+        self,
+        shape: ConnectionType = NOT_GIVEN,
+        dtype: ConnectionType = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
+    ) -> ExtendInfo:
+        return super().__call__(shape=shape, dtype=dtype, output=output)
 
 
 class Buffer(OperatorModel):

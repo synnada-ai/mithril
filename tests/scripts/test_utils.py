@@ -565,16 +565,17 @@ def assert_connections(
     compiled_model: PhysicalModel, expected_connections: dict[str, list[str | set[str]]]
 ):
     result_connections = {}
-    for key in compiled_model.flat_graph.all_target_keys:
+    for key in compiled_model.flat_graph.topological_order:
         if key not in compiled_model.flat_graph.connections:
             continue
 
-        node = compiled_model.flat_graph.connections[key].node
-        assert node is not None
-        formula_key = node.model.formula_key
-        keys = {conn.key for conn in node.connections.values() if conn.key != key}
-
+        conn = compiled_model.flat_graph.connections[key]
+        op = conn.op
+        assert op is not None
+        formula_key = op.formula_key
+        keys = set(conn.source_keys)
         result_connections[key] = [formula_key, keys]
+
     assert result_connections == expected_connections
 
 
