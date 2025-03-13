@@ -192,6 +192,7 @@ __all__ = [
     "pad",
     "split",
     "randn",
+    "randint",
     "atleast_1d",
     "minimum",
     "maximum",
@@ -1015,6 +1016,23 @@ def randn(
     return mx.random.normal(shape, key=_key, dtype=utils.dtype_map[dtype])
 
 
+def randint(
+    shape: tuple[int],
+    key: int,
+    low: int,
+    high: int,
+    *,
+    dtype: str | None = None,
+    device: str,
+    default_dtype: str,
+) -> mx.array:
+    _key = mx.random.key(key)
+    if dtype is None:
+        dtype = "int32"
+
+    return mx.random.randint(low, high, shape, key=_key, dtype=utils.dtype_map[dtype])
+
+
 def zeros_like(input: mx.array) -> mx.array:
     return mx.zeros_like(input)
 
@@ -1037,6 +1055,7 @@ def atleast_1d(input: mx.array) -> mx.array:
 array_creation_funcs = [
     "arange",
     "randn",
+    "randint",
     "to_tensor",
     "eye",
     "ones_with_zero_diag",
