@@ -1470,6 +1470,7 @@ def test_use_submodel_conn_1():
     modelsub |= Buffer()(input="input1", output=IOKey(name="output"))
     x = (modelsub.input1 + Tensor(3)) / Tensor(2)  # type: ignore
     x += Tensor(3)
+    modelsub.set_cout(x)
 
     model1 = Model()
     model1 |= modelsub(input1="input1")

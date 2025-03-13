@@ -20,6 +20,25 @@ from mithril.models import Add, Buffer, Linear, Model, Multiply, Transpose
 from .helper import assert_models_equal
 
 
+def test_extend_canonicals_for_main_model():
+    block = Model()
+    buffer = Buffer()
+    input = IOKey()
+    block |= buffer(input=input)
+    assert block.cout.metadata == buffer.output.metadata
+    input.sqrt()
+    assert block.cout.metadata == buffer.output.metadata
+
+
+def test_extend_canonicals_for_extract_model():
+    input1 = IOKey("input1")
+    input2 = IOKey("input2")
+    output = input1 * input2
+    assert output.model is not None
+    mult_model = list(output.model.dag.keys())[0]
+    assert output.model.cout.metadata == mult_model.output.metadata  # type: ignore
+
+
 def test_extend_two_connections():
     input1 = IOKey("input1")
     input2 = IOKey("input2")
@@ -136,6 +155,8 @@ def test_extend_to_model_connection_nested():
     model = Model()
     model |= _m3
     model |= Multiply()(_add.output)
+    model.set_cout()
+    model.set_cin(_add.left, _add.right)
     assert output.model is not None
     assert_models_equal(output.model, model)
 
@@ -181,6 +202,8 @@ def test_extend_extraction_immediate_values():
     model1 = Model()
     model1 |= (add1 := Add())
     model1 |= Add()(left=add1.output, right=2)
+    model1.set_cout()
+    model1.set_cin(add1.left, add1.right)
 
     assert output.model is not None
     assert_models_equal(model1, output.model)
@@ -199,6 +222,8 @@ def test_extend_single_frozen_single_non_frozen_model():
     model |= (_add1 := Add())
     model |= (_add2 := Add())
     model |= Multiply()(left=_add1.output, right=_add2.output)
+    model.set_cout()
+    model.set_cin(_add1.left, _add1.right)
 
     assert output.model is not None
     assert_models_equal(model, output.model)
@@ -245,12 +270,14 @@ def test_extend_non_frozen_model_and_frozen_model():
     _out1 = IOKey("out1")
     _out2 = IOKey("out2")
     _model1 = Model()
-    _model1 |= Add()(output=_out1)
+    _model1 |= (add := Add())(output=_out1)
     _model2 = Model()
     _model2 |= Add()(output=_out2)
 
     _model1 |= _model2
     _model1 |= Add()(_out1, _out2)
+    _model1.set_cout()
+    _model1.set_cin(add.left, add.right)
     assert_models_equal(output.model, _model1)  # type: ignore
 
 

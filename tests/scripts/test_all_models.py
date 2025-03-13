@@ -36,6 +36,7 @@ from mithril.models import (
     Buffer,
     Cast,
     Concat,
+    Connection,
     Convolution1D,
     Dtype,
     Equal,
@@ -419,6 +420,40 @@ def test_nan_to_num_1():
 
 def test_linear_1():
     model = Linear()
+    model.set_differentiability(input=True)
+    params = {"input": [[1.0], [2.0], [3.0], [4.0]], "weight": [[0.2]], "bias": [0.5]}
+    output_gradients = {"output": [[1.0], [1.0], [1.0], [1.0]]}
+    reference_outputs = {"output": [[0.7], [0.9], [1.1], [1.3]]}
+    reference_gradients = {
+        "input": [[0.2], [0.2], [0.2], [0.2]],
+        "weight": [[10.0]],
+        "bias": [4.0],
+    }
+    compile_and_compare(
+        model=model,
+        compile_kwargs={},
+        data={},
+        params=params,
+        output_gradients=output_gradients,
+        reference_outputs=reference_outputs,
+        reference_gradients=reference_gradients,
+        assert_shapes=False,
+    )
+
+
+def test_linear_1_functional():
+    def linear(input: Connection, weight: Connection, bias: Connection) -> Connection:
+        return (input @ weight.T) + bias
+
+    input = IOKey("input")
+    weight = IOKey("weight", differentiable=True)
+    bias = IOKey("bias", differentiable=True)
+
+    output = linear(input, weight, bias)
+
+    model = output.model
+    assert isinstance(model, Model)
+
     model.set_differentiability(input=True)
     params = {"input": [[1.0], [2.0], [3.0], [4.0]], "weight": [[0.2]], "bias": [0.5]}
     output_gradients = {"output": [[1.0], [1.0], [1.0], [1.0]]}

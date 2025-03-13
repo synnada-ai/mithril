@@ -97,7 +97,7 @@ def attn_block(n_channels: int, *, name: str | None = None):
     block |= ScaledDotProduct(is_causal=False)(query, key, value, output="sdp_out")
     block.set_cout("sdp_out")
 
-    block |= Reshape()(input="sdp_out", shape=(shape[0], shape[2], shape[3], shape[1]))
+    block += Reshape()(shape=(shape[0], shape[2], shape[3], shape[1]))
     block += Transpose(axes=(0, 3, 1, 2))
     block += Convolution2D(1, n_channels, name="proj_out")
     block += Add()(right="input", output=IOKey("output"))

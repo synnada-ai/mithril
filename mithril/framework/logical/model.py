@@ -170,10 +170,10 @@ def create_extracted_model(
             assert isinstance(m, Model)
             main_model.extend_extracted_model(m)
         else:
-            main_model._extend(m)
+            main_model._extend(m, update_canonicals=main_model.extract)
     keys = {key: con for key, con in zip(op.input_keys, connections, strict=False)}
     # Extend main_model with given Operator.
-    main_model._extend(op, keys)
+    main_model._extend(op, keys, update_canonicals=main_model.extract)
     output = main_model.conns.get_extracted_connection(op.cout)
     assert isinstance(output, Connection)
     return output
@@ -422,6 +422,12 @@ class Connection(ConnectionData):
     def transpose(self, axes: tuple[int, ...] | Connection | None = None) -> Connection:
         return create_extracted_model(connections=[self, axes], model=TransposeOp)
 
+    @property
+    def T(self) -> Connection:  # noqa: N802
+        return create_extracted_model(
+            connections=[self], model=TransposeOp, defaults={"axes": None}
+        )
+
     def split(self, split_size: int, axis: int) -> Connection:
         return create_extracted_model(
             connections=[self, split_size, axis], model=SplitOp
@@ -565,7 +571,7 @@ class Model(BaseModel):
                         model.conns.metadata_dict[con.metadata]
                     )
                 # Extend the model with submodel.
-                self.extend(sub_m, **conns)
+                self.extend(sub_m, **conns, update_canonicals=False)
 
     @property
     def cout(self) -> Connection:
@@ -584,6 +590,7 @@ class Model(BaseModel):
         model: BaseModel,
         kwargs: dict[str, ConnectionType] | None = None,
         trace: bool = True,
+        update_canonicals: bool = True,
     ) -> Self:
         if kwargs is None:
             kwargs = {}
@@ -607,7 +614,7 @@ class Model(BaseModel):
                     kwargs[key] = _value
             kwargs[key] = self._unroll_template(kwargs[key])
 
-        self.extend(model, trace, **kwargs)
+        self.extend(model, trace, update_canonicals, **kwargs)
         return self
 
     def __add__(self, info: ExtendInfo | Model) -> Self:

@@ -556,6 +556,7 @@ class BaseModel:
         given_connection: ConnectionDataType,
         updates: Updates,
         trace: bool,
+        update_canonicals: bool,
     ) -> tuple[ConnectionData, Updates]:
         is_input = local_key in model.input_keys
         local_connection = model.conns.get_connection(local_key)
@@ -708,15 +709,20 @@ class BaseModel:
         self.conns.set_connection_type(con_obj, key_type)
         # Update Canonicals
         if (
-            local_connection in model.conns.cins
+            update_canonicals
+            and local_connection in model.conns.cins
             and con_obj in self.conns.input_connections
             and not con_obj.metadata.is_valued
         ):
             self.conns.cins.add(con_obj)
 
-        if local_connection in model.conns.couts and (
-            con_obj not in self.dependency_map.local_input_dependency_map
-            or con_obj in self.conns.output_connections
+        if (
+            update_canonicals
+            and local_connection in model.conns.couts
+            and (
+                con_obj not in self.dependency_map.local_input_dependency_map
+                or con_obj in self.conns.output_connections
+            )
         ):
             self.conns.couts.add(con_obj)
 
@@ -856,6 +862,7 @@ class BaseModel:
         self,
         model: BaseModel | BaseModel,
         trace: bool = True,
+        update_canonicals: bool = True,
         /,
         **kwargs: ConnectionDataType,
     ) -> None:
@@ -908,7 +915,7 @@ class BaseModel:
                     value._expose = True
 
             con_obj, _updates = self._add_connection(
-                model, local_key, value, updates, trace
+                model, local_key, value, updates, trace, update_canonicals
             )
             updates |= _updates
             submodel_dag[local_key] = con_obj

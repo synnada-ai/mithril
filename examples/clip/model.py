@@ -52,8 +52,8 @@ def layer_norm(name: str | None = None):
     block = Model(name=name)
     input = IOKey("input")
     block |= Cast()(input=input, dtype=ml.float32)
-    block |= (ln := LayerNorm())(input=block.cout, weight="weight", bias="bias")  # type: ignore
-    block |= Cast()(dtype=input.dtype(), input=ln.cout, output=IOKey("output"))  # type: ignore
+    block |= LayerNorm()(input=block.cout, weight=IOKey("weight"), bias=IOKey("bias"))  # type: ignore
+    block |= Cast()(dtype=input.dtype(), input=block.cout, output=IOKey("output"))  # type: ignore
     block.set_cin("input")
     return block
 
