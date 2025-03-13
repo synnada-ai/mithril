@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from abc import ABC, abstractmethod
-from typing import Generic, Literal
+from typing import Generic
 
 from ...cores.core import DataType
 from ..common import (
@@ -29,13 +29,11 @@ class CodeGen(ABC, Generic[DataType]):
         self.pm: PhysicalModel[DataType] = pm
         self.code: str | None = None
         self.file_path: str | None = None
-        # grad_status is used to store keys that gradients are calculated for.
-        # This caching is necessary since querying the gradient status of a key
-        # can be expensive for nested data structures.
-        self.grad_status: dict[Literal["grad", "no_grad"], set[str]] = {
-            "grad": set(),
-            "no_grad": set(),
-        }
+        # NOTE: grad and no_grad keys are used to store keys that gradients are
+        # to be calculated or not. This caching is necessary since querying the
+        # gradient status of a key can be expensive for nested data structures.
+        self._grad_keys: set[str] = set()
+        self._no_grad_keys: set[str] = set()
 
     @abstractmethod
     def generate_code(self, file_path: str | None = None) -> None:
@@ -66,11 +64,11 @@ class CodeGen(ABC, Generic[DataType]):
         Returns:
             bool: True if the key has gradient information, False otherwise.
         """
-        if key in self.grad_status["grad"]:
+        if key in self._grad_keys:
             return True
-        if key in self.grad_status["no_grad"]:
+        if key in self._no_grad_keys:
             return False
 
-        grad_status = self.pm.has_grad(key)
-        self.grad_status["grad" if grad_status else "no_grad"].add(key)
-        return grad_status
+        status = self.pm.has_grad(key)
+        (self._no_grad_keys, self._grad_keys)[status].add(key)
+        return status
