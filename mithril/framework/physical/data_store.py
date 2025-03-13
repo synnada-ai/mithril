@@ -185,25 +185,6 @@ class StaticDataStore(Generic[DataType]):
                 return
             raise
 
-    # Add constant values of given models __call__ to constant_keys if any.
-    # TODO: merge convert_data_to_physical with _set_data_value
-    @staticmethod
-    def convert_data_to_physical(
-        value: AllValueType, backend: Backend[DataType]
-    ) -> DataType | AllValueType:
-        match value:
-            case Constant():
-                value = epsilon_table[backend.precision][value]
-            case Dtype():
-                value = getattr(backend, value.name)
-            case Tensor():
-                value = backend.array(
-                    StaticDataStore.convert_data_to_physical(value.value, backend)
-                )
-            case _:
-                value = value
-        return value
-
     def _infer_tensor_value_type(
         self, value: DataType
     ) -> type[bool] | type[int] | type[float]:

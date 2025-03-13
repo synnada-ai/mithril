@@ -179,11 +179,11 @@ class PowerOp(Operator):
         | bool
         | ToBeDetermined = TBD,
         *,
+        threshold: Tensor[float] | ToBeDetermined = TBD,
         name: str | None = None,
     ) -> None:
         self.robust = robust
         self.factory_args = {"robust": robust}
-        assert isinstance(robust, bool), "Robust must be a boolean value!"
 
         if robust:
             super().__init__(
@@ -192,7 +192,7 @@ class PowerOp(Operator):
                 output=BaseKey(shape=[("out", ...)], type=Tensor[int | float]),
                 base=BaseKey(shape=[("base", ...)], type=Tensor, value=base),
                 exponent=BaseKey(shape=[("exp", ...)], type=Tensor, value=exponent),
-                threshold=BaseKey(shape=[], type=Tensor),
+                threshold=BaseKey(shape=[], type=Tensor[float], value=threshold),
             )
 
             constrs: set[Constraint] = set()
@@ -1723,7 +1723,7 @@ class IndexerOp(Operator):
         | slice
         | EllipsisType
         | None
-        | tuple[int | slice | EllipsisType | None]
+        | tuple[int | slice | EllipsisType | None, ...]
         | ToBeDetermined = TBD,
         input: Tensor[int | float | bool] | Sequence[Any] | ToBeDetermined = TBD,
         *,

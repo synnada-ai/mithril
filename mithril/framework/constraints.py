@@ -105,7 +105,7 @@ __all__ = [
     "polynomial_kernel_constraint",
     "general_forward_constraint",
     "general_type_constraint",
-    "two_add",
+    "sum_fn",
     "distance_matrix_const",
 ]
 
@@ -143,8 +143,8 @@ def is_repr_known(repr: ShapeRepr) -> bool:
     return repr.root is None and all([uni.value is not None for uni in repr.prefix])
 
 
-def two_add(input1: Any, input2: Any, input3: Any) -> Any:
-    return input1 + input2 + input3
+def sum_fn(*inputs: Any) -> Any:
+    return sum(inputs)
 
 
 def distance_matrix_const(input1: Any, input2: Any, input3: Any) -> Any:

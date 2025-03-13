@@ -27,7 +27,6 @@ from ...backends.backend import Backend, ParallelBackend
 from ...types import DataType, GenericDataType
 from ...utils.type_utils import is_list_int
 from ..common import (
-    NOT_GIVEN,
     TBD,
     DataEvalType,
     EvaluateAllType,
@@ -60,7 +59,6 @@ from ..logical.model import (
     define_unique_names,
 )
 from ..logical.operator import Operator
-from .data_store import StaticDataStore
 from .flat_graph import FlatGraph
 
 __all__ = ["PhysicalModel"]
@@ -107,11 +105,6 @@ class PhysicalModel(GenericDataType[DataType]):
             raise KeyError("Models with no output keys can not be compiled.")
 
         # TODO: Update StaticDataStore.convert_data_to_physical function.
-        constant_keys = {  # type: ignore
-            key: StaticDataStore.convert_data_to_physical(value, backend)  # type: ignore
-            for key, value in model().connections.items()
-            if value is not NOT_GIVEN
-        } | constant_keys
 
         self.backend: Backend[DataType] = backend
         self._output_keys: set[str] = set(model.conns.output_keys)

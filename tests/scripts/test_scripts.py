@@ -6350,15 +6350,15 @@ def test_add_loss_with_coef_jit():
 def test_extend_with_wrong_values():
     with pytest.raises(KeyError) as error_info1:
         model = Model()
-        model += Relu()(input="input", output=None)
+        model += Relu()(input="input", output=None)  # type: ignore
 
     with pytest.raises(KeyError) as error_info2:
         model = Model()
-        model += Relu()(input="input", output=...)
+        model += Relu()(input="input", output=...)  # type: ignore
 
     with pytest.raises(KeyError) as error_info3:
         model = Model()
-        model += Relu()(input="input", output=2)
+        model += Relu()(input="input", output=2)  # type: ignore
 
     assert str(error_info1.value) == (
         "'output key is an output of the model, output values could not be set "

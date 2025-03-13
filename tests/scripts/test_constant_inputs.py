@@ -460,7 +460,7 @@ def test_constant_numpy_set_values():
 def test_axis():
     model = Model()
     relu = LeakyRelu(slope=TBD)
-    rob_pow = Power(robust=True)
+    rob_pow = Power(robust=True, threshold=TBD)
     model |= relu(input=IOKey("input", differentiable=True), slope=Tensor(2.3))
     model |= rob_pow(
         base=relu.output,
@@ -494,7 +494,7 @@ def test_axis():
 def test_axis_1():
     model = Model()
     relu = LeakyRelu(slope=TBD)
-    rob_pow = Power(robust=True)
+    rob_pow = Power(robust=True, threshold=TBD)
     rob_pow.set_types(base=Tensor, exponent=Tensor)
     model |= rob_pow(
         base=IOKey("base", differentiable=True),
@@ -619,7 +619,7 @@ def test_scalar_mean_2_1():
 def test_scalar_mean_2_2():
     mean_model = Model()
     rob_pow = Model()
-    rob_pow |= Power(robust=True)(
+    rob_pow |= Power(robust=True, threshold=TBD)(
         threshold=IOKey(name="threshold", value=Tensor(1.3)), base="base"
     )
 
@@ -700,7 +700,7 @@ def test_scalar_2():
         model |= add(
             left=Tensor([4.0, 5.0]),
             right=Tensor([8.0, 9.0]),
-            output=Tensor([7.0, 8.0]),
+            output=Tensor([7.0, 8.0]),  # type: ignore
         )
     assert str(err_info.value) == (
         "'output key is an output of the model, output values could not be "
@@ -726,7 +726,7 @@ def test_scalar_3():
     add_1 = Add()
     model1 |= add_2
     with pytest.raises(KeyError) as err_info:
-        model1 |= add_1(left="left", right="right", output=[4.0])
+        model1 |= add_1(left="left", right="right", output=[4.0])  # type: ignore
     assert str(err_info.value) == (
         "'output key is an output of the model, output values could not be "
         "set in extend.'"
@@ -749,7 +749,7 @@ def test_scalar_4():
     model1 = Model()
     add_1 = Add()
     with pytest.raises(Exception) as err_info:
-        model1 |= add_1(left="left", right="right", output=3.0)
+        model1 |= add_1(left="left", right="right", output=3.0)  # type: ignore
     assert str(err_info.value) == (
         "'output key is an output of the model, output values could not be "
         "set in extend.'"
@@ -939,7 +939,7 @@ def test_float_axis_2():
     model1 = Model()
     mean1 = Mean(axis=TBD)
     with pytest.raises(TypeError) as err_info:
-        model1 |= mean1(axis=3.0)
+        model1 |= mean1(axis=3.0)  # type: ignore
     assert str(err_info.value) == (
         "Acceptable types are None | int | list[int] | tuple[int, ...], but "
         "<class 'float'> type is provided!"
@@ -1803,7 +1803,7 @@ def test_unused_cached_values_2():
     """
     model = Model()
     linear_model = Linear(dimension=2)
-    model += linear_model(weight=Tensor([[1.0], [2.0]]), bias=Tensor([3.0, 1.0]))
+    model += linear_model(weight=Tensor([[1.0], [2.0]]), bias=Tensor([3.0, 1.0]))  # type: ignore
     comp_model = ml.compile(
         model=model,
         backend=(backend := NumpyBackend()),

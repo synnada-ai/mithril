@@ -3318,9 +3318,9 @@ def test_shape_9():
     model_1 = Model3()
     model_2 = Model3()
     model_3 = Model3()
-    model |= model_1(input=[IOKey("input"), IOKey()])
-    model |= model_2(input=[model_1.output, IOKey()])
-    model |= model_3(input=[model_2.output, IOKey()], output=IOKey(name="output"))
+    model |= model_1(input=[IOKey("input"), IOKey()])  # type: ignore
+    model |= model_2(input=[model_1.output, IOKey()])  # type: ignore
+    model |= model_3(input=[model_2.output, IOKey()], output=IOKey(name="output"))  # type: ignore
     logical_ref = {
         "input": ["u1", "u2", "u3"],
         "$input2_0": ["u3", "u2", "u1"],

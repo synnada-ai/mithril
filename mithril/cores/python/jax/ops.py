@@ -247,7 +247,6 @@ def sign(input: jax.Array) -> jax.Array:
 
 
 def robust_sqrt(input: jax.Array, threshold: jax.Array) -> jax.Array:
-    # v_mapped_func= jax.vmap(partial(robust_log_helper, threshold = threshold))
     v_mapped_func = vmapper(
         partial(robust_sqrt_helper, threshold=threshold), len(input.shape) - 1
     )
@@ -261,7 +260,6 @@ def robust_sqrt(input: jax.Array, threshold: jax.Array) -> jax.Array:
 # undefined points (log(0) = -inf in this case),
 # further testing should be done about performance.
 def robust_log(input: jax.Array, threshold: jax.Array) -> jax.Array:
-    # v_mapped_func= jax.vmap(partial(robust_log_helper, threshold = threshold))
     v_mapped_func = vmapper(
         partial(robust_log_helper, threshold=threshold), len(input.shape) - 1
     )

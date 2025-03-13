@@ -1026,7 +1026,8 @@ def test_connect_4():
     concat_model = Concat()
     union_model = PrimitiveUnion(n=1)
     model |= concat_model(
-        input1=["input1", "input2", "input3"], output=IOKey(name="output")
+        input=["input1", "input2", "input3"],
+        output=IOKey(name="output"),
     )
     model |= union_model
     conns = {

@@ -52,9 +52,9 @@ from ..framework.constraints import (
     sliding_window_2d_constraints,
     squeeze_constraints,
     stride_constraint,
+    sum_fn,
     swap_axes_constraints,
     tuple_converter_constraint,
-    two_add,
     where_constrains,
 )
 from ..framework.logical import Model
@@ -272,9 +272,9 @@ class SupervisedLoss(PrimitiveModel):
         **kwargs: BaseKey,
     ) -> None:
         default_kwargs: dict[str, BaseKey] = {
-            "output": BaseKey(shape=[("Var_1", ...)], type=Tensor),
-            "input": BaseKey(shape=[("Var_2", ...)], type=Tensor, value=input),
-            "target": BaseKey(shape=[("Var_3", ...)], type=Tensor, value=target),
+            "output": BaseKey(type=Tensor),
+            "input": BaseKey(type=Tensor, value=input),
+            "target": BaseKey(type=Tensor, value=target),
         }
         # Finalize kwargs.
         kwargs = default_kwargs | kwargs
@@ -305,9 +305,9 @@ class SupervisedLoss(PrimitiveModel):
 
     def __call__(  # type: ignore[override]
         self,
-        input: ConnectionType = NOT_GIVEN,
-        target: ConnectionType = NOT_GIVEN,
-        output: ConnectionType = NOT_GIVEN,
+        input: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
+        target: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
+        output: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(input=input, target=target, output=output)
 
@@ -396,13 +396,9 @@ class QuantileLoss(PrimitiveModel):
         super().__init__(
             formula_key="quantile_loss",
             name=name,
-            output=BaseKey(shape=[("Var_1", ...)], type=Tensor[int | float]),
-            input=BaseKey(
-                shape=[("Var_2", ...)], type=Tensor[int | float], value=input
-            ),
-            target=BaseKey(
-                shape=[("Var_3", ...)], type=Tensor[int | float], value=target
-            ),
+            output=BaseKey(type=Tensor[int | float]),
+            input=BaseKey(type=Tensor[int | float], value=input),
+            target=BaseKey(type=Tensor[int | float], value=target),
             quantile=BaseKey(
                 shape=[], type=Tensor[int | float], value=Tensor(quantile)
             ),
@@ -419,7 +415,7 @@ class QuantileLoss(PrimitiveModel):
         )
 
         self._add_constraint(
-            fn=partial(general_type_constraint, fn=two_add, is_bitwise=True),
+            fn=partial(general_type_constraint, fn=sum_fn, is_bitwise=True),
             keys=[Operator.output_key, "input", "target", "quantile"],
         )
 
@@ -431,10 +427,10 @@ class QuantileLoss(PrimitiveModel):
 
     def __call__(  # type: ignore[override]
         self,
-        input: ConnectionType = NOT_GIVEN,
-        target: ConnectionType = NOT_GIVEN,
-        quantile: ConnectionType = NOT_GIVEN,
-        output: ConnectionType = NOT_GIVEN,
+        input: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
+        target: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
+        quantile: ConnectionType | Tensor[int | float] = NOT_GIVEN,
+        output: ConnectionType | Tensor[int | float] = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(
             input=input, target=target, quantile=quantile, output=output
@@ -517,13 +513,13 @@ class CrossEntropy(PrimitiveModel):
 
     def __call__(  # type: ignore[override]
         self,
-        input: ConnectionType = NOT_GIVEN,
-        target: ConnectionType = NOT_GIVEN,
-        weights: ConnectionType = NOT_GIVEN,
-        categorical: ConnectionType = NOT_GIVEN,
-        threshold: ConnectionType = NOT_GIVEN,
-        robust: ConnectionType = NOT_GIVEN,
-        output: ConnectionType = NOT_GIVEN,
+        input: ConnectionType | Tensor[int | float] = NOT_GIVEN,
+        target: ConnectionType | Tensor[int | float] = NOT_GIVEN,
+        weights: ConnectionType | list[float] = NOT_GIVEN,
+        categorical: ConnectionType | bool = NOT_GIVEN,
+        threshold: ConnectionType | Tensor[float] = NOT_GIVEN,
+        robust: ConnectionType | bool = NOT_GIVEN,
+        output: ConnectionType | Tensor[float] = NOT_GIVEN,
     ) -> ExtendInfo:
         kwargs = {
             "input": input,
@@ -559,22 +555,18 @@ class KLDivergence(PrimitiveModel):
 
     def __init__(
         self,
-        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        target: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        input: Tensor[int | float] | ToBeDetermined = TBD,
+        target: Tensor[int | float] | ToBeDetermined = TBD,
         threshold: ConstantType | ToBeDetermined = Constant.MIN_POSITIVE_NORMAL,
         name: str | None = None,
     ) -> None:
         super().__init__(
             formula_key="kl_divergence",
             name=name,
-            output=BaseKey(shape=[("Var_1", ...)], type=Tensor[float]),
-            input=BaseKey(
-                shape=[("Var_2", ...)], type=Tensor[int | float], value=input
-            ),
-            target=BaseKey(
-                shape=[("Var_3", ...)], type=Tensor[int | float], value=target
-            ),
-            threshold=BaseKey(shape=[], type=Tensor, value=Tensor(threshold)),
+            output=BaseKey(type=Tensor[float]),
+            input=BaseKey(type=Tensor[int | float], value=input),
+            target=BaseKey(type=Tensor[int | float], value=target),
+            threshold=BaseKey(shape=[], type=Tensor[float], value=Tensor(threshold)),
         )
 
         self.submodel.safe_shapes = {
@@ -594,10 +586,10 @@ class KLDivergence(PrimitiveModel):
 
     def __call__(  # type: ignore[override]
         self,
-        input: ConnectionType = NOT_GIVEN,
-        target: ConnectionType = NOT_GIVEN,
-        threshold: ConnectionType = NOT_GIVEN,
-        output: ConnectionType = NOT_GIVEN,
+        input: ConnectionType | Tensor[int | float] = NOT_GIVEN,
+        target: ConnectionType | Tensor[int | float] = NOT_GIVEN,
+        threshold: ConnectionType | Tensor[float] = NOT_GIVEN,
+        output: ConnectionType | Tensor[float] = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(
             input=input, target=target, threshold=threshold, output=output
@@ -620,8 +612,8 @@ class BinaryCrossEntropy(PrimitiveModel):
         self,
         input_type: str = "logits",
         pos_weight: float | str | ToBeDetermined = 1.0,
-        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        target: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        input: Tensor[int | float] | ToBeDetermined = TBD,
+        target: Tensor[int | float] | ToBeDetermined = TBD,
         threshold: ConstantType | ToBeDetermined = Constant.MIN_POSITIVE_NORMAL,
         robust: bool | ToBeDetermined = False,
         *,
@@ -646,7 +638,9 @@ class BinaryCrossEntropy(PrimitiveModel):
         )
         kwargs: dict[str, BaseKey] = {
             "output": BaseKey(shape=[("Var_out", ...)], type=Tensor[float]),
-            "input": BaseKey(shape=[("Var_out", ...)], type=Tensor, value=input),
+            "input": BaseKey(
+                shape=[("Var_out", ...)], type=Tensor[int | float], value=input
+            ),
             "target": BaseKey(
                 shape=[("Var_out", ...)],
                 type=Tensor[int | float],
@@ -680,12 +674,12 @@ class BinaryCrossEntropy(PrimitiveModel):
 
     def __call__(  # type: ignore[override]
         self,
-        input: ConnectionType = NOT_GIVEN,
-        target: ConnectionType = NOT_GIVEN,
-        pos_weight: ConnectionType = NOT_GIVEN,
-        threshold: ConnectionType = NOT_GIVEN,
-        robust: ConnectionType = NOT_GIVEN,
-        output: ConnectionType = NOT_GIVEN,
+        input: ConnectionType | Tensor[int | float] = NOT_GIVEN,
+        target: ConnectionType | Tensor[int | float] = NOT_GIVEN,
+        pos_weight: ConnectionType | float = NOT_GIVEN,
+        threshold: ConnectionType | Tensor[float] = NOT_GIVEN,
+        robust: ConnectionType | bool = NOT_GIVEN,
+        output: ConnectionType | Tensor[float] = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(
             input=input,
@@ -736,10 +730,10 @@ class Log(PrimitiveModel):
 
     def __call__(  # type: ignore[override]
         self,
-        input: ConnectionType = NOT_GIVEN,
-        output: ConnectionType = NOT_GIVEN,
+        input: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
+        output: ConnectionType | Tensor[float] = NOT_GIVEN,
         *,
-        threshold: ConnectionType = NOT_GIVEN,
+        threshold: ConnectionType | Tensor[float] = NOT_GIVEN,
     ) -> ExtendInfo:
         kwargs = {"input": input, "output": output}
 
@@ -777,9 +771,9 @@ class StableReciprocal(PrimitiveModel):
 
     def __call__(  # type: ignore[override]
         self,
-        input: ConnectionType = NOT_GIVEN,
-        threshold: ConnectionType = NOT_GIVEN,
-        output: ConnectionType = NOT_GIVEN,
+        input: ConnectionType | Tensor[int | float] = NOT_GIVEN,
+        threshold: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
+        output: ConnectionType | Tensor[float] = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(input=input, threshold=threshold, output=output)
 
@@ -806,7 +800,9 @@ class Sign(PrimitiveModel):
         )
 
     def __call__(  # type: ignore[override]
-        self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
+        self,
+        input: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(input=input, output=output)
 
@@ -867,7 +863,9 @@ class Activation(PrimitiveModel):
             )
 
     def __call__(  # type: ignore[override]
-        self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
+        self,
+        input: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(input=input, output=output)
 
@@ -947,8 +945,8 @@ class Softmax(Activation):
 
     def __call__(  # type: ignore[override]
         self,
-        input: ConnectionType = NOT_GIVEN,
-        axis: ConnectionType = NOT_GIVEN,
+        input: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
+        axis: ConnectionType | int = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return Model.__call__(self, input=input, axis=axis, output=output)
@@ -999,8 +997,8 @@ class LeakyRelu(Activation):
 
     def __call__(  # type: ignore[override]
         self,
-        input: ConnectionType = NOT_GIVEN,
-        slope: ConnectionType = NOT_GIVEN,
+        input: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
+        slope: ConnectionType | Tensor[int | float | bool] | int | float = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return Model.__call__(self, input=input, slope=slope, output=output)
@@ -1030,7 +1028,9 @@ class StopGradient(PrimitiveModel):
         )
 
     def __call__(  # type: ignore[override]
-        self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
+        self,
+        input: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(input=input, output=output)
 
@@ -1042,8 +1042,8 @@ class CartesianDifference(PrimitiveModel):
 
     def __init__(
         self,
-        left: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        right: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        left: Tensor[int | float] | ToBeDetermined = TBD,
+        right: Tensor[int | float] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -1052,8 +1052,8 @@ class CartesianDifference(PrimitiveModel):
             name=name,
             formula_key="cartesian_diff",
             output=BaseKey(shape=["N", "M", "dim"], type=Tensor),
-            left=BaseKey(shape=["N", "dim"], type=Tensor, value=left),
-            right=BaseKey(shape=["M", "dim"], type=Tensor, value=right),
+            left=BaseKey(shape=["N", "dim"], type=Tensor[int | float], value=left),
+            right=BaseKey(shape=["M", "dim"], type=Tensor[int | float], value=right),
         )
         self._add_constraint(
             fn=partial(general_type_constraint, fn=operator.sub),
@@ -1062,8 +1062,8 @@ class CartesianDifference(PrimitiveModel):
 
     def __call__(  # type: ignore[override]
         self,
-        left: ConnectionType = NOT_GIVEN,
-        right: ConnectionType = NOT_GIVEN,
+        left: ConnectionType | Tensor[int | float] = NOT_GIVEN,
+        right: ConnectionType | Tensor[int | float] = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(left=left, right=right, output=output)
@@ -1093,6 +1093,16 @@ class Concat(PrimitiveModel):
         self._add_constraint(
             fn=concat_constraints, keys=[Operator.output_key, "input", "axis"]
         )
+
+    def __call__(  # type: ignore[override]
+        self,
+        input: ConnectionType
+        | Sequence[ConnectionType]
+        | Sequence[Tensor[int | float | bool]] = NOT_GIVEN,
+        axis: ConnectionType | int | None = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
+    ) -> ExtendInfo:
+        return super().__call__(input=input, axis=axis, output=output)
         # TODO: Do we need to add general_tensor_type_constraint for Concat?
         # self._add_constraint(
         #     fn=general_tensor_type_constraint,
@@ -1142,9 +1152,11 @@ class PermuteTensor(PrimitiveModel):
         super().__init__(
             formula_key="permute_tensor",
             name=name,
-            output=BaseKey(shape=["N", ("Var", ...)], type=Tensor),
-            input=BaseKey(shape=["N", ("Var", ...)], type=Tensor, value=input),
-            indices=BaseKey(shape=["N"], type=Tensor, value=indices),
+            output=BaseKey(shape=["N", ("Var", ...)], type=Tensor[int | float | bool]),
+            input=BaseKey(
+                shape=["N", ("Var", ...)], type=Tensor[int | float | bool], value=input
+            ),
+            indices=BaseKey(shape=["N"], type=Tensor[int], value=indices),
         )
 
         self._add_constraint(
@@ -1153,8 +1165,8 @@ class PermuteTensor(PrimitiveModel):
 
     def __call__(  # type: ignore[override]
         self,
-        input: ConnectionType = NOT_GIVEN,
-        indices: ConnectionType = NOT_GIVEN,
+        input: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
+        indices: ConnectionType | Tensor[int] = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(input=input, indices=indices, output=output)
@@ -1172,8 +1184,8 @@ class PrimitiveConvolution1D(PrimitiveModel):
     def __init__(
         self,
         use_bias: bool = True,
-        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        weight: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        input: Tensor[int | float] | ToBeDetermined = TBD,
+        weight: Tensor[int | float] | ToBeDetermined = TBD,
         stride: int | ToBeDetermined = TBD,
         padding: int | tuple[int, int] | ToBeDetermined = TBD,
         dilation: int | ToBeDetermined = TBD,
@@ -1219,7 +1231,7 @@ class PrimitiveConvolution1D(PrimitiveModel):
             constraint_keys.append("bias")
 
             self._add_constraint(
-                fn=partial(general_type_constraint, fn=two_add),
+                fn=partial(general_type_constraint, fn=sum_fn),
                 keys=[Operator.output_key] + constraint_keys,
             )
         else:
@@ -1230,14 +1242,16 @@ class PrimitiveConvolution1D(PrimitiveModel):
 
     def __call__(  # type: ignore[override]
         self,
-        input: ConnectionType = NOT_GIVEN,
-        weight: ConnectionType = NOT_GIVEN,
-        stride: ConnectionType = NOT_GIVEN,
-        padding: ConnectionType = NOT_GIVEN,
-        dilation: ConnectionType = NOT_GIVEN,
+        input: ConnectionType | Tensor[int | float] = NOT_GIVEN,
+        weight: ConnectionType | Tensor[int | float] = NOT_GIVEN,
+        stride: ConnectionType | int = NOT_GIVEN,
+        padding: ConnectionType
+        | int
+        | tuple[int | ConnectionType, int | ConnectionType] = NOT_GIVEN,
+        dilation: ConnectionType | int = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
         *,
-        bias: ConnectionType = NOT_GIVEN,
+        bias: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
     ) -> ExtendInfo:
         kwargs = {
             "input": input,
@@ -1269,8 +1283,8 @@ class PrimitiveConvolution2D(PrimitiveModel):
     def __init__(
         self,
         use_bias: bool = True,
-        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        weight: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        input: Tensor[int | float] | ToBeDetermined = TBD,
+        weight: Tensor[int | float] | ToBeDetermined = TBD,
         stride: int | tuple[int, int] | ToBeDetermined = TBD,
         padding: int
         | tuple[int, int]
@@ -1278,7 +1292,7 @@ class PrimitiveConvolution2D(PrimitiveModel):
         | ToBeDetermined = TBD,
         dilation: int | tuple[int, int] | ToBeDetermined = TBD,
         *,
-        bias: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        bias: Tensor[int | float] | ToBeDetermined = TBD,
         name: str | None = None,
     ) -> None:
         self.factory_args = {"use_bias": use_bias}
@@ -1322,7 +1336,7 @@ class PrimitiveConvolution2D(PrimitiveModel):
             constraint_keys.append("bias")
 
             self._add_constraint(
-                fn=partial(general_type_constraint, fn=two_add),
+                fn=partial(general_type_constraint, fn=sum_fn),
                 keys=[Operator.output_key] + constraint_keys,
             )
         else:
@@ -1333,14 +1347,24 @@ class PrimitiveConvolution2D(PrimitiveModel):
 
     def __call__(  # type: ignore[override]
         self,
-        input: ConnectionType = NOT_GIVEN,
-        weight: ConnectionType = NOT_GIVEN,
-        stride: ConnectionType = NOT_GIVEN,
-        padding: ConnectionType = NOT_GIVEN,
-        dilation: ConnectionType = NOT_GIVEN,
+        input: ConnectionType | Tensor[int | float] = NOT_GIVEN,
+        weight: ConnectionType | Tensor[int | float] = NOT_GIVEN,
+        stride: ConnectionType
+        | int
+        | tuple[int | ConnectionType, int | ConnectionType] = NOT_GIVEN,
+        padding: ConnectionType
+        | int
+        | tuple[int | ConnectionType, int | ConnectionType]
+        | tuple[
+            tuple[int | ConnectionType, int | ConnectionType],
+            tuple[int | ConnectionType, int | ConnectionType],
+        ] = NOT_GIVEN,
+        dilation: ConnectionType
+        | int
+        | tuple[int | ConnectionType, int | ConnectionType] = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
         *,
-        bias: ConnectionType = NOT_GIVEN,
+        bias: ConnectionType | Tensor[int | float] = NOT_GIVEN,
     ) -> ExtendInfo:
         kwargs = {
             "input": input,
@@ -1377,8 +1401,8 @@ class Flatten(PrimitiveModel):
         self.factory_args = {"start_dim": start_dim, "end_dim": end_dim}
 
         key_definitions: dict[str, BaseKey] = {
-            "output": BaseKey(shape=[("C_out", ...)], type=Tensor),
-            "input": BaseKey(shape=[("C_in", ...)], type=Tensor, value=input),
+            "output": BaseKey(type=Tensor),
+            "input": BaseKey(type=Tensor, value=input),
             "start_dim": BaseKey(type=int, value=start_dim),
             "end_dim": BaseKey(type=int, value=end_dim),
         }
@@ -1394,10 +1418,10 @@ class Flatten(PrimitiveModel):
 
     def __call__(  # type: ignore[override]
         self,
-        input: ConnectionType = NOT_GIVEN,
-        start_dim: ConnectionType = NOT_GIVEN,
-        end_dim: ConnectionType = NOT_GIVEN,
-        output: ConnectionType = NOT_GIVEN,
+        input: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
+        start_dim: ConnectionType | int = NOT_GIVEN,
+        end_dim: ConnectionType | int = NOT_GIVEN,
+        output: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(
             input=input, start_dim=start_dim, end_dim=end_dim, output=output
@@ -1414,7 +1438,7 @@ class PrimitiveMaxPool1D(PrimitiveModel):
 
     def __init__(
         self,
-        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        input: Tensor[int | float] | ToBeDetermined = TBD,
         kernel_size: int | ToBeDetermined = TBD,
         stride: int | ToBeDetermined = TBD,
         padding: int | tuple[int, int] | ToBeDetermined = TBD,
@@ -1447,11 +1471,13 @@ class PrimitiveMaxPool1D(PrimitiveModel):
 
     def __call__(  # type: ignore[override]
         self,
-        input: ConnectionType = NOT_GIVEN,
-        kernel_size: ConnectionType = NOT_GIVEN,
-        stride: ConnectionType = NOT_GIVEN,
-        padding: ConnectionType = NOT_GIVEN,
-        dilation: ConnectionType = NOT_GIVEN,
+        input: ConnectionType | Tensor[int | float] = NOT_GIVEN,
+        kernel_size: ConnectionType | int = NOT_GIVEN,
+        stride: ConnectionType | int = NOT_GIVEN,
+        padding: ConnectionType
+        | int
+        | tuple[int | ConnectionType, int | ConnectionType] = NOT_GIVEN,
+        dilation: ConnectionType | int = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(
@@ -1491,8 +1517,11 @@ class PaddingConverter1D(PrimitiveModel):
 
     def __call__(  # type: ignore[override]
         self,
-        input: ConnectionType = NOT_GIVEN,
-        kernel_size: ConnectionType = NOT_GIVEN,
+        input: ConnectionType
+        | int
+        | PaddingType
+        | tuple[int | ConnectionType, int | ConnectionType] = NOT_GIVEN,
+        kernel_size: ConnectionType | int = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(input=input, kernel_size=kernel_size, output=output)
@@ -1537,8 +1566,16 @@ class PaddingConverter2D(PrimitiveModel):
 
     def __call__(  # type: ignore[override]
         self,
-        input: ConnectionType = NOT_GIVEN,
-        kernel_size: ConnectionType = NOT_GIVEN,
+        input: ConnectionType
+        | int
+        | PaddingType
+        | tuple[int | ConnectionType, int | ConnectionType]
+        | tuple[
+            tuple[int | ConnectionType, int | ConnectionType],
+            tuple[int | ConnectionType, int | ConnectionType],
+        ] = NOT_GIVEN,
+        kernel_size: ConnectionType
+        | tuple[int | ConnectionType, int | ConnectionType] = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(input=input, kernel_size=kernel_size, output=output)
@@ -1570,8 +1607,14 @@ class StrideConverter(PrimitiveModel):
 
     def __call__(  # type: ignore[override]
         self,
-        input: ConnectionType = NOT_GIVEN,
-        kernel_size: ConnectionType = NOT_GIVEN,
+        input: ConnectionType
+        | int
+        | PaddingType
+        | tuple[int | ConnectionType, int | ConnectionType]
+        | None = NOT_GIVEN,
+        kernel_size: ConnectionType
+        | int
+        | tuple[int | ConnectionType, int | ConnectionType] = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(input=input, kernel_size=kernel_size, output=output)
@@ -1611,7 +1654,17 @@ class TupleConverter(PrimitiveModel):
         )
 
     def __call__(  # type: ignore[override]
-        self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
+        self,
+        input: ConnectionType
+        | int
+        | PaddingType
+        | tuple[int | ConnectionType, int | ConnectionType]
+        | tuple[
+            tuple[int | ConnectionType, int | ConnectionType],
+            tuple[int | ConnectionType, int | ConnectionType],
+        ]
+        | None,
+        output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(input=input, output=output)
 
@@ -1626,7 +1679,7 @@ class PrimitivePool2D(PrimitiveModel):
 
     def __init__(
         self,
-        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        input: Tensor[int | float] | ToBeDetermined = TBD,
         kernel_size: int | tuple[int, int] | ToBeDetermined = TBD,
         stride: int | tuple[int, int] | ToBeDetermined = TBD,
         padding: int
@@ -1641,10 +1694,12 @@ class PrimitivePool2D(PrimitiveModel):
         super().__init__(
             formula_key=formula_key,
             name=name,
-            output=BaseKey(shape=["N", ("C_in", ...), "H_out", "W_out"], type=Tensor),
+            output=BaseKey(
+                shape=["N", ("C_in", ...), "H_out", "W_out"], type=Tensor[int | float]
+            ),
             input=BaseKey(
                 shape=["N", ("C_in", ...), "H", "W"],
-                type=Tensor,
+                type=Tensor[int | float],
                 value=input,
             ),
             kernel_size=BaseKey(type=tuple[int, int], value=kernel_size),
@@ -1663,11 +1718,20 @@ class PrimitivePool2D(PrimitiveModel):
 
     def __call__(  # type: ignore[override]
         self,
-        input: ConnectionType = NOT_GIVEN,
-        kernel_size: ConnectionType = NOT_GIVEN,
-        stride: ConnectionType = NOT_GIVEN,
-        padding: ConnectionType = NOT_GIVEN,
-        dilation: ConnectionType = NOT_GIVEN,
+        input: ConnectionType | Tensor[int | float] = NOT_GIVEN,
+        kernel_size: ConnectionType
+        | tuple[int | ConnectionType, int | ConnectionType] = NOT_GIVEN,
+        stride: ConnectionType
+        | tuple[int | ConnectionType, int | ConnectionType] = NOT_GIVEN,
+        padding: ConnectionType
+        | tuple[int | ConnectionType, int | ConnectionType]
+        | tuple[
+            tuple[int | ConnectionType, int | ConnectionType],
+            tuple[int | ConnectionType, int | ConnectionType],
+        ] = NOT_GIVEN,
+        dilation: ConnectionType
+        | int
+        | tuple[int | ConnectionType, int | ConnectionType] = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(
@@ -1713,20 +1777,23 @@ class PrimitiveAvgPool2D(PrimitivePool2D):
         stride: int | tuple[int, int] | ToBeDetermined = TBD,
         padding: int
         | tuple[int, int]
-        | tuple[tuple[int, int], tuple[int, int]]
+        | tuple[
+            tuple[int, int],
+            tuple[int, int],
+        ]
         | ToBeDetermined = TBD,
         dilation: int | tuple[int, int] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
         super().__init__(
-            formula_key="avg_pool2d",
-            name=name,
             input=input,
             kernel_size=kernel_size,
             stride=stride,
             padding=padding,
             dilation=dilation,
+            formula_key="avg_pool2d",
+            name=name,
         )
 
 
@@ -1762,16 +1829,14 @@ class NormModifier(PrimitiveModel):
         super().__init__(
             formula_key="norm_modifier",
             name=name,
-            output=BaseKey(shape=[], type=Tensor),
-            input=BaseKey(shape=[], type=Tensor, value=input),
-        )
-
-        self._add_constraint(
-            fn=general_type_constraint, keys=[Operator.output_key, "input"]
+            output=BaseKey(shape=[], type=Tensor[int | float | bool]),
+            input=BaseKey(shape=[], type=Tensor[float], value=input),
         )
 
     def __call__(  # type: ignore[override]
-        self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
+        self,
+        input: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(input=input, output=output)
 
@@ -1794,9 +1859,9 @@ class DistanceMatrix(PrimitiveModel):
         super().__init__(
             formula_key="distance_matrix",
             name=name,
-            output=BaseKey(shape=["N", "M"], type=Tensor),
-            left=BaseKey(shape=["N", "d"], type=Tensor, value=left),
-            right=BaseKey(shape=["M", "d"], type=Tensor, value=right),
+            output=BaseKey(shape=["N", "M"], type=Tensor[int | float]),
+            left=BaseKey(shape=["N", "d"], type=Tensor[int | float], value=left),
+            right=BaseKey(shape=["M", "d"], type=Tensor[int | float], value=right),
             norm=BaseKey(shape=[], type=Tensor),
         )
 
@@ -1808,10 +1873,10 @@ class DistanceMatrix(PrimitiveModel):
 
     def __call__(  # type: ignore[override]
         self,
-        left: ConnectionType = NOT_GIVEN,
-        right: ConnectionType = NOT_GIVEN,
-        norm: ConnectionType = NOT_GIVEN,
-        output: ConnectionType = NOT_GIVEN,
+        left: ConnectionType | Tensor[int | float] = NOT_GIVEN,
+        right: ConnectionType | Tensor[int | float] = NOT_GIVEN,
+        norm: ConnectionType | Tensor[int | float] = NOT_GIVEN,
+        output: ConnectionType | Tensor[int | float] = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(left=left, right=right, norm=norm, output=output)
 
@@ -1831,8 +1896,8 @@ class PolynomialFeatures(PrimitiveModel):
         super().__init__(
             formula_key="polynomial_features",
             name=name,
-            output=BaseKey(shape=["N", "d_out"], type=Tensor),
-            input=BaseKey(shape=["N", "d_in"], type=Tensor, value=input),
+            output=BaseKey(shape=["N", "d_out"], type=Tensor[int | float]),
+            input=BaseKey(shape=["N", "d_in"], type=Tensor[int | float], value=input),
             degree=BaseKey(type=int, value=degree),
         )
 
@@ -1845,8 +1910,8 @@ class PolynomialFeatures(PrimitiveModel):
 
     def __call__(  # type: ignore[override]
         self,
-        input: ConnectionType = NOT_GIVEN,
-        degree: ConnectionType = NOT_GIVEN,
+        input: ConnectionType | Tensor[int | float] = NOT_GIVEN,
+        degree: ConnectionType | int = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(input=input, degree=degree, output=output)
@@ -1873,19 +1938,19 @@ class TsnePJoint(PrimitiveModel):
             name=name,
             output=BaseKey(shape=["N", "M"], type=Tensor[float]),
             squared_distances=BaseKey(
-                shape=["N", "M"], type=Tensor, value=squared_distances
+                shape=["N", "M"], type=Tensor[float], value=squared_distances
             ),
             target_perplexity=BaseKey(
                 shape=[], type=Tensor[float], value=target_perplexity
             ),
-            threshold=BaseKey(shape=[], type=Tensor, value=Tensor(threshold)),
+            threshold=BaseKey(shape=[], type=Tensor[float], value=Tensor(threshold)),
         )
 
     def __call__(  # type: ignore[override]
         self,
-        squared_distances: ConnectionType = NOT_GIVEN,
-        target_perplexity: ConnectionType = NOT_GIVEN,
-        threshold: ConnectionType = NOT_GIVEN,
+        squared_distances: ConnectionType | Tensor[float] = NOT_GIVEN,
+        target_perplexity: ConnectionType | float = NOT_GIVEN,
+        threshold: ConnectionType | Tensor[float] = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(
@@ -1923,9 +1988,9 @@ class EyeComplement(PrimitiveModel):
 
     def __call__(  # type: ignore[override]
         self,
-        N: ConnectionType = NOT_GIVEN,
-        M: ConnectionType = NOT_GIVEN,
-        dtype: ConnectionType = NOT_GIVEN,
+        N: ConnectionType | int = NOT_GIVEN,
+        M: ConnectionType | int = NOT_GIVEN,
+        dtype: ConnectionType | types.Dtype = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(N=N, M=M, dtype=dtype, output=output)
@@ -1957,9 +2022,9 @@ class Eye(PrimitiveModel):
 
     def __call__(  # type: ignore[override]
         self,
-        N: ConnectionType = NOT_GIVEN,
-        M: ConnectionType = NOT_GIVEN,
-        dtype: ConnectionType = NOT_GIVEN,
+        N: ConnectionType | int = NOT_GIVEN,
+        M: ConnectionType | int = NOT_GIVEN,
+        dtype: ConnectionType | types.Dtype = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(N=N, M=M, dtype=dtype, output=output)
@@ -1979,11 +2044,13 @@ class Cholesky(PrimitiveModel):
             formula_key="cholesky",
             name=name,
             output=BaseKey(shape=["N", "N"], type=Tensor[float]),
-            input=BaseKey(shape=["N", "N"], type=Tensor, value=input),
+            input=BaseKey(shape=["N", "N"], type=Tensor[float], value=input),
         )
 
     def __call__(  # type: ignore[override]
-        self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
+        self,
+        input: ConnectionType | Tensor[float] = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(input=input, output=output)
 
@@ -2006,16 +2073,18 @@ class GPRAlpha(PrimitiveModel):
             formula_key="gpr_alpha",
             name=name,
             output=BaseKey(shape=["N", 1], type=Tensor[float]),
-            label_mu_diff=BaseKey(shape=["N", 1], type=Tensor, value=label_mu_diff),
-            L=BaseKey(shape=["N", "N"], type=Tensor, value=L),
-            K_term=BaseKey(shape=["N", "N"], type=Tensor, value=K_term),
+            label_mu_diff=BaseKey(
+                shape=["N", 1], type=Tensor[float], value=label_mu_diff
+            ),
+            L=BaseKey(shape=["N", "N"], type=Tensor[float], value=L),
+            K_term=BaseKey(shape=["N", "N"], type=Tensor[float], value=K_term),
         )
 
     def __call__(  # type: ignore[override]
         self,
-        label_mu_diff: ConnectionType = NOT_GIVEN,
-        L: ConnectionType = NOT_GIVEN,
-        K_term: ConnectionType = NOT_GIVEN,
+        label_mu_diff: ConnectionType | Tensor[float] = NOT_GIVEN,
+        L: ConnectionType | Tensor[float] = NOT_GIVEN,
+        K_term: ConnectionType | Tensor[float] = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(
@@ -2031,9 +2100,9 @@ class GPRVOuter(PrimitiveModel):
 
     def __init__(
         self,
-        K: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        K_term: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        L: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        K: Tensor[float] | ToBeDetermined = TBD,
+        K_term: Tensor[float] | ToBeDetermined = TBD,
+        L: Tensor[float] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -2048,10 +2117,10 @@ class GPRVOuter(PrimitiveModel):
 
     def __call__(  # type: ignore[override]
         self,
-        K: ConnectionType = NOT_GIVEN,
-        K_term: ConnectionType = NOT_GIVEN,
-        L: ConnectionType = NOT_GIVEN,
-        output: ConnectionType = NOT_GIVEN,
+        K: ConnectionType | Tensor[float] = NOT_GIVEN,
+        K_term: ConnectionType | Tensor[float] = NOT_GIVEN,
+        L: ConnectionType | Tensor[float] = NOT_GIVEN,
+        output: ConnectionType | Tensor[float] = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(K=K, K_term=K_term, L=L, output=output)
 
@@ -2069,8 +2138,10 @@ class TransposedDiagonal(PrimitiveModel):
         super().__init__(
             formula_key="transposed_diag",
             name=name,
-            output=BaseKey(shape=["N", 1], type=Tensor),
-            input=BaseKey(shape=["N", "N"], type=Tensor, value=input),
+            output=BaseKey(shape=["N", 1], type=Tensor[int | float | bool]),
+            input=BaseKey(
+                shape=["N", "N"], type=Tensor[int | float | bool], value=input
+            ),
         )
 
         self._add_constraint(
@@ -2136,10 +2207,10 @@ class Arange(PrimitiveModel):
 
     def __call__(  # type: ignore[override]
         self,
-        start: ConnectionType = NOT_GIVEN,
-        stop: ConnectionType = NOT_GIVEN,
-        step: ConnectionType = NOT_GIVEN,
-        dtype: ConnectionType = NOT_GIVEN,
+        start: ConnectionType | int | float = NOT_GIVEN,
+        stop: ConnectionType | int | float = NOT_GIVEN,
+        step: ConnectionType | int | float = NOT_GIVEN,
+        dtype: ConnectionType | types.Dtype | None = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(
@@ -2164,7 +2235,7 @@ class Randn(PrimitiveModel):
         super().__init__(
             formula_key="randn",
             name=name,
-            output=BaseKey(shape=[("output", ...)], type=Tensor[float]),
+            output=BaseKey(type=Tensor[float]),
             shape=BaseKey(type=tuple[int, ...], value=shape),
             key=BaseKey(type=int, value=key),
             dtype=BaseKey(type=types.Dtype | None, value=dtype),
@@ -2177,9 +2248,9 @@ class Randn(PrimitiveModel):
 
     def __call__(  # type: ignore[override]
         self,
-        shape: ConnectionType = NOT_GIVEN,
-        key: ConnectionType = NOT_GIVEN,
-        dtype: ConnectionType = NOT_GIVEN,
+        shape: ConnectionType | tuple[int | ConnectionType, ...] = NOT_GIVEN,
+        key: ConnectionType | int = NOT_GIVEN,
+        dtype: ConnectionType | types.Dtype | None = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(shape=shape, key=key, dtype=dtype, output=output)
@@ -2200,8 +2271,8 @@ class BroadcastTo(PrimitiveModel):
         super().__init__(
             formula_key="broadcast_to",
             name=name,
-            output=BaseKey(shape=[("output", ...)], type=Tensor),
-            input=BaseKey(shape=[("input", ...)], type=Tensor, value=input),
+            output=BaseKey(type=Tensor[int | float | bool]),
+            input=BaseKey(type=Tensor[int | float | bool], value=input),
             shape=BaseKey(type=tuple[int, ...], value=shape),
         )
 
@@ -2214,8 +2285,8 @@ class BroadcastTo(PrimitiveModel):
 
     def __call__(  # type: ignore[override]
         self,
-        input: ConnectionType = NOT_GIVEN,
-        shape: ConnectionType = NOT_GIVEN,
+        input: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
+        shape: ConnectionType | tuple[int | ConnectionType, ...] = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(input=input, shape=shape, output=output)
@@ -2229,8 +2300,8 @@ class Eigvalsh(PrimitiveModel):
 
     def __init__(
         self,
-        K_term: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        L: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        K_term: Tensor[float] | ToBeDetermined = TBD,
+        L: Tensor[float] | ToBeDetermined = TBD,
         threshold: ConstantType | ToBeDetermined = Constant.EPSILON,
         *,
         name: str | None = None,
@@ -2239,9 +2310,9 @@ class Eigvalsh(PrimitiveModel):
             formula_key="eigvalsh",
             name=name,
             output=BaseKey(shape=["N", 1], type=Tensor[float]),
-            K_term=BaseKey(shape=["N", "N"], type=Tensor, value=K_term),
-            L=BaseKey(shape=["N", "N"], type=Tensor, value=L),
-            threshold=BaseKey(shape=[], type=Tensor, value=Tensor(threshold)),
+            K_term=BaseKey(shape=["N", "N"], type=Tensor[float], value=K_term),
+            L=BaseKey(shape=["N", "N"], type=Tensor[float], value=L),
+            threshold=BaseKey(shape=[], type=Tensor[float], value=Tensor(threshold)),
         )
 
     def __call__(  # type: ignore[override]
@@ -2267,8 +2338,8 @@ class Squeeze(PrimitiveModel):
         super().__init__(
             formula_key="squeeze",
             name=name,
-            output=BaseKey(shape=[("Var_out", ...)], type=Tensor),
-            input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
+            output=BaseKey(type=Tensor),
+            input=BaseKey(type=Tensor, value=input),
         )
 
         self._add_constraint(fn=squeeze_constraints, keys=["output", "input"])
@@ -2277,7 +2348,9 @@ class Squeeze(PrimitiveModel):
         )
 
     def __call__(  # type: ignore[override]
-        self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
+        self,
+        input: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(input=input, output=output)
 
@@ -2289,8 +2362,8 @@ class AUCCore(PrimitiveModel):
 
     def __init__(
         self,
-        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        label: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        input: Tensor[float] | ToBeDetermined = TBD,
+        label: Tensor[bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -2298,14 +2371,14 @@ class AUCCore(PrimitiveModel):
             formula_key="auc_core",
             name=name,
             output=BaseKey(shape=[2, "M"], type=Tensor[float]),
-            input=BaseKey(shape=["N"], type=Tensor, value=input),
-            label=BaseKey(shape=["N"], type=Tensor, value=label),
+            input=BaseKey(shape=["N"], type=Tensor[float], value=input),
+            label=BaseKey(shape=["N"], type=Tensor[bool], value=label),
         )
 
     def __call__(  # type: ignore[override]
         self,
-        input: ConnectionType = NOT_GIVEN,
-        label: ConnectionType = NOT_GIVEN,
+        input: ConnectionType | Tensor[float] = NOT_GIVEN,
+        label: ConnectionType | Tensor[bool] = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(input=input, label=label, output=output)
@@ -2320,8 +2393,8 @@ class Embedding(PrimitiveModel):
         self,
         num_embeddings: int | None = None,
         dim: int | None = None,
-        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        weight: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        input: Tensor[int] | ToBeDetermined = TBD,
+        weight: Tensor[float] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -2330,25 +2403,20 @@ class Embedding(PrimitiveModel):
         super().__init__(
             formula_key="primitive_embedding",
             name=name,
-            output=BaseKey(shape=[("N1", ...), "d1", out_dim], type=Tensor),
+            output=BaseKey(shape=[("N1", ...), "d1", out_dim], type=Tensor[float]),
             input=BaseKey(shape=[("N1", ...), "d1"], type=Tensor[int], value=input),
             weight=BaseKey(
                 shape=[num_embeddings, out_dim],
-                type=Tensor,
+                type=Tensor[float],
                 value=weight,
                 differentiable=True,
             ),
         )
 
-        self._add_constraint(
-            fn=general_type_constraint,
-            keys=[Operator.output_key, "weight"],
-        )
-
     def __call__(  # type: ignore[override]
         self,
-        input: ConnectionType = NOT_GIVEN,
-        weight: ConnectionType = NOT_GIVEN,
+        input: ConnectionType | Tensor[int] = NOT_GIVEN,
+        weight: ConnectionType | Tensor[float] = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(input=input, weight=weight, output=output)
@@ -2370,10 +2438,10 @@ class ScaledDotProduct(PrimitiveModel):
         scale: None | int | float | ToBeDetermined = None,
         dropout_p: float | ToBeDetermined = 0.0,
         use_attn_mask: bool = False,
-        query: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        key: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        value: Tensor[int | float | bool] | ToBeDetermined = TBD,
-        attn_mask: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        query: Tensor[int | float] | ToBeDetermined = TBD,
+        key: Tensor[int | float] | ToBeDetermined = TBD,
+        value: Tensor[int | float] | ToBeDetermined = TBD,
+        attn_mask: Tensor[float] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -2387,9 +2455,15 @@ class ScaledDotProduct(PrimitiveModel):
         formula_key = "scaled_dot_product_attention"
         kwargs: dict[str, BaseKey] = {
             "output": BaseKey(shape=[("Var", ...), "L", "O"], type=Tensor[float]),
-            "query": BaseKey(shape=[("Var", ...), "L", "E"], type=Tensor, value=query),
-            "key": BaseKey(shape=[("Var", ...), "S", "E"], type=Tensor, value=key),
-            "value": BaseKey(shape=[("Var", ...), "S", "O"], type=Tensor, value=value),
+            "query": BaseKey(
+                shape=[("Var", ...), "L", "E"], type=Tensor[int | float], value=query
+            ),
+            "key": BaseKey(
+                shape=[("Var", ...), "S", "E"], type=Tensor[int | float], value=key
+            ),
+            "value": BaseKey(
+                shape=[("Var", ...), "S", "O"], type=Tensor[int | float], value=value
+            ),
             "dropout_p": BaseKey(type=float, value=dropout_p),
             "attn_mask": BaseKey(type=NoneType, value=None),
             "is_causal": BaseKey(type=bool, value=is_causal),
@@ -2405,12 +2479,12 @@ class ScaledDotProduct(PrimitiveModel):
 
     def __call__(  # type: ignore[override]
         self,
-        query: ConnectionType = NOT_GIVEN,
-        key: ConnectionType = NOT_GIVEN,
-        value: ConnectionType = NOT_GIVEN,
-        dropout_p: ConnectionType = NOT_GIVEN,
-        is_causal: ConnectionType = NOT_GIVEN,
-        scale: ConnectionType = NOT_GIVEN,
+        query: ConnectionType | Tensor[int | float] = NOT_GIVEN,
+        key: ConnectionType | Tensor[int | float] = NOT_GIVEN,
+        value: ConnectionType | Tensor[int | float] = NOT_GIVEN,
+        dropout_p: ConnectionType | float = NOT_GIVEN,
+        is_causal: ConnectionType | bool = NOT_GIVEN,
+        scale: ConnectionType | None | int | float = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
         *,
         attn_mask: ConnectionType = NOT_GIVEN,
@@ -2458,17 +2532,19 @@ class PositionalEncoding(PrimitiveModel):
         super().__init__(
             formula_key="positional_encoding",
             name=name,
-            output=BaseKey(shape=[("N1", ...)], type=Tensor),
-            input=BaseKey(shape=[("N1", ...)], type=Tensor, value=input),
+            output=BaseKey(shape=[("N1", ...)], type=Tensor[float]),
+            input=BaseKey(
+                shape=[("N1", ...)], type=Tensor[int | float | bool], value=input
+            ),
             hidden_dim=BaseKey(type=int, value=hidden_dim),
             max_len=BaseKey(type=int, value=max_len),
         )
 
     def __call__(  # type: ignore[override]
         self,
-        input: ConnectionType = NOT_GIVEN,
-        hidden_dim: ConnectionType = NOT_GIVEN,
-        max_len: ConnectionType = NOT_GIVEN,
+        input: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
+        hidden_dim: ConnectionType | int = NOT_GIVEN,
+        max_len: ConnectionType | int = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(
@@ -2495,8 +2571,8 @@ class SwapAxes(PrimitiveModel):
         super().__init__(
             formula_key="swapaxes",
             name=name,
-            output=BaseKey(shape=[("Var_out", ...)], type=Tensor),
-            input=BaseKey(shape=[("Var_in", ...)], type=Tensor, value=input),
+            output=BaseKey(type=Tensor),
+            input=BaseKey(type=Tensor, value=input),
             axis1=BaseKey(type=int, value=axis1),
             axis2=BaseKey(type=int, value=axis2),
         )
@@ -2510,9 +2586,9 @@ class SwapAxes(PrimitiveModel):
 
     def __call__(  # type: ignore[override]
         self,
-        input: ConnectionType = NOT_GIVEN,
-        axis1: ConnectionType = NOT_GIVEN,
-        axis2: ConnectionType = NOT_GIVEN,
+        input: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
+        axis1: ConnectionType | int = NOT_GIVEN,
+        axis2: ConnectionType | int = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(input=input, axis1=axis1, axis2=axis2, output=output)
@@ -2535,10 +2611,10 @@ class Where(PrimitiveModel):
         super().__init__(
             formula_key="where",
             name=name,
-            output=BaseKey(shape=[("Var_out", ...)], type=Tensor),
-            cond=BaseKey(shape=[("Var3", ...)], type=Tensor[bool], value=cond),
-            input1=BaseKey(shape=[("Var1", ...)], type=Tensor, value=input1),
-            input2=BaseKey(shape=[("Var2", ...)], type=Tensor, value=input2),
+            output=BaseKey(type=Tensor),
+            cond=BaseKey(type=Tensor[bool], value=cond),
+            input1=BaseKey(type=Tensor, value=input1),
+            input2=BaseKey(type=Tensor, value=input2),
         )
 
         self._add_constraint(
@@ -2552,9 +2628,9 @@ class Where(PrimitiveModel):
 
     def __call__(  # type: ignore[override]
         self,
-        cond: ConnectionType = NOT_GIVEN,
-        input1: ConnectionType = NOT_GIVEN,
-        input2: ConnectionType = NOT_GIVEN,
+        cond: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
+        input1: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
+        input2: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(cond=cond, input1=input1, input2=input2, output=output)
@@ -2578,7 +2654,9 @@ class IsNan(PrimitiveModel):
         )
 
     def __call__(  # type: ignore[override]
-        self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
+        self,
+        input: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
+        output: ConnectionType | Tensor[bool] = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(input=input, output=output)
 
@@ -2596,12 +2674,14 @@ class Unique(PrimitiveModel):
         super().__init__(
             formula_key="unique",
             name=name,
-            input=BaseKey(shape=[("Var1", ...)], type=Tensor, value=input),
-            output=BaseKey(shape=[("Var2", ...)], type=Tensor),
+            input=BaseKey(type=Tensor, value=input),
+            output=BaseKey(type=Tensor),
         )
 
     def __call__(  # type: ignore[override]
-        self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
+        self,
+        input: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(input=input, output=output)
 
@@ -2628,8 +2708,8 @@ class Trapezoid(PrimitiveModel):
 
     def __call__(  # type: ignore[override]
         self,
-        y: ConnectionType = NOT_GIVEN,
-        x: ConnectionType = NOT_GIVEN,
+        y: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
+        x: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(y=y, x=x, output=output)
@@ -2654,8 +2734,10 @@ class NanToNum(PrimitiveModel):
         super().__init__(
             formula_key="nan_to_num",
             name=name,
-            output=BaseKey(shape=[("Var", ...)], type=Tensor),
-            input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
+            output=BaseKey(shape=[("Var", ...)], type=Tensor[int | float | bool]),
+            input=BaseKey(
+                shape=[("Var", ...)], type=Tensor[int | float | bool], value=input
+            ),
             nan=BaseKey(type=float, value=nan),
             posinf=BaseKey(type=float | None, value=posinf),
             neginf=BaseKey(type=float | None, value=neginf),
@@ -2663,10 +2745,10 @@ class NanToNum(PrimitiveModel):
 
     def __call__(  # type: ignore[override]
         self,
-        input: ConnectionType = NOT_GIVEN,
-        nan: ConnectionType = NOT_GIVEN,
-        posinf: ConnectionType = NOT_GIVEN,
-        neginf: ConnectionType = NOT_GIVEN,
+        input: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
+        nan: ConnectionType | float = NOT_GIVEN,
+        posinf: ConnectionType | float | None = NOT_GIVEN,
+        neginf: ConnectionType | float | None = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(
@@ -2689,8 +2771,8 @@ class Pad(PrimitiveModel):
         super().__init__(
             formula_key="pad",
             name=name,
-            output=BaseKey(shape=[("Var2", ...)], type=Tensor),
-            input=BaseKey(shape=[("Var1", ...)], type=Tensor, value=input),
+            output=BaseKey(type=Tensor),
+            input=BaseKey(type=Tensor[int | float | bool], value=input),
             pad_width=BaseKey(type=tuple[tuple[int, int], ...], value=pad_width),
         )
 
@@ -2700,8 +2782,9 @@ class Pad(PrimitiveModel):
 
     def __call__(  # type: ignore[override]
         self,
-        input: ConnectionType = NOT_GIVEN,
-        pad_width: ConnectionType = NOT_GIVEN,
+        input: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
+        pad_width: ConnectionType
+        | tuple[tuple[int | ConnectionType, int | ConnectionType], ...] = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(input=input, pad_width=pad_width, output=output)
@@ -2725,7 +2808,9 @@ class ZerosLike(PrimitiveModel):
         )
 
     def __call__(  # type: ignore[override]
-        self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
+        self,
+        input: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(input=input, output=output)
 
@@ -2744,7 +2829,9 @@ class Buffer(OperatorModel):
 
     def __call__(  # type: ignore[override]
         self,
-        input: ConnectionType = NOT_GIVEN,
+        input: ConnectionType
+        | ScalarValueType
+        | Tensor[int | float | bool] = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(input=input, output=output)
@@ -2779,8 +2866,16 @@ class ArithmeticOperation(OperatorModel):
 
     def __call__(  # type: ignore[override]
         self,
-        left: ConnectionType = NOT_GIVEN,
-        right: ConnectionType = NOT_GIVEN,
+        left: ConnectionType
+        | Tensor[int | float | bool]
+        | int
+        | float
+        | bool = NOT_GIVEN,
+        right: ConnectionType
+        | Tensor[int | float | bool]
+        | int
+        | float
+        | bool = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(left=left, right=right, output=output)
@@ -2796,34 +2891,31 @@ class Power(OperatorModel):
         robust: bool = False,
         base: Tensor[int | float | bool] | int | float | ToBeDetermined = TBD,
         exponent: Tensor[int | float | bool] | int | float | ToBeDetermined = TBD,
+        threshold: ConstantType | ToBeDetermined = types.Constant.MIN_POSITIVE_NORMAL,
         *,
         name: str | None = None,
     ) -> None:
         self.robust = robust
-        m = PowerOp(robust=robust, base=base, exponent=exponent)
+        m = PowerOp(
+            robust=robust, base=base, exponent=exponent, threshold=Tensor(threshold)
+        )
         super().__init__(name=name, model=m)
 
     def __call__(  # type: ignore[override]
         self,
-        base: ConnectionType = NOT_GIVEN,
-        exponent: ConnectionType = NOT_GIVEN,
-        output: ConnectionType = NOT_GIVEN,
+        base: ConnectionType | Tensor[int | float | bool] | int | float = NOT_GIVEN,
+        exponent: ConnectionType | Tensor[int | float | bool] | int | float = NOT_GIVEN,
+        output: ConnectionType | Tensor[float] = NOT_GIVEN,
         *,
-        threshold: ConnectionType = types.Constant.MIN_POSITIVE_NORMAL,
+        threshold: ConnectionType | Tensor[float] = NOT_GIVEN,
     ) -> ExtendInfo:
         kwargs = {"base": base, "exponent": exponent, "output": output}
-        default = (
-            isinstance(threshold, types.Constant)
-            and threshold == types.Constant.MIN_POSITIVE_NORMAL
-        )
-        if self.robust:
-            # NOTE: Since we can not provide Tensor objects as default
-            # arguments, we need to convert default value.
-            if default:
-                threshold = Tensor(threshold)  # type: ignore
+        if not self.robust and threshold is not NOT_GIVEN:
+            raise ValueError(
+                "Power does not accept threshold argument when robust is False."
+            )
+        elif self.robust:
             kwargs["threshold"] = threshold
-        elif not default:
-            raise ValueError("Threshold cannot be specified when robust mode is off")
 
         return super().__call__(**kwargs)
 
@@ -2908,8 +3000,16 @@ class Divide(OperatorModel):
 
     def __call__(  # type: ignore[override]
         self,
-        numerator: ConnectionType = NOT_GIVEN,
-        denominator: ConnectionType = NOT_GIVEN,
+        numerator: ConnectionType
+        | Tensor[int | float | bool]
+        | int
+        | float
+        | bool = NOT_GIVEN,
+        denominator: ConnectionType
+        | Tensor[int | float | bool]
+        | int
+        | float
+        | bool = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(
@@ -2942,8 +3042,16 @@ class FloorDivide(OperatorModel):
 
     def __call__(  # type: ignore[override]
         self,
-        numerator: ConnectionType = NOT_GIVEN,
-        denominator: ConnectionType = NOT_GIVEN,
+        numerator: ConnectionType
+        | Tensor[int | float | bool]
+        | int
+        | float
+        | bool = NOT_GIVEN,
+        denominator: ConnectionType
+        | Tensor[int | float | bool]
+        | int
+        | float
+        | bool = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(
@@ -2967,9 +3075,9 @@ class MatrixMultiply(OperatorModel):
 
     def __call__(  # type: ignore[override]
         self,
-        left: ConnectionType = NOT_GIVEN,
-        right: ConnectionType = NOT_GIVEN,
-        output: ConnectionType = NOT_GIVEN,
+        left: ConnectionType | Tensor[int | float] = NOT_GIVEN,
+        right: ConnectionType | Tensor[int | float] = NOT_GIVEN,
+        output: ConnectionType | Tensor[int | float] = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(left=left, right=right, output=output)
 
@@ -2987,7 +3095,9 @@ class Shape(OperatorModel):
         super().__init__(name=name, model=ShapeOp(input=input))
 
     def __call__(  # type: ignore[override]
-        self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
+        self,
+        input: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(input=input, output=output)
 
@@ -3008,8 +3118,8 @@ class Reshape(OperatorModel):
 
     def __call__(  # type: ignore[override]
         self,
-        input: ConnectionType = NOT_GIVEN,
-        shape: ConnectionType = NOT_GIVEN,
+        input: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
+        shape: ConnectionType | Sequence[int | None | ConnectionType] = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(input=input, shape=shape, output=output)
@@ -3028,7 +3138,9 @@ class Length(OperatorModel):
         super().__init__(name=name, model=LengthOp(input=input))
 
     def __call__(  # type: ignore[override]
-        self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
+        self,
+        input: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(input=input, output=output)
 
@@ -3045,8 +3157,8 @@ class Cast(OperatorModel):
 
     def __call__(  # type: ignore[override]
         self,
-        input: ConnectionType = NOT_GIVEN,
-        dtype: ConnectionType = NOT_GIVEN,
+        input: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
+        dtype: ConnectionType | types.Dtype = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(input=input, dtype=dtype, output=output)
@@ -3065,7 +3177,9 @@ class Dtype(OperatorModel):
         super().__init__(name=name, model=DtypeOp(input=input))
 
     def __call__(  # type: ignore[override]
-        self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
+        self,
+        input: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(input=input, output=output)
 
@@ -3086,8 +3200,8 @@ class Size(OperatorModel):
 
     def __call__(  # type: ignore[override]
         self,
-        input: ConnectionType = NOT_GIVEN,
-        dim: ConnectionType = NOT_GIVEN,
+        input: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
+        dim: ConnectionType | int | tuple[int | ConnectionType, ...] | None = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(input=input, dim=dim, output=output)
@@ -3106,9 +3220,16 @@ class Item(OperatorModel):
         super().__init__(name=name, model=ItemOp(input=input))
 
     def __call__(  # type: ignore[override]
-        self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
+        self,
+        input: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(input=input, output=output)
+
+
+ToTensorConnectionType = (
+    ConnectionType | int | float | bool | Sequence["ToTensorConnectionType"]
+)
 
 
 class ToTensor(OperatorModel):
@@ -3127,8 +3248,8 @@ class ToTensor(OperatorModel):
 
     def __call__(  # type: ignore[override]
         self,
-        input: ConnectionType = NOT_GIVEN,
-        dtype: ConnectionType = NOT_GIVEN,
+        input: ConnectionType | ToTensorConnectionType = NOT_GIVEN,
+        dtype: ConnectionType | types.Dtype = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(input=input, dtype=dtype, output=output)
@@ -3146,7 +3267,7 @@ class ToList(OperatorModel):
     ) -> None:
         super().__init__(name=name, model=ToListOp(n, name=name, **kwargs))
 
-    def __call__(self, **kwargs: ConnectionType) -> ExtendInfo:
+    def __call__(self, **kwargs: ConnectionType) -> ExtendInfo:  # type: ignore[override]
         return super().__call__(**kwargs)
 
 
@@ -3166,7 +3287,9 @@ class TensorToList(OperatorModel):
         super().__init__(name=name, model=m)
 
     def __call__(  # type: ignore[override]
-        self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
+        self,
+        input: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(input=input, output=output)
 
@@ -3182,9 +3305,12 @@ class Reduce(OperatorModel):
 
     def __call__(  # type: ignore[override]
         self,
-        input: ConnectionType = NOT_GIVEN,
-        axis: ConnectionType = NOT_GIVEN,
-        keepdim: ConnectionType = NOT_GIVEN,
+        input: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
+        axis: ConnectionType
+        | int
+        | tuple[int | ConnectionType, ...]
+        | None = NOT_GIVEN,
+        keepdim: ConnectionType | bool = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(input=input, axis=axis, keepdim=keepdim, output=output)
@@ -3289,7 +3415,7 @@ class Variance(Reduce):
         axis: int | tuple[int, ...] | None | ToBeDetermined = None,
         keepdim: bool | ToBeDetermined = False,
         correction: int | float | None = 0.0,
-        input: Tensor[int | float | bool] | ToBeDetermined = TBD,
+        input: Tensor[float] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
@@ -3301,10 +3427,10 @@ class Variance(Reduce):
 
     def __call__(  # type: ignore[override]
         self,
-        input: ConnectionType = NOT_GIVEN,
-        axis: ConnectionType = NOT_GIVEN,
-        keepdim: ConnectionType = NOT_GIVEN,
-        correction: ConnectionType = NOT_GIVEN,
+        input: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
+        axis: ConnectionType | int | tuple[int | ConnectionType, ...] = NOT_GIVEN,
+        keepdim: ConnectionType | bool = NOT_GIVEN,
+        correction: ConnectionType | float = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super(Reduce, self).__call__(
@@ -3321,7 +3447,13 @@ class SingleInputModel(OperatorModel):
     output: Connection
 
     def __call__(  # type: ignore[override]
-        self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
+        self,
+        input: ConnectionType
+        | Tensor[int | float | bool]
+        | int
+        | float
+        | bool = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(input=input, output=output)
 
@@ -3378,7 +3510,7 @@ class Sqrt(OperatorModel):
 
     def __call__(  # type: ignore[override]
         self,
-        input: ConnectionType = NOT_GIVEN,
+        input: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
         *,
         threshold: ConnectionType = NOT_GIVEN,
@@ -3401,8 +3533,16 @@ class RelationalModel(OperatorModel):
 
     def __call__(  # type: ignore[override]
         self,
-        left: ConnectionType = NOT_GIVEN,
-        right: ConnectionType = NOT_GIVEN,
+        left: ConnectionType
+        | Tensor[int | float | bool]
+        | int
+        | float
+        | bool = NOT_GIVEN,
+        right: ConnectionType
+        | Tensor[int | float | bool]
+        | int
+        | float
+        | bool = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(left=left, right=right, output=output)
@@ -3487,7 +3627,9 @@ class LogicalNot(OperatorModel):
         super().__init__(name=name, model=LogicalNotOp(input=input))
 
     def __call__(  # type: ignore[override]
-        self, input: ConnectionType = NOT_GIVEN, output: ConnectionType = NOT_GIVEN
+        self,
+        input: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(input=input, output=output)
 
@@ -3499,8 +3641,8 @@ class BitwiseOperators(OperatorModel):
 
     def __call__(  # type: ignore[override]
         self,
-        left: ConnectionType = NOT_GIVEN,
-        right: ConnectionType = NOT_GIVEN,
+        left: ConnectionType | Tensor[int | bool] | int | bool = NOT_GIVEN,
+        right: ConnectionType | Tensor[int | bool] | int | bool = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(left=left, right=right, output=output)
@@ -3555,8 +3697,8 @@ class ShiftLeft(OperatorModel):
 
     def __call__(  # type: ignore[override]
         self,
-        input: ConnectionType = NOT_GIVEN,
-        shift: ConnectionType = NOT_GIVEN,
+        input: ConnectionType | Tensor[int | bool] | int | bool = NOT_GIVEN,
+        shift: ConnectionType | Tensor[int | bool] | int | bool = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(input=input, shift=shift, output=output)
@@ -3578,8 +3720,8 @@ class ShiftRight(OperatorModel):
 
     def __call__(  # type: ignore[override]
         self,
-        input: ConnectionType = NOT_GIVEN,
-        shift: ConnectionType = NOT_GIVEN,
+        input: ConnectionType | Tensor[int | bool] | int | bool = NOT_GIVEN,
+        shift: ConnectionType | Tensor[int | bool] | int | bool = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(input=input, shift=shift, output=output)
@@ -3603,8 +3745,8 @@ class Transpose(OperatorModel):
 
     def __call__(  # type: ignore[override]
         self,
-        input: ConnectionType = NOT_GIVEN,
-        axes: ConnectionType = NOT_GIVEN,
+        input: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
+        axes: ConnectionType | int | Sequence[int | ConnectionType] | None = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(input=input, axes=axes, output=output)
@@ -3629,9 +3771,9 @@ class Split(OperatorModel):
 
     def __call__(  # type: ignore[override]
         self,
-        input: ConnectionType = NOT_GIVEN,
-        split_size: ConnectionType = NOT_GIVEN,
-        axis: ConnectionType = NOT_GIVEN,
+        input: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
+        split_size: ConnectionType | int = NOT_GIVEN,
+        axis: ConnectionType | int = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(
@@ -3657,9 +3799,9 @@ class Slice(OperatorModel):
 
     def __call__(  # type: ignore[override]
         self,
-        start: ConnectionType = NOT_GIVEN,
-        stop: ConnectionType = NOT_GIVEN,
-        step: ConnectionType = NOT_GIVEN,
+        start: ConnectionType | int | None = NOT_GIVEN,
+        stop: ConnectionType | int | None = NOT_GIVEN,
+        step: ConnectionType | int | None = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(start=start, stop=stop, step=step, output=output)
@@ -3676,7 +3818,7 @@ class Indexer(OperatorModel):
         | slice
         | EllipsisType
         | None
-        | tuple[int | slice | EllipsisType | None]
+        | tuple[int | slice | EllipsisType | None, ...]
         | ToBeDetermined = TBD,
         input: Tensor[int | float | bool] | Sequence[Any] | ToBeDetermined = TBD,
         *,
@@ -3686,8 +3828,13 @@ class Indexer(OperatorModel):
 
     def __call__(  # type: ignore[override]
         self,
-        input: ConnectionType = NOT_GIVEN,
-        index: ConnectionType = NOT_GIVEN,
+        input: ConnectionType | Tensor[int | float | bool] | Sequence[Any] = NOT_GIVEN,
+        index: ConnectionType
+        | int
+        | slice
+        | EllipsisType
+        | None
+        | tuple[int | slice | EllipsisType | None | ConnectionType, ...] = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(input=input, index=index, output=output)
