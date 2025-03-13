@@ -4338,7 +4338,7 @@ def test_concat_2():
     )
 
 
-def test_concat_3_with_indexer():
+def test_concat_3_with_indexer_list_input():
     model = Model()
 
     to_list = ToList(n=3)
@@ -4354,7 +4354,8 @@ def test_concat_3_with_indexer():
     indexed_data = to_list.output[-2:]
     model |= concat_2(input=indexed_data, output=IOKey("output_2"))
 
-    params = {"input1": [[1.0, 2.0]], "input2": [[3.0, 4.0]], "input3": [[5.0, 6.0]]}
+    params = {"input1": [[1.0, 2.0]], "input3": [[5.0, 6.0]]}
+    data = {"input2": [[3.0, 4.0]]}
 
     out_grad = {
         "output_1": [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]],
@@ -4366,17 +4367,66 @@ def test_concat_3_with_indexer():
         "output_2": [[3.0, 4.0], [5.0, 6.0]],
     }
 
-    ref_grad = {"input1": [[1.0, 2.0]], "input2": [[6.0, 8.0]], "input3": [[6.0, 8.0]]}
+    ref_grad = {"input1": [[1.0, 2.0]], "input3": [[6.0, 8.0]]}
 
     compile_and_compare(
         model=model,
         compile_kwargs={
             "constant_keys": {},
-            "trainable_keys": {"input1", "input2", "input3"},
+            "trainable_keys": {"input1", "input3"},
             "inference": False,
             "jit": False,
         },
-        data={},
+        data=data,
+        params=params,
+        output_gradients=out_grad,
+        reference_outputs=ref_out,
+        reference_gradients=ref_grad,
+        assert_shapes=False,
+        tolerances=1e-6,
+    )
+
+
+def test_concat_3_with_indexer_tuple_input():
+    model = Model()
+
+    to_tuple = ToTuple(n=3)
+    concat_1 = Concat()
+    concat_2 = Concat()
+
+    input1 = IOKey("input1", type=Tensor)
+    input2 = IOKey("input2", type=Tensor)
+    input3 = IOKey("input3", type=Tensor)
+
+    model |= to_tuple(input1=input1, input2=input2, input3=input3)
+    model += concat_1(output=IOKey("output_1"))
+    indexed_data = to_tuple.output[-2:]
+    model |= concat_2(input=indexed_data, output=IOKey("output_2"))
+
+    params = {"input1": [[1.0, 2.0]], "input3": [[5.0, 6.0]]}
+    data = {"input2": [[3.0, 4.0]]}
+
+    out_grad = {
+        "output_1": [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]],
+        "output_2": [[3.0, 4.0], [1.0, 2.0]],
+    }
+
+    ref_out = {
+        "output_1": [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]],
+        "output_2": [[3.0, 4.0], [5.0, 6.0]],
+    }
+
+    ref_grad = {"input1": [[1.0, 2.0]], "input3": [[6.0, 8.0]]}
+
+    compile_and_compare(
+        model=model,
+        compile_kwargs={
+            "constant_keys": {},
+            "trainable_keys": {"input1", "input3"},
+            "inference": False,
+            "jit": False,
+        },
+        data=data,
         params=params,
         output_gradients=out_grad,
         reference_outputs=ref_out,

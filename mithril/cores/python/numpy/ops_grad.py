@@ -13,9 +13,8 @@
 # limitations under the License.
 
 import itertools
-from collections.abc import Sequence
 from itertools import zip_longest
-from typing import Any
+from typing import Any, overload
 
 import numpy as np
 import scipy.linalg as slin
@@ -27,6 +26,7 @@ from .utils import (
     CacheType,
     accumulate_grads,
     calc_input_slices,
+    fill_zeros,
     get_submatrices1d,
     get_submatrices2d,
     verify_shapes,
@@ -110,6 +110,7 @@ __all__ = [
     "max_pool1d_grad",
     "flatten_grad",
     "minus_grad",
+    "to_tuple_grad",
     "to_list_grad",
     "atleast_1d_grad",
     "cast_grad",
@@ -548,13 +549,29 @@ def sign_grad(
     return np.zeros_like(inputs[0])
 
 
+@overload
 def concat_grad(
     output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,
-    *inputs: Sequence[np.ndarray[Any, Any]],
+    *inputs: list[np.ndarray[Any, Any]],
     axis: int | None = 0,
-) -> list[np.ndarray[Any, Any]]:
+) -> list[np.ndarray[Any, Any]]: ...
+@overload
+def concat_grad(
+    output_gradient: np.ndarray[Any, Any],
+    cache: CacheType,
+    idx: int,
+    *inputs: tuple[np.ndarray[Any, Any], ...],
+    axis: int | None = 0,
+) -> tuple[np.ndarray[Any, Any], ...]: ...
+def concat_grad(
+    output_gradient: np.ndarray[Any, Any],
+    cache: CacheType,
+    idx: int,
+    *inputs: list[np.ndarray[Any, Any]] | tuple[np.ndarray[Any, Any], ...],
+    axis: int | None = 0,
+) -> list[np.ndarray[Any, Any]] | tuple[np.ndarray[Any, Any], ...]:
     input = inputs[0]
     # verify_shapes(input, idx, non_differentiables=[-1])
     # Since last element of args is axis, exclude it from
@@ -566,12 +583,12 @@ def concat_grad(
         constant=True,
         func=calc_input_slices,
     )
-    grad: list[np.ndarray[Any, Any]] = [
+    grad: list[np.ndarray[Any, Any]] | tuple[np.ndarray[Any, Any], ...] = type(input)(
         output_gradient[slices[i]].reshape(input[i].shape)
         if axis is None
         else output_gradient[slices[i]]
         for i in range(len(input))
-    ]
+    )
     return grad
 
 
@@ -825,8 +842,12 @@ def indexer_grad(
 ) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx, non_differentiables=[1])
     input, index = inputs
-    grad = np.zeros_like(input)
+    grad = fill_zeros(input)
+    if isinstance(input, tuple):
+        grad = list(grad)
     grad[index] = output_gradient
+    if isinstance(input, tuple):
+        grad = tuple(grad)
     return grad
 
 
@@ -1723,6 +1744,15 @@ def zeros_like_grad(
     *inputs: np.ndarray[Any, Any],
 ) -> np.ndarray[Any, Any]:
     return np.zeros_like(output_gradient)
+
+
+def to_tuple_grad[T](
+    output_gradient: np.ndarray[Any, Any],
+    cache: CacheType,
+    idx: int,
+    *inputs: T,
+) -> list[T]:
+    return output_gradient[idx]
 
 
 def to_list_grad[T](

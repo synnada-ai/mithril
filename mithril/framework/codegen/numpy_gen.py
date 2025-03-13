@@ -21,6 +21,7 @@ from typing import Any, Literal, overload
 import numpy as np
 
 from ...backends.with_manualgrad.numpy_backend import NumpyBackend
+from ...cores.python.numpy.utils import fill_zeros
 from ...framework.physical.model import PhysicalModel
 from ...utils.func_utils import is_make_array_required, prepare_function_args
 from ..common import (
@@ -175,7 +176,7 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
                         out_data = _key_cache["output"]
 
                 # Create same data structure filled with zeros.
-                gradients[key] = self.fill_zeros(out_data)
+                gradients[key] = fill_zeros(out_data)
 
             if output_gradients is None:
                 if FinalCost not in self.pm._output_keys:
@@ -206,19 +207,6 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
             grad_fn = partial(evaluate_gradients_wrapper_manualgrad, grad_fn=grad_fn)
 
         return self.post_process_fns(eval_fn, grad_fn, jit)  # type: ignore
-
-    def fill_zeros(self, data: Any) -> Any:
-        if isinstance(data, np.ndarray):
-            return self.backend.zeros_like(data, dtype=self.backend._dtype)
-        elif isinstance(data, dict):
-            return {key: self.fill_zeros(value) for key, value in data.items()}
-        elif isinstance(data, list | tuple):
-            result: list[Any] | tuple[Any] = [self.fill_zeros(value) for value in data]
-            if isinstance(data, tuple):
-                result = tuple(result)
-            return result
-        # Return 0.0 for scalar values.
-        return 0.0
 
     def get_primitive_details(
         self, output_key: str
@@ -444,7 +432,6 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
             local_input_keys = [*primitive_local_inputs, "output_gradient", "idx"]
             global_input_keys = _inputs + ["output_gradient", "idx"]
 
-            # TODO: Handle ignore gradient keys (models) and
             for idx, global_input_key in enumerate(global_input_keys[:-2]):
                 if (
                     global_input_key
