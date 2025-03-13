@@ -54,9 +54,9 @@ class CodeGen(ABC, Generic[DataType]):
         Check if a given key has gradient information.
 
         This method checks if the specified key is present in the 'grad' or 'no_grad'
-        status dictionaries. If the key is not found in either, it queries the
+        status sets. If the key is not found in either, it queries the
         'pm.has_grad' method to determine the gradient status and updates the
-        corresponding status dictionary.
+        corresponding set.
 
         Args:
             key (str): The key to check for gradient information.
