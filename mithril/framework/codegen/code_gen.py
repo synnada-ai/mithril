@@ -62,7 +62,7 @@ class CodeGen(ABC, Generic[DataType]):
             key (str): The key to check for gradient information.
 
         Returns:
-            bool: True if the key has gradient information, False otherwise.
+            bool: True if the key has gradient, False otherwise.
         """
         if key in self._grad_keys:
             return True
