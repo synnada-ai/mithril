@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 import json
 import sys
 from typing import Any
@@ -20,6 +21,7 @@ import numpy as np
 from huggingface_hub import hf_hub_download
 from safetensors import safe_open
 from sentencepiece import SentencePieceProcessor
+from util import configs
 
 import mithril as ml
 from examples.t5 import t5_encode
@@ -146,10 +148,10 @@ sys.setrecursionlimit(3500)
 
 
 def download_t5_encoder_weights(
-    backend: ml.Backend, repo_id: str = "black-forest-labs/FLUX.1-schnell"
+    backend: ml.Backend, name: str
 ) -> dict[str, np.ndarray[Any, Any]]:
     model_index = hf_hub_download(
-        repo_id, "text_encoder_2/model.safetensors.index.json"
+        configs[name].repo_id, "text_encoder_2/model.safetensors.index.json"
     )
 
     weight_files = set()
@@ -167,45 +169,28 @@ def download_t5_encoder_weights(
 
     weights = {}
     for w in weight_files:
-        w = hf_hub_download(repo_id, f"text_encoder_2/{w}")
+        w = hf_hub_download(configs[name].repo_id, f"text_encoder_2/{w}")
         safe_tensors = safe_open(w, target_lib)
-        for key in safe_tensors.keys():  # type: ignore # noqa
-            weights[key] = safe_tensors.get_tensor(key)  # type: ignore
+        for key in safe_tensors.keys():  # type: ignore #noqa SIM118
+            weights[key] = backend.array(safe_tensors.get_tensor(key))  # type: ignore
 
     return sanitize(weights)
 
 
-def load_t5_encoder(
-    backend: ml.Backend,
-    repo_id: str = "black-forest-labs/FLUX.1-schnell",
-    max_len: int = 256,
-) -> ml.models.PhysicalModel:
-    config_path = hf_hub_download(repo_id, "text_encoder_2/config.json")
+def load_t5_encoder(name: str, max_len: int = 256) -> ml.models.PhysicalModel:
+    config = hf_hub_download(configs[name].repo_id, "text_encoder_2/config.json")
 
-    with open(config_path) as f:
+    with open(config) as f:
         config = json.load(f)
 
-    t5 = t5_encode(config, name="encoder")  # type: ignore
+    t5 = t5_encode(config, name="encoder")
+    t5.set_shapes(input=[1, max_len])
 
-    # model = ml.models.Model()
-    # model |= t5(input="input", output="output")
+    return t5
 
-    encoder_pm = ml.compile(
-        t5,
-        backend,
-        data_keys={"input"},
-        shapes={"input": [1, max_len]},
-        jit=False,
-        use_short_namings=False,
+
+def load_t5_tokenizer(backend: ml.Backend, name: str, pad: bool = True):
+    model_file = hf_hub_download(configs[name].repo_id, "tokenizer_2/spiece.model")
+    return T5Tokenizer(
+        model_file, backend, 256 if "schnell" in configs[name].repo_id else 512
     )
-
-    return encoder_pm
-
-
-def load_t5_tokenizer(
-    backend: ml.Backend,
-    repo_id: str = "black-forest-labs/FLUX.1-schnell",
-    pad: bool = True,
-):
-    model_file = hf_hub_download(repo_id, "tokenizer_2/spiece.model")
-    return T5Tokenizer(model_file, backend, 256 if "schnell" in repo_id else 512)

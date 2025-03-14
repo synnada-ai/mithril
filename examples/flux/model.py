@@ -45,11 +45,11 @@ class FluxParams:
 def flux(params: FluxParams):
     flux = Model()
 
-    img = IOKey("img", shape=[1, 4080, 64])
-    txt = IOKey("txt", shape=[1, 256, 4096])
+    img = IOKey("img", shape=[1, 4096, 64])
+    txt = IOKey("txt", shape=[1, 512, 4096])
 
-    img_ids = IOKey("img_ids", shape=[1, 4080, 3])
-    txt_ids = IOKey("txt_ids", shape=[1, 256, 3])
+    img_ids = IOKey("img_ids", shape=[1, 4096, 3])
+    txt_ids = IOKey("txt_ids", shape=[1, 512, 3])
 
     timesteps = IOKey("timesteps", shape=[1])
     y = IOKey("y", shape=[1, 768])
@@ -60,6 +60,14 @@ def flux(params: FluxParams):
     )
     flux |= mlp_embedder(params.hidden_size, name="vector_in")(input=y, output="y_vec")
     flux |= Add()(left="time_vec", right="y_vec", output="vec")
+
+    if params.guidance_embed:
+        guidance = IOKey("guidance", shape=[1])
+        flux |= timestep_embedding(dim=256)(input=guidance, output="guidance_embed")
+        flux |= mlp_embedder(params.hidden_size, name="guidance_in")(
+            input="guidance_embed", output="guidance_vec"
+        )
+        flux |= Add()(left="vec", right="guidance_vec", output="guided_vec")
 
     flux |= Linear(params.hidden_size, name="img_in")(input=img, output="img_vec")
     flux |= Linear(params.hidden_size, name="txt_in")(input=txt, output="txt_vec")
@@ -80,7 +88,7 @@ def flux(params: FluxParams):
             img=img_name,
             txt=txt_name,
             pe="pe",
-            vec="vec",
+            vec="vec" if not params.guidance_embed else "guided_vec",
             img_out=f"img{i}",
             txt_out=f"txt{i}",
         )
@@ -88,7 +96,7 @@ def flux(params: FluxParams):
         txt_name = f"txt{i}"
 
     flux |= Concat(axis=1)(
-        input=[IOKey(txt_name), IOKey(img_name)], output="img_concat"
+        input=[getattr(flux, txt_name), getattr(flux, img_name)], output="img_concat"
     )
 
     img_name = "img_concat"
@@ -100,15 +108,15 @@ def flux(params: FluxParams):
             name=f"single_blocks_{i}",
         )(
             input=img_name,
-            vec="vec",
             pe="pe",
+            vec="vec" if not params.guidance_embed else "guided_vec",
             output=f"img_single_{i}",
         )
         img_name = f"img_single_{i}"
 
     img = getattr(flux, img_name)
     # TODO: [:, txt.shape[1] :, ...]
-    img = img[:, 256:, ...]  # type: ignore
+    img = img[:, 512:, ...]  # type: ignore
 
     flux |= last_layer(params.hidden_size, 1, params.in_channels, name="final_layer")(
         input=img, vec="vec", output=IOKey("output")

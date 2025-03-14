@@ -14,18 +14,30 @@
 
 
 import os
+import time
+from copy import deepcopy
 from dataclasses import dataclass
 
 import numpy as np
+from clip import download_clip_encoder_weights, load_clip_encoder, load_clip_tokenizer
 from PIL import Image
-from sampling import denoise, get_noise, get_schedule, prepare, rearrange, unpack
+from sampling import (
+    get_schedule,
+    prepare_logical,
+    unpack_logical,
+)
 from t5 import download_t5_encoder_weights, load_t5_encoder, load_t5_tokenizer
-from util import configs, load_clip, load_decoder, load_flow_model
+from tqdm import tqdm
+from util import configs, load_decoder, load_flow_model
 
 import mithril as ml
-
-os.environ["XLA_PYTHON_CLIENT_ALLOCATOR"] = "platform"
-os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
+from mithril.models import (
+    IOKey,
+    Model,
+    Multiply,
+    Ones,
+    Transpose,
+)
 
 
 @dataclass
@@ -39,11 +51,12 @@ class SamplingOptions:
 
 
 def run(
-    model_name: str = "flux-schnell",
-    width: int = 1360,
-    height: int = 768,
+    model_name: str = "flux-dev",
+    backend_name: str = "torch",
+    width: int = 1024,
+    height: int = 1024,
     prompt: str = "A girl with green eyes on the a wooden bridge",
-    device: str = "cuda",
+    device: str = "cpu",
     output_dir: str = "temp",
     num_steps: int | None = None,
     guidance: float = 3.5,
@@ -56,7 +69,7 @@ def run(
         )
 
     if num_steps is None:
-        num_steps = 4 if model_name == "flux-schnell" else 50
+        num_steps = 4 if model_name == "flux-schnell" else 28
 
     # allow for packing and conversion to latent space
     height = 16 * (height // 16)
@@ -74,50 +87,132 @@ def run(
         seed=seed,
     )
 
-    backend = ml.TorchBackend(device="cuda", dtype=ml.bfloat16)
+    backend_cls = ml.TorchBackend if backend_name == "torch" else ml.JaxBackend
+    backend: ml.Backend = backend_cls(device=device, dtype=ml.bfloat16)
     backend.seed = seed
 
-    t5 = load_t5_encoder(backend)
-    t5_tokenizer = load_t5_tokenizer(backend, pad=False)
-    t5_np_weights = download_t5_encoder_weights(backend)
-    t5_weights = {key: backend.array(value) for key, value in t5_np_weights.items()}
+    # Create models
 
-    clip = load_clip(device=device).to("cuda")
+    flux_pipeline = Model()
 
-    flow_model, flow_params = load_flow_model(model_name, backend=backend)
-    decoder, decoder_params = load_decoder(model_name, backend=backend)
-
-    opts = SamplingOptions(
-        prompt=prompt,
-        width=width,
-        height=height,
-        num_steps=num_steps,
-        guidance=guidance,
-        seed=seed,
+    print("Loading T5 encoder")
+    t5_lm = load_t5_encoder(
+        name=model_name, max_len=256 if "schnell" in model_name else 512
     )
+    t5_tokenizer = load_t5_tokenizer(backend, name=model_name)
+    t5_weights = download_t5_encoder_weights(backend, name=model_name)
+    t5_lm.name = "t5"
 
-    noise = get_noise(1, opts.height, opts.width, backend)
-    inp = prepare(
-        t5, t5_weights, t5_tokenizer, clip, noise, prompt=opts.prompt, backend=backend
-    )
+    print("Loading CLIP encoder")
+    clip_lm = load_clip_encoder(name=model_name)
+    clip_tokenizer = load_clip_tokenizer(backend, name=model_name)
+    clip_weights = download_clip_encoder_weights(backend, name=model_name)
+    clip_lm.name = "clip"
+
+    prepare_logical(flux_pipeline, t5_lm, clip_lm, 1, opts.width, opts.height)
+
+    decoder_lm, decoder_params = load_decoder(model_name, backend=backend)
+    decoder_lm.name = "decoder"
 
     timesteps = get_schedule(
         opts.num_steps,
-        inp["img"].shape[1],
+        flux_pipeline.shapes["img"][1],  # type: ignore
         shift=(model_name != "flux-schnell"),
         backend=backend,
     )
 
-    for key, value in inp.items():
-        inp[key] = backend.array(np.array(value.to("cpu").float()))
+    # Build denoise pipeline
+    print("Building denoise pipeline")
 
-    x = denoise(flow_model, flow_params, **inp, timesteps=timesteps, backend=backend)
-    x = unpack(x, opts.height, opts.width)
-    x = decoder(decoder_params, {"input": x.type(backend.float32)})["output"]  # type: ignore
-    x = x.clamp(-1, 1)  # TODO: add to backend
-    x = rearrange(x[0], "c h w -> h w c")
-    img = Image.fromarray(np.array(127.5 * (x.cpu() + 1.0)).astype(np.uint8))
-    img.save("img.png")
+    flow_lm, flow_params = load_flow_model(model_name, backend=backend)
+
+    img = IOKey("img")
+    if "schnell" not in model_name:
+        flux_pipeline |= Ones(shape=(1,))(output="guidance_vec")
+        flux_pipeline |= Multiply()(
+            left="guidance_vec", right=guidance, output="guidance"
+        )
+
+    kwargs: dict = {}
+
+    _flow_model: ml.models.Model
+    for idx, (t_curr, t_prev) in tqdm(
+        enumerate(zip(timesteps[:-1], timesteps[1:], strict=False))
+    ):
+        flux_pipeline |= Ones(shape=(1,))(output=f"t_vec{idx}")
+        t_vec = getattr(flux_pipeline, f"t_vec{idx}")
+        t_vec *= t_curr
+
+        flow_out = f"output_{idx}"
+        if idx != 0:
+            kwargs = {
+                key: value
+                for key, value in zip(
+                    _flow_model.input_keys,  # noqa F821
+                    [key for key in _flow_model.conns.input_connections],  # noqa F821
+                    strict=False,
+                )
+                if "$" in key
+            }
+
+        _flow_model = deepcopy(flow_lm)
+        kwargs |= {
+            "img": img,
+            "txt": "txt",
+            "img_ids": "img_ids",
+            "txt_ids": "txt_ids",
+            "timesteps": t_vec,
+            "y": "y",
+            "guidance": "guidance",
+            "output": flow_out,
+        }
+        flux_pipeline |= _flow_model(**kwargs)
+
+        img = img + (t_prev - t_curr) * getattr(flux_pipeline, flow_out)
+
+    unpacked_img = unpack_logical(flux_pipeline, img, opts.height, opts.width)
+
+    flux_pipeline |= decoder_lm(input=unpacked_img, output="decoded")
+    flux_pipeline |= Transpose(axes=(0, 2, 3, 1))(
+        input="decoded", output=IOKey("output")
+    )
+
+    # Sanitize param names
+    flow_params = {f"model_0_{key}": value for key, value in flow_params.items()}
+    decoder_params = {f"decoder_{key}": value for key, value in decoder_params.items()}
+    t5_params = {f"t5_{key}": value for key, value in t5_weights.items()}
+    clip_params = {f"clip_{key}": value for key, value in clip_weights.items()}
+
+    params = {**flow_params, **decoder_params, **t5_params, **clip_params}
+
+    print("Compiling Pipeline")
+    s_time = time.perf_counter()
+    denoise_pm = ml.compile(
+        flux_pipeline, backend, inference=True, jit=True, use_short_namings=False
+    )
+    e_time = time.perf_counter()
+    print(f"Time taken for compilation: {e_time - s_time} seconds")
+
+    clip_inp = clip_tokenizer.encode(opts.prompt)
+    t5_inp = t5_tokenizer.encode(opts.prompt)
+
+    inp = {"clip_tokens": clip_inp, "t5_tokens": t5_inp}
+
+    # Warmup
+    for _ in tqdm(range(5)):
+        x = denoise_pm(params, inp)["output"]
+
+    # Actual inference
+    s_time = time.perf_counter()
+    for _ in tqdm(range(10)):
+        x = denoise_pm(params, inp)["output"]
+    e_time = time.perf_counter()
+    print(f"Time taken: {e_time - s_time} seconds")
+
+    img_pil = Image.fromarray(
+        np.array(127.5 * (x.float().cpu()[0] + 1.0)).clip(0, 255).astype(np.uint8)  # type: ignore
+    )
+    img_pil.save("img.png")
 
 
 if __name__ == "__main__":

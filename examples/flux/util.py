@@ -12,11 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass
 
-import numpy as np
 import torch
 from auto_encoder import AutoEncoderParams, decode
 from conditioner import HFEmbedder
@@ -24,7 +24,7 @@ from einops import rearrange
 from huggingface_hub import hf_hub_download
 from imwatermark import WatermarkEncoder
 from model import FluxParams, flux
-from safetensors.torch import load_file as load_sft
+from safetensors import safe_open
 
 import mithril as ml
 
@@ -68,15 +68,14 @@ def convert_to_ml_weights(
             continue
 
         param_shape = ml_param_shapes[ml_key]
-
         if torch_state_dict[torch_key].shape != param_shape:
             params[ml_key] = backend.array(
-                np.array(torch_state_dict[torch_key].reshape(param_shape).float()),
+                backend.reshape(torch_state_dict[torch_key], param_shape),
                 dtype=dtype,
             )
         else:
             params[ml_key] = backend.array(
-                np.array(torch_state_dict[torch_key].reshape(param_shape).float()),
+                backend.reshape(torch_state_dict[torch_key], param_shape),
                 dtype=dtype,
             )
 
@@ -170,20 +169,22 @@ def load_flow_model(name: str, backend: ml.Backend, hf_download: bool = True):
         flux_lm,
         backend,
         jit=False,
-        data_keys={"img", "txt", "img_ids", "txt_ids", "timesteps", "y"},
         use_short_namings=False,
     )
 
     assert ckpt_path is not None
-    sd = load_sft(ckpt_path, device="cpu")
-    params = convert_to_ml_weights(flux_pm.shapes, sd, backend, backend._dtype)
+    sd = safe_open(ckpt_path, "pt" if backend.backend_type == "torch" else "jax", "cpu")
+    result = {}
+    for k in sd.keys():  # type: ignore #noqa SIM118
+        result[k] = sd.get_tensor(k)  # type: ignore
+    params = convert_to_ml_weights(flux_pm.shapes, result, backend, backend._dtype)
 
-    return flux_pm, params
+    return flux_lm, params
 
 
 def load_decoder(
     name: str, backend: ml.Backend, hf_download: bool = True
-) -> tuple[ml.models.PhysicalModel, dict]:
+) -> tuple[ml.models.Model, dict]:
     ckpt_path = configs[name].ae_path
     if (
         ckpt_path is None
@@ -196,21 +197,27 @@ def load_decoder(
     # Loading the autoencoder
     print("Init AE")
     decoder_lm = decode(configs[name].ae_params)
+    decoder_lm.set_shapes(input=[1, 16, 128, 128])
+
     decoder_pm = ml.compile(
         decoder_lm,
         backend=backend,
-        jit=False,
         inference=True,
+        jit=False,
         data_keys=["input"],
-        shapes={"input": [1, 16, 96, 170]},
+        shapes={"input": [1, 16, 128, 128]},
         use_short_namings=False,
     )
 
     assert ckpt_path is not None
-    sd = load_sft(ckpt_path, device="cpu")
-    params = convert_to_ml_weights(decoder_pm.shapes, sd, backend, ml.float32)
 
-    return decoder_pm, params
+    sd = safe_open(ckpt_path, "pt" if backend.backend_type == "torch" else "jax", "cpu")
+    result = {}
+    for k in sd.keys():  # type: ignore #noqa SIM118
+        result[k] = sd.get_tensor(k)  # type: ignore
+    params = convert_to_ml_weights(decoder_pm.shapes, result, backend, ml.bfloat16)
+
+    return decoder_lm, params
 
 
 class WatermarkEmbedder:
