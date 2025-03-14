@@ -27,7 +27,7 @@ def test_flatgraph_1():
     graph.add_value(Relu().submodel, {"input": "input1", "output": "relu_out"})
     graph.add_value(Buffer().submodel, {"input": "relu_out", "output": "buffer_output"})
     graph.add_value(Buffer().submodel, {"input": "buffer_output", "output": "output"})
-    graph.prune_duplicate_nodes({}, {})
+    graph.prune_duplicate_connections({}, {})
 
     expected_connections = ["input1", "relu_out"]
 
@@ -47,7 +47,7 @@ def test_flatgraph_2():
     graph.add_value(Buffer().submodel, {"input": "output1", "output": "output2"})
     graph.add_value(Buffer().submodel, {"input": "output2", "output": "output3"})
     graph.add_value(Buffer().submodel, {"input": "output3", "output": "output4"})
-    graph.prune_duplicate_nodes({}, {})
+    graph.prune_duplicate_connections({}, {})
 
     expected_connections = ["input1", "relu_out"]
 
@@ -68,7 +68,7 @@ def test_flatgraph_3():
     graph.add_value(Relu().submodel, {"input": "input1", "output": "relu_out"})
     graph.add_value(Relu().submodel, {"input": "relu_out", "output": "output1"})
     graph.add_value(Relu().submodel, {"input": "output1", "output": "output2"})
-    graph.prune_duplicate_nodes({}, {})
+    graph.prune_duplicate_connections({}, {})
 
     expected_connections = ["input1", "output1", "output2", "relu_out"]
 
@@ -115,10 +115,9 @@ def test_infer_static():
         inference=True,
     )
 
-    assert pm.flat_graph.nodes == {}
     assert pm.flat_graph.all_source_keys == set()
     assert pm.flat_graph.all_target_keys == set()
-    assert pm.flat_graph.topological_order == []
+    assert list(pm.flat_graph.topological_order) == []
 
 
 def test_infer_static_2():
@@ -135,10 +134,13 @@ def test_infer_static_2():
         inference=True,
     )
 
-    assert len(pm.flat_graph.nodes) == 1 and add.submodel in pm.flat_graph.nodes
+    assert (
+        len(pm.flat_graph.topological_order) == 1
+        and add.submodel in pm.flat_graph.all_models
+    )
     assert pm.flat_graph.all_source_keys == {"relu_out", "input2"}
     assert pm.flat_graph.all_target_keys == {"output"}
-    assert pm.flat_graph.topological_order == ["output"]
+    assert list(pm.flat_graph.topological_order) == ["output"]
 
 
 def test_infer_static_3():
@@ -156,10 +158,13 @@ def test_infer_static_3():
         inference=True,
     )
 
-    assert len(pm.flat_graph.nodes) == 1 and add.submodel in pm.flat_graph.nodes
+    assert (
+        len(pm.flat_graph.topological_order) == 1
+        and add.submodel in pm.flat_graph.all_models
+    )
     assert pm.flat_graph.all_source_keys == {"relu_out", "input2"}
     assert pm.flat_graph.all_target_keys == {"output"}
-    assert pm.flat_graph.topological_order == ["output"]
+    assert list(pm.flat_graph.topological_order) == ["output"]
     assert pm.flat_graph.output_dict == {"output": "output", "relu_out": "relu_out"}
 
 
@@ -177,10 +182,9 @@ def test_infer_static_4():
         inference=True,
     )
 
-    assert pm.flat_graph.nodes == {}
     assert pm.flat_graph.all_source_keys == set()
     assert pm.flat_graph.all_target_keys == set()
-    assert pm.flat_graph.topological_order == []
+    assert list(pm.flat_graph.topological_order) == []
     assert pm.flat_graph.output_dict == {"output": "output", "relu_out": "relu_out"}
 
 
@@ -198,10 +202,13 @@ def test_discard_primitive():
         inference=True,
     )
 
-    assert len(pm.flat_graph.nodes) == 1 and relu.submodel in pm.flat_graph.nodes
+    assert (
+        len(pm.flat_graph.topological_order) == 1
+        and relu.submodel in pm.flat_graph.all_models
+    )
     assert pm.flat_graph.all_source_keys == {"input2"}
     assert pm.flat_graph.all_target_keys == {"output2"}
-    assert pm.flat_graph.topological_order == ["output2"]
+    assert list(pm.flat_graph.topological_order) == ["output2"]
 
 
 def test_discard_partial_of_sequence():
@@ -220,13 +227,13 @@ def test_discard_partial_of_sequence():
     )
 
     assert (
-        len(pm.flat_graph.nodes) == 2
-        and relu2.submodel in pm.flat_graph.nodes
-        and sig.submodel in pm.flat_graph.nodes
+        len(pm.flat_graph.topological_order) == 2
+        and relu2.submodel in pm.flat_graph.all_models
+        and sig.submodel in pm.flat_graph.all_models
     )
     assert pm.flat_graph.all_source_keys == {"input1", "input2"}
     assert pm.flat_graph.all_target_keys == {"output1", "output2"}
-    assert pm.flat_graph.topological_order == ["output1", "output2"]
+    assert list(pm.flat_graph.topological_order) == ["output1", "output2"]
 
 
 def test_discard_whole_sequence():
@@ -244,10 +251,13 @@ def test_discard_whole_sequence():
         inference=True,
     )
 
-    assert len(pm.flat_graph.nodes) == 1 and relu.submodel in pm.flat_graph.nodes
+    assert (
+        len(pm.flat_graph.topological_order) == 1
+        and relu.submodel in pm.flat_graph.all_models
+    )
     assert pm.flat_graph.all_source_keys == {"input2"}
     assert pm.flat_graph.all_target_keys == {"output2"}
-    assert pm.flat_graph.topological_order == ["output2"]
+    assert list(pm.flat_graph.topological_order) == ["output2"]
 
 
 def test_discard_everthing():
@@ -265,10 +275,9 @@ def test_discard_everthing():
         inference=True,
     )
 
-    assert pm.flat_graph.nodes == {}
     assert pm.flat_graph.all_source_keys == set()
     assert pm.flat_graph.all_target_keys == set()
-    assert pm.flat_graph.topological_order == []
+    assert list(pm.flat_graph.topological_order) == []
 
 
 def test_discard_from_middle():

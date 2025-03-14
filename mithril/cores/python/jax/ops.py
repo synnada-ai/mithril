@@ -214,12 +214,14 @@ __all__ = [
     "pad",
     "split",
     "randn",
+    "randint",
     "atleast_1d",
     "minimum",
     "maximum",
     "dtype",
     "zeros_like",
     "avg_pool2d",
+    "ones",
 ]
 
 
@@ -1128,15 +1130,53 @@ def randn(
         return jax.random.normal(_key, shape, dtype=dtype_map[dtype])
 
 
+def randint(
+    shape: tuple[int, ...],
+    key: int,
+    low: int,
+    high: int,
+    *,
+    dtype: str | None = None,
+    device: str,
+    default_dtype: str,
+) -> jax.Array:
+    _key = jax.random.PRNGKey(key)
+    if dtype is None:
+        dtype = "int32"
+
+    with jax.default_device(get_device(device)):
+        return jax.random.randint(_key, shape, low, high, dtype=dtype_map[dtype])
+
+
 def zeros_like(input: jax.Array) -> jax.Array:
     return jnp.zeros_like(input)
+
+
+def ones(
+    shape: tuple[int, ...],
+    *,
+    dtype: jnp.dtype[Any] | None = None,
+    device: str,
+    default_dtype: str,
+) -> jax.Array:
+    dtype = dtype_map[default_dtype] if dtype is None else dtype
+    with jax.default_device(get_device(device)):
+        return jnp.ones(shape, dtype=dtype)
 
 
 def atleast_1d(input: jax.Array) -> jax.Array:
     return jnp.atleast_1d(input)
 
 
-array_creation_funcs = ["arange", "randn", "to_tensor", "eye", "ones_with_zero_diag"]
+array_creation_funcs = [
+    "arange",
+    "randn",
+    "randint",
+    "ones",
+    "to_tensor",
+    "eye",
+    "ones_with_zero_diag",
+]
 primitive_func_dict = common_primitive_func_dict = {
     key: fn for key, fn in globals().items() if callable(fn)
 } | common_primitive_func_dict

@@ -3540,6 +3540,13 @@ def tensor_item_constraints(
     output_shape: ShapeRepr = output._temp_shape
     index_val = index.value
 
+    if (
+        isinstance(index._value, tuple)
+        and any(isinstance(val, Tensor) for val in index._value)
+    ) or isinstance(index._value, Tensor):
+        # TODO: Implement Tensor slicing with Tensor index
+        return True, Updates()
+
     assert (
         isinstance(index_val, ToBeDetermined)
         or type(index_val) is int

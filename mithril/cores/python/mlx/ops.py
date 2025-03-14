@@ -70,9 +70,9 @@ from ..common_primitives import (
     tuple_converter,
     union,
 )
+from . import utils
 
 # from ...backends.with_autograd.mlx_backend import utils
-from . import utils
 
 AxisType = None | int | Sequence[int]
 
@@ -190,12 +190,14 @@ __all__ = [
     "pad",
     "split",
     "randn",
+    "randint",
     "atleast_1d",
     "minimum",
     "maximum",
     "dtype",
     "zeros_like",
     "avg_pool2d",
+    "ones",
 ]
 
 
@@ -1012,15 +1014,52 @@ def randn(
     return mx.random.normal(shape, key=_key, dtype=utils.dtype_map[dtype])
 
 
+def randint(
+    shape: tuple[int],
+    key: int,
+    low: int,
+    high: int,
+    *,
+    dtype: str | None = None,
+    device: str,
+    default_dtype: str,
+) -> mx.array:
+    _key = mx.random.key(key)
+    if dtype is None:
+        dtype = "int32"
+
+    return mx.random.randint(low, high, shape, key=_key, dtype=utils.dtype_map[dtype])
+
+
 def zeros_like(input: mx.array) -> mx.array:
     return mx.zeros_like(input)
+
+
+def ones(
+    shape: tuple[int, ...],
+    *,
+    dtype: mx.Dtype | None = None,
+    device: str,
+    default_dtype: str,
+) -> mx.array:
+    dtype = utils.dtype_map[default_dtype] if dtype is None else dtype
+    return mx.ones(shape, dtype=dtype)
 
 
 def atleast_1d(input: mx.array) -> mx.array:
     return mx.atleast_1d(input)
 
 
-array_creation_funcs = ["arange", "randn", "to_tensor", "eye", "ones_with_zero_diag"]
-primitive_func_dict = common_primitive_func_dict = common_primitive_func_dict | {
+array_creation_funcs = [
+    "arange",
+    "randn",
+    "randint",
+    "ones",
+    "to_tensor",
+    "eye",
+    "ones_with_zero_diag",
+]
+
+primitive_func_dict = common_primitive_func_dict = {
     key: fn for key, fn in globals().items() if callable(fn)
-}
+} | common_primitive_func_dict

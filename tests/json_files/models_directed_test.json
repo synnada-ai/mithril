@@ -8028,11 +8028,11 @@
             },
             "connections" : { 
                 "m1": {
-                    "left": {"key": {"name": "left", "type": "tensor", "differentiable": true}},
-                    "right": {"key": {"name": "right", "type": "tensor", "differentiable": true}}
+                    "left": {"key": {"name": "left", "type": {"Tensor": ["int", "float", "bool"]}, "differentiable": true}},
+                    "right": {"key": {"name": "right", "type": {"Tensor": ["int", "float", "bool"]}, "differentiable": true}}
                 },
                 "m2": {
-                    "left": {"key": {"name": "right", "type": "tensor"}},
+                    "left": {"key": {"name": "right", "type": {"Tensor": ["int", "float", "bool"]}}},
                     "right": {"key": {"connect": [["m1","output"]]}}
                 },
                 "m3": {
@@ -8079,11 +8079,11 @@
                     },
                     "connections" : { 
                         "m1": {
-                            "left": {"key": {"name": "left", "type": "tensor"}},
-                            "right": {"key": {"name": "right", "type": "tensor"}}
+                            "left": {"key": {"name": "left", "type": {"Tensor": ["int", "float", "bool"]}}},
+                            "right": {"key": {"name": "right", "type": {"Tensor": ["int", "float", "bool"]}}}
                         },
                         "m2": {
-                            "left": {"key": {"name": "right", "type": "tensor"}},
+                            "left": {"key": {"name": "right", "type": {"Tensor": ["int", "float", "bool"]}}},
                             "right": {"key": {"connect": [["m1","output"]]}}
                         },
                         "m3": {
@@ -8111,11 +8111,11 @@
                     },
                     "connections" : { 
                         "m1": {
-                            "left": {"key": {"name": "left", "type": "tensor"}},
-                            "right": {"key": {"name": "right", "type": "tensor"}}
+                            "left": {"key": {"name": "left", "type": {"Tensor": ["int", "float", "bool"]}}},
+                            "right": {"key": {"name": "right", "type": {"Tensor": ["int", "float", "bool"]}}}
                         },
                         "m2": {
-                            "left": {"key": {"name": "right", "type": "tensor"}},
+                            "left": {"key": {"name": "right", "type": {"Tensor": ["int", "float", "bool"]}}},
                             "right": {"key": {"connect": [["m1","output"]]}}
                         },
                         "m3": {
@@ -8143,11 +8143,11 @@
                     },
                     "connections" : { 
                         "m1": {
-                            "left": {"key": {"name": "left", "type": "tensor"}},
-                            "right": {"key": {"name": "right", "type": "tensor"}}
+                            "left": {"key": {"name": "left", "type": {"Tensor": ["int", "float", "bool"]}}},
+                            "right": {"key": {"name": "right", "type": {"Tensor": ["int", "float", "bool"]}}}
                         },
                         "m2": {
-                            "left": {"key": {"name": "right", "type": "tensor"}},
+                            "left": {"key": {"name": "right", "type": {"Tensor": ["int", "float", "bool"]}}},
                             "right": {"key": {"connect": [["m1","output"]]}}
                         },
                         "m3": {
@@ -8232,11 +8232,11 @@
                                     },
                                     "connections": {
                                         "m1": {
-                                            "left": {"key": {"name": "left", "type": "tensor"}},
-                                            "right": {"key": {"name": "right", "type": "tensor"}}
+                                            "left": {"key": {"name": "left", "type": {"Tensor": ["int", "float", "bool"]}}},
+                                            "right": {"key": {"name": "right", "type": {"Tensor": ["int", "float", "bool"]}}}
                                         },
                                         "m2": {
-                                            "left": {"key": {"name": "left", "type": "tensor"}},
+                                            "left": {"key": {"name": "left", "type": {"Tensor": ["int", "float", "bool"]}}},
                                             "right": {"key": {"connect": [["m1","output"]]}},
                                             "output": "output"
                                         }
@@ -8252,7 +8252,7 @@
                                     "right": "right"
                                 },
                                 "m2": {
-                                    "left": {"key": {"name": "left", "type": "tensor"}},
+                                    "left": {"key": {"name": "left", "type": {"Tensor": ["int", "float", "bool"]}}},
                                     "right": {"key": {"connect": [["m1","output"]]}},
                                     "output": "output"
                                 }
@@ -8324,11 +8324,11 @@
             },
             "connections" : { 
                 "m1": {
-                    "left": {"key": {"name": "left", "type": "tensor", "differentiable": true}},
-                    "right": {"key": {"name": "right", "type": "tensor", "differentiable": true}}
+                    "left": {"key": {"name": "left", "type": {"Tensor": ["int", "float", "bool"]}, "differentiable": true}},
+                    "right": {"key": {"name": "right", "type": {"Tensor": ["int", "float", "bool"]}, "differentiable": true}}
                 },
                 "m2": {
-                    "left": {"key": {"name": "right", "type": "tensor"}},
+                    "left": {"key": {"name": "right", "type": {"Tensor": ["int", "float", "bool"]}}},
                     "right": {"key": {"connect": [["m1","output"]]}}
                 },
                 "m3": {
@@ -8371,8 +8371,8 @@
             },
             "connections" : { 
                 "m1": {
-                    "left": {"key": {"name": "left", "type": "tensor"}},
-                    "right": {"key": {"name": "right", "type": "tensor"}},
+                    "left": {"key": {"name": "left", "type": {"Tensor": ["int", "float", "bool"]}}},
+                    "right": {"key": {"name": "right", "type": {"Tensor": ["int", "float", "bool"]}}},
                     "output": {"key": {
                         "name": "output1", 
                         "expose": true
@@ -8431,11 +8431,11 @@
                     "output": "output"
                 },
                 "m2": {
-                    "left": {"key": {"name": "right", "type": "tensor"}},
+                    "left": {"key": {"name": "right", "type": {"Tensor": ["int", "float", "bool"]}}},
                     "output": {"key": {"connect": [["m3", "left"],["m3","right"]]}}
                 },
                 "m1": {
-                    "left": {"key": {"name": "left", "type": "tensor", "differentiable": true}},
+                    "left": {"key": {"name": "left", "type": {"Tensor": ["int", "float", "bool"]}, "differentiable": true}},
                     "right": {"key": {"name": "right", "differentiable": true}},
                     "output": {"key": {"connect": [["m2","right"]]}}
                 }
@@ -8558,8 +8558,8 @@
             },
             "connections" : { 
                 "m1": {
-                    "left": {"key": {"name": "left", "type": "tensor"}},
-                    "right": {"key": {"name": "right", "type": "tensor"}}
+                    "left": {"key": {"name": "left", "type": {"Tensor": ["int", "float", "bool"]}}},
+                    "right": {"key": {"name": "right", "type": {"Tensor": ["int", "float", "bool"]}}}
                 },
                 "m2": {
                     "left": {"key": {"connect": [["m1","output"]]}},
@@ -8695,8 +8695,8 @@
                     }}
                 },
                 "m1": {
-                    "left": {"key": {"name": "left", "type": "tensor"}},
-                    "right": {"key": {"name": "right", "type": "tensor"}},
+                    "left": {"key": {"name": "left", "type": {"Tensor": ["int", "float", "bool"]}}},
+                    "right": {"key": {"name": "right", "type": {"Tensor": ["int", "float", "bool"]}}},
                     "output": {"key": {"connect": [["m2","right"]]}}
                 }
             },
@@ -8894,7 +8894,7 @@
             },
             "connections" : { 
                 "m1": {
-                    "left": {"key": {"name": "input1", "type": "tensor", "differentiable": true}},
+                    "left": {"key": {"name": "input1", "type": {"Tensor": ["int", "float", "bool"]}, "differentiable": true}},
                     "right": {"tensor": 1}
                 },
                 "m2": {

@@ -1016,7 +1016,7 @@ def test_bool_tensor():
     and1 = LogicalAnd()
     model += and1(left="in1", right="in2", output=IOKey(name="output"))
     comp_model = ml.compile(model=model, backend=NumpyBackend(), inference=True)
-    assert comp_model.ignore_grad_keys == {"output"}
+    assert "output" not in comp_model.cotangent_keys
 
 
 def test_bool_tensor_numpy_32():
@@ -1523,7 +1523,7 @@ def test_composite_3():
     model |= conv1(input="input", stride=(2, 3))
     conv1.set_differentiability(input=True)
     model |= leaky_relu(input=conv1.output, slope=Tensor(0.3))
-    model |= mean_model(axis=conv1.stride)
+    model |= mean_model(input="input2", axis=conv1.stride)
     # assert not isinstance(conv1.cout, NotAvailable)
     model.set_cout(conv1.cout)
     model.set_shapes(input=[1, 1, 8, 8])
@@ -1540,7 +1540,7 @@ def test_composite_3_set_values():
     model.set_values({conv1.stride: (2, 3)})
     model |= leaky_relu(input=conv1.output, slope=NOT_GIVEN)
     model.set_values({leaky_relu.slope: Tensor(0.3)})
-    model |= mean_model(axis=conv1.stride)
+    model |= mean_model(input="input2", axis=conv1.stride)
     # assert not isinstance(conv1.cout, NotAvailable)
     model.set_cout(conv1.cout)
 
@@ -1556,7 +1556,7 @@ def test_composite_4():
     model |= conv1(input="input", stride=(2, 3))
     conv1.set_differentiability(input=True)
     model |= leaky_relu(input=conv1.output, slope=Tensor(0.3))
-    model |= mean_model(axis=conv1.stride)
+    model |= mean_model(input="input2", axis=conv1.stride)
     model.set_shapes(input=[1, 1, 8, 8])
     model.set_cout(conv1.cout)
     assert_all_backends_device_dtype(model)
@@ -1572,7 +1572,7 @@ def test_composite_4_set_values():
     model.set_values({conv1.stride: (2, 3)})
     model |= leaky_relu(input=conv1.output, slope=NOT_GIVEN)
     model.set_values({leaky_relu.slope: Tensor(0.3)})
-    model |= mean_model(axis=conv1.stride)
+    model |= mean_model(input="input2", axis=conv1.stride)
     model.set_shapes(input=[1, 1, 8, 8])
     model.set_cout(conv1.cout)
     assert_all_backends_device_dtype(model)

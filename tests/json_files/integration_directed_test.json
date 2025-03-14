@@ -2403,7 +2403,7 @@
                 "kernel": {
                     "name": "PolynomialKernel", 
                     "assigned_types": [
-                        ["poly_coef", "tensor"]
+                        ["poly_coef", {"Tensor": ["int", "float", "bool"]}]
                     ]
                 }
             }

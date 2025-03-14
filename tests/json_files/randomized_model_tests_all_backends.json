@@ -5,8 +5,7 @@
             "name": "Linear",
             "randomized_args": { 
                 "dimension": [1,11]
-            },
-            "differentiability_info": {"input": true}
+            }
         },
         "input_info": {
             "input": {
@@ -21,8 +20,7 @@
     },
     "test_logistic_regression": {
         "model": {
-            "name": "LogisticRegression",
-            "differentiability_info": {"input": true}
+            "name": "LogisticRegression"
         },
         
         "input_info": {
@@ -37,8 +35,7 @@
     },
     "test_RBFKernel": {
         "model": {
-            "name": "RBFKernel",
-            "differentiability_info": {"input1": true, "input2": true}
+            "name": "RBFKernel"
         },
         "input_info": {
             "input1": {
@@ -59,7 +56,6 @@
     "test_kernelizedSVM": {
         "model": {
             "name": "KernelizedSVM",
-            "differentiability_info": {"input1": true, "input2": true},
             "regular_args": {
                 "kernel": "RBFKernel"
             }
@@ -78,7 +74,6 @@
     "test_mlp": {
         "model": {
             "name": "MLP",
-            "differentiability_info": {"input": true},
             "randomized_args": { 
                 "dimensions": [[2, 4], [2, 4], [2, 4]],
                 "activations": [["relu", "sigmoid", "softplus", "tanh"], ["relu", "sigmoid"], ["sigmoid"]]
@@ -95,7 +90,6 @@
     "test_distance_matrix_1": {
         "model": {
             "name": "EncoderDistanceMatrix",
-            "differentiability_info": {"input1": true, "input2": true},
             "randomized_args": {
                 "get_final_distance": [false, true]
             }
@@ -115,7 +109,6 @@
     "test_distance_matrix_2": {
         "model": {
             "name": "EncoderDistanceMatrix",
-            "differentiability_info": {"input1": true, "input2": true},
             "randomized_args": {
                 "get_final_distance": [false, true]
             }
@@ -135,7 +128,6 @@
         "note": "ideally, distance should be run on zero_diag:true setting. However, Since differences in jax's and torch's grad handling at zero values, I set zero_diag is false for now",
         "model": {
             "name": "MDSCore",
-            "differentiability_info": {"distances": true},
             "randomized_args": {
                 "exact_distances": [false,false]
             }
@@ -157,7 +149,6 @@
     "test_poly_features":{
         "model": { 
             "name": "PolynomialFeatures",
-            "differentiability_info": {"input": true},
             "randomized_args": { 
                 "degree": [1,5]
             }
@@ -175,7 +166,7 @@
     "test_polynomial_regression": {
         "model": {
             "name": "PolynomialRegression",
-            "differentiability_info": {"input": true},
+            
             "randomized_args": { 
                 "degree": [1,5],
                 "dimension": [1,3]       
@@ -191,7 +182,6 @@
     "test_conv1d": {
         "model": {
             "name": "Convolution1D",
-            "differentiability_info": {"input": true},
             "regular_args": {
                 "kernel_size": 3,
                 "out_channels": 3
@@ -216,7 +206,6 @@
     "test_conv2d": {
         "model": {
             "name": "Convolution2D",
-            "differentiability_info": {"input": true},
             "regular_args": {
                 "kernel_size": 3,
                 "out_channels": 3
@@ -295,7 +284,6 @@
     "test_maxpool1d": {
         "model": {
             "name": "MaxPool1D",
-            "differentiability_info": {"input": true},
             "randomized_args": {
                 "kernel_size": [1,3]
             }
@@ -310,7 +298,6 @@
     "test_maxpool2d": {
         "model": {
             "name": "MaxPool2D",
-            "differentiability_info": {"input": true},
             "randomized_args": {
                 "kernel_size": [1,3]
             }
@@ -326,7 +313,6 @@
     "test_avgpool2d": {
         "model": {
             "name": "AvgPool2D",
-            "differentiability_info": {"input": true},
             "randomized_args": {
                 "kernel_size": [1,3]
             }
@@ -565,11 +551,11 @@
             },
             "connections": {
                 "m1": {
-                    "input1": {"key": {"name": "input1", "type": "tensor"}},
-                    "input2": {"key": {"name": "input2", "type": "tensor"}},
-                    "input3": {"key": {"name": "input3", "type": "tensor"}},
-                    "input4": {"key": {"name": "input4", "type": "tensor"}},
-                    "input5": {"key": {"name": "input5", "type": "tensor"}}
+                    "input1": {"key": {"name": "input1", "type": {"Tensor": ["int", "float", "bool"]}}},
+                    "input2": {"key": {"name": "input2", "type": {"Tensor": ["int", "float", "bool"]}}},
+                    "input3": {"key": {"name": "input3", "type": {"Tensor": ["int", "float", "bool"]}}},
+                    "input4": {"key": {"name": "input4", "type": {"Tensor": ["int", "float", "bool"]}}},
+                    "input5": {"key": {"name": "input5", "type": {"Tensor": ["int", "float", "bool"]}}}
                 },
                 "m2": {
                     "input": {"key": {"connect": [["m1", "output"]]}},
@@ -615,11 +601,11 @@
             },
             "connections": {
                 "m1": {
-                    "input1": {"key": {"name": "input1", "type": "tensor"}},
-                    "input2": {"key": {"name": "input2", "type": "tensor"}},
-                    "input3": {"key": {"name": "input3", "type": "tensor"}},
-                    "input4": {"key": {"name": "input4", "type": "tensor"}},
-                    "input5": {"key": {"name": "input5", "type": "tensor"}}
+                    "input1": {"key": {"name": "input1", "type": {"Tensor": ["int", "float", "bool"]}}},
+                    "input2": {"key": {"name": "input2", "type": {"Tensor": ["int", "float", "bool"]}}},
+                    "input3": {"key": {"name": "input3", "type": {"Tensor": ["int", "float", "bool"]}}},
+                    "input4": {"key": {"name": "input4", "type": {"Tensor": ["int", "float", "bool"]}}},
+                    "input5": {"key": {"name": "input5", "type": {"Tensor": ["int", "float", "bool"]}}}
                 },
                 "m2": {
                     "input": {"key": {"connect": [["m1", "output"]]}},
@@ -1543,7 +1529,7 @@
     "test_layernorm": {
         "model": {
             "name": "LayerNorm",
-            "differentiability_info": {"input": true},
+            
             "randomized_args": { 
                 "use_scale": [false, true],
                 "use_bias": [false, true]
@@ -1561,7 +1547,6 @@
     "test_many_to_one_rnn": {
         "model": {
             "name": "ManytoOne",
-            "differentiability_info": {"input0": true, "input1": true, "initial_hidden": true},
             "regular_args": {
                 "cell_type": "RNNCell"
             },
@@ -1591,7 +1576,6 @@
     "test_many_to_one_lstm": {
         "model": {
             "name": "ManytoOne",
-            "differentiability_info": {"input0": true, "input1": true, "initial_hidden": true, "initial_cell": true},
             "regular_args": {
                 "cell_type": "LSTMCell"
             },
@@ -1673,7 +1657,6 @@
     "test_one_to_many_lstm": {
         "model": {
             "name": "OneToMany",
-            "differentiability_info": {"input": true, "initial_hidden": true, "initial_cell": true},
             "regular_args": {
                 "cell_type": "LSTMCell"
             },
@@ -1727,7 +1710,6 @@
     "test_one_to_many_rnn_with_teacher_forcing": {
         "model": {
             "name": "OneToMany",
-            "differentiability_info": {"input": true, "initial_hidden": true},
             "regular_args": {
                 "max_sequence_length": 5,
                 "cell_type": "RNNCell",
@@ -1767,7 +1749,6 @@
     "test_encoder_decoder_rnn": {
         "model": {
             "name": "EncoderDecoder",
-            "differentiability_info": {"input0": true, "input1": true, "input2": true, "decoder_input": true, "initial_hidden": true},
             "regular_args": {
                 "max_target_sequence_length": 4,
                 "max_input_sequence_length": 3,
@@ -1809,7 +1790,6 @@
     "test_encoder_decoder_lstm_with_teacher_forcing": {
         "model": {
             "name": "EncoderDecoder",            
-            "differentiability_info": {"input0": true, "input1": true, "decoder_input": true, "initial_hidden": true, "initial_cell": true, "decoder_initial_cell": true},
             "regular_args": {
                 "max_target_sequence_length": 2,
                 "max_input_sequence_length": 2,
@@ -1875,7 +1855,6 @@
     "test_encoder_decoder_rnn_with_teacher_forcing": {
         "model": {
             "name": "EncoderDecoder",
-            "differentiability_info": {"input0": true, "input1": true, "input2": true, "decoder_input": true, "initial_hidden": true},
             "regular_args": {
                 "max_target_sequence_length": 4,
                 "max_input_sequence_length": 3,
@@ -1925,8 +1904,7 @@
     },
     "test_l1": {
         "model": {
-            "name": "L1",
-            "differentiability_info": {"input": true}
+            "name": "L1"
         },
         "input_info": {
             "input": {
@@ -1937,8 +1915,7 @@
     },
     "test_l2": {
         "model": {
-            "name": "L2",
-            "differentiability_info": {"input": true}
+            "name": "L2"
         },
         "input_info": {
             "input": {
@@ -1950,7 +1927,7 @@
     "test_elementwiseaffine": {
         "model": {
             "name": "ElementWiseAffine",
-            "differentiability_info": {"input": true},
+            
             "types": {
                 "input": "tensor",
                 "weight": "tensor",
@@ -2062,7 +2039,7 @@
     "test_mds": {
         "model": {
             "name": "MDS",
-            "differentiability_info": {"input": true},
+            
             "regular_args":{
                 "prediction_dim": 3,
                 "input_type": "points"
@@ -2089,7 +2066,7 @@
                 ["input2", true]
             ],
             "assigned_types": [
-                ["poly_coef", "tensor"]
+                ["poly_coef", {"Tensor": ["int", "float", "bool"]}]
             ]
         },
         "static_input_info": {
@@ -2115,8 +2092,7 @@
     },
     "test_linear_svm": {
         "model": {
-            "name": "LinearSVM",
-            "differentiability_info": {"input": true}
+            "name": "LinearSVM"
         },
         "input_info": {
             "input": {
@@ -2134,7 +2110,6 @@
     "test_layer": {
         "model": {
             "name": "Layer",
-            "differentiability_info": {"input": true},
             "randomized_args": { 
                 "dimension": [1, 10],
                 "activation": ["relu", "sigmoid", "softplus", "tanh"]
@@ -2149,8 +2124,7 @@
     },
     "test_quadratic_form_regularizer": {
         "model": {
-            "name": "QuadraticFormRegularizer",
-            "differentiability_info": {"input": true}
+            "name": "QuadraticFormRegularizer"
         },
         "input_info": {
             "input": {
@@ -2202,6 +2176,16 @@
             "randomized_args": {
                 "N": [2, 12],
                 "M": [3, 40]
+            }
+        },
+        "inference": true,
+        "iterations": 5
+    },
+    "test_ones": {
+        "model": {
+            "name": "Ones",
+            "randomized_args": {
+                "shape": [[2, 12], [3, 40]]
             }
         },
         "inference": true,

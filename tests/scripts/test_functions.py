@@ -202,7 +202,8 @@ def test_flatten_dag_1():
     )
 
     flatted_primitive_model_list = [
-        key.__class__ for key in comp_model.flat_graph.get_models()
+        comp_model.flat_graph.connections[key].op.__class__
+        for key in comp_model.flat_graph.topological_order
     ]
 
     assert flatted_primitive_model_list == [
@@ -264,7 +265,8 @@ def test_flatten_dag_2():
     )
 
     flatted_primitive_model_list = [
-        key.__class__ for key in comp_model.flat_graph.get_models()
+        comp_model.flat_graph.connections[key].op.__class__
+        for key in comp_model.flat_graph.topological_order
     ]
 
     assert flatted_primitive_model_list == [
@@ -309,7 +311,8 @@ def test_flatten_dag_3():
     )
 
     flatted_primitive_model_list = [
-        key.__class__ for key in comp_model.flat_graph.get_models()
+        comp_model.flat_graph.connections[key].op.__class__
+        for key in comp_model.flat_graph.topological_order
     ]
 
     assert flatted_primitive_model_list == [
@@ -367,6 +370,7 @@ def test_code_generator_2(file_path: str):
         backend=JaxBackend(dtype=mithril.float64),
         jit=False,
         file_path=file_path,
+        inference=True,
     )
 
     file_name = os.path.basename(file_path).split(".")[0]

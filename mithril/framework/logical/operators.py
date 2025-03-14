@@ -146,13 +146,30 @@ class ToTupleOp(Operator):
         key_definitions = {
             "output": BaseKey(
                 type=tuple[
-                    int | float | bool | list | tuple | slice | EllipsisType | None, ...  # type: ignore
+                    int
+                    | float
+                    | bool
+                    | list  # type: ignore
+                    | tuple  # type: ignore
+                    | slice
+                    | EllipsisType
+                    | Tensor  # type: ignore
+                    | None,
+                    ...,
                 ]
             )
         }
         key_definitions |= {
             f"input{idx+1}": BaseKey(
-                type=int | float | bool | list | tuple | slice | EllipsisType | None,
+                type=int
+                | float
+                | bool
+                | list
+                | tuple
+                | slice
+                | Tensor
+                | EllipsisType
+                | None,
                 value=kwargs.get(f"input{idx+1}", TBD),
             )
             for idx in range(n)
@@ -824,7 +841,7 @@ class ToTensorOp(Operator):
     def __init__(
         self,
         input: TensorValueType | ToBeDetermined = TBD,
-        dtype: types.Dtype | None = None,
+        dtype: types.Dtype | ToBeDetermined | None = None,
         *,
         name: str | None = None,
     ) -> None:
@@ -1217,7 +1234,6 @@ class SqrtOp(Operator):
         name: str | None = None,
     ) -> None:
         self.robust = robust
-        self.factory_args = {"robust": robust}
 
         if robust:
             super().__init__(
@@ -1780,7 +1796,8 @@ class IndexerOp(Operator):
                 | slice
                 | EllipsisType
                 | None
-                | tuple[int | slice | EllipsisType | None, ...],
+                | tuple[int | slice | EllipsisType | None | Tensor[int], ...]
+                | Tensor[int],
                 value=index,
             ),
         )

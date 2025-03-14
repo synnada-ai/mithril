@@ -181,6 +181,8 @@ __all__ = [
     "Trapezoid",
     "Pad",
     "Randn",
+    "RandInt",
+    "Ones",
     "PrimitiveModel",
     "Buffer",
     "ToTuple",
@@ -307,7 +309,7 @@ class SupervisedLoss(PrimitiveModel):
         self,
         input: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
         target: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
-        output: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(input=input, target=target, output=output)
 
@@ -532,7 +534,7 @@ class CrossEntropy(PrimitiveModel):
         categorical: ConnectionType | bool = NOT_GIVEN,
         threshold: ConnectionType | Tensor[float] = NOT_GIVEN,
         robust: ConnectionType | bool = NOT_GIVEN,
-        output: ConnectionType | Tensor[float] = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         kwargs = {
             "input": input,
@@ -607,7 +609,7 @@ class KLDivergence(PrimitiveModel):
         input: ConnectionType | Tensor[int | float] = NOT_GIVEN,
         target: ConnectionType | Tensor[int | float] = NOT_GIVEN,
         threshold: ConnectionType | Tensor[float] = NOT_GIVEN,
-        output: ConnectionType | Tensor[float] = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(
             input=input, target=target, threshold=threshold, output=output
@@ -702,7 +704,7 @@ class BinaryCrossEntropy(PrimitiveModel):
         pos_weight: ConnectionType | float = NOT_GIVEN,
         threshold: ConnectionType | Tensor[float] = NOT_GIVEN,
         robust: ConnectionType | bool = NOT_GIVEN,
-        output: ConnectionType | Tensor[float] = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(
             input=input,
@@ -761,7 +763,7 @@ class Log(PrimitiveModel):
     def __call__(  # type: ignore[override]
         self,
         input: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
-        output: ConnectionType | Tensor[float] = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
         *,
         threshold: ConnectionType | Tensor[float] = NOT_GIVEN,
     ) -> ExtendInfo:
@@ -808,7 +810,7 @@ class StableReciprocal(PrimitiveModel):
         self,
         input: ConnectionType | Tensor[int | float] = NOT_GIVEN,
         threshold: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
-        output: ConnectionType | Tensor[float] = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(input=input, threshold=threshold, output=output)
 
@@ -2300,6 +2302,48 @@ class Randn(PrimitiveModel):
         return super().__call__(shape=shape, key=key, dtype=dtype, output=output)
 
 
+class RandInt(PrimitiveModel):
+    shape: Connection
+    key: Connection
+    dtype: Connection
+    output: Connection
+
+    def __init__(
+        self,
+        shape: tuple[int, ...] | ToBeDetermined = TBD,
+        key: int | ToBeDetermined = TBD,
+        low: int | ToBeDetermined = TBD,
+        high: int | ToBeDetermined = TBD,
+        dtype: types.Dtype | None = None,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(
+            formula_key="randint",
+            name=name,
+            output=BaseKey(shape=[("output", ...)], type=Tensor[int]),
+            shape=BaseKey(type=tuple[int, ...], value=shape),
+            key=BaseKey(type=int, value=key),
+            low=BaseKey(type=int, value=low),
+            high=BaseKey(type=int, value=high),
+            dtype=BaseKey(type=types.Dtype | None, value=dtype),
+        )
+
+        self.submodel.random_keys.add(
+            "key"
+        )  # since random_keys must be in primitive models
+        self.add_constraint(randn_constraints, keys=["output", "shape"])
+
+    def __call__(  # type: ignore[override]
+        self,
+        shape: ConnectionType = NOT_GIVEN,
+        key: ConnectionType = NOT_GIVEN,
+        dtype: ConnectionType = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
+    ) -> ExtendInfo:
+        return super().__call__(shape=shape, key=key, dtype=dtype, output=output)
+
+
 class BroadcastTo(PrimitiveModel):
     input: Connection
     shape: Connection
@@ -2866,6 +2910,35 @@ class ZerosLike(PrimitiveModel):
         return super().__call__(input=input, output=output)
 
 
+class Ones(PrimitiveModel):
+    shape: Connection
+    dtype: Connection
+    output: Connection
+
+    def __init__(
+        self,
+        shape: tuple[int, ...] | list[int] | ToBeDetermined = TBD,
+        dtype: types.Dtype | None = None,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(
+            formula_key="ones",
+            name=name,
+            output=BaseKey(type=Tensor),
+            shape=BaseKey(type=tuple[int, ...] | list[int], value=shape),
+            dtype=BaseKey(type=types.Dtype | None, value=dtype),
+        )
+
+    def __call__(  # type: ignore[override]
+        self,
+        shape: ConnectionType = NOT_GIVEN,
+        dtype: ConnectionType = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
+    ) -> ExtendInfo:
+        return super().__call__(shape=shape, dtype=dtype, output=output)
+
+
 class Buffer(OperatorModel):
     input: Connection
     output: Connection
@@ -3294,10 +3367,11 @@ class ToTensor(OperatorModel):
     def __init__(
         self,
         input: TensorValueType | ToBeDetermined = TBD,
-        dtype: types.Dtype | None = None,
+        dtype: types.Dtype | ToBeDetermined | None = None,
         *,
         name: str | None = None,
     ) -> None:
+        self.factory_args = {"dtype": dtype}
         super().__init__(name=name, model=ToTensorOp(input=input, dtype=dtype))
 
     def __call__(  # type: ignore[override]
@@ -3556,6 +3630,7 @@ class Sqrt(OperatorModel):
         | ToBeDetermined = types.Constant.MIN_POSITIVE_NORMAL,
         name: str | None = None,
     ) -> None:
+        self.factory_args = {"threshold": threshold, "robust": robust}
         self.robust = robust
 
         if threshold is not types.Constant.MIN_POSITIVE_NORMAL and not robust:
@@ -3571,13 +3646,13 @@ class Sqrt(OperatorModel):
         input: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
         *,
-        threshold: ConnectionType = NOT_GIVEN,
+        threshold: ConnectionType | Tensor[float] = NOT_GIVEN,
     ) -> ExtendInfo:
         kwargs = {"input": input, "output": output}
 
         if not self.robust:
             if threshold is not NOT_GIVEN:
-                raise ValueError("threshold must be specified in robust mode")
+                raise ValueError("threshold must not be specified in robust mode off")
         else:
             kwargs["threshold"] = threshold
 

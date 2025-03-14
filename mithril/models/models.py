@@ -212,7 +212,7 @@ class Pool1D(Model):
         stride: ConnectionType | int | None = NOT_GIVEN,
         padding: ConnectionType | int | PaddingType | tuple[int, int] = NOT_GIVEN,
         dilation: ConnectionType | int = NOT_GIVEN,
-        output: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(
             input=input,
@@ -313,7 +313,7 @@ class Pool2D(Model):
         stride: ConnectionType | int | None | tuple[int, int] = NOT_GIVEN,
         padding: ConnectionType | int | PaddingType | tuple[int, int] = NOT_GIVEN,
         dilation: ConnectionType | int = NOT_GIVEN,
-        output: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(
             input=input,
@@ -409,7 +409,7 @@ class Convolution1D(Model):
         stride: ConnectionType | int = NOT_GIVEN,
         padding: ConnectionType | int | tuple[int, int] = NOT_GIVEN,
         dilation: ConnectionType | int = NOT_GIVEN,
-        output: ConnectionType | Tensor[int | float] = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(
             input=input,
@@ -507,7 +507,7 @@ class Convolution2D(Model):
         | tuple[int, int]
         | tuple[tuple[int, int], tuple[int, int]] = NOT_GIVEN,
         dilation: ConnectionType | int | tuple[int, int] = NOT_GIVEN,
-        output: ConnectionType | Tensor[int | float] = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(
             input=input,
@@ -571,7 +571,7 @@ class Linear(Model):
         self,
         input: ConnectionType | Tensor[int | float] = NOT_GIVEN,
         weight: ConnectionType | Tensor[float] = NOT_GIVEN,
-        output: ConnectionType | Tensor[float] = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
         *,
         bias: ConnectionType | Tensor[float] = NOT_GIVEN,
     ) -> ExtendInfo:
@@ -619,7 +619,7 @@ class ElementWiseAffine(Model):
         input: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
         weight: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
         bias: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
-        output: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(
             input=input,
@@ -662,7 +662,7 @@ class Layer(Model):
         input: ConnectionType | Tensor[int | float] = NOT_GIVEN,
         weight: ConnectionType | Tensor[float] = NOT_GIVEN,
         bias: ConnectionType | Tensor[float] = NOT_GIVEN,
-        output: ConnectionType | Tensor[float] = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(
             input=input,
@@ -954,7 +954,7 @@ class L1(Model):
     def __call__(  # type: ignore[override]
         self,
         input: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
-        output: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(
             input=input,
@@ -984,7 +984,7 @@ class L2(Model):
     def __call__(  # type: ignore[override]
         self,
         input: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
-        output: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(
             input=input,
@@ -1026,7 +1026,7 @@ class QuadraticFormRegularizer(Model):
         self,
         input: ConnectionType | Tensor[int | float] = NOT_GIVEN,
         kernel: ConnectionType | Tensor[int | float] = NOT_GIVEN,
-        output: ConnectionType | Tensor[float] = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(
             input=input,
@@ -1104,7 +1104,7 @@ class RBFKernel(Model):
         input2: ConnectionType | Tensor[int | float] = NOT_GIVEN,
         l_scale: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
         sigma: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
-        output: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(
             input1=input1,
@@ -1165,7 +1165,7 @@ class PolynomialKernel(Model):
         input2: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
         poly_coef: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
         degree: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
-        output: ConnectionType | Tensor[int | float | bool] = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(
             input1=input1,
@@ -1239,7 +1239,7 @@ class KernelizedSVM(Model):
         input2: ConnectionType | Tensor[float] = NOT_GIVEN,
         weight: ConnectionType | Tensor[float] = NOT_GIVEN,
         bias: ConnectionType | Tensor[float] = NOT_GIVEN,
-        output: ConnectionType | Tensor[float] = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(
             input1=input1,
@@ -1286,7 +1286,7 @@ class LinearSVM(Model):
         input: ConnectionType | Tensor[int | float] = NOT_GIVEN,
         weight: ConnectionType | Tensor[float] = NOT_GIVEN,
         bias: ConnectionType | Tensor[float] = NOT_GIVEN,
-        output: ConnectionType | Tensor[float] = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
         decision_output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(
@@ -1336,7 +1336,7 @@ class LogisticRegression(Model):
         input: ConnectionType | Tensor[int | float] = NOT_GIVEN,
         weight: ConnectionType | Tensor[float] = NOT_GIVEN,
         bias: ConnectionType | Tensor[float] = NOT_GIVEN,
-        output: ConnectionType | Tensor[float] = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
         probs_output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(
@@ -1416,7 +1416,7 @@ class MLP(Model):
     def __call__(  # type: ignore[override]
         self,
         input: ConnectionType | Tensor[int | float] = NOT_GIVEN,
-        output: ConnectionType | Tensor[float] = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
         **weights_biases: ConnectionType | Tensor[float],
     ) -> ExtendInfo:
         return super().__call__(
@@ -1546,7 +1546,7 @@ class RNNCell(Cell):
         bias_o: ConnectionType | Tensor[float] = NOT_GIVEN,
         hidden: ConnectionType | Tensor[float] = NOT_GIVEN,
         hidden_compl: ConnectionType | Tensor[float] = NOT_GIVEN,
-        output: ConnectionType | Tensor[float] = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super(Cell, self).__call__(
             input=input,
@@ -1728,7 +1728,7 @@ class LSTMCell(Cell):
         hidden: ConnectionType | Tensor[float] = NOT_GIVEN,
         cell: ConnectionType | Tensor[float] = NOT_GIVEN,
         hidden_compl: ConnectionType | Tensor[float] = NOT_GIVEN,
-        output: ConnectionType | Tensor[float] = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super(Cell, self).__call__(
             input=input,
@@ -1876,7 +1876,7 @@ class LSTMCellBody(Model):
         bias_i: ConnectionType | Tensor[float] = NOT_GIVEN,
         bias_c: ConnectionType | Tensor[float] = NOT_GIVEN,
         bias_o: ConnectionType | Tensor[float] = NOT_GIVEN,
-        output: ConnectionType | Tensor[float] = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(
             input=input,
