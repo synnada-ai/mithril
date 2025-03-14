@@ -40,7 +40,7 @@ __all__ = [
     "shift_right",
     "power",
     "squared_error",
-    "minus",
+    "negate",
     "transpose",
     "swapaxes",
     "square",
@@ -172,7 +172,7 @@ def squared_error(input: DataType, target: DataType) -> DataType:
     return (input - target) ** 2  # pyright: ignore
 
 
-def minus(input: DataType) -> DataType:
+def negate(input: DataType) -> DataType:
     return -input
 
 

@@ -109,7 +109,7 @@ __all__ = [
     "max_pool2d_grad",
     "max_pool1d_grad",
     "flatten_grad",
-    "minus_grad",
+    "negate_grad",
     "to_list_grad",
     "atleast_1d_grad",
     "cast_grad",
@@ -1699,7 +1699,7 @@ def pad_grad(
     return output_gradient[slices]
 
 
-def minus_grad(
+def negate_grad(
     output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,

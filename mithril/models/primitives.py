@@ -92,8 +92,8 @@ from ..framework.logical.operators import (
     MeanOp,
     MinimumOp,
     MinOp,
-    MinusOp,
     MultiplyOp,
+    NegateOp,
     NotEqualOp,
     PowerOp,
     ProdOp,
@@ -190,7 +190,7 @@ __all__ = [
     "Multiply",
     "Divide",
     "FloorDivide",
-    "Minus",
+    "Negate",
     "MatrixMultiply",
     "Shape",
     "Reshape",
@@ -272,9 +272,9 @@ class SupervisedLoss(PrimitiveModel):
         **kwargs: BaseKey,
     ) -> None:
         default_kwargs: dict[str, BaseKey] = {
-            "output": BaseKey(type=Tensor),
-            "input": BaseKey(type=Tensor, value=input),
-            "target": BaseKey(type=Tensor, value=target),
+            "output": BaseKey(type=Tensor[int | float | bool]),
+            "input": BaseKey(type=Tensor[int | float | bool], value=input),
+            "target": BaseKey(type=Tensor[int | float | bool], value=target),
         }
         # Finalize kwargs.
         kwargs = default_kwargs | kwargs
@@ -486,13 +486,21 @@ class CrossEntropy(PrimitiveModel):
 
         kwargs: dict[str, BaseKey] = {
             "output": BaseKey(shape=["N", ("Var", ...)], type=Tensor[float]),
-            "input": BaseKey(shape=["N", "C", ("Var", ...)], type=Tensor, value=input),
+            "input": BaseKey(
+                shape=["N", "C", ("Var", ...)],
+                type=Tensor[int | float | bool],
+                value=input,
+            ),
             "target": BaseKey(
-                shape=["N", ("VarTarget", ...)], type=Tensor, value=target
+                shape=["N", ("VarTarget", ...)],
+                type=Tensor[int | float | bool],
+                value=target,
             ),
             "weights": BaseKey(type=weights_type, value=final_weights),
             "categorical": BaseKey(type=bool, value=categorical),
-            "threshold": BaseKey(shape=[], type=Tensor, value=_threshold),
+            "threshold": BaseKey(
+                shape=[], type=Tensor[int | float | bool], value=_threshold
+            ),
             "robust": BaseKey(type=bool, value=robust),
         }
 
@@ -735,7 +743,9 @@ class Log(PrimitiveModel):
                 formula_key="robust_log",
                 name=name,
                 output=BaseKey(shape=[("Var", ...)], type=Tensor[float]),
-                input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
+                input=BaseKey(
+                    shape=[("Var", ...)], type=Tensor[int | float | bool], value=input
+                ),
                 threshold=BaseKey(shape=[], type=Tensor[float], value=_threshold),
             )
         else:
@@ -743,7 +753,9 @@ class Log(PrimitiveModel):
                 formula_key="log",
                 name=name,
                 output=BaseKey(shape=[("Var", ...)], type=Tensor[float]),
-                input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
+                input=BaseKey(
+                    shape=[("Var", ...)], type=Tensor[int | float | bool], value=input
+                ),
             )
 
     def __call__(  # type: ignore[override]
@@ -844,7 +856,9 @@ class Square(PrimitiveModel):
             formula_key="square",
             name=name,
             output=BaseKey(shape=[("Var", ...)], type=Tensor[float]),
-            input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
+            input=BaseKey(
+                shape=[("Var", ...)], type=Tensor[int | float | bool], value=input
+            ),
         )
 
     def __call__(  # type: ignore[override]
@@ -1041,8 +1055,10 @@ class StopGradient(PrimitiveModel):
         super().__init__(
             name=name,
             formula_key="stop_gradient",
-            output=BaseKey(shape=[("Var", ...)], type=Tensor),
-            input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
+            output=BaseKey(shape=[("Var", ...)], type=Tensor[int | float | bool]),
+            input=BaseKey(
+                shape=[("Var", ...)], type=Tensor[int | float | bool], value=input
+            ),
         )
 
         self.add_constraint(
@@ -1074,7 +1090,7 @@ class CartesianDifference(PrimitiveModel):
         super().__init__(
             name=name,
             formula_key="cartesian_diff",
-            output=BaseKey(shape=["N", "M", "dim"], type=Tensor),
+            output=BaseKey(shape=["N", "M", "dim"], type=Tensor[int | float | bool]),
             left=BaseKey(shape=["N", "dim"], type=Tensor[int | float], value=left),
             right=BaseKey(shape=["M", "dim"], type=Tensor[int | float], value=right),
         )
@@ -1108,7 +1124,7 @@ class Concat(PrimitiveModel):
         super().__init__(
             formula_key="concat",
             name=name,
-            output=BaseKey(shape=[("Var_out", ...)], type=Tensor),
+            output=BaseKey(shape=[("Var_out", ...)], type=Tensor[int | float | bool]),
             input=BaseKey(type=list[Tensor[int | float | bool]], value=input),
             axis=BaseKey(type=int | None, value=axis),
         )
@@ -1424,8 +1440,8 @@ class Flatten(PrimitiveModel):
         self.factory_args = {"start_dim": start_dim, "end_dim": end_dim}
 
         key_definitions: dict[str, BaseKey] = {
-            "output": BaseKey(type=Tensor),
-            "input": BaseKey(type=Tensor, value=input),
+            "output": BaseKey(type=Tensor[int | float | bool]),
+            "input": BaseKey(type=Tensor[int | float | bool], value=input),
             "start_dim": BaseKey(type=int, value=start_dim),
             "end_dim": BaseKey(type=int, value=end_dim),
         }
@@ -1885,7 +1901,7 @@ class DistanceMatrix(PrimitiveModel):
             output=BaseKey(shape=["N", "M"], type=Tensor[int | float]),
             left=BaseKey(shape=["N", "d"], type=Tensor[int | float], value=left),
             right=BaseKey(shape=["M", "d"], type=Tensor[int | float], value=right),
-            norm=BaseKey(shape=[], type=Tensor),
+            norm=BaseKey(shape=[], type=Tensor[int | float | bool]),
         )
 
         self._add_constraint(
@@ -2136,9 +2152,11 @@ class GPRVOuter(PrimitiveModel):
             formula_key="gpr_v_outer",
             name=name,
             output=BaseKey(shape=["N", "N"], type=Tensor[float]),
-            K=BaseKey(shape=["N", "N"], type=Tensor, value=K),
-            K_term=BaseKey(shape=["N", "N"], type=Tensor, value=K_term),
-            L=BaseKey(shape=["N", "N"], type=Tensor, value=L),
+            K=BaseKey(shape=["N", "N"], type=Tensor[int | float | bool], value=K),
+            K_term=BaseKey(
+                shape=["N", "N"], type=Tensor[int | float | bool], value=K_term
+            ),
+            L=BaseKey(shape=["N", "N"], type=Tensor[int | float | bool], value=L),
         )
 
     def __call__(  # type: ignore[override]
@@ -2367,8 +2385,8 @@ class Squeeze(PrimitiveModel):
         super().__init__(
             formula_key="squeeze",
             name=name,
-            output=BaseKey(type=Tensor),
-            input=BaseKey(type=Tensor, value=input),
+            output=BaseKey(type=Tensor[int | float | bool]),
+            input=BaseKey(type=Tensor[int | float | bool], value=input),
         )
 
         self._add_constraint(fn=squeeze_constraints, keys=["output", "input"])
@@ -2600,8 +2618,8 @@ class SwapAxes(PrimitiveModel):
         super().__init__(
             formula_key="swapaxes",
             name=name,
-            output=BaseKey(type=Tensor),
-            input=BaseKey(type=Tensor, value=input),
+            output=BaseKey(type=Tensor[int | float | bool]),
+            input=BaseKey(type=Tensor[int | float | bool], value=input),
             axis1=BaseKey(type=int, value=axis1),
             axis2=BaseKey(type=int, value=axis2),
         )
@@ -2640,10 +2658,10 @@ class Where(PrimitiveModel):
         super().__init__(
             formula_key="where",
             name=name,
-            output=BaseKey(type=Tensor),
+            output=BaseKey(type=Tensor[int | float | bool]),
             cond=BaseKey(type=Tensor[bool], value=cond),
-            input1=BaseKey(type=Tensor, value=input1),
-            input2=BaseKey(type=Tensor, value=input2),
+            input1=BaseKey(type=Tensor[int | float | bool], value=input1),
+            input2=BaseKey(type=Tensor[int | float | bool], value=input2),
         )
 
         self._add_constraint(
@@ -2679,7 +2697,9 @@ class IsNan(PrimitiveModel):
             formula_key="isnan",
             name=name,
             output=BaseKey(shape=[("Var", ...)], type=Tensor[bool]),
-            input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
+            input=BaseKey(
+                shape=[("Var", ...)], type=Tensor[int | float | bool], value=input
+            ),
         )
 
     def __call__(  # type: ignore[override]
@@ -2703,8 +2723,8 @@ class Unique(PrimitiveModel):
         super().__init__(
             formula_key="unique",
             name=name,
-            input=BaseKey(type=Tensor, value=input),
-            output=BaseKey(type=Tensor),
+            input=BaseKey(type=Tensor[int | float | bool], value=input),
+            output=BaseKey(type=Tensor[int | float | bool]),
         )
 
     def __call__(  # type: ignore[override]
@@ -2730,9 +2750,9 @@ class Trapezoid(PrimitiveModel):
         super().__init__(
             formula_key="trapezoid",
             name=name,
-            output=BaseKey(shape=[], type=Tensor),
-            y=BaseKey(shape=[("Var", ...)], type=Tensor, value=y),
-            x=BaseKey(shape=[("Var", ...)], type=Tensor, value=x),
+            output=BaseKey(shape=[], type=Tensor[int | float | bool]),
+            y=BaseKey(shape=[("Var", ...)], type=Tensor[int | float | bool], value=y),
+            x=BaseKey(shape=[("Var", ...)], type=Tensor[int | float | bool], value=x),
         )
 
     def __call__(  # type: ignore[override]
@@ -2800,7 +2820,7 @@ class Pad(PrimitiveModel):
         super().__init__(
             formula_key="pad",
             name=name,
-            output=BaseKey(type=Tensor),
+            output=BaseKey(type=Tensor[int | float | bool]),
             input=BaseKey(type=Tensor[int | float | bool], value=input),
             pad_width=BaseKey(type=tuple[tuple[int, int], ...], value=pad_width),
         )
@@ -2832,8 +2852,10 @@ class ZerosLike(PrimitiveModel):
         super().__init__(
             formula_key="zeros_like",
             name=name,
-            output=BaseKey(shape=[("Var", ...)], type=Tensor),
-            input=BaseKey(shape=[("Var", ...)], type=Tensor),
+            output=BaseKey(shape=[("Var", ...)], type=Tensor[int | float | bool]),
+            input=BaseKey(
+                shape=[("Var", ...)], type=Tensor[int | float | bool], value=input
+            ),
         )
 
     def __call__(  # type: ignore[override]
@@ -3500,14 +3522,14 @@ class Absolute(SingleInputModel):
         super().__init__(name=name, model=AbsoluteOp(input=input))
 
 
-class Minus(SingleInputModel):
+class Negate(SingleInputModel):
     def __init__(
         self,
         input: Tensor[int | float | bool] | ToBeDetermined = TBD,
         *,
         name: str | None = None,
     ) -> None:
-        super().__init__(name=name, model=MinusOp(input=input))
+        super().__init__(name=name, model=NegateOp(input=input))
 
 
 class Exponential(SingleInputModel):

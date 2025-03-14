@@ -69,7 +69,7 @@ __all__ = [
     "MultiplyOp",
     "DivideOp",
     "FloorDivideOp",
-    "MinusOp",
+    "NegateOp",
     "MatrixMultiplyOp",
     "ShapeOp",
     "ReshapeOp",
@@ -190,8 +190,14 @@ class PowerOp(Operator):
                 formula_key="robust_power",
                 name=name,
                 output=BaseKey(shape=[("out", ...)], type=Tensor[int | float]),
-                base=BaseKey(shape=[("base", ...)], type=Tensor, value=base),
-                exponent=BaseKey(shape=[("exp", ...)], type=Tensor, value=exponent),
+                base=BaseKey(
+                    shape=[("base", ...)], type=Tensor[int | float | bool], value=base
+                ),
+                exponent=BaseKey(
+                    shape=[("exp", ...)],
+                    type=Tensor[int | float | bool],
+                    value=exponent,
+                ),
                 threshold=BaseKey(shape=[], type=Tensor[float], value=threshold),
             )
 
@@ -682,7 +688,9 @@ class ShapeOp(Operator):
             formula_key="shape",
             name=name,
             output=BaseKey(type=tuple[int, ...]),
-            input=BaseKey(shape=[("input", ...)], type=Tensor, value=input),
+            input=BaseKey(
+                shape=[("input", ...)], type=Tensor[int | float | bool], value=input
+            ),
         )
         self._add_constraint(fn=shape_constraints, keys=["output", "input"])
 
@@ -706,8 +714,10 @@ class ReshapeOp(Operator):
         super().__init__(
             formula_key="reshape",
             name=name,
-            output=BaseKey(shape=output_shape_map, type=Tensor),
-            input=BaseKey(shape=[("input", ...)], type=Tensor, value=input),
+            output=BaseKey(shape=output_shape_map, type=Tensor[int | float | bool]),
+            input=BaseKey(
+                shape=[("input", ...)], type=Tensor[int | float | bool], value=input
+            ),
             shape=BaseKey(type=tuple[int | None, ...] | list[int | None], value=shape),
         )
         self._add_constraint(fn=reshape_constraints, keys=["output", "input", "shape"])
@@ -726,7 +736,9 @@ class LengthOp(Operator):
             formula_key="length",
             name=name,
             output=BaseKey(type=int),
-            input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
+            input=BaseKey(
+                shape=[("Var", ...)], type=Tensor[int | float | bool], value=input
+            ),
         )
 
 
@@ -740,8 +752,8 @@ class CastOp(Operator):
         super().__init__(
             formula_key="cast",
             name=name,
-            output=BaseKey(shape=[("Var", ...)], type=Tensor),
-            input=BaseKey(shape=[("Var", ...)], type=Tensor),
+            output=BaseKey(shape=[("Var", ...)], type=Tensor[int | float | bool]),
+            input=BaseKey(shape=[("Var", ...)], type=Tensor[int | float | bool]),
             dtype=BaseKey(type=types.Dtype, value=dtype),
         )
 
@@ -759,7 +771,9 @@ class DtypeOp(Operator):
             formula_key="dtype",
             name=name,
             output=BaseKey(type=types.Dtype),
-            input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
+            input=BaseKey(
+                shape=[("Var", ...)], type=Tensor[int | float | bool], value=input
+            ),
         )
 
 
@@ -817,7 +831,7 @@ class ToTensorOp(Operator):
         super().__init__(
             formula_key="to_tensor",
             name=name,
-            output=BaseKey(shape=[("Var", ...)], type=Tensor),
+            output=BaseKey(shape=[("Var", ...)], type=Tensor[int | float | bool]),
             input=BaseKey(type=TensorValueType, value=input),
             dtype=BaseKey(type=types.Dtype | None, value=dtype),
         )
@@ -872,7 +886,9 @@ class TensorToListOp(Operator):
             formula_key="tensor_to_list",
             name=name,
             output=BaseKey(type=TensorToListType),
-            input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
+            input=BaseKey(
+                shape=[("Var", ...)], type=Tensor[int | float | bool], value=input
+            ),
         )
         self._add_constraint(
             fn=tensor_to_list_constraints, keys=[Operator.output_key, "input"]
@@ -910,8 +926,12 @@ class ReduceOp(Operator):
             raise ValueError("Requires valid axis type!")
 
         init_kwargs: dict[str, BaseKey] = {
-            "output": BaseKey(shape=[("Var_out", ...)], type=Tensor),
-            "input": BaseKey(shape=[("Var_in", ...)], type=Tensor, value=input),
+            "output": BaseKey(
+                shape=[("Var_out", ...)], type=Tensor[int | float | bool]
+            ),
+            "input": BaseKey(
+                shape=[("Var_in", ...)], type=Tensor[int | float | bool], value=input
+            ),
             "axis": BaseKey(type=axis_type, value=axis),
             "keepdim": BaseKey(type=bool, value=keepdim),
         }
@@ -1116,8 +1136,8 @@ class SingleInputOperationOp(Operator):
         **kwargs: BaseKey,
     ) -> None:
         default_kwargs = dict(
-            output=BaseKey(shape=[("Var", ...)], type=Tensor),
-            input=BaseKey(shape=[("Var", ...)], type=Tensor),
+            output=BaseKey(shape=[("Var", ...)], type=Tensor[int | float | bool]),
+            input=BaseKey(shape=[("Var", ...)], type=Tensor[int | float | bool]),
         )
         # Finalize kwargs.
         new_kwargs: Mapping[str, BaseKey] = default_kwargs | kwargs
@@ -1147,9 +1167,9 @@ class AbsoluteOp(SingleInputOperationOp):
         )
 
 
-class MinusOp(SingleInputOperationOp):
+class NegateOp(SingleInputOperationOp):
     # TODO: make this operation polymorphic.
-    _model_name: str = "Minus"
+    _model_name: str = "Negate"
 
     def __init__(
         self,
@@ -1158,7 +1178,7 @@ class MinusOp(SingleInputOperationOp):
         name: str | None = None,
     ) -> None:
         super().__init__(
-            formula_key="minus",
+            formula_key="negate",
             name=name,
             input=BaseKey(shape=[("Var", ...)], type=Tensor[int | float], value=input),
             output=BaseKey(shape=[("Var", ...)], type=Tensor[int | float]),
@@ -1178,7 +1198,9 @@ class ExponentialOp(SingleInputOperationOp):
             formula_key="exp",
             name=name,
             polymorphic_constraint=False,
-            input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
+            input=BaseKey(
+                shape=[("Var", ...)], type=Tensor[int | float | bool], value=input
+            ),
             output=BaseKey(shape=[("Var", ...)], type=Tensor[float]),
         )
 
@@ -1625,8 +1647,14 @@ class TransposeOp(Operator):
             super().__init__(
                 formula_key="transpose",
                 name=name,
-                output=BaseKey(shape=[("Var_out", ...)], type=Tensor),
-                input=BaseKey(shape=[("Var_in", ...)], type=Tensor, value=input),
+                output=BaseKey(
+                    shape=[("Var_out", ...)], type=Tensor[int | float | bool]
+                ),
+                input=BaseKey(
+                    shape=[("Var_in", ...)],
+                    type=Tensor[int | float | bool],
+                    value=input,
+                ),
                 axes=BaseKey(type=NoneType, value=axes),
             )
             self._add_constraint(
@@ -1640,8 +1668,10 @@ class TransposeOp(Operator):
             super().__init__(
                 formula_key="transpose",
                 name=name,
-                output=BaseKey(shape=output_shapes, type=Tensor),
-                input=BaseKey(shape=input_shapes, type=Tensor, value=input),
+                output=BaseKey(shape=output_shapes, type=Tensor[int | float | bool]),
+                input=BaseKey(
+                    shape=input_shapes, type=Tensor[int | float | bool], value=input
+                ),
                 axes=BaseKey(type=int | tuple[int, ...], value=axes),
             )
 
@@ -1649,8 +1679,14 @@ class TransposeOp(Operator):
             super().__init__(
                 formula_key="transpose",
                 name=name,
-                output=BaseKey(shape=[("Var_out", ...)], type=Tensor),
-                input=BaseKey(shape=[("Var_in", ...)], type=Tensor, value=input),
+                output=BaseKey(
+                    shape=[("Var_out", ...)], type=Tensor[int | float | bool]
+                ),
+                input=BaseKey(
+                    shape=[("Var_in", ...)],
+                    type=Tensor[int | float | bool],
+                    value=input,
+                ),
                 axes=BaseKey(type=int | tuple[int, ...] | None, value=axes),
             )
             self._add_constraint(
@@ -1678,8 +1714,10 @@ class SplitOp(Operator):
         super().__init__(
             formula_key="split",
             name=name,
-            output=BaseKey(shape=[("Var2", ...)], type=Tensor),
-            input=BaseKey(shape=[("Var1", ...)], type=Tensor, value=input),
+            output=BaseKey(shape=[("Var2", ...)], type=Tensor[int | float | bool]),
+            input=BaseKey(
+                shape=[("Var1", ...)], type=Tensor[int | float | bool], value=input
+            ),
             split_size=BaseKey(type=int, value=split_size),
             axis=BaseKey(type=int, value=axis),
         )
@@ -1733,7 +1771,10 @@ class IndexerOp(Operator):
             formula_key="indexer",
             name=name,
             output=BaseKey(),
-            input=BaseKey(value=input, type=Tensor[int | float | bool] | list | tuple),
+            input=BaseKey(
+                value=input,
+                type=Tensor[int | float | bool] | list[Any] | tuple[Any, ...],
+            ),
             index=BaseKey(
                 type=int
                 | slice
@@ -1775,7 +1816,9 @@ class SineOp(SingleInputOperationOp):
             formula_key="sin",
             name=name,
             polymorphic_constraint=False,
-            input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
+            input=BaseKey(
+                shape=[("Var", ...)], type=Tensor[int | float | bool], value=input
+            ),
             output=BaseKey(shape=[("Var", ...)], type=Tensor[float]),
         )
 
@@ -1793,7 +1836,9 @@ class CosineOp(SingleInputOperationOp):
             formula_key="cos",
             name=name,
             polymorphic_constraint=False,
-            input=BaseKey(shape=[("Var", ...)], type=Tensor, value=input),
+            input=BaseKey(
+                shape=[("Var", ...)], type=Tensor[int | float | bool], value=input
+            ),
             output=BaseKey(shape=[("Var", ...)], type=Tensor[float]),
         )
 

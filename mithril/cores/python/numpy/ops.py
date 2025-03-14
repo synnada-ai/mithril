@@ -132,7 +132,7 @@ __all__ = [
     "floor_divide",
     "shift_left",
     "shift_right",
-    "minus",
+    "negate",
     "add",
     "subtract",
     "power",
@@ -1443,7 +1443,7 @@ def shift_right(
     return input >> shift
 
 
-def minus(input: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+def negate(input: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
     return -input
 
 

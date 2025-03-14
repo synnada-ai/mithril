@@ -67,8 +67,8 @@ from .operators import (
     MaxOp,
     MeanOp,
     MinOp,
-    MinusOp,
     MultiplyOp,
+    NegateOp,
     NotEqualOp,
     PowerOp,
     ProdOp,
@@ -264,7 +264,7 @@ class TemplateBase:
         return ExtendTemplate(connections=[self], model=LogicalNotOp)
 
     def __neg__(self) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self], model=MinusOp)
+        return ExtendTemplate(connections=[self], model=NegateOp)
 
     def abs(self) -> ExtendTemplate:
         return ExtendTemplate(connections=[self], model=AbsoluteOp)

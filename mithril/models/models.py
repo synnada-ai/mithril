@@ -64,8 +64,8 @@ from .primitives import (
     Log,
     MatrixMultiply,
     Mean,
-    Minus,
     Multiply,
+    Negate,
     NormModifier,
     PaddingConverter1D,
     PaddingConverter2D,
@@ -3654,8 +3654,8 @@ class SiLU(Model):
     ) -> None:
         super().__init__(name=name)
 
-        self |= Minus()(input=IOKey("input", value=input), output="minus")
-        self |= Exponential()(input="minus", output="exp")
+        self |= Negate()(input=IOKey("input", value=input), output="negate")
+        self |= Exponential()(input="negate", output="exp")
         self |= Add()(left=Tensor(1), right="exp", output="add")
         self |= Divide()(
             numerator="input", denominator="add", output=IOKey(name="output")
