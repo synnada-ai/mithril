@@ -57,7 +57,6 @@ from ..common_primitives import (
     primitive_embedding,
     primitive_slice,
     reshape,
-    sequence_slice,
     shift_left,
     shift_right,
     square,
@@ -175,7 +174,6 @@ __all__ = [
     "item",
     "indexer",
     "primitive_slice",
-    "sequence_slice",
     "union",
     "length",
     "cartesian_diff",
@@ -779,7 +777,7 @@ def shape(input: mx.array) -> tuple[int, ...]:
     return input.shape
 
 
-def size(input: mx.array, dim: int | tuple[int, ...] | None) -> int | tuple[int]:
+def size(input: mx.array, dim: int | Sequence[int] | None) -> int | tuple[int]:
     if dim is None:
         return input.size
     if isinstance(dim, int):

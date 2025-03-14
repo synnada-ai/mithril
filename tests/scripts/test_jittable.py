@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import re
+import typing
 from collections.abc import Mapping, Sequence
 from types import EllipsisType
 
@@ -437,6 +438,7 @@ def test_jit_5():
     import jax
 
     @jax.jit
+    @typing.no_type_check
     def evaluate(params):
         input = params["input"]
         keepdim_1 = False

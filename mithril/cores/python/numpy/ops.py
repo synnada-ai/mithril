@@ -19,7 +19,8 @@ import re
 from collections.abc import Callable, Iterator, Sequence
 from functools import partial
 from itertools import combinations_with_replacement
-from typing import Any
+from types import EllipsisType
+from typing import Any, overload
 
 import numpy as np
 import scipy.linalg as slin
@@ -145,7 +146,6 @@ __all__ = [
     "indexer",
     "primitive_slice",
     "swapaxes",
-    "sequence_slice",
     "union",
     "length",
     "cartesian_diff",
@@ -1275,10 +1275,10 @@ def dtype(input: np.ndarray[Any, Any]) -> np.dtype[Any]:
 
 
 def logical_xor(
-    left: np.ndarray[Any, Any],
-    right: np.ndarray[Any, Any],
+    left: np.ndarray[Any, Any] | int | bool,
+    right: np.ndarray[Any, Any] | int | bool,
     cache: CacheType | None = None,
-) -> np.ndarray[Any, Any]:
+) -> np.ndarray[Any, Any] | int | bool:
     return left ^ right
 
 
@@ -1326,50 +1326,50 @@ def atleast_1d(
 
 
 def greater(
-    left: np.ndarray[Any, Any],
-    right: np.ndarray[Any, Any],
+    left: np.ndarray[Any, Any] | int | float | bool,
+    right: np.ndarray[Any, Any] | int | float | bool,
     cache: CacheType | None = None,
-) -> np.ndarray[Any, Any]:
+) -> np.ndarray[Any, Any] | bool:
     return left > right
 
 
 def greater_equal(
-    left: np.ndarray[Any, Any],
-    right: np.ndarray[Any, Any],
+    left: np.ndarray[Any, Any] | int | float | bool,
+    right: np.ndarray[Any, Any] | int | float | bool,
     cache: CacheType | None = None,
-) -> np.ndarray[Any, Any]:
+) -> np.ndarray[Any, Any] | bool:
     return left >= right
 
 
 def less(
-    left: np.ndarray[Any, Any],
-    right: np.ndarray[Any, Any],
+    left: np.ndarray[Any, Any] | int | float | bool,
+    right: np.ndarray[Any, Any] | int | float | bool,
     cache: CacheType | None = None,
-) -> np.ndarray[Any, Any]:
+) -> np.ndarray[Any, Any] | bool:
     return left < right
 
 
 def less_equal(
-    left: np.ndarray[Any, Any],
-    right: np.ndarray[Any, Any],
+    left: np.ndarray[Any, Any] | int | float | bool,
+    right: np.ndarray[Any, Any] | int | float | bool,
     cache: CacheType | None = None,
-) -> np.ndarray[Any, Any]:
+) -> np.ndarray[Any, Any] | bool:
     return left <= right
 
 
 def equal(
-    left: np.ndarray[Any, Any],
-    right: np.ndarray[Any, Any],
+    left: np.ndarray[Any, Any] | int | float | bool,
+    right: np.ndarray[Any, Any] | int | float | bool,
     cache: CacheType | None = None,
-) -> np.ndarray[Any, Any]:
+) -> np.ndarray[Any, Any] | bool:
     return left == right
 
 
 def not_equal(
-    left: np.ndarray[Any, Any],
-    right: np.ndarray[Any, Any],
+    left: np.ndarray[Any, Any] | int | float | bool,
+    right: np.ndarray[Any, Any] | int | float | bool,
     cache: CacheType | None = None,
-) -> np.ndarray[Any, Any]:
+) -> np.ndarray[Any, Any] | bool:
     return left != right
 
 
@@ -1380,18 +1380,18 @@ def logical_not(
 
 
 def logical_or(
-    left: np.ndarray[Any, Any],
-    right: np.ndarray[Any, Any],
+    left: np.ndarray[Any, Any] | int | bool,
+    right: np.ndarray[Any, Any] | int | bool,
     cache: CacheType | None = None,
-) -> np.ndarray[Any, Any]:
+) -> np.ndarray[Any, Any] | int | bool:
     return left | right
 
 
 def logical_and(
-    left: np.ndarray[Any, Any],
-    right: np.ndarray[Any, Any],
+    left: np.ndarray[Any, Any] | int | bool,
+    right: np.ndarray[Any, Any] | int | bool,
     cache: CacheType | None = None,
-) -> np.ndarray[Any, Any]:
+) -> np.ndarray[Any, Any] | int | bool:
     return left & right
 
 
@@ -1404,42 +1404,42 @@ def matrix_multiplication(
 
 
 def multiplication(
-    left: np.ndarray[Any, Any],
-    right: np.ndarray[Any, Any],
+    left: np.ndarray[Any, Any] | int | float | bool,
+    right: np.ndarray[Any, Any] | int | float | bool,
     cache: CacheType | None = None,
-) -> np.ndarray[Any, Any]:
+) -> np.ndarray[Any, Any] | int | float:
     return left * right
 
 
 def divide(
-    numerator: np.ndarray[Any, Any],
-    denominator: np.ndarray[Any, Any],
+    numerator: np.ndarray[Any, Any] | int | float | bool,
+    denominator: np.ndarray[Any, Any] | int | float | bool,
     cache: CacheType | None = None,
-) -> np.ndarray[Any, Any]:
+) -> np.ndarray[Any, Any] | float:
     return numerator / denominator
 
 
 def floor_divide(
-    numerator: np.ndarray[Any, Any],
-    denominator: np.ndarray[Any, Any],
+    numerator: np.ndarray[Any, Any] | int | float | bool,
+    denominator: np.ndarray[Any, Any] | int | float | bool,
     cache: CacheType | None = None,
-) -> np.ndarray[Any, Any]:
+) -> np.ndarray[Any, Any] | int | float:
     return numerator // denominator
 
 
 def shift_left(
-    input: np.ndarray[Any, Any],
-    shift: np.ndarray[Any, Any],
+    input: np.ndarray[Any, Any] | int | bool,
+    shift: np.ndarray[Any, Any] | int | bool,
     cache: CacheType | None = None,
-) -> np.ndarray[Any, Any]:
+) -> np.ndarray[Any, Any] | int:
     return input << shift
 
 
 def shift_right(
-    input: np.ndarray[Any, Any],
-    shift: np.ndarray[Any, Any],
+    input: np.ndarray[Any, Any] | int | bool,
+    shift: np.ndarray[Any, Any] | int | bool,
     cache: CacheType | None = None,
-) -> np.ndarray[Any, Any]:
+) -> np.ndarray[Any, Any] | int:
     return input >> shift
 
 
@@ -1448,26 +1448,26 @@ def minus(input: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
 
 
 def add(
-    left: np.ndarray[Any, Any],
-    right: np.ndarray[Any, Any],
+    left: np.ndarray[Any, Any] | int | float | bool,
+    right: np.ndarray[Any, Any] | int | float | bool,
     cache: CacheType | None = None,
-) -> np.ndarray[Any, Any]:
+) -> np.ndarray[Any, Any] | int | float:
     return left + right
 
 
 def subtract(
-    left: np.ndarray[Any, Any],
-    right: np.ndarray[Any, Any],
+    left: np.ndarray[Any, Any] | int | float | bool,
+    right: np.ndarray[Any, Any] | int | float | bool,
     cache: CacheType | None = None,
-) -> np.ndarray[Any, Any]:
+) -> np.ndarray[Any, Any] | int | float:
     return left - right
 
 
 def power(
-    base: np.ndarray[Any, Any],
-    exponent: np.ndarray[Any, Any],
+    base: np.ndarray[Any, Any] | int | float | bool,
+    exponent: np.ndarray[Any, Any] | int | float | bool,
     cache: CacheType | None = None,
-) -> np.ndarray[Any, Any]:
+) -> np.ndarray[Any, Any] | float | int:
     return base**exponent
 
 
@@ -1477,10 +1477,6 @@ def squared_error(
     cache: CacheType | None = None,
 ) -> np.ndarray[Any, Any]:
     return (input - target) ** 2
-
-
-# def transpose(input: np.ndarray[Any, Any], cache: CacheType|None = None) :
-#     return input.T
 
 
 def transpose(
@@ -1500,9 +1496,7 @@ def square(
     return input * input
 
 
-def buffer(
-    input: np.ndarray[Any, Any], cache: CacheType | None = None
-) -> np.ndarray[Any, Any]:
+def buffer[T](input: T, cache: CacheType | None = None) -> T:
     return input
 
 
@@ -1522,16 +1516,6 @@ def reshape(
 
 def item(input: np.ndarray[Any, Any]) -> int | float | bool:
     return input.item()  # type: ignore
-
-
-def sequence_slice(
-    input: list[int | float] | tuple[int | float, ...],
-    start: int | None,
-    stop: int | None,
-    step: int | None,
-    cache: CacheType | None = None,
-) -> list[int | float] | tuple[int | float, ...]:
-    return input[start:stop:step]
 
 
 def union(
@@ -1626,22 +1610,43 @@ def padding_converter_2d(
     return output
 
 
-# TODO: Overload this function.
+@overload
 def indexer(
-    input: np.ndarray[Any, Any]
-    | list[int | float | bool]
-    | tuple[int | float | bool, ...],
-    index: int | slice | tuple[int | slice, ...],
+    input: np.ndarray[Any, Any],
+    index: int
+    | slice
+    | None
+    | EllipsisType
+    | tuple[int | slice | EllipsisType | None, ...],
+) -> np.ndarray[Any, Any]: ...
+
+
+@overload
+def indexer[T](
+    input: Sequence[T],
+    index: slice,
+    cache: CacheType | None,
+) -> Sequence[T]: ...
+
+
+@overload
+def indexer[T](
+    input: Sequence[T],
+    index: int,
+    cache: CacheType | None,
+) -> T: ...
+
+
+def indexer(
+    input: Any,
+    index: int
+    | slice
+    | None
+    | EllipsisType
+    | tuple[int | slice | EllipsisType | None, ...],
     cache: CacheType | None = None,
-) -> (
-    np.ndarray[Any, Any]
-    | list[int | float | bool]
-    | tuple[int | float | bool, ...]
-    | int
-    | float
-    | bool
-):
-    return input[index]  # type: ignore
+) -> Any:
+    return input[index]
 
 
 def primitive_slice(
