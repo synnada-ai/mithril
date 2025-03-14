@@ -1401,9 +1401,6 @@ def test_shapes_1():
         "$bias_1": [10],
         "$weight_2": [10, 10],
         "$bias_2": [10],
-        "$_Linear_0_axes": None,
-        "$_Linear_1_axes": None,
-        "$_Linear_2_axes": None,
     }
 
 

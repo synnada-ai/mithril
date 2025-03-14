@@ -63,7 +63,7 @@ def test_input_data_to_trainable():
 
 def test_input_data_to_trainable_compile():
     model = Model()
-    model += Linear()(input="input")
+    model += Linear()(weight=IOKey("www"), input="input")
     model += Linear()(weight=model.input)  # type: ignore
 
     backend = JaxBackend()

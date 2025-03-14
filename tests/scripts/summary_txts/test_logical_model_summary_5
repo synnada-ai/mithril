@@ -23,14 +23,12 @@ Flatten      |   Inputs  : input     : [u1,   32,   u7] : Model_1.$output
              |   Outputs : output    :     [  u1,   u8] : Linear_0.input 
 -------------------------------------------------------------------------
 Linear_0     |   Inputs  : weight    :     [1000,   u8] : '$weight_2'    
-             |             $axes     :               -- : None           
              |             input     :     [  u1,   u8] : Flatten.output 
              |             bias      :           [1000] : '$bias_2'      
              |   --------------------------------------------------------
              |   Outputs : output    :     [  u1, 1000] : Linear_1.input 
 -------------------------------------------------------------------------
 Linear_1     |   Inputs  : weight    :     [   1, 1000] : '$weight_3'    
-             |             $axes     :               -- : None           
              |             input     :     [  u1, 1000] : Linear_0.output
              |             bias      :           [   1] : '$bias_3'      
              |   --------------------------------------------------------
