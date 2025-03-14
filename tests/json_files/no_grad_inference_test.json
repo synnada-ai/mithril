@@ -19,18 +19,23 @@
                     "name": "Multiply"
                 }
             },
+            "assigned_differentiabilities": [
+                ["input1", true],
+                ["input2", true],
+                ["input3", true]
+            ],
             "connections": {
                 "m1": {
-                    "left": {"key": {"name": "input1", "type": "tensor"}}, 
-                    "right": {"key": {"name": "input2", "type": "tensor"}}
+                    "left": {"key": {"name": "input1", "type": {"Tensor": ["int", "float", "bool"]}}}, 
+                    "right": {"key": {"name": "input2", "type": {"Tensor": ["int", "float", "bool"]}}}
                 },
                 "m2": {
-                    "left": {"key": {"name": "input2", "type": "tensor"}}, 
-                    "right": {"key": {"name": "input3", "type": "tensor"}}
+                    "left": {"key": {"name": "input2", "type": {"Tensor": ["int", "float", "bool"]}}}, 
+                    "right": {"key": {"name": "input3", "type": {"Tensor": ["int", "float", "bool"]}}}
                 },
                 "m3": {
-                    "left": {"key": {"name": "input1", "type": "tensor"}}, 
-                    "right": {"key": {"name": "input3", "type": "tensor"}}, 
+                    "left": {"key": {"name": "input1", "type": {"Tensor": ["int", "float", "bool"]}}}, 
+                    "right": {"key": {"name": "input3", "type": {"Tensor": ["int", "float", "bool"]}}}, 
                     "output": {"key": {
                         "name": "output3", 
                         "expose": true
@@ -96,18 +101,23 @@
                     "name": "Multiply"
                 }
             },
+            "assigned_differentiabilities": [
+                ["input1", true],
+                ["input2", true],
+                ["input3", true]
+            ],
             "connections": {
                 "m1": {
-                    "left": {"key": {"name": "input1", "type": "tensor"}}, 
-                    "right": {"key": {"name": "input2", "type": "tensor"}}
+                    "left": {"key": {"name": "input1", "type": {"Tensor": ["int", "float", "bool"]}}}, 
+                    "right": {"key": {"name": "input2", "type": {"Tensor": ["int", "float", "bool"]}}}
                 },
                 "m2": {
-                    "left": {"key": {"name": "input2", "type": "tensor"}}, 
-                    "right": {"key": {"name": "input3", "type": "tensor"}}
+                    "left": {"key": {"name": "input2", "type": {"Tensor": ["int", "float", "bool"]}}}, 
+                    "right": {"key": {"name": "input3", "type": {"Tensor": ["int", "float", "bool"]}}}
                 },
                 "m3": {
-                    "left": {"key": {"name": "input1", "type": "tensor"}}, 
-                    "right": {"key": {"name": "input3", "type": "tensor"}}, 
+                    "left": {"key": {"name": "input1", "type": {"Tensor": ["int", "float", "bool"]}}}, 
+                    "right": {"key": {"name": "input3", "type": {"Tensor": ["int", "float", "bool"]}}}, 
                     "output": {"key": {
                         "name": "output3", 
                         "expose": true
@@ -172,18 +182,23 @@
                     "name": "Multiply"
                 }
             },
+            "assigned_differentiabilities": [
+                ["input1", true],
+                ["input2", true],
+                ["input3", true]
+            ],
             "connections": {
                 "m1": {
-                    "left": {"key": {"name": "input1", "type": "tensor"}}, 
-                    "right": {"key": {"name": "input2", "type": "tensor"}}
+                    "left": {"key": {"name": "input1", "type": {"Tensor": ["int", "float", "bool"]}}}, 
+                    "right": {"key": {"name": "input2", "type": {"Tensor": ["int", "float", "bool"]}}}
                 },
                 "m2": {
-                    "left": {"key": {"name": "input2", "type": "tensor"}}, 
-                    "right": {"key": {"name": "input3", "type": "tensor"}}
+                    "left": {"key": {"name": "input2", "type": {"Tensor": ["int", "float", "bool"]}}}, 
+                    "right": {"key": {"name": "input3", "type": {"Tensor": ["int", "float", "bool"]}}}
                 },
                 "m3": {
-                    "left": {"key": {"name": "input1", "type": "tensor"}}, 
-                    "right": {"key": {"name": "input3", "type": "tensor"}}, 
+                    "left": {"key": {"name": "input1", "type": {"Tensor": ["int", "float", "bool"]}}}, 
+                    "right": {"key": {"name": "input3", "type": {"Tensor": ["int", "float", "bool"]}}}, 
                     "output": {"key": {
                         "name": "output3", 
                         "expose": true

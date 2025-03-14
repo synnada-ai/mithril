@@ -537,7 +537,10 @@ class Model(BaseModel):
         return cin
 
     def _extend(
-        self, model: BaseModel, kwargs: Mapping[str, ConnectionType] | None = None
+        self,
+        model: BaseModel,
+        kwargs: Mapping[str, ConnectionType] | None = None,
+        trace: bool = True,
     ) -> Self:
         if kwargs is None:
             kwargs = {}
@@ -561,7 +564,7 @@ class Model(BaseModel):
                     kwargs[key] = _value  # type: ignore
             kwargs[key] = self._unroll_template(kwargs[key])  # type: ignore
 
-        self.extend(model, **kwargs)  # type: ignore
+        self.extend(model, trace, **kwargs)  # type: ignore
         return self
 
     def __add__(self, info: ExtendInfo | Model) -> Self:

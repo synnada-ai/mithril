@@ -11,14 +11,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 from __future__ import annotations
 
 import re
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from copy import deepcopy
 from functools import reduce
-from types import EllipsisType, UnionType
-from typing import Any, TypedDict, get_origin
+from types import EllipsisType, GenericAlias, UnionType
+from typing import Any, TypedDict, get_args, get_origin
 
 from mithril.framework.logical.base import ConnectionData
 
@@ -45,8 +46,35 @@ from ..models import (
     primitives,
 )
 from ..models.train_model import TrainModel
+from ..types import Constant, Dtype
 from ..utils import model_conversion_lut
-from ..utils.utils import convert_to_tuple
+from ..utils.type_utils import is_generic_alias_type, is_union_type
+from ..utils.utils import OrderedSet, convert_to_tuple
+
+type_dict: dict[str, type | EllipsisType] = {
+    "Tensor": Tensor,
+    "float": float,
+    "int": int,
+    "bool": bool,
+    "str": str,
+    "list": list,
+    "tuple": tuple,
+    "dict": dict,
+    "...": ...,
+}
+
+value_dict: dict[str, Constant | Dtype] = {str(val): val for val in Constant}
+value_dict |= {str(val): val for val in Dtype}
+
+SerializedType = (
+    str
+    | list[str]
+    | dict[str, Any]
+    | list["SerializedType"]
+    | dict[str, "SerializedType"]
+)
+
+GeneralType = type | UnionType | EllipsisType
 
 
 class KeyDict(TypedDict, total=False):
@@ -80,16 +108,17 @@ class RegDict(TypedDict):
 class ModelDict(TypedDict, total=False):
     name: str
     args: dict[str, Any]
-    assigned_shapes: dict[str, ShapeTemplateType]
-    differentiability_info: dict[str, bool]
+    assigned_shapes: list[list[tuple[tuple[str, int] | str, ShapeTemplateType]]]
+    assigned_types: list[tuple[tuple[str, int] | str, SerializedType]]
+    assigned_differentiabilities: list[tuple[tuple[str, int] | str, bool]]
     assigned_constraints: list[AssignedConstraintType]
+    assigned_cins: list[tuple[str, int] | str]
+    assigned_couts: list[tuple[str, int] | str]
     tuples: list[str]
     enums: dict[str, str]
     unnamed_keys: list[str]
-    types: dict[str, str]
     submodels: dict[str, ModelDict]
-    connections: dict[str, dict[str, str | ConnectionDict]]
-    canonical_keys: dict[str, tuple[set[str], set[str]]]
+    connections: dict[str, dict[str, str | int | float | bool | ConnectionDict]]
 
 
 class TrainModelDict(TypedDict):
@@ -125,17 +154,337 @@ __all__ = [
 enum_dict = {"PaddingType": PaddingType}
 
 
+def create_union(type_list: Iterable[GeneralType]) -> UnionType | GeneralType:
+    return reduce(lambda x, y: x | y, type_list)  # type: ignore
+
+
+def _serialize_type_info(
+    typ: type | UnionType | GenericAlias | EllipsisType,
+) -> SerializedType:
+    result: SerializedType
+    if is_union_type(typ):
+        # Args of union types are stored as a list.
+        result = [_serialize_type_info(item) for item in typ.__args__]
+    elif is_generic_alias_type(typ):
+        origin = get_origin(typ)
+        inner_args = [_serialize_type_info(item) for item in get_args(typ)]
+        # Tensor and list types only have one inner type, no need to
+        # encapsulate them in a seperate list.
+        if origin in (list, Tensor) and isinstance(inner_args[0], list):
+            result = {origin.__name__: inner_args[0]}
+        else:
+            result = {origin.__name__: inner_args}
+    elif isinstance(typ, EllipsisType):
+        result = "..."
+    else:
+        assert not isinstance(typ, UnionType)
+        result = typ.__name__
+    return result
+
+
+def _deserialize_type_info(
+    typ: SerializedType,
+) -> type | UnionType | EllipsisType:
+    result: type | UnionType | EllipsisType
+    if isinstance(typ, list):
+        result = create_union(_deserialize_type_info(item) for item in typ)
+    elif isinstance(typ, dict):
+        # Get origin type.
+        origin = type_dict[list(typ.keys())[0]]
+        # Get inner types.
+        inner_types = [_deserialize_type_info(arg) for arg in list(typ.values())[0]]
+        if origin in (list, Tensor):
+            # For Tensor and list generic types, directly create a union
+            # of inner types since only one inner type is allowed.
+            result = origin[create_union(inner_types)]  # type: ignore
+        else:
+            result = origin[*inner_types]  # type: ignore
+    else:
+        result = type_dict[typ]
+    return result
+
+
+def extract_model_key_index(
+    model: BaseModel, connection: ConnectionData
+) -> tuple[BaseModel, int]:
+    """
+    Extracts the model and key index for a given connection.
+
+    This function determines the model and the index of the key associated with
+    that model. It handles both frozen and non-frozen states of the model.
+
+    Args:
+        connection (ConnectionData): The connection data for which the model and
+        key index need to be extracted.
+
+    Returns:
+        tuple[BaseModel, int]: A tuple containing the model and the index
+        of the key for that model.
+
+    Raises:
+        KeyError: If the connection is not found in the model.
+    """
+    if connection not in model.conns.all.values():
+        raise KeyError(f"Connection {connection.key} is not found in the model")
+
+    if model.is_frozen:
+        _model = model
+        name = connection._name
+        assert name is not None
+        key_index = list(model.external_keys).index(name)
+    else:
+        assert connection.model is not None
+        key = connection.key
+        if (_model := connection.model) is model:
+            # Always return info using freezed models.
+            model_info: (
+                list[tuple[BaseModel, OrderedSet[ConnectionData]]]
+                | tuple[BaseModel, OrderedSet[ConnectionData]]
+            ) = model.dependency_map.local_input_dependency_map.get(
+                connection,
+                model.dependency_map.local_output_dependency_map.get(connection),  # type: ignore
+            )
+            _model = model_info[0][0] if isinstance(model_info, list) else model_info[0]
+            # Get corresponding connection of the _model.
+            _model_conn = _model.conns.get_con_by_metadata(connection.metadata)
+            assert _model_conn is not None
+            key = _model_conn.key
+        key_index = list(_model.external_keys).index(key)
+
+    return (_model, key_index)
+
+
+def _extract_key_info(
+    model: BaseModel, submodel_dict: dict[BaseModel, str], conn: ConnectionData
+) -> tuple[str, int] | str:
+    m, key_index = extract_model_key_index(model, conn)
+    m_name = submodel_dict[m] if m is not model else "self"
+
+    key_name = list(model.external_keys)[key_index]
+    if m_name == "self" and not key_name.startswith("$"):
+        # If corresponding connection is named, save info
+        # only with this name and shape.
+        key_info: tuple[str, int] | str = key_name
+    else:
+        key_info = (m_name, key_index)
+
+    return key_info
+
+
+def _serialize_assigned_info(
+    model: BaseModel, submodel_dict: dict[BaseModel, str]
+) -> tuple[
+    list[list[tuple[tuple[str, int] | str, ShapeTemplateType]]],
+    list[tuple[tuple[str, int] | str, SerializedType]],
+    list[tuple[tuple[str, int] | str, bool]],
+    list[AssignedConstraintType],
+    list[tuple[str, int] | str],
+    list[tuple[str, int] | str],
+]:
+    shapes_info: list[list[tuple[tuple[str, int] | str, ShapeTemplateType]]] = []
+    types_info: list[tuple[tuple[str, int] | str, SerializedType]] = []
+    differentiability_info: list[tuple[tuple[str, int] | str, bool]] = []
+    constraints_info: list[AssignedConstraintType] = []
+
+    # Shapes info.
+    for shp_info in model.assigned_shapes:
+        info_list: list[tuple[tuple[str, int] | str, ShapeTemplateType]] = []
+        for conn, shape_info in shp_info.items():
+            # Key info.
+            key_info = _extract_key_info(model, submodel_dict, conn)
+            # Shape info.
+            shape_list: list[int | str | tuple[str, EllipsisType] | None] = []
+            for item in shape_info:
+                if isinstance(item, tuple):  # variadic
+                    shape_list.append(f"{item[0]},...")
+                else:
+                    shape_list.append(item)
+            # Combine key info with shape info.
+            info_list.append((key_info, shape_list))
+        shapes_info.append(info_list)
+
+    # Types info.
+    for conn, typ in model.assigned_types.items():
+        # Key info.
+        key_info = _extract_key_info(model, submodel_dict, conn)
+        # Combine key info with type info.
+        types_info.append((key_info, _serialize_type_info(typ)))
+
+    # Differentiability info.
+    for conn, status in model.assigned_differentiabilities.items():
+        # Key info.
+        key_info = _extract_key_info(model, submodel_dict, conn)
+        # Combine key info with differentiability status.
+        differentiability_info.append((key_info, status))
+
+    # Constraints.
+    for constraint in model.assigned_constraints:
+        constraints_info.append(constraint)
+
+    # Canonical keys.
+    assigned_cins: list[tuple[str, int] | str] = []
+    assigned_couts: list[tuple[str, int] | str] = []
+    for conn in model.assigned_cins:
+        key_info = _extract_key_info(model, submodel_dict, conn)
+        assigned_cins.append(key_info)
+    for conn in model.assigned_couts:
+        key_info = _extract_key_info(model, submodel_dict, conn)
+        assigned_couts.append(key_info)
+    # Sort cins and couts in order to get exactly the same json for
+    # the same model.
+    assigned_cins.sort(key=lambda x: str(x[-1]))  # Simple sort criteria.
+    assigned_couts.sort(key=lambda x: str(x[-1]))
+
+    return (
+        shapes_info,
+        types_info,
+        differentiability_info,
+        constraints_info,
+        assigned_cins,
+        assigned_couts,
+    )
+
+
+def _extract_connection_from_info_key(
+    model: BaseModel,
+    submodel_dict: dict[str, BaseModel],
+    info_key: tuple[str, int],
+) -> ConnectionData:
+    model_name, index = info_key
+    return _extract_connection_from_index(model, model_name, index, submodel_dict)
+
+
+def _construct_args_info(
+    model: BaseModel,
+    submodel_dict: dict[str, BaseModel],
+    args: set[ConnectionData | str],
+    info: tuple[str, int] | str,
+) -> None:
+    if isinstance(info, tuple):
+        connection = _extract_connection_from_info_key(model, submodel_dict, info)
+        args.add(connection)
+    elif isinstance(info, str):
+        args.add(info)
+    else:
+        raise RuntimeError("Unknown info format!")
+
+
+def _construct_config_kwargs_info[T](
+    model: BaseModel,
+    submodel_dict: dict[str, BaseModel],
+    config: dict[ConnectionData, T],
+    kwargs: dict[str, T],
+    info: tuple[tuple[str, int] | str, T],
+) -> None:
+    info_key, data = info
+    if isinstance(info_key, tuple):
+        connection = _extract_connection_from_info_key(model, submodel_dict, info_key)
+        config[connection] = data
+    elif isinstance(info_key, str):
+        kwargs[info_key] = data
+    else:
+        raise RuntimeError("Unknown info format!")
+
+
+def _extract_connection_from_index(
+    model: BaseModel, model_name: str, index: int, submodel_dict: dict[str, BaseModel]
+) -> ConnectionData:
+    _model = model if model_name == "self" else submodel_dict[model_name]
+    connection_key = list(_model.external_keys)[index]
+    connection = _model.conns.get_connection(connection_key)
+    assert connection is not None
+    return connection
+
+
+def _set_assigned_info(
+    model: BaseModel,
+    submodel_dict: dict[str, BaseModel],
+    shapes_info: list[list[tuple[tuple[str, int] | str, ShapeTemplateType]]],
+    types_info: list[tuple[tuple[str, int] | str, GeneralType]],
+    diffs_info: list[tuple[tuple[str, int] | str, bool]],
+    constraints_info: list[AssignedConstraintType],
+    cins_info: list[tuple[str, int] | str],
+    couts_info: list[tuple[str, int] | str],
+) -> None:
+    # Shapes conversion.
+    for shp_info in shapes_info:
+        shapes: dict[ConnectionData, ShapeTemplateType] = {}
+        shape_kwargs: dict[str, ShapeTemplateType] = {}
+        for sub_info in shp_info:
+            _construct_config_kwargs_info(
+                model, submodel_dict, shapes, shape_kwargs, sub_info
+            )
+        model.set_shapes(shapes, **shape_kwargs)
+
+    # Types conversion.
+    types_config: dict[ConnectionData, GeneralType] = {}
+    types_kwargs: dict[str, GeneralType] = {}
+    for type_info in types_info:
+        _construct_config_kwargs_info(
+            model, submodel_dict, types_config, types_kwargs, type_info
+        )
+    model.set_types(types_config, **types_kwargs)  # type: ignore
+
+    # Differentiability settings for models and keys.
+    diff_config: dict[ConnectionData, bool] = {}
+    diff_kwargs: dict[str, bool] = {}
+    for diff_info in diffs_info:
+        _construct_config_kwargs_info(
+            model, submodel_dict, diff_config, diff_kwargs, diff_info
+        )
+    model.set_differentiability(diff_config, **diff_kwargs)
+
+    # Constraints.
+    for constr_info in constraints_info:
+        constrain_fn = constr_info["fn"]
+        if constrain_fn not in constrain_fn_dict:
+            raise RuntimeError(
+                "In the process of creating a model from a dictionary, an unknown"
+                " constraint function was encountered!"
+            )
+        constrain_fn = constrain_fn_dict[constrain_fn]
+        model.add_constraint(constrain_fn, keys=constr_info["keys"])  # type: ignore
+
+    # Canonical keys
+    cins: set[ConnectionData | str] = set()
+    couts: set[ConnectionData | str] = set()
+    for item in cins_info:
+        _construct_args_info(model, submodel_dict, cins, item)
+    for item in couts_info:
+        _construct_args_info(model, submodel_dict, couts, item)
+    if cins:
+        model.set_cin(*cins)
+    if couts:
+        model.set_cout(*couts)
+
+
 def create_iokey_kwargs(
     info: KeyDict, submodels_dict: dict[str, BaseModel]
 ) -> dict[str, Any]:
     info_cpy = info.copy()
     kwargs: dict[str, Any] = {}
+    is_tensor = False
+    val: (
+        TensorValueType
+        | MainValueType
+        | ToBeDetermined
+        | str
+        | Tensor[int | float | bool]
+    )
     if (val := info_cpy.get("value")) is not None:
-        # Convert tensor values to Tensor objects.
-        kwargs["value"] = Tensor(val["tensor"]) if isinstance(val, dict) else val
+        if isinstance(val, dict):
+            val = val["tensor"]
+            is_tensor = True
+        if isinstance(val, str):
+            val = value_dict.get(val, val)
+        if is_tensor:
+            assert isinstance(val, int | float | bool | list | Constant)
+            val = Tensor(val)
+        # Convert tensor values to Tensor objects id required.
+        kwargs["value"] = val
     if (typ := info_cpy.get("type")) is not None:
         # Convert type strings to type objects.
-        kwargs["type"] = Tensor[int | float | bool] if typ == "tensor" else eval(typ)
+        kwargs["type"] = _deserialize_type_info(typ)
     if (conns := info_cpy.get("connect")) is not None:
         kwargs["connections"] = {
             getattr(submodels_dict[value[0]], value[1])
@@ -175,8 +524,8 @@ def dict_to_model(
         params = deepcopy(modelparams)
 
     args: dict[str, Any] = {}
-    connections: dict[str, dict[str, str | ConnectionDict]] = params.get(
-        "connections", {}
+    connections: dict[str, dict[str, str | int | float | bool | ConnectionDict]] = (
+        params.get("connections", {})
     )
     submodels: dict[str, ModelDict] = params.get("submodels", {})
 
@@ -207,43 +556,38 @@ def dict_to_model(
         }
         model = type(model_name, (Model,), attrs)(**args)
 
-    types: dict[str, str] = params.get("types", {})
-    # TODO: Set all types in a bulk.
-    set_types = {}
-    for key, typ in types.items():
-        if typ == "tensor":
-            set_types[key] = Tensor[int | float | bool]
-        # else:
-        #     # TODO: Get rid of using eval method. Find more secure
-        #     # way to convert strings into types and generic types.
-        #     set_types[key] = eval(typ)
-
     unnamed_keys: list[str] = params.get("unnamed_keys", [])
-    differentiability_info: dict[str, bool] = params.get("differentiability_info", {})
-    assigned_shapes = params.get("assigned_shapes", {})
-    assigned_constraints = params.get("assigned_constraints", [])
-    canonical_keys: dict[str, tuple[set[str], set[str]]] = params.get(
-        "canonical_keys", {}
-    )
 
     assert isinstance(model, Model)
-    submodels_dict = {}
+    submodels_dict: dict[str, BaseModel] = {}
     for m_key, v in submodels.items():
         m = dict_to_model(v)
         submodels_dict[m_key] = m
-        mappings: dict[str, IOKey | Tensor | float | int | list | tuple | str] = {}  # type: ignore
+        mappings: dict[str, IOKey | Tensor[int | float | bool] | MainValueType] = {}
         mergings = {}
         for k, conn in connections[m_key].items():
             if conn in unnamed_keys and k in m.input_keys:
                 continue
 
-            if isinstance(conn, str | float | int | tuple | list):
-                mappings[k] = conn
+            if isinstance(conn, str | float | int | bool | tuple | list):
+                _conn: (
+                    str
+                    | float
+                    | int
+                    | bool
+                    | tuple[Any, ...]
+                    | list[Any]
+                    | Constant
+                    | Dtype
+                ) = conn
+                if isinstance(conn, str):
+                    _conn = value_dict.get(conn, conn)
+                mappings[k] = _conn
 
             elif isinstance(conn, dict):
                 if (io_key := conn.get("key")) is not None:
                     # TODO: Update this part according to new IOKey structure.
-                    key_kwargs = create_iokey_kwargs(io_key, submodels_dict)  # type: ignore
+                    key_kwargs = create_iokey_kwargs(io_key, submodels_dict)
                     if (conns := key_kwargs.pop("connections", None)) is not None:
                         mappings[k] = conns.pop()
                         mergings[k] = conns
@@ -252,39 +596,37 @@ def dict_to_model(
                     else:
                         mappings[k] = IOKey(**key_kwargs)
                 elif "tensor" in conn:
-                    mappings[k] = Tensor(conn["tensor"])
+                    val = conn["tensor"]
+                    if isinstance(val, str):
+                        val = value_dict.get(val, val)
+                        assert not isinstance(val, Dtype)
+                    mappings[k] = Tensor(val)
         model |= m(**mappings)
         for key, conns in mergings.items():
             con = getattr(m, key)
             model.merge_connections(con, *conns)
 
-    if set_types:
-        model.set_types(**set_types)
+    # Set all assigned info.
+    assigned_types = [
+        (info, _deserialize_type_info(typ))
+        for info, typ in params.get("assigned_types", [])
+    ]
+    assigned_shapes = params.get("assigned_shapes", [])
+    assigned_differentiabilities = params.get("assigned_differentiabilities", [])
+    assigned_constraints = params.get("assigned_constraints", [])
+    assigned_cins = params.get("assigned_cins", [])
+    assigned_couts = params.get("assigned_couts", [])
+    _set_assigned_info(
+        model,
+        submodels_dict,
+        assigned_shapes,
+        assigned_types,
+        assigned_differentiabilities,
+        assigned_constraints,
+        assigned_cins,
+        assigned_couts,
+    )
 
-    if "model" in canonical_keys:
-        if canonical_keys["model"][0] is not None:
-            model.set_cin(*canonical_keys["model"][0])
-        if canonical_keys["model"][1] is not None:
-            model.set_cout(*canonical_keys["model"][1])
-
-    for key, value in differentiability_info.items():
-        con = model.conns.get_connection(key)
-        assert con is not None
-        con.set_differentiability(value)
-
-    if len(assigned_constraints) > 0:
-        for constr_info in assigned_constraints:
-            constrain_fn = constr_info["fn"]
-            if constrain_fn not in constrain_fn_dict:
-                raise RuntimeError(
-                    "In the process of creating a model from a dictionary, an unknown"
-                    " constraint function was encountered!"
-                )
-            constrain_fn = constrain_fn_dict[constrain_fn]
-            model.add_constraint(constrain_fn, keys=constr_info["keys"])  # type: ignore
-
-    if len(assigned_shapes) > 0:
-        model.set_shapes(**dict_to_shape(assigned_shapes))
     assert isinstance(model, Model)
     return model
 
@@ -295,82 +637,61 @@ def model_to_dict(model: BaseModel) -> TrainModelDict | ModelDict:
 
     model_name = model.__class__.__name__
     args = handle_model_to_dict_args(model_name, model.factory_args)
-    assigned_shapes: dict[str, ShapeTemplateType] = {}
-    differentiability_info: dict[str, bool] = {}
-    assigned_constraints: list[AssignedConstraintType] = []
-    types: dict[str, str] = {}
 
-    for key, con in model.conns.all.items():
-        edge = con.metadata
-        if edge.is_tensor and not con.is_autogenerated:
-            differentiability_info[key] = edge.differentiable
-
-    for shape in model.assigned_shapes:
-        assigned_shapes |= shape_to_dict(shape)
-
-    for constrain in model.assigned_constraints:
-        assigned_constraints.append(constrain)
-
-    for key, typ in model.assigned_types.items():
-        if get_origin(typ) is Tensor:
-            types[key] = "tensor"
-        # elif typ is not ToBeDetermined:
-        #     types[key] = str(typ)
-
-    if (
-        model_name != "Model"
-        and model_name in dir(models)
-        or model_name not in dir(models)
-    ):
-        model_dict: ModelDict = {
-            "name": model_name,
-            "args": args,
-            "assigned_shapes": assigned_shapes,
-            "differentiability_info": differentiability_info,
-            "assigned_constraints": assigned_constraints,
-            "types": types,
-        }
-        return model_dict
-
-    connection_dict: dict[str, dict[str, str | ConnectionDict]] = {}
-    canonical_keys: dict[str, tuple[set[str], set[str]]] = {}
-    submodels: dict[str, ModelDict] = {}
-
-    # IOHyperEdge -> [model_id, connection_name]
-    submodel_connections: dict[IOHyperEdge, list[str]] = {}
-    assert isinstance(model, Model)
-
-    for idx, submodel in enumerate(model.dag.keys()):
-        model_id = f"m_{idx}"
-        submodels[model_id] = model_to_dict(submodel)  # type: ignore
-
-        # Store submodel connections
-        for key in submodel._all_keys:
-            submodel_connections.setdefault(
-                submodel.conns.get_metadata(key), [model_id, key]
-            )
-        assert isinstance(model, Model)
-        connection_dict[model_id] = connection_to_dict(
-            model, submodel, submodel_connections, model_id
-        )
-        canonical_keys[model_id] = (
-            get_keys(submodel.conns.cins),
-            get_keys(submodel.conns.couts),
-        )
-    canonical_keys["model"] = (get_keys(model.conns.cins), get_keys(model.conns.couts))
-
-    composite_model_dict: ModelDict = {
+    model_dict: ModelDict = {
         "name": model_name,
         "args": args,
-        "assigned_shapes": assigned_shapes,
-        "differentiability_info": differentiability_info,
-        "assigned_constraints": assigned_constraints,
-        "types": types,
-        "connections": connection_dict,
-        "canonical_keys": canonical_keys,
-        "submodels": submodels,
     }
-    return composite_model_dict
+
+    submodel_obj_dict: dict[BaseModel, str] = {}
+
+    if model_name == "Model" and model_name in dir(models):
+        connection_dict: dict[
+            str, dict[str, str | int | float | bool | ConnectionDict]
+        ] = {}
+        submodels: dict[str, ModelDict] = {}
+
+        # IOHyperEdge -> [model_id, connection_name]
+        submodel_connections: dict[IOHyperEdge, list[str]] = {}
+        assert isinstance(model, Model)
+
+        for idx, submodel in enumerate(model.dag.keys()):
+            model_id = f"m_{idx}"
+            submodels[model_id] = model_to_dict(submodel)  # type: ignore
+            submodel_obj_dict[submodel] = model_id
+
+            # Store submodel connections
+            for key in submodel._all_keys:
+                submodel_connections.setdefault(
+                    submodel.conns.get_metadata(key), [model_id, key]
+                )
+            assert isinstance(model, Model)
+            connection_dict[model_id] = connection_to_dict(
+                model, submodel, submodel_connections, model_id
+            )
+
+        model_dict |= {
+            "connections": connection_dict,
+            "submodels": submodels,
+        }
+
+    (
+        assigned_shapes,
+        assigned_types,
+        assigned_differentiabilities,
+        assigned_constraints,
+        assigned_cins,
+        assigned_couts,
+    ) = _serialize_assigned_info(model, submodel_obj_dict)
+
+    model_dict |= {"assigned_shapes": assigned_shapes}
+    model_dict |= {"assigned_types": assigned_types}
+    model_dict |= {"assigned_differentiabilities": assigned_differentiabilities}
+    model_dict |= {"assigned_constraints": assigned_constraints}
+    model_dict |= {"assigned_cins": assigned_cins}
+    model_dict |= {"assigned_couts": assigned_couts}
+
+    return model_dict
 
 
 def get_keys(canonicals: set[ConnectionData]) -> set[str]:
@@ -382,7 +703,7 @@ def connection_to_dict(
     submodel: BaseModel,
     submodel_connections: dict[IOHyperEdge, list[str]],
     model_id: str,
-) -> dict[str, str | ConnectionDict]:
+) -> dict[str, str | int | float | bool | ConnectionDict]:
     connection_dict: dict[str, MainValueType | str | ConnectionDict] = {}
     connections: dict[str, ConnectionData] = model.dag[submodel]
 
@@ -400,6 +721,8 @@ def connection_to_dict(
                 key_value["key"] |= {"name": connection.key, "expose": True}
         elif is_valued and connection in model.conns.input_connections:
             val = connection.metadata.value
+            if isinstance(val, Constant | Dtype):
+                val = str(val)
             assert not isinstance(val, ToBeDetermined)
             if connection.metadata.is_tensor:
                 val = {"tensor": val}
@@ -539,9 +862,7 @@ def handle_dict_to_model_args(
     for key, value in source.items():
         if isinstance(value, dict):
             shape_template: list[str | int | tuple[str, EllipsisType]] = []
-            possible_types = reduce(
-                lambda x, y: x | y, (eval(item) for item in value.get("type", []))
-            )
+            possible_types = create_union(eval(item) for item in value.get("type", []))
 
             # TensorType.
             if "shape_template" in value:
@@ -556,7 +877,7 @@ def handle_dict_to_model_args(
                 # TODO: Do not send GenericTensorType,
                 # find a proper way to save and load tensor types.
             else:  # Scalar
-                source[key] = IOKey(type=possible_types, value=source[key]["value"])
+                source[key] = IOKey(type=possible_types, value=source[key]["value"])  # type: ignore
     return source
 
 

@@ -14,7 +14,6 @@
 
 import math
 from collections.abc import Callable, Sequence
-from copy import copy
 from functools import reduce
 from itertools import combinations_with_replacement, permutations, product, zip_longest
 from operator import or_
@@ -3703,14 +3702,14 @@ def tensor_item_constraints(
         # Initially set all status to True,
         # Final status will be intersection of all status
 
-        # slice_status determines if all slice operations are done correctly
+        # slice_status determines if all slice operation inferences are made
         slice_status = True
 
         # match_status determines if input and
         # output shapes are matched without a problem
         match_status = True
 
-        # bcast status determines if broadcast operation is done correctly.
+        # bcast status determines if all broadcast operations are made
         bcast_status = True
 
         if not isinstance(index_val, tuple):
@@ -3776,7 +3775,7 @@ def tensor_item_constraints(
                     current_inferred_unis.append(Uniadic(1))
 
                 elif isinstance(value, slice):
-                    # if value is slice, add new dom to bot input and output
+                    # if value is slice, add new uniadic to both input and output
                     # also add it to slice process list to infer it later
                     current_inferred_unis.append(output_uni := Uniadic())
                     current_index_unis.append(input_uni := Uniadic())
@@ -3824,7 +3823,7 @@ def tensor_item_constraints(
                     slice_status = False
 
         if input_shape.root is None:
-            out_result_shape = copy(input_shape.prefix)
+            out_result_shape = input_shape.prefix[:]
 
             out_result_shape[: len(index_input_prefix)] = inferred_output_prefix
             out_result_shape[len(out_result_shape) - len(index_input_suffix) :] = (
@@ -3843,8 +3842,8 @@ def tensor_item_constraints(
                     inferred_output_prefix, Variadic(), inferred_output_suffix
                 )
             else:
-                output_prefix = copy(input_shape.prefix)
-                output_suffix = copy(input_shape.suffix)
+                output_prefix = input_shape.prefix[:]
+                output_suffix = input_shape.suffix[:]
 
                 output_prefix[: len(index_input_prefix)] = inferred_output_prefix
                 output_suffix[len(output_suffix) - len(index_input_suffix) :] = (

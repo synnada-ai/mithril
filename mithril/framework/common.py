@@ -125,6 +125,20 @@ class KeyType(Enum):
     LATENT_OUTPUT = 5
 
 
+class StateValue(Enum):
+    ZEROS = 0
+    ONES = 1
+    # RANDOM = 0 # TODO: Implement random state value
+
+
+@dataclass
+class StateKey:
+    in_key: str
+    out_key: str
+    is_exposed: bool
+    initial_value: MainValueInstance | StateValue | NullConnection = NOT_GIVEN
+
+
 type FixedValueType = (
     None
     | int
@@ -1043,7 +1057,7 @@ class Tensor(Generic[TypeVarTensorType]):
         value: TensorValueType | ToBeDetermined = TBD,
         type: _TensorTypes = int | float | bool,
         shape: ShapeNode | None = None,
-        differentiable: bool = False,
+        differentiable: bool | None = None,
     ):
         if shape is None:
             # If shape is not provided, create a new shape with a Variadic root.
@@ -1119,8 +1133,16 @@ class Tensor(Generic[TypeVarTensorType]):
                 updates |= non_valued.set_value(valued.value)
                 self.differentiable = False
                 other.differentiable = False
-            else:
-                self.differentiable |= other.differentiable
+            elif self.differentiable is None:
+                self.differentiable = other.differentiable
+                # Differentiable tensors can only be float type.
+                if self.differentiable:
+                    updates |= self.set_type(float)
+            elif (
+                other.differentiable is not None
+                and self.differentiable != other.differentiable
+            ):
+                raise ValueError("Differentiability mismatch!")
             # Match shapes.
             updates |= self.match_shapes(other.shape)
             updates.shape_updates.discard(other)
@@ -1180,8 +1202,16 @@ class IOHyperEdge:
         return None
 
     @property
-    def differentiable(self) -> bool:
-        return isinstance(self._value, Tensor) and self._value.differentiable
+    def differentiable(self) -> bool | None:
+        if isinstance(self._value, Tensor):
+            return self._value.differentiable
+        elif self.is_scalar:
+            # Scalars are always non-differentiable.
+            return False
+        # Differentiability of polymorphic edges are defined
+        # as None. Depending on its instant type updates, it can
+        # become True or False (e.g Tensor or int type).
+        return None
 
     @property
     def tensors(self) -> set[Tensor[int | float | bool]]:
@@ -1405,7 +1435,7 @@ class IOHyperEdge:
                 updates.value_updates.add(self)
             # Update new type without automatic tensor value creation.
             updates |= self.set_type(find_type(self._value), create_tensor=False)
-            if self.is_valued:
+            if self.is_tensor and self.is_valued:
                 self.set_differentiability(False)
         return updates
 
@@ -1431,12 +1461,18 @@ class IOHyperEdge:
 
         return updates
 
-    def set_differentiability(self, differentiable: bool) -> None:
-        if self.is_tensor:
-            assert isinstance(self._value, Tensor)
-            self._value.differentiable = differentiable
-        elif differentiable:
+    def set_differentiability(self, differentiable: bool) -> Updates:
+        if self.is_scalar and differentiable:
             raise ValueError("Non-tensor edges cannot be differentiable.")
+
+        updates = Updates()
+        if differentiable:
+            # Differentiable edges can only be Tensor[float] type.
+            updates |= self.set_type(Tensor[float])
+        # Set differentiability of the _value if it is a Tensor.
+        if isinstance(self._value, Tensor):
+            self._value.differentiable = differentiable
+        return updates
 
     def add_constraint(self, constraint: Constraint) -> None:
         for type in constraint.types:

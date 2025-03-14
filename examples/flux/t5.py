@@ -180,12 +180,12 @@ def load_t5_encoder(
     repo_id: str = "black-forest-labs/FLUX.1-schnell",
     max_len: int = 256,
 ) -> ml.models.PhysicalModel:
-    config = hf_hub_download(repo_id, "text_encoder_2/config.json")
+    config_path = hf_hub_download(repo_id, "text_encoder_2/config.json")
 
-    with open(config) as f:
+    with open(config_path) as f:
         config = json.load(f)
 
-    t5 = t5_encode(config, name="encoder")
+    t5 = t5_encode(config, name="encoder")  # type: ignore
 
     # model = ml.models.Model()
     # model |= t5(input="input", output="output")

@@ -37,6 +37,7 @@ from ..common import (
     ShapeNode,
     ShapeTemplateType,
     ShapeType,
+    StateValue,
     Tensor,
     ToBeDetermined,
     UniadicRecord,
@@ -51,6 +52,9 @@ from ..common import (
 from ..constraints import constraint_type_map
 
 __all__ = ["BaseModel", "BaseKey", "ConnectionData", "ConnectionDataType"]
+
+
+StateValueType = StateValue | MainValueInstance | NullConnection
 
 
 class ConnectionData:
@@ -75,7 +79,7 @@ class ConnectionData:
         | ScalarType
         | None = None,
         expose: bool | None = None,
-        differentiable: bool = False,
+        differentiable: bool | None = None,
         interval: list[float | int] | None = None,
     ) -> None:
         # If shape is provided, type should be Tensor.
@@ -166,15 +170,7 @@ class ConnectionData:
         return hash(id(self))
 
     def set_differentiability(self, differentiable: bool = True) -> Updates:
-        updates = Updates()
-        # TODO: Move this method to Model class as set_shapes, set_types etc.
-        if self.metadata.is_tensor:
-            self.metadata.set_differentiability(differentiable)
-        elif differentiable:
-            updates |= self.metadata.set_type(Tensor[float])
-            self.metadata.set_differentiability(differentiable)
-
-        return updates
+        return self.metadata.set_differentiability(differentiable)
 
 
 BaseKey = ConnectionData
@@ -380,15 +376,17 @@ class BaseModel:
     ) -> None:
         self.dag: dict[BaseModel, dict[str, ConnectionData]] = {}
         self._formula_key: str | None = formula_key
-
         # TODO: maybe set it only to Operator / Model.
         self.parent: BaseModel | None = None
-        self.assigned_shapes: list[dict[str, ShapeTemplateType]] = []
+        self.assigned_shapes: list[dict[ConnectionData, ShapeTemplateType]] = []
         self.assigned_types: dict[
-            str,
+            ConnectionData,
             type | UnionType | ScalarType | type[Tensor[int | float | bool]],
         ] = {}
+        self.assigned_differentiabilities: dict[ConnectionData, bool] = {}
         self.assigned_constraints: list[AssignedConstraintType] = []
+        self.assigned_cins: set[ConnectionData] = set()
+        self.assigned_couts: set[ConnectionData] = set()
         self.conns = Connections()
         self.frozen_attributes: list[str] = []
         self.dependency_map = DependencyMap(self.conns)
@@ -399,6 +397,9 @@ class BaseModel:
         self.safe_shapes: dict[str, ShapeTemplateType] = {}
         self.is_frozen = False
         self.inter_key_count = 0
+        self.state_connections: dict[
+            ConnectionData, tuple[ConnectionData, StateValueType]
+        ] = {}
 
     @property
     def formula_key(self) -> str | None:
@@ -444,6 +445,49 @@ class BaseModel:
                 self.conns.set_connection_type(conn_data, new_type)
                 connections.append(conn_data)
         self.dependency_map.update_globals(OrderedSet(connections))
+
+    def bind_state_keys(
+        self,
+        input: ConnectionData | str,
+        output: ConnectionData | str,
+        initial_value: StateValueType = NOT_GIVEN,
+    ) -> None:
+        if self.is_frozen:
+            raise AttributeError("Frozen model's bind_state_keys is not allowed!")
+        # Get connections.
+        in_con = self.conns.get_extracted_connection(input)
+        out_con = self.conns.get_extracted_connection(output)
+        if self.conns.get_type(in_con) not in {KeyType.INPUT, KeyType.LATENT_INPUT}:
+            raise KeyError("Input connection should be an input key!")
+        if self.conns.get_type(out_con) in {KeyType.INPUT, KeyType.LATENT_INPUT}:
+            raise KeyError("Output connection should be an output key!")
+        for _out, (_in, _) in self.state_connections.items():
+            if _in.metadata is in_con.metadata or _out.metadata is out_con.metadata:
+                raise KeyError("Binded connections could not be binded again!")
+
+        # Set connection types to latent.
+        self.conns.set_connection_type(in_con, KeyType.LATENT_INPUT)
+        self.conns.couts.discard(out_con)
+        if self.conns.get_type(out_con) == KeyType.OUTPUT:
+            self.conns.set_connection_type(out_con, KeyType.LATENT_OUTPUT)
+
+        updates = Updates()
+        # Set differentiability of input connection to False.
+        updates |= in_con.set_differentiability(False)
+        # Merge types.
+        updates |= in_con.metadata.set_type(out_con.metadata._type)
+        updates |= out_con.metadata.set_type(in_con.metadata._type)
+        if in_con.metadata.is_tensor:
+            # Merge shapes if connections are Tensors.
+            assert isinstance(in_con.metadata._value, Tensor)
+            assert isinstance(out_con.metadata._value, Tensor)
+            updates |= in_con.metadata._value.match_shapes(
+                out_con.metadata._value.shape
+            )
+        self.constraint_solver(updates)
+
+        # Save state connections.
+        self.state_connections[out_con] = (in_con, initial_value)
 
     def _check_multi_write(
         self,
@@ -510,12 +554,14 @@ class BaseModel:
         local_key: str,
         given_connection: ConnectionDataType,
         updates: Updates,
+        trace: bool,
     ) -> tuple[ConnectionData, Updates]:
         is_input = local_key in model.input_keys
         local_connection = model.conns.get_connection(local_key)
         assert local_connection is not None, "Connection is not found!"
         edge = local_connection.metadata
         is_not_valued = not edge.is_valued
+        set_diff = None
 
         d_map = self.dependency_map.local_output_dependency_map
 
@@ -527,6 +573,7 @@ class BaseModel:
             | Tensor[int | float | bool]
             | NullConnection
         ) = NOT_GIVEN
+        set_type: type[Tensor[int | float | bool]] | ScalarType = ToBeDetermined
         is_new_connection = False
 
         match given_connection:
@@ -545,6 +592,13 @@ class BaseModel:
                 set_value = given_connection
                 given_connection = self._create_connection(edge, None)
         assert isinstance(given_connection, ConnectionData)
+
+        if (
+            given_connection.metadata.differentiable is not None
+            and given_connection.metadata.differentiable != edge.differentiable
+        ):
+            set_diff = given_connection.metadata.differentiable
+
         # Connection is given as a Connection object.
         if (
             con_obj := self.conns.get_con_by_metadata(given_connection.metadata)
@@ -554,6 +608,8 @@ class BaseModel:
             is_new_connection = True
             expose = given_connection.is_exposed
             outer_key = given_connection.get_key()
+            if set_value is NOT_GIVEN:
+                set_type = given_connection.metadata.edge_type
             if set_value is NOT_GIVEN and given_connection.metadata.value is not TBD:
                 set_value = given_connection.metadata._value
             if outer_key is not None:
@@ -579,15 +635,22 @@ class BaseModel:
                     "Expose flag cannot be false when "
                     "no value is provided for input keys!"
                 )
+
+            # Set value or type if given.
             if not isinstance(set_value, NullConnection):
                 updates |= con_obj.metadata.set_value(set_value)
-            elif (
-                set_type := given_connection.metadata.edge_type
-            ) is not ToBeDetermined:
-                model.set_types({local_connection: set_type})
+            elif set_type is not ToBeDetermined:
+                # Skip tracing if the local connection's type is already
+                # set to the given type.
+                trace &= set_type != local_connection.metadata.edge_type
+                model._set_types({local_connection: set_type}, trace=trace)
 
-            if given_connection.metadata.differentiable:
-                updates |= con_obj.set_differentiability(True)
+            # Set differentiability if given.
+            if set_diff is not None:
+                # No need to trace differentiability for valued and
+                # existing connections.
+                trace &= is_new_connection and not given_connection.metadata.is_valued
+                model._set_differentiability({local_connection: set_diff}, trace)
 
         else:
             if given_connection in model.conns.all.values():
@@ -655,6 +718,7 @@ class BaseModel:
             or con_obj in self.conns.output_connections
         ):
             self.conns.couts.add(con_obj)
+
         return con_obj, updates
 
     def rename_key(self, connection: ConnectionData, key: str) -> None:
@@ -782,11 +846,16 @@ class BaseModel:
             # TODO: Deleted connection's 'key' attribute is not updated.
             # Consider updating it.
 
+        # Update assigned attributes with conn2 to conn1.
+        self._update_assigned_attributes(conn1, conn2)
+
         return updates
 
     def extend(
         self,
         model: BaseModel | BaseModel,
+        trace: bool = True,
+        /,
         **kwargs: ConnectionDataType,
     ) -> None:
         # Check possible errors before the extension.
@@ -811,6 +880,7 @@ class BaseModel:
         model._freeze()
 
         updates = Updates()
+        self.state_connections |= model.state_connections
 
         shape_info: dict[str, ShapeTemplateType] = {}
         submodel_dag: dict[str, ConnectionData] = {}
@@ -836,7 +906,9 @@ class BaseModel:
                 ):
                     value._expose = True
 
-            con_obj, _updates = self._add_connection(model, local_key, value, updates)
+            con_obj, _updates = self._add_connection(
+                model, local_key, value, updates, trace
+            )
             updates |= _updates
             submodel_dag[local_key] = con_obj
             if tensors := con_obj.metadata.tensors:
@@ -848,18 +920,18 @@ class BaseModel:
             submodel_dag[key].key: template for key, template in shape_info.items()
         }
 
+        # Insert to self dag as a FrozenDict.""
+        # Since we update dag in merge_connections, we could not use FrozenDict.
+        self.dag[model] = model_dag = submodel_dag
+
+        self.dependency_map.add_model_dag(model, model_dag)
+
         # Set given shapes.
         self._set_shapes(**shape_info)  # TODO: Should "trace" be set to True?.
         self.constraint_solver(updates)
 
         model.constraint_solver.clear()
         model.conns.connections_dict = {}
-
-        # Insert to self dag as a FrozenDict.""
-        # Since we update dag in merge_connections, we could not use FrozenDict.
-        self.dag[model] = model_dag = submodel_dag
-
-        self.dependency_map.add_model_dag(model, model_dag)
 
         # Update jittablity by using model's jittablity.
         self._jittable &= model.jittable
@@ -1356,8 +1428,12 @@ class BaseModel:
         connection.metadata = metadata
         return connection
 
-    def set_differentiability(
-        self, config: dict[ConnectionData, bool] | None = None, /, **kwargs: bool
+    def _set_differentiability(
+        self,
+        config: dict[ConnectionData, bool] | None = None,
+        trace: bool = False,
+        /,
+        **kwargs: bool,
     ) -> None:
         updates = Updates()
         if config is None:
@@ -1373,11 +1449,19 @@ class BaseModel:
             elif isinstance(key, ConnectionData):
                 if key not in self.conns.all.values():
                     raise KeyError(f"Connection {key} is not found in the model.")
+                conn_data = key
+                updates |= conn_data.set_differentiability(value)
 
-                updates |= key.set_differentiability(value)
+            if trace:
+                self.assigned_differentiabilities[conn_data] = value
 
         model = self._get_outermost_parent()
         model.constraint_solver(updates)
+
+    def set_differentiability(
+        self, config: dict[ConnectionData, bool] | None = None, /, **kwargs: bool
+    ) -> None:
+        self._set_differentiability(config, True, **kwargs)
 
     def _set_shapes(
         self,
@@ -1387,7 +1471,7 @@ class BaseModel:
         **kwargs: ShapeTemplateType,
     ) -> None:
         # Initialize assigned shapes dictionary to store assigned shapes.
-        assigned_shapes: dict[str, ShapeTemplateType] = {}
+        assigned_shapes: dict[ConnectionData, ShapeTemplateType] = {}
         updates = Updates()
         if shapes is None:
             shapes = {}
@@ -1406,7 +1490,10 @@ class BaseModel:
             assert conn is not None
             inner_key = conn.key
             shape_nodes[key] = (given_repr.node, inner_key)
-            assigned_shapes[inner_key] = shape
+            # In order to store assigned shapes, we need to store corresponding model
+            # and index of the connection for that model.
+            assigned_shapes[conn] = shape
+
         # Apply updates to the shape nodes.
         for key in chain(shapes, kwargs):
             assert isinstance(key, str | ConnectionData)
@@ -1444,12 +1531,6 @@ class BaseModel:
     ) -> None:  # Initialize assigned shapes dictionary to store assigned shapes.
         if config is None:
             config = {}
-
-        assigned_types: dict[
-            str,
-            type | UnionType | ScalarType | type[Tensor[int | float | bool]],
-        ] = {}
-
         # Get the outermost parent as all the updates will happen here.
         model = self._get_outermost_parent()
         updates = Updates()
@@ -1458,12 +1539,12 @@ class BaseModel:
             metadata = self.conns.extract_metadata(key)
             conn = self.conns.get_con_by_metadata(metadata)
             assert conn is not None
-            inner_key = conn.key
-            assigned_types[inner_key] = key_type
             updates |= metadata.set_type(key_type)
-        if trace:
-            # Store assigned types in the model.
-            self.assigned_types |= assigned_types
+            if trace:
+                # Store assigned types in the model.
+                if key_type is Tensor:
+                    key_type = Tensor[int | float | bool]
+                self.assigned_types[conn] = key_type
         # Run the constraints for updating affected connections.
         model.constraint_solver(updates)
 
@@ -1568,6 +1649,7 @@ class BaseModel:
         keys: list[str],
         types: list[UpdateType] | None = None,
         dependencies: set[Constraint] | None = None,
+        trace: bool = False,
     ) -> Constraint:
         all_conns = self.conns.all
         hyper_edges = [all_conns[key].metadata for key in keys]
@@ -1587,6 +1669,10 @@ class BaseModel:
             hyper_edge.add_constraint(constr)
 
         self.constraint_solver.solver_loop({constr})
+
+        if trace:
+            self.assigned_constraints.append({"fn": fn.__name__, "keys": keys})
+
         return constr
 
     def add_constraint(
@@ -1596,8 +1682,7 @@ class BaseModel:
         type: list[UpdateType] | None = None,
         dependencies: set[Constraint] | None = None,
     ) -> Constraint:
-        self.assigned_constraints.append({"fn": fn.__name__, "keys": keys})
-        return self._add_constraint(fn, keys, type, dependencies)
+        return self._add_constraint(fn, keys, type, dependencies, True)
 
     @property
     def cin(self) -> ConnectionData:
@@ -1619,6 +1704,11 @@ class BaseModel:
         return next(iter(self.conns.couts))
 
     def set_cin(self, *connections: str | ConnectionData, safe: bool = True) -> None:
+        self._set_cin(*connections, safe=safe, trace=True)
+
+    def _set_cin(
+        self, *connections: str | ConnectionData, safe: bool = True, trace: bool = False
+    ) -> None:
         self.conns.cins = set()
         for given_conn in connections:
             conn = self.conns.get_extracted_connection(given_conn)
@@ -1637,8 +1727,15 @@ class BaseModel:
                     )
             else:
                 self.conns.cins.add(conn)
+            if trace:
+                self.assigned_cins.add(conn)
 
     def set_cout(self, *connections: str | ConnectionData, safe: bool = True) -> None:
+        self._set_cout(*connections, safe=safe, trace=True)
+
+    def _set_cout(
+        self, *connections: str | ConnectionData, safe: bool = True, trace: bool = False
+    ) -> None:
         self.conns.couts = set()
         for given_conn in connections:
             conn = self.conns.get_extracted_connection(given_conn)
@@ -1651,6 +1748,8 @@ class BaseModel:
                     )
             else:
                 self.conns.couts.add(conn)
+            if trace:
+                self.assigned_couts.add(conn)
 
     def _match_hyper_edges(self, left: IOHyperEdge, right: IOHyperEdge) -> Updates:
         l_type = left.edge_type
@@ -1686,6 +1785,45 @@ class BaseModel:
         self.constraint_solver.update_constraint_map(left, right)
         # Match data of each IOHyperEdge's.
         return left.match(right)
+
+    def _update_assigned_attributes(
+        self, new: ConnectionData, old: ConnectionData
+    ) -> None:
+        """
+        Update assigned attributes by replacing occurrences of the old ConnectionData
+        with the new ConnectionData.
+
+        This method updates the following attributes:
+        - assigned_shapes: Replaces old ConnectionData with new ConnectionData
+          in the assigned shapes.
+        - assigned_types: Replaces old ConnectionData with new ConnectionData
+          in the assigned types.
+        - assigned_differentiabilities: Replaces old ConnectionData with new
+          ConnectionData in the assigned differentiabilities.
+        - assigned_canonicals: Updates the 'cins' and 'couts' sets by removing the
+          old ConnectionData and adding the new ConnectionData.
+
+        Args:
+            new (ConnectionData): The new ConnectionData to replace the old one.
+            old (ConnectionData): The old ConnectionData to be replaced.
+        """
+        for shape_info in self.assigned_shapes:
+            if old in shape_info:
+                shape_info[new] = shape_info.pop(old)
+        if old in self.assigned_types:
+            self.assigned_types[new] = self.assigned_types.pop(old)
+
+        if old in self.assigned_differentiabilities:
+            self.assigned_differentiabilities[new] = (
+                self.assigned_differentiabilities.pop(old)
+            )
+        # Assigned canonicals
+        if old in self.assigned_cins:
+            self.assigned_cins.remove(old)
+            self.assigned_cins.add(new)
+        elif old in self.assigned_couts:
+            self.assigned_couts.remove(old)
+            self.assigned_couts.add(new)
 
 
 class DependencyMap:

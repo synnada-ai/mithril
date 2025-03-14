@@ -159,11 +159,11 @@ def load_flow_model(name: str, backend: ml.Backend, hf_download: bool = True):
     ckpt_path = configs[name].ckpt_path
     if (
         ckpt_path is None
-        and configs[name].repo_id is not None
-        and configs[name].repo_flow is not None
+        and (r_id := configs[name].repo_id) is not None
+        and (r_flow := configs[name].repo_flow) is not None
         and hf_download
     ):
-        ckpt_path = hf_hub_download(configs[name].repo_id, configs[name].repo_flow)
+        ckpt_path = hf_hub_download(r_id, r_flow)
 
     flux_lm = flux(configs[name].params)
     flux_pm = ml.compile(
@@ -187,11 +187,11 @@ def load_decoder(
     ckpt_path = configs[name].ae_path
     if (
         ckpt_path is None
-        and configs[name].repo_id is not None
-        and configs[name].repo_ae is not None
+        and (r_id := configs[name].repo_id) is not None
+        and (r_ae := configs[name].repo_ae) is not None
         and hf_download
     ):
-        ckpt_path = hf_hub_download(configs[name].repo_id, configs[name].repo_ae)
+        ckpt_path = hf_hub_download(r_id, r_ae)
 
     # Loading the autoencoder
     print("Init AE")

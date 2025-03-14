@@ -10397,3 +10397,13 @@ def test_index_with_two_non_consec_arange():
     }
 
     check_shapes_semantically(model.get_shapes(), ref)
+
+
+def test_delete_later():
+    model = Model()
+
+    input = IOKey("input", type=Tensor)
+    output = input[None, IOKey("index_1", type=Tensor[int], shape=[3, 4, 5]), ..., -2]
+
+    model |= Buffer()(output, IOKey("output"))
+    ...
