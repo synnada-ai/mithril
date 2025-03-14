@@ -203,6 +203,7 @@ __all__ = [
     "pad",
     "split",
     "randn",
+    "randint",
     "atleast_1d",
     "minimum",
     "maximum",
@@ -1218,6 +1219,24 @@ def randn(
     )
 
 
+def randint(
+    shape: tuple[int, ...],
+    key: int,
+    low: int,
+    high: int,
+    *,
+    dtype: str | None = None,
+    device: str,
+    default_dtype: str,
+) -> torch.Tensor:
+    generator = torch.manual_seed(key)
+    if dtype is None:
+        dtype = "int32"
+    return torch.randint(
+        low, high, shape, generator=generator, device=device, dtype=dtype_map[dtype]
+    )
+
+
 def zeros_like(input: torch.Tensor) -> torch.Tensor:
     return torch.zeros_like(input)
 
@@ -1244,6 +1263,7 @@ def primitive_embedding(input: torch.Tensor, weight: torch.Tensor) -> torch.Tens
 array_creation_funcs = [
     "arange",
     "randn",
+    "randint",
     "ones",
     "to_tensor",
     "eye",

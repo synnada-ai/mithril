@@ -215,6 +215,7 @@ __all__ = [
     "pad",
     "split",
     "randn",
+    "randint",
     "atleast_1d",
     "minimum",
     "maximum",
@@ -1134,6 +1135,24 @@ def randn(
         return jax.random.normal(_key, shape, dtype=dtype_map[dtype])
 
 
+def randint(
+    shape: tuple[int, ...],
+    key: int,
+    low: int,
+    high: int,
+    *,
+    dtype: str | None = None,
+    device: str,
+    default_dtype: str,
+) -> jax.Array:
+    _key = jax.random.PRNGKey(key)
+    if dtype is None:
+        dtype = "int32"
+
+    with jax.default_device(get_device(device)):
+        return jax.random.randint(_key, shape, low, high, dtype=dtype_map[dtype])
+
+
 def zeros_like(input: jax.Array) -> jax.Array:
     return jnp.zeros_like(input)
 
@@ -1157,6 +1176,7 @@ def atleast_1d(input: jax.Array) -> jax.Array:
 array_creation_funcs = [
     "arange",
     "randn",
+    "randint",
     "ones",
     "to_tensor",
     "eye",
