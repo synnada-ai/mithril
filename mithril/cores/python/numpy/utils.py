@@ -426,3 +426,17 @@ def determine_dtype(
         dtype_name = find_dominant_type(input).__name__
 
     return dtype_name + str(precision) if dtype_name != "bool" else "bool"
+
+
+def fill_zeros_like(data: Any) -> Any:
+    if isinstance(data, np.ndarray):
+        return np.zeros_like(data)
+    elif isinstance(data, dict):
+        return {key: fill_zeros_like(value) for key, value in data.items()}
+    elif isinstance(data, list | tuple):
+        result: list[Any] | tuple[Any] = type(data)(
+            fill_zeros_like(value) for value in data
+        )
+        return result
+    # Return 0.0 for scalar values.
+    return 0.0

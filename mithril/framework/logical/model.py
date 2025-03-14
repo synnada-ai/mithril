@@ -19,9 +19,8 @@ from dataclasses import dataclass
 from types import EllipsisType
 from typing import Any, Self
 
-from ...common import find_dominant_type
+from ...common import contains_given_type
 from ...types import Dtype as CoreDtype
-from ...utils.utils import constant_fn
 from ..common import (
     NOT_GIVEN,
     TBD,
@@ -458,6 +457,10 @@ ConnectionInstanceType = (
     | Tensor  # type: ignore
 )
 
+UnrollTriggerTypes = (
+    ConnectionData | ExtendTemplate | Connection | IOKey | Tensor  # type: ignore
+)
+
 
 class Model(BaseModel):
     def __call__(self, **kwargs: ConnectionType) -> ExtendInfo:
@@ -484,10 +487,8 @@ class Model(BaseModel):
         setattr(self, key, conn)
 
     def _unroll_template(self, template: ConnectionType) -> ConnectionType:
-        types = [ConnectionData, ExtendTemplate, Connection, IOKey, Tensor]
-        if (
-            isinstance(template, tuple | list)
-            and find_dominant_type(template, False, constant_fn) in types
+        if isinstance(template, tuple | list) and contains_given_type(
+            template, UnrollTriggerTypes
         ):
             _model = ToTupleOp if isinstance(template, tuple) else ToListOp
             template = ExtendTemplate(template, _model, {"n": len(template)})

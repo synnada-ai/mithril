@@ -242,7 +242,7 @@ class NumpyBackend(Backend[np.ndarray[Any, Any]]):
 
     def concat(
         self,
-        input: list[np.ndarray[Any, Any]],
+        input: list[np.ndarray[Any, Any]] | tuple[np.ndarray[Any, Any], ...],
         axis: int = 0,
     ) -> np.ndarray[Any, Any]:
         return np.concatenate(input, axis=axis)

@@ -884,7 +884,9 @@ def flatten(input: jax.Array, *, start_dim: int = 0, end_dim: int = -1) -> jax.A
     return jnp.reshape(input, shape)
 
 
-def concat(input: list[jax.Array], axis: int | None = 0) -> jax.Array:
+def concat(
+    input: list[jax.Array] | tuple[jax.Array, ...], axis: int | None = 0
+) -> jax.Array:
     return jnp.concatenate(input, axis=axis)
 
 

@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from collections.abc import Sequence
+from typing import Any
 
 from ...common import PaddingType
 from ..core import DataType
@@ -222,7 +223,7 @@ def union(*inputs: int | float | tuple[int | float, ...]) -> tuple[int | float, 
     return result
 
 
-def to_tuple(*args: int | float | bool) -> tuple[int | float | bool, ...]:
+def to_tuple(*args: Any) -> tuple[Any, ...]:
     return tuple(args)
 
 

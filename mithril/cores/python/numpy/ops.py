@@ -1067,7 +1067,7 @@ def where(
 
 
 def concat(
-    input: list[np.ndarray[Any, Any]],
+    input: list[np.ndarray[Any, Any]] | tuple[np.ndarray[Any, Any], ...],
     axis: int | None = 0,
     cache: CacheType | None = None,
 ) -> np.ndarray[Any, Any]:
@@ -1573,15 +1573,11 @@ def union(
     return result
 
 
-def to_tuple(
-    *args: tuple[int | float | bool, ...], cache: CacheType | None = None
-) -> tuple[Any, ...]:
+def to_tuple(*args: Any, cache: CacheType | None = None) -> tuple[Any, ...]:
     return tuple(args)
 
 
-def to_list(
-    *args: tuple[int | float | bool, ...], cache: CacheType | None = None
-) -> list[Any]:
+def to_list(*args: Any, cache: CacheType | None = None) -> list[Any]:
     return list(args)
 
 

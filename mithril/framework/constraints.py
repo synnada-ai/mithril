@@ -1942,7 +1942,7 @@ def concat_constraints(
     keys: list[ShapeRepr] = []
     assert isinstance(output._value, Tensor)
     input_val = [] if input._value is TBD else input._value
-    assert isinstance(input_val, list)
+    assert isinstance(input_val, list | tuple)
     for arg in input_val:
         assert isinstance(arg, Tensor)
         assert arg._temp_shape is not None, "Input shape of concat is not set!"

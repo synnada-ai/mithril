@@ -200,7 +200,9 @@ class Backend(ABC, Generic[DataType]):
 
         raise NotImplementedError("flatten is not implemented!")
 
-    def concat(self, input: list[DataType], axis: int = 0) -> DataType:
+    def concat(
+        self, input: list[DataType] | tuple[DataType, ...], axis: int = 0
+    ) -> DataType:
         """
         Concatenate a sequence of arrays along an existing axis.
 

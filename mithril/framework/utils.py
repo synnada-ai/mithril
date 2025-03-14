@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable
 from itertools import product
 from types import FunctionType, GenericAlias, UnionType
 from typing import Any
@@ -254,19 +254,19 @@ def sort_type(
 
 
 def recursive_sum(data1: Any, data2: Any) -> Any:
+    assert type(data1) is type(data2), "Both data types must match"
     # TODO: Move this to the codegen module.
-    # assert type(data1) == type(data2), "Both data types must match"
-    if isinstance(data1, Mapping) and isinstance(data2, Mapping):
+    if isinstance(data1, dict):
         # Both are dictionaries, sum values recursively
         return {
             key: recursive_sum(data1[key], data2[key])
             for key in data1.keys() & data2.keys()
         }
-    elif isinstance(data1, tuple | list) and isinstance(data2, tuple | list):
+    elif isinstance(data1, tuple | list):
         # Both are lists or tuples, sum elements recursively
         return type(data1)(
-            recursive_sum(a, b) for a, b in zip(data1, data2, strict=False)
+            recursive_sum(a, b) for a, b in zip(data1, data2, strict=True)
         )
     else:
-        # Both are numbers, sum them directly
+        # Both are scalars or tensors, sum them directly
         return data1 + data2

@@ -296,8 +296,10 @@ class MlxBackend(Backend[mx.array]):
     ) -> mx.array:
         return mx.flatten(input, start_axis=start_dim, end_axis=end_dim)
 
-    def concat(self, input: list[mx.array], axis: int = 0) -> mx.array:
-        return mx.concatenate(input, axis=axis)
+    def concat(
+        self, input: list[mx.array] | tuple[mx.array, ...], axis: int = 0
+    ) -> mx.array:
+        return mx.concatenate(input, axis=axis)  # type: ignore
 
     def abs(self, input: mx.array) -> mx.array:
         return mx.abs(input)
