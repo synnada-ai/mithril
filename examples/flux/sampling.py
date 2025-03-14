@@ -16,70 +16,68 @@ import math
 from collections.abc import Callable
 
 import torch
-from conditioner import HFEmbedder
-from einops import rearrange, repeat
 
 import mithril as ml
+from mithril.models import (
+    Arange,
+    BroadcastTo,
+    Concat,
+    IOKey,
+    Multiply,
+    Ones,
+    Randn,
+    Reshape,
+    Transpose,
+)
 
 
-def get_noise(
+def prepare_logical(
+    block: ml.models.Model,
+    t5: ml.models.Model,
+    clip: ml.models.Model,
     num_samples: int,
     height: int,
     width: int,
-    backend: ml.Backend,
 ):
-    return backend.randn(
-        num_samples,
-        16,
-        2 * math.ceil(height / 16),
-        2 * math.ceil(width / 16),
-        dtype=ml.bfloat16,
+    c = 16
+    h = 2 * math.ceil(height / 16)
+    w = 2 * math.ceil(width / 16)
+
+    block |= Randn(shape=(num_samples, (h // 2) * (w // 2), c * 2 * 2))(
+        output=IOKey("img")
     )
 
+    block |= Ones(shape=(num_samples, h // 2, w // 2, 1))(output="ones")
+    block |= Multiply()(left="ones", right=0, output="img_ids_preb")
+    block |= Arange(stop=(w // 2))(output="arange_1")
+    block |= BroadcastTo(shape=(num_samples, h // 2, w // 2))(
+        block.arange_1[None, :, None],  # type: ignore
+        output="arange_1_bcast",
+    )
+    block |= Arange(stop=(h // 2))(output="arange_2")
+    block |= BroadcastTo(shape=(num_samples, h // 2, w // 2))(
+        block.arange_2[None, None, :],  # type: ignore
+        output="arange_2_bcast",
+    )
+    block |= Concat(axis=-1)(
+        input=[
+            block.img_ids_preb,  # type: ignore
+            block.arange_1_bcast[..., None],  # type: ignore
+            block.arange_2_bcast[..., None],  # type: ignore
+        ],
+        output="img_ids_cat",
+    )
 
-def prepare(
-    t5: HFEmbedder,
-    t5_weights: dict,
-    t5_tokenizer,
-    clip: HFEmbedder,
-    img: torch.Tensor,
-    prompt: str | list[str],
-    backend: ml.Backend,
-) -> dict[str, torch.Tensor]:
-    bs, c, h, w = img.shape
-    if bs == 1 and not isinstance(prompt, str):
-        bs = len(prompt)
+    block |= Reshape(shape=(num_samples, -1, 3))(
+        block.img_ids_cat,  # type: ignore
+        output=IOKey("img_ids"),
+    )
 
-    # Rearrange "b c (h ph) (w pw) -> b (h w) (c ph pw)" ph=2, pw=2
-    img = rearrange(img, "b c (h ph) (w pw) -> b (h w) (c ph pw)", ph=2, pw=2)
-    if img.shape[0] == 1 and bs > 1:
-        img = repeat(img, "1 ... -> bs ...", bs=bs)
+    block |= t5(input=IOKey("t5_tokens"), output=IOKey("txt"))
+    block |= Ones()(shape=(num_samples, block.txt.shape[1], 3), output="txt_ids_preb")  # type: ignore
+    block |= Multiply()(left="txt_ids_preb", right=0, output=IOKey("txt_ids"))
 
-    img_ids = backend.zeros(h // 2, w // 2, 3)
-    img_ids[..., 1] = img_ids[..., 1] + backend.arange(h // 2)[:, None]
-    img_ids[..., 2] = img_ids[..., 2] + backend.arange(w // 2)[None, :]
-    img_ids = repeat(img_ids, "h w c -> b (h w) c", b=bs)
-
-    if isinstance(prompt, str):
-        prompt = [prompt]
-
-    t5_prompt = t5_tokenizer.encode(prompt)
-    txt = t5(t5_weights, {"input": t5_prompt})["output"]
-    if txt.shape[0] == 1 and bs > 1:
-        txt = repeat(txt, "1 ... -> bs ...", bs=bs)
-    txt_ids = backend.zeros(bs, txt.shape[1], 3)
-
-    vec = clip(prompt)
-    if vec.shape[0] == 1 and bs > 1:
-        vec = repeat(vec, "1 ... -> bs ...", bs=bs)
-
-    return {
-        "img": img,
-        "img_ids": img_ids,
-        "txt": txt,
-        "txt_ids": txt_ids,
-        "vec": vec,
-    }
+    block |= clip(input=IOKey("clip_tokens"), output=IOKey("y"))
 
 
 def get_schedule(
@@ -115,15 +113,26 @@ def get_lin_function(
     return lambda x: m * x + b
 
 
-def unpack(x: torch.Tensor, height: int, width: int) -> torch.Tensor:
-    return rearrange(
-        x,
-        "b (h w) (c ph pw) -> b c (h ph) (w pw)",
-        h=math.ceil(height / 16),
-        w=math.ceil(width / 16),
-        ph=2,
-        pw=2,
+def unpack_logical(
+    model: ml.models.Model, input: ml.models.Connection, height: int, width: int
+) -> ml.models.Model:
+    b = 1
+    h = math.ceil(height / 16)
+    w = math.ceil(width / 16)
+    ph = 2
+    pw = 2
+
+    model |= Reshape(shape=(b, h, w, -1, ph, pw))(input=input, output=IOKey("reshaped"))
+
+    model |= Transpose(axes=(0, 3, 1, 4, 2, 5))(
+        input="reshaped", output=IOKey("transposed")
     )
+
+    model |= Reshape(shape=(b, -1, h * ph, w * pw))(
+        input="transposed", output=IOKey("result")
+    )
+
+    return model.result  # type: ignore
 
 
 def denoise(
