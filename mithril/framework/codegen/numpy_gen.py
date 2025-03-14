@@ -21,7 +21,7 @@ from typing import Any, Literal, overload
 import numpy as np
 
 from ...backends.with_manualgrad.numpy_backend import NumpyBackend
-from ...cores.python.numpy.utils import fill_zeros
+from ...cores.python.numpy.utils import fill_zeros_like
 from ...framework.physical.model import PhysicalModel
 from ...utils.func_utils import is_make_array_required, prepare_function_args
 from ..common import (
@@ -171,7 +171,7 @@ class NumpyCodeGen(PythonCodeGen[np.ndarray[Any, Any]]):
                         out_data = _key_cache["output"]
 
                 # Create same data structure filled with zeros.
-                gradients[key] = fill_zeros(out_data)
+                gradients[key] = fill_zeros_like(out_data)
 
             if output_gradients is None:
                 if FinalCost not in self.pm._output_keys:

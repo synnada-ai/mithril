@@ -26,7 +26,7 @@ from .utils import (
     CacheType,
     accumulate_grads,
     calc_input_slices,
-    fill_zeros,
+    fill_zeros_like,
     get_submatrices1d,
     get_submatrices2d,
     verify_shapes,
@@ -842,12 +842,14 @@ def indexer_grad(
 ) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx, non_differentiables=[1])
     input, index = inputs
-    grad = fill_zeros(input)
-    if isinstance(input, tuple):
+    grad = fill_zeros_like(input)
+    if isinstance(input, np.ndarray):
+        grad[index] = output_gradient
+    else:
         grad = list(grad)
-    grad[index] = output_gradient
-    if isinstance(input, tuple):
-        grad = tuple(grad)
+        grad[index] = output_gradient
+        if isinstance(input, tuple):
+            grad = tuple(grad)
     return grad
 
 

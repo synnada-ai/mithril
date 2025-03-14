@@ -1067,7 +1067,7 @@ def where(
 
 
 def concat(
-    input: list[np.ndarray[Any, Any]],
+    input: list[np.ndarray[Any, Any]] | tuple[np.ndarray[Any, Any], ...],
     axis: int | None = 0,
     cache: CacheType | None = None,
 ) -> np.ndarray[Any, Any]:

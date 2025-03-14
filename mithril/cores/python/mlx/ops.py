@@ -871,8 +871,10 @@ def tensor_to_list(input: mx.array) -> NestedFloatOrIntOrBoolList:
     return input.tolist()  # type: ignore
 
 
-def concat(input: list[mx.array], axis: AxisType = 0) -> mx.array:
-    return mx.concatenate(input, axis=axis)
+def concat(
+    input: list[mx.array] | tuple[mx.array, ...], axis: AxisType = 0
+) -> mx.array:
+    return mx.concatenate(input, axis=axis)  # type: ignore
 
 
 def matrix_concat(input1: mx.array, input2: mx.array) -> mx.array:
