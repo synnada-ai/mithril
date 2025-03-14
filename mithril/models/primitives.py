@@ -177,6 +177,7 @@ __all__ = [
     "Trapezoid",
     "Pad",
     "Randn",
+    "RandInt",
     "Ones",
     "PrimitiveModel",
     "Buffer",
@@ -2119,6 +2120,48 @@ class Randn(PrimitiveModel):
             output=BaseKey(shape=[("output", ...)], type=Tensor),
             shape=BaseKey(type=tuple[int, ...], value=shape),
             key=BaseKey(type=int, value=key),
+            dtype=BaseKey(type=types.Dtype | None, value=dtype),
+        )
+
+        self.submodel.random_keys.add(
+            "key"
+        )  # since random_keys must be in primitive models
+        self.add_constraint(randn_constraints, keys=["output", "shape"])
+
+    def __call__(  # type: ignore[override]
+        self,
+        shape: ConnectionType = NOT_GIVEN,
+        key: ConnectionType = NOT_GIVEN,
+        dtype: ConnectionType = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
+    ) -> ExtendInfo:
+        return super().__call__(shape=shape, key=key, dtype=dtype, output=output)
+
+
+class RandInt(PrimitiveModel):
+    shape: Connection
+    key: Connection
+    dtype: Connection
+    output: Connection
+
+    def __init__(
+        self,
+        shape: tuple[int, ...] | ToBeDetermined = TBD,
+        key: int | ToBeDetermined = TBD,
+        low: int | ToBeDetermined = TBD,
+        high: int | ToBeDetermined = TBD,
+        dtype: types.Dtype | None = None,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(
+            formula_key="randint",
+            name=name,
+            output=BaseKey(shape=[("output", ...)], type=Tensor[int]),
+            shape=BaseKey(type=tuple[int, ...], value=shape),
+            key=BaseKey(type=int, value=key),
+            low=BaseKey(type=int, value=low),
+            high=BaseKey(type=int, value=high),
             dtype=BaseKey(type=types.Dtype | None, value=dtype),
         )
 

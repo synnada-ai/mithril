@@ -65,6 +65,7 @@ from mithril.models import (
     Ones,
     PrimitiveUnion,
     Prod,
+    RandInt,
     Randn,
     ScaledDotProduct,
     Shape,
@@ -906,6 +907,43 @@ def test_randn_key():
         res_out2 = pm.evaluate()["output"]
         pm.set_random_seed_values(key=43)
         res_out3 = pm.evaluate()["output"]
+
+        assert isinstance(res_out1, backend.DataType)  # type: ignore[attr-defined]
+        assert isinstance(res_out2, backend.DataType)  # type: ignore[attr-defined]
+        assert isinstance(res_out3, backend.DataType)  # type: ignore[attr-defined]
+
+        assert res_out1.shape == (3, 4, 5)
+        np.testing.assert_allclose(res_out1, res_out2)
+        np.testing.assert_raises(
+            AssertionError, np.testing.assert_allclose, res_out1, res_out3
+        )
+
+
+def test_randint_static_inference():
+    model = RandInt(shape=(3, 4, 5), key=42)
+    data = {"low": 0, "high": 1000000}
+    for backend in default_backends:
+        pm = mithril.compile(model, backend, inference=True)
+        res_out1 = pm.evaluate(data=data)["output"]
+        res_out2 = pm.evaluate(data=data)["output"]
+
+        assert isinstance(res_out1, backend.DataType)  # type: ignore[attr-defined]
+        assert isinstance(res_out2, backend.DataType)  # type: ignore[attr-defined]
+        assert res_out1.shape == (3, 4, 5)
+        np.testing.assert_allclose(res_out1, res_out2)
+
+
+def test_randint_key():
+    model = RandInt(shape=(3, 4, 5))
+    data = {"low": 0, "high": 1000000}
+    for backend in default_backends:
+        pm = mithril.compile(model, backend, inference=True)
+        pm.set_random_seed_values(key=42)
+        res_out1 = pm.evaluate(data=data)["output"]
+        pm.set_random_seed_values(key=42)
+        res_out2 = pm.evaluate(data=data)["output"]
+        pm.set_random_seed_values(key=43)
+        res_out3 = pm.evaluate(data=data)["output"]
 
         assert isinstance(res_out1, backend.DataType)  # type: ignore[attr-defined]
         assert isinstance(res_out2, backend.DataType)  # type: ignore[attr-defined]

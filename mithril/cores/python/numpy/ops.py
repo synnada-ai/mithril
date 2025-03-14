@@ -163,6 +163,7 @@ __all__ = [
     "pad",
     "split",
     "randn",
+    "randint",
     "atleast_1d",
     "minimum",
     "maximum",
@@ -1314,6 +1315,22 @@ def randn(
     return np.random.randn(*shape).astype(dtype)
 
 
+def randint(
+    shape: tuple[int, ...],
+    key: int,
+    low: int,
+    high: int,
+    *,
+    dtype: str | None = None,
+    default_dtype: str,
+    cache: CacheType | None = None,
+) -> np.ndarray[Any, Any]:
+    np.random.seed(key)
+    if dtype is None:
+        dtype = "int32"
+    return np.random.randint(low, high, shape).astype(dtype)
+
+
 def zeros_like(
     input: np.ndarray[Any, Any], cache: CacheType | None = None
 ) -> np.ndarray[Any, Any]:
@@ -1706,6 +1723,7 @@ def cartesian_diff(
 array_creation_funcs = [
     "arange",
     "randn",
+    "randint",
     "ones",
     "to_tensor",
     "make_array",

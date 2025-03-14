@@ -359,7 +359,7 @@ def test_add_metric_2():
 
     backend = NumpyBackend()
     input = backend.randn(5, 5)
-    c_model = mithril.compile(ctx2, backend, data_keys={"input"})
+    c_model = mithril.compile(ctx2, backend, data_keys={"input"}, inference=True)
     result = c_model.evaluate({}, {"input": input})
 
     expected_metric = np.array(np.mean(np.where(input > 0, input, 0)))
