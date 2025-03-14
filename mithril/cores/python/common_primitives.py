@@ -13,6 +13,8 @@
 # limitations under the License.
 
 from collections.abc import Sequence
+from types import EllipsisType
+from typing import Any, overload
 
 from ...common import PaddingType
 from ..core import DataType
@@ -27,6 +29,7 @@ __all__ = [
     "logical_not",
     "logical_or",
     "logical_and",
+    "logical_xor",
     "matrix_multiplication",
     "add",
     "subtract",
@@ -37,7 +40,7 @@ __all__ = [
     "shift_right",
     "power",
     "squared_error",
-    "minus",
+    "negate",
     "transpose",
     "swapaxes",
     "square",
@@ -47,7 +50,6 @@ __all__ = [
     "reshape",
     "item",
     "indexer",
-    "sequence_slice",
     "union",
     "length",
     "cartesian_diff",
@@ -62,83 +64,115 @@ __all__ = [
 ]
 
 
-def greater(left: DataType, right: DataType) -> DataType:
+def greater(left: DataType, right: DataType) -> DataType | bool:
     return left > right
 
 
-def greater_equal(left: DataType, right: DataType) -> DataType:
+def greater_equal(left: DataType, right: DataType) -> DataType | bool:
     return left >= right
 
 
-def less(left: DataType, right: DataType) -> DataType:
-    return left < right
+def less(
+    left: DataType | int | float | bool, right: DataType | int | float | bool
+) -> DataType | bool:
+    return left < right  # type: ignore
 
 
-def less_equal(left: DataType, right: DataType) -> DataType:
-    return left <= right
+def less_equal(
+    left: DataType | int | float | bool, right: DataType | int | float | bool
+) -> DataType | bool:
+    return left <= right  # type: ignore
 
 
-def equal(left: DataType, right: DataType) -> DataType:
-    return left == right  # type: ignore
+def equal(
+    left: DataType | int | float | bool, right: DataType | int | float | bool
+) -> DataType | bool:
+    return left == right
 
 
-def not_equal(left: DataType, right: DataType) -> DataType:
-    return left != right  # type: ignore
+def not_equal(
+    left: DataType | int | float | bool, right: DataType | int | float | bool
+) -> DataType | bool:
+    return left != right
 
 
 def logical_not(input: DataType) -> DataType:
     return ~input
 
 
-def logical_or(left: DataType, right: DataType) -> DataType:
-    return left | right
+def logical_or(
+    left: DataType | int | bool, right: DataType | int | bool
+) -> DataType | int | bool:
+    return left | right  # type: ignore
 
 
-def logical_and(left: DataType, right: DataType) -> DataType:
-    return left & right
+def logical_and(
+    left: DataType | int | bool, right: DataType | int | bool
+) -> DataType | int | bool:
+    return left & right  # type: ignore
+
+
+def logical_xor(
+    left: DataType | int | bool, right: DataType | int | bool
+) -> DataType | int | bool:
+    return left ^ right  # type: ignore
 
 
 def matrix_multiplication(left: DataType, right: DataType) -> DataType:
     return left @ right
 
 
-def add(left: DataType, right: DataType) -> DataType:
-    return left + right
+def add(
+    left: DataType | int | float | bool, right: DataType | int | float | bool
+) -> DataType | int | float | bool:
+    return left + right  # type: ignore
 
 
-def subtract(left: DataType, right: DataType) -> DataType:
-    return left - right
+def subtract(
+    left: DataType | int | float | bool, right: DataType | int | float | bool
+) -> DataType | int | float | bool:
+    return left - right  # type: ignore
 
 
-def multiplication(left: DataType, right: DataType) -> DataType:
-    return left * right
+def multiplication(
+    left: DataType | int | float | bool, right: DataType | int | float | bool
+) -> DataType | int | float | bool:
+    return left * right  # type: ignore
 
 
-def divide(numerator: DataType, denominator: DataType) -> DataType:
-    return numerator / denominator
+def divide(
+    numerator: DataType | int | float | bool, denominator: DataType | int | float | bool
+) -> DataType | int | float | bool:
+    return numerator / denominator  # type: ignore
 
 
-def floor_divide(numerator: DataType, denominator: DataType) -> DataType:
-    return numerator // denominator
+def floor_divide(
+    numerator: DataType | int | float | bool, denominator: DataType | int | float | bool
+) -> DataType | int | float:
+    return numerator // denominator  # type: ignore
 
 
-def shift_left(input: DataType, shift: DataType) -> DataType:
-    return input << shift  # pyright: ignore
+def shift_left(input: DataType | int | bool, shift: DataType | int | bool) -> DataType:
+    return input << shift  # type: ignore
 
 
-def shift_right(input: DataType, shift: DataType) -> DataType:
-    return input >> shift  # pyright: ignore
+def shift_right(
+    input: DataType | int | bool, shift: DataType | int | bool
+) -> DataType | int | bool:
+    return input >> shift  # type: ignore
 
 
-def power(base: DataType, exponent: DataType) -> DataType:
-    return base**exponent  # pyright: ignore
+def power(
+    base: DataType | int | float | bool, exponent: DataType | int | float | bool
+) -> DataType | int | float | bool:
+    return base**exponent  # type: ignore
 
 
 def squared_error(input: DataType, target: DataType) -> DataType:
     return (input - target) ** 2  # pyright: ignore
 
 
-def minus(input: DataType) -> DataType:
+def negate(input: DataType) -> DataType:
     return -input
 
 
@@ -174,19 +208,40 @@ def item(input: DataType) -> int | float | bool:
     return input.item()  # type: ignore
 
 
-# TODO: Overload this function.
+@overload
 def indexer(
-    input: DataType | list[int | float | bool] | tuple[int | float | bool, ...],
-    index: int | slice | tuple[int | slice, ...],
-) -> (
-    DataType
-    | list[int | float | bool]
-    | tuple[int | float | bool, ...]
-    | int
-    | float
-    | bool
-):
-    return input[index]  # type: ignore
+    input: DataType,
+    index: int
+    | slice
+    | None
+    | EllipsisType
+    | tuple[int | slice | EllipsisType | None, ...],
+) -> DataType: ...
+
+
+@overload
+def indexer[T](
+    input: Sequence[T],
+    index: slice,
+) -> Sequence[T]: ...
+
+
+@overload
+def indexer[T](
+    input: Sequence[T],
+    index: int,
+) -> T: ...
+
+
+def indexer(
+    input: Any,
+    index: int
+    | slice
+    | None
+    | EllipsisType
+    | tuple[int | slice | EllipsisType | None, ...],
+) -> Any:
+    return input[index]
 
 
 def primitive_slice(start: int | None, stop: int | None, step: int | None) -> slice:
@@ -205,15 +260,6 @@ def primitive_embedding(input: DataType, weight: DataType) -> DataType:
     return weight[input]
 
 
-def sequence_slice(
-    input: list[int | float] | tuple[int | float, ...],
-    start: int | None,
-    stop: int | None,
-    step: int | None,
-) -> list[int | float] | tuple[int | float, ...]:
-    return input[start:stop:step]
-
-
 def union(*inputs: int | float | tuple[int | float, ...]) -> tuple[int | float, ...]:
     result: tuple[int | float, ...] = tuple()
     for item in inputs:
@@ -222,11 +268,15 @@ def union(*inputs: int | float | tuple[int | float, ...]) -> tuple[int | float, 
     return result
 
 
-def to_tuple(*args: int | float | bool) -> tuple[int | float | bool, ...]:
+def to_tuple[T](
+    *args: T,
+) -> tuple[T, ...]:
     return tuple(args)
 
 
-def to_list(*args: int | float | bool) -> list[int | float | bool]:
+def to_list[T](
+    *args: T,
+) -> list[T]:
     return list(args)
 
 

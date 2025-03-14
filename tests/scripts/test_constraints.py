@@ -23,7 +23,6 @@ import pytest
 
 from mithril.framework.common import (
     TBD,
-    ConstraintFunctionType,
     ConstraintSolver,
     IOHyperEdge,
     PossibleValues,
@@ -49,7 +48,7 @@ from mithril.framework.constraints import (
     eye_constraints,
     flatten_constrains,
     general_forward_constraint,
-    general_tensor_type_constraint,
+    general_type_constraint,
     generate_nested_list_type,
     indexer_constraints,
     indexer_type_constraint,
@@ -87,25 +86,15 @@ from .test_utils import (
 
 
 def is_type_checker(
-    ref_results: dict[str, type] | ShapeResultType,
-    constraint_fn: ConstraintFunctionType,
+    constr_type: set[UpdateType],
 ) -> TypeGuard[dict[str, type]]:
-    types = constraint_type_map.get(constraint_fn)
-    if types:
-        return UpdateType.TYPE in types
-    else:
-        return False
+    return UpdateType.TYPE in constr_type
 
 
 def is_shape_checker(
-    ref_results: dict[str, type] | ShapeResultType,
-    constraint_fn: ConstraintFunctionType,
+    constr_type: set[UpdateType],
 ) -> TypeGuard[ShapeResultType]:
-    types = constraint_type_map.get(constraint_fn)
-    if types:
-        return bool({UpdateType.SHAPE, UpdateType.VALUE} & set(types))
-    else:
-        return True
+    return bool({UpdateType.SHAPE, UpdateType.VALUE} & set(constr_type))
 
 
 ######################### Helper Functions #########################
@@ -218,22 +207,26 @@ def assert_value_results(
 
 
 def make_assertions(
-    constraint_fn: Callable,
     data: dict[str, IOHyperEdge],
     ref_results: dict[str, type] | ShapeResultType,
     ref_assignments: AssignmentType,
     updated_symbols: Updates,
     expected_updates: set[str | Tensor] | set[str] | set[Tensor],
     final_values: dict[str, Any],
+    constr_type: set[UpdateType],
 ) -> None:
     # Check final shapes with the expected ref_shapes. Also check updated symbols.
-    if is_shape_checker(ref_results, constraint_fn):
+    if is_shape_checker(constr_type):
         assert_shape_results(
-            data, ref_results, ref_assignments, updated_symbols, expected_updates
+            data,
+            ref_results,  # type: ignore
+            ref_assignments,
+            updated_symbols,
+            expected_updates,
         )
     else:
-        assert is_type_checker(ref_results, constraint_fn)
-        assert_type_results(data, ref_results, updated_symbols, expected_updates)
+        assert is_type_checker(constr_type)
+        assert_type_results(data, ref_results, updated_symbols, expected_updates)  # type: ignore
     # NOTE: There is no other possibilities. Only for type cheking!
 
     # Check final values with the expected final_values.
@@ -254,6 +247,7 @@ def assert_constraint_results(
     initial_values: dict[str, Any] | None = None,
     initial_types: Mapping[str, type | UnionType] | None = None,
     variadic_fn: bool = False,
+    constr_type: set[UpdateType] | None = None,
 ):
     for _ in range(50):
         args = (
@@ -269,6 +263,7 @@ def assert_constraint_results(
             initial_values,
             initial_types,
             variadic_fn,
+            constr_type,
         )
         _assert_constraint_results(*deepcopy(args))
 
@@ -286,6 +281,7 @@ def _assert_constraint_results(
     initial_values: dict[str, Any] | None = None,
     initial_types: Mapping[str, type | UnionType] | None = None,
     variadic_fn: bool = False,
+    constr_type: set[UpdateType] | None = None,
 ):
     # Create shape maps and corresponding data.
     solver = ConstraintSolver()
@@ -310,6 +306,10 @@ def _assert_constraint_results(
         initial_values = dict()
 
     # In case there exists Scalar data, add it.
+    if constr_type is None:
+        constr_type = set(
+            constraint_type_map.get(constraint_fn, {UpdateType.SHAPE, UpdateType.VALUE})
+        )
     if given_data is not None:
         data |= given_data
 
@@ -335,13 +335,13 @@ def _assert_constraint_results(
 
     # Make all assertions.
     make_assertions(
-        constraint_fn,
         data,
         ref_results,
         ref_assignments,
         updated_symbols,
         expected_updates,
         final_values,
+        constr_type,
     )
 
     # In order to check idempotency, call corresponding function again.
@@ -353,13 +353,13 @@ def _assert_constraint_results(
     assert post_status == status
     # Make all assertions again.
     make_assertions(
-        constraint_fn,
         data,
         ref_results,
         ref_assignments,
         reupdated_symbols,
         set(),
         final_values,
+        constr_type,
     )
 
 
@@ -7565,7 +7565,7 @@ def test_reduce_type_constraint_5():
     )
 
 
-def test_general_tensor_type_constraint_1():
+def test_general_type_constraint_1():
     shapes: dict[str, list[int | str | tuple]] = {
         "output": [("Var2", ...)],
         "input": [("Var1", ...)],
@@ -7580,7 +7580,7 @@ def test_general_tensor_type_constraint_1():
         {},
         final_types,
         {},
-        general_tensor_type_constraint,
+        general_type_constraint,
         True,
         {"output"},
         initial_types=initial_types,
@@ -7588,7 +7588,7 @@ def test_general_tensor_type_constraint_1():
     )
 
 
-def test_general_tensor_type_constraint_2():
+def test_general_type_constraint_2():
     shapes: dict[str, list[int | str | tuple]] = {
         "output": [("Var2", ...)],
         "input": [("Var1", ...)],
@@ -7600,7 +7600,7 @@ def test_general_tensor_type_constraint_2():
         {},
         final_types,
         {},
-        general_tensor_type_constraint,
+        general_type_constraint,
         True,
         set(),
         initial_types=initial_types,
@@ -7608,7 +7608,7 @@ def test_general_tensor_type_constraint_2():
     )
 
 
-def test_general_tensor_type_constraint_3():
+def test_general_type_constraint_3():
     shapes: dict[str, list[int | str | tuple]] = {
         "output": [("Var2", ...)],
         "input1": [("Var1", ...)],
@@ -7635,15 +7635,16 @@ def test_general_tensor_type_constraint_3():
         {},
         final_types,
         {},
-        general_tensor_type_constraint,
+        partial(general_type_constraint, fn=lambda a, b, c, d: a + b + c + d),
         True,
         {"input1", "input2", "input3", "input4"},
         initial_types=initial_types,
         variadic_fn=True,
+        constr_type={UpdateType.TYPE},
     )
 
 
-def test_general_tensor_type_constraint_4():
+def test_general_type_constraint_4():
     shapes: dict[str, list[int | str | tuple]] = {
         "output": [("Var2", ...)],
         "input1": [("Var1", ...)],
@@ -7670,15 +7671,16 @@ def test_general_tensor_type_constraint_4():
         {},
         final_types,
         {},
-        general_tensor_type_constraint,
+        partial(general_type_constraint, fn=lambda a, b, c, d: a + b + c + d),
         False,
         {"input1", "input2", "input3", "input4"},
         initial_types=initial_types,
         variadic_fn=True,
+        constr_type={UpdateType.TYPE},
     )
 
 
-def test_general_tensor_type_constraint_5():
+def test_general_type_constraint_5():
     shapes: dict[str, list[int | str | tuple]] = {
         "output": [("Var2", ...)],
         "input1": [("Var1", ...)],
@@ -7705,15 +7707,16 @@ def test_general_tensor_type_constraint_5():
         {},
         final_types,
         {},
-        general_tensor_type_constraint,
+        partial(general_type_constraint, fn=lambda a, b, c, d: a + b + c + d),
         True,
         {"input4"},
         initial_types=initial_types,
         variadic_fn=True,
+        constr_type={UpdateType.TYPE},
     )
 
 
-def test_general_tensor_type_constraint_6():
+def test_general_type_constraint_6():
     shapes: dict[str, list[int | str | tuple]] = {
         "output": [("Var2", ...)],
         "input1": [("Var1", ...)],
@@ -7740,15 +7743,16 @@ def test_general_tensor_type_constraint_6():
         {},
         final_types,
         {},
-        general_tensor_type_constraint,
+        partial(general_type_constraint, fn=lambda a, b, c, d: a + b + c + d),
         True,
         {"input4"},
         initial_types=initial_types,
         variadic_fn=True,
+        constr_type={UpdateType.TYPE},
     )
 
 
-def test_general_tensor_type_constraint_8():
+def test_general_type_constraint_8():
     shapes: dict[str, list[int | str | tuple]] = {
         "output": [("Var2", ...)],
         "input1": [("Var1", ...)],
@@ -7775,15 +7779,16 @@ def test_general_tensor_type_constraint_8():
         {},
         final_types,
         {},
-        general_tensor_type_constraint,
+        partial(general_type_constraint, fn=lambda a, b, c, d: a + b + c + d),
         True,
         {"output"},
         initial_types=initial_types,
         variadic_fn=True,
+        constr_type={UpdateType.TYPE},
     )
 
 
-def test_general_tensor_type_constraint_9():
+def test_general_type_constraint_9():
     shapes = {
         "output": [("Var2", ...)],
         "input1": [("Var1", ...)],
@@ -7800,15 +7805,16 @@ def test_general_tensor_type_constraint_9():
         {},
         final_types,
         {},
-        general_tensor_type_constraint,
+        partial(general_type_constraint, fn=lambda a, b: a + b),
         False,
         {"output"},
         initial_types=initial_types,
         variadic_fn=True,
+        constr_type={UpdateType.TYPE},
     )
 
 
-def test_general_tensor_type_constraint_10():
+def test_general_type_constraint_10():
     shapes = {
         "output": [("Var2", ...)],
         "input1": [("Var1", ...)],
@@ -7825,7 +7831,7 @@ def test_general_tensor_type_constraint_10():
         {},
         final_types,
         {},
-        general_tensor_type_constraint,
+        general_type_constraint,
         False,
         {"output"},
         initial_types=initial_types,

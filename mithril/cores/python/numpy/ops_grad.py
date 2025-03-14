@@ -109,7 +109,7 @@ __all__ = [
     "max_pool2d_grad",
     "max_pool1d_grad",
     "flatten_grad",
-    "minus_grad",
+    "negate_grad",
     "to_list_grad",
     "atleast_1d_grad",
     "cast_grad",
@@ -211,7 +211,7 @@ def cross_entropy_grad(
     robust: bool = False,
 ) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx, non_differentiables=[1, 2])
-    input, target, _, cutoff = inputs
+    input, target, _, threshold = inputs
     if categorical:
         grad = np.zeros_like(input)
         np.put_along_axis(grad, target[:, None], 1, axis=1)
@@ -222,7 +222,7 @@ def cross_entropy_grad(
                 cache,
                 0,
                 np.take_along_axis(input, target[:, None], axis=1)[:, 0, ...],
-                cutoff,
+                threshold,
             )[:, None, ...]
         else:
             grad *= log_grad(
@@ -238,7 +238,7 @@ def cross_entropy_grad(
     if not robust:
         l_grad = log_grad(s_grad, None, 0, input) * target
     else:
-        l_grad = robust_log_grad(s_grad, None, 0, input, cutoff) * target
+        l_grad = robust_log_grad(s_grad, None, 0, input, threshold) * target
     return -l_grad
 
 
@@ -251,7 +251,7 @@ def cross_entropy_with_logits_grad(
     robust: bool = False,
 ) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx, non_differentiables=[1])
-    input, target, _, cutoff = inputs
+    input, target, _, threshold = inputs
     grad = softmax(input, axis=1)
     if categorical:
         grad_c = np.zeros_like(grad)
@@ -265,7 +265,7 @@ def cross_entropy_with_logits_grad(
     if not robust:
         l_grad = log_grad(s_grad, None, 0, grad) * target
     else:
-        l_grad = robust_log_grad(s_grad, None, 0, grad, cutoff) * target
+        l_grad = robust_log_grad(s_grad, None, 0, grad, threshold) * target
 
     return -softmax_grad(l_grad, {"output": grad, "axis": 1}, 0, input)
 
@@ -304,14 +304,16 @@ def binary_cross_entropy_grad(
     (
         input,
         target,
-        cutoff,
+        threshold,
         *_,
     ) = inputs
     pos_weight = cache["pos_weight"]
     if robust:
         grad = -pos_weight * target * robust_log_grad(
-            output_gradient, cache, 0, input, cutoff
-        ) + (1 - target) * robust_log_grad(output_gradient, cache, 0, 1 - input, cutoff)
+            output_gradient, cache, 0, input, threshold
+        ) + (1 - target) * robust_log_grad(
+            output_gradient, cache, 0, 1 - input, threshold
+        )
     else:
         grad = -pos_weight * target * output_gradient * (1 / input) + (
             1 - target
@@ -394,9 +396,11 @@ def kl_divergence_grad(
     *inputs: np.ndarray[Any, Any],
 ) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx, non_differentiables=[2])
-    input, target, cutoff = inputs
+    input, target, threshold = inputs
     grad = (
-        [-1, 1][idx] * target * robust_log_grad(output_gradient, {}, 0, input, cutoff)
+        [-1, 1][idx]
+        * target
+        * robust_log_grad(output_gradient, {}, 0, input, threshold)
     )
     if idx == 1:
         grad += cache["partial_result"]
@@ -469,11 +473,11 @@ def robust_sqrt_grad(
     *inputs: np.ndarray[Any, Any],
 ) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx, non_differentiables=[1])
-    input, cutoff = inputs
-    inds = np.abs(input) < cutoff
+    input, threshold = inputs
+    inds = np.abs(input) < threshold
     grad = np.zeros_like(input)
     grad[~inds] = (1 / 2) * (1 / cache["output"][~inds])
-    grad[inds] = np.reciprocal(np.sqrt(cutoff))
+    grad[inds] = np.reciprocal(np.sqrt(threshold))
     return np.sign(input) * grad * output_gradient
 
 
@@ -487,13 +491,13 @@ def robust_log_grad(
     *inputs: np.ndarray[Any, Any],
 ) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx, non_differentiables=[1])
-    input, cutoff = inputs
+    input, threshold = inputs
     negative_inds = input < 0.0
     input = np.abs(input)
-    inds = input < cutoff
+    inds = input < threshold
     grad = np.zeros_like(input)
     grad[~inds] = 1 / input[~inds]
-    grad[inds] = 1 / cutoff
+    grad[inds] = 1 / threshold
     grad[negative_inds] = -grad[negative_inds]
     # grad[positive_inds] = grad[positive_inds]
     return grad * output_gradient
@@ -509,11 +513,11 @@ def stable_reciprocal_grad(
     *inputs: np.ndarray[Any, Any],
 ) -> np.ndarray[Any, Any]:
     verify_shapes(inputs, idx, non_differentiables=[1])
-    input, cutoff = inputs
-    inds = np.abs(input) < cutoff
+    input, threshold = inputs
+    inds = np.abs(input) < threshold
     grad = np.zeros_like(input)
     grad[~inds] = -1 / np.square(input[~inds])
-    grad[inds] = -(1 / np.square(cutoff))
+    grad[inds] = -(1 / np.square(threshold))
     return grad * output_gradient
 
 
@@ -1695,7 +1699,7 @@ def pad_grad(
     return output_gradient[slices]
 
 
-def minus_grad(
+def negate_grad(
     output_gradient: np.ndarray[Any, Any],
     cache: CacheType,
     idx: int,

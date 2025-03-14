@@ -5370,7 +5370,8 @@
         "model": {
             "name": "CrossEntropy",
             "args": {
-                "input_type": "probs"
+                "input_type": "probs",
+                "robust": true
             },
             "assigned_differentiabilities": [["input", true]]
         },
@@ -5378,7 +5379,6 @@
             "input":[[0.0, 1.0], [0.1, 0.9]]
         },
         "static_keys": {
-            "robust": true,
             "target": [1, 0]
         },
         "output_grads": {
@@ -5398,7 +5398,8 @@
         "model": {
             "name": "CrossEntropy",
             "args": {
-                "input_type": "probs"
+                "input_type": "probs",
+                "robust": true
             },
             "assigned_differentiabilities": [["input", true]]
         },
@@ -5406,7 +5407,6 @@
             "input":[[0.0, 1.0], [0.1, 0.9]]
         },
         "static_keys": {
-        "robust": true,
             "target": [0, 0]
         },
         "output_grads": {
@@ -5430,7 +5430,8 @@
         "model": {
             "name": "CrossEntropy",
             "args": {
-                "input_type": "probs"
+                "input_type": "probs",
+                "robust": true
             },
             "assigned_differentiabilities": [["input", true]]
         },
@@ -5438,7 +5439,6 @@
             "input":[[2.220446049250313e-16, 1.0], [0.1, 0.9]]
         },
         "static_keys": {
-            "robust": true,
             "target": [0, 0]
         },
         "output_grads": {
@@ -5458,7 +5458,8 @@
         "model": {
             "name": "CrossEntropy",
             "args": {
-                "input_type": "probs"
+                "input_type": "probs",
+                "robust": true
             },
             "assigned_differentiabilities": [["input", true]]
         },
@@ -5466,7 +5467,6 @@
             "input":[[0.0, 1.0]]
         },
         "static_keys": {
-            "robust": true,
             "target": [0]
         },
         "output_grads": {
@@ -5490,7 +5490,8 @@
         "model": {
             "name": "CrossEntropy",
             "args": {
-                "input_type": "probs"
+                "input_type": "probs",
+                "robust": true
             },
             "assigned_differentiabilities": [["input", true]]
         },
@@ -5498,7 +5499,7 @@
             "input":[[0.2, 1.1102230246251565e-16, 0.7999999999999998], [0.1, 0.6, 0.3]]
         },
         "static_keys": {
-            "robust": true,
+
             "target": [1, 2]
         },
         "output_grads": {
@@ -5517,7 +5518,8 @@
         "model": {
             "name": "CrossEntropy",
             "args": {
-                "input_type": "probs"
+                "input_type": "probs",
+                "robust": true
             },
             "assigned_differentiabilities": [["input", true]]
         },
@@ -5525,7 +5527,6 @@
             "input":[[0.5, 0.5], [0.1, 0.9]]
         },
         "static_keys": {
-            "robust": true,
             "target": [0, 1]
         },
         "output_grads": {
@@ -5545,7 +5546,8 @@
         "model": {
             "name": "CrossEntropy",
             "args": {
-                "input_type": "probs"
+                "input_type": "probs",
+                "robust": true
             },
             "assigned_differentiabilities": [["input", true]]
         },
@@ -5553,7 +5555,6 @@
             "input":[[0.5, 0.5], [0.1, 0.9]]
         },
         "static_keys": {
-            "robust": true,
             "target": [0, 1]
         },
         "output_grads": {
@@ -5573,7 +5574,8 @@
         "model": {
             "name": "CrossEntropy",
             "args": {
-                "input_type": "probs"
+                "input_type": "probs",
+                "robust": true
             },
             "assigned_differentiabilities": [["input", true]]
         },
@@ -5581,7 +5583,6 @@
             "input":[[0.0, 1.0], [0.1, 0.9]]
         },
         "static_keys": {
-            "robust": true,
             "target": [1, 0]
         },
         "output_grads": {
@@ -5716,7 +5717,8 @@
         "model": {
             "name": "BinaryCrossEntropy",
             "args":{
-                "input_type": "probs"
+                "input_type": "probs",
+                "robust": true
             },
             "assigned_differentiabilities": [["input", true]]
         },
@@ -5724,7 +5726,6 @@
             "input": [[0.1, 0.2, 0.3], [0.5, 1.0, 0.2]]
         },
         "static_keys": {
-            "robust": true,
             "target": [[0, 1, 0], [1, 1, 1]]
         },
         "output_grads": {
@@ -5991,13 +5992,15 @@
     "test_quantile_loss_1": {
         "model": {
             "name": "QuantileLoss",
+            "args": {
+                "quantile": 0.1
+            },
             "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[1.0]]
         },
         "static_keys": {
-            "quantile": 0.1,
             "target": [[0.0]]
         },
         "output_grads": {
@@ -6015,10 +6018,12 @@
     "test_quantile_loss_2": {
         "model": {
             "name": "QuantileLoss",
+            "args": {
+                "quantile": 0.1
+            },
             "assigned_differentiabilities": [["input", true]]
         },
         "static_keys": {
-            "quantile": 0.1,
             "target": [[1.0], [1e-5]]
         },
         "inputs": {
@@ -6039,13 +6044,15 @@
     "test_quantile_loss_3": {
         "model": {
             "name": "QuantileLoss",
+            "args": {
+                "quantile": 0.9
+            },
             "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input": [[1.0], [1e-5]]
         },
         "static_keys": {
-            "quantile": 0.9,
             "target": [[1.0], [1e-5]]
         },
         "output_grads": {
@@ -6063,13 +6070,15 @@
     "test_quantile_loss_4": {
         "model": {
             "name": "QuantileLoss",
+            "args": {
+                "quantile": 0.4
+            },
             "assigned_differentiabilities": [["input", true]]
         },
         "inputs": {
             "input":[[1.0, 2.0], [0.0, 1.0]]
         },
         "static_keys": {
-            "quantile": 0.4,
             "target": [[1.0, 0.0], [2.0, -1.0]]
         },
         "output_grads": {"output": [[1.0, 1.0], [1.0, 1.0]]},
@@ -6302,9 +6311,11 @@
     "test_leaky_relu_1": {
         "model": {
             "name": "LeakyRelu",
+            "args": {
+                "slope": 0.2
+            },
             "assigned_differentiabilities": [["input", true]]
         },
-        "static_keys": {"slope": 0.2},
         "inputs": {
             "input": [[1.0, -2.0], [2.0, 0.0]]
         },
@@ -6327,9 +6338,11 @@
     "test_leaky_relu_2": {
         "model": {
             "name": "LeakyRelu",
+            "args": {
+                "slope": 0.2
+            },
             "assigned_differentiabilities": [["input", true]]
         },
-        "static_keys": {"slope": 0.2},
         "inputs": {
             "input": [[0.0]]
         },
@@ -6352,9 +6365,11 @@
     "test_leaky_relu_3": {
         "model": {
             "name": "LeakyRelu",
+            "args": {
+                "slope": 0.2
+            },
             "assigned_differentiabilities": [["input", true]]
         },
-        "static_keys": {"slope": 0.2},
         "inputs": {
             "input": [[-1.0, -2.0], [2.0, 0.0], [-0.04, -100]]
         },
@@ -6597,9 +6612,11 @@
     "test_softmax_8": {
         "model": {
             "name": "Softmax",
+            "args": {
+                "axis": 0
+            },
             "assigned_differentiabilities": [["input", true]]
         },
-        "static_keys": {"axis": 0},
         "inputs": {
             "input":  [[1.0, -2.0], [2.0, 0.0]]
         },
@@ -6852,11 +6869,11 @@
         "model": {
             "name": "Sqrt",
             "args": {
-                "robust": true
+                "robust": true,
+                "threshold": 1e-20
             },
             "assigned_differentiabilities": [["input", true]]
         },
-        "static_keys": {"cutoff": 1e-20},
         "inputs": {
             "input": [[0.9999999999999e-20, 1.0000000000001e-20, 0.0]]
         },

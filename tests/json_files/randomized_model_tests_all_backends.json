@@ -759,8 +759,7 @@
                 "mode": "int",
                 "shapes": [[15, 15], [15, 15], [15, 15]],
                 "interval": [[0, 0], [9, 9]]
-            },
-            "categorical": true
+            }
         },
         "iterations": 20
     },
@@ -783,8 +782,7 @@
                 "mode": "int",
                 "shapes": [[15, 15], [15, 15], [15, 15]],
                 "interval": [[0, 0], [9, 9]]
-            },
-            "categorical": true
+            }
         },
         "iterations": 20
     },
@@ -806,8 +804,7 @@
                 "mode": "int",
                 "shapes": [[15, 15], [15, 15], [15, 15]],
                 "interval": [[0, 0], [9, 9]]
-            },
-            "categorical": true
+            }
         },
         "iterations": 20
     },
@@ -815,7 +812,8 @@
         "model": {
             "name": "CrossEntropy",
             "regular_args":{
-                "weights": [1.0,0.2,1.0,1.0,1.0,1.0,1.0,0.7,1.0,0.2,1.0,1.0,1.0,1.0,1.0]
+                "weights": [1.0,0.2,1.0,1.0,1.0,1.0,1.0,0.7,1.0,0.2,1.0,1.0,1.0,1.0,1.0],
+                "categorical": false
             }
         },
         "input_info": {
@@ -827,8 +825,7 @@
             "target": {
                 "shapes": [[15, 15], [15,15], [15,15]],
                 "is_positive": true
-            },
-            "categorical": false
+            }
         },
         "iterations": 20,
         "64bit_relative_tolerance": 1e-12
@@ -838,7 +835,9 @@
             "name": "CrossEntropy",
             "regular_args": {
                 "weights": [1.0,0.2,1.0,1.0,1.0,1.0,1.0,0.7,1.0,0.2,1.0,1.0,1.0,1.0,1.0],
-                "input_type": "probs"
+                "input_type": "probs",
+                "robust": true,
+                "categorical": false
             }
         },
         "input_info": {
@@ -851,9 +850,7 @@
             "target": {
                 "shapes": [[15, 15], [15,15], [15, 15]],
                 "is_positive": true
-            },
-            "robust": true,
-            "categorical": false
+            }
         },
         "iterations": 20,
         "64bit_relative_tolerance": 1e-12
@@ -863,7 +860,8 @@
             "name": "CrossEntropy",
             "regular_args": {
                 "weights": [1.0,0.2,1.0,1.0,1.0,1.0,1.0,0.7,1.0,0.2,1.0,1.0,1.0,1.0,1.0],
-                "input_type": "log_probs"
+                "input_type": "log_probs",
+                "categorical": false
             }
         },
         "input_info": {
@@ -875,8 +873,7 @@
             "target": {
                 "shapes": [[15, 15], [15,15], [15, 15]],
                 "is_positive": true
-            },
-            "categorical": false
+            }
         },
         "iterations": 20
     },
@@ -885,7 +882,8 @@
             "name": "BinaryCrossEntropy",
             "regular_args":{
                 "input_type": "probs",
-                "pos_weight": 0.625
+                "pos_weight": 0.625,
+                "robust": true
             }
         },
         "static_input_info": {
@@ -893,8 +891,7 @@
                 "mode": "int",
                 "shapes": [[1, 20], [1, 1]],
                 "interval": [[0, 0], [1, 1]]
-            },
-            "robust": true
+            }
         },
         "iterations": 5
     },
@@ -903,7 +900,8 @@
             "name": "BinaryCrossEntropy",
             "regular_args":{
                 "input_type": "probs",
-                "pos_weight": "auto"
+                "pos_weight": "auto",
+                "robust": true
             }
         },
         "static_input_info": {
@@ -911,8 +909,7 @@
                 "mode": "int",
                 "shapes": [[1, 20], [1, 1]],
                 "interval": [[0, 0], [1, 1]]
-            },
-            "robust": true
+            }
         },
         "iterations": 5
     },
@@ -920,7 +917,8 @@
         "model": {
             "name": "BinaryCrossEntropy",
             "regular_args":{
-                "input_type": "probs"
+                "input_type": "probs",
+                "robust": true
             }
         },
         "static_input_info": {
@@ -928,8 +926,7 @@
                 "mode": "int",
                 "shapes": [[1, 20], [1, 1]],
                 "interval": [[0, 0], [1, 1]]
-            },
-            "robust": true
+            }
         },
         "iterations": 5
     },
@@ -938,7 +935,8 @@
             "name": "BinaryCrossEntropy",
             "regular_args":{
                 "input_type": "probs",
-                "pos_weight": 0.625
+                "pos_weight": 0.625,
+                "robust": true
             }
         },
         "static_input_info": {
@@ -946,8 +944,7 @@
                 "mode": "int",
                 "shapes": [[1, 20], [1, 1]],
                 "interval": [[0, 0], [1, 1]]
-            },
-            "robust": false
+            }
         },
         "iterations": 5
     },
@@ -956,7 +953,8 @@
             "name": "BinaryCrossEntropy",
             "regular_args":{
                 "input_type": "probs",
-                "pos_weight": "auto"
+                "pos_weight": "auto",
+                "robust": false
             }
         },
         "static_input_info": {
@@ -964,8 +962,7 @@
                 "mode": "int",
                 "shapes": [[1, 20], [1, 1]],
                 "interval": [[0, 0], [1, 1]]
-            },
-            "robust": false
+            }
         },
         "iterations": 5
     },
@@ -973,7 +970,8 @@
         "model": {
             "name": "BinaryCrossEntropy",
             "regular_args":{
-                "input_type": "probs"
+                "input_type": "probs",
+                "robust": false
             }
         },
         "static_input_info": {
@@ -981,20 +979,21 @@
                 "mode": "int",
                 "shapes": [[1, 20], [1, 1]],
                 "interval": [[0, 0], [1, 1]]
-            },
-            "robust": false
+            }
         },
         "iterations": 5
     },
     "test_binary_cross_entropy_logits_1": {
         "model": {
-            "name": "BinaryCrossEntropy"
+            "name": "BinaryCrossEntropy",
+            "regular_args":{
+                "robust": true
+            }
         },
         "static_input_info": {
             "target": {
                 "shapes": [[1, 20], [1, 1]]
-            },
-            "robust": true
+            }
         },
         "iterations": 5
     },
@@ -1002,14 +1001,14 @@
         "model": {
             "name": "BinaryCrossEntropy",
             "regular_args":{
-                "pos_weight": "auto"
+                "pos_weight": "auto",
+                "robust": true
             }
         },
         "static_input_info": {
             "target": {
                 "shapes": [[1, 20], [1, 1]]
-            },
-            "robust": true
+            }
         },
         "iterations": 5
     },
@@ -1017,26 +1016,28 @@
         "model": {
             "name": "BinaryCrossEntropy",
             "regular_args":{
-                "pos_weight": 0.625
+                "pos_weight": 0.625,
+                "robust": true
             }
         },
         "static_input_info": {
             "target": {
                 "shapes": [[1, 20], [1, 1]]
-            },
-            "robust": true
+            }
         },
         "iterations": 5
     },
     "test_binary_cross_entropy_logits_4": {
         "model": {
-            "name": "BinaryCrossEntropy"
+            "name": "BinaryCrossEntropy",
+            "regular_args":{
+                "robust": false
+            }
         },
         "static_input_info": {
             "target": {
                 "shapes": [[1, 20], [1, 1]]
-            },
-            "robust": false
+            }
         },
         "iterations": 5
     },
@@ -1044,14 +1045,14 @@
         "model": {
             "name": "BinaryCrossEntropy",
             "regular_args":{
-                "pos_weight": "auto"
+                "pos_weight": "auto",
+                "robust": false
             }
         },
         "static_input_info": {
             "target": {
                 "shapes": [[1, 20], [1, 1]]
-            },
-            "robust": false
+            }
         },
         "iterations": 5
     },
@@ -1059,23 +1060,20 @@
         "model": {
             "name": "BinaryCrossEntropy",
             "regular_args":{
-                "pos_weight": 0.625
+                "pos_weight": 0.625,
+                "robust": false
             }
         },
         "static_input_info": {
             "target": {
                 "shapes": [[1, 20], [1, 1]]
-            },
-            "robust": false
+            }
         },
         "iterations": 5
     },
     "test_quantile_loss": {
         "model": {
             "name": "QuantileLoss"
-        },
-        "static_input_info": {
-            "quantile": [1, 1]
         },
         "input_info": {
             "input" : {
@@ -1154,9 +1152,6 @@
         "model": {
             "name": "LeakyRelu"
         },
-        "static_input_info": {
-            "slope": 0.01
-        },
         "input_info": {
             "input" : {
                 "shapes": [[1,10], [1, 10], [1, 10], [1, 10], [1, 10]]
@@ -1203,10 +1198,10 @@
     },
     "test_softmax_2d_2": {
         "model": {
-            "name": "Softmax"
-        },
-        "static_input_info": {
-            "axis": 0
+            "name": "Softmax",
+            "regular_args":{
+                "axis": 0
+            }
         },
         "input_info": {
             "input" : {
