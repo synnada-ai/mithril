@@ -1016,7 +1016,7 @@ def test_bool_tensor():
     and1 = LogicalAnd()
     model += and1(left="in1", right="in2", output=IOKey(name="output"))
     comp_model = ml.compile(model=model, backend=NumpyBackend(), inference=True)
-    assert comp_model.ignore_grad_keys == {"output"}
+    assert "output" not in comp_model.cotangent_keys
 
 
 def test_bool_tensor_numpy_32():
