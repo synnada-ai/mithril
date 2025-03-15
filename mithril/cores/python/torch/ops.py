@@ -35,7 +35,6 @@ from ..common_primitives import (
     floor_divide,
     greater,
     greater_equal,
-    indexer,
     item,
     length,
     less,
@@ -1258,6 +1257,29 @@ def atleast_1d(input: torch.Tensor) -> torch.Tensor:
 
 def primitive_embedding(input: torch.Tensor, weight: torch.Tensor) -> torch.Tensor:
     return weight[input.long()]
+
+
+def indexer(
+    input: torch.Tensor | list[int | float | bool] | tuple[int | float | bool, ...],
+    index: int | slice | tuple[int | slice | torch.Tensor, ...] | torch.Tensor,
+) -> (
+    torch.Tensor
+    | list[int | float | bool]
+    | tuple[int | float | bool, ...]
+    | int
+    | float
+    | bool
+):
+    if isinstance(index, tuple) and any(
+        (isinstance(item, torch.Tensor) and item.ndim >= 1) or isinstance(item, list)
+        for item in index
+    ):
+        new_index = [
+            torch.atleast_1d(idx) if isinstance(idx, int) else idx  # type: ignore
+            for idx in index
+        ]
+        return input[new_index]  # type: ignore
+    return input[index]  # type: ignore
 
 
 array_creation_funcs = [

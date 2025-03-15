@@ -32,6 +32,7 @@ from ..common import (
     ShapeTemplateType,
     Tensor,
     UniadicRecord,
+    VariableSequenceType,
     Variadic,
     get_summary,
     get_summary_shapes,
@@ -109,10 +110,11 @@ class TemplateBase:
         key: slice
         | int
         | EllipsisType
-        | tuple[slice | int | None | EllipsisType | TemplateBase, ...]
+        | tuple[slice | int | None | EllipsisType | TemplateBase | Sequence[int], ...]
         | IOKey
         | TemplateBase
         | Tensor[Any]
+        | VariableSequenceType[int]
         | None,
     ) -> ExtendTemplate:
         match key:
@@ -124,11 +126,10 @@ class TemplateBase:
                     connections=[self, slice_output], model=IndexerOp
                 )
 
-            case int() | EllipsisType() | None | Tensor():
-                output = ExtendTemplate(connections=[self, key], model=IndexerOp)
-
             case tuple():
-                connections: list[TemplateBase | int | None | EllipsisType] = []
+                connections: list[
+                    TemplateBase | int | None | EllipsisType | VariableSequenceType[int]
+                ] = []
                 for item in key:
                     if isinstance(item, slice):
                         slice_output = ExtendTemplate(
@@ -146,6 +147,9 @@ class TemplateBase:
                 output = ExtendTemplate(
                     connections=[self, tuple_template], model=IndexerOp
                 )
+
+            case int() | EllipsisType() | None | Tensor() | Sequence():
+                output = ExtendTemplate(connections=[self, key], model=IndexerOp)  # type: ignore
         return output
 
     def __add__(self, other: TemplateConnectionType) -> ExtendTemplate:
@@ -437,6 +441,7 @@ TemplateConnectionType = (
     | tuple[slice | int | None | EllipsisType | TemplateBase, ...]
     | None
     | Tensor[int | float | bool]
+    | VariableSequenceType[int]
 )
 
 ConnectionType = (

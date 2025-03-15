@@ -49,9 +49,11 @@ from .common import (
     Uniadic,
     Updates,
     UpdateType,
+    VariableSequenceType,
     Variadic,
     _TensorTypes,
     find_intersection_type,
+    find_type,
     is_index_type,
     is_tensor_type,
     process_value,
@@ -3693,6 +3695,7 @@ def tensor_item_constraints(
         or type(index_val) is NoneType
         or type(index_val) is EllipsisType
         or type(index_val) is Tensor
+        or find_intersection_type(find_type(index_val), VariableSequenceType[int])  # type: ignore
         or is_index_type(index_val)
     )
 
@@ -3745,7 +3748,7 @@ def tensor_item_constraints(
         current_inferred_unis = inferred_output_prefix
 
         for value in index_val:
-            if isinstance(value, int | Tensor):
+            if isinstance(value, int | Tensor | Sequence):
                 if successive_status == 0:
                     reduce_result_dim = (
                         len(current_inferred_unis),
@@ -3759,6 +3762,11 @@ def tensor_item_constraints(
 
                 if isinstance(value, Tensor):
                     tensor_reprs.append(value.shape.reprs[0])
+
+                if isinstance(value, Sequence):
+                    shp, *_ = process_value(value)
+                    tensor_reprs.append(ShapeRepr(prefix=[Uniadic(idx) for idx in shp]))
+
                 current_index_unis.append(Uniadic())
 
             else:

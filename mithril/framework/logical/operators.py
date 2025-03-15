@@ -29,6 +29,7 @@ from ..common import (
     TensorValueType,
     ToBeDetermined,
     UpdateType,
+    VariableSequenceType,
 )
 from ..constraints import (
     bcast,
@@ -1726,7 +1727,16 @@ class IndexerOp(Operator):
                 | slice
                 | EllipsisType
                 | None
-                | tuple[int | slice | EllipsisType | None | Tensor[int], ...]
+                | VariableSequenceType[int]  # type: ignore
+                | tuple[
+                    int
+                    | slice
+                    | EllipsisType
+                    | None
+                    | Tensor[int]
+                    | VariableSequenceType[int],
+                    ...,
+                ]
                 | Tensor[int],
                 value=index,
             ),

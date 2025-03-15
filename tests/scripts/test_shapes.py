@@ -10399,11 +10399,42 @@ def test_index_with_two_non_consec_arange():
     check_shapes_semantically(model.get_shapes(), ref)
 
 
-def test_delete_later():
+def test_index_with_list_int():
     model = Model()
+    relu_model = Relu()
+    model |= relu_model(input="input", output="output")
+    model.set_shapes(input=[7, 4, 5])
+    output = model.cout[[[1, 2, 3], [4, 5, 6], [7, 8, 9]]]
+    model |= Buffer()(input=output, output="output2")
 
-    input = IOKey("input", type=Tensor)
-    output = input[None, IOKey("index_1", type=Tensor[int], shape=[3, 4, 5]), ..., -2]
+    ref: Mapping[str, list | None] = {
+        "output": [7, 4, 5],
+        "$_Indexer_1_output": [3, 3, 4, 5],
+        "input": [7, 4, 5],
+        "$index": None,
+        "output2": [3, 3, 4, 5],
+    }
+    check_shapes_semantically(model.get_shapes(), ref)
 
-    model |= Buffer()(output, IOKey("output"))
-    ...
+
+def test_index_with_list_of_tuple_ints():
+    model = Model()
+    relu_model = Relu()
+    model |= relu_model(input="input", output="output")
+    model.set_shapes(input=[7, 4, 5])
+    output = model.cout[None, None, [[1, 2, 3, 4, 5, 6]], None, [[1], [2], [3]]]  # type: ignore
+    model |= Buffer()(input=output, output="output2")
+
+    ref: Mapping[str, list | None] = {
+        "output": [7, 4, 5],
+        "$_ToTuple_1_output": None,
+        "$_Indexer_2_output": [3, 6, 1, 1, 1, 5],
+        "input": [7, 4, 5],
+        "$input1": None,
+        "$input2": None,
+        "$input3": None,
+        "$input4": None,
+        "$input5": None,
+        "output2": [3, 6, 1, 1, 1, 5],
+    }
+    check_shapes_semantically(model.get_shapes(), ref)
