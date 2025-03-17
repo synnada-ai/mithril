@@ -14,6 +14,9 @@
 
 import ctypes
 from collections.abc import Sequence
+from numbers import Real
+from .rawc_definitions import Array, lib
+import ctypes
 
 
 class PyArray:
@@ -39,20 +42,14 @@ class PyArray:
         # Convert the array into a Python list
         data_ptr = ctypes.cast(self.arr.data, ctypes.POINTER(ctypes.c_float))
         data_list = [data_ptr[i] for i in range(total_elements)]
-
-        # Reshape the flat list based on the shape
-        def reshape(
-            data: Sequence[int], shape: tuple[int, ...]
-        ) -> Sequence[int | Sequence[int | Sequence[int]]]:
+        def reshape(data: list[float], shape: tuple[int, ...]) -> list:
             if len(shape) == 1:
                 return data
-
-            size = shape[0]
-            return [
-                reshape(data[i * size : (i + 1) * size], shape[1:])
-                for i in range(len(data) // size)
-            ]
-
+            slice_size = 1
+            for d in shape[1:]:
+                slice_size *= d
+            return [reshape(data[i * slice_size:(i + 1) * slice_size], shape[1:])
+                    for i in range(shape[0])]
         return reshape(data_list, self.shape)
 
     def __repr__(self):
@@ -60,3 +57,79 @@ class PyArray:
 
     def __str__(self):
         return f"PyArray(shape={self.shape})\n{self.data}"
+    
+    # Element-wise addition
+    def __add__(self, other):
+        if isinstance(other, PyArray):
+            if self.ndim > other.ndim:
+                ndim = self.ndim
+                shape = tuple(self.shape[i] for i in range(ndim))
+            else:
+                ndim = other.ndim
+                shape = tuple(other.shape[i] for i in range(ndim))
+            c_shape = (ctypes.c_int * len(shape))(*shape)
+            result = lib.create_empty_struct(len(c_shape), c_shape)
+            self_ptr = ctypes.cast(ctypes.byref(self.arr), ctypes.POINTER(Array))
+            other_ptr = ctypes.cast(ctypes.byref(other.arr), ctypes.POINTER(Array))
+            lib.add(result,  self_ptr,  other_ptr)
+            return PyArray(result.contents, shape)
+        elif isinstance(other, Real):
+            # Scalar addition
+            c_shape = (ctypes.c_int * len(self.shape))(*self.shape)
+            result = lib.create_empty_struct(len(c_shape), c_shape)
+            self_ptr = ctypes.cast(ctypes.byref(self.arr), ctypes.POINTER(Array))
+            lib.scalar_add(result, self_ptr, ctypes.c_float(float(other)))
+            return PyArray(result.contents, self.shape)
+        else:
+            return NotImplemented
+
+    def __radd__(self, other):
+        return self.__add__(other)
+    
+    # Element-wise and scalar multiplication
+    def __mul__(self, other):
+        if isinstance(other, PyArray):
+            shape = self.shape if self.ndim >= other.ndim else other.shape
+            c_shape = (ctypes.c_int * len(shape))(*shape)
+            result = lib.create_empty_struct(len(c_shape), c_shape)
+            self_ptr = ctypes.cast(ctypes.byref(self.arr), ctypes.POINTER(Array))
+            other_ptr = ctypes.cast(ctypes.byref(other.arr), ctypes.POINTER(Array))
+            lib.multiplication(result, self_ptr, other_ptr)
+            return PyArray(result.contents, shape)
+        elif isinstance(other, Real):
+            c_shape = (ctypes.c_int * len(self.shape))(*self.shape)
+            result = lib.create_empty_struct(len(c_shape), c_shape)
+            self_ptr = ctypes.cast(ctypes.byref(self.arr), ctypes.POINTER(Array))
+            lib.scalar_multiply(result, self_ptr, ctypes.c_float(float(other)))
+            return PyArray(result.contents, self.shape)
+        else:
+            return NotImplemented
+
+    def __rmul__(self, other):
+        return self.__mul__(other)
+    
+    # Element-wise and scalar subtraction
+    def __sub__(self, other):
+        if isinstance(other, PyArray):
+            shape = self.shape if self.ndim >= other.ndim else other.shape
+            c_shape = (ctypes.c_int * len(shape))(*shape)
+            result = lib.create_empty_struct(len(c_shape), c_shape)
+            self_ptr = ctypes.cast(ctypes.byref(self.arr), ctypes.POINTER(Array))
+            other_ptr = ctypes.cast(ctypes.byref(other.arr), ctypes.POINTER(Array))
+            lib.subtract(result, self_ptr, other_ptr)
+            return PyArray(result.contents, shape)
+        elif isinstance(other, Real):
+            c_shape = (ctypes.c_int * len(self.shape))(*self.shape)
+            result = lib.create_empty_struct(len(c_shape), c_shape)
+            self_ptr = ctypes.cast(ctypes.byref(self.arr), ctypes.POINTER(Array))
+            lib.scalar_subtract(result, self_ptr, ctypes.c_float(float(other)))
+            return PyArray(result.contents, self.shape)
+        else:
+            return NotImplemented
+
+    def __rsub__(self, other):
+        if isinstance(other, Real):
+            # scalar - array = scalar + (-1 * array)
+            return other + (-1 * self)
+        else:
+            return NotImplemented

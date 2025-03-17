@@ -219,14 +219,22 @@ class CGen(CodeGen[PyArray]):
                 for arg_key in self.determined_struct_keys["eval_input_keys"]:
                     if arg_key in inputs:
                         continue
-
+                    if arg_key == FinalCost:
+                        continue
+                    if self._get_tensor_shape(arg_key) is None:
+                        continue
+                    if arg_key == self.pm.flat_graph.output_dict[FinalCost]:
+                        arr_shape = [1]
+                        inputs[arg_key] = self.backend.empty(*arr_shape)
+                        continue
                     arr_shape = self._get_array_shape(arg_key)
                     inputs[arg_key] = self.backend.empty(*arr_shape)
-
             inputs_struct = Inputs(
                 **{
-                    key: ctypes.pointer(inputs[key].arr)
+                    key: ctypes.cast(ctypes.byref(inputs[key].arr), ctypes.POINTER(self.backend.get_struct_cls()))
                     for key in self.determined_struct_keys["eval_input_keys"]
+                    if not key == FinalCost
+                    if self._get_tensor_shape(key) is not None
                 }
             )
             inputs_struct_ptr = ctypes.pointer(inputs_struct)
@@ -240,10 +248,19 @@ class CGen(CodeGen[PyArray]):
                 else self.pm.output_keys
             )
             for key in return_keys:
+                if key == FinalCost:
+                    continue
+                if self._get_tensor_shape(key) is None:
+                    continue
                 array_ptr = getattr(output_struct, key)
-                outputs[key] = PyArray(
-                    array_ptr.contents, shape=self._get_tensor_shape(key)
-                )
+                if key == self.pm.flat_graph.output_dict[FinalCost]:
+                    outputs[key] = PyArray(
+                    array_ptr.contents, shape=[1]
+                    )
+                else:
+                    outputs[key] = PyArray(
+                        array_ptr.contents, shape=self._get_tensor_shape(key)
+                    )
 
             return outputs
 
@@ -264,6 +281,8 @@ class CGen(CodeGen[PyArray]):
                 output_gradients = {FinalCost: array.ones((1,))}
 
             gradients = {key: value for key, value in output_gradients.items()}
+            if FinalCost in output_gradients:
+                gradients[self.pm.flat_graph.output_dict[FinalCost]] = output_gradients[FinalCost]
             forward_pass = evaluate_wrapper(
                 params=params,
                 data=data,
@@ -289,12 +308,13 @@ class CGen(CodeGen[PyArray]):
 
             inputs_struct = GradInputs(
                 **{
-                    key: ctypes.pointer(inputs[key].arr)
+                    key: ctypes.cast(ctypes.byref(inputs[key].arr), ctypes.POINTER(self.backend.get_struct_cls()))
                     for key in self.determined_struct_keys["eval_grad_input_keys"]
+                    if not key.startswith(FinalCost)
+                    if self._get_tensor_shape(key) is not None
                 }
             )
             inputs_struct_ptr = ctypes.pointer(inputs_struct)
-
             output_struct = lib.evaluate_gradients(inputs_struct_ptr)
             outputs = {}
             for grad_key in self.determined_struct_keys["eval_grad_output_keys"]:
@@ -303,8 +323,12 @@ class CGen(CodeGen[PyArray]):
                 outputs[key] = PyArray(
                     array_ptr.contents, shape=self._get_tensor_shape(key)
                 )
-
-            return outputs
+            evaluate_gradients_return = {}
+            if FinalCost in output_gradients:
+                evaluate_gradients_return[FinalCost] = forward_pass[self.pm.flat_graph.output_dict[FinalCost]]
+            else:
+                evaluate_gradients_return = outputs
+            return evaluate_gradients_return, outputs
 
         return (  # type: ignore
             evaluate_wrapper,

@@ -16,37 +16,61 @@
 #define UTILS_H
 #include "array.h"
 
+
+#define SWAP(a, b) do { \
+    typeof(a) temp = a; \
+    a = b;              \
+    b = temp;           \
+} while (0)
+
 typedef void (*Op)(float *output, float input);
 
-/* Creates new strides for broadcasting */
-int *broadcastStride(const Array *t1, const int *shape, const int ndim)
+int *broadcastStride(const Array *t1, const int *shape, const int ndim) 
 {
-    int diff = ndim - t1->ndim;
-    int *oldStrides = t1->strides;
     int *newStrides = (int *)malloc(ndim * sizeof(int));
+    memset(newStrides, 0, ndim * sizeof(int));
 
-    for (size_t i = 0; i < ndim; i++)
-        newStrides[i] = 0;
+    if (t1->ndim == 1) {
+        // Handle 1D arrays
+        int target_dim = ndim - 1; // Target the last dimension of the output
+        int input_size = t1->shape[0];
+        int output_size = shape[target_dim];
 
-    for (size_t i = diff; i < t1->ndim; i++)
-    {
-        if (shape[i] == 1 || t1->shape[i - diff] == 1)
-            newStrides[i] = 0;
-        else
-            newStrides[i] = oldStrides[i - diff];
-    }
+        if (input_size == 1 && output_size > 1) {
+            newStrides[target_dim] = 0;
+        } else {
+            newStrides[target_dim] = t1->strides[0];
+        }
+    } else {
+        int diff = ndim - t1->ndim;
+        for (int j = 0; j < t1->ndim; j++) {
+            int target_dim = j + diff;
+            int input_dim_size = t1->shape[j];
+            int output_dim_size = shape[target_dim];
 
+            if (input_dim_size == output_dim_size) {
+                newStrides[target_dim] = t1->strides[j];
+            } else if (input_dim_size == 1) {
+                newStrides[target_dim] = (output_dim_size > 1) ? 0 : t1->strides[j];
+            } else {
+                fprintf(stderr, "Invalid broadcast from shape %d to %d\n", input_dim_size, output_dim_size);
+                free(newStrides);
+                exit(EXIT_FAILURE);
+            }
+
+        }
+}
     return newStrides;
 }
 
-/* Get the real index of the given index wrt strides and shapes */
-size_t loc(size_t idx, const int *shapes, const int *strides, const int ndim)
+size_t loc(size_t idx, const int *shapes, const int *strides, const int ndim) 
 {
     size_t loc = 0;
-    for (size_t i = ndim - 1; i >= 0 && idx > 0; i--)
-    {
-        loc += (idx % shapes[i]) * strides[i];
-        idx /= shapes[i];
+    for (int i = ndim - 1; i >= 0; i--) {
+        int dim_size = shapes[i];
+        int coord = idx % dim_size;
+        loc += coord * strides[i];  // Stride is 0 for broadcasted dims
+        idx /= dim_size;
     }
     return loc;
 }
@@ -65,6 +89,14 @@ void binary_array_iterator(const Array *left, const Array *right, Array *out, fl
         // TODO: Use loc only when the Tensor is not contiguous
         size_t left_idx = loc(i, out->shape, left_b_strides, out->ndim);
         size_t right_idx = loc(i, out->shape, right_b_strides, out->ndim);
+        if (left_idx >= left->size) {
+            printf("Left index out of bounds: %zu >= %d\n", left_idx, left->size);
+            exit(1);
+        }
+        if (right_idx >= right->size) {
+            printf("Right index out of bounds: %zu >= %d\n", right_idx, right->size);
+            exit(1);
+        }
         out->data[i] = op(left_data[left_idx], right_data[right_idx]);
     }
 
@@ -145,4 +177,68 @@ void reduce_contiguous(const Array *input, Array *out, const int *axes, size_t n
     free(reduction_strides);
 }
 
+int* pad_shape(const Array *arr, int target_ndim) 
+{
+    int *shape = (int *)malloc(target_ndim * sizeof(int));
+    if (!shape) {
+        fprintf(stderr, "Memory allocation failed in pad_shape\n");
+        exit(EXIT_FAILURE);
+    }
+    int offset = target_ndim - arr->ndim;
+    
+    // Initialize leading dimensions to 1 for broadcasting
+    for(int i=0; i<offset; i++) {
+        shape[i] = 1;
+    }
+    
+    // Copy original dimensions
+    for(int i=0; i<arr->ndim; i++) {
+        shape[offset + i] = arr->shape[i];
+    }
+    return shape;
+}
+
+/* Compute row-major strides for a given shape */
+int* compute_strides(const int *shape, int ndim)
+{
+    int *strides = (int *)malloc(ndim * sizeof(int));
+    if (!strides) {
+        fprintf(stderr, "Memory allocation failed in compute_stride\n");
+        exit(EXIT_FAILURE);
+    }
+    strides[ndim - 1] = 1;
+    for (int i = ndim - 2; i >= 0; i--) {
+        strides[i] = strides[i + 1] * shape[i + 1];
+    }
+    return strides;
+}
+
+size_t get_broadcast_offset(size_t b_idx, const int *shape, const int *strides, int num_dims) 
+{
+    size_t offset = 0;
+    size_t temp_idx = b_idx;
+    for (int i = 0; i < num_dims; i++) {
+        int dim_size = shape[i];
+        size_t coord = temp_idx % dim_size;
+        offset += coord * strides[i]; // stride=0 for broadcasted dims
+        temp_idx /= dim_size;
+    }
+    return offset;
+}
+
+static int prod(const int *arr, int len) 
+{
+    int p = 1;
+    for (int i = 0; i < len; i++) {
+        p *= arr[i];
+    }
+    return p;
+}
+
+void invert_permutation(const int *axes, int *inv_axes, int ndim) 
+{
+    for (int i = 0; i < ndim; i++) {
+        inv_axes[axes[i]] = i;
+    }
+}
 #endif
