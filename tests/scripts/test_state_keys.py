@@ -12,12 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import jax
 import pytest
 import torch
 
 import mithril as ml
 from mithril.framework.common import StateValue
-from mithril.models import Add, BatchNorm2D, Buffer, Model
+from mithril.models import Add, BatchNorm2D, Buffer, Model, RandInt, Randn
 
 
 def test_frozen_model_error():
@@ -354,3 +355,43 @@ def test_batchnorm_vs_pytorch_inference():
         assert torch.allclose(
             output_mithril["output"], output_torch, atol=1e-5
         ), "Output mismatch"
+
+
+def test_ungiven_state_error():
+    model = Randn()
+    backend = ml.JaxBackend()
+    pm = ml.compile(model, backend, constant_keys={"shape": (2, 2)}, inference=True)
+    with pytest.raises(ValueError) as err_info:
+        pm.evaluate()
+
+    msg = err_info.value
+    assert str(msg) == "State keys must be provided when evaluating the model."
+
+
+def test_randn_and_randint():
+    for model in [Randn(), RandInt(low=0, high=1000)]:
+        backend = ml.JaxBackend()
+        pm = ml.compile(model, backend, constant_keys={"shape": (2, 2)}, inference=True)
+        state = pm.initial_state_dict
+        output_mithril1, state = pm.evaluate(state=state)
+        output_mithril2, state = pm.evaluate(state=state)
+        assert isinstance(out1 := output_mithril1["output"], jax.numpy.ndarray)
+        assert isinstance(out2 := output_mithril2["output"], jax.numpy.ndarray)
+        assert not jax.numpy.allclose(out1, out2)
+
+
+def test_randn_and_randint_as_submodel():
+    for model in [Randn(), RandInt(low=0, high=1000)]:
+        input = ml.IOKey("input")
+        model = Model()
+        model |= Buffer()("input", "output")
+        model |= Randn()(shape=input.shape, output="randn_output")
+        backend = ml.JaxBackend()
+        pm = ml.compile(model, backend, inference=True)
+        state = pm.initial_state_dict
+        data = {"input": jax.numpy.ones((2, 2))}
+        output_mithril1, state = pm.evaluate(data=data, state=state)
+        output_mithril2, state = pm.evaluate(data=data, state=state)
+        assert isinstance(out1 := output_mithril1["randn_output"], jax.numpy.ndarray)
+        assert isinstance(out2 := output_mithril2["randn_output"], jax.numpy.ndarray)
+        assert not jax.numpy.allclose(out1, out2)

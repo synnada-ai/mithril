@@ -35,12 +35,10 @@ class StaticDataStore(Generic[DataType]):
     def __init__(
         self,
         backend: Backend[DataType],
-        inference: bool,
     ) -> None:
         self._all_data: dict[str, IOHyperEdge] = dict()
         self.data_memo: dict[int, IOHyperEdge] = dict()
         self.backend: Backend[DataType] = backend
-        self.inference = inference
         self.intermediate_non_differentiables: BiMap[str, IOHyperEdge] = BiMap()
         self._runtime_static_keys: set[str] = set()
         self._unused_keys: set[str] = set()

@@ -19,6 +19,7 @@ from abc import abstractmethod
 from collections.abc import Sequence
 from copy import deepcopy
 
+from .. import types
 from ..common import PaddingType
 from ..framework.common import (
     NOT_GIVEN,
@@ -77,6 +78,8 @@ from .primitives import (
     PrimitiveConvolution2D,
     PrimitiveMaxPool1D,
     PrimitiveMaxPool2D,
+    PrimitiveRandInt,
+    PrimitiveRandn,
     Reshape,
     Shape,
     Sigmoid,
@@ -147,6 +150,8 @@ __all__ = [
     "AUC",
     "SiLU",
     "AvgPool2D",
+    "Randn",
+    "RandInt",
 ]
 
 
@@ -840,6 +845,8 @@ class GroupNorm(Model):
 class BatchNorm2D(Model):
     input: Connection
     output: Connection
+    running_mean: Connection
+    running_var: Connection
 
     def __init__(
         self,
@@ -3670,3 +3677,89 @@ class SiLU(Model):
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(input=input, output=output)
+
+
+class Randn(Model):
+    shape: Connection
+    key: Connection
+    dtype: Connection
+    output: Connection
+
+    def __init__(
+        self,
+        shape: tuple[int, ...] | ToBeDetermined = TBD,
+        key: int | ToBeDetermined = TBD,
+        dtype: types.Dtype | None = None,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name)
+        _shape = IOKey("shape", value=shape)
+        _key = IOKey("key")
+        _dtype = IOKey("dtype", value=dtype)
+
+        self |= PrimitiveRandn()(_shape, _key, _dtype, output=IOKey("output"))
+        self |= PrimitiveRandInt(shape=tuple(), low=0, high=2**14)(
+            key=_key, output="new_key"
+        )
+        if isinstance(key, int):
+            self.bind_state_keys(_key, "new_key", key)
+        else:
+            self.bind_state_keys(_key, "new_key", 42)
+        self._freeze()
+
+    def __call__(  # type: ignore[override]
+        self,
+        shape: ConnectionType | tuple[int | ConnectionType, ...] = NOT_GIVEN,
+        dtype: ConnectionType | types.Dtype | None = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
+    ) -> ExtendInfo:
+        return super().__call__(shape=shape, dtype=dtype, output=output)
+
+
+class RandInt(Model):
+    shape: Connection
+    key: Connection
+    dtype: Connection
+    output: Connection
+
+    def __init__(
+        self,
+        shape: tuple[int, ...] | ToBeDetermined = TBD,
+        key: int | Tensor[int] | ToBeDetermined = TBD,
+        low: int | ToBeDetermined = TBD,
+        high: int | ToBeDetermined = TBD,
+        dtype: types.Dtype | None = None,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(name=name)
+        _shape = IOKey("shape", value=shape)
+        _low = IOKey("low", value=low)
+        _high = IOKey("high", value=high)
+        _key = IOKey("key")
+        _dtype = IOKey("dtype", value=dtype)
+        output = IOKey("output")
+
+        self |= PrimitiveRandInt()(_shape, _key, _low, _high, _dtype, output=output)
+        self |= PrimitiveRandInt(shape=tuple(), low=0, high=2**14)(
+            key=_key, output="new_key"
+        )
+        if isinstance(key, int):
+            self.bind_state_keys(_key, "new_key", key)
+        else:
+            self.bind_state_keys(_key, "new_key", 42)
+        self._freeze()
+
+    def __call__(  # type: ignore[override]
+        self,
+        shape: ConnectionType = NOT_GIVEN,
+        key: ConnectionType = NOT_GIVEN,
+        low: ConnectionType = NOT_GIVEN,
+        high: ConnectionType = NOT_GIVEN,
+        dtype: ConnectionType = NOT_GIVEN,
+        output: ConnectionType = NOT_GIVEN,
+    ) -> ExtendInfo:
+        return super().__call__(
+            shape=shape, key=key, low=low, high=high, dtype=dtype, output=output
+        )

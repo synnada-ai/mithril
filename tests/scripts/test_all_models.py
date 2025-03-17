@@ -63,6 +63,8 @@ from mithril.models import (
     NormModifier,
     NotEqual,
     Ones,
+    PrimitiveRandInt,
+    PrimitiveRandn,
     PrimitiveUnion,
     Prod,
     RandInt,
@@ -883,7 +885,7 @@ def test_arange_w_dtype():
 
 
 def test_randn_static_inference():
-    model = Randn(shape=(3, 4, 5), key=42)
+    model = PrimitiveRandn(shape=(3, 4, 5), key=42)
 
     for backend in default_backends:
         pm = mithril.compile(model, backend, inference=True)
@@ -901,26 +903,27 @@ def test_randn_key():
 
     for backend in default_backends:
         pm = mithril.compile(model, backend, inference=True)
-        pm.set_random_seed_values(key=42)
-        res_out1 = pm.evaluate()["output"]
-        pm.set_random_seed_values(key=42)
-        res_out2 = pm.evaluate()["output"]
-        pm.set_random_seed_values(key=43)
-        res_out3 = pm.evaluate()["output"]
+        state = pm.initial_state_dict
+        res_out1, _ = pm.evaluate(state=state)
+        res_out2, state = pm.evaluate(state=state)
+        res_out3, state = pm.evaluate(state=state)
 
-        assert isinstance(res_out1, backend.DataType)  # type: ignore[attr-defined]
-        assert isinstance(res_out2, backend.DataType)  # type: ignore[attr-defined]
-        assert isinstance(res_out3, backend.DataType)  # type: ignore[attr-defined]
+        assert isinstance(res_out1["output"], backend.DataType)  # type: ignore[attr-defined]
+        assert isinstance(res_out2["output"], backend.DataType)  # type: ignore[attr-defined]
+        assert isinstance(res_out3["output"], backend.DataType)  # type: ignore[attr-defined]
 
-        assert res_out1.shape == (3, 4, 5)
-        np.testing.assert_allclose(res_out1, res_out2)
+        assert res_out1["output"].shape == (3, 4, 5)
+        np.testing.assert_allclose(res_out1["output"], res_out2["output"])
         np.testing.assert_raises(
-            AssertionError, np.testing.assert_allclose, res_out1, res_out3
+            AssertionError,
+            np.testing.assert_allclose,
+            res_out1["output"],
+            res_out3["output"],
         )
 
 
 def test_randint_static_inference():
-    model = RandInt(shape=(3, 4, 5), key=42)
+    model = PrimitiveRandInt(shape=(3, 4, 5), key=42)
     data = {"low": 0, "high": 1000000}
     for backend in default_backends:
         pm = mithril.compile(model, backend, inference=True)
@@ -938,21 +941,22 @@ def test_randint_key():
     data = {"low": 0, "high": 1000000}
     for backend in default_backends:
         pm = mithril.compile(model, backend, inference=True)
-        pm.set_random_seed_values(key=42)
-        res_out1 = pm.evaluate(data=data)["output"]
-        pm.set_random_seed_values(key=42)
-        res_out2 = pm.evaluate(data=data)["output"]
-        pm.set_random_seed_values(key=43)
-        res_out3 = pm.evaluate(data=data)["output"]
+        state = pm.initial_state_dict
+        res_out1, _ = pm.evaluate(data=data, state=state)
+        res_out2, state = pm.evaluate(data=data, state=state)
+        res_out3, state = pm.evaluate(data=data, state=state)
 
-        assert isinstance(res_out1, backend.DataType)  # type: ignore[attr-defined]
-        assert isinstance(res_out2, backend.DataType)  # type: ignore[attr-defined]
-        assert isinstance(res_out3, backend.DataType)  # type: ignore[attr-defined]
+        assert isinstance(res_out1["output"], backend.DataType)  # type: ignore[attr-defined]
+        assert isinstance(res_out2["output"], backend.DataType)  # type: ignore[attr-defined]
+        assert isinstance(res_out3["output"], backend.DataType)  # type: ignore[attr-defined]
 
-        assert res_out1.shape == (3, 4, 5)
-        np.testing.assert_allclose(res_out1, res_out2)
+        assert res_out1["output"].shape == (3, 4, 5)
+        np.testing.assert_allclose(res_out1["output"], res_out2["output"])
         np.testing.assert_raises(
-            AssertionError, np.testing.assert_allclose, res_out1, res_out3
+            AssertionError,
+            np.testing.assert_allclose,
+            res_out1["output"],
+            res_out3["output"],
         )
 
 

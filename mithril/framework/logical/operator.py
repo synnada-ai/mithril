@@ -41,7 +41,6 @@ class Operator(BaseModel):
     ) -> None:
         super().__init__(name, formula_key)
 
-        self.random_keys: set[str] = set()
         # Get shape_templates of TensorTypes and create corresponding shapes.
         shape_templates = {
             key: value.value_shape
