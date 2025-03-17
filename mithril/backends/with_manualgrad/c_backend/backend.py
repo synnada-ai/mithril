@@ -20,10 +20,11 @@ import numpy as np
 
 from .... import types
 from ....cores.c.array import PyArray
-from ....cores.c.raw_c import array, ops, utils
+from ....cores.c.raw_c import array, ops
 from ...backend import Backend
 from ...utils import process_shape
 from . import utils
+from ....cores.c.raw_c.utils import dtype_map
 
 __all__ = ["CBackend"]
 
@@ -37,7 +38,7 @@ class CBackend(Backend[PyArray]):
     def __init__(self) -> None:
         self._device = "cpu"
         self.primitive_function_dict = ops.primitive_func_dict
-        self.dtype_map = utils.dtype_map
+        self.dtype_map = dtype_map
         self.registered_primitives = {}
         self.array_creation_funcs = {}
     @property
