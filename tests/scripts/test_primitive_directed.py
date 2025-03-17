@@ -977,64 +977,64 @@ def test_sqrt_3():
 
 
 def test_robust_sqrt_1():
-    cutoff = np.array(2.2250738585072014e-308)
+    threshold = np.array(2.2250738585072014e-308)
     input = np.array([[1.0, 2.0], [3.0, 4.0]])
     result = np.array([[1.0, 1.4142135623730951], [1.7320508075688772, 2.0]])
 
     output_grad = np.array([[1.0, 1.0], [1.0, 1.0]])
     input_grad = np.array([[0.5, 0.35355339059327373], [0.2886751345948129, 0.25]])
 
-    assert_forward("robust_sqrt", result, (input, cutoff), {})
+    assert_forward("robust_sqrt", result, (input, threshold), {})
     assert_backward(
         "robust_sqrt",
         (input_grad,),
         output_grad,
         [0],
-        {"input": input, "cutoff": cutoff},
+        {"input": input, "threshold": threshold},
         {},
     )
 
 
 def test_robust_sqrt_2():
-    cutoff = np.array(2.2250738585072014e-308)
+    threshold = np.array(2.2250738585072014e-308)
     input = np.array([[[[4.0, 16.0], [25.0, 100.0]]]])
     result = np.array([[[[2.0, 4.0], [5.0, 10.0]]]])
 
     output_grad = np.array([[[[3.0, 2.0], [5.0, 6.0]]]])
     input_grad = np.array([[[[0.75, 0.25], [0.5, 0.3]]]])
 
-    assert_forward("robust_sqrt", result, (input, cutoff), {})
+    assert_forward("robust_sqrt", result, (input, threshold), {})
     assert_backward(
         "robust_sqrt",
         (input_grad,),
         output_grad,
         [0],
-        {"input": input, "cutoff": cutoff},
+        {"input": input, "threshold": threshold},
         {},
     )
 
 
 def test_robust_sqrt_3():
-    cutoff = np.array(2.2250738585072014e-308)
+    threshold = np.array(2.2250738585072014e-308)
     input = np.array([10000.0])
     result = np.array([100.0])
 
     output_grad = np.array([1.0])
     input_grad = np.array([0.005])
 
-    assert_forward("robust_sqrt", result, (input, cutoff), {})
+    assert_forward("robust_sqrt", result, (input, threshold), {})
     assert_backward(
         "robust_sqrt",
         (input_grad,),
         output_grad,
         [0],
-        {"input": input, "cutoff": cutoff},
+        {"input": input, "threshold": threshold},
         {},
     )
 
 
 def test_robust_sqrt_4():
-    cutoff = np.array(2.2250738585072014e-308)
+    threshold = np.array(2.2250738585072014e-308)
     input = np.array([[0.0, -4.0], [-1.0, -4.0]])
     result = np.array([[0.0, 2.0], [1.0, 2.0]])
 
@@ -1042,13 +1042,13 @@ def test_robust_sqrt_4():
     numpy_input_grad = np.array([[0.0, -0.25], [-0.5, -0.25]])
     jax_input_grad = np.array([[6.703903964971299e153, -0.25], [-0.5, -0.25]])
 
-    assert_forward("robust_sqrt", result, (input, cutoff), {})
+    assert_forward("robust_sqrt", result, (input, threshold), {})
     assert_backward(
         "robust_sqrt",
         (jax_input_grad,),
         output_grad,
         [0],
-        {"input": input, "cutoff": cutoff},
+        {"input": input, "threshold": threshold},
         {},
         [JaxBackend(dtype=ml.float64)],
     )
@@ -1057,14 +1057,14 @@ def test_robust_sqrt_4():
         (numpy_input_grad,),
         output_grad,
         [0],
-        {"input": input, "cutoff": cutoff},
+        {"input": input, "threshold": threshold},
         {},
         [NumpyBackend(dtype=ml.float64), TorchBackend(dtype=ml.float64)],
     )
 
 
 def test_robust_sqrt_5():
-    cutoff = np.array(1e-20)
+    threshold = np.array(1e-20)
     input = np.array([[9.999999999999e-21, 1.0000000000001e-20, 0.0]])
     result = np.array([[9.999999999999e-11, 1.00000000000005e-10, 0.0]])
 
@@ -1076,13 +1076,13 @@ def test_robust_sqrt_5():
         [[1e10, 4.99999999999975000000000001874999999999843750000000013e9, 1e10]]
     )
 
-    assert_forward("robust_sqrt", result, (input, cutoff), {})
+    assert_forward("robust_sqrt", result, (input, threshold), {})
     assert_backward(
         "robust_sqrt",
         (jax_input_grad,),
         output_grad,
         [0],
-        {"input": input, "cutoff": cutoff},
+        {"input": input, "threshold": threshold},
         {},
         [JaxBackend(dtype=ml.float64)],
     )
@@ -1091,7 +1091,7 @@ def test_robust_sqrt_5():
         (numpy_input_grad,),
         output_grad,
         [0],
-        {"input": input, "cutoff": cutoff},
+        {"input": input, "threshold": threshold},
         {},
         [NumpyBackend(dtype=ml.float64), TorchBackend(dtype=ml.float64)],
     )
@@ -1854,7 +1854,7 @@ def test_absolute_error_4():
 def test_cross_entropy_with_logits_1():
     weights = False
     categorical = True
-    cutoff = np.array(2.2250738585072014e-308)
+    threshold = np.array(2.2250738585072014e-308)
     robust = False
     target = np.array([2])
     input = np.array([[1.0, 1.0, 1.0, 1.0]])
@@ -1866,7 +1866,7 @@ def test_cross_entropy_with_logits_1():
     assert_forward(
         "cross_entropy_with_logits",
         result,
-        (input, target, weights, cutoff),
+        (input, target, weights, threshold),
         {"categorical": categorical, "robust": robust},
     )
     assert_backward(
@@ -1874,7 +1874,7 @@ def test_cross_entropy_with_logits_1():
         (input_grad,),
         output_grad,
         [0],
-        {"input": input, "target": target, "weights": weights, "cutoff": cutoff},
+        {"input": input, "target": target, "weights": weights, "threshold": threshold},
         {"categorical": categorical, "robust": robust},
     )
 
@@ -1882,7 +1882,7 @@ def test_cross_entropy_with_logits_1():
 def test_cross_entropy_with_logits_2():
     weights = False
     categorical = True
-    cutoff = np.array(2.2250738585072014e-308)
+    threshold = np.array(2.2250738585072014e-308)
     robust = False
     target = np.array([0, 0])
     input = np.array([[1000.0, 0.0], [0.0, 1000.0]])
@@ -1894,7 +1894,7 @@ def test_cross_entropy_with_logits_2():
     assert_forward(
         "cross_entropy_with_logits",
         result,
-        (input, target, weights, cutoff),
+        (input, target, weights, threshold),
         {"categorical": categorical, "robust": robust},
     )
     assert_backward(
@@ -1902,7 +1902,7 @@ def test_cross_entropy_with_logits_2():
         (input_grad,),
         output_grad,
         [0],
-        {"input": input, "target": target, "weights": weights, "cutoff": cutoff},
+        {"input": input, "target": target, "weights": weights, "threshold": threshold},
         {"categorical": categorical, "robust": robust},
     )
 
@@ -1910,7 +1910,7 @@ def test_cross_entropy_with_logits_2():
 def test_cross_entropy_with_logits_3():
     weights = False
     categorical = True
-    cutoff = np.array(2.2250738585072014e-308)
+    threshold = np.array(2.2250738585072014e-308)
     robust = False
     target = np.array([0, 0])
     input = np.array([[1.0, 1.0], [0.0, 1000.0]])
@@ -1922,7 +1922,7 @@ def test_cross_entropy_with_logits_3():
     assert_forward(
         "cross_entropy_with_logits",
         result,
-        (input, target, weights, cutoff),
+        (input, target, weights, threshold),
         {"categorical": categorical, "robust": robust},
     )
     assert_backward(
@@ -1930,7 +1930,7 @@ def test_cross_entropy_with_logits_3():
         (input_grad,),
         output_grad,
         [0],
-        {"input": input, "target": target, "weights": weights, "cutoff": cutoff},
+        {"input": input, "target": target, "weights": weights, "threshold": threshold},
         {"categorical": categorical, "robust": robust},
     )
 
@@ -1938,7 +1938,7 @@ def test_cross_entropy_with_logits_3():
 def test_cross_entropy_1():
     weights = False
     categorical = True
-    cutoff = np.array(2.2250738585072014e-308)
+    threshold = np.array(2.2250738585072014e-308)
     robust = False
     target = np.array([0, 1])
     input = np.array([[0.5, 0.5], [0.1, 0.9]])
@@ -1950,7 +1950,7 @@ def test_cross_entropy_1():
     assert_forward(
         "cross_entropy",
         result,
-        (input, target, weights, cutoff),
+        (input, target, weights, threshold),
         {"categorical": categorical, "robust": robust},
     )
     assert_backward(
@@ -1958,7 +1958,7 @@ def test_cross_entropy_1():
         (input_grad,),
         output_grad,
         [0],
-        {"input": input, "target": target, "weights": weights, "cutoff": cutoff},
+        {"input": input, "target": target, "weights": weights, "threshold": threshold},
         {"categorical": categorical, "robust": robust},
     )
 
@@ -1966,7 +1966,7 @@ def test_cross_entropy_1():
 def test_cross_entropy_2():
     weights = False
     categorical = True
-    cutoff = np.array(2.2250738585072014e-308)
+    threshold = np.array(2.2250738585072014e-308)
     robust = True
     target = np.array([1, 0])
     input = np.array([[0.0, 1.0], [0.1, 0.9]])
@@ -1978,7 +1978,7 @@ def test_cross_entropy_2():
     assert_forward(
         "cross_entropy",
         result,
-        (input, target, weights, cutoff),
+        (input, target, weights, threshold),
         {"categorical": categorical, "robust": robust},
     )
     assert_backward(
@@ -1986,7 +1986,7 @@ def test_cross_entropy_2():
         (input_grad,),
         output_grad,
         [0],
-        {"input": input, "target": target, "weights": weights, "cutoff": cutoff},
+        {"input": input, "target": target, "weights": weights, "threshold": threshold},
         {"categorical": categorical, "robust": robust},
     )
 
@@ -1994,7 +1994,7 @@ def test_cross_entropy_2():
 def test_cross_entropy_3():
     weights = False
     categorical = True
-    cutoff = np.array(2.2250738585072014e-308)
+    threshold = np.array(2.2250738585072014e-308)
     robust = True
     target = np.array([0, 0])
     input = np.array([[0.0, 1.0], [0.1, 0.9]])
@@ -2007,7 +2007,7 @@ def test_cross_entropy_3():
     assert_forward(
         "cross_entropy",
         result,
-        (input, target, weights, cutoff),
+        (input, target, weights, threshold),
         {"categorical": categorical, "robust": robust},
     )
     assert_backward(
@@ -2015,7 +2015,7 @@ def test_cross_entropy_3():
         (jax_input_grad,),
         output_grad,
         [0],
-        {"input": input, "target": target, "weights": weights, "cutoff": cutoff},
+        {"input": input, "target": target, "weights": weights, "threshold": threshold},
         {"categorical": categorical, "robust": robust},
         [JaxBackend(dtype=ml.float64), NumpyBackend(dtype=ml.float64)],
     )
@@ -2026,7 +2026,7 @@ def test_cross_entropy_3():
         output_grad,
         [0],
         {"input": input, "target": target, "weights": weights},
-        {"categorical": categorical, "cutoff": cutoff, "robust": robust},
+        {"categorical": categorical, "threshold": threshold, "robust": robust},
         [TorchBackend(dtype=ml.float64)],
     )
 
@@ -2034,7 +2034,7 @@ def test_cross_entropy_3():
 def test_cross_entropy_4():
     weights = False
     categorical = True
-    cutoff = np.array(2.2250738585072014e-308)
+    threshold = np.array(2.2250738585072014e-308)
     robust = False
     target = np.array([0, 0])
     input = np.array([[2.220446049250313e-16, 1.0], [0.1, 0.9]])
@@ -2046,7 +2046,7 @@ def test_cross_entropy_4():
     assert_forward(
         "cross_entropy",
         result,
-        (input, target, weights, cutoff),
+        (input, target, weights, threshold),
         {"categorical": categorical, "robust": robust},
     )
     assert_backward(
@@ -2054,7 +2054,7 @@ def test_cross_entropy_4():
         (input_grad,),
         output_grad,
         [0],
-        {"input": input, "target": target, "weights": weights, "cutoff": cutoff},
+        {"input": input, "target": target, "weights": weights, "threshold": threshold},
         {"categorical": categorical, "robust": robust},
     )
 
@@ -2062,7 +2062,7 @@ def test_cross_entropy_4():
 def test_cross_entropy_5():
     weights = False
     categorical = True
-    cutoff = np.array(2.2250738585072014e-308)
+    threshold = np.array(2.2250738585072014e-308)
     robust = True
     target = np.array([0])
     input = np.array([[0.0, 1.0]])
@@ -2075,7 +2075,7 @@ def test_cross_entropy_5():
     assert_forward(
         "cross_entropy",
         result,
-        (input, target, weights, cutoff),
+        (input, target, weights, threshold),
         {"categorical": categorical, "robust": robust},
     )
     assert_backward(
@@ -2083,7 +2083,7 @@ def test_cross_entropy_5():
         (jax_input_grad,),
         output_grad,
         [0],
-        {"input": input, "target": target, "weights": weights, "cutoff": cutoff},
+        {"input": input, "target": target, "weights": weights, "threshold": threshold},
         {"categorical": categorical, "robust": robust},
         [JaxBackend(dtype=ml.float64), NumpyBackend(dtype=ml.float64)],
     )
@@ -2093,7 +2093,7 @@ def test_cross_entropy_5():
         (torch_input_grad,),
         output_grad,
         [0],
-        {"input": input, "target": target, "weights": weights, "cutoff": cutoff},
+        {"input": input, "target": target, "weights": weights, "threshold": threshold},
         {"categorical": categorical, "robust": robust},
         [TorchBackend(dtype=ml.float64)],
     )
@@ -2102,7 +2102,7 @@ def test_cross_entropy_5():
 def test_cross_entropy_6():
     weights = False
     categorical = True
-    cutoff = np.array(2.2250738585072014e-308)
+    threshold = np.array(2.2250738585072014e-308)
     robust = False
     target = np.array([1, 2])
     input = np.array(
@@ -2118,7 +2118,7 @@ def test_cross_entropy_6():
     assert_forward(
         "cross_entropy",
         result,
-        (input, target, weights, cutoff),
+        (input, target, weights, threshold),
         {"categorical": categorical, "robust": robust},
     )
     assert_backward(
@@ -2126,13 +2126,13 @@ def test_cross_entropy_6():
         (input_grad,),
         output_grad,
         [0],
-        {"input": input, "target": target, "weights": weights, "cutoff": cutoff},
+        {"input": input, "target": target, "weights": weights, "threshold": threshold},
         {"categorical": categorical, "robust": robust},
     )
 
 
 def test_binary_cross_entropy_1():
-    cutoff = np.array(2.2250738585072014e-308)
+    threshold = np.array(2.2250738585072014e-308)
     pos_weight = 1.0
     robust = False
     target = np.array([[0], [1]])
@@ -2145,7 +2145,7 @@ def test_binary_cross_entropy_1():
     assert_forward(
         "binary_cross_entropy",
         result,
-        (input, target, cutoff),
+        (input, target, threshold),
         {"pos_weight": pos_weight, "robust": robust},
     )
     assert_backward(
@@ -2153,13 +2153,13 @@ def test_binary_cross_entropy_1():
         (input_grad,),
         output_grad,
         [0],
-        {"input": input, "target": target, "cutoff": cutoff},
+        {"input": input, "target": target, "threshold": threshold},
         {"pos_weight": pos_weight, "robust": robust},
     )
 
 
 def test_binary_cross_entropy_2():
-    cutoff = np.array(2.2250738585072014e-308)
+    threshold = np.array(2.2250738585072014e-308)
     pos_weight = 1.0
     robust = False
     target = np.array([[0, 1, 0], [1, 1, 1]])
@@ -2179,7 +2179,7 @@ def test_binary_cross_entropy_2():
     assert_forward(
         "binary_cross_entropy",
         result,
-        (input, target, cutoff),
+        (input, target, threshold),
         {"pos_weight": pos_weight, "robust": robust},
     )
     assert_backward(
@@ -2187,13 +2187,13 @@ def test_binary_cross_entropy_2():
         (input_grad,),
         output_grad,
         [0],
-        {"input": input, "target": target, "cutoff": cutoff},
+        {"input": input, "target": target, "threshold": threshold},
         {"pos_weight": pos_weight, "robust": robust},
     )
 
 
 def test_binary_cross_entropy_3():
-    cutoff = np.array(2.2250738585072014e-308)
+    threshold = np.array(2.2250738585072014e-308)
     pos_weight = 1.0
     robust = False
     target = np.array([[0, 1, 0], [1, 1, 1]])
@@ -2211,7 +2211,7 @@ def test_binary_cross_entropy_3():
     assert_forward(
         "binary_cross_entropy",
         result,
-        (input, target, cutoff),
+        (input, target, threshold),
         {"pos_weight": pos_weight, "robust": robust},
     )
     assert_backward(
@@ -2219,13 +2219,13 @@ def test_binary_cross_entropy_3():
         (input_grad,),
         output_grad,
         [0],
-        {"input": input, "target": target, "cutoff": cutoff},
+        {"input": input, "target": target, "threshold": threshold},
         {"pos_weight": pos_weight, "robust": robust},
     )
 
 
 def test_binary_cross_entropy_4():
-    cutoff = np.array(2.2250738585072014e-308)
+    threshold = np.array(2.2250738585072014e-308)
     pos_weight = 1.0
     robust = True
     target = np.array([[0, 1, 0], [1, 1, 1]])
@@ -2245,7 +2245,7 @@ def test_binary_cross_entropy_4():
     assert_forward(
         "binary_cross_entropy",
         result,
-        (input, target, cutoff),
+        (input, target, threshold),
         {"pos_weight": pos_weight, "robust": robust},
     )
     assert_backward(
@@ -2253,13 +2253,13 @@ def test_binary_cross_entropy_4():
         (input_grad,),
         output_grad,
         [0],
-        {"input": input, "target": target, "cutoff": cutoff},
+        {"input": input, "target": target, "threshold": threshold},
         {"pos_weight": pos_weight, "robust": robust},
     )
 
 
 def test_binary_cross_entropy_5():
-    cutoff = np.array(2.2250738585072014e-308)
+    threshold = np.array(2.2250738585072014e-308)
     pos_weight = 1.0
     robust = True
     target = np.array([[0], [1]])
@@ -2269,19 +2269,19 @@ def test_binary_cross_entropy_5():
     output_grad = np.array([[1.0], [1.0]])
     input_grad = np.array([[1.1111111111111112], [-2]])
 
-    assert_forward("binary_cross_entropy", result, (input, target, cutoff), {})
+    assert_forward("binary_cross_entropy", result, (input, target, threshold), {})
     assert_backward(
         "binary_cross_entropy",
         (input_grad,),
         output_grad,
         [0],
-        {"input": input, "target": target, "cutoff": cutoff},
+        {"input": input, "target": target, "threshold": threshold},
         {"pos_weight": pos_weight, "robust": robust},
     )
 
 
 def test_binary_cross_entropy_6():
-    cutoff = np.array(2.2250738585072014e-308)
+    threshold = np.array(2.2250738585072014e-308)
     pos_weight = 1.0
     robust = True
     target = np.array([[0], [1]])
@@ -2294,7 +2294,7 @@ def test_binary_cross_entropy_6():
     assert_forward(
         "binary_cross_entropy",
         result,
-        (input, target, cutoff),
+        (input, target, threshold),
         {"pos_weight": pos_weight, "robust": robust},
     )
     assert_backward(
@@ -2302,13 +2302,13 @@ def test_binary_cross_entropy_6():
         (input_grad,),
         output_grad,
         [0],
-        {"input": input, "target": target, "cutoff": cutoff},
+        {"input": input, "target": target, "threshold": threshold},
         {"pos_weight": pos_weight, "robust": robust},
     )
 
 
 def test_binary_cross_entropy_7():
-    cutoff = np.array(2.2250738585072014e-308)
+    threshold = np.array(2.2250738585072014e-308)
     pos_weight = 1.0
     robust = True
     target = np.array([[0], [1]])
@@ -2321,7 +2321,7 @@ def test_binary_cross_entropy_7():
     assert_forward(
         "binary_cross_entropy",
         result,
-        (input, target, cutoff),
+        (input, target, threshold),
         {"pos_weight": pos_weight, "robust": robust},
     )
     assert_backward(
@@ -2329,13 +2329,13 @@ def test_binary_cross_entropy_7():
         (input_grad,),
         output_grad,
         [0],
-        {"input": input, "target": target, "cutoff": cutoff},
+        {"input": input, "target": target, "threshold": threshold},
         {"pos_weight": pos_weight, "robust": robust},
     )
 
 
 def test_binary_cross_entropy_8():
-    cutoff = np.array(2.2250738585072014e-308)
+    threshold = np.array(2.2250738585072014e-308)
     pos_weight = 1.0
     robust = True
     target = np.array([[0], [1]])
@@ -2348,7 +2348,7 @@ def test_binary_cross_entropy_8():
     assert_forward(
         "binary_cross_entropy",
         result,
-        (input, target, cutoff),
+        (input, target, threshold),
         {"pos_weight": pos_weight, "robust": robust},
     )
     assert_backward(
@@ -2356,13 +2356,13 @@ def test_binary_cross_entropy_8():
         (input_grad,),
         output_grad,
         [0],
-        {"input": input, "target": target, "cutoff": cutoff},
+        {"input": input, "target": target, "threshold": threshold},
         {"pos_weight": pos_weight, "robust": robust},
     )
 
 
 def test_binary_cross_entropy_with_logits_1():
-    cutoff = np.array(2.2250738585072014e-308)
+    threshold = np.array(2.2250738585072014e-308)
     pos_weight = 1.0
     robust = False
     target = np.array([[0.0, 1, 0], [1, 1, 1]])
@@ -2386,7 +2386,7 @@ def test_binary_cross_entropy_with_logits_1():
     assert_forward(
         "binary_cross_entropy_with_logits",
         result,
-        (input, target, cutoff),
+        (input, target, threshold),
         {"pos_weight": pos_weight, "robust": robust},
     )
     assert_backward(
@@ -2394,7 +2394,7 @@ def test_binary_cross_entropy_with_logits_1():
         (jax_input_grad,),
         output_grad,
         [0],
-        {"input": input, "target": target, "cutoff": cutoff},
+        {"input": input, "target": target, "threshold": threshold},
         {"pos_weight": pos_weight, "robust": robust},
         [JaxBackend(dtype=ml.float64)],
     )
@@ -2404,14 +2404,14 @@ def test_binary_cross_entropy_with_logits_1():
         (numpy_input_grad,),
         output_grad,
         [0],
-        {"input": input, "target": target, "cutoff": cutoff},
+        {"input": input, "target": target, "threshold": threshold},
         {"pos_weight": pos_weight, "robust": robust},
         [TorchBackend(dtype=ml.float64), NumpyBackend(dtype=ml.float64)],
     )
 
 
 def test_binary_cross_entropy_with_logits_2():
-    cutoff = np.array(2.2250738585072014e-308)
+    threshold = np.array(2.2250738585072014e-308)
     pos_weight = 1.0
     robust = False
     target = np.array([[0.0], [1]])
@@ -2425,7 +2425,7 @@ def test_binary_cross_entropy_with_logits_2():
     assert_forward(
         "binary_cross_entropy_with_logits",
         result,
-        (input, target, cutoff),
+        (input, target, threshold),
         {"pos_weight": pos_weight, "robust": robust},
     )
     assert_backward(
@@ -2433,7 +2433,7 @@ def test_binary_cross_entropy_with_logits_2():
         (jax_input_grad,),
         output_grad,
         [0],
-        {"input": input, "target": target, "cutoff": cutoff},
+        {"input": input, "target": target, "threshold": threshold},
         {"pos_weight": pos_weight, "robust": robust},
         [JaxBackend(dtype=ml.float64)],
     )
@@ -2443,14 +2443,14 @@ def test_binary_cross_entropy_with_logits_2():
         (numpy_input_grad,),
         output_grad,
         [0],
-        {"input": input, "target": target, "cutoff": cutoff},
+        {"input": input, "target": target, "threshold": threshold},
         {"pos_weight": pos_weight, "robust": robust},
         [TorchBackend(dtype=ml.float64), NumpyBackend(dtype=ml.float64)],
     )
 
 
 def test_binary_cross_entropy_with_logits_3():
-    cutoff = np.array(2.2250738585072014e-308)
+    threshold = np.array(2.2250738585072014e-308)
     pos_weight = 1.0
     robust = False
     target = np.array([[1.0], [0]])
@@ -2461,20 +2461,20 @@ def test_binary_cross_entropy_with_logits_3():
     input_grad = np.array([[-0.2689414213699951], [0.11920292202211756]])
 
     assert_forward(
-        "binary_cross_entropy_with_logits", result, (input, target, cutoff), {}
+        "binary_cross_entropy_with_logits", result, (input, target, threshold), {}
     )
     assert_backward(
         "binary_cross_entropy_with_logits",
         (input_grad,),
         output_grad,
         [0],
-        {"input": input, "target": target, "cutoff": cutoff},
+        {"input": input, "target": target, "threshold": threshold},
         {"pos_weight": pos_weight, "robust": robust},
     )
 
 
 def test_binary_cross_entropy_with_logits_4():
-    cutoff = np.array(2.2250738585072014e-308)
+    threshold = np.array(2.2250738585072014e-308)
     pos_weight = 1.0
     robust = False
     target = np.array([[1.0, 0, 1, 0], [0, 0, 0, 1]])
@@ -2514,7 +2514,7 @@ def test_binary_cross_entropy_with_logits_4():
     assert_forward(
         "binary_cross_entropy_with_logits",
         result,
-        (input, target, cutoff),
+        (input, target, threshold),
         {"pos_weight": pos_weight, "robust": robust},
     )
     assert_backward(
@@ -2522,7 +2522,7 @@ def test_binary_cross_entropy_with_logits_4():
         (jax_input_grad,),
         output_grad,
         [0],
-        {"input": input, "target": target, "cutoff": cutoff},
+        {"input": input, "target": target, "threshold": threshold},
         {"pos_weight": pos_weight, "robust": robust},
         [JaxBackend(dtype=ml.float64)],
     )
@@ -2532,7 +2532,7 @@ def test_binary_cross_entropy_with_logits_4():
         (numpy_input_grad,),
         output_grad,
         [0],
-        {"input": input, "target": target, "cutoff": cutoff},
+        {"input": input, "target": target, "threshold": threshold},
         {"pos_weight": pos_weight, "robust": robust},
         [TorchBackend(dtype=ml.float64), NumpyBackend(dtype=ml.float64)],
     )
@@ -2676,7 +2676,7 @@ def test_quad_hinge_loss_3():
 
 
 def test_kl_divergence_1():
-    cutoff = np.array(2.2250738585072014e-308)
+    threshold = np.array(2.2250738585072014e-308)
     target = np.array([[0.2, 0.5], [0.2, 0.4]])
     input = np.array([[0.1, 0.5], [0.5, 0.1]])
     result = np.array(
@@ -2686,19 +2686,19 @@ def test_kl_divergence_1():
     output_grad = np.array([[1.0, 1.0], [1.0, 1.0]])
     input_grad = np.array([[-2.0, -1.0], [-0.4, -4.0]])
 
-    assert_forward("kl_divergence", result, (input, target, cutoff), {})
+    assert_forward("kl_divergence", result, (input, target, threshold), {})
     assert_backward(
         "kl_divergence",
         (input_grad,),
         output_grad,
         [0],
-        {"input": input, "target": target, "cutoff": cutoff},
+        {"input": input, "target": target, "threshold": threshold},
         {},
     )
 
 
 def test_kl_divergence_2():
-    cutoff = np.array(2.2250738585072014e-308)
+    threshold = np.array(2.2250738585072014e-308)
     target = np.array([[0.1, 0.5], [0.5, 0.1]])
     input = np.array([[0.1, 0.5], [0.5, 0.1]])
     result = np.array([[0.0, 0.0], [0.0, 0.0]])
@@ -2706,19 +2706,19 @@ def test_kl_divergence_2():
     output_grad = np.array([[1.0, 1.0], [1.0, 1.0]])
     input_grad = np.array([[-1.0, -1.0], [-1.0, -1.0]])
 
-    assert_forward("kl_divergence", result, (input, target, cutoff), {})
+    assert_forward("kl_divergence", result, (input, target, threshold), {})
     assert_backward(
         "kl_divergence",
         (input_grad,),
         output_grad,
         [0],
-        {"input": input, "target": target, "cutoff": cutoff},
+        {"input": input, "target": target, "threshold": threshold},
         {},
     )
 
 
 def test_kl_divergence_3():
-    cutoff = np.array(2.2250738585072014e-308)
+    threshold = np.array(2.2250738585072014e-308)
     target = np.array([[0.1, 0.5], [0.5, 0.1]])
     input = np.array([[1.1102230246251565e-16, 0.5], [0.5, 0.1]])
     result = np.array([[3.443421547668306, 0.0], [0.0, 0.0]])
@@ -2726,13 +2726,13 @@ def test_kl_divergence_3():
     output_grad = np.array([[1.0, 1.0], [1.0, 1.0]])
     input_grad = np.array([[-900719925474099.2, -1.0], [-1.0, -1.0]])
 
-    assert_forward("kl_divergence", result, (input, target, cutoff), {})
+    assert_forward("kl_divergence", result, (input, target, threshold), {})
     assert_backward(
         "kl_divergence",
         (input_grad,),
         output_grad,
         [0],
-        {"input": input, "target": target, "cutoff": cutoff},
+        {"input": input, "target": target, "threshold": threshold},
         {},
     )
 
@@ -2946,7 +2946,7 @@ def test_stop_gradient_2():
 
 
 def test_robust_log_1():
-    cutoff = np.array(2.2250738585072014e-308)
+    threshold = np.array(2.2250738585072014e-308)
     input = np.array([[2.0, 2.0], [3.0, 4.0], [4.0, 100.0]])
     result = np.array(
         [
@@ -2965,19 +2965,19 @@ def test_robust_log_1():
     output_grad = np.array([[1.0, 1.0], [1.0, 1.0], [1.0, 1.0]])
     input_grad = np.array([[0.5, 0.5], [0.333333333333333333333, 0.25], [0.25, 0.01]])
 
-    assert_forward("robust_log", result, (input, cutoff), {})
+    assert_forward("robust_log", result, (input, threshold), {})
     assert_backward(
         "robust_log",
         (input_grad,),
         output_grad,
         [0],
-        {"input": input, "cutoff": cutoff},
+        {"input": input, "threshold": threshold},
         {},
     )
 
 
 def test_robust_log_2():
-    cutoff = np.array(2.2250738585072014e-308)
+    threshold = np.array(2.2250738585072014e-308)
     input = np.array([[[0.0]]])
     result = np.array([[[-709.396418532264106216811584991213718666567366540526]]])
 
@@ -2987,13 +2987,13 @@ def test_robust_log_2():
     )
     torch_grad = np.array([[[0.0]]])
 
-    assert_forward("robust_log", result, (input, cutoff), {})
+    assert_forward("robust_log", result, (input, threshold), {})
     assert_backward(
         "robust_log",
         (numpy_grad,),
         output_grad,
         [0],
-        {"input": input, "cutoff": cutoff},
+        {"input": input, "threshold": threshold},
         {},
         [NumpyBackend(dtype=ml.float64), JaxBackend(dtype=ml.float64)],
     )
@@ -3002,7 +3002,7 @@ def test_robust_log_2():
         (torch_grad,),
         output_grad,
         [0],
-        {"input": input, "cutoff": cutoff},
+        {"input": input, "threshold": threshold},
         {},
         [TorchBackend(dtype=ml.float64)],
     )
@@ -3010,7 +3010,7 @@ def test_robust_log_2():
 
 @pytest.mark.skip(reason="Some weird numpy bug when torch==2.4.0 installed!")
 def test_robust_log_3():
-    cutoff = np.array(2.2250738585072014e-308)
+    threshold = np.array(2.2250738585072014e-308)
     input = np.array([[[1e-311, 1e-306]]])
     jax_result = np.array([[[-709.3964185322641, -704.591038456178]]])
     numpy_result = np.array([[[-709.3959691089804, -704.591038456178]]])
@@ -3021,21 +3021,21 @@ def test_robust_log_3():
     assert_forward(
         "robust_log",
         jax_result,
-        (input, cutoff),
+        (input, threshold),
         {},
         backends=[JaxBackend(dtype=ml.float64)],
     )
     assert_forward(
         "robust_log",
         numpy_result,
-        (input, cutoff),
+        (input, threshold),
         {},
         backends=[NumpyBackend(dtype=ml.float64)],
     )
     assert_forward(
         "robust_log",
         numpy_result,
-        (input, cutoff),
+        (input, threshold),
         {},
         backends=[TorchBackend(dtype=ml.float64)],
     )
@@ -3044,13 +3044,13 @@ def test_robust_log_3():
         (input_grad,),
         output_grad,
         [0],
-        {"input": input, "cutoff": cutoff},
+        {"input": input, "threshold": threshold},
         {},
     )
 
 
 def test_stable_reciprocal_1():
-    cutoff = np.array(1.4916681462400413e-153)
+    threshold = np.array(1.4916681462400413e-153)
     input = np.array([[2.0, 2.0], [3.0, 4.0], [4.0, 100.0]])
     result = np.array([[0.5, 0.5], [0.3333333333333333, 0.25], [0.25, 0.01]])
 
@@ -3059,57 +3059,57 @@ def test_stable_reciprocal_1():
         [[-0.25, -0.25], [-0.1111111111111111, -0.0625], [-0.0625, -0.0001]]
     )
 
-    assert_forward("stable_reciprocal", result, (input, cutoff), {})
+    assert_forward("stable_reciprocal", result, (input, threshold), {})
     assert_backward(
         "stable_reciprocal",
         (input_grad,),
         output_grad,
         [0],
-        {"input": input, "cutoff": cutoff},
+        {"input": input, "threshold": threshold},
         {},
     )
 
 
 def test_stable_reciprocal_2():
-    cutoff = np.array(1.4916681462400413e-153)
+    threshold = np.array(1.4916681462400413e-153)
     input = np.array([[0.0]])
     result = np.array([[1.3407807929942598e153]])
 
     output_grad = np.array([[1.0]])
     input_grad = np.array([[-4.49423283715579e305]])
 
-    assert_forward("stable_reciprocal", result, (input, cutoff), {})
+    assert_forward("stable_reciprocal", result, (input, threshold), {})
     assert_backward(
         "stable_reciprocal",
         (input_grad,),
         output_grad,
         [0],
-        {"input": input, "cutoff": cutoff},
+        {"input": input, "threshold": threshold},
         {},
     )
 
 
 def test_stable_reciprocal_3():
-    cutoff = np.array(1.4916681462400413e-153)
+    threshold = np.array(1.4916681462400413e-153)
     input = np.array([[1e-155, 1e-145]])
     result = np.array([[1.336286560157104e153, 1e145]])
 
     output_grad = np.array([[1.0, 1.0]])
     input_grad = np.array([[-4.49423283715579e305, -1e290]])
 
-    assert_forward("stable_reciprocal", result, (input, cutoff), {})
+    assert_forward("stable_reciprocal", result, (input, threshold), {})
     assert_backward(
         "stable_reciprocal",
         (input_grad,),
         output_grad,
         [0],
-        {"input": input, "cutoff": cutoff},
+        {"input": input, "threshold": threshold},
         {},
     )
 
 
 def test_robust_power_1():
-    cutoff = np.array(2.2250738585072014e-308)
+    threshold = np.array(2.2250738585072014e-308)
     base = np.array([[0.0], [2.2250738585072014e-308]])
     exponent = np.array([[0.5], [0.2]])
     result = np.array([[0.0], [2.9476022969692e-62]])
@@ -3118,19 +3118,19 @@ def test_robust_power_1():
     base_grad = np.array([[0.0], [2.6494422067830456e245]])
     exponent_grad = np.array([[0.0], [-2.08807091043044e-59]])
 
-    assert_forward("robust_power", result, (base, exponent, cutoff), {})
+    assert_forward("robust_power", result, (base, exponent, threshold), {})
     assert_backward(
         "robust_power",
         (base_grad, exponent_grad),
         output_grad,
         [0],
-        {"base": base, "exponent": exponent, "threshold": cutoff},
+        {"base": base, "exponent": exponent, "threshold": threshold},
         {},
     )
 
 
 def test_robust_power_2():
-    cutoff = np.array(2.2250738585072014e-308)
+    threshold = np.array(2.2250738585072014e-308)
     base = np.array([2.0])
     exponent = np.array([[1.0], [2.0], [3.0], [4.0]])
     result = np.array([[2.0], [4.0], [8.0], [16.0]])
@@ -3146,19 +3146,19 @@ def test_robust_power_2():
         ]
     )
 
-    assert_forward("robust_power", result, (base, exponent, cutoff), {})
+    assert_forward("robust_power", result, (base, exponent, threshold), {})
     assert_backward(
         "robust_power",
         (base_grad, exponent_grad),
         output_grad,
         [0],
-        {"base": base, "exponent": exponent, "threshold": cutoff},
+        {"base": base, "exponent": exponent, "threshold": threshold},
         {},
     )
 
 
 def test_robust_power_3():
-    cutoff = np.array(2.2250738585072014e-308)
+    threshold = np.array(2.2250738585072014e-308)
     base = np.array([[2.0], [3.0], [4.0]])
     exponent = np.array([[2.0, 3.0]])
     result = np.array([[4.0, 8.0], [9.0, 27.0], [16.0, 64.0]])
@@ -3167,19 +3167,19 @@ def test_robust_power_3():
     base_grad = np.array([[16.0], [33.0], [56.0]])
     exponent_grad = np.array([[34.84080909817102, 123.93054835019151]])
 
-    assert_forward("robust_power", result, (base, exponent, cutoff), {})
+    assert_forward("robust_power", result, (base, exponent, threshold), {})
     assert_backward(
         "robust_power",
         (base_grad, exponent_grad),
         output_grad,
         [0],
-        {"base": base, "exponent": exponent, "threshold": cutoff},
+        {"base": base, "exponent": exponent, "threshold": threshold},
         {},
     )
 
 
 def test_robust_power_4():
-    cutoff = np.array(2.2250738585072014e-308)
+    threshold = np.array(2.2250738585072014e-308)
     base = np.array([2.0])
     exponent = np.array([3.0])
     result = np.array([8.0])
@@ -3188,19 +3188,19 @@ def test_robust_power_4():
     base_grad = np.array([12.0])
     exponent_grad = np.array([5.545177444479562])
 
-    assert_forward("robust_power", result, (base, exponent, cutoff), {})
+    assert_forward("robust_power", result, (base, exponent, threshold), {})
     assert_backward(
         "robust_power",
         (base_grad, exponent_grad),
         output_grad,
         [0],
-        {"base": base, "exponent": exponent, "threshold": cutoff},
+        {"base": base, "exponent": exponent, "threshold": threshold},
         {},
     )
 
 
 def test_robust_power_5():
-    cutoff = np.array(2.2250738585072014e-308)
+    threshold = np.array(2.2250738585072014e-308)
     base = np.array([1.0, 2.0])
     exponent = np.array([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]])
     result = np.array([[1.0, 4.0], [1.0, 16.0], [1.0, 64.0]])
@@ -3211,19 +3211,19 @@ def test_robust_power_5():
         [[0.0, 2.772588722239781], [0.0, 11.090354888959125], [0.0, 44.3614195558365]]
     )
 
-    assert_forward("robust_power", result, (base, exponent, cutoff), {})
+    assert_forward("robust_power", result, (base, exponent, threshold), {})
     assert_backward(
         "robust_power",
         (base_grad, exponent_grad),
         output_grad,
         [0],
-        {"base": base, "exponent": exponent, "threshold": cutoff},
+        {"base": base, "exponent": exponent, "threshold": threshold},
         {},
     )
 
 
 def test_robust_power_6():
-    cutoff = np.array(2.2250738585072014e-308)
+    threshold = np.array(2.2250738585072014e-308)
     base = np.array([1.0, 2.0])
     exponent = np.array([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]])
     result = np.array([[1.0, 4.0], [1.0, 16.0], [1.0, 64.0]])
@@ -3234,20 +3234,20 @@ def test_robust_power_6():
         [[0.0, 2.772588722239781], [0.0, 11.090354888959125], [0.0, 44.3614195558365]]
     )
 
-    assert_forward("robust_power", result, (base, exponent, cutoff), {})
+    assert_forward("robust_power", result, (base, exponent, threshold), {})
     assert_backward(
         "robust_power",
         (base_grad, exponent_grad),
         output_grad,
         [0],
-        {"base": base, "exponent": exponent, "threshold": cutoff},
+        {"base": base, "exponent": exponent, "threshold": threshold},
         {},
     )
 
 
 @pytest.mark.skip(reason="Some weird numpy bug when torch==2.4.0 installed!")
 def test_robust_power_7():
-    cutoff = np.array(2.2250738585072014e-308)
+    threshold = np.array(2.2250738585072014e-308)
     base = np.array([[1e-311, 1e-311]])
     exponent = np.array([[0.01076316536, 0.01076316538]])
     jax_result = np.array([[0.0, 0.0]])
@@ -3263,21 +3263,21 @@ def test_robust_power_7():
     assert_forward(
         "robust_power",
         jax_result,
-        (base, exponent, cutoff),
+        (base, exponent, threshold),
         {},
         backends=[JaxBackend(dtype=ml.float64)],
     )
     assert_forward(
         "robust_power",
         numpy_result,
-        (base, exponent, cutoff),
+        (base, exponent, threshold),
         {},
         backends=[NumpyBackend(dtype=ml.float64)],
     )
     assert_forward(
         "robust_power",
         numpy_result,
-        (base, exponent, cutoff),
+        (base, exponent, threshold),
         {},
         backends=[TorchBackend(dtype=ml.float64)],
     )
@@ -3287,7 +3287,7 @@ def test_robust_power_7():
         (jax_base_grad, jax_exponent_grad),
         output_grad,
         [0],
-        {"base": base, "exponent": exponent, "threshold": cutoff},
+        {"base": base, "exponent": exponent, "threshold": threshold},
         {},
         backends=[JaxBackend(dtype=ml.float64)],
     )
@@ -3296,7 +3296,7 @@ def test_robust_power_7():
         (numpy_base_grad, numpy_exponent_grad),
         output_grad,
         [0],
-        {"base": base, "exponent": exponent, "threshold": cutoff},
+        {"base": base, "exponent": exponent, "threshold": threshold},
         {},
         backends=[NumpyBackend(dtype=ml.float64), TorchBackend(dtype=ml.float64)],
     )

@@ -66,8 +66,8 @@ from .operators import (
     MaxOp,
     MeanOp,
     MinOp,
-    MinusOp,
     MultiplyOp,
+    NegateOp,
     NotEqualOp,
     PowerOp,
     ProdOp,
@@ -263,7 +263,7 @@ class TemplateBase:
         return ExtendTemplate(connections=[self], model=LogicalNotOp)
 
     def __neg__(self) -> ExtendTemplate:
-        return ExtendTemplate(connections=[self], model=MinusOp)
+        return ExtendTemplate(connections=[self], model=NegateOp)
 
     def abs(self) -> ExtendTemplate:
         return ExtendTemplate(connections=[self], model=AbsoluteOp)
@@ -404,7 +404,9 @@ class ExtendTemplate(TemplateBase):
 @dataclass
 class ExtendInfo:
     _model: BaseModel
-    _connections: dict[str, ConnectionType]
+    _connections: Mapping[
+        str, ConnectionType | MainValueType | Tensor[int | float | bool]
+    ]
 
     def __post_init__(self) -> None:
         external_keys = (
@@ -422,7 +424,9 @@ class ExtendInfo:
         return self._model
 
     @property
-    def connections(self) -> dict[str, ConnectionType]:
+    def connections(
+        self,
+    ) -> Mapping[str, ConnectionType | MainValueType | Tensor[int | float | bool]]:
         return self._connections
 
 
@@ -437,15 +441,8 @@ TemplateConnectionType = (
     | Tensor[int | float | bool]
 )
 
-ConnectionType = (
-    str
-    | MainValueType
-    | ExtendTemplate
-    | NullConnection
-    | IOKey
-    | ConnectionData
-    | Tensor[int | float | bool]
-)
+ConnectionType = str | ExtendTemplate | NullConnection | IOKey | ConnectionData
+
 
 ConnectionInstanceType = (
     str
@@ -463,7 +460,9 @@ UnrollTriggerTypes = (
 
 
 class Model(BaseModel):
-    def __call__(self, **kwargs: ConnectionType) -> ExtendInfo:
+    def __call__(
+        self, **kwargs: ConnectionType | MainValueType | Tensor[int | float | bool]
+    ) -> ExtendInfo:
         return ExtendInfo(self, kwargs)
 
     def _create_connection(
@@ -539,7 +538,10 @@ class Model(BaseModel):
     def _extend(
         self,
         model: BaseModel,
-        kwargs: Mapping[str, ConnectionType] | None = None,
+        kwargs: Mapping[
+            str, ConnectionType | MainValueType | Tensor[int | float | bool]
+        ]
+        | None = None,
         trace: bool = True,
     ) -> Self:
         if kwargs is None:
@@ -586,7 +588,7 @@ class Model(BaseModel):
                     "Submodel must have single available canonical input! "
                     "Set canonical input or use |= operator."
                 )
-            kwargs[next(iter(available_cin))] = self.cout
+            kwargs[next(iter(available_cin))] = self.cout  # type: ignore
         return self._extend(model, kwargs)
 
     __iadd__ = __add__

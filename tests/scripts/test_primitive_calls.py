@@ -20,39 +20,39 @@ from mithril.models import Model, Power, Tensor
 
 def test_power_call_threshold_iokey():
     model = Model()
-    pow = Power(robust=True)
+    pow = Power(robust=True, threshold=ml.TBD)
     model += pow(threshold=ml.IOKey("t", Tensor(0.1)))
     assert model.t.metadata.value == 0.1  # type: ignore
 
 
 def test_error_not_robust_power_call_threshold_iokey():
-    pow = Power(robust=False)
+    pow = Power(robust=False, threshold=ml.TBD)
 
     with pytest.raises(ValueError) as error_info:
         pow(threshold=ml.IOKey("t", 0.1))
 
     error_msg = str(error_info.value)
-    assert error_msg == "Threshold cannot be specified when robust mode is off"
+    assert error_msg == "Power does not accept threshold argument when robust is False."
 
 
 def test_error_not_robust_power_call_threshold_str():
-    pow = Power(robust=False)
+    pow = Power(robust=False, threshold=ml.TBD)
 
     with pytest.raises(ValueError) as error_info:
         pow(threshold="t")
 
     error_msg = str(error_info.value)
-    assert error_msg == "Threshold cannot be specified when robust mode is off"
+    assert error_msg == "Power does not accept threshold argument when robust is False."
 
 
 def test_error_not_robust_power_call_threshold_float():
-    pow = Power(robust=False)
+    pow = Power(robust=False, threshold=ml.TBD)
 
     with pytest.raises(ValueError) as error_info:
-        pow(threshold=0.1)
+        pow(threshold=Tensor(0.1))
 
     error_msg = str(error_info.value)
-    assert error_msg == "Threshold cannot be specified when robust mode is off"
+    assert error_msg == "Power does not accept threshold argument when robust is False."
 
 
 @pytest.mark.skip("This test seems incomplete.")
