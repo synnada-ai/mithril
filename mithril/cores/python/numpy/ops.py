@@ -901,8 +901,8 @@ def auc_core(
     n_positive = (label == 1).sum()
     n_negative = len(label) - n_positive
     sorted_input = np.sort(input)
-    tprs = []
-    fprs = []
+    _tprs = []
+    _fprs = []
 
     # TODO: This is very inefficient, improve it.
     for threshold in np.flip(np.unique(sorted_input)):
@@ -913,11 +913,11 @@ def auc_core(
         true_positives = np.sum((input_c == 1) & (label == 1))
         false_positives = np.sum((input_c == 1) & (label == 0))
 
-        fprs.append(false_positives / n_negative)
-        tprs.append(true_positives / n_positive)
+        _fprs.append(false_positives / n_negative)
+        _tprs.append(true_positives / n_positive)
 
-    tprs = np.stack(tprs)
-    fprs = np.stack(fprs)
+    tprs = np.stack(_tprs)
+    fprs = np.stack(_fprs)
 
     return np.stack([tprs, fprs])
 
@@ -1067,7 +1067,7 @@ def where(
 
 
 def concat(
-    input: list[np.ndarray[Any, Any]],
+    input: list[np.ndarray[Any, Any]] | tuple[np.ndarray[Any, Any], ...],
     axis: int | None = 0,
     cache: CacheType | None = None,
 ) -> np.ndarray[Any, Any]:
@@ -1557,15 +1557,11 @@ def union(
     return result
 
 
-def to_tuple(
-    *args: tuple[int | float | bool, ...], cache: CacheType | None = None
-) -> tuple[Any, ...]:
+def to_tuple(*args: Any, cache: CacheType | None = None) -> tuple[Any, ...]:
     return tuple(args)
 
 
-def to_list(
-    *args: tuple[int | float | bool, ...], cache: CacheType | None = None
-) -> list[Any]:
+def to_list(*args: Any, cache: CacheType | None = None) -> list[Any]:
     return list(args)
 
 

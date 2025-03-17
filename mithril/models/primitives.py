@@ -1116,7 +1116,9 @@ class Concat(PrimitiveModel):
 
     def __init__(
         self,
-        input: list[Tensor[int | float | bool]] | ToBeDetermined = TBD,
+        input: list[Tensor[int | float | bool]]
+        | tuple[Tensor[int | float | bool], ...]
+        | ToBeDetermined = TBD,
         axis: int | None | ToBeDetermined = 0,
         *,
         name: str | None = None,
@@ -1126,8 +1128,12 @@ class Concat(PrimitiveModel):
         super().__init__(
             formula_key="concat",
             name=name,
-            output=BaseKey(shape=[("Var_out", ...)], type=Tensor[int | float | bool]),
-            input=BaseKey(type=list[Tensor[int | float | bool]], value=input),
+            output=BaseKey(type=Tensor[int | float | bool]),
+            input=BaseKey(
+                type=list[Tensor[int | float | bool]]
+                | tuple[Tensor[int | float | bool], ...],
+                value=input,
+            ),
             axis=BaseKey(type=int | None, value=axis),
         )
 

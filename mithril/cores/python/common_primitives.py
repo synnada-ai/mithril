@@ -268,15 +268,11 @@ def union(*inputs: int | float | tuple[int | float, ...]) -> tuple[int | float, 
     return result
 
 
-def to_tuple[T](
-    *args: T,
-) -> tuple[T, ...]:
+def to_tuple(*args: Any) -> tuple[Any, ...]:
     return tuple(args)
 
 
-def to_list[T](
-    *args: T,
-) -> list[T]:
+def to_list(*args: Any) -> list[Any]:
     return list(args)
 
 
