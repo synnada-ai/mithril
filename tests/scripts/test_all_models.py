@@ -57,13 +57,15 @@ from mithril.models import (
     LogicalXOr,
     Maximum,
     Minimum,
-    Minus,
     Model,
     NanToNum,
+    Negate,
     NormModifier,
     NotEqual,
+    Ones,
     PrimitiveUnion,
     Prod,
+    RandInt,
     Randn,
     ScaledDotProduct,
     Shape,
@@ -917,6 +919,43 @@ def test_randn_key():
         )
 
 
+def test_randint_static_inference():
+    model = RandInt(shape=(3, 4, 5), key=42)
+    data = {"low": 0, "high": 1000000}
+    for backend in default_backends:
+        pm = mithril.compile(model, backend, inference=True)
+        res_out1 = pm.evaluate(data=data)["output"]
+        res_out2 = pm.evaluate(data=data)["output"]
+
+        assert isinstance(res_out1, backend.DataType)  # type: ignore[attr-defined]
+        assert isinstance(res_out2, backend.DataType)  # type: ignore[attr-defined]
+        assert res_out1.shape == (3, 4, 5)
+        np.testing.assert_allclose(res_out1, res_out2)
+
+
+def test_randint_key():
+    model = RandInt(shape=(3, 4, 5))
+    data = {"low": 0, "high": 1000000}
+    for backend in default_backends:
+        pm = mithril.compile(model, backend, inference=True)
+        pm.set_random_seed_values(key=42)
+        res_out1 = pm.evaluate(data=data)["output"]
+        pm.set_random_seed_values(key=42)
+        res_out2 = pm.evaluate(data=data)["output"]
+        pm.set_random_seed_values(key=43)
+        res_out3 = pm.evaluate(data=data)["output"]
+
+        assert isinstance(res_out1, backend.DataType)  # type: ignore[attr-defined]
+        assert isinstance(res_out2, backend.DataType)  # type: ignore[attr-defined]
+        assert isinstance(res_out3, backend.DataType)  # type: ignore[attr-defined]
+
+        assert res_out1.shape == (3, 4, 5)
+        np.testing.assert_allclose(res_out1, res_out2)
+        np.testing.assert_raises(
+            AssertionError, np.testing.assert_allclose, res_out1, res_out3
+        )
+
+
 def test_greater_1():
     model = Greater()
 
@@ -1530,6 +1569,98 @@ def test_zeros_like():
         tolerances=None,
         assert_shapes=False,
     )
+
+
+def test_ones_static_shape():
+    model = Ones(shape=(2, 3, 4))
+
+    reference_outputs = {"output": list_full(1.0, 2, 3, 4)}
+    compile_and_compare(
+        model=model,
+        compile_kwargs={"inference": True},
+        data={},
+        params={},
+        output_gradients={},
+        reference_outputs=reference_outputs,
+        reference_gradients=None,
+        tolerances=1e-6,
+        assert_shapes=False,
+    )
+
+
+def test_ones_dynamic_shape():
+    model = Ones(shape=TBD)
+
+    reference_outputs = {"output": list_full(1.0, 3, 5, 2)}
+    compile_and_compare(
+        model=model,
+        compile_kwargs={"jit": False, "inference": True},
+        data={"shape": (3, 5, 2)},
+        params={},
+        output_gradients={},
+        reference_outputs=reference_outputs,
+        reference_gradients=None,
+        tolerances=1e-6,
+        assert_shapes=False,
+        ignore_transform={"shape"},
+    )
+
+
+def test_ones_static_with_dtype():
+    dtypes = [mithril.float16, mithril.float32]
+    for dtype in dtypes:
+        backends: list[Backend[Any]] = [
+            TorchBackend(dtype=dtype),
+            NumpyBackend(dtype=dtype),
+            JaxBackend(dtype=dtype),
+        ]
+        if platform.system() == "Darwin":
+            backends.append(MlxBackend(dtype=dtype))
+
+        model = Ones(shape=(2, 4), dtype=dtype)
+
+        reference_outputs = {"output": list_full(1.0, 2, 4)}
+        compile_and_compare(
+            model=model,
+            compile_kwargs={"inference": True},
+            data={},
+            params={},
+            output_gradients={},
+            reference_outputs=reference_outputs,
+            reference_gradients=None,
+            tolerances=1e-6,
+            assert_shapes=False,
+            backends=backends,
+        )
+
+
+def test_ones_dynamic_with_dtype():
+    dtypes = [mithril.float16, mithril.float32]
+    for dtype in dtypes:
+        backends: list[Backend[Any]] = [
+            TorchBackend(dtype=dtype),
+            NumpyBackend(dtype=dtype),
+            JaxBackend(dtype=dtype),
+        ]
+        if platform.system() == "Darwin":
+            backends.append(MlxBackend(dtype=dtype))
+
+        model = Ones(shape=TBD, dtype=dtype)
+
+        reference_outputs = {"output": list_full(1.0, 3, 2)}
+        compile_and_compare(
+            model=model,
+            compile_kwargs={"jit": False, "inference": True},
+            data={"shape": (3, 2)},
+            params={},
+            output_gradients={},
+            reference_outputs=reference_outputs,
+            reference_gradients=None,
+            tolerances=1e-6,
+            assert_shapes=False,
+            backends=backends,
+            ignore_transform={"shape"},
+        )
 
 
 def test_eye_complement_1():
@@ -2263,8 +2394,8 @@ def test_index_2():
     )
 
 
-def test_minus():
-    model = Minus()
+def test_negate():
+    model = Negate()
 
     statics = {
         "input": [5.0, 0.0, -9.0, 10.0, -4.0],
@@ -4245,7 +4376,7 @@ def test_concat_2():
     )
 
 
-def test_concat_3_with_indexer():
+def test_concat_3_with_indexer_list_input():
     model = Model()
 
     to_list = ToList(n=3)
@@ -4261,7 +4392,8 @@ def test_concat_3_with_indexer():
     indexed_data = to_list.output[-2:]
     model |= concat_2(input=indexed_data, output=IOKey("output_2"))
 
-    params = {"input1": [[1.0, 2.0]], "input2": [[3.0, 4.0]], "input3": [[5.0, 6.0]]}
+    params = {"input1": [[1.0, 2.0]], "input3": [[5.0, 6.0]]}
+    data = {"input2": [[3.0, 4.0]]}
 
     out_grad = {
         "output_1": [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]],
@@ -4273,17 +4405,66 @@ def test_concat_3_with_indexer():
         "output_2": [[3.0, 4.0], [5.0, 6.0]],
     }
 
-    ref_grad = {"input1": [[1.0, 2.0]], "input2": [[6.0, 8.0]], "input3": [[6.0, 8.0]]}
+    ref_grad = {"input1": [[1.0, 2.0]], "input3": [[6.0, 8.0]]}
 
     compile_and_compare(
         model=model,
         compile_kwargs={
             "constant_keys": {},
-            "trainable_keys": {"input1", "input2", "input3"},
+            "trainable_keys": {"input1", "input3"},
             "inference": False,
             "jit": False,
         },
-        data={},
+        data=data,
+        params=params,
+        output_gradients=out_grad,
+        reference_outputs=ref_out,
+        reference_gradients=ref_grad,
+        assert_shapes=False,
+        tolerances=1e-6,
+    )
+
+
+def test_concat_3_with_indexer_tuple_input():
+    model = Model()
+
+    to_tuple = ToTuple(n=3)
+    concat_1 = Concat()
+    concat_2 = Concat()
+
+    input1 = IOKey("input1", type=Tensor)
+    input2 = IOKey("input2", type=Tensor)
+    input3 = IOKey("input3", type=Tensor)
+
+    model |= to_tuple(input1=input1, input2=input2, input3=input3)
+    model += concat_1(output=IOKey("output_1"))
+    indexed_data = to_tuple.output[-2:]
+    model |= concat_2(input=indexed_data, output=IOKey("output_2"))
+
+    params = {"input1": [[1.0, 2.0]], "input3": [[5.0, 6.0]]}
+    data = {"input2": [[3.0, 4.0]]}
+
+    out_grad = {
+        "output_1": [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]],
+        "output_2": [[3.0, 4.0], [1.0, 2.0]],
+    }
+
+    ref_out = {
+        "output_1": [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]],
+        "output_2": [[3.0, 4.0], [5.0, 6.0]],
+    }
+
+    ref_grad = {"input1": [[1.0, 2.0]], "input3": [[6.0, 8.0]]}
+
+    compile_and_compare(
+        model=model,
+        compile_kwargs={
+            "constant_keys": {},
+            "trainable_keys": {"input1", "input3"},
+            "inference": False,
+            "jit": False,
+        },
+        data=data,
         params=params,
         output_gradients=out_grad,
         reference_outputs=ref_out,

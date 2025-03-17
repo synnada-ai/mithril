@@ -28,7 +28,7 @@ class RawCGen(CGen):
             {
                 key + "_grad"
                 for key in self.pm.flat_graph.all_keys
-                if key not in self.ignored_grad_keys
+                if self._has_grad(key)
             }
             | self.pm.flat_graph.all_keys
         )

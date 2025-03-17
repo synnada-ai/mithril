@@ -19,6 +19,7 @@ import re
 import typing
 from copy import deepcopy
 from functools import partial
+from typing import Any
 
 import jax
 import mlx.core as mx
@@ -28,6 +29,7 @@ import torch
 from jax import numpy as jnp
 
 import mithril
+import mithril.framework
 from mithril import Backend, JaxBackend, MlxBackend, NumpyBackend, TorchBackend, compile
 from mithril.framework.common import (
     NOT_GIVEN,
@@ -204,7 +206,9 @@ def test_primitive_model_with_context():
     context.add_loss(AbsoluteError(), input=model.output, target="target")
     backend = JaxBackend()
 
-    pm = mithril.compile(context, backend=backend, data_keys={"input", "target"})
+    pm = mithril.compile(
+        context, backend=backend, data_keys={"input", "target"}, inference=True
+    )
     assert pm.evaluate(data={"input": 1.0, "target": 3.0}) == {
         "final_cost": jnp.array(2.0),
         "output": jnp.array(1.0),
@@ -999,7 +1003,7 @@ def test_canonic_example():
     model += LeakyRelu()("input")
     model += LeakyRelu()
     comp_model = compile(model=model, backend=NumpyBackend(), inference=True)
-    assert set(comp_model.input_keys) == {"slope_0", "slope_1", "input"}
+    assert set(comp_model.input_keys) == {"input"}
     assert set(comp_model.output_keys) == {"output"}
     inputs = {"input": np.array([[2.0, -1.0]])}
     assert_results_equal(
@@ -1247,7 +1251,7 @@ def test_relational_operators_ignored_1():
     model += Less()(left="left", right="right", output=IOKey(name="yoyoyo"))
 
     pm = compile(model, NumpyBackend(), inference=True)
-    assert "yoyoyo" in pm.ignore_grad_keys
+    assert "yoyoyo" not in pm.cotangent_keys
 
 
 def test_relational_operators_ignored_2():
@@ -1271,7 +1275,8 @@ def test_relational_operators_ignored_2():
     )
     pm = compile(model, NumpyBackend(), inference=True)
     assert (
-        "relational_out" in pm.ignore_grad_keys and "where_out" in pm.ignore_grad_keys
+        "relational_out" not in pm.cotangent_keys
+        and "where_out" not in pm.cotangent_keys
     )
 
 
@@ -1286,7 +1291,8 @@ def test_relational_operators_ignored_3():
 
     pm = compile(model, NumpyBackend(), inference=True)
     assert (
-        "relational_out" in pm.ignore_grad_keys and "ignore_this" in pm.ignore_grad_keys
+        "relational_out" not in pm.cotangent_keys
+        and "ignore_this" not in pm.cotangent_keys
     )
 
 
@@ -1985,7 +1991,7 @@ def test_static_anlaysis():
 
     comp_model = mithril.compile(model=model, backend=NumpyBackend())
 
-    assert add1 not in comp_model.flat_graph.nodes
+    assert add1 not in comp_model.flat_graph.model_table
 
 
 def test_static_anlaysis_1():
@@ -2007,7 +2013,7 @@ def test_static_anlaysis_1():
         inference=True,
     )
 
-    assert add1 not in comp_model.flat_graph.nodes
+    assert add1 not in comp_model.flat_graph.model_table
 
 
 def test_static_anlaysis_2():
@@ -2032,8 +2038,8 @@ def test_static_anlaysis_2():
     )
 
     assert (
-        sum1 not in comp_model.flat_graph.nodes
-        and add1 not in comp_model.flat_graph.nodes
+        sum1 not in comp_model.flat_graph.model_table
+        and add1 not in comp_model.flat_graph.model_table
     )
 
 
@@ -2057,7 +2063,13 @@ def test_static_anlaysis_3():
 
     models = {add1, add2, sum1, sub1, mul1, mat1}
     _models = {model.submodel for model in models}
-    assert (_models - comp_model.flat_graph.nodes.keys()) == {mat1.submodel}
+    assert (
+        _models
+        - {
+            comp_model.flat_graph.connections[key].op
+            for key in comp_model.flat_graph.connections
+        }
+    ) == {mat1.submodel}
 
 
 def test_prune_1():
@@ -2074,7 +2086,7 @@ def test_prune_1():
     m |= Buffer()(input=add3.output, output=IOKey(name="out_3"))
     m |= Buffer()(input=add4.output, output=IOKey(name="out_4"))
 
-    compiled_model = compile(m, NumpyBackend())
+    compiled_model = compile(m, NumpyBackend(), inference=True)
     expected_connections: dict[str, list[str | set[str]]] = {
         "out_1": ["add", {"input", "input2", "out_1_cache"}],
         "output_0": ["add", {"out_1", "input3", "output_0_cache"}],
@@ -2106,7 +2118,7 @@ def test_prune_2():
     m |= Buffer()(input=add3.output, output=IOKey(name="out_3"))
     m |= Buffer()(input=add4.output, output=IOKey(name="out_4"))
 
-    compiled_model = compile(m, NumpyBackend())
+    compiled_model = compile(m, NumpyBackend(), inference=True)
     expected_connections: dict[str, list[str | set[str]]] = {
         "out_1": ["add", {"input", "input2", "out_1_cache"}],
         "output_0": ["add", {"out_1", "input3", "output_0_cache"}],
@@ -2141,7 +2153,7 @@ def test_prune_3():
     m |= Buffer()(input=add4.output, output=IOKey(name="out_4"))
     m |= Buffer()(input=add5.output, output=IOKey(name="out_5"))
 
-    compiled_model = compile(m, NumpyBackend())
+    compiled_model = compile(m, NumpyBackend(), inference=True)
     expected_connections: dict[str, list[str | set[str]]] = {
         "out_1": ["add", {"input", "input2", "out_1_cache"}],
         "output_0": ["add", {"out_1", "input3", "output_0_cache"}],
@@ -2380,7 +2392,7 @@ def test_prune_10():
     m |= Buffer()(input=add1.output, output=IOKey(name="out_3"))
     m |= Buffer()(input=add2.output, output=IOKey(name="out_4"))
 
-    compiled_model = compile(m, NumpyBackend())
+    compiled_model = compile(m, NumpyBackend(), inference=True)
     expected_connections: dict[str, list[str | set[str]]] = {
         "out_1": ["add", {"input", "input2", "out_1_cache"}],
         "output_0": ["add", {"out_1", "input3", "output_0_cache"}],
@@ -2417,7 +2429,7 @@ def test_prune_11():
     m |= Buffer()(input=mul1.output, output=IOKey(name="out_5"))
     m |= Buffer()(input=mul2.output, output=IOKey(name="out_6"))
 
-    compiled_model = compile(m, NumpyBackend())
+    compiled_model = compile(m, NumpyBackend(), inference=True)
     expected_connections: dict[str, list[str | set[str]]] = {
         "out_1": ["add", {"input", "input2", "out_1_cache"}],
         "output_0": ["add", {"out_1", "input3", "output_0_cache"}],
@@ -2446,7 +2458,7 @@ def test_prune_12():
     m |= Buffer()(input=add1.output, output=IOKey(name="out_2"))
     m |= Buffer()(input=add1.output, output=IOKey(name="out_3"))  # Duplicate
 
-    compiled_model = compile(m, NumpyBackend())
+    compiled_model = compile(m, NumpyBackend(), inference=True)
     expected_connections: dict[str, list[str | set[str]]] = {
         "out_1": ["add", {"input", "input2", "out_1_cache"}]
     }
@@ -2480,7 +2492,7 @@ def test_prune_14():
     m |= Buffer()(input=add1.output, output=IOKey(name="out_2"))
     m |= Buffer()(input="out_2", output=IOKey(name="out_3"))  # Duplicate
 
-    compiled_model = compile(m, NumpyBackend())
+    compiled_model = compile(m, NumpyBackend(), inference=True)
     expected_connections: dict[str, list[str | set[str]]] = {
         "out_1": ["add", {"input", "input2", "out_1_cache"}]
     }
@@ -2736,6 +2748,7 @@ def test_prune_tensor_match():
         backend=backend,
         shapes={"input1": [4, 4], "input2": [4, 4]},
         jit=False,
+        inference=True,
     )
 
     assert pm.flat_graph.output_dict == {
@@ -4217,7 +4230,7 @@ def test_cycle_handling_3():
     model_2_sub |= Softplus()(input="input2", output=IOKey(name="output2"))
 
     model_1 |= gelu5
-    model_1 |= LeakyRelu()(
+    model_1 |= LeakyRelu(slope=TBD)(
         input="input2",
         slope=IOKey("slope", value=Tensor(0.01)),
         output=IOKey(name="output2"),
@@ -6078,7 +6091,7 @@ def test_multi_write_2():
 def test_multi_write_3():
     model = Model()
     l_relu = Model()
-    l_relu |= LeakyRelu()(slope=IOKey("slope", Tensor(0.85)))
+    l_relu |= LeakyRelu(slope=TBD)(slope=IOKey("slope", Tensor(0.85)))
     with pytest.raises(ValueError) as err_info:
         model += l_relu(slope=Tensor(0.75))
 
@@ -6140,7 +6153,7 @@ def test_multi_write_8():
 def test_leaky_relu_trainable_slope():
     backend = JaxBackend()
     model = Model()
-    model += LeakyRelu()(input="input", output="output", slope="slope")
+    model += LeakyRelu(slope=TBD)(input="input", output="output", slope="slope")
     model.set_types(slope=Tensor)
     model.set_differentiability(input=True, slope=True)
 
@@ -6292,7 +6305,6 @@ def test_numpy_type_promotion_4():
         constant_keys={"left": left, "right": right},
         inference=True,
     )
-    from typing import Any
 
     outputs: dict[str, np.ndarray[Any, Any]] = pm.evaluate()  # type: ignore
 
@@ -6349,15 +6361,15 @@ def test_add_loss_with_coef_jit():
 def test_extend_with_wrong_values():
     with pytest.raises(KeyError) as error_info1:
         model = Model()
-        model += Relu()(input="input", output=None)
+        model += Relu()(input="input", output=None)  # type: ignore
 
     with pytest.raises(KeyError) as error_info2:
         model = Model()
-        model += Relu()(input="input", output=...)
+        model += Relu()(input="input", output=...)  # type: ignore
 
     with pytest.raises(KeyError) as error_info3:
         model = Model()
-        model += Relu()(input="input", output=2)
+        model += Relu()(input="input", output=2)  # type: ignore
 
     assert str(error_info1.value) == (
         "'output key is an output of the model, output values could not be set "

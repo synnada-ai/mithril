@@ -19,7 +19,8 @@ import re
 from collections.abc import Callable, Iterator, Sequence
 from functools import partial
 from itertools import combinations_with_replacement
-from typing import Any
+from types import EllipsisType
+from typing import Any, overload
 
 import numpy as np
 import scipy.linalg as slin
@@ -131,7 +132,7 @@ __all__ = [
     "floor_divide",
     "shift_left",
     "shift_right",
-    "minus",
+    "negate",
     "add",
     "subtract",
     "power",
@@ -145,7 +146,6 @@ __all__ = [
     "indexer",
     "primitive_slice",
     "swapaxes",
-    "sequence_slice",
     "union",
     "length",
     "cartesian_diff",
@@ -163,12 +163,14 @@ __all__ = [
     "pad",
     "split",
     "randn",
+    "randint",
     "atleast_1d",
     "minimum",
     "maximum",
     "dtype",
     "zeros_like",
     "avg_pool2d",
+    "ones",
 ]
 
 
@@ -264,29 +266,29 @@ def robust_power(
 # further testing should be done about performance
 def robust_sqrt(
     input: np.ndarray[Any, Any],
-    cutoff: np.ndarray[tuple[()], Any],
+    threshold: np.ndarray[tuple[()], Any],
     cache: CacheType | None = None,
 ) -> np.ndarray[Any, Any]:
     input = np.abs(input)
-    inds = input < cutoff
+    inds = input < threshold
     output = np.zeros_like(input)
     output[~inds] = np.sqrt(input[~inds])
-    output[inds] = input[inds] * np.reciprocal(np.sqrt(cutoff))
+    output[inds] = input[inds] * np.reciprocal(np.sqrt(threshold))
     return output
 
 
 def robust_log(
     input: np.ndarray[Any, Any],
-    cutoff: np.ndarray[tuple[()], Any],
+    threshold: np.ndarray[tuple[()], Any],
     cache: CacheType | None = None,
 ) -> np.ndarray[Any, Any]:
     input = np.abs(input)
-    inds = input < cutoff
-    y_c = np.log(cutoff)
+    inds = input < threshold
+    y_c = np.log(threshold)
     output = np.zeros_like(input)
     output[~inds] = np.log(input[~inds])
-    # Handle the values smaller than cutoff.
-    output[inds] = y_c + (input[inds] / cutoff) - 1.0
+    # Handle the values smaller than threshold.
+    output[inds] = y_c + (input[inds] / threshold) - 1.0
     return output
 
 
@@ -295,17 +297,17 @@ def robust_log(
 # futher testing should be done.
 def stable_reciprocal(
     input: np.ndarray[Any, Any],
-    cutoff: np.ndarray[tuple[()], Any],
+    threshold: np.ndarray[tuple[()], Any],
     cache: CacheType | None = None,
 ) -> np.ndarray[Any, Any]:
-    inds = np.abs(input) < cutoff
-    y_c = np.reciprocal(cutoff)
+    inds = np.abs(input) < threshold
+    y_c = np.reciprocal(threshold)
     output = np.zeros_like(input)
     output[~inds] = np.reciprocal(input[~inds])
-    # Handle the values smaller than cutoff.
+    # Handle the values smaller than threshold.
     output[inds] = (
         np.sign(input[inds]) + (1 - np.sign(np.abs(input[inds])))
-    ) * 2 * y_c + (-input[inds] / np.square(cutoff))
+    ) * 2 * y_c + (-input[inds] / np.square(threshold))
     return output
 
 
@@ -694,7 +696,7 @@ def cross_entropy(
     input: np.ndarray[Any, Any],
     target: np.ndarray[Any, Any],
     weights: list[float] | bool,
-    cutoff: np.ndarray[Any, Any],
+    threshold: np.ndarray[Any, Any],
     *,
     categorical: bool = True,
     robust: bool = False,
@@ -705,7 +707,7 @@ def cross_entropy(
     )
     write_into_cache(cache, "weights", _weights)
     log: partial[np.ndarray[Any, Any]] | Callable[..., np.ndarray[Any, Any]] = (
-        partial(robust_log, cutoff=cutoff, cache=None) if robust else np.log
+        partial(robust_log, threshold=threshold, cache=None) if robust else np.log
     )
     if categorical:
         if not np.issubdtype(target.dtype, np.integer):
@@ -724,14 +726,14 @@ def cross_entropy_with_logits(
     input: np.ndarray[Any, Any],
     target: np.ndarray[Any, Any],
     weights: list[float] | bool,
-    cutoff: np.ndarray[Any, Any],
+    threshold: np.ndarray[Any, Any],
     *,
     categorical: bool = True,
     robust: bool = False,
     cache: CacheType | None = None,
 ) -> np.ndarray[Any, Any]:
     log: partial[np.ndarray[Any, Any]] | Callable[..., np.ndarray[Any, Any]] = (
-        partial(robust_log, cutoff=cutoff, cache=None) if robust else np.log
+        partial(robust_log, threshold=threshold, cache=None) if robust else np.log
     )
     _weights = calculate_cross_entropy_class_weights(
         input, target, categorical, weights
@@ -779,14 +781,14 @@ def cross_entropy_with_log_probs(
 def binary_cross_entropy(
     input: np.ndarray[Any, Any],
     target: np.ndarray[Any, Any],
-    cutoff: np.ndarray[Any, Any],
+    threshold: np.ndarray[Any, Any],
     *,
     pos_weight: bool | float = 1.0,
     robust: bool = False,
     cache: CacheType | None = None,
 ) -> np.ndarray[Any, Any]:
     log: partial[np.ndarray[Any, Any]] | Callable[..., np.ndarray[Any, Any]] = (
-        partial(robust_log, cutoff=cutoff, cache=None) if robust else np.log
+        partial(robust_log, threshold=threshold, cache=None) if robust else np.log
     )
     if isinstance(pos_weight, bool) and pos_weight:
         pos_weight = float(calculate_binary_class_weight(target))
@@ -797,14 +799,14 @@ def binary_cross_entropy(
 def binary_cross_entropy_with_logits(
     input: np.ndarray[Any, Any],
     target: np.ndarray[Any, Any],
-    cutoff: np.ndarray[Any, Any],
+    threshold: np.ndarray[Any, Any],
     *,
     pos_weight: bool | float = 1.0,
     robust: bool = False,
     cache: CacheType | None = None,
 ) -> np.ndarray[Any, Any]:
     log: partial[np.ndarray[Any, Any]] | Callable[..., np.ndarray[Any, Any]] = (
-        partial(robust_log, cutoff=cutoff, cache=None) if robust else np.log
+        partial(robust_log, threshold=threshold, cache=None) if robust else np.log
     )
 
     if isinstance(pos_weight, bool):
@@ -855,11 +857,11 @@ def quad_hinge_loss(
 def kl_divergence(
     input: np.ndarray[Any, Any],
     target: np.ndarray[Any, Any],
-    cutoff: np.ndarray[Any, Any],
+    threshold: np.ndarray[Any, Any],
     cache: CacheType | None = None,
 ) -> np.ndarray[Any, Any]:
-    log_input1 = robust_log(input, cutoff)
-    log_input2 = robust_log(target, cutoff)
+    log_input1 = robust_log(input, threshold)
+    log_input2 = robust_log(target, threshold)
     partial_result = log_input2 - log_input1
     write_into_cache(cache, "partial_result", partial_result)
     return target * partial_result
@@ -899,8 +901,8 @@ def auc_core(
     n_positive = (label == 1).sum()
     n_negative = len(label) - n_positive
     sorted_input = np.sort(input)
-    tprs = []
-    fprs = []
+    _tprs = []
+    _fprs = []
 
     # TODO: This is very inefficient, improve it.
     for threshold in np.flip(np.unique(sorted_input)):
@@ -911,11 +913,11 @@ def auc_core(
         true_positives = np.sum((input_c == 1) & (label == 1))
         false_positives = np.sum((input_c == 1) & (label == 0))
 
-        fprs.append(false_positives / n_negative)
-        tprs.append(true_positives / n_positive)
+        _fprs.append(false_positives / n_negative)
+        _tprs.append(true_positives / n_positive)
 
-    tprs = np.stack(tprs)
-    fprs = np.stack(fprs)
+    tprs = np.stack(_tprs)
+    fprs = np.stack(_fprs)
 
     return np.stack([tprs, fprs])
 
@@ -1065,7 +1067,7 @@ def where(
 
 
 def concat(
-    input: list[np.ndarray[Any, Any]],
+    input: list[np.ndarray[Any, Any]] | tuple[np.ndarray[Any, Any], ...],
     axis: int | None = 0,
     cache: CacheType | None = None,
 ) -> np.ndarray[Any, Any]:
@@ -1275,11 +1277,11 @@ def dtype(input: np.ndarray[Any, Any]) -> np.dtype[Any]:
 
 
 def logical_xor(
-    left: np.ndarray[Any, Any],
-    right: np.ndarray[Any, Any],
+    left: np.ndarray[Any, Any] | int | bool,
+    right: np.ndarray[Any, Any] | int | bool,
     cache: CacheType | None = None,
-) -> np.ndarray[Any, Any]:
-    return np.logical_xor(left, right)
+) -> np.ndarray[Any, Any] | int | bool:
+    return left ^ right
 
 
 def split(
@@ -1313,10 +1315,37 @@ def randn(
     return np.random.randn(*shape).astype(dtype)
 
 
+def randint(
+    shape: tuple[int, ...],
+    key: int,
+    low: int,
+    high: int,
+    *,
+    dtype: str | None = None,
+    default_dtype: str,
+    cache: CacheType | None = None,
+) -> np.ndarray[Any, Any]:
+    np.random.seed(key)
+    if dtype is None:
+        dtype = "int32"
+    return np.random.randint(low, high, shape).astype(dtype)
+
+
 def zeros_like(
     input: np.ndarray[Any, Any], cache: CacheType | None = None
 ) -> np.ndarray[Any, Any]:
     return np.zeros_like(input)
+
+
+def ones(
+    shape: tuple[int, ...],
+    *,
+    dtype: np.dtype[Any] | None = None,
+    default_dtype: str,
+    cache: CacheType | None = None,
+) -> np.ndarray[Any, Any]:
+    dtype = dtype_map[default_dtype] if dtype is None else dtype
+    return np.ones(shape, dtype=dtype)
 
 
 def atleast_1d(
@@ -1326,50 +1355,50 @@ def atleast_1d(
 
 
 def greater(
-    left: np.ndarray[Any, Any],
-    right: np.ndarray[Any, Any],
+    left: np.ndarray[Any, Any] | int | float | bool,
+    right: np.ndarray[Any, Any] | int | float | bool,
     cache: CacheType | None = None,
-) -> np.ndarray[Any, Any]:
+) -> np.ndarray[Any, Any] | bool:
     return left > right
 
 
 def greater_equal(
-    left: np.ndarray[Any, Any],
-    right: np.ndarray[Any, Any],
+    left: np.ndarray[Any, Any] | int | float | bool,
+    right: np.ndarray[Any, Any] | int | float | bool,
     cache: CacheType | None = None,
-) -> np.ndarray[Any, Any]:
+) -> np.ndarray[Any, Any] | bool:
     return left >= right
 
 
 def less(
-    left: np.ndarray[Any, Any],
-    right: np.ndarray[Any, Any],
+    left: np.ndarray[Any, Any] | int | float | bool,
+    right: np.ndarray[Any, Any] | int | float | bool,
     cache: CacheType | None = None,
-) -> np.ndarray[Any, Any]:
+) -> np.ndarray[Any, Any] | bool:
     return left < right
 
 
 def less_equal(
-    left: np.ndarray[Any, Any],
-    right: np.ndarray[Any, Any],
+    left: np.ndarray[Any, Any] | int | float | bool,
+    right: np.ndarray[Any, Any] | int | float | bool,
     cache: CacheType | None = None,
-) -> np.ndarray[Any, Any]:
+) -> np.ndarray[Any, Any] | bool:
     return left <= right
 
 
 def equal(
-    left: np.ndarray[Any, Any],
-    right: np.ndarray[Any, Any],
+    left: np.ndarray[Any, Any] | int | float | bool,
+    right: np.ndarray[Any, Any] | int | float | bool,
     cache: CacheType | None = None,
-) -> np.ndarray[Any, Any]:
+) -> np.ndarray[Any, Any] | bool:
     return left == right
 
 
 def not_equal(
-    left: np.ndarray[Any, Any],
-    right: np.ndarray[Any, Any],
+    left: np.ndarray[Any, Any] | int | float | bool,
+    right: np.ndarray[Any, Any] | int | float | bool,
     cache: CacheType | None = None,
-) -> np.ndarray[Any, Any]:
+) -> np.ndarray[Any, Any] | bool:
     return left != right
 
 
@@ -1380,18 +1409,18 @@ def logical_not(
 
 
 def logical_or(
-    left: np.ndarray[Any, Any],
-    right: np.ndarray[Any, Any],
+    left: np.ndarray[Any, Any] | int | bool,
+    right: np.ndarray[Any, Any] | int | bool,
     cache: CacheType | None = None,
-) -> np.ndarray[Any, Any]:
+) -> np.ndarray[Any, Any] | int | bool:
     return left | right
 
 
 def logical_and(
-    left: np.ndarray[Any, Any],
-    right: np.ndarray[Any, Any],
+    left: np.ndarray[Any, Any] | int | bool,
+    right: np.ndarray[Any, Any] | int | bool,
     cache: CacheType | None = None,
-) -> np.ndarray[Any, Any]:
+) -> np.ndarray[Any, Any] | int | bool:
     return left & right
 
 
@@ -1404,70 +1433,70 @@ def matrix_multiplication(
 
 
 def multiplication(
-    left: np.ndarray[Any, Any],
-    right: np.ndarray[Any, Any],
+    left: np.ndarray[Any, Any] | int | float | bool,
+    right: np.ndarray[Any, Any] | int | float | bool,
     cache: CacheType | None = None,
-) -> np.ndarray[Any, Any]:
+) -> np.ndarray[Any, Any] | int | float:
     return left * right
 
 
 def divide(
-    numerator: np.ndarray[Any, Any],
-    denominator: np.ndarray[Any, Any],
+    numerator: np.ndarray[Any, Any] | int | float | bool,
+    denominator: np.ndarray[Any, Any] | int | float | bool,
     cache: CacheType | None = None,
-) -> np.ndarray[Any, Any]:
+) -> np.ndarray[Any, Any] | float:
     return numerator / denominator
 
 
 def floor_divide(
-    numerator: np.ndarray[Any, Any],
-    denominator: np.ndarray[Any, Any],
+    numerator: np.ndarray[Any, Any] | int | float | bool,
+    denominator: np.ndarray[Any, Any] | int | float | bool,
     cache: CacheType | None = None,
-) -> np.ndarray[Any, Any]:
+) -> np.ndarray[Any, Any] | int | float:
     return numerator // denominator
 
 
 def shift_left(
-    input: np.ndarray[Any, Any],
-    shift: np.ndarray[Any, Any],
+    input: np.ndarray[Any, Any] | int | bool,
+    shift: np.ndarray[Any, Any] | int | bool,
     cache: CacheType | None = None,
-) -> np.ndarray[Any, Any]:
+) -> np.ndarray[Any, Any] | int:
     return input << shift
 
 
 def shift_right(
-    input: np.ndarray[Any, Any],
-    shift: np.ndarray[Any, Any],
+    input: np.ndarray[Any, Any] | int | bool,
+    shift: np.ndarray[Any, Any] | int | bool,
     cache: CacheType | None = None,
-) -> np.ndarray[Any, Any]:
+) -> np.ndarray[Any, Any] | int:
     return input >> shift
 
 
-def minus(input: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+def negate(input: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
     return -input
 
 
 def add(
-    left: np.ndarray[Any, Any],
-    right: np.ndarray[Any, Any],
+    left: np.ndarray[Any, Any] | int | float | bool,
+    right: np.ndarray[Any, Any] | int | float | bool,
     cache: CacheType | None = None,
-) -> np.ndarray[Any, Any]:
+) -> np.ndarray[Any, Any] | int | float:
     return left + right
 
 
 def subtract(
-    left: np.ndarray[Any, Any],
-    right: np.ndarray[Any, Any],
+    left: np.ndarray[Any, Any] | int | float | bool,
+    right: np.ndarray[Any, Any] | int | float | bool,
     cache: CacheType | None = None,
-) -> np.ndarray[Any, Any]:
+) -> np.ndarray[Any, Any] | int | float:
     return left - right
 
 
 def power(
-    base: np.ndarray[Any, Any],
-    exponent: np.ndarray[Any, Any],
+    base: np.ndarray[Any, Any] | int | float | bool,
+    exponent: np.ndarray[Any, Any] | int | float | bool,
     cache: CacheType | None = None,
-) -> np.ndarray[Any, Any]:
+) -> np.ndarray[Any, Any] | float | int:
     return base**exponent
 
 
@@ -1477,10 +1506,6 @@ def squared_error(
     cache: CacheType | None = None,
 ) -> np.ndarray[Any, Any]:
     return (input - target) ** 2
-
-
-# def transpose(input: np.ndarray[Any, Any], cache: CacheType|None = None) :
-#     return input.T
 
 
 def transpose(
@@ -1500,9 +1525,7 @@ def square(
     return input * input
 
 
-def buffer(
-    input: np.ndarray[Any, Any], cache: CacheType | None = None
-) -> np.ndarray[Any, Any]:
+def buffer[T](input: T, cache: CacheType | None = None) -> T:
     return input
 
 
@@ -1524,16 +1547,6 @@ def item(input: np.ndarray[Any, Any]) -> int | float | bool:
     return input.item()  # type: ignore
 
 
-def sequence_slice(
-    input: list[int | float] | tuple[int | float, ...],
-    start: int | None,
-    stop: int | None,
-    step: int | None,
-    cache: CacheType | None = None,
-) -> list[int | float] | tuple[int | float, ...]:
-    return input[start:stop:step]
-
-
 def union(
     *args: int | float | tuple[int | float, ...], cache: CacheType | None = None
 ) -> tuple[int | float, ...]:
@@ -1544,15 +1557,11 @@ def union(
     return result
 
 
-def to_tuple(
-    *args: tuple[int | float | bool, ...], cache: CacheType | None = None
-) -> tuple[Any, ...]:
+def to_tuple(*args: Any, cache: CacheType | None = None) -> tuple[Any, ...]:
     return tuple(args)
 
 
-def to_list(
-    *args: tuple[int | float | bool, ...], cache: CacheType | None = None
-) -> list[Any]:
+def to_list(*args: Any, cache: CacheType | None = None) -> list[Any]:
     return list(args)
 
 
@@ -1626,22 +1635,43 @@ def padding_converter_2d(
     return output
 
 
-# TODO: Overload this function.
+@overload
 def indexer(
-    input: np.ndarray[Any, Any]
-    | list[int | float | bool]
-    | tuple[int | float | bool, ...],
-    index: int | slice | tuple[int | slice, ...],
+    input: np.ndarray[Any, Any],
+    index: int
+    | slice
+    | None
+    | EllipsisType
+    | tuple[int | slice | EllipsisType | None, ...],
+) -> np.ndarray[Any, Any]: ...
+
+
+@overload
+def indexer[T](
+    input: Sequence[T],
+    index: slice,
+    cache: CacheType | None,
+) -> Sequence[T]: ...
+
+
+@overload
+def indexer[T](
+    input: Sequence[T],
+    index: int,
+    cache: CacheType | None,
+) -> T: ...
+
+
+def indexer(
+    input: Any,
+    index: int
+    | slice
+    | None
+    | EllipsisType
+    | tuple[int | slice | EllipsisType | None, ...],
     cache: CacheType | None = None,
-) -> (
-    np.ndarray[Any, Any]
-    | list[int | float | bool]
-    | tuple[int | float | bool, ...]
-    | int
-    | float
-    | bool
-):
-    return input[index]  # type: ignore
+) -> Any:
+    return input[index]
 
 
 def primitive_slice(
@@ -1698,6 +1728,8 @@ def cartesian_diff(
 array_creation_funcs = [
     "arange",
     "randn",
+    "randint",
+    "ones",
     "to_tensor",
     "make_array",
     "eye",

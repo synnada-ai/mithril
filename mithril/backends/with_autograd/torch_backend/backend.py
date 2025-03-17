@@ -412,7 +412,9 @@ class TorchBackend(ParallelBackend[torch.Tensor]):
     ) -> torch.Tensor:
         return torch.flatten(input, start_dim=start_dim, end_dim=end_dim)
 
-    def concat(self, input: list[torch.Tensor], axis: int = 0) -> torch.Tensor:
+    def concat(
+        self, input: list[torch.Tensor] | tuple[torch.Tensor, ...], axis: int = 0
+    ) -> torch.Tensor:
         return torch.cat(input, dim=axis)
 
     def abs(self, input: torch.Tensor) -> torch.Tensor:

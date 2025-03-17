@@ -43,9 +43,10 @@ from ..common_primitives import (
     logical_and,
     logical_not,
     logical_or,
+    logical_xor,
     matrix_multiplication,
-    minus,
     multiplication,
+    negate,
     not_equal,
     padding_converter_1d,
     padding_converter_2d,
@@ -53,7 +54,6 @@ from ..common_primitives import (
     power,
     primitive_slice,
     reshape,
-    sequence_slice,
     shift_left,
     shift_right,
     square,
@@ -172,7 +172,7 @@ __all__ = [
     "shift_right",
     "power",
     "squared_error",
-    "minus",
+    "negate",
     "transpose",
     "swapaxes",
     "square",
@@ -182,7 +182,6 @@ __all__ = [
     "item",
     "indexer",
     "primitive_slice",
-    "sequence_slice",
     "union",
     "length",
     "cartesian_diff",
@@ -203,12 +202,14 @@ __all__ = [
     "pad",
     "split",
     "randn",
+    "randint",
     "atleast_1d",
     "minimum",
     "maximum",
     "dtype",
     "zeros_like",
     "avg_pool2d",
+    "ones",
 ]
 
 
@@ -253,26 +254,26 @@ def robust_power(
     return output
 
 
-def robust_sqrt(input: torch.Tensor, cutoff: torch.Tensor) -> torch.Tensor:
+def robust_sqrt(input: torch.Tensor, threshold: torch.Tensor) -> torch.Tensor:
     input = torch.abs(input)
-    inds = input < cutoff
+    inds = input < threshold
     output = torch.where(
         inds,
         input
         * torch.reciprocal(
-            torch.sqrt(cutoff.to(dtype=input.dtype, device=input.device))
+            torch.sqrt(threshold.to(dtype=input.dtype, device=input.device))
         ),
         torch.sqrt(torch.where(inds, 1, input)),
     )
     return output
 
 
-def robust_log(input: torch.Tensor, cutoff: torch.Tensor) -> torch.Tensor:
+def robust_log(input: torch.Tensor, threshold: torch.Tensor) -> torch.Tensor:
     input = torch.abs(input)
-    inds = input < cutoff
+    inds = input < threshold
     output = torch.where(
         inds,
-        math.log(cutoff) + (input / cutoff) - 1.0,
+        math.log(threshold) + (input / threshold) - 1.0,
         torch.log(torch.where(inds, 1, input)),
     )
     return output
@@ -281,13 +282,13 @@ def robust_log(input: torch.Tensor, cutoff: torch.Tensor) -> torch.Tensor:
 # NOTE: We wrote stable reciprocal in order to handle
 # undefined points (f(0) = inf in this case),
 # futher testing should be done.
-def stable_reciprocal(input: torch.Tensor, cutoff: torch.Tensor) -> torch.Tensor:
-    inds = torch.abs(input) < cutoff
-    y_c = torch.reciprocal(cutoff)
+def stable_reciprocal(input: torch.Tensor, threshold: torch.Tensor) -> torch.Tensor:
+    inds = torch.abs(input) < threshold
+    y_c = torch.reciprocal(threshold)
     output = torch.where(
         inds,
         (torch.sign(input) + (1 - torch.sign(torch.abs(input)))) * 2 * y_c
-        + (-input / (cutoff**2)),
+        + (-input / (threshold**2)),
         torch.reciprocal(torch.where(inds, 1, input)),
     )
     return output
@@ -641,13 +642,13 @@ def cross_entropy(
     input: torch.Tensor,
     target: torch.Tensor,
     weights: list[float] | bool,
-    cutoff: torch.Tensor,
+    threshold: torch.Tensor,
     *,
     categorical: bool = True,
     robust: bool = False,
 ) -> torch.Tensor:
     log: partial[torch.Tensor] | Callable[..., torch.Tensor] = (
-        partial(robust_log, cutoff=cutoff) if robust else torch.log
+        partial(robust_log, threshold=threshold) if robust else torch.log
     )
     _weights = calculate_cross_entropy_class_weights(
         input, target, categorical, weights
@@ -670,7 +671,7 @@ def cross_entropy_with_logits(
     input: torch.Tensor,
     target: torch.Tensor,
     weights: list[float] | bool,
-    cutoff: torch.Tensor,
+    threshold: torch.Tensor,
     *,
     categorical: bool = True,
     robust: bool = False,
@@ -693,7 +694,7 @@ def cross_entropy_with_logits(
             input, target, weight=_weights.squeeze(), reduction="none"
         ).reshape(shape)
     else:
-        log = partial(robust_log, cutoff=cutoff) if robust else torch.log
+        log = partial(robust_log, threshold=threshold) if robust else torch.log
         if categorical:
             if torch.is_floating_point(target) or torch.is_complex(target):
                 raise ValueError(
@@ -738,13 +739,13 @@ def cross_entropy_with_log_probs(
 def binary_cross_entropy(
     input: torch.Tensor,
     target: torch.Tensor,
-    cutoff: torch.Tensor,
+    threshold: torch.Tensor,
     *,
     pos_weight: bool | float = 1.0,
     robust: bool = False,
 ) -> torch.Tensor:
     log: partial[torch.Tensor] | Callable[..., torch.Tensor] = (
-        partial(robust_log, cutoff=cutoff) if robust else torch.log
+        partial(robust_log, threshold=threshold) if robust else torch.log
     )
     _pos_weight: torch.Tensor | bool | float
     # TODO: Use F.binary_cross_entropy
@@ -759,13 +760,13 @@ def binary_cross_entropy(
 def binary_cross_entropy_with_logits(
     input: torch.Tensor,
     target: torch.Tensor,
-    cutoff: torch.Tensor,
+    threshold: torch.Tensor,
     *,
     pos_weight: bool | float = 1.0,
     robust: bool = False,
 ) -> torch.Tensor:
     log: partial[torch.Tensor] | Callable[..., torch.Tensor] = (
-        partial(robust_log, cutoff=cutoff) if robust else torch.log
+        partial(robust_log, threshold=threshold) if robust else torch.log
     )
     _pos_weight: torch.Tensor | None
     if isinstance(pos_weight, bool):
@@ -813,14 +814,14 @@ def quantile_loss(
 
 
 def kl_divergence(
-    input: torch.Tensor, target: torch.Tensor, cutoff: torch.Tensor
+    input: torch.Tensor, target: torch.Tensor, threshold: torch.Tensor
 ) -> torch.Tensor:
     # NOTE: Torch built-in kk-divergence expects log-probabilities for predictions.
     # So we provide stable log of input1 to the kl_div.
     # return F.kl_div(RobustLog.formula(input1), input2, reduction = "none")
     return F.kl_div(
-        robust_log(input, cutoff),
-        robust_log(target, cutoff),
+        robust_log(input, threshold),
+        robust_log(target, threshold),
         reduction="none",
         log_target=True,
     )
@@ -973,7 +974,9 @@ def to_parallel(tensor: torch.Tensor, device_mesh: DeviceMesh) -> torch.Tensor:
     )
 
 
-def concat(input: list[torch.Tensor], axis: int | None = 0) -> torch.Tensor:
+def concat(
+    input: list[torch.Tensor] | tuple[torch.Tensor, ...], axis: int | None = 0
+) -> torch.Tensor:
     if axis is None:
         return torch.concatenate([torch.flatten(v) for v in input])
     else:
@@ -1186,10 +1189,6 @@ def dtype(input: torch.Tensor) -> torch.dtype:
     return input.dtype
 
 
-def logical_xor(left: torch.Tensor, right: torch.Tensor) -> torch.Tensor:
-    return torch.logical_xor(left, right)
-
-
 def split(
     input: torch.Tensor, split_size: int | list[int], axis: int = 0
 ) -> torch.Tensor:
@@ -1217,8 +1216,37 @@ def randn(
     )
 
 
+def randint(
+    shape: tuple[int, ...],
+    key: int,
+    low: int,
+    high: int,
+    *,
+    dtype: str | None = None,
+    device: str,
+    default_dtype: str,
+) -> torch.Tensor:
+    generator = torch.manual_seed(key)
+    if dtype is None:
+        dtype = "int32"
+    return torch.randint(
+        low, high, shape, generator=generator, device=device, dtype=dtype_map[dtype]
+    )
+
+
 def zeros_like(input: torch.Tensor) -> torch.Tensor:
     return torch.zeros_like(input)
+
+
+def ones(
+    shape: tuple[int, ...],
+    *,
+    dtype: torch.dtype | None = None,
+    device: str,
+    default_dtype: str,
+) -> torch.Tensor:
+    dtype = dtype_map[default_dtype] if dtype is None else dtype
+    return torch.ones(shape, device=device, dtype=dtype)
 
 
 def atleast_1d(input: torch.Tensor) -> torch.Tensor:
@@ -1229,7 +1257,15 @@ def primitive_embedding(input: torch.Tensor, weight: torch.Tensor) -> torch.Tens
     return weight[input.long()]
 
 
-array_creation_funcs = ["arange", "randn", "to_tensor", "eye", "ones_with_zero_diag"]
+array_creation_funcs = [
+    "arange",
+    "randn",
+    "randint",
+    "ones",
+    "to_tensor",
+    "eye",
+    "ones_with_zero_diag",
+]
 primitive_func_dict = common_primitive_func_dict | {
     key: fn for key, fn in globals().items() if callable(fn)
 }

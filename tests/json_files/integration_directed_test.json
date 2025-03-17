@@ -312,9 +312,9 @@
         "output_specs": {
             "output": {
                 "loss": {
-                    "fn": "QuantileLoss",
-                    "call_kwargs": {
-                        "quantile": {"tensor": 0.5}
+                    "fn": "QuantileLoss",                    
+                    "params": {
+                        "quantile": 0.5
                     }
                 }, 
                 "reduce_steps": ["Mean"], 
@@ -351,9 +351,9 @@
         "output_specs": {
             "output": {
                 "loss": {
-                    "fn": "QuantileLoss",
-                    "call_kwargs": {
-                        "quantile":{"tensor": 0.9}
+                    "fn": "QuantileLoss",                    
+                    "params": {
+                        "quantile": 0.9
                     }
                 }, 
                 "reduce_steps": ["Mean"], 
@@ -391,9 +391,9 @@
         "output_specs": {
             "output": {
                 "loss": {
-                    "fn": "QuantileLoss",
-                    "call_kwargs": {
-                        "quantile": {"tensor": 0.9}
+                    "fn": "QuantileLoss",                    
+                    "params": {
+                        "quantile": 0.9
                     }
                 }, 
                 "reduce_steps": ["Mean"], 
@@ -430,9 +430,9 @@
         "output_specs": {
             "output": {
                 "loss": {
-                    "fn": "QuantileLoss",
-                    "call_kwargs": {
-                        "quantile": {"tensor": 1e-15} 
+                    "fn": "QuantileLoss",                    
+                    "params": {
+                        "quantile": 1e-15
                     }
                 }, 
                 "reduce_steps": ["Mean"], 
@@ -469,9 +469,9 @@
         "output_specs": {
             "output": {
                 "loss": {
-                    "fn": "QuantileLoss",
-                    "call_kwargs": {
-                        "quantile": {"tensor": 0.2} 
+                    "fn": "QuantileLoss",                    
+                    "params": {
+                        "quantile": 0.2
                     }
                 }, 
                 "reduce_steps": ["Mean"], 
@@ -508,9 +508,9 @@
         "output_specs": {
             "output": {
                 "loss": {
-                    "fn": "QuantileLoss",
-                    "call_kwargs": {
-                        "quantile": {"tensor": 0.99999999999}  
+                    "fn": "QuantileLoss",                    
+                    "params": {
+                        "quantile": 0.99999999999
                     }
                 }, 
                 "reduce_steps": ["Mean"], 
@@ -554,9 +554,9 @@
         "output_specs": {
             "output": {
                 "loss": {
-                    "fn": "QuantileLoss",
-                    "call_kwargs": {
-                        "quantile": {"tensor": 0.99999999999} 
+                    "fn": "QuantileLoss",                    
+                    "params": {
+                        "quantile": 0.99999999999
                     }
                 }, 
                 "reduce_steps": ["Mean"], 
@@ -600,9 +600,9 @@
         "output_specs": {
             "output": {
                 "loss": {
-                    "fn": "QuantileLoss",
-                    "call_kwargs": {
-                        "quantile": {"tensor": 0.99999999999}
+                    "fn": "QuantileLoss",                    
+                    "params": {
+                        "quantile": 0.99999999999
                     }
                 }, 
                 "reduce_steps": ["Mean"], 
@@ -2403,7 +2403,7 @@
                 "kernel": {
                     "name": "PolynomialKernel", 
                     "assigned_types": [
-                        ["poly_coef", "tensor"]
+                        ["poly_coef", {"Tensor": ["int", "float", "bool"]}]
                     ]
                 }
             }
