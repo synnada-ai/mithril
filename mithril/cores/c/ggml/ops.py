@@ -16,20 +16,16 @@ __all__ = [
     "multiplication"
 ]
 
-def convert_to_c_array(
-    input: PyArray
-) -> PyArray:
-    input_np = np.array(input.data, dtype=input.dtype)
-    return from_numpy(input_np)
-
 def add(
     left: PyArray,
     right: PyArray
 ) -> PyArray:
     # In C backend, output is given as first input
     output = zeros(left.shape)
-    left_c = convert_to_c_array(left)
-    right_c = convert_to_c_array(right)
+    left_c_1_ptr = ctypes.cast(left.arr.data, ctypes.POINTER(ctypes.c_float))
+    left_c = PyArray(Array(data=left_c_1_ptr), left.shape)
+    right_c_1_ptr = ctypes.cast(right.arr.data, ctypes.POINTER(ctypes.c_float))
+    right_c = PyArray(Array(data=right_c_1_ptr), right.shape)
     lib.add(ctypes.byref(output.arr), ctypes.byref(left_c.arr), ctypes.byref(right_c.arr))
     _shape = output.shape
     data_ptr = ctypes.cast(output.arr.data, ctypes.c_void_p)
@@ -41,8 +37,10 @@ def multiplication(
 ) -> PyArray:
     # In C backend, output is given as first input
     output = zeros(left.shape)
-    left_c = convert_to_c_array(left)
-    right_c = convert_to_c_array(right)
+    left_c_1_ptr = ctypes.cast(left.arr.data, ctypes.POINTER(ctypes.c_float))
+    left_c = PyArray(Array(data=left_c_1_ptr), left.shape)
+    right_c_1_ptr = ctypes.cast(right.arr.data, ctypes.POINTER(ctypes.c_float))
+    right_c = PyArray(Array(data=right_c_1_ptr), right.shape)
     lib.multiplication(ctypes.byref(output.arr), ctypes.byref(left_c.arr), ctypes.byref(right_c.arr))
     _shape = output.shape
     data_ptr = ctypes.cast(output.arr.data, ctypes.c_void_p)
