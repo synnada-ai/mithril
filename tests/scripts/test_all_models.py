@@ -57,9 +57,9 @@ from mithril.models import (
     LogicalXOr,
     Maximum,
     Minimum,
-    Minus,
     Model,
     NanToNum,
+    Negate,
     NormModifier,
     NotEqual,
     Ones,
@@ -2394,8 +2394,8 @@ def test_index_2():
     )
 
 
-def test_minus():
-    model = Minus()
+def test_negate():
+    model = Negate()
 
     statics = {
         "input": [5.0, 0.0, -9.0, 10.0, -4.0],

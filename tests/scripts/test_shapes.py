@@ -84,10 +84,10 @@ from mithril.models import (
     MaxPool1D,
     MaxPool2D,
     Mean,
-    Minus,
     Model,
     Multiply,
     NanToNum,
+    Negate,
     NormModifier,
     Operator,
     Pad,
@@ -1880,9 +1880,9 @@ def test_cross_entropy_shapes_1():
     logical_ref = {
         "input": [8, 10],
         "target": [8],
-        "$categorical": None,
-        "$cutoff": [],
-        "$robust": None,
+        "$_CrossEntropy_0_categorical": None,
+        "$_CrossEntropy_0_threshold": [],
+        "$_CrossEntropy_0_robust": None,
         "output": [8],
         "$_CrossEntropy_0_weights": None,
     }
@@ -1891,7 +1891,7 @@ def test_cross_entropy_shapes_1():
         "target": [8],
         "weights": None,
         "categorical": None,
-        "cutoff": [],
+        "threshold": [],
         "robust": None,
         "output": [8],
     }
@@ -1901,7 +1901,7 @@ def test_cross_entropy_shapes_1():
 
 def test_cross_entropy_shapes_2():
     model = Model()
-    ce = CrossEntropy()
+    ce = CrossEntropy(categorical=TBD)
     ce.set_shapes(input=[8, 10])
     model |= ce(
         input="input", target="target", categorical=False, output=IOKey(name="output")
@@ -1911,8 +1911,8 @@ def test_cross_entropy_shapes_2():
         "input": [8, 10],
         "target": [8, 10],
         "$categorical": None,
-        "$cutoff": [],
-        "$robust": None,
+        "$_CrossEntropy_0_threshold": [],
+        "$_CrossEntropy_0_robust": None,
         "output": [8],
         "$_CrossEntropy_0_weights": None,
     }
@@ -1921,7 +1921,7 @@ def test_cross_entropy_shapes_2():
         "target": [8, 10],
         "weights": None,
         "categorical": None,
-        "cutoff": [],
+        "threshold": [],
         "robust": None,
         "output": [8],
     }
@@ -1931,7 +1931,7 @@ def test_cross_entropy_shapes_2():
 
 def test_cross_entropy_shapes_3():
     model = Model()
-    ce = CrossEntropy()
+    ce = CrossEntropy(categorical=TBD)
     ce.set_shapes(input=[8, 16, 32, 64], target=[8, 32, 64])
     model += ce(
         input="input", target="target", categorical=True, output=IOKey(name="output")
@@ -1940,8 +1940,8 @@ def test_cross_entropy_shapes_3():
         "input": [8, 16, 32, 64],
         "target": [8, 32, 64],
         "$categorical": None,
-        "$cutoff": [],
-        "$robust": None,
+        "$_CrossEntropy_0_threshold": [],
+        "$_CrossEntropy_0_robust": None,
         "output": [8, 32, 64],
         "$_CrossEntropy_0_weights": None,
     }
@@ -1950,7 +1950,7 @@ def test_cross_entropy_shapes_3():
         "target": [8, 32, 64],
         "weights": None,
         "categorical": None,
-        "cutoff": [],
+        "threshold": [],
         "robust": None,
         "output": [8, 32, 64],
     }
@@ -1960,7 +1960,7 @@ def test_cross_entropy_shapes_3():
 
 def test_cross_entropy_shapes_5():
     model = Model()
-    ce = CrossEntropy()
+    ce = CrossEntropy(categorical=TBD)
     ce.set_shapes(input=[8, 16, ("V1", ...), 64], target=[8, 32, 64])
     model += ce(
         input="input", target="target", categorical=True, output=IOKey(name="output")
@@ -1969,8 +1969,8 @@ def test_cross_entropy_shapes_5():
         "input": [8, 16, 32, 64],
         "target": [8, 32, 64],
         "$categorical": None,
-        "$cutoff": [],
-        "$robust": None,
+        "$_CrossEntropy_0_threshold": [],
+        "$_CrossEntropy_0_robust": None,
         "output": [8, 32, 64],
         "$_CrossEntropy_0_weights": None,
     }
@@ -1979,7 +1979,7 @@ def test_cross_entropy_shapes_5():
         "target": [8, 32, 64],
         "weights": None,
         "categorical": None,
-        "cutoff": [],
+        "threshold": [],
         "robust": None,
         "output": [8, 32, 64],
     }
@@ -1989,7 +1989,7 @@ def test_cross_entropy_shapes_5():
 
 def test_cross_entropy_shapes_6():
     model = Model()
-    ce = CrossEntropy()
+    ce = CrossEntropy(categorical=TBD)
     ce.set_shapes(input=[8, 16, ("V1", ...), 64], output=[8, 32, 64])
     model += ce(
         input="input", target="target", categorical=True, output=IOKey(name="output")
@@ -1998,8 +1998,8 @@ def test_cross_entropy_shapes_6():
         "input": [8, 16, 32, 64],
         "target": [8, 32, 64],
         "$categorical": None,
-        "$cutoff": [],
-        "$robust": None,
+        "$_CrossEntropy_0_threshold": [],
+        "$_CrossEntropy_0_robust": None,
         "output": [8, 32, 64],
         "$_CrossEntropy_0_weights": None,
     }
@@ -2008,7 +2008,7 @@ def test_cross_entropy_shapes_6():
         "target": [8, 32, 64],
         "weights": None,
         "categorical": None,
-        "cutoff": [],
+        "threshold": [],
         "robust": None,
         "output": [8, 32, 64],
     }
@@ -2018,7 +2018,7 @@ def test_cross_entropy_shapes_6():
 
 def test_cross_entropy_shapes_7():
     model = Model()
-    ce = CrossEntropy()
+    ce = CrossEntropy(categorical=TBD)
     ce.set_shapes(input=[("V1", ...), 64], target=[8, 16, 32, 64])
     model += ce(
         input="input", target="target", categorical=True, output=IOKey(name="output")
@@ -2028,8 +2028,8 @@ def test_cross_entropy_shapes_7():
         "input": [8, "u1", 16, 32, 64],
         "target": [8, 16, 32, 64],
         "$categorical": None,
-        "$cutoff": [],
-        "$robust": None,
+        "$_CrossEntropy_0_threshold": [],
+        "$_CrossEntropy_0_robust": None,
         "output": [8, 16, 32, 64],
         "$_CrossEntropy_0_weights": None,
     }
@@ -2038,7 +2038,7 @@ def test_cross_entropy_shapes_7():
         "target": [8, 16, 32, 64],
         "weights": None,
         "categorical": None,
-        "cutoff": [],
+        "threshold": [],
         "robust": None,
         "output": [8, 16, 32, 64],
     }
@@ -2048,7 +2048,7 @@ def test_cross_entropy_shapes_7():
 
 def test_cross_entropy_shapes_8():
     model = Model()
-    ce = CrossEntropy()
+    ce = CrossEntropy(categorical=TBD)
     ce.set_shapes(input=[("V1", ...), 64], target=[8, 16, 32, 64])
     model += ce(
         input="input", target="target", categorical=False, output=IOKey(name="output")
@@ -2058,8 +2058,8 @@ def test_cross_entropy_shapes_8():
         "input": [8, 16, 32, 64],
         "target": [8, 16, 32, 64],
         "$categorical": None,
-        "$cutoff": [],
-        "$robust": None,
+        "$_CrossEntropy_0_threshold": [],
+        "$_CrossEntropy_0_robust": None,
         "output": [8, 32, 64],
         "$_CrossEntropy_0_weights": None,
     }
@@ -2068,7 +2068,7 @@ def test_cross_entropy_shapes_8():
         "target": [8, 16, 32, 64],
         "weights": None,
         "categorical": None,
-        "cutoff": [],
+        "threshold": [],
         "robust": None,
         "output": [8, 32, 64],
     }
@@ -2078,7 +2078,7 @@ def test_cross_entropy_shapes_8():
 
 def test_cross_entropy_shapes_9():
     model = Model()
-    ce = CrossEntropy()
+    ce = CrossEntropy(categorical=TBD)
     ce.set_shapes(input=[8, 16, ("V1", ...), 64])
     model += ce(
         input="input", target="target", categorical=True, output=IOKey(name="output")
@@ -2087,8 +2087,8 @@ def test_cross_entropy_shapes_9():
         "input": [8, 16, "(V1, ...)", 64],
         "target": [8, "(V1, ...)", 64],
         "$categorical": None,
-        "$cutoff": [],
-        "$robust": None,
+        "$_CrossEntropy_0_threshold": [],
+        "$_CrossEntropy_0_robust": None,
         "output": [8, "(V1, ...)", 64],
         "$_CrossEntropy_0_weights": None,
     }
@@ -2097,7 +2097,7 @@ def test_cross_entropy_shapes_9():
         "target": [8, "...", 64],
         "weights": None,
         "categorical": None,
-        "cutoff": [],
+        "threshold": [],
         "robust": None,
         "output": [8, "...", 64],
     }
@@ -2114,9 +2114,9 @@ def test_cross_entropy_shapes_10():
     logical_ref: Mapping = {
         "input": [8, 16, "(V1, ...)", 64, 128],
         "target": [8, "(V1, ...)", 64, 128],
-        "$categorical": None,
-        "$cutoff": [],
-        "$robust": None,
+        "$_CrossEntropy_0_categorical": None,
+        "$_CrossEntropy_0_threshold": [],
+        "$_CrossEntropy_0_robust": None,
         "output": [8, "(V1, ...)", 64, 128],
         "$_CrossEntropy_0_weights": None,
     }
@@ -2125,7 +2125,7 @@ def test_cross_entropy_shapes_10():
         "target": [8, "...", 64, 128],
         "weights": None,
         "categorical": None,
-        "cutoff": [],
+        "threshold": [],
         "robust": None,
         "output": [8, "...", 64, 128],
     }
@@ -2142,9 +2142,9 @@ def test_cross_entropy_shapes_11():
     logical_ref: Mapping = {
         "input": [8, 4, "(V1, ...)", 64, 128],
         "target": [8, "(V1, ...)", 64, 128],
-        "$categorical": None,
-        "$cutoff": [],
-        "$robust": None,
+        "$_CrossEntropy_0_categorical": None,
+        "$_CrossEntropy_0_threshold": [],
+        "$_CrossEntropy_0_robust": None,
         "output": [8, "(V1, ...)", 64, 128],
         "$_CrossEntropy_0_weights": None,
     }
@@ -2153,7 +2153,7 @@ def test_cross_entropy_shapes_11():
         "target": [8, "...", 64, 128],
         "weights": None,
         "categorical": None,
-        "cutoff": [],
+        "threshold": [],
         "robust": None,
         "output": [8, "...", 64, 128],
     }
@@ -3318,9 +3318,9 @@ def test_shape_9():
     model_1 = Model3()
     model_2 = Model3()
     model_3 = Model3()
-    model |= model_1(input=[IOKey("input"), IOKey()])
-    model |= model_2(input=[model_1.output, IOKey()])
-    model |= model_3(input=[model_2.output, IOKey()], output=IOKey(name="output"))
+    model |= model_1(input=[IOKey("input"), IOKey()])  # type: ignore
+    model |= model_2(input=[model_1.output, IOKey()])  # type: ignore
+    model |= model_3(input=[model_2.output, IOKey()], output=IOKey(name="output"))  # type: ignore
     logical_ref = {
         "input": ["u1", "u2", "u3"],
         "$input2_0": ["u3", "u2", "u1"],
@@ -6679,7 +6679,7 @@ def test_total_repr_count_1():
         NanToNum: 1,
         Relu: 1,
         StableReciprocal: 2,
-        LeakyRelu: 2,
+        LeakyRelu: 1,
         IsNan: 1,
         Log: 1,
         Tanh: 1,
@@ -6691,7 +6691,7 @@ def test_total_repr_count_1():
         AUC: 1,
         Accuracy: 2,
         Buffer: 1,
-        Minus: 1,
+        Negate: 1,
         LogicalNot: 1,
         Absolute: 1,
         NormModifier: 1,

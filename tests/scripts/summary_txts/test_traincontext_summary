@@ -19,7 +19,6 @@ Layer_1      |   Inputs  : weight :       [ 11,    7] : 'weight1'
 Layer_2      |   Inputs  : weight :       [  4,   11] : 'weight2'     
              |             input  : [None, ...,   11] : Layer_1.output
              |             bias   :            [   4] : 'bias2'       
-             |             $slope :                -- : 0.01          
              |   -----------------------------------------------------
              |   Outputs : output : [None, ...,    4] : Layer_3.input 
 ----------------------------------------------------------------------
