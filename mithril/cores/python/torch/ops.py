@@ -974,7 +974,9 @@ def to_parallel(tensor: torch.Tensor, device_mesh: DeviceMesh) -> torch.Tensor:
     )
 
 
-def concat(input: list[torch.Tensor], axis: int | None = 0) -> torch.Tensor:
+def concat(
+    input: list[torch.Tensor] | tuple[torch.Tensor, ...], axis: int | None = 0
+) -> torch.Tensor:
     if axis is None:
         return torch.concatenate([torch.flatten(v) for v in input])
     else:

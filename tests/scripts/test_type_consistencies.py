@@ -859,6 +859,12 @@ def test_find_intersection_types_46():
     )
 
 
+def test_find_intersection_types_47():
+    type_1 = list[ToBeDetermined | int]
+    type_2 = list[ToBeDetermined]
+    assert find_intersection_type(type_1, type_2) == list[ToBeDetermined | int]
+
+
 def test_find_type_1():
     input = (3, 4)
     typ = find_type(input)
@@ -975,6 +981,12 @@ def test_find_type_16():
             | tuple[bool, tuple[float, tuple[float, tuple[bool, tuple[NoneType, int]]]]]  # type: ignore
         ]
     )
+
+
+def test_find_type_17():
+    input = [TBD, 0.3, 0.5, 0.7, 0.9]
+    typ = find_type(input)
+    assert typ == list[ToBeDetermined | float]
 
 
 def test_find_dominant_type_1():
