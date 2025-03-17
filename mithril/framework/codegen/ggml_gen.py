@@ -193,18 +193,26 @@ class GGMLCodeGen(CGen):
                 )
                 init_block.append(c_ast.Assign(c_ast.Variable(key), tensor))  # type: ignore
 
-        # Create tensors for static keys if they are going to be used in other operations
+        # Create tensors for static keys if they are
+        # going to be used in other operations
         for out_key in self.determined_struct_keys[f"{fn_ref_name}_cache_keys"]:
-            if (out_key in self.determined_struct_keys[f"{fn_ref_name}_input_keys"]
-                and out_key not in self.determined_struct_keys[f"{fn_ref_name}_output_keys"]
+            if (
+                out_key in self.determined_struct_keys[f"{fn_ref_name}_input_keys"]
+                and out_key
+                not in self.determined_struct_keys[f"{fn_ref_name}_output_keys"]
             ):
                 shape = self._get_tensor_shape(key)
                 tensor = c_ast.Call(
                     f"ggml_new_tensor_{len(shape)}d",
                     [ctx_name, "GGML_TYPE_F32"] + [str(size) for size in shape],
                 )
-                init_block.append(c_ast.Assign(self.create_key_ref(out_key, context=fn_ref_name), tensor))  # type: ignore
-        
+                init_block.append(
+                    c_ast.Assign(
+                        self.create_key_ref(out_key, context=fn_ref_name),
+                        tensor,  # type: ignore
+                    )
+                )
+
         # Create and build graph
         init_block.extend(
             [
@@ -246,24 +254,28 @@ class GGMLCodeGen(CGen):
         update_ptr_block.append(c_ast.Comment("Update tensor data for each call"))  # type: ignore
         for key in self.determined_struct_keys[f"{fn_ref_name}_input_keys"]:
             # If cached value is not going to be used in another operation,
-            # assign directly to output.
-            if (key in self.determined_struct_keys[f"{fn_ref_name}_cache_keys"]
+            # assign directly to output.
+            if (
+                key in self.determined_struct_keys[f"{fn_ref_name}_cache_keys"]
                 and key in self.determined_struct_keys[f"{fn_ref_name}_output_keys"]
-                ):
+            ):
                 update_ptr_block.append(
                     c_ast.Assign(  # type: ignore
                         self.create_key_ref(key, context=fn_ref_name),
-                        c_ast.Arrow(c_ast.Variable("inputs"), f"{key}")
+                        c_ast.Arrow(c_ast.Variable("inputs"), f"{key}"),
                     )
                 )
-            # If cached value is an input to another operation, retrieve 
-            # data from input.
-            elif(key in self.determined_struct_keys[f"{fn_ref_name}_cache_keys"]
+            # If cached value is an input to another operation, retrieve
+            # data from input.
+            elif (
+                key in self.determined_struct_keys[f"{fn_ref_name}_cache_keys"]
                 and key not in self.determined_struct_keys[f"{fn_ref_name}_output_keys"]
             ):
                 update_ptr_block.append(
                     c_ast.Assign(  # type: ignore
-                        c_ast.Arrow(self.create_key_ref(key, context=fn_ref_name), "data"),
+                        c_ast.Arrow(
+                            self.create_key_ref(key, context=fn_ref_name), "data"
+                        ),
                         c_ast.Arrow(c_ast.Arrow(c_ast.Variable("inputs"), key), "data"),
                     )
                 )

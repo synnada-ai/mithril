@@ -19,15 +19,15 @@ from typing import Any
 import numpy as np
 
 from .... import types
+from ....common import BiMap
 from ....cores.c.array import PyArray
+from ....cores.c.ggml import ops
 from ....cores.c.ggml.ggml_core import ggml_struct
 from ....cores.c.raw_c import array
 from ...backend import Backend
 from ...utils import process_shape
 from ..c_backend.utils import from_numpy
 from . import utils
-from ....cores.c.ggml import ops
-from ....common import BiMap
 
 __all__ = ["GGMLBackend"]
 
@@ -36,6 +36,7 @@ dtype_map: BiMap[str, Any] = BiMap(
         "float32": np.float32,
     }
 )
+
 
 class GGMLBackend(Backend[PyArray]):
     backend_type = "c"
@@ -49,7 +50,7 @@ class GGMLBackend(Backend[PyArray]):
         self.primitive_function_dict = ops.primitive_func_dict
         self.dtype_map = dtype_map
         self.registered_primitives = {}
-        self.array_creation_funcs = {}
+        self.array_creation_funcs: list[str] = []
 
     @property
     def is_manualgrad(self) -> bool:

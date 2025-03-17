@@ -12,9 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ....common import BiMap
-from typing import Any
 import ctypes
+from typing import Any
+
+from ....common import BiMap
 
 dtype_map: BiMap[str, Any] = BiMap(
     {

@@ -21,12 +21,13 @@ import numpy as np
 from .... import types
 from ....cores.c.array import PyArray
 from ....cores.c.raw_c import array, ops
+from ....cores.c.raw_c.utils import dtype_map
 from ...backend import Backend
 from ...utils import process_shape
 from . import utils
-from ....cores.c.raw_c.utils import dtype_map
 
 __all__ = ["CBackend"]
+
 
 class CBackend(Backend[PyArray]):
     backend_type = "c"
@@ -40,7 +41,8 @@ class CBackend(Backend[PyArray]):
         self.primitive_function_dict = ops.primitive_func_dict
         self.dtype_map = dtype_map
         self.registered_primitives = {}
-        self.array_creation_funcs = {}
+        self.array_creation_funcs: list[str] = []
+
     @property
     def is_manualgrad(self) -> bool:
         return True

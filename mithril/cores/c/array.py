@@ -14,7 +14,9 @@
 
 import ctypes
 from collections.abc import Sequence
+
 import numpy as np
+
 
 class PyArray:
     def __init__(self, arr: ctypes.Structure, shape: tuple[int, ...] | list[int]):

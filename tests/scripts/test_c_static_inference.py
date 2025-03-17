@@ -1,8 +1,24 @@
+# Copyright 2022 Synnada, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import numpy as np
 
 from mithril import CBackend, GGMLBackend, NumpyBackend, compile
+from mithril.cores.c.array import PyArray
 from mithril.framework.common import Tensor
 from mithril.models import Add, Model, Multiply
+
 
 def test_c_static_inference_1():
     """
@@ -17,10 +33,10 @@ def test_c_static_inference_1():
     c_backend = CBackend()
     np_backend = NumpyBackend()
     ggml_backend = GGMLBackend()
-    
+
     left_static = np.ones((5, 5), dtype=np.float32)
     right_static = np.ones((5, 5), dtype=np.float32)
-    
+
     c_pm = compile(
         model,
         c_backend,
@@ -29,7 +45,7 @@ def test_c_static_inference_1():
             "right": c_backend.array(right_static),
         },
         jit=False,
-        inference=True
+        inference=True,
     )
 
     np_pm = compile(
@@ -40,7 +56,7 @@ def test_c_static_inference_1():
             "right": right_static,
         },
         jit=False,
-        inference=True
+        inference=True,
     )
 
     ggml_pm = compile(
@@ -51,15 +67,15 @@ def test_c_static_inference_1():
             "right": ggml_backend.array(right_static),
         },
         jit=False,
-        inference=True
+        inference=True,
     )
-    
+
     # Numpy Backend
     np_outputs = np_pm.evaluate()
 
     # Raw C Backend
     c_outputs = c_pm.evaluate()
-    
+
     # GGML Backend
     ggml_outputs = ggml_pm.evaluate()
 
@@ -68,9 +84,13 @@ def test_c_static_inference_1():
         out = c_outputs[key]
         out_ggml = ggml_outputs[key]
         out_np = np_outputs[key]
+        assert isinstance(out_np, np.ndarray)
+        assert isinstance(out, PyArray)
+        assert isinstance(out_ggml, PyArray)
         assert np.allclose(c_backend.to_numpy(out), out_np)
         assert np.allclose(ggml_backend.to_numpy(out_ggml), out_np)
-        
+
+
 def test_c_static_inference_2():
     """
     Test static inference support for multiplication operation
@@ -84,10 +104,10 @@ def test_c_static_inference_2():
     c_backend = CBackend()
     np_backend = NumpyBackend()
     ggml_backend = GGMLBackend()
-    
+
     left_static = np.ones((5, 5), dtype=np.float32)
     right_static = np.ones((5, 5), dtype=np.float32)
-    
+
     c_pm = compile(
         model,
         c_backend,
@@ -96,7 +116,7 @@ def test_c_static_inference_2():
             "right": c_backend.array(right_static),
         },
         jit=False,
-        inference=True
+        inference=True,
     )
 
     np_pm = compile(
@@ -107,7 +127,7 @@ def test_c_static_inference_2():
             "right": right_static,
         },
         jit=False,
-        inference=True
+        inference=True,
     )
 
     ggml_pm = compile(
@@ -118,15 +138,15 @@ def test_c_static_inference_2():
             "right": ggml_backend.array(right_static),
         },
         jit=False,
-        inference=True
+        inference=True,
     )
-    
+
     # Numpy Backend
     np_outputs = np_pm.evaluate()
 
     # Raw C Backend
     c_outputs = c_pm.evaluate()
-    
+
     # GGML Backend
     ggml_outputs = ggml_pm.evaluate()
 
@@ -135,8 +155,12 @@ def test_c_static_inference_2():
         out = c_outputs[key]
         out_ggml = ggml_outputs[key]
         out_np = np_outputs[key]
+        assert isinstance(out_np, np.ndarray)
+        assert isinstance(out, PyArray)
+        assert isinstance(out_ggml, PyArray)
         assert np.allclose(c_backend.to_numpy(out), out_np)
         assert np.allclose(ggml_backend.to_numpy(out_ggml), out_np)
+
 
 def test_c_static_inference_3():
     """
@@ -146,16 +170,16 @@ def test_c_static_inference_3():
     model = Model()
 
     model += Add()(left="left", right="right", output="output")
-    model |=Multiply()(left="left1", right="right1", output="output2")
+    model |= Multiply()(left="left1", right="right1", output="output2")
     model.set_types(left=Tensor, right=Tensor, left1=Tensor, right1=Tensor)
 
     c_backend = CBackend()
     np_backend = NumpyBackend()
     ggml_backend = GGMLBackend()
-    
+
     left_static = np.ones((5, 5), dtype=np.float32)
     right_static = np.ones((5, 5), dtype=np.float32)
-    
+
     c_pm = compile(
         model,
         c_backend,
@@ -166,7 +190,7 @@ def test_c_static_inference_3():
             "right1": c_backend.array(right_static),
         },
         jit=False,
-        inference=True
+        inference=True,
     )
 
     np_pm = compile(
@@ -179,7 +203,7 @@ def test_c_static_inference_3():
             "right1": right_static,
         },
         jit=False,
-        inference=True
+        inference=True,
     )
 
     ggml_pm = compile(
@@ -192,15 +216,15 @@ def test_c_static_inference_3():
             "right1": ggml_backend.array(right_static),
         },
         jit=False,
-        inference=True
+        inference=True,
     )
-    
+
     # Numpy Backend
     np_outputs = np_pm.evaluate()
 
     # Raw C Backend
     c_outputs = c_pm.evaluate()
-    
+
     # GGML Backend
     ggml_outputs = ggml_pm.evaluate()
 
@@ -209,8 +233,12 @@ def test_c_static_inference_3():
         out = c_outputs[key]
         out_ggml = ggml_outputs[key]
         out_np = np_outputs[key]
+        assert isinstance(out_np, np.ndarray)
+        assert isinstance(out, PyArray)
+        assert isinstance(out_ggml, PyArray)
         assert np.allclose(c_backend.to_numpy(out), out_np)
         assert np.allclose(ggml_backend.to_numpy(out_ggml), out_np)
+
 
 def test_c_static_inference_4():
     """
@@ -220,26 +248,26 @@ def test_c_static_inference_4():
     model = Model()
 
     model += Add()(left="left", right="right", output="output")
-    model |=Multiply()(left="left1", right="right1", output="output2")
+    model |= Multiply()(left="left1", right="right1", output="output2")
     model.set_types(left=Tensor, right=Tensor, left1=Tensor, right1=Tensor)
 
     c_backend = CBackend()
     np_backend = NumpyBackend()
     ggml_backend = GGMLBackend()
-    
+
     left_static = np.ones((5, 5), dtype=np.float32)
     right_static = np.ones((5, 5), dtype=np.float32)
-    
+
     c_pm = compile(
         model,
         c_backend,
-        shapes={"left1": [5, 5], "right1": [5, 5] },
+        shapes={"left1": [5, 5], "right1": [5, 5]},
         constant_keys={
             "left": c_backend.array(left_static),
             "right": c_backend.array(right_static),
         },
         jit=False,
-        inference=True
+        inference=True,
     )
 
     np_pm = compile(
@@ -251,22 +279,22 @@ def test_c_static_inference_4():
             "right": right_static,
         },
         jit=False,
-        inference=True
+        inference=True,
     )
 
     ggml_pm = compile(
         model,
         ggml_backend,
-        shapes={"left1": [5, 5], "right1": [5, 5] },
+        shapes={"left1": [5, 5], "right1": [5, 5]},
         constant_keys={
             "left": ggml_backend.array(left_static),
             "right": ggml_backend.array(right_static),
         },
         jit=False,
         inference=True,
-        file_path="out_ggml_4.c"
+        file_path="out_ggml_4.c",
     )
-    
+
     # Numpy Backend
     np_outputs = np_pm.evaluate({"left1": left_static, "right1": right_static})
 
@@ -274,49 +302,60 @@ def test_c_static_inference_4():
     c_left = c_backend.array(left_static)
     c_right = c_backend.array(right_static)
     c_outputs = c_pm.evaluate({"left1": c_left, "right1": c_right})
-    
+
     # GGML Backend
     ggml_left1 = ggml_backend.array(left_static)
     ggml_right1 = ggml_backend.array(right_static)
-    ggml_outputs = ggml_pm.evaluate({"left": ggml_left1, "right": ggml_right1,"left1": ggml_left1, "right1": ggml_right1})
+    ggml_outputs = ggml_pm.evaluate(
+        {
+            "left": ggml_left1,
+            "right": ggml_right1,
+            "left1": ggml_left1,
+            "right1": ggml_right1,
+        }
+    )
 
     # Assertions
     for key in np_outputs:
         out = c_outputs[key]
         out_ggml = ggml_outputs[key]
         out_np = np_outputs[key]
+        assert isinstance(out_np, np.ndarray)
+        assert isinstance(out, PyArray)
+        assert isinstance(out_ggml, PyArray)
         assert np.allclose(c_backend.to_numpy(out), out_np)
         assert np.allclose(ggml_backend.to_numpy(out_ggml), out_np)
 
+
 def test_c_static_inference_5():
     """
-    Test static inference support when cached data is used 
+    Test static inference support when cached data is used
     as input in RawC and GGML backend with partial static inputs
     """
     model = Model()
 
     model += Add()(left="left", right="right", output="output")
-    model |=Multiply()(left="left1", right="right1", output="output2")
+    model |= Multiply()(left="left1", right="right1", output="output2")
     model |= Multiply()(left="left", right="output", output="output3")
     model.set_types(left=Tensor, right=Tensor, left1=Tensor, right1=Tensor)
 
     c_backend = CBackend()
     np_backend = NumpyBackend()
     ggml_backend = GGMLBackend()
-    
+
     left_static = np.ones((5, 5), dtype=np.float32)
     right_static = np.ones((5, 5), dtype=np.float32)
-    
+
     c_pm = compile(
         model,
         c_backend,
-        shapes={"left1": [5, 5], "right1": [5, 5] },
+        shapes={"left1": [5, 5], "right1": [5, 5]},
         constant_keys={
             "left": c_backend.array(left_static),
             "right": c_backend.array(right_static),
         },
         jit=False,
-        inference=True
+        inference=True,
     )
 
     np_pm = compile(
@@ -328,13 +367,13 @@ def test_c_static_inference_5():
             "right": right_static,
         },
         jit=False,
-        inference=True
+        inference=True,
     )
 
     ggml_pm = compile(
         model,
         ggml_backend,
-        shapes={"left1": [5, 5], "right1": [5, 5] },
+        shapes={"left1": [5, 5], "right1": [5, 5]},
         constant_keys={
             "left": ggml_backend.array(left_static),
             "right": ggml_backend.array(right_static),
@@ -342,7 +381,7 @@ def test_c_static_inference_5():
         jit=False,
         inference=True,
     )
-    
+
     # Numpy Backend
     np_outputs = np_pm.evaluate({"left1": left_static, "right1": right_static})
 
@@ -350,50 +389,60 @@ def test_c_static_inference_5():
     c_left = c_backend.array(left_static)
     c_right = c_backend.array(right_static)
     c_outputs = c_pm.evaluate({"left1": c_left, "right1": c_right})
-    
+
     # GGML Backend
     ggml_left1 = ggml_backend.array(left_static)
     ggml_right1 = ggml_backend.array(right_static)
-    ggml_outputs = ggml_pm.evaluate({"left": ggml_left1, "right": ggml_right1,"left1": ggml_left1, "right1": ggml_right1})
+    ggml_outputs = ggml_pm.evaluate(
+        {
+            "left": ggml_left1,
+            "right": ggml_right1,
+            "left1": ggml_left1,
+            "right1": ggml_right1,
+        }
+    )
 
     # Assertions
     for key in np_outputs:
         out = c_outputs[key]
         out_ggml = ggml_outputs[key]
         out_np = np_outputs[key]
+        assert isinstance(out_np, np.ndarray)
+        assert isinstance(out, PyArray)
+        assert isinstance(out_ggml, PyArray)
         assert np.allclose(c_backend.to_numpy(out), out_np)
         assert np.allclose(ggml_backend.to_numpy(out_ggml), out_np)
 
 
 def test_c_static_inference_6():
     """
-    Test static inference support when outputs of 
+    Test static inference support when outputs of
     model are used in other operation with partial static inputs
     """
     model = Model()
 
     model += Add()(left="left", right="right", output="output")
-    model |=Multiply()(left="left1", right="right1", output="output2")
+    model |= Multiply()(left="left1", right="right1", output="output2")
     model |= Add()(left="output2", right="output", output="output3")
     model.set_types(left=Tensor, right=Tensor, left1=Tensor, right1=Tensor)
 
     c_backend = CBackend()
     np_backend = NumpyBackend()
     ggml_backend = GGMLBackend()
-    
+
     left_static = np.ones((5, 5), dtype=np.float32)
     right_static = np.ones((5, 5), dtype=np.float32)
 
     c_pm = compile(
         model,
         c_backend,
-        shapes={"left1": [5, 5], "right1": [5, 5] },
+        shapes={"left1": [5, 5], "right1": [5, 5]},
         constant_keys={
             "left": c_backend.array(left_static),
             "right": c_backend.array(right_static),
         },
         jit=False,
-        inference=True
+        inference=True,
     )
 
     np_pm = compile(
@@ -405,21 +454,21 @@ def test_c_static_inference_6():
             "right": right_static,
         },
         jit=False,
-        inference=True
+        inference=True,
     )
 
     ggml_pm = compile(
         model,
         ggml_backend,
-        shapes={"left1": [5, 5], "right1": [5, 5] },
+        shapes={"left1": [5, 5], "right1": [5, 5]},
         constant_keys={
             "left": ggml_backend.array(left_static),
             "right": ggml_backend.array(right_static),
         },
         jit=False,
-        inference=True
+        inference=True,
     )
-    
+
     # Numpy Backend
     np_outputs = np_pm.evaluate({"left1": left_static, "right1": right_static})
 
@@ -427,7 +476,7 @@ def test_c_static_inference_6():
     c_left = c_backend.array(left_static)
     c_right = c_backend.array(right_static)
     c_outputs = c_pm.evaluate({"left1": c_left, "right1": c_right})
-    
+
     # GGML Backend
     ggml_left1 = ggml_backend.array(left_static)
     ggml_right1 = ggml_backend.array(right_static)
@@ -438,5 +487,8 @@ def test_c_static_inference_6():
         out = c_outputs[key]
         out_ggml = ggml_outputs[key]
         out_np = np_outputs[key]
+        assert isinstance(out_np, np.ndarray)
+        assert isinstance(out, PyArray)
+        assert isinstance(out_ggml, PyArray)
         assert np.allclose(c_backend.to_numpy(out), out_np)
         assert np.allclose(ggml_backend.to_numpy(out_ggml), out_np)
