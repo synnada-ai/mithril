@@ -154,7 +154,7 @@ class ToTupleOp(Operator):
                     | tuple  # type: ignore
                     | slice
                     | EllipsisType
-                    | Tensor[int]
+                    | Tensor[Any]
                     | None,
                     ...,
                 ]
@@ -169,7 +169,7 @@ class ToTupleOp(Operator):
                 | tuple
                 | slice
                 | EllipsisType
-                | Tensor[int]
+                | Tensor[Any]
                 | None,
                 value=kwargs.get(f"input{idx+1}", TBD),
             )
