@@ -109,10 +109,20 @@ class TemplateBase:
         key: slice
         | int
         | EllipsisType
-        | tuple[slice | int | None | EllipsisType | TemplateBase | Sequence[int], ...]
+        | tuple[
+            slice
+            | int
+            | None
+            | EllipsisType
+            | TemplateBase
+            | IOKey
+            | VariableSequenceType[int]
+            | Tensor[int],
+            ...,
+        ]
         | IOKey
         | TemplateBase
-        | Tensor[Any]
+        | Tensor[int]
         | VariableSequenceType[int]
         | None,
     ) -> ExtendTemplate:
@@ -127,7 +137,13 @@ class TemplateBase:
 
             case tuple():
                 connections: list[
-                    TemplateBase | int | None | EllipsisType | VariableSequenceType[int]
+                    TemplateBase
+                    | int
+                    | None
+                    | EllipsisType
+                    | VariableSequenceType[int]
+                    | IOKey
+                    | Tensor[int]
                 ] = []
                 for item in key:
                     if isinstance(item, slice):

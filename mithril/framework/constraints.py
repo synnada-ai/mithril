@@ -3586,9 +3586,9 @@ def tensor_item_constraints(
 
         # successive_status:
         # 0: init,
-        # 1: successive tensor indexes found,
-        # 2: tensor indexes stopped,
-        # 3: non-successive tensor indexes found
+        # 1: successive tensor indices found,
+        # 2: tensor indices stopped,
+        # 3: non-successive tensor indices found
         successive_status: Literal[0, 1, 2, 3] = 0
         slice_process_list: list[tuple[Uniadic, Uniadic, slice]] = []
 

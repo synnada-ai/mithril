@@ -1778,7 +1778,12 @@ class IndexerOp(Operator):
         | slice
         | EllipsisType
         | None
-        | tuple[int | slice | EllipsisType | None, ...]
+        | tuple[
+            int | slice | EllipsisType | None | VariableSequenceType[int] | Tensor[int],
+            ...,
+        ]
+        | Tensor[int]
+        | VariableSequenceType[int]
         | ToBeDetermined = TBD,
         input: Tensor[int | float | bool] | Sequence[Any] | ToBeDetermined = TBD,
         *,
