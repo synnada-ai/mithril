@@ -2853,8 +2853,10 @@ def randn_constraints(output: IOHyperEdge, shape: IOHyperEdge) -> ConstrainResul
     output_shape: ShapeRepr = output._temp_shape
     shape_val = shape.value
 
-    assert is_tuple_int(shape_val) or isinstance(
-        shape_val, ToBeDetermined
+    assert (
+        is_tuple_int(shape_val)
+        or is_list_int(shape_val)
+        or isinstance(shape_val, ToBeDetermined)
     ), "Invalid shape value!"
 
     if not isinstance(shape_val, ToBeDetermined):

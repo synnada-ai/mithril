@@ -220,7 +220,7 @@ def clip_text_model(config: dict[str, Any], name: str | None = None):
         input=block.t_encoder_output,  # type: ignore
         output="last_hidden_state",
     )
-    block |= Arange(dtype=ml.int64)(stop=B, output="arange_output")  # type: ignore
+    block |= Arange(dtype=ml.int64)(stop=B, output="arange_output")
     block |= ArgMax(axis=-1)(input=input, output="argmax_output")
 
     # TODO: Add block.argmax_output
