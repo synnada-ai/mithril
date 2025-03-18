@@ -126,7 +126,7 @@ def measure_time_and_grads_mithril(
         if idx == 4:
             t1 = perf_counter()
 
-        grads = model.evaluate_gradients(trainable_params, data)
+        _, grads = model.evaluate(trainable_params, data, output_gradients=True)
 
         if model.backend.backend_type == "mlx":
             mx.eval(grads)

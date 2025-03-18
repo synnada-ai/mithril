@@ -22,8 +22,10 @@ from typing import Any, Self, TypedDict
 from ..framework.common import (
     NOT_GIVEN,
     TBD,
+    FinalCost,
     IOHyperEdge,
     KeyType,
+    LossKey,
     Table,
     Tensor,
     UniadicRecord,
@@ -39,7 +41,6 @@ from ..framework.logical.model import (
     IOKey,
     Model,
 )
-from ..framework.physical.model import FinalCost, LossKey
 from .primitives import (
     Buffer,
     Concat,

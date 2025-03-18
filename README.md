@@ -93,7 +93,7 @@ output = jax_model1.evaluate(params, inputs)
 params = numpy_model.randomize_params()
 inputs = {"input": backend_numpy.ones(3, 3)}
 output_gradients = {"output": backend_numpy.ones(3, 16)}
-gradients = numpy_model.evaluate_gradients(params, inputs, output_gradients)
+gradients = numpy_model.evaluate(params, inputs, output_gradients=output_gradients)
 ```
 
 ### 🔀 Flexible Parallelizability and Training [Experimental]

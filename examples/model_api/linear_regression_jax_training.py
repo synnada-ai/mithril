@@ -56,7 +56,7 @@ opt_state = optimizer.init(params)
 # Begin training
 num_epochs = 10000
 for i in range(num_epochs):
-    outputs, gradients = pm.evaluate_all(params)
+    outputs, gradients = pm.evaluate(params, output_gradients=True)
     updates, opt_state = optimizer.update(gradients, opt_state)
     params = optax.apply_updates(params, updates)
 

@@ -21,7 +21,7 @@ from collections.abc import Mapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Any, overload
+from typing import Any, Literal, overload
 
 from ...backends.backend import Backend, ParallelBackend
 from ...types import DataType, GenericDataType
@@ -30,8 +30,8 @@ from ..common import (
     TBD,
     DataEvalType,
     EvaluateAllType,
-    EvaluateGradientsType,
     EvaluateType,
+    FinalCost,
     IOHyperEdge,
     MainValueInstance,
     MainValueType,
@@ -63,8 +63,6 @@ from .flat_graph import FlatGraph
 
 __all__ = ["PhysicalModel"]
 
-LossKey = "loss"
-FinalCost = "final_cost"
 
 PhysicalShapeValueType = Sequence[int | None]
 PhysicalConstantType = (
@@ -282,13 +280,6 @@ class PhysicalModel(GenericDataType[DataType]):
                     "safe_names set to True. The following keys are unnamed: "
                     f"{', '.join(str(key) for key in unnamed_data_keys)}"
                 )
-
-    def __call__(
-        self,
-        params: ParamsEvalType[DataType] | None = None,
-        data: DataEvalType[DataType] | None = None,
-    ) -> DataEvalType[DataType]:
-        return self.evaluate(params=params, data=data)
 
     @property
     def cotangent_keys(self) -> set[str]:
@@ -603,13 +594,9 @@ class PhysicalModel(GenericDataType[DataType]):
     def generate_functions(
         self,
         eval_fn: EvaluateType[DataType],
-        grad_fn: EvaluateGradientsType[DataType] | None,
         eval_all_fn: EvaluateAllType[DataType] | None,
     ) -> None:
         self._generated_eval_fn: EvaluateType[DataType] = eval_fn
-        self._generated_compute_gradients_fn: EvaluateGradientsType[DataType] | None = (
-            grad_fn
-        )
         self._generated_evaluate_all_fn: EvaluateAllType[DataType] | None = eval_all_fn
 
     def _calculate_parameters(
@@ -1018,6 +1005,8 @@ class PhysicalModel(GenericDataType[DataType]):
         self,
         params: ParamsEvalType[DataType] | None = None,
         data: DataEvalType[DataType] | None = None,
+        *,
+        output_gradients: Literal[False] = False,
     ) -> DataEvalType[DataType]: ...
 
     @overload
@@ -1025,15 +1014,47 @@ class PhysicalModel(GenericDataType[DataType]):
         self,
         params: ParamsEvalType[DataType] | None = None,
         data: DataEvalType[DataType] | None = None,
+        *,
+        output_gradients: Literal[False] = False,
         state: DataEvalType[DataType] | None = None,
     ) -> tuple[DataEvalType[DataType], DataEvalType[DataType]]: ...
+
+    @overload
+    def evaluate(
+        self,
+        params: ParamsEvalType[DataType] | None = None,
+        data: DataEvalType[DataType] | None = None,
+        *,
+        output_gradients: Literal[True] | ParamsEvalType[DataType] = True,
+    ) -> tuple[DataEvalType[DataType], ParamsEvalType[DataType]]: ...
+
+    @overload
+    def evaluate(
+        self,
+        params: ParamsEvalType[DataType] | None = None,
+        data: DataEvalType[DataType] | None = None,
+        *,
+        output_gradients: Literal[True] | ParamsEvalType[DataType] = True,
+        state: DataEvalType[DataType] | None = None,
+    ) -> tuple[
+        ParamsEvalType[DataType], DataEvalType[DataType], DataEvalType[DataType]
+    ]: ...
 
     def evaluate(
         self,
         params: ParamsEvalType[DataType] | None = None,
         data: DataEvalType[DataType] | None = None,
+        *,
+        output_gradients: ParamsEvalType[DataType] | bool = False,
         state: DataEvalType[DataType] | None = None,
-    ) -> DataEvalType[DataType] | tuple[DataEvalType[DataType], DataEvalType[DataType]]:
+    ) -> (
+        DataEvalType[DataType]
+        | tuple[DataEvalType[DataType], DataEvalType[DataType]]
+        | tuple[DataEvalType[DataType], ParamsEvalType[DataType]]
+        | tuple[
+            ParamsEvalType[DataType], DataEvalType[DataType], DataEvalType[DataType]
+        ]
+    ):
         # Inject seed values.
         if state is None:
             state = {}
@@ -1041,129 +1062,41 @@ class PhysicalModel(GenericDataType[DataType]):
             data = {}
         data = data | state | self._random_seeds  # type: ignore
         self._step_random_seed_values()
-        if (
-            isinstance(self.backend, ParallelBackend)
-            and self.backend.get_parallel_manager() is not None
-        ):
-            outputs = self.backend._run_callable(params, data, fn_name="eval_fn")
+        if output_gradients is False:
+            if (
+                isinstance(self.backend, ParallelBackend)
+                and self.backend.get_parallel_manager() is not None
+            ):
+                outputs = self.backend._run_callable(params, data, fn_name="eval_fn")
+            else:
+                outputs = self._generated_eval_fn(params, data)
+
+            outputs, state_outputs = self._extract_state_outputs(outputs)
+            if len(state_outputs) == 0:
+                return outputs
+            return outputs, state_outputs
         else:
-            outputs = self._generated_eval_fn(params, data)
+            if self.inference:
+                raise NotImplementedError(
+                    "Inference mode does not support gradients calculation"
+                )
+            _gradients = None if output_gradients is True else output_gradients
+            if (
+                isinstance(self.backend, ParallelBackend)
+                and self.backend.get_parallel_manager() is not None
+            ):
+                outputs, gradients = self.backend._run_callable(
+                    params, data, _gradients, fn_name="eval_all_fn"
+                )
+            else:
+                outputs, gradients = self._generated_evaluate_all_fn(
+                    params, data, _gradients
+                )  # type: ignore
 
-        outputs, state_outputs = self._extract_state_outputs(outputs)
-        if len(state_outputs) == 0:
-            return outputs
-        return outputs, state_outputs
-
-    @overload
-    def evaluate_gradients(
-        self,
-        params: ParamsEvalType[DataType] | None = None,
-        data: DataEvalType[DataType] | None = None,
-        output_gradients: ParamsEvalType[DataType] | None = None,
-    ) -> ParamsEvalType[DataType]: ...
-
-    @overload
-    def evaluate_gradients(
-        self,
-        params: ParamsEvalType[DataType] | None = None,
-        data: DataEvalType[DataType] | None = None,
-        output_gradients: ParamsEvalType[DataType] | None = None,
-        state: DataEvalType[DataType] | None = None,
-    ) -> tuple[ParamsEvalType[DataType], DataEvalType[DataType]]: ...
-
-    def evaluate_gradients(
-        self,
-        params: ParamsEvalType[DataType] | None = None,
-        data: DataEvalType[DataType] | None = None,
-        output_gradients: ParamsEvalType[DataType] | None = None,
-        state: DataEvalType[DataType] | None = None,
-    ) -> (
-        ParamsEvalType[DataType]
-        | tuple[ParamsEvalType[DataType], DataEvalType[DataType]]
-    ):
-        if state is None:
-            state = {}
-        if data is None:
-            data = {}
-        data = data | state | self._random_seeds  # type: ignore
-        if self.inference:
-            raise NotImplementedError(
-                "Inference mode does not support gradients calculation"
-            )
-        if (
-            isinstance(self.backend, ParallelBackend)
-            and self.backend.get_parallel_manager() is not None
-        ):
-            outputs, gradients = self.backend._run_callable(
-                params, data, output_gradients, fn_name="eval_all_fn"
-            )
-        else:
-            outputs, gradients = self._generated_evaluate_all_fn(
-                params, data, output_gradients
-            )  # type: ignore
-
-        # Extract state outputs from the outputs.
-        outputs, state_outputs = self._extract_state_outputs(outputs)
-        if len(state_outputs) == 0:
-            return gradients
-        return gradients, state_outputs
-
-    @overload
-    def evaluate_all(
-        self,
-        params: ParamsEvalType[DataType] | None = None,
-        data: DataEvalType[DataType] | None = None,
-        output_gradients: ParamsEvalType[DataType] | None = None,
-    ) -> tuple[DataEvalType[DataType], ParamsEvalType[DataType]]: ...
-
-    @overload
-    def evaluate_all(
-        self,
-        params: ParamsEvalType[DataType] | None = None,
-        data: DataEvalType[DataType] | None = None,
-        output_gradients: ParamsEvalType[DataType] | None = None,
-        state: DataEvalType[DataType] | None = None,
-    ) -> tuple[
-        ParamsEvalType[DataType], DataEvalType[DataType], DataEvalType[DataType]
-    ]: ...
-
-    def evaluate_all(
-        self,
-        params: ParamsEvalType[DataType] | None = None,
-        data: DataEvalType[DataType] | None = None,
-        output_gradients: ParamsEvalType[DataType] | None = None,
-        state: DataEvalType[DataType] | None = None,
-    ) -> (
-        tuple[DataEvalType[DataType], ParamsEvalType[DataType]]
-        | tuple[
-            ParamsEvalType[DataType], DataEvalType[DataType], DataEvalType[DataType]
-        ]
-    ):
-        if state is None:
-            state = {}
-        if data is None:
-            data = {}
-        data = data | state | self._random_seeds  # type: ignore
-        if self.inference:
-            raise NotImplementedError(
-                "Inferece mode does not support gradients calculation"
-            )
-        if (
-            isinstance(self.backend, ParallelBackend)
-            and self.backend.get_parallel_manager() is not None
-        ):
-            outputs, gradients = self.backend._run_callable(
-                params, data, output_gradients, fn_name="eval_all_fn"
-            )
-        else:
-            outputs, gradients = self._generated_evaluate_all_fn(
-                params, data, output_gradients
-            )  # type: ignore
-
-        outputs, state_outputs = self._extract_state_outputs(outputs)
-        if len(state_outputs) == 0:
-            return outputs, gradients
-        return outputs, gradients, state_outputs
+            outputs, state_outputs = self._extract_state_outputs(outputs)
+            if len(state_outputs) == 0:
+                return outputs, gradients
+            return outputs, gradients, state_outputs
 
 
 @dataclass
