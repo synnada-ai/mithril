@@ -386,7 +386,9 @@ class JaxBackend(ParallelBackend[jax.numpy.ndarray]):
     ) -> jax.Array:
         return ops.flatten(input, start_dim=start_dim, end_dim=end_dim)
 
-    def concat(self, input: list[jax.Array], axis: int = 0) -> jax.Array:
+    def concat(
+        self, input: list[jax.Array] | tuple[jax.Array, ...], axis: int = 0
+    ) -> jax.Array:
         return jax.numpy.concat(input, axis=axis)
 
     def abs(self, input: jax.Array) -> jax.Array:

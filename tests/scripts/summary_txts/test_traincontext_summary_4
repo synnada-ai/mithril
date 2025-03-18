@@ -14,10 +14,10 @@ Add_1            |   Inputs  : left   : bool | float | int : '$left'
                  |   ---------------------------------------------------
                  |   Outputs : output : bool | float | int : 'output2'  
 ------------------------------------------------------------------------
-MatrixMultiply   |   Inputs  : left   : bool | float | int : '$input'   
-                 |             right  : bool | float | int : '$right_1' 
+MatrixMultiply   |   Inputs  : left   : float | int        : '$input'   
+                 |             right  : float | int        : '$right_1' 
                  |   ---------------------------------------------------
-                 |   Outputs : output : bool | float | int : 'output3'  
+                 |   Outputs : output : float | int        : 'output3'  
 ------------------------------------------------------------------------
 
 

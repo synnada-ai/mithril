@@ -18,7 +18,7 @@ import re
 from collections.abc import Callable, Iterable, Sequence
 from copy import deepcopy
 from functools import reduce
-from types import EllipsisType, GenericAlias, UnionType
+from types import EllipsisType, UnionType
 from typing import Any, TypedDict, get_args, get_origin
 
 from mithril.framework.logical.base import ConnectionData
@@ -30,6 +30,7 @@ from ..framework.common import (
     AssignedConstraintType,
     IOHyperEdge,
     MainValueType,
+    ScalarType,
     ShapeTemplateType,
     Tensor,
     TensorValueType,
@@ -66,15 +67,9 @@ type_dict: dict[str, type | EllipsisType] = {
 value_dict: dict[str, Constant | Dtype] = {str(val): val for val in Constant}
 value_dict |= {str(val): val for val in Dtype}
 
-SerializedType = (
-    str
-    | list[str]
-    | dict[str, Any]
-    | list["SerializedType"]
-    | dict[str, "SerializedType"]
-)
+SerializedType = str | list[str] | list["SerializedType"] | dict[str, "SerializedType"]
 
-GeneralType = type | UnionType | EllipsisType
+GeneralType = type | UnionType | ScalarType | type[Tensor[int | float | bool]]
 
 
 class KeyDict(TypedDict, total=False):
@@ -154,13 +149,11 @@ __all__ = [
 enum_dict = {"PaddingType": PaddingType}
 
 
-def create_union(type_list: Iterable[GeneralType]) -> UnionType | GeneralType:
-    return reduce(lambda x, y: x | y, type_list)  # type: ignore
+def create_union(type_list: Iterable[GeneralType]) -> GeneralType:
+    return reduce(lambda x, y: x | y, type_list)
 
 
-def _serialize_type_info(
-    typ: type | UnionType | GenericAlias | EllipsisType,
-) -> SerializedType:
+def _serialize_type_info(typ: GeneralType) -> SerializedType:
     result: SerializedType
     if is_union_type(typ):
         # Args of union types are stored as a list.
@@ -184,10 +177,10 @@ def _serialize_type_info(
 
 def _deserialize_type_info(
     typ: SerializedType,
-) -> type | UnionType | EllipsisType:
-    result: type | UnionType | EllipsisType
+) -> GeneralType | EllipsisType:
+    result: GeneralType | EllipsisType
     if isinstance(typ, list):
-        result = create_union(_deserialize_type_info(item) for item in typ)
+        result = create_union(_deserialize_type_info(item) for item in typ)  # type: ignore
     elif isinstance(typ, dict):
         # Get origin type.
         origin = type_dict[list(typ.keys())[0]]
@@ -423,7 +416,7 @@ def _set_assigned_info(
         _construct_config_kwargs_info(
             model, submodel_dict, types_config, types_kwargs, type_info
         )
-    model.set_types(types_config, **types_kwargs)  # type: ignore
+    model.set_types(types_config, **types_kwargs)
 
     # Differentiability settings for models and keys.
     diff_config: dict[ConnectionData, bool] = {}
@@ -620,7 +613,7 @@ def dict_to_model(
         model,
         submodels_dict,
         assigned_shapes,
-        assigned_types,
+        assigned_types,  # type: ignore
         assigned_differentiabilities,
         assigned_constraints,
         assigned_cins,
@@ -877,7 +870,7 @@ def handle_dict_to_model_args(
                 # TODO: Do not send GenericTensorType,
                 # find a proper way to save and load tensor types.
             else:  # Scalar
-                source[key] = IOKey(type=possible_types, value=source[key]["value"])  # type: ignore
+                source[key] = IOKey(type=possible_types, value=source[key]["value"])
     return source
 
 
