@@ -60,7 +60,6 @@ from .common import (
 from .utils import find_list_base_type, is_union
 
 __all__ = [
-    "general_tensor_type_constraint",
     "scalar_slice_type_constraint",
     "indexer_initial_type_constraint",
     "indexer_type_constraint",
@@ -106,6 +105,8 @@ __all__ = [
     "polynomial_kernel_constraint",
     "general_forward_constraint",
     "general_type_constraint",
+    "sum_fn",
+    "distance_matrix_const",
 ]
 
 
@@ -142,6 +143,14 @@ def is_repr_known(repr: ShapeRepr) -> bool:
     return repr.root is None and all([uni.value is not None for uni in repr.prefix])
 
 
+def sum_fn(*inputs: Any) -> Any:
+    return sum(inputs)
+
+
+def distance_matrix_const(input1: Any, input2: Any, input3: Any) -> Any:
+    return (input1 - input2) ** input3
+
+
 def create_union_type(
     *types: type | UnionType | GenericAlias,
 ) -> type | UnionType | GenericAlias:
@@ -152,27 +161,6 @@ def create_union_type(
         return result
     else:
         raise TypeError("At least one type should be given!")
-
-
-def _reduce_union_type(
-    output_type: type | UnionType | GenericAlias,
-    arg_type: UnionType,
-) -> None | set[type]:
-    eliminated: set[type[int] | type[float] | type[bool]] | None = {float}
-    if output_type is float:
-        eliminated = None
-    if output_type is bool:
-        eliminated = {float, int}
-    if not eliminated:
-        return None
-    new_type: set[type] = set(arg_type.__args__) - eliminated
-    if not new_type:
-        # Means arg can not take any bool value which is an error.
-        raise TypeError(
-            f"One of arguments is of type {arg_type} which is not possible for {type} "
-            "type output!"
-        )
-    return new_type
 
 
 def set_edge_type(edge: IOHyperEdge, new_type: Any) -> Updates:
@@ -198,135 +186,6 @@ def general_forward_constraint(
             updates |= output.set_value(output_value)
         else:
             status = False
-    return status, updates
-
-
-def general_tensor_type_constraint(*args: IOHyperEdge) -> ConstrainResultType:
-    # NOTE: Assumes first argument is always output as other constraints.
-    # Also requires all types of args consists of any combination of
-    # float, int and bool. For instance, int | float is an acceptable type
-    # but tuple or list[int] are not.
-    status = False
-    updates = Updates()
-    output, *inputs = args
-    arg_types: set[type | UnionType] = set()
-    all_possible_types: set[type | UnionType] = set()
-    union_types: set[tuple[IOHyperEdge, UnionType]] = set()
-    # Set all different types and also Union types in input args.
-    for arg in inputs:
-        typ = arg.value_type
-        assert isinstance(typ, type(int) | type(float) | type(bool) | UnionType)
-        arg_types.add(typ)
-        if isinstance(typ, UnionType):
-            union_types.add((arg, typ))
-            all_possible_types.update(set(typ.__args__))
-        else:
-            all_possible_types.add(typ)
-
-    # Check existance of any possible unsupported types
-    if all_possible_types - {int, float, bool}:
-        return status, updates
-
-    # assert isinstance(output._value, Tensor)
-    # Try reverse type inference first.
-    if output.value_type is not TBD and not isinstance(output.value_type, UnionType):
-        # Means output has a definite type (int, float or bool).
-        assert isinstance(
-            output.value_type, type(int) | type(float) | type(bool) | UnionType
-        )
-        out_exists = output.value_type in arg_types
-        related_unions = {
-            pair for pair in union_types if output.value_type in pair[1].__args__
-        }
-        if not (out_exists or related_unions):
-            # At least one of arg_types or UnionTypes must contain
-            # output type.
-            raise TypeError(
-                f"None of arguments consist of type {output.value_type} which is the "
-                "exact output type!"
-            )
-        elif not out_exists and len(related_unions) == 1:
-            # If only one of them contains output type, enforce this union
-            # type to be same as output type.
-            arg = related_unions.pop()[0]
-            # updates |= arg.set_type(Tensor[output.value_type])
-            updates |= set_edge_type(arg, output.value_type)
-            status = True
-        # Update Union type arguments.
-        for pair in related_unions:
-            arg, arg_type = pair
-            new_type = _reduce_union_type(output.value_type, arg_type)
-            if new_type is not None:
-                uni_type = create_union_type(*new_type)
-                assert not isinstance(uni_type, GenericAlias)
-                # updates |= arg.set_type(Tensor[uni_type])
-                updates |= set_edge_type(arg, uni_type)
-        if not out_exists:
-            # If any one of inputs became same type as output, set
-            # status True.
-            for pair in related_unions:
-                if pair[0].value_type == output.value_type:
-                    status = True
-                    break
-    elif output.value_type == int | bool:
-        if float in arg_types:
-            raise TypeError(
-                "One of arguments value is float which is not possible when output "
-                "type is int | bool"
-            )
-        else:
-            # assert isinstance(output.value_type, type(float))
-            # We can eliminate any float possibility from Union type args.
-            for pair in union_types:
-                arg, arg_type = pair
-                new_type = _reduce_union_type(output.value_type, arg_type)
-                if new_type is not None:
-                    uni_type = create_union_type(*new_type)
-                    assert not isinstance(uni_type, GenericAlias)
-                    # updates |= arg.set_type(Tensor[uni_type])
-                    updates |= set_edge_type(arg, uni_type)
-    # Try forward type inference.
-    out_type = None
-    if not status:
-        if len(arg_types) == 1:
-            # All arguments are of same type, so is the output.
-            out_type = arg_types.pop()
-        elif float in arg_types:
-            # Float type is dominant in type coercion for tensors.
-            out_type = float
-        elif int in arg_types:
-            # If there is no union float type, output type is simply int.
-
-            out_type = int
-            if float in all_possible_types:
-                # Means there are some union types which can be float.
-                out_type = int | float
-
-        elif bool in arg_types:
-            # If there is no union type, output type is simply bool.
-            if not union_types:
-                out_type = bool
-            elif all_possible_types.issuperset({float, int}):
-                if output.value_type != float | int | bool:
-                    out_type = float | int | bool
-            elif all_possible_types.issuperset({float}):
-                if output.value_type != float | bool:
-                    out_type = float | bool
-            elif (
-                all_possible_types.issuperset({int}) and output.value_type != int | bool
-            ):
-                out_type = int | bool
-        elif int | float in arg_types:
-            out_type = int | float
-
-    # Set output type if inferred.
-    if out_type is not None:
-        # updates |= output.set_type(Tensor[out_type])
-        updates |= set_edge_type(output, out_type)
-        # If out_type became non-union type, set status to True.
-        if not isinstance(out_type, UnionType | ToBeDetermined):
-            status = True
-
     return status, updates
 
 
@@ -462,15 +321,17 @@ def general_type_constraint(
 
     all_output_types |= process_tensor_op_types(fn, is_bitwise, *args)
 
+    max_possible_results = 1
     for result, key in zip(zip(*all_output_types, strict=False), keys, strict=False):
         res_type = reduce(or_, result)
+        max_possible_results *= len(set(result))
         res_type = squash_tensor_types(res_type)
         updates |= key.set_type(res_type)
 
     if is_edge:
         status = not any(io.is_polymorphic for io in keys)
     else:
-        status = len(all_output_types) == 1
+        status = not len(all_output_types) < max_possible_results
 
     return status, updates
 
@@ -1942,7 +1803,7 @@ def concat_constraints(
     keys: list[ShapeRepr] = []
     assert isinstance(output._value, Tensor)
     input_val = [] if input._value is TBD else input._value
-    assert isinstance(input_val, list)
+    assert isinstance(input_val, list | tuple)
     for arg in input_val:
         assert isinstance(arg, Tensor)
         assert arg._temp_shape is not None, "Input shape of concat is not set!"
@@ -4116,7 +3977,6 @@ def polynomial_kernel_constraint(
 constrain_fn_dict = {key: fn for key, fn in globals().items() if callable(fn)}
 
 constraint_type_map: dict[ConstraintFunctionType, list[UpdateType]] = {
-    general_tensor_type_constraint: [UpdateType.TYPE],
     scalar_slice_type_constraint: [UpdateType.TYPE],
     indexer_initial_type_constraint: [UpdateType.TYPE],
     indexer_type_constraint: [UpdateType.TYPE],

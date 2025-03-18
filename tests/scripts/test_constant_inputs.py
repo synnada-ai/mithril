@@ -459,8 +459,8 @@ def test_constant_numpy_set_values():
 
 def test_axis():
     model = Model()
-    relu = LeakyRelu()
-    rob_pow = Power(robust=True)
+    relu = LeakyRelu(slope=TBD)
+    rob_pow = Power(robust=True, threshold=TBD)
     model |= relu(input=IOKey("input", differentiable=True), slope=Tensor(2.3))
     model |= rob_pow(
         base=relu.output,
@@ -493,8 +493,8 @@ def test_axis():
 
 def test_axis_1():
     model = Model()
-    relu = LeakyRelu()
-    rob_pow = Power(robust=True)
+    relu = LeakyRelu(slope=TBD)
+    rob_pow = Power(robust=True, threshold=TBD)
     rob_pow.set_types(base=Tensor, exponent=Tensor)
     model |= rob_pow(
         base=IOKey("base", differentiable=True),
@@ -619,7 +619,7 @@ def test_scalar_mean_2_1():
 def test_scalar_mean_2_2():
     mean_model = Model()
     rob_pow = Model()
-    rob_pow |= Power(robust=True)(
+    rob_pow |= Power(robust=True, threshold=TBD)(
         threshold=IOKey(name="threshold", value=Tensor(1.3)), base="base"
     )
 
@@ -700,7 +700,7 @@ def test_scalar_2():
         model |= add(
             left=Tensor([4.0, 5.0]),
             right=Tensor([8.0, 9.0]),
-            output=Tensor([7.0, 8.0]),
+            output=Tensor([7.0, 8.0]),  # type: ignore
         )
     assert str(err_info.value) == (
         "'output key is an output of the model, output values could not be "
@@ -726,7 +726,7 @@ def test_scalar_3():
     add_1 = Add()
     model1 |= add_2
     with pytest.raises(KeyError) as err_info:
-        model1 |= add_1(left="left", right="right", output=[4.0])
+        model1 |= add_1(left="left", right="right", output=[4.0])  # type: ignore
     assert str(err_info.value) == (
         "'output key is an output of the model, output values could not be "
         "set in extend.'"
@@ -749,7 +749,7 @@ def test_scalar_4():
     model1 = Model()
     add_1 = Add()
     with pytest.raises(Exception) as err_info:
-        model1 |= add_1(left="left", right="right", output=3.0)
+        model1 |= add_1(left="left", right="right", output=3.0)  # type: ignore
     assert str(err_info.value) == (
         "'output key is an output of the model, output values could not be "
         "set in extend.'"
@@ -939,7 +939,7 @@ def test_float_axis_2():
     model1 = Model()
     mean1 = Mean(axis=TBD)
     with pytest.raises(TypeError) as err_info:
-        model1 |= mean1(axis=3.0)
+        model1 |= mean1(axis=3.0)  # type: ignore
     assert str(err_info.value) == (
         "Acceptable types are None | int | list[int] | tuple[int, ...], but "
         "<class 'float'> type is provided!"
@@ -1016,7 +1016,7 @@ def test_bool_tensor():
     and1 = LogicalAnd()
     model += and1(left="in1", right="in2", output=IOKey(name="output"))
     comp_model = ml.compile(model=model, backend=NumpyBackend(), inference=True)
-    assert comp_model.ignore_grad_keys == {"output"}
+    assert "output" not in comp_model.cotangent_keys
 
 
 def test_bool_tensor_numpy_32():
@@ -1490,7 +1490,7 @@ def test_composite_1_set_values():
 def test_composite_2():
     model = Model()
     conv1 = Convolution2D(kernel_size=2, out_channels=4)
-    leaky_relu = LeakyRelu()
+    leaky_relu = LeakyRelu(slope=TBD)
     model |= conv1(input=IOKey("input", differentiable=True))
 
     conv1.set_differentiability(input=True)
@@ -1504,7 +1504,7 @@ def test_composite_2():
 def test_composite_2_set_values():
     model = Model()
     conv1 = Convolution2D(kernel_size=2, out_channels=4)
-    leaky_relu = LeakyRelu()
+    leaky_relu = LeakyRelu(slope=TBD)
     model |= conv1(input="input")
     conv1.set_differentiability(input=True)
     model |= leaky_relu(
@@ -1518,7 +1518,7 @@ def test_composite_2_set_values():
 def test_composite_3():
     model = Model()
     conv1 = Convolution2D(kernel_size=2, out_channels=1, stride=TBD)
-    leaky_relu = LeakyRelu()
+    leaky_relu = LeakyRelu(slope=TBD)
     mean_model = Mean(axis=TBD)
     model |= conv1(input="input", stride=(2, 3))
     conv1.set_differentiability(input=True)
@@ -1533,7 +1533,7 @@ def test_composite_3():
 def test_composite_3_set_values():
     model = Model()
     conv1 = Convolution2D(kernel_size=2, out_channels=1, stride=TBD)
-    leaky_relu = LeakyRelu()
+    leaky_relu = LeakyRelu(slope=TBD)
     mean_model = Mean(axis=TBD)
     model |= conv1(input="input")
     conv1.set_differentiability(input=True)
@@ -1551,7 +1551,7 @@ def test_composite_3_set_values():
 def test_composite_4():
     model = Model()
     conv1 = Convolution2D(kernel_size=2, out_channels=1, stride=TBD)
-    leaky_relu = LeakyRelu()
+    leaky_relu = LeakyRelu(slope=TBD)
     mean_model = Mean(axis=TBD)
     model |= conv1(input="input", stride=(2, 3))
     conv1.set_differentiability(input=True)
@@ -1565,7 +1565,7 @@ def test_composite_4():
 def test_composite_4_set_values():
     model = Model()
     conv1 = Convolution2D(kernel_size=2, out_channels=1, stride=TBD)
-    leaky_relu = LeakyRelu()
+    leaky_relu = LeakyRelu(slope=TBD)
     mean_model = Mean(axis=TBD)
     model |= conv1(input="input")
     conv1.set_differentiability(input=True)
@@ -1803,7 +1803,7 @@ def test_unused_cached_values_2():
     """
     model = Model()
     linear_model = Linear(dimension=2)
-    model += linear_model(weight=Tensor([[1.0], [2.0]]), bias=Tensor([3.0, 1.0]))
+    model += linear_model(weight=Tensor([[1.0], [2.0]]), bias=Tensor([3.0, 1.0]))  # type: ignore
     comp_model = ml.compile(
         model=model,
         backend=(backend := NumpyBackend()),
@@ -2019,7 +2019,7 @@ def test_static_shape_model_3():
 def test_static_shape_model_4():
     model = Model()
     model += Relu()(input="input")
-    model += Log(robust=True)(cutoff=NOT_GIVEN)
+    model += Log(robust=True)(threshold=NOT_GIVEN)
     model += Shape()
     model += ToTensor()
     model += Relu()
@@ -2047,7 +2047,7 @@ def test_static_shape_model_4():
 def test_static_shape_model_5():
     model = Model()
     model |= Relu()(input="input")
-    model += (log := Log(robust=True))(cutoff="cutoff")
+    model += (log := Log(robust=True, threshold=TBD))(threshold=IOKey("threshold"))
     model += Shape()
     model += ToTensor()
     model |= Relu()(input=model.cout, output=IOKey(name="output1"))
@@ -2058,7 +2058,7 @@ def test_static_shape_model_5():
         model=model,
         backend=backend,
         constant_keys={"input": backend.ones(8, 8)},
-        data_keys={"cutoff"},
+        data_keys={"threshold"},
         inference=True,
     )
     cache = comp_model.flat_graph.data_store.data_values
@@ -2073,10 +2073,10 @@ def test_static_shape_model_5():
     assert all([np.all(value == expected_cache[key]) for key, value in cache.items()])
     # Check runtime data keys.
     data_keys = comp_model.flat_graph.data_store.runtime_static_keys
-    expected_data_keys = {"cutoff"}
+    expected_data_keys = {"threshold"}
     assert data_keys == expected_data_keys
     # Try evaluate and evaluate gradients once.
-    data = {"cutoff": 0.00005}
+    data = {"threshold": 0.00005}
     result = comp_model.evaluate(params={}, data=data)
     assert np.all(result["output1"] == np.array([8, 8], dtype=np.int32))
     assert np.all(result["output2"] == backend.zeros(8, 8))
@@ -2389,14 +2389,16 @@ def test_cross_entropy_robust_ellipsis():
 def test_bce_ellipsis():
     backend = NumpyBackend()
     model_1 = Model()
-    ce_model_1 = BinaryCrossEntropy(pos_weight=TBD, input_type="probs")
+    ce_model_1 = BinaryCrossEntropy(
+        pos_weight=TBD, input_type="probs", robust=TBD, threshold=TBD
+    )
     model_1 += ce_model_1(
         input="input",
         target="target",
         output=IOKey(name="output"),
         robust="robust",
         pos_weight="pos_weight",
-        cutoff="cutoff",
+        threshold="threshold",
     )
 
     comp_model_1 = ml.compile(
@@ -2407,7 +2409,7 @@ def test_bce_ellipsis():
             "target",
             "robust",
             "pos_weight",
-            "cutoff",
+            "threshold",
         },
         inference=True,
     )
@@ -2425,7 +2427,7 @@ def test_bce_ellipsis():
         "target": backend.array([0.5, 0.5]),
         "robust": False,
         "pos_weight": 1.0,
-        "cutoff": 1e-300,
+        "threshold": 1e-300,
     }
 
     data_2: dict[str, np.ndarray] = {

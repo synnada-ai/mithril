@@ -16,17 +16,24 @@ from abc import ABC, abstractmethod
 from typing import Generic
 
 from ...cores.core import DataType
-from ..common import EvaluateAllType, EvaluateGradientsType, EvaluateType
+from ..common import (
+    EvaluateAllType,
+    EvaluateGradientsType,
+    EvaluateType,
+)
 from ..physical.model import PhysicalModel
 
 
 class CodeGen(ABC, Generic[DataType]):
-    FinalCost = "final_cost"
-
     def __init__(self, pm: PhysicalModel[DataType]) -> None:
         self.pm: PhysicalModel[DataType] = pm
         self.code: str | None = None
         self.file_path: str | None = None
+        # NOTE: grad and no_grad keys are used to store keys that gradients are
+        # to be calculated or not. This caching is necessary since querying the
+        # gradient status of a key can be expensive for nested data structures.
+        self._grad_keys: set[str] = set()
+        self._no_grad_keys: set[str] = set()
 
     @abstractmethod
     def generate_code(self, file_path: str | None = None) -> None:
@@ -41,3 +48,27 @@ class CodeGen(ABC, Generic[DataType]):
         EvaluateAllType[DataType] | None,
     ]:
         raise NotImplementedError("compile_code is not implemented")
+
+    def _has_grad(self, key: str) -> bool:
+        """
+        Check if a given key has gradient information.
+
+        This method checks if the specified key is present in the 'grad' or 'no_grad'
+        status sets. If the key is not found in either, it queries the
+        'pm.has_grad' method to determine the gradient status and updates the
+        corresponding set.
+
+        Args:
+            key (str): The key to check for gradient information.
+
+        Returns:
+            bool: True if the key has gradient, False otherwise.
+        """
+        if key in self._grad_keys:
+            return True
+        if key in self._no_grad_keys:
+            return False
+
+        status = self.pm.has_grad(key)
+        (self._no_grad_keys, self._grad_keys)[status].add(key)
+        return status

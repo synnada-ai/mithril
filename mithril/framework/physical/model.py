@@ -27,7 +27,6 @@ from ...backends.backend import Backend, ParallelBackend
 from ...types import DataType, GenericDataType
 from ...utils.type_utils import is_list_int
 from ..common import (
-    NOT_GIVEN,
     TBD,
     DataEvalType,
     EvaluateAllType,
@@ -60,7 +59,6 @@ from ..logical.model import (
     define_unique_names,
 )
 from ..logical.operator import Operator
-from .data_store import StaticDataStore
 from .flat_graph import FlatGraph
 
 __all__ = ["PhysicalModel"]
@@ -107,11 +105,6 @@ class PhysicalModel(GenericDataType[DataType]):
             raise KeyError("Models with no output keys can not be compiled.")
 
         # TODO: Update StaticDataStore.convert_data_to_physical function.
-        constant_keys = {  # type: ignore
-            key: StaticDataStore.convert_data_to_physical(value, backend)  # type: ignore
-            for key, value in model().connections.items()
-            if value is not NOT_GIVEN
-        } | constant_keys
 
         self.backend: Backend[DataType] = backend
         self._output_keys: set[str] = set(model.conns.output_keys)
@@ -298,6 +291,34 @@ class PhysicalModel(GenericDataType[DataType]):
         return self.evaluate(params=params, data=data)
 
     @property
+    def cotangent_keys(self) -> set[str]:
+        """
+        Returns a set of cotangent keys based on the current mode and output keys.
+
+        In inference mode, an empty set is returned as no output gradients are needed.
+        In training mode, if `FinalCost` is in the output keys, only `FinalCost` is
+        returned. Otherwise, only the differentiable output keys that require
+        output gradients are returned.
+
+        Returns:
+            set[str]: A set of cotangent keys.
+        """
+        if self.inference:
+            # In inference mode, no need to provide any output gradients
+            # for any output key.
+            return set()
+
+        if FinalCost in self._output_keys:
+            # This indicates that we are working with a TrainModel.
+            # Therefore, only FinalCost is the only cotangent for VJP
+            # (typically unit gradient provided).
+            keys = {FinalCost}
+        else:
+            # Only differentiable output keys require output gradients.
+            keys = {key for key in self._output_keys if self.has_grad(key)}
+        return keys
+
+    @property
     def _random_seeds(self) -> dict[str, int]:
         return self.flat_graph.random_seeds
 
@@ -382,6 +403,26 @@ class PhysicalModel(GenericDataType[DataType]):
                 "and output keys. "
                 f"Invalid keys: {', '.join(str(key) for key in internal_discards)}."
             )
+
+    def has_grad(self, key: str) -> bool:
+        """
+        Check if the edge corresponding to the given key has a gradient.
+
+        This method checks if the edge associated with the provided key
+        has a differentiable value. It first attempts to retrieve the edge
+        directly from `self.data` using the key. If the edge is not found,
+        it retrieves the edge using the key from `self.flat_graph.output_dict`
+        which is simply a map that stores aliases of pruned keys.
+
+        Args:
+            key (str): The key corresponding to the edge to be checked.
+
+        Returns:
+            bool: True if the edge has a differentiable value, False otherwise.
+        """
+        if (edge := self.data.get(key)) is None:
+            edge = self.data[self.flat_graph.output_dict[key]]
+        return any_differentiable(edge._value)
 
     def get_shapes(
         self,
@@ -524,8 +565,6 @@ class PhysicalModel(GenericDataType[DataType]):
         data_keys: set[str],
         shapes: PhysicalShapeType,
     ) -> None:
-        self.ignore_grad_keys: set[str] = set()
-
         # Set given shapes.
         self.flat_graph.set_shapes(shapes)
 
@@ -555,26 +594,9 @@ class PhysicalModel(GenericDataType[DataType]):
         self.discarded_keys, self._output_keys = self.flat_graph.infer_ignore(
             self.discarded_keys, self._output_keys
         )
-
-        _reversed_out_dict = {v: k for k, v in self.flat_graph.output_dict.items()}
-        for _key in self.flat_graph.topological_order:
-            conn_edge = self.data.get(_key, None)
-            # TODO: If conn_edge is None, it means that the key is unused in data_store
-            # but not unnecessary in flat_graph. This case should be handled when
-            # flat_graph - data_store integration is updated.
-            if not (conn_edge is None or any_differentiable(conn_edge._value)):
-                ignored = {_key}
-                if (ignored_alias := _reversed_out_dict.get(_key)) is not None:
-                    ignored.add(ignored_alias)
-                self.ignore_grad_keys.update(ignored)
-
         if (
-            len(
-                self._output_keys
-                - (self.ignore_grad_keys | self.flat_graph.all_static_keys)
-            )
-            == 0
-            and not self.inference
+            not self.inference
+            and len({key for key in self._output_keys if self.has_grad(key)}) == 0
         ):
             raise ValueError("All outputs gradient are ignored.")
 

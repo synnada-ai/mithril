@@ -98,7 +98,7 @@ def flux(params: FluxParams):
     flux |= Concat(axis=1)(
         input=[getattr(flux, txt_name), getattr(flux, img_name)], output="img_concat"
     )
-
+ 
     img_name = "img_concat"
     for i in range(params.depth_single_blocks):
         flux |= single_stream_block(
