@@ -575,16 +575,16 @@ class PythonCodeGen(CodeGen[Any], Generic[DataType]):
         self,
         raw_evaluate_fn: RawEvaluateType[DataType],
         raw_evaluate_grad_fn: ManualGradWrapperFn[DataType] | None,
-    ) -> RawEvaluateType[DataType]:
+    ) -> ManualGradWrapperFn[DataType]:
         if not self.pm.backend.is_manualgrad:
-            return partial(  # type: ignore
-                self.compute_gradients,  # type: ignore
+            return partial(
+                self.compute_gradients,
                 raw_evaluate_fn=raw_evaluate_fn,
                 cache=self.pm.flat_graph.cached_data,
             )
         else:
             assert raw_evaluate_grad_fn is not None, "Gradient function is not defined!"
-            return raw_evaluate_grad_fn  # type: ignore
+            return raw_evaluate_grad_fn
 
     def compute_gradients(
         self,
