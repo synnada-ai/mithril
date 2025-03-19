@@ -29,6 +29,7 @@ from ..common import (
     TensorValueType,
     ToBeDetermined,
     UpdateType,
+    VariableSequenceType,
 )
 from ..constraints import (
     bcast,
@@ -153,7 +154,7 @@ class ToTupleOp(Operator):
                     | tuple  # type: ignore
                     | slice
                     | EllipsisType
-                    | Tensor  # type: ignore
+                    | Tensor[Any]
                     | None,
                     ...,
                 ]
@@ -167,8 +168,8 @@ class ToTupleOp(Operator):
                 | list
                 | tuple
                 | slice
-                | Tensor
                 | EllipsisType
+                | Tensor[Any]
                 | None,
                 value=kwargs.get(f"input{idx+1}", TBD),
             )
@@ -1777,7 +1778,12 @@ class IndexerOp(Operator):
         | slice
         | EllipsisType
         | None
-        | tuple[int | slice | EllipsisType | None, ...]
+        | tuple[
+            int | slice | EllipsisType | None | VariableSequenceType[int] | Tensor[int],
+            ...,
+        ]
+        | Tensor[int]
+        | VariableSequenceType[int]
         | ToBeDetermined = TBD,
         input: Tensor[int | float | bool] | Sequence[Any] | ToBeDetermined = TBD,
         *,
@@ -1796,7 +1802,16 @@ class IndexerOp(Operator):
                 | slice
                 | EllipsisType
                 | None
-                | tuple[int | slice | EllipsisType | None | Tensor[int], ...]
+                | VariableSequenceType[int]  # type: ignore
+                | tuple[
+                    int
+                    | slice
+                    | EllipsisType
+                    | None
+                    | Tensor[int]
+                    | VariableSequenceType[int],
+                    ...,
+                ]
                 | Tensor[int],
                 value=index,
             ),
@@ -1804,7 +1819,7 @@ class IndexerOp(Operator):
 
         indexer_initial_constraints = self._add_constraint(
             fn=indexer_initial_type_constraint,
-            keys=[Operator.output_key, "input"],
+            keys=[Operator.output_key, "input", "index"],
         )
 
         self._add_constraint(
