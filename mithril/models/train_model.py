@@ -180,7 +180,7 @@ class TrainModel(Model):
         } - {
             conn.key
             for conn in loss_model.conns.input_connections
-            if conn.metadata.is_scalar
+            if (conn.metadata.is_scalar or conn.metadata.is_valued)
         }:
             # if set(kwargs.keys()) != keys:
             raise KeyError("The provided keys do not match the model's loss.")
@@ -475,7 +475,7 @@ class TrainModel(Model):
         loss_output_key = LossKey if self.reg_coef_map else FinalCost
         if (num_of_loss_keys := len(self.loss_keys)) > 1:
             concat_model = Concat(axis=None)
-            losses = [
+            losses: list[Connection] = [
                 self.conns.get_connection(key).atleast_1d()  # type: ignore
                 for key in self.loss_keys.values()
             ]
