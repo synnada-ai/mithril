@@ -793,8 +793,14 @@ class FlatGraph(GenericDataType[DataType]):
         if data.keys() & self.data_store._all_data.keys():
             raise Exception("Some keys are already in data store!")
         self.data_store._all_data |= data
+        state_keys = set()
+        for item in self.state_keys:
+            state_keys.add(item.in_key)
+            state_keys.add(item.out_key)
         for key, value in data.items():
-            if any_differentiable(value._value):
+            if key not in state_keys and (
+                value.initial_valued or any_differentiable(value._value)
+            ):
                 continue
 
             # Distribute non-differentiable keys into 3 attributes using

@@ -26,7 +26,6 @@ from ..framework.common import (
     TBD,
     MainValueType,
     ShapeTemplateType,
-    StateValue,
     Tensor,
     ToBeDetermined,
 )
@@ -38,6 +37,7 @@ from ..framework.logical.model import (
     IOKey,
     Model,
 )
+from ..types import Constant
 from ..utils.utils import convert_to_list, convert_to_tuple
 from .primitives import (
     Absolute,
@@ -895,8 +895,8 @@ class BatchNorm2D(Model):
 
             self |= Buffer()(running_mean_out, "running_mean_out")
             self |= Buffer()(running_var_out, "running_var_out")
-            self.bind_state_keys(running_mean, "running_mean_out", StateValue.ZEROS)
-            self.bind_state_keys(running_var, "running_var_out", StateValue.ONES)
+            self.bind_state_keys(running_mean, "running_mean_out", Constant.ZEROS)
+            self.bind_state_keys(running_var, "running_var_out", Constant.ONES)
 
             # Normalize the input
             norm = (input_key - mean) / (var + eps).sqrt()
@@ -3695,17 +3695,17 @@ class Randn(Model):
     ) -> None:
         super().__init__(name=name)
         _shape = IOKey("shape", value=shape)
-        _key = IOKey("key")
+        _key = IOKey("key", key)
         _dtype = IOKey("dtype", value=dtype)
 
+        if key is TBD:
+            _key = IOKey("key")
+            self |= PrimitiveRandInt(shape=tuple(), low=0, high=2**14)(
+                key=_key, output="new_key"
+            )
+            self.bind_state_keys(_key, "new_key", Tensor(42))
         self |= PrimitiveRandn()(_shape, _key, _dtype, output=IOKey("output"))
-        self |= PrimitiveRandInt(shape=tuple(), low=0, high=2**14)(
-            key=_key, output="new_key"
-        )
-        if isinstance(key, int):
-            self.bind_state_keys(_key, "new_key", key)
-        else:
-            self.bind_state_keys(_key, "new_key", 42)
+
         self._freeze()
 
     def __call__(  # type: ignore[override]
@@ -3737,29 +3737,28 @@ class RandInt(Model):
         _shape = IOKey("shape", value=shape)
         _low = IOKey("low", value=low)
         _high = IOKey("high", value=high)
-        _key = IOKey("key")
+        _key = IOKey("key", key)
         _dtype = IOKey("dtype", value=dtype)
         output = IOKey("output")
 
+        if key is TBD:
+            _key = IOKey("key")
+            self |= PrimitiveRandInt(shape=tuple(), low=0, high=2**14)(
+                key=_key, output="new_key"
+            )
+            self.bind_state_keys(_key, "new_key", Tensor(42))
         self |= PrimitiveRandInt()(_shape, _key, _low, _high, _dtype, output=output)
-        self |= PrimitiveRandInt(shape=tuple(), low=0, high=2**14)(
-            key=_key, output="new_key"
-        )
-        if isinstance(key, int):
-            self.bind_state_keys(_key, "new_key", key)
-        else:
-            self.bind_state_keys(_key, "new_key", 42)
+
         self._freeze()
 
     def __call__(  # type: ignore[override]
         self,
         shape: ConnectionType = NOT_GIVEN,
-        key: ConnectionType = NOT_GIVEN,
         low: ConnectionType = NOT_GIVEN,
         high: ConnectionType = NOT_GIVEN,
         dtype: ConnectionType = NOT_GIVEN,
         output: ConnectionType = NOT_GIVEN,
     ) -> ExtendInfo:
         return super().__call__(
-            shape=shape, key=key, low=low, high=high, dtype=dtype, output=output
+            shape=shape, low=low, high=high, dtype=dtype, output=output
         )

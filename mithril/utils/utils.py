@@ -20,7 +20,7 @@ from itertools import compress
 from typing import Any, Generic, TypeVar
 
 from ..backends.backend import Backend
-from ..types import Constant, DataType, constant_type_table
+from ..types import DataType
 
 __all__ = [
     "convert_specs_to_dict",
@@ -356,9 +356,3 @@ def convert_to_list(
         return [convert_to_list(element) for element in value]
     else:
         return value
-
-
-def constant_fn(lst: Any) -> type[bool] | type[int] | type[float] | None:
-    if isinstance(lst, Constant):
-        return constant_type_table[lst]
-    return None

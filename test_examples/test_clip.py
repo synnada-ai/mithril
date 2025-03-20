@@ -180,7 +180,7 @@ class TestLayers:
         expected_result = o_model(torch_input)
 
         qr = backend.array(torch_input.numpy())
-        outs = pm(params, {"input": qr})
+        outs, state = pm.evaluate(params, {"input": qr}, state=pm.initial_state_dict)
         res = outs["output"]
         np.testing.assert_allclose(
             np.array(res), expected_result.cpu().detach().numpy(), 1e-5, 1e-5
@@ -219,7 +219,9 @@ class TestLayers:
 
         image = backend.array(torch_image.numpy())
         text = backend.array(torch_text.numpy())
-        outs = pm(params, {"image": image, "text": text})
+        outs, state = pm.evaluate(
+            params, {"image": image, "text": text}, state=pm.initial_state_dict
+        )
         res = outs["logits_per_text"]
         np.testing.assert_allclose(
             np.array(res), expected_result.cpu().detach().numpy(), 1e-5, 1e-5
@@ -480,8 +482,8 @@ class TestClipEndToEnd:
         )
 
         params = load_weights(pm.shapes, model, ml.TorchBackend())
-
-        output = pm(params, {"image": image, "text": text})
+        data = {"image": image, "text": text}
+        output, _ = pm.evaluate(params, data, state=pm.initial_state_dict)
 
         mithril_logits_per_image = output["logits_per_image"]
         mithril_logits_per_text = output["logits_per_text"]
